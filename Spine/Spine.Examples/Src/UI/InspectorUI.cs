@@ -49,7 +49,7 @@ internal class InspectorUI
         Skeleton skeleton,
         ref Vector3 modelPosition,
         ref Vector3 modelRotation,
-        ref Vector3 modelScale,
+        ref float modelScale,
         double deltaTime)
     {
         var io = ImGui.GetIO();
@@ -85,14 +85,14 @@ internal class InspectorUI
             ImGui.Separator();
             ImGui.Text("Transform");
             {
-                ImGui.SliderFloat3("Position", ref modelPosition, -100, 100);
-                ImGui.SliderFloat3("Rotation", ref modelRotation, -100, 100);
-                ImGui.SliderFloat3("Scale", ref modelScale, -10, 10);
+                ImGui.SliderFloat3("Position", ref modelPosition, -100, 100, "%.1f");
+                ImGui.SliderFloat3("Rotation", ref modelRotation, -180, 180, "%.1f");
+                ImGui.SliderFloat("Scale", ref modelScale, 0, 5, "%.1f");
                 if (ImGui.Button("Reset"))
                 {
                     modelPosition = Vector3.Zero;
                     modelRotation = Vector3.Zero;
-                    modelScale = Vector3.One;
+                    modelScale = 1;
                 }
             }
         }

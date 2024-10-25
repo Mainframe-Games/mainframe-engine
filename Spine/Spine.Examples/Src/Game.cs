@@ -54,7 +54,7 @@ internal class Game
     private static Vector2 LastMousePosition;
     private Vector3 _spineModelPosition;
     private Vector3 _spineModelRotation;
-    private Vector3 _spineModelScale = Vector3.One;
+    private float _spineModelScale = 1f;
     
     private Box3d _box3d = null!;
 
