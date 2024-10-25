@@ -5,7 +5,7 @@ using Texture = Mainframe.Silk.Texture;
 
 namespace SilkSpine;
 
-internal class SpineModel(Skeleton skeleton, bool pma)
+internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
 {
     private static readonly uint[] _vertexOrderNormal = [0, 1, 2, 4];
     private static readonly uint[] _vertexOrderReverse = [4, 2, 1, 0];
@@ -49,12 +49,7 @@ internal class SpineModel(Skeleton skeleton, bool pma)
         // csharpier-ignore
         public float r, g, b, a;
     }
-
-    private class Render
-    {
-        
-    }
-
+    
     public void Draw()
     {
         var vertexIndex = 0;
@@ -179,12 +174,12 @@ internal class SpineModel(Skeleton skeleton, bool pma)
                             ref vertexIndex
                         );
 
-                        BeginBlendMode(pma, slot);
+                        // BeginBlendMode(pma, slot);
                         var vertexOrder =
                             skeleton.ScaleX * skeleton.ScaleY < 0
                                 ? _vertexOrderNormal
                                 : _vertexOrderReverse;
-                        // Engine_DrawRegion(_vertices, texture, position, vertexOrder);
+                        // DrawRegion(_vertices, texture, position, vertexOrder);
                     }
                     break;
 
@@ -233,14 +228,13 @@ internal class SpineModel(Skeleton skeleton, bool pma)
 
                     break;
             }
-            // Graphics.EndBlendMode();
+            // EndBlendMode();
         }
     }
-
-    private GL _gl;
-
-    private void BeginBlendMode(bool pma, Slot slot)
+    
+    private void BeginBlendMode(Slot slot)
     {
+        gl.Enable(EnableCap.Blend);
         if (pma)
         {
             // Console.WriteLine($"BeginBlendMode_pma: {slot.Data.BlendMode}");
@@ -251,7 +245,7 @@ internal class SpineModel(Skeleton skeleton, bool pma)
             switch (slot.Data.BlendMode)
             {
                 case BlendMode.Normal:
-                    // _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
                     break;
                 case BlendMode.Additive:
                     break;
@@ -263,6 +257,11 @@ internal class SpineModel(Skeleton skeleton, bool pma)
                     throw new ArgumentOutOfRangeException();
             }
         }
+    }
+
+    private void EndBlendMode()
+    {
+        gl.Disable(EnableCap.Blend);
     }
 
     private void AddVertex(

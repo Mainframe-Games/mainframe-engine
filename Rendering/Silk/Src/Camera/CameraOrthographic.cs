@@ -5,7 +5,7 @@ namespace Mainframe.Silk;
 public class CameraOrthographic : ICamera
 {
     public Vector3 Position { get; set; } = new(0, 0, 10);
-    public Vector3 Forward { get; private set; } = Vector3.UnitZ;
+    public Vector3 Forward { get; private set; } = -Vector3.UnitZ;
     
     public Vector3 Up { get; } = Vector3.UnitY;
     

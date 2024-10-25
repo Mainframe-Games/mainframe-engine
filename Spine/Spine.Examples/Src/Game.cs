@@ -52,6 +52,9 @@ internal class Game
 
     //Used to track change in mouse movement to allow for moving of the Camera
     private static Vector2 LastMousePosition;
+    private Vector3 _spineModelPosition;
+    private Vector3 _spineModelRotation;
+    private Vector3 _spineModelScale = Vector3.One;
     
     private Box3d _box3d = null!;
 
@@ -75,7 +78,7 @@ internal class Game
         _spineSkeleton.ScaleX = 0.5f;
         _spineSkeleton.ScaleY = 0.5f;
 
-        _spineModel = new SpineModel(_spineSkeleton, true);
+        _spineModel = new SpineModel(Gl, _spineSkeleton, true);
 
         // animations
         var animationStateData = new AnimationStateData(skeletonData);
@@ -155,12 +158,16 @@ internal class Game
         _cameraOrth.Zoom = 0.6f;
         _cameraOrth.Position = new Vector3(0.0f, 150.0f, 10.0f);
         
-        _cameraPer.Position = new Vector3(0.0f, 150.0f, -500.0f);
+        _cameraPer.Position = new Vector3(0.0f, 150.0f, 500.0f);
         _cameraPer.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
 
+        var rot = Matrix4x4.CreateRotationX(Mainframe.Math.DegreesToRadiansF(_spineModelRotation.X))
+            * Matrix4x4.CreateRotationY(Mainframe.Math.DegreesToRadiansF(_spineModelRotation.Y))
+            * Matrix4x4.CreateRotationZ(Mainframe.Math.DegreesToRadiansF(_spineModelRotation.Z));
         var model =
-            Matrix4x4.CreateFromQuaternion(Quaternion.CreateFromYawPitchRoll(0, 0, 0))
-            * Matrix4x4.CreateTranslation(0, 0, 0);
+            Matrix4x4.CreateScale(_spineModelScale)
+            * rot
+            * Matrix4x4.CreateTranslation(_spineModelPosition);
 
         DrawBox();
 
@@ -209,7 +216,11 @@ internal class Game
 
     private void OnImGui(double deltaTime)
     {
-        _inspectorUI.OnImGui(_spineSkeleton, deltaTime);
+        _inspectorUI.OnImGui(_spineSkeleton, 
+            ref _spineModelPosition,
+            ref _spineModelRotation,
+            ref _spineModelScale,
+            deltaTime);
     }
 
     public void OnFramebufferResize(Vector2D<int> newSize)

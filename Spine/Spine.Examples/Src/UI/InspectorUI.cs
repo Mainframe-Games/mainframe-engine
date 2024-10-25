@@ -45,7 +45,12 @@ internal class InspectorUI
             _animNames[i] = string.Empty;
     }
 
-    public void OnImGui(Skeleton skeleton, double deltaTime)
+    public void OnImGui(
+        Skeleton skeleton,
+        ref Vector3 modelPosition,
+        ref Vector3 modelRotation,
+        ref Vector3 modelScale,
+        double deltaTime)
     {
         var io = ImGui.GetIO();
         var screenSize = io.DisplaySize;
@@ -76,6 +81,20 @@ internal class InspectorUI
 
             if (ImGui.Checkbox("Flip X", ref _isFlipped))
                 OnFlipped?.Invoke(_isFlipped);
+
+            ImGui.Separator();
+            ImGui.Text("Transform");
+            {
+                ImGui.SliderFloat3("Position", ref modelPosition, -100, 100);
+                ImGui.SliderFloat3("Rotation", ref modelRotation, -100, 100);
+                ImGui.SliderFloat3("Scale", ref modelScale, -10, 10);
+                if (ImGui.Button("Reset"))
+                {
+                    modelPosition = Vector3.Zero;
+                    modelRotation = Vector3.Zero;
+                    modelScale = Vector3.One;
+                }
+            }
         }
         ImGui.End();
     }
