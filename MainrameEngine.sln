@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Silk", "Rendering\Silk\Silk.csproj", "{2432B37D-EAAB-44AC-A841-3EB72BCF639D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Rendering", "Rendering", "{8E730706-C5F0-46DB-92D7-8F32AF188796}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Silk.Examples", "Rendering\Silk.Examples\Silk.Examples.csproj", "{EA438525-BF5C-43E6-9066-C18CE6768391}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2432B37D-EAAB-44AC-A841-3EB72BCF639D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2432B37D-EAAB-44AC-A841-3EB72BCF639D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2432B37D-EAAB-44AC-A841-3EB72BCF639D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2432B37D-EAAB-44AC-A841-3EB72BCF639D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA438525-BF5C-43E6-9066-C18CE6768391}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA438525-BF5C-43E6-9066-C18CE6768391}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA438525-BF5C-43E6-9066-C18CE6768391}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA438525-BF5C-43E6-9066-C18CE6768391}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2432B37D-EAAB-44AC-A841-3EB72BCF639D} = {8E730706-C5F0-46DB-92D7-8F32AF188796}
+		{EA438525-BF5C-43E6-9066-C18CE6768391} = {8E730706-C5F0-46DB-92D7-8F32AF188796}
+	EndGlobalSection
+EndGlobal
