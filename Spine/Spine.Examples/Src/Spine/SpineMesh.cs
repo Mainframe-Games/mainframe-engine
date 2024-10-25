@@ -1,4 +1,6 @@
-﻿using Silk.NET.OpenGL;
+﻿using Mainframe.Silk;
+using Silk.NET.OpenGL;
+using Texture = Mainframe.Silk.Texture;
 
 namespace SilkSpine;
 

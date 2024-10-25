@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 using Silk.NET.OpenGL;
 
-namespace SilkTest.Examples;
+namespace Mainframe.Silk;
 
 public class Shader : IDisposable
 {

@@ -1,5 +1,6 @@
 ﻿using Silk.NET.OpenGL;
 using Spine;
+using Texture = Mainframe.Silk.Texture;
 
 namespace SilkSpine;
 

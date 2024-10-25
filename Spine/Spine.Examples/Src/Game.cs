@@ -8,6 +8,7 @@ using Silk.NET.Windowing;
 using SilkSpine.UI;
 using Spine;
 using Rectangle = System.Drawing.Rectangle;
+using Shader = Mainframe.Silk.Shader;
 
 namespace SilkSpine;
 
@@ -17,7 +18,7 @@ internal class Game
     private Skeleton _spineSkeleton;
     private AnimationState _animationState;
 
-    private readonly SpineModel _spineModel = new();
+    private SpineModel _spineModel;
     private SpineMesh _spineMesh;
     private Shader _shader;
 
@@ -73,11 +74,12 @@ internal class Game
         _spineSkeleton.ScaleX = 0.5f;
         _spineSkeleton.ScaleY = 0.5f;
 
+        _spineModel = new SpineModel(_spineSkeleton, true);
+
         // animations
         var animationStateData = new AnimationStateData(skeletonData);
         _animationState = new AnimationState(animationStateData);
-        var idleAnimation = skeletonData.Animations.Items[0];
-        _animationState.AddAnimation(0, idleAnimation, true, 0);
+        SetAnimation("idle");
         _animationState.Update(0);
         _animationState.Apply(_spineSkeleton);
         _spineSkeleton.UpdateWorldTransform(Skeleton.Physics.None);
@@ -131,7 +133,6 @@ internal class Game
         _animationState.Update((float)deltaTime);
         _animationState.Apply(_spineSkeleton);
         
-        _spineModel.Update(_spineSkeleton, _atlas.Pages[0].pma);
         _spineMesh.Update(_spineModel.BuildVertices(), _spineModel.BuildIndices());
     }
 
@@ -168,6 +169,8 @@ internal class Game
         _spineMesh.Textures[0].Bind();
         _shader.SetUniform("uTexture0", 0);
         _shader.SetUniform("uModel", model);
+        
+        _spineModel.Draw();
         
         if (_inspectorUI.UseOrthographicCamera)
         {

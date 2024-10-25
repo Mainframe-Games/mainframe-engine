@@ -1,10 +1,11 @@
 ﻿using Silk.NET.OpenGL;
 using Spine;
 using Skeleton = Spine.Skeleton;
+using Texture = Mainframe.Silk.Texture;
 
 namespace SilkSpine;
 
-internal class SpineModel
+internal class SpineModel(Skeleton skeleton, bool pma)
 {
     private static readonly uint[] _vertexOrderNormal = [0, 1, 2, 4];
     private static readonly uint[] _vertexOrderReverse = [4, 2, 1, 0];
@@ -49,7 +50,12 @@ internal class SpineModel
         public float r, g, b, a;
     }
 
-    public void Update(Skeleton skeleton, bool pma)
+    private class Render
+    {
+        
+    }
+
+    public void Draw()
     {
         var vertexIndex = 0;
 

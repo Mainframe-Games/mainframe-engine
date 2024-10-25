@@ -1,6 +1,6 @@
 ﻿using Silk.NET.OpenGL;
 
-namespace SilkTest.Examples;
+namespace Mainframe.Silk;
 
 //The vertex array object abstraction.
 public class VertexArrayObject<TVertexType, TIndexType> : IDisposable

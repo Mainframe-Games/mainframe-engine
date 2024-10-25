@@ -3,7 +3,7 @@ using Silk.NET.OpenGL;
 using StbImageSharp;
 using File = System.IO.File;
 
-namespace SilkTest.Examples;
+namespace Mainframe.Silk;
 
 public class Texture : IDisposable
 {
@@ -12,6 +12,8 @@ public class Texture : IDisposable
 
     public string Path { get; set; }
     public TextureType Type { get; }
+    public int Width { get; }
+    public int Height { get; }
 
     public unsafe Texture(GL gl, string path, TextureType type = TextureType.None)
     {
@@ -29,6 +31,9 @@ public class Texture : IDisposable
             File.ReadAllBytes(path),
             ColorComponents.RedGreenBlueAlpha
         );
+        
+        Width = result.Width;
+        Height = result.Height;
 
         fixed (byte* ptr = result.Data)
         {

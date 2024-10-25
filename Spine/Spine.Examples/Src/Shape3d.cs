@@ -1,5 +1,7 @@
 ﻿using System.Numerics;
+using Mainframe.Silk;
 using Silk.NET.OpenGL;
+using Shader = Mainframe.Silk.Shader;
 
 namespace SilkSpine;
 
