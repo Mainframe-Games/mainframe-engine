@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Mainframe.Silk;
 using Silk.NET.OpenGL;
+using Math = Mainframe.Math;
 using Shader = Mainframe.Silk.Shader;
 
 namespace SilkSpine;
@@ -93,7 +94,7 @@ public class Box3d
         var model =
             Matrix4x4.CreateScale(Vector3.One * 100)
              * Matrix4x4.CreateFromQuaternion(
-                Quaternion.CreateFromYawPitchRoll(MathHelper.DegreesToRadiansF(45), 0, 0))
+                Quaternion.CreateFromYawPitchRoll(Math.DegreesToRadiansF(45), 0, 0))
              * Matrix4x4.CreateTranslation(-100, 0, 0);
         
         //Slightly rotate the cube to give it an angled face to look at

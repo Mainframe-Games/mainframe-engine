@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SilkSpine;
+namespace Mainframe.Silk;
 
 public interface ICamera
 {

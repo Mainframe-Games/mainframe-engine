@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SilkSpine;
+namespace Mainframe.Silk;
 
 public class CameraPerspective : ICamera
 {
@@ -20,7 +20,7 @@ public class CameraPerspective : ICamera
 
     public Matrix4x4 ProjectionMatrix =>
         Matrix4x4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadiansF(FieldOfView),
+            Math.DegreesToRadiansF(FieldOfView),
             AspectRatio,
             0.1f,
             1000.0f
@@ -29,7 +29,7 @@ public class CameraPerspective : ICamera
     public void ModifyZoom(float zoomAmount)
     {
         //We don't want to be able to zoom in too close or too far away so clamp to these values
-        FieldOfView = Math.Clamp(FieldOfView - zoomAmount, 1.0f, 45f);
+        FieldOfView = System.Math.Clamp(FieldOfView - zoomAmount, 1.0f, 45f);
     }
 
     public void ModifyDirection(float xOffset, float yOffset)
@@ -38,16 +38,16 @@ public class CameraPerspective : ICamera
         Pitch -= yOffset;
 
         //We don't want to be able to look behind us by going over our head or under our feet so make sure it stays within these bounds
-        Pitch = Math.Clamp(Pitch, -89f, 89f);
+        Pitch = System.Math.Clamp(Pitch, -89f, 89f);
 
         var cameraDirection = Vector3.Zero;
         cameraDirection.X =
-            MathF.Cos(MathHelper.DegreesToRadiansF(Yaw))
-            * MathF.Cos(MathHelper.DegreesToRadiansF(Pitch));
-        cameraDirection.Y = MathF.Sin(MathHelper.DegreesToRadiansF(Pitch));
+            MathF.Cos(Math.DegreesToRadiansF(Yaw))
+            * MathF.Cos(Math.DegreesToRadiansF(Pitch));
+        cameraDirection.Y = MathF.Sin(Math.DegreesToRadiansF(Pitch));
         cameraDirection.Z =
-            MathF.Sin(MathHelper.DegreesToRadiansF(Yaw))
-            * MathF.Cos(MathHelper.DegreesToRadiansF(Pitch));
+            MathF.Sin(Math.DegreesToRadiansF(Yaw))
+            * MathF.Cos(Math.DegreesToRadiansF(Pitch));
 
         Forward = Vector3.Normalize(cameraDirection);
     }

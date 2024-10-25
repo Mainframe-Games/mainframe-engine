@@ -1,10 +1,13 @@
-﻿namespace SilkSpine;
+﻿namespace Mainframe;
 
-public static class MathHelper
+/// <summary>
+/// Math helpers
+/// </summary>
+public static class Math
 {
     public static double DegreesToRadians(double degrees)
     {
-        return Math.PI / 180 * degrees;
+        return System.Math.PI / 180 * degrees;
     }
     
     public static float DegreesToRadiansF(float degrees)
