@@ -12,8 +12,6 @@ public class BufferObject<TDataType> : IDisposable
     private readonly BufferTargetARB _bufferType;
     private readonly GL _gl;
 
-    private TDataType[] _data;
-
     public BufferObject(GL gl, Span<TDataType> data, BufferTargetARB bufferType)
     {
         _gl = gl;
@@ -30,8 +28,6 @@ public class BufferObject<TDataType> : IDisposable
 
     public unsafe void Update(Span<TDataType> data, BufferUsageARB bufferUsage = BufferUsageARB.StaticDraw)
     {
-        _data = data.ToArray();
-        
         fixed (void* d = data)
         {
             _gl.BufferData(
@@ -46,10 +42,5 @@ public class BufferObject<TDataType> : IDisposable
     public void Dispose()
     {
         _gl.DeleteBuffer(_handle);
-    }
-
-    public uint GetCount()
-    {
-        return (uint)_data.Length;
     }
 }
