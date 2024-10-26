@@ -20,7 +20,6 @@ internal class Game
     private AnimationState _animationState;
 
     private SpineModel _spineModel;
-    private SpineMesh _spineMesh;
     private Shader _shader;
 
     private static readonly SpineFolder[] _folders =
@@ -78,7 +77,7 @@ internal class Game
         _spineSkeleton.ScaleX = 0.5f;
         _spineSkeleton.ScaleY = 0.5f;
 
-        _spineModel = new SpineModel(Gl, _spineSkeleton, true);
+        _spineModel = new SpineModel(Gl, _spineSkeleton, _atlas.Pages[0].pma, textureLoader.Textures[0]);
 
         // animations
         var animationStateData = new AnimationStateData(skeletonData);
@@ -87,7 +86,6 @@ internal class Game
         _animationState.Update(0);
         _animationState.Apply(_spineSkeleton);
         _spineSkeleton.UpdateWorldTransform(Skeleton.Physics.None);
-        _spineMesh = new SpineMesh(Gl, textureLoader.Textures);
     }
 
     private void SetFlip(bool isFlipped)
@@ -119,7 +117,7 @@ internal class Game
         ImGuiController = new ImGuiController(Gl, window, InputContext);
         _shader = new Shader(Gl, "Content/Shaders/shader.vert", "Content/Shaders/shader.frag");
         
-        _box3d = new Box3d(Gl);
+        // _box3d = new Box3d(Gl);
         OnModelChanged(_folders[0]);
     }
 
@@ -136,8 +134,6 @@ internal class Game
         _spineSkeleton.UpdateWorldTransform(Skeleton.Physics.None);
         _animationState.Update((float)deltaTime);
         _animationState.Apply(_spineSkeleton);
-        
-        _spineMesh.Update(_spineModel.BuildVertices(), _spineModel.BuildIndices());
     }
 
     public void OnRender(double deltaTime)
@@ -169,16 +165,12 @@ internal class Game
             * rot
             * Matrix4x4.CreateTranslation(_spineModelPosition);
 
-        DrawBox();
+        // DrawBox();
 
         // bind and render
-        _spineMesh.Bind();
         _shader.Use();
-        _spineMesh.Textures[0].Bind();
         _shader.SetUniform("uTexture0", 0);
         _shader.SetUniform("uModel", model);
-        
-        _spineModel.Draw();
         
         if (_inspectorUI.UseOrthographicCamera)
         {
@@ -190,13 +182,16 @@ internal class Game
             _shader.SetUniform("uView", _cameraPer.ViewMatrix);
             _shader.SetUniform("uProjection", _cameraPer.ProjectionMatrix);
         }
+        
+        _spineModel.Draw();
+        Console.WriteLine($"Draw Calls: {_spineModel.DrawCalls}");
 
-        Gl.Enable(EnableCap.Blend);
-        {
-            Gl.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
-            Gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)_spineMesh.Vertices.Length);
-        }
-        Gl.Disable(EnableCap.Blend);
+        // Gl.Enable(EnableCap.Blend);
+        // {
+        //     Gl.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
+        //     Gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)_spineMesh.Vertices.Length);
+        // }
+        // Gl.Disable(EnableCap.Blend);
         
         // reset viewport
         Gl.Scissor(0, 0, 0, 0);

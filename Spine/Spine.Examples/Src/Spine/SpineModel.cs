@@ -1,11 +1,13 @@
-﻿using Silk.NET.OpenGL;
+﻿using System.Runtime.InteropServices;
+using Mainframe.Silk;
+using Silk.NET.OpenGL;
 using Spine;
 using Skeleton = Spine.Skeleton;
 using Texture = Mainframe.Silk.Texture;
 
 namespace SilkSpine;
 
-internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
+internal class SpineModel
 {
     private static readonly uint[] _vertexOrderNormal = [0, 1, 2, 4];
     private static readonly uint[] _vertexOrderReverse = [4, 2, 1, 0];
@@ -34,8 +36,6 @@ internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
 
     private struct Vertex
     {
-        public const int COUNT = 9;
-
         // Position in x/y plane
         // csharpier-ignore
         public float x, y, z;
@@ -49,9 +49,37 @@ internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
         // csharpier-ignore
         public float r, g, b, a;
     }
+
+    private readonly GL gl;
+    private readonly Skeleton skeleton;
+    private readonly Texture texture;
+    private readonly bool pma;
+    private readonly BufferObject<Vertex> _vertexBuffer;
+    private readonly BufferObject<uint> _indexBuffer;
+    private readonly VertexArrayObject<Vertex, uint> vbo;
+
+    public ushort DrawCalls { get; private set; }
+    
+    public SpineModel(GL gl, Skeleton skeleton, bool pma, Texture texture)
+    {
+        this.gl = gl;
+        this.skeleton = skeleton;
+        this.pma = pma;
+        this.texture = texture;
+        
+        _vertexBuffer = new BufferObject<Vertex>(gl, [], BufferTargetARB.ArrayBuffer);
+        _indexBuffer = new BufferObject<uint>(gl, [], BufferTargetARB.ElementArrayBuffer);
+        vbo = new VertexArrayObject<Vertex, uint>(gl, _vertexBuffer, _indexBuffer);
+        
+        var vertexSize = (uint)Marshal.SizeOf<Vertex>() / sizeof(float);
+        vbo.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, vertexSize, 0);
+        vbo.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, vertexSize, 3);
+        vbo.VertexAttributePointer(2, 4, VertexAttribPointerType.Float, vertexSize, 5);
+    }
     
     public void Draw()
     {
+        DrawCalls = 0;
         var vertexIndex = 0;
 
         // For each slot in the draw order array of the skeleton
@@ -174,12 +202,12 @@ internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
                             ref vertexIndex
                         );
 
-                        // BeginBlendMode(pma, slot);
-                        var vertexOrder =
-                            skeleton.ScaleX * skeleton.ScaleY < 0
-                                ? _vertexOrderNormal
-                                : _vertexOrderReverse;
-                        // DrawRegion(_vertices, texture, position, vertexOrder);
+                        // BeginBlendMode(slot);
+                        // var vertexOrder =
+                        //     skeleton.ScaleX * skeleton.ScaleY < 0
+                        //         ? _vertexOrderNormal
+                        //         : _vertexOrderReverse;
+                        // DrawRegion(_vertices, vertexIndex, texture, vertexOrder);
                     }
                     break;
 
@@ -224,12 +252,49 @@ internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
                                 ref vertexIndex
                             );
                         }
+                        // BeginBlendMode(slot);
+                        // var vertexOrder =
+                        //     skeleton.ScaleX * skeleton.ScaleY < 0
+                        //         ? _vertexOrderNormal
+                        //         : _vertexOrderReverse;
+                        // DrawRegion(_vertices, vertexIndex, texture, vertexOrder);
                     }
 
                     break;
-            }
+            } // end attachment
             // EndBlendMode();
+        } // end draw order
+        
+        BeginBlendMode();
+        {
+            var vertexOrder =
+                skeleton.ScaleX * skeleton.ScaleY < 0
+                    ? _vertexOrderNormal
+                    : _vertexOrderReverse;
+            DrawRegion(_vertices, vertexIndex, texture, _vertexOrderNormal);
         }
+        EndBlendMode();
+    }
+    
+    private void DrawRegion(Vertex[] vertices, int count, Texture texture, uint[] vertexOrder)
+    {
+        texture.Bind();
+        vbo.Bind();
+        
+        // _vertexBuffer.Bind();
+        _vertexBuffer.Update(vertices);
+        
+        // _indexBuffer.Bind();
+        _indexBuffer.Update(vertexOrder);
+        
+        gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)count);
+        DrawCalls++;
+    }
+
+    private void BeginBlendMode()
+    {
+        gl.Enable(EnableCap.Blend);
+        gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
     }
     
     private void BeginBlendMode(Slot slot)
@@ -238,6 +303,20 @@ internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
         if (pma)
         {
             // Console.WriteLine($"BeginBlendMode_pma: {slot.Data.BlendMode}");
+            switch (slot.Data.BlendMode)
+            {
+                case BlendMode.Normal:
+                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    break;
+                case BlendMode.Additive:
+                    break;
+                case BlendMode.Multiply:
+                    break;
+                case BlendMode.Screen:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
         else
         {
@@ -245,7 +324,7 @@ internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
             switch (slot.Data.BlendMode)
             {
                 case BlendMode.Normal:
-                    gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    gl.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
                     break;
                 case BlendMode.Additive:
                     break;
@@ -291,34 +370,5 @@ internal class SpineModel(GL gl, Skeleton skeleton, bool pma)
         _vertices[index].b = b;
         _vertices[index].a = a;
         index++;
-    }
-
-    private readonly float[] _flatVertices = new float[MAX_VERTICES_PER_ATTACHMENT * 9];
-
-    public float[] BuildVertices()
-    {
-        var index = 0;
-
-        foreach (var vertex in _vertices)
-        {
-            _flatVertices[index++] = vertex.x;
-            _flatVertices[index++] = vertex.y;
-            _flatVertices[index++] = vertex.z;
-
-            _flatVertices[index++] = vertex.u;
-            _flatVertices[index++] = vertex.v;
-
-            _flatVertices[index++] = vertex.r;
-            _flatVertices[index++] = vertex.g;
-            _flatVertices[index++] = vertex.b;
-            _flatVertices[index++] = vertex.a;
-        }
-
-        return _flatVertices;
-    }
-
-    public uint[] BuildIndices()
-    {
-        return _vertexOrderNormal;
     }
 }

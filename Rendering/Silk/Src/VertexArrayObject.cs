@@ -11,17 +11,20 @@ public class VertexArrayObject<TVertexType, TIndexType> : IDisposable
     //Most of the time you would want to abstract items to make things like this invisible.
     private readonly uint _handle;
     private readonly GL _gl;
-
+    
+    private readonly BufferObject<TVertexType> vbo;
+    private readonly BufferObject<TIndexType> ebo;
+    
     public VertexArrayObject(GL gl, BufferObject<TVertexType> vbo, BufferObject<TIndexType> ebo)
     {
         //Saving the GL instance.
         _gl = gl;
+        this.vbo = vbo;
+        this.ebo = ebo;
 
         //Setting out handle and binding the VBO and EBO to this VAO.
         _handle = _gl.GenVertexArray();
         Bind();
-        vbo.Bind();
-        ebo.Bind();
     }
 
     public unsafe void VertexAttributePointer(
@@ -48,6 +51,8 @@ public class VertexArrayObject<TVertexType, TIndexType> : IDisposable
     {
         //Binding the vertex array.
         _gl.BindVertexArray(_handle);
+        vbo.Bind();
+        ebo.Bind();
     }
 
     public void Dispose()
