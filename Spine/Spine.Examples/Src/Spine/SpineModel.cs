@@ -54,7 +54,7 @@ internal class SpineModel
     {
         DrawCalls = 0;
         var vertexIndex = 0;
-        var z = 0f;
+        var z = 0f; // try settings to -1 as well
 
         // For each slot in the draw order array of the skeleton
         for (int i = 0; i < skeleton.DrawOrder.Count; i++)

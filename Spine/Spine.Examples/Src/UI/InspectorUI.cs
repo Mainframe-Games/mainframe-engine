@@ -95,7 +95,7 @@ internal class InspectorUI
             ImGui.Separator();
             ImGui.Text("Transform");
             {
-                ImGui.SliderFloat3("Position", ref modelPosition, -100, 100, "%.1f");
+                ImGui.SliderFloat3("Position", ref modelPosition, -500, 500, "%.1f");
                 ImGui.SliderFloat3("Rotation", ref modelRotation, -180, 180, "%.1f");
                 ImGui.SliderFloat("Scale", ref modelScale, 0, 5, "%.1f");
                 if (ImGui.Button("Reset"))
@@ -113,7 +113,7 @@ internal class InspectorUI
                 dFactor = Enum.GetValues<BlendingFactor>()[_dIndex];
             
             ImGui.Checkbox("Single DrawCall", ref SingleDrawCall);
-            ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.0f, 1f);
+            ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 10f, "%.1f");
         }
         ImGui.End();
     }
