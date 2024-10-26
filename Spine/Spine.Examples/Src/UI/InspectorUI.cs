@@ -29,8 +29,6 @@ internal class InspectorUI
     private readonly string[] _animNames = new string[32];
     private bool _isFlipped;
     
-    public readonly ProjectSettingsUI ProjectSettingsUI = new();
-    
     public int Width { get; } = 300;
     public bool SingleDrawCall = true;
 
@@ -52,8 +50,6 @@ internal class InspectorUI
     private int _sIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.One);
     private static readonly string[] _dFactors = Enum.GetNames<BlendingFactor>();
     private int _dIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.OneMinusSrcAlpha);
-
-    
     
     public void OnImGui(
         Skeleton skeleton,
@@ -74,8 +70,6 @@ internal class InspectorUI
                 | ImGuiWindowFlags.NoMove))
         {
             ImGui.Value("FPS", io.Framerate, "%.0f");
-            
-            // ProjectSettingsUI.DrawImGui();
             
             BuildAnimNames(skeleton);
             

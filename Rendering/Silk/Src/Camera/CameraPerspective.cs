@@ -5,15 +5,14 @@ namespace Mainframe.Silk;
 public class CameraPerspective : ICamera
 {
     public Vector3 Position { get; set; } = new(0, 0, -10);
-    public Vector3 Forward { get; private set; } = -Vector3.UnitZ;
-
-    public Vector3 Up { get; } = Vector3.UnitY;
+    public Vector3 Forward { get; set; } = -Vector3.UnitZ;
+    public Vector3 Up { get; set; } = Vector3.UnitY;
     public float AspectRatio { get; set; }
 
     private float Yaw { get; set; } = -90f;
     private float Pitch { get; set; }
 
-    public float FieldOfView = 45f;
+    public float FieldOfView { get; private set; } = 45f;
     
     public Matrix4x4 ViewMatrix
         => Matrix4x4.CreateLookAt(Position, Position + Forward, Up);

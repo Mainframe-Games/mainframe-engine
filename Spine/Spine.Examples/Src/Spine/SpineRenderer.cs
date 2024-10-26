@@ -6,14 +6,16 @@ using Texture = Mainframe.Silk.Texture;
 
 namespace SilkSpine;
 
-internal class SpineModel
+internal class SpineRenderer
 {
-
     private const int MAX_VERTICES_PER_ATTACHMENT = 2048;
     private readonly float[] _worldVerticesPositions = new float[MAX_VERTICES_PER_ATTACHMENT];
     
-    private const int VERTEX_SIZE = 9; // number of floats within the vertex
-    private readonly float[] _vertices = new float[MAX_VERTICES_PER_ATTACHMENT * VERTEX_SIZE];
+    /// <summary>
+    /// number of floats within the vertex
+    /// </summary>
+    private const int VERTEX_COUNT = 9; 
+    private readonly float[] _vertices = new float[MAX_VERTICES_PER_ATTACHMENT * VERTEX_COUNT];
     private static readonly uint[] _indexArray = [0, 1, 2, 4];
 
     /// <summary>
@@ -34,7 +36,7 @@ internal class SpineModel
     public BlendingFactor sFactor = BlendingFactor.One;
     public BlendingFactor dFactor = BlendingFactor.OneMinusSrcAlpha;
     
-    public SpineModel(GL gl, Skeleton skeleton, bool pma, Texture texture)
+    public SpineRenderer(GL gl, Skeleton skeleton, bool pma, Texture texture)
     {
         this.gl = gl;
         this.skeleton = skeleton;
@@ -45,9 +47,9 @@ internal class SpineModel
         var indexBuffer = new BufferObject<uint>(gl, _indexArray, BufferTargetARB.ElementArrayBuffer);
         vbo = new VertexArrayObject<float, uint>(gl, _vertexBuffer, indexBuffer);
         
-        vbo.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, VERTEX_SIZE, 0);
-        vbo.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, VERTEX_SIZE, 3);
-        vbo.VertexAttributePointer(2, 4, VertexAttribPointerType.Float, VERTEX_SIZE, 5);
+        vbo.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, VERTEX_COUNT, 0);
+        vbo.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, VERTEX_COUNT, 3);
+        vbo.VertexAttributePointer(2, 4, VertexAttribPointerType.Float, VERTEX_COUNT, 5);
     }
     
     public void Draw(bool singleDrawCall, float zSpacing = 0.5f)
@@ -331,7 +333,7 @@ internal class SpineModel
         ref int vertexIndex
     )
     {
-        var vertexPos = vertexIndex * VERTEX_SIZE;
+        var vertexPos = vertexIndex * VERTEX_COUNT;
         
         // pos
         _vertices[vertexPos + 0] = x;
