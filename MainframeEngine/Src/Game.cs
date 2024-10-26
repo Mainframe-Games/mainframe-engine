@@ -6,7 +6,7 @@ using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
 using Monitor = Silk.NET.Windowing.Monitor;
 
-namespace SpineTest;
+namespace MainframeEngine;
 
 public sealed class Game : IDisposable
 {

@@ -1,4 +1,4 @@
-﻿namespace SpineTest;
+﻿namespace MainframeEngine;
 
 public struct GameTime
 {

@@ -2,7 +2,7 @@
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
 
-namespace SpineTest;
+namespace MainframeEngine;
 
 public interface IGame
 {
