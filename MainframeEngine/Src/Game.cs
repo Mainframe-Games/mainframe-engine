@@ -11,12 +11,14 @@ namespace MainframeEngine;
 public sealed class Game : IDisposable
 {
     private readonly IGame _game;
-    private int _exitCode;
-
-    private IWindow Window { get; }
+    private readonly IWindow _window;
+    
     private IInputContext InputContext { get; set; } = null!;
     private GL Gl { get; set; } = null!;
     private ImGuiController ImGuiController { get; set; } = null!;
+
+    private int _exitCode;
+    private GameTime _gameTime;
 
     public Game(string gameName, IGame game)
     {
@@ -25,15 +27,14 @@ public sealed class Game : IDisposable
         var windowOptions = WindowOptions.Default;
         windowOptions.Title = gameName;
         
-        var window =
-            Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new NullReferenceException();
+        var window = Window.Create(windowOptions) ?? throw new NullReferenceException();
         window.Load += OnLoad;
         window.FramebufferResize += OnFramebufferResize;
         window.Update += OnUpdate;
         window.Render += OnRender;
         window.Closing += OnClose;
 
-        Window = window;
+        _window = window;
 
         // set window to center of monitor
         var monitor = Monitor.GetMainMonitor(window);
@@ -43,23 +44,40 @@ public sealed class Game : IDisposable
 
     private void OnLoad()
     {
-        Gl = GL.GetApi(Window);
+        Gl = GL.GetApi(_window);
         Console.WriteLine($"OpenGL: {Gl.GetStringS(GLEnum.Version)}");
 
-        InputContext = Window.CreateInput();
+        InputContext = _window.CreateInput();
         for (int i = 0; i < InputContext.Keyboards.Count; i++)
             InputContext.Keyboards[i].KeyDown += OnKeyDown;
         
-        ImGuiController = new ImGuiController(Gl, Window, InputContext);
-        _game.OnLoad(Gl);
+        ImGuiController = new ImGuiController(Gl, _window, InputContext);
+        _game.OnLoad(_window, Gl);
     }
 
-    private void OnFramebufferResize(Vector2D<int> newSize) =>
+    private void OnFramebufferResize(Vector2D<int> newSize)
+    {
+        Gl.Viewport(newSize);
         _game.OnFramebufferResize(new Vector2(newSize.X, newSize.Y));
+    }
 
-    private void OnUpdate(double delta) => _game.OnUpdate(new GameTime { DeltaTime = delta });
+    private void OnUpdate(double delta)
+    {
+        _gameTime.DeltaTime = delta;
+        _gameTime.FrameCount++;
+        _gameTime.FramesPerSecond = (uint)(1 / delta);
+        _gameTime.FramesTimeMs = (uint)(1000 * delta);
+        
+        ImGuiController.Update((float)delta);
+        _game.OnImGui(_gameTime);
+        _game.OnUpdate(_gameTime);
+    }
 
-    private void OnRender(double delta) => _game.OnRender(new GameTime { DeltaTime = delta });
+    private void OnRender(double delta)
+    {
+        _game.OnRender(_gameTime);
+        ImGuiController.Render();
+    }
 
     private void OnClose()
     {
@@ -74,12 +92,12 @@ public sealed class Game : IDisposable
 
     public int Run()
     {
-        Window.Run();
+        _window.Run();
         return _exitCode;
     }
 
     public void Dispose()
     {
-        Window.Dispose();
+        _window.Dispose();
     }
 }
