@@ -183,16 +183,9 @@ internal class Game
             _shader.SetUniform("uProjection", _cameraPer.ProjectionMatrix);
         }
         
-        _spineModel.Draw();
-        Console.WriteLine($"Draw Calls: {_spineModel.DrawCalls}");
+        _spineModel.Draw(_inspectorUI.SingleDrawCall);
+        // Console.WriteLine($"Draw Calls: {_spineModel.DrawCalls}");
 
-        // Gl.Enable(EnableCap.Blend);
-        // {
-        //     Gl.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
-        //     Gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)_spineMesh.Vertices.Length);
-        // }
-        // Gl.Disable(EnableCap.Blend);
-        
         // reset viewport
         Gl.Scissor(0, 0, 0, 0);
         Gl.Viewport(new Rectangle(0, 0, Window.Size.X, Window.Size.Y));
@@ -215,6 +208,8 @@ internal class Game
             ref _spineModelPosition,
             ref _spineModelRotation,
             ref _spineModelScale,
+            ref _spineModel.sFactor,
+            ref _spineModel.dFactor,
             deltaTime);
     }
 

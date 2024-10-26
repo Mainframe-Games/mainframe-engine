@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using ImGuiNET;
+using Silk.NET.OpenGL;
 using Spine;
 
 namespace SilkSpine.UI;
@@ -31,8 +32,9 @@ internal class InspectorUI
     public readonly ProjectSettingsUI ProjectSettingsUI = new();
     
     public int Width { get; } = 300;
-    public bool UseOrthographicCamera = true;
+    public bool SingleDrawCall = true;
 
+    public bool UseOrthographicCamera = true;
     
     public InspectorUI(SpineFolder[] folders)
     {
@@ -45,11 +47,18 @@ internal class InspectorUI
             _animNames[i] = string.Empty;
     }
 
+    private static readonly string[] _sFactors = Enum.GetNames<BlendingFactor>();
+    private int _sIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.One);
+    private static readonly string[] _dFactors = Enum.GetNames<BlendingFactor>();
+    private int _dIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.OneMinusSrcAlpha);
+
     public void OnImGui(
         Skeleton skeleton,
         ref Vector3 modelPosition,
         ref Vector3 modelRotation,
         ref float modelScale,
+        ref BlendingFactor sFactor,
+        ref BlendingFactor dFactor,
         double deltaTime)
     {
         var io = ImGui.GetIO();
@@ -57,15 +66,13 @@ internal class InspectorUI
         ImGui.SetNextWindowPos(Vector2.One, ImGuiCond.Always, Vector2.Zero);
         ImGui.SetNextWindowSize(screenSize with { X = Width });
         if (ImGui.Begin("Spine Inspector",
-                ImGuiWindowFlags.NoCollapse
-                | ImGuiWindowFlags.AlwaysAutoResize 
+                ImGuiWindowFlags.AlwaysAutoResize 
                 | ImGuiWindowFlags.NoResize 
                 | ImGuiWindowFlags.NoMove))
         {
             ImGui.Value("FPS", io.Framerate, "%.0f");
             
-            ImGui.Separator();
-            ProjectSettingsUI.DrawImGui();
+            // ProjectSettingsUI.DrawImGui();
             
             BuildAnimNames(skeleton);
             
@@ -95,6 +102,14 @@ internal class InspectorUI
                     modelScale = 1;
                 }
             }
+            
+            ImGui.Separator();
+            if (ImGui.Combo("sFactor", ref _sIndex, _sFactors, _sFactors.Length, 10))
+                sFactor = Enum.GetValues<BlendingFactor>()[_sIndex];
+            if (ImGui.Combo("dFactor", ref _dIndex, _dFactors, _dFactors.Length, 10))
+                dFactor = Enum.GetValues<BlendingFactor>()[_dIndex];
+            
+            ImGui.Checkbox("Single DrawCall", ref SingleDrawCall);
         }
         ImGui.End();
     }
