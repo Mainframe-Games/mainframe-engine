@@ -1,7 +1,6 @@
 ﻿using MainframeEngine;
 using MainframeEngine.Test;
-using Silk.NET.Windowing;
 
-using var game = new Game(WindowOptions.Default, new GameTest());
+using var game = new Game("Mainframe Engine", new GameTest());
 var exitCode = game.Run();
 Console.WriteLine($"Game Exit: {exitCode}");

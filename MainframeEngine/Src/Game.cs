@@ -18,9 +18,13 @@ public sealed class Game : IDisposable
     private GL Gl { get; set; } = null!;
     private ImGuiController ImGuiController { get; set; } = null!;
 
-    public Game(WindowOptions windowOptions, IGame game)
+    public Game(string gameName, IGame game)
     {
         _game = game;
+
+        var windowOptions = WindowOptions.Default;
+        windowOptions.Title = gameName;
+        
         var window =
             Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new NullReferenceException();
         window.Load += OnLoad;
