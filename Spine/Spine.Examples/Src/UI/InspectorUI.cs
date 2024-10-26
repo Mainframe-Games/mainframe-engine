@@ -35,6 +35,7 @@ internal class InspectorUI
     public bool SingleDrawCall = true;
 
     public bool UseOrthographicCamera = true;
+    public float ZSpacing = 0.5f;
     
     public InspectorUI(SpineFolder[] folders)
     {
@@ -52,6 +53,8 @@ internal class InspectorUI
     private static readonly string[] _dFactors = Enum.GetNames<BlendingFactor>();
     private int _dIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.OneMinusSrcAlpha);
 
+    
+    
     public void OnImGui(
         Skeleton skeleton,
         ref Vector3 modelPosition,
@@ -110,6 +113,7 @@ internal class InspectorUI
                 dFactor = Enum.GetValues<BlendingFactor>()[_dIndex];
             
             ImGui.Checkbox("Single DrawCall", ref SingleDrawCall);
+            ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.0f, 1f);
         }
         ImGui.End();
     }

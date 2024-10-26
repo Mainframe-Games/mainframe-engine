@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Mainframe.Silk;
+﻿using Mainframe.Silk;
 using Silk.NET.OpenGL;
 using Spine;
 using Skeleton = Spine.Skeleton;
@@ -9,24 +8,13 @@ namespace SilkSpine;
 
 internal class SpineModel
 {
-    private static readonly uint[] _vertexOrderNormal = [0, 1, 2, 4];
-    private static readonly uint[] _vertexOrderReverse = [4, 2, 1, 0];
 
     private const int MAX_VERTICES_PER_ATTACHMENT = 2048;
     private readonly float[] _worldVerticesPositions = new float[MAX_VERTICES_PER_ATTACHMENT];
-    private readonly Vertex[] _vertices = new Vertex[MAX_VERTICES_PER_ATTACHMENT];
-
-    private float _anti_z_fighting_index;
-
-    /// <summary>
-    ///  For 3D set to -1f
-    /// </summary>
-    public float SP_LAYER_SPACING_BASE { get; set; }
-
-    /// <summary>
-    /// For 3D set to 0.5f
-    /// </summary>
-    public float SP_LAYER_SPACING { get; set; }
+    
+    private const int VERTEX_SIZE = 9; // number of floats within the vertex
+    private readonly float[] _vertices = new float[MAX_VERTICES_PER_ATTACHMENT * VERTEX_SIZE];
+    private static readonly uint[] _indexArray = [0, 1, 2, 4];
 
     /// <summary>
     /// Configure spine to draw double faced and to minimize zfigting artifacts
@@ -34,31 +22,17 @@ internal class SpineModel
     public bool SP_DRAW_DOUBLE_FACED { get; set; }
     public bool SP_RENDER_WIREFRAME { get; set; }
 
-    private struct Vertex
-    {
-        // Position in x/y plane
-        // csharpier-ignore
-        public float x, y, z;
-
-        // UV coordinates
-        // csharpier-ignore
-        public float u, v;
-
-        // Color, each channel in the range from 0-1
-        // (Should really be a 32-bit RGBA packed color)
-        // csharpier-ignore
-        public float r, g, b, a;
-    }
-
     private readonly GL gl;
     private readonly Skeleton skeleton;
     private readonly Texture texture;
     private readonly bool pma;
     private readonly BufferObject<float> _vertexBuffer;
-    private readonly BufferObject<uint> _indexBuffer;
     private readonly VertexArrayObject<float, uint> vbo;
 
     public ushort DrawCalls { get; private set; }
+    
+    public BlendingFactor sFactor = BlendingFactor.One;
+    public BlendingFactor dFactor = BlendingFactor.OneMinusSrcAlpha;
     
     public SpineModel(GL gl, Skeleton skeleton, bool pma, Texture texture)
     {
@@ -68,26 +42,23 @@ internal class SpineModel
         this.texture = texture;
         
         _vertexBuffer = new BufferObject<float>(gl, [], BufferTargetARB.ArrayBuffer);
-        _indexBuffer = new BufferObject<uint>(gl, [], BufferTargetARB.ElementArrayBuffer);
-        vbo = new VertexArrayObject<float, uint>(gl, _vertexBuffer, _indexBuffer);
+        var indexBuffer = new BufferObject<uint>(gl, _indexArray, BufferTargetARB.ElementArrayBuffer);
+        vbo = new VertexArrayObject<float, uint>(gl, _vertexBuffer, indexBuffer);
         
-        var vertexSize = 9u;
-        vbo.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, vertexSize, 0);
-        vbo.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, vertexSize, 3);
-        vbo.VertexAttributePointer(2, 4, VertexAttribPointerType.Float, vertexSize, 5);
+        vbo.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, VERTEX_SIZE, 0);
+        vbo.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, VERTEX_SIZE, 3);
+        vbo.VertexAttributePointer(2, 4, VertexAttribPointerType.Float, VERTEX_SIZE, 5);
     }
     
-    public void Draw(bool singleDrawCall)
+    public void Draw(bool singleDrawCall, float zSpacing = 0.5f)
     {
         DrawCalls = 0;
         var vertexIndex = 0;
         var z = 0f;
 
         // For each slot in the draw order array of the skeleton
-        _anti_z_fighting_index = SP_LAYER_SPACING_BASE;
         for (int i = 0; i < skeleton.DrawOrder.Count; i++)
         {
-            _anti_z_fighting_index -= SP_LAYER_SPACING;
             var slot = skeleton.DrawOrder.Items[i];
 
             // Fetch the currently active attachment, continue
@@ -215,11 +186,7 @@ internal class SpineModel
                         if (!singleDrawCall)
                         {
                             BeginBlendMode(slot);
-                            var vertexOrder =
-                                skeleton.ScaleX * skeleton.ScaleY < 0
-                                    ? _vertexOrderNormal
-                                    : _vertexOrderReverse;
-                            DrawRegion(_vertices, vertexIndex, texture, vertexOrder);
+                            DrawRegion(_vertices, vertexIndex, texture);
                         }
                     }
                     break;
@@ -270,259 +237,36 @@ internal class SpineModel
                         if (!singleDrawCall)
                         {
                             BeginBlendMode(slot);
-                            var vertexOrder =
-                                skeleton.ScaleX * skeleton.ScaleY < 0
-                                    ? _vertexOrderNormal
-                                    : _vertexOrderReverse;
-                            DrawRegion(_vertices, vertexIndex, texture, vertexOrder);
+                            DrawRegion(_vertices, vertexIndex, texture);
                         }
                     }
 
                     break;
             } // end attachment
+            
             if (!singleDrawCall)
                 EndBlendMode();
-            z += 0.001f;
+            z += zSpacing;
+            
         } // end draw order
 
         if (singleDrawCall)
         {
             BeginBlendMode();
-            DrawRegion(_vertices, vertexIndex, texture, _vertexOrderNormal);
+            DrawRegion(_vertices, vertexIndex, texture);
             EndBlendMode();
         }
     }
-    
-    public void DrawPerspective(bool singleDrawCall)
-    {
-        DrawCalls = 0;
-        var vertexIndex = 0;
-        var z = 0f;
 
-        // For each slot in the draw order array of the skeleton
-        _anti_z_fighting_index = SP_LAYER_SPACING_BASE;
-        for (int i = skeleton.DrawOrder.Count - 1; i >= 0; i--)
-        {
-            _anti_z_fighting_index -= SP_LAYER_SPACING;
-            var slot = skeleton.DrawOrder.Items[i];
-
-            // Fetch the currently active attachment, continue
-            // with the next slot in the draw order if no
-            // attachment is active on the slot
-            var attachment = slot.Attachment;
-            if (attachment is null)
-                continue;
-
-            // Calculate the tinting color based on the skeleton's color
-            // and the slot's color. Each color channel is given in the
-            // range [0-1], you may have to multiply by 255 and cast to
-            // and int if your engine uses integer ranges for color channels.
-            var tintA = skeleton.A * slot.A;
-            var alpha = pma ? tintA : 1;
-            var tintR = skeleton.R * slot.R * alpha;
-            var tintG = skeleton.G * slot.G * alpha;
-            var tintB = skeleton.B * slot.B * alpha;
-
-            // Fill the vertices array depending on the type of attachment
-            Texture texture;
-
-            if (!singleDrawCall)
-                vertexIndex = 0;
-                
-            switch (attachment)
-            {
-                // Cast to an spRegionAttachment so we can get the rendererObject
-                // and compute the world vertices
-                case RegionAttachment regionAttachment:
-
-                    {
-                        // Our engine specific Texture is stored in the spAtlasRegion which was
-                        // assigned to the attachment on load. It represents the texture atlas
-                        // page that contains the image the region attachment is mapped to
-                        texture = (Texture)
-                            ((AtlasRegion)regionAttachment.Region).page.rendererObject;
-
-                        // Computed the world vertices positions for the 4 vertices that make up
-                        // the rectangular region attachment. This assumes the world transform of the
-                        // bone to which the slot (and hence attachment) is attached has been calculated
-                        // before rendering via spSkeleton_updateWorldTransform
-                        regionAttachment.ComputeWorldVertices(slot, _worldVerticesPositions, 0);
-
-                        // Create 2 triangles, with 3 vertices each from the region's
-                        // world vertex positions and its UV coordinates (in the range [0-1]).
-                        AddVertex(
-                            _worldVerticesPositions[0],
-                            _worldVerticesPositions[1],
-                            z,
-                            regionAttachment.UVs[0],
-                            regionAttachment.UVs[1],
-                            tintR,
-                            tintG,
-                            tintB,
-                            tintA,
-                            ref vertexIndex
-                        );
-
-                        AddVertex(
-                            _worldVerticesPositions[2],
-                            _worldVerticesPositions[3],
-                            z,
-                            regionAttachment.UVs[2],
-                            regionAttachment.UVs[3],
-                            tintR,
-                            tintG,
-                            tintB,
-                            tintA,
-                            ref vertexIndex
-                        );
-
-                        AddVertex(
-                            _worldVerticesPositions[4],
-                            _worldVerticesPositions[5],
-                            z,
-                            regionAttachment.UVs[4],
-                            regionAttachment.UVs[5],
-                            tintR,
-                            tintG,
-                            tintB,
-                            tintA,
-                            ref vertexIndex
-                        );
-
-                        AddVertex(
-                            _worldVerticesPositions[4],
-                            _worldVerticesPositions[5],
-                            z,
-                            regionAttachment.UVs[4],
-                            regionAttachment.UVs[5],
-                            tintR,
-                            tintG,
-                            tintB,
-                            tintA,
-                            ref vertexIndex
-                        );
-
-                        AddVertex(
-                            _worldVerticesPositions[6],
-                            _worldVerticesPositions[7],
-                            z,
-                            regionAttachment.UVs[6],
-                            regionAttachment.UVs[7],
-                            tintR,
-                            tintG,
-                            tintB,
-                            tintA,
-                            ref vertexIndex
-                        );
-
-                        AddVertex(
-                            _worldVerticesPositions[0],
-                            _worldVerticesPositions[1],
-                            z,
-                            regionAttachment.UVs[0],
-                            regionAttachment.UVs[1],
-                            tintR,
-                            tintG,
-                            tintB,
-                            tintA,
-                            ref vertexIndex
-                        );
-
-                        if (!singleDrawCall)
-                        {
-                            BeginBlendMode(slot);
-                            var vertexOrder =
-                                skeleton.ScaleX * skeleton.ScaleY < 0
-                                    ? _vertexOrderNormal
-                                    : _vertexOrderReverse;
-                            DrawRegion(_vertices, vertexIndex, texture, vertexOrder);
-                        }
-                    }
-                    break;
-
-                // Cast to an spMeshAttachment so we can get the rendererObject
-                // and compute the world vertices
-                case MeshAttachment mesh:
-
-                    {
-                        // Check the number of vertices in the mesh attachment. If it is bigger
-                        // than our scratch buffer, we don't render the mesh. We do this here
-                        // for simplicity, in production you want to reallocate the scratch buffer
-                        // to fit the mesh.
-                        if (mesh.WorldVerticesLength > MAX_VERTICES_PER_ATTACHMENT)
-                            continue;
-
-                        // Our engine specific Texture is stored in the spAtlasRegion which was
-                        // assigned to the attachment on load. It represents the texture atlas
-                        // page that contains the image the mesh attachment is mapped to
-                        texture = (Texture)((AtlasRegion)mesh.Region).page.rendererObject;
-
-                        // Computed the world vertices positions for the vertices that make up
-                        // the mesh attachment. This assumes the world transform of the
-                        // bone to which the slot (and hence attachment) is attached has been calculated
-                        // before rendering via spSkeleton_updateWorldTransform
-                        mesh.ComputeWorldVertices(slot, _worldVerticesPositions);
-
-                        // Mesh attachments use an array of vertices, and an array of indices to define which
-                        // 3 vertices make up each triangle. We loop through all triangle indices
-                        // and simply emit a vertex for each triangle's vertex.
-                        for (int j = 0; j < mesh.Triangles.Length; ++j)
-                        {
-                            var index = mesh.Triangles[j] << 1;
-                            AddVertex(
-                                _worldVerticesPositions[index],
-                                _worldVerticesPositions[index + 1],
-                                z,
-                                mesh.UVs[index],
-                                mesh.UVs[index + 1],
-                                tintR,
-                                tintG,
-                                tintB,
-                                tintA,
-                                ref vertexIndex
-                            );
-                        }
-
-                        if (!singleDrawCall)
-                        {
-                            BeginBlendMode(slot);
-                            var vertexOrder =
-                                skeleton.ScaleX * skeleton.ScaleY < 0
-                                    ? _vertexOrderNormal
-                                    : _vertexOrderReverse;
-                            DrawRegion(_vertices, vertexIndex, texture, vertexOrder);
-                        }
-                    }
-
-                    break;
-            } // end attachment
-            if (!singleDrawCall)
-                EndBlendMode();
-            z += 0.001f;
-        } // end draw order
-
-        if (singleDrawCall)
-        {
-            BeginBlendMode();
-            DrawRegion(_vertices, vertexIndex, texture, _vertexOrderNormal);
-            EndBlendMode();
-        }
-    }
-    
-    private void DrawRegion(Vertex[] vertices, int count, Texture texture, uint[] vertexOrder)
+    private void DrawRegion(float[] vertices, int count, Texture texture)
     {
         texture.Bind();
         vbo.Bind();
         
-        _vertexBuffer.Update(BuildVertices());
-        _indexBuffer.Update(vertexOrder);
-        
+        _vertexBuffer.Update(vertices);
         gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)count);
         DrawCalls++;
     }
-
-    public BlendingFactor sFactor = BlendingFactor.One;
-    public BlendingFactor dFactor = BlendingFactor.OneMinusSrcAlpha;
 
     private void BeginBlendMode()
     {
@@ -535,7 +279,6 @@ internal class SpineModel
         gl.Enable(EnableCap.Blend);
         if (pma)
         {
-            // Console.WriteLine($"BeginBlendMode_pma: {slot.Data.BlendMode}");
             switch (slot.Data.BlendMode)
             {
                 case BlendMode.Normal:
@@ -553,11 +296,10 @@ internal class SpineModel
         }
         else
         {
-            // Console.WriteLine($"BeginBlendMode: {slot.Data.BlendMode}");
             switch (slot.Data.BlendMode)
             {
                 case BlendMode.Normal:
-                    gl.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
+                    gl.BlendFunc(sFactor, dFactor);
                     break;
                 case BlendMode.Additive:
                     break;
@@ -586,47 +328,25 @@ internal class SpineModel
         float g,
         float b,
         float a,
-        ref int index
+        ref int vertexIndex
     )
     {
+        var vertexPos = vertexIndex * VERTEX_SIZE;
+        
         // pos
-        _vertices[index].x = x;
-        _vertices[index].y = y;
-        _vertices[index].z = z;
+        _vertices[vertexPos + 0] = x;
+        _vertices[vertexPos + 1] = y;
+        _vertices[vertexPos + 2] = z;
 
         // uv
-        _vertices[index].u = u;
-        _vertices[index].v = v;
+        _vertices[vertexPos + 3] = u;
+        _vertices[vertexPos + 4] = v;
 
         // color
-        _vertices[index].r = r;
-        _vertices[index].g = g;
-        _vertices[index].b = b;
-        _vertices[index].a = a;
-        index++;
-    }
-    
-    private readonly float[] _flatVertices = new float[MAX_VERTICES_PER_ATTACHMENT * 9];
-
-    private float[] BuildVertices()
-    {
-        var index = 0;
-
-        foreach (var vertex in _vertices)
-        {
-            _flatVertices[index++] = vertex.x;
-            _flatVertices[index++] = vertex.y;
-            _flatVertices[index++] = vertex.z;
-
-            _flatVertices[index++] = vertex.u;
-            _flatVertices[index++] = vertex.v;
-
-            _flatVertices[index++] = vertex.r;
-            _flatVertices[index++] = vertex.g;
-            _flatVertices[index++] = vertex.b;
-            _flatVertices[index++] = vertex.a;
-        }
-
-        return _flatVertices;
+        _vertices[vertexPos + 5] = r;
+        _vertices[vertexPos + 6] = g;
+        _vertices[vertexPos + 7] = b;
+        _vertices[vertexPos + 8] = a;
+        vertexIndex++;
     }
 }

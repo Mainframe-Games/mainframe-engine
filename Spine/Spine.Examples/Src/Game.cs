@@ -117,7 +117,7 @@ internal class Game
         ImGuiController = new ImGuiController(Gl, window, InputContext);
         _shader = new Shader(Gl, "Content/Shaders/shader.vert", "Content/Shaders/shader.frag");
         
-        // _box3d = new Box3d(Gl);
+        _box3d = new Box3d(Gl);
         OnModelChanged(_folders[0]);
     }
 
@@ -165,7 +165,7 @@ internal class Game
             * rot
             * Matrix4x4.CreateTranslation(_spineModelPosition);
 
-        // DrawBox();
+        DrawBox();
 
         // bind and render
         _shader.Use();
@@ -176,13 +176,13 @@ internal class Game
         {
             _shader.SetUniform("uView", _cameraOrth.ViewMatrix);
             _shader.SetUniform("uProjection", _cameraOrth.ProjectionMatrix);
-            _spineModel.Draw(_inspectorUI.SingleDrawCall);
+            _spineModel.Draw(_inspectorUI.SingleDrawCall, _inspectorUI.ZSpacing);
         }
         else
         {
             _shader.SetUniform("uView", _cameraPer.ViewMatrix);
             _shader.SetUniform("uProjection", _cameraPer.ProjectionMatrix);
-            _spineModel.DrawPerspective(_inspectorUI.SingleDrawCall);
+            _spineModel.Draw(_inspectorUI.SingleDrawCall, _inspectorUI.ZSpacing);
         }
 
         // reset viewport

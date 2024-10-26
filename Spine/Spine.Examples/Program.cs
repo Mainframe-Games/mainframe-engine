@@ -1,12 +1,10 @@
-﻿using Silk.NET.Maths;
-using Silk.NET.Windowing;
+﻿using Silk.NET.Windowing;
 using SilkSpine;
 using Monitor = Silk.NET.Windowing.Monitor;
 
 var game = new Game();
 
 var windowOptions = WindowOptions.Default;
-windowOptions.Size = new Vector2D<int>(800, 600);
 windowOptions.Title = "Silk Spine";
 using var window = Window.Create(windowOptions) ?? throw new NullReferenceException();
 
