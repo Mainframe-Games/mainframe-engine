@@ -12,6 +12,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spine.Examples", "Spine\Spi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spine", "Spine\Spine\Spine.csproj", "{5AE3E5B7-D781-4C0A-ADF7-8C689E8A87AA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine", "MainframeEngine\MainframeEngine.csproj", "{4C867AB6-8E59-48E4-9040-D63498BAC94C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine.Test", "MainframeEngine.Test\MainframeEngine.Test.csproj", "{97F16F14-1248-4C60-A7CD-9A0490C637CB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,6 +38,14 @@ Global
 		{5AE3E5B7-D781-4C0A-ADF7-8C689E8A87AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5AE3E5B7-D781-4C0A-ADF7-8C689E8A87AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5AE3E5B7-D781-4C0A-ADF7-8C689E8A87AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C867AB6-8E59-48E4-9040-D63498BAC94C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C867AB6-8E59-48E4-9040-D63498BAC94C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C867AB6-8E59-48E4-9040-D63498BAC94C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C867AB6-8E59-48E4-9040-D63498BAC94C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97F16F14-1248-4C60-A7CD-9A0490C637CB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97F16F14-1248-4C60-A7CD-9A0490C637CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97F16F14-1248-4C60-A7CD-9A0490C637CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97F16F14-1248-4C60-A7CD-9A0490C637CB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{2432B37D-EAAB-44AC-A841-3EB72BCF639D} = {8E730706-C5F0-46DB-92D7-8F32AF188796}
