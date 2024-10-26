@@ -8,7 +8,7 @@ namespace SilkSpine;
 
 internal class SpineRenderer
 {
-    private const int MAX_VERTICES_PER_ATTACHMENT = 2048;
+    private const int MAX_VERTICES_PER_ATTACHMENT = 2048*2;
     private readonly float[] _worldVerticesPositions = new float[MAX_VERTICES_PER_ATTACHMENT];
     
     /// <summary>
@@ -31,7 +31,10 @@ internal class SpineRenderer
     private readonly BufferObject<float> _vertexBuffer;
     private readonly VertexArrayObject<float, uint> vbo;
 
-    public ushort DrawCalls { get; private set; }
+    /// <summary>
+    /// Number of draw calls made to GPU
+    /// </summary>
+    private uint _drawCalls;
     
     public BlendingFactor sFactor = BlendingFactor.One;
     public BlendingFactor dFactor = BlendingFactor.OneMinusSrcAlpha;
@@ -52,9 +55,9 @@ internal class SpineRenderer
         vbo.VertexAttributePointer(2, 4, VertexAttribPointerType.Float, VERTEX_COUNT, 5);
     }
     
-    public void Draw(bool singleDrawCall, float zSpacing = 0.5f)
+    public uint Draw(bool singleDrawCall, float zSpacing = 0.5f)
     {
-        DrawCalls = 0;
+        _drawCalls = 0;
         var vertexIndex = 0;
         var z = 0f; // try settings to -1 as well
 
@@ -258,6 +261,8 @@ internal class SpineRenderer
             DrawRegion(_vertices, vertexIndex, texture);
             EndBlendMode();
         }
+
+        return _drawCalls;
     }
 
     private void DrawRegion(float[] vertices, int count, Texture texture)
@@ -267,7 +272,7 @@ internal class SpineRenderer
         
         _vertexBuffer.Update(vertices);
         gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)count);
-        DrawCalls++;
+        _drawCalls++;
     }
 
     private void BeginBlendMode()

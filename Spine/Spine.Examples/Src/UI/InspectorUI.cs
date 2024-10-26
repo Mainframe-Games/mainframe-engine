@@ -17,7 +17,6 @@ internal class InspectorUI
 {
     public event Action<SpineFolder>? OnModelChanged;
     public event Action<string>? OnAnimationChanged;
-    public event Action<bool>? OnFlipped;
     
     // mode
     private int _modelIndex;
@@ -27,14 +26,17 @@ internal class InspectorUI
     // animation
     private int _animationIndex;
     private readonly string[] _animNames = new string[32];
-    private bool _isFlipped;
+    public bool IsFlipped;
+    public float SpineScale;
     
     public int Width { get; } = 300;
     public bool SingleDrawCall = true;
 
     public bool UseOrthographicCamera = true;
     public float ZSpacing = 0.5f;
-    
+    public bool UpdatePhysics;
+    public uint DrawCallCount { get; set; }
+
     public InspectorUI(SpineFolder[] folders)
     {
         _folders = folders;
@@ -74,24 +76,30 @@ internal class InspectorUI
             BuildAnimNames(skeleton);
             
             ImGui.Separator();
-            
+            ImGui.Text("Camera");
             ImGui.Checkbox("Orthographic Camera", ref UseOrthographicCamera);
+
+            ImGui.Separator();
+            ImGui.Text("Spine Options");
+            ImGui.Checkbox("Update Physics", ref UpdatePhysics);
             
-            if (ImGui.Combo("Model", ref _modelIndex, _modelNames, _modelNames.Length))
+            if (ImGui.Combo("File", ref _modelIndex, _modelNames, _modelNames.Length))
                 OnModelChanged?.Invoke(_folders[_modelIndex]);
             
             if (ImGui.Combo("Animation", ref _animationIndex, _animNames, skeleton.Data.Animations.Count))
                 OnAnimationChanged?.Invoke(_animNames[_animationIndex]);
 
-            if (ImGui.Checkbox("Flip X", ref _isFlipped))
-                OnFlipped?.Invoke(_isFlipped);
+            ImGui.Checkbox("Flip X", ref IsFlipped);
+            
+            ImGui.SliderFloat("Spine Scale", ref SpineScale, 0.01f, 2f, "%.2f");
+            ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 10f, "%.1f");
 
             ImGui.Separator();
             ImGui.Text("Transform");
             {
-                ImGui.SliderFloat3("Position", ref modelPosition, -500, 500, "%.1f");
-                ImGui.SliderFloat3("Rotation", ref modelRotation, -180, 180, "%.1f");
-                ImGui.SliderFloat("Scale", ref modelScale, 0, 5, "%.1f");
+                ImGui.SliderFloat3("Position", ref modelPosition, -100, 100, "%.2f");
+                ImGui.SliderFloat3("Rotation", ref modelRotation, -180, 180, "%.2f");
+                ImGui.SliderFloat("Scale", ref modelScale, 0.01f, 5, "%.2f");
                 if (ImGui.Button("Reset"))
                 {
                     modelPosition = Vector3.Zero;
@@ -101,13 +109,15 @@ internal class InspectorUI
             }
             
             ImGui.Separator();
-            if (ImGui.Combo("sFactor", ref _sIndex, _sFactors, _sFactors.Length, 10))
+            ImGui.Text("Blend Mode");
+            if (ImGui.Combo("Src", ref _sIndex, _sFactors, _sFactors.Length, 10))
                 sFactor = Enum.GetValues<BlendingFactor>()[_sIndex];
-            if (ImGui.Combo("dFactor", ref _dIndex, _dFactors, _dFactors.Length, 10))
+            if (ImGui.Combo("Dst", ref _dIndex, _dFactors, _dFactors.Length, 10))
                 dFactor = Enum.GetValues<BlendingFactor>()[_dIndex];
             
+            ImGui.Separator();
             ImGui.Checkbox("Single DrawCall", ref SingleDrawCall);
-            ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 10f, "%.1f");
+            ImGui.Value("DrawCalls", DrawCallCount);
         }
         ImGui.End();
     }

@@ -28,7 +28,7 @@ public class CameraPerspective : ICamera
     public void ModifyZoom(float zoomAmount)
     {
         //We don't want to be able to zoom in too close or too far away so clamp to these values
-        FieldOfView = System.Math.Clamp(FieldOfView - zoomAmount, 1.0f, 45f);
+        FieldOfView = System.Math.Clamp(FieldOfView - zoomAmount, 1.0f, 90f);
     }
 
     public void ModifyDirection(float xOffset, float yOffset)

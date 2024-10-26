@@ -8,7 +8,6 @@ using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
 using SilkSpine.UI;
 using Spine;
-using Rectangle = System.Drawing.Rectangle;
 using Shader = Mainframe.Silk.Shader;
 
 namespace SilkSpine;
@@ -33,10 +32,24 @@ internal class Game
         },
         new()
         {
+            Name  = "Raptor",
+            AtlasPath = "Content/Raptor/raptor-pro.atlas",
+            JsonPath = "Content/Raptor/raptor-pro.json",
+            TexturePath = "Content/Raptor/raptor-pro.png",
+        },
+        new()
+        {
             Name = "Windmill",
             AtlasPath = "Content/Windmill/windmill-ess.atlas",
             JsonPath = "Content/Windmill/windmill-ess.json",
             TexturePath = "Content/Windmill/windmill-ess.png",
+        },
+        new()
+        {
+            Name = "CelestialCircus",
+            AtlasPath = "Content/CelestialCircus/celestial-circus-pro.atlas",
+            JsonPath = "Content/CelestialCircus/celestial-circus-pro.json",
+            TexturePath = "Content/CelestialCircus/celestial-circus-pro.png",
         }
     ];
     private readonly InspectorUI _inspectorUI = new(_folders);
@@ -59,7 +72,6 @@ internal class Game
     {
         _inspectorUI.OnModelChanged += OnModelChanged;
         _inspectorUI.OnAnimationChanged += SetAnimation;
-        _inspectorUI.OnFlipped += SetFlip;
     }
 
     private void OnModelChanged(SpineFolder folder)
@@ -72,8 +84,7 @@ internal class Game
 
         _spineSkeleton = new Skeleton(skeletonData);
         _spineSkeleton.SetSkin(skeletonData.DefaultSkin);
-        _spineSkeleton.ScaleX = 0.5f;
-        _spineSkeleton.ScaleY = 0.5f;
+        _inspectorUI.SpineScale = 0.1f;
 
         spineRenderer = new SpineRenderer(Gl, _spineSkeleton, _atlas.Pages[0].pma, textureLoader.Textures[0]);
 
@@ -81,9 +92,6 @@ internal class Game
         var animationStateData = new AnimationStateData(skeletonData);
         _animationState = new AnimationState(animationStateData);
         SetAnimation(_spineSkeleton.Data.Animations.Items[0].Name);
-        _animationState.Update(0);
-        _animationState.Apply(_spineSkeleton);
-        _spineSkeleton.UpdateWorldTransform(Skeleton.Physics.None);
     }
 
     private void SetFlip(bool isFlipped)
@@ -120,12 +128,21 @@ internal class Game
         OnModelChanged(_folders[0]);
     }
 
+    private void SetSpineScale()
+    {
+        var scaleXAbs = Math.Abs(_inspectorUI.SpineScale);
+        _spineSkeleton.ScaleX = _inspectorUI.IsFlipped ? -scaleXAbs : scaleXAbs;
+        _spineSkeleton.ScaleY = _inspectorUI.SpineScale;
+    }
+
     public void OnUpdate(double deltaTime)
     {
         ImGuiController.Update((float)deltaTime);
         OnImGui(deltaTime);
         
-        _spineSkeleton.UpdateWorldTransform(Skeleton.Physics.None);
+        SetSpineScale();
+        
+        _spineSkeleton.UpdateWorldTransform(_inspectorUI.UpdatePhysics ? Skeleton.Physics.Update : Skeleton.Physics.None);
         _animationState.Update((float)deltaTime);
         _animationState.Apply(_spineSkeleton);
     }
@@ -159,16 +176,17 @@ internal class Game
             
             _shader.SetUniform("uView", _cameraOrth.ViewMatrix);
             _shader.SetUniform("uProjection", _cameraOrth.ProjectionMatrix);
-            spineRenderer.Draw(_inspectorUI.SingleDrawCall, _inspectorUI.ZSpacing);
         }
         else
         {
-            _cameraPer.Position = new Vector3(0.0f, 150.0f, 500.0f);
+            _cameraPer.Position = new Vector3(0.0f, 50.0f, 200.0f);
             _cameraPer.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
             _shader.SetUniform("uView", _cameraPer.ViewMatrix);
             _shader.SetUniform("uProjection", _cameraPer.ProjectionMatrix);
-            spineRenderer.Draw(_inspectorUI.SingleDrawCall, _inspectorUI.ZSpacing);
         }
+            
+        var drawCalls = spineRenderer.Draw(_inspectorUI.SingleDrawCall, _inspectorUI.ZSpacing);
+        _inspectorUI.DrawCallCount = drawCalls;
 
         ImGuiController.Render();
     }
@@ -205,8 +223,9 @@ internal class Game
 
     private void OnScroll(IMouse mouse, ScrollWheel delta)
     {
-        _cameraOrth.ModifyZoom(delta.Y);
-        _cameraPer.ModifyZoom(-delta.Y * 2f);
+        // _spineModelScale = Math.Clamp(_spineModelScale + delta.Y * 0.1f, 0.1f, 10);
+        // _cameraOrth.ModifyZoom(delta.Y);
+        // _cameraPer.ModifyZoom(-delta.Y * 2f);
     }
 
     #endregion
