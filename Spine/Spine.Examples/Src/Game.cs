@@ -67,6 +67,9 @@ internal class Game
     private Vector3 _spineModelPosition;
     private Vector3 _spineModelRotation;
     private float _spineModelScale = 1f;
+
+    private Grid _grid;
+    private Quad _quad;
     
     public Game()
     {
@@ -124,7 +127,9 @@ internal class Game
         
         ImGuiController = new ImGuiController(Gl, window, InputContext);
         _shader = new Shader(Gl, "Content/Shaders/shader.vert", "Content/Shaders/shader.frag");
-        
+
+        _grid = new Grid(Gl, 10);
+        _quad = new Quad(Gl);
         OnModelChanged(_folders[0]);
     }
 
@@ -151,7 +156,10 @@ internal class Game
     {
         Gl.Enable(EnableCap.DepthTest);
         Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
+        
+        _grid.Draw();
+        _quad.Draw();
+        
         var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
         
         var model =
