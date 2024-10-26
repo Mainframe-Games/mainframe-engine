@@ -176,15 +176,14 @@ internal class Game
         {
             _shader.SetUniform("uView", _cameraOrth.ViewMatrix);
             _shader.SetUniform("uProjection", _cameraOrth.ProjectionMatrix);
+            _spineModel.Draw(_inspectorUI.SingleDrawCall);
         }
         else
         {
             _shader.SetUniform("uView", _cameraPer.ViewMatrix);
             _shader.SetUniform("uProjection", _cameraPer.ProjectionMatrix);
+            _spineModel.DrawPerspective(_inspectorUI.SingleDrawCall);
         }
-        
-        _spineModel.Draw(_inspectorUI.SingleDrawCall);
-        // Console.WriteLine($"Draw Calls: {_spineModel.DrawCalls}");
 
         // reset viewport
         Gl.Scissor(0, 0, 0, 0);

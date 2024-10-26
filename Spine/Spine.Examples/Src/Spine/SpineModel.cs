@@ -293,6 +293,222 @@ internal class SpineModel
         }
     }
     
+    public void DrawPerspective(bool singleDrawCall)
+    {
+        DrawCalls = 0;
+        var vertexIndex = 0;
+        var z = 0f;
+
+        // For each slot in the draw order array of the skeleton
+        _anti_z_fighting_index = SP_LAYER_SPACING_BASE;
+        for (int i = skeleton.DrawOrder.Count - 1; i >= 0; i--)
+        {
+            _anti_z_fighting_index -= SP_LAYER_SPACING;
+            var slot = skeleton.DrawOrder.Items[i];
+
+            // Fetch the currently active attachment, continue
+            // with the next slot in the draw order if no
+            // attachment is active on the slot
+            var attachment = slot.Attachment;
+            if (attachment is null)
+                continue;
+
+            // Calculate the tinting color based on the skeleton's color
+            // and the slot's color. Each color channel is given in the
+            // range [0-1], you may have to multiply by 255 and cast to
+            // and int if your engine uses integer ranges for color channels.
+            var tintA = skeleton.A * slot.A;
+            var alpha = pma ? tintA : 1;
+            var tintR = skeleton.R * slot.R * alpha;
+            var tintG = skeleton.G * slot.G * alpha;
+            var tintB = skeleton.B * slot.B * alpha;
+
+            // Fill the vertices array depending on the type of attachment
+            Texture texture;
+
+            if (!singleDrawCall)
+                vertexIndex = 0;
+                
+            switch (attachment)
+            {
+                // Cast to an spRegionAttachment so we can get the rendererObject
+                // and compute the world vertices
+                case RegionAttachment regionAttachment:
+
+                    {
+                        // Our engine specific Texture is stored in the spAtlasRegion which was
+                        // assigned to the attachment on load. It represents the texture atlas
+                        // page that contains the image the region attachment is mapped to
+                        texture = (Texture)
+                            ((AtlasRegion)regionAttachment.Region).page.rendererObject;
+
+                        // Computed the world vertices positions for the 4 vertices that make up
+                        // the rectangular region attachment. This assumes the world transform of the
+                        // bone to which the slot (and hence attachment) is attached has been calculated
+                        // before rendering via spSkeleton_updateWorldTransform
+                        regionAttachment.ComputeWorldVertices(slot, _worldVerticesPositions, 0);
+
+                        // Create 2 triangles, with 3 vertices each from the region's
+                        // world vertex positions and its UV coordinates (in the range [0-1]).
+                        AddVertex(
+                            _worldVerticesPositions[0],
+                            _worldVerticesPositions[1],
+                            z,
+                            regionAttachment.UVs[0],
+                            regionAttachment.UVs[1],
+                            tintR,
+                            tintG,
+                            tintB,
+                            tintA,
+                            ref vertexIndex
+                        );
+
+                        AddVertex(
+                            _worldVerticesPositions[2],
+                            _worldVerticesPositions[3],
+                            z,
+                            regionAttachment.UVs[2],
+                            regionAttachment.UVs[3],
+                            tintR,
+                            tintG,
+                            tintB,
+                            tintA,
+                            ref vertexIndex
+                        );
+
+                        AddVertex(
+                            _worldVerticesPositions[4],
+                            _worldVerticesPositions[5],
+                            z,
+                            regionAttachment.UVs[4],
+                            regionAttachment.UVs[5],
+                            tintR,
+                            tintG,
+                            tintB,
+                            tintA,
+                            ref vertexIndex
+                        );
+
+                        AddVertex(
+                            _worldVerticesPositions[4],
+                            _worldVerticesPositions[5],
+                            z,
+                            regionAttachment.UVs[4],
+                            regionAttachment.UVs[5],
+                            tintR,
+                            tintG,
+                            tintB,
+                            tintA,
+                            ref vertexIndex
+                        );
+
+                        AddVertex(
+                            _worldVerticesPositions[6],
+                            _worldVerticesPositions[7],
+                            z,
+                            regionAttachment.UVs[6],
+                            regionAttachment.UVs[7],
+                            tintR,
+                            tintG,
+                            tintB,
+                            tintA,
+                            ref vertexIndex
+                        );
+
+                        AddVertex(
+                            _worldVerticesPositions[0],
+                            _worldVerticesPositions[1],
+                            z,
+                            regionAttachment.UVs[0],
+                            regionAttachment.UVs[1],
+                            tintR,
+                            tintG,
+                            tintB,
+                            tintA,
+                            ref vertexIndex
+                        );
+
+                        if (!singleDrawCall)
+                        {
+                            BeginBlendMode(slot);
+                            var vertexOrder =
+                                skeleton.ScaleX * skeleton.ScaleY < 0
+                                    ? _vertexOrderNormal
+                                    : _vertexOrderReverse;
+                            DrawRegion(_vertices, vertexIndex, texture, vertexOrder);
+                        }
+                    }
+                    break;
+
+                // Cast to an spMeshAttachment so we can get the rendererObject
+                // and compute the world vertices
+                case MeshAttachment mesh:
+
+                    {
+                        // Check the number of vertices in the mesh attachment. If it is bigger
+                        // than our scratch buffer, we don't render the mesh. We do this here
+                        // for simplicity, in production you want to reallocate the scratch buffer
+                        // to fit the mesh.
+                        if (mesh.WorldVerticesLength > MAX_VERTICES_PER_ATTACHMENT)
+                            continue;
+
+                        // Our engine specific Texture is stored in the spAtlasRegion which was
+                        // assigned to the attachment on load. It represents the texture atlas
+                        // page that contains the image the mesh attachment is mapped to
+                        texture = (Texture)((AtlasRegion)mesh.Region).page.rendererObject;
+
+                        // Computed the world vertices positions for the vertices that make up
+                        // the mesh attachment. This assumes the world transform of the
+                        // bone to which the slot (and hence attachment) is attached has been calculated
+                        // before rendering via spSkeleton_updateWorldTransform
+                        mesh.ComputeWorldVertices(slot, _worldVerticesPositions);
+
+                        // Mesh attachments use an array of vertices, and an array of indices to define which
+                        // 3 vertices make up each triangle. We loop through all triangle indices
+                        // and simply emit a vertex for each triangle's vertex.
+                        for (int j = 0; j < mesh.Triangles.Length; ++j)
+                        {
+                            var index = mesh.Triangles[j] << 1;
+                            AddVertex(
+                                _worldVerticesPositions[index],
+                                _worldVerticesPositions[index + 1],
+                                z,
+                                mesh.UVs[index],
+                                mesh.UVs[index + 1],
+                                tintR,
+                                tintG,
+                                tintB,
+                                tintA,
+                                ref vertexIndex
+                            );
+                        }
+
+                        if (!singleDrawCall)
+                        {
+                            BeginBlendMode(slot);
+                            var vertexOrder =
+                                skeleton.ScaleX * skeleton.ScaleY < 0
+                                    ? _vertexOrderNormal
+                                    : _vertexOrderReverse;
+                            DrawRegion(_vertices, vertexIndex, texture, vertexOrder);
+                        }
+                    }
+
+                    break;
+            } // end attachment
+            if (!singleDrawCall)
+                EndBlendMode();
+            z += 0.001f;
+        } // end draw order
+
+        if (singleDrawCall)
+        {
+            BeginBlendMode();
+            DrawRegion(_vertices, vertexIndex, texture, _vertexOrderNormal);
+            EndBlendMode();
+        }
+    }
+    
     private void DrawRegion(Vertex[] vertices, int count, Texture texture, uint[] vertexOrder)
     {
         texture.Bind();
