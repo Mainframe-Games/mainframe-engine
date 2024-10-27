@@ -8,92 +8,85 @@ namespace SilkSpine;
 public class Grid
 {
     private readonly GL _gl;
-    private readonly VertexArrayObject<float, uint> _vertexArrayObject;
     private readonly Shader _shader;
-    private readonly uint _verticesLength;
-    private readonly uint _indicesLength;
+    private readonly BufferObject<float> _vertexBuffer;
+    private readonly uint _vertexArrayId;
 
-    public Grid(GL gl, uint slices = 10)
+    private readonly uint _count;
+    
+    public unsafe Grid(GL gl)
     {
         _gl = gl;
-        
-        var vertices = new float[(slices + 1) * (slices + 1) * 3];
 
-        var index = 0;
-        for (int j = 0; j <= slices; ++j)
-        {
-            for (int i = 0; i <= slices; ++i)
-            {
-                var x = (float)i / slices;
-                var z = (float)j / slices;
-                vertices[index++] = x;
-                vertices[index++] = 0;
-                vertices[index++] = z;
-            }
+        // src: https://github.com/IMCGKN/Grid_OpenGL_Cpp/blob/main/src/main.cpp
+        const int gridSize = 200;
+        var vertices = new float[(gridSize * 6 + gridSize * 6) * 2];
+        var vertexIndex = 0;
+        
+        var count = 0;
+        var j = gridSize;
+        while(count < gridSize * 2) {
+            vertices[vertexIndex++] = gridSize * 1;
+            vertices[vertexIndex++] = 0;
+            vertices[vertexIndex++] = -(j * 1);
+            vertices[vertexIndex++] = -(gridSize * 1);
+            vertices[vertexIndex++] = 0;
+            vertices[vertexIndex++] = -(j * 1);
+            j--;
+            count++;
+        }
+        j = gridSize;
+        count = 0;
+        while(count < gridSize * 2) {
+            vertices[vertexIndex++] = -(j * 1);
+            vertices[vertexIndex++] = 0;
+            vertices[vertexIndex++] = - gridSize * 1;
+            vertices[vertexIndex++] = -(j * 1);
+            vertices[vertexIndex++] = 0;
+            vertices[vertexIndex++] = gridSize * 1;
+            j--;
+            count++;
         }
 
-        var indices = new uint[slices * slices * 8];
-        index = 0;
+        _count = (uint)vertices.Length;
+        _vertexBuffer = new BufferObject<float>(gl, vertices, BufferTargetARB.ArrayBuffer);
         
-        for (int j = 0; j < slices; j++)
-        {
-            for (int i = 0; i < slices; i++)
-            {
-                var row1 = j * (slices + 1);
-                var row2 = (j + 1) * (slices + 1);
-                
-                indices[index++] = (uint)(row1 + i);
-                indices[index++] = (uint)(row1 + i + 1);
-                indices[index++] = (uint)(row1 + i + 1);
-                indices[index++] = (uint)(row2 + i + 1);
-                
-                indices[index++] = (uint)(row2 + i + 1);
-                indices[index++] = (uint)(row2 + i);
-                indices[index++] = (uint)(row2 + i);
-                indices[index++] = (uint)(row1 + i);
-            }
-        }
-        
-        var vertexBuffer = new BufferObject<float>(gl, vertices, BufferTargetARB.ArrayBuffer);
-        var indexBuffer = new BufferObject<uint>(gl, indices, BufferTargetARB.ElementArrayBuffer);
-        _vertexArrayObject = new VertexArrayObject<float, uint>(gl, vertexBuffer, indexBuffer);
-        
-        _vertexArrayObject.VertexAttributePointer(
-            0, 
+        // vertex array
+        _vertexArrayId = _gl.GenVertexArray();
+        _gl.BindVertexArray(_vertexArrayId);
+        _gl.VertexAttribPointer(
+            0,
             3,
-            VertexAttribPointerType.Float, 
-            3,
-            0);
-
-        _verticesLength = (uint)vertices.Length;
-        _indicesLength = (uint)indices.Length;
+            VertexAttribPointerType.Float,
+            false,
+            sizeof(float) * 3,
+            null
+        );
+        _gl.EnableVertexAttribArray(0);
         
         _shader = new Shader(gl,
-            "Content/Shaders/Generic.vert", 
-            "Content/Shaders/White.frag");
+            "Content/Shaders/Grid.vert", 
+            "Content/Shaders/Grid.frag");
     }
     
-    private Matrix4x4 ModelMatrix =>
-        // scale
-        Matrix4x4.CreateScale(new Vector3(100))
-        // rotation
-        * Matrix4x4.CreateRotationX(Mainframe.Math.DegreesToRadiansF(0))
-        * Matrix4x4.CreateRotationY(Mainframe.Math.DegreesToRadiansF(0))
-        * Matrix4x4.CreateRotationZ(Mainframe.Math.DegreesToRadiansF(0))
-        // translation
-        * Matrix4x4.CreateTranslation(Vector3.Zero);
+    private static readonly Matrix4x4 ModelMatrix = Matrix4x4.CreateTranslation(Vector3.Zero);
 
-    public unsafe void Draw(Matrix4x4 view, Matrix4x4 projection)
+    public void Draw(Matrix4x4 view, Matrix4x4 projection)
     {
-        _shader.Use();
-        _shader.SetUniform("uModel", ModelMatrix);
-        _shader.SetUniform("uView", view);
-        _shader.SetUniform("uProjection", projection);
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        {
+            _shader.Use();
+            _shader.SetUniform("uModel", ModelMatrix);
+            _shader.SetUniform("uView", view);
+            _shader.SetUniform("uProjection", projection);
+            
+            _vertexBuffer.Bind();
+            _gl.BindVertexArray(_vertexArrayId);
+
+            _gl.DrawArrays(PrimitiveType.Lines, 0, _count);
+        }
         
-        _vertexArrayObject.Bind();
-        // _gl.DrawElements(GLEnum.Lines, _length, DrawElementsType.UnsignedInt, null);
-        // _gl.DrawArrays(PrimitiveType.Lines, 0, _verticesLength);
-        _gl.DrawElements(PrimitiveType.Lines, _indicesLength, DrawElementsType.UnsignedInt, null);
-        // _gl.DrawElements(PrimitiveType.Triangles, _length, DrawElementsType.UnsignedInt, null);
+        _gl.Disable(EnableCap.Blend);
     }
 }

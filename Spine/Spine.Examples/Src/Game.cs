@@ -123,7 +123,6 @@ internal class Game
         for (int i = 0; i < InputContext.Keyboards.Count; i++)
         {
             InputContext.Keyboards[i].KeyDown += OnKeyDown;
-            InputContext.Mice[i].Scroll += OnScroll;
             InputContext.Mice[i].MouseMove += OnMouseMove;
         }
 
@@ -133,9 +132,11 @@ internal class Game
         Gl.ClearColor(Color.DarkSlateGray);
         
         ImGuiController = new ImGuiController(Gl, window, InputContext);
-        _shader = new Shader(Gl, "Content/Shaders/shader.vert", "Content/Shaders/shader.frag");
+        _shader = new Shader(Gl, 
+            "Content/Shaders/shader.vert",
+            "Content/Shaders/shader.frag");
 
-        _grid = new Grid(Gl, 10);
+        _grid = new Grid(Gl);
         _quad = new Quad(Gl);
         _box3d = new Box3d(Gl);
         OnModelChanged(_folders[0]);
@@ -231,7 +232,7 @@ internal class Game
         if (CurrentCamera is not CameraPerspective camera)
             return;
 
-        var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? 200 : 100;
+        var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? 100 : 50;
         var moveSpeed = baseSpeed * (float)deltaTime;
 
         // forward
@@ -275,15 +276,11 @@ internal class Game
             Window.Close();
     }
 
-    private void OnScroll(IMouse mouse, ScrollWheel delta)
-    {
-        // _spineModelScale = Math.Clamp(_spineModelScale + delta.Y * 0.1f, 0.1f, 10);
-        // _cameraOrth.ModifyZoom(delta.Y);
-        // _cameraPer.ModifyZoom(-delta.Y * 2f);
-    }
-    
     private void OnMouseMove(IMouse mouse, Vector2 position)
     {
+        if (InputContext.Mice[0].Cursor.CursorMode is not CursorMode.Raw)
+            return;
+        
         if (CurrentCamera is not CameraPerspective camera)
             return;
         
