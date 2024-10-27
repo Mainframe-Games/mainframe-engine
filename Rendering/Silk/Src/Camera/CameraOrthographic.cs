@@ -18,6 +18,6 @@ public class CameraOrthographic : ICamera
 
     public void ModifyZoom(float zoomAmount)
     {
-        Zoom = System.Math.Clamp(Zoom + zoomAmount * 0.1f, 0.1f, 10f);
+        Zoom = System.Math.Clamp(Zoom + zoomAmount * 0.1f, 0.01f, 10f);
     }
 }

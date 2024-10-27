@@ -5,8 +5,10 @@ using Shader = Mainframe.Silk.Shader;
 
 namespace SilkSpine;
 
-public class Box3d
+public class Box3d : ShapeBase
 {
+    #region Vertices
+
     // csharpier-ignore
     private static readonly float[] Vertices =
     [
@@ -60,21 +62,13 @@ public class Box3d
         0, 1, 3,
         1, 2, 3
     ];
+    
+    #endregion
 
     private readonly GL _gl;
     private readonly VertexArrayObject<float, uint> _vertexArray;
     private readonly Shader _shader;
     
-    private Matrix4x4 ModelMatrix =>
-        // scale
-        Matrix4x4.CreateScale(new Vector3(500f, 1f, 500))
-        // rotation
-        * Matrix4x4.CreateRotationX(Mainframe.Math.DegreesToRadiansF(0))
-        * Matrix4x4.CreateRotationY(Mainframe.Math.DegreesToRadiansF(0))
-        * Matrix4x4.CreateRotationZ(Mainframe.Math.DegreesToRadiansF(0))
-        // translation
-        * Matrix4x4.CreateTranslation(Vector3.Zero);
-
     public Box3d(GL gl)
     {
         _gl = gl;

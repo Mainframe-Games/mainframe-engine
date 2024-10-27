@@ -59,15 +59,17 @@ internal class Game
     private GL Gl { get; set; } = null!;
     private ImGuiController ImGuiController { get; set; } = null!;
     private IKeyboard _keyboard;
+    private IMouse _mouse;
+    private bool _canMoveCamera;
 
     private readonly CameraOrthographic _cameraOrth = new()
     {
-        Position = new Vector3(0.0f, 35.0f, 0.0f),
-        Zoom = 0.1f
+        Position = new Vector3(0.0f, 5.0f, 0.0f),
+        Zoom = 0.05f
     };
     private readonly CameraPerspective _cameraPer = new()
     {
-        Position = new Vector3(0.0f, 50.0f, 200.0f)
+        Position = new Vector3(0.0f, 10.0f, 30.0f)
     };
     
     private ICamera CurrentCamera => _inspectorUI.UseOrthographicCamera ? _cameraOrth : _cameraPer;
@@ -98,7 +100,8 @@ internal class Game
 
         _spineSkeleton = new Skeleton(skeletonData);
         _spineSkeleton.SetSkin(skeletonData.DefaultSkin);
-        _inspectorUI.SpineScale = 0.1f;
+        _inspectorUI.SpineScale = 0.02f;
+        _inspectorUI.ZSpacing = 0.01f;
 
         spineRenderer = new SpineRenderer(Gl, _spineSkeleton, _atlas.Pages[0].pma, textureLoader.Textures[0]);
 
@@ -120,11 +123,13 @@ internal class Game
 
         InputContext = window.CreateInput();
         _keyboard = InputContext.Keyboards[0];
-        for (int i = 0; i < InputContext.Keyboards.Count; i++)
-        {
-            InputContext.Keyboards[i].KeyDown += OnKeyDown;
-            InputContext.Mice[i].MouseMove += OnMouseMove;
-        }
+        _mouse = InputContext.Mice[0];
+        
+        _keyboard.KeyDown += OnKeyDown;
+        _mouse.Scroll += OnMouseScroll;
+        _mouse.MouseMove += OnMouseMove;
+        _mouse.MouseDown += OnMouseDown;
+        _mouse.MouseUp += OnMouseUp;
 
         //Getting the opengl api for drawing to the screen.
         Gl = GL.GetApi(window);
@@ -177,7 +182,21 @@ internal class Game
         Gl.Enable(EnableCap.DepthTest);
         Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         
+        _grid.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+        
         var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
+        
+        if (_inspectorUI.UseOrthographicCamera)
+        {
+            _cameraOrth.Size = frameBufferSize;
+            _quad.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+        }
+        else
+        {
+            _cameraPer.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
+            _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+        }
+        
         
         var model =
             // scale
@@ -188,24 +207,11 @@ internal class Game
             * Matrix4x4.CreateRotationZ(Mainframe.Math.DegreesToRadiansF(_spineModelRotation.Z))
             // translation
             * Matrix4x4.CreateTranslation(_spineModelPosition);
-
-        _grid.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
-        // _quad.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
-        // _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         
         // bind and render
         _shader.Use();
         _shader.SetUniform("uTexture0", 0);
         _shader.SetUniform("uModel", model);
-        
-        if (_inspectorUI.UseOrthographicCamera)
-        {
-            _cameraOrth.Size = frameBufferSize;
-        }
-        else
-        {
-            _cameraPer.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
-        }
         
         _shader.SetUniform("uView", CurrentCamera.ViewMatrix);
         _shader.SetUniform("uProjection", CurrentCamera.ProjectionMatrix);
@@ -229,8 +235,10 @@ internal class Game
 
     private void UpdateCameraPosition(double deltaTime)
     {
-        if (CurrentCamera is not CameraPerspective camera)
+        if (!_canMoveCamera)
             return;
+        
+        var camera = CurrentCamera;
 
         var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? 100 : 50;
         var moveSpeed = baseSpeed * (float)deltaTime;
@@ -268,8 +276,9 @@ internal class Game
     {
         if (key is Key.AltLeft)
         {
-            var cursor = InputContext.Mice[0].Cursor;
-            cursor.CursorMode = cursor.CursorMode is CursorMode.Raw ? CursorMode.Normal : CursorMode.Raw;
+            _mouse.Cursor.CursorMode = _mouse.Cursor.CursorMode is CursorMode.Raw
+                ? CursorMode.Normal
+                : CursorMode.Raw;
         }
         
         if (key == Key.Escape)
@@ -278,7 +287,7 @@ internal class Game
 
     private void OnMouseMove(IMouse mouse, Vector2 position)
     {
-        if (InputContext.Mice[0].Cursor.CursorMode is not CursorMode.Raw)
+        if (!_canMoveCamera)
             return;
         
         if (CurrentCamera is not CameraPerspective camera)
@@ -296,6 +305,32 @@ internal class Game
             LastMousePosition = position;
 
             camera.ModifyDirection(xOffset, yOffset);
+        }
+    }
+    
+    private void OnMouseScroll(IMouse mouse, ScrollWheel delta)
+    {
+        if (CurrentCamera is not CameraOrthographic camera)
+            return;
+        
+        camera.ModifyZoom(-delta.Y * 0.1f);
+    }
+
+    private void OnMouseDown(IMouse mouse, MouseButton button)
+    {
+        if (button is MouseButton.Right)
+        {
+            _canMoveCamera = true;
+            _mouse.Cursor.CursorMode = CursorMode.Raw;
+        }
+    }
+    
+    private void OnMouseUp(IMouse mouse, MouseButton button)
+    {
+        if (button is MouseButton.Right)
+        {
+            _canMoveCamera = false;
+            _mouse.Cursor.CursorMode = CursorMode.Normal;
         }
     }
 

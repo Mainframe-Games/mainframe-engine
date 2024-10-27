@@ -120,8 +120,8 @@ internal class InspectorUI
         ImGui.Checkbox("Single DrawCall", ref SingleDrawCall);
         ImGui.Value("DrawCalls", DrawCallCount);
             
-        ImGui.SliderFloat("Spine Scale", ref SpineScale, 0.01f, 2f, "%.2f");
-        ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 10f, "%.1f");
+        ImGui.SliderFloat("Spine Scale", ref SpineScale, 0.02f, 1f, "%.2f");
+        ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 0.5f, "%.2f");
         
         ImGui.Text("Blend Mode");
         if (ImGui.Combo("Src", ref _sIndex, _sFactors, _sFactors.Length, 10))
