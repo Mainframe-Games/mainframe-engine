@@ -94,8 +94,6 @@ public class Box3d
     public void Draw(Matrix4x4 view, Matrix4x4 projection)
     {
         _shader.Use();
-        
-        _shader.Use();
         _shader.SetUniform("uModel", ModelMatrix);
         _shader.SetUniform("uView", view);
         _shader.SetUniform("uProjection", projection);

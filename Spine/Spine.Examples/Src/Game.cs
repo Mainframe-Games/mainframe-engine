@@ -188,9 +188,9 @@ internal class Game
             // translation
             * Matrix4x4.CreateTranslation(_spineModelPosition);
 
-        _grid.Draw();
+        _grid.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         // _quad.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
-        _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+        // _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         
         // bind and render
         _shader.Use();
