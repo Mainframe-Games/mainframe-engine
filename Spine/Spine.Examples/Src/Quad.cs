@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Mainframe.Silk;
 using Silk.NET.OpenGL;
+using Shader = Mainframe.Silk.Shader;
 
 namespace SilkSpine;
 
@@ -51,9 +52,17 @@ public class Quad
     
     private readonly GL _gl;
     private readonly VertexArrayObject<Vector3, uint> _vertexArrayObject;
-    private readonly uint _shaderId;
+    private readonly Shader _shader;
 
-    // private Shader _shader;
+    private Matrix4x4 ModelMatrix =>
+        // scale
+        Matrix4x4.CreateScale(new Vector3(200f, 100f, 0))
+        // rotation
+        * Matrix4x4.CreateRotationX(Mainframe.Math.DegreesToRadiansF(0))
+        * Matrix4x4.CreateRotationY(Mainframe.Math.DegreesToRadiansF(0))
+        * Matrix4x4.CreateRotationZ(Mainframe.Math.DegreesToRadiansF(0))
+        // translation
+        * Matrix4x4.CreateTranslation(Vector3.Zero);
 
     public Quad(GL gl)
     {
@@ -70,40 +79,19 @@ public class Quad
             1,
             0);
         
-        //Creating a vertex shader.
-        uint vertexShader = gl.CreateShader(ShaderType.VertexShader);
-        gl.ShaderSource(vertexShader, VertexShaderSource);
-        gl.CompileShader(vertexShader);
-
-        //Creating a fragment shader.
-        uint fragmentShader = gl.CreateShader(ShaderType.FragmentShader);
-        gl.ShaderSource(fragmentShader, FragmentShaderSource);
-        gl.CompileShader(fragmentShader);
-        
-        //Combining the shaders under one shader program.
-        _shaderId = gl.CreateProgram();
-        gl.AttachShader(_shaderId, vertexShader);
-        gl.AttachShader(_shaderId, fragmentShader);
-        gl.LinkProgram(_shaderId);
-
-        //Checking the linking for errors.
-        gl.GetProgram(_shaderId, GLEnum.LinkStatus, out var status);
-        if (status == 0)
-        {
-            Console.WriteLine($"Error linking shader {gl.GetProgramInfoLog(_shaderId)}");
-        }
-
-        //Delete the no longer useful individual shaders;
-        gl.DetachShader(_shaderId, vertexShader);
-        gl.DetachShader(_shaderId, fragmentShader);
-        gl.DeleteShader(vertexShader);
-        gl.DeleteShader(fragmentShader);
+        _shader = new Shader(gl,
+            "Content/Shaders/Generic.vert", 
+            "Content/Shaders/White.frag");
     }
-
-    public unsafe void Draw()
+    
+    public unsafe void Draw(Matrix4x4 view, Matrix4x4 projection)
     {
+        _shader.Use();
+        _shader.SetUniform("uModel", ModelMatrix);
+        _shader.SetUniform("uView", view);
+        _shader.SetUniform("uProjection", projection);
+        
         _vertexArrayObject.Bind();
-        _gl.UseProgram(_shaderId);
 
         _gl.DrawElements(
             PrimitiveType.Triangles,

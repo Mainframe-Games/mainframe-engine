@@ -87,7 +87,7 @@ internal class Game
 
         _spineSkeleton = new Skeleton(skeletonData);
         _spineSkeleton.SetSkin(skeletonData.DefaultSkin);
-        _inspectorUI.SpineScale = 0.1f;
+        _inspectorUI.SpineScale = 0.5f;
 
         spineRenderer = new SpineRenderer(Gl, _spineSkeleton, _atlas.Pages[0].pma, textureLoader.Textures[0]);
 
@@ -95,12 +95,6 @@ internal class Game
         var animationStateData = new AnimationStateData(skeletonData);
         _animationState = new AnimationState(animationStateData);
         SetAnimation(_spineSkeleton.Data.Animations.Items[0].Name);
-    }
-
-    private void SetFlip(bool isFlipped)
-    {
-        var scaleXAbs = Math.Abs(_spineSkeleton.ScaleX);
-        _spineSkeleton.ScaleX = isFlipped ? -scaleXAbs : scaleXAbs;
     }
 
     private void SetAnimation(string animationName)
@@ -157,9 +151,6 @@ internal class Game
         Gl.Enable(EnableCap.DepthTest);
         Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         
-        _grid.Draw();
-        _quad.Draw();
-        
         var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
         
         var model =
@@ -172,6 +163,9 @@ internal class Game
             // translation
             * Matrix4x4.CreateTranslation(_spineModelPosition);
 
+        _grid.Draw();
+        _quad.Draw(_cameraOrth.ViewMatrix, _cameraOrth.ProjectionMatrix);
+        
         // bind and render
         _shader.Use();
         _shader.SetUniform("uTexture0", 0);
