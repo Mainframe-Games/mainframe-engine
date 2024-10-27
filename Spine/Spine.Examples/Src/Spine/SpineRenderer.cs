@@ -1,6 +1,8 @@
-﻿using Mainframe.Silk;
+﻿using System.Numerics;
+using Mainframe.Silk;
 using Silk.NET.OpenGL;
 using Spine;
+using Shader = Mainframe.Silk.Shader;
 using Skeleton = Spine.Skeleton;
 using Texture = Mainframe.Silk.Texture;
 
@@ -30,14 +32,19 @@ internal class SpineRenderer
     private readonly bool pma;
     private readonly BufferObject<float> _vertexBuffer;
     private readonly VertexArrayObject<float, uint> vbo;
-
+    
+    public BlendingFactor SrcFactor = BlendingFactor.One;
+    public BlendingFactor DestFactor = BlendingFactor.OneMinusSrcAlpha;
+    
     /// <summary>
     /// Number of draw calls made to GPU
     /// </summary>
     private uint _drawCalls;
+    private Matrix4x4 _modelMatrix;
+    private Matrix4x4 _viewMatrix;
+    private Matrix4x4 _projectionMatrix;
     
-    public BlendingFactor sFactor = BlendingFactor.One;
-    public BlendingFactor dFactor = BlendingFactor.OneMinusSrcAlpha;
+    private readonly Shader _shader;
     
     public SpineRenderer(GL gl, Skeleton skeleton, bool pma, Texture texture)
     {
@@ -53,10 +60,32 @@ internal class SpineRenderer
         vbo.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, VERTEX_COUNT, 0);
         vbo.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, VERTEX_COUNT, 3);
         vbo.VertexAttributePointer(2, 4, VertexAttribPointerType.Float, VERTEX_COUNT, 5);
+        
+        _shader = new Shader(gl,
+            "Content/Shaders/shader.vert",
+            "Content/Shaders/shader.frag");
     }
-    
-    public uint Draw(bool singleDrawCall, float zSpacing = 0.5f)
+
+    /// <summary>
+    /// Renders the spine animation by drawing the skeleton's attachments in the order specified by the draw order array.
+    /// </summary>
+    /// <param name="singleDrawCall">If true, performs the drawing in a single call. If false, draws each attachment separately.</param>
+    /// <param name="zSpacing">The spacing between attachments along the z-axis.</param>
+    /// <param name="model"></param>
+    /// <param name="view">The view matrix applied for rendering.</param>
+    /// <param name="projection">The projection matrix applied for rendering.</param>
+    /// <returns>The number of draw calls made during the rendering process.</returns>
+    public uint Draw(
+        bool singleDrawCall,
+        float zSpacing,
+        Matrix4x4 model,
+        Matrix4x4 view,
+        Matrix4x4 projection)
     {
+        _modelMatrix = model;
+        _viewMatrix = view;
+        _projectionMatrix = projection;
+        
         _drawCalls = 0;
         var vertexIndex = 0;
         var z = 0f; // try settings to -1 as well
@@ -264,10 +293,18 @@ internal class SpineRenderer
 
         return _drawCalls;
     }
-
+    
     private void DrawRegion(float[] vertices, int count, Texture texture)
     {
         texture.Bind();
+        
+        _shader.Use();
+        _shader.SetUniform("uTexture0", 0);
+        _shader.SetUniform("uModel", _modelMatrix);
+        
+        _shader.SetUniform("uView", _viewMatrix);
+        _shader.SetUniform("uProjection", _projectionMatrix);
+        
         vbo.Bind();
         
         _vertexBuffer.Update(vertices);
@@ -280,7 +317,7 @@ internal class SpineRenderer
     private void BeginBlendMode()
     {
         gl.Enable(EnableCap.Blend);
-        gl.BlendFunc(sFactor, dFactor);
+        gl.BlendFunc(SrcFactor, DestFactor);
     }
     
     private void BeginBlendMode(Slot slot)
@@ -291,7 +328,7 @@ internal class SpineRenderer
             switch (slot.Data.BlendMode)
             {
                 case BlendMode.Normal:
-                    gl.BlendFunc(sFactor, dFactor);
+                    gl.BlendFunc(SrcFactor, DestFactor);
                     break;
                 case BlendMode.Additive:
                     break;
@@ -308,7 +345,7 @@ internal class SpineRenderer
             switch (slot.Data.BlendMode)
             {
                 case BlendMode.Normal:
-                    gl.BlendFunc(sFactor, dFactor);
+                    gl.BlendFunc(SrcFactor, DestFactor);
                     break;
                 case BlendMode.Additive:
                     break;

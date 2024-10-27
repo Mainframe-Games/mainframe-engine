@@ -8,19 +8,11 @@ using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
 using SilkSpine.UI;
 using Spine;
-using Shader = Mainframe.Silk.Shader;
 
 namespace SilkSpine;
 
 internal class Game
 {
-    private Atlas _atlas;
-    private Skeleton _spineSkeleton;
-    private AnimationState _animationState;
-
-    private SpineRenderer spineRenderer;
-    private Shader _shader;
-
     private static readonly SpineFolder[] _folders =
     [
         new()
@@ -52,6 +44,12 @@ internal class Game
             TexturePath = "Content/CelestialCircus/celestial-circus-pro.png",
         }
     ];
+    
+    private Atlas _atlas;
+    private Skeleton _spineSkeleton;
+    private AnimationState _animationState;
+    private SpineRenderer _spineRenderer;
+    
     private readonly InspectorUI _inspectorUI = new(_folders);
 
     private IWindow Window { get; set; } = null!;
@@ -61,6 +59,7 @@ internal class Game
     private IKeyboard _keyboard;
     private IMouse _mouse;
     private bool _canMoveCamera;
+    private float _cameraSpeed = 50;
 
     private readonly CameraOrthographic _cameraOrth = new()
     {
@@ -103,7 +102,10 @@ internal class Game
         _inspectorUI.SpineScale = 0.02f;
         _inspectorUI.ZSpacing = 0.01f;
 
-        spineRenderer = new SpineRenderer(Gl, _spineSkeleton, _atlas.Pages[0].pma, textureLoader.Textures[0]);
+        _spineRenderer = new SpineRenderer(Gl, 
+            _spineSkeleton, 
+            _atlas.Pages[0].pma,
+            textureLoader.Textures[0]);
 
         // animations
         var animationStateData = new AnimationStateData(skeletonData);
@@ -137,9 +139,6 @@ internal class Game
         Gl.ClearColor(Color.DarkSlateGray);
         
         ImGuiController = new ImGuiController(Gl, window, InputContext);
-        _shader = new Shader(Gl, 
-            "Content/Shaders/shader.vert",
-            "Content/Shaders/shader.frag");
 
         _grid = new Grid(Gl);
         _quad = new Quad(Gl);
@@ -162,11 +161,12 @@ internal class Game
         _inspectorUI.OnImGui(
             _spineSkeleton,
             CurrentCamera,
+            ref _cameraSpeed,
             ref _spineModelPosition,
             ref _spineModelRotation,
             ref _spineModelScale,
-            ref spineRenderer.sFactor,
-            ref spineRenderer.dFactor,
+            ref _spineRenderer.SrcFactor,
+            ref _spineRenderer.DestFactor,
             deltaTime);
 
         
@@ -197,7 +197,6 @@ internal class Game
             _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         }
         
-        
         var model =
             // scale
             Matrix4x4.CreateScale(_spineModelScale)
@@ -209,14 +208,13 @@ internal class Game
             * Matrix4x4.CreateTranslation(_spineModelPosition);
         
         // bind and render
-        _shader.Use();
-        _shader.SetUniform("uTexture0", 0);
-        _shader.SetUniform("uModel", model);
+        var drawCalls = _spineRenderer.Draw(
+            _inspectorUI.SingleDrawCall,
+            _inspectorUI.ZSpacing,
+            model,
+            CurrentCamera.ViewMatrix,
+            CurrentCamera.ProjectionMatrix);
         
-        _shader.SetUniform("uView", CurrentCamera.ViewMatrix);
-        _shader.SetUniform("uProjection", CurrentCamera.ProjectionMatrix);
-            
-        var drawCalls = spineRenderer.Draw(_inspectorUI.SingleDrawCall, _inspectorUI.ZSpacing);
         _inspectorUI.DrawCallCount = drawCalls;
 
         ImGuiController.Render();
@@ -232,7 +230,7 @@ internal class Game
         InputContext.Dispose();
         Gl.Dispose();
     }
-
+    
     private void UpdateCameraPosition(double deltaTime)
     {
         if (!_canMoveCamera)
@@ -240,7 +238,7 @@ internal class Game
         
         var camera = CurrentCamera;
 
-        var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? 100 : 50;
+        var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
         var moveSpeed = baseSpeed * (float)deltaTime;
 
         // forward

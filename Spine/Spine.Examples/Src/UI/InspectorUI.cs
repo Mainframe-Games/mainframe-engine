@@ -56,6 +56,7 @@ internal class InspectorUI
     
     public void OnImGui(Skeleton skeleton,
         ICamera camera,
+        ref float cameraSpeed,
         ref Vector3 modelPosition,
         ref Vector3 modelRotation,
         ref float modelScale,
@@ -77,7 +78,7 @@ internal class InspectorUI
             BuildAnimNames(skeleton);
             
             ImGui.Separator();
-            DrawCameraOptions(camera);
+            DrawCameraOptions(camera, ref cameraSpeed);
             
             ImGui.Separator();
             DrawSpineOptions(skeleton, ref srcFactor, ref destFactor);
@@ -130,12 +131,13 @@ internal class InspectorUI
             dFactor = Enum.GetValues<BlendingFactor>()[_dIndex];
     }
 
-    private void DrawCameraOptions(ICamera camera)
+    private void DrawCameraOptions(ICamera camera, ref float cameraSpeed)
     {
         ImGui.Text("Camera");
         ImGui.Checkbox("Orthographic Camera", ref UseOrthographicCamera);
 
         var pos = camera.Position;
+        ImGui.SliderFloat("Camera Speed", ref cameraSpeed, 1, 200, "%.1f");
         ImGui.SliderFloat3("Camera Position", ref pos, -1000, 1000, "%.1f");
         if (ImGui.Button("Reset Cam"))
         {
