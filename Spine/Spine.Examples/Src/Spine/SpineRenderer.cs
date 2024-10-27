@@ -271,6 +271,8 @@ internal class SpineRenderer
         vbo.Bind();
         
         _vertexBuffer.Update(vertices);
+        gl.CullFace(TriangleFace.Back);
+        gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
         gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)count);
         _drawCalls++;
     }
