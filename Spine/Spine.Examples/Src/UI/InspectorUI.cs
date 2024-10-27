@@ -134,17 +134,9 @@ internal class InspectorUI
     private void DrawCameraOptions(ICamera camera, ref float cameraSpeed)
     {
         ImGui.Text("Camera");
+        ImGui.Text($"Camera Position: {camera.Position:0.0}");
         ImGui.Checkbox("Orthographic Camera", ref UseOrthographicCamera);
-
-        var pos = camera.Position;
         ImGui.SliderFloat("Camera Speed", ref cameraSpeed, 1, 200, "%.1f");
-        ImGui.SliderFloat3("Camera Position", ref pos, -1000, 1000, "%.1f");
-        if (ImGui.Button("Reset Cam"))
-        {
-            pos = Vector3.Zero;
-        }
-
-        camera.Position = pos;
     }
 
     private void BuildAnimNames(Skeleton skeleton)
