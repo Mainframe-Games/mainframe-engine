@@ -14,6 +14,10 @@ public class Grid
 
     private readonly uint _count;
     
+    public bool Is2D { get; set; }
+
+    private Matrix4x4 ModelMatrix => Matrix4x4.CreateRotationX(Mainframe.Math.DegreesToRadiansF(Is2D ? 90 : 0));
+    
     public unsafe Grid(GL gl)
     {
         _gl = gl;
@@ -69,8 +73,6 @@ public class Grid
             "Content/Shaders/Grid.frag");
     }
     
-    private static readonly Matrix4x4 ModelMatrix = Matrix4x4.CreateTranslation(Vector3.Zero);
-
     public void Draw(Matrix4x4 view, Matrix4x4 projection)
     {
         _gl.Enable(EnableCap.Blend);

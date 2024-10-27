@@ -59,16 +59,16 @@ internal class Game
     private IKeyboard _keyboard;
     private IMouse _mouse;
     private bool _canMoveCamera;
-    private float _cameraSpeed = 50;
+    private float _cameraSpeed = 20;
 
     private readonly CameraOrthographic _cameraOrth = new()
     {
-        Position = new Vector3(0.0f, 5.0f, 0.0f),
-        Zoom = 0.05f
+        Position = new Vector3(0.0f, 0.0f, 0.0f),
+        Zoom = 0.01f
     };
     private readonly CameraPerspective _cameraPer = new()
     {
-        Position = new Vector3(0.0f, 10.0f, 30.0f)
+        Position = new Vector3(0.0f, 2.0f, 5.0f)
     };
     
     private ICamera CurrentCamera => _inspectorUI.UseOrthographicCamera ? _cameraOrth : _cameraPer;
@@ -77,7 +77,7 @@ internal class Game
     private static Vector2 LastMousePosition;
     private Vector3 _spineModelPosition;
     private Vector3 _spineModelRotation;
-    private float _spineModelScale = 1f;
+    private float _spineModelScale = 0.2f;
 
     private Grid _grid;
     private Quad _quad;
@@ -181,7 +181,8 @@ internal class Game
     {
         Gl.Enable(EnableCap.DepthTest);
         Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-        
+
+        _grid.Is2D = _inspectorUI.UseOrthographicCamera;
         _grid.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         
         var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
@@ -189,12 +190,12 @@ internal class Game
         if (_inspectorUI.UseOrthographicCamera)
         {
             _cameraOrth.Size = frameBufferSize;
-            _quad.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+            // _quad.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         }
         else
         {
             _cameraPer.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
-            _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+            // _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         }
         
         var model =
