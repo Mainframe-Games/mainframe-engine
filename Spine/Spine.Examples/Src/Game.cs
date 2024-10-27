@@ -58,9 +58,19 @@ internal class Game
     private IInputContext InputContext { get; set; } = null!;
     private GL Gl { get; set; } = null!;
     private ImGuiController ImGuiController { get; set; } = null!;
+    private IKeyboard _keyboard;
 
-    private readonly CameraOrthographic _cameraOrth = new();
-    private readonly CameraPerspective _cameraPer = new();
+    private readonly CameraOrthographic _cameraOrth = new()
+    {
+        Position = new Vector3(0.0f, 35.0f, 0.0f),
+        Zoom = 0.1f
+    };
+    private readonly CameraPerspective _cameraPer = new()
+    {
+        Position = new Vector3(0.0f, 50.0f, 200.0f)
+    };
+    
+    private ICamera CurrentCamera => _inspectorUI.UseOrthographicCamera ? _cameraOrth : _cameraPer;
 
     //Used to track change in mouse movement to allow for moving of the Camera
     private static Vector2 LastMousePosition;
@@ -70,6 +80,7 @@ internal class Game
 
     private Grid _grid;
     private Quad _quad;
+    private Box3d _box3d;
     
     public Game()
     {
@@ -87,7 +98,7 @@ internal class Game
 
         _spineSkeleton = new Skeleton(skeletonData);
         _spineSkeleton.SetSkin(skeletonData.DefaultSkin);
-        _inspectorUI.SpineScale = 0.5f;
+        _inspectorUI.SpineScale = 0.1f;
 
         spineRenderer = new SpineRenderer(Gl, _spineSkeleton, _atlas.Pages[0].pma, textureLoader.Textures[0]);
 
@@ -108,10 +119,12 @@ internal class Game
         Window = window;
 
         InputContext = window.CreateInput();
+        _keyboard = InputContext.Keyboards[0];
         for (int i = 0; i < InputContext.Keyboards.Count; i++)
         {
             InputContext.Keyboards[i].KeyDown += OnKeyDown;
             InputContext.Mice[i].Scroll += OnScroll;
+            InputContext.Mice[i].MouseMove += OnMouseMove;
         }
 
         //Getting the opengl api for drawing to the screen.
@@ -124,6 +137,7 @@ internal class Game
 
         _grid = new Grid(Gl, 10);
         _quad = new Quad(Gl);
+        _box3d = new Box3d(Gl);
         OnModelChanged(_folders[0]);
     }
 
@@ -136,8 +150,19 @@ internal class Game
 
     public void OnUpdate(double deltaTime)
     {
+        UpdateCameraPosition(deltaTime);
         ImGuiController.Update((float)deltaTime);
-        OnImGui(deltaTime);
+        
+        _inspectorUI.OnImGui(
+            _spineSkeleton,
+            CurrentCamera,
+            ref _spineModelPosition,
+            ref _spineModelRotation,
+            ref _spineModelScale,
+            ref spineRenderer.sFactor,
+            ref spineRenderer.dFactor,
+            deltaTime);
+
         
         SetSpineScale();
         
@@ -164,7 +189,8 @@ internal class Game
             * Matrix4x4.CreateTranslation(_spineModelPosition);
 
         _grid.Draw();
-        _quad.Draw(_cameraOrth.ViewMatrix, _cameraOrth.ProjectionMatrix);
+        // _quad.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+        _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         
         // bind and render
         _shader.Use();
@@ -174,34 +200,19 @@ internal class Game
         if (_inspectorUI.UseOrthographicCamera)
         {
             _cameraOrth.Size = frameBufferSize;
-            _cameraOrth.Position = new Vector3(0.0f, 150.0f, 10.0f);
-            
-            _shader.SetUniform("uView", _cameraOrth.ViewMatrix);
-            _shader.SetUniform("uProjection", _cameraOrth.ProjectionMatrix);
         }
         else
         {
-            _cameraPer.Position = new Vector3(0.0f, 50.0f, 200.0f);
             _cameraPer.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
-            _shader.SetUniform("uView", _cameraPer.ViewMatrix);
-            _shader.SetUniform("uProjection", _cameraPer.ProjectionMatrix);
         }
+        
+        _shader.SetUniform("uView", CurrentCamera.ViewMatrix);
+        _shader.SetUniform("uProjection", CurrentCamera.ProjectionMatrix);
             
         var drawCalls = spineRenderer.Draw(_inspectorUI.SingleDrawCall, _inspectorUI.ZSpacing);
         _inspectorUI.DrawCallCount = drawCalls;
 
         ImGuiController.Render();
-    }
-
-    private void OnImGui(double deltaTime)
-    {
-        _inspectorUI.OnImGui(_spineSkeleton, 
-            ref _spineModelPosition,
-            ref _spineModelRotation,
-            ref _spineModelScale,
-            ref spineRenderer.sFactor,
-            ref spineRenderer.dFactor,
-            deltaTime);
     }
 
     public void OnFramebufferResize(Vector2D<int> newSize)
@@ -215,10 +226,51 @@ internal class Game
         Gl.Dispose();
     }
 
+    private void UpdateCameraPosition(double deltaTime)
+    {
+        if (CurrentCamera is not CameraPerspective camera)
+            return;
+
+        var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? 200 : 100;
+        var moveSpeed = baseSpeed * (float)deltaTime;
+
+        // forward
+        if (_keyboard.IsKeyPressed(Key.W))
+            camera.Position += moveSpeed * camera.Forward;
+        
+        // back
+        if (_keyboard.IsKeyPressed(Key.S))
+            camera.Position -= moveSpeed * camera.Forward;
+        
+        // left
+        if (_keyboard.IsKeyPressed(Key.A))
+            camera.Position -=
+                Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+        
+        // right
+        if (_keyboard.IsKeyPressed(Key.D))
+            camera.Position +=
+                Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+        
+        // up
+        if (_keyboard.IsKeyPressed(Key.Q))
+            camera.Position -= camera.Up * moveSpeed;
+
+        // down
+        if (_keyboard.IsKeyPressed(Key.E))
+            camera.Position += camera.Up * moveSpeed;
+    }
+
     #region Inputs
     
     private void OnKeyDown(IKeyboard keyboard, Key key, int arg3)
     {
+        if (key is Key.AltLeft)
+        {
+            var cursor = InputContext.Mice[0].Cursor;
+            cursor.CursorMode = cursor.CursorMode is CursorMode.Raw ? CursorMode.Normal : CursorMode.Raw;
+        }
+        
         if (key == Key.Escape)
             Window.Close();
     }
@@ -228,6 +280,26 @@ internal class Game
         // _spineModelScale = Math.Clamp(_spineModelScale + delta.Y * 0.1f, 0.1f, 10);
         // _cameraOrth.ModifyZoom(delta.Y);
         // _cameraPer.ModifyZoom(-delta.Y * 2f);
+    }
+    
+    private void OnMouseMove(IMouse mouse, Vector2 position)
+    {
+        if (CurrentCamera is not CameraPerspective camera)
+            return;
+        
+        const float lookSensitivity = 0.1f;
+        if (LastMousePosition == default)
+        {
+            LastMousePosition = position;
+        }
+        else
+        {
+            var xOffset = (position.X - LastMousePosition.X) * lookSensitivity;
+            var yOffset = (position.Y - LastMousePosition.Y) * lookSensitivity;
+            LastMousePosition = position;
+
+            camera.ModifyDirection(xOffset, yOffset);
+        }
     }
 
     #endregion

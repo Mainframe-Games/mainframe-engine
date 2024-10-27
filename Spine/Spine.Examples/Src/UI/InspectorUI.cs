@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using ImGuiNET;
+using Mainframe.Silk;
 using Silk.NET.OpenGL;
 using Spine;
 
@@ -53,13 +54,13 @@ internal class InspectorUI
     private static readonly string[] _dFactors = Enum.GetNames<BlendingFactor>();
     private int _dIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.OneMinusSrcAlpha);
     
-    public void OnImGui(
-        Skeleton skeleton,
+    public void OnImGui(Skeleton skeleton,
+        ICamera camera,
         ref Vector3 modelPosition,
         ref Vector3 modelRotation,
         ref float modelScale,
-        ref BlendingFactor sFactor,
-        ref BlendingFactor dFactor,
+        ref BlendingFactor srcFactor,
+        ref BlendingFactor destFactor,
         double deltaTime)
     {
         var io = ImGui.GetIO();
@@ -76,50 +77,72 @@ internal class InspectorUI
             BuildAnimNames(skeleton);
             
             ImGui.Separator();
-            ImGui.Text("Camera");
-            ImGui.Checkbox("Orthographic Camera", ref UseOrthographicCamera);
+            DrawCameraOptions(camera);
+            
+            ImGui.Separator();
+            DrawSpineOptions(skeleton, ref srcFactor, ref destFactor);
 
             ImGui.Separator();
-            ImGui.Text("Spine Options");
-            ImGui.Checkbox("Update Physics", ref UpdatePhysics);
-            
-            if (ImGui.Combo("File", ref _modelIndex, _modelNames, _modelNames.Length))
-                OnModelChanged?.Invoke(_folders[_modelIndex]);
-            
-            if (ImGui.Combo("Animation", ref _animationIndex, _animNames, skeleton.Data.Animations.Count))
-                OnAnimationChanged?.Invoke(_animNames[_animationIndex]);
-
-            ImGui.Checkbox("Flip X", ref IsFlipped);
-            
-            ImGui.SliderFloat("Spine Scale", ref SpineScale, 0.01f, 2f, "%.2f");
-            ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 10f, "%.1f");
+            DrawTransformOptions(ref modelPosition, ref modelRotation, ref modelScale);
 
             ImGui.Separator();
-            ImGui.Text("Transform");
-            {
-                ImGui.SliderFloat3("Position", ref modelPosition, -100, 100, "%.2f");
-                ImGui.SliderFloat3("Rotation", ref modelRotation, -180, 180, "%.2f");
-                ImGui.SliderFloat("Scale", ref modelScale, 0.01f, 5, "%.2f");
-                if (ImGui.Button("Reset"))
-                {
-                    modelPosition = Vector3.Zero;
-                    modelRotation = Vector3.Zero;
-                    modelScale = 1;
-                }
-            }
-            
-            ImGui.Separator();
-            ImGui.Text("Blend Mode");
-            if (ImGui.Combo("Src", ref _sIndex, _sFactors, _sFactors.Length, 10))
-                sFactor = Enum.GetValues<BlendingFactor>()[_sIndex];
-            if (ImGui.Combo("Dst", ref _dIndex, _dFactors, _dFactors.Length, 10))
-                dFactor = Enum.GetValues<BlendingFactor>()[_dIndex];
-            
-            ImGui.Separator();
-            ImGui.Checkbox("Single DrawCall", ref SingleDrawCall);
-            ImGui.Value("DrawCalls", DrawCallCount);
+
         }
         ImGui.End();
+    }
+
+    private static void DrawTransformOptions(ref Vector3 modelPosition, ref Vector3 modelRotation, ref float modelScale)
+    {
+        ImGui.Text("Transform");
+        ImGui.SliderFloat3("Position", ref modelPosition, -100, 100, "%.2f");
+        ImGui.SliderFloat3("Rotation", ref modelRotation, -180, 180, "%.2f");
+        ImGui.SliderFloat("Scale", ref modelScale, 0.01f, 5, "%.2f");
+        if (ImGui.Button("Reset Transform"))
+        {
+            modelPosition = Vector3.Zero;
+            modelRotation = Vector3.Zero;
+            modelScale = 1;
+        }
+    }
+
+    private void DrawSpineOptions(Skeleton skeleton, ref BlendingFactor sFactor, ref BlendingFactor dFactor)
+    {
+        ImGui.Text("Spine Options");
+            
+        if (ImGui.Combo("File", ref _modelIndex, _modelNames, _modelNames.Length))
+            OnModelChanged?.Invoke(_folders[_modelIndex]);
+            
+        if (ImGui.Combo("Animation", ref _animationIndex, _animNames, skeleton.Data.Animations.Count))
+            OnAnimationChanged?.Invoke(_animNames[_animationIndex]);
+
+        ImGui.Checkbox("Update Physics", ref UpdatePhysics);
+        ImGui.Checkbox("Flip X", ref IsFlipped);
+        ImGui.Checkbox("Single DrawCall", ref SingleDrawCall);
+        ImGui.Value("DrawCalls", DrawCallCount);
+            
+        ImGui.SliderFloat("Spine Scale", ref SpineScale, 0.01f, 2f, "%.2f");
+        ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 10f, "%.1f");
+        
+        ImGui.Text("Blend Mode");
+        if (ImGui.Combo("Src", ref _sIndex, _sFactors, _sFactors.Length, 10))
+            sFactor = Enum.GetValues<BlendingFactor>()[_sIndex];
+        if (ImGui.Combo("Dst", ref _dIndex, _dFactors, _dFactors.Length, 10))
+            dFactor = Enum.GetValues<BlendingFactor>()[_dIndex];
+    }
+
+    private void DrawCameraOptions(ICamera camera)
+    {
+        ImGui.Text("Camera");
+        ImGui.Checkbox("Orthographic Camera", ref UseOrthographicCamera);
+
+        var pos = camera.Position;
+        ImGui.SliderFloat3("Camera Position", ref pos, -1000, 1000, "%.1f");
+        if (ImGui.Button("Reset Cam"))
+        {
+            pos = Vector3.Zero;
+        }
+
+        camera.Position = pos;
     }
 
     private void BuildAnimNames(Skeleton skeleton)
