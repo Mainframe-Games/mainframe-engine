@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Numerics;
+using ImGuiNET;
 using Mainframe.Silk;
 using Silk.NET.Input;
 using Silk.NET.Maths;
@@ -104,7 +105,8 @@ internal class Game
 
         _spineRenderer = new SpineRenderer(Gl,
             _spineSkeleton, 
-            _atlas.Pages[0].pma,
+            // _atlas.Pages[0].pma,
+            false,
             textureLoader.Textures);
 
         // animations
@@ -306,10 +308,13 @@ internal class Game
     
     private void OnMouseScroll(IMouse mouse, ScrollWheel delta)
     {
+        if (ImGui.GetIO().WantCaptureMouse)
+            return;
+        
         if (CurrentCamera is not CameraOrthographic camera)
             return;
         
-        camera.ModifyZoom(-delta.Y * 0.1f);
+        camera.ModifyZoom(-delta.Y * 0.05f);
     }
 
     private void OnMouseDown(IMouse mouse, MouseButton button)

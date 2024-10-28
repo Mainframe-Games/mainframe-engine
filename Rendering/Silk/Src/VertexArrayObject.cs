@@ -46,6 +46,26 @@ public class VertexArrayObject<TVertexType, TIndexType> : IDisposable
         );
         _gl.EnableVertexAttribArray(index);
     }
+    
+    public unsafe void VertexAttributePointer2(
+        uint index,
+        int count,
+        VertexAttribPointerType type,
+        uint stride,
+        int offset
+    )
+    {
+        //Setting up a vertex attribute pointer
+        _gl.VertexAttribPointer(
+            index,
+            count,
+            type,
+            false,
+            stride,
+            (void*)offset
+        );
+        _gl.EnableVertexAttribArray(index);
+    }
 
     public void Bind()
     {

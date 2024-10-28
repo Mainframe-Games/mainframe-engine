@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.InteropServices;
 using Mainframe.Silk;
 using Silk.NET.OpenGL;
 using Spine;
@@ -10,30 +11,20 @@ namespace SilkSpine;
 
 internal class SpineRenderer
 {
-    private const int MAX_VERTICES_PER_ATTACHMENT = 2048*2;
+    private const int MAX_VERTICES_PER_ATTACHMENT = 2048;
     private readonly float[] _worldVerticesPositions = new float[MAX_VERTICES_PER_ATTACHMENT];
     
-    /// <summary>
-    /// number of floats within the vertex
-    /// </summary>
-    private const int VERTEX_COUNT = 10; 
-    private readonly float[] _vertices = new float[MAX_VERTICES_PER_ATTACHMENT * VERTEX_COUNT];
+    private readonly Vertex[] _vertices = new Vertex[4096];
     private static readonly uint[] _indexArray = [0, 1, 2, 4];
 
-    /// <summary>
-    /// Configure spine to draw double faced and to minimize zfigting artifacts
-    /// </summary>
-    public bool SP_DRAW_DOUBLE_FACED { get; set; }
-    public bool SP_RENDER_WIREFRAME { get; set; }
-    
     public BlendingFactor SrcFactor = BlendingFactor.One;
     public BlendingFactor DestFactor = BlendingFactor.OneMinusSrcAlpha;
 
     private readonly GL _gl;
     private readonly Skeleton _skeleton;
     private readonly bool _pma;
-    private readonly BufferObject<float> _vertexBuffer;
-    private readonly VertexArrayObject<float, uint> _vbo;
+    private readonly BufferObject<Vertex> _vertexBuffer;
+    private readonly VertexArrayObject<Vertex, uint> _vbo;
     private readonly Shader _shader;
     private readonly List<Texture> _textures;
 
@@ -41,6 +32,14 @@ internal class SpineRenderer
     private Matrix4x4 _modelMatrix;
     private Matrix4x4 _viewMatrix;
     private Matrix4x4 _projectionMatrix;
+
+    private struct Vertex
+    {
+        public Vector3 Position;
+        public Vector2 Uv;
+        public Vector4 Color;
+        public float TextureIndex;
+    }
     
     public SpineRenderer(GL gl, Skeleton skeleton, bool pma, List<Texture> textures)
     {
@@ -49,14 +48,15 @@ internal class SpineRenderer
         _pma = pma;
         _textures = textures;
 
-        _vertexBuffer = new BufferObject<float>(gl, [], BufferTargetARB.ArrayBuffer);
+        _vertexBuffer = new BufferObject<Vertex>(gl, null, BufferTargetARB.ArrayBuffer);
         var indexBuffer = new BufferObject<uint>(gl, _indexArray, BufferTargetARB.ElementArrayBuffer);
-        _vbo = new VertexArrayObject<float, uint>(gl, _vertexBuffer, indexBuffer);
-        
-        _vbo.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, VERTEX_COUNT, 0);
-        _vbo.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, VERTEX_COUNT, 3);
-        _vbo.VertexAttributePointer(2, 4, VertexAttribPointerType.Float, VERTEX_COUNT, 5);
-        _vbo.VertexAttributePointer(3, 1, VertexAttribPointerType.Float, VERTEX_COUNT, 9);
+        _vbo = new VertexArrayObject<Vertex, uint>(gl, _vertexBuffer, indexBuffer);
+
+        var stride = (uint)Marshal.SizeOf<Vertex>();
+        _vbo.VertexAttributePointer2(0, 3, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Position)));
+        _vbo.VertexAttributePointer2(1, 2, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Uv)));
+        _vbo.VertexAttributePointer2(2, 4, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Color)));
+        _vbo.VertexAttributePointer2(3, 1, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.TextureIndex)));
         
         _shader = new Shader(gl,
             "Content/Shaders/Spine.vert",
@@ -272,7 +272,7 @@ internal class SpineRenderer
         EndBlendMode();
     }
     
-    private void DrawCall(float[] vertices, int count)
+    private void DrawCall(Span<Vertex> vertices, int count)
     {
         for (int i = 0; i < _textures.Count; i++)
             _textures[i].BindTextureUnit((uint)i);
@@ -280,7 +280,6 @@ internal class SpineRenderer
         _shader.Use();
         _shader.SetUniform("uTextures", [0, 1]);
         _shader.SetUniform("uModel", _modelMatrix);
-        
         _shader.SetUniform("uView", _viewMatrix);
         _shader.SetUniform("uProjection", _projectionMatrix);
         
@@ -290,53 +289,16 @@ internal class SpineRenderer
         _gl.CullFace(TriangleFace.Back);
         _gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
         _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)count);
+        // _gl.DrawElements(PrimitiveType.Triangles, (uint)_indexArray.Length, DrawElementsType.UnsignedInt, null);
     }
 
     private void BeginBlendMode()
     {
         _gl.Enable(EnableCap.Blend);
         _gl.BlendFunc(SrcFactor, DestFactor);
+        _gl.BlendEquation(GLEnum.FuncAdd);
     }
     
-    private void BeginBlendMode(Slot slot)
-    {
-        _gl.Enable(EnableCap.Blend);
-        if (_pma)
-        {
-            switch (slot.Data.BlendMode)
-            {
-                case BlendMode.Normal:
-                    _gl.BlendFunc(SrcFactor, DestFactor);
-                    break;
-                case BlendMode.Additive:
-                    break;
-                case BlendMode.Multiply:
-                    break;
-                case BlendMode.Screen:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-        else
-        {
-            switch (slot.Data.BlendMode)
-            {
-                case BlendMode.Normal:
-                    _gl.BlendFunc(SrcFactor, DestFactor);
-                    break;
-                case BlendMode.Additive:
-                    break;
-                case BlendMode.Multiply:
-                    break;
-                case BlendMode.Screen:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-    }
-
     private void EndBlendMode()
     {
         _gl.Disable(EnableCap.Blend);
@@ -356,26 +318,13 @@ internal class SpineRenderer
         ref int vertexIndex
     )
     {
-        var vertexPos = vertexIndex * VERTEX_COUNT;
-        
-        // pos
-        _vertices[vertexPos + 0] = x;
-        _vertices[vertexPos + 1] = y;
-        _vertices[vertexPos + 2] = z;
-
-        // uv
-        _vertices[vertexPos + 3] = u;
-        _vertices[vertexPos + 4] = v;
-
-        // color
-        _vertices[vertexPos + 5] = r;
-        _vertices[vertexPos + 6] = g;
-        _vertices[vertexPos + 7] = b;
-        _vertices[vertexPos + 8] = a;
-        
-        // texture index
-        _vertices[vertexPos + 9] = textureIndex;
-        
-        vertexIndex++;
+        var vertex = new Vertex
+        {
+            Position = new Vector3(x, y, z),
+            Uv = new Vector2(u, v),
+            Color = new Vector4(r, g, b, a),
+            TextureIndex = textureIndex
+        };
+        _vertices[vertexIndex++] = vertex;
     }
 }
