@@ -15,8 +15,8 @@ public class Shader : IDisposable
         _gl = gl;
 
         //Load the individual shaders.
-        uint vertex = LoadShader(ShaderType.VertexShader, vertexPath);
-        uint fragment = LoadShader(ShaderType.FragmentShader, fragmentPath);
+        var vertex = LoadShader(ShaderType.VertexShader, vertexPath);
+        var fragment = LoadShader(ShaderType.FragmentShader, fragmentPath);
         //Create the shader program.
         _handle = _gl.CreateProgram();
         //Attach the individual shaders.
@@ -44,11 +44,22 @@ public class Shader : IDisposable
         _gl.UseProgram(_handle);
     }
 
+    public void SetUniform(string name, ReadOnlySpan<int> value)
+    {
+        //Setting a uniform on a shader using a name.
+        var location = _gl.GetUniformLocation(_handle, name);
+        if (location == -1) //If GetUniformLocation returns -1 the uniform is not found.
+        {
+            throw new Exception($"{name} uniform not found on shader.");
+        }
+        _gl.Uniform1(location, value);
+    }
+
     //Uniforms are properties that applies to the entire geometry
     public void SetUniform(string name, int value)
     {
         //Setting a uniform on a shader using a name.
-        int location = _gl.GetUniformLocation(_handle, name);
+        var location = _gl.GetUniformLocation(_handle, name);
         if (location == -1) //If GetUniformLocation returns -1 the uniform is not found.
         {
             throw new Exception($"{name} uniform not found on shader.");
@@ -58,7 +69,7 @@ public class Shader : IDisposable
 
     public void SetUniform(string name, float value)
     {
-        int location = _gl.GetUniformLocation(_handle, name);
+        var location = _gl.GetUniformLocation(_handle, name);
         if (location == -1)
         {
             throw new Exception($"{name} uniform not found on shader.");
@@ -69,7 +80,7 @@ public class Shader : IDisposable
     public unsafe void SetUniform(string name, Matrix4x4 value)
     {
         //A new overload has been created for setting a uniform so we can use the transform in our shader.
-        int location = _gl.GetUniformLocation(_handle, name);
+        var location = _gl.GetUniformLocation(_handle, name);
         if (location == -1)
         {
             throw new Exception($"{name} uniform not found on shader.");
@@ -79,7 +90,7 @@ public class Shader : IDisposable
 
     public void SetUniform(string name, Vector3 value)
     {
-        int location = _gl.GetUniformLocation(_handle, name);
+        var location = _gl.GetUniformLocation(_handle, name);
         if (location == -1)
         {
             throw new Exception($"{name} uniform not found on shader.");
@@ -101,11 +112,11 @@ public class Shader : IDisposable
         //3) Upload the source to opengl.
         //4) Compile the shader.
         //5) Check for errors.
-        string src = File.ReadAllText(path);
-        uint handle = _gl.CreateShader(type);
+        var src = File.ReadAllText(path);
+        var handle = _gl.CreateShader(type);
         _gl.ShaderSource(handle, src);
         _gl.CompileShader(handle);
-        string infoLog = _gl.GetShaderInfoLog(handle);
+        var infoLog = _gl.GetShaderInfoLog(handle);
         if (!string.IsNullOrWhiteSpace(infoLog))
         {
             throw new Exception(

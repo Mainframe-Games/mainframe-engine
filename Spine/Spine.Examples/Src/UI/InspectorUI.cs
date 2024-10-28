@@ -31,12 +31,10 @@ internal class InspectorUI
     public float SpineScale;
     
     public int Width { get; } = 300;
-    public bool SingleDrawCall = true;
 
     public bool UseOrthographicCamera = true;
     public float ZSpacing = 0.5f;
     public bool UpdatePhysics;
-    public uint DrawCallCount { get; set; }
 
     public InspectorUI(SpineFolder[] folders)
     {
@@ -118,8 +116,6 @@ internal class InspectorUI
 
         ImGui.Checkbox("Update Physics", ref UpdatePhysics);
         ImGui.Checkbox("Flip X", ref IsFlipped);
-        ImGui.Checkbox("Single DrawCall", ref SingleDrawCall);
-        ImGui.Value("DrawCalls", DrawCallCount);
             
         ImGui.SliderFloat("Spine Scale", ref SpineScale, 0.02f, 1f, "%.2f");
         ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 0.5f, "%.2f");

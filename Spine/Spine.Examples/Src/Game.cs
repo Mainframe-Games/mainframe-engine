@@ -102,10 +102,10 @@ internal class Game
         _inspectorUI.SpineScale = 0.02f;
         _inspectorUI.ZSpacing = 0.01f;
 
-        _spineRenderer = new SpineRenderer(Gl, 
+        _spineRenderer = new SpineRenderer(Gl,
             _spineSkeleton, 
             _atlas.Pages[0].pma,
-            textureLoader.Textures[0]);
+            textureLoader.Textures);
 
         // animations
         var animationStateData = new AnimationStateData(skeletonData);
@@ -209,15 +209,12 @@ internal class Game
             * Matrix4x4.CreateTranslation(_spineModelPosition);
         
         // bind and render
-        var drawCalls = _spineRenderer.Draw(
-            _inspectorUI.SingleDrawCall,
+        _spineRenderer.Draw(
             _inspectorUI.ZSpacing,
             model,
             CurrentCamera.ViewMatrix,
             CurrentCamera.ProjectionMatrix);
         
-        _inspectorUI.DrawCallCount = drawCalls;
-
         ImGuiController.Render();
     }
 

@@ -10,6 +10,7 @@ public class Texture : IDisposable
     private readonly uint _handle;
     private readonly GL _gl;
 
+    public uint Id => _handle;
     public string Path { get; set; }
     public TextureType Type { get; }
     public int Width { get; }
@@ -89,6 +90,11 @@ public class Texture : IDisposable
         //When we bind a texture we can choose which textureslot we can bind it to.
         _gl.ActiveTexture(textureSlot);
         _gl.BindTexture(TextureTarget.Texture2D, _handle);
+    }
+
+    public void BindTextureUnit(uint index)
+    {
+        _gl.BindTextureUnit(index, _handle);
     }
 
     public void Dispose()
