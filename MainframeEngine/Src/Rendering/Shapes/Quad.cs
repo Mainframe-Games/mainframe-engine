@@ -1,9 +1,7 @@
 ﻿using System.Numerics;
-using MainframeEngine;
 using Silk.NET.OpenGL;
-using Shader = MainframeEngine.Shader;
 
-namespace SilkSpine;
+namespace MainframeEngine;
 
 public class Quad : ShapeBase
 {
@@ -43,8 +41,8 @@ public class Quad : ShapeBase
             0);
         
         _shader = new Shader(gl,
-            "Content/Shaders/Generic.vert", 
-            "Content/Shaders/White.frag");
+            "Content/Shaders/Shapes/Shapes.vert", 
+            "Content/Shaders/Shapes/Shapes.frag");
 
         Scale = new Vector3(1, 1, 0);
     }

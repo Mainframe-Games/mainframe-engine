@@ -1,9 +1,7 @@
 ﻿using System.Numerics;
-using MainframeEngine;
 using Silk.NET.OpenGL;
-using Shader = MainframeEngine.Shader;
 
-namespace SilkSpine;
+namespace MainframeEngine;
 
 public class Box3d : ShapeBase
 {
@@ -81,8 +79,8 @@ public class Box3d : ShapeBase
         _vertexArray.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, 5, 3);
 
         _shader = new Shader(gl,
-            "Content/Shaders/Generic.vert", 
-            "Content/Shaders/White.frag");
+            "Content/Shaders/Shapes/Shapes.vert", 
+            "Content/Shaders/Shapes/Shapes.frag");
     }
 
     public void Draw(Matrix4x4 view, Matrix4x4 projection)

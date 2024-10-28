@@ -7,9 +7,9 @@ using Shader = MainframeEngine.Shader;
 using Skeleton = Spine.Skeleton;
 using Texture = MainframeEngine.Texture;
 
-namespace SilkSpine;
+namespace MainframeEngine;
 
-internal class SpineRenderer
+public class SpineRenderer
 {
     private const int MAX_VERTICES_PER_ATTACHMENT = 2048;
     private readonly float[] _worldVerticesPositions = new float[MAX_VERTICES_PER_ATTACHMENT];

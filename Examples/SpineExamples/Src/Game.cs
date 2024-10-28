@@ -95,7 +95,7 @@ internal class Game
     private void OnModelChanged(SpineFolder folder)
     {
         // load atlas
-        var textureLoader = new SpineSilkTextureLoader(Gl);
+        var textureLoader = new SpineTextureLoader(Gl);
         _atlas = new Atlas(folder.AtlasPath, textureLoader);
         var json = new SkeletonJson(_atlas);
         var skeletonData = json.ReadSkeletonData(folder.JsonPath);

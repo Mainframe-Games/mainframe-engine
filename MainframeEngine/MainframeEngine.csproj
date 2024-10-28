@@ -26,12 +26,19 @@
     
     <!-- Local References -->
     <ItemGroup>
+      <ProjectReference Include="..\Plugins\Spine\Spine.csproj" />
       <ProjectReference Include="..\Spine\Spine\Spine.csproj" />
     </ItemGroup>
 
     <!-- Copy everything in content folder to build destination -->
     <ItemGroup>
       <None Update="Content\**">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="Content\Shaders\Shapes\Shapes.vert">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="Content\Shaders\Shapes\Shapes.frag">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
     </ItemGroup>

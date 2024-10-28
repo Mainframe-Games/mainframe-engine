@@ -1,7 +1,6 @@
 ﻿using System.Numerics;
-using Math = MainframeEngine.Math;
 
-namespace SilkSpine;
+namespace MainframeEngine;
 
 public abstract class ShapeBase
 {

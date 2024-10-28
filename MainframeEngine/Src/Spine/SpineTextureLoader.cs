@@ -1,10 +1,9 @@
 ﻿using Silk.NET.OpenGL;
 using Spine;
-using Texture = MainframeEngine.Texture;
 
-namespace SilkSpine;
+namespace MainframeEngine;
 
-internal class SpineSilkTextureLoader(GL gl) : TextureLoader
+public class SpineTextureLoader(GL gl) : TextureLoader
 {
     public List<Texture> Textures { get; } = [];
 
