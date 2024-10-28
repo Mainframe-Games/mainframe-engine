@@ -59,8 +59,8 @@ public class SpineRenderer
         _vbo.VertexAttributePointer2(3, 1, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.TextureIndex)));
         
         _shader = new Shader(gl,
-            "Content/Shaders/Spine.vert",
-            "Content/Shaders/Spine.frag");
+            "Content/Shaders/Spine/Spine.vert",
+            "Content/Shaders/Spine/Spine.frag");
     }
 
     /// <summary>
