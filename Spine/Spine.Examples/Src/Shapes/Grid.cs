@@ -2,6 +2,8 @@
 using System.Runtime.InteropServices;
 using Mainframe.Silk;
 using Silk.NET.OpenGL;
+using Silk.NET.SDL;
+using Color = System.Drawing.Color;
 using Shader = Mainframe.Silk.Shader;
 
 namespace SilkSpine;
@@ -19,9 +21,22 @@ public class Grid
 
     private Matrix4x4 ModelMatrix => Matrix4x4.CreateRotationX(Mainframe.Math.DegreesToRadiansF(Is2D ? 90 : 0));
 
-    private struct Vertex
+    private struct Vertex()
     {
         public Vector3 Position;
+        public Vector4 Color = new(1, 1, 1, 0.1f);
+    }
+
+    private static Vertex CreateVertex(float x, float y, float z)
+    {
+        var v = new Vertex { Position = new Vector3(x, y, z) };
+        if (Vector3.Normalize(v.Position) == Vector3.UnitX)
+            v.Color = new Vector4(1, 0, 0, 1); // red
+        if (Vector3.Normalize(v.Position) == Vector3.UnitY)
+            v.Color = new Vector4(1, 1, 0, 1); // yellow
+        if (Vector3.Normalize(v.Position) == Vector3.UnitZ)
+            v.Color = new Vector4(0, 0, 1, 1); // blue
+        return v;
     }
     
     public unsafe Grid(GL gl, uint gridSize = 200)
@@ -38,28 +53,8 @@ public class Grid
         var j = gridSizeHalf;
         while (count <= gridSize)
         {
-            // vertex 1
-            vertices[vIndex++] = new Vertex
-            {
-                Position = new Vector3
-                {
-                    X = gridSizeHalf * 1,
-                    Y = 0,
-                    Z = -(j * 1)
-                }
-            };
-            
-            // vertex 2
-            vertices[vIndex++] = new Vertex
-            {
-                Position = new Vector3
-                {
-                    X = -(gridSizeHalf * 1),
-                    Y = 0,
-                    Z = -(j * 1)
-                }
-            };
-            
+            vertices[vIndex++] = CreateVertex(gridSizeHalf * 1, 0, -(j * 1));
+            vertices[vIndex++] = CreateVertex(-(gridSizeHalf * 1), 0, -(j * 1));
             j--;
             count++;
         }
@@ -68,28 +63,8 @@ public class Grid
         count = 0;
         while (count <= gridSize)
         {
-            // vertex 1
-            vertices[vIndex++] = new Vertex
-            {
-                Position = new Vector3
-                {
-                    X = -(j * 1),
-                    Y = 0,
-                    Z = -gridSizeHalf * 1
-                }
-            };
-            
-            // vertex 2
-            vertices[vIndex++] = new Vertex
-            {
-                Position = new Vector3
-                {
-                    X = -(j * 1),
-                    Y = 0,
-                    Z = gridSizeHalf * 1
-                }
-            };
-            
+            vertices[vIndex++] = CreateVertex(-(j * 1), 0, -gridSizeHalf * 1);
+            vertices[vIndex++] = CreateVertex(-(j * 1), 0, gridSizeHalf * 1);
             j--;
             count++;
         }
@@ -105,9 +80,18 @@ public class Grid
             VertexAttribPointerType.Float,
             false,
             (uint)Marshal.SizeOf<Vertex>(),
-            null
+            (void*)Marshal.OffsetOf<Vertex>(nameof(Vertex.Position))
         );
         _gl.EnableVertexAttribArray(0);
+        _gl.VertexAttribPointer(
+            1,
+            4,
+            VertexAttribPointerType.Float,
+            false,
+            (uint)Marshal.SizeOf<Vertex>(),
+            (void*)Marshal.OffsetOf<Vertex>(nameof(Vertex.Color))
+        );
+        _gl.EnableVertexAttribArray(1);
         
         _shader = new Shader(gl,
             "Content/Shaders/Grid.vert", 
