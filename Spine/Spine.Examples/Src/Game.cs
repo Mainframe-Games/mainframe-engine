@@ -80,7 +80,8 @@ internal class Game
     private Vector3 _spineModelRotation;
     private float _spineModelScale = 0.2f;
 
-    private Grid _grid;
+    private SceneGrid3d _sceneGrid3d;
+    private SceneGrid2d _sceneGrid2d;
     private Quad _quad;
     private Box3d _box3d;
     
@@ -142,7 +143,8 @@ internal class Game
         
         ImGuiController = new ImGuiController(Gl, window, InputContext);
 
-        _grid = new Grid(Gl);
+        _sceneGrid3d = new SceneGrid3d(Gl);
+        _sceneGrid2d = new SceneGrid2d(Gl);
         _quad = new Quad(Gl);
         _box3d = new Box3d(Gl);
         OnModelChanged(_folders[0]);
@@ -184,8 +186,10 @@ internal class Game
         Gl.Enable(EnableCap.DepthTest);
         Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        _grid.Is2D = _inspectorUI.UseOrthographicCamera;
-        _grid.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+        if (_inspectorUI.UseOrthographicCamera)
+            _sceneGrid2d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+        else
+            _sceneGrid3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
         
         var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
         
@@ -241,31 +245,56 @@ internal class Game
         var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
         var moveSpeed = baseSpeed * (float)deltaTime;
 
-        // forward
-        if (_keyboard.IsKeyPressed(Key.W))
-            camera.Position += moveSpeed * camera.Forward;
-        
-        // back
-        if (_keyboard.IsKeyPressed(Key.S))
-            camera.Position -= moveSpeed * camera.Forward;
-        
-        // left
-        if (_keyboard.IsKeyPressed(Key.A))
-            camera.Position -=
-                Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-        
-        // right
-        if (_keyboard.IsKeyPressed(Key.D))
-            camera.Position +=
-                Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-        
-        // up
-        if (_keyboard.IsKeyPressed(Key.Q))
-            camera.Position -= camera.Up * moveSpeed;
+        var isPerspectiveCamera = camera is CameraPerspective;
 
-        // down
-        if (_keyboard.IsKeyPressed(Key.E))
-            camera.Position += camera.Up * moveSpeed;
+        if (isPerspectiveCamera)
+        {
+            // forward
+            if (_keyboard.IsKeyPressed(Key.W))
+                camera.Position += moveSpeed * camera.Forward;
+            
+            // back
+            if (_keyboard.IsKeyPressed(Key.S))
+                camera.Position -= moveSpeed * camera.Forward;
+            
+            // left
+            if (_keyboard.IsKeyPressed(Key.A))
+                camera.Position -=
+                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+        
+            // right
+            if (_keyboard.IsKeyPressed(Key.D))
+                camera.Position +=
+                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+            
+            // up
+            if (_keyboard.IsKeyPressed(Key.Q))
+                camera.Position -= camera.Up * moveSpeed;
+
+            // down
+            if (_keyboard.IsKeyPressed(Key.E))
+                camera.Position += camera.Up * moveSpeed;
+        }
+        else
+        {
+            // up
+            if (_keyboard.IsKeyPressed(Key.W))
+                camera.Position += camera.Up * moveSpeed;
+
+            // down
+            if (_keyboard.IsKeyPressed(Key.S))
+                camera.Position -= camera.Up * moveSpeed;
+            
+            // left
+            if (_keyboard.IsKeyPressed(Key.A))
+                camera.Position -=
+                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+        
+            // right
+            if (_keyboard.IsKeyPressed(Key.D))
+                camera.Position +=
+                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+        }
     }
 
     #region Inputs
