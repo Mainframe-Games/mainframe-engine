@@ -82,7 +82,7 @@ internal class SpineRenderer
         _projectionMatrix = projection;
         
         var vertexIndex = 0;
-        var z = -1f; // try settings to -1 as well
+        var z = 0f;
 
         // For each slot in the draw order array of the skeleton
         for (int i = 0; i < _skeleton.DrawOrder.Count; i++)
