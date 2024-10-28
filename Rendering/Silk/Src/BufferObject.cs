@@ -20,6 +20,15 @@ public class BufferObject<TDataType> : IDisposable
         Bind();
         Update(data);
     }
+    
+    public unsafe BufferObject(GL gl, TDataType* data, uint length, BufferTargetARB bufferType)
+    {
+        _gl = gl;
+        _bufferType = bufferType;
+        _handle = _gl.GenBuffer();
+        Bind();
+        Update(data, length);
+    }
 
     public void Bind()
     {
@@ -37,6 +46,16 @@ public class BufferObject<TDataType> : IDisposable
                 bufferUsage
             );
         }
+    }
+    
+    public unsafe void Update(TDataType* data, uint length, BufferUsageARB bufferUsage = BufferUsageARB.StaticDraw)
+    {
+        _gl.BufferData(
+            _bufferType,
+            (nuint)(length * sizeof(TDataType)),
+            data,
+            bufferUsage
+        );
     }
 
     public void Dispose()

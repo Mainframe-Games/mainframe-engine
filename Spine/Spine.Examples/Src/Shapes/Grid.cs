@@ -24,23 +24,22 @@ public class Grid
         public Vector3 Position;
     }
     
-    public unsafe Grid(GL gl)
+    public unsafe Grid(GL gl, uint gridSize = 200)
     {
         _gl = gl;
-
-        var stride = Marshal.SizeOf<Vertex>();
+        _count = (gridSize + 1) * 4;
 
         // src: https://github.com/IMCGKN/Grid_OpenGL_Cpp/blob/main/src/main.cpp
-        const int gridSize = 200;
-        const int gridSizeHalf = gridSize / 2;
-        var vertices = new List<Vertex>((gridSize + 1) * stride);
+        var gridSizeHalf = (int)gridSize / 2;
+        var vertices = stackalloc Vertex[(int)_count];
+        var vIndex = 0;
 
         var count = 0;
         var j = gridSizeHalf;
         while (count <= gridSize)
         {
             // vertex 1
-            vertices.Add(new Vertex
+            vertices[vIndex++] = new Vertex
             {
                 Position = new Vector3
                 {
@@ -48,10 +47,10 @@ public class Grid
                     Y = 0,
                     Z = -(j * 1)
                 }
-            });
+            };
             
             // vertex 2
-            vertices.Add(new Vertex
+            vertices[vIndex++] = new Vertex
             {
                 Position = new Vector3
                 {
@@ -59,7 +58,7 @@ public class Grid
                     Y = 0,
                     Z = -(j * 1)
                 }
-            });
+            };
             
             j--;
             count++;
@@ -70,7 +69,7 @@ public class Grid
         while (count <= gridSize)
         {
             // vertex 1
-            vertices.Add(new Vertex
+            vertices[vIndex++] = new Vertex
             {
                 Position = new Vector3
                 {
@@ -78,10 +77,10 @@ public class Grid
                     Y = 0,
                     Z = -gridSizeHalf * 1
                 }
-            });
+            };
             
             // vertex 2
-            vertices.Add(new Vertex
+            vertices[vIndex++] = new Vertex
             {
                 Position = new Vector3
                 {
@@ -89,14 +88,13 @@ public class Grid
                     Y = 0,
                     Z = gridSizeHalf * 1
                 }
-            });
+            };
             
             j--;
             count++;
         }
 
-        _count = (uint)vertices.Count;
-        _vertexBuffer = new BufferObject<Vertex>(gl, vertices.ToArray(), BufferTargetARB.ArrayBuffer);
+        _vertexBuffer = new BufferObject<Vertex>(gl, vertices, _count, BufferTargetARB.ArrayBuffer);
         
         // vertex array
         _vertexArrayId = _gl.GenVertexArray();
@@ -106,7 +104,7 @@ public class Grid
             3,
             VertexAttribPointerType.Float,
             false,
-            (uint)stride,
+            (uint)Marshal.SizeOf<Vertex>(),
             null
         );
         _gl.EnableVertexAttribArray(0);
