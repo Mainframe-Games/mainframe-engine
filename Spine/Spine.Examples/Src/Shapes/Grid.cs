@@ -21,21 +21,15 @@ public class Grid
 
     private Matrix4x4 ModelMatrix => Matrix4x4.CreateRotationX(Mainframe.Math.DegreesToRadiansF(Is2D ? 90 : 0));
 
-    private struct Vertex()
+    private struct Vertex
     {
         public Vector3 Position;
-        public Vector4 Color = new(1, 1, 1, 0.1f);
+        public Vector4 Color;
     }
 
-    private static Vertex CreateVertex(float x, float y, float z)
+    private static Vertex CreateVertex(float x, float y, float z, Vector4 color)
     {
-        var v = new Vertex { Position = new Vector3(x, y, z) };
-        if (Vector3.Normalize(v.Position) == Vector3.UnitX)
-            v.Color = new Vector4(1, 0, 0, 1); // red
-        if (Vector3.Normalize(v.Position) == Vector3.UnitY)
-            v.Color = new Vector4(1, 1, 0, 1); // yellow
-        if (Vector3.Normalize(v.Position) == Vector3.UnitZ)
-            v.Color = new Vector4(0, 0, 1, 1); // blue
+        var v = new Vertex { Position = new Vector3(x, y, z) , Color = color};
         return v;
     }
     
@@ -49,24 +43,18 @@ public class Grid
         var vertices = stackalloc Vertex[(int)_count];
         var vIndex = 0;
 
-        var count = 0;
-        var j = gridSizeHalf;
-        while (count <= gridSize)
+        for (int x = gridSizeHalf; x >= -gridSizeHalf; --x)
         {
-            vertices[vIndex++] = CreateVertex(gridSizeHalf * 1, 0, -(j * 1));
-            vertices[vIndex++] = CreateVertex(-(gridSizeHalf * 1), 0, -(j * 1));
-            j--;
-            count++;
+            var c = x == 0 ? new Vector4(1, 0, 0, 1) : new Vector4(1);
+            vertices[vIndex++] = CreateVertex(gridSizeHalf, 0, -x, c);
+            vertices[vIndex++] = CreateVertex(-gridSizeHalf, 0, -x, c);
         }
-
-        j = gridSizeHalf;
-        count = 0;
-        while (count <= gridSize)
+        
+        for (int y = gridSizeHalf; y >= -gridSizeHalf; --y)
         {
-            vertices[vIndex++] = CreateVertex(-(j * 1), 0, -gridSizeHalf * 1);
-            vertices[vIndex++] = CreateVertex(-(j * 1), 0, gridSizeHalf * 1);
-            j--;
-            count++;
+            var c = y == 0 ? new Vector4(0, 0, 1, 1) : new Vector4(1);
+            vertices[vIndex++] = CreateVertex(-y, 0, -gridSizeHalf, c);
+            vertices[vIndex++] = CreateVertex(-y, 0, gridSizeHalf, c);
         }
 
         _vertexBuffer = new BufferObject<Vertex>(gl, vertices, _count, BufferTargetARB.ArrayBuffer);
