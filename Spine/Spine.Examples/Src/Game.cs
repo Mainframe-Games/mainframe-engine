@@ -64,12 +64,12 @@ internal class Game
 
     private readonly CameraOrthographic _cameraOrth = new()
     {
-        Position = new Vector3(0.0f, 0.0f, 0.0f),
+        Position = new Vector3(0.0f, 1.0f, 0.0f),
         Zoom = 0.01f
     };
     private readonly CameraPerspective _cameraPer = new()
     {
-        Position = new Vector3(0.0f, 2.0f, 5.0f)
+        Position = new Vector3(0.0f, 1.0f, 5.0f)
     };
     
     private ICamera CurrentCamera => _inspectorUI.UseOrthographicCamera ? _cameraOrth : _cameraPer;
