@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <OutputType>Exe</OutputType>
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
@@ -14,7 +15,6 @@
       <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
-    <!-- NuGet Packages -->
     <ItemGroup>
         <PackageReference Include="Silk.NET.Assimp" Version="2.21.0" />
         <PackageReference Include="Silk.NET.Input" Version="2.21.0" />
@@ -23,16 +23,16 @@
         <PackageReference Include="Silk.NET.Windowing" Version="2.21.0" />
         <PackageReference Include="StbImageSharp" Version="2.30.15" />
     </ItemGroup>
-    
-    <!-- Local References -->
+
     <ItemGroup>
-      <ProjectReference Include="..\Spine\Spine\Spine.csproj" />
+      <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+      <ProjectReference Include="..\..\Plugins\Spine\Spine.csproj" />
     </ItemGroup>
 
-    <!-- Copy everything in content folder to build destination -->
     <ItemGroup>
       <None Update="Content\**">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
     </ItemGroup>
+
 </Project>

@@ -1,7 +1,6 @@
 ﻿using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
-using Shader = Mainframe.Silk.Shader;
 
 namespace MainframeEngine;
 

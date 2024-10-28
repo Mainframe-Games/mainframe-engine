@@ -1,7 +1,6 @@
 ﻿using System.Drawing;
 using System.Numerics;
 using ImGuiNET;
-using Mainframe.Silk;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
