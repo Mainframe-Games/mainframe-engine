@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Math = MainframeEngine.Math;
 
 namespace Mainframe.Silk;
 
@@ -43,7 +44,7 @@ public class CameraPerspective : ICamera
         cameraDirection.X =
             MathF.Cos(Math.DegreesToRadiansF(Yaw))
             * MathF.Cos(Math.DegreesToRadiansF(Pitch));
-        cameraDirection.Y = MathF.Sin(Math.DegreesToRadiansF(Pitch));
+        cameraDirection.Y = MathF.Sin( Math.DegreesToRadiansF(Pitch));
         cameraDirection.Z =
             MathF.Sin(Math.DegreesToRadiansF(Yaw))
             * MathF.Cos(Math.DegreesToRadiansF(Pitch));

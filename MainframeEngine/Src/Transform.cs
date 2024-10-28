@@ -12,9 +12,9 @@ public struct Transform
         // scale
         Matrix4x4.CreateScale(Scale)
         // rotation
-        * Matrix4x4.CreateRotationX(Mainframe.Math.DegreesToRadiansF(Rotation.X))
-        * Matrix4x4.CreateRotationY(Mainframe.Math.DegreesToRadiansF(Rotation.Y))
-        * Matrix4x4.CreateRotationZ(Mainframe.Math.DegreesToRadiansF(Rotation.Z))
+        * Matrix4x4.CreateRotationX(Math.DegreesToRadiansF(Rotation.X))
+        * Matrix4x4.CreateRotationY(Math.DegreesToRadiansF(Rotation.Y))
+        * Matrix4x4.CreateRotationZ(Math.DegreesToRadiansF(Rotation.Z))
         // translation
         * Matrix4x4.CreateTranslation(Position);
 }

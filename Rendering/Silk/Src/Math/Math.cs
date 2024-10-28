@@ -1,4 +1,4 @@
-﻿namespace Mainframe;
+﻿namespace MainframeEngine;
 
 /// <summary>
 /// Math helpers
