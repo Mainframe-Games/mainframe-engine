@@ -17,6 +17,6 @@ void main()
     //Multiplying our uniform with the vertex position, the multiplication order here does matter.
     gl_Position = uProjection * uView * uModel * vec4(vPos, 1.0);
     fUv = vUv;
-    fColor = fColor;
+    fColor = vColor;
     fTextureIndex = vTextureIndex;
 }

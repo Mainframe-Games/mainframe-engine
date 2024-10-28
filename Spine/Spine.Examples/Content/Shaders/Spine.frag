@@ -10,5 +10,5 @@ out vec4 FragColor;
 void main()
 {
     int txIdx = int(fTextureIndex);
-    FragColor = texture(uTextures[txIdx], fUv) ;//* fColor;
+    FragColor = texture(uTextures[txIdx], fUv) * fColor;
 }
