@@ -106,8 +106,7 @@ internal class Game
 
         _spineRenderer = new SpineRenderer(Gl,
             _spineSkeleton, 
-            // _atlas.Pages[0].pma,
-            false,
+            _atlas.Pages[0].pma,
             textureLoader.Textures);
 
         // animations
@@ -315,23 +314,34 @@ internal class Game
     private void OnMouseMove(IMouse mouse, Vector2 position)
     {
         if (!_canMoveCamera)
+        {
+            // reset last position so camera doesn't make massive jump when move mouse again
+            LastMousePosition = default;
             return;
-        
-        if (CurrentCamera is not CameraPerspective camera)
-            return;
-        
-        const float lookSensitivity = 0.1f;
+        }
         if (LastMousePosition == default)
         {
             LastMousePosition = position;
         }
         else
         {
-            var xOffset = (position.X - LastMousePosition.X) * lookSensitivity;
-            var yOffset = (position.Y - LastMousePosition.Y) * lookSensitivity;
-            LastMousePosition = position;
+            if (CurrentCamera is CameraPerspective camera)
+            {
+                const float lookSensitivity = 0.1f;
+                var xOffset = (position.X - LastMousePosition.X) * lookSensitivity;
+                var yOffset = (position.Y - LastMousePosition.Y) * lookSensitivity;
+                LastMousePosition = position;
 
-            camera.ModifyDirection(xOffset, yOffset);
+                camera.ModifyDirection(xOffset, yOffset);
+            }
+            else
+            {
+                const float lookSensitivity = 0.01f;
+                var xOffset = (position.X - LastMousePosition.X) * lookSensitivity;
+                var yOffset = (position.Y - LastMousePosition.Y) * lookSensitivity;
+                LastMousePosition = position;
+                CurrentCamera.Position += new Vector3(-xOffset, yOffset, 0);
+            }
         }
     }
     

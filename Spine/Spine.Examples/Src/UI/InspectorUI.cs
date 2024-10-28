@@ -93,7 +93,7 @@ internal class InspectorUI
     private static void DrawTransformOptions(ref Vector3 modelPosition, ref Vector3 modelRotation, ref float modelScale)
     {
         ImGui.Text("Transform");
-        ImGui.SliderFloat3("Position", ref modelPosition, -100, 100, "%.2f");
+        ImGui.SliderFloat3("Position", ref modelPosition, -10, 10, "%.3f");
         ImGui.SliderFloat3("Rotation", ref modelRotation, -180, 180, "%.2f");
         ImGui.SliderFloat("Scale", ref modelScale, 0.01f, 5, "%.2f");
         if (ImGui.Button("Reset Transform"))
