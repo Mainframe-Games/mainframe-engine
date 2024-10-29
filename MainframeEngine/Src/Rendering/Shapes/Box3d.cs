@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using Silk.NET.OpenGL;
+﻿using Silk.NET.OpenGL;
 
 namespace MainframeEngine;
 
@@ -83,12 +82,12 @@ public class Box3d : ShapeBase
             "Content/Shaders/Shapes/Shapes.frag");
     }
 
-    public void Draw(Matrix4x4 view, Matrix4x4 projection)
+    public void Draw(ICamera camera)
     {
         _shader.Use();
         _shader.SetUniform("uModel", ModelMatrix);
-        _shader.SetUniform("uView", view);
-        _shader.SetUniform("uProjection", projection);
+        _shader.SetUniform("uView", camera.ViewMatrix);
+        _shader.SetUniform("uProjection", camera.ProjectionMatrix);
         
         _vertexArray.Bind();
 

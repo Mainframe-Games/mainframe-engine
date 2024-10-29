@@ -83,7 +83,7 @@ public class GameTest : IGame
         
         var frameBufferSize = new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y);
         _cameraPerspective.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
-        _sceneGrid3d.Draw(_cameraPerspective.ViewMatrix, _cameraPerspective.ProjectionMatrix);
+        _sceneGrid3d.Draw(_cameraPerspective);
     }
 
     public void OnClose()

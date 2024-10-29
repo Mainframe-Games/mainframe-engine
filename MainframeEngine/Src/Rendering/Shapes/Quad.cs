@@ -47,12 +47,12 @@ public class Quad : ShapeBase
         Scale = new Vector3(1, 1, 0);
     }
     
-    public unsafe void Draw(Matrix4x4 view, Matrix4x4 projection)
+    public unsafe void Draw(ICamera camera)
     {
         _shader.Use();
         _shader.SetUniform("uModel", ModelMatrix);
-        _shader.SetUniform("uView", view);
-        _shader.SetUniform("uProjection", projection);
+        _shader.SetUniform("uView", camera.ViewMatrix);
+        _shader.SetUniform("uProjection", camera.ProjectionMatrix);
         
         _vertexArrayObject.Bind();
 

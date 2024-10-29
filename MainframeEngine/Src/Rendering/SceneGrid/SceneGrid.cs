@@ -28,14 +28,14 @@ public abstract class SceneGrid(GL gl, uint vertexCount)
         public Vector4 Color = color;
     }
 
-    public void Draw(Matrix4x4 view, Matrix4x4 projection)
+    public void Draw(ICamera camera)
     {
         gl.Enable(EnableCap.Blend);
         gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
         {
             _shader.Use();
-            _shader.SetUniform("uView", view);
-            _shader.SetUniform("uProjection", projection);
+            _shader.SetUniform("uView", camera.ViewMatrix);
+            _shader.SetUniform("uProjection", camera.ProjectionMatrix);
             
             gl.BindVertexArray(_vertexArrayId);
             gl.DrawArrays(PrimitiveType.Lines, 0, _vertexCount);

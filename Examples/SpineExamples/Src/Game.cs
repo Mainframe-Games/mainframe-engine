@@ -187,9 +187,9 @@ internal class Game
         Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         if (_inspectorUI.UseOrthographicCamera)
-            _sceneGrid2d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+            _sceneGrid2d.Draw(CurrentCamera);
         else
-            _sceneGrid3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
+            _sceneGrid3d.Draw(CurrentCamera);
         
         var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
         
