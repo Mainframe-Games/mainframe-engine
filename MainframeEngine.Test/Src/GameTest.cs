@@ -18,6 +18,7 @@ public class GameTest : IGame
     };
     
     private SceneGrid3d _sceneGrid3d = null!;
+    private Box3d _box3d = null!;
     
     private IKeyboard _keyboard = null!;
     private IMouse _mouse = null!;
@@ -42,6 +43,7 @@ public class GameTest : IGame
         _mouse.MouseMove += OnMouseMove;
         
         _sceneGrid3d = new SceneGrid3d(gl);
+        _box3d = new Box3d(gl);
     }
 
     public void OnFramebufferResize(Vector2 newSize)
@@ -81,9 +83,13 @@ public class GameTest : IGame
         _gl.Enable(EnableCap.DepthTest);
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         
+        // draw scene grid
         var frameBufferSize = new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y);
         _cameraPerspective.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
         _sceneGrid3d.Draw(_cameraPerspective);
+        
+        // draw default cube
+        _box3d.Draw(_cameraPerspective);
     }
 
     public void OnClose()
