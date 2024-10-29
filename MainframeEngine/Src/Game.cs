@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
@@ -12,13 +13,15 @@ public sealed class Game : IDisposable
 {
     private readonly IGame _game;
     private readonly IWindow _window;
-    
-    private IInputContext InputContext { get; set; } = null!;
-    private GL Gl { get; set; } = null!;
-    private ImGuiController ImGuiController { get; set; } = null!;
+
+    private IInputContext _inputContext = null!;
+    private GL _gl = null!;
+    private ImGuiController _imGuiController = null!;
 
     private int _exitCode;
     private GameTime _gameTime;
+    
+    private readonly FPSCounter _fps = new();
 
     public Game(string gameName, IGame game)
     {
@@ -44,31 +47,30 @@ public sealed class Game : IDisposable
 
     private void OnLoad()
     {
-        Gl = GL.GetApi(_window);
-        Console.WriteLine($"OpenGL: {Gl.GetStringS(GLEnum.Version)}");
+        _gl = GL.GetApi(_window);
+        Console.WriteLine($"OpenGL: {_gl.GetStringS(GLEnum.Version)}");
 
-        InputContext = _window.CreateInput();
-        for (int i = 0; i < InputContext.Keyboards.Count; i++)
-            InputContext.Keyboards[i].KeyDown += OnKeyDown;
-        
-        ImGuiController = new ImGuiController(Gl, _window, InputContext);
-        _game.OnLoad(_window, Gl);
+        _inputContext = _window.CreateInput();
+        _imGuiController = new ImGuiController(_gl, _window, _inputContext);
+        _game.OnLoad(_window, _gl, _inputContext);
     }
 
     private void OnFramebufferResize(Vector2D<int> newSize)
     {
-        Gl.Viewport(newSize);
+        _gl.Viewport(newSize);
         _game.OnFramebufferResize(new Vector2(newSize.X, newSize.Y));
     }
 
     private void OnUpdate(double delta)
     {
-        _gameTime.DeltaTime = delta;
-        _gameTime.FrameCount++;
-        _gameTime.FramesPerSecond = (uint)(1 / delta);
-        _gameTime.FramesTimeMs = (uint)(1000 * delta);
+        _fps.Update();
         
-        ImGuiController.Update((float)delta);
+        _gameTime.DeltaTime = delta;
+        _gameTime.FrameCount = _fps.FrameCount;
+        _gameTime.FramesPerSecond = _fps.Fps;
+        _gameTime.FramesTimeMs = _fps.Ms;
+        
+        _imGuiController.Update((float)delta);
         _game.OnImGui(_gameTime);
         _game.OnUpdate(_gameTime);
     }
@@ -76,19 +78,16 @@ public sealed class Game : IDisposable
     private void OnRender(double delta)
     {
         _game.OnRender(_gameTime);
-        ImGuiController.Render();
+        _imGuiController.Render();
     }
 
     private void OnClose()
     {
         _game.OnClose();
-        ImGuiController.Dispose();
-        InputContext.Dispose();
-        Gl.Dispose();
+        _imGuiController.Dispose();
+        _inputContext.Dispose();
+        _gl.Dispose();
     }
-
-    private void OnKeyDown(IKeyboard keyboard, Key key, int arg3) =>
-        _game.OnKeyDown(keyboard, key, arg3);
 
     public int Run()
     {
@@ -99,5 +98,32 @@ public sealed class Game : IDisposable
     public void Dispose()
     {
         _window.Dispose();
+    }
+}
+
+internal class FPSCounter
+{
+    private readonly Stopwatch _stopwatch = new();
+    public uint FrameCount { get; private set; }
+    public uint Fps { get; private set; }
+    public uint Ms { get; private set; }
+
+    public FPSCounter()
+    {
+        _stopwatch.Start();
+    }
+
+    public void Update()
+    {
+        FrameCount++;
+
+        if (_stopwatch.ElapsedMilliseconds >= 500)
+        {
+            var ms = _stopwatch.ElapsedMilliseconds;
+            Fps = (uint)(FrameCount / (ms / 1000.0f));
+            Ms = (uint)(1000.0f / Fps);
+            FrameCount = 0;
+            _stopwatch.Restart();
+        }
     }
 }

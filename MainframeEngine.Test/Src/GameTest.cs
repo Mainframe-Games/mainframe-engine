@@ -12,22 +12,35 @@ public class GameTest : IGame
     private IWindow _window = null!;
     private GL _gl = null!;
     
-    private readonly CameraPerspective _cameraPerspective = new ()
+    private readonly CameraPerspective _cameraPerspective = new()
     {
         Position = new Vector3(1, 1, 5f),
     };
     
     private SceneGrid3d _sceneGrid3d = null!;
+    
+    private IKeyboard _keyboard = null!;
+    private IMouse _mouse = null!;
 
-    private double _sampleTime;
-    private GameTime _gameTimeSample;
+    private bool CanMoveCamera => _mouse.Cursor.CursorMode is CursorMode.Raw;
+    private Vector2 _lastMousePosition;
+    private float _cameraSpeed = 10;
 
-    public void OnLoad(IWindow window, GL gl)
+    public void OnLoad(IWindow window, GL gl, IInputContext inputContext)
     {
         _window = window;
         _gl = gl;
         gl.ClearColor(Color.DarkSlateGray);
 
+        _keyboard = inputContext.Keyboards[0];
+        _mouse = inputContext.Mice[0];
+        
+        _keyboard.KeyDown += OnKeyDown;
+        
+        _mouse.MouseDown += OnMouseDown;
+        _mouse.MouseUp += OnMouseUp;
+        _mouse.MouseMove += OnMouseMove;
+        
         _sceneGrid3d = new SceneGrid3d(gl);
     }
 
@@ -41,12 +54,15 @@ public class GameTest : IGame
         {
             ImGui.Value("FrameCount", gameTime.FrameCount);
             ImGui.Value("DeltaTime", (float)gameTime.DeltaTime);
-            ImGui.Value("FramesPerSecond", _gameTimeSample.FramesPerSecond);
-            ImGui.Value("FramesTimeMs", _gameTimeSample.FramesTimeMs);
+            ImGui.Value("FPS", gameTime.FramesPerSecond);
+            ImGui.Value("Ms", gameTime.FramesTimeMs);
             
             var vsync = _window.VSync;
             if (ImGui.Checkbox("VSync", ref vsync))
-                _window.VSync = vsync;
+            {
+                if (vsync != _window.VSync)
+                    _window.VSync = vsync;
+            }
             
             var isFullScreen = _window.WindowState is WindowState.Fullscreen;
             if (ImGui.Checkbox("FullScreen", ref isFullScreen))
@@ -57,12 +73,7 @@ public class GameTest : IGame
 
     public void OnUpdate(GameTime gameTime)
     {
-        _sampleTime += gameTime.DeltaTime;
-        if (_sampleTime > 0.5f)
-        {
-            _gameTimeSample = gameTime;
-            _sampleTime = 0;
-        }
+        UpdateCameraPosition(gameTime.DeltaTime);
     }
 
     public void OnRender(GameTime gameTime)
@@ -78,8 +89,114 @@ public class GameTest : IGame
     public void OnClose()
     {
     }
+    
+    private void UpdateCameraPosition(double deltaTime)
+    {
+        if (!CanMoveCamera)
+            return;
+
+        var camera = _cameraPerspective;
+
+        var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
+        var moveSpeed = baseSpeed * (float)deltaTime;
+
+        var isPerspectiveCamera = camera is CameraPerspective;
+
+        if (isPerspectiveCamera)
+        {
+            // forward
+            if (_keyboard.IsKeyPressed(Key.W))
+                camera.Position += moveSpeed * camera.Forward;
+            
+            // back
+            if (_keyboard.IsKeyPressed(Key.S))
+                camera.Position -= moveSpeed * camera.Forward;
+            
+            // left
+            if (_keyboard.IsKeyPressed(Key.A))
+                camera.Position -=
+                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+        
+            // right
+            if (_keyboard.IsKeyPressed(Key.D))
+                camera.Position +=
+                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+            
+            // up
+            if (_keyboard.IsKeyPressed(Key.Q))
+                camera.Position -= camera.Up * moveSpeed;
+
+            // down
+            if (_keyboard.IsKeyPressed(Key.E))
+                camera.Position += camera.Up * moveSpeed;
+        }
+        else
+        {
+            // up
+            if (_keyboard.IsKeyPressed(Key.W))
+                camera.Position += camera.Up * moveSpeed;
+
+            // down
+            if (_keyboard.IsKeyPressed(Key.S))
+                camera.Position -= camera.Up * moveSpeed;
+            
+            // left
+            if (_keyboard.IsKeyPressed(Key.A))
+                camera.Position -=
+                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+        
+            // right
+            if (_keyboard.IsKeyPressed(Key.D))
+                camera.Position +=
+                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+        }
+    }
 
     public void OnKeyDown(IKeyboard keyboard, Key key, int arg3)
     {
+        if (key is Key.AltLeft)
+        {
+            _mouse.Cursor.CursorMode = _mouse.Cursor.CursorMode is CursorMode.Raw
+                ? CursorMode.Normal
+                : CursorMode.Raw;
+        }
+    
+        if (key == Key.Escape)
+            _window.Close();
+    }
+    
+    private void OnMouseMove(IMouse mouse, Vector2 position)
+    {
+        if (!CanMoveCamera)
+        {
+            // reset last position so camera doesn't make massive jump when move mouse again
+            _lastMousePosition = default;
+            return;
+        }
+        
+        if (_lastMousePosition == default)
+        {
+            _lastMousePosition = position;
+        }
+        else
+        {
+            const float lookSensitivity = 0.1f;
+            var xOffset = (position.X - _lastMousePosition.X) * lookSensitivity;
+            var yOffset = (position.Y - _lastMousePosition.Y) * lookSensitivity;
+            _lastMousePosition = position;
+            _cameraPerspective.ModifyDirection(xOffset, yOffset);
+        }
+    }
+    
+    private void OnMouseDown(IMouse mouse, MouseButton button)
+    {
+        if (button is MouseButton.Right)
+            _mouse.Cursor.CursorMode = CursorMode.Raw;
+    }
+    
+    private void OnMouseUp(IMouse mouse, MouseButton button)
+    {
+        if (button is MouseButton.Right)
+            _mouse.Cursor.CursorMode = CursorMode.Normal;
     }
 }

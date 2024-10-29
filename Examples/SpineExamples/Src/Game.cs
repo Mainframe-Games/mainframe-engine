@@ -60,8 +60,8 @@ internal class Game
     private ImGuiController ImGuiController { get; set; } = null!;
     private IKeyboard _keyboard;
     private IMouse _mouse;
-    private bool _canMoveCamera;
     private float _cameraSpeed = 20;
+    private bool CanMoveCamera => _mouse.Cursor.CursorMode is CursorMode.Raw;
 
     private readonly CameraOrthographic _cameraOrth = new()
     {
@@ -237,7 +237,7 @@ internal class Game
     
     private void UpdateCameraPosition(double deltaTime)
     {
-        if (!_canMoveCamera)
+        if (!CanMoveCamera)
             return;
         
         var camera = CurrentCamera;
@@ -301,20 +301,13 @@ internal class Game
     
     private void OnKeyDown(IKeyboard keyboard, Key key, int arg3)
     {
-        if (key is Key.AltLeft)
-        {
-            _mouse.Cursor.CursorMode = _mouse.Cursor.CursorMode is CursorMode.Raw
-                ? CursorMode.Normal
-                : CursorMode.Raw;
-        }
-        
         if (key == Key.Escape)
             Window.Close();
     }
 
     private void OnMouseMove(IMouse mouse, Vector2 position)
     {
-        if (!_canMoveCamera)
+        if (!CanMoveCamera)
         {
             // reset last position so camera doesn't make massive jump when move mouse again
             LastMousePosition = default;
@@ -360,19 +353,13 @@ internal class Game
     private void OnMouseDown(IMouse mouse, MouseButton button)
     {
         if (button is MouseButton.Right)
-        {
-            _canMoveCamera = true;
             _mouse.Cursor.CursorMode = CursorMode.Raw;
-        }
     }
     
     private void OnMouseUp(IMouse mouse, MouseButton button)
     {
         if (button is MouseButton.Right)
-        {
-            _canMoveCamera = false;
             _mouse.Cursor.CursorMode = CursorMode.Normal;
-        }
     }
 
     #endregion
