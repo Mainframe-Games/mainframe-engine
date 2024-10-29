@@ -28,7 +28,6 @@
     <!-- Local References -->
     <ItemGroup>
       <ProjectReference Include="..\Plugins\Spine\Spine.csproj" />
-      <ProjectReference Include="..\Spine\Spine\Spine.csproj" />
     </ItemGroup>
 
     <!-- Copy everything in content folder to build destination -->

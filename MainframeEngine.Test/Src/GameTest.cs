@@ -1,9 +1,12 @@
 ﻿using System.Drawing;
 using System.Numerics;
 using ImGuiNET;
+using Silk.NET.Core;
 using Silk.NET.Input;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
+using StbImageSharp;
+using MouseButton = Silk.NET.Input.MouseButton;
 
 namespace MainframeEngine.Test;
 
@@ -33,6 +36,10 @@ public class GameTest : IGame
         _gl = gl;
         gl.ClearColor(Color.DarkSlateGray);
 
+        // Set window icon
+        SetWindowIcon();
+
+        // assign input callbacks
         _keyboard = inputContext.Keyboards[0];
         _mouse = inputContext.Mice[0];
         
@@ -42,8 +49,19 @@ public class GameTest : IGame
         _mouse.MouseUp += OnMouseUp;
         _mouse.MouseMove += OnMouseMove;
         
+        // create scene objects
         _sceneGrid3d = new SceneGrid3d(gl);
         _box3d = new Box3d(gl);
+    }
+
+    private void SetWindowIcon()
+    {
+        var img = ImageResult.FromMemory(
+            File.ReadAllBytes("Content/Branding/mg_300_circle.png"),
+            ColorComponents.RedGreenBlueAlpha
+        ) ?? throw new NullReferenceException();
+        var ico = new RawImage(img.Width, img.Height, img.Data);
+        _window.SetWindowIcon(ref ico);
     }
 
     public void OnFramebufferResize(Vector2 newSize)
