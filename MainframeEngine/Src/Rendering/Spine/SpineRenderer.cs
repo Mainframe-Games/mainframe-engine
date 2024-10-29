@@ -1,11 +1,8 @@
 ﻿using System.Numerics;
 using System.Runtime.InteropServices;
-using MainframeEngine;
 using Silk.NET.OpenGL;
 using Spine;
-using Shader = MainframeEngine.Shader;
 using Skeleton = Spine.Skeleton;
-using Texture = MainframeEngine.Texture;
 
 namespace MainframeEngine;
 
