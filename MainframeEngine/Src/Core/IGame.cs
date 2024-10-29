@@ -5,6 +5,9 @@ using Silk.NET.Windowing;
 
 namespace MainframeEngine;
 
+/// <summary>
+/// Contains all relevant callbacks for game loop.
+/// </summary>
 public interface IGame
 {
     void OnLoad(IWindow window, GL gl, IInputContext inputContext);

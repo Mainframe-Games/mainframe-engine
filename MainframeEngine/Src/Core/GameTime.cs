@@ -1,5 +1,8 @@
 ﻿namespace MainframeEngine;
 
+/// <summary>
+/// Contains all relevant data per frame
+/// </summary>
 public struct GameTime
 {
     public uint FrameCount { get; set; }
