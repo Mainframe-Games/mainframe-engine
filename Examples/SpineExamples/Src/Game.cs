@@ -17,34 +17,10 @@ internal class Game
 {
     private static readonly SpineFolder[] _folders =
     [
-        new()
-        {
-            Name  = "Spine Boy",
-            AtlasPath = "Content/SpineBoy/spineboy-pro.atlas",
-            JsonPath = "Content/SpineBoy/spineboy-pro.json",
-            TexturePath = "Content/SpineBoy/spineboy-pro.png",
-        },
-        new()
-        {
-            Name  = "Raptor",
-            AtlasPath = "Content/Raptor/raptor-pro.atlas",
-            JsonPath = "Content/Raptor/raptor-pro.json",
-            TexturePath = "Content/Raptor/raptor-pro.png",
-        },
-        new()
-        {
-            Name = "Windmill",
-            AtlasPath = "Content/Windmill/windmill-ess.atlas",
-            JsonPath = "Content/Windmill/windmill-ess.json",
-            TexturePath = "Content/Windmill/windmill-ess.png",
-        },
-        new()
-        {
-            Name = "CelestialCircus",
-            AtlasPath = "Content/CelestialCircus/celestial-circus-pro.atlas",
-            JsonPath = "Content/CelestialCircus/celestial-circus-pro.json",
-            TexturePath = "Content/CelestialCircus/celestial-circus-pro.png",
-        }
+        new("Content/SpineBoy"),
+        new("Content/Raptor"),
+        new("Content/Windmill"),
+        new("Content/CelestialCircus"),
     ];
     
     private Atlas _atlas;

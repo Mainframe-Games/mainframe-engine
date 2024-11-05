@@ -265,28 +265,30 @@ public class SpineRenderer
 
         // draw
         BeginBlendMode();
-        DrawCall(_vertices, vertexIndex);
+        DrawCall(_vertices, (uint)vertexIndex);
         EndBlendMode();
     }
     
-    private void DrawCall(Span<Vertex> vertices, int count)
+    private void DrawCall(ReadOnlySpan<Vertex> vertices, uint count)
     {
         for (int i = 0; i < _textures.Count; i++)
-            _textures[i].BindTextureUnit((uint)i);
+        {
+            var txUnit = (TextureUnit)((uint)TextureUnit.Texture0 + i);
+            _textures[i].Bind(txUnit);
+        }
         
         _shader.Use();
-        _shader.SetUniform("uTextures", [0, 1]);
+        _shader.SetUniform("uTextures", _textures.Count == 1 ? [0] : [0, 1]);
         _shader.SetUniform("uModel", _modelMatrix);
         _shader.SetUniform("uView", _viewMatrix);
         _shader.SetUniform("uProjection", _projectionMatrix);
         
         _vbo.Bind();
         
-        _vertexBuffer.Update(vertices);
+        _vertexBuffer.Update(vertices, count);
         _gl.CullFace(TriangleFace.Back);
         _gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
-        _gl.DrawArrays(PrimitiveType.Triangles, 0, (uint)count);
-        // _gl.DrawElements(PrimitiveType.Triangles, (uint)_indexArray.Length, DrawElementsType.UnsignedInt, null);
+        _gl.DrawArrays(PrimitiveType.Triangles, 0, count);
     }
 
     private void BeginBlendMode()

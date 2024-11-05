@@ -6,12 +6,11 @@ using Spine;
 
 namespace SilkSpine.UI;
 
-public struct SpineFolder
+public readonly struct SpineFolder(string rootFolder)
 {
-    public string Name;
-    public string AtlasPath;
-    public string JsonPath;
-    public string TexturePath;
+    public readonly string Name = rootFolder.Split('/')[^1];
+    public readonly string AtlasPath = Directory.GetFiles(rootFolder, "*.atlas")[0];
+    public readonly string JsonPath = Directory.GetFiles(rootFolder, "*.json")[0];
 }
 
 internal class InspectorUI

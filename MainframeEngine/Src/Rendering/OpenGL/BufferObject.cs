@@ -35,13 +35,26 @@ public class BufferObject<TDataType> : IDisposable
         _gl.BindBuffer(_bufferType, _handle);
     }
 
-    public unsafe void Update(Span<TDataType> data, BufferUsageARB bufferUsage = BufferUsageARB.StaticDraw)
+    public unsafe void Update(ReadOnlySpan<TDataType> data, BufferUsageARB bufferUsage = BufferUsageARB.StaticDraw)
     {
         fixed (void* d = data)
         {
             _gl.BufferData(
                 _bufferType,
                 (nuint)(data.Length * sizeof(TDataType)),
+                d,
+                bufferUsage
+            );
+        }
+    }
+    
+    public unsafe void Update(ReadOnlySpan<TDataType> data, uint count, BufferUsageARB bufferUsage = BufferUsageARB.StaticDraw)
+    {
+        fixed (void* d = data)
+        {
+            _gl.BufferData(
+                _bufferType,
+                (nuint)(count * sizeof(TDataType)),
                 d,
                 bufferUsage
             );

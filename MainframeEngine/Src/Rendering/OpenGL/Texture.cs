@@ -28,7 +28,7 @@ public class Texture : IDisposable
         Bind();
 
         // Load the image from memory.
-        ImageResult result = ImageResult.FromMemory(
+        var result = ImageResult.FromMemory(
             File.ReadAllBytes(path),
             ColorComponents.RedGreenBlueAlpha
         );
@@ -94,6 +94,8 @@ public class Texture : IDisposable
 
     public void BindTextureUnit(uint index)
     {
+        var txUnit = (TextureUnit)((uint)TextureUnit.Texture0 + index);
+        _gl.ActiveTexture(txUnit);
         _gl.BindTextureUnit(index, _handle);
     }
 
