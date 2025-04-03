@@ -22,10 +22,7 @@ var monitor = Monitor.GetMainMonitor(window);
 var centerScreen = (monitor.VideoMode.Resolution - window.Size) / 2;
 window.Position = centerScreen!.Value;
 
-window.Load += () =>
-{
-    example.OnLoad(window);
-};
+window.Load += () => example.OnLoad(window);
 window.FramebufferResize += s => example.OnFramebufferResize(s);
 window.Update += delta => example.OnUpdate(delta);
 window.Render += delta => example.OnRender(delta);

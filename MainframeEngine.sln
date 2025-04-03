@@ -8,7 +8,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine", "Mainfram
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine.Test", "MainframeEngine.Test\MainframeEngine.Test.csproj", "{97F16F14-1248-4C60-A7CD-9A0490C637CB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SilkExamples", "Examples\SilkExamples\SilkExamples.csproj", "{DA8F23DA-860C-4A9D-946D-80A7AD3BEFC7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SilkOpenGLExamples", "Examples\SilkOpenGLExamples\SilkOpenGLExamples.csproj", "{DA8F23DA-860C-4A9D-946D-80A7AD3BEFC7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpineExamples", "Examples\SpineExamples\SpineExamples.csproj", "{04E59BFC-AB50-4717-A04D-3F3267168432}"
 EndProject
