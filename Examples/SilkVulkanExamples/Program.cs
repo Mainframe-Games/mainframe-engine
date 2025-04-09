@@ -1,4 +1,4 @@
 ﻿using SilkVulkanExamples;
 
-using var window = new Window("Silk Vulkan");
-window.Run();
+using var silkWindow = new SilkWindow("Silk Vulkan", 800, 600);
+silkWindow.Run();
