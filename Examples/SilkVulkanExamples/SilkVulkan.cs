@@ -8,19 +8,30 @@ using Silk.NET.Windowing;
 
 namespace SilkVulkanExamples;
 
+/*
+    Tutorials Completed:
+    - BaseCode
+    - ValidationLayers
+    - PhysicalDevice
+    
+ */
+
+
 /// <summary>
 /// A utility class for initializing and managing a Vulkan-powered application using the Silk.NET library.
 /// The class provides window creation and Vulkan instance setup for rendering operations.
 /// <remarks>
-///     Tutorial Src: https://github.com/dfkeenan/SilkVulkanTutorial 
+/// Tutorial Src: https://github.com/dfkeenan/SilkVulkanTutorial
 /// </remarks>
 /// </summary>
 public unsafe class SilkVulkan : IDisposable
 {
-    private readonly IWindow? window;
+    private IWindow? window;
     private Vk? vk;
     private Instance instance;
+    private PhysicalDevice physicalDevice;
 
+    // validation layers
     private bool EnableValidationLayers = true;
     private readonly string[] validationLayers = ["VK_LAYER_KHRONOS_validation"];
     private ExtDebugUtils? debugUtils;
@@ -28,12 +39,14 @@ public unsafe class SilkVulkan : IDisposable
     
     public SilkVulkan(string title, int width, int height)
     {
-        window = InitWindow(title, width, height);
+        InitWindow(title, width, height);
         InitVulkan(title);
     }
     
     public void Dispose()
     {
+        Log.Info("[Vulkan] Disposing...");
+        
         if (EnableValidationLayers)
         {
             //DestroyDebugUtilsMessenger equivilant to method DestroyDebugUtilsMessengerEXT from original tutorial.
@@ -53,7 +66,7 @@ public unsafe class SilkVulkan : IDisposable
 
     #region Setup
     
-    private static IWindow InitWindow(string title, int width, int height)
+    private void InitWindow(string title, int width, int height)
     {
         //Create a window.
         var options = WindowOptions.DefaultVulkan with
@@ -62,20 +75,19 @@ public unsafe class SilkVulkan : IDisposable
             Title = title,
         };
 
-        var window = Window.Create(options);
+        window = Window.Create(options);
         window.Initialize();
         window.Center();
 
         if (window.VkSurface is null)
             throw new Exception("Windowing platform doesn't support Vulkan.");
-
-        return window;
     }
     
     private void InitVulkan(string appName)
     {
         CreateInstance(appName, "Mainframe Engine");
         SetupDebugMessenger();
+        PickPhysicalDevice();
     }
 
     private void CreateInstance(string appName, string engineName)
@@ -195,6 +207,70 @@ public unsafe class SilkVulkan : IDisposable
         Log.Print($"[Vulkan] validation layer: {Marshal.PtrToStringAnsi((nint)pCallbackData->PMessage)}");
         return Vk.False;
     }
+
+    #region Physical Device
+
+    private void PickPhysicalDevice()
+    {
+        var devices = vk!.GetPhysicalDevices(instance);
+
+        foreach (var device in devices)
+        {
+            if (IsDeviceSuitable(device))
+            {
+                physicalDevice = device;
+                Log.Info($"[Vulkan] Physical Device: {physicalDevice}");
+                break;
+            }
+        }
+
+        if (physicalDevice.Handle == 0)
+            throw new Exception("failed to find a suitable GPU!");
+    }
+    
+    private bool IsDeviceSuitable(PhysicalDevice device)
+    {
+        var indices = FindQueueFamilies(device);
+        return indices.IsComplete();
+    }
+
+    private QueueFamilyIndices FindQueueFamilies(PhysicalDevice device)
+    {
+        var indices = new QueueFamilyIndices();
+
+        uint queueFamilityCount = 0;
+        vk!.GetPhysicalDeviceQueueFamilyProperties(device, ref queueFamilityCount, null);
+
+        var queueFamilies = new QueueFamilyProperties[queueFamilityCount];
+        fixed (QueueFamilyProperties* queueFamiliesPtr = queueFamilies)
+        {
+            vk!.GetPhysicalDeviceQueueFamilyProperties(device, ref queueFamilityCount, queueFamiliesPtr);
+        }
+
+        uint i = 0;
+        foreach (var queueFamily in queueFamilies)
+        {
+            if (queueFamily.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
+                indices.GraphicsFamily = i;
+
+            if (indices.IsComplete())
+                break;
+
+            i++;
+        }
+
+        return indices;
+    }
+
+    #endregion
     
     #endregion
+
+
+    private struct QueueFamilyIndices
+    {
+        public uint? GraphicsFamily { get; set; }
+        public bool IsComplete() => GraphicsFamily.HasValue;
+    }
+    
 }
