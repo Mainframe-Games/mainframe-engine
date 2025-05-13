@@ -6,7 +6,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{2B4A
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine", "MainframeEngine\MainframeEngine.csproj", "{4C867AB6-8E59-48E4-9040-D63498BAC94C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine.Test", "MainframeEngine.Test\MainframeEngine.Test.csproj", "{97F16F14-1248-4C60-A7CD-9A0490C637CB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine.Sandbox", "MainframeEngine.Sandbox\MainframeEngine.Sandbox.csproj", "{97F16F14-1248-4C60-A7CD-9A0490C637CB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SilkOpenGLExamples", "Examples\SilkOpenGLExamples\SilkOpenGLExamples.csproj", "{DA8F23DA-860C-4A9D-946D-80A7AD3BEFC7}"
 EndProject

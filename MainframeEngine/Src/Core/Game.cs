@@ -47,7 +47,7 @@ public sealed class Game : IDisposable
     private void OnLoad()
     {
         _gl = GL.GetApi(_window);
-        Console.WriteLine($"OpenGL: {_gl.GetStringS(GLEnum.Version)}");
+        Log.Info($"OpenGL: {_gl.GetStringS(GLEnum.Version)}");
 
         _inputContext = _window.CreateInput();
         _imGuiController = new ImGuiController(_gl, _window, _inputContext);

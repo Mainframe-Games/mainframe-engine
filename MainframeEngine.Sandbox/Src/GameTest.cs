@@ -8,7 +8,7 @@ using Silk.NET.Windowing;
 using StbImageSharp;
 using MouseButton = Silk.NET.Input.MouseButton;
 
-namespace MainframeEngine.Test;
+namespace MainframeEngine.Sandbox;
 
 public class GameTest : IGame
 {
