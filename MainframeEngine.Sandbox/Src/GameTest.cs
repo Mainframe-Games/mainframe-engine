@@ -70,6 +70,7 @@ public class GameTest : IGame
 
     public void OnImGui(GameTime gameTime)
     {
+        ImGui.SetNextWindowPos(Vector2.Zero, ImGuiCond.Always, new Vector2(0, 0));
         if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
         {
             ImGui.Value("FrameCount", gameTime.FrameCount);
