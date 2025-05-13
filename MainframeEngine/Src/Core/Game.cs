@@ -65,7 +65,7 @@ public sealed class Game : IDisposable
         _fps.Update();
         
         _gameTime.DeltaTime = delta;
-        _gameTime.FrameCount = _fps.FrameCount;
+        _gameTime.FrameCount = _fps.TotalFrameCount;
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;
         

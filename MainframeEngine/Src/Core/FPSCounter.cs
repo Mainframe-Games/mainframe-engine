@@ -5,7 +5,8 @@ namespace MainframeEngine;
 internal class FPSCounter
 {
     private readonly Stopwatch _stopwatch = new();
-    public uint FrameCount { get; private set; }
+    private uint FrameCount { get;set; }
+    public uint TotalFrameCount { get; private set; }
     public uint Fps { get; private set; }
     public uint Ms { get; private set; }
 
@@ -26,5 +27,7 @@ internal class FPSCounter
             FrameCount = 0;
             _stopwatch.Restart();
         }
+
+        TotalFrameCount++;
     }
 }
