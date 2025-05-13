@@ -13,6 +13,7 @@ namespace SilkVulkanExamples;
     - BaseCode
     - ValidationLayers
     - PhysicalDevice
+    - LogicalDevice
     
  */
 
@@ -30,6 +31,8 @@ public unsafe class SilkVulkan : IDisposable
     private Vk? vk;
     private Instance instance;
     private PhysicalDevice physicalDevice;
+    private Device device;
+    private Queue graphicsQueue;
 
     // validation layers
     private bool EnableValidationLayers = true;
@@ -88,6 +91,7 @@ public unsafe class SilkVulkan : IDisposable
         CreateInstance(appName, "Mainframe Engine");
         SetupDebugMessenger();
         PickPhysicalDevice();
+        CreateLogicalDevice();
     }
 
     private void CreateInstance(string appName, string engineName)
@@ -95,9 +99,7 @@ public unsafe class SilkVulkan : IDisposable
         vk = Vk.GetApi();
         
         if (EnableValidationLayers && !CheckValidationLayerSupport())
-        {
             throw new Exception("validation layers requested, but not available!");
-        }
 
         var appInfo = new ApplicationInfo
         {
@@ -214,11 +216,11 @@ public unsafe class SilkVulkan : IDisposable
     {
         var devices = vk!.GetPhysicalDevices(instance);
 
-        foreach (var device in devices)
+        foreach (var d in devices)
         {
-            if (IsDeviceSuitable(device))
+            if (IsDeviceSuitable(d))
             {
-                physicalDevice = device;
+                physicalDevice = d;
                 Log.Info($"[Vulkan] Physical Device: {physicalDevice}");
                 break;
             }
@@ -238,7 +240,7 @@ public unsafe class SilkVulkan : IDisposable
     {
         var indices = new QueueFamilyIndices();
 
-        uint queueFamilityCount = 0;
+        var queueFamilityCount = 0u;
         vk!.GetPhysicalDeviceQueueFamilyProperties(device, ref queueFamilityCount, null);
 
         var queueFamilies = new QueueFamilyProperties[queueFamilityCount];
@@ -262,6 +264,60 @@ public unsafe class SilkVulkan : IDisposable
         return indices;
     }
 
+    #endregion
+    
+    #region Logical Device
+    
+    private void CreateLogicalDevice()
+    {
+        var indices = FindQueueFamilies(physicalDevice);
+
+        var queueCreateInfo = new DeviceQueueCreateInfo
+        {
+            SType = StructureType.DeviceQueueCreateInfo,
+            QueueFamilyIndex = indices.GraphicsFamily!.Value,
+            QueueCount = 1
+        };
+
+        float queuePriority = 1.0f;
+        queueCreateInfo.PQueuePriorities = &queuePriority;
+
+        var deviceFeatures = new PhysicalDeviceFeatures();
+
+        var createInfo = new DeviceCreateInfo
+        {
+            SType = StructureType.DeviceCreateInfo,
+            QueueCreateInfoCount = 1,
+            PQueueCreateInfos = &queueCreateInfo,
+
+            PEnabledFeatures = &deviceFeatures,
+
+            EnabledExtensionCount = 0
+        };
+
+        if (EnableValidationLayers)
+        {
+            createInfo.EnabledLayerCount = (uint)validationLayers.Length;
+            createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(validationLayers);
+        }
+        else
+        {
+            createInfo.EnabledLayerCount = 0;
+        }
+
+        if (vk!.CreateDevice(physicalDevice, in createInfo, null, out device) != Result.Success)
+            throw new Exception("failed to create logical device!");
+        
+        Log.Info($"[Vulkan] Logical Device: {device}");
+
+        vk!.GetDeviceQueue(device, indices.GraphicsFamily!.Value, 0, out graphicsQueue);
+
+        if (EnableValidationLayers)
+        {
+            SilkMarshal.Free((nint)createInfo.PpEnabledLayerNames);
+        }
+    }
+    
     #endregion
     
     #endregion
