@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.Maths;
@@ -16,6 +17,7 @@ namespace SilkVulkanExamples;
     - PhysicalDevice
     - LogicalDevice
     - WindowSurface
+    - Swapchain
  */
 
 
@@ -38,12 +40,20 @@ public unsafe class SilkVulkan : IDisposable
     private KhrSurface? khrSurface;
     private SurfaceKHR surface;
     
+    // swapchain
+    private KhrSwapchain? khrSwapChain;
+    private SwapchainKHR swapChain;
+    private Image[]? swapChainImages;
+    private Format swapChainImageFormat;
+    private Extent2D swapChainExtent;
     
     // validation layers
     private bool EnableValidationLayers = true;
     private readonly string[] validationLayers = ["VK_LAYER_KHRONOS_validation"];
     private ExtDebugUtils? debugUtils;
     private DebugUtilsMessengerEXT debugMessenger;
+    
+    private readonly string[] deviceExtensions = [KhrSwapchain.ExtensionName];
     
     public SilkVulkan(string title, int width, int height)
     {
@@ -54,6 +64,9 @@ public unsafe class SilkVulkan : IDisposable
     public void Dispose()
     {
         Log.Info("[Vulkan] Disposing...");
+        
+        khrSwapChain!.DestroySwapchain(device, swapChain, null);
+        vk!.DestroyDevice(device, null);
         
         if (EnableValidationLayers)
         {
@@ -99,6 +112,7 @@ public unsafe class SilkVulkan : IDisposable
         CreateSurface();
         PickPhysicalDevice();
         CreateLogicalDevice();
+        CreateSwapchain();
     }
 
     private void CreateInstance(string appName, string engineName)
@@ -225,6 +239,7 @@ public unsafe class SilkVulkan : IDisposable
             throw new NotSupportedException("KHR_surface extension not found.");
 
         surface = window!.VkSurface!.Create<AllocationCallbacks>(instance.ToHandle(), null).ToSurface();
+        Log.Info($"[Vulkan] Surface: {surface}");
     }
 
     #endregion
@@ -294,27 +309,36 @@ public unsafe class SilkVulkan : IDisposable
     {
         var indices = FindQueueFamilies(physicalDevice);
 
-        var queueCreateInfo = new DeviceQueueCreateInfo
-        {
-            SType = StructureType.DeviceQueueCreateInfo,
-            QueueFamilyIndex = indices.GraphicsFamily!.Value,
-            QueueCount = 1
-        };
+        var uniqueQueueFamilies = new[] { indices.GraphicsFamily!.Value, indices.PresentFamily!.Value };
+        uniqueQueueFamilies = uniqueQueueFamilies.Distinct().ToArray();
 
-        var queuePriority = 1.0f;
-        queueCreateInfo.PQueuePriorities = &queuePriority;
+        using var mem = GlobalMemory.Allocate(uniqueQueueFamilies.Length * sizeof(DeviceQueueCreateInfo));
+        var queueCreateInfos = (DeviceQueueCreateInfo*)Unsafe.AsPointer(ref mem.GetPinnableReference());
+
+        float queuePriority = 1.0f;
+        for (int i = 0; i < uniqueQueueFamilies.Length; i++)
+        {
+            queueCreateInfos[i] = new DeviceQueueCreateInfo
+            {
+                SType = StructureType.DeviceQueueCreateInfo,
+                QueueFamilyIndex = uniqueQueueFamilies[i],
+                QueueCount = 1,
+                PQueuePriorities = &queuePriority
+            };
+        }
 
         var deviceFeatures = new PhysicalDeviceFeatures();
 
         var createInfo = new DeviceCreateInfo
         {
             SType = StructureType.DeviceCreateInfo,
-            QueueCreateInfoCount = 1,
-            PQueueCreateInfos = &queueCreateInfo,
+            QueueCreateInfoCount = (uint)uniqueQueueFamilies.Length,
+            PQueueCreateInfos = queueCreateInfos,
 
             PEnabledFeatures = &deviceFeatures,
 
-            EnabledExtensionCount = 0
+            EnabledExtensionCount = (uint)deviceExtensions.Length,
+            PpEnabledExtensionNames = (byte**)SilkMarshal.StringArrayToPtr(deviceExtensions)
         };
 
         if (EnableValidationLayers)
@@ -337,12 +361,160 @@ public unsafe class SilkVulkan : IDisposable
 
         if (EnableValidationLayers)
             SilkMarshal.Free((nint)createInfo.PpEnabledLayerNames);
+
+        SilkMarshal.Free((nint)createInfo.PpEnabledExtensionNames);
     }
     
     #endregion
+
+    #region Swapchain
+    
+    private void CreateSwapchain()
+    {
+        var swapChainSupport = QuerySwapChainSupport(physicalDevice);
+        var surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.Formats);
+        var presentMode = ChoosePresentMode(swapChainSupport.PresentModes);
+        var extent = ChooseSwapExtent(swapChainSupport.Capabilities);
+
+        var imageCount = swapChainSupport.Capabilities.MinImageCount + 1;
+        if (swapChainSupport.Capabilities.MaxImageCount > 0 && imageCount > swapChainSupport.Capabilities.MaxImageCount)
+            imageCount = swapChainSupport.Capabilities.MaxImageCount;
+
+        var creatInfo = new SwapchainCreateInfoKHR
+        {
+            SType = StructureType.SwapchainCreateInfoKhr,
+            Surface = surface,
+
+            MinImageCount = imageCount,
+            ImageFormat = surfaceFormat.Format,
+            ImageColorSpace = surfaceFormat.ColorSpace,
+            ImageExtent = extent,
+            ImageArrayLayers = 1,
+            ImageUsage = ImageUsageFlags.ColorAttachmentBit,
+        };
+
+        var indices = FindQueueFamilies(physicalDevice);
+        var queueFamilyIndices = stackalloc[] { indices.GraphicsFamily!.Value, indices.PresentFamily!.Value };
+
+        if (indices.GraphicsFamily != indices.PresentFamily)
+        {
+            creatInfo = creatInfo with
+            {
+                ImageSharingMode = SharingMode.Concurrent,
+                QueueFamilyIndexCount = 2,
+                PQueueFamilyIndices = queueFamilyIndices,
+            };
+        }
+        else
+        {
+            creatInfo.ImageSharingMode = SharingMode.Exclusive;
+        }
+
+        creatInfo = creatInfo with
+        {
+            PreTransform = swapChainSupport.Capabilities.CurrentTransform,
+            CompositeAlpha = CompositeAlphaFlagsKHR.OpaqueBitKhr,
+            PresentMode = presentMode,
+            Clipped = true,
+
+            OldSwapchain = default
+        };
+
+        if (!vk!.TryGetDeviceExtension(instance, device, out khrSwapChain))
+            throw new NotSupportedException("VK_KHR_swapchain extension not found.");
+
+        if (khrSwapChain!.CreateSwapchain(device, in creatInfo, null, out swapChain) != Result.Success)
+            throw new Exception("failed to create swap chain!");
+
+        khrSwapChain.GetSwapchainImages(device, swapChain, ref imageCount, null);
+        swapChainImages = new Image[imageCount];
+        fixed (Image* swapChainImagesPtr = swapChainImages)
+            khrSwapChain.GetSwapchainImages(device, swapChain, ref imageCount, swapChainImagesPtr);
+
+        swapChainImageFormat = surfaceFormat.Format;
+        swapChainExtent = extent;
+        
+        Log.Info($"[Vulkan] Swapchain: {swapChain}");
+    }
+    
+    private SwapChainSupportDetails QuerySwapChainSupport(PhysicalDevice physicalDevice)
+    {
+        var details = new SwapChainSupportDetails();
+
+        khrSurface!.GetPhysicalDeviceSurfaceCapabilities(physicalDevice, surface, out details.Capabilities);
+
+        var formatCount = 0u;
+        khrSurface.GetPhysicalDeviceSurfaceFormats(physicalDevice, surface, ref formatCount, null);
+
+        if (formatCount != 0)
+        {
+            details.Formats = new SurfaceFormatKHR[formatCount];
+            fixed (SurfaceFormatKHR* formatsPtr = details.Formats)
+                khrSurface.GetPhysicalDeviceSurfaceFormats(physicalDevice, surface, ref formatCount, formatsPtr);
+        }
+        else
+        {
+            details.Formats = [];
+        }
+
+        var presentModeCount = 0u;
+        khrSurface.GetPhysicalDeviceSurfacePresentModes(physicalDevice, surface, ref presentModeCount, null);
+
+        if (presentModeCount != 0)
+        {
+            details.PresentModes = new PresentModeKHR[presentModeCount];
+            fixed (PresentModeKHR* formatsPtr = details.PresentModes)
+                khrSurface.GetPhysicalDeviceSurfacePresentModes(physicalDevice, surface, ref presentModeCount, formatsPtr);
+
+        }
+        else
+        {
+            details.PresentModes = [];
+        }
+
+        return details;
+    }
+    
+    private static SurfaceFormatKHR ChooseSwapSurfaceFormat(SurfaceFormatKHR[] availableFormats)
+    {
+        foreach (var availableFormat in availableFormats)
+            if (availableFormat is { Format: Format.B8G8R8A8Srgb, ColorSpace: ColorSpaceKHR.SpaceSrgbNonlinearKhr })
+                return availableFormat;
+
+        return availableFormats[0];
+    }
+    
+    private static PresentModeKHR ChoosePresentMode(IReadOnlyList<PresentModeKHR> availablePresentModes)
+    {
+        foreach (var availablePresentMode in availablePresentModes)
+            if (availablePresentMode == PresentModeKHR.MailboxKhr)
+                return availablePresentMode;
+
+        return PresentModeKHR.FifoKhr;
+    }
+
+    private Extent2D ChooseSwapExtent(SurfaceCapabilitiesKHR capabilities)
+    {
+        if (capabilities.CurrentExtent.Width != uint.MaxValue)
+            return capabilities.CurrentExtent;
+
+        var framebufferSize = window!.FramebufferSize;
+
+        var actualExtent = new Extent2D
+        {
+            Width = (uint)framebufferSize.X,
+            Height = (uint)framebufferSize.Y
+        };
+
+        actualExtent.Width = Math.Clamp(actualExtent.Width, capabilities.MinImageExtent.Width, capabilities.MaxImageExtent.Width);
+        actualExtent.Height = Math.Clamp(actualExtent.Height, capabilities.MinImageExtent.Height, capabilities.MaxImageExtent.Height);
+
+        return actualExtent;
+    }
+
+    #endregion
     
     #endregion
-
 
     private struct QueueFamilyIndices
     {
@@ -352,4 +524,10 @@ public unsafe class SilkVulkan : IDisposable
         public bool IsComplete() => GraphicsFamily.HasValue;
     }
     
+    private struct SwapChainSupportDetails
+    {
+        public SurfaceCapabilitiesKHR Capabilities;
+        public SurfaceFormatKHR[] Formats;
+        public PresentModeKHR[] PresentModes;
+    }
 }
