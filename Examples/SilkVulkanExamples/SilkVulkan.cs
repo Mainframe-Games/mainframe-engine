@@ -4,6 +4,7 @@ using Silk.NET.Core.Native;
 using Silk.NET.Maths;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
+using Silk.NET.Vulkan.Extensions.KHR;
 using Silk.NET.Windowing;
 
 namespace SilkVulkanExamples;
@@ -14,7 +15,7 @@ namespace SilkVulkanExamples;
     - ValidationLayers
     - PhysicalDevice
     - LogicalDevice
-    
+    - WindowSurface
  */
 
 
@@ -33,7 +34,11 @@ public unsafe class SilkVulkan : IDisposable
     private PhysicalDevice physicalDevice;
     private Device device;
     private Queue graphicsQueue;
-
+    private Queue presentQueue;
+    private KhrSurface? khrSurface;
+    private SurfaceKHR surface;
+    
+    
     // validation layers
     private bool EnableValidationLayers = true;
     private readonly string[] validationLayers = ["VK_LAYER_KHRONOS_validation"];
@@ -56,6 +61,7 @@ public unsafe class SilkVulkan : IDisposable
             debugUtils!.DestroyDebugUtilsMessenger(instance, debugMessenger, null);
         }
         
+        khrSurface?.DestroySurface(instance, surface, null);
         vk?.DestroyInstance(instance, null);
         vk?.Dispose();
         
@@ -90,6 +96,7 @@ public unsafe class SilkVulkan : IDisposable
     {
         CreateInstance(appName, "Mainframe Engine");
         SetupDebugMessenger();
+        CreateSurface();
         PickPhysicalDevice();
         CreateLogicalDevice();
     }
@@ -210,6 +217,18 @@ public unsafe class SilkVulkan : IDisposable
         return Vk.False;
     }
 
+    #region Window Surface
+
+    private void CreateSurface()
+    {
+        if (!vk!.TryGetInstanceExtension<KhrSurface>(instance, out khrSurface))
+            throw new NotSupportedException("KHR_surface extension not found.");
+
+        surface = window!.VkSurface!.Create<AllocationCallbacks>(instance.ToHandle(), null).ToSurface();
+    }
+
+    #endregion
+
     #region Physical Device
 
     private void PickPhysicalDevice()
@@ -245,16 +264,19 @@ public unsafe class SilkVulkan : IDisposable
 
         var queueFamilies = new QueueFamilyProperties[queueFamilityCount];
         fixed (QueueFamilyProperties* queueFamiliesPtr = queueFamilies)
-        {
             vk!.GetPhysicalDeviceQueueFamilyProperties(device, ref queueFamilityCount, queueFamiliesPtr);
-        }
 
-        uint i = 0;
+        var i = 0u;
         foreach (var queueFamily in queueFamilies)
         {
             if (queueFamily.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
                 indices.GraphicsFamily = i;
+            
+            khrSurface!.GetPhysicalDeviceSurfaceSupport(device, i, surface, out var presentSupport);
 
+            if (presentSupport)
+                indices.PresentFamily = i;
+            
             if (indices.IsComplete())
                 break;
 
@@ -279,7 +301,7 @@ public unsafe class SilkVulkan : IDisposable
             QueueCount = 1
         };
 
-        float queuePriority = 1.0f;
+        var queuePriority = 1.0f;
         queueCreateInfo.PQueuePriorities = &queuePriority;
 
         var deviceFeatures = new PhysicalDeviceFeatures();
@@ -311,11 +333,10 @@ public unsafe class SilkVulkan : IDisposable
         Log.Info($"[Vulkan] Logical Device: {device}");
 
         vk!.GetDeviceQueue(device, indices.GraphicsFamily!.Value, 0, out graphicsQueue);
+        vk!.GetDeviceQueue(device, indices.PresentFamily!.Value, 0, out presentQueue);
 
         if (EnableValidationLayers)
-        {
             SilkMarshal.Free((nint)createInfo.PpEnabledLayerNames);
-        }
     }
     
     #endregion
@@ -326,6 +347,8 @@ public unsafe class SilkVulkan : IDisposable
     private struct QueueFamilyIndices
     {
         public uint? GraphicsFamily { get; set; }
+        public uint? PresentFamily { get; set; }
+
         public bool IsComplete() => GraphicsFamily.HasValue;
     }
     
