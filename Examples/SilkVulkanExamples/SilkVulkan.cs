@@ -48,15 +48,16 @@ public unsafe class SilkVulkan : IDisposable
     private Extent2D swapChainExtent;
     
     // validation layers
-    private bool EnableValidationLayers = true;
+    private bool EnableValidationLayers { get; }
     private readonly string[] validationLayers = ["VK_LAYER_KHRONOS_validation"];
     private ExtDebugUtils? debugUtils;
     private DebugUtilsMessengerEXT debugMessenger;
     
     private readonly string[] deviceExtensions = [KhrSwapchain.ExtensionName];
     
-    public SilkVulkan(string title, int width, int height)
+    public SilkVulkan(string title, int width, int height, bool enableValidationLayers = true)
     {
+        EnableValidationLayers = enableValidationLayers;
         InitWindow(title, width, height);
         InitVulkan(title);
     }
@@ -161,6 +162,8 @@ public unsafe class SilkVulkan : IDisposable
         if (vk.CreateInstance(in createInfo, null, out instance) != Result.Success)
             throw new Exception("failed to create instance!");
 
+        Log.Info($"[Vulkan] Instance: {instance}");
+        
         Marshal.FreeHGlobal((IntPtr)appInfo.PApplicationName);
         Marshal.FreeHGlobal((IntPtr)appInfo.PEngineName);
         SilkMarshal.Free((nint)createInfo.PpEnabledExtensionNames);

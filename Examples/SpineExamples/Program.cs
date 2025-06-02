@@ -2,17 +2,16 @@
 using SilkSpine;
 using Monitor = Silk.NET.Windowing.Monitor;
 
+var windowOptions = WindowOptions.Default with
+{
+    Title = "Silk Spine",
+    VSync = true
+};
+using var window = Window.Create(windowOptions);
+var mainMonitor = Monitor.GetMainMonitor(window);
+window.Center(mainMonitor);
+
 var game = new Game();
-
-var windowOptions = WindowOptions.Default;
-windowOptions.Title = "Silk Spine";
-using var window = Window.Create(windowOptions) ?? throw new NullReferenceException();
-
-// set window to center of monitor
-var monitor = Monitor.GetMainMonitor(window);
-var centerScreen = (monitor.VideoMode.Resolution - window.Size) / 2;
-window.Position = centerScreen!.Value;
-
 window.Load += () => game.OnLoad(window);
 window.FramebufferResize += s => game.OnFramebufferResize(s);
 window.Update += delta => game.OnUpdate(delta);
