@@ -48,7 +48,7 @@ public unsafe class SilkVulkan : IDisposable
     private Extent2D swapChainExtent;
     
     // validation layers
-    private bool EnableValidationLayers { get; }
+    private bool EnableValidationLayers { get; set; }
     private readonly string[] validationLayers = ["VK_LAYER_KHRONOS_validation"];
     private ExtDebugUtils? debugUtils;
     private DebugUtilsMessengerEXT debugMessenger;
@@ -119,9 +119,12 @@ public unsafe class SilkVulkan : IDisposable
     private void CreateInstance(string appName, string engineName)
     {
         vk = Vk.GetApi();
-        
+
         if (EnableValidationLayers && !CheckValidationLayerSupport())
-            throw new Exception("validation layers requested, but not available!");
+        {
+            Log.Error("Validation layers requested, but not available!");
+            EnableValidationLayers = false;
+        }
 
         var appInfo = new ApplicationInfo
         {
