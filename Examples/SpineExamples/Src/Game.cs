@@ -184,9 +184,9 @@ internal class Game
             // scale
             Matrix4x4.CreateScale(_spineModelScale)
             // rotation
-            * Matrix4x4.CreateRotationX(MainframeEngine.Math.DegreesToRadiansF(_spineModelRotation.X))
-            * Matrix4x4.CreateRotationY(MainframeEngine.Math.DegreesToRadiansF(_spineModelRotation.Y))
-            * Matrix4x4.CreateRotationZ(MainframeEngine.Math.DegreesToRadiansF(_spineModelRotation.Z))
+            * Matrix4x4.CreateRotationX(float.DegreesToRadians(_spineModelRotation.X))
+            * Matrix4x4.CreateRotationY(float.DegreesToRadians(_spineModelRotation.Y))
+            * Matrix4x4.CreateRotationZ(float.DegreesToRadians(_spineModelRotation.Z))
             // translation
             * Matrix4x4.CreateTranslation(_spineModelPosition);
         

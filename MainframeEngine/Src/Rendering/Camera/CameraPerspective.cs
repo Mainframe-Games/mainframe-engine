@@ -19,7 +19,7 @@ public class CameraPerspective : ICamera
 
     public Matrix4x4 ProjectionMatrix =>
         Matrix4x4.CreatePerspectiveFieldOfView(
-            Math.DegreesToRadiansF(FieldOfView),
+            float.DegreesToRadians(FieldOfView),
             AspectRatio,
             0.1f,
             1000.0f
@@ -41,12 +41,12 @@ public class CameraPerspective : ICamera
 
         var cameraDirection = Vector3.Zero;
         cameraDirection.X =
-            MathF.Cos(Math.DegreesToRadiansF(Yaw))
-            * MathF.Cos(Math.DegreesToRadiansF(Pitch));
-        cameraDirection.Y = MathF.Sin( Math.DegreesToRadiansF(Pitch));
+            MathF.Cos(float.DegreesToRadians(Yaw))
+            * MathF.Cos(float.DegreesToRadians(Pitch));
+        cameraDirection.Y = MathF.Sin( float.DegreesToRadians(Pitch));
         cameraDirection.Z =
-            MathF.Sin(Math.DegreesToRadiansF(Yaw))
-            * MathF.Cos(Math.DegreesToRadiansF(Pitch));
+            MathF.Sin(float.DegreesToRadians(Yaw))
+            * MathF.Cos(float.DegreesToRadians(Pitch));
 
         Forward = Vector3.Normalize(cameraDirection);
     }
