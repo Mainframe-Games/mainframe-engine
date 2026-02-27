@@ -2,7 +2,7 @@
 
 namespace MainframeEngine;
 
-public class CameraOrthographic : ICamera
+public class Camera2D : ICamera
 {
     public Vector3 Position { get; set; } = new(0, 0, 10);
     public Vector3 Forward { get; set; } = -Vector3.UnitZ;
@@ -18,6 +18,6 @@ public class CameraOrthographic : ICamera
 
     public void ModifyZoom(float zoomAmount)
     {
-        Zoom = System.Math.Clamp(Zoom + zoomAmount * 0.1f, 0.001f, 10f);
+        Zoom = Math.Clamp(Zoom + zoomAmount * 0.1f, 0.001f, 10f);
     }
 }

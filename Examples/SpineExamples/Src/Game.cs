@@ -39,12 +39,12 @@ internal class Game
     private float _cameraSpeed = 20;
     private bool CanMoveCamera => _mouse.Cursor.CursorMode is CursorMode.Raw;
 
-    private readonly CameraOrthographic _cameraOrth = new()
+    private readonly Camera2D _cameraOrth = new()
     {
         Position = new Vector3(0.0f, 1.0f, 0.0f),
         Zoom = 0.01f
     };
-    private readonly CameraPerspective _cameraPer = new()
+    private readonly Camera3D _cameraPer = new()
     {
         Position = new Vector3(0.0f, 1.0f, 5.0f)
     };
@@ -221,7 +221,7 @@ internal class Game
         var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
         var moveSpeed = baseSpeed * (float)deltaTime;
 
-        var isPerspectiveCamera = camera is CameraPerspective;
+        var isPerspectiveCamera = camera is Camera3D;
 
         if (isPerspectiveCamera)
         {
@@ -295,7 +295,7 @@ internal class Game
         }
         else
         {
-            if (CurrentCamera is CameraPerspective camera)
+            if (CurrentCamera is Camera3D camera)
             {
                 const float lookSensitivity = 0.1f;
                 var xOffset = (position.X - LastMousePosition.X) * lookSensitivity;
@@ -320,7 +320,7 @@ internal class Game
         if (ImGui.GetIO().WantCaptureMouse)
             return;
         
-        if (CurrentCamera is not CameraOrthographic camera)
+        if (CurrentCamera is not Camera2D camera)
             return;
         
         camera.ModifyZoom(-delta.Y * 0.05f);

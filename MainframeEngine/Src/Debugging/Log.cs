@@ -20,18 +20,18 @@ public static class Log
         Verbose = 1 << 5
     }
     
-    static Log()
-    {
-        LogLevel |= Level.Verbose;
-        
-        Console.WriteLine($"This is {RED}Red{NORMAL}, {GREEN}Green{NORMAL}, {YELLOW}Yellow{NORMAL}, {BLUE}Blue{NORMAL}, {MAGENTA}Magenta{NORMAL}, {CYAN}Cyan{NORMAL}, {GREY}Grey{NORMAL}! ");
-        Console.WriteLine($"This is {BOLD}Bold{NOBOLD}, {UNDERLINE}Underline{NOUNDERLINE}, {REVERSE}Reverse{NOREVERSE}! ");
-        Debug("Test");
-        Info("Test");
-        Warning("Test");
-        Error("Test");
-        Fatal(new Exception("Test"));
-    }
+    // static Log()
+    // {
+    //     LogLevel |= Level.Verbose;
+    //     
+    //     Console.WriteLine($"This is {RED}Red{NORMAL}, {GREEN}Green{NORMAL}, {YELLOW}Yellow{NORMAL}, {BLUE}Blue{NORMAL}, {MAGENTA}Magenta{NORMAL}, {CYAN}Cyan{NORMAL}, {GREY}Grey{NORMAL}! ");
+    //     Console.WriteLine($"This is {BOLD}Bold{NOBOLD}, {UNDERLINE}Underline{NOUNDERLINE}, {REVERSE}Reverse{NOREVERSE}! ");
+    //     Debug("Test");
+    //     Info("Test");
+    //     Warning("Test");
+    //     Error("Test");
+    //     Fatal(new Exception("Test"));
+    // }
     
     private static readonly string NL          = Environment.NewLine;
     private static readonly string NORMAL      = Console.IsOutputRedirected ? string.Empty : "\x1b[39m";

@@ -15,7 +15,7 @@ public class GameTest : IGame
     private IWindow _window = null!;
     private GL _gl = null!;
     
-    private readonly CameraPerspective _cameraPerspective = new()
+    private readonly Camera3D _camera3D = new()
     {
         Position = new Vector3(1, 1, 5f),
     };
@@ -30,28 +30,28 @@ public class GameTest : IGame
     private Vector2 _lastMousePosition;
     private float _cameraSpeed = 10;
 
-    public void OnLoad(IWindow window, GL gl, IInputContext inputContext)
+    public void OnLoad(in Engine engine)
     {
-        _window = window;
-        _gl = gl;
-        gl.ClearColor(Color.DarkSlateGray);
+        _window = engine.Window;
+        _gl = engine.Gl;
+        _gl.ClearColor(Color.DarkSlateGray);
 
         // Set window icon
         SetWindowIcon();
 
-        // assign input callbacks
-        _keyboard = inputContext.Keyboards[0];
-        _mouse = inputContext.Mice[0];
-        
+        // assign keyboard callbacks
+        _keyboard = engine.InputContext.Keyboards[0];
         _keyboard.KeyDown += OnKeyDown;
         
+        // assign mouse callbacks
+        _mouse = engine.InputContext.Mice[0];
         _mouse.MouseDown += OnMouseDown;
         _mouse.MouseUp += OnMouseUp;
         _mouse.MouseMove += OnMouseMove;
         
         // create scene objects
-        _sceneGrid3d = new SceneGrid3d(gl);
-        _box3d = new Box3d(gl);
+        _sceneGrid3d = new SceneGrid3d(_gl);
+        _box3d = new Box3d(_gl);
     }
 
     private void SetWindowIcon()
@@ -64,11 +64,11 @@ public class GameTest : IGame
         _window.SetWindowIcon(ref ico);
     }
 
-    public void OnFramebufferResize(Vector2 newSize)
+    public void OnResize(in Vector2 newSize)
     {
     }
 
-    public void OnImGui(GameTime gameTime)
+    public void OnImGui(in GameTime gameTime)
     {
         ImGui.SetNextWindowPos(Vector2.Zero, ImGuiCond.Always, new Vector2(0, 0));
         if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
@@ -92,23 +92,23 @@ public class GameTest : IGame
         ImGui.End();
     }
 
-    public void OnUpdate(GameTime gameTime)
+    public void OnUpdate(in GameTime gameTime)
     {
         UpdateCameraPosition(gameTime.DeltaTime);
     }
 
-    public void OnRender(GameTime gameTime)
+    public void OnRender(in GameTime gameTime)
     {
         _gl.Enable(EnableCap.DepthTest);
         _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         
         // draw scene grid
         var frameBufferSize = new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y);
-        _cameraPerspective.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
-        _sceneGrid3d.Draw(_cameraPerspective);
+        _camera3D.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
+        _sceneGrid3d.Draw(_camera3D);
         
         // draw default cube
-        _box3d.Draw(_cameraPerspective);
+        _box3d.Draw(_camera3D);
     }
 
     public void OnClose()
@@ -120,12 +120,12 @@ public class GameTest : IGame
         if (!CanMoveCamera)
             return;
 
-        var camera = _cameraPerspective;
+        var camera = _camera3D;
 
         var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
         var moveSpeed = baseSpeed * (float)deltaTime;
 
-        var isPerspectiveCamera = camera is CameraPerspective;
+        var isPerspectiveCamera = camera is Camera3D;
 
         if (isPerspectiveCamera)
         {
@@ -209,7 +209,7 @@ public class GameTest : IGame
             var xOffset = (position.X - _lastMousePosition.X) * lookSensitivity;
             var yOffset = (position.Y - _lastMousePosition.Y) * lookSensitivity;
             _lastMousePosition = position;
-            _cameraPerspective.ModifyDirection(xOffset, yOffset);
+            _camera3D.ModifyDirection(xOffset, yOffset);
         }
     }
     

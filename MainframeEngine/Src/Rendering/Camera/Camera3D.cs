@@ -2,7 +2,7 @@
 
 namespace MainframeEngine;
 
-public class CameraPerspective : ICamera
+public class Camera3D : ICamera
 {
     public Vector3 Position { get; set; } = new(0, 0, -10);
     public Vector3 Forward { get; set; } = -Vector3.UnitZ;
