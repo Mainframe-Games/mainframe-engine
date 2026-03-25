@@ -1,4 +1,5 @@
-﻿using MainframeEngine;
+﻿using System.Numerics;
+using MainframeEngine;
 using MainframeEngine.Sandbox;
 
 try
@@ -6,7 +7,8 @@ try
     var info = new Engine.Info
     {
         GameName = "Mainframe Engine Sandbox",
-        RenderingBackend = RenderingBackend.Vulkan
+        RenderingBackend = RenderingBackend.Vulkan,
+        WindowSize = new Vector2(1920, 1080)
     };
     using var game = new Engine(info, new GameTest());
     var exitCode = game.Run();

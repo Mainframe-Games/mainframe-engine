@@ -24,7 +24,7 @@ public sealed class Engine : IDisposable
     public struct Info()
     {
         public required string GameName;
-        public RenderingBackend RenderingBackend;
+        public RenderingBackend RenderingBackend = RenderingBackend.Vulkan;
         public Vector2 WindowSize = new(800, 600);
     }
 

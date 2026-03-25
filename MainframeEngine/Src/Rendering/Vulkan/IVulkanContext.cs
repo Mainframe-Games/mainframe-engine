@@ -19,4 +19,6 @@ public interface IVulkanContext
     CommandBuffer CurrentCommandBuffer { get; }
 
     Extent2D SwapchainExtent { get; }
+    uint SwapchainImageCount { get; }
+    uint CurrentImageIndex { get; }
 }

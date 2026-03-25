@@ -31,9 +31,15 @@ public abstract class SceneGrid : IDisposable
     private DeviceMemory _vkVertexBufferMemory;
     private PipelineLayout _vkPipelineLayout;
     private Pipeline _vkPipeline;
+    private DescriptorSetLayout _vkDescriptorSetLayout;
+    private DescriptorPool _vkDescriptorPool;
+    private DescriptorSet[] _vkDescriptorSets = null!;
+    private VkBuffer[] _vkUboBuffers = null!;
+    private DeviceMemory[] _vkUboMemory = null!;
+    private nint[] _vkUboMapped = null!;
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct VpPushConstants
+    private struct VpUbo
     {
         public Matrix4x4 View;
         public Matrix4x4 Projection;
@@ -90,6 +96,19 @@ public abstract class SceneGrid : IDisposable
         var vk = _vkCtx.Vk;
         var device = _vkCtx.Device;
         vk.DeviceWaitIdle(device);
+
+        if (_vkUboBuffers is not null)
+        {
+            for (int i = 0; i < _vkUboBuffers.Length; i++)
+            {
+                vk.UnmapMemory(device, _vkUboMemory[i]);
+                vk.DestroyBuffer(device, _vkUboBuffers[i], null);
+                vk.FreeMemory(device, _vkUboMemory[i], null);
+            }
+        }
+
+        vk.DestroyDescriptorPool(device, _vkDescriptorPool, null);
+        vk.DestroyDescriptorSetLayout(device, _vkDescriptorSetLayout, null);
         vk.DestroyPipeline(device, _vkPipeline, null);
         vk.DestroyPipelineLayout(device, _vkPipelineLayout, null);
         vk.DestroyBuffer(device, _vkVertexBuffer, null);
@@ -143,6 +162,14 @@ public abstract class SceneGrid : IDisposable
         var vk = _vkCtx!.Vk;
         var cb = _vkCtx.CurrentCommandBuffer;
         var extent = _vkCtx.SwapchainExtent;
+        var imageIdx = _vkCtx.CurrentImageIndex;
+
+        // Update VP UBO for this image
+        *(VpUbo*)(void*)_vkUboMapped[imageIdx] = new VpUbo
+        {
+            View = camera.ViewMatrix,
+            Projection = camera.ProjectionMatrix,
+        };
 
         // Negative height flips Vulkan's Y axis to match right-handed convention (Y+ up)
         var viewport = new Viewport
@@ -165,12 +192,9 @@ public abstract class SceneGrid : IDisposable
         var offset = 0ul;
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &offset);
 
-        var vp = new VpPushConstants
-        {
-            View = camera.ViewMatrix,
-            Projection = camera.ProjectionMatrix,
-        };
-        vk.CmdPushConstants(cb, _vkPipelineLayout, ShaderStageFlags.VertexBit, 0, (uint)sizeof(VpPushConstants), &vp);
+        var descSet = _vkDescriptorSets[imageIdx];
+        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _vkPipelineLayout,
+            0, 1, &descSet, 0, null);
 
         vk.CmdDraw(cb, _vertexCount, 1, 0, 0);
     }
@@ -207,12 +231,100 @@ public abstract class SceneGrid : IDisposable
     {
         var vk = ctx.Vk;
         var device = ctx.Device;
+        var imageCount = ctx.SwapchainImageCount;
 
+        // --- Descriptor set layout (binding 0 = VP UBO) ---
+        var uboBinding = new DescriptorSetLayoutBinding
+        {
+            Binding = 0,
+            DescriptorType = DescriptorType.UniformBuffer,
+            DescriptorCount = 1,
+            StageFlags = ShaderStageFlags.VertexBit,
+        };
+        var descLayoutInfo = new DescriptorSetLayoutCreateInfo
+        {
+            SType = StructureType.DescriptorSetLayoutCreateInfo,
+            BindingCount = 1,
+            PBindings = &uboBinding,
+        };
+        if (vk.CreateDescriptorSetLayout(device, descLayoutInfo, null, out _vkDescriptorSetLayout) != Result.Success)
+            throw new Exception("[Vulkan] Failed to create descriptor set layout!");
+
+        // --- UBO buffers (one per swapchain image, persistently mapped) ---
+        _vkUboBuffers = new VkBuffer[imageCount];
+        _vkUboMemory = new DeviceMemory[imageCount];
+        _vkUboMapped = new nint[imageCount];
+
+        for (int i = 0; i < imageCount; i++)
+        {
+            CreateBuffer(ctx, (ulong)sizeof(VpUbo),
+                BufferUsageFlags.UniformBufferBit,
+                MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
+                out _vkUboBuffers[i], out _vkUboMemory[i]);
+
+            void* ptr;
+            vk.MapMemory(device, _vkUboMemory[i], 0, (ulong)sizeof(VpUbo), 0, &ptr);
+            _vkUboMapped[i] = (nint)ptr;
+        }
+
+        // --- Descriptor pool ---
+        var poolSize = new DescriptorPoolSize
+        {
+            Type = DescriptorType.UniformBuffer,
+            DescriptorCount = imageCount,
+        };
+        var poolInfo = new DescriptorPoolCreateInfo
+        {
+            SType = StructureType.DescriptorPoolCreateInfo,
+            PoolSizeCount = 1,
+            PPoolSizes = &poolSize,
+            MaxSets = imageCount,
+        };
+        if (vk.CreateDescriptorPool(device, poolInfo, null, out _vkDescriptorPool) != Result.Success)
+            throw new Exception("[Vulkan] Failed to create descriptor pool!");
+
+        // --- Descriptor sets ---
+        var layouts = stackalloc DescriptorSetLayout[(int)imageCount];
+        for (int i = 0; i < imageCount; i++) layouts[i] = _vkDescriptorSetLayout;
+
+        var dsAllocInfo = new DescriptorSetAllocateInfo
+        {
+            SType = StructureType.DescriptorSetAllocateInfo,
+            DescriptorPool = _vkDescriptorPool,
+            DescriptorSetCount = imageCount,
+            PSetLayouts = layouts,
+        };
+        _vkDescriptorSets = new DescriptorSet[imageCount];
+        fixed (DescriptorSet* ptr = _vkDescriptorSets)
+            if (vk.AllocateDescriptorSets(device, dsAllocInfo, ptr) != Result.Success)
+                throw new Exception("[Vulkan] Failed to allocate descriptor sets!");
+
+        for (int i = 0; i < imageCount; i++)
+        {
+            var bufferInfo = new DescriptorBufferInfo
+            {
+                Buffer = _vkUboBuffers[i],
+                Offset = 0,
+                Range = (ulong)sizeof(VpUbo),
+            };
+            var write = new WriteDescriptorSet
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _vkDescriptorSets[i],
+                DstBinding = 0,
+                DstArrayElement = 0,
+                DescriptorType = DescriptorType.UniformBuffer,
+                DescriptorCount = 1,
+                PBufferInfo = &bufferInfo,
+            };
+            vk.UpdateDescriptorSets(device, 1, &write, 0, null);
+        }
+
+        // --- Shaders ---
         var vertCode = File.ReadAllBytes("Content/Shaders/SceneGrid/SceneGrid.vk.vert.spv");
         var fragCode = File.ReadAllBytes("Content/Shaders/SceneGrid/SceneGrid.vk.frag.spv");
         var vertModule = CreateShaderModule(ctx, vertCode);
         var fragModule = CreateShaderModule(ctx, fragCode);
-
         var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
 
         var vertStage = new PipelineShaderStageCreateInfo
@@ -240,10 +352,9 @@ public abstract class SceneGrid : IDisposable
         };
         var attribs = stackalloc VertexInputAttributeDescription[]
         {
-            new() { Location = 0, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32Sfloat, Offset = 0  },  // position
-            new() { Location = 1, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32A32Sfloat, Offset = 12 }, // color
+            new() { Location = 0, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32Sfloat,    Offset = 0  },
+            new() { Location = 1, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32A32Sfloat, Offset = 12 },
         };
-
         var vertexInput = new PipelineVertexInputStateCreateInfo
         {
             SType = StructureType.PipelineVertexInputStateCreateInfo,
@@ -259,34 +370,26 @@ public abstract class SceneGrid : IDisposable
             Topology = PrimitiveTopology.LineList,
             PrimitiveRestartEnable = false,
         };
-
         var viewportState = new PipelineViewportStateCreateInfo
         {
             SType = StructureType.PipelineViewportStateCreateInfo,
-            ViewportCount = 1,
-            ScissorCount = 1,
+            ViewportCount = 1, ScissorCount = 1,
         };
-
         var rasterizer = new PipelineRasterizationStateCreateInfo
         {
             SType = StructureType.PipelineRasterizationStateCreateInfo,
-            DepthClampEnable = false,
-            RasterizerDiscardEnable = false,
+            DepthClampEnable = false, RasterizerDiscardEnable = false,
             PolygonMode = Silk.NET.Vulkan.PolygonMode.Fill,
-            LineWidth = 1f,
-            CullMode = CullModeFlags.None,
-            FrontFace = FrontFace.CounterClockwise,
-            DepthBiasEnable = false,
+            LineWidth = 1f, CullMode = CullModeFlags.None,
+            FrontFace = FrontFace.CounterClockwise, DepthBiasEnable = false,
         };
-
         var multisampling = new PipelineMultisampleStateCreateInfo
         {
             SType = StructureType.PipelineMultisampleStateCreateInfo,
-            SampleShadingEnable = false,
-            RasterizationSamples = SampleCountFlags.Count1Bit,
+            SampleShadingEnable = false, RasterizationSamples = SampleCountFlags.Count1Bit,
         };
 
-        // Alpha blending (SrcAlpha / OneMinusSrcAlpha) — matches OpenGL grid blend
+        // Alpha blending to match OpenGL grid
         var colorBlendAttachment = new PipelineColorBlendAttachmentState
         {
             BlendEnable = true,
@@ -297,50 +400,38 @@ public abstract class SceneGrid : IDisposable
             DstAlphaBlendFactor = BlendFactor.Zero,
             AlphaBlendOp = BlendOp.Add,
             ColorWriteMask =
-                ColorComponentFlags.RBit |
-                ColorComponentFlags.GBit |
-                ColorComponentFlags.BBit |
-                ColorComponentFlags.ABit,
+                ColorComponentFlags.RBit | ColorComponentFlags.GBit |
+                ColorComponentFlags.BBit | ColorComponentFlags.ABit,
         };
-
         var colorBlend = new PipelineColorBlendStateCreateInfo
         {
             SType = StructureType.PipelineColorBlendStateCreateInfo,
-            LogicOpEnable = false,
-            AttachmentCount = 1,
+            LogicOpEnable = false, AttachmentCount = 1,
             PAttachments = &colorBlendAttachment,
         };
-
         var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
         var dynamicState = new PipelineDynamicStateCreateInfo
         {
             SType = StructureType.PipelineDynamicStateCreateInfo,
-            DynamicStateCount = 2,
-            PDynamicStates = dynamicStates,
+            DynamicStateCount = 2, PDynamicStates = dynamicStates,
         };
 
-        var pushRange = new PushConstantRange
-        {
-            StageFlags = ShaderStageFlags.VertexBit,
-            Offset = 0,
-            Size = (uint)sizeof(VpPushConstants),
-        };
-
+        // Pipeline layout: descriptor set only, no push constants
+        var descSetLayout = _vkDescriptorSetLayout;
         var pipelineLayoutInfo = new PipelineLayoutCreateInfo
         {
             SType = StructureType.PipelineLayoutCreateInfo,
-            PushConstantRangeCount = 1,
-            PPushConstantRanges = &pushRange,
+            SetLayoutCount = 1,
+            PSetLayouts = &descSetLayout,
+            PushConstantRangeCount = 0,
         };
-
         if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _vkPipelineLayout) != Result.Success)
             throw new Exception("[Vulkan] Failed to create SceneGrid pipeline layout!");
 
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType = StructureType.GraphicsPipelineCreateInfo,
-            StageCount = 2,
-            PStages = stages,
+            StageCount = 2, PStages = stages,
             PVertexInputState = &vertexInput,
             PInputAssemblyState = &inputAssembly,
             PViewportState = &viewportState,
@@ -349,10 +440,8 @@ public abstract class SceneGrid : IDisposable
             PColorBlendState = &colorBlend,
             PDynamicState = &dynamicState,
             Layout = _vkPipelineLayout,
-            RenderPass = ctx.RenderPass,
-            Subpass = 0,
+            RenderPass = ctx.RenderPass, Subpass = 0,
         };
-
         if (vk.CreateGraphicsPipelines(device, default, 1, pipelineInfo, null, out _vkPipeline) != Result.Success)
             throw new Exception("[Vulkan] Failed to create SceneGrid graphics pipeline!");
 
@@ -371,11 +460,8 @@ public abstract class SceneGrid : IDisposable
         var bufferInfo = new BufferCreateInfo
         {
             SType = StructureType.BufferCreateInfo,
-            Size = size,
-            Usage = usage,
-            SharingMode = SharingMode.Exclusive,
+            Size = size, Usage = usage, SharingMode = SharingMode.Exclusive,
         };
-
         if (vk.CreateBuffer(device, bufferInfo, null, out buffer) != Result.Success)
             throw new Exception("[Vulkan] Failed to create buffer!");
 
@@ -386,10 +472,8 @@ public abstract class SceneGrid : IDisposable
             AllocationSize = memReq.Size,
             MemoryTypeIndex = FindMemoryType(ctx, memReq.MemoryTypeBits, properties),
         };
-
         if (vk.AllocateMemory(device, allocInfo, null, out memory) != Result.Success)
             throw new Exception("[Vulkan] Failed to allocate buffer memory!");
-
         vk.BindBufferMemory(device, buffer, memory, 0);
     }
 
@@ -405,7 +489,6 @@ public abstract class SceneGrid : IDisposable
             CommandPool = ctx.CommandPool,
             CommandBufferCount = 1,
         };
-
         CommandBuffer cb;
         vk.AllocateCommandBuffers(device, allocInfo, &cb);
 
@@ -415,10 +498,8 @@ public abstract class SceneGrid : IDisposable
             Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
         };
         vk.BeginCommandBuffer(cb, beginInfo);
-
         var region = new BufferCopy { Size = size };
         vk.CmdCopyBuffer(cb, src, dst, 1, &region);
-
         vk.EndCommandBuffer(cb);
 
         var submitInfo = new SubmitInfo
@@ -452,10 +533,8 @@ public abstract class SceneGrid : IDisposable
                 CodeSize = (nuint)code.Length,
                 PCode = (uint*)ptr,
             };
-
             if (ctx.Vk.CreateShaderModule(ctx.Device, createInfo, null, out var module) != Result.Success)
                 throw new Exception("[Vulkan] Failed to create shader module!");
-
             return module;
         }
     }

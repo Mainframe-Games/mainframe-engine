@@ -82,6 +82,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public Queue GraphicsQueue => _graphicsQueue;
     public CommandBuffer CurrentCommandBuffer => _frameStarted ? _commandBuffers![_currentImageIndex] : default;
     public Extent2D SwapchainExtent => _swapChainExtent;
+    public uint SwapchainImageCount => (uint)(_swapChainImages?.Length ?? 0);
+    public uint CurrentImageIndex => _currentImageIndex;
 
     #endregion
 
