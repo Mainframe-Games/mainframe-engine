@@ -556,7 +556,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private static SurfaceFormatKHR ChooseSurfaceFormat(SurfaceFormatKHR[] formats)
     {
         foreach (var f in formats)
-            if (f is { Format: Format.B8G8R8A8Srgb, ColorSpace: ColorSpaceKHR.SpaceSrgbNonlinearKhr })
+            if (f is { Format: Format.B8G8R8A8Unorm, ColorSpace: ColorSpaceKHR.SpaceSrgbNonlinearKhr })
                 return f;
         return formats[0];
     }
