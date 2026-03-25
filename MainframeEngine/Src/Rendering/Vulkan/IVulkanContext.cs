@@ -1,0 +1,22 @@
+using Silk.NET.Vulkan;
+
+namespace MainframeEngine;
+
+/// <summary>
+/// Exposes Vulkan state to shapes and other renderable objects.
+/// Obtain via cast: renderer as IVulkanContext
+/// </summary>
+public interface IVulkanContext
+{
+    Vk Vk { get; }
+    Device Device { get; }
+    PhysicalDevice PhysicalDevice { get; }
+    RenderPass RenderPass { get; }
+    CommandPool CommandPool { get; }
+    Queue GraphicsQueue { get; }
+
+    /// <summary>The command buffer currently being recorded. Valid only between BeginFrame and EndFrame.</summary>
+    CommandBuffer CurrentCommandBuffer { get; }
+
+    Extent2D SwapchainExtent { get; }
+}

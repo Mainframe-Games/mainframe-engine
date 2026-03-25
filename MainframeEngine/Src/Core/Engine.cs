@@ -10,7 +10,7 @@ namespace MainframeEngine;
 public sealed class Engine : IDisposable
 {
     private readonly IGame _game;
-    private readonly RenderingBackend _backend;
+    private readonly RenderingBackend _renderingBackend;
     private ImGuiController? _imGuiController;
 
     private int _exitCode;
@@ -24,27 +24,27 @@ public sealed class Engine : IDisposable
     public struct Info()
     {
         public required string GameName;
-        public RenderingBackend RendererBackend;
+        public RenderingBackend RenderingBackend;
         public Vector2 WindowSize = new(800, 600);
     }
 
     public Engine(in Info info, IGame game)
     {
         _game = game;
-        _backend = info.RendererBackend;
+        _renderingBackend = info.RenderingBackend;
 
         var windowSize = new Vector2D<int>((int)info.WindowSize.X, (int)info.WindowSize.Y);
-        var windowOptions = _backend == RenderingBackend.Vulkan
+        var windowOptions = _renderingBackend == RenderingBackend.Vulkan
             ? WindowOptions.DefaultVulkan with
             {
-                Title = info.GameName,
+                Title = $"{info.GameName} ({_renderingBackend})",
                 API = WindowOptions.DefaultVulkan.API with { Version = new APIVersion(1, 2) },
                 Size = windowSize
                 
             }
             : WindowOptions.Default with
             {
-                Title = info.GameName,
+                Title = $"{info.GameName} ({_renderingBackend})",
                 API = WindowOptions.Default.API with { Version = new APIVersion(4, 6) },
                 Size = windowSize
             };
@@ -65,11 +65,11 @@ public sealed class Engine : IDisposable
     {
         InputContext = Window.CreateInput();
 
-        Renderer = _backend switch
+        Renderer = _renderingBackend switch
         {
             RenderingBackend.OpenGL => CreateOpenGLRenderer(),
             RenderingBackend.Vulkan => new VulkanRenderer(Window, enableValidationLayers: true),
-            _ => throw new ArgumentOutOfRangeException(nameof(_backend))
+            _ => throw new ArgumentOutOfRangeException(nameof(_renderingBackend))
         };
 
         _game.OnLoad(this);
@@ -101,7 +101,7 @@ public sealed class Engine : IDisposable
 
         _imGuiController?.Update((float)delta);
 
-        if (_backend == RenderingBackend.OpenGL)
+        if (_renderingBackend == RenderingBackend.OpenGL)
             _game.OnImGui(_gameTime);
 
         _game.OnUpdate(_gameTime);

@@ -1,13 +1,17 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Silk.NET.Core.Native;
 using Silk.NET.OpenGL;
+using Silk.NET.Vulkan;
+using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
 /// <summary>
-/// Base class for making scene grid
+/// Base class for making scene grid. Supports both OpenGL and Vulkan backends.
 /// </summary>
-public abstract class SceneGrid
+public abstract class SceneGrid : IDisposable
 {
     protected readonly Vector4 DefaultColor = new(1f, 1f, 1f, 0.1f);
     protected readonly Vector4 Red = new(1f, 0f, 0f, 1f);
@@ -15,9 +19,25 @@ public abstract class SceneGrid
     protected readonly Vector4 Blue = new(0f, 0f, 1f, 1f);
 
     protected readonly uint _vertexCount;
+
+    // OpenGL
     private readonly GL? _gl;
-    private uint _vertexArrayId;
+    private uint _glVertexArrayId;
     private readonly Shader? _shader;
+
+    // Vulkan
+    private IVulkanContext? _vkCtx;
+    private VkBuffer _vkVertexBuffer;
+    private DeviceMemory _vkVertexBufferMemory;
+    private PipelineLayout _vkPipelineLayout;
+    private Pipeline _vkPipeline;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct VpPushConstants
+    {
+        public Matrix4x4 View;
+        public Matrix4x4 Projection;
+    }
 
     protected struct Vertex(float x, float y, float z, Vector4 color)
     {
@@ -29,47 +49,77 @@ public abstract class SceneGrid
     {
         _vertexCount = vertexCount;
 
-        if (renderer.Backend != RenderingBackend.OpenGL)
-            return;
-
-        _gl = renderer.GetGL();
-        _shader = new Shader(_gl,
-            "Content/Shaders/SceneGrid/SceneGrid.vert",
-            "Content/Shaders/SceneGrid/SceneGrid.frag");
+        if (renderer.Backend == RenderingBackend.OpenGL)
+        {
+            _gl = renderer.GetGL();
+            _shader = new Shader(_gl,
+                "Content/Shaders/SceneGrid/SceneGrid.vert",
+                "Content/Shaders/SceneGrid/SceneGrid.frag");
+        }
+        else if (renderer is IVulkanContext vkCtx)
+        {
+            _vkCtx = vkCtx;
+        }
     }
 
-    public void Draw(ICamera camera)
+    public unsafe void Draw(ICamera camera)
     {
-        if (_gl is null) return;
-
-        _gl.Enable(EnableCap.Blend);
-        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        if (_gl is not null)
         {
-            _shader!.Use();
-            _shader.SetUniform("uView", camera.ViewMatrix);
-            _shader.SetUniform("uProjection", camera.ProjectionMatrix);
+            _gl.Enable(EnableCap.Blend);
+            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            {
+                _shader!.Use();
+                _shader.SetUniform("uView", camera.ViewMatrix);
+                _shader.SetUniform("uProjection", camera.ProjectionMatrix);
 
-            _gl.BindVertexArray(_vertexArrayId);
-            _gl.DrawArrays(PrimitiveType.Lines, 0, _vertexCount);
+                _gl.BindVertexArray(_glVertexArrayId);
+                _gl.DrawArrays(PrimitiveType.Lines, 0, _vertexCount);
+            }
+            _gl.Disable(EnableCap.Blend);
         }
-        _gl.Disable(EnableCap.Blend);
+        else if (_vkCtx is not null)
+        {
+            DrawVulkan(camera);
+        }
+    }
+
+    public unsafe void Dispose()
+    {
+        if (_vkCtx is null) return;
+        var vk = _vkCtx.Vk;
+        var device = _vkCtx.Device;
+        vk.DeviceWaitIdle(device);
+        vk.DestroyPipeline(device, _vkPipeline, null);
+        vk.DestroyPipelineLayout(device, _vkPipelineLayout, null);
+        vk.DestroyBuffer(device, _vkVertexBuffer, null);
+        vk.FreeMemory(device, _vkVertexBufferMemory, null);
     }
 
     protected unsafe void BuildVertexArray(Vertex* vertices)
     {
-        if (_gl is null) return;
+        if (_gl is not null)
+            BuildGlVertexArray(vertices);
 
-        var vertexBufferId = _gl.GenBuffer();
+        if (_vkCtx is not null)
+            BuildVkVertexBuffer(vertices);
+    }
+
+    #region OpenGL
+
+    private unsafe void BuildGlVertexArray(Vertex* vertices)
+    {
+        var vertexBufferId = _gl!.GenBuffer();
         _gl.BindBuffer(BufferTargetARB.ArrayBuffer, vertexBufferId);
         _gl.BufferData(
             BufferTargetARB.ArrayBuffer,
-            (nuint)(_vertexCount * sizeof(Vertex)),
+            (nuint)(_vertexCount * (uint)sizeof(Vertex)),
             vertices,
             BufferUsageARB.StaticDraw
         );
 
-        _vertexArrayId = _gl.GenVertexArray();
-        _gl.BindVertexArray(_vertexArrayId);
+        _glVertexArrayId = _gl.GenVertexArray();
+        _gl.BindVertexArray(_glVertexArrayId);
         _gl.VertexAttribPointer(
             0, 3, VertexAttribPointerType.Float, false,
             (uint)Marshal.SizeOf<Vertex>(),
@@ -83,4 +133,332 @@ public abstract class SceneGrid
         );
         _gl.EnableVertexAttribArray(1);
     }
+
+    #endregion
+
+    #region Vulkan
+
+    private unsafe void DrawVulkan(ICamera camera)
+    {
+        var vk = _vkCtx!.Vk;
+        var cb = _vkCtx.CurrentCommandBuffer;
+        var extent = _vkCtx.SwapchainExtent;
+
+        // Negative height flips Vulkan's Y axis to match right-handed convention (Y+ up)
+        var viewport = new Viewport
+        {
+            X = 0,
+            Y = (float)extent.Height,
+            Width = (float)extent.Width,
+            Height = -(float)extent.Height,
+            MinDepth = 0f,
+            MaxDepth = 1f,
+        };
+        vk.CmdSetViewport(cb, 0, 1, &viewport);
+
+        var scissor = new Rect2D { Offset = default, Extent = extent };
+        vk.CmdSetScissor(cb, 0, 1, &scissor);
+
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _vkPipeline);
+
+        var vb = _vkVertexBuffer;
+        var offset = 0ul;
+        vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &offset);
+
+        var vp = new VpPushConstants
+        {
+            View = camera.ViewMatrix,
+            Projection = camera.ProjectionMatrix,
+        };
+        vk.CmdPushConstants(cb, _vkPipelineLayout, ShaderStageFlags.VertexBit, 0, (uint)sizeof(VpPushConstants), &vp);
+
+        vk.CmdDraw(cb, _vertexCount, 1, 0, 0);
+    }
+
+    private unsafe void BuildVkVertexBuffer(Vertex* vertices)
+    {
+        var ctx = _vkCtx!;
+        var size = (ulong)(_vertexCount * (uint)sizeof(Vertex));
+
+        CreateBuffer(ctx, size,
+            BufferUsageFlags.TransferSrcBit,
+            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
+            out var stagingBuffer, out var stagingMemory);
+
+        void* mapped;
+        ctx.Vk.MapMemory(ctx.Device, stagingMemory, 0, size, 0, &mapped);
+        Unsafe.CopyBlock(mapped, vertices, (uint)size);
+        ctx.Vk.UnmapMemory(ctx.Device, stagingMemory);
+
+        CreateBuffer(ctx, size,
+            BufferUsageFlags.TransferDstBit | BufferUsageFlags.VertexBufferBit,
+            MemoryPropertyFlags.DeviceLocalBit,
+            out _vkVertexBuffer, out _vkVertexBufferMemory);
+
+        CopyBuffer(ctx, stagingBuffer, _vkVertexBuffer, size);
+
+        ctx.Vk.DestroyBuffer(ctx.Device, stagingBuffer, null);
+        ctx.Vk.FreeMemory(ctx.Device, stagingMemory, null);
+
+        CreateVkPipeline(ctx);
+    }
+
+    private unsafe void CreateVkPipeline(IVulkanContext ctx)
+    {
+        var vk = ctx.Vk;
+        var device = ctx.Device;
+
+        var vertCode = File.ReadAllBytes("Content/Shaders/SceneGrid/SceneGrid.vk.vert.spv");
+        var fragCode = File.ReadAllBytes("Content/Shaders/SceneGrid/SceneGrid.vk.frag.spv");
+        var vertModule = CreateShaderModule(ctx, vertCode);
+        var fragModule = CreateShaderModule(ctx, fragCode);
+
+        var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
+
+        var vertStage = new PipelineShaderStageCreateInfo
+        {
+            SType = StructureType.PipelineShaderStageCreateInfo,
+            Stage = ShaderStageFlags.VertexBit,
+            Module = vertModule,
+            PName = entryPoint,
+        };
+        var fragStage = new PipelineShaderStageCreateInfo
+        {
+            SType = StructureType.PipelineShaderStageCreateInfo,
+            Stage = ShaderStageFlags.FragmentBit,
+            Module = fragModule,
+            PName = entryPoint,
+        };
+        var stages = stackalloc[] { vertStage, fragStage };
+
+        // Vertex layout: Vertex { Vector3 Position, Vector4 Color } = 28 bytes
+        var bindingDesc = new VertexInputBindingDescription
+        {
+            Binding = 0,
+            Stride = (uint)sizeof(Vertex),
+            InputRate = VertexInputRate.Vertex,
+        };
+        var attribs = stackalloc VertexInputAttributeDescription[]
+        {
+            new() { Location = 0, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32Sfloat, Offset = 0  },  // position
+            new() { Location = 1, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32A32Sfloat, Offset = 12 }, // color
+        };
+
+        var vertexInput = new PipelineVertexInputStateCreateInfo
+        {
+            SType = StructureType.PipelineVertexInputStateCreateInfo,
+            VertexBindingDescriptionCount = 1,
+            PVertexBindingDescriptions = &bindingDesc,
+            VertexAttributeDescriptionCount = 2,
+            PVertexAttributeDescriptions = attribs,
+        };
+
+        var inputAssembly = new PipelineInputAssemblyStateCreateInfo
+        {
+            SType = StructureType.PipelineInputAssemblyStateCreateInfo,
+            Topology = PrimitiveTopology.LineList,
+            PrimitiveRestartEnable = false,
+        };
+
+        var viewportState = new PipelineViewportStateCreateInfo
+        {
+            SType = StructureType.PipelineViewportStateCreateInfo,
+            ViewportCount = 1,
+            ScissorCount = 1,
+        };
+
+        var rasterizer = new PipelineRasterizationStateCreateInfo
+        {
+            SType = StructureType.PipelineRasterizationStateCreateInfo,
+            DepthClampEnable = false,
+            RasterizerDiscardEnable = false,
+            PolygonMode = Silk.NET.Vulkan.PolygonMode.Fill,
+            LineWidth = 1f,
+            CullMode = CullModeFlags.None,
+            FrontFace = FrontFace.CounterClockwise,
+            DepthBiasEnable = false,
+        };
+
+        var multisampling = new PipelineMultisampleStateCreateInfo
+        {
+            SType = StructureType.PipelineMultisampleStateCreateInfo,
+            SampleShadingEnable = false,
+            RasterizationSamples = SampleCountFlags.Count1Bit,
+        };
+
+        // Alpha blending (SrcAlpha / OneMinusSrcAlpha) — matches OpenGL grid blend
+        var colorBlendAttachment = new PipelineColorBlendAttachmentState
+        {
+            BlendEnable = true,
+            SrcColorBlendFactor = BlendFactor.SrcAlpha,
+            DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha,
+            ColorBlendOp = BlendOp.Add,
+            SrcAlphaBlendFactor = BlendFactor.One,
+            DstAlphaBlendFactor = BlendFactor.Zero,
+            AlphaBlendOp = BlendOp.Add,
+            ColorWriteMask =
+                ColorComponentFlags.RBit |
+                ColorComponentFlags.GBit |
+                ColorComponentFlags.BBit |
+                ColorComponentFlags.ABit,
+        };
+
+        var colorBlend = new PipelineColorBlendStateCreateInfo
+        {
+            SType = StructureType.PipelineColorBlendStateCreateInfo,
+            LogicOpEnable = false,
+            AttachmentCount = 1,
+            PAttachments = &colorBlendAttachment,
+        };
+
+        var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
+        var dynamicState = new PipelineDynamicStateCreateInfo
+        {
+            SType = StructureType.PipelineDynamicStateCreateInfo,
+            DynamicStateCount = 2,
+            PDynamicStates = dynamicStates,
+        };
+
+        var pushRange = new PushConstantRange
+        {
+            StageFlags = ShaderStageFlags.VertexBit,
+            Offset = 0,
+            Size = (uint)sizeof(VpPushConstants),
+        };
+
+        var pipelineLayoutInfo = new PipelineLayoutCreateInfo
+        {
+            SType = StructureType.PipelineLayoutCreateInfo,
+            PushConstantRangeCount = 1,
+            PPushConstantRanges = &pushRange,
+        };
+
+        if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _vkPipelineLayout) != Result.Success)
+            throw new Exception("[Vulkan] Failed to create SceneGrid pipeline layout!");
+
+        var pipelineInfo = new GraphicsPipelineCreateInfo
+        {
+            SType = StructureType.GraphicsPipelineCreateInfo,
+            StageCount = 2,
+            PStages = stages,
+            PVertexInputState = &vertexInput,
+            PInputAssemblyState = &inputAssembly,
+            PViewportState = &viewportState,
+            PRasterizationState = &rasterizer,
+            PMultisampleState = &multisampling,
+            PColorBlendState = &colorBlend,
+            PDynamicState = &dynamicState,
+            Layout = _vkPipelineLayout,
+            RenderPass = ctx.RenderPass,
+            Subpass = 0,
+        };
+
+        if (vk.CreateGraphicsPipelines(device, default, 1, pipelineInfo, null, out _vkPipeline) != Result.Success)
+            throw new Exception("[Vulkan] Failed to create SceneGrid graphics pipeline!");
+
+        SilkMarshal.Free((nint)entryPoint);
+        vk.DestroyShaderModule(device, vertModule, null);
+        vk.DestroyShaderModule(device, fragModule, null);
+    }
+
+    private unsafe void CreateBuffer(IVulkanContext ctx, ulong size,
+        BufferUsageFlags usage, MemoryPropertyFlags properties,
+        out VkBuffer buffer, out DeviceMemory memory)
+    {
+        var vk = ctx.Vk;
+        var device = ctx.Device;
+
+        var bufferInfo = new BufferCreateInfo
+        {
+            SType = StructureType.BufferCreateInfo,
+            Size = size,
+            Usage = usage,
+            SharingMode = SharingMode.Exclusive,
+        };
+
+        if (vk.CreateBuffer(device, bufferInfo, null, out buffer) != Result.Success)
+            throw new Exception("[Vulkan] Failed to create buffer!");
+
+        vk.GetBufferMemoryRequirements(device, buffer, out var memReq);
+        var allocInfo = new MemoryAllocateInfo
+        {
+            SType = StructureType.MemoryAllocateInfo,
+            AllocationSize = memReq.Size,
+            MemoryTypeIndex = FindMemoryType(ctx, memReq.MemoryTypeBits, properties),
+        };
+
+        if (vk.AllocateMemory(device, allocInfo, null, out memory) != Result.Success)
+            throw new Exception("[Vulkan] Failed to allocate buffer memory!");
+
+        vk.BindBufferMemory(device, buffer, memory, 0);
+    }
+
+    private unsafe void CopyBuffer(IVulkanContext ctx, VkBuffer src, VkBuffer dst, ulong size)
+    {
+        var vk = ctx.Vk;
+        var device = ctx.Device;
+
+        var allocInfo = new CommandBufferAllocateInfo
+        {
+            SType = StructureType.CommandBufferAllocateInfo,
+            Level = CommandBufferLevel.Primary,
+            CommandPool = ctx.CommandPool,
+            CommandBufferCount = 1,
+        };
+
+        CommandBuffer cb;
+        vk.AllocateCommandBuffers(device, allocInfo, &cb);
+
+        var beginInfo = new CommandBufferBeginInfo
+        {
+            SType = StructureType.CommandBufferBeginInfo,
+            Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
+        };
+        vk.BeginCommandBuffer(cb, beginInfo);
+
+        var region = new BufferCopy { Size = size };
+        vk.CmdCopyBuffer(cb, src, dst, 1, &region);
+
+        vk.EndCommandBuffer(cb);
+
+        var submitInfo = new SubmitInfo
+        {
+            SType = StructureType.SubmitInfo,
+            CommandBufferCount = 1,
+            PCommandBuffers = &cb,
+        };
+        vk.QueueSubmit(ctx.GraphicsQueue, 1, submitInfo, default);
+        vk.QueueWaitIdle(ctx.GraphicsQueue);
+        vk.FreeCommandBuffers(device, ctx.CommandPool, 1, &cb);
+    }
+
+    private static uint FindMemoryType(IVulkanContext ctx, uint typeBits, MemoryPropertyFlags properties)
+    {
+        ctx.Vk.GetPhysicalDeviceMemoryProperties(ctx.PhysicalDevice, out var memProps);
+        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
+            if ((typeBits & (1u << (int)i)) != 0 &&
+                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
+                return i;
+        throw new Exception("[Vulkan] No suitable memory type found!");
+    }
+
+    private unsafe ShaderModule CreateShaderModule(IVulkanContext ctx, byte[] code)
+    {
+        fixed (byte* ptr = code)
+        {
+            var createInfo = new ShaderModuleCreateInfo
+            {
+                SType = StructureType.ShaderModuleCreateInfo,
+                CodeSize = (nuint)code.Length,
+                PCode = (uint*)ptr,
+            };
+
+            if (ctx.Vk.CreateShaderModule(ctx.Device, createInfo, null, out var module) != Result.Success)
+                throw new Exception("[Vulkan] Failed to create shader module!");
+
+            return module;
+        }
+    }
+
+    #endregion
 }

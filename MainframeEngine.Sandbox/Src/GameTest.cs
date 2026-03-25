@@ -105,6 +105,8 @@ public class GameTest : IGame
 
     public void OnClose()
     {
+        _sceneGrid3d.Dispose();
+        _box3d.Dispose();
     }
 
     private void UpdateCameraPosition(double deltaTime)

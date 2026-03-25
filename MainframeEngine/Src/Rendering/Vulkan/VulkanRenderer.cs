@@ -12,10 +12,10 @@ using Silk.NET.Windowing;
 namespace MainframeEngine;
 
 /// <summary>
-/// Vulkan rendering backend. Handles the full Vulkan bring-up and a clear-only render loop.
-/// Vulkan-backed shapes are not yet implemented; shape Draw() calls are silently skipped.
+/// Vulkan rendering backend.
+/// Implements IVulkanContext so shapes can record draw commands into the active command buffer.
 /// </summary>
-internal unsafe class VulkanRenderer : IRenderer
+internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
 {
     private readonly IWindow _window;
 
@@ -66,7 +66,24 @@ internal unsafe class VulkanRenderer : IRenderer
 
     private readonly string[] _deviceExtensions = [KhrSwapchain.ExtensionName];
 
+    #region IRenderer
+
     public RenderingBackend Backend => RenderingBackend.Vulkan;
+
+    #endregion
+
+    #region IVulkanContext
+
+    public Vk Vk => _vk!;
+    public Device Device => _device;
+    public PhysicalDevice PhysicalDevice => _physicalDevice;
+    public RenderPass RenderPass => _renderPass;
+    public CommandPool CommandPool => _commandPool;
+    public Queue GraphicsQueue => _graphicsQueue;
+    public CommandBuffer CurrentCommandBuffer => _frameStarted ? _commandBuffers![_currentImageIndex] : default;
+    public Extent2D SwapchainExtent => _swapChainExtent;
+
+    #endregion
 
     public VulkanRenderer(IWindow window, bool enableValidationLayers)
     {
@@ -75,7 +92,7 @@ internal unsafe class VulkanRenderer : IRenderer
         InitVulkan();
     }
 
-    #region IRenderer
+    #region IRenderer implementation
 
     public void OnResize(Vector2D<int> newSize) => _framebufferResized = true;
 
@@ -110,7 +127,31 @@ internal unsafe class VulkanRenderer : IRenderer
             _vk!.WaitForFences(_device, 1, _imagesInFlight[imageIndex], true, ulong.MaxValue);
         _imagesInFlight[imageIndex] = _inFlightFences[_currentFrame];
 
-        RecordCommandBuffer(imageIndex);
+        // Begin command buffer
+        var cb = _commandBuffers![imageIndex];
+        _vk!.ResetCommandBuffer(cb, 0);
+
+        var beginInfo = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo };
+        if (_vk!.BeginCommandBuffer(cb, beginInfo) != Result.Success)
+            throw new Exception("[Vulkan] Failed to begin recording command buffer!");
+
+        // Begin render pass — shapes record their draw commands while this is open
+        var clearColor = new ClearValue
+        {
+            Color = new() { Float32_0 = _clearR, Float32_1 = _clearG, Float32_2 = _clearB, Float32_3 = _clearA }
+        };
+
+        var renderPassInfo = new RenderPassBeginInfo
+        {
+            SType = StructureType.RenderPassBeginInfo,
+            RenderPass = _renderPass,
+            Framebuffer = _swapChainFramebuffers![imageIndex],
+            RenderArea = { Offset = default, Extent = _swapChainExtent },
+            ClearValueCount = 1,
+            PClearValues = &clearColor,
+        };
+
+        _vk!.CmdBeginRenderPass(cb, &renderPassInfo, SubpassContents.Inline);
     }
 
     public void EndFrame()
@@ -119,10 +160,17 @@ internal unsafe class VulkanRenderer : IRenderer
         _frameStarted = false;
 
         var imageIndex = _currentImageIndex;
+        var cb = _commandBuffers![imageIndex];
+
+        // Close render pass and command buffer
+        _vk!.CmdEndRenderPass(cb);
+        if (_vk!.EndCommandBuffer(cb) != Result.Success)
+            throw new Exception("[Vulkan] Failed to record command buffer!");
+
         var waitSemaphore = _imageAvailableSemaphores![_currentFrame];
         var waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
         var signalSemaphore = _renderFinishedSemaphores![imageIndex];
-        var commandBuffer = _commandBuffers![imageIndex];
+        var commandBuffer = cb;
 
         var submitInfo = new SubmitInfo
         {
@@ -152,14 +200,14 @@ internal unsafe class VulkanRenderer : IRenderer
             PImageIndices = &imageIndex,
         };
 
-        var result = _khrSwapChain!.QueuePresent(_presentQueue, presentInfo);
+        var presentResult = _khrSwapChain!.QueuePresent(_presentQueue, presentInfo);
 
-        if (result == Result.ErrorOutOfDateKhr || result == Result.SuboptimalKhr || _framebufferResized)
+        if (presentResult == Result.ErrorOutOfDateKhr || presentResult == Result.SuboptimalKhr || _framebufferResized)
         {
             _framebufferResized = false;
             RecreateSwapchain();
         }
-        else if (result != Result.Success)
+        else if (presentResult != Result.Success)
         {
             throw new Exception("[Vulkan] Failed to present swap chain image!");
         }
@@ -178,48 +226,12 @@ internal unsafe class VulkanRenderer : IRenderer
     // Clear is handled by the render pass LoadOp.Clear — no explicit call needed.
     public void Clear() { }
 
-    // Depth state is pipeline state in Vulkan, not a dynamic toggle.
+    // Depth state is pipeline state in Vulkan — handled per-pipeline, not as a global toggle.
     public void EnableDepthTest() { }
     public void DisableDepthTest() { }
 
     public GL GetGL() => throw new NotSupportedException(
         "OpenGL is not available with the Vulkan backend.");
-
-    #endregion
-
-    #region Command Recording
-
-    private void RecordCommandBuffer(uint imageIndex)
-    {
-        var cb = _commandBuffers![imageIndex];
-        _vk!.ResetCommandBuffer(cb, 0);
-
-        var beginInfo = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo };
-        if (_vk!.BeginCommandBuffer(cb, beginInfo) != Result.Success)
-            throw new Exception("[Vulkan] Failed to begin recording command buffer!");
-
-        var clearColor = new ClearValue
-        {
-            Color = new() { Float32_0 = _clearR, Float32_1 = _clearG, Float32_2 = _clearB, Float32_3 = _clearA }
-        };
-
-        var renderPassInfo = new RenderPassBeginInfo
-        {
-            SType = StructureType.RenderPassBeginInfo,
-            RenderPass = _renderPass,
-            Framebuffer = _swapChainFramebuffers![imageIndex],
-            RenderArea = { Offset = default, Extent = _swapChainExtent },
-            ClearValueCount = 1,
-            PClearValues = &clearColor,
-        };
-
-        _vk!.CmdBeginRenderPass(cb, &renderPassInfo, SubpassContents.Inline);
-        // Vulkan-backed draw calls will be recorded here in future implementations.
-        _vk!.CmdEndRenderPass(cb);
-
-        if (_vk!.EndCommandBuffer(cb) != Result.Success)
-            throw new Exception("[Vulkan] Failed to record command buffer!");
-    }
 
     #endregion
 
@@ -663,7 +675,6 @@ internal unsafe class VulkanRenderer : IRenderer
         {
             SType = StructureType.CommandPoolCreateInfo,
             QueueFamilyIndex = FindQueueFamilies(_physicalDevice).GraphicsFamily!.Value,
-            // ResetCommandBuffer allows individual buffers to be reset each frame
             Flags = CommandPoolCreateFlags.ResetCommandBufferBit,
         };
 
