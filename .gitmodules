@@ -1,0 +1,3 @@
+[submodule "Plugins/Spine"]
+	path = Plugins/Spine
+	url = git@github.com:Mainframe-Games/spine-csharp.git

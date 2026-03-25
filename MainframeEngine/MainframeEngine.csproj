@@ -31,7 +31,7 @@
     
     <!-- Local References -->
     <ItemGroup>
-      <ProjectReference Include="..\Plugins\Spine\Spine.csproj" />
+      <ProjectReference Include="..\Plugins\Spine\spine-csharp\spine-csharp.csproj" />
     </ItemGroup>
 
     <!-- Copy everything in content folder to build destination -->

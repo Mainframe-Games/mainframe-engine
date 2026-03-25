@@ -30,7 +30,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
-      <ProjectReference Include="..\..\Plugins\Spine\Spine.csproj" />
     </ItemGroup>
 
     <ItemGroup>
