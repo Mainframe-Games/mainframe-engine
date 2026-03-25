@@ -1,12 +1,11 @@
-﻿using System.Numerics;
-using Silk.NET.OpenGL;
+using System.Numerics;
 
 namespace MainframeEngine;
 
 public class SceneGrid3d : SceneGrid
 {
-    public unsafe SceneGrid3d(GL gl, uint gridSize = 200)
-        : base(gl, (gridSize + 1) * 6)
+    public unsafe SceneGrid3d(IRenderer renderer, uint gridSize = 200)
+        : base(renderer, (gridSize + 1) * 6)
     {
         var gridSizeHalf = (int)gridSize / 2;
         var vertices = stackalloc Vertex[(int)_vertexCount];

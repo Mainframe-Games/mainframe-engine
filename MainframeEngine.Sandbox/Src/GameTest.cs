@@ -1,9 +1,8 @@
-﻿using System.Drawing;
+using System.Drawing;
 using System.Numerics;
 using ImGuiNET;
 using Silk.NET.Core;
 using Silk.NET.Input;
-using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using StbImageSharp;
 using MouseButton = Silk.NET.Input.MouseButton;
@@ -13,16 +12,16 @@ namespace MainframeEngine.Sandbox;
 public class GameTest : IGame
 {
     private IWindow _window = null!;
-    private GL _gl = null!;
-    
+    private IRenderer _renderer = null!;
+
     private readonly Camera3D _camera3D = new()
     {
         Position = new Vector3(1, 1, 5f),
     };
-    
+
     private SceneGrid3d _sceneGrid3d = null!;
     private Box3d _box3d = null!;
-    
+
     private IKeyboard _keyboard = null!;
     private IMouse _mouse = null!;
 
@@ -33,25 +32,21 @@ public class GameTest : IGame
     public void OnLoad(in Engine engine)
     {
         _window = engine.Window;
-        _gl = engine.Gl;
-        _gl.ClearColor(Color.DarkSlateGray);
+        _renderer = engine.Renderer;
+        _renderer.SetClearColor(0.18f, 0.31f, 0.31f); // DarkSlateGray
 
-        // Set window icon
         SetWindowIcon();
 
-        // assign keyboard callbacks
         _keyboard = engine.InputContext.Keyboards[0];
         _keyboard.KeyDown += OnKeyDown;
-        
-        // assign mouse callbacks
+
         _mouse = engine.InputContext.Mice[0];
         _mouse.MouseDown += OnMouseDown;
         _mouse.MouseUp += OnMouseUp;
         _mouse.MouseMove += OnMouseMove;
-        
-        // create scene objects
-        _sceneGrid3d = new SceneGrid3d(_gl);
-        _box3d = new Box3d(_gl);
+
+        _sceneGrid3d = new SceneGrid3d(_renderer);
+        _box3d = new Box3d(_renderer);
     }
 
     private void SetWindowIcon()
@@ -77,14 +72,14 @@ public class GameTest : IGame
             ImGui.Value("DeltaTime", (float)gameTime.DeltaTime);
             ImGui.Value("FPS", gameTime.FramesPerSecond);
             ImGui.Value("Ms", gameTime.FramesTimeMs);
-            
+
             var vsync = _window.VSync;
             if (ImGui.Checkbox("VSync", ref vsync))
             {
                 if (vsync != _window.VSync)
                     _window.VSync = vsync;
             }
-            
+
             var isFullScreen = _window.WindowState is WindowState.Fullscreen;
             if (ImGui.Checkbox("FullScreen", ref isFullScreen))
                 _window.WindowState = isFullScreen ? WindowState.Fullscreen : WindowState.Normal;
@@ -99,29 +94,25 @@ public class GameTest : IGame
 
     public void OnRender(in GameTime gameTime)
     {
-        _gl.Enable(EnableCap.DepthTest);
-        _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-        
-        // draw scene grid
+        _renderer.EnableDepthTest();
+        _renderer.Clear();
+
         var frameBufferSize = new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y);
         _camera3D.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
         _sceneGrid3d.Draw(_camera3D);
-        
-        // draw default cube
         _box3d.Draw(_camera3D);
     }
 
     public void OnClose()
     {
     }
-    
+
     private void UpdateCameraPosition(double deltaTime)
     {
         if (!CanMoveCamera)
             return;
 
         var camera = _camera3D;
-
         var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
         var moveSpeed = baseSpeed * (float)deltaTime;
 
@@ -129,51 +120,29 @@ public class GameTest : IGame
 
         if (isPerspectiveCamera)
         {
-            // forward
             if (_keyboard.IsKeyPressed(Key.W))
                 camera.Position += moveSpeed * camera.Forward;
-            
-            // back
             if (_keyboard.IsKeyPressed(Key.S))
                 camera.Position -= moveSpeed * camera.Forward;
-            
-            // left
             if (_keyboard.IsKeyPressed(Key.A))
-                camera.Position -=
-                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-        
-            // right
+                camera.Position -= Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
             if (_keyboard.IsKeyPressed(Key.D))
-                camera.Position +=
-                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-            
-            // up
+                camera.Position += Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
             if (_keyboard.IsKeyPressed(Key.Q))
                 camera.Position -= camera.Up * moveSpeed;
-
-            // down
             if (_keyboard.IsKeyPressed(Key.E))
                 camera.Position += camera.Up * moveSpeed;
         }
         else
         {
-            // up
             if (_keyboard.IsKeyPressed(Key.W))
                 camera.Position += camera.Up * moveSpeed;
-
-            // down
             if (_keyboard.IsKeyPressed(Key.S))
                 camera.Position -= camera.Up * moveSpeed;
-            
-            // left
             if (_keyboard.IsKeyPressed(Key.A))
-                camera.Position -=
-                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-        
-            // right
+                camera.Position -= Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
             if (_keyboard.IsKeyPressed(Key.D))
-                camera.Position +=
-                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+                camera.Position += Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
         }
     }
 
@@ -185,20 +154,19 @@ public class GameTest : IGame
                 ? CursorMode.Normal
                 : CursorMode.Raw;
         }
-    
+
         if (key == Key.Escape)
             _window.Close();
     }
-    
+
     private void OnMouseMove(IMouse mouse, Vector2 position)
     {
         if (!CanMoveCamera)
         {
-            // reset last position so camera doesn't make massive jump when move mouse again
             _lastMousePosition = default;
             return;
         }
-        
+
         if (_lastMousePosition == default)
         {
             _lastMousePosition = position;
@@ -212,13 +180,13 @@ public class GameTest : IGame
             _camera3D.ModifyDirection(xOffset, yOffset);
         }
     }
-    
+
     private void OnMouseDown(IMouse mouse, MouseButton button)
     {
         if (button is MouseButton.Right)
             _mouse.Cursor.CursorMode = CursorMode.Raw;
     }
-    
+
     private void OnMouseUp(IMouse mouse, MouseButton button)
     {
         if (button is MouseButton.Right)

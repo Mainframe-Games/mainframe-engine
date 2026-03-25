@@ -1,7 +1,6 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Silk.NET.Input;
 using Silk.NET.Maths;
-using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
 using Monitor = Silk.NET.Windowing.Monitor;
@@ -11,25 +10,45 @@ namespace MainframeEngine;
 public sealed class Engine : IDisposable
 {
     private readonly IGame _game;
-    private ImGuiController _imGuiController = null!;
-    
+    private readonly RenderingBackend _backend;
+    private ImGuiController? _imGuiController;
+
     private int _exitCode;
     private GameTime _gameTime;
-    
     private readonly FPSCounter _fps = new();
 
     public IWindow Window { get; }
     public IInputContext InputContext { get; private set; } = null!;
-    public GL Gl { get; private set; } = null!;
+    public IRenderer Renderer { get; private set; } = null!;
 
-    public Engine(in string gameName, in IGame game)
+    public struct Info()
+    {
+        public required string GameName;
+        public RenderingBackend RendererBackend;
+        public Vector2 WindowSize = new(800, 600);
+    }
+
+    public Engine(in Info info, IGame game)
     {
         _game = game;
+        _backend = info.RendererBackend;
 
-        var windowOptions = WindowOptions.Default;
-        windowOptions.Title = gameName;
-        windowOptions.API = windowOptions.API with { Version = new APIVersion(4, 6)};
-        
+        var windowSize = new Vector2D<int>((int)info.WindowSize.X, (int)info.WindowSize.Y);
+        var windowOptions = _backend == RenderingBackend.Vulkan
+            ? WindowOptions.DefaultVulkan with
+            {
+                Title = info.GameName,
+                API = WindowOptions.DefaultVulkan.API with { Version = new APIVersion(1, 2) },
+                Size = windowSize
+                
+            }
+            : WindowOptions.Default with
+            {
+                Title = info.GameName,
+                API = WindowOptions.Default.API with { Version = new APIVersion(4, 6) },
+                Size = windowSize
+            };
+
         Window = Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new NullReferenceException();
         Window.Load += OnLoad;
         Window.FramebufferResize += OnFramebufferResize;
@@ -37,7 +56,6 @@ public sealed class Engine : IDisposable
         Window.Render += OnRender;
         Window.Closing += OnClose;
 
-        // set window to center of monitor
         var monitor = Monitor.GetMainMonitor(Window);
         var centerScreen = (monitor.VideoMode.Resolution - Window.Size) / 2;
         Window.Position = centerScreen!.Value;
@@ -45,80 +63,74 @@ public sealed class Engine : IDisposable
 
     private void OnLoad()
     {
-        Gl = GL.GetApi(Window);
-
-        var openGlVersion = Gl.GetStringS(GLEnum.Version);
-        Log.Info($"OpenGL: {openGlVersion}");
-
         InputContext = Window.CreateInput();
-        _imGuiController = new ImGuiController(Gl, Window, InputContext);
+
+        Renderer = _backend switch
+        {
+            RenderingBackend.OpenGL => CreateOpenGLRenderer(),
+            RenderingBackend.Vulkan => new VulkanRenderer(Window, enableValidationLayers: true),
+            _ => throw new ArgumentOutOfRangeException(nameof(_backend))
+        };
+
         _game.OnLoad(this);
+    }
+
+    private IRenderer CreateOpenGLRenderer()
+    {
+        var gl = Silk.NET.OpenGL.GL.GetApi(Window);
+        var version = gl.GetStringS(Silk.NET.OpenGL.GLEnum.Version);
+        Log.Info($"[OpenGL] {version}");
+
+        _imGuiController = new ImGuiController(gl, Window, InputContext);
+        return new OpenGLRenderer(gl);
     }
 
     private void OnFramebufferResize(Vector2D<int> newSize)
     {
-        Gl.Viewport(newSize);
+        Renderer.OnResize(newSize);
         _game.OnResize(new Vector2(newSize.X, newSize.Y));
     }
 
-    /// <summary>
-    /// Handles the per-frame update logic for the game, including gameplay updates,
-    /// input processing, and updating the state of the graphics or UI frameworks.
-    /// </summary>
-    /// <param name="delta">The time elapsed since the last update, in seconds.</param>
     private void OnUpdate(double delta)
     {
         _fps.Update();
-
         _gameTime.DeltaTime = delta;
         _gameTime.FrameCount = _fps.TotalFrameCount;
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;
-        
-        _imGuiController.Update((float)delta);
-        _game.OnImGui(_gameTime);
+
+        _imGuiController?.Update((float)delta);
+
+        if (_backend == RenderingBackend.OpenGL)
+            _game.OnImGui(_gameTime);
+
         _game.OnUpdate(_gameTime);
     }
 
-    /// <summary>
-    /// Executes the rendering logic for the game's current frame, ensuring that
-    /// all visual elements are drawn and any immediate-mode GUI elements are rendered.
-    /// </summary>
-    /// <param name="delta">The time elapsed since the last frame, in seconds.</param>
     private void OnRender(double delta)
     {
+        Renderer.BeginFrame();
         _game.OnRender(_gameTime);
-        _imGuiController.Render();
+        Renderer.EndFrame();
+        _imGuiController?.Render();
     }
 
-    /// <summary>
-    /// Handles the cleanup of game resources and ensures proper disposal
-    /// of components when the game window is closed.
-    /// </summary>
     private void OnClose()
     {
         _exitCode = 0;
         _game.OnClose();
-        _imGuiController.Dispose();
+        _imGuiController?.Dispose();
         InputContext.Dispose();
-        Gl.Dispose();
+        Renderer.Dispose();
     }
 
-    /// <summary>
-    /// Starts the main game loop and returns the exit code when the game terminates.
-    /// </summary>
-    /// <returns>The exit code of the application.</returns>
     public int Run()
     {
         Window.Run();
         return _exitCode;
     }
 
-    /// <summary>
-    /// Closes the game window and sets the exit code for the application.
-    /// </summary>
-    /// <param name="exitCode">The exit code to set when the game is closed.</param>
-    public void Quit(in int exitCode)
+    public void Quit(int exitCode)
     {
         _exitCode = exitCode;
         Window.Close();

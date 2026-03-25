@@ -38,24 +38,24 @@ public class SpineRenderer
         public float TextureIndex;
     }
     
-    public SpineRenderer(GL gl, Skeleton skeleton, bool pma, List<Texture> textures)
+    public SpineRenderer(IRenderer renderer, Skeleton skeleton, bool pma, List<Texture> textures)
     {
-        _gl = gl;
+        _gl = renderer.GetGL();
         _skeleton = skeleton;
         _pma = pma;
         _textures = textures;
 
-        _vertexBuffer = new BufferObject<Vertex>(gl, null, BufferTargetARB.ArrayBuffer);
-        var indexBuffer = new BufferObject<uint>(gl, _indexArray, BufferTargetARB.ElementArrayBuffer);
-        _vbo = new VertexArrayObject<Vertex, uint>(gl, _vertexBuffer, indexBuffer);
+        _vertexBuffer = new BufferObject<Vertex>(_gl, null, BufferTargetARB.ArrayBuffer);
+        var indexBuffer = new BufferObject<uint>(_gl, _indexArray, BufferTargetARB.ElementArrayBuffer);
+        _vbo = new VertexArrayObject<Vertex, uint>(_gl, _vertexBuffer, indexBuffer);
 
         var stride = (uint)Marshal.SizeOf<Vertex>();
         _vbo.VertexAttributePointer2(0, 3, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Position)));
         _vbo.VertexAttributePointer2(1, 2, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Uv)));
         _vbo.VertexAttributePointer2(2, 4, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Color)));
         _vbo.VertexAttributePointer2(3, 1, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.TextureIndex)));
-        
-        _shader = new Shader(gl,
+
+        _shader = new Shader(_gl,
             "Content/Shaders/Spine/Spine.vert",
             "Content/Shaders/Spine/Spine.frag");
     }

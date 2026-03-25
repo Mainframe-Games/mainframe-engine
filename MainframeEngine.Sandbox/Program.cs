@@ -3,7 +3,12 @@ using MainframeEngine.Sandbox;
 
 try
 {
-    using var game = new Engine("Mainframe Engine Sandbox", new GameTest());
+    var info = new Engine.Info
+    {
+        GameName = "Mainframe Engine Sandbox",
+        RendererBackend = RenderingBackend.Vulkan
+    };
+    using var game = new Engine(info, new GameTest());
     var exitCode = game.Run();
     Log.Debug($"Game Exit: {exitCode}");
     return exitCode;

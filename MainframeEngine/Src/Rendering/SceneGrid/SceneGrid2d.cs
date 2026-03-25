@@ -1,11 +1,9 @@
-﻿using Silk.NET.OpenGL;
-
 namespace MainframeEngine;
 
 public class SceneGrid2d : SceneGrid
 {
-    public unsafe SceneGrid2d(GL gl, uint gridSize = 200)
-        : base(gl, (gridSize + 1) * 4)
+    public unsafe SceneGrid2d(IRenderer renderer, uint gridSize = 200)
+        : base(renderer, (gridSize + 1) * 4)
     {
         var gridSizeHalf = (int)gridSize / 2;
         var vertices = stackalloc Vertex[(int)_vertexCount];
@@ -29,5 +27,4 @@ public class SceneGrid2d : SceneGrid
 
         BuildVertexArray(vertices);
     }
-
 }
