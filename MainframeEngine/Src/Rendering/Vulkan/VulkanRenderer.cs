@@ -80,6 +80,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public RenderPass RenderPass => _renderPass;
     public CommandPool CommandPool => _commandPool;
     public Queue GraphicsQueue => _graphicsQueue;
+    public bool FrameStarted => _frameStarted;
     public CommandBuffer CurrentCommandBuffer => _frameStarted ? _commandBuffers![_currentImageIndex] : default;
     public Extent2D SwapchainExtent => _swapChainExtent;
     public uint SwapchainImageCount => (uint)(_swapChainImages?.Length ?? 0);

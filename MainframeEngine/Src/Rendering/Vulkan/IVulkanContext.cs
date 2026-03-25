@@ -15,7 +15,10 @@ public interface IVulkanContext
     CommandPool CommandPool { get; }
     Queue GraphicsQueue { get; }
 
-    /// <summary>The command buffer currently being recorded. Valid only between BeginFrame and EndFrame.</summary>
+    /// <summary>True while a frame is being recorded (between BeginFrame and EndFrame). False during swapchain recreation.</summary>
+    bool FrameStarted { get; }
+
+    /// <summary>The command buffer currently being recorded. Valid only when FrameStarted is true.</summary>
     CommandBuffer CurrentCommandBuffer { get; }
 
     Extent2D SwapchainExtent { get; }

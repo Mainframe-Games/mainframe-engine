@@ -12,6 +12,7 @@ public sealed class Engine : IDisposable
     private readonly IGame _game;
     private readonly RenderingBackend _renderingBackend;
     private ImGuiController? _imGuiController;
+    private VulkanImGuiController? _vkImGuiController;
 
     private int _exitCode;
     private GameTime _gameTime;
@@ -72,6 +73,9 @@ public sealed class Engine : IDisposable
             _ => throw new ArgumentOutOfRangeException(nameof(_renderingBackend))
         };
 
+        if (Renderer is IVulkanContext vkCtx)
+            _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
+
         _game.OnLoad(this);
     }
 
@@ -100,9 +104,9 @@ public sealed class Engine : IDisposable
         _gameTime.FramesTimeMs = _fps.Ms;
 
         _imGuiController?.Update((float)delta);
+        _vkImGuiController?.Update((float)delta);
 
-        if (_renderingBackend == RenderingBackend.OpenGL)
-            _game.OnImGui(_gameTime);
+        _game.OnImGui(_gameTime);
 
         _game.OnUpdate(_gameTime);
     }
@@ -110,7 +114,15 @@ public sealed class Engine : IDisposable
     private void OnRender(double delta)
     {
         Renderer.BeginFrame();
-        _game.OnRender(_gameTime);
+
+        // For Vulkan, BeginFrame can return early without starting a frame (swapchain recreation
+        // during resize / fullscreen toggle). Skip draw calls in that case.
+        if (Renderer is not IVulkanContext vk || vk.FrameStarted)
+        {
+            _game.OnRender(_gameTime);
+            _vkImGuiController?.Render(); // inside the render pass, before EndFrame
+        }
+
         Renderer.EndFrame();
         _imGuiController?.Render();
     }
@@ -119,6 +131,7 @@ public sealed class Engine : IDisposable
     {
         _exitCode = 0;
         _game.OnClose();
+        _vkImGuiController?.Dispose();
         _imGuiController?.Dispose();
         InputContext.Dispose();
         Renderer.Dispose();
