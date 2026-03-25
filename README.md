@@ -33,8 +33,6 @@ mainframe-engine/
 │   └── Spine/                # Full Spine C# runtime port
 │
 └── Examples/
-    ├── BlissExamples/        # Bliss framework example
-    ├── SDL3Examples/         # SDL3 windowing/input example
     ├── SilkOpenGLExamples/   # OpenGL rendering via Silk.NET
     ├── SilkVulkanExamples/   # Vulkan rendering via Silk.NET
     └── SpineExamples/        # Spine animation showcase
@@ -111,7 +109,7 @@ Full Steamworks.NET wrapper:
 |--------|---------|---------|
 | Windowing / Input | Silk.NET | 2.21.0 |
 | OpenGL bindings | Silk.NET.OpenGL | 2.21.0 |
-| Vulkan bindings | Silk.NET.Vulkan | 2.21.0 |
+| Vulkan bindings | Silk.NET.Vulkan | 2.22.0 |
 | Skeletal animation | Spine Runtime | (Plugin) |
 | Debug UI | ImGui.NET | latest |
 | Steam platform | Steamworks.NET | 2024.8.0 |
@@ -138,18 +136,43 @@ Full Steamworks.NET wrapper:
 
 ## Rendering Backends
 
-The `Examples/` directory demonstrates multiple rendering backends that can be used as the windowing/rendering foundation:
+The `Examples/` directory covers two rendering backends built on Silk.NET:
 
-- **Silk.NET + OpenGL** — primary backend used by the core engine
-- **Silk.NET + Vulkan** — lower-level alternative
-- **SDL3** — alternative windowing and input
-- **Bliss** — additional framework option
+- **Silk.NET + OpenGL** — primary backend used by the core engine; tutorial series covering hello quad through model loading, lighting, and ImGui
+- **Silk.NET + Vulkan** — full Vulkan bring-up through a working triangle (see below)
+
+---
+
+## Vulkan Example (`SilkVulkanExamples`)
+
+A complete Vulkan renderer following the [Silk Vulkan Tutorial](https://github.com/dfkeenan/SilkVulkanTutorial). All chapters through Rendering and Presentation are implemented:
+
+| Chapter | Description |
+|---------|-------------|
+| BaseCode | Window creation, Vulkan instance |
+| ValidationLayers | Debug messenger, layer support |
+| PhysicalDevice | GPU selection |
+| LogicalDevice | Device + queue creation |
+| WindowSurface | KHR surface via Silk.NET |
+| Swapchain | Triple-buffered swapchain |
+| ImageViews | Per-image `ImageView` wrappers |
+| RenderPass | Single color attachment, clear/store |
+| GraphicsPipeline | SPIR-V shaders, full fixed-function state |
+| Framebuffers | One framebuffer per image view |
+| CommandPool/Buffers | Recorded draw commands per framebuffer |
+| RenderingAndPresentation | 2 frames-in-flight, acquire/submit/present loop, resize handling |
+
+**Shaders** are written in GLSL and compiled to SPIR-V via `glslc` at build time. The vertex shader hardcodes an RGB triangle with no vertex buffer required.
+
+**Sync note:** `renderFinishedSemaphores` is sized per swapchain image (not per frame-in-flight) and indexed by `imageIndex`. This ensures a semaphore used as a `QueuePresent` wait is never reused until that image is re-acquired, satisfying the Vulkan spec.
 
 ---
 
 ## Shaders
 
-Shaders live in `Content/Shaders/` and are loaded at runtime. The `Shader` class handles compilation, linking, and uniform assignment. MVP matrix transforms are standard across all shape and Spine renderers.
+**OpenGL:** Shaders live in `Content/Shaders/` per example and are loaded at runtime by the `Shader` class. MVP matrix transforms are standard across all shape and Spine renderers.
+
+**Vulkan:** GLSL sources in `Content/Shaders/` are compiled to `.spv` via `glslc`. The `.spv` files are copied to the output directory and loaded at runtime with `File.ReadAllBytes`.
 
 ---
 

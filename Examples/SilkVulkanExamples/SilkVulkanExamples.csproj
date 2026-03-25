@@ -15,4 +15,10 @@
       <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.22.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Content Include="Content\Shaders\*.spv">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+
 </Project>
