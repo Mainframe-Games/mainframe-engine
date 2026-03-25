@@ -1,129 +1,174 @@
-﻿using System.Drawing;
 using System.Numerics;
-using ImGuiNET;
 using MainframeEngine;
 using Silk.NET.Input;
-using Silk.NET.Maths;
-using Silk.NET.OpenGL;
-using Silk.NET.OpenGL.Extensions.ImGui;
-using Silk.NET.Windowing;
 using SilkSpine.UI;
 using Spine;
 using Math = System.Math;
 
 namespace SilkSpine;
 
-internal class Game
+internal class Game : IGame
 {
-    private static readonly SpineFolder[] _folders =
+    private static readonly SpineFolder[] Folders =
     [
         new("Content/SpineBoy"),
         new("Content/Raptor"),
         new("Content/Windmill"),
         new("Content/CelestialCircus"),
     ];
-    
-    private Atlas _atlas;
-    private Skeleton _spineSkeleton;
-    private AnimationState _animationState;
-    private SpineRenderer _spineRenderer;
-    
-    private readonly InspectorUI _inspectorUI = new(_folders);
 
-    private IWindow Window { get; set; } = null!;
-    private IInputContext InputContext { get; set; } = null!;
-    private GL Gl { get; set; } = null!;
-    private ImGuiController ImGuiController { get; set; } = null!;
-    private IKeyboard _keyboard;
-    private IMouse _mouse;
-    private float _cameraSpeed = 20;
+    private Engine _engine = null!;
+    private IRenderer _renderer = null!;
+
+    private Atlas _atlas = null!;
+    private Skeleton _spineSkeleton = null!;
+    private AnimationState _animationState = null!;
+    private SpineRenderer? _spineRenderer;
+
+    private readonly InspectorUI _inspectorUI = new(Folders);
+
+    private IKeyboard _keyboard = null!;
+    private IMouse _mouse = null!;
+    private float _cameraSpeed = 20f;
     private bool CanMoveCamera => _mouse.Cursor.CursorMode is CursorMode.Raw;
 
     private readonly Camera2D _cameraOrth = new()
     {
-        Position = new Vector3(0.0f, 1.0f, 0.0f),
-        Zoom = 0.01f
+        Position = new Vector3(0f, 1f, 0f),
+        Zoom = 0.01f,
     };
     private readonly Camera3D _cameraPer = new()
     {
-        Position = new Vector3(0.0f, 1.0f, 5.0f)
+        Position = new Vector3(0f, 1f, 5f),
     };
-    
     private ICamera CurrentCamera => _inspectorUI.UseOrthographicCamera ? _cameraOrth : _cameraPer;
 
-    //Used to track change in mouse movement to allow for moving of the Camera
-    private static Vector2 LastMousePosition;
-    private Vector3 _spineModelPosition;
-    private Vector3 _spineModelRotation;
-    private float _spineModelScale = 0.2f;
+    private static Vector2 _lastMousePos;
+    private Vector3 _modelPosition;
+    private Vector3 _modelRotation;
+    private float _modelScale = 0.2f;
 
-    private SceneGrid3d _sceneGrid3d;
-    private SceneGrid2d _sceneGrid2d;
-    private Quad _quad;
-    private Box3d _box3d;
-    
+    private SceneGrid3d _sceneGrid3d = null!;
+    private SceneGrid2d _sceneGrid2d = null!;
+
     public Game()
     {
         _inspectorUI.OnModelChanged += OnModelChanged;
         _inspectorUI.OnAnimationChanged += SetAnimation;
     }
 
-    private void OnModelChanged(SpineFolder folder)
+    public void OnLoad(in Engine engine)
     {
-        // load atlas
-        var textureLoader = new SpineTextureLoader(Gl);
-        _atlas = new Atlas(folder.AtlasPath, textureLoader);
-        var json = new SkeletonJson(_atlas);
-        var skeletonData = json.ReadSkeletonData(folder.JsonPath);
+        _engine = engine;
+        _renderer = engine.Renderer;
 
-        _spineSkeleton = new Skeleton(skeletonData);
-        _spineSkeleton.SetSkin(skeletonData.DefaultSkin);
-        _inspectorUI.SpineScale = 0.02f;
-        _inspectorUI.ZSpacing = 0.01f;
-
-        _spineRenderer = new SpineRenderer(Gl,
-            _spineSkeleton, 
-            _atlas.Pages[0].pma,
-            textureLoader.Textures);
-
-        // animations
-        var animationStateData = new AnimationStateData(skeletonData);
-        _animationState = new AnimationState(animationStateData);
-        SetAnimation(_spineSkeleton.Data.Animations.Items[0].Name);
-    }
-
-    private void SetAnimation(string animationName)
-    {
-        var idleAnimation = _spineSkeleton.Data.FindAnimation(animationName);
-        _animationState.AddAnimation(0, idleAnimation, true, 0);
-    }
-
-    public void OnLoad(IWindow window)
-    {
-        Window = window;
-
-        InputContext = window.CreateInput();
-        _keyboard = InputContext.Keyboards[0];
-        _mouse = InputContext.Mice[0];
-        
+        _keyboard = engine.InputContext.Keyboards[0];
+        _mouse = engine.InputContext.Mice[0];
         _keyboard.KeyDown += OnKeyDown;
         _mouse.Scroll += OnMouseScroll;
         _mouse.MouseMove += OnMouseMove;
         _mouse.MouseDown += OnMouseDown;
         _mouse.MouseUp += OnMouseUp;
 
-        //Getting the opengl api for drawing to the screen.
-        Gl = GL.GetApi(window);
-        Console.WriteLine($"OpenGL: {Gl.GetStringS(GLEnum.Version)}");
-        Gl.ClearColor(Color.DarkSlateGray);
-        
-        ImGuiController = new ImGuiController(Gl, window, InputContext);
+        _renderer.SetClearColor(0.18f, 0.20f, 0.22f);
 
-        _sceneGrid3d = new SceneGrid3d(Gl);
-        _sceneGrid2d = new SceneGrid2d(Gl);
-        _quad = new Quad(Gl);
-        _box3d = new Box3d(Gl);
-        OnModelChanged(_folders[0]);
+        _sceneGrid3d = new SceneGrid3d(_renderer);
+        _sceneGrid2d = new SceneGrid2d(_renderer);
+
+        OnModelChanged(Folders[0]);
+    }
+
+    public void OnResize(in Vector2 newSize) { }
+
+    public void OnImGui(in GameTime gameTime)
+    {
+        if (_spineRenderer is null) return;
+        _inspectorUI.OnImGui(
+            _spineSkeleton, CurrentCamera,
+            ref _cameraSpeed,
+            ref _modelPosition, ref _modelRotation, ref _modelScale,
+            ref _spineRenderer.SrcFactor, ref _spineRenderer.DestFactor,
+            gameTime.DeltaTime);
+    }
+
+    public void OnUpdate(in GameTime gameTime)
+    {
+        UpdateCamera(gameTime.DeltaTime);
+
+        SetSpineScale();
+        _spineSkeleton.UpdateWorldTransform(_inspectorUI.UpdatePhysics
+            ? Skeleton.Physics.Update
+            : Skeleton.Physics.None);
+        _animationState.Update((float)gameTime.DeltaTime);
+        _animationState.Apply(_spineSkeleton);
+    }
+
+    public void OnRender(in GameTime gameTime)
+    {
+        _renderer.Clear();
+
+        var fbSize = new Vector2(_engine.Window.FramebufferSize.X, _engine.Window.FramebufferSize.Y);
+
+        if (_inspectorUI.UseOrthographicCamera)
+        {
+            _cameraOrth.Size = fbSize;
+            _sceneGrid2d.Draw(CurrentCamera);
+        }
+        else
+        {
+            _cameraPer.AspectRatio = fbSize.X / fbSize.Y;
+            _sceneGrid3d.Draw(CurrentCamera);
+        }
+
+        if (_spineRenderer is null) return;
+
+        var model =
+            Matrix4x4.CreateScale(_modelScale)
+            * Matrix4x4.CreateRotationX(float.DegreesToRadians(_modelRotation.X))
+            * Matrix4x4.CreateRotationY(float.DegreesToRadians(_modelRotation.Y))
+            * Matrix4x4.CreateRotationZ(float.DegreesToRadians(_modelRotation.Z))
+            * Matrix4x4.CreateTranslation(_modelPosition);
+
+        _spineRenderer.Draw(
+            _inspectorUI.ZSpacing,
+            model,
+            CurrentCamera.ViewMatrix,
+            CurrentCamera.ProjectionMatrix);
+    }
+
+    public void OnClose()
+    {
+        _spineRenderer?.Dispose();
+        _sceneGrid3d?.Dispose();
+        _sceneGrid2d?.Dispose();
+    }
+
+    private void OnModelChanged(SpineFolder folder)
+    {
+        _spineRenderer?.Dispose();
+
+        var textureLoader = new SpineTextureLoader(_renderer);
+        _atlas = new Atlas(folder.AtlasPath, textureLoader);
+
+        var json = new SkeletonJson(_atlas);
+        var skeletonData = json.ReadSkeletonData(folder.JsonPath);
+        _spineSkeleton = new Skeleton(skeletonData);
+        _spineSkeleton.SetSkin(skeletonData.DefaultSkin);
+
+        _inspectorUI.SpineScale = 0.02f;
+        _inspectorUI.ZSpacing = 0.01f;
+
+        _spineRenderer = new SpineRenderer(_renderer, _spineSkeleton, _atlas.Pages[0].pma, textureLoader);
+
+        var animStateData = new AnimationStateData(skeletonData);
+        _animationState = new AnimationState(animStateData);
+        SetAnimation(_spineSkeleton.Data.Animations.Items[0].Name);
+    }
+
+    private void SetAnimation(string animationName)
+    {
+        var animation = _spineSkeleton.Data.FindAnimation(animationName);
+        _animationState.AddAnimation(0, animation, true, 0);
     }
 
     private void SetSpineScale()
@@ -133,210 +178,65 @@ internal class Game
         _spineSkeleton.ScaleY = _inspectorUI.SpineScale;
     }
 
-    public void OnUpdate(double deltaTime)
+    private void UpdateCamera(double delta)
     {
-        UpdateCameraPosition(deltaTime);
-        ImGuiController.Update((float)deltaTime);
-        
-        _inspectorUI.OnImGui(
-            _spineSkeleton,
-            CurrentCamera,
-            ref _cameraSpeed,
-            ref _spineModelPosition,
-            ref _spineModelRotation,
-            ref _spineModelScale,
-            ref _spineRenderer.SrcFactor,
-            ref _spineRenderer.DestFactor,
-            deltaTime);
+        if (!CanMoveCamera) return;
 
-        
-        SetSpineScale();
-        
-        _spineSkeleton.UpdateWorldTransform(_inspectorUI.UpdatePhysics ? Skeleton.Physics.Update : Skeleton.Physics.None);
-        _animationState.Update((float)deltaTime);
-        _animationState.Apply(_spineSkeleton);
-    }
-
-    public void OnRender(double deltaTime)
-    {
-        Gl.Enable(EnableCap.DepthTest);
-        Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
-        if (_inspectorUI.UseOrthographicCamera)
-            _sceneGrid2d.Draw(CurrentCamera);
-        else
-            _sceneGrid3d.Draw(CurrentCamera);
-        
-        var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
-        
-        if (_inspectorUI.UseOrthographicCamera)
-        {
-            _cameraOrth.Size = frameBufferSize;
-            // _quad.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
-        }
-        else
-        {
-            _cameraPer.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
-            // _box3d.Draw(CurrentCamera.ViewMatrix, CurrentCamera.ProjectionMatrix);
-        }
-        
-        var model =
-            // scale
-            Matrix4x4.CreateScale(_spineModelScale)
-            // rotation
-            * Matrix4x4.CreateRotationX(float.DegreesToRadians(_spineModelRotation.X))
-            * Matrix4x4.CreateRotationY(float.DegreesToRadians(_spineModelRotation.Y))
-            * Matrix4x4.CreateRotationZ(float.DegreesToRadians(_spineModelRotation.Z))
-            // translation
-            * Matrix4x4.CreateTranslation(_spineModelPosition);
-        
-        // bind and render
-        _spineRenderer.Draw(
-            _inspectorUI.ZSpacing,
-            model,
-            CurrentCamera.ViewMatrix,
-            CurrentCamera.ProjectionMatrix);
-        
-        ImGuiController.Render();
-    }
-
-    public void OnFramebufferResize(Vector2D<int> newSize)
-    {
-        Gl.Viewport(newSize);
-    }
-
-    public void OnClose()
-    {
-        InputContext.Dispose();
-        Gl.Dispose();
-    }
-    
-    private void UpdateCameraPosition(double deltaTime)
-    {
-        if (!CanMoveCamera)
-            return;
-        
         var camera = CurrentCamera;
-
         var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
-        var moveSpeed = baseSpeed * (float)deltaTime;
+        var speed = baseSpeed * (float)delta;
 
-        var isPerspectiveCamera = camera is Camera3D;
-
-        if (isPerspectiveCamera)
+        if (camera is Camera3D)
         {
-            // forward
-            if (_keyboard.IsKeyPressed(Key.W))
-                camera.Position += moveSpeed * camera.Forward;
-            
-            // back
-            if (_keyboard.IsKeyPressed(Key.S))
-                camera.Position -= moveSpeed * camera.Forward;
-            
-            // left
-            if (_keyboard.IsKeyPressed(Key.A))
-                camera.Position -=
-                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-        
-            // right
-            if (_keyboard.IsKeyPressed(Key.D))
-                camera.Position +=
-                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-            
-            // up
-            if (_keyboard.IsKeyPressed(Key.Q))
-                camera.Position -= camera.Up * moveSpeed;
-
-            // down
-            if (_keyboard.IsKeyPressed(Key.E))
-                camera.Position += camera.Up * moveSpeed;
+            if (_keyboard.IsKeyPressed(Key.W)) camera.Position += speed * camera.Forward;
+            if (_keyboard.IsKeyPressed(Key.S)) camera.Position -= speed * camera.Forward;
+            if (_keyboard.IsKeyPressed(Key.A)) camera.Position -= Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * speed;
+            if (_keyboard.IsKeyPressed(Key.D)) camera.Position += Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * speed;
+            if (_keyboard.IsKeyPressed(Key.Q)) camera.Position -= camera.Up * speed;
+            if (_keyboard.IsKeyPressed(Key.E)) camera.Position += camera.Up * speed;
         }
         else
         {
-            // up
-            if (_keyboard.IsKeyPressed(Key.W))
-                camera.Position += camera.Up * moveSpeed;
-
-            // down
-            if (_keyboard.IsKeyPressed(Key.S))
-                camera.Position -= camera.Up * moveSpeed;
-            
-            // left
-            if (_keyboard.IsKeyPressed(Key.A))
-                camera.Position -=
-                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-        
-            // right
-            if (_keyboard.IsKeyPressed(Key.D))
-                camera.Position +=
-                    Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
+            if (_keyboard.IsKeyPressed(Key.W)) camera.Position += camera.Up * speed;
+            if (_keyboard.IsKeyPressed(Key.S)) camera.Position -= camera.Up * speed;
+            if (_keyboard.IsKeyPressed(Key.A)) camera.Position -= Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * speed;
+            if (_keyboard.IsKeyPressed(Key.D)) camera.Position += Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * speed;
         }
     }
 
-    #region Inputs
-    
-    private void OnKeyDown(IKeyboard keyboard, Key key, int arg3)
+    private void OnKeyDown(IKeyboard kb, Key key, int sc)
     {
-        if (key == Key.Escape)
-            Window.Close();
+        if (key == Key.Escape) _engine.Quit(0);
     }
 
-    private void OnMouseMove(IMouse mouse, Vector2 position)
+    private void OnMouseMove(IMouse mouse, Vector2 pos)
     {
-        if (!CanMoveCamera)
-        {
-            // reset last position so camera doesn't make massive jump when move mouse again
-            LastMousePosition = default;
-            return;
-        }
-        if (LastMousePosition == default)
-        {
-            LastMousePosition = position;
-        }
+        if (!CanMoveCamera) { _lastMousePos = default; return; }
+        if (_lastMousePos == default) { _lastMousePos = pos; return; }
+
+        var dx = (pos.X - _lastMousePos.X) * 0.1f;
+        var dy = (pos.Y - _lastMousePos.Y) * 0.1f;
+        _lastMousePos = pos;
+
+        if (CurrentCamera is Camera3D cam3d)
+            cam3d.ModifyDirection(dx, dy);
         else
-        {
-            if (CurrentCamera is Camera3D camera)
-            {
-                const float lookSensitivity = 0.1f;
-                var xOffset = (position.X - LastMousePosition.X) * lookSensitivity;
-                var yOffset = (position.Y - LastMousePosition.Y) * lookSensitivity;
-                LastMousePosition = position;
-
-                camera.ModifyDirection(xOffset, yOffset);
-            }
-            else
-            {
-                const float lookSensitivity = 0.01f;
-                var xOffset = (position.X - LastMousePosition.X) * lookSensitivity;
-                var yOffset = (position.Y - LastMousePosition.Y) * lookSensitivity;
-                LastMousePosition = position;
-                CurrentCamera.Position += new Vector3(-xOffset, yOffset, 0);
-            }
-        }
-    }
-    
-    private void OnMouseScroll(IMouse mouse, ScrollWheel delta)
-    {
-        if (ImGui.GetIO().WantCaptureMouse)
-            return;
-        
-        if (CurrentCamera is not Camera2D camera)
-            return;
-        
-        camera.ModifyZoom(-delta.Y * 0.05f);
+            CurrentCamera.Position += new Vector3(-dx * 0.1f, dy * 0.1f, 0);
     }
 
-    private void OnMouseDown(IMouse mouse, MouseButton button)
+    private void OnMouseScroll(IMouse mouse, ScrollWheel scroll)
     {
-        if (button is MouseButton.Right)
-            _mouse.Cursor.CursorMode = CursorMode.Raw;
-    }
-    
-    private void OnMouseUp(IMouse mouse, MouseButton button)
-    {
-        if (button is MouseButton.Right)
-            _mouse.Cursor.CursorMode = CursorMode.Normal;
+        if (CurrentCamera is Camera2D cam2d)
+            cam2d.ModifyZoom(-scroll.Y * 0.05f);
     }
 
-    #endregion
+    private void OnMouseDown(IMouse mouse, MouseButton btn)
+    {
+        if (btn == MouseButton.Right) _mouse.Cursor.CursorMode = CursorMode.Raw;
+    }
+
+    private void OnMouseUp(IMouse mouse, MouseButton btn)
+    {
+        if (btn == MouseButton.Right) _mouse.Cursor.CursorMode = CursorMode.Normal;
+    }
 }

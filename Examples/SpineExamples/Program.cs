@@ -1,23 +1,12 @@
-﻿using Silk.NET.Windowing;
+using System.Numerics;
+using MainframeEngine;
 using SilkSpine;
-using Monitor = Silk.NET.Windowing.Monitor;
 
-var windowOptions = WindowOptions.Default with
+using var engine = new Engine(new Engine.Info
 {
-    Title = "Silk Spine",
-    VSync = true
-};
-using var window = Window.Create(windowOptions);
-var mainMonitor = Monitor.GetMainMonitor(window);
-window.Center(mainMonitor);
+    GameName = "Silk Spine",
+    RenderingBackend = RenderingBackend.Vulkan,
+    WindowSize = new Vector2(1920, 1080),
+}, new Game());
 
-var game = new Game();
-window.Load += () => game.OnLoad(window);
-window.FramebufferResize += s => game.OnFramebufferResize(s);
-window.Update += delta => game.OnUpdate(delta);
-window.Render += delta => game.OnRender(delta);
-window.Closing += () => game.OnClose();
-
-window.Run();
-
-Console.WriteLine("Game terminated.");
+engine.Run();
