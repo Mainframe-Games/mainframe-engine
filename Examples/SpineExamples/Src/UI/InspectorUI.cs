@@ -1,7 +1,6 @@
 ﻿using System.Numerics;
 using ImGuiNET;
 using MainframeEngine;
-using Silk.NET.OpenGL;
 using Spine;
 
 namespace SilkSpine.UI;
@@ -46,20 +45,17 @@ internal class InspectorUI
             _animNames[i] = string.Empty;
     }
 
-    private static readonly string[] _sFactors = Enum.GetNames<BlendingFactor>();
-    private int _sIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.One);
-    private static readonly string[] _dFactors = Enum.GetNames<BlendingFactor>();
-    private int _dIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.OneMinusSrcAlpha);
+    // private static readonly string[] _sFactors = Enum.GetNames<BlendingFactor>();
+    // private int _sIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.One);
+    // private static readonly string[] _dFactors = Enum.GetNames<BlendingFactor>();
+    // private int _dIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.OneMinusSrcAlpha);
     
     public void OnImGui(Skeleton skeleton,
         ICamera camera,
         ref float cameraSpeed,
         ref Vector3 modelPosition,
         ref Vector3 modelRotation,
-        ref float modelScale,
-        ref BlendingFactor srcFactor,
-        ref BlendingFactor destFactor,
-        double deltaTime)
+        ref float modelScale)
     {
         var io = ImGui.GetIO();
         var screenSize = io.DisplaySize;
@@ -78,7 +74,7 @@ internal class InspectorUI
             DrawCameraOptions(camera, ref cameraSpeed);
             
             ImGui.Separator();
-            DrawSpineOptions(skeleton, ref srcFactor, ref destFactor);
+            DrawSpineOptions(skeleton);
 
             ImGui.Separator();
             DrawTransformOptions(ref modelPosition, ref modelRotation, ref modelScale);
@@ -103,7 +99,7 @@ internal class InspectorUI
         }
     }
 
-    private void DrawSpineOptions(Skeleton skeleton, ref BlendingFactor sFactor, ref BlendingFactor dFactor)
+    private void DrawSpineOptions(Skeleton skeleton)
     {
         ImGui.Text("Spine Options");
             
@@ -112,18 +108,12 @@ internal class InspectorUI
             
         if (ImGui.Combo("Animation", ref _animationIndex, _animNames, skeleton.Data.Animations.Count))
             OnAnimationChanged?.Invoke(_animNames[_animationIndex]);
-
+    
         ImGui.Checkbox("Update Physics", ref UpdatePhysics);
         ImGui.Checkbox("Flip X", ref IsFlipped);
             
         ImGui.SliderFloat("Spine Scale", ref SpineScale, 0.02f, 1f, "%.2f");
         ImGui.SliderFloat("Z Spacing", ref ZSpacing, 0.01f, 0.5f, "%.2f");
-        
-        ImGui.Text("Blend Mode");
-        if (ImGui.Combo("Src", ref _sIndex, _sFactors, _sFactors.Length, 10))
-            sFactor = Enum.GetValues<BlendingFactor>()[_sIndex];
-        if (ImGui.Combo("Dst", ref _dIndex, _dFactors, _dFactors.Length, 10))
-            dFactor = Enum.GetValues<BlendingFactor>()[_dIndex];
     }
 
     private void DrawCameraOptions(ICamera camera, ref float cameraSpeed)

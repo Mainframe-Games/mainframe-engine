@@ -2,14 +2,13 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
-using Silk.NET.OpenGL;
 using Silk.NET.Vulkan;
 using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
 /// <summary>
-/// Base class for making scene grid. Supports both OpenGL and Vulkan backends.
+/// Base class for making scene grid.
 /// </summary>
 public abstract class SceneGrid : IDisposable
 {
@@ -19,11 +18,6 @@ public abstract class SceneGrid : IDisposable
     protected readonly Vector4 Blue = new(0f, 0f, 1f, 1f);
 
     protected readonly uint _vertexCount;
-
-    // OpenGL
-    private readonly GL? _gl;
-    private uint _glVertexArrayId;
-    private readonly Shader? _shader;
 
     // Vulkan
     private IVulkanContext? _vkCtx;
@@ -55,39 +49,14 @@ public abstract class SceneGrid : IDisposable
     {
         _vertexCount = vertexCount;
 
-        if (renderer.Backend == RenderingBackend.OpenGL)
-        {
-            _gl = renderer.GetGL();
-            _shader = new Shader(_gl,
-                "Content/Shaders/SceneGrid/SceneGrid.vert",
-                "Content/Shaders/SceneGrid/SceneGrid.frag");
-        }
-        else if (renderer is IVulkanContext vkCtx)
-        {
+        if (renderer is IVulkanContext vkCtx)
             _vkCtx = vkCtx;
-        }
     }
 
     public unsafe void Draw(ICamera camera)
     {
-        if (_gl is not null)
-        {
-            _gl.Enable(EnableCap.Blend);
-            _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-            {
-                _shader!.Use();
-                _shader.SetUniform("uView", camera.ViewMatrix);
-                _shader.SetUniform("uProjection", camera.ProjectionMatrix);
-
-                _gl.BindVertexArray(_glVertexArrayId);
-                _gl.DrawArrays(PrimitiveType.Lines, 0, _vertexCount);
-            }
-            _gl.Disable(EnableCap.Blend);
-        }
-        else if (_vkCtx is not null)
-        {
+        if (_vkCtx is not null)
             DrawVulkan(camera);
-        }
     }
 
     public unsafe void Dispose()
@@ -117,43 +86,9 @@ public abstract class SceneGrid : IDisposable
 
     protected unsafe void BuildVertexArray(Vertex* vertices)
     {
-        if (_gl is not null)
-            BuildGlVertexArray(vertices);
-
         if (_vkCtx is not null)
             BuildVkVertexBuffer(vertices);
     }
-
-    #region OpenGL
-
-    private unsafe void BuildGlVertexArray(Vertex* vertices)
-    {
-        var vertexBufferId = _gl!.GenBuffer();
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, vertexBufferId);
-        _gl.BufferData(
-            BufferTargetARB.ArrayBuffer,
-            (nuint)(_vertexCount * (uint)sizeof(Vertex)),
-            vertices,
-            BufferUsageARB.StaticDraw
-        );
-
-        _glVertexArrayId = _gl.GenVertexArray();
-        _gl.BindVertexArray(_glVertexArrayId);
-        _gl.VertexAttribPointer(
-            0, 3, VertexAttribPointerType.Float, false,
-            (uint)Marshal.SizeOf<Vertex>(),
-            (void*)Marshal.OffsetOf<Vertex>(nameof(Vertex.Position))
-        );
-        _gl.EnableVertexAttribArray(0);
-        _gl.VertexAttribPointer(
-            1, 4, VertexAttribPointerType.Float, false,
-            (uint)Marshal.SizeOf<Vertex>(),
-            (void*)Marshal.OffsetOf<Vertex>(nameof(Vertex.Color))
-        );
-        _gl.EnableVertexAttribArray(1);
-    }
-
-    #endregion
 
     #region Vulkan
 
@@ -389,7 +324,7 @@ public abstract class SceneGrid : IDisposable
             SampleShadingEnable = false, RasterizationSamples = SampleCountFlags.Count1Bit,
         };
 
-        // Alpha blending to match OpenGL grid
+        // Alpha blending
         var colorBlendAttachment = new PipelineColorBlendAttachmentState
         {
             BlendEnable = true,

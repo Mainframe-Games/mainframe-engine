@@ -1,10 +1,9 @@
 using Silk.NET.Maths;
-using Silk.NET.OpenGL;
 
 namespace MainframeEngine;
 
 /// <summary>
-/// Backend-agnostic renderer interface. Implemented by OpenGLRenderer and VulkanRenderer.
+/// Backend-agnostic renderer interface. Implemented by VulkanRenderer.
 /// Shapes and game code target this interface so draw logic stays the same regardless of backend.
 /// </summary>
 public interface IRenderer : IDisposable
@@ -28,10 +27,4 @@ public interface IRenderer : IDisposable
 
     void EnableDepthTest();
     void DisableDepthTest();
-
-    /// <summary>
-    /// Returns the OpenGL context.
-    /// Throws <see cref="NotSupportedException"/> when Backend is not OpenGL.
-    /// </summary>
-    GL GetGL();
 }

@@ -1,7 +1,6 @@
 using System.Numerics;
 using Silk.NET.Input;
 using Silk.NET.Maths;
-using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
 using Monitor = Silk.NET.Windowing.Monitor;
 
@@ -10,8 +9,6 @@ namespace MainframeEngine;
 public sealed class Engine : IDisposable
 {
     private readonly IGame _game;
-    private readonly RenderingBackend _renderingBackend;
-    private ImGuiController? _imGuiController;
     private VulkanImGuiController? _vkImGuiController;
 
     private int _exitCode;
@@ -32,23 +29,14 @@ public sealed class Engine : IDisposable
     public Engine(in Info info, IGame game)
     {
         _game = game;
-        _renderingBackend = info.RenderingBackend;
 
         var windowSize = new Vector2D<int>((int)info.WindowSize.X, (int)info.WindowSize.Y);
-        var windowOptions = _renderingBackend == RenderingBackend.Vulkan
-            ? WindowOptions.DefaultVulkan with
-            {
-                Title = $"{info.GameName} ({_renderingBackend})",
-                API = WindowOptions.DefaultVulkan.API with { Version = new APIVersion(1, 2) },
-                Size = windowSize
-                
-            }
-            : WindowOptions.Default with
-            {
-                Title = $"{info.GameName} ({_renderingBackend})",
-                API = WindowOptions.Default.API with { Version = new APIVersion(4, 6) },
-                Size = windowSize
-            };
+        var windowOptions = WindowOptions.DefaultVulkan with
+        {
+            Title = $"{info.GameName} ({info.RenderingBackend})",
+            API = WindowOptions.DefaultVulkan.API with { Version = new APIVersion(1, 2) },
+            Size = windowSize
+        };
 
         Window = Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new NullReferenceException();
         Window.Load += OnLoad;
@@ -66,27 +54,12 @@ public sealed class Engine : IDisposable
     {
         InputContext = Window.CreateInput();
 
-        Renderer = _renderingBackend switch
-        {
-            RenderingBackend.OpenGL => CreateOpenGLRenderer(),
-            RenderingBackend.Vulkan => new VulkanRenderer(Window, enableValidationLayers: true),
-            _ => throw new ArgumentOutOfRangeException(nameof(_renderingBackend))
-        };
+        Renderer = new VulkanRenderer(Window, enableValidationLayers: true);
 
         if (Renderer is IVulkanContext vkCtx)
             _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
 
         _game.OnLoad(this);
-    }
-
-    private IRenderer CreateOpenGLRenderer()
-    {
-        var gl = Silk.NET.OpenGL.GL.GetApi(Window);
-        var version = gl.GetStringS(Silk.NET.OpenGL.GLEnum.Version);
-        Log.Info($"[OpenGL] {version}");
-
-        _imGuiController = new ImGuiController(gl, Window, InputContext);
-        return new OpenGLRenderer(gl);
     }
 
     private void OnFramebufferResize(Vector2D<int> newSize)
@@ -103,7 +76,6 @@ public sealed class Engine : IDisposable
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;
 
-        _imGuiController?.Update((float)delta);
         _vkImGuiController?.Update((float)delta);
 
         _game.OnImGui(_gameTime);
@@ -124,7 +96,6 @@ public sealed class Engine : IDisposable
         }
 
         Renderer.EndFrame();
-        _imGuiController?.Render();
     }
 
     private void OnClose()
@@ -132,7 +103,6 @@ public sealed class Engine : IDisposable
         _exitCode = 0;
         _game.OnClose();
         _vkImGuiController?.Dispose();
-        _imGuiController?.Dispose();
         InputContext.Dispose();
         Renderer.Dispose();
     }

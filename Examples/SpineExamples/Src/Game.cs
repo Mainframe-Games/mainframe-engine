@@ -82,13 +82,13 @@ internal class Game : IGame
 
     public void OnImGui(in GameTime gameTime)
     {
-        if (_spineRenderer is null) return;
+        if (_spineRenderer is null)
+            return;
+        
         _inspectorUI.OnImGui(
             _spineSkeleton, CurrentCamera,
             ref _cameraSpeed,
-            ref _modelPosition, ref _modelRotation, ref _modelScale,
-            ref _spineRenderer.SrcFactor, ref _spineRenderer.DestFactor,
-            gameTime.DeltaTime);
+            ref _modelPosition, ref _modelRotation, ref _modelScale);
     }
 
     public void OnUpdate(in GameTime gameTime)
@@ -147,7 +147,7 @@ internal class Game : IGame
     {
         _spineRenderer?.Dispose();
 
-        var textureLoader = new SpineTextureLoader(_renderer);
+        var textureLoader = new SpineTextureLoader();
         _atlas = new Atlas(folder.AtlasPath, textureLoader);
 
         var json = new SkeletonJson(_atlas);

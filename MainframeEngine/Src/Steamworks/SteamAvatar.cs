@@ -1,6 +1,5 @@
 namespace MainframeEngine;
 
-// TODO: Implement avatars in OpenGL
 public static class SteamAvatar
 {
 	// public static Sprite GetAvatar(ulong steamId)

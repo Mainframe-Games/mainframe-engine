@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.Maths;
-using Silk.NET.OpenGL;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 using Silk.NET.Vulkan.Extensions.KHR;
@@ -232,9 +231,6 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     // Depth state is pipeline state in Vulkan — handled per-pipeline, not as a global toggle.
     public void EnableDepthTest() { }
     public void DisableDepthTest() { }
-
-    public GL GetGL() => throw new NotSupportedException(
-        "OpenGL is not available with the Vulkan backend.");
 
     #endregion
 

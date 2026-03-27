@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
-using Silk.NET.OpenGL;
 using Silk.NET.Vulkan;
 using VkBuffer = Silk.NET.Vulkan.Buffer;
 
@@ -73,13 +72,6 @@ public class Box3d : ShapeBase, IDisposable
         LightEnvironment.MaxPoint       * 32 +
         LightEnvironment.MaxSpot        * 64;
 
-    // OpenGL
-    private readonly GL? _gl;
-    private readonly VertexArrayObject<float, uint>? _vertexArray;
-    private readonly Shader? _shader;
-    private uint _glLightsUbo;
-    private readonly byte[] _glLightsUboData = new byte[LightsUboSize];
-
     // Vulkan
     private IVulkanContext? _vkCtx;
     private VkBuffer _vkVertexBuffer;
@@ -118,35 +110,7 @@ public class Box3d : ShapeBase, IDisposable
 
     public Box3d(IRenderer renderer)
     {
-        if (renderer.Backend == RenderingBackend.OpenGL)
-        {
-            _gl = renderer.GetGL();
-
-            var vertexBuffer = new BufferObject<float>(_gl, Vertices, BufferTargetARB.ArrayBuffer);
-            var indexBuffer  = new BufferObject<uint>(_gl, [], BufferTargetARB.ElementArrayBuffer);
-            _vertexArray = new VertexArrayObject<float, uint>(_gl, vertexBuffer, indexBuffer);
-            // stride = 8 floats; offsets: pos=0, uv=3, normal=5
-            _vertexArray.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, 8, 0);
-            _vertexArray.VertexAttributePointer(1, 2, VertexAttribPointerType.Float, 8, 3);
-            _vertexArray.VertexAttributePointer(2, 3, VertexAttribPointerType.Float, 8, 5);
-
-            _shader = new Shader(_gl,
-                "Content/Shaders/Shapes/Shapes.vert",
-                "Content/Shaders/Shapes/Shapes.frag");
-
-            // Bind the shader's LightsUBO block to GL binding point 0
-            _shader.BindUniformBlock("LightsUBO", 0);
-
-            // Create and pre-allocate the lights UBO
-            _glLightsUbo = _gl.GenBuffer();
-            _gl.BindBuffer(BufferTargetARB.UniformBuffer, _glLightsUbo);
-            unsafe
-            {
-                _gl.BufferData(BufferTargetARB.UniformBuffer, (nuint)LightsUboSize, (void*)0,
-                    BufferUsageARB.DynamicDraw);
-            }
-        }
-        else if (renderer is IVulkanContext vkCtx)
+        if (renderer is IVulkanContext vkCtx)
         {
             _vkCtx = vkCtx;
             CreateVkVertexBuffer(vkCtx);
@@ -156,22 +120,12 @@ public class Box3d : ShapeBase, IDisposable
 
     public void Draw(ICamera camera, LightEnvironment lights)
     {
-        if (_gl is not null)
-            DrawOpenGL(camera, lights);
-        else if (_vkCtx is not null)
+        if (_vkCtx is not null)
             DrawVulkan(camera, lights);
     }
 
     public unsafe void Dispose()
     {
-        if (_gl is not null)
-        {
-            _shader?.Dispose();
-            _vertexArray?.Dispose();
-            _gl.DeleteBuffer(_glLightsUbo);
-            return;
-        }
-
         if (_vkCtx is null) return;
         var vk     = _vkCtx.Vk;
         var device = _vkCtx.Device;
@@ -197,31 +151,6 @@ public class Box3d : ShapeBase, IDisposable
         vk.DestroyPipelineLayout(device, _vkPipelineLayout, null);
         vk.DestroyBuffer(device, _vkVertexBuffer, null);
         vk.FreeMemory(device, _vkVertexBufferMemory, null);
-    }
-
-    // -------------------------------------------------------------------------
-    // OpenGL draw
-    // -------------------------------------------------------------------------
-
-    private unsafe void DrawOpenGL(ICamera camera, LightEnvironment lights)
-    {
-        _shader!.Use();
-        _shader.SetUniform("uModel",      ModelMatrix);
-        _shader.SetUniform("uView",       camera.ViewMatrix);
-        _shader.SetUniform("uProjection", camera.ProjectionMatrix);
-        _shader.SetUniform("uColor",      Color);
-
-        // Upload light data
-        fixed (byte* ptr = _glLightsUboData)
-        {
-            WriteLightsUbo((nint)ptr, lights, camera.Position);
-            _gl!.BindBuffer(BufferTargetARB.UniformBuffer, _glLightsUbo);
-            _gl.BufferSubData(BufferTargetARB.UniformBuffer, 0, (nuint)LightsUboSize, ptr);
-        }
-        _gl!.BindBufferBase(BufferTargetARB.UniformBuffer, 0, _glLightsUbo);
-
-        _vertexArray!.Bind();
-        _gl.DrawArrays(PrimitiveType.Triangles, 0, 36);
     }
 
     // -------------------------------------------------------------------------

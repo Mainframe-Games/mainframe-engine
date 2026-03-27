@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
-using Silk.NET.OpenGL;
 using Silk.NET.Vulkan;
 using VkBuffer = Silk.NET.Vulkan.Buffer;
 
@@ -25,11 +24,6 @@ public class Quad : ShapeBase, IDisposable
         0, 1, 3,
         1, 2, 3,
     ];
-
-    // OpenGL
-    private readonly GL? _gl;
-    private readonly VertexArrayObject<float, uint>? _vertexArrayObject;
-    private readonly Shader? _shader;
 
     // Vulkan
     private IVulkanContext? _vkCtx;
@@ -64,21 +58,7 @@ public class Quad : ShapeBase, IDisposable
 
     public Quad(IRenderer renderer)
     {
-        if (renderer.Backend == RenderingBackend.OpenGL)
-        {
-            _gl = renderer.GetGL();
-
-            var vertexBuffer = new BufferObject<float>(_gl, Vertices, BufferTargetARB.ArrayBuffer);
-            var indexBuffer = new BufferObject<uint>(_gl, Indices, BufferTargetARB.ElementArrayBuffer);
-            _vertexArrayObject = new VertexArrayObject<float, uint>(_gl, vertexBuffer, indexBuffer);
-
-            _vertexArrayObject.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, 3, 0);
-
-            _shader = new Shader(_gl,
-                "Content/Shaders/Shapes/Quad.vert",
-                "Content/Shaders/Shapes/Quad.frag");
-        }
-        else if (renderer is IVulkanContext vkCtx)
+        if (renderer is IVulkanContext vkCtx)
         {
             _vkCtx = vkCtx;
             CreateVkVertexBuffer(vkCtx);
@@ -91,21 +71,12 @@ public class Quad : ShapeBase, IDisposable
 
     public unsafe void Draw(ICamera camera)
     {
-        if (_gl is not null)
-            DrawOpenGL(camera);
-        else if (_vkCtx is not null)
+        if (_vkCtx is not null)
             DrawVulkan(camera);
     }
 
     public unsafe void Dispose()
     {
-        if (_gl is not null)
-        {
-            _shader?.Dispose();
-            _vertexArrayObject?.Dispose();
-            return;
-        }
-
         if (_vkCtx is null) return;
         var vk     = _vkCtx.Vk;
         var device = _vkCtx.Device;
@@ -126,22 +97,6 @@ public class Quad : ShapeBase, IDisposable
         vk.FreeMemory(device, _vkIndexBufferMemory, null);
         vk.DestroyBuffer(device, _vkVertexBuffer, null);
         vk.FreeMemory(device, _vkVertexBufferMemory, null);
-    }
-
-    // -------------------------------------------------------------------------
-    // OpenGL draw
-    // -------------------------------------------------------------------------
-
-    private unsafe void DrawOpenGL(ICamera camera)
-    {
-        _shader!.Use();
-        _shader.SetUniform("uModel", ModelMatrix);
-        _shader.SetUniform("uView", camera.ViewMatrix);
-        _shader.SetUniform("uProjection", camera.ProjectionMatrix);
-        _shader.SetUniform("uColor", Color);
-
-        _vertexArrayObject!.Bind();
-        _gl!.DrawElements(PrimitiveType.Triangles, (uint)Indices.Length, DrawElementsType.UnsignedInt, null);
     }
 
     // -------------------------------------------------------------------------

@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
-using Silk.NET.OpenGL;
 using Silk.NET.Vulkan;
 using Spine;
 using Skeleton = Spine.Skeleton;
@@ -15,16 +14,6 @@ public class SpineRenderer : IDisposable
     private const int MaxVertices = 8192;
     private readonly float[] _worldVerticesPositions = new float[MaxVertices];
     private readonly Vertex[] _vertices = new Vertex[MaxVertices];
-
-    public BlendingFactor SrcFactor = BlendingFactor.One;
-    public BlendingFactor DestFactor = BlendingFactor.OneMinusSrcAlpha;
-
-    // OpenGL
-    private readonly GL? _gl;
-    private readonly BufferObject<Vertex>? _vertexBuffer;
-    private readonly VertexArrayObject<Vertex, uint>? _vbo;
-    private readonly Shader? _shader;
-    private readonly List<Texture>? _textures;
 
     // Vulkan
     private IVulkanContext? _vkCtx;
@@ -63,7 +52,7 @@ public class SpineRenderer : IDisposable
         public Vector3 Position; // offset  0
         public Vector2 Uv;       // offset 12
         public Vector4 Color;    // offset 20
-        public float TextureIndex; // offset 36 — used by OpenGL shader, ignored by Vulkan
+        public float TextureIndex; // offset 36
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -74,26 +63,7 @@ public class SpineRenderer : IDisposable
         _skeleton = skeleton;
         _pma = pma;
 
-        if (renderer.Backend == RenderingBackend.OpenGL)
-        {
-            _gl = renderer.GetGL();
-            _textures = textureLoader.GlTextures;
-
-            _vertexBuffer = new BufferObject<Vertex>(_gl, null, BufferTargetARB.ArrayBuffer);
-            var indexBuffer = new BufferObject<uint>(_gl, [0u], BufferTargetARB.ElementArrayBuffer);
-            _vbo = new VertexArrayObject<Vertex, uint>(_gl, _vertexBuffer, indexBuffer);
-
-            var stride = (uint)Marshal.SizeOf<Vertex>();
-            _vbo.VertexAttributePointer2(0, 3, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Position)));
-            _vbo.VertexAttributePointer2(1, 2, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Uv)));
-            _vbo.VertexAttributePointer2(2, 4, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.Color)));
-            _vbo.VertexAttributePointer2(3, 1, VertexAttribPointerType.Float, stride, (int)Marshal.OffsetOf<Vertex>(nameof(Vertex.TextureIndex)));
-
-            _shader = new Shader(_gl,
-                "Content/Shaders/Spine/Spine.vert",
-                "Content/Shaders/Spine/Spine.frag");
-        }
-        else if (renderer is IVulkanContext vkCtx)
+        if (renderer is IVulkanContext vkCtx)
         {
             _vkCtx = vkCtx;
             CreateVkResources(vkCtx, textureLoader.VkImageData);
@@ -162,21 +132,12 @@ public class SpineRenderer : IDisposable
 
         if (_vkCtx is not null)
             DrawVulkan(vertexIndex);
-        else
-        {
-            BeginBlendMode();
-            DrawCallGl(_vertices, (uint)vertexIndex);
-            EndBlendMode();
-        }
     }
 
-    private int ResolveTexIdx(object region)
+    private static int ResolveTexIdx(object region)
     {
         var atlasRegion = (AtlasRegion)region;
-        if (_vkCtx is not null)
-            return (int)atlasRegion.page.rendererObject;
-        var texture = (Texture)atlasRegion.page.rendererObject;
-        return _textures!.IndexOf(texture);
+        return (int)atlasRegion.page.rendererObject;
     }
 
     private void BeginBatch(int texIdx, int vertexStart)
@@ -197,37 +158,6 @@ public class SpineRenderer : IDisposable
             TextureIndex = textureIndex,
         };
     }
-
-    #region OpenGL draw
-
-    private void DrawCallGl(ReadOnlySpan<Vertex> vertices, uint count)
-    {
-        for (int i = 0; i < _textures!.Count; i++)
-            _textures[i].Bind((TextureUnit)((uint)TextureUnit.Texture0 + i));
-
-        _shader!.Use();
-        _shader.SetUniform("uTextures", _textures.Count == 1 ? [0] : [0, 1]);
-        _shader.SetUniform("uModel", _modelMatrix);
-        _shader.SetUniform("uView", _viewMatrix);
-        _shader.SetUniform("uProjection", _projectionMatrix);
-
-        _vbo!.Bind();
-        _vertexBuffer!.Update(vertices, count);
-        _gl!.CullFace(TriangleFace.Back);
-        _gl.PolygonMode(TriangleFace.FrontAndBack, Silk.NET.OpenGL.PolygonMode.Fill);
-        _gl.DrawArrays(PrimitiveType.Triangles, 0, count);
-    }
-
-    private void BeginBlendMode()
-    {
-        _gl!.Enable(EnableCap.Blend);
-        _gl.BlendFunc(SrcFactor, DestFactor);
-        _gl.BlendEquation(GLEnum.FuncAdd);
-    }
-
-    private void EndBlendMode() => _gl!.Disable(EnableCap.Blend);
-
-    #endregion
 
     #region Vulkan draw
 
@@ -594,7 +524,7 @@ public class SpineRenderer : IDisposable
         var rasterizer = new PipelineRasterizationStateCreateInfo
         {
             SType = StructureType.PipelineRasterizationStateCreateInfo,
-            PolygonMode = Silk.NET.Vulkan.PolygonMode.Fill, // disambiguate from Silk.NET.OpenGL.PolygonMode
+            PolygonMode = Silk.NET.Vulkan.PolygonMode.Fill,
             CullMode = CullModeFlags.None,
             FrontFace = FrontFace.CounterClockwise,
             LineWidth = 1f,
@@ -798,9 +728,5 @@ public class SpineRenderer : IDisposable
                 vk.FreeMemory(_vkCtx.Device, _vkImageMemory[t], null);
             }
         }
-
-        if (_textures is not null)
-            foreach (var tex in _textures)
-                tex.Dispose();
     }
 }
