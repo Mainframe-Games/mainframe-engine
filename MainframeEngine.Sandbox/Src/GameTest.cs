@@ -19,6 +19,7 @@ public class GameTest : IGame
         Position = new Vector3(1, 1, 5f),
     };
 
+    private SkyEnvironment _sky = null!;
     private SceneGrid3d _sceneGrid3d = null!;
     private Quad _quad = null!;
     private Box3d _box3d = null!;
@@ -51,6 +52,7 @@ public class GameTest : IGame
         _mouse.MouseUp += OnMouseUp;
         _mouse.MouseMove += OnMouseMove;
 
+        _sky = new SkyPanoramic(_renderer, "Content/Sky/sky_16_2k.png");
         _sceneGrid3d = new SceneGrid3d(_renderer);
         _quad = new Quad(_renderer) { Color = new Vector3(0.8f, 0.3f, 0.2f) };
         _box3d = new Box3d(_renderer) { Color = new Vector3(0.8f, 0.3f, 0.2f) };
@@ -112,6 +114,7 @@ public class GameTest : IGame
 
         var frameBufferSize = new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y);
         _camera3D.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
+        _sky.Draw(_camera3D); // must be drawn first — renders behind all geometry
         _sceneGrid3d.Draw(_camera3D);
         _quad.Draw(_camera3D);
         _box3d.Draw(_camera3D, _lights);
@@ -119,6 +122,7 @@ public class GameTest : IGame
 
     public void OnClose()
     {
+        _sky.Dispose();
         _sceneGrid3d.Dispose();
         _quad.Dispose();
         _box3d.Dispose();
