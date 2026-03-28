@@ -509,7 +509,7 @@ public class Box3d : ShapeBase, IDisposable
             PolygonMode             = Silk.NET.Vulkan.PolygonMode.Fill,
             LineWidth               = 1f,
             CullMode                = CullModeFlags.BackBit,
-            FrontFace               = FrontFace.Clockwise,
+            FrontFace               = FrontFace.CounterClockwise,
             DepthBiasEnable         = false,
         };
         var multisampling = new PipelineMultisampleStateCreateInfo
