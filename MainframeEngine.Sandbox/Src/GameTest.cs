@@ -74,67 +74,9 @@ public class GameTest : IGame
     {
     }
 
-    private static bool TryProjectToScreen(Vector3 worldPos, Matrix4x4 view, Matrix4x4 proj, Vector2 screenSize, out Vector2 screenPos)
-    {
-        var clip = Vector4.Transform(new Vector4(worldPos, 1f), view * proj);
-        if (clip.W <= 0f)
-        {
-            screenPos = default;
-            return false;
-        }
-        var ndc = new Vector3(clip.X / clip.W, clip.Y / clip.W, clip.Z / clip.W);
-        screenPos = new Vector2(
-            (ndc.X * 0.5f + 0.5f) * screenSize.X,
-            (1.0f - (ndc.Y * 0.5f + 0.5f)) * screenSize.Y
-        );
-        return true;
-    }
-
-    private void DrawLightGizmos()
-    {
-        var drawList = ImGui.GetBackgroundDrawList();
-        var screenSize = new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y);
-        var view = _camera3D.ViewMatrix;
-        var proj = _camera3D.ProjectionMatrix;
-
-        foreach (var pt in _lights.PointLights)
-        {
-            if (!TryProjectToScreen(pt.Position, view, proj, screenSize, out var sp)) continue;
-            var col = new Vector4(pt.Color, 1f);
-            var packed = ImGui.ColorConvertFloat4ToU32(col);
-            drawList.AddCircleFilled(sp, 8f, packed);
-            drawList.AddCircle(sp, 10f, 0xFFFFFFFF, 0, 1.5f);
-        }
-
-        foreach (var sl in _lights.SpotLights)
-        {
-            if (!TryProjectToScreen(sl.Position, view, proj, screenSize, out var sp)) continue;
-            var col = new Vector4(sl.Color, 1f);
-            var packed = ImGui.ColorConvertFloat4ToU32(col);
-            drawList.AddCircleFilled(sp, 8f, packed);
-            drawList.AddCircle(sp, 10f, 0xFFFFFFFF, 0, 1.5f);
-
-            var dirEnd = sl.Position + sl.Direction * 1.5f;
-            if (TryProjectToScreen(dirEnd, view, proj, screenSize, out var ep))
-                drawList.AddLine(sp, ep, 0xFFFFFFFF, 1.5f);
-        }
-
-        foreach (var dl in _lights.DirectionalLights)
-        {
-            var origin = new Vector2(screenSize.X - 60f, 60f);
-            var dir2d = new Vector2(dl.Direction.X, dl.Direction.Y);
-            if (dir2d.LengthSquared() > 0.0001f)
-                dir2d = Vector2.Normalize(dir2d);
-            var col = new Vector4(dl.Color, 1f);
-            var packed = ImGui.ColorConvertFloat4ToU32(col);
-            drawList.AddLine(origin, origin + dir2d * 40f, packed, 2f);
-            drawList.AddCircleFilled(origin, 5f, packed);
-        }
-    }
-
     public void OnImGui(in GameTime gameTime)
     {
-        DrawLightGizmos();
+        _lights.DrawLightGizmos(_camera3D);
 
         ImGui.SetNextWindowPos(Vector2.Zero, ImGuiCond.Always, new Vector2(0, 0));
         if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
