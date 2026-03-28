@@ -45,6 +45,12 @@ public interface IGame
     void OnUpdate(in GameTime gameTime);
 
     /// <summary>
+    /// Called before the main render pass begins. Use this to render shadow maps or other pre-pass work.
+    /// The command buffer is active but no render pass has started yet.
+    /// </summary>
+    void OnShadowPass(in GameTime gameTime) { }
+
+    /// <summary>
     /// Renders the current frame, including 3D objects, UI elements, and other visual components.
     /// </summary>
     /// <param name="gameTime">

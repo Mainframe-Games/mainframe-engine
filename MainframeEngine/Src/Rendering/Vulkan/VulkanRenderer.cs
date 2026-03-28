@@ -90,6 +90,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public Extent2D SwapchainExtent => _swapChainExtent;
     public uint SwapchainImageCount => (uint)(_swapChainImages?.Length ?? 0);
     public uint CurrentImageIndex => _currentImageIndex;
+    public Silk.NET.Vulkan.Framebuffer CurrentFramebuffer => _swapChainFramebuffers![_currentImageIndex];
 
     #endregion
 
@@ -123,10 +124,9 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             RecreateSwapchain();
             return;
         }
-        else if (result != Result.Success && result != Result.SuboptimalKhr)
-        {
+
+        if (result != Result.Success && result != Result.SuboptimalKhr)
             throw new Exception("[Vulkan] Failed to acquire swap chain image!");
-        }
 
         _currentImageIndex = imageIndex;
         _frameStarted = true;
@@ -143,7 +143,12 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         if (_vk!.BeginCommandBuffer(cb, beginInfo) != Result.Success)
             throw new Exception("[Vulkan] Failed to begin recording command buffer!");
 
-        // Begin render pass — shapes record their draw commands while this is open
+    }
+
+    public void BeginRenderPass()
+    {
+        if (!_frameStarted) return;
+        var cb       = _commandBuffers![_currentImageIndex];
         var clearValues = stackalloc ClearValue[2];
         clearValues[0] = new ClearValue { Color = new() { Float32_0 = _clearR, Float32_1 = _clearG, Float32_2 = _clearB, Float32_3 = _clearA } };
         clearValues[1] = new ClearValue { DepthStencil = new() { Depth = 1.0f, Stencil = 0 } };
@@ -152,7 +157,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         {
             SType           = StructureType.RenderPassBeginInfo,
             RenderPass      = _renderPass,
-            Framebuffer     = _swapChainFramebuffers![imageIndex],
+            Framebuffer     = _swapChainFramebuffers![_currentImageIndex],
             RenderArea      = { Offset = default, Extent = _swapChainExtent },
             ClearValueCount = 2,
             PClearValues    = clearValues,
@@ -368,7 +373,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         DebugUtilsMessengerCallbackDataEXT* data,
         void* userData)
     {
-        Log.Info($"[Vulkan] {Marshal.PtrToStringAnsi((nint)data->PMessage)}");
+        Log.Debug($"[Vulkan] {Marshal.PtrToStringAnsi((nint)data->PMessage)}");
         return Vk.False;
     }
 

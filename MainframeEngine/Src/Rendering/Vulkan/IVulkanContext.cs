@@ -24,4 +24,8 @@ public interface IVulkanContext
     Extent2D SwapchainExtent { get; }
     uint SwapchainImageCount { get; }
     uint CurrentImageIndex { get; }
+    Framebuffer CurrentFramebuffer { get; }
+
+    /// <summary>Begins the main render pass. Called by Engine after shadow passes complete.</summary>
+    void BeginRenderPass();
 }

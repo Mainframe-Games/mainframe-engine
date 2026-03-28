@@ -91,6 +91,12 @@ public sealed class Engine : IDisposable
         // during resize / fullscreen toggle). Skip draw calls in that case.
         if (Renderer is not IVulkanContext vk || vk.FrameStarted)
         {
+            // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
+            _game.OnShadowPass(_gameTime);
+
+            // Begin the main render pass, then let the game draw geometry.
+            (Renderer as IVulkanContext)?.BeginRenderPass();
+
             _game.OnRender(_gameTime);
             _vkImGuiController?.Render(); // inside the render pass, before EndFrame
         }

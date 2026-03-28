@@ -27,6 +27,7 @@ public class Quad : ShapeBase, IDisposable
 
     // Vulkan
     private IVulkanContext? _vkCtx;
+    private ShadowSystem?   _shadows;
     private VkBuffer _vkVertexBuffer;
     private DeviceMemory _vkVertexBufferMemory;
     private VkBuffer _vkIndexBuffer;
@@ -56,11 +57,12 @@ public class Quad : ShapeBase, IDisposable
         public Vector4 Color;   // 16 bytes  → total 80 bytes
     }
 
-    public Quad(IRenderer renderer)
+    public Quad(IRenderer renderer, ShadowSystem? shadows = null)
     {
         if (renderer is IVulkanContext vkCtx)
         {
-            _vkCtx = vkCtx;
+            _vkCtx   = vkCtx;
+            _shadows = shadows;
             CreateVkVertexBuffer(vkCtx);
             CreateVkIndexBuffer(vkCtx);
             CreateVkPipeline(vkCtx);
@@ -73,6 +75,43 @@ public class Quad : ShapeBase, IDisposable
     {
         if (_vkCtx is not null)
             DrawVulkan(camera);
+    }
+
+    /// <summary>Records draw commands into a shadow render pass (depth only, 2D maps).</summary>
+    public unsafe void DrawShadow2D(CommandBuffer cb)
+    {
+        if (_vkCtx is null || _shadows is null) return;
+        var vk     = _vkCtx.Vk;
+        var pipe   = _shadows.GetShadow2DPipeline(3 * sizeof(float));
+        var layout = _shadows.Shadow2DLayout;
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipe);
+        var vb = _vkVertexBuffer; var off = 0ul;
+        vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &off);
+        var ib = _vkIndexBuffer;
+        vk.CmdBindIndexBuffer(cb, ib, 0, IndexType.Uint32);
+        var model = ModelMatrix;
+        vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit, 0, 64, &model);
+        vk.CmdDrawIndexed(cb, 6, 1, 0, 0, 0);
+    }
+
+    /// <summary>Records draw commands into a point-light shadow render pass.</summary>
+    public unsafe void DrawShadowPoint(CommandBuffer cb, Vector3 lightPos, float lightRange)
+    {
+        if (_vkCtx is null || _shadows is null) return;
+        var vk     = _vkCtx.Vk;
+        var pipe   = _shadows.GetShadowPointPipeline(3 * sizeof(float));
+        var layout = _shadows.ShadowPointLayout;
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipe);
+        var vb = _vkVertexBuffer; var off = 0ul;
+        vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &off);
+        var ib = _vkIndexBuffer;
+        vk.CmdBindIndexBuffer(cb, ib, 0, IndexType.Uint32);
+        var pc = stackalloc float[20];
+        var model = ModelMatrix;
+        Unsafe.Copy(pc, ref model);
+        pc[16] = lightPos.X; pc[17] = lightPos.Y; pc[18] = lightPos.Z; pc[19] = lightRange;
+        vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, 80, pc);
+        vk.CmdDrawIndexed(cb, 6, 1, 0, 0, 0);
     }
 
     public unsafe void Dispose()

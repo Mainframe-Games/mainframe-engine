@@ -23,6 +23,7 @@ public class Game : IGame
     private SceneGrid3d _sceneGrid3d = null!;
     private Quad _quad = null!;
     private Box3d _box3d = null!;
+    private ShadowSystem _shadowSystem = null!;
 
     private readonly LightEnvironment _lights = new();
     private readonly DirectionalLight _dirLight  = new() { Direction = Vector3.Normalize(new Vector3(-1, -2, -1)), Color = new Vector3(1f, 0.95f, 0.8f), Intensity = 0.9f };
@@ -54,13 +55,17 @@ public class Game : IGame
 
         _sky = new SkyPanoramic(_renderer, "Content/Sky/sky_16_2k.png");
         _sceneGrid3d = new SceneGrid3d(_renderer);
-        _quad = new Quad(_renderer)
+
+        // Shadow system must be created before any shadow-casting/receiving shapes.
+        _shadowSystem = new ShadowSystem((IVulkanContext)_renderer);
+
+        _quad = new Quad(_renderer, _shadowSystem)
         {
             Rotation = new Vector3(90, 0, 0),
             Scale = new Vector3(10, 10, 0),
             Color = new Vector3(0.8f, 0.3f, 0.2f)
         };
-        _box3d = new Box3d(_renderer) { Color = new Vector3(0.8f, 0.3f, 0.2f) };
+        _box3d = new Box3d(_renderer, _shadowSystem) { Color = new Vector3(0.8f, 0.3f, 0.2f) };
 
         _lights.DirectionalLights.Add(_dirLight);
         _lights.PointLights.Add(_pointLight);
@@ -112,6 +117,21 @@ public class Game : IGame
         UpdateCameraPosition(gameTime.DeltaTime);
     }
 
+    public void OnShadowPass(in GameTime gameTime)
+    {
+        _shadowSystem.RenderShadows(
+            _lights,
+            draw2D: (cb, p32, p12, lay) => {
+                _box3d.DrawShadow2D(cb);
+                _quad.DrawShadow2D(cb);
+            },
+            drawPoint: (cb, p32, p12, lay, lightPos, lightRange) => {
+                _box3d.DrawShadowPoint(cb, lightPos, lightRange);
+                _quad.DrawShadowPoint(cb, lightPos, lightRange);
+            }
+        );
+    }
+
     public void OnRender(in GameTime gameTime)
     {
         _renderer.EnableDepthTest();
@@ -127,6 +147,7 @@ public class Game : IGame
 
     public void OnClose()
     {
+        _shadowSystem.Dispose();
         _sky.Dispose();
         _sceneGrid3d.Dispose();
         _quad.Dispose();

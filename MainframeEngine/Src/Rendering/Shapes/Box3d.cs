@@ -74,6 +74,7 @@ public class Box3d : ShapeBase, IDisposable
 
     // Vulkan
     private IVulkanContext? _vkCtx;
+    private ShadowSystem?   _shadows;
     private VkBuffer _vkVertexBuffer;
     private DeviceMemory _vkVertexBufferMemory;
     private PipelineLayout _vkPipelineLayout;
@@ -108,11 +109,12 @@ public class Box3d : ShapeBase, IDisposable
         public Vector4 Color;   // 16 bytes  → total 80 bytes
     }
 
-    public Box3d(IRenderer renderer)
+    public Box3d(IRenderer renderer, ShadowSystem? shadows = null)
     {
         if (renderer is IVulkanContext vkCtx)
         {
-            _vkCtx = vkCtx;
+            _vkCtx   = vkCtx;
+            _shadows = shadows;
             CreateVkVertexBuffer(vkCtx);
             CreateVkPipeline(vkCtx);
         }
@@ -122,6 +124,40 @@ public class Box3d : ShapeBase, IDisposable
     {
         if (_vkCtx is not null)
             DrawVulkan(camera, lights);
+    }
+
+    /// <summary>Records draw commands into a shadow render pass (depth only, 2D maps).</summary>
+    public unsafe void DrawShadow2D(CommandBuffer cb)
+    {
+        if (_vkCtx is null || _shadows is null) return;
+        var vk    = _vkCtx.Vk;
+        var pipe  = _shadows.GetShadow2DPipeline(8 * sizeof(float));
+        var layout = _shadows.Shadow2DLayout;
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipe);
+        var vb = _vkVertexBuffer; var off = 0ul;
+        vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &off);
+        var model = ModelMatrix;
+        vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit, 0, 64, &model);
+        vk.CmdDraw(cb, 36, 1, 0, 0);
+    }
+
+    /// <summary>Records draw commands into a point-light shadow render pass (writes linear depth).</summary>
+    public unsafe void DrawShadowPoint(CommandBuffer cb, Vector3 lightPos, float lightRange)
+    {
+        if (_vkCtx is null || _shadows is null) return;
+        var vk     = _vkCtx.Vk;
+        var pipe   = _shadows.GetShadowPointPipeline(8 * sizeof(float));
+        var layout = _shadows.ShadowPointLayout;
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipe);
+        var vb = _vkVertexBuffer; var off = 0ul;
+        vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &off);
+        // push: mat4 model (64 bytes) + vec4 lightPosRange (16 bytes)
+        var pc = stackalloc float[20];
+        var model = ModelMatrix;
+        Unsafe.Copy(pc,      ref model);
+        pc[16] = lightPos.X; pc[17] = lightPos.Y; pc[18] = lightPos.Z; pc[19] = lightRange;
+        vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, 80, pc);
+        vk.CmdDraw(cb, 36, 1, 0, 0);
     }
 
     public unsafe void Dispose()
@@ -191,9 +227,13 @@ public class Box3d : ShapeBase, IDisposable
         var offset = 0ul;
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &offset);
 
-        var sets = stackalloc[] { _vkVpDescSets[imageIdx], _vkLightsDescSets[imageIdx] };
+        var sets = stackalloc DescriptorSet[3];
+        sets[0] = _vkVpDescSets[imageIdx];
+        sets[1] = _vkLightsDescSets[imageIdx];
+        uint numSets = 2;
+        if (_shadows is not null) { sets[2] = _shadows.GetMainSet(); numSets = 3; }
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _vkPipelineLayout,
-            0, 2, sets, 0, null);
+            0, numSets, sets, 0, null);
 
         var push = new PushConstant { Model = ModelMatrix, Color = new Vector4(Color, 1f) };
         vk.CmdPushConstants(cb, _vkPipelineLayout,
@@ -540,8 +580,12 @@ public class Box3d : ShapeBase, IDisposable
             PDynamicStates    = dynamicStates,
         };
 
-        // Pipeline layout: set=0 (VP), set=1 (Lights), push constants (model + color)
-        var setLayouts = stackalloc[] { _vkVpDescSetLayout, _vkLightsDescSetLayout };
+        // Pipeline layout: set=0 (VP), set=1 (Lights), [set=2 (Shadows)], push constants
+        var setLayouts = stackalloc DescriptorSetLayout[3];
+        setLayouts[0] = _vkVpDescSetLayout;
+        setLayouts[1] = _vkLightsDescSetLayout;
+        uint numSetLayouts = 2;
+        if (_shadows is not null) { setLayouts[2] = _shadows.MainDescSetLayout; numSetLayouts = 3; }
         var pushRange  = new PushConstantRange
         {
             StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit,
@@ -551,7 +595,7 @@ public class Box3d : ShapeBase, IDisposable
         var pipelineLayoutInfo = new PipelineLayoutCreateInfo
         {
             SType                  = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount         = 2,
+            SetLayoutCount         = numSetLayouts,
             PSetLayouts            = setLayouts,
             PushConstantRangeCount = 1,
             PPushConstantRanges    = &pushRange,

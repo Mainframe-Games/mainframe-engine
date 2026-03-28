@@ -8,6 +8,9 @@ layout(location = 0) out vec4 outColor;
 #define MAX_DIR_LIGHTS    4
 #define MAX_POINT_LIGHTS 16
 #define MAX_SPOT_LIGHTS   8
+#define MAX_SHADOW_DIR    4
+#define MAX_SHADOW_SPOT   8
+#define MAX_SHADOW_POINT  4
 
 struct DirLight {
     vec4 directionIntensity; // xyz = direction, w = intensity
@@ -35,10 +38,63 @@ layout(set = 1, binding = 0) uniform LightsUBO {
     SpotLight  spot[MAX_SPOT_LIGHTS];
 } lights;
 
+// Shadow data (set 2)
+layout(set = 2, binding = 0) uniform ShadowMatricesUBO {
+    mat4 dirLightSpace[MAX_SHADOW_DIR];
+    mat4 spotLightSpace[MAX_SHADOW_SPOT];
+} shadowMat;
+
+layout(set = 2, binding = 1) uniform sampler2DShadow dirShadowMaps[MAX_SHADOW_DIR];
+layout(set = 2, binding = 2) uniform sampler2DShadow spotShadowMaps[MAX_SHADOW_SPOT];
+layout(set = 2, binding = 3) uniform samplerCube     pointShadowMaps[MAX_SHADOW_POINT];
+
 layout(push_constant) uniform PushConstants {
     mat4 model;
     vec4 color;
 } pc;
+
+// ── Shadow helpers ────────────────────────────────────────────────────────────
+
+const float kBias2D    = 0.005;
+const float kBiasPoint = 0.015;
+
+float sampleDirShadow(int i, vec3 worldPos)
+{
+    vec4 lsPos = shadowMat.dirLightSpace[i] * vec4(worldPos, 1.0);
+    lsPos /= lsPos.w;
+    // Light VP uses GLM/C# convention; depth already [0,1] via vertex shader adjustment.
+    // Here we re-project: x/y are [-1,1], z is [-1,1], map to UV [0,1] and depth [0,1].
+    vec2 uv    = lsPos.xy * 0.5 + 0.5;
+    float depth = lsPos.z * 0.5 + 0.5;
+
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || depth > 1.0)
+        return 1.0; // outside shadow frustum → fully lit
+
+    return texture(dirShadowMaps[i], vec3(uv, depth - kBias2D));
+}
+
+float sampleSpotShadow(int i, vec3 worldPos)
+{
+    vec4 lsPos = shadowMat.spotLightSpace[i] * vec4(worldPos, 1.0);
+    lsPos /= lsPos.w;
+    vec2  uv    = lsPos.xy * 0.5 + 0.5;
+    float depth = lsPos.z * 0.5 + 0.5;
+
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || depth > 1.0)
+        return 1.0;
+
+    return texture(spotShadowMaps[i], vec3(uv, depth - kBias2D));
+}
+
+float samplePointShadow(int i, vec3 worldPos, vec3 lightPos, float lightRange)
+{
+    vec3  fragToLight  = worldPos - lightPos;
+    float currentDepth = length(fragToLight) / lightRange;
+    float closestDepth = texture(pointShadowMaps[i], fragToLight).r;
+    return currentDepth - kBiasPoint > closestDepth ? 0.0 : 1.0;
+}
+
+// ── Lighting ──────────────────────────────────────────────────────────────────
 
 float attenuate(float dist, float range)
 {
@@ -46,16 +102,16 @@ float attenuate(float dist, float range)
     return x * x;
 }
 
-vec3 calcDir(DirLight l, vec3 N, vec3 V, vec3 base)
+vec3 calcDir(DirLight l, vec3 N, vec3 V, vec3 base, float shadow)
 {
     vec3  L    = normalize(-l.directionIntensity.xyz);
     vec3  H    = normalize(L + V);
     float diff = max(dot(N, L), 0.0);
     float spec = pow(max(dot(N, H), 0.0), 32.0);
-    return l.color.xyz * l.directionIntensity.w * (diff + spec * 0.3) * base;
+    return l.color.xyz * l.directionIntensity.w * (diff + spec * 0.3) * base * shadow;
 }
 
-vec3 calcPoint(PointLight l, vec3 N, vec3 V, vec3 pos, vec3 base)
+vec3 calcPoint(PointLight l, vec3 N, vec3 V, vec3 pos, vec3 base, float shadow)
 {
     vec3  toLight = l.positionRange.xyz - pos;
     float dist    = length(toLight);
@@ -64,10 +120,10 @@ vec3 calcPoint(PointLight l, vec3 N, vec3 V, vec3 pos, vec3 base)
     float diff    = max(dot(N, L), 0.0);
     float spec    = pow(max(dot(N, H), 0.0), 32.0);
     float atten   = attenuate(dist, l.positionRange.w);
-    return l.colorIntensity.xyz * l.colorIntensity.w * (diff + spec * 0.3) * atten * base;
+    return l.colorIntensity.xyz * l.colorIntensity.w * (diff + spec * 0.3) * atten * base * shadow;
 }
 
-vec3 calcSpot(SpotLight l, vec3 N, vec3 V, vec3 pos, vec3 base)
+vec3 calcSpot(SpotLight l, vec3 N, vec3 V, vec3 pos, vec3 base, float shadow)
 {
     vec3  toLight  = l.positionRange.xyz - pos;
     float dist     = length(toLight);
@@ -80,7 +136,7 @@ vec3 calcSpot(SpotLight l, vec3 N, vec3 V, vec3 pos, vec3 base)
     float diff     = max(dot(N, L), 0.0);
     float spec     = pow(max(dot(N, H), 0.0), 32.0);
     float atten    = attenuate(dist, l.positionRange.w);
-    return l.colorInner.xyz * l.directionIntensity.w * (diff + spec * 0.3) * spot * atten * base;
+    return l.colorInner.xyz * l.directionIntensity.w * (diff + spec * 0.3) * spot * atten * base * shadow;
 }
 
 void main()
@@ -91,14 +147,29 @@ void main()
 
     vec3 result = lights.ambientColor.xyz * base;
 
+    int numShadowDir   = min(lights.counts.x, MAX_SHADOW_DIR);
+    int numShadowSpot  = min(lights.counts.z, MAX_SHADOW_SPOT);
+    int numShadowPoint = min(lights.counts.y, MAX_SHADOW_POINT);
+
     for (int i = 0; i < lights.counts.x; i++)
-        result += calcDir(lights.dir[i], N, V, base);
+    {
+        float shadow = (i < numShadowDir) ? sampleDirShadow(i, inWorldPos) : 1.0;
+        result += calcDir(lights.dir[i], N, V, base, shadow);
+    }
 
     for (int i = 0; i < lights.counts.y; i++)
-        result += calcPoint(lights.point[i], N, V, inWorldPos, base);
+    {
+        float shadow = (i < numShadowPoint)
+            ? samplePointShadow(i, inWorldPos, lights.point[i].positionRange.xyz, lights.point[i].positionRange.w)
+            : 1.0;
+        result += calcPoint(lights.point[i], N, V, inWorldPos, base, shadow);
+    }
 
     for (int i = 0; i < lights.counts.z; i++)
-        result += calcSpot(lights.spot[i], N, V, inWorldPos, base);
+    {
+        float shadow = (i < numShadowSpot) ? sampleSpotShadow(i, inWorldPos) : 1.0;
+        result += calcSpot(lights.spot[i], N, V, inWorldPos, base, shadow);
+    }
 
     outColor = vec4(result, 1.0);
 }
