@@ -9,7 +9,7 @@ using MouseButton = Silk.NET.Input.MouseButton;
 
 namespace MainframeEngine.Sandbox;
 
-public class GameTest : IGame
+public class Game : IGame
 {
     private IWindow _window = null!;
     private IRenderer _renderer = null!;
@@ -54,7 +54,12 @@ public class GameTest : IGame
 
         _sky = new SkyPanoramic(_renderer, "Content/Sky/sky_16_2k.png");
         _sceneGrid3d = new SceneGrid3d(_renderer);
-        _quad = new Quad(_renderer) { Color = new Vector3(0.8f, 0.3f, 0.2f) };
+        _quad = new Quad(_renderer)
+        {
+            Rotation = new Vector3(90, 0, 0),
+            Scale = new Vector3(10, 10, 0),
+            Color = new Vector3(0.8f, 0.3f, 0.2f)
+        };
         _box3d = new Box3d(_renderer) { Color = new Vector3(0.8f, 0.3f, 0.2f) };
 
         _lights.DirectionalLights.Add(_dirLight);

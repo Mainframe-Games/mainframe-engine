@@ -191,8 +191,8 @@ public class SpineRenderer : IDisposable
         // Right-handed viewport (negative height flips Y)
         var viewport = new Viewport
         {
-            X = 0, Y = (float)extent.Height,
-            Width = (float)extent.Width, Height = -(float)extent.Height,
+            X = 0, Y = extent.Height,
+            Width = extent.Width, Height = -(float)extent.Height,
             MinDepth = 0f, MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);

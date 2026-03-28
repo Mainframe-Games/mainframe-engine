@@ -110,8 +110,8 @@ public abstract class SceneGrid : IDisposable
         var viewport = new Viewport
         {
             X = 0,
-            Y = (float)extent.Height,
-            Width = (float)extent.Width,
+            Y = extent.Height,
+            Width = extent.Width,
             Height = -(float)extent.Height,
             MinDepth = 0f,
             MaxDepth = 1f,
@@ -363,6 +363,14 @@ public abstract class SceneGrid : IDisposable
         if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _vkPipelineLayout) != Result.Success)
             throw new Exception("[Vulkan] Failed to create SceneGrid pipeline layout!");
 
+        var depthStencil = new PipelineDepthStencilStateCreateInfo
+        {
+            SType            = StructureType.PipelineDepthStencilStateCreateInfo,
+            DepthTestEnable  = true,
+            DepthWriteEnable = true,
+            DepthCompareOp   = CompareOp.Less,
+        };
+
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType = StructureType.GraphicsPipelineCreateInfo,
@@ -372,6 +380,7 @@ public abstract class SceneGrid : IDisposable
             PViewportState = &viewportState,
             PRasterizationState = &rasterizer,
             PMultisampleState = &multisampling,
+            PDepthStencilState = &depthStencil,
             PColorBlendState = &colorBlend,
             PDynamicState = &dynamicState,
             Layout = _vkPipelineLayout,

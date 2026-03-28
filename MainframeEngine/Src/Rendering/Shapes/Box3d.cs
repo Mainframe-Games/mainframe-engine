@@ -176,8 +176,8 @@ public class Box3d : ShapeBase, IDisposable
 
         var viewport = new Viewport
         {
-            X = 0, Y = (float)extent.Height,
-            Width = (float)extent.Width, Height = -(float)extent.Height,
+            X = 0, Y = extent.Height,
+            Width = extent.Width, Height = -(float)extent.Height,
             MinDepth = 0f, MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);
@@ -209,7 +209,7 @@ public class Box3d : ShapeBase, IDisposable
 
     private static unsafe void WriteLightsUbo(nint ptr, LightEnvironment env, Vector3 camPos)
     {
-        Unsafe.InitBlock((void*)ptr, 0, (uint)LightsUboSize);
+        Unsafe.InitBlock((void*)ptr, 0, LightsUboSize);
         float* f = (float*)ptr;
         int    fi = 0;
 
@@ -357,11 +357,11 @@ public class Box3d : ShapeBase, IDisposable
             vk.MapMemory(device, _vkVpUboMemory[i], 0, (ulong)sizeof(VpUbo), 0, &ptr);
             _vkVpUboMapped[i] = (nint)ptr;
 
-            CreateBuffer(ctx, (ulong)LightsUboSize,
+            CreateBuffer(ctx, LightsUboSize,
                 BufferUsageFlags.UniformBufferBit,
                 MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
                 out _vkLightsUboBuffers[i], out _vkLightsUboMemory[i]);
-            vk.MapMemory(device, _vkLightsUboMemory[i], 0, (ulong)LightsUboSize, 0, &ptr);
+            vk.MapMemory(device, _vkLightsUboMemory[i], 0, LightsUboSize, 0, &ptr);
             _vkLightsUboMapped[i] = (nint)ptr;
         }
 
@@ -427,7 +427,7 @@ public class Box3d : ShapeBase, IDisposable
             };
 
             var lightsBuf = new DescriptorBufferInfo
-                { Buffer = _vkLightsUboBuffers[i], Offset = 0, Range = (ulong)LightsUboSize };
+                { Buffer = _vkLightsUboBuffers[i], Offset = 0, Range = LightsUboSize };
             var lightsWrite = new WriteDescriptorSet
             {
                 SType           = StructureType.WriteDescriptorSet,
@@ -559,6 +559,14 @@ public class Box3d : ShapeBase, IDisposable
         if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _vkPipelineLayout) != Result.Success)
             throw new Exception("[Vulkan] Failed to create pipeline layout!");
 
+        var depthStencil = new PipelineDepthStencilStateCreateInfo
+        {
+            SType            = StructureType.PipelineDepthStencilStateCreateInfo,
+            DepthTestEnable  = true,
+            DepthWriteEnable = true,
+            DepthCompareOp   = CompareOp.Less,
+        };
+
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType               = StructureType.GraphicsPipelineCreateInfo,
@@ -569,6 +577,7 @@ public class Box3d : ShapeBase, IDisposable
             PViewportState      = &viewportState,
             PRasterizationState = &rasterizer,
             PMultisampleState   = &multisampling,
+            PDepthStencilState  = &depthStencil,
             PColorBlendState    = &colorBlend,
             PDynamicState       = &dynamicState,
             Layout              = _vkPipelineLayout,

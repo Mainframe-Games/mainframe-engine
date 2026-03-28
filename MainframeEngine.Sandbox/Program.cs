@@ -10,7 +10,7 @@ try
         RenderingBackend = RenderingBackend.Vulkan,
         WindowSize = new Vector2(1920, 1080)
     };
-    using var game = new Engine(info, new GameTest());
+    using var game = new Engine(info, new Game());
     var exitCode = game.Run();
     Log.Debug($"Game Exit: {exitCode}");
     return exitCode;

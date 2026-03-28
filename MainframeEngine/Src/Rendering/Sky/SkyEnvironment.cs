@@ -139,8 +139,8 @@ public class SkyEnvironment : IDisposable
         // Use the same Y-flip viewport as the rest of the engine.
         var viewport = new Viewport
         {
-            X = 0, Y = (float)extent.Height,
-            Width = (float)extent.Width, Height = -(float)extent.Height,
+            X = 0, Y = extent.Height,
+            Width = extent.Width, Height = -(float)extent.Height,
             MinDepth = 0f, MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);
@@ -220,7 +220,7 @@ public class SkyEnvironment : IDisposable
     {
         var vk     = ctx.Vk;
         var device = ctx.Device;
-        ulong size = (ulong)(w * h * 4);
+        ulong size = w * h * 4;
 
         CreateBuffer(ctx, size,
             BufferUsageFlags.TransferSrcBit,
@@ -266,7 +266,7 @@ public class SkyEnvironment : IDisposable
     {
         var vk     = ctx.Vk;
         var device = ctx.Device;
-        ulong faceSize  = (ulong)(faceW * faceH * 4);
+        ulong faceSize  = faceW * faceH * 4;
         ulong totalSize = faceSize * 6;
 
         CreateBuffer(ctx, totalSize,
@@ -620,6 +620,13 @@ public class SkyEnvironment : IDisposable
         if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
             throw new Exception("[SkyEnvironment] Failed to create pipeline layout!");
 
+        var depthStencil = new PipelineDepthStencilStateCreateInfo
+        {
+            SType            = StructureType.PipelineDepthStencilStateCreateInfo,
+            DepthTestEnable  = false,
+            DepthWriteEnable = false,
+        };
+
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType               = StructureType.GraphicsPipelineCreateInfo,
@@ -630,6 +637,7 @@ public class SkyEnvironment : IDisposable
             PViewportState      = &viewportState,
             PRasterizationState = &rasterizer,
             PMultisampleState   = &multisampling,
+            PDepthStencilState  = &depthStencil,
             PColorBlendState    = &colorBlend,
             PDynamicState       = &dynamicState,
             Layout              = _pipelineLayout,
@@ -690,7 +698,7 @@ public class SkyEnvironment : IDisposable
         VkBuffer buffer, VkImage image, uint w, uint h, uint layerCount)
     {
         var cb = BeginOneTimeCmd(ctx);
-        ulong faceSize = (ulong)(w * h * 4);
+        ulong faceSize = w * h * 4;
 
         var regions = new BufferImageCopy[layerCount];
         for (uint i = 0; i < layerCount; i++)

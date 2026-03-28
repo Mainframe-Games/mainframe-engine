@@ -39,6 +39,12 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private RenderPass _renderPass;
     private Silk.NET.Vulkan.Framebuffer[]? _swapChainFramebuffers;
 
+    // depth buffer
+    private Format _depthFormat;
+    private Image _depthImage;
+    private DeviceMemory _depthImageMemory;
+    private ImageView _depthImageView;
+
     // commands
     private CommandPool _commandPool;
     private CommandBuffer[]? _commandBuffers;
@@ -138,19 +144,18 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             throw new Exception("[Vulkan] Failed to begin recording command buffer!");
 
         // Begin render pass — shapes record their draw commands while this is open
-        var clearColor = new ClearValue
-        {
-            Color = new() { Float32_0 = _clearR, Float32_1 = _clearG, Float32_2 = _clearB, Float32_3 = _clearA }
-        };
+        var clearValues = stackalloc ClearValue[2];
+        clearValues[0] = new ClearValue { Color = new() { Float32_0 = _clearR, Float32_1 = _clearG, Float32_2 = _clearB, Float32_3 = _clearA } };
+        clearValues[1] = new ClearValue { DepthStencil = new() { Depth = 1.0f, Stencil = 0 } };
 
         var renderPassInfo = new RenderPassBeginInfo
         {
-            SType = StructureType.RenderPassBeginInfo,
-            RenderPass = _renderPass,
-            Framebuffer = _swapChainFramebuffers![imageIndex],
-            RenderArea = { Offset = default, Extent = _swapChainExtent },
-            ClearValueCount = 1,
-            PClearValues = &clearColor,
+            SType           = StructureType.RenderPassBeginInfo,
+            RenderPass      = _renderPass,
+            Framebuffer     = _swapChainFramebuffers![imageIndex],
+            RenderArea      = { Offset = default, Extent = _swapChainExtent },
+            ClearValueCount = 2,
+            PClearValues    = clearValues,
         };
 
         _vk!.CmdBeginRenderPass(cb, &renderPassInfo, SubpassContents.Inline);
@@ -246,6 +251,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         CreateSwapchain();
         CreateImageViews();
         CreateRenderPass();
+        CreateDepthResources();
         CreateFramebuffers();
         CreateCommandPool();
         CreateCommandBuffers();
@@ -599,45 +605,62 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
     private void CreateRenderPass()
     {
+        _depthFormat = FindDepthFormat();
+
         var colorAttachment = new AttachmentDescription
         {
-            Format = _swapChainImageFormat,
-            Samples = SampleCountFlags.Count1Bit,
-            LoadOp = AttachmentLoadOp.Clear,
-            StoreOp = AttachmentStoreOp.Store,
-            StencilLoadOp = AttachmentLoadOp.DontCare,
+            Format         = _swapChainImageFormat,
+            Samples        = SampleCountFlags.Count1Bit,
+            LoadOp         = AttachmentLoadOp.Clear,
+            StoreOp        = AttachmentStoreOp.Store,
+            StencilLoadOp  = AttachmentLoadOp.DontCare,
             StencilStoreOp = AttachmentStoreOp.DontCare,
-            InitialLayout = ImageLayout.Undefined,
-            FinalLayout = ImageLayout.PresentSrcKhr,
+            InitialLayout  = ImageLayout.Undefined,
+            FinalLayout    = ImageLayout.PresentSrcKhr,
+        };
+
+        var depthAttachment = new AttachmentDescription
+        {
+            Format         = _depthFormat,
+            Samples        = SampleCountFlags.Count1Bit,
+            LoadOp         = AttachmentLoadOp.Clear,
+            StoreOp        = AttachmentStoreOp.DontCare,
+            StencilLoadOp  = AttachmentLoadOp.DontCare,
+            StencilStoreOp = AttachmentStoreOp.DontCare,
+            InitialLayout  = ImageLayout.Undefined,
+            FinalLayout    = ImageLayout.DepthStencilAttachmentOptimal,
         };
 
         var colorRef = new AttachmentReference { Attachment = 0, Layout = ImageLayout.ColorAttachmentOptimal };
+        var depthRef = new AttachmentReference { Attachment = 1, Layout = ImageLayout.DepthStencilAttachmentOptimal };
         var subpass = new SubpassDescription
         {
-            PipelineBindPoint = PipelineBindPoint.Graphics,
-            ColorAttachmentCount = 1,
-            PColorAttachments = &colorRef,
+            PipelineBindPoint       = PipelineBindPoint.Graphics,
+            ColorAttachmentCount    = 1,
+            PColorAttachments       = &colorRef,
+            PDepthStencilAttachment = &depthRef,
         };
 
         var dependency = new SubpassDependency
         {
-            SrcSubpass = Vk.SubpassExternal,
-            DstSubpass = 0,
-            SrcStageMask = PipelineStageFlags.ColorAttachmentOutputBit,
+            SrcSubpass    = Vk.SubpassExternal,
+            DstSubpass    = 0,
+            SrcStageMask  = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.EarlyFragmentTestsBit,
             SrcAccessMask = 0,
-            DstStageMask = PipelineStageFlags.ColorAttachmentOutputBit,
-            DstAccessMask = AccessFlags.ColorAttachmentWriteBit,
+            DstStageMask  = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.EarlyFragmentTestsBit,
+            DstAccessMask = AccessFlags.ColorAttachmentWriteBit | AccessFlags.DepthStencilAttachmentWriteBit,
         };
 
+        var attachments = stackalloc AttachmentDescription[] { colorAttachment, depthAttachment };
         var renderPassInfo = new RenderPassCreateInfo
         {
-            SType = StructureType.RenderPassCreateInfo,
-            AttachmentCount = 1,
-            PAttachments = &colorAttachment,
-            SubpassCount = 1,
-            PSubpasses = &subpass,
+            SType           = StructureType.RenderPassCreateInfo,
+            AttachmentCount = 2,
+            PAttachments    = attachments,
+            SubpassCount    = 1,
+            PSubpasses      = &subpass,
             DependencyCount = 1,
-            PDependencies = &dependency,
+            PDependencies   = &dependency,
         };
 
         if (_vk!.CreateRenderPass(_device, renderPassInfo, null, out _renderPass) != Result.Success)
@@ -649,18 +672,20 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private void CreateFramebuffers()
     {
         _swapChainFramebuffers = new Silk.NET.Vulkan.Framebuffer[_swapChainImageViews!.Length];
+        var fbAttachments = stackalloc ImageView[2];
         for (int i = 0; i < _swapChainImageViews.Length; i++)
         {
-            var attachment = _swapChainImageViews[i];
+            fbAttachments[0] = _swapChainImageViews[i];
+            fbAttachments[1] = _depthImageView;
             var fbInfo = new FramebufferCreateInfo
             {
-                SType = StructureType.FramebufferCreateInfo,
-                RenderPass = _renderPass,
-                AttachmentCount = 1,
-                PAttachments = &attachment,
-                Width = _swapChainExtent.Width,
-                Height = _swapChainExtent.Height,
-                Layers = 1,
+                SType           = StructureType.FramebufferCreateInfo,
+                RenderPass      = _renderPass,
+                AttachmentCount = 2,
+                PAttachments    = fbAttachments,
+                Width           = _swapChainExtent.Width,
+                Height          = _swapChainExtent.Height,
+                Layers          = 1,
             };
 
             if (_vk!.CreateFramebuffer(_device, fbInfo, null, out _swapChainFramebuffers[i]) != Result.Success)
@@ -725,12 +750,101 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         Log.Info("[Vulkan] Sync objects created.");
     }
 
+    private Format FindDepthFormat()
+    {
+        var candidates = new[] { Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint };
+        foreach (var format in candidates)
+        {
+            _vk!.GetPhysicalDeviceFormatProperties(_physicalDevice, format, out var props);
+            if ((props.OptimalTilingFeatures & FormatFeatureFlags.DepthStencilAttachmentBit) != 0)
+                return format;
+        }
+        throw new Exception("[Vulkan] Failed to find supported depth format!");
+    }
+
+    private uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
+    {
+        _vk!.GetPhysicalDeviceMemoryProperties(_physicalDevice, out var memProps);
+        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
+        {
+            if ((typeFilter & (1u << (int)i)) != 0 &&
+                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
+                return i;
+        }
+        throw new Exception("[Vulkan] Failed to find suitable memory type!");
+    }
+
+    private void CreateDepthResources()
+    {
+        var imageInfo = new ImageCreateInfo
+        {
+            SType         = StructureType.ImageCreateInfo,
+            ImageType     = ImageType.Type2D,
+            Format        = _depthFormat,
+            Extent        = new Extent3D(_swapChainExtent.Width, _swapChainExtent.Height, 1),
+            MipLevels     = 1,
+            ArrayLayers   = 1,
+            Samples       = SampleCountFlags.Count1Bit,
+            Tiling        = ImageTiling.Optimal,
+            Usage         = ImageUsageFlags.DepthStencilAttachmentBit,
+            SharingMode   = SharingMode.Exclusive,
+            InitialLayout = ImageLayout.Undefined,
+        };
+
+        if (_vk!.CreateImage(_device, imageInfo, null, out _depthImage) != Result.Success)
+            throw new Exception("[Vulkan] Failed to create depth image!");
+
+        _vk!.GetImageMemoryRequirements(_device, _depthImage, out var memReq);
+
+        var allocInfo = new MemoryAllocateInfo
+        {
+            SType           = StructureType.MemoryAllocateInfo,
+            AllocationSize  = memReq.Size,
+            MemoryTypeIndex = FindMemoryType(memReq.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
+        };
+
+        if (_vk!.AllocateMemory(_device, allocInfo, null, out _depthImageMemory) != Result.Success)
+            throw new Exception("[Vulkan] Failed to allocate depth image memory!");
+
+        _vk!.BindImageMemory(_device, _depthImage, _depthImageMemory, 0);
+
+        var viewInfo = new ImageViewCreateInfo
+        {
+            SType            = StructureType.ImageViewCreateInfo,
+            Image            = _depthImage,
+            ViewType         = ImageViewType.Type2D,
+            Format           = _depthFormat,
+            SubresourceRange =
+            {
+                AspectMask     = ImageAspectFlags.DepthBit,
+                BaseMipLevel   = 0,
+                LevelCount     = 1,
+                BaseArrayLayer = 0,
+                LayerCount     = 1,
+            },
+        };
+
+        if (_vk!.CreateImageView(_device, viewInfo, null, out _depthImageView) != Result.Success)
+            throw new Exception("[Vulkan] Failed to create depth image view!");
+
+        Log.Info("[Vulkan] Depth resources created.");
+    }
+
+    private void DestroyDepthResources()
+    {
+        _vk!.DestroyImageView(_device, _depthImageView, null);
+        _vk!.FreeMemory(_device, _depthImageMemory, null);
+        _vk!.DestroyImage(_device, _depthImage, null);
+    }
+
     #endregion
 
     #region Swapchain Recreation
 
     private void CleanupSwapchain()
     {
+        DestroyDepthResources();
+
         if (_swapChainFramebuffers is not null)
             foreach (var fb in _swapChainFramebuffers)
                 _vk!.DestroyFramebuffer(_device, fb, null);
@@ -759,6 +873,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         CleanupSwapchain();
         CreateSwapchain();
         CreateImageViews();
+        CreateDepthResources();
         CreateFramebuffers();
         CreateCommandBuffers();
         _imagesInFlight = new Fence[_swapChainImages!.Length];

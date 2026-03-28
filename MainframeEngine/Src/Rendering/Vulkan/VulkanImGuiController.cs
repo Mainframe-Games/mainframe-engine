@@ -497,6 +497,13 @@ internal unsafe class VulkanImGuiController : IDisposable
         };
         vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _pipelineLayout);
 
+        var depthStencil = new PipelineDepthStencilStateCreateInfo
+        {
+            SType            = StructureType.PipelineDepthStencilStateCreateInfo,
+            DepthTestEnable  = false,
+            DepthWriteEnable = false,
+        };
+
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType = StructureType.GraphicsPipelineCreateInfo,
@@ -506,6 +513,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             PViewportState = &viewportState,
             PRasterizationState = &rasterizer,
             PMultisampleState = &multisampling,
+            PDepthStencilState = &depthStencil,
             PColorBlendState = &colorBlend,
             PDynamicState = &dynamicState,
             Layout = _pipelineLayout,
@@ -571,8 +579,8 @@ internal unsafe class VulkanImGuiController : IDisposable
         var viewport = new Viewport
         {
             X = 0, Y = 0,
-            Width = (float)extent.Width,
-            Height = (float)extent.Height,
+            Width = extent.Width,
+            Height = extent.Height,
             MinDepth = 0f, MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);

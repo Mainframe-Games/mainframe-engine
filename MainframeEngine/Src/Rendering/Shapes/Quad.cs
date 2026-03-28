@@ -69,7 +69,7 @@ public class Quad : ShapeBase, IDisposable
         Scale = new Vector3(1, 1, 0);
     }
 
-    public unsafe void Draw(ICamera camera)
+    public void Draw(ICamera camera)
     {
         if (_vkCtx is not null)
             DrawVulkan(camera);
@@ -119,8 +119,8 @@ public class Quad : ShapeBase, IDisposable
 
         var viewport = new Viewport
         {
-            X = 0, Y = (float)extent.Height,
-            Width = (float)extent.Width, Height = -(float)extent.Height,
+            X = 0, Y = extent.Height,
+            Width = extent.Width, Height = -(float)extent.Height,
             MinDepth = 0f, MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);
@@ -406,6 +406,14 @@ public class Quad : ShapeBase, IDisposable
         if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _vkPipelineLayout) != Result.Success)
             throw new Exception("[Vulkan] Quad: Failed to create pipeline layout!");
 
+        var depthStencil = new PipelineDepthStencilStateCreateInfo
+        {
+            SType            = StructureType.PipelineDepthStencilStateCreateInfo,
+            DepthTestEnable  = true,
+            DepthWriteEnable = true,
+            DepthCompareOp   = CompareOp.Less,
+        };
+
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType               = StructureType.GraphicsPipelineCreateInfo,
@@ -416,6 +424,7 @@ public class Quad : ShapeBase, IDisposable
             PViewportState      = &viewportState,
             PRasterizationState = &rasterizer,
             PMultisampleState   = &multisampling,
+            PDepthStencilState  = &depthStencil,
             PColorBlendState    = &colorBlend,
             PDynamicState       = &dynamicState,
             Layout              = _vkPipelineLayout,
