@@ -9,7 +9,7 @@ using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
-public class SpineRenderer : IDisposable
+internal class SpineRenderer : IDisposable
 {
     private const int MaxVertices = 8192;
     private readonly float[] _worldVerticesPositions = new float[MaxVertices];

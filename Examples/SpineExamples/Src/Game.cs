@@ -20,10 +20,7 @@ internal class Game : IGame
     private Engine _engine = null!;
     private IRenderer _renderer = null!;
 
-    private Atlas _atlas = null!;
-    private Skeleton _spineSkeleton = null!;
-    private AnimationState _animationState = null!;
-    private SpineRenderer? _spineRenderer;
+    private SpineNode? _spineInstance;
 
     private readonly InspectorUI _inspectorUI = new(Folders);
 
@@ -44,10 +41,6 @@ internal class Game : IGame
     private ICamera CurrentCamera => _inspectorUI.UseOrthographicCamera ? _cameraOrth : _cameraPer;
 
     private static Vector2 _lastMousePos;
-    private Vector3 _modelPosition;
-    private Vector3 _modelRotation;
-    private float _modelScale = 0.2f;
-
     private SceneGrid3d _sceneGrid3d = null!;
     private SceneGrid2d _sceneGrid2d = null!;
 
@@ -82,13 +75,21 @@ internal class Game : IGame
 
     public void OnImGui(in GameTime gameTime)
     {
-        if (_spineRenderer is null)
+        if (_spineInstance is null)
             return;
         
+        var position = _spineInstance.Position;
+        var rotation = _spineInstance.Rotation;
+        var scale = _spineInstance.Scale.X;
+        
         _inspectorUI.OnImGui(
-            _spineSkeleton, CurrentCamera,
+            _spineInstance.Skeleton, CurrentCamera,
             ref _cameraSpeed,
-            ref _modelPosition, ref _modelRotation, ref _modelScale);
+            ref position, ref rotation, ref scale);
+
+        _spineInstance.Position = position;
+        _spineInstance.Rotation = rotation;
+        _spineInstance.Scale = new Vector3(scale, scale, scale);
     }
 
     public void OnUpdate(in GameTime gameTime)
@@ -96,11 +97,12 @@ internal class Game : IGame
         UpdateCamera(gameTime.DeltaTime);
 
         SetSpineScale();
-        _spineSkeleton.UpdateWorldTransform(_inspectorUI.UpdatePhysics
+
+        _spineInstance?.UpdateType = _inspectorUI.UpdatePhysics
             ? Skeleton.Physics.Update
-            : Skeleton.Physics.None);
-        _animationState.Update((float)gameTime.DeltaTime);
-        _animationState.Apply(_spineSkeleton);
+            : Skeleton.Physics.None;
+
+        _spineInstance?.OnUpdate(gameTime);
     }
 
     public void OnRender(in GameTime gameTime)
@@ -120,62 +122,33 @@ internal class Game : IGame
             _sceneGrid3d.Draw(CurrentCamera);
         }
 
-        if (_spineRenderer is null) return;
-
-        var model =
-            Matrix4x4.CreateScale(_modelScale)
-            * Matrix4x4.CreateRotationX(float.DegreesToRadians(_modelRotation.X))
-            * Matrix4x4.CreateRotationY(float.DegreesToRadians(_modelRotation.Y))
-            * Matrix4x4.CreateRotationZ(float.DegreesToRadians(_modelRotation.Z))
-            * Matrix4x4.CreateTranslation(_modelPosition);
-
-        _spineRenderer.Draw(
-            _inspectorUI.ZSpacing,
-            model,
-            CurrentCamera.ViewMatrix,
-            CurrentCamera.ProjectionMatrix);
+        _spineInstance?.OnRender(CurrentCamera);
     }
 
     public void OnClose()
     {
-        _spineRenderer?.Dispose();
+        _spineInstance?.Dispose();
         _sceneGrid3d?.Dispose();
         _sceneGrid2d?.Dispose();
     }
 
     private void OnModelChanged(SpineFolder folder)
     {
-        _spineRenderer?.Dispose();
-
-        var textureLoader = new SpineTextureLoader();
-        _atlas = new Atlas(folder.AtlasPath, textureLoader);
-
-        var json = new SkeletonJson(_atlas);
-        var skeletonData = json.ReadSkeletonData(folder.JsonPath);
-        _spineSkeleton = new Skeleton(skeletonData);
-        _spineSkeleton.SetSkin(skeletonData.DefaultSkin);
-
-        _inspectorUI.SpineScale = 0.02f;
-        _inspectorUI.ZSpacing = 0.01f;
-
-        _spineRenderer = new SpineRenderer(_renderer, _spineSkeleton, _atlas.Pages[0].pma, textureLoader);
-
-        var animStateData = new AnimationStateData(skeletonData);
-        _animationState = new AnimationState(animStateData);
-        SetAnimation(_spineSkeleton.Data.Animations.Items[0].Name);
+        _spineInstance?.Dispose();
+        _spineInstance = new SpineNode(_renderer, folder);
+        
+        _inspectorUI.SpineScale = _spineInstance.SpineScale;
+        _inspectorUI.ZSpacing = _spineInstance.ZSpacing;
     }
 
     private void SetAnimation(string animationName)
     {
-        var animation = _spineSkeleton.Data.FindAnimation(animationName);
-        _animationState.AddAnimation(0, animation, true, 0);
+        _spineInstance?.SetAnimation(animationName);
     }
 
     private void SetSpineScale()
     {
-        var scaleXAbs = Math.Abs(_inspectorUI.SpineScale);
-        _spineSkeleton.ScaleX = _inspectorUI.IsFlipped ? -scaleXAbs : scaleXAbs;
-        _spineSkeleton.ScaleY = _inspectorUI.SpineScale;
+        _spineInstance?.FlipX(_inspectorUI.IsFlipped);
     }
 
     private void UpdateCamera(double delta)

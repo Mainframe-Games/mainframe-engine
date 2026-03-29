@@ -5,13 +5,6 @@ using Spine;
 
 namespace SilkSpine.UI;
 
-public readonly struct SpineFolder(string rootFolder)
-{
-    public readonly string Name = rootFolder.Split('/')[^1];
-    public readonly string AtlasPath = Directory.GetFiles(rootFolder, "*.atlas")[0];
-    public readonly string JsonPath = Directory.GetFiles(rootFolder, "*.json")[0];
-}
-
 internal class InspectorUI
 {
     public event Action<SpineFolder>? OnModelChanged;
@@ -45,11 +38,6 @@ internal class InspectorUI
             _animNames[i] = string.Empty;
     }
 
-    // private static readonly string[] _sFactors = Enum.GetNames<BlendingFactor>();
-    // private int _sIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.One);
-    // private static readonly string[] _dFactors = Enum.GetNames<BlendingFactor>();
-    // private int _dIndex = Array.IndexOf(Enum.GetValues<BlendingFactor>(), BlendingFactor.OneMinusSrcAlpha);
-    
     public void OnImGui(Skeleton skeleton,
         ICamera camera,
         ref float cameraSpeed,
