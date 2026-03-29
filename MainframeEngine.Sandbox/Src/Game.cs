@@ -20,15 +20,11 @@ public class Game : IGame
     };
 
     private SkyEnvironment _sky = null!;
-    private SceneGrid3d _sceneGrid3d = null!;
-    private Quad _quad = null!;
-    private Box3d _box3d = null!;
-    private ShadowSystem _shadowSystem = null!;
-
     private readonly LightEnvironment _lights = new();
-    private readonly DirectionalLight _dirLight  = new() { Direction = Vector3.Normalize(new Vector3(-1, -2, -1)), Color = new Vector3(1f, 0.95f, 0.8f), Intensity = 0.9f };
-    private readonly PointLight       _pointLight = new() { Position = new Vector3(3, 2, 2), Color = new Vector3(0.2f, 0.5f, 1f), Intensity = 5f, Range = 8f };
-    private readonly SpotLight        _spotLight  = new() { Position = new Vector3(-2, 4, 2), Direction = Vector3.Normalize(new Vector3(0.5f, -1, -0.5f)), Color = new Vector3(1f, 0.8f, 0.2f), Intensity = 8f, Range = 15f, InnerConeAngle = 12f, OuterConeAngle = 25f };
+    private ShadowSystem _shadowSystem = null!;
+    private SceneGrid3d _sceneGrid3d = null!;
+    
+    private readonly List<ShapeBase> _shapes = [];
 
     private IKeyboard _keyboard = null!;
     private IMouse _mouse = null!;
@@ -59,17 +55,40 @@ public class Game : IGame
         // Shadow system must be created before any shadow-casting/receiving shapes.
         _shadowSystem = new ShadowSystem((IVulkanContext)_renderer);
 
-        _quad = new Quad(_renderer, _shadowSystem)
+        _shapes.Add(new Quad(_renderer, _shadowSystem)
         {
             Rotation = new Vector3(90, 0, 0),
-            Scale = new Vector3(10, 10, 0),
-            Color = new Vector3(0.8f, 0.3f, 0.2f)
-        };
-        _box3d = new Box3d(_renderer, _shadowSystem) { Color = new Vector3(0.8f, 0.3f, 0.2f) };
+            Scale = new Vector3(10, 10, 1),
+            Color = Color.CornflowerBlue
+        });
+        _shapes.Add(new Box3d(_renderer, _shadowSystem)
+        {
+            Color = Color.Azure
+        });
 
-        _lights.DirectionalLights.Add(_dirLight);
-        _lights.PointLights.Add(_pointLight);
-        _lights.SpotLights.Add(_spotLight);
+        // _lights.DirectionalLights.Add(new DirectionalLight
+        // {
+        //     Direction = Vector3.Normalize(new Vector3(-1, -2, -1)),
+        //     Color = new Vector3(1f, 0.95f, 0.8f),
+        //     Intensity = 0.9f
+        // });
+        // _lights.PointLights.Add(new PointLight
+        // { 
+        //     Position = new Vector3(3, 2, 2),
+        //     Color = new Vector3(0.2f, 0.5f, 1f),
+        //     Intensity = 5f,
+        //     Range = 8f
+        // });
+        _lights.SpotLights.Add(new SpotLight
+        {
+            Position = new Vector3(-2, 4, 2),
+            Direction = Vector3.Normalize(new Vector3(0.5f, -1, -0.5f)),
+            Color = new Vector3(1,1,1),
+            Intensity = 1,
+            Range = 15f,
+            InnerConeAngle = 12f,
+            OuterConeAngle = 25f
+        });
     }
 
     private void SetWindowIcon()
@@ -121,13 +140,13 @@ public class Game : IGame
     {
         _shadowSystem.RenderShadows(
             _lights,
-            draw2D: (cb, p32, p12, lay) => {
-                _box3d.DrawShadow2D(cb);
-                _quad.DrawShadow2D(cb);
+            draw2D: (cb, p32, p12, lay) => { // TODO: remove allocations here
+                foreach (var shape in _shapes)
+                    shape.DrawShadow2D(cb);
             },
             drawPoint: (cb, p32, p12, lay, lightPos, lightRange) => {
-                _box3d.DrawShadowPoint(cb, lightPos, lightRange);
-                _quad.DrawShadowPoint(cb, lightPos, lightRange);
+                foreach (var shape in _shapes)
+                    shape.DrawShadowPoint(cb, lightPos, lightRange);
             }
         );
     }
@@ -141,8 +160,8 @@ public class Game : IGame
         _camera3D.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
         _sky.Draw(_camera3D); // must be drawn first — renders behind all geometry
         _sceneGrid3d.Draw(_camera3D);
-        _quad.Draw(_camera3D);
-        _box3d.Draw(_camera3D, _lights);
+        foreach (var shape in _shapes)
+            shape.Draw(_camera3D, _lights);
     }
 
     public void OnClose()
@@ -150,8 +169,8 @@ public class Game : IGame
         _shadowSystem.Dispose();
         _sky.Dispose();
         _sceneGrid3d.Dispose();
-        _quad.Dispose();
-        _box3d.Dispose();
+        foreach (var shape in _shapes)
+            shape.Dispose();
     }
 
     private void UpdateCameraPosition(double deltaTime)

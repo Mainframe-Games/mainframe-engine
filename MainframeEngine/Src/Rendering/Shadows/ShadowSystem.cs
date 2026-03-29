@@ -108,6 +108,7 @@ public sealed unsafe class ShadowSystem : IDisposable
         CreateShadowMaps();
         CreateSamplers();
         CreateMainDescriptorResources();
+        InitializeShadowMapLayouts();
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -135,7 +136,7 @@ public sealed unsafe class ShadowSystem : IDisposable
 
         // Transition all shadow maps to DepthStencilAttachmentOptimal for writing
         TransitionAll(cb, numDir, numSpot, numPoint,
-            ImageLayout.ShaderReadOnlyOptimal, ImageLayout.DepthStencilAttachmentOptimal);
+            ImageLayout.DepthStencilReadOnlyOptimal, ImageLayout.DepthStencilAttachmentOptimal);
 
         // ── Directional shadow maps ──────────────────────────────────────────
         for (int i = 0; i < numDir; i++)
@@ -144,7 +145,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             _dirMats[i] = CalcDirLightMatrix(light);
             *(Matrix4x4*)(void*)_vpMapped = _dirMats[i];
 
-            RenderShadowPass2D(cb, _dirMaps[i].Framebuffer, DirSize, DirSize,
+            RenderShadowPass2D(cb, _dirMaps[i].Framebuffer, DirSize, DirSize, _layout2D,
                 (c, p32, p12, lay) => draw2D(c, p32, p12, lay));
         }
 
@@ -155,7 +156,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             _spotMats[i] = CalcSpotLightMatrix(light);
             *(Matrix4x4*)(void*)_vpMapped = _spotMats[i];
 
-            RenderShadowPass2D(cb, _spotMaps[i].Framebuffer, SpotSize, SpotSize,
+            RenderShadowPass2D(cb, _spotMaps[i].Framebuffer, SpotSize, SpotSize, _layout2D,
                 (c, p32, p12, lay) => draw2D(c, p32, p12, lay));
         }
 
@@ -178,14 +179,14 @@ public sealed unsafe class ShadowSystem : IDisposable
                 var faceVP = CalcPointFaceMatrix(light.Position, dir, up, light.Range);
                 *(Matrix4x4*)(void*)_vpMapped = faceVP;
 
-                RenderShadowPass2D(cb, _ptMaps[i].FaceFramebuffers[face], PointSize, PointSize,
+                RenderShadowPass2D(cb, _ptMaps[i].FaceFramebuffers[face], PointSize, PointSize, _layoutPoint,
                     (c, p32, p12, lay) => drawPoint(c, p32, p12, lay, light.Position, light.Range));
             }
         }
 
-        // Transition shadow maps to ShaderReadOnlyOptimal for sampling in main pass
+        // Transition shadow maps to DepthStencilReadOnlyOptimal for sampling in main pass
         TransitionAll(cb, numDir, numSpot, numPoint,
-            ImageLayout.DepthStencilAttachmentOptimal, ImageLayout.ShaderReadOnlyOptimal);
+            ImageLayout.DepthStencilAttachmentOptimal, ImageLayout.DepthStencilReadOnlyOptimal);
 
         // Upload light-space matrices to per-image UBO
         var imgIdx = _ctx.CurrentImageIndex;
@@ -199,6 +200,7 @@ public sealed unsafe class ShadowSystem : IDisposable
 
     private void RenderShadowPass2D(
         CommandBuffer cb, Framebuffer fb, uint width, uint height,
+        PipelineLayout bindLayout,
         Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout> draw)
     {
         var vk = _ctx.Vk;
@@ -215,10 +217,11 @@ public sealed unsafe class ShadowSystem : IDisposable
         };
         vk.CmdBeginRenderPass(cb, &rpInfo, SubpassContents.Inline);
 
-        // Vulkan Y-flip viewport (consistent with main pass)
+        // Standard viewport (no Y-flip) — shadow maps are depth-only; the UV lookup
+        // in the fragment shader uses standard NDC→[0,1] mapping so the viewport must match.
         var vp = new Viewport
         {
-            X = 0, Y = height, Width = width, Height = -(float)height,
+            X = 0, Y = 0, Width = width, Height = height,
             MinDepth = 0f, MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &vp);
@@ -226,10 +229,9 @@ public sealed unsafe class ShadowSystem : IDisposable
         vk.CmdSetScissor(cb, 0, 1, &sc);
 
         var vpSet = _vpSet;
-        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layout2D, 0, 1, &vpSet, 0, null);
-        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layoutPoint, 0, 1, &vpSet, 0, null);
+        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, bindLayout, 0, 1, &vpSet, 0, null);
 
-        draw(cb, _pipe2D_S32, _pipe2D_S12, _layout2D);
+        draw(cb, _pipe2D_S32, _pipe2D_S12, bindLayout);
 
         vk.CmdEndRenderPass(cb);
     }
@@ -273,18 +275,23 @@ public sealed unsafe class ShadowSystem : IDisposable
     {
         var vk = _ctx.Vk;
 
-        var srcAccess = oldLayout == ImageLayout.ShaderReadOnlyOptimal
+        bool toWrite = newLayout == ImageLayout.DepthStencilAttachmentOptimal;
+        var srcAccess = toWrite
             ? AccessFlags.ShaderReadBit
             : AccessFlags.DepthStencilAttachmentWriteBit;
-        var dstAccess = newLayout == ImageLayout.ShaderReadOnlyOptimal
-            ? AccessFlags.ShaderReadBit
-            : AccessFlags.DepthStencilAttachmentWriteBit | AccessFlags.DepthStencilAttachmentReadBit;
-        var srcStage = oldLayout == ImageLayout.ShaderReadOnlyOptimal
+        var dstAccess = toWrite
+            ? AccessFlags.DepthStencilAttachmentWriteBit | AccessFlags.DepthStencilAttachmentReadBit
+            : AccessFlags.ShaderReadBit;
+        var srcStage = toWrite
             ? PipelineStageFlags.FragmentShaderBit
             : PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit;
-        var dstStage = newLayout == ImageLayout.ShaderReadOnlyOptimal
-            ? PipelineStageFlags.FragmentShaderBit
-            : PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit;
+        var dstStage = toWrite
+            ? PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit
+            : PipelineStageFlags.FragmentShaderBit;
+
+        // Shadow maps are always cleared at render pass start, so use Undefined as old layout
+        // when transitioning to write — this is valid and avoids first-frame layout tracking issues.
+        var barrierOldLayout = toWrite ? ImageLayout.Undefined : oldLayout;
 
         void Barrier(Image img, uint layers = 1)
         {
@@ -293,7 +300,7 @@ public sealed unsafe class ShadowSystem : IDisposable
                 SType               = StructureType.ImageMemoryBarrier,
                 SrcAccessMask       = srcAccess,
                 DstAccessMask       = dstAccess,
-                OldLayout           = oldLayout,
+                OldLayout           = barrierOldLayout,
                 NewLayout           = newLayout,
                 SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
                 DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
@@ -824,6 +831,76 @@ public sealed unsafe class ShadowSystem : IDisposable
             };
             vk.UpdateDescriptorSets(device, 4, writes, 0, null);
         }
+    }
+
+    /// <summary>
+    /// Transitions every shadow map slot (including unused ones) to DepthStencilReadOnlyOptimal
+    /// so that descriptors referencing all slots are valid from the very first frame.
+    /// </summary>
+    private unsafe void InitializeShadowMapLayouts()
+    {
+        var vk     = _ctx.Vk;
+        var device = _ctx.Device;
+
+        var allocInfo = new CommandBufferAllocateInfo
+        {
+            SType              = StructureType.CommandBufferAllocateInfo,
+            CommandPool        = _ctx.CommandPool,
+            Level              = CommandBufferLevel.Primary,
+            CommandBufferCount = 1,
+        };
+        vk.AllocateCommandBuffers(device, allocInfo, out var cb);
+
+        var beginInfo = new CommandBufferBeginInfo
+        {
+            SType = StructureType.CommandBufferBeginInfo,
+            Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
+        };
+        vk.BeginCommandBuffer(cb, beginInfo);
+
+        void Transition(Image img, uint layers)
+        {
+            var b = new ImageMemoryBarrier
+            {
+                SType               = StructureType.ImageMemoryBarrier,
+                SrcAccessMask       = AccessFlags.None,
+                DstAccessMask       = AccessFlags.ShaderReadBit,
+                OldLayout           = ImageLayout.Undefined,
+                NewLayout           = ImageLayout.DepthStencilReadOnlyOptimal,
+                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                Image               = img,
+                SubresourceRange    = new ImageSubresourceRange
+                {
+                    AspectMask     = ImageAspectFlags.DepthBit,
+                    BaseMipLevel   = 0,
+                    LevelCount     = 1,
+                    BaseArrayLayer = 0,
+                    LayerCount     = layers,
+                },
+            };
+            vk.CmdPipelineBarrier(cb,
+                PipelineStageFlags.TopOfPipeBit, PipelineStageFlags.FragmentShaderBit,
+                0, 0, null, 0, null, 1, &b);
+        }
+
+        for (int i = 0; i < MaxShadowDir;   i++) Transition(_dirMaps[i].Image,  1);
+        for (int i = 0; i < MaxShadowSpot;  i++) Transition(_spotMaps[i].Image, 1);
+        for (int i = 0; i < MaxShadowPoint; i++) Transition(_ptMaps[i].Image,   6);
+
+        vk.EndCommandBuffer(cb);
+
+        var cbHandle = cb;
+        var submit = new SubmitInfo
+        {
+            SType              = StructureType.SubmitInfo,
+            CommandBufferCount = 1,
+            PCommandBuffers    = &cbHandle,
+        };
+        vk.QueueSubmit(_ctx.GraphicsQueue, 1, submit, default);
+        vk.QueueWaitIdle(_ctx.GraphicsQueue);
+
+        vk.FreeCommandBuffers(device, _ctx.CommandPool, 1, &cbHandle);
     }
 
     // ── Public shadow-pipeline accessors (for shapes' DrawShadow methods) ─────
