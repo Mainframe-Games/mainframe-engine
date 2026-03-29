@@ -6,7 +6,7 @@
 public struct GameTime   
 {
     public uint FrameCount;
-    public double DeltaTime;
+    public float DeltaTime;
     public uint FramesPerSecond;
     public uint FramesTimeMs;
 }

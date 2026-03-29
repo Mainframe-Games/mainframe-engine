@@ -71,7 +71,7 @@ public sealed class Engine : IDisposable
     private void OnUpdate(double delta)
     {
         _fps.Update();
-        _gameTime.DeltaTime = delta;
+        _gameTime.DeltaTime = (float)delta;
         _gameTime.FrameCount = _fps.TotalFrameCount;
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;

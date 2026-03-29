@@ -59,36 +59,38 @@ public class Game : IGame
         {
             Rotation = new Vector3(90, 0, 0),
             Scale = new Vector3(10, 10, 1),
-            Color = Color.CornflowerBlue
+            Color = Color.White
         });
         _shapes.Add(new Box3d(_renderer, _shadowSystem)
         {
-            Color = Color.Azure
+            Position = new Vector3(0, 1, 0),
+            Color = Color.White
         });
 
-        // _lights.DirectionalLights.Add(new DirectionalLight
-        // {
-        //     Direction = Vector3.Normalize(new Vector3(-1, -2, -1)),
-        //     Color = new Vector3(1f, 0.95f, 0.8f),
-        //     Intensity = 0.9f
-        // });
+        _lights.DirectionalLights.Add(new DirectionalLight
+        {
+            Position = new Vector3(0, 5, 0),
+            Direction = Vector3.Normalize(new Vector3(-1, -2, -1)),
+            Color = new Vector3(1f, 0.95f, 0.8f),
+            Intensity = 0.9f
+        });
         // _lights.PointLights.Add(new PointLight
         // { 
         //     Position = new Vector3(3, 2, 2),
         //     Color = new Vector3(0.2f, 0.5f, 1f),
-        //     Intensity = 5f,
-        //     Range = 8f
+        //     Intensity = 0.1f,
+        //     Range = 10
         // });
-        _lights.SpotLights.Add(new SpotLight
-        {
-            Position = new Vector3(-2, 4, 2),
-            Direction = Vector3.Normalize(new Vector3(0.5f, -1, -0.5f)),
-            Color = new Vector3(1,1,1),
-            Intensity = 1,
-            Range = 15f,
-            InnerConeAngle = 12f,
-            OuterConeAngle = 25f
-        });
+        // _lights.SpotLights.Add(new SpotLight
+        // {
+        //     Position = new Vector3(-2, 4, 2),
+        //     Direction = Vector3.Normalize(new Vector3(0.5f, -1, -0.5f)),
+        //     Color = new Vector3(1,1,1),
+        //     Intensity = 1,
+        //     Range = 15f,
+        //     InnerConeAngle = 12f,
+        //     OuterConeAngle = 25f
+        // });
     }
 
     private void SetWindowIcon()
@@ -104,6 +106,12 @@ public class Game : IGame
     public void OnResize(in Vector2 newSize)
     {
     }
+    
+    public void OnUpdate(in GameTime gameTime)
+    {
+        UpdateCameraPosition(gameTime.DeltaTime);
+        _shapes[1].Rotation += new Vector3(1, 1, 0) * 20 * gameTime.DeltaTime; // rotate the box
+    }
 
     public void OnImGui(in GameTime gameTime)
     {
@@ -113,7 +121,7 @@ public class Game : IGame
         if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
         {
             ImGui.Value("FrameCount", gameTime.FrameCount);
-            ImGui.Value("DeltaTime", (float)gameTime.DeltaTime);
+            ImGui.Value("DeltaTime", gameTime.DeltaTime);
             ImGui.Value("FPS", gameTime.FramesPerSecond);
             ImGui.Value("Ms", gameTime.FramesTimeMs);
 
@@ -129,11 +137,6 @@ public class Game : IGame
                 _window.WindowState = isFullScreen ? WindowState.Fullscreen : WindowState.Normal;
         }
         ImGui.End();
-    }
-
-    public void OnUpdate(in GameTime gameTime)
-    {
-        UpdateCameraPosition(gameTime.DeltaTime);
     }
 
     public void OnShadowPass(in GameTime gameTime)
