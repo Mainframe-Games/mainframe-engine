@@ -142,8 +142,13 @@ Full Steamworks.NET wrapper:
 - Physics: 
     - [JoltPhysicsSharp](https://github.com/amerkoleci/JoltPhysicsSharp) 
     - [box2d-netstandard](https://github.com/codingben/box2d-netstandard)
-- Networking: [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp)
-- Game UI Framework: [Myrya](https://github.com/rds1983/myra)
+- Networking: 
+    - [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp)
+- Game UI Framework: 
+    - [Myra](https://github.com/rds1983/myra)
+    - [Skia](https://github.com/mono/skiasharp)
+- Localization:
+    - [GetText](https://github.com/perpetualKid/GetText.NET)
 
 ---
 
