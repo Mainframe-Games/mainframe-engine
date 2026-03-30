@@ -136,10 +136,14 @@ Full Steamworks.NET wrapper:
 | Model loading | Silk.NET.Assimp | 2.21.0 |
 
 **Proposed (not yet integrated):**
-- Audio: [FmodAudio](https://github.com/sunkin351/FmodAudio)
-- Physics: [JoltPhysicsSharp](https://github.com/amerkoleci/JoltPhysicsSharp) or [box2d-netstandard](https://github.com/codingben/box2d-netstandard)
+- Audio: 
+    - [FmodAudio](https://github.com/sunkin351/FmodAudio)
+    - [SoundFlow](https://github.com/LSXPrime/SoundFlow)
+- Physics: 
+    - [JoltPhysicsSharp](https://github.com/amerkoleci/JoltPhysicsSharp) 
+    - [box2d-netstandard](https://github.com/codingben/box2d-netstandard)
 - Networking: [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp)
-- UI: [nanogui](https://github.com/wjakob/nanogui)
+- Game UI Framework: [Myrya](https://github.com/rds1983/myra)
 
 ---
 
