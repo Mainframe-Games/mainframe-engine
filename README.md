@@ -19,9 +19,9 @@ Mainframe Engine provides a layered architecture for building 2D/3D games in C#.
 mainframe-engine/
 ├── MainframeEngine/          # Core engine library
 │   └── Src/
-│       ├── Core/             # Engine loop, IGame interface, timing
-│       ├── Rendering/        # Vulkan renderer, cameras, shapes, spine, sky, shadows
-│       ├── Components/       # Transform and other game object components
+│       ├── Core/             # Engine base class, timing, FPS counter
+│       ├── Rendering/        # Vulkan renderer, cameras, spine, sky, shadows, scene grids
+│       ├── Nodes/            # Scene graph nodes (Node, Node3D, SpineNode, shapes)
 │       ├── Lighting/         # Directional, point, and spot lights
 │       ├── Steamworks/       # Steam API wrappers
 │       └── Debugging/        # Structured logging
@@ -42,22 +42,68 @@ mainframe-engine/
 
 ### Game Loop (`Core/`)
 
-Games implement the `IGame` interface:
+Games subclass `Engine` and override its abstract methods:
 
 ```csharp
-public interface IGame
+public sealed class Game(in EngineOptions options) : Engine(options)
 {
-    void OnLoad(Engine engine);
-    void OnUpdate(GameTime time);
-    void OnRender(GameTime time);
-    void OnShadowPass(GameTime time);
-    void OnImGui(GameTime time);
-    void OnResize(Vector2D<int> size);
-    void OnClose();
+    protected override void OnLoad() { base.OnLoad(); /* setup */ }
+    protected override void OnUpdate(in GameTime gameTime) { }
+    protected override void OnShadowPass(in GameTime gameTime) { }
+    protected override void OnRenderMainPass(in GameTime gameTime) { }
+    protected override void OnImGui(in GameTime gameTime) { }
+    protected override void OnClose() { /* cleanup */ base.OnClose(); }
 }
 ```
 
-`Engine` manages the Silk.NET window, Vulkan renderer, input system, and ImGui, and drives the game loop. `GameTime` provides per-frame timing (DeltaTime, FPS, FrameTimeMs, FrameCount).
+`Engine` manages the Silk.NET window, Vulkan renderer, input context, and ImGui, and drives the game loop. `GameTime` provides per-frame timing (DeltaTime, FPS, FrameTimeMs, FrameCount).
+
+**`EngineOptions`** configures startup:
+
+```csharp
+new EngineOptions
+{
+    GameName = "My Game",
+    RenderingBackend = RenderingBackend.Vulkan,
+    WindowSize = new Vector2D<int>(1280, 720),
+    IconPath = "Content/icon.png"
+}
+```
+
+The frame loop order is:
+1. `OnImGui` — ImGui window construction
+2. `OnUpdate` — game logic
+3. `OnShadowPass` — depth pre-pass (before main render pass)
+4. `OnRenderMainPass` — geometry and sky rendering
+
+### Nodes (`Nodes/`)
+
+The engine uses a lightweight scene graph. `Node` is the base class; `Node3D` adds position, rotation, and scale with TRS matrix composition.
+
+```
+Node
+└── Node3D            (Position, Rotation, Scale → ModelMatrix)
+    ├── Box3d         (3D lit cube, shadow casting/receiving)
+    ├── Quad          (2D lit quad, shadow casting/receiving)
+    └── SpineNode     (Spine skeletal animation as a 3D node)
+```
+
+`Node.Initialize(renderer, shadowSystem)` must be called once after the renderer and shadow system are created (see Sandbox).
+
+**`SpineNode`** wraps a Spine skeleton as a `Node3D`, handling animation state, world transform updates, and rendering:
+
+```csharp
+var folder = new SpineFolder("Content/Spine/character");
+var spineNode = new SpineNode(Renderer, folder);
+spineNode.SetAnimation("walk");
+spineNode.Position = new Vector3(0, 0, 0);
+spineNode.SpineScale = 0.02f;
+
+// In OnUpdate:
+spineNode.OnUpdate(gameTime);
+// In OnRenderMainPass:
+spineNode.OnRender(camera);
+```
 
 ### Rendering (`Rendering/`)
 
@@ -70,22 +116,22 @@ public interface IGame
 - `Camera2D` — orthographic projection
 - Both implement `ICamera` (ViewMatrix, ProjectionMatrix)
 
-**Shape Primitives:**
+**Shape Primitives (`Nodes/Shapes/`):**
 - `Box3d` — 3D cube with shadow casting/receiving
 - `Quad` — 2D quad with shadow casting/receiving
 - `SceneGrid3d` / `SceneGrid2d` — debug grid overlays
-- All shapes inherit from `ShapeBase` which handles TRS matrix composition
+- All shapes inherit from `ShapeBase` which inherits `Node3D` for TRS matrix composition
 
 **Spine Renderer (`Rendering/Spine/`):**
 - `SpineRenderer` — batch-renders Spine skeletons (RegionAttachment, MeshAttachment) with per-slot tinting, premultiplied alpha, and multi-texture atlas support
 - `SpineTextureLoader` — loads Spine atlas textures via StbImageSharp
-- `SpineModel` — high-level skeletal animation wrapper
+- `SpineModel` — low-level skeletal animation wrapper (use `SpineNode` for scene integration)
 
 **Sky Rendering (`Rendering/Sky/`):**
 - `SkyProcedural` — gradient sky with animated sun disk, configurable zenith/horizon/ground colors
 - `SkyPanoramic` — equirectangular panoramic image sky
 - `SkyCubemap` — cubemap-based sky (6 faces)
-- All sky types render as full-screen backdrops with UBO-driven inverse view/projection matrices
+- All sky types are subtypes of `SkyEnvironment` and render as full-screen backdrops with UBO-driven inverse view/projection matrices
 
 **Shadow System (`Rendering/Shadows/`):**
 - `ShadowSystem` — manages shadow maps for directional and point lights via depth pre-pass rendering
@@ -101,10 +147,6 @@ public interface IGame
 - `PointLight` — omnidirectional light with range and falloff
 - `SpotLight` — cone light with inner/outer angles
 - ImGui debug gizmos for visualizing light positions, ranges, and cone shapes
-
-### Components (`Components/`)
-
-- `Transform` — position, rotation, scale → model matrix (TRS composition)
 
 ### Steam Integration (`Steamworks/`)
 
@@ -178,13 +220,13 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V via `glslc`. The `.spv
 
 ## Sandbox
 
-`MainframeEngine.Sandbox` is the primary test project. `Game.cs` implements `IGame` and demonstrates:
-- 3D scene with `Camera3D` and mouse-look
+`MainframeEngine.Sandbox` is the primary test project. `Game.cs` subclasses `Engine` and demonstrates:
+- 3D scene with `Camera3D` and mouse-look (right-click to capture, Alt to release)
 - `SkyPanoramic` backdrop
-- Directional, point, and spot lights with debug gizmos
+- Directional light with debug gizmos
 - Shadow casting/receiving on shapes
 - `Box3d`, `Quad`, and `SceneGrid3d` rendering
-- ImGui debug overlay with FPS, delta time, frame count, frame time
+- ImGui debug overlay with FPS, delta time, frame count, frame time, VSync toggle, fullscreen toggle
 - Input handling (keyboard/mouse via Silk.NET)
 
 ---
