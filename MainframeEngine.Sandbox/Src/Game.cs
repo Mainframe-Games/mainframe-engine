@@ -107,16 +107,21 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
             ImGui.Value("FPS", gameTime.FramesPerSecond);
             ImGui.Value("Ms", gameTime.FramesTimeMs);
 
-            var vsync = Window.VSync;
+            var vsync = Renderer.VSync;
             if (ImGui.Checkbox("VSync", ref vsync))
-            {
-                if (vsync != Window.VSync)
-                    Window.VSync = vsync;
-            }
+                Renderer.VSync = vsync;
 
             var isFullScreen = Window.WindowState is WindowState.Fullscreen;
             if (ImGui.Checkbox("FullScreen", ref isFullScreen))
                 Window.WindowState = isFullScreen ? WindowState.Fullscreen : WindowState.Normal;
+
+            int[] fpsPresets = [0, 30, 60, 120, 144, 240];
+            string[] fpsLabels = ["Unlimited", "30", "60", "120", "144", "240"];
+            var currentFps = MaxFPS;
+            var selectedIndex = Array.IndexOf(fpsPresets, currentFps);
+            if (selectedIndex < 0) selectedIndex = 0;
+            if (ImGui.Combo("Max FPS", ref selectedIndex, fpsLabels, fpsLabels.Length))
+                MaxFPS = fpsPresets[selectedIndex];
         }
         ImGui.End();
     }

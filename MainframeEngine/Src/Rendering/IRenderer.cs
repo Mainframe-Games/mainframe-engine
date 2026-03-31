@@ -10,6 +10,9 @@ public interface IRenderer : IDisposable
 {
     RenderingBackend Backend { get; }
 
+    /// <summary>Enables or disables vertical sync. Triggers swapchain recreation on change.</summary>
+    bool VSync { get; set; }
+
     /// <summary>Called by Engine when the framebuffer is resized.</summary>
     void OnResize(Vector2D<int> newSize);
 

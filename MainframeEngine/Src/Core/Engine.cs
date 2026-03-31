@@ -34,6 +34,20 @@ public abstract class Engine : IDisposable
     public Vector2D<int> WindowSize => EngineOptions.WindowSize;
     public string? IconPath => EngineOptions.IconPath;
 
+    /// <summary>
+    /// Caps the frame rate. Set to 0 for unlimited.
+    /// Has no effect when VSync is enabled (the display refresh rate governs timing).
+    /// </summary>
+    public int MaxFPS
+    {
+        get => (int)Window.FramesPerSecond;
+        set
+        {
+            Window.FramesPerSecond = value > 0 ? value : 0;
+            Window.UpdatesPerSecond = value > 0 ? value : 0;
+        }
+    }
+
     protected Engine(in EngineOptions engineOptions)
     {
         this.EngineOptions = engineOptions;

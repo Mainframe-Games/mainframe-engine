@@ -145,7 +145,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             *(Matrix4x4*)(void*)_vpMapped = _dirMats[i];
 
             RenderShadowPass2D(cb, _dirMaps[i].Framebuffer, DirSize, DirSize, _layout2D,
-                (c, p32, p12, lay) => draw2D(c, p32, p12, lay));
+                draw2D);
         }
 
         // ── Spot shadow maps ─────────────────────────────────────────────────
@@ -156,7 +156,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             *(Matrix4x4*)(void*)_vpMapped = _spotMats[i];
 
             RenderShadowPass2D(cb, _spotMaps[i].Framebuffer, SpotSize, SpotSize, _layout2D,
-                (c, p32, p12, lay) => draw2D(c, p32, p12, lay));
+                draw2D);
         }
 
         // ── Point shadow cube maps ───────────────────────────────────────────
@@ -204,7 +204,7 @@ public sealed unsafe class ShadowSystem : IDisposable
     {
         var vk = _ctx.Vk;
 
-        var clearVal = new ClearValue { DepthStencil = new() { Depth = 1.0f, Stencil = 0 } };
+        var clearVal = new ClearValue { DepthStencil = new ClearDepthStencilValue { Depth = 1.0f, Stencil = 0 } };
         var rpInfo   = new RenderPassBeginInfo
         {
             SType           = StructureType.RenderPassBeginInfo,
@@ -292,6 +292,11 @@ public sealed unsafe class ShadowSystem : IDisposable
         // when transitioning to write — this is valid and avoids first-frame layout tracking issues.
         var barrierOldLayout = toWrite ? ImageLayout.Undefined : oldLayout;
 
+        for (int i = 0; i < numDir;   i++) Barrier(_dirMaps[i].Image);
+        for (int i = 0; i < numSpot;  i++) Barrier(_spotMaps[i].Image);
+        for (int i = 0; i < numPoint; i++) Barrier(_ptMaps[i].Image, 6);
+        return;
+
         void Barrier(Image img, uint layers = 1)
         {
             var b = new ImageMemoryBarrier
@@ -315,10 +320,6 @@ public sealed unsafe class ShadowSystem : IDisposable
             };
             vk.CmdPipelineBarrier(cb, srcStage, dstStage, 0, 0, null, 0, null, 1, &b);
         }
-
-        for (int i = 0; i < numDir;   i++) Barrier(_dirMaps[i].Image);
-        for (int i = 0; i < numSpot;  i++) Barrier(_spotMaps[i].Image);
-        for (int i = 0; i < numPoint; i++) Barrier(_ptMaps[i].Image, 6);
     }
 
     // ── Resource creation ─────────────────────────────────────────────────────
@@ -728,15 +729,15 @@ public sealed unsafe class ShadowSystem : IDisposable
         _matMapped  = new nint[imgCount];
         for (int i = 0; i < imgCount; i++)
         {
-            CreateBuffer((ulong)ShadowMatricesUboSize,
+            CreateBuffer(ShadowMatricesUboSize,
                 BufferUsageFlags.UniformBufferBit,
                 MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
                 out _matBuffers[i], out _matMemory[i]);
             void* ptr;
-            vk.MapMemory(device, _matMemory[i], 0, (ulong)ShadowMatricesUboSize, 0, &ptr);
+            vk.MapMemory(device, _matMemory[i], 0, ShadowMatricesUboSize, 0, &ptr);
             _matMapped[i] = (nint)ptr;
             // Zero-initialise so unused matrices are identity-ish
-            Unsafe.InitBlock((void*)_matMapped[i], 0, (uint)ShadowMatricesUboSize);
+            Unsafe.InitBlock((void*)_matMapped[i], 0, ShadowMatricesUboSize);
         }
 
         // ── Descriptor set layout (set=2 in Shapes.vk.frag) ──────────────────
@@ -793,7 +794,7 @@ public sealed unsafe class ShadowSystem : IDisposable
         for (int img = 0; img < imgCount; img++)
         {
             var matBufInfo = new DescriptorBufferInfo
-                { Buffer = _matBuffers[img], Offset = 0, Range = (ulong)ShadowMatricesUboSize };
+                { Buffer = _matBuffers[img], Offset = 0, Range = ShadowMatricesUboSize };
 
             // Dir shadow map image infos
             var dirInfos = stackalloc DescriptorImageInfo[MaxShadowDir];
@@ -836,7 +837,7 @@ public sealed unsafe class ShadowSystem : IDisposable
     /// Transitions every shadow map slot (including unused ones) to DepthStencilReadOnlyOptimal
     /// so that descriptors referencing all slots are valid from the very first frame.
     /// </summary>
-    private unsafe void InitializeShadowMapLayouts()
+    private void InitializeShadowMapLayouts()
     {
         var vk     = _ctx.Vk;
         var device = _ctx.Device;

@@ -59,6 +59,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private uint _currentImageIndex;
     private bool _frameStarted;
     private bool _framebufferResized;
+    private bool _vsync = true;
 
     // clear color
     private float _clearR, _clearG, _clearB, _clearA = 1f;
@@ -74,6 +75,17 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     #region IRenderer
 
     public RenderingBackend Backend => RenderingBackend.Vulkan;
+
+    public bool VSync
+    {
+        get => _vsync;
+        set
+        {
+            if (_vsync == value) return;
+            _vsync = value;
+            _framebufferResized = true;
+        }
+    }
 
     #endregion
 
@@ -568,10 +580,15 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         return formats[0];
     }
 
-    private static PresentModeKHR ChoosePresentMode(IReadOnlyList<PresentModeKHR> modes)
+    private PresentModeKHR ChoosePresentMode(IReadOnlyList<PresentModeKHR> modes)
     {
+        if (_vsync)
+            return PresentModeKHR.FifoKhr;
+
         foreach (var m in modes)
             if (m == PresentModeKHR.MailboxKhr) return m;
+        foreach (var m in modes)
+            if (m == PresentModeKHR.ImmediateKhr) return m;
         return PresentModeKHR.FifoKhr;
     }
 
