@@ -1,6 +1,11 @@
+⚠️ Under Heavy Construction ⚠️
+
+
 # Mainframe Engine
 
 A modular C# game engine built on Vulkan via [Silk.NET](https://github.com/dotnet/Silk.NET), with [Spine](https://en.esotericsoftware.com/) skeletal animation, an advanced lighting/shadow system, dynamic sky rendering, Steam platform integration, and real-time ImGui debugging.
+
+This engine is mostly for educational purposes. One day I will make a game using it but for now its mostly for learning how engines work and setting up a framework in which I like to work. Feel free to use as you wish and submit pull requests or feature requests in Issues, but this engine is mostly for me 😁
 
 ---
 
@@ -182,7 +187,8 @@ Full Steamworks.NET wrapper:
     - [FmodAudio](https://github.com/sunkin351/FmodAudio)
     - [SoundFlow](https://github.com/LSXPrime/SoundFlow)
 - Physics: 
-    - [JoltPhysicsSharp](https://github.com/amerkoleci/JoltPhysicsSharp) 
+    - [JoltPhysicsSharp](https://github.com/amerkoleci/JoltPhysicsSharp)
+    - [Jitter2](https://github.com/notgiven688/jitterphysics2)
     - [box2d-netstandard](https://github.com/codingben/box2d-netstandard)
 - Networking: 
     - [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp)
