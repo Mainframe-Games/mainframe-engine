@@ -18,7 +18,7 @@ void main()
     vec4 worldPos   = pc.model * vec4(inPosition, 1.0);
     outFragWorldPos = worldPos.xyz;
 
-    vec4 pos = lvp.lightViewProj * worldPos;
-    pos.z    = pos.z * 0.5 + pos.w * 0.5;
-    gl_Position = pos;
+    // System.Numerics matrices use D3D/Vulkan convention: NDC z is already [0,1].
+    // gl_FragDepth is overridden with linear distance anyway, so clip-z only matters for clipping.
+    gl_Position = lvp.lightViewProj * worldPos;
 }

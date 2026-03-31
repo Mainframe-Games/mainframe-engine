@@ -1,14 +1,22 @@
-using System.Numerics;
+using Silk.NET.Core;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
+using StbImageSharp;
 using Monitor = Silk.NET.Windowing.Monitor;
 
 namespace MainframeEngine;
 
-public sealed class Engine : IDisposable
+public struct EngineOptions()
 {
-    private readonly IGame _game;
+    public required string GameName;
+    public RenderingBackend RenderingBackend = RenderingBackend.Vulkan;
+    public Vector2D<int> WindowSize = new(800, 600);
+    public string? IconPath;
+}
+
+public abstract class Engine : IDisposable
+{
     private VulkanImGuiController? _vkImGuiController;
 
     private int _exitCode;
@@ -18,24 +26,23 @@ public sealed class Engine : IDisposable
     public IWindow Window { get; }
     public IInputContext InputContext { get; private set; } = null!;
     public IRenderer Renderer { get; private set; } = null!;
+    
+    private EngineOptions EngineOptions { get; }
+    
+    public string GameName => EngineOptions.GameName;
+    public RenderingBackend RenderingBackend => EngineOptions.RenderingBackend;
+    public Vector2D<int> WindowSize => EngineOptions.WindowSize;
+    public string? IconPath => EngineOptions.IconPath;
 
-    public struct Info()
+    protected Engine(in EngineOptions engineOptions)
     {
-        public required string GameName;
-        public RenderingBackend RenderingBackend = RenderingBackend.Vulkan;
-        public Vector2 WindowSize = new(800, 600);
-    }
-
-    public Engine(in Info info, IGame game)
-    {
-        _game = game;
-
-        var windowSize = new Vector2D<int>((int)info.WindowSize.X, (int)info.WindowSize.Y);
+        this.EngineOptions = engineOptions;
+        
         var windowOptions = WindowOptions.DefaultVulkan with
         {
-            Title = $"{info.GameName} ({info.RenderingBackend})",
+            Title = $"{engineOptions.GameName} ({engineOptions.RenderingBackend})",
             API = WindowOptions.DefaultVulkan.API with { Version = new APIVersion(1, 2) },
-            Size = windowSize
+            Size = engineOptions.WindowSize
         };
 
         Window = Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new NullReferenceException();
@@ -50,7 +57,7 @@ public sealed class Engine : IDisposable
         Window.Position = centerScreen!.Value;
     }
 
-    private void OnLoad()
+    protected virtual void OnLoad()
     {
         InputContext = Window.CreateInput();
 
@@ -58,16 +65,28 @@ public sealed class Engine : IDisposable
 
         if (Renderer is IVulkanContext vkCtx)
             _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
-
-        _game.OnLoad(this);
+        
+        SetWindowIcon(EngineOptions.IconPath);
     }
-
-    private void OnFramebufferResize(Vector2D<int> newSize)
+    
+    private void SetWindowIcon(in string? path = null)
+    {
+        if (path is null)
+            return;
+        
+        var img = ImageResult.FromMemory(
+            File.ReadAllBytes(path),
+            ColorComponents.RedGreenBlueAlpha
+        ) ?? throw new NullReferenceException();
+        var ico = new RawImage(img.Width, img.Height, img.Data);
+        Window.SetWindowIcon(ref ico);
+    }
+    
+    protected virtual void OnFramebufferResize(Vector2D<int> newSize)
     {
         Renderer.OnResize(newSize);
-        _game.OnResize(new Vector2(newSize.X, newSize.Y));
     }
-
+    
     private void OnUpdate(double delta)
     {
         _fps.Update();
@@ -78,9 +97,8 @@ public sealed class Engine : IDisposable
 
         _vkImGuiController?.Update((float)delta);
 
-        _game.OnImGui(_gameTime);
-
-        _game.OnUpdate(_gameTime);
+        OnImGui(_gameTime);
+        OnUpdate(_gameTime);
     }
 
     private void OnRender(double delta)
@@ -92,22 +110,26 @@ public sealed class Engine : IDisposable
         if (Renderer is not IVulkanContext vk || vk.FrameStarted)
         {
             // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
-            _game.OnShadowPass(_gameTime);
+            OnShadowPass(_gameTime);
 
             // Begin the main render pass, then let the game draw geometry.
             (Renderer as IVulkanContext)?.BeginRenderPass();
 
-            _game.OnRender(_gameTime);
+            OnRenderMainPass(_gameTime);
             _vkImGuiController?.Render(); // inside the render pass, before EndFrame
         }
 
         Renderer.EndFrame();
     }
+    
+    protected abstract void OnImGui(in GameTime gameTime);
+    protected abstract void OnUpdate(in GameTime gameTime);
+    protected abstract void OnShadowPass(in GameTime gameTime);
+    protected abstract void OnRenderMainPass(in GameTime gameTime);
 
-    private void OnClose()
+    protected virtual void OnClose()
     {
         _exitCode = 0;
-        _game.OnClose();
         _vkImGuiController?.Dispose();
         InputContext.Dispose();
         Renderer.Dispose();
@@ -119,7 +141,7 @@ public sealed class Engine : IDisposable
         return _exitCode;
     }
 
-    public void Quit(int exitCode)
+    public void Quit(in int exitCode)
     {
         _exitCode = exitCode;
         Window.Close();

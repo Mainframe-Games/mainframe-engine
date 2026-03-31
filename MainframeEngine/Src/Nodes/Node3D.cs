@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace MainframeEngine;
 
-public class Node3D
+public class Node3D : Node
 {
     public Vector3 Position { get; set; }
     public Vector3 Rotation { get; set; }

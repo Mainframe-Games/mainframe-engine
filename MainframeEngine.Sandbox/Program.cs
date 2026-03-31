@@ -1,22 +1,15 @@
-﻿using System.Numerics;
-using MainframeEngine;
+﻿using MainframeEngine;
 using MainframeEngine.Sandbox;
+using Silk.NET.Maths;
 
-try
+var info = new EngineOptions
 {
-    var info = new Engine.Info
-    {
-        GameName = "Mainframe Engine Sandbox",
-        RenderingBackend = RenderingBackend.Vulkan,
-        WindowSize = new Vector2(1920, 1080)
-    };
-    using var game = new Engine(info, new Game());
-    var exitCode = game.Run();
-    Log.Debug($"Game Exit: {exitCode}");
-    return exitCode;
-}
-catch (Exception e)
-{
-    Log.Fatal(e);
-    return e.HResult;
-}
+    GameName = "Mainframe Engine Sandbox",
+    RenderingBackend = RenderingBackend.Vulkan,
+    WindowSize = new Vector2D<int>(1920, 1080),
+    IconPath = "Content/Branding/mg_300_circle.png"
+};
+using var game = new Game(info);
+var exitCode = game.Run();
+Log.Debug($"Game Exit: {exitCode}");
+return exitCode;

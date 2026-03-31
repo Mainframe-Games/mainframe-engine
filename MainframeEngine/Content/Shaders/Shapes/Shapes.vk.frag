@@ -55,19 +55,18 @@ layout(push_constant) uniform PushConstants {
 
 // ── Shadow helpers ────────────────────────────────────────────────────────────
 
-const float kBias2D    = 0.005;
+const float kBias2D    = 0.001;
 const float kBiasPoint = 0.015;
 
 float sampleDirShadow(int i, vec3 worldPos)
 {
     vec4 lsPos = shadowMat.dirLightSpace[i] * vec4(worldPos, 1.0);
     lsPos /= lsPos.w;
-    // Light VP uses GLM/C# convention; depth already [0,1] via vertex shader adjustment.
-    // Here we re-project: x/y are [-1,1], z is [-1,1], map to UV [0,1] and depth [0,1].
-    vec2 uv    = lsPos.xy * 0.5 + 0.5;
-    float depth = lsPos.z * 0.5 + 0.5;
+    // .NET matrices use D3D/Vulkan convention: x/y in [-1,1], z already in [0,1].
+    vec2  uv    = lsPos.xy * 0.5 + 0.5;
+    float depth = lsPos.z;
 
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || depth > 1.0)
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || depth < 0.0 || depth > 1.0)
         return 1.0; // outside shadow frustum → fully lit
 
     return texture(dirShadowMaps[i], vec3(uv, depth - kBias2D));
@@ -78,9 +77,9 @@ float sampleSpotShadow(int i, vec3 worldPos)
     vec4 lsPos = shadowMat.spotLightSpace[i] * vec4(worldPos, 1.0);
     lsPos /= lsPos.w;
     vec2  uv    = lsPos.xy * 0.5 + 0.5;
-    float depth = lsPos.z * 0.5 + 0.5;
+    float depth = lsPos.z;
 
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || depth > 1.0)
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || depth < 0.0 || depth > 1.0)
         return 1.0;
 
     return texture(spotShadowMaps[i], vec3(uv, depth - kBias2D));

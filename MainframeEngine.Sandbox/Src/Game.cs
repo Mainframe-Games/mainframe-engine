@@ -1,19 +1,14 @@
 using System.Drawing;
 using System.Numerics;
 using ImGuiNET;
-using Silk.NET.Core;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
-using StbImageSharp;
 using MouseButton = Silk.NET.Input.MouseButton;
 
 namespace MainframeEngine.Sandbox;
 
-public class Game : IGame
+public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
 {
-    private IWindow _window = null!;
-    private IRenderer _renderer = null!;
-
     private readonly Camera3D _camera3D = new()
     {
         Position = new Vector3(1, 1, 5f),
@@ -33,35 +28,36 @@ public class Game : IGame
     private Vector2 _lastMousePosition;
     private float _cameraSpeed = 10;
 
-    public void OnLoad(in Engine engine)
+    protected override void OnLoad()
     {
-        _window = engine.Window;
-        _renderer = engine.Renderer;
-        _renderer.SetClearColor(0.18f, 0.31f, 0.31f); // DarkSlateGray
+        base.OnLoad();
+        
+        Renderer.SetClearColor(0.18f, 0.31f, 0.31f); // DarkSlateGray
 
-        SetWindowIcon();
-
-        _keyboard = engine.InputContext.Keyboards[0];
+        _keyboard = InputContext.Keyboards[0];
         _keyboard.KeyDown += OnKeyDown;
 
-        _mouse = engine.InputContext.Mice[0];
+        _mouse = InputContext.Mice[0];
         _mouse.MouseDown += OnMouseDown;
         _mouse.MouseUp += OnMouseUp;
         _mouse.MouseMove += OnMouseMove;
 
-        _sky = new SkyPanoramic(_renderer, "Content/Sky/sky_16_2k.png");
-        _sceneGrid3d = new SceneGrid3d(_renderer);
+        _sky = new SkyPanoramic(Renderer, "Content/Sky/sky_16_2k.png");
+        _sceneGrid3d = new SceneGrid3d(Renderer);
 
         // Shadow system must be created before any shadow-casting/receiving shapes.
-        _shadowSystem = new ShadowSystem((IVulkanContext)_renderer);
+        _shadowSystem = new ShadowSystem((IVulkanContext)Renderer);
+        
+        // TODO: see if we can put this into Engine class
+        Node.Initialize(Renderer, _shadowSystem);
 
-        _shapes.Add(new Quad(_renderer, _shadowSystem)
+        _shapes.Add(new Quad
         {
             Rotation = new Vector3(90, 0, 0),
             Scale = new Vector3(10, 10, 1),
             Color = Color.White
         });
-        _shapes.Add(new Box3d(_renderer, _shadowSystem)
+        _shapes.Add(new Box3d
         {
             Position = new Vector3(0, 1, 0),
             Color = Color.White
@@ -92,28 +88,14 @@ public class Game : IGame
         //     OuterConeAngle = 25f
         // });
     }
-
-    private void SetWindowIcon()
-    {
-        var img = ImageResult.FromMemory(
-            File.ReadAllBytes("Content/Branding/mg_300_circle.png"),
-            ColorComponents.RedGreenBlueAlpha
-        ) ?? throw new NullReferenceException();
-        var ico = new RawImage(img.Width, img.Height, img.Data);
-        _window.SetWindowIcon(ref ico);
-    }
-
-    public void OnResize(in Vector2 newSize)
-    {
-    }
     
-    public void OnUpdate(in GameTime gameTime)
+    protected override void OnUpdate(in GameTime gameTime)
     {
         UpdateCameraPosition(gameTime.DeltaTime);
         _shapes[1].Rotation += new Vector3(1, 1, 0) * 20 * gameTime.DeltaTime; // rotate the box
     }
 
-    public void OnImGui(in GameTime gameTime)
+    protected override void OnImGui(in GameTime gameTime)
     {
         _lights.DrawLightGizmos(_camera3D);
 
@@ -125,21 +107,21 @@ public class Game : IGame
             ImGui.Value("FPS", gameTime.FramesPerSecond);
             ImGui.Value("Ms", gameTime.FramesTimeMs);
 
-            var vsync = _window.VSync;
+            var vsync = Window.VSync;
             if (ImGui.Checkbox("VSync", ref vsync))
             {
-                if (vsync != _window.VSync)
-                    _window.VSync = vsync;
+                if (vsync != Window.VSync)
+                    Window.VSync = vsync;
             }
 
-            var isFullScreen = _window.WindowState is WindowState.Fullscreen;
+            var isFullScreen = Window.WindowState is WindowState.Fullscreen;
             if (ImGui.Checkbox("FullScreen", ref isFullScreen))
-                _window.WindowState = isFullScreen ? WindowState.Fullscreen : WindowState.Normal;
+                Window.WindowState = isFullScreen ? WindowState.Fullscreen : WindowState.Normal;
         }
         ImGui.End();
     }
 
-    public void OnShadowPass(in GameTime gameTime)
+    protected override void OnShadowPass(in GameTime gameTime)
     {
         _shadowSystem.RenderShadows(
             _lights,
@@ -154,12 +136,12 @@ public class Game : IGame
         );
     }
 
-    public void OnRender(in GameTime gameTime)
+    protected override void OnRenderMainPass(in GameTime gameTime)
     {
-        _renderer.EnableDepthTest();
-        _renderer.Clear();
+        Renderer.EnableDepthTest();
+        Renderer.Clear();
 
-        var frameBufferSize = new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y);
+        var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
         _camera3D.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
         _sky.Draw(_camera3D); // must be drawn first — renders behind all geometry
         _sceneGrid3d.Draw(_camera3D);
@@ -167,13 +149,15 @@ public class Game : IGame
             shape.Draw(_camera3D, _lights);
     }
 
-    public void OnClose()
+    protected override void OnClose()
     {
         _shadowSystem.Dispose();
         _sky.Dispose();
         _sceneGrid3d.Dispose();
         foreach (var shape in _shapes)
             shape.Dispose();
+        
+        base.OnClose();
     }
 
     private void UpdateCameraPosition(double deltaTime)
@@ -225,7 +209,7 @@ public class Game : IGame
         }
 
         if (key == Key.Escape)
-            _window.Close();
+            Window.Close();
     }
 
     private void OnMouseMove(IMouse mouse, Vector2 position)

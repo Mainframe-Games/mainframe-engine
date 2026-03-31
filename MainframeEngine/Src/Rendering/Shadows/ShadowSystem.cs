@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 using VkBuffer  = Silk.NET.Vulkan.Buffer;
@@ -545,7 +544,7 @@ public sealed unsafe class ShadowSystem : IDisposable
         var attrib = new VertexInputAttributeDescription
         {
             Location = 0, Binding = 0,
-            Format   = Silk.NET.Vulkan.Format.R32G32B32Sfloat,
+            Format   = Format.R32G32B32Sfloat,
             Offset   = 0,
         };
         var vertexInput = new PipelineVertexInputStateCreateInfo

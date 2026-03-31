@@ -69,12 +69,12 @@ public class Box3d : LitShapeVk
     private VkBuffer     _vertexBuffer;
     private DeviceMemory _vertexBufferMemory;
 
-    public Box3d(IRenderer renderer, ShadowSystem? shadows = null)
+    public Box3d()
     {
-        if (renderer is IVulkanContext vkCtx)
+        if (Renderer is IVulkanContext vkCtx)
         {
             CreateVertexBuffer(vkCtx);
-            InitLitVulkan(vkCtx, shadows,
+            InitLitVulkan(vkCtx,
                 new VertexInputBindingDescription
                 {
                     Binding   = 0,

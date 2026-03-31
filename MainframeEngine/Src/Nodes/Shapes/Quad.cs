@@ -22,9 +22,9 @@ public class Quad : LitShapeVk, IDisposable
 
     private static readonly VertexInputAttributeDescription[] Attribs =
     [
-        new() { Location = 0, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32Sfloat, Offset = 0  }, // pos
-        new() { Location = 1, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32Sfloat,    Offset = 12 }, // uv
-        new() { Location = 2, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32Sfloat, Offset = 20 }, // normal
+        new() { Location = 0, Binding = 0, Format = Format.R32G32B32Sfloat, Offset = 0  }, // pos
+        new() { Location = 1, Binding = 0, Format = Format.R32G32Sfloat,    Offset = 12 }, // uv
+        new() { Location = 2, Binding = 0, Format = Format.R32G32B32Sfloat, Offset = 20 }, // normal
     ];
 
     private VkBuffer     _vertexBuffer;
@@ -32,13 +32,13 @@ public class Quad : LitShapeVk, IDisposable
     private VkBuffer     _indexBuffer;
     private DeviceMemory _indexBufferMemory;
 
-    public Quad(IRenderer renderer, ShadowSystem? shadows = null)
+    public Quad()
     {
-        if (renderer is IVulkanContext vkCtx)
+        if (Renderer is IVulkanContext vkCtx)
         {
             CreateVertexBuffer(vkCtx);
             CreateIndexBuffer(vkCtx);
-            InitLitVulkan(vkCtx, shadows,
+            InitLitVulkan(vkCtx,
                 new VertexInputBindingDescription
                 {
                     Binding   = 0,

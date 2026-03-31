@@ -22,8 +22,7 @@ public abstract class LitShapeVk : ShapeBase
         LightEnvironment.MaxSpot        * 64;
 
     protected IVulkanContext? VkCtx   { get; private set; }
-    protected ShadowSystem?   Shadows { get; private set; }
-
+    protected ShadowSystem? Shadows => ShadowSystem;
     [StructLayout(LayoutKind.Sequential)]
     protected struct VpUbo
     {
@@ -59,7 +58,6 @@ public abstract class LitShapeVk : ShapeBase
 
     protected unsafe void InitLitVulkan(
         IVulkanContext                    ctx,
-        ShadowSystem?                     shadows,
         VertexInputBindingDescription     vertexBinding,
         VertexInputAttributeDescription[] vertexAttribs,
         string                            vertSpvPath,
@@ -67,7 +65,6 @@ public abstract class LitShapeVk : ShapeBase
         CullModeFlags                     cullMode = CullModeFlags.BackBit)
     {
         VkCtx   = ctx;
-        Shadows = shadows;
 
         var vk         = ctx.Vk;
         var device     = ctx.Device;
@@ -298,7 +295,7 @@ public abstract class LitShapeVk : ShapeBase
             setLayouts[0] = _vpDescSetLayout;
             setLayouts[1] = _lightsDescSetLayout;
             uint numSetLayouts = 2;
-            if (shadows is not null) { setLayouts[2] = shadows.MainDescSetLayout; numSetLayouts = 3; }
+            if (Shadows is not null) { setLayouts[2] = Shadows.MainDescSetLayout; numSetLayouts = 3; }
             var pushRange = new PushConstantRange
             {
                 StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit,

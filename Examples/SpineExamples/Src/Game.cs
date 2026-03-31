@@ -3,11 +3,10 @@ using MainframeEngine;
 using Silk.NET.Input;
 using SilkSpine.UI;
 using Spine;
-using Math = System.Math;
 
 namespace SilkSpine;
 
-internal class Game : IGame
+internal class Game : Engine
 {
     private static readonly SpineFolder[] Folders =
     [
@@ -44,7 +43,7 @@ internal class Game : IGame
     private SceneGrid3d _sceneGrid3d = null!;
     private SceneGrid2d _sceneGrid2d = null!;
 
-    public Game()
+    public Game(in EngineOptions engineOptions) : base(in engineOptions)
     {
         _inspectorUI.OnModelChanged += OnModelChanged;
         _inspectorUI.OnAnimationChanged += SetAnimation;
@@ -71,9 +70,7 @@ internal class Game : IGame
         OnModelChanged(Folders[0]);
     }
 
-    public void OnResize(in Vector2 newSize) { }
-
-    public void OnImGui(in GameTime gameTime)
+    protected override void OnImGui(in GameTime gameTime)
     {
         if (_spineInstance is null)
             return;
@@ -92,7 +89,7 @@ internal class Game : IGame
         _spineInstance.Scale = new Vector3(scale, scale, scale);
     }
 
-    public void OnUpdate(in GameTime gameTime)
+    protected override void OnUpdate(in GameTime gameTime)
     {
         UpdateCamera(gameTime.DeltaTime);
 
@@ -105,7 +102,11 @@ internal class Game : IGame
         _spineInstance?.OnUpdate(gameTime);
     }
 
-    public void OnRender(in GameTime gameTime)
+    protected override void OnShadowPass(in GameTime gameTime)
+    {
+    }
+
+    protected override void OnRenderMainPass(in GameTime gameTime)
     {
         _renderer.Clear();
 
@@ -125,11 +126,12 @@ internal class Game : IGame
         _spineInstance?.OnRender(CurrentCamera);
     }
 
-    public void OnClose()
+    protected override void OnClose()
     {
         _spineInstance?.Dispose();
         _sceneGrid3d?.Dispose();
         _sceneGrid2d?.Dispose();
+        base.OnClose();
     }
 
     private void OnModelChanged(SpineFolder folder)
@@ -179,7 +181,8 @@ internal class Game : IGame
 
     private void OnKeyDown(IKeyboard kb, Key key, int sc)
     {
-        if (key == Key.Escape) _engine.Quit(0);
+        if (key == Key.Escape)
+            _engine.Quit(0);
     }
 
     private void OnMouseMove(IMouse mouse, Vector2 pos)

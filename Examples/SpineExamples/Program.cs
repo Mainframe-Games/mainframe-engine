@@ -1,12 +1,11 @@
-using System.Numerics;
 using MainframeEngine;
+using Silk.NET.Maths;
 using SilkSpine;
 
-using var engine = new Engine(new Engine.Info
+using var game = new Game(new EngineOptions
 {
     GameName = "Silk Spine",
     RenderingBackend = RenderingBackend.Vulkan,
-    WindowSize = new Vector2(1920, 1080),
-}, new Game());
-
-engine.Run();
+    WindowSize = new Vector2D<int>(1920, 1080),
+});
+game.Run();
