@@ -16,9 +16,6 @@ internal class Game : Engine
         new("Content/CelestialCircus"),
     ];
 
-    private Engine _engine = null!;
-    private IRenderer _renderer = null!;
-
     private SpineNode? _spineInstance;
 
     private readonly InspectorUI _inspectorUI = new(Folders);
@@ -49,23 +46,22 @@ internal class Game : Engine
         _inspectorUI.OnAnimationChanged += SetAnimation;
     }
 
-    public void OnLoad(in Engine engine)
+    protected override void OnLoad()
     {
-        _engine = engine;
-        _renderer = engine.Renderer;
+        base.OnLoad();
 
-        _keyboard = engine.InputContext.Keyboards[0];
-        _mouse = engine.InputContext.Mice[0];
+        _keyboard = InputContext.Keyboards[0];
+        _mouse = InputContext.Mice[0];
         _keyboard.KeyDown += OnKeyDown;
         _mouse.Scroll += OnMouseScroll;
         _mouse.MouseMove += OnMouseMove;
         _mouse.MouseDown += OnMouseDown;
         _mouse.MouseUp += OnMouseUp;
 
-        _renderer.SetClearColor(0.18f, 0.20f, 0.22f);
+        Renderer.SetClearColor(0.18f, 0.20f, 0.22f);
 
-        _sceneGrid3d = new SceneGrid3d(_renderer);
-        _sceneGrid2d = new SceneGrid2d(_renderer);
+        _sceneGrid3d = new SceneGrid3d(Renderer);
+        _sceneGrid2d = new SceneGrid2d(Renderer);
 
         OnModelChanged(Folders[0]);
     }
@@ -108,9 +104,9 @@ internal class Game : Engine
 
     protected override void OnRenderMainPass(in GameTime gameTime)
     {
-        _renderer.Clear();
+        Renderer.Clear();
 
-        var fbSize = new Vector2(_engine.Window.FramebufferSize.X, _engine.Window.FramebufferSize.Y);
+        var fbSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
 
         if (_inspectorUI.UseOrthographicCamera)
         {
@@ -137,7 +133,7 @@ internal class Game : Engine
     private void OnModelChanged(SpineFolder folder)
     {
         _spineInstance?.Dispose();
-        _spineInstance = new SpineNode(_renderer, folder);
+        _spineInstance = new SpineNode(Renderer, folder);
         
         _inspectorUI.SpineScale = _spineInstance.SpineScale;
         _inspectorUI.ZSpacing = _spineInstance.ZSpacing;
@@ -182,13 +178,22 @@ internal class Game : Engine
     private void OnKeyDown(IKeyboard kb, Key key, int sc)
     {
         if (key == Key.Escape)
-            _engine.Quit(0);
+            Quit(0);
     }
 
     private void OnMouseMove(IMouse mouse, Vector2 pos)
     {
-        if (!CanMoveCamera) { _lastMousePos = default; return; }
-        if (_lastMousePos == default) { _lastMousePos = pos; return; }
+        if (!CanMoveCamera)
+        {
+            _lastMousePos = default;
+            return;
+        }
+
+        if (_lastMousePos == default)
+        {
+            _lastMousePos = pos;
+            return;
+        }
 
         var dx = (pos.X - _lastMousePos.X) * 0.1f;
         var dy = (pos.Y - _lastMousePos.Y) * 0.1f;
@@ -208,11 +213,13 @@ internal class Game : Engine
 
     private void OnMouseDown(IMouse mouse, MouseButton btn)
     {
-        if (btn == MouseButton.Right) _mouse.Cursor.CursorMode = CursorMode.Raw;
+        if (btn == MouseButton.Right) 
+            _mouse.Cursor.CursorMode = CursorMode.Raw;
     }
 
     private void OnMouseUp(IMouse mouse, MouseButton btn)
     {
-        if (btn == MouseButton.Right) _mouse.Cursor.CursorMode = CursorMode.Normal;
+        if (btn == MouseButton.Right)
+            _mouse.Cursor.CursorMode = CursorMode.Normal;
     }
 }
