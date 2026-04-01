@@ -192,7 +192,8 @@ Full Steamworks.NET wrapper:
     - [box2d-netstandard](https://github.com/codingben/box2d-netstandard)
 - Networking: 
     - [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp)
-- Game UI Framework: 
+- Game UI Framework:
+    - [Prowl.Paper](https://github.com/ProwlEngine/Prowl.Paper)
     - [Myra](https://github.com/rds1983/myra)
     - [Skia](https://github.com/mono/skiasharp)
 - Localization:
