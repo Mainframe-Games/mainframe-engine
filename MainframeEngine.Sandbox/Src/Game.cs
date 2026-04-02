@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Numerics;
 using ImGuiNET;
+using MainframeEngine.Gizmos;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
 using MouseButton = Silk.NET.Input.MouseButton;
@@ -9,10 +10,7 @@ namespace MainframeEngine.Sandbox;
 
 public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
 {
-    private readonly Camera3D _camera3D = new()
-    {
-        Position = new Vector3(1, 1, 5f),
-    };
+    private readonly Camera3D _camera3D = new();
 
     private SkyEnvironment _sky = null!;
     private readonly LightEnvironment _lights = new();
@@ -34,6 +32,9 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         
         Renderer.SetClearColor(0.18f, 0.31f, 0.31f); // DarkSlateGray
 
+        _camera3D.Position = new Vector3(0, 5f, 10f);
+        _camera3D.LookAt(Vector3.Zero);
+        
         _keyboard = InputContext.Keyboards[0];
         _keyboard.KeyDown += OnKeyDown;
 
@@ -42,7 +43,7 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         _mouse.MouseUp += OnMouseUp;
         _mouse.MouseMove += OnMouseMove;
 
-        _sky = new SkyPanoramic(Renderer, "Content/Sky/sky_16_2k.png");
+        _sky = new SkyPanoramic(Renderer, "Content/Sky/sky_10_2k.png");
         _sceneGrid3d = new SceneGrid3d(Renderer);
 
         // Shadow system must be created before any shadow-casting/receiving shapes.
@@ -59,7 +60,7 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         });
         _shapes.Add(new Box3d
         {
-            Position = new Vector3(0, 1, 0),
+            Position = new Vector3(1, 1, 0),
             Color = Color.White
         });
 
@@ -122,8 +123,14 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
             if (selectedIndex < 0) selectedIndex = 0;
             if (ImGui.Combo("Max FPS", ref selectedIndex, fpsLabels, fpsLabels.Length))
                 MaxFPS = fpsPresets[selectedIndex];
+            
+            ImGui.SeparatorText("Camera");
+            ImGui.Text($"Position: {_camera3D.Position:0.00}");
+            ImGui.Text($"Forward: {_camera3D.Forward:0.00}");
         }
         ImGui.End();
+        
+        ImGuiCoordGizmo.DrawCoordinateGizmo(_camera3D);
     }
 
     protected override void OnShadowPass(in GameTime gameTime)
