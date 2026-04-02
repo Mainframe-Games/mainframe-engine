@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Numerics;
 using ImGuiNET;
+using MainframeEngine.Gizmos;
+using MainframeEngine.Utils;
 
 namespace MainframeEngine;
 
@@ -77,18 +79,16 @@ public class LightEnvironment
 
         foreach (var dl in DirectionalLights)
         {
-            if (!TryProjectToScreen(dl.Position, view, proj, screenSize, out var sp))
+            if (!TryProjectToScreen(dl.Position, view, proj, screenSize, out var origin))
                 continue;
             
-            // var origin = new Vector2(screenSize.X - 60f, 60f);
-            var origin = sp;
-            var dir2d = new Vector2(dl.Direction.X, dl.Direction.Y);
+            var dir2d = new Vector2(dl.Direction.X, -dl.Direction.Y);
             if (dir2d.LengthSquared() > 0.0001f)
                 dir2d = Vector2.Normalize(dir2d);
             var col = new Vector4(dl.Color, 1f);
             var packed = ImGui.ColorConvertFloat4ToU32(col);
-            drawList.AddLine(origin, origin + dir2d * 40f, packed, 2f);
-            drawList.AddCircleFilled(origin, 5f, packed);
+            drawList.DrawArrow(origin, origin + dir2d * 40f, packed);
+            drawList.DrawSunIcon(origin, packed);
         }
     }
     

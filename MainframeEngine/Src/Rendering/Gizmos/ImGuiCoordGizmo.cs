@@ -40,32 +40,17 @@ public static class ImGuiCoordGizmo
             var dir = ToScreenDir(Direction);
             var tip = origin + Vector2.Normalize(dir) * armLen;
             var colImGui = Color.ToImColor();
-            DrawArrow(dl, origin, tip, colImGui, arrowHeadLen: 10f, thickness: 2f);
+            dl.DrawArrow(origin, tip, colImGui);
             dl.AddText(tip + new Vector2(4, -6), colImGui, Label);
         }
 
         return;
 
-        // Transform a world-space axis direction into 2D screen space using
-        // the view matrix rotation. In row-vector convention (v' = v * M):
-        //   view_x = dot(axis, right_world)   → screen X direction
-        //   view_y = dot(axis, up_world)       → screen Y direction
-        // Up = -Vector3.UnitY already flips Y for Vulkan NDC, so view_y maps
-        // directly to screen_y (no extra sign flip needed).
         Vector2 ToScreenDir(in Vector3 axis)
         {
             var vx = axis.X * view.M11 + axis.Y * view.M21 + axis.Z * view.M31;
             var vy = axis.X * view.M12 + axis.Y * view.M22 + axis.Z * view.M32;
             return new Vector2(vx, vy);
-        }
-
-        static void DrawArrow(ImDrawListPtr dl, Vector2 from, Vector2 to, uint col, float arrowHeadLen, float thickness)
-        {
-            dl.AddLine(from, to, col, thickness);
-            var dir  = Vector2.Normalize(to - from);
-            var perp = new Vector2(-dir.Y, dir.X);
-            dl.AddLine(to, to - dir * arrowHeadLen + perp * (arrowHeadLen * 0.5f), col, thickness);
-            dl.AddLine(to, to - dir * arrowHeadLen - perp * (arrowHeadLen * 0.5f), col, thickness);
         }
     }
     
