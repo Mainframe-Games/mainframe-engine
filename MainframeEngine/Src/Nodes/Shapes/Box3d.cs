@@ -5,7 +5,7 @@ using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
-public class Box3d : LitShapeVk
+public class Box3d : ShapeBase
 {
     #region Vertices
 

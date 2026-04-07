@@ -5,7 +5,7 @@ using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
-public class Quad : LitShapeVk, IDisposable
+public class Quad : ShapeBase
 {
     // csharpier-ignore
     private static readonly float[] Vertices =
