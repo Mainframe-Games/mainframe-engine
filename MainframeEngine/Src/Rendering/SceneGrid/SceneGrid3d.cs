@@ -1,5 +1,3 @@
-using System.Numerics;
-
 namespace MainframeEngine;
 
 public class SceneGrid3d : SceneGrid
@@ -14,7 +12,7 @@ public class SceneGrid3d : SceneGrid
         // x axis - red
         for (int x = gridSizeHalf; x >= -gridSizeHalf; --x)
         {
-            var c = x == 0 ? Red : new Vector4(1, 1, 1, 0.2f);
+            var c = x == 0 ? Red : DefaultColor;
             vertices[vIndex++] = new Vertex(gridSizeHalf, 0, -x, c);
             vertices[vIndex++] = new Vertex(-gridSizeHalf, 0, -x, c);
         }

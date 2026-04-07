@@ -51,6 +51,21 @@ public class Quad : LitShapeVk, IDisposable
                 CullModeFlags.None);
         }
     }
+    
+    public override unsafe void Dispose()
+    {
+        base.Dispose();
+        
+        if (VkCtx is null) 
+            return;
+        
+        var vk     = VkCtx.Vk;
+        var device = VkCtx.Device;
+        vk.DestroyBuffer(device, _indexBuffer, null);
+        vk.FreeMemory(device, _indexBufferMemory, null);
+        vk.DestroyBuffer(device, _vertexBuffer, null);
+        vk.FreeMemory(device, _vertexBufferMemory, null);
+    }
 
     protected override unsafe void DrawGeometry(CommandBuffer cb)
     {
@@ -92,21 +107,6 @@ public class Quad : LitShapeVk, IDisposable
         pc[16] = lightPos.X; pc[17] = lightPos.Y; pc[18] = lightPos.Z; pc[19] = lightRange;
         vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, 80, pc);
         vk.CmdDrawIndexed(cb, (uint)Indices.Length, 1, 0, 0, 0);
-    }
-
-    public override unsafe void Dispose()
-    {
-        base.Dispose();
-        
-        if (VkCtx is null) 
-            return;
-        
-        var vk     = VkCtx.Vk;
-        var device = VkCtx.Device;
-        vk.DestroyBuffer(device, _indexBuffer, null);
-        vk.FreeMemory(device, _indexBufferMemory, null);
-        vk.DestroyBuffer(device, _vertexBuffer, null);
-        vk.FreeMemory(device, _vertexBufferMemory, null);
     }
 
     private unsafe void CreateVertexBuffer(IVulkanContext ctx)

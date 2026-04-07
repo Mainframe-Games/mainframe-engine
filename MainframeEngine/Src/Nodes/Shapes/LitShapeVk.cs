@@ -412,6 +412,8 @@ public abstract class LitShapeVk : ShapeBase
 
     public override unsafe void Dispose()
     {
+        base.Dispose();
+        
         if (VkCtx is null) return;
         var vk     = VkCtx.Vk;
         var device = VkCtx.Device;

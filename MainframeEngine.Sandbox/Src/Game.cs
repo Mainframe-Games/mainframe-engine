@@ -17,6 +17,8 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
     private ShadowSystem _shadowSystem = null!;
     private SceneGrid3d _sceneGrid3d = null!;
     
+    private SpineNode _spineNode = null!;
+    
     private readonly List<ShapeBase> _shapes = [];
 
     private IKeyboard _keyboard = null!;
@@ -52,6 +54,11 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         // TODO: see if we can put this into Engine class
         Node.Initialize(Renderer, _shadowSystem);
 
+        _spineNode = new SpineNode(Renderer, new SpineFolder("Content/SpineBoy"));
+        _spineNode.SpineScale = 0.001f;
+        _spineNode.Scale = new Vector3(0.1f, 0.1f, 0.1f);
+        _spineNode.SetAnimation("walk");
+        
         _shapes.Add(new Quad
         {
             Rotation = new Vector3(90, 0, 0),
@@ -60,7 +67,7 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         });
         _shapes.Add(new Box3d
         {
-            Position = new Vector3(1, 1, 0),
+            Position = new Vector3(3, 1, 0),
             Color = Color.White
         });
 
@@ -94,6 +101,8 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
     {
         UpdateCameraPosition(gameTime.DeltaTime);
         _shapes[1].Rotation += new Vector3(1, 1, 0) * 20 * gameTime.DeltaTime; // rotate the box
+        
+        _spineNode.OnUpdate(gameTime);
     }
 
     protected override void OnImGui(in GameTime gameTime)
@@ -152,13 +161,18 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
     {
         Renderer.EnableDepthTest();
         Renderer.Clear();
-
+    
+        // render core stuff
         var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
         _camera3D.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
         _sky.Draw(_camera3D); // must be drawn first — renders behind all geometry
         _sceneGrid3d.Draw(_camera3D);
+        
+        // render game stuff
         foreach (var shape in _shapes)
             shape.Draw(_camera3D, _lights);
+        
+        _spineNode.OnRender(_camera3D);
     }
 
     protected override void OnClose()
@@ -166,6 +180,7 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         _shadowSystem.Dispose();
         _sky.Dispose();
         _sceneGrid3d.Dispose();
+        _spineNode.Dispose();
         foreach (var shape in _shapes)
             shape.Dispose();
         

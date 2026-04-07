@@ -86,6 +86,17 @@ public class Box3d : LitShapeVk
                 "Content/Shaders/Shapes/Shapes.vk.frag.spv");
         }
     }
+    
+    public override unsafe void Dispose()
+    {
+        base.Dispose();
+        
+        if (VkCtx is null) 
+            return;
+        
+        VkCtx.Vk.DestroyBuffer(VkCtx.Device, _vertexBuffer, null);
+        VkCtx.Vk.FreeMemory(VkCtx.Device, _vertexBufferMemory, null);
+    }
 
     protected override unsafe void DrawGeometry(CommandBuffer cb)
     {
@@ -124,17 +135,6 @@ public class Box3d : LitShapeVk
         pc[16] = lightPos.X; pc[17] = lightPos.Y; pc[18] = lightPos.Z; pc[19] = lightRange;
         vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, 80, pc);
         vk.CmdDraw(cb, 36, 1, 0, 0);
-    }
-
-    public override unsafe void Dispose()
-    {
-        base.Dispose();
-        
-        if (VkCtx is null) 
-            return;
-        
-        VkCtx.Vk.DestroyBuffer(VkCtx.Device, _vertexBuffer, null);
-        VkCtx.Vk.FreeMemory(VkCtx.Device, _vertexBufferMemory, null);
     }
 
     private unsafe void CreateVertexBuffer(IVulkanContext ctx)

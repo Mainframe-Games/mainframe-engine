@@ -2,7 +2,7 @@ using Spine;
 
 namespace MainframeEngine;
 
-public class SpineNode : Node3D, IDisposable
+public class SpineNode : Node3D
 {
     public readonly Skeleton Skeleton;
     private readonly AnimationState _animation;
@@ -22,6 +22,8 @@ public class SpineNode : Node3D, IDisposable
         var skeletonData = json.ReadSkeletonData(folder.JsonPath);
         Skeleton = new Skeleton(skeletonData);
         Skeleton.SetSkin(skeletonData.DefaultSkin);
+        Skeleton.ScaleX = SpineScale;
+        Skeleton.ScaleY = SpineScale;
 
         _spineRenderer = new SpineRenderer(renderer, Skeleton, atlas.Pages[0].pma, textureLoader);
 
@@ -30,9 +32,10 @@ public class SpineNode : Node3D, IDisposable
         SetAnimation(Skeleton.Data.Animations.Items[0].Name);
     }
     
-    public void Dispose()
+    public override void Dispose()
     {
         _spineRenderer.Dispose();
+        base.Dispose();
     }
 
     public void OnUpdate(in GameTime gameTime)

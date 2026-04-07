@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-public abstract class ShapeBase : Node3D, IDisposable
+public abstract class ShapeBase : Node3D
 {
     public Color Color { get; set; } = Color.White;
     
@@ -12,5 +12,4 @@ public abstract class ShapeBase : Node3D, IDisposable
 
     public abstract void DrawShadow2D(CommandBuffer cb);
     public abstract void DrawShadowPoint(CommandBuffer cb, Vector3 lightPos, float lightRange);
-    public abstract void Dispose();
 }

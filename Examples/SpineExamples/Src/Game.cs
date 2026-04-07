@@ -16,7 +16,7 @@ internal class Game : Engine
         new("Content/CelestialCircus"),
     ];
 
-    private SpineNode? _spineInstance;
+    private SpineNode? _spineNode;
 
     private readonly InspectorUI _inspectorUI = new(Folders);
 
@@ -68,21 +68,21 @@ internal class Game : Engine
 
     protected override void OnImGui(in GameTime gameTime)
     {
-        if (_spineInstance is null)
+        if (_spineNode is null)
             return;
         
-        var position = _spineInstance.Position;
-        var rotation = _spineInstance.Rotation;
-        var scale = _spineInstance.Scale.X;
+        var position = _spineNode.Position;
+        var rotation = _spineNode.Rotation;
+        var scale = _spineNode.Scale.X;
         
         _inspectorUI.OnImGui(
-            _spineInstance.Skeleton, CurrentCamera,
+            _spineNode.Skeleton, CurrentCamera,
             ref _cameraSpeed,
             ref position, ref rotation, ref scale);
 
-        _spineInstance.Position = position;
-        _spineInstance.Rotation = rotation;
-        _spineInstance.Scale = new Vector3(scale, scale, scale);
+        _spineNode.Position = position;
+        _spineNode.Rotation = rotation;
+        _spineNode.Scale = new Vector3(scale, scale, scale);
     }
 
     protected override void OnUpdate(in GameTime gameTime)
@@ -91,11 +91,11 @@ internal class Game : Engine
 
         SetSpineScale();
 
-        _spineInstance?.UpdateType = _inspectorUI.UpdatePhysics
+        _spineNode?.UpdateType = _inspectorUI.UpdatePhysics
             ? Skeleton.Physics.Update
             : Skeleton.Physics.None;
 
-        _spineInstance?.OnUpdate(gameTime);
+        _spineNode?.OnUpdate(gameTime);
     }
 
     protected override void OnShadowPass(in GameTime gameTime)
@@ -119,12 +119,12 @@ internal class Game : Engine
             _sceneGrid3d.Draw(CurrentCamera);
         }
 
-        _spineInstance?.OnRender(CurrentCamera);
+        _spineNode?.OnRender(CurrentCamera);
     }
 
     protected override void OnClose()
     {
-        _spineInstance?.Dispose();
+        _spineNode?.Dispose();
         _sceneGrid3d?.Dispose();
         _sceneGrid2d?.Dispose();
         base.OnClose();
@@ -132,21 +132,21 @@ internal class Game : Engine
 
     private void OnModelChanged(SpineFolder folder)
     {
-        _spineInstance?.Dispose();
-        _spineInstance = new SpineNode(Renderer, folder);
+        _spineNode?.Dispose();
+        _spineNode = new SpineNode(Renderer, folder);
         
-        _inspectorUI.SpineScale = _spineInstance.SpineScale;
-        _inspectorUI.ZSpacing = _spineInstance.ZSpacing;
+        _inspectorUI.SpineScale = _spineNode.SpineScale;
+        _inspectorUI.ZSpacing = _spineNode.ZSpacing;
     }
 
     private void SetAnimation(string animationName)
     {
-        _spineInstance?.SetAnimation(animationName);
+        _spineNode?.SetAnimation(animationName);
     }
 
     private void SetSpineScale()
     {
-        _spineInstance?.FlipX(_inspectorUI.IsFlipped);
+        _spineNode?.FlipX(_inspectorUI.IsFlipped);
     }
 
     private void UpdateCamera(double delta)
