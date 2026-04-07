@@ -50,7 +50,7 @@ public abstract class Engine : IDisposable
 
     protected Engine(in EngineOptions engineOptions)
     {
-        this.EngineOptions = engineOptions;
+        EngineOptions = engineOptions;
         
         var windowOptions = WindowOptions.DefaultVulkan with
         {

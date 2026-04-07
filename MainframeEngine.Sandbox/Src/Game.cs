@@ -1,14 +1,21 @@
-using System.Drawing;
 using System.Numerics;
 using ImGuiNET;
 using MainframeEngine.Gizmos;
 using Silk.NET.Input;
+using Silk.NET.Maths;
 using Silk.NET.Windowing;
+using Color = System.Drawing.Color;
 using MouseButton = Silk.NET.Input.MouseButton;
 
 namespace MainframeEngine.Sandbox;
 
-public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
+public sealed class Game() : Engine(new EngineOptions
+{
+    GameName = "Mainframe Engine Sandbox",
+    RenderingBackend = RenderingBackend.Vulkan,
+    WindowSize = new Vector2D<int>(1920, 1080),
+    IconPath = "Content/Branding/mg_300_circle.png"
+})
 {
     private readonly Camera3D _camera3D = new();
 
