@@ -89,13 +89,12 @@ public class Box3d : LitShapeVk
     
     public override unsafe void Dispose()
     {
-        base.Dispose();
-        
         if (VkCtx is null) 
             return;
         
         VkCtx.Vk.DestroyBuffer(VkCtx.Device, _vertexBuffer, null);
         VkCtx.Vk.FreeMemory(VkCtx.Device, _vertexBufferMemory, null);
+        base.Dispose();
     }
 
     protected override unsafe void DrawGeometry(CommandBuffer cb)
@@ -106,8 +105,9 @@ public class Box3d : LitShapeVk
         VkCtx.Vk.CmdDraw(cb, 36, 1, 0, 0);
     }
 
-    public override unsafe void DrawShadow2D(CommandBuffer cb)
+    public override unsafe void DrawShadow2D(in CommandBuffer cb)
     {
+        base.DrawShadow2D(cb);
         if (VkCtx is null || Shadows is null) return;
         var vk     = VkCtx.Vk;
         var pipe   = Shadows.GetShadow2DPipeline(8 * sizeof(float));
@@ -120,8 +120,9 @@ public class Box3d : LitShapeVk
         vk.CmdDraw(cb, 36, 1, 0, 0);
     }
 
-    public override unsafe void DrawShadowPoint(CommandBuffer cb, Vector3 lightPos, float lightRange)
+    public override unsafe void DrawShadowPoint(in CommandBuffer cb, in Vector3 lightPos, in float lightRange)
     {
+        base.DrawShadowPoint(cb, lightPos, lightRange);
         if (VkCtx is null || Shadows is null) return;
         var vk     = VkCtx.Vk;
         var pipe   = Shadows.GetShadowPointPipeline(8 * sizeof(float));

@@ -351,8 +351,9 @@ public abstract class LitShapeVk : ShapeBase
     // Draw — sealed; subclasses implement DrawGeometry instead
     // -------------------------------------------------------------------------
 
-    public sealed override void Draw(ICamera camera, LightEnvironment lights)
+    public override void Draw(in ICamera camera, in LightEnvironment lights)
     {
+        base.Draw(camera, lights);
         if (VkCtx is not null)
             DrawLit(camera, lights);
     }
@@ -412,8 +413,6 @@ public abstract class LitShapeVk : ShapeBase
 
     public override unsafe void Dispose()
     {
-        base.Dispose();
-        
         if (VkCtx is null) return;
         var vk     = VkCtx.Vk;
         var device = VkCtx.Device;
@@ -437,6 +436,8 @@ public abstract class LitShapeVk : ShapeBase
         vk.DestroyDescriptorSetLayout(device, _vpDescSetLayout, null);
         vk.DestroyPipeline(device, _pipeline, null);
         vk.DestroyPipelineLayout(device, _pipelineLayout, null);
+        
+        base.Dispose();
     }
 
     // -------------------------------------------------------------------------

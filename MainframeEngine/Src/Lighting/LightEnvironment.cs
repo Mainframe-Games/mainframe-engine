@@ -13,10 +13,31 @@ public class LightEnvironment
     public const int MaxSpot = 8;
 
     public Vector3 AmbientColor { get; set; } = new(0.08f, 0.08f, 0.10f);
-    public List<DirectionalLight> DirectionalLights { get; } = [];
-    public List<PointLight> PointLights { get; } = [];
-    public List<SpotLight> SpotLights { get; } = [];
+    internal List<DirectionalLight> DirectionalLights { get; } = [];
+    internal List<PointLight> PointLights { get; } = [];
+    internal List<SpotLight> SpotLights { get; } = [];
 
+    /// <summary>
+    /// Adds a light to the corresponding collection based on its type.
+    /// </summary>
+    /// <param name="light">The light to add. Can be of type DirectionalLight, PointLight, or SpotLight.</param>
+    public void AddLight(Light light)
+    {
+        switch (light)
+        {
+            case DirectionalLight dl:
+                DirectionalLights.Add(dl);
+                break;
+            case PointLight pl:
+                PointLights.Add(pl);
+                break;
+            case SpotLight sl:
+                SpotLights.Add(sl);
+                break;
+        }
+    }
+    
+    
     #region Gizmos
 
     [Conditional("DEBUG")]

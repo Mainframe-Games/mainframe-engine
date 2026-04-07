@@ -1,3 +1,6 @@
+using System.Numerics;
+using Silk.NET.Vulkan;
+
 namespace MainframeEngine;
 
 public class Node : IDisposable 
@@ -25,4 +28,22 @@ public class Node : IDisposable
     {
         Parent = null;
     }
+    
+    public virtual void Draw(in ICamera camera, in LightEnvironment lightEnvironment)
+    {
+    }
+
+    public virtual void DrawShadow2D(in CommandBuffer cb)
+    {
+    }
+
+    public virtual void OnUpdate(in GameTime gameTime)
+    {
+    }
+
+    public virtual void DrawShadowPoint(in CommandBuffer cb, in Vector3 lightPos, in float lightRange)
+    {
+    }
+
+
 }

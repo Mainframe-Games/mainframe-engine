@@ -17,9 +17,7 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
     private ShadowSystem _shadowSystem = null!;
     private SceneGrid3d _sceneGrid3d = null!;
     
-    private SpineNode _spineNode = null!;
-    
-    private readonly List<ShapeBase> _shapes = [];
+    private readonly List<Node> _nodes = [];
 
     private IKeyboard _keyboard = null!;
     private IMouse _mouse = null!;
@@ -54,38 +52,40 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         // TODO: see if we can put this into Engine class
         Node.Initialize(Renderer, _shadowSystem);
 
-        _spineNode = new SpineNode(Renderer, new SpineFolder("Content/SpineBoy"));
-        _spineNode.SpineScale = 0.001f;
-        _spineNode.Scale = new Vector3(0.1f, 0.1f, 0.1f);
-        _spineNode.SetAnimation("walk");
+        var spineNode = new SpineNode(Renderer, new SpineFolder("Content/Models/Spine/SpineBoy"));
+        spineNode.SpineScale = 0.001f;
+        spineNode.Scale = new Vector3(0.1f, 0.1f, 0.1f);
+        // _spineNode.SetAnimation("W/Run");
+        spineNode.SetAnimation("walk");
+        _nodes.Add(spineNode);
         
-        _shapes.Add(new Quad
+        _nodes.Add(new Quad
         {
             Rotation = new Vector3(90, 0, 0),
             Scale = new Vector3(10, 10, 1),
             Color = Color.White
         });
-        _shapes.Add(new Box3d
+        _nodes.Add(new Box3d
         {
             Position = new Vector3(3, 1, 0),
             Color = Color.White
         });
 
-        _lights.DirectionalLights.Add(new DirectionalLight
+        _lights.AddLight(new DirectionalLight
         {
             Position = new Vector3(0, 5, 0),
-            Direction = Vector3.Normalize(new Vector3(-1, -2, -1)),
+            Direction = Vector3.Normalize(new Vector3(0, -0.5f, -1)),
             Color = new Vector3(1f, 0.95f, 0.8f),
             Intensity = 0.9f
         });
-        // _lights.PointLights.Add(new PointLight
+        // _lights.AddLight(new PointLight
         // { 
         //     Position = new Vector3(3, 2, 2),
         //     Color = new Vector3(0.2f, 0.5f, 1f),
         //     Intensity = 0.1f,
         //     Range = 10
         // });
-        // _lights.SpotLights.Add(new SpotLight
+        // _lights.AddLight(new SpotLight
         // {
         //     Position = new Vector3(-2, 4, 2),
         //     Direction = Vector3.Normalize(new Vector3(0.5f, -1, -0.5f)),
@@ -100,9 +100,15 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
     protected override void OnUpdate(in GameTime gameTime)
     {
         UpdateCameraPosition(gameTime.DeltaTime);
-        _shapes[1].Rotation += new Vector3(1, 1, 0) * 20 * gameTime.DeltaTime; // rotate the box
-        
-        _spineNode.OnUpdate(gameTime);
+
+        foreach (var node in _nodes)
+        {
+            node.OnUpdate(gameTime);
+            
+            // rotate the box
+            if (node is Box3d box)
+                box.Rotation += new Vector3(1, 1, 0) * 20 * gameTime.DeltaTime; 
+        }
     }
 
     protected override void OnImGui(in GameTime gameTime)
@@ -147,12 +153,12 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         _shadowSystem.RenderShadows(
             _lights,
             draw2D: (cb, p32, p12, lay) => { // TODO: remove allocations here
-                foreach (var shape in _shapes)
-                    shape.DrawShadow2D(cb);
+                foreach (var node in _nodes)
+                    node.DrawShadow2D(cb);
             },
             drawPoint: (cb, p32, p12, lay, lightPos, lightRange) => {
-                foreach (var shape in _shapes)
-                    shape.DrawShadowPoint(cb, lightPos, lightRange);
+                foreach (var node in _nodes)
+                    node.DrawShadowPoint(cb, lightPos, lightRange);
             }
         );
     }
@@ -169,10 +175,8 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         _sceneGrid3d.Draw(_camera3D);
         
         // render game stuff
-        foreach (var shape in _shapes)
-            shape.Draw(_camera3D, _lights);
-        
-        _spineNode.OnRender(_camera3D);
+        foreach (var node in _nodes)
+            node.Draw(_camera3D, _lights);
     }
 
     protected override void OnClose()
@@ -180,8 +184,7 @@ public sealed class Game(in EngineOptions engineInfo) : Engine(engineInfo)
         _shadowSystem.Dispose();
         _sky.Dispose();
         _sceneGrid3d.Dispose();
-        _spineNode.Dispose();
-        foreach (var shape in _shapes)
+        foreach (var shape in _nodes)
             shape.Dispose();
         
         base.OnClose();
