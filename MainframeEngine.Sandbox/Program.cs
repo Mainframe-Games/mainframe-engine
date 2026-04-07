@@ -12,4 +12,4 @@ var info = new EngineOptions
 using var game = new Game(info);
 var exitCode = game.Run();
 Log.Debug($"Game Exit: {exitCode}");
-return exitCode;
+return (int)exitCode;

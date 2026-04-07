@@ -119,7 +119,7 @@ internal class Game : Engine
             _sceneGrid3d.Draw(CurrentCamera);
         }
 
-        _spineNode?.OnRender(CurrentCamera);
+        _spineNode?.Draw(CurrentCamera, new LightEnvironment());
     }
 
     protected override void OnClose()
@@ -178,7 +178,7 @@ internal class Game : Engine
     private void OnKeyDown(IKeyboard kb, Key key, int sc)
     {
         if (key == Key.Escape)
-            Quit(0);
+            Quit(ExitCode.Ok);
     }
 
     private void OnMouseMove(IMouse mouse, Vector2 pos)

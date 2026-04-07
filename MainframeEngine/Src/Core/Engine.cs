@@ -19,7 +19,7 @@ public abstract class Engine : IDisposable
 {
     private VulkanImGuiController? _vkImGuiController;
 
-    private int _exitCode;
+    private ExitCode _exitCode;
     private GameTime _gameTime;
     private readonly FPSCounter _fps = new();
 
@@ -149,13 +149,13 @@ public abstract class Engine : IDisposable
         Renderer.Dispose();
     }
 
-    public int Run()
+    public ExitCode Run()
     {
         Window.Run();
         return _exitCode;
     }
 
-    public void Quit(in int exitCode)
+    public void Quit(in ExitCode exitCode)
     {
         _exitCode = exitCode;
         Window.Close();
