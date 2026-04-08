@@ -1,10 +1,14 @@
 using System.Numerics;
+using MainframeEngine.Networking;
 using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
 public class Node : IDisposable 
 {
+    public string Name { get; set; } = string.Empty;
+    public NodeId Id { get; } = NodeId.GetNext();
+    
     public Node? Parent { get; set; }
 
     protected static IRenderer Renderer { get; private set; } = null!;

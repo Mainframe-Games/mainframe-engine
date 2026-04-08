@@ -17,6 +17,7 @@
 
     <!-- NuGet Packages -->
     <ItemGroup>
+        <PackageReference Include="ENet-CSharp" Version="2.4.8" />
         <PackageReference Include="ImGui.NET" Version="1.89.9.3" />
         <PackageReference Include="Silk.NET.Assimp" Version="2.21.0" />
         <PackageReference Include="Silk.NET.Input" Version="2.21.0" />
