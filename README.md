@@ -28,8 +28,10 @@ mainframe-engine/
 │       ├── Rendering/        # Vulkan renderer, cameras, spine, sky, shadows, scene grids
 │       ├── Nodes/            # Scene graph nodes (Node, Node3D, SpineNode, shapes)
 │       ├── Lighting/         # Directional, point, and spot lights
+│       ├── Networking/       # ENet client/server, buffered serialization, object pooling
 │       ├── Steamworks/       # Steam API wrappers
-│       └── Debugging/        # Structured logging
+│       ├── Debugging/        # Structured logging
+│       └── Utils/            # ImGui gizmos, color extensions
 │
 ├── MainframeEngine.Sandbox/  # Test game demonstrating full engine features
 │
@@ -87,13 +89,18 @@ The engine uses a lightweight scene graph. `Node` is the base class; `Node3D` ad
 
 ```
 Node
-└── Node3D            (Position, Rotation, Scale → ModelMatrix)
-    ├── Box3d         (3D lit cube, shadow casting/receiving)
-    ├── Quad          (2D lit quad, shadow casting/receiving)
-    └── SpineNode     (Spine skeletal animation as a 3D node)
+├── Node3D            (Position, Rotation, Scale → ModelMatrix)
+│   ├── Box3d         (3D lit cube, shadow casting/receiving)
+│   ├── Quad          (2D lit quad, shadow casting/receiving)
+│   └── SpineNode     (Spine skeletal animation as a 3D node)
+└── NetworkNode       (ENet server/client lifecycle management)
 ```
 
 `Node.Initialize(renderer, shadowSystem)` must be called once after the renderer and shadow system are created (see Sandbox).
+
+**`NetworkNode`** manages the ENet library lifecycle and wraps `EnetServer` / `EnetClient` as a scene graph node. Call `StartServer` or `StartClient` to begin networking, and the node's `OnUpdate` automatically polls ENet events.
+
+**`NodeId`** is a type-safe auto-incrementing identifier for nodes (starts at 1; 0 = error).
 
 **`SpineNode`** wraps a Spine skeleton as a `Node3D`, handling animation state, world transform updates, and rendering:
 
@@ -130,7 +137,6 @@ spineNode.OnRender(camera);
 **Spine Renderer (`Rendering/Spine/`):**
 - `SpineRenderer` — batch-renders Spine skeletons (RegionAttachment, MeshAttachment) with per-slot tinting, premultiplied alpha, and multi-texture atlas support
 - `SpineTextureLoader` — loads Spine atlas textures via StbImageSharp
-- `SpineModel` — low-level skeletal animation wrapper (use `SpineNode` for scene integration)
 
 **Sky Rendering (`Rendering/Sky/`):**
 - `SkyProcedural` — gradient sky with animated sun disk, configurable zenith/horizon/ground colors
@@ -153,6 +159,39 @@ spineNode.OnRender(camera);
 - `SpotLight` — cone light with inner/outer angles
 - ImGui debug gizmos for visualizing light positions, ranges, and cone shapes
 
+### Networking (`Networking/`)
+
+UDP networking built on [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp) with pooled buffer serialization.
+
+**Client / Server:**
+- `EnetServer(port, maxClients)` — hosts a game session, tracks connected peers, broadcasts packets
+- `EnetClient(ip, port)` — connects to a server, sends packets on named channels
+- Both poll ENet events (Connect, Disconnect, Timeout, Receive) and use `NetworkPeerId` for type-safe peer identification
+
+**Serialization (`Buffers/`):**
+- `NetBufferWriter` / `NetBufferReader` — BinaryWriter/Reader wrappers supporting all primitives, `string`, `Vector3`, and generic `INetworkTransferable` arrays
+- `NetBufferPool` — static object pool for readers and writers to minimize allocations
+- `GetDataSpan()` provides zero-copy access to the underlying buffer
+
+**Custom Types (`Transfer/`):**
+- `INetworkTransferable` — implement `NetworkWrite` / `NetworkRead` to serialize game-specific types
+
+**Utilities (`Utils/`):**
+- `NetworkUtils` — default port (`6969`), region constants (OCE, USE, USW, EU, Asia), and `GetPrimaryLocalIPv4()` for LAN discovery
+
+```csharp
+// Server
+using var server = new EnetServer(7777, maxClients: 16);
+using var writer = NetBufferPool.GetWriter();
+writer.Write(42);
+writer.Write("hello");
+server.SendToPeers(channel: 0, writer.GetDataSpan(), PacketFlags.Reliable);
+
+// Client
+using var client = new EnetClient("127.0.0.1", 7777);
+client.Send(channel: 0, writer.GetDataSpan(), PacketFlags.Reliable);
+```
+
 ### Steam Integration (`Steamworks/`)
 
 Full Steamworks.NET wrapper:
@@ -168,6 +207,11 @@ Full Steamworks.NET wrapper:
 
 `Log` — structured logger with severity levels (Debug, Info, Warning, Error, Fatal), ANSI color output, and optional verbose mode with caller source location.
 
+### Utilities (`Utils/`)
+
+- `ImGuiGizmos` — ImDrawList extensions for rendering debug arrows (`DrawArrow`) and sun icons (`DrawSunIcon`) in ImGui
+- `ColorExtensions` — `System.Drawing.Color` to ImGui `uint` conversion via `ToImColor()`
+
 ---
 
 ## Tech Stack
@@ -181,6 +225,7 @@ Full Steamworks.NET wrapper:
 | Steam platform | Steamworks.NET | 2024.8.0 |
 | Image loading | StbImageSharp | 2.30.15 |
 | Model loading | Silk.NET.Assimp | 2.21.0 |
+| Networking | ENet-CSharp | 2.4.8 |
 
 **Proposed (not yet integrated):**
 - Audio: 
@@ -190,8 +235,6 @@ Full Steamworks.NET wrapper:
     - [JoltPhysicsSharp](https://github.com/amerkoleci/JoltPhysicsSharp)
     - [Jitter2](https://github.com/notgiven688/jitterphysics2)
     - [box2d-netstandard](https://github.com/codingben/box2d-netstandard)
-- Networking: 
-    - [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp)
 - Game UI Framework:
     - [Prowl.Paper](https://github.com/ProwlEngine/Prowl.Paper)
     - [Myra](https://github.com/rds1983/myra)
@@ -233,7 +276,9 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V via `glslc`. The `.spv
 - Directional light with debug gizmos
 - Shadow casting/receiving on shapes
 - `Box3d`, `Quad`, and `SceneGrid3d` rendering
-- ImGui debug overlay with FPS, delta time, frame count, frame time, VSync toggle, fullscreen toggle
+- `SpineNode` animation (SpineBoy character)
+- ImGui debug overlay with FPS, delta time, frame count, frame time, VSync toggle, fullscreen toggle, MaxFPS selector
+- Light gizmo visualization via `LightEnvironment.DrawLightGizmos()`
 - Input handling (keyboard/mouse via Silk.NET)
 
 ---
