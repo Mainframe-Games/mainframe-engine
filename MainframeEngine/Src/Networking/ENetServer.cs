@@ -10,7 +10,7 @@ public sealed class EnetServer : IDisposable
 {
     private readonly Host _server;
     private readonly Stopwatch _stopwatch = new();
-    private readonly Dictionary<NetworkPeerId, Peer> _connectedPeers = [];
+    private readonly Dictionary<PeerId, Peer> _connectedPeers = [];
     
     internal EnetServer(in ushort port, in int maxClients)
     {

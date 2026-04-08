@@ -7,7 +7,7 @@ namespace MainframeEngine.Networking;
 /// Provides equality comparison and implicit conversion mechanisms
 /// to and from a <see cref="ulong"/> value.
 /// </summary>
-public readonly struct NetworkPeerId(in ulong id) : IEquatable<NetworkPeerId>, IEquatable<ulong>
+public readonly struct PeerId(in ulong id) : IEquatable<PeerId>, IEquatable<ulong>
 {
     private readonly ulong _id = id;
     
@@ -21,20 +21,20 @@ public readonly struct NetworkPeerId(in ulong id) : IEquatable<NetworkPeerId>, I
     public bool Equals(ulong other) => _id == other;
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override bool Equals(object? obj) => obj is NetworkPeerId peerId && Equals(peerId);
+    public override bool Equals(object? obj) => obj is PeerId peerId && Equals(peerId);
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Equals(NetworkPeerId other) => _id == other._id;
+    public bool Equals(PeerId other) => _id == other._id;
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator ==(NetworkPeerId a, NetworkPeerId b) => a._id == b._id;
+    public static bool operator ==(PeerId a, PeerId b) => a._id == b._id;
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator !=(NetworkPeerId a, NetworkPeerId b) => !(a == b);
+    public static bool operator !=(PeerId a, PeerId b) => !(a == b);
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator ulong(NetworkPeerId peerId) => peerId._id;  
+    public static implicit operator ulong(PeerId peerId) => peerId._id;  
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator NetworkPeerId(ulong id) => new(id);
+    public static implicit operator PeerId(ulong id) => new(id);
 }
