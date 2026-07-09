@@ -83,3 +83,8 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected â
 - StbImageSharp â€” texture/image loading
 
 Do not add NuGet packages without discussing the dependency first.
+
+## Project memory
+
+@import memory/README.md
+@import memory/context/current-state.md
