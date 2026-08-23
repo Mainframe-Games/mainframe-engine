@@ -226,6 +226,7 @@ Full Steamworks.NET wrapper:
 | Image loading | StbImageSharp | 2.30.15 |
 | Model loading | Silk.NET.Assimp | 2.21.0 |
 | Networking | ENet-CSharp | 2.4.8 |
+| Vulkan on macOS | Silk.NET.MoltenVK.Native | 2.22.0 |
 
 **Proposed (not yet integrated):**
 - Audio: 
@@ -326,3 +327,5 @@ Full C# port of the Spine skeletal animation runtime:
 2. Open `MainframeEngine.sln` in Visual Studio or Rider
 3. Set `MainframeEngine.Sandbox` as the startup project
 4. Build and run — requires .NET 10 SDK
+
+**macOS:** Vulkan runs through MoltenVK. A copy is bundled via `Silk.NET.MoltenVK.Native`, so nothing needs to be installed to run. Installing the [Vulkan SDK](https://vulkan.lunarg.com) is still recommended for development — it provides the validation layers and `glslc`. `VulkanLoaderBootstrap` hands the Vulkan library to GLFW and Silk.NET explicitly, because modern macOS dyld no longer finds `/usr/local/lib` when GLFW dlopens the loader by name.

@@ -51,7 +51,11 @@ public abstract class Engine : IDisposable
     protected Engine(in EngineOptions engineOptions)
     {
         EngineOptions = engineOptions;
-        
+
+        // macOS: GLFW can't find the Vulkan loader on its own (dyld no longer searches
+        // /usr/local/lib for leaf-name dlopen) — hand it one before the window is created.
+        VulkanLoaderBootstrap.Initialize();
+
         var windowOptions = WindowOptions.DefaultVulkan with
         {
             Title = $"{engineOptions.GameName} ({engineOptions.RenderingBackend})",

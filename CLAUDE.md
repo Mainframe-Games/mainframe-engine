@@ -14,6 +14,17 @@ glslc path/to/shader.vk.vert -o path/to/shader.vk.vert.spv
 glslc path/to/shader.vk.frag -o path/to/shader.vk.frag.spv
 ```
 
+### macOS
+
+Vulkan runs through MoltenVK, bundled via the `Silk.NET.MoltenVK.Native` package — no install
+needed to run. The Vulkan SDK (lunarg.com) is recommended for development (validation layers,
+`glslc`). `VulkanLoaderBootstrap` (called first in the `Engine` constructor) hands the same
+Vulkan library to GLFW (`glfwInitVulkanLoader`) and to Silk.NET's `Vk` — required because
+modern macOS dyld no longer searches `/usr/local/lib` for leaf-name dlopen, and the two would
+otherwise bind different libraries whose instances are not interchangeable. The renderer
+enables `VK_KHR_portability_enumeration`/`VK_KHR_portability_subset` capability-conditionally;
+Windows/Linux are unaffected.
+
 ## Project Structure
 
 - `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`

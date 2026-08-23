@@ -277,7 +277,9 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
     private void CreateInstance()
     {
-        _vk = Vk.GetApi();
+        // On macOS Vk must bind the same library the bootstrap gave GLFW — a mismatched pair
+        // produces instances glfwCreateWindowSurface rejects.
+        _vk = VulkanLoaderBootstrap.TryCreateVk() ?? Vk.GetApi();
 
         if (_enableValidationLayers && !CheckValidationLayerSupport())
         {
@@ -302,6 +304,17 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         };
 
         var extensions = GetRequiredExtensions();
+
+        // Portability drivers (MoltenVK on macOS) are hidden by loaders >= 1.3.216 unless
+        // portability enumeration is explicitly requested. macOS-only: desktop loaders
+        // advertise this extension everywhere, and enabling it on Windows/Linux would
+        // un-hide non-conformant translation-layer drivers in device enumeration.
+        if (OperatingSystem.IsMacOS() && IsInstanceExtensionAvailable("VK_KHR_portability_enumeration"))
+        {
+            extensions = extensions.Append("VK_KHR_portability_enumeration").ToArray();
+            createInfo.Flags |= InstanceCreateFlags.InstanceCreateEnumeratePortabilityBitKhr;
+        }
+
         createInfo.EnabledExtensionCount = (uint)extensions.Length;
         createInfo.PpEnabledExtensionNames = (byte**)SilkMarshal.StringArrayToPtr(extensions);
 
@@ -339,6 +352,26 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         return _enableValidationLayers
             ? extensions.Append(ExtDebugUtils.ExtensionName).ToArray()
             : extensions;
+    }
+
+    private bool IsInstanceExtensionAvailable(string name)
+    {
+        var count = 0u;
+        _vk!.EnumerateInstanceExtensionProperties((byte*)null, ref count, null);
+        var props = new ExtensionProperties[count];
+        fixed (ExtensionProperties* ptr = props)
+            _vk!.EnumerateInstanceExtensionProperties((byte*)null, ref count, ptr);
+        return props.Any(p => Marshal.PtrToStringAnsi((IntPtr)p.ExtensionName) == name);
+    }
+
+    private bool IsDeviceExtensionAvailable(PhysicalDevice device, string name)
+    {
+        var count = 0u;
+        _vk!.EnumerateDeviceExtensionProperties(device, (byte*)null, ref count, null);
+        var props = new ExtensionProperties[count];
+        fixed (ExtensionProperties* ptr = props)
+            _vk!.EnumerateDeviceExtensionProperties(device, (byte*)null, ref count, ptr);
+        return props.Any(p => Marshal.PtrToStringAnsi((IntPtr)p.ExtensionName) == name);
     }
 
     private static void PopulateDebugMessengerCreateInfo(ref DebugUtilsMessengerCreateInfoEXT createInfo)
@@ -457,6 +490,12 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             };
         }
 
+        var deviceExtensions = _deviceExtensions;
+
+        // Spec requires enabling VK_KHR_portability_subset when the device advertises it (MoltenVK does).
+        if (IsDeviceExtensionAvailable(_physicalDevice, "VK_KHR_portability_subset"))
+            deviceExtensions = deviceExtensions.Append("VK_KHR_portability_subset").ToArray();
+
         var features = new PhysicalDeviceFeatures();
         var createInfo = new DeviceCreateInfo
         {
@@ -464,8 +503,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             QueueCreateInfoCount = (uint)uniqueFamilies.Length,
             PQueueCreateInfos = queueCreateInfos,
             PEnabledFeatures = &features,
-            EnabledExtensionCount = (uint)_deviceExtensions.Length,
-            PpEnabledExtensionNames = (byte**)SilkMarshal.StringArrayToPtr(_deviceExtensions)
+            EnabledExtensionCount = (uint)deviceExtensions.Length,
+            PpEnabledExtensionNames = (byte**)SilkMarshal.StringArrayToPtr(deviceExtensions)
         };
 
         if (_enableValidationLayers)
