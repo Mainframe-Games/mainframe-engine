@@ -11,7 +11,7 @@ layout(location = 0) out vec4 outColor;
 #define MAX_POINT_LIGHTS 16
 #define MAX_SPOT_LIGHTS   8
 #define MAX_SHADOW_DIR    4
-#define MAX_SHADOW_SPOT   8
+#define MAX_SHADOW_SPOT   7
 #define MAX_SHADOW_POINT  4
 
 struct DirLight {

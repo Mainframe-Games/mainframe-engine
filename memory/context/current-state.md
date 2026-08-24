@@ -13,10 +13,12 @@ _Last updated: 2026-08-24_
 - macOS: GLFW and Silk.NET must bind the SAME Vulkan library — `VulkanLoaderBootstrap`
   enforces this (GLFW via `glfwInitVulkanLoader`, Silk via `TryCreateVk`). Don't add a
   bare `Vk.GetApi()` call anywhere; take `Vk` from `IVulkanContext`.
-- macOS validation flags two shadow-path spec violations that currently render fine on
-  MoltenVK but are UB per spec: mutable comparison samplers (VUID 04450 — layout should
-  use immutable samplers) and 17 > 16 per-stage samplers on the SpineLit pipeline
-  (VUID 03016 — shadow-map arrays 4+8+4 plus uTexture).
+- Shadow comparison samplers are IMMUTABLE (baked into ShadowSystem's descriptor set
+  layout) — required by MoltenVK (mutableComparisonSamplers=false). MaxShadowSpot is 7,
+  one less than LightEnvironment.MaxSpot, to fit MoltenVK's 16 per-stage sampler limit
+  (4 dir + 7 spot + 4 point + 1 material texture); the 8th spot light casts no shadow.
+  Keep C# constants and the MAX_SHADOW_* defines in Shapes.vk.frag / SpineLit.vk.frag
+  in sync, and recompile .spv with glslc after shader edits.
 - ENet macOS natives are x86_64-only (won't load on Apple Silicon); Steamworks.NET has
   no osx-arm64 assets.
 - ShadowSystem's single VP UBO is overwritten during command recording — with >1
@@ -24,6 +26,5 @@ _Last updated: 2026-08-24_
 
 ## Next steps
 
-- Fix the two shadow-path portability violations above.
 - Fix the ShadowSystem per-pass VP matrix (push constant or per-pass buffer offsets).
 - Replace/rebuild ENet natives for osx-arm64 before using networking on macOS.

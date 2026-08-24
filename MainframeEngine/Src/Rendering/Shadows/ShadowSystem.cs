@@ -17,7 +17,10 @@ public sealed unsafe class ShadowSystem : IDisposable
     // ── Limits ────────────────────────────────────────────────────────────────
 
     public const int MaxShadowDir   = LightEnvironment.MaxDirectional; // 4
-    public const int MaxShadowSpot  = LightEnvironment.MaxSpot;        // 8
+    // One less than LightEnvironment.MaxSpot: the fragment stage's sampler budget is 16 on
+    // MoltenVK (maxPerStageDescriptorSamplers) — 4 dir + 7 spot + 4 point + 1 material texture.
+    // The 8th spot light still lights, it just casts no shadow.
+    public const int MaxShadowSpot  = 7;
     public const int MaxShadowPoint = 4;   // cube maps are expensive
 
     private const int DirSize   = 2048;
@@ -25,7 +28,7 @@ public sealed unsafe class ShadowSystem : IDisposable
     private const int PointSize = 512;
 
     // ── Shadow matrices UBO layout (must match Shapes.vk.frag) ───────────────
-    // mat4[4] dir + mat4[8] spot = (4+8)*64 = 768 bytes
+    // mat4[MaxShadowDir] dir + mat4[MaxShadowSpot] spot, 64 bytes per matrix
     private const int ShadowMatricesUboSize = (MaxShadowDir + MaxShadowSpot) * 64;
 
     // ── Per-map structs ───────────────────────────────────────────────────────
@@ -741,17 +744,27 @@ public sealed unsafe class ShadowSystem : IDisposable
         }
 
         // ── Descriptor set layout (set=2 in Shapes.vk.frag) ──────────────────
+        // The comparison samplers must be immutable (baked into the layout): Metal via
+        // MoltenVK reports mutableComparisonSamplers=false, which forbids writing
+        // compareEnable samplers through vkUpdateDescriptorSets.
+        var dirSamplers  = stackalloc VkSampler[MaxShadowDir];
+        var spotSamplers = stackalloc VkSampler[MaxShadowSpot];
+        for (int i = 0; i < MaxShadowDir;  i++) dirSamplers[i]  = _sampler2DShadow;
+        for (int i = 0; i < MaxShadowSpot; i++) spotSamplers[i] = _sampler2DShadow;
+
         var bindings = stackalloc DescriptorSetLayoutBinding[]
         {
             // b0: shadow matrices UBO
             new() { Binding = 0, DescriptorType = DescriptorType.UniformBuffer,
                     DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
-            // b1: dir shadow maps (sampler2DShadow)
+            // b1: dir shadow maps (sampler2DShadow, immutable)
             new() { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler,
-                    DescriptorCount = MaxShadowDir, StageFlags = ShaderStageFlags.FragmentBit },
-            // b2: spot shadow maps (sampler2DShadow)
+                    DescriptorCount = MaxShadowDir, StageFlags = ShaderStageFlags.FragmentBit,
+                    PImmutableSamplers = dirSamplers },
+            // b2: spot shadow maps (sampler2DShadow, immutable)
             new() { Binding = 2, DescriptorType = DescriptorType.CombinedImageSampler,
-                    DescriptorCount = MaxShadowSpot, StageFlags = ShaderStageFlags.FragmentBit },
+                    DescriptorCount = MaxShadowSpot, StageFlags = ShaderStageFlags.FragmentBit,
+                    PImmutableSamplers = spotSamplers },
             // b3: point shadow cube maps (samplerCube)
             new() { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler,
                     DescriptorCount = MaxShadowPoint, StageFlags = ShaderStageFlags.FragmentBit },
@@ -796,17 +809,17 @@ public sealed unsafe class ShadowSystem : IDisposable
             var matBufInfo = new DescriptorBufferInfo
                 { Buffer = _matBuffers[img], Offset = 0, Range = ShadowMatricesUboSize };
 
-            // Dir shadow map image infos
+            // Dir/spot shadow map image infos — Sampler stays null: b1/b2 use immutable
+            // samplers from the layout, so only the image views are written.
             var dirInfos = stackalloc DescriptorImageInfo[MaxShadowDir];
             for (int i = 0; i < MaxShadowDir; i++)
                 dirInfos[i] = new DescriptorImageInfo
-                    { Sampler = _sampler2DShadow, ImageView = _dirMaps[i].View, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
+                    { ImageView = _dirMaps[i].View, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
 
-            // Spot shadow map image infos
             var spotInfos = stackalloc DescriptorImageInfo[MaxShadowSpot];
             for (int i = 0; i < MaxShadowSpot; i++)
                 spotInfos[i] = new DescriptorImageInfo
-                    { Sampler = _sampler2DShadow, ImageView = _spotMaps[i].View, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
+                    { ImageView = _spotMaps[i].View, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
 
             // Point shadow cube map image infos
             var ptInfos = stackalloc DescriptorImageInfo[MaxShadowPoint];
