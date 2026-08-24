@@ -29,7 +29,7 @@ public sealed class Game() : Engine(new EngineOptions
     private IKeyboard _keyboard = null!;
     private IMouse _mouse = null!;
 
-    private bool CanMoveCamera => _mouse.Cursor.CursorMode is CursorMode.Raw;
+    private bool CanMoveCamera => _mouse.IsButtonPressed(MouseButton.Right);
     private Vector2 _lastMousePosition;
     private float _cameraSpeed = 10;
 
