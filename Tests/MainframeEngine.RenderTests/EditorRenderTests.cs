@@ -37,6 +37,48 @@ public class EditorRenderTests
     }
 
     [Fact]
+    public void ProjectManagerMatchesGolden()
+    {
+        var result = HostRunner.RunEditor(Output("editor-project-manager"), null, "--smoke-golden", "project-manager", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
+    public void FileSystemPanelMatchesGolden()
+    {
+        // The template's content as a project in a fixed temp folder (no game code: nothing to build).
+        var project = Path.Combine(Path.GetTempPath(), "mainframe-golden", "FsGame");
+        if (Directory.Exists(project))
+            Directory.Delete(project, recursive: true);
+        CopyDirectory(Path.Combine(RenderTestEnvironment.RepositoryRoot, "Templates", "MainframeEngine.Templates", "content", "mfgame", "Content"),
+            Path.Combine(project, "Content"));
+        new ProjectSettings { Name = "FsGame", MainScene = "Content/Scenes/Main.mscene" }.Save(project);
+
+        var result = HostRunner.RunEditor(Output("editor-filesystem"), null, "--smoke-golden", "filesystem", "--project", project,
+            "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    private static void CopyDirectory(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var file in Directory.GetFiles(from))
+            File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+        foreach (var directory in Directory.GetDirectories(from))
+            CopyDirectory(directory, Path.Combine(to, Path.GetFileName(directory)));
+    }
+
+    [Fact]
     public void SplashScreenMatchesGolden()
     {
         var result = HostRunner.RunEditor(Output("editor-splash"), null, "--smoke-splash", "--hidden", "--size", "960x600");

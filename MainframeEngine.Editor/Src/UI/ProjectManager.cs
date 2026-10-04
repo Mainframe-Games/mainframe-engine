@@ -106,6 +106,16 @@ public sealed class ProjectManager : EditorDocument
         _model?.DirtyAll();
     }
 
+    /// <summary>Sets the SDK check's result directly (the golden capture: no machine-specific version).</summary>
+    public void SetSdk(DotnetSdkInfo info)
+    {
+        _sdkCheck = null;
+        Sdk = info ?? throw new ArgumentNullException(nameof(info));
+        _sdkOk = info.IsSupported;
+        _sdkText = info.IsSupported ? $".NET SDK {info.BestVersion} — ready to create, build and play projects." : info.Error ?? "";
+        _model?.DirtyAll();
+    }
+
     /// <summary>Re-reads the recent list through the filter.</summary>
     public void Rebuild()
     {

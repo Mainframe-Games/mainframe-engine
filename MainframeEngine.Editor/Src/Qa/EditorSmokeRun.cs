@@ -63,6 +63,14 @@ public sealed class EditorSmokeRun : IEditorAutomation
     /// <summary><c>--smoke-splash</c>: only show the splash screen with a fixed status and capture it (its golden).</summary>
     public bool SplashOnly { get; init; }
 
+    /// <summary>
+    /// <c>--smoke-golden project-manager|filesystem</c>: capture the Project Manager (fixed recent projects in the temp
+    /// folder, a fixed SDK line) or the FileSystem panel of the project given with <c>--project</c>, for their goldens.
+    /// </summary>
+    public string? Golden { get; init; }
+
+    private string CaptureName => Golden is { } golden ? "editor-" + golden : SplashOnly ? "editor-splash" : "editor";
+
     public string OutputDirectory { get; }
     public string? ScenePath { get; }
 
@@ -89,6 +97,22 @@ public sealed class EditorSmokeRun : IEditorAutomation
         if (SplashOnly)
         {
             RunSplash(app);
+            return;
+        }
+
+        if (Golden is not null)
+        {
+            try
+            {
+                RunGolden(app);
+            }
+            catch (Exception e) when (EditorCommands.IsRecoverable(e))
+            {
+                Fail($"{Golden}: {e}");
+                Next(Step.Done);
+                app.Quit(ExitCode.Error);
+            }
+
             return;
         }
 
@@ -229,6 +253,56 @@ public sealed class EditorSmokeRun : IEditorAutomation
         }
     }
 
+    // The goldens of E4's surfaces: deterministic content, one capture, then quit.
+    private void RunGolden(EditorApp app)
+    {
+        if (app.Workspace is not { } workspace)
+            return;
+        switch (Golden, _frame)
+        {
+            case ("project-manager", 3):
+                {
+                    // Recent projects in a fixed temp folder: one present, one gone (its row is flagged missing).
+                    var root = Path.Combine(Path.GetTempPath(), "mainframe-golden");
+                    foreach (var (name, present) in new[] { ("PuzzleBox", false), ("SpaceGame", true) })
+                    {
+                        var folder = Path.Combine(root, name);
+                        if (present)
+                            new ProjectSettings { Name = name }.Save(Directory.CreateDirectory(folder).FullName);
+                        else if (Directory.Exists(folder))
+                            Directory.Delete(folder, recursive: true);
+                        workspace.RecentProjects.Touch(folder, name);
+                    }
+
+                    workspace.ProjectManager.Open();
+                    workspace.ProjectManager.SetSdk(new DotnetSdkInfo("dotnet", ["10.0.100"], "10.0.100", true, null));
+                    break;
+                }
+
+            case ("filesystem", 3):
+                {
+                    var fs = workspace.FileSystem;
+                    if (fs.Files is null)
+                    {
+                        Fail("No project is open (pass --project).");
+                        break;
+                    }
+
+                    fs.Select(Path.Combine(fs.Files.ProjectRoot, "Content", "Scenes", "Main.mscene"));
+                    break;
+                }
+
+            case (_, 40):
+                _captureFrame = _frame;
+                app.CaptureFrame();
+                break;
+            case (_, 44):
+                Next(Step.Done);
+                app.Quit(ExitCode.Ok);
+                break;
+        }
+    }
+
     private static Node3D? FindMesh(EditedScene scene, Node node)
     {
         if (node is MeshInstance3D { Mesh: not null } mesh && scene.IsEditable(node) && mesh.IsVisibleInTree())
@@ -339,7 +413,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
     public void OnFrameCaptured(EditorApp app, FrameCapture capture)
     {
         ArgumentNullException.ThrowIfNull(capture);
-        var path = Path.Combine(OutputDirectory, $"{(SplashOnly ? "editor-splash" : "editor")}_frame{_captureFrame:D4}.png");
+        var path = Path.Combine(OutputDirectory, $"{CaptureName}_frame{_captureFrame:D4}.png");
         capture.SavePng(path);
         _captures.Add(new { Frame = _captureFrame, Path = path, capture.Width, capture.Height });
     }
@@ -367,7 +441,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         var times = _frameTimes.Order().ToArray();
         var result = new
         {
-            Scene = SplashOnly ? "editor-splash" : "editor",
+            Scene = CaptureName,
             DeviceName = _device.Name,
             Driver = _device.Driver,
             PlatformTag = _device.Tag,

@@ -8,13 +8,14 @@ public static class EditorCommandLine
 {
     public const string Usage =
         "Usage: MainframeEngine.Editor [scene.mscene | project folder | project.mfproj] [--project <folder>] [--project-manager] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
-        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--no-validation]]";
+        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem] [--no-validation]]";
 
     public static EditorAppOptions Parse(IReadOnlyList<string> args)
     {
         ArgumentNullException.ThrowIfNull(args);
         string? scene = null, project = null, layout = EditorLayout.DefaultPath, qaScript = null, qaOut = null, smoke = null, smokeScene = null;
         var projectManager = false;
+        string? golden = null;
         Vector2D<int>? size = null;
         var scale = 0f;
         var hidden = false;
@@ -70,6 +71,14 @@ public static class EditorCommandLine
                 case "--smoke-scene":
                     smokeScene = Next();
                     break;
+                case "--smoke-golden":
+                    golden = Next() switch
+                    {
+                        "project-manager" => "project-manager",
+                        "filesystem" => "filesystem",
+                        var other => throw new ArgumentException($"Unknown --smoke-golden '{other}' (project-manager, filesystem)."),
+                    };
+                    break;
                 case "--smoke-splash":
                     splashOnly = true;
                     break;
@@ -97,10 +106,20 @@ public static class EditorCommandLine
             var smokeRun = new EditorSmokeRun(Path.GetFullPath(smoke), smokeScene is null ? scene : Path.GetFullPath(smokeScene), captureFrame)
             {
                 SplashOnly = splashOnly,
+                Golden = golden,
             };
             return new EditorAppOptions
             {
-                Workspace = new EditorWorkspaceOptions { LayoutPath = null, InitialScene = smokeRun.ScenePath, ShowSplash = false, OutputTimestamps = false, ShowFrameStats = false },
+                Workspace = new EditorWorkspaceOptions
+                {
+                    LayoutPath = null,
+                    InitialScene = golden is null ? smokeRun.ScenePath : null,
+                    InitialProject = golden == "filesystem" ? project : null,
+                    ShowProjectManager = golden == "project-manager",
+                    ShowSplash = false,
+                    OutputTimestamps = false,
+                    ShowFrameStats = false,
+                },
                 WindowSize = size ?? new Vector2D<int>(1280, 720),
                 ContentScale = scale,
                 Hidden = hidden,
