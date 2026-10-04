@@ -1,0 +1,7 @@
+/* GNU ld version script: only the ENet API is exported from libenet.so. */
+{
+  global:
+    enet_*;
+  local:
+    *;
+};

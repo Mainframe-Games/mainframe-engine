@@ -1,3 +1,6 @@
 [submodule "Plugins/Spine"]
 	path = Plugins/Spine
 	url = https://github.com/Mainframe-Games/spine-csharp.git
+[submodule "Native/ENet/upstream"]
+	path = Native/ENet/upstream
+	url = https://github.com/nxrighthere/ENet-CSharp.git
