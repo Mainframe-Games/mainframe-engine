@@ -4,8 +4,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Current wave:** W1 (setup)
-- **Next action:** push `feature/m0-m10`, watch CI (first lavapipe run records goldens — see Step 1 entry); W1 lanes A (M0 SDL → M1) and C (M5 scaffold fixes, ENet natives CI) rebase onto Step 1
+- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M5-scaffold,natives,ci-fix. Running: `lane/m3b`, `lane/m5-repl` (fixing review), `lane/m6`, `lane/m7` (fixing review), `lane/m8`, `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
+- **Next action:** integrate finished lanes (rebase onto feature, run gates); then M4 (after m3b), M9 (after m8), M10 (after all); publish.yml; distribution-nuget.md; final QA.
 - **Open blockers:** none
 
 ## Log
@@ -83,3 +83,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Gates after integration: unit 344, render 14, 0 validation, 0 B/frame, 121 fps.
 - Left for m3b: ShapeBase/Box3d/Quad raw buffers + own sets → Material/Mesh/MeshInstance3D; state-hash pipeline cache; AssetDatabase via ContentPaths; Assimp import; object-ID target.
 - Free ADR numbers: 0008, 0009, 0013–0019 (m6 0020s, m7 0030s, m5-repl 0040s).
+
+### 2026-10-05 — CI fix lane (integrated)
+- Root cause Linux SDL: Silk 2.22 DefaultPathResolver uses distro RID `ubuntu.24.04-x64`, no fallback → never probes runtimes/linux-x64/native. Fix `SilkNativeResolver` (Engine ctor; call `Install()` before any Silk native use without an Engine). Scene/resource JSON forced LF. `workflow_dispatch` on ci.yml (run CI on any branch: `gh workflow run ci.yml --ref <branch>`).
+- CI run 37218611763 (8d7996f): all jobs green except lavapipe goldens (pre-HDR) → sky-fix lane found MoltenVK renders sky-below-horizon near-black vs lavapipe grey → investigating before recording goldens.
+- Weekly usage 23% at this point.
