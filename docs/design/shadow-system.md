@@ -33,9 +33,11 @@ attachment. External dependency `FragmentShader/ShaderRead` → `EarlyFragmentTe
 
 ### Depth format
 
-`ChooseDepthFormat` picks the first of `D32Sfloat`, `D32SfloatS8Uint`, `D24UnormS8Uint`, `D16Unorm`
-whose optimal-tiling features include **`DepthStencilAttachment | SampledImage`**, preferring one with
-**`SampledImageFilterLinear`** (needed for the linear comparison sampler's 2×2 hardware PCF). Without
+`ChooseDepthFormat` picks the first of `D32Sfloat`, `D16Unorm`, `D32SfloatS8Uint`, `D24UnormS8Uint`
+(depth-only first: no stencil is used) whose optimal-tiling features include
+**`DepthStencilAttachment | SampledImage`**, preferring one with **`SampledImageFilterLinear`** (needed
+for the linear comparison sampler's 2×2 hardware PCF). If a combined depth/stencil format is chosen,
+layout barriers name both aspects (`VkHelpers.DepthBarrierAspects`); views keep the depth aspect. Without
 linear filtering it falls back to a nearest comparison sampler and logs a warning; with no samplable
 depth format it throws.
 
@@ -73,7 +75,8 @@ test (directional + spot + point) checks the ring contents after recording and c
 | `_pipe2D_S32`, `_pipe2D_S12` | `Shadow2DLayout` (set 0 = light VP, dynamic UBO) | 64 B `mat4 model` (vertex) | `Shadow2D.vk.*` |
 | `_pipePoint_S32`, `_pipePoint_S12` | `ShadowPointLayout` (set 0 = light VP, dynamic UBO) | 80 B `mat4 model + vec4 lightPosRange` (vertex + fragment) | `ShadowPoint.vk.*` |
 
-`S12`/`S32` is the vertex stride: Spine and `Quad` use 12 (positions only for Spine), `Box3d` uses 32.
+`S12`/`S32` is the vertex stride: Spine uses 12 (positions only), `Box3d` and `Quad` use 32
+(pos3 · uv2 · normal3).
 Only location 0 (`vec3`) is read. Use the accessors `GetShadow2DPipeline(stride)` and
 `GetShadowPointPipeline(stride)`.
 

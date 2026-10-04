@@ -16,6 +16,7 @@ public sealed class MultiLightScene(HostOptions host) : LitShapesScene(host)
     private DirectionalLight _dir = null!;
     private SpotLight _spot = null!;
     private PointLight _point = null!;
+    private bool _checked;
 
     protected override void AddLights(LightEnvironment lights)
     {
@@ -55,7 +56,18 @@ public sealed class MultiLightScene(HostOptions host) : LitShapesScene(host)
     {
         base.OnShadowPass(gameTime);
         if (gameTime.FrameCount == CheckFrame && Shadows is { } shadows)
+        {
             CheckPassMatrices(shadows);
+            _checked = true;
+        }
+    }
+
+    protected override void DisposeScene()
+    {
+        // A self-check that never ran must not read as a pass (e.g. the frame was skipped).
+        if (!_checked)
+            Fail($"the light-VP ring self-check did not run (no shadow pass on frame {CheckFrame})");
+        base.DisposeScene();
     }
 
     // After recording, every pass's ring slot must hold the matrix for that pass (not the last one written).

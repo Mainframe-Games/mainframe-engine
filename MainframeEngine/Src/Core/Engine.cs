@@ -58,6 +58,7 @@ public abstract class Engine : IDisposable
 
     private ExitCode _exitCode;
     private bool _waitingForRestore; // IsEventDriven was switched on while minimised
+    private bool _quitRequested;      // Quit() called; the window closes after this iteration's render
     private GameTime _gameTime;
     private readonly FPSCounter _fps = new();
     private int _renderedFrames;
@@ -195,6 +196,16 @@ public abstract class Engine : IDisposable
 
     private void OnRender(double delta)
     {
+        RenderFrame();
+
+        // Close only between frames: SDL raises Closing synchronously inside Close(), and OnClose
+        // disposes the renderer — never while a frame is being recorded or an update is running.
+        if (_quitRequested || (EngineOptions.MaxFrames > 0 && _renderedFrames >= EngineOptions.MaxFrames))
+            Window.Close();
+    }
+
+    private void RenderFrame()
+    {
         // Minimised (or no drawable area): render nothing and block on window events instead of
         // spinning the loop; the frame's ImGui NewFrame is closed so frames stay paired.
         if (IsMinimised())
@@ -244,9 +255,6 @@ public abstract class Engine : IDisposable
 
         if (Renderer.TryTakeCapture(out var capture))
             OnFrameCaptured(capture);
-
-        if (EngineOptions.MaxFrames > 0 && _renderedFrames >= EngineOptions.MaxFrames)
-            Window.Close();
     }
 
     /// <summary>
@@ -296,10 +304,15 @@ public abstract class Engine : IDisposable
         return _exitCode;
     }
 
+    /// <summary>
+    /// Requests shutdown with <paramref name="exitCode"/> (returned by <see cref="Run"/>). The window
+    /// closes at the end of the current iteration's render, so it is safe to call from
+    /// <see cref="OnUpdate(in GameTime)"/>, <see cref="OnImGui"/> or input handlers.
+    /// </summary>
     public void Quit(in ExitCode exitCode)
     {
         _exitCode = exitCode;
-        Window.Close();
+        _quitRequested = true;
     }
 
     public void Dispose()

@@ -56,8 +56,8 @@ classDiagram
 | `LookAt(target)` | sets `Forward` and recomputes yaw/pitch |
 
 `AspectRatio` is not updated automatically. The game must set it every frame; the Sandbox does this in
-`OnRenderMainPass` from `Engine.FramebufferSize` (pixels; see
-[Build & platforms](build-and-platforms.md#windowing-sdl2)).
+`OnRenderMainPass` from `IVulkanContext.SwapchainExtent` (pixels — the image being rendered; see
+[Build & platforms](build-and-platforms.md#windowing-sdl2) for points vs pixels).
 
 ## `Camera2D`
 

@@ -118,14 +118,14 @@ flowchart LR
 |---|---|
 | Set 0 layout | binding 0 UBO `VpUbo { View, Projection }` (128 B), vertex stage |
 | Set 1 layout | binding 0 UBO lights (1200 B), fragment stage — see [Lighting](lighting.md#lights-ubo) |
-| Set 2 | `ShadowSystem.MainDescSetLayout` (only if a shadow system exists) |
-| UBOs | one VP + one lights buffer **per swapchain image**, host-coherent, persistently mapped |
+| Set 2 | `ShadowSystem.MainDescSetLayout`, or the renderer's "no shadows" fallback with the same layout when there is no shadow system |
+| UBOs | one VP + one lights buffer **per frame slot** (`IVulkanContext.MaxFramesInFlight`), host-coherent, persistently mapped |
 | Push constant | 80 B `{ mat4 Model; vec4 Color }`, vertex + fragment |
 | Pipeline | triangle list, CCW front, depth test+write `Less`, no blend, dynamic viewport/scissor, main render pass |
 | Shaders | `Content/Shaders/Shapes/Shapes.vk.{vert,frag}.spv` |
 
-`Draw()` writes the VP and lights UBOs for `CurrentImageIndex`, sets a Y-flipped viewport, binds the
-pipeline and sets, pushes `{Model, Color}`, and calls `DrawGeometry(cb)`.
+`Draw()` writes the VP and lights UBOs for `FrameSlot`, sets a Y-flipped viewport, binds the
+pipeline and sets 0–2, pushes `{Model, Color}`, and calls `DrawGeometry(cb)`.
 
 | Shape | Geometry | Cull | Shadow pipelines |
 |---|---|---|---|
@@ -139,8 +139,8 @@ Vertex and index buffers are device-local and uploaded through a staging buffer 
 
 - `Node.Initialize` before any `ShapeBase`/`SpineNode` construction.
 - Shapes must be drawn inside the main render pass, and shadow methods inside `RenderShadows` callbacks.
-- If the shadow system is null, `Shapes.vk.frag` still declares set 2. Always create a `ShadowSystem`
-  when using shapes.
+- A `ShadowSystem` is optional: without one, shapes bind the renderer's fallback as set 2 (everything
+  lit), so `Shapes.vk.frag`'s set 2 always matches the pipeline layout.
 
 ## Known issues
 
@@ -148,8 +148,6 @@ Vertex and index buffers are device-local and uploaded through a staging buffer 
 - **No hierarchical transforms or engine-owned traversal.**
 - **Static service locator** (`TODO` at [Node.cs:17](../../MainframeEngine/Src/Nodes/Node.cs)); the Sandbox asks to move `Node.Initialize` into `Engine` (`TODO` at `Game.cs:59`).
 - **Per-instance pipelines:** N shapes create N identical pipelines, descriptor pools and UBO sets.
-- **Pipeline layout vs. shader mismatch without a `ShadowSystem`** *(inferred)*.
-- **Per-image arrays are sized once** at construction and go stale if the swapchain image count changes.
 - `Box3d`/`Quad.Dispose` free buffers before `ShapeBase.Dispose` calls `DeviceWaitIdle`.
 - UVs are uploaded but unused; there is no material or texture support (flat `Color` only).
 - Exception messages still say `"LitShape"` ([ShapeBase.cs:85](../../MainframeEngine/Src/Nodes/Shapes/ShapeBase.cs) and others), and `Draw` has a "sealed" comment but is not sealed.

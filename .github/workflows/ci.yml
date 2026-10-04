@@ -121,6 +121,8 @@ jobs:
       # Lavapipe (Mesa's CPU Vulkan driver) only: deterministic output for the 'lavapipe' goldens.
       VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.json
       VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
+      # SDL2 picks its video driver at runtime; Xvfb is X11 (no Wayland compositor on the runner).
+      SDL_VIDEODRIVER: x11
       RENDER_TEST_ARTIFACTS: ${{ github.workspace }}/artifacts/render-tests
     steps:
       - uses: actions/checkout@v4

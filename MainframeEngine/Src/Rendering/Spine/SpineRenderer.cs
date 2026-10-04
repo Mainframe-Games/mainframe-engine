@@ -103,7 +103,7 @@ internal sealed class SpineRenderer : IDisposable
         _skeleton = skeleton;
         _pma = pma;
         _shadowSystem = shadowSystem;
-        _worldVerticesPositions = new float[initialVertexCapacity];
+        _worldVerticesPositions = new float[Math.Max(8, initialVertexCapacity)]; // a region needs 8 floats
         _vertices = new Vertex[initialVertexCapacity];
         _shadowPositions = new Vector3[initialVertexCapacity];
 
@@ -542,6 +542,7 @@ internal sealed class SpineRenderer : IDisposable
         ctx.Vk.CreateDescriptorSetLayout(ctx.Device, in texBindingLayoutInfo, null, out _vkTexLayout);
 
         // --- Descriptor pool ---
+        // A pool size with DescriptorCount 0 is invalid: list the sampler size only with textures.
         var poolSizes = stackalloc DescriptorPoolSize[]
         {
             new() { Type = DescriptorType.UniformBuffer,        DescriptorCount = (uint)(imageCount * 2) }, // VP + Lights
@@ -550,7 +551,7 @@ internal sealed class SpineRenderer : IDisposable
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
-            PoolSizeCount = 2,
+            PoolSizeCount = texCount > 0 ? 2u : 1u,
             PPoolSizes = poolSizes,
             MaxSets = (uint)(imageCount * 2 + texCount),
         };

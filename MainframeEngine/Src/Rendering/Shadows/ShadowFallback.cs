@@ -97,14 +97,14 @@ internal sealed unsafe class ShadowFallback : IShadowDescriptors, IDisposable
     private void ClearToFarDepth(CommandBuffer cb, Image image, uint layers)
     {
         var vk = _ctx.Vk;
-        VkHelpers.DepthBarrier(vk, cb, image, layers, ImageLayout.Undefined, ImageLayout.TransferDstOptimal,
+        VkHelpers.DepthBarrier(vk, cb, image, _format, layers, ImageLayout.Undefined, ImageLayout.TransferDstOptimal,
             AccessFlags.None, AccessFlags.TransferWriteBit, PipelineStageFlags.TopOfPipeBit, PipelineStageFlags.TransferBit);
 
         var clear = new ClearDepthStencilValue { Depth = 1f };
         var range = new ImageSubresourceRange { AspectMask = ImageAspectFlags.DepthBit, LevelCount = 1, LayerCount = layers };
         vk.CmdClearDepthStencilImage(cb, image, ImageLayout.TransferDstOptimal, &clear, 1, &range);
 
-        VkHelpers.DepthBarrier(vk, cb, image, layers, ImageLayout.TransferDstOptimal, ImageLayout.DepthStencilReadOnlyOptimal,
+        VkHelpers.DepthBarrier(vk, cb, image, _format, layers, ImageLayout.TransferDstOptimal, ImageLayout.DepthStencilReadOnlyOptimal,
             AccessFlags.TransferWriteBit, AccessFlags.ShaderReadBit, PipelineStageFlags.TransferBit, PipelineStageFlags.FragmentShaderBit);
     }
 

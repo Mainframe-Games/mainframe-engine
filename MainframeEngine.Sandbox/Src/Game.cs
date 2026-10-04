@@ -215,8 +215,9 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         Renderer.Clear();
 
         // render core stuff
-        var frameBufferSize = new Vector2(FramebufferSize.X, Math.Max(1, FramebufferSize.Y));
-        _camera3D.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
+        // Aspect of the image being rendered: the swapchain extent (pixels).
+        if (Renderer is IVulkanContext vk)
+            _camera3D.AspectRatio = (float)vk.SwapchainExtent.Width / Math.Max(1u, vk.SwapchainExtent.Height);
         _sky.Draw(_camera3D); // must be drawn first — renders behind all geometry
         _sceneGrid3d.Draw(_camera3D);
 
@@ -232,7 +233,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
     protected override void OnClose()
     {
-        _qaWakeTimer?.Dispose();
+        StopQaWakeTimer();
         _shadowSystem.Dispose();
         _sky.Dispose();
         _sceneGrid3d.Dispose();
@@ -289,6 +290,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             _qaMinimizedAt = System.Diagnostics.Stopwatch.GetTimestamp();
             _qaRenderedAtMinimize = RenderedFrameCount;
             _qaUpdatesWhileMinimized = 0;
+            QaCapture.WakeEnabled = true;
             _qaWakeTimer = new Timer(static _ => QaCapture.WakeEventLoop(), null, 100, 100);
             Log.Info("[QA] Minimised");
             return;
@@ -301,12 +303,25 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             {
                 Log.Info($"[QA] Restoring after 1.5 s minimised: {_qaUpdatesWhileMinimized} updates, " +
                          $"{RenderedFrameCount - _qaRenderedAtMinimize} frames rendered while minimised");
-                _qaWakeTimer?.Dispose();
-                _qaWakeTimer = null;
+                StopQaWakeTimer();
                 _qaMinimizedAt = 0;
                 Window.WindowState = WindowState.Normal;
             }
         }
+    }
+
+    // Stops the wake timer and waits for an in-flight callback, so no SDL call races SDL shutdown.
+    private void StopQaWakeTimer()
+    {
+        QaCapture.WakeEnabled = false;
+        if (_qaWakeTimer is null)
+            return;
+        using (var done = new ManualResetEvent(false))
+        {
+            if (_qaWakeTimer.Dispose(done))
+                done.WaitOne();
+        }
+        _qaWakeTimer = null;
     }
 
     private void UpdateCameraPosition(double deltaTime)
@@ -358,7 +373,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         }
 
         if (key == Key.Escape)
-            Window.Close();
+            Quit(ExitCode.Ok);
     }
 
     private void OnMouseMove(IMouse mouse, Vector2 position)

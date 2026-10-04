@@ -29,6 +29,11 @@ public static class HostRunner
             UseShellExecute = false,
             WorkingDirectory = AppContext.BaseDirectory,
         };
+        // Linux under Xvfb: make SDL use X11 unless the caller chose a driver (CI sets it too).
+        if (OperatingSystem.IsLinux() && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SDL_VIDEODRIVER")) &&
+            !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")))
+            psi.Environment["SDL_VIDEODRIVER"] = "x11";
+
         psi.ArgumentList.Add(hostDll);
         psi.ArgumentList.Add(scene);
         psi.ArgumentList.Add("--out");
@@ -54,7 +59,15 @@ public static class HostRunner
         File.WriteAllText(Path.Combine(outputDirectory, "host.log"), output.ToString());
         var resultPath = Path.Combine(outputDirectory, HostResult.FileName);
         if (process.ExitCode != expectedExitCode || !File.Exists(resultPath))
-            Assert.Fail($"Render host '{scene}' exited with {process.ExitCode} (expected {expectedExitCode}).\n{output}");
+        {
+            // > 128 on Unix is 128 + signal (134 = SIGABRT: a native abort, e.g. in the driver or SDL).
+            var signal = !OperatingSystem.IsWindows() && process.ExitCode > 128 ? $", signal {process.ExitCode - 128}" : "";
+            Assert.Fail($"Render host '{scene}' exited with {process.ExitCode}{signal} (expected {expectedExitCode}" +
+                        $"{(File.Exists(resultPath) ? "" : ", no result.json")}).\n" +
+                        $"Command: {psi.FileName} {string.Join(' ', psi.ArgumentList)}\n" +
+                        $"SDL_VIDEODRIVER={psi.Environment["SDL_VIDEODRIVER"]} DISPLAY={psi.Environment["DISPLAY"]}\n" +
+                        $"--- host stdout/stderr ---\n{output}");
+        }
 
         return JsonSerializer.Deserialize<HostResult>(File.ReadAllText(resultPath), HostResult.JsonOptions)
                ?? throw new InvalidDataException($"Empty result from render host '{scene}'.");

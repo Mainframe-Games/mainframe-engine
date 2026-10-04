@@ -33,11 +33,14 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 
 - Call `base.OnLoad()` **first** (it creates input, renderer and ImGui).
 - Call `base.OnClose()` **last** (it disposes ImGui, input and the renderer).
-- `Run()` blocks until the window closes and returns an `ExitCode`. `Quit(code)` closes the window;
-  `Run()` then returns that code (the base `OnClose` no longer resets it — covered by the
-  `QuitWithErrorReturnsErrorExitCode` render test).
-- `Engine.FramebufferSize` is the drawable size in **pixels** (use it for aspect ratios); `Window.Size`
-  is in points.
+- `Run()` blocks until the window closes and returns an `ExitCode`. `Quit(code)` records the code and
+  requests shutdown; the window closes at the end of that iteration's render (SDL raises `Closing`
+  synchronously inside `Close()`, and `OnClose` disposes the renderer, so closing mid-update would
+  dispose it under a running frame). `Run()` then returns the code — covered by the
+  `QuitWithErrorReturnsErrorExitCode` render test. `MaxFrames` closes the same way.
+- `Engine.FramebufferSize` is the drawable size in **pixels**; `Window.Size` is in points. For a
+  camera's aspect ratio inside `OnRenderMainPass`, use `IVulkanContext.SwapchainExtent` — the image
+  actually being rendered (it can lag the window by a frame during a resize).
 
 ## Startup
 

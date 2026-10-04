@@ -22,7 +22,7 @@ Scripted window/input steps (they log `[QA]` lines; combine freely):
 | Flag | Effect |
 |---|---|
 | `--qa-resize WxH@frame` | sets `Window.Size` (points) → swapchain recreation; later captures have the new size |
-| `--qa-minimize frame` | minimises, restores after 1.5 s (a timer pushes SDL events to wake the blocked loop) and logs the updates/frames that ran meanwhile |
+| `--qa-minimize frame` | minimises, restores after 1.5 s (a timer pushes SDL events to wake the blocked loop; it is stopped, waiting for in-flight callbacks, before SDL shuts down) and logs the updates/frames that ran meanwhile. Captures listed during the minimised period are taken after restore, one at a time, and keep their listed frame number in the file name. |
 | `--qa-input frame` | pushes a right-button drag into SDL's event queue for 22 frames and logs the camera forward before/after (SDL input → `IMouse` → fly camera) |
 
 Example: `dotnet run -c Release --project MainframeEngine.Sandbox -- --qa-capture artifacts/qa
@@ -56,7 +56,7 @@ flowchart TD
     subgraph F["Each frame"]
         F1["OnImGui: light gizmos, stats window, coord gizmo"] --> F2["OnUpdate: fly camera, node.OnUpdate, spin box"]
         F2 --> F3["OnShadowPass: RenderShadows(lights, nodes, static DrawShadow2D, static DrawShadowPoint)"]
-        F3 --> F4["OnRenderMainPass: aspect (Engine.FramebufferSize), sky → grid → nodes"]
+        F3 --> F4["OnRenderMainPass: aspect (SwapchainExtent), sky → grid → nodes"]
     end
     F --> C["OnClose: dispose shadows, sky, grid, nodes → base.OnClose()"]
     C --> X["Program logs exit code and returns it"]

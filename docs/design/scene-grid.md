@@ -20,11 +20,11 @@ opaque.
 | Resource | Detail |
 |---|---|
 | Vertex buffer | device-local, uploaded once via staging |
-| Set 0, binding 0 | VP UBO per swapchain image (vertex stage) |
+| Set 0, binding 0 | VP UBO per frame slot (vertex stage) |
 | Pipeline | `LineList`, width 1, no cull, alpha blend (`SrcAlpha/OneMinusSrcAlpha` for color, `One/Zero` for alpha), depth test + write `Less` |
-| Shaders | `SceneGrid.vk.vert` (applies the GL→VK depth remap), `SceneGrid.vk.frag` (linearizes depth with near 0.1 / far 1000 and fades color and alpha by `1 − linearDepth/far`) |
+| Shaders | `SceneGrid.vk.vert` (plain `projection · view · position`; no depth remap since M1), `SceneGrid.vk.frag` (linearizes depth with near 0.1 / far 1000 and fades color and alpha by `1 − linearDepth/far`) |
 
-`Draw(camera)` writes the VP UBO for the current image, sets a Y-flipped viewport, and issues
+`Draw(camera)` writes the VP UBO for the current frame slot, sets a Y-flipped viewport, and issues
 `CmdDraw(vertexCount)`. Draw it after the sky and before scene geometry.
 
 ## Known issues

@@ -73,8 +73,10 @@ One subpass. One external dependency: src `ColorAttachmentOutput | LateFragmentT
 `DepthStencilAttachmentWrite` → dst `ColorAttachmentOutput | EarlyFragmentTests`, access
 `ColorAttachmentWrite | DepthStencilAttachmentWrite`. The depth image is shared by both frames in
 flight, so this frame's depth clear waits for the previous frame's depth writes (write-after-write);
-the colour attachment waits on the acquire semaphore at `ColorAttachmentOutput`. Clear values are the
-`SetClearColor` color and depth 1.0.
+the colour attachment waits on the acquire semaphore at `ColorAttachmentOutput`. A second, outgoing
+dependency (subpass 0 → external: `ColorAttachmentOutput/ColorAttachmentWrite` → `Transfer/TransferRead`)
+orders the colour writes and the final `PresentSrc` layout transition before the frame-capture copy,
+whose barrier starts at `Transfer`. Clear values are the `SetClearColor` color and depth 1.0.
 
 ## Frame synchronization
 
@@ -117,8 +119,9 @@ Triggered by OutOfDate/Suboptimal, `OnResize`, or setting `VSync` (present mode)
 2. `DeviceWaitIdle`.
 3. Destroy depth, framebuffers and image views; create the new swapchain with **`OldSwapchain`** = the
    current one, then destroy the old one.
-4. If the surface format changed, rebuild the render pass (pipelines built against the old pass must be
-   recreated by their owners; a warning is logged — this does not happen on the supported platforms).
+4. If the surface format changed, throw `VulkanException`: every pipeline is built against the main
+   render pass, so continuing would record with incompatible pipelines. `ChooseSurfaceFormat` is
+   deterministic per surface, so this does not happen on the supported platforms.
 5. Recreate image views, depth and framebuffers. If the **image count changed**, recreate
    `renderFinished[]`.
 
@@ -140,7 +143,7 @@ disposes the renderer.
 - Every upload in the engine is a one-time submit followed by `QueueWaitIdle` (load time only; M3 adds
   an upload queue).
 - `EndFrame` ends the render pass without checking that one was begun (the engine always begins it).
-- A surface-format change on recreation rebuilds the render pass but not other subsystems' pipelines.
+- A surface-format change on recreation is fatal (no pipeline-recreation callbacks yet).
 
 ## Related docs
 

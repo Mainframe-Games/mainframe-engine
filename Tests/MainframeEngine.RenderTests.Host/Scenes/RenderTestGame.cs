@@ -36,12 +36,13 @@ public abstract class RenderTestGame : Engine
 
     protected IVulkanContext Vulkan => (IVulkanContext)Renderer;
 
+    /// <summary>Aspect of the image actually being rendered (the swapchain extent, in pixels).</summary>
     protected float AspectRatio
     {
         get
         {
-            var size = FramebufferSize;
-            return (float)size.X / Math.Max(1, size.Y);
+            var extent = Vulkan.SwapchainExtent;
+            return (float)extent.Width / Math.Max(1u, extent.Height);
         }
     }
 

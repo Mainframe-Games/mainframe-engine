@@ -324,10 +324,12 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         var image = _swapChainImages![imageIndex];
         var range = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, 1);
 
+        // Chained to the render pass's outgoing dependency (dst = TRANSFER / TRANSFER_READ), which
+        // already made the colour writes and the final layout transition available and visible.
         var toTransfer = new ImageMemoryBarrier
         {
             SType               = StructureType.ImageMemoryBarrier,
-            SrcAccessMask       = AccessFlags.ColorAttachmentWriteBit,
+            SrcAccessMask       = AccessFlags.None,
             DstAccessMask       = AccessFlags.TransferReadBit,
             OldLayout           = ImageLayout.PresentSrcKhr,
             NewLayout           = ImageLayout.TransferSrcOptimal,
@@ -336,7 +338,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             Image               = image,
             SubresourceRange    = range,
         };
-        _vk!.CmdPipelineBarrier(cb, PipelineStageFlags.ColorAttachmentOutputBit, PipelineStageFlags.TransferBit,
+        _vk!.CmdPipelineBarrier(cb, PipelineStageFlags.TransferBit, PipelineStageFlags.TransferBit,
             0, 0, null, 0, null, 1, &toTransfer);
 
         var region = new BufferImageCopy
@@ -940,7 +942,22 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             DstAccessMask = AccessFlags.ColorAttachmentWriteBit | AccessFlags.DepthStencilAttachmentWriteBit,
         };
 
+        // Outgoing: the colour writes and the final PRESENT_SRC layout transition happen-before the
+        // transfer stage, so a frame-capture copy recorded after the pass (RecordCapture, whose
+        // barrier starts at TRANSFER) is chained to them. Presentation itself waits on the
+        // render-finished semaphore, which covers all commands.
+        var outgoing = new SubpassDependency
+        {
+            SrcSubpass    = 0,
+            DstSubpass    = Vk.SubpassExternal,
+            SrcStageMask  = PipelineStageFlags.ColorAttachmentOutputBit,
+            SrcAccessMask = AccessFlags.ColorAttachmentWriteBit,
+            DstStageMask  = PipelineStageFlags.TransferBit,
+            DstAccessMask = AccessFlags.TransferReadBit,
+        };
+
         var attachments = stackalloc AttachmentDescription[] { colorAttachment, depthAttachment };
+        var dependencies = stackalloc SubpassDependency[] { dependency, outgoing };
         var renderPassInfo = new RenderPassCreateInfo
         {
             SType           = StructureType.RenderPassCreateInfo,
@@ -948,8 +965,8 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             PAttachments    = attachments,
             SubpassCount    = 1,
             PSubpasses      = &subpass,
-            DependencyCount = 1,
-            PDependencies   = &dependency,
+            DependencyCount = 2,
+            PDependencies   = dependencies,
         };
 
         if (_vk!.CreateRenderPass(_device, in renderPassInfo, null, out _renderPass) != Result.Success)
@@ -1189,13 +1206,15 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         CreateSwapchain(oldSwapchain);
         _khrSwapChain!.DestroySwapchain(_device, oldSwapchain, null);
 
-        // A different surface format makes the render pass (and pipelines built against it)
-        // incompatible. Rebuild the pass; pipelines must be recreated by their owners.
+        // Every pipeline in the engine is built against the main render pass, whose colour format
+        // is the swapchain's. ChooseSurfaceFormat is deterministic for a surface, so this does not
+        // happen on supported platforms; if it does, fail loudly rather than record with
+        // incompatible pipelines (rebuilding them would need a recreation callback per owner).
         if (_swapChainImageFormat != oldFormat)
         {
-            Log.Warning($"[Vulkan] Swapchain format changed {oldFormat} → {_swapChainImageFormat}; rebuilding the render pass.");
-            _vk.DestroyRenderPass(_device, _renderPass, null);
-            CreateRenderPass();
+            throw new VulkanException(
+                $"[Vulkan] Swapchain format changed on recreation ({oldFormat} → {_swapChainImageFormat}); " +
+                "pipelines built against the main render pass would be incompatible.");
         }
 
         CreateImageViews();

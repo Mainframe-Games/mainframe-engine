@@ -65,10 +65,6 @@ writers byte for byte. See [Lighting](lighting.md#lights-ubo), [Sky](sky.md#skyu
 
 ## Known issues
 
-- **Double depth remap:** `Shapes.vk.vert:26`, `SpineLit.vk.vert:25` and `SceneGrid.vk.vert:15` apply
-  `z = z·0.5 + w·0.5` on top of System.Numerics projections that already output [0,1]. See
-  [Coordinate conventions](coordinate-conventions.md#depth).
-- Dynamic indexing of sampler arrays without enabling `shaderSampledImageArrayDynamicIndexing`.
 - No build-time compilation: `.spv` files can drift from their source.
 - Unused and legacy files add noise: 8 GL files, plus `Quad.vk.*` and `Spine.vk.*`.
 

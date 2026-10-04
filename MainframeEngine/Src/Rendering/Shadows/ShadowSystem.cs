@@ -79,7 +79,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private RenderPass _shadowRenderPass;
 
     // Shadow pipelines — one per vertex stride per shadow type
-    // Shapes with stride 32 (Box3d) and stride 12 (Quad, Spine) are supported.
+    // Stride 32 (Box3d and Quad: pos + uv + normal) and stride 12 (Spine: positions only).
     private Pipeline       _pipe2D_S32,   _pipe2D_S12;
     private Pipeline       _pipePoint_S32, _pipePoint_S12;
     private PipelineLayout _layout2D;      // push: mat4 model; set0: light VP (dynamic UBO)
@@ -348,22 +348,24 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             : PipelineStageFlags.FragmentShaderBit;
 
         for (int i = 0; i < numDir; i++)
-            VkHelpers.DepthBarrier(vk, cb, _dirMaps[i].Image, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
+            VkHelpers.DepthBarrier(vk, cb, _dirMaps[i].Image, _depthFormat, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
         for (int i = 0; i < numSpot; i++)
-            VkHelpers.DepthBarrier(vk, cb, _spotMaps[i].Image, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
+            VkHelpers.DepthBarrier(vk, cb, _spotMaps[i].Image, _depthFormat, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
         for (int i = 0; i < numPoint; i++)
-            VkHelpers.DepthBarrier(vk, cb, _ptMaps[i].Image, 6, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
+            VkHelpers.DepthBarrier(vk, cb, _ptMaps[i].Image, _depthFormat, 6, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
     }
 
     // ── Shared with ShadowFallback ────────────────────────────────────────────
 
     /// <summary>
     /// Depth format for shadow maps: must support depth attachment + sampling; linear filtering
-    /// (hardware 2×2 PCF through the comparison sampler) is preferred but optional.
+    /// (hardware 2×2 PCF through the comparison sampler) is preferred but optional. Depth-only formats
+    /// come first (no stencil is used); combined formats are a last resort and their barriers name both
+    /// aspects (<see cref="VkHelpers.DepthBarrierAspects"/>).
     /// </summary>
     internal static (Format Format, bool LinearFilter) ChooseDepthFormat(IVulkanContext ctx)
     {
-        ReadOnlySpan<Format> candidates = [Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint, Format.D16Unorm];
+        ReadOnlySpan<Format> candidates = [Format.D32Sfloat, Format.D16Unorm, Format.D32SfloatS8Uint, Format.D24UnormS8Uint];
         const FormatFeatureFlags required = FormatFeatureFlags.DepthStencilAttachmentBit | FormatFeatureFlags.SampledImageBit;
 
         Format? fallback = null;
@@ -892,7 +894,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         VkHelpers.SubmitAndWait(_ctx, this, static (self, cb) =>
         {
             var vk = self._ctx.Vk;
-            void Transition(Image img, uint layers) => VkHelpers.DepthBarrier(vk, cb, img, layers,
+            void Transition(Image img, uint layers) => VkHelpers.DepthBarrier(vk, cb, img, self._depthFormat, layers,
                 ImageLayout.Undefined, ImageLayout.DepthStencilReadOnlyOptimal,
                 AccessFlags.None, AccessFlags.ShaderReadBit, PipelineStageFlags.TopOfPipeBit, PipelineStageFlags.FragmentShaderBit);
 

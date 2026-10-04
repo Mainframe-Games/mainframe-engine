@@ -69,14 +69,27 @@ public sealed class QaCapture
     /// </summary>
     public static unsafe void WakeEventLoop()
     {
+        if (!WakeEnabled)
+            return;
         var ev = new Event { Type = (uint)EventType.Userevent };
         SdlProvider.SDL.Value.PushEvent(&ev);
     }
 
+    /// <summary>Gate for <see cref="WakeEventLoop"/>; cleared before the timer is disposed and SDL shuts down.</summary>
+    public static bool WakeEnabled
+    {
+        get => Volatile.Read(ref _wakeEnabled);
+        set => Volatile.Write(ref _wakeEnabled, value);
+    }
+
+    private static bool _wakeEnabled;
+
     public static IReadOnlyList<uint> DefaultFrames { get; } = [30, 90, 180];
 
     private readonly uint[] _frames;
+    private readonly Queue<uint> _due = new();
     private uint _pendingFrame;
+    private bool _awaitingCapture;
 
     private QaCapture(string outputDirectory, uint[] frames)
     {
@@ -163,13 +176,22 @@ public sealed class QaCapture
         MaxFrames = (int)Math.Max(_frames[^1], Math.Max(ResizeFrame, Math.Max(MinimizeFrame, InputFrame + InputFrames))) + 1,
     };
 
-    /// <summary>True when <paramref name="frameCount"/> should be captured; remembers it for <see cref="Save"/>.</summary>
+    /// <summary>
+    /// True when a capture should be requested now; remembers which listed frame it is for
+    /// <see cref="Save"/>. One capture is outstanding at a time: a listed frame that comes up while the
+    /// previous capture has not been delivered (e.g. updates while minimised render nothing) is
+    /// requested after it, still named by its listed frame number.
+    /// </summary>
     public bool ShouldCapture(uint frameCount)
     {
-        if (Array.BinarySearch(_frames, frameCount) < 0)
+        if (Array.BinarySearch(_frames, frameCount) >= 0)
+            _due.Enqueue(frameCount);
+
+        if (_awaitingCapture || _due.Count == 0)
             return false;
 
-        _pendingFrame = frameCount;
+        _pendingFrame = _due.Dequeue();
+        _awaitingCapture = true;
         return true;
     }
 
@@ -177,6 +199,7 @@ public sealed class QaCapture
     {
         var path = Path.Combine(OutputDirectory, $"sandbox_frame{_pendingFrame:D4}.png");
         capture.SavePng(path);
+        _awaitingCapture = false;
         Log.Info($"[QA] Saved {capture.Width}x{capture.Height} capture: {path}");
     }
 }

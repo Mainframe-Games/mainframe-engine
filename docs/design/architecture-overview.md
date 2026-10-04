@@ -60,9 +60,10 @@ flowchart LR
 - **Vulkan is the only backend.** `IRenderer` is backend-neutral in name, but everything that draws
   casts to `IVulkanContext`. `EngineOptions.RenderingBackend` is not consulted.
 - **Each drawable owns its GPU state.** Every shape, the sky, the grid and each Spine renderer create
-  their own pipeline, descriptor pool, and per-swapchain-image uniform buffers. Nothing is shared or cached.
-- **Per-swapchain-image resources.** Uniform buffers and descriptor sets are indexed by
-  `IVulkanContext.CurrentImageIndex` rather than by frame-in-flight index.
+  their own pipeline, descriptor pool, and per-frame-slot uniform buffers. Nothing is shared or cached.
+- **Per-frame-slot resources.** Uniform buffers, dynamic vertex buffers and their descriptor sets are
+  indexed by `IVulkanContext.FrameSlot` (`MaxFramesInFlight = 2`), never by swapchain image, so they
+  survive swapchain image-count changes (see [Vulkan renderer](vulkan-renderer.md#per-frame-slot-resources)).
 - **Static service locator for nodes.** `Node.Initialize(renderer, shadowSystem)` stores globals
   that shape and Spine constructors read.
 

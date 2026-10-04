@@ -76,7 +76,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 }
 ```
 
-Call `base.OnLoad()` at the start of any `OnLoad` override. Call `base.OnClose()` at the end of any `OnClose` override (disposes renderer, ImGui, input; keeps the exit code set by `Quit`).
+Call `base.OnLoad()` at the start of any `OnLoad` override. Call `base.OnClose()` at the end of any `OnClose` override (disposes renderer, ImGui, input; keeps the exit code set by `Quit`). `Quit(code)` closes the window after the current frame — prefer it to `Window.Close()`.
 
 `EngineOptions.EnableValidation` defaults to on in Debug builds and off in Release; set it to override.
 

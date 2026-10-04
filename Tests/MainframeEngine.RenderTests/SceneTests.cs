@@ -69,7 +69,7 @@ public class SceneTests
             "--quit-error", "3", "--frames", "100", "--hidden");
 
         Assert.Equal((int)ExitCode.Error, result.ExitCode);
-        Assert.InRange(result.RenderedFrames, 2, 4); // the window closes around the update that quit
+        Assert.InRange(result.RenderedFrames, 2, 3); // closes after the render of the update that quit
         Gates.AssertValidationClean(result);
     }
 

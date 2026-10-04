@@ -168,8 +168,20 @@ internal static unsafe class VkHelpers
         }
     }
 
-    /// <summary>Depth-aspect layout transition for <paramref name="layers"/> array layers.</summary>
-    public static void DepthBarrier(Vk vk, CommandBuffer cb, Image image, uint layers,
+    /// <summary>
+    /// Aspects a layout transition must name for a depth <paramref name="format"/>: combined
+    /// depth/stencil formats need both (without separateDepthStencilLayouts), depth-only formats just
+    /// depth. Image views for sampling still use the depth aspect alone.
+    /// </summary>
+    public static ImageAspectFlags DepthBarrierAspects(Format format) => format switch
+    {
+        Format.D32SfloatS8Uint or Format.D24UnormS8Uint or Format.D16UnormS8Uint
+            => ImageAspectFlags.DepthBit | ImageAspectFlags.StencilBit,
+        _ => ImageAspectFlags.DepthBit,
+    };
+
+    /// <summary>Depth(/stencil) layout transition for <paramref name="layers"/> array layers of a <paramref name="format"/> image.</summary>
+    public static void DepthBarrier(Vk vk, CommandBuffer cb, Image image, Format format, uint layers,
         ImageLayout oldLayout, ImageLayout newLayout,
         AccessFlags srcAccess, AccessFlags dstAccess, PipelineStageFlags srcStage, PipelineStageFlags dstStage)
     {
@@ -185,7 +197,7 @@ internal static unsafe class VkHelpers
             Image = image,
             SubresourceRange = new ImageSubresourceRange
             {
-                AspectMask = ImageAspectFlags.DepthBit,
+                AspectMask = DepthBarrierAspects(format),
                 LevelCount = 1,
                 LayerCount = layers,
             },

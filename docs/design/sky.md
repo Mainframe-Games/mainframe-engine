@@ -29,7 +29,7 @@ gradient + sun, equirectangular panorama, or cubemap.
 
 | Resource | Detail |
 |---|---|
-| Set 0, binding 0 | `SkyUbo` per swapchain image, host-mapped, fragment stage |
+| Set 0, binding 0 | `SkyUbo` per frame slot, host-mapped, fragment stage |
 | Set 1, binding 0 | `CombinedImageSampler` (Panoramic/Cubemap only), one shared set |
 | Texture | `R8G8B8A8Srgb`, 1 mip. Panoramic: 2D image. Cubemap: 6 layers, `CubeCompatible`, Cube view. Uploaded with three one-time submits, each followed by `QueueWaitIdle`. |
 | Sampler | Linear, ClampToEdge |
@@ -59,7 +59,7 @@ sequenceDiagram
     participant GPU
     G->>S: Draw(camera)  (first, before geometry)
     S->>S: invProj = inverse(proj), invViewRot = inverse(view without translation)
-    S->>S: write SkyUbo[CurrentImageIndex]
+    S->>S: write SkyUbo[FrameSlot]
     S->>GPU: Y-flipped viewport, bind set 0 (+ set 1), CmdDraw(3)
     GPU->>GPU: Sky.vk.vert emits fullscreen triangle (-1,-1) (3,-1) (-1,3), z = 0
     GPU->>GPU: frag reconstructs dir = normalize(mat3(invViewRot) · unproject(ndc))
