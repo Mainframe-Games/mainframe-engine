@@ -10,6 +10,8 @@ just test             # unit tests (Tests/MainframeEngine.Tests)
 just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
 just sandbox          # dotnet run --project MainframeEngine.Sandbox
 just qa               # Sandbox --qa-capture → PNG screenshots in artifacts/qa
+                      #   (Sandbox also takes --qa-resize WxH@frame, --qa-minimize frame, --qa-input frame)
+just golden-update    # re-record render-test goldens for this driver; inspect the PNGs before committing
 just format           # dotnet format (format-check is what CI runs)
 just bench            # benchmarks vs Tests/MainframeEngine.Benchmarks/baseline.json
 ```
@@ -39,9 +41,9 @@ window exists) probes for a Vulkan library and hands the same one to SDL (`SDL_V
 and to Silk.NET's `Vk` — required because modern macOS dyld no longer searches `/usr/local/lib` for
 leaf-name dlopen, and the two would otherwise bind different libraries whose instances are not
 interchangeable. HiDPI: use `Engine.FramebufferSize` (pixels), not `Window.FramebufferSize` (points
-under SDL). The renderer
-enables `VK_KHR_portability_enumeration`/`VK_KHR_portability_subset` capability-conditionally;
-Windows/Linux are unaffected.
+under SDL). The renderer enables `VK_KHR_portability_enumeration`/`VK_KHR_portability_subset`
+capability-conditionally; Windows/Linux are unaffected. Render tests and `just qa` need the display
+awake (`caffeinate -u -t 600 &`).
 
 ## Project Structure
 
@@ -74,26 +76,37 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 }
 ```
 
-Call `base.OnLoad()` at the start of any `OnLoad` override. Call `base.OnClose()` at the end of any `OnClose` override (disposes renderer, ImGui, input).
+Call `base.OnLoad()` at the start of any `OnLoad` override. Call `base.OnClose()` at the end of any `OnClose` override (disposes renderer, ImGui, input; keeps the exit code set by `Quit`).
+
+`EngineOptions.EnableValidation` defaults to on in Debug builds and off in Release; set it to override.
 
 ### Node Initialization
 
-`Node.Initialize(Renderer, shadowSystem)` must be called in `OnLoad` after both the renderer and `ShadowSystem` are created, before any nodes/shapes are constructed.
+`Node.Initialize(Renderer, shadowSystem)` must be called in `OnLoad` after the renderer (and the `ShadowSystem`, if any) are created, before any nodes/shapes are constructed. The shadow system is optional: without one, lit pipelines bind the renderer's "no shadows" fallback set (same set indices).
 
 ### Frame Order
 
 1. `OnImGui` — build ImGui windows (called before update, inside ImGui frame)
 2. `OnUpdate` — game logic
 3. `OnShadowPass` — depth pre-pass (no render pass active; use raw command buffers)
-4. `OnRenderMainPass` — sky first, then geometry
+4. `OnRenderMainPass` — sky first, then geometry (`node.Draw(camera, lights)`)
+
+Shadow pass and main pass only run when `IVulkanContext.FrameStarted` (a frame can be skipped while the
+swapchain is rebuilt; while minimised the engine renders nothing and blocks on window events).
+
+### Per-frame resources
+
+Key per-frame GPU resources (UBOs, dynamic vertex buffers, their descriptor sets) by
+`IVulkanContext.FrameSlot` and size them `IVulkanContext.MaxFramesInFlight` — never by swapchain image
+(`SwapchainImageCount`/`CurrentImageIndex` are driver-chosen and change on recreation).
 
 ### Shadow Pass
 
-`ShadowSystem.RenderShadows` takes two draw callbacks — one for 2D (directional) shadows and one for point light shadows. Lambdas are called per-light internally.
+`ShadowSystem.RenderShadows` takes two draw callbacks — one for 2D (directional and spot) shadows and one for point light shadows (called per cube face). Call it at most once per frame; each sub-pass gets its own light matrix from a per-frame-slot dynamic-offset ring. Use the `RenderShadows<TState>` overload with static lambdas in per-frame code (no closure allocations).
 
 ### SpineNode
 
-Use `SpineNode` (not `SpineModel` or `SpineRenderer` directly) for scene integration. Call `OnUpdate` in your update loop and `OnRender` in your render pass.
+Use `SpineNode` (not `SpineRenderer` directly) for scene integration. Call `OnUpdate` in your update loop, `DrawShadow2D`/`DrawShadowPoint` from the shadow callbacks, and `Draw(camera, lights)` in `OnRenderMainPass`. `SpineScale` applies immediately; `SetAnimation` replaces track 0 (`QueueAnimation` appends).
 
 ## Rendering Backend
 
@@ -109,7 +122,7 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected �
 
 ## Dependencies
 
-- Silk.NET — windowing, input, Vulkan bindings, Assimp
+- Silk.NET — windowing + input (SDL2 backend: `Silk.NET.Windowing.Sdl`, `Silk.NET.Input.Sdl`), Vulkan bindings, Assimp
 - ImGui.NET — debug UI (Vulkan backend in `VulkanImGuiController`)
 - Steamworks.NET — Steam platform (optional; only activate if Steam is running)
 - StbImageSharp — texture/image loading

@@ -20,7 +20,11 @@ The test projects run through VSTest (`Microsoft.NET.Test.Sdk` + `xunit.runner.v
 Cobertura XML to `artifacts/coverage`. The engine exposes internals to the test assemblies with
 `InternalsVisibleTo`.
 
-Unit tests cover pure logic: `GameTime`/`FPSCounter`, `EngineOptions` defaults, `NetBuffer` round trips
+Unit tests cover pure logic: `GameTime`/`FPSCounter`, `EngineOptions` defaults (validation on in
+Debug, off in Release), the macOS Vulkan loader probe order, the shadow light-VP ring offsets and pass
+indices, `ChooseUp`, the shadow-fallback matrix, `SpineNode` (scale setter, `SetAnimation` replace vs
+`QueueAnimation`, Spine's update order, vertex growth past the initial capacity, atlas pixel release —
+SpineBoy is linked into the test output and a non-Vulkan `IRenderer` skips GPU work), `NetBuffer` round trips
 and the pool, `PeerId`/`NodeId`, `Log` filtering, camera matrices against
 [Coordinate conventions](coordinate-conventions.md), the 1200-byte std140 lights UBO, the PNG codec and
 `VulkanValidationLog`. Tests that touch process-wide state (`NetBufferPool`, `Console`, `Log.LogLevel`)
@@ -49,9 +53,18 @@ sequenceDiagram
 - **Deterministic frames.** `EngineOptions.FixedDeltaTime` gives every update the same delta, so frame
   *N* always shows the same pose. `CapturesAreDeterministicAcrossRuns` checks two runs are bit-identical.
 - **Scenes** (in the host, built from engine nodes): `lit-shapes` (procedural sky, grid, floor quad,
-  two boxes, one shadow-casting directional light), `spine` (adds SpineBoy, content linked from the
-  Sandbox), `sandbox` (adds the Sandbox's ImGui window and gizmos; not used for goldens because it
-  shows timings).
+  two boxes, one shadow-casting directional light), `multi-light` (same geometry, directional + spot +
+  point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
+  `spine` (adds SpineBoy, content linked from the Sandbox), `spine-no-shadows` (Spine and shapes with
+  no `ShadowSystem`: the fallback set 2), `sandbox` (adds the Sandbox's ImGui window and gizmos; not
+  used for goldens because it shows timings).
+- **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
+  mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
+  `result.json` records it). Scene self-check failures are reported in `SceneCheckFailures`.
+- **Tests:** `LitShapesRenderCleanlyAndMatchGoldens`, `MultipleShadowCastingLightsEachUseTheirOwnMatrix`,
+  `SpineRendersCleanlyAndMatchesGolden`, `SpineRendersWithoutAShadowSystem`,
+  `SwapchainRecreationOnResizeAndVSyncToggleIsClean`, `QuitWithErrorReturnsErrorExitCode`,
+  `SandboxSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`.
 - **Window.** 320×240, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On a
   Retina Mac the framebuffer, and so the capture, is 640×480.
 

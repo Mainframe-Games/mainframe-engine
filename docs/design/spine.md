@@ -34,13 +34,13 @@ boy.SetAnimation("walk");
 ```mermaid
 flowchart TD
     subgraph Update["OnUpdate"]
-        U1["Skeleton.UpdateWorldTransform"] --> U2["AnimationState.Update(dt)"]
-        U2 --> U3["AnimationState.Apply(Skeleton)"]
+        U1["AnimationState.Update(dt)"] --> U2["AnimationState.Apply(Skeleton)"]
+        U2 --> U3["Skeleton.Update(dt) (physics time)<br/>Skeleton.UpdateWorldTransform(UpdateType)"]
         U3 --> U4["SpineRenderer.BuildVertices(ZSpacing, ModelMatrix)"]
         U4 --> V[("CPU: Vertex[ ] (stride 40)<br/>+ Vector3[ ] shadow positions<br/>+ batches by atlas page")]
     end
     subgraph Shadow["OnShadowPass (per light / face)"]
-        V --> S1["upload positions → per-image VB"]
+        V --> S1["upload positions → frame-slot VB (once per frame)"]
         S1 --> S2["GetShadow2DPipeline(12) / GetShadowPointPipeline(12)<br/>push model (64/80 B), draw"]
     end
     subgraph Main["OnRenderMainPass"]
@@ -56,6 +56,10 @@ flowchart TD
 - Each slot is pushed `ZSpacing` (default 0.01) further along z to avoid z-fighting.
 - Tint = skeleton RGBA × slot RGBA. When `pma` is set, RGB is also multiplied by alpha.
 - A new batch starts whenever the atlas page changes.
+- The CPU arrays start at 8192 vertices and **grow** (doubling) when a pose needs more; GPU vertex
+  buffers grow the same way per frame slot. Steady-state poses never allocate.
+- Order per update (Spine's documented order): `AnimationState.Update` → `Apply` → `Skeleton.Update`
+  → `UpdateWorldTransform`, so the drawn pose is this frame's.
 
 | CPU vertex (40 B) | Offset |
 |---|---|
@@ -68,10 +72,10 @@ flowchart TD
 
 | Set | With `ShadowSystem` | Without `ShadowSystem` |
 |---|---|---|
-| 0 | VP UBO (vertex) | VP UBO |
-| 1 | Lights UBO, 1200 B (fragment) | Lights UBO |
-| 2 | `ShadowSystem.MainDescSetLayout` | **texture** ⚠ |
-| 3 | `sampler2D uTexture` per (image × page) | — |
+| 0 | VP UBO (vertex), per frame slot | same |
+| 1 | Lights UBO, 1200 B (fragment), per frame slot | same |
+| 2 | `ShadowSystem.MainDescSetLayout` | renderer's "no shadows" fallback (same layout, everything lit) |
+| 3 | `sampler2D uTexture`, one static set per atlas page | same |
 
 Push constant (vertex, 80 B): `mat4 model` + `vec4 worldNormal`. The normal is
 `normalize(TransformNormal(+Z, model))`, so the whole skeleton shares one normal.
@@ -82,28 +86,23 @@ Textures are `R8G8B8A8Unorm`, with one shared Linear/ClampToEdge sampler.
 
 ## Invariants
 
-- Create a `ShadowSystem` and call `Node.Initialize` before constructing a `SpineNode`. The lit shader
-  always expects shadows at set 2.
+- Call `Node.Initialize` before constructing a `SpineNode`. A `ShadowSystem` is optional: without one
+  the node binds the renderer's fallback at set 2 and casts no shadows (`DrawShadow*` are no-ops).
+- `SpineScale` (default `SpineNode.DefaultSpineScale = 0.02`) applies to the skeleton immediately and
+  keeps `FlipX`. `SetAnimation` replaces track 0 now; `QueueAnimation` appends after the current one.
+- Atlas pixel arrays are released after the GPU upload (`SpineTextureLoader.ReleasePixelData`); only the
+  page sizes stay.
 - Draw Spine after opaque geometry. It alpha-blends but also writes depth.
 
 ## Known issues
 
-- **Spine without a `ShadowSystem` breaks:** the texture lands at set 2 while the shader expects it at
-  set 3 ([SpineRenderer.cs:729](../../MainframeEngine/Src/Rendering/Spine/SpineRenderer.cs)).
-  `Examples/SpineExamples` hits this case.
-- **`SpineScale` setter has no effect after construction.** It is copied to `Skeleton.ScaleX/Y` only in the
-  constructor ([SpineNode.cs:29-30](../../MainframeEngine/Src/Nodes/SpineNode.cs)) and in `FlipX`.
-- **Pose lags one frame:** `UpdateWorldTransform` runs before `Apply` ([SpineNode.cs:48](../../MainframeEngine/Src/Nodes/SpineNode.cs)).
-- **`SetAnimation` queues** with `AddAnimation` ([SpineNode.cs:95](../../MainframeEngine/Src/Nodes/SpineNode.cs)), so it plays after the default first animation instead of replacing it.
 - **Premultiplied alpha is applied twice:** PMA vertex color combined with a `SrcAlpha` blend.
-- **`MaxVertices = 8192` is not bounds-checked** in `AddVertex` ([SpineRenderer.cs:14](../../MainframeEngine/Src/Rendering/Spine/SpineRenderer.cs)), so large skeletons throw.
 - Clipping attachments, per-slot blend modes and two-color tint are ignored.
-- Only `atlas.Pages[0].pma` is honoured. Texture sets are duplicated per swapchain image.
-- Shadow positions are re-uploaded on every shadow sub-pass.
+- Only `atlas.Pages[0].pma` is honoured.
+- Single-sided: a sprite casts a shadow only from its front side (shadow pipelines cull back faces).
 - An unlit path (`Spine.vk.*`) is compiled but not loaded by any code.
-- README/CLAUDE.md mention `OnRender`; the actual API is `Draw(camera, lights)`.
 
 ## Related docs
 
 [Scene graph & nodes](scene-graph-and-nodes.md) · [Lighting](lighting.md) · [Shadow system](shadow-system.md) ·
-[Future: renderer stabilization](future/renderer-stabilization.md) · [Future: color pipeline](future/color-pipeline.md)
+[Future: color pipeline](future/color-pipeline.md)

@@ -15,7 +15,18 @@ working directory to the build output so relative content paths resolve wherever
 
 `--qa-capture <dir> [--qa-frames 30,90,180]` (`just qa` → `artifacts/qa`) runs with a fixed 60 Hz
 timestep and VSync off, saves `sandbox_frameNNNN.png` for each listed frame through
-`Engine.CaptureFrame()`, and exits one frame after the last capture.
+`Engine.CaptureFrame()`, and exits one frame after the last capture (or scripted step).
+
+Scripted window/input steps (they log `[QA]` lines; combine freely):
+
+| Flag | Effect |
+|---|---|
+| `--qa-resize WxH@frame` | sets `Window.Size` (points) → swapchain recreation; later captures have the new size |
+| `--qa-minimize frame` | minimises, restores after 1.5 s (a timer pushes SDL events to wake the blocked loop) and logs the updates/frames that ran meanwhile |
+| `--qa-input frame` | pushes a right-button drag into SDL's event queue for 22 frames and logs the camera forward before/after (SDL input → `IMouse` → fly camera) |
+
+Example: `dotnet run -c Release --project MainframeEngine.Sandbox -- --qa-capture artifacts/qa
+--qa-frames 30,90,200 --qa-resize 1000x600@60 --qa-minimize 120 --qa-input 150`.
 
 ## Scene
 
@@ -27,10 +38,10 @@ timestep and VSync off, saves `sandbox_frameNNNN.png` for each listed frame thro
 | Sky | `SkyPanoramic("Content/Sky/sky_10_2k.png")` |
 | Grid | `SceneGrid3d` (size 200) |
 | Shadows | `ShadowSystem` + `Node.Initialize(Renderer, shadows)` |
-| Spine | Spineboy from `Content/Models/Spine/SpineBoy`, `Scale = 0.1`, animation `"walk"` |
+| Spine | Spineboy from `Content/Models/Spine/SpineBoy`, default `SpineScale` (0.02), `Scale = 0.1`, animation `"walk"` |
 | Floor | `Quad`, rotation (90, 0, 0), scale (10, 10, 1), white |
 | Box | `Box3d` at (3, 1, 0), white, spinning 20°/s on X and Y |
-| Light | one `DirectionalLight`: direction `normalize(0, −0.5, −1)`, color (1, 0.95, 0.8), intensity 0.9 |
+| Lights | every shadow type at once: 2 `DirectionalLight` (warm key 0.8, cool fill 0.2), 1 `PointLight` (blue, right of the box), 2 `SpotLight` (warm and green cones) — all shadow-casting |
 
 ## Lifecycle
 
@@ -39,13 +50,13 @@ flowchart TD
     P["Program.cs: using var game = new Game(options); game.Run()"] --> L
     subgraph L["OnLoad"]
         L1["base.OnLoad()"] --> L2["clear color, camera, input handlers"]
-        L2 --> L3["sky, grid, ShadowSystem"] --> L4["Node.Initialize"] --> L5["SpineNode, Quad, Box3d, DirectionalLight"]
+        L2 --> L3["sky, grid, ShadowSystem"] --> L4["Node.Initialize"] --> L5["SpineNode, Quad, Box3d, 5 lights"]
     end
     L --> F
     subgraph F["Each frame"]
         F1["OnImGui: light gizmos, stats window, coord gizmo"] --> F2["OnUpdate: fly camera, node.OnUpdate, spin box"]
         F2 --> F3["OnShadowPass: RenderShadows(lights, nodes, static DrawShadow2D, static DrawShadowPoint)"]
-        F3 --> F4["OnRenderMainPass: aspect, sky → grid → nodes"]
+        F3 --> F4["OnRenderMainPass: aspect (Engine.FramebufferSize), sky → grid → nodes"]
     end
     F --> C["OnClose: dispose shadows, sky, grid, nodes → base.OnClose()"]
     C --> X["Program logs exit code and returns it"]
@@ -60,13 +71,11 @@ Controls are listed in [Cameras & input](cameras-and-input.md#input-sandbox).
 
 ## Known issues
 
-- `SpineScale = 0.001f` has no effect after construction (see [Spine](spine.md#known-issues)).
-- `SetAnimation("walk")` queues after the default animation.
 - `(IVulkanContext)Renderer` is cast without a guard, against CLAUDE.md guidance.
 - Calls to `Renderer.EnableDepthTest()` / `Clear()` are Vulkan no-ops.
 - Steady-state frames allocate nothing (enforced by the render-test allocation gate).
 - `Node.Initialize` should move into `Engine` (`TODO` at `Game.cs:59`).
-- `sky_16_2k.png` ships but is unused. Commented-out point and spot lights remain.
+- `sky_16_2k.png` ships but is unused.
 
 ## Related docs
 

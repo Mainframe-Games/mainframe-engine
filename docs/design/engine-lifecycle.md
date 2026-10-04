@@ -10,7 +10,7 @@ window events. Games subclass it and override four abstract hooks.
 | Type | File | Notes |
 |---|---|---|
 | `Engine` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `public abstract class Engine : IDisposable` |
-| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = true`, `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock) |
+| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock) |
 | `FrameCapture` | [FrameCapture.cs](../../MainframeEngine/Src/Rendering/FrameCapture.cs) | RGBA8 pixels of a rendered frame, `SavePng(path)` |
 | `GameTime` | [GameTime.cs](../../MainframeEngine/Src/Core/GameTime.cs) | `FrameCount`, `DeltaTime`, `FramesPerSecond`, `FramesTimeMs` |
 | `FPSCounter` | [FPSCounter.cs](../../MainframeEngine/Src/Core/FPSCounter.cs) | 500 ms sampling window |
@@ -33,7 +33,11 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 
 - Call `base.OnLoad()` **first** (it creates input, renderer and ImGui).
 - Call `base.OnClose()` **last** (it disposes ImGui, input and the renderer).
-- `Run()` blocks until the window closes and returns an `ExitCode`. `Quit(code)` closes the window.
+- `Run()` blocks until the window closes and returns an `ExitCode`. `Quit(code)` closes the window;
+  `Run()` then returns that code (the base `OnClose` no longer resets it — covered by the
+  `QuitWithErrorReturnsErrorExitCode` render test).
+- `Engine.FramebufferSize` is the drawable size in **pixels** (use it for aspect ratios); `Window.Size`
+  is in points.
 
 ## Startup
 
@@ -77,17 +81,31 @@ sequenceDiagram
     E->>G: OnUpdate(gameTime)
 
     W->>E: Render(delta)
-    E->>R: BeginFrame() (fence wait, acquire, begin cmd buffer)
-    alt FrameStarted
-        E->>G: OnShadowPass(gameTime) — no render pass active
-        E->>R: BeginRenderPass() — clear color + depth
-        E->>G: OnRenderMainPass(gameTime) — sky, grid, nodes
-        E->>I: Render() — ImGui draw data in main pass
-    else swapchain out of date
-        Note over E,R: frame skipped, swapchain recreated
+    alt minimised (WindowState or 0×0 drawable)
+        E->>I: DiscardFrame() → ImGui.EndFrame()
+        Note over E,W: IsEventDriven = true: the loop blocks on window events until restored
+    else
+        E->>R: BeginFrame() (slot fence wait, acquire, begin cmd buffer)
+        alt FrameStarted
+            E->>G: OnShadowPass(gameTime) — no render pass active
+            E->>R: BeginRenderPass() — clear color + depth
+            E->>G: OnRenderMainPass(gameTime) — sky, grid, nodes
+            E->>I: Render() — ImGui draw data in main pass
+        else swapchain out of date / being rebuilt
+            E->>I: DiscardFrame()
+        end
+        E->>R: EndFrame() (end pass, submit, present)
     end
-    E->>R: EndFrame() (end pass, submit, present)
 ```
+
+### Minimise
+
+While the window is minimised (`WindowState.Minimized`, or `Engine.FramebufferSize` is 0×0) `OnRender`
+renders nothing, closes the ImGui frame, and switches the window to `IsEventDriven` so Silk's loop
+blocks in `SDL_WaitEvent` instead of spinning; the first render after restore switches it back. The
+renderer likewise refuses to rebuild a 0×0 swapchain and keeps the request pending (no busy wait).
+`just qa --qa-minimize <frame>` (Sandbox) minimises for 1.5 s and logs how many updates and frames ran
+meanwhile (2 updates, ~0 frames on macOS).
 
 ### `MaxFPS` and VSync
 
@@ -104,8 +122,8 @@ not presented frames.
 
 ## Shutdown
 
-`Closing` → `OnClose()` (base): `_exitCode = 0` → dispose ImGui controller → dispose input →
-dispose renderer. `Run()` returns `_exitCode`. `Dispose()` disposes the window.
+`Closing` → `OnClose()` (base): dispose ImGui controller → dispose input → dispose renderer.
+`Run()` returns the exit code (`Ok` unless `Quit(code)` set another). `Dispose()` disposes the window.
 
 ## Invariants
 
@@ -117,12 +135,7 @@ dispose renderer. `Run()` returns `_exitCode`. `Dispose()` disposes the window.
 
 ## Known issues
 
-- **`Quit(ExitCode.Error)` returns `Ok`.** `Quit` sets `_exitCode`, then the base `OnClose` resets it to 0 ([Engine.cs](../../MainframeEngine/Src/Core/Engine.cs)).
-- **Validation layers default to on**, including Release (`EngineOptions.EnableValidation = true`).
 - **`EngineOptions.RenderingBackend` is ignored**; `VulkanRenderer` is always created.
-- **ImGui frames can be unbalanced** *(inferred)*: `NewFrame` runs on Update, `Render` only on a started
-  render frame. A skipped frame (swapchain recreation) or several Updates per Render calls `NewFrame`
-  twice without `Render`.
 - **FPS counts updates, not presents.**
 - README/CLAUDE.md show `Game(in EngineOptions options)`; the Sandbox uses a parameterless primary
   constructor that passes options to `Engine` directly. Both work.
@@ -130,4 +143,4 @@ dispose renderer. `Run()` returns `_exitCode`. `Dispose()` disposes the window.
 ## Related docs
 
 [Architecture overview](architecture-overview.md) · [Vulkan renderer](vulkan-renderer.md) ·
-[Sandbox](sandbox.md) · [Future: renderer stabilization](future/renderer-stabilization.md)
+[Sandbox](sandbox.md) · [Build & platforms](build-and-platforms.md)

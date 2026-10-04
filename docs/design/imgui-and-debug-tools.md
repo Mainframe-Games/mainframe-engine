@@ -12,13 +12,14 @@ File: [Rendering/Vulkan/VulkanImGuiController.cs](../../MainframeEngine/Src/Rend
 
 | Aspect | Detail |
 |---|---|
-| Frame | `Update(dt)` sets `DisplaySize = window.Size` and calls `ImGui.NewFrame()` during the Update event. `Render()` calls `ImGui.Render()` and records the draw data inside the main render pass. |
+| Frame | `Update(dt)` sets `DisplaySize` (window points) and `DisplayFramebufferScale` (pixels ÷ points, 2 on Retina) and calls `ImGui.NewFrame()` during the Update event. `Render()` calls `ImGui.Render()` and records the draw data inside the main render pass. Every `NewFrame` is paired: `Engine` calls `DiscardFrame()` (→ `ImGui.EndFrame()`) when no frame is rendered (swapchain rebuild, minimised), and `Update` closes a still-open frame first when several updates run per render. |
 | Font | `R8G8B8A8Unorm`, staging upload, Linear/Repeat sampler, `SetTexID(1)` |
 | Descriptors | Set 0, binding 0 `CombinedImageSampler` (fragment). One pool, one set. |
 | Push constant | 16 B `{ vec2 scale; vec2 translate }` (vertex) |
 | Vertex | stride 20: `pos` RG32F, `uv` RG32F, `col` RGBA8 UNORM. Indices are `uint16`. |
 | Pipeline | No cull, no depth, blend `SrcAlpha/OneMinusSrcAlpha` for color and `One/OneMinusSrcAlpha` for alpha. Dynamic viewport and scissor. Viewport **not** Y-flipped. |
-| Buffers | Per swapchain image, host-mapped, grown to `max(required, 1 MB or 2× current)` |
+| Buffers | Per frame slot, host-mapped, grown to `max(required, 1 MB or 2× current)` |
+| HiDPI | Viewport covers the swapchain (pixels); clip rectangles are converted to pixels with `FramebufferScale` and clamped to the extent for the scissor. Mouse positions from SDL are in points, matching `DisplaySize`. |
 | Input | Silk mouse and keyboard forwarded through static handlers: navigation keys, letters, digits, F1–F12, modifiers |
 
 ```mermaid
@@ -30,19 +31,16 @@ sequenceDiagram
     E->>G: OnImGui (build windows, gizmos)
     Note over E: … shadow pass, main pass …
     E->>C: Render() → ImGui.Render, RenderDrawData(cb)
-    C->>C: grow/upload VB+IB[image], set scissor per cmd, CmdDrawIndexed
+    C->>C: grow/upload VB+IB[frame slot], scissor = clip × FramebufferScale, CmdDrawIndexed
 ```
 
 ### Known issues
 
 - `TextureId` is ignored: every draw binds the font set, so `ImGui.Image` with game textures is not
   supported. User callbacks are skipped too.
-- HiDPI: `DisplaySize` is in window points while the viewport uses swapchain pixels, and
-  `DisplayFramebufferScale` is never set ([VulkanImGuiController.cs:83](../../MainframeEngine/Src/Rendering/Vulkan/VulkanImGuiController.cs)).
-  Scissor rectangles may be wrong on Retina displays *(inferred)*.
+- The font atlas is rasterised at 1×, so text on Retina is scaled up (correct size, slightly soft).
 - The blend comment says "pre-multiplied", but the color blend is straight alpha.
 - Punctuation and numpad keys are not mapped.
-- `NewFrame`/`Render` can become unbalanced (see [Engine lifecycle](engine-lifecycle.md#known-issues)).
 
 ## `Log`
 

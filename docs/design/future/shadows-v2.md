@@ -1,6 +1,6 @@
 # Proposal: Shadows v2
 
-**Milestone:** M4 · **Status:** ⬜ planned · **Depends on:** [Renderer stabilization](renderer-stabilization.md)
+**Milestone:** M4 · **Status:** ⬜ planned · **Depends on:** [Renderer stabilization (M1, shipped)](../vulkan-renderer.md)
 
 ## Problem
 

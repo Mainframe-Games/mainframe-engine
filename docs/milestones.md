@@ -7,7 +7,7 @@ current-state doc, and future features link to a proposal in [`design/future/`](
 
 ```mermaid
 flowchart LR
-    M0["M0 Foundation ✅"] --> M1["M1 Stabilization"]
+    M0["M0 Foundation ✅"] --> M1["M1 Stabilization ✅"]
     M1 --> M2["M2 Node system & scenes"]
     M1 --> M3["M3 Materials, meshes & resources"]
     M2 --> M3
@@ -27,7 +27,7 @@ flowchart LR
 | Milestone | Theme | Status |
 |---|---|---|
 | [M0](#m0--foundation-) | Vulkan renderer, lighting, shadows, sky, Spine, tooling, SDL windowing | ✅ |
-| [M1](#m1--stabilization) | Fix correctness bugs blocking everything else | ⬜ |
+| [M1](#m1--stabilization) | Fix correctness bugs blocking everything else | ✅ |
 | [M2](#m2--node-system--scenes) | Godot-style node tree, scene tree, scene files | ⬜ |
 | [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | ⬜ |
 | [M4](#m4--shadows-v2) | Cascades, PCF, atlas | ⬜ |
@@ -66,10 +66,10 @@ windowing and input from GLFW to SDL2 (via Silk.NET 2.22), so later input, gamep
 | Steamworks wrappers (scaffold, inert) | ✅ ² | [Steamworks](design/steamworks.md) |
 | Switch windowing and input from GLFW to SDL (macOS loader handoff via `SDL_Vulkan_LoadLibrary`) | ✅ | [Build & platforms: SDL2](design/build-and-platforms.md#windowing-sdl2) |
 
-¹ Correct only with a single shadow-casting directional/spot light (fixed in M1).
+¹ Correct only with a single shadow-casting directional/spot light until M1 (per-pass light matrices).
 ² Scaffold only; completed in M5.
 
-## M1 — Stabilization
+## M1 — Stabilization ✅
 
 Fix the correctness bugs found while documenting M0, so every later milestone builds on a renderer
 that is correct with multiple lights, any swapchain size, and validation enabled. Also bring the README
@@ -77,14 +77,14 @@ and CLAUDE.md back in line with the code.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| Per-pass shadow light matrix (dynamic-offset ring) | ⬜ | [Renderer stabilization §1](design/future/renderer-stabilization.md#1-per-pass-light-matrix) |
-| Per-frame-slot resources; swapchain image-count robustness | ⬜ | [Renderer stabilization §2](design/future/renderer-stabilization.md#2-swapchain-count-robust-resources) |
-| Remove the double depth remap | ⬜ | [Renderer stabilization §3](design/future/renderer-stabilization.md#3-depth-convention) |
-| Depth hazard dependency, dynamic-indexing feature | ⬜ | [Renderer stabilization §4](design/future/renderer-stabilization.md#4-synchronization--features) |
-| Spine without `ShadowSystem` (dummy set) | ⬜ | [Renderer stabilization §5](design/future/renderer-stabilization.md#5-spine-without-shadows) |
-| Exit code, validation in Debug only, ImGui frame pairing and HiDPI | ⬜ | [Renderer stabilization §6](design/future/renderer-stabilization.md#6-small-fixes) |
-| `SpineNode` scale, animation order, `SetAnimation` | ⬜ | [Renderer stabilization §6](design/future/renderer-stabilization.md#6-small-fixes) |
-| CLAUDE.md sync with the code (README synced 2026-10-05) | ⬜ | [Renderer stabilization §6](design/future/renderer-stabilization.md#6-small-fixes) |
+| Per-pass shadow light matrix (dynamic-offset ring) | ✅ | [Shadow system: light VP ring](design/shadow-system.md#light-view-projection-ring-per-pass-matrices) |
+| Per-frame-slot resources; swapchain image-count robustness | ✅ | [Vulkan renderer: per-frame-slot resources](design/vulkan-renderer.md#per-frame-slot-resources) |
+| Remove the double depth remap | ✅ | [Coordinate conventions: depth](design/coordinate-conventions.md#depth) |
+| Depth hazard dependency, dynamic-indexing feature, depth-format features, explicit cull mode | ✅ | [Vulkan renderer](design/vulkan-renderer.md#main-render-pass) · [Shadow system](design/shadow-system.md#pipelines) |
+| Spine without `ShadowSystem` (dummy set) | ✅ | [Shadow system: without a ShadowSystem](design/shadow-system.md#without-a-shadowsystem) |
+| Exit code, validation in Debug only, ImGui frame pairing and HiDPI, no busy-wait when minimised | ✅ | [Engine lifecycle](design/engine-lifecycle.md) · [ImGui & debug tools](design/imgui-and-debug-tools.md) |
+| `SpineNode` scale, animation order, `SetAnimation`, vertex growth, pixel release | ✅ | [Spine](design/spine.md) |
+| CLAUDE.md sync with the code (README synced 2026-10-05) | ✅ | [CLAUDE.md](../CLAUDE.md) |
 
 ## M2 — Node system & scenes
 

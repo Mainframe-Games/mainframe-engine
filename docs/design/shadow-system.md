@@ -15,6 +15,7 @@ File: [Rendering/Shadows/ShadowSystem.cs](../../MainframeEngine/Src/Rendering/Sh
 | `MaxShadowDir` | 4 (= `LightEnvironment.MaxDirectional`) | 2048² 2D map each |
 | `MaxShadowSpot` | **7** | 1024² 2D map each. One less than `MaxSpot = 8` because of MoltenVK's 16 samplers per stage: 4 + 7 + 4 + 1 material texture. The 8th spot light lights the scene but casts no shadow. |
 | `MaxShadowPoint` | 4 | 512² × 6-face cube each |
+| `MaxShadowPasses` | 4 + 7 + 4 × 6 = **35** | shadow sub-passes per frame (one light-VP ring slot each) |
 | `ShadowMatricesUboSize` | (4 + 7) × 64 = 704 B | light-space matrices for the main pass |
 
 All slots are allocated up front (one `vkAllocateMemory` per image, roughly 116 MiB at D32), whether
@@ -30,23 +31,65 @@ or not lights exist.
 A single depth attachment: Clear/Store, Undefined → `DepthStencilAttachmentOptimal`. No color
 attachment. External dependency `FragmentShader/ShaderRead` → `EarlyFragmentTests/DepthWrite`.
 
+### Depth format
+
+`ChooseDepthFormat` picks the first of `D32Sfloat`, `D32SfloatS8Uint`, `D24UnormS8Uint`, `D16Unorm`
+whose optimal-tiling features include **`DepthStencilAttachment | SampledImage`**, preferring one with
+**`SampledImageFilterLinear`** (needed for the linear comparison sampler's 2×2 hardware PCF). Without
+linear filtering it falls back to a nearest comparison sampler and logs a warning; with no samplable
+depth format it throws.
+
+### Light view-projection ring (per-pass matrices)
+
+Each sub-pass needs its own light matrix that survives until the GPU executes it. The matrices live in
+a host-mapped **dynamic-offset uniform ring**: `MaxFramesInFlight × MaxShadowPasses` slots, each padded
+to `max(256, minUniformBufferOffsetAlignment)` bytes (`UniformRing`, 2 × 35 × 256 B = 17.5 KiB). Set 0
+of both shadow pipeline layouts is a single `UniformBufferDynamic` descriptor (range 64 B); each pass
+writes its matrix at `Offset(frameSlot, pass)` and binds the set with that dynamic offset:
+
+```mermaid
+sequenceDiagram
+    participant RS as RenderShadows
+    participant Ring as Light VP ring[frameSlot]
+    participant GPU
+    loop each light / face k
+        RS->>Ring: write matrix at Offset(slot, k)
+        RS->>GPU: BeginRenderPass(shadow fb)
+        RS->>GPU: BindDescriptorSets(set 0, dynamicOffset = Offset(slot, k))
+        RS->>GPU: draw callbacks
+    end
+```
+
+Pass indices: directional `i` → `i`, spot `i` → `4 + i`, point `i` face `f` → `11 + 6i + f`
+(`PassIndexDir/Spot/Point`). Because the ring is per frame slot, frame N+1 never overwrites frame N's
+matrices either. Call `RenderShadows` **at most once per frame**. This fixed GitHub issue #2 (every
+sub-pass used to execute with the last matrix written into one shared UBO); the `multi-light` render
+test (directional + spot + point) checks the ring contents after recording and compares a golden.
+
 ### Pipelines
 
 | Pipeline | Layout | Push constants | Shaders |
 |---|---|---|---|
-| `_pipe2D_S32`, `_pipe2D_S12` | `Shadow2DLayout` (set 0 = light VP UBO) | 64 B `mat4 model` (vertex) | `Shadow2D.vk.*` |
-| `_pipePoint_S32`, `_pipePoint_S12` | `ShadowPointLayout` (set 0 = light VP UBO) | 80 B `mat4 model + vec4 lightPosRange` (vertex + fragment) | `ShadowPoint.vk.*` |
+| `_pipe2D_S32`, `_pipe2D_S12` | `Shadow2DLayout` (set 0 = light VP, dynamic UBO) | 64 B `mat4 model` (vertex) | `Shadow2D.vk.*` |
+| `_pipePoint_S32`, `_pipePoint_S12` | `ShadowPointLayout` (set 0 = light VP, dynamic UBO) | 80 B `mat4 model + vec4 lightPosRange` (vertex + fragment) | `ShadowPoint.vk.*` |
 
-`S12`/`S32` is the vertex stride: Spine uses 12 (positions only), and `Box3d`/`Quad` use 32. Only
-location 0 (`vec3`) is read. Raster state: `CullMode = Front` ("Peter Pan"), CCW, static depth bias
-(constant 1.25, slope 1.75), depth `Less`, dynamic viewport and scissor. Use the accessors
-`GetShadow2DPipeline(stride)` and `GetShadowPointPipeline(stride)`.
+`S12`/`S32` is the vertex stride: Spine and `Quad` use 12 (positions only for Spine), `Box3d` uses 32.
+Only location 0 (`vec3`) is read. Use the accessors `GetShadow2DPipeline(stride)` and
+`GetShadowPointPipeline(stride)`.
+
+**Culling is explicit:** geometry is authored counter-clockwise. The main pass flips Y with a
+negative-height viewport, which keeps CCW = front; the shadow passes use a standard viewport, which
+mirrors the winding, so geometric front faces (facing the light) arrive clockwise. The shadow pipelines
+therefore use `FrontFace = Clockwise` and `CullMode = Back`: back faces are culled and the static depth
+bias (constant 1.25, slope 1.75) handles acne. (Before M1 this was `CCW + cull Front` — identical
+rasterisation, mislabelled as "Peter Pan" front-face culling.) Single-sided casters (Spine sprites,
+`Quad`) cast only from their front side. Depth `Less`, dynamic viewport and scissor.
 
 ### Samplers (immutable)
 
 | Sampler | Filter | Address | Compare |
 |---|---|---|---|
-| `_sampler2DShadow` | Linear | ClampToBorder, opaque white | `Less` (hardware compare) |
+| `_sampler2DShadow` | Linear (Nearest if the depth format can't filter) | ClampToBorder, opaque white | `Less` (hardware compare) |
 | `_samplerCube` | Nearest | ClampToEdge | none (manual compare in shader) |
 
 The 2D comparison sampler is baked into the descriptor set layout as an **immutable sampler**, because
@@ -58,14 +101,29 @@ MoltenVK reports `mutableComparisonSamplers = false`. Only image views are writt
 
 | Binding | Type | Count | Contents |
 |---|---|---|---|
-| 0 | UniformBuffer | 1 | `mat4 dirLightSpace[4]; mat4 spotLightSpace[7];` (per swapchain image) |
+| 0 | UniformBuffer | 1 | `mat4 dirLightSpace[4]; mat4 spotLightSpace[7];` (one buffer per frame slot) |
 | 1 | CombinedImageSampler (immutable) | 4 | directional maps |
 | 2 | CombinedImageSampler (immutable) | 7 | spot maps |
 | 3 | CombinedImageSampler | 4 | point cube maps + `_samplerCube` |
 
-Consumers bind `MainDescSetLayout` as set 2 and call `GetMainSet()` (which uses `CurrentImageIndex`).
-`InitializeShadowMapLayouts()` transitions every map to `DepthStencilReadOnlyOptimal` once at
-startup, so the descriptors are valid on the first frame.
+Consumers bind `MainDescSetLayout` as set 2 and call `GetMainSet()`, which returns the set for
+`IVulkanContext.FrameSlot` (one set per frame slot; the image views are shared, only the matrices UBO
+differs). `InitializeShadowMapLayouts()` transitions every map to `DepthStencilReadOnlyOptimal` once at
+startup, so the descriptors are valid on the first frame. The maps themselves are shared by both frame
+slots: the layout barriers in `RenderShadows` (`FragmentShader/ShaderRead` →
+`EarlyFragmentTests/DepthWrite`) order a frame's writes after the previous frame's sampling on the
+same queue.
+
+### Without a `ShadowSystem`
+
+Shadows are optional. When `Node.Initialize` gets no shadow system, lit pipelines (Shapes, SpineLit)
+still declare **the same set indices** and bind the renderer's `ShadowFallback` as set 2: the same
+layout (built by the shared `CreateMainSetLayout`), 1×1 depth maps (2D and cube) cleared to 1.0, and
+light-space matrices that map every position to depth 2 — outside the [0, 1] range the shaders treat as
+lit — so every shadow term is 1. It is static (one set for every frame slot), created on first use and
+destroyed with the device. Spine's texture set is therefore always set 3 (before M1 it moved to set 2
+without shadows and no longer matched `SpineLit.vk.frag`). Covered by the `spine-no-shadows` render
+test.
 
 ## `RenderShadows`
 
@@ -88,19 +146,21 @@ It is called from `Engine.OnShadowPass`, while the command buffer is open and no
 flowchart TD
     A["Clamp counts to MaxShadow*"] --> B["TransitionAll: ReadOnly → Attachment"]
     B --> C{"for each directional"}
-    C --> C1["CalcDirLightMatrix<br/>LookAt(-dir·20), ortho ±20, 0.1..50"]
-    C1 --> C2["write light VP UBO"] --> C3["shadow render pass → draw2D(state, cb, …)"]
+    C --> C1["CalcDirLightMatrix<br/>LookAt(-dir·20, up = ChooseUp(dir)), ortho ±20, 0.1..50"]
+    C1 --> C2["write ring slot i"] --> C3["shadow render pass → draw2D(state, cb, …)"]
     C3 --> D{"for each spot"}
     D --> D1["CalcSpotLightMatrix<br/>persp fov = 2·outer, near 0.1, far = Range"]
-    D1 --> D2["write light VP UBO"] --> D3["shadow render pass → draw2D(state, cb, …)"]
+    D1 --> D2["write ring slot 4+i"] --> D3["shadow render pass → draw2D(state, cb, …)"]
     D3 --> E{"for each point × 6 faces"}
     E --> E1["90° persp, near 0.05, far = Range"]
-    E1 --> E2["write light VP UBO"] --> E3["shadow render pass → drawPoint(state, cb, …, pos, range)"]
+    E1 --> E2["write ring slot 11+6i+f"] --> E3["shadow render pass → drawPoint(state, cb, …, pos, range)"]
     E3 --> F["TransitionAll: Attachment → ReadOnly"]
-    F --> G["copy dir/spot matrices → set-2 UBO for current image"]
+    F --> G["copy dir/spot matrices → set-2 UBO of this frame slot"]
 ```
 
-Every sub-pass clears depth to 1, sets an **unflipped** viewport, and binds the light VP set. Nodes
+Every sub-pass clears depth to 1, sets an **unflipped** viewport, and binds the light VP set with
+its own dynamic offset. Directional and spot lights use `ChooseUp` (world up, or +Z when the light is
+within ~8° of vertical, where `CreateLookAt` would degenerate). Nodes
 generally ignore the pipeline and layout arguments and fetch the right pipeline through the accessors
 (see `Box3d.DrawShadow2D`).
 
@@ -122,21 +182,10 @@ Only the first `min(count, MAX_SHADOW_*)` lights of each type sample a map; the 
 
 ## Known issues
 
-- **Only one shadow-casting light works.** A single host-mapped VP UBO is overwritten at **record time**
-  ([ShadowSystem.cs:148, 159, 182](../../MainframeEngine/Src/Rendering/Shadows/ShadowSystem.cs)), so
-  every sub-pass executes with the last matrix written. Any point light (6 faces) is therefore wrong,
-  and the buffer is also shared across frames in flight. Planned fix: push constant or per-pass dynamic
-  offsets ([renderer stabilization](future/renderer-stabilization.md)).
-- **Point callbacks receive the 2D pipelines** (`RenderShadowPass2D` passes `_pipe2D_*`).
-- **Directional up vector is always `UnitY`**, which degenerates for a straight-down light. `ChooseUp`
-  exists but is only used for spot lights.
-- **Fixed ±20 orthographic box at the world origin**; it does not follow the camera.
-- **Shadow-pass culling is probably inverted** *(inferred)*: the main pass flips the viewport, the shadow
-  pass does not, and both use CCW front faces.
-- `FindDepthFormat` does not verify that the format can be sampled or linearly filtered.
-- Per-frame allocations: a `cubeFaces` array and per-face closures (the Sandbox's lambdas allocate too;
-  `TODO` at `Game.cs:162`).
-- Comments refer to `IGame.OnShadowPass` and claim "Quad stride 12" (lines 12, 62-63, 123).
+- **Fixed ±20 orthographic box at the world origin**; it does not follow the camera (cascades: M4,
+  [Shadows v2](future/shadows-v2.md)).
+- One hard tap per sample (no PCF kernel), single-sided casters cast from their front side only.
+- All 15 maps are allocated up front (~116 MiB at D32) whatever the light count (atlas: M4).
 
 ## Related docs
 

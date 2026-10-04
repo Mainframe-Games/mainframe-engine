@@ -56,7 +56,8 @@ classDiagram
 | `LookAt(target)` | sets `Forward` and recomputes yaw/pitch |
 
 `AspectRatio` is not updated automatically. The game must set it every frame; the Sandbox does this in
-`OnRenderMainPass` from `Window.FramebufferSize`.
+`OnRenderMainPass` from `Engine.FramebufferSize` (pixels; see
+[Build & platforms](build-and-platforms.md#windowing-sdl2)).
 
 ## `Camera2D`
 
@@ -66,7 +67,10 @@ the camera. The game must set `Size` to the framebuffer size. `ModifyZoom(a)` co
 
 ## Input (Sandbox)
 
-The engine creates `InputContext` in `OnLoad` and leaves bindings to the game.
+The engine creates `InputContext` in `OnLoad` (Silk's **SDL** input backend: keyboard, mouse, gamepads)
+and leaves bindings to the game. `CursorMode.Raw` maps to SDL relative mouse mode. `just qa` can drive a
+scripted right-drag through SDL's event queue (`--qa-input <frame>`), which checks the SDL → `IMouse` →
+fly-camera path end to end.
 
 | Input | Action |
 |---|---|

@@ -140,7 +140,7 @@ spineNode.Draw(camera, lights);
 ### Rendering (`Rendering/`)
 
 **Vulkan Backend:**
-- `IRenderer` / `VulkanRenderer` — full Vulkan 1.2 implementation with swapchain management (triple-buffered), 2 frames-in-flight synchronization, validation layers, and depth buffer support
+- `IRenderer` / `VulkanRenderer` — full Vulkan 1.2 implementation with swapchain management (recreated on resize/VSync/image-count changes), 2 frames-in-flight synchronization with per-frame-slot resources, validation layers (on in Debug builds), and depth buffer support
 - `IVulkanContext` — exposes Vulkan primitives (device, queues, render pass, command buffers) to renderable objects
 
 **Cameras:**
@@ -165,7 +165,7 @@ spineNode.Draw(camera, lights);
 - All sky types are subtypes of `SkyEnvironment` and render as full-screen backdrops with UBO-driven inverse view/projection matrices
 
 **Shadow System (`Rendering/Shadows/`):**
-- `ShadowSystem` — manages shadow maps for directional and point lights via depth pre-pass rendering
+- `ShadowSystem` — manages shadow maps for directional, spot and point lights via depth pre-pass rendering; each sub-pass uses its own light matrix (dynamic-offset ring). Optional: without it, lit nodes bind a "no shadows" fallback
 - Integrates with shapes for shadow casting and receiving
 
 **ImGui:**

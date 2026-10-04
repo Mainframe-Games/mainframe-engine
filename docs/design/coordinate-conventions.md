@@ -26,9 +26,10 @@ Most subtle rendering bugs in the engine come from a mismatch here.
 | Shadow passes | not flipped | Shadow UVs are computed as `ndc·0.5 + 0.5` and match unflipped rendering |
 | ImGui | not flipped | ImGui is Y-down, the same as Vulkan |
 
-A flipped viewport reverses winding. The main pass uses CCW front faces *with* the flip, and the shadow
-pass uses CCW front faces *without* it. The shadow pass's `CullMode = Front` therefore probably behaves
-as back-face culling *(inferred)*.
+A flipped viewport reverses winding. Geometry is authored CCW. The main pass uses `FrontFace = CCW`
+*with* the flip, so CCW stays front. The shadow passes render *without* the flip, so geometric front
+faces arrive clockwise; their pipelines say so explicitly (`FrontFace = Clockwise`, `CullMode = Back`).
+See [Shadow system](shadow-system.md#pipelines).
 
 ## Depth
 
@@ -40,10 +41,11 @@ as back-face culling *(inferred)*.
 | Shadow 2D | standard [0,1], compare bias 0.001 + raster depth bias 1.25 / 1.75 |
 | Shadow point | linear `distance / range` written to `gl_FragDepth`, bias 0.015 |
 
-**Known issue — double remap.** The main-pass vertex shaders also apply the OpenGL → Vulkan remap
-`z = z·0.5 + w·0.5`. Depth therefore lands in [0.5, 1]: half the precision is lost, the effective near
-plane moves to about near/2, and in orthographic projection geometry behind the camera is no longer
-clipped. The shadow shaders do not remap, so the two passes disagree.
+Every pass writes `gl_Position` straight from the System.Numerics projection (already [0, 1]); no
+vertex shader remaps depth. (Until M1 the main-pass shaders also applied the OpenGL remap
+`z = z·0.5 + w·0.5`, which squeezed depth into [0.5, 1], halved precision and disagreed with the shadow
+passes.) The grid shader's `LinearizeDepth` assumes this [0, 1] convention. Reversed-Z is deferred
+([ADR 0004](../../memory/decisions/0004-renderer-stabilization-defaults.md)).
 
 ## Color space
 
@@ -57,4 +59,4 @@ clipped. The shadow shaders do not remap, so the two passes disagree.
 ## Related docs
 
 [Vulkan renderer](vulkan-renderer.md) · [Shadow system](shadow-system.md) · [Cameras & input](cameras-and-input.md) ·
-[Future: renderer stabilization](future/renderer-stabilization.md) · [Future: color pipeline](future/color-pipeline.md)
+[Future: color pipeline](future/color-pipeline.md)
