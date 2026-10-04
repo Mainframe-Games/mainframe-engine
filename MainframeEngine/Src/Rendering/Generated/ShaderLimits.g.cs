@@ -16,12 +16,18 @@ internal static class ShaderLimits
     /// <summary>Spot lights in the lights UBO.</summary>
     public const int MaxSpotLights = 8;
 
-    /// <summary>Directional shadow maps (one per directional light).</summary>
+    /// <summary>Shadowed directional lights: the first casts cascades, the others get an atlas tile each.</summary>
     public const int MaxShadowDirectional = 4;
 
-    /// <summary>Spot shadow maps: one less than the spot lights, to fit MoltenVK's 16 fragment samplers (4 + 7 + 4 + 1 material sampler shared by its textures, ADR 0019).</summary>
-    public const int MaxShadowSpot = 7;
+    /// <summary>Shadowed spot lights (atlas tiles): every spot light can cast (M4: the atlas cut the shadow samplers from 15 to 6).</summary>
+    public const int MaxShadowSpot = 8;
 
-    /// <summary>Point shadow cube maps (six passes each).</summary>
+    /// <summary>Shadowed point lights (cube maps, six passes each).</summary>
     public const int MaxShadowPoint = 4;
+
+    /// <summary>Cascades of the primary directional light (layers of the cascade array).</summary>
+    public const int MaxShadowCascades = 4;
+
+    /// <summary>Atlas tiles: secondary directional lights (MAX_SHADOW_DIR - 1) plus spot lights (MAX_SHADOW_SPOT).</summary>
+    public const int MaxShadowAtlasMaps = 11;
 }

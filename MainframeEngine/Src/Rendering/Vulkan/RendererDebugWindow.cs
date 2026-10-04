@@ -52,6 +52,9 @@ public static class RendererDebugWindow
             Line(text, $"Resident: {meshes} meshes, {materials} materials, {textures} textures; {pipelines?.Count ?? 0} pipelines ({pipelines?.Hits ?? 0} hits)");
         }
 
+        if (server?.ExistingShadows is { } shadows)
+            DrawShadows(text, vk, server, shadows);
+
         ImGui.SeparatorText("GPU memory");
         var totals = vk.Allocator.Totals;
         Line(text, $"{totals.AllocationCount} allocations in {totals.DeviceMemoryCount} VkDeviceMemory ({totals.BlockCount} blocks, {totals.DedicatedCount} dedicated)");
@@ -71,6 +74,64 @@ public static class RendererDebugWindow
         Line(text, $"Pipeline cache: {vk.Pipelines.LoadedBytes / 1024} KiB loaded, {vk.Shaders.Count} shader modules");
 
         ImGui.End();
+    }
+
+    private static readonly string[] FilterNames = ["Hard", "PCF 3x3", "Poisson 16"];
+    private static readonly nint[] ShadowTextureIds = new nint[ShadowSystem.MaxCascades + 1];
+    private static readonly Silk.NET.Vulkan.ImageView[] ShadowTextureViews = new Silk.NET.Vulkan.ImageView[ShadowSystem.MaxCascades + 1];
+    private static IImGuiTextureRegistry? _shadowTextureRegistry;
+
+    // Shadow settings and statistics; the "Maps" tree shows the cascade layers and the atlas (depth as red).
+    private static void DrawShadows(Span<char> text, IVulkanContext vk, RenderServer server, ShadowSystem shadows)
+    {
+        ImGui.SeparatorText("Shadows");
+        var debug = shadows.DebugCascades;
+        if (ImGui.Checkbox("Cascade colours", ref debug))
+            shadows.DebugCascades = debug;
+        var stable = shadows.StableCascades;
+        if (ImGui.Checkbox("Stable cascades", ref stable))
+            shadows.StableCascades = stable;
+        var filter = (int)shadows.Filter;
+        if (ImGui.Combo("Filter", ref filter, FilterNames, FilterNames.Length))
+            shadows.Filter = (ShadowFilter)filter;
+        var radius = shadows.FilterRadius;
+        if (ImGui.SliderFloat("Filter radius", ref radius, 0.5f, 4f, "%.2f texels"))
+            shadows.FilterRadius = radius;
+
+        var stats = server.MeshStats;
+        Line(text, $"Passes {shadows.RenderedPasses}/{shadows.PlannedPasses}, {stats.ShadowDrawCalls} draws, {stats.ShadowInstances} instances, {stats.ShadowCulled} culled");
+        Line(text, $"Cascades {shadows.CascadeResolution}², atlas {shadows.AtlasSize}² ({shadows.AtlasPackCount} packs), {Mib((ulong)shadows.MapMemoryBytes):0.0} MiB");
+        Line(text, $"CPU {shadows.LastCpuMilliseconds:0.000} ms");
+
+        if (vk.ImGuiTextures is not { } registry || !ImGui.TreeNode("Maps"))
+            return;
+        if (!ReferenceEquals(registry, _shadowTextureRegistry))
+        {
+            Array.Clear(ShadowTextureIds);
+            Array.Clear(ShadowTextureViews);
+            _shadowTextureRegistry = registry;
+        }
+
+        for (var i = 0; i <= ShadowSystem.MaxCascades; i++)
+        {
+            var view = i < ShadowSystem.MaxCascades ? shadows.CascadeLayerView(i) : shadows.AtlasView;
+            if (view.Handle == 0)
+                continue;
+            if (ShadowTextureIds[i] == 0)
+                ShadowTextureIds[i] = registry.Register(view, shadows.DebugSampler, Silk.NET.Vulkan.ImageLayout.DepthStencilReadOnlyOptimal);
+            else if (ShadowTextureViews[i].Handle != view.Handle)
+                registry.Update(ShadowTextureIds[i], view, shadows.DebugSampler, Silk.NET.Vulkan.ImageLayout.DepthStencilReadOnlyOptimal);
+            ShadowTextureViews[i] = view;
+
+            var size = i < ShadowSystem.MaxCascades ? 96f : 256f;
+            if (i == ShadowSystem.MaxCascades)
+                ImGui.NewLine();
+            else if (i > 0)
+                ImGui.SameLine();
+            ImGui.Image(ShadowTextureIds[i], new System.Numerics.Vector2(size, size));
+        }
+
+        ImGui.TreePop();
     }
 
     private static double Mib(ulong bytes) => bytes / (1024.0 * 1024.0);

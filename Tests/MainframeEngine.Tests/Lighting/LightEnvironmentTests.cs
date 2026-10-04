@@ -33,7 +33,8 @@ public class LightEnvironmentTests
         Assert.Equal(16, LightEnvironment.MaxPoint);
         Assert.Equal(8, LightEnvironment.MaxSpot);
         Assert.Equal(LightEnvironment.MaxDirectional, ShadowSystem.MaxShadowDir);
-        Assert.Equal(LightEnvironment.MaxSpot - 1, ShadowSystem.MaxShadowSpot); // MoltenVK sampler budget
+        Assert.Equal(LightEnvironment.MaxSpot, ShadowSystem.MaxShadowSpot); // every spot light casts (the atlas freed the samplers)
+        Assert.True(ShadowSystem.SamplerCount + 1 <= 16, "shadow samplers + the material sampler fit MoltenVK's 16 per stage");
         Assert.Equal(4, ShadowSystem.MaxShadowPoint);
     }
 

@@ -6,8 +6,13 @@
 
 #include "common.glsl"
 
+// The material set (2 in the mesh pipelines; the cutout shadow casters define MATERIAL_SET 1).
+#ifndef MATERIAL_SET
+#define MATERIAL_SET 2
+#endif
+
 // MaterialGpu.Params (std140, 80 bytes).
-layout(set = 2, binding = 0) uniform MaterialParams {
+layout(set = MATERIAL_SET, binding = 0) uniform MaterialParams {
     vec4  albedo;      // linear rgb, a = alpha
     vec4  emission;    // linear rgb × energy
     vec4  uvTransform; // xy = scale, zw = offset
@@ -15,10 +20,10 @@ layout(set = 2, binding = 0) uniform MaterialParams {
     uvec4 flags;       // x = texture bits (1 albedo, 2 normal, 4 emission), y = 1 unshaded, z = 1 double-sided
 } material;
 
-layout(set = 2, binding = 1) uniform sampler materialSampler;
-layout(set = 2, binding = 2) uniform texture2D albedoTexture;
-layout(set = 2, binding = 3) uniform texture2D normalTexture;
-layout(set = 2, binding = 4) uniform texture2D emissionTexture;
+layout(set = MATERIAL_SET, binding = 1) uniform sampler materialSampler;
+layout(set = MATERIAL_SET, binding = 2) uniform texture2D albedoTexture;
+layout(set = MATERIAL_SET, binding = 3) uniform texture2D normalTexture;
+layout(set = MATERIAL_SET, binding = 4) uniform texture2D emissionTexture;
 
 const uint kHasAlbedoTexture   = 1u;
 const uint kHasNormalTexture   = 2u;

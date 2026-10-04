@@ -39,8 +39,8 @@ void main()
     }
     else
     {
-        N = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
-        color = shadeLightsBlinnPhong(albedo.rgb, N, inWorldPos, material.params.x, material.params.y);
+        vec3 Nmap = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
+        color = shadeLightsBlinnPhong(albedo.rgb, Nmap, N, inWorldPos, material.params.x, material.params.y);
     }
 
     color += materialEmission(uv, duvdx, duvdy);

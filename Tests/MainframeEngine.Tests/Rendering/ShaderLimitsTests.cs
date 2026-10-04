@@ -72,6 +72,8 @@ public sealed partial class ShaderLimitsTests
             ["MaxShadowDirectional"] = ShadowSystem.MaxShadowDir,
             ["MaxShadowSpot"] = ShadowSystem.MaxShadowSpot,
             ["MaxShadowPoint"] = ShadowSystem.MaxShadowPoint,
+            ["MaxShadowCascades"] = ShadowSystem.MaxCascades,
+            ["MaxShadowAtlasMaps"] = ShaderLimits.MaxShadowAtlasMaps,
         };
 
         foreach (var (name, value) in engine)

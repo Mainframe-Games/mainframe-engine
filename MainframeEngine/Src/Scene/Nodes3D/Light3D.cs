@@ -35,6 +35,39 @@ public abstract class Light3D : Node3D
         set => Light.Intensity = value;
     }
 
+    /// <summary>Whether the light casts shadows (default true; see <see cref="MainframeEngine.Light.CastsShadows"/>).</summary>
+    [ExportGroup("Shadow")]
+    [Export]
+    public bool CastsShadows
+    {
+        get => Light.CastsShadows;
+        set => Light.CastsShadows = value;
+    }
+
+    /// <summary>Shadow map size in texels (see <see cref="MainframeEngine.Light.ShadowResolution"/>).</summary>
+    [Export(Range = "64,8192,1")]
+    public int ShadowResolution
+    {
+        get => Light.ShadowResolution;
+        set => Light.ShadowResolution = value;
+    }
+
+    /// <summary>Receiver offset towards the light, in texels (see <see cref="MainframeEngine.Light.ShadowBias"/>).</summary>
+    [Export(Range = "0,16,0.01")]
+    public float ShadowBias
+    {
+        get => Light.ShadowBias;
+        set => Light.ShadowBias = value;
+    }
+
+    /// <summary>Receiver offset along the normal, in texels (see <see cref="MainframeEngine.Light.ShadowNormalBias"/>).</summary>
+    [Export(Range = "0,16,0.01")]
+    public float ShadowNormalBias
+    {
+        get => Light.ShadowNormalBias;
+        set => Light.ShadowNormalBias = value;
+    }
+
     protected override void OnEnterTree()
     {
         base.OnEnterTree();
@@ -62,6 +95,39 @@ public class DirectionalLight3D : Light3D
     private readonly DirectionalLight _light = new();
 
     public override Light Light => _light;
+
+    /// <summary>Shadow cascades when this is the primary shadowed directional light, 1–4.</summary>
+    [ExportGroup("Shadow Cascades")]
+    [Export(Range = "1,4,1")]
+    public int ShadowCascades
+    {
+        get => _light.CascadeCount;
+        set => _light.CascadeCount = value;
+    }
+
+    /// <summary>Practical split blend: 0 uniform, 1 logarithmic (default 0.75).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float ShadowSplitLambda
+    {
+        get => _light.CascadeSplitLambda;
+        set => _light.CascadeSplitLambda = value;
+    }
+
+    /// <summary>View distance the shadows reach (Godot's <c>directional_shadow_max_distance</c>).</summary>
+    [Export(Range = "0.1,8192,0.1")]
+    public float ShadowMaxDistance
+    {
+        get => _light.MaxShadowDistance;
+        set => _light.MaxShadowDistance = value;
+    }
+
+    /// <summary>Fraction of each cascade blended into the next.</summary>
+    [Export(Range = "0,0.5,0.01")]
+    public float ShadowCascadeBlend
+    {
+        get => _light.CascadeBlend;
+        set => _light.CascadeBlend = value;
+    }
 
     private protected override void SyncTransform()
     {

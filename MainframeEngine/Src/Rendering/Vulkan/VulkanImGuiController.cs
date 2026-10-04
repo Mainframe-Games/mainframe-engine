@@ -336,21 +336,25 @@ internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureR
 
     // IImGuiTextureRegistry
 
-    public nint Register(ImageView view, Sampler sampler)
+    public nint Register(ImageView view, Sampler sampler) => Register(view, sampler, ImageLayout.ShaderReadOnlyOptimal);
+
+    public nint Register(ImageView view, Sampler sampler, ImageLayout layout)
     {
         if (_textureSets.Count > MaxUserTextures)
             throw new InvalidOperationException($"At most {MaxUserTextures} images can be registered with ImGui.");
         var id = _nextTextureId++;
-        _textureSets[id] = CreateImageSet(view, sampler);
+        _textureSets[id] = CreateImageSet(view, sampler, layout);
         return id;
     }
 
-    public void Update(nint textureId, ImageView view, Sampler sampler)
+    public void Update(nint textureId, ImageView view, Sampler sampler) => Update(textureId, view, sampler, ImageLayout.ShaderReadOnlyOptimal);
+
+    public void Update(nint textureId, ImageView view, Sampler sampler, ImageLayout layout)
     {
         if (textureId == FontTextureId || !_textureSets.TryGetValue(textureId, out var old))
             throw new ArgumentException($"ImGui texture {textureId} is not registered.", nameof(textureId));
         // Frames in flight may still bind the old set: write a new one, free the old one when they finish.
-        _textureSets[textureId] = CreateImageSet(view, sampler);
+        _textureSets[textureId] = CreateImageSet(view, sampler, layout);
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_descriptorPool, old));
     }
 
@@ -361,14 +365,14 @@ internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureR
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_descriptorPool, old));
     }
 
-    private DescriptorSet CreateImageSet(ImageView view, Sampler sampler)
+    private DescriptorSet CreateImageSet(ImageView view, Sampler sampler, ImageLayout layout)
     {
         var set = PipelineBuilder.AllocateSet(_ctx, _descriptorPool, _descriptorSetLayout, "ImGui image");
         PipelineBuilder.WriteImage(_ctx, set, 0, new DescriptorImageInfo
         {
             Sampler = sampler.Handle != 0 ? sampler : _fontTexture.Sampler,
             ImageView = view,
-            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+            ImageLayout = layout,
         });
         return set;
     }

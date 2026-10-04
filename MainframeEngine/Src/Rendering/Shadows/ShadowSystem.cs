@@ -1,12 +1,13 @@
+using System.Diagnostics;
 using System.Numerics;
-using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 using VkSampler = Silk.NET.Vulkan.Sampler;
 
 namespace MainframeEngine;
 
-/// <summary>The set-2 shadow descriptors a lit pipeline binds: a real <see cref="ShadowSystem"/> or the "no shadows" fallback.</summary>
+/// <summary>The shadow descriptor set a lit pipeline binds: a real <see cref="ShadowSystem"/> or the "no shadows" fallback.</summary>
 public interface IShadowDescriptors
 {
     DescriptorSetLayout MainDescSetLayout { get; }
@@ -16,99 +17,92 @@ public interface IShadowDescriptors
 }
 
 /// <summary>
-/// Manages shadow maps for all three light types (directional, spot, point).
-/// Call <see cref="RenderShadows{TState}"/> once per frame from <c>Engine.OnShadowPass</c>; lit nodes
-/// then bind <see cref="GetMainSet"/> as descriptor set 2 in the main pass.
+/// Shadow maps for every light type: cascades for the primary directional light (a 2D array), one atlas for spot
+/// lights and the other directional lights, and cube maps for point lights. Call
+/// <see cref="RenderShadows{TState}(LightEnvironment, ICamera?, in Aabb, TState, ShadowCasterCull{TState}, ShadowCasterDraw{TState})"/>
+/// once per frame before the main pass; lit pipelines then bind <see cref="GetMainSet"/> as their shadow set.
 /// </summary>
 /// <remarks>
-/// Every shadow sub-pass (one per directional/spot light, six per point light) gets its own light
-/// view-projection matrix in a per-frame-slot dynamic-offset uniform ring, so each recorded pass keeps
-/// its matrix until the GPU executes it.
+/// <para>Planning (which light gets which map, cascade fitting, atlas packing) is CPU-only (<see cref="ShadowPlanner"/>).
+/// Each sub-pass gets its own light view-projection in a per-frame-slot dynamic-offset uniform ring, so every recorded
+/// pass keeps its matrix until the GPU executes it.</para>
+/// <para>Maps are created on first use at the size the lights ask for and re-created when it changes; until then the
+/// set points at 1×1 placeholders. Six samplers in all (cascade array, atlas, four cubes).</para>
 /// </remarks>
 public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 {
     // ── Limits ────────────────────────────────────────────────────────────────
 
-    // From Content/Shaders/limits.json (generated ShaderLimits / include/limits.glsl). Spot: one less than
-    // LightEnvironment.MaxSpot, because the fragment stage's sampler budget is 16 on MoltenVK
-    // (maxPerStageDescriptorSamplers) — 4 dir + 7 spot + 4 point + 1 material sampler (ADR 0019). The 8th spot light
-    // still lights, it just casts no shadow. Point: cube maps are expensive.
-    public const int MaxShadowDir   = ShaderLimits.MaxShadowDirectional;
-    public const int MaxShadowSpot  = ShaderLimits.MaxShadowSpot;
+    /// <summary>Shadowed directional lights: the first casts cascades, up to three more get atlas tiles.</summary>
+    public const int MaxShadowDir = ShaderLimits.MaxShadowDirectional;
+
+    /// <summary>Shadowed spot lights (atlas tiles): every spot light of the lights UBO.</summary>
+    public const int MaxShadowSpot = ShaderLimits.MaxShadowSpot;
+
+    /// <summary>Shadowed point lights (cube maps).</summary>
     public const int MaxShadowPoint = ShaderLimits.MaxShadowPoint;
 
-    /// <summary>Shadow sub-passes per frame: one per dir/spot map, six per point cube map (35).</summary>
-    public const int MaxShadowPasses = MaxShadowDir + MaxShadowSpot + MaxShadowPoint * 6;
+    /// <summary>Cascades of the primary directional light.</summary>
+    public const int MaxCascades = ShaderLimits.MaxShadowCascades;
 
-    private const int DirSize   = 2048;
-    private const int SpotSize  = 1024;
-    private const int PointSize = 512;
+    /// <summary>Shadow sub-passes per frame: 4 cascades + 11 atlas tiles + 4 × 6 cube faces (39).</summary>
+    public const int MaxShadowPasses = ShadowPlanner.MaxPasses;
 
-    // ── Shadow matrices UBO layout (must match Shapes.vk.frag) ───────────────
-    // mat4[MaxShadowDir] dir + mat4[MaxShadowSpot] spot, 64 bytes per matrix
-    internal const int ShadowMatricesUboSize = (MaxShadowDir + MaxShadowSpot) * 64;
-
-    // ── Per-map structs ───────────────────────────────────────────────────────
-
-    private struct Map2D
-    {
-        public GpuImage    Image;       // default view: the full 2D map (sampling and rendering)
-        public Framebuffer Framebuffer;
-    }
-
-    private struct MapCube
-    {
-        public GpuImage      Image;                            // default view: the cube (for sampling)
-        public Framebuffer[] FaceFramebuffers = new Framebuffer[6]; // one per face view (for rendering)
-        public MapCube(GpuImage image) { Image = image; }
-    }
+    /// <summary>Samplers the shadow set adds to the fragment stage: cascade array, atlas, cubes.</summary>
+    public const int SamplerCount = 2 + MaxShadowPoint;
 
     // ── Fields ────────────────────────────────────────────────────────────────
 
     private readonly IVulkanContext _ctx;
-    private readonly Format         _depthFormat;
-    private readonly bool           _linearDepthFiltering;
-    private bool                    _disposed;
+    private readonly Format _depthFormat;
+    private readonly bool _linearDepthFiltering;
+    private readonly ShadowPlanner _planner = new();
+    private bool _disposed;
 
-    // Depth-only render pass (shared for all shadow types)
+    // Depth-only render pass (every map type; Undefined → attachment, the whole render area is cleared).
     private RenderPass _shadowRenderPass;
 
-    // Shadow pipelines — one per vertex stride per shadow type
-    // Stride 32 (pos + uv + normal) and stride 12 (Spine: positions only); meshes use the instanced pipelines.
-    private Pipeline       _pipe2D_S32,   _pipe2D_S12;
-    private Pipeline       _pipePoint_S32, _pipePoint_S12;
+    // Per-object pipelines (Spine and other non-batched visuals): stride 32 (MeshVertex) and 12 (positions only).
+    private Pipeline _pipe2D_S32, _pipe2D_S12;
+    private Pipeline _pipePoint_S32, _pipePoint_S12;
     private PipelineLayout _layout2D;      // push: mat4 model; set0: light VP (dynamic UBO)
     private PipelineLayout _layoutPoint;   // push: mat4 model + vec4 lightPosRange; set0: light VP (dynamic UBO)
+    private PipelineLayout _layout2DCutout, _layoutPointCutout; // + set1: the mesh material (cutout casters)
 
     // Light-VP ring: MaxFramesInFlight × MaxShadowPasses matrices, bound with a dynamic offset per pass.
-    private readonly UniformRing  _vpRing;
-    private GpuBuffer             _vpBuffer = null!;
-    private nint                  _vpMapped;
-    private DescriptorPool        _vpPool;
-    private DescriptorSetLayout   _vpSetLayout;
-    private DescriptorSet         _vpSet;
+    private readonly UniformRing _vpRing;
+    private GpuBuffer _vpBuffer = null!;
+    private nint _vpMapped;
+    private DescriptorPool _vpPool;
+    private DescriptorSetLayout _vpSetLayout;
+    private DescriptorSet _vpSet;
 
-    // Shadow maps (shared by both frame slots: the layout barriers in RenderShadows order a frame's
-    // writes after the previous frame's sampling on the same queue)
-    private readonly Map2D[]   _dirMaps  = new Map2D[MaxShadowDir];
-    private readonly Map2D[]   _spotMaps = new Map2D[MaxShadowSpot];
-    private readonly MapCube[] _ptMaps   = new MapCube[MaxShadowPoint];
+    // Maps (shared by both frame slots: the barriers in RenderShadows order a frame's writes after the previous
+    // frame's sampling on the same queue). Null until a light needs them.
+    private GpuImage? _cascades;
+    private readonly Framebuffer[] _cascadeFramebuffers = new Framebuffer[MaxCascades];
+    private readonly ImageView[] _cascadeLayerViews = new ImageView[MaxCascades];
+    private bool _cascadesNeedInit;
+    private GpuImage? _atlas;
+    private Framebuffer _atlasFramebuffer;
+    private bool _atlasNeedsInit;
+    private readonly GpuImage?[] _cubes = new GpuImage?[MaxShadowPoint];
+    private readonly Framebuffer[] _cubeFramebuffers = new Framebuffer[MaxShadowPoint * 6];
+    private readonly bool[] _cubeNeedsInit = new bool[MaxShadowPoint];
+    private readonly ShadowPlaceholderMaps _placeholders;
 
-    // Samplers
-    private VkSampler _sampler2DShadow; // comparison sampler for dir/spot
-    private VkSampler _samplerCube;     // plain sampler for point
+    private readonly VkSampler _comparisonSampler;
 
-    // Main-pass descriptor set (set=2 in Shapes.vk.frag), one per frame slot
-    private DescriptorPool      _mainPool;
-    public DescriptorSetLayout MainDescSetLayout { get; private set; }
+    // Main-pass descriptor set, one per frame slot (rewritten when a map is re-created).
+    private DescriptorPool _mainPool;
     private readonly DescriptorSet[] _mainSets = new DescriptorSet[IVulkanContext.MaxFramesInFlight];
+    private readonly GpuBuffer[] _uniformBuffers = new GpuBuffer[IVulkanContext.MaxFramesInFlight];
+    private readonly int[] _setVersion = new int[IVulkanContext.MaxFramesInFlight];
+    private readonly ulong[] _uniformFrame = new ulong[IVulkanContext.MaxFramesInFlight];
+    private int _mapsVersion = 1;
 
-    // Shadow matrices UBO, one per frame slot
-    private readonly GpuBuffer[] _matBuffers = new GpuBuffer[IVulkanContext.MaxFramesInFlight];
-
-    // CPU-side matrices updated by RenderShadows each frame
-    private readonly Matrix4x4[] _dirMats  = new Matrix4x4[MaxShadowDir];
-    private readonly Matrix4x4[] _spotMats = new Matrix4x4[MaxShadowSpot];
+    private readonly Dictionary<int, Pipeline> _instancedPipelines = [];
+    private DescriptorSetLayout _materialLayout;
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -121,33 +115,280 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         ctx.Vk.GetPhysicalDeviceProperties(ctx.PhysicalDevice, out var props);
         _vpRing = new UniformRing((ulong)sizeof(Matrix4x4), MaxShadowPasses, IVulkanContext.MaxFramesInFlight,
             props.Limits.MinUniformBufferOffsetAlignment);
+        MaxImageSize = (int)Math.Min(props.Limits.MaxImageDimension2D, props.Limits.MaxFramebufferWidth);
 
         CreateShadowRenderPass();
         CreateVpRingResources();
         CreateShadowPipelines();
-        CreateShadowMaps();
-        _sampler2DShadow = CreateComparisonSampler(ctx, _linearDepthFiltering);
-        _samplerCube = CreateCubeSampler(ctx);
+        _placeholders = new ShadowPlaceholderMaps(ctx, _depthFormat);
+        _comparisonSampler = CreateComparisonSampler(ctx, _linearDepthFiltering);
         CreateMainDescriptorResources();
-        InitializeShadowMapLayouts();
+    }
+
+    // ── Settings & stats ──────────────────────────────────────────────────────
+
+    /// <summary>Filtering of every shadow map (default <see cref="ShadowFilter.Poisson16"/>).</summary>
+    public ShadowFilter Filter
+    {
+        get => _planner.Filter;
+        set => _planner.Filter = value;
+    }
+
+    /// <summary>Radius of the PCF kernel in texels (default 1.5; clamped to [0.5, 8]).</summary>
+    public float FilterRadius
+    {
+        get => _planner.FilterRadius;
+        set => _planner.FilterRadius = Math.Clamp(value, 0.5f, 8f);
+    }
+
+    /// <summary>Tints the main view by cascade: red, green, blue, yellow (debug).</summary>
+    public bool DebugCascades
+    {
+        get => _planner.DebugCascades;
+        set => _planner.DebugCascades = value;
+    }
+
+    /// <summary>Snap cascades to the texel grid (default true). False shows the shimmering this prevents.</summary>
+    public bool StableCascades
+    {
+        get => _planner.StableCascades;
+        set => _planner.StableCascades = value;
+    }
+
+    /// <summary>Largest shadow atlas (default 4096, a power of two); the atlas grows to fit its tiles up to this size.</summary>
+    public int MaxAtlasSize
+    {
+        get => _planner.MaxAtlasSize;
+        set => _planner.MaxAtlasSize = (int)BitOperations.RoundUpToPowerOf2((uint)Math.Clamp(value, ShadowPlanner.MinAtlasSize, Math.Min(MaxImageSize, 16384)));
+    }
+
+    /// <summary>Constant depth bias of the caster rasterisation (default 1.25; the hardware's minimum resolvable units).</summary>
+    public float DepthBiasConstant { get; set; } = 1.25f;
+
+    /// <summary>Slope-scaled depth bias of the caster rasterisation (default 1.75). Point lights write distance and ignore it.</summary>
+    public float DepthBiasSlope { get; set; } = 1.75f;
+
+    /// <summary>The largest image side the device supports.</summary>
+    public int MaxImageSize { get; }
+
+    /// <summary>Shadow sub-passes planned in the last frame.</summary>
+    public int PlannedPasses { get; private set; }
+
+    /// <summary>Sub-passes recorded in the last frame (planned minus those without casters).</summary>
+    public int RenderedPasses { get; private set; }
+
+    /// <summary>CPU time of the last <c>RenderShadows</c> (planning, culling callbacks and recording), in milliseconds.</summary>
+    public double LastCpuMilliseconds { get; private set; }
+
+    /// <summary>Side of each cascade layer (0 while there are none).</summary>
+    public int CascadeResolution => (int)(_cascades?.Width ?? 0);
+
+    /// <summary>Side of the atlas (0 while there is none).</summary>
+    public int AtlasSize => (int)(_atlas?.Width ?? 0);
+
+    /// <summary>Times the atlas was packed (only when its tiles change).</summary>
+    public int AtlasPackCount => _planner.AtlasPackCount;
+
+    /// <summary>Bytes of shadow-map memory in use (cascades, atlas, cubes).</summary>
+    public long MapMemoryBytes
+    {
+        get
+        {
+            long bytes = 0;
+            if (_cascades is not null) bytes += (long)_cascades.Width * _cascades.Height * _cascades.ArrayLayers * 4;
+            if (_atlas is not null) bytes += (long)_atlas.Width * _atlas.Height * 4;
+            foreach (var cube in _cubes)
+                if (cube is not null) bytes += (long)cube.Width * cube.Height * 6 * 4;
+            return bytes;
+        }
+    }
+
+    /// <summary>The passes planned for the current frame (after <c>RenderShadows</c>).</summary>
+    public ReadOnlySpan<ShadowPass> Passes => _planner.Passes;
+
+    /// <summary>Whether pass <paramref name="index"/> of the current frame was recorded.</summary>
+    public bool PassRendered(int index) => _planner.HasCasters(index);
+
+    internal ShadowPlanner Planner => _planner;
+
+    /// <summary>A 2D view of cascade layer <paramref name="cascade"/> (debug display; default while there are no cascades).</summary>
+    internal ImageView CascadeLayerView(int cascade) => _cascadeLayerViews[cascade];
+
+    /// <summary>The atlas view (debug display; default while there is no atlas).</summary>
+    internal ImageView AtlasView => _atlas?.View ?? default;
+
+    private VkSampler _debugSampler;
+
+    /// <summary>A plain (non-comparison) nearest sampler to display depth maps (created on first use).</summary>
+    internal VkSampler DebugSampler
+    {
+        get
+        {
+            if (_debugSampler.Handle != 0)
+                return _debugSampler;
+            var info = new SamplerCreateInfo
+            {
+                SType = StructureType.SamplerCreateInfo,
+                MagFilter = Silk.NET.Vulkan.Filter.Nearest,
+                MinFilter = Silk.NET.Vulkan.Filter.Nearest,
+                AddressModeU = SamplerAddressMode.ClampToEdge,
+                AddressModeV = SamplerAddressMode.ClampToEdge,
+                AddressModeW = SamplerAddressMode.ClampToEdge,
+                MipmapMode = SamplerMipmapMode.Nearest,
+            };
+            _ctx.Vk.CreateSampler(_ctx.Device, in info, null, out _debugSampler).Check("vkCreateSampler (shadow debug)");
+            return _debugSampler;
+        }
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    /// <summary>Returns the shadow descriptor set for the frame being recorded.</summary>
-    public DescriptorSet GetMainSet() => _mainSets[_ctx.FrameSlot];
+    /// <summary>
+    /// Returns the shadow descriptor set for the frame being recorded. In a frame without <c>RenderShadows</c> its
+    /// uniforms are reset to "no shadows", so lit pipelines never sample stale maps.
+    /// </summary>
+    public DescriptorSet GetMainSet()
+    {
+        var slot = _ctx.FrameSlot;
+        if (_ctx.FrameStarted)
+        {
+            if (_uniformFrame[slot] != _ctx.FrameNumber)
+            {
+                _uniformBuffers[slot].MappedSpan.Clear();
+                _uniformFrame[slot] = _ctx.FrameNumber;
+            }
+
+            if (_setVersion[slot] != _mapsVersion)
+                WriteSlotSet(slot);
+        }
+
+        return _mainSets[slot];
+    }
 
     /// <summary>
-    /// Renders shadow maps for all active lights, then updates the shadow matrices UBO.
-    /// Call from IGame.OnShadowPass (before the main render pass).
-    /// draw2D: bind VB, push model matrix via layout2D, call CmdDraw.
-    /// drawPoint: bind VB, push model+lightPosRange via layoutPoint, call CmdDraw.
+    /// Plans and records the frame's shadow maps (call once per frame, with the command buffer open and no render pass
+    /// active). <paramref name="cull"/> runs for every planned pass first — return false when nothing casts into it, and
+    /// the pass is skipped and its map treated as lit; then <paramref name="draw"/> records the casters of every pass
+    /// that renders. Use static lambdas: <paramref name="state"/> carries what they need (no allocations).
     /// </summary>
-    /// <remarks>
-    /// Allocates if the callbacks capture state; prefer the
-    /// <see cref="RenderShadows{TState}(LightEnvironment, TState, ShadowDraw2D{TState}, ShadowDrawPoint{TState})"/>
-    /// overload with static lambdas in per-frame code.
-    /// </remarks>
+    /// <param name="camera">The main view: cascades and secondary directional maps are fitted to it (null: a fixed
+    /// sphere around the origin).</param>
+    /// <param name="casterBounds">World bounds of the bounded casters (may be empty): cascades pull their near plane back
+    /// to include them.</param>
+    public void RenderShadows<TState>(LightEnvironment lights, ICamera? camera, in Aabb casterBounds, TState state,
+        ShadowCasterCull<TState> cull, ShadowCasterDraw<TState> draw)
+    {
+        ArgumentNullException.ThrowIfNull(lights);
+        ArgumentNullException.ThrowIfNull(cull);
+        ArgumentNullException.ThrowIfNull(draw);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_ctx.FrameStarted)
+            return;
+
+        var start = Stopwatch.GetTimestamp();
+        var cb = _ctx.CurrentCommandBuffer;
+        var frameSlot = _ctx.FrameSlot;
+
+        _planner.Plan(lights, camera, casterBounds);
+        var passes = _planner.Passes;
+        for (var i = 0; i < passes.Length; i++)
+            _planner.SetHasCasters(i, cull(state, passes[i]));
+        _planner.ApplyCulling();
+
+        EnsureMaps();
+
+        // Which maps render this frame.
+        var renderCascades = false;
+        var renderAtlas = false;
+        var rendered = 0;
+        foreach (ref readonly var pass in passes)
+        {
+            if (!_planner.HasCasters(pass.Index))
+                continue;
+            rendered++;
+            renderCascades |= pass.Kind == ShadowPassKind.Cascade;
+            renderAtlas |= pass.Kind == ShadowPassKind.AtlasTile;
+        }
+
+        Span<bool> renderCube = stackalloc bool[MaxShadowPoint];
+        for (var c = 0; c < MaxShadowPoint; c++)
+            renderCube[c] = _planner.CubeRenders(c) && _cubes[c] is not null;
+
+        TransitionMaps(cb, renderCascades, renderAtlas, renderCube, toWrite: true);
+
+        foreach (ref readonly var pass in passes)
+        {
+            if (!_planner.HasCasters(pass.Index))
+                continue;
+            switch (pass.Kind)
+            {
+                case ShadowPassKind.Cascade:
+                    BeginShadowPass(cb, _cascadeFramebuffers[pass.Slot], (uint)pass.Size);
+                    RecordPass(cb, frameSlot, pass, state, draw);
+                    _ctx.Vk.CmdEndRenderPass(cb);
+                    break;
+                case ShadowPassKind.CubeFace:
+                    BeginShadowPass(cb, _cubeFramebuffers[pass.Slot * 6 + pass.Face], (uint)pass.Size);
+                    RecordPass(cb, frameSlot, pass, state, draw);
+                    _ctx.Vk.CmdEndRenderPass(cb);
+                    break;
+            }
+        }
+
+        // One render pass for the whole atlas (one clear, one store; each tile is a viewport): far cheaper on tilers
+        // than a render pass per tile, which would load and store the whole atlas every time.
+        if (renderAtlas)
+        {
+            BeginShadowPass(cb, _atlasFramebuffer, (uint)_atlas!.Width);
+            foreach (ref readonly var pass in passes)
+            {
+                if (pass.Kind == ShadowPassKind.AtlasTile && _planner.HasCasters(pass.Index))
+                    RecordPass(cb, frameSlot, pass, state, draw);
+            }
+
+            _ctx.Vk.CmdEndRenderPass(cb);
+        }
+
+        TransitionMaps(cb, renderCascades, renderAtlas, renderCube, toWrite: false);
+
+        // This frame slot's uniforms and set (the slot's previous frame has completed).
+        _uniformBuffers[frameSlot].Write(_planner.Uniforms);
+        _uniformFrame[frameSlot] = _ctx.FrameNumber;
+        if (_setVersion[frameSlot] != _mapsVersion)
+            WriteSlotSet(frameSlot);
+
+        PlannedPasses = passes.Length;
+        RenderedPasses = rendered;
+        LastCpuMilliseconds = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+    }
+
+    /// <summary>
+    /// Records shadows without camera fitting or culling: every planned pass calls <paramref name="draw2D"/> (cascades,
+    /// atlas tiles) or <paramref name="drawPoint"/> (cube faces) with the per-object pipelines. For tree-less code; the
+    /// render server uses the culling overload.
+    /// </summary>
+    public void RenderShadows<TState>(
+        LightEnvironment lights,
+        TState state,
+        ShadowDraw2D<TState> draw2D,
+        ShadowDrawPoint<TState> drawPoint)
+    {
+        ArgumentNullException.ThrowIfNull(draw2D);
+        ArgumentNullException.ThrowIfNull(drawPoint);
+        RenderShadows(lights, null, Aabb.Empty, (state, draw2D, drawPoint, this),
+            static ((TState, ShadowDraw2D<TState>, ShadowDrawPoint<TState>, ShadowSystem) s, in ShadowPass pass) => true,
+            static ((TState State, ShadowDraw2D<TState> Draw2D, ShadowDrawPoint<TState> DrawPoint, ShadowSystem System) s,
+                CommandBuffer cb, in ShadowPass pass) =>
+            {
+                var sys = s.System;
+                if (pass.IsPoint)
+                    s.DrawPoint(s.State, cb, sys._pipePoint_S32, sys._pipePoint_S12, sys._layoutPoint, pass.LightPosition, pass.LightRange);
+                else
+                    s.Draw2D(s.State, cb, sys._pipe2D_S32, sys._pipe2D_S12, sys._layout2D);
+            });
+    }
+
+    /// <summary>Convenience form of <see cref="RenderShadows{TState}(LightEnvironment, TState, ShadowDraw2D{TState}, ShadowDrawPoint{TState})"/>; allocates if the lambdas capture.</summary>
     public void RenderShadows(
         LightEnvironment lights,
         Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout> draw2D,
@@ -158,202 +399,236 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             static (s, cb, p32, p12, layout, lightPos, lightRange) => s.drawPoint(cb, p32, p12, layout, lightPos, lightRange));
     }
 
-    /// <summary>
-    /// Allocation-free form of <see cref="RenderShadows(LightEnvironment, Action{CommandBuffer, Pipeline, Pipeline, PipelineLayout}, Action{CommandBuffer, Pipeline, Pipeline, PipelineLayout, Vector3, float})"/>:
-    /// <paramref name="state"/> is handed to the callbacks so they can be static lambdas.
-    /// Call at most once per frame: each frame slot owns one ring region.
-    /// </summary>
-    public void RenderShadows<TState>(
-        LightEnvironment lights,
-        TState state,
-        ShadowDraw2D<TState> draw2D,
-        ShadowDrawPoint<TState> drawPoint)
+    /// <summary>Ring offset of one pass's matrix in one frame slot (exposed for tests).</summary>
+    internal uint PassOffset(int frameSlot, int pass) => _vpRing.Offset(frameSlot, pass);
+
+    /// <summary>The light view-projection stored for one pass (test hook: reads the mapped ring).</summary>
+    internal Matrix4x4 ReadPassMatrix(int frameSlot, int pass) => *(Matrix4x4*)(_vpMapped + (nint)_vpRing.Offset(frameSlot, pass));
+
+    private void RecordPass<TState>(CommandBuffer cb, int frameSlot, in ShadowPass pass, TState state, ShadowCasterDraw<TState> draw)
     {
-        ArgumentNullException.ThrowIfNull(lights);
-        ArgumentNullException.ThrowIfNull(draw2D);
-        ArgumentNullException.ThrowIfNull(drawPoint);
-        if (!_ctx.FrameStarted)
-            return;
+        var vk = _ctx.Vk;
+        var offset = _vpRing.Offset(frameSlot, pass.Index);
+        *(Matrix4x4*)(_vpMapped + (nint)offset) = pass.ViewProjection;
 
-        var cb        = _ctx.CurrentCommandBuffer;
-        var frameSlot = _ctx.FrameSlot;
+        // Standard viewport (no Y flip): the shaders map NDC to UV with xy · 0.5 + 0.5.
+        var viewport = new Viewport { X = pass.X, Y = pass.Y, Width = pass.Size, Height = pass.Size, MinDepth = 0f, MaxDepth = 1f };
+        vk.CmdSetViewport(cb, 0, 1, &viewport);
+        var scissor = new Rect2D(new Offset2D(pass.X, pass.Y), new Extent2D((uint)pass.Size, (uint)pass.Size));
+        vk.CmdSetScissor(cb, 0, 1, &scissor);
+        if (pass.IsPoint)
+            vk.CmdSetDepthBias(cb, 0f, 0f, 0f); // linear distance is written by the fragment shader
+        else
+            vk.CmdSetDepthBias(cb, DepthBiasConstant, 0f, DepthBiasSlope);
 
-        int numDir   = Math.Min(lights.DirectionalLights.Count, MaxShadowDir);
-        int numSpot  = Math.Min(lights.SpotLights.Count, MaxShadowSpot);
-        int numPoint = Math.Min(lights.PointLights.Count, MaxShadowPoint);
+        var vpSet = _vpSet;
+        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, pass.IsPoint ? _layoutPoint : _layout2D, 0, 1, &vpSet, 1, &offset);
+        draw(state, cb, pass);
+    }
 
-        // Transition all shadow maps to DepthStencilAttachmentOptimal for writing
-        TransitionAll(cb, numDir, numSpot, numPoint, toWrite: true);
-
-        // ── Directional shadow maps ──────────────────────────────────────────
-        for (int i = 0; i < numDir; i++)
+    // Begins a depth-only render pass over a whole framebuffer (cleared to far depth).
+    private void BeginShadowPass(CommandBuffer cb, Framebuffer framebuffer, uint size)
+    {
+        var clear = new ClearValue { DepthStencil = new ClearDepthStencilValue { Depth = 1.0f, Stencil = 0 } };
+        var info = new RenderPassBeginInfo
         {
-            _dirMats[i] = CalcDirLightMatrix(lights.DirectionalLights[i]);
-            BeginShadowPass(cb, _dirMaps[i].Framebuffer, DirSize, _layout2D, WritePassMatrix(frameSlot, PassIndexDir(i), _dirMats[i]));
-            draw2D(state, cb, _pipe2D_S32, _pipe2D_S12, _layout2D);
-            _ctx.Vk.CmdEndRenderPass(cb);
-        }
+            SType = StructureType.RenderPassBeginInfo,
+            RenderPass = _shadowRenderPass,
+            Framebuffer = framebuffer,
+            RenderArea = new Rect2D { Extent = new Extent2D(size, size) },
+            ClearValueCount = 1,
+            PClearValues = &clear,
+        };
+        _ctx.Vk.CmdBeginRenderPass(cb, &info, SubpassContents.Inline);
+    }
 
-        // ── Spot shadow maps ─────────────────────────────────────────────────
-        for (int i = 0; i < numSpot; i++)
-        {
-            _spotMats[i] = CalcSpotLightMatrix(lights.SpotLights[i]);
-            BeginShadowPass(cb, _spotMaps[i].Framebuffer, SpotSize, _layout2D, WritePassMatrix(frameSlot, PassIndexSpot(i), _spotMats[i]));
-            draw2D(state, cb, _pipe2D_S32, _pipe2D_S12, _layout2D);
-            _ctx.Vk.CmdEndRenderPass(cb);
-        }
+    // ── Maps ──────────────────────────────────────────────────────────────────
 
-        // ── Point shadow cube maps ───────────────────────────────────────────
-        for (int i = 0; i < numPoint; i++)
+    // Creates or re-creates maps to the sizes planned this frame (the old ones go through the deletion queue).
+    private void EnsureMaps()
+    {
+        var cascadeSize = Math.Min(_planner.CascadeResolution, MaxImageSize);
+        if (cascadeSize > 0 && (_cascades is null || _cascades.Width != cascadeSize))
         {
-            var light = lights.PointLights[i];
-            for (int face = 0; face < 6; face++)
+            DestroyCascades();
+            _cascades = GpuImage.Create(_ctx, new GpuImageDesc((uint)cascadeSize, (uint)cascadeSize, _depthFormat,
+                ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit)
             {
-                var (dir, up) = CubeFaces[face];
-                var faceVP = CalcPointFaceMatrix(light.Position, dir, up, light.Range);
-                BeginShadowPass(cb, _ptMaps[i].FaceFramebuffers[face], PointSize, _layoutPoint,
-                    WritePassMatrix(frameSlot, PassIndexPoint(i, face), faceVP));
-                drawPoint(state, cb, _pipePoint_S32, _pipePoint_S12, _layoutPoint, light.Position, light.Range);
-                _ctx.Vk.CmdEndRenderPass(cb);
+                ArrayLayers = MaxCascades,
+                ViewType = ImageViewType.Type2DArray,
+            });
+            for (var c = 0; c < MaxCascades; c++)
+            {
+                _cascadeLayerViews[c] = _cascades.CreateView(ImageViewType.Type2D, (uint)c, 1);
+                _cascadeFramebuffers[c] = CreateDepthFramebuffer(_cascadeLayerViews[c], (uint)cascadeSize);
+            }
+            _cascadesNeedInit = true;
+            _mapsVersion++;
+        }
+
+        var atlasSize = Math.Min(_planner.AtlasSize, MaxImageSize);
+        if (atlasSize > 0 && (_atlas is null || _atlas.Width != atlasSize))
+        {
+            DestroyAtlas();
+            _atlas = GpuImage.Create(_ctx, new GpuImageDesc((uint)atlasSize, (uint)atlasSize, _depthFormat,
+                ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit));
+            _atlasFramebuffer = CreateDepthFramebuffer(_atlas.View, (uint)atlasSize);
+            _atlasNeedsInit = true;
+            _mapsVersion++;
+        }
+        else if (atlasSize == 0 && _atlas is not null)
+        {
+            DestroyAtlas();
+            _mapsVersion++;
+        }
+
+        for (var c = 0; c < MaxShadowPoint; c++)
+        {
+            var size = Math.Min(_planner.CubeResolutions[c], MaxImageSize);
+            if (size == 0 || (_cubes[c] is { } existing && existing.Width == size))
+                continue;
+            DestroyCube(c);
+            var cube = GpuImage.Create(_ctx, new GpuImageDesc((uint)size, (uint)size, _depthFormat,
+                ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit)
+            {
+                ArrayLayers = 6,
+                Flags = ImageCreateFlags.CreateCubeCompatibleBit,
+                ViewType = ImageViewType.TypeCube,
+            });
+            for (var face = 0; face < 6; face++)
+                _cubeFramebuffers[c * 6 + face] = CreateDepthFramebuffer(cube.CreateView(ImageViewType.Type2D, (uint)face, 1), (uint)size);
+            _cubes[c] = cube;
+            _cubeNeedsInit[c] = true;
+            _mapsVersion++;
+        }
+    }
+
+    /// <summary>
+    /// Layout transitions around the passes. To write: maps that render this frame go from Undefined (their contents
+    /// are cleared) to attachment, after the previous frame's sampling. To read: they return to read-only, and maps
+    /// created this frame that did not render are initialised to read-only, so every map the set points at is valid.
+    /// </summary>
+    private void TransitionMaps(CommandBuffer cb, bool cascades, bool atlas, ReadOnlySpan<bool> cubes, bool toWrite)
+    {
+        var barriers = stackalloc ImageMemoryBarrier[2 + MaxShadowPoint];
+        var count = 0;
+        var aspect = VkHelpers.DepthBarrierAspects(_depthFormat);
+
+        void Add(ImageMemoryBarrier* list, ref int n, Image image, uint layers, bool renders, ref bool needsInit, bool write, ImageAspectFlags aspects)
+        {
+            if (renders)
+            {
+                list[n++] = Barrier(image, layers, aspects,
+                    write ? ImageLayout.Undefined : ImageLayout.DepthStencilAttachmentOptimal,
+                    write ? ImageLayout.DepthStencilAttachmentOptimal : ImageLayout.DepthStencilReadOnlyOptimal,
+                    write ? AccessFlags.ShaderReadBit : AccessFlags.DepthStencilAttachmentWriteBit,
+                    write ? AccessFlags.DepthStencilAttachmentWriteBit | AccessFlags.DepthStencilAttachmentReadBit : AccessFlags.ShaderReadBit);
+                needsInit = false;
+            }
+            else if (!write && needsInit)
+            {
+                list[n++] = Barrier(image, layers, aspects, ImageLayout.Undefined, ImageLayout.DepthStencilReadOnlyOptimal, 0, AccessFlags.ShaderReadBit);
+                needsInit = false;
             }
         }
 
-        // Transition shadow maps to DepthStencilReadOnlyOptimal for sampling in main pass
-        TransitionAll(cb, numDir, numSpot, numPoint, toWrite: false);
+        if (_cascades is not null)
+            Add(barriers, ref count, _cascades.Handle, MaxCascades, cascades, ref _cascadesNeedInit, toWrite, aspect);
+        if (_atlas is not null)
+            Add(barriers, ref count, _atlas.Handle, 1, atlas, ref _atlasNeedsInit, toWrite, aspect);
+        for (var c = 0; c < MaxShadowPoint; c++)
+            if (_cubes[c] is { } cube)
+                Add(barriers, ref count, cube.Handle, 6, cubes[c], ref _cubeNeedsInit[c], toWrite, aspect);
 
-        // Upload light-space matrices to this frame slot's UBO
-        var dst = (float*)(void*)_matBuffers[frameSlot].MappedPointer;
-        for (int i = 0; i < MaxShadowDir; i++) Unsafe.Copy(dst + i * 16, ref _dirMats[i]);
-        dst += MaxShadowDir * 16;
-        for (int i = 0; i < MaxShadowSpot; i++) Unsafe.Copy(dst + i * 16, ref _spotMats[i]);
-    }
-
-    // Ring slot of each sub-pass: [dir 0..3][spot 0..6][point 0 faces 0..5]...[point 3 faces 0..5]
-    internal static int PassIndexDir(int light) => light;
-    internal static int PassIndexSpot(int light) => MaxShadowDir + light;
-    internal static int PassIndexPoint(int light, int face) => MaxShadowDir + MaxShadowSpot + light * 6 + face;
-
-    /// <summary>Ring offset of one sub-pass's matrix in one frame slot (exposed for tests).</summary>
-    internal uint PassOffset(int frameSlot, int pass) => _vpRing.Offset(frameSlot, pass);
-
-    /// <summary>The light view-projection stored for one sub-pass (test hook: reads the mapped ring).</summary>
-    internal Matrix4x4 ReadPassMatrix(int frameSlot, int pass) => *(Matrix4x4*)(_vpMapped + (nint)_vpRing.Offset(frameSlot, pass));
-
-    private uint WritePassMatrix(int frameSlot, int pass, in Matrix4x4 matrix)
-    {
-        var offset = _vpRing.Offset(frameSlot, pass);
-        *(Matrix4x4*)(_vpMapped + (nint)offset) = matrix;
-        return offset;
-    }
-
-    // Look direction and up vector per cube face, in Vulkan face order (+X, -X, +Y, -Y, +Z, -Z).
-    private static readonly (Vector3 Dir, Vector3 Up)[] CubeFaces =
-    [
-        (Vector3.UnitX,  -Vector3.UnitY),
-        (-Vector3.UnitX, -Vector3.UnitY),
-        (Vector3.UnitY,   Vector3.UnitZ),
-        (-Vector3.UnitY, -Vector3.UnitZ),
-        (Vector3.UnitZ,  -Vector3.UnitY),
-        (-Vector3.UnitZ, -Vector3.UnitY),
-    ];
-
-    // ── Shadow pass helpers ───────────────────────────────────────────────────
-
-    // Begins a depth-only shadow render pass and binds this pass's light VP (dynamic offset); the caller draws, then ends it.
-    private void BeginShadowPass(CommandBuffer cb, Framebuffer fb, uint size, PipelineLayout bindLayout, uint vpOffset)
-    {
-        var vk = _ctx.Vk;
-
-        var clearVal = new ClearValue { DepthStencil = new ClearDepthStencilValue { Depth = 1.0f, Stencil = 0 } };
-        var rpInfo   = new RenderPassBeginInfo
-        {
-            SType           = StructureType.RenderPassBeginInfo,
-            RenderPass      = _shadowRenderPass,
-            Framebuffer     = fb,
-            RenderArea      = new Rect2D { Extent = new Extent2D(size, size) },
-            ClearValueCount = 1,
-            PClearValues    = &clearVal,
-        };
-        vk.CmdBeginRenderPass(cb, &rpInfo, SubpassContents.Inline);
-
-        // Standard viewport (no Y-flip) — shadow maps are depth-only; the UV lookup
-        // in the fragment shader uses standard NDC→[0,1] mapping so the viewport must match.
-        var vp = new Viewport { Width = size, Height = size, MinDepth = 0f, MaxDepth = 1f };
-        vk.CmdSetViewport(cb, 0, 1, &vp);
-        var sc = new Rect2D { Extent = new Extent2D(size, size) };
-        vk.CmdSetScissor(cb, 0, 1, &sc);
-
-        var vpSet = _vpSet;
-        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, bindLayout, 0, 1, &vpSet, 1, &vpOffset);
-    }
-
-    // ── Light matrix computation ──────────────────────────────────────────────
-
-    internal static Matrix4x4 CalcDirLightMatrix(DirectionalLight light)
-    {
-        var lightDir = Vector3.Normalize(light.Direction);
-        var lightPos = -lightDir * 20f; // pull back 20 units from scene centre
-        var view     = Matrix4x4.CreateLookAt(lightPos, lightPos + lightDir, ChooseUp(lightDir));
-        var proj     = Matrix4x4.CreateOrthographicOffCenter(-20, 20, -20, 20, 0.1f, 50f);
-        return view * proj;
-    }
-
-    internal static Matrix4x4 CalcSpotLightMatrix(SpotLight light)
-    {
-        var fovY = float.DegreesToRadians(light.OuterConeAngle * 2f);
-        var dir  = Vector3.Normalize(light.Direction);
-        var view = Matrix4x4.CreateLookAt(light.Position, light.Position + dir, ChooseUp(dir));
-        var proj = Matrix4x4.CreatePerspectiveFieldOfView(fovY, 1f, 0.1f, light.Range);
-        return view * proj;
-    }
-
-    private static Matrix4x4 CalcPointFaceMatrix(Vector3 pos, Vector3 dir, Vector3 up, float range)
-    {
-        var view = Matrix4x4.CreateLookAt(pos, pos + dir, up);
-        var proj = Matrix4x4.CreatePerspectiveFieldOfView(float.DegreesToRadians(90f), 1f, 0.05f, range);
-        return view * proj;
-    }
-
-    /// <summary>World up, or +Z when the light points (nearly) straight up/down, where up would be degenerate.</summary>
-    internal static Vector3 ChooseUp(Vector3 dir)
-        => MathF.Abs(Vector3.Dot(Vector3.Normalize(dir), Vector3.UnitY)) > 0.99f ? Vector3.UnitZ : Vector3.UnitY;
-
-    // ── Pipeline barrier helpers ──────────────────────────────────────────────
-
-    private void TransitionAll(CommandBuffer cb, int numDir, int numSpot, int numPoint, bool toWrite)
-    {
-        var vk = _ctx.Vk;
-
-        // To write: the previous frame's sampling (fragment shader) must finish; the maps are
-        // cleared by the render pass, so the old contents are discarded (Undefined).
-        var oldLayout = toWrite ? ImageLayout.Undefined : ImageLayout.DepthStencilAttachmentOptimal;
-        var newLayout = toWrite ? ImageLayout.DepthStencilAttachmentOptimal : ImageLayout.DepthStencilReadOnlyOptimal;
-        var srcAccess = toWrite ? AccessFlags.ShaderReadBit : AccessFlags.DepthStencilAttachmentWriteBit;
-        var dstAccess = toWrite
-            ? AccessFlags.DepthStencilAttachmentWriteBit | AccessFlags.DepthStencilAttachmentReadBit
-            : AccessFlags.ShaderReadBit;
+        if (count == 0)
+            return;
         var srcStage = toWrite
             ? PipelineStageFlags.FragmentShaderBit
             : PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit;
         var dstStage = toWrite
             ? PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit
             : PipelineStageFlags.FragmentShaderBit;
+        _ctx.Vk.CmdPipelineBarrier(cb, srcStage, dstStage, 0, 0, null, 0, null, (uint)count, barriers);
+    }
 
-        for (int i = 0; i < numDir; i++)
-            VkHelpers.DepthBarrier(vk, cb, _dirMaps[i].Image.Handle, _depthFormat, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
-        for (int i = 0; i < numSpot; i++)
-            VkHelpers.DepthBarrier(vk, cb, _spotMaps[i].Image.Handle, _depthFormat, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
-        for (int i = 0; i < numPoint; i++)
-            VkHelpers.DepthBarrier(vk, cb, _ptMaps[i].Image.Handle, _depthFormat, 6, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
+    private static ImageMemoryBarrier Barrier(Image image, uint layers, ImageAspectFlags aspect, ImageLayout oldLayout,
+        ImageLayout newLayout, AccessFlags srcAccess, AccessFlags dstAccess) => new()
+        {
+            SType = StructureType.ImageMemoryBarrier,
+            SrcAccessMask = srcAccess,
+            DstAccessMask = dstAccess,
+            OldLayout = oldLayout,
+            NewLayout = newLayout,
+            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            Image = image,
+            SubresourceRange = new ImageSubresourceRange { AspectMask = aspect, LevelCount = 1, LayerCount = layers },
+        };
+
+    private void DestroyCascades()
+    {
+        if (_cascades is null)
+            return;
+        for (var c = 0; c < MaxCascades; c++)
+        {
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(_cascadeFramebuffers[c]));
+            _cascadeFramebuffers[c] = default;
+            _cascadeLayerViews[c] = default; // owned by the image
+        }
+
+        _cascades.Dispose();
+        _cascades = null;
+        _cascadesNeedInit = false;
+    }
+
+    private void DestroyAtlas()
+    {
+        if (_atlas is null)
+            return;
+        _ctx.Deletions.Enqueue(GpuDeletion.Of(_atlasFramebuffer));
+        _atlasFramebuffer = default;
+        _atlas.Dispose();
+        _atlas = null;
+        _atlasNeedsInit = false;
+    }
+
+    private void DestroyCube(int c)
+    {
+        if (_cubes[c] is not { } cube)
+            return;
+        for (var face = 0; face < 6; face++)
+        {
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(_cubeFramebuffers[c * 6 + face]));
+            _cubeFramebuffers[c * 6 + face] = default;
+        }
+
+        cube.Dispose();
+        _cubes[c] = null;
+        _cubeNeedsInit[c] = false;
+    }
+
+    private Framebuffer CreateDepthFramebuffer(ImageView view, uint size)
+    {
+        var info = new FramebufferCreateInfo
+        {
+            SType = StructureType.FramebufferCreateInfo,
+            RenderPass = _shadowRenderPass,
+            AttachmentCount = 1,
+            PAttachments = &view,
+            Width = size,
+            Height = size,
+            Layers = 1,
+        };
+        _ctx.Vk.CreateFramebuffer(_ctx.Device, in info, null, out var framebuffer).Check("vkCreateFramebuffer (shadow)");
+        return framebuffer;
     }
 
     // ── Shared with ShadowFallback ────────────────────────────────────────────
 
     /// <summary>
-    /// Depth format for shadow maps: must support depth attachment + sampling; linear filtering
-    /// (hardware 2×2 PCF through the comparison sampler) is preferred but optional. Depth-only formats
-    /// come first (no stencil is used); combined formats are a last resort and their barriers name both
-    /// aspects (<see cref="VkHelpers.DepthBarrierAspects"/>).
+    /// Depth format for shadow maps: must support depth attachment + sampling; linear filtering (hardware 2×2 PCF
+    /// through the comparison sampler) is preferred but optional. Depth-only formats come first (no stencil is used);
+    /// combined formats are a last resort and their barriers name both aspects (<see cref="VkHelpers.DepthBarrierAspects"/>).
     /// </summary>
     internal static (Format Format, bool LinearFilter) ChooseDepthFormat(IVulkanContext ctx)
     {
@@ -381,153 +656,102 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         throw new VulkanException("[Shadow] No depth format supports both depth attachment and sampling.");
     }
 
+    /// <summary>The comparison sampler of every shadow map (lit when the reference is less than the stored depth).</summary>
     internal static VkSampler CreateComparisonSampler(IVulkanContext ctx, bool linear)
     {
-        var filter = linear ? Filter.Linear : Filter.Nearest;
+        var filter = linear ? Silk.NET.Vulkan.Filter.Linear : Silk.NET.Vulkan.Filter.Nearest;
         var info = new SamplerCreateInfo
         {
-            SType         = StructureType.SamplerCreateInfo,
-            MagFilter     = filter,
-            MinFilter     = filter,
-            AddressModeU  = SamplerAddressMode.ClampToBorder,
-            AddressModeV  = SamplerAddressMode.ClampToBorder,
-            AddressModeW  = SamplerAddressMode.ClampToBorder,
-            BorderColor   = BorderColor.FloatOpaqueWhite,
+            SType = StructureType.SamplerCreateInfo,
+            MagFilter = filter,
+            MinFilter = filter,
+            AddressModeU = SamplerAddressMode.ClampToEdge,
+            AddressModeV = SamplerAddressMode.ClampToEdge,
+            AddressModeW = SamplerAddressMode.ClampToEdge,
             CompareEnable = true,
-            CompareOp     = CompareOp.Less,
-            MipmapMode    = SamplerMipmapMode.Nearest,
+            CompareOp = CompareOp.Less,
+            MipmapMode = SamplerMipmapMode.Nearest,
+            BorderColor = BorderColor.FloatOpaqueWhite,
         };
         ctx.Vk.CreateSampler(ctx.Device, in info, null, out var sampler).Check("vkCreateSampler (shadow comparison)");
         return sampler;
     }
 
-    internal static VkSampler CreateCubeSampler(IVulkanContext ctx)
-    {
-        // Plain sampler for cube shadow maps (samplerCube, manual comparison in shader)
-        var info = new SamplerCreateInfo
-        {
-            SType        = StructureType.SamplerCreateInfo,
-            MagFilter    = Filter.Nearest,
-            MinFilter    = Filter.Nearest,
-            AddressModeU = SamplerAddressMode.ClampToEdge,
-            AddressModeV = SamplerAddressMode.ClampToEdge,
-            AddressModeW = SamplerAddressMode.ClampToEdge,
-            MipmapMode   = SamplerMipmapMode.Nearest,
-        };
-        ctx.Vk.CreateSampler(ctx.Device, in info, null, out var sampler).Check("vkCreateSampler (shadow cube)");
-        return sampler;
-    }
-
     /// <summary>
-    /// Set-2 layout (Shapes.vk.frag / SpineLit.vk.frag): b0 matrices UBO, b1 dir maps, b2 spot maps,
-    /// b3 point cube maps. The comparison samplers must be immutable (baked into the layout): Metal via
-    /// MoltenVK reports mutableComparisonSamplers=false, which forbids writing compareEnable samplers
-    /// through vkUpdateDescriptorSets.
+    /// The shadow set layout (<c>include/shadows.glsl</c>): b0 uniforms, b1 cascade array, b2 atlas, b3 point cubes.
+    /// Every map uses the comparison sampler, baked in as an immutable sampler: Metal via MoltenVK reports
+    /// mutableComparisonSamplers = false, which forbids writing compare-enabled samplers through vkUpdateDescriptorSets.
     /// </summary>
     internal static DescriptorSetLayout CreateMainSetLayout(IVulkanContext ctx, VkSampler comparisonSampler)
     {
-        var dirSamplers  = stackalloc VkSampler[MaxShadowDir];
-        var spotSamplers = stackalloc VkSampler[MaxShadowSpot];
-        for (int i = 0; i < MaxShadowDir; i++) dirSamplers[i]  = comparisonSampler;
-        for (int i = 0; i < MaxShadowSpot; i++) spotSamplers[i] = comparisonSampler;
+        var samplers = stackalloc VkSampler[MaxShadowPoint];
+        for (var i = 0; i < MaxShadowPoint; i++)
+            samplers[i] = comparisonSampler;
 
         var bindings = stackalloc DescriptorSetLayoutBinding[]
         {
-            new() { Binding = 0, DescriptorType = DescriptorType.UniformBuffer,
-                    DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
-            new() { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler,
-                    DescriptorCount = MaxShadowDir, StageFlags = ShaderStageFlags.FragmentBit,
-                    PImmutableSamplers = dirSamplers },
-            new() { Binding = 2, DescriptorType = DescriptorType.CombinedImageSampler,
-                    DescriptorCount = MaxShadowSpot, StageFlags = ShaderStageFlags.FragmentBit,
-                    PImmutableSamplers = spotSamplers },
-            new() { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler,
-                    DescriptorCount = MaxShadowPoint, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit, PImmutableSamplers = samplers },
+            new() { Binding = 2, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit, PImmutableSamplers = samplers },
+            new() { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = MaxShadowPoint, StageFlags = ShaderStageFlags.FragmentBit, PImmutableSamplers = samplers },
         };
-        var layoutInfo = new DescriptorSetLayoutCreateInfo
+        var info = new DescriptorSetLayoutCreateInfo
         {
             SType = StructureType.DescriptorSetLayoutCreateInfo,
             BindingCount = 4,
             PBindings = bindings,
         };
-        ctx.Vk.CreateDescriptorSetLayout(ctx.Device, in layoutInfo, null, out var layout).Check("vkCreateDescriptorSetLayout (shadow set 2)");
+        ctx.Vk.CreateDescriptorSetLayout(ctx.Device, in info, null, out var layout).Check("vkCreateDescriptorSetLayout (shadow set)");
         return layout;
     }
 
-    /// <summary>Writes the four set-2 bindings: one UBO, then the dir/spot 2D views and the point cube views.</summary>
-    internal static void WriteMainSet(IVulkanContext ctx, DescriptorSet set, Silk.NET.Vulkan.Buffer matrices,
-        ReadOnlySpan<ImageView> dirViews, ReadOnlySpan<ImageView> spotViews, ReadOnlySpan<ImageView> cubeViews, VkSampler cubeSampler)
+    /// <summary>Writes the four bindings of a shadow set: uniforms, cascade array view, atlas view, cube views.</summary>
+    internal static void WriteMainSet(IVulkanContext ctx, DescriptorSet set, Silk.NET.Vulkan.Buffer uniforms,
+        ImageView cascades, ImageView atlas, ReadOnlySpan<ImageView> cubes)
     {
-        var matBufInfo = new DescriptorBufferInfo { Buffer = matrices, Offset = 0, Range = ShadowMatricesUboSize };
-
-        // Dir/spot: Sampler stays null — b1/b2 use immutable samplers from the layout.
-        var dirInfos = stackalloc DescriptorImageInfo[MaxShadowDir];
-        for (int i = 0; i < MaxShadowDir; i++)
-            dirInfos[i] = new DescriptorImageInfo { ImageView = dirViews[i], ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
-        var spotInfos = stackalloc DescriptorImageInfo[MaxShadowSpot];
-        for (int i = 0; i < MaxShadowSpot; i++)
-            spotInfos[i] = new DescriptorImageInfo { ImageView = spotViews[i], ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
-        var ptInfos = stackalloc DescriptorImageInfo[MaxShadowPoint];
-        for (int i = 0; i < MaxShadowPoint; i++)
-            ptInfos[i] = new DescriptorImageInfo { Sampler = cubeSampler, ImageView = cubeViews[i], ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
+        var bufferInfo = new DescriptorBufferInfo { Buffer = uniforms, Offset = 0, Range = (ulong)ShadowUniforms.Size };
+        // Samplers stay null: every map binding uses the layout's immutable comparison sampler.
+        var images = stackalloc DescriptorImageInfo[2 + MaxShadowPoint];
+        images[0] = new DescriptorImageInfo { ImageView = cascades, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
+        images[1] = new DescriptorImageInfo { ImageView = atlas, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
+        for (var i = 0; i < MaxShadowPoint; i++)
+            images[2 + i] = new DescriptorImageInfo { ImageView = cubes[i], ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
 
         var writes = stackalloc WriteDescriptorSet[4];
-        writes[0] = new()
-        {
-            SType = StructureType.WriteDescriptorSet,
-            DstSet = set,
-            DstBinding = 0,
-            DescriptorType = DescriptorType.UniformBuffer,
-            DescriptorCount = 1,
-            PBufferInfo = &matBufInfo
-        };
-        writes[1] = new()
-        {
-            SType = StructureType.WriteDescriptorSet,
-            DstSet = set,
-            DstBinding = 1,
-            DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = MaxShadowDir,
-            PImageInfo = dirInfos
-        };
-        writes[2] = new()
-        {
-            SType = StructureType.WriteDescriptorSet,
-            DstSet = set,
-            DstBinding = 2,
-            DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = MaxShadowSpot,
-            PImageInfo = spotInfos
-        };
-        writes[3] = new()
-        {
-            SType = StructureType.WriteDescriptorSet,
-            DstSet = set,
-            DstBinding = 3,
-            DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = MaxShadowPoint,
-            PImageInfo = ptInfos
-        };
+        writes[0] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, PBufferInfo = &bufferInfo };
+        writes[1] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = images };
+        writes[2] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 2, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = images + 1 };
+        writes[3] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = MaxShadowPoint, PImageInfo = images + 2 };
         ctx.Vk.UpdateDescriptorSets(ctx.Device, 4, writes, 0, null);
     }
 
-    /// <summary>Descriptor pool for <paramref name="setCount"/> set-2 sets.</summary>
+    /// <summary>Descriptor pool for <paramref name="setCount"/> shadow sets.</summary>
     internal static DescriptorPool CreateMainPool(IVulkanContext ctx, uint setCount)
     {
         var poolSizes = stackalloc DescriptorPoolSize[]
         {
-            new() { Type = DescriptorType.UniformBuffer,        DescriptorCount = setCount },
-            new() { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (MaxShadowDir + MaxShadowSpot + MaxShadowPoint) * setCount },
+            new() { Type = DescriptorType.UniformBuffer, DescriptorCount = setCount },
+            new() { Type = DescriptorType.CombinedImageSampler, DescriptorCount = SamplerCount * setCount },
         };
-        var poolInfo = new DescriptorPoolCreateInfo
+        var info = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
             MaxSets = setCount,
             PoolSizeCount = 2,
             PPoolSizes = poolSizes,
         };
-        ctx.Vk.CreateDescriptorPool(ctx.Device, in poolInfo, null, out var pool).Check("vkCreateDescriptorPool (shadow set 2)");
+        ctx.Vk.CreateDescriptorPool(ctx.Device, in info, null, out var pool).Check("vkCreateDescriptorPool (shadow set)");
         return pool;
+    }
+
+    private void WriteSlotSet(int slot)
+    {
+        Span<ImageView> cubes = stackalloc ImageView[MaxShadowPoint];
+        for (var c = 0; c < MaxShadowPoint; c++)
+            cubes[c] = _cubes[c]?.View ?? _placeholders.Cube;
+        WriteMainSet(_ctx, _mainSets[slot], _uniformBuffers[slot].Handle,
+            _cascades?.View ?? _placeholders.Array, _atlas?.View ?? _placeholders.Map2D, cubes);
+        _setVersion[slot] = _mapsVersion;
     }
 
     // ── Resource creation ─────────────────────────────────────────────────────
@@ -536,46 +760,35 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     {
         var depth = new AttachmentDescription
         {
-            Format         = _depthFormat,
-            Samples        = SampleCountFlags.Count1Bit,
-            LoadOp         = AttachmentLoadOp.Clear,
-            StoreOp        = AttachmentStoreOp.Store,
-            StencilLoadOp  = AttachmentLoadOp.DontCare,
+            Format = _depthFormat,
+            Samples = SampleCountFlags.Count1Bit,
+            LoadOp = AttachmentLoadOp.Clear,
+            StoreOp = AttachmentStoreOp.Store,
+            StencilLoadOp = AttachmentLoadOp.DontCare,
             StencilStoreOp = AttachmentStoreOp.DontCare,
-            InitialLayout  = ImageLayout.Undefined,
-            FinalLayout    = ImageLayout.DepthStencilAttachmentOptimal,
+            InitialLayout = ImageLayout.DepthStencilAttachmentOptimal, // transitioned (and discarded) by RenderShadows
+            FinalLayout = ImageLayout.DepthStencilAttachmentOptimal,
         };
         var depthRef = new AttachmentReference { Attachment = 0, Layout = ImageLayout.DepthStencilAttachmentOptimal };
-        var subpass  = new SubpassDescription
+        var subpass = new SubpassDescription
         {
-            PipelineBindPoint       = PipelineBindPoint.Graphics,
+            PipelineBindPoint = PipelineBindPoint.Graphics,
             PDepthStencilAttachment = &depthRef,
-        };
-        var dep = new SubpassDependency
-        {
-            SrcSubpass    = Vk.SubpassExternal,
-            DstSubpass    = 0,
-            SrcStageMask  = PipelineStageFlags.FragmentShaderBit,
-            DstStageMask  = PipelineStageFlags.EarlyFragmentTestsBit,
-            SrcAccessMask = AccessFlags.ShaderReadBit,
-            DstAccessMask = AccessFlags.DepthStencilAttachmentWriteBit,
         };
         var info = new RenderPassCreateInfo
         {
-            SType           = StructureType.RenderPassCreateInfo,
+            SType = StructureType.RenderPassCreateInfo,
             AttachmentCount = 1,
-            PAttachments    = &depth,
-            SubpassCount    = 1,
-            PSubpasses      = &subpass,
-            DependencyCount = 1,
-            PDependencies   = &dep,
+            PAttachments = &depth,
+            SubpassCount = 1,
+            PSubpasses = &subpass,
         };
         _ctx.Vk.CreateRenderPass(_ctx.Device, in info, null, out _shadowRenderPass).Check("vkCreateRenderPass (shadow)");
     }
 
     private void CreateVpRingResources()
     {
-        var vk     = _ctx.Vk;
+        var vk = _ctx.Vk;
         var device = _ctx.Device;
 
         _vpBuffer = GpuBuffer.Create(_ctx, _vpRing.Size, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
@@ -583,18 +796,18 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         _vpBuffer.MappedSpan.Clear();
 
         // Binding 0 = dynamic UBO (vertex stage): one matrix per sub-pass, selected by the dynamic offset.
-        var bind = new DescriptorSetLayoutBinding
+        var binding = new DescriptorSetLayoutBinding
         {
-            Binding         = 0,
-            DescriptorType  = DescriptorType.UniformBufferDynamic,
+            Binding = 0,
+            DescriptorType = DescriptorType.UniformBufferDynamic,
             DescriptorCount = 1,
-            StageFlags      = ShaderStageFlags.VertexBit,
+            StageFlags = ShaderStageFlags.VertexBit,
         };
         var layoutInfo = new DescriptorSetLayoutCreateInfo
         {
-            SType        = StructureType.DescriptorSetLayoutCreateInfo,
+            SType = StructureType.DescriptorSetLayoutCreateInfo,
             BindingCount = 1,
-            PBindings    = &bind,
+            PBindings = &binding,
         };
         vk.CreateDescriptorSetLayout(device, in layoutInfo, null, out _vpSetLayout).Check("vkCreateDescriptorSetLayout (light VP)");
 
@@ -611,345 +824,110 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         var setLayout = _vpSetLayout;
         var allocInfo = new DescriptorSetAllocateInfo
         {
-            SType              = StructureType.DescriptorSetAllocateInfo,
-            DescriptorPool     = _vpPool,
+            SType = StructureType.DescriptorSetAllocateInfo,
+            DescriptorPool = _vpPool,
             DescriptorSetCount = 1,
-            PSetLayouts        = &setLayout,
+            PSetLayouts = &setLayout,
         };
         vk.AllocateDescriptorSets(device, in allocInfo, out _vpSet).Check("vkAllocateDescriptorSets (light VP)");
 
-        var bufInfo = _vpBuffer.Descriptor(0, (ulong)sizeof(Matrix4x4));
-        var write   = new WriteDescriptorSet
+        var bufferInfo = _vpBuffer.Descriptor(0, (ulong)sizeof(Matrix4x4));
+        var write = new WriteDescriptorSet
         {
-            SType           = StructureType.WriteDescriptorSet,
-            DstSet          = _vpSet,
-            DstBinding      = 0,
-            DescriptorType  = DescriptorType.UniformBufferDynamic,
+            SType = StructureType.WriteDescriptorSet,
+            DstSet = _vpSet,
+            DstBinding = 0,
+            DescriptorType = DescriptorType.UniformBufferDynamic,
             DescriptorCount = 1,
-            PBufferInfo     = &bufInfo,
+            PBufferInfo = &bufferInfo,
         };
         vk.UpdateDescriptorSets(device, 1, &write, 0, null);
     }
 
+    private PipelineLayout CreateCasterLayout(bool point, DescriptorSetLayout material, string what)
+    {
+        var sets = stackalloc DescriptorSetLayout[2];
+        sets[0] = _vpSetLayout;
+        sets[1] = material;
+        var push = point
+            ? new PushConstantRange { StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, Offset = 0, Size = 80 }
+            : new PushConstantRange { StageFlags = ShaderStageFlags.VertexBit, Offset = 0, Size = 64 };
+        var info = new PipelineLayoutCreateInfo
+        {
+            SType = StructureType.PipelineLayoutCreateInfo,
+            SetLayoutCount = material.Handle == 0 ? 1u : 2u,
+            PSetLayouts = sets,
+            PushConstantRangeCount = 1,
+            PPushConstantRanges = &push,
+        };
+        _ctx.Vk.CreatePipelineLayout(_ctx.Device, in info, null, out var layout).Check($"vkCreatePipelineLayout ({what})");
+        return layout;
+    }
+
     private void CreateShadowPipelines()
     {
-        var vk     = _ctx.Vk;
-        var device = _ctx.Device;
+        _layout2D = CreateCasterLayout(point: false, default, "shadow 2D");
+        _layoutPoint = CreateCasterLayout(point: true, default, "shadow point");
 
-        // ── Pipeline layouts ──────────────────────────────────────────────────
-        var vpLayout = _vpSetLayout;
-
-        var push2D = new PushConstantRange { StageFlags = ShaderStageFlags.VertexBit, Offset = 0, Size = 64 };
-        var l2DInfo = new PipelineLayoutCreateInfo
-        {
-            SType                  = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount         = 1,
-            PSetLayouts            = &vpLayout,
-            PushConstantRangeCount = 1,
-            PPushConstantRanges    = &push2D,
-        };
-        vk.CreatePipelineLayout(device, in l2DInfo, null, out _layout2D).Check("vkCreatePipelineLayout (shadow 2D)");
-
-        var pushPt = new PushConstantRange { StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, Offset = 0, Size = 80 };
-        var lPtInfo = new PipelineLayoutCreateInfo
-        {
-            SType                  = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount         = 1,
-            PSetLayouts            = &vpLayout,
-            PushConstantRangeCount = 1,
-            PPushConstantRanges    = &pushPt,
-        };
-        vk.CreatePipelineLayout(device, in lPtInfo, null, out _layoutPoint).Check("vkCreatePipelineLayout (shadow point)");
-
-        // ── Shared pipeline state ─────────────────────────────────────────────
-        var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
-
-        var shaders = _ctx.Shaders;
-        var vert2D = shaders.Get("Shaders/Shadows/Shadow2D.vk.vert.spv");
-        var frag2D = shaders.Get("Shaders/Shadows/Shadow2D.vk.frag.spv");
-        var vertPt = shaders.Get("Shaders/Shadows/ShadowPoint.vk.vert.spv");
-        var fragPt = shaders.Get("Shaders/Shadows/ShadowPoint.vk.frag.spv");
-
-        var stages2D = stackalloc PipelineShaderStageCreateInfo[]
-        {
-            new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.VertexBit,   Module = vert2D, PName = entryPoint },
-            new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.FragmentBit, Module = frag2D, PName = entryPoint },
-        };
-        var stagesPt = stackalloc PipelineShaderStageCreateInfo[]
-        {
-            new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.VertexBit,   Module = vertPt, PName = entryPoint },
-            new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.FragmentBit, Module = fragPt, PName = entryPoint },
-        };
-
-        var inputAssembly = new PipelineInputAssemblyStateCreateInfo
-        {
-            SType    = StructureType.PipelineInputAssemblyStateCreateInfo,
-            Topology = PrimitiveTopology.TriangleList,
-        };
-        var viewportState = new PipelineViewportStateCreateInfo
-        {
-            SType = StructureType.PipelineViewportStateCreateInfo,
-            ViewportCount = 1,
-            ScissorCount = 1,
-        };
-        // Geometry is authored counter-clockwise (front faces CCW, right-handed). The main pass
-        // flips Y with a negative-height viewport, which keeps CCW = front; shadow passes use a
-        // standard viewport, which mirrors the winding, so geometric front faces arrive clockwise.
-        // FrontFace = Clockwise restores "front" meaning "faces the light"; back faces are culled
-        // and the depth bias handles acne. (Before M1 this was CCW + cull FRONT: the same
-        // rasterisation, labelled as "front-face culling".)
-        var rasterizer = new PipelineRasterizationStateCreateInfo
-        {
-            SType       = StructureType.PipelineRasterizationStateCreateInfo,
-            PolygonMode = PolygonMode.Fill,
-            LineWidth   = 1f,
-            CullMode    = CullModeFlags.BackBit,
-            FrontFace   = FrontFace.Clockwise,
-            DepthBiasEnable         = true,
-            DepthBiasConstantFactor = 1.25f,
-            DepthBiasSlopeFactor    = 1.75f,
-        };
-        var multisampling = new PipelineMultisampleStateCreateInfo
-        {
-            SType                = StructureType.PipelineMultisampleStateCreateInfo,
-            RasterizationSamples = SampleCountFlags.Count1Bit,
-        };
-        var depthStencil = new PipelineDepthStencilStateCreateInfo
-        {
-            SType            = StructureType.PipelineDepthStencilStateCreateInfo,
-            DepthTestEnable  = true,
-            DepthWriteEnable = true,
-            DepthCompareOp   = CompareOp.Less,
-        };
-        var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
-        var dynamicState  = new PipelineDynamicStateCreateInfo
-        {
-            SType             = StructureType.PipelineDynamicStateCreateInfo,
-            DynamicStateCount = 2,
-            PDynamicStates    = dynamicStates,
-        };
-
-        // ── Build pipeline for each stride ────────────────────────────────────
-        _pipe2D_S32    = BuildPipeline(stages2D, 2, 32, _layout2D, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
-        _pipe2D_S12    = BuildPipeline(stages2D, 2, 12, _layout2D, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
-        _pipePoint_S32 = BuildPipeline(stagesPt, 2, 32, _layoutPoint, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
-        _pipePoint_S12 = BuildPipeline(stagesPt, 2, 12, _layoutPoint, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
-
-        SilkMarshal.Free((nint)entryPoint); // modules belong to the shared ShaderModuleCache
+        _pipe2D_S32 = BuildPipeline(CasterShaders.Plain2D, CullMode.Back, mirrored: false, _layout2D, ObjectBindings(32), ObjectAttributes, "shadow");
+        _pipe2D_S12 = BuildPipeline(CasterShaders.Plain2D, CullMode.Back, mirrored: false, _layout2D, ObjectBindings(12), ObjectAttributes, "shadow");
+        _pipePoint_S32 = BuildPipeline(CasterShaders.PlainPoint, CullMode.Back, mirrored: false, _layoutPoint, ObjectBindings(32), ObjectAttributes, "shadow");
+        _pipePoint_S12 = BuildPipeline(CasterShaders.PlainPoint, CullMode.Back, mirrored: false, _layoutPoint, ObjectBindings(12), ObjectAttributes, "shadow");
     }
 
-    private Pipeline BuildPipeline(
-        PipelineShaderStageCreateInfo* stages, uint stageCount,
-        uint stride, PipelineLayout layout,
-        ref PipelineInputAssemblyStateCreateInfo ia,
-        ref PipelineViewportStateCreateInfo vps,
-        ref PipelineRasterizationStateCreateInfo rast,
-        ref PipelineMultisampleStateCreateInfo ms,
-        ref PipelineDepthStencilStateCreateInfo ds,
-        ref PipelineDynamicStateCreateInfo dyn)
+    private static VertexInputBindingDescription[] ObjectBindings(uint stride) =>
+        [new VertexInputBindingDescription { Binding = 0, Stride = stride, InputRate = VertexInputRate.Vertex }];
+
+    private static readonly VertexInputAttributeDescription[] ObjectAttributes =
+        [new VertexInputAttributeDescription { Location = 0, Binding = 0, Format = Format.R32G32B32Sfloat, Offset = 0 }];
+
+    private enum CasterShaders
     {
-        var bindingDesc = new VertexInputBindingDescription { Binding = 0, Stride = stride, InputRate = VertexInputRate.Vertex };
-        var attrib = new VertexInputAttributeDescription { Location = 0, Binding = 0, Format = Format.R32G32B32Sfloat, Offset = 0 };
-        var vertexInput = new PipelineVertexInputStateCreateInfo
-        {
-            SType                           = StructureType.PipelineVertexInputStateCreateInfo,
-            VertexBindingDescriptionCount   = 1,
-            PVertexBindingDescriptions      = &bindingDesc,
-            VertexAttributeDescriptionCount = 1,
-            PVertexAttributeDescriptions    = &attrib,
-        };
-
-        fixed (PipelineInputAssemblyStateCreateInfo* pIA = &ia)
-        fixed (PipelineViewportStateCreateInfo* pVPS = &vps)
-        fixed (PipelineRasterizationStateCreateInfo* pR = &rast)
-        fixed (PipelineMultisampleStateCreateInfo* pMS = &ms)
-        fixed (PipelineDepthStencilStateCreateInfo* pDS = &ds)
-        fixed (PipelineDynamicStateCreateInfo* pDyn = &dyn)
-        {
-            var pipeInfo = new GraphicsPipelineCreateInfo
-            {
-                SType               = StructureType.GraphicsPipelineCreateInfo,
-                StageCount          = stageCount,
-                PStages             = stages,
-                PVertexInputState   = &vertexInput,
-                PInputAssemblyState = pIA,
-                PViewportState      = pVPS,
-                PRasterizationState = pR,
-                PMultisampleState   = pMS,
-                PDepthStencilState  = pDS,
-                PDynamicState       = pDyn,
-                Layout              = layout,
-                RenderPass          = _shadowRenderPass,
-                Subpass             = 0,
-            };
-            return _ctx.Pipelines.CreateGraphicsPipeline(pipeInfo, "shadow");
-        }
+        Plain2D,
+        PlainPoint,
+        Instanced2D,
+        InstancedPoint,
+        Cutout2D,
+        CutoutPoint,
     }
 
-    private void CreateShadowMaps()
+    private static (string Vertex, string Fragment) ShaderPaths(CasterShaders shaders) => shaders switch
     {
-        for (int i = 0; i < MaxShadowDir; i++) _dirMaps[i]  = CreateMap2D(DirSize);
-        for (int i = 0; i < MaxShadowSpot; i++) _spotMaps[i] = CreateMap2D(SpotSize);
-        for (int i = 0; i < MaxShadowPoint; i++) _ptMaps[i]   = CreateMapCube(PointSize);
-    }
+        CasterShaders.Plain2D => ("Shaders/Shadows/Shadow2D.vk.vert.spv", "Shaders/Shadows/Shadow2D.vk.frag.spv"),
+        CasterShaders.PlainPoint => ("Shaders/Shadows/ShadowPoint.vk.vert.spv", "Shaders/Shadows/ShadowPoint.vk.frag.spv"),
+        CasterShaders.Instanced2D => ("Shaders/Shadows/Shadow2DInstanced.vk.vert.spv", "Shaders/Shadows/Shadow2D.vk.frag.spv"),
+        CasterShaders.InstancedPoint => ("Shaders/Shadows/ShadowPointInstanced.vk.vert.spv", "Shaders/Shadows/ShadowPoint.vk.frag.spv"),
+        CasterShaders.Cutout2D => ("Shaders/Shadows/Shadow2DCutoutInstanced.vk.vert.spv", "Shaders/Shadows/ShadowCutout.vk.frag.spv"),
+        _ => ("Shaders/Shadows/ShadowPointCutoutInstanced.vk.vert.spv", "Shaders/Shadows/ShadowPointCutout.vk.frag.spv"),
+    };
 
-    private Framebuffer CreateDepthFramebuffer(ImageView view, uint size)
-    {
-        var fbInfo = new FramebufferCreateInfo
-        {
-            SType           = StructureType.FramebufferCreateInfo,
-            RenderPass      = _shadowRenderPass,
-            AttachmentCount = 1,
-            PAttachments    = &view,
-            Width           = size,
-            Height          = size,
-            Layers          = 1,
-        };
-        _ctx.Vk.CreateFramebuffer(_ctx.Device, in fbInfo, null, out var fb).Check("vkCreateFramebuffer (shadow)");
-        return fb;
-    }
-
-    private Map2D CreateMap2D(uint size)
-    {
-        var image = GpuImage.Create(_ctx, new GpuImageDesc(size, size, _depthFormat,
-            ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit));
-        return new Map2D { Image = image, Framebuffer = CreateDepthFramebuffer(image.View, size) };
-    }
-
-    private MapCube CreateMapCube(uint size)
-    {
-        var cube = new MapCube(GpuImage.Create(_ctx, new GpuImageDesc(size, size, _depthFormat,
-            ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit)
-        {
-            ArrayLayers = 6,
-            Flags = ImageCreateFlags.CreateCubeCompatibleBit,
-            ViewType = ImageViewType.TypeCube,
-        }));
-        for (uint face = 0; face < 6; face++)
-            cube.FaceFramebuffers[face] = CreateDepthFramebuffer(cube.Image.CreateView(ImageViewType.Type2D, face, 1), size);
-        return cube;
-    }
-
-    private void CreateMainDescriptorResources()
-    {
-        var vk     = _ctx.Vk;
-        var device = _ctx.Device;
-        const int slots = IVulkanContext.MaxFramesInFlight;
-
-        for (int i = 0; i < slots; i++)
-        {
-            _matBuffers[i] = GpuBuffer.Create(_ctx, ShadowMatricesUboSize, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
-            _matBuffers[i].MappedSpan.Clear();
-        }
-
-        MainDescSetLayout = CreateMainSetLayout(_ctx, _sampler2DShadow);
-        _mainPool = CreateMainPool(_ctx, slots);
-
-        var layouts = stackalloc DescriptorSetLayout[slots];
-        for (int i = 0; i < slots; i++) layouts[i] = MainDescSetLayout;
-        var allocInfo = new DescriptorSetAllocateInfo
-        {
-            SType = StructureType.DescriptorSetAllocateInfo,
-            DescriptorPool = _mainPool,
-            DescriptorSetCount = slots,
-            PSetLayouts = layouts,
-        };
-        fixed (DescriptorSet* p = _mainSets)
-            vk.AllocateDescriptorSets(device, in allocInfo, p).Check("vkAllocateDescriptorSets (shadow set 2)");
-
-        Span<ImageView> dirViews = stackalloc ImageView[MaxShadowDir];
-        Span<ImageView> spotViews = stackalloc ImageView[MaxShadowSpot];
-        Span<ImageView> cubeViews = stackalloc ImageView[MaxShadowPoint];
-        for (int i = 0; i < MaxShadowDir; i++) dirViews[i] = _dirMaps[i].Image.View;
-        for (int i = 0; i < MaxShadowSpot; i++) spotViews[i] = _spotMaps[i].Image.View;
-        for (int i = 0; i < MaxShadowPoint; i++) cubeViews[i] = _ptMaps[i].Image.View;
-
-        // The image infos are identical for every frame slot; only the matrices UBO differs.
-        for (int slot = 0; slot < slots; slot++)
-            WriteMainSet(_ctx, _mainSets[slot], _matBuffers[slot].Handle, dirViews, spotViews, cubeViews, _samplerCube);
-    }
-
-    /// <summary>
-    /// Transitions every shadow map slot (including unused ones) to DepthStencilReadOnlyOptimal so that
-    /// descriptors referencing all slots are valid from the very first frame. Recorded by the upload queue
-    /// at the start of the next frame (no queue wait).
-    /// </summary>
-    private void InitializeShadowMapLayouts()
-    {
-        var uploads = _ctx.Uploads;
-        var aspect = VkHelpers.DepthBarrierAspects(_depthFormat);
-        void Init(GpuImage image, uint layers) => uploads.TransitionImage(image.Handle, aspect, layers, 1,
-            ImageLayout.Undefined, ImageLayout.DepthStencilReadOnlyOptimal, PipelineStageFlags.FragmentShaderBit, AccessFlags.ShaderReadBit);
-
-        for (int i = 0; i < MaxShadowDir; i++) Init(_dirMaps[i].Image, 1);
-        for (int i = 0; i < MaxShadowSpot; i++) Init(_spotMaps[i].Image, 1);
-        for (int i = 0; i < MaxShadowPoint; i++) Init(_ptMaps[i].Image, 6);
-        uploads.FlushIfRecording();
-    }
-
-    // ── Public shadow-pipeline accessors (for shapes' DrawShadow methods) ─────
-
-    /// <summary>Returns the 2D depth pipeline matching the shape's vertex stride (12 or 32 bytes).</summary>
-    public Pipeline GetShadow2DPipeline(uint strideBytes) =>
-        strideBytes == 12 ? _pipe2D_S12 : _pipe2D_S32;
-
-    /// <summary>Returns the point-light depth pipeline matching the shape's vertex stride.</summary>
-    public Pipeline GetShadowPointPipeline(uint strideBytes) =>
-        strideBytes == 12 ? _pipePoint_S12 : _pipePoint_S32;
-
-    public PipelineLayout Shadow2DLayout => _layout2D;
-    public PipelineLayout ShadowPointLayout => _layoutPoint;
-
-    // ── Instanced caster pipelines (batched meshes, M3) ─────────────────────────
-
-    private readonly Dictionary<int, Pipeline> _instancedPipelines = [];
-
-    /// <summary>
-    /// The depth pipeline for instanced mesh batches (<see cref="VertexLayouts.ShadowInstancedBindings"/>): 2D or
-    /// point, culling per the material (double-sided casters cull nothing), front faces flipped for mirrored
-    /// instances. Same layouts as <see cref="Shadow2DLayout"/>/<see cref="ShadowPointLayout"/>; point batches push
-    /// the light position and range at offset 64. Built on first use.
-    /// </summary>
-    internal Pipeline GetInstancedCasterPipeline(bool point, CullMode cull, bool mirrored)
-    {
-        var key = (point ? 1 : 0) | ((int)cull << 1) | (mirrored ? 8 : 0);
-        if (_instancedPipelines.TryGetValue(key, out var pipeline))
-            return pipeline;
-        pipeline = BuildInstancedPipeline(point, cull, mirrored);
-        _instancedPipelines[key] = pipeline;
-        return pipeline;
-    }
-
-    private Pipeline BuildInstancedPipeline(bool point, CullMode cull, bool mirrored)
+    // Geometry is authored counter-clockwise (front faces CCW, right-handed). The main pass flips Y with a
+    // negative-height viewport, which keeps CCW = front; shadow passes use a standard viewport, which mirrors the
+    // winding, so geometric front faces (facing the light) arrive clockwise: FrontFace = Clockwise, back faces culled,
+    // mirrored instances counter-clockwise. Depth bias is dynamic (set per pass).
+    private Pipeline BuildPipeline(CasterShaders shaders, CullMode cull, bool mirrored, PipelineLayout layout,
+        VertexInputBindingDescription[] bindings, VertexInputAttributeDescription[] attributes, string what)
     {
         var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
         try
         {
-            var shaders = _ctx.Shaders;
+            var (vertexPath, fragmentPath) = ShaderPaths(shaders);
             var stages = stackalloc PipelineShaderStageCreateInfo[]
             {
-                new()
-                {
-                    SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.VertexBit, PName = entryPoint,
-                    Module = shaders.Get(point ? "Shaders/Shadows/ShadowPointInstanced.vk.vert.spv" : "Shaders/Shadows/Shadow2DInstanced.vk.vert.spv"),
-                },
-                new()
-                {
-                    SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.FragmentBit, PName = entryPoint,
-                    Module = shaders.Get(point ? "Shaders/Shadows/ShadowPoint.vk.frag.spv" : "Shaders/Shadows/Shadow2D.vk.frag.spv"),
-                },
+                new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.VertexBit, Module = _ctx.Shaders.Get(vertexPath), PName = entryPoint },
+                new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.FragmentBit, Module = _ctx.Shaders.Get(fragmentPath), PName = entryPoint },
             };
 
-            fixed (VertexInputBindingDescription* bindings = VertexLayouts.ShadowInstancedBindings)
-            fixed (VertexInputAttributeDescription* attributes = VertexLayouts.ShadowInstancedAttributes)
+            fixed (VertexInputBindingDescription* pBindings = bindings)
+            fixed (VertexInputAttributeDescription* pAttributes = attributes)
             {
                 var vertexInput = new PipelineVertexInputStateCreateInfo
                 {
                     SType = StructureType.PipelineVertexInputStateCreateInfo,
-                    VertexBindingDescriptionCount = (uint)VertexLayouts.ShadowInstancedBindings.Length,
-                    PVertexBindingDescriptions = bindings,
-                    VertexAttributeDescriptionCount = (uint)VertexLayouts.ShadowInstancedAttributes.Length,
-                    PVertexAttributeDescriptions = attributes,
+                    VertexBindingDescriptionCount = (uint)bindings.Length,
+                    PVertexBindingDescriptions = pBindings,
+                    VertexAttributeDescriptionCount = (uint)attributes.Length,
+                    PVertexAttributeDescriptions = pAttributes,
                 };
                 var inputAssembly = new PipelineInputAssemblyStateCreateInfo
                 {
@@ -962,8 +940,6 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
                     ViewportCount = 1,
                     ScissorCount = 1,
                 };
-                // Unflipped shadow viewport: geometric front faces arrive clockwise (see CreateShadowPipelines);
-                // mirrored instances (negative determinant) arrive counter-clockwise.
                 var rasterizer = new PipelineRasterizationStateCreateInfo
                 {
                     SType = StructureType.PipelineRasterizationStateCreateInfo,
@@ -977,8 +953,6 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
                     },
                     FrontFace = mirrored ? FrontFace.CounterClockwise : FrontFace.Clockwise,
                     DepthBiasEnable = true,
-                    DepthBiasConstantFactor = 1.25f,
-                    DepthBiasSlopeFactor = 1.75f,
                 };
                 var multisampling = new PipelineMultisampleStateCreateInfo
                 {
@@ -992,11 +966,11 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
                     DepthWriteEnable = true,
                     DepthCompareOp = CompareOp.Less,
                 };
-                var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
+                var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor, DynamicState.DepthBias };
                 var dynamicState = new PipelineDynamicStateCreateInfo
                 {
                     SType = StructureType.PipelineDynamicStateCreateInfo,
-                    DynamicStateCount = 2,
+                    DynamicStateCount = 3,
                     PDynamicStates = dynamicStates,
                 };
                 var info = new GraphicsPipelineCreateInfo
@@ -1011,17 +985,99 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
                     PMultisampleState = &multisampling,
                     PDepthStencilState = &depthStencil,
                     PDynamicState = &dynamicState,
-                    Layout = point ? _layoutPoint : _layout2D,
+                    Layout = layout,
                     RenderPass = _shadowRenderPass,
                     Subpass = 0,
                 };
-                return _ctx.Pipelines.CreateGraphicsPipeline(info, "shadow (instanced)");
+                return _ctx.Pipelines.CreateGraphicsPipeline(info, what);
             }
         }
         finally
         {
-            SilkMarshal.Free((nint)entryPoint);
+            SilkMarshal.Free((nint)entryPoint); // modules belong to the shared ShaderModuleCache
         }
+    }
+
+    private void CreateMainDescriptorResources()
+    {
+        const int slots = IVulkanContext.MaxFramesInFlight;
+        for (var i = 0; i < slots; i++)
+        {
+            _uniformBuffers[i] = GpuBuffer.Create(_ctx, (ulong)ShadowUniforms.Size, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
+            _uniformBuffers[i].MappedSpan.Clear();
+        }
+
+        MainDescSetLayout = CreateMainSetLayout(_ctx, _comparisonSampler);
+        _mainPool = CreateMainPool(_ctx, slots);
+        var layouts = stackalloc DescriptorSetLayout[slots];
+        for (var i = 0; i < slots; i++)
+            layouts[i] = MainDescSetLayout;
+        var allocInfo = new DescriptorSetAllocateInfo
+        {
+            SType = StructureType.DescriptorSetAllocateInfo,
+            DescriptorPool = _mainPool,
+            DescriptorSetCount = slots,
+            PSetLayouts = layouts,
+        };
+        fixed (DescriptorSet* p = _mainSets)
+            _ctx.Vk.AllocateDescriptorSets(_ctx.Device, in allocInfo, p).Check("vkAllocateDescriptorSets (shadow set)");
+        for (var slot = 0; slot < slots; slot++)
+            WriteSlotSet(slot);
+    }
+
+    public DescriptorSetLayout MainDescSetLayout { get; private set; }
+
+    // ── Pipeline accessors ────────────────────────────────────────────────────
+
+    /// <summary>The per-object directional/spot depth pipeline for a vertex stride (12 or 32 bytes; position first).</summary>
+    public Pipeline GetShadow2DPipeline(uint strideBytes) => strideBytes == 12 ? _pipe2D_S12 : _pipe2D_S32;
+
+    /// <summary>The per-object point-light depth pipeline for a vertex stride.</summary>
+    public Pipeline GetShadowPointPipeline(uint strideBytes) => strideBytes == 12 ? _pipePoint_S12 : _pipePoint_S32;
+
+    public PipelineLayout Shadow2DLayout => _layout2D;
+    public PipelineLayout ShadowPointLayout => _layoutPoint;
+
+    /// <summary>
+    /// Sets the mesh material set layout used by the cutout caster pipelines (their set 1). Called once by the mesh
+    /// renderer.
+    /// </summary>
+    internal void SetMaterialSetLayout(DescriptorSetLayout materialLayout)
+    {
+        if (_materialLayout.Handle == materialLayout.Handle)
+            return;
+        if (_materialLayout.Handle != 0)
+            throw new InvalidOperationException("The material set layout of the cutout casters is already set.");
+        _materialLayout = materialLayout;
+        _layout2DCutout = CreateCasterLayout(point: false, materialLayout, "shadow 2D cutout");
+        _layoutPointCutout = CreateCasterLayout(point: true, materialLayout, "shadow point cutout");
+    }
+
+    /// <summary>The layout of the cutout caster pipelines (set 0 light VP, set 1 material).</summary>
+    internal PipelineLayout CutoutLayout(bool point) => point ? _layoutPointCutout : _layout2DCutout;
+
+    /// <summary>
+    /// The depth pipeline for instanced mesh batches: 2D or point, culling per the material (double-sided casters cull
+    /// nothing), front faces flipped for mirrored instances, and for cutout materials an alpha test against the
+    /// material (set 1 of <see cref="CutoutLayout"/>). Plain casters use the <see cref="Shadow2DLayout"/>/
+    /// <see cref="ShadowPointLayout"/> layouts; point batches push the light position and range at offset 64. Built on
+    /// first use.
+    /// </summary>
+    internal Pipeline GetInstancedCasterPipeline(bool point, CullMode cull, bool mirrored, bool cutout = false)
+    {
+        var key = (point ? 1 : 0) | ((int)cull << 1) | (mirrored ? 8 : 0) | (cutout ? 16 : 0);
+        if (_instancedPipelines.TryGetValue(key, out var pipeline))
+            return pipeline;
+        if (cutout && _materialLayout.Handle == 0)
+            throw new InvalidOperationException("Cutout casters need the material set layout (SetMaterialSetLayout).");
+
+        pipeline = cutout
+            ? BuildPipeline(point ? CasterShaders.CutoutPoint : CasterShaders.Cutout2D, cull, mirrored, CutoutLayout(point),
+                VertexLayouts.ShadowInstancedBindings, VertexLayouts.ShadowCutoutInstancedAttributes, "shadow (instanced, cutout)")
+            : BuildPipeline(point ? CasterShaders.InstancedPoint : CasterShaders.Instanced2D, cull, mirrored, point ? _layoutPoint : _layout2D,
+                VertexLayouts.ShadowInstancedBindings, VertexLayouts.ShadowInstancedAttributes, "shadow (instanced)");
+        _instancedPipelines[key] = pipeline;
+        return pipeline;
     }
 
     // ── Dispose ───────────────────────────────────────────────────────────────
@@ -1033,22 +1089,21 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         _disposed = true;
 
         var deletions = _ctx.Deletions;
+        DestroyCascades();
+        DestroyAtlas();
+        for (var c = 0; c < MaxShadowPoint; c++)
+            DestroyCube(c);
+        _placeholders.Dispose();
 
-        // Shadow maps (framebuffers before their views)
-        for (int i = 0; i < MaxShadowDir; i++) DestroyMap2D(deletions, _dirMaps[i]);
-        for (int i = 0; i < MaxShadowSpot; i++) DestroyMap2D(deletions, _spotMaps[i]);
-        for (int i = 0; i < MaxShadowPoint; i++) DestroyMapCube(deletions, _ptMaps[i]);
-
-        // Main descriptor resources (before the samplers baked into the layout)
+        // Descriptor resources (before the sampler baked into the layout)
         deletions.Enqueue(GpuDeletion.Of(_mainPool));
         deletions.Enqueue(GpuDeletion.Of(MainDescSetLayout));
-        foreach (var buffer in _matBuffers)
+        foreach (var buffer in _uniformBuffers)
             buffer.Dispose();
+        deletions.Enqueue(GpuDeletion.Of(_comparisonSampler));
+        if (_debugSampler.Handle != 0)
+            deletions.Enqueue(GpuDeletion.Of(_debugSampler));
 
-        deletions.Enqueue(GpuDeletion.Of(_sampler2DShadow));
-        deletions.Enqueue(GpuDeletion.Of(_samplerCube));
-
-        // Pipelines
         deletions.Enqueue(GpuDeletion.Of(_pipe2D_S32));
         deletions.Enqueue(GpuDeletion.Of(_pipe2D_S12));
         deletions.Enqueue(GpuDeletion.Of(_pipePoint_S32));
@@ -1058,34 +1113,64 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         _instancedPipelines.Clear();
         deletions.Enqueue(GpuDeletion.Of(_layout2D));
         deletions.Enqueue(GpuDeletion.Of(_layoutPoint));
+        if (_layout2DCutout.Handle != 0)
+            deletions.Enqueue(GpuDeletion.Of(_layout2DCutout));
+        if (_layoutPointCutout.Handle != 0)
+            deletions.Enqueue(GpuDeletion.Of(_layoutPointCutout));
 
-        // Light VP ring
         _vpBuffer.Dispose();
         deletions.Enqueue(GpuDeletion.Of(_vpPool));
         deletions.Enqueue(GpuDeletion.Of(_vpSetLayout));
-
         deletions.Enqueue(GpuDeletion.Of(_shadowRenderPass));
-    }
-
-    private static void DestroyMap2D(DeletionQueue deletions, in Map2D m)
-    {
-        deletions.Enqueue(GpuDeletion.Of(m.Framebuffer));
-        m.Image?.Dispose();
-    }
-
-    private static void DestroyMapCube(DeletionQueue deletions, in MapCube m)
-    {
-        foreach (var fb in m.FaceFramebuffers)
-            deletions.Enqueue(GpuDeletion.Of(fb));
-        m.Image?.Dispose();
     }
 }
 
-/// <summary>Records directional/spot shadow casters; see <see cref="ShadowSystem.RenderShadows{TState}"/>.</summary>
+/// <summary>1×1 shadow maps cleared to far depth (cascade array, 2D, cube) for set bindings without a real map.</summary>
+internal sealed class ShadowPlaceholderMaps : IDisposable
+{
+    private readonly GpuImage _array, _map2D, _cube;
+    private bool _disposed;
+
+    public ShadowPlaceholderMaps(IVulkanContext ctx, Format format)
+    {
+        // Depth-attachment usage is required for the DEPTH_STENCIL_READ_ONLY_OPTIMAL layout the set expects.
+        const ImageUsageFlags usage = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit | ImageUsageFlags.DepthStencilAttachmentBit;
+        _array = GpuImage.Create(ctx, new GpuImageDesc(1, 1, format, usage) { ViewType = ImageViewType.Type2DArray });
+        _map2D = GpuImage.Create(ctx, new GpuImageDesc(1, 1, format, usage));
+        _cube = GpuImage.Create(ctx, new GpuImageDesc(1, 1, format, usage)
+        {
+            ArrayLayers = 6,
+            Flags = ImageCreateFlags.CreateCubeCompatibleBit,
+            ViewType = ImageViewType.TypeCube,
+        });
+
+        // Cleared to far depth (and left read-only) by the upload queue at the start of the next frame.
+        var aspect = VkHelpers.DepthBarrierAspects(format);
+        ctx.Uploads.ClearDepthToFar(_array.Handle, aspect, 1);
+        ctx.Uploads.ClearDepthToFar(_map2D.Handle, aspect, 1);
+        ctx.Uploads.ClearDepthToFar(_cube.Handle, aspect, 6);
+        ctx.Uploads.FlushIfRecording();
+    }
+
+    public ImageView Array => _array.View;
+    public ImageView Map2D => _map2D.View;
+    public ImageView Cube => _cube.View;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _array.Dispose();
+        _map2D.Dispose();
+        _cube.Dispose();
+    }
+}
+
+/// <summary>Records directional/spot shadow casters with the per-object pipelines (legacy form).</summary>
 public delegate void ShadowDraw2D<in TState>(
     TState state, CommandBuffer cb, Pipeline pipelineStride32, Pipeline pipelineStride12, PipelineLayout layout);
 
-/// <summary>Records point-light shadow casters for one cube face; see <see cref="ShadowSystem.RenderShadows{TState}"/>.</summary>
+/// <summary>Records point-light shadow casters for one cube face with the per-object pipelines (legacy form).</summary>
 public delegate void ShadowDrawPoint<in TState>(
     TState state, CommandBuffer cb, Pipeline pipelineStride32, Pipeline pipelineStride12, PipelineLayout layout,
     Vector3 lightPosition, float lightRange);

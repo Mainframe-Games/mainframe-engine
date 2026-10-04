@@ -46,48 +46,31 @@ public sealed class ShadowRingTests
         Assert.Throws<ArgumentException>(() => new UniformRing(64, 4, 2, 48)); // not a power of two
     }
 
-    [Fact]
-    public void PassIndicesCoverTheRingWithoutOverlap()
-    {
-        var indices = new List<int>();
-        for (var i = 0; i < ShadowSystem.MaxShadowDir; i++) indices.Add(ShadowSystem.PassIndexDir(i));
-        for (var i = 0; i < ShadowSystem.MaxShadowSpot; i++) indices.Add(ShadowSystem.PassIndexSpot(i));
-        for (var i = 0; i < ShadowSystem.MaxShadowPoint; i++)
-            for (var face = 0; face < 6; face++)
-                indices.Add(ShadowSystem.PassIndexPoint(i, face));
-
-        Assert.Equal(35, ShadowSystem.MaxShadowPasses);
-        Assert.Equal(Enumerable.Range(0, ShadowSystem.MaxShadowPasses), indices);
-    }
-
     [Theory]
     [InlineData(0f, -1f, 0f)]       // straight down
     [InlineData(0.05f, 1f, 0f)]     // nearly straight up
     public void VerticalLightsUseZAsUp(float x, float y, float z)
     {
-        Assert.Equal(Vector3.UnitZ, ShadowSystem.ChooseUp(new Vector3(x, y, z)));
+        Assert.Equal(Vector3.UnitZ, ShadowMath.ChooseUp(new Vector3(x, y, z)));
 
         // ...and still produce a finite light matrix (CreateLookAt with a parallel up gives NaNs).
-        var matrix = ShadowSystem.CalcDirLightMatrix(new DirectionalLight { Direction = new Vector3(x, y, z) });
+        var rotation = ShadowMath.LightRotation(new Vector3(x, y, z));
+        var matrix = ShadowMath.SphereLightMatrix(rotation, Vector3.Zero, 20f, 2048, 10f, snap: true, out _);
         Assert.False(float.IsNaN(matrix.M11) || float.IsNaN(matrix.M44));
     }
 
     [Fact]
     public void ObliqueLightsUseYAsUp()
     {
-        Assert.Equal(Vector3.UnitY, ShadowSystem.ChooseUp(Vector3.Normalize(new Vector3(-0.4f, -1f, -0.6f))));
+        Assert.Equal(Vector3.UnitY, ShadowMath.ChooseUp(Vector3.Normalize(new Vector3(-0.4f, -1f, -0.6f))));
     }
 
-    [Theory]
-    [InlineData(0f, 0f, 0f)]
-    [InlineData(12.5f, -3f, 99f)]
-    public void FallbackMatrixPutsEveryPointOutsideTheShadowRange(float x, float y, float z)
+    [Fact]
+    public void RingHasASlotForEveryPassOfAFullFrame()
     {
-        // Same math as the shader: lightSpace * vec4(worldPos, 1) with the matrix uploaded as-is.
-        var ls = Vector4.Transform(new Vector4(x, y, z, 1f), ShadowFallback.OutOfRangeLightMatrix);
-        var ndc = ls / ls.W;
-
-        Assert.Equal(1f, ls.W);
-        Assert.True(ndc.Z > 1f, "depth must be outside [0, 1] so the shadow term is 1 (lit)");
+        // 4 cascades + 11 atlas tiles (3 secondary directional + 8 spot) + 4 cubes x 6 faces.
+        Assert.Equal(39, ShadowSystem.MaxShadowPasses);
+        Assert.Equal(ShaderLimits.MaxShadowCascades + ShaderLimits.MaxShadowAtlasMaps + ShaderLimits.MaxShadowPoint * 6, ShadowSystem.MaxShadowPasses);
+        Assert.Equal(ShaderLimits.MaxShadowDirectional - 1 + ShaderLimits.MaxShadowSpot, ShaderLimits.MaxShadowAtlasMaps);
     }
 }

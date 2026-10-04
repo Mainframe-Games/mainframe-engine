@@ -25,6 +25,12 @@ public struct MeshDrawStats
     /// <summary>Instanced draws into shadow maps (every light, every face).</summary>
     public int ShadowDrawCalls;
 
+    /// <summary>Caster instances drawn into shadow maps (summed over passes, after per-pass culling).</summary>
+    public int ShadowInstances;
+
+    /// <summary>Caster surfaces culled from shadow passes (summed over passes).</summary>
+    public int ShadowCulled;
+
     /// <summary>Draws in object-ID passes.</summary>
     public int ObjectIdDrawCalls;
 }
@@ -48,6 +54,25 @@ internal struct ShadowCasterItem
     public int Surface;
     public CullMode Cull;
     public bool Mirrored;
+
+    /// <summary>The material of a cutout caster (alpha-tested in the shadow pass); null for opaque casters.</summary>
+    public MaterialGpu? Cutout;
+
+    /// <summary>World bounds of the instance (culled per shadow pass).</summary>
+    public Aabb Bounds;
+}
+
+/// <summary>A run of caster instances drawn with one instanced draw in one shadow pass.</summary>
+internal struct ShadowCasterRun
+{
+    public MeshGpu Mesh;
+    public MaterialGpu? Cutout;
+    public GpuBuffer Instances;
+    public int Surface;
+    public CullMode Cull;
+    public bool Mirrored;
+    public uint FirstInstance;
+    public uint InstanceCount;
 }
 
 /// <summary>The sorted draws of one view (main viewport, an offscreen view) for the current frame.</summary>
@@ -57,21 +82,37 @@ internal sealed class MeshViewDraws
     public readonly DrawList<MeshDrawItem> Transparent = new(64);
     public readonly DrawList<ShadowCasterItem> Casters = new(256);
 
+    /// <summary>Union of the casters' world bounds (cascades pull their near plane back to it).</summary>
+    public Aabb CasterBounds = Aabb.Empty;
+
+    /// <summary>This frame's shadow draws: runs of culled casters per pass (<see cref="PassRuns"/>).</summary>
+    public ShadowCasterRun[] ShadowRuns = new ShadowCasterRun[64];
+    public int ShadowRunCount;
+
+    /// <summary>Per shadow pass index: (first run, run count) in <see cref="ShadowRuns"/>.</summary>
+    public readonly (int First, int Count)[] PassRuns = new (int, int)[ShadowSystem.MaxShadowPasses];
+
     public ulong PreparedFrame;
     public ulong InstancesFrame;
-    public ulong CastersFrame;
+    public ulong ShadowFrame;
     public GpuBuffer? InstanceBuffer;
     public uint FirstInstance;
-    public GpuBuffer? CasterBuffer;
-    public uint FirstCaster;
 
     public void Clear()
     {
         Opaque.Clear();
         Transparent.Clear();
         Casters.Clear();
+        CasterBounds = Aabb.Empty;
         InstanceBuffer = null;
-        CasterBuffer = null;
+        ClearShadowRuns();
+    }
+
+    public void ClearShadowRuns()
+    {
+        Array.Clear(ShadowRuns, 0, ShadowRunCount); // drop the references
+        ShadowRunCount = 0;
+        Array.Clear(PassRuns);
     }
 }
 
@@ -101,6 +142,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
     private readonly Dictionary<(Texture2D, TextureColorSpace), TextureGpu> _textures = [];
     private int _nextMeshId = 1, _nextMaterialId = 1;
     private ulong _statsFrame;
+    private int[] _visibleCasters = new int[256];
     private bool _warnedUnsupportedMaterial;
     private bool _disposed;
 
@@ -122,6 +164,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         _pipelineLayout = ctx.Frame.CreatePipelineLayout(_shadowDescriptors, [_materialLayout], "mesh");
         _idPassPrototype = RenderTarget.CreateRenderPass(ctx, ObjectIdTargetDesc(FindDepthFormat(ctx)));
         _materialSets = new MaterialDescriptorAllocator(ctx, _materialLayout);
+        shadows?.SetMaterialSetLayout(_materialLayout); // cutout casters alpha-test against the material
         Pipelines = new PipelineStateCache(this);
         _instances = new InstanceBuffer(ctx);
 
@@ -508,19 +551,25 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             var materials = node.GpuMaterials;
             var surfaces = mesh.Surfaces;
 
+            var bounds = mesh.Bounds.Transform(model);
             if (collectCasters && node.CastShadows)
             {
+                var casts = false;
                 for (var s = 0; s < surfaces.Length; s++)
                 {
                     if (surfaces[s].IndexCount == 0 || materials[s] is not { } m || !m.State.CastsShadows)
                         continue;
                     var cull = m.State.EffectiveCull;
-                    view.Casters.Add(CasterKey(cull, mirrored, mesh.Id, s),
-                        new ShadowCasterItem { Node = node, Mesh = mesh, Surface = s, Cull = cull, Mirrored = mirrored });
+                    var cutout = m.State.Alpha == AlphaMode.Cutout ? m : null;
+                    view.Casters.Add(CasterKey(cull, mirrored, cutout?.Id ?? 0, mesh.Id, s),
+                        new ShadowCasterItem { Node = node, Mesh = mesh, Surface = s, Cull = cull, Mirrored = mirrored, Cutout = cutout, Bounds = bounds });
+                    casts = true;
                 }
+
+                if (casts)
+                    view.CasterBounds = view.CasterBounds.Merge(bounds);
             }
 
-            var bounds = mesh.Bounds.Transform(model);
             if (!frustum.Intersects(bounds))
             {
                 Stats.Culled++;
@@ -555,8 +604,13 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         view.Casters.Sort();
     }
 
-    internal static ulong CasterKey(CullMode cull, bool mirrored, int meshId, int surface) =>
-        (ulong)cull << 40 | (mirrored ? 1ul << 39 : 0ul) | ((ulong)(uint)meshId & 0xFFFFFF) << 12 | ((ulong)(uint)surface & 0xFFF);
+    /// <summary>
+    /// Caster sort key: <c>[cull 2][mirrored 1][cutout material 20][mesh 20][surface 12]</c>: opaque casters (material
+    /// 0) first, so pipelines and material sets change as rarely as possible.
+    /// </summary>
+    internal static ulong CasterKey(CullMode cull, bool mirrored, int cutoutMaterialId, int meshId, int surface) =>
+        ((ulong)cull & 0x3) << 53 | (mirrored ? 1ul << 52 : 0ul) | ((ulong)(uint)cutoutMaterialId & 0xFFFFF) << 32 |
+        ((ulong)(uint)meshId & 0xFFFFF) << 12 | ((ulong)(uint)surface & 0xFFF);
 
     internal static float Determinant3(in Matrix4x4 m) =>
         m.M11 * (m.M22 * m.M33 - m.M23 * m.M32) -
@@ -676,78 +730,152 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && ReferenceEquals(a.Material, b.Material) &&
         a.Pipeline.Pipeline.Handle == b.Pipeline.Pipeline.Handle;
 
-    /// <summary>Writes the casters' instances once per frame (call before the shadow passes).</summary>
-    public void PrepareShadowCasters(MeshViewDraws view)
+    /// <summary>
+    /// Culls the view's casters against one shadow pass (its light frustum, and the light's sphere when it has a range)
+    /// and writes the surviving instances, in sort order, as runs of equal (cull, mirrored, cutout material, mesh
+    /// surface) for <see cref="DrawShadowCasters"/>. Returns false when nothing casts into the pass. Call for every
+    /// pass of the frame before recording.
+    /// </summary>
+    public bool CullShadowCasters(MeshViewDraws view, in ShadowPass pass)
     {
-        if (view.CastersFrame == CurrentFrame)
-            return;
-        view.CastersFrame = CurrentFrame;
-        view.CasterBuffer = null;
-        if (view.Casters.Count == 0)
-            return;
-        var data = _instances.Allocate(view.Casters.Count, out var buffer, out var first);
-        view.CasterBuffer = buffer;
-        view.FirstCaster = first;
-        for (var k = 0; k < view.Casters.Count; k++)
+        var frame = CurrentFrame;
+        if (view.ShadowFrame != frame)
         {
-            ref var item = ref view.Casters[k];
-            data[k] = new MeshInstanceData(item.Node.ModelMatrix, item.Node.ObjectId);
+            view.ShadowFrame = frame;
+            view.ClearShadowRuns();
         }
+
+        ResetStatsIfNewFrame();
+        var casters = view.Casters;
+        var count = casters.Count;
+        view.PassRuns[pass.Index] = (view.ShadowRunCount, 0);
+        if (count == 0)
+            return false;
+
+        if (_visibleCasters.Length < count)
+            _visibleCasters = new int[Math.Max(count, _visibleCasters.Length * 2)];
+        var visible = 0;
+        var frustum = pass.Frustum;
+        var sphere = pass.LightRange > 0f;
+        var center = pass.LightPosition;
+        var radius = pass.LightRange;
+        for (var k = 0; k < count; k++)
+        {
+            ref var item = ref casters[k];
+            if (sphere && !SphereIntersects(item.Bounds, center, radius))
+                continue;
+            if (frustum.Intersects(item.Bounds))
+                _visibleCasters[visible++] = k;
+        }
+
+        Stats.ShadowCulled += count - visible;
+        if (visible == 0)
+            return false;
+
+        var data = _instances.Allocate(visible, out var buffer, out var first);
+        var firstRun = view.ShadowRunCount;
+        for (var v = 0; v < visible; v++)
+        {
+            ref var item = ref casters[_visibleCasters[v]];
+            data[v] = new MeshInstanceData(item.Node.ModelMatrix, item.Node.ObjectId);
+            if (v > 0 && SameCaster(ref casters[_visibleCasters[v - 1]], ref item))
+            {
+                view.ShadowRuns[view.ShadowRunCount - 1].InstanceCount++;
+                continue;
+            }
+
+            if (view.ShadowRunCount == view.ShadowRuns.Length)
+                Array.Resize(ref view.ShadowRuns, view.ShadowRuns.Length * 2);
+            view.ShadowRuns[view.ShadowRunCount++] = new ShadowCasterRun
+            {
+                Mesh = item.Mesh,
+                Cutout = item.Cutout,
+                Instances = buffer,
+                Surface = item.Surface,
+                Cull = item.Cull,
+                Mirrored = item.Mirrored,
+                FirstInstance = first + (uint)v,
+                InstanceCount = 1,
+            };
+        }
+
+        view.PassRuns[pass.Index] = (firstRun, view.ShadowRunCount - firstRun);
+        Stats.ShadowInstances += visible;
+        return true;
+    }
+
+    private static bool SphereIntersects(in Aabb box, Vector3 center, float radius)
+    {
+        var closest = Vector3.Clamp(center, box.Min, box.Max);
+        return Vector3.DistanceSquared(closest, center) <= radius * radius;
     }
 
     /// <summary>
-    /// Records the view's shadow casters into the current shadow sub-pass (light matrix bound by the shadow system).
-    /// <paramref name="point"/> selects the cube-face pipelines, which take the light position and range.
+    /// Records the casters <see cref="CullShadowCasters"/> kept for <paramref name="pass"/> (inside its shadow render
+    /// pass; the light matrix is bound by the shadow system). Cutout casters bind their material as set 1.
     /// </summary>
-    public void DrawShadowCasters(MeshViewDraws view, CommandBuffer cb, bool point, Vector3 lightPosition, float lightRange)
+    public void DrawShadowCasters(MeshViewDraws view, CommandBuffer cb, in ShadowPass pass)
     {
-        if (_shadows is null || view.CasterBuffer is null || view.Casters.Count == 0)
+        if (_shadows is null || view.ShadowFrame != CurrentFrame)
             return;
+        var (firstRun, runCount) = view.PassRuns[pass.Index];
+        if (runCount == 0)
+            return;
+
         var vk = _ctx.Vk;
         var zero = 0ul;
-        var instances = view.CasterBuffer.Handle;
-        vk.CmdBindVertexBuffers(cb, 1, 1, &instances, &zero);
+        var point = pass.IsPoint;
+        var lightPosRange = new Vector4(pass.LightPosition, pass.LightRange);
         if (point)
-        {
-            var lightPosRange = new Vector4(lightPosition, lightRange);
             vk.CmdPushConstants(cb, _shadows.ShadowPointLayout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 64, 16, &lightPosRange);
-        }
 
         Pipeline bound = default;
         MeshGpu? boundMesh = null;
-        var count = view.Casters.Count;
-        var i = 0;
-        while (i < count)
+        MaterialGpu? boundMaterial = null;
+        GpuBuffer? boundInstances = null;
+        for (var r = firstRun; r < firstRun + runCount; r++)
         {
-            ref var item = ref view.Casters[i];
-            var end = i + 1;
-            while (end < count && SameCaster(ref item, ref view.Casters[end]))
-                end++;
-
-            var pipeline = _shadows.GetInstancedCasterPipeline(point, item.Cull, item.Mirrored);
+            ref var run = ref view.ShadowRuns[r];
+            var pipeline = _shadows.GetInstancedCasterPipeline(point, run.Cull, run.Mirrored, run.Cutout is not null);
             if (pipeline.Handle != bound.Handle)
             {
                 vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
                 bound = pipeline;
             }
 
-            if (!ReferenceEquals(item.Mesh, boundMesh))
+            if (run.Cutout is { } material && !ReferenceEquals(material, boundMaterial))
             {
-                var vertices = item.Mesh.Vertices!.Handle;
-                vk.CmdBindVertexBuffers(cb, 0, 1, &vertices, &zero);
-                vk.CmdBindIndexBuffer(cb, item.Mesh.Indices!.Handle, 0, IndexType.Uint32);
-                boundMesh = item.Mesh;
+                // Set 0 (the light VP) stays bound: the cutout layouts share it and the push range.
+                var layout = _shadows.CutoutLayout(point);
+                var set = material.Set;
+                vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, 1, 1, &set, 0, null);
+                boundMaterial = material;
             }
 
-            var range = item.Mesh.Surfaces[item.Surface];
-            vk.CmdDrawIndexed(cb, range.IndexCount, (uint)(end - i), range.FirstIndex, range.VertexOffset, view.FirstCaster + (uint)i);
+            if (!ReferenceEquals(run.Instances, boundInstances))
+            {
+                var instances = run.Instances.Handle;
+                vk.CmdBindVertexBuffers(cb, 1, 1, &instances, &zero);
+                boundInstances = run.Instances;
+            }
+
+            if (!ReferenceEquals(run.Mesh, boundMesh))
+            {
+                var vertices = run.Mesh.Vertices!.Handle;
+                vk.CmdBindVertexBuffers(cb, 0, 1, &vertices, &zero);
+                vk.CmdBindIndexBuffer(cb, run.Mesh.Indices!.Handle, 0, IndexType.Uint32);
+                boundMesh = run.Mesh;
+            }
+
+            var range = run.Mesh.Surfaces[run.Surface];
+            vk.CmdDrawIndexed(cb, range.IndexCount, run.InstanceCount, range.FirstIndex, range.VertexOffset, run.FirstInstance);
             Stats.ShadowDrawCalls++;
-            i = end;
         }
     }
 
     private static bool SameCaster(ref ShadowCasterItem a, ref ShadowCasterItem b) =>
-        ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && a.Cull == b.Cull && a.Mirrored == b.Mirrored;
+        ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && a.Cull == b.Cull && a.Mirrored == b.Mirrored &&
+        ReferenceEquals(a.Cutout, b.Cutout);
 
     // ── IPipelineFactory ───────────────────────────────────────────────────────
 

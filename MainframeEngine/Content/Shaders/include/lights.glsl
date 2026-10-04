@@ -88,45 +88,46 @@ vec3 calcSpot(SpotLight l, vec3 N, vec3 V, vec3 pos, vec3 base, float shadow, fl
     return l.colorInner.xyz * l.directionIntensity.w * (diff + spec * specular) * spot * atten * base * shadow;
 }
 
-// Ambient + every light, each shadowed by its map when it has one (the first MAX_SHADOW_* of each type).
-// `specular` scales the Blinn-Phong highlight of exponent `shininess` (materials: StandardMaterial3D).
-vec3 shadeLightsBlinnPhong(vec3 base, vec3 N, vec3 worldPos, float specular, float shininess)
+// Ambient + every light, each shadowed by its map when it has one (ShadowSystem decides which lights cast).
+// `specular` scales the Blinn-Phong highlight of exponent `shininess` (materials: StandardMaterial3D). `Ngeo` is the
+// geometric normal, used for the shadow receivers' normal offset (a normal-mapped N would make it noisy).
+vec3 shadeLightsBlinnPhong(vec3 base, vec3 N, vec3 Ngeo, vec3 worldPos, float specular, float shininess)
 {
     vec3 V = normalize(lights.cameraPosition.xyz - worldPos);
     vec3 result = lights.ambientColor.xyz * base;
-
-    bool shadowsOn     = lights.counts.w == 0;
-    int numShadowDir   = shadowsOn ? min(lights.counts.x, MAX_SHADOW_DIR) : 0;
-    int numShadowSpot  = shadowsOn ? min(lights.counts.z, MAX_SHADOW_SPOT) : 0;
-    int numShadowPoint = shadowsOn ? min(lights.counts.y, MAX_SHADOW_POINT) : 0;
+    bool shadowsOn = lights.counts.w == 0;
 
     for (int i = 0; i < lights.counts.x; i++)
     {
-        float shadow = (i < numShadowDir) ? sampleDirShadow(i, worldPos) : 1.0;
+        vec3  L      = normalize(-lights.dir[i].directionIntensity.xyz);
+        float shadow = shadowsOn ? dirShadow(i, worldPos, Ngeo, L) : 1.0;
         result += calcDir(lights.dir[i], N, V, base, shadow, specular, shininess);
     }
 
     for (int i = 0; i < lights.counts.y; i++)
     {
-        float shadow = (i < numShadowPoint)
-            ? samplePointShadow(i, worldPos, lights.point[i].positionRange.xyz, lights.point[i].positionRange.w)
-            : 1.0;
+        vec4  pr     = lights.point[i].positionRange;
+        float shadow = shadowsOn ? pointShadow(i, worldPos, Ngeo, pr.xyz, pr.w) : 1.0;
         result += calcPoint(lights.point[i], N, V, worldPos, base, shadow, specular, shininess);
     }
 
     for (int i = 0; i < lights.counts.z; i++)
     {
-        float shadow = (i < numShadowSpot) ? sampleSpotShadow(i, worldPos) : 1.0;
+        vec3  lightPos = lights.spot[i].positionRange.xyz;
+        vec3  L        = normalize(lightPos - worldPos);
+        float shadow   = shadowsOn ? spotShadow(i, worldPos, Ngeo, L, lightPos) : 1.0;
         result += calcSpot(lights.spot[i], N, V, worldPos, base, shadow, specular, shininess);
     }
 
+    if (shadowsOn)
+        result *= shadowCascadeTint(worldPos);
     return result;
 }
 
 // The default highlight (strength 0.3, exponent 32): Spine and anything without a material.
 vec3 shadeLights(vec3 base, vec3 N, vec3 worldPos)
 {
-    return shadeLightsBlinnPhong(base, N, worldPos, 0.3, 32.0);
+    return shadeLightsBlinnPhong(base, N, N, worldPos, 0.3, 32.0);
 }
 
 #endif

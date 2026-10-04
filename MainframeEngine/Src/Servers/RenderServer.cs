@@ -170,29 +170,46 @@ public sealed class RenderServer : IServer
 
         EnsureResources(world);
         MeshRenderer? meshes = null;
-        if (world.GeometryList.Count > 0 && GetRenderCamera(viewport, vk.SwapchainExtent) is { } camera)
+        var camera = GetRenderCamera(viewport, vk.SwapchainExtent);
+        if (world.GeometryList.Count > 0 && camera is not null)
         {
             meshes = Meshes!;
             meshes.Prepare(_mainDraws, world, camera, collectCasters: true); // no-op when PrepareFrame ran
-            meshes.PrepareShadowCasters(_mainDraws);
         }
 
-        shadows.RenderShadows(world.Lights, (world.VisualList, meshes, _mainDraws),
-            static (state, cb, _, _, _) =>
+        // Visuals drawn one by one (Spine) have no bounds: they cast into every pass.
+        var unbounded = false;
+        foreach (var visual in world.VisualList)
+        {
+            if (!visual.IsBatched && visual.CastShadows && visual.IsVisibleInTree())
             {
-                state.meshes?.DrawShadowCasters(state._mainDraws, cb, point: false, default, 0f);
-                foreach (var visual in state.VisualList)
-                    if (!visual.IsBatched && visual.CastShadows && visual.IsVisibleInTree())
+                unbounded = true;
+                break;
+            }
+        }
+
+        var casterBounds = meshes is null ? Aabb.Empty : _mainDraws.CasterBounds;
+        shadows.RenderShadows(world.Lights, camera, casterBounds, new ShadowState(world.VisualList, meshes, _mainDraws, unbounded),
+            static (ShadowState s, in ShadowPass pass) =>
+                (s.Meshes?.CullShadowCasters(s.Draws, pass) ?? false) | s.Unbounded, // always cull: it writes the instances
+            static (ShadowState s, CommandBuffer cb, in ShadowPass pass) =>
+            {
+                s.Meshes?.DrawShadowCasters(s.Draws, cb, pass);
+                if (!s.Unbounded)
+                    return;
+                foreach (var visual in s.Visuals)
+                {
+                    if (visual.IsBatched || !visual.CastShadows || !visual.IsVisibleInTree())
+                        continue;
+                    if (pass.IsPoint)
+                        visual.DrawShadowPoint(cb, pass.LightPosition, pass.LightRange);
+                    else
                         visual.DrawShadow2D(cb);
-            },
-            static (state, cb, _, _, _, lightPosition, lightRange) =>
-            {
-                state.meshes?.DrawShadowCasters(state._mainDraws, cb, point: true, lightPosition, lightRange);
-                foreach (var visual in state.VisualList)
-                    if (!visual.IsBatched && visual.CastShadows && visual.IsVisibleInTree())
-                        visual.DrawShadowPoint(cb, lightPosition, lightRange);
+                }
             });
     }
+
+    private readonly record struct ShadowState(List<VisualInstance3D> Visuals, MeshRenderer? Meshes, MeshViewDraws Draws, bool Unbounded);
 
     /// <summary>
     /// Records the offscreen views (every <see cref="SubViewport"/> in the tree) and the root view's object-ID

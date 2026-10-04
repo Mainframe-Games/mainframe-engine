@@ -269,10 +269,13 @@ public sealed class DrawSortTests
     }
 
     [Fact]
-    public void CasterKeysGroupByCullThenMesh()
+    public void CasterKeysGroupByCullThenCutoutMaterialThenMesh()
     {
-        Assert.True(MeshRenderer.CasterKey(CullMode.Back, false, 5, 0) < MeshRenderer.CasterKey(CullMode.Back, true, 1, 0));
-        Assert.True(MeshRenderer.CasterKey(CullMode.Back, true, 9, 9) < MeshRenderer.CasterKey(CullMode.Disabled, false, 1, 0));
-        Assert.True(MeshRenderer.CasterKey(CullMode.Back, false, 1, 3) < MeshRenderer.CasterKey(CullMode.Back, false, 2, 0));
+        Assert.True(MeshRenderer.CasterKey(CullMode.Back, false, 0, 5, 0) < MeshRenderer.CasterKey(CullMode.Back, true, 0, 1, 0));
+        Assert.True(MeshRenderer.CasterKey(CullMode.Back, true, 7, 9, 9) < MeshRenderer.CasterKey(CullMode.Disabled, false, 0, 1, 0));
+        Assert.True(MeshRenderer.CasterKey(CullMode.Back, false, 0, 1, 3) < MeshRenderer.CasterKey(CullMode.Back, false, 0, 2, 0));
+        // Opaque casters (material 0) before cutout ones; cutout runs grouped by material, then mesh.
+        Assert.True(MeshRenderer.CasterKey(CullMode.Back, false, 0, 999, 9) < MeshRenderer.CasterKey(CullMode.Back, false, 1, 1, 0));
+        Assert.True(MeshRenderer.CasterKey(CullMode.Back, false, 1, 999, 0) < MeshRenderer.CasterKey(CullMode.Back, false, 2, 1, 0));
     }
 }

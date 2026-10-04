@@ -81,4 +81,11 @@ internal static class VertexLayouts
         new() { Location = 3, Binding = 1, Format = Format.R32G32B32A32Sfloat, Offset = 32 },
         new() { Location = 4, Binding = 1, Format = Format.R32G32B32A32Sfloat, Offset = 48 },
     ];
+
+    /// <summary>Cutout shadow casters: <see cref="ShadowInstancedAttributes"/> plus the UV at location 5 (alpha test).</summary>
+    public static readonly VertexInputAttributeDescription[] ShadowCutoutInstancedAttributes =
+    [
+        .. ShadowInstancedAttributes,
+        new() { Location = 5, Binding = 0, Format = Format.R32G32Sfloat, Offset = 24 },
+    ];
 }

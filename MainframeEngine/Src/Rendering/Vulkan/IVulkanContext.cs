@@ -139,10 +139,16 @@ public interface IVulkanContext
 public interface IImGuiTextureRegistry
 {
     /// <summary>Registers an image (in <c>SHADER_READ_ONLY_OPTIMAL</c> when drawn) and returns its ImGui texture id.</summary>
-    nint Register(ImageView view, Sampler sampler);
+    nint Register(ImageView view, Sampler sampler) => Register(view, sampler, ImageLayout.ShaderReadOnlyOptimal);
+
+    /// <summary>Registers an image that is in <paramref name="layout"/> when drawn (e.g. a read-only depth map).</summary>
+    nint Register(ImageView view, Sampler sampler, ImageLayout layout);
 
     /// <summary>Points <paramref name="textureId"/> at another image.</summary>
-    void Update(nint textureId, ImageView view, Sampler sampler);
+    void Update(nint textureId, ImageView view, Sampler sampler) => Update(textureId, view, sampler, ImageLayout.ShaderReadOnlyOptimal);
+
+    /// <summary>Points <paramref name="textureId"/> at another image, in <paramref name="layout"/> when drawn.</summary>
+    void Update(nint textureId, ImageView view, Sampler sampler, ImageLayout layout);
 
     /// <summary>Releases <paramref name="textureId"/> (once frames in flight no longer use it).</summary>
     void Unregister(nint textureId);

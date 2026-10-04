@@ -4,8 +4,10 @@
     { "glsl": "MAX_DIR_LIGHTS", "csharp": "MaxDirectionalLights", "value": 4, "summary": "Directional lights in the lights UBO." },
     { "glsl": "MAX_POINT_LIGHTS", "csharp": "MaxPointLights", "value": 16, "summary": "Point lights in the lights UBO." },
     { "glsl": "MAX_SPOT_LIGHTS", "csharp": "MaxSpotLights", "value": 8, "summary": "Spot lights in the lights UBO." },
-    { "glsl": "MAX_SHADOW_DIR", "csharp": "MaxShadowDirectional", "value": 4, "summary": "Directional shadow maps (one per directional light)." },
-    { "glsl": "MAX_SHADOW_SPOT", "csharp": "MaxShadowSpot", "value": 7, "summary": "Spot shadow maps: one less than the spot lights, to fit MoltenVK's 16 fragment samplers (4 + 7 + 4 + 1 material sampler shared by its textures, ADR 0019)." },
-    { "glsl": "MAX_SHADOW_POINT", "csharp": "MaxShadowPoint", "value": 4, "summary": "Point shadow cube maps (six passes each)." }
+    { "glsl": "MAX_SHADOW_DIR", "csharp": "MaxShadowDirectional", "value": 4, "summary": "Shadowed directional lights: the first casts cascades, the others get an atlas tile each." },
+    { "glsl": "MAX_SHADOW_SPOT", "csharp": "MaxShadowSpot", "value": 8, "summary": "Shadowed spot lights (atlas tiles): every spot light can cast (M4: the atlas cut the shadow samplers from 15 to 6)." },
+    { "glsl": "MAX_SHADOW_POINT", "csharp": "MaxShadowPoint", "value": 4, "summary": "Shadowed point lights (cube maps, six passes each)." },
+    { "glsl": "MAX_SHADOW_CASCADES", "csharp": "MaxShadowCascades", "value": 4, "summary": "Cascades of the primary directional light (layers of the cascade array)." },
+    { "glsl": "MAX_SHADOW_ATLAS_MAPS", "csharp": "MaxShadowAtlasMaps", "value": 11, "summary": "Atlas tiles: secondary directional lights (MAX_SHADOW_DIR - 1) plus spot lights (MAX_SHADOW_SPOT)." }
   ]
 }
