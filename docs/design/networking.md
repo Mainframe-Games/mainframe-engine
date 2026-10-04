@@ -404,8 +404,9 @@ ENet natives are our own builds, not the package's. See [Native libraries](nativ
   consumer-side targets, as in the NuGet distribution plan.
 - **`SteamSocketsTransport`** is a stub (see [Steamworks](steamworks.md)); `steam:` addresses fall back to the next
   address of a connect string.
-- **`EnetTransport.Listen(…, bindAddress)`** with an explicit IPv4 address did not accept connections in a local
-  test on macOS; bind every interface (the default) until this is investigated.
+- **`EnetTransport.Listen(…, bindAddress)`** with an explicit IPv4 address does not accept connections on macOS
+  (with ENet's `SetHost` or `SetIP`; the native uses dual-stack IPv6 sockets). Reproduced by the skipped
+  `EnetTransportTests.AServerBoundToAnExplicitIPv4AddressAcceptsClients`. Bind every interface (the default).
 - **Fingerprint scope.** The registry fingerprint hashes message type *names*; the replication fingerprint hashes the
   networked types' schemas and the spawnable scene UIDs. Both ends must load the same game assembly.
 

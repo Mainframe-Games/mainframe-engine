@@ -77,6 +77,19 @@ public sealed class EnetTransportTests
         }
     }
 
+    // Known issue (docs/design/networking.md): on macOS a host bound to an IPv4 literal never sees the connection,
+    // with SetHost or SetIP (the native uses dual-stack IPv6 sockets). Kept as a reproduction.
+    [Fact(Skip = "Known issue: explicit IPv4 bind address does not accept connections (dual-stack ENet native)")]
+    public void AServerBoundToAnExplicitIPv4AddressAcceptsClients()
+    {
+        SkipUnlessNativePresent();
+        var registry = TestRegistry.Create();
+        var port = FreeUdpPort();
+        using var server = new MessageBus(EnetTransport.Listen(port, maxPeers: 2, bindAddress: "127.0.0.1"), registry);
+        using var client = new MessageBus(EnetTransport.Connect("127.0.0.1", port, registry.Fingerprint), registry);
+        PumpUntil(() => server.Peers.Length == 1 && client.Peers.Length == 1, server, client);
+    }
+
     [Fact]
     public void LoopbackConnectAndReliableAndUnreliableRoundTrip()
     {
