@@ -186,8 +186,25 @@ jobs:
           --logger "console;verbosity=normal"
           --results-directory TestResults
 
-      # Always uploaded: on failure it holds actual/expected/diff PNGs; when a golden is missing it
-      # holds the frame to review and commit under Tests/MainframeEngine.RenderTests/Goldens/lavapipe/.
+      # A frame without a lavapipe golden skips only its comparison (every other check of the test runs); the test
+      # copies it to new-goldens/lavapipe/. List them as warnings and in the job summary (testing.md, "Recording goldens").
+      - name: Frames without a golden
+        if: always()
+        run: |
+          dir=artifacts/render-tests/new-goldens
+          files=$(cd "$dir" 2>/dev/null && find . -name '*.png' | sed 's|^\./||' | sort)
+          if [ -z "$files" ]; then
+            echo "Every compared frame has a golden."
+            exit 0
+          fi
+          echo "### Frames without a golden (comparison skipped)" >> "$GITHUB_STEP_SUMMARY"
+          for f in $files; do
+            echo "::warning title=No golden::$f: golden comparison skipped; review and commit it from the render-tests artifact (new-goldens/)"
+            echo "- \`$f\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      # Always uploaded: on failure it holds actual/expected/diff PNGs; frames without a golden are in
+      # new-goldens/<tag>/, ready to review and commit under Tests/MainframeEngine.RenderTests/Goldens/<tag>/.
       - name: Upload render artifacts
         if: always()
         uses: actions/upload-artifact@v4

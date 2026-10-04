@@ -23,9 +23,11 @@ public static class Gates
     }
 
     /// <summary>
-    /// Compares a captured frame with <c>Goldens/&lt;platform-tag&gt;/&lt;file&gt;</c>. Missing goldens skip
-    /// (the actual frame is left in the artifacts folder); <c>UPDATE_GOLDENS=1</c> records them.
-    /// On mismatch, writes <c>.expected.png</c> and <c>.diff.png</c> next to the actual frame.
+    /// Compares a captured frame with <c>Goldens/&lt;platform-tag&gt;/&lt;file&gt;</c>. Without a golden for the
+    /// device's tag only this comparison is skipped: the test goes on (its other gates and assertions still apply),
+    /// reports a warning and copies the frame to <c>new-goldens/&lt;platform-tag&gt;/</c> in the artifacts folder,
+    /// ready to review and commit. <c>UPDATE_GOLDENS=1</c> records goldens instead of comparing. On mismatch, writes
+    /// <c>.expected.png</c> and <c>.diff.png</c> next to the actual frame.
     /// </summary>
     public static void AssertMatchesGolden(HostResult result, uint frame,
         int channelTolerance = ImageComparison.DefaultChannelTolerance,
@@ -46,8 +48,16 @@ public static class Gates
         }
 
         if (!File.Exists(goldenPath))
-            Assert.Skip($"No '{result.PlatformTag}' golden for {fileName} ({result.DeviceName}); the frame is at " +
-                        $"{capture.Path}. Record it with UPDATE_GOLDENS=1 (just golden-update).");
+        {
+            var pending = Path.Combine(RenderTestEnvironment.NewGoldensDirectory, result.PlatformTag, fileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(pending)!);
+            File.Copy(capture.Path, pending, overwrite: true);
+            TestContext.Current.AddWarning(
+                $"Golden comparison skipped: no '{result.PlatformTag}' golden for {fileName} ({result.DeviceName}). " +
+                $"The frame is at {pending}; review it and commit it to Goldens/{result.PlatformTag}/ (testing.md, " +
+                "\"Recording goldens\"). Every other check of this test ran.");
+            return;
+        }
 
         var expected = Png.ReadRgba8(goldenPath);
         var actual = Png.ReadRgba8(capture.Path);

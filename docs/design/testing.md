@@ -158,10 +158,10 @@ sequenceDiagram
   null device.
 - **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
-  `result.json` records it), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (frame
-  times: average and p95 in `result.json`, plus the shadow pass's CPU/GPU milliseconds), `--no-validation`,
+  `result.json` records it), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (wall-clock
+  and CPU frame times: average and p95 in `result.json`, plus the shadow pass's CPU/GPU milliseconds), `--no-validation`,
   `--no-shadows` (every light's `CastsShadows` off). Scene self-check failures are reported in
-  `SceneCheckFailures`; `result.json` also records GPU allocator totals, shader-module count and the
+  `SceneCheckFailures`; `result.json` also records the Vulkan device type (`DeviceType`), GPU allocator totals, shader-module count and the
   pipeline-cache bytes loaded. The runner points `MAINFRAME_PIPELINE_CACHE_DIR` at
   `artifacts/render-tests/pipeline-cache`.
 - **Tests:** `LitShapesRenderCleanlyAndMatchGoldens`, `MultipleShadowCastingLightsEachUseTheirOwnMatrix`,
@@ -179,7 +179,10 @@ sequenceDiagram
   goldens), `MaterialFeaturesRenderCleanlyAndMatchGolden`, `ImportedGltfModelRendersAndMatchesGolden`,
   `ThousandInstancesBatchIntoAFewDrawsAndMatchGolden`, `ObjectIdPickingAndSubViewportsWork`,
   `TenThousandInstancesAllocateNothingPerFrame` (0 B over 120 frames with 10 000 instances) and
-  `TenThousandInstancesRenderAtSixtyFps` (validation off; < 16.7 ms enforced for Release builds). The
+  `TenThousandInstancesRenderAtSixtyFps` (validation off, Release builds: the CPU frame time —
+  `Engine.LastFrameCpuMilliseconds`, update + draw lists + command recording without GPU/swapchain waits — must be
+  < 16.7 ms on every device; the wall-clock frame time too, except on a `VK_PHYSICAL_DEVICE_TYPE_CPU` device such as
+  lavapipe, whose software rasterizer takes ~50 ms per frame of this scene). The
   multi-light test also asserts sub-allocation (≤ 16 `VkDeviceMemory`). `UiRenderTests`:
   `HudOverTheSceneMatchesGoldenWithExactSrgbColours`, `ClipMasksTransformsFiltersAndGradientsMatchGolden`,
   `TextMatchesGolden`, `WidgetLibraryMatchesGolden`, `UiCapturesAreDeterministicAcrossRuns`,
@@ -208,8 +211,12 @@ PNG files are written and read by the in-house [`Png`](../../MainframeEngine/Src
 
 Goldens live in `Tests/MainframeEngine.RenderTests/Goldens/<platform-tag>/<scene>_frameNNNN.png`. The
 tag comes from the Vulkan driver ID: `lavapipe` (CI), `moltenvk` (local Macs), otherwise the driver
-name. A golden is **only enforced when one exists for the current tag**; otherwise the test skips and
-leaves the frame in `artifacts/render-tests/<scene>/`.
+name. Every render test always runs its scene and enforces everything else it checks (validation, allocation,
+self-checks, its own pixel assertions). Only the golden comparison depends on a golden existing for the current
+tag: without one, `Gates.AssertMatchesGolden` skips just that comparison, reports an xUnit **warning** (CI also lists
+the frame as a `No golden` annotation and in the job summary) and copies the frame to
+`artifacts/render-tests/new-goldens/<tag>/`, ready to review and commit. The test itself passes or fails on its other
+checks.
 
 A pixel differs when any channel differs by more than **4**; a frame matches when at most **0.5 %** of
 pixels differ. On mismatch the test writes `<name>.expected.png` and `<name>.diff.png` (differences in
@@ -218,19 +225,25 @@ red over a dimmed greyscale copy) next to the actual frame, and CI uploads the f
 **Updating goldens:** run `just golden-update` (`UPDATE_GOLDENS=1`), look at every changed PNG, and
 commit them with the change that caused them. PNGs are stored in Git LFS.
 
-**Updating the `lavapipe` goldens** (CI only; any change to rendered output needs both sets):
+#### Recording goldens
 
-1. Delete the stale files from `Tests/MainframeEngine.RenderTests/Goldens/lavapipe/` (a missing golden
-   skips instead of failing, so the run records fresh frames), commit, push the branch and run CI on
-   it: `gh workflow run ci.yml --ref <branch>`, then `gh run watch <run-id> --exit-status`.
-2. Download the frames: `gh run download <run-id> -n render-tests -D /tmp/rt`. The golden-backed
-   frames are `lit-shapes/lit-shapes_frame0001.png`, `lit-shapes/lit-shapes_frame0060.png`,
-   `multi-light/multi-light_frame0030.png`, `spine/spine_frame0060.png` and
-   `spine-no-shadows/spine-no-shadows_frame0060.png` under `/tmp/rt/artifacts/render-tests/`.
-3. Look at every PNG next to its `moltenvk` golden. Check `result.json` too: `PlatformTag` must be
-   `lavapipe` and the validation counts 0.
-4. Copy the frames into `Goldens/lavapipe/`, commit, and re-run CI. It passes only if the frames match
-   (`CapturesAreDeterministicAcrossRuns` covers run-to-run stability).
+`moltenvk`: `just golden-update` on a Mac. `lavapipe` (CI only; any change to rendered output needs both sets): on
+a branch (never `main` or `feature/*`), `git rm` the `lavapipe` goldens whose output changed on purpose (a new scene
+has none), then from the repository root:
+
+```sh
+git commit -qm "Drop stale lavapipe goldens" --allow-empty && git push -u origin HEAD
+gh workflow run ci.yml --ref "$(git branch --show-current)" && sleep 10
+run=$(gh run list --workflow ci.yml --branch "$(git branch --show-current)" --event workflow_dispatch -L 1 --json databaseId -q '.[0].databaseId')
+gh run watch "$run" --exit-status
+rm -rf /tmp/rt && gh run download "$run" -n render-tests -D /tmp/rt
+cp /tmp/rt/artifacts/render-tests/new-goldens/lavapipe/*.png Tests/MainframeEngine.RenderTests/Goldens/lavapipe/
+```
+
+Then **look at every copied PNG** next to its `moltenvk` golden: the only allowed differences are the ones listed
+below; anything else is an engine bug to fix, not a golden to commit. Commit the PNGs, push, and run CI twice more:
+both runs must be green with no `No golden` warnings (`CapturesAreDeterministicAcrossRuns` and the other determinism
+tests cover run-to-run stability).
 
 Expected `lavapipe` vs `moltenvk` differences (rasterizer and resolution, not bugs). At the same
 resolution (`--size 160x120` locally) the golden scenes differ in about 1.2 % of pixels, all on grid lines;
