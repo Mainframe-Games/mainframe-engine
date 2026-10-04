@@ -4,7 +4,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M5 (scaffold+replication),natives,ci-fix. Running: `lane/m3b`, `lane/m6`, `lane/m7` (fixing review), `lane/m8`, `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
+- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M5 (scaffold+replication),M7,natives,ci-fix; publish.yml + release/NuGet docs written. Running: `lane/m3b`, `lane/m6`, `lane/m8`, `lane/m9`, `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
 - **Next action:** integrate finished lanes (rebase onto feature, run gates); then M4 (after m3b), M9 (after m8), M10 (after all); publish.yml; distribution-nuget.md; final QA.
 - **Open blockers:** none
 
@@ -93,3 +93,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `[Replicated]`/`[Rpc]` generator (ReplicationEmitter, MFG007–009), `MultiplayerApi` (30 Hz, spawn/despawn by PackedScene UID, per-node-acked delta snapshots, interpolation, RPC authority, hostile-client containment, kick/timeouts), `SimulatedTransport`, `TransportSelector` fallback, Sandbox `--server`/`--client`. ADRs 0040–0044. Review: 10 findings fixed.
 - Gates after integration: unit 442 (+1 skipped: explicit IPv4 bind on macOS), render 14, 0 B alloc.
 - Known: SteamSocketsTransport stub, Steam avatars not implemented (no Steam natives — user action); no client prediction.
+
+### 2026-10-05 — publish workflow (47c3413)
+- `publish.yml` (guard main+brogan89 → reuse ci.yml via workflow_call → matrix publish editor osx-arm64/win-x64/linux-x64 → `gh release create vX.Y.Z`), `build/next-version.sh`, `build/package-editor.sh`, `just publish-local`/`next-version`, `docs/design/release.md`, `docs/design/future/distribution-nuget.md`. Editor project path assumed `MainframeEngine.Editor/MainframeEngine.Editor.csproj` (M10 must create it with that name, exe `MainframeEngine.Editor`).
+
+### 2026-10-05 — Lane M7 audio (integrated)
+- AudioServer (SoundFlow 1.4.1, null-device fallback), buses (.mres layout), lock-free command ring, AudioPlayer/2D/3D/Listener3D, WAV/OGG(NVorbis)/MP3/FLAC, engine panning (no SurroundPlayer — ADR 0031), own allocation-free reverb, `--qa-audio` verified on MacBook speakers. ADRs 0030–0035. Review findings fixed.
+- Gates after integration: unit 539 (+1 skip), render 14, format clean.
