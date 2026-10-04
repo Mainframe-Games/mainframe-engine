@@ -233,8 +233,7 @@ has none), then from the repository root:
 
 ```sh
 git commit -qm "Drop stale lavapipe goldens" --allow-empty && git push -u origin HEAD
-gh workflow run ci.yml --ref "$(git branch --show-current)" && sleep 10
-run=$(gh run list --workflow ci.yml --branch "$(git branch --show-current)" --event workflow_dispatch -L 1 --json databaseId -q '.[0].databaseId')
+run=$(gh workflow run ci.yml --ref "$(git branch --show-current)" | grep -oE '[0-9]+$') # prints the run's URL
 gh run watch "$run" --exit-status
 rm -rf /tmp/rt && gh run download "$run" -n render-tests -D /tmp/rt
 cp /tmp/rt/artifacts/render-tests/new-goldens/lavapipe/*.png Tests/MainframeEngine.RenderTests/Goldens/lavapipe/
