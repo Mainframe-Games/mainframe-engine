@@ -30,9 +30,12 @@ public static class SceneFormat
         AllowTrailingCommas = true,
     };
 
+    // Scene and resource files are committed content: "\n" on every OS (the default is Environment.NewLine), so
+    // a save on Windows is byte-identical to one on macOS/Linux.
     internal static readonly JsonWriterOptions WriteOptions = new()
     {
         Indented = true,
+        NewLine = "\n",
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 }

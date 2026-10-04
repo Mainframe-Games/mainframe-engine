@@ -23,8 +23,10 @@ public sealed class AssetIndex
     public Dictionary<string, string> Assets { get; set; } = [];
 }
 
+// .meta sidecars and the asset index are committed content: "\n" on every OS (byte-identical saves).
 [JsonSourceGenerationOptions(
     WriteIndented = true,
+    NewLine = "\n",
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(AssetMeta))]

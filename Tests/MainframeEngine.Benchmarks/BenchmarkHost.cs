@@ -15,7 +15,7 @@ public static class BenchmarkHost
 {
     public const double RegressionThreshold = 0.10;
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, NewLine = "\n" }; // baseline.json is committed
 
     public static int Run(string[] args)
     {

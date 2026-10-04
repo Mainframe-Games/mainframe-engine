@@ -132,6 +132,29 @@ public sealed class SerializationTests : IDisposable
     }
 
     [Fact]
+    public void SavedFilesUseLfLineEndingsOnEveryOs()
+    {
+        // Scene, resource, .meta and index files are committed content: byte-identical on Windows, macOS and Linux.
+        var node = new AllTypesNode { Name = "N", Int = 8, Position = new Vector3(0, 1, 0) };
+        var scene = ContentPath("Lf.mscene");
+        SceneSaver.Save(node, scene);
+        node.Free();
+        ResourceSaver.Save(new TestResource { Value = 1, Label = "a" }, ContentPath("Lf.mres"));
+        File.WriteAllBytes(ContentPath("lf.png"), [1, 2, 3]);
+        var db = new AssetDatabase(_project);
+        db.Scan(createMissingMeta: true);
+        db.WriteIndex();
+
+        string[] files = [scene, ContentPath("Lf.mres"), ContentPath("lf.png.meta"), ContentPath(AssetDatabase.IndexFileName)];
+        foreach (var file in files)
+        {
+            var bytes = File.ReadAllBytes(file);
+            Assert.Contains((byte)'\n', bytes);
+            Assert.DoesNotContain((byte)'\r', bytes);
+        }
+    }
+
+    [Fact]
     public void ValuesUseReadableEncodings()
     {
         var node = new AllTypesNode { Mode = TestMode.Second, Flags = TestFlags.A | TestFlags.B, Tint = Color.FromArgb(255, 255, 0, 51) };
