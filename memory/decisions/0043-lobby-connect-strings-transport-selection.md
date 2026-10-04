@@ -18,7 +18,9 @@ handoff must be testable without Steam.
 - `TransportSelector` maps schemes to `ITransportFactory`s and opens the first address that works here; factories
   return false (never throw) when unusable. `TransportSelector.Default` has ENet and Steam sockets;
   `LoopbackTransportFactory` exposes in-process servers by name (single-player listen servers, tests).
-  `MultiplayerApi.TryConnect(connectString, selector)` is the handoff.
+  `MultiplayerApi.TryConnect(connectString, selector)` is the handoff; because ENet (and Steam) connections complete
+  asynchronously, an attempt that later fails (`ConnectFailed`, handshake timeout) falls back to the next address and
+  `Disconnected` is raised only when every address failed.
 - `LoopbackTransport` became multi-client (`CreateServer` + `ConnectClient`; `CreatePair` unchanged).
 
 ## Consequences

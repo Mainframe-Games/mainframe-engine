@@ -62,9 +62,10 @@ node types in `ReplicationTestNodes.cs` and `NetHarness` (a server and clients, 
 | `ConnectionLifecycleTests` | owned nodes despawned (or handed back) when a client leaves, server shutdown, kicks, registry and replication fingerprint mismatches, handshake timeouts (both sides), silent peers, misuse |
 | `TransportTests` | multi-client loopback, `SimulatedTransport` latency, seeded loss/duplication, jitter reordering (reliable stays ordered), replication converging under 10–30 % loss with jitter and duplication |
 | `TransportHandoffTests` | `NetworkAddress` parsing/formatting, connect lists, selector fallback, a lobby connect string connecting a `MultiplayerApi` over loopback |
-| `ReplicationGeneratorTests` | emitted state/dispatch/senders compile, load and round-trip in a collectible context, every MFG007–MFG009 diagnostic |
+| `ReplicationGeneratorTests` | emitted state/dispatch/senders compile, load and round-trip in a collectible context, RPC parameter names that clash with generated locals, every MFG007–MFG009 diagnostic, the handshake fingerprint ignoring unrelated registered types |
 | `NestedSceneReplicationTests` | scenes registered by path and UID from `.mscene` files, nested scene instances replicating |
 | `EnetReplicationTests` | real ENet: a server and two clients in-process (spawn, authority RPCs, server RPCs, leave, shutdown) |
+| `ReplicationRobustnessTests` | review regressions: a throwing client RPC is contained (and optionally kicks), despawn handlers freeing other nodes, snapshot byte budgets (spread and converge, also under loss), stalled acknowledgements disconnect, malformed spawns and snapshot lengths, connect-string fallback after a failed attempt, misuse (tick rate while running, unknown authority, kicked peers stop receiving), messages from non-server peers ignored |
 | `ReplicationAllocationTests` | **0 bytes** over 240 frames of a server and a client with 100 interpolated boxes moving and RPCs both ways |
 
 ## Render tests

@@ -164,8 +164,12 @@ mp.ConnectedToServer += () => Log.Info($"joined as {mp.LocalPeerId}");
   the same frame stays networked. Clients free their copies. Spawned and freed in the same frame: nothing is sent.
 - **Late join:** a client completing the handshake gets every live spawn, in id order (parents first), with full
   state; descendants despawned since are marked absent and freed on arrival.
-- **Authority:** `SetAuthority(node, peer)` (server; descendants too by default) is replicated. `IsNetworkAuthority`
-  is true on the owning peer (the server for server-owned nodes) and for nodes that are not networked.
+- **Authority:** `SetAuthority(node, peer)` (server; descendants too by default) is replicated; `peer` (and
+  `Spawn`'s `authority`) must be the server or a client that joined. `IsNetworkAuthority` is true on the owning peer
+  (the server for server-owned nodes) and for nodes that are not networked.
+- **Failing RPCs:** an RPC from a client whose body (or argument decoder) throws is caught on the server, logged and
+  counted (`Stats.RpcsFailed`, `RpcFailed` event); `KickOnRpcFailure` disconnects the offender. A client can never take
+  the server down through an RPC. Malformed payloads are dropped by the bus.
 - **Events:** `PeerJoined`, `PeerLeft`, `ConnectedToServer`, `Disconnected(reason)`, `NodeSpawned`, `NodeDespawned`,
   `RpcRejected(peer, node, rpc)`.
 
@@ -181,7 +185,8 @@ sequenceDiagram
     Note over M: server: despawns, timeouts, net tick (30 Hz accumulator): capture changes,<br/>flush spawns, one snapshot per client · client: ack/heartbeat at the server's rate, timeouts · Flush
 ```
 
-The network tick is its own fixed rate (`TickRate`, default 30 Hz, 1–255), independent of rendering and physics.
+The network tick is its own fixed rate (`TickRate`, default 30 Hz, 1–255; set it before starting, clients learn it
+in the handshake), independent of rendering and physics.
 Receiving at the start of the frame means RPCs and snapshots are applied before nodes process; sending at the end
 captures the frame's final state. `SceneTree.ProcessDeltaTime` gives the receive hook the frame's delta.
 
@@ -194,23 +199,33 @@ sequenceDiagram
     S->>C: Spawn{ids, scene index, parent, name, authority + full state} (reliable)
     loop every net tick
         S->>S: Capture: changed members stamped with the tick
-        S->>C: Snapshot{tick: members changed after C's acked tick} (unreliable)
+        S->>C: Snapshot{tick: per node, members changed after that node's ack for C} (unreliable)
         C->>C: apply (or buffer for interpolation); stale/duplicate ticks discarded
-        C->>S: Ack{newest fully applied tick} (unreliable, also the heartbeat)
+        C->>S: Ack{tick} for every fully applied snapshot (unreliable; repeated as the heartbeat)
+        S->>S: every node that snapshot carried is acknowledged up to tick
     end
     S->>C: Despawn{id} (reliable)
 ```
 
-- Each snapshot entry is `netId (varint) · length (u16) · per state: change mask (varint) + changed values`, ending
-  with id 0. Because a snapshot carries *everything changed since the client's last acknowledged tick*, loss,
-  reordering and duplication are harmless: a later snapshot is a superset, older ones are discarded. Unchanged nodes
-  are not sent; an idle snapshot is 8 bytes (header + terminator) and doubles as the server's heartbeat.
+- A snapshot is `flags (byte; bit 0: truncated)`, then entries `netId (varint) · length (varint) · per state: change
+  mask (varint) + changed values`, ending with id 0. The server keeps, **per client and per node**, the newest
+  acknowledged tick of a snapshot that carried the node, and remembers which nodes each of the last 64 snapshots
+  carried; an acknowledgement advances exactly those nodes. Because a node's entry carries *everything changed since
+  its acknowledged tick*, loss, reordering and duplication are harmless: a later entry is a superset, older snapshots
+  are discarded. Unchanged nodes are not sent; an idle snapshot is 9 bytes and doubles as the server's heartbeat.
+- **Byte budget:** `MaxSnapshotBytes` (0 = unlimited, the default; ~1200 for internet play) caps a snapshot. Nodes that
+  do not fit go out in the next ticks (each snapshot continues where the previous one stopped; their acks have not
+  advanced, so nothing is lost) and the snapshot is flagged truncated. Unreliable ENet packets are sent with
+  `UnreliableFragmented`, so an oversized snapshot stays unreliable instead of being fragmented reliably.
 - A client acknowledges a snapshot only when it could apply all of it. An entry for an id above every spawn it has
   received means that spawn (reliable channel) has not arrived yet; skipping it and not acknowledging makes the server
   resend those changes. Lower unknown ids were despawned (or freed locally) and are skipped.
 - Spawn state is captured with tick 0, so snapshots do not resend it. A late joiner's acknowledged tick starts at the
   server's current tick (its spawns carry everything captured so far).
 - The server records when it sent each tick; acknowledgements give each client's round-trip time.
+- Control messages (spawn, despawn, authority, welcome) must arrive: if the transport refuses one, the client is
+  disconnected rather than left diverged. A client that keeps talking but stops acknowledging new snapshots for
+  `PeerTimeout` is disconnected (`Timeout`) instead of receiving ever larger catch-up snapshots.
 
 ### Interpolation
 
@@ -223,7 +238,9 @@ Clients show interpolated members `InterpolationDelay` (default 0.1 s, about thr
   rotations). Snapshots only carry changed members, so a member absent from snapshots was still: when it changes
   again, the buffer first inserts a *hold* sample at the previous snapshot tick, so motion resumes from the right
   moment rather than drifting from when it stopped.
-- Past the newest sample: if a newer snapshot came without the member, it holds; otherwise data is late and it
+- A node is *known* up to the newer of: the last snapshot that carried it, and the last untruncated snapshot
+  (which proves every absent node was still). Hold samples use that tick per node.
+- Past the newest sample: if the node is known past it, the member was still and holds; otherwise data is late and it
   **extrapolates** along the last velocity for at most `MaxExtrapolation` (default 0.25 s), then stops.
 - Spawn state applies immediately; `Interpolation = false` snaps every snapshot.
 
@@ -231,8 +248,10 @@ Clients show interpolated members `InterpolationDelay` (default 0.1 s, about thr
 
 1. Transport connect with the message registry fingerprint (protocol version + message types); a mismatch is refused
    with `ProtocolMismatch` (see [Connection lifecycle](#connection-lifecycle)).
-2. The client sends `Hello{replication fingerprint}`: `ReplicationRegistry.Fingerprint` (every networked type's
-   schema hash, sorted by name) mixed with the spawnable scene UIDs. A mismatch is refused with `ProtocolMismatch`.
+2. The client sends `Hello{replication fingerprint}`: every spawnable scene's UID and the type and schema hashes of
+   the networked nodes it instantiates, in id order (computed at start by instantiating each scene once). Scoped to
+   what can be spawned, so tools or assemblies loaded on one side only do not matter. A mismatch is refused with
+   `ProtocolMismatch`.
 3. The server answers `Welcome{peer id, tick rate, tick}`, sends the late-join spawns and raises `PeerJoined`; the
    client sets `LocalPeerId` and raises `ConnectedToServer`.
 4. **Timeouts:** no hello within `HandshakeTimeout` (5 s) → `Timeout`; a client silent (no acks) or a server silent
@@ -247,19 +266,22 @@ Clients show interpolated members `InterpolationDelay` (default 0.1 s, about thr
 
 - `SimulatedTransport(inner, NetworkConditions { Loss, Duplication, Latency, Jitter }, seed, clock)` degrades what an
   endpoint sends with a seeded RNG: loss and duplication only on the unreliable channel, latency and jitter on both
-  (reliable packets stay in order). The replication tests run with 10–30 % loss, jitter and duplication and assert
+  (reliable packets stay in order). Like a real transport it only accepts packets for connected peers, and a
+  disconnect delivers the peer's queued reliable packets first. The replication tests run with 10–30 % loss, jitter and duplication and assert
   convergence.
 - `NetworkAddress` parses `enet:host:port` (`enet:[::1]:7777`), `steam:<steamId>` and `loopback:<name>`. A Steam
   lobby's `connect` metadata (`SteamLobbyInfo.ConnectAddress`, or `SteamLobby.CreateLobbyAsync(…, connectAddress:)`)
   holds a `;`-separated list, best first. `MultiplayerApi.TryConnect(connectString)` hands it to a `TransportSelector`
   (default: ENet + Steam sockets; add `ITransportFactory`s such as `LoopbackTransportFactory`), which opens the first
-  address whose transport works here. With Steam sockets stubbed, `steam:…;enet:…` falls through to ENet. See
+  address whose transport works here. Connections complete asynchronously, so an attempt that later fails
+  (`ConnectFailed`, or no handshake within `HandshakeTimeout`) moves on to the next address; `Disconnected` is raised
+  only when none is left. With Steam sockets stubbed, `steam:…;enet:…` falls through to ENet. See
   [ADR 0043](../../memory/decisions/0043-lobby-connect-strings-transport-selection.md).
 
 ### Bandwidth stats
 
 `MultiplayerApi.Stats` (`NetworkStats`): bytes sent/received, bytes per second over the last second, snapshots
-(sent or applied), discarded snapshots, last snapshot size, spawns, despawns, RPCs sent/received/rejected, networked
+(sent or applied), discarded snapshots, last snapshot size, spawns, despawns, RPCs sent/received/rejected/failed, networked
 nodes. `GetPeerStats(peer)` (server): ready, acknowledged tick, bytes and snapshots sent to that client, last snapshot
 size, smoothed round-trip time. The Sandbox demo shows them in its ImGui window and logs.
 
@@ -332,7 +354,7 @@ sequenceDiagram
 | `NetChannel` | ENet channel | Flags | Use |
 |---|---|---|---|
 | `Reliable` | 0 | `PacketFlags.Reliable` | spawn/despawn, RPCs, control, chat |
-| `Unreliable` | 1 | `PacketFlags.None` (unreliable sequenced) | state snapshots |
+| `Unreliable` | 1 | `PacketFlags.UnreliableFragmented` (unreliable sequenced; large packets fragment unreliably) | state snapshots |
 
 ## Performance
 
@@ -360,9 +382,9 @@ sequenceDiagram
 
   | Benchmark | 100 nodes | 1000 nodes |
   |---|---|---|
-  | `CaptureChanges` (server change detection) | 0.68 µs | 11.9 µs |
-  | `EncodeSnapshot` (one client's snapshot) | 0.96 µs | 12.8 µs |
-  | `DecodeSnapshot` (client decode + apply + buffer) | 1.9 µs | 24.8 µs |
+  | `CaptureChanges` (server change detection) | 0.72 µs | 11.4 µs |
+  | `EncodeSnapshot` (one client's snapshot) | 1.3 µs | 16.1 µs |
+  | `DecodeSnapshot` (client decode + apply + buffer + ack) | 2.0 µs | 25.7 µs |
 
 ### Threading
 
@@ -393,8 +415,9 @@ ENet natives are our own builds, not the package's. See [Native libraries](nativ
 - **No prediction or lag compensation.** Clients see the server's state about `InterpolationDelay` in the past;
   a client's own input goes through an RPC and comes back in a snapshot (one round trip). Interest management is
   "everything to everyone".
-- **Snapshots are one message.** A snapshot with every one of 1000 boxes changing is ~32 KB; ENet fragments it, and
-  losing a fragment loses the snapshot (the next one carries the changes again). No quantization or compression yet.
+- **Snapshot size.** Without a budget a snapshot with every one of 1000 boxes changing is ~32 KB, fragmented
+  (unreliably) by ENet; losing a fragment loses the snapshot (later ones carry the changes again). Set
+  `MaxSnapshotBytes` to spread such bursts. No quantization or compression yet.
 - **Not replicated:** reparenting or renaming a networked node after its spawn, nodes added to a spawned scene at
   runtime (spawn them with `Spawn(scene, parent)` instead), and anything that is not a `[Replicated]` member.
 - **Listen server.** The server is a normal peer that renders its own tree; there is no local client on the host
