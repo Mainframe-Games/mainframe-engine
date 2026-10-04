@@ -4,7 +4,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M3 (all), M5 (scaffold+replication),M6,M7,M8,sky-fix,natives,ci-fix; publish.yml + release/NuGet docs written. Done, awaiting integration: `lane/m9`. Running: `lane/m4` (based on lane/m3b 747cb24 — rebase onto feature), `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
+- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M3 (all), M5 (scaffold+replication),M6,M7,M8,M9,sky-fix,natives,ci-fix; publish.yml + release/NuGet docs written. Done, awaiting integration: `lane/m4` (7 M4 commits b044cf9..e4b2c97 on top of lane/m3b). Running: `lane/m10a` (editor E1–E3), `lane/m10b` (GameHost/project.mfproj/ILogSink/EditorLink/GameAssemblyLoader/templates), `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
 - **Next action:** integrate finished lanes (rebase onto feature, run gates); then M4 (after m3b), M9 (after m8), M10 (after all); publish.yml; distribution-nuget.md; final QA.
 - **Open blockers:** none
 
@@ -113,3 +113,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Gates: unit 790 ×3, render 32 (MoltenVK), 0 validation, 0 B, 124–127 fps.
 - Bench: 4 benchmarks 10–14% slower but equally slow pre-integration under machine load (parallel agents) → **re-record baseline on quiet machine at the end**; SceneSaveLoadRoundTrip1k +7.9 KB alloc also pre-existing → investigate at end.
 - TODO: lavapipe goldens for new scenes (physics, materials, gltf, instances, picking, ui-*, sky-grid) from CI.
+
+### 2026-10-05 — M9 localization (integrated via integrate/m9)
+- Tr API (zero-alloc), .mo catalogs + fallback chain, `[Export(Translatable)]`, `mf-l10n` (extract/pseudo/compile; .mo byte-identical to msgfmt), Localization.targets, RmlUi wiring (Translator → Tr.TranslateMarkup, no-tr prepass, font fallback + reload on LocaleChanged, `{{ }}` templates translated once). ADRs 0060–0066. Sandbox es/qps. Gates: unit 906 ×3, render 32, 124 fps.
+- M4 done on lane/m4 (CSM, PCF, atlas 15→6 samplers, per-light settings, cutout shadows, scene→tonemap barrier fix). ADRs 0070–0074.
