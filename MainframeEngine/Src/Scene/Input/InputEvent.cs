@@ -15,6 +15,25 @@ public abstract class InputEvent
 {
     /// <summary>A copy that is safe to keep after the callback returns.</summary>
     public InputEvent Clone() => (InputEvent)MemberwiseClone();
+
+    /// <summary>
+    /// Whether this event is one of <paramref name="action"/>'s inputs in <paramref name="map"/> (default: the running
+    /// game's map, <see cref="Input.Map"/>).
+    /// </summary>
+    public bool IsAction(string action, InputMap? map = null) =>
+        (map ?? Input.Map)?.EventMatches(this, action, out _, out _) ?? false;
+
+    /// <summary>True when this event presses one of <paramref name="action"/>'s inputs (axes: past the deadzone).</summary>
+    public bool IsActionPressed(string action, InputMap? map = null) =>
+        (map ?? Input.Map) is { } m && m.EventMatches(this, action, out var pressed, out _) && pressed;
+
+    /// <summary>True when this event releases one of <paramref name="action"/>'s inputs.</summary>
+    public bool IsActionReleased(string action, InputMap? map = null) =>
+        (map ?? Input.Map) is { } m && m.EventMatches(this, action, out var pressed, out _) && !pressed;
+
+    /// <summary>The action strength this event carries (0..1), 0 when it is not one of the action's inputs.</summary>
+    public float GetActionStrength(string action, InputMap? map = null) =>
+        (map ?? Input.Map) is { } m && m.EventMatches(this, action, out _, out var strength) ? strength : 0f;
 }
 
 /// <summary>A key went down, repeated or up.</summary>

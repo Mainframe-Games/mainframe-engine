@@ -46,6 +46,7 @@ public sealed partial class SceneTree
     public SceneTree(ServerRegistry? servers = null)
     {
         Servers = servers ?? new ServerRegistry();
+        Input = new InputState(this);
         Root = new SceneViewport(isTreeRoot: true) { Name = "root" };
         Root.PropagateEnterTree(this, null, 0);
         Root.PropagateReady();
@@ -57,6 +58,15 @@ public sealed partial class SceneTree
 
     /// <summary>Engine servers (rendering now; physics, audio and UI in later milestones).</summary>
     public ServerRegistry Servers { get; }
+
+    /// <summary>
+    /// Polled input and <see cref="InputMap"/> actions for this tree, fed by <see cref="PushInput"/> (the engine's tree
+    /// is also <see cref="MainframeEngine.Input.Current"/>).
+    /// </summary>
+    public InputState Input { get; }
+
+    /// <summary>True while <see cref="Node.OnPhysicsProcess"/> callbacks and the fixed-step servers run.</summary>
+    public bool IsInPhysicsStep { get; private set; }
 
     /// <summary>The scene set with <see cref="ChangeScene(Node)"/>, a child of <see cref="Root"/>.</summary>
     public Node? CurrentScene { get; private set; }
@@ -277,6 +287,19 @@ public sealed partial class SceneTree
 
     private void RunPhysicsStep(float delta)
     {
+        IsInPhysicsStep = true;
+        try
+        {
+            RunPhysicsStepCore(delta);
+        }
+        finally
+        {
+            IsInPhysicsStep = false;
+        }
+    }
+
+    private void RunPhysicsStepCore(float delta)
+    {
         PhysicsFrame?.Invoke();
 
         var paused = Paused;
@@ -318,6 +341,8 @@ public sealed partial class SceneTree
     public bool PushInput(InputEvent inputEvent)
     {
         ArgumentNullException.ThrowIfNull(inputEvent);
+        // Polled state sees every event, even ones the UI consumes below, so a released key never sticks.
+        Input.ProcessEvent(inputEvent);
         var paused = Paused;
         Root.BeginInput();
 
