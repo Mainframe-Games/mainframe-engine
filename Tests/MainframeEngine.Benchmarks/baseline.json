@@ -199,6 +199,21 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "ShadowSetupBenchmarks.PackAtlasElevenTiles",
+      "MeanNs": 254.742,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ShadowSetupBenchmarks.PlanEveryLightType",
+      "MeanNs": 1367.229,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ShadowSetupBenchmarks.PlanSunCascades",
+      "MeanNs": 516.321,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "UiBenchmarks.Relayout500",
       "MeanNs": 192083.274,
       "AllocatedBytes": 0

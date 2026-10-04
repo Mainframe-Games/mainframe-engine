@@ -101,7 +101,7 @@ public static class RendererDebugWindow
         var stats = server.MeshStats;
         Line(text, $"Passes {shadows.RenderedPasses}/{shadows.PlannedPasses}, {stats.ShadowDrawCalls} draws, {stats.ShadowInstances} instances, {stats.ShadowCulled} culled");
         Line(text, $"Cascades {shadows.CascadeResolution}², atlas {shadows.AtlasSize}² ({shadows.AtlasPackCount} packs), {Mib((ulong)shadows.MapMemoryBytes):0.0} MiB");
-        Line(text, $"CPU {shadows.LastCpuMilliseconds:0.000} ms");
+        Line(text, $"CPU {shadows.LastCpuMilliseconds:0.000} ms, GPU {shadows.LastGpuMilliseconds:0.000} ms");
 
         if (vk.ImGuiTextures is not { } registry || !ImGui.TreeNode("Maps"))
             return;

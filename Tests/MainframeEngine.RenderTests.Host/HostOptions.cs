@@ -5,7 +5,7 @@ namespace MainframeEngine.RenderTests.Host;
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
 /// [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--pipeline-cache dir]
-/// [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz]</c>.
+/// [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]</c>.
 /// </summary>
 public sealed record HostOptions
 {
@@ -47,6 +47,9 @@ public sealed record HostOptions
 
     /// <summary>Limit updates to this rate while rendering unthrottled (several renders per update); 0 = off.</summary>
     public int UpdateRate { get; init; }
+
+    /// <summary>Turns <c>CastsShadows</c> off on every light (measures what the shadow pass costs).</summary>
+    public bool NoShadows { get; init; }
 
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
@@ -127,6 +130,9 @@ public sealed record HostOptions
                     break;
                 case "--update-rate":
                     options = options with { UpdateRate = int.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--no-shadows":
+                    options = options with { NoShadows = true };
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");

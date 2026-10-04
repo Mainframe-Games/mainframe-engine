@@ -21,6 +21,7 @@ public enum GpuObjectKind : byte
 
     /// <summary>A descriptor set returned to its pool (<see cref="GpuDeletion.Parent"/>, created with FREE_DESCRIPTOR_SET).</summary>
     DescriptorSet,
+    QueryPool,
 }
 
 /// <summary>
@@ -42,6 +43,7 @@ public readonly record struct GpuDeletion(GpuObjectKind Kind, ulong Handle, GpuA
     public static GpuDeletion Of(DescriptorPool pool) => new(GpuObjectKind.DescriptorPool, pool.Handle);
     public static GpuDeletion Of(DescriptorSetLayout layout) => new(GpuObjectKind.DescriptorSetLayout, layout.Handle);
     public static GpuDeletion Of(ShaderModule module) => new(GpuObjectKind.ShaderModule, module.Handle);
+    public static GpuDeletion Of(QueryPool pool) => new(GpuObjectKind.QueryPool, pool.Handle);
     public static GpuDeletion Of(in GpuAllocation allocation) => new(GpuObjectKind.Allocation, 0, allocation);
 }
 
@@ -150,6 +152,7 @@ internal sealed unsafe class VulkanDestroyer(Vk vk, Device device, GpuAllocator 
             case GpuObjectKind.DescriptorPool: vk.DestroyDescriptorPool(device, new DescriptorPool(d.Handle), null); break;
             case GpuObjectKind.DescriptorSetLayout: vk.DestroyDescriptorSetLayout(device, new DescriptorSetLayout(d.Handle), null); break;
             case GpuObjectKind.ShaderModule: vk.DestroyShaderModule(device, new ShaderModule(d.Handle), null); break;
+            case GpuObjectKind.QueryPool: vk.DestroyQueryPool(device, new QueryPool(d.Handle), null); break;
             case GpuObjectKind.DescriptorSet:
                 {
                     var set = new DescriptorSet(d.Handle);

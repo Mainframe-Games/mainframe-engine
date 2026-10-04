@@ -18,6 +18,7 @@ public abstract class RenderTestGame : Engine
     private long? _allocatedBytes;
     private readonly List<double> _frameTimes = [];
     private long _lastFrameTimestamp;
+    private double _shadowCpuMs, _shadowGpuMs;
 
     protected RenderTestGame(HostOptions host) : base(CreateOptions(host))
     {
@@ -89,7 +90,14 @@ public abstract class RenderTestGame : Engine
         {
             var now = System.Diagnostics.Stopwatch.GetTimestamp();
             if (frame > (uint)_host.PerfWarmupFrames + 1 && _frameTimes.Count < _host.PerfMeasuredFrames)
+            {
                 _frameTimes.Add(System.Diagnostics.Stopwatch.GetElapsedTime(_lastFrameTimestamp, now).TotalMilliseconds);
+                if (Servers.Render?.ExistingShadows is { } shadows)
+                {
+                    _shadowCpuMs += shadows.LastCpuMilliseconds;
+                    _shadowGpuMs += shadows.LastGpuMilliseconds;
+                }
+            }
             _lastFrameTimestamp = now;
         }
 
@@ -111,6 +119,14 @@ public abstract class RenderTestGame : Engine
             Quit(ExitCode.Error);
 
         UpdateScene(gameTime);
+
+        if (_host.NoShadows && frame <= 2)
+        {
+            var lights = Root.World3D.Lights;
+            foreach (var light in lights.DirectionalLights) light.CastsShadows = false;
+            foreach (var light in lights.SpotLights) light.CastsShadows = false;
+            foreach (var light in lights.PointLights) light.CastsShadows = false;
+        }
     }
 
     protected override void OnFrameCaptured(FrameCapture capture)
@@ -175,6 +191,8 @@ public abstract class RenderTestGame : Engine
             MeshInstances = meshStats.Instances,
             MeshDrawCalls = meshStats.DrawCalls,
             MeshShadowDrawCalls = meshStats.ShadowDrawCalls,
+            ShadowCpuMs = sortedTimes.Length > 0 ? _shadowCpuMs / sortedTimes.Length : 0,
+            ShadowGpuMs = sortedTimes.Length > 0 ? _shadowGpuMs / sortedTimes.Length : 0,
             MeshPipelines = meshPipelines,
         };
     }

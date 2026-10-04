@@ -58,6 +58,11 @@ public sealed record HostResult
     public int MeshInstances { get; init; }
     public int MeshDrawCalls { get; init; }
     public int MeshShadowDrawCalls { get; init; }
+
+    /// <summary>Average CPU / GPU time of the shadow pass over the perf frames (ShadowSystem timings), in ms.</summary>
+    public double ShadowCpuMs { get; init; }
+
+    public double ShadowGpuMs { get; init; }
     public int MeshPipelines { get; init; }
 
     public sealed record CaptureInfo(uint Frame, string Path, int Width, int Height);
