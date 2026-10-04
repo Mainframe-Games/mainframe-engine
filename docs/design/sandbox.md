@@ -85,6 +85,7 @@ signal. It logs the device, frame rate, peaks and counters (`[QA] Audio …`) an
 | Model | the glTF test model (`Content/Models/TestModel/test_model.gltf`, imported through Assimp), instanced by UID as "Model" |
 | Ambience | `AudioPlayer3D` "Ambience" under the box: inline `AudioStream` `Content/Audio/ambient_hum.ogg` (a generated, seamless 6 s pad; `Stream` load mode, looping, `LoopEnd` 6 s), SFX bus, −18 dB, `Autoplay`, `UnitSize` 3, `MaxDistance` 60, `LowPassAtMaxDistance` 1500 Hz — fly around the box to hear panning and distance |
 | Physics (M6) | `StaticBody3D` "FloorCollider" (a 10 × 1 × 10 `BoxShape3D` under the floor plane) and "Crates" (back right, at (1.5, 0, −2.5), clear of the M3 meshes, which have no colliders): 9 `RigidBody3D` crates (shared 0.5 m `BoxShape3D`, `MeshInstance3D` visuals sharing one `BoxMesh` and one material) dropped from 1.5–6.3 m that tumble onto the floor and sleep. The ImGui window has a "Collision shapes" toggle and body/awake counts |
+| Welcome | `WelcomeBanner` "Welcome": `[Export(Translatable = true)]` `Title`/`Hint`, shown translated at the top of the HUD and of the F12 overlay ([Localization](localization.md#scene-strings)) |
 | Lights | every shadow type at once: 2 `DirectionalLight3D` (warm key "Sun" 0.8, cool "Fill" 0.2), 1 `OmniLight3D` (blue, right of the box), 2 `SpotLight3D` (warm and green cones) — all shadow-casting; directions come from the nodes' rotations |
 
 ## Lifecycle
@@ -130,6 +131,18 @@ vector, the node count, the physics section (collision-shape toggle, body/awake 
 (with `--server`/`--client`) and the audio bus mixer (`AudioImGui.DrawMixer`: output device, voice/steal/underrun
 counters, and a volume slider, mute, solo and peak meter per bus); the light and axis gizmos and the Renderer window
 (exposure, mesh draw stats, GPU memory, uploads, pipeline cache) draw with it.
+
+## Languages
+
+Every player-facing string is translated ([Localization](localization.md)): `en` (source), `es` and the `qps`
+pseudo-locale (Latin-1 accents, which both ImGui's built-in font and the HUD's Lato Latin can draw) live in
+`Content/locale/` and are compiled at build time. The HUD's text — `hud.rml`, the widget library and the welcome banner —
+goes through `UiServer.Translator` and re-translates when the locale changes; the HUD's **Language** dropdown and the
+developer overlay's **Language** combo both list `Tr.GetAvailableLocales()` and switch at run time. Overlay strings are
+rebuilt only when the locale changes and every label pins its ImGui id with `###`, so switching language keeps widget
+state and frames stay allocation-free. `--locale <name>` starts in a language; otherwise the OS language is used when a
+catalog exists for it. After changing strings run `just l10n-extract`, translate `es/LC_MESSAGES/messages.po`, then
+`just l10n-compile`.
 
 Controls are listed in [Cameras & input](cameras-and-input.md#sandbox-controls).
 

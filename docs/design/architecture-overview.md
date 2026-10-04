@@ -16,6 +16,7 @@ animation, debug grids/gizmos, and early networking and Steam wrappers.
 |---|---|---|
 | [`MainframeEngine`](../../MainframeEngine/MainframeEngine.csproj) | class library | The engine. Ships `Content/**` (compiled `.spv` shaders, assets) to dependants' output; shaders compile during the build (`build/Shaders.targets`). |
 | [`MainframeEngine.Generators`](../../MainframeEngine.Generators/MainframeEngine.Generators.csproj) | Roslyn source generator (netstandard2.0, referenced as an analyzer) | Registers every node/resource type's `[Export]` properties and `[Signal]` events. See [Scene serialization](scene-serialization.md#source-generator). |
+| [`MainframeEngine.L10n`](../../Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj) (`mf-l10n`) | exe (build tool) | Localization tooling: RML/scene extraction, `.po` update, pseudo-locale, `.po` → `.mo` compiler run by `build/Localization.targets`. See [Localization](localization.md). |
 | [`MainframeEngine.Sandbox`](../../MainframeEngine.Sandbox/MainframeEngine.Sandbox.csproj) | exe | The test game and the only runnable engine consumer in the main flow. See [Sandbox](sandbox.md). |
 | `Plugins/Spine/spine-csharp` | class library (git submodule) | Spine C# runtime. Vendored — do not modify. |
 | `Examples/SpineExamples` | exe | Spine showcase that references the engine (runs without a `ShadowSystem`, see [Spine](spine.md#known-issues)). |
@@ -45,6 +46,7 @@ animation, debug grids/gizmos, and early networking and Steam wrappers.
 | `Lighting/` | `LightEnvironment`, `Light` + Directional/Point/Spot | [Lighting](lighting.md) |
 | `Networking/` | ENet client/server, `PeerId`, `NetBuffer*`, `NetworkUtils` | [Networking](networking.md) |
 | `Steamworks/` | Static Steam wrappers, `SteamServer` | [Steamworks](steamworks.md) |
+| `Localization/` | `Tr`, `LocalizationOptions`, `LocaleId`, catalogs, `RmlLocalization`, `ITextTranslator`, `FontFallbackTable` | [Localization](localization.md) |
 
 ## Dependency graph
 
@@ -52,6 +54,8 @@ animation, debug grids/gizmos, and early networking and Steam wrappers.
 flowchart LR
     Sandbox["MainframeEngine.Sandbox"] --> Engine["MainframeEngine"]
     Sandbox -. analyzer .-> Gen["MainframeEngine.Generators"]
+    Sandbox -. build tool .-> L10n["mf-l10n<br/>(Tools/MainframeEngine.L10n)"]
+    L10n --> Engine
     Engine -. analyzer .-> Gen
     SpineEx["Examples/SpineExamples"] --> Engine
     Engine --> SpineRT["spine-csharp<br/>(submodule)"]
@@ -62,6 +66,7 @@ flowchart LR
     Engine --> Steam["Steamworks.NET"]
     Engine --> Jitter["Jitter2 (3D physics)"]
     Engine --> Box2D["Box2D.NET (2D physics)"]
+    Engine --> GetText["GetText.NET"]
     Engine -. unused .-> Assimp["Silk.NET.Assimp"]
 ```
 

@@ -41,8 +41,9 @@ public partial class DirectionalLight3D : Light3D   // `partial` is not required
 - `[Export]` marks a property or field as serialized and inspector-visible. It must be readable and
   writable from the declaring assembly (public or internal; no init-only setters).
 - Hints: `Range = "min,max[,step]"`, `File = "*.png,*.jpg"`, `Directory`, `Multiline`, `Flags`,
-  `NodeType` (for `NodePath`). `[ExportGroup("Name")]` starts an inspector group for this and the
-  following members (empty name ends it).
+  `NodeType` (for `NodePath`), `Translatable` (player-facing text on `string`/`string[]`/`List<string>`: extracted by
+  `mf-l10n`, shown with `Node.Atr`, stored as source text; see [Localization](localization.md#scene-strings)).
+  `[ExportGroup("Name")]` starts an inspector group for this and the following members (empty name ends it).
 - Supported types: `bool`, integer and floating-point primitives, `string`, enums, `Vector2/3/4`,
   `Quaternion`, `System.Drawing.Color`, `Transform3D`, `Transform2D`, `NodePath`, `Resource` subclasses
   (inline or external), and arrays / `List<T>` of these. Anything else is a compile error (MFG002).
@@ -74,7 +75,8 @@ one `TypeRegistration_<Assembly>` class, a `[ModuleInitializer]` that calls `Typ
 The pipeline is incremental: per-type models are value-equatable records, so edits that do not change a
 type's shape do not regenerate. Diagnostics (all errors): MFG001 inaccessible/unwritable export, MFG002
 unsupported type, MFG003 bad signal event, MFG004 duplicate type name, MFG005 invalid migration method,
-MFG006 a type with exports/signals that cannot be registered (e.g. nested in a private type).
+MFG006 a type with exports/signals that cannot be registered (e.g. nested in a private type), MFG010
+`Translatable` on a member that is not text.
 
 **Extension point.** Models (`TypeModel` in [Models.cs](../../MainframeEngine.Generators/Models.cs)) carry
 one collection per member feature; `TypeModelBuilder` fills them and each feature has its own emitter. M5 added

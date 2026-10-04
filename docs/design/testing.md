@@ -265,6 +265,14 @@ count: with many test threads running, a window occasionally reported a few KB (
 quantum) that instrumentation placed in code that cannot allocate, and that never appears when the test runs alone. A
 real per-frame allocation repeats in every window, so it still fails the gate.
 
+Localization (M9) has its suites under [`Localization/`](../../Tests/MainframeEngine.Tests/Localization/) (collection
+`LocalizationState`, since `Tr` is process-wide), with a fixture project (RML, scenes, a C# file) copied to the test
+output: `TrTests` (catalogs, fallback chain, contexts, Polish/Russian plurals, format safety, interpolation, 0-byte
+lookups), `RmlLocalizationTests`, `NodeLocalizationTests` (re-translation immediate/deferred/cross-thread),
+`GettextFormatTests` (`.po`/`.mo`, byte equality with GNU `msgfmt` when installed — CI installs gettext on Linux),
+`ExtractionTests` (runs the pinned `GetText.Extractor` local tool: `dotnet tool restore`) and `L10nCliTests`
+(end-to-end `mf-l10n`). See [Localization](localization.md#testing).
+
 ## Benchmarks
 
 `just bench` runs every benchmark (`NetBuffer` write/read, replication capture/encode/decode at 100 and 1000
@@ -274,7 +282,8 @@ nodes, camera and model matrices, lights UBO packing, the mesh draw list for 10k
 alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurvesAllModels`,
 `SpatialProjection32Emitters`, `ServerFrame32PositionalVoices`, `MixBlock480Frames32Voices`; physics:
 `Step1kRigidBodies3D`, `Step1kRigidBodies2D`, `Raycast10k3D`; the game UI: `Update500Idle`,
-`Update500DirtyBindings`, `Relayout500`, `Render500Callbacks`) and compares with
+`Update500DirtyBindings`, `Relayout500`, `Render500Callbacks`; `LocalizationBenchmarks`: `Tr` hit/miss/context
+lookups, formatting, `TranslateMarkup`, locale switch) and compares with
 [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. A run fails too when a benchmark produces no result
 or nothing runs at all (a filter that matches nothing, a build failure), and `just bench-baseline` then writes

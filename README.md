@@ -32,7 +32,7 @@ Where the engine is heading:
 | Physics (M6 ✅) | [Jitter2](https://github.com/notgiven688/jitterphysics2) for 3D, [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3) for 2D: Godot-style bodies, areas, `MoveAndSlide`, queries | [Physics](docs/design/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) 1.4.1 + [NVorbis](https://github.com/NVorbis/NVorbis) (M7 ✅): `AudioServer`, bus mixer, 2D/3D audio nodes, streaming | [Audio](docs/design/audio.md) |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) 6.3, engine-owned binding, Vulkan renderer (M8 ✅) | [Game UI](docs/design/game-ui.md) |
-| Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | [Localization](docs/design/future/localization.md) |
+| Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) runtime, in-house `mf-l10n` tooling (M9 ✅) | [Localization](docs/design/localization.md) |
 | Editor | `MainframeEngine.Editor`, a separate project whose UI is built with the same RmlUi stack as games | [Editor](docs/design/future/editor.md) |
 | Rendering backend | Backend-neutral GPU API, then WebGPU | [Backend abstraction](docs/design/future/rendering-backend-abstraction.md) |
 
@@ -54,12 +54,15 @@ mainframe-engine/
 │       ├── Nodes/            # Drawable and network nodes (SpineNode, NetworkNode)
 │       ├── Lighting/         # Directional, point, and spot lights
 │       ├── Networking/       # Replication (MultiplayerApi), messages, transports, pooled buffers
+│       ├── Localization/     # Tr (gettext catalogs, locale switching), RML text contract, font fallback
 │       ├── Steamworks/       # Steam API wrappers
 │       ├── Debugging/        # Structured logging
 │       └── Utils/            # ImGui gizmos, color extensions
 │
 ├── MainframeEngine.Generators/  # Source generator: [Export]/[Signal] type registration (analyzer)
 ├── MainframeEngine.Sandbox/  # Test game demonstrating full engine features
+├── Tools/
+│   └── MainframeEngine.L10n/ # mf-l10n: extract (RML, scenes), update, pseudo-locale, .po -> .mo compiler
 │
 ├── Plugins/
 │   └── Spine/                # Full Spine C# runtime port
@@ -264,6 +267,25 @@ when `EngineOptions.SteamAppId` is set; every wrapper is a no-op without Steam. 
 - **Limitation:** no `steam_api` native ships (the SDK needs a partner login, and Steamworks.NET 2024.8.0 is
   x86-64 only), so Steam does not start yet; Steam Networking Sockets and avatar textures wait for it.
 
+### Localization (`Localization/`)
+
+gettext translations with [GetText.NET](https://github.com/perpetualKid/GetText.NET) catalogs managed by the engine. See
+[Localization](docs/design/localization.md).
+
+```csharp
+label  = Tr._("Settings");                                // allocation-free lookup
+status = Tr.N("{0} enemy left", "{0} enemies left", n);    // plural rules per language; n is {0}
+open   = Tr.P("menu", "Open");                            // context
+Tr.SetLocale("es");                                       // runtime switch: nodes re-translate (OnLocaleChanged)
+
+[Export(Translatable = true)] public string Title { get; set; } = "";   // scene text, shown with Atr(Title)
+```
+
+- Catalogs: `Content/locale/<locale>/LC_MESSAGES/messages.mo`, fallback chain `pt_BR → pt → en`; compiled from `.po` at
+  build time by the in-house `mf-l10n` (byte-identical to GNU `msgfmt`, so no gettext install is needed).
+- `just l10n-extract` (C# via the GetText.NET extractor, RML documents and `[Export(Translatable)]` scene strings →
+  `messages.pot` → every `.po` + the `qps` pseudo-locale), `just l10n-compile`, `just l10n-check`, `just l10n-stats`.
+
 ### Logging (`Debugging/`)
 
 `Log` — structured logger with severity levels (Debug, Info, Warning, Error, Fatal), ANSI color output, and optional verbose mode with caller source location.
@@ -302,7 +324,7 @@ when `EngineOptions.SteamAppId` is set; every wrapper is a no-op without Steam. 
 | Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) 3.1.654 (Box2D v3 port; replaces box2d-netstandard, which is unmaintained) | M6 ✅ | [Physics](docs/design/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) 1.4.1 + [NVorbis](https://github.com/NVorbis/NVorbis) 0.10.5 for OGG | M7 ✅ | [Audio](docs/design/audio.md) |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (engine-owned C# binding) | M8 ✅ | [Game UI](docs/design/game-ui.md) |
-| Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | M9 | [Localization](docs/design/future/localization.md) |
+| Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) 10.0.1 (runtime), GetText.NET.Extractor (C# extraction tool) | M9 ✅ | [Localization](docs/design/localization.md) |
 
 ---
 
@@ -341,6 +363,7 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`gl
 - `MeshInstance3D` primitives with textured, blended and emissive materials, an imported glTF model, and `SceneGrid3d`
 - `SpineNode` animation (SpineBoy character)
 - ImGui debug overlay with FPS, delta time, frame count, frame time, VSync toggle, fullscreen toggle, MaxFPS selector
+- Localization: English, Spanish and the `qps` pseudo-locale, switched from the HUD's language dropdown or the F12 overlay's Language menu (`--locale es`)
 - Light gizmo visualization via `LightEnvironment.DrawLightGizmos()`
 - Input handling (keyboard/mouse via Silk.NET)
 - A quiet streamed, looping 3D hum attached to the spinning box, and ImGui bus faders/meters (`--qa-audio` plays a

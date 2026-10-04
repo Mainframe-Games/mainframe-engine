@@ -107,7 +107,7 @@ model.Dirty("health");                                                      // v
 
 | Type | Role |
 |---|---|
-| `UiServer` ([UiServer.cs](../../MainframeEngine/Src/UI/UiServer.cs)) | `IFrameServer` + `IInputServer` registered by `Engine`. Owns RmlUi (init, shutdown), the render interface, fonts (every `.ttf`/`.otf` in `Content/UI/fonts`), the system and file interfaces, one context per layer, input routing, hot reload, the debugger (F8), `engine://` textures (`RegisterTexture`), the `Translator` hook (M9) |
+| `UiServer` ([UiServer.cs](../../MainframeEngine/Src/UI/UiServer.cs)) | `IFrameServer` + `IInputServer` registered by `Engine`. Owns RmlUi (init, shutdown), the render interface, fonts (every `.ttf`/`.otf` in `Content/UI/fonts`), the system and file interfaces, one context per layer, input routing, hot reload, the debugger (F8), `engine://` textures (`RegisterTexture`), the `Translator` hook ([Localization](localization.md#game-ui-rmlui)) |
 | `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer. `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Dpi` default: 1 dp = pixels per point; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis). Games typically use HUD (0), menus (10), overlay (100) |
 | `UiDocument : Node` ([UiDocument.cs](../../MainframeEngine/Src/UI/UiDocument.cs)) | `[Export] Source` (or inline `Rml`), `Visible`, `Modal`, `AutoFocus`; `[Signal] Loaded`, `Reloaded`; `CreateDataModel`, `GetElementById`, `QuerySelector`, `Show`/`Hide`, `Reload`. Must be below a `UiLayer` |
 | `UiElement` ([UiElement.cs](../../MainframeEngine/Src/UI/UiElement.cs)) | A cached element wrapper with C# events (`Click`, `DoubleClick`, `MouseDown/Up/Over/Out`, `Change`, `Submit`, `Focused`, `Blurred`, `KeyDown/Up`, `On(type, …)`); native listeners attach only for subscribed types. Every access looks the element up again by id, so a wrapper follows elements the DOM replaces (inner RML, `data-for`, `data-if`) and reports invalid — never dangling — once removed |
@@ -291,4 +291,4 @@ ImGui developer overlay and quitting. See [Sandbox](sandbox.md).
 
 [Milestones](../milestones.md) · [Native libraries](natives.md) · [Color pipeline](color-pipeline.md) ·
 [GPU resources](gpu-resources.md) · [Scene graph & nodes](scene-graph-and-nodes.md#input) ·
-[ImGui & debug tools](imgui-and-debug-tools.md) · [Editor](future/editor.md) · [Localization](future/localization.md)
+[ImGui & debug tools](imgui-and-debug-tools.md) · [Editor](future/editor.md) · [Localization](localization.md)

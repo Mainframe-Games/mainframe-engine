@@ -17,6 +17,8 @@ software listed below.
 | [Lato](http://www.latofonts.com/) (Latin subset: regular, bold, italic) | 2.0 | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
 | [Roboto Mono](https://github.com/googlefonts/robotomono) (regular) | — | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
 | [ENet (nxrighthere fork)](https://github.com/nxrighthere/ENet-CSharp) | 2.4.8 | MIT | `Native/ENet/upstream` (submodule) | `enet` native library; managed `ENet-CSharp` NuGet package |
+| [GetText.NET](https://github.com/perpetualKid/GetText.NET) (fork of NGettext) | 10.0.1 | MIT | NuGet package `GetText.NET` | engine assemblies (runtime `.mo` catalogs and plural rules) |
+| [GetText.NET.Extractor](https://github.com/perpetualKid/GetText.NET) | 10.0.1 | MIT | local dotnet tool (`.config/dotnet-tools.json`) | nothing: development tool for C# string extraction |
 | [Spine Runtimes (spine-csharp)](https://github.com/EsotericSoftware/spine-runtimes) | — | Spine Runtimes License | `Plugins/Spine` (submodule) | engine assemblies |
 | [RmlUi.Net](https://github.com/PourrezJ/RmlUi.Net) (design reference only, no code copied) | — | MIT | — | nothing (see `Native/RmlUi/shim/NOTICE.md`) |
 | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | 1.4.1 | MIT | NuGet package `SoundFlow` | `SoundFlow.dll`; its `miniaudio` native library (SoundFlow's C shim, MIT) |
@@ -56,6 +58,38 @@ misrepresented as being the original software.
 
 Jean-loup Gailly        Mark Adler
 jloup@gzip.org          madler@alumni.caltech.edu
+```
+
+## GetText.NET
+
+Applies to the `GetText.NET` runtime package and the `GetText.NET.Extractor` tool.
+
+```text
+The MIT License (MIT)
+
+Original Source Code NGettext
+Copyright (c) 2012 Vitaly Zilnik
+
+GetText.NET including updates and additions (WindowsForms, Extractor)
+Copyright (c) 2020 perpetualKid
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ## RmlUi

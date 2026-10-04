@@ -35,7 +35,7 @@ flowchart LR
 | [M6](#m6--physics-) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ✅ |
 | [M7](#m7--audio-) | SoundFlow audio nodes, buses, 3D panning | ✅ |
 | [M8](#m8--game-ui-rmlui-) | RmlUi HTML/CSS game UI (also the editor's UI) | ✅ |
-| [M9](#m9--localization) | GetText.NET translations for code, UI and scenes | ⬜ |
+| [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu) | Backend-neutral render API, WebGPU | ⬜ |
 
@@ -213,17 +213,18 @@ gradients; the UI sees input before the scene tree.
 | Sandbox HUD; ImGui as the F12 developer overlay | ✅ | [Game UI](design/game-ui.md#sandbox), [Sandbox](design/sandbox.md) |
 | Inline IME composition (shim ABI 1.1 `TextInputContext`) | ⬜ | [Game UI](design/game-ui.md#known-issues) |
 
-## M9 — Localization
+## M9 — Localization ✅
 
 Translations with **GetText.NET**, using the gettext workflow (`.pot` → `.po` → `.mo`). Strings are
 extracted from C#, RML documents and scene files, and the language can be switched at runtime.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| `Tr` API, catalog management, runtime locale switching | ⬜ | [Localization](design/future/localization.md#runtime-api) |
-| Extraction (C# extractor + `mf-l10n` for RML and scenes), `msgfmt` build step | ⬜ | [Localization](design/future/localization.md#workflow) |
-| RmlUi `TranslateString` hook, per-locale fonts | ⬜ | [Localization](design/future/localization.md#rmlui-integration) |
-| Pseudo-locale for testing | ⬜ | [Localization](design/future/localization.md#pseudo-localization) |
+| `Tr` API, catalog management, runtime locale switching | ✅ | [Localization](design/localization.md#runtime-api) |
+| Extraction (C# extractor + `mf-l10n` for RML and scenes), `.mo` build step (in-house, `msgfmt`-identical) | ✅ | [Localization](design/localization.md#workflow) |
+| `[Export(Translatable)]` scene strings, re-translation on locale change | ✅ | [Localization](design/localization.md#scene-strings) |
+| RmlUi `TranslateString` hook, per-locale fonts (engine contract ✅; `UiServer` wiring after M8 integration) | 🚧 | [Localization](design/localization.md#game-ui-rmlui) |
+| Pseudo-locale for testing | ✅ | [Localization](design/localization.md#pseudo-localization) |
 
 ## M10 — Editor
 

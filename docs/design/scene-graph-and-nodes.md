@@ -151,6 +151,10 @@ sequenceDiagram
   same order.
 - **Built-in signals** (`[Signal]` events): `TreeEntered`, `Ready`, `TreeExiting`, `TreeExited`,
   `Renamed`, `ChildEnteredTree`, `ChildExitingTree`; plus `Timer.Timeout`.
+- **Locale changes** (M9): `Tr.SetLocale` runs `OnLocaleChanged()` on every node in every live tree, parents first,
+  then `SceneTree.LocaleChanged` — at the end of the frame when it happened during `Tick`, at the next `Tick` when it
+  came from another thread. `AutoTranslateMode` (exported, inherited) decides whether `Atr`/`AtrN` translate. See
+  [Localization](localization.md#scene-strings).
 
 ## The frame (`SceneTree.Tick`)
 

@@ -58,6 +58,12 @@ _Last updated: 2026-10-05 (sky-fix, M3b meshes/materials and M8 game UI integrat
 - Validation is on by default only in Debug builds (`EngineOptions.EnableValidation`).
 - Render tests / `just qa` need the display awake (`caffeinate -u`). The unbundled `dotnet` Sandbox
   process can't be driven by computer-use; use the `--qa-*` scripted flags instead.
+- M9 (lane m9, ADRs 0060–0066): player-facing strings go through `Tr` (`_`/`P`/`N`/`NP`, literals only — the
+  GetText.NET extractor matches by method name). `Tr` is process-wide: tests touching it join the `LocalizationState`
+  collection and restore with `Tr.ResetForTests()`. Catalogs live in `Content/locale/<locale>/LC_MESSAGES/messages.po`
+  next to their committed `.mo`; `build/Localization.targets` compiles them with `mf-l10n` (no gettext needed). After
+  string changes: `just l10n-extract`, translate, `just l10n-compile`. The RmlUi `UiServer` hook is a documented
+  contract (`Tr.TranslateMarkup`, `RmlLocalization.PrepareDocument`, `FontFallbackTable`) wired after M8 integration.
 - ENet macOS natives are x86_64-only (won't load on Apple Silicon); Steamworks.NET has
   no osx-arm64 assets.
 
