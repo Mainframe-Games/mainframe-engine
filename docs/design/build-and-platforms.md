@@ -100,8 +100,9 @@ editing a shader or include, run `just shaders` and commit the `.spv` files with
 
 ### CI
 
-[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs on every pull request and on pushes
-to `main` (one run per ref; newer pushes cancel older ones). Checkouts include the Spine submodule and
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs on every pull request, on pushes
+to `main`, and on demand for any branch (`workflow_dispatch`: `gh workflow run ci.yml --ref <branch>`).
+There is one run per ref; newer runs cancel older ones. Checkouts include the Spine submodule and
 Git LFS files.
 
 | Job | Runs |
@@ -109,7 +110,7 @@ Git LFS files.
 | `build-test` (ubuntu-24.04, windows-latest, macos-14) | `dotnet build -c Release -warnaserror -p:CompileShaders=false` (committed `.spv`), unit tests with coverage; uploads `.trx` results and (Linux) Cobertura coverage |
 | `format` | `dotnet format --verify-no-changes --exclude Plugins/Spine` |
 | `shaders` | apt `glslc` + `spirv-tools`, compiles every shader to a temp dir, `spirv-val`, `build/shaders.sh check` |
-| `render-tests` | Ubuntu with lavapipe (`mesa-vulkan-drivers`, `VK_DRIVER_FILES` = `lvp_icd.x86_64.json`), `vulkan-validationlayers`, Xvfb; uploads `artifacts/render-tests` (frames, diffs) |
+| `render-tests` | Ubuntu with lavapipe (`mesa-vulkan-drivers`, `VK_DRIVER_FILES` = `lvp_icd.json`), `vulkan-validationlayers`, Xvfb; compares against `Goldens/lavapipe/`; uploads `artifacts/render-tests` (frames, diffs). Re-recording: [Testing](testing.md#golden-images) |
 | `ci-success` | Runs always; fails unless every job above succeeded. **The required status check** in the `main` ruleset — do not rename. |
 
 ## Windowing: SDL2
@@ -123,7 +124,8 @@ and the frame loop are unchanged.
 
 ```mermaid
 flowchart TD
-    A["Engine ctor"] --> B["SdlWindowing / SdlInput.RegisterPlatform()<br/>Window.PrioritizeSdl()"]
+    A["Engine ctor"] --> A1["SilkNativeResolver.Install()<br/>portable runtimes/&lt;rid&gt;/native probing"]
+    A1 --> B["SdlWindowing / SdlInput.RegisterPlatform()<br/>Window.PrioritizeSdl()"]
     B --> C{"macOS?"}
     C -- yes --> D["VulkanLoaderBootstrap.Probe()<br/>resolve libvulkan / MoltenVK path"]
     D --> E["HandOffToSdl(): SDL_Vulkan_LoadLibrary(path)"]
@@ -142,6 +144,21 @@ flowchart TD
   `SDL_Vulkan_GetDrawableSize` in **pixels** (3024×1692 for a 1512×846 pt Retina window); the
   renderer's extent fallback, minimise detection, ImGui's framebuffer scale and game aspect ratios
   use it. Prefer it over `Window.FramebufferSize`.
+- **Finding libSDL2 (and other Silk.NET package natives).** A RID-agnostic build (`dotnet build/run/test`)
+  keeps package natives under `runtimes/<rid>/native/`. Silk.NET's `DefaultPathResolver` picks that
+  folder from the distro-specific RID of `Microsoft.DotNet.PlatformAbstractions` (`ubuntu.24.04-x64`).
+  It maps that RID back to a portable one with a hard-coded distro list, and Ubuntu is not on it. A .NET 8+
+  deps.json has no RID graph to fall back on, so on Ubuntu Silk never probes `runtimes/linux-x64/native`.
+  `Window.Create` then fails with "SdlPlatform - not applicable", and the `FileNotFoundException`
+  says SDL could not be loaded.
+  [`SilkNativeResolver`](../../MainframeEngine/Src/Core/SilkNativeResolver.cs) fixes this. The `Engine`
+  constructor calls it before anything loads SDL, and it appends a resolver to Silk's process-wide
+  `PathResolver.Default`. That resolver probes `runtimes/<RuntimeInformation.RuntimeIdentifier>`, then
+  `runtimes/<os>-<arch>`, then `runtimes/<os>`. It runs after Silk's own resolvers. macOS and Windows RIDs
+  already map correctly. RID-specific builds and publishes (`dotnet publish -r linux-x64`) copy the
+  natives next to the app and never need it. Engine code that can load a Silk.NET native before an
+  `Engine` exists (e.g. a future Assimp import path used by tools) must call the idempotent
+  `SilkNativeResolver.Install()` first.
 - On Linux, SDL dlopens X11 (or Wayland) at runtime; CI installs `libx11-6 libxext6 libxfixes3
   libxrandr2 libxinerama1 libxcursor1 libxi6 libxss1 libxkbcommon0` for the Xvfb render tests.
 
