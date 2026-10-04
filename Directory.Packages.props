@@ -26,6 +26,14 @@
     <PackageVersion Include="Steamworks.NET" Version="2024.8.0" />
   </ItemGroup>
 
+  <!--
+    Build-time only: MainframeEngine.Generators (source generator, loaded by the compiler as an analyzer) and its
+    tests. Never a runtime dependency of the engine or games. 4.14 runs on the .NET 10 SDK's compiler and newer.
+  -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+  </ItemGroup>
+
   <!-- Examples only -->
   <ItemGroup>
     <PackageVersion Include="Spectre.Console" Version="0.54.1-alpha.0.86" />
