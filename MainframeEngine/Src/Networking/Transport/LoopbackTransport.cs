@@ -11,8 +11,8 @@ namespace MainframeEngine.Networking;
 /// A client sees the server as <see cref="RemotePeerId"/>; the server sees its clients as 1, 2, 3… in connection order
 /// (never reused). Both channels are lossless and ordered (wrap an endpoint in a <see cref="SimulatedTransport"/> for
 /// loss, latency and reordering). Packets sent during a poll are delivered on the next poll. Payloads are copied into
-/// arrays rented from <see cref="ArrayPool{T}.Shared"/>, so steady-state traffic does not allocate. Not thread-safe:
-/// drive every endpoint from one thread.
+/// arrays from a pool private to the link (the server and its clients; see <see cref="PacketPool"/>), so steady-state
+/// traffic does not allocate whatever other threads do. Not thread-safe: drive every endpoint from one thread.
 /// </remarks>
 public sealed class LoopbackTransport : ITransport
 {
@@ -29,15 +29,17 @@ public sealed class LoopbackTransport : ITransport
     private readonly record struct Item(Kind Kind, PeerId Peer, NetChannel Channel, byte[]? Buffer, int Length, uint Data);
 
     private readonly Queue<Item> _inbox = new();
+    private readonly ArrayPool<byte> _pool; // shared by the server endpoint and its clients
     private readonly Dictionary<PeerId, LoopbackTransport>? _clients; // server endpoints
     private ulong _nextClientId = 1;
     private LoopbackTransport? _server; // client endpoints, while linked
     private PeerId _idOnServer;
     private bool _disposed;
 
-    private LoopbackTransport(bool isServer)
+    private LoopbackTransport(bool isServer, ArrayPool<byte> pool)
     {
         IsServer = isServer;
+        _pool = pool;
         if (isServer)
             _clients = [];
     }
@@ -62,7 +64,7 @@ public sealed class LoopbackTransport : ITransport
     }
 
     /// <summary>Creates a server endpoint; link clients with <see cref="ConnectClient"/>.</summary>
-    public static LoopbackTransport CreateServer() => new(isServer: true);
+    public static LoopbackTransport CreateServer() => new(isServer: true, PacketPool.Create());
 
     /// <summary>Creates a client endpoint linked to this server. Each side sees the other connect on its next poll.</summary>
     /// <param name="connectData">Value the server receives with the connection.</param>
@@ -72,7 +74,7 @@ public sealed class LoopbackTransport : ITransport
             throw new InvalidOperationException("Only a server endpoint accepts clients.");
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var client = new LoopbackTransport(isServer: false);
+        var client = new LoopbackTransport(isServer: false, _pool);
         var id = new PeerId(_nextClientId++);
         client._server = this;
         client._idOnServer = id;
@@ -108,7 +110,7 @@ public sealed class LoopbackTransport : ITransport
                     finally
                     {
                         if (buffer.Length > 0)
-                            ArrayPool<byte>.Shared.Return(buffer);
+                            _pool.Return(buffer);
                     }
                     break;
             }
@@ -139,7 +141,7 @@ public sealed class LoopbackTransport : ITransport
             from = _idOnServer;
         }
 
-        var buffer = payload.Length == 0 ? null : ArrayPool<byte>.Shared.Rent(payload.Length);
+        var buffer = payload.Length == 0 ? null : _pool.Rent(payload.Length);
         payload.CopyTo(buffer);
         remote._inbox.Enqueue(new Item(Kind.Receive, from, channel, buffer, payload.Length, 0));
         return true;
@@ -185,7 +187,7 @@ public sealed class LoopbackTransport : ITransport
         while (_inbox.TryDequeue(out var item))
         {
             if (item.Buffer is { Length: > 0 } buffer)
-                ArrayPool<byte>.Shared.Return(buffer);
+                _pool.Return(buffer);
         }
     }
 

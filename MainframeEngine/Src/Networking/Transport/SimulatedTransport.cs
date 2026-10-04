@@ -52,6 +52,7 @@ public sealed class SimulatedTransport(ITransport inner, NetworkConditions condi
 
     private readonly ITransport _inner = inner ?? throw new ArgumentNullException(nameof(inner));
     private readonly Random _random = new(seed);
+    private readonly ArrayPool<byte> _pool = PacketPool.Create(); // not the shared pool: see PacketPool
     private readonly Func<double> _clock = clock ?? CreateStopwatchClock();
     private readonly PriorityQueue<Pending, (double Due, long Sequence)> _queue = new();
     private readonly Dictionary<PeerId, double> _lastReliableDue = [];
@@ -145,7 +146,7 @@ public sealed class SimulatedTransport(ITransport inner, NetworkConditions condi
                 _lastReliableDue[peer] = due;
             }
 
-            var buffer = payload.Length == 0 ? null : ArrayPool<byte>.Shared.Rent(payload.Length);
+            var buffer = payload.Length == 0 ? null : _pool.Rent(payload.Length);
             payload.CopyTo(buffer);
             _queue.Enqueue(new Pending(peer, channel, buffer, payload.Length), (due, _sequence++));
             if (copy == 1)
@@ -178,7 +179,7 @@ public sealed class SimulatedTransport(ITransport inner, NetworkConditions condi
             }
 
             if (pending.Buffer is not null)
-                ArrayPool<byte>.Shared.Return(pending.Buffer);
+                _pool.Return(pending.Buffer);
         }
 
         foreach (var (packet, priority) in _requeue)
@@ -215,7 +216,7 @@ public sealed class SimulatedTransport(ITransport inner, NetworkConditions condi
             finally
             {
                 if (buffer is not null)
-                    ArrayPool<byte>.Shared.Return(buffer);
+                    _pool.Return(buffer);
             }
         }
     }
@@ -228,7 +229,7 @@ public sealed class SimulatedTransport(ITransport inner, NetworkConditions condi
         while (_queue.TryDequeue(out var pending, out _))
         {
             if (pending.Buffer is not null)
-                ArrayPool<byte>.Shared.Return(pending.Buffer);
+                _pool.Return(pending.Buffer);
         }
 
         _inner.Dispose();

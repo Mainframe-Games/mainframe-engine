@@ -361,7 +361,8 @@ sequenceDiagram
 - **Zero managed allocations in steady state.** This covers send, broadcast, poll, dispatch and the ENet event loop,
   for messages whose `NetworkRead` doesn't allocate (strings and arrays do).
   - The bus reuses one encode writer and one decode reader.
-  - `LoopbackTransport` rents its packet copies from `ArrayPool`.
+  - `LoopbackTransport` (and `SimulatedTransport`) copy packets into arrays from a private `PacketPool`, not
+    `ArrayPool<byte>.Shared`, whose per-core partitions other threads can drain (a measured 1-in-15 test flake).
   - `EnetTransport` hands the listener a span over the native packet.
   - Handlers are multicast delegates stored per message id, and message structs are decoded on the stack with no
     boxing.

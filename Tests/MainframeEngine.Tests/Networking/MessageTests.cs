@@ -325,6 +325,63 @@ public sealed class MessageBusTests
         Assert.Equal(2400, counter);
     }
 
+    // Regression (flake ~1 in 15 full runs): the loopback transport's packet copies came from ArrayPool<byte>.Shared,
+    // whose per-core partitions every thread shares; a test on another thread renting the same size class took the
+    // arrays this thread returned, so its next rent allocated. The transports now use a private pool (PacketPool).
+    [Fact]
+    public void SteadyStateDoesNotAllocateWhileAnotherThreadUsesTheSharedArrayPool()
+    {
+        using var pair = new Pair();
+        pair.Pump();
+        var client = pair.Server.Peers[0];
+        var server = pair.Client.Peers[0];
+        var message = new TransformMessage { NodeId = 1, Position = Vector3.One, Rotation = Quaternion.Identity };
+        pair.ServerEvents.Transforms.Capacity = 64_000;
+        pair.ClientEvents.Transforms.Capacity = 64_000;
+
+        void Round()
+        {
+            pair.Server.Send(client, message, NetChannel.Unreliable);
+            pair.Client.Send(server, message, NetChannel.Reliable);
+            pair.Server.Poll();
+            pair.Client.Poll();
+        }
+
+        for (var i = 0; i < 200; i++)
+            Round();
+
+        using var stop = new CancellationTokenSource();
+        var competitor = new Thread(() =>
+        {
+            var held = new byte[8][];
+            while (!stop.IsCancellationRequested)
+            {
+                for (var k = 0; k < held.Length; k++)
+                    held[k] = System.Buffers.ArrayPool<byte>.Shared.Rent(64);
+                Thread.SpinWait(50);
+                for (var k = 0; k < held.Length; k++)
+                    System.Buffers.ArrayPool<byte>.Shared.Return(held[k]);
+            }
+        })
+        { IsBackground = true };
+        competitor.Start();
+        long allocated;
+        try
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var i = 0; i < 30_000; i++)
+                Round();
+            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+        finally
+        {
+            stop.Cancel();
+            competitor.Join();
+        }
+
+        Assert.Equal(0, allocated);
+    }
+
     private sealed class NullListener : ITransportListener
     {
         public void OnPeerConnected(PeerId peer, uint connectData)
