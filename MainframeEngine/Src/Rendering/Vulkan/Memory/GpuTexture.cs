@@ -16,6 +16,9 @@ public enum TextureColorSpace : byte
 /// <summary>Sampler parameters for a <see cref="GpuTexture"/>.</summary>
 public readonly record struct TextureSampling(Filter Filter, SamplerAddressMode AddressMode)
 {
+    /// <summary>Anisotropic filtering level (1 = off); clamped to <see cref="IVulkanContext.MaxSamplerAnisotropy"/>.</summary>
+    public float MaxAnisotropy { get; init; } = 1f;
+
     public static TextureSampling LinearClamp => new(Filter.Linear, SamplerAddressMode.ClampToEdge);
     public static TextureSampling LinearRepeat => new(Filter.Linear, SamplerAddressMode.Repeat);
     public static TextureSampling NearestClamp => new(Filter.Nearest, SamplerAddressMode.ClampToEdge);
@@ -122,6 +125,8 @@ public sealed unsafe class GpuTexture : IDisposable
 
     internal static Sampler CreateSampler(IVulkanContext ctx, TextureSampling sampling, uint mipLevels)
     {
+        // Anisotropy needs the samplerAnisotropy feature (enabled by the renderer when the device has it).
+        var anisotropy = Math.Min(sampling.MaxAnisotropy, ctx.MaxSamplerAnisotropy);
         var info = new SamplerCreateInfo
         {
             SType = StructureType.SamplerCreateInfo,
@@ -133,6 +138,8 @@ public sealed unsafe class GpuTexture : IDisposable
             AddressModeW = sampling.AddressMode,
             MinLod = 0,
             MaxLod = mipLevels,
+            AnisotropyEnable = anisotropy > 1f && sampling.Filter == Filter.Linear,
+            MaxAnisotropy = Math.Max(1f, anisotropy),
         };
         ctx.Vk.CreateSampler(ctx.Device, in info, null, out var sampler).Check("vkCreateSampler (texture)");
         return sampler;

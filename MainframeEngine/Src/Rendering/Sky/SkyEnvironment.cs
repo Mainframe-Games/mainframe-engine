@@ -114,7 +114,7 @@ public class SkyEnvironment : IDisposable
         var frame = _ctx.Frame;
         frame.EnsureCamera(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position);
 
-        PipelineBuilder.SetViewport(vk, cb, _ctx.SwapchainExtent, flipY: true); // same Y-flip as the scene
+        PipelineBuilder.SetViewport(vk, cb, frame.Extent, flipY: true); // same Y-flip as the scene; the current view's size
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
         frame.Bind(cb, _pipelineLayout);
         if (HasTexture)

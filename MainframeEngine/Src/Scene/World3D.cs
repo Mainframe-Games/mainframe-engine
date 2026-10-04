@@ -8,6 +8,7 @@ namespace MainframeEngine;
 public sealed class World3D
 {
     private readonly List<VisualInstance3D> _visuals = [];
+    private readonly List<GeometryInstance3D> _geometry = [];
     private readonly List<WorldEnvironment> _environments = [];
 
     public World3D()
@@ -32,6 +33,11 @@ public sealed class World3D
 
     internal List<VisualInstance3D> VisualList => _visuals;
 
+    /// <summary>The <see cref="GeometryInstance3D"/>s among <see cref="Visuals"/> (batched by the mesh renderer), in entry order.</summary>
+    public IReadOnlyList<GeometryInstance3D> Geometry => _geometry;
+
+    internal List<GeometryInstance3D> GeometryList => _geometry;
+
     /// <summary>The first <see cref="WorldEnvironment"/> in the world (sky and ambient light), or null.</summary>
     public WorldEnvironment? Environment => _environments.Count > 0 ? _environments[0] : null;
 
@@ -42,6 +48,8 @@ public sealed class World3D
         while (index > 0 && _visuals[index - 1].RenderPriority > visual.RenderPriority)
             index--;
         _visuals.Insert(index, visual);
+        if (visual is GeometryInstance3D geometry)
+            _geometry.Add(geometry);
     }
 
     internal void RemoveVisual(VisualInstance3D visual)
@@ -49,12 +57,28 @@ public sealed class World3D
         var index = _visuals.LastIndexOf(visual);
         if (index >= 0)
             _visuals.RemoveAt(index);
+        if (visual is GeometryInstance3D geometry)
+        {
+            // Swap-remove: the batcher sorts every frame, so order does not matter (O(1) for large worlds).
+            var g = _geometry.LastIndexOf(geometry);
+            if (g >= 0)
+            {
+                _geometry[g] = _geometry[^1];
+                _geometry.RemoveAt(_geometry.Count - 1);
+            }
+        }
     }
 
     internal void ResortVisual(VisualInstance3D visual)
     {
-        RemoveVisual(visual);
-        AddVisual(visual);
+        var index = _visuals.LastIndexOf(visual);
+        if (index < 0)
+            return;
+        _visuals.RemoveAt(index);
+        index = _visuals.Count;
+        while (index > 0 && _visuals[index - 1].RenderPriority > visual.RenderPriority)
+            index--;
+        _visuals.Insert(index, visual);
     }
 
     internal void AddEnvironment(WorldEnvironment environment)

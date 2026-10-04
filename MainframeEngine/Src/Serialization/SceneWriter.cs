@@ -138,7 +138,7 @@ internal sealed class SceneWriter : SerializationContext
             if (missing.RawProperties.ValueKind == JsonValueKind.Object)
             {
                 w.WritePropertyName("props");
-                missing.RawProperties.WriteTo(w);
+                RawProperties.Write(w, missing.RawProperties, missing.ResourceReferences, this);
             }
         }
         else
@@ -169,7 +169,7 @@ internal sealed class SceneWriter : SerializationContext
             if (missing.RawProperties.ValueKind == JsonValueKind.Object)
             {
                 w.WritePropertyName("props");
-                missing.RawProperties.WriteTo(w);
+                RawProperties.Write(w, missing.RawProperties, missing.ResourceReferences, this);
             }
 
             WriteGroups(w, node, null);

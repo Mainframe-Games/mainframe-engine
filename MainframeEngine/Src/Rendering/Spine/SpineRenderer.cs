@@ -312,7 +312,7 @@ internal sealed class SpineRenderer : IDisposable
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &vbOffset);
 
         // Right-handed viewport (negative height flips Y)
-        PipelineBuilder.SetViewport(vk, cb, ctx.SwapchainExtent, flipY: true);
+        PipelineBuilder.SetViewport(vk, cb, ctx.Frame.Extent, flipY: true);
 
         // Set 0 frame (camera + lights), set 1 shadows (real or fallback)
         frame.Bind(cb, _pipelineLayout, _shadowDescriptors);

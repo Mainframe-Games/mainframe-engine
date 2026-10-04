@@ -39,6 +39,12 @@ public abstract class VisualInstance3D : Node3D, IRenderResourceOwner
         }
     }
 
+    /// <summary>
+    /// True for nodes the render server draws in batches (<see cref="GeometryInstance3D"/>) instead of calling
+    /// <see cref="Draw"/>.
+    /// </summary>
+    internal virtual bool IsBatched => false;
+
     /// <summary>The server that owns this node's GPU objects, once created.</summary>
     protected RenderServer? RenderServer => _renderServer;
 

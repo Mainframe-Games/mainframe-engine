@@ -16,8 +16,8 @@ public sealed class WorldTests : IDisposable
     public void VisualsRegisterByPriorityThenEntryOrder()
     {
         var world = _tree.Root.World3D;
-        var floor = new Quad { Name = "Floor" };
-        var box = new Box3d { Name = "Box" };
+        var floor = new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh() };
+        var box = new MeshInstance3D { Name = "Box", Mesh = new BoxMesh() };
         var grid = new Grid3D();
         _tree.Root.AddChild(floor);
         _tree.Root.AddChild(box);
@@ -143,8 +143,8 @@ public sealed class WorldTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => servers.Register(new RenderServer(new HeadlessRenderer())));
 
         var tree = new SceneTree(servers);
-        var box = new Box3d();
-        var orphan = new Quad();
+        var box = new MeshInstance3D { Mesh = new BoxMesh() };
+        var orphan = new Sprite3D();
         tree.Root.AddChild(box);
         tree.Root.AddChild(orphan);
         Assert.True(box.HasRenderResources);

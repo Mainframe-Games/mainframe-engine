@@ -31,6 +31,10 @@ public sealed class AssetIndex
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(AssetMeta))]
 [JsonSerializable(typeof(AssetIndex))]
+[JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(int))]
+[JsonSerializable(typeof(float))]
 internal sealed partial class AssetJsonContext : JsonSerializerContext;
 
 /// <summary>

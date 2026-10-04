@@ -10,7 +10,7 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// </summary>
 public class LitShapesScene(HostOptions host) : RenderTestGame(host)
 {
-    private Box3d _spinningBox = null!;
+    private MeshInstance3D _spinningBox = null!;
 
     protected Camera3D Camera { get; private set; } = null!;
 
@@ -38,10 +38,24 @@ public class LitShapesScene(HostOptions host) : RenderTestGame(host)
         scene.AddChild(Environment);
         scene.AddChild(new Grid3D { Name = "Grid" });
 
-        scene.AddChild(new Quad { Name = "Floor", RotationDegrees = new Vector3(90, 0, 0), Scale = new Vector3(10, 10, 1), Color = Color.White });
-        _spinningBox = new Box3d { Name = "SpinningBox", Position = new Vector3(-1.5f, 1f, 0), Color = Color.FromArgb(255, 230, 120, 80) };
+        // One box mesh shared by both boxes (one GPU mesh); each box has its own colour material.
+        var box = new BoxMesh();
+        scene.AddChild(new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(10, 10) } });
+        _spinningBox = new MeshInstance3D
+        {
+            Name = "SpinningBox",
+            Position = new Vector3(-1.5f, 1f, 0),
+            Mesh = box,
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 230, 120, 80) },
+        };
         scene.AddChild(_spinningBox);
-        scene.AddChild(new Box3d { Name = "Box", Position = new Vector3(1.5f, 0.5f, 1f), Color = Color.FromArgb(255, 90, 160, 230) });
+        scene.AddChild(new MeshInstance3D
+        {
+            Name = "Box",
+            Position = new Vector3(1.5f, 0.5f, 1f),
+            Mesh = box,
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 90, 160, 230) },
+        });
 
         AddLights(scene);
         AddNodes(scene);

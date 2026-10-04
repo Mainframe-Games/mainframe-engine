@@ -111,4 +111,29 @@ public interface IVulkanContext
     /// docs/design/color-pipeline.md.
     /// </summary>
     float Exposure { get; set; }
+
+    /// <summary>Largest anisotropic filtering level samplers may use (1 when the device lacks samplerAnisotropy).</summary>
+    float MaxSamplerAnisotropy { get; }
+
+    /// <summary>
+    /// Registers images for <c>ImGui.Image</c> (offscreen views, textures); null until the engine's ImGui renderer
+    /// exists.
+    /// </summary>
+    IImGuiTextureRegistry? ImGuiTextures { get; }
+}
+
+/// <summary>
+/// Maps sampled images to ImGui texture ids. An id stays valid until <see cref="Unregister"/>; <see cref="Update"/>
+/// points it at a new image (e.g. after a render target resize) without disturbing frames in flight.
+/// </summary>
+public interface IImGuiTextureRegistry
+{
+    /// <summary>Registers an image (in <c>SHADER_READ_ONLY_OPTIMAL</c> when drawn) and returns its ImGui texture id.</summary>
+    nint Register(ImageView view, Sampler sampler);
+
+    /// <summary>Points <paramref name="textureId"/> at another image.</summary>
+    void Update(nint textureId, ImageView view, Sampler sampler);
+
+    /// <summary>Releases <paramref name="textureId"/> (once frames in flight no longer use it).</summary>
+    void Unregister(nint textureId);
 }

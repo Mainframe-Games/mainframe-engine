@@ -325,6 +325,9 @@ public abstract class Engine : IDisposable
             _waitingForRestore = false;
         }
 
+        // M3: cull and sort the scene's meshes, create/update their GPU resources (uploads join this frame).
+        Servers.Render?.PrepareFrame(Root);
+
         Renderer.BeginFrame();
 
         // For Vulkan, BeginFrame can return early without starting a frame (swapchain recreation
@@ -335,6 +338,7 @@ public abstract class Engine : IDisposable
             // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
             OnShadowPass(_gameTime);
             Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters
+            Servers.Render?.RenderOffscreen(Root); // M3: sub-viewports and object-ID picking passes
 
             // Begin the main render pass, then let the game draw geometry.
             (Renderer as IVulkanContext)?.BeginRenderPass();

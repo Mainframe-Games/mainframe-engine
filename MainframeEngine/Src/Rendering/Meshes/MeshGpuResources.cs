@@ -1,0 +1,252 @@
+using System.Buffers;
+using System.Drawing;
+using System.Numerics;
+using System.Runtime.InteropServices;
+using Silk.NET.Vulkan;
+
+namespace MainframeEngine;
+
+/// <summary>Index range of one surface inside a <see cref="MeshGpu"/>'s shared buffers.</summary>
+internal readonly record struct SurfaceRange(uint FirstIndex, uint IndexCount, int VertexOffset);
+
+/// <summary>
+/// A <see cref="Mesh"/> on the GPU: every surface's vertices in one device-local vertex buffer and indices in one
+/// index buffer (uploaded through the upload queue), plus each surface's range. Shared by every instance of the
+/// mesh (reference-counted by the nodes using it); re-uploaded when <see cref="Mesh.Version"/> changes.
+/// </summary>
+internal sealed class MeshGpu
+{
+    private readonly IVulkanContext _ctx;
+    private int _uploadedVersion;
+
+    public MeshGpu(IVulkanContext ctx, Mesh mesh, int id)
+    {
+        _ctx = ctx;
+        Mesh = mesh;
+        Id = id;
+    }
+
+    public Mesh Mesh { get; }
+
+    /// <summary>Dense id for draw sort keys.</summary>
+    public int Id { get; }
+
+    public int RefCount { get; set; }
+
+    /// <summary>Frame of the last <see cref="Update"/> (meshes are checked once per frame).</summary>
+    public ulong PreparedFrame { get; set; }
+
+    /// <summary>Result of the last <see cref="Update"/>: there is geometry to draw.</summary>
+    public bool HasGeometry { get; set; }
+
+    public GpuBuffer? Vertices { get; private set; }
+    public GpuBuffer? Indices { get; private set; }
+    public SurfaceRange[] Surfaces { get; private set; } = [];
+    public Aabb Bounds { get; private set; } = Aabb.Empty;
+
+    /// <summary>Bumped on every re-upload (nodes refresh their per-surface materials).</summary>
+    public int Generation { get; private set; }
+
+    /// <summary>Uploads the mesh if it changed since the last upload. Returns false when it has nothing to draw.</summary>
+    public bool Update()
+    {
+        var version = Mesh.Version;
+        if (version == _uploadedVersion)
+            return Vertices is not null;
+        _uploadedVersion = version;
+        Generation++;
+        Release();
+        try
+        {
+            Upload();
+        }
+        catch (InvalidDataException e)
+        {
+            Log.Error($"[Mesh] '{Mesh.ResourcePath ?? Mesh.ResourceName}' cannot be drawn: {e.Message}");
+            Release();
+            Surfaces = new SurfaceRange[Mesh.SurfaceCount];
+        }
+
+        return Vertices is not null;
+    }
+
+    private void Upload()
+    {
+        var surfaceCount = Mesh.SurfaceCount;
+        var ranges = new SurfaceRange[surfaceCount];
+        int vertexCount = 0, indexCount = 0;
+        for (var s = 0; s < surfaceCount; s++)
+        {
+            var surface = Mesh.GetSurface(s);
+            surface.Validate();
+            ranges[s] = new SurfaceRange((uint)indexCount, (uint)surface.IndexCount, vertexCount);
+            vertexCount += surface.VertexCount;
+            indexCount += surface.IndexCount;
+        }
+
+        Surfaces = ranges;
+        Bounds = Mesh.Bounds;
+        if (vertexCount == 0 || indexCount == 0)
+            return;
+
+        var vertices = ArrayPool<MeshVertex>.Shared.Rent(vertexCount);
+        var indices = ArrayPool<uint>.Shared.Rent(indexCount);
+        try
+        {
+            for (var s = 0; s < surfaceCount; s++)
+            {
+                var surface = Mesh.GetSurface(s);
+                var range = ranges[s];
+                surface.WriteVertices(vertices.AsSpan(range.VertexOffset, surface.VertexCount));
+                var src = surface.Indices;
+                var dst = indices.AsSpan((int)range.FirstIndex, src.Length);
+                for (var i = 0; i < src.Length; i++)
+                    dst[i] = (uint)src[i];
+            }
+
+            Vertices = GpuBuffer.CreateStatic<MeshVertex>(_ctx, vertices.AsSpan(0, vertexCount), BufferUsageFlags.VertexBufferBit);
+            Indices = GpuBuffer.CreateStatic<uint>(_ctx, indices.AsSpan(0, indexCount), BufferUsageFlags.IndexBufferBit);
+        }
+        finally
+        {
+            ArrayPool<MeshVertex>.Shared.Return(vertices);
+            ArrayPool<uint>.Shared.Return(indices);
+        }
+    }
+
+    /// <summary>Releases the buffers (deferred until frames in flight finish).</summary>
+    public void Release()
+    {
+        Vertices?.Dispose();
+        Indices?.Dispose();
+        Vertices = null;
+        Indices = null;
+    }
+}
+
+/// <summary>A <see cref="Texture2D"/> uploaded in one colour space; shared by the materials using it.</summary>
+internal sealed class TextureGpu
+{
+    private readonly IVulkanContext _ctx;
+    private int _uploadedVersion;
+
+    public TextureGpu(IVulkanContext ctx, Texture2D texture, TextureColorSpace colorSpace)
+    {
+        _ctx = ctx;
+        Texture = texture;
+        ColorSpace = colorSpace;
+    }
+
+    public Texture2D Texture { get; }
+    public TextureColorSpace ColorSpace { get; }
+    public int RefCount { get; set; }
+    public GpuTexture? Gpu { get; private set; }
+
+    /// <summary>Bumped on every re-upload (materials rewrite their descriptor sets).</summary>
+    public int Generation { get; private set; }
+
+    /// <summary>Uploads the texture if it changed. Returns false when it could not be decoded.</summary>
+    public bool Update()
+    {
+        var version = Texture.Version;
+        if (version == _uploadedVersion)
+            return Gpu is not null;
+        _uploadedVersion = version;
+        Generation++;
+        Gpu?.Dispose();
+        Gpu = null;
+        try
+        {
+            var settings = Texture.ImportSettings;
+            var (rgba, width, height) = Texture.DecodePixels();
+            Gpu = GpuTexture.Create2D(_ctx, (uint)width, (uint)height, rgba, ColorSpace, settings.ToSampling(), settings.Mipmaps);
+        }
+        catch (Exception e) when (e is InvalidDataException or IOException or InvalidOperationException)
+        {
+            Log.Error($"[Texture] {Texture} cannot be uploaded: {e.Message}");
+        }
+
+        return Gpu is not null;
+    }
+
+    public void Release()
+    {
+        Gpu?.Dispose();
+        Gpu = null;
+    }
+}
+
+/// <summary>std140 parameters of <c>include/material.glsl</c> (80 bytes).</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct MaterialParams
+{
+    public Vector4 Albedo;
+    public Vector4 Emission;
+    public Vector4 UvTransform;
+    public Vector4 Params;
+    public uint TextureFlags;
+    public uint Unshaded;
+    public uint DoubleSided;
+    private uint _pad;
+
+    public const int Size = 80;
+    public const uint HasAlbedo = 1, HasNormal = 2, HasEmission = 4;
+
+    /// <summary>Packs a material (colours converted from sRGB to linear).</summary>
+    public static MaterialParams From(StandardMaterial3D m, uint textureFlags) => new()
+    {
+        Albedo = Linear(m.AlbedoColor),
+        Emission = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.EmissionColor)) * m.EmissionEnergy, 0f),
+        UvTransform = new Vector4(m.UvScale, m.UvOffset.X, m.UvOffset.Y),
+        Params = new Vector4(m.Specular, MathF.Max(m.Shininess, 1f), m.AlphaCutoff, m.NormalScale),
+        TextureFlags = textureFlags,
+        Unshaded = m.ShadingMode == ShadingMode.Unshaded ? 1u : 0u,
+        DoubleSided = m.DoubleSided ? 1u : 0u,
+    };
+
+    private static Vector3 Rgb(Color c) => new Vector3(c.R, c.G, c.B) / 255f;
+
+    private static Vector4 Linear(Color c) => new(ColorSpace.SrgbToLinear(Rgb(c)), c.A / 255f);
+}
+
+/// <summary>
+/// A <see cref="Material"/> on the GPU: its parameter UBO (device-local, updated through the upload queue) and
+/// descriptor set 2 (parameters, sampler, albedo/normal/emission images). Cached pipeline entries make the
+/// steady-state draw-list build hash-free. Shared by every surface drawn with the material.
+/// </summary>
+internal sealed class MaterialGpu
+{
+    public MaterialGpu(Material material, int id)
+    {
+        Material = material;
+        Id = id;
+    }
+
+    public Material Material { get; }
+    public int Id { get; }
+    public int RefCount { get; set; }
+
+    public GpuBuffer? Params { get; set; }
+    public DescriptorSet Set { get; set; }
+    public DescriptorPool SetPool { get; set; }
+    public TextureGpu? Albedo;
+    public TextureGpu? Normal;
+    public TextureGpu? Emission;
+    public int AlbedoGeneration { get; set; }
+    public int NormalGeneration { get; set; }
+    public int EmissionGeneration { get; set; }
+
+    /// <summary>Material version the GPU copy reflects (0 = never uploaded).</summary>
+    public int UploadedVersion { get; set; }
+
+    /// <summary>Frame number of the last <see cref="MeshRenderer"/> refresh (once per frame).</summary>
+    public ulong PreparedFrame { get; set; }
+
+    public MaterialRenderState State { get; set; }
+    public int RenderPriority { get; set; }
+
+    // [shader set × mirrored] → pipeline; reset when the state changes.
+    public readonly PipelineEntry[] Pipelines = new PipelineEntry[4];
+
+    public void ResetPipelines() => Array.Clear(Pipelines);
+}

@@ -29,6 +29,9 @@ public sealed class MissingNode : Node
 
     /// <summary>The properties as stored in the file (written back unchanged).</summary>
     public JsonElement RawProperties { get; }
+
+    /// <summary>Resources the raw properties reference (<c>{"res": key}</c>), kept so saving writes them again.</summary>
+    internal IReadOnlyDictionary<string, Resource>? ResourceReferences { get; set; }
 }
 
 /// <summary>Stands in for a resource whose type is not registered; see <see cref="MissingNode"/>.</summary>
@@ -51,4 +54,7 @@ public sealed class MissingResource : Resource
     public int Version { get; }
 
     public JsonElement RawProperties { get; }
+
+    /// <summary>Resources the raw properties reference, kept so saving writes them again.</summary>
+    internal IReadOnlyDictionary<string, Resource>? ResourceReferences { get; set; }
 }

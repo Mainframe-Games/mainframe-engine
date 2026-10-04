@@ -301,7 +301,7 @@ public sealed class GeneratorTests
     public void EngineTypesAreRegisteredWithTheirExports()
     {
         foreach (var name in new[] { "Node", "Node3D", "Node2D", "Camera3D", "Camera2D", "DirectionalLight3D", "OmniLight3D",
-                     "SpotLight3D", "WorldEnvironment", "Sky", "Box3d", "Quad", "SpineNode", "Grid3D", "Timer", "PackedScene" })
+                     "SpotLight3D", "WorldEnvironment", "Sky", "MeshInstance3D", "Sprite3D", "BoxMesh", "StandardMaterial3D", "Texture2D", "SubViewport", "SpineNode", "Grid3D", "Timer", "PackedScene" })
             Assert.NotNull(TypeRegistry.Get(name));
 
         var node3D = TypeRegistry.Get(typeof(Node3D))!;

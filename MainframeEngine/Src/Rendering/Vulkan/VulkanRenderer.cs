@@ -46,6 +46,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
     private ShaderModuleCache? _shaderModules;
     private FrameContext? _frameContext;
     private float _exposure = IVulkanContext.DefaultExposure;
+    private float _maxSamplerAnisotropy = 1f; // 1 = anisotropic filtering unavailable
     private ulong _frameNumber;                                      // frames that started recording (1-based)
     private readonly ulong[] _slotFrameNumber = new ulong[MaxFramesInFlight]; // last frame recorded in each slot
 
@@ -138,6 +139,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
     public ShaderModuleCache Shaders => _shaderModules ?? throw new InvalidOperationException("The device is not initialised.");
     public FrameContext Frame => _frameContext ??= new FrameContext(this);
     public ulong FrameNumber => _frameNumber;
+    public float MaxSamplerAnisotropy => _maxSamplerAnisotropy;
+    public IImGuiTextureRegistry? ImGuiTextures { get; internal set; }
 
     public float Exposure
     {
@@ -686,7 +689,13 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         var features = new PhysicalDeviceFeatures
         {
             ShaderSampledImageArrayDynamicIndexing = supported.ShaderSampledImageArrayDynamicIndexing,
+            SamplerAnisotropy = supported.SamplerAnisotropy, // material textures (M3); optional
         };
+        if (supported.SamplerAnisotropy)
+        {
+            _vk.GetPhysicalDeviceProperties(_physicalDevice, out var deviceProps);
+            _maxSamplerAnisotropy = deviceProps.Limits.MaxSamplerAnisotropy;
+        }
         var createInfo = new DeviceCreateInfo
         {
             SType = StructureType.DeviceCreateInfo,

@@ -69,6 +69,8 @@ public static class ResourceLoader
             resource.ClearReferences();
             Unload(resource);
         }
+
+        ModelImporter.ClearCache();
     }
 
     /// <summary>
@@ -194,6 +196,9 @@ public static class ResourceLoader
         if (!File.Exists(fullPath))
             throw new FileNotFoundException($"Resource file not found: '{pathKey}'.", fullPath);
 
+        if (!AssetDatabase.IsSelfDescribing(fullPath) && AssetImporters.Find(fullPath) is { } importer)
+            return Import(importer, fullPath, pathKey);
+
         var bytes = File.ReadAllBytes(fullPath);
         if (fullPath.EndsWith(SceneFormat.SceneExtension, StringComparison.OrdinalIgnoreCase))
         {
@@ -205,7 +210,18 @@ public static class ResourceLoader
         if (fullPath.EndsWith(SceneFormat.ResourceExtension, StringComparison.OrdinalIgnoreCase))
             return ReadResourceFile(bytes, pathKey);
 
-        throw new NotSupportedException($"No loader for '{pathKey}' (expected {SceneFormat.SceneExtension} or {SceneFormat.ResourceExtension}).");
+        throw new NotSupportedException($"No loader for '{pathKey}' (expected {SceneFormat.SceneExtension}, " +
+                                        $"{SceneFormat.ResourceExtension} or an imported type: {string.Join(", ", AssetImporters.Extensions)}).");
+    }
+
+    // Images, models, ...: the importer for the extension, with the .meta sidecar's UID and settings.
+    private static Resource Import(IAssetImporter importer, string fullPath, string pathKey)
+    {
+        var meta = AssetDatabase.Current.ReadOrCreateMeta(fullPath, create: false);
+        var resource = importer.Import(fullPath, pathKey, meta);
+        resource.ResourcePath = pathKey;
+        resource.Uid = meta is not null && AssetUid.IsUid(meta.Uid) ? meta.Uid : null;
+        return resource;
     }
 
     private static Resource ReadResourceFile(byte[] bytes, string pathKey)
@@ -234,7 +250,7 @@ public static class ResourceLoader
         else
         {
             Log.Warning($"[Resources] '{pathKey}': unknown resource type '{typeName}'; kept as MissingResource.");
-            resource = new MissingResource(typeName, version, props);
+            resource = new MissingResource(typeName, version, props) { ResourceReferences = RawProperties.ResolveReferences(props, table) };
         }
 
         resource.ResourcePath = pathKey;

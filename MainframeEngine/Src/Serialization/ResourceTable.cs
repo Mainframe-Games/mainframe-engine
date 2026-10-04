@@ -42,9 +42,10 @@ internal sealed class ResourceTable(Dictionary<string, JsonElement> entries, str
         if (info is not { IsResource: true, IsAbstract: false })
         {
             Log.Warning($"[Scene] '{source}': unknown resource type '{typeName}'; kept as MissingResource.");
-            resource = new MissingResource(typeName, version, props);
-            _resolved[key] = resource;
-            return resource;
+            var missing = new MissingResource(typeName, version, props);
+            _resolved[key] = missing;
+            missing.ResourceReferences = RawProperties.ResolveReferences(props, this);
+            return missing;
         }
 
         resource = (Resource)info.CreateInstance();
@@ -92,6 +93,13 @@ internal static class PropertyApplier
 
         foreach (var property in props.EnumerateObject())
             ApplyOne(target, info, property.Name, property.Value, context, where);
+    }
+
+    /// <summary>Applies already-migrated properties (a removed type's upgrade hands over what it did not consume).</summary>
+    public static void Apply(object target, NodeTypeInfo info, PropertyBag bag, DeserializationContext context, string where)
+    {
+        foreach (var (name, value) in bag.Entries)
+            ApplyOne(target, info, name, value, context, where);
     }
 
     private static void Migrate(NodeTypeInfo info, PropertyBag bag, int fromVersion, string where)

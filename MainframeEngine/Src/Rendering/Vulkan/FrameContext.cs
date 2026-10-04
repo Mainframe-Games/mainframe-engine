@@ -73,15 +73,20 @@ public struct FrameData
 
 /// <summary>
 /// The per-frame shared descriptor set 0: camera (<see cref="FrameData"/>, binding 0) and lights (the
-/// <see cref="LightEnvironment"/> UBO, binding 1), written once per frame into the frame slot's buffer and bound
-/// by every scene pipeline — instead of each object writing and binding its own copies. Set 1 is the shadow set
-/// (<see cref="ShadowSystem"/> or the renderer's fallback); per-material and per-object data follow in set 2+
-/// and push constants (model matrix).
+/// <see cref="LightEnvironment"/> UBO, binding 1), written once per frame and view into the frame slot's buffer and
+/// bound by every scene pipeline — instead of each object writing and binding its own copies. Set 1 is the shadow
+/// set (<see cref="ShadowSystem"/> or the renderer's fallback); per-material data is set 2 and per-instance data
+/// comes from the instance buffer (or push constants).
 /// </summary>
 /// <remarks>
-/// <para>Call <see cref="Begin"/> once per frame before drawing (from <c>OnRenderMainPass</c>). Renderer-owned
-/// drawers (sky, grid, Spine) also call the <c>Ensure*</c> methods with the camera they were given, which write
-/// the data only if nothing has this frame, so games that never call <see cref="Begin"/> keep working.</para>
+/// <para><b>Views.</b> A frame can render several views (the main viewport, offscreen <see cref="SubViewport"/>s,
+/// the object-ID pass): each has its own camera, lights and target extent. <see cref="CurrentView"/> (0 = the main
+/// view, sized to the swapchain) selects which copy <see cref="Begin"/>, the <c>Ensure*</c> methods,
+/// <see cref="Bind"/> and <see cref="Extent"/> refer to; the render server switches it around offscreen views
+/// with <see cref="SetView"/>.</para>
+/// <para>Call <see cref="Begin"/> once per frame (and view) before drawing. Renderer-owned drawers (sky, grid,
+/// Spine) also call the <c>Ensure*</c> methods with the camera they were given, which write the data only if
+/// nothing has this frame, so games that never call <see cref="Begin"/> keep working.</para>
 /// <para>Pipelines built with <see cref="CreatePipelineLayout"/> share set 0 (and set 1 when they take the shadow
 /// set) and the <see cref="PushConstantSize"/>-byte push range, so their layouts are compatible: set 0 bound once
 /// stays bound across pipeline switches.</para>
@@ -95,22 +100,29 @@ public sealed unsafe class FrameContext : IDisposable
     public const uint PushConstantSize = 128;
     public const ShaderStageFlags PushConstantStages = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit;
 
+    /// <summary>Views a frame can render (main view + offscreen views).</summary>
+    public const int MaxViews = 8;
+
     private const int Slots = IVulkanContext.MaxFramesInFlight;
 
     private readonly IVulkanContext _ctx;
     private readonly ulong _lightsOffset;
+    private readonly ulong _viewStride;
     private readonly GpuBuffer[] _buffers = new GpuBuffer[Slots];
-    private readonly DescriptorSet[] _sets = new DescriptorSet[Slots];
+    private readonly DescriptorSet[] _sets = new DescriptorSet[Slots * MaxViews];
     private readonly DescriptorPool _pool;
-    private readonly ulong[] _cameraFrame = new ulong[Slots];
-    private readonly ulong[] _lightsFrame = new ulong[Slots];
+    private readonly ulong[] _cameraFrame = new ulong[Slots * MaxViews];
+    private readonly ulong[] _lightsFrame = new ulong[Slots * MaxViews];
+    private Extent2D _viewExtent;
     private bool _disposed;
 
     internal FrameContext(IVulkanContext ctx)
     {
         _ctx = ctx;
         ctx.Vk.GetPhysicalDeviceProperties(ctx.PhysicalDevice, out var props);
-        _lightsOffset = FreeListBlock.AlignUp(FrameData.Size, Math.Max(256ul, props.Limits.MinUniformBufferOffsetAlignment));
+        var alignment = Math.Max(256ul, props.Limits.MinUniformBufferOffsetAlignment);
+        _lightsOffset = FreeListBlock.AlignUp(FrameData.Size, alignment);
+        _viewStride = FreeListBlock.AlignUp(_lightsOffset + LightEnvironment.UboSize, alignment);
 
         ReadOnlySpan<DescriptorSetLayoutBinding> bindings =
         [
@@ -118,72 +130,107 @@ public sealed unsafe class FrameContext : IDisposable
             new() { Binding = 1, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = PushConstantStages },
         ];
         SetLayout = PipelineBuilder.CreateSetLayout(ctx, bindings, "frame set 0");
-        _pool = PipelineBuilder.CreatePool(ctx, Slots,
-            [new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 2 * Slots }], "frame set 0");
+        _pool = PipelineBuilder.CreatePool(ctx, Slots * MaxViews,
+            [new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 2 * Slots * MaxViews }], "frame set 0");
 
-        for (var i = 0; i < Slots; i++)
+        for (var slot = 0; slot < Slots; slot++)
         {
-            _buffers[i] = GpuBuffer.Create(ctx, _lightsOffset + LightEnvironment.UboSize, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
-            _buffers[i].MappedSpan.Clear();
-            _sets[i] = PipelineBuilder.AllocateSet(ctx, _pool, SetLayout, "frame set 0");
-            PipelineBuilder.WriteUniformBuffer(ctx, _sets[i], 0, _buffers[i].Descriptor(0, FrameData.Size));
-            PipelineBuilder.WriteUniformBuffer(ctx, _sets[i], 1, _buffers[i].Descriptor(_lightsOffset, LightEnvironment.UboSize));
+            _buffers[slot] = GpuBuffer.Create(ctx, _viewStride * MaxViews, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
+            _buffers[slot].MappedSpan.Clear();
+            for (var view = 0; view < MaxViews; view++)
+            {
+                var set = PipelineBuilder.AllocateSet(ctx, _pool, SetLayout, "frame set 0");
+                var baseOffset = (ulong)view * _viewStride;
+                PipelineBuilder.WriteUniformBuffer(ctx, set, 0, _buffers[slot].Descriptor(baseOffset, FrameData.Size));
+                PipelineBuilder.WriteUniformBuffer(ctx, set, 1, _buffers[slot].Descriptor(baseOffset + _lightsOffset, LightEnvironment.UboSize));
+                _sets[slot * MaxViews + view] = set;
+            }
         }
     }
 
     /// <summary>Layout of set 0 (binding 0 camera, binding 1 lights).</summary>
     public DescriptorSetLayout SetLayout { get; }
 
-    /// <summary>Set 0 for the frame being recorded.</summary>
-    public DescriptorSet CurrentSet => _sets[_ctx.FrameSlot];
+    /// <summary>The view the frame is currently drawing (0 = main view); see <see cref="SetView"/>.</summary>
+    public int CurrentView { get; private set; }
+
+    /// <summary>Pixel size of the current view's target (the swapchain extent for the main view).</summary>
+    public Extent2D Extent => CurrentView == 0 ? _ctx.SwapchainExtent : _viewExtent;
+
+    /// <summary>Set 0 for the frame and view being recorded.</summary>
+    public DescriptorSet CurrentSet => _sets[Index];
+
+    private int Index => _ctx.FrameSlot * MaxViews + CurrentView;
 
     /// <summary>Time in seconds written to <see cref="FrameData.Clip"/>.z by <see cref="Begin"/>.</summary>
     public float Time { get; set; }
 
-    /// <summary>Writes this frame's camera and lights. Call once per frame before the main-pass draws.</summary>
-    public void Begin(ICamera camera, LightEnvironment? lights)
+    /// <summary>
+    /// Switches the view later calls refer to: 0 is the main view; 1 .. <see cref="MaxViews"/> - 1 are offscreen
+    /// views of <paramref name="extent"/> pixels (ignored for view 0).
+    /// </summary>
+    public void SetView(int view, Extent2D extent)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(view);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(view, MaxViews);
+        CurrentView = view;
+        _viewExtent = extent;
+    }
+
+    /// <summary>Writes this frame's camera and lights for the current view. Call once per frame before the main-pass draws.</summary>
+    public void Begin(ICamera camera, LightEnvironment? lights) => Begin(camera, lights, shadows: true);
+
+    /// <summary>
+    /// <see cref="Begin(ICamera, LightEnvironment?)"/>; <paramref name="shadows"/> false tells the lit shaders not to
+    /// sample shadow maps (offscreen views of another world).
+    /// </summary>
+    public void Begin(ICamera camera, LightEnvironment? lights, bool shadows)
     {
         ArgumentNullException.ThrowIfNull(camera);
         WriteCamera(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position);
         if (lights is not null)
-            WriteLights(lights, camera.Position);
+            WriteLights(lights, camera.Position, shadows);
     }
 
-    /// <summary>Writes the camera block for this frame (overwrites anything written earlier this frame).</summary>
+    /// <summary>Writes the camera block for this frame and view (overwrites anything written earlier this frame).</summary>
     public void WriteCamera(in Matrix4x4 view, in Matrix4x4 projection, Vector3 position)
     {
         if (!_ctx.FrameStarted) return;
-        var slot = _ctx.FrameSlot;
-        _buffers[slot].Write(FrameData.From(view, projection, position, _ctx.SwapchainExtent, Time, _ctx.Exposure));
-        _cameraFrame[slot] = _ctx.FrameNumber;
+        var index = Index;
+        _buffers[_ctx.FrameSlot].Write(FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure),
+            (ulong)CurrentView * _viewStride);
+        _cameraFrame[index] = _ctx.FrameNumber;
     }
 
-    /// <summary>Writes the lights block for this frame.</summary>
-    public void WriteLights(LightEnvironment lights, Vector3 cameraPosition)
+    /// <summary>Writes the lights block for this frame and view.</summary>
+    public void WriteLights(LightEnvironment lights, Vector3 cameraPosition) => WriteLights(lights, cameraPosition, shadows: true);
+
+    /// <summary>Writes the lights block; <paramref name="shadows"/> false disables shadow-map sampling for this view.</summary>
+    public void WriteLights(LightEnvironment lights, Vector3 cameraPosition, bool shadows)
     {
         ArgumentNullException.ThrowIfNull(lights);
         if (!_ctx.FrameStarted) return;
-        var slot = _ctx.FrameSlot;
-        lights.WriteUbo(_buffers[slot].MappedSpan.Slice((int)_lightsOffset, LightEnvironment.UboSize), cameraPosition);
-        _lightsFrame[slot] = _ctx.FrameNumber;
+        var offset = (int)((ulong)CurrentView * _viewStride + _lightsOffset);
+        lights.WriteUbo(_buffers[_ctx.FrameSlot].MappedSpan.Slice(offset, LightEnvironment.UboSize), cameraPosition, shadows);
+        _lightsFrame[Index] = _ctx.FrameNumber;
     }
 
-    /// <summary>Writes the camera block unless something already did this frame.</summary>
+    /// <summary>Writes the camera block unless something already did this frame (for the current view).</summary>
     public void EnsureCamera(in Matrix4x4 view, in Matrix4x4 projection, Vector3 position)
     {
-        if (_ctx.FrameStarted && _cameraFrame[_ctx.FrameSlot] != _ctx.FrameNumber)
+        if (_ctx.FrameStarted && _cameraFrame[Index] != _ctx.FrameNumber)
             WriteCamera(view, projection, position);
     }
 
-    /// <summary>Writes the lights block unless something already did this frame.</summary>
+    /// <summary>Writes the lights block unless something already did this frame (for the current view).</summary>
     public void EnsureLights(LightEnvironment lights, Vector3 cameraPosition)
     {
-        if (_ctx.FrameStarted && _lightsFrame[_ctx.FrameSlot] != _ctx.FrameNumber)
+        if (_ctx.FrameStarted && _lightsFrame[Index] != _ctx.FrameNumber)
             WriteLights(lights, cameraPosition);
     }
 
-    /// <summary>True once this frame's camera block has been written.</summary>
-    public bool HasCameraThisFrame => _ctx.FrameStarted && _cameraFrame[_ctx.FrameSlot] == _ctx.FrameNumber;
+    /// <summary>True once this frame's camera block has been written for the current view.</summary>
+    public bool HasCameraThisFrame => _ctx.FrameStarted && _cameraFrame[Index] == _ctx.FrameNumber;
 
     /// <summary>Binds set 0 (and, when given, the shadow set as set 1) for pipelines made with <see cref="CreatePipelineLayout"/>.</summary>
     public void Bind(CommandBuffer cb, PipelineLayout layout, IShadowDescriptors? shadows = null)

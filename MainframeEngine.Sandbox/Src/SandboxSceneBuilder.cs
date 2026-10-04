@@ -32,8 +32,8 @@ public static class SandboxSceneBuilder
             Scale = new Vector3(0.1f, 0.1f, 0.1f),
             Animation = "walk",
         });
-        Add(root, new Quad { Name = "Floor", RotationDegrees = new Vector3(90, 0, 0), Scale = new Vector3(10, 10, 1) });
-        var box = new SpinningBox { Name = "Box", Position = new Vector3(3, 1, 0) };
+        Add(root, new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(10, 10) } });
+        var box = new SpinningBox { Name = "Box", Position = new Vector3(3, 1, 0), Mesh = new BoxMesh() };
         Add(root, box);
 
         // A quiet looping hum attached to the box (M7): streamed OGG, positional, on the SFX bus. Walk the fly

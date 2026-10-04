@@ -28,3 +28,7 @@
 # native libraries are binary (never EOL-normalised)
 *.dylib binary
 *.so binary
+
+# 3D model data (glTF buffers, binary glTF) are binary
+*.bin binary
+*.glb binary

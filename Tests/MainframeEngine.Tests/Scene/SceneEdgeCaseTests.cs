@@ -224,7 +224,7 @@ public sealed class SceneEdgeCaseTests : IDisposable
     [Fact]
     public void EquivalentColorsAreNotWrittenAsOverrides()
     {
-        var quad = new Quad { Color = Color.FromArgb(255, 255, 255, 255) }; // equal to Color.White by value
+        var quad = new Sprite3D { Modulate = Color.FromArgb(255, 255, 255, 255) }; // equal to Color.White by value
         var root = JsonDocument.Parse(SceneSaver.ToJson(quad)).RootElement.GetProperty("root");
         Assert.False(root.TryGetProperty("props", out _));
         quad.Free();

@@ -900,6 +900,130 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     public PipelineLayout Shadow2DLayout => _layout2D;
     public PipelineLayout ShadowPointLayout => _layoutPoint;
 
+    // ── Instanced caster pipelines (batched meshes, M3) ─────────────────────────
+
+    private readonly Dictionary<int, Pipeline> _instancedPipelines = [];
+
+    /// <summary>
+    /// The depth pipeline for instanced mesh batches (<see cref="VertexLayouts.ShadowInstancedBindings"/>): 2D or
+    /// point, culling per the material (double-sided casters cull nothing), front faces flipped for mirrored
+    /// instances. Same layouts as <see cref="Shadow2DLayout"/>/<see cref="ShadowPointLayout"/>; point batches push
+    /// the light position and range at offset 64. Built on first use.
+    /// </summary>
+    internal Pipeline GetInstancedCasterPipeline(bool point, CullMode cull, bool mirrored)
+    {
+        var key = (point ? 1 : 0) | ((int)cull << 1) | (mirrored ? 8 : 0);
+        if (_instancedPipelines.TryGetValue(key, out var pipeline))
+            return pipeline;
+        pipeline = BuildInstancedPipeline(point, cull, mirrored);
+        _instancedPipelines[key] = pipeline;
+        return pipeline;
+    }
+
+    private Pipeline BuildInstancedPipeline(bool point, CullMode cull, bool mirrored)
+    {
+        var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
+        try
+        {
+            var shaders = _ctx.Shaders;
+            var stages = stackalloc PipelineShaderStageCreateInfo[]
+            {
+                new()
+                {
+                    SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.VertexBit, PName = entryPoint,
+                    Module = shaders.Get(point ? "Shaders/Shadows/ShadowPointInstanced.vk.vert.spv" : "Shaders/Shadows/Shadow2DInstanced.vk.vert.spv"),
+                },
+                new()
+                {
+                    SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.FragmentBit, PName = entryPoint,
+                    Module = shaders.Get(point ? "Shaders/Shadows/ShadowPoint.vk.frag.spv" : "Shaders/Shadows/Shadow2D.vk.frag.spv"),
+                },
+            };
+
+            fixed (VertexInputBindingDescription* bindings = VertexLayouts.ShadowInstancedBindings)
+            fixed (VertexInputAttributeDescription* attributes = VertexLayouts.ShadowInstancedAttributes)
+            {
+                var vertexInput = new PipelineVertexInputStateCreateInfo
+                {
+                    SType = StructureType.PipelineVertexInputStateCreateInfo,
+                    VertexBindingDescriptionCount = (uint)VertexLayouts.ShadowInstancedBindings.Length,
+                    PVertexBindingDescriptions = bindings,
+                    VertexAttributeDescriptionCount = (uint)VertexLayouts.ShadowInstancedAttributes.Length,
+                    PVertexAttributeDescriptions = attributes,
+                };
+                var inputAssembly = new PipelineInputAssemblyStateCreateInfo
+                {
+                    SType = StructureType.PipelineInputAssemblyStateCreateInfo,
+                    Topology = PrimitiveTopology.TriangleList,
+                };
+                var viewportState = new PipelineViewportStateCreateInfo
+                {
+                    SType = StructureType.PipelineViewportStateCreateInfo,
+                    ViewportCount = 1,
+                    ScissorCount = 1,
+                };
+                // Unflipped shadow viewport: geometric front faces arrive clockwise (see CreateShadowPipelines);
+                // mirrored instances (negative determinant) arrive counter-clockwise.
+                var rasterizer = new PipelineRasterizationStateCreateInfo
+                {
+                    SType = StructureType.PipelineRasterizationStateCreateInfo,
+                    PolygonMode = PolygonMode.Fill,
+                    LineWidth = 1f,
+                    CullMode = cull switch
+                    {
+                        CullMode.Front => CullModeFlags.FrontBit,
+                        CullMode.Disabled => CullModeFlags.None,
+                        _ => CullModeFlags.BackBit,
+                    },
+                    FrontFace = mirrored ? FrontFace.CounterClockwise : FrontFace.Clockwise,
+                    DepthBiasEnable = true,
+                    DepthBiasConstantFactor = 1.25f,
+                    DepthBiasSlopeFactor = 1.75f,
+                };
+                var multisampling = new PipelineMultisampleStateCreateInfo
+                {
+                    SType = StructureType.PipelineMultisampleStateCreateInfo,
+                    RasterizationSamples = SampleCountFlags.Count1Bit,
+                };
+                var depthStencil = new PipelineDepthStencilStateCreateInfo
+                {
+                    SType = StructureType.PipelineDepthStencilStateCreateInfo,
+                    DepthTestEnable = true,
+                    DepthWriteEnable = true,
+                    DepthCompareOp = CompareOp.Less,
+                };
+                var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
+                var dynamicState = new PipelineDynamicStateCreateInfo
+                {
+                    SType = StructureType.PipelineDynamicStateCreateInfo,
+                    DynamicStateCount = 2,
+                    PDynamicStates = dynamicStates,
+                };
+                var info = new GraphicsPipelineCreateInfo
+                {
+                    SType = StructureType.GraphicsPipelineCreateInfo,
+                    StageCount = 2,
+                    PStages = stages,
+                    PVertexInputState = &vertexInput,
+                    PInputAssemblyState = &inputAssembly,
+                    PViewportState = &viewportState,
+                    PRasterizationState = &rasterizer,
+                    PMultisampleState = &multisampling,
+                    PDepthStencilState = &depthStencil,
+                    PDynamicState = &dynamicState,
+                    Layout = point ? _layoutPoint : _layout2D,
+                    RenderPass = _shadowRenderPass,
+                    Subpass = 0,
+                };
+                return _ctx.Pipelines.CreateGraphicsPipeline(info, "shadow (instanced)");
+            }
+        }
+        finally
+        {
+            SilkMarshal.Free((nint)entryPoint);
+        }
+    }
+
     // ── Dispose ───────────────────────────────────────────────────────────────
 
     /// <summary>Releases every GPU object through the deletion queue (no device wait).</summary>
@@ -929,6 +1053,9 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         deletions.Enqueue(GpuDeletion.Of(_pipe2D_S12));
         deletions.Enqueue(GpuDeletion.Of(_pipePoint_S32));
         deletions.Enqueue(GpuDeletion.Of(_pipePoint_S12));
+        foreach (var pipeline in _instancedPipelines.Values)
+            deletions.Enqueue(GpuDeletion.Of(pipeline));
+        _instancedPipelines.Clear();
         deletions.Enqueue(GpuDeletion.Of(_layout2D));
         deletions.Enqueue(GpuDeletion.Of(_layoutPoint));
 

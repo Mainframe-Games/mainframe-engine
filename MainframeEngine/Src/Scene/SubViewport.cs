@@ -1,0 +1,193 @@
+using System.Drawing;
+using Silk.NET.Vulkan;
+
+namespace MainframeEngine;
+
+/// <summary>When a <see cref="SubViewport"/> renders.</summary>
+public enum SubViewportUpdateMode : byte
+{
+    /// <summary>Every frame.</summary>
+    Always,
+
+    /// <summary>Never (the last image stays).</summary>
+    Disabled,
+
+    /// <summary>On the next frame, then switches to <see cref="Disabled"/>.</summary>
+    Once,
+}
+
+/// <summary>
+/// An offscreen view (Godot's <c>SubViewport</c>): its children live in their own <see cref="SceneViewport.World3D"/>
+/// and are rendered with the sub-viewport's camera into its own targets before the main pass — HDR colour + depth
+/// (<see cref="SceneImage"/>, <see cref="DepthImage"/>), the tonemapped sRGB-encoded result (<see cref="ColorImage"/>,
+/// usable as a texture or with <c>ImGui.Image(ImGuiTextureId, ...)</c>) and, with <see cref="ObjectIds"/>, an
+/// object-ID target for picking. The editor viewport is one of these.
+/// </summary>
+/// <remarks>
+/// Limits (M3): shadow maps belong to the main world, so sub-viewport worlds are lit without shadows; at most
+/// <see cref="FrameContext.MaxViews"/> - 1 sub-viewports render per frame.
+/// </remarks>
+public class SubViewport : SceneViewport
+{
+    private RenderServer? _server;
+
+    /// <summary>Size of the targets in pixels.</summary>
+    [Export(Range = "1,8192,1")]
+    public int Width { get; set; } = 512;
+
+    [Export(Range = "1,8192,1")]
+    public int Height { get; set; } = 512;
+
+    /// <summary>Background where nothing is drawn (sRGB); the world's sky draws over it.</summary>
+    [Export]
+    public Color ClearColor { get; set; } = Color.FromArgb(255, 46, 46, 51);
+
+    [Export]
+    public SubViewportUpdateMode UpdateMode { get; set; }
+
+    /// <summary>Also render the object-ID target every frame (hover/picking in tools). Picks work without it.</summary>
+    [Export]
+    public bool ObjectIds { get; set; }
+
+    /// <summary>The render server's state for this view (targets, draw lists).</summary>
+    internal SubViewportTargets? Targets { get; set; }
+
+    /// <summary>Tonemapped, sRGB-encoded colour (<c>R8G8B8A8_UNORM</c>, sampled); null until first rendered.</summary>
+    public GpuImage? ColorImage => Targets?.Ldr?.GetColor(0);
+
+    /// <summary>Linear HDR colour (<c>R16G16B16A16_SFLOAT</c>, sampled); null until first rendered.</summary>
+    public GpuImage? SceneImage => Targets?.Hdr?.GetColor(0);
+
+    /// <summary>Depth of the colour pass (sampled); null until first rendered.</summary>
+    public GpuImage? DepthImage => Targets?.Hdr?.Depth;
+
+    /// <summary>The object-ID target (<c>R32_UINT</c>, transfer source); null until an ID pass ran.</summary>
+    public GpuImage? ObjectIdImage => Targets?.Picker?.Target?.GetColor(0);
+
+    /// <summary>
+    /// The ImGui texture id of <see cref="ColorImage"/> (0 until first rendered). Stable across resizes; draw with
+    /// <c>ImGui.Image((nint)id, size)</c>.
+    /// </summary>
+    public nint ImGuiTextureId => Targets?.ImGuiTextureId ?? 0;
+
+    /// <summary>Times the view has been rendered.</summary>
+    public long RenderCount => Targets?.RenderCount ?? 0;
+
+    /// <summary>
+    /// What is under pixel (<paramref name="x"/>, <paramref name="y"/>) of the view (origin top-left), read back
+    /// from the GPU a couple of frames later without stalling. Completes on the render thread.
+    /// </summary>
+    public Task<PickResult> PickAsync(int x, int y) =>
+        _server?.PickAsync(this, x, y) ?? Task.FromResult(PickResult.Miss);
+
+    /// <summary>Queues a pick and returns a handle to poll with <see cref="TryGetPickResult"/>.</summary>
+    public PickHandle RequestPick(int x, int y) => _server?.RequestPick(this, x, y) ?? default;
+
+    /// <summary>The result of <see cref="RequestPick"/> once it is ready (taken: true only once).</summary>
+    public bool TryGetPickResult(PickHandle handle, out PickResult result)
+    {
+        result = default;
+        return _server is not null && RenderServer.TryGetPickResult(this, handle, out result);
+    }
+
+    protected override void OnEnterTree()
+    {
+        base.OnEnterTree();
+        _server = Tree?.Servers.Render;
+        _server?.AddSubViewport(this);
+    }
+
+    protected override void OnExitTree()
+    {
+        _server?.RemoveSubViewport(this);
+        _server = null;
+        base.OnExitTree();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            Targets?.Dispose();
+            Targets = null;
+        }
+
+        base.Dispose(disposing);
+    }
+}
+
+/// <summary>
+/// GPU state of a <see cref="SubViewport"/>: HDR scene target (compatible with the main scene pass, so every scene
+/// pipeline draws into it), the LDR tonemapped target, an optional object-ID picker, the tonemap descriptor set and
+/// the ImGui registration.
+/// </summary>
+internal sealed class SubViewportTargets : IDisposable
+{
+    private readonly IVulkanContext _ctx;
+    private readonly SubViewportCompositor _compositor;
+    private DescriptorSet _tonemapSet;
+    private bool _disposed;
+
+    public SubViewportTargets(IVulkanContext ctx, SubViewportCompositor compositor, string name)
+    {
+        _ctx = ctx;
+        _compositor = compositor;
+        Name = name;
+    }
+
+    public string Name { get; }
+    public RenderTarget? Hdr { get; private set; }
+    public RenderTarget? Ldr { get; private set; }
+    public ObjectIdPicker? Picker { get; set; }
+    public MeshViewDraws Draws { get; } = new();
+    public nint ImGuiTextureId { get; private set; }
+    public long RenderCount { get; set; }
+    public DescriptorSet TonemapSet => _tonemapSet;
+
+    /// <summary>Creates or resizes the targets; rewrites the tonemap set and ImGui texture when images change.</summary>
+    public void Ensure(Extent2D extent)
+    {
+        var changed = false;
+        if (Hdr is null)
+        {
+            Hdr = new RenderTarget(_ctx, new RenderTargetDesc($"{Name} (HDR)",
+                [RenderTargetAttachment.Sampled(VulkanRenderer.SceneColorFormat)], MeshRenderer.FindDepthFormat(_ctx), SampleDepth: true), extent);
+            Ldr = new RenderTarget(_ctx, SubViewportCompositor.LdrTargetDesc(Name), extent);
+            changed = true;
+        }
+        else
+        {
+            changed |= Hdr.Resize(extent);
+            changed |= Ldr!.Resize(extent);
+        }
+
+        if (!changed)
+            return;
+
+        _compositor.FreeSet(_tonemapSet);
+        _tonemapSet = _compositor.AllocateSet(Hdr.GetColor(0).View);
+        if (_ctx.ImGuiTextures is { } imgui)
+        {
+            if (ImGuiTextureId == 0)
+                ImGuiTextureId = imgui.Register(Ldr!.GetColor(0).View, _compositor.DisplaySampler);
+            else
+                imgui.Update(ImGuiTextureId, Ldr!.GetColor(0).View, _compositor.DisplaySampler);
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        if (ImGuiTextureId != 0)
+            _ctx.ImGuiTextures?.Unregister(ImGuiTextureId);
+        ImGuiTextureId = 0;
+        _compositor.FreeSet(_tonemapSet);
+        _tonemapSet = default;
+        Picker?.Dispose();
+        Picker = null;
+        Hdr?.Dispose();
+        Ldr?.Dispose();
+        Hdr = Ldr = null;
+    }
+}

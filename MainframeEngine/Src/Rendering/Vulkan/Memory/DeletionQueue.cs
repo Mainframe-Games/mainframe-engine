@@ -18,11 +18,19 @@ public enum GpuObjectKind : byte
     DescriptorPool,
     DescriptorSetLayout,
     ShaderModule,
+
+    /// <summary>A descriptor set returned to its pool (<see cref="GpuDeletion.Parent"/>, created with FREE_DESCRIPTOR_SET).</summary>
+    DescriptorSet,
 }
 
-/// <summary>One deferred destruction: an object handle and, for buffers and images, the memory bound to it.</summary>
-public readonly record struct GpuDeletion(GpuObjectKind Kind, ulong Handle, GpuAllocation Allocation = default)
+/// <summary>
+/// One deferred destruction: an object handle and, for buffers and images, the memory bound to it; for descriptor
+/// sets, the pool they return to (<see cref="Parent"/>).
+/// </summary>
+public readonly record struct GpuDeletion(GpuObjectKind Kind, ulong Handle, GpuAllocation Allocation = default, ulong Parent = 0)
 {
+    /// <summary>Frees <paramref name="set"/> back to <paramref name="pool"/> (which must allow freeing individual sets).</summary>
+    public static GpuDeletion Of(DescriptorPool pool, DescriptorSet set) => new(GpuObjectKind.DescriptorSet, set.Handle, default, pool.Handle);
     public static GpuDeletion Of(Silk.NET.Vulkan.Buffer buffer, in GpuAllocation allocation) => new(GpuObjectKind.Buffer, buffer.Handle, allocation);
     public static GpuDeletion Of(Image image, in GpuAllocation allocation) => new(GpuObjectKind.Image, image.Handle, allocation);
     public static GpuDeletion Of(ImageView view) => new(GpuObjectKind.ImageView, view.Handle);
@@ -142,6 +150,12 @@ internal sealed unsafe class VulkanDestroyer(Vk vk, Device device, GpuAllocator 
             case GpuObjectKind.DescriptorPool: vk.DestroyDescriptorPool(device, new DescriptorPool(d.Handle), null); break;
             case GpuObjectKind.DescriptorSetLayout: vk.DestroyDescriptorSetLayout(device, new DescriptorSetLayout(d.Handle), null); break;
             case GpuObjectKind.ShaderModule: vk.DestroyShaderModule(device, new ShaderModule(d.Handle), null); break;
+            case GpuObjectKind.DescriptorSet:
+                {
+                    var set = new DescriptorSet(d.Handle);
+                    vk.FreeDescriptorSets(device, new DescriptorPool(d.Parent), 1, &set).Check("vkFreeDescriptorSets");
+                    break;
+                }
             default: throw new ArgumentOutOfRangeException(nameof(d), d.Kind, "Unknown GPU object kind.");
         }
 

@@ -62,7 +62,13 @@ public class LightEnvironment
     /// <see cref="UboSize"/>. Lights beyond the per-type maximum are ignored; unused slots are zeroed. Colours are
     /// written linear (<see cref="Light.LinearColor"/>): the shaders light in linear space.
     /// </summary>
-    internal void WriteUbo(Span<byte> destination, in Vector3 cameraPosition)
+    internal void WriteUbo(Span<byte> destination, in Vector3 cameraPosition) => WriteUbo(destination, cameraPosition, shadows: true);
+
+    /// <summary>
+    /// <see cref="WriteUbo(Span{byte}, in Vector3)"/>; <paramref name="shadows"/> false sets <c>counts.w</c> = 1, which
+    /// tells the lit shaders to skip shadow maps (views of a world the shadow system did not render).
+    /// </summary>
+    internal void WriteUbo(Span<byte> destination, in Vector3 cameraPosition, bool shadows)
     {
         if (destination.Length < UboSize)
             throw new ArgumentException($"Lights UBO needs {UboSize} bytes.", nameof(destination));
@@ -79,7 +85,7 @@ public class LightEnvironment
         // Header
         f[0] = _ambientLinear.X; f[1] = _ambientLinear.Y; f[2] = _ambientLinear.Z;
         f[4] = cameraPosition.X; f[5] = cameraPosition.Y; f[6] = cameraPosition.Z;
-        i[8] = numDir; i[9] = numPoint; i[10] = numSpot;
+        i[8] = numDir; i[9] = numPoint; i[10] = numSpot; i[11] = shadows ? 0 : 1;
 
         var o = UboHeaderSize / sizeof(float);
         for (int n = 0; n < numDir; n++, o += DirectionalStride / sizeof(float))

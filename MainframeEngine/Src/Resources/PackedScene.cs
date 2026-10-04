@@ -33,8 +33,24 @@ public sealed class PackedScene : Resource
     {
     }
 
+    // Imported scenes (models): a node tree cloned by Instantiate instead of a parsed document.
+    private Node? _template;
+
     /// <summary>True once the scene has content.</summary>
-    public bool CanInstantiate => _document is not null;
+    public bool CanInstantiate => _document is not null || _template is not null;
+
+    /// <summary>True for scenes produced by an importer (models): instances are clones of an imported node tree.</summary>
+    public bool IsImported => _template is not null;
+
+    /// <summary>
+    /// A scene whose instances are copies of <paramref name="template"/> (exported properties copied, resources
+    /// shared); used by importers. The template must stay outside the scene tree.
+    /// </summary>
+    internal static PackedScene FromTemplate(Node template)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        return new PackedScene { _template = template };
+    }
 
     /// <summary>The JSON this scene was parsed from.</summary>
     public ReadOnlyMemory<byte> Json { get; private set; }
@@ -73,6 +89,13 @@ public sealed class PackedScene : Resource
     /// </summary>
     public Node Instantiate()
     {
+        if (_template is not null && _document is null)
+        {
+            var copy = ModelImporter.Clone(_template);
+            copy.SceneFilePath = ResourcePath;
+            return copy;
+        }
+
         var document = _document ?? throw new InvalidOperationException("The PackedScene is empty.");
         var source = ResourcePath ?? "<memory>";
 
@@ -141,10 +164,19 @@ public sealed class PackedScene : Resource
                 node = (Node)info.CreateInstance();
                 PropertyApplier.Apply(node, info, entry.Props, entry.Version, _resources!, $"{source} ({entry.Name})");
             }
+            else if (info is null && RemovedNodeTypes.TryUpgrade(entry.Type!, entry.Props, out var upgraded, out var remaining))
+            {
+                // A type removed from the engine (e.g. M3's Box3d/Quad): load its replacement.
+                node = upgraded!;
+                PropertyApplier.Apply(node, TypeRegistry.GetRequired(node.GetType()), remaining, _resources!, $"{source} ({entry.Name})");
+            }
             else
             {
                 Log.Warning($"[Scene] '{source}': unknown node type '{entry.Type}' for '{entry.Name}'; kept as MissingNode.");
-                node = new MissingNode(entry.Type!, entry.Version, entry.Props);
+                node = new MissingNode(entry.Type!, entry.Version, entry.Props)
+                {
+                    ResourceReferences = RawProperties.ResolveReferences(entry.Props, _resources!),
+                };
             }
 
             if (entry.Name.Length > 0)

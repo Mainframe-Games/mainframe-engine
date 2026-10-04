@@ -58,7 +58,7 @@ public abstract class SceneGrid : IDisposable
         ctx.Frame.EnsureCamera(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position);
 
         // Negative height flips Vulkan's Y axis to match right-handed convention (Y+ up)
-        PipelineBuilder.SetViewport(vk, cb, ctx.SwapchainExtent, flipY: true);
+        PipelineBuilder.SetViewport(vk, cb, ctx.Frame.Extent, flipY: true);
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
         var vb = _vertexBuffer.Handle;
         var offset = 0ul;
