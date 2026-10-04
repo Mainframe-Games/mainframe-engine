@@ -4,3 +4,9 @@
 [submodule "Native/ENet/upstream"]
 	path = Native/ENet/upstream
 	url = https://github.com/nxrighthere/ENet-CSharp.git
+[submodule "Native/RmlUi/external/RmlUi"]
+	path = Native/RmlUi/external/RmlUi
+	url = https://github.com/mikke89/RmlUi.git
+[submodule "Native/RmlUi/external/freetype"]
+	path = Native/RmlUi/external/freetype
+	url = https://github.com/freetype/freetype.git

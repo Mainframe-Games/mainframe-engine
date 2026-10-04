@@ -1,0 +1,7 @@
+/* GNU ld version script: only the mfrmlui C ABI is exported from libmfrmlui.so. */
+{
+  global:
+    mfrmlui_*;
+  local:
+    *;
+};
