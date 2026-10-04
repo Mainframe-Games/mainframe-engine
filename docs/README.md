@@ -23,6 +23,7 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 | Core | [Engine lifecycle](design/engine-lifecycle.md) · [Scene graph & nodes](design/scene-graph-and-nodes.md) · [Scene serialization](design/scene-serialization.md) · [Sandbox](design/sandbox.md) |
 | Rendering | [Vulkan renderer](design/vulkan-renderer.md) · [Shadow system](design/shadow-system.md) · [Lighting](design/lighting.md) · [Sky](design/sky.md) · [Spine](design/spine.md) · [Scene grid](design/scene-grid.md) · [Cameras & input](design/cameras-and-input.md) · [Shaders](design/shaders.md) · [Coordinate conventions](design/coordinate-conventions.md) |
 | Tooling | [ImGui & debug tools](design/imgui-and-debug-tools.md) · [Testing](design/testing.md) |
+| Audio | [Audio](design/audio.md) |
 | Online | [Networking](design/networking.md) · [Steamworks](design/steamworks.md) |
 
 ## Future design proposals

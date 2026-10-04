@@ -6,7 +6,7 @@ Everything in a game is a **node in a tree**, as in Godot. Behaviour comes from 
 subclasses); scenes are reusable subtrees saved as data ([Scene serialization](scene-serialization.md)).
 The engine owns a `SceneTree` and runs the frame for every node inside it: lifecycle callbacks,
 fixed-step physics process, process, deferred calls and frees, transform sync, input routing, groups and
-signals. Nodes are thin front-ends to engine **servers** (rendering now; physics, audio and UI later):
+signals. Nodes are thin front-ends to engine **servers** (rendering and audio now; physics and UI later):
 the node holds editable state, the server holds GPU/physics/audio objects.
 
 Names follow Godot (`Node3D`, `Camera3D`, `OmniLight3D`, `WorldEnvironment`, `QueueFree`, `NodePath`,
@@ -157,7 +157,7 @@ sequenceDiagram
 | 2. Process | `ProcessFrame` event, `OnProcess(in GameTime)`, idle timers (`SceneTreeTimer`). |
 | 3. Deferred | `CallDeferred` callbacks in order (including ones queued while flushing), then `QueueFree` frees; repeated until both queues are empty. |
 | 4. Transform sync | `OnTransformChanged` for 2D/3D nodes that asked (`SetNotifyTransform`) and whose global transform changed — lights push their direction/position here. |
-| 5. Frame servers | `IFrameServer.Process` (Steam callbacks now; audio/UI later). |
+| 5. Frame servers | `IFrameServer.Process` (Steam callbacks, the `AudioServer`; UI later). |
 
 Iteration is over sorted, reused snapshots, so callbacks may add, remove, free or reorder nodes: removed
 or queued nodes are skipped, added ones start next frame. The lists re-sort lazily (only after the tree,
@@ -241,7 +241,8 @@ renderer) into `SceneTree.Servers` (`ServerRegistry`), and nodes reach them in `
 | `SteamServer` | `IFrameServer` | M2: registered when `EngineOptions.SteamAppId` ≠ 0; pumps `Steam.RunCallbacks` |
 | `MultiplayerApi` | `IFrameServer` | M5: always registered (`Engine.Multiplayer`), idle until started; receives at `SceneTree.ProcessFrame`, sends in `Process` ([Networking](networking.md#frame-and-tick)) |
 | physics (M6) | `IFixedStepServer` | ticked after `OnPhysicsProcess`, frozen while paused |
-| audio (M7), UI (M8) | `IFrameServer` | ticked after transform sync |
+| `AudioServer` | `IFrameServer` | M7: registered when `EngineOptions.Audio.Enabled` (default); voices, buses, listener; see [Audio](audio.md) |
+| UI (M8) | `IFrameServer` | ticked after transform sync |
 
 `ServerRegistry` holds one server per type (`Register`, `Get<T>`, `GetRequired<T>`, `Render`) and disposes
 them in reverse order after the tree is freed.

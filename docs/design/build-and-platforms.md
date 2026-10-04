@@ -59,6 +59,8 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.22.0*
 | StbImageSharp | 2.30.15 | Image decoding (sky, Spine atlas, icon) |
 | ENet-CSharp | 2.4.8 | UDP networking |
 | Steamworks.NET | 2024.8.0 | Steam wrappers (inert, see [Steamworks](steamworks.md)) |
+| SoundFlow | 1.4.1 (exact) | Audio device, mixer graph, MP3/FLAC decoding ([Audio](audio.md), [ADR 0030](../../memory/decisions/0030-soundflow-audio-backend.md)). Ships its miniaudio natives in `runtimes/<rid>/native/` (win-x64/x86/arm64, linux-x64/arm/arm64, osx-x64/arm64, …); NuGet copies them to the app's `runtimes/` and SoundFlow resolves them. |
+| NVorbis | 0.10.5 (exact) | OGG Vorbis decoding, managed ([ADR 0032](../../memory/decisions/0032-ogg-via-nvorbis.md)) |
 | Spectre.Console | 0.54.1-alpha.0.86 | Example picker in `SilkVulkanExamples` |
 | xunit.v3, xunit.runner.visualstudio, Microsoft.NET.Test.Sdk, coverlet.collector | see props | Tests only |
 | BenchmarkDotNet | see props | Benchmarks only |
@@ -204,6 +206,7 @@ and the bundled `libMoltenVK.dylib` (no validation layers through that one).
 | Vulkan renderer | ✅ | ✅ | ✅ MoltenVK | ✅ MoltenVK (verified, 120 fps Sandbox) |
 | Validation layers | Vulkan SDK | Vulkan SDK | Vulkan SDK | Vulkan SDK |
 | ENet networking | ✅ | ✅ | ✅ | ❌ native is x86_64-only |
+| Audio (SoundFlow/miniaudio) | ✅ WASAPI | ✅ ALSA/PulseAudio | ✅ Core Audio | ✅ Core Audio (verified with `--qa-audio`); null device on machines without one (CI) |
 | Steamworks | ⚠ no `steam_api` shipped | ⚠ same | ⚠ same | ❌ no osx-arm64 assets |
 
 MoltenVK limits that shaped the design: `mutableComparisonSamplers = false` (shadow samplers are

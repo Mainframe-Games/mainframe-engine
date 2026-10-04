@@ -209,7 +209,7 @@ flowchart LR
 - [ ] Hot reload + debugger toggle
 - [ ] v2: UI render pass with stencil, layers and filters (port of the master VK effects)
 - [ ] Shared widget library
-- [ ] Sandbox: HUD (FPS, health), pause menu with settings (VSync, volume via [Audio](audio.md) buses)
+- [ ] Sandbox: HUD (FPS, health), pause menu with settings (VSync, volume via [Audio](../audio.md) buses)
 - [ ] Credits screen entry for FreeType (FTL requirement)
 
 ## Risks

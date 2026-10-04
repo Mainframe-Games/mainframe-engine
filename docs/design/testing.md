@@ -68,6 +68,21 @@ node types in `ReplicationTestNodes.cs` and `NetHarness` (a server and clients, 
 | `ReplicationRobustnessTests` | review regressions: a throwing client RPC is contained (and optionally kicks), despawn handlers freeing other nodes, snapshot byte budgets (spread and converge, also under loss), stalled acknowledgements disconnect, malformed spawns and snapshot lengths, connect-string fallback after a failed attempt, misuse (tick rate while running, unknown authority, kicked peers stop receiving), messages from non-server peers ignored |
 | `ReplicationAllocationTests` | **0 bytes** over 240 frames of a server and a client with 100 interpolated boxes moving and RPCs both ways |
 
+Audio (M7) suites live under [`Audio/`](../../Tests/MainframeEngine.Tests/Audio/). They run the real SoundFlow mixer
+graph on the **manual null device** (`AudioDeviceMode.NullManual`): `RenderNullDevice(frames, capture)` renders on the
+test thread into a buffer, so levels, panning, ramps, pitch and timing are asserted on output samples. Test sounds
+(`Content/Audio/`, stored in LFS) are generated: a 440 Hz mono 16-bit WAV, and a 440/660 Hz stereo tone as OGG, MP3
+and FLAC; WAV layouts are written by the tests themselves.
+
+| Suite | Covers |
+|---|---|
+| `AudioMathTests` | dB conversions, every attenuation curve against its formula (monotonic, max-distance cut, rolloff, custom curve, NaN safety), listener-space projection (orientation, elevation, scale), the pan law, doppler, 2D attenuation |
+| `SpscRingTests` | the lock-free ring: FIFO across wrap-around, batch publishing, slot references released, a two-thread 2-million-item ordering stress |
+| `AudioDecoderTests` | WAV 8/16/24/32-bit PCM, float 32/64, `EXTENSIBLE`, extra chunks; 5.1 downmix; OGG (NVorbis), MP3 and FLAC (miniaudio) content checks; sample-accurate decoder seeks; memory/stream/auto load modes, shared clips, error reporting; `.meta` import settings |
+| `AudioServerTests` | default layout, real-time null device, broken layout fallback, unity gain through the bus chain, voice × bus × master volumes, mute and solo (incl. nested solo), one-shot finish, click-free stop, play + stop in one batch, stealing (priority → quietest → oldest, rejection), node polyphony, `Finished` only on natural ends, autoplay/exit, pause vs `ProcessMode` (`Pausable`, `Always`, `WhenPaused`, `Disabled`, `StreamPaused`), resampling and pitch, seek/position, 3D panning/attenuation/zipper bound/listener rotation, camera as listener, distance low-pass, doppler, streamed loop continuity and finish, streamed vs memory sample equality, bus layout save/load/apply with effects, runtime layout swap, unknown bus / broken stream |
+| `AudioSerializationTests` | every audio node property and a shared inline `AudioStream` round-trip through `.mscene` byte-identically; defaults write nothing; scene audio plays in a tree; the Sandbox scene's ambience plays |
+| `AudioAllocationTests` | **0 bytes** over 300 frames of tree tick + `AudioServer.Process` + rendering on the same thread, with 8 moving 3D voices (every attenuation model, low-pass, doppler), a streamed music loop, a 2D voice, UI one-shots finishing and restarting, `PlayOneShot`, pause toggles and bus fader changes |
+
 ## Render tests
 
 ```mermaid
@@ -95,9 +110,11 @@ sequenceDiagram
   two boxes, one shadow-casting directional light), `multi-light` (same geometry, directional + spot +
   point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
   `spine` (adds SpineBoy, content linked from the Sandbox), `spine-no-shadows` (Spine and shapes with
-  no `ShadowSystem`: the fallback shadow set), `sandbox` (adds the Sandbox's ImGui windows — including
-  `RendererDebugWindow` — and gizmos; not used for goldens because it shows timings), `color-pipeline`
-  (a solid-colour sRGB panorama fills the frame; ImGui rectangles; exposure changes on frame 8).
+  no `ShadowSystem`: the fallback set 2), `sandbox` (adds the Sandbox's ImGui windows — including
+  `RendererDebugWindow` — gizmos and the audio bus mixer, a streamed ambience and an orbiting doppler voice, and
+  self-checks that both play; not used for goldens because it shows timings), `color-pipeline` (a solid-colour
+  sRGB panorama fills the frame; ImGui rectangles; exposure changes on frame 8). Every host scene runs audio on
+  the silent null device.
 - **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
   `result.json` records it), `--pipeline-cache dir`. Scene self-check failures are reported in
@@ -187,7 +204,8 @@ cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.Te
 `just bench` runs every benchmark (`NetBuffer` write/read, replication capture/encode/decode at 100 and 1000
 nodes, camera and model matrices, lights UBO packing, the scene tree: `ProcessTick10k`,
 `TransformPropagationDirtySubtree10k`, `GetNodePathLookup`, `SceneSaveLoadRoundTrip1k`; GPU allocator
-alloc/free and churn) and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
+alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurvesAllModels`,
+`SpatialProjection32Emitters`, `ServerFrame32PositionalVoices`, `MixBlock480Frames32Voices`) and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. Results also land
 in `artifacts/bench`. Baselines are machine-specific (the file records machine and runtime), so
 compare on the machine that recorded them; refresh with `just bench-baseline` when a change is

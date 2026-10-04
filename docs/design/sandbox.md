@@ -59,6 +59,14 @@ dotnet run -c Release --project MainframeEngine.Sandbox -- --client 127.0.0.1 --
 
 Regenerate the box scene with `--write-net-scene MainframeEngine.Sandbox/Content/Scenes/NetBox.mscene`.
 
+### Audio QA
+
+`--qa-audio` (`dotnet run --project MainframeEngine.Sandbox -- --qa-audio`) runs the Sandbox on the real output
+device, plays a short C-E-G-C melody on the UI bus (−14 dB, `ProcessMode.Always`) next to the scene's streamed
+ambience, and after 2.75 s checks the `AudioServer`: a real device (not the null device), ≥ 80 % of the expected
+frames rendered, no mixer fault or stream errors, the melody finished, and both the UI and SFX buses carried
+signal. It logs the device, frame rate, peaks and counters (`[QA] Audio …`) and exits `Ok` or `Error`.
+
 ## Scene
 
 | Object | Setup |
@@ -73,6 +81,7 @@ Regenerate the box scene with `--write-net-scene MainframeEngine.Sandbox/Content
 | Spine | `SpineNode` "SpineBoy": `Folder = Content/Models/Spine/SpineBoy`, default `SpineScale` (0.02), `Scale = 0.1`, `Animation = "walk"` |
 | Floor | `Quad`, `RotationDegrees` (90, 0, 0), scale (10, 10, 1), white |
 | Box | `SpinningBox : Box3d` at (3, 1, 0), white, `DegreesPerSecond` (20, 20, 0) |
+| Ambience | `AudioPlayer3D` "Ambience" under the box: inline `AudioStream` `Content/Audio/ambient_hum.ogg` (a generated, seamless 6 s pad; `Stream` load mode, looping, `LoopEnd` 6 s), SFX bus, −18 dB, `Autoplay`, `UnitSize` 3, `MaxDistance` 60, `LowPassAtMaxDistance` 1500 Hz — fly around the box to hear panning and distance |
 | Lights | every shadow type at once: 2 `DirectionalLight3D` (warm key "Sun" 0.8, cool "Fill" 0.2), 1 `OmniLight3D` (blue, right of the box), 2 `SpotLight3D` (warm and green cones) — all shadow-casting; directions come from the nodes' rotations |
 
 ## Lifecycle
@@ -97,8 +106,9 @@ flowchart TD
 ## ImGui window ("Game Window")
 
 Shows frame count, delta time, FPS and ms, plus a VSync checkbox, a fullscreen checkbox, a Max FPS
-combo (Unlimited/30/60/120/144/240), the active camera's position and forward vector, and the number of
-nodes in the tree.
+combo (Unlimited/30/60/120/144/240), the active camera's position and forward vector, the number of
+nodes in the tree, and the audio bus mixer (`AudioImGui.DrawMixer`: output device, voice/steal/underrun counters,
+and a volume slider, mute, solo and peak meter per bus).
 
 Controls are listed in [Cameras & input](cameras-and-input.md#sandbox-controls).
 

@@ -67,8 +67,8 @@ flowchart LR
   calls, transform sync and input for every node; behaviour is C# node subclasses. Scenes are data
   (`.mscene`) loaded through `ResourceLoader`; node properties are discovered by a source generator, not
   reflection.
-- **Nodes are front-ends to servers.** Nodes hold editable state; servers (`RenderServer` now, physics/
-  audio/UI later) hold GPU and native objects and are reached through `SceneTree.Servers`.
+- **Nodes are front-ends to servers.** Nodes hold editable state; servers (`RenderServer`, `AudioServer` since
+  M7; physics and UI later) hold GPU, audio and native objects and are reached through `SceneTree.Servers`.
 - **Vulkan is the only backend.** `IRenderer` is backend-neutral in name, but everything that draws
   casts to `IVulkanContext`. `EngineOptions.RenderingBackend` is not consulted.
 - **Each drawable owns its GPU state.** Every shape, the sky, the grid and each Spine renderer create

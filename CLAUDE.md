@@ -58,6 +58,10 @@ awake (`caffeinate -u -t 600 &`).
   camera/light/sky/grid nodes (`Nodes3D/`, `Nodes2D/`), input events
 - `MainframeEngine/Src/Nodes/` — drawable/network nodes: `SpineNode`, `ShapeBase`/`Box3d`/`Quad`, `NetworkNode`
 - `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`
+- `MainframeEngine/Src/Audio/` — `AudioServer` (SoundFlow; null device when there is no audio device), buses,
+  `AudioStream`, audio nodes (`AudioPlayer`/`2D`/`3D`, `AudioListener3D`); audio-thread code in `Graph/`, lock-free
+  rings + streaming in `Threading/`, decoders in `Decoding/`. Game code never calls SoundFlow: it goes through
+  `AudioServer` (commands to the audio thread). See `docs/design/audio.md`
 - `MainframeEngine/Src/Resources/`, `Src/Serialization/` — `Resource`, `PackedScene`, loader/savers, `AssetDatabase`;
   `[Export]`/`[Signal]` attributes, `TypeRegistry`, JSON scene format
 - `MainframeEngine.Generators/` — Roslyn source generator registering node/resource types (referenced as an analyzer)
@@ -178,6 +182,7 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected �
 - ImGui.NET — debug UI (Vulkan backend in `VulkanImGuiController`)
 - Steamworks.NET — Steam platform (optional; only activate if Steam is running)
 - StbImageSharp — texture/image loading
+- SoundFlow 1.4.1 (audio device/mixer, miniaudio natives in the package) and NVorbis 0.10.5 (OGG) — audio (M7)
 
 Do not add NuGet packages without discussing the dependency first. Versions are central in
 `Directory.Packages.props`.

@@ -16,6 +16,9 @@ software listed below.
 | [ENet (nxrighthere fork)](https://github.com/nxrighthere/ENet-CSharp) | 2.4.8 | MIT | `Native/ENet/upstream` (submodule) | `enet` native library; managed `ENet-CSharp` NuGet package |
 | [Spine Runtimes (spine-csharp)](https://github.com/EsotericSoftware/spine-runtimes) | — | Spine Runtimes License | `Plugins/Spine` (submodule) | engine assemblies |
 | [RmlUi.Net](https://github.com/PourrezJ/RmlUi.Net) (design reference only, no code copied) | — | MIT | — | nothing (see `Native/RmlUi/shim/NOTICE.md`) |
+| [SoundFlow](https://github.com/LSXPrime/SoundFlow) | 1.4.1 | MIT | NuGet package `SoundFlow` | `SoundFlow.dll`; its `miniaudio` native library (SoundFlow's C shim, MIT) |
+| [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
+| [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
 
 Managed NuGet dependencies (Silk.NET, ImGui.NET, StbImageSharp, Steamworks.NET, …) carry their own licence files in
 their packages and are not repeated here.
@@ -332,4 +335,83 @@ BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
 SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## SoundFlow
+
+From the `SoundFlow` 1.4.1 package (`LICENSE.md`; its `SOUNDFLOW-THIRD-PARTY-NOTICES.txt` also lists PortMidi,
+WebRTC APM and FFmpeg, which belong to optional SoundFlow extensions the engine does not use or ship):
+
+```text
+MIT License
+
+Copyright (c) 2025 LSXPrime
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the “Software”), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## miniaudio
+
+Compiled into SoundFlow's native library. miniaudio is dual-licensed (public domain via the Unlicense, or MIT No
+Attribution); SoundFlow's notice reproduces it under MIT terms:
+
+```text
+Copyright (c) David Reid
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## NVorbis
+
+From the `NVorbis` 0.10.5 package (`LICENSE`):
+
+```text
+MIT License
+
+Copyright (c) 2020 Andrew Ward
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```

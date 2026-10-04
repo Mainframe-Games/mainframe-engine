@@ -33,7 +33,7 @@ flowchart LR
 | [M4](#m4--shadows-v2) | Cascades, PCF, atlas | ⬜ |
 | [M5](#m5--multiplayer-) | Message protocol, replication, Steam | ✅ |
 | [M6](#m6--physics) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ⬜ |
-| [M7](#m7--audio) | SoundFlow audio nodes, buses, 3D panning | ⬜ |
+| [M7](#m7--audio-) | SoundFlow audio nodes, buses, 3D panning | ✅ |
 | [M8](#m8--game-ui-rmlui) | RmlUi HTML/CSS game UI (also the editor's UI) | ⬜ |
 | [M9](#m9--localization) | GetText.NET translations for code, UI and scenes | ⬜ |
 | [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | ⬜ |
@@ -172,21 +172,23 @@ Both run on a fixed timestep with interpolated rendering, collision layers, sign
 | Layers/masks, contact and area signals, raycast/shape-cast queries | ⬜ | [Physics](design/future/physics.md#contacts-areas-and-signals) |
 | `CharacterBody.MoveAndSlide`, debug draw | ⬜ | [Physics](design/future/physics.md#characterbody-moveandslide) |
 
-## M7 — Audio
+## M7 — Audio ✅
 
-Audio nodes on **SoundFlow** (MIT, miniaudio, ships natives including osx-arm64):
-- a bus mixer;
-- in-memory and streamed sounds;
-- positional audio through SoundFlow's `SurroundPlayer` panner, with engine-side attenuation and
-  listener orientation.
+Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop platform including osx-arm64):
+- an `AudioServer` with a bus mixer and pooled voices, fed by a batched lock-free command queue;
+- in-memory and streamed sounds (WAV, OGG via NVorbis, MP3, FLAC);
+- positional audio with engine-side attenuation curves, listener orientation, smoothing and optional doppler (the
+  engine pans itself: SoundFlow's `SurroundPlayer` turned out unusable, see the ADR);
+- a silent null device when no audio device exists, so startup never fails.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| `AudioServer`: device, bus tree, batched command queue | ⬜ | [Audio](design/future/audio.md#architecture) |
-| `AudioPlayer` / `AudioPlayer2D` / `AudioPlayer3D` / `AudioListener3D` | ⬜ | [Audio](design/future/audio.md#nodes) |
-| `AudioStream` resources (memory vs stream), OGG decision | ⬜ | [Audio](design/future/audio.md#streams-and-resources) |
-| Positional audio via `SurroundPlayer` + attenuation curves + smoothing | ⬜ | [Audio](design/future/audio.md#spatialization) |
-| Voice pool, polyphony, pause handling | ⬜ | [Audio](design/future/audio.md#voice-management) |
+| `AudioServer`: device (null-device fallback), bus tree, batched command queue | ✅ | [Audio](design/audio.md#architecture) |
+| `AudioPlayer` / `AudioPlayer2D` / `AudioPlayer3D` / `AudioListener3D` | ✅ | [Audio](design/audio.md#nodes) |
+| `AudioStream` resources (memory vs stream), OGG via NVorbis | ✅ | [Audio](design/audio.md#streams-and-resources) |
+| Positional audio: listener-space projection, attenuation curves, pan smoothing (engine panner, [ADR 0031](../memory/decisions/0031-positional-audio-engine-panner.md)) | ✅ | [Audio](design/audio.md#spatialization) |
+| Voice pool, polyphony, stealing, pause handling | ✅ | [Audio](design/audio.md#voices) |
+| Editor preview, range gizmos, Audio bus panel | ⬜ (M10) | [Editor](design/future/editor.md) |
 
 ## M8 — Game UI (RmlUi)
 

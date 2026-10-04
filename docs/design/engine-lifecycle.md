@@ -12,7 +12,7 @@ or updates by hand.
 | Type | File | Notes |
 |---|---|---|
 | `Engine` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `public abstract class Engine : IDisposable`; `Tree` (`SceneTree`), `Root`, `Servers` |
-| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `SteamAppId` (0 = no Steam) |
+| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `SteamAppId` (0 = no Steam), `Audio` (`AudioOptions`: `Enabled = true`, `Device = Auto`, 48 kHz, 10 ms, `BusLayoutPath`) |
 | `FrameCapture` | [FrameCapture.cs](../../MainframeEngine/Src/Rendering/FrameCapture.cs) | RGBA8 pixels of a rendered frame, `SavePng(path)` |
 | `GameTime` | [GameTime.cs](../../MainframeEngine/Src/Core/GameTime.cs) | `FrameCount`, `DeltaTime`, `FramesPerSecond`, `FramesTimeMs` |
 | `FPSCounter` | [FPSCounter.cs](../../MainframeEngine/Src/Core/FPSCounter.cs) | 500 ms sampling window |
@@ -63,7 +63,8 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
    macOS display), then **`OnLoad()`** (base): `Window.CreateInput()` (SDL input) →
    `new VulkanRenderer(Window, { EnableValidation, VSync, EnableFrameCapture })` →
    `new VulkanImGuiController(...)` → `Servers.Register(new RenderServer(Renderer))` (+ `SteamServer`, + `MultiplayerApi.Attach(Tree)`)
-   → `new InputRouter(InputContext, Tree)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
+   → `AudioServer.Create(options.Audio, Tree)` when `Audio.Enabled` (never fails startup: no device means the
+   silent null device; see [Audio](audio.md)) → `new InputRouter(InputContext, Tree)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
    The `SceneTree` itself is created in the constructor (no GPU needed), so nodes can be built before
    `OnLoad`; visuals that enter the tree before the render server exists get their GPU objects lazily.
 
@@ -142,7 +143,7 @@ not presented frames.
 ## Shutdown
 
 `Closing` → `OnClose()` (base): dispose the input router → `Tree.Shutdown()` (frees every node, so
-visuals release their GPU objects) → `Servers.Dispose()` (reverse order; the render server releases
+visuals release their GPU objects and audio players stop) → `Servers.Dispose()` (reverse order: the audio server stops the device and streaming thread first; the render server releases
 anything still alive and its `ShadowSystem`) → `ResourceLoader.ClearCache()` → dispose ImGui controller →
 dispose input → dispose renderer.
 `Run()` returns the exit code (`Ok` unless `Quit(code)` set another). `Dispose()` disposes the window.
