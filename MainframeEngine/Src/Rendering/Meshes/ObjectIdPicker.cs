@@ -96,7 +96,7 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
 
         Target.Begin(cb, default); // ids clear to 0, depth to 1
         drawIds(state, cb);
-        _ctx.Vk.CmdEndRenderPass(cb);
+        Target.End(cb); // explicit barrier: the copies below read the ids the pass wrote
         CopyQueued(cb);
     }
 

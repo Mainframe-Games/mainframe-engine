@@ -343,27 +343,12 @@ internal sealed unsafe partial class VulkanRenderer
 
         var vk = _vk!;
         var cb = _commandBuffers[_currentFrame];
-        vk.CmdEndRenderPass(cb);
 
         // The tonemap reads every texel the scene pass wrote. The scene pass's outgoing subpass dependency says so,
         // but MoltenVK does not wait on it between encoders: under a heavy frame (the first frame after the shadow
         // maps are created) the tonemap read the last rows of tiles before the scene pass had stored them (black
-        // tiles). An explicit barrier on the HDR image makes the wait real.
-        var hdr = _sceneTarget!.GetColor(0);
-        var barrier = new ImageMemoryBarrier
-        {
-            SType = StructureType.ImageMemoryBarrier,
-            SrcAccessMask = AccessFlags.ColorAttachmentWriteBit,
-            DstAccessMask = AccessFlags.ShaderReadBit,
-            OldLayout = ImageLayout.ShaderReadOnlyOptimal,
-            NewLayout = ImageLayout.ShaderReadOnlyOptimal,
-            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-            Image = hdr.Handle,
-            SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, 1),
-        };
-        vk.CmdPipelineBarrier(cb, PipelineStageFlags.ColorAttachmentOutputBit, PipelineStageFlags.FragmentShaderBit,
-            0, 0, null, 0, null, 1, &barrier);
+        // tiles). Ending the pass through the target records an explicit barrier on the HDR image.
+        _sceneTarget!.End(cb);
 
         // Offscreen overlay work (UI layers, clip masks, filters) between the scene pass and the tonemap. It never touches
         // the HDR image; the UI renderer orders its own passes with explicit barriers (ADR 0050).

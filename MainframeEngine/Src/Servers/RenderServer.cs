@@ -291,7 +291,7 @@ public sealed class RenderServer : IServer
                 }
             }
 
-            vk.Vk.CmdEndRenderPass(cb);
+            targets.Hdr.End(cb); // explicit barrier: the compositor's tonemap samples the HDR image
         }
 
         var picker = targets.Picker;

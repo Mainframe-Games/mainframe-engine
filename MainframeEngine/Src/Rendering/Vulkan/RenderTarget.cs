@@ -37,8 +37,10 @@ public sealed record RenderTargetDesc(
 /// <remarks>
 /// Synchronisation is in the render pass: the incoming dependency orders this frame's attachment writes after the
 /// previous frame's reads (sampling, copies) of the same images; the outgoing one makes the writes visible to
-/// fragment-shader sampling and transfers, so a following pass can read <see cref="GetColor"/> directly. The
-/// renderer's HDR scene target is one of these (<see cref="IVulkanContext.SceneTarget"/>).
+/// fragment-shader sampling and transfers. End the pass with <see cref="End"/>, which also records explicit
+/// barriers for those reads (MoltenVK does not honour the outgoing dependency between encoders), so a following pass
+/// or copy can read <see cref="GetColor"/> directly. The renderer's HDR scene target is one of these
+/// (<see cref="IVulkanContext.SceneTarget"/>).
 /// </remarks>
 public sealed unsafe class RenderTarget : IDisposable
 {
@@ -118,6 +120,79 @@ public sealed unsafe class RenderTarget : IDisposable
         };
         _ctx.Vk.CmdBeginRenderPass(cb, &info, SubpassContents.Inline);
     }
+
+    /// <summary>
+    /// Ends the render pass begun by <see cref="Begin"/> and records an explicit barrier per kept attachment, from its
+    /// writes to the reads its final layout is for: fragment-shader sampling (<c>SHADER_READ_ONLY_OPTIMAL</c>, a sampled
+    /// depth) or transfers (<c>TRANSFER_SRC_OPTIMAL</c>). The outgoing subpass dependency says the same, but MoltenVK
+    /// does not wait on it between encoders for these sub-allocated (heap-placed) images: a following pass or copy can
+    /// read tiles that are not stored yet (black tiles in the tonemapped scene, stale object ids). A barrier is honoured
+    /// by every driver and costs nothing measurable.
+    /// </summary>
+    public void End(CommandBuffer cb)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var vk = _ctx.Vk;
+        vk.CmdEndRenderPass(cb);
+
+        var barriers = stackalloc ImageMemoryBarrier[_colors.Length + 1];
+        var count = 0;
+        PipelineStageFlags srcStages = 0, dstStages = 0;
+        for (var i = 0; i < _colors.Length; i++)
+        {
+            var layout = Description.ColorAttachments[i].FinalLayout;
+            if (!ReadAfterPass(layout, out var dstAccess, out var dstStage))
+                continue;
+            barriers[count++] = AfterPassBarrier(_colors[i].Handle, ImageAspectFlags.ColorBit, layout,
+                AccessFlags.ColorAttachmentWriteBit, dstAccess);
+            srcStages |= PipelineStageFlags.ColorAttachmentOutputBit;
+            dstStages |= dstStage;
+        }
+
+        if (_depth is not null && Description.SampleDepth)
+        {
+            barriers[count++] = AfterPassBarrier(_depth.Handle, VkHelpers.DepthBarrierAspects(_depth.Format),
+                ImageLayout.DepthStencilReadOnlyOptimal, AccessFlags.DepthStencilAttachmentWriteBit, AccessFlags.ShaderReadBit);
+            srcStages |= PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit;
+            dstStages |= PipelineStageFlags.FragmentShaderBit;
+        }
+
+        if (count > 0)
+            vk.CmdPipelineBarrier(cb, srcStages, dstStages, 0, 0, null, 0, null, (uint)count, barriers);
+    }
+
+    private static bool ReadAfterPass(ImageLayout finalLayout, out AccessFlags access, out PipelineStageFlags stage)
+    {
+        switch (finalLayout)
+        {
+            case ImageLayout.ShaderReadOnlyOptimal:
+                access = AccessFlags.ShaderReadBit;
+                stage = PipelineStageFlags.FragmentShaderBit;
+                return true;
+            case ImageLayout.TransferSrcOptimal:
+                access = AccessFlags.TransferReadBit;
+                stage = PipelineStageFlags.TransferBit;
+                return true;
+            default:
+                access = 0;
+                stage = 0;
+                return false;
+        }
+    }
+
+    private static ImageMemoryBarrier AfterPassBarrier(Image image, ImageAspectFlags aspects, ImageLayout layout,
+        AccessFlags srcAccess, AccessFlags dstAccess) => new()
+        {
+            SType = StructureType.ImageMemoryBarrier,
+            SrcAccessMask = srcAccess,
+            DstAccessMask = dstAccess,
+            OldLayout = layout, // the render pass already transitioned it
+            NewLayout = layout,
+            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            Image = image,
+            SubresourceRange = new ImageSubresourceRange(aspects, 0, 1, 0, 1),
+        };
 
     private void CreateImages(Extent2D extent)
     {

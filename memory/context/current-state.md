@@ -49,6 +49,8 @@ _Last updated: 2026-10-05 (M4 Shadows v2 integrated with physics, audio, UI and 
   secondary directional lights, point cubes — 6 shadow samplers, every spot casts. Comparison samplers are IMMUTABLE
   (set-2 layout, shared with ShadowFallback; MoltenVK mutableComparisonSamplers=false). `shadeLightsBlinnPhong` takes
   the geometric normal too (Mesh, Spine via `shadeLights`); `shadows.glsl` clamps every dynamic shadow index (Metal).
+- MoltenVK ignores render-pass external dependencies between encoders for heap-placed images: end every
+  `RenderTarget` pass with `RenderTarget.End` (explicit barrier per kept attachment); the UI uses its own (ADR 0050).
   The limits live only in `Content/Shaders/limits.json` (generated C# + `include/limits.glsl`); shaders
   compile in `dotnet build`, but run `just shaders` after shader/include edits to refresh the committed
   `.spv` fallback + `shaders.lock`.

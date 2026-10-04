@@ -90,9 +90,13 @@ dependency to `TRANSFER`. A frame-capture copy recorded afterwards is chained to
 Between the scene and tonemap passes, and before the capture copy, there is also an **explicit pipeline
 barrier** (colour-attachment writes → fragment-shader / transfer reads). MoltenVK does not wait on render-pass
 external dependencies between Metal encoders. Under a heavy first frame (M4: the shadow maps being created), the
-tonemap read the scene target's last tile rows before they were stored, and captures showed black tiles. Passes
-that rely only on subpass dependencies to hand an image to the next encoder (offscreen `SubViewport` → compositor,
-object-ID → readback) may need the same treatment. Clear values: `SetClearColor` (sRGB, converted to linear) and depth 1.
+tonemap read the scene target's last tile rows before they were stored, and captures showed black tiles. Every
+`RenderTarget` pass therefore ends with `RenderTarget.End`, which records that barrier for each attachment it keeps
+(by final layout: `SHADER_READ_ONLY` → fragment-shader reads, `TRANSFER_SRC` → transfer reads, a sampled depth →
+fragment-shader reads): the scene target before the tonemap, an offscreen `SubViewport`'s HDR target before the
+compositor's tonemap and its LDR target before ImGui/UI sample it, and the object-ID target before the readback
+copy. The UI renderer's own passes use global barriers ([ADR 0050](../../memory/decisions/0050-ui-offscreen-layer-and-overlay-hook.md));
+they never touch the HDR image, so the two never overlap. Clear values: `SetClearColor` (sRGB, converted to linear) and depth 1.
 Order within a frame and the colour handling are described in [Color pipeline](color-pipeline.md).
 
 ## Frame synchronization

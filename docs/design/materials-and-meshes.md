@@ -255,8 +255,9 @@ view: framebuffer pixels, origin top-left. `RequestPick` and `TryGetPickResult` 
 1. Each viewport has an `ObjectIdPicker`. The first frame with requests renders an **object-ID pass** into an
    `R32_UINT` + depth `RenderTarget` the size of the view. The pass draws the view's mesh draws with the
    `MeshObjectId` pipelines, and id 0 means nothing.
-2. Up to 64 requested pixels are copied into the frame slot's readback buffer. A `TRANSFER → HOST` barrier makes
-   them visible to the CPU after the fence.
+2. Up to 64 requested pixels are copied into the frame slot's readback buffer, after an explicit
+   colour-write → transfer-read barrier (`RenderTarget.End`; MoltenVK does not honour the pass's outgoing dependency
+   between encoders). A `TRANSFER → HOST` barrier makes them visible to the CPU after the fence.
 3. `PrepareFrame` completes the requests once `DeletionQueue.CompletedFrame` passes that frame, about two frames
    later. It resolves each id through `SceneTree.Find(NodeId)`.
 

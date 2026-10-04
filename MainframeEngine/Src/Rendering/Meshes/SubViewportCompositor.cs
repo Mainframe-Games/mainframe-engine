@@ -98,7 +98,7 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
         vk.CmdPushConstants(cb, _layout, ShaderStageFlags.FragmentBit, 0, 8, push);
         PipelineBuilder.SetViewport(vk, cb, ldr.Extent, flipY: false);
         vk.CmdDraw(cb, 3, 1, 0, 0);
-        vk.CmdEndRenderPass(cb);
+        ldr.End(cb); // explicit barrier: ImGui, the UI and materials sample the result later in the frame
     }
 
     public void Dispose()
