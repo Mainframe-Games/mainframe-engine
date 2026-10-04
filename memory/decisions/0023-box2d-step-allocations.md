@@ -18,7 +18,9 @@ benchmark). `b2World_CastRayClosest` also allocates (`new B2RayResult()`). Patch
   static callback, contacts/sensors read into reused arrays, static filter/query delegates with the space as context).
 - `PhysicsSpace2D.MeasureLibraryAllocations` (internal test hook) totals bytes allocated inside `b2World_Step`; the 2D
   allocation test requires *everything else* in a steady-state frame to allocate 0 bytes.
-- 3D (Jitter2) is held to the strict zero-allocation gate, including the render-test Sandbox scene.
+- 3D (Jitter2) is held to the strict zero-allocation gate single-threaded, including the render-test Sandbox scene.
+  Multi-threaded, Jitter2's worker pool allocates 56 B inside `World.Step` about once per 5 000 steps (measured with
+  Jitter2 alone); `PhysicsSpace3D.MeasureLibraryAllocations` excludes that share the same way.
 
 ## Consequences
 

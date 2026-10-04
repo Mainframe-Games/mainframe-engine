@@ -281,7 +281,8 @@ to a few millimetres (closer reports "overlapping"), so `CharacterBody3D.SafeMar
 
 - **3D: zero managed allocations** in steady-state physics frames (≈ 500 bodies, contact monitors, areas,
   characters, debug draw and every query kind, single- and multi-threaded) — unit-tested, and the render-test
-  allocation gate's Sandbox scene steps a crate stack. Per-step work is O(moving bodies + monitors + areas); sleeping
+  allocation gate's Sandbox scene steps a crate stack (single-threaded: Jitter2's worker pool itself allocates 56 B
+  about once per 5 000 multi-threaded steps, so the multi-threaded unit test excludes the library's share). Per-step work is O(moving bodies + monitors + areas); sleeping
   bodies cost no pose writes.
 - **2D**: the engine's code allocates nothing, but Box2D.NET 3.1.654 allocates inside `b2World_Step` (a
   `B2StepContext` and solver arrays per step, ~350 B + per-island; [ADR 0023](../../memory/decisions/0023-box2d-step-allocations.md)).
