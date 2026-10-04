@@ -20,7 +20,8 @@ namespace MainframeEngine.Editor;
 /// command file.save           # any EditorCommands id
 /// open path/to/scene.mscene
 /// menu 2                      # choose item 2 of the open popup menu (or: menu edit.undo)
-/// pick Floor                  # list picker: select the row with this label
+/// pick Floor                  # tree or list picker: select the row with this label
+/// search omni                 # tree or list picker: type into the search field
 /// accept / cancel             # the open dialog's OK / Cancel
 /// capture name                # saves &lt;out&gt;/name.png
 /// log text                    # writes to the output
@@ -50,9 +51,10 @@ public sealed class EditorQaScript : IEditorAutomation
         foreach (var raw in File.ReadAllLines(path))
         {
             var line = raw.Trim();
-            var comment = line.IndexOf('#', StringComparison.Ordinal);
-            if (comment == 0 || (comment > 0 && !line.StartsWith("click #", StringComparison.Ordinal)))
-                line = comment == 0 ? "" : line[..comment].Trim();
+            // A comment is "#" alone or "# …" at the start or after whitespace; "#element-id" arguments are not comments.
+            var comment = line == "#" ? 0 : line.StartsWith("# ", StringComparison.Ordinal) ? 0 : line.IndexOf(" # ", StringComparison.Ordinal);
+            if (comment >= 0)
+                line = line[..comment].Trim();
             if (line.Length > 0)
                 steps.Add(line.Split(' ', 2) is [var verb, var rest] ? [verb, .. rest.Split(' ', StringSplitOptions.RemoveEmptyEntries)] : [line]);
         }
@@ -65,6 +67,7 @@ public sealed class EditorQaScript : IEditorAutomation
         ArgumentNullException.ThrowIfNull(app);
         if (app.Workspace is not { } workspace)
             return;
+        workspace.TrackKeyModifiers = true; // the script's modifier keys never reach the physical keyboard state
         if (_drag is { } drag)
         {
             StepDrag(app, drag);
@@ -164,10 +167,21 @@ public sealed class EditorQaScript : IEditorAutomation
                     workspace.Popup.Choose(step[1]);
                 break;
             case "pick":
-                workspace.ListPicker.SelectLabel(string.Join(' ', step[1..]));
+                if (workspace.TreePicker.Visible)
+                    workspace.TreePicker.SelectLabel(string.Join(' ', step[1..]));
+                else
+                    workspace.ListPicker.SelectLabel(string.Join(' ', step[1..]));
+                break;
+            case "search":
+                if (workspace.TreePicker.Visible)
+                    workspace.TreePicker.SetQuery(string.Join(' ', step[1..]));
+                else
+                    workspace.ListPicker.SetQuery(string.Join(' ', step[1..]));
                 break;
             case "accept":
-                if (workspace.ListPicker.Visible)
+                if (workspace.TreePicker.Visible)
+                    workspace.TreePicker.Accept();
+                else if (workspace.ListPicker.Visible)
                     workspace.ListPicker.Accept();
                 else if (workspace.FilePicker.Visible)
                     workspace.FilePicker.Accept();
@@ -175,7 +189,9 @@ public sealed class EditorQaScript : IEditorAutomation
                     workspace.Message.Answer(message.DefaultButton);
                 break;
             case "cancel":
-                if (workspace.ListPicker.Visible)
+                if (workspace.TreePicker.Visible)
+                    workspace.TreePicker.Cancel();
+                else if (workspace.ListPicker.Visible)
                     workspace.ListPicker.Cancel();
                 else if (workspace.FilePicker.Visible)
                     workspace.FilePicker.Cancel();

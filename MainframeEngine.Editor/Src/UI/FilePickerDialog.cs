@@ -15,7 +15,11 @@ public sealed class FilePickerDialog : EditorDocument
         public required int Index { get; init; }
         public bool Selected { get; set; }
         public string Css => Entry.IsDirectory ? (Selected ? "list-item dir selected" : "list-item dir") : (Selected ? "list-item selected" : "list-item");
-        public string Mark => Entry.IsDirectory ? "folder-mark" : "file-mark";
+        private string? _mark;
+
+        /// <summary>The entry's icon classes (<see cref="EditorIcons.ForFile"/>), computed once.</summary>
+        public string Mark => _mark ??= ("icon icon-" + EditorIcons.ForFile(Entry.Name, Entry.IsDirectory) + " " +
+                                         EditorIcons.FileFamily(Entry.Name, Entry.IsDirectory)).TrimEnd();
         public string Size => Entry.IsDirectory ? "" : FormatSize(Entry.Size);
     }
 

@@ -33,15 +33,32 @@ public sealed class MenuBarPanel : EditorDocument
     }
 
     private string _windowTitle = "";
+    private bool _dirty;
 
-    /// <summary>The scene name shown on the right of the bar, with a dirty marker.</summary>
+    /// <summary>The scene name shown on the right of the bar (scene icon, name, unsaved marker).</summary>
+    public string WindowTitle => _windowTitle;
+
+    /// <summary>Whether the bar shows the unsaved marker.</summary>
+    public bool ShowsUnsaved => _dirty;
+
+    /// <summary>The scene name shown on the right of the bar, with an unsaved marker when <paramref name="dirty"/>.</summary>
     public void SetWindowTitle(string text, bool dirty)
     {
-        _windowTitle = dirty ? text + "  •  unsaved" : text;
-        SetText("window-title", _windowTitle);
+        _windowTitle = text ?? "";
+        _dirty = dirty;
+        ApplyTitle();
     }
 
-    protected override void OnAttach(RmlDocument document) => SetText("window-title", _windowTitle);
+    private void ApplyTitle()
+    {
+        SetText("title-text", _windowTitle);
+        if (!IsLoaded)
+            return;
+        Document.GetElementById("title-icon").SetClass("hidden", _windowTitle.Length == 0);
+        Document.GetElementById("title-dirty").SetClass("hidden", !_dirty);
+    }
+
+    protected override void OnAttach(RmlDocument document) => ApplyTitle();
 
     protected override void OnClickElement(RmlEvent e)
     {
@@ -60,8 +77,11 @@ public sealed class ToolbarPanel : EditorDocument
     {
     }
 
+    private bool? _shownLocal;
+
     protected override void OnAttach(RmlDocument document)
     {
+        _shownLocal = null;
         _snapListener?.Remove();
         _snapListener = document.GetElementById("snap-step").AddEventListener("change", OnSnapStep);
         Refresh();
@@ -86,7 +106,16 @@ public sealed class ToolbarPanel : EditorDocument
         document.GetElementById("tool-scale").SetClass("active", gizmo.Mode == GizmoMode.Scale);
         var local = document.GetElementById("tool-local");
         local.SetClass("active", gizmo.Local);
-        local.SetInnerRml(gizmo.Local ? "Local<span class=\"key\">T</span>" : "Global<span class=\"key\">T</span>");
+        if (_shownLocal != gizmo.Local)
+        {
+            _shownLocal = gizmo.Local;
+            local.SetAttribute("data-tooltip", gizmo.Local
+                ? "Local Space (T) — handles follow the node's own axes; click for the world axes"
+                : "Global Space (T) — handles follow the world axes; click for the node's local axes");
+            var icon = document.GetElementById("tool-local-icon");
+            icon.SetClass("icon-world", !gizmo.Local);
+            icon.SetClass("icon-cube", gizmo.Local);
+        }
         document.GetElementById("tool-snap").SetClass("active", gizmo.Snap.Enabled);
         document.GetElementById("tool-grid").SetClass("active", Workspace.Viewport?.GridVisible ?? true);
     }
@@ -131,143 +160,6 @@ public sealed class FileSystemPanel : EditorDocument
             return;
         _shown = root;
         SetText("project-root", root);
-    }
-}
-
-/// <summary>
-/// The output panel: engine <see cref="Log"/> messages (through <see cref="OutputLog"/>) with level filters and a clear
-/// button, data-bound as a list (<c>output</c> model). It only changes when a message arrives.
-/// </summary>
-public sealed class OutputPanel : EditorDocument
-{
-    private static readonly RmlStructType<OutputMessage> LineType = new RmlStructType<OutputMessage>()
-        .Member("level", static m => m.LevelText)
-        .Member("time", static m => m.TimeText)
-        .Member("text", static m => m.Text);
-
-    private static readonly RmlStructType<OutputMessage> LineTypeWithoutTime = new RmlStructType<OutputMessage>()
-        .Member("level", static m => m.LevelText)
-        .Member("time", static _ => "")
-        .Member("text", static m => m.Text);
-
-    private readonly List<OutputMessage> _visible = [];
-    private RmlDataModel? _model;
-    private int _filter;
-    private int _shownVersion = -1;
-    private long _shownTotal;      // OutputLog.TotalAdded already reflected in _visible
-    private int _shownClears = -1; // OutputLog.ClearCount reflected; -1 forces a full rebuild
-    private int _scrollCountdown;
-    private readonly int[] _counts = new int[4];
-
-    public OutputPanel(EditorWorkspace workspace)
-        : base(workspace, "output.rml")
-    {
-        _filter = workspace.Layout.Settings.OutputFilter;
-    }
-
-    /// <summary>The messages passing the filter, oldest first.</summary>
-    public IReadOnlyList<OutputMessage> VisibleMessages => _visible;
-
-    public bool IsShown(OutputLevel level) => (_filter & (1 << (int)level)) != 0;
-
-    protected override void OnReady()
-    {
-        _model = CreateDataModel("output")
-            .Bind("show_debug", this, static p => p.IsShown(OutputLevel.Debug))
-            .Bind("show_info", this, static p => p.IsShown(OutputLevel.Info))
-            .Bind("show_warn", this, static p => p.IsShown(OutputLevel.Warning))
-            .Bind("show_error", this, static p => p.IsShown(OutputLevel.Error))
-            .Bind("count_debug", this, static p => p._counts[0])
-            .Bind("count_info", this, static p => p._counts[1])
-            .Bind("count_warn", this, static p => p._counts[2])
-            .Bind("count_error", this, static p => p._counts[3])
-            .BindList("lines", _visible, Workspace.Options.OutputTimestamps ? LineType : LineTypeWithoutTime)
-            .Event("toggle", e => Toggle((OutputLevel)e.GetArgument(0).GetInt32()))
-            .Event("clear", _ => Clear());
-        Refresh();
-    }
-
-    public void Toggle(OutputLevel level)
-    {
-        _filter ^= 1 << (int)level;
-        Workspace.Layout.SetOutputFilter(_filter);
-        _shownVersion = -1;
-        _shownClears = -1;
-        Refresh();
-    }
-
-    public void Clear()
-    {
-        Workspace.Output.Clear();
-        Refresh();
-    }
-
-    /// <summary>Rebuilds the visible list when the log changed, and scrolls to the newest line.</summary>
-    public void Refresh()
-    {
-        var log = Workspace.Output;
-        if (_shownVersion == log.Version)
-            return;
-        _shownVersion = log.Version;
-        var messages = log.Messages;
-        var added = log.TotalAdded - _shownTotal;
-        if (_shownClears != log.ClearCount || added > messages.Count || log.Dropped > 0)
-        {
-            // Full rebuild: first time, filter changed, cleared, or the history dropped old lines.
-            _visible.Clear();
-            Array.Clear(_counts);
-            foreach (var message in messages)
-            {
-                _counts[(int)message.Level]++;
-                if (IsShown(message.Level))
-                    _visible.Add(message);
-            }
-        }
-        else
-        {
-            // Only the new lines (a busy log appends a few per frame).
-            for (var i = messages.Count - (int)added; i < messages.Count; i++)
-            {
-                var message = messages[i];
-                _counts[(int)message.Level]++;
-                if (IsShown(message.Level))
-                    _visible.Add(message);
-            }
-        }
-
-        _shownTotal = log.TotalAdded;
-        _shownClears = log.ClearCount;
-
-        if (_model is null)
-            return;
-        _model.DirtyAll();
-        // Scroll to the newest line once the data views created it (the UI updates after the tree's process step).
-        if (_scrollCountdown == 0)
-            _scrollCountdown = 2;
-    }
-
-    /// <summary>Called every frame by the workspace: finishes a pending scroll to the newest line.</summary>
-    public void Tick()
-    {
-        if (_scrollCountdown == 0 || --_scrollCountdown > 0)
-            return;
-        ScrollToEnd();
-    }
-
-    private void ScrollToEnd()
-    {
-        if (!IsLoaded || Document.GetElementById("lines") is not { IsNull: false } lines || lines.ChildCount == 0)
-            return;
-        // The data-for template element stays (hidden) after the generated lines: scroll to the last real line.
-        for (var i = lines.ChildCount - 1; i >= 0; i--)
-        {
-            var line = lines.GetChild(i);
-            if (line.IsClassSet("line"))
-            {
-                line.ScrollIntoView(alignWithTop: false);
-                return;
-            }
-        }
     }
 }
 

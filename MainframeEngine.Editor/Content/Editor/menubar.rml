@@ -1,6 +1,7 @@
 <rml>
 <head>
     <title>Menu bar</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
         body.menubar {
@@ -20,26 +21,36 @@
         .menu-title:hover, .menu-title.open { background-color: #2f333d; color: #ffffff; }
         #brand {
             display: block;
-            padding: 0dp 12dp 0dp 10dp;
-            font-weight: bold;
-            color: #93c5fd;
-            letter-spacing: 1dp;
+            width: 20dp;
+            height: 20dp;
+            margin: 0dp 8dp 0dp 9dp;
+            border-radius: 4dp;
+            cursor: pointer;
         }
         #window-title {
-            display: block;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-end;
             flex: 1 1 auto;
-            text-align: right;
             padding-right: 14dp;
             color: #8b93a5;
+            white-space: nowrap;
         }
+        #title-icon { margin-right: 6dp; image-color: #6b7488; }
+        #title-dirty { margin-left: 6dp; }
     </style>
 </head>
 <body class="panel-doc menubar">
-    <div id="brand">MAINFRAME</div>
+    <img id="brand" src="/Content/Brand/logo-48.png" data-command="help.about" data-tooltip="Mainframe Engine — about this editor"/>
     <div class="menu-title" id="menu-file" data-menu="file">File</div>
     <div class="menu-title" id="menu-edit" data-menu="edit">Edit</div>
     <div class="menu-title" id="menu-view" data-menu="view">View</div>
     <div class="menu-title" id="menu-help" data-menu="help">Help</div>
-    <div id="window-title"></div>
+    <div id="window-title">
+        <span id="title-icon" class="icon icon-sm icon-movie hidden"></span>
+        <span id="title-text"></span>
+        <span id="title-dirty" class="icon icon-sm icon-point-filled icon-warn hidden" data-tooltip="Unsaved Changes (Ctrl+S) — save the scene to keep them"></span>
+    </div>
 </body>
 </rml>

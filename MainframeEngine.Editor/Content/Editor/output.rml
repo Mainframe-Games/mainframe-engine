@@ -1,36 +1,98 @@
 <rml>
 <head>
     <title>Output</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
-        .filter { margin-left: 4dp; }
-        .count { color: #8b93a5; margin-left: 4dp; }
-        button.active .count { color: #bfdbfe; }
+        .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
+        .panel-title { flex: 0 0 auto; margin-right: 10dp; }
+        .tools { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; justify-content: flex-end; }
+        .sep { display: block; width: 1dp; height: 16dp; margin: 0dp 5dp; background-color: #3b3f4b; }
+        button.level {
+            display: inline-flex;
+            align-items: center;
+            height: 20dp;
+            line-height: 20dp;
+            padding: 0dp 6dp 0dp 4dp;
+            margin-left: 3dp;
+            background-color: #1f2128;
+            border-color: #2f333d;
+        }
+        button.level .icon { margin-right: 4dp; }
+        button.level .count { color: #8b93a5; font-size: 11dp; }
+        button.level.active { background-color: #2f333d; border-color: #4b5263; color: #e8ebf2; }
+        button.level.active .count { color: #e8ebf2; }
+        button.level:not(.active) .icon { image-color: #4b5263; }
+        #search { width: 140dp; height: 20dp; margin-left: 4dp; padding: 2dp 6dp; font-size: 11dp; }
+        .search-icon { margin-left: 4dp; image-color: #6b7488; }
         .lines { padding: 2dp 0dp; font-family: "Roboto Mono"; font-size: 11dp; }
         .line {
-            display: block;
-            padding: 1dp 8dp;
-            line-height: 15dp;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            padding: 1dp 8dp 1dp 6dp;
+            line-height: 16dp;
             color: #c9cedb;
-            white-space: pre-wrap;
         }
-        .line .time { color: #6b7488; margin-right: 8dp; }
-        .line.debug { color: #8b93a5; }
-        .line.warn { color: #fbbf24; }
-        .line.error { color: #f87171; background-color: #2a1414; }
+        .line:hover { background-color: #23262e; }
+        .line .icon { margin: 1dp 5dp 0dp 0dp; }
+        .line .time { flex: 0 0 auto; color: #6b7488; margin-right: 8dp; }
+        .line .cat { display: inline-block; flex: 0 0 auto; width: 14dp; height: 14dp; margin: 1dp 6dp 0dp 0dp; }
+        .line .cat .icon { margin: 0dp; }
+        .line .text { display: block; flex: 1 1 auto; white-space: pre-wrap; }
+        .line.debug .text { color: #8b93a5; }
+        .line.warn .text { color: #fbbf24; }
+        .line.error { background-color: #2a1414; }
+        .line.error .text { color: #f87171; }
+        .repeat {
+            flex: 0 0 auto;
+            height: 14dp;
+            line-height: 14dp;
+            margin: 1dp 0dp 0dp 6dp;
+            padding: 0dp 5dp;
+            border-radius: 7dp;
+            background-color: #374151;
+            color: #e5e7eb;
+            font-size: 10dp;
+        }
+        .source { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 18dp; height: 16dp;
+                  margin-left: 4dp; border-radius: 3dp; cursor: pointer; }
+        .source .icon { margin: 0dp; image-color: #4b5263; }
+        .line:hover .source .icon { image-color: #8b93a5; }
+        .source:hover { background-color: #3a3f4c; }
+        .line .source:hover .icon { image-color: #ffffff; }
+        .empty-lines { display: block; padding: 10dp 12dp; color: #5f6676; font-family: LatoLatin; font-size: 12dp; }
     </style>
 </head>
 <body class="panel-doc" data-model="output">
     <div class="panel-header">
+        <span class="icon icon-terminal-2 title-icon"></span>
         <span class="panel-title">Output</span>
-        <button class="small filter" data-class-active="show_debug" data-event-click="toggle(0)">Debug<span class="count">{{count_debug}}</span></button>
-        <button class="small filter" data-class-active="show_info" data-event-click="toggle(1)">Info<span class="count">{{count_info}}</span></button>
-        <button class="small filter" data-class-active="show_warn" data-event-click="toggle(2)">Warnings<span class="count">{{count_warn}}</span></button>
-        <button class="small filter" data-class-active="show_error" data-event-click="toggle(3)">Errors<span class="count">{{count_error}}</span></button>
-        <button class="small filter" data-event-click="clear()">Clear</button>
+        <div class="tools">
+            <button class="level" id="level-error" data-class-active="show_error" data-event-click="toggle(3)" data-tooltip="Errors — show or hide error lines"><span class="icon icon-sm icon-alert-circle icon-error"></span><span class="count">{{count_error}}</span></button>
+            <button class="level" id="level-warn" data-class-active="show_warn" data-event-click="toggle(2)" data-tooltip="Warnings — show or hide warning lines"><span class="icon icon-sm icon-alert-triangle icon-warn"></span><span class="count">{{count_warn}}</span></button>
+            <button class="level" id="level-info" data-class-active="show_info" data-event-click="toggle(1)" data-tooltip="Messages — show or hide info lines"><span class="icon icon-sm icon-info-circle icon-info"></span><span class="count">{{count_info}}</span></button>
+            <button class="level" id="level-debug" data-class-active="show_debug" data-event-click="toggle(0)" data-tooltip="Debug — show or hide debug lines"><span class="icon icon-sm icon-bug icon-debug"></span><span class="count">{{count_debug}}</span></button>
+            <span class="sep"></span>
+            <span class="icon icon-sm icon-search search-icon"></span>
+            <input type="text" class="text" id="search" data-value="query" placeholder="Filter" data-tooltip="Filter — show only lines containing this text"/>
+            <span class="sep"></span>
+            <button class="tool-button small" id="output-collapse" data-class-active="collapse" data-event-click="collapse()" data-tooltip="Collapse Duplicates — fold repeated lines into one with a ×N count"><span class="icon icon-sm icon-stack-2"></span></button>
+            <button class="tool-button small" id="output-follow" data-class-active="follow" data-event-click="follow()" data-tooltip="Follow — scroll to new lines as they arrive"><span class="icon icon-sm icon-arrow-bar-to-down"></span></button>
+            <button class="tool-button small" id="output-copy" data-event-click="copy()" data-tooltip="Copy — copy the visible lines to the clipboard"><span class="icon icon-sm icon-copy"></span></button>
+            <button class="tool-button small" id="output-clear" data-event-click="clear()" data-tooltip="Clear — remove every line"><span class="icon icon-sm icon-trash"></span></button>
+        </div>
     </div>
     <div class="panel-body lines" id="lines">
-        <div data-for="m : lines" data-attr-class="'line ' + m.level"><span class="time">{{m.time}}</span>{{m.text}}</div>
+        <div data-for="m : lines" data-attr-class="'line ' + m.level">
+            <span data-attr-class="m.level_icon"></span>
+            <span class="time" data-if="m.time != ''">{{m.time}}</span>
+            <span class="cat" data-attr-data-tooltip="m.category"><span data-attr-class="m.category_icon"></span></span>
+            <span class="text">{{m.text}}</span>
+            <span class="repeat" data-if="m.count > 1">×{{m.count}}</span>
+            <span class="source" data-if="m.has_source" data-attr-data-tooltip="m.source" data-event-click="open_source(m.index)"><span class="icon icon-sm icon-file-code"></span></span>
+        </div>
+        <div class="empty-lines" data-if="lines.size == 0">No messages.</div>
     </div>
 </body>
 </rml>

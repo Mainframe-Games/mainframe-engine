@@ -18,12 +18,16 @@ public sealed class ViewportPanel : EditorDocument
         public required int Index { get; init; }
         public required string Title { get; init; }
         public required bool Active { get; init; }
+        public required string Icon { get; init; }
+        public required string Tooltip { get; init; }
     }
 
     private static readonly RmlStructType<Tab> TabType = new RmlStructType<Tab>()
         .Member("title", static t => t.Title)
         .Member("active", static t => t.Active)
-        .Member("index", static t => t.Index);
+        .Member("index", static t => t.Index)
+        .Member("icon", static t => t.Icon)
+        .Member("tooltip", static t => t.Tooltip);
 
     private readonly List<Tab> _tabs = [];
     private RmlDataModel? _model;
@@ -70,7 +74,18 @@ public sealed class ViewportPanel : EditorDocument
         for (var i = 0; i < session.Scenes.Count; i++)
         {
             var scene = session.Scenes[i];
-            _tabs.Add(new Tab { Scene = scene, Index = i, Title = scene.Title, Active = ReferenceEquals(scene, session.Active) });
+            _tabs.Add(new Tab
+            {
+                Scene = scene,
+                Index = i,
+                Title = scene.Title,
+                Active = ReferenceEquals(scene, session.Active),
+                // The scene's icon is its root node's (tinted by family), like Godot's scene tabs.
+                Icon = EditorIcons.Classes(scene.Root),
+                Tooltip = scene.FilePath is { } path
+                    ? scene.DisplayName + (scene.IsDirty ? " (unsaved changes)" : "") + " — " + path
+                    : scene.DisplayName + " — not saved yet",
+            });
         }
 
         _model?.Dirty("tabs");
@@ -100,12 +115,15 @@ public sealed class ViewportPanel : EditorDocument
         image.SetProperty("visibility", show ? "visible" : "hidden");
     }
 
-    /// <summary>The corner text (view name, camera mode); only touches the DOM when it changed.</summary>
-    public void SetInfo(string info)
+    /// <summary>The corner label (view name, camera mode) after its icon; only touches the DOM when it changed.</summary>
+    public void SetInfo(string info, string icon = "perspective")
     {
+        ArgumentNullException.ThrowIfNull(icon);
         if (string.Equals(info, _info, StringComparison.Ordinal))
             return;
         _info = info;
-        SetText("view-info", info);
+        SetText("view-info-text", info);
+        if (IsLoaded && Document.GetElementById("view-info-icon") is { IsNull: false } element)
+            element.SetClassNames(icon == "plane" ? "icon icon-sm icon-plane" : "icon icon-sm icon-perspective");
     }
 }

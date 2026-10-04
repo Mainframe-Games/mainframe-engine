@@ -116,6 +116,27 @@ public class AllHintsNode : Node3D
     public int Ungrouped { get; set; }
 }
 
+/// <summary>A game type with its own icon and family (like a game's player node).</summary>
+[EditorIcon("bolt", Family = EditorIconFamily.Network)]
+public class IconNode : Node3D
+{
+    /// <summary>How fast the <c>IconNode</c> charges, in units per second.</summary>
+    [Export(Icon = "gauge")]
+    public float Charge { get; set; } = 2f;
+
+    /// <summary>Where the node points.</summary>
+    [EditorIcon("target")]
+    [Export]
+    public NodePath Aim { get; set; } = new("");
+
+    /// <summary>A free-form note.</summary>
+    [Export]
+    public string Note { get; set; } = "";
+}
+
+/// <summary>A subclass without an icon: it inherits <see cref="IconNode"/>'s.</summary>
+public class InheritsIconNode : IconNode;
+
 /// <summary>A node with a signal and a handler (connections survive delete/undo and duplicate).</summary>
 public class SignalNode : Node3D
 {

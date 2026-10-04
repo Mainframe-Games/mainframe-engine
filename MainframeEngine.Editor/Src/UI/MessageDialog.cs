@@ -25,6 +25,22 @@ public sealed record MessageRequest
 
     /// <summary>Called with the button index and the text field's value.</summary>
     public Action<int, string>? Callback { get; init; }
+
+    /// <summary>The title's icon (a Tabler name or full icon classes); null picks one from the title (error, warning, rename …).</summary>
+    public string? Icon { get; init; }
+
+    /// <summary>The icon classes the dialog shows for this request.</summary>
+    public string IconClasses => Icon is { Length: > 0 } icon
+        ? icon.Contains(' ', StringComparison.Ordinal) ? icon : "icon icon-" + icon
+        : Title switch
+        {
+            "Error" => "icon icon-alert-circle icon-error",
+            _ when Title.Contains("unsaved", StringComparison.OrdinalIgnoreCase) || Title.Contains("overwrite", StringComparison.OrdinalIgnoreCase) ||
+                   Title.Contains("replace", StringComparison.OrdinalIgnoreCase) => "icon icon-alert-triangle icon-warn",
+            _ when Title.StartsWith("Rename", StringComparison.Ordinal) => "icon icon-pencil",
+            _ when Title.Contains("Shortcut", StringComparison.Ordinal) => "icon icon-keyboard",
+            _ => "icon icon-info-circle",
+        };
 }
 
 /// <summary>
@@ -61,7 +77,8 @@ public sealed class MessageDialog : EditorDocument
         if (!EnsureLoaded())
             return;
 
-        SetText("title", request.Title);
+        SetText("title-text", request.Title);
+        Document.GetElementById("title-icon").SetClassNames(request.IconClasses);
         var message = Document.GetElementById("message");
         if (!message.IsNull)
             message.SetInnerRml(RmlText.Escape(request.Message).Replace("\n", "<br/>", StringComparison.Ordinal));

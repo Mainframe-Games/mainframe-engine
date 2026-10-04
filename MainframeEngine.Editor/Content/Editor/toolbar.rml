@@ -1,6 +1,7 @@
 <rml>
 <head>
     <title>Toolbar</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
         body.toolbar {
@@ -18,38 +19,38 @@
             margin-right: 6dp;
             border-right: 1dp #2a2d36;
         }
-        .group button { height: 24dp; line-height: 24dp; }
-        .key { color: #8b93a5; font-size: 10dp; margin-left: 4dp; }
-        button.active .key { color: #bfdbfe; }
+        .group button.tool-button { width: 28dp; height: 26dp; line-height: 26dp; }
         .spacer { flex: 1 1 auto; }
         #snap-step { width: 46dp; margin-left: 4dp; }
         #stats { padding: 0dp 10dp 0dp 6dp; color: #8b93a5; white-space: nowrap; }
-        .play button { width: 44dp; padding: 0dp; }
+        .play button.tool-button { width: 32dp; }
+        #play .icon { image-color: #4ade80; }
+        #play.disabled .icon, #pause.disabled .icon, #stop.disabled .icon { image-color: #4b5263; }
     </style>
 </head>
 <body class="panel-doc toolbar">
     <div class="group">
-        <button id="tool-select" data-command="gizmo.select" title="Select (Q)">Select<span class="key">Q</span></button>
-        <button id="tool-translate" data-command="gizmo.translate" title="Move (W)">Move<span class="key">W</span></button>
-        <button id="tool-rotate" data-command="gizmo.rotate" title="Rotate (E)">Rotate<span class="key">E</span></button>
-        <button id="tool-scale" data-command="gizmo.scale" title="Scale (R)">Scale<span class="key">R</span></button>
+        <button id="tool-select" class="tool-button" data-command="gizmo.select" data-tooltip="Select (Q) — pick nodes in the viewport without a gizmo"><span class="icon icon-pointer"></span></button>
+        <button id="tool-translate" class="tool-button" data-command="gizmo.translate" data-tooltip="Move (W) — translate selected nodes"><span class="icon icon-arrows-move"></span></button>
+        <button id="tool-rotate" class="tool-button" data-command="gizmo.rotate" data-tooltip="Rotate (E) — rotate selected nodes"><span class="icon icon-rotate"></span></button>
+        <button id="tool-scale" class="tool-button" data-command="gizmo.scale" data-tooltip="Scale (R) — scale selected nodes"><span class="icon icon-arrows-maximize"></span></button>
     </div>
     <div class="group">
-        <button id="tool-local" data-command="gizmo.local" title="Local or global handles (T)">Global<span class="key">T</span></button>
-        <button id="tool-snap" data-command="gizmo.snap" title="Snap to steps (Y)">Snap<span class="key">Y</span></button>
-        <input type="text" class="text" id="snap-step" value="0.5" title="Move snap step"/>
+        <button id="tool-local" class="tool-button" data-command="gizmo.local" data-tooltip="Global Space (T) — handles follow the world axes; click for the node's local axes"><span id="tool-local-icon" class="icon icon-world"></span></button>
+        <button id="tool-snap" class="tool-button" data-command="gizmo.snap" data-tooltip="Snap (Y) — move, rotate and scale in steps"><span class="icon icon-magnet"></span></button>
+        <input type="text" class="text" id="snap-step" value="0.5" data-tooltip="Snap Step — the move step in metres (rotation snaps to 15°, scale to 0.1)"/>
     </div>
     <div class="group">
-        <button id="tool-frame" data-command="view.frame" title="Frame selection (F)">Frame<span class="key">F</span></button>
-        <button id="tool-grid" class="active" data-command="view.grid" title="Show the grid (G)">Grid</button>
+        <button id="tool-frame" class="tool-button" data-command="view.frame" data-tooltip="Frame Selection (F) — move the camera to the selected nodes"><span class="icon icon-focus-centered"></span></button>
+        <button id="tool-grid" class="tool-button active" data-command="view.grid" data-tooltip="Grid (G) — show or hide the ground grid"><span class="icon icon-grid-3x3"></span></button>
     </div>
     <div class="spacer"></div>
     <div class="group play">
-        <button id="play" class="disabled" title="Play arrives with projects (E4)">Play</button>
-        <button id="pause" class="disabled" title="Play arrives with projects (E4)">Pause</button>
-        <button id="stop" class="disabled" title="Play arrives with projects (E4)">Stop</button>
+        <button id="play" class="tool-button disabled" data-tooltip="Play — run the game (arrives with projects, E4)"><span class="icon icon-player-play-filled"></span></button>
+        <button id="pause" class="tool-button disabled" data-tooltip="Pause — pause the running game (arrives with projects, E4)"><span class="icon icon-player-pause"></span></button>
+        <button id="stop" class="tool-button disabled" data-tooltip="Stop — stop the running game (arrives with projects, E4)"><span class="icon icon-player-stop"></span></button>
     </div>
     <div class="spacer"></div>
-    <span id="stats" class="mono"></span>
+    <span id="stats" class="mono" data-tooltip="Frame Rate — editor frames per second and frame time"></span>
 </body>
 </rml>

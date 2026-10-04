@@ -1,28 +1,30 @@
 <rml>
 <head>
     <title>File</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
         #dialog { left: 50%; top: 50%; width: 680dp; height: 470dp; margin-left: -340dp; margin-top: -235dp; }
         .places button { margin-left: 0dp; margin-right: 4dp; }
-        #path { font-family: "Roboto Mono"; font-size: 11dp; }
+        #path { font-family: "Roboto Mono"; font-size: 11dp; margin: 0dp 4dp; }
+        .dialog-row button.tool-button { margin-left: 0dp; }
     </style>
 </head>
 <body class="backdrop" data-model="file_picker">
     <div class="dialog" id="dialog">
-        <div class="dialog-title">{{title}}</div>
+        <div class="dialog-title"><span class="icon icon-folder-open"></span><span>{{title}}</span></div>
         <div class="dialog-body">
             <div class="dialog-row">
-                <button data-event-click="up()" title="Parent folder">Up</button>
-                <input type="text" class="text" id="path" data-value="path" style="margin-left: 6dp;"/>
-                <button data-event-click="go()">Go</button>
+                <button class="tool-button" data-event-click="up()" data-tooltip="Parent Folder — go up one level"><span class="icon icon-arrow-up"></span></button>
+                <input type="text" class="text" id="path" data-value="path" data-tooltip="Folder — type a path and press Go"/>
+                <button class="tool-button" data-event-click="go()" data-tooltip="Go — open the typed folder"><span class="icon icon-arrow-right"></span></button>
             </div>
             <div class="dialog-row places">
-                <button data-event-click="place(0)">Home</button>
-                <button data-event-click="place(1)" data-if="has_project">Project</button>
-                <button data-event-click="place(2)" data-if="has_project">Content</button>
-                <span class="muted grow" style="text-align: right;">{{filter}}</span>
+                <button class="with-icon" data-event-click="place(0)" data-tooltip="Home — your user folder"><span class="icon icon-sm icon-home"></span><span>Home</span></button>
+                <button class="with-icon" data-event-click="place(1)" data-if="has_project" data-tooltip="Project — the open project's folder"><span class="icon icon-sm icon-folder-cog"></span><span>Project</span></button>
+                <button class="with-icon" data-event-click="place(2)" data-if="has_project" data-tooltip="Content — the project's Content folder"><span class="icon icon-sm icon-folder icon-dir"></span><span>Content</span></button>
+                <span class="muted grow" style="text-align: right;"><span class="icon icon-sm icon-filter icon-muted"></span> {{filter}}</span>
             </div>
             <div class="list" id="entries">
                 <div data-for="e : entries" data-attr-class="e.css" data-event-click="select(e.index)" data-event-dblclick="activate(e.index)">

@@ -1,6 +1,7 @@
 <rml>
 <head>
     <title>Message</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
@@ -10,7 +11,7 @@
 </head>
 <body class="backdrop">
     <div class="dialog" id="dialog">
-        <div class="dialog-title" id="title">Message</div>
+        <div class="dialog-title" id="title"><span id="title-icon" class="icon icon-info-circle"></span><span id="title-text">Message</span></div>
         <div class="dialog-body">
             <div class="dialog-message" id="message"></div>
             <div class="dialog-row" id="input-row"><input type="text" class="text" id="input"/></div>

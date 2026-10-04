@@ -251,22 +251,56 @@ public sealed class WorkspaceTests : IDisposable
     {
         W.Commands.Execute("node.add");
         _editor.Tick();
-        Assert.True(W.ListPicker.Visible);
-        Assert.Contains("OmniLight3D", W.ListPicker.VisibleLabels);
-        Assert.DoesNotContain("MissingNode", W.ListPicker.VisibleLabels);
-        Assert.DoesNotContain("EditorWorkspace", W.ListPicker.VisibleLabels);
+        Assert.True(W.TreePicker.Visible);
+        Assert.Contains("OmniLight3D", W.TreePicker.VisibleLabels);
+        Assert.DoesNotContain("MissingNode", W.TreePicker.VisibleLabels);
+        Assert.DoesNotContain("EditorWorkspace", W.TreePicker.VisibleLabels);
+        // An inheritance tree: Node is the root, abstract bases are structure-only rows.
+        Assert.Equal("Node", W.TreePicker.VisibleLabels.First());
+        Assert.False(W.TreePicker.Model.Find("Light3D")!.Selectable);
 
-        W.ListPicker.SetQuery("omni");
+        // The search keeps the match's ancestors and selects the best match.
+        W.TreePicker.SetQuery("omni");
         _editor.Tick();
-        Assert.Equal(["OmniLight3D"], W.ListPicker.VisibleLabels);
-        W.ListPicker.Accept();
+        Assert.Equal(["Node", "Node3D", "Light3D", "OmniLight3D"], W.TreePicker.VisibleLabels);
+        Assert.Equal("OmniLight3D", W.TreePicker.Model.Selected?.Label);
+        Assert.Equal(["Node", "Node3D", "Light3D", "OmniLight3D"], W.TreePicker.Model.Chain(W.TreePicker.Model.Selected!).Select(e => e.Label));
+        W.TreePicker.Accept();
         _editor.Tick();
 
         var light = Assert.IsType<OmniLight3D>(_editor.Scene.Selection.Primary);
         Assert.Same(_editor.Scene.Root, light.Parent);
         Assert.Same(_editor.Scene.Root, light.Owner);
-        Assert.False(W.ListPicker.Visible);
+        Assert.False(W.TreePicker.Visible);
         Assert.Equal(2, W.SceneTree.Model.Rows.Count);
+        Assert.Equal("OmniLight3D", W.Layout.PickerRecent("node")[0]); // remembered in the editor settings
+
+        // The next time it is listed under Recent.
+        W.Commands.Execute("node.add");
+        _editor.Tick();
+        Assert.Equal(["OmniLight3D"], W.TreePicker.RecentLabels);
+        W.TreePicker.Cancel();
+        Assert.Empty(_editor.RmlMessages);
+    }
+
+    [Fact]
+    public void AbstractTypesCannotBeCreatedAndFavouritesPersist()
+    {
+        var children = _editor.Scene.Root.ChildCount;
+        W.Commands.Execute("node.add");
+        _editor.Tick();
+        Assert.True(W.TreePicker.SelectLabel("Light3D"));
+        W.TreePicker.Accept();
+        Assert.True(W.TreePicker.Visible); // abstract: an error, nothing created
+        Assert.Equal(children, _editor.Scene.Root.ChildCount);
+
+        var row = W.TreePicker.VisibleLabels.ToList().IndexOf("Camera3D");
+        W.TreePicker.ToggleFavorite(row);
+        Assert.Equal(["Camera3D"], W.TreePicker.FavoriteLabels);
+        Assert.Contains("Camera3D", W.Layout.PickerFavorites("node"));
+        W.TreePicker.ToggleFavorite(row);
+        Assert.Empty(W.TreePicker.FavoriteLabels);
+        W.TreePicker.Cancel();
     }
 
     [Fact]
@@ -287,7 +321,7 @@ public sealed class WorkspaceTests : IDisposable
         Assert.Equal(GizmoMode.Rotate, W.Gizmo.Mode);
 
         // Closing the dialog releases the search field's focus, so shortcuts work again at once.
-        W.ListPicker.Cancel();
+        W.TreePicker.Cancel();
         _editor.Tick();
         Assert.False(_editor.Server.TextInputActive);
         _editor.Key(Key.W);

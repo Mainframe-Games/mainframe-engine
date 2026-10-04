@@ -1,0 +1,104 @@
+<rml>
+<head>
+    <title>Create</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 780dp; height: 560dp; margin-left: -390dp; margin-top: -280dp; }
+        .picker-body { display: flex; flex-direction: row; flex: 1 1 auto; padding: 10dp 14dp 6dp 14dp; }
+        .side { display: flex; flex-direction: column; flex: 0 0 auto; width: 200dp; margin-right: 12dp; }
+        .side-title { display: flex; flex-direction: row; align-items: center; height: 22dp; color: #b4bccc; font-size: 12dp; font-weight: bold; }
+        .side-title .icon { margin-right: 5dp; image-color: #8b93a5; }
+        .side-list { display: block; flex: 1 1 auto; overflow-y: auto; background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; margin-bottom: 8dp; }
+        .side-empty { display: block; padding: 6dp 8dp; color: #5f6676; font-size: 11dp; }
+        .main { display: flex; flex-direction: column; flex: 1 1 auto; }
+        .search-row { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin-bottom: 8dp; }
+        .search-row .icon { margin-right: 6dp; image-color: #8b93a5; }
+        .search-row input.text { flex: 1 1 auto; width: 60dp; }
+        .tree-list { display: block; flex: 1 1 auto; overflow-y: auto; background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; }
+        .pick-row { display: flex; flex-direction: row; align-items: center; height: 22dp; padding-right: 4dp; white-space: nowrap; cursor: pointer; }
+        .pick-row:hover { background-color: #2a2e38; }
+        .pick-row.selected { background-color: #1d4ed8; color: #ffffff; }
+        .pick-row.dim .label { color: #6b7488; }
+        .pick-row.structure .label { color: #8b93a5; font-style: italic; }
+        .pick-row.selected .label { color: #ffffff; }
+        .pick-row .type-icon { margin: 0dp 6dp 0dp 1dp; }
+        .pick-row .label { display: block; flex: 1 1 auto; overflow: hidden; }
+        .indent { display: inline-block; flex: 0 0 auto; height: 1dp; }
+        .star { display: inline-flex; align-items: center; justify-content: center; width: 20dp; height: 20dp; border-radius: 3dp; cursor: pointer; }
+        .star:hover { background-color: #3a3f4c; }
+        .star .icon { image-color: #4b5263; }
+        .pick-row:hover .star .icon { image-color: #8b93a5; }
+        .star.on .icon, .pick-row:hover .star.on .icon { image-color: #fbbf24; }
+        .side-list .pick-row { padding-left: 6dp; }
+        .desc { display: block; flex: 0 0 auto; height: 112dp; margin-top: 8dp; padding: 8dp 10dp; overflow-y: auto;
+                background-color: #1b1d23; border: 1dp #2f333d; border-radius: 3dp; }
+        .desc-head { display: flex; flex-direction: row; align-items: center; margin-bottom: 4dp; }
+        .desc-head .icon { margin-right: 8dp; }
+        .desc-title { font-weight: bold; color: #ffffff; font-size: 14dp; }
+        .chain { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 6dp; color: #8b93a5; font-size: 11dp; }
+        .chain-item { display: inline-flex; align-items: center; margin-right: 2dp; }
+        .chain-item .icon { margin-right: 3dp; }
+        .chain-sep { image-color: #4b5263; margin-right: 2dp; }
+        .desc-text { display: block; color: #b4bccc; line-height: 16dp; font-size: 12dp; }
+        .dialog-buttons .grow { flex: 1 1 auto; }
+        .dialog-buttons button.with-icon { padding: 0dp 12dp 0dp 10dp; }
+    </style>
+</head>
+<body class="backdrop" data-model="tree_picker">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-circle-plus"></span><span>{{title}}</span></div>
+        <div class="picker-body">
+            <div class="side">
+                <div class="side-title"><span class="icon icon-sm icon-star"></span><span>Favourites</span></div>
+                <div class="side-list" id="favorites">
+                    <div class="pick-row" data-for="f : favorites" data-class-selected="f.selected" data-event-click="pick_side(f.index)" data-event-dblclick="activate_side(f.index)">
+                        <span data-attr-class="f.icon + ' type-icon'"></span><span class="label">{{f.label}}</span>
+                    </div>
+                    <div class="side-empty" data-if="favorites.size == 0">Click a star to add one.</div>
+                </div>
+                <div class="side-title"><span class="icon icon-sm icon-history"></span><span>Recent</span></div>
+                <div class="side-list" id="recent">
+                    <div class="pick-row" data-for="r : recent" data-class-selected="r.selected" data-event-click="pick_side(r.index)" data-event-dblclick="activate_side(r.index)">
+                        <span data-attr-class="r.icon + ' type-icon'"></span><span class="label">{{r.label}}</span>
+                    </div>
+                    <div class="side-empty" data-if="recent.size == 0">Nothing yet.</div>
+                </div>
+            </div>
+            <div class="main">
+                <div class="search-row">
+                    <span class="icon icon-search"></span>
+                    <input type="text" class="text" id="query" data-value="query" placeholder="Search" data-tooltip="Search — fuzzy match; the matches' parents stay visible"/>
+                </div>
+                <div class="tree-list" id="rows">
+                    <div class="pick-row" data-for="row : rows"
+                         data-class-selected="row.selected" data-class-dim="!row.match" data-class-structure="!row.selectable"
+                         data-event-mousedown="select(row.index)" data-event-dblclick="activate(row.index)">
+                        <span class="indent" data-style-width="row.indent"></span>
+                        <span class="arrow" data-class-collapsed="!row.expanded" data-class-none="!row.has_children" data-event-mousedown="toggle(row.index)"></span>
+                        <span data-attr-class="row.icon + ' type-icon'"></span>
+                        <span class="label">{{row.label}}</span>
+                        <span class="star" data-if="row.selectable" data-class-on="row.favorite" data-event-mousedown="star(row.index)"
+                              data-tooltip="Favourite — keep it in the Favourites list"><span data-attr-class="row.star_icon"></span></span>
+                    </div>
+                </div>
+                <div class="desc">
+                    <div class="desc-head" data-if="has_selection"><span data-attr-class="desc_icon + ' icon-lg'"></span><span class="desc-title">{{desc_title}}</span></div>
+                    <div class="chain" data-if="chain.size > 1">
+                        <span class="chain-item" data-for="c : chain"><span class="icon icon-sm icon-chevron-right chain-sep" data-if="c.index > 0"></span><span data-attr-class="c.icon + ' icon-sm'"></span><span>{{c.label}}</span></span>
+                    </div>
+                    <div class="desc-text">{{desc_text}}</div>
+                </div>
+            </div>
+        </div>
+        <div class="dialog-error" style="padding: 0dp 14dp;">{{error}}</div>
+        <div class="dialog-buttons">
+            <button class="with-icon" data-if="has_browse" data-event-click="browse()" data-tooltip="Browse — choose a file outside the list"><span class="icon icon-sm icon-folder-open"></span><span>Browse…</span></button>
+            <span class="grow"></span>
+            <button data-event-click="cancel()">Cancel</button>
+            <button class="primary with-icon" id="ok" data-event-click="ok()"><span class="icon icon-sm icon-plus"></span><span>{{ok_label}}</span></button>
+        </div>
+    </div>
+</body>
+</rml>

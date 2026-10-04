@@ -4,7 +4,15 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine.Editor;
 
 /// <summary>A titled group of inspector rows: one per <c>[ExportGroup]</c>, plus one per declaring type for ungrouped members.</summary>
-public sealed record InspectorSection(string Title, IReadOnlyList<InspectorProperty> Properties);
+/// <param name="Title">The group name, or the declaring type's name.</param>
+/// <param name="Properties">The rows.</param>
+/// <param name="DeclaringType">The type whose members the section lists (the first row's declaring type for a group).</param>
+/// <param name="IsGroup">An <c>[ExportGroup]</c> section (its header shows a group icon instead of the type's).</param>
+public sealed record InspectorSection(string Title, IReadOnlyList<InspectorProperty> Properties, Type? DeclaringType = null, bool IsGroup = false)
+{
+    /// <summary>The header icon's classes: the declaring type's icon, or a group icon.</summary>
+    public string IconClasses => IsGroup || DeclaringType is null ? "icon icon-category icon-muted" : EditorIcons.Classes(DeclaringType);
+}
 
 /// <summary>
 /// The inspector's property model for an object (node or resource): the generated <see cref="NodeTypeInfo"/>'s
@@ -47,7 +55,7 @@ public sealed class InspectorModel
         if (info is null)
             return new InspectorModel(target, null, [], custom);
 
-        var sections = new List<(string Title, List<InspectorProperty> Rows)>();
+        var sections = new List<(string Title, List<InspectorProperty> Rows, Type Type, bool IsGroup)>();
         foreach (var property in info.Properties)
         {
             if (custom is not null && !custom.ShowProperty(target, property))
@@ -56,14 +64,14 @@ public sealed class InspectorModel
             var section = sections.FindIndex(s => string.Equals(s.Title, title, StringComparison.Ordinal));
             if (section < 0)
             {
-                sections.Add((title, []));
+                sections.Add((title, [], property.DeclaringType.Type, property.Group is not null));
                 section = sections.Count - 1;
             }
 
             sections[section].Rows.Add(new InspectorProperty(target, property));
         }
 
-        return new InspectorModel(target, info, [.. sections.Select(s => new InspectorSection(s.Title, s.Rows))], custom);
+        return new InspectorModel(target, info, [.. sections.Select(s => new InspectorSection(s.Title, s.Rows, s.Type, s.IsGroup))], custom);
     }
 }
 

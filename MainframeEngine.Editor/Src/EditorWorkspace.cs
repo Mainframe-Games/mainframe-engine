@@ -63,6 +63,9 @@ public sealed class EditorWorkspace : Node
     public OutputLog Output { get; } = new();
     public EditorCommands Commands { get; }
 
+    /// <summary>Opens a source file at a line (the Output panel's source links); default <see cref="ExternalEditor.Open"/>.</summary>
+    public Func<string, int, bool> SourceOpener { get; set; } = ExternalEditor.Open;
+
     /// <summary>Mode, space and snapping of the transform gizmo (shared by every tab).</summary>
     public TransformGizmo Gizmo { get; } = new();
 
@@ -83,15 +86,27 @@ public sealed class EditorWorkspace : Node
     public FilePickerDialog FilePicker { get; private set; } = null!;
     public ListPickerDialog ListPicker { get; private set; } = null!;
     public MessageDialog Message { get; private set; } = null!;
+    public TreePickerDialog TreePicker { get; private set; } = null!;
+    public UiLayer TooltipLayer { get; private set; } = null!;
+
+    /// <summary>The tooltip widget (null until the workspace is ready).</summary>
+    public TooltipOverlay? Tooltips { get; private set; }
+
     public UiLayer SplashLayer { get; private set; } = null!;
     public SplashScreen Splash { get; private set; } = null!;
     public ViewportController Viewport { get; private set; } = null!;
 
     /// <summary>True while a modal dialog is open (shortcuts are suspended).</summary>
-    public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || Message.Visible || Splash.Visible;
+    public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || TreePicker.Visible || Message.Visible || Splash.Visible;
 
     /// <summary>The modifier keys held (host state, or tracked from key events when the host has none).</summary>
-    public EditorModifiers Modifiers => Host.ReportsModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
+    public EditorModifiers Modifiers => Host.ReportsModifiers && !TrackKeyModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
+
+    /// <summary>
+    /// Also take modifiers from key events when the host reads the keyboard itself: scripted QA input pushes synthetic
+    /// key events the physical keyboard state never sees.
+    /// </summary>
+    public bool TrackKeyModifiers { get; set; }
 
     protected override void OnReady()
     {
@@ -121,11 +136,20 @@ public sealed class EditorWorkspace : Node
         Popup = new PopupMenu(this) { Name = "Popup" };
         FilePicker = new FilePickerDialog(this) { Name = "FilePicker" };
         ListPicker = new ListPickerDialog(this) { Name = "ListPicker" };
+        TreePicker = new TreePickerDialog(this) { Name = "TreePicker" };
         Message = new MessageDialog(this) { Name = "Message" };
         DialogLayer.AddChild(Popup);
         DialogLayer.AddChild(FilePicker);
         DialogLayer.AddChild(ListPicker);
+        DialogLayer.AddChild(TreePicker);
         DialogLayer.AddChild(Message);
+
+        // Tooltips: above the dialogs, below the splash; the overlay never takes the mouse.
+        TooltipLayer = new UiLayer { Name = "EditorTooltips", Layer = 90 };
+        Tooltips = new TooltipOverlay(this) { Name = "Tooltips" };
+        TooltipLayer.AddChild(Tooltips);
+        Tooltips.Watch(DialogLayer);
+        Tooltips.Watch(PanelLayer);
 
         SplashLayer = new UiLayer { Name = "EditorSplash", Layer = 100 };
         Splash = new SplashScreen(this) { Name = "Splash" };
@@ -135,6 +159,7 @@ public sealed class EditorWorkspace : Node
         AddChild(Viewport);
         AddChild(PanelLayer);
         AddChild(DialogLayer);
+        AddChild(TooltipLayer);
         AddChild(SplashLayer);
 
         Session.ScenesChanged += OnScenesChanged;
@@ -237,6 +262,8 @@ public sealed class EditorWorkspace : Node
         if (Output.Drain())
             OutputPanel.Refresh();
         OutputPanel.Tick();
+        TreePicker.Tick();
+        Tooltips?.Tick(gameTime.DeltaTime);
         SyncLayout();
         UpdateTitle();
 
@@ -340,6 +367,9 @@ public sealed class EditorWorkspace : Node
     {
         if (inputEvent is InputEventKey key)
             TrackModifier(key);
+        // Keys and clicks the UI did not take (shortcuts, the 3D view) also hide the tooltip.
+        if (inputEvent is InputEventKey { Pressed: true } or InputEventMouseButton { Pressed: true } or InputEventMouseWheel)
+            Tooltips?.Dismiss();
     }
 
     protected override void OnUnhandledInput(InputEvent inputEvent)

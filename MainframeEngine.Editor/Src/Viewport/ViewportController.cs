@@ -143,7 +143,7 @@ public sealed class ViewportController : Node
 
         scene.Camera.Apply();
         _workspace.Gizmo.PixelScale = _workspace.Host.PixelScale;
-        _workspace.ViewportPanel.SetInfo(_drag == DragKind.Fly ? FlyInfo : PerspectiveInfo);
+        _workspace.ViewportPanel.SetInfo(_drag == DragKind.Fly ? FlyInfo : PerspectiveInfo, _drag == DragKind.Fly ? "plane" : "perspective");
         PollPick(scene);
         DrawEditorVisuals(scene, pixels);
     }

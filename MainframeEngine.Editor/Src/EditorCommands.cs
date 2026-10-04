@@ -281,39 +281,40 @@ public sealed class EditorCommands
 
     // ── Nodes ────────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The Add Node dialog: every registered, instantiable node type.</summary>
+    /// <summary>The Add Node dialog: every registered node type as an inheritance tree (abstract types are structure only).</summary>
     public void AddNode()
     {
         if (Active is not { } scene)
             return;
-        var items = NodeTypes().Select(t => new ListPickerItem(t.Name, BaseName(t), SceneTreeModel.IconOf(IconProbe(t)), t)).ToArray();
-        _workspace.ListPicker.Show("Add Node", items, "Add", payload =>
+        _workspace.TreePicker.Show(new TreePickerRequest
         {
-            var info = (NodeTypeInfo)payload;
-            var node = (Node)info.CreateInstance();
-            node.Name = info.Name;
-            scene.AddNode(node);
+            Kind = "node",
+            Title = "Create New Node",
+            OkLabel = "Create",
+            Entries = PickerSources.NodeTypes(),
+            OnAccept = entry =>
+            {
+                var info = (NodeTypeInfo)entry.Payload!;
+                var node = (Node)info.CreateInstance();
+                node.Name = info.Name;
+                scene.AddNode(node);
+            },
         });
     }
 
     /// <summary>Registered node types the user can create (not abstract, not the tree root or placeholders).</summary>
     public static IReadOnlyList<NodeTypeInfo> NodeTypes() =>
-        [.. TypeRegistry.All
-            .Where(t => t.IsNode && !t.IsAbstract && t.Type != typeof(MissingNode) && t.Type != typeof(SceneViewport))
-            .OrderBy(t => t.Name, StringComparer.Ordinal)];
+        [.. PickerSources.NodeTypes().Where(e => e.Selectable).Select(e => (NodeTypeInfo)e.Payload!).OrderBy(t => t.Name, StringComparer.Ordinal)];
 
-    private static string BaseName(NodeTypeInfo info) => info.Base?.Name ?? "";
-
-    // The icon category needs an instance; the type's pristine default instance is never added to a tree.
-    private static Node IconProbe(NodeTypeInfo info) => info.DefaultInstance as Node ?? new Node();
-
-    /// <summary>Picks a scene file and instances it under the selection.</summary>
+    /// <summary>
+    /// Instances a scene under the selection: the project's scenes as a folder tree (Browse… for any file), or the file
+    /// picker when there is no project.
+    /// </summary>
     public void InstanceScene()
     {
         if (Active is not { } scene)
             return;
-        var model = new FilePickerModel(FilePickerMode.Open, StartDirectory(scene), ["*.mscene"]);
-        _workspace.FilePicker.Show(model, "Instance Scene", "Instance", path =>
+        void Instance(string path)
         {
             try
             {
@@ -323,6 +324,30 @@ public sealed class EditorCommands
             {
                 ReportError($"Could not instance {Path.GetFileName(path)}", e);
             }
+        }
+
+        void Browse()
+        {
+            var model = new FilePickerModel(FilePickerMode.Open, StartDirectory(scene), ["*.mscene"]);
+            _workspace.FilePicker.Show(model, "Instance Scene", "Instance", Instance);
+        }
+
+        if (Session.ProjectRoot is not { } root)
+        {
+            Browse();
+            return;
+        }
+
+        _workspace.TreePicker.Show(new TreePickerRequest
+        {
+            Kind = "scene",
+            Title = "Instance Child Scene",
+            OkLabel = "Instance",
+            // The scene being edited cannot contain itself.
+            Entries = [.. PickerSources.Scenes(root).Where(e => e.Payload is not string file || !string.Equals(
+                Path.GetFullPath(file), scene.FilePath is null ? null : Path.GetFullPath(scene.FilePath), StringComparison.Ordinal))],
+            OnAccept = entry => Instance((string)entry.Payload!),
+            OnBrowse = Browse,
         });
     }
 
@@ -362,11 +387,11 @@ public sealed class EditorCommands
             return;
         var history = scene.History;
         var items = new List<MenuItem> { MenuItem.Header("Undo history") };
-        items.Add(new MenuItem("(scene opened)", "history:0", Css: history.Position == 0 ? "current" : null));
+        items.Add(new MenuItem("(scene opened)", "history:0", Css: history.Position == 0 ? "current" : null, Icon: "file"));
         for (var i = 0; i < history.Actions.Count; i++)
         {
             var css = i + 1 == history.Position ? "current" : i + 1 > history.Position ? "undone" : null;
-            items.Add(new MenuItem(history.Actions[i].Name, $"history:{i + 1}", Css: css));
+            items.Add(new MenuItem(history.Actions[i].Name, $"history:{i + 1}", Css: css, Icon: HistoryIcon(history.Actions[i])));
         }
 
         _workspace.Popup.Show(items, x, y, command =>
@@ -387,43 +412,66 @@ public sealed class EditorCommands
         {
             "file" =>
             [
-                new MenuItem("New Scene", "file.new", "Ctrl+N"),
-                new MenuItem("Open Scene…", "file.open", "Ctrl+O"),
+                new MenuItem("New Scene", "file.new", "Ctrl+N", Icon: "file-plus"),
+                new MenuItem("Open Scene…", "file.open", "Ctrl+O", Icon: "folder-open"),
                 MenuItem.Separator,
-                new MenuItem("Save", "file.save", "Ctrl+S", scene is not null),
-                new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", scene is not null),
+                new MenuItem("Save", "file.save", "Ctrl+S", scene is not null, Icon: "device-floppy"),
+                new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", scene is not null, Icon: "file-export"),
                 MenuItem.Separator,
-                new MenuItem("Close Scene", "file.close", "Ctrl+W", scene is not null),
-                new MenuItem("Quit", "file.quit", "Ctrl+Q"),
+                new MenuItem("Close Scene", "file.close", "Ctrl+W", scene is not null, Icon: "x"),
+                new MenuItem("Quit", "file.quit", "Ctrl+Q", Icon: "logout"),
             ],
             "edit" =>
             [
-                new MenuItem(history?.UndoAction is { } undo ? $"Undo {undo.Name}" : "Undo", "edit.undo", "Ctrl+Z", history?.CanUndo == true),
-                new MenuItem(history?.RedoAction is { } redo ? $"Redo {redo.Name}" : "Redo", "edit.redo", "Ctrl+Shift+Z", history?.CanRedo == true),
-                new MenuItem("Undo History…", "edit.history", null, history?.Actions.Count > 0),
+                new MenuItem(history?.UndoAction is { } undo ? $"Undo {undo.Name}" : "Undo", "edit.undo", "Ctrl+Z", history?.CanUndo == true, Icon: "arrow-back-up"),
+                new MenuItem(history?.RedoAction is { } redo ? $"Redo {redo.Name}" : "Redo", "edit.redo", "Ctrl+Shift+Z", history?.CanRedo == true, Icon: "arrow-forward-up"),
+                new MenuItem("Undo History…", "edit.history", null, history?.Actions.Count > 0, Icon: "history"),
                 MenuItem.Separator,
-                new MenuItem("Add Node…", "node.add", "Ctrl+A", scene is not null),
-                new MenuItem("Instance Scene…", "scene.instance", "Ctrl+Shift+A", scene is not null),
-                new MenuItem("Rename", "edit.rename", "F2", hasSelection),
-                new MenuItem("Duplicate", "edit.duplicate", "Ctrl+D", hasSelection),
-                new MenuItem("Delete", "edit.delete", "Del", hasSelection),
+                new MenuItem("Add Node…", "node.add", "Ctrl+A", scene is not null, Icon: "circle-plus"),
+                new MenuItem("Instance Scene…", "scene.instance", "Ctrl+Shift+A", scene is not null, Icon: "link"),
+                new MenuItem("Rename", "edit.rename", "F2", hasSelection, Icon: "pencil"),
+                new MenuItem("Duplicate", "edit.duplicate", "Ctrl+D", hasSelection, Icon: "copy"),
+                new MenuItem("Delete", "edit.delete", "Del", hasSelection, Icon: "trash"),
             ],
             "view" =>
             [
-                new MenuItem("Frame Selection", "view.frame", "F", hasSelection),
-                new MenuItem("Front View", "view.front", "1", scene is not null),
-                new MenuItem("Right View", "view.right", "3", scene is not null),
-                new MenuItem("Top View", "view.top", "7", scene is not null),
-                new MenuItem("Reset Camera", "view.reset", null, scene is not null),
+                new MenuItem("Frame Selection", "view.frame", "F", hasSelection, Icon: "focus-centered"),
+                new MenuItem("Front View", "view.front", "1", scene is not null, Icon: "square-letter-f"),
+                new MenuItem("Right View", "view.right", "3", scene is not null, Icon: "square-letter-r"),
+                new MenuItem("Top View", "view.top", "7", scene is not null, Icon: "square-letter-t"),
+                new MenuItem("Reset Camera", "view.reset", null, scene is not null, Icon: "refresh"),
                 MenuItem.Separator,
-                new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G"),
+                new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G", Icon: "grid-3x3"),
             ],
             "help" =>
             [
-                new MenuItem("Keyboard Shortcuts", "help.shortcuts"),
-                new MenuItem("About Mainframe Editor", "help.about"),
+                new MenuItem("Keyboard Shortcuts", "help.shortcuts", Icon: "keyboard"),
+                new MenuItem("About Mainframe Editor", "help.about", Icon: "info-circle"),
             ],
             _ => [],
+        };
+    }
+
+    /// <summary>The icon of an undo history entry: what the action did (property icon, add, delete, move …).</summary>
+    public static string HistoryIcon(IEditorAction action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return action switch
+        {
+            SetPropertyAction set => PropertyIcons.SemanticIcon(set.Property.Name) ?? "pencil",
+            AddNodeAction add when add.Name.StartsWith("Instance", StringComparison.Ordinal) => "link",
+            AddNodeAction add when add.Name.StartsWith("Duplicate", StringComparison.Ordinal) => "copy",
+            AddNodeAction => "circle-plus",
+            RemoveNodeAction => "trash",
+            ReparentAction => "arrows-right-left",
+            RenameAction => "pencil",
+            MoveInTreeAction => "arrows-up-down",
+            _ when action.Name.StartsWith("Delete", StringComparison.Ordinal) => "trash",
+            _ when action.Name.StartsWith("Duplicate", StringComparison.Ordinal) => "copy",
+            _ when action.Name.StartsWith("Move", StringComparison.Ordinal) => "arrows-move",
+            _ when action.Name.StartsWith("Rotate", StringComparison.Ordinal) => "rotate",
+            _ when action.Name.StartsWith("Scale", StringComparison.Ordinal) => "arrows-maximize",
+            _ => "stack-2",
         };
     }
 

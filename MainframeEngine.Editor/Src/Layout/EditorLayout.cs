@@ -50,6 +50,18 @@ public sealed record EditorLayoutSettings
 
     /// <summary>The output panel's level filter (bit per <see cref="OutputLevel"/>).</summary>
     public int OutputFilter { get; init; } = 0b1111;
+
+    /// <summary>The output panel folds repeated lines into one with a ×N badge.</summary>
+    public bool OutputCollapse { get; init; }
+
+    /// <summary>The output panel scrolls to each new line (off: the scroll position stays).</summary>
+    public bool OutputFollow { get; init; } = true;
+
+    /// <summary>Favourite entries per picker (<c>node</c>, <c>resource</c>, <c>scene</c>): type names or project paths.</summary>
+    public Dictionary<string, string[]>? PickerFavorites { get; init; }
+
+    /// <summary>Recently created entries per picker, newest first.</summary>
+    public Dictionary<string, string[]>? PickerRecent { get; init; }
 }
 
 /// <summary>
@@ -167,6 +179,48 @@ public sealed class EditorLayout
 
     public void SetOutputFilter(int filter) => Settings = Settings with { OutputFilter = filter };
 
+    public void SetOutputOptions(bool collapse, bool follow) => Settings = Settings with { OutputCollapse = collapse, OutputFollow = follow };
+
+    /// <summary>Most entries a picker's recent list keeps.</summary>
+    public const int MaxRecent = 8;
+
+    /// <summary>The favourites of picker <paramref name="kind"/>.</summary>
+    public IReadOnlyList<string> PickerFavorites(string kind) =>
+        Settings.PickerFavorites?.GetValueOrDefault(kind) ?? [];
+
+    /// <summary>The recent entries of picker <paramref name="kind"/>, newest first.</summary>
+    public IReadOnlyList<string> PickerRecent(string kind) =>
+        Settings.PickerRecent?.GetValueOrDefault(kind) ?? [];
+
+    /// <summary>Adds or removes <paramref name="id"/> from picker <paramref name="kind"/>'s favourites; true when it is now one.</summary>
+    public bool ToggleFavorite(string kind, string id)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(kind);
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        var list = PickerFavorites(kind).ToList();
+        var added = !list.Remove(id);
+        if (added)
+            list.Add(id);
+        Settings = Settings with { PickerFavorites = With(Settings.PickerFavorites, kind, [.. list]) };
+        return added;
+    }
+
+    /// <summary>Moves <paramref name="id"/> to the front of picker <paramref name="kind"/>'s recent list (at most <see cref="MaxRecent"/>).</summary>
+    public void AddRecent(string kind, string id)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(kind);
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        var list = PickerRecent(kind).Where(r => !string.Equals(r, id, StringComparison.Ordinal)).Prepend(id).Take(MaxRecent).ToArray();
+        Settings = Settings with { PickerRecent = With(Settings.PickerRecent, kind, list) };
+    }
+
+    private static Dictionary<string, string[]> With(Dictionary<string, string[]>? map, string kind, string[] list)
+    {
+        var copy = map is null ? new Dictionary<string, string[]>(StringComparer.Ordinal) : new Dictionary<string, string[]>(map, StringComparer.Ordinal);
+        copy[kind] = list;
+        return copy;
+    }
+
     private void Recompute()
     {
         var w = WindowWidth;
@@ -241,7 +295,21 @@ public sealed class EditorLayout
         LeftDockSplit = Math.Clamp(Finite(s.LeftDockSplit, 0.62f), 0.15f, 0.9f),
         WindowWidth = Math.Clamp(s.WindowWidth, 0, 16384),
         WindowHeight = Math.Clamp(s.WindowHeight, 0, 16384),
+        PickerFavorites = CleanLists(s.PickerFavorites, int.MaxValue),
+        PickerRecent = CleanLists(s.PickerRecent, MaxRecent),
     };
+
+    // Drops null lists and blank ids (hand-edited files); caps lengths.
+    private static Dictionary<string, string[]>? CleanLists(Dictionary<string, string[]>? map, int max)
+    {
+        if (map is null)
+            return null;
+        var clean = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        foreach (var (kind, list) in map)
+            if (!string.IsNullOrEmpty(kind) && list is not null)
+                clean[kind] = [.. list.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).Take(max)];
+        return clean;
+    }
 
     private static float Finite(float value, float fallback) => float.IsFinite(value) && value > 0 ? value : fallback;
 }

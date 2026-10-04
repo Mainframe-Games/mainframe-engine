@@ -108,7 +108,7 @@ public sealed class InspectorPanel : EditorDocument
             return;
         if (scene is null || node is null)
         {
-            body.SetInnerRml("<div class=\"empty\">Select a node to edit its properties.</div>");
+            body.SetInnerRml(EmptyRml);
             return;
         }
 
@@ -120,18 +120,42 @@ public sealed class InspectorPanel : EditorDocument
         body.SetInnerRml(rml.ToString());
     }
 
+    /// <summary>The body shown without a selection.</summary>
+    public const string EmptyRml =
+        "<div class=\"empty\"><span class=\"icon icon-lg icon-pointer icon-muted\"></span><div>Select a node to edit its properties.</div></div>";
+
     private static void AppendHeader(StringBuilder rml, EditedScene scene, Node node)
     {
-        var type = TypeRegistry.GetNearest(node.GetType())?.Name ?? node.GetType().Name;
+        var info = TypeRegistry.GetNearest(node.GetType());
+        var type = info?.Name ?? node.GetType().Name;
+        var family = node is MissingNode ? "icon-missing" : EditorIcons.Family(node.GetType());
+        var tooltip = new StringBuilder(type);
         if (node is MissingNode missing)
+        {
             type = $"{missing.OriginalType} (missing)";
-        rml.Append("<div class=\"insp-head\"><div class=\"insp-type\">").Append(RmlText.Escape(type));
-        if (!ReferenceEquals(node, scene.Root) && node.SceneFilePath is { } instance)
-            rml.Append(" · instance of ").Append(RmlText.Escape(instance));
+            tooltip.Clear().Append(missing.OriginalType).Append(" — this type is not loaded");
+        }
+        else if (info?.Description is { } description)
+        {
+            tooltip.Append(" — ").Append(description);
+        }
+
+        for (var t = info?.Base; t is not null; t = t.Base)
+            tooltip.Append(t == info?.Base ? "\nInherits " : " › ").Append(t.Name);
+
+        rml.Append("<div class=\"insp-head\"><div class=\"insp-type\" data-tooltip=\"").Append(RmlText.Escape(tooltip.ToString())).Append("\"><span class=\"")
+            .Append(EditorIcons.Classes(node)).Append(" icon-lg insp-icon\"></span><span class=\"insp-type-name ").Append(family.Replace("icon-", "t-", StringComparison.Ordinal))
+            .Append("\">").Append(RmlText.Escape(type)).Append("</span>");
         if (scene.Selection.Count > 1)
-            rml.Append(" · ").Append(scene.Selection.Count).Append(" selected (showing the last)");
-        rml.Append("</div><div class=\"insp-name-row\"><input type=\"text\" class=\"text\" id=\"node-name\" value=\"")
-            .Append(RmlText.Escape(node.Name)).Append("\"/></div></div>");
+            rml.Append("<span class=\"insp-badge\" data-tooltip=\"").Append(scene.Selection.Count)
+                .Append(" Selected — the inspector edits the last selected node\"><span class=\"icon icon-sm icon-stack-2\"></span>")
+                .Append("<span>").Append(scene.Selection.Count).Append("</span></span>");
+        rml.Append("</div>");
+        if (!ReferenceEquals(node, scene.Root) && node.SceneFilePath is { } instance)
+            rml.Append("<div class=\"insp-instance\" data-tooltip=\"Instanced Scene — its own nodes are edited in that scene\"><span class=\"icon icon-sm icon-movie icon-info\"></span>")
+                .Append("<span>").Append(RmlText.Escape(instance)).Append("</span></div>");
+        rml.Append("<div class=\"insp-name-row\"><span class=\"icon icon-sm icon-tag icon-muted name-icon\" data-tooltip=\"Name — unique among its siblings (Enter renames)\"></span>")
+            .Append("<input type=\"text\" class=\"text\" id=\"node-name\" value=\"").Append(RmlText.Escape(node.Name)).Append("\"/></div></div>");
     }
 
     private void AppendSections(StringBuilder rml, InspectorModel model, int depth)
@@ -143,7 +167,8 @@ public sealed class InspectorPanel : EditorDocument
             if (depth == 0)
             {
                 rml.Append("<div class=\"section-title\" data-section=\"").Append(RmlText.Escape(key)).Append("\"><span class=\"arrow")
-                    .Append(collapsed ? " collapsed" : "").Append("\"></span><span>").Append(RmlText.Escape(section.Title)).Append("</span></div>");
+                    .Append(collapsed ? " collapsed" : "").Append("\"></span><span class=\"").Append(section.IconClasses).Append(" icon-sm section-icon\"></span><span>")
+                    .Append(RmlText.Escape(section.Title)).Append("</span></div>");
             }
 
             if (collapsed)
@@ -159,9 +184,10 @@ public sealed class InspectorPanel : EditorDocument
         var value = property.GetValue();
         _rows.Add(new RowView { Property = property, Depth = depth, Shown = Snapshot(value) });
         var nested = depth switch { 0 => "", 1 => " nested", _ => " nested2" };
-        rml.Append("<div class=\"prop").Append(nested).Append("\"><div class=\"prop-label\" title=\"")
-            .Append(RmlText.Escape(property.Name)).Append("\">").Append(RmlText.Escape(property.Label))
-            .Append("</div><div class=\"prop-editor\">");
+        rml.Append("<div class=\"prop").Append(nested).Append("\"><div class=\"prop-label\" data-tooltip=\"")
+            .Append(RmlText.Escape(property.Tooltip)).Append("\"><span class=\"").Append(PropertyIcons.Classes(property, value))
+            .Append(" icon-sm prop-icon\"></span><span class=\"prop-name\">").Append(RmlText.Escape(property.Label))
+            .Append("</span></div><div class=\"prop-editor\">");
         AppendEditor(rml, property, index, value);
         rml.Append("</div></div>");
 
@@ -191,12 +217,13 @@ public sealed class InspectorPanel : EditorDocument
             case PropertyEditorKind.IntegerNumber or PropertyEditorKind.FloatNumber or PropertyEditorKind.Text or PropertyEditorKind.NodePath:
                 AppendText(rml, row, 0, p.FormatComponent(value, 0));
                 if (p.Kind == PropertyEditorKind.NodePath)
-                    AppendButton(rml, row, "pick-node", "Pick");
+                    AppendButton(rml, row, "pick-node", "crosshair", "Pick Node — choose the target from the scene");
                 break;
 
             case PropertyEditorKind.FilePath or PropertyEditorKind.DirectoryPath:
                 AppendText(rml, row, 0, p.FormatComponent(value, 0));
-                AppendButton(rml, row, "browse", "…");
+                AppendButton(rml, row, "browse", "folder-open",
+                    p.Kind == PropertyEditorKind.DirectoryPath ? "Browse — choose a folder" : "Browse — choose a file");
                 break;
 
             case PropertyEditorKind.MultilineText:
@@ -237,19 +264,28 @@ public sealed class InspectorPanel : EditorDocument
 
             case PropertyEditorKind.Color:
                 rml.Append("<div class=\"swatch\" id=\"").Append(SwatchId(row)).Append("\" data-row=\"").Append(row)
-                    .Append("\" data-action=\"color\" style=\"background-color: ").Append(ValueText.ColorHex(value)).Append(";\"></div>");
+                    .Append("\" data-action=\"color\" data-tooltip=\"Color Picker — click for RGBA sliders\" style=\"background-color: ")
+                    .Append(ValueText.ColorHex(value)).Append(";\"></div>");
                 AppendText(rml, row, 9, ValueText.ColorHex(value));
                 break;
 
             case PropertyEditorKind.Resource:
-                rml.Append("<div class=\"res-label\" id=\"").Append(FieldId(row, 0)).Append("\">").Append(RmlText.Escape(p.Format(value))).Append("</div>");
-                if (value is Resource { IsExternal: false } && RowDepth(row) + 1 < MaxResourceDepth)
-                    AppendButton(rml, row, "res-edit", _expanded.Contains((p.Target, p.Name)) ? "Hide" : "Edit");
-                AppendButton(rml, row, "res-load", "Load");
-                AppendButton(rml, row, "res-new", "New");
-                if (value is not null)
-                    AppendButton(rml, row, "res-clear", "×");
-                break;
+                {
+                    var resourceType = value?.GetType() ?? p.ResourceType ?? typeof(Resource);
+                    rml.Append("<div class=\"res-label\" id=\"").Append(FieldId(row, 0)).Append("\">");
+                    if (value is not null)
+                        rml.Append("<span class=\"").Append(EditorIcons.Classes(resourceType)).Append(" icon-sm res-icon\"></span>");
+                    rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.Format(value))).Append("</span></div>");
+                    var expanded = _expanded.Contains((p.Target, p.Name));
+                    if (value is Resource { IsExternal: false } && RowDepth(row) + 1 < MaxResourceDepth)
+                        AppendButton(rml, row, "res-edit", expanded ? "chevron-up" : "pencil",
+                            expanded ? "Fold — hide the resource's properties" : "Edit — show the resource's properties below", expanded);
+                    AppendButton(rml, row, "res-load", "folder-open", "Load — use a resource file (.mres, image, model, sound)");
+                    AppendButton(rml, row, "res-new", "circle-plus", $"New — create an inline {(p.ResourceType ?? typeof(Resource)).Name}");
+                    if (value is not null)
+                        AppendButton(rml, row, "res-clear", "x", "Clear — empty the slot");
+                    break;
+                }
 
             case PropertyEditorKind.Array:
                 AppendArray(rml, p, row, value as IList);
@@ -263,9 +299,9 @@ public sealed class InspectorPanel : EditorDocument
 
     private static void AppendArray(StringBuilder rml, InspectorProperty p, int row, IList? list)
     {
-        rml.Append("<div class=\"array-box\"><div class=\"array-item\"><span class=\"readonly\">").Append(RmlText.Escape(p.Format(list)))
+        rml.Append("<div class=\"array-box\"><div class=\"array-item\"><span class=\"readonly grow\">").Append(RmlText.Escape(p.Format(list)))
             .Append("</span>");
-        AppendButton(rml, row, "arr-add", "+ Add");
+        AppendButton(rml, row, "arr-add", "plus", "Add Element — append a default value");
         rml.Append("</div>");
         if (list is not null)
         {
@@ -279,8 +315,9 @@ public sealed class InspectorPanel : EditorDocument
                         .Append("\" value=\"").Append(RmlText.Escape(text)).Append("\"/>");
                 else
                     rml.Append("<span class=\"readonly\">").Append(RmlText.Escape(text)).Append("</span>");
-                rml.Append("<button class=\"small\" data-row=\"").Append(row).Append("\" data-elem=\"").Append(i)
-                    .Append("\" data-action=\"arr-remove\">×</button></div>");
+                rml.Append("<button class=\"tool-button small\" data-row=\"").Append(row).Append("\" data-elem=\"").Append(i)
+                    .Append("\" data-action=\"arr-remove\" data-tooltip=\"Remove Element — delete item ").Append(i)
+                    .Append("\"><span class=\"icon icon-sm icon-x\"></span></button></div>");
             }
         }
 
@@ -307,9 +344,11 @@ public sealed class InspectorPanel : EditorDocument
         rml.Append("<input type=\"text\" class=\"text\" id=\"").Append(FieldId(row, component)).Append("\" data-row=\"").Append(row)
             .Append("\" data-comp=\"").Append(component).Append("\" value=\"").Append(RmlText.Escape(text)).Append("\"/>");
 
-    private static void AppendButton(StringBuilder rml, int row, string action, string label) =>
-        rml.Append("<button class=\"small\" data-row=\"").Append(row).Append("\" data-action=\"").Append(action).Append("\">")
-            .Append(RmlText.Escape(label)).Append("</button>");
+    // An icon-only row button: the tooltip names it and says what it does.
+    private static void AppendButton(StringBuilder rml, int row, string action, string icon, string tooltip, bool active = false) =>
+        rml.Append("<button class=\"tool-button small").Append(active ? " active" : "").Append("\" data-row=\"").Append(row).Append("\" data-action=\"")
+            .Append(action).Append("\" data-tooltip=\"").Append(RmlText.Escape(tooltip)).Append("\"><span class=\"icon icon-sm icon-").Append(icon)
+            .Append("\"></span></button>");
 
     private int RowDepth(int row) => row < _rows.Count ? _rows[row].Depth : 0;
 
@@ -384,9 +423,9 @@ public sealed class InspectorPanel : EditorDocument
             var snapshot = Snapshot(value);
             if (Equals(snapshot, view.Shown))
                 continue;
-            if (view.Property.Kind is PropertyEditorKind.Resource or PropertyEditorKind.Array)
+            if (view.Property.Kind is PropertyEditorKind.Resource or PropertyEditorKind.Array or PropertyEditorKind.NodePath)
             {
-                Rebuild(); // different resource or element count: the rows below change
+                Rebuild(); // different resource or element count: the rows below change; a node path's icon is its target's
                 return;
             }
 
@@ -801,7 +840,7 @@ public sealed class InspectorPanel : EditorDocument
         {
             if (p.NodeType is null || p.NodeType.IsInstanceOfType(node))
                 items.Add(new ListPickerItem(node.Name, scene.Root.GetPathTo(node).Path is { Length: > 0 } path ? path : ".",
-                    SceneTreeModel.IconOf(node), node));
+                    EditorIcons.Classes(node), node));
             foreach (var child in node.Children)
                 if (scene.IsEditable(child))
                     Add(child);
@@ -843,19 +882,22 @@ public sealed class InspectorPanel : EditorDocument
 
     private void NewResource(InspectorProperty p)
     {
-        var baseType = p.ResourceType ?? typeof(Resource);
-        var items = TypeRegistry.All
-            .Where(t => t.IsResource && !t.IsAbstract && baseType.IsAssignableFrom(t.Type) && t.Type != typeof(PackedScene) && t.Type != typeof(MissingResource))
-            .OrderBy(t => t.Name, StringComparer.Ordinal)
-            .Select(t => new ListPickerItem(t.Name, t.Base?.Name ?? "", "node", t))
-            .ToArray();
-        if (items.Length == 1)
+        var entries = PickerSources.ResourceTypes(p.ResourceType ?? typeof(Resource));
+        var creatable = entries.Where(e => e.Selectable).ToArray();
+        if (creatable.Length == 1)
         {
-            CreateResource(p, (NodeTypeInfo)items[0].Payload);
+            CreateResource(p, (NodeTypeInfo)creatable[0].Payload!);
             return;
         }
 
-        Workspace.ListPicker.Show($"New {p.Label}", items, "Create", payload => CreateResource(p, (NodeTypeInfo)payload));
+        Workspace.TreePicker.Show(new TreePickerRequest
+        {
+            Kind = "resource",
+            Title = $"New {p.Label}",
+            OkLabel = "Create",
+            Entries = entries,
+            OnAccept = entry => CreateResource(p, (NodeTypeInfo)entry.Payload!),
+        });
     }
 
     private void CreateResource(InspectorProperty p, NodeTypeInfo info)

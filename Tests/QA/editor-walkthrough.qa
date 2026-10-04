@@ -2,6 +2,12 @@
 # Window 1600x960 points (hidden). Review the PNGs in artifacts/qa-editor after a run.
 wait 40
 capture 01-opened
+# Tooltips: hovering an icon-only button shows its name, shortcut and what it does after 0.5 s.
+move #tool-translate
+wait 60
+capture 01b-tooltip
+move 800 500
+wait 2
 # Select a mesh by clicking it in the 3D view, then frame it.
 select Column
 key F

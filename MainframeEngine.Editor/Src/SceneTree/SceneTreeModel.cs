@@ -13,11 +13,32 @@ public sealed class SceneTreeRow
     public required string Name { get; init; }
     public required string TypeName { get; init; }
 
-    /// <summary>Icon category (CSS class): node, node3d, node2d, mesh, light, camera, physics, audio, ui, env, missing.</summary>
+    /// <summary>The type icon's classes (<c>"icon icon-cube icon-3d"</c>, <see cref="EditorIcons.Classes(Node)"/>).</summary>
     public required string Icon { get; init; }
+
+    /// <summary>The row's tooltip: name and type (and the instanced scene).</summary>
+    public string Tooltip { get; init; } = "";
 
     /// <summary>The root of an instanced sub-scene (its inner nodes are not listed).</summary>
     public required bool IsInstance { get; init; }
+
+    /// <summary>The instance badge's tooltip (the scene file).</summary>
+    public string InstanceTooltip { get; init; } = "";
+
+    /// <summary>The node's exported <c>Visible</c> flag (Node3D, Node2D, UI), or null when it has none: the eye toggle.</summary>
+    public Serialization.ExportPropertyInfo? VisibleProperty { get; init; }
+
+    /// <summary>The <c>Visible</c> value shown by the eye toggle.</summary>
+    public bool Shown { get; init; } = true;
+
+    /// <summary>Script badge icon classes: <c>code</c> (a game type), <c>tool</c> (a [Tool] type that runs in the editor) or "" (engine type).</summary>
+    public string Script { get; init; } = "";
+
+    /// <summary>The script badge's tooltip.</summary>
+    public string ScriptTooltip { get; init; } = "";
+
+    /// <summary>Configuration warnings (<see cref="NodeWarnings"/>), "" when there are none.</summary>
+    public string Warning { get; init; } = "";
 
     /// <summary>Row index in the flattened list.</summary>
     public int Index { get; init; }
@@ -97,6 +118,10 @@ public sealed class SceneTreeModel
                 if (scene.IsEditable(child))
                     listedChildren++;
         var expanded = IsExpanded(node);
+        var typeName = node is MissingNode missing ? missing.OriginalType : TypeNameOf(node);
+        var info = TypeRegistry.GetNearest(node.GetType());
+        var visible = info?.FindProperty("Visible") is { } property && property.ValueType == typeof(bool) ? property : null;
+        var (script, scriptTooltip) = ScriptOf(node, info);
         _rows.Add(new SceneTreeRow
         {
             Node = node,
@@ -105,9 +130,16 @@ public sealed class SceneTreeModel
             Expanded = expanded,
             Selected = scene.Selection.Contains(node),
             Name = node.Name,
-            TypeName = node is MissingNode missing ? missing.OriginalType : TypeNameOf(node),
-            Icon = IconOf(node),
+            TypeName = typeName,
+            Icon = EditorIcons.Classes(node),
+            Tooltip = node is MissingNode ? $"{node.Name} — {typeName} (not loaded)" : $"{node.Name} — {typeName}",
             IsInstance = isInstance,
+            InstanceTooltip = isInstance ? $"Instance of {node.SceneFilePath} — its nodes belong to that scene" : "",
+            VisibleProperty = visible,
+            Shown = visible is null || visible.GetValue(node) is true,
+            Script = script,
+            ScriptTooltip = scriptTooltip,
+            Warning = NodeWarnings.For(node) ?? "",
             Index = _rows.Count,
             Indent = RmlText.Dp(4 + depth * 14),
         });
@@ -121,20 +153,15 @@ public sealed class SceneTreeModel
 
     private static string TypeNameOf(Node node) => TypeRegistry.GetNearest(node.GetType())?.Name ?? node.GetType().Name;
 
-    /// <summary>The icon category of a node (most specific first).</summary>
-    public static string IconOf(Node node) => node switch
+    // A type from outside the engine is the game's script (Godot's script badge); [Tool] types also run in the editor.
+    private static (string Badge, string Tooltip) ScriptOf(Node node, NodeTypeInfo? info)
     {
-        MissingNode => "missing",
-        Light3D => "light",
-        Camera3D or Camera2D => "camera",
-        GeometryInstance3D or SpineNode => "mesh",
-        CollisionObject3D or CollisionShape3D or CollisionObject2D or CollisionShape2D => "physics",
-        AudioPlayer or AudioPlayer3D or AudioPlayer2D or AudioListener3D => "audio",
-        UiLayer or UiDocument => "ui",
-        WorldEnvironment => "env",
-        SubViewport => "viewport",
-        Node3D => "node3d",
-        Node2D => "node2d",
-        _ => "node",
-    };
+        if (node is MissingNode || info is null)
+            return ("", "");
+        if (info.IsTool && info.Type.Assembly != typeof(Node).Assembly)
+            return ("icon icon-sm icon-tool", $"Tool Script — {info.Type.FullName} runs in the editor too");
+        if (info.Type.Assembly != typeof(Node).Assembly)
+            return ("icon icon-sm icon-code", $"Script — {info.Type.FullName}");
+        return ("", "");
+    }
 }

@@ -148,6 +148,66 @@ public sealed class InspectorProperty
 
     public bool IsReadOnly => Kind is PropertyEditorKind.Transform or PropertyEditorKind.Unsupported;
 
+    private string? _tooltip;
+
+    /// <summary>
+    /// The row's tooltip: "Label — doc summary", then the hints (range, file filter, node type …), then the member and its
+    /// value type (<c>RotationDegrees: Vector3</c>).
+    /// </summary>
+    public string Tooltip => _tooltip ??= BuildTooltip();
+
+    private string BuildTooltip()
+    {
+        var builder = new StringBuilder(Label);
+        if (Info.Hints.Description is { Length: > 0 } description)
+            builder.Append(" — ").Append(description);
+        if (HasRange)
+            builder.Append('\n').Append("Range ").Append(ValueText.Number(Min)).Append(" … ").Append(ValueText.Number(Max))
+                .Append(", step ").Append(ValueText.Number(Step));
+        if (Kind == PropertyEditorKind.FilePath)
+            builder.Append('\n').Append(FileFilter.Count == 0 ? "Any file" : "Files: " + string.Join(", ", FileFilter));
+        if (Kind == PropertyEditorKind.DirectoryPath)
+            builder.Append('\n').Append("A folder");
+        if (NodeType is { } nodeType)
+            builder.Append('\n').Append("Points to a ").Append(nodeType.Name);
+        if (Info.Hints.Translatable)
+            builder.Append('\n').Append("Translated (the text is the source string)");
+        builder.Append('\n').Append(Name).Append(": ").Append(TypeName(Info.ValueType));
+        return builder.ToString();
+    }
+
+    /// <summary>A short C#-style name: <c>float</c>, <c>Vector3</c>, <c>List&lt;int&gt;</c>, <c>Mesh?</c>.</summary>
+    public static string TypeName(Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        if (Nullable.GetUnderlyingType(type) is { } inner)
+            return TypeName(inner) + "?";
+        if (type.IsArray)
+            return TypeName(type.GetElementType()!) + "[]";
+        if (type.IsGenericType)
+        {
+            var name = type.Name[..type.Name.IndexOf('`', StringComparison.Ordinal)];
+            return $"{name}<{string.Join(", ", type.GetGenericArguments().Select(TypeName))}>";
+        }
+
+        return Type.GetTypeCode(type) switch
+        {
+            TypeCode.Boolean => "bool",
+            TypeCode.Byte => "byte",
+            TypeCode.SByte => "sbyte",
+            TypeCode.Int16 => "short",
+            TypeCode.UInt16 => "ushort",
+            TypeCode.Int32 when !type.IsEnum => "int",
+            TypeCode.UInt32 when !type.IsEnum => "uint",
+            TypeCode.Int64 when !type.IsEnum => "long",
+            TypeCode.UInt64 when !type.IsEnum => "ulong",
+            TypeCode.Single => "float",
+            TypeCode.Double => "double",
+            TypeCode.String => "string",
+            _ => type.Name,
+        };
+    }
+
     public object? GetValue() => Info.GetValue(Target);
 
     // ── Formatting ─────────────────────────────────────────────────────────────────────────────────────────────

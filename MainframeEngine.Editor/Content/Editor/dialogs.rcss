@@ -76,8 +76,12 @@ body.backdrop.clear { background-color: transparent; }
 .list-item.selected .detail { color: #bfdbfe; }
 .list-item.dir .entry-name { color: #fcd34d; }
 .list-item.selected.dir .entry-name { color: #ffffff; }
-.folder-mark { display: inline-block; width: 10dp; height: 8dp; margin-right: 6dp; border-radius: 1dp; background-color: #d4a72c; }
-.file-mark { display: inline-block; width: 8dp; height: 10dp; margin-right: 8dp; border-radius: 1dp; background-color: #6b7488; }
+.list-item .icon { margin-right: 7dp; }
+
+/* Dialog title icons and primary buttons with icons. */
+.dialog-title { display: flex; flex-direction: row; align-items: center; }
+.dialog-title .icon { margin-right: 8dp; image-color: #93c5fd; }
+button.primary .icon { image-color: #ffffff; }
 
 /* Popup menus (menu bar, context menus, undo history). */
 .menu {
@@ -108,6 +112,11 @@ body.backdrop.clear { background-color: transparent; }
 .menu-item.current { font-weight: bold; }
 .menu-item.undone { color: #8b93a5; }
 .menu-label { flex: 1 1 auto; }
+.menu-icon { display: inline-block; flex: 0 0 auto; width: 16dp; height: 16dp; margin-right: 9dp; image-color: #a3abbd; }
+.menu-icon.none { decorator: none; }
+.menu-item:hover .menu-icon { image-color: #ffffff; }
+.menu-item.disabled .menu-icon, .menu-item.disabled:hover .menu-icon { image-color: #4b5263; }
+.menu-item.undone .menu-icon { image-color: #5f6676; }
 .menu-shortcut { margin-left: 28dp; color: #8b93a5; font-size: 11dp; }
 .menu-item:hover .menu-shortcut { color: #bfdbfe; }
 .menu-separator { display: block; height: 1dp; margin: 4dp 0dp; background-color: #3b3f4b; }

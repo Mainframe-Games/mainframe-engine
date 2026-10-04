@@ -3,8 +3,11 @@ using MainframeEngine.UI.Rml;
 
 namespace MainframeEngine.Editor;
 
-/// <summary>An entry of a <see cref="PopupMenu"/>: an item (command id), a separator or a header.</summary>
-public sealed record MenuItem(string Label, string? Command, string? Shortcut = null, bool Enabled = true, string? Css = null)
+/// <summary>
+/// An entry of a <see cref="PopupMenu"/>: an item (command id) with an optional leading icon (a Tabler name, or full icon
+/// classes when it contains a space), a separator or a header.
+/// </summary>
+public sealed record MenuItem(string Label, string? Command, string? Shortcut = null, bool Enabled = true, string? Css = null, string? Icon = null)
 {
     public static readonly MenuItem Separator = new("", null) { IsSeparator = true };
 
@@ -69,7 +72,12 @@ public sealed class PopupMenu : EditorDocument
             rml.Append("<div class=\"menu-item").Append(item.Enabled ? "" : " disabled");
             if (item.Css is { } css)
                 rml.Append(' ').Append(css);
-            rml.Append("\" data-index=\"").Append(i).Append("\"><span class=\"menu-label\">").Append(RmlText.Escape(item.Label)).Append("</span>");
+            rml.Append("\" data-index=\"").Append(i).Append("\"><span class=\"");
+            if (item.Icon is { Length: > 0 } icon)
+                rml.Append(icon.Contains(' ', StringComparison.Ordinal) ? icon : "icon icon-" + icon).Append(" menu-icon");
+            else
+                rml.Append("menu-icon none");
+            rml.Append("\"></span><span class=\"menu-label\">").Append(RmlText.Escape(item.Label)).Append("</span>");
             if (item.Shortcut is { } shortcut)
                 rml.Append("<span class=\"menu-shortcut\">").Append(RmlText.Escape(ShortcutText(shortcut))).Append("</span>");
             rml.Append("</div>");

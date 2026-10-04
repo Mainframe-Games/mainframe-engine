@@ -92,7 +92,6 @@ button.primary:hover { background-color: #3b82f6; }
 button.danger { background-color: #7f1d1d; border-color: #b91c1c; color: #ffffff; }
 button:disabled, button.disabled { color: #5f6676; background-color: #23262e; border-color: #2a2d36; cursor: unavailable; }
 button.small { height: 18dp; line-height: 18dp; padding: 0dp 6dp; font-size: 11dp; }
-button.icon { width: 22dp; padding: 0dp; }
 
 /* ── Fields ─────────────────────────────────────────────────────────────── */
 
@@ -181,43 +180,92 @@ scrollbarhorizontal slidertrack { background-color: transparent; }
 scrollbarhorizontal sliderbar { background-color: #3b3f4b; border-radius: 4dp; }
 scrollbarhorizontal sliderarrowdec, scrollbarhorizontal sliderarrowinc { width: 0dp; }
 
-/* ── Node icons (category colours) ──────────────────────────────────────── */
+/* ── Icons (docs/design/editor.md#icons) ──────────────────────────────────
+ * Markup: <span class="icon icon-NAME"/> (NAME: a Tabler icon in Content/icons/icons.txt; sprites in icons.rcss,
+ * linked by every document). White glyphs tinted with image-color. Size: icon-sm 14dp · default 16dp · icon-lg 24dp.
+ * Families (Godot-style, picked to read on #1f2128): 3d red · 2d blue · ui green · audio teal · physics amber ·
+ * net purple · logic grey · resource neutral. Icons over text: icon-only controls carry data-tooltip.
+ */
 
 .icon {
     display: inline-block;
-    width: 10dp;
-    height: 10dp;
-    margin-right: 6dp;
-    border-radius: 2dp;
-    background-color: #8b93a5;
+    flex: 0 0 auto;
+    width: 16dp;
+    height: 16dp;
     vertical-align: middle;
+    image-color: #c9cedb;
 }
 
-.icon.node3d { background-color: #f87171; border-radius: 5dp; }
-.icon.node2d { background-color: #60a5fa; border-radius: 5dp; }
-.icon.mesh { background-color: #fb923c; }
-.icon.light { background-color: #fde047; border-radius: 5dp; }
-.icon.camera { background-color: #c084fc; }
-.icon.physics { background-color: #4ade80; }
-.icon.audio { background-color: #22d3ee; border-radius: 5dp; }
-.icon.ui { background-color: #2dd4bf; }
-.icon.env { background-color: #93c5fd; border-radius: 5dp; }
-.icon.viewport { background-color: #a3a3a3; }
-.icon.missing { background-color: #ef4444; }
-.icon.node { background-color: #9ca3af; border-radius: 1dp; }
+.icon-sm { width: 14dp; height: 14dp; }
+.icon-lg { width: 24dp; height: 24dp; }
 
-/* Expand arrow: the widget library's arrow image, turned for collapsed rows. */
+.icon-3d { image-color: #fc7f7f; }
+.icon-2d { image-color: #8da5f3; }
+.icon-ui { image-color: #8eef97; }
+.icon-audio { image-color: #5eead4; }
+.icon-physics { image-color: #fbbf24; }
+.icon-net { image-color: #c4a5ff; }
+.icon-logic { image-color: #a3abbd; }
+.icon-resource { image-color: #e2e6ee; }
+.icon-dir { image-color: #e8c15a; }
+.icon-missing { image-color: #f87171; }
+.icon-muted { image-color: #6b7488; }
+.icon-accent { image-color: #60a5fa; }
+.icon-info { image-color: #93c5fd; }
+.icon-warn { image-color: #fbbf24; }
+.icon-error { image-color: #f87171; }
+.icon-debug { image-color: #8b93a5; }
+
+/* Icon-only buttons (toolbar, panel headers, row actions): square, the glyph centred; .active keeps the toggle look. */
+button.tool-button, .btn.tool-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24dp;
+    height: 24dp;
+    line-height: 24dp;
+    padding: 0dp;
+}
+
+button.tool-button.small { width: 20dp; height: 20dp; line-height: 20dp; }
+button.tool-button .icon { image-color: #c9cedb; }
+button.tool-button:hover .icon { image-color: #ffffff; }
+button.tool-button.active .icon { image-color: #ffffff; }
+button.tool-button.disabled .icon, button.tool-button:disabled .icon { image-color: #4b5263; }
+
+/* Buttons with an icon and a label. */
+button.with-icon { display: inline-flex; align-items: center; }
+button.with-icon .icon { margin-right: 5dp; }
+
+/* Flat icon buttons inside rows (no frame until hovered). */
+.flat-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20dp;
+    height: 20dp;
+    border-radius: 3dp;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.flat-button:hover { background-color: #3a3f4c; }
+.flat-button .icon { image-color: #8b93a5; }
+.flat-button:hover .icon { image-color: #ffffff; }
+
+/* Expand arrow (chevron icon), turned for collapsed rows. */
 .arrow {
     display: inline-block;
+    flex: 0 0 auto;
     width: 14dp;
     height: 14dp;
     vertical-align: middle;
-    decorator: image(/Content/UI/widgets/images/arrow-down.png contain);
+    decorator: image(i-chevron-down);
     image-color: #8b93a5;
     cursor: pointer;
 }
 
-.arrow.collapsed { transform: rotate(-90deg); }
+.arrow.collapsed { decorator: image(i-chevron-right); }
 .arrow.none { decorator: none; cursor: auto; }
 .arrow:hover { image-color: #e8ebf2; }
 

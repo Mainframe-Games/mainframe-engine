@@ -31,6 +31,14 @@ public sealed class SceneTreePanel : EditorDocument
         .Member("expanded", static r => r.Expanded)
         .Member("selected", static r => r.Selected)
         .Member("instance", static r => r.IsInstance)
+        .Member("tooltip", static r => r.Tooltip)
+        .Member("instance_tooltip", static r => r.InstanceTooltip)
+        .Member("has_visible", static r => r.VisibleProperty is not null)
+        .Member("shown", static r => r.Shown)
+        .Member("eye_icon", static r => r.Shown ? "icon icon-sm icon-eye" : "icon icon-sm icon-eye-off")
+        .Member("script", static r => r.Script)
+        .Member("script_tooltip", static r => r.ScriptTooltip)
+        .Member("warning", static r => r.Warning)
         .Member("drop", static r => r.Drop)
         .Member("drag", static r => r.Dragging);
 
@@ -68,8 +76,25 @@ public sealed class SceneTreePanel : EditorDocument
                 Toggle(e.GetArgument(0).GetInt32());
                 e.Event.StopPropagation();
             })
+            .Event("toggle_visible", e =>
+            {
+                ToggleVisible(e.GetArgument(0).GetInt32());
+                e.Event.StopPropagation();
+            })
             .Event("rename", _ => Workspace.Commands.Rename());
         Refresh();
+    }
+
+    /// <summary>Flips the <c>Visible</c> flag of row <paramref name="index"/>'s node through the undo history (the eye toggle).</summary>
+    public bool ToggleVisible(int index)
+    {
+        if (Workspace.Session.Active is not { } scene || (uint)index >= (uint)_rows.Count)
+            return false;
+        var row = _rows[index];
+        if (row.VisibleProperty is not { } property || !scene.IsEditable(row.Node))
+            return false;
+        scene.SetProperty(row.Node, property, property.GetValue(row.Node) is not true);
+        return true;
     }
 
     protected override void OnAttach(RmlDocument document)
@@ -258,15 +283,15 @@ public sealed class SceneTreePanel : EditorDocument
         var isRoot = scene is not null && ReferenceEquals(scene.Selection.Primary, scene.Root);
         Workspace.Popup.Show(
         [
-            new MenuItem("Add Child Node…", "node.add", "Ctrl+A"),
-            new MenuItem("Instance Child Scene…", "scene.instance", "Ctrl+Shift+A"),
+            new MenuItem("Add Child Node…", "node.add", "Ctrl+A", Icon: "circle-plus"),
+            new MenuItem("Instance Child Scene…", "scene.instance", "Ctrl+Shift+A", Icon: "link"),
             MenuItem.Separator,
-            new MenuItem("Rename", "edit.rename", "F2", hasSelection),
-            new MenuItem("Duplicate", "edit.duplicate", "Ctrl+D", hasSelection && !isRoot),
-            new MenuItem("Move Up", "node.move_up", "Ctrl+Up", hasSelection && !isRoot),
-            new MenuItem("Move Down", "node.move_down", "Ctrl+Down", hasSelection && !isRoot),
+            new MenuItem("Rename", "edit.rename", "F2", hasSelection, Icon: "pencil"),
+            new MenuItem("Duplicate", "edit.duplicate", "Ctrl+D", hasSelection && !isRoot, Icon: "copy"),
+            new MenuItem("Move Up", "node.move_up", "Ctrl+Up", hasSelection && !isRoot, Icon: "arrow-up"),
+            new MenuItem("Move Down", "node.move_down", "Ctrl+Down", hasSelection && !isRoot, Icon: "arrow-down"),
             MenuItem.Separator,
-            new MenuItem("Delete", "edit.delete", "Del", hasSelection && !isRoot),
+            new MenuItem("Delete", "edit.delete", "Del", hasSelection && !isRoot, Icon: "trash"),
         ], x, y);
     }
 }

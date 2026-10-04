@@ -1,14 +1,33 @@
 <rml>
 <head>
     <title>Inspector</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
         .insp-head {
             padding: 8dp 10dp 6dp 10dp;
             border-bottom: 1dp #2a2d36;
         }
-        .insp-type { color: #8b93a5; font-size: 11dp; margin-bottom: 4dp; }
+        .insp-type { display: flex; flex-direction: row; align-items: center; margin-bottom: 6dp; color: #8b93a5; }
+        .insp-icon { margin-right: 8dp; }
+        .insp-type-name { display: block; flex: 1 1 auto; font-size: 13dp; font-weight: bold; color: #d7dbe4; }
+        .t-3d { color: #fc7f7f; }
+        .t-2d { color: #8da5f3; }
+        .t-ui { color: #8eef97; }
+        .t-audio { color: #5eead4; }
+        .t-physics { color: #fbbf24; }
+        .t-net { color: #c4a5ff; }
+        .t-logic { color: #c9cedb; }
+        .t-resource { color: #e2e6ee; }
+        .t-missing { color: #f87171; }
+        .insp-badge { display: inline-flex; align-items: center; padding: 0dp 5dp; height: 18dp; border-radius: 3dp;
+                      background-color: #2f333d; color: #c9cedb; font-size: 11dp; }
+        .insp-badge .icon { margin-right: 3dp; }
+        .insp-instance { display: flex; flex-direction: row; align-items: center; margin-bottom: 6dp; color: #93c5fd; font-size: 11dp;
+                         white-space: nowrap; overflow: hidden; }
+        .insp-instance .icon { margin-right: 5dp; }
         .insp-name-row { display: flex; flex-direction: row; align-items: center; }
+        .name-icon { margin-right: 6dp; }
         .insp-name-row input.text { flex: 1 1 auto; width: 100dp; font-weight: bold; }
         .section-title {
             display: flex;
@@ -24,6 +43,7 @@
             cursor: pointer;
         }
         .section-title:hover { background-color: #2f333d; }
+        .section-icon { margin: 0dp 6dp 0dp 1dp; }
         .prop {
             display: flex;
             flex-direction: row;
@@ -34,7 +54,9 @@
         .prop.nested { padding-left: 24dp; background-color: #1b1d23; }
         .prop.nested2 { padding-left: 36dp; background-color: #18191e; }
         .prop-label {
-            display: block;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
             flex: 0 0 auto;
             width: 38%;
             color: #b4bccc;
@@ -42,6 +64,17 @@
             white-space: nowrap;
             overflow: hidden;
         }
+        .prop-icon { margin-right: 6dp; image-color: #8b93a5; }
+        .prop-icon.icon-3d { image-color: #fc7f7f; }
+        .prop-icon.icon-2d { image-color: #8da5f3; }
+        .prop-icon.icon-ui { image-color: #8eef97; }
+        .prop-icon.icon-audio { image-color: #5eead4; }
+        .prop-icon.icon-physics { image-color: #fbbf24; }
+        .prop-icon.icon-net { image-color: #c4a5ff; }
+        .prop-icon.icon-resource { image-color: #e2e6ee; }
+        .prop-icon.icon-missing { image-color: #f87171; }
+        .prop-name { display: block; flex: 1 1 auto; overflow: hidden; }
+        .prop-editor button.tool-button { margin-left: 2dp; flex: 0 0 auto; }
         .prop-editor { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
         .prop-editor input.text { flex: 1 1 auto; width: 30dp; margin-left: 2dp; }
         .prop-editor input.range { flex: 1 1 auto; width: 40dp; margin-right: 6dp; }
@@ -67,7 +100,9 @@
         .flag { display: flex; flex-direction: row; align-items: center; margin-right: 8dp; font-size: 11dp; color: #b4bccc; }
         .flag input.checkbox { margin-right: 3dp; }
         .res-label {
-            display: block;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
             flex: 1 1 auto;
             height: 20dp;
             line-height: 20dp;
@@ -79,20 +114,25 @@
             white-space: nowrap;
             overflow: hidden;
         }
+        .res-icon { margin-right: 4dp; }
+        .res-name { display: block; flex: 1 1 auto; overflow: hidden; }
         .array-item { display: flex; flex-direction: row; align-items: center; margin-top: 2dp; }
         .array-index { width: 20dp; color: #6b7488; font-size: 10dp; }
         .array-box { display: block; flex: 1 1 auto; }
-        .empty { padding: 16dp 12dp; color: #8b93a5; }
+        .empty { display: flex; flex-direction: column; align-items: center; padding: 26dp 12dp; color: #8b93a5; text-align: center; }
+        .empty .icon { margin-bottom: 8dp; }
+        .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
         .color-picker { padding: 2dp 8dp 6dp 12dp; }
         .color-picker .prop { padding-left: 0dp; }
     </style>
 </head>
 <body class="panel-doc">
     <div class="panel-header">
+        <span class="icon icon-adjustments-horizontal title-icon"></span>
         <span class="panel-title">Inspector</span>
     </div>
     <div class="panel-body" id="inspector-body">
-        <div class="empty">Select a node to edit its properties.</div>
+        <div class="empty"><span class="icon icon-lg icon-pointer icon-muted"></span><div>Select a node to edit its properties.</div></div>
     </div>
 </body>
 </rml>

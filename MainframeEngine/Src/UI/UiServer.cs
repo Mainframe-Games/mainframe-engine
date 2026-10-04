@@ -252,6 +252,13 @@ public sealed class UiServer : IFrameServer, IInputServer
     /// <summary>True while a UI text field has keyboard focus.</summary>
     public bool TextInputActive => _system.TextInputActive;
 
+    /// <summary>The system clipboard's text (SDL; a process-local clipboard without a window, e.g. in headless tests).</summary>
+    public string ClipboardText
+    {
+        get => _system.GetClipboardText();
+        set => _system.SetClipboardText(value ?? "");
+    }
+
     /// <summary>True when the mouse is over (or dragging) an interactive UI element of a visible layer.</summary>
     public bool IsPointerOverUi
     {

@@ -67,9 +67,21 @@ public abstract class EditorDocument : UiDocument
     private void Attach()
     {
         _clickListener?.Remove();
-        _clickListener = Document.AsElement().AddEventListener("click", OnClick);
+        _dismissListeners[0]?.Remove();
+        _dismissListeners[1]?.Remove();
+        _dismissListeners[2]?.Remove();
+        var body = Document.AsElement();
+        _clickListener = body.AddEventListener("click", OnClick);
+        // A click, key or wheel anywhere in a document hides the tooltip (capture phase: before any handler stops it).
+        _dismissListeners[0] = body.AddEventListener("mousedown", DismissTooltip, inCapturePhase: true);
+        _dismissListeners[1] = body.AddEventListener("keydown", DismissTooltip, inCapturePhase: true);
+        _dismissListeners[2] = body.AddEventListener("mousescroll", DismissTooltip, inCapturePhase: true);
         OnAttach(Document);
     }
+
+    private readonly RmlEventListener?[] _dismissListeners = new RmlEventListener?[3];
+
+    private void DismissTooltip(RmlEvent e) => Workspace.Tooltips?.Dismiss();
 
     /// <summary>Attach element listeners here (runs after every load and hot reload).</summary>
     protected virtual void OnAttach(RmlDocument document)

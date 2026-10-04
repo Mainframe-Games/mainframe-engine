@@ -1,6 +1,7 @@
 <rml>
 <head>
     <title>Viewport</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
         /* The 3D view lets the mouse through to the viewport controller; only the tab strip takes it. */
@@ -33,63 +34,76 @@
         }
         .tab:hover { background-color: #2a2e38; color: #e8ebf2; }
         .tab.active { background-color: #2f333d; color: #ffffff; border-color: #3b3f4b; }
+        .tab .tab-icon { margin-right: 6dp; }
         .tab-close {
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 18dp;
             height: 18dp;
-            line-height: 18dp;
             margin-left: 8dp;
-            text-align: center;
             border-radius: 3dp;
-            color: #8b93a5;
         }
-        .tab-close:hover { background-color: #4b5263; color: #ffffff; }
+        .tab-close .icon { image-color: #6b7488; }
+        .tab:hover .tab-close .icon, .tab.active .tab-close .icon { image-color: #a3abbd; }
+        .tab-close:hover { background-color: #4b5263; }
+        .tab .tab-close:hover .icon { image-color: #ffffff; }
         .tab-new {
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 26dp;
             height: 24dp;
-            line-height: 24dp;
-            text-align: center;
-            color: #8b93a5;
             cursor: pointer;
             border-radius: 3dp;
             margin-bottom: 1dp;
         }
-        .tab-new:hover { background-color: #2a2e38; color: #ffffff; }
+        .tab-new .icon { image-color: #8b93a5; }
+        .tab-new:hover { background-color: #2a2e38; }
+        .tab-new:hover .icon { image-color: #ffffff; }
         #view { display: block; position: relative; flex: 1 1 auto; pointer-events: none; }
         #view-image { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
         #view-info {
             position: absolute;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
             left: 10dp;
             top: 8dp;
-            padding: 2dp 6dp;
+            padding: 2dp 7dp 2dp 5dp;
             border-radius: 3dp;
             background-color: #0f111599;
             color: #c9cedb;
             font-size: 11dp;
         }
+        #view-info .icon { margin-right: 5dp; image-color: #c9cedb; }
         #view-empty {
             position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             left: 0dp;
-            top: 45%;
+            top: 42%;
             width: 100%;
             text-align: center;
             color: #6b7488;
         }
+        #view-empty .icon { margin-bottom: 8dp; image-color: #4b5263; }
     </style>
 </head>
 <body class="panel-doc viewport-doc" data-model="viewport_tabs">
     <div class="tabs">
-        <div class="tab" data-for="tab : tabs" data-class-active="tab.active" data-event-mousedown="activate(tab.index)">
+        <div class="tab" data-for="tab : tabs" data-class-active="tab.active" data-event-mousedown="activate(tab.index)" data-attr-data-tooltip="tab.tooltip">
+            <span data-attr-class="tab.icon + ' icon-sm tab-icon'"></span>
             <span>{{tab.title}}</span>
-            <span class="tab-close" data-event-mousedown="close(tab.index)">×</span>
+            <span class="tab-close" data-event-mousedown="close(tab.index)" data-tooltip="Close Scene (Ctrl+W) — asks to save unsaved changes"><span class="icon icon-sm icon-x"></span></span>
         </div>
-        <div class="tab-new" data-event-click="create()" title="New scene (Ctrl+N)">+</div>
+        <div class="tab-new" data-event-click="create()" data-tooltip="New Scene (Ctrl+N) — open an empty scene in a new tab"><span class="icon icon-plus"></span></div>
     </div>
     <div id="view">
         <img id="view-image"/>
-        <div id="view-info" class="mono">Perspective</div>
-        <div id="view-empty">No scene open · File › New Scene or Open Scene</div>
+        <div id="view-info" class="mono"><span id="view-info-icon" class="icon icon-sm icon-perspective"></span><span id="view-info-text">Perspective</span></div>
+        <div id="view-empty"><span class="icon icon-lg icon-movie"></span><span>No scene open · File › New Scene or Open Scene</span></div>
     </div>
 </body>
 </rml>

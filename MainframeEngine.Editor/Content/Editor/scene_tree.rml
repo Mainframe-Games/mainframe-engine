@@ -1,6 +1,7 @@
 <rml>
 <head>
     <title>Scene</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
         .tree { padding: 3dp 0dp; }
@@ -9,7 +10,7 @@
             flex-direction: row;
             align-items: center;
             height: 22dp;
-            padding-right: 8dp;
+            padding-right: 4dp;
             white-space: nowrap;
             cursor: pointer;
             border-top: 1dp transparent;
@@ -17,38 +18,45 @@
         }
         .tree-row:hover { background-color: #2a2e38; }
         .tree-row.selected { background-color: #1d4ed8; color: #ffffff; }
-        .tree-row.selected .type { color: #bfdbfe; }
         .tree-row.drop-inside { background-color: #1e3a8a; }
         .tree-row.drop-before { border-top-color: #60a5fa; }
         .tree-row.drop-after { border-bottom-color: #60a5fa; }
         .tree-row.dragging { color: #8b93a5; }
-        .indent { display: inline-block; height: 1dp; }
-        .name { display: inline-block; }
-        .type { display: inline-block; margin-left: 7dp; color: #6b7488; font-size: 11dp; }
-        .instance-tag {
-            display: inline-block;
-            margin-left: 6dp;
-            padding: 0dp 4dp;
-            height: 14dp;
-            line-height: 14dp;
-            border-radius: 2dp;
-            background-color: #374151;
-            color: #cbd5e1;
-            font-size: 10dp;
-        }
-        .tree-empty { padding: 14dp; color: #8b93a5; }
+        .tree-row.hidden-node .name { color: #6b7488; }
+        .tree-row.selected.hidden-node .name { color: #bfdbfe; }
+        .indent { display: inline-block; flex: 0 0 auto; height: 1dp; }
+        .tree-row .type-icon { margin: 0dp 5dp 0dp 1dp; }
+        .name { display: block; flex: 1 1 auto; overflow: hidden; }
+        .badge { display: inline-block; flex: 0 0 auto; width: 18dp; height: 18dp; margin-left: 1dp; }
+        .badge .icon { margin: 1dp; }
+        .badge.instance .icon { image-color: #93c5fd; }
+        .badge.script .icon { image-color: #a3abbd; }
+        .badge.warning .icon { image-color: #fbbf24; }
+        .tree-row.selected .badge .icon { image-color: #dbeafe; }
+        .eye { display: inline-flex; align-items: center; justify-content: center; width: 20dp; height: 20dp; margin-left: 1dp;
+               border-radius: 3dp; cursor: pointer; }
+        .eye:hover { background-color: #3a3f4c; }
+        .eye .icon { image-color: #8b93a5; }
+        .eye:hover .icon { image-color: #ffffff; }
+        .eye.off .icon { image-color: #5f6676; }
+        .tree-row.selected .eye .icon { image-color: #dbeafe; }
+        .tree-empty { display: flex; flex-direction: column; align-items: center; padding: 22dp 14dp; color: #8b93a5; text-align: center; }
+        .tree-empty .icon { margin-bottom: 8dp; image-color: #4b5263; }
+        .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
     </style>
 </head>
 <body class="panel-doc" data-model="scene_tree">
     <div class="panel-header">
+        <span class="icon icon-sitemap title-icon"></span>
         <span class="panel-title">Scene</span>
-        <button class="small" data-command="node.add" title="Add a child node (Ctrl+A)">Add</button>
-        <button class="small" data-command="scene.instance" title="Instance a scene as a child (Ctrl+Shift+A)">Instance</button>
+        <button class="tool-button small" data-command="node.add" data-tooltip="Add Child Node (Ctrl+A) — create a node under the selection"><span class="icon icon-sm icon-plus"></span></button>
+        <button class="tool-button small" data-command="scene.instance" data-tooltip="Instance Child Scene (Ctrl+Shift+A) — add a saved scene under the selection"><span class="icon icon-sm icon-link"></span></button>
     </div>
     <div class="panel-body tree" id="tree">
         <div class="tree-row" data-for="row : rows"
              data-class-selected="row.selected"
              data-class-dragging="row.drag"
+             data-class-hidden-node="!row.shown"
              data-class-drop-inside="row.drop == 1"
              data-class-drop-before="row.drop == 2"
              data-class-drop-after="row.drop == 3"
@@ -58,12 +66,15 @@
              data-event-dblclick="rename(row.index)">
             <span class="indent" data-style-width="row.indent"></span>
             <span class="arrow" data-class-collapsed="!row.expanded" data-class-none="!row.has_children" data-event-mousedown="toggle(row.index)"></span>
-            <span data-attr-class="'icon ' + row.icon"></span>
+            <span class="type-icon" data-attr-class="row.icon + ' type-icon'" data-attr-data-tooltip="row.tooltip"></span>
             <span class="name">{{row.name}}</span>
-            <span class="instance-tag" data-if="row.instance">scene</span>
-            <span class="type">{{row.type}}</span>
+            <span class="badge warning" data-if="row.warning != ''" data-attr-data-tooltip="row.warning"><span class="icon icon-sm icon-alert-triangle"></span></span>
+            <span class="badge instance" data-if="row.instance" data-attr-data-tooltip="row.instance_tooltip"><span class="icon icon-sm icon-movie"></span></span>
+            <span class="badge script" data-if="row.script != ''" data-attr-data-tooltip="row.script_tooltip"><span data-attr-class="row.script"></span></span>
+            <span class="eye" data-if="row.has_visible" data-class-off="!row.shown" data-event-mousedown="toggle_visible(row.index)"
+                  data-tooltip="Toggle Visibility — hide or show the node and its children"><span data-attr-class="row.eye_icon"></span></span>
         </div>
-        <div class="tree-empty" data-if="rows.size == 0">No scene open.</div>
+        <div class="tree-empty" data-if="rows.size == 0"><span class="icon icon-lg icon-sitemap"></span><span>No scene open.</span></div>
     </div>
 </body>
 </rml>
