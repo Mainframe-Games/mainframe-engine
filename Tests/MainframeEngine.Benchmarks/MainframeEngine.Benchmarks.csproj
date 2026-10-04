@@ -13,6 +13,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+    <!-- Registers the benchmark node types ([Replicated] boxes) like a game assembly. -->
+    <ProjectReference Include="..\..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

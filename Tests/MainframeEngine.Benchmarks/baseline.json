@@ -64,6 +64,36 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "ReplicationBenchmarks.CaptureChanges([NodeCount=1000])",
+      "MeanNs": 11933.63,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ReplicationBenchmarks.CaptureChanges([NodeCount=100])",
+      "MeanNs": 675.525,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ReplicationBenchmarks.DecodeSnapshot([NodeCount=1000])",
+      "MeanNs": 24818.759,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ReplicationBenchmarks.DecodeSnapshot([NodeCount=100])",
+      "MeanNs": 1919.995,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ReplicationBenchmarks.EncodeSnapshot([NodeCount=1000])",
+      "MeanNs": 12753.669,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ReplicationBenchmarks.EncodeSnapshot([NodeCount=100])",
+      "MeanNs": 958.837,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "SceneTreeBenchmarks.GetNodePathLookup",
       "MeanNs": 39.224,
       "AllocatedBytes": 0
