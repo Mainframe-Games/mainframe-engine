@@ -71,3 +71,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Gates locally after integration: unit 130/130, render 12/12 (MoltenVK), 0 validation, 0 B/frame, ~121 fps Release with 5 shadowed lights.
 - natives: win/linux binaries committed from natives.yml run 37210952838 (5d58ded).
 - Next ADR number: 0005 (M5 follow-ups: flat native copy for project refs; Steam unsupported on arm64).
+
+### 2026-10-05 — Lane M2 (integrated, fast-forward)
+- `M2:` generator project `MainframeEngine.Generators`, node tree/SceneTree/servers/signals/transforms, `.mscene`/`.mres`, `PackedScene`, UID cache, `AssetDatabase`; Sandbox loads `Content/Scenes/Sandbox.mscene`. ADRs 0010–0012 (Godot names, JSON scenes, generator registry). 257 unit tests, 12 render tests, 0 B/tick @10k nodes.
+- API: `Node.Initialize` gone → `Tree.Servers`/`Engine.Servers`; `Camera3D`/`Camera2D` are nodes (math cams → `PerspectiveCamera`/`OrthographicCamera`); GPU init in `InitializeRenderResources(RenderServer)`; lifecycle methods protected; `SteamServer` when `EngineOptions.SteamAppId` set.
+- Next free ADR: 0005 (0005–0009 free; M2 used 0010–0012) → then 0013.
