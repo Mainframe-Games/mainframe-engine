@@ -87,7 +87,7 @@ public class ReplicationBenchmarks : IDisposable
 
         // A snapshot in which every node changed, as the client receives it.
         Move(_tick);
-        _peer.AckedTick = _tick - 1;
+        Array.Fill(_peer.EntityAcks, _tick - 1); // every node changed since its last acknowledgement
         _server.Bus!.Tick = _tick;
         _packet = _server.Bus.Encode(new SnapshotMessage { Api = _server, Peer = _peer }, out _).ToArray();
     }
@@ -140,6 +140,7 @@ public class ReplicationBenchmarks : IDisposable
     {
         BinaryPrimitives.WriteUInt32LittleEndian(_packet.AsSpan(3), ++_clientTick); // a newer tick each time
         _clientListener.OnReceive(_serverPeer, NetChannel.Unreliable, _packet);
+        _server.Bus!.Poll(); // drain the acknowledgement the client sent (ignored: its tick is ahead of the server)
         return _client.Tick;
     }
 }

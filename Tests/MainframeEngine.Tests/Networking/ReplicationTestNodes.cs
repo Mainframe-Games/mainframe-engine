@@ -182,4 +182,8 @@ internal sealed class NetBox : Node3D
 
     [Rpc(RpcMode.Server)]
     public void Bump(int amount) => Bumps += amount;
+
+    /// <summary>An RPC whose body throws (a client must not be able to crash the server with it).</summary>
+    [Rpc(RpcMode.AnyPeer)]
+    public void Crash(int code) => throw new InvalidOperationException($"boom {code} on {Name}");
 }

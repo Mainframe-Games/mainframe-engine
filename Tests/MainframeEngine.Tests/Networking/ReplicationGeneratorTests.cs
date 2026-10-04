@@ -102,12 +102,36 @@ public sealed class ReplicationGeneratorTests
         Assert.Contains("NetCodec.Write(writer, (short)_v1)", generated, StringComparison.Ordinal);       // enum → underlying
         Assert.Contains("NetCodec.WriteValue(writer, in _v2)", generated, StringComparison.Ordinal);      // transferable
         Assert.Contains("public static class GenShipRpcExtensions", generated, StringComparison.Ordinal);
-        Assert.Contains("public static void RpcFire(this global::Game.Net.GenShip node, global::System.Numerics.Vector3 direction", generated, StringComparison.Ordinal);
+        Assert.Contains("public static void RpcFire(this global::Game.Net.GenShip __mfNode, global::System.Numerics.Vector3 direction", generated, StringComparison.Ordinal);
         Assert.Contains("internal static void RpcExplode(", generated, StringComparison.Ordinal);       // internal method → internal sender
         Assert.Contains("public static class Outer_GenNestedRpcExtensions", generated, StringComparison.Ordinal);
         Assert.Contains("internal static class GenInternalRpcExtensions", generated, StringComparison.Ordinal);
         Assert.DoesNotContain("GenPlain", generated, StringComparison.Ordinal);
         Assert.Contains("createState: null", generated, StringComparison.Ordinal);                         // RPC-only types
+    }
+
+    [Fact]
+    public void RpcParametersMayUseAnyNameTheGeneratedCodeUses()
+    {
+        // Regression: the generated senders once declared locals named node/peer/rpc/call/writer/previous.
+        const string source = """
+            using MainframeEngine;
+            using MainframeEngine.Networking;
+
+            public class Names : Node
+            {
+                [Rpc] public void All(int node, int peer, int rpc, int call, int writer, int previous, int reader, int o, int v, int a0) { }
+                [Rpc] public void Keyword(int @class, string @event) { }
+                [Rpc] public void Reserved(int __mfNode) { }
+            }
+
+            public class Global : Node { [Replicated] public int @int; [Rpc] public void Ping(PeerId peer) { } }
+            """;
+        var (output, diagnostics, _) = Run(source, "NetNames");
+        var reserved = Assert.Single(diagnostics);
+        Assert.Equal("MFG008", reserved.Id);
+        Assert.Contains("__mf", reserved.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        Assert.Empty(output.GetDiagnostics(TestContext.Current.CancellationToken).Where(d => d.Severity >= DiagnosticSeverity.Warning));
     }
 
     [Fact]
@@ -256,6 +280,28 @@ public sealed class ReplicationGeneratorTests
         Assert.Contains(diagnostics, d => d.Id == "MFG007" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("IEquatable", StringComparison.Ordinal));
         Assert.Contains(diagnostics, d => d.Id == "MFG007" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("cannot be interpolated", StringComparison.Ordinal));
     }
+
+    // Registers a type process-wide: lives in this serial collection.
+    [Fact]
+    public void TheHandshakeFingerprintCoversOnlyTheSpawnableScenes()
+    {
+        using var net = new NetHarness();
+        var before = net.Server.ReplicationFingerprint;
+        // A networked type from an unrelated assembly or tool registering on one side only must not matter…
+        ReplicationRegistry.Register(new ReplicationTypeInfo(typeof(UnrelatedNetNode), 0xBADu, [], [], null));
+        var client = net.Join();
+        Assert.Equal(before, client.Api.ReplicationFingerprint);
+        // …but the scenes' networked layout does: a scene whose root differs changes it.
+        var other = NetHarness.CreateTree();
+        using var api = MultiplayerApi.Attach(other);
+        api.RegisterScene(NetHarness.PlayerScene, NetHarness.PlayerUid);
+        api.StartServer(LoopbackTransport.CreateServer());
+        Assert.NotEqual(before, api.ReplicationFingerprint);
+        api.Stop();
+        other.Shutdown();
+    }
+
+    private sealed class UnrelatedNetNode : Node;
 
     [Fact]
     public void TheFingerprintCoversEveryRegisteredSchema()

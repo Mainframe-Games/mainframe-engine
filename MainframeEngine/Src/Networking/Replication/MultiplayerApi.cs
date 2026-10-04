@@ -52,7 +52,8 @@ public sealed partial class MultiplayerApi : IFrameServer
     private readonly List<PackedScene> _loadedScenes = [];
     private readonly Dictionary<uint, NetworkEntity> _entities = [];
     private readonly List<NetworkEntity> _entityList = []; // registration (= id) order
-    private readonly List<NetworkEntity> _pendingRemovals = [];
+    private List<NetworkEntity> _pendingRemovals = [];
+    private List<NetworkEntity> _removalBatch = [];
     private readonly NetBufferWriter _rpcArguments = new(256);
 
     private MessageBus? _bus;
@@ -62,6 +63,9 @@ public sealed partial class MultiplayerApi : IFrameServer
     private long _rateBytesSent;
     private long _rateBytesReceived;
     private bool _stopRequested;
+    private List<NetworkAddress>? _connectCandidates;
+    private TransportSelector? _connectSelector;
+    private int _connectIndex;
     private bool _disposed;
     private PeerId _remoteSender = ServerPeerId;
 
@@ -124,7 +128,10 @@ public sealed partial class MultiplayerApi : IFrameServer
     /// </summary>
     public PeerId RemoteSender => _remoteSender;
 
-    /// <summary>Snapshots per second sent by the server (1–255, default <see cref="DefaultTickRate"/>).</summary>
+    /// <summary>
+    /// Snapshots per second sent by the server (1–255, default <see cref="DefaultTickRate"/>). Set it before starting:
+    /// clients learn it in the handshake.
+    /// </summary>
     public int TickRate
     {
         get;
@@ -132,6 +139,8 @@ public sealed partial class MultiplayerApi : IFrameServer
         {
             ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
             ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 255);
+            if (Mode != MultiplayerMode.Offline && value != field)
+                throw new InvalidOperationException("Set TickRate before starting; clients learn it in the handshake.");
             field = value;
         }
     } = DefaultTickRate;
@@ -242,6 +251,12 @@ public sealed partial class MultiplayerApi : IFrameServer
     /// <summary>Server: a client's RPC failed the authority check and was dropped.</summary>
     public event Action<PeerId, Node, RpcInfo>? RpcRejected;
 
+    /// <summary>Server: a client's RPC threw while running (the exception is logged, the server keeps going).</summary>
+    public event Action<PeerId, Node, RpcInfo, Exception>? RpcFailed;
+
+    /// <summary>Server: disconnect a client whose RPC throws (default false: log and continue).</summary>
+    public bool KickOnRpcFailure { get; set; }
+
     // ------------------------------------------------------------------------------------------------
     // Spawnable scenes
     // ------------------------------------------------------------------------------------------------
@@ -310,6 +325,12 @@ public sealed partial class MultiplayerApi : IFrameServer
         ThrowIfDisposed();
         if (transport.IsServer)
             throw new ArgumentException("A client needs a connecting transport.", nameof(transport));
+        _connectCandidates = null; // an explicit transport: no address fallback
+        StartClientCore(transport);
+    }
+
+    private void StartClientCore(ITransport transport)
+    {
         Start(transport, MultiplayerMode.Client);
         LocalPeerId = UnassignedPeerId;
         ResetClientState();
@@ -327,7 +348,9 @@ public sealed partial class MultiplayerApi : IFrameServer
     /// <summary>
     /// Connects through <paramref name="connectString"/>: a <see cref="NetworkAddress"/> list such as a Steam lobby's
     /// <c>connect</c> metadata (<c>"steam:7656…;enet:203.0.113.5:7777"</c>), trying each in order (see
-    /// <see cref="TransportSelector"/>). False when no address could be used.
+    /// <see cref="TransportSelector"/>). Connections complete asynchronously: if one then fails (no answer, or no
+    /// handshake in time) the next address is tried, and <see cref="Disconnected"/> is raised only when none is left.
+    /// False when no address could even be opened.
     /// </summary>
     public bool TryConnect(string connectString, TransportSelector? selector = null)
     {
@@ -335,11 +358,35 @@ public sealed partial class MultiplayerApi : IFrameServer
         ThrowIfDisposed();
         if (Mode != MultiplayerMode.Offline)
             throw new InvalidOperationException($"Already running as {Mode}; call Stop first.");
-        if (!(selector ?? TransportSelector.Default).TryConnect(connectString, Messages.Fingerprint, out var transport, out var address))
+        _connectSelector = selector ?? TransportSelector.Default;
+        _connectCandidates = NetworkAddress.ParseList(connectString);
+        return TryConnectFrom(0);
+    }
+
+    // Opens the first usable candidate at or after `index`; remembers where it is for the fallback.
+    private bool TryConnectFrom(int index)
+    {
+        var candidates = _connectCandidates;
+        var selector = _connectSelector;
+        if (candidates is null || selector is null)
             return false;
-        Log.Info($"[Net] connecting through {address}");
-        StartClient(transport);
-        return true;
+        for (var i = index; i < candidates.Count; i++)
+        {
+            if (!selector.TryConnect(candidates[i], Messages.Fingerprint, out var transport, out var failure))
+            {
+                Log.Info($"[Net] cannot use '{candidates[i]}': {failure}");
+                continue;
+            }
+
+            Log.Info($"[Net] connecting through {candidates[i]}");
+            _connectIndex = i;
+            StartClientCore(transport);
+            return true;
+        }
+
+        _connectCandidates = null;
+        _connectSelector = null;
+        return false;
     }
 
     private void Start(ITransport transport, MultiplayerMode mode)
@@ -390,6 +437,8 @@ public sealed partial class MultiplayerApi : IFrameServer
 
         var wasClient = Mode == MultiplayerMode.Client;
         Mode = MultiplayerMode.Offline;
+        _connectCandidates = null;
+        _connectSelector = null;
         var bus = _bus;
         _bus = null;
         bus?.Dispose();
@@ -400,6 +449,9 @@ public sealed partial class MultiplayerApi : IFrameServer
         _readyPeers.Clear();
         _pendingSpawns.Clear();
         _pendingRemovals.Clear();
+        _removalBatch.Clear();
+        _freeSlots.Clear();
+        _nextSlot = 0;
         ResetClientState();
         LocalPeerId = ServerPeerId;
         Log.Info($"[Net] multiplayer {(wasClient ? "client" : "server")} stopped");
@@ -418,16 +470,40 @@ public sealed partial class MultiplayerApi : IFrameServer
                 scene.Release();
         _loadedScenes.Clear();
         _rpcArguments.ReleaseStorage();
+        _entryWriter.ReleaseStorage();
     }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
     // FNV-1a over the replication schema of every loaded networked type and the spawnable scene UIDs.
+    // FNV-1a over every spawnable scene: its UID, then each networked node it instantiates (in id order) with the
+    // type name and schema hash of every replication info in its chain. Scoped to what can actually be spawned, so
+    // unrelated assemblies loaded on one side only (tools, editor reloads) cannot cause a mismatch.
     private uint ComputeFingerprint()
     {
-        var hash = Fnv.Add(Fnv.Offset, ReplicationRegistry.Fingerprint);
-        foreach (var uid in _sceneUids)
-            hash = Fnv.Add(hash, uid);
+        var hash = Fnv.Offset;
+        var nodes = new List<Node>();
+        for (var i = 0; i < _scenes.Count; i++)
+        {
+            hash = Fnv.Add(hash, _sceneUids[i]);
+            var instance = _scenes[i].Instantiate();
+            try
+            {
+                nodes.Clear();
+                CollectNetworked(instance, nodes, isRoot: true);
+                foreach (var node in nodes)
+                {
+                    hash = Fnv.Add(hash, node.GetType().FullName ?? node.GetType().Name);
+                    foreach (var info in ReplicationRegistry.GetChain(node.GetType())?.Infos ?? [])
+                        hash = Fnv.Add(hash, info.SchemaHash);
+                }
+            }
+            finally
+            {
+                instance.Free();
+            }
+        }
+
         return hash;
     }
 
@@ -513,7 +589,9 @@ public sealed partial class MultiplayerApi : IFrameServer
         if (entity.Released)
             return;
         entity.Released = true;
-        _entities.Remove(entity.NetId);
+        if (_entities.TryGetValue(entity.NetId, out var registered) && ReferenceEquals(registered, entity))
+            _entities.Remove(entity.NetId);
+        FreeSlot(entity);
         _entityList.Remove(entity);
         if (entity.HasInterpolation)
             _interpolated.Remove(entity);
@@ -554,29 +632,37 @@ public sealed partial class MultiplayerApi : IFrameServer
     /// </summary>
     private void ProcessRemovals()
     {
-        if (_pendingRemovals.Count == 0)
-            return;
-
-        // Roots first, so their descendants go with one despawn message.
-        for (var pass = 0; pass < 2; pass++)
+        // Despawn handlers (NodeDespawned) may free more networked nodes, which queues more removals: work on a
+        // swapped-out batch and repeat until nothing is left (bounded, in case handlers keep re-adding nodes).
+        for (var round = 0; round < 64 && _pendingRemovals.Count > 0; round++)
         {
-            foreach (var entity in _pendingRemovals)
+            (_pendingRemovals, _removalBatch) = (_removalBatch, _pendingRemovals);
+            var batch = _removalBatch;
+            foreach (var entity in batch)
+                entity.PendingRemoval = false;
+
+            // Roots first, so their descendants go with one despawn message.
+            for (var pass = 0; pass < 2; pass++)
             {
-                if (entity.Released || entity.IsRoot != (pass == 0))
-                    continue;
-                if (entity.Node is { IsFreed: false } node && ReferenceEquals(node.Tree, _tree))
-                    continue; // re-added in the same frame
+                for (var i = 0; i < batch.Count; i++)
+                {
+                    var entity = batch[i];
+                    if (entity.Released || entity.IsRoot != (pass == 0))
+                        continue;
+                    if (entity.Node is { IsFreed: false } node && ReferenceEquals(node.Tree, _tree))
+                        continue; // re-added in the same frame
 
-                if (Mode == MultiplayerMode.Server)
-                    ServerDespawn(entity);
-                else
-                    ReleaseEntity(entity);
+                    if (Mode == MultiplayerMode.Server)
+                        ServerDespawn(entity);
+                    else
+                        ReleaseEntity(entity);
+                }
             }
-        }
 
-        foreach (var entity in _pendingRemovals)
-            entity.PendingRemoval = false;
-        _pendingRemovals.Clear();
+            batch.Clear();
+            if (Mode == MultiplayerMode.Offline)
+                return; // a handler stopped the API
+        }
     }
 
     // Root and every networked descendant, depth-first in tree order: the id order both ends compute.

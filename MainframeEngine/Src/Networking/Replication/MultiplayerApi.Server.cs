@@ -11,12 +11,31 @@ public sealed partial class MultiplayerApi
     private readonly List<PeerId> _readyPeers = [];
     private readonly List<NetworkEntity> _pendingSpawns = [];
     private readonly List<Node> _collectBuffer = [];
+    private readonly Stack<int> _freeSlots = new();
+    private readonly NetBufferWriter _entryWriter = new(256);
     private readonly (uint Tick, double Time)[] _sendTimes = new (uint, double)[SendTimeSlots];
     private uint _tick = 1;
     private double _tickAccumulator;
     private uint _nextNetId = 1;
+    private int _slotCapacity = 64;
+    private int _nextSlot;
 
-    /// <summary>Server: clients that completed the handshake, in join order. Valid until the next frame.</summary>
+    /// <summary>
+    /// Server: the most bytes one snapshot may carry (0, the default: unlimited). When the changed nodes do not fit,
+    /// the rest go out in the following ticks (each snapshot continues where the previous one stopped), so a burst of
+    /// changes is spread instead of sent as one oversized, fragmented packet. Use about 1200 for internet play.
+    /// </summary>
+    public int MaxSnapshotBytes
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            field = value;
+        }
+    }
+
+    /// <summary>Server: clients that completed the handshake (and are not being disconnected), in join order. Valid until the next frame.</summary>
     public ReadOnlySpan<PeerId> ConnectedPeers => CollectionsMarshal.AsSpan(_readyPeers);
 
     /// <summary>Server: one client's traffic and acknowledgement state; false for an unknown peer.</summary>
@@ -47,7 +66,7 @@ public sealed partial class MultiplayerApi
     /// Where to add it (default: the current scene, else the root): a networked node, or a node that exists at the same
     /// path on clients (e.g. part of the level both load).
     /// </param>
-    /// <param name="authority">The peer with authority over the new nodes (default: the server).</param>
+    /// <param name="authority">The peer with authority over the new nodes: the server (default) or a connected client.</param>
     public Node Spawn(PackedScene scene, Node? parent = null, PeerId authority = default)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -57,6 +76,7 @@ public sealed partial class MultiplayerApi
         var index = _scenes.IndexOf(scene);
         if (index < 0)
             throw new InvalidOperationException("The scene is not registered; call RegisterScene on the server and on every client.");
+        ValidateAuthority(authority);
         parent ??= _tree.CurrentScene ?? _tree.Root;
         if (!ReferenceEquals(parent.Tree, _tree))
             throw new ArgumentException("The parent must be inside this multiplayer API's tree.", nameof(parent));
@@ -96,8 +116,8 @@ public sealed partial class MultiplayerApi
     }
 
     /// <summary>
-    /// Server: gives <paramref name="peer"/> authority over <paramref name="node"/> (and, by default, its networked
-    /// descendants) and tells the clients.
+    /// Server: gives <paramref name="peer"/> (the server or a connected client) authority over <paramref name="node"/>
+    /// (and, by default, its networked descendants) and tells the clients.
     /// </summary>
     public void SetAuthority(Node node, PeerId peer, bool includeDescendants = true)
     {
@@ -106,12 +126,19 @@ public sealed partial class MultiplayerApi
             throw new InvalidOperationException("Only the server assigns authority.");
         if (node.NetworkEntity is not { } entity || !ReferenceEquals(entity.Api, this) || entity.Released)
             throw new ArgumentException("The node is not networked by this multiplayer API.", nameof(node));
+        ValidateAuthority(peer);
 
         SetAuthority(entity, peer);
         if (includeDescendants && entity.IsRoot)
             foreach (var descendant in entity.Descendants)
                 if (!descendant.Released)
                     SetAuthority(descendant, peer);
+    }
+
+    private void ValidateAuthority(PeerId peer)
+    {
+        if (peer != ServerPeerId && !_readyPeers.Contains(peer))
+            throw new ArgumentException($"{peer} is not a connected client (authority must be the server or a peer that joined).", nameof(peer));
     }
 
     private void SetAuthority(NetworkEntity entity, PeerId peer)
@@ -122,8 +149,7 @@ public sealed partial class MultiplayerApi
         if (!entity.Root.SpawnSent)
             return; // the spawn will carry it
         var message = new AuthorityMessage { NetId = entity.NetId, Authority = peer };
-        foreach (var client in _readyPeers)
-            _bus!.Send(client, in message);
+        SendReliableToReady(in message);
     }
 
     /// <summary>Server: disconnects a client (<see cref="DisconnectReason.Kicked"/> unless another reason is given).</summary>
@@ -135,9 +161,13 @@ public sealed partial class MultiplayerApi
         Close(state, reason);
     }
 
+    // Stops all traffic to the peer at once (it leaves ConnectedPeers); PeerLeft follows the transport's disconnect.
     private void Close(PeerState peer, DisconnectReason reason)
     {
+        if (peer.Closing)
+            return;
         peer.Closing = true;
+        _readyPeers.Remove(peer.Id);
         _bus?.Disconnect(peer.Id, reason);
     }
 
@@ -145,11 +175,14 @@ public sealed partial class MultiplayerApi
     {
         _collectBuffer.Clear();
         CollectNetworked(root, _collectBuffer, isRoot: true);
+        if (_nextNetId > uint.MaxValue - (uint)_collectBuffer.Count)
+            throw new InvalidOperationException("Network ids exhausted.");
 
         var rootEntity = new NetworkEntity(this, _nextNetId, root, null)
         {
             Authority = authority,
             SceneIndex = sceneIndex,
+            Slot = AllocateSlot(),
         };
         if (parent.NetworkEntity is { Released: false } parentEntity && ReferenceEquals(parentEntity.Api, this))
             rootEntity.ParentNetId = parentEntity.NetId;
@@ -158,7 +191,7 @@ public sealed partial class MultiplayerApi
 
         var descendants = new NetworkEntity[_collectBuffer.Count - 1];
         for (var i = 1; i < _collectBuffer.Count; i++)
-            descendants[i - 1] = new NetworkEntity(this, _nextNetId + (uint)i, _collectBuffer[i], rootEntity) { Authority = authority };
+            descendants[i - 1] = new NetworkEntity(this, _nextNetId + (uint)i, _collectBuffer[i], rootEntity) { Authority = authority, Slot = AllocateSlot() };
         rootEntity.Descendants = descendants;
         _nextNetId += (uint)_collectBuffer.Count;
         _collectBuffer.Clear();
@@ -167,6 +200,28 @@ public sealed partial class MultiplayerApi
         foreach (var descendant in descendants)
             AddEntity(descendant);
         _pendingSpawns.Add(rootEntity);
+    }
+
+    // Dense per-entity index into every client's acknowledgement array (reused after despawn).
+    private int AllocateSlot()
+    {
+        var slot = _freeSlots.Count > 0 ? _freeSlots.Pop() : _nextSlot++;
+        if (slot >= _slotCapacity)
+        {
+            _slotCapacity = Math.Max(slot + 1, _slotCapacity * 2);
+            foreach (var peer in _peers)
+                peer.EnsureSlots(_slotCapacity);
+        }
+
+        return slot;
+    }
+
+    private void FreeSlot(NetworkEntity entity)
+    {
+        if (entity.Slot < 0)
+            return;
+        _freeSlots.Push(entity.Slot);
+        entity.Slot = -1;
     }
 
     // ------------------------------------------------------------------------------------------------
@@ -214,7 +269,7 @@ public sealed partial class MultiplayerApi
     internal PeerState? PeerStateFor(PeerId peer) => _peersById.GetValueOrDefault(peer);
 
     // Spawns queued this frame go to every ready client, with the state they have now (stamped tick 0: already
-    // delivered by the spawn, so snapshots do not resend it).
+    // delivered by the spawn, so snapshots do not resend it; clients' acknowledgements for the new nodes start now).
     private void FlushPendingSpawns()
     {
         if (_pendingSpawns.Count == 0 || _bus is null)
@@ -226,32 +281,34 @@ public sealed partial class MultiplayerApi
             var root = _pendingSpawns[i];
             if (root.Released)
                 continue;
-            CaptureForSpawn(root);
+            PrepareSpawn(root);
             foreach (var descendant in root.Descendants)
-                CaptureForSpawn(descendant);
+                PrepareSpawn(descendant);
             root.SpawnSent = true;
 
             var message = new SpawnMessage { Entity = root };
-            foreach (var peer in _readyPeers)
-                SendTracked(peer, in message, NetChannel.Reliable);
+            SendReliableToReady(in message);
         }
 
         _pendingSpawns.Clear();
     }
 
-    private static void CaptureForSpawn(NetworkEntity entity)
+    private void PrepareSpawn(NetworkEntity entity)
     {
         if (entity.Node is not { } node)
             return;
         foreach (var state in entity.States)
             state.Capture(node, 0);
+        foreach (var peer in _peers)
+            peer.EntityAcks[entity.Slot] = _tick;
     }
 
     private void SendSnapshots()
     {
         _sendTimes[_tick % SendTimeSlots] = (_tick, _time);
-        foreach (var peer in _peers)
+        for (var i = 0; i < _peers.Count; i++)
         {
+            var peer = _peers[i];
             if (!peer.Ready || peer.Closing)
                 continue;
             var message = new SnapshotMessage { Api = this, Peer = peer };
@@ -267,23 +324,63 @@ public sealed partial class MultiplayerApi
         }
     }
 
-    private void SendTracked<T>(PeerId peer, in T message, NetChannel channel) where T : struct, INetworkTransferable
+    private bool SendTracked<T>(PeerId peer, in T message, NetChannel channel) where T : struct, INetworkTransferable
     {
         var before = _bus!.Stats.BytesSent;
-        if (_bus.Send(peer, in message, channel) && _peersById.TryGetValue(peer, out var state))
+        if (!_bus.Send(peer, in message, channel))
+            return false;
+        if (_peersById.TryGetValue(peer, out var state))
             state.BytesSent += _bus.Stats.BytesSent - before;
+        return true;
     }
 
-    // Snapshot entry: netId (varint), byte length (ushort), then per state: change mask (varint) + changed values.
-    // A 0 id ends the list. Entries are skippable, so a client that does not know an id yet can step over it.
+    // Control messages (spawn, despawn, authority, welcome) must arrive: a client that missed one would diverge (and
+    // stop acknowledging), so a refused send disconnects it.
+    private bool SendReliable<T>(PeerId peer, in T message) where T : struct, INetworkTransferable
+    {
+        if (SendTracked(peer, in message, NetChannel.Reliable))
+            return true;
+        if (_peersById.TryGetValue(peer, out var state))
+        {
+            Log.Warning($"[Net] {peer} refused a reliable {typeof(T).Name}; disconnecting it");
+            Close(state, DisconnectReason.Closed);
+        }
+
+        return false;
+    }
+
+    private void SendReliableToReady<T>(in T message) where T : struct, INetworkTransferable
+    {
+        // Index loop from the end: a failed send closes the peer, which removes it from the list.
+        for (var i = _readyPeers.Count - 1; i >= 0; i--)
+        {
+            if (i < _readyPeers.Count)
+                SendReliable(_readyPeers[i], in message);
+        }
+    }
+
+    // Snapshot: flags (bit 0: truncated by MaxSnapshotBytes), then entries — netId (varint), byte length (varint), per
+    // state: change mask (varint) + changed values — ending with id 0. Each node sends what changed after *that node's*
+    // last acknowledged tick for this client; the ticks a snapshot covered are recorded so the acknowledgement advances
+    // exactly the nodes it carried. Entries are skippable (a client may not know an id yet).
     internal void WriteSnapshot(NetBufferWriter writer, PeerState peer)
     {
-        var since = peer.AckedTick;
-        foreach (var entity in _entityList)
+        var flagsAt = writer.Length;
+        writer.Write((byte)0);
+        var included = peer.BeginSnapshot(_tick);
+        var budget = MaxSnapshotBytes;
+        var count = _entityList.Count;
+        var start = count == 0 ? 0 : peer.SnapshotCursor % count;
+        var truncated = false;
+
+        for (var k = 0; k < count; k++)
         {
+            var index = (start + k) % count;
+            var entity = _entityList[index];
             if (entity.States.Length == 0 || !entity.Root.SpawnSent || entity.Node is null)
                 continue;
 
+            var since = peer.EntityAcks[entity.Slot];
             var changed = false;
             foreach (var state in entity.States)
             {
@@ -297,25 +394,36 @@ public sealed partial class MultiplayerApi
             if (!changed)
                 continue;
 
-            writer.WriteVarUInt32(entity.NetId);
-            var lengthAt = writer.Length;
-            writer.Write((ushort)0);
-            var start = writer.Length;
+            _entryWriter.Reset();
             foreach (var state in entity.States)
             {
                 var mask = state.ChangedSince(since);
-                writer.WriteVarUInt64(mask);
-                state.Write(writer, mask);
+                _entryWriter.WriteVarUInt64(mask);
+                state.Write(_entryWriter, mask);
             }
 
-            var length = writer.Length - start;
-            if (length > ushort.MaxValue)
-                throw new InvalidOperationException($"Replicated state of {entity} is {length} bytes; at most {ushort.MaxValue} per node.");
-            writer.PatchUInt16(lengthAt, (ushort)length);
+            var length = _entryWriter.Length;
+            if (budget > 0 && included.Count > 0 && writer.Length + VarIntSize(entity.NetId) + VarIntSize((uint)length) + length + 1 > budget)
+            {
+                truncated = true;
+                peer.SnapshotCursor = index; // continue here next tick
+                break;
+            }
+
+            writer.WriteVarUInt32(entity.NetId);
+            writer.WriteVarUInt32((uint)length);
+            writer.Write(_entryWriter.WrittenSpan);
+            included.Add(entity.Slot);
         }
 
         writer.WriteVarUInt32(0);
+        if (truncated)
+            writer.PatchByte(flagsAt, 1);
+        else
+            peer.SnapshotCursor = 0;
     }
+
+    private static int VarIntSize(uint value) => value < 1u << 7 ? 1 : value < 1u << 14 ? 2 : value < 1u << 21 ? 3 : value < 1u << 28 ? 4 : 5;
 
     // Spawn: root id, scene index, parent (networked id or path), root name, node count, then per node: present flag,
     // authority and the full state of every replicated member (descendants despawned since are marked absent).
@@ -361,6 +469,8 @@ public sealed partial class MultiplayerApi
         var node = entity.Node;
         if (node is not null)
             NodeDespawned?.Invoke(node);
+        if (entity.Released)
+            return; // a handler stopped the API (or freed it some other way)
 
         var announce = entity.Root.SpawnSent && !entity.Root.Released;
         if (entity.IsRoot)
@@ -375,8 +485,7 @@ public sealed partial class MultiplayerApi
         if (!announce || _bus is null)
             return;
         var message = new DespawnMessage { NetId = entity.NetId };
-        foreach (var peer in _readyPeers)
-            SendTracked(peer, in message, NetChannel.Reliable);
+        SendReliableToReady(in message);
     }
 
     private void CheckPeerTimeouts()
@@ -396,6 +505,13 @@ public sealed partial class MultiplayerApi
                 Log.Warning($"[Net] {peer.Id} timed out (silent for {PeerTimeout} s)");
                 Close(peer, DisconnectReason.Timeout);
             }
+            else if (peer.Ready && _time - peer.LastAckProgress > PeerTimeout)
+            {
+                // Still talking, but not acknowledging new snapshots: it cannot apply them (it would only ever
+                // receive larger and larger catch-up snapshots), so it is dropped rather than kept half-synchronized.
+                Log.Warning($"[Net] {peer.Id} stopped acknowledging snapshots (newest {peer.AckedTick}, server at {_tick})");
+                Close(peer, DisconnectReason.Timeout);
+            }
         }
     }
 
@@ -405,7 +521,7 @@ public sealed partial class MultiplayerApi
 
     private void OnServerPeerConnected(PeerId peer)
     {
-        var state = new PeerState(peer, _time);
+        var state = new PeerState(peer, _time, _slotCapacity);
         _peers.Add(state);
         _peersById[peer] = state;
     }
@@ -415,10 +531,10 @@ public sealed partial class MultiplayerApi
         if (!_peersById.Remove(peer, out var state))
             return;
         _peers.Remove(state);
+        _readyPeers.Remove(peer);
         if (!state.Ready)
             return;
 
-        _readyPeers.Remove(peer);
         Log.Info($"[Net] {peer} left ({reason})");
 
         // Nodes the client owned: freed (despawned at the end of the frame) or handed back to the server.
@@ -450,19 +566,26 @@ public sealed partial class MultiplayerApi
         }
 
         peer.Ready = true;
-        peer.AckedTick = _tick; // late-join spawns carry everything captured so far
+        peer.LastAckProgress = _time;
+        peer.AckedTick = _tick;
+        // Late join: every spawned node's state as captured so far travels in its spawn.
+        foreach (var entity in _entityList)
+            if (entity.Slot >= 0)
+                peer.EntityAcks[entity.Slot] = _tick;
         _readyPeers.Add(peer.Id);
         _bus!.Tick = _tick;
         var welcome = new WelcomeMessage { PeerId = peer.Id, TickRate = (ushort)TickRate, Tick = _tick };
-        SendTracked(peer.Id, in welcome, NetChannel.Reliable);
+        if (!SendReliable(peer.Id, in welcome))
+            return;
 
-        // Late join: every node already spawned, in id order (parents before children).
+        // Every node already spawned, in id order (parents before children).
         foreach (var entity in _entityList)
         {
             if (!entity.IsRoot || !entity.SpawnSent)
                 continue;
             var message = new SpawnMessage { Entity = entity };
-            SendTracked(peer.Id, in message, NetChannel.Reliable);
+            if (!SendReliable(peer.Id, in message))
+                return;
         }
 
         Log.Info($"[Net] {peer.Id} joined");
@@ -471,12 +594,17 @@ public sealed partial class MultiplayerApi
 
     private void OnAck(in MessageContext context, in AckMessage ack)
     {
-        if (!_peersById.TryGetValue(context.Sender, out var peer) || !peer.Ready)
+        if (!_peersById.TryGetValue(context.Sender, out var peer) || !peer.Ready || peer.Closing)
             return;
         peer.LastReceived = _time;
-        if (ack.Tick <= peer.AckedTick || ack.Tick > _tick)
+        if (ack.Tick > _tick || !peer.Acknowledge(ack.Tick))
             return;
-        peer.AckedTick = ack.Tick;
+
+        if (ack.Tick > peer.AckedTick)
+        {
+            peer.AckedTick = ack.Tick;
+            peer.LastAckProgress = _time;
+        }
 
         var sent = _sendTimes[ack.Tick % SendTimeSlots];
         if (sent.Tick == ack.Tick)

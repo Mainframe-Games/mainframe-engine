@@ -172,6 +172,14 @@ public sealed class NetBufferWriter : IBufferWriter<byte>, IDisposable
         Write((byte)value);
     }
 
+    /// <summary>Overwrites a byte already written at <paramref name="position"/> (e.g. a flags byte).</summary>
+    public void PatchByte(int position, byte value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(position);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(position, _position);
+        _buffer[position] = value;
+    }
+
     /// <summary>Overwrites two bytes already written at <paramref name="position"/> (little-endian), e.g. a length prefix.</summary>
     public void PatchUInt16(int position, ushort value)
     {

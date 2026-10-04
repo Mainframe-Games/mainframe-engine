@@ -361,6 +361,13 @@ internal static class TypeModelBuilder
                 return null;
             }
 
+            if (parameter.Name.StartsWith("__mf", System.StringComparison.Ordinal))
+            {
+                diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidRpc.Id, location, method.Name,
+                    $"parameter '{parameter.Name}' uses the '__mf' prefix reserved for generated code"));
+                return null;
+            }
+
             var value = NetValue(parameter.Name, parameter.Type, requireEquatable: false, out var error);
             if (value is null)
             {

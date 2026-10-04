@@ -9,6 +9,7 @@ public sealed partial class MultiplayerApi
     private bool _welcomed;
     private int _serverTickRate = DefaultTickRate;
     private uint _lastAppliedTick;
+    private uint _lastUntruncatedTick;
     private uint _ackTick;
     private uint _maxSpawnedNetId;
     private double _serverTickEstimate;
@@ -34,6 +35,7 @@ public sealed partial class MultiplayerApi
         _welcomed = false;
         _serverTickRate = DefaultTickRate;
         _lastAppliedTick = 0;
+        _lastUntruncatedTick = 0;
         _ackTick = 0;
         _maxSpawnedNetId = 0;
         _serverTickEstimate = 0;
@@ -64,15 +66,19 @@ public sealed partial class MultiplayerApi
         if (!_welcomed)
             return;
 
-        // Acknowledge at the server's tick rate; doubles as the heartbeat.
+        // Snapshots are acknowledged as they are applied; without one for a tick interval the newest acknowledgement
+        // is repeated as the heartbeat.
         _ackTimer += delta;
         var step = 1.0 / _serverTickRate;
         if (_ackTimer + step * 1e-6 >= step)
-        {
-            _ackTimer = Math.Min(_ackTimer - step, step);
-            var ack = new AckMessage { Tick = _ackTick };
-            _bus!.Send(_serverPeer, in ack, NetChannel.Unreliable);
-        }
+            SendAck();
+    }
+
+    private void SendAck()
+    {
+        _ackTimer = 0;
+        var ack = new AckMessage { Tick = _ackTick };
+        _bus?.Send(_serverPeer, in ack, NetChannel.Unreliable);
     }
 
     private void RequestStop(DisconnectReason reason)
@@ -86,7 +92,23 @@ public sealed partial class MultiplayerApi
     {
         var reason = _pendingDisconnectReason;
         var wasClient = Mode == MultiplayerMode.Client;
+        var neverJoined = !_welcomed;
+        var candidates = _connectCandidates;
+        var selector = _connectSelector;
+        var next = _connectIndex + 1;
         Stop();
+
+        // A connect string with more addresses: an attempt that never got through moves on to the next one.
+        if (wasClient && neverJoined && candidates is not null && next < candidates.Count
+            && reason is DisconnectReason.ConnectFailed or DisconnectReason.Timeout)
+        {
+            _connectCandidates = candidates;
+            _connectSelector = selector;
+            Log.Info($"[Net] '{candidates[next - 1]}' failed ({reason}); trying the next address");
+            if (TryConnectFrom(next))
+                return;
+        }
+
         if (wasClient)
             Disconnected?.Invoke(reason);
     }
@@ -128,11 +150,14 @@ public sealed partial class MultiplayerApi
         if (!Interpolation || !_clockStarted || _interpolated.Count == 0)
             return;
 
-        var time = new InterpolationTime(RenderTick, _lastAppliedTick, MaxExtrapolation * _serverTickRate);
+        var renderTick = RenderTick;
+        var maxExtrapolation = MaxExtrapolation * _serverTickRate;
         foreach (var entity in _interpolated)
         {
             if (entity.Node is not { } node)
                 continue;
+            // Known unchanged up to the newest snapshot that carried the node, or that carried every changed node.
+            var time = new InterpolationTime(renderTick, Math.Max(_lastUntruncatedTick, entity.LastAppliedTick), maxExtrapolation);
             foreach (var state in entity.States)
                 if (state.HasInterpolation)
                     state.Interpolate(node, in time);
@@ -174,6 +199,8 @@ public sealed partial class MultiplayerApi
 
     private void OnSpawn(in MessageContext context, in SpawnMessage message)
     {
+        if (context.Sender != _serverPeer)
+            return;
         _lastServerMessage = _time;
         var reader = message.Reader!;
         var netId = reader.ReadVarUInt32();
@@ -185,15 +212,15 @@ public sealed partial class MultiplayerApi
             throw new InvalidDataException($"Unknown spawn parent kind {parentKind}.");
         var name = reader.ReadString();
         var count = reader.ReadVarUInt32();
-        if (netId == 0 || count == 0 || count > (uint)reader.Remaining)
+        if (netId == 0 || count == 0 || count > (uint)reader.Remaining || netId > uint.MaxValue - (count - 1))
             throw new InvalidDataException($"Invalid spawn header (id {netId}, {count} nodes).");
+        for (var id = netId; id - netId < count; id++)
+        {
+            if (_entities.ContainsKey(id))
+                throw new InvalidDataException($"Spawn of #{netId}: id {id} is already in use.");
+        }
 
         _maxSpawnedNetId = Math.Max(_maxSpawnedNetId, netId + count - 1);
-        if (_entities.ContainsKey(netId))
-        {
-            Log.Warning($"[Net] duplicate spawn of #{netId} ignored");
-            return;
-        }
 
         if (sceneIndex >= (uint)_scenes.Count)
         {
@@ -222,7 +249,7 @@ public sealed partial class MultiplayerApi
             for (var i = 0; i < count; i++)
             {
                 var node = _spawnBuffer[i];
-                var entity = new NetworkEntity(this, netId + (uint)i, node, rootEntity);
+                var entity = new NetworkEntity(this, netId + (uint)i, node, rootEntity) { LastAppliedTick = context.Header.Tick };
                 rootEntity ??= entity;
                 entities[i] = entity;
                 if (!reader.ReadBoolean())
@@ -311,6 +338,8 @@ public sealed partial class MultiplayerApi
 
     private void OnDespawn(in MessageContext context, in DespawnMessage message)
     {
+        if (context.Sender != _serverPeer)
+            return;
         _lastServerMessage = _time;
         if (!_entities.TryGetValue(message.NetId, out var entity))
             return;
@@ -328,6 +357,8 @@ public sealed partial class MultiplayerApi
 
     private void OnAuthority(in MessageContext context, in AuthorityMessage message)
     {
+        if (context.Sender != _serverPeer)
+            return;
         _lastServerMessage = _time;
         if (_entities.TryGetValue(message.NetId, out var entity))
             entity.Authority = new PeerId(message.Authority);
@@ -335,6 +366,8 @@ public sealed partial class MultiplayerApi
 
     private void OnSnapshot(in MessageContext context, in SnapshotMessage message)
     {
+        if (context.Sender != _serverPeer)
+            return;
         _lastServerMessage = _time;
         if (!_welcomed)
             return;
@@ -348,9 +381,9 @@ public sealed partial class MultiplayerApi
 
         var reader = message.Reader!;
         var start = reader.Position;
-        var previous = _lastAppliedTick == 0 ? tick : _lastAppliedTick;
+        var flags = reader.ReadByte();
+        var truncated = (flags & 1) != 0;
         _lastAppliedTick = tick;
-        var readContext = new ReplicationReadContext(tick, previous, ApplyDirectly: !Interpolation);
         var complete = true;
 
         while (true)
@@ -358,9 +391,14 @@ public sealed partial class MultiplayerApi
             var netId = reader.ReadVarUInt32();
             if (netId == 0)
                 break;
-            int length = reader.ReadUInt16();
+            var length = reader.ReadVarUInt32();
+            if (length > (uint)reader.Remaining)
+                throw new InvalidDataException($"Snapshot entry #{netId}: length {length} exceeds the {reader.Remaining} bytes left.");
             if (_entities.TryGetValue(netId, out var entity) && entity.Node is { } node)
             {
+                // Members absent from the entry were unchanged up to what this node was last known at.
+                var known = Math.Max(_lastUntruncatedTick, entity.LastAppliedTick);
+                var readContext = new ReplicationReadContext(tick, known == 0 ? tick : known, ApplyDirectly: !Interpolation);
                 var entryStart = reader.Position;
                 foreach (var state in entity.States)
                 {
@@ -372,10 +410,11 @@ public sealed partial class MultiplayerApi
 
                 if (reader.Position - entryStart != length)
                     throw new InvalidDataException($"Snapshot entry #{netId}: {reader.Position - entryStart} bytes read, {length} declared.");
+                entity.LastAppliedTick = tick;
             }
             else
             {
-                reader.Skip(length);
+                reader.Skip((int)length);
                 // An id above every spawn received: its spawn (reliable channel) has not arrived yet, so this snapshot
                 // cannot be acknowledged (the server would stop resending those changes). Lower ids were despawned.
                 if (netId > _maxSpawnedNetId)
@@ -383,10 +422,16 @@ public sealed partial class MultiplayerApi
             }
         }
 
-        if (complete)
-            _ackTick = tick;
+        // A snapshot cut by the server's byte budget does not prove that absent nodes were still.
+        if (!truncated)
+            _lastUntruncatedTick = tick;
         _stats.Snapshots++;
         _stats.LastSnapshotBytes = reader.Position - start + MessageHeader.Size;
         SyncClock(tick);
+        if (complete)
+        {
+            _ackTick = tick;
+            SendAck();
+        }
     }
 }

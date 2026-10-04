@@ -77,6 +77,8 @@ public sealed class TransportTests
         using var client = new SimulatedTransport(clientEnd, new NetworkConditions { Latency = 0.1 }, clock: () => now);
         var events = new Recorder();
         serverEnd.Poll(events);
+        Assert.False(client.Send(LoopbackTransport.RemotePeerId, NetChannel.Reliable, [0])); // not connected yet
+        client.Poll(new Recorder());
 
         client.Send(LoopbackTransport.RemotePeerId, NetChannel.Reliable, [1]);
         client.Flush();
@@ -102,6 +104,7 @@ public sealed class TransportTests
             var (serverEnd, clientEnd) = LoopbackTransport.CreatePair();
             using var client = new SimulatedTransport(clientEnd, new NetworkConditions { Loss = 0.3, Duplication = 0.2 }, seed, () => 0);
             var events = new Recorder();
+            client.Poll(new Recorder());
             for (var i = 0; i < 200; i++)
                 client.Send(LoopbackTransport.RemotePeerId, NetChannel.Unreliable, [(byte)i]);
             for (var i = 0; i < 50; i++)
@@ -132,6 +135,7 @@ public sealed class TransportTests
         var (serverEnd, clientEnd) = LoopbackTransport.CreatePair();
         using var client = new SimulatedTransport(clientEnd, new NetworkConditions { Latency = 0.05, Jitter = 0.1 }, seed: 3, clock: () => now);
         var events = new Recorder();
+        client.Poll(new Recorder());
         for (var i = 0; i < 100; i++)
         {
             client.Send(LoopbackTransport.RemotePeerId, NetChannel.Unreliable, [(byte)i]);
@@ -151,6 +155,31 @@ public sealed class TransportTests
         Assert.Equal(Enumerable.Range(0, 100), unreliable.Order());  // but all there
         Assert.Equal(Enumerable.Range(0, 100), reliable);             // in order
         serverEnd.Dispose();
+    }
+
+    [Fact]
+    public void DisconnectingDeliversQueuedReliablePacketsFirst()
+    {
+        var now = 0.0;
+        var server = LoopbackTransport.CreateServer();
+        using var simulated = new SimulatedTransport(server, new NetworkConditions { Latency = 1 }, clock: () => now);
+        var client = server.ConnectClient();
+        simulated.Poll(new Recorder());
+        var clientPeer = new PeerId(1);
+
+        simulated.Send(clientPeer, NetChannel.Reliable, [1]);
+        simulated.Send(clientPeer, NetChannel.Unreliable, [2]);
+        simulated.Send(clientPeer, NetChannel.Reliable, [3]);
+        Assert.Equal(3, simulated.InFlight);
+        simulated.Disconnect(clientPeer, DisconnectReason.Kicked);
+        Assert.Equal(0, simulated.InFlight);
+        Assert.False(simulated.Send(clientPeer, NetChannel.Reliable, [4])); // gone
+
+        var events = new Recorder();
+        client.Poll(events);
+        Assert.Equal([(byte)1, (byte)3], events.Packets.Select(p => p.Value));
+        Assert.Equal("disconnect 1 Kicked", events.Events[^1]);
+        client.Dispose();
     }
 
     [Theory]

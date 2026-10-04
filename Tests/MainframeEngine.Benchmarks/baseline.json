@@ -65,32 +65,32 @@
     },
     {
       "Name": "ReplicationBenchmarks.CaptureChanges([NodeCount=1000])",
-      "MeanNs": 11933.63,
+      "MeanNs": 11439.88,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.CaptureChanges([NodeCount=100])",
-      "MeanNs": 675.525,
+      "MeanNs": 721.834,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.DecodeSnapshot([NodeCount=1000])",
-      "MeanNs": 24818.759,
+      "MeanNs": 25745.293,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.DecodeSnapshot([NodeCount=100])",
-      "MeanNs": 1919.995,
+      "MeanNs": 2026.838,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.EncodeSnapshot([NodeCount=1000])",
-      "MeanNs": 12753.669,
+      "MeanNs": 16143.479,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.EncodeSnapshot([NodeCount=100])",
-      "MeanNs": 958.837,
+      "MeanNs": 1294.436,
       "AllocatedBytes": 0
     },
     {

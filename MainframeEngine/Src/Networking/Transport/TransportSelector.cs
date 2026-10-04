@@ -171,24 +171,31 @@ public sealed class TransportSelector
         ArgumentNullException.ThrowIfNull(connectString);
         foreach (var candidate in NetworkAddress.ParseList(connectString))
         {
-            if (!_factories.TryGetValue(candidate.Scheme, out var factory))
-            {
-                Log.Info($"[Net] no transport for '{candidate}', trying the next address");
-                continue;
-            }
-
-            if (factory.TryConnect(in candidate, connectData, out transport, out var error))
+            if (TryConnect(in candidate, connectData, out transport, out var failure))
             {
                 address = candidate;
                 return true;
             }
 
-            Log.Info($"[Net] cannot use '{candidate}': {error}");
+            Log.Info($"[Net] cannot use '{candidate}': {failure}");
         }
 
         transport = null;
         address = default;
         return false;
+    }
+
+    /// <summary>Opens a transport to one address; false (with a reason) when its scheme is unknown or unusable here.</summary>
+    public bool TryConnect(in NetworkAddress address, uint connectData, [NotNullWhen(true)] out ITransport? transport, out string? failure)
+    {
+        if (!_factories.TryGetValue(address.Scheme, out var factory))
+        {
+            transport = null;
+            failure = "no transport for this scheme";
+            return false;
+        }
+
+        return factory.TryConnect(in address, connectData, out transport, out failure);
     }
 }
 

@@ -97,17 +97,17 @@ internal static class ReplicationEmitter
             var parameterTypes = string.Join(", ", rpc.Parameters.Select(p => $"typeof({p.Type})"));
             sb.AppendLine($"{i4}new {Net}.RpcInfo({Literal(rpc.Name)}, (global::MainframeEngine.RpcMode){rpc.Mode}, {Bool(rpc.Reliable)}, {Bool(rpc.CallLocal)},");
             sb.AppendLine($"{i4}    new global::System.Type[] {{ {parameterTypes} }},");
-            sb.AppendLine($"{i4}    static (global::MainframeEngine.Node node, {Net}.NetBufferReader reader) =>");
+            sb.AppendLine($"{i4}    static (global::MainframeEngine.Node __mfNode, {Net}.NetBufferReader __mfReader) =>");
             sb.AppendLine($"{i4}    {{");
             var args = new List<string>();
             for (var a = 0; a < rpc.Parameters.Count; a++)
             {
                 var name = "a" + a.ToString(CultureInfo.InvariantCulture);
-                sb.AppendLine($"{i4}        {ReadStatement(rpc.Parameters.Items[a], name, "reader")}");
+                sb.AppendLine($"{i4}        {ReadStatement(rpc.Parameters.Items[a], name, "__mfReader")}");
                 args.Add(name);
             }
 
-            sb.AppendLine($"{i4}        (({m.FullName})node).{TypeModelBuilder.Identifier(rpc.Name)}({string.Join(", ", args)});");
+            sb.AppendLine($"{i4}        (({m.FullName})__mfNode).{TypeModelBuilder.Identifier(rpc.Name)}({string.Join(", ", args)});");
             sb.AppendLine($"{i4}    }}),");
         }
 
@@ -259,28 +259,29 @@ internal static class ReplicationEmitter
             foreach (var targeted in new[] { false, true })
             {
                 var name = targeted ? $"Rpc{rpc.Name}To" : $"Rpc{rpc.Name}";
-                var target = targeted ? $", {Net}.PeerId peer" : "";
+                // Generated locals use reserved "__mf" names so no RPC parameter name can collide with them.
+                var target = targeted ? $", {Net}.PeerId __mfPeer" : "";
                 sb.AppendLine();
                 sb.AppendLine(targeted
                     ? $"{indent}    /// <summary>Calls <c>{rpc.Name}</c> on one peer (the server calls a client; a client may only target the server).</summary>"
                     : $"{indent}    /// <summary>Calls <c>{rpc.Name}</c> remotely: on every client from the server, on the server from a client.</summary>");
-                sb.AppendLine($"{indent}    {access} static void {name}(this {m.FullName} node{target}{parameters})");
+                sb.AppendLine($"{indent}    {access} static void {name}(this {m.FullName} __mfNode{target}{parameters})");
                 sb.AppendLine($"{indent}    {{");
-                sb.AppendLine($"{indent}        var rpc = {info}.Rpcs[{r}];");
+                sb.AppendLine($"{indent}        var __mfRpc = {info}.Rpcs[{r}];");
                 sb.AppendLine(targeted
-                    ? $"{indent}        var call = {Net}.MultiplayerApi.BeginRpc(node, rpc, peer);"
-                    : $"{indent}        var call = {Net}.MultiplayerApi.BeginRpc(node, rpc);");
-                sb.AppendLine($"{indent}        if (call.Writer is {{ }} writer)");
+                    ? $"{indent}        var __mfCall = {Net}.MultiplayerApi.BeginRpc(__mfNode, __mfRpc, __mfPeer);"
+                    : $"{indent}        var __mfCall = {Net}.MultiplayerApi.BeginRpc(__mfNode, __mfRpc);");
+                sb.AppendLine($"{indent}        if (__mfCall.Writer is {{ }} __mfWriter)");
                 sb.AppendLine($"{indent}        {{");
                 foreach (var p in rpc.Parameters)
-                    sb.AppendLine($"{indent}            {WriteStatement(p, TypeModelBuilder.Identifier(p.Name), "writer")}");
-                sb.AppendLine($"{indent}            {Net}.MultiplayerApi.EndRpc(in call);");
+                    sb.AppendLine($"{indent}            {WriteStatement(p, TypeModelBuilder.Identifier(p.Name), "__mfWriter")}");
+                sb.AppendLine($"{indent}            {Net}.MultiplayerApi.EndRpc(in __mfCall);");
                 sb.AppendLine($"{indent}        }}");
-                sb.AppendLine($"{indent}        if (call.InvokeLocally)");
+                sb.AppendLine($"{indent}        if (__mfCall.InvokeLocally)");
                 sb.AppendLine($"{indent}        {{");
-                sb.AppendLine($"{indent}            var previous = {Net}.MultiplayerApi.BeginLocalCall(in call);");
-                sb.AppendLine($"{indent}            try {{ node.{method}({arguments}); }}");
-                sb.AppendLine($"{indent}            finally {{ {Net}.MultiplayerApi.EndLocalCall(in call, previous); }}");
+                sb.AppendLine($"{indent}            var __mfPrevious = {Net}.MultiplayerApi.BeginLocalCall(in __mfCall);");
+                sb.AppendLine($"{indent}            try {{ __mfNode.{method}({arguments}); }}");
+                sb.AppendLine($"{indent}            finally {{ {Net}.MultiplayerApi.EndLocalCall(in __mfCall, __mfPrevious); }}");
                 sb.AppendLine($"{indent}        }}");
                 sb.AppendLine($"{indent}    }}");
             }

@@ -126,15 +126,15 @@ public sealed class ReplicationTests
         Assert.Equal(new Vector4(1, 2, 3, 4), copy.V4);
         Assert.Equal(new Transform2D(new Vector2(0, 1), new Vector2(-1, 0), new Vector2(5, 6)), copy.T2);
 
-        // Nothing changed: snapshots carry no entries (header + terminator only).
+        // Nothing changed: snapshots carry no entries (header + flags + terminator only).
         net.Step(10);
-        Assert.Equal(MessageHeader.Size + 1, net.Server.Stats.LastSnapshotBytes);
+        Assert.Equal(MessageHeader.Size + 2, net.Server.Stats.LastSnapshotBytes);
 
         // One member changed: one small entry.
         all.Int = 7;
         net.Step(8);
         Assert.Equal(7, copy.Int);
-        Assert.True(net.Server.Stats.LastSnapshotBytes <= MessageHeader.Size + 1, "settled again after the ack");
+        Assert.True(net.Server.Stats.LastSnapshotBytes <= MessageHeader.Size + 2, "settled again after the ack");
     }
 
     [Fact]
@@ -149,8 +149,8 @@ public sealed class ReplicationTests
         client.Ticking = false;
         all.Int = 7;
         net.Step(3);
-        // header + id(1) + length(2) + mask(1) + int(4) + terminator(1); the snapshot repeats until acknowledged.
-        Assert.Equal(MessageHeader.Size + 1 + 2 + 1 + 4 + 1, net.Server.Stats.LastSnapshotBytes);
+        // header + flags(1) + id(1) + length(1) + mask(1) + int(4) + terminator(1); repeated until acknowledged.
+        Assert.Equal(MessageHeader.Size + 1 + 1 + 1 + 1 + 4 + 1, net.Server.Stats.LastSnapshotBytes);
     }
 
     [Fact]

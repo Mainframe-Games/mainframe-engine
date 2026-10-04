@@ -40,6 +40,12 @@ internal sealed class NetworkEntity
 
     public bool HasInterpolation { get; }
 
+    /// <summary>Server: index into every client's acknowledgement array (-1 once released).</summary>
+    public int Slot { get; set; } = -1;
+
+    /// <summary>Client: the newest snapshot (or spawn) tick that carried this node.</summary>
+    public uint LastAppliedTick { get; set; }
+
     // ---- roots ----
 
     /// <summary>Index of the spawned scene in <see cref="MultiplayerApi.SpawnableScenes"/>.</summary>
@@ -69,19 +75,49 @@ internal sealed class NetworkEntity
 }
 
 /// <summary>A client of the server-side <see cref="MultiplayerApi"/>.</summary>
-internal sealed class PeerState(PeerId id, double connectedAt)
+internal sealed class PeerState
 {
-    public PeerId Id { get; } = id;
+    /// <summary>Snapshots remembered for acknowledgement (about two seconds at 30 Hz).</summary>
+    public const int SentSnapshotSlots = 64;
+
+    private readonly uint[] _sentTicks = new uint[SentSnapshotSlots];
+    private readonly List<int>[] _sentEntries = new List<int>[SentSnapshotSlots];
+    private uint _lastAcknowledged;
+
+    public PeerState(PeerId id, double connectedAt, int slotCapacity)
+    {
+        Id = id;
+        ConnectedAt = connectedAt;
+        LastReceived = connectedAt;
+        LastAckProgress = connectedAt;
+        EntityAcks = new uint[slotCapacity];
+        for (var i = 0; i < SentSnapshotSlots; i++)
+            _sentEntries[i] = new List<int>(slotCapacity);
+    }
+
+    public PeerId Id { get; }
 
     /// <summary>Handshake done: receives spawns, snapshots and RPCs.</summary>
     public bool Ready { get; set; }
 
-    public double ConnectedAt { get; } = connectedAt;
+    public double ConnectedAt { get; }
 
-    public double LastReceived { get; set; } = connectedAt;
+    public double LastReceived { get; set; }
 
-    /// <summary>Newest snapshot tick the client fully applied; snapshots carry everything changed after it.</summary>
+    /// <summary>When an acknowledgement last moved <see cref="AckedTick"/> forward.</summary>
+    public double LastAckProgress { get; set; }
+
+    /// <summary>Newest snapshot tick the client fully applied.</summary>
     public uint AckedTick { get; set; }
+
+    /// <summary>
+    /// Per networked node (by <see cref="NetworkEntity.Slot"/>): the newest acknowledged tick of a snapshot that carried
+    /// it. A snapshot sends a node's members changed after this tick.
+    /// </summary>
+    public uint[] EntityAcks { get; private set; }
+
+    /// <summary>Where the next snapshot starts when the previous one was cut by the byte budget.</summary>
+    public int SnapshotCursor { get; set; }
 
     public long BytesSent { get; set; }
 
@@ -94,4 +130,46 @@ internal sealed class PeerState(PeerId id, double connectedAt)
 
     /// <summary>Kicked or refused: ignore its messages until the transport reports the disconnect.</summary>
     public bool Closing { get; set; }
+
+    /// <summary>Grows the per-node arrays (when nodes are spawned), so recording snapshots never allocates.</summary>
+    public void EnsureSlots(int capacity)
+    {
+        if (EntityAcks.Length >= capacity)
+            return;
+        var acks = EntityAcks;
+        Array.Resize(ref acks, capacity);
+        EntityAcks = acks;
+        foreach (var entries in _sentEntries)
+            entries.Capacity = Math.Max(entries.Capacity, capacity);
+    }
+
+    /// <summary>Starts recording the nodes carried by the snapshot of <paramref name="tick"/>.</summary>
+    public List<int> BeginSnapshot(uint tick)
+    {
+        var index = (int)(tick % SentSnapshotSlots);
+        _sentTicks[index] = tick;
+        var entries = _sentEntries[index];
+        entries.Clear();
+        return entries;
+    }
+
+    /// <summary>
+    /// The client fully applied the snapshot of <paramref name="tick"/>: every node it carried is acknowledged up to that
+    /// tick. False for ticks no longer remembered (too old) or already processed.
+    /// </summary>
+    public bool Acknowledge(uint tick)
+    {
+        var index = (int)(tick % SentSnapshotSlots);
+        if (_sentTicks[index] != tick || tick == _lastAcknowledged)
+            return false;
+        _lastAcknowledged = tick;
+        var acks = EntityAcks;
+        foreach (var slot in _sentEntries[index])
+        {
+            if ((uint)slot < (uint)acks.Length && acks[slot] < tick)
+                acks[slot] = tick;
+        }
+
+        return true;
+    }
 }

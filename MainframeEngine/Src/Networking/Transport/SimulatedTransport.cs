@@ -34,7 +34,9 @@ public readonly record struct NetworkConditions
 /// both directions.
 /// </summary>
 /// <remarks>
-/// Delayed packets are copied into pooled arrays and handed to the inner transport once due, during
+/// Only peers the inner transport reported as connected accept packets (like a real transport). Disconnecting a peer
+/// first hands its queued reliable packets to the inner transport, as ENet delivers them before the disconnect, and
+/// drops its queued unreliable ones. Delayed packets are copied into pooled arrays and handed to the inner transport once due, during
 /// <see cref="Poll"/> or <see cref="Flush"/>; steady-state traffic does not allocate. Time comes from
 /// <paramref name="clock"/> (seconds), the wall clock by default; tests pass a manual one.
 /// </remarks>
@@ -42,7 +44,8 @@ public readonly record struct NetworkConditions
 /// <param name="conditions">Initial settings (<see cref="Conditions"/> can change at any time).</param>
 /// <param name="seed">Random seed: the same seed and traffic give the same losses.</param>
 /// <param name="clock">Current time in seconds; defaults to a stopwatch.</param>
-public sealed class SimulatedTransport(ITransport inner, NetworkConditions conditions, int seed = 0, Func<double>? clock = null) : ITransport
+public sealed class SimulatedTransport(ITransport inner, NetworkConditions conditions, int seed = 0, Func<double>? clock = null)
+    : ITransport, ITransportListener
 {
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct Pending(PeerId Peer, NetChannel Channel, byte[]? Buffer, int Length);
@@ -52,6 +55,9 @@ public sealed class SimulatedTransport(ITransport inner, NetworkConditions condi
     private readonly Func<double> _clock = clock ?? CreateStopwatchClock();
     private readonly PriorityQueue<Pending, (double Due, long Sequence)> _queue = new();
     private readonly Dictionary<PeerId, double> _lastReliableDue = [];
+    private readonly HashSet<PeerId> _peers = [];
+    private readonly List<(Pending Packet, (double Due, long Sequence) Priority)> _requeue = [];
+    private ITransportListener? _listener;
     private long _sequence;
     private bool _disposed;
 
@@ -83,14 +89,39 @@ public sealed class SimulatedTransport(ITransport inner, NetworkConditions condi
 
     public void Poll(ITransportListener listener)
     {
+        ArgumentNullException.ThrowIfNull(listener);
         ObjectDisposedException.ThrowIf(_disposed, this);
         Release();
-        _inner.Poll(listener);
+        _listener = listener;
+        try
+        {
+            _inner.Poll(this); // tracks connected peers, then forwards
+        }
+        finally
+        {
+            _listener = null;
+        }
     }
+
+    void ITransportListener.OnPeerConnected(PeerId peer, uint connectData)
+    {
+        _peers.Add(peer);
+        _listener?.OnPeerConnected(peer, connectData);
+    }
+
+    void ITransportListener.OnPeerDisconnected(PeerId peer, DisconnectReason reason)
+    {
+        _peers.Remove(peer);
+        _lastReliableDue.Remove(peer);
+        _listener?.OnPeerDisconnected(peer, reason);
+    }
+
+    void ITransportListener.OnReceive(PeerId peer, NetChannel channel, ReadOnlySpan<byte> payload) =>
+        _listener?.OnReceive(peer, channel, payload);
 
     public bool Send(PeerId peer, NetChannel channel, ReadOnlySpan<byte> payload)
     {
-        if (_disposed)
+        if (_disposed || !_peers.Contains(peer))
             return false;
 
         var conditions = Conditions;
@@ -129,7 +160,32 @@ public sealed class SimulatedTransport(ITransport inner, NetworkConditions condi
     {
         if (_disposed)
             return;
+
+        // Reliable packets already queued for the peer go out first; its unreliable ones are dropped.
+        _requeue.Clear();
+        while (_queue.TryDequeue(out var pending, out var priority))
+        {
+            if (pending.Peer != peer)
+            {
+                _requeue.Add((pending, priority));
+                continue;
+            }
+
+            if (pending.Channel == NetChannel.Reliable)
+            {
+                _inner.Send(pending.Peer, pending.Channel, pending.Buffer is null ? ReadOnlySpan<byte>.Empty : pending.Buffer.AsSpan(0, pending.Length));
+                Delivered++;
+            }
+
+            if (pending.Buffer is not null)
+                ArrayPool<byte>.Shared.Return(pending.Buffer);
+        }
+
+        foreach (var (packet, priority) in _requeue)
+            _queue.Enqueue(packet, priority);
+        _requeue.Clear();
         _lastReliableDue.Remove(peer);
+        _peers.Remove(peer);
         _inner.Disconnect(peer, reason);
     }
 

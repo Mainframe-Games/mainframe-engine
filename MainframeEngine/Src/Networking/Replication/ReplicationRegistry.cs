@@ -86,15 +86,13 @@ public static class ReplicationRegistry
     }
 
     /// <summary>
-    /// Hash of every registered type's full name and schema, in name order. Both ends of a connection must agree
-    /// (see <see cref="MultiplayerApi"/>'s handshake). Loaded assemblies that reference the engine are initialized
-    /// first, so types register even if their assembly has not been touched yet.
+    /// Hash of every currently registered type's full name and schema, in name order (diagnostics; the handshake
+    /// fingerprints only what the spawnable scenes contain, see <see cref="MultiplayerApi.ReplicationFingerprint"/>).
     /// </summary>
     public static uint Fingerprint
     {
         get
         {
-            InitializeLoadedAssemblies();
             ReplicationTypeInfo[] all;
             lock (Gate)
                 all = [.. ByType.Values];
@@ -108,19 +106,6 @@ public static class ReplicationRegistry
             }
 
             return hash;
-        }
-    }
-
-    private static void InitializeLoadedAssemblies()
-    {
-        var engine = typeof(Node).Assembly.GetName().Name;
-        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-        {
-            if (assembly.IsDynamic)
-                continue;
-            if (assembly == typeof(Node).Assembly
-                || assembly.GetReferencedAssemblies().Any(a => string.Equals(a.Name, engine, StringComparison.Ordinal)))
-                Serialization.TypeRegistry.EnsureRegistered(assembly);
         }
     }
 }

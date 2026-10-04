@@ -138,6 +138,17 @@ public sealed partial class MultiplayerApi
         {
             rpc.Dispatch(node, message.Reader!);
         }
+        catch (Exception e) when (Mode == MultiplayerMode.Server && e is not (EndOfStreamException or InvalidDataException or OutOfMemoryException))
+        {
+            // A client must never be able to take the server down: an RPC body (or a custom argument decoder) that
+            // throws is logged and counted; malformed payloads still go to the bus as dropped packets.
+            _stats.RpcsFailed++;
+            Log.Error($"[Net] {rpc} on {node.Name} from {sender} threw: {e}");
+            RpcFailed?.Invoke(sender, node, rpc, e);
+            if (KickOnRpcFailure && _peersById.TryGetValue(sender, out var offender))
+                Kick(offender.Id);
+            return;
+        }
         finally
         {
             _remoteSender = previous;

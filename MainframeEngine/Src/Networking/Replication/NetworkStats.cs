@@ -38,6 +38,9 @@ public record struct NetworkStats
     /// <summary>RPCs refused by the authority checks (server: from clients; any peer: refused before sending).</summary>
     public long RpcsRejected { get; set; }
 
+    /// <summary>Server: client RPCs whose body threw (logged; see <see cref="MultiplayerApi.RpcFailed"/>).</summary>
+    public long RpcsFailed { get; set; }
+
     /// <summary>Networked nodes currently registered (roots and networked descendants).</summary>
     public int NetworkedNodes { get; set; }
 }

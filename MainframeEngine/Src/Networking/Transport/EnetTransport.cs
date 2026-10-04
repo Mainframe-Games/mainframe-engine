@@ -240,7 +240,9 @@ public sealed class EnetTransport : ITransport
         if (_disposed || !TryGetSlot(peer, out var slot))
             return false;
 
-        var flags = channel == NetChannel.Reliable ? PacketFlags.Reliable : PacketFlags.None;
+        // Unreliable packets larger than the MTU would otherwise be fragmented *reliably* by ENet (head-of-line blocking
+        // for snapshots); UnreliableFragmented keeps them unreliable (one lost fragment loses the packet).
+        var flags = channel == NetChannel.Reliable ? PacketFlags.Reliable : PacketFlags.UnreliableFragmented;
         fixed (byte* data = payload)
         {
             var packet = default(Packet);
