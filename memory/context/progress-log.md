@@ -4,7 +4,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M5 (scaffold+replication),M6,M7,natives,ci-fix; publish.yml + release/NuGet docs written. Done, awaiting integration: `lane/sky-fix`, `lane/m3b`, `lane/m8`. Running: `lane/m9`, `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
+- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M3 (all), M5 (scaffold+replication),M6,M7,M8,sky-fix,natives,ci-fix; publish.yml + release/NuGet docs written. Done, awaiting integration: `lane/m9`. Running: `lane/m4` (based on lane/m3b 747cb24 — rebase onto feature), `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
 - **Next action:** integrate finished lanes (rebase onto feature, run gates); then M4 (after m3b), M9 (after m8), M10 (after all); publish.yml; distribution-nuget.md; final QA.
 - **Open blockers:** none
 
@@ -107,3 +107,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Gates: unit 615 (+1 skip) ×8 runs, render 17 ×3, 0 validation, 0 B, 121 fps.
 - **TODO:** `just bench` prints "No regressions" when nothing ran (duplicate projects under .claude/worktrees confuse BenchmarkDotNet) → must fail when 0 benchmarks ran + exclude worktrees. Physics bodies not replicated yet (documented).
 - Lanes done awaiting integration: sky-fix (grid line clipping in shader — lavapipe mis-rasterized huge off-screen lines; ground colour recalibrated; lavapipe+moltenvk goldens re-recorded; CI run 37222465099 green), m3b (meshes/materials/textures/MeshInstance3D, Box3d/Quad removed with RemovedNodeTypes upgrade, Assimp, picking, SubViewport; ADRs 0013–0019), m8 (RmlUi binding/renderer/UiServer/widgets/HUD; ADRs 0050–0053).
+
+### 2026-10-05 — W4 integration (sky-fix + M3b + M8)
+- 35 commits via integrate/w4: Box3d/Quad users (NetBox, physics crates, test scenes) migrated to MeshInstance3D; UiServer registered last (shuts down first); ImGui = F12 dev overlay (network/physics/audio panels), HUD has physics debug toggle. Flaky unit alloc gates → min of 3 windows. Bench harness fixed (builds known project, fails on 0 results).
+- Gates: unit 790 ×3, render 32 (MoltenVK), 0 validation, 0 B, 124–127 fps.
+- Bench: 4 benchmarks 10–14% slower but equally slow pre-integration under machine load (parallel agents) → **re-record baseline on quiet machine at the end**; SceneSaveLoadRoundTrip1k +7.9 KB alloc also pre-existing → investigate at end.
+- TODO: lavapipe goldens for new scenes (physics, materials, gltf, instances, picking, ui-*, sky-grid) from CI.
