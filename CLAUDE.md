@@ -182,6 +182,13 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected â
 Do not add NuGet packages without discussing the dependency first. Versions are central in
 `Directory.Packages.props`.
 
+## Branching & release
+
+- `main` is PR-only: the `ci-success` check must pass, history stays linear (squash or rebase merges â€” never
+  merge commits), no force pushes. Work on a branch and open a PR.
+- Releases: `publish.yml` (manual, `main` only, actor `brogan89`) tags `vX.Y.Z` (patch bump) and attaches
+  self-contained editor builds. Never bump versions in files. See `docs/design/release.md`.
+
 ## Project memory
 
 @import memory/README.md

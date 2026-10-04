@@ -1,0 +1,115 @@
+name: publish
+
+# Manual release of the editor. Only brogan89 can run it, and only from main.
+# Version = latest vX.Y.Z tag with the patch bumped (first release: v0.1.0). Nothing is committed to
+# main: the version lives in the tag, and builds get it via -p:Version. See docs/design/release.md.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  EDITOR_PROJECT: MainframeEngine.Editor/MainframeEngine.Editor.csproj
+
+jobs:
+  guard:
+    name: guard (main + brogan89 only)
+    if: github.ref == 'refs/heads/main' && github.actor == 'brogan89'
+    runs-on: ubuntu-24.04
+    environment: release # deployment branch policy: main only
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags
+
+      - name: Compute next version
+        id: version
+        run: |
+          version="$(build/next-version.sh)"
+          if git rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
+            echo "::error::Tag v${version} already exists."
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Releasing v${version} from ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+
+  ci:
+    needs: guard
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: build (${{ matrix.rid }})
+    needs: [guard, ci]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: macos-14, rid: osx-arm64 }
+          - { os: windows-latest, rid: win-x64 }
+          - { os: ubuntu-24.04, rid: linux-x64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - run: git submodule update --init --depth 1 Plugins/Spine
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Publish editor
+        shell: bash
+        run: >-
+          dotnet publish "$EDITOR_PROJECT" -c Release -r ${{ matrix.rid }} --self-contained
+          -p:Version=${{ needs.guard.outputs.version }}
+          -p:PublishReadyToRun=true -p:CompileShaders=false -warnaserror
+          -o artifacts/publish/${{ matrix.rid }}
+
+      - name: Package
+        shell: bash
+        run: build/package-editor.sh ${{ matrix.rid }} ${{ needs.guard.outputs.version }} artifacts/publish/${{ matrix.rid }} artifacts/release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: editor-${{ matrix.rid }}
+          path: artifacts/release/*
+          if-no-files-found: error
+
+  release:
+    needs: [guard, build]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write # create the tag and the release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: editor-*
+          path: release
+          merge-multiple: true
+
+      - name: Create tag v${{ needs.guard.outputs.version }} and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          ls -l release
+          gh release create "v${VERSION}" release/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "Mainframe Editor v${VERSION}" \
+            --generate-notes
