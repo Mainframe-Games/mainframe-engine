@@ -76,7 +76,7 @@ const Rml::Variant* DictionaryValueAt(const Rml::Dictionary& dictionary, int32_t
 struct mfrmlui_data_model::Variable {
 	class Definition final : public Rml::VariableDefinition {
 	public:
-		Definition(Rml::DataVariableType type, Variable& in_owner) : Rml::VariableDefinition(type), owner(in_owner) {}
+		Definition(Rml::DataVariableType in_type, Variable& in_owner) : Rml::VariableDefinition(in_type), owner(in_owner) {}
 
 		bool Get(void* ptr, Rml::Variant& variant) override
 		{

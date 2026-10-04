@@ -119,8 +119,8 @@ jobs:
     timeout-minutes: 30
     env:
       # Lavapipe (Mesa's CPU Vulkan driver) only: deterministic output for the 'lavapipe' goldens.
-      VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
-      VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+      VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.json
+      VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
       RENDER_TEST_ARTIFACTS: ${{ github.workspace }}/artifacts/render-tests
     steps:
       - uses: actions/checkout@v4
