@@ -123,6 +123,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Issue #2 fully addressed (multi-light shadows) → PR says Closes #2.
 - Logo: user chose C3 "Circuit" (see Claude memory brand-logo-c3); m10a lane commits assets to docs/images/brand/, editor splash, window/app icons, README title.
 
+### User request: migrate to .slnx (do after m10a/m10b/ci-final land, before final PR)
+- `dotnet sln MainframeEngine.sln migrate` → `MainframeEngine.slnx`, delete .sln; update refs: .github/workflows/ci.yml, justfile (`solution`), CLAUDE.md, README.md, docs/design/build-and-platforms.md, Tests ShaderLimitsTests.cs + ModelImportTests.cs (repo-root probe), plus anything new (publish.yml, template CI job, m10 docs). Verify `dotnet build/test/format` on .slnx, CI green.
+
 ### CI follow-ups (do in final CI pass)
 - 10k-instance 60 fps assertion fails on lavapipe (51 ms CPU raster) → on CPU-type devices assert CPU frame-build time only.
 - Tests without lavapipe goldens skip ENTIRELY ([1 ms]) → must still run validation/alloc gates; only golden compare skipped. Then record lavapipe goldens for all scenes from CI and inspect.
