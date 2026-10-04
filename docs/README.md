@@ -19,7 +19,7 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 
 | Area | Doc |
 |---|---|
-| Build & release | [Build & platforms](design/build-and-platforms.md) · [Release & versioning](design/release.md) · [Future: distribution via NuGet](design/future/distribution-nuget.md) |
+| Build & release | [Build & platforms](design/build-and-platforms.md) · [Release & versioning](design/release.md) · [Future: distribution via NuGet](design/future/distribution-nuget.md) · [Future: mobile (M12)](design/future/mobile.md) |
 | Core | [Engine lifecycle](design/engine-lifecycle.md) · [Scene graph & nodes](design/scene-graph-and-nodes.md) · [Scene serialization](design/scene-serialization.md) · [Physics](design/physics.md) · [Localization](design/localization.md) · [Sandbox](design/sandbox.md) |
 | Rendering | [Vulkan renderer](design/vulkan-renderer.md) · [Shadow system](design/shadow-system.md) · [Lighting](design/lighting.md) · [Sky](design/sky.md) · [Spine](design/spine.md) · [Scene grid](design/scene-grid.md) · [Cameras & input](design/cameras-and-input.md) · [Shaders](design/shaders.md) · [Coordinate conventions](design/coordinate-conventions.md) |
 | UI | [Game UI (RmlUi)](design/game-ui.md) · [Native libraries](design/natives.md) |
@@ -31,6 +31,14 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 
 Located in [`design/future/`](design/future/). Each one has: Problem · Goals / Non-goals ·
 Proposed design · Diagram · Task list · Open questions. See [milestones.md](milestones.md) for order.
+
+| Proposal | Milestone |
+|---|---|
+| [Editor](design/future/editor.md) | M10 |
+| [Rendering backend abstraction (WebGPU)](design/future/rendering-backend-abstraction.md) | M11 |
+| [Mobile core (Android + iOS)](design/future/mobile.md): platform layer, lifecycle and safe areas, TBDR rendering and quality tiers, touch/gestures/virtual controls, ASTC/KTX2 asset cooking, AOT and size budgets, editor deploy and live preview, store pipeline | M12 |
+| [Mobile platform services](design/future/mobile-services.md): IAP, achievements/leaderboards/cloud saves, consent + ads, notifications, analytics/crash reporting via `mfplatform` shims | M13 |
+| [Distribution via NuGet](design/future/distribution-nuget.md) | — |
 
 ## Conventions
 

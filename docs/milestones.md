@@ -22,6 +22,12 @@ flowchart LR
     M3 --> M10
     M8 --> M10
     M3 --> M11["M11 Backend abstraction / WebGPU"]
+    M10 --> M12["M12 Mobile core (Android + iOS)"]
+    M3 --> M12
+    M4 --> M12
+    M8 --> M12
+    M11 -. "optional (native Metal later)" .-> M12
+    M12 --> M13["M13 Mobile platform services"]
 ```
 
 | Milestone | Theme | Status |
@@ -38,6 +44,8 @@ flowchart LR
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | 🚧 E1–E3 + E4 engine side ✅ |
 | [M11](#m11--backend-abstraction--webgpu) | Backend-neutral render API, WebGPU | ⬜ |
+| [M12](#m12--mobile-core-android--ios) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
+| [M13](#m13--mobile-platform-services) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
 
 ---
 
@@ -250,6 +258,43 @@ the WebGPU backend the README promises.
 | `IGpuDevice` / encoder API; port all subsystems | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 | Shader cross-compilation (SPIR-V → WGSL) | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 | WebGPU backend selected by `EngineOptions.RenderingBackend` | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
+
+## M12 — Mobile core (Android + iOS)
+
+Ship the same 3D + 2D feature set on phones and tablets: **Android 10+ (API 29), arm64-v8a** on native Vulkan 1.1+, and
+**iOS 16+ arm64** on MoltenVK (the existing Vulkan renderer; native Metal only later, through M11, if profiling demands
+it). 60 fps on ~3-year-old mid-range phones through tile-friendly passes and quality tiers. Games add `MyGame.Android` /
+`MyGame.iOS` head projects from the `mfgame` template; the editor builds, installs and launches on a device, emulator or
+simulator and live-previews content over the editor link. M11 is not a prerequisite. Spikes first (M12.0) because
+several dependencies (Silk.NET SDL on mobile, SoundFlow natives, NativeAOT) are unproven there.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| M12.0 Spikes: Silk/SDL2 on Android + iOS, MoltenVK iOS, AOT engine boot, SoundFlow/miniaudio, natives per RID, Vulkan 1.1 baseline | ⬜ | [Mobile](design/future/mobile.md#m120--spikes) |
+| M12.1 Platform layer: `MainframeEngine.Android`/`.iOS` hosts, natives (android-arm64, ios-arm64, iossimulator-arm64; 16 KB pages), content VFS, head projects + template | ⬜ | [Mobile](design/future/mobile.md#platform-layer-and-project-structure) |
+| M12.2 Lifecycle & display: pause/resume, surface loss, iOS background GPU rules, orientation + Android pre-rotation, safe areas, multi-window, low memory, audio session | ⬜ | [Mobile](design/future/mobile.md#windowing-and-lifecycle) |
+| M12.3 Rendering: TBDR pass layout (transient attachments, merged tonemap, direct UI), quality tiers, dynamic resolution, thermal governor, frame pacing, 30/60/120 Hz | ⬜ | [Mobile](design/future/mobile.md#rendering) |
+| M12.4 Input: touch events, gesture recognisers, virtual controls (RmlUi) → `InputMap`, sensors, haptics, gamepads | ⬜ | [Mobile](design/future/mobile.md#input) |
+| M12.5 Assets: ASTC/ETC2 in KTX2, per-platform `.meta` presets, cook step, packs, Play Asset Delivery / iOS Background Assets, size budgets | ⬜ | [Mobile](design/future/mobile.md#asset-pipeline) |
+| M12.6 AOT, size and startup budgets; trim/AOT analyzers clean | ⬜ | [Mobile](design/future/mobile.md#aot-app-size-and-startup) |
+| M12.7 Editor: export presets, one-click build/install/launch, remote logs + play control, live preview, device simulation | ⬜ | [Mobile](design/future/mobile.md#editor-integration) |
+| M12.8 Pipeline + compliance: `just android-*`/`ios-*`, CI jobs, signed AAB/IPA, `mobile-publish.yml` → Play internal + TestFlight, privacy manifest, data safety | ⬜ | [Mobile](design/future/mobile.md#build-and-distribution-pipeline) |
+
+## M13 — Mobile platform services
+
+Store and platform services behind engine servers, through thin engine-owned native shims (Swift on iOS, Kotlin on
+Android) with a flat, versioned C ABI built in CI — the `mfrmlui` pattern. Desktop gets null/fake backends, and Steam
+backs achievements, leaderboards and cloud saves where it maps.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| M13.0 Shim skeleton: `mfplatform` ABI, Swift xcframework + Kotlin AAR + JNI bridge, CI legs, fake backends | ⬜ | [Mobile services](design/future/mobile-services.md#shim-architecture) |
+| M13.1 Consent & privacy: `ConsentServer` (UMP/TCF, ATT), privacy manifest + data-safety mapping | ⬜ | [Mobile services](design/future/mobile-services.md#privacy-and-consent) |
+| M13.2 In-app purchases: `StoreServer` (StoreKit 2, Play Billing 8+), entitlements, restore, validation hook | ⬜ | [Mobile services](design/future/mobile-services.md#in-app-purchases) |
+| M13.3 Game services: achievements, leaderboards, cloud saves (Game Center + iCloud, Play Games v2 + Saved Games, Steam) | ⬜ | [Mobile services](design/future/mobile-services.md#achievements-leaderboards-and-cloud-saves) |
+| M13.4 Notifications: local + push (APNs, FCM) | ⬜ | [Mobile services](design/future/mobile-services.md#notifications) |
+| M13.5 Ads (mediation, behind consent) | ⬜ | [Mobile services](design/future/mobile-services.md#ads) |
+| M13.6 Analytics + crash reporting | ⬜ | [Mobile services](design/future/mobile-services.md#analytics-and-crash-reporting) |
 
 ---
 

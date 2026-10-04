@@ -24,3 +24,18 @@ You are one lane of the autonomous M0→M10 build. The orchestrator integrates l
 2. `just test` and `just test-render` pass; `just format-check` and `just shaders-check` clean.
 3. Self-review your diff (`git diff feature/m0-m10...HEAD`) for bugs, allocations, leaks; fix.
 4. Final report (<400 words): branch, commits (SHA + title), what shipped vs the design doc, deviations + why, tests added, gate results, API changes other lanes must know, risks/follow-ups.
+
+## Mobile-ready plumbing (do when touching these areas)
+Mobile (M12, `docs/design/future/mobile.md#mobile-ready-plumbing-checklist`, ADR 0100) is additive only if lanes stop adding desktop-only assumptions. When your lane touches one of these areas, follow the rule (no extra work elsewhere):
+- **Renderer/surface:** surfaces and swapchains can disappear and come back (Android) — keep create/teardown paired in one place; a surface-format change must rebuild present pipelines, not throw. No GPU work may be assumed while the app is backgrounded.
+- **Lifecycle:** subsystems with threads or devices (audio, logging, editor link, streaming) expose `Suspend/Resume`; route new pause/focus logic through engine lifecycle hooks (`OnApplicationPause/Resume/LowMemory` once they exist), and clamp the frame delta after a gap.
+- **Input:** new pointer-like events carry a `PointerId` + device kind and framebuffer-pixel positions; never assume one pointer, hover or a right button; `InputMap` bindings stay `kind:args` data.
+- **Layout:** use `Engine.ContentScale`/`FramebufferSize` (pixels) and safe-area insets (full framebuffer on desktop), not window points or hard-coded margins; HUD edge content sits in a safe-area container.
+- **No JIT-only APIs** in runtime code: no `Reflection.Emit`/`DynamicMethod`/`Expression.Compile`/`Assembly.Load*` of files/reflection-based `JsonSerializer`; use generators and `JsonSerializerContext`; annotate editor-only features (collectible ALCs, file watchers).
+- **Content I/O:** load content only through `ContentPaths` (later `IContentFileSystem`), preferably as streams; never `File.*`/`Directory.*` directly on content and never write into `Content/` at run time.
+- **Textures:** take a format + per-mip data (block-compressed formats via `FormatInfo`), don't hard-code RGBA8 + GPU mip generation.
+- **Render passes (TBDR):** pick load/store ops deliberately (`CLEAR`/`DONT_CARE` over `LOAD`, `DONT_CARE` stores for depth/MSAA/intermediates), avoid `vkCmdClearAttachments` and new full-screen passes, keep potential transients free of extra usage flags.
+- **Vulkan 1.1 + capability flags:** no hard dependency on 1.2/1.3 core features or SPIR-V > 1.3; stay within ABP 2022 limits (≤ 4 descriptor sets, ≤ 16 samplers/stage, ≤ 4 colour attachments).
+- **Quality knobs:** every new expensive feature gets a `ProjectSettings` `rendering.*` setting (like `ShadowQuality`) so mobile tiers can bundle it.
+- **Natives:** new native code goes into `Native/` + `natives.yml` with a flat versioned C ABI, buildable static, 16 KB-aligned ELF.
+- **Platform integrations** are optional servers behind a seam with a null implementation; per-user files only via `UserDataPaths`.
