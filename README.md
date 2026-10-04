@@ -29,7 +29,7 @@ Where the engine is heading:
 |---|---|---|
 | Windowing / input | SDL2 via Silk.NET (switched from GLFW in M0) | [Build & platforms](docs/design/build-and-platforms.md#windowing-sdl2) |
 | Scene model | Godot-style nodes: `SceneTree`, lifecycle callbacks, signals, groups, `.mscene` scene files | [Scene graph & nodes](docs/design/scene-graph-and-nodes.md), [Scene serialization](docs/design/scene-serialization.md) |
-| Physics | [Jitter2](https://github.com/notgiven688/jitterphysics2) for 3D, [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3) for 2D | [Physics](docs/design/future/physics.md) |
+| Physics (M6 ✅) | [Jitter2](https://github.com/notgiven688/jitterphysics2) for 3D, [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3) for 2D: Godot-style bodies, areas, `MoveAndSlide`, queries | [Physics](docs/design/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) 1.4.1 + [NVorbis](https://github.com/NVorbis/NVorbis) (M7 ✅): `AudioServer`, bus mixer, 2D/3D audio nodes, streaming | [Audio](docs/design/audio.md) |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (HTML/CSS-style documents) | [Game UI](docs/design/future/game-ui.md) |
 | Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | [Localization](docs/design/future/localization.md) |
@@ -288,6 +288,8 @@ when `EngineOptions.SteamAppId` is set; every wrapper is a no-op without Steam. 
 | Networking | ENet-CSharp | 2.4.8 |
 | Audio | SoundFlow (miniaudio) | 1.4.1 |
 | OGG Vorbis decoding | NVorbis | 0.10.5 |
+| Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) | 2.9.0 |
+| Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3 port) | 3.1.654 |
 | Vulkan on macOS | Silk.NET.MoltenVK.Native | 2.22.0 |
 
 **Planned integrations** (chosen; not integrated yet; see [Milestones](docs/milestones.md)):
@@ -295,8 +297,8 @@ when `EngineOptions.SteamAppId` is set; every wrapper is a no-op without Steam. 
 | System | Library | Milestone | Design doc |
 |--------|---------|-----------|------------|
 | Windowing / input | SDL2 via Silk.NET 2.22 (`Silk.NET.Windowing.Sdl`/`.Input.Sdl`) | M0 ✅ | [Build & platforms](docs/design/build-and-platforms.md#windowing-sdl2) |
-| Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) | M6 | [Physics](docs/design/future/physics.md) |
-| Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3 port; replaces box2d-netstandard, which is unmaintained) | M6 | [Physics](docs/design/future/physics.md) |
+| Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) 2.9.0 | M6 ✅ | [Physics](docs/design/physics.md) |
+| Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) 3.1.654 (Box2D v3 port; replaces box2d-netstandard, which is unmaintained) | M6 ✅ | [Physics](docs/design/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) 1.4.1 + [NVorbis](https://github.com/NVorbis/NVorbis) 0.10.5 for OGG | M7 ✅ | [Audio](docs/design/audio.md) |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (engine-owned C# binding) | M8 | [Game UI](docs/design/future/game-ui.md) |
 | Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | M9 | [Localization](docs/design/future/localization.md) |

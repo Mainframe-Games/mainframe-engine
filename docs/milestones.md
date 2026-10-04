@@ -32,7 +32,7 @@ flowchart LR
 | [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | 🚧 |
 | [M4](#m4--shadows-v2) | Cascades, PCF, atlas | ⬜ |
 | [M5](#m5--multiplayer-) | Message protocol, replication, Steam | ✅ |
-| [M6](#m6--physics) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ⬜ |
+| [M6](#m6--physics-) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ✅ |
 | [M7](#m7--audio-) | SoundFlow audio nodes, buses, 3D panning | ✅ |
 | [M8](#m8--game-ui-rmlui) | RmlUi HTML/CSS game UI (also the editor's UI) | ⬜ |
 | [M9](#m9--localization) | GetText.NET translations for code, UI and scenes | ⬜ |
@@ -156,21 +156,23 @@ Silicon support. The Sandbox has a `--server` / `--client <host>` demo.
 so Steam never starts: `SteamSocketsTransport` and avatar textures are designed but not implemented, and the lobby
 handoff falls back to ENet. See [ADR 0044](../memory/decisions/0044-steam-features-without-natives.md).
 
-## M6 — Physics
+## M6 — Physics ✅
 
 Godot-style physics nodes on two pure-C# engines:
 - **Jitter2** for 3D;
 - **Box2D.NET** (a Box2D v3 port) for 2D, because Jitter2 is 3D-only.
 
-Both run on a fixed timestep with interpolated rendering, collision layers, signals and queries.
+Both run on a fixed timestep with interpolated rendering, collision layers, signals and queries. Shipped with a
+custom `MoveAndSlide`, collision-shape debug drawing (`DebugLines`), allocation-free 3D steps and physics render tests;
+editor gizmos follow with M10.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| `PhysicsServer3D` (Jitter2 2.9) + `PhysicsServer2D` (Box2D.NET 3.1) per world | ⬜ | [Physics](design/future/physics.md#servers) |
-| Body nodes (static, rigid, character, area) + `CollisionShape` children + shape resources | ⬜ | [Physics](design/future/physics.md#node-model) |
-| Fixed step, `OnPhysicsProcess`, interpolation | ⬜ | [Physics](design/future/physics.md#fixed-timestep-and-interpolation) |
-| Layers/masks, contact and area signals, raycast/shape-cast queries | ⬜ | [Physics](design/future/physics.md#contacts-areas-and-signals) |
-| `CharacterBody.MoveAndSlide`, debug draw | ⬜ | [Physics](design/future/physics.md#characterbody-moveandslide) |
+| `PhysicsServer3D` (Jitter2 2.9) + `PhysicsServer2D` (Box2D.NET 3.1) per world | ✅ | [Physics](design/physics.md#servers-and-spaces) |
+| Body nodes (static, rigid, character, area) + `CollisionShape` children + shape resources | ✅ | [Physics](design/physics.md#node-model) |
+| Fixed step, `OnPhysicsProcess`, interpolation | ✅ | [Physics](design/physics.md#fixed-timestep-and-interpolation) |
+| Layers/masks, contact and area signals, raycast/shape-cast queries | ✅ | [Physics](design/physics.md#contacts-areas-and-signals) |
+| `CharacterBody.MoveAndSlide`, debug draw | ✅ | [Physics](design/physics.md#characterbody-moveandslide) |
 
 ## M7 — Audio ✅
 

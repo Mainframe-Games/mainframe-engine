@@ -12,7 +12,7 @@ or updates by hand.
 | Type | File | Notes |
 |---|---|---|
 | `Engine` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `public abstract class Engine : IDisposable`; `Tree` (`SceneTree`), `Root`, `Servers` |
-| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `SteamAppId` (0 = no Steam), `Audio` (`AudioOptions`: `Enabled = true`, `Device = Auto`, 48 kHz, 10 ms, `BusLayoutPath`) |
+| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `Physics3D`/`Physics2D` (physics settings; `Physics2D.PixelsPerMeter = 100`), `DebugCollisionShapes`, `SteamAppId` (0 = no Steam), `Audio` (`AudioOptions`: `Enabled = true`, `Device = Auto`, 48 kHz, 10 ms, `BusLayoutPath`) |
 | `FrameCapture` | [FrameCapture.cs](../../MainframeEngine/Src/Rendering/FrameCapture.cs) | RGBA8 pixels of a rendered frame, `SavePng(path)` |
 | `GameTime` | [GameTime.cs](../../MainframeEngine/Src/Core/GameTime.cs) | `FrameCount`, `DeltaTime`, `FramesPerSecond`, `FramesTimeMs` |
 | `FPSCounter` | [FPSCounter.cs](../../MainframeEngine/Src/Core/FPSCounter.cs) | 500 ms sampling window |
@@ -64,7 +64,8 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
    `new VulkanRenderer(Window, { EnableValidation, VSync, EnableFrameCapture })` →
    `new VulkanImGuiController(...)` → `Servers.Register(new RenderServer(Renderer))` (+ `SteamServer`, + `MultiplayerApi.Attach(Tree)`)
    → `AudioServer.Create(options.Audio, Tree)` when `Audio.Enabled` (never fails startup: no device means the
-   silent null device; see [Audio](audio.md)) → `new InputRouter(InputContext, Tree)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
+   silent null device; see [Audio](audio.md)) → `PhysicsServer3D`, `PhysicsServer2D` ([Physics](physics.md))
+   → `new InputRouter(InputContext, Tree)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
    The `SceneTree` itself is created in the constructor (no GPU needed), so nodes can be built before
    `OnLoad`; visuals that enter the tree before the render server exists get their GPU objects lazily.
 

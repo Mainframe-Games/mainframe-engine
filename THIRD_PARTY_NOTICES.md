@@ -20,7 +20,7 @@ software listed below.
 | [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
 | [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
 
-Managed NuGet dependencies (Silk.NET, ImGui.NET, StbImageSharp, Steamworks.NET, …) carry their own licence files in
+Managed NuGet dependencies (Silk.NET, ImGui.NET, StbImageSharp, Steamworks.NET, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
 their packages and are not repeated here.
 
 ## FreeType

@@ -12,8 +12,15 @@ _Last updated: 2026-10-05 (M3a GPU resources/colour pipeline integrated onto M2,
   servers (`RenderServer`) instead of `Node.Initialize`, light/camera/sky/grid nodes, `[Export]`/`[Signal]`
   registered by `MainframeEngine.Generators`, `.mscene`/`.mres` JSON with UIDs + `AssetDatabase`. The Sandbox
   loads `Content/Scenes/Sandbox.mscene` (regenerate with `--write-scene`).
+- M6 physics is done (lane `m6`, ADRs 0020–0025): `PhysicsServer3D` (Jitter2 2.9.0) / `PhysicsServer2D`
+  (Box2D.NET 3.1.654, pixels, 100 px/m), body/area/shape nodes, interpolated node transforms, layers (Godot OR),
+  signals after the step, `DirectSpaceState` queries, engine-side `MoveAndSlide`, `DebugLines` collision-shape draw.
 
 ## Known gotchas
+
+- Physics: keep Jitter2/Box2D calls inside `Src/Physics` (pinned APIs). Box2D keeps worlds in a process-wide table —
+  2D unit tests share the `SerialBox2D` collection; Box2D.NET allocates inside `b2World_Step` (ADR 0023). Jitter2's
+  regular solver isn't reproducible even single-threaded: render tests use `PhysicsSettings3D.Deterministic`.
 
 - Scene tree: node constructors must stay cheap (the type registry instantiates every serialized type);
   acquire GPU objects through the render server (`VisualInstance3D.InitializeRenderResources`). Projects

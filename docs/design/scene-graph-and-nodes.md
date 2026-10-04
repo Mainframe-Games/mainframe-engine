@@ -153,7 +153,7 @@ sequenceDiagram
 
 | Step | What runs |
 |---|---|
-| 1. Physics | `accumulator += min(dt, MaxFrameDelta = 0.25 s)`; up to `MaxPhysicsStepsPerFrame = 5` steps of `1 / PhysicsTicksPerSecond` (60 Hz): `PhysicsFrame` event, `OnPhysicsProcess`, physics-callback timers, `IFixedStepServer.FixedStep` (not while paused). A backlog beyond the cap is dropped. `PhysicsInterpolationFraction` (0..1) is left for interpolating physics-driven visuals (M6). |
+| 1. Physics | `accumulator += min(dt, MaxFrameDelta = 0.25 s)`; up to `MaxPhysicsStepsPerFrame = 5` steps of `1 / PhysicsTicksPerSecond` (60 Hz): `PhysicsFrame` event, `OnPhysicsProcess`, physics-callback timers, `IFixedStepServer.FixedStep` (not while paused). A backlog beyond the cap is dropped. Fixed-step servers get `BeforeFixedSteps()` before the first step of a frame and `AfterFixedSteps(PhysicsInterpolationFraction)` after the loop (both skipped while paused): the physics servers restore physics poses and write interpolated render poses there ([Physics](physics.md#fixed-timestep-and-interpolation)). |
 | 2. Process | `ProcessFrame` event, `OnProcess(in GameTime)`, idle timers (`SceneTreeTimer`). |
 | 3. Deferred | `CallDeferred` callbacks in order (including ones queued while flushing), then `QueueFree` frees; repeated until both queues are empty. |
 | 4. Transform sync | `OnTransformChanged` for 2D/3D nodes that asked (`SetNotifyTransform`) and whose global transform changed — lights push their direction/position here. |
@@ -185,6 +185,10 @@ is stable. Decomposed angles snap within 0.0005° of a whole degree so scene fil
   `GlobalTransform` setters compute the local transform; `TranslateObjectLocal`, `RotateObjectLocal`.
 - `SetNotifyTransform(true)` queues `OnTransformChanged()` for the end of the frame whenever the global
   transform changed (once per frame, also on entering the tree).
+- Engine-internal hooks (`private protected`): `TrackGlobalTransformChanges` → `OnGlobalTransformInvalidated()` runs
+  synchronously when the global transform becomes dirty (own or ancestor change), and `TrackLocalTransformChanges` →
+  `OnLocalTransformChanged()` on every local set. Physics bodies and collision shapes use them to push moves to their
+  server without per-step scans.
 
 `Node2D` mirrors this in 2D (`Transform2D`, rotation in radians, `RotationDegrees` serialized, `ZIndex`).
 
@@ -240,8 +244,8 @@ renderer) into `SceneTree.Servers` (`ServerRegistry`), and nodes reach them in `
 | `RenderServer` | `IServer` | M2: facade over the renderer and one shared `ShadowSystem` |
 | `SteamServer` | `IFrameServer` | M2: registered when `EngineOptions.SteamAppId` ≠ 0; pumps `Steam.RunCallbacks` |
 | `MultiplayerApi` | `IFrameServer` | M5: always registered (`Engine.Multiplayer`), idle until started; receives at `SceneTree.ProcessFrame`, sends in `Process` ([Networking](networking.md#frame-and-tick)) |
-| physics (M6) | `IFixedStepServer` | ticked after `OnPhysicsProcess`, frozen while paused |
 | `AudioServer` | `IFrameServer` | M7: registered when `EngineOptions.Audio.Enabled` (default); voices, buses, listener; see [Audio](audio.md) |
+| `PhysicsServer3D`, `PhysicsServer2D` | `IFixedStepServer`, `IFrameServer` | M6: one Jitter2 / Box2D space per world; stepped after `OnPhysicsProcess`, frozen while paused; debug draw per frame ([Physics](physics.md)) |
 | UI (M8) | `IFrameServer` | ticked after transform sync |
 
 `ServerRegistry` holds one server per type (`Register`, `Get<T>`, `GetRequired<T>`, `Render`) and disposes

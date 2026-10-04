@@ -82,6 +82,7 @@ signal. It logs the device, frame rate, peaks and counters (`[QA] Audio …`) an
 | Floor | `Quad`, `RotationDegrees` (90, 0, 0), scale (10, 10, 1), white |
 | Box | `SpinningBox : Box3d` at (3, 1, 0), white, `DegreesPerSecond` (20, 20, 0) |
 | Ambience | `AudioPlayer3D` "Ambience" under the box: inline `AudioStream` `Content/Audio/ambient_hum.ogg` (a generated, seamless 6 s pad; `Stream` load mode, looping, `LoopEnd` 6 s), SFX bus, −18 dB, `Autoplay`, `UnitSize` 3, `MaxDistance` 60, `LowPassAtMaxDistance` 1500 Hz — fly around the box to hear panning and distance |
+| Physics (M6) | `StaticBody3D` "FloorCollider" (a 10 × 1 × 10 `BoxShape3D` under the floor quad) and "Crates": 9 `RigidBody3D` crates (shared 0.5 m `BoxShape3D`, `Box3d` visuals) dropped from 1.5–6.3 m that tumble onto the floor and sleep. The ImGui window has a "Collision shapes" toggle and body/awake counts |
 | Lights | every shadow type at once: 2 `DirectionalLight3D` (warm key "Sun" 0.8, cool "Fill" 0.2), 1 `OmniLight3D` (blue, right of the box), 2 `SpotLight3D` (warm and green cones) — all shadow-casting; directions come from the nodes' rotations |
 
 ## Lifecycle

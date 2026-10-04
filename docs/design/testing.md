@@ -84,6 +84,19 @@ and FLAC; WAV layouts are written by the tests themselves.
 | `AudioRegressionTests` | review regressions: the engine reverb (tail, decay, 0 B), a bus with every effect mixing at 0 B, a seek racing a stream's natural end, stream seek position, a stream whose file vanishes (error, no `Finished`), stream generations never read into the next one, NaN pitch/velocity sanitizing, listener switches not causing doppler, whole-or-nothing command batches, unsent graph swaps disposed |
 | `AudioAllocationTests` | **0 bytes** over 300 frames of tree tick + `AudioServer.Process` + rendering on the same thread, with 8 moving 3D voices (every attenuation model, low-pass, doppler), a streamed music loop, a 2D voice, UI one-shots finishing and restarting, `PlayOneShot`, pause toggles and bus fader changes |
 
+Physics (M6) has its suites under [`Physics/`](../../Tests/MainframeEngine.Tests/Physics/), on headless trees with
+the physics servers (`PhysicsHarness3D`/`PhysicsHarness2D`; 3D single-threaded). Box2D keeps worlds in a process-wide
+table, so the 2D suites share the non-parallel `SerialBox2D` collection.
+
+| Suite | Covers |
+|---|---|
+| `Physics3DTests` | free fall, rest and sleep, static moves, layer/mask OR semantics (incl. runtime changes on resting bodies), gravity scale, axis locks, contact monitor, areas (static/character bodies, mask, `Monitoring`), removal and `QueueFree` during signals, dispatch order, main-thread dispatch, lifecycle, shape rebuilds, kinematic pushing, server disposal, default server registration |
+| `Physics3DQueryTests` | raycasts (closest, exclude, mask, misses, moved bodies, areas ignored), shape casts, overlaps, concave/height-map shapes, every shape with scale, `MoveAndSlide` (floor, walls, 30° slope, steep slope, ceiling, snap down a step, recovery, pushing crates), interpolation (exact lerp, physics pose in `OnPhysicsProcess`, teleport, pause) |
+| `Physics2DTests` | the same behaviours on Box2D in pixels |
+| `PhysicsSerializationTests` | every 3D/2D body and shape round-trips through `.mscene` (shared resources stay shared), a loaded 2D scene simulates, every type is registered |
+| `PhysicsAllocationTests`, `Physics2DAllocationTests` | **0 bytes** per steady-state frame with ~500 bodies, monitors, areas, characters, debug draw and every query (3D single- and multi-threaded); 2D: 0 bytes beyond Box2D.NET's own step allocations |
+| `DebugDrawTests`, `FixedStepHookTests` | `DebugLines` primitives and cap, server debug draw; `BeforeFixedSteps`/`AfterFixedSteps` order and pause |
+
 ## Render tests
 
 ```mermaid
@@ -113,9 +126,12 @@ sequenceDiagram
   `spine` (adds SpineBoy, content linked from the Sandbox), `spine-no-shadows` (Spine and shapes with
   no `ShadowSystem`: the fallback set 2), `sandbox` (adds the Sandbox's ImGui windows — including
   `RendererDebugWindow` — gizmos and the audio bus mixer, a streamed ambience and an orbiting doppler voice, and
-  self-checks that both play; not used for goldens because it shows timings), `color-pipeline` (a solid-colour
-  sRGB panorama fills the frame; ImGui rectangles; exposure changes on frame 8). Every host scene runs audio on
-  the silent null device.
+  self-checks that both play, plus a stack of physics crates on single-threaded Jitter2; not used for goldens because
+  it shows timings), `color-pipeline` (a solid-colour sRGB panorama fills the frame; ImGui rectangles; exposure
+  changes on frame 8), `physics` (crates and a ball dropped on a floor and ramp; Jitter2's deterministic solver on
+  one thread so frames reproduce), `physics-debug` (the same with collision-shape debug lines, drawn into the HDR
+  scene target with sRGB-authored colours converted to linear). Every host scene runs audio on the silent null
+  device.
 - **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
   `result.json` records it), `--pipeline-cache dir`. Scene self-check failures are reported in
@@ -128,8 +144,10 @@ sequenceDiagram
   `SandboxSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`,
   `PipelineCacheIsPersistedAndReloaded` (cold run writes, warm run loads),
   `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →
-  encode within ±2 at two exposures; ImGui colour exact and blended in sRGB space). The multi-light test
-  also asserts sub-allocation (≤ 16 `VkDeviceMemory`).
+  encode within ±2 at two exposures; ImGui colour exact and blended in sRGB space),
+  `PhysicsSceneRendersCleanlyAndMatchesGoldens` (frames 30, 150), `PhysicsDebugDrawRendersCleanlyAndMatchesGolden`,
+  `PhysicsCapturesAreDeterministicAcrossRuns`. The multi-light test also asserts sub-allocation (≤ 16
+  `VkDeviceMemory`).
 - **Window.** 320×240, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On a
   Retina Mac the framebuffer, and so the capture, is 640×480.
 
@@ -206,7 +224,8 @@ cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.Te
 nodes, camera and model matrices, lights UBO packing, the scene tree: `ProcessTick10k`,
 `TransformPropagationDirtySubtree10k`, `GetNodePathLookup`, `SceneSaveLoadRoundTrip1k`; GPU allocator
 alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurvesAllModels`,
-`SpatialProjection32Emitters`, `ServerFrame32PositionalVoices`, `MixBlock480Frames32Voices`) and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
+`SpatialProjection32Emitters`, `ServerFrame32PositionalVoices`, `MixBlock480Frames32Voices`; physics:
+`Step1kRigidBodies3D`, `Step1kRigidBodies2D`, `Raycast10k3D`) and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. Results also land
 in `artifacts/bench`. Baselines are machine-specific (the file records machine and runtime), so
 compare on the machine that recorded them; refresh with `just bench-baseline` when a change is

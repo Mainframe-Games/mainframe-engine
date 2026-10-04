@@ -56,6 +56,8 @@ flowchart LR
     Engine --> Stb["StbImageSharp"]
     Engine --> ENet["ENet-CSharp"]
     Engine --> Steam["Steamworks.NET"]
+    Engine --> Jitter["Jitter2 (3D physics)"]
+    Engine --> Box2D["Box2D.NET (2D physics)"]
     Engine -. unused .-> Assimp["Silk.NET.Assimp"]
 ```
 
@@ -67,8 +69,10 @@ flowchart LR
   calls, transform sync and input for every node; behaviour is C# node subclasses. Scenes are data
   (`.mscene`) loaded through `ResourceLoader`; node properties are discovered by a source generator, not
   reflection.
-- **Nodes are front-ends to servers.** Nodes hold editable state; servers (`RenderServer`, `AudioServer` since
-  M7; physics and UI later) hold GPU, audio and native objects and are reached through `SceneTree.Servers`.
+- **Nodes are front-ends to servers.** Nodes hold editable state; servers (`RenderServer`, the physics servers
+  `PhysicsServer3D`/`PhysicsServer2D` (M6), `AudioServer` (M7); UI later) hold GPU, simulation, audio and native
+  objects and are reached through `SceneTree.Servers`. Physics library calls (Jitter2, Box2D.NET) never leave the
+  physics spaces ([Physics](physics.md)).
 - **Vulkan is the only backend.** `IRenderer` is backend-neutral in name, but everything that draws
   casts to `IVulkanContext`. `EngineOptions.RenderingBackend` is not consulted.
 - **Each drawable owns its GPU state.** Every shape, the sky, the grid and each Spine renderer create
@@ -86,7 +90,7 @@ flowchart LR
 |---|---|---|
 | Window | `Engine` ctor | `Engine.Dispose` |
 | `SceneTree` (root viewport, `World3D` with its `LightEnvironment`) | `Engine` ctor | `Engine.OnClose` (`Tree.Shutdown()` frees every node) |
-| Input context, `VulkanRenderer`, `VulkanImGuiController`, servers (`RenderServer` → `ShadowSystem`) | `Engine.OnLoad` | `Engine.OnClose` (servers after the tree, before the renderer) |
+| Input context, `VulkanRenderer`, `VulkanImGuiController`, servers (`RenderServer` → `ShadowSystem`, `DebugLinesRenderer`; `PhysicsServer3D/2D` → one space per world) | `Engine.OnLoad` | `Engine.OnClose` (servers after the tree, before the renderer) |
 | Nodes and their GPU objects (shapes, Spine, sky, grid) | the game / `PackedScene.Instantiate` (GPU objects: the render server on enter) | `Free`/`QueueFree`, else the tree shutdown; orphans by the render server |
 | Loaded resources (`PackedScene`, `.mres`) | `ResourceLoader.Load` | last `Release()`, else `ResourceLoader.ClearCache()` in `Engine.OnClose` |
 
