@@ -135,7 +135,7 @@ public class Sky : Resource
     public Vector3 HorizonColor { get; set; } = new(0.70f, 0.85f, 1.00f);
 
     [Export]
-    public Vector3 GroundColor { get; set; } = new(0.15f, 0.14f, 0.13f);
+    public Vector3 GroundColor { get; set; } = SkyEnvironment.DefaultGroundColor;
 
     [Export]
     public float HorizonSharpness { get; set; } = 6f;

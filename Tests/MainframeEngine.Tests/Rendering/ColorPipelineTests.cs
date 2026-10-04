@@ -82,6 +82,20 @@ public sealed class AcesTonemapTests
         var shown = ColorSpace.LinearToSrgb(ColorSpace.AcesFitted(new Vector3(0.73f * IVulkanContext.DefaultExposure))).X;
         Assert.InRange(shown * 255f, 186f - 20f, 186f + 25f);
     }
+
+    [Fact]
+    public void TheDefaultSkyGroundShowsAsAMidDarkEarthToneNotBlack()
+    {
+        // The procedural sky's ground hemisphere goes through exposure and ACES like everything else; its toe
+        // turned the pre-HDR default (0.15, 0.14, 0.13) into (15, 13, 11). The default must read as ground.
+        var linear = ColorSpace.SrgbToLinear(SkyEnvironment.DefaultGroundColor) * IVulkanContext.DefaultExposure;
+        var shown = ColorSpace.LinearToSrgb(ColorSpace.AcesFitted(linear)) * 255f;
+        Assert.InRange(shown.X, 80f, 110f);
+        Assert.InRange(shown.Y, 75f, 100f);
+        Assert.InRange(shown.Z, 65f, 90f);
+        Assert.True(shown.X > shown.Z, "warm (earthy), not blue-grey");
+        Assert.Equal(SkyEnvironment.DefaultGroundColor, new Sky().GroundColor);
+    }
 }
 
 public sealed class SwapchainFormatTests

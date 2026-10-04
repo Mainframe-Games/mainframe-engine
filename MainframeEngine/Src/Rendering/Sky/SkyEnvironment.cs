@@ -22,8 +22,15 @@ public class SkyEnvironment : IDisposable
     public Vector3 SkyColor { get; set; } = new(0.18f, 0.48f, 0.87f);
     /// <summary>Color at the horizon band (procedural only).</summary>
     public Vector3 HorizonColor { get; set; } = new(0.70f, 0.85f, 1.00f);
+    /// <summary>
+    /// Default <see cref="GroundColor"/> (sRGB): a muted earth tone that displays as about (95, 86, 74) at the default
+    /// exposure. Calibrated for the ACES tonemap, whose toe crushes darker values: the pre-M3 default
+    /// (0.15, 0.14, 0.13) displays as (15, 13, 11), an almost black void below the horizon.
+    /// </summary>
+    public static readonly Vector3 DefaultGroundColor = new(0.42f, 0.39f, 0.35f);
+
     /// <summary>Color of the ground / nadir hemisphere (procedural only).</summary>
-    public Vector3 GroundColor { get; set; } = new(0.15f, 0.14f, 0.13f);
+    public Vector3 GroundColor { get; set; } = DefaultGroundColor;
     /// <summary>World-space direction toward the sun (procedural only).</summary>
     public Vector3 SunDirection { get; set; } = Vector3.Normalize(new(0.3f, 1f, 0.5f));
     /// <summary>Sun disk color (procedural only).</summary>
