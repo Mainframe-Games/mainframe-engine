@@ -4,8 +4,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M3 (all), M5 (scaffold+replication),M6,M4,M7,M8,M9,sky-fix,natives,ci-fix; publish.yml + release/NuGet docs written. Running: `lane/m10a` (editor E1–E3), `lane/m10b` (GameHost/project.mfproj/ILogSink/EditorLink/GameAssemblyLoader/templates), `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
-- **Next action:** integrate finished lanes (rebase onto feature, run gates); then M4 (after m3b), M9 (after m8), M10 (after all); publish.yml; distribution-nuget.md; final QA.
+- **Current wave:** W5 — M0–M9 + M10 E1–E3 (editor) + E4 engine side (GameHost/projects/EditorLink/loader/template) integrated; CI-final + fixed ContentScale render tests + mobile design docs (M12/M13) in.
+- **Next action:** M10c lane (E4 editor side: project UI, filesystem panel, play via EditorLink, code reload; E5 polish; the full editor ICON PASS — see Claude memory m10c-scope-additions + feedback-editor-icons-over-text); then .slnx migration; final QA + benchmark baseline on quiet machine; PR ready.
 - **Open blockers:** none
 
 ## Log
@@ -130,3 +130,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - 10k-instance 60 fps assertion fails on lavapipe (51 ms CPU raster) → on CPU-type devices assert CPU frame-build time only.
 - Tests without lavapipe goldens skip ENTIRELY ([1 ms]) → must still run validation/alloc gates; only golden compare skipped. Then record lavapipe goldens for all scenes from CI and inspect.
 - Re-record benchmark baseline on a quiet machine; investigate SceneSaveLoadRoundTrip1k +7.9 KB.
+
+### 2026-10-05 — Integrated: M10b, CI-final, fixed-scale render tests, M10a editor, mobile docs
+- M10b: ILogSink, InputMap, ProjectSettings/project.mfproj (+ l10n/shadow-quality/audio/physics applied), EditorLink, GameAssemblyLoader (unload leaks fixed incl. Tr/UI bindings), GameHost, `mfgame` template + CI `template` job. ADRs 0090–0095.
+- CI-final: missing goldens skip only the compare; CPU frame time (`Engine.LastFrameCpuMilliseconds`); all lavapipe goldens recorded.
+- `EngineOptions.ContentScale` → render tests fixed pixel size on any display (host `--scale`, mac 2 / else 1).
+- M10a editor (E1–E3) + C3 brand/icons (Dock icon ABGR fix, macOS icon grid), splash, README logo; editor Output = ILogSink; project.mfproj discovery; SubViewport shadows. ADRs 0080–0084. CI green run 37238375239.
+- Gates: engine 1162 + editor 155 tests ×3, render 43 ×2, all checks clean; editor 8.3 ms avg frame.
+- Mobile design: docs/design/future/mobile.md (M12), mobile-services.md (M13), ADR 0100 (amends 0011 for exports), plumbing checklist in lane brief.
