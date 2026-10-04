@@ -37,6 +37,17 @@ public interface IFixedStepServer : IServer
 }
 
 /// <summary>
+/// A server that sees input before the scene tree's nodes (the game UI, <see cref="UiServer"/>): when
+/// <see cref="HandleInput"/> returns true the event is consumed and <see cref="Node.OnInput"/> /
+/// <see cref="Node.OnUnhandledInput"/> never see it.
+/// </summary>
+public interface IInputServer : IServer
+{
+    /// <summary>Offers an event; returns true when the server consumed it.</summary>
+    bool HandleInput(InputEvent inputEvent);
+}
+
+/// <summary>
 /// The servers available to a <see cref="SceneTree"/>, one instance per server type. M2 ships
 /// <see cref="RenderServer"/>; the physics (M6), audio (M7) and UI (M8) servers register the same way:
 /// <code>
@@ -50,6 +61,7 @@ public sealed class ServerRegistry : IDisposable
     private readonly List<IServer> _servers = [];
     private IFrameServer[] _frameServers = [];
     private IFixedStepServer[] _fixedStepServers = [];
+    private IInputServer[] _inputServers = [];
     private bool _disposed;
 
     /// <summary>The render server, if a renderer exists (null in headless trees and unit tests).</summary>
@@ -60,6 +72,8 @@ public sealed class ServerRegistry : IDisposable
     internal ReadOnlySpan<IFrameServer> FrameServers => _frameServers;
 
     internal ReadOnlySpan<IFixedStepServer> FixedStepServers => _fixedStepServers;
+
+    internal ReadOnlySpan<IInputServer> InputServers => _inputServers;
 
     /// <summary>Adds <paramref name="server"/>; only one server per concrete type.</summary>
     public void Register(IServer server)
@@ -115,5 +129,6 @@ public sealed class ServerRegistry : IDisposable
     {
         _frameServers = [.. _servers.OfType<IFrameServer>()];
         _fixedStepServers = [.. _servers.OfType<IFixedStepServer>()];
+        _inputServers = [.. _servers.OfType<IInputServer>()];
     }
 }

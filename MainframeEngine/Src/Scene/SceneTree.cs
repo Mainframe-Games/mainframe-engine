@@ -293,15 +293,25 @@ public sealed partial class SceneTree
     }
 
     /// <summary>
-    /// Routes an input event: <see cref="Node.OnInput"/> then <see cref="Node.OnUnhandledInput"/>, each in
-    /// reverse tree order, stopping once <see cref="SceneViewport.SetInputAsHandled"/> is called. Nodes that
-    /// cannot process (pause) are skipped. Returns true if the event was handled.
+    /// Routes an input event: the <see cref="IInputServer"/>s first (the game UI — a consumed event stops there),
+    /// then <see cref="Node.OnInput"/> then <see cref="Node.OnUnhandledInput"/>, each in reverse tree order,
+    /// stopping once <see cref="SceneViewport.SetInputAsHandled"/> is called. Nodes that cannot process (pause) are
+    /// skipped. Returns true if the event was handled.
     /// </summary>
     public bool PushInput(InputEvent inputEvent)
     {
         ArgumentNullException.ThrowIfNull(inputEvent);
         var paused = Paused;
         Root.BeginInput();
+
+        foreach (var server in Servers.InputServers)
+        {
+            if (server.HandleInput(inputEvent))
+            {
+                Root.SetInputAsHandled();
+                return true;
+            }
+        }
 
         var nodes = _input.Snapshot(this);
         for (var i = nodes.Length - 1; i >= 0 && !Root.IsInputHandled; i--)

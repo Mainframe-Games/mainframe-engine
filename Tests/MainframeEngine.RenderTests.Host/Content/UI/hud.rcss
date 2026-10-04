@@ -1,0 +1,75 @@
+body {
+    font-family: LatoLatin;
+    font-size: 14dp;
+    color: #f0f0f0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+div, p, h1 { display: block; }
+
+h1 {
+    font-size: 18dp;
+    font-weight: bold;
+    color: #ffcc66;
+    margin-bottom: 4dp;
+}
+
+.panel {
+    position: absolute;
+    left: 8dp;
+    top: 8dp;
+    width: 150dp;
+    padding: 8dp;
+    background-color: #10141ccc;
+    border: 1dp #4a5a7a;
+    border-radius: 6dp;
+}
+
+.bar {
+    margin-top: 4dp;
+    height: 8dp;
+    background-color: #00000080;
+    border-radius: 4dp;
+}
+
+.bar .fill {
+    height: 100%;
+    border-radius: 4dp;
+    decorator: horizontal-gradient(#e04040 #40e060);
+}
+
+#swatches {
+    position: absolute;
+    right: 8dp;
+    top: 8dp;
+}
+
+.swatch {
+    display: inline-block;
+    width: 30dp;
+    height: 30dp;
+    margin-left: 4dp;
+}
+
+/* Exact sRGB colours: the UI must not be tonemapped or exposed. */
+#opaque { background-color: #3366cc; }
+#half { background-color: #ffffff80; }
+#round { background-color: #cc3366; border-radius: 15dp; }
+
+#logo {
+    position: absolute;
+    right: 8dp;
+    bottom: 8dp;
+    width: 48dp;
+    height: 48dp;
+}
+
+#label {
+    position: absolute;
+    left: 8dp;
+    bottom: 8dp;
+    font-size: 12dp;
+    color: #ffffff;
+}

@@ -78,9 +78,19 @@ public interface IVulkanContext
 
     /// <summary>
     /// Ends the scene pass, tonemaps it into the swapchain and begins the overlay pass. Idempotent; EndFrame does it
-    /// when nobody else did.
+    /// when nobody else did. Registered <see cref="IOverlayRenderer"/>s record their offscreen work between the scene
+    /// pass and the tonemap, and draw first in the overlay pass.
     /// </summary>
     void BeginOverlayPass();
+
+    /// <summary>Adds a renderer drawn after tonemapping, below ImGui (the game UI). Order of registration is draw order.</summary>
+    void AddOverlayRenderer(IOverlayRenderer renderer);
+
+    /// <summary>Removes a renderer added with <see cref="AddOverlayRenderer"/>.</summary>
+    bool RemoveOverlayRenderer(IOverlayRenderer renderer);
+
+    /// <summary>A format with a stencil aspect usable as a depth/stencil attachment (UI clip masks).</summary>
+    Format StencilFormat { get; }
 
     /// <summary>Validation-layer warnings and errors reported since startup (or the last reset).</summary>
     VulkanValidationLog Validation { get; }

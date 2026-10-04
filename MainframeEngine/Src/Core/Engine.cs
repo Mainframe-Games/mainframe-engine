@@ -74,6 +74,18 @@ public struct EngineOptions()
     /// usable device it runs on the silent null device; startup never fails because of audio.
     /// </summary>
     public AudioOptions Audio = new();
+
+    /// <summary>
+    /// Registers the game UI server (<see cref="UiServer"/>, RmlUi; M8). Default on. Start-up fails with a clear
+    /// error when the native RmlUi library is missing or incompatible.
+    /// </summary>
+    public bool EnableUi = true;
+
+    /// <summary>UI server options (fonts, hot reload, source content folders); null uses the defaults.</summary>
+    public UiServerOptions? Ui;
+
+    /// <summary>Shows the ImGui developer overlay at start-up; F12 toggles it at runtime (<see cref="Engine.DevOverlayVisible"/>).</summary>
+    public bool DevOverlayVisible = true;
 }
 
 public abstract class Engine : IDisposable
@@ -91,6 +103,18 @@ public abstract class Engine : IDisposable
     public IWindow Window { get; }
     public IInputContext InputContext { get; private set; } = null!;
     public IRenderer Renderer { get; private set; } = null!;
+
+    /// <summary>The game UI server (null when <see cref="EngineOptions.EnableUi"/> is off or before <see cref="OnLoad"/>).</summary>
+    public UiServer? Ui => Servers.Get<UiServer>();
+
+    /// <summary>
+    /// Whether the ImGui developer overlay (<see cref="OnImGui"/>, renderer/debug windows) is drawn. F12 toggles it.
+    /// The game UI is unaffected.
+    /// </summary>
+    public bool DevOverlayVisible { get; set; }
+
+    /// <summary>The key that toggles <see cref="DevOverlayVisible"/>.</summary>
+    public Key DevOverlayKey { get; set; } = Key.F12;
 
     // --- M2 scene tree ------------------------------------------------------------------------------
     // The engine owns a SceneTree and runs it every frame (process after the legacy OnUpdate hook, the
@@ -146,6 +170,7 @@ public abstract class Engine : IDisposable
     protected Engine(in EngineOptions engineOptions)
     {
         EngineOptions = engineOptions;
+        DevOverlayVisible = engineOptions.DevOverlayVisible;
         Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond }; // M2
 
         // Linux: Silk.NET cannot find package natives (libSDL2) in runtimes/linux-x64/native on its own.
@@ -228,8 +253,8 @@ public abstract class Engine : IDisposable
         if (Renderer is IVulkanContext vkCtx)
             _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
 
-        // Servers are disposed in reverse registration order (after the tree is freed): physics, audio, multiplayer,
-        // Steam, then the render server last, so nothing outlives what it depends on (multiplayer's Steam transport
+        // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,
+        // Steam, then the render server last (the UI releases its GPU objects while the renderer is alive), so nothing outlives what it depends on (multiplayer's Steam transport
         // on SteamServer; every server's nodes are gone before any server goes). Frame servers run in this order too.
         // M2: the render server replaces the static Node.Initialize; tree input comes from the window.
         Servers.Register(new RenderServer(Renderer));
@@ -242,7 +267,17 @@ public abstract class Engine : IDisposable
         // M6: physics servers, stepped by the tree's fixed tick; they create a space per world on demand.
         Servers.Register(new PhysicsServer3D(EngineOptions.Physics3D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
         Servers.Register(new PhysicsServer2D(EngineOptions.Physics2D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
+        if (EngineOptions.EnableUi)
+        {
+            // M8: RmlUi game UI — sees input before the tree's nodes, renders after the tonemap below ImGui.
+            var ui = new UiServer(Renderer, Window, InputContext, EngineOptions.Ui);
+            ui.CanRender = () => !IsMinimised();
+            Servers.Register(ui);
+        }
+
         _inputRouter = new InputRouter(InputContext, Tree);
+        foreach (var keyboard in InputContext.Keyboards)
+            keyboard.KeyDown += OnEngineKeyDown;
 
         SetWindowIcon(EngineOptions.IconPath);
     }
@@ -259,6 +294,12 @@ public abstract class Engine : IDisposable
         {
             Log.Error($"[Audio] Audio is unavailable: {e}");
         }
+    }
+
+    private void OnEngineKeyDown(IKeyboard keyboard, Key key, int scancode)
+    {
+        if (key == DevOverlayKey && key != Key.Unknown)
+            DevOverlayVisible = !DevOverlayVisible;
     }
 
     private void SetWindowIcon(in string? path = null)
@@ -289,7 +330,8 @@ public abstract class Engine : IDisposable
 
         _vkImGuiController?.Update(_gameTime.DeltaTime);
 
-        OnImGui(_gameTime);
+        if (DevOverlayVisible)
+            OnImGui(_gameTime);
         OnUpdate(_gameTime);
         Tree.Tick(_gameTime); // M2: physics steps, process, deferred calls/frees, transform sync
     }
@@ -345,7 +387,12 @@ public abstract class Engine : IDisposable
 
             Servers.Render?.RenderMain(Root); // M2: sky, then the scene tree's visuals
             OnRenderMainPass(_gameTime);
-            _vkImGuiController?.Render(); // tonemaps the scene target, then ImGui in the overlay pass
+            // Tonemaps the scene target, draws the game UI, then ImGui in the overlay pass. With the overlay hidden
+            // the frame is discarded and EndFrame runs the tonemap + UI.
+            if (DevOverlayVisible)
+                _vkImGuiController?.Render();
+            else
+                _vkImGuiController?.DiscardFrame();
         }
         else
         {
@@ -422,6 +469,9 @@ public abstract class Engine : IDisposable
         // while the renderer is still alive.
         _inputRouter?.Dispose();
         _inputRouter = null;
+        if (InputContext is not null)
+            foreach (var keyboard in InputContext.Keyboards)
+                keyboard.KeyDown -= OnEngineKeyDown;
         Tree.Shutdown();
         Servers.Dispose();
         ResourceLoader.ClearCache();

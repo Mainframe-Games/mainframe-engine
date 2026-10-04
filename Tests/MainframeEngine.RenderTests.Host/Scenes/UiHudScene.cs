@@ -1,0 +1,41 @@
+namespace MainframeEngine.RenderTests.Host.Scenes;
+
+/// <summary>
+/// The lit-shapes 3D scene with an RmlUi HUD on top (game UI over the tonemapped scene): a semi-transparent panel with
+/// data-bound text and a gradient progress bar, exact sRGB swatches (opaque, 50 % white, rounded), an image and a line
+/// of small text. Frame N always shows the same values (fixed delta; the frame counter is bound).
+/// </summary>
+public sealed class UiHudScene(HostOptions host) : LitShapesScene(host)
+{
+    /// <summary>The opaque swatch colour (sRGB bytes) the test checks exactly.</summary>
+    public static readonly byte[] SwatchColor = [0x33, 0x66, 0xCC];
+
+    protected override void AddNodes(Node scene)
+    {
+        var layer = new UiLayer { Name = "Hud", Layer = 0 };
+        layer.AddChild(new HudDocument { Name = "HudDocument", Source = "Content/UI/hud.rml", AutoFocus = false });
+        scene.AddChild(layer);
+    }
+
+    private sealed class HudDocument : UiDocument
+    {
+        private uint _frame;
+        private int _health = 72;
+        private UI.Rml.RmlDataModel _model = null!;
+
+        protected override void OnReady()
+        {
+            _model = CreateDataModel("hud")
+                .Bind("frame", this, static d => (int)d._frame)
+                .Bind("health", this, static d => d._health);
+        }
+
+        protected override void OnProcess(in GameTime gameTime)
+        {
+            _frame = gameTime.FrameCount;
+            _health = 40 + (int)(_frame % 50);
+            _model.Dirty("frame");
+            _model.Dirty("health");
+        }
+    }
+}

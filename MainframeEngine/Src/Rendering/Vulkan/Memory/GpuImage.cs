@@ -18,6 +18,12 @@ public readonly record struct GpuImageDesc(uint Width, uint Height, Format Forma
     /// </summary>
     public Format? ViewFormat { get; init; }
 
+    /// <summary>
+    /// Aspect of the default view; null uses <see cref="FormatInfo.ViewAspect"/> (depth for depth formats). A
+    /// depth/stencil attachment of a packed format needs both aspects (<see cref="FormatInfo.AttachmentAspect"/>).
+    /// </summary>
+    public ImageAspectFlags? ViewAspect { get; init; }
+
     /// <summary>Full mip chain length for a <paramref name="width"/>×<paramref name="height"/> image.</summary>
     public static uint FullMipChain(uint width, uint height) =>
         (uint)Math.Floor(Math.Log2(Math.Max(1u, Math.Max(width, height)))) + 1;
@@ -94,7 +100,7 @@ public sealed unsafe class GpuImage : IDisposable
             vk.GetImageMemoryRequirements(ctx.Device, image, out var req);
             allocation = ctx.Allocator.Allocate(req, GpuMemoryUsage.DeviceLocal, GpuResourceKind.Optimal, dedicated);
             vk.BindImageMemory(ctx.Device, image, allocation.Memory, allocation.Offset).Check("vkBindImageMemory");
-            var view = CreateViewHandle(ctx, image, desc.ViewFormat ?? desc.Format, FormatInfo.ViewAspect(desc.Format),
+            var view = CreateViewHandle(ctx, image, desc.ViewFormat ?? desc.Format, desc.ViewAspect ?? FormatInfo.ViewAspect(desc.Format),
                 desc.ViewType, 0, desc.ArrayLayers, 0, desc.MipLevels);
             return new GpuImage(ctx, image, desc with { Flags = flags }, allocation, view);
         }

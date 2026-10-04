@@ -37,7 +37,22 @@ public static class FormatInfo
     public static bool IsDepth(Format format) => format is Format.D16Unorm or Format.D32Sfloat or Format.D16UnormS8Uint
         or Format.D24UnormS8Uint or Format.D32SfloatS8Uint or Format.X8D24UnormPack32;
 
-    /// <summary>Aspect for views and sampling: depth for depth formats, colour otherwise.</summary>
+    /// <summary>True for formats with a stencil aspect.</summary>
+    public static bool HasStencil(Format format) => format is Format.S8Uint or Format.D16UnormS8Uint
+        or Format.D24UnormS8Uint or Format.D32SfloatS8Uint;
+
+    /// <summary>Aspect for views and sampling: depth for depth formats, stencil for <c>S8_UINT</c>, colour otherwise.</summary>
     public static ImageAspectFlags ViewAspect(Format format) =>
-        IsDepth(format) ? ImageAspectFlags.DepthBit : ImageAspectFlags.ColorBit;
+        IsDepth(format) ? ImageAspectFlags.DepthBit : format == Format.S8Uint ? ImageAspectFlags.StencilBit : ImageAspectFlags.ColorBit;
+
+    /// <summary>Every aspect of a depth/stencil attachment (both for packed depth/stencil formats).</summary>
+    public static ImageAspectFlags AttachmentAspect(Format format)
+    {
+        var aspect = ImageAspectFlags.None;
+        if (IsDepth(format))
+            aspect |= ImageAspectFlags.DepthBit;
+        if (HasStencil(format))
+            aspect |= ImageAspectFlags.StencilBit;
+        return aspect == ImageAspectFlags.None ? ImageAspectFlags.ColorBit : aspect;
+    }
 }

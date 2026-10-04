@@ -345,6 +345,10 @@ internal sealed unsafe partial class VulkanRenderer
         var cb = _commandBuffers[_currentFrame];
         vk.CmdEndRenderPass(cb);
 
+        // Offscreen overlay work (UI layers, clip masks, filters) between the scene pass and the tonemap.
+        foreach (var overlay in _overlayRenderers)
+            overlay.RecordOffscreen(cb);
+
         BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _tonemapPipeline);
         var set = _tonemapSet;
@@ -365,6 +369,40 @@ internal sealed unsafe partial class VulkanRenderer
         }
 
         _passState = PassState.Overlay;
+        foreach (var overlay in _overlayRenderers)
+            overlay.RecordOverlay(cb);
+    }
+
+    // ── Overlay renderers (game UI) ───────────────────────────────────────────
+
+    private readonly List<IOverlayRenderer> _overlayRenderers = [];
+    private Format _stencilFormat;
+
+    public void AddOverlayRenderer(IOverlayRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        if (!_overlayRenderers.Contains(renderer))
+            _overlayRenderers.Add(renderer);
+    }
+
+    public bool RemoveOverlayRenderer(IOverlayRenderer renderer) => _overlayRenderers.Remove(renderer);
+
+    /// <summary>A stencil-capable attachment format: S8 when supported (smallest), else a packed depth/stencil format.</summary>
+    public Format StencilFormat
+    {
+        get
+        {
+            if (_stencilFormat != Format.Undefined)
+                return _stencilFormat;
+            foreach (var format in (ReadOnlySpan<Format>)[Format.S8Uint, Format.D24UnormS8Uint, Format.D32SfloatS8Uint])
+            {
+                _vk!.GetPhysicalDeviceFormatProperties(_physicalDevice, format, out var props);
+                if ((props.OptimalTilingFeatures & FormatFeatureFlags.DepthStencilAttachmentBit) != 0)
+                    return _stencilFormat = format;
+            }
+
+            throw new VulkanException("[Vulkan] No stencil attachment format is supported.");
+        }
     }
 
     private void BeginSwapchainPass(CommandBuffer cb, RenderPass pass, Framebuffer framebuffer)

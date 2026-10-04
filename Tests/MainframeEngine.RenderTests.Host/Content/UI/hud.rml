@@ -1,0 +1,21 @@
+<rml>
+<head>
+    <title>Render test HUD</title>
+    <link type="text/rcss" href="hud.rcss"/>
+</head>
+<body data-model="hud">
+    <div id="stats" class="panel">
+        <h1>Mainframe</h1>
+        <p id="frame">Frame {{ frame }}</p>
+        <p id="health">Health {{ health }} / 100</p>
+        <div class="bar"><div class="fill" data-style-width="health + '%'"></div></div>
+    </div>
+    <div id="swatches">
+        <div class="swatch" id="opaque"></div>
+        <div class="swatch" id="half"></div>
+        <div class="swatch" id="round"></div>
+    </div>
+    <img id="logo" src="logo.png"/>
+    <p id="label">Crisp text: The quick brown fox jumps over the lazy dog 0123456789</p>
+</body>
+</rml>
