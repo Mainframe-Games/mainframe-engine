@@ -74,6 +74,8 @@ public sealed class UiServer : IFrameServer, IInputServer
     private bool _disposed;
 
     // Input state.
+    private readonly bool[] _uiKeys = new bool[(int)Key.Menu + 1]; // keys whose press the UI consumed
+    private int _uiPadButtons;                                     // gamepad buttons whose press the UI consumed
     private RmlKeyModifiers _modifiers;
     private char _highSurrogate;
     private int _gameMouseButtons;   // buttons pressed while the game had the mouse
@@ -465,8 +467,24 @@ public sealed class UiServer : IFrameServer, IInputServer
         var key = UiInputMap.ToRmlKey(e.Key);
         if (key == RmlKey.Unknown)
             return _system.TextInputActive;
-        var consumed = Route(e.Pressed ? InputKind.KeyDown : InputKind.KeyUp, (int)key, 0);
-        return consumed || _system.TextInputActive; // typing into a field never reaches the game
+        var consumed = Route(e.Pressed ? InputKind.KeyDown : InputKind.KeyUp, (int)key, 0) || _system.TextInputActive;
+
+        // A release follows its press: the game never sees the up of a key the UI took (and vice versa).
+        var index = (int)e.Key;
+        if ((uint)index < (uint)_uiKeys.Length)
+        {
+            if (e.Pressed)
+            {
+                _uiKeys[index] = consumed;
+            }
+            else
+            {
+                consumed = _uiKeys[index];
+                _uiKeys[index] = false;
+            }
+        }
+
+        return consumed; // typing into a field never reaches the game
     }
 
     private bool HandleText(char c)
@@ -569,21 +587,30 @@ public sealed class UiServer : IFrameServer, IInputServer
         var key = UiInputMap.ToNavigationKey(e.Button);
         if (key == RmlKey.Unknown)
             return false;
+        var bit = 1 << Math.Clamp((int)e.Button, 0, 30);
         if (!e.Pressed)
         {
             if (_navKey == key)
                 _navKey = RmlKey.Unknown;
-            return Route(InputKind.KeyUp, (int)key, 0);
+            Route(InputKind.KeyUp, (int)key, 0);
+            var wasUi = (_uiPadButtons & bit) != 0;
+            _uiPadButtons &= ~bit;
+            return wasUi;
         }
 
-        if (IsDirection(key))
+        var consumed = Navigate(key);
+        if (consumed)
         {
-            _navKey = key;
-            _navHeldFor = 0;
-            _navRepeatIn = NavRepeatDelay;
+            _uiPadButtons |= bit;
+            if (IsDirection(key))
+            {
+                _navKey = key;
+                _navHeldFor = 0;
+                _navRepeatIn = NavRepeatDelay;
+            }
         }
 
-        return Navigate(key);
+        return consumed;
     }
 
     private bool HandleStick(Vector2 value)

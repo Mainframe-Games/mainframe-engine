@@ -231,6 +231,7 @@ public static class RmlDebugger
         RmlException.ThrowIfFailed(RmlNative.DebuggerInitialise(host.Handle), "Debugger.Initialise");
         IsInitialised = true;
         HostContext = host;
+        _visible = false;
     }
 
     /// <summary>Switches the inspected context.</summary>
@@ -240,16 +241,26 @@ public static class RmlDebugger
         RmlException.ThrowIfFailed(RmlNative.DebuggerSetContext(context.Handle), "Debugger.SetContext");
     }
 
+    private static bool _visible;
+
+    /// <summary>
+    /// Whether the debugger is shown. Tracked here because RmlUi only recomputes the menu's visibility on the next
+    /// context update (<see cref="IsVisibleInLayout"/> reports RmlUi's view).
+    /// </summary>
     public static bool Visible
     {
-        get => IsInitialised && RmlNative.DebuggerIsVisible() == 1;
+        get => IsInitialised && _visible;
         set
         {
             if (!IsInitialised)
                 throw new InvalidOperationException("The RmlUi debugger is not initialised.");
             RmlException.ThrowIfFailed(RmlNative.DebuggerSetVisible(value ? 1 : 0), "DebuggerSetVisible");
+            _visible = value;
         }
     }
+
+    /// <summary>RmlUi's own answer: the debugger menu is visible as of the last update of its host context.</summary>
+    public static bool IsVisibleInLayout => IsInitialised && RmlNative.DebuggerIsVisible() == 1;
 
     public static void Shutdown()
     {
@@ -257,6 +268,7 @@ public static class RmlDebugger
             return;
         IsInitialised = false;
         HostContext = null;
+        _visible = false;
         if (RmlCore.IsInitialised)
             RmlException.ThrowIfFailed(RmlNative.DebuggerShutdown(), "DebuggerShutdown");
     }
@@ -266,5 +278,6 @@ public static class RmlDebugger
     {
         IsInitialised = false;
         HostContext = null;
+        _visible = false;
     }
 }
