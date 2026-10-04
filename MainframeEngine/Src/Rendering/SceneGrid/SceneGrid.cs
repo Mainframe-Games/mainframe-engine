@@ -8,6 +8,12 @@ namespace MainframeEngine;
 /// the per-frame shared set 0 (<see cref="FrameContext"/>). Line colours are sRGB-authored with alpha; lines fade
 /// with distance.
 /// </summary>
+/// <remarks>
+/// Each vertex also carries the other end of its line, and the vertex shader clips the line to the view volume
+/// (plus a small guard band) itself. Grid lines pass beside and behind the camera; where they cross the near plane
+/// they project ~10⁵ pixels off-screen, and lavapipe rasterizes such lines with stray fragments across the frame.
+/// Clipping first means the rasterizer only ever sees endpoints close to the viewport, on every driver.
+/// </remarks>
 public abstract class SceneGrid : IDisposable
 {
     protected static readonly Vector4 DefaultColor = new(1f, 1f, 1f, 0.1f);
@@ -28,6 +34,9 @@ public abstract class SceneGrid : IDisposable
     {
         public Vector3 Position = new(x, y, z);
         public Vector4 Color = color;
+
+        /// <summary>The other end of this vertex's line (filled in by <see cref="BuildVertexArray"/>).</summary>
+        public Vector3 Other;
     }
 
     protected SceneGrid(IRenderer renderer, uint vertexCount)
@@ -68,13 +77,21 @@ public abstract class SceneGrid : IDisposable
         _vkCtx.Deletions.Enqueue(GpuDeletion.Of(_pipelineLayout));
     }
 
-    protected unsafe void BuildVertexArray(Vertex* vertices)
+    /// <summary>Uploads the line list: <c>vertexCount</c> vertices, each consecutive pair one line.</summary>
+    protected void BuildVertexArray(Span<Vertex> vertices)
     {
+        if (vertices.Length != _vertexCount || (_vertexCount & 1) != 0)
+            throw new ArgumentException($"Expected {_vertexCount} vertices (an even count), got {vertices.Length}.", nameof(vertices));
         if (_vkCtx is null)
             return;
 
-        _vertexBuffer = GpuBuffer.CreateStatic(_vkCtx, new ReadOnlySpan<Vertex>(vertices, (int)_vertexCount),
-            BufferUsageFlags.VertexBufferBit);
+        for (var i = 0; i < vertices.Length; i += 2)
+        {
+            vertices[i].Other = vertices[i + 1].Position;
+            vertices[i + 1].Other = vertices[i].Position;
+        }
+
+        _vertexBuffer = GpuBuffer.CreateStatic(_vkCtx, (ReadOnlySpan<Vertex>)vertices, BufferUsageFlags.VertexBufferBit);
         CreatePipeline(_vkCtx);
     }
 
@@ -82,13 +99,14 @@ public abstract class SceneGrid : IDisposable
     {
         _pipelineLayout = ctx.Frame.CreatePipelineLayout(null, [], "scene grid");
 
-        // Vertex layout: Vertex { Vector3 Position, Vector4 Color } = 28 bytes
+        // Vertex layout: Vertex { Vector3 Position, Vector4 Color, Vector3 Other } = 40 bytes
         ReadOnlySpan<VertexInputBindingDescription> bindings =
             [new VertexInputBindingDescription { Binding = 0, Stride = (uint)sizeof(Vertex), InputRate = VertexInputRate.Vertex }];
         ReadOnlySpan<VertexInputAttributeDescription> attributes =
         [
             new() { Location = 0, Binding = 0, Format = Format.R32G32B32Sfloat, Offset = 0 },
             new() { Location = 1, Binding = 0, Format = Format.R32G32B32A32Sfloat, Offset = 12 },
+            new() { Location = 2, Binding = 0, Format = Format.R32G32B32Sfloat, Offset = 28 },
         ];
 
         var state = new PipelineState

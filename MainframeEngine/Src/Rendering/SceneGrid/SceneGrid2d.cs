@@ -2,11 +2,11 @@ namespace MainframeEngine;
 
 public class SceneGrid2d : SceneGrid
 {
-    public unsafe SceneGrid2d(IRenderer renderer, uint gridSize = 200)
-        : base(renderer, (gridSize + 1) * 4)
+    public SceneGrid2d(IRenderer renderer, uint gridSize = 200)
+        : base(renderer, (gridSize / 2 * 2 + 1) * 4) // lines −half..half along X and Y
     {
         var gridSizeHalf = (int)gridSize / 2;
-        var vertices = stackalloc Vertex[(int)_vertexCount];
+        var vertices = new Vertex[(int)_vertexCount]; // load time; can exceed a safe stackalloc for large grids
         var vIndex = 0;
 
         // x axis - red
@@ -25,6 +25,6 @@ public class SceneGrid2d : SceneGrid
             vertices[vIndex++] = new Vertex(-y, gridSizeHalf, 0, c);
         }
 
-        BuildVertexArray(vertices);
+        BuildVertexArray(vertices.AsSpan(0, vIndex));
     }
 }
