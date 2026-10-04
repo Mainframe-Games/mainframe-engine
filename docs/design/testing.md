@@ -32,7 +32,7 @@ alignment, granularity, best fit, fragmentation/coalescing, randomised invariant
 dedicated path, block reuse and release, exhaustion fallback, stats), the staging ring (wrap-around,
 release), the deletion queue (frame ordering, zero allocation), `ContentPaths`, the generated shader
 limits against `limits.json`, the pipeline-cache header/file name/directory rules, `FrameData` (std140
-size, near/far recovery), sRGB curves, the ACES tonemap and the swapchain-format choice. Tests that touch process-wide state (`NetBufferPool`, `Console`, `Log.LogLevel`)
+size, near/far recovery), sRGB curves, the ACES tonemap, the swapchain-format choice and `SilkNativeResolver` (portable `runtimes/<rid>/native` probing). Tests that touch process-wide state (`NetBufferPool`, `Console`, `Log.LogLevel`)
 share a non-parallel collection.
 
 The scene system (M2) has its own suites under [`Scene/`](../../Tests/MainframeEngine.Tests/Scene/), with
@@ -45,7 +45,7 @@ test node and resource types in `TestNodes.cs` (registered by the source generat
 | `SignalTests` | generated signal infos, connect/disconnect by name, `[SignalHandler]`, one-shot, deferred, auto-disconnect on free |
 | `TransformTests` | Euler ↔ quaternion vs the legacy `Rx·Ry·Rz` matrices, model matrix, dirty propagation, global setters, `Reparent` keep/drop global, `LookAt`, notification batching, `Transform3D`/`Transform2D` math |
 | `WorldTests` | visual registration order, light nodes ↔ `LightEnvironment`, active camera selection, camera sync vs the legacy camera, `WorldEnvironment` ambient, render-server resource tracking (non-Vulkan renderer), server ticking |
-| `SerializationTests` | every property type round-trips, non-default-only output, encodings, owned-only saving, outside-the-tree instancing, groups/unique names, persisted connections and flags, nested instances (overrides, added children, sub-scene edits flowing through), self-instancing rejection, external resources and the cache, ref counting, UID stability across re-save and file moves, asset database scan/meta/index, migrations, `MissingNode`, error reporting, the Sandbox scene re-saving byte-identically |
+| `SerializationTests` | every property type round-trips, non-default-only output, LF-only files on every OS, encodings, owned-only saving, outside-the-tree instancing, groups/unique names, persisted connections and flags, nested instances (overrides, added children, sub-scene edits flowing through), self-instancing rejection, external resources and the cache, ref counting, UID stability across re-save and file moves, asset database scan/meta/index, migrations, `MissingNode`, error reporting, the Sandbox scene re-saving byte-identically |
 | `GeneratorTests` | `CSharpGeneratorDriver` over game-like sources: emitted registration compiles, loads in a collectible context and works (properties, groups, hints, signals, migrations, abstract/tool/TypeName), every diagnostic, incremental caching; the engine's own registrations |
 | `SceneTreeAllocationTests` | **0 bytes** over 120 steady-state ticks of a 10 002-node tree (physics, process, transform propagation and notifications, input, groups) and over `GetNode` lookups |
 
@@ -120,8 +120,34 @@ pixels differ. On mismatch the test writes `<name>.expected.png` and `<name>.dif
 red over a dimmed greyscale copy) next to the actual frame, and CI uploads the folder.
 
 **Updating goldens:** run `just golden-update` (`UPDATE_GOLDENS=1`), look at every changed PNG, and
-commit them with the change that caused them. For `lavapipe`, download the `render-tests` artifact
-from the CI run and copy the frames into `Goldens/lavapipe/`. PNGs are stored in Git LFS.
+commit them with the change that caused them. PNGs are stored in Git LFS.
+
+**Updating the `lavapipe` goldens** (CI only; any change to rendered output needs both sets):
+
+1. Delete the stale files from `Tests/MainframeEngine.RenderTests/Goldens/lavapipe/` (a missing golden
+   skips instead of failing, so the run records fresh frames), commit, push the branch and run CI on
+   it: `gh workflow run ci.yml --ref <branch>`, then `gh run watch <run-id> --exit-status`.
+2. Download the frames: `gh run download <run-id> -n render-tests -D /tmp/rt`. The golden-backed
+   frames are `lit-shapes/lit-shapes_frame0001.png`, `lit-shapes/lit-shapes_frame0060.png`,
+   `multi-light/multi-light_frame0030.png`, `spine/spine_frame0060.png` and
+   `spine-no-shadows/spine-no-shadows_frame0060.png` under `/tmp/rt/artifacts/render-tests/`.
+3. Look at every PNG next to its `moltenvk` golden. Check `result.json` too: `PlatformTag` must be
+   `lavapipe` and the validation counts 0.
+4. Copy the frames into `Goldens/lavapipe/`, commit, and re-run CI. It passes only if the frames match
+   (`CapturesAreDeterministicAcrossRuns` covers run-to-run stability).
+
+Expected `lavapipe` vs `moltenvk` differences (rasterizer and resolution, not bugs):
+
+- **Resolution.** Frames are 320×240, not the 640×480 of a Retina Mac. The distant grid aliases more,
+  showing bright horizontal streaks near the horizon.
+- **Lines on pixel boundaries.** The camera looks straight down −Z, so the Y (yellow) and Z (blue) axis
+  lines project exactly onto the boundary between two pixel columns. Lavapipe rasterizes such lines as
+  nothing or as dashes; Metal fills one column.
+- **Coplanar lines.** Grid lines on the floor quad z-fight, because line and triangle depths are
+  interpolated differently. Lavapipe shows them dashed or hidden.
+
+Lavapipe output changes with the Mesa/LLVM version in the runner image (recorded on Ubuntu 24.04:
+`llvmpipe (LLVM 20.1.2, 256 bits)`). If an image update breaks the goldens, re-record them as above.
 
 ### Gates
 
