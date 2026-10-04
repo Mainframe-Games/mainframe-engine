@@ -4,7 +4,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M5-scaffold,natives,ci-fix. Running: `lane/m3b`, `lane/m5-repl` (fixing review), `lane/m6`, `lane/m7` (fixing review), `lane/m8`, `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
+- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M5 (scaffold+replication),natives,ci-fix. Running: `lane/m3b`, `lane/m6`, `lane/m7` (fixing review), `lane/m8`, `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
 - **Next action:** integrate finished lanes (rebase onto feature, run gates); then M4 (after m3b), M9 (after m8), M10 (after all); publish.yml; distribution-nuget.md; final QA.
 - **Open blockers:** none
 
@@ -88,3 +88,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Root cause Linux SDL: Silk 2.22 DefaultPathResolver uses distro RID `ubuntu.24.04-x64`, no fallback → never probes runtimes/linux-x64/native. Fix `SilkNativeResolver` (Engine ctor; call `Install()` before any Silk native use without an Engine). Scene/resource JSON forced LF. `workflow_dispatch` on ci.yml (run CI on any branch: `gh workflow run ci.yml --ref <branch>`).
 - CI run 37218611763 (8d7996f): all jobs green except lavapipe goldens (pre-HDR) → sky-fix lane found MoltenVK renders sky-below-horizon near-black vs lavapipe grey → investigating before recording goldens.
 - Weekly usage 23% at this point.
+
+### 2026-10-05 — Lane M5 replication (integrated, 6ca4570)
+- `[Replicated]`/`[Rpc]` generator (ReplicationEmitter, MFG007–009), `MultiplayerApi` (30 Hz, spawn/despawn by PackedScene UID, per-node-acked delta snapshots, interpolation, RPC authority, hostile-client containment, kick/timeouts), `SimulatedTransport`, `TransportSelector` fallback, Sandbox `--server`/`--client`. ADRs 0040–0044. Review: 10 findings fixed.
+- Gates after integration: unit 442 (+1 skipped: explicit IPv4 bind on macOS), render 14, 0 B alloc.
+- Known: SteamSocketsTransport stub, Steam avatars not implemented (no Steam natives — user action); no client prediction.
