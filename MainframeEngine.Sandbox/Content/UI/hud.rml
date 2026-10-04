@@ -39,6 +39,7 @@
             <input id="sun" type="checkbox" data-checked="sun"/><label>Sun</label>
             <input id="lamps" type="checkbox" data-checked="lamps"/><label>Coloured lights</label>
             <input id="vsync" type="checkbox" data-checked="vsync"/><label>VSync</label>
+            <input id="shapes" type="checkbox" data-checked="shapes"/><label>Collision shapes</label>
         </div>
         <div class="buttons">
             <button id="widgets" data-event-click="toggleWidgets">Widgets</button>

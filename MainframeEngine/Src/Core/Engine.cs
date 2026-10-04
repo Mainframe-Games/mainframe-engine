@@ -254,8 +254,9 @@ public abstract class Engine : IDisposable
             _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
 
         // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,
-        // Steam, then the render server last (the UI releases its GPU objects while the renderer is alive), so nothing outlives what it depends on (multiplayer's Steam transport
-        // on SteamServer; every server's nodes are gone before any server goes). Frame servers run in this order too.
+        // Steam, then the render server last, so nothing outlives what it depends on (the UI's GPU objects go while the
+        // renderer is alive; multiplayer's Steam transport on SteamServer; every server's nodes are gone before any
+        // server goes). Frame servers run in this order too.
         // M2: the render server replaces the static Node.Initialize; tree input comes from the window.
         Servers.Register(new RenderServer(Renderer));
         if (EngineOptions.SteamAppId != 0)

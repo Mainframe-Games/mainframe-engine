@@ -5,7 +5,7 @@ namespace MainframeEngine.RenderTests.Host;
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
 /// [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--pipeline-cache dir]
-/// [--count N] [--perf warmup:frames] [--no-validation]</c>.
+/// [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz]</c>.
 /// </summary>
 public sealed record HostOptions
 {

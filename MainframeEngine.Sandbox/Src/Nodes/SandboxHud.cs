@@ -4,7 +4,7 @@ namespace MainframeEngine.Sandbox;
 
 /// <summary>
 /// The Sandbox's RmlUi HUD (<c>Content/UI/hud.rml</c>): frame stats, and scene settings wired two-way to live state —
-/// exposure, the box's spin speed, max FPS, the sun and coloured lights, VSync — plus buttons for the widget demo,
+/// exposure, the box's spin speed, max FPS, the sun and coloured lights, VSync, collision shapes — plus buttons for the widget demo,
 /// the ImGui dev overlay, the engine credits and quitting. Replaces the stats/settings part of the old ImGui window (the ImGui windows
 /// remain as the F12 developer overlay).
 /// </summary>
@@ -49,6 +49,7 @@ public sealed class SandboxHud : UiDocument
             .Bind("sun", this, static h => h.SunOn, static (h, v) => h.SunOn = v)
             .Bind("lamps", this, static h => h.LampsOn, static (h, v) => h.LampsOn = v)
             .Bind("vsync", this, static h => h.Game.Renderer.VSync, static (h, v) => h.Game.Renderer.VSync = v)
+            .Bind("shapes", this, static h => h.CollisionShapes, static (h, v) => h.CollisionShapes = v)
             .Event("toggleWidgets", () =>
             {
                 if (WidgetDemo is not null)
@@ -145,6 +146,17 @@ public sealed class SandboxHud : UiDocument
                         _lamps.Add((light, light.Energy));
             foreach (var (light, energy) in _lamps)
                 light.Energy = value ? energy : 0f;
+        }
+    }
+
+    // M6: the physics server's collision-shape debug draw (also in the F12 overlay).
+    private bool CollisionShapes
+    {
+        get => Tree?.Servers.Get<PhysicsServer3D>()?.DebugDrawEnabled ?? false;
+        set
+        {
+            if (Tree?.Servers.Get<PhysicsServer3D>() is { } physics)
+                physics.DebugDrawEnabled = value;
         }
     }
 

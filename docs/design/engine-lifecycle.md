@@ -144,8 +144,9 @@ not presented frames.
 ## Shutdown
 
 `Closing` → `OnClose()` (base): dispose the input router → `Tree.Shutdown()` (frees every node, so
-visuals release their GPU objects and audio players stop) → `Servers.Dispose()` (reverse order: the audio server stops the device and streaming thread first; the render server releases
-anything still alive and its `ShadowSystem`) → `ResourceLoader.ClearCache()` → dispose ImGui controller →
+visuals release their GPU objects and audio players stop) → `Servers.Dispose()` (reverse registration order — registered Render, Steam, Audio, Physics 3D/2D, UI: the UI server
+releases RmlUi and its GPU objects first, the physics servers their worlds, the audio server stops the device and
+streaming thread; the render server releases anything still alive and its `ShadowSystem` last) → `ResourceLoader.ClearCache()` → dispose ImGui controller →
 dispose input → dispose renderer.
 `Run()` returns the exit code (`Ok` unless `Quit(code)` set another). `Dispose()` disposes the window.
 

@@ -625,14 +625,20 @@ public sealed class UiServerTests
         ui.AddLayer(0, doc);
         ui.Tick(30);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 200; i++)
+        // Warm up the frame body too: the first call of each native entry point (DataModelDirtyVariable) binds it,
+        // which allocates once.
+        var frame = 0;
+        void Frames(int count)
         {
-            doc.Health = i % 100;
-            doc.Model.Dirty("health");
-            ui.Tick();
+            for (var end = frame + count; frame < end; frame++)
+            {
+                doc.Health = frame % 100;
+                doc.Model.Dirty("health");
+                ui.Tick();
+            }
         }
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Frames(30);
+        Assert.Equal(0, AllocationGate.SmallestWindow(() => Frames(200)));
     }
 }
