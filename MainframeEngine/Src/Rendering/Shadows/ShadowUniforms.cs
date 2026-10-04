@@ -28,8 +28,9 @@ internal struct ShadowMapData
     public Vector4 Rect;
 
     /// <summary>
-    /// x = texel world size (orthographic) or texel size per unit of distance (perspective), y = 1 for perspective,
-    /// z = depth bias (texels), w = normal bias (texels).
+    /// x = texel world size (orthographic) or texel size per unit of distance (perspective), y = 1 for perspective
+    /// (0 orthographic; −d an orthographic secondary directional map shadowing up to view depth d), z = depth bias
+    /// (texels), w = normal bias (texels).
     /// </summary>
     public Vector4 Params;
 

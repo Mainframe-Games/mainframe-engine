@@ -189,6 +189,8 @@ internal sealed class ShadowPlanner
     {
         projection = camera.ProjectionMatrix;
         (near, far) = FrameData.ClipPlanes(projection);
+        if (projection.M34 == 0f) // orthographic: the near plane may be at (or behind) the camera
+            near = Math.Max(near, 1e-3f);
         var ok = Matrix4x4.Invert(camera.ViewMatrix, out inverseView) && Matrix4x4.Invert(projection, out _) &&
                  float.IsFinite(near) && float.IsFinite(far) && near > 0f && far > near;
         return ok;
@@ -217,6 +219,7 @@ internal sealed class ShadowPlanner
         {
             AtlasSize = 0;
             _packedCount = 0;
+            Array.Clear(_packedLights); // do not keep removed lights alive
             return;
         }
 
@@ -359,7 +362,8 @@ internal sealed class ShadowPlanner
 
             var pullback = ShadowMath.CasterPullback(rotation, casterBounds, center, radius, MinCasterPullback, MaxCasterPullback);
             viewProjection = ShadowMath.SphereLightMatrix(rotation, center, radius, tile.Size, pullback, StableCascades, out var texel);
-            parameters = new Vector4(texel, 0f, light.ShadowBias, light.ShadowNormalBias);
+            // y < 0: orthographic, shadowed up to the view distance −y (faded over its last tenth, like the cascades).
+            parameters = new Vector4(texel, haveCamera ? -Math.Max(distance, 1e-3f) : 0f, light.ShadowBias, light.ShadowNormalBias);
         }
         else
         {

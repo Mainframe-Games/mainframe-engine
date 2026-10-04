@@ -175,6 +175,17 @@ public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
         scene.AddChild(new OmniLight3D { Name = "LampCool", Position = new Vector3(1.6f, 1.2f, -0.2f), Color = new Vector3(0.4f, 0.7f, 1f), Energy = 1.2f, Range = 6f, ShadowResolution = 256 });
     }
 
+    // --count 2 draws the renderer window with the shadow maps open: depth images shown by ImGui in their read-only
+    // depth layout must be validation-clean.
+    protected override void OnImGui(in GameTime gameTime)
+    {
+        base.OnImGui(gameTime);
+        if (Host.Count != 2)
+            return;
+        RendererDebugWindow.ExpandShadowMaps = true;
+        RendererDebugWindow.Draw(Renderer, Servers.Render);
+    }
+
     protected override void OnRenderMainPass(in GameTime gameTime)
     {
         base.OnRenderMainPass(gameTime);

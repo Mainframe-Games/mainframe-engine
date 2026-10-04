@@ -110,6 +110,16 @@ public class ShadowTests
     }
 
     [Fact]
+    public void ShadowMapViewerIsValidationClean()
+    {
+        // The renderer window's "Maps" tree shows the cascade layers and the atlas through ImGui.
+        var result = HostRunner.Run("shadow-lights", Output("shadow-lights-viewer"), "--count", "2", "--capture", "12", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void ShadowsOfEveryLightTypeAllocateNothingPerFrame()
     {
         const int warmup = 60, measured = 240;

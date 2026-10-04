@@ -44,7 +44,10 @@ public abstract class Light3D : Node3D
         set => Light.CastsShadows = value;
     }
 
-    /// <summary>Shadow map size in texels (see <see cref="MainframeEngine.Light.ShadowResolution"/>).</summary>
+    /// <summary>
+    /// Shadow map size in texels (see <see cref="MainframeEngine.Light.ShadowResolution"/>): cascades use at most 4096,
+    /// cube faces 2048 and atlas tiles half the atlas.
+    /// </summary>
     [Export(Range = "64,8192,1")]
     public int ShadowResolution
     {

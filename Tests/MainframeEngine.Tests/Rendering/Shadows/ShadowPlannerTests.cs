@@ -127,7 +127,7 @@ public sealed class ShadowPlannerTests
         }
 
         // Spots are perspective maps whose texel size scales with distance; the secondary sun is orthographic.
-        Assert.Equal(0f, planner.Uniforms.AtlasMaps[0].Params.Y);
+        Assert.Equal(-DirectionalLight.DefaultMaxShadowDistance, planner.Uniforms.AtlasMaps[0].Params.Y); // ortho, up to its distance
         Assert.Equal(1f, planner.Uniforms.AtlasMaps[1].Params.Y);
         Assert.Equal(ShadowMath.SpotTexelPerDistance(30f, 1024), planner.Uniforms.AtlasMaps[1].Params.X, 6);
 

@@ -76,6 +76,9 @@ public static class RendererDebugWindow
         ImGui.End();
     }
 
+    /// <summary>Opens the shadow "Maps" tree (cascade layers and atlas) every frame.</summary>
+    public static bool ExpandShadowMaps { get; set; }
+
     private static readonly string[] FilterNames = ["Hard", "PCF 3x3", "Poisson 16"];
     private static readonly nint[] ShadowTextureIds = new nint[ShadowSystem.MaxCascades + 1];
     private static readonly Silk.NET.Vulkan.ImageView[] ShadowTextureViews = new Silk.NET.Vulkan.ImageView[ShadowSystem.MaxCascades + 1];
@@ -95,7 +98,7 @@ public static class RendererDebugWindow
         if (ImGui.Combo("Filter", ref filter, FilterNames, FilterNames.Length))
             shadows.Filter = (ShadowFilter)filter;
         var radius = shadows.FilterRadius;
-        if (ImGui.SliderFloat("Filter radius", ref radius, 0.5f, 4f, "%.2f texels"))
+        if (ImGui.SliderFloat("Filter radius", ref radius, 0.5f, 8f, "%.2f texels"))
             shadows.FilterRadius = radius;
 
         var stats = server.MeshStats;
@@ -103,7 +106,11 @@ public static class RendererDebugWindow
         Line(text, $"Cascades {shadows.CascadeResolution}², atlas {shadows.AtlasSize}² ({shadows.AtlasPackCount} packs), {Mib((ulong)shadows.MapMemoryBytes):0.0} MiB");
         Line(text, $"CPU {shadows.LastCpuMilliseconds:0.000} ms, GPU {shadows.LastGpuMilliseconds:0.000} ms");
 
-        if (vk.ImGuiTextures is not { } registry || !ImGui.TreeNode("Maps"))
+        if (vk.ImGuiTextures is not { } registry)
+            return;
+        if (ExpandShadowMaps)
+            ImGui.SetNextItemOpen(true);
+        if (!ImGui.TreeNode("Maps"))
             return;
         if (!ReferenceEquals(registry, _shadowTextureRegistry))
         {

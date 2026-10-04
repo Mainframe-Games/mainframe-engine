@@ -19,8 +19,8 @@
 struct ShadowMap2D {
     mat4 viewProj; // world -> light clip space
     vec4 rect;     // xy = offset, zw = size in the texture's UV space (cascades: 0, 0, 1, 1)
-    vec4 params;   // x = texel world size (ortho) or per unit of distance (perspective), y = 1 perspective,
-                   // z = depth bias (texels), w = normal bias (texels)
+    vec4 params;   // x = texel world size (ortho) or per unit of distance (perspective), y = 1 perspective
+                   // (0 ortho, -d ortho up to view depth d), z = depth bias (texels), w = normal bias (texels)
 };
 
 layout(set = SHADOW_SET, binding = 0) uniform ShadowUBO {
@@ -124,7 +124,7 @@ float filterAtlas(vec2 uv, vec4 rect, float depth)
 bool shadowProject(ShadowMap2D map, vec3 worldPos, vec3 N, vec3 L, vec3 lightPos, out vec3 coord)
 {
     float texel = map.params.x;
-    if (map.params.y != 0.0) // perspective: texel size grows with the distance to the light
+    if (map.params.y > 0.0) // perspective: texel size grows with the distance to the light
         texel *= max(length(worldPos - lightPos), 1e-3);
     vec3 p = shadowReceiver(worldPos, N, L, texel, map.params.z, map.params.w);
     vec4 ls = map.viewProj * vec4(p, 1.0);
@@ -133,13 +133,14 @@ bool shadowProject(ShadowMap2D map, vec3 worldPos, vec3 N, vec3 L, vec3 lightPos
     return ls.w > 0.0 && all(greaterThanEqual(coord, vec3(0.0))) && all(lessThanEqual(coord, vec3(1.0)));
 }
 
+// Shadow term of cascade c, or -1 when worldPos lies outside the cascade's map.
 float cascadeTerm(int c, vec3 worldPos, vec3 N, vec3 L)
 {
     if (shadow.cascadeEnabled[c] == 0.0)
         return 1.0;
     vec3 coord;
     if (!shadowProject(shadow.cascades[c], worldPos, N, L, vec3(0.0), coord))
-        return 1.0;
+        return -1.0;
     return filterCascade(coord.xy, float(c), coord.z);
 }
 
@@ -169,14 +170,19 @@ float sampleCascades(vec3 worldPos, vec3 N, vec3 L)
         return 1.0;
 
     float s     = cascadeTerm(c, worldPos, N, L);
+    if (s < 0.0)
+        s = 1.0; // outside its own map (cannot happen with the sphere fit): lit
     float start = c == 0 ? 0.0 : shadow.cascadeSplits[c - 1];
     float end   = shadow.cascadeSplits[c];
     float band  = (end - start) * shadow.csm.y;
     if (band > 0.0 && depth > end - band)
     {
         float t = smoothstep(end - band, end, depth);
-        float next = c + 1 < count ? cascadeTerm(c + 1, worldPos, N, L) : 1.0; // past the last cascade: fade to lit
-        s = mix(s, next, t);
+        // Past the last cascade: fade to lit. The blend band lies before the next cascade's slice, so its sphere may
+        // not reach the frustum's edge there: keep this cascade's term when the point is outside the next map.
+        float next = c + 1 < count ? cascadeTerm(c + 1, worldPos, N, L) : 1.0;
+        if (next >= 0.0)
+            s = mix(s, next, t);
     }
     return s;
 }
@@ -184,10 +190,19 @@ float sampleCascades(vec3 worldPos, vec3 N, vec3 L)
 float sampleAtlasMap(int k, vec3 worldPos, vec3 N, vec3 L, vec3 lightPos)
 {
     ShadowMap2D map = shadow.atlasMaps[k];
+    float fade = 0.0;
+    if (map.params.y < 0.0) // secondary directional light: shadowed up to its distance, faded over the last tenth
+    {
+        float distance = -map.params.y;
+        fade = smoothstep(distance * 0.9, distance, shadowViewDepth(worldPos));
+        if (fade >= 1.0)
+            return 1.0;
+    }
+
     vec3 coord;
     if (!shadowProject(map, worldPos, N, L, lightPos, coord))
         return 1.0;
-    return filterAtlas(coord.xy, map.rect, coord.z);
+    return mix(filterAtlas(coord.xy, map.rect, coord.z), 1.0, fade);
 }
 
 // Shadow term of directional light i (L = direction towards the light).

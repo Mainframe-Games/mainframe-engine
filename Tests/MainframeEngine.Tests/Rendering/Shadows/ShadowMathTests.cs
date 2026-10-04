@@ -158,7 +158,7 @@ public sealed class ShadowMathTests
         var center = new Vector3(3, 1, -2);
         var matrix = ShadowMath.SphereLightMatrix(rotation, center, 5f, 1024, 10f, snap: true, out var texel);
 
-        Assert.Equal(10f / 1024f, texel, 6);
+        Assert.Equal(2f * (5f * 1024f / 1022f) / 1024f, texel, 6); // one texel of margin around the sphere
         // Points on the sphere (± one texel of snapping) land inside the map, depth in [0, 1].
         foreach (var dir in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitY, -Vector3.UnitY, Vector3.UnitZ, -Vector3.UnitZ, SunDirection, -SunDirection })
         {
@@ -182,7 +182,7 @@ public sealed class ShadowMathTests
         Matrix4x4.Invert(rotation, out var inverseRotation);
         const float radius = 8f;
         const int resolution = 2048;
-        var texel = 2f * radius / resolution;
+        var texel = 2f * (radius * resolution / (resolution - 2f)) / resolution;
 
         // A sphere centre in the middle of a texel cell (light space), then moves of up to 0.4 texel each way.
         var cell = new Vector3(123.5f, -77.5f, 31.5f) * texel;
@@ -232,6 +232,28 @@ public sealed class ShadowMathTests
     {
         var clip = Vector4.Transform(new Vector4(world, 1f), matrix);
         return (new Vector2(clip.X, clip.Y) / clip.W * 0.5f + new Vector2(0.5f)) * resolution;
+    }
+
+    [Fact]
+    public void SnappingNeverUncoversTheSphere()
+    {
+        // Wherever the centre falls in its texel, every point of the sphere (and the pull-back in front) stays inside.
+        var rotation = ShadowMath.LightRotation(SunDirection);
+        Matrix4x4.Invert(rotation, out var inverse);
+        var random = new Random(7);
+        for (var i = 0; i < 200; i++)
+        {
+            var center = new Vector3(random.NextSingle() * 40f - 20f, random.NextSingle() * 10f, random.NextSingle() * 40f - 20f);
+            var matrix = ShadowMath.SphereLightMatrix(rotation, center, 6f, 256, 5f, snap: true, out _);
+            var lightSpace = Vector3.Transform(center, rotation);
+            foreach (var offset in new[] { new Vector3(6, 0, 0), new Vector3(-6, 0, 0), new Vector3(0, 6, 0), new Vector3(0, -6, 0), new Vector3(0, 0, -6), new Vector3(0, 0, 6 + 4.9f) })
+            {
+                var clip = Vector4.Transform(new Vector4(Vector3.Transform(lightSpace + offset, inverse), 1f), matrix);
+                Assert.InRange(clip.X, -1f, 1f);
+                Assert.InRange(clip.Y, -1f, 1f);
+                Assert.InRange(clip.Z, 0f, 1f);
+            }
+        }
     }
 
     [Fact]
@@ -298,7 +320,7 @@ public sealed class ShadowMathTests
         Assert.Equal(2f / 512f, ShadowMath.CubeTexelPerDistance(512), 6);
         Assert.Equal(2f * MathF.Tan(float.DegreesToRadians(30f)) / 1024f, ShadowMath.SpotTexelPerDistance(30f, 1024), 6);
         ShadowMath.SphereLightMatrix(ShadowMath.LightRotation(SunDirection), Vector3.Zero, 6f, 1536, 1f, true, out var texel);
-        Assert.Equal(12f / 1536f, texel, 6);
+        Assert.Equal(2f * (6f * 1536f / 1534f) / 1536f, texel, 6);
     }
 
     private static Vector3 Project(in Matrix4x4 matrix, Vector3 world)

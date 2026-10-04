@@ -122,24 +122,27 @@ public static class ShadowMath
     /// <paramref name="resolution"/>² map. When <paramref name="snap"/> is set, the sphere centre is moved onto the
     /// light-space texel grid (x, y and depth), so the map's texels stay fixed in the world: moving the camera by
     /// less than a texel leaves the matrix unchanged, and larger moves shift it by whole texels (no shimmering
-    /// edges). <paramref name="pullback"/> extends the near plane towards the light to keep casters outside the
-    /// sphere.
+    /// edges). The window is one texel wider than the sphere on every side, so snapping (which moves the centre by up
+    /// to one texel) never uncovers part of it. <paramref name="pullback"/> extends the near plane towards the light
+    /// to keep casters outside the sphere.
     /// </summary>
-    /// <param name="texelWorldSize">World size of one shadow-map texel (2·radius / resolution).</param>
+    /// <param name="texelWorldSize">World size of one shadow-map texel: 2·h / resolution, h = r·resolution / (resolution − 2).</param>
     public static Matrix4x4 SphereLightMatrix(in Matrix4x4 lightRotation, Vector3 worldCenter, float radius, int resolution,
         float pullback, bool snap, out float texelWorldSize)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(resolution);
-        texelWorldSize = 2f * radius / resolution;
+        ArgumentOutOfRangeException.ThrowIfLessThan(resolution, 4);
+        // Half-size h with a one-texel margin: h = r + 2h / resolution.
+        var half = radius * resolution / (resolution - 2f);
+        texelWorldSize = 2f * half / resolution;
         var center = Vector3.Transform(worldCenter, lightRotation);
         if (snap)
             center = SnapToTexel(center, texelWorldSize);
 
-        // Light space looks down -Z: the sphere spans z in [c - r, c + r]; points nearer the light have larger z.
+        // Light space looks down -Z: the window spans z in [c - h, c + h]; points nearer the light have larger z.
         // CreateOrthographicOffCenter maps view z = -zNear to depth 0 and z = -zFar to depth 1.
         var view = lightRotation * Matrix4x4.CreateTranslation(-center);
-        var projection = Matrix4x4.CreateOrthographicOffCenter(-radius, radius, -radius, radius, -(radius + Math.Max(0f, pullback)), radius);
+        var projection = Matrix4x4.CreateOrthographicOffCenter(-half, half, -half, half, -(half + Math.Max(0f, pullback)), half);
         return view * projection;
     }
 

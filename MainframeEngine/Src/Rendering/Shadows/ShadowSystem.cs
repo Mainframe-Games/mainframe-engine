@@ -100,6 +100,12 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private readonly int[] _setVersion = new int[IVulkanContext.MaxFramesInFlight];
     private readonly ulong[] _uniformFrame = new ulong[IVulkanContext.MaxFramesInFlight];
     private int _mapsVersion = 1;
+    private ulong _renderedFrame = ulong.MaxValue;
+
+    // Maps no light needed for this many frames are released (toggling a light does not re-create them each time).
+    private const int ReleaseAfterUnusedFrames = 120;
+    private int _cascadesUnused, _atlasUnused;
+    private readonly int[] _cubesUnused = new int[MaxShadowPoint];
 
     private readonly Dictionary<int, Pipeline> _instancedPipelines = [];
     private DescriptorSetLayout _materialLayout;
@@ -260,12 +266,12 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     {
         get
         {
-            long bytes = 0;
-            if (_cascades is not null) bytes += (long)_cascades.Width * _cascades.Height * _cascades.ArrayLayers * 4;
-            if (_atlas is not null) bytes += (long)_atlas.Width * _atlas.Height * 4;
+            long texels = 0;
+            if (_cascades is not null) texels += (long)_cascades.Width * _cascades.Height * _cascades.ArrayLayers;
+            if (_atlas is not null) texels += (long)_atlas.Width * _atlas.Height;
             foreach (var cube in _cubes)
-                if (cube is not null) bytes += (long)cube.Width * cube.Height * 6 * 4;
-            return bytes;
+                if (cube is not null) texels += (long)cube.Width * cube.Height * 6;
+            return texels * FormatInfo.BytesPerPixel(_depthFormat);
         }
     }
 
@@ -350,6 +356,10 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!_ctx.FrameStarted)
             return;
+
+        if (_renderedFrame == _ctx.FrameNumber)
+            throw new InvalidOperationException("RenderShadows was already called this frame: each frame slot has one light-matrix ring region.");
+        _renderedFrame = _ctx.FrameNumber;
 
         var start = Stopwatch.GetTimestamp();
         var cb = _ctx.CurrentCommandBuffer;
@@ -516,6 +526,12 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private void EnsureMaps()
     {
         var cascadeSize = Math.Min(_planner.CascadeResolution, MaxImageSize);
+        if (ReleaseWhenUnused(cascadeSize == 0 && _cascades is not null, ref _cascadesUnused))
+        {
+            DestroyCascades();
+            _mapsVersion++;
+        }
+
         if (cascadeSize > 0 && (_cascades is null || _cascades.Width != cascadeSize))
         {
             DestroyCascades();
@@ -544,7 +560,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             _atlasNeedsInit = true;
             _mapsVersion++;
         }
-        else if (atlasSize == 0 && _atlas is not null)
+        else if (ReleaseWhenUnused(atlasSize == 0 && _atlas is not null, ref _atlasUnused))
         {
             DestroyAtlas();
             _mapsVersion++;
@@ -553,6 +569,12 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         for (var c = 0; c < MaxShadowPoint; c++)
         {
             var size = Math.Min(_planner.CubeResolutions[c], MaxImageSize);
+            if (ReleaseWhenUnused(size == 0 && _cubes[c] is not null, ref _cubesUnused[c]))
+            {
+                DestroyCube(c);
+                _mapsVersion++;
+            }
+
             if (size == 0 || (_cubes[c] is { } existing && existing.Width == size))
                 continue;
             DestroyCube(c);
@@ -569,6 +591,15 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             _cubeNeedsInit[c] = true;
             _mapsVersion++;
         }
+    }
+
+    private static bool ReleaseWhenUnused(bool unused, ref int frames)
+    {
+        frames = unused ? frames + 1 : 0;
+        if (frames <= ReleaseAfterUnusedFrames)
+            return false;
+        frames = 0;
+        return true;
     }
 
     /// <summary>
