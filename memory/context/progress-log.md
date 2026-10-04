@@ -76,3 +76,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `M2:` generator project `MainframeEngine.Generators`, node tree/SceneTree/servers/signals/transforms, `.mscene`/`.mres`, `PackedScene`, UID cache, `AssetDatabase`; Sandbox loads `Content/Scenes/Sandbox.mscene`. ADRs 0010–0012 (Godot names, JSON scenes, generator registry). 257 unit tests, 12 render tests, 0 B/tick @10k nodes.
 - API: `Node.Initialize` gone → `Tree.Servers`/`Engine.Servers`; `Camera3D`/`Camera2D` are nodes (math cams → `PerspectiveCamera`/`OrthographicCamera`); GPU init in `InitializeRenderResources(RenderServer)`; lifecycle methods protected; `SteamServer` when `EngineOptions.SteamAppId` set.
 - Next free ADR: 0005 (0005–0009 free; M2 used 0010–0012) → then 0013.
+
+### 2026-10-05 — Lane M3a (integrated via integrate/m3a, ff to d80c237)
+- `M3:` ContentPaths, in-house GpuAllocator/UploadQueue/DeletionQueue (GpuBuffer/GpuImage/GpuTexture), build-time shader compile (falls back to committed .spv; CI uses -p:CompileShaders=false), limits.json single source, PipelineCache (disk) + ShaderModuleCache, shared set 0/1, HDR RGBA16F + ACES (exposure 1.3), linear lighting, Spine PMA fix, RenderTarget abstraction. ADRs 0005–0007.
+- Deviation: swapchain UNORM by default (MoltenVK sRGB swapchain lost ImGui layer intermittently); sRGB opt-in via MAINFRAME_SWAPCHAIN_ENCODING.
+- Gates after integration: unit 344, render 14, 0 validation, 0 B/frame, 121 fps.
+- Left for m3b: ShapeBase/Box3d/Quad raw buffers + own sets → Material/Mesh/MeshInstance3D; state-hash pipeline cache; AssetDatabase via ContentPaths; Assimp import; object-ID target.
+- Free ADR numbers: 0008, 0009, 0013–0019 (m6 0020s, m7 0030s, m5-repl 0040s).
