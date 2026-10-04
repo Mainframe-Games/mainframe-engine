@@ -1,0 +1,189 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  build-test:
+    name: build-test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          lfs: true # PNG content (sky, Spine atlases, goldens) lives in Git LFS
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore MainframeEngine.sln
+
+      - name: Build (warnings are errors)
+        run: dotnet build MainframeEngine.sln -c Release --no-restore -warnaserror
+
+      - name: Unit tests
+        run: >-
+          dotnet test Tests/MainframeEngine.Tests -c Release --no-build
+          --logger "trx;LogFileName=unit-tests.trx"
+          --results-directory TestResults
+          --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results-${{ matrix.os }}
+          path: TestResults/**/*.trx
+          if-no-files-found: warn
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-24.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: TestResults/**/coverage.cobertura.xml
+          if-no-files-found: error
+
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: dotnet format
+        run: dotnet format MainframeEngine.sln --verify-no-changes --exclude Plugins/Spine
+
+  shaders:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install glslc and SPIRV-Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends glslc spirv-tools
+          glslc --version
+          spirv-val --version
+
+      - name: Compile and validate every shader
+        run: sh build/shaders.sh compile "$RUNNER_TEMP/spv"
+
+      - name: Committed SPIR-V matches its sources (shaders.lock)
+        run: sh build/shaders.sh check
+
+  render-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Lavapipe (Mesa's CPU Vulkan driver) only: deterministic output for the 'lavapipe' goldens.
+      VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+      VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+      RENDER_TEST_ARTIFACTS: ${{ github.workspace }}/artifacts/render-tests
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          lfs: true
+
+      - name: Install lavapipe, validation layers and Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            mesa-vulkan-drivers vulkan-validationlayers libvulkan1 vulkan-tools xvfb xauth \
+            libx11-6 libx11-xcb1 libxrandr2 libxinerama1 libxcursor1 libxi6 libxkbcommon0
+          ls -l /usr/share/vulkan/icd.d/ /usr/share/vulkan/explicit_layer.d/
+          test -f "$VK_DRIVER_FILES"
+          vulkaninfo --summary
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build render tests
+        run: dotnet build Tests/MainframeEngine.RenderTests -c Release -warnaserror
+
+      - name: Render tests (golden images, validation gate, allocation gate)
+        run: >-
+          xvfb-run -a -s "-screen 0 1280x1024x24"
+          dotnet test Tests/MainframeEngine.RenderTests -c Release --no-build
+          --logger "trx;LogFileName=render-tests.trx"
+          --logger "console;verbosity=normal"
+          --results-directory TestResults
+
+      # Always uploaded: on failure it holds actual/expected/diff PNGs; when a golden is missing it
+      # holds the frame to review and commit under Tests/MainframeEngine.RenderTests/Goldens/lavapipe/.
+      - name: Upload render artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-tests
+          path: |
+            artifacts/render-tests/
+            TestResults/**/*.trx
+          if-no-files-found: warn
+
+  ci-success:
+    # The single required status check (repo ruleset). Do not rename.
+    if: always()
+    needs: [build-test, format, shaders, render-tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: All jobs succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::A required job did not succeed ($result)."
+              exit 1
+            fi
+          done
