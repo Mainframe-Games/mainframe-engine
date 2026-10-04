@@ -438,6 +438,8 @@ public sealed class ViewportController : Node
                 node.Scale = scale;
                 break;
         }
+
+        _workspace.Inspector.RefreshValues(); // the fields follow the drag (committed on release)
     }
 
     // Commits the drag as one history entry (the node already shows the result), or restores the start on cancel.

@@ -191,6 +191,15 @@ public sealed class EditorQaScript : IEditorAutomation
             case "log":
                 Log.Info($"[QA] {string.Join(' ', step[1..])}");
                 break;
+            case "window-close":
+                // What the window's close button / Cmd+Q produce: an SDL quit event through the real event queue.
+                unsafe
+                {
+                    var quit = new Silk.NET.SDL.Event { Type = (uint)Silk.NET.SDL.EventType.Quit };
+                    Silk.NET.SDL.SdlProvider.SDL.Value.PushEvent(&quit);
+                }
+
+                break;
             case "select":
                 if (workspace.Session.Active is { } selectScene)
                     selectScene.Selection.Set(selectScene.Root.GetNode(string.Join(' ', step[1..])));

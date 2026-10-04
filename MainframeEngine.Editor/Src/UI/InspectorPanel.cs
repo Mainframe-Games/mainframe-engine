@@ -36,6 +36,7 @@ public sealed class InspectorPanel : EditorDocument
     private InspectorModel? _model;
     private object? _target;
     private bool _rebuildPending;
+    private bool _rebuilding;
 
     public InspectorPanel(EditorWorkspace workspace)
         : base(workspace, "inspector.rml")
@@ -67,6 +68,27 @@ public sealed class InspectorPanel : EditorDocument
 
     /// <summary>Regenerates the inspector for the active scene's primary selection.</summary>
     public void Rebuild()
+    {
+        // A field being edited commits to its own row first (the new rows must not receive its blur).
+        if (IsLoaded && Layer?.Context is { IsDisposed: false } context)
+        {
+            var focus = context.FocusElement;
+            if (!focus.IsNull && focus.OwnerDocument == Document && focus.HasAttribute("data-row"))
+                focus.Blur();
+        }
+
+        _rebuilding = true;
+        try
+        {
+            RebuildNow();
+        }
+        finally
+        {
+            _rebuilding = false;
+        }
+    }
+
+    private void RebuildNow()
     {
         _rebuildPending = false;
         var scene = Workspace.Session.Active;
@@ -296,7 +318,15 @@ public sealed class InspectorPanel : EditorDocument
                              InspectorProperty.IsIntegerType(type) || type.IsEnum || type == typeof(NodePath));
 
     // Value-type values are compared by value on refresh; lists by content count (a changed count rebuilds).
-    private static object? Snapshot(object? value) => value is IList list ? list.Count : value;
+    private static object? Snapshot(object? value)
+    {
+        if (value is not IList list)
+            return value;
+        var builder = new StringBuilder().Append(list.Count);
+        foreach (var item in list)
+            builder.Append('\u001f').Append(ValueText.Format(item));
+        return builder.ToString();
+    }
 
     // ── Refresh after scene changes ──────────────────────────────────────────────────────────────────────────────
 
@@ -333,7 +363,7 @@ public sealed class InspectorPanel : EditorDocument
             var view = _rows[row];
             var value = view.Property.GetValue();
             var snapshot = Snapshot(value);
-            if (Equals(snapshot, view.Shown) && view.Property.Kind is not PropertyEditorKind.Array)
+            if (Equals(snapshot, view.Shown))
                 continue;
             if (view.Property.Kind is PropertyEditorKind.Resource or PropertyEditorKind.Array)
             {
@@ -409,6 +439,8 @@ public sealed class InspectorPanel : EditorDocument
 
     private void OnChange(RmlEvent e)
     {
+        if (_rebuilding)
+            return;
         var target = e.Target;
         if (target.Id == "node-name")
         {
@@ -458,6 +490,8 @@ public sealed class InspectorPanel : EditorDocument
 
     private void OnBlur(RmlEvent e)
     {
+        if (_rebuilding)
+            return;
         var target = e.Target;
         if (target.TagName is not ("input" or "textarea") || target.GetAttribute("type") is "checkbox" or "range")
             return;

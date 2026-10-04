@@ -171,6 +171,26 @@ public sealed class WorkspaceTests : IDisposable
     }
 
     [Fact]
+    public void ATypedValueIsCommittedToItsOwnNodeWhenTheSelectionChanges()
+    {
+        var a = AddChild("A");
+        var b = AddChild("B");
+        _editor.Scene.Selection.Set(a);
+        _editor.Tick();
+        var row = W.Inspector.Rows.ToList().FindIndex(r => r.Name == "Position");
+        var field = W.Inspector.Document.GetElementById($"p{row}c1");
+        Assert.True(field.Focus());
+        field.SetValue("9");
+
+        _editor.Scene.Selection.Set(b); // the inspector rebuilds for B: A's pending edit is committed first
+        _editor.Tick();
+
+        Assert.Equal(9f, a.Position.Y);
+        Assert.Equal(0f, b.Position.Y);
+        Assert.Same(b, W.Inspector.Target);
+    }
+
+    [Fact]
     public void EveryEditorKindRendersAndEdits()
     {
         var node = new AllHintsNode { Name = "All" };
