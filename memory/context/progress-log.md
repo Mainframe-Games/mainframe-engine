@@ -57,3 +57,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-05 — Integration
 - CI checkout now inits only `Plugins/Spine` (native submodules are natives.yml's job).
 - Pushed `feature/m0-m10`; draft PR https://github.com/Mainframe-Games/mainframe-engine/pull/4 (Closes #1, #2). Auto-fix CI monitor enabled.
+
+### 2026-10-05 — Lane C M5 scaffold (integrated)
+- 4 `M5:` commits: our ENet natives replace package's x86_64 (`ExcludeAssets`), flat-copied from `runtimes/`; message layer (7-byte header, `MessageRegistry` fingerprint, `MessageBus`, `ITransport`: Enet/Loopback/SteamSockets stub), pooled span buffers (0 alloc); `Steam` service (TryInitialize/RunCallbacks/Shutdown, never throws).
+- Tests 107/107. Benchmarks added to baseline.json.
+- **Known limitation:** Steamworks.NET 2024.8.0 ships no steam_api natives and x64-only managed assemblies → Steam disabled on arm64 (`UnsupportedPlatform`) and everywhere until SDK natives added (needs partner login — user action).
+- Follow-ups for orchestrator: ADR 0003 (flat native copy for project refs), ADR 0004 (Steam unsupported arm64); milestones.md M5 rows; build-and-platforms matrix; Engine hook for Steam.TryInitialize/RunCallbacks/Shutdown (do in M2 when servers land); README networking claims.
+- First CI run: render-tests failed (ICD is `lvp_icd.json`), natives linux failed (GCC -Wshadow) → fixed in f829d62.
