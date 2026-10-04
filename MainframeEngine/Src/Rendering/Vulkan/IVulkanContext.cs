@@ -61,4 +61,22 @@ public interface IVulkanContext
 
     /// <summary>Destroys GPU objects once the frames that may use them have finished (use instead of vkDeviceWaitIdle).</summary>
     DeletionQueue Deletions { get; }
+
+    /// <summary>The persisted <c>VkPipelineCache</c>; create every pipeline through it.</summary>
+    PipelineCache Pipelines { get; }
+
+    /// <summary>One shader module per <c>.spv</c> path, shared by every pipeline.</summary>
+    ShaderModuleCache Shaders { get; }
+
+    /// <summary>The per-frame shared descriptor set 0 (camera + lights); see <see cref="FrameContext"/>.</summary>
+    FrameContext Frame { get; }
+
+    /// <summary>Frames that have started recording since startup (1-based; 0 before the first frame).</summary>
+    ulong FrameNumber { get; }
+
+    /// <summary>
+    /// Exposure multiplier applied to the HDR scene before tonemapping (1 = neutral). See
+    /// docs/design/color-pipeline.md.
+    /// </summary>
+    float Exposure { get; set; }
 }

@@ -1,12 +1,9 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using ImGuiNET;
-using Silk.NET.Core.Native;
 using Silk.NET.Input;
 using Silk.NET.Vulkan;
 using Silk.NET.Windowing;
-using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
@@ -26,11 +23,8 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
     private readonly IWindow _window;
     private readonly IInputContext _input;
 
-    // Font texture
-    private Image _fontImage;
-    private DeviceMemory _fontImageMemory;
-    private ImageView _fontImageView;
-    private Sampler _fontSampler;
+    // Font texture (coverage in alpha: data, so UNORM)
+    private GpuTexture _fontTexture = null!;
 
     // Descriptor
     private DescriptorSetLayout _descriptorSetLayout;
@@ -41,16 +35,10 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
     private PipelineLayout _pipelineLayout;
     private Pipeline _pipeline;
 
-    // Per-frame vertex/index buffers (one per frame slot), host-visible + persistently mapped
-    private VkBuffer[] _vertexBuffers;
-    private DeviceMemory[] _vertexMemory;
-    private nint[] _vertexMapped;
-    private ulong[] _vertexCapacity;
-
-    private VkBuffer[] _indexBuffers;
-    private DeviceMemory[] _indexMemory;
-    private nint[] _indexMapped;
-    private ulong[] _indexCapacity;
+    // Per-frame vertex/index buffers (one per frame slot), host-visible + persistently mapped; grown on demand
+    // (the replaced buffer goes through the deletion queue)
+    private readonly GpuBuffer?[] _vertexBuffers = new GpuBuffer?[IVulkanContext.MaxFramesInFlight];
+    private readonly GpuBuffer?[] _indexBuffers = new GpuBuffer?[IVulkanContext.MaxFramesInFlight];
 
     private readonly nint _imguiCtx;
     private bool _frameBegun; // NewFrame called, Render/EndFrame not yet
@@ -65,16 +53,6 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         _ctx = ctx;
         _input = input;
         _window = window;
-
-        const int n = IVulkanContext.MaxFramesInFlight;
-        _vertexBuffers = new VkBuffer[n];
-        _vertexMemory = new DeviceMemory[n];
-        _vertexMapped = new nint[n];
-        _vertexCapacity = new ulong[n];
-        _indexBuffers = new VkBuffer[n];
-        _indexMemory = new DeviceMemory[n];
-        _indexMapped = new nint[n];
-        _indexCapacity = new ulong[n];
 
         _imguiCtx = ImGui.CreateContext();
         ImGui.SetCurrentContext(_imguiCtx);
@@ -306,94 +284,11 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
     {
         var io = ImGui.GetIO();
         io.Fonts.GetTexDataAsRGBA32(out byte* pixels, out int width, out int height, out int bytesPerPixel);
-        var imageSize = (ulong)(width * height * bytesPerPixel);
+        var size = width * height * bytesPerPixel;
 
-        // Staging buffer
-        CreateBuffer(imageSize,
-            BufferUsageFlags.TransferSrcBit,
-            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
-            out var stagingBuf, out var stagingMem);
-
-        void* mapped;
-        _ctx.Vk.MapMemory(_ctx.Device, stagingMem, 0, imageSize, 0, &mapped);
-        Unsafe.CopyBlock(mapped, pixels, (uint)imageSize);
-        _ctx.Vk.UnmapMemory(_ctx.Device, stagingMem);
-
-        // Create device-local image
-        var imageInfo = new ImageCreateInfo
-        {
-            SType = StructureType.ImageCreateInfo,
-            ImageType = ImageType.Type2D,
-            Format = Format.R8G8B8A8Unorm,
-            Extent = new Extent3D { Width = (uint)width, Height = (uint)height, Depth = 1 },
-            MipLevels = 1,
-            ArrayLayers = 1,
-            Samples = SampleCountFlags.Count1Bit,
-            Tiling = ImageTiling.Optimal,
-            Usage = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit,
-            SharingMode = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined,
-        };
-        _ctx.Vk.CreateImage(_ctx.Device, in imageInfo, null, out _fontImage);
-
-        _ctx.Vk.GetImageMemoryRequirements(_ctx.Device, _fontImage, out var memReq);
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType = StructureType.MemoryAllocateInfo,
-            AllocationSize = memReq.Size,
-            MemoryTypeIndex = FindMemoryType(memReq.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
-        };
-        _ctx.Vk.AllocateMemory(_ctx.Device, in allocInfo, null, out _fontImageMemory);
-        _ctx.Vk.BindImageMemory(_ctx.Device, _fontImage, _fontImageMemory, 0);
-
-        // Upload via staging buffer
-        var cb = BeginOneTimeCommands();
-        TransitionImageLayout(cb, _fontImage, ImageLayout.Undefined, ImageLayout.TransferDstOptimal);
-
-        var region = new BufferImageCopy
-        {
-            ImageSubresource = new ImageSubresourceLayers
-            {
-                AspectMask = ImageAspectFlags.ColorBit,
-                LayerCount = 1,
-            },
-            ImageExtent = new Extent3D { Width = (uint)width, Height = (uint)height, Depth = 1 },
-        };
-        _ctx.Vk.CmdCopyBufferToImage(cb, stagingBuf, _fontImage, ImageLayout.TransferDstOptimal, 1, &region);
-
-        TransitionImageLayout(cb, _fontImage, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
-        EndOneTimeCommands(cb);
-
-        _ctx.Vk.DestroyBuffer(_ctx.Device, stagingBuf, null);
-        _ctx.Vk.FreeMemory(_ctx.Device, stagingMem, null);
-
-        // Image view
-        var viewInfo = new ImageViewCreateInfo
-        {
-            SType = StructureType.ImageViewCreateInfo,
-            Image = _fontImage,
-            ViewType = ImageViewType.Type2D,
-            Format = Format.R8G8B8A8Unorm,
-            SubresourceRange = new ImageSubresourceRange
-            {
-                AspectMask = ImageAspectFlags.ColorBit,
-                LevelCount = 1,
-                LayerCount = 1,
-            },
-        };
-        _ctx.Vk.CreateImageView(_ctx.Device, in viewInfo, null, out _fontImageView);
-
-        // Sampler
-        var samplerInfo = new SamplerCreateInfo
-        {
-            SType = StructureType.SamplerCreateInfo,
-            MagFilter = Filter.Linear,
-            MinFilter = Filter.Linear,
-            AddressModeU = SamplerAddressMode.Repeat,
-            AddressModeV = SamplerAddressMode.Repeat,
-            AddressModeW = SamplerAddressMode.Repeat,
-        };
-        _ctx.Vk.CreateSampler(_ctx.Device, in samplerInfo, null, out _fontSampler);
+        // Uploaded by the upload queue at the start of the first frame; no queue wait.
+        _fontTexture = GpuTexture.Create2D(_ctx, (uint)width, (uint)height, new ReadOnlySpan<byte>(pixels, size),
+            TextureColorSpace.Linear, TextureSampling.LinearRepeat);
 
         io.Fonts.SetTexID(1);
         io.Fonts.ClearTexData();
@@ -405,57 +300,13 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
 
     private void CreateDescriptors()
     {
-        var binding = new DescriptorSetLayoutBinding
-        {
-            Binding = 0,
-            DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = 1,
-            StageFlags = ShaderStageFlags.FragmentBit,
-        };
-        var layoutInfo = new DescriptorSetLayoutCreateInfo
-        {
-            SType = StructureType.DescriptorSetLayoutCreateInfo,
-            BindingCount = 1,
-            PBindings = &binding,
-        };
-        _ctx.Vk.CreateDescriptorSetLayout(_ctx.Device, in layoutInfo, null, out _descriptorSetLayout);
-
-        var poolSize = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 };
-        var poolInfo = new DescriptorPoolCreateInfo
-        {
-            SType = StructureType.DescriptorPoolCreateInfo,
-            PoolSizeCount = 1,
-            PPoolSizes = &poolSize,
-            MaxSets = 1,
-        };
-        _ctx.Vk.CreateDescriptorPool(_ctx.Device, in poolInfo, null, out _descriptorPool);
-
-        var setLayout = _descriptorSetLayout;
-        var dsAlloc = new DescriptorSetAllocateInfo
-        {
-            SType = StructureType.DescriptorSetAllocateInfo,
-            DescriptorPool = _descriptorPool,
-            DescriptorSetCount = 1,
-            PSetLayouts = &setLayout,
-        };
-        _ctx.Vk.AllocateDescriptorSets(_ctx.Device, in dsAlloc, out _descriptorSet);
-
-        var imageInfo = new DescriptorImageInfo
-        {
-            Sampler = _fontSampler,
-            ImageView = _fontImageView,
-            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-        };
-        var write = new WriteDescriptorSet
-        {
-            SType = StructureType.WriteDescriptorSet,
-            DstSet = _descriptorSet,
-            DstBinding = 0,
-            DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = 1,
-            PImageInfo = &imageInfo,
-        };
-        _ctx.Vk.UpdateDescriptorSets(_ctx.Device, 1, &write, 0, null);
+        _descriptorSetLayout = PipelineBuilder.CreateSetLayout(_ctx,
+            [new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit }],
+            "ImGui font");
+        _descriptorPool = PipelineBuilder.CreatePool(_ctx, 1,
+            [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 }], "ImGui font");
+        _descriptorSet = PipelineBuilder.AllocateSet(_ctx, _descriptorPool, _descriptorSetLayout, "ImGui font");
+        PipelineBuilder.WriteImage(_ctx, _descriptorSet, 0, _fontTexture.Descriptor);
     }
 
     #endregion
@@ -464,141 +315,22 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
 
     private void CreatePipeline()
     {
-        var vk = _ctx.Vk;
-        var device = _ctx.Device;
-
-        var vertCode = File.ReadAllBytes(ContentPaths.Resolve("Shaders/ImGui/ImGui.vk.vert.spv"));
-        var fragCode = File.ReadAllBytes(ContentPaths.Resolve("Shaders/ImGui/ImGui.vk.frag.spv"));
-        var vertModule = CreateShaderModule(vertCode);
-        var fragModule = CreateShaderModule(fragCode);
-        var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
-
-        var stages = stackalloc PipelineShaderStageCreateInfo[]
-        {
-            new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.VertexBit,   Module = vertModule, PName = entryPoint },
-            new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.FragmentBit, Module = fragModule, PName = entryPoint },
-        };
+        _pipelineLayout = PipelineBuilder.CreateLayout(_ctx, [_descriptorSetLayout], 16, ShaderStageFlags.VertexBit, "ImGui"); // vec2 scale + vec2 translate
 
         // ImDrawVert layout: vec2 pos, vec2 uv, R8G8B8A8Unorm color
-        var bindingDesc = new VertexInputBindingDescription
-        {
-            Binding = 0,
-            Stride = VertexSize,
-            InputRate = VertexInputRate.Vertex,
-        };
-        var attribs = stackalloc VertexInputAttributeDescription[]
-        {
-            new() { Location = 0, Binding = 0, Format = Format.R32G32Sfloat,    Offset = 0  },
-            new() { Location = 1, Binding = 0, Format = Format.R32G32Sfloat,    Offset = 8  },
-            new() { Location = 2, Binding = 0, Format = Format.R8G8B8A8Unorm,   Offset = 16 },
-        };
-        var vertexInput = new PipelineVertexInputStateCreateInfo
-        {
-            SType = StructureType.PipelineVertexInputStateCreateInfo,
-            VertexBindingDescriptionCount = 1,
-            PVertexBindingDescriptions = &bindingDesc,
-            VertexAttributeDescriptionCount = 3,
-            PVertexAttributeDescriptions = attribs,
-        };
+        ReadOnlySpan<VertexInputBindingDescription> bindings =
+            [new VertexInputBindingDescription { Binding = 0, Stride = VertexSize, InputRate = VertexInputRate.Vertex }];
+        ReadOnlySpan<VertexInputAttributeDescription> attributes =
+        [
+            new() { Location = 0, Binding = 0, Format = Format.R32G32Sfloat, Offset = 0 },
+            new() { Location = 1, Binding = 0, Format = Format.R32G32Sfloat, Offset = 8 },
+            new() { Location = 2, Binding = 0, Format = Format.R8G8B8A8Unorm, Offset = 16 },
+        ];
 
-        var inputAssembly = new PipelineInputAssemblyStateCreateInfo
-        {
-            SType = StructureType.PipelineInputAssemblyStateCreateInfo,
-            Topology = PrimitiveTopology.TriangleList,
-        };
-        var viewportState = new PipelineViewportStateCreateInfo
-        {
-            SType = StructureType.PipelineViewportStateCreateInfo,
-            ViewportCount = 1,
-            ScissorCount = 1,
-        };
-        var rasterizer = new PipelineRasterizationStateCreateInfo
-        {
-            SType = StructureType.PipelineRasterizationStateCreateInfo,
-            PolygonMode = Silk.NET.Vulkan.PolygonMode.Fill,
-            CullMode = CullModeFlags.None,
-            FrontFace = FrontFace.CounterClockwise,
-            LineWidth = 1f,
-        };
-        var multisampling = new PipelineMultisampleStateCreateInfo
-        {
-            SType = StructureType.PipelineMultisampleStateCreateInfo,
-            RasterizationSamples = SampleCountFlags.Count1Bit,
-        };
-
-        // Pre-multiplied alpha blend — matches ImGui's expected output
-        var blendAttachment = new PipelineColorBlendAttachmentState
-        {
-            BlendEnable = true,
-            SrcColorBlendFactor = BlendFactor.SrcAlpha,
-            DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha,
-            ColorBlendOp = BlendOp.Add,
-            SrcAlphaBlendFactor = BlendFactor.One,
-            DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,
-            AlphaBlendOp = BlendOp.Add,
-            ColorWriteMask =
-                ColorComponentFlags.RBit | ColorComponentFlags.GBit |
-                ColorComponentFlags.BBit | ColorComponentFlags.ABit,
-        };
-        var colorBlend = new PipelineColorBlendStateCreateInfo
-        {
-            SType = StructureType.PipelineColorBlendStateCreateInfo,
-            AttachmentCount = 1,
-            PAttachments = &blendAttachment,
-        };
-        var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
-        var dynamicState = new PipelineDynamicStateCreateInfo
-        {
-            SType = StructureType.PipelineDynamicStateCreateInfo,
-            DynamicStateCount = 2,
-            PDynamicStates = dynamicStates,
-        };
-
-        var descLayout = _descriptorSetLayout;
-        var pushRange = new PushConstantRange
-        {
-            StageFlags = ShaderStageFlags.VertexBit,
-            Offset = 0,
-            Size = 16, // vec2 scale + vec2 translate
-        };
-        var pipelineLayoutInfo = new PipelineLayoutCreateInfo
-        {
-            SType = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount = 1,
-            PSetLayouts = &descLayout,
-            PushConstantRangeCount = 1,
-            PPushConstantRanges = &pushRange,
-        };
-        vk.CreatePipelineLayout(device, in pipelineLayoutInfo, null, out _pipelineLayout);
-
-        var depthStencil = new PipelineDepthStencilStateCreateInfo
-        {
-            SType            = StructureType.PipelineDepthStencilStateCreateInfo,
-            DepthTestEnable  = false,
-            DepthWriteEnable = false,
-        };
-
-        var pipelineInfo = new GraphicsPipelineCreateInfo
-        {
-            SType = StructureType.GraphicsPipelineCreateInfo,
-            StageCount = 2,
-            PStages = stages,
-            PVertexInputState = &vertexInput,
-            PInputAssemblyState = &inputAssembly,
-            PViewportState = &viewportState,
-            PRasterizationState = &rasterizer,
-            PMultisampleState = &multisampling,
-            PDepthStencilState = &depthStencil,
-            PColorBlendState = &colorBlend,
-            PDynamicState = &dynamicState,
-            Layout = _pipelineLayout,
-            RenderPass = _ctx.RenderPass,
-        };
-        vk.CreateGraphicsPipelines(device, default, 1, in pipelineInfo, null, out _pipeline);
-
-        SilkMarshal.Free((nint)entryPoint);
-        vk.DestroyShaderModule(device, vertModule, null);
-        vk.DestroyShaderModule(device, fragModule, null);
+        // Straight alpha, no depth: ImGui's expected output.
+        _pipeline = PipelineBuilder.Create(_ctx, new PipelineState { Blend = BlendMode.Alpha }, _pipelineLayout,
+            _ctx.RenderPass, "Shaders/ImGui/ImGui.vk.vert.spv", "Shaders/ImGui/ImGui.vk.frag.spv",
+            bindings, attributes, "ImGui");
     }
 
     #endregion
@@ -618,16 +350,12 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         var totalVtxBytes = (ulong)(drawData.TotalVtxCount * VertexSize);
         var totalIdxBytes = (ulong)(drawData.TotalIdxCount * IndexSize);
 
-        EnsureBuffer(ref _vertexBuffers[imageIdx], ref _vertexMemory[imageIdx],
-            ref _vertexMapped[imageIdx], ref _vertexCapacity[imageIdx],
-            totalVtxBytes, BufferUsageFlags.VertexBufferBit);
-        EnsureBuffer(ref _indexBuffers[imageIdx], ref _indexMemory[imageIdx],
-            ref _indexMapped[imageIdx], ref _indexCapacity[imageIdx],
-            totalIdxBytes, BufferUsageFlags.IndexBufferBit);
+        var vertexBuffer = EnsureBuffer(ref _vertexBuffers[imageIdx], totalVtxBytes, BufferUsageFlags.VertexBufferBit);
+        var indexBuffer = EnsureBuffer(ref _indexBuffers[imageIdx], totalIdxBytes, BufferUsageFlags.IndexBufferBit);
 
         // Upload all vertices and indices
-        var vtxDst = (byte*)_vertexMapped[imageIdx];
-        var idxDst = (byte*)_indexMapped[imageIdx];
+        var vtxDst = (byte*)vertexBuffer.MappedPointer;
+        var idxDst = (byte*)indexBuffer.MappedPointer;
         for (int i = 0; i < drawData.CmdListsCount; i++)
         {
             var cmdList = drawData.CmdLists[i];
@@ -642,10 +370,10 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         // Bind pipeline and resources
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
 
-        var vb = _vertexBuffers[imageIdx];
+        var vb = vertexBuffer.Handle;
         var vbOffset = 0ul;
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &vbOffset);
-        vk.CmdBindIndexBuffer(cb, _indexBuffers[imageIdx], 0, IndexType.Uint16);
+        vk.CmdBindIndexBuffer(cb, indexBuffer.Handle, 0, IndexType.Uint16);
 
         var ds = _descriptorSet;
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 0, 1, &ds, 0, null);
@@ -715,192 +443,37 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         }
     }
 
-    private void EnsureBuffer(ref VkBuffer buffer, ref DeviceMemory memory,
-        ref nint mapped, ref ulong capacity, ulong required, BufferUsageFlags usage)
+    private GpuBuffer EnsureBuffer(ref GpuBuffer? buffer, ulong required, BufferUsageFlags usage)
     {
-        if (required <= capacity) return;
+        if (buffer is not null && required <= buffer.Size)
+            return buffer;
 
-        if (capacity > 0)
-        {
-            _ctx.Vk.UnmapMemory(_ctx.Device, memory);
-            _ctx.Vk.DestroyBuffer(_ctx.Device, buffer, null);
-            _ctx.Vk.FreeMemory(_ctx.Device, memory, null);
-        }
-
-        // Grow to at least 1 MB or double the current capacity, whichever is larger
-        capacity = Math.Max(required, capacity == 0 ? 1024ul * 1024ul : capacity * 2);
-
-        CreateBuffer(capacity, usage,
-            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit,
-            out buffer, out memory);
-
-        void* ptr;
-        _ctx.Vk.MapMemory(_ctx.Device, memory, 0, capacity, 0, &ptr);
-        mapped = (nint)ptr;
+        // Grow to at least 1 MB or double the current capacity, whichever is larger. The old buffer was last
+        // used by this slot's previous frame, which has finished; the deletion queue retires it anyway.
+        var capacity = Math.Max(required, buffer is null ? 1024ul * 1024ul : buffer.Size * 2);
+        buffer?.Dispose();
+        buffer = GpuBuffer.Create(_ctx, capacity, usage, GpuMemoryUsage.Dynamic);
+        return buffer;
     }
 
     #endregion
 
-    #region Vulkan helpers
-
-    private void CreateBuffer(ulong size, BufferUsageFlags usage, MemoryPropertyFlags properties,
-        out VkBuffer buffer, out DeviceMemory memory)
-    {
-        var bufInfo = new BufferCreateInfo
-        {
-            SType = StructureType.BufferCreateInfo,
-            Size = size,
-            Usage = usage,
-            SharingMode = SharingMode.Exclusive,
-        };
-        _ctx.Vk.CreateBuffer(_ctx.Device, in bufInfo, null, out buffer);
-
-        _ctx.Vk.GetBufferMemoryRequirements(_ctx.Device, buffer, out var memReq);
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType = StructureType.MemoryAllocateInfo,
-            AllocationSize = memReq.Size,
-            MemoryTypeIndex = FindMemoryType(memReq.MemoryTypeBits, properties),
-        };
-        _ctx.Vk.AllocateMemory(_ctx.Device, in allocInfo, null, out memory);
-        _ctx.Vk.BindBufferMemory(_ctx.Device, buffer, memory, 0);
-    }
-
-    private uint FindMemoryType(uint typeBits, MemoryPropertyFlags properties)
-    {
-        _ctx.Vk.GetPhysicalDeviceMemoryProperties(_ctx.PhysicalDevice, out var memProps);
-        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
-            if ((typeBits & (1u << (int)i)) != 0 &&
-                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
-                return i;
-        throw new VulkanException("[Vulkan] No suitable memory type found!");
-    }
-
-    private CommandBuffer BeginOneTimeCommands()
-    {
-        var allocInfo = new CommandBufferAllocateInfo
-        {
-            SType = StructureType.CommandBufferAllocateInfo,
-            Level = CommandBufferLevel.Primary,
-            CommandPool = _ctx.CommandPool,
-            CommandBufferCount = 1,
-        };
-        CommandBuffer cb;
-        _ctx.Vk.AllocateCommandBuffers(_ctx.Device, in allocInfo, &cb);
-
-        var beginInfo = new CommandBufferBeginInfo
-        {
-            SType = StructureType.CommandBufferBeginInfo,
-            Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
-        };
-        _ctx.Vk.BeginCommandBuffer(cb, in beginInfo);
-        return cb;
-    }
-
-    private void EndOneTimeCommands(CommandBuffer cb)
-    {
-        _ctx.Vk.EndCommandBuffer(cb);
-        var submitInfo = new SubmitInfo
-        {
-            SType = StructureType.SubmitInfo,
-            CommandBufferCount = 1,
-            PCommandBuffers = &cb,
-        };
-        _ctx.Vk.QueueSubmit(_ctx.GraphicsQueue, 1, in submitInfo, default);
-        _ctx.Vk.QueueWaitIdle(_ctx.GraphicsQueue);
-        _ctx.Vk.FreeCommandBuffers(_ctx.Device, _ctx.CommandPool, 1, &cb);
-    }
-
-    private void TransitionImageLayout(CommandBuffer cb, Image image, ImageLayout oldLayout, ImageLayout newLayout)
-    {
-        var barrier = new ImageMemoryBarrier
-        {
-            SType = StructureType.ImageMemoryBarrier,
-            OldLayout = oldLayout,
-            NewLayout = newLayout,
-            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-            Image = image,
-            SubresourceRange = new ImageSubresourceRange
-            {
-                AspectMask = ImageAspectFlags.ColorBit,
-                LevelCount = 1,
-                LayerCount = 1,
-            },
-        };
-
-        PipelineStageFlags srcStage, dstStage;
-
-        if (oldLayout == ImageLayout.Undefined && newLayout == ImageLayout.TransferDstOptimal)
-        {
-            barrier.SrcAccessMask = 0;
-            barrier.DstAccessMask = AccessFlags.TransferWriteBit;
-            srcStage = PipelineStageFlags.TopOfPipeBit;
-            dstStage = PipelineStageFlags.TransferBit;
-        }
-        else if (oldLayout == ImageLayout.TransferDstOptimal && newLayout == ImageLayout.ShaderReadOnlyOptimal)
-        {
-            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
-            barrier.DstAccessMask = AccessFlags.ShaderReadBit;
-            srcStage = PipelineStageFlags.TransferBit;
-            dstStage = PipelineStageFlags.FragmentShaderBit;
-        }
-        else
-        {
-            throw new InvalidOperationException($"[Vulkan] Unsupported image layout transition: {oldLayout} → {newLayout}");
-        }
-
-        _ctx.Vk.CmdPipelineBarrier(cb, srcStage, dstStage, 0, 0, null, 0, null, 1, &barrier);
-    }
-
-    private ShaderModule CreateShaderModule(byte[] code)
-    {
-        fixed (byte* ptr = code)
-        {
-            var createInfo = new ShaderModuleCreateInfo
-            {
-                SType = StructureType.ShaderModuleCreateInfo,
-                CodeSize = (nuint)code.Length,
-                PCode = (uint*)ptr,
-            };
-            _ctx.Vk.CreateShaderModule(_ctx.Device, in createInfo, null, out var module);
-            return module;
-        }
-    }
-
-    #endregion
-
+    /// <summary>Releases input hooks, the ImGui context and (through the deletion queue) every GPU object.</summary>
     public void Dispose()
     {
         TeardownInput();
 
-        var vk = _ctx.Vk;
-        vk.DeviceWaitIdle(_ctx.Device);
+        foreach (var buffer in _vertexBuffers)
+            buffer?.Dispose();
+        foreach (var buffer in _indexBuffers)
+            buffer?.Dispose();
 
-        for (int i = 0; i < _vertexCapacity.Length; i++)
-        {
-            if (_vertexCapacity[i] > 0)
-            {
-                vk.UnmapMemory(_ctx.Device, _vertexMemory[i]);
-                vk.DestroyBuffer(_ctx.Device, _vertexBuffers[i], null);
-                vk.FreeMemory(_ctx.Device, _vertexMemory[i], null);
-            }
-            if (_indexCapacity[i] > 0)
-            {
-                vk.UnmapMemory(_ctx.Device, _indexMemory[i]);
-                vk.DestroyBuffer(_ctx.Device, _indexBuffers[i], null);
-                vk.FreeMemory(_ctx.Device, _indexMemory[i], null);
-            }
-        }
-
-        vk.DestroyPipeline(_ctx.Device, _pipeline, null);
-        vk.DestroyPipelineLayout(_ctx.Device, _pipelineLayout, null);
-        vk.DestroyDescriptorPool(_ctx.Device, _descriptorPool, null);
-        vk.DestroyDescriptorSetLayout(_ctx.Device, _descriptorSetLayout, null);
-        vk.DestroySampler(_ctx.Device, _fontSampler, null);
-        vk.DestroyImageView(_ctx.Device, _fontImageView, null);
-        vk.DestroyImage(_ctx.Device, _fontImage, null);
-        vk.FreeMemory(_ctx.Device, _fontImageMemory, null);
+        var deletions = _ctx.Deletions;
+        deletions.Enqueue(GpuDeletion.Of(_pipeline));
+        deletions.Enqueue(GpuDeletion.Of(_pipelineLayout));
+        deletions.Enqueue(GpuDeletion.Of(_descriptorPool));
+        deletions.Enqueue(GpuDeletion.Of(_descriptorSetLayout));
+        _fontTexture.Dispose();
 
         ImGui.SetCurrentContext(_imguiCtx);
         ImGui.DestroyContext(_imguiCtx);

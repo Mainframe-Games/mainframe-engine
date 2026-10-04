@@ -38,6 +38,12 @@ public class SceneTests
         Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
         Gates.AssertValidationClean(result);
         Gates.AssertMatchesGolden(result, 30);
+
+        // 15 shadow maps, render targets, UBO rings, staging: a handful of 64 MiB blocks, not one
+        // vkAllocateMemory per resource (drivers cap the count, often at 4096).
+        Assert.InRange(result.GpuDeviceMemoryCount, 1, 16);
+        Assert.True(result.GpuAllocationCount > 2 * result.GpuDeviceMemoryCount,
+            $"{result.GpuAllocationCount} allocations in {result.GpuDeviceMemoryCount} device memories: expected sub-allocation.");
     }
 
     [Fact]
@@ -84,6 +90,22 @@ public class SceneTests
             $"Steady-state frames allocated {result.AllocatedBytes} managed bytes over {measured} frames " +
             $"(~{result.AllocatedBytes / (double)measured:0.#} B/frame); per-frame code must not allocate.");
         Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void PipelineCacheIsPersistedAndReloaded()
+    {
+        var cacheDir = Path.Combine(RenderTestEnvironment.ArtifactsDirectory, "pipeline-cache-roundtrip");
+        if (Directory.Exists(cacheDir))
+            Directory.Delete(cacheDir, recursive: true);
+
+        var cold = HostRunner.Run("lit-shapes", Output("pipeline-cache-cold"), "--frames", "3", "--hidden", "--pipeline-cache", cacheDir);
+        var warm = HostRunner.Run("lit-shapes", Output("pipeline-cache-warm"), "--frames", "3", "--hidden", "--pipeline-cache", cacheDir);
+
+        Assert.Equal(0, cold.PipelineCacheLoadedBytes);
+        Assert.True(warm.PipelineCacheLoadedBytes > 0, "The second run did not load the pipeline cache written by the first.");
+        Assert.Single(Directory.GetFiles(cacheDir, "pipelines-*.bin"));
+        Gates.AssertValidationClean(warm);
     }
 
     [Fact]

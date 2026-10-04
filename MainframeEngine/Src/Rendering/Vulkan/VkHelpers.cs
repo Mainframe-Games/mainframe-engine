@@ -8,22 +8,6 @@ namespace MainframeEngine;
 /// </summary>
 internal static unsafe class VkHelpers
 {
-    public static ShaderModule CreateShaderModule(IVulkanContext ctx, string spvPath)
-    {
-        var code = File.ReadAllBytes(ContentPaths.Resolve(spvPath));
-        fixed (byte* ptr = code)
-        {
-            var info = new ShaderModuleCreateInfo
-            {
-                SType = StructureType.ShaderModuleCreateInfo,
-                CodeSize = (nuint)code.Length,
-                PCode = (uint*)ptr,
-            };
-            ctx.Vk.CreateShaderModule(ctx.Device, in info, null, out var module).Check("vkCreateShaderModule");
-            return module;
-        }
-    }
-
     /// <summary>
     /// Aspects a layout transition must name for a depth <paramref name="format"/>: combined
     /// depth/stencil formats need both (without separateDepthStencilLayouts), depth-only formats just

@@ -1,10 +1,8 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 
-// SpineRenderer: set 0 VP (vertex), set 1 lights, set 2 shadows, set 3 atlas page texture.
-#define LIGHTS_SET 1
-#define LIGHTS_BINDING 0
-#define SHADOW_SET 2
+// SpineRenderer: set 0 frame (camera + lights), set 1 shadows, set 2 atlas page texture.
+#include "frame.glsl"
 #include "shadows.glsl"
 #include "lights.glsl"
 
@@ -15,7 +13,7 @@ layout(location = 3) in vec3 inNormal;
 
 layout(location = 0) out vec4 outColor;
 
-layout(set = 3, binding = 0) uniform sampler2D uTexture;
+layout(set = 2, binding = 0) uniform sampler2D uTexture;
 
 void main()
 {

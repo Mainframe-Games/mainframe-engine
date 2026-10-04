@@ -34,6 +34,10 @@ public static class HostRunner
             !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")))
             psi.Environment["SDL_VIDEODRIVER"] = "x11";
 
+        // Keep the persisted pipeline cache out of the user's cache folder (and shared by the test runs).
+        // (--pipeline-cache <dir> overrides it per run.)
+        psi.Environment[PipelineCache.DirectoryVariable] = Path.Combine(RenderTestEnvironment.ArtifactsDirectory, "pipeline-cache");
+
         psi.ArgumentList.Add(hostDll);
         psi.ArgumentList.Add(scene);
         psi.ArgumentList.Add("--out");

@@ -8,6 +8,8 @@ Environment.CurrentDirectory = AppContext.BaseDirectory;
 
 var options = HostOptions.Parse(args);
 Directory.CreateDirectory(options.OutputDirectory);
+if (options.PipelineCacheDirectory is not null)
+    Environment.SetEnvironmentVariable(PipelineCache.DirectoryVariable, options.PipelineCacheDirectory);
 
 RenderTestGame game = options.Scene switch
 {

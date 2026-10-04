@@ -49,6 +49,10 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private GpuAllocator? _allocator;
     private DeletionQueue? _deletions;
     private UploadQueue? _uploads;
+    private PipelineCache? _pipelineCache;
+    private ShaderModuleCache? _shaderModules;
+    private FrameContext? _frameContext;
+    private float _exposure = DefaultExposure;
     private ulong _frameNumber;                                      // frames that started recording (1-based)
     private readonly ulong[] _slotFrameNumber = new ulong[MaxFramesInFlight]; // last frame recorded in each slot
 
@@ -137,6 +141,19 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public GpuAllocator Allocator => _allocator ?? throw new InvalidOperationException("The device is not initialised.");
     public UploadQueue Uploads => _uploads ?? throw new InvalidOperationException("The device is not initialised.");
     public DeletionQueue Deletions => _deletions ?? throw new InvalidOperationException("The device is not initialised.");
+    public PipelineCache Pipelines => _pipelineCache ?? throw new InvalidOperationException("The device is not initialised.");
+    public ShaderModuleCache Shaders => _shaderModules ?? throw new InvalidOperationException("The device is not initialised.");
+    public FrameContext Frame => _frameContext ??= new FrameContext(this);
+    public ulong FrameNumber => _frameNumber;
+
+    /// <summary>Exposure used when the renderer starts (see docs/design/color-pipeline.md).</summary>
+    public const float DefaultExposure = 1f;
+
+    public float Exposure
+    {
+        get => _exposure;
+        set => _exposure = float.IsFinite(value) && value > 0f ? value : throw new ArgumentOutOfRangeException(nameof(value), "Exposure must be positive.");
+    }
 
     #endregion
 
@@ -528,6 +545,8 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         _allocator = GpuAllocator.Create(_vk!, _physicalDevice, _device);
         _deletions = new DeletionQueue(new VulkanDestroyer(_vk!, _device, _allocator));
         _uploads = new UploadQueue(this, _allocator, _deletions);
+        _pipelineCache = new PipelineCache(_vk!, _physicalDevice, _device);
+        _shaderModules = new ShaderModuleCache(_vk!, _device);
     }
 
     private string[] GetRequiredExtensions()
@@ -1172,12 +1191,16 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             _shadowFallback = null;
             _captureBuffer?.Dispose();
             _captureBuffer = null;
+            _frameContext?.Dispose();
+            _frameContext = null;
             CleanupSwapchain();
 
             // Everything games and subsystems released is idle now; then the memory itself.
             _deletions?.FlushAll();
             _uploads?.Dispose();
             _allocator?.Dispose();
+            _shaderModules?.Dispose();
+            _pipelineCache?.Dispose(); // saves the cache file
 
             for (int i = 0; i < MaxFramesInFlight; i++)
             {

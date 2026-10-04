@@ -7,7 +7,7 @@ using VkSampler = Silk.NET.Vulkan.Sampler;
 namespace MainframeEngine;
 
 /// <summary>The set-2 shadow descriptors a lit pipeline binds: a real <see cref="ShadowSystem"/> or the "no shadows" fallback.</summary>
-internal interface IShadowDescriptors
+public interface IShadowDescriptors
 {
     DescriptorSetLayout MainDescSetLayout { get; }
 
@@ -664,10 +664,11 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         // ── Shared pipeline state ─────────────────────────────────────────────
         var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
 
-        var vert2D = VkHelpers.CreateShaderModule(_ctx, "Content/Shaders/Shadows/Shadow2D.vk.vert.spv");
-        var frag2D = VkHelpers.CreateShaderModule(_ctx, "Content/Shaders/Shadows/Shadow2D.vk.frag.spv");
-        var vertPt = VkHelpers.CreateShaderModule(_ctx, "Content/Shaders/Shadows/ShadowPoint.vk.vert.spv");
-        var fragPt = VkHelpers.CreateShaderModule(_ctx, "Content/Shaders/Shadows/ShadowPoint.vk.frag.spv");
+        var shaders = _ctx.Shaders;
+        var vert2D = shaders.Get("Shaders/Shadows/Shadow2D.vk.vert.spv");
+        var frag2D = shaders.Get("Shaders/Shadows/Shadow2D.vk.frag.spv");
+        var vertPt = shaders.Get("Shaders/Shadows/ShadowPoint.vk.vert.spv");
+        var fragPt = shaders.Get("Shaders/Shadows/ShadowPoint.vk.frag.spv");
 
         var stages2D = stackalloc PipelineShaderStageCreateInfo[]
         {
@@ -734,11 +735,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         _pipePoint_S32 = BuildPipeline(stagesPt, 2, 32, _layoutPoint, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
         _pipePoint_S12 = BuildPipeline(stagesPt, 2, 12, _layoutPoint, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
 
-        SilkMarshal.Free((nint)entryPoint);
-        vk.DestroyShaderModule(device, vert2D, null);
-        vk.DestroyShaderModule(device, frag2D, null);
-        vk.DestroyShaderModule(device, vertPt, null);
-        vk.DestroyShaderModule(device, fragPt, null);
+        SilkMarshal.Free((nint)entryPoint); // modules belong to the shared ShaderModuleCache
     }
 
     private Pipeline BuildPipeline(
@@ -785,8 +782,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
                 RenderPass          = _shadowRenderPass,
                 Subpass             = 0,
             };
-            _ctx.Vk.CreateGraphicsPipelines(_ctx.Device, default, 1, in pipeInfo, null, out var pipe).Check("vkCreateGraphicsPipelines (shadow)");
-            return pipe;
+            return _ctx.Pipelines.CreateGraphicsPipeline(pipeInfo, "shadow");
         }
     }
 

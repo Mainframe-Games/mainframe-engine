@@ -105,6 +105,10 @@ public abstract class RenderTestGame : Engine
     {
         var (deviceName, driver, tag) = DescribeDevice();
         var validation = Vulkan.Validation;
+        var gpu = Vulkan.Allocator.Totals;
+        var pipelineCacheBytes = Vulkan.Pipelines.LoadedBytes;
+        var shaderModules = Vulkan.Shaders.Count;
+        Vulkan.Vk.GetPhysicalDeviceProperties(Vulkan.PhysicalDevice, out var props);
 
         DisposeScene();
         base.OnClose(); // destroys the device: leaks and in-use destruction are reported here
@@ -124,6 +128,12 @@ public abstract class RenderTestGame : Engine
             MeasuredFrames = _allocatedBytes is null ? 0 : _host.AllocationMeasuredFrames,
             Captures = _captures,
             SceneCheckFailures = _checkFailures,
+            PipelineCacheLoadedBytes = pipelineCacheBytes,
+            GpuDeviceMemoryCount = gpu.DeviceMemoryCount,
+            GpuAllocationCount = gpu.AllocationCount,
+            GpuReservedBytes = (long)gpu.ReservedBytes,
+            ShaderModuleCount = shaderModules,
+            MaxMemoryAllocationCount = props.Limits.MaxMemoryAllocationCount,
         };
     }
 

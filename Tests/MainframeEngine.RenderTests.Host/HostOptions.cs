@@ -4,7 +4,7 @@ namespace MainframeEngine.RenderTests.Host;
 
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
-/// [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame]</c>.
+/// [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--pipeline-cache dir]</c>.
 /// </summary>
 public sealed record HostOptions
 {
@@ -27,6 +27,9 @@ public sealed record HostOptions
 
     /// <summary>Call <c>Quit(ExitCode.Error)</c> on this frame; 0 = never.</summary>
     public uint QuitWithErrorAtFrame { get; init; }
+
+    /// <summary>Directory for the persisted pipeline cache (overrides <c>MAINFRAME_PIPELINE_CACHE_DIR</c>).</summary>
+    public string? PipelineCacheDirectory { get; init; }
 
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
@@ -84,6 +87,9 @@ public sealed record HostOptions
                     break;
                 case "--quit-error":
                     options = options with { QuitWithErrorAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--pipeline-cache":
+                    options = options with { PipelineCacheDirectory = Path.GetFullPath(Next()) };
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");

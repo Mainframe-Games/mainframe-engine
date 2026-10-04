@@ -34,5 +34,17 @@ public sealed record HostResult
 
     public required IReadOnlyList<CaptureInfo> Captures { get; init; }
 
+    /// <summary>Pipeline-cache bytes the renderer accepted from disk at startup (0 = cold cache).</summary>
+    public int PipelineCacheLoadedBytes { get; init; }
+
+    /// <summary>GPU allocator totals at the end of the run (before teardown).</summary>
+    public int GpuDeviceMemoryCount { get; init; }
+    public int GpuAllocationCount { get; init; }
+    public long GpuReservedBytes { get; init; }
+    public int ShaderModuleCount { get; init; }
+
+    /// <summary>The device's <c>maxMemoryAllocationCount</c> limit.</summary>
+    public long MaxMemoryAllocationCount { get; init; }
+
     public sealed record CaptureInfo(uint Frame, string Path, int Width, int Height);
 }
