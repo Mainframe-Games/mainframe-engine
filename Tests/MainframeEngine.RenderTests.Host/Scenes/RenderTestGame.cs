@@ -74,6 +74,14 @@ public abstract class RenderTestGame : Engine
             CaptureFrame();
         }
 
+        // Swapchain-recreation and shutdown hooks (frame numbers from the command line).
+        if (frame == _host.ResizeAtFrame)
+            Window.Size = new Vector2D<int>(_host.ResizeTo.Width, _host.ResizeTo.Height);
+        if (frame == _host.ToggleVSyncAtFrame)
+            Renderer.VSync = !Renderer.VSync;
+        if (frame == _host.QuitWithErrorAtFrame)
+            Quit(ExitCode.Error);
+
         UpdateScene(gameTime);
     }
 
@@ -86,6 +94,11 @@ public abstract class RenderTestGame : Engine
 
     /// <summary>Set once the engine has shut down; includes validation messages from teardown.</summary>
     public HostResult? Result { get; private set; }
+
+    private readonly List<string> _checkFailures = [];
+
+    /// <summary>Records a failed scene self-check; reported in <see cref="HostResult.SceneCheckFailures"/>.</summary>
+    protected void Fail(string message) => _checkFailures.Add(message);
 
     protected override void OnClose()
     {
@@ -109,6 +122,7 @@ public abstract class RenderTestGame : Engine
             AllocatedBytes = _allocatedBytes,
             MeasuredFrames = _allocatedBytes is null ? 0 : _host.AllocationMeasuredFrames,
             Captures = _captures,
+            SceneCheckFailures = _checkFailures,
         };
     }
 

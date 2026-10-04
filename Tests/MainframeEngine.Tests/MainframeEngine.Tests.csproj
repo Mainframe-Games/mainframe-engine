@@ -24,4 +24,11 @@
     <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
   </ItemGroup>
 
+  <!-- SpineNode tests load SpineBoy (shared with the Sandbox rather than duplicated). -->
+  <ItemGroup>
+    <None Include="..\..\MainframeEngine.Sandbox\Content\Models\Spine\SpineBoy\**"
+          LinkBase="Content\Models\Spine\SpineBoy"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -22,6 +22,12 @@ public sealed record HostResult
     public required IReadOnlyList<string> ValidationMessages { get; init; }
     public required int RenderedFrames { get; init; }
 
+    /// <summary>What <c>Engine.Run()</c> returned (the host process exits with it).</summary>
+    public int ExitCode { get; init; }
+
+    /// <summary>Scene-specific self-checks that failed (empty when all passed).</summary>
+    public IReadOnlyList<string> SceneCheckFailures { get; init; } = [];
+
     /// <summary>Managed bytes allocated on the main thread over <see cref="MeasuredFrames"/>; null when not measured.</summary>
     public long? AllocatedBytes { get; init; }
     public int MeasuredFrames { get; init; }

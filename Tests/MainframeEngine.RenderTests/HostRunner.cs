@@ -11,6 +11,10 @@ public static class HostRunner
     private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(3);
 
     public static HostResult Run(string scene, string outputDirectory, params string[] extraArgs)
+        => RunExpectingExit(0, scene, outputDirectory, extraArgs);
+
+    /// <summary>Runs the host and requires it to exit with <paramref name="expectedExitCode"/> (the scene's <c>Engine.Run()</c> result).</summary>
+    public static HostResult RunExpectingExit(int expectedExitCode, string scene, string outputDirectory, params string[] extraArgs)
     {
         ArgumentNullException.ThrowIfNull(extraArgs);
         if (Directory.Exists(outputDirectory))
@@ -49,8 +53,8 @@ public static class HostRunner
 
         File.WriteAllText(Path.Combine(outputDirectory, "host.log"), output.ToString());
         var resultPath = Path.Combine(outputDirectory, HostResult.FileName);
-        if (process.ExitCode != 0 || !File.Exists(resultPath))
-            Assert.Fail($"Render host '{scene}' failed with exit code {process.ExitCode}.\n{output}");
+        if (process.ExitCode != expectedExitCode || !File.Exists(resultPath))
+            Assert.Fail($"Render host '{scene}' exited with {process.ExitCode} (expected {expectedExitCode}).\n{output}");
 
         return JsonSerializer.Deserialize<HostResult>(File.ReadAllText(resultPath), HostResult.JsonOptions)
                ?? throw new InvalidDataException($"Empty result from render host '{scene}'.");

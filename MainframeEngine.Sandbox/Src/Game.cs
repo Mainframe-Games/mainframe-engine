@@ -69,7 +69,6 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         Node.Initialize(Renderer, _shadowSystem);
 
         var spineNode = new SpineNode(Renderer, new SpineFolder("Content/Models/Spine/SpineBoy"));
-        spineNode.SpineScale = 0.001f;
         spineNode.Scale = new Vector3(0.1f, 0.1f, 0.1f);
         // _spineNode.SetAnimation("W/Run");
         spineNode.SetAnimation("walk");
@@ -87,36 +86,56 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             Color = Color.White
         });
 
+        // Every shadow type at once (2 directional + 1 point + 2 spot): each shadow sub-pass uses its
+        // own light matrix (M1 renderer stabilization).
         _lights.AddLight(new DirectionalLight
         {
             Position = new Vector3(0, 5, 0),
             Direction = Vector3.Normalize(new Vector3(0, -0.5f, -1)),
             Color = new Vector3(1f, 0.95f, 0.8f),
-            Intensity = 0.9f
+            Intensity = 0.8f
         });
-        // _lights.AddLight(new PointLight
-        // { 
-        //     Position = new Vector3(3, 2, 2),
-        //     Color = new Vector3(0.2f, 0.5f, 1f),
-        //     Intensity = 0.1f,
-        //     Range = 10
-        // });
-        // _lights.AddLight(new SpotLight
-        // {
-        //     Position = new Vector3(-2, 4, 2),
-        //     Direction = Vector3.Normalize(new Vector3(0.5f, -1, -0.5f)),
-        //     Color = new Vector3(1,1,1),
-        //     Intensity = 1,
-        //     Range = 15f,
-        //     InnerConeAngle = 12f,
-        //     OuterConeAngle = 25f
-        // });
+        _lights.AddLight(new DirectionalLight
+        {
+            Position = new Vector3(0, 5, 0),
+            Direction = Vector3.Normalize(new Vector3(-0.8f, -1f, 0.3f)),
+            Color = new Vector3(0.6f, 0.7f, 1f),
+            Intensity = 0.2f
+        });
+        _lights.AddLight(new PointLight
+        {
+            Position = new Vector3(4.5f, 1.5f, 2f),
+            Color = new Vector3(0.2f, 0.5f, 1f),
+            Intensity = 0.8f,
+            Range = 8
+        });
+        _lights.AddLight(new SpotLight
+        {
+            Position = new Vector3(-3, 4, 3),
+            Direction = Vector3.Normalize(new Vector3(0.5f, -1, -0.5f)),
+            Color = new Vector3(1f, 0.6f, 0.4f),
+            Intensity = 0.9f,
+            Range = 15f,
+            InnerConeAngle = 12f,
+            OuterConeAngle = 25f
+        });
+        _lights.AddLight(new SpotLight
+        {
+            Position = new Vector3(3, 4, -2),
+            Direction = Vector3.Normalize(new Vector3(-0.2f, -1, 0.4f)),
+            Color = new Vector3(0.5f, 1f, 0.6f),
+            Intensity = 0.7f,
+            Range = 12f,
+            InnerConeAngle = 15f,
+            OuterConeAngle = 28f
+        });
     }
 
     protected override void OnUpdate(in GameTime gameTime)
     {
         if (QaCapture?.ShouldCapture(gameTime.FrameCount) == true)
             CaptureFrame();
+        RunQaScript(gameTime.FrameCount);
 
         UpdateCameraPosition(gameTime.DeltaTime);
 
@@ -213,6 +232,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
     protected override void OnClose()
     {
+        _qaWakeTimer?.Dispose();
         _shadowSystem.Dispose();
         _sky.Dispose();
         _sceneGrid3d.Dispose();
@@ -220,6 +240,73 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             shape.Dispose();
 
         base.OnClose();
+    }
+
+    // --qa-resize / --qa-minimize: scripted window changes for `just qa`.
+    private long _qaMinimizedAt;
+    private int _qaRenderedAtMinimize;
+    private int _qaUpdatesWhileMinimized;
+    private Timer? _qaWakeTimer;
+
+    private void RunQaScript(uint frame)
+    {
+        if (QaCapture is not { } qa)
+            return;
+
+        if (qa.InputFrame > 0 && frame >= qa.InputFrame && frame < qa.InputFrame + QaCapture.InputFrames)
+        {
+            var step = (int)(frame - qa.InputFrame);
+            var x = Window.Size.X / 2 + step * 8;
+            var y = Window.Size.Y / 2;
+            if (step == 0)
+            {
+                Log.Info($"[QA] Input: right-drag starts, camera forward {_camera3D.Forward}");
+                QaCapture.PushMouse(Window, Silk.NET.SDL.EventType.Mousebuttondown, x, y, 0, 0);
+            }
+            else if (step == (int)QaCapture.InputFrames - 1)
+            {
+                QaCapture.PushMouse(Window, Silk.NET.SDL.EventType.Mousebuttonup, x, y, 0, 0);
+            }
+            else if (step == (int)QaCapture.InputFrames - 2)
+            {
+                Log.Info($"[QA] Input: right-drag ends, camera forward {_camera3D.Forward}, cursor {_mouse.Cursor.CursorMode}");
+            }
+            else
+            {
+                QaCapture.PushMouse(Window, Silk.NET.SDL.EventType.Mousemotion, x, y, 8, 0);
+            }
+        }
+
+        if (frame == qa.ResizeFrame)
+        {
+            Window.Size = qa.ResizeTo;
+            Log.Info($"[QA] Resized to {qa.ResizeTo.X}x{qa.ResizeTo.Y} pt");
+        }
+
+        if (frame == qa.MinimizeFrame && _qaMinimizedAt == 0)
+        {
+            Window.WindowState = WindowState.Minimized;
+            _qaMinimizedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+            _qaRenderedAtMinimize = RenderedFrameCount;
+            _qaUpdatesWhileMinimized = 0;
+            _qaWakeTimer = new Timer(static _ => QaCapture.WakeEventLoop(), null, 100, 100);
+            Log.Info("[QA] Minimised");
+            return;
+        }
+
+        if (_qaMinimizedAt != 0)
+        {
+            _qaUpdatesWhileMinimized++;
+            if (System.Diagnostics.Stopwatch.GetElapsedTime(_qaMinimizedAt).TotalSeconds >= 1.5)
+            {
+                Log.Info($"[QA] Restoring after 1.5 s minimised: {_qaUpdatesWhileMinimized} updates, " +
+                         $"{RenderedFrameCount - _qaRenderedAtMinimize} frames rendered while minimised");
+                _qaWakeTimer?.Dispose();
+                _qaWakeTimer = null;
+                _qaMinimizedAt = 0;
+                Window.WindowState = WindowState.Normal;
+            }
+        }
     }
 
     private void UpdateCameraPosition(double deltaTime)

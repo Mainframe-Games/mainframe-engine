@@ -30,6 +30,50 @@ public class SceneTests
     }
 
     [Fact]
+    public void MultipleShadowCastingLightsEachUseTheirOwnMatrix()
+    {
+        // Directional + spot + point (6 cube faces): 8 shadow sub-passes in one frame.
+        var result = HostRunner.Run("multi-light", Output("multi-light"), "--capture", "30", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 30);
+    }
+
+    [Fact]
+    public void SpineRendersWithoutAShadowSystem()
+    {
+        var result = HostRunner.Run("spine-no-shadows", Output("spine-no-shadows"), "--capture", "60", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 60);
+    }
+
+    [Fact]
+    public void SwapchainRecreationOnResizeAndVSyncToggleIsClean()
+    {
+        var result = HostRunner.Run("lit-shapes", Output("recreate"),
+            "--resize", "400x300@10", "--toggle-vsync", "20", "--capture", "5,40", "--hidden");
+
+        var before = result.Captures.Single(c => c.Frame == 5);
+        var after = result.Captures.Single(c => c.Frame == 40);
+        Assert.Equal(before.Width * 400 / 320, after.Width); // same DPI scale, new size
+        Assert.Equal(before.Height * 300 / 240, after.Height);
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void QuitWithErrorReturnsErrorExitCode()
+    {
+        var result = HostRunner.RunExpectingExit((int)ExitCode.Error, "lit-shapes", Output("exit-code"),
+            "--quit-error", "3", "--frames", "100", "--hidden");
+
+        Assert.Equal((int)ExitCode.Error, result.ExitCode);
+        Assert.InRange(result.RenderedFrames, 2, 4); // the window closes around the update that quit
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void SandboxSteadyStateAllocatesNothing()
     {
         const int warmup = 120, measured = 300;

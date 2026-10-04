@@ -11,7 +11,6 @@ public class SpineScene(HostOptions host) : LitShapesScene(host)
     {
         var spine = new SpineNode(Renderer, new SpineFolder(SpineFolder))
         {
-            SpineScale = 0.001f,
             Scale = new Vector3(0.1f, 0.1f, 0.1f),
         };
         spine.SetAnimation("walk");

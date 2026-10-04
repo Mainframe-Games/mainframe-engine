@@ -14,12 +14,16 @@ public class LitShapesScene(HostOptions host) : RenderTestGame(host)
     private readonly List<Node> _nodes = [];
     private SkyEnvironment _sky = null!;
     private SceneGrid3d _grid = null!;
-    private ShadowSystem _shadows = null!;
+    private ShadowSystem? _shadows;
     private Box3d _spinningBox = null!;
 
     protected IReadOnlyList<Node> Nodes => _nodes;
     protected Camera3D Camera => _camera;
     protected LightEnvironment Lights => _lights;
+    protected ShadowSystem? Shadows => _shadows;
+
+    /// <summary>False runs the scene without a <see cref="ShadowSystem"/> (lit pipelines bind the fallback set 2).</summary>
+    protected virtual bool UseShadowSystem => true;
 
     protected override void LoadScene()
     {
@@ -28,7 +32,7 @@ public class LitShapesScene(HostOptions host) : RenderTestGame(host)
 
         _sky = new SkyProcedural(Renderer);
         _grid = new SceneGrid3d(Renderer);
-        _shadows = new ShadowSystem(Vulkan);
+        _shadows = UseShadowSystem ? new ShadowSystem(Vulkan) : null;
         Node.Initialize(Renderer, _shadows);
 
         _nodes.Add(new Quad { Rotation = new Vector3(90, 0, 0), Scale = new Vector3(10, 10, 1), Color = Color.White });
@@ -36,15 +40,20 @@ public class LitShapesScene(HostOptions host) : RenderTestGame(host)
         _nodes.Add(_spinningBox);
         _nodes.Add(new Box3d { Position = new Vector3(1.5f, 0.5f, 1f), Color = Color.FromArgb(255, 90, 160, 230) });
 
-        _lights.AddLight(new DirectionalLight
+        AddLights(_lights);
+        AddNodes(_nodes);
+    }
+
+    /// <summary>One shadow-casting directional light; derived scenes may add or replace lights.</summary>
+    protected virtual void AddLights(LightEnvironment lights)
+    {
+        lights.AddLight(new DirectionalLight
         {
             Position = new Vector3(0, 5, 0),
             Direction = Vector3.Normalize(new Vector3(-0.4f, -1f, -0.6f)),
             Color = new Vector3(1f, 0.95f, 0.8f),
             Intensity = 0.9f,
         });
-
-        AddNodes(_nodes);
     }
 
     /// <summary>Lets derived scenes add nodes that are updated, shadowed and drawn with the rest.</summary>
@@ -61,6 +70,9 @@ public class LitShapesScene(HostOptions host) : RenderTestGame(host)
 
     protected override void OnShadowPass(in GameTime gameTime)
     {
+        if (_shadows is null)
+            return;
+
         _shadows.RenderShadows(_lights, _nodes,
             static (nodes, cb, _, _, _) =>
             {
@@ -91,7 +103,7 @@ public class LitShapesScene(HostOptions host) : RenderTestGame(host)
     {
         foreach (var node in _nodes)
             node.Dispose();
-        _shadows.Dispose();
+        _shadows?.Dispose();
         _grid.Dispose();
         _sky.Dispose();
     }

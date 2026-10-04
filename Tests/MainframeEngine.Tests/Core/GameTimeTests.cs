@@ -22,10 +22,21 @@ public class GameTimeTests
         Assert.Equal(800, options.WindowSize.X);
         Assert.Equal(600, options.WindowSize.Y);
         Assert.True(options.VSync);
-        Assert.True(options.EnableValidation);
+        Assert.Equal(EngineOptions.DefaultEnableValidation, options.EnableValidation);
         Assert.True(options.WindowVisible);
         Assert.False(options.EnableFrameCapture);
         Assert.Equal(0, options.MaxFrames);
         Assert.Equal(0f, options.FixedDeltaTime);
+    }
+
+    [Fact]
+    public void ValidationDefaultsOnInDebugOffInRelease()
+    {
+        // Test and engine assemblies are built with the same configuration.
+#if DEBUG
+        Assert.True(EngineOptions.DefaultEnableValidation);
+#else
+        Assert.False(EngineOptions.DefaultEnableValidation);
+#endif
     }
 }

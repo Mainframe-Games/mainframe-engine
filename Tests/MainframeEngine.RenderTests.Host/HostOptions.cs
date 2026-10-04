@@ -4,7 +4,7 @@ namespace MainframeEngine.RenderTests.Host;
 
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
-/// [--size WxH] [--hidden]</c>.
+/// [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame]</c>.
 /// </summary>
 public sealed record HostOptions
 {
@@ -18,10 +18,20 @@ public sealed record HostOptions
     public int Height { get; init; } = 240;
     public bool Hidden { get; init; }
 
+    /// <summary>Resize the window to <see cref="ResizeTo"/> (points) on this frame; 0 = never.</summary>
+    public uint ResizeAtFrame { get; init; }
+    public (int Width, int Height) ResizeTo { get; init; }
+
+    /// <summary>Flip <c>Renderer.VSync</c> (present mode → swapchain recreation) on this frame; 0 = never.</summary>
+    public uint ToggleVSyncAtFrame { get; init; }
+
+    /// <summary>Call <c>Quit(ExitCode.Error)</c> on this frame; 0 = never.</summary>
+    public uint QuitWithErrorAtFrame { get; init; }
+
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
         if (args.Count == 0)
-            throw new ArgumentException("Usage: <scene> --out <dir> [--capture 30,60] [--frames N] [--alloc warmup:count] [--size WxH] [--hidden]");
+            throw new ArgumentException("Usage: <scene> --out <dir> [--capture 30,60] [--frames N] [--alloc warmup:count] [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame]");
 
         var options = new HostOptions { Scene = args[0], OutputDirectory = "" };
         for (var i = 1; i < args.Count; i++)
@@ -59,6 +69,21 @@ public sealed record HostOptions
                     break;
                 case "--hidden":
                     options = options with { Hidden = true };
+                    break;
+                case "--resize":
+                    var resize = Next().Split('@');
+                    var to = resize[0].Split('x');
+                    options = options with
+                    {
+                        ResizeTo = (int.Parse(to[0], CultureInfo.InvariantCulture), int.Parse(to[1], CultureInfo.InvariantCulture)),
+                        ResizeAtFrame = uint.Parse(resize[1], CultureInfo.InvariantCulture),
+                    };
+                    break;
+                case "--toggle-vsync":
+                    options = options with { ToggleVSyncAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--quit-error":
+                    options = options with { QuitWithErrorAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");
