@@ -96,6 +96,23 @@ public static class SandboxSceneBuilder
         }
     }
 
+    /// <summary>The network demo's box scene (<see cref="NetworkDemo.BoxScene"/>): one <see cref="NetBox"/>.</summary>
+    public static Node BuildNetBox() => new NetBox { Name = "NetBox" };
+
+    /// <summary>Builds the network demo's box scene and saves it to <paramref name="path"/>.</summary>
+    public static string WriteNetBox(string path)
+    {
+        var root = BuildNetBox();
+        try
+        {
+            return SceneSaver.Save(root, path);
+        }
+        finally
+        {
+            root.Free();
+        }
+    }
+
     private static void Add(Node root, Node child)
     {
         root.AddChild(child);

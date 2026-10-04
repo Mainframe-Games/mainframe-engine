@@ -32,6 +32,9 @@ public sealed class Game(in EngineOptions options) : Engine(options)
     /// <summary>Set by <c>--qa-capture</c>: frames to screenshot before the engine exits.</summary>
     public QaCapture? QaCapture { get; init; }
 
+    /// <summary>Set by <c>--server</c> / <c>--client host</c>: the multiplayer demo (M5).</summary>
+    public NetworkDemo? Network { get; init; }
+
     private IMouse _mouse = null!;
 
     /// <summary>The scene's camera (null until the scene is loaded).</summary>
@@ -57,6 +60,9 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         // Editor-style reference grid: added at runtime (not saved with the scene); draws before the scene's
         // visuals (RenderPriority -100).
         Root.AddChild(new Grid3D { Name = "Grid" });
+
+        // M5: host or join (both ends have loaded the same level, so spawned boxes go to the same parent path).
+        Network?.Start(this);
     }
 
     protected override void OnUpdate(in GameTime gameTime)
@@ -64,6 +70,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         if (QaCapture?.ShouldCapture(gameTime.FrameCount) == true)
             CaptureFrame();
         RunQaScript(gameTime.FrameCount);
+        Network?.Update(gameTime);
     }
 
     protected override void OnImGui(in GameTime gameTime)
@@ -109,6 +116,8 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
             ImGui.SeparatorText("Scene");
             ImGui.Value("Nodes", Tree.NodeCount);
+
+            Network?.DrawImGui();
         }
         ImGui.End();
 
