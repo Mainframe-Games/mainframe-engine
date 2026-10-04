@@ -7,6 +7,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - **Current wave:** W5 — M0–M9 + M10 E1–E3 (editor) + E4 engine side (GameHost/projects/EditorLink/loader/template) integrated; CI-final + fixed ContentScale render tests + mobile design docs (M12/M13) in.
 - **Next action:** M10c lane (E4 editor side: project UI, filesystem panel, play via EditorLink, code reload; E5 polish; the full editor ICON PASS — see Claude memory m10c-scope-additions + feedback-editor-icons-over-text); then .slnx migration; final QA + benchmark baseline on quiet machine; PR ready.
 - **Open blockers:** none
+- **NO PUSHES (user, 2026-10-05):** GitHub Actions minutes nearly exhausted — commit locally only, no `gh workflow run`; one final push at the end (that run also records lavapipe goldens for new editor scenes). Lane agents told the same.
 
 ## Log
 
