@@ -88,6 +88,12 @@ public abstract class Engine : IDisposable
     /// <summary>The tree's root viewport (<c>/root</c>).</summary>
     public SceneViewport Root => Tree.Root;
 
+    /// <summary>
+    /// Multiplayer for <see cref="Tree"/> (M5): host with <see cref="Networking.MultiplayerApi.Host"/>, join with
+    /// <see cref="Networking.MultiplayerApi.Connect"/>. Registered in <see cref="OnLoad"/>; idle until started.
+    /// </summary>
+    public Networking.MultiplayerApi Multiplayer { get; private set; } = null!;
+
     /// <summary>Engine servers (the <see cref="RenderServer"/> exists after <see cref="OnLoad"/>).</summary>
     public ServerRegistry Servers => Tree.Servers;
 
@@ -211,6 +217,8 @@ public abstract class Engine : IDisposable
         Servers.Register(new RenderServer(Renderer));
         if (EngineOptions.SteamAppId != 0)
             Servers.Register(new SteamServer(EngineOptions.SteamAppId));
+        // M5: replication for the engine's tree; idle (no network) until StartServer/StartClient.
+        Multiplayer = Networking.MultiplayerApi.Attach(Tree);
         _inputRouter = new InputRouter(InputContext, Tree);
 
         SetWindowIcon(EngineOptions.IconPath);

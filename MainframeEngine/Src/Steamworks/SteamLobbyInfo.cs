@@ -51,6 +51,20 @@ public sealed class SteamLobbyInfo(ulong lobbyId) : IEquatable<SteamLobbyInfo>, 
         set => SetData(nameof(Country), value);
     }
 
+    /// <summary>Lobby metadata key of <see cref="ConnectAddress"/>.</summary>
+    public const string ConnectKey = "connect";
+
+    /// <summary>
+    /// Where the host's server can be reached: a <c>;</c>-separated <see cref="Networking.NetworkAddress"/> list, best
+    /// first (<c>"steam:7656…;enet:203.0.113.5:7777"</c>). Joining players hand it to
+    /// <see cref="Networking.MultiplayerApi.TryConnect"/>, which picks the first transport that works here.
+    /// </summary>
+    public string ConnectAddress
+    {
+        get => GetData(ConnectKey);
+        set => SetData(ConnectKey, value);
+    }
+
     /// <summary>Lobby members; empty without Steam.</summary>
     public IReadOnlyList<SteamFriend> GetPlayers() => Steam.Valid ? SteamLobbyApi.GetMembers(LobbyId) : [];
 

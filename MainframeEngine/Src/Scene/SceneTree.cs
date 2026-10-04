@@ -92,6 +92,9 @@ public sealed partial class SceneTree
     /// </summary>
     public float PhysicsInterpolationFraction { get; private set; }
 
+    /// <summary>Delta time (seconds) of the frame being (or last) processed by <see cref="Tick"/>.</summary>
+    public float ProcessDeltaTime { get; private set; }
+
     /// <summary>Frames processed by <see cref="Tick"/>.</summary>
     public ulong ProcessFrames { get; private set; }
 
@@ -212,6 +215,7 @@ public sealed partial class SceneTree
             throw new InvalidOperationException("SceneTree.Tick is not re-entrant.");
 
         _inTick = true;
+        ProcessDeltaTime = gameTime.DeltaTime;
         try
         {
             var step = 1.0 / PhysicsTicksPerSecond;

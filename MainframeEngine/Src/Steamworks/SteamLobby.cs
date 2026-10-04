@@ -33,6 +33,10 @@ public static class SteamLobby
     /// <param name="maxPlayers">1 to <see cref="MaxLobbyMembers"/>.</param>
     /// <param name="appVersion">Stored as lobby metadata when given (lets clients filter incompatible builds).</param>
     /// <param name="friendsOnly">Friends-only instead of public.</param>
+    /// <param name="connectAddress">
+    /// Stored as <see cref="SteamLobbyInfo.ConnectAddress"/> when given: how members reach the host's server (e.g.
+    /// <c>NetworkAddress.FormatList(NetworkAddress.Steam(Steam.SteamId), NetworkAddress.Enet(ip, port))</c>).
+    /// </param>
     /// <param name="cancellationToken">Cancels the wait (throws <see cref="OperationCanceledException"/>).</param>
     /// <returns>The lobby, or null without Steam, on failure or on timeout.</returns>
     public static async Task<SteamLobbyInfo?> CreateLobbyAsync(
@@ -40,6 +44,7 @@ public static class SteamLobby
         int maxPlayers,
         string? appVersion = null,
         bool friendsOnly = false,
+        string? connectAddress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(lobbyName);
@@ -61,6 +66,8 @@ public static class SteamLobby
         };
         if (appVersion is not null)
             lobby.AppVersion = appVersion;
+        if (connectAddress is not null)
+            lobby.ConnectAddress = connectAddress;
 
         Current = lobby;
         SteamRichPresence.SetConnect(Steam.SteamId.ToString(System.Globalization.CultureInfo.InvariantCulture));
