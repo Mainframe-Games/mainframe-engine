@@ -84,8 +84,15 @@ Every Vulkan call that returns a `Result` in init, per-frame and recreation path
 The scene pass's incoming dependency orders this frame's writes after the previous frame's tonemap read
 and depth writes; its outgoing one makes the colour visible to the tonemap's fragment shader. The
 swapchain passes wait on the acquire semaphore at `COLOR_ATTACHMENT_OUTPUT` and end with an outgoing
-dependency to `TRANSFER`, so a frame-capture copy recorded afterwards is chained to the colour writes
-and the `PRESENT_SRC` transition. Clear values: `SetClearColor` (sRGB, converted to linear) and depth 1.
+dependency to `TRANSFER`. A frame-capture copy recorded afterwards is chained to the colour writes and the
+`PRESENT_SRC` transition.
+
+Between the scene and tonemap passes, and before the capture copy, there is also an **explicit pipeline
+barrier** (colour-attachment writes → fragment-shader / transfer reads). MoltenVK does not wait on render-pass
+external dependencies between Metal encoders. Under a heavy first frame (M4: the shadow maps being created), the
+tonemap read the scene target's last tile rows before they were stored, and captures showed black tiles. Passes
+that rely only on subpass dependencies to hand an image to the next encoder (offscreen `SubViewport` → compositor,
+object-ID → readback) may need the same treatment. Clear values: `SetClearColor` (sRGB, converted to linear) and depth 1.
 Order within a frame and the colour handling are described in [Color pipeline](color-pipeline.md).
 
 ## Frame synchronization

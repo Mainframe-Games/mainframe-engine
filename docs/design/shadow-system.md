@@ -15,8 +15,8 @@ descriptor set (set 1 of every lit scene pipeline: meshes, Spine) that the main 
 
 The frame's CPU work (which light gets which map, cascade fitting, atlas packing, the shader uniforms) is
 `ShadowPlanner`, which holds no GPU state. It is unit-tested and benchmarked on its own, and it does not allocate.
-Maps are `GpuImage`s from the GPU allocator, created when a light first needs them and re-created when their size
-changes. `Dispose` defers everything to the deletion queue (see [GPU resources](gpu-resources.md)).
+Maps are `GpuImage`s from the GPU allocator, created when a light first needs them, re-created when their size
+changes, and released after 120 frames without a light that needs them. `Dispose` defers everything to the deletion queue (see [GPU resources](gpu-resources.md)).
 
 Decisions: [ADR 0070 cascades](../../memory/decisions/0070-cascaded-shadow-maps-sphere-fit-and-snapping.md),
 [0071 atlas](../../memory/decisions/0071-shadow-atlas-and-six-shadow-samplers.md),
@@ -102,7 +102,7 @@ flowchart TD
 - **Overflow:** when the requests do not fit, the largest tiles are halved first, so every light keeps a shadow.
   Requests are dropped only when every tile is at the minimum size.
 - **Size:** the atlas grows to the smallest power of two that holds every tile, up to `MaxAtlasSize` (default 4096).
-  It never shrinks while it has tiles, and it is released when no light needs it.
+  It never shrinks while it has tiles.
 - **Packing:** the atlas is re-packed only when the requests (lights or sizes) change (`AtlasPackCount`), so tiles
   stay put otherwise.
 - **Rendering:** the whole atlas renders in **one render pass**. It is cleared and stored once, and each tile is a
@@ -111,7 +111,8 @@ flowchart TD
 - **Sampling:** each map's `rect` (offset, size in UV) maps its `[0, 1]` coordinates into the atlas. Every PCF tap is
   clamped half a texel inside the tile, so it never reads a neighbour.
 - **Secondary directional lights:** their tile covers `[near, min(far, MaxShadowDistance)]` with one sphere fit,
-  texel-snapped like a cascade. They have no cascades.
+  texel-snapped like a cascade, and fades to lit over the last tenth of that distance (`params.y = −distance`). They
+  have no cascades.
 
 ## Point lights
 
@@ -324,15 +325,17 @@ Per-light settings live on `Light`, exported on `Light3D` and saved in scenes wh
 
 ## Performance
 
-Measured on an Apple M5 (MoltenVK), Release, validation off. Frames are capped at the 120 Hz display (8.33 ms), so
-the shadow pass is timed directly:
+Measured on an Apple M5 (MoltenVK), Release, validation off, averaged over 600 frames (ranges over several runs on
+a machine shared with other work). Frames are capped at the 120 Hz display (8.33 ms) with or without shadows, so
+the shadow pass is timed directly. CPU is `RenderShadows` (planning, culling callbacks, recording); GPU is between
+the two timestamps:
 
 | Scene | Passes | Shadow CPU | Shadow GPU |
 |---|---|---|---|
-| Sandbox (2 directional, 2 spot, 1 point, Spine) | 13 | 0.014 ms | 0.96 ms |
-| `shadow-lights` (sun, 3 spots, 2 points) | 19 | 0.019 ms | 1.43 ms |
-| `csm` (sun over 68 posts) | 4 | 0.013 ms | 1.01 ms |
-| 10 000 instances, one sun | 4 | 0.48 ms (culling 4 × 10k casters + instance writes) | 1.17 ms |
+| Sandbox (2 directional, 2 spot, 1 point, Spine) | 13 | 0.014–0.026 ms | 0.96–1.0 ms |
+| `shadow-lights` (sun, 3 spots, 2 points) | 19 | 0.02–0.05 ms | 1.1–1.4 ms |
+| `csm` (sun over 68 posts) | 4 | 0.013–0.034 ms | 1.0–1.14 ms |
+| 10 000 instances, one sun | 4 | 0.48–0.85 ms (culling 4 × 10k casters + instance writes) | 1.17 ms |
 
 Planning alone ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json), `ShadowSetupBenchmarks`), 0 B:
 
@@ -380,8 +383,19 @@ Before M4, 116 MiB was allocated whatever the lights.
   The existing `multi-light` test checks the ring per pass; `instances` checks ≤ 2 shadow draws per pass.
 - `--no-shadows` (host option) turns every light's shadows off; perf runs report `ShadowCpuMs`/`ShadowGpuMs`.
 
+## Invariants
+
+- `ShadowUniforms` and `ShadowUBO` must match byte for byte (`UniformLayoutMatchesTheShaderBlock`).
+- Every dynamic index into the shadow block or a sampler array is clamped in `shadows.glsl`. glslang may evaluate
+  both sides of `?:`, `&&` and `||`, and Metal does not clamp out-of-range components or array layers.
+- `RenderShadows` runs at most once per frame (it throws otherwise).
+
 ## Known issues
 
+- The cascades' near-plane pull-back uses the union of every caster's bounds. One tall caster far from a cascade
+  pulls its near plane back (at most 1000 units), which costs depth precision.
+- Cascade layers that did not render this frame keep stale contents. They are not sampled (disabled), but the debug
+  viewer shows them.
 - Spine and other non-batched visuals have no bounds: they are drawn into every pass and keep every pass alive.
 - Offscreen views (`SubViewport`) of other worlds have no shadows.
 - Point lights past the fourth shadowed one, and atlas tiles that do not fit at the minimum size, light without a
