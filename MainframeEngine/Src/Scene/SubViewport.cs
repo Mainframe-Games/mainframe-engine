@@ -52,6 +52,9 @@ public class SubViewport : SceneViewport
     /// <summary>The render server's state for this view (targets, draw lists).</summary>
     internal SubViewportTargets? Targets { get; set; }
 
+    /// <summary>The server that created <see cref="Targets"/> (told when the view is freed).</summary>
+    internal RenderServer? TargetsOwner { get; set; }
+
     /// <summary>Tonemapped, sRGB-encoded colour (<c>R8G8B8A8_UNORM</c>, sampled); null until first rendered.</summary>
     public GpuImage? ColorImage => Targets?.Ldr?.GetColor(0);
 
@@ -110,6 +113,8 @@ public class SubViewport : SceneViewport
         {
             Targets?.Dispose();
             Targets = null;
+            TargetsOwner?.ForgetSubViewport(this);
+            TargetsOwner = null;
         }
 
         base.Dispose(disposing);

@@ -447,7 +447,7 @@ public sealed unsafe class ModelImporter : IAssetImporter
             Texture2D? texture = null;
             try
             {
-                texture = reference.StartsWith('*') ? Embedded(reference) : External(reference);
+                texture = reference.StartsWith('*') ? Embedded(reference) : EmbeddedByName(reference) ?? External(reference);
             }
             catch (Exception e) when (e is IOException or InvalidDataException or NotSupportedException or UnauthorizedAccessException)
             {
@@ -462,7 +462,26 @@ public sealed unsafe class ModelImporter : IAssetImporter
         {
             if (!int.TryParse(reference.AsSpan(1), out var index) || (uint)index >= scene->MNumTextures)
                 return null;
-            AiTexture* texture = scene->MTextures[index];
+            return Decode(scene->MTextures[index]);
+        }
+
+        // FBX (and some glTF exporters) reference embedded images by file name (aiScene::GetEmbeddedTexture).
+        private Texture2D? EmbeddedByName(string reference)
+        {
+            var name = Path.GetFileName(reference.Replace('\\', '/'));
+            for (var i = 0u; i < scene->MNumTextures; i++)
+            {
+                var embedded = scene->MTextures[i];
+                var file = embedded->MFilename.AsString;
+                if (file.Length > 0 && string.Equals(Path.GetFileName(file.Replace('\\', '/')), name, StringComparison.OrdinalIgnoreCase))
+                    return Decode(embedded);
+            }
+
+            return null;
+        }
+
+        private static Texture2D Decode(AiTexture* texture)
+        {
             if (texture->MHeight == 0)
             {
                 // Compressed (PNG/JPEG): MWidth is the byte count.

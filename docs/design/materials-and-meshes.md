@@ -172,6 +172,8 @@ culling and `gl_FrontFacing` right under negative scale.
 
 ### Record
 
+- **Preparation epoch**: `PrepareFrame` starts a new epoch, so a frame that `BeginFrame` skipped (swapchain
+  recreation) never leaves stale lists for the next frame.
 - **Instances**: on first use in a frame, the view's opaque and transparent instances are written to the frame
   slot's `InstanceBuffer`, in sorted order. Each instance is an 80-byte `MeshInstanceData`: the model matrix and
   the object id.
@@ -256,9 +258,11 @@ view: framebuffer pixels, origin top-left. `RequestPick` and `TryGetPickResult` 
 3. `PrepareFrame` completes the requests once `DeletionQueue.CompletedFrame` passes that frame, about two frames
    later. It resolves each id through `SceneTree.Find(NodeId)`.
 
-The frame never waits. Tasks complete on the render thread (continuations run inline, on the main thread). The
-root view renders the ID pass only on frames with pending picks. A `SubViewport` renders it every frame when
-`ObjectIds` is set, for editor hover.
+The frame never waits. Tasks complete on the render thread, at the start of `PrepareFrame`, after every result has
+been gathered: continuations run inline on the main thread and may pick again or change the tree. The root view
+renders the ID pass only on frames with pending picks. A `SubViewport` renders it every frame when `ObjectIds` is
+set, for editor hover. A view whose colour updates are disabled still answers picks: the frame renders only its ID
+pass. A view without a camera answers every pick with a miss.
 
 ## Offscreen views (`SubViewport`)
 
@@ -329,6 +333,9 @@ Measured on an Apple M5 with MoltenVK:
 - `Sprite3D` has no billboard mode.
 - Only `StandardMaterial3D` is rendered. Custom shaders and material types come later.
 - Spine, the grid and the sky do not appear in the object-ID pass.
+- Each `Sprite3D` owns its quad mesh and material, so sprites are not batched together. To batch many, share a
+  `MeshInstance3D` with a `QuadMesh` and one material.
+- Entries upgraded from removed types (`Box3d`/`Quad`) skip `[SerializedMigration]`s of their replacement type.
 - Offscreen views have no shadows.
 - Mesh data in `.mscene`/`.mres` is JSON arrays (ADR 0011). Imported models are not re-serialized: scenes
   reference the model file.

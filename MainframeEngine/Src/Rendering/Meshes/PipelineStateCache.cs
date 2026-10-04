@@ -71,8 +71,8 @@ internal interface IPipelineFactory
 /// </summary>
 public sealed class PipelineStateCache : IDisposable
 {
-    /// <summary>Ids must fit the 12-bit pipeline field of the draw sort keys.</summary>
-    public const int MaxPipelines = 4096;
+    /// <summary>Ids (1-based) must fit the 12-bit pipeline field of the draw sort keys.</summary>
+    public const int MaxPipelines = 4095;
 
     private readonly IPipelineFactory _factory;
     private readonly Dictionary<PipelineKey, PipelineEntry> _entries = [];

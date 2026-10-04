@@ -20,7 +20,11 @@ layout(location = 0) out vec4 outColor;
 void main()
 {
     vec2 uv = materialUv(inUV);
-    vec4 albedo = materialAlbedo(uv);
+    vec2 duvdx = dFdx(uv);
+    vec2 duvdy = dFdy(uv);
+    vec3 dpdx = dFdx(inWorldPos);
+    vec3 dpdy = dFdy(inWorldPos);
+    vec4 albedo = materialAlbedo(uv, duvdx, duvdy);
     if (kAlphaMode == kAlphaCutout && albedo.a < material.params.z)
         discard;
 
@@ -35,10 +39,10 @@ void main()
     }
     else
     {
-        N = materialNormal(N, inWorldPos, uv);
+        N = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
         color = shadeLightsBlinnPhong(albedo.rgb, N, inWorldPos, material.params.x, material.params.y);
     }
 
-    color += materialEmission(uv);
+    color += materialEmission(uv, duvdx, duvdy);
     outColor = vec4(color, kAlphaMode == kAlphaBlend ? albedo.a : 1.0);
 }

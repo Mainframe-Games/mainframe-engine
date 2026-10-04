@@ -30,12 +30,14 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
             [new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit }],
             "sub-viewport tonemap");
 
-        var size = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = MaxViews };
+        // Sets of resized views are freed after the frames in flight: room for a few generations per view.
+        const uint poolSets = MaxViews * (IVulkanContext.MaxFramesInFlight + 2);
+        var size = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = poolSets };
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
             Flags = DescriptorPoolCreateFlags.FreeDescriptorSetBit,
-            MaxSets = MaxViews,
+            MaxSets = poolSets,
             PoolSizeCount = 1,
             PPoolSizes = &size,
         };

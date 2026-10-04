@@ -39,6 +39,7 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
     private readonly List<PendingPick> _queued = [];
     private readonly List<PendingPick>[] _inFlight = [[], []];
     private readonly ulong[] _inFlightFrame = new ulong[Slots];
+    private readonly List<PendingPick> _misses = [];
     private readonly Dictionary<ulong, PickResult> _completed = [];
     private readonly Queue<ulong> _completedOrder = new();
     private ulong _nextHandle = 1;
@@ -60,8 +61,15 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
     /// <summary>Requests waiting for a frame to render the ID pass.</summary>
     public bool HasQueued => _queued.Count > 0;
 
-    /// <summary>Requests copied but not read back yet.</summary>
-    public bool HasInFlight => _inFlight[0].Count > 0 || _inFlight[1].Count > 0;
+    /// <summary>Requests copied but not read back yet (or answered as misses, not yet delivered).</summary>
+    public bool HasInFlight => _inFlight[0].Count > 0 || _inFlight[1].Count > 0 || _misses.Count > 0;
+
+    /// <summary>Answers every queued request with a miss at the next <see cref="Collect"/> (the view cannot render).</summary>
+    public void MissQueued()
+    {
+        _misses.AddRange(_queued);
+        _queued.Clear();
+    }
 
     public PickHandle Request(int x, int y, TaskCompletionSource<PickResult>? completion)
     {
@@ -136,13 +144,25 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
     }
 
     /// <summary>
-    /// Completes the requests whose frames have finished (<see cref="DeletionQueue.CompletedFrame"/>), resolving ids
-    /// to nodes through <paramref name="tree"/>. Allocation-free when nothing is in flight.
+    /// Resolves the requests whose frames have finished (<see cref="DeletionQueue.CompletedFrame"/>) through
+    /// <paramref name="tree"/>. Polled results are stored; awaited ones are appended to <paramref name="completions"/>
+    /// for the caller to complete once it is done iterating (continuations run inline). Allocation-free when nothing
+    /// is in flight.
     /// </summary>
-    public void Collect(SceneTree? tree)
+    public void Collect(SceneTree? tree, List<(TaskCompletionSource<PickResult> Completion, PickResult Result)> completions)
     {
+        ArgumentNullException.ThrowIfNull(completions);
         if (!HasInFlight)
             return;
+        foreach (var miss in _misses)
+        {
+            if (miss.Completion is { } completion)
+                completions.Add((completion, PickResult.Miss));
+            else
+                Store(miss.Handle, PickResult.Miss);
+        }
+
+        _misses.Clear();
         var completedFrame = _ctx.Deletions.CompletedFrame;
         for (var slot = 0; slot < Slots; slot++)
         {
@@ -157,7 +177,7 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
                 var result = id == 0 ? PickResult.Miss : new PickResult(id, tree?.Find(new NodeId(id)));
                 var request = batch[i];
                 if (request.Completion is { } completion)
-                    completion.TrySetResult(result);
+                    completions.Add((completion, result));
                 else
                     Store(request.Handle, result);
             }
@@ -180,6 +200,8 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
         if (_disposed) return;
         _disposed = true;
         foreach (var request in _queued)
+            request.Completion?.TrySetCanceled();
+        foreach (var request in _misses)
             request.Completion?.TrySetCanceled();
         foreach (var batch in _inFlight)
             foreach (var request in batch)

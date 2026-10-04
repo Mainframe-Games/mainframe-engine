@@ -34,35 +34,35 @@ vec2 materialUv(vec2 uv)
     return uv * material.uvTransform.xy + material.uvTransform.zw;
 }
 
+// UV derivatives are taken once, before any discard or non-uniform branch, and every lookup uses textureGrad, so
+// mip selection stays defined everywhere (derivatives after a non-uniform discard are undefined).
+
 // Albedo colour × texture (sampled as sRGB unless the texture is imported as linear data).
-vec4 materialAlbedo(vec2 uv)
+vec4 materialAlbedo(vec2 uv, vec2 duvdx, vec2 duvdy)
 {
     vec4 albedo = material.albedo;
     if ((material.flags.x & kHasAlbedoTexture) != 0u)
-        albedo *= texture(sampler2D(albedoTexture, materialSampler), uv);
+        albedo *= textureGrad(sampler2D(albedoTexture, materialSampler), uv, duvdx, duvdy);
     return albedo;
 }
 
-vec3 materialEmission(vec2 uv)
+vec3 materialEmission(vec2 uv, vec2 duvdx, vec2 duvdy)
 {
     vec3 emission = material.emission.rgb;
     if ((material.flags.x & kHasEmissionTexture) != 0u)
-        emission *= texture(sampler2D(emissionTexture, materialSampler), uv).rgb;
+        emission *= textureGrad(sampler2D(emissionTexture, materialSampler), uv, duvdx, duvdy).rgb;
     return emission;
 }
 
 // Perturbs N with the tangent-space normal map (OpenGL/glTF convention, +Y up) using a tangent frame solved from
 // screen-space derivatives of the position and UV (no vertex tangents needed): dP/du and dP/dv from the 2x2
 // inverse of the UV Jacobian, so mirrored UVs and the flipped viewport keep the right handedness.
-vec3 materialNormal(vec3 N, vec3 worldPos, vec2 uv)
+// dp1/dp2 and duv1/duv2 are the screen-space derivatives of the world position and UV.
+vec3 materialNormal(vec3 N, vec2 uv, vec3 dp1, vec3 dp2, vec2 duv1, vec2 duv2)
 {
     if ((material.flags.x & kHasNormalTexture) == 0u)
         return N;
 
-    vec3 dp1 = dFdx(worldPos);
-    vec3 dp2 = dFdy(worldPos);
-    vec2 duv1 = dFdx(uv);
-    vec2 duv2 = dFdy(uv);
     float det = duv1.x * duv2.y - duv2.x * duv1.y;
     if (abs(det) < 1e-12)
         return N;
@@ -76,7 +76,7 @@ vec3 materialNormal(vec3 N, vec3 worldPos, vec2 uv)
     T = normalize(T);
     B = normalize(B);
 
-    vec3 n = texture(sampler2D(normalTexture, materialSampler), uv).xyz * 2.0 - 1.0;
+    vec3 n = textureGrad(sampler2D(normalTexture, materialSampler), uv, duv1, duv2).xyz * 2.0 - 1.0;
     n.xy *= material.params.w;
     return normalize(T * n.x + B * n.y + N * max(n.z, 1e-3));
 }

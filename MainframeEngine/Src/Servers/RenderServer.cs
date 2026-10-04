@@ -30,6 +30,8 @@ public sealed class RenderServer : IServer
     private readonly MeshViewDraws _mainDraws = new();
     private readonly List<SubViewport> _subViewports = [];
     private readonly HashSet<SubViewport> _subViewportsWithTargets = [];
+    private readonly List<(TaskCompletionSource<PickResult> Completion, PickResult Result)> _pickCompletions = [];
+    private bool _warnedTooManyViews;
     private ShadowSystem? _shadows;
     private DebugLinesRenderer? _debugLines;
     private MeshRenderer? _meshes;
@@ -139,6 +141,7 @@ public sealed class RenderServer : IServer
             return;
 
         CollectPicks();
+        _meshes?.BeginPreparation(); // rebuild even when the last frame was skipped (same predicted frame number)
         var world = root.World3D;
         EnsureResources(world);
         if (world.GeometryList.Count > 0 && GetRenderCamera(root, vk.SwapchainExtent) is { } camera)
@@ -146,7 +149,7 @@ public sealed class RenderServer : IServer
 
         foreach (var sub in _subViewports)
         {
-            if (!ShouldRender(sub))
+            if (!ShouldRender(sub) && !NeedsObjectIds(sub))
                 continue;
             EnsureResources(sub.World3D);
             if (sub.World3D.GeometryList.Count > 0 && GetRenderCamera(sub, Extent(sub)) is { } subCamera)
@@ -205,19 +208,24 @@ public sealed class RenderServer : IServer
         var view = 1;
         foreach (var sub in _subViewports)
         {
-            if (!ShouldRender(sub))
+            var colour = ShouldRender(sub);
+            if (!colour && !NeedsObjectIds(sub))
                 continue;
             if (view >= FrameContext.MaxViews)
             {
-                Log.Warning($"[Render] More than {FrameContext.MaxViews - 1} sub-viewports; '{sub.Name}' is not rendered this frame.");
+                if (!_warnedTooManyViews)
+                    Log.Warning($"[Render] More than {FrameContext.MaxViews - 1} sub-viewports render per frame; the rest are skipped.");
+                _warnedTooManyViews = true;
                 break;
             }
 
-            RenderSubViewport(vk, cb, sub, view++);
+            RenderSubViewport(vk, cb, sub, view++, colour);
         }
 
         vk.Frame.SetView(0, default);
 
+        if (_rootPicker is { HasQueued: true } rootPicker && GetRenderCamera(root, vk.SwapchainExtent) is null)
+            rootPicker.MissQueued(); // nothing to pick without a camera
         if (_rootPicker is { HasQueued: true } picker && GetRenderCamera(root, vk.SwapchainExtent) is { } camera)
         {
             var world = root.World3D;
@@ -228,7 +236,8 @@ public sealed class RenderServer : IServer
         }
     }
 
-    private void RenderSubViewport(IVulkanContext vk, CommandBuffer cb, SubViewport sub, int view)
+    // colour: false renders only the object-ID pass (picks queued on a view whose colour updates are disabled).
+    private void RenderSubViewport(IVulkanContext vk, CommandBuffer cb, SubViewport sub, int view, bool colour)
     {
         var extent = Extent(sub);
         var targets = EnsureTargets(sub);
@@ -238,26 +247,37 @@ public sealed class RenderServer : IServer
 
         var frame = vk.Frame;
         frame.SetView(view, extent);
-        Span<ClearValue> clears = [new ClearValue { Color = LinearClear(sub.ClearColor) }, new ClearValue { DepthStencil = new ClearDepthStencilValue(1f, 0) }];
-        targets.Hdr!.Begin(cb, clears);
+        MeshRenderer? meshes = null;
         if (camera is not null)
         {
             EnsureResources(world);
             frame.Begin(camera, world.Lights, shadows: false); // the shadow maps belong to the main world
-            var meshes = world.GeometryList.Count > 0 ? Meshes : null;
+            meshes = world.GeometryList.Count > 0 ? Meshes : null;
             meshes?.Prepare(targets.Draws, world, camera, collectCasters: false);
-            DrawWorld(world, camera, meshes, targets.Draws, cb);
         }
 
-        vk.Vk.CmdEndRenderPass(cb);
+        if (colour)
+        {
+            Span<ClearValue> clears = [new ClearValue { Color = LinearClear(sub.ClearColor) }, new ClearValue { DepthStencil = new ClearDepthStencilValue(1f, 0) }];
+            targets.Hdr!.Begin(cb, clears);
+            if (camera is not null)
+                DrawWorld(world, camera, meshes, targets.Draws, cb);
+            vk.Vk.CmdEndRenderPass(cb);
+        }
 
         var picker = targets.Picker;
-        if (camera is not null && (sub.ObjectIds || picker is { HasQueued: true }) && Meshes is { } idMeshes)
+        if (camera is null)
+        {
+            picker?.MissQueued();
+        }
+        else if ((sub.ObjectIds && colour) || picker is { HasQueued: true })
         {
             picker = targets.Picker ??= new ObjectIdPicker(vk, sub.Name);
-            picker.Render(cb, extent, (idMeshes, targets.Draws), static (s, c) => s.idMeshes.DrawObjectIds(s.Draws, c));
+            picker.Render(cb, extent, (meshes, targets.Draws), static (s, c) => s.meshes?.DrawObjectIds(s.Draws, c));
         }
 
+        if (!colour)
+            return;
         _compositor ??= new SubViewportCompositor(vk);
         _compositor.Tonemap(cb, targets);
         targets.RenderCount++;
@@ -384,11 +404,28 @@ public sealed class RenderServer : IServer
     private ObjectIdPicker? RootPicker() =>
         _rootPicker ??= Vulkan is { } vk && !_disposed ? new ObjectIdPicker(vk, "main view") : null;
 
+    // Results are gathered first and completed afterwards: awaiting code continues inline (no synchronization
+    // context) and may pick again or change the tree.
     private void CollectPicks()
     {
-        _rootPicker?.Collect(_root?.Tree);
+        _rootPicker?.Collect(_root?.Tree, _pickCompletions);
         foreach (var sub in _subViewportsWithTargets)
-            sub.Targets?.Picker?.Collect(sub.Tree);
+            sub.Targets?.Picker?.Collect(sub.Tree, _pickCompletions);
+        if (_pickCompletions.Count == 0)
+            return;
+        var completions = _pickCompletions.ToArray();
+        _pickCompletions.Clear();
+        foreach (var (completion, result) in completions)
+            completion.TrySetResult(result);
+    }
+
+    private static bool NeedsObjectIds(SubViewport sub) => sub.IsInsideTree && sub.Targets?.Picker is { HasQueued: true };
+
+    /// <summary>A freed sub-viewport (its targets are already disposed).</summary>
+    internal void ForgetSubViewport(SubViewport viewport)
+    {
+        _subViewports.Remove(viewport);
+        _subViewportsWithTargets.Remove(viewport);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
@@ -404,6 +441,7 @@ public sealed class RenderServer : IServer
         {
             _compositor ??= new SubViewportCompositor(Vulkan!);
             sub.Targets = new SubViewportTargets(Vulkan!, _compositor, sub.Name);
+            sub.TargetsOwner = this;
             _subViewportsWithTargets.Add(sub);
         }
 

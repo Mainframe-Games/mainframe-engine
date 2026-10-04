@@ -17,7 +17,8 @@ layout(location = 0) out uint outObjectId;
 
 void main()
 {
-    if (kAlphaMode == kAlphaCutout && materialAlbedo(materialUv(inUV)).a < material.params.z)
+    vec2 uv = materialUv(inUV);
+    if (kAlphaMode == kAlphaCutout && materialAlbedo(uv, dFdx(uv), dFdy(uv)).a < material.params.z)
         discard;
     outObjectId = inObjectId;
 }

@@ -81,7 +81,7 @@ post-processing steps are:
 | node | `Node3D`, or `MeshInstance3D` when it has meshes; transform decomposed into position / rotation / scale |
 | the node's meshes | one `ArrayMesh`, one `MeshSurface` per Assimp mesh; nodes using the same meshes share it; points and lines are dropped |
 | material | `StandardMaterial3D`: name, base colour or diffuse (linear → sRGB), opacity, emissive + intensity, shininess, two-sided, glTF alpha mode (`MASK` → cutout, `BLEND` → blend) and cutoff |
-| textures | base colour or diffuse → albedo, normals → normal map, emissive → emission. Files next to the model load through `ResourceLoader`, so their own `.meta` applies; embedded images (`*N`, e.g. GLB) decode in memory |
+| textures | base colour or diffuse → albedo, normals → normal map, emissive → emission. Files next to the model load through `ResourceLoader`, so their own `.meta` applies; embedded images (`*N`, e.g. GLB, or by file name, e.g. FBX) decode in memory |
 
 `PackedScene.Instantiate()` on an imported scene clones the imported template. Exported properties are copied, so
 meshes, materials and textures are shared, and every node is owned by the instance root, as for scene files. A

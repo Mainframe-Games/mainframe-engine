@@ -291,7 +291,9 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
     private readonly List<(string What, Task<PickResult> Task, Node? Expected)> _picks = [];
     private readonly MeshInstance3D[] _boxes = new MeshInstance3D[3];
     private SubViewport _view = null!;
+    private SubViewport _frozen = null!;
     private MeshInstance3D _sphere = null!;
+    private MeshInstance3D _frozenBox = null!;
     private PickHandle _polled;
     private bool _checked;
 
@@ -326,6 +328,14 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
         };
         _view.AddChild(_sphere);
         scene.AddChild(_view);
+
+        // Rendered once, then frozen: picks must still be answered (an ID-only pass).
+        _frozen = new SubViewport { Name = "Frozen", Width = 32, Height = 32, UpdateMode = SubViewportUpdateMode.Once };
+        var frozenCamera = new Camera3D { Name = "FrozenCamera", Position = new Vector3(0, 0, 3f) };
+        _frozen.AddChild(frozenCamera);
+        _frozenBox = new MeshInstance3D { Name = "FrozenBox", Mesh = new BoxMesh() };
+        _frozen.AddChild(_frozenBox);
+        scene.AddChild(_frozen);
     }
 
     protected override void UpdateScene(in GameTime gameTime)
@@ -340,6 +350,7 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
             _picks.Add(("outside", render.PickAsync(-5, 10), null));
             _picks.Add(("preview", _view.PickAsync(_view.Width / 2, _view.Height / 2), _sphere));
             _picks.Add(("preview corner", _view.PickAsync(2, 2), null));
+            _picks.Add(("frozen view", _frozen.PickAsync(16, 16), _frozenBox));
             _polled = render.RequestPick((int)Project(_boxes[0].GlobalPosition)!.Value.X, (int)Project(_boxes[0].GlobalPosition)!.Value.Y);
         }
 
@@ -367,6 +378,8 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
                 Fail("a polled result was returned twice");
             if (_view.RenderCount == 0 || _view.ColorImage is null || _view.ImGuiTextureId == 0)
                 Fail("the sub-viewport was not rendered or registered with ImGui");
+            if (_frozen.RenderCount != 1 || _frozen.UpdateMode != SubViewportUpdateMode.Disabled)
+                Fail($"the UpdateMode.Once view rendered {_frozen.RenderCount} times");
         }
     }
 

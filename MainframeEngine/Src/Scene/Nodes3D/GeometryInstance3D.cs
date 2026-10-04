@@ -68,7 +68,9 @@ public enum SpriteAlphaCut : byte
 /// <summary>
 /// A textured quad in the XY plane facing +Z, sized from the texture (Godot's <c>Sprite3D</c>): one world unit per
 /// <see cref="PixelSize"/>⁻¹ pixels. Unshaded and double-sided by default, like Godot. Drawn through the mesh
-/// batcher (sprites sharing a texture and settings share a material). Billboarding is not supported yet.
+/// batcher, but each sprite owns its quad mesh and material (one draw per sprite; share a
+/// <see cref="MeshInstance3D"/> with a <see cref="QuadMesh"/> and material to batch many). Billboarding is not
+/// supported yet.
 /// </summary>
 public class Sprite3D : GeometryInstance3D
 {

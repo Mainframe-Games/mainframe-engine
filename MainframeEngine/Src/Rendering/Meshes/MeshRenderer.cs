@@ -157,7 +157,17 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
     /// The frame being built: <see cref="IVulkanContext.FrameNumber"/> while it records, the next one before
     /// <c>BeginFrame</c> (the render server prepares draw lists before the frame starts).
     /// </summary>
-    private ulong CurrentFrame => _ctx.FrameStarted ? _ctx.FrameNumber : _ctx.FrameNumber + 1;
+    /// <remarks>
+    /// Combined with a preparation epoch (<see cref="BeginPreparation"/>): when <c>BeginFrame</c> skips a frame
+    /// (swapchain recreation) the predicted frame number repeats, and the epoch makes the next preparation rebuild
+    /// instead of reusing lists that may reference freed nodes and resources.
+    /// </remarks>
+    private ulong CurrentFrame => ((_ctx.FrameStarted ? _ctx.FrameNumber : _ctx.FrameNumber + 1) << 16) | (_epoch & 0xFFFF);
+
+    private ulong _epoch;
+
+    /// <summary>Starts a frame's preparation: every view, mesh and material is rebuilt/refreshed once more.</summary>
+    public void BeginPreparation() => _epoch++;
 
     // ── Node resources ─────────────────────────────────────────────────────────
 
@@ -335,10 +345,13 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             }
 
             gpu.RenderPriority = material.RenderPriority;
-            rewrite |= SwapTexture(standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
-            rewrite |= SwapTexture(standard.NormalTexture, colorUsage: false, ref gpu.Normal);
-            rewrite |= SwapTexture(standard.EmissionTexture, colorUsage: true, ref gpu.Emission);
         }
+
+        // Slots follow the material's textures and their colour space (an import-settings change moves a texture
+        // to another (texture, colour space) upload without touching the material).
+        rewrite |= SwapTexture(standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
+        rewrite |= SwapTexture(standard.NormalTexture, colorUsage: false, ref gpu.Normal);
+        rewrite |= SwapTexture(standard.EmissionTexture, colorUsage: true, ref gpu.Emission);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
         rewrite |= RefreshTexture(gpu.Albedo, gpu.AlbedoGeneration);

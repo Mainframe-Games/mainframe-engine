@@ -316,13 +316,15 @@ internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureR
         _descriptorSetLayout = PipelineBuilder.CreateSetLayout(_ctx,
             [new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit }],
             "ImGui font");
-        // The font plus registered images; freeable, so re-registered images return their sets.
-        var size = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = MaxUserTextures + 1 };
+        // The font plus registered images; freeable, so re-registered images return their sets. An updated image's
+        // old set is freed only after the frames in flight finish, so the pool holds a few generations per image.
+        const uint poolSets = MaxUserTextures * (IVulkanContext.MaxFramesInFlight + 2) + 1;
+        var size = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = poolSets };
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
             Flags = DescriptorPoolCreateFlags.FreeDescriptorSetBit,
-            MaxSets = MaxUserTextures + 1,
+            MaxSets = poolSets,
             PoolSizeCount = 1,
             PPoolSizes = &size,
         };
