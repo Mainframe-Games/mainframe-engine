@@ -21,6 +21,13 @@
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- The sandbox scene translates its overlay with the Sandbox's committed catalogs (M9). -->
+  <ItemGroup>
+    <None Include="..\..\MainframeEngine.Sandbox\Content\locale\**\*.mo"
+          LinkBase="Content\locale"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Spine test content is shared with the Sandbox rather than duplicated. -->
   <ItemGroup>
     <None Include="..\..\MainframeEngine.Sandbox\Content\Models\Spine\SpineBoy\**"

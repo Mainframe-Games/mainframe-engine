@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+    <!-- Localization benchmarks compile their catalogs with mf-l10n's .mo writer. -->
+    <ProjectReference Include="..\..\Tools\MainframeEngine.L10n\MainframeEngine.L10n.csproj" />
     <!-- Registers the benchmark node types ([Replicated] boxes) like a game assembly. -->
     <ProjectReference Include="..\..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />

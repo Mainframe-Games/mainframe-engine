@@ -2,17 +2,25 @@ using System.Globalization;
 using System.Numerics;
 using ImGuiNET;
 using MainframeEngine.Gizmos;
+using MainframeEngine.Localization;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
 /// <summary>
 /// Mirrors the Sandbox's per-frame work — Spine, shadows, sky, grid, the RmlUi HUD (data bindings dirtied every frame)
 /// and the ImGui debug window with light and axis gizmos — for the steady-state allocation gate. Its ImGui text shows
-/// timings, so it is not used for golden images.
+/// timings, so it is not used for golden images. Its labels are looked up in the Sandbox's Spanish catalog every frame
+/// (M9), so the gate also covers translation lookups.
 /// </summary>
 public sealed class SandboxScene(HostOptions host) : SpineScene(host)
 {
     private AudioPlayer3D? _orbiting;
+
+    protected override void LoadScene()
+    {
+        base.LoadScene();
+        Tr.SetLocale("es");
+    }
 
     /// <summary>
     /// Adds the Sandbox's audio (M7) and physics (M6) stacks and the RmlUi HUD (M8), so the allocation gate covers
@@ -116,6 +124,9 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
             ImGui.Value("FrameCount", gameTime.FrameCount);
             ImGui.Value("DeltaTime", gameTime.DeltaTime);
             ImGui.Value("FPS", gameTime.FramesPerSecond);
+            ImGui.TextUnformatted(Tr._("Language"));                 // hit
+            ImGui.TextUnformatted(Tr.P("overlay section", "Camera")); // context hit
+            ImGui.TextUnformatted(Tr._("Render test"));              // miss: the source text
 
             Span<char> text = stackalloc char[64];
             var p = Camera.GlobalPosition;

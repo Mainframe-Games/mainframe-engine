@@ -36,6 +36,7 @@ public abstract class RenderTestGame : Engine
         MaxFrames = host.MaxFrames,
         // The silent null device: CI machines have no audio device, and render tests should not make noise.
         Audio = new AudioOptions { Device = AudioDeviceMode.Null, BusLayoutPath = null },
+        Locale = "en", // never the machine's language: captures must not depend on it
     };
 
     protected IVulkanContext Vulkan => (IVulkanContext)Renderer;

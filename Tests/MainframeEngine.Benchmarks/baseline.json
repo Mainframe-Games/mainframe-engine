@@ -69,6 +69,36 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "LocalizationBenchmarks.FormatOneArgument",
+      "MeanNs": 19.818,
+      "AllocatedBytes": 64
+    },
+    {
+      "Name": "LocalizationBenchmarks.LookupContextHit",
+      "MeanNs": 14.992,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "LocalizationBenchmarks.LookupHit",
+      "MeanNs": 3.608,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "LocalizationBenchmarks.LookupMiss",
+      "MeanNs": 2.897,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "LocalizationBenchmarks.SwitchLocale",
+      "MeanNs": 2122213.623,
+      "AllocatedBytes": 1398548
+    },
+    {
+      "Name": "LocalizationBenchmarks.TranslateMarkupHit",
+      "MeanNs": 53.711,
+      "AllocatedBytes": 144
+    },
+    {
       "Name": "MeshDrawListBenchmarks.BuildAndSortOpaque10k",
       "MeanNs": 140374.824,
       "AllocatedBytes": 0

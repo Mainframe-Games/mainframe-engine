@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="MainframeEngine.Tests" />
+    <InternalsVisibleTo Include="MainframeEngine.Benchmarks" />
   </ItemGroup>
 
 </Project>
