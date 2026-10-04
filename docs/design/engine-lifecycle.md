@@ -10,7 +10,8 @@ window events. Games subclass it and override four abstract hooks.
 | Type | File | Notes |
 |---|---|---|
 | `Engine` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `public abstract class Engine : IDisposable` |
-| `EngineOptions` | [Engine.cs:10-16](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath` |
+| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = true`, `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock) |
+| `FrameCapture` | [FrameCapture.cs](../../MainframeEngine/Src/Rendering/FrameCapture.cs) | RGBA8 pixels of a rendered frame, `SavePng(path)` |
 | `GameTime` | [GameTime.cs](../../MainframeEngine/Src/Core/GameTime.cs) | `FrameCount`, `DeltaTime`, `FramesPerSecond`, `FramesTimeMs` |
 | `FPSCounter` | [FPSCounter.cs](../../MainframeEngine/Src/Core/FPSCounter.cs) | 500 ms sampling window |
 | `ExitCode` | [ExitCode.cs](../../MainframeEngine/Src/Core/ExitCode.cs) | `Ok = 0`, `Error = 1` |
@@ -38,9 +39,19 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 
 1. **Constructor:** stores options → `VulkanLoaderBootstrap.Initialize()` → creates the window from
    `WindowOptions.DefaultVulkan` (title `"{GameName} ({RenderingBackend})"`, API 1.2) → subscribes
-   `Load`, `FramebufferResize`, `Update`, `Render`, `Closing` → centres the window on the main monitor.
-2. **`OnLoad()`** (base): `Window.CreateInput()` → `new VulkanRenderer(Window, enableValidationLayers: true)`
-   → `new VulkanImGuiController(...)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
+   `Load`, `FramebufferResize`, `Update`, `Render`, `Closing`.
+2. **`Load`:** centres the window on its monitor (skipped when GLFW reports none, e.g. a sleeping
+   macOS display), then **`OnLoad()`** (base): `Window.CreateInput()` →
+   `new VulkanRenderer(Window, { EnableValidation, VSync, EnableFrameCapture })` →
+   `new VulkanImGuiController(...)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
+
+### Deterministic runs and frame capture
+
+Tests and QA tools set `FixedDeltaTime` (every update gets that delta instead of wall-clock time) and
+`MaxFrames` (the window closes after that many rendered frames; `RenderedFrameCount` excludes skipped
+frames). `CaptureFrame()` — legal from `OnImGui`, `OnUpdate` or a render hook, and only with
+`EnableFrameCapture` — copies the frame being built back to the CPU; after `EndFrame` the engine calls
+`protected virtual OnFrameCaptured(FrameCapture)`. See [Testing](testing.md).
 
 ## The frame
 
@@ -103,8 +114,8 @@ dispose renderer. `Run()` returns `_exitCode`. `Dispose()` disposes the window.
 
 ## Known issues
 
-- **`Quit(ExitCode.Error)` returns `Ok`.** `Quit` sets `_exitCode` ([Engine.cs:164](../../MainframeEngine/Src/Core/Engine.cs)), then `OnClose` resets it to 0 ([Engine.cs:150](../../MainframeEngine/Src/Core/Engine.cs)).
-- **Validation layers are always on**, including Release ([Engine.cs:82](../../MainframeEngine/Src/Core/Engine.cs)).
+- **`Quit(ExitCode.Error)` returns `Ok`.** `Quit` sets `_exitCode`, then the base `OnClose` resets it to 0 ([Engine.cs](../../MainframeEngine/Src/Core/Engine.cs)).
+- **Validation layers default to on**, including Release (`EngineOptions.EnableValidation = true`).
 - **`EngineOptions.RenderingBackend` is ignored**; `VulkanRenderer` is always created.
 - **ImGui frames can be unbalanced** *(inferred)*: `NewFrame` runs on Update, `Render` only on a started
   render frame. A skipped frame (swapchain recreation) or several Updates per Render calls `NewFrame`

@@ -70,26 +70,32 @@ startup, so the descriptors are valid on the first frame.
 ## `RenderShadows`
 
 ```csharp
-public void RenderShadows(
-    LightEnvironment lights,
+// Per-frame form: static lambdas + explicit state, no closure allocations.
+public void RenderShadows<TState>(LightEnvironment lights, TState state,
+    ShadowDraw2D<TState> draw2D,        // (state, cb, pipe32, pipe12, layout)
+    ShadowDrawPoint<TState> drawPoint)  // (state, cb, pipe32, pipe12, layout, lightPos, lightRange)
+
+// Convenience form; allocates if the lambdas capture.
+public void RenderShadows(LightEnvironment lights,
     Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout> draw2D,
     Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout, Vector3, float> drawPoint)
 ```
 
 It is called from `Engine.OnShadowPass`, while the command buffer is open and no render pass is active.
+`drawPoint` receives the point-light pipelines (`_pipePoint_S32/S12`) and `ShadowPointLayout`.
 
 ```mermaid
 flowchart TD
     A["Clamp counts to MaxShadow*"] --> B["TransitionAll: ReadOnly → Attachment"]
     B --> C{"for each directional"}
     C --> C1["CalcDirLightMatrix<br/>LookAt(-dir·20), ortho ±20, 0.1..50"]
-    C1 --> C2["write light VP UBO"] --> C3["shadow render pass → draw2D(cb, …)"]
+    C1 --> C2["write light VP UBO"] --> C3["shadow render pass → draw2D(state, cb, …)"]
     C3 --> D{"for each spot"}
     D --> D1["CalcSpotLightMatrix<br/>persp fov = 2·outer, near 0.1, far = Range"]
-    D1 --> D2["write light VP UBO"] --> D3["shadow render pass → draw2D(cb, …)"]
+    D1 --> D2["write light VP UBO"] --> D3["shadow render pass → draw2D(state, cb, …)"]
     D3 --> E{"for each point × 6 faces"}
     E --> E1["90° persp, near 0.05, far = Range"]
-    E1 --> E2["write light VP UBO"] --> E3["shadow render pass → drawPoint(cb, …, pos, range)"]
+    E1 --> E2["write light VP UBO"] --> E3["shadow render pass → drawPoint(state, cb, …, pos, range)"]
     E3 --> F["TransitionAll: Attachment → ReadOnly"]
     F --> G["copy dir/spot matrices → set-2 UBO for current image"]
 ```

@@ -5,7 +5,17 @@
 [`MainframeEngine.Sandbox`](../../MainframeEngine.Sandbox/) is the test game. It exercises most engine
 features in one 3D scene, and it is the reference for how a game is expected to use the engine.
 
-Files: [Program.cs](../../MainframeEngine.Sandbox/Program.cs), [Src/Game.cs](../../MainframeEngine.Sandbox/Src/Game.cs).
+Files: [Program.cs](../../MainframeEngine.Sandbox/Program.cs), [Src/Game.cs](../../MainframeEngine.Sandbox/Src/Game.cs),
+[Src/QaCapture.cs](../../MainframeEngine.Sandbox/Src/QaCapture.cs).
+
+`Game` takes its `EngineOptions` (`Game.DefaultOptions` is the window below). `Program` sets the
+working directory to the build output so relative content paths resolve wherever it is launched from.
+
+## QA capture
+
+`--qa-capture <dir> [--qa-frames 30,90,180]` (`just qa` → `artifacts/qa`) runs with a fixed 60 Hz
+timestep and VSync off, saves `sandbox_frameNNNN.png` for each listed frame through
+`Engine.CaptureFrame()`, and exits one frame after the last capture.
 
 ## Scene
 
@@ -26,7 +36,7 @@ Files: [Program.cs](../../MainframeEngine.Sandbox/Program.cs), [Src/Game.cs](../
 
 ```mermaid
 flowchart TD
-    P["Program.cs: using var game = new Game(); game.Run()"] --> L
+    P["Program.cs: using var game = new Game(options); game.Run()"] --> L
     subgraph L["OnLoad"]
         L1["base.OnLoad()"] --> L2["clear color, camera, input handlers"]
         L2 --> L3["sky, grid, ShadowSystem"] --> L4["Node.Initialize"] --> L5["SpineNode, Quad, Box3d, DirectionalLight"]
@@ -34,7 +44,7 @@ flowchart TD
     L --> F
     subgraph F["Each frame"]
         F1["OnImGui: light gizmos, stats window, coord gizmo"] --> F2["OnUpdate: fly camera, node.OnUpdate, spin box"]
-        F2 --> F3["OnShadowPass: RenderShadows(lights, DrawShadow2D, DrawShadowPoint)"]
+        F2 --> F3["OnShadowPass: RenderShadows(lights, nodes, static DrawShadow2D, static DrawShadowPoint)"]
         F3 --> F4["OnRenderMainPass: aspect, sky → grid → nodes"]
     end
     F --> C["OnClose: dispose shadows, sky, grid, nodes → base.OnClose()"]
@@ -54,7 +64,7 @@ Controls are listed in [Cameras & input](cameras-and-input.md#input-sandbox).
 - `SetAnimation("walk")` queues after the default animation.
 - `(IVulkanContext)Renderer` is cast without a guard, against CLAUDE.md guidance.
 - Calls to `Renderer.EnableDepthTest()` / `Clear()` are Vulkan no-ops.
-- Shadow-pass lambdas allocate every frame (`TODO` at `Game.cs:162`).
+- Steady-state frames allocate nothing (enforced by the render-test allocation gate).
 - `Node.Initialize` should move into `Engine` (`TODO` at `Game.cs:59`).
 - `sky_16_2k.png` ships but is unused. Commented-out point and spot lights remain.
 

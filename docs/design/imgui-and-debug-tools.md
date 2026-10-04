@@ -59,7 +59,7 @@ File: [Debugging/Log.cs](../../MainframeEngine/Src/Debugging/Log.cs). `public st
 - Each line is `[HH:mm:ss.fff]<color> message`. With `Level.Verbose`, the caller's `[file:line member]`
   is appended. All methods capture caller info through `[CallerMemberName]`, `[CallerFilePath]` and
   `[CallerLineNumber]`.
-- `Log.LogLevel` is a public mutable `[Flags]` field. It defaults to everything except `Verbose`.
+- `Log.LogLevel` is a public settable `[Flags]` property. It defaults to everything except `Verbose`.
 - ANSI codes are disabled when `Console.IsOutputRedirected`.
 - There is no file sink, and no `[Conditional]` stripping of Debug logs in Release.
 - Networking and Steam code bypass `Log` (`Console.WriteLine` and `Trace`).

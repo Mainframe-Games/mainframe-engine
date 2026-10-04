@@ -32,7 +32,8 @@ Spine). The lighting model is forward Blinn-Phong with shadow attenuation.
   sun icon. The directional arrow is drawn in 2D and is not camera-projected.
 
 `LightEnvironment` owns **no GPU resources**. Each consumer writes its own copy of the lights UBO every
-frame: `ShapeBase.WriteLightsUbo` and `SpineRenderer.WriteLightsUbo` (duplicate code).
+frame through the shared `internal LightEnvironment.WriteUbo(Span<byte>, in Vector3 cameraPosition)`
+(size `LightEnvironment.UboSize`), used by `ShapeBase` and `SpineRenderer`. Unit tests pin the layout.
 
 ## Lights UBO
 
@@ -85,7 +86,7 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);
 
 ## Known issues
 
-- Duplicate UBO writers in `ShapeBase` and `SpineRenderer`. Each drawable uploads 1200 B per frame.
+- Each drawable uploads its own 1200 B copy of the lights UBO per frame.
 - No light removal. Lights over the limit are dropped silently, with no warning.
 - No linear-space lighting or HDR.
 - Directional gizmo arrows are not projected through the camera.

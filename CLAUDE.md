@@ -2,17 +2,32 @@
 
 ## Build & Run
 
-```bash
-dotnet build MainframeEngine.sln
-dotnet run --project MainframeEngine.Sandbox
-```
-
-Shaders must be compiled to SPIR-V before running if changed:
+Local commands are `just` recipes (run `just` to list them); CI calls `dotnet` directly.
 
 ```bash
-glslc path/to/shader.vk.vert -o path/to/shader.vk.vert.spv
-glslc path/to/shader.vk.frag -o path/to/shader.vk.frag.spv
+just build            # dotnet build MainframeEngine.sln — 0 warnings, warnings are errors
+just test             # unit tests (Tests/MainframeEngine.Tests)
+just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
+just sandbox          # dotnet run --project MainframeEngine.Sandbox
+just qa               # Sandbox --qa-capture → PNG screenshots in artifacts/qa
+just format           # dotnet format (format-check is what CI runs)
+just bench            # benchmarks vs Tests/MainframeEngine.Benchmarks/baseline.json
 ```
+
+Build settings live in `Directory.Build.props` / `Directory.Packages.props` (central package
+versions — never put `Version` on a `PackageReference`); the SDK is pinned in `global.json`.
+
+Shaders must be recompiled to SPIR-V after any change, and the `.spv` files plus
+`MainframeEngine/Content/Shaders/shaders.lock` committed (CI fails on stale `.spv`):
+
+```bash
+just shaders          # glslc --target-env=vulkan1.2 + spirv-val on every shader, rewrites shaders.lock
+just shaders-check
+```
+
+Rendering changes must keep the render tests green; if output changes intentionally, run
+`just golden-update`, inspect the PNGs and commit them (see `docs/design/testing.md`). Per-frame code
+must not allocate (allocation gate) and must produce no validation warnings.
 
 ### macOS
 
@@ -36,6 +51,8 @@ Windows/Linux are unaffected.
 - `MainframeEngine.Sandbox/` — test game; the only executable project
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Examples/` — standalone tutorial projects, not part of the engine
+- `Tests/` — unit tests, render tests (+ host), benchmarks; see `docs/design/testing.md`
+- `build/` — scripts shared by `justfile` and CI (`shaders.sh`)
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
 
 ## Key Patterns
@@ -94,7 +111,8 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected �
 - Steamworks.NET — Steam platform (optional; only activate if Steam is running)
 - StbImageSharp — texture/image loading
 
-Do not add NuGet packages without discussing the dependency first.
+Do not add NuGet packages without discussing the dependency first. Versions are central in
+`Directory.Packages.props`.
 
 ## Project memory
 

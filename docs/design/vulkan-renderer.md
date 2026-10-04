@@ -44,10 +44,10 @@ flowchart LR
 | Step | Detail |
 |---|---|
 | Instance | API 1.2, GLFW-required extensions, `VK_EXT_debug_utils` if validating, `VK_KHR_portability_enumeration` + flag when available (macOS). Layer `VK_LAYER_KHRONOS_validation` (dropped with a warning if missing). |
-| Debug messenger | Verbose/Warning/Error × General/Performance/Validation → `Log.Debug`. |
+| Debug messenger | Warning/Error × General/Performance/Validation → static `[UnmanagedCallersOnly]` callback → `VulkanValidationLog` (`IVulkanContext.Validation`: counts + first 64 messages) and `Log.Warning`/`Log.Error`. Verbose/info are not subscribed (they would allocate a string per message). |
 | Physical device | First device with graphics + present queue families. No feature or extension scoring. |
 | Logical device | One queue per unique family. Extensions: `VK_KHR_swapchain` (+ `VK_KHR_portability_subset` if advertised). **No features enabled.** |
-| Swapchain | Prefers `B8G8R8A8Unorm` / `SrgbNonlinear`. VSync → FIFO; else Mailbox → Immediate → FIFO. `minImageCount + 1`. Usage `ColorAttachment`. |
+| Swapchain | Prefers `B8G8R8A8Unorm` / `SrgbNonlinear`. VSync (initially `EngineOptions.VSync`) → FIFO; else Mailbox → Immediate → FIFO. `minImageCount + 1`. Usage `ColorAttachment`, plus `TransferSrc` when `EngineOptions.EnableFrameCapture` is set and supported (frame capture, see [Testing](testing.md#frame-capture)). |
 | Depth | One image shared by all framebuffers: first of `D32Sfloat`, `D32SfloatS8Uint`, `D24UnormS8Uint`. |
 | Command buffers | One primary per **swapchain image**, from a `ResetCommandBuffer` pool on the graphics family. |
 | Sync | `MaxFramesInFlight = 2`: `imageAvailable[2]`, `inFlight[2]` (signalled). `renderFinished[imageCount]`, `imagesInFlight[imageCount]`. |
@@ -121,7 +121,7 @@ debug messenger → surface → instance → `Vk.Dispose()`. The game must dispo
   are fixed at construction.
 - Physical device selection does not prefer discrete GPUs or check swapchain support.
 - Every upload in the engine is a one-time submit followed by `QueueWaitIdle`.
-- Validation is always enabled (see [Engine lifecycle](engine-lifecycle.md#known-issues)).
+- Validation defaults to on in every configuration (`EngineOptions.EnableValidation = true`).
 - `EndFrame` ends the render pass without checking that one was begun.
 
 ## Related docs
