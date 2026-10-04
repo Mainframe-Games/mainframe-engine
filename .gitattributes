@@ -39,3 +39,6 @@
 
 # compiled gettext catalogs (committed fallback for builds without mf-l10n; see build/Localization.targets)
 *.mo binary
+
+# macOS icon bundles are binary
+*.icns binary

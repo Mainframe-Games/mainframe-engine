@@ -1,7 +1,7 @@
+<p align="center"><img src="docs/images/brand/logo.svg" width="128" alt="Mainframe Engine logo"></p>
+<h1 align="center">Mainframe Engine</h1>
+
 ⚠️ Under Heavy Construction ⚠️
-
-
-# Mainframe Engine
 
 A modular C# game engine built on Vulkan via [Silk.NET](https://github.com/dotnet/Silk.NET), with [Spine](https://en.esotericsoftware.com/) skeletal animation, an advanced lighting/shadow system, dynamic sky rendering, Steam platform integration, and real-time ImGui debugging.
 

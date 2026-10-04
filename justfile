@@ -80,6 +80,27 @@ publish-local rid="" version="0.0.0-local":
 next-version:
     git fetch -q --tags origin && build/next-version.sh
 
+# Regenerate the logo PNGs, .ico and .icns from docs/images/brand/*.svg (needs inkscape; .icns needs macOS iconutil)
+brand:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd docs/images/brand
+    mkdir -p png
+    for n in 16 24 32 48; do inkscape logo-small.svg -w $n -h $n -o png/logo-$n.png; done
+    for n in 64 128 256 512 1024; do inkscape logo.svg -w $n -h $n -o png/logo-$n.png; done
+    python3 ../../../build/brand/make-ico.py logo.ico png/logo-{16,24,32,48,64,128,256}.png
+    if command -v iconutil >/dev/null; then
+      set_dir="$(mktemp -d)/Mainframe.iconset"; mkdir -p "$set_dir"
+      for n in 16 32 128 256 512; do
+        cp png/logo-$n.png "$set_dir/icon_${n}x${n}.png"
+        cp png/logo-$((n * 2)).png "$set_dir/icon_${n}x${n}@2x.png" 2>/dev/null || inkscape logo.svg -w $((n * 2)) -h $((n * 2)) -o "$set_dir/icon_${n}x${n}@2x.png"
+      done
+      iconutil -c icns "$set_dir" -o logo.icns
+    else
+      echo "iconutil not found (macOS only): logo.icns left unchanged"
+    fi
+    cp png/logo-{32,48,256,512}.png ../../../MainframeEngine/Content/Brand/
+
 # Apply dotnet format (the vendored Spine runtime is excluded)
 format:
     dotnet format {{solution}} --exclude Plugins/Spine

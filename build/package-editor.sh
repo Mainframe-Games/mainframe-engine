@@ -17,6 +17,7 @@ case "$rid" in
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
     cp -R "$publish_dir"/. "$app/Contents/MacOS/"
     sed "s/@VERSION@/${version}/g" "$(dirname "$0")/macos/Info.plist.in" > "$app/Contents/Info.plist"
+    cp "$(dirname "$0")/../docs/images/brand/logo.icns" "$app/Contents/Resources/logo.icns"
     chmod +x "$app/Contents/MacOS/MainframeEngine.Editor"
     tar -C "$staging" -czf "$out_dir/${name}.tar.gz" "Mainframe Editor.app"
     ;;

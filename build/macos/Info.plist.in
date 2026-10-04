@@ -10,6 +10,8 @@
 	<string>com.mainframegames.editor</string>
 	<key>CFBundleExecutable</key>
 	<string>MainframeEngine.Editor</string>
+	<key>CFBundleIconFile</key>
+	<string>logo.icns</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
