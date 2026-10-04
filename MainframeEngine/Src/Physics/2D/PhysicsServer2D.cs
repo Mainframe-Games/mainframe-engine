@@ -127,30 +127,44 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
         space.AddObject(node);
     }
 
+    // Index loops: a signal handler may add the first body of another viewport (a new space) mid-step.
+
     public void BeforeFixedSteps()
     {
-        foreach (var space in _spaceList)
-            space.BeforeFixedSteps();
+        for (var i = 0; i < _spaceList.Count; i++)
+            _spaceList[i].BeforeFixedSteps();
     }
 
     public void FixedStep(float delta)
     {
-        foreach (var space in _spaceList)
-            space.Step(delta);
+        // Several worlds step one at a time.
+        for (var i = 0; i < _spaceList.Count; i++)
+            _spaceList[i].Step(delta);
     }
 
     public void AfterFixedSteps(float interpolationFraction)
     {
-        foreach (var space in _spaceList)
-            space.AfterFixedSteps(interpolationFraction);
+        for (var i = 0; i < _spaceList.Count; i++)
+            _spaceList[i].AfterFixedSteps(interpolationFraction);
     }
 
+    /// <summary>Per frame (after transform sync): releases spaces of viewports that left the tree; debug drawing.</summary>
     public void Process(in GameTime gameTime)
     {
+        for (var i = _spaceList.Count - 1; i >= 0; i--)
+        {
+            var space = _spaceList[i];
+            if (space.ObjectCount > 0 || space.Viewport.IsInsideTree)
+                continue;
+            _spaces.Remove(space.World2D);
+            _spaceList.RemoveAt(i);
+            space.Dispose();
+        }
+
         if (!DebugDrawEnabled)
             return;
-        foreach (var space in _spaceList)
-            space.DrawDebug(space.Viewport.DebugLines);
+        for (var i = 0; i < _spaceList.Count; i++)
+            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines);
     }
 
     public void Dispose()

@@ -146,7 +146,7 @@
     {
       "Name": "SceneTreeBenchmarks.SceneSaveLoadRoundTrip1k",
       "MeanNs": 2601303.714,
-      "AllocatedBytes": 3428386
+      "AllocatedBytes": 3428641
     },
     {
       "Name": "SceneTreeBenchmarks.TransformPropagationDirtySubtree10k",

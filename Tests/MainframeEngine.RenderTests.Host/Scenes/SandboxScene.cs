@@ -57,8 +57,11 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
     }
 
     /// <summary>A static floor collider and a tower of crates (the Sandbox's physics stack).</summary>
-    private static void AddPhysics(Node scene)
+    private void AddPhysics(Node scene)
     {
+        // Single-threaded: Jitter2's worker pool allocates 56 B about once per 5 000 multi-threaded steps (inside the
+        // library), which would make this 300-frame zero-byte gate flaky. The engine's own code is the same either way.
+        Servers.GetRequired<PhysicsServer3D>().Settings.MultiThreaded = false;
         var floor = new StaticBody3D { Name = "FloorCollider", Position = new Vector3(0, -0.5f, 0) };
         floor.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(10, 1, 10) } });
         scene.AddChild(floor);

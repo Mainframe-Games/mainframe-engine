@@ -85,6 +85,11 @@ public abstract class Shape2D : Resource
         return true;
     }
 
+    /// <summary>Box2D's linear slop (metres): shorter segments and closer capsule centres are rejected by Box2D.</summary>
+    private protected const float LinearSlop = 0.005f;
+
+    private protected static bool IsSegment(B2Vec2 a, B2Vec2 b) => Vector2.Distance(new Vector2(a.X, a.Y), new Vector2(b.X, b.Y)) > LinearSlop;
+
     private protected static float Positive(float value, string name)
     {
         if (!(value > 0) || !float.IsFinite(value))
@@ -195,13 +200,22 @@ public sealed class CapsuleShape2D : Shape2D
 
     internal override void CreateGeometry(List<ShapeGeometry2D> output, in Transform2D transform, float pixelsPerMeter)
     {
-        var half = MathF.Max(Height * 0.5f - Radius, 0.01f); // Box2D needs distinct centres
-        var radius = Radius * MathF.Abs(transform.X.Length()) / pixelsPerMeter;
-        output.Add(new ShapeGeometry2D
+        var half = MathF.Max(Height * 0.5f - Radius, 0f);
+        var radius = Radius * transform.X.Length() / pixelsPerMeter;
+        var c1 = ToMeters(transform, new Vector2(0, -half), pixelsPerMeter);
+        var c2 = ToMeters(transform, new Vector2(0, half), pixelsPerMeter);
+        if (Vector2.Distance(new Vector2(c1.X, c1.Y), new Vector2(c2.X, c2.Y)) <= LinearSlop)
         {
-            Type = B2ShapeType.b2_capsuleShape,
-            Capsule = new B2Capsule(ToMeters(transform, new Vector2(0, -half), pixelsPerMeter), ToMeters(transform, new Vector2(0, half), pixelsPerMeter), radius),
-        });
+            // Box2D rejects capsules whose centres are closer than its linear slop: that is a circle.
+            output.Add(new ShapeGeometry2D
+            {
+                Type = B2ShapeType.b2_circleShape,
+                Circle = new B2Circle(ToMeters(transform, Vector2.Zero, pixelsPerMeter), radius),
+            });
+            return;
+        }
+
+        output.Add(new ShapeGeometry2D { Type = B2ShapeType.b2_capsuleShape, Capsule = new B2Capsule(c1, c2, radius) });
     }
 
     internal override void DrawDebug(DebugLines lines, in Transform2D transform, Vector4 color) =>
@@ -272,12 +286,15 @@ public sealed class SegmentShape2D : Shape2D
 
     public override bool IsConcave => true;
 
-    internal override void CreateGeometry(List<ShapeGeometry2D> output, in Transform2D transform, float pixelsPerMeter) =>
-        output.Add(new ShapeGeometry2D
-        {
-            Type = B2ShapeType.b2_segmentShape,
-            Segment = new B2Segment(ToMeters(transform, A, pixelsPerMeter), ToMeters(transform, B, pixelsPerMeter)),
-        });
+    internal override void CreateGeometry(List<ShapeGeometry2D> output, in Transform2D transform, float pixelsPerMeter)
+    {
+        var a = ToMeters(transform, A, pixelsPerMeter);
+        var b = ToMeters(transform, B, pixelsPerMeter);
+        if (IsSegment(a, b))
+            output.Add(new ShapeGeometry2D { Type = B2ShapeType.b2_segmentShape, Segment = new B2Segment(a, b) });
+        else
+            Log.Error("[Physics2D] SegmentShape2D is shorter than Box2D's linear slop; ignored.");
+    }
 
     internal override void DrawDebug(DebugLines lines, in Transform2D transform, Vector4 color) =>
         lines.AddLine2D(transform, A, B, color);
@@ -309,13 +326,10 @@ public sealed class ConcavePolygonShape2D : Shape2D
     {
         for (var i = 0; i + 1 < Segments.Length; i += 2)
         {
-            if (Segments[i] == Segments[i + 1])
-                continue;
-            output.Add(new ShapeGeometry2D
-            {
-                Type = B2ShapeType.b2_segmentShape,
-                Segment = new B2Segment(ToMeters(transform, Segments[i], pixelsPerMeter), ToMeters(transform, Segments[i + 1], pixelsPerMeter)),
-            });
+            var a = ToMeters(transform, Segments[i], pixelsPerMeter);
+            var b = ToMeters(transform, Segments[i + 1], pixelsPerMeter);
+            if (IsSegment(a, b)) // Box2D rejects segments shorter than its linear slop
+                output.Add(new ShapeGeometry2D { Type = B2ShapeType.b2_segmentShape, Segment = new B2Segment(a, b) });
         }
     }
 

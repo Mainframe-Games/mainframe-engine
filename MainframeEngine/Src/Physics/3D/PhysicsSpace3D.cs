@@ -233,6 +233,14 @@ public sealed class PhysicsSpace3D : IDisposable
 
     internal DynamicTree Tree => _world.DynamicTree;
 
+    /// <summary>
+    /// Test hook: when set, bytes allocated on this thread inside <c>World.Step</c> (Jitter2's own; its worker pool
+    /// occasionally allocates a few bytes when stepping multi-threaded) are added to <see cref="LibraryAllocatedBytes"/>.
+    /// </summary>
+    internal static bool MeasureLibraryAllocations { get; set; }
+
+    internal long LibraryAllocatedBytes { get; private set; }
+
     // ------------------------------------------------------------------------------------------------------------
     // Objects
     // ------------------------------------------------------------------------------------------------------------
@@ -399,8 +407,27 @@ public sealed class PhysicsSpace3D : IDisposable
 
     internal void OnContactMonitorChanged(BodyRecord3D record)
     {
+        // Turning the monitor off ends the reported contacts: their exits are queued for the next dispatch (pairs
+        // whose enter is still pending are dropped with it), so entered/exited stay paired.
+        if (record.Overlaps is { } touching)
+        {
+            foreach (var other in touching.Keys)
+                if (!IsEnterPending(record, other))
+                    _events.Add(new PhysicsEvent<BodyRecord3D>(PhysicsEventKind.ContactExited, record, other, record.Sequence, other.Sequence));
+        }
+
         record.Overlaps = null;
         UpdateMembership(record);
+    }
+
+    internal void OnInterpolationChanged(BodyRecord3D record)
+    {
+        UpdateMembership(record);
+        if (!record.Interpolated && !record.RenderAtCurrent && !record.TransformDirty)
+        {
+            record.Node.ApplyPhysicsPose(record.CurrentPosition, record.CurrentRotation, record.Scale);
+            record.RenderAtCurrent = true;
+        }
     }
 
     private void UpdateMembership(BodyRecord3D record)
@@ -450,6 +477,7 @@ public sealed class PhysicsSpace3D : IDisposable
         else
         {
             body.AffectedByGravity = false;
+            body.AllowedMotion = MotionAxes.All; // locks are a dynamic-body feature; kinematic moves must reach their target
         }
     }
 
@@ -571,7 +599,18 @@ public sealed class PhysicsSpace3D : IDisposable
 
             var local = owner.Transform;
             _shapeScratch.Clear();
-            shape.CreateShapes(_shapeScratch, scaleBasis * local.Basis, local.Origin * scale);
+            try
+            {
+                shape.CreateShapes(_shapeScratch, scaleBasis * local.Basis, local.Origin * scale);
+            }
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+            {
+                // Degenerate data (coplanar hull points, zero scale, ...): the shape is skipped, the body still works.
+                Log.Error($"[Physics] '{node.Name}/{owner.Name}': {shape.GetType().Name} is invalid ({e.Message}); ignored.");
+                _shapeScratch.Clear();
+                continue;
+            }
+
             foreach (var created in _shapeScratch)
             {
                 record.Shapes.Add(created);
@@ -590,9 +629,10 @@ public sealed class PhysicsSpace3D : IDisposable
             {
                 body.SetMassInertia(rigid.Mass);
             }
-            catch (ArgumentException e)
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException)
             {
-                Log.Error($"[Physics] '{node.Name}': cannot compute mass properties ({e.Message}).");
+                Log.Error($"[Physics] '{node.Name}': cannot compute mass properties ({e.Message}); using a unit inertia.");
+                body.SetMassInertia(JSymmetricMatrix.Identity, rigid.Mass);
             }
         }
 
@@ -656,7 +696,17 @@ public sealed class PhysicsSpace3D : IDisposable
 
         Flush(stepping: true);
         PreStep(delta);
-        _world.Step(delta, _settings.MultiThreaded);
+        if (MeasureLibraryAllocations)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            _world.Step(delta, _settings.MultiThreaded);
+            LibraryAllocatedBytes += GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+        else
+        {
+            _world.Step(delta, _settings.MultiThreaded);
+        }
+
         _step++;
         PostStep();
         ScanContacts();
@@ -862,7 +912,12 @@ public sealed class PhysicsSpace3D : IDisposable
             for (_dispatchIndex = 0; _dispatchIndex < _dispatching.Count; _dispatchIndex++)
             {
                 var e = _dispatching[_dispatchIndex];
-                if (e.Receiver.Removed || e.Other is { Removed: true })
+                if (e.Receiver.Removed)
+                    continue;
+                // An enter is stale once its pair is gone (other body freed, monitor or area turned off). An exit is
+                // still delivered when the other body was freed after it was queued (no other exit is emitted then).
+                if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered &&
+                    (e.Other!.Removed || e.Receiver.Overlaps is not { } current || !current.ContainsKey(e.Other)))
                     continue;
                 switch (e.Kind)
                 {

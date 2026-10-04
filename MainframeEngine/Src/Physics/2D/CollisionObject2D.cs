@@ -55,7 +55,7 @@ public abstract class CollisionObject2D : Node2D
             if (_interpolate == value)
                 return;
             _interpolate = value;
-            Record?.Space.OnKindChanged(Record);
+            Record?.Space.OnInterpolationChanged(Record);
         }
     }
 
@@ -161,51 +161,40 @@ public abstract class PhysicsBody2D : CollisionObject2D
 /// <summary>An immovable body (Godot's <c>StaticBody2D</c>): floors, walls, level geometry. Moving it by code teleports it.</summary>
 public class StaticBody2D : PhysicsBody2D
 {
-    private PhysicsMaterial? _material;
-    private readonly Action _onMaterialChanged;
+    private readonly ResourceSubscription<PhysicsMaterial> _material;
 
     public StaticBody2D()
     {
-        _onMaterialChanged = OnMaterialChanged;
+        _material = new ResourceSubscription<PhysicsMaterial>(OnMaterialChanged);
     }
 
     /// <summary>Friction and bounce; null uses the defaults.</summary>
     [Export]
     public PhysicsMaterial? PhysicsMaterial
     {
-        get => _material;
-        set => SetMaterial(ref _material, value, _onMaterialChanged, this);
+        get => _material.Value;
+        set
+        {
+            if (_material.Set(value))
+                OnMaterialChanged();
+        }
     }
 
     internal override PhysicsBodyKind Kind => PhysicsBodyKind.Static;
 
     protected override void OnEnterTree()
     {
-        if (_material is not null)
-            _material.Changed += _onMaterialChanged;
+        _material.Activate();
         base.OnEnterTree();
     }
 
     protected override void OnExitTree()
     {
         base.OnExitTree();
-        if (_material is not null)
-            _material.Changed -= _onMaterialChanged;
+        _material.Deactivate();
     }
 
     private void OnMaterialChanged() => Record?.ApplyMaterial();
-
-    internal static void SetMaterial(ref PhysicsMaterial? field, PhysicsMaterial? value, Action handler, CollisionObject2D owner)
-    {
-        if (ReferenceEquals(field, value))
-            return;
-        if (owner.IsInsideTree && field is not null)
-            field.Changed -= handler;
-        field = value;
-        if (owner.IsInsideTree && field is not null)
-            field.Changed += handler;
-        handler();
-    }
 }
 
 /// <summary>
@@ -225,12 +214,11 @@ public class RigidBody2D : PhysicsBody2D
     private AxisLock _locks;
     private Vector2 _linearVelocity;
     private float _angularVelocity;
-    private PhysicsMaterial? _material;
-    private readonly Action _onMaterialChanged;
+    private readonly ResourceSubscription<PhysicsMaterial> _material;
 
     public RigidBody2D()
     {
-        _onMaterialChanged = OnMaterialChanged;
+        _material = new ResourceSubscription<PhysicsMaterial>(OnMaterialChanged);
     }
 
     [Export]
@@ -351,8 +339,12 @@ public class RigidBody2D : PhysicsBody2D
     [Export]
     public PhysicsMaterial? PhysicsMaterial
     {
-        get => _material;
-        set => StaticBody2D.SetMaterial(ref _material, value, _onMaterialChanged, this);
+        get => _material.Value;
+        set
+        {
+            if (_material.Set(value))
+                OnMaterialChanged();
+        }
     }
 
     /// <summary>Velocity in px/s. For kinematic bodies it moves the body every step until changed.</summary>
@@ -415,8 +407,7 @@ public class RigidBody2D : PhysicsBody2D
 
     protected override void OnEnterTree()
     {
-        if (_material is not null)
-            _material.Changed += _onMaterialChanged;
+        _material.Activate();
         base.OnEnterTree();
     }
 
@@ -429,8 +420,7 @@ public class RigidBody2D : PhysicsBody2D
         }
 
         base.OnExitTree();
-        if (_material is not null)
-            _material.Changed -= _onMaterialChanged;
+        _material.Deactivate();
     }
 
     private void OnMaterialChanged() => Record?.ApplyMaterial();

@@ -1,6 +1,60 @@
 namespace MainframeEngine;
 
 /// <summary>
+/// A node's subscription to a resource's <see cref="Resource.Changed"/> event while it is inside the tree: tracks
+/// whether it is subscribed, so swapping the resource or leaving the tree never leaks or doubles the handler.
+/// </summary>
+internal sealed class ResourceSubscription<T>(Action onChanged) where T : Resource
+{
+    private bool _active;
+    private bool _subscribed;
+
+    public T? Value { get; private set; }
+
+    /// <summary>Replaces the resource; returns false if it was already the value.</summary>
+    public bool Set(T? value)
+    {
+        if (ReferenceEquals(Value, value))
+            return false;
+        Unsubscribe();
+        Value = value;
+        if (_active)
+            Subscribe();
+        return true;
+    }
+
+    /// <summary>The owner entered the tree.</summary>
+    public void Activate()
+    {
+        _active = true;
+        Subscribe();
+    }
+
+    /// <summary>The owner left the tree.</summary>
+    public void Deactivate()
+    {
+        _active = false;
+        Unsubscribe();
+    }
+
+    private void Subscribe()
+    {
+        if (_subscribed || Value is null)
+            return;
+        Value.Changed += onChanged;
+        _subscribed = true;
+    }
+
+    private void Unsubscribe()
+    {
+        if (!_subscribed || Value is null)
+            return;
+        Value.Changed -= onChanged;
+        _subscribed = false;
+    }
+}
+
+/// <summary>
 /// Surface properties shared by static and rigid bodies (Godot's <c>PhysicsMaterial</c>): friction and bounce. A
 /// <see cref="Resource"/>, so one material can be shared and saved. Bodies without one use the defaults.
 /// </summary>

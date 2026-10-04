@@ -20,12 +20,11 @@ public class RigidBody3D : PhysicsBody3D
     private AxisLock _locks;
     private Vector3 _linearVelocity;
     private Vector3 _angularVelocity;
-    private PhysicsMaterial? _material;
-    private readonly Action _onMaterialChanged;
+    private readonly ResourceSubscription<PhysicsMaterial> _material;
 
     public RigidBody3D()
     {
-        _onMaterialChanged = OnMaterialChanged;
+        _material = new ResourceSubscription<PhysicsMaterial>(OnMaterialChanged);
     }
 
     /// <summary>Dynamic (simulated) or kinematic (moved by code).</summary>
@@ -150,8 +149,12 @@ public class RigidBody3D : PhysicsBody3D
     [Export]
     public PhysicsMaterial? PhysicsMaterial
     {
-        get => _material;
-        set => StaticBody3D.SetMaterial(ref _material, value, _onMaterialChanged, this);
+        get => _material.Value;
+        set
+        {
+            if (_material.Set(value))
+                OnMaterialChanged();
+        }
     }
 
     /// <summary>Velocity in m/s (world space). For kinematic bodies it moves the body every step until changed.</summary>
@@ -227,8 +230,7 @@ public class RigidBody3D : PhysicsBody3D
 
     protected override void OnEnterTree()
     {
-        if (_material is not null)
-            _material.Changed += _onMaterialChanged;
+        _material.Activate();
         base.OnEnterTree();
     }
 
@@ -242,8 +244,7 @@ public class RigidBody3D : PhysicsBody3D
         }
 
         base.OnExitTree();
-        if (_material is not null)
-            _material.Changed -= _onMaterialChanged;
+        _material.Deactivate();
     }
 
     private void OnMaterialChanged() => Record?.ApplyMaterial();

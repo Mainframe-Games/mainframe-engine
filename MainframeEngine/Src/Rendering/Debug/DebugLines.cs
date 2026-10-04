@@ -16,7 +16,7 @@ namespace MainframeEngine;
 public sealed class DebugLines
 {
     /// <summary>Lines kept per frame; more are dropped.</summary>
-    public const int MaxLines = 1 << 19;
+    public const int MaxLines = 1 << 18;
 
     private const int CircleSegments = 24;
 

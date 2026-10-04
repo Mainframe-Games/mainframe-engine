@@ -4,8 +4,12 @@ namespace MainframeEngine.Tests.Physics;
 
 /// <summary>
 /// The physics allocation gate: steady-state physics frames over ~500 bodies (stepping, interpolation, contact
-/// monitors, areas, characters, debug draw, queries) allocate no managed memory on the main thread.
+/// monitors, areas, characters, debug draw, queries) allocate no managed memory on the main thread. Single-threaded,
+/// everything (Jitter2 included) must allocate nothing; multi-threaded, Jitter2's worker pool rarely allocates 56 B
+/// inside <c>World.Step</c> (about once per 5 000 steps), so that run excludes what the library allocated inside its
+/// steps. Runs alone: it allocates heavily while setting up, which would disturb other tests' allocation gates.
 /// </summary>
+[Collection(nameof(SerialAllocationGates))]
 public sealed class PhysicsAllocationTests
 {
     [Theory]
@@ -55,12 +59,30 @@ public sealed class PhysicsAllocationTests
         for (var i = 0; i < 240; i++)
             Frame(i % 3 == 0 ? 1f / 90 : 1f / 40);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 120; i++)
-            Frame(i % 3 == 0 ? 1f / 90 : 1f / 40);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        PhysicsSpace3D.MeasureLibraryAllocations = multiThreaded;
+        try
+        {
+            var library = h.Space.LibraryAllocatedBytes;
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var i = 0; i < 120; i++)
+                Frame(i % 3 == 0 ? 1f / 90 : 1f / 40);
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            library = h.Space.LibraryAllocatedBytes - library;
 
-        Assert.True(allocated == 0, $"steady-state 3D physics frames allocated {allocated} bytes");
+            Assert.True(allocated - library == 0, $"steady-state 3D physics frames allocated {allocated} bytes ({library} inside Jitter2's step)");
+            if (!multiThreaded)
+                Assert.Equal(0, allocated);
+        }
+        finally
+        {
+            PhysicsSpace3D.MeasureLibraryAllocations = false;
+        }
+
+
         Assert.True(h.Space.ObjectCount > 480);
     }
 }
+
+/// <summary>Allocation gates that set up large scenes run without other tests in parallel.</summary>
+[CollectionDefinition(nameof(SerialAllocationGates), DisableParallelization = true)]
+public sealed class SerialAllocationGates;

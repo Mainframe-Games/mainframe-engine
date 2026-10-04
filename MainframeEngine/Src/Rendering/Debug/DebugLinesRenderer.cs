@@ -13,6 +13,10 @@ namespace MainframeEngine;
 /// buffer grows (doubling) when a frame has more lines than it holds, which is safe because the slot's previous
 /// frame has completed once <see cref="IVulkanContext.FrameStarted"/>.
 /// </summary>
+/// <remarks>
+/// One set of buffers per frame slot: <see cref="Draw"/> may be called once per frame (the engine renders one
+/// viewport). Several viewports per frame (editor views) need per-call ring offsets.
+/// </remarks>
 internal sealed class DebugLinesRenderer : IDisposable
 {
     private const int InitialVertexCapacity = 4096;

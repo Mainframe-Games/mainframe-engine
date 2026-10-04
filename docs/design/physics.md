@@ -271,7 +271,7 @@ to a few millimetres (closer reports "overlapping"), so `CharacterBody3D.SafeMar
   areas cyan. 2D shapes are drawn in the z = 0 plane in pixels (where `Camera2D` looks). The Sandbox has a toggle.
 - `DebugLines` is an immediate-mode batch of coloured segments (boxes, circles, spheres, capsules, cylinders,
   triangle lists, 2D polygons); the render server draws a viewport's batch after its visuals and clears it every
-  frame (also when nothing could be drawn). At most 2¹⁹ lines per frame; more are dropped (`DroppedLines`).
+  frame (also when nothing could be drawn). At most 2¹⁸ lines per frame; more are dropped (`DroppedLines`).
 - `DebugLinesRenderer` reuses the scene grid's shaders (vec3 position + vec4 colour, view/projection UBO) with a
   line-list pipeline that depth-tests but doesn't write depth. Vertex buffers and UBOs are host-visible, persistently
   mapped and keyed by frame slot; a slot's vertex buffer doubles when a frame has more lines (safe: the slot's fence
@@ -319,6 +319,8 @@ draw; the fixed-step hooks; allocation gates (3D and 2D). Render tests: `physics
 - Kinematic/character moves made outside `OnPhysicsProcess` reach queries only after the next step.
 - `MoveAndSlide` doesn't climb steps (only snaps down) and has no constant-speed-on-slopes option.
 - `HeightMapShape3D` is a triangle mesh (memory grows with the map). Jitter2's sweeps have a few-millimetre tolerance.
+- `DebugLinesRenderer` draws one batch per frame (one viewport); editor views will need per-call buffer offsets.
+- Spaces of sub-viewports are released once the viewport left the tree and has no bodies.
 - No physics-aware replication yet (M5): bodies simulate wherever they run, so a networked game simulates on the
   server and replicates poses through its own `[Replicated]` members; clients should freeze or not simulate their
   copies. Client-side prediction for `CharacterBody` is a later concern ([Networking](networking.md)).

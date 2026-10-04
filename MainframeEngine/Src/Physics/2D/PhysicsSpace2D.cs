@@ -176,6 +176,7 @@ internal sealed class BodyRecord2D(CollisionObject2D node, PhysicsSpace2D space,
         else
         {
             b2Body_SetGravityScale(Body, 0f);
+            b2Body_SetMotionLocks(Body, default); // locks are a dynamic-body feature; kinematic moves must reach their target
             // Areas must stay awake for their sensor to update; characters and kinematic bodies are moved every step.
             b2Body_EnableSleep(Body, Kind is PhysicsBodyKind.Static);
         }
@@ -464,8 +465,27 @@ public sealed class PhysicsSpace2D : IDisposable
 
     internal void OnContactMonitorChanged(BodyRecord2D record)
     {
+        // Turning the monitor off ends the reported contacts: their exits are queued for the next dispatch (pairs
+        // whose enter is still pending are dropped with it), so entered/exited stay paired.
+        if (record.Overlaps is { } touching)
+        {
+            foreach (var other in touching.Keys)
+                if (!IsEnterPending(record, other))
+                    _events.Add(new PhysicsEvent<BodyRecord2D>(PhysicsEventKind.ContactExited, record, other, record.Sequence, other.Sequence));
+        }
+
         record.Overlaps = null;
         UpdateMembership(record);
+    }
+
+    internal void OnInterpolationChanged(BodyRecord2D record)
+    {
+        UpdateMembership(record);
+        if (!record.Interpolated && !record.RenderAtCurrent && !record.TransformDirty)
+        {
+            record.Node.ApplyPhysicsPose(record.CurrentPosition, record.CurrentRotation, record.Scale);
+            record.RenderAtCurrent = true;
+        }
     }
 
     private void UpdateMembership(BodyRecord2D record)
@@ -558,10 +578,29 @@ public sealed class PhysicsSpace2D : IDisposable
                 b2Body_SetTransform(record.Body, ToB2(position / PixelsPerMeter), b2MakeRot(rotation));
                 if (record.Kind == PhysicsBodyKind.Dynamic)
                     b2Body_SetAwake(record.Body, true);
+                else
+                    WakeTouching(record); // Box2D doesn't wake bodies resting on a static body that moved
                 record.PreviousPosition = record.CurrentPosition = position;
                 record.PreviousRotation = record.CurrentRotation = rotation;
                 record.RenderAtCurrent = true;
                 break;
+        }
+    }
+
+    private void WakeTouching(BodyRecord2D record)
+    {
+        var capacity = b2Body_GetContactCapacity(record.Body);
+        if (capacity > _contactScratch.Length)
+            _contactScratch = new B2ContactData[Math.Max(capacity, _contactScratch.Length * 2)];
+        var count = b2Body_GetContactData(record.Body, _contactScratch, _contactScratch.Length);
+        for (var i = 0; i < count; i++)
+        {
+            ref var contact = ref _contactScratch[i];
+            var other = b2Shape_GetBody(contact.shapeIdA);
+            if (other.Equals(record.Body))
+                other = b2Shape_GetBody(contact.shapeIdB);
+            if (b2Body_GetType(other) != B2BodyType.b2_staticBody)
+                b2Body_SetAwake(other, true);
         }
     }
 
@@ -621,6 +660,12 @@ public sealed class PhysicsSpace2D : IDisposable
                     B2ShapeType.b2_segmentShape => b2CreateSegmentShape(record.Body, def, g.Segment),
                     _ => b2CreatePolygonShape(record.Body, def, g.Polygon),
                 };
+                if (id.index1 == 0) // B2_IS_NULL: Box2D refused the geometry (degenerate at this scale)
+                {
+                    Log.Error($"[Physics2D] '{node.Name}/{owner.Name}': {shape.GetType().Name} is too small for Box2D; ignored.");
+                    continue;
+                }
+
                 record.Shapes.Add(new ShapeEntry2D { Id = id, Geometry = g, Owner = owner });
                 _shapes[Key(id)] = new ShapeRef(record, owner, record.Shapes.Count - 1);
             }
@@ -876,7 +921,12 @@ public sealed class PhysicsSpace2D : IDisposable
             for (_dispatchIndex = 0; _dispatchIndex < _dispatching.Count; _dispatchIndex++)
             {
                 var e = _dispatching[_dispatchIndex];
-                if (e.Receiver.Removed || e.Other is { Removed: true })
+                if (e.Receiver.Removed)
+                    continue;
+                // An enter is stale once its pair is gone (other body freed, monitor or area turned off). An exit is
+                // still delivered when the other body was freed after it was queued (no other exit is emitted then).
+                if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered &&
+                    (e.Other!.Removed || e.Receiver.Overlaps is not { } current || !current.ContainsKey(e.Other)))
                     continue;
                 switch (e.Kind)
                 {

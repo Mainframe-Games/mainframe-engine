@@ -28,6 +28,11 @@ public class Node3D : Node, ITransformNotifiable
         Local = 1,
         Global = 2,
         Euler = 4,
+
+        // Not dirtiness: the engine-internal change hooks, kept in the same byte so Node3D stays as small and the
+        // propagation loop reads one field.
+        TrackGlobal = 8,
+        TrackLocal = 16,
     }
 
     private Vector3 _position;
@@ -41,8 +46,6 @@ public class Node3D : Node, ITransformNotifiable
     private bool _visible = true;
     private bool _notifyTransform;
     private bool _notificationQueued;
-    private bool _trackGlobalChanges;
-    private bool _trackLocalChanges;
 
     /// <summary>Position relative to the parent.</summary>
     [Export]
@@ -255,10 +258,12 @@ public class Node3D : Node, ITransformNotifiable
     /// transform becomes dirty (its own or an ancestor's transform was set, or it was reparented). Physics bodies
     /// use it to push moved nodes to their server without a per-step scan.
     /// </summary>
-    private protected void TrackGlobalTransformChanges(bool enable) => _trackGlobalChanges = enable;
+    private protected void TrackGlobalTransformChanges(bool enable) =>
+        _dirty = enable ? _dirty | Dirty.TrackGlobal : _dirty & ~Dirty.TrackGlobal;
 
     /// <summary>Enables <see cref="OnLocalTransformChanged"/>: called whenever a local transform property is set.</summary>
-    private protected void TrackLocalTransformChanges(bool enable) => _trackLocalChanges = enable;
+    private protected void TrackLocalTransformChanges(bool enable) =>
+        _dirty = enable ? _dirty | Dirty.TrackLocal : _dirty & ~Dirty.TrackLocal;
 
     /// <summary>A local transform property was set (see <see cref="TrackLocalTransformChanges"/>); record it only.</summary>
     private protected virtual void OnLocalTransformChanged()
@@ -276,7 +281,7 @@ public class Node3D : Node, ITransformNotifiable
     private void MarkLocalDirty()
     {
         _dirty |= Dirty.Local;
-        if (_trackLocalChanges)
+        if ((_dirty & Dirty.TrackLocal) != 0)
             OnLocalTransformChanged();
         InvalidateGlobal();
     }
@@ -290,7 +295,7 @@ public class Node3D : Node, ITransformNotifiable
         _dirty |= Dirty.Global;
         if (_notifyTransform)
             QueueTransformNotification();
-        if (_trackGlobalChanges)
+        if ((_dirty & Dirty.TrackGlobal) != 0)
             OnGlobalTransformInvalidated();
 
         var children = ChildList;

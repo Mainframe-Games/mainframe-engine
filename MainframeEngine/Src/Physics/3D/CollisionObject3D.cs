@@ -68,7 +68,7 @@ public abstract class CollisionObject3D : Node3D
             if (_interpolate == value)
                 return;
             _interpolate = value;
-            Record?.Space.OnKindChanged(Record);
+            Record?.Space.OnInterpolationChanged(Record);
         }
     }
 
@@ -178,49 +178,38 @@ public abstract class PhysicsBody3D : CollisionObject3D
 /// <summary>An immovable body (Godot's <c>StaticBody3D</c>): floors, walls, level geometry. Moving it by code teleports it.</summary>
 public class StaticBody3D : PhysicsBody3D
 {
-    private PhysicsMaterial? _material;
-    private readonly Action _onMaterialChanged;
+    private readonly ResourceSubscription<PhysicsMaterial> _material;
 
     public StaticBody3D()
     {
-        _onMaterialChanged = OnMaterialChanged;
+        _material = new ResourceSubscription<PhysicsMaterial>(OnMaterialChanged);
     }
 
     /// <summary>Friction and bounce; null uses the defaults.</summary>
     [Export]
     public PhysicsMaterial? PhysicsMaterial
     {
-        get => _material;
-        set => SetMaterial(ref _material, value, _onMaterialChanged, this);
+        get => _material.Value;
+        set
+        {
+            if (_material.Set(value))
+                OnMaterialChanged();
+        }
     }
 
     internal override PhysicsBodyKind Kind => PhysicsBodyKind.Static;
 
     protected override void OnEnterTree()
     {
-        if (_material is not null)
-            _material.Changed += _onMaterialChanged;
+        _material.Activate();
         base.OnEnterTree();
     }
 
     protected override void OnExitTree()
     {
         base.OnExitTree();
-        if (_material is not null)
-            _material.Changed -= _onMaterialChanged;
+        _material.Deactivate();
     }
 
     private void OnMaterialChanged() => Record?.ApplyMaterial();
-
-    internal static void SetMaterial(ref PhysicsMaterial? field, PhysicsMaterial? value, Action handler, CollisionObject3D owner)
-    {
-        if (ReferenceEquals(field, value))
-            return;
-        if (owner.IsInsideTree && field is not null)
-            field.Changed -= handler;
-        field = value;
-        if (owner.IsInsideTree && field is not null)
-            field.Changed += handler;
-        handler();
-    }
 }

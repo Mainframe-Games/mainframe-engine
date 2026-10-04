@@ -19,8 +19,15 @@ public class Node2D : Node, ITransformNotifiable
     private bool _visible = true;
     private bool _notifyTransform;
     private bool _notificationQueued;
-    private bool _trackGlobalChanges;
-    private bool _trackLocalChanges;
+    private Track _track; // engine-internal change hooks (physics)
+
+    [Flags]
+    private enum Track : byte
+    {
+        None = 0,
+        Global = 1,
+        Local = 2,
+    }
 
     [Export]
     public Vector2 Position
@@ -139,7 +146,7 @@ public class Node2D : Node, ITransformNotifiable
     }
 
     /// <summary>Enables <see cref="OnGlobalTransformInvalidated"/> (see <see cref="Node3D"/>'s counterpart).</summary>
-    private protected void TrackGlobalTransformChanges(bool enable) => _trackGlobalChanges = enable;
+    private protected void TrackGlobalTransformChanges(bool enable) => _track = enable ? _track | Track.Global : _track & ~Track.Global;
 
     /// <summary>The global transform was just invalidated; record it only (runs during dirty propagation).</summary>
     private protected virtual void OnGlobalTransformInvalidated()
@@ -147,7 +154,7 @@ public class Node2D : Node, ITransformNotifiable
     }
 
     /// <summary>Enables <see cref="OnLocalTransformChanged"/>: called whenever a local transform property is set.</summary>
-    private protected void TrackLocalTransformChanges(bool enable) => _trackLocalChanges = enable;
+    private protected void TrackLocalTransformChanges(bool enable) => _track = enable ? _track | Track.Local : _track & ~Track.Local;
 
     /// <summary>A local transform property was set; record it only.</summary>
     private protected virtual void OnLocalTransformChanged()
@@ -157,7 +164,7 @@ public class Node2D : Node, ITransformNotifiable
     private void MarkLocalDirty()
     {
         _localDirty = true;
-        if (_trackLocalChanges)
+        if ((_track & Track.Local) != 0)
             OnLocalTransformChanged();
         InvalidateGlobal();
     }
@@ -169,7 +176,7 @@ public class Node2D : Node, ITransformNotifiable
         _globalDirty = true;
         if (_notifyTransform)
             QueueTransformNotification();
-        if (_trackGlobalChanges)
+        if ((_track & Track.Global) != 0)
             OnGlobalTransformInvalidated();
         var children = ChildList;
         if (children is null)
