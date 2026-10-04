@@ -47,7 +47,7 @@ public sealed class ProjectService : IDisposable
     /// <summary>The launcher project (<c>MyGame.Launcher/MyGame.Launcher.csproj</c>) Play runs.</summary>
     public string? LauncherProject { get; private set; }
 
-    /// <summary>The solution (<c>MyGame.slnx</c>) Play builds; the library project when there is none.</summary>
+    /// <summary>The solution (<c>MyGame.slnx</c>) Play builds; else the launcher (or library) project.</summary>
     public string? BuildPath { get; private set; }
 
     /// <summary>The loaded game assembly's file, or null.</summary>
@@ -99,7 +99,8 @@ public sealed class ProjectService : IDisposable
         var settings = Session.Project!;
         GameLibraryProject = GameProjectLayout.GameLibraryProjectOf(root, settings);
         LauncherProject = GameProjectLayout.LauncherProjectOf(root);
-        BuildPath = GameProjectLayout.SolutionOf(root) ?? GameLibraryProject;
+        // The launcher references the library, so building it builds both when there is no solution.
+        BuildPath = GameProjectLayout.SolutionOf(root) ?? LauncherProject ?? GameLibraryProject;
         _workspace.RecentProjects.Touch(root, settings.Name);
         StartWatching();
         Changed?.Invoke();

@@ -58,7 +58,7 @@
             flex-direction: row;
             align-items: center;
             flex: 0 0 auto;
-            width: 38%;
+            width: 120dp;
             color: #b4bccc;
             font-size: 12dp;
             white-space: nowrap;
@@ -154,6 +154,17 @@
         .sig-conn .grow { overflow: hidden; }
         .sig-flags { color: #8b93a5; margin-left: 4dp; }
         .res-file { display: block; flex: 1 1 auto; font-weight: bold; color: #e8ebf2; }
+        .label-splitter {
+            position: absolute;
+            top: 28dp;
+            bottom: 0dp;
+            left: 130dp;
+            width: 6dp;
+            drag: drag;
+            cursor: col-resize;
+            pointer-events: auto;
+        }
+        .label-splitter:hover { background-color: #3b82f640; }
         .insp-name-row button { width: 24dp; padding: 0dp; margin-left: 4dp; }
         .mixer { display: block; margin: 6dp 8dp; padding: 6dp; background-color: #1b1d23; border: 1dp #2a2d36; border-radius: 4dp; }
         .mixer-title { display: flex; flex-direction: row; align-items: center; height: 24dp; font-weight: bold; color: #e8ebf2; }
@@ -179,6 +190,7 @@
     <div class="panel-body" id="inspector-body">
         <div class="empty"><span class="icon icon-lg icon-pointer icon-muted"></span><div>Select a node to edit its properties.</div></div>
     </div>
+    <div class="label-splitter" id="label-splitter" data-tooltip="Name Column — drag to resize the property names (double-click: fit them)"></div>
     <div class="panel-body sig hidden" id="signals-body">
         <div class="empty">Select a node to see its signals.</div>
     </div>

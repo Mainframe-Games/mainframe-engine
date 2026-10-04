@@ -47,6 +47,7 @@ public sealed partial class InspectorPanel
         document.GetElementById("tab-signals").SetClass("active", Tab == InspectorTab.Signals);
         document.GetElementById("inspector-body").SetClass("hidden", Tab != InspectorTab.Properties);
         document.GetElementById("signals-body").SetClass("hidden", Tab != InspectorTab.Signals);
+        document.GetElementById("label-splitter").SetClass("hidden", Tab != InspectorTab.Properties);
         SetText("inspector-title", Tab == InspectorTab.Properties ? "Inspector" : "Signals");
     }
 

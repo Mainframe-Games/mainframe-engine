@@ -16,7 +16,8 @@ public sealed class HeadlessEditor : IDisposable
         Directory = System.IO.Directory.CreateTempSubdirectory("mf-editor-ui").FullName;
         _rmlSink = new RmlMessageSink(_rmlMessages);
         Log.AddSink(_rmlSink);
-        Server = new UiServer(options: new UiServerOptions { HotReload = false, HeadlessViewport = new Vector2(1600, 900) });
+        // Like EditorApp: F8 is Stop, the RmlUi debugger is on F9.
+        Server = new UiServer(options: new UiServerOptions { HotReload = false, HeadlessViewport = new Vector2(1600, 900), DebuggerKey = Silk.NET.Input.Key.F9 });
         Servers.Register(Server);
         Tree = new SceneTree(Servers) { EditMode = true };
         var options = new EditorWorkspaceOptions

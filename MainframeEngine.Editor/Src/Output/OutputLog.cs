@@ -183,12 +183,11 @@ public sealed class OutputLog : ILogSink, IDisposable
     /// </summary>
     public void AddGame(in LogEntry entry, string? instanceLabel)
     {
-        var category = entry.Category.Length == 0 ? "game" : entry.Category;
         var text = instanceLabel is null ? entry.Message : $"{instanceLabel}: {entry.Message}";
         _incoming.Enqueue(new OutputMessage(ToOutputLevel(entry.Level), text, entry.Timestamp.ToLocalTime())
         {
             // Marked as game output, keeping the game's own category when it has one.
-            Category = entry.Category.Length == 0 ? "game" : $"game·{category}",
+            Category = entry.Category is "" or PlayService.GameCategory ? "game" : $"game·{entry.Category}",
             CallerFile = entry.CallerFile ?? "",
             CallerLine = entry.CallerLine,
         });

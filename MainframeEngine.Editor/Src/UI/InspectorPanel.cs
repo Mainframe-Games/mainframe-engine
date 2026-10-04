@@ -69,6 +69,7 @@ public sealed partial class InspectorPanel : EditorDocument
         _blur = root.AddEventListener("blur", OnBlur, inCapturePhase: true);
         _mouseUp = root.AddEventListener("mouseup", OnMouseUp);
         AttachSignals(document);
+        AttachLabelSplitter(document);
         Rebuild();
     }
 
@@ -190,6 +191,8 @@ public sealed partial class InspectorPanel : EditorDocument
             rml.Append(custom);
         AppendSections(rml, _model, 0);
         body.SetInnerRml(rml.ToString());
+        _appliedLabelWidth = -1;
+        ApplyLabelWidth();
     }
 
     /// <summary>The body shown without a selection.</summary>
@@ -212,6 +215,8 @@ public sealed partial class InspectorPanel : EditorDocument
             rml.Append(custom);
         AppendSections(rml, _model, 0);
         body.SetInnerRml(rml.ToString());
+        _appliedLabelWidth = -1;
+        ApplyLabelWidth();
     }
 
     // The selection as inspector targets (nodes that still exist), in selection order: the primary is last.

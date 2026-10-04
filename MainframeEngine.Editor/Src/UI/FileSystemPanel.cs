@@ -84,7 +84,16 @@ public sealed class FileSystemPanel : EditorDocument
     public FileOperations? Operations => _operations;
 
     /// <summary>The trash deletes go to (tests substitute a fake).</summary>
-    public ITrash Trash { get; set; } = SystemTrash.Default;
+    public ITrash Trash
+    {
+        get;
+        set
+        {
+            field = value ?? throw new ArgumentNullException(nameof(value));
+            if (_fs is not null)
+                _operations = new FileOperations(_fs.ProjectRoot, AssetDatabase.Current, field);
+        }
+    } = SystemTrash.Default;
 
     public FileSystemView View { get; private set; } = FileSystemView.Tree;
 

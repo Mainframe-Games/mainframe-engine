@@ -51,6 +51,9 @@ public sealed record EditorLayoutSettings
     /// <summary>The output panel's level filter (bit per <see cref="OutputLevel"/>).</summary>
     public int OutputFilter { get; init; } = 0b1111;
 
+    /// <summary>The inspector's property-name column width in dp; 0 sizes it to the longest name.</summary>
+    public float InspectorLabelWidth { get; init; }
+
     /// <summary>The output panel folds repeated lines into one with a ×N badge.</summary>
     public bool OutputCollapse { get; init; }
 
@@ -178,6 +181,9 @@ public sealed class EditorLayout
         Settings = Settings with { WindowWidth = Math.Max(0, width), WindowHeight = Math.Max(0, height) };
 
     public void SetOutputFilter(int filter) => Settings = Settings with { OutputFilter = filter };
+
+    /// <summary>The inspector's name column width in dp (0: sized to the names).</summary>
+    public void SetInspectorLabelWidth(float width) => Settings = Settings with { InspectorLabelWidth = MathF.Max(0, width) };
 
     public void SetOutputOptions(bool collapse, bool follow) => Settings = Settings with { OutputCollapse = collapse, OutputFollow = follow };
 
