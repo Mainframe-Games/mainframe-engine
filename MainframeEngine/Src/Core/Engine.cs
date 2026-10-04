@@ -228,17 +228,20 @@ public abstract class Engine : IDisposable
         if (Renderer is IVulkanContext vkCtx)
             _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
 
+        // Servers are disposed in reverse registration order (after the tree is freed): physics, audio, multiplayer,
+        // Steam, then the render server last, so nothing outlives what it depends on (multiplayer's Steam transport
+        // on SteamServer; every server's nodes are gone before any server goes). Frame servers run in this order too.
         // M2: the render server replaces the static Node.Initialize; tree input comes from the window.
         Servers.Register(new RenderServer(Renderer));
+        if (EngineOptions.SteamAppId != 0)
+            Servers.Register(new SteamServer(EngineOptions.SteamAppId));
+        // M5: replication for the engine's tree; idle (no network) until StartServer/StartClient.
+        Multiplayer = Networking.MultiplayerApi.Attach(Tree);
+        if (EngineOptions.Audio.Enabled)
+            RegisterAudioServer(EngineOptions.Audio);
         // M6: physics servers, stepped by the tree's fixed tick; they create a space per world on demand.
         Servers.Register(new PhysicsServer3D(EngineOptions.Physics3D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
         Servers.Register(new PhysicsServer2D(EngineOptions.Physics2D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
-        if (EngineOptions.SteamAppId != 0)
-            Servers.Register(new SteamServer(EngineOptions.SteamAppId));
-        if (EngineOptions.Audio.Enabled)
-            RegisterAudioServer(EngineOptions.Audio);
-        // M5: replication for the engine's tree; idle (no network) until StartServer/StartClient.
-        Multiplayer = Networking.MultiplayerApi.Attach(Tree);
         _inputRouter = new InputRouter(InputContext, Tree);
 
         SetWindowIcon(EngineOptions.IconPath);

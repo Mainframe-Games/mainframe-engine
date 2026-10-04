@@ -13,8 +13,17 @@ public static class HostRunner
     public static HostResult Run(string scene, string outputDirectory, params string[] extraArgs)
         => RunExpectingExit(0, scene, outputDirectory, extraArgs);
 
+    /// <summary>Runs the host with extra environment variables (e.g. runtime knobs) for its process.</summary>
+    public static HostResult RunWithEnvironment(IReadOnlyDictionary<string, string> environment, string scene, string outputDirectory,
+        params string[] extraArgs)
+        => RunExpectingExit(0, scene, outputDirectory, environment, extraArgs);
+
     /// <summary>Runs the host and requires it to exit with <paramref name="expectedExitCode"/> (the scene's <c>Engine.Run()</c> result).</summary>
     public static HostResult RunExpectingExit(int expectedExitCode, string scene, string outputDirectory, params string[] extraArgs)
+        => RunExpectingExit(expectedExitCode, scene, outputDirectory, environment: null, extraArgs);
+
+    private static HostResult RunExpectingExit(int expectedExitCode, string scene, string outputDirectory,
+        IReadOnlyDictionary<string, string>? environment, string[] extraArgs)
     {
         ArgumentNullException.ThrowIfNull(extraArgs);
         if (Directory.Exists(outputDirectory))
@@ -37,6 +46,9 @@ public static class HostRunner
         // Keep the persisted pipeline cache out of the user's cache folder (and shared by the test runs).
         // (--pipeline-cache <dir> overrides it per run.)
         psi.Environment[PipelineCache.DirectoryVariable] = Path.Combine(RenderTestEnvironment.ArtifactsDirectory, "pipeline-cache");
+        if (environment is not null)
+            foreach (var (name, value) in environment)
+                psi.Environment[name] = value;
 
         psi.ArgumentList.Add(hostDll);
         psi.ArgumentList.Add(scene);

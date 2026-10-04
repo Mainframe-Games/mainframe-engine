@@ -115,7 +115,14 @@ public class SceneTests
     public void SandboxSteadyStateAllocatesNothing()
     {
         const int warmup = 120, measured = 300;
-        var result = HostRunner.Run("sandbox", Output("sandbox"), "--alloc", $"{warmup}:{measured}", "--hidden");
+        // Without tiered compilation: the gate is about the code a steady-state frame runs, which is optimized code.
+        // With tiering, some generic BCL code starts at tier 0 — notably the interpolated-string handlers' AppendFormatted<T>,
+        // which boxes each formatted value (24 B) until the background JIT promotes it after ~30 calls — and when that
+        // promotion lands is timing-dependent (the call-counting delay restarts on every tier-0 JIT), so ~1 run in 3
+        // measured a few dozen frames of ImGui text formatting before it. Fully optimized code from the start measures
+        // the steady state deterministically.
+        var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "sandbox", Output("sandbox"), "--alloc", $"{warmup}:{measured}", "--hidden");
 
         Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures)); // audio really plays
         Assert.Equal(measured, result.MeasuredFrames);

@@ -209,14 +209,22 @@ Lavapipe output changes with the Mesa/LLVM version in the runner image (recorded
 | Gate | Rule | Where |
 |---|---|---|
 | Validation | 0 warnings and 0 errors from `VK_LAYER_KHRONOS_validation`, including teardown (leaks, in-use destruction) | every scene |
-| Allocation | 0 managed bytes (`GC.GetAllocatedBytesForCurrentThread`) over 300 frames after 120 warm-up frames | `sandbox` scene |
+| Allocation | 0 managed bytes (`GC.GetAllocatedBytesForCurrentThread`) over 300 frames after 120 warm-up frames, host run with `DOTNET_TieredCompilation=0` | `sandbox` scene |
 
 The debug messenger listens to WARNING and ERROR only, with a static `[UnmanagedCallersOnly]` callback,
 and records into `IVulkanContext.Validation` (`VulkanValidationLog`: counters plus the first 64
 messages). Without the layers installed the validation gate skips locally and fails on CI (`CI=true`).
 
+The allocation gate's host runs without tiered compilation: tier-0 code of some generic BCL methods allocates where
+the optimized code does not (the interpolated-string handlers' `AppendFormatted<T>` boxes each value until the
+background JIT promotes it), and when that promotion lands depends on timing, so with tiering about one run in three
+measured a few dozen frames of tier-0 ImGui text formatting. The gate checks the optimized code the steady state runs.
+
 Per-frame code must not allocate: use static lambdas with state (`ShadowSystem.RenderShadows<TState>`),
-cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.TextUnformatted`).
+cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.TextUnformatted`). Unit-test
+allocation gates run in parallel with other test classes, so per-frame code must not rely on process-wide pools that
+other threads share (`ArrayPool<T>.Shared` partitions): the in-process transports use a private `PacketPool` for that
+reason (a loopback test once failed ~1 in 15 runs when another test thread drained the shared pool).
 
 ## Benchmarks
 

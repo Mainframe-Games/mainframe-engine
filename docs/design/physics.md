@@ -272,10 +272,13 @@ to a few millimetres (closer reports "overlapping"), so `CharacterBody3D.SafeMar
 - `DebugLines` is an immediate-mode batch of coloured segments (boxes, circles, spheres, capsules, cylinders,
   triangle lists, 2D polygons); the render server draws a viewport's batch after its visuals and clears it every
   frame (also when nothing could be drawn). At most 2¹⁸ lines per frame; more are dropped (`DroppedLines`).
-- `DebugLinesRenderer` reuses the scene grid's shaders (vec3 position + vec4 colour, view/projection UBO) with a
-  line-list pipeline that depth-tests but doesn't write depth. Vertex buffers and UBOs are host-visible, persistently
-  mapped and keyed by frame slot; a slot's vertex buffer doubles when a frame has more lines (safe: the slot's fence
-  was waited on).
+- `DebugLinesRenderer` draws the batch in the HDR scene pass with its own line-list pipeline
+  (`Shaders/Debug/DebugLines`, built through `PipelineBuilder`/the pipeline cache): camera from the shared set 0
+  (`FrameContext`), depth-tested but not depth-writing, alpha-blended. Line colours are sRGB-authored and converted to
+  linear in the fragment shader (no distance fade, unlike the scene grid), then tonemapped with the scene. Vertex
+  buffers are dynamic `GpuBuffer`s from `IVulkanContext.Allocator`, keyed by frame slot; a slot's buffer doubles when a
+  frame has more lines (the old one goes to the deletion queue). The pipeline and buffers are released through the
+  deletion queue when the render server is disposed.
 
 ## Performance
 
