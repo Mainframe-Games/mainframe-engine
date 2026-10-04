@@ -40,16 +40,17 @@ Constraints found while researching (2026-10-05, sources in the design docs):
     attachments; direct UI replay; D16 shadows; optional MSAA resolved on tile.
   - Quality tiers bundle existing knobs, with dynamic resolution and a thermal governor.
 - **Host:** SDL2 through Silk.NET's mobile entry points (`SilkActivity`, `SilkMobile.RunApp`).
-  - SDL2 is rebuilt by us for Android (16 KB).
+  - Silk.NET 2.23's SDL/MoltenVK are tried first. SDL2 (and MoltenVK) are vendored and built in `natives.yml` only
+    if 2.23 fails the 16 KB/iOS checks (see the decisions recorded after review).
   - An engine-owned host (GameActivity / UIKit + `CAMetalLayer`) is the designed fallback if spike S1 fails.
   - Everything above the host goes through `IAppPlatform` seams in a core that stays `net10.0`. Platform code lives in
     `MainframeEngine.Android` / `MainframeEngine.iOS`. Games add `MyGame.Android` / `MyGame.iOS` heads from `mfgame`.
 - **Runtime:**
-  - iOS Release uses **NativeAOT**; Debug uses Mono.
-  - Android uses the SDK's production runtime: Mono profiled AOT on .NET 10, revisited for .NET 11 in spike S2.
+  - Runtime-agnostic until M12 start; spike S2 picks the .NET version and runtime per platform (see the decisions
+    recorded after review). Leading candidates: NativeAOT on iOS, and the SDK's production runtime on Android.
   - The engine must be `IsAotCompatible` with zero warnings. Collectible game assemblies stay editor/desktop-only:
     code changes on devices always mean rebuild + reinstall. Content changes live-preview over the editor link.
-- **Content:** an export-time cook. Textures become KTX2 with ASTC primary and an ETC2 fallback (via Play
+- **Content:** an export-time cook (binary export artefacts allowed: [amendment to ADR 0011](#amendment-to-adr-0011-cooked-binary-exports)). Textures become KTX2 with ASTC primary and an ETC2 fallback (via Play
   texture-format targeting). Models are cooked, so no Assimp ships on devices. Content goes into `.mfpak` packs through
   an `IContentFileSystem`, delivered with Play Asset Delivery; iOS uses bundled packs for M12.
 - **Services:** thin engine-owned native shims, Swift (iOS) and Kotlin + a C++ JNI bridge (Android), behind **one
@@ -77,11 +78,57 @@ Constraints found while researching (2026-10-05, sources in the design docs):
   miniaudio for the simulator.
 - Lowering shaders to `vulkan1.1` changes every committed `.spv` and `shaders.lock` once. Goldens should not change
   (S6 checks).
-- **Open dependency decisions** (need the user's approval):
-  - Silk.NET 2.22 → 2.23 (SDL 2.32.10, MoltenVK 1.4.1);
-  - vendoring MoltenVK/SDL xcframeworks;
-  - texture encoders (astcenc, an ETC2 encoder) as build tools;
-  - the ads provider, and Sentry for crash reporting in M13.
+- The dependency questions this left open were answered by the user and are recorded below.
 - **Risks** (detailed in the design doc): Silk.NET mobile maturity, .NET 11 runtime changes, MoltenVK non-conformance
   for the merged pass, Vulkan 1.1 driver quality on low-end Android, Apple's 80 MB `__TEXT` limit, and store-policy
   drift (yearly target-API and Xcode-SDK bumps).
+
+## Decisions recorded after review (2026-10-05)
+
+The user answered the design's open questions. They are decided:
+
+1. **SDL2 / MoltenVK natives: try Silk.NET 2.23 first.**
+   - Spike M12.0 S1 bumps Silk.NET 2.22 → 2.23 on the spike branch only. It checks 16 KB alignment of 2.23's Android
+     SDL (`libSDL2.so`, `libmain.so`) and its iOS support (SDL + MoltenVK 1.4.1 static libraries).
+   - Only if 2.23 still fails do we vendor SDL2 and MoltenVK and build them in `natives.yml`: Android `.so` + `SDLActivity`,
+     iOS xcframeworks.
+   - **No package versions change now.** A bump lands only with the S1 result.
+   - The research pre-check found 2.23's Android SDL still 4 KB aligned (Silk.NET #2493), so the fallback is likely for
+     Android.
+2. **.NET version and mobile runtime: decided at M12 start.**
+   - The design stays runtime-agnostic. Engine code must stay trim- and AOT-safe from now on, which every candidate
+     needs: Mono AOT, NativeAOT, CoreCLR + R2R.
+   - Spike M12.0 S2 runs on the then-current .NET (likely 11 / CoreCLR) and picks the runtime per platform.
+   - This supersedes the "iOS Release = NativeAOT" line above, which is now the leading candidate, not a decision.
+3. **Approved for mobile exports:**
+   - Cooked binary meshes/scenes in exports (see the amendment below).
+   - **astcenc** (Apache-2.0) and an **ETC2 encoder** (etcpak, BSD) as **build tools only**: host tools pinned by
+     source/checksum and run by `mf-cook`, never linked into or shipped with the engine or games.
+4. **Platform and services:**
+   - **iOS 16 stays the minimum.** Device deploy uses the iOS workload's `mlaunch` (`dotnet build -t:Run`) for iOS 16
+     devices and `xcrun devicectl` for iOS 17+.
+   - **Ads:** AdMob + UMP.
+   - **Crash reporting:** Sentry's native SDKs (sentry-cocoa, sentry-android with NDK) behind the `mfplatform`
+     services shim. This M13 dependency is approved. There is no `Sentry` NuGet; the managed engine forwards
+     unhandled exceptions through the shim's `crash_*` ABI.
+
+### Amendment to ADR 0011 (cooked binary exports)
+
+[ADR 0011](0011-json-scenes-no-binary-bake.md) ("JSON scenes, no binary bake") still governs **source and editor
+data**:
+
+- `.mscene` and `.mres` files in a project, the editor and desktop development builds stay JSON;
+- models stay glTF/FBX sources imported at load time on desktop.
+
+**Exports may cook to binary.** The mobile export (`mf-cook`) may write:
+
+- imported models as a `.mscene` plus binary `.mmesh` vertex/index buffers (so Assimp never ships to devices);
+- scenes and resources in a binary form, when that measurably helps load time or size.
+
+These are build artefacts:
+
+- derived from the JSON sources, never edited or committed;
+- versioned by the cooker;
+- regenerated on every export.
+
+The runtime keeps loading JSON as well.

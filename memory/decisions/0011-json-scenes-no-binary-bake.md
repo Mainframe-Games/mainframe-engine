@@ -31,3 +31,8 @@ no new dependency, readable/writable by the runtime and the editor, stable refer
 - Zero new dependencies; tooling (jq, editors, diff) works on scene files.
 - Merge conflicts in large scenes are possible; revisit a custom format if they become painful.
 - Load-time allocation is noticeable (~3.4 MB for 1 000 nodes) — acceptable at load time, never per frame.
+
+## Amendment (2026-10-05)
+
+Amended by [ADR 0100](0100-mobile-strategy.md#amendment-to-adr-0011-cooked-binary-exports). Source and editor data
+stay JSON, as above. **Exports** (the mobile `mf-cook` step) may cook meshes and scenes to binary build artefacts.

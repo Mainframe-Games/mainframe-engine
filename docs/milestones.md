@@ -270,7 +270,7 @@ several dependencies (Silk.NET SDL on mobile, SoundFlow natives, NativeAOT) are 
 
 | Feature | Status | Design doc |
 |---|---|---|
-| M12.0 Spikes: Silk/SDL2 on Android + iOS, MoltenVK iOS, AOT engine boot, SoundFlow/miniaudio, natives per RID, Vulkan 1.1 baseline | ⬜ | [Mobile](design/future/mobile.md#m120--spikes) |
+| M12.0 Spikes: Silk.NET 2.23 bump (Android SDL 16 KB + iOS; vendor SDL2/MoltenVK only if it fails), .NET version + runtime pick on the then-current SDK, MoltenVK iOS, SoundFlow/miniaudio, natives per RID, Vulkan 1.1 baseline | ⬜ | [Mobile](design/future/mobile.md#m120--spikes) |
 | M12.1 Platform layer: `MainframeEngine.Android`/`.iOS` hosts, natives (android-arm64, ios-arm64, iossimulator-arm64; 16 KB pages), content VFS, head projects + template | ⬜ | [Mobile](design/future/mobile.md#platform-layer-and-project-structure) |
 | M12.2 Lifecycle & display: pause/resume, surface loss, iOS background GPU rules, orientation + Android pre-rotation, safe areas, multi-window, low memory, audio session | ⬜ | [Mobile](design/future/mobile.md#windowing-and-lifecycle) |
 | M12.3 Rendering: TBDR pass layout (transient attachments, merged tonemap, direct UI), quality tiers, dynamic resolution, thermal governor, frame pacing, 30/60/120 Hz | ⬜ | [Mobile](design/future/mobile.md#rendering) |

@@ -130,7 +130,7 @@ classDiagram
     "consent": { "umpOnLaunch": true, "attPrompt": "beforeAds" },
     "ads": { "provider": "admob", "android": { "appId": "ca-app-pub-…" }, "ios": { "appId": "ca-app-pub-…" } },
     "notifications": { "push": false, "local": true },
-    "analytics": { "provider": "none" }, "crashes": { "provider": "local" }
+    "analytics": { "provider": "none" }, "crashes": { "provider": "sentry", "dsn": "https://…@…/…" }   // or "local"
   }
   ```
 
@@ -189,7 +189,7 @@ flowchart LR
   - Built by `xcodebuild -create-xcframework` (device + simulator) in `natives.yml`, then linked by the iOS head via
     `NativeReference` (`Kind=Static`, `Frameworks="StoreKit GameKit …"`, `ForceLoad`). Only the targets the export
     preset enables are linked, so an unused service's framework does not pull in its system framework.
-  - Third-party iOS SDKs (UMP, an ad SDK, Firebase Messaging if chosen) are vendored as **pinned xcframeworks**
+  - Third-party iOS SDKs (UMP, Google Mobile Ads, sentry-cocoa) are vendored as **pinned xcframeworks**
     fetched by checksum in CI from the vendor's official release URLs, never CocoaPods at build time. Their privacy
     manifests are merged into the app's at export.
 - **Android build.**
@@ -201,8 +201,8 @@ flowchart LR
   - Kotlin/JVM cannot export C symbols, so the bridge is the price of one ABI on both platforms. The alternative,
     managed JNI calls (`JNIEnv`/`Java.Interop`) implementing the same backend interface, would split the pattern and
     is kept only as the fallback if the bridge proves troublesome.
-  - Maven dependencies (Play Billing 9.x, `play-services-games-v2`, Play Core asset delivery from M12, UMP, the chosen
-    ad SDK, `firebase-messaging`) are declared in the `.aar`'s POM. The Android head consumes them through
+  - Maven dependencies (Play Billing 9.x, `play-services-games-v2`, Play Core asset delivery from M12, UMP,
+    `play-services-ads` (AdMob), `firebase-messaging`, `sentry-android` + NDK) are declared in the `.aar`'s POM. The Android head consumes them through
     `AndroidMavenLibrary` (.NET 9+, dependency-verified) with versions pinned centrally next to
     `Directory.Packages.props` (a `Native/Platform/android/versions.toml` the build reads), so the dependency list is
     reviewed like NuGet packages.
@@ -393,10 +393,12 @@ always **behind `ConsentServer`**.
 | AppLovin MAX | strong game demand and in-house bidding; its consent flow can show UMP and forwards TCF/AC to mediated networks | separate dashboard, heavier SDK; its consent flow must cover every mediated network |
 | Unity LevelPlay (ironSource) | strong rewarded-video demand for games; reads UMP/AC consent; ships a privacy manifest | SDK and dashboard churn (ironSource → Unity), Unity-centric docs |
 
-- **Recommendation:** **AdMob + UMP** as the reference implementation (`MfAds` targets an `AdProvider` sub-interface
-  inside the shim), because the CMP requirement is solved by the same vendor and mediation can add MAX/LevelPlay demand
-  without engine changes. A MAX or LevelPlay implementation is a second shim module behind the same C ABI calls
-  (`ads_load`, `ads_show`, events), chosen in the export preset.
+- **Decided (2026-10-05): AdMob + UMP**, recorded in [ADR 0100](../../../memory/decisions/0100-mobile-strategy.md#decisions-recorded-after-review-2026-10-05).
+  - It is the implementation M13.5 ships. `MfAds` targets an `AdProvider` sub-interface inside the shim.
+  - The same vendor solves the certified-CMP requirement, and AdMob mediation can add MAX/LevelPlay demand without
+    engine changes.
+  - A direct MAX or LevelPlay module would be a second shim module behind the same C ABI calls (`ads_load`, `ads_show`,
+    events). It is not planned.
 - **Engine API.** `AdsServer`:
   - `LoadAsync(AdFormat.Interstitial | Rewarded | Banner, placement)`, `ShowAsync(placement)` → `AdResult { Shown,
     Rewarded(amount, type), Failed, Skipped }`;
@@ -427,18 +429,31 @@ always **behind `ConsentServer`**.
        a support mail), and the editor link uploads them in dev builds.
      - NativeAOT stack traces need symbols: the export keeps the `.dSYM` (iOS) and unstripped `.so` / `.dbg`
        (Android) as build artefacts, and `mf-symbolicate` maps addresses offline.
-  2. **Native crashes** (signals in native code, out-of-memory kills) need a native SDK. The options:
+  2. **Native crashes** (signals in native code, out-of-memory kills) need a native SDK. The options considered:
 
      | Option | Managed exceptions | Native crashes | Notes |
      |---|---|---|---|
-     | **Sentry** (`Sentry` NuGet, .NET SDK with bundled Cocoa/Android SDKs) | yes, with .NET stack traces | yes | AOT/trimming supported; ⚠ NativeAOT stack traces on iOS have open issues; NativeAOT on Android unconfirmed; a NuGet dependency → needs approval; self-hostable |
+     | **Sentry** (`Sentry` NuGet, .NET SDK with bundled Cocoa/Android SDKs) | yes, with .NET stack traces | yes | AOT/trimming supported; ⚠ NativeAOT stack traces on iOS have open issues; NativeAOT on Android unconfirmed; a NuGet dependency. **Not chosen:** the decided variant uses Sentry's native SDKs through the shim (below) |
      | Firebase Crashlytics (via the shim) | only as "non-fatal" custom reports the engine forwards | yes (NDK) | needs symbol upload for each build, adds Firebase core (on Apple's commonly-used list → signed manifest); free |
      | Engine-only (layer 1) | yes | no (Play Console / App Store Connect still show OS crash reports with symbolication from uploaded dSYM / native debug symbols) | zero dependencies |
 
-     **Default:** layer 1 + the stores' own crash reports (Play vitals, App Store Connect/Xcode Organizer, with debug
-     symbols uploaded by `mobile-publish.yml`). A Sentry integration (`CrashReporter` backend + `AnalyticsServer`
-     events) is the recommended opt-in when a game needs real-time native crash data, pending the NuGet approval and
-     an AOT spike.
+     **Decided (2026-10-05): Sentry native SDKs behind the services shim** (an approved M13 dependency):
+     - **sentry-cocoa** in the iOS Swift package and **sentry-android** (with the NDK integration) in the Kotlin
+       module. Both are pinned like the other vendor SDKs: an xcframework by checksum, a Maven version in
+       `versions.toml`.
+     - **No `Sentry` NuGet.** The managed side stays dependency-free and runtime-agnostic.
+     - The C ABI gains `crash_init(json)` (DSN, environment, release, consent), `crash_capture_managed(json)`,
+       `crash_breadcrumb(json)` and `crash_set_context(json)`.
+     - The engine's layer-1 handler forwards unhandled managed exceptions as Sentry events (exception chain, .NET stack
+       frames as text plus native addresses, last log entries as breadcrumbs) **before** writing its local crash file.
+     - The native SDKs catch signals, Mach exceptions, ANRs and NDK crashes themselves.
+     - Symbols: `mobile-publish.yml` uploads dSYMs and Android native debug symbols to Sentry with the Sentry CLI
+       (official release binary, checksum-pinned; no third-party action) next to the store uploads.
+     - Initialised only after `ConsentServer` allows crash reports, unless the game declares them as required for app
+       functionality.
+     - Sentry is on no Apple required-signature list, but sentry-cocoa ships a privacy manifest, which is aggregated.
+     - Layer 1 + the stores' own dashboards (Play vitals, Xcode Organizer) stay as the zero-config fallback when no DSN
+       is configured.
 - **Analytics.** `AnalyticsServer.LogEvent(name, params)` with a fixed small schema (string/number params, ≤ 25
   per event) and backends: none (default), Firebase Analytics via the shim (if push already brought Firebase in on
   Android), or the game's own HTTP endpoint (batched, offline-queued, consent-gated). The engine records nothing on its
@@ -454,7 +469,7 @@ always **behind `ConsentServer`**.
 | Cloud saves | CloudKit (or GKSavedGame) | PGS Saved Games | Steam Cloud | local files |
 | Notifications | UNUserNotificationCenter / APNs | NotificationManager / FCM | null | fake (shows a toast in the editor) |
 | Ads | AdMob (+ mediation) | AdMob (+ mediation) | null | fake placeholder |
-| Analytics / crashes | engine + optional Sentry/Firebase | same | engine (+ optional Sentry) | engine |
+| Analytics / crashes | engine + Sentry (sentry-cocoa via shim) | engine + Sentry (sentry-android/NDK via shim) | engine (crash files; Sentry desktop later) | engine |
 
 ### Editor integration
 
@@ -475,8 +490,8 @@ always **behind `ConsentServer`**.
 | M13.2 IAP | `StoreServer` on StoreKit 2 + PBL 9.x; entitlements, restore, finish/acknowledge, pending, validator hook; `.storekit` generation | XCTest StoreKit suite in CI; a license-tester purchase on the internal track; sandbox purchase via TestFlight |
 | M13.3 Game services | Game Center, PGS v2, Steam mapping, offline queue; `CloudSaveServer` with CloudKit / Saved Games / Steam Cloud + conflict policies | unlock + score + save/load/conflict on both stores' test accounts; Steam path tested with the existing wrappers |
 | M13.4 Notifications | local (both), push (APNs, FCM), permission flows, open-from-notification | scheduled local notification fires and opens the game with data; push token reaches a test sender |
-| M13.5 Ads | AdMob + UMP reference implementation; pause/resume around fullscreen ads; export compliance (SKAdNetwork, app id, app-ads.txt reminder); size measurement | test ads (all formats) on both; consent-denied → non-personalised verified; size delta recorded |
-| M13.6 Analytics & crashes | engine crash files + `PendingReports`, symbol artefacts + upload in `mobile-publish.yml`, `AnalyticsServer` with HTTP backend; optional Sentry after approval | forced managed crash is reported on next launch with a symbolicated trace; store crash dashboards show symbolicated native crashes |
+| M13.5 Ads | AdMob + UMP (decided); pause/resume around fullscreen ads; export compliance (SKAdNetwork, app id, app-ads.txt reminder); size measurement | test ads (all formats) on both; consent-denied → non-personalised verified; size delta recorded |
+| M13.6 Analytics & crashes | engine crash files + `PendingReports`, symbol artefacts + upload in `mobile-publish.yml`, `AnalyticsServer` with HTTP backend; Sentry native SDKs in the shim (`crash_*` ABI) + symbol upload | a forced managed exception and a native crash (iOS + Android) appear in Sentry with symbolicated stacks; local crash file reported on next launch |
 
 ## Task list
 
@@ -488,23 +503,29 @@ always **behind `ConsentServer`**.
 - [ ] `GameServicesServer`, `CloudSaveServer` + Apple/Play/Steam/local backends; offline queue; conflict dialog widget
 - [ ] `NotificationServer` (local + push), channels, permission flows
 - [ ] `AdsServer` + AdMob/UMP module; export compliance; fake ads
-- [ ] `CrashReporter` (engine files, `PendingReports`), symbol artefacts + upload; `AnalyticsServer` (HTTP backend)
+- [ ] `CrashReporter` (engine files, `PendingReports`), Sentry native SDKs in the shim (`crash_*` ABI), symbol artefacts + Sentry CLI upload; `AnalyticsServer` (HTTP backend)
 - [ ] Editor: Services export section, Services play panel, device fake-services forwarding
-- [ ] Docs: current-state `docs/design/mobile-services.md` when shipped; ADRs for the ads provider and crash backend
+- [ ] Docs: current-state `docs/design/mobile-services.md` when shipped (ads provider and crash backend already decided in ADR 0100)
+
+## Decisions
+
+Decided on 2026-10-05 ([ADR 0100](../../../memory/decisions/0100-mobile-strategy.md#decisions-recorded-after-review-2026-10-05)):
+
+- **Ads:** AdMob + UMP ([Ads](#ads)).
+- **Crash reporting:** Sentry native SDKs (sentry-cocoa, sentry-android/NDK) behind the `mfplatform` shim, with no
+  `Sentry` NuGet ([Analytics and crash reporting](#analytics-and-crash-reporting)). An approved M13 dependency.
 
 ## Open questions
 
-1. **Ads provider default:** AdMob + UMP (recommended) vs AppLovin MAX for game-focused demand? Or no ads at all in v1?
-2. **Crash reporting:** approve the Sentry NuGet dependency (and a self-hosted vs SaaS choice), or stay with engine
-   crash files + store dashboards?
-3. **Subscriptions** (battle pass, VIP) in v1 or later? They add renewal states, grace periods and server
+1. **Sentry hosting:** sentry.io (SaaS) or self-hosted? The DSN is per game, so the engine is agnostic.
+2. **Subscriptions** (battle pass, VIP) in v1 or later? They add renewal states, grace periods and server
    notifications.
-4. **Cloud saves on iOS:** CloudKit (engine-defined records, full control) vs `GKSavedGame` (simpler and Game
+3. **Cloud saves on iOS:** CloudKit (engine-defined records, full control) vs `GKSavedGame` (simpler and Game
    Center-bound, but it needs an iCloud container anyway)? Default: CloudKit.
-5. **Firebase on Android** only for FCM push, or also Analytics/Crashlytics once it is there? Default: FCM only.
-6. **Swift `@c` vs `@_cdecl`:** require the Swift version with SE-0495 in CI (Xcode 26.x with Swift 6.3?), or keep
+4. **Firebase on Android** only for FCM push, or also Analytics once it is there? Default: FCM only. Crashes go to Sentry.
+5. **Swift `@c` vs `@_cdecl`:** require the Swift version with SE-0495 in CI (Xcode 26.x with Swift 6.3?), or keep
    `@_cdecl` until the minimum Xcode guarantees it?
-7. **Steam microtransactions** (`ISteamMicroTxn` needs a web API backend): out of scope, or a `StoreServer` backend
+6. **Steam microtransactions** (`ISteamMicroTxn` needs a web API backend): out of scope, or a `StoreServer` backend
    later?
 
 ## Related

@@ -154,8 +154,8 @@ platform-specific assemblies and registered by the head before the engine starts
 
   | Library | android-arm64 (NDK r28+, `-z max-page-size=16384`) | ios-arm64 + iossimulator-arm64 |
   |---|---|---|
-  | SDL2 2.32.x (+ `SDLActivity` Java from the same tag) | **ours** (Silk's `.aar` is 4 KB aligned) | Ultz.Native.SDL `libSDL2.a` (ships ios/iossimulator), or ours for one pinned version |
-  | MoltenVK | — (system `libvulkan.so`) | Silk.NET.MoltenVK.Native static lib, or ours (vendored 1.4.x xcframework) — see [open questions](#open-questions) |
+  | SDL2 2.32.x (+ `SDLActivity` Java from the same tag) | **decided:** Silk.NET 2.23's `.aar` if S1 finds it 16 KB aligned; **fallback:** ours from `natives.yml` (2.22/2.23 were 4 KB aligned on 2026-10-05) | Silk 2.23 / Ultz.Native.SDL `libSDL2.a` (ships ios/iossimulator); fallback: ours |
+  | MoltenVK | — (system `libvulkan.so`) | **decided:** Silk.NET.MoltenVK.Native 2.23 static lib (MoltenVK 1.4.1); fallback: ours (vendored 1.4.x xcframework built in `natives.yml`) — see [Decisions](#decisions) |
   | `mfrmlui` (RmlUi + FreeType) | `.so` | static `.a` in `mfrmlui.xcframework` |
   | `enet` | `.so` | static `.a` in `enet.xcframework` |
   | miniaudio (SoundFlow's native) | SoundFlow package (already 16 KB aligned) | SoundFlow's `miniaudio.framework` on device; **ours** for the simulator (none shipped) |
@@ -184,8 +184,9 @@ platform-specific assemblies and registered by the head before the engine starts
 **Host.** SDL2 stays the windowing/input layer on every platform. That keeps the gamepad database, text input, IME,
 clipboard, sensors and rumble the desktop already relies on. It goes through Silk.NET's mobile entry points:
 `SilkActivity` on Android (subclassed by `MainframeActivity`) and `SilkMobile.RunApp` on iOS, which wraps
-`SDL_UIKitRunApp`. Silk's Android SDL binaries are rebuilt by us (16 KB). **Fallback** if spike S1 fails: an
-engine-owned host per platform.
+`SDL_UIKitRunApp`. Silk.NET 2.23 is tried first. Its SDL binaries are used if they pass the 16 KB check, and are
+otherwise rebuilt by us in `natives.yml` ([Decisions](#decisions)). **Fallback** if the Silk mobile hosts themselves
+fail spike S1: an engine-owned host per platform.
 
 - Android: `GameActivity` (AGDK) with an `ANativeWindow` → `vkCreateAndroidSurfaceKHR`.
 - iOS: a `UIView` with a `CAMetalLayer` → `vkCreateMetalSurfaceEXT`.
@@ -564,9 +565,13 @@ flowchart LR
     - normal → ASTC 5×5 UNORM (RG);
     - UI → ASTC 4×4 or uncompressed for pixel-exact UI atlases;
     - HDR → ASTC HDR is not in ABP 2022, so `B10G11R11`/RGBA16F stays uncompressed.
-  - The cooker encodes with **astcenc** (Arm, Apache-2.0) and **etcpak/etc2comp**-class encoders (to be chosen in M12.5),
-    then writes **KTX2** with baked mips (Lanczos/Kaiser, sRGB-correct). Supercompression: none (the packs are
-    compressed as a whole).
+  - The cooker encodes with **astcenc** (Arm, Apache-2.0) and **etcpak** (BSD) for ETC2, then writes **KTX2** with
+    baked mips (Lanczos/Kaiser, sRGB-correct). Supercompression: none (the packs are compressed as a whole).
+  - Both encoders were approved on 2026-10-05 as **build tools only**:
+    - built from pinned sources as host tools (checksum-pinned, like `glslc`);
+    - run by `mf-cook` on the developer machine and in CI;
+    - never linked into or shipped with the engine or games.
+  - Licence notices go into `THIRD_PARTY_NOTICES.md` under build tools.
   - **Runtime:**
     - `Texture2D` gains a KTX2 reader (pure C#: header, level index, DFD subset).
     - `FormatInfo` gains block sizes.
@@ -580,8 +585,10 @@ flowchart LR
 - **Models.** Assimp is not shipped to devices. The cooker runs the existing import and writes the imported
   `PackedScene` as a `.mscene` plus a binary `.mmesh` per `ArrayMesh` (vertex/index blobs, little-endian, versioned).
   - This is an export artefact only: sources stay glTF/FBX, and editable scenes stay JSON.
-  - It amends [ADR 0011](../../../memory/decisions/0011-json-scenes-no-binary-bake.md) for platform exports
-    ([open question](#open-questions)).
+  - **Decided:** exports may also cook scenes to a binary form when that measurably helps load time or size.
+  - [ADR 0100](../../../memory/decisions/0100-mobile-strategy.md#amendment-to-adr-0011-cooked-binary-exports) amends
+    [ADR 0011](../../../memory/decisions/0011-json-scenes-no-binary-bake.md): source/editor data stays JSON, and
+    exports may cook to binary.
 - **Audio** stays OGG (NVorbis, managed) and WAV for short SFX. The cooker can downmix/resample per the `.meta`
   `platforms` block.
 - **Shaders** ship the committed SPIR-V 1.3 set. **Scenes, RML/RCSS, `.mo`, fonts** are copied as they are.
@@ -620,10 +627,14 @@ flowchart LR
 
 ### AOT, app size and startup
 
+**Decided:** the .NET version and runtime are chosen at M12 start by spike S2 on the then-current SDK (likely .NET 11 /
+CoreCLR). Until then the design is runtime-agnostic: the engine only has to stay trim- and AOT-safe, which every
+candidate below requires. The table lists the candidates, not a choice.
+
 | | iOS | Android |
 |---|---|---|
-| Release | **NativeAOT** (`PublishAot=true`, on the iOS head only, conditioned on the TFM). Smaller and faster to start than Mono, the forward path, and not affected by Mono → CoreCLR churn. | SDK default: .NET 10 = Mono profiled AOT (`RunAOTCompilation`, `AndroidEnableProfiledAot`) with a startup profile recorded from the template game. NativeAOT once it is supported (XA1040 today). .NET 11 = CoreCLR + R2R (ADR follow-up when the repo moves to .NET 11). |
-| Debug / editor deploy | Mono AOT (what `dotnet build` produces), optionally with `UseInterpreter=true` for faster builds | Mono JIT + fast deployment |
+| Release candidates | **NativeAOT** (`PublishAot=true`, iOS head only, conditioned on the TFM; supported since .NET 9, smaller and faster to start) · the SDK's default runtime (.NET 10: Mono full AOT; .NET 11: CoreCLR) | the SDK's production default (.NET 10: Mono profiled AOT, `RunAOTCompilation` + `AndroidEnableProfiledAot`, startup profile from the template game; .NET 11: CoreCLR + R2R) · NativeAOT once supported (XA1040 today) |
+| Debug / editor deploy | what `dotnet build` produces on that SDK (.NET 10: Mono AOT, optional `UseInterpreter=true`) | JIT + fast deployment |
 | Trimming | full (NativeAOT implies it) | `SdkOnly` first, then `full` once the engine and dependencies are warning-free |
 
 - **What this rules out at run time:** `Reflection.Emit`, dynamic code, `Assembly.Load` of a file, and collectible
@@ -866,9 +877,9 @@ Each spike is a throwaway branch with a written result (ADR or doc update) and a
 
 | Spike | Question | Pass criteria |
 |---|---|---|
-| S1 Silk/SDL hosts | Do `SilkActivity` and `SilkMobile.RunApp` (Silk 2.22 vs 2.23) run the engine's `Engine` loop with SDL2 rebuilt by us (16 KB)? Touch, lifecycle events and text input through an SDL event watch? | Clear-colour + ImGui-free `Engine` on a Pixel/Galaxy and an iPhone; background/foreground ×20 without a crash; XA0141-free AAB |
-| S2 AOT engine boot | Publish the template game with NativeAOT (desktop, then iOS) and Mono AOT (Android); triage trim/AOT warnings (Jitter2, Box2D.NET, GetText.NET, SoundFlow, NVorbis, spine-csharp) | 0 unexplained warnings; the scene loads and runs; size + startup numbers recorded |
-| S3 MoltenVK iOS | MoltenVK (Silk's vs vendored 1.4.x) static on iOS 16 + 17 devices; merged scene/tonemap pass as one Metal encoder with programmable blending; memoryless for transient attachments; `VK_GOOGLE_display_timing` | the Sandbox renders at 60 fps on an iPhone 12; the frame capture (Xcode GPU trace) shows one encoder for scene + tonemap |
+| S1 Silk 2.23 + SDL hosts | **Bump Silk.NET 2.22 → 2.23 on the spike branch** (decided: try 2.23 first). Is its Android SDL (`libSDL2.so`, `libmain.so`) 16 KB aligned (`llvm-readelf -l`, no XA0141)? Do its iOS SDL + MoltenVK static libs link and run? Do `SilkActivity` and `SilkMobile.RunApp` run the `Engine` loop, with touch, lifecycle events and text input through an SDL event watch? If 2.23 fails the alignment or iOS checks → fallback: vendor + build SDL2/MoltenVK in `natives.yml` (with S5) | Clear-colour + ImGui-free `Engine` on a Pixel/Galaxy and an iPhone; background/foreground ×20 without a crash; XA0141-free AAB; ADR records 2.23 adopted or the fallback taken |
+| S2 .NET + runtime pick | On the **then-current .NET** (likely 11 / CoreCLR): publish the template game with each runtime candidate per platform ([AOT table](#aot-app-size-and-startup)); triage trim/AOT warnings (Jitter2, Box2D.NET, GetText.NET, SoundFlow, NVorbis, spine-csharp); compare size, startup, frame time | 0 unexplained warnings; the scene loads and runs; ADR picks the .NET version and runtime per platform with the numbers |
+| S3 MoltenVK iOS | MoltenVK (Silk 2.23's 1.4.1, or the vendored fallback from S1) static on iOS 16 + 17 devices; merged scene/tonemap pass as one Metal encoder with programmable blending; memoryless for transient attachments; `VK_GOOGLE_display_timing` | the Sandbox renders at 60 fps on an iPhone 12; the frame capture (Xcode GPU trace) shows one encoder for scene + tonemap |
 | S4 Audio | SoundFlow on Android (AAudio) and iOS (its framework + our simulator build), NativeAOT; interruption + route change; suspend/resume | `--qa-audio` passes on both; a phone call interruption resumes cleanly |
 | S5 Natives per RID | NDK r28 builds of `mfrmlui`, `enet`, SDL2; iOS static xcframeworks; P/Invoke resolution (NativeAOT `DirectPInvoke`, Mono main-program resolver) | CTest on the emulator/simulator; the managed ABI check (`mfrmlui_abi_version`) passes on device |
 | S6 Vulkan 1.1 baseline | Shaders at `vulkan1.1`; render tests under the `VP_ANDROID_baseline_2022` profile on lavapipe; a 1.1-only Mali device | 0 profile/validation errors; goldens unchanged |
@@ -883,13 +894,13 @@ Each spike is a throwaway branch with a written result (ADR or doc update) and a
 | M12.3 Rendering | Vulkan 1.1 baseline, merged pass + transient attachments, direct UI, D16 shadows, B10G11R11, MSAA on tile, tiers + `auto`, dynamic resolution, governor, Swappy, 30/60/120 | Sandbox ≥ 60 fps at `auto` on the reference mid-range devices; 20-minute soak holds ≥ 55 fps p95 without a forced 30 fps step on iPhone 12; `profiles` job green |
 | M12.4 Input | touch events, `GestureServer`, virtual controls + `virtual:` bindings, sensors, haptics, soft-keyboard inset | a touch demo scene (joystick + buttons + pinch-zoom camera) playable; unit tests for every recogniser |
 | M12.5 Assets | `mf-cook`, KTX2 runtime path, ASTC/ETC2 presets in `.meta`, cooked models, packs, PAD (install-time/fast-follow/on-demand) + TCFT, size report/budgets | a cooked Sandbox within budget; PAD local testing passes; no Assimp on device |
-| M12.6 AOT/size/startup | `IsAotCompatible` clean, iOS NativeAOT release, Android profiled AOT, startup markers, budgets in CI | cold start ≤ 1.5 s / 2.0 s; sizes within budget |
+| M12.6 AOT/size/startup | `IsAotCompatible` clean, release builds on the runtimes S2 picked, startup markers, budgets in CI | cold start ≤ 1.5 s / 2.0 s; sizes within budget |
 | M12.7 Editor | export presets + dialog, device discovery, one-click run, link transports (adb reverse, usbmux, Bonjour), live preview, device simulation + touch emulation | from the editor: edit a scene on desktop → it changes on the phone in < 2 s without a rebuild |
 | M12.8 Pipeline & compliance | `mobile-publish.yml`, upload scripts, privacy manifest scan, store checklists, docs | a dispatched run uploads to Play internal + TestFlight (once accounts exist); without secrets the run stops at `guard` with a clear message |
 
 ### Task list
 
-- [ ] M12.0 spikes S1–S7 → ADRs (host choice, AOT runtime per platform, MoltenVK source, Silk 2.22 → 2.23)
+- [ ] M12.0 spikes S1–S7 → ADRs (Silk 2.23 adopted or SDL2/MoltenVK vendored, .NET version + runtime per platform, host choice)
 - [ ] `IAppPlatform` + seams in core; desktop implementations; `Engine` on `IView`
 - [ ] `MainframeEngine.Android` / `.iOS` projects; `MainframeEngine.Mobile.slnf`
 - [ ] `natives.yml`: android-arm64/x64 (NDK r28+), ios/iossimulator xcframeworks; SDL2 + `SDLActivity` from source; 16 KB checks; lock entries
@@ -907,7 +918,7 @@ Each spike is a throwaway branch with a written result (ADR or doc update) and a
 - [ ] Safe area / keyboard inset APIs; `mf-safe-area`; immersive mode; home-indicator deferral
 - [ ] Touch events, `GestureServer`, virtual controls + `virtual:` bindings, sensors, haptics
 - [ ] `IContentFileSystem`, `.mfpak`, overlay mount; every content read routed through it
-- [ ] `mf-cook`: KTX2 (astcenc + ETC2 encoder), presets, cooked models (`.mmesh`), packs, size report
+- [ ] `mf-cook`: KTX2 (astcenc + etcpak as pinned build tools), presets, cooked models (`.mmesh`), packs, size report
 - [ ] KTX2 runtime loader; compressed formats in `FormatInfo`/`UploadQueue`
 - [ ] Play Asset Delivery + TCFT; `ContentPacks` API (iOS: bundled packs)
 - [ ] `IsAotCompatible` + analyzer clean-up; `GameSession` explicit assemblies; editor-only annotations
@@ -968,8 +979,8 @@ independent and desktop-testable.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Silk.NET mobile windowing is little-used, and Silk 2.x maintenance is "ad-hoc" (Android SDL not 16 KB aligned, issue unanswered) | host may misbehave on lifecycle/touch; blocked Play updates from Feb 2027 | rebuild SDL ourselves (S1/S5); keep the host behind `IAppPlatform`; fallback hosts (GameActivity / UIKit + `CAMetalLayer`) designed in |
-| .NET 11 changes mobile runtimes (CoreCLR default, Mono removed on Android) as M12 starts | rework of the AOT/size work | iOS on NativeAOT from the start (unaffected); decide the Android runtime in S2 against the then-current SDK |
+| Silk.NET mobile windowing is little-used, and Silk 2.x maintenance is "ad-hoc" (Android SDL not 16 KB aligned, issue unanswered) | host may misbehave on lifecycle/touch; blocked Play updates from Feb 2027 | try Silk 2.23 first (S1); if it still fails, vendor + build SDL2/MoltenVK in `natives.yml` (S5); keep the host behind `IAppPlatform`; fallback hosts (GameActivity / UIKit + `CAMetalLayer`) designed in |
+| .NET 11 changes mobile runtimes (CoreCLR default, Mono removed on Android) as M12 starts | rework of the AOT/size work | decided: the runtime is picked at M12 start (S2) on the then-current SDK; until then engine code only has to stay trim/AOT-safe, which holds for every candidate |
 | MoltenVK is not conformant, and the merged pass may not map to one Metal encoder | lost TBDR win on iOS | S3 decides; the `Separate` path + memoryless + direct UI still removes most traffic; native Metal remains the M11 escape hatch |
 | 62 % of Android devices are Vulkan 1.1-only; driver bugs on low-end Mali/Adreno | crashes or corruption on popular phones | ABP 2022 profile gate in CI, conservative feature use, `<uses-feature android.hardware.vulkan.version 0x401000>` (1.1), a device denylist in the export preset, and Play pre-launch reports |
 | Size: NativeAOT engine + game executable near Apple's 80 MB `__TEXT` limit; app download size | rejected uploads, lower installs | size report in CI with budgets; trimming; `IlcOptimizationPreference=Size` if needed; content in packs |
@@ -977,26 +988,45 @@ independent and desktop-testable.
 | Store policy drift (target API yearly, Xcode SDK yearly, 16 KB date moved once) | blocked releases | yearly "store requirements" task in the milestones; CI checks targetSdk / Xcode version against a table |
 | No accounts yet | signing and upload untestable | everything up to signing runs in CI without secrets; the release workflow is exercised with dummy credentials until real ones exist |
 
+## Decisions
+
+Decided by the user on 2026-10-05 and recorded in [ADR 0100](../../../memory/decisions/0100-mobile-strategy.md#decisions-recorded-after-review-2026-10-05):
+
+1. **SDL2 / MoltenVK natives: try Silk.NET 2.23 first.**
+   - Spike S1 bumps Silk.NET 2.22 → 2.23 on the spike branch only. It checks 16 KB alignment of 2.23's Android SDL
+     (`libSDL2.so`, `libmain.so`) and the iOS support (SDL + MoltenVK 1.4.1 static libraries).
+   - **Fallback**, only if 2.23 still fails: vendor SDL2 and MoltenVK and build them in `natives.yml` (Android `.so`
+     with `SDLActivity`, iOS xcframeworks).
+   - **No package version changes now.** A bump lands only through the S1 result.
+   - Pre-check from this research: the 2.23 `.aar` inspected on 2026-10-05 was still 4 KB aligned
+     ([#2493](https://github.com/dotnet/Silk.NET/issues/2493)), so the fallback is likely for Android. S1 confirms it
+     against the then-current release.
+2. **.NET version and mobile runtime: decided at M12 start.**
+   - The design stays runtime-agnostic. Engine code is kept trim- and AOT-safe from now on, which is what every
+     candidate needs: Mono AOT, NativeAOT, CoreCLR + R2R.
+   - Spike S2 runs on the then-current .NET (likely .NET 11 / CoreCLR) and picks the runtime per platform. The
+     [AOT table](#aot-app-size-and-startup) lists the candidates.
+3. **Approved for mobile exports:**
+   - **Cooked binary meshes/scenes in exports.** ADR 0100 amends
+     [ADR 0011](../../../memory/decisions/0011-json-scenes-no-binary-bake.md): sources and editor data stay JSON;
+     only export artefacts may be cooked to binary.
+   - **astcenc** (Apache-2.0) and an **ETC2 encoder** (etcpak, BSD) as **build tools only** (run by `mf-cook` on the
+     host, never shipped in games, not runtime dependencies).
+4. **Platform and services:**
+   - **iOS 16 stays the minimum.** Device deploy uses the workload's `mlaunch` (`dotnet build -t:Run`) for iOS 16
+     devices and `xcrun devicectl` for iOS 17+.
+   - **Ads: AdMob + UMP** (M13).
+   - **Crash reporting: Sentry native SDKs** (sentry-cocoa, sentry-android/NDK) behind the `mfplatform` services
+     shim. This M13 dependency is approved ([Mobile services](mobile-services.md#analytics-and-crash-reporting)).
+
 ## Open questions
 
-1. **Silk.NET 2.22 → 2.23?** 2.23 brings SDL 2.32.10 and MoltenVK 1.4.1 (iOS 15+ minimum, newer fixes), but a package
-   bump needs discussion (CLAUDE.md). Default: bump in M12.0 if S1/S3 pass on 2.23. Alternatively vendor MoltenVK
-   and SDL as our own xcframeworks, which also removes the Ultz/Silk native packages from mobile builds.
-2. **Android runtime:** stay on .NET 10 Mono profiled AOT for M12, or move the repo to .NET 11 (CoreCLR + R2R on
-   Android) first? Default: decide in S2. M12 should not start on a runtime that the next SDK removes.
-3. **Cooked binary meshes** (`.mmesh`) for exports. Amend ADR 0011 (export artefacts only) or keep JSON + base64
-   buffers? Default: amend; editable data stays JSON.
-4. **ETC2 encoder and astcenc:** run them as build tools (downloaded and pinned like `glslc`, or built in `natives.yml`)
-   or wrap them in-house? Default: built from source in `natives.yml` as host tools, checksum-pinned.
-5. **iOS downloadable content:** wait for an iOS 26 minimum (managed Background Assets), or ship unmanaged Background
+1. **iOS downloadable content:** wait for an iOS 26 minimum (managed Background Assets), or ship unmanaged Background
    Assets with our own CDN? Default: bundled-only for M12.
-6. **Editor link on iOS devices:** in-house usbmux client (no dependency, private-ish protocol) vs Wi-Fi only? Default:
+2. **Editor link on iOS devices:** in-house usbmux client (no dependency, private-ish protocol) vs Wi-Fi only? Default:
    both, with usbmux preferred if S7 shows it is stable on current macOS.
-7. **ImGui on device** for engine developers: build cimgui per mobile RID, or rely on the RmlUi debugger + editor
+3. **ImGui on device** for engine developers: build cimgui per mobile RID, or rely on the RmlUi debugger + editor
    link? Default: the editor link (fps/thermal/tier status) + RmlUi debugger; revisit after M12.3.
-8. **Minimum iOS:** 16 is the requirement, but MoltenVK 1.4.x needs iOS 15+ (fine), and Background Assets' managed tier
-   and newer pacing APIs need iOS 17–26. Confirm 16 is still wanted when M12 starts (the share of iOS 16 devices will
-   be small by then).
 
 ## Related
 
