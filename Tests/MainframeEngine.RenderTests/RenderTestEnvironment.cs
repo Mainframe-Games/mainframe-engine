@@ -15,6 +15,9 @@ public static class RenderTestEnvironment
     /// <summary><c>Tests/MainframeEngine.RenderTests/Goldens</c> in the source tree.</summary>
     public static string GoldensDirectory { get; } = Metadata("GoldensDirectory");
 
+    /// <summary>The repository root (source scenes such as the Sandbox's).</summary>
+    public static string RepositoryRoot { get; } = Metadata("RepositoryRoot");
+
     /// <summary>Where actual/diff images and host output go: <c>$RENDER_TEST_ARTIFACTS</c> or <c>artifacts/render-tests</c>.</summary>
     public static string ArtifactsDirectory { get; } =
         Environment.GetEnvironmentVariable("RENDER_TEST_ARTIFACTS") is { Length: > 0 } dir

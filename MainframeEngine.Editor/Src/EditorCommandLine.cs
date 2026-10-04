@@ -8,7 +8,7 @@ public static class EditorCommandLine
 {
     public const string Usage =
         "Usage: MainframeEngine.Editor [scene.mscene] [--layout <file>] [--size WxH] [--hidden] [--no-vsync] " +
-        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--capture N]]";
+        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--no-validation]]";
 
     public static EditorAppOptions Parse(IReadOnlyList<string> args)
     {
@@ -18,6 +18,8 @@ public static class EditorCommandLine
         var hidden = false;
         var vsync = true;
         var captureFrame = 0u;
+        var splashOnly = false;
+        var validation = true;
 
         for (var i = 0; i < args.Count; i++)
         {
@@ -55,6 +57,12 @@ public static class EditorCommandLine
                 case "--smoke-scene":
                     smokeScene = Next();
                     break;
+                case "--smoke-splash":
+                    splashOnly = true;
+                    break;
+                case "--no-validation":
+                    validation = false;
+                    break;
                 case "--capture":
                     captureFrame = uint.Parse(Next(), CultureInfo.InvariantCulture);
                     break;
@@ -69,14 +77,17 @@ public static class EditorCommandLine
         if (smoke is not null)
         {
             // Deterministic and self-contained: fixed time step, no persisted layout, validation on.
-            var smokeRun = new EditorSmokeRun(Path.GetFullPath(smoke), smokeScene is null ? scene : Path.GetFullPath(smokeScene), captureFrame);
+            var smokeRun = new EditorSmokeRun(Path.GetFullPath(smoke), smokeScene is null ? scene : Path.GetFullPath(smokeScene), captureFrame)
+            {
+                SplashOnly = splashOnly,
+            };
             return new EditorAppOptions
             {
-                Workspace = new EditorWorkspaceOptions { LayoutPath = null, InitialScene = smokeRun.ScenePath, ShowSplash = false, OutputTimestamps = false },
+                Workspace = new EditorWorkspaceOptions { LayoutPath = null, InitialScene = smokeRun.ScenePath, ShowSplash = false, OutputTimestamps = false, ShowFrameStats = false },
                 WindowSize = size ?? new Vector2D<int>(1280, 720),
                 Hidden = hidden,
                 VSync = false,
-                EnableValidation = true,
+                EnableValidation = validation,
                 FixedDeltaTime = 1f / 60f,
                 EnableFrameCapture = true,
                 Automation = smokeRun,

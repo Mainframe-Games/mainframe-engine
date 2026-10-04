@@ -58,6 +58,9 @@ public sealed class EditorSmokeRun : IEditorAutomation
         Directory.CreateDirectory(outputDirectory);
     }
 
+    /// <summary><c>--smoke-splash</c>: only show the splash screen with a fixed status and capture it (its golden).</summary>
+    public bool SplashOnly { get; init; }
+
     public string OutputDirectory { get; }
     public string? ScenePath { get; }
 
@@ -81,6 +84,12 @@ public sealed class EditorSmokeRun : IEditorAutomation
         ArgumentNullException.ThrowIfNull(app);
         _frame = frame;
         _stepFrame++;
+        if (SplashOnly)
+        {
+            RunSplash(app);
+            return;
+        }
+
         if (app.Workspace is not { } workspace || workspace.Session.Active is not { } scene)
             return;
         try
@@ -101,8 +110,10 @@ public sealed class EditorSmokeRun : IEditorAutomation
         {
             case Step.Start when _stepFrame >= 10:
                 {
-                    // A known mesh: the first editable MeshInstance3D with a mesh, in tree order.
-                    _target = FindMesh(scene, scene.Root);
+                    // A known mesh, framed so it fills the view centre: the Sandbox's "Column", else the first editable mesh.
+                    _target = scene.Root.GetNodeOrNull<MeshInstance3D>("Column") is { Mesh: not null } column
+                        ? column
+                        : FindMesh(scene, scene.Root);
                     if (_target is null)
                     {
                         Fail("The scene has no mesh to pick.");
@@ -152,6 +163,8 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 workspace.Output.Clear();
                 workspace.Output.Add(OutputLevel.Info, "Smoke: picked, edited, undone, saved and reloaded the scene.");
                 workspace.Output.Add(OutputLevel.Warning, "Smoke: a warning line.");
+                if (_target is not null)
+                    workspace.Viewport.FrameSelectionOf(_target); // the edited (moved) node, centred for the golden
                 break;
 
             case Step.Capture when _stepFrame == 30:
@@ -181,6 +194,26 @@ public sealed class EditorSmokeRun : IEditorAutomation
             case Step.Allocations when _stepFrame == AllocationWarmup + AllocationFrames:
                 _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
                 Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} idle frames with {LargeSceneNodes} nodes.");
+                Next(Step.Done);
+                app.Quit(ExitCode.Ok);
+                break;
+        }
+    }
+
+    private void RunSplash(EditorApp app)
+    {
+        if (app.Workspace is not { } workspace)
+            return;
+        switch (_frame)
+        {
+            case 3:
+                workspace.Splash.Show("Loading Sandbox.mscene…", 0.4f);
+                break;
+            case 20:
+                _captureFrame = _frame;
+                app.CaptureFrame();
+                break;
+            case 24:
                 Next(Step.Done);
                 app.Quit(ExitCode.Ok);
                 break;
@@ -297,7 +330,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
     public void OnFrameCaptured(EditorApp app, FrameCapture capture)
     {
         ArgumentNullException.ThrowIfNull(capture);
-        var path = Path.Combine(OutputDirectory, $"editor_frame{_captureFrame:D4}.png");
+        var path = Path.Combine(OutputDirectory, $"{(SplashOnly ? "editor-splash" : "editor")}_frame{_captureFrame:D4}.png");
         capture.SavePng(path);
         _captures.Add(new { Frame = _captureFrame, Path = path, capture.Width, capture.Height });
     }
@@ -324,7 +357,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         var times = _frameTimes.Order().ToArray();
         var result = new
         {
-            Scene = "editor",
+            Scene = SplashOnly ? "editor-splash" : "editor",
             DeviceName = _device.Name,
             Driver = _device.Driver,
             PlatformTag = _device.Tag,

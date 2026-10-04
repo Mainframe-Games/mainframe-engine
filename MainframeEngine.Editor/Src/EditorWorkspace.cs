@@ -18,6 +18,9 @@ public sealed record EditorWorkspaceOptions
     /// <summary>Shows message times in the output panel (off for deterministic captures).</summary>
     public bool OutputTimestamps { get; init; } = true;
 
+    /// <summary>Shows the fps / frame-time readout in the toolbar (off for deterministic captures).</summary>
+    public bool ShowFrameStats { get; init; } = true;
+
     /// <summary>Where crash recovery copies of unsaved scenes go (default <c>~/.mainframe/recovery</c>).</summary>
     public string RecoveryDirectory { get; init; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "recovery");

@@ -94,7 +94,7 @@ public sealed class ToolbarPanel : EditorDocument
     /// <summary>Writes the frame stats without allocating (stack-formatted span into the element).</summary>
     public void UpdateStats(float fps, float ms)
     {
-        if (!IsLoaded)
+        if (!IsLoaded || !Workspace.Options.ShowFrameStats)
             return;
         var element = Document.GetElementById("stats");
         if (element.IsNull)
@@ -145,6 +145,11 @@ public sealed class OutputPanel : EditorDocument
         .Member("time", static m => m.TimeText)
         .Member("text", static m => m.Text);
 
+    private static readonly RmlStructType<OutputMessage> LineTypeWithoutTime = new RmlStructType<OutputMessage>()
+        .Member("level", static m => m.LevelText)
+        .Member("time", static _ => "")
+        .Member("text", static m => m.Text);
+
     private readonly List<OutputMessage> _visible = [];
     private RmlDataModel? _model;
     private int _filter;
@@ -174,7 +179,7 @@ public sealed class OutputPanel : EditorDocument
             .Bind("count_info", this, static p => p._counts[1])
             .Bind("count_warn", this, static p => p._counts[2])
             .Bind("count_error", this, static p => p._counts[3])
-            .BindList("lines", _visible, LineType)
+            .BindList("lines", _visible, Workspace.Options.OutputTimestamps ? LineType : LineTypeWithoutTime)
             .Event("toggle", e => Toggle((OutputLevel)e.GetArgument(0).GetInt32()))
             .Event("clear", _ => Clear());
         Refresh();

@@ -26,6 +26,8 @@
     <!-- Referenced for its result types and so the host lands in this output folder. -->
     <ProjectReference Include="..\MainframeEngine.RenderTests.Host\MainframeEngine.RenderTests.Host.csproj" />
     <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+    <!-- The editor's smoke run (end-to-end check and the editor window golden) lands in this output folder too. -->
+    <ProjectReference Include="..\..\MainframeEngine.Editor\MainframeEngine.Editor.csproj" />
   </ItemGroup>
 
   <ItemGroup>

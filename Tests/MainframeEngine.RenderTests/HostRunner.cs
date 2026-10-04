@@ -26,11 +26,28 @@ public static class HostRunner
         IReadOnlyDictionary<string, string>? environment, string[] extraArgs)
     {
         ArgumentNullException.ThrowIfNull(extraArgs);
+        return Launch("MainframeEngine.RenderTests.Host.dll", [scene, "--out", outputDirectory, .. extraArgs], scene, outputDirectory,
+            environment, expectedExitCode);
+    }
+
+    /// <summary>
+    /// Runs the editor (<c>MainframeEngine.Editor --smoke &lt;dir&gt; ...</c>, in this output folder through the project
+    /// reference); it writes the same <c>result.json</c> as the render host.
+    /// </summary>
+    public static HostResult RunEditor(string outputDirectory, IReadOnlyDictionary<string, string>? environment, params string[] args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+        return Launch("MainframeEngine.Editor.dll", ["--smoke", outputDirectory, .. args], "editor", outputDirectory, environment, 0);
+    }
+
+    private static HostResult Launch(string dll, IReadOnlyList<string> arguments, string scene, string outputDirectory,
+        IReadOnlyDictionary<string, string>? environment, int expectedExitCode)
+    {
         if (Directory.Exists(outputDirectory))
             Directory.Delete(outputDirectory, recursive: true);
         Directory.CreateDirectory(outputDirectory);
 
-        var hostDll = Path.Combine(AppContext.BaseDirectory, "MainframeEngine.RenderTests.Host.dll");
+        var hostDll = Path.Combine(AppContext.BaseDirectory, dll);
         var psi = new ProcessStartInfo(DotnetPath())
         {
             RedirectStandardOutput = true,
@@ -51,10 +68,7 @@ public static class HostRunner
                 psi.Environment[name] = value;
 
         psi.ArgumentList.Add(hostDll);
-        psi.ArgumentList.Add(scene);
-        psi.ArgumentList.Add("--out");
-        psi.ArgumentList.Add(outputDirectory);
-        foreach (var arg in extraArgs)
+        foreach (var arg in arguments)
             psi.ArgumentList.Add(arg);
 
         var output = new StringBuilder();
