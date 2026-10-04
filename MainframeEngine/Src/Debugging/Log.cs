@@ -244,10 +244,12 @@ public static partial class Log
         }
     }
 
-    // The lowest severity flag of a combined value (Write(Level.Error | Level.Verbose, ...) logs an error).
-    private static Level SingleLevel(Level level)
+    // A combined value logs at its highest severity that is enabled (Write(Error | Debug) with only Debug enabled logs
+    // a Debug entry; with both enabled, an Error). Verbose is never a severity.
+    internal static Level SingleLevel(Level level)
     {
-        var severity = (int)level & ~(int)Level.Verbose;
-        return (Level)(severity & -severity);
+        var enabled = (int)level & s_level & ~(int)Level.Verbose;
+        var severity = enabled != 0 ? enabled : (int)level & ~(int)Level.Verbose;
+        return severity == 0 ? Level.None : (Level)(1 << (31 - System.Numerics.BitOperations.LeadingZeroCount((uint)severity)));
     }
 }

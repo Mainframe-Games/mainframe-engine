@@ -128,7 +128,7 @@ public static class EditorLinkProtocol
     public static void WriteLog(ArrayBufferWriter<byte> output, in LogEntry entry)
     {
         var w = new FrameWriter(output, EditorLinkMessageType.Log);
-        w.Byte((byte)entry.Level);
+        w.Byte((byte)WireLevel(entry.Level));
         w.Int64(entry.Timestamp.ToUniversalTime().Ticks);
         w.String(entry.Category);
         w.String(entry.Message);
@@ -242,6 +242,17 @@ public static class EditorLinkProtocol
         }
 
         return r.AtEnd;
+    }
+
+    /// <summary>
+    /// The single severity sent for <paramref name="level"/>: its highest severity flag (Verbose ignored), Info when it
+    /// has none — a hand-built entry with a combined or empty level must not make the receiver drop the connection.
+    /// </summary>
+    public static Log.Level WireLevel(Log.Level level)
+    {
+        var severity = (uint)level & (uint)(MainframeEngine.Log.Level.Debug | MainframeEngine.Log.Level.Info | MainframeEngine.Log.Level.Warning
+                                            | MainframeEngine.Log.Level.Error | MainframeEngine.Log.Level.Fatal);
+        return severity == 0 ? MainframeEngine.Log.Level.Info : (Log.Level)(1u << (31 - System.Numerics.BitOperations.LeadingZeroCount(severity)));
     }
 
     private static bool IsSingleLevel(byte level) =>

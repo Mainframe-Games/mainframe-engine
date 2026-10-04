@@ -85,6 +85,8 @@ public sealed class InputMapTests
     [InlineData("pad:Z")]
     [InlineData("padX:A")]
     [InlineData("pad99:A")]
+    [InlineData("pad8:A")]
+    [InlineData("axis8:LeftX+")]
     [InlineData("axis:LeftX")]
     [InlineData("axis:Sideways+")]
     [InlineData("joystick:A")]
@@ -92,6 +94,15 @@ public sealed class InputMapTests
     {
         Assert.False(InputBinding.TryParse(text, out _));
         Assert.Throws<FormatException>(() => InputBinding.Parse(text));
+    }
+
+    [Fact]
+    public void GamepadIndicesMatchTheTrackedPads()
+    {
+        Assert.Equal(InputState.MaxGamepads - 1, InputBinding.GamepadButton(ButtonName.A, InputState.MaxGamepads - 1).Device);
+        Assert.Equal(-1, InputBinding.GamepadAxis(GamepadAxisCode.LeftX, 1, -5).Device);
+        Assert.Throws<ArgumentOutOfRangeException>(() => InputBinding.GamepadButton(ButtonName.A, InputState.MaxGamepads));
+        Assert.Throws<ArgumentOutOfRangeException>(() => InputBinding.GamepadAxis(GamepadAxisCode.LeftX, 1, InputState.MaxGamepads));
     }
 
     [Fact]

@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
@@ -26,12 +25,13 @@ public sealed class EditorLinkServer : IDisposable
     /// <summary>Most games connected at once; further connections are closed.</summary>
     public const int MaxGames = 16;
 
+    /// <summary>A command write to a game that stopped reading fails (and drops that game) after this long.</summary>
+    public const int SendTimeoutMilliseconds = 2000;
+
     private readonly TcpListener _listener;
     private readonly Thread _acceptThread;
     private readonly ConcurrentQueue<EditorLinkMessage> _incoming = new();
     private readonly ConcurrentDictionary<int, FramedConnection> _games = new();
-    private readonly Lock _sendGate = new();
-    private readonly ArrayBufferWriter<byte> _sendBuffer = new(256);
     private int _nextGameId;
     private int _queued;
     private long _dropped;
@@ -87,13 +87,14 @@ public sealed class EditorLinkServer : IDisposable
     {
         if (!_games.TryGetValue(gameId, out var connection) || connection.IsDisposed)
             return false;
-        lock (_sendGate)
+        // Per connection: a game that stopped reading times out (SendTimeout) without stalling commands to the others.
+        lock (connection.SendGate)
         {
             try
             {
-                _sendBuffer.Clear();
-                EditorLinkProtocol.WriteCommand(_sendBuffer, command);
-                connection.Write(_sendBuffer.WrittenSpan);
+                connection.SendBuffer.Clear();
+                EditorLinkProtocol.WriteCommand(connection.SendBuffer, command);
+                connection.Write(connection.SendBuffer.WrittenSpan);
                 return true;
             }
             catch (Exception e) when (e is IOException or SocketException or ObjectDisposedException)
@@ -146,8 +147,16 @@ public sealed class EditorLinkServer : IDisposable
             }
 
             var id = Interlocked.Increment(ref _nextGameId);
-            var connection = new FramedConnection(socket);
+            var connection = new FramedConnection(socket, SendTimeoutMilliseconds);
             _games[id] = connection;
+            if (_disposed)
+            {
+                // Dispose ran between the check above and the insert: its Disconnect snapshot missed this one.
+                _games.TryRemove(id, out _);
+                connection.Dispose();
+                return;
+            }
+
             Enqueue(new EditorLinkMessage { Type = EditorLinkMessageType.Connected, GameId = id }, force: true);
             new Thread(() => Read(id, connection)) { IsBackground = true, Name = $"EditorLink server reader {id}" }.Start();
         }

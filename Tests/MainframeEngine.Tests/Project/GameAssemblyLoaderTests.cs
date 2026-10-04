@@ -404,6 +404,32 @@ public sealed class DebouncerTests
     }
 
     [Fact]
+    public void AThrowingHandlerDoesNotStopTheWatcher()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "mf-watch", Guid.NewGuid().ToString("N"));
+        var calls = 0;
+        try
+        {
+            using var watcher = new DebouncedFileWatcher(directory, "*.txt", delay: TimeSpan.FromMilliseconds(100));
+            watcher.Changed += _ =>
+            {
+                Interlocked.Increment(ref calls);
+                throw new InvalidOperationException("handler bug");
+            };
+            Thread.Sleep(100);
+            File.WriteAllText(Path.Combine(directory, "a.txt"), "1");
+            Assert.True(Wait.Until(() => Volatile.Read(ref calls) >= 1, 10));
+            Thread.Sleep(300);
+            File.WriteAllText(Path.Combine(directory, "b.txt"), "2"); // still watching after the exception
+            Assert.True(Wait.Until(() => Volatile.Read(ref calls) >= 2, 10));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void TheWatcherReportsABurstOfFileChangesOnce()
     {
         var directory = Path.Combine(Path.GetTempPath(), "mf-watch", Guid.NewGuid().ToString("N"));

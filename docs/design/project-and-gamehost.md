@@ -153,7 +153,7 @@ on stderr and skipped; a sink that logs does not recurse.
 | Sink | |
 |---|---|
 | `ConsoleLogSink` (`Log.ConsoleSink`, default) | `[12:00:00.123] [INFO]	[Audio] message`, call site while `Level.Verbose` is set |
-| `FileLogSink` | UTF-8, LF; previous runs kept as `.1.log`, `.2.log`… (`MaxFiles`), rotates at `MaxBytes`; `ForUser(game)` writes to `UserDataPaths.LogDirectory(game)` |
+| `FileLogSink` | UTF-8, LF; `Write` only queues — a background thread writes, flushing within 1 s and at once after errors (`Flush()` on demand); a full queue drops entries and logs how many; previous runs kept as `.1.log`, `.2.log`… (`MaxFiles`), rotates at `MaxBytes` (a failed rotation is retried after 30 s); a second process logging to the same folder writes `{name}-{pid}.log` (the owner holds `{name}.log.lock`); I/O failures reported once on stderr; `ForUser(game)` writes to `UserDataPaths.LogDirectory(game)` |
 | `MemoryLogSink` | ring of the last N entries; `Snapshot()`, `CopySince(sequence)` for incremental panels; no allocation once full |
 | `EditorLinkLogSink` | queues entries on the editor link |
 
@@ -186,7 +186,7 @@ sequenceDiagram
   `LogDropped`.
 - **Editor side** (`EditorLinkServer`): several games at once (each message carries a `GameId`; local `Connected`/
   `Disconnected` markers); `TryRead` from the editor's main thread; `SendCommand(command)` to all or
-  `SendCommand(gameId, command)`; `Disconnect(gameId?)`. Received logs beyond 100 000 unread messages are dropped and
+  `SendCommand(gameId, command)`; `Disconnect(gameId?)`. Each game has its own send lock and a 2 s send timeout, so a game that stops reading is dropped without stalling the others. Received logs beyond 100 000 unread messages are dropped and
   counted.
 - **Commands in the game**: Stop → `Quit(Ok)`; Pause/Resume → `Tree.Paused`; ReloadScene → re-read cached scenes from
   disk (`ResourceLoader.RefreshCachedScenes`) and `ChangeSceneToFile` the given scene or the current one (autoloads

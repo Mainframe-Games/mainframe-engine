@@ -29,6 +29,8 @@ public sealed class EditorLinkClient : IDisposable
     private readonly Lock _statusGate = new();
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _goodbyeSent = new(false);
+    private readonly ManualResetEventSlim _stopped = new(false);
+    private int _connectAttempts;
     private EditorLinkStatus _status;
     private bool _statusPending;
     private int _queued;
@@ -63,6 +65,9 @@ public sealed class EditorLinkClient : IDisposable
 
     /// <summary>Connections made so far (reconnects included).</summary>
     public int ConnectionCount => Volatile.Read(ref _connectionCount);
+
+    /// <summary>Connection attempts so far, successful or not (back-off: 100 ms doubling to 2 s while the editor is away).</summary>
+    public int ConnectAttempts => Volatile.Read(ref _connectAttempts);
 
     /// <summary>Log entries dropped because the queue was full (total).</summary>
     public long DroppedLogCount => Interlocked.Read(ref _droppedTotal);
@@ -119,6 +124,7 @@ public sealed class EditorLinkClient : IDisposable
         if (_stopping)
             return;
         _stopping = true;
+        _stopped.Set();
         Wake();
         Volatile.Read(ref _connection)?.Dispose();
         // The thread only blocks in socket calls (unblocked by disposing the connection) or on the signal.
@@ -126,6 +132,7 @@ public sealed class EditorLinkClient : IDisposable
         {
             _signal.Dispose();
             _goodbyeSent.Dispose();
+            _stopped.Dispose();
         }
     }
 
@@ -138,7 +145,9 @@ public sealed class EditorLinkClient : IDisposable
             var connection = TryConnect();
             if (connection is null)
             {
-                _signal.WaitOne(backoff);
+                // Its own event: queued logs and status reports signal _signal and must not cut the back-off short
+                // (that would attempt a connection per log line while the editor is away).
+                _stopped.Wait(backoff);
                 backoff = Math.Min(backoff * 2, 2000);
                 continue;
             }
@@ -173,6 +182,7 @@ public sealed class EditorLinkClient : IDisposable
 
     private FramedConnection? TryConnect()
     {
+        Interlocked.Increment(ref _connectAttempts);
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         try
         {

@@ -96,6 +96,18 @@ public sealed class LogRoutingTests : IDisposable
     }
 
     [Fact]
+    public void CombinedLevelsLogAtTheHighestEnabledSeverity()
+    {
+        Log.LogLevel = Log.Level.Debug;
+        Log.Write(Log.Level.Error | Log.Level.Debug, "", "routing-14 debug only");
+        Log.LogLevel = Log.Level.Debug | Log.Level.Error;
+        Log.Write(Log.Level.Error | Log.Level.Debug | Log.Level.Verbose, "", "routing-14 both");
+
+        Assert.Equal(Log.Level.Debug, Assert.Single(Mine("routing-14 debug only")).Level);
+        Assert.Equal(Log.Level.Error, Assert.Single(Mine("routing-14 both")).Level);
+    }
+
+    [Fact]
     public void FilteredMessagesAllocateNothing()
     {
         Log.LogLevel = Log.Level.Error;
@@ -372,6 +384,69 @@ public sealed class LogSinkTests : IDisposable
         Assert.Equal(3, files.Length);
         Assert.All(files, f => Assert.InRange(new FileInfo(f).Length, 1, 2048 + 200));
         Assert.Contains("line 199", File.ReadAllText(Path.Combine(_directory, "big.log")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FileSinkWritesOnItsOwnThreadAndFlushesErrorsRightAway()
+    {
+        using var sink = new FileLogSink(_directory, "async");
+        sink.Write(Entry("queued info"));
+        sink.Write(Entry("an error", Log.Level.Error));
+
+        // No Flush/Dispose: the writer thread writes and flushes the error by itself.
+        Assert.True(Project.Wait.Until(() => ReadShared(sink.FilePath).Contains("an error", StringComparison.Ordinal), 5));
+        Assert.Contains("queued info", ReadShared(sink.FilePath), StringComparison.Ordinal);
+
+        sink.Write(Entry("later info"));
+        Assert.True(Project.Wait.Until(() => ReadShared(sink.FilePath).Contains("later info", StringComparison.Ordinal),
+            FileLogSink.FlushInterval.TotalSeconds + 5)); // periodic flush
+        sink.Write(Entry("flushed on demand"));
+        sink.Flush();
+        Assert.Contains("flushed on demand", ReadShared(sink.FilePath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FileSinkDropsBeyondItsQueueAndSaysSo()
+    {
+        long dropped;
+        using (var sink = new FileLogSink(_directory, "burst", queueCapacity: 4))
+        {
+            for (var i = 0; i < 2000; i++)
+                sink.Write(Entry("burst " + i));
+            dropped = sink.DroppedCount;
+        }
+
+        var text = File.ReadAllText(Path.Combine(_directory, "burst.log"));
+        var written = text.Split('\n').Count(l => l.Contains("] burst ", StringComparison.Ordinal));
+        Assert.Equal(2000, written + dropped);
+        if (dropped > 0)
+            Assert.Contains("log entries were dropped", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ASecondInstanceWritesItsOwnFileInsteadOfRotatingTheLiveOne()
+    {
+        using var first = new FileLogSink(_directory, "shared");
+        first.Write(Entry("from the first instance"));
+        first.Flush();
+
+        using var second = new FileLogSink(_directory, "shared");
+        second.Write(Entry("from the second instance"));
+        second.Flush();
+
+        Assert.Equal("shared", first.BaseName);
+        Assert.Equal($"shared-{Environment.ProcessId}", second.BaseName);
+        Assert.Contains("from the first instance", ReadShared(first.FilePath), StringComparison.Ordinal);
+        Assert.DoesNotContain("second", ReadShared(first.FilePath), StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(_directory, "shared.1.log"))); // the live file was not rotated away
+        Assert.Contains("from the second instance", ReadShared(second.FilePath), StringComparison.Ordinal);
+    }
+
+    private static string ReadShared(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 
     [Fact]

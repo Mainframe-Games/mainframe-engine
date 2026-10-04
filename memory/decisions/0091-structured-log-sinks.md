@@ -27,4 +27,4 @@ is filtered out — most call sites pass interpolated strings, which allocate be
 ## Consequences
 
 - `GameHost.Run` adds a file sink per game; tools add a memory sink.
-- Sinks run on the logging thread: slow sinks must queue (the editor-link sink does).
+- Sinks run on the logging thread: slow sinks must queue. The file sink and the editor-link sink do (background writer threads, bounded queues, drops counted); review follow-up: a second process sharing a log folder writes `{name}-{pid}.log` instead of rotating the live file.

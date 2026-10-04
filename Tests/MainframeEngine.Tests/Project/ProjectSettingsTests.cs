@@ -176,6 +176,8 @@ public sealed class ProjectSettingsTests : IDisposable
     [InlineData("""{ "format": 0 }""", "invalid project format 0")]
     [InlineData("""[1, 2]""", "is not a JSON object")]
     [InlineData("""{ "format": 1, """, "is not valid JSON")]
+    [InlineData("""{ "format": 1, "name": "A", "name": "B" }""", "is invalid")]
+    [InlineData("""{ "format": 1, "window": { "width": 1, "width": 2 } }""", "is invalid")]
     public void InvalidFilesNameTheProblem(string json, string expected)
     {
         var e = Assert.Throws<InvalidDataException>(() => Parse(json));

@@ -58,11 +58,19 @@ public readonly record struct InputBinding
     public static InputBinding Mouse(MouseButton button) => new(InputBindingKind.MouseButton, (int)button, 0, -1);
 
     public static InputBinding GamepadButton(ButtonName button, int device = -1) =>
-        new(InputBindingKind.GamepadButton, (int)button, 0, Math.Max(-1, device));
+        new(InputBindingKind.GamepadButton, (int)button, 0, CheckDevice(device));
 
     /// <summary>One direction (<paramref name="direction"/> &gt; 0: positive values) of a gamepad axis.</summary>
     public static InputBinding GamepadAxis(GamepadAxisCode axis, int direction, int device = -1) =>
-        new(InputBindingKind.GamepadAxis, (int)axis, direction < 0 ? (sbyte)-1 : (sbyte)1, Math.Max(-1, device));
+        new(InputBindingKind.GamepadAxis, (int)axis, direction < 0 ? (sbyte)-1 : (sbyte)1, CheckDevice(device));
+
+    // -1 (or any negative) = every pad; otherwise a pad InputState tracks (0..MaxGamepads-1).
+    private static int CheckDevice(int device)
+    {
+        if (device >= InputState.MaxGamepads)
+            throw new ArgumentOutOfRangeException(nameof(device), device, $"Gamepad indices are 0..{InputState.MaxGamepads - 1} (or -1 for any).");
+        return Math.Max(-1, device);
+    }
 
     /// <summary>True when the binding listens to a gamepad with index <paramref name="device"/>.</summary>
     public bool MatchesDevice(int device) => Device < 0 || Device == device;
@@ -136,7 +144,7 @@ public readonly record struct InputBinding
     private static bool TryParseDevice(ReadOnlySpan<char> text, out int device)
     {
         device = -1;
-        return text.IsEmpty || (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out device) && device < 16);
+        return text.IsEmpty || (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out device) && device < InputState.MaxGamepads);
     }
 
     private static bool TryParseEnum<T>(ReadOnlySpan<char> text, out T value) where T : struct, Enum =>

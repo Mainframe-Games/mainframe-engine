@@ -66,13 +66,16 @@ public interface ILogSink
     void Write(in LogEntry entry);
 }
 
-/// <summary>Splits the engine's <c>"[Category] message"</c> convention; category strings are interned.</summary>
+/// <summary>
+/// Splits the engine's <c>"[Category] message"</c> convention. Category strings are interned in a lock-free map
+/// looked up by span, so a known category costs no allocation; the message body is one substring.
+/// </summary>
 internal static class LogCategories
 {
     private const int MaxCategoryLength = 48;
-    private static readonly Lock Gate = new();
-    private static readonly Dictionary<string, string> Interned = new(StringComparer.Ordinal);
-    private static readonly Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> Lookup =
+    private const int MaxInterned = 1024; // beyond this (a runaway generator of categories) names are not cached
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Interned = new(StringComparer.Ordinal);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> Lookup =
         Interned.GetAlternateLookup<ReadOnlySpan<char>>();
 
     /// <summary>The category of <paramref name="message"/> (empty when it has none) and the rest of the text.</summary>
@@ -93,19 +96,17 @@ internal static class LogCategories
         else if (rest < message.Length && message[rest] != '\t')
             return string.Empty; // "[x]y" is not a category prefix
 
-        body = rest >= message.Length ? string.Empty : message[rest..].TrimStart('\t');
+        while (rest < message.Length && message[rest] == '\t')
+            rest++;
+        body = rest >= message.Length ? string.Empty : message[rest..];
         return Intern(name);
     }
 
     public static string Intern(ReadOnlySpan<char> name)
     {
-        lock (Gate)
-        {
-            if (Lookup.TryGetValue(name, out var existing))
-                return existing;
-            var created = name.ToString();
-            Interned[created] = created;
-            return created;
-        }
+        if (Lookup.TryGetValue(name, out var existing))
+            return existing;
+        var created = name.ToString();
+        return Interned.Count < MaxInterned ? Interned.GetOrAdd(created, created) : created;
     }
 }

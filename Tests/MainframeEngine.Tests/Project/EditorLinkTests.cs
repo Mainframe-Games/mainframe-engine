@@ -138,8 +138,25 @@ public sealed class EditorLinkProtocolTests
         Assert.False(EditorLinkProtocol.TryDecode([(byte)EditorLinkMessageType.Command, 1, 255, 255, 255, 255], out _)); // string past the end
 
         buffer.Clear();
-        EditorLinkProtocol.WriteLog(buffer, new LogEntry(Log.Level.Info | Log.Level.Error, DateTime.UtcNow, "", "", "", "", 0));
-        Assert.False(EditorLinkProtocol.TryDecode(buffer.WrittenSpan[4..], out _)); // not a single level
+        EditorLinkProtocol.WriteLog(buffer, new LogEntry(Log.Level.Info, DateTime.UtcNow, "", "", "", "", 0));
+        var log = buffer.WrittenSpan[4..].ToArray();
+        log[1] = (byte)(Log.Level.Info | Log.Level.Error);
+        Assert.False(EditorLinkProtocol.TryDecode(log, out _)); // not a single level
+    }
+
+    [Theory]
+    [InlineData(Log.Level.Info | Log.Level.Error, Log.Level.Error)]
+    [InlineData(Log.Level.Debug | Log.Level.Verbose, Log.Level.Debug)]
+    [InlineData(Log.Level.None, Log.Level.Info)]
+    [InlineData(Log.Level.Verbose, Log.Level.Info)]
+    [InlineData(Log.Level.Fatal, Log.Level.Fatal)]
+    public void HandBuiltEntriesWithOddLevelsAreSentAsOneSeverity(Log.Level level, Log.Level sent)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        EditorLinkProtocol.WriteLog(buffer, new LogEntry(level, DateTime.UtcNow, "", "odd", "", "", 0));
+
+        Assert.True(EditorLinkProtocol.TryDecode(buffer.WrittenSpan[4..], out var message)); // the receiver keeps the link
+        Assert.Equal(sent, message.Log.Level);
     }
 
     [Fact]
@@ -314,6 +331,68 @@ public sealed class EditorLinkConnectionTests
         Assert.Equal(10_000 - 100, client.DroppedLogCount);
         Assert.False(client.TryReceiveCommand(out _));
         Assert.False(client.SendGoodbye(0, TimeSpan.FromMilliseconds(10)));
+    }
+
+    [Fact]
+    public void LoggingDoesNotCutTheReconnectBackOffShort()
+    {
+        int port;
+        using (var probe = new TcpListener(IPAddress.Loopback, 0))
+        {
+            probe.Start();
+            port = ((IPEndPoint)probe.LocalEndpoint).Port;
+        }
+
+        using var client = new EditorLinkClient(port, Hello, queueCapacity: 100);
+        var stopwatch = Stopwatch.StartNew();
+        while (stopwatch.Elapsed < TimeSpan.FromSeconds(1.5))
+        {
+            client.TryEnqueueLog(Entry("noise")); // each one signals the client thread
+            client.ReportStatus(new EditorLinkStatus(GameRunState.Running, 1, 60, ""));
+            Thread.Sleep(1);
+        }
+
+        // 100 ms doubling: ~5 attempts in 1.5 s (one per log line would be hundreds).
+        Assert.InRange(client.ConnectAttempts, 1, 8);
+    }
+
+    [Fact]
+    public void AGameThatStopsReadingDoesNotStallCommandsToOtherGames()
+    {
+        using var server = new EditorLinkServer();
+        var seen = new List<EditorLinkMessage>();
+        using var good = new EditorLinkClient(server.Port, Hello with { ProjectName = "Good" });
+        var goodId = Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Hello && m.Hello.ProjectName == "Good").GameId;
+
+        // A "game" that says hello and then never reads: its socket buffers fill up.
+        using var stalled = new TcpClient();
+        stalled.ReceiveBufferSize = 1024;
+        stalled.Connect(IPAddress.Loopback, server.Port);
+        var hello = new ArrayBufferWriter<byte>();
+        EditorLinkProtocol.WriteHello(hello, Hello with { ProjectName = "Stalled" });
+        stalled.GetStream().Write(hello.WrittenSpan);
+        var stalledId = Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Hello && m.Hello.ProjectName == "Stalled").GameId;
+
+        var flood = new Thread(() =>
+        {
+            var big = new EditorLinkCommand(EditorCommandKind.ReloadScene, new string('x', 60_000));
+            while (server.SendCommand(stalledId, big))
+            {
+            }
+        })
+        { IsBackground = true };
+        flood.Start();
+        Thread.Sleep(200); // let the flood block in a write
+
+        var stopwatch = Stopwatch.StartNew();
+        Assert.True(server.SendCommand(goodId, new EditorLinkCommand(EditorCommandKind.Ping)));
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(500), $"a command to another game took {stopwatch.Elapsed}");
+        Assert.True(Wait.Until(() => good.TryReceiveCommand(out var c) && c.Kind == EditorCommandKind.Ping));
+
+        // The stalled game's write times out and that game is dropped.
+        Assert.True(flood.Join(TimeSpan.FromSeconds(EditorLinkServer.SendTimeoutMilliseconds / 1000.0 + 10)));
+        Assert.Equal(stalledId, Wait.Any(server, seen, m => m.Type == EditorLinkMessageType.Disconnected && m.GameId == stalledId).GameId);
+        Assert.Contains(goodId, server.ConnectedGames);
     }
 
     [Fact]

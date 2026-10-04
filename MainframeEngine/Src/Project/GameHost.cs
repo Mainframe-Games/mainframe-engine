@@ -67,10 +67,11 @@ public class GameHost : Engine
         var fileLog = options.LogFile ? TryCreateFileLog(settings.Name) : null;
         if (fileLog is not null)
             Log.AddSink(fileLog);
+        GameHost? host = null;
         try
         {
             GameSession.LoadGameAssemblies(settings, gameAssemblies);
-            using var host = new GameHost(settings, options);
+            host = new GameHost(settings, options);
             return (int)host.Run();
         }
         catch (Exception e) when (e is not OutOfMemoryException)
@@ -80,6 +81,9 @@ public class GameHost : Engine
         }
         finally
         {
+            // OnClose shuts the session down on a normal exit; after a crash the editor still gets its goodbye.
+            host?.Session.Shutdown(ExitCode.Error);
+            host?.Dispose();
             if (fileLog is not null)
             {
                 Log.RemoveSink(fileLog);

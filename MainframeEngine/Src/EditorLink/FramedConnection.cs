@@ -14,14 +14,24 @@ internal sealed class FramedConnection : IDisposable
     private byte[] _body = new byte[4096];
     private int _disposed;
 
-    public FramedConnection(Socket socket)
+    /// <param name="socket">A connected socket (owned).</param>
+    /// <param name="sendTimeoutMilliseconds">Fails a write that cannot complete in time (0 = wait forever): a peer that
+    /// stops reading must not hang the writer.</param>
+    public FramedConnection(Socket socket, int sendTimeoutMilliseconds = 0)
     {
         _socket = socket;
         _socket.NoDelay = true;
+        _socket.SendTimeout = sendTimeoutMilliseconds;
         _stream = new NetworkStream(socket, ownsSocket: true);
     }
 
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+    /// <summary>Serializes writers of this connection (the server's command senders).</summary>
+    public Lock SendGate { get; } = new();
+
+    /// <summary>A scratch buffer for frames written under <see cref="SendGate"/>.</summary>
+    public System.Buffers.ArrayBufferWriter<byte> SendBuffer { get; } = new(256);
 
     /// <summary>Writes whole frames (any number, back to back).</summary>
     public void Write(ReadOnlySpan<byte> frames) => _stream.Write(frames);

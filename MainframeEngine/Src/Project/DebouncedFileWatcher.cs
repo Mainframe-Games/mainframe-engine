@@ -147,21 +147,47 @@ public sealed class DebouncedFileWatcher : IDisposable
     {
         if (Volatile.Read(ref _disposed) != 0)
             return;
-        if (_debouncer.TryFlush(DateTime.UtcNow, out var paths))
+        // Timer callbacks can overlap (a slow handler, a re-armed timer): one tick at a time, batches in order.
+        if (Interlocked.Exchange(ref _ticking, 1) != 0)
         {
-            Changed?.Invoke(paths);
+            Rearm();
             return;
         }
 
-        if (_debouncer.HasPending)
+        try
         {
-            try
+            if (_debouncer.TryFlush(DateTime.UtcNow, out var paths))
             {
-                _timer.Change(_poll, Timeout.InfiniteTimeSpan);
+                try
+                {
+                    Changed?.Invoke(paths);
+                }
+                catch (Exception e) when (e is not OutOfMemoryException)
+                {
+                    // An exception on a timer thread would end the process: report it and keep watching.
+                    Log.Error($"[FileWatcher] A Changed handler for '{Directory}' failed: {e}");
+                }
             }
-            catch (ObjectDisposedException)
-            {
-            }
+        }
+        finally
+        {
+            Volatile.Write(ref _ticking, 0);
+        }
+
+        if (_debouncer.HasPending)
+            Rearm();
+    }
+
+    private int _ticking;
+
+    private void Rearm()
+    {
+        try
+        {
+            _timer.Change(_poll, Timeout.InfiniteTimeSpan);
+        }
+        catch (ObjectDisposedException)
+        {
         }
     }
 }

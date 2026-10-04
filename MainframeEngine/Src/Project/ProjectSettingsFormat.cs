@@ -29,6 +29,20 @@ public static class ProjectSettingsFormat
     public static ProjectSettings Parse(ReadOnlySpan<byte> json, string source, int currentFormat, IReadOnlyList<ProjectMigration> migrations)
     {
         ArgumentNullException.ThrowIfNull(migrations);
+        try
+        {
+            return ParseCore(json, source, currentFormat, migrations);
+        }
+        catch (ArgumentException e)
+        {
+            // JsonObject materializes properties lazily and throws ArgumentException for a duplicate key; a migration
+            // may throw one too. Every file problem surfaces as InvalidDataException.
+            throw new InvalidDataException($"'{source}' is invalid: {e.Message}", e);
+        }
+    }
+
+    private static ProjectSettings ParseCore(ReadOnlySpan<byte> json, string source, int currentFormat, IReadOnlyList<ProjectMigration> migrations)
+    {
         JsonObject root;
         try
         {
