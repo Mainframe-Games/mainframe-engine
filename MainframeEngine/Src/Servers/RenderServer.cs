@@ -209,17 +209,21 @@ public sealed class RenderServer : IServer
         foreach (var sub in _subViewports)
         {
             var colour = ShouldRender(sub);
-            if (!colour && !NeedsObjectIds(sub))
-                continue;
-            if (view >= FrameContext.MaxViews)
+            if (colour || NeedsObjectIds(sub))
             {
-                if (!_warnedTooManyViews)
+                if (view < FrameContext.MaxViews)
+                {
+                    RenderSubViewport(vk, cb, sub, view++, colour);
+                }
+                else if (!_warnedTooManyViews)
+                {
                     Log.Warning($"[Render] More than {FrameContext.MaxViews - 1} sub-viewports render per frame; the rest are skipped.");
-                _warnedTooManyViews = true;
-                break;
+                    _warnedTooManyViews = true;
+                }
             }
 
-            RenderSubViewport(vk, cb, sub, view++, colour);
+            // Immediate mode, as in RenderMain: the frame's lines are consumed, or dropped when the view did not render.
+            sub.DebugLines.Clear();
         }
 
         vk.Frame.SetView(0, default);
@@ -261,7 +265,15 @@ public sealed class RenderServer : IServer
             Span<ClearValue> clears = [new ClearValue { Color = LinearClear(sub.ClearColor) }, new ClearValue { DepthStencil = new ClearDepthStencilValue(1f, 0) }];
             targets.Hdr!.Begin(cb, clears);
             if (camera is not null)
+            {
                 DrawWorld(world, camera, meshes, targets.Draws, cb);
+                if (sub.DebugLines.LineCount > 0)
+                {
+                    _debugLines ??= new DebugLinesRenderer(vk);
+                    _debugLines.Draw(sub.DebugLines, camera);
+                }
+            }
+
             vk.Vk.CmdEndRenderPass(cb);
         }
 

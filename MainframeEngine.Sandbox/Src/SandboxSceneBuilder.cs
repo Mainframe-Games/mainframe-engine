@@ -165,8 +165,9 @@ public static class SandboxSceneBuilder
     }
 
     /// <summary>
-    /// M6 physics: a static collider under the floor quad and a tumble of crates dropped onto it (each a
-    /// <see cref="RigidBody3D"/> with a shared <see cref="BoxShape3D"/> and a <see cref="Box3d"/> visual).
+    /// M6 physics: a static collider under the floor plane and a tumble of crates dropped onto it (each a
+    /// <see cref="RigidBody3D"/> with a shared <see cref="BoxShape3D"/> and a <see cref="MeshInstance3D"/> visual sharing
+    /// one <see cref="BoxMesh"/>, with one material per crate colour).
     /// </summary>
     private static void AddPhysics(Node root)
     {
@@ -177,7 +178,13 @@ public static class SandboxSceneBuilder
         var crates = new Node3D { Name = "Crates", Position = new Vector3(-3, 0, 1.5f) };
         Add(root, crates);
         var cube = new BoxShape3D { Size = new Vector3(0.5f) };
-        Color[] colors = [Color.FromArgb(255, 210, 140, 70), Color.FromArgb(255, 180, 110, 60), Color.FromArgb(255, 150, 95, 55)];
+        var mesh = new BoxMesh { Size = new Vector3(0.5f) };
+        StandardMaterial3D[] materials =
+        [
+            new() { AlbedoColor = Color.FromArgb(255, 210, 140, 70) },
+            new() { AlbedoColor = Color.FromArgb(255, 180, 110, 60) },
+            new() { AlbedoColor = Color.FromArgb(255, 150, 95, 55) },
+        ];
         for (var i = 0; i < 9; i++)
         {
             var crate = new RigidBody3D
@@ -189,7 +196,7 @@ public static class SandboxSceneBuilder
             };
             Add(root, crates, crate);
             Add(root, crate, new CollisionShape3D { Name = "Shape", Shape = cube });
-            Add(root, crate, new Box3d { Name = "Visual", Scale = new Vector3(0.5f), Color = colors[i % colors.Length] });
+            Add(root, crate, new MeshInstance3D { Name = "Visual", Mesh = mesh, MaterialOverride = materials[i % materials.Length] });
         }
     }
 
@@ -208,7 +215,7 @@ public static class SandboxSceneBuilder
     }
 
     /// <summary>The network demo's box scene (<see cref="NetworkDemo.BoxScene"/>): one <see cref="NetBox"/>.</summary>
-    public static Node BuildNetBox() => new NetBox { Name = "NetBox" };
+    public static Node BuildNetBox() => new NetBox { Name = "NetBox", Mesh = new BoxMesh() };
 
     /// <summary>Builds the network demo's box scene and saves it to <paramref name="path"/>.</summary>
     public static string WriteNetBox(string path)

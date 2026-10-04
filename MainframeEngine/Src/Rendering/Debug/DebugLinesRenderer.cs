@@ -10,10 +10,10 @@ namespace MainframeEngine;
 /// </summary>
 /// <remarks>
 /// Vertex buffers are <see cref="GpuMemoryUsage.Dynamic"/> <see cref="GpuBuffer"/>s (persistently mapped, from
-/// <see cref="IVulkanContext.Allocator"/>) keyed by <see cref="IVulkanContext.FrameSlot"/>; a slot's buffer grows
-/// (doubling) when a frame has more lines than it holds, the old one going to the deletion queue. One buffer per frame
-/// slot: <see cref="Draw"/> may be called once per frame (the engine renders one viewport). Several viewports per
-/// frame (editor views) need per-call ring offsets.
+/// <see cref="IVulkanContext.Allocator"/>) keyed by <see cref="IVulkanContext.FrameSlot"/>. Every <see cref="Draw"/>
+/// in a frame (the main view and each <see cref="SubViewport"/>) appends at the slot's next free offset; when a draw
+/// does not fit, the slot gets a bigger buffer (doubling) and the old one goes to the deletion queue, which keeps it
+/// alive until the frame's earlier draws have executed.
 /// </remarks>
 internal sealed class DebugLinesRenderer : IDisposable
 {
@@ -23,6 +23,8 @@ internal sealed class DebugLinesRenderer : IDisposable
 
     private readonly IVulkanContext _ctx;
     private readonly GpuBuffer?[] _vertexBuffers = new GpuBuffer?[IVulkanContext.MaxFramesInFlight];
+    private readonly ulong[] _usedBytes = new ulong[IVulkanContext.MaxFramesInFlight];
+    private readonly ulong[] _usedFrame = new ulong[IVulkanContext.MaxFramesInFlight];
     private PipelineLayout _pipelineLayout;
     private Pipeline _pipeline;
     private bool _disposed;
@@ -51,37 +53,48 @@ internal sealed class DebugLinesRenderer : IDisposable
         if (vertices.Length == 0 || !_ctx.FrameStarted)
             return;
 
-        var buffer = EnsureVertexBuffer(_ctx.FrameSlot, (ulong)vertices.Length * (ulong)sizeof(DebugLineVertex));
-        buffer.Write(vertices);
+        var slot = _ctx.FrameSlot;
+        if (_usedFrame[slot] != _ctx.FrameNumber)
+        {
+            _usedFrame[slot] = _ctx.FrameNumber;
+            _usedBytes[slot] = 0;
+        }
+
+        var size = (ulong)vertices.Length * (ulong)sizeof(DebugLineVertex);
+        var buffer = EnsureVertexBuffer(slot, size);
+        var offset = _usedBytes[slot];
+        buffer.Write(vertices, offset);
+        _usedBytes[slot] = offset + size;
 
         var vk = _ctx.Vk;
         var cb = _ctx.CurrentCommandBuffer;
         // RenderServer.RenderMain already wrote this frame's camera; a no-op then.
         _ctx.Frame.EnsureCamera(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position);
         // Y-flipped viewport like every main-pass drawable (docs/design/coordinate-conventions.md).
-        PipelineBuilder.SetViewport(vk, cb, _ctx.SwapchainExtent, flipY: true);
+        PipelineBuilder.SetViewport(vk, cb, _ctx.Frame.Extent, flipY: true);
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
         var vb = buffer.Handle;
-        var offset = 0ul;
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &offset);
         _ctx.Frame.Bind(cb, _pipelineLayout);
         vk.CmdDraw(cb, (uint)vertices.Length, 1, 0, 0);
     }
 
-    // The slot's previous frame has completed once FrameStarted, so overwriting (or replacing) its buffer is safe.
-    private unsafe GpuBuffer EnsureVertexBuffer(int slot, ulong required)
+    // The slot's previous frame has completed once FrameStarted, so overwriting its buffer is safe; a buffer replaced
+    // mid-frame still backs this frame's earlier draws until the deletion queue releases it.
+    private unsafe GpuBuffer EnsureVertexBuffer(int slot, ulong size)
     {
         var buffer = _vertexBuffers[slot];
-        if (buffer is not null && required <= buffer.Size)
+        if (buffer is not null && _usedBytes[slot] + size <= buffer.Size)
             return buffer;
 
         var capacity = buffer?.Size ?? InitialVertexCapacity * (ulong)sizeof(DebugLineVertex);
-        while (capacity < required)
+        while (capacity < size || (buffer is not null && capacity <= buffer.Size))
             capacity *= 2;
         buffer?.Dispose();
         _vertexBuffers[slot] = null;
         buffer = GpuBuffer.Create(_ctx, capacity, BufferUsageFlags.VertexBufferBit, GpuMemoryUsage.Dynamic);
         _vertexBuffers[slot] = buffer;
+        _usedBytes[slot] = 0;
         return buffer;
     }
 

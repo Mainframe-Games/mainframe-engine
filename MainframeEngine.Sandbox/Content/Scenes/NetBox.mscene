@@ -1,8 +1,18 @@
 {
   "format": 1,
   "uid": "scn_47156fccb158",
+  "resources": {
+    "1": {
+      "type": "BoxMesh"
+    }
+  },
   "root": {
     "type": "NetBox",
-    "name": "NetBox"
+    "name": "NetBox",
+    "props": {
+      "Mesh": {
+        "res": "1"
+      }
+    }
   }
 }

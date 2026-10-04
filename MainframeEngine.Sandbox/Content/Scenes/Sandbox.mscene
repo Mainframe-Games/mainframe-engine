@@ -10,6 +10,42 @@
       }
     },
     "2": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoTexture": {
+          "res": "19"
+        },
+        "Specular": 0.1,
+        "UvScale": [
+          5,
+          5
+        ]
+      }
+    },
+    "3": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [
+          10,
+          10
+        ]
+      }
+    },
+    "4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.9019608,
+          0.47058824,
+          0.3137255,
+          1
+        ]
+      }
+    },
+    "5": {
+      "type": "BoxMesh"
+    },
+    "6": {
       "type": "AudioStream",
       "props": {
         "File": "Content/Audio/ambient_hum.ogg",
@@ -18,7 +54,74 @@
         "LoopEnd": 6
       }
     },
-    "3": {
+    "7": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.47058824,
+          0.7058824,
+          1,
+          0.43137255
+        ],
+        "Specular": 1,
+        "Shininess": 96,
+        "Transparency": "Blend"
+      }
+    },
+    "8": {
+      "type": "SphereMesh",
+      "props": {
+        "Radius": 0.6,
+        "Height": 1.2
+      }
+    },
+    "9": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "EmissionColor": [
+          1,
+          0.627451,
+          0.23529412,
+          1
+        ],
+        "EmissionEnergy": 2,
+        "ShadingMode": "Unshaded"
+      }
+    },
+    "10": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.25,
+        "Height": 1.5
+      }
+    },
+    "11": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.8235294,
+          0.8039216,
+          0.74509805,
+          1
+        ],
+        "Specular": 0.5,
+        "Shininess": 64
+      }
+    },
+    "12": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 0.35,
+        "BottomRadius": 0.45
+      }
+    },
+    "13": {
       "type": "BoxShape3D",
       "props": {
         "Size": [
@@ -28,7 +131,7 @@
         ]
       }
     },
-    "4": {
+    "14": {
       "type": "BoxShape3D",
       "props": {
         "Size": [
@@ -37,6 +140,53 @@
           0.5
         ]
       }
+    },
+    "15": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.8235294,
+          0.54901963,
+          0.27450982,
+          1
+        ]
+      }
+    },
+    "16": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      }
+    },
+    "17": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.7058824,
+          0.43137255,
+          0.23529412,
+          1
+        ]
+      }
+    },
+    "18": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.5882353,
+          0.37254903,
+          0.21568628,
+          1
+        ]
+      }
+    },
+    "19": {
+      "ref": "tex_7e57c4ec4e70",
+      "path": "Content/Models/TestModel/checker.png"
     }
   },
   "root": {
@@ -82,19 +232,15 @@
         }
       },
       {
-        "type": "Quad",
+        "type": "MeshInstance3D",
         "name": "Floor",
         "props": {
-          "RotationDegrees": [
-            90,
-            0,
-            0
-          ],
-          "Scale": [
-            10,
-            10,
-            1
-          ]
+          "MaterialOverride": {
+            "res": "2"
+          },
+          "Mesh": {
+            "res": "3"
+          }
         }
       },
       {
@@ -105,7 +251,13 @@
             3,
             1,
             0
-          ]
+          ],
+          "MaterialOverride": {
+            "res": "4"
+          },
+          "Mesh": {
+            "res": "5"
+          }
         },
         "children": [
           {
@@ -113,7 +265,7 @@
             "name": "Ambience",
             "props": {
               "Stream": {
-                "res": "2"
+                "res": "6"
               },
               "Bus": "SFX",
               "VolumeDb": -18,
@@ -124,6 +276,74 @@
             }
           }
         ]
+      },
+      {
+        "type": "MeshInstance3D",
+        "name": "Glass",
+        "props": {
+          "Position": [
+            1.5,
+            0.6,
+            2.5
+          ],
+          "MaterialOverride": {
+            "res": "7"
+          },
+          "Mesh": {
+            "res": "8"
+          }
+        }
+      },
+      {
+        "type": "MeshInstance3D",
+        "name": "Lamp",
+        "props": {
+          "Position": [
+            -1.5,
+            0.75,
+            2.5
+          ],
+          "MaterialOverride": {
+            "res": "9"
+          },
+          "Mesh": {
+            "res": "10"
+          }
+        }
+      },
+      {
+        "type": "MeshInstance3D",
+        "name": "Column",
+        "props": {
+          "Position": [
+            -3.5,
+            1,
+            -2.5
+          ],
+          "MaterialOverride": {
+            "res": "11"
+          },
+          "Mesh": {
+            "res": "12"
+          }
+        }
+      },
+      {
+        "instance": "mdl_7e57a55e7000",
+        "path": "Content/Models/TestModel/test_model.gltf",
+        "name": "Model",
+        "props": {
+          "Position": [
+            -2.5,
+            0,
+            -0.5
+          ],
+          "RotationDegrees": [
+            0,
+            20,
+            0
+          ]
+        }
       },
       {
         "type": "StaticBody3D",
@@ -139,7 +359,7 @@
                 0
               ],
               "Shape": {
-                "res": "3"
+                "res": "13"
               }
             }
           }
@@ -173,25 +393,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.8235294,
-                    0.54901963,
-                    0.27450982,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "15"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]
@@ -218,25 +433,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.7058824,
-                    0.43137255,
-                    0.23529412,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "17"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]
@@ -263,25 +473,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.5882353,
-                    0.37254903,
-                    0.21568628,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "18"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]
@@ -308,25 +513,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.8235294,
-                    0.54901963,
-                    0.27450982,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "15"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]
@@ -353,25 +553,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.7058824,
-                    0.43137255,
-                    0.23529412,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "17"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]
@@ -398,25 +593,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.5882353,
-                    0.37254903,
-                    0.21568628,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "18"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]
@@ -443,25 +633,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.8235294,
-                    0.54901963,
-                    0.27450982,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "15"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]
@@ -488,25 +673,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.7058824,
-                    0.43137255,
-                    0.23529412,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "17"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]
@@ -533,25 +713,20 @@
                 "name": "Shape",
                 "props": {
                   "Shape": {
-                    "res": "4"
+                    "res": "14"
                   }
                 }
               },
               {
-                "type": "Box3d",
+                "type": "MeshInstance3D",
                 "name": "Visual",
                 "props": {
-                  "Scale": [
-                    0.5,
-                    0.5,
-                    0.5
-                  ],
-                  "Color": [
-                    0.5882353,
-                    0.37254903,
-                    0.21568628,
-                    1
-                  ]
+                  "MaterialOverride": {
+                    "res": "18"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
                 }
               }
             ]

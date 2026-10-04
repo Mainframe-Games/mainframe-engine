@@ -35,19 +35,28 @@ public class PhysicsScene(HostOptions host) : RenderTestGame(host)
         sun.LookAt(sun.Position + Vector3.Normalize(new Vector3(-0.4f, -1f, -0.5f)));
         scene.AddChild(sun);
 
-        // Static floor: a visual quad and a box collider whose top face is y = 0.
+        // Static floor: a visual plane and a box collider whose top face is y = 0.
         var floor = new StaticBody3D { Name = "Floor" };
         floor.AddChild(new CollisionShape3D { Name = "Shape", Position = new Vector3(0, -0.5f, 0), Shape = new BoxShape3D { Size = new Vector3(12, 1, 12) } });
-        floor.AddChild(new Quad { Name = "Visual", RotationDegrees = new Vector3(90, 0, 0), Scale = new Vector3(12, 12, 1), Color = Color.White });
+        floor.AddChild(new MeshInstance3D { Name = "Visual", Mesh = new PlaneMesh { Size = new Vector2(12, 12) } });
         scene.AddChild(floor);
 
         // A ramp the boxes tumble down, and a pile of boxes dropped from different heights and angles.
         var ramp = new StaticBody3D { Name = "Ramp", Position = new Vector3(2.5f, 0.6f, -1f), RotationDegrees = new Vector3(0, 0, 20) };
         ramp.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(3, 0.2f, 2) } });
-        ramp.AddChild(new Box3d { Name = "Visual", Scale = new Vector3(3, 0.2f, 2), Color = Color.FromArgb(255, 150, 150, 160) });
+        ramp.AddChild(new MeshInstance3D
+        {
+            Name = "Visual",
+            Mesh = new BoxMesh { Size = new Vector3(3, 0.2f, 2) },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 150, 150, 160) },
+        });
         scene.AddChild(ramp);
 
         var cube = new BoxShape3D(); // one shared shape resource
+        var crateMesh = new BoxMesh { Size = new Vector3(0.98f) }; // one mesh, one material per palette colour: few batches
+        var crateMaterials = new StandardMaterial3D[Palette.Length];
+        for (var i = 0; i < Palette.Length; i++)
+            crateMaterials[i] = new StandardMaterial3D { AlbedoColor = Palette[i] };
         for (var i = 0; i < 10; i++)
         {
             var body = new RigidBody3D
@@ -57,13 +66,18 @@ public class PhysicsScene(HostOptions host) : RenderTestGame(host)
                 RotationDegrees = new Vector3(i * 17 % 45, i * 31 % 90, i * 13 % 30),
             };
             body.AddChild(new CollisionShape3D { Shape = cube });
-            body.AddChild(new Box3d { Name = "Visual", Scale = new Vector3(0.98f), Color = Palette[i % Palette.Length] });
+            body.AddChild(new MeshInstance3D { Name = "Visual", Mesh = crateMesh, MaterialOverride = crateMaterials[i % Palette.Length] });
             scene.AddChild(body);
         }
 
         var ball = new RigidBody3D { Name = "Ball", Position = new Vector3(3.2f, 3.5f, -1f) };
         ball.AddChild(new CollisionShape3D { Shape = new SphereShape3D { Radius = 0.35f } });
-        ball.AddChild(new Box3d { Name = "Visual", Scale = new Vector3(0.5f), Color = Color.FromArgb(255, 250, 250, 250) });
+        ball.AddChild(new MeshInstance3D
+        {
+            Name = "Visual",
+            Mesh = new BoxMesh { Size = new Vector3(0.5f) },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 250, 250, 250) },
+        });
         scene.AddChild(ball);
 
         Tree.ChangeScene(scene);

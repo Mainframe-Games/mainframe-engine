@@ -5,11 +5,25 @@ using MainframeEngine.Networking;
 namespace MainframeEngine.Sandbox;
 
 /// <summary>
-/// The network demo's box (<c>Content/Scenes/NetBox.mscene</c>): on the server it orbits the origin and spins; its
-/// transform and colour are replicated, and clients show them interpolated.
+/// The network demo's box (<c>Content/Scenes/NetBox.mscene</c>, which holds its <see cref="BoxMesh"/>): on the server
+/// it orbits the origin and spins; its transform and colour are replicated, and clients show them interpolated.
 /// </summary>
-public sealed class NetBox : Box3d
+/// <remarks>Each box gets its own <see cref="StandardMaterial3D"/> on entering the tree, carrying <see cref="Color"/>.</remarks>
+public sealed class NetBox : MeshInstance3D
 {
+    private StandardMaterial3D? _material;
+
+    /// <summary>The box's albedo colour (replicated through <see cref="NetColor"/>).</summary>
+    public Color Color
+    {
+        get;
+        set
+        {
+            field = value;
+            _material?.AlbedoColor = value;
+        }
+    } = Color.White;
+
     /// <summary>Orbit radius (server only; not replicated).</summary>
     [Export]
     public float OrbitRadius { get; set; } = 2.5f;
@@ -59,6 +73,13 @@ public sealed class NetBox : Box3d
 
     private float _angle;
     private float _pulse;
+
+    protected override void OnEnterTree()
+    {
+        if (MaterialOverride is null)
+            MaterialOverride = _material = new StandardMaterial3D { AlbedoColor = Color };
+        base.OnEnterTree();
+    }
 
     protected override void OnProcess(in GameTime gameTime)
     {

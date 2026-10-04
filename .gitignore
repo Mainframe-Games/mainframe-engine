@@ -11,3 +11,6 @@ BenchmarkDotNet.Artifacts/
 
 # Agent worktrees (local only)
 .claude/worktrees/
+
+# ImGui window layout written at runtime
+imgui.ini

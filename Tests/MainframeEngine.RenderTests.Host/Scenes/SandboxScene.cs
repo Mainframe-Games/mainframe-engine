@@ -66,6 +66,7 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
         floor.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(10, 1, 10) } });
         scene.AddChild(floor);
         var cube = new BoxShape3D { Size = new Vector3(0.5f) };
+        var crateMesh = new BoxMesh { Size = new Vector3(0.5f) }; // shared: the crates batch into one instanced draw
         // Two neat columns, so the stack is at rest (no new contact pairs) by the end of the warm-up.
         for (var i = 0; i < 12; i++)
         {
@@ -77,7 +78,7 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
                 CanSleep = i % 3 != 0, // some keep simulating through the measured window
             };
             crate.AddChild(new CollisionShape3D { Shape = cube });
-            crate.AddChild(new Box3d { Scale = new Vector3(0.5f) });
+            crate.AddChild(new MeshInstance3D { Mesh = crateMesh });
             scene.AddChild(crate);
         }
     }

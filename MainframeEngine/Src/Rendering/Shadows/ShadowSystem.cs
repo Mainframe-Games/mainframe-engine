@@ -74,7 +74,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private RenderPass _shadowRenderPass;
 
     // Shadow pipelines — one per vertex stride per shadow type
-    // Stride 32 (Box3d and Quad: pos + uv + normal) and stride 12 (Spine: positions only).
+    // Stride 32 (pos + uv + normal) and stride 12 (Spine: positions only); meshes use the instanced pipelines.
     private Pipeline       _pipe2D_S32,   _pipe2D_S12;
     private Pipeline       _pipePoint_S32, _pipePoint_S12;
     private PipelineLayout _layout2D;      // push: mat4 model; set0: light VP (dynamic UBO)
