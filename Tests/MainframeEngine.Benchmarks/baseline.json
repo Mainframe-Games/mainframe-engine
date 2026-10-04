@@ -34,13 +34,23 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "MessageBenchmarks.DecodeAndDispatchSnapshot",
+      "MeanNs": 10.551,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "MessageBenchmarks.EncodeSnapshot",
+      "MeanNs": 14.353,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "NetBufferBenchmarks.ReadPooled",
-      "MeanNs": 40.998,
+      "MeanNs": 19.508,
       "AllocatedBytes": 40
     },
     {
       "Name": "NetBufferBenchmarks.WritePooled",
-      "MeanNs": 27.659,
+      "MeanNs": 15.77,
       "AllocatedBytes": 0
     }
   ]

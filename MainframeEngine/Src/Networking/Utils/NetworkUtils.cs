@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Net;
 using System.Net.Sockets;
 
@@ -13,87 +14,77 @@ public static class NetworkUtils
     public const string RegionEu = "eu";
     public const string RegionAsia = "asia";
 
-    public static string[] RegionKeys => [RegionOce, RegionUse, RegionUsw, RegionEu, RegionAsia];
+    /// <summary>Region keys, in display order.</summary>
+    public static IReadOnlyList<string> RegionKeys { get; } = [RegionOce, RegionUse, RegionUsw, RegionEu, RegionAsia];
 
-    public static readonly Dictionary<string, string> Regions = new()
+    /// <summary>Region key → display name.</summary>
+    public static IReadOnlyDictionary<string, string> Regions { get; } = new Dictionary<string, string>
     {
         [RegionOce] = "Australia / NZ",
         [RegionUse] = "US East",
         [RegionUsw] = "US West",
         [RegionEu] = "Europe",
         [RegionAsia] = "Asia",
-    };
+    }.ToFrozenDictionary();
+
+    // One client for the process (a client per call exhausts sockets); created on first use, not at type init.
+    private static readonly Lazy<HttpClient> Http = new(() => new HttpClient { Timeout = TimeSpan.FromSeconds(10) });
 
     /// <summary>
-    /// Retrieves the primary local IPv4 address of the current machine by creating a UDP socket and
-    /// connecting to an external address without sending any data. This operation allows the operating
-    /// system to determine the appropriate local network interface.
+    /// The primary local IPv4 address: the interface the OS would route public traffic through. Opens a UDP socket
+    /// and "connects" it without sending anything.
     /// </summary>
-    /// <returns>
-    /// The primary local IPv4 address as an <see cref="IPAddress"/> instance.
-    /// </returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown if the primary local IPv4 address cannot be determined or no suitable network interface
-    /// is available.
-    /// </exception>
-    public static IPAddress GetPrimaryLocalIPv4()
+    /// <returns>False (and <see cref="IPAddress.Loopback"/>) when there is no IPv4 route, e.g. offline.</returns>
+    public static bool TryGetPrimaryLocalIPv4(out IPAddress address)
     {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        // The address/port here is never actually contacted; it’s used so the OS selects an interface
-        socket.Connect("8.8.8.8", 80);
-        if (socket.LocalEndPoint is IPEndPoint ep)
-            return ep.Address;
-        throw new InvalidOperationException("Could not determine local IPv4 address.");
+        try
+        {
+            using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            // Never contacted: connecting a UDP socket only makes the OS choose the outgoing interface.
+            socket.Connect("8.8.8.8", 80);
+            if (socket.LocalEndPoint is IPEndPoint endPoint)
+            {
+                address = endPoint.Address;
+                return true;
+            }
+        }
+        catch (SocketException)
+        {
+        }
+
+        address = IPAddress.Loopback;
+        return false;
     }
 
+    /// <summary>Like <see cref="TryGetPrimaryLocalIPv4"/>, but throws when there is no IPv4 route.</summary>
+    /// <exception cref="InvalidOperationException">No suitable network interface.</exception>
+    public static IPAddress GetPrimaryLocalIPv4() =>
+        TryGetPrimaryLocalIPv4(out var address)
+            ? address
+            : throw new InvalidOperationException("Could not determine the local IPv4 address.");
+
     /// <summary>
-    /// Retrieves the public IP address of the current machine by making an HTTP request
-    /// to an external service (https://api.ipify.org).
+    /// The machine's public IP: the <c>PUBLIC_IP</c> environment variable if set, otherwise asked from
+    /// https://api.ipify.org (10 s timeout).
     /// </summary>
-    /// <returns>
-    /// A task that represents the asynchronous operation. The task result contains
-    /// the public IP address as a string.
-    /// </returns>
-    /// <exception cref="HttpRequestException">
-    /// Thrown if there is an issue with the HTTP request while trying to retrieve the public IP address.
-    /// </exception>
-    public static async Task<string> GetPublicIpAsync()
+    /// <exception cref="HttpRequestException">The lookup failed.</exception>
+    public static async Task<string> GetPublicIpAsync(CancellationToken cancellationToken = default)
     {
         var ip = Environment.GetEnvironmentVariable("PUBLIC_IP");
         if (!string.IsNullOrWhiteSpace(ip))
             return ip;
 
-        using var http = new HttpClient();
-        ip = await http.GetStringAsync("https://api.ipify.org");
+        ip = await Http.Value.GetStringAsync(new Uri("https://api.ipify.org"), cancellationToken).ConfigureAwait(false);
         return ip.Trim();
     }
 
-    /// <summary>
-    /// Generates a new unique server identifier that incorporates the current region and a GUID.
-    /// The region is determined by reading the "REGION" environment variable. If the variable is not set,
-    /// the default region will be set to "unknown".
-    /// </summary>
-    /// <returns>
-    /// A string representing the new server identifier in the format "<region>-<guid>".
-    /// </returns>
+    /// <summary>A new server id, <c>&lt;region&gt;-&lt;guid&gt;</c>; the region defaults to <see cref="GetRegion"/>.</summary>
     public static string GetServerNewId(in string? inRegion = null)
     {
         var region = inRegion ?? GetRegion();
-        var serverId = $"{region}-{Guid.NewGuid():N}";
-        return serverId;
+        return $"{region}-{Guid.NewGuid():N}";
     }
 
-    /// <summary>
-    /// Retrieves the region identifier for the current environment by reading the
-    /// "REGION" environment variable. If the environment variable is not set,
-    /// a default value of "unknown" is returned.
-    /// </summary>
-    /// <returns>
-    /// The region identifier as a string. Returns "unknown" if the "REGION"
-    /// environment variable is not defined.
-    /// </returns>
-    public static string GetRegion()
-    {
-        return Environment.GetEnvironmentVariable("REGION") ?? "unknown";
-    }
+    /// <summary>The <c>REGION</c> environment variable, or <c>"unknown"</c>.</summary>
+    public static string GetRegion() => Environment.GetEnvironmentVariable("REGION") ?? "unknown";
 }

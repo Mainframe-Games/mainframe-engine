@@ -122,6 +122,131 @@ public sealed class NetBufferTests : IDisposable
         Assert.Equal(2, reader.Length);
     }
 
+    [Fact]
+    public void DisposingTwiceReturnsTheBufferOnce()
+    {
+        var writer = NetBufferPool.GetWriter();
+        writer.Dispose();
+        writer.Dispose();
+        var reader = NetBufferPool.GetReader([1], 1);
+        reader.Dispose();
+        reader.Dispose();
+
+        Assert.Equal(1, NetBufferPool.AvailableWritersCount);
+        Assert.Equal(1, NetBufferPool.AvailableReadersCount);
+        Assert.Equal(0, NetBufferPool.ActiveWriterPoolCount);
+        Assert.Equal(0, NetBufferPool.ActiveReaderPoolCount);
+        Assert.Same(writer, NetBufferPool.GetWriter());
+        Assert.NotSame(writer, NetBufferPool.GetWriter()); // it was pooled once, not twice
+    }
+
+    [Fact]
+    public void WriterGrowsPastItsInitialCapacity()
+    {
+        using var writer = new NetBufferWriter(1);
+        for (var i = 0; i < 1000; i++)
+            writer.Write(i);
+
+        Assert.Equal(4000, writer.Length);
+        Assert.True(writer.Capacity >= 4000);
+        using var reader = new NetBufferReader(writer.WrittenSpan);
+        for (var i = 0; i < 1000; i++)
+            Assert.Equal(i, reader.ReadInt32());
+    }
+
+    [Fact]
+    public void ReadingPastTheEndThrows()
+    {
+        using var reader = NetBufferPool.GetReader([1, 2, 3], 3);
+
+        Assert.Throws<EndOfStreamException>(() => reader.ReadInt32());
+        Assert.Equal(0, reader.Position); // a failed read consumes nothing
+        Assert.Equal(0x0201, reader.ReadUInt16());
+    }
+
+    [Fact]
+    public void MalformedLengthsAreRejected()
+    {
+        using var writer = NetBufferPool.GetWriter();
+        writer.WriteVarUInt32(1000); // string claims 1000 bytes
+        writer.Write((byte)'a');
+        using var reader = NetBufferPool.GetReader(writer.WrittenSpan);
+        Assert.Throws<InvalidDataException>(() => reader.ReadString());
+
+        using var arrayWriter = NetBufferPool.GetWriter();
+        arrayWriter.Write(int.MaxValue); // array claims int.MaxValue elements
+        using var arrayReader = NetBufferPool.GetReader(arrayWriter.WrittenSpan);
+        Assert.Throws<InvalidDataException>(() => arrayReader.ReadArray<Sample>());
+
+        using var varReader = NetBufferPool.GetReader([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01], 6);
+        Assert.Throws<InvalidDataException>(() => varReader.ReadVarUInt32());
+    }
+
+    [Theory]
+    [InlineData(0u, 1)]
+    [InlineData(127u, 1)]
+    [InlineData(128u, 2)]
+    [InlineData(16383u, 2)]
+    [InlineData(16384u, 3)]
+    [InlineData(uint.MaxValue, 5)]
+    public void VarUInt32RoundTripsInTheExpectedSize(uint value, int size)
+    {
+        using var writer = NetBufferPool.GetWriter();
+        writer.WriteVarUInt32(value);
+        Assert.Equal(size, writer.Length);
+
+        using var reader = NetBufferPool.GetReader(writer.WrittenSpan);
+        Assert.Equal(value, reader.ReadVarUInt32());
+    }
+
+    [Fact]
+    public void SpansAndStructsRoundTripWithoutCopies()
+    {
+        using var writer = NetBufferPool.GetWriter();
+        writer.Write([7, 8, 9]);
+        writer.WriteValue(new TransformMessage { NodeId = 3, Position = Vector3.UnitY, Rotation = Quaternion.Identity });
+        writer.Write(new Vector2(4, 5));
+        writer.Write(string.Empty);
+
+        using var reader = NetBufferPool.GetReader(writer.WrittenSpan);
+        Assert.Equal(new byte[] { 7, 8, 9 }, reader.ReadSpan(3).ToArray());
+        var transform = reader.ReadValue<TransformMessage>();
+        Assert.Equal(3u, transform.NodeId);
+        Assert.Equal(Vector3.UnitY, transform.Position);
+        Assert.Equal(new Vector2(4, 5), reader.ReadVector2());
+        Assert.Same(string.Empty, reader.ReadString());
+        Assert.Equal(0, reader.Remaining);
+    }
+
+    [Fact]
+    public void PooledWriteAndReadDoNotAllocate()
+    {
+        var position = new Vector3(1, 2, 3);
+        static float Round(in Vector3 position)
+        {
+            using var writer = NetBufferPool.GetWriter();
+            writer.Write(42u);
+            writer.Write(position);
+            writer.Write("player-1".AsSpan());
+            using var reader = NetBufferPool.GetReader(writer.WrittenSpan);
+            reader.ReadUInt32();
+            var read = reader.ReadVector3();
+            reader.ReadSpan((int)reader.ReadVarUInt32());
+            return read.X;
+        }
+
+        for (var i = 0; i < 10; i++)
+            Round(position);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var sum = 0f;
+        for (var i = 0; i < 1000; i++)
+            sum += Round(position);
+
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(1000f, sum);
+    }
+
     public sealed class Sample : INetworkTransferable
     {
         public int Id { get; set; }

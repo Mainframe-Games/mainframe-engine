@@ -1,4 +1,3 @@
-using ENet;
 using MainframeEngine.Networking;
 
 namespace MainframeEngine;
@@ -10,59 +9,82 @@ public enum PeerType : byte
 }
 
 /// <summary>
-/// Represents a node in the network responsible for managing server and client objects
-/// and their respective lifecycle. Inherits from the <see cref="Node"/> base class.
+/// Scene-graph entry point for networking: owns an ENet server and/or client <see cref="MessageBus"/> (both for a
+/// listen server) and pumps them in <see cref="OnUpdate"/>.
 /// </summary>
+/// <remarks>
+/// Register every message type in <see cref="Messages"/> before starting; connection events and message handlers
+/// live on the buses (<see cref="MessageBus.PeerConnected"/>, <see cref="MessageBus.Subscribe{T}"/>). Constructing
+/// the node does not touch the network or the ENet native library; starting does.
+/// </remarks>
 public class NetworkNode : Node
 {
-    public EnetServer? Server { get; private set; }
-    public EnetClient? Client { get; private set; }
+    private static readonly Lazy<string> LocalIpLazy =
+        new(static () => NetworkUtils.TryGetPrimaryLocalIPv4(out var address) ? address.ToString() : "127.0.0.1");
+
+    /// <summary>Message types shared by server and client. Frozen when the first bus starts.</summary>
+    public MessageRegistry Messages { get; } = new();
+
+    /// <summary>The server bus, while a server is running.</summary>
+    public MessageBus? Server { get; private set; }
+
+    /// <summary>The client bus, while a client is running.</summary>
+    public MessageBus? Client { get; private set; }
 
     /// <summary>
-    /// Represents the primary local IPv4 address of the network node. This value is initialized
-    /// using a utility method to determine the primary IP address of the hosting machine. It is
-    /// generally used to identify the local node in LAN-based networking setups.
+    /// The primary local IPv4 address, for LAN play. Looked up on first use (not at type initialization), and
+    /// <c>127.0.0.1</c> when there is no IPv4 route.
     /// </summary>
-    public static readonly string LocalIp = NetworkUtils.GetPrimaryLocalIPv4().ToString();
-
-    public NetworkNode()
-    {
-        Library.Initialize();
-    }
+    public static string LocalIp => LocalIpLazy.Value;
 
     public override void Dispose()
     {
-        Server?.Dispose();
-        Client?.Dispose();
-        NetBufferPool.Destroy();
-        Library.Deinitialize();
+        StopServer();
+        StopClient();
         base.Dispose();
     }
 
+    /// <summary>Polls both buses (dispatching handlers and events), then flushes anything they queued.</summary>
     public override void OnUpdate(in GameTime gameTime)
     {
         base.OnUpdate(in gameTime);
         Server?.Poll();
         Client?.Poll();
+        Server?.Flush();
+        Client?.Flush();
     }
 
-    /// <summary>
-    /// Initializes and starts the server on the specified port with a maximum number of clients.
-    /// </summary>
-    /// <param name="port">The port on which the server will listen for connections.</param>
-    /// <param name="maxClients">The maximum number of clients that can connect to the server.</param>
-    public void StartServer(in ushort port, in int maxClients)
+    /// <summary>Starts (or restarts) an ENet server.</summary>
+    /// <param name="port">UDP port to listen on.</param>
+    /// <param name="maxClients">Connection limit.</param>
+    /// <returns>The server bus, also available as <see cref="Server"/>.</returns>
+    public MessageBus StartServer(in ushort port, in int maxClients)
     {
-        Server = new EnetServer(port, maxClients);
+        StopServer();
+        Server = new MessageBus(EnetTransport.Listen(port, maxClients), Messages);
+        return Server;
     }
 
-    /// <summary>
-    /// Initializes and connects the client to the specified server IP address and port.
-    /// </summary>
-    /// <param name="ip">The IP address of the server to connect to.</param>
-    /// <param name="port">The port on which the server is listening for connections.</param>
-    public void StartClient(in string ip, in ushort port)
+    /// <summary>Starts (or restarts) an ENet client connecting to <paramref name="ip"/>:<paramref name="port"/>.</summary>
+    /// <returns>The client bus, also available as <see cref="Client"/>.</returns>
+    public MessageBus StartClient(in string ip, in ushort port)
     {
-        Client = new EnetClient(ip, port);
+        StopClient();
+        Client = new MessageBus(EnetTransport.Connect(ip, port, Messages.Fingerprint), Messages);
+        return Client;
+    }
+
+    /// <summary>Stops the server; connected clients are told <see cref="DisconnectReason.Shutdown"/>.</summary>
+    public void StopServer()
+    {
+        Server?.Dispose();
+        Server = null;
+    }
+
+    /// <summary>Stops the client; the server is told <see cref="DisconnectReason.Shutdown"/>.</summary>
+    public void StopClient()
+    {
+        Client?.Dispose();
+        Client = null;
     }
 }

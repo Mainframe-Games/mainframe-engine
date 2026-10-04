@@ -47,6 +47,23 @@ public class IdTests
     }
 
     [Fact]
+    public void NodeIdGetNextIsUniqueAcrossThreads()
+    {
+        const int perThread = 10_000;
+        var ids = new ulong[8][];
+        Parallel.For(0, ids.Length, t =>
+        {
+            ids[t] = new ulong[perThread];
+            for (var i = 0; i < perThread; i++)
+                ids[t][i] = NodeId.GetNext();
+        });
+
+        var all = ids.SelectMany(x => x).ToArray();
+        Assert.Equal(all.Length, all.Distinct().Count());
+        Assert.DoesNotContain(0ul, all);
+    }
+
+    [Fact]
     public void NodesReceiveDistinctIds()
     {
         using var a = new Node();

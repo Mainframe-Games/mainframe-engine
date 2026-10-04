@@ -1,159 +1,171 @@
-﻿namespace MainframeEngine.Networking;
+namespace MainframeEngine.Networking;
 
 /// <summary>
-/// Provides a pool for managing reusable instances of <see cref="NetBufferReader"/> and <see cref="NetBufferWriter"/>.
-/// This pool minimizes allocations and improves performance for operations involving network buffers.
+/// Process-wide pool of <see cref="NetBufferWriter"/> and <see cref="NetBufferReader"/> instances. Thread-safe.
 /// </summary>
+/// <remarks>
+/// Renting and returning never allocates in steady state: buffers keep their storage while pooled, up to
+/// <see cref="MaxPooledPerKind"/> of each kind; extra returns give their storage back to the shared array pool.
+/// Returning a buffer twice is ignored, so <c>Dispose</c> is idempotent.
+/// </remarks>
 internal static class NetBufferPool
 {
-    private static readonly Queue<NetBufferWriter> _availableWriterPool = [];
-    private static readonly List<NetBufferWriter> _activeWriterPool = [];
+    /// <summary>Most writers (and, separately, readers) kept for reuse.</summary>
+    public const int MaxPooledPerKind = 64;
 
-    private static readonly Queue<NetBufferReader> _availableReaderPool = [];
-    private static readonly List<NetBufferReader> _activeReaderPool = [];
+    private static readonly Lock Sync = new();
+    private static readonly Stack<NetBufferWriter> Writers = new(MaxPooledPerKind);
+    private static readonly Stack<NetBufferReader> Readers = new(MaxPooledPerKind);
+    private static int _activeWriters;
+    private static int _activeReaders;
 
-    /// <summary>
-    /// Gets the count of active writers currently in use from the pool.
-    /// </summary>
-    /// <remarks>
-    /// This property indicates the number of <see cref="NetBufferWriter"/> instances that are currently
-    /// being used and have been checked out from the pool. Monitoring this value can assist in analyzing
-    /// resource usage and identifying potential issues, such as writer leaks.
-    /// </remarks>
-    public static int ActiveWriterPoolCount => _activeWriterPool.Count;
+    /// <summary>Writers rented and not yet returned.</summary>
+    public static int ActiveWriterPoolCount
+    {
+        get
+        {
+            lock (Sync)
+                return _activeWriters;
+        }
+    }
 
-    /// <summary>
-    /// Gets the count of active readers currently in use from the pool.
-    /// </summary>
-    /// <remarks>
-    /// This property indicates the number of <see cref="NetBufferReader"/> instances that are currently
-    /// being used and have been checked out from the pool. Monitoring this value can help assess
-    /// resource utilization and detect potential issues such as reader leaks.
-    /// </remarks>
-    public static int ActiveReaderPoolCount => _activeReaderPool.Count;
+    /// <summary>Readers rented and not yet returned.</summary>
+    public static int ActiveReaderPoolCount
+    {
+        get
+        {
+            lock (Sync)
+                return _activeReaders;
+        }
+    }
 
-    /// <summary>
-    /// Gets the count of available <see cref="NetBufferReader"/> instances currently in the pool.
-    /// </summary>
-    /// <remarks>
-    /// This property indicates the number of reusable <see cref="NetBufferReader"/> objects
-    /// that are currently stored in the pool and ready for use. This count represents the pool's
-    /// capacity to provide readers without needing to allocate new instances.
-    /// </remarks>
-    public static int AvailableReadersCount => _availableReaderPool.Count;
+    /// <summary>Writers waiting in the pool.</summary>
+    public static int AvailableWritersCount
+    {
+        get
+        {
+            lock (Sync)
+                return Writers.Count;
+        }
+    }
 
-    /// <summary>
-    /// Gets the count of available writers currently present in the pool.
-    /// </summary>
-    /// <remarks>
-    /// This property indicates the number of reusable <see cref="NetBufferWriter"/> instances
-    /// that are currently stored in the pool and available for use. It helps monitor the state
-    /// of the writer pool and assess resource availability.
-    /// </remarks>
-    public static int AvailableWritersCount => _availableWriterPool.Count;
+    /// <summary>Readers waiting in the pool.</summary>
+    public static int AvailableReadersCount
+    {
+        get
+        {
+            lock (Sync)
+                return Readers.Count;
+        }
+    }
 
-    /// <summary>
-    /// Retrieves a reusable NetBufferReader from the pool or creates a new one if the pool is empty.
-    /// </summary>
-    /// <param name="data">The byte array that contains the data to initialize the reader with.</param>
-    /// <param name="length">The length of the data in the byte array to be read by the reader.</param>
-    /// <returns>A NetBufferReader instance initialized with the specified data and length.</returns>
+    /// <summary>Rents an empty writer with at least <paramref name="capacity"/> bytes of storage.</summary>
+    public static NetBufferWriter GetWriter(int capacity = NetBufferWriter.DefaultCapacity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
+        NetBufferWriter? writer;
+        lock (Sync)
+        {
+            _activeWriters++;
+            if (Writers.TryPop(out writer))
+                writer.InPool = false;
+        }
+
+        if (writer is null)
+            writer = new NetBufferWriter(capacity);
+        else
+            writer.EnsureCapacity(capacity);
+        writer.Rented = true;
+        return writer;
+    }
+
+    /// <summary>Rents a reader filled with a copy of <paramref name="data"/>.</summary>
+    public static NetBufferReader GetReader(ReadOnlySpan<byte> data)
+    {
+        NetBufferReader? reader;
+        lock (Sync)
+        {
+            _activeReaders++;
+            if (Readers.TryPop(out reader))
+                reader.InPool = false;
+        }
+
+        reader ??= new NetBufferReader();
+        reader.Rented = true;
+        reader.SetData(data);
+        return reader;
+    }
+
+    /// <summary>Rents a reader filled with a copy of the first <paramref name="length"/> bytes of <paramref name="data"/>.</summary>
     public static NetBufferReader GetReader(byte[] data, int length)
     {
-        NetBufferReader buffer;
-
-        if (_availableReaderPool.Count > 0)
-        {
-            buffer = _availableReaderPool.Dequeue();
-            buffer.Populate(data, length);
-        }
-        else
-        {
-            buffer = new NetBufferReader(data, length);
-        }
-
-        _activeReaderPool.Add(buffer);
-        return buffer;
+        ArgumentNullException.ThrowIfNull(data);
+        return GetReader(data.AsSpan(0, length));
     }
 
-    public static NetBufferReader GetReader(ReadOnlySpan<byte> data, int length)
+    /// <summary>Rents a reader filled with a copy of the first <paramref name="length"/> bytes of <paramref name="data"/>.</summary>
+    public static NetBufferReader GetReader(ReadOnlySpan<byte> data, int length) => GetReader(data[..length]);
+
+    /// <summary>Returns a writer (normally via <see cref="NetBufferWriter.Dispose"/>). Ignored if already pooled.</summary>
+    public static void Return(NetBufferWriter writer)
     {
-        NetBufferReader buffer;
-
-        if (_availableReaderPool.Count > 0)
+        ArgumentNullException.ThrowIfNull(writer);
+        lock (Sync)
         {
-            buffer = _availableReaderPool.Dequeue();
-            buffer.Populate(data, length);
-        }
-        else
-        {
-            buffer = new NetBufferReader(data, length);
+            if (writer.InPool)
+                return;
+            writer.InPool = true;
+            if (writer.Rented && _activeWriters > 0)
+                _activeWriters--;
+            writer.Rented = false;
+            writer.Reset();
+            if (Writers.Count < MaxPooledPerKind)
+            {
+                Writers.Push(writer);
+                return;
+            }
         }
 
-        _activeReaderPool.Add(buffer);
-        return buffer;
+        writer.ReleaseStorage();
+    }
+
+    /// <summary>Returns a reader (normally via <see cref="NetBufferReader.Dispose"/>). Ignored if already pooled.</summary>
+    public static void Return(NetBufferReader reader)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        lock (Sync)
+        {
+            if (reader.InPool)
+                return;
+            reader.InPool = true;
+            if (reader.Rented && _activeReaders > 0)
+                _activeReaders--;
+            reader.Rented = false;
+            reader.Reset();
+            if (Readers.Count < MaxPooledPerKind)
+            {
+                Readers.Push(reader);
+                return;
+            }
+        }
+
+        reader.ReleaseStorage();
     }
 
     /// <summary>
-    /// Retrieves a reusable NetBufferWriter from the pool or creates a new one if the pool is empty.
-    /// </summary>
-    /// <param name="capacity">The capacity in bytes to initialize the writer with if a new instance is created.</param>
-    /// <returns>A NetBufferWriter instance initialized with the specified capacity.</returns>
-    public static NetBufferWriter GetWriter(int capacity = 1024)
-    {
-        NetBufferWriter buffer;
-
-        if (_availableWriterPool.Count > 0)
-        {
-            buffer = _availableWriterPool.Dequeue();
-            buffer.Populate(capacity);
-        }
-        else
-        {
-            buffer = new NetBufferWriter(capacity);
-        }
-
-        _activeWriterPool.Add(buffer);
-        return buffer;
-    }
-
-    /// <summary>
-    /// Returns the specified NetBuffer instance to the appropriate pool and resets its state for reuse.
-    /// </summary>
-    /// <param name="buffer">The NetBuffer instance to be returned to the pool, which can be a NetBufferReader or NetBufferWriter.</param>
-    public static void ReturnToPool(NetBuffer buffer)
-    {
-        buffer.Reset();
-
-        switch (buffer)
-        {
-            case NetBufferWriter writer:
-                _activeWriterPool.Remove(writer);
-                _availableWriterPool.Enqueue(writer);
-                break;
-            case NetBufferReader reader:
-                _activeReaderPool.Remove(reader);
-                _availableReaderPool.Enqueue(reader);
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Clears all active and available buffers from the pool and invokes their destruction logic to release any associated resources.
+    /// Empties the pool, giving every pooled buffer's storage back to the shared array pool, and resets the
+    /// active counters. Buffers still rented stay usable; returning them later refills the pool.
     /// </summary>
     public static void Destroy()
     {
-        foreach (var buffer in _activeWriterPool)
-            buffer.Destroy();
-        foreach (var buffer in _activeReaderPool)
-            buffer.Destroy();
-
-        _activeWriterPool.Clear();
-        _activeReaderPool.Clear();
-
-        while (_availableWriterPool.Count > 0)
-            _availableWriterPool.Dequeue().Destroy();
-        while (_availableReaderPool.Count > 0)
-            _availableReaderPool.Dequeue().Destroy();
+        lock (Sync)
+        {
+            while (Writers.TryPop(out var writer))
+                writer.ReleaseStorage();
+            while (Readers.TryPop(out var reader))
+                reader.ReleaseStorage();
+            _activeWriters = 0;
+            _activeReaders = 0;
+        }
     }
 }

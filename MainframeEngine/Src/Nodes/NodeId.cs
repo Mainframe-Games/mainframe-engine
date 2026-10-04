@@ -42,12 +42,14 @@ public readonly struct NodeId(in uint id) : IEquatable<NodeId>, IEquatable<uint>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator NodeId(uint id) => new(id);
 
-    private static uint _nextId = 1;
+    private static uint _lastId;
+
     /// <summary>
-    /// Retrieves the next unique <see cref="NodeId"/> to be assigned.
+    /// Retrieves the next unique <see cref="NodeId"/> to be assigned. Thread-safe (nodes may be created off the main
+    /// thread, e.g. while loading); the first id is 1.
     /// </summary>
     /// <returns>A new <see cref="NodeId"/> instance representing the next unique identifier.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static NodeId GetNext() => new(_nextId++);
+    internal static NodeId GetNext() => new(Interlocked.Increment(ref _lastId));
 
 }
