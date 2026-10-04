@@ -127,6 +127,8 @@ public abstract class Engine : IDisposable
         EngineOptions = engineOptions;
         Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond }; // M2
 
+        // Linux: Silk.NET cannot find package natives (libSDL2) in runtimes/linux-x64/native on its own.
+        SilkNativeResolver.Install();
         UseSdl();
 
         // macOS: SDL can't find the Vulkan loader on its own (dyld no longer searches
