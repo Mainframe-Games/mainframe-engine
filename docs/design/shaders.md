@@ -38,12 +38,12 @@ flowchart LR
 
 | Include | Contents | Override macros |
 |---|---|---|
-| `limits.glsl` | **Generated** from `limits.json` — `MAX_DIR_LIGHTS`, `MAX_POINT_LIGHTS`, `MAX_SPOT_LIGHTS`, `MAX_SHADOW_DIR/SPOT/POINT` | — |
+| `limits.glsl` | **Generated** from `limits.json` — `MAX_DIR_LIGHTS`, `MAX_POINT_LIGHTS`, `MAX_SPOT_LIGHTS`, `MAX_SHADOW_DIR/SPOT/POINT`, `MAX_SHADOW_CASCADES`, `MAX_SHADOW_ATLAS_MAPS` | — |
 | `common.glsl` | `PI`, `srgbToLinear`, `linearToSrgb`; includes `limits.glsl` | — |
 | `frame.glsl` | Set 0 binding 0 `FrameData` (camera, viewport, near/far, time, exposure), `linearizeDepth` | — |
-| `shadows.glsl` | Shadow set (matrices UBO, dir/spot comparison maps, point cube maps) and `sampleDirShadow/SpotShadow/PointShadow` | `SHADOW_SET` (default 1) |
-| `lights.glsl` | Lights UBO, Blinn-Phong per light, `shadeLightsBlinnPhong(base, N, worldPos, specular, shininess)` and `shadeLights` (0.3, 32); `counts.w = 1` skips shadow maps (offscreen views) (needs `shadows.glsl` first) | `LIGHTS_SET`/`LIGHTS_BINDING` (default 0/1) |
-| `material.glsl` | `StandardMaterial3D` set 2 (parameters UBO, one sampler, albedo/normal/emission images), `materialUv/Albedo/Emission`, `materialNormal` (derivative tangent frame) | — |
+| `shadows.glsl` | Shadow set (`ShadowUBO`, cascade array, atlas, point cubes; all comparison samplers), receiver bias, PCF kernels, `dirShadow/spotShadow/pointShadow`, `shadowCascadeTint` (includes `frame.glsl`) | `SHADOW_SET` (default 1) |
+| `lights.glsl` | Lights UBO, Blinn-Phong per light, `shadeLightsBlinnPhong(base, N, Ngeo, worldPos, specular, shininess)` (`Ngeo`: geometric normal for the shadow normal offset) and `shadeLights` (0.3, 32); `counts.w = 1` skips shadow maps (offscreen views) (needs `shadows.glsl` first) | `LIGHTS_SET`/`LIGHTS_BINDING` (default 0/1) |
+| `material.glsl` | `StandardMaterial3D` set 2 (`MATERIAL_SET`; the cutout shadow casters use 1) (parameters UBO, one sampler, albedo/normal/emission images), `materialUv/Albedo/Emission`, `materialNormal` (derivative tangent frame) | — |
 | `sky.glsl` | Sky push constants (`SkyParams`), `skyRay(ndc)` | — |
 
 ## Descriptor frequency model
@@ -91,12 +91,12 @@ with `ShapeBase` (replaced by the mesh shaders).
 
 Light and shadow limits come from [`limits.json`](../../MainframeEngine/Content/Shaders/limits.json)
 (edit only there): `LightEnvironment.MaxDirectional/MaxPoint/MaxSpot` and
-`ShadowSystem.MaxShadowDir/MaxShadowSpot/MaxShadowPoint` are defined from the generated `ShaderLimits`;
+`ShadowSystem.MaxShadowDir/MaxShadowSpot/MaxShadowPoint/MaxCascades` are defined from the generated `ShaderLimits`;
 `ShaderLimitsTests` fails if the generated files drift or a shader re-`#define`s a limit.
 
-The UBO and push layouts (`LightsUBO` 1200 B, `FrameData` 368 B, `SkyParams` 96 B, `ShadowMatricesUBO`
-704 B) must match the C# writers byte for byte. See [Lighting](lighting.md#lights-ubo),
-[Sky](sky.md) and [Shadow system](shadow-system.md#main-pass-descriptor-set-set-2).
+The UBO and push layouts (`LightsUBO` 1200 B, `FrameData` 368 B, `SkyParams` 96 B, `ShadowUBO`
+1680 B) must match the C# writers byte for byte. See [Lighting](lighting.md#lights-ubo),
+[Sky](sky.md) and [Shadow system](shadow-system.md#shadowubo).
 
 ## Known issues
 

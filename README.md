@@ -179,8 +179,8 @@ it polls them every frame in `OnProcess` (or call `Poll()`).
 - All sky types are subtypes of `SkyEnvironment` and render as full-screen backdrops with UBO-driven inverse view/projection matrices
 
 **Shadow System (`Rendering/Shadows/`):**
-- `ShadowSystem` — manages shadow maps for directional, spot and point lights via depth pre-pass rendering; each sub-pass uses its own light matrix (dynamic-offset ring). Optional: without it, lit nodes bind a "no shadows" fallback
-- Integrates with shapes for shadow casting and receiving
+- `ShadowSystem` — cascaded shadow maps (texel-snapped, blended) for the sun, a shadow atlas for spot and secondary directional lights, cube maps for point lights; PCF filtering, per-light `CastsShadows`/`ShadowResolution`, per-pass caster culling, alpha-tested cutout casters. Optional: without it, lit nodes bind a "no shadows" fallback
+- See [Shadow system](docs/design/shadow-system.md)
 
 **ImGui:**
 - `VulkanImGuiController` — ImGui backend for Vulkan

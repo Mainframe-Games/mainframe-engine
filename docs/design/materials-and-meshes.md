@@ -143,7 +143,7 @@ The references are released when the node is freed, or at server shutdown.
 
 ```mermaid
 flowchart LR
-    P["RenderServer.PrepareFrame (before BeginFrame)<br/>sync node → MeshGpu/MaterialGpu (uploads join the frame)<br/>cull vs camera frustum · build keys · sort"] --> S["RenderShadows<br/>write caster instances · one instanced draw per (cull, mirrored, mesh surface) per light pass"]
+    P["RenderServer.PrepareFrame (before BeginFrame)<br/>sync node → MeshGpu/MaterialGpu (uploads join the frame)<br/>cull vs camera frustum · build keys · sort"] --> S["RenderShadows<br/>cull casters per pass · write their instances · one instanced draw per run per pass"]
     S --> O["RenderOffscreen<br/>SubViewports (HDR pass → ID pass → tonemap)<br/>root object-ID pass when picks are pending"]
     O --> M["RenderMain (scene pass)<br/>sky · visuals with priority &lt; 0 · opaque/cutout runs · other visuals · transparent back to front"]
 ```
@@ -156,8 +156,9 @@ For every `GeometryInstance3D` in the world's `GeometryList` that is visible in 
    `MaterialGpu`s and release the old ones (reference-counted, shared across nodes). Each mesh and material is then
    refreshed at most once per frame: re-upload on a version change, rewrite the material set if one of its textures
    was re-uploaded.
-2. **Shadow casters**, main view only: one entry per surface whose material casts shadows. The key is
-   (cull mode, mirrored, mesh, surface). Casters are not frustum-culled against the camera.
+2. **Shadow casters**, main view only: one entry per surface whose material casts shadows, with its world bounds.
+   The key is (cull mode, mirrored, cutout material, mesh, surface). Casters are not culled against the camera but
+   against each shadow pass (see [Shadow system](shadow-system.md#caster-culling)).
 3. **Cull**: transform the mesh `Aabb` by the model matrix (Arvo's method), then test it against the camera
    `Frustum` (planes from the view-projection, Vulkan's [0, 1] depth).
 4. **Keys**: one draw item per surface (`DrawSortKey`).
@@ -186,10 +187,11 @@ culling and `gl_FrontFacing` right under negative scale.
   - Each run of equal (pipeline, material, mesh, surface) becomes one `vkCmdDrawIndexed` with
     `instanceCount = run length` and `firstInstance = base + index`.
   - Mesh vertex and index buffers are bound when the mesh changes, and the instance buffer once at binding 1.
-- **Shadows**: `ShadowSystem.GetInstancedCasterPipeline(point, cull, mirrored)` builds pipelines that read
-  positions from binding 0 and the model matrix from binding 1. They use the same layouts as the per-object shadow
-  pipelines, and point-light passes push `lightPosRange` at offset 64. Per light pass (one for each directional
-  and spot light, six for each point light), the casters take one draw per (cull, mirrored, mesh surface) run.
+- **Shadows**: per shadow pass, `CullShadowCasters` keeps the casters inside the light's frustum (and range) and
+  writes their instances; `DrawShadowCasters` records one draw per run of equal (cull, mirrored, cutout material,
+  mesh surface). `ShadowSystem.GetInstancedCasterPipeline(point, cull, mirrored, cutout)` builds the pipelines:
+  positions at binding 0, the model matrix at binding 1; cutout casters also read the UV and alpha-test against
+  their material (set 1 of the cutout layout). See [Shadow system](shadow-system.md#caster-culling).
 
 ### Pipelines (`PipelineStateCache`)
 
@@ -214,11 +216,11 @@ caches its four entries ([lit, id] × [normal, mirrored]), so steady-state frame
 | Set | Contents | Owner |
 |---|---|---|
 | 0 | camera (`FrameData`), lights UBO | `FrameContext` (per frame slot and view) |
-| 1 | shadow matrices + maps (`ShadowSystem` or the fallback) | shadows |
+| 1 | shadow uniforms + maps (`ShadowSystem` or the fallback) | shadows |
 | 2 | material: b0 parameters UBO (80 B, device-local), b1 one `sampler`, b2–b4 albedo/normal/emission `texture2D` (1×1 fallbacks) | `MaterialGpu` |
 | binding 1 (vertex) | per-instance model matrix + object id | `InstanceBuffer` |
 
-The material set uses a single `sampler` with separate `texture2D`s. With the 15 shadow samplers, that keeps the
+The material set uses a single `sampler` with separate `texture2D`s. Before M4 the shadow set held 15 samplers and this kept the
 fragment stage within MoltenVK's limit of 16 samplers
 ([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The sampler is that of the material's
 first texture. A material's set is never updated in place, because frames in flight may still bind it. Instead, a
@@ -296,7 +298,7 @@ register upgrades for their own retired types.
 Measured on an Apple M5 with MoltenVK:
 
 - **10 000 `MeshInstance3D`s**, one mesh and one material, with a shadow-casting sun:
-  - 2 colour draws (the boxes and the floor) and 2 shadow draws.
+  - 2 colour draws (the boxes and the floor) and up to 2 shadow draws per cascade.
   - 8.3 ms per frame (≈120 fps, the display rate with VSync off) in both Debug and Release, with validation off.
   - **0 B** of managed allocation per frame (render test `TenThousandInstancesAllocateNothingPerFrame`).
 - **CPU side** ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json)), for 10k instances:
@@ -327,9 +329,8 @@ Measured on an Apple M5 with MoltenVK:
 
 ## Known issues
 
-- Cutout materials cast solid shadows: the shadow pass has no alpha test. Blended surfaces cast none.
-- No PBR, skinning, morph targets, LODs, GPU-driven culling or per-light caster culling (all casters are drawn
-  into every shadow map).
+- Blended surfaces cast no shadow (cutout materials cast alpha-tested shadows since M4).
+- No PBR, skinning, morph targets, LODs or GPU-driven culling (shadow casters are culled per pass on the CPU).
 - `Sprite3D` has no billboard mode.
 - Only `StandardMaterial3D` is rendered. Custom shaders and material types come later.
 - Spine, the grid and the sky do not appear in the object-ID pass.

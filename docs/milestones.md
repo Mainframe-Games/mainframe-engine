@@ -30,7 +30,7 @@ flowchart LR
 | [M1](#m1--stabilization-) | Fix correctness bugs blocking everything else | ✅ |
 | [M2](#m2--node-system--scenes-) | Godot-style node tree, scene tree, scene files | ✅ |
 | [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | ✅ |
-| [M4](#m4--shadows-v2) | Cascades, PCF, atlas | ⬜ |
+| [M4](#m4--shadows-v2-) | Cascades, PCF, atlas | ✅ |
 | [M5](#m5--multiplayer-) | Message protocol, replication, Steam | ✅ |
 | [M6](#m6--physics-) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ✅ |
 | [M7](#m7--audio-) | SoundFlow audio nodes, buses, 3D panning | ✅ |
@@ -126,17 +126,17 @@ pipeline, and shaders compiled as part of the build.
 | Linear lighting, HDR target, tonemapping, sRGB, Spine PMA | ✅ | [Color pipeline](design/color-pipeline.md) |
 | Build-time shader compilation, includes, `ContentPaths` | ✅ | [Shaders](design/shaders.md), [Build & platforms](design/build-and-platforms.md#shaders) |
 
-## M4 — Shadows v2
+## M4 — Shadows v2 ✅
 
 Production-quality shadows: cascades for the sun, soft filtering, and an atlas that cuts memory and
 the sampler count.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| Cascaded shadow maps for the primary directional light | ⬜ | [Shadows v2](design/future/shadows-v2.md) |
-| PCF for 2D and cube maps; normal-offset bias | ⬜ | [Shadows v2](design/future/shadows-v2.md) |
-| Spot / secondary-directional shadow atlas | ⬜ | [Shadows v2](design/future/shadows-v2.md) |
-| Per-light `CastsShadows`, resolution; allocation-free pass | ⬜ | [Shadows v2](design/future/shadows-v2.md) |
+| Cascaded shadow maps for the primary directional light | ✅ 4 cascades, practical split, sphere fit, texel snapping, blend, debug tint | [Shadow system](design/shadow-system.md#cascades) |
+| PCF for 2D and cube maps; normal-offset bias | ✅ hard / 3×3 / Poisson 16, 20-tap cube disc, receiver + slope bias | [Shadow system](design/shadow-system.md#sampling-and-filtering) |
+| Spot / secondary-directional shadow atlas | ✅ quadtree tiles, 6 shadow samplers (was 15), every spot casts | [Shadow system](design/shadow-system.md#atlas) |
+| Per-light `CastsShadows`, resolution; allocation-free pass | ✅ exported on light nodes; per-pass caster culling; cutout casters | [Shadow system](design/shadow-system.md#settings-debug-and-statistics) |
 
 ## M5 — Multiplayer ✅
 

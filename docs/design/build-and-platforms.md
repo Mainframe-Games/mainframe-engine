@@ -210,7 +210,7 @@ and the bundled `libMoltenVK.dylib` (no validation layers through that one).
 | Steamworks | ⚠ no `steam_api` shipped | ⚠ same | ⚠ same | ❌ no osx-arm64 assets |
 
 MoltenVK limits that shaped the design: `mutableComparisonSamplers = false` (shadow samplers are
-immutable), 16 samplers per shader stage (`MaxShadowSpot = 7`), and a mutable-format swapchain whose
+immutable), 16 samplers per shader stage (the shadow set uses 6 since M4; before, `MaxShadowSpot` was 7), and a mutable-format swapchain whose
 UNORM view intermittently resolves to a stale drawable (why the default swapchain is UNORM; see
 [Color pipeline](color-pipeline.md#swapchain)). See [Shadow system](shadow-system.md).
 

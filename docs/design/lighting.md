@@ -12,10 +12,10 @@ that wrap these light objects and register them with their world's `LightEnviron
 
 | Type | File | Fields (defaults) |
 |---|---|---|
-| `Light` (abstract) | [Light.cs](../../MainframeEngine/Src/Lighting/Light.cs) | `Position`, `Color = (1,1,1)` (sRGB; `LinearColor` is converted when set), `Intensity = 1` |
-| `DirectionalLight` | [DirectionalLight.cs](../../MainframeEngine/Src/Lighting/DirectionalLight.cs) | `Direction = normalize(-0.5,-1,-0.3)`. `Position` is used only by the gizmo. |
-| `PointLight` | [PointLight.cs](../../MainframeEngine/Src/Lighting/PointLight.cs) | `Range = 10` |
-| `SpotLight` | [SpotLight.cs](../../MainframeEngine/Src/Lighting/SpotLight.cs) | `Direction = -Y`, `Range = 20`, `InnerConeAngle = 15°`, `OuterConeAngle = 30°` (half-angles) |
+| `Light` (abstract) | [Light.cs](../../MainframeEngine/Src/Lighting/Light.cs) | `Position`, `Color = (1,1,1)` (sRGB; `LinearColor` is converted when set), `Intensity = 1`; shadows: `CastsShadows = true`, `ShadowResolution` (per type), `ShadowBias = 0.5`, `ShadowNormalBias = 1.5` (texels) |
+| `DirectionalLight` | [DirectionalLight.cs](../../MainframeEngine/Src/Lighting/DirectionalLight.cs) | `Direction = normalize(-0.5,-1,-0.3)`. `Position` is used only by the gizmo. `ShadowResolution = 2048` (per cascade), `CascadeCount = 4`, `CascadeSplitLambda = 0.75`, `MaxShadowDistance = 100`, `CascadeBlend = 0.1` |
+| `PointLight` | [PointLight.cs](../../MainframeEngine/Src/Lighting/PointLight.cs) | `Range = 10`, `ShadowResolution = 512` (cube face) |
+| `SpotLight` | [SpotLight.cs](../../MainframeEngine/Src/Lighting/SpotLight.cs) | `Direction = -Y`, `Range = 20`, `InnerConeAngle = 15°`, `OuterConeAngle = 30°` (half-angles), `ShadowResolution = 1024` (atlas tile) |
 | `LightEnvironment` | [LightEnvironment.cs](../../MainframeEngine/Src/Lighting/LightEnvironment.cs) | `AmbientColor = DefaultAmbientColor = (0.22,0.22,0.25)` (sRGB; ≈ 0.04 linear) |
 
 ### `LightEnvironment`
@@ -59,7 +59,7 @@ Shaders get the struct and the shading loop from `include/lights.glsl`.
 
 ## Shading model
 
-`lights.glsl` (`shadeLightsBlinnPhong`), used by `Mesh.vk.frag` with the material's specular strength and
+`lights.glsl` (`shadeLightsBlinnPhong(base, N, Ngeo, worldPos, specular, shininess)`; `Ngeo` is the geometric normal the shadow lookups offset along), used by `Mesh.vk.frag` with the material's specular strength and
 shininess and by `SpineLit.vk.frag` through `shadeLights` (strength 0.3, exponent 32):
 
 ```
@@ -71,10 +71,23 @@ result = ambient · base
 |---|---|
 | Attenuation (point/spot) | `clamp(1 − d / range, 0, 1)²` |
 | Spot cone | `clamp((cosθ − cosOuter) / max(cosInner − cosOuter, 1e-4), 0, 1)` |
-| Shadow | see [Shadow system](shadow-system.md#sampling-in-the-main-pass) |
+| Shadow | the light's shadow code picks its map; see [Shadow system](shadow-system.md#sampling-and-filtering) |
 
 All lighting runs in linear space into the HDR scene target; the tonemap pass (exposure + ACES) maps it
 to the display, so overlapping lights no longer clip (see [Color pipeline](color-pipeline.md)).
+
+## Shadows
+
+Every light casts shadows unless `CastsShadows` is false. The shadow system decides which map each light gets:
+
+- the first shadowed directional light: cascades;
+- other directional and spot lights: atlas tiles;
+- the first four shadowed point lights: cubes.
+
+The lights UBO is unchanged; the shadow set's codes map each light index to its map. The light nodes export the
+settings (`CastsShadows`, `ShadowResolution`, `ShadowBias`, `ShadowNormalBias`; on `DirectionalLight3D` also
+`ShadowCascades`, `ShadowSplitLambda`, `ShadowMaxDistance`, `ShadowCascadeBlend`). Scenes save them when they differ
+from the defaults. See [Shadow system](shadow-system.md).
 
 ## Usage
 
@@ -88,7 +101,7 @@ Root.AddChild(sun);   // registered in Root.World3D.Lights; synced after process
 var lights = new LightEnvironment();
 lights.AddLight(new DirectionalLight { Direction = Vector3.Normalize(new(0, -0.5f, -1)), Intensity = 0.9f });
 node.Draw(camera, lights);                                   // main pass
-shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass
+shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no camera fit, no culling)
 ```
 
 ## Invariants

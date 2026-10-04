@@ -2,203 +2,394 @@
 
 ## Purpose
 
-`ShadowSystem` renders depth maps for directional, spot and point lights during the shadow pre-pass,
-and exposes a descriptor set that lit shaders sample in the main pass (set 2 for shapes; set 1 — the
-shared per-frame shadow set — for Spine and pipelines built with `FrameContext`). Maps and buffers are
-`GpuImage`/`GpuBuffer`s from the GPU allocator; their initial layouts are set by the upload queue and
-`Dispose` defers to the deletion queue (see [GPU resources](gpu-resources.md)).
+`ShadowSystem` renders the depth maps of every shadowed light during the shadow pre-pass and exposes the shadow
+descriptor set (set 1 of every lit scene pipeline: meshes, Spine) that the main pass samples:
 
-File: [Rendering/Shadows/ShadowSystem.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowSystem.cs)
-(`public sealed unsafe class ShadowSystem : IDisposable`, ctor `ShadowSystem(IVulkanContext)`).
+- **Cascaded shadow maps** for the primary directional light: up to 4 cascades fitted to the camera, texel-snapped so
+  they never shimmer, blended at their seams and faded out at the shadow distance.
+- **One shadow atlas** for spot lights and the other directional lights, with a tile per light.
+- **Cube maps** for point lights.
+- **PCF** everywhere (hard, 3×3 or Poisson 16; a 20-tap disc for cubes), with receiver depth and normal-offset bias.
+- **Per-light settings** (`CastsShadows`, `ShadowResolution`, biases, cascade settings), exported on the light nodes.
+- **Per-pass caster culling**; passes nothing casts into are skipped. Cutout materials cast alpha-tested shadows.
 
-## Limits & resources
+The frame's CPU work (which light gets which map, cascade fitting, atlas packing, the shader uniforms) is
+`ShadowPlanner`, which holds no GPU state. It is unit-tested and benchmarked on its own, and it does not allocate.
+Maps are `GpuImage`s from the GPU allocator, created when a light first needs them and re-created when their size
+changes. `Dispose` defers everything to the deletion queue (see [GPU resources](gpu-resources.md)).
 
-| Constant | Value | Notes |
+Decisions: [ADR 0070 cascades](../../memory/decisions/0070-cascaded-shadow-maps-sphere-fit-and-snapping.md),
+[0071 atlas](../../memory/decisions/0071-shadow-atlas-and-six-shadow-samplers.md),
+[0072 filtering and bias](../../memory/decisions/0072-pcf-and-receiver-bias.md),
+[0073 culling](../../memory/decisions/0073-per-pass-caster-culling.md),
+[0074 cutout casters](../../memory/decisions/0074-alpha-tested-shadow-casters.md).
+
+## Key types
+
+| Type | File | Role |
 |---|---|---|
-| `MaxShadowDir` | 4 (= `LightEnvironment.MaxDirectional`) | 2048² 2D map each |
-| `MaxShadowSpot` | **7** | 1024² 2D map each. One less than `MaxSpot = 8` because of MoltenVK's 16 samplers per stage: 4 + 7 + 4 + 1 material texture. The 8th spot light lights the scene but casts no shadow. |
-| `MaxShadowPoint` | 4 | 512² × 6-face cube each |
-| `MaxShadowPasses` | 4 + 7 + 4 × 6 = **35** | shadow sub-passes per frame (one light-VP ring slot each) |
-| `ShadowMatricesUboSize` | (4 + 7) × 64 = 704 B | light-space matrices for the main pass |
+| `ShadowSystem` | [ShadowSystem.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowSystem.cs) | GPU side: maps, render pass, pipelines, light-matrix ring, shadow set per frame slot, recording, timing |
+| `ShadowPlanner` (internal) | [ShadowPlanner.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowPlanner.cs) | CPU side: light → map assignment, passes, uniforms, atlas packing, culling results |
+| `ShadowMath` | [ShadowMath.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowMath.cs) | Splits, slice bounding sphere, texel snapping, light matrices, texel sizes, receiver offset |
+| `ShadowAtlasAllocator`, `ShadowAtlasTile` | [ShadowAtlasAllocator.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowAtlasAllocator.cs) | Quadtree (buddy) allocator for power-of-two tiles |
+| `ShadowPass`, `ShadowPassKind`, `ShadowCasterCull`, `ShadowCasterDraw` | [ShadowPass.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowPass.cs) | One sub-pass (matrix, frustum, viewport) and the caster callbacks |
+| `ShadowUniforms` (internal), `ShadowFilter` | [ShadowUniforms.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowUniforms.cs) | The std140 shadow UBO; the filter modes |
+| `ShadowFallback` (internal) | [ShadowFallback.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowFallback.cs) | The "no shadows" set when there is no `ShadowSystem` |
 
-All slots are allocated up front (one `vkAllocateMemory` per image, roughly 116 MiB at D32), whether
-or not lights exist.
+## Which light gets which map
 
-| Map type | Image | Views | Framebuffers |
-|---|---|---|---|
-| `Map2D` (dir, spot) | 2D depth, `DepthStencilAttachment \| Sampled` | 1 × 2D | 1 |
-| `MapCube` (point) | 6 layers, `CubeCompatible` | 1 × Cube (sample) + 6 × 2D (render) | 6 |
+`ShadowPlanner.Plan(lights, camera, casterBounds)` runs once per frame. Lights are taken in `LightEnvironment` order,
+the same order as the lights UBO, up to its limits.
 
-### Shadow render pass
+| Light | Map | Size |
+|---|---|---|
+| First directional light with `CastsShadows` (the *primary*) | Cascades: layers of a 2D array (`CascadeCount` of 4) | `ShadowResolution` (default 2048) per layer, 128–4096 |
+| Other shadowed directional lights (up to 3) | One atlas tile each, covering the whole shadow distance | `ShadowResolution / 2` (a 2048 sun costs a 1024 tile) |
+| Shadowed spot lights (all 8) | One atlas tile each | `ShadowResolution` (default 1024) |
+| First 4 shadowed point lights | A cube map each (six faces) | `ShadowResolution` (default 512) per face, 64–2048 |
 
-A single depth attachment: Clear/Store, Undefined → `DepthStencilAttachmentOptimal`. No color
-attachment. External dependency `FragmentShader/ShaderRead` → `EarlyFragmentTests/DepthWrite`.
+Resolutions are rounded to the nearest power of two (`Light.ShadowResolutionPow2`). Shadowed point lights past the
+fourth light without shadows.
 
-### Depth format
+| Limit (from `limits.json`) | Value |
+|---|---|
+| `MaxShadowDir` (`MAX_SHADOW_DIR`) | 4: the primary + 3 atlas tiles |
+| `MaxShadowSpot` (`MAX_SHADOW_SPOT`) | **8**: every spot light (was 7 before M4, see [Samplers](#descriptor-set)) |
+| `MaxShadowPoint` (`MAX_SHADOW_POINT`) | 4 |
+| `MaxCascades` (`MAX_SHADOW_CASCADES`) | 4 |
+| `MAX_SHADOW_ATLAS_MAPS` | 11 = 3 + 8 |
+| `MaxShadowPasses` | 39 = 4 cascades + 11 tiles + 4 × 6 faces |
 
-`ChooseDepthFormat` picks the first of `D32Sfloat`, `D16Unorm`, `D32SfloatS8Uint`, `D24UnormS8Uint`
-(depth-only first: no stencil is used) whose optimal-tiling features include
-**`DepthStencilAttachment | SampledImage`**, preferring one with **`SampledImageFilterLinear`** (needed
-for the linear comparison sampler's 2×2 hardware PCF). If a combined depth/stencil format is chosen,
-layout barriers name both aspects (`VkHelpers.DepthBarrierAspects`); views keep the depth aspect. Without
-linear filtering it falls back to a nearest comparison sampler and logs a warning; with no samplable
-depth format it throws.
-
-### Light view-projection ring (per-pass matrices)
-
-Each sub-pass needs its own light matrix that survives until the GPU executes it. The matrices live in
-a host-mapped **dynamic-offset uniform ring**: `MaxFramesInFlight × MaxShadowPasses` slots, each padded
-to `max(256, minUniformBufferOffsetAlignment)` bytes (`UniformRing`, 2 × 35 × 256 B = 17.5 KiB). Set 0
-of both shadow pipeline layouts is a single `UniformBufferDynamic` descriptor (range 64 B); each pass
-writes its matrix at `Offset(frameSlot, pass)` and binds the set with that dynamic offset:
+## Cascades
 
 ```mermaid
-sequenceDiagram
-    participant RS as RenderShadows
-    participant Ring as Light VP ring[frameSlot]
-    participant GPU
-    loop each light / face k
-        RS->>Ring: write matrix at Offset(slot, k)
-        RS->>GPU: BeginRenderPass(shadow fb)
-        RS->>GPU: BindDescriptorSets(set 0, dynamicOffset = Offset(slot, k))
-        RS->>GPU: draw callbacks
-    end
+flowchart TD
+    CAM["Camera near .. min(far, MaxShadowDistance)"] --> SPLIT["Practical split (λ = 0.75)"]
+    SPLIT --> SPHERE["Per cascade: bounding sphere of the frustum slice<br/>(view space: rotation-stable)"]
+    SPHERE --> SNAP["Light space: snap the centre to the texel grid<br/>near plane pulled back to the casters"]
+    SNAP --> RENDER["Render layer k (one render pass per layer)"]
+    RENDER --> SAMPLE["Main pass: cascade by view depth, PCF,<br/>blend into the next cascade, fade at the end"]
 ```
 
-Pass indices: directional `i` → `i`, spot `i` → `4 + i`, point `i` face `f` → `11 + 6i + f`
-(`PassIndexDir/Spot/Point`). Because the ring is per frame slot, frame N+1 never overwrites frame N's
-matrices either. Call `RenderShadows` **at most once per frame**. This fixed GitHub issue #2 (every
-sub-pass used to execute with the last matrix written into one shared UBO); the `multi-light` render
-test (directional + spot + point) checks the ring contents after recording and compares a golden.
+- **Splits:** `split_i = λ·n·(f/n)^(i/N) + (1−λ)·(n + (f−n)·i/N)` (`ShadowMath.ComputeSplits`) between the camera near
+  plane and `min(far, MaxShadowDistance)` (default 100). `CascadeSplitLambda` (default 0.75) blends the logarithmic
+  and the uniform scheme.
+- **Fit:** `ShadowMath.SliceSphere` finds the smallest sphere around the slice's eight corners: its centre is on the
+  view axis, where the near and far corners are equidistant, and it is clamped to the far plane. It is computed in
+  view space, so rotating or moving the camera moves the sphere rigidly and never resizes it. The radius is rounded
+  up to 1/16 unit.
+- **Snap:** `ShadowMath.SphereLightMatrix` projects the centre into light space (`LightRotation(direction)`, which
+  depends only on the light) and rounds x, y and depth down to the texel size `2h / resolution`. The orthographic
+  window is `±h`, with `h = r·resolution / (resolution − 2)`: one texel of margin, so the snap (up to one texel)
+  never uncovers the sphere. The texel grid is fixed in the world: camera moves below a texel leave the matrix unchanged, and
+  larger ones shift it by whole texels. `StableCascades = false` turns snapping off, for comparison only.
+- **Near plane:** the light-space near plane is pulled back towards the light by `ShadowMath.CasterPullback`: up to
+  the front of the union of the casters' bounds (`MeshViewDraws.CasterBounds`). It is at least 10 units, because
+  Spine and other unbounded casters have no bounds, and at most 1000 units, for depth precision. It is rounded up to
+  whole units.
+- **Sampling** (`sampleCascades` in `shadows.glsl`):
+  - The view depth (`-(frame.view · p).z`) selects the cascade.
+  - Over the last `CascadeBlend` (default 0.1) of a cascade, the result blends into the next cascade with
+    `smoothstep`.
+  - The last cascade fades to lit over its band, which ends at the shadow distance.
+  - A cascade without casters is disabled (`cascadeEnabled`) and samples as lit.
+- **Debug view:** `ShadowSystem.DebugCascades` tints the main view red, green, blue and yellow by cascade.
 
-### Pipelines
+## Atlas
 
-| Pipeline | Layout | Push constants | Shaders |
-|---|---|---|---|
-| `_pipe2D_S32`, `_pipe2D_S12` | `Shadow2DLayout` (set 0 = light VP, dynamic UBO) | 64 B `mat4 model` (vertex) | `Shadow2D.vk.*` |
-| `_pipePoint_S32`, `_pipePoint_S12` | `ShadowPointLayout` (set 0 = light VP, dynamic UBO) | 80 B `mat4 model + vec4 lightPosRange` (vertex + fragment) | `ShadowPoint.vk.*` |
+- **Allocation:** `ShadowAtlasAllocator` is a quadtree (buddy) over power-of-two tiles of at least 64². Tiles are
+  placed largest first in Z order, which never fragments: any set whose area fits is placed at full size.
+- **Overflow:** when the requests do not fit, the largest tiles are halved first, so every light keeps a shadow.
+  Requests are dropped only when every tile is at the minimum size.
+- **Size:** the atlas grows to the smallest power of two that holds every tile, up to `MaxAtlasSize` (default 4096).
+  It never shrinks while it has tiles, and it is released when no light needs it.
+- **Packing:** the atlas is re-packed only when the requests (lights or sizes) change (`AtlasPackCount`), so tiles
+  stay put otherwise.
+- **Rendering:** the whole atlas renders in **one render pass**. It is cleared and stored once, and each tile is a
+  viewport and scissor. On tile-based GPUs (MoltenVK), a render pass per tile would load and store the whole atlas
+  each time.
+- **Sampling:** each map's `rect` (offset, size in UV) maps its `[0, 1]` coordinates into the atlas. Every PCF tap is
+  clamped half a texel inside the tile, so it never reads a neighbour.
+- **Secondary directional lights:** their tile covers `[near, min(far, MaxShadowDistance)]` with one sphere fit,
+  texel-snapped like a cascade. They have no cascades.
 
-`S12`/`S32` is the vertex stride: Spine uses 12 (positions only); 32 is the mesh vertex (`MeshVertex`,
-position first). Batched meshes use the **instanced caster pipelines** instead —
-`GetInstancedCasterPipeline(point, cull, mirrored)` (built on first use: positions at binding 0, the instance's
-model matrix at binding 1, `Shadow2DInstanced`/`ShadowPointInstanced.vk.vert`, the same layouts; point passes push
-`lightPosRange` at offset 64), one draw per (cull, mirrored, mesh surface) run — see
-[Materials & meshes](materials-and-meshes.md#record).
-Only location 0 (`vec3`) is read. Use the accessors `GetShadow2DPipeline(stride)` and
-`GetShadowPointPipeline(stride)`.
+## Point lights
 
-**Culling is explicit:** geometry is authored counter-clockwise. The main pass flips Y with a
-negative-height viewport, which keeps CCW = front; the shadow passes use a standard viewport, which
-mirrors the winding, so geometric front faces (facing the light) arrive clockwise. The shadow pipelines
-therefore use `FrontFace = Clockwise` and `CullMode = Back`: back faces are culled and the static depth
-bias (constant 1.25, slope 1.75) handles acne. (Before M1 this was `CCW + cull Front` — identical
-rasterisation, mislabelled as "Peter Pan" front-face culling.) Single-sided casters (Spine sprites, quads and
-planes) cast only from their front side; double-sided materials cast with culling disabled, and mirrored instances
-use a counter-clockwise front face. Depth `Less`, dynamic viewport and scissor.
-
-### Samplers (immutable)
-
-| Sampler | Filter | Address | Compare |
-|---|---|---|---|
-| `_sampler2DShadow` | Linear (Nearest if the depth format can't filter) | ClampToBorder, opaque white | `Less` (hardware compare) |
-| `_samplerCube` | Nearest | ClampToEdge | none (manual compare in shader) |
-
-The 2D comparison sampler is baked into the descriptor set layout as an **immutable sampler**, because
-MoltenVK reports `mutableComparisonSamplers = false`. Only image views are written for bindings 1 and 2.
-
-## Main-pass descriptor set (set 2)
-
-![Shadow descriptor set](../images/shadow-descriptor-set.svg)
-
-| Binding | Type | Count | Contents |
-|---|---|---|---|
-| 0 | UniformBuffer | 1 | `mat4 dirLightSpace[4]; mat4 spotLightSpace[7];` (one buffer per frame slot) |
-| 1 | CombinedImageSampler (immutable) | 4 | directional maps |
-| 2 | CombinedImageSampler (immutable) | 7 | spot maps |
-| 3 | CombinedImageSampler | 4 | point cube maps + `_samplerCube` |
-
-Consumers bind `MainDescSetLayout` as set 2 and call `GetMainSet()`, which returns the set for
-`IVulkanContext.FrameSlot` (one set per frame slot; the image views are shared, only the matrices UBO
-differs). `InitializeShadowMapLayouts()` transitions every map to `DepthStencilReadOnlyOptimal` once at
-startup, so the descriptors are valid on the first frame. The maps themselves are shared by both frame
-slots: the layout barriers in `RenderShadows` (`FragmentShader/ShaderRead` →
-`EarlyFragmentTests/DepthWrite`) order a frame's writes after the previous frame's sampling on the
-same queue.
-
-### Without a `ShadowSystem`
-
-Shadows are optional. Without a shadow system (`RenderServer.ShadowsEnabled = false`, or tree-less nodes), lit pipelines (meshes, SpineLit)
-still declare **the same set indices** and bind the renderer's `ShadowFallback` as set 2: the same
-layout (built by the shared `CreateMainSetLayout`), 1×1 depth maps (2D and cube) cleared to 1.0, and
-light-space matrices that map every position to depth 2 — outside the [0, 1] range the shaders treat as
-lit — so every shadow term is 1. It is static (one set for every frame slot), created on first use and
-destroyed with the device. Spine's texture set is therefore always set 3 (before M1 it moved to set 2
-without shadows and no longer matched `SpineLit.vk.frag`). Covered by the `spine-no-shadows` render
-test.
+Each shadowed point light renders a cube: six 90° faces with near 0.05 and far `Range`. `ShadowPoint.vk.frag` writes
+`length(p − light) / range` as depth, so the raster depth bias is 0 in point passes. Cubes are created at the light's
+resolution and re-created when it changes. Unused slots bind a 1×1 placeholder.
 
 ## `RenderShadows`
 
 ```csharp
-// Per-frame form: static lambdas + explicit state, no closure allocations.
-public void RenderShadows<TState>(LightEnvironment lights, TState state,
-    ShadowDraw2D<TState> draw2D,        // (state, cb, pipe32, pipe12, layout)
-    ShadowDrawPoint<TState> drawPoint)  // (state, cb, pipe32, pipe12, layout, lightPos, lightRange)
+// Render server form: planning, culling, recording. Static lambdas + explicit state: no allocations.
+public void RenderShadows<TState>(LightEnvironment lights, ICamera? camera, in Aabb casterBounds, TState state,
+    ShadowCasterCull<TState> cull,   // (state, in ShadowPass) → bool: has casters (write per-pass instances here)
+    ShadowCasterDraw<TState> draw)   // (state, cb, in ShadowPass): record the pass's casters
 
-// Convenience form; allocates if the lambdas capture.
-public void RenderShadows(LightEnvironment lights,
-    Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout> draw2D,
-    Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout, Vector3, float> drawPoint)
+// Tree-less forms (no camera fit, no culling): the per-object pipelines are passed to the callbacks.
+public void RenderShadows<TState>(LightEnvironment lights, TState state, ShadowDraw2D<TState> draw2D, ShadowDrawPoint<TState> drawPoint)
+public void RenderShadows(LightEnvironment lights, Action<…> draw2D, Action<…> drawPoint)
 ```
 
-It is called from `Engine.OnShadowPass`, while the command buffer is open and no render pass is active.
-`drawPoint` receives the point-light pipelines (`_pipePoint_S32/S12`) and `ShadowPointLayout`.
+It is called from `RenderServer.RenderShadows` after `Engine.OnShadowPass`, with the command buffer open and no render
+pass active. Call it at most once per frame.
 
 ```mermaid
 flowchart TD
-    A["Clamp counts to MaxShadow*"] --> B["TransitionAll: ReadOnly → Attachment"]
-    B --> C{"for each directional"}
-    C --> C1["CalcDirLightMatrix<br/>LookAt(-dir·20, up = ChooseUp(dir)), ortho ±20, 0.1..50"]
-    C1 --> C2["write ring slot i"] --> C3["shadow render pass → draw2D(state, cb, …)"]
-    C3 --> D{"for each spot"}
-    D --> D1["CalcSpotLightMatrix<br/>persp fov = 2·outer, near 0.1, far = Range"]
-    D1 --> D2["write ring slot 4+i"] --> D3["shadow render pass → draw2D(state, cb, …)"]
-    D3 --> E{"for each point × 6 faces"}
-    E --> E1["90° persp, near 0.05, far = Range"]
-    E1 --> E2["write ring slot 11+6i+f"] --> E3["shadow render pass → drawPoint(state, cb, …, pos, range)"]
-    E3 --> F["TransitionAll: Attachment → ReadOnly"]
-    F --> G["copy dir/spot matrices → set-2 UBO of this frame slot"]
+    A["GPU timestamp (start)"] --> B["Plan: passes, uniforms, atlas"]
+    B --> C["cull(state, pass) for every pass"]
+    C --> D["ApplyCulling: empty cascade/tile/cube → shadow off;<br/>a cube with any caster renders all 6 faces"]
+    D --> E["EnsureMaps (create / re-create at the planned sizes)"]
+    E --> F["Barrier: maps that render, Undefined → attachment"]
+    F --> G["Cascade layers, cube faces: one render pass each"]
+    G --> H["Atlas: one render pass, a viewport per tile"]
+    H --> I["Barrier: → read-only (new maps that did not render are initialised)"]
+    I --> J["Write this slot's uniforms; rewrite its set if a map changed;<br/>GPU timestamp (end)"]
 ```
 
-Every sub-pass clears depth to 1, sets an **unflipped** viewport, and binds the light VP set with
-its own dynamic offset. Directional and spot lights use `ChooseUp` (world up, or +Z when the light is
-within ~8° of vertical, where `CreateLookAt` would degenerate). Nodes
-generally ignore the pipeline and layout arguments and fetch the right pipeline through the accessors
-(see `SpineNode.DrawShadow2D`); batched meshes are drawn by the render server's mesh renderer in the same callbacks.
+Before each pass's callback runs, the system:
 
-## Sampling in the main pass
+- writes the pass's light view-projection into its ring slot and binds it (dynamic offset);
+- sets the viewport and scissor: the whole map, or the tile;
+- sets the depth bias: `DepthBiasConstant` 1.25 and `DepthBiasSlope` 1.75, or 0 for cube faces.
 
-| Light | Technique |
+The render server's callbacks:
+
+- `MeshRenderer.CullShadowCasters` and `DrawShadowCasters` handle the batched meshes (see
+  [Culling](#caster-culling)).
+- Non-batched visuals (Spine) have no bounds: when any is visible and casting, every pass renders and they draw into
+  each pass with the per-object pipelines (`GetShadow2DPipeline(stride)` / `GetShadowPointPipeline(stride)`).
+
+### Light view-projection ring
+
+Each sub-pass needs its own light matrix that survives until the GPU executes it. The matrices live in a host-mapped
+dynamic-offset uniform ring:
+
+- `MaxFramesInFlight × MaxShadowPasses` slots, each padded to `max(256, minUniformBufferOffsetAlignment)` bytes
+  (`UniformRing`).
+- Set 0 of every caster pipeline layout is that ring's `UniformBufferDynamic` descriptor.
+- Pass *i* writes its matrix at `Offset(frameSlot, i)`, so frame N+1 never overwrites frame N's matrices.
+
+This is what fixed GitHub issue #2 in M1: every pass used to execute with the last matrix written. The
+`multi-light` and `shadow-lights` render tests check that every pass's ring slot holds its own planned matrix.
+
+### Caster culling
+
+`MeshRenderer.Prepare` collects one caster item per shadow-casting surface: cull mode, mirrored, cutout material,
+mesh, surface and world bounds. Casters are sorted `[cull][mirrored][cutout material][mesh][surface]`, and their
+bounds are merged into `CasterBounds`.
+
+For each pass, `CullShadowCasters` works in two steps:
+
+1. It tests each caster against the light's sphere when the light has a range, then against the pass frustum
+   (`Frustum` from the light view-projection).
+2. It writes the survivors' instance data, in sort order, to the frame's instance buffer, as runs of equal draw
+   state.
+
+`DrawShadowCasters` records one instanced draw per run. A pass without casters returns false and is skipped.
+
+Counters: `MeshDrawStats.ShadowDrawCalls`, `ShadowInstances` and `ShadowCulled`; `ShadowSystem.PlannedPasses` and
+`RenderedPasses`.
+
+### Pipelines
+
+| Pipeline | Layout | Shaders |
+|---|---|---|
+| per-object 2D / point, stride 12 or 32 | set 0 light VP; push `mat4 model` (+ `vec4 lightPosRange` for point, V+F) | `Shadow2D`, `ShadowPoint` |
+| instanced 2D / point (`GetInstancedCasterPipeline(point, cull, mirrored)`) | same layouts; positions at binding 0, model rows at binding 1 | `Shadow2DInstanced`, `ShadowPointInstanced` |
+| instanced cutout (`…, cutout: true`) | + set 1 the mesh material set (`CutoutLayout(point)`) | `Shadow2DCutoutInstanced` + `ShadowCutout`, `ShadowPointCutoutInstanced` + `ShadowPointCutout` |
+
+Rasterisation details:
+
+- **Winding:** geometry is counter-clockwise. The shadow passes use an unflipped viewport, so front faces (facing
+  the light) arrive clockwise: `FrontFace = Clockwise`, back faces culled. Mirrored instances use counter-clockwise,
+  and double-sided materials cull nothing.
+- **Dynamic state:** depth bias, viewport and scissor.
+- **Render pass:** every pipeline is built against the single depth-only render pass (clear, store). Cascades,
+  atlas and cubes all use it.
+
+## Descriptor set
+
+| Binding | Type | Contents |
+|---|---|---|
+| 0 | UniformBuffer | `ShadowUBO` (`ShadowUniforms`, std140, 1680 B; one buffer per frame slot) |
+| 1 | CombinedImageSampler, immutable comparison sampler | cascade array (`sampler2DArrayShadow`) |
+| 2 | CombinedImageSampler, immutable comparison sampler | atlas (`sampler2DShadow`) |
+| 3 | CombinedImageSampler × 4, immutable comparison sampler | point cubes (`samplerCubeShadow`) |
+
+**Six samplers instead of fifteen.** With the material's one sampler, the fragment stage uses 7 of MoltenVK's 16. The
+`MaxShadowSpot = 7` hack is gone, and every spot light casts. The comparison sampler is linear, so each tap is a
+2×2 hardware PCF where the depth format filters, with `CompareOp.Less` and clamp-to-edge. It is baked into the
+layout because MoltenVK reports `mutableComparisonSamplers = false`.
+
+Each frame slot has its own set:
+
+- **Rewriting:** a slot's set is rewritten when a map is re-created. The rewrite happens at that slot's next
+  `RenderShadows` or `GetMainSet`, when the slot's previous frame has completed.
+- **Old maps:** they are freed through the deletion queue.
+- **Frames without `RenderShadows`:** `GetMainSet` clears that slot's uniforms, so no light samples a stale map.
+
+### `ShadowUBO`
+
+| Offset | Field | Contents |
+|---|---|---|
+| 0 | `ShadowMap2D cascades[4]` | `mat4 viewProj`, `vec4 rect`, `vec4 params` (texel world size, perspective flag, depth bias, normal bias) |
+| 384 | `ShadowMap2D atlasMaps[11]` | the same for atlas tiles: `rect` = tile in atlas UV; spots: texel size per unit distance |
+| 1440 | `vec4 cascadeSplits` | view depth where each cascade ends |
+| 1456 | `vec4 cascadeEnabled` | 1 when the cascade rendered |
+| 1472 | `vec4 csm` | count, blend band, shadow distance, debug tint |
+| 1488 | `vec4 filterParams` | filter mode, radius (texels), 1/cascade size, 1/atlas size |
+| 1504 | `ivec4 dirCodes[1]` | per directional light: 0 none, 1 cascades, k + 2 atlas map k |
+| 1520 | `ivec4 spotCodes[2]` | per spot light: 0 none, k + 1 atlas map k |
+| 1552 | `ivec4 pointCodes[4]` | per point light: 0 none, c + 1 cube c |
+| 1616 | `vec4 pointParams[4]` | per cube: 2 / size, depth bias, normal bias |
+
+The codes index the shadow arrays by light index (the lights UBO order). An all-zero UBO, as in the fallback or a
+frame without shadows, means no light has a shadow. `ShadowPlannerTests.UniformLayoutMatchesTheShaderBlock` pins
+the offsets; they were checked with `spirv-reflect` on `Mesh.vk.frag`.
+
+## Sampling and filtering
+
+`lights.glsl` asks `dirShadow`, `spotShadow` and `pointShadow` (in `shadows.glsl`) for each light's term, passing the
+geometric normal. Normal-mapped normals would make the offset noisy.
+
+**Receiver offset** (`shadowReceiver`, mirrored by `ShadowMath.ReceiverPosition`): before projecting, the surface
+point moves:
+
+- towards the light by `ShadowBias` texels (default 0.5);
+- along the normal by `ShadowNormalBias` texels (default 1.5) × sin(angle to the light).
+
+Here a texel is its world size at that point:
+
+- cascades and secondary directional lights: `2h / size` (h ≈ the sphere radius, see [Cascades](#cascades));
+- spots: `2·tan(outer) / size × distance`;
+- cubes: `2 / size × distance`.
+
+The offset removes acne at any angle without moving shadows away from their casters, so there is no peter-panning.
+The raster slope-scaled bias adds a little more for 2D maps.
+
+| `ShadowSystem.Filter` | 2D maps | Cubes |
+|---|---|---|
+| `Hard` | 1 comparison tap (bilinear 2×2) | 1 tap |
+| `Pcf3x3` | 3 × 3 taps, `FilterRadius / 1.5` texels apart | 20-tap disc |
+| `Poisson16` (default) | 16-tap Poisson disc, radius `FilterRadius` (default 1.5) texels | 20-tap disc, radius `FilterRadius` texels at that distance |
+
+Poisson taps are **not** rotated per pixel: screen-space noise would move with the camera and make edges crawl.
+Each tap's bilinear comparison already smooths the steps.
+
+## Without a `ShadowSystem`
+
+Shadows are optional:
+
+- **Switching them off:** `RenderServer.ShadowsEnabled = false`.
+- **What lit pipelines bind:** the renderer's `ShadowFallback` set instead. It has the same layout (built by
+  `CreateMainSetLayout`), 1×1 placeholder maps cleared to far depth (array, 2D, cube) and an all-zero UBO.
+- **Set indices:** they stay the same, so Spine's texture set is always set 2. The `spine-no-shadows` render test
+  covers this.
+- **Offscreen views:** a `SubViewport` of another world binds the real set, but its lights UBO has `counts.w = 1`,
+  which skips every shadow lookup.
+
+## Settings, debug and statistics
+
+| `ShadowSystem` member | Default | Notes |
+|---|---|---|
+| `Filter`, `FilterRadius` | Poisson 16, 1.5 | radius clamped to [0.5, 8] texels |
+| `DebugCascades` | false | cascade tint |
+| `StableCascades` | true | texel snapping |
+| `MaxAtlasSize` | 4096 | power of two, ≥ 512 |
+| `DepthBiasConstant`, `DepthBiasSlope` | 1.25, 1.75 | raster bias of 2D maps |
+| `PlannedPasses`, `RenderedPasses`, `Passes`, `PassRendered(i)` | — | the last frame's passes |
+| `LastCpuMilliseconds`, `LastGpuMilliseconds` | — | CPU time of `RenderShadows`; GPU time between two timestamps (read when the frame slot comes round) |
+| `CascadeResolution`, `AtlasSize`, `AtlasPackCount`, `MapMemoryBytes` | — | resources |
+
+`RendererDebugWindow` has a **Shadows** section:
+
+- the settings above, the pass, draw and instance counts, the CPU and GPU times;
+- a **Maps** tree that shows the cascade layers and the atlas (depth as red). ImGui images can name their layout
+  (`IImGuiTextureRegistry.Register(view, sampler, layout)`), here `DEPTH_STENCIL_READ_ONLY_OPTIMAL`.
+
+Per-light settings live on `Light`, exported on `Light3D` and saved in scenes when they differ from the defaults:
+
+| Setting | Lights | Default | Range |
+|---|---|---|---|
+| `CastsShadows` | all | true | |
+| `ShadowResolution` | all | 2048 / 1024 / 512 | 64–8192 |
+| `ShadowBias` | all | 0.5 texels | 0–16 |
+| `ShadowNormalBias` | all | 1.5 texels | 0–16 |
+| `ShadowCascades` (`CascadeCount`) | directional | 4 | 1–4 |
+| `ShadowSplitLambda` (`CascadeSplitLambda`) | directional | 0.75 | 0–1 |
+| `ShadowMaxDistance` (`MaxShadowDistance`) | directional | 100 | |
+| `ShadowCascadeBlend` (`CascadeBlend`) | directional | 0.1 | 0–0.5 |
+
+## Performance
+
+Measured on an Apple M5 (MoltenVK), Release, validation off. Frames are capped at the 120 Hz display (8.33 ms), so
+the shadow pass is timed directly:
+
+| Scene | Passes | Shadow CPU | Shadow GPU |
+|---|---|---|---|
+| Sandbox (2 directional, 2 spot, 1 point, Spine) | 13 | 0.014 ms | 0.96 ms |
+| `shadow-lights` (sun, 3 spots, 2 points) | 19 | 0.019 ms | 1.43 ms |
+| `csm` (sun over 68 posts) | 4 | 0.013 ms | 1.01 ms |
+| 10 000 instances, one sun | 4 | 0.48 ms (culling 4 × 10k casters + instance writes) | 1.17 ms |
+
+Planning alone ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json), `ShadowSetupBenchmarks`), 0 B:
+
+| Benchmark | Time |
 |---|---|
-| Directional / spot | `ls = M · world; ls /= w; uv = ls.xy·0.5+0.5`. Outside [0,1]³ counts as lit. `texture(sampler2DShadow, vec3(uv, depth − 0.001))`: one hardware compare tap (bilinear PCF where supported), no shader kernel. |
-| Point | `current = length(world − lightPos) / range`, `closest = texture(cube, fragToLight).r`, shadowed if `current − 0.015 > closest`. One hard sample. `ShadowPoint.vk.frag` writes linear `gl_FragDepth`, so the pipeline's depth bias does not apply. |
+| `PlanSunCascades` | 0.52 µs |
+| `PlanEveryLightType` (2 suns, 3 spots, 2 points) | 1.37 µs |
+| `PackAtlasElevenTiles` | 0.25 µs |
 
-Only the first `min(count, MAX_SHADOW_*)` lights of each type sample a map; the rest use shadow = 1.
+The Sandbox still runs at the display's 120 fps in Release.
 
-## Invariants
+**Memory:** maps exist only for lights that need them. The Sandbox uses 86 MiB:
 
-- C# constants and the `MAX_SHADOW_*` defines (generated from `limits.json`) must match.
-  Recompile the `.spv` files after editing.
-- Keep the total sampler count per stage ≤ 16 for MoltenVK.
-- Shadow casters must pick the pipeline that matches their vertex stride.
+| Map | Size |
+|---|---|
+| Cascades (4 × 2048², D32) | 64 MiB |
+| Atlas (2048²) | 16 MiB |
+| One 512 cube | 6 MiB |
+
+Before M4, 116 MiB was allocated whatever the lights.
+
+## Testing
+
+- **Unit tests** ([Tests/…/Rendering/Shadows](../../Tests/MainframeEngine.Tests/Rendering/Shadows/)):
+  - split schemes;
+  - sphere fit: containment, optimality and orientation independence;
+  - snapping: sub-texel moves keep the matrix, larger moves shift whole texels, unsnapped matrices slide;
+  - caster pull-back, spot, cube and texel-size math, receiver bias;
+  - atlas packing, freeing, merging, overflow and fuzzing;
+  - planner light assignment, culling effects, re-packing, per-light resolution;
+  - the uniform layout;
+  - allocation-free planning and packing.
+  - Light settings round-trip through scenes in [LightShadowSettingsTests](../../Tests/MainframeEngine.Tests/Lighting/LightShadowSettingsTests.cs).
+- **Render tests** ([ShadowTests.cs](../../Tests/MainframeEngine.RenderTests/ShadowTests.cs), MoltenVK goldens):
+
+  | Test | What it checks |
+  |---|---|
+  | `csm` | Long floor with receding posts; the debug frame must show all four cascade tints. |
+  | `shadow-pcf` | The Poisson penumbra is measurably wider than the hard edge. |
+  | `shadow-lights` | Sun, 3 spots and 2 points all casting; every pass rendered with its own matrix, disjoint atlas tiles, memory below the old 116 MiB. Closes #2 visually. |
+  | `shadow-lights` allocation gate | 0 B over 240 frames. |
+  | `shadow-cutout` | The fence's holes let light through, compared with an opaque fence. It also exercises the point cutout pipeline. |
+  | `shadow-shimmer` | A one-pixel, sub-texel camera move must give the same frame shifted by one pixel (snapped: max Δ ≤ 3). The unsnapped run must change > 1 % of the pixels, which proves the test detects shimmering. |
+
+  The existing `multi-light` test checks the ring per pass; `instances` checks ≤ 2 shadow draws per pass.
+- `--no-shadows` (host option) turns every light's shadows off; perf runs report `ShadowCpuMs`/`ShadowGpuMs`.
 
 ## Known issues
 
-- **Fixed ±20 orthographic box at the world origin**; it does not follow the camera (cascades: M4,
-  [Shadows v2](future/shadows-v2.md)).
-- One hard tap per sample (no PCF kernel), single-sided casters cast from their front side only.
-- All 15 maps are allocated up front (~116 MiB at D32) whatever the light count (atlas: M4).
+- Spine and other non-batched visuals have no bounds: they are drawn into every pass and keep every pass alive.
+- Offscreen views (`SubViewport`) of other worlds have no shadows.
+- Point lights past the fourth shadowed one, and atlas tiles that do not fit at the minimum size, light without a
+  shadow (no warning).
+- No contact-hardening (PCSS), EVSM or screen-space contact shadows; PCF only ([ADR 0072](../../memory/decisions/0072-pcf-and-receiver-bias.md)).
+- Lavapipe goldens for the new scenes are recorded by CI.
 
 ## Related docs
 
-[Lighting](lighting.md) · [Shaders](shaders.md) · [Coordinate conventions](coordinate-conventions.md) ·
-[Future: shadows v2](future/shadows-v2.md)
+[Lighting](lighting.md) · [Shaders](shaders.md) · [Materials & meshes](materials-and-meshes.md) ·
+[GPU resources](gpu-resources.md) · [Coordinate conventions](coordinate-conventions.md)

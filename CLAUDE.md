@@ -186,7 +186,7 @@ RmlUi debugger; Debug builds hot-reload `.rml`/`.rcss` from the project's `Conte
 
 ### Shadow Pass
 
-`ShadowSystem.RenderShadows` takes two draw callbacks — one for 2D (directional and spot) shadows and one for point light shadows (called per cube face). Call it at most once per frame; each sub-pass gets its own light matrix from a per-frame-slot dynamic-offset ring. Use the `RenderShadows<TState>` overload with static lambdas in per-frame code (no closure allocations).
+`ShadowSystem` (M4): cascades for the first shadowed directional light, one atlas for spot and other directional lights, cubes for point lights; per-light `CastsShadows`/`ShadowResolution` on the light nodes. `RenderShadows(lights, camera, casterBounds, state, cull, draw)` plans the passes on the CPU (`ShadowPlanner`), calls `cull` for every pass (return false to skip it), then `draw` per rendered pass; the render server does this for the tree. Call it at most once per frame; each sub-pass gets its own light matrix from a per-frame-slot dynamic-offset ring. Use static lambdas with explicit state (no closure allocations). Tree-less code can use the `draw2D`/`drawPoint` overloads (no culling).
 
 ### SpineNode
 
