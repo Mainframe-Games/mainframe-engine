@@ -72,6 +72,9 @@ public sealed class PlayController : IDisposable
     /// <summary>F5: runs the project's main scene.</summary>
     public void PlayMain() => Play(scene: null, label: "Game");
 
+    /// <summary>Runs the main scene with extra game arguments (QA scripts: <c>--screenshot</c>).</summary>
+    public void PlayMain(IReadOnlyList<string> extraArguments) => Play(scene: null, label: "Game", extraArguments);
+
     /// <summary>F6: runs the active scene (saving it first; an untitled scene asks for a file).</summary>
     public void PlayCurrent()
     {
@@ -135,7 +138,7 @@ public sealed class PlayController : IDisposable
         Service.ReloadScene();
     }
 
-    private void Play(string? scene, string label)
+    private void Play(string? scene, string label, IReadOnlyList<string>? extraArguments = null)
     {
         var project = _workspace.Project;
         if (project.Root is null || project.LauncherProject is null || project.BuildPath is null)
@@ -161,7 +164,7 @@ public sealed class PlayController : IDisposable
         if (!_workspace.Commands.SaveAll())
             Log.Warning("[Play] Some scenes could not be saved; the game runs what is on disk.");
         _extraInstances = 0;
-        Launch(new PlayRequest(project.BuildPath, project.LauncherProject, scene, label));
+        Launch(new PlayRequest(project.BuildPath, project.LauncherProject, scene, label, extraArguments));
     }
 
     private void Launch(PlayRequest request)

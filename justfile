@@ -51,6 +51,10 @@ editor *args:
 qa-editor script="Tests/QA/editor-walkthrough.qa":
     dotnet run --project MainframeEngine.Editor -c Release -- MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene --hidden --qa-script {{script}} --qa-out {{artifacts / "qa-editor"}}
 
+# E4 workflow QA: create a game from the editor, edit, save, play (game screenshot), change its C#, reload (artifacts/qa-projects)
+qa-projects:
+    dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --qa-script Tests/QA/project-workflow.qa --qa-out {{artifacts / "qa-projects"}}
+
 # Run the Sandbox (extra args are passed through, e.g. just sandbox --qa-capture out)
 sandbox *args:
     dotnet run --project MainframeEngine.Sandbox -- {{args}}

@@ -1,0 +1,54 @@
+# E4 workflow QA (just qa-projects): create a game from the editor, edit and save a scene, play it, change its C# and
+# reload. Needs the .NET 10 SDK; creates the game under artifacts/qa-projects (QA_PROJECTS is that folder).
+wait 30
+timing start
+capture 01-project-manager
+command project.new
+wait 10
+new-project QA_PROJECTS QaFull
+wait 5
+capture 02-new-project
+click #np-create
+wait 5
+capture 03-creating
+wait-for project 300
+timing create-build-open
+wait 20
+capture 04-project-open
+# Add nodes and save.
+select Spinner
+add-node OmniLight3D Lamp
+add-node Node3D Marker
+wait 5
+command file.save
+wait 10
+capture 05-nodes-saved
+# Play: build, launch, logs in Output; the game saves its frame 60.
+timing before-play
+play-args --screenshot QA_PROJECTS/game-frame.png
+wait 3
+capture 06-building
+wait-for playing 120
+timing play-launch
+wait 120
+capture 07-playing
+command play.pause
+wait 20
+capture 08-paused
+command play.stop
+wait-for stopped 30
+wait 10
+capture 09-stopped
+# Change the game's C#: a new [Export] field, then Build & Reload.
+replace-in-file QaFull/Src/Spinner.cs =\s45f; = 45f;\n\n[Export(Range = "0,10,0.1")]\npublic float Wobble { get; set; } = 2.5f;
+timing before-reload
+command project.build_reload
+wait 3
+capture 10-reloading
+wait-for idle 120
+wait 10
+timing build-reload
+select Spinner
+wait 10
+capture 11-new-property
+quit

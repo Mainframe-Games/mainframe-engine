@@ -32,6 +32,8 @@ namespace MainframeEngine.Editor;
 /// timing label                # logs the seconds since the previous timing mark
 /// set #element-id text…       # sets a field's value (unbound fields; data-bound ones: use the dialog's own step)
 /// new-project folder name     # fills the New Project wizard's location and name
+/// add-node Type [Name]        # adds a node under the selection (or the root) of the active scene
+/// play-args args…             # Play (F5) with extra game arguments, e.g. --screenshot out.png
 /// quit
 /// </code>
 /// </summary>
@@ -59,9 +61,14 @@ public sealed class EditorQaScript : IEditorAutomation
     public static EditorQaScript Load(string path, string outputDirectory)
     {
         var steps = new List<string[]>();
+        // QA_PROJECTS: a scratch folder for projects the script creates (<out>/projects, recreated each run).
+        var projects = Path.Combine(outputDirectory, "projects");
+        if (Directory.Exists(projects))
+            Directory.Delete(projects, recursive: true);
+        Directory.CreateDirectory(projects);
         foreach (var raw in File.ReadAllLines(path))
         {
-            var line = raw.Trim();
+            var line = raw.Trim().Replace("QA_PROJECTS", projects, StringComparison.Ordinal);
             // A comment is "#" alone or "# …" at the start or after whitespace; "#element-id" arguments are not comments.
             var comment = line == "#" ? 0 : line.StartsWith("# ", StringComparison.Ordinal) ? 0 : line.IndexOf(" # ", StringComparison.Ordinal);
             if (comment >= 0)
@@ -259,7 +266,7 @@ public sealed class EditorQaScript : IEditorAutomation
                 {
                     "project" => static w => w.Project.Root is not null && !w.Project.IsBuilding && w.Session.Active is not null && !w.Splash.Visible,
                     "idle" => static w => !w.Project.IsBuilding && !w.Play.IsBuilding,
-                    "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running),
+                    "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running && i.Frame >= 90),
                     "stopped" => static w => !w.Play.IsPlaying,
                     _ => throw new ArgumentException($"Unknown wait-for '{step[1]}'."),
                 };
@@ -309,6 +316,18 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "add-node":
+                if (workspace.Session.Active is { } addTo)
+                {
+                    var node = Serialization.TypeRegistry.CreateNode(step[1]);
+                    node.Name = step.Length > 2 ? step[2] : step[1];
+                    addTo.AddNode(node);
+                }
+
+                break;
+            case "play-args":
+                workspace.Play.PlayMain(step[1..]);
+                break;
             case "new-project":
                 workspace.NewProject.Location = step[1];
                 workspace.NewProject.ProjectName = step[2];
