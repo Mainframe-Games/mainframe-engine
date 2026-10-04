@@ -47,6 +47,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         Perf,
         LargeScene,
         Allocations,
+        CloseTabs,
         Done,
     }
 
@@ -194,6 +195,13 @@ public sealed class EditorSmokeRun : IEditorAutomation
             case Step.Allocations when _stepFrame == AllocationWarmup + AllocationFrames:
                 _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
                 Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} idle frames with {LargeSceneNodes} nodes.");
+                // Close the large tab while rendering (its world and published target go away mid-session).
+                workspace.Session.Close(workspace.Session.Active!);
+                Next(Step.CloseTabs);
+                break;
+
+            case Step.CloseTabs when _stepFrame == 10:
+                Check(workspace.Session.Scenes.Count == 1, $"{workspace.Session.Scenes.Count} tabs open after closing one of two.");
                 Next(Step.Done);
                 app.Quit(ExitCode.Ok);
                 break;

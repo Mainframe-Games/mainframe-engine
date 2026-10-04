@@ -98,6 +98,9 @@ public sealed class ViewportController : Node
         CancelDrag();
         _scene = _workspace.Session.Active;
         _iconsVersion = -1;
+        // The previous tab's target may already be disposed (tab closed): stop the UI from sampling it.
+        if (_registered is not null)
+            Tree?.Servers.Get<UiServer>()?.UnregisterTexture(ViewportPanel.TextureName);
         _registered = null;
         _workspace.ViewportPanel?.UpdateImage(false);
         if (_scene is null)
