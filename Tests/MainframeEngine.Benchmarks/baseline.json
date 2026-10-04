@@ -4,6 +4,31 @@
   "Recorded": "2026-10-04",
   "Benchmarks": [
     {
+      "Name": "AudioBenchmarks.AttenuationCurvesAllModels",
+      "MeanNs": 1056.738,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "AudioBenchmarks.CommandBatchEnqueueAndDrain64",
+      "MeanNs": 252.758,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "AudioBenchmarks.MixBlock480Frames32Voices",
+      "MeanNs": 58706.862,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "AudioBenchmarks.ServerFrame32PositionalVoices",
+      "MeanNs": 2161.089,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "AudioBenchmarks.SpatialProjection32Emitters",
+      "MeanNs": 248.579,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "CameraBenchmarks.Camera2DViewProjection",
       "MeanNs": 8.558,
       "AllocatedBytes": 0
