@@ -1,6 +1,11 @@
 # Proposal: Networking & Replication
 
-**Milestone:** M5 · **Status:** ⬜ planned · **Depends on:** [Node system](node-system.md) (NodeId registry)
+**Milestone:** M5 · **Status:** 🟨 partly shipped · **Depends on:** [Node system](node-system.md) (NodeId registry)
+
+> **Shipped (M5 scaffold lane):** the message layer, the transport abstraction, the peer-lifecycle fixes, pooled
+> span-based buffers and the osx-arm64 ENet native. These are documented in [Networking](../networking.md). Still
+> planned here, because it needs the M2 node system: replication (NodeId registry, spawn/despawn, snapshots,
+> interpolation, RPCs), the Sandbox demo and the README update.
 
 ## Problem
 
@@ -87,14 +92,14 @@ decision and must be discussed first.
 
 ## Task list
 
-- [ ] `ITransport`; `EnetTransport` (fix the peer lifecycle)
-- [ ] `MessageRegistry` + header + dispatch; delete the test `Read` handlers
-- [ ] Public events on `NetworkNode`
+- [x] `ITransport`; `EnetTransport` (fix the peer lifecycle), plus `LoopbackTransport`; `SteamSocketsTransport` is a stub
+- [x] `MessageRegistry` + header + dispatch; delete the test `Read` handlers
+- [x] Public events, on `MessageBus` (`NetworkNode` exposes its `Server`/`Client` buses)
 - [ ] `NodeId → Node` registry (from Scene v2) + spawn/despawn
 - [ ] Snapshot serialization (`[Replicated]` source generator or a manual `INetworkTransferable`)
 - [ ] Client interpolation buffer
 - [ ] RPCs
-- [ ] osx-arm64 ENet native
+- [x] osx-arm64 ENet native (universal dylib from `natives.yml`; package natives excluded)
 - [ ] Sandbox: listen-server demo with two windows
 - [ ] Fix the README networking example
 

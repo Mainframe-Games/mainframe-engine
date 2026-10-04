@@ -1,6 +1,23 @@
 # Proposal: Steamworks Integration
 
-**Milestone:** M5 · **Status:** ⬜ planned
+**Milestone:** M5 · **Status:** 🟨 partly shipped
+
+> **Shipped (M5 scaffold lane):** see [Steamworks](../steamworks.md).
+> - The engine-owned `Steam` service: `TryInitialize`, `RunCallbacks`, `Shutdown`, with no Unity code and no
+>   preprocessor gate.
+> - Dev `steam_appid.txt`.
+> - `Valid` guards on every wrapper.
+> - Every lobby fix in the table below, plus `LobbyChatUpdate_t` member events.
+> - `StoreStats` and `RequestCurrentStats`.
+> - `SteamRemotePlay` and `SteamAvatar` deleted.
+>
+> **Still open:**
+> - The `Engine` hook and `EngineOptions.SteamAppId`.
+> - Native packaging: blocked, because the SDK needs a partner login, and Steamworks.NET 2024.8.0 is x86-64 only, so
+>   osx-arm64 is unsupported.
+> - Avatars.
+> - The transport handoff.
+> - The README.
 
 ## Problem
 
@@ -42,14 +59,16 @@ stateDiagram-v2
 
 ### Lobby fixes
 
-| Bug | Fix |
-|---|---|
-| Invite joins `Current` | join `callback.m_steamIDLobby` via `JoinLobbyAsync` |
-| Create failure hangs | `TrySetException` / `TrySetResult(null)` |
-| `SetResult` throws on a second enter | `TrySetResult`; check `m_EChatRoomEnterResponse` |
-| Global `Callback<T>` for requests | `CallResult<T>` for `CreateLobby` and `RequestLobbyList` |
-| `HostId` parse | `ulong.TryParse` |
-| No timeouts | `CancellationToken` + timeout on all async calls |
+| Bug | Fix | Status |
+|---|---|---|
+| Invite joins `Current` | join `callback.m_steamIDLobby` via `JoinLobbyAsync` | ✅ (leaves `Current` first) |
+| Create failure hangs | `TrySetException` / `TrySetResult(null)` | ✅ result 0 → `null` |
+| `SetResult` throws on a second enter | `TrySetResult`; check `m_EChatRoomEnterResponse` | ✅ |
+| Global `Callback<T>` for requests | `CallResult<T>` for `CreateLobby` and `RequestLobbyList` | ✅ (and `JoinLobby`) |
+| `HostId` parse | `ulong.TryParse` | ✅ |
+| No timeouts | `CancellationToken` + timeout on all async calls | ✅ `SteamLobby.Timeout` (15 s) |
+| `appVersion` optional but required | store it only when given | ✅ |
+| Unguarded `Branch`, `GetFriends`, lobby list, `SteamLobbyInfo` | `Steam.Valid` guards | ✅ |
 
 ### Transport handoff
 
@@ -63,13 +82,13 @@ Expose it to ImGui once the ImGui controller supports `TextureId`.
 
 ## Task list
 
-- [ ] Engine-native `SteamManager` + init/pump/shutdown in `Engine`
-- [ ] Native library packaging + `steam_appid.txt` for development
-- [ ] Guard every wrapper with `Valid`
-- [ ] Lobby fixes (table above) + `LobbyChatUpdate_t` member events
-- [ ] `SteamAchievements.StoreStats` + `RequestCurrentStats`
+- [x] Engine-native service (`Steam.TryInitialize`/`RunCallbacks`/`Shutdown`); [ ] call it from `Engine`
+- [ ] Native library packaging (blocked: SDK needs partner login; osx-arm64 unsupported by Steamworks.NET 2024.8.0) · [x] `steam_appid.txt` for development
+- [x] Guard every wrapper with `Valid`
+- [x] Lobby fixes (table above) + `LobbyChatUpdate_t` member events
+- [x] `SteamAchievements.StoreStats` + `RequestCurrentStats`
 - [ ] Avatars → textures; ImGui `TextureId` support
-- [ ] Delete `SteamRemotePlay` or port it
+- [x] Delete `SteamRemotePlay` or port it (deleted, with the commented-out `SteamAvatar`)
 - [ ] Update the README claims
 
 ## Open questions
