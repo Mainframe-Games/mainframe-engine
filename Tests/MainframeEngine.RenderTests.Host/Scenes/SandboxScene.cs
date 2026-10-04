@@ -14,12 +14,20 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
 {
     private AudioPlayer3D? _orbiting;
 
+    /// <summary>
+    /// Adds the Sandbox's audio (M7) and physics (M6) stacks, so the allocation gate covers
+    /// <c>AudioServer.Process</c> with moving positional voices and physics steps, interpolation and contacts.
+    /// </summary>
     protected override void AddNodes(Node scene)
     {
         base.AddNodes(scene);
+        AddAudio(scene);
+        AddPhysics(scene);
+    }
 
-        // Audio (M7), as in the Sandbox: the streamed ambience on a box-like emitter plus an orbiting, looping
-        // in-memory tone, so the allocation gate covers AudioServer.Process with moving positional voices.
+    private void AddAudio(Node scene)
+    {
+        // As in the Sandbox: the streamed ambience on a box-like emitter plus an orbiting, looping in-memory tone.
         scene.AddChild(new AudioPlayer3D
         {
             Name = "Ambience",
@@ -46,6 +54,29 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
             DopplerTracking = true,
         };
         scene.AddChild(_orbiting);
+    }
+
+    /// <summary>A static floor collider and a tower of crates (the Sandbox's physics stack).</summary>
+    private static void AddPhysics(Node scene)
+    {
+        var floor = new StaticBody3D { Name = "FloorCollider", Position = new Vector3(0, -0.5f, 0) };
+        floor.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(10, 1, 10) } });
+        scene.AddChild(floor);
+        var cube = new BoxShape3D { Size = new Vector3(0.5f) };
+        // Two neat columns, so the stack is at rest (no new contact pairs) by the end of the warm-up.
+        for (var i = 0; i < 12; i++)
+        {
+            var crate = new RigidBody3D
+            {
+                Name = $"Crate{i}",
+                Position = new Vector3(-3 + i % 2 * 0.6f, 0.251f + i / 2 * 0.501f, 1.5f),
+                ContactMonitor = i == 0,
+                CanSleep = i % 3 != 0, // some keep simulating through the measured window
+            };
+            crate.AddChild(new CollisionShape3D { Shape = cube });
+            crate.AddChild(new Box3d { Scale = new Vector3(0.5f) });
+            scene.AddChild(crate);
+        }
     }
 
     protected override void UpdateScene(in GameTime gameTime)

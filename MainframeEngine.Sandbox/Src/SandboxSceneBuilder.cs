@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Numerics;
 
 namespace MainframeEngine.Sandbox;
@@ -54,6 +55,7 @@ public static class SandboxSceneBuilder
             MaxDistance = 60f,
             LowPassAtMaxDistance = 1500f,
         });
+        AddPhysics(root);
 
         // Every shadow type at once (2 directional + 1 point + 2 spot): each shadow sub-pass uses its own
         // light matrix (M1 renderer stabilization).
@@ -101,6 +103,35 @@ public static class SandboxSceneBuilder
         }, new Vector3(-0.2f, -1, 0.4f)));
 
         return root;
+    }
+
+    /// <summary>
+    /// M6 physics: a static collider under the floor quad and a tumble of crates dropped onto it (each a
+    /// <see cref="RigidBody3D"/> with a shared <see cref="BoxShape3D"/> and a <see cref="Box3d"/> visual).
+    /// </summary>
+    private static void AddPhysics(Node root)
+    {
+        var floor = new StaticBody3D { Name = "FloorCollider" };
+        Add(root, floor);
+        Add(root, floor, new CollisionShape3D { Name = "Shape", Position = new Vector3(0, -0.5f, 0), Shape = new BoxShape3D { Size = new Vector3(10, 1, 10) } });
+
+        var crates = new Node3D { Name = "Crates", Position = new Vector3(-3, 0, 1.5f) };
+        Add(root, crates);
+        var cube = new BoxShape3D { Size = new Vector3(0.5f) };
+        Color[] colors = [Color.FromArgb(255, 210, 140, 70), Color.FromArgb(255, 180, 110, 60), Color.FromArgb(255, 150, 95, 55)];
+        for (var i = 0; i < 9; i++)
+        {
+            var crate = new RigidBody3D
+            {
+                Name = $"Crate{i}",
+                Position = new Vector3(i % 3 * 0.55f - 0.55f + i / 3 * 0.1f, 1.5f + i * 0.6f, i / 3 * 0.3f - 0.3f),
+                RotationDegrees = new Vector3(0, i * 23 % 90, i * 11 % 25),
+                Mass = 2,
+            };
+            Add(root, crates, crate);
+            Add(root, crate, new CollisionShape3D { Name = "Shape", Shape = cube });
+            Add(root, crate, new Box3d { Name = "Visual", Scale = new Vector3(0.5f), Color = colors[i % colors.Length] });
+        }
     }
 
     /// <summary>Builds the scene and saves it to <paramref name="path"/>.</summary>

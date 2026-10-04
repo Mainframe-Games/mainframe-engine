@@ -54,6 +54,15 @@ public struct EngineOptions()
     /// <summary>Fixed rate of <see cref="Node.OnPhysicsProcess"/> and the physics servers (M2).</summary>
     public int PhysicsTicksPerSecond = 60;
 
+    /// <summary>3D physics project settings (gravity, solver, threading) for the <see cref="PhysicsServer3D"/>.</summary>
+    public PhysicsSettings3D Physics3D = new();
+
+    /// <summary>2D physics project settings (gravity, <see cref="PhysicsSettings2D.PixelsPerMeter"/>) for the <see cref="PhysicsServer2D"/>.</summary>
+    public PhysicsSettings2D Physics2D = new();
+
+    /// <summary>Draw every collision shape each frame (Godot's "Visible Collision Shapes"); toggle later on the physics servers.</summary>
+    public bool DebugCollisionShapes;
+
     /// <summary>
     /// The game's Steam app id; when non-zero the engine registers a <see cref="SteamServer"/> (Steam stays
     /// optional: it is inert when Steam cannot start). 0 (default) leaves Steam alone.
@@ -221,6 +230,9 @@ public abstract class Engine : IDisposable
 
         // M2: the render server replaces the static Node.Initialize; tree input comes from the window.
         Servers.Register(new RenderServer(Renderer));
+        // M6: physics servers, stepped by the tree's fixed tick; they create a space per world on demand.
+        Servers.Register(new PhysicsServer3D(EngineOptions.Physics3D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
+        Servers.Register(new PhysicsServer2D(EngineOptions.Physics2D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
         if (EngineOptions.SteamAppId != 0)
             Servers.Register(new SteamServer(EngineOptions.SteamAppId));
         if (EngineOptions.Audio.Enabled)

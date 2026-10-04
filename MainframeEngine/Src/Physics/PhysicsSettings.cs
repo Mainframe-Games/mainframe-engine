@@ -47,11 +47,15 @@ public sealed class PhysicsSettings3D
     /// <summary>Lets resting bodies sleep (deactivate) until something wakes them.</summary>
     public bool AllowDeactivation { get; set; } = true;
 
-    /// <summary>
-    /// Steps on Jitter2's worker pool. Faster for large worlds; single-threaded steps are reproducible run to run
-    /// (render tests turn this off). Physics is non-deterministic across machines either way (ADR 0020).
-    /// </summary>
+    /// <summary>Steps on Jitter2's worker pool (faster for large worlds).</summary>
     public bool MultiThreaded { get; set; } = true;
+
+    /// <summary>
+    /// Use Jitter2's island-based deterministic solver instead of the (faster) regular one, so the same build on the same
+    /// machine produces identical results run to run — for golden-image tests and replays. It is not a cross-platform
+    /// lockstep guarantee (ADR 0020). Read when a space is created.
+    /// </summary>
+    public bool Deterministic { get; set; }
 }
 
 /// <summary>

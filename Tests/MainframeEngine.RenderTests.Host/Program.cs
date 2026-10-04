@@ -19,8 +19,10 @@ RenderTestGame game = options.Scene switch
     "spine-no-shadows" => new SpineNoShadowsScene(options),
     "sandbox" => new SandboxScene(options),
     "color-pipeline" => new ColorPipelineScene(options),
+    "physics" => new PhysicsScene(options),
+    "physics-debug" => new PhysicsDebugScene(options),
     _ => throw new ArgumentException(
-        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, spine, spine-no-shadows, sandbox, color-pipeline."),
+        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, spine, spine-no-shadows, sandbox, color-pipeline, physics, physics-debug."),
 };
 
 using (game)

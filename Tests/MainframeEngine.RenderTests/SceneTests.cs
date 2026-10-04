@@ -57,6 +57,37 @@ public class SceneTests
     }
 
     [Fact]
+    public void PhysicsSceneRendersCleanlyAndMatchesGoldens()
+    {
+        // Boxes in flight (frame 30) and settled on the floor and ramp (frame 150).
+        var result = HostRunner.Run("physics", Output("physics"), "--capture", "30,150", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 30);
+        Gates.AssertMatchesGolden(result, 150);
+    }
+
+    [Fact]
+    public void PhysicsDebugDrawRendersCleanlyAndMatchesGolden()
+    {
+        var result = HostRunner.Run("physics-debug", Output("physics-debug"), "--capture", "150", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 150);
+    }
+
+    [Fact]
+    public void PhysicsCapturesAreDeterministicAcrossRuns()
+    {
+        var first = HostRunner.Run("physics", Output("physics-determinism-a"), "--capture", "90", "--hidden");
+        var second = HostRunner.Run("physics", Output("physics-determinism-b"), "--capture", "90", "--hidden");
+
+        var comparison = ImageComparison.Compare(Png.ReadRgba8(first.Captures[0].Path), Png.ReadRgba8(second.Captures[0].Path), channelTolerance: 0);
+        Assert.True(comparison.SizeMatches && comparison.DifferingPixels == 0,
+            $"Two runs of the physics scene differ in {comparison.DifferingPixels} pixels (single-threaded fixed steps should be reproducible).");
+    }
+
+    [Fact]
     public void SwapchainRecreationOnResizeAndVSyncToggleIsClean()
     {
         var result = HostRunner.Run("lit-shapes", Output("recreate"),

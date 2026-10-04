@@ -27,6 +27,13 @@ public class GameTimeTests
         Assert.False(options.EnableFrameCapture);
         Assert.Equal(0, options.MaxFrames);
         Assert.Equal(0f, options.FixedDeltaTime);
+        Assert.Equal(60, options.PhysicsTicksPerSecond);
+        Assert.Equal(new System.Numerics.Vector3(0, -9.81f, 0), options.Physics3D.Gravity);
+        Assert.True(options.Physics3D.MultiThreaded);
+        Assert.Equal(100f, options.Physics2D.PixelsPerMeter);
+        Assert.Equal(new System.Numerics.Vector2(0, -980f), options.Physics2D.Gravity);
+        Assert.Equal(4, options.Physics2D.SubstepCount);
+        Assert.False(options.DebugCollisionShapes);
     }
 
     [Fact]

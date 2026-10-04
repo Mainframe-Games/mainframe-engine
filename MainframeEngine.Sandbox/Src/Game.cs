@@ -122,6 +122,19 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             ImGui.SeparatorText("Scene");
             ImGui.Value("Nodes", Tree.NodeCount);
 
+            ImGui.SeparatorText("Physics");
+            if (Servers.Get<PhysicsServer3D>() is { } physics)
+            {
+                var drawShapes = physics.DebugDrawEnabled;
+                if (ImGui.Checkbox("Collision shapes", ref drawShapes))
+                    physics.DebugDrawEnabled = drawShapes;
+                if (physics.FindSpace(Root.World3D) is { } space)
+                {
+                    ImGui.Value("Bodies", space.ObjectCount);
+                    ImGui.Value("Awake", space.ActiveBodyCount);
+                }
+            }
+
             Network?.DrawImGui();
             if (Servers.Get<AudioServer>() is { } audio)
                 AudioImGui.DrawMixer(audio);

@@ -476,7 +476,7 @@ public sealed class PhysicsSpace2D : IDisposable
         var monitor = record.Node is RigidBody2D { ContactMonitor: true };
         SetMember(_monitors, record, monitor);
         if ((monitor || record.Kind == PhysicsBodyKind.Area) && record.Overlaps is null)
-            record.Overlaps = [];
+            record.Overlaps = new(8);
     }
 
     private static void SetMember(List<BodyRecord2D> list, BodyRecord2D record, bool member)

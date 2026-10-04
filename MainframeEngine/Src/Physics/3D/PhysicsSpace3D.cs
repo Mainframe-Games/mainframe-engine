@@ -201,6 +201,7 @@ public sealed class PhysicsSpace3D : IDisposable
             SolverIterations = (settings.SolverIterations, settings.RelaxationIterations),
             AllowDeactivation = settings.AllowDeactivation,
             BroadPhaseFilter = new LayerFilter(),
+            SolveMode = settings.Deterministic ? SolveMode.Deterministic : SolveMode.Regular,
         };
         _filters = new QueryFilters();
         World3D.PhysicsSpace = this;
@@ -412,7 +413,7 @@ public sealed class PhysicsSpace3D : IDisposable
         var scaled = record.Kind == PhysicsBodyKind.Dynamic && record.Node is RigidBody3D { GravityScale: not 1f and not 0f };
         SetMember(_gravityScaled, record, scaled);
         if ((monitor || record.Kind == PhysicsBodyKind.Area) && record.Overlaps is null)
-            record.Overlaps = [];
+            record.Overlaps = new(8);
     }
 
     private static void SetMember(List<BodyRecord3D> list, BodyRecord3D record, bool member)
