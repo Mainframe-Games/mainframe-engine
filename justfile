@@ -50,6 +50,14 @@ sandbox *args:
 qa frames="30,90,180":
     dotnet run --project MainframeEngine.Sandbox -c Release -- --qa-capture {{artifacts / "qa"}} --qa-frames {{frames}}
 
+# Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
+template-smoke frames="30":
+    build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}
+
+# Pack the dotnet new templates (MainframeEngine.Templates) into artifacts/templates
+template-pack:
+    dotnet pack Templates/MainframeEngine.Templates -c Release -o {{artifacts / "templates"}}
+
 # Run benchmarks and compare with baseline.json (fails on >10% slower or more allocation)
 bench filter="*":
     dotnet run -c Release --project Tests/MainframeEngine.Benchmarks -- --filter '{{filter}}' --artifacts {{artifacts / "bench"}} --baseline-compare Tests/MainframeEngine.Benchmarks/baseline.json

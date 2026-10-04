@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Mainframe Games",
+  "classifications": [ "Game", "Mainframe Engine" ],
+  "identity": "MainframeEngine.Templates.Game",
+  "groupIdentity": "MainframeEngine.Templates.Game",
+  "name": "Mainframe Engine game",
+  "description": "A game project for the Mainframe Engine: a class library for your nodes (MyGame), a launcher that runs it with GameHost (MyGame.Launcher), project.mfproj and Content/.",
+  "shortName": "mfgame",
+  "sourceName": "MyGame",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "solution"
+  },
+  "symbols": {
+    "EngineSource": {
+      "type": "parameter",
+      "datatype": "choice",
+      "description": "How the game references the engine.",
+      "choices": [
+        {
+          "choice": "project",
+          "description": "Project references into an engine checkout (--engine-path). Works today."
+        },
+        {
+          "choice": "package",
+          "description": "The MainframeEngine NuGet package (--engine-version). Future: the package is not published yet."
+        }
+      ],
+      "defaultValue": "project"
+    },
+    "EnginePath": {
+      "type": "parameter",
+      "datatype": "string",
+      "description": "Path of the engine checkout (the folder holding MainframeEngine.sln); absolute, or relative to the new project folder.",
+      "defaultValue": "../mainframe-engine",
+      "replaces": "MAINFRAME_ENGINE_PATH"
+    },
+    "EngineVersion": {
+      "type": "parameter",
+      "datatype": "string",
+      "description": "Engine version recorded in project.mfproj (and the package version with --engine-source package).",
+      "defaultValue": "0.0.0-dev",
+      "replaces": "MAINFRAME_ENGINE_VERSION"
+    },
+    "UsePackage": {
+      "type": "computed",
+      "value": "(EngineSource == \"package\")"
+    }
+  },
+  "primaryOutputs": [
+    { "path": "MyGame/MyGame.csproj" },
+    { "path": "MyGame.Launcher/MyGame.Launcher.csproj" }
+  ]
+}

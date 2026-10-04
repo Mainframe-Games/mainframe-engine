@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    dotnet new templates for games (not published yet; see docs/design/project-and-gamehost.md).
+    Use from source: "dotnet new install Templates/MainframeEngine.Templates/content/mfgame", or pack this project
+    ("just template-pack") and install the .nupkg. Then "dotnet new mfgame -n MyGame" with the engine-path option
+    pointing at this checkout ("just template-smoke" does all of it).
+  -->
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <PackageId>MainframeEngine.Templates</PackageId>
+    <Title>Mainframe Engine templates</Title>
+    <Description>dotnet new templates for Mainframe Engine games: mfgame (game library + GameHost launcher + project.mfproj + Content).</Description>
+    <PackageTags>mainframe;game;engine;templates</PackageTags>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <!-- Keep dot-files (.gitignore, .gitattributes, .template.config). -->
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- NU5128: a template package has no lib/ for its target framework by design. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="content/**/*" Exclude="content/**/bin/**;content/**/obj/**" PackagePath="content" />
+  </ItemGroup>
+
+</Project>

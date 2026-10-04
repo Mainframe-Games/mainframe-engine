@@ -1,0 +1,100 @@
+{
+  "format": 1,
+  "uid": "scn_5ea7a1e00001",
+  "resources": {
+    "1": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.9019608,
+          0.47058824,
+          0.3137255,
+          1
+        ]
+      }
+    },
+    "2": {
+      "type": "BoxMesh"
+    },
+    "3": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [
+          10,
+          10
+        ]
+      }
+    },
+    "4": {
+      "type": "Sky"
+    }
+  },
+  "root": {
+    "type": "Node3D",
+    "name": "Main",
+    "children": [
+      {
+        "type": "Camera3D",
+        "name": "Camera",
+        "props": {
+          "Position": [
+            0,
+            2.5,
+            5
+          ],
+          "RotationDegrees": [
+            -26.565054,
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "type": "WorldEnvironment",
+        "name": "Environment",
+        "props": {
+          "Sky": {
+            "res": "4"
+          }
+        }
+      },
+      {
+        "type": "DirectionalLight3D",
+        "name": "Sun",
+        "props": {
+          "RotationDegrees": [
+            -50,
+            30,
+            0
+          ]
+        }
+      },
+      {
+        "type": "MeshInstance3D",
+        "name": "Floor",
+        "props": {
+          "Mesh": {
+            "res": "3"
+          }
+        }
+      },
+      {
+        "type": "Spinner",
+        "name": "Spinner",
+        "props": {
+          "Position": [
+            0,
+            0.5,
+            0
+          ],
+          "MaterialOverride": {
+            "res": "1"
+          },
+          "Mesh": {
+            "res": "2"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json.schemastore.org/dotnetcli.host",
+  "symbolInfo": {
+    "EngineSource": {
+      "longName": "engine-source",
+      "shortName": ""
+    },
+    "EnginePath": {
+      "longName": "engine-path",
+      "shortName": ""
+    },
+    "EngineVersion": {
+      "longName": "engine-version",
+      "shortName": ""
+    }
+  }
+}

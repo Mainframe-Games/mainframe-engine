@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "name": "MyGame",
+  "engineVersion": "MAINFRAME_ENGINE_VERSION",
+  "mainScene": "Content/Scenes/Main.mscene",
+  "assemblies": [
+    "MyGame"
+  ],
+  "input": {
+    "spin_faster": {
+      "bindings": [
+        "key:Up",
+        "pad:DPadUp",
+        "axis:RightTrigger+"
+      ]
+    },
+    "spin_slower": {
+      "bindings": [
+        "key:Down",
+        "pad:DPadDown",
+        "axis:LeftTrigger+"
+      ]
+    }
+  }
+}

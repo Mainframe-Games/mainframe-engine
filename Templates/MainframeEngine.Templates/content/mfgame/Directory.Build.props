@@ -1,0 +1,20 @@
+<Project>
+  <!-- Settings shared by MyGame and MyGame.Launcher. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+<!--#if (UsePackage) -->
+    <!-- The engine package version (one version for the editor, the engine and its source generator). -->
+    <MainframeEngineVersion>MAINFRAME_ENGINE_VERSION</MainframeEngineVersion>
+<!--#else -->
+    <!-- The engine checkout this game builds against (the folder holding MainframeEngine.sln). -->
+    <MainframeEnginePath>$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'MAINFRAME_ENGINE_PATH'))))</MainframeEnginePath>
+<!--#endif -->
+  </PropertyGroup>
+</Project>

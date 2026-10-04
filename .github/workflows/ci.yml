@@ -198,10 +198,61 @@ jobs:
             TestResults/**/*.trx
           if-no-files-found: warn
 
+  template:
+    # `dotnet new mfgame` from source against this checkout, build it, run its GameHost launcher headless for 30
+    # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.json
+      VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
+      SDL_VIDEODRIVER: x11
+      SDL_AUDIODRIVER: dummy
+      CONFIGURATION: Release
+      BUILD_ARGS: -p:CompileShaders=false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - run: git submodule update --init --depth 1 Plugins/Spine
+
+      - name: Install lavapipe and Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            mesa-vulkan-drivers libvulkan1 xvfb xauth \
+            libx11-6 libx11-xcb1 libxext6 libxfixes3 libxrandr2 libxinerama1 libxcursor1 libxi6 libxss1 libxkbcommon0
+          test -f "$VK_DRIVER_FILES"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Instantiate, build and run the mfgame template
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" build/template-smoke.sh "$RUNNER_TEMP/template-smoke" 30
+
+      - name: Pack the template package
+        run: dotnet pack Templates/MainframeEngine.Templates -c Release -o "$RUNNER_TEMP/templates"
+
+      - name: Upload the smoke game's log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: template-smoke-log
+          path: ${{ runner.temp }}/template-smoke/userdata/**/*.log
+          if-no-files-found: warn
+
   ci-success:
     # The single required status check (repo ruleset). Do not rename.
     if: always()
-    needs: [build-test, format, shaders, render-tests]
+    needs: [build-test, format, shaders, render-tests, template]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
