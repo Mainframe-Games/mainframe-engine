@@ -64,3 +64,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - **Known limitation:** Steamworks.NET 2024.8.0 ships no steam_api natives and x64-only managed assemblies → Steam disabled on arm64 (`UnsupportedPlatform`) and everywhere until SDK natives added (needs partner login — user action).
 - Follow-ups for orchestrator: ADR 0003 (flat native copy for project refs), ADR 0004 (Steam unsupported arm64); milestones.md M5 rows; build-and-platforms matrix; Engine hook for Steam.TryInitialize/RunCallbacks/Shutdown (do in M2 when servers land); README networking claims.
 - First CI run: render-tests failed (ICD is `lvp_icd.json`), natives linux failed (GCC -Wshadow) → fixed in f829d62.
+
+### 2026-10-05 — Lane A M0+M1 (integrated)
+- `M0:` SDL2 switch — needed `Silk.NET.Windowing.Sdl` + `Silk.NET.Input.Sdl` 2.22.0 (SDL backends of existing Silk family; design assumed transitive — not true on net10). ADR 0003. **Flag to user in final report** (dependency rule).
+- `M1:` frame slots, per-pass shadow matrices (fixes #2 multi-light), fallback shadow set (Spine w/o ShadowSystem), depth remap removed, Quit deferred, capture chaining, depth aspects, Spine fixes, ImGui HiDPI. ADR 0004 (reversed-Z deferred, validation defaults).
+- Gates locally after integration: unit 130/130, render 12/12 (MoltenVK), 0 validation, 0 B/frame, ~121 fps Release with 5 shadowed lights.
+- natives: win/linux binaries committed from natives.yml run 37210952838 (5d58ded).
+- Next ADR number: 0005 (M5 follow-ups: flat native copy for project refs; Steam unsupported on arm64).
