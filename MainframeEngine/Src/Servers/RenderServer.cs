@@ -266,6 +266,7 @@ public sealed class RenderServer : IServer
 
             // Immediate mode, as in RenderMain: the frame's lines are consumed, or dropped when the view did not render.
             sub.DebugLines.Clear();
+            sub.OverlayLines.Clear();
         }
 
         vk.Frame.SetView(0, default);
@@ -309,11 +310,7 @@ public sealed class RenderServer : IServer
             if (camera is not null)
             {
                 DrawWorld(world, camera, meshes, targets.Draws, cb);
-                if (sub.DebugLines.LineCount > 0)
-                {
-                    _debugLines ??= new DebugLinesRenderer(vk);
-                    _debugLines.Draw(sub.DebugLines, camera);
-                }
+                DrawLines(vk, sub, camera);
             }
 
             targets.Hdr.End(cb); // explicit barrier: the compositor's tonemap samples the HDR image
@@ -370,18 +367,26 @@ public sealed class RenderServer : IServer
             }
 
             DrawWorld(world, camera, meshes, _mainDraws, vk.CurrentCommandBuffer);
-
-            if (viewport.DebugLines.LineCount > 0)
-            {
-                _debugLines ??= new DebugLinesRenderer(vk);
-                _debugLines.Draw(viewport.DebugLines, camera);
-            }
+            DrawLines(vk, viewport, camera);
         }
         finally
         {
             // Immediate mode: the frame's lines are consumed, or dropped when nothing could be drawn.
             viewport.DebugLines.Clear();
+            viewport.OverlayLines.Clear();
         }
+    }
+
+    // The viewport's debug lines (depth-tested), then its overlay lines (always on top).
+    private void DrawLines(IVulkanContext vk, SceneViewport viewport, ICamera camera)
+    {
+        if (viewport.DebugLines.LineCount == 0 && viewport.OverlayLines.LineCount == 0)
+            return;
+        _debugLines ??= new DebugLinesRenderer(vk);
+        if (viewport.DebugLines.LineCount > 0)
+            _debugLines.Draw(viewport.DebugLines, camera);
+        if (viewport.OverlayLines.LineCount > 0)
+            _debugLines.Draw(viewport.OverlayLines, camera, overlay: true);
     }
 
     private void DrawWorld(World3D world, ICamera camera, MeshRenderer? meshes, MeshViewDraws draws, CommandBuffer cb)
@@ -508,11 +513,21 @@ public sealed class RenderServer : IServer
         return new ClearColorValue(linear.X, linear.Y, linear.Z, c.A / 255f);
     }
 
-    /// <summary>The camera <see cref="RenderMain"/> uses for <paramref name="viewport"/> (3D camera first, then 2D).</summary>
+    /// <summary>
+    /// The camera <see cref="RenderMain"/> uses for <paramref name="viewport"/>: its <see cref="SceneViewport.CameraOverride"/>,
+    /// else the 3D camera, then the 2D one.
+    /// </summary>
     public static ICamera? GetRenderCamera(SceneViewport viewport, Extent2D extent)
     {
         ArgumentNullException.ThrowIfNull(viewport);
         var aspect = extent.Height == 0 ? 1f : (float)extent.Width / extent.Height;
+        if (viewport.CameraOverride is { } overrideCamera)
+        {
+            if (overrideCamera is PerspectiveCamera perspective)
+                perspective.AspectRatio = aspect;
+            return overrideCamera;
+        }
+
         if (viewport.ActiveCamera3D is { } camera3D)
             return camera3D.SyncRenderCamera(aspect);
         if (viewport.ActiveCamera2D is { } camera2D)

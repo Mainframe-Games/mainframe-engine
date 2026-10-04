@@ -469,6 +469,30 @@ public sealed class RmlBindingTests
     }
 
     [Fact]
+    public void ShrinkingAListWithPerRowViewsLogsNoWarnings()
+    {
+        // Rows carry several views (class, attribute, text): RmlUi may refresh the views of rows past the new end before
+        // the data-for removes them. Those reads must resolve quietly.
+        using var host = new RmlTestHost();
+        var items = Enumerable.Range(0, 20).Select(i => new Item($"i{i}", i)).ToList();
+        var model = host.Context.CreateDataModel("shrink").BindList("items", items, ItemType);
+        var doc = host.Show(RmlTestHost.Page("""
+            <div data-model="shrink" id="list">
+              <p data-for="it : items" data-class-big="it.count > 10" data-attr-title="it.name">{{ it.name }}</p>
+            </div>
+            """));
+
+        items.RemoveRange(3, 17);
+        model.Dirty("items");
+        host.Frame();
+
+        Assert.DoesNotContain("i10", doc.GetElementById("list").InnerRml, StringComparison.Ordinal);
+        Assert.Contains("i2", doc.GetElementById("list").InnerRml, StringComparison.Ordinal);
+        host.AssertNoRmlErrors();
+        Assert.DoesNotContain(host.System.Warnings, m => m.Contains("Could not get value", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void UnsupportedBindingTypesAndDuplicateNamesAreRejected()
     {
         using var host = new RmlTestHost();

@@ -431,7 +431,9 @@ public sealed unsafe class RmlDataModel : IDisposable
             child = 0;
             if (node == 0)
             {
-                if (index < 0 || index >= items.Count)
+                // An index past the end is a row of a list that just shrank: RmlUi may refresh that row's views before
+                // its data-for removes it. Resolve it (reads give "none") instead of failing with a warning per view.
+                if (index < 0)
                     return -1;
                 child = ElementToken(index);
                 return type is null ? RmlNative.VariableScalar : RmlNative.VariableStruct;
@@ -449,8 +451,14 @@ public sealed unsafe class RmlDataModel : IDisposable
         public override bool Get(ulong node, RmlVariant value)
         {
             var i = ElementIndex(node);
-            if (i < 0 || i >= items.Count)
+            if (i < 0)
                 return false;
+            if (i >= items.Count)
+            {
+                value.SetNone(); // a row being removed (see Child)
+                return true;
+            }
+
             var m = MemberIndex(node);
             if (m < 0)
             {

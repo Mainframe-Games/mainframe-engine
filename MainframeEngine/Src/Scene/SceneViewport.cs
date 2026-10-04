@@ -40,6 +40,19 @@ public class SceneViewport : Node
     public DebugLines DebugLines { get; } = new();
 
     /// <summary>
+    /// Like <see cref="DebugLines"/> but drawn after them without depth testing, so the lines stay visible through
+    /// geometry (editor gizmos, selection handles). Cleared every frame.
+    /// </summary>
+    public DebugLines OverlayLines { get; } = new();
+
+    /// <summary>
+    /// A camera that renders this viewport instead of <see cref="ActiveCamera3D"/> (tools: the editor's own camera,
+    /// which must not touch the scene's cameras or their <c>Current</c> flags). A <see cref="PerspectiveCamera"/>
+    /// gets the view's aspect ratio each frame. Null (default) uses the scene's cameras.
+    /// </summary>
+    public ICamera? CameraOverride { get; set; }
+
+    /// <summary>
     /// The camera the 3D world is rendered with: the last camera made <see cref="Camera3D.Current"/>, or the
     /// first one to enter the viewport.
     /// </summary>

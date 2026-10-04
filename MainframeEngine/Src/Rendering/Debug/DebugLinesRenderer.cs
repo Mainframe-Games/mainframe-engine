@@ -27,6 +27,7 @@ internal sealed class DebugLinesRenderer : IDisposable
     private readonly ulong[] _usedFrame = new ulong[IVulkanContext.MaxFramesInFlight];
     private PipelineLayout _pipelineLayout;
     private Pipeline _pipeline;
+    private Pipeline _overlayPipeline; // no depth test: SceneViewport.OverlayLines (gizmos)
     private bool _disposed;
 
     public DebugLinesRenderer(IVulkanContext ctx)
@@ -43,8 +44,11 @@ internal sealed class DebugLinesRenderer : IDisposable
         }
     }
 
-    /// <summary>Records the batch into the current command buffer (inside the HDR scene pass).</summary>
-    public unsafe void Draw(DebugLines lines, ICamera camera)
+    /// <summary>
+    /// Records the batch into the current command buffer (inside the HDR scene pass); <paramref name="overlay"/> draws
+    /// it without depth testing (on top of everything drawn before).
+    /// </summary>
+    public unsafe void Draw(DebugLines lines, ICamera camera, bool overlay = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(lines);
@@ -72,7 +76,7 @@ internal sealed class DebugLinesRenderer : IDisposable
         _ctx.Frame.EnsureCamera(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position);
         // Y-flipped viewport like every main-pass drawable (docs/design/coordinate-conventions.md).
         PipelineBuilder.SetViewport(vk, cb, _ctx.Frame.Extent, flipY: true);
-        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, overlay ? _overlayPipeline : _pipeline);
         var vb = buffer.Handle;
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &offset);
         _ctx.Frame.Bind(cb, _pipelineLayout);
@@ -121,6 +125,8 @@ internal sealed class DebugLinesRenderer : IDisposable
         };
         _pipeline = PipelineBuilder.Create(_ctx, state, _pipelineLayout, _ctx.RenderPass, VertexShader, FragmentShader,
             bindings, attributes, "debug lines");
+        _overlayPipeline = PipelineBuilder.Create(_ctx, state with { DepthTest = false }, _pipelineLayout, _ctx.RenderPass,
+            VertexShader, FragmentShader, bindings, attributes, "debug lines (overlay)");
     }
 
     /// <summary>Releases the GPU objects through the deletion queue (safe while frames are in flight).</summary>
@@ -137,6 +143,8 @@ internal sealed class DebugLinesRenderer : IDisposable
 
         if (_pipeline.Handle != 0)
             _ctx.Deletions.Enqueue(GpuDeletion.Of(_pipeline));
+        if (_overlayPipeline.Handle != 0)
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(_overlayPipeline));
         if (_pipelineLayout.Handle != 0)
             _ctx.Deletions.Enqueue(GpuDeletion.Of(_pipelineLayout));
     }

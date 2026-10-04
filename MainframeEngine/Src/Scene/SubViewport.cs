@@ -58,6 +58,13 @@ public class SubViewport : SceneViewport
     /// <summary>Tonemapped, sRGB-encoded colour (<c>R8G8B8A8_UNORM</c>, sampled); null until first rendered.</summary>
     public GpuImage? ColorImage => Targets?.Ldr?.GetColor(0);
 
+    /// <summary>
+    /// The render target holding <see cref="ColorImage"/> (null until first rendered). It is resized in place, so it
+    /// can be published once to the game UI (<see cref="UiServer.RegisterTexture(string, RenderTarget, int, UiTextureConversion)"/>,
+    /// <c>engine://name</c>) and followed across resizes.
+    /// </summary>
+    public RenderTarget? ColorTarget => Targets?.Ldr;
+
     /// <summary>Linear HDR colour (<c>R16G16B16A16_SFLOAT</c>, sampled); null until first rendered.</summary>
     public GpuImage? SceneImage => Targets?.Hdr?.GetColor(0);
 

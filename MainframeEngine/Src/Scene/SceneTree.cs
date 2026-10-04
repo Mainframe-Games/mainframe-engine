@@ -74,6 +74,15 @@ public sealed partial class SceneTree
     /// <summary>Pauses <see cref="ProcessMode.Pausable"/> nodes and the fixed-step servers (physics).</summary>
     public bool Paused { get; set; }
 
+    /// <summary>
+    /// Edit mode (the editor, Godot's editor hint): only nodes whose type is marked <see cref="ToolAttribute"/>
+    /// (<see cref="Node.IsTool"/>) run <see cref="Node.OnProcess"/>, <see cref="Node.OnPhysicsProcess"/>,
+    /// <see cref="Node.OnInput"/> and <see cref="Node.OnUnhandledInput"/>, and the fixed-step servers (physics) do not
+    /// step — worlds exist for rendering, picking and gizmos but nothing simulates. Lifecycle callbacks
+    /// (enter/ready/exit), deferred calls, frees, transform sync and frame servers run as usual.
+    /// </summary>
+    public bool EditMode { get; set; }
+
     /// <summary>Fixed physics rate (default 60 Hz).</summary>
     public int PhysicsTicksPerSecond
     {
@@ -266,7 +275,8 @@ public sealed partial class SceneTree
             var tolerance = step * 1e-6;
             var steps = 0;
             var paused = Paused;
-            if (!paused && _accumulator + tolerance >= step)
+            var stepServers = !paused && !EditMode;
+            if (stepServers && _accumulator + tolerance >= step)
                 foreach (var server in Servers.FixedStepServers)
                     server.BeforeFixedSteps();
 
@@ -280,7 +290,7 @@ public sealed partial class SceneTree
             if (_accumulator + tolerance >= step)
                 _accumulator = 0; // spiral-of-death guard: drop the backlog
             PhysicsInterpolationFraction = (float)Math.Clamp(_accumulator / step, 0, 1);
-            if (!paused)
+            if (stepServers)
                 foreach (var server in Servers.FixedStepServers)
                     server.AfterFixedSteps(PhysicsInterpolationFraction);
 
@@ -317,15 +327,17 @@ public sealed partial class SceneTree
         PhysicsFrame?.Invoke();
 
         var paused = Paused;
+        var editMode = EditMode;
         foreach (var node in _physics.Snapshot(this))
         {
-            if (ReferenceEquals(node.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused))
+            if (ReferenceEquals(node.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
+                (!editMode || node.IsTool))
                 node.InvokePhysicsProcess(delta);
         }
 
         UpdateTimers(delta, physics: true);
 
-        if (!paused)
+        if (!paused && !editMode)
             foreach (var server in Servers.FixedStepServers)
                 server.FixedStep(delta);
 
@@ -337,9 +349,11 @@ public sealed partial class SceneTree
         ProcessFrame?.Invoke();
 
         var paused = Paused;
+        var editMode = EditMode;
         foreach (var node in _process.Snapshot(this))
         {
-            if (ReferenceEquals(node.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused))
+            if (ReferenceEquals(node.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
+                (!editMode || node.IsTool))
                 node.InvokeProcess(gameTime);
         }
 
@@ -369,11 +383,12 @@ public sealed partial class SceneTree
             }
         }
 
+        var editMode = EditMode;
         var nodes = _input.Snapshot(this);
         for (var i = nodes.Length - 1; i >= 0 && !Root.IsInputHandled; i--)
         {
             var node = nodes[i];
-            if (ReferenceEquals(node.Tree, this) && node.WantsInput && node.CanProcess(paused))
+            if (ReferenceEquals(node.Tree, this) && node.WantsInput && node.CanProcess(paused) && (!editMode || node.IsTool))
                 node.InvokeInput(inputEvent);
         }
 
@@ -381,7 +396,7 @@ public sealed partial class SceneTree
         for (var i = nodes.Length - 1; i >= 0 && !Root.IsInputHandled; i--)
         {
             var node = nodes[i];
-            if (ReferenceEquals(node.Tree, this) && node.WantsUnhandledInput && node.CanProcess(paused))
+            if (ReferenceEquals(node.Tree, this) && node.WantsUnhandledInput && node.CanProcess(paused) && (!editMode || node.IsTool))
                 node.InvokeUnhandledInput(inputEvent);
         }
 

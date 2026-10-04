@@ -26,8 +26,31 @@ public static class ContentPaths
     /// <summary>The <c>Content/</c> folder next to the application.</summary>
     public static string Root { get; } = Path.Combine(BaseDirectory, FolderName);
 
+    /// <summary>
+    /// A game project folder (holding its own <c>Content/</c>) that <c>"Content/…"</c> paths resolve against first,
+    /// falling back to <see cref="BaseDirectory"/> when the file or folder does not exist there. Tools set it to the
+    /// open project (the editor edits a project's sources, not a build output); null (default) for games.
+    /// </summary>
+    public static string? ProjectDirectory
+    {
+        get => Volatile.Read(ref _projectDirectory);
+        set => Volatile.Write(ref _projectDirectory, string.IsNullOrWhiteSpace(value) ? null : Path.GetFullPath(value));
+    }
+
+    private static string? _projectDirectory;
+
     /// <summary>Absolute path of a content file; see the type remarks for the accepted forms.</summary>
-    public static string Resolve(string path) => Resolve(path, BaseDirectory);
+    public static string Resolve(string path)
+    {
+        if (ProjectDirectory is { } project && !string.IsNullOrWhiteSpace(path) && !Path.IsPathRooted(path) && IsContentRelativeToBase(path))
+        {
+            var inProject = Path.GetFullPath(Path.Combine(project, path));
+            if (File.Exists(inProject) || Directory.Exists(inProject))
+                return inProject;
+        }
+
+        return Resolve(path, BaseDirectory);
+    }
 
     /// <summary><see cref="Resolve(string)"/> against an explicit base directory (tests, tools).</summary>
     public static string Resolve(string path, string baseDirectory)

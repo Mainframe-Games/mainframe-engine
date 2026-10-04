@@ -62,4 +62,30 @@ public sealed class ContentPathsTests
         Assert.True(File.Exists(ContentPaths.Resolve("Shaders/Sky/Sky.vk.vert.spv")));
         Assert.True(File.Exists(ContentPaths.Resolve("Content/Shaders/Shadows/Shadow2D.vk.vert.spv")));
     }
+
+    [Fact]
+    public void ContentPathsResolveInTheProjectDirectoryFirstWhenTheFileExistsThere()
+    {
+        var project = Directory.CreateTempSubdirectory("mf-project").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(project, "Content", "Sky"));
+            File.WriteAllText(Path.Combine(project, "Content", "Sky", "only-in-project.txt"), "x");
+            ContentPaths.ProjectDirectory = project;
+
+            Assert.Equal(Path.Combine(project, "Content", "Sky", "only-in-project.txt"),
+                ContentPaths.Resolve("Content/Sky/only-in-project.txt"));
+            // Missing in the project: next to the application, as before.
+            Assert.Equal(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "Content", "Sky", "missing.txt")),
+                ContentPaths.Resolve("Content/Sky/missing.txt"));
+            // Engine-relative paths never look in the project.
+            Assert.Equal(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "Content", "Sky", "only-in-project.txt")),
+                ContentPaths.Resolve("Sky/only-in-project.txt"));
+        }
+        finally
+        {
+            ContentPaths.ProjectDirectory = null;
+            Directory.Delete(project, recursive: true);
+        }
+    }
 }

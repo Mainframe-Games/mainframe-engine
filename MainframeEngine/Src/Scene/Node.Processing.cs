@@ -33,12 +33,16 @@ public partial class Node
         PhysicsProcess = 2,
         Input = 4,
         UnhandledInput = 8,
+
+        /// <summary>Not a callback: the type is marked <see cref="ToolAttribute"/> (cached with the overrides).</summary>
+        Tool = 16,
     }
 
     private static readonly ConcurrentDictionary<Type, Callbacks> OverriddenCallbacks = new();
     private static readonly ConditionalWeakTable<Type, StrongBox<Callbacks>> CollectibleCallbacks = new();
 
     private Callbacks _enabledCallbacks;
+    private bool _isTool;
     private ProcessMode _processMode;
     private ProcessMode _resolvedProcessMode = ProcessMode.Pausable;
     private int _processPriority;
@@ -78,6 +82,12 @@ public partial class Node
             _tree?.MarkProcessOrderDirty();
         }
     }
+
+    /// <summary>
+    /// True when the node's type is marked <see cref="ToolAttribute"/>: its callbacks also run while the tree is in
+    /// <see cref="SceneTree.EditMode"/> (the editor).
+    /// </summary>
+    public bool IsTool => _isTool;
 
     /// <summary>The effective mode after resolving <see cref="ProcessMode.Inherit"/>.</summary>
     public ProcessMode ResolvedProcessMode => _resolvedProcessMode;
@@ -171,9 +181,11 @@ public partial class Node
         var type = GetType();
         // Types from collectible (editor-loaded game) assemblies are cached weakly so the cache never keeps their
         // load context alive after an unload.
-        _enabledCallbacks = type.Assembly.IsCollectible
+        var traits = type.Assembly.IsCollectible
             ? CollectibleCallbacks.GetValue(type, static t => new StrongBox<Callbacks>(FindOverrides(t))).Value
             : OverriddenCallbacks.GetOrAdd(type, static t => FindOverrides(t));
+        _isTool = (traits & Callbacks.Tool) != 0;
+        _enabledCallbacks = traits & ~Callbacks.Tool;
     }
 
     private void SetCallback(Callbacks callback, bool enable)
@@ -202,7 +214,7 @@ public partial class Node
         }
     }
 
-    // Overrides are found once per type with reflection (not a hot path; cached).
+    // Overrides (and [Tool]) are found once per type with reflection (not a hot path; cached).
     private static Callbacks FindOverrides(Type type)
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
@@ -215,6 +227,8 @@ public partial class Node
             result |= Callbacks.Input;
         if (IsOverridden(type.GetMethod(nameof(OnUnhandledInput), flags, [typeof(InputEvent)])))
             result |= Callbacks.UnhandledInput;
+        if (type.IsDefined(typeof(ToolAttribute), inherit: false))
+            result |= Callbacks.Tool;
         return result;
 
         static bool IsOverridden(MethodInfo? method) => method is not null && method.DeclaringType != typeof(Node);
