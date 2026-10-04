@@ -1,0 +1,83 @@
+# ImGui & Debug Tools
+
+## Purpose
+
+Developer-facing tools: the ImGui Vulkan backend, console logging, and the ImGui-drawn gizmos
+(world axes, light icons).
+
+## `VulkanImGuiController`
+
+File: [Rendering/Vulkan/VulkanImGuiController.cs](../../MainframeEngine/Src/Rendering/Vulkan/VulkanImGuiController.cs)
+(internal). Created by `Engine.OnLoad` and disposed by `Engine.OnClose`.
+
+| Aspect | Detail |
+|---|---|
+| Frame | `Update(dt)` sets `DisplaySize = window.Size` and calls `ImGui.NewFrame()` during the Update event. `Render()` calls `ImGui.Render()` and records the draw data inside the main render pass. |
+| Font | `R8G8B8A8Unorm`, staging upload, Linear/Repeat sampler, `SetTexID(1)` |
+| Descriptors | Set 0, binding 0 `CombinedImageSampler` (fragment). One pool, one set. |
+| Push constant | 16 B `{ vec2 scale; vec2 translate }` (vertex) |
+| Vertex | stride 20: `pos` RG32F, `uv` RG32F, `col` RGBA8 UNORM. Indices are `uint16`. |
+| Pipeline | No cull, no depth, blend `SrcAlpha/OneMinusSrcAlpha` for color and `One/OneMinusSrcAlpha` for alpha. Dynamic viewport and scissor. Viewport **not** Y-flipped. |
+| Buffers | Per swapchain image, host-mapped, grown to `max(required, 1 MB or 2× current)` |
+| Input | Silk mouse and keyboard forwarded through static handlers: navigation keys, letters, digits, F1–F12, modifiers |
+
+```mermaid
+sequenceDiagram
+    participant E as Engine
+    participant C as VulkanImGuiController
+    participant G as Game
+    E->>C: Update(dt) → NewFrame
+    E->>G: OnImGui (build windows, gizmos)
+    Note over E: … shadow pass, main pass …
+    E->>C: Render() → ImGui.Render, RenderDrawData(cb)
+    C->>C: grow/upload VB+IB[image], set scissor per cmd, CmdDrawIndexed
+```
+
+### Known issues
+
+- `TextureId` is ignored: every draw binds the font set, so `ImGui.Image` with game textures is not
+  supported. User callbacks are skipped too.
+- HiDPI: `DisplaySize` is in window points while the viewport uses swapchain pixels, and
+  `DisplayFramebufferScale` is never set ([VulkanImGuiController.cs:83](../../MainframeEngine/Src/Rendering/Vulkan/VulkanImGuiController.cs)).
+  Scissor rectangles may be wrong on Retina displays *(inferred)*.
+- The blend comment says "pre-multiplied", but the color blend is straight alpha.
+- Punctuation and numpad keys are not mapped.
+- `NewFrame`/`Render` can become unbalanced (see [Engine lifecycle](engine-lifecycle.md#known-issues)).
+
+## `Log`
+
+File: [Debugging/Log.cs](../../MainframeEngine/Src/Debugging/Log.cs). `public static class Log`.
+
+| API | Prefix | Color |
+|---|---|---|
+| `Debug(msg)` | `[Debug]` | grey |
+| `Info(msg)` | `[INFO]` | blue |
+| `Warning(msg)` | `[WARN]` | yellow |
+| `Error(msg)` | `[ERROR]` | red |
+| `Fatal(Exception)` | `[FATAL]` | red |
+
+- Each line is `[HH:mm:ss.fff]<color> message`. With `Level.Verbose`, the caller's `[file:line member]`
+  is appended. All methods capture caller info through `[CallerMemberName]`, `[CallerFilePath]` and
+  `[CallerLineNumber]`.
+- `Log.LogLevel` is a public mutable `[Flags]` field. It defaults to everything except `Verbose`.
+- ANSI codes are disabled when `Console.IsOutputRedirected`.
+- There is no file sink, and no `[Conditional]` stripping of Debug logs in Release.
+- Networking and Steam code bypass `Log` (`Console.WriteLine` and `Trace`).
+
+## Gizmos
+
+| Tool | File | What it draws |
+|---|---|---|
+| `ImGuiGizmos` (C# 14 `extension(ImDrawListPtr)`) | [Utils/ImGuiGizmos.cs](../../MainframeEngine/Src/Utils/ImGuiGizmos.cs) | `DrawArrow(from, to, col, head=10, thickness=2)`, `DrawSunIcon(center, color)` |
+| `ImGuiCoordGizmo.DrawCoordinateGizmo(camera)` | [Rendering/Gizmos/ImGuiCoordGizmo.cs](../../MainframeEngine/Src/Rendering/Gizmos/ImGuiCoordGizmo.cs) | Top-right world-axis widget (X red, Y green, Z blue), depth-sorted, on the foreground draw list |
+| `LightEnvironment.DrawLightGizmos(camera)` | [Lighting/LightEnvironment.cs](../../MainframeEngine/Src/Lighting/LightEnvironment.cs) | `[Conditional("DEBUG")]` light icons on the background draw list |
+| `ColorExtensions.ToImColor` | [Utils/ColorExtensions.cs](../../MainframeEngine/Src/Utils/ColorExtensions.cs) | `System.Drawing.Color` → ImGui `uint` |
+
+### Known issues
+
+- `ImGuiCoordGizmo` defines the Y axis as (0, −1, 0) to compensate for screen Y-down, which makes its
+  depth sort wrong for Y. It also sorts a static array in place and allocates a comparer every frame.
+
+## Related docs
+
+[Engine lifecycle](engine-lifecycle.md) · [Lighting](lighting.md) · [Sandbox](sandbox.md)

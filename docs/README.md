@@ -1,0 +1,42 @@
+# Mainframe Engine — Documentation
+
+Design documentation for Mainframe Engine. The **current-state** docs describe the engine exactly as
+it exists in the code today (including its known bugs). The **future** docs are design proposals for
+work that has not started yet. [`milestones.md`](milestones.md) ties the two together.
+
+> Snapshot: written against commit `fcce89d` (2026-10-05). When code changes, update the matching doc
+> and its *Known issues* section in the same commit.
+
+## Start here
+
+| Doc | What it covers |
+|---|---|
+| [Milestones](milestones.md) | Roadmap: what is done ✅, what is next, links to every design doc |
+| [Architecture overview](design/architecture-overview.md) | Layers, assemblies, dependencies, who owns what |
+| [Engine lifecycle](design/engine-lifecycle.md) | Startup, the per-frame loop, shutdown |
+
+## Current-state design docs
+
+| Area | Doc |
+|---|---|
+| Build | [Build & platforms](design/build-and-platforms.md) |
+| Core | [Engine lifecycle](design/engine-lifecycle.md) · [Scene graph & nodes](design/scene-graph-and-nodes.md) · [Sandbox](design/sandbox.md) |
+| Rendering | [Vulkan renderer](design/vulkan-renderer.md) · [Shadow system](design/shadow-system.md) · [Lighting](design/lighting.md) · [Sky](design/sky.md) · [Spine](design/spine.md) · [Scene grid](design/scene-grid.md) · [Cameras & input](design/cameras-and-input.md) · [Shaders](design/shaders.md) · [Coordinate conventions](design/coordinate-conventions.md) |
+| Tooling | [ImGui & debug tools](design/imgui-and-debug-tools.md) |
+| Online | [Networking](design/networking.md) · [Steamworks](design/steamworks.md) |
+
+## Future design proposals
+
+Located in [`design/future/`](design/future/). Each one has: Problem · Goals / Non-goals ·
+Proposed design · Diagram · Task list · Open questions. See [milestones.md](milestones.md) for order.
+
+## Conventions
+
+- **One topic per file.** Cross-link instead of duplicating.
+- **Diagrams:** Mermaid for graphs embedded in markdown (sequence, class, flow, gantt).
+  SVG in [`images/`](images/) for detailed graphics (memory layouts, descriptor tables, timelines,
+  coordinate spaces). SVGs carry an opaque light background so they read on dark themes too.
+- **Source links** are relative (`../../MainframeEngine/Src/...`) so they work on GitHub and in IDEs.
+- **Known issues** cite `file:line` at the snapshot commit. Issues found by reading code but not
+  reproduced at runtime are marked *(inferred)*.
+- **Status legend** (milestones): ✅ done · 🚧 in progress · ⬜ planned.
