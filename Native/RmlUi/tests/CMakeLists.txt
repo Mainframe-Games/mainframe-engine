@@ -28,6 +28,7 @@ else()
 endif()
 
 add_executable(mfrmlui_exports mfrmlui_exports.c)
+set_target_properties(mfrmlui_exports PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
 target_include_directories(mfrmlui_exports PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_options(mfrmlui_exports PRIVATE ${MF_RMLUI_TEST_WARNINGS})
 target_link_libraries(mfrmlui_exports PRIVATE ${CMAKE_DL_LIBS})
