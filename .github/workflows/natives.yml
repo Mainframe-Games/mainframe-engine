@@ -1,0 +1,170 @@
+# Builds and tests the native libraries (ENet `enet`, RmlUi shim `mfrmlui`) for every runtime identifier, and
+# checks that the binaries committed under MainframeEngine/runtimes/ match Native/natives.lock.
+#
+# Refreshing committed binaries: run this workflow, download the `natives-all` artifact, unzip it at the repository
+# root (it contains MainframeEngine/runtimes/** and the matching Native/natives.lock) and commit. See
+# docs/design/natives.md.
+name: natives
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "Native/**"
+      - "MainframeEngine/runtimes/**"
+      - ".gitmodules"
+      - ".github/workflows/natives.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: natives-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: osx-universal
+            os: macos-14
+            rids: "osx-arm64 osx-x64"
+            libs: "libenet.dylib libmfrmlui.dylib"
+          - name: win-x64
+            os: windows-latest
+            rids: "win-x64"
+            libs: "enet.dll mfrmlui.dll"
+          - name: linux-x64
+            # Oldest supported runner image: the binaries then only require glibc <= 2.35.
+            os: ubuntu-22.04
+            rids: "linux-x64"
+            libs: "libenet.so libmfrmlui.so"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: command -v ninja || brew install ninja
+
+      - name: Configure (macOS, universal arm64 + x86_64)
+        if: runner.os == 'macOS'
+        run: >
+          cmake -S Native -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -S Native -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      # MSVC through the newest installed Visual Studio generator (no third-party dev-shell action needed).
+      # The static CRT (/MT) is set in the CMake files (CMAKE_MSVC_RUNTIME_LIBRARY).
+      - name: Configure (Windows, MSVC x64)
+        if: runner.os == 'Windows'
+        run: cmake -S Native -B build -A x64
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: Stage runtimes/<rid>/native
+        run: |
+          set -euo pipefail
+          for rid in ${{ matrix.rids }}; do
+            dest="staging/MainframeEngine/runtimes/$rid/native"
+            mkdir -p "$dest"
+            for lib in ${{ matrix.libs }}; do
+              found="$(find build -name "$lib" -type f -not -path '*/CMakeFiles/*' | head -n 1)"
+              if [[ -z "$found" ]]; then echo "::error::$lib was not built"; exit 1; fi
+              cp "$found" "$dest/$lib"
+            done
+          done
+          find staging -type f -print0 | xargs -0 ls -l
+
+      - name: Inspect binaries
+        run: |
+          set -euo pipefail
+          {
+            echo "### ${{ matrix.name }}"
+            echo '```'
+            for f in $(find staging -type f | sort); do
+              echo "$f"
+              case "${{ runner.os }}" in
+                macOS)
+                  lipo -info "$f"
+                  echo "exports: $(nm -gU "$f" -arch arm64 | wc -l) (arm64), $(nm -gU "$f" -arch x86_64 | wc -l) (x86_64)"
+                  otool -L "$f" | tail -n +2
+                  ;;
+                Linux)
+                  echo "exports: $(nm -D --defined-only "$f" | wc -l)"
+                  echo "max GLIBC symbol version: $(objdump -T "$f" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1)"
+                  readelf -d "$f" | grep NEEDED || true
+                  ;;
+                Windows)
+                  echo "size: $(stat -c %s "$f")"
+                  ;;
+              esac
+            done
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natives-${{ matrix.name }}
+          path: staging/
+          if-no-files-found: error
+
+  collect:
+    name: collect (natives-all)
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          path: downloaded
+
+      - name: Assemble runtimes and lock
+        run: |
+          set -euo pipefail
+          for dir in downloaded/*/; do
+            cp -R "$dir"MainframeEngine/. MainframeEngine/
+          done
+          # Every binary in this set was built from this commit's sources: stamp them all as current.
+          Native/natives-lock.sh update --restamp
+          mkdir -p out/MainframeEngine out/Native
+          cp -R MainframeEngine/runtimes out/MainframeEngine/
+          cp Native/natives.lock out/Native/natives.lock
+          find out -type f | sort
+          cat Native/natives.lock
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natives-all
+          path: out/
+          if-no-files-found: error
+
+  verify-lock:
+    name: verify committed binaries
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Native/natives.lock
+        run: Native/natives-lock.sh verify

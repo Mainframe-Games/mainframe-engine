@@ -22,6 +22,9 @@ if(NOT EXISTS "${MF_ENET_UPSTREAM_DIR}/enet.c")
 	message(FATAL_ERROR "ENet sources not found at ${MF_ENET_UPSTREAM_DIR}. Run: git submodule update --init Native/ENet/upstream")
 endif()
 
+# Static CRT (/MT) on MSVC so enet.dll has no VC++ redistributable dependency.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 add_library(enet SHARED "${MF_ENET_UPSTREAM_DIR}/enet.c")
 # The implementation lives in enet.h (single-header style), so it is a normal include for the library itself
 # (warnings visible) and a SYSTEM include for consumers such as the tests (third-party header noise hidden).
