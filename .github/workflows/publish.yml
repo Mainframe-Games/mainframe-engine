@@ -111,5 +111,5 @@ jobs:
           gh release create "v${VERSION}" release/* \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
-            --title "Mainframe Editor v${VERSION}" \
+            --title "Mainframe Engine v${VERSION}" \
             --generate-notes

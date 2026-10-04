@@ -14,6 +14,11 @@ inspector + undo**, **E3 viewport**). Projects, game-assembly loading, the file 
 just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene   # or: dotnet run --project MainframeEngine.Editor -- <scene>
 ```
 
+On macOS the app is called **Mainframe Engine** (Dock tooltip, bold app menu, Cmd+Tab) in development runs as well as in
+the release `.app`: the build assembles `bin/<cfg>/net10.0/Mainframe Engine.app` and `dotnet run` starts the editor from
+inside it ([release: macOS app name](release.md#macos-app-name)). Launching the bare `bin/…/MainframeEngine.Editor`
+still works but shows the executable name.
+
 Decisions: [0080 code-driven editor, edit mode, a SubViewport per tab](../../memory/decisions/0080-editor-code-driven-edit-mode.md) ·
 [0081 one document per panel, data binding, generated inspector](../../memory/decisions/0081-editor-ui-documents-and-binding.md) ·
 [0082 undo/redo](../../memory/decisions/0082-editor-undo-redo.md) ·
@@ -23,7 +28,8 @@ Decisions: [0080 code-driven editor, edit mode, a SubViewport per tab](../../mem
 [0086 `[EditorIcon]` and families](../../memory/decisions/0086-editor-icon-attribute-and-families.md) ·
 [0087 tooltip widget](../../memory/decisions/0087-editor-tooltips.md) ·
 [0088 tree create dialog](../../memory/decisions/0088-editor-create-dialog.md) ·
-[0089 icons over text](../../memory/decisions/0089-editor-icons-over-text.md).
+[0089 icons over text](../../memory/decisions/0089-editor-icons-over-text.md) ·
+[0096 macOS app name](../../memory/decisions/0096-macos-app-name.md).
 
 ## Structure
 

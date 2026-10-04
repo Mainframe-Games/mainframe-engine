@@ -51,11 +51,36 @@ flowchart LR
 - **Tests first.** The full CI suite runs again (`workflow_call`) before anything is built.
 - **Artifacts.** Self-contained, ReadyToRun editor builds, packaged by
   [`build/package-editor.sh`](../../build/package-editor.sh):
-  `MainframeEditor-X.Y.Z-osx-arm64.tar.gz` (`Mainframe Editor.app`, unsigned — first launch:
-  right-click → Open), `…-win-x64.zip`, `…-linux-x64.tar.gz`. `just publish-local [rid]` produces the
-  same archive locally.
+  `MainframeEngine-X.Y.Z-osx-arm64.tar.gz` (`Mainframe Engine.app`, unsigned — first launch:
+  right-click → Open), `MainframeEngine-X.Y.Z-win-x64.zip`, `MainframeEngine-X.Y.Z-linux-x64.tar.gz`; the
+  GitHub Release is titled "Mainframe Engine vX.Y.Z". `just publish-local [rid]` produces the same archive
+  locally. The executable inside stays `MainframeEngine.Editor` (the assembly name the workflow and tests use).
 - **Requirements on the user's machine.** Creating and playing game projects runs `dotnet build`, so the
   .NET 10 SDK must be installed even though the editor itself is self-contained.
+
+## macOS app name
+
+The product name macOS shows — Dock tooltip, the bold app menu next to the Apple menu, Cmd+Tab, Finder — is
+**Mainframe Engine**, never the executable name. macOS takes it from the `CFBundleName`/`CFBundleDisplayName` of the
+bundle the executable runs from, once, when the process registers with LaunchServices
+([ADR 0096](../../memory/decisions/0096-macos-app-name.md)). One template,
+[`build/macos/Info.plist.in`](../../build/macos/Info.plist.in) (`@VERSION@`, `@BUNDLE_ID_SUFFIX@`), feeds both bundles:
+
+| | Release | Development (`just editor`, `dotnet run`) |
+|---|---|---|
+| Built by | [`build/package-editor.sh`](../../build/package-editor.sh) | [`build/macos/DevAppBundle.targets`](../../build/macos/DevAppBundle.targets) (after every macOS build of the editor) |
+| Bundle | `Mainframe Engine.app` in the archive | `MainframeEngine.Editor/bin/<cfg>/net10.0/Mainframe Engine.app` |
+| `Contents/MacOS/MainframeEngine.Editor` | the published files | a symlink to `../../../MainframeEngine.Editor` (the apphost) |
+| Identifier / version | `com.mainframegames.editor`, `X.Y.Z` | `com.mainframegames.editor.dev`, `$(Version)` (`0.0.0-dev`) |
+
+In development the build output stays where it is: the .NET apphost resolves its own path with `realpath`, so the app
+base directory (assemblies, `Content/`) is still `bin/<cfg>/net10.0/`, while CoreFoundation picks the main bundle from
+the unresolved exec path. The `.dev` identifier keeps development builds apart from an installed release (LaunchServices,
+preferences, permissions). `dotnet run` starts the bundle path directly (not via `open`), so console output, exit codes
+and Ctrl+C are unchanged. RID-specific builds/publishes skip the dev bundle; `-p:MacDevAppBundle=false` turns it off.
+Starting `bin/…/MainframeEngine.Editor` itself still works and shows the executable name. Changing the name in-process
+does not work: `NSProcessInfo.processName` (even set before `NSApplication` exists) and SDL hints leave the
+LaunchServices name alone; only private LaunchServices calls could change it.
 
 ## Related docs
 [Build & platforms](build-and-platforms.md) · [Testing](testing.md) ·

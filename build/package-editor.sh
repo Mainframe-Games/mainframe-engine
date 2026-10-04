@@ -5,7 +5,7 @@
 set -euo pipefail
 
 rid="$1" version="$2" publish_dir="$3" out_dir="$4"
-name="MainframeEditor-${version}-${rid}"
+name="MainframeEngine-${version}-${rid}"
 mkdir -p "$out_dir"
 out_dir="$(cd "$out_dir" && pwd)"
 staging="$(mktemp -d)"
@@ -13,13 +13,16 @@ trap 'rm -rf "$staging"' EXIT
 
 case "$rid" in
   osx-*)
-    app="$staging/Mainframe Editor.app"
+    # The bundle folder and CFBundleName/CFBundleDisplayName are the app name macOS shows (Dock, menu bar,
+    # Finder); the executable keeps its assembly name. Dev builds get the same bundle (build/macos/DevAppBundle.targets).
+    app_name="Mainframe Engine.app"
+    app="$staging/$app_name"
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
     cp -R "$publish_dir"/. "$app/Contents/MacOS/"
-    sed "s/@VERSION@/${version}/g" "$(dirname "$0")/macos/Info.plist.in" > "$app/Contents/Info.plist"
+    sed -e "s/@VERSION@/${version}/g" -e "s/@BUNDLE_ID_SUFFIX@//g" "$(dirname "$0")/macos/Info.plist.in" > "$app/Contents/Info.plist"
     cp "$(dirname "$0")/../docs/images/brand/logo.icns" "$app/Contents/Resources/logo.icns"
     chmod +x "$app/Contents/MacOS/MainframeEngine.Editor"
-    tar -C "$staging" -czf "$out_dir/${name}.tar.gz" "Mainframe Editor.app"
+    tar -C "$staging" -czf "$out_dir/${name}.tar.gz" "$app_name"
     ;;
   win-*)
     mkdir -p "$staging/$name" && cp -R "$publish_dir"/. "$staging/$name/"

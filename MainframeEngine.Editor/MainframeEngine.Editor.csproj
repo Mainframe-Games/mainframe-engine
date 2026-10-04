@@ -47,4 +47,8 @@
         <InternalsVisibleTo Include="MainframeEngine.Editor.Tests" />
     </ItemGroup>
 
+    <!-- macOS: builds bin/<cfg>/net10.0/Mainframe Engine.app and makes `dotnet run` start the editor from inside it, so
+         the Dock and menu bar say "Mainframe Engine" instead of the executable name (ADR 0096). -->
+    <Import Project="..\build\macos\DevAppBundle.targets" />
+
 </Project>

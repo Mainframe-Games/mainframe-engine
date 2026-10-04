@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>Mainframe Editor</string>
+	<string>Mainframe Engine</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mainframe Editor</string>
+	<string>Mainframe Engine</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.mainframegames.editor</string>
+	<string>com.mainframegames.editor@BUNDLE_ID_SUFFIX@</string>
 	<key>CFBundleExecutable</key>
 	<string>MainframeEngine.Editor</string>
 	<key>CFBundleIconFile</key>

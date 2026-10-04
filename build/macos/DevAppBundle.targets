@@ -1,0 +1,50 @@
+<Project>
+  <!--
+    macOS development app bundle for the editor (docs/design/release.md#macos-app-name, ADR 0096).
+
+    macOS names a running app (Dock tooltip, bold app menu next to the Apple menu, Cmd+Tab, Activity Monitor) from the
+    Info.plist of the bundle its executable lives in, read once when the process registers with LaunchServices. An
+    unbundled executable gets its file name ("MainframeEngine.Editor") and nothing in-process can change that later:
+    -[NSProcessInfo setProcessName:] (even before NSApplication exists) and SDL hints do not touch the LaunchServices
+    name; only private LaunchServices calls do. So development runs launch the editor from inside a bundle, the same
+    way the release archive does:
+
+      bin/<cfg>/<tfm>/Mainframe Engine.app/
+        Contents/Info.plist                       build/macos/Info.plist.in (version $(Version), id ….editor.dev)
+        Contents/Resources/logo.icns
+        Contents/MacOS/MainframeEngine.Editor  →  ../../../MainframeEngine.Editor   (symlink to the apphost)
+
+    The symlink keeps a single build output: the .NET apphost resolves its own path with realpath, so the app base
+    directory (managed assemblies, Content/) stays bin/<cfg>/<tfm>/, while CoreFoundation's main bundle comes from the
+    unresolved exec path, i.e. the .app. `dotnet run` (and `just editor`) start that path; stdout/stderr, the exit
+    code and Ctrl+C behave exactly as before because it is still a direct child process, not `open`.
+
+    Skipped off macOS, for RID-specific builds/publishes (build/package-editor.sh assembles the release bundle) and
+    with -p:MacDevAppBundle=false.
+  -->
+
+  <PropertyGroup>
+    <MacDevAppBundle Condition="'$(MacDevAppBundle)' == '' and $([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' == ''">true</MacDevAppBundle>
+    <MacDevAppBundleName>Mainframe Engine.app</MacDevAppBundleName>
+    <MacInfoPlistTemplate>$(MSBuildThisFileDirectory)Info.plist.in</MacInfoPlistTemplate>
+    <MacAppIcon>$(MSBuildThisFileDirectory)../../docs/images/brand/logo.icns</MacAppIcon>
+  </PropertyGroup>
+
+  <Target Name="CreateMacDevAppBundle" AfterTargets="Build" Condition="'$(MacDevAppBundle)' == 'true' and '$(UseAppHost)' == 'true'">
+    <PropertyGroup>
+      <_MacDevBundleDir>$(TargetDir)$(MacDevAppBundleName)/Contents/</_MacDevBundleDir>
+      <_MacDevInfoPlist>$([System.IO.File]::ReadAllText('$(MacInfoPlistTemplate)').Replace('@VERSION@', '$(Version)').Replace('@BUNDLE_ID_SUFFIX@', '.dev'))</_MacDevInfoPlist>
+    </PropertyGroup>
+    <MakeDir Directories="$(_MacDevBundleDir)MacOS;$(_MacDevBundleDir)Resources" />
+    <WriteLinesToFile File="$(_MacDevBundleDir)Info.plist" Lines="$(_MacDevInfoPlist)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Copy SourceFiles="$(MacAppIcon)" DestinationFolder="$(_MacDevBundleDir)Resources" SkipUnchangedFiles="true" />
+    <Exec Command="ln -sfn &quot;../../../$(AssemblyName)&quot; &quot;$(_MacDevBundleDir)MacOS/$(AssemblyName)&quot;" />
+  </Target>
+
+  <!-- dotnet run reads RunCommand after this target (the SDK's run protocol), so the bundle path wins over the apphost. -->
+  <Target Name="UseMacDevAppBundleForRun" BeforeTargets="ComputeRunArguments" Condition="'$(MacDevAppBundle)' == 'true' and '$(UseAppHost)' == 'true'">
+    <PropertyGroup>
+      <RunCommand>$(TargetDir)$(MacDevAppBundleName)/Contents/MacOS/$(AssemblyName)</RunCommand>
+    </PropertyGroup>
+  </Target>
+</Project>
