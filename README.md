@@ -11,10 +11,30 @@ This engine is mostly for educational purposes. One day I will make a game using
 
 ## Overview
 
-Mainframe Engine provides a layered architecture for building 2D/3D games in C#. The primary rendering backend is Vulkan 1.2, with a WebGPU backend planned. It wraps the Spine animation runtime for skeletal animation and includes full Steamworks integration for multiplayer and platform features.
+Mainframe Engine provides a layered architecture for building 2D/3D games in C#. The primary rendering backend is Vulkan 1.2, with a WebGPU backend planned. It wraps the Spine animation runtime for skeletal animation and has early ENet networking and Steamworks wrappers (scaffolds, being wired up; see the roadmap).
 
 **Target:** .NET 10, cross-platform via Silk.NET  
 **Status:** Active development
+
+---
+
+## Documentation & Roadmap
+
+- **[Design docs](docs/README.md):** how each subsystem works today, one topic per file, with known issues.
+- **[Milestones](docs/milestones.md):** the roadmap. Every planned feature links to a detailed design proposal.
+
+Where the engine is heading:
+
+| Area | Plan | Design doc |
+|---|---|---|
+| Windowing / input | Switch from GLFW to SDL (via Silk.NET) | [SDL windowing](docs/design/future/sdl-windowing.md) |
+| Scene model | Godot-style nodes: `SceneTree`, lifecycle callbacks, signals, groups, `.mscene` scene files | [Node system](docs/design/future/node-system.md), [Scene serialization](docs/design/future/scene-serialization.md) |
+| Physics | [Jitter2](https://github.com/notgiven688/jitterphysics2) for 3D, [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3) for 2D | [Physics](docs/design/future/physics.md) |
+| Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | [Audio](docs/design/future/audio.md) |
+| Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (HTML/CSS-style documents) | [Game UI](docs/design/future/game-ui.md) |
+| Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | [Localization](docs/design/future/localization.md) |
+| Editor | `MainframeEngine.Editor`, a separate project whose UI is built with the same RmlUi stack as games | [Editor](docs/design/future/editor.md) |
+| Rendering backend | Backend-neutral GPU API, then WebGPU | [Backend abstraction](docs/design/future/rendering-backend-abstraction.md) |
 
 ---
 
@@ -109,12 +129,12 @@ var folder = new SpineFolder("Content/Spine/character");
 var spineNode = new SpineNode(Renderer, folder);
 spineNode.SetAnimation("walk");
 spineNode.Position = new Vector3(0, 0, 0);
-spineNode.SpineScale = 0.02f;
+spineNode.Scale = new Vector3(0.1f);
 
 // In OnUpdate:
 spineNode.OnUpdate(gameTime);
 // In OnRenderMainPass:
-spineNode.OnRender(camera);
+spineNode.Draw(camera, lights);
 ```
 
 ### Rendering (`Rendering/`)
@@ -164,13 +184,14 @@ spineNode.OnRender(camera);
 UDP networking built on [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp) with pooled buffer serialization.
 
 **Client / Server:**
-- `EnetServer(port, maxClients)` — hosts a game session, tracks connected peers, broadcasts packets
-- `EnetClient(ip, port)` — connects to a server, sends packets on named channels
-- Both poll ENet events (Connect, Disconnect, Timeout, Receive) and use `NetworkPeerId` for type-safe peer identification
+- `EnetServer` — hosts a game session, tracks connected peers, broadcasts packets
+- `EnetClient` — connects to a server, sends packets on a channel (a `byte` id)
+- Both are created through `NetworkNode` (their constructors are internal). They poll ENet events (Connect, Disconnect, Timeout, Receive) and use `PeerId` for type-safe peer identification.
+- **Status:** scaffold. There is no message protocol or state replication yet; see [Networking](docs/design/networking.md) and milestone M5.
 
 **Serialization (`Buffers/`):**
 - `NetBufferWriter` / `NetBufferReader` — BinaryWriter/Reader wrappers supporting all primitives, `string`, `Vector3`, and generic `INetworkTransferable` arrays
-- `NetBufferPool` — static object pool for readers and writers to minimize allocations
+- `NetBufferPool` — internal object pool for readers and writers; disposing a buffer returns it to the pool
 - `GetDataSpan()` provides zero-copy access to the underlying buffer
 
 **Custom Types (`Transfer/`):**
@@ -180,28 +201,29 @@ UDP networking built on [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp
 - `NetworkUtils` — default port (`6969`), region constants (OCE, USE, USW, EU, Asia), and `GetPrimaryLocalIPv4()` for LAN discovery
 
 ```csharp
-// Server
-using var server = new EnetServer(7777, maxClients: 16);
-using var writer = NetBufferPool.GetWriter();
-writer.Write(42);
+// Server (call net.OnUpdate(gameTime) every frame to poll ENet)
+var net = new NetworkNode();
+net.StartServer(port: 7777, maxClients: 16);
+
+using var writer = new NetBufferWriter(1024);
 writer.Write("hello");
-server.SendToPeers(channel: 0, writer.GetDataSpan(), PacketFlags.Reliable);
+net.Server!.SendToPeers(channel: 0, writer.GetDataSpan(), PacketFlags.Reliable);
 
 // Client
-using var client = new EnetClient("127.0.0.1", 7777);
-client.Send(channel: 0, writer.GetDataSpan(), PacketFlags.Reliable);
+var clientNet = new NetworkNode();
+clientNet.StartClient("127.0.0.1", 7777);
+clientNet.Client!.Send(channel: 0, writer.GetDataSpan(), PacketFlags.Reliable);
 ```
 
 ### Steam Integration (`Steamworks/`)
 
-Full Steamworks.NET wrapper:
+Steamworks.NET wrappers. **Status:** scaffold. Steam is not initialized yet (`Steam.Valid` is always false), so none of these are active; see [Steamworks](docs/design/steamworks.md) and milestone M5.
 - `Steam` / `SteamManager` — initialization, lifecycle, user info, branch detection
 - `SteamLobby` / `SteamLobbyInfo` — multiplayer lobby creation and management
 - `SteamRichPresence` — player status/activity display
-- `SteamFriend` / `SteamAvatar` — friend list and profile pictures
+- `SteamFriend` / `SteamAvatar` — friend list (avatars not ported yet)
 - `SteamAchievements` — achievement unlocking
 - `SteamOverlay` — Steam overlay control
-- `SteamRemotePlay` — Remote Play Together support
 
 ### Logging (`Debugging/`)
 
@@ -228,20 +250,16 @@ Full Steamworks.NET wrapper:
 | Networking | ENet-CSharp | 2.4.8 |
 | Vulkan on macOS | Silk.NET.MoltenVK.Native | 2.22.0 |
 
-**Proposed (not yet integrated):**
-- Audio: 
-    - [FmodAudio](https://github.com/sunkin351/FmodAudio)
-    - [SoundFlow](https://github.com/LSXPrime/SoundFlow)
-- Physics: 
-    - [JoltPhysicsSharp](https://github.com/amerkoleci/JoltPhysicsSharp)
-    - [Jitter2](https://github.com/notgiven688/jitterphysics2)
-    - [box2d-netstandard](https://github.com/codingben/box2d-netstandard)
-- Game UI Framework:
-    - [RmlUi](https://github.com/mikke89/RmlUi)
-    - [Myra](https://github.com/rds1983/myra)
-    - [Skia](https://github.com/mono/skiasharp)
-- Localization:
-    - [GetText](https://github.com/perpetualKid/GetText.NET)
+**Planned integrations** (chosen; not integrated yet; see [Milestones](docs/milestones.md)):
+
+| System | Library | Milestone | Design doc |
+|--------|---------|-----------|------------|
+| Windowing / input | SDL2 via Silk.NET (already a transitive dependency) | M0 | [SDL windowing](docs/design/future/sdl-windowing.md) |
+| Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) | M6 | [Physics](docs/design/future/physics.md) |
+| Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3 port; replaces box2d-netstandard, which is unmaintained) | M6 | [Physics](docs/design/future/physics.md) |
+| Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | M7 | [Audio](docs/design/future/audio.md) |
+| Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (engine-owned C# binding) | M8 | [Game UI](docs/design/future/game-ui.md) |
+| Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | M9 | [Localization](docs/design/future/localization.md) |
 
 ---
 
@@ -261,7 +279,7 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V via `glslc`. The `.spv
 
 **Engine shaders** (`MainframeEngine/Content/Shaders/`):
 - **Shapes/** — vertex/fragment for quad and box rendering (`.vk.vert`/`.vk.frag`)
-- **Spine/** — skeletal animation with multi-texture blending
+- **Spine/** — lit, shadow-receiving skeletal animation (`SpineLit.vk.*`)
 - **Sky/** — procedural gradient, panoramic equirectangular, and cubemap variants
 - **Shadows/** — depth pass shaders for 2D and omnidirectional point light shadow maps
 - **SceneGrid/** — debug grid overlay
@@ -272,7 +290,7 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V via `glslc`. The `.spv
 ## Sandbox
 
 `MainframeEngine.Sandbox` is the primary test project. `Game.cs` subclasses `Engine` and demonstrates:
-- 3D scene with `Camera3D` and mouse-look (right-click to capture, Alt to release)
+- 3D scene with a `Camera3D` fly camera (hold right mouse to look, WASD/QE to move, Shift for speed; Alt toggles the cursor)
 - `SkyPanoramic` backdrop
 - Directional light with debug gizmos
 - Shadow casting/receiving on shapes

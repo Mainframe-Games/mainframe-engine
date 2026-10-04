@@ -36,6 +36,7 @@ Windows/Linux are unaffected.
 - `MainframeEngine.Sandbox/` — test game; the only executable project
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Examples/` — standalone tutorial projects, not part of the engine
+- `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
 
 ## Key Patterns
 

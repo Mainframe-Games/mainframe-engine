@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Lights UBO memory layout (std140, 1200 bytes)</title>
+  <desc>Byte map of the lights uniform buffer: header 48 bytes, 4 directional lights of 32 bytes, 16 point lights of 32 bytes, 8 spot lights of 64 bytes, with per-light field packing.</desc>
+  <rect width="960" height="430" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .t{fill:#1f2937}
+    .s{fill:#4b5563;font-size:11.5px}
+    .o{fill:#6b7280;font-size:11px}
+  </style>
+
+  <text x="20" y="28" class="hdr">LightsUBO — set 1, binding 0 — 1200 bytes (scale: 0.75 px / byte)</text>
+
+  <!-- bar: x0=20, width 900 => 0.75 px per byte -->
+  <rect x="20" y="44" width="36" height="44" fill="#e5e7eb" stroke="#374151"/>
+  <rect x="56" y="44" width="96" height="44" fill="#fde68a" stroke="#374151"/>
+  <rect x="152" y="44" width="384" height="44" fill="#bfdbfe" stroke="#374151"/>
+  <rect x="536" y="44" width="384" height="44" fill="#bbf7d0" stroke="#374151"/>
+  <text x="24" y="70" class="s">hdr</text>
+  <text x="66" y="70" class="t">dir[4]</text>
+  <text x="300" y="70" class="t">point[16]</text>
+  <text x="690" y="70" class="t">spot[8]</text>
+  <text x="20" y="104" class="o">0</text>
+  <text x="48" y="104" class="o">48</text>
+  <text x="140" y="104" class="o">176</text>
+  <text x="524" y="104" class="o">688</text>
+  <text x="896" y="104" class="o">1200</text>
+
+  <!-- header detail -->
+  <text x="20" y="140" class="hdr">Header (48 B)</text>
+  <g>
+    <rect x="20" y="150" width="200" height="30" fill="#f3f4f6" stroke="#6b7280"/><text x="28" y="170" class="s">+0  vec4 ambientColor (rgb)</text>
+    <rect x="220" y="150" width="200" height="30" fill="#f3f4f6" stroke="#6b7280"/><text x="228" y="170" class="s">+16 vec4 cameraPosition (xyz)</text>
+    <rect x="420" y="150" width="240" height="30" fill="#f3f4f6" stroke="#6b7280"/><text x="428" y="170" class="s">+32 ivec4 counts (dir, point, spot, –)</text>
+  </g>
+
+  <!-- dir -->
+  <text x="20" y="214" class="hdr">DirLight (32 B) × 4</text>
+  <rect x="20" y="224" width="220" height="30" fill="#fef3c7" stroke="#b45309"/><text x="28" y="244" class="s">+0  direction.xyz | intensity</text>
+  <rect x="240" y="224" width="220" height="30" fill="#fef3c7" stroke="#b45309"/><text x="248" y="244" class="s">+16 color.xyz | pad</text>
+
+  <!-- point -->
+  <text x="500" y="214" class="hdr">PointLight (32 B) × 16</text>
+  <rect x="500" y="224" width="220" height="30" fill="#dbeafe" stroke="#1d4ed8"/><text x="508" y="244" class="s">+0  position.xyz | range</text>
+  <rect x="720" y="224" width="220" height="30" fill="#dbeafe" stroke="#1d4ed8"/><text x="728" y="244" class="s">+16 color.xyz | intensity</text>
+
+  <!-- spot -->
+  <text x="20" y="290" class="hdr">SpotLight (64 B) × 8</text>
+  <rect x="20" y="300" width="230" height="30" fill="#dcfce7" stroke="#15803d"/><text x="28" y="320" class="s">+0  position.xyz | range</text>
+  <rect x="250" y="300" width="230" height="30" fill="#dcfce7" stroke="#15803d"/><text x="258" y="320" class="s">+16 direction.xyz | intensity</text>
+  <rect x="480" y="300" width="230" height="30" fill="#dcfce7" stroke="#15803d"/><text x="488" y="320" class="s">+32 color.xyz | cos(inner)</text>
+  <rect x="710" y="300" width="230" height="30" fill="#dcfce7" stroke="#15803d"/><text x="718" y="320" class="s">+48 cos(outer) | pad × 3</text>
+
+  <text x="20" y="370" class="s">Written every frame by each consumer: ShapeBase.WriteLightsUbo and SpineRenderer.WriteLightsUbo (zero-filled first).</text>
+  <text x="20" y="390" class="s">Counts are clamped to MaxDirectional = 4, MaxPoint = 16, MaxSpot = 8. Shader defines MAX_*_LIGHTS must match.</text>
+  <text x="20" y="410" class="s">Size = 48 + 4·32 + 16·32 + 8·64 = 1200.</text>
+</svg>

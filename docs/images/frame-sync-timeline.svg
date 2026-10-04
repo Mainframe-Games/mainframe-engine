@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Frame synchronization timeline</title>
+  <desc>Two frames in flight. The CPU records frame N+1 while the GPU executes frame N. Fences, semaphores and their indexing (by frame slot or by swapchain image) are shown.</desc>
+  <rect width="960" height="470" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .t{fill:#1f2937}
+    .s{fill:#4b5563;font-size:11.5px}
+    .lane{font-weight:600;fill:#374151}
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker>
+  </defs>
+
+  <text x="20" y="28" class="hdr">MaxFramesInFlight = 2 · resources keyed by frame slot (f) or swapchain image (i)</text>
+
+  <!-- lanes -->
+  <text x="20" y="80" class="lane">CPU</text>
+  <text x="20" y="160" class="lane">GPU queue</text>
+  <text x="20" y="240" class="lane">Present</text>
+  <line x1="110" y1="110" x2="940" y2="110" stroke="#e5e7eb"/>
+  <line x1="110" y1="190" x2="940" y2="190" stroke="#e5e7eb"/>
+  <line x1="110" y1="270" x2="940" y2="270" stroke="#e5e7eb"/>
+
+  <!-- CPU frame N (slot 0) -->
+  <rect x="110" y="55" width="300" height="40" rx="6" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="120" y="72" class="t">Frame N · slot f=0 · image i=a</text>
+  <text x="120" y="88" class="s">wait inFlight[0] → acquire → record cmd[a] → submit</text>
+  <!-- CPU frame N+1 (slot 1) -->
+  <rect x="420" y="55" width="300" height="40" rx="6" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="430" y="72" class="t">Frame N+1 · slot f=1 · image i=b</text>
+  <text x="430" y="88" class="s">wait inFlight[1] → acquire → record cmd[b] → submit</text>
+  <!-- CPU frame N+2 waits -->
+  <rect x="730" y="55" width="210" height="40" rx="6" fill="#fef3c7" stroke="#d97706"/>
+  <text x="740" y="72" class="t">Frame N+2 · f=0</text>
+  <text x="740" y="88" class="s">blocks on inFlight[0]</text>
+
+  <!-- GPU -->
+  <rect x="400" y="135" width="330" height="40" rx="6" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="410" y="152" class="t">execute cmd[a]</text>
+  <text x="410" y="168" class="s">waits imageAvailable[0] · signals renderFinished[a]</text>
+  <rect x="740" y="135" width="200" height="40" rx="6" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="750" y="152" class="t">execute cmd[b]</text>
+  <text x="750" y="168" class="s">signal renderFinished[b]</text>
+
+  <!-- present -->
+  <rect x="735" y="215" width="205" height="40" rx="6" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="745" y="232" class="t">present image a</text>
+  <text x="745" y="248" class="s">waits renderFinished[a]</text>
+
+  <!-- fence arrow -->
+  <path d="M730,155 C760,120 760,110 745,96" fill="none" stroke="#b91c1c" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="560" y="126" class="s" fill="#b91c1c">inFlight[0] signalled → N+2 may start</text>
+
+  <!-- table -->
+  <text x="20" y="310" class="hdr">Sync objects</text>
+  <rect x="20" y="320" width="920" height="130" rx="8" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="36" y="344" class="t" font-weight="600">Object</text>
+  <text x="300" y="344" class="t" font-weight="600">Count / index</text>
+  <text x="520" y="344" class="t" font-weight="600">Purpose</text>
+  <line x1="30" y1="352" x2="930" y2="352" stroke="#d1d5db"/>
+  <text x="36" y="372" class="s">imageAvailable semaphore</text><text x="300" y="372" class="s">2 · by frame slot f</text><text x="520" y="372" class="s">acquire → submit</text>
+  <text x="36" y="392" class="s">inFlight fence (created signalled)</text><text x="300" y="392" class="s">2 · by frame slot f</text><text x="520" y="392" class="s">CPU throttle; reset just before submit</text>
+  <text x="36" y="412" class="s">renderFinished semaphore</text><text x="300" y="412" class="s">imageCount · by image i</text><text x="520" y="412" class="s">submit → present (not resized on recreate ⚠)</text>
+  <text x="36" y="432" class="s">imagesInFlight fence handle, cmd buffer, UBOs</text><text x="300" y="432" class="s">imageCount · by image i</text><text x="520" y="432" class="s">guards per-image resources; UBOs written via CurrentImageIndex</text>
+</svg>

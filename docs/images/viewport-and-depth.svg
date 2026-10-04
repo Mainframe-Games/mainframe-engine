@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Viewport and depth conventions</title>
+  <desc>Left: the main pass uses a Y-flipped viewport while shadow and ImGui passes do not. Right: the projection already outputs depth 0..1, and the extra GL-style remap in the main-pass vertex shaders compresses it to 0.5..1.</desc>
+  <rect width="960" height="440" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .t{fill:#1f2937}
+    .s{fill:#4b5563;font-size:11.5px}
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker>
+  </defs>
+
+  <!-- Viewport panels -->
+  <text x="20" y="30" class="hdr">Viewport Y direction</text>
+
+  <rect x="20" y="44" width="200" height="160" rx="6" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="30" y="64" class="t" font-weight="600">Main pass (flipped)</text>
+  <line x1="60" y1="180" x2="60" y2="90" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="60" y1="180" x2="150" y2="180" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="66" y="98" class="s">+Y up</text>
+  <text x="130" y="196" class="s">+X</text>
+  <text x="90" y="140" class="s">y=H, h=−H</text>
+
+  <rect x="240" y="44" width="200" height="160" rx="6" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="250" y="64" class="t" font-weight="600">Shadow passes</text>
+  <line x1="280" y1="90" x2="280" y2="180" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="280" y1="90" x2="370" y2="90" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="286" y="176" class="s">+Y down</text>
+  <text x="350" y="84" class="s">+X</text>
+  <text x="300" y="140" class="s">uv = ndc·0.5+0.5</text>
+
+  <rect x="20" y="220" width="420" height="70" rx="6" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="30" y="242" class="s">ImGui: unflipped (Y-down matches Vulkan).</text>
+  <text x="30" y="260" class="s">A flipped viewport reverses winding: CCW-front in main pass vs</text>
+  <text x="30" y="278" class="s">CCW-front + Cull Front in shadow pass → effectively back-face cull (inferred).</text>
+
+  <!-- Depth -->
+  <text x="480" y="30" class="hdr">Depth range (perspective, near 0.1, far 1000)</text>
+
+  <text x="480" y="66" class="t">System.Numerics projection</text>
+  <rect x="480" y="76" width="440" height="26" fill="#dcfce7" stroke="#15803d"/>
+  <text x="484" y="118" class="s">0</text><text x="908" y="118" class="s">1</text>
+  <text x="640" y="94" class="s">already Vulkan [0, 1]</text>
+
+  <line x1="700" y1="130" x2="700" y2="160" stroke="#b91c1c" stroke-width="1.5" marker-end="url(#r)"/>
+  <text x="710" y="150" class="s" fill="#b91c1c">remap z = z·0.5 + w·0.5 in main-pass .vk.vert</text>
+
+  <text x="480" y="186" class="t">Main pass after remap</text>
+  <rect x="480" y="196" width="220" height="26" fill="#f3f4f6" stroke="#9ca3af" stroke-dasharray="4 3"/>
+  <rect x="700" y="196" width="220" height="26" fill="#fee2e2" stroke="#b91c1c"/>
+  <text x="520" y="214" class="s">unused [0, 0.5)</text>
+  <text x="740" y="214" class="s">all geometry in [0.5, 1]</text>
+  <text x="484" y="238" class="s">0</text><text x="690" y="238" class="s">0.5</text><text x="908" y="238" class="s">1</text>
+
+  <text x="480" y="270" class="t">Shadow passes (no remap)</text>
+  <rect x="480" y="280" width="440" height="26" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="640" y="298" class="s">[0, 1] — compared at depth − 0.001</text>
+
+  <rect x="480" y="330" width="440" height="90" rx="6" fill="#fff7ed" stroke="#ea580c"/>
+  <text x="494" y="352" class="t" font-weight="600">Consequences of the double remap</text>
+  <text x="494" y="372" class="s">• half the depth precision is wasted</text>
+  <text x="494" y="390" class="s">• effective near plane ≈ near / 2</text>
+  <text x="494" y="408" class="s">• orthographic: geometry behind the camera is not clipped</text>
+
+  <rect x="20" y="310" width="420" height="110" rx="6" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="30" y="332" class="t" font-weight="600">Matrix convention</text>
+  <text x="30" y="352" class="s">C#: clip = v × Model × View × Proj (row vectors)</text>
+  <text x="30" y="370" class="s">Uploaded raw → GLSL reads column-major (transposed)</text>
+  <text x="30" y="388" class="s">GLSL: proj * view * model * v</text>
+  <text x="30" y="406" class="s">Right-handed, +Y up, camera looks down −Z</text>
+</svg>

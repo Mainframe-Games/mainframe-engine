@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Mainframe Engine architecture layers</title>
+  <desc>Layered view: the game on top, the Engine core, engine subsystems, the Vulkan renderer, and third-party libraries at the bottom.</desc>
+  <rect width="960" height="600" fill="#ffffff"/>
+  <style>
+    .lbl{fill:#1f2937}
+    .sub{fill:#4b5563;font-size:11.5px}
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .side{font-size:12px;fill:#6b7280;font-weight:600}
+  </style>
+
+  <!-- Layer labels -->
+  <text x="20" y="62" class="side">GAME</text>
+  <text x="20" y="152" class="side">CORE</text>
+  <text x="20" y="262" class="side">SYSTEMS</text>
+  <text x="20" y="412" class="side">BACKEND</text>
+  <text x="20" y="522" class="side">EXTERNAL</text>
+
+  <!-- Game -->
+  <rect x="110" y="30" width="830" height="60" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text x="130" y="55" class="hdr">Game : Engine  (MainframeEngine.Sandbox)</text>
+  <text x="130" y="75" class="sub">overrides OnLoad · OnImGui · OnUpdate · OnShadowPass · OnRenderMainPass · OnClose — owns List&lt;Node&gt;, ShadowSystem, Sky, Grid, Lights, Camera</text>
+
+  <!-- Core -->
+  <rect x="110" y="115" width="830" height="70" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="130" y="140" class="hdr">Engine (Core/)</text>
+  <text x="130" y="160" class="sub">IWindow (Silk.NET) · IInputContext · IRenderer · VulkanImGuiController · GameTime / FPSCounter · EngineOptions · ExitCode</text>
+  <text x="130" y="176" class="sub">Update → NewFrame, OnImGui, OnUpdate  |  Render → BeginFrame, OnShadowPass, BeginRenderPass, OnRenderMainPass, ImGui, EndFrame</text>
+
+  <!-- Systems row 1 -->
+  <g>
+    <rect x="110" y="210" width="196" height="100" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="122" y="232" class="hdr">Nodes</text>
+    <text x="122" y="252" class="sub">Node · Node3D · NodeId</text>
+    <text x="122" y="268" class="sub">ShapeBase · Box3d · Quad</text>
+    <text x="122" y="284" class="sub">SpineNode · NetworkNode</text>
+    <text x="122" y="300" class="sub">static Node.Initialize()</text>
+
+    <rect x="318" y="210" width="196" height="100" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="330" y="232" class="hdr">Lighting &amp; Shadows</text>
+    <text x="330" y="252" class="sub">LightEnvironment (4/16/8)</text>
+    <text x="330" y="268" class="sub">Directional · Point · Spot</text>
+    <text x="330" y="284" class="sub">ShadowSystem (4/7/4 maps)</text>
+    <text x="330" y="300" class="sub">set 2 descriptor layout</text>
+
+    <rect x="526" y="210" width="196" height="100" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="538" y="232" class="hdr">Scene rendering</text>
+    <text x="538" y="252" class="sub">SkyEnvironment (3 types)</text>
+    <text x="538" y="268" class="sub">SceneGrid2d / 3d</text>
+    <text x="538" y="284" class="sub">SpineRenderer</text>
+    <text x="538" y="300" class="sub">Camera2D · Camera3D</text>
+
+    <rect x="734" y="210" width="206" height="100" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="746" y="232" class="hdr">Debug</text>
+    <text x="746" y="252" class="sub">Log (ANSI console)</text>
+    <text x="746" y="268" class="sub">ImGuiCoordGizmo</text>
+    <text x="746" y="284" class="sub">ImGuiGizmos (C# 14 ext.)</text>
+    <text x="746" y="300" class="sub">Light gizmos [DEBUG]</text>
+  </g>
+
+  <!-- Systems row 2: online -->
+  <rect x="110" y="320" width="404" height="50" rx="8" fill="#f3e8ff" stroke="#9333ea" stroke-dasharray="5 3"/>
+  <text x="122" y="341" class="hdr">Networking (scaffold)</text>
+  <text x="122" y="360" class="sub">EnetServer · EnetClient · NetBuffer pool · PeerId — no replication</text>
+  <rect x="526" y="320" width="414" height="50" rx="8" fill="#f3e8ff" stroke="#9333ea" stroke-dasharray="5 3"/>
+  <text x="538" y="341" class="hdr">Steamworks (inert)</text>
+  <text x="538" y="360" class="sub">Steam, Lobby, Presence, Overlay — Steam.Valid == false</text>
+
+  <!-- Backend -->
+  <rect x="110" y="390" width="830" height="70" rx="8" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="130" y="414" class="hdr">Vulkan backend (Rendering/Vulkan/)</text>
+  <text x="130" y="434" class="sub">VulkanRenderer : IRenderer, IVulkanContext — instance · device · swapchain · main render pass · 2 frames in flight · per-image command buffers</text>
+  <text x="130" y="450" class="sub">VulkanLoaderBootstrap (macOS: one Vulkan library for GLFW and Silk.NET) · VulkanImGuiController · Content/Shaders/*.spv</text>
+
+  <!-- External -->
+  <g>
+    <rect x="110" y="490" width="155" height="60" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+    <text x="122" y="514" class="hdr">Silk.NET</text>
+    <text x="122" y="534" class="sub">Windowing · Input · Vk</text>
+    <rect x="279" y="490" width="155" height="60" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+    <text x="291" y="514" class="hdr">MoltenVK</text>
+    <text x="291" y="534" class="sub">macOS Vulkan → Metal</text>
+    <rect x="448" y="490" width="155" height="60" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+    <text x="460" y="514" class="hdr">ImGui.NET</text>
+    <text x="460" y="534" class="sub">StbImageSharp</text>
+    <rect x="617" y="490" width="155" height="60" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+    <text x="629" y="514" class="hdr">spine-csharp</text>
+    <text x="629" y="534" class="sub">git submodule</text>
+    <rect x="786" y="490" width="154" height="60" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+    <text x="798" y="514" class="hdr">ENet · Steamworks</text>
+    <text x="798" y="534" class="sub">.NET wrappers</text>
+  </g>
+
+  <text x="110" y="584" class="sub">Solid border = active · dashed border = scaffold / not wired into the game loop. Arrows omitted: each layer depends only on layers below it.</text>
+</svg>

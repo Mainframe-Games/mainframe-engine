@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Physics fixed timestep and interpolation</title>
+  <desc>Render frames of varying length drive an accumulator; physics steps at a fixed 1/60 s; rendered transforms are interpolated between the previous and current physics states using alpha = accumulator / fixedDt.</desc>
+  <rect width="960" height="420" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .t{fill:#1f2937}
+    .s{fill:#4b5563;font-size:11.5px}
+    .lane{font-weight:600;fill:#374151}
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker>
+  </defs>
+
+  <text x="20" y="28" class="hdr">fixedDt = 1/60 s (16.7 ms) · render frames vary · max 5 steps per frame · accumulator clamped to 0.25 s</text>
+
+  <!-- time axis -->
+  <line x1="140" y1="200" x2="930" y2="200" stroke="#9ca3af"/>
+  <text x="900" y="218" class="s">time →</text>
+
+  <!-- physics steps lane: every 16.7ms -> 60px per step -->
+  <text x="20" y="90" class="lane">Physics steps</text>
+  <g fill="#dbeafe" stroke="#2563eb">
+    <rect x="140" y="70" width="60" height="30"/><rect x="200" y="70" width="60" height="30"/>
+    <rect x="260" y="70" width="60" height="30"/><rect x="320" y="70" width="60" height="30"/>
+    <rect x="380" y="70" width="60" height="30"/><rect x="440" y="70" width="60" height="30"/>
+    <rect x="500" y="70" width="60" height="30"/><rect x="560" y="70" width="60" height="30"/>
+    <rect x="620" y="70" width="60" height="30"/><rect x="680" y="70" width="60" height="30"/>
+    <rect x="740" y="70" width="60" height="30"/><rect x="800" y="70" width="60" height="30"/>
+  </g>
+  <g class="s"><text x="160" y="90">s0</text><text x="220" y="90">s1</text><text x="280" y="90">s2</text><text x="340" y="90">s3</text><text x="400" y="90">s4</text><text x="460" y="90">s5</text><text x="520" y="90">s6</text><text x="580" y="90">s7</text><text x="640" y="90">s8</text><text x="700" y="90">s9</text><text x="754" y="90">s10</text><text x="814" y="90">s11</text></g>
+
+  <!-- render frames lane -->
+  <text x="20" y="150" class="lane">Render frames</text>
+  <g stroke="#16a34a">
+    <rect x="140" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="180" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="220" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="260" y="130" width="150" height="30" fill="#fee2e2" stroke="#dc2626"/>
+    <rect x="410" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="450" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="490" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="530" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="570" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="610" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="650" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="690" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="730" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="770" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="810" y="130" width="40" height="30" fill="#dcfce7"/>
+    <rect x="850" y="130" width="40" height="30" fill="#dcfce7"/>
+  </g>
+  <text x="270" y="150" class="s">slow frame → 2–3 steps</text>
+  <text x="142" y="178" class="s">fast frames (~11 ms, 90 fps): 0 or 1 step each</text>
+
+  <!-- interpolation detail -->
+  <text x="20" y="260" class="hdr">Interpolating one render frame</text>
+  <line x1="140" y1="320" x2="620" y2="320" stroke="#374151" stroke-width="1.5"/>
+  <circle cx="200" cy="320" r="7" fill="#2563eb"/>
+  <circle cx="560" cy="320" r="7" fill="#2563eb"/>
+  <circle cx="416" cy="320" r="8" fill="#16a34a" stroke="#14532d"/>
+  <text x="160" y="302" class="t">prev (step n−1)</text>
+  <text x="520" y="302" class="t">curr (step n)</text>
+  <text x="370" y="350" class="t">rendered pose</text>
+  <line x1="200" y1="340" x2="416" y2="340" stroke="#16a34a" marker-end="url(#a)"/>
+  <text x="240" y="372" class="s">alpha = accumulator / fixedDt = 0.6</text>
+  <text x="240" y="390" class="s">pos = lerp(prev, curr, α) · rot = slerp(prev, curr, α)</text>
+
+  <rect x="660" y="250" width="280" height="150" rx="8" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="674" y="272" class="t" font-weight="600">Per fixed step</text>
+  <text x="674" y="294" class="s">1. push kinematic targets, teleports, forces</text>
+  <text x="674" y="312" class="s">2. node.OnPhysicsProcess(fixedDt)</text>
+  <text x="674" y="330" class="s">3. Jitter2 world.Step(dt, multiThread)</text>
+  <text x="688" y="348" class="s">Box2D b2World_Step(world, dt, subSteps)</text>
+  <text x="674" y="366" class="s">4. pull poses: prev = curr; curr = body pose</text>
+  <text x="674" y="384" class="s">5. dispatch contact / area signals (main thread)</text>
+</svg>

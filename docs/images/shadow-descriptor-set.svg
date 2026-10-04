@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Shadow system resources and main-pass descriptor set</title>
+  <desc>Left: the shadow map slots allocated by ShadowSystem. Right: descriptor set 2 bindings sampled by lit shaders, with immutable comparison samplers and the 16-sampler MoltenVK budget.</desc>
+  <rect width="960" height="520" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .t{fill:#1f2937}
+    .s{fill:#4b5563;font-size:11.5px}
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker>
+  </defs>
+
+  <!-- Left: maps -->
+  <text x="20" y="30" class="hdr">Shadow map slots (allocated up front)</text>
+
+  <text x="20" y="62" class="t">Directional × 4 · 2048²</text>
+  <g fill="#fde68a" stroke="#b45309">
+    <rect x="20" y="70" width="50" height="50"/><rect x="78" y="70" width="50" height="50"/>
+    <rect x="136" y="70" width="50" height="50"/><rect x="194" y="70" width="50" height="50"/>
+  </g>
+
+  <text x="20" y="150" class="t">Spot × 7 · 1024²</text>
+  <g fill="#bbf7d0" stroke="#15803d">
+    <rect x="20" y="158" width="36" height="36"/><rect x="62" y="158" width="36" height="36"/>
+    <rect x="104" y="158" width="36" height="36"/><rect x="146" y="158" width="36" height="36"/>
+    <rect x="188" y="158" width="36" height="36"/><rect x="230" y="158" width="36" height="36"/>
+    <rect x="272" y="158" width="36" height="36"/>
+  </g>
+  <text x="318" y="182" class="s">8th spot light: lit, no shadow</text>
+
+  <text x="20" y="226" class="t">Point × 4 · 512² × 6 faces (cube)</text>
+  <g fill="#bfdbfe" stroke="#1d4ed8">
+    <g><rect x="20" y="234" width="16" height="16"/><rect x="36" y="234" width="16" height="16"/><rect x="52" y="234" width="16" height="16"/><rect x="20" y="250" width="16" height="16"/><rect x="36" y="250" width="16" height="16"/><rect x="52" y="250" width="16" height="16"/></g>
+    <g><rect x="84" y="234" width="16" height="16"/><rect x="100" y="234" width="16" height="16"/><rect x="116" y="234" width="16" height="16"/><rect x="84" y="250" width="16" height="16"/><rect x="100" y="250" width="16" height="16"/><rect x="116" y="250" width="16" height="16"/></g>
+    <g><rect x="148" y="234" width="16" height="16"/><rect x="164" y="234" width="16" height="16"/><rect x="180" y="234" width="16" height="16"/><rect x="148" y="250" width="16" height="16"/><rect x="164" y="250" width="16" height="16"/><rect x="180" y="250" width="16" height="16"/></g>
+    <g><rect x="212" y="234" width="16" height="16"/><rect x="228" y="234" width="16" height="16"/><rect x="244" y="234" width="16" height="16"/><rect x="212" y="250" width="16" height="16"/><rect x="228" y="250" width="16" height="16"/><rect x="244" y="250" width="16" height="16"/></g>
+  </g>
+  <text x="20" y="290" class="s">1 cube view (sampling) + 6 face views/framebuffers (rendering) per light</text>
+
+  <rect x="20" y="310" width="400" height="190" rx="8" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="34" y="334" class="t" font-weight="600">Shadow passes (pre-pass)</text>
+  <text x="34" y="356" class="s">Render pass: 1 depth attachment, Clear/Store</text>
+  <text x="34" y="374" class="s">Set 0: light VP UBO — ONE buffer, overwritten at record time ⚠</text>
+  <text x="34" y="392" class="s">Pipelines: 2D (push 64 B) / Point (push 80 B) × stride 12 / 32</text>
+  <text x="34" y="410" class="s">Cull Front · depth bias 1.25 / 1.75 · unflipped viewport</text>
+  <text x="34" y="428" class="s">Point frag writes gl_FragDepth = |p − light| / range</text>
+  <text x="34" y="452" class="s">Approx. memory at D32: 64 MiB dir + 28 MiB spot</text>
+  <text x="34" y="470" class="s">  + 24 MiB point ≈ 116 MiB</text>
+
+  <!-- arrow -->
+  <line x1="440" y1="150" x2="490" y2="150" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="430" y="140" class="s">sampled as</text>
+
+  <!-- Right: set 2 -->
+  <text x="500" y="30" class="hdr">Set 2 — MainDescSetLayout (fragment stage)</text>
+  <rect x="500" y="44" width="440" height="66" rx="8" fill="#fff7ed" stroke="#ea580c"/>
+  <text x="514" y="66" class="t" font-weight="600">binding 0 · UBO (704 B, per swapchain image)</text>
+  <text x="514" y="86" class="s">mat4 dirLightSpace[4] · mat4 spotLightSpace[7]</text>
+  <text x="514" y="102" class="s">copied from CPU at end of RenderShadows</text>
+
+  <rect x="500" y="120" width="440" height="66" rx="8" fill="#fef9c3" stroke="#b45309"/>
+  <text x="514" y="142" class="t" font-weight="600">binding 1 · sampler2DShadow[4]  — IMMUTABLE sampler</text>
+  <text x="514" y="162" class="s">Linear · ClampToBorder(white) · compare Less</text>
+  <text x="514" y="178" class="s">only image views are written</text>
+
+  <rect x="500" y="196" width="440" height="66" rx="8" fill="#dcfce7" stroke="#15803d"/>
+  <text x="514" y="218" class="t" font-weight="600">binding 2 · sampler2DShadow[7]  — IMMUTABLE sampler</text>
+  <text x="514" y="238" class="s">same comparison sampler</text>
+  <text x="514" y="254" class="s">MoltenVK: mutableComparisonSamplers = false</text>
+
+  <rect x="500" y="272" width="440" height="66" rx="8" fill="#dbeafe" stroke="#1d4ed8"/>
+  <text x="514" y="294" class="t" font-weight="600">binding 3 · samplerCube[4]</text>
+  <text x="514" y="314" class="s">Nearest · ClampToEdge · no compare (manual in shader)</text>
+  <text x="514" y="330" class="s">layout DepthStencilReadOnlyOptimal</text>
+
+  <!-- budget bar -->
+  <text x="500" y="372" class="hdr">Per-stage sampler budget (MoltenVK = 16)</text>
+  <g>
+    <rect x="500" y="384" width="104" height="30" fill="#fde68a" stroke="#b45309"/>
+    <text x="512" y="404" class="s">dir 4</text>
+    <rect x="604" y="384" width="182" height="30" fill="#bbf7d0" stroke="#15803d"/>
+    <text x="616" y="404" class="s">spot 7</text>
+    <rect x="786" y="384" width="104" height="30" fill="#bfdbfe" stroke="#1d4ed8"/>
+    <text x="798" y="404" class="s">point 4</text>
+    <rect x="890" y="384" width="26" height="30" fill="#e9d5ff" stroke="#7e22ce"/>
+    <text x="893" y="404" class="s">1</text>
+  </g>
+  <text x="500" y="434" class="s">4 + 7 + 4 + 1 material texture (Spine) = 16 — why MaxShadowSpot is 7, not 8</text>
+  <text x="500" y="460" class="s">Keep MAX_SHADOW_* in Shapes.vk.frag / SpineLit.vk.frag in sync with C#.</text>
+</svg>

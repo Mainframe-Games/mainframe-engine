@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Main render pass and draw order</title>
+  <desc>The command buffer for one frame: the shadow pre-pass with one shadow render pass per light, then the main render pass with two attachments and the draw order sky, grid, nodes, ImGui.</desc>
+  <rect width="960" height="470" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .t{fill:#1f2937}
+    .s{fill:#4b5563;font-size:11.5px}
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker>
+  </defs>
+
+  <text x="20" y="30" class="hdr">Command buffer [imageIndex] — one frame</text>
+  <rect x="20" y="42" width="920" height="260" rx="10" fill="#f9fafb" stroke="#9ca3af"/>
+
+  <!-- shadow prepass -->
+  <rect x="40" y="62" width="300" height="220" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="54" y="84" class="hdr">OnShadowPass (no main pass)</text>
+  <text x="54" y="104" class="s">ShadowSystem.RenderShadows:</text>
+  <rect x="54" y="114" width="272" height="30" rx="5" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="64" y="134" class="s">barrier: maps ReadOnly → DepthAttachment</text>
+  <rect x="54" y="150" width="272" height="30" rx="5" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="64" y="170" class="s">dir × n : shadow pass 2048² → draw2D</text>
+  <rect x="54" y="186" width="272" height="30" rx="5" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="64" y="206" class="s">spot × n : shadow pass 1024² → draw2D</text>
+  <rect x="54" y="222" width="272" height="30" rx="5" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="64" y="242" class="s">point × n × 6 faces : 512² → drawPoint</text>
+  <text x="64" y="272" class="s">barrier: DepthAttachment → ReadOnly</text>
+
+  <line x1="342" y1="172" x2="378" y2="172" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- main pass -->
+  <rect x="380" y="62" width="540" height="220" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="394" y="84" class="hdr">Main render pass (BeginRenderPass … EndFrame)</text>
+  <text x="394" y="104" class="s">subpass 0 · Y-flipped viewport for scene draws · dynamic viewport/scissor</text>
+
+  <g>
+    <rect x="394" y="118" width="118" height="70" rx="6" fill="#ffffff" stroke="#2563eb"/>
+    <text x="404" y="140" class="t">1. Sky</text>
+    <text x="404" y="158" class="s">fullscreen tri</text>
+    <text x="404" y="174" class="s">no depth</text>
+    <rect x="522" y="118" width="118" height="70" rx="6" fill="#ffffff" stroke="#2563eb"/>
+    <text x="532" y="140" class="t">2. Scene grid</text>
+    <text x="532" y="158" class="s">line list, blend</text>
+    <text x="532" y="174" class="s">depth test+write</text>
+    <rect x="650" y="118" width="118" height="70" rx="6" fill="#ffffff" stroke="#2563eb"/>
+    <text x="660" y="140" class="t">3. Nodes</text>
+    <text x="660" y="158" class="s">shapes, Spine</text>
+    <text x="660" y="174" class="s">sets 0/1/2(/3)</text>
+    <rect x="778" y="118" width="128" height="70" rx="6" fill="#ffffff" stroke="#2563eb"/>
+    <text x="788" y="140" class="t">4. ImGui</text>
+    <text x="788" y="158" class="s">unflipped, no depth</text>
+    <text x="788" y="174" class="s">scissor per cmd</text>
+  </g>
+
+  <text x="394" y="214" class="s">Clear values: color = SetClearColor(r,g,b,a) · depth = 1.0 · stencil = 0</text>
+  <text x="394" y="234" class="s">Dependency EXTERNAL→0: ColorAttachmentOutput|EarlyFragmentTests (access 0)</text>
+  <text x="394" y="250" class="s">  → same stages, ColorAttachmentWrite|DepthStencilAttachmentWrite</text>
+  <text x="394" y="270" class="s">Order is the game's responsibility (Game.OnRenderMainPass).</text>
+
+  <!-- attachments -->
+  <text x="20" y="335" class="hdr">Attachments</text>
+  <rect x="20" y="348" width="450" height="100" rx="8" fill="#fff7ed" stroke="#ea580c"/>
+  <text x="36" y="372" class="t" font-weight="600">0 · Color — swapchain image (per framebuffer)</text>
+  <text x="36" y="392" class="s">format: B8G8R8A8Unorm (preferred) · 1 sample</text>
+  <text x="36" y="410" class="s">load: Clear · store: Store</text>
+  <text x="36" y="428" class="s">layout: Undefined → PresentSrcKhr</text>
+
+  <rect x="490" y="348" width="450" height="100" rx="8" fill="#ecfeff" stroke="#0891b2"/>
+  <text x="506" y="372" class="t" font-weight="600">1 · Depth — ONE image shared by all framebuffers</text>
+  <text x="506" y="392" class="s">format: D32Sfloat | D32SfloatS8Uint | D24UnormS8Uint</text>
+  <text x="506" y="410" class="s">load: Clear · store: DontCare</text>
+  <text x="506" y="428" class="s">layout: Undefined → DepthStencilAttachmentOptimal</text>
+</svg>

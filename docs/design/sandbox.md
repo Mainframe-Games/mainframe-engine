@@ -1,0 +1,63 @@
+# Sandbox
+
+## Purpose
+
+[`MainframeEngine.Sandbox`](../../MainframeEngine.Sandbox/) is the test game. It exercises most engine
+features in one 3D scene, and it is the reference for how a game is expected to use the engine.
+
+Files: [Program.cs](../../MainframeEngine.Sandbox/Program.cs), [Src/Game.cs](../../MainframeEngine.Sandbox/Src/Game.cs).
+
+## Scene
+
+| Object | Setup |
+|---|---|
+| Window | "Mainframe Engine Sandbox", Vulkan, 1920×1080, icon `Content/Branding/mg_300_circle.png` |
+| Clear color | (0.18, 0.31, 0.31), dark slate grey |
+| Camera | `Camera3D` at (0, 5, 10) looking at the origin |
+| Sky | `SkyPanoramic("Content/Sky/sky_10_2k.png")` |
+| Grid | `SceneGrid3d` (size 200) |
+| Shadows | `ShadowSystem` + `Node.Initialize(Renderer, shadows)` |
+| Spine | Spineboy from `Content/Models/Spine/SpineBoy`, `Scale = 0.1`, animation `"walk"` |
+| Floor | `Quad`, rotation (90, 0, 0), scale (10, 10, 1), white |
+| Box | `Box3d` at (3, 1, 0), white, spinning 20°/s on X and Y |
+| Light | one `DirectionalLight`: direction `normalize(0, −0.5, −1)`, color (1, 0.95, 0.8), intensity 0.9 |
+
+## Lifecycle
+
+```mermaid
+flowchart TD
+    P["Program.cs: using var game = new Game(); game.Run()"] --> L
+    subgraph L["OnLoad"]
+        L1["base.OnLoad()"] --> L2["clear color, camera, input handlers"]
+        L2 --> L3["sky, grid, ShadowSystem"] --> L4["Node.Initialize"] --> L5["SpineNode, Quad, Box3d, DirectionalLight"]
+    end
+    L --> F
+    subgraph F["Each frame"]
+        F1["OnImGui: light gizmos, stats window, coord gizmo"] --> F2["OnUpdate: fly camera, node.OnUpdate, spin box"]
+        F2 --> F3["OnShadowPass: RenderShadows(lights, DrawShadow2D, DrawShadowPoint)"]
+        F3 --> F4["OnRenderMainPass: aspect, sky → grid → nodes"]
+    end
+    F --> C["OnClose: dispose shadows, sky, grid, nodes → base.OnClose()"]
+    C --> X["Program logs exit code and returns it"]
+```
+
+## ImGui window ("Game Window")
+
+Shows frame count, delta time, FPS and ms, plus a VSync checkbox, a fullscreen checkbox, a Max FPS
+combo (Unlimited/30/60/120/144/240), and the camera position and forward vector.
+
+Controls are listed in [Cameras & input](cameras-and-input.md#input-sandbox).
+
+## Known issues
+
+- `SpineScale = 0.001f` has no effect after construction (see [Spine](spine.md#known-issues)).
+- `SetAnimation("walk")` queues after the default animation.
+- `(IVulkanContext)Renderer` is cast without a guard, against CLAUDE.md guidance.
+- Calls to `Renderer.EnableDepthTest()` / `Clear()` are Vulkan no-ops.
+- Shadow-pass lambdas allocate every frame (`TODO` at `Game.cs:162`).
+- `Node.Initialize` should move into `Engine` (`TODO` at `Game.cs:59`).
+- `sky_16_2k.png` ships but is unused. Commented-out point and spot lights remain.
+
+## Related docs
+
+[Engine lifecycle](engine-lifecycle.md) · [Architecture overview](architecture-overview.md)
