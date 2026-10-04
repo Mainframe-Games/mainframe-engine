@@ -100,3 +100,4 @@ Do not add NuGet packages without discussing the dependency first.
 
 @import memory/README.md
 @import memory/context/current-state.md
+@import memory/context/progress-log.md
