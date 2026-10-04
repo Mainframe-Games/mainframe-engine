@@ -112,7 +112,7 @@ internal sealed class AudioMixRoot : SoundComponent
             if (command.Ref is AudioSource source)
             {
                 voice.Play(command.Generation, source, voice.StreamChannel, command.StreamGeneration, command.Frame,
-                    command.Params, command.Positional, command.Loop, command.LoopStart, command.LoopEnd);
+                    command.Params, command.Positional, command.Loop, command.LoopStart, command.LoopEnd, command.StartPaused);
             }
 
             return;
@@ -138,6 +138,9 @@ internal sealed class AudioMixRoot : SoundComponent
             case AudioCommandType.SeekVoice:
                 voice.Seek(command.Frame);
                 break;
+            case AudioCommandType.RestartStream:
+                voice.RestartStream(command.StreamGeneration, command.Frame);
+                break;
         }
     }
 
@@ -154,12 +157,17 @@ internal sealed class AudioMixRoot : SoundComponent
                 voice.ReportedUnderruns = underruns;
             }
 
-            if (voice.AfterMix() == VoiceEnd.Finished)
-                voice.FinishPending = true;
+            var end = voice.AfterMix();
+            if (end is VoiceEnd.Finished or VoiceEnd.Failed)
+                voice.PendingEnd = end;
 
-            // Retried every block until the game thread has room for it, so a finish is never lost.
-            if (voice.FinishPending && Post(AudioEventType.VoiceFinished, voice.Index, voice.Generation, null))
-                voice.FinishPending = false;
+            // Retried every block until the game thread has room for it, so an end is never lost.
+            if (voice.PendingEnd != VoiceEnd.None)
+            {
+                var type = voice.PendingEnd == VoiceEnd.Failed ? AudioEventType.VoiceFailed : AudioEventType.VoiceFinished;
+                if (Post(type, voice.Index, voice.Generation, graph))
+                    voice.PendingEnd = VoiceEnd.None;
+            }
         }
     }
 

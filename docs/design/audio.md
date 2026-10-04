@@ -21,7 +21,7 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 |---|---|---|
 | `AudioServer`, `AudioOptions`, `AudioDeviceMode`, `AudioVoiceHandle`, `AudioServerStats` | [Audio/AudioServer.cs](../../MainframeEngine/Src/Audio/AudioServer.cs) | `IFrameServer`; voice pools, stealing, listener, command batching |
 | `AudioBus` | [Audio/AudioBus.cs](../../MainframeEngine/Src/Audio/AudioBus.cs) | live fader / mute / solo / meter |
-| `AudioBusLayout`, `AudioBusInfo`, `AudioEffect` (+ `LowPass`, `HighPass`, `Reverb`, `Compressor`) | [Audio/AudioBusLayout.cs](../../MainframeEngine/Src/Audio/AudioBusLayout.cs) | `.mres` resources |
+| `AudioBusLayout`, `AudioBusInfo`, `AudioEffect` (+ `LowPass`, `HighPass`, `Reverb` (engine Freeverb), `Compressor`) | [Audio/AudioBusLayout.cs](../../MainframeEngine/Src/Audio/AudioBusLayout.cs) | `.mres` resources |
 | `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.meta` import settings |
 | `AudioPlayer`, `AudioPlayer2D`, `AudioPlayer3D`, `AudioListener3D` | [Audio/Nodes/](../../MainframeEngine/Src/Audio/Nodes/) | nodes |
 | `AudioMath`, `AttenuationModel` | [Audio/AudioMath.cs](../../MainframeEngine/Src/Audio/AudioMath.cs) | dB, attenuation curves, listener projection, pan law, doppler |
@@ -47,7 +47,7 @@ flowchart TB
         SFX --> V["pooled voices: SoundPlayer(VoiceSource) → SpatialSmoother"]
         M -. "effects → BusProcessor (fader, meter)" .-> M
     end
-    R -- "SPSC ring: VoiceFinished, GraphRetired" --> AS
+    R -- "SPSC ring: VoiceFinished, VoiceFailed, GraphRetired" --> AS
     subgraph Stream["Streaming thread"]
         D["AudioStreamer: decode ahead (OGG/WAV/MP3/FLAC)"] -- "per-voice SPSC sample ring" --> V
     end
@@ -98,8 +98,10 @@ stop without `Finished`; the old graph is disposed when the audio thread reports
 same resource inline in `project.mfproj` instead of the file.
 
 - Each bus is a SoundFlow `Mixer` nested in its send's mixer, with its effects (`AudioEffect` resources create the
-  SoundFlow modifiers) and then a `BusProcessor`: the fader gain (ramped over ~10 ms) and a peak meter
-  (`AudioBus.Peak`).
+  modifiers: SoundFlow's low-pass, high-pass and compressor; the engine's own allocation-free Freeverb
+  `ReverbProcessor` for reverb, because SoundFlow's `AlgorithmicReverbModifier` reallocates its comb buffers on the
+  audio thread as its modulation moves) and then a `BusProcessor`: the fader gain (ramped over ~10 ms) and a peak
+  meter (`AudioBus.Peak`).
 - **Solo:** when any bus is soloed, only soloed buses, their sub-buses, and the buses they send through are
   heard; a bus that only passes a soloed sub-bus through has its *own* voices silenced (`DirectAudible`).
 - `AudioBus.VolumeDb` / `Mute` / `Solo` setters mark the buses dirty; gains are recomputed and sent in the next
@@ -117,7 +119,7 @@ same resource inline in `project.mfproj` instead of the file.
 Shared player properties: `Stream`, `Bus` (Master), `VolumeDb`, `PitchScale` (resampling: pitch and speed together),
 `Autoplay`, `Loop` (or the stream's), `MaxPolyphony` (1), `Priority` (0), runtime `StreamPaused`. Methods:
 `Play(fromSeconds)`, `Stop()`, `Seek()`, `GetPlaybackPosition()`, `Playing`. Signal: `Finished` — when a voice plays
-to its end (not on `Stop`, stealing, layout changes, or for loops). Players stop when they leave the tree and
+to its end (not on `Stop`, stealing, layout changes, a streamed file failing to decode, or for loops). Players stop when they leave the tree and
 preload their stream when they enter it.
 
 ## Streams and resources
@@ -149,8 +151,13 @@ block).
 file, seeks, publishes the generation's start position, and keeps a 32 768-frame float ring topped up, rewinding
 the decoder at the loop end so the voice reads one continuous stream. The voice only reads once the active
 generation is its own (skipping leftovers of the previous sound). A voice that runs dry outputs silence and counts
-an underrun; it ends when the producer has finished its generation and the ring is empty. Released voices close
-their file two frames later (after the stop fade).
+an underrun; it ends when the producer has finished its generation and the ring is empty. The generation record
+(active generation, its start and channels, and where the previous one closed) is published under a sequence lock,
+and a consumer reads at most up to its own generation's end, never into the next sound's samples. A file that fails
+to open or decode ends its voice as an error (`VoiceFailed`: counted in `StreamErrors`, no `Finished`); any
+exception on the streaming thread only affects that voice. Seeking a streamed voice sends `RestartStream`, which the
+audio thread ignores once the voice has ended, so a seek racing the natural end cannot resurrect it. Released
+voices close their file two frames later (after the stop fade).
 
 ## Voices
 
@@ -162,7 +169,8 @@ their file two frames later (after the stop fade).
   pool is full: lowest priority first, then the quietest (current gain), then the oldest; a voice with a higher
   priority than the new sound is never stolen — the new sound is dropped instead (`Stats.Rejected`).
 - **Stop** fades out over ~3 ms (no click); a voice stopped before it rendered anything goes silent at once.
-  Starting a sound snaps to its level (no fade-in blunting the attack).
+  Starting a sound snaps to its level (no fade-in blunting the attack). A sound started while its owner may not run
+  (tree paused) starts paused in the same command.
 - `AudioServer.PlayOneShot(stream, bus, volumeDb, pitchScale, position, priority, processMode)` plays without a
   node; with a position it uses inverse attenuation (unit size 1) and full panning.
 
@@ -240,6 +248,10 @@ their own `ProcessMode` (default `Pausable`).
   loops back to the start, but a loop point (or `Seek`) deep into a long OGG decodes up to it each time.
 - Linear interpolation resampling: fine for game audio, audible aliasing on bright content pitched far up.
 - `AudioEffect` parameters apply when a layout is applied; there is no live per-parameter automation yet.
+- A stolen voice is restarted at once with the new sound, cutting its stop fade short (it can click); stealing only
+  happens when a bus pool is exhausted.
+- If the audio or null-device thread fails to stop within 2 s at shutdown, its graph is left to the GC rather than
+  disposed under it.
 - SoundFlow 1.4.1 reports the miniaudio backend through an enum that is off by one; the engine names backends by
   native value.
 - Editor integration (inspector preview bus, range gizmos, the Audio bus panel) arrives with M10.

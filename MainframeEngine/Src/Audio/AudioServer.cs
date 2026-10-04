@@ -106,6 +106,7 @@ public sealed class AudioServer : IFrameServer
     private Vector3 _listenerVelocity;
     private Vector2 _listener2D;
     private bool _listenerInitialized;
+    private Node? _listenerSource;
 
     private AudioServer(AudioOutput output, AudioBusLayout layout, SceneTree? tree, in AudioOptions options)
     {
@@ -115,9 +116,17 @@ public sealed class AudioServer : IFrameServer
         _commands = new SpscRing<AudioCommand>(Math.Max(64, options.CommandQueueCapacity));
         _root = new AudioMixRoot(output.Engine, output.Format, _commands, _events);
         _graph = BuildGraph(layout);
-        Enqueue(new AudioCommand { Type = AudioCommandType.SwapGraph, Ref = _graph });
-        Flush();
-        output.Start(_root);
+        try
+        {
+            Enqueue(new AudioCommand { Type = AudioCommandType.SwapGraph, Ref = _graph });
+            Flush();
+            output.Start(_root);
+        }
+        catch
+        {
+            DisposeQuietly(_graph); // never started: nothing on the audio thread can be using it
+            throw;
+        }
     }
 
     /// <summary>
@@ -164,7 +173,21 @@ public sealed class AudioServer : IFrameServer
         var mode = options.Device == AudioDeviceMode.NullManual ? NullAudioMode.Manual : NullAudioMode.Realtime;
         if (options.Device == AudioDeviceMode.Auto)
             Log.Warning($"[Audio] No usable audio device ({reason}); using the null device (silent).");
-        var nullServer = new AudioServer(new NullOutput(sampleRate, options.BufferMilliseconds, mode, reason), layout, tree, options);
+        AudioServer nullServer;
+        var nullOutput = new NullOutput(sampleRate, options.BufferMilliseconds, mode, reason);
+        try
+        {
+            nullServer = new AudioServer(nullOutput, layout, tree, options);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // Last resort: a layout whose effects cannot be built. The default layout has none.
+            Log.Error($"[Audio] Building the bus layout failed ({e.Message}); using the default layout.");
+            DisposeQuietly(nullOutput);
+            nullOutput = new NullOutput(sampleRate, options.BufferMilliseconds, mode, reason);
+            nullServer = new AudioServer(nullOutput, AudioBusLayout.CreateDefault(), tree, options);
+        }
+
         if (options.Device != AudioDeviceMode.NullManual)
             Log.Info($"[Audio] Output: {nullServer.DeviceName}, {sampleRate} Hz, {nullServer.TotalVoices} voices");
         return nullServer;
@@ -218,6 +241,12 @@ public sealed class AudioServer : IFrameServer
     internal long FrameIndex { get; private set; }
 
     internal Vector3 ListenerVelocity => _listenerVelocity;
+
+    /// <summary>Commands batched but not yet published to the audio thread (diagnostics, tests).</summary>
+    internal int UnsentCommandCount => _pendingCount;
+
+    /// <summary>Old graphs waiting for the audio thread to report them retired (diagnostics, tests).</summary>
+    internal int RetiringGraphCount => _retiring.Count;
 
     public AudioServerStats Stats
     {
@@ -317,9 +346,31 @@ public sealed class AudioServer : IFrameServer
             }
         }
 
-        _retiring.Add(_graph);
+        // Everything pending targeted the old graph. A graph whose swap never reached the audio thread (the ring was
+        // full) was never used by it: dispose it now instead of waiting for a retirement that will not come.
+        for (var i = 0; i < _pendingCount; i++)
+        {
+            if (_pending[i].Type == AudioCommandType.SwapGraph && _pending[i].Ref is AudioGraph unsent && !ReferenceEquals(unsent, _graph))
+            {
+                _retiring.Remove(unsent);
+                DisposeQuietly(unsent);
+            }
+        }
+
+        var previous = _graph;
+        var published = true;
+        for (var i = 0; i < _pendingCount; i++)
+        {
+            if (_pending[i].Type == AudioCommandType.SwapGraph && ReferenceEquals(_pending[i].Ref, previous))
+                published = false;
+        }
+
         _graph = BuildGraph(layout);
-        _pendingCount = 0; // everything pending targeted the old graph
+        _pendingCount = 0;
+        if (published)
+            _retiring.Add(previous); // disposed when the audio thread reports it retired
+        else
+            DisposeQuietly(previous); // the audio thread never saw it
         Enqueue(new AudioCommand { Type = AudioCommandType.SwapGraph, Ref = _graph });
         _streamer.Wake();
         Flush();
@@ -474,10 +525,17 @@ public sealed class AudioServer : IFrameServer
             frame = Math.Min(frame, source.Frames);
         if (source is AudioStreamSource streamSource)
         {
-            // Streams restart decoding at the new position under the same voice generation.
-            StartVoice(handle.Index, ref slot, streamSource, frame, slot.Last);
-            if (slot.Paused)
-                Enqueue(new AudioCommand { Type = AudioCommandType.PauseVoice, Index = handle.Index, Generation = handle.Generation });
+            // Streams restart decoding at the new position. A dedicated command (ignored once the voice has ended)
+            // rather than a new play, so a seek racing the voice's natural end cannot resurrect it.
+            var streamGeneration = RequestStream(handle.Index, ref slot, streamSource, frame);
+            Enqueue(new AudioCommand
+            {
+                Type = AudioCommandType.RestartStream,
+                Index = handle.Index,
+                Generation = handle.Generation,
+                StreamGeneration = streamGeneration,
+                Frame = frame,
+            });
             return;
         }
 
@@ -488,6 +546,10 @@ public sealed class AudioServer : IFrameServer
     public void Flush()
     {
         if (_pendingCount == 0)
+            return;
+        // A batch is published whole or not at all (so related commands never straddle two audio blocks), unless it
+        // is larger than the whole ring, which can then only go in pieces.
+        if (_pendingCount <= _commands.Capacity && _commands.FreeSpace < _pendingCount)
             return;
         var sent = _commands.EnqueueBatch(_pending.AsSpan(0, _pendingCount));
         if (sent == _pendingCount)
@@ -737,12 +799,29 @@ public sealed class AudioServer : IFrameServer
     private void UpdateListener(float delta)
     {
         Transform3D listener;
+        Node? source = null;
         if (_currentListener is { } node && node.IsInsideTree)
+        {
             listener = node.GlobalTransform;
+            source = node;
+        }
         else if (Tree?.Root.ActiveCamera3D is { } camera)
+        {
             listener = camera.GlobalTransform;
+            source = camera;
+        }
         else
+        {
             listener = Transform3D.Identity;
+        }
+
+        // Velocity (doppler) only from consecutive positions of the same listener: switching listeners would
+        // otherwise look like a teleport at enormous speed.
+        if (!ReferenceEquals(source, _listenerSource))
+        {
+            _listenerSource = source;
+            _listenerInitialized = false;
+        }
 
         _listenerVelocity = _listenerInitialized && delta > 0f ? (listener.Origin - _listener3D.Origin) / delta : Vector3.Zero;
         _listener3D = listener;
@@ -773,8 +852,11 @@ public sealed class AudioServer : IFrameServer
             switch (e.Type)
             {
                 case AudioEventType.VoiceFinished:
-                    if ((uint)e.Index < (uint)_slots.Length && _slots[e.Index].Active && _slots[e.Index].Generation == e.Generation)
-                        Release(e.Index, finished: true, sendStop: false);
+                case AudioEventType.VoiceFailed:
+                    // Only for the current graph: after a layout swap, old-graph events must not match new slots.
+                    if (ReferenceEquals(e.Ref, _graph) && (uint)e.Index < (uint)_slots.Length && _slots[e.Index].Active &&
+                        _slots[e.Index].Generation == e.Generation)
+                        Release(e.Index, finished: e.Type == AudioEventType.VoiceFinished, sendStop: false);
                     break;
                 case AudioEventType.GraphRetired:
                     if (e.Ref is AudioGraph graph && _retiring.Remove(graph))
@@ -824,39 +906,38 @@ public sealed class AudioServer : IFrameServer
             initial.Gain = 0f;
         slot.Gain = initial.Gain;
         slot.Last = initial;
-        StartVoice(index, ref slot, source, startFrame, initial);
 
-        // Started while it may not run (e.g. the tree is paused): pause it in the same batch, before it sounds.
-        if (!(owner?.VoicesActive ?? CanProcess(processMode, Tree?.Paused ?? false)))
-        {
-            slot.Paused = true;
-            Enqueue(new AudioCommand { Type = AudioCommandType.PauseVoice, Index = index, Generation = slot.Generation });
-        }
-
+        // Started while it may not run (e.g. the tree is paused): it starts paused, in the same command, before it sounds.
+        slot.Paused = !(owner?.VoicesActive ?? CanProcess(processMode, Tree?.Paused ?? false));
+        StartVoice(index, ref slot, source, startFrame, initial, slot.Paused);
         return new AudioVoiceHandle(index, slot.Generation);
     }
 
-    private void StartVoice(int index, ref VoiceSlot slot, AudioSource source, double startFrame, in VoiceParams parameters)
+    // Streamed sources: asks the streaming thread to decode from startFrame; returns the stream generation.
+    private int RequestStream(int index, ref VoiceSlot slot, AudioStreamSource source, double startFrame)
     {
-        var streamGeneration = 0;
-        if (source is AudioStreamSource streamSource)
+        var voice = _graph.Voices[index];
+        if (voice.StreamChannel is not { } channel)
         {
-            var voice = _graph.Voices[index];
-            if (voice.StreamChannel is not { } channel)
-            {
-                channel = new AudioStreamChannel(index);
-                voice.StreamChannel = channel; // published to the audio thread by the play command below
-            }
-
-            if (!channel.Registered)
-            {
-                _streamer.Register(channel);
-                channel.Registered = true;
-            }
-
-            streamGeneration = channel.Request(streamSource, (long)startFrame, slot.Loop, slot.LoopStart, slot.LoopEnd);
-            _streamer.Wake();
+            channel = new AudioStreamChannel(index);
+            voice.StreamChannel = channel; // published to the audio thread by the command that follows
         }
+
+        if (!channel.Registered)
+        {
+            _streamer.Register(channel);
+            channel.Registered = true;
+        }
+
+        var generation = channel.Request(source, (long)startFrame, slot.Loop, slot.LoopStart, slot.LoopEnd);
+        _streamer.Wake();
+        return generation;
+    }
+
+    private void StartVoice(int index, ref VoiceSlot slot, AudioSource source, double startFrame, in VoiceParams parameters,
+        bool startPaused)
+    {
+        var streamGeneration = source is AudioStreamSource streamSource ? RequestStream(index, ref slot, streamSource, startFrame) : 0;
 
         if (slot.PendingParams >= 0)
         {
@@ -877,6 +958,7 @@ public sealed class AudioServer : IFrameServer
             LoopStart = slot.LoopStart,
             LoopEnd = slot.LoopEnd,
             Params = parameters,
+            StartPaused = startPaused,
         });
     }
 
@@ -919,6 +1001,8 @@ public sealed class AudioServer : IFrameServer
 
         if (victim < 0)
             return -1;
+        // The victim is restarted at once with the new sound, which cuts its stop fade short (a stolen sound can
+        // click); stealing only happens when a bus pool is exhausted, and lower priorities / quieter voices go first.
         _steals++;
         Release(victim, finished: false, sendStop: true);
         return victim;
@@ -1031,11 +1115,19 @@ public sealed class AudioServer : IFrameServer
                 Release(i, finished: false, sendStop: false);
         }
 
-        DisposeQuietly(_output); // no more audio callbacks after this
+        DisposeQuietly(_output); // no more audio callbacks after this (when it stopped)
         _streamer.Dispose();
-        DisposeQuietly(_graph);
-        foreach (var graph in _retiring)
-            DisposeQuietly(graph);
+        if (_output.Stopped)
+        {
+            DisposeQuietly(_graph);
+            foreach (var graph in _retiring)
+                DisposeQuietly(graph);
+        }
+        else
+        {
+            Log.Warning("[Audio] The audio thread did not stop; leaving its mixer graph to the garbage collector.");
+        }
+
         _retiring.Clear();
         _listeners.Clear();
     }

@@ -155,7 +155,9 @@ public class AudioPlayer3D : Node3D, IAudioVoiceOwner
         var pitch = _pitchScale;
         if (DopplerTracking && server.DopplerScale > 0f)
         {
-            var velocity = _lastPositionFrame >= 0 && server.FrameDelta > 0f
+            // Only from the previous frame's position: after a pause in tracking (first play, re-entering the tree,
+            // frames without voices) a stale position would read as a huge velocity spike.
+            var velocity = _lastPositionFrame == server.FrameIndex - 1 && server.FrameDelta > 0f
                 ? (position - _lastPosition) / server.FrameDelta
                 : Vector3.Zero;
             pitch *= AudioMath.DopplerFactor(listener.Origin, server.ListenerVelocity, position, velocity, server.SpeedOfSound,

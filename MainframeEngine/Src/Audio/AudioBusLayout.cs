@@ -1,3 +1,4 @@
+using MainframeEngine.Audio;
 using SoundFlow.Abstracts;
 using SoundFlow.Modifiers;
 using SoundFlow.Structs;
@@ -126,34 +127,33 @@ public class AudioEffectHighPass : AudioEffect
         new HighPassModifier(format, Math.Clamp(CutoffHz, 10f, format.SampleRate * 0.45f)) { Enabled = Enabled };
 }
 
-/// <summary>Algorithmic (Freeverb-style) reverb (SoundFlow <c>AlgorithmicReverbModifier</c>).</summary>
+/// <summary>
+/// Freeverb reverb (the engine's allocation-free <c>ReverbProcessor</c>: 8 damped combs + 4 all-passes per channel).
+/// </summary>
 public class AudioEffectReverb : AudioEffect
 {
+    /// <summary>Tail length (0..1).</summary>
     [Export(Range = "0,1,0.01")]
     public float RoomSize { get; set; } = 0.5f;
 
+    /// <summary>High-frequency absorption (0..1).</summary>
     [Export(Range = "0,1,0.01")]
     public float Damp { get; set; } = 0.5f;
 
+    /// <summary>Reverb level.</summary>
     [Export(Range = "0,1,0.01")]
     public float Wet { get; set; } = 0.3f;
 
+    /// <summary>Direct (unprocessed) level.</summary>
+    [Export(Range = "0,1,0.01")]
+    public float Dry { get; set; } = 1f;
+
+    /// <summary>Stereo width of the reverb (0 = mono).</summary>
     [Export(Range = "0,1,0.01")]
     public float Width { get; set; } = 1f;
 
-    /// <summary>Dry/wet balance (0 = dry only, 1 = wet only).</summary>
-    [Export(Range = "0,1,0.01")]
-    public float Mix { get; set; } = 0.3f;
-
-    internal override SoundModifier CreateModifier(AudioFormat format) => new AlgorithmicReverbModifier(format)
-    {
-        RoomSize = RoomSize,
-        Damp = Damp,
-        Wet = Wet,
-        Width = Width,
-        Mix = Mix,
-        Enabled = Enabled,
-    };
+    internal override SoundModifier CreateModifier(AudioFormat format) =>
+        new ReverbProcessor(format.SampleRate, RoomSize, Damp, Wet, Dry, Width) { Enabled = Enabled };
 }
 
 /// <summary>Feed-forward compressor (SoundFlow <c>CompressorModifier</c>).</summary>

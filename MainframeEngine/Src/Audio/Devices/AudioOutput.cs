@@ -31,6 +31,11 @@ internal abstract class AudioOutput : IDisposable
 
     public abstract bool IsNull { get; }
 
+    /// <summary>
+    /// After <see cref="Dispose"/>: true when the audio thread has certainly stopped, so the mixer graph may be freed.
+    /// </summary>
+    public bool Stopped { get; protected set; }
+
     /// <summary>Connects <paramref name="root"/> and starts pulling audio from it.</summary>
     public abstract void Start(AudioMixRoot root);
 
@@ -148,8 +153,9 @@ internal sealed class SoundFlowOutput : AudioOutput
     {
         try
         {
-            _device.Stop();
+            _device.Stop(); // synchronous: miniaudio returns once the callback has finished
             _device.Dispose();
+            Stopped = true;
         }
         finally
         {
@@ -227,7 +233,18 @@ internal sealed class NullOutput : AudioOutput
         {
             var span = _buffer.AsSpan();
             span.Clear();
-            root.Process(span, 2);
+            try
+            {
+                root.Process(span, 2);
+            }
+            catch (Exception e) when (e is not OutOfMemoryException)
+            {
+                // The root guards its own work; this only catches SoundFlow plumbing. An unhandled exception on this
+                // thread would end the process.
+                Log.Error($"[Audio] Null device: {e.Message}");
+                return;
+            }
+
             due += period;
             var wait = due - clock.Elapsed;
             if (wait > TimeSpan.Zero)
@@ -240,8 +257,14 @@ internal sealed class NullOutput : AudioOutput
     public override void Dispose()
     {
         _stop = true;
-        _thread?.Join(TimeSpan.FromSeconds(2));
+        if (_thread is { } thread && !thread.Join(TimeSpan.FromSeconds(2)))
+        {
+            Log.Warning("[Audio] The null device thread did not stop within 2 s.");
+            return; // Stopped stays false: the server keeps the graph alive rather than freeing it under the thread
+        }
+
         _thread = null;
+        Stopped = true;
         Engine.Dispose();
     }
 }

@@ -56,8 +56,11 @@ internal sealed class AudioVoice : IDisposable
     /// </summary>
     public AudioStreamChannel? StreamChannel { get; set; }
 
-    /// <summary>Audio thread: a natural end not yet reported to the game thread (retried while the event ring is full).</summary>
-    public bool FinishPending { get; set; }
+    /// <summary>
+    /// Audio thread: an end (<see cref="VoiceEnd.Finished"/> or <see cref="VoiceEnd.Failed"/>) not yet reported to
+    /// the game thread (retried while the event ring is full); <see cref="VoiceEnd.None"/> when nothing is pending.
+    /// </summary>
+    public VoiceEnd PendingEnd { get; set; }
 
     /// <summary>Audio thread: <see cref="VoiceSource.Underruns"/> already added to the root's total.</summary>
     public int ReportedUnderruns { get; set; }
@@ -67,15 +70,31 @@ internal sealed class AudioVoice : IDisposable
 
     /// <summary>Starts <paramref name="source"/> (a clip, or a stream channel request) from scratch.</summary>
     public void Play(int generation, AudioSource source, AudioStreamChannel? channel, int streamGeneration,
-        double startFrame, in VoiceParams parameters, bool positional, bool loop, long loopStart, long loopEnd)
+        double startFrame, in VoiceParams parameters, bool positional, bool loop, long loopStart, long loopEnd, bool startPaused)
     {
         Generation = generation;
-        FinishPending = false;
+        PendingEnd = VoiceEnd.None;
         Source.Start(source, channel, streamGeneration, startFrame, loop, loopStart, loopEnd, parameters.Pitch);
         Smoother.Reset(parameters, positional);
-        Status = VoiceStatus.Playing;
         Volatile.Write(ref Position, startFrame);
+        if (startPaused)
+        {
+            Status = VoiceStatus.Paused;
+            Player.Pause();
+            return;
+        }
+
+        Status = VoiceStatus.Playing;
         Player.Play();
+    }
+
+    /// <summary>A streamed voice seeks: read a new stream generation from <paramref name="startFrame"/>. Ignored when idle.</summary>
+    public void RestartStream(int streamGeneration, double startFrame)
+    {
+        if (Status is VoiceStatus.Idle or VoiceStatus.Stopping)
+            return;
+        Source.RestartStream(streamGeneration, startFrame);
+        Volatile.Write(ref Position, startFrame);
     }
 
     public void SetParams(in VoiceParams parameters)
@@ -147,8 +166,9 @@ internal sealed class AudioVoice : IDisposable
 
         if (Status == VoiceStatus.Playing && Source.Ended)
         {
+            var failed = Source.Failed;
             Halt();
-            return VoiceEnd.Finished;
+            return failed ? VoiceEnd.Failed : VoiceEnd.Finished;
         }
 
         return VoiceEnd.None;
@@ -162,6 +182,8 @@ internal enum VoiceEnd : byte
     None,
     Finished,
     Stopped,
+    /// <summary>A streamed file failed to open or decode.</summary>
+    Failed,
 }
 
 /// <summary>Per-voice mix parameters the game thread computes each frame (gain already includes attenuation).</summary>
@@ -212,10 +234,21 @@ internal sealed class VoiceSource : ISoundDataProvider
         _deviceRate = deviceRate;
     }
 
-    public float TargetPitch { get; set; } = 1f;
+    private float _targetPitch = 1f;
+    private long _limit; // stream: absolute ring position this block may read up to
 
-    /// <summary>True once a non-looping source has played out.</summary>
+    /// <summary>Playback-rate multiplier (pitch × doppler); NaN or non-positive values become 1, the rest is clamped.</summary>
+    public float TargetPitch
+    {
+        get => _targetPitch;
+        set => _targetPitch = SanitizePitch(value);
+    }
+
+    /// <summary>True once a non-looping source has played out (or its stream failed).</summary>
     public bool Ended { get; private set; }
+
+    /// <summary>True when the stream ended because its file could not be decoded (no <c>Finished</c>).</summary>
+    public bool Failed { get; private set; }
 
     /// <summary>Stream reads that found the ring empty (decoder not keeping up).</summary>
     public int Underruns { get; private set; }
@@ -253,15 +286,27 @@ internal sealed class VoiceSource : ISoundDataProvider
         _loopEnd = loopEnd > _loopStart && loopEnd <= length ? loopEnd : length;
         _loopEndOrLength = _loopEnd;
         _rateRatio = (double)source.SampleRate / _deviceRate;
-        _pitch = TargetPitch = pitch;
-        _position = Math.Max(0, startFrame);
-        _streamStart = (long)Math.Max(0, startFrame);
+        TargetPitch = pitch;
+        _pitch = TargetPitch;
+        _position = double.IsFinite(startFrame) ? Math.Max(0, startFrame) : 0;
+        RestartStream(streamGeneration, _position);
+    }
+
+    /// <summary>Stream sources: start reading a new stream generation (a seek) without touching the clip state.</summary>
+    public void RestartStream(int streamGeneration, double startFrame)
+    {
+        _streamGeneration = streamGeneration;
+        _streamChannels = 0;
+        _streamStart = double.IsFinite(startFrame) ? (long)Math.Max(0, startFrame) : 0;
         _streamFrames = 0;
         _fraction = 0;
         _primed = false;
         _s0L = _s0R = _s1L = _s1R = 0;
         Ended = false;
+        Failed = false;
     }
+
+    private static float SanitizePitch(float pitch) => float.IsNaN(pitch) || pitch <= 0f ? 1f : Math.Clamp(pitch, 0.01f, 16f);
 
     public void Release()
     {
@@ -269,6 +314,7 @@ internal sealed class VoiceSource : ISoundDataProvider
         _clip = null;
         _channel = null;
         Ended = false;
+        Failed = false;
     }
 
     public void SeekMemory(double frame)
@@ -374,10 +420,16 @@ internal sealed class VoiceSource : ISoundDataProvider
                 return 0; // the streaming thread has not opened the file yet: silence, hold position
         }
 
+        // Snapshot the producer's state once per block: "finished" first, then how far this generation's samples go
+        // (never into a newer generation's samples).
+        _producerDone = channel.EndGeneration == _streamGeneration;
+        _producerFailed = channel.ErrorGeneration == _streamGeneration;
+        _limit = channel.ReadLimit(_streamGeneration);
+
         if (!_primed)
         {
             // Load the first two frames so interpolation has both ends.
-            if (channel.ReadableSamples < 2 * _streamChannels)
+            if (channel.Readable(_limit) < 2 * _streamChannels)
                 return CheckStreamEnd(channel, 0, countUnderrun: false); // first samples not decoded yet
             TryReadFrame(channel, out _s0L, out _s0R);
             TryReadFrame(channel, out _s1L, out _s1R);
@@ -420,17 +472,26 @@ internal sealed class VoiceSource : ISoundDataProvider
     private int CheckStreamEnd(AudioStreamChannel channel, int written, bool countUnderrun)
     {
         var needed = _primed ? _streamChannels : 2 * _streamChannels;
-        if (channel.EndGeneration == _streamGeneration && channel.ReadableSamples < needed)
+        if (_producerDone && channel.Readable(_limit) < needed)
+        {
             Ended = true;
+            Failed = _producerFailed;
+        }
         else if (countUnderrun)
+        {
             Underruns++;
+        }
+
         return written;
     }
+
+    private bool _producerDone;
+    private bool _producerFailed;
 
     private bool TryReadFrame(AudioStreamChannel channel, out float left, out float right)
     {
         var channels = _streamChannels;
-        if (channel.ReadableSamples < channels)
+        if (channel.Readable(_limit) < channels)
         {
             left = right = 0;
             return false;

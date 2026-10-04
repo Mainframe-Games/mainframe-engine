@@ -139,9 +139,9 @@ public class AudioStream : Resource
             _source = mode == AudioLoadMode.Stream ? AudioStreamSource.Probe(path) : AudioClipCache.GetOrDecode(path);
             LoadError = null;
         }
-        catch (Exception e) when (e is IOException or InvalidDataException or NotSupportedException or UnauthorizedAccessException)
+        catch (Exception e) when (e is not OutOfMemoryException)
         {
-            Fail(e.Message);
+            Fail(e.Message); // a corrupt file must never take the game down: the stream just stays silent
         }
 
         return _source;

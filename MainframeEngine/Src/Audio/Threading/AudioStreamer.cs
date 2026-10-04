@@ -63,7 +63,25 @@ internal sealed class AudioStreamer : IDisposable
 
             var busy = false;
             foreach (var channel in channels)
-                busy |= Service(channel);
+            {
+                try
+                {
+                    busy |= Service(channel);
+                }
+                catch (Exception e) when (e is not OutOfMemoryException)
+                {
+                    // Any decoder or I/O failure ends only that voice's stream (as an error, without Finished).
+                    Interlocked.Increment(ref _errors);
+                    Log.Error($"[Audio] Streaming failed: {e.Message}");
+                    if (_producers.TryGetValue(channel, out var failed))
+                    {
+                        failed.Decoder?.Dispose();
+                        failed.Decoder = null;
+                        failed.Finished = true;
+                        channel.FailGeneration(failed.Generation);
+                    }
+                }
+            }
             CloseRemoved(channels);
 
             if (!busy)
@@ -142,12 +160,14 @@ internal sealed class AudioStreamer : IDisposable
                 producer.Frame = 0;
             channel.BeginGeneration(request.Generation, decoder.Channels);
         }
-        catch (Exception e) when (e is IOException or InvalidDataException or NotSupportedException or UnauthorizedAccessException)
+        catch (Exception e) when (e is not OutOfMemoryException)
         {
             Interlocked.Increment(ref _errors);
             Log.Error($"[Audio] Streaming '{source.Path}' failed: {e.Message}");
+            producer.Decoder?.Dispose();
+            producer.Decoder = null;
             channel.BeginGeneration(request.Generation, 1);
-            channel.EndOfGeneration(request.Generation);
+            channel.FailGeneration(request.Generation);
             producer.Finished = true;
         }
     }
@@ -169,13 +189,12 @@ internal sealed class AudioStreamer : IDisposable
         {
             read = frames > 0 ? decoder.Read(_scratch.AsSpan(0, frames * channels)) / channels : 0;
         }
-        catch (Exception e) when (e is IOException or InvalidDataException or NotSupportedException or ObjectDisposedException)
+        catch (Exception e) when (e is not OutOfMemoryException)
         {
             Interlocked.Increment(ref _errors);
             Log.Error($"[Audio] Decoding '{request.Source?.Path}' failed: {e.Message}");
-            read = 0;
             producer.Finished = true;
-            channel.EndOfGeneration(producer.Generation);
+            channel.FailGeneration(producer.Generation);
             return false;
         }
 
@@ -200,10 +219,13 @@ internal sealed class AudioStreamer : IDisposable
                     return true;
                 }
             }
-            catch (Exception e) when (e is IOException or InvalidDataException or NotSupportedException or ObjectDisposedException)
+            catch (Exception e) when (e is not OutOfMemoryException)
             {
                 Interlocked.Increment(ref _errors);
                 Log.Error($"[Audio] Looping '{request.Source?.Path}' failed: {e.Message}");
+                producer.Finished = true;
+                channel.FailGeneration(producer.Generation);
+                return false;
             }
         }
 
@@ -217,7 +239,11 @@ internal sealed class AudioStreamer : IDisposable
         _stop = true;
         _wake.Set();
         if (_thread is { } thread && !thread.Join(TimeSpan.FromSeconds(2)))
+        {
             Log.Warning("[Audio] Streaming thread did not stop within 2 s.");
+            return; // it may still wait on _wake: leave it to the finalizer rather than dispose it under the thread
+        }
+
         _thread = null;
         _wake.Dispose();
     }

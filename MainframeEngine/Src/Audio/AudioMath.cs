@@ -145,13 +145,14 @@ public static class AudioMath
     {
         var toEmitter = emitterPosition - listenerPosition;
         var length = toEmitter.Length();
-        if (length < 1e-5f || speedOfSound <= 0f || scale <= 0f)
+        if (!(length >= 1e-5f) || !float.IsFinite(length) || !(speedOfSound > 0f) || !(scale > 0f))
             return 1f;
         var dir = toEmitter / length;
         var c = speedOfSound;
         var listenerTowards = Math.Clamp(Vector3.Dot(listenerVelocity, dir) * scale, -0.5f * c, 0.5f * c);
         var emitterTowards = Math.Clamp(Vector3.Dot(emitterVelocity, -dir) * scale, -0.5f * c, 0.5f * c);
-        return Math.Clamp((c + listenerTowards) / (c - emitterTowards), 0.5f, 2f);
+        var factor = (c + listenerTowards) / (c - emitterTowards);
+        return float.IsFinite(factor) ? Math.Clamp(factor, 0.5f, 2f) : 1f; // NaN/∞ velocities: no shift
     }
 
     /// <summary>One-pole low-pass coefficient for <paramref name="cutoffHz"/> (1 = filter open).</summary>

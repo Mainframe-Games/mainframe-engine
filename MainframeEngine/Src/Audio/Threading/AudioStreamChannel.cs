@@ -34,12 +34,16 @@ internal sealed class AudioStreamChannel
     private long _requestLoopStart;
     private long _requestLoopEnd;
 
-    // Producer state (streaming thread).
+    // Producer state (streaming thread). The generation record is written under _generationSeq.
     private long _writePos;
+    private int _generationSeq;
     private int _activeGeneration;
     private long _generationStart;
     private int _generationChannels;
+    private int _closedGeneration;
+    private long _closedEnd;
     private int _endGeneration;
+    private int _errorGeneration;
 
     // Consumer state (audio thread).
     private long _readPos;
@@ -99,28 +103,40 @@ internal sealed class AudioStreamChannel
         return Volatile.Read(ref _requestSeq) == before;
     }
 
-    /// <summary>The generation whose samples are in the ring.</summary>
+    /// <summary>The generation whose samples are being written.</summary>
     public int ActiveGeneration => Volatile.Read(ref _activeGeneration);
-
-    /// <summary>Sample position where <see cref="ActiveGeneration"/>'s data begins.</summary>
-    public long GenerationStart => Volatile.Read(ref _generationStart);
-
-    /// <summary>Channels of <see cref="ActiveGeneration"/>'s samples.</summary>
-    public int GenerationChannels => Volatile.Read(ref _generationChannels);
 
     /// <summary>Set to a generation once its samples have all been written (non-looping end or error).</summary>
     public int EndGeneration => Volatile.Read(ref _endGeneration);
 
-    /// <summary>Streaming thread: starts writing <paramref name="generation"/> (publishes it to the consumer).</summary>
+    /// <summary>Set to a generation whose file could not be opened or decoded (its voice ends without <c>Finished</c>).</summary>
+    public int ErrorGeneration => Volatile.Read(ref _errorGeneration);
+
+    /// <summary>
+    /// Streaming thread: starts writing <paramref name="generation"/>. The previous generation is closed first at the
+    /// current write position, so a consumer still reading it never runs into the new generation's samples. The
+    /// generation record (active, start, channels, closed, closed end) is published under a sequence lock.
+    /// </summary>
     public void BeginGeneration(int generation, int channels)
     {
-        Volatile.Write(ref _generationStart, _writePos);
-        Volatile.Write(ref _generationChannels, channels);
-        Volatile.Write(ref _activeGeneration, generation);
+        Interlocked.Increment(ref _generationSeq); // odd: writing
+        _closedGeneration = _activeGeneration;
+        _closedEnd = _writePos;
+        _generationStart = _writePos;
+        _generationChannels = channels;
+        _activeGeneration = generation;
+        Interlocked.Increment(ref _generationSeq); // even: published
     }
 
-    /// <summary>Streaming thread: marks <paramref name="generation"/> complete.</summary>
+    /// <summary>Streaming thread: marks <paramref name="generation"/> complete (all its samples are written).</summary>
     public void EndOfGeneration(int generation) => Volatile.Write(ref _endGeneration, generation);
+
+    /// <summary>Streaming thread: marks <paramref name="generation"/> failed, then complete.</summary>
+    public void FailGeneration(int generation)
+    {
+        Volatile.Write(ref _errorGeneration, generation);
+        EndOfGeneration(generation);
+    }
 
     /// <summary>Streaming thread: samples that can be written without overwriting unread data.</summary>
     public int WritableSamples => RingSamples - (int)(_writePos - Volatile.Read(ref _readPos));
@@ -141,22 +157,52 @@ internal sealed class AudioStreamChannel
 
     /// <summary>
     /// Audio thread: once <paramref name="generation"/> is the active one, moves the read position to its first
-    /// sample and returns its channel count; 0 while the producer has not started it yet.
+    /// sample and returns its channel count; 0 while the producer has not started it yet (or moved past it).
     /// </summary>
     public int TrySync(int generation)
     {
-        if (ActiveGeneration != generation)
+        var before = Volatile.Read(ref _generationSeq);
+        if ((before & 1) != 0)
+            return 0; // being written: retry next block
+        var active = _activeGeneration;
+        var start = _generationStart;
+        var channels = _generationChannels;
+        Interlocked.MemoryBarrier();
+        if (Volatile.Read(ref _generationSeq) != before || active != generation)
             return 0;
-        var start = GenerationStart;
-        var channels = GenerationChannels;
-        if (ActiveGeneration != generation)
-            return 0; // the producer moved on while we read; retry next block
         Volatile.Write(ref _readPos, start);
         return Math.Max(channels, 1);
     }
 
-    /// <summary>Audio thread: samples available to read.</summary>
-    public int ReadableSamples => (int)(Volatile.Read(ref _writePos) - _readPos);
+    /// <summary>
+    /// Audio thread: the absolute sample position the consumer of <paramref name="generation"/> may read up to — the
+    /// write position while it is the active generation, its closing position once the producer has moved on (never
+    /// into the next generation's samples), else the read position (nothing to read). Taken once per block.
+    /// </summary>
+    public long ReadLimit(int generation)
+    {
+        var before = Volatile.Read(ref _generationSeq);
+        if ((before & 1) == 0)
+        {
+            var active = _activeGeneration;
+            var closed = _closedGeneration;
+            var closedEnd = _closedEnd;
+            var write = Volatile.Read(ref _writePos);
+            Interlocked.MemoryBarrier();
+            if (Volatile.Read(ref _generationSeq) == before)
+            {
+                if (active == generation)
+                    return write;
+                if (closed == generation)
+                    return Math.Max(closedEnd, _readPos);
+            }
+        }
+
+        return _readPos; // unknown or mid-switch: read nothing this block
+    }
+
+    /// <summary>Audio thread: samples available before <paramref name="limit"/> (from <see cref="ReadLimit"/>).</summary>
+    public int Readable(long limit) => (int)Math.Max(0, limit - _readPos);
 
     /// <summary>Audio thread: the sample <paramref name="offset"/> positions past the read position.</summary>
     public float Peek(int offset) => _ring[(_readPos + offset) & RingMask];
@@ -174,7 +220,7 @@ internal sealed class AudioStreamChannel
             return 0;
         if (EndGeneration == generation)
             return -1;
-        return Volatile.Read(ref _writePos) - Math.Max(Volatile.Read(ref _readPos), GenerationStart);
+        return Volatile.Read(ref _writePos) - Math.Max(Volatile.Read(ref _readPos), Volatile.Read(ref _generationStart));
     }
 
     internal readonly record struct StreamRequest(

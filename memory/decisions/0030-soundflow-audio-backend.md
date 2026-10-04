@@ -30,6 +30,10 @@ the version was fixed at 1.4.1. Its API and internals were verified from the pac
     resamples, loops, retargets on each play).
   - `ActiveBackend` casts miniaudio's native `ma_backend` value to SoundFlow's enum, which is offset by one (Core
     Audio shows as `WinMm`): the engine names backends by native value.
+  - `AlgorithmicReverbModifier` reallocates its comb buffers (and drops the tail) every time its LFO-modulated delay
+    crosses an integer, i.e. continually on the audio thread: bus reverb uses the engine's own allocation-free
+    Freeverb (`ReverbProcessor`) instead. Low-pass, high-pass and compressor modifiers are used as is (checked
+    allocation-free in a test that mixes a bus carrying every effect).
   - Graph edits take locks inside SoundFlow; the engine builds whole graphs on the game thread and swaps them in
     through its command queue instead of editing a live graph (ADR 0033).
 
