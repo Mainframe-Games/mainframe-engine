@@ -14,7 +14,7 @@
     position: absolute;
     right: 12dp;
     top: 12dp;
-    width: 340dp;
+    width: 380dp;
     pointer-events: auto;
 }
 

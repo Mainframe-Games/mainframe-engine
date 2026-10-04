@@ -5,7 +5,7 @@ namespace MainframeEngine.Sandbox;
 /// <summary>
 /// The Sandbox's RmlUi HUD (<c>Content/UI/hud.rml</c>): frame stats, and scene settings wired two-way to live state —
 /// exposure, the box's spin speed, max FPS, the sun and coloured lights, VSync — plus buttons for the widget demo,
-/// the ImGui dev overlay and quitting. Replaces the stats/settings part of the old ImGui window (the ImGui windows
+/// the ImGui dev overlay, the engine credits and quitting. Replaces the stats/settings part of the old ImGui window (the ImGui windows
 /// remain as the F12 developer overlay).
 /// </summary>
 public sealed class SandboxHud : UiDocument
@@ -26,6 +26,9 @@ public sealed class SandboxHud : UiDocument
 
     /// <summary>The widget demo document toggled by the "Widgets" button (optional).</summary>
     public UiDocument? WidgetDemo { get; set; }
+
+    /// <summary>The engine credits document toggled by the "Credits" button (optional; FreeType's licence asks for it).</summary>
+    public UiDocument? Credits { get; set; }
 
     public SandboxHud()
     {
@@ -51,7 +54,12 @@ public sealed class SandboxHud : UiDocument
                 if (WidgetDemo is not null)
                     WidgetDemo.Visible = !WidgetDemo.Visible;
             })
-            .Event("toggleOverlay", () => Game.DevOverlayVisible = !Game.DevOverlayVisible);
+            .Event("toggleOverlay", () => Game.DevOverlayVisible = !Game.DevOverlayVisible)
+            .Event("toggleCredits", () =>
+            {
+                if (Credits is not null)
+                    Credits.Visible = !Credits.Visible;
+            });
 
         GetElementById("quit")!.Click += _ => Game.Quit(ExitCode.Ok);
     }

@@ -93,25 +93,43 @@ signal. It logs the device, frame rate, peaks and counters (`[QA] Audio …`) an
 flowchart TD
     P["Program.cs: using var game = new Game(options); game.Run()"] --> L
     subgraph L["OnLoad"]
-        L1["base.OnLoad(): renderer, ImGui, RenderServer, input → tree"] --> L2["clear color, cursor/Escape handlers"]
+        L1["base.OnLoad(): renderer, ImGui, RenderServer, UiServer, input → tree"] --> L2["clear color, cursor/Escape handlers"]
         L2 --> L3["Tree.ChangeSceneToFile(Sandbox.mscene)"] --> L4["Root.AddChild(Grid3D)"]
+        L4 --> L5["UiLayer Hud (SandboxHud) + UiLayer Menus (widget demo, hidden)"]
     end
     L --> F
     subgraph F["Each frame"]
-        F1["OnImGui: light gizmos, stats window, coord gizmo"] --> F2["OnUpdate: QA capture/scripts"]
-        F2 --> F3["Tree.Tick: FlyCamera / SpinningBox / SpineNode OnProcess, light sync"]
-        F3 --> F4["RenderServer: shadows for every caster → sky → grid → visuals"]
+        F1["OnImGui (F12 overlay only): light gizmos, developer window, coord gizmo"] --> F2["OnUpdate: QA capture/scripts"]
+        F2 --> F3["Tree.Tick: FlyCamera / SpinningBox / SpineNode / SandboxHud OnProcess, light sync, UiServer"]
+        F3 --> F4["RenderServer: shadows for every caster → sky → grid → visuals → tonemap → HUD"]
     end
     F --> C["OnClose: stop QA timer → base.OnClose() frees the tree and servers"]
     C --> X["Program logs exit code and returns it"]
 ```
 
-## ImGui window ("Game Window")
+## HUD (RmlUi)
 
-Shows frame count, delta time, FPS and ms, plus a VSync checkbox, a fullscreen checkbox, a Max FPS
-combo (Unlimited/30/60/120/144/240), the active camera's position and forward vector, the number of
-nodes in the tree, and the audio bus mixer (`AudioImGui.DrawMixer`: output device, voice/steal/underrun counters,
-and a volume slider, mute, solo and peak meter per bus).
+`Content/UI/hud.rml` + `hud.rcss` on the engine's widget library, driven by
+[`SandboxHud`](../../MainframeEngine.Sandbox/Src/Nodes/SandboxHud.cs) (a `UiDocument` in the `Hud` layer):
+
+- **Stats** (top left): FPS, ms, frame, UI draw calls (refreshed four times a second; the frame every frame).
+- **Scene** panel (top right), bound two-way: exposure slider (`IVulkanContext.Exposure`), spin-speed slider (the
+  `Box`), Max FPS dropdown (Unlimited/30/60/120/144/240), Sun and Coloured lights checkboxes (energy to 0 and back),
+  VSync; buttons **Widgets** (shows the widget-library demo window in the `Menus` layer), **Dev overlay** (ImGui),
+  **Credits** (the engine's `Content/UI/credits.rml`, with the FreeType credit its licence requires) and **Quit**.
+- **Hints** along the bottom.
+
+Right-drag look and Escape ignore presses on the HUD (`UiServer.IsPointerOverUi`, `TextInputActive`). Debug builds load
+the HUD from the project's `Content/` folder and hot-reload it on save. See [Game UI](game-ui.md).
+
+## Developer overlay (ImGui, F12)
+
+Hidden by default (`EngineOptions.DevOverlayVisible = false` in the Sandbox); F12 toggles it. The "Developer" window
+has delta time, a fullscreen checkbox, the UI debugger toggle (also F8), the active camera's position and forward
+vector, the node count, the physics section (collision-shape toggle, body/awake counts), the network demo's panel
+(with `--server`/`--client`) and the audio bus mixer (`AudioImGui.DrawMixer`: output device, voice/steal/underrun
+counters, and a volume slider, mute, solo and peak meter per bus); the light and axis gizmos and the Renderer window
+(exposure, mesh draw stats, GPU memory, uploads, pipeline cache) draw with it.
 
 Controls are listed in [Cameras & input](cameras-and-input.md#sandbox-controls).
 

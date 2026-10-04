@@ -31,7 +31,7 @@ Where the engine is heading:
 | Scene model | Godot-style nodes: `SceneTree`, lifecycle callbacks, signals, groups, `.mscene` scene files | [Scene graph & nodes](docs/design/scene-graph-and-nodes.md), [Scene serialization](docs/design/scene-serialization.md) |
 | Physics (M6 ✅) | [Jitter2](https://github.com/notgiven688/jitterphysics2) for 3D, [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3) for 2D: Godot-style bodies, areas, `MoveAndSlide`, queries | [Physics](docs/design/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) 1.4.1 + [NVorbis](https://github.com/NVorbis/NVorbis) (M7 ✅): `AudioServer`, bus mixer, 2D/3D audio nodes, streaming | [Audio](docs/design/audio.md) |
-| Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (HTML/CSS-style documents) | [Game UI](docs/design/future/game-ui.md) |
+| Game UI | [RmlUi](https://github.com/mikke89/RmlUi) 6.3, engine-owned binding, Vulkan renderer (M8 ✅) | [Game UI](docs/design/game-ui.md) |
 | Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | [Localization](docs/design/future/localization.md) |
 | Editor | `MainframeEngine.Editor`, a separate project whose UI is built with the same RmlUi stack as games | [Editor](docs/design/future/editor.md) |
 | Rendering backend | Backend-neutral GPU API, then WebGPU | [Backend abstraction](docs/design/future/rendering-backend-abstraction.md) |
@@ -301,7 +301,7 @@ when `EngineOptions.SteamAppId` is set; every wrapper is a no-op without Steam. 
 | Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) 2.9.0 | M6 ✅ | [Physics](docs/design/physics.md) |
 | Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) 3.1.654 (Box2D v3 port; replaces box2d-netstandard, which is unmaintained) | M6 ✅ | [Physics](docs/design/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) 1.4.1 + [NVorbis](https://github.com/NVorbis/NVorbis) 0.10.5 for OGG | M7 ✅ | [Audio](docs/design/audio.md) |
-| Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (engine-owned C# binding) | M8 | [Game UI](docs/design/future/game-ui.md) |
+| Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (engine-owned C# binding) | M8 ✅ | [Game UI](docs/design/game-ui.md) |
 | Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | M9 | [Localization](docs/design/future/localization.md) |
 
 ---

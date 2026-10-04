@@ -4,7 +4,8 @@ Mainframe Engine is MIT licensed (see [LICENSE](LICENSE)). It includes, or links
 software listed below.
 
 - Keep these notices with any distribution of the engine, the editor, or a game built with it.
-- Credits screens must show the FreeType credit, because the FreeType License has an advertising clause.
+- Credits screens must show the FreeType credit, because the FreeType License has an advertising clause. The engine
+  ships a ready-made credits document, `Content/UI/credits.rml` (the Sandbox's **Credits** button shows it).
 
 | Component | Version | Licence | Where | Shipped in |
 |---|---|---|---|---|
@@ -13,6 +14,8 @@ software listed below.
 | [RmlUi](https://github.com/mikke89/RmlUi) | 6.3 | MIT | `Native/RmlUi/external/RmlUi` (submodule) | `mfrmlui` native library (static) |
 | robin_hood, itlib (bundled in RmlUi Core) | — | MIT | inside RmlUi | `mfrmlui` native library (static) |
 | Courier Prime Code font (embedded in the RmlUi Debugger) | — | SIL OFL 1.1 | inside RmlUi | `mfrmlui` native library (static) |
+| [Lato](http://www.latofonts.com/) (Latin subset: regular, bold, italic) | 2.0 | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
+| [Roboto Mono](https://github.com/googlefonts/robotomono) (regular) | — | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
 | [ENet (nxrighthere fork)](https://github.com/nxrighthere/ENet-CSharp) | 2.4.8 | MIT | `Native/ENet/upstream` (submodule) | `enet` native library; managed `ENet-CSharp` NuGet package |
 | [Spine Runtimes (spine-csharp)](https://github.com/EsotericSoftware/spine-runtimes) | — | Spine Runtimes License | `Plugins/Spine` (submodule) | engine assemblies |
 | [RmlUi.Net](https://github.com/PourrezJ/RmlUi.Net) (design reference only, no code copied) | — | MIT | — | nothing (see `Native/RmlUi/shim/NOTICE.md`) |
@@ -248,6 +251,17 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
+
+## UI fonts (Lato, Roboto Mono)
+
+The game UI's bundled fonts are licensed under the SIL Open Font License 1.1; the full licence texts ship next to the
+fonts, in `MainframeEngine/Content/UI/fonts/OFL-Lato.txt` and `OFL-RobotoMono.txt`.
+
+- Lato: Copyright (c) 2010-2015, Łukasz Dziedzic (dziedzic@typoland.com), with Reserved Font Name Lato.
+- Roboto Mono: Copyright 2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono).
+
+The OFL allows bundling and redistribution with software; the fonts may not be sold on their own, and modified
+versions may not use the reserved font names.
 
 ## ENet
 

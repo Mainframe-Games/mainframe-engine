@@ -99,6 +99,12 @@ table, so the 2D suites share the non-parallel `SerialBox2D` collection.
 | `PhysicsAllocationTests`, `Physics2DAllocationTests` | **0 bytes** per steady-state frame with ~500 bodies, monitors, areas, characters, debug draw and every query (3D single- and multi-threaded); 2D: 0 bytes beyond Box2D.NET's own step allocations |
 | `DebugDrawTests`, `FixedStepHookTests` | `DebugLines` primitives and cap, server debug draw; `BeforeFixedSteps`/`AfterFixedSteps` order and pause |
 
+The game UI (M8) has its own suites under [`UI/`](../../Tests/MainframeEngine.Tests/UI/), in the serial
+`SerialRmlUi` collection because RmlUi is process-global: `RmlBindingTests` (the managed binding against the real
+`mfrmlui`), `UiServerTests` (headless `UiServer` with `NullUiRenderer`: documents, layers, input routing, hot reload,
+0 B per HUD frame) and `UiHelperTests` (input maps, reload batching, premultiplication, blur parameters, paths). See
+[Game UI → testing](game-ui.md#testing).
+
 ## Render tests
 
 ```mermaid
@@ -127,18 +133,21 @@ sequenceDiagram
   point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
   `spine` (adds SpineBoy, content linked from the Sandbox), `spine-no-shadows` (Spine and shapes with
   no `ShadowSystem`: the fallback shadow set), `sandbox` (adds the Sandbox's ImGui windows — including
-  `RendererDebugWindow` — gizmos and the audio bus mixer, a streamed ambience and an orbiting doppler voice, and
-  self-checks that both play, plus a stack of physics crates on single-threaded Jitter2; not used for goldens because
-  it shows timings), `color-pipeline` (a solid-colour sRGB panorama fills the frame; ImGui rectangles; exposure
-  changes on frame 8), `physics` (crates and a ball dropped on a floor and ramp; Jitter2's deterministic solver on
-  one thread so frames reproduce), `physics-debug` (the same with collision-shape debug lines, drawn into the HDR
-  scene target with sRGB-authored colours converted to linear), `sky-grid` (only the procedural sky and the grid,
-  camera inside the grid so lines pass beside and behind it), and since M3 `materials` (textured, cutout,
-  normal-mapped, emissive, mirrored and blended primitives), `gltf` (the generated glTF test model imported through
-  Assimp, plus a mirrored instance), `instances` (`--count` boxes, default 1 000, one mesh and material; self-checks
-  the batch statistics) and `picking` (object-ID picks in the main view and a `SubViewport` shown through ImGui;
-  self-checked). The lit and physics scenes use `MeshInstance3D`s with primitive meshes since M3 (the physics crates
-  share one `BoxMesh` and one material). Every host scene runs audio on the silent null device.
+  `RendererDebugWindow` — gizmos, the audio bus mixer and the RmlUi HUD with bindings dirtied every frame, a
+  streamed ambience and an orbiting doppler voice, and self-checks that both play, plus a stack of physics crates on
+  single-threaded Jitter2; not used for goldens because it shows timings), `color-pipeline` (a solid-colour sRGB
+  panorama fills the frame; ImGui rectangles; exposure changes on frame 8), `physics` (crates and a ball dropped on a
+  floor and ramp; Jitter2's deterministic solver on one thread so frames reproduce), `physics-debug` (the same with
+  collision-shape debug lines, drawn into the HDR scene target with sRGB-authored colours converted to linear),
+  `sky-grid` (only the procedural sky and the grid, camera inside the grid so lines pass beside and behind it), since
+  M3 `materials` (textured, cutout, normal-mapped, emissive, mirrored and blended primitives), `gltf` (the generated
+  glTF test model imported through Assimp, plus a mirrored instance), `instances` (`--count` boxes, default 1 000,
+  one mesh and material; self-checks the batch statistics) and `picking` (object-ID picks in the main view and a
+  `SubViewport` shown through ImGui; self-checked), and the game-UI scenes (M8) `ui-hud` (HUD over lit-shapes),
+  `ui-effects`, `ui-text`, `ui-widgets` (documents in the host's `Content/UI/` and the engine's widget demo;
+  `--size` gives them larger windows). The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
+  M3 (the physics crates share one `BoxMesh` and one material per colour). Every host scene runs audio on the silent
+  null device.
 - **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
   `result.json` records it), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (frame
@@ -162,7 +171,10 @@ sequenceDiagram
   `ThousandInstancesBatchIntoAFewDrawsAndMatchGolden`, `ObjectIdPickingAndSubViewportsWork`,
   `TenThousandInstancesAllocateNothingPerFrame` (0 B over 120 frames with 10 000 instances) and
   `TenThousandInstancesRenderAtSixtyFps` (validation off; < 16.7 ms enforced for Release builds). The
-  multi-light test also asserts sub-allocation (≤ 16 `VkDeviceMemory`).
+  multi-light test also asserts sub-allocation (≤ 16 `VkDeviceMemory`). `UiRenderTests`:
+  `HudOverTheSceneMatchesGoldenWithExactSrgbColours`, `ClipMasksTransformsFiltersAndGradientsMatchGolden`,
+  `TextMatchesGolden`, `WidgetLibraryMatchesGolden`, `UiCapturesAreDeterministicAcrossRuns`,
+  `UiSurvivesSwapchainRecreation`.
 - **Comparing drivers at one resolution.** `--size 160x120` on a Retina Mac renders 320×240, the size of
   the lavapipe frames, so MoltenVK and lavapipe output can be diffed pixel for pixel.
 - **Window.** 320×240, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On a
@@ -261,7 +273,9 @@ nodes, camera and model matrices, lights UBO packing, the mesh draw list for 10k
 `TransformPropagationDirtySubtree10k`, `GetNodePathLookup`, `SceneSaveLoadRoundTrip1k`; GPU allocator
 alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurvesAllModels`,
 `SpatialProjection32Emitters`, `ServerFrame32PositionalVoices`, `MixBlock480Frames32Voices`; physics:
-`Step1kRigidBodies3D`, `Step1kRigidBodies2D`, `Raycast10k3D`) and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
+`Step1kRigidBodies3D`, `Step1kRigidBodies2D`, `Raycast10k3D`; the game UI: `Update500Idle`,
+`Update500DirtyBindings`, `Relayout500`, `Render500Callbacks`) and compares with
+[`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. Results also land
 in `artifacts/bench`. Baselines are machine-specific (the file records machine and runtime), so
 compare on the machine that recorded them; refresh with `just bench-baseline` when a change is

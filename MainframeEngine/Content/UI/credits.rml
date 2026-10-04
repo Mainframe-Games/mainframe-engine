@@ -1,0 +1,24 @@
+<rml>
+<head>
+    <title>Credits</title>
+    <link type="text/template" href="widgets/panel.rml"/>
+    <style>
+        body { left: 50%; top: 15%; margin-left: -230dp; width: 460dp; }
+        p { margin-bottom: 8dp; color: #b8c3d9; font-size: 13dp; }
+        h3 { margin-top: 6dp; }
+    </style>
+</head>
+<!--
+  Engine credits (THIRD_PARTY_NOTICES.md). The FreeType License requires the FreeType credit in products that use it;
+  show this document (or copy its text into your own credits screen).
+-->
+<body template="mf-panel" id="engine-credits">
+    <h3>Made with Mainframe Engine</h3>
+    <h3>User interface</h3>
+    <p>RmlUi — Copyright (c) 2019-2026 The RmlUi Team, and contributors (MIT).</p>
+    <p>Portions of this software are copyright © 2026 The FreeType Project (https://freetype.org). All rights reserved.</p>
+    <p>Lato (SIL OFL 1.1) — Copyright (c) 2010-2015 Łukasz Dziedzic. Roboto Mono (SIL OFL 1.1) — Copyright 2015 The Roboto Mono Project Authors.</p>
+    <h3>Other</h3>
+    <p>Spine Runtimes — Esoteric Software. ENet — Lee Salzman, nxrighthere (MIT). Silk.NET, ImGui.NET, StbImageSharp — see THIRD_PARTY_NOTICES.</p>
+</body>
+</rml>

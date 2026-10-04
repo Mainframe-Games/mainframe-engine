@@ -68,10 +68,12 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
         // M8 game UI: the HUD layer, and a menu layer above it with the widget-library demo (hidden until asked for).
         var widgetDemo = new UiDocument { Name = "WidgetDemo", Source = "Content/UI/widgets/demo.rml", Visible = false };
+        var credits = new UiDocument { Name = "Credits", Source = "Content/UI/credits.rml", Visible = false };
         var menus = new UiLayer { Name = "Menus", Layer = 10 };
         menus.AddChild(widgetDemo);
+        menus.AddChild(credits);
         var hud = new UiLayer { Name = "Hud", Layer = 0 };
-        hud.AddChild(new SandboxHud { Name = "SandboxHud", Game = this, WidgetDemo = widgetDemo });
+        hud.AddChild(new SandboxHud { Name = "SandboxHud", Game = this, WidgetDemo = widgetDemo, Credits = credits });
         Root.AddChild(hud);
         Root.AddChild(menus);
 

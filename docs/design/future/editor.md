@@ -3,7 +3,7 @@
 **Milestone:** M10 · **Status:** ⬜ planned · **New project:** `MainframeEngine.Editor` (exe) →
 references `MainframeEngine` · **Depends on:** [Node system](../scene-graph-and-nodes.md),
 [Scene serialization](../scene-serialization.md), [Materials & meshes](../materials-and-meshes.md) (render
-targets), [Game UI (RmlUi)](game-ui.md), [SDL windowing](../build-and-platforms.md#windowing-sdl2)
+targets), [Game UI (RmlUi)](../game-ui.md), [SDL windowing](../build-and-platforms.md#windowing-sdl2)
 
 ## Problem
 
@@ -122,7 +122,7 @@ game crash cannot corrupt the editor.
   `~/.mainframe/editor_layout.json`. Docking and tear-off are later.
 - **Theme:** `editor/theme.rcss`, a dark theme matching the docs palette. Icons are an SVG/PNG atlas.
 - **Data binding:** panels use RmlUi data models, for example `scene_tree` bound to a flattened tree
-  view model and `inspector` bound to a property list. See [Game UI → data binding](game-ui.md#data-binding).
+  view model and `inspector` bound to a property list. See [Game UI → data binding](../game-ui.md#data-binding).
 - **Shared widgets** in `MainframeEngine/Content/UI/widgets/`: `tree-view`, `property-*` editors (number
   with drag, vector3, color picker, enum dropdown, resource slot, node path), `splitter`, `tabs`,
   `context-menu`. These are the same components a game's settings menu can use.
@@ -210,7 +210,7 @@ sequenceDiagram
 |---|---|---|
 | Multiple worlds per process (`World3D` instances) | [Node system](../scene-graph-and-nodes.md#servers-and-render-nodes) | edited scene separate from editor UI |
 | Offscreen render targets + object-ID pass | [Materials & meshes](../materials-and-meshes.md) / RenderServer | viewport and picking |
-| `UiServer` can wrap an engine texture as an RmlUi texture | [Game UI](game-ui.md) | `<viewport>` element |
+| `UiServer` can wrap an engine texture as an RmlUi texture | [Game UI](../game-ui.md) | `<viewport>` element |
 | `ILogSink` on `Log` | `Debugging/Log.cs` | Output panel and debug channel |
 | `GameHost` + `project.mfproj` | core | play mode and shipping games without a subclass |
 | `[Tool]` attribute respected by `SceneTree` in editor mode | Node system | edit-time behaviour |
@@ -249,4 +249,4 @@ sequenceDiagram
 ## Related
 
 [Milestones](../../milestones.md) · [Node system](../scene-graph-and-nodes.md) · [Scene serialization](../scene-serialization.md) ·
-[Game UI](game-ui.md) · [Materials & meshes](../materials-and-meshes.md) · [SDL windowing](../build-and-platforms.md#windowing-sdl2)
+[Game UI](../game-ui.md) · [Materials & meshes](../materials-and-meshes.md) · [SDL windowing](../build-and-platforms.md#windowing-sdl2)

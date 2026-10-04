@@ -184,8 +184,10 @@ until CI artifacts are committed.
 
 > This is the managed lane's job (csproj changes); the native layer only provides the files.
 
-- **`mfrmlui`.** M8 adds `[LibraryImport("mfrmlui")]` and checks `mfrmlui_abi_version()` at start-up. The `runtimes/`
-  files must be packed or copied as RID-specific native assets.
+- **`mfrmlui`.** The managed binding (`MainframeEngine/Src/UI/Rml/`, M8) uses `[LibraryImport("mfrmlui")]` and checks
+  `mfrmlui_abi_version()` when the UI server starts (`RmlCore.EnsureLibrary`: a missing or incompatible library fails
+  with a clear `RmlException`). The `runtimes/` files are copied flat next to the app at build time. See
+  [Game UI](game-ui.md).
 - **`enet`.** The `ENet-CSharp` package ships its own natives:
   - an x86_64-only `runtimes/osx/native/libenet.dylib`, and
   - `build/ENet-CSharp.targets`, which copies `enet.dll`, `enet.dylib` and `libenet.so` next to the app.
@@ -217,4 +219,4 @@ The RmlUi.Net attribution is in [`Native/RmlUi/shim/NOTICE.md`](../../Native/Rml
 ## Related
 
 [Build & platforms](build-and-platforms.md) · [Networking](networking.md) ·
-[Game UI (RmlUi)](future/game-ui.md) · [Networking](networking.md)
+[Game UI (RmlUi)](game-ui.md) · [Networking](networking.md)

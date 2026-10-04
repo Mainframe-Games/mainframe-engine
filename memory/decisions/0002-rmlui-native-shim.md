@@ -3,7 +3,7 @@
 - **Date:** 2026-10-05
 - **Status:** accepted
 - **Milestone:** M8 native layer (W2 lane C)
-- **Spec:** docs/design/future/game-ui.md
+- **Spec:** docs/design/game-ui.md (was future/game-ui.md)
 
 ## Context
 

@@ -34,7 +34,7 @@ flowchart LR
 | [M5](#m5--multiplayer-) | Message protocol, replication, Steam | ✅ |
 | [M6](#m6--physics-) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ✅ |
 | [M7](#m7--audio-) | SoundFlow audio nodes, buses, 3D panning | ✅ |
-| [M8](#m8--game-ui-rmlui) | RmlUi HTML/CSS game UI (also the editor's UI) | ⬜ |
+| [M8](#m8--game-ui-rmlui-) | RmlUi HTML/CSS game UI (also the editor's UI) | ✅ |
 | [M9](#m9--localization) | GetText.NET translations for code, UI and scenes | ⬜ |
 | [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu) | Backend-neutral render API, WebGPU | ⬜ |
@@ -194,19 +194,24 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | Voice pool, polyphony, stealing, pause handling | ✅ | [Audio](design/audio.md#voices) |
 | Editor preview, range gizmos, Audio bus panel | ⬜ (M10) | [Editor](design/future/editor.md) |
 
-## M8 — Game UI (RmlUi)
+## M8 — Game UI (RmlUi) ✅
 
 HTML/CSS-style UI using **RmlUi 6.3**, through an engine-owned native binding and a Vulkan render
-interface on the engine's device. This same stack is the editor's UI.
+interface on the engine's device. This same stack is the editor's UI. Documents render into an offscreen
+premultiplied sRGB layer composited after the tonemap (below ImGui), with clip masks, layers, filters and
+gradients; the UI sees input before the scene tree.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| Native C ABI shim (RmlUi 6.3 + FreeType) and CI builds per platform | ⬜ | [Game UI](design/future/game-ui.md#projects-and-natives) |
-| `VulkanUiRenderer` v1 (basic render interface) | ⬜ | [Game UI](design/future/game-ui.md#render-interface-vulkan) |
-| `UiServer`, `UiLayer`, `UiDocument`, data binding, element events | ⬜ | [Game UI](design/future/game-ui.md#contexts-layers-and-documents) |
-| Input routing, IME, clipboard, gamepad navigation | ⬜ | [Game UI](design/future/game-ui.md#input-routing) |
-| Hot reload, debugger, shared widget library | ⬜ | [Game UI](design/future/game-ui.md#development-tools) |
-| v2: UI pass with stencil clip masks, layers and filters | ⬜ | [Game UI](design/future/game-ui.md#where-ui-renders-in-the-frame) |
+| Native C ABI shim (RmlUi 6.3 + FreeType) and CI builds per platform | ✅ | [Native libraries](design/natives.md) |
+| Managed binding: `LibraryImport`, SafeHandles, `[UnmanagedCallersOnly]` callbacks, ABI check | ✅ | [Game UI](design/game-ui.md#managed-binding-mainframeengineuirml) |
+| `VulkanUiRenderer`: geometry arena, textures (`engine://`), scissor, transforms | ✅ | [Game UI](design/game-ui.md#rendering-vulkanuirenderer) |
+| Clip masks (stencil), layers, filters, gradients | ✅ | [Game UI](design/game-ui.md#rendering-vulkanuirenderer) |
+| `UiServer`, `UiLayer`, `UiDocument`, data binding, element events | ✅ | [Game UI](design/game-ui.md#uiserver-uilayer-uidocument) |
+| Input routing, IME placement, clipboard, gamepad navigation | ✅ | [Game UI](design/game-ui.md#input-routing) |
+| Hot reload, debugger (F8), shared widget library, bundled fonts | ✅ | [Game UI](design/game-ui.md#development-tools) |
+| Sandbox HUD; ImGui as the F12 developer overlay | ✅ | [Game UI](design/game-ui.md#sandbox), [Sandbox](design/sandbox.md) |
+| Inline IME composition (shim ABI 1.1 `TextInputContext`) | ⬜ | [Game UI](design/game-ui.md#known-issues) |
 
 ## M9 — Localization
 

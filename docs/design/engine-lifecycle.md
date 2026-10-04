@@ -12,7 +12,7 @@ or updates by hand.
 | Type | File | Notes |
 |---|---|---|
 | `Engine` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `public abstract class Engine : IDisposable`; `Tree` (`SceneTree`), `Root`, `Servers` |
-| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `Physics3D`/`Physics2D` (physics settings; `Physics2D.PixelsPerMeter = 100`), `DebugCollisionShapes`, `SteamAppId` (0 = no Steam), `Audio` (`AudioOptions`: `Enabled = true`, `Device = Auto`, 48 kHz, 10 ms, `BusLayoutPath`) |
+| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `Physics3D`/`Physics2D` (physics settings; `Physics2D.PixelsPerMeter = 100`), `DebugCollisionShapes`, `SteamAppId` (0 = no Steam), `Audio` (`AudioOptions`: `Enabled = true`, `Device = Auto`, 48 kHz, 10 ms, `BusLayoutPath`), `EnableUi = true` (registers the `UiServer`, M8), `Ui` (`UiServerOptions`), `DevOverlayVisible = true` (ImGui; F12 toggles `Engine.DevOverlayVisible`) |
 | `FrameCapture` | [FrameCapture.cs](../../MainframeEngine/Src/Rendering/FrameCapture.cs) | RGBA8 pixels of a rendered frame, `SavePng(path)` |
 | `GameTime` | [GameTime.cs](../../MainframeEngine/Src/Core/GameTime.cs) | `FrameCount`, `DeltaTime`, `FramesPerSecond`, `FramesTimeMs` |
 | `FPSCounter` | [FPSCounter.cs](../../MainframeEngine/Src/Core/FPSCounter.cs) | 500 ms sampling window |
@@ -95,9 +95,9 @@ sequenceDiagram
     W->>E: Update(delta)
     E->>E: FPSCounter.Update(), fill GameTime
     E->>I: Update(delta) → ImGui.NewFrame()
-    E->>G: OnImGui(gameTime)
+    E->>G: OnImGui(gameTime) — only while DevOverlayVisible (F12)
     E->>G: OnUpdate(gameTime)
-    E->>E: Tree.Tick(gameTime) — physics steps, OnProcess, deferred/QueueFree, transform sync, frame servers
+    E->>E: Tree.Tick(gameTime) — physics steps, OnProcess, deferred/QueueFree, transform sync, frame servers (UiServer: UI update + render into its command list)
 
     W->>E: Render(delta)
     alt minimised (WindowState or 0×0 drawable)
@@ -111,7 +111,7 @@ sequenceDiagram
             E->>R: BeginRenderPass() — HDR scene target: clear color (linear) + depth
             E->>R: RenderServer.RenderMain(Root) — set 0 (camera + lights), sky, then the tree's visuals
             E->>G: OnRenderMainPass(gameTime) — anything drawn by hand
-            E->>I: Render() — BeginOverlayPass (tonemap into the swapchain), then ImGui
+            E->>I: Render() — BeginOverlayPass (UI layers offscreen, tonemap into the swapchain, UI composite), then ImGui (DiscardFrame when the overlay is hidden; EndFrame then runs BeginOverlayPass)
         else swapchain out of date / being rebuilt
             E->>I: DiscardFrame()
         end

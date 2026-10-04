@@ -234,8 +234,10 @@ area.Connect("BodyEntered", player, nameof(Player.OnHit), ConnectFlags.Persist);
 `InputEventMouseWheel`, `InputEventGamepadButton` and `InputEventGamepadAxis` and calls
 `SceneTree.PushInput`: `OnInput` in reverse tree order (children before parents), then `OnUnhandledInput`,
 stopping once a node calls `GetViewport().SetInputAsHandled()`. Nodes that cannot process (pause) are
-skipped. One event instance per type is reused (allocation-free): `Clone()` an event to keep it. The
-UI server will get events first in M8; ImGui does not consume them.
+skipped. One event instance per type is reused (allocation-free): `Clone()` an event to keep it.
+Before any node, `PushInput` offers the event to every `IInputServer` (M8: the `UiServer`); an event the
+game UI consumed stops there and is reported handled — see [Game UI → input routing](game-ui.md#input-routing).
+ImGui reads Silk input directly and does not consume tree events.
 
 ## Servers and render nodes
 

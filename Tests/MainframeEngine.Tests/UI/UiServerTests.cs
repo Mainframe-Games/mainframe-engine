@@ -473,6 +473,18 @@ public sealed class UiServerTests
     }
 
     [Fact]
+    public void EngineCreditsCarryTheFreeTypeCredit()
+    {
+        using var ui = new UiTestTree();
+        var doc = new UiDocument { Name = "Credits", Source = "Content/UI/credits.rml" };
+        ui.AddLayer(0, doc);
+        ui.Tick();
+        Assert.True(doc.IsLoaded);
+        Assert.Contains("Credits", doc.GetElementById(UiDocument.PanelTitleId)!.InnerRml, StringComparison.Ordinal);
+        Assert.Contains("The FreeType Project", doc.Document.AsElement().InnerRml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SteadyStateHudFramesDoNotAllocate()
     {
         using var ui = new UiTestTree();

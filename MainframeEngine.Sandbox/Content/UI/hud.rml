@@ -43,6 +43,7 @@
         <div class="buttons">
             <button id="widgets" data-event-click="toggleWidgets">Widgets</button>
             <button id="overlay" data-event-click="toggleOverlay">Dev overlay</button>
+            <button id="credits" data-event-click="toggleCredits">Credits</button>
             <button id="quit" class="primary">Quit</button>
         </div>
     </div>
