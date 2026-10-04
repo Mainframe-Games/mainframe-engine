@@ -18,7 +18,12 @@ Decisions: [0080 code-driven editor, edit mode, a SubViewport per tab](../../mem
 [0081 one document per panel, data binding, generated inspector](../../memory/decisions/0081-editor-ui-documents-and-binding.md) ·
 [0082 undo/redo](../../memory/decisions/0082-editor-undo-redo.md) ·
 [0083 files before projects, crash safety, close interception](../../memory/decisions/0083-editor-files-projects-and-safety.md) ·
-[0084 brand and window icons](../../memory/decisions/0084-brand-and-window-icons.md).
+[0084 brand and window icons](../../memory/decisions/0084-brand-and-window-icons.md) ·
+[0085 Tabler icon atlas](../../memory/decisions/0085-editor-icon-atlas.md) ·
+[0086 `[EditorIcon]` and families](../../memory/decisions/0086-editor-icon-attribute-and-families.md) ·
+[0087 tooltip widget](../../memory/decisions/0087-editor-tooltips.md) ·
+[0088 tree create dialog](../../memory/decisions/0088-editor-create-dialog.md) ·
+[0089 icons over text](../../memory/decisions/0089-editor-icons-over-text.md).
 
 ## Structure
 
@@ -75,15 +80,16 @@ flowchart TB
 
 | Panel | Document | What it does |
 |---|---|---|
-| Menu bar | `menubar.rml` | File (New, Open, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, grid), Help (shortcuts, about); the scene name and an unsaved marker on the right |
-| Toolbar | `toolbar.rml` | Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T), Snap (Y) + move step, Frame (F), Grid (G); Play/Pause/Stop disabled until E4; fps / frame-time readout |
-| Scene tree | `scene_tree.rml` | The hierarchy (instanced sub-scenes are one row tagged "scene"; their insides are not listed), type icons by category, expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu (add child, instance scene, rename, duplicate, move up/down, delete) |
-| Viewport | `viewport.rml` | Scene tabs (title with `*` when dirty, close, +), the 3D view, the view's mode in the corner, an empty-state hint |
-| Inspector | `inspector.rml` | Type, editable name, custom-inspector header, collapsible sections per declaring type / `[ExportGroup]`, one row per `[Export]` (below) |
-| Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`; the category shows as `[Category]`) (time, level colour), Debug/Info/Warnings/Errors filters with counts (persisted), Clear; follows the newest line |
+| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New, Open, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, grid), Help (shortcuts, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
+| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G); Play/Pause/Stop disabled until E4; fps / frame-time readout |
+| Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
+| Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
+| Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below) |
+| Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`): level icon, time, category icon (subsystem; name in the tooltip), text, ×N for folded repeats, a link to the logging source line (opens `MAINFRAME_CODE_EDITOR`, VS Code or the system app). Header: per-level toggles with counts, filter field, Collapse Duplicates, Follow, Copy, Clear (filters and toggles persisted) |
 | File system | `filesystem.rml` | Placeholder until E4 (shows the project folder) |
 | Splitters | `splitters.rml` | Four drag handles (left dock, right dock, output, scene tree / file system) |
-| Dialogs | `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml` | Modal file picker (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (Add Node, node paths, resource types), message box / prompt, popup menus |
+| Dialogs | `tree_picker.rml`, `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml` | The create dialog (Add Node, New Resource, Instance Scene; below), modal file picker with file-type icons (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (node paths), message box / prompt with a title icon, popup menus |
+| Tooltips | `tooltip.rml` | Its own layer above the dialogs ([Tooltips](#tooltips)) |
 | Splash | `splash.rml` | Logo, "Mainframe Engine", "Editor vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts and while a scene loads, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch |
 
 - **Theme**: `theme.rcss` + `dialogs.rcss`, a dark palette (base `#15171c`, panels `#1f2128`, accent `#3b82f6`) over
@@ -101,6 +107,91 @@ Cmd (macOS) or Ctrl: N new · O open · S save · Shift+S save as · W close tab
 D duplicate · A add node · Shift+A instance scene · Up/Down move in tree. Plain keys: Delete/Backspace delete, F2
 rename, F frame, G grid, Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top. Shortcuts are unhandled input:
 a focused text field keeps its keys, and closed dialogs release focus.
+
+## Icons
+
+**Icons over text** (Godot-style): every editor surface uses the shared icon atlas. A control shows an icon instead of a
+label wherever the icon is unambiguous, and every icon-only control has a tooltip naming it, its shortcut and what it
+does. Text stays where an icon cannot carry the meaning: menu item labels (which still get a leading icon), dialog
+primary actions, inputs and values.
+
+**Markup contract** (shared by every lane and panel):
+
+```html
+<span class="icon icon-player-play"/>                <!-- a Tabler icon by name, 16 dp, tinted #c9cedb -->
+<span class="icon icon-sm icon-cube icon-3d"/>       <!-- icon-sm 14 dp / icon-lg 24 dp; family tint -->
+<button class="tool-button" data-command="gizmo.translate"
+        data-tooltip="Move (W) — translate selected nodes"><span class="icon icon-arrows-move"/></button>
+```
+
+| Family class | Colour | Used for |
+|---|---|---|
+| `icon-3d` | `#fc7f7f` red | Node3D and its subclasses, scenes, models |
+| `icon-2d` | `#8da5f3` blue | Node2D and its subclasses |
+| `icon-ui` | `#8eef97` green | UiLayer, UiDocument, RML/RCSS files |
+| `icon-audio` | `#5eead4` teal | audio players and the listener, audio files |
+| `icon-physics` | `#fbbf24` amber | collision objects (bodies, areas) and shapes |
+| `icon-net` | `#c4a5ff` purple | NetworkNode |
+| `icon-logic` | `#a3abbd` grey | Node, Timer, SubViewport, other plain nodes |
+| `icon-resource` | `#e2e6ee` neutral | every Resource type |
+
+Also: `icon-dir` (folders, `#e8c15a`), `icon-missing` (types not loaded, red), `icon-muted`, `icon-accent`, and the
+level tints `icon-info`/`icon-warn`/`icon-error`/`icon-debug`. The colours are Godot's family hues lightened to read on
+the `#1f2128` panels; selected rows keep the tint.
+
+- **Atlas** ([0085](../../memory/decisions/0085-editor-icon-atlas.md)): [Tabler icons](https://tabler.io/icons) (MIT,
+  outline; `name-filled` for filled ones). [`Content/icons/icons.txt`](../../MainframeEngine.Editor/Content/icons/icons.txt)
+  lists the icons the editor uses; only their SVGs are vendored (`MainframeEngine.Editor/Icons/tabler`).
+  `just editor-icons` ([make_atlas.py](../../build/editor-icons/make_atlas.py), needs Inkscape) renders one sheet SVG
+  at 1x (16 px), 1.5x (24 px, `icon-lg`), 2x (32 px) and 3x (48 px) — white glyphs on a 20-unit pitch so linear filtering
+  never bleeds — and writes `icons.rcss`: the sprite sheets (the 2x ones inside `@media (min-resolution: 1.5x)`, so
+  Retina picks them) and one `.icon-NAME { decorator: image(i-NAME) }` class per icon. Outputs are committed; builds
+  never need Inkscape. New name: add it to `icons.txt`, run `just editor-icons-fetch` (vendors the SVG from the npm
+  package) and commit. Every RML document links `/Content/icons/icons.rcss` before `theme.rcss`; tinting is RCSS
+  `image-color`.
+- **Types** ([0086](../../memory/decisions/0086-editor-icon-attribute-and-families.md)): `[EditorIcon("name", Family =
+  …)]` on a node or resource type (engine or game), recorded by the generator in `NodeTypeInfo.Icon/IconFamily`.
+  **`EditorIcons`** resolves the nearest base type that declares one (and the nearest family), caches the result weakly
+  per type (game types unload) and resets on `TypeRegistry.Changed`: `For(Type|Node)`, `Family(Type)` (`icon-3d` …),
+  `FamilyOf`, `Classes(Type|Node)` (`"icon icon-cube icon-3d"`, the same string instance every call), `ForFile(path)` and
+  `FileFamily(path)` (scenes `movie`, resources `package`, images `photo`, audio, models, fonts, RML/RCSS, translations,
+  shaders, C#, project and JSON files; folders `folder` + `icon-dir`). Every engine type has its own icon (Camera3D
+  `video`, lights `sun`/`bulb`/`lamp`, WorldEnvironment `world`, MeshInstance3D `cube`, Sprite3D `photo`, SpineNode
+  `bone`, audio players `volume`, AudioListener3D `ear`, bodies `box`/`ball-bowling`/`run`/`border-corners`, shapes
+  `shape`, UI `stack-2`/`layout`, NetworkNode `network`, Timer `clock`, SubViewport `device-desktop`, Node `circle-dot`,
+  Node3D/Node2D `axis-x`/`axis-y`; resources: meshes, `palette` materials, `photo` textures, `music` streams, shapes,
+  `movie` scenes, `adjustments` bus layouts …).
+- **Properties**: `PropertyIcons` picks the icon before a property's name — the member's own (`[Export(Icon = "…")]` or
+  `[EditorIcon]`), a resource slot's resource type (tinted), a `NodePath`'s target node (or its `NodeType` hint), then a
+  semantic icon by name (Position `arrows-move`, Rotation `rotate`, Scale `arrows-maximize`, Visible `eye`, `…Color`
+  `palette`, Volume `volume`, Mass `weight`, `…Speed`/`…Velocity` `gauge`, Text `letter-t`, layers, process, shadows …),
+  else the value kind (number `hash`, bool `toggle-left`, text `letter-t`, vector `axis-x`, enum `list`, flags
+  `list-check`, array `brackets`, quaternion `rotate`, transform `transform`).
+- **Gotcha**: RmlUi drops bare text that is a direct child of a flex container — wrap labels next to icons in a
+  `<span>` (`<button class="with-icon"><span class="icon …"/><span>Home</span></button>`).
+
+### Tooltips
+
+`TooltipOverlay` ([0087](../../memory/decisions/0087-editor-tooltips.md)) is a document on its own UI layer (90: above
+the dialogs, below the splash) whose body never takes the mouse. Any element of an editor document — or its nearest
+ancestor — with `data-tooltip` shows a tooltip after **0.5 s** of hovering, or the same delay after it gets keyboard
+focus (`:focus-visible`). Text format: `Title (Shortcut) — description`, further lines after `\n`: a bold title, the
+shortcut as a key cap (Ctrl reads Cmd on macOS), the description muted. The box sits under the element and is kept
+inside the window (above the element when there is no room below; measured one frame after layout). A click, key or
+wheel hides it until the pointer moves to another element. Per frame it reads the hovered and focused element of the
+dialog and panel layers and compares handles: idle frames allocate nothing.
+
+### Create dialog
+
+`TreePickerDialog` ([0088](../../memory/decisions/0088-editor-create-dialog.md)) serves **Add Node**, the inspector's
+**New** resource button and **Instance Scene** (`PickerSources`: registered node types, the resource types a slot
+accepts, the project's `.mscene` files as a folder tree with Browse… for others). The entries form a tree
+(`PickerTree`: inheritance, abstract types as italic structure-only rows; game types under their engine base with their
+inherited icons), sorted by name. The search is fuzzy (exact > prefix > word start > substring > subsequence, shorter
+names first; "mi3" finds MeshInstance3D), keeps every match's ancestors visible and selects the best creatable match.
+**Favourites** (star a row) and **Recent** (the last 8 created) are persisted per dialog in the editor settings
+(`PickerFavorites`/`PickerRecent` in `editor_layout.json`). The description pane shows the selection's icon and name,
+its ancestor chain with icons and its doc summary. Double click or Enter creates; Up/Down move; Escape cancels.
 
 ## Inspector
 
@@ -120,9 +211,14 @@ comes from the value type and the `[Export]` hints:
 | Quaternion | `Quaternion` | Euler degrees (X→Y→Z, like `RotationDegrees`) |
 | Color | `System.Drawing.Color`, or a `Vector3`/`Vector4` named `…Color` (lights) | swatch + hex field; the swatch opens RGBA sliders |
 | NodePath | `NodePath` (`NodeType` hint filters) | field + pick from the scene's nodes (stored relative to the node) |
-| Resource | `Resource` subclasses | label + Load (file), New (inline, a type assignable to the slot), clear; inline resources expand into nested rows (up to 3 levels) |
+| Resource | `Resource` subclasses | label with the resource's icon + Edit (fold), Load (file), New (the create dialog: types assignable to the slot), Clear icon buttons; inline resources expand into nested rows (up to 3 levels) |
 | Array | `T[]`, `List<T>` | count, + Add, per-element fields (scalars) and remove |
 | Transform, unsupported | `Transform3D/2D`, others | read-only text |
+
+- **Every row has an icon** before its name (`PropertyIcons`, [Icons](#icons)) and a **tooltip**: "Label — doc
+  summary" (the member's `<summary>`, recorded by the generator), then the hints (range and step, file filter, folder,
+  target node type, translated) and the member with its type (`RotationDegrees: Vector3`). Row actions (pick node,
+  browse, resource edit/load/new/clear, array add/remove, colour picker) are icon buttons with tooltips.
 
 - Edits go through the scene's undo history: text fields commit on Enter or focus loss (a field being edited commits
   to its own node before the inspector switches to another), checkboxes/dropdowns/buttons at once, slider drags as
@@ -194,6 +290,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 | `ContentPaths.ProjectDirectory` | `Core/ContentPaths.cs` |
 | List bindings tolerate rows past the end of a list that just shrank | [Game UI](game-ui.md#data-binding) |
 | `WindowIcon` byte order for window icons | `Core/WindowIcon.cs` |
+| `[EditorIcon]`, `EditorIconFamily`, `Export(Icon)`; `NodeTypeInfo.Icon/IconFamily/Description`, `ExportHints.Icon/Description` | [Scene serialization](scene-serialization.md#source-generator) |
+| `UiServer.ClipboardText` (the Output panel's Copy) | `UI/UiServer.cs` |
 
 ## Testing and QA
 
@@ -203,7 +301,14 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   unique names, instances and connections, atomic save + reload), layout and its persistence, the file picker, camera
   and gizmo math, the output log, and the **whole UI headless** (RmlUi with the null renderer): panels load without
   RmlUi warnings, tree clicks and drags, inspector edits for every kind, Add Node, menus, shortcuts, rename, Save As,
-  the quit prompt, recovery copies, and **0 B per idle frame with 1 000 nodes**.
+  the quit prompt, recovery copies, and **0 B per idle frame with 1 000 nodes** (and with a tooltip shown).
+- **Icon gates** ([IconTests](../../Tests/MainframeEngine.Editor.Tests/IconTests.cs)): the generated atlas matches
+  `icons.txt` (every sheet, sizes, vendored SVGs); every icon the editor's RML, RCSS and C# reference (class lists,
+  sprite references, `[EditorIcon]`, `Export(Icon)`, `Icon:` arguments, the resolvers) exists — a missing name fails the
+  build; every engine node/resource type resolves to its own icon and a family; a headless **lint** walks every panel,
+  dialog and menu: each icon element names one atlas icon and **every icon-only control has a `data-tooltip`**.
+  Tooltip timing, placement, keyboard focus and dismissal, the create dialog's tree and search, Output features, scene
+  tree badges and inspector icons have their own tests ([IconPanelTests](../../Tests/MainframeEngine.Editor.Tests/IconPanelTests.cs)).
 - **Render tests** ([EditorRenderTests](../../Tests/MainframeEngine.RenderTests/EditorRenderTests.cs)): the editor's
   `--smoke` run in a hidden window — open Sandbox.mscene, select the Column by GPU picking at its projected pixel, change
   its position through the inspector model, undo/redo, save to a temp file, reload and re-save byte-identically — plus
@@ -225,6 +330,8 @@ average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate 
 - Single selection for the gizmo and the inspector (the last selected node); multi-object editing is E5.
 - No orthographic camera, box selection or 2D editing yet (E5).
 - Lines are one framebuffer pixel wide; gizmo handles are drawn as several parallel lines.
+- The Output panel has four levels (the engine's `Log` has no trace level). Icons are fixed-colour glyphs tinted per
+  family; there are no per-icon multi-colour glyphs like Godot's.
 
 ## Related docs
 

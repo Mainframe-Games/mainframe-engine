@@ -120,7 +120,8 @@ game crash cannot corrupt the editor.
 
 - **Layout v1:** fixed regions with draggable splitters (a `<splitter>` element). Sizes persist in
   `~/.mainframe/editor_layout.json`. Docking and tear-off are later.
-- **Theme:** `editor/theme.rcss`, a dark theme matching the docs palette. Icons are an SVG/PNG atlas.
+- **Theme:** `editor/theme.rcss`, a dark theme matching the docs palette. Icons: shipped (a Tabler PNG atlas, tooltips,
+  icons over text) — see [Editor: icons](../editor.md#icons).
 - **Data binding:** panels use RmlUi data models, for example `scene_tree` bound to a flattened tree
   view model and `inspector` bound to a property list. See [Game UI → data binding](../game-ui.md#data-binding).
 - **Shared widgets** in `MainframeEngine/Content/UI/widgets/`: `tree-view`, `property-*` editors (number

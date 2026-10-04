@@ -49,6 +49,11 @@ public partial class DirectionalLight3D : Light3D   // `partial` is not required
   (inline or external), and arrays / `List<T>` of these. Anything else is a compile error (MFG002).
 - `[TypeName("...")]` overrides the scene type name (default: the class name; names must be unique across
   loaded assemblies). `[Tool]` marks nodes that process in the editor.
+- `[EditorIcon("tabler-name", Family = EditorIconFamily.Space3D)]` on a type gives it an editor icon and colour
+  family (types without one inherit their nearest base type's; `""` keeps the icon and sets only the family);
+  `[Export(Icon = "…")]` or `[EditorIcon("…")]` on a member sets its inspector icon. The XML doc `<summary>` of
+  types and exported members becomes the editor's Add Node description and inspector tooltip. See
+  [Editor: icons](editor.md#icons).
 
 ### Source generator
 
@@ -70,7 +75,11 @@ one `TypeRegistration_<Assembly>` class, a `[ModuleInitializer]` that calls `Typ
   `Codecs.ListOf(...)`, `Codecs.ArrayOf(...)`), hints and group;
 - a `SignalInfo` per `[Signal]` event: delegate type, parameter types, typed add/remove accessors and a
   forwarder factory for deferred/one-shot connections;
-- `MigrationInfo`s, the serialized version and traits (node/resource/tool/abstract).
+- `MigrationInfo`s, the serialized version and traits (node/resource/tool/abstract);
+- editor metadata: the type's `[EditorIcon]` name and family (`NodeTypeInfo.Icon`/`IconFamily`, declared only — the
+  editor resolves inheritance) and its doc summary (`Description`); per member `ExportHints.Icon` and
+  `ExportHints.Description`. Summaries are read from the `///` trivia (no documentation file needed), stripped to
+  plain text (`<see cref>` → the name, tags dropped, at most 600 characters); `<inheritdoc/>` gives none.
 
 The pipeline is incremental: per-type models are value-equatable records, so edits that do not change a
 type's shape do not regenerate. Diagnostics (all errors): MFG001 inaccessible/unwritable export, MFG002

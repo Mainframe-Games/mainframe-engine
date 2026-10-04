@@ -244,6 +244,7 @@ core, and its UI is built entirely with the M8 game UI stack (RmlUi).
 | E1 Shell: editor csproj, `EditorApp`, RmlUi layout, Output panel, open/save scenes | ✅ | [Editor](design/editor.md) |
 | E2 Scene tree + inspector (`[Export]`) + undo/redo | ✅ | [Editor](design/editor.md#inspector) |
 | E3 Viewport: render target in RmlUi, editor camera, ID picking, gizmos | ✅ | [Editor](design/editor.md#viewport) |
+| Icons over text: Tabler icon atlas (`just editor-icons`), `[EditorIcon]` + families for every node/resource type, tooltips, icons in the scene tree, inspector (every property), toolbar, menus, Output, dialogs; Godot-style create dialog (tree, fuzzy search, favourites, recent) | ✅ | [Editor: icons](design/editor.md#icons) |
 | E4 engine side: `project.mfproj` + `ProjectSettings`, `GameHost`, input actions, autoloads, `ILogSink` routing, editor link (play/stop/pause/reload, log streaming), collectible game-assembly load/unload/reload, `mfgame` template + CI smoke | ✅ | [Projects & GameHost](design/project-and-gamehost.md) |
 | E4 editor side: open/new project, file system panel, Play/Stop buttons, Output panel over the link, reload UI | ⬜ | [Editor](design/future/editor.md#game-project-and-code-reload) |
 | E5 Polish: signals tab, multi-select, 2D editing, custom inspectors | ⬜ | [Editor](design/future/editor.md#phases) |
