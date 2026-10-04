@@ -31,7 +31,7 @@ flowchart LR
 | [M2](#m2--node-system--scenes-) | Godot-style node tree, scene tree, scene files | ✅ |
 | [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | 🚧 |
 | [M4](#m4--shadows-v2) | Cascades, PCF, atlas | ⬜ |
-| [M5](#m5--multiplayer) | Message protocol, replication, Steam | ⬜ |
+| [M5](#m5--multiplayer-) | Message protocol, replication, Steam | ✅ |
 | [M6](#m6--physics) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ⬜ |
 | [M7](#m7--audio) | SoundFlow audio nodes, buses, 3D panning | ⬜ |
 | [M8](#m8--game-ui-rmlui) | RmlUi HTML/CSS game UI (also the editor's UI) | ⬜ |
@@ -136,20 +136,25 @@ the sampler count.
 | Spot / secondary-directional shadow atlas | ⬜ | [Shadows v2](design/future/shadows-v2.md) |
 | Per-light `CastsShadows`, resolution; allocation-free pass | ⬜ | [Shadows v2](design/future/shadows-v2.md) |
 
-## M5 — Multiplayer
+## M5 — Multiplayer ✅
 
 Turn the networking and Steam scaffolds into a working multiplayer stack: a typed message protocol,
-node replication, a transport abstraction (ENet / Steam sockets), working lobbies, and Apple Silicon
-support.
+server-authoritative node replication, a transport abstraction (ENet / Steam sockets), working lobbies, and Apple
+Silicon support. The Sandbox has a `--server` / `--client <host>` demo.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| Message header, registry, dispatch, public events | ⬜ | [Networking & replication](design/future/networking-replication.md) |
-| Spawn/despawn, snapshots, interpolation, RPCs | ⬜ | [Networking & replication](design/future/networking-replication.md) |
-| `ITransport` (ENet, Steam Networking Sockets) | ⬜ | [Networking & replication](design/future/networking-replication.md) |
-| ENet osx-arm64 native | ⬜ | [Networking & replication](design/future/networking-replication.md#osx-arm64) |
-| Steam init / callback pump / native packaging | ⬜ | [Steamworks integration](design/future/steamworks-integration.md) |
-| Lobby fixes, avatars as textures, achievements persistence | ⬜ | [Steamworks integration](design/future/steamworks-integration.md) |
+| Message header, registry, dispatch, public events | ✅ | [Networking](design/networking.md#wire-format) |
+| Spawn/despawn (by scene UID), `[Replicated]` delta snapshots, interpolation, RPCs, authority | ✅ | [Networking: replication](design/networking.md#replication) |
+| Connection lifecycle (handshake, fingerprints, timeouts, kick), bandwidth stats | ✅ | [Networking: replication](design/networking.md#handshake-timeouts-and-leaving) |
+| `ITransport` (ENet, loopback, simulated bad network; Steam Networking Sockets stubbed ³) | ✅ | [Networking](design/networking.md#layers) |
+| ENet osx-arm64 native | ✅ | [Natives](design/natives.md) |
+| Steam init / callback pump; native packaging ³ | ✅ | [Steamworks](design/steamworks.md#engine-hook) |
+| Lobby fixes, lobby → transport handoff, achievements persistence; avatars as textures ³ | ✅ | [Steamworks](design/steamworks.md#lobby--transport-handoff) |
+
+³ Steam natives cannot ship (the Steamworks SDK needs a partner login, and Steamworks.NET 2024.8.0 is x86-64 only),
+so Steam never starts: `SteamSocketsTransport` and avatar textures are designed but not implemented, and the lobby
+handoff falls back to ENet. See [ADR 0044](../memory/decisions/0044-steam-features-without-natives.md).
 
 ## M6 — Physics
 

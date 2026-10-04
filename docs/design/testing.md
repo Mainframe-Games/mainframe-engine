@@ -49,6 +49,24 @@ test node and resource types in `TestNodes.cs` (registered by the source generat
 | `GeneratorTests` | `CSharpGeneratorDriver` over game-like sources: emitted registration compiles, loads in a collectible context and works (properties, groups, hints, signals, migrations, abstract/tool/TypeName), every diagnostic, incremental caching; the engine's own registrations |
 | `SceneTreeAllocationTests` | **0 bytes** over 120 steady-state ticks of a 10 002-node tree (physics, process, transform propagation and notifications, input, groups) and over `GetNode` lookups |
 
+The networking suites live under [`Networking/`](../../Tests/MainframeEngine.Tests/Networking/), with networked test
+node types in `ReplicationTestNodes.cs` and `NetHarness` (a server and clients, each with its own `SceneTree` and
+`MultiplayerApi`, over `LoopbackTransport`, optionally degraded by a seeded `SimulatedTransport`, stepped at a fixed
+60 Hz on a manual clock):
+
+| Suite | Covers |
+|---|---|
+| `ReplicationTests` | handshake and peer ids, spawn with initial state, networked descendants, every codec type, delta size (only the changed member), derived types, spawn under networked/path parents, nested spawn and despawn cascade, spawn+free in one frame, freeing a descendant, late join (full state, absent descendants, authority), authority replication, locally freed nodes not stalling acks, bandwidth stats, tick rate |
+| `RpcTests` | authority client → server with `RemoteSender`, local refusal and forged calls rejected by the server, server-only RPCs, targeted calls, unreliable `AnyPeer`, `CallLocal`, offline calls, derived wire indices, RPC after a same-frame spawn, unknown ids and bad indices |
+| `InterpolationTests` | buffer blending, hold samples, extrapolation clamp, capacity, every blend type (quaternion extrapolation), client motion matching the server's samples at `RenderTick`, extrapolation stopping when snapshots stop, still members not drifting, interpolation off |
+| `ConnectionLifecycleTests` | owned nodes despawned (or handed back) when a client leaves, server shutdown, kicks, registry and replication fingerprint mismatches, handshake timeouts (both sides), silent peers, misuse |
+| `TransportTests` | multi-client loopback, `SimulatedTransport` latency, seeded loss/duplication, jitter reordering (reliable stays ordered), replication converging under 10–30 % loss with jitter and duplication |
+| `TransportHandoffTests` | `NetworkAddress` parsing/formatting, connect lists, selector fallback, a lobby connect string connecting a `MultiplayerApi` over loopback |
+| `ReplicationGeneratorTests` | emitted state/dispatch/senders compile, load and round-trip in a collectible context, every MFG007–MFG009 diagnostic |
+| `NestedSceneReplicationTests` | scenes registered by path and UID from `.mscene` files, nested scene instances replicating |
+| `EnetReplicationTests` | real ENet: a server and two clients in-process (spawn, authority RPCs, server RPCs, leave, shutdown) |
+| `ReplicationAllocationTests` | **0 bytes** over 240 frames of a server and a client with 100 interpolated boxes moving and RPCs both ways |
+
 ## Render tests
 
 ```mermaid
@@ -165,10 +183,10 @@ cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.Te
 
 ## Benchmarks
 
-`just bench` runs every benchmark (`NetBuffer` write/read, camera and model matrices, lights UBO packing,
-the scene tree: `ProcessTick10k`, `TransformPropagationDirtySubtree10k`, `GetNodePathLookup`,
-`SceneSaveLoadRoundTrip1k`; GPU allocator alloc/free and churn) and compares with
-[`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
+`just bench` runs every benchmark (`NetBuffer` write/read, replication capture/encode/decode at 100 and 1000
+nodes, camera and model matrices, lights UBO packing, the scene tree: `ProcessTick10k`,
+`TransformPropagationDirtySubtree10k`, `GetNodePathLookup`, `SceneSaveLoadRoundTrip1k`; GPU allocator
+alloc/free and churn) and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. Results also land
 in `artifacts/bench`. Baselines are machine-specific (the file records machine and runtime), so
 compare on the machine that recorded them; refresh with `just bench-baseline` when a change is

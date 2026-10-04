@@ -77,9 +77,10 @@ unsupported type, MFG003 bad signal event, MFG004 duplicate type name, MFG005 in
 MFG006 a type with exports/signals that cannot be registered (e.g. nested in a private type).
 
 **Extension point.** Models (`TypeModel` in [Models.cs](../../MainframeEngine.Generators/Models.cs)) carry
-one collection per member feature; `TypeModelBuilder` fills them and `RegistrationEmitter` writes them. M5's
-`[Replicated]` adds a collection (built from the same member walk) and its own emitter (snapshot
-read/write delegates) without touching registration.
+one collection per member feature; `TypeModelBuilder` fills them and each feature has its own emitter. M5 added
+`Replicated` and `Rpcs` (from the same member walk) and `ReplicationEmitter`, which writes a second file,
+`MainframeEngine.Replication.g.cs`, only for assemblies with networked members, without touching registration
+(diagnostics MFG007–MFG009; see [Networking: replication](networking.md#replication)).
 
 ### `TypeRegistry` and `NodeTypeInfo`
 
@@ -232,5 +233,5 @@ Saving and loading run at load time and may allocate. Measured with BenchmarkDot
 ## Related docs
 
 [Scene graph & nodes](scene-graph-and-nodes.md) · [Sandbox](sandbox.md) · [Testing](testing.md) ·
-[Future: editor](future/editor.md) · [Future: networking replication](future/networking-replication.md) ·
+[Future: editor](future/editor.md) · [Networking: replication](networking.md#replication) ·
 [Shaders](shaders.md)

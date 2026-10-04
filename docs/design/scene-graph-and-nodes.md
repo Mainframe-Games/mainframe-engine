@@ -111,7 +111,8 @@ classDiagram
   with `using`. `QueueFree()` defers the free to the end of the frame (immediate outside a tree).
   `Node.IsInstanceValid(node)` is Godot's `is_instance_valid`.
 - **Identity**: every node gets a runtime-unique `NodeId` (never reused). `SceneTree.Find(NodeId)` looks
-  it up through a dictionary maintained on enter/exit — what networking replication uses. Scene files
+  it up through a dictionary maintained on enter/exit. `NodeId`s are per process, so replication uses its own
+  network ids (`Node.NetworkId`, assigned by the server, see [Networking](networking.md#replication)). Scene files
   reference nodes by path, never by id.
 
 ## Lifecycle
@@ -238,6 +239,7 @@ renderer) into `SceneTree.Servers` (`ServerRegistry`), and nodes reach them in `
 |---|---|---|
 | `RenderServer` | `IServer` | M2: facade over the renderer and one shared `ShadowSystem` |
 | `SteamServer` | `IFrameServer` | M2: registered when `EngineOptions.SteamAppId` ≠ 0; pumps `Steam.RunCallbacks` |
+| `MultiplayerApi` | `IFrameServer` | M5: always registered (`Engine.Multiplayer`), idle until started; receives at `SceneTree.ProcessFrame`, sends in `Process` ([Networking](networking.md#frame-and-tick)) |
 | physics (M6) | `IFixedStepServer` | ticked after `OnPhysicsProcess`, frozen while paused |
 | audio (M7), UI (M8) | `IFrameServer` | ticked after transform sync |
 

@@ -28,7 +28,7 @@ Neither library needs native binaries, so all platforms including osx-arm64 are 
 - A fixed-timestep simulation decoupled from the frame rate, with interpolated rendering.
 - Collision layers and masks, contact and area signals, raycasts and shape casts.
 - Debug drawing in game and editor. Physics is paused in the editor's edit mode.
-- Server-authoritative physics for [multiplayer](networking-replication.md).
+- Server-authoritative physics for [multiplayer](../networking.md#replication).
 
 ## Non-goals (v1)
 
@@ -230,7 +230,7 @@ Implemented in the engine, because neither library ships a character controller:
 
 The server simulates. Clients receive body transforms through `MultiplayerSynchronizer` snapshots and
 interpolate them. Client-side prediction for `CharacterBody` is a later concern. See
-[Networking & replication](networking-replication.md).
+[Networking](../networking.md#replication).
 
 ## Task list
 
@@ -265,4 +265,4 @@ interpolate them. Client-side prediction for `CharacterBody` is a later concern.
 ## Related
 
 [Milestones](../../milestones.md) · [Node system](../scene-graph-and-nodes.md) · [Scene serialization](../scene-serialization.md) ·
-[Editor](editor.md) · [Networking & replication](networking-replication.md)
+[Editor](editor.md) · [Networking](../networking.md)

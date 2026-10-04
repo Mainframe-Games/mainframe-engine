@@ -36,7 +36,7 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 ```
 
 - Call `base.OnLoad()` **first** (it creates input, renderer, ImGui, the `RenderServer` — and the
-  `SteamServer` when `SteamAppId` is set — and routes input into the tree).
+  `SteamServer` when `SteamAppId` is set, and `MultiplayerApi` as `Engine.Multiplayer` — and routes input into the tree).
 - Call `base.OnClose()` **last** (it frees the scene tree, disposes the servers, clears the resource
   cache, then disposes ImGui, input and the renderer).
 - Behaviour lives in node types (`OnProcess`, `OnPhysicsProcess`, `OnInput`, …), see
@@ -62,7 +62,7 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 2. **`Load`:** centres the window on its monitor (skipped when none is reported, e.g. a sleeping
    macOS display), then **`OnLoad()`** (base): `Window.CreateInput()` (SDL input) →
    `new VulkanRenderer(Window, { EnableValidation, VSync, EnableFrameCapture })` →
-   `new VulkanImGuiController(...)` → `Servers.Register(new RenderServer(Renderer))` (+ `SteamServer`)
+   `new VulkanImGuiController(...)` → `Servers.Register(new RenderServer(Renderer))` (+ `SteamServer`, + `MultiplayerApi.Attach(Tree)`)
    → `new InputRouter(InputContext, Tree)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
    The `SceneTree` itself is created in the constructor (no GPU needed), so nodes can be built before
    `OnLoad`; visuals that enter the tree before the render server exists get their GPU objects lazily.

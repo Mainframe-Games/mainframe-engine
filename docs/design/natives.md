@@ -217,4 +217,4 @@ The RmlUi.Net attribution is in [`Native/RmlUi/shim/NOTICE.md`](../../Native/Rml
 ## Related
 
 [Build & platforms](build-and-platforms.md) · [Networking](networking.md) ·
-[Game UI (RmlUi)](future/game-ui.md) · [Networking & replication](future/networking-replication.md)
+[Game UI (RmlUi)](future/game-ui.md) · [Networking](networking.md)

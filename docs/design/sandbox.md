@@ -42,6 +42,23 @@ Scripted window/input steps (they log `[QA]` lines; combine freely):
 Example: `dotnet run -c Release --project MainframeEngine.Sandbox -- --qa-capture artifacts/qa
 --qa-frames 30,90,200 --qa-resize 1000x600@60 --qa-minimize 120 --qa-input 150`.
 
+## Network demo (M5)
+
+`--server [port]` hosts (ENet, default port 7777) and spawns four `NetBox`es (`Content/Scenes/NetBox.mscene`, a
+`Box3d` with interpolated `[Replicated]` position and rotation and a replicated colour) that orbit the origin on the
+server; `--client <host> [port]` joins and shows them replicated. Every 3 s the server calls the `Ping` RPC
+(`RpcMode.Server`, `CallLocal`), which pulses the first box everywhere. Both ends log the replication state every
+2 s (`[NetDemo] …`: tick, render tick, node count, the first box's position, bytes per second) and show it in the
+ImGui window; the title says `[server :port]` or `[client -> host:port]`. `--quit-after <seconds>` exits on its own.
+With `--qa-capture`, network runs keep wall-clock time and VSync (not the fixed QA step), so both clocks agree.
+
+```sh
+dotnet run -c Release --project MainframeEngine.Sandbox -- --server --quit-after 30 &
+dotnet run -c Release --project MainframeEngine.Sandbox -- --client 127.0.0.1 --quit-after 15 --qa-capture artifacts/qa-net --qa-frames 600,1100
+```
+
+Regenerate the box scene with `--write-net-scene MainframeEngine.Sandbox/Content/Scenes/NetBox.mscene`.
+
 ## Scene
 
 | Object | Setup |
@@ -94,4 +111,4 @@ Controls are listed in [Cameras & input](cameras-and-input.md#sandbox-controls).
 ## Related docs
 
 [Engine lifecycle](engine-lifecycle.md) · [Architecture overview](architecture-overview.md) ·
-[Scene graph & nodes](scene-graph-and-nodes.md) · [Scene serialization](scene-serialization.md)
+[Scene graph & nodes](scene-graph-and-nodes.md) · [Scene serialization](scene-serialization.md) · [Networking](networking.md)

@@ -6,9 +6,12 @@ Optional Steam integration: identity, friends, lobbies, rich presence, overlay a
 through an engine-owned `Steam` service, which starts only when Steam can really run. Otherwise every wrapper is a
 quiet no-op, and the game never fails because Steam is missing (CLAUDE.md: "only activate if Steam is running").
 
-> **Status:** the service, guards, lobby fixes and achievements persistence shipped in M5. **Steam does not run on any
-> platform yet:** no `steam_api` native library ships (see [Natives](#natives)), and on Apple Silicon Steamworks.NET
-> cannot load at all. The `Engine` hook (calling `TryInitialize`/`RunCallbacks`/`Shutdown`) is added later.
+> **Status (M5 ✅, with a natives limitation):** the service, guards, lobby fixes, achievements persistence, the
+> engine hook (`SteamServer`, pumped every frame) and the lobby → transport handoff (`connect` metadata) shipped.
+> **Steam does not run on any platform yet:** no `steam_api` native library ships (see [Natives](#natives)), and on
+> Apple Silicon Steamworks.NET cannot load at all. Because of that, Steam Networking Sockets
+> (`SteamSocketsTransport`) and avatars as textures are designed but not implemented; both need a running Steam to
+> develop and test against.
 
 ## Lifecycle
 
@@ -132,22 +135,49 @@ copies every file there next to the app (see [Networking → Platform](networkin
 **Apple Silicon** needs either an x64 .NET runtime under Rosetta, or a Steamworks.NET build with AnyCPU or arm64
 assemblies. Upgrading the package is a dependency decision and must be discussed first.
 
+## Engine hook
+
+Set `EngineOptions.SteamAppId` and `Engine.OnLoad` registers a `SteamServer` (an `IFrameServer`):
+`Steam.TryInitialize` when it is registered, `Steam.RunCallbacks` from `IFrameServer.Process` — which
+`SceneTree.Tick` calls once per frame for every frame server, after process, deferred frees and transform sync — and
+`Steam.Shutdown` when the servers are disposed. It is inert (`Started` false) when Steam cannot start. Dev builds
+that need `writeDevAppIdFile` register `new SteamServer(appId, writeDevAppIdFile: true)` themselves.
+
+## Lobby → transport handoff
+
+The host advertises where its server can be reached in the lobby's `connect` metadata
+(`SteamLobbyInfo.ConnectAddress`, key `SteamLobbyInfo.ConnectKey`; or `CreateLobbyAsync(…, connectAddress:)`): a
+`;`-separated [`NetworkAddress`](networking.md#bad-networks-and-the-lobby-handoff) list, best first.
+
+```csharp
+// Host
+mp.Host(7777, maxClients: 8);
+var connect = NetworkAddress.FormatList(NetworkAddress.Steam(Steam.SteamId), NetworkAddress.Enet(NetworkNode.LocalIp, 7777));
+var lobby = await SteamLobby.CreateLobbyAsync("My game", 8, connectAddress: connect);
+
+// Member (after JoinLobbyAsync or an accepted invite, SteamLobby.OnLobbyJoined)
+if (!mp.TryConnect(lobby.ConnectAddress))
+    Log.Warning("no usable address");
+```
+
+`MultiplayerApi.TryConnect` gives the string to a `TransportSelector`, which opens the first address whose transport
+works on this machine: `steam:` → `SteamSocketsTransport` (always unavailable for now, so it falls through), `enet:` →
+`EnetTransport`. The selection logic is tested end to end over `LoopbackTransport` (`loopback:` addresses through a
+`LoopbackTransportFactory`), since Steam cannot run here.
+
 ## Known issues / not done
 
-- **Engine hook (M2):** set `EngineOptions.SteamAppId` and the engine registers a `SteamServer` (an
-  `IFrameServer`): `TryInitialize` at startup, `RunCallbacks` once per frame after the scene tree's process step,
-  `Shutdown` with the other servers. Inert when Steam cannot start. Dev builds that need `writeDevAppIdFile`
-  register `new SteamServer(appId, writeDevAppIdFile: true)` themselves.
-- **Avatars** (`SteamUtils.GetImageRGBA` → Vulkan texture, ImGui `TextureId`) are not implemented. The old
-  commented-out Unity `SteamAvatar` and `SteamRemotePlay` files were deleted.
-- **Transport.** `SteamSocketsTransport` is a stub; lobbies carry no transport address yet. The planned connect
-  strings are `"enet:ip:port"` or `"steam:<id>"`; see [Steamworks integration](future/steamworks-integration.md).
+- **Steam Networking Sockets.** `SteamSocketsTransport` is a stub (its intended mapping is documented in the type);
+  implementing it needs the natives. Until then `steam:` addresses are skipped and ENet is used.
+- **Avatars** (`SteamFriends.GetLargeFriendAvatar` → `SteamUtils.GetImageRGBA` → a Vulkan texture through the M3 GPU
+  resource path, plus ImGui `TextureId` support) are not implemented: without a running Steam there is no image to
+  load or test. The old commented-out Unity `SteamAvatar` and `SteamRemotePlay` files were deleted.
 - **Member updates.** `OnLobbyUpdated` reports lobby-level metadata updates only; member data updates are ignored.
 - **Lobby continuations** run inside `RunCallbacks` on the main thread. A continuation after a timeout runs on a
   thread-pool thread.
-- **README.** The README still advertises a "Full Steamworks.NET wrapper" and Remote Play.
 
 ## Related docs
 
 [Networking](networking.md) · [Build & platforms](build-and-platforms.md#platform-matrix) ·
-[Future: Steamworks integration](future/steamworks-integration.md)
+[ADR 0043: lobby connect strings](../../memory/decisions/0043-lobby-connect-strings-transport-selection.md) ·
+[ADR 0044: Steam features without natives](../../memory/decisions/0044-steam-features-without-natives.md)
