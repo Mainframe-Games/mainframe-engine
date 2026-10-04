@@ -1,0 +1,74 @@
+<rml>
+<head>
+    <title>Splash</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        body.splash {
+            position: absolute;
+            left: 0dp;
+            top: 0dp;
+            width: 100%;
+            height: 100%;
+            background-color: #172554;
+            pointer-events: auto;
+            opacity: 1;
+            transition: opacity 0.35s cubic-out;
+        }
+        body.splash.done { opacity: 0; }
+        #center {
+            position: absolute;
+            left: 50%;
+            top: 46%;
+            width: 420dp;
+            margin-left: -210dp;
+            margin-top: -190dp;
+            text-align: center;
+        }
+        #logo { display: block; width: 168dp; height: 168dp; margin: 0dp auto 22dp auto; }
+        #wordmark {
+            display: block;
+            font-size: 34dp;
+            font-weight: bold;
+            letter-spacing: 1dp;
+            color: #ffffff;
+        }
+        #version {
+            display: block;
+            margin-top: 6dp;
+            font-size: 14dp;
+            color: #93c5fd;
+        }
+        #status {
+            display: block;
+            margin-top: 34dp;
+            height: 18dp;
+            font-size: 13dp;
+            color: #bfdbfe;
+        }
+        #bar {
+            display: block;
+            width: 260dp;
+            height: 3dp;
+            margin: 10dp auto 0dp auto;
+            background-color: #1e3a8a;
+            border-radius: 2dp;
+        }
+        #fill {
+            display: block;
+            width: 0%;
+            height: 3dp;
+            background-color: #38bdf8;
+            border-radius: 2dp;
+        }
+    </style>
+</head>
+<body class="splash">
+    <div id="center">
+        <img id="logo" src="/Content/Brand/logo-512.png"/>
+        <div id="wordmark">Mainframe Engine</div>
+        <div id="version">Editor</div>
+        <div id="status">Loading…</div>
+        <div id="bar"><div id="fill"></div></div>
+    </div>
+</body>
+</rml>

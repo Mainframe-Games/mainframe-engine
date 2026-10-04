@@ -1,0 +1,98 @@
+<rml>
+<head>
+    <title>Inspector</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        .insp-head {
+            padding: 8dp 10dp 6dp 10dp;
+            border-bottom: 1dp #2a2d36;
+        }
+        .insp-type { color: #8b93a5; font-size: 11dp; margin-bottom: 4dp; }
+        .insp-name-row { display: flex; flex-direction: row; align-items: center; }
+        .insp-name-row input.text { flex: 1 1 auto; width: 100dp; font-weight: bold; }
+        .section-title {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 24dp;
+            padding: 0dp 6dp;
+            margin-top: 4dp;
+            background-color: #262931;
+            color: #e8ebf2;
+            font-weight: bold;
+            font-size: 12dp;
+            cursor: pointer;
+        }
+        .section-title:hover { background-color: #2f333d; }
+        .prop {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            min-height: 26dp;
+            padding: 2dp 8dp 2dp 12dp;
+        }
+        .prop.nested { padding-left: 24dp; background-color: #1b1d23; }
+        .prop.nested2 { padding-left: 36dp; background-color: #18191e; }
+        .prop-label {
+            display: block;
+            flex: 0 0 auto;
+            width: 38%;
+            color: #b4bccc;
+            font-size: 12dp;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .prop-editor { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
+        .prop-editor input.text { flex: 1 1 auto; width: 30dp; margin-left: 2dp; }
+        .prop-editor input.range { flex: 1 1 auto; width: 40dp; margin-right: 6dp; }
+        .prop-editor input.range + input.text { flex: 0 0 auto; width: 54dp; }
+        .prop-editor select { flex: 1 1 auto; width: 40dp; }
+        .prop-editor textarea { flex: 1 1 auto; width: 40dp; }
+        .axis { display: inline-block; width: 12dp; text-align: center; font-size: 10dp; font-weight: bold; }
+        .axis.x { color: #f87171; }
+        .axis.y { color: #4ade80; }
+        .axis.z { color: #60a5fa; }
+        .axis.w { color: #c4b5fd; }
+        .readonly { color: #8b93a5; font-size: 12dp; }
+        .swatch {
+            display: block;
+            width: 34dp;
+            height: 18dp;
+            margin-right: 4dp;
+            border: 1dp #4b5263;
+            border-radius: 3dp;
+            cursor: pointer;
+        }
+        .flags { display: flex; flex-direction: row; flex-wrap: wrap; }
+        .flag { display: flex; flex-direction: row; align-items: center; margin-right: 8dp; font-size: 11dp; color: #b4bccc; }
+        .flag input.checkbox { margin-right: 3dp; }
+        .res-label {
+            display: block;
+            flex: 1 1 auto;
+            height: 20dp;
+            line-height: 20dp;
+            padding: 0dp 6dp;
+            background-color: #121418;
+            border: 1dp #2f333d;
+            border-radius: 3dp;
+            font-size: 11dp;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .array-item { display: flex; flex-direction: row; align-items: center; margin-top: 2dp; }
+        .array-index { width: 20dp; color: #6b7488; font-size: 10dp; }
+        .array-box { display: block; flex: 1 1 auto; }
+        .empty { padding: 16dp 12dp; color: #8b93a5; }
+        .color-picker { padding: 2dp 8dp 6dp 12dp; }
+        .color-picker .prop { padding-left: 0dp; }
+    </style>
+</head>
+<body class="panel-doc">
+    <div class="panel-header">
+        <span class="panel-title">Inspector</span>
+    </div>
+    <div class="panel-body" id="inspector-body">
+        <div class="empty">Select a node to edit its properties.</div>
+    </div>
+</body>
+</rml>

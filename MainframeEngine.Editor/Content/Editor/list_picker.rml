@@ -1,0 +1,32 @@
+<rml>
+<head>
+    <title>Pick</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 460dp; height: 500dp; margin-left: -230dp; margin-top: -250dp; }
+    </style>
+</head>
+<body class="backdrop" data-model="list_picker">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title">{{title}}</div>
+        <div class="dialog-body">
+            <div class="dialog-row">
+                <input type="text" class="text" id="query" data-value="query" placeholder="Search"/>
+            </div>
+            <div class="list" id="items">
+                <div data-for="it : items" data-attr-class="it.css" data-event-click="select(it.index)" data-event-dblclick="activate(it.index)">
+                    <span data-attr-class="'icon ' + it.icon"></span>
+                    <span>{{it.label}}</span>
+                    <span class="detail">{{it.detail}}</span>
+                </div>
+            </div>
+            <div class="dialog-error">{{error}}</div>
+        </div>
+        <div class="dialog-buttons">
+            <button data-event-click="cancel()">Cancel</button>
+            <button class="primary" data-event-click="ok()">{{ok_label}}</button>
+        </div>
+    </div>
+</body>
+</rml>

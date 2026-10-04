@@ -1,0 +1,21 @@
+<rml>
+<head>
+    <title>Message</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 40%; width: 440dp; margin-left: -220dp; margin-top: -90dp; }
+        #input { flex: 1 1 auto; width: 100dp; }
+    </style>
+</head>
+<body class="backdrop">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title" id="title">Message</div>
+        <div class="dialog-body">
+            <div class="dialog-message" id="message"></div>
+            <div class="dialog-row" id="input-row"><input type="text" class="text" id="input"/></div>
+        </div>
+        <div class="dialog-buttons" id="buttons"></div>
+    </div>
+</body>
+</rml>

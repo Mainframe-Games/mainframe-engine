@@ -1,0 +1,18 @@
+<rml>
+<head>
+    <title>FileSystem</title>
+    <link type="text/rcss" href="theme.rcss"/>
+</head>
+<body class="panel-doc">
+    <div class="panel-header">
+        <span class="panel-title">FileSystem</span>
+    </div>
+    <div class="panel-body">
+        <div class="panel-placeholder">
+            The project's <span class="mono">Content/</span> browser arrives with projects (E4).
+            <br/><br/>
+            Project folder:<br/><span class="mono" id="project-root">none</span>
+        </div>
+    </div>
+</body>
+</rml>

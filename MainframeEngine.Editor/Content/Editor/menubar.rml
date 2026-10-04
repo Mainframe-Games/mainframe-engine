@@ -1,0 +1,45 @@
+<rml>
+<head>
+    <title>Menu bar</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        body.menubar {
+            flex-direction: row;
+            align-items: center;
+            background-color: #17191e;
+            border-bottom: 1dp #2a2d36;
+        }
+        .menu-title {
+            display: block;
+            height: 28dp;
+            line-height: 28dp;
+            padding: 0dp 11dp;
+            color: #c9cedb;
+            cursor: pointer;
+        }
+        .menu-title:hover, .menu-title.open { background-color: #2f333d; color: #ffffff; }
+        #brand {
+            display: block;
+            padding: 0dp 12dp 0dp 10dp;
+            font-weight: bold;
+            color: #93c5fd;
+            letter-spacing: 1dp;
+        }
+        #window-title {
+            display: block;
+            flex: 1 1 auto;
+            text-align: right;
+            padding-right: 14dp;
+            color: #8b93a5;
+        }
+    </style>
+</head>
+<body class="panel-doc menubar">
+    <div id="brand">MAINFRAME</div>
+    <div class="menu-title" id="menu-file" data-menu="file">File</div>
+    <div class="menu-title" id="menu-edit" data-menu="edit">Edit</div>
+    <div class="menu-title" id="menu-view" data-menu="view">View</div>
+    <div class="menu-title" id="menu-help" data-menu="help">Help</div>
+    <div id="window-title"></div>
+</body>
+</rml>

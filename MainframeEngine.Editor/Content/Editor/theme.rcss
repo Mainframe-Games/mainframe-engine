@@ -1,0 +1,234 @@
+/*
+ * Mainframe Editor theme (docs/design/editor.md#ui). Built on the shared widget library (widgets.rcss), recoloured to the
+ * editor's dark palette and tightened for dense tool panels. Every panel is its own document, absolutely positioned
+ * by EditorLayout (body left/top/width/height in dp).
+ *
+ * Palette: base #15171c · panel #1f2128 · raised #262931 · field #121418 · line #2f333d · hover #343947
+ *          text #d7dbe4 · muted #8b93a5 · accent #3b82f6 (selection #1d4ed8) · warn #f59e0b · error #ef4444
+ */
+
+body {
+    font-family: LatoLatin;
+    font-size: 13dp;
+    color: #d7dbe4;
+}
+
+div, p, section, header, footer, h1, h2, h3, label.block { display: block; }
+span, b, i, em, strong { display: inline; }
+b, strong { font-weight: bold; }
+i, em { font-style: italic; }
+.mono { font-family: "Roboto Mono"; font-size: 12dp; }
+.muted { color: #8b93a5; }
+.grow { flex: 1 1 auto; }
+.hidden { display: none; }
+
+/* ── Panels ─────────────────────────────────────────────────────────────── */
+
+body.panel-doc {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    background-color: #1f2128;
+    pointer-events: auto;
+    overflow: hidden;
+}
+
+.panel-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex: 0 0 auto;
+    height: 28dp;
+    padding: 0dp 8dp;
+    background-color: #262931;
+    border-bottom: 1dp #2f333d;
+}
+
+.panel-title {
+    flex: 1 1 auto;
+    font-weight: bold;
+    color: #e8ebf2;
+    font-size: 12dp;
+    letter-spacing: 0.5dp;
+}
+
+.panel-body {
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 4dp 0dp;
+}
+
+.panel-placeholder {
+    padding: 16dp 14dp;
+    color: #8b93a5;
+    line-height: 18dp;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+button, .btn {
+    display: inline-block;
+    height: 22dp;
+    line-height: 22dp;
+    padding: 0dp 9dp;
+    margin-left: 2dp;
+    background-color: #2f333d;
+    border: 1dp #3b3f4b;
+    border-radius: 3dp;
+    color: #d7dbe4;
+    font-size: 12dp;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    tab-index: none;
+}
+
+button:hover, .btn:hover { background-color: #3a3f4c; border-color: #4b5263; }
+button:active, .btn:active { background-color: #23262e; }
+button.active, .btn.active { background-color: #1d4ed8; border-color: #3b82f6; color: #ffffff; }
+button.primary { background-color: #2563eb; border-color: #3b82f6; color: #ffffff; }
+button.primary:hover { background-color: #3b82f6; }
+button.danger { background-color: #7f1d1d; border-color: #b91c1c; color: #ffffff; }
+button:disabled, button.disabled { color: #5f6676; background-color: #23262e; border-color: #2a2d36; cursor: unavailable; }
+button.small { height: 18dp; line-height: 18dp; padding: 0dp 6dp; font-size: 11dp; }
+button.icon { width: 22dp; padding: 0dp; }
+
+/* ── Fields ─────────────────────────────────────────────────────────────── */
+
+input.text, textarea {
+    display: inline-block;
+    box-sizing: border-box;
+    height: 22dp;
+    line-height: 14dp;
+    padding: 3dp 6dp;
+    background-color: #121418;
+    border: 1dp #2f333d;
+    border-radius: 3dp;
+    color: #e8ebf2;
+    font-size: 12dp;
+    cursor: text;
+    pointer-events: auto;
+    tab-index: auto;
+}
+
+textarea { height: 64dp; line-height: 16dp; }
+input.text:hover, textarea:hover { border-color: #4b5263; }
+input.text:focus, textarea:focus { border-color: #3b82f6; background-color: #0e1013; }
+input.text selection, textarea selection { background-color: #1d4ed8; color: #ffffff; }
+input.text:placeholder-shown, textarea:placeholder-shown { color: #5f6676; }
+
+input.checkbox {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 15dp;
+    height: 15dp;
+    vertical-align: middle;
+    background-color: #121418;
+    border: 1dp #4b5263;
+    border-radius: 3dp;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+input.checkbox:hover { border-color: #6b7488; }
+input.checkbox:checked { background-color: #3b82f6; border-color: #3b82f6; decorator: image(/Content/UI/widgets/images/check.png contain); }
+
+input.range {
+    display: inline-block;
+    height: 16dp;
+    vertical-align: middle;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+input.range slidertrack { margin-top: 6dp; height: 4dp; background-color: #121418; border-radius: 2dp; }
+input.range sliderprogress { height: 4dp; background-color: #3b82f6; border-radius: 2dp; }
+input.range sliderbar { width: 12dp; height: 12dp; margin-top: 2dp; margin-left: -6dp; margin-right: -6dp; background-color: #d7dbe4; border-radius: 6dp; }
+input.range sliderbar:hover { background-color: #ffffff; }
+input.range sliderarrowdec, input.range sliderarrowinc { width: 0dp; height: 0dp; }
+
+select {
+    display: inline-block;
+    box-sizing: border-box;
+    height: 22dp;
+    background-color: #121418;
+    border: 1dp #2f333d;
+    border-radius: 3dp;
+    font-size: 12dp;
+    text-align: left;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+select:hover { border-color: #4b5263; }
+select selectvalue { margin-right: 18dp; padding: 3dp 6dp; height: 14dp; line-height: 14dp; }
+select selectarrow { width: 18dp; height: 20dp; decorator: image(/Content/UI/widgets/images/arrow-down.png contain); image-color: #8b93a5; }
+select selectbox { margin-top: 1dp; padding: 3dp 0dp; background-color: #262931; border: 1dp #3b3f4b; border-radius: 3dp; }
+select selectbox option { padding: 3dp 8dp; line-height: 16dp; }
+select selectbox option:hover { background-color: #1d4ed8; color: #ffffff; }
+select selectbox option:checked { font-weight: bold; }
+
+/* ── Scrollbars ─────────────────────────────────────────────────────────── */
+
+scrollbarvertical { width: 8dp; }
+scrollbarvertical slidertrack { background-color: transparent; }
+scrollbarvertical sliderbar { background-color: #3b3f4b; border-radius: 4dp; min-height: 24dp; }
+scrollbarvertical sliderbar:hover { background-color: #4b5263; }
+scrollbarvertical sliderarrowdec, scrollbarvertical sliderarrowinc { height: 0dp; }
+scrollbarhorizontal { height: 8dp; }
+scrollbarhorizontal slidertrack { background-color: transparent; }
+scrollbarhorizontal sliderbar { background-color: #3b3f4b; border-radius: 4dp; }
+scrollbarhorizontal sliderarrowdec, scrollbarhorizontal sliderarrowinc { width: 0dp; }
+
+/* ── Node icons (category colours) ──────────────────────────────────────── */
+
+.icon {
+    display: inline-block;
+    width: 10dp;
+    height: 10dp;
+    margin-right: 6dp;
+    border-radius: 2dp;
+    background-color: #8b93a5;
+    vertical-align: middle;
+}
+
+.icon.node3d { background-color: #f87171; border-radius: 5dp; }
+.icon.node2d { background-color: #60a5fa; border-radius: 5dp; }
+.icon.mesh { background-color: #fb923c; }
+.icon.light { background-color: #fde047; border-radius: 5dp; }
+.icon.camera { background-color: #c084fc; }
+.icon.physics { background-color: #4ade80; }
+.icon.audio { background-color: #22d3ee; border-radius: 5dp; }
+.icon.ui { background-color: #2dd4bf; }
+.icon.env { background-color: #93c5fd; border-radius: 5dp; }
+.icon.viewport { background-color: #a3a3a3; }
+.icon.missing { background-color: #ef4444; }
+.icon.node { background-color: #9ca3af; border-radius: 1dp; }
+
+/* Expand arrow: the widget library's arrow image, turned for collapsed rows. */
+.arrow {
+    display: inline-block;
+    width: 14dp;
+    height: 14dp;
+    vertical-align: middle;
+    decorator: image(/Content/UI/widgets/images/arrow-down.png contain);
+    image-color: #8b93a5;
+    cursor: pointer;
+}
+
+.arrow.collapsed { transform: rotate(-90deg); }
+.arrow.none { decorator: none; cursor: auto; }
+.arrow:hover { image-color: #e8ebf2; }
+
+.notice {
+    margin: 6dp 8dp;
+    padding: 6dp 8dp;
+    background-color: #3a2f12;
+    border: 1dp #6b5310;
+    border-radius: 3dp;
+    color: #fde68a;
+    line-height: 16dp;
+}
+
+.error-text { color: #fca5a5; }

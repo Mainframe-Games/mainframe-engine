@@ -1,0 +1,36 @@
+<rml>
+<head>
+    <title>Output</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        .filter { margin-left: 4dp; }
+        .count { color: #8b93a5; margin-left: 4dp; }
+        button.active .count { color: #bfdbfe; }
+        .lines { padding: 2dp 0dp; font-family: "Roboto Mono"; font-size: 11dp; }
+        .line {
+            display: block;
+            padding: 1dp 8dp;
+            line-height: 15dp;
+            color: #c9cedb;
+            white-space: pre-wrap;
+        }
+        .line .time { color: #6b7488; margin-right: 8dp; }
+        .line.debug { color: #8b93a5; }
+        .line.warn { color: #fbbf24; }
+        .line.error { color: #f87171; background-color: #2a1414; }
+    </style>
+</head>
+<body class="panel-doc" data-model="output">
+    <div class="panel-header">
+        <span class="panel-title">Output</span>
+        <button class="small filter" data-class-active="show_debug" data-event-click="toggle(0)">Debug<span class="count">{{count_debug}}</span></button>
+        <button class="small filter" data-class-active="show_info" data-event-click="toggle(1)">Info<span class="count">{{count_info}}</span></button>
+        <button class="small filter" data-class-active="show_warn" data-event-click="toggle(2)">Warnings<span class="count">{{count_warn}}</span></button>
+        <button class="small filter" data-class-active="show_error" data-event-click="toggle(3)">Errors<span class="count">{{count_error}}</span></button>
+        <button class="small filter" data-event-click="clear()">Clear</button>
+    </div>
+    <div class="panel-body lines" id="lines">
+        <div data-for="m : lines" data-attr-class="'line ' + m.level"><span class="time">{{m.time}}</span>{{m.text}}</div>
+    </div>
+</body>
+</rml>

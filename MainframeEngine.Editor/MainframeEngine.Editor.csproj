@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      The Mainframe Editor (M10, docs/design/editor.md): a separate executable whose only engine dependency is the
+      MainframeEngine core library. Its UI is RmlUi documents (Content/Editor) on the engine's UiServer.
+      The release workflow publishes this exact project (docs/design/release.md); keep the path and assembly name.
+    -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <AssemblyName>MainframeEngine.Editor</AssemblyName>
+        <RootNamespace>MainframeEngine.Editor</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <ApplicationIcon>..\docs\images\brand\logo.ico</ApplicationIcon>
+        <!--
+          CA1515 (make public types internal) targets application assemblies nobody references. The editor's API is
+          public on purpose: its tests drive it, and game assemblies implement ICustomInspector / [CustomInspector].
+        -->
+        <NoWarn>$(NoWarn);CA1515</NoWarn>
+        <!-- CA1716 (VB/F# keywords as member names): IEditorAction.Do/Undo are the names of the editor design (editor.md). -->
+        <NoWarn>$(NoWarn);CA1716</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\MainframeEngine\MainframeEngine.csproj" />
+        <!--
+          No MainframeEngine.Generators analyzer on purpose: editor nodes are tools, never serialized, and must not
+          appear in the Add Node dialog (which lists the registered node types).
+        -->
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="Content\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
+    <!-- Debug builds record this project's Content folder so the editor UI loads (and hot-reloads) from the sources. -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>MainframeContentSource</_Parameter1>
+            <_Parameter2>$(MSBuildProjectDirectory)/Content</_Parameter2>
+        </AssemblyAttribute>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="MainframeEngine.Editor.Tests" />
+    </ItemGroup>
+
+</Project>

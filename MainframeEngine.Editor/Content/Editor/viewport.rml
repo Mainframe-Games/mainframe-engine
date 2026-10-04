@@ -1,0 +1,95 @@
+<rml>
+<head>
+    <title>Viewport</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        /* The 3D view lets the mouse through to the viewport controller; only the tab strip takes it. */
+        body.viewport-doc { background-color: #15171c; pointer-events: none; }
+        .tabs {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-end;
+            flex: 0 0 auto;
+            height: 30dp;
+            padding-left: 4dp;
+            background-color: #1b1d23;
+            border-bottom: 1dp #2f333d;
+            pointer-events: auto;
+        }
+        .tab {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 26dp;
+            padding: 0dp 4dp 0dp 12dp;
+            margin-right: 2dp;
+            background-color: #22252d;
+            border: 1dp #2a2d36;
+            border-bottom-width: 0dp;
+            border-radius: 4dp 4dp 0dp 0dp;
+            color: #a3abbd;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .tab:hover { background-color: #2a2e38; color: #e8ebf2; }
+        .tab.active { background-color: #2f333d; color: #ffffff; border-color: #3b3f4b; }
+        .tab-close {
+            display: block;
+            width: 18dp;
+            height: 18dp;
+            line-height: 18dp;
+            margin-left: 8dp;
+            text-align: center;
+            border-radius: 3dp;
+            color: #8b93a5;
+        }
+        .tab-close:hover { background-color: #4b5263; color: #ffffff; }
+        .tab-new {
+            display: block;
+            width: 26dp;
+            height: 24dp;
+            line-height: 24dp;
+            text-align: center;
+            color: #8b93a5;
+            cursor: pointer;
+            border-radius: 3dp;
+            margin-bottom: 1dp;
+        }
+        .tab-new:hover { background-color: #2a2e38; color: #ffffff; }
+        #view { display: block; position: relative; flex: 1 1 auto; pointer-events: none; }
+        #view-image { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
+        #view-info {
+            position: absolute;
+            left: 10dp;
+            top: 8dp;
+            padding: 2dp 6dp;
+            border-radius: 3dp;
+            background-color: #0f111599;
+            color: #c9cedb;
+            font-size: 11dp;
+        }
+        #view-empty {
+            position: absolute;
+            left: 0dp;
+            top: 45%;
+            width: 100%;
+            text-align: center;
+            color: #6b7488;
+        }
+    </style>
+</head>
+<body class="panel-doc viewport-doc" data-model="viewport_tabs">
+    <div class="tabs">
+        <div class="tab" data-for="tab : tabs" data-class-active="tab.active" data-event-mousedown="activate(tab.index)">
+            <span>{{tab.title}}</span>
+            <span class="tab-close" data-event-mousedown="close(tab.index)">×</span>
+        </div>
+        <div class="tab-new" data-event-click="create()" title="New scene (Ctrl+N)">+</div>
+    </div>
+    <div id="view">
+        <img id="view-image"/>
+        <div id="view-info" class="mono">Perspective</div>
+        <div id="view-empty">No scene open · File › New Scene or Open Scene</div>
+    </div>
+</body>
+</rml>

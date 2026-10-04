@@ -1,0 +1,46 @@
+<rml>
+<head>
+    <title>File</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 680dp; height: 470dp; margin-left: -340dp; margin-top: -235dp; }
+        .places button { margin-left: 0dp; margin-right: 4dp; }
+        #path { font-family: "Roboto Mono"; font-size: 11dp; }
+    </style>
+</head>
+<body class="backdrop" data-model="file_picker">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title">{{title}}</div>
+        <div class="dialog-body">
+            <div class="dialog-row">
+                <button data-event-click="up()" title="Parent folder">Up</button>
+                <input type="text" class="text" id="path" data-value="path" style="margin-left: 6dp;"/>
+                <button data-event-click="go()">Go</button>
+            </div>
+            <div class="dialog-row places">
+                <button data-event-click="place(0)">Home</button>
+                <button data-event-click="place(1)" data-if="has_project">Project</button>
+                <button data-event-click="place(2)" data-if="has_project">Content</button>
+                <span class="muted grow" style="text-align: right;">{{filter}}</span>
+            </div>
+            <div class="list" id="entries">
+                <div data-for="e : entries" data-attr-class="e.css" data-event-click="select(e.index)" data-event-dblclick="activate(e.index)">
+                    <span data-attr-class="e.mark"></span>
+                    <span class="entry-name">{{e.name}}</span>
+                    <span class="detail">{{e.size}}</span>
+                </div>
+            </div>
+            <div class="dialog-row" data-if="show_name">
+                <span class="caption">{{name_label}}</span>
+                <input type="text" class="text" id="file-name" data-value="file_name"/>
+            </div>
+            <div class="dialog-error">{{error}}</div>
+        </div>
+        <div class="dialog-buttons">
+            <button data-event-click="cancel()">Cancel</button>
+            <button class="primary" id="ok" data-event-click="ok()">{{ok_label}}</button>
+        </div>
+    </div>
+</body>
+</rml>

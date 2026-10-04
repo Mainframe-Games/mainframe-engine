@@ -1,0 +1,55 @@
+<rml>
+<head>
+    <title>Toolbar</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        body.toolbar {
+            flex-direction: row;
+            align-items: center;
+            padding: 0dp 8dp;
+            background-color: #1b1d23;
+            border-bottom: 1dp #2a2d36;
+        }
+        .group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 0dp 6dp;
+            margin-right: 6dp;
+            border-right: 1dp #2a2d36;
+        }
+        .group button { height: 24dp; line-height: 24dp; }
+        .key { color: #8b93a5; font-size: 10dp; margin-left: 4dp; }
+        button.active .key { color: #bfdbfe; }
+        .spacer { flex: 1 1 auto; }
+        #snap-step { width: 46dp; margin-left: 4dp; }
+        #stats { padding: 0dp 10dp 0dp 6dp; color: #8b93a5; white-space: nowrap; }
+        .play button { width: 44dp; padding: 0dp; }
+    </style>
+</head>
+<body class="panel-doc toolbar">
+    <div class="group">
+        <button id="tool-select" data-command="gizmo.select" title="Select (Q)">Select<span class="key">Q</span></button>
+        <button id="tool-translate" data-command="gizmo.translate" title="Move (W)">Move<span class="key">W</span></button>
+        <button id="tool-rotate" data-command="gizmo.rotate" title="Rotate (E)">Rotate<span class="key">E</span></button>
+        <button id="tool-scale" data-command="gizmo.scale" title="Scale (R)">Scale<span class="key">R</span></button>
+    </div>
+    <div class="group">
+        <button id="tool-local" data-command="gizmo.local" title="Local or global handles (T)">Global<span class="key">T</span></button>
+        <button id="tool-snap" data-command="gizmo.snap" title="Snap to steps (Y)">Snap<span class="key">Y</span></button>
+        <input type="text" class="text" id="snap-step" value="0.5" title="Move snap step"/>
+    </div>
+    <div class="group">
+        <button id="tool-frame" data-command="view.frame" title="Frame selection (F)">Frame<span class="key">F</span></button>
+        <button id="tool-grid" class="active" data-command="view.grid" title="Show the grid (G)">Grid</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="group play">
+        <button id="play" class="disabled" title="Play arrives with projects (E4)">Play</button>
+        <button id="pause" class="disabled" title="Play arrives with projects (E4)">Pause</button>
+        <button id="stop" class="disabled" title="Play arrives with projects (E4)">Stop</button>
+    </div>
+    <div class="spacer"></div>
+    <span id="stats" class="mono"></span>
+</body>
+</rml>

@@ -1,0 +1,69 @@
+<rml>
+<head>
+    <title>Scene</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        .tree { padding: 3dp 0dp; }
+        .tree-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 22dp;
+            padding-right: 8dp;
+            white-space: nowrap;
+            cursor: pointer;
+            border-top: 1dp transparent;
+            border-bottom: 1dp transparent;
+        }
+        .tree-row:hover { background-color: #2a2e38; }
+        .tree-row.selected { background-color: #1d4ed8; color: #ffffff; }
+        .tree-row.selected .type { color: #bfdbfe; }
+        .tree-row.drop-inside { background-color: #1e3a8a; }
+        .tree-row.drop-before { border-top-color: #60a5fa; }
+        .tree-row.drop-after { border-bottom-color: #60a5fa; }
+        .tree-row.dragging { color: #8b93a5; }
+        .indent { display: inline-block; height: 1dp; }
+        .name { display: inline-block; }
+        .type { display: inline-block; margin-left: 7dp; color: #6b7488; font-size: 11dp; }
+        .instance-tag {
+            display: inline-block;
+            margin-left: 6dp;
+            padding: 0dp 4dp;
+            height: 14dp;
+            line-height: 14dp;
+            border-radius: 2dp;
+            background-color: #374151;
+            color: #cbd5e1;
+            font-size: 10dp;
+        }
+        .tree-empty { padding: 14dp; color: #8b93a5; }
+    </style>
+</head>
+<body class="panel-doc" data-model="scene_tree">
+    <div class="panel-header">
+        <span class="panel-title">Scene</span>
+        <button class="small" data-command="node.add" title="Add a child node (Ctrl+A)">Add</button>
+        <button class="small" data-command="scene.instance" title="Instance a scene as a child (Ctrl+Shift+A)">Instance</button>
+    </div>
+    <div class="panel-body tree" id="tree">
+        <div class="tree-row" data-for="row : rows"
+             data-class-selected="row.selected"
+             data-class-dragging="row.drag"
+             data-class-drop-inside="row.drop == 1"
+             data-class-drop-before="row.drop == 2"
+             data-class-drop-after="row.drop == 3"
+             data-event-mousedown="press(row.index)"
+             data-event-mousemove="hover(row.index)"
+             data-event-mouseup="release(row.index)"
+             data-event-dblclick="rename(row.index)">
+            <span class="indent" data-style-width="row.indent"></span>
+            <span class="arrow" data-class-collapsed="!row.expanded" data-class-none="!row.has_children" data-event-mousedown="toggle(row.index)"></span>
+            <span data-attr-class="'icon ' + row.icon"></span>
+            <span class="name">{{row.name}}</span>
+            <span class="instance-tag" data-if="row.instance">scene</span>
+            <span class="type">{{row.type}}</span>
+        </div>
+        <div class="tree-empty" data-if="rows.size == 0">No scene open.</div>
+    </div>
+</body>
+</rml>

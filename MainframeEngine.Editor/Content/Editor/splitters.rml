@@ -1,0 +1,25 @@
+<rml>
+<head>
+    <title>Splitters</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        /* A full-window layer that only takes the mouse over the four splitter handles. */
+        body { position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; pointer-events: none; }
+        .splitter {
+            position: absolute;
+            background-color: #15171c;
+            pointer-events: auto;
+            drag: drag;
+        }
+        .splitter:hover, .splitter.dragging { background-color: #3b82f6; }
+        .splitter.vertical { cursor: col-resize; }
+        .splitter.horizontal { cursor: row-resize; }
+    </style>
+</head>
+<body>
+    <div class="splitter vertical" id="split-left"></div>
+    <div class="splitter vertical" id="split-right"></div>
+    <div class="splitter horizontal" id="split-bottom"></div>
+    <div class="splitter horizontal" id="split-leftdock"></div>
+</body>
+</rml>

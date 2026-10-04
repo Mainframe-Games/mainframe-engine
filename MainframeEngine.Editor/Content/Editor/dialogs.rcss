@@ -1,0 +1,114 @@
+/* Modal dialogs and popup menus of the editor (dialog layer above the panels). */
+
+body.backdrop {
+    position: absolute;
+    left: 0dp;
+    top: 0dp;
+    width: 100%;
+    height: 100%;
+    background-color: #0008;
+    pointer-events: auto;
+}
+
+body.backdrop.clear { background-color: transparent; }
+
+.dialog {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    background-color: #1f2128;
+    border: 1dp #3b3f4b;
+    border-radius: 6dp;
+    box-shadow: #000000a0 0dp 10dp 30dp 0dp;
+    pointer-events: auto;
+}
+
+.dialog-title {
+    display: block;
+    flex: 0 0 auto;
+    padding: 9dp 14dp;
+    background-color: #262931;
+    border-bottom: 1dp #2f333d;
+    border-radius: 6dp 6dp 0dp 0dp;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.dialog-body { display: flex; flex-direction: column; flex: 1 1 auto; padding: 10dp 14dp; }
+.dialog-row { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin-bottom: 8dp; }
+.dialog-row > input.text { flex: 1 1 auto; width: 60dp; }
+.dialog-row .caption { width: 72dp; color: #b4bccc; }
+.dialog-buttons {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    padding: 10dp 14dp;
+    border-top: 1dp #2f333d;
+}
+.dialog-buttons button { height: 26dp; line-height: 26dp; padding: 0dp 16dp; margin-left: 8dp; }
+.dialog-message { display: block; line-height: 18dp; color: #d7dbe4; margin-bottom: 8dp; }
+.dialog-error { display: block; flex: 0 0 auto; min-height: 16dp; color: #f87171; font-size: 12dp; }
+
+.list {
+    display: block;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    background-color: #15171c;
+    border: 1dp #2f333d;
+    border-radius: 3dp;
+    margin-bottom: 8dp;
+}
+
+.list-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 22dp;
+    padding: 0dp 8dp;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.list-item:hover { background-color: #2a2e38; }
+.list-item.selected { background-color: #1d4ed8; color: #ffffff; }
+.list-item .detail { flex: 1 1 auto; text-align: right; color: #6b7488; font-size: 11dp; }
+.list-item.selected .detail { color: #bfdbfe; }
+.list-item.dir .entry-name { color: #fcd34d; }
+.list-item.selected.dir .entry-name { color: #ffffff; }
+.folder-mark { display: inline-block; width: 10dp; height: 8dp; margin-right: 6dp; border-radius: 1dp; background-color: #d4a72c; }
+.file-mark { display: inline-block; width: 8dp; height: 10dp; margin-right: 8dp; border-radius: 1dp; background-color: #6b7488; }
+
+/* Popup menus (menu bar, context menus, undo history). */
+.menu {
+    position: absolute;
+    min-width: 200dp;
+    padding: 4dp 0dp;
+    background-color: #262931;
+    border: 1dp #3b3f4b;
+    border-radius: 4dp;
+    box-shadow: #00000099 0dp 6dp 18dp 0dp;
+    pointer-events: auto;
+}
+
+.menu-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 24dp;
+    padding: 0dp 14dp 0dp 12dp;
+    white-space: nowrap;
+    color: #d7dbe4;
+    cursor: pointer;
+}
+
+.menu-item:hover { background-color: #1d4ed8; color: #ffffff; }
+.menu-item.disabled { color: #5f6676; cursor: unavailable; }
+.menu-item.disabled:hover { background-color: transparent; color: #5f6676; }
+.menu-item.current { font-weight: bold; }
+.menu-item.undone { color: #8b93a5; }
+.menu-label { flex: 1 1 auto; }
+.menu-shortcut { margin-left: 28dp; color: #8b93a5; font-size: 11dp; }
+.menu-item:hover .menu-shortcut { color: #bfdbfe; }
+.menu-separator { display: block; height: 1dp; margin: 4dp 0dp; background-color: #3b3f4b; }
+.menu-header { display: block; padding: 4dp 12dp 2dp 12dp; color: #8b93a5; font-size: 11dp; }
