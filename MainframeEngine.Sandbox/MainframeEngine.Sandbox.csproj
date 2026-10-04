@@ -30,4 +30,7 @@
       </AssemblyAttribute>
     </ItemGroup>
 
+    <!-- M9: Content/locale/*/LC_MESSAGES/messages.po -> .mo in the output (mf-l10n; committed .mo fallback) -->
+    <Import Project="..\build\Localization.targets" />
+
 </Project>

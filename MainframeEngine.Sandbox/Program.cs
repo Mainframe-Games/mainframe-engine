@@ -25,7 +25,11 @@ var qaAudio = QaAudio.FromArgs(args);
 // --server [port] / --client <host> [port]: the multiplayer demo (M5).
 var network = NetworkDemo.FromArgs(args);
 
+// --locale <name>: start in a language (en, es, qps); otherwise the OS language when it has a catalog (M9).
+var locale = Array.IndexOf(args, "--locale") is var at and >= 0 && at + 1 < args.Length ? args[at + 1] : null;
+
 var options = qa?.Apply(Game.DefaultOptions) ?? Game.DefaultOptions;
+options.Locale = locale;
 if (network is not null)
 {
     // Wall-clock time (not the QA fixed step) so the server's and the client's clocks run at the same rate.

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Numerics;
 using ImGuiNET;
 using MainframeEngine.Gizmos;
+using MainframeEngine.Localization;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
@@ -31,6 +32,12 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         Ui = new UiServerOptions { SourceContentDirectories = UiServerOptions.SourceDirectoriesOf(typeof(Game).Assembly) },
     };
 
+    // M9: overlay labels in the current language, rebuilt only when it changes (zero allocations per frame).
+    private readonly OverlayText _text = new();
+    private string[] _locales = [];
+    private string[] _localeNames = [];
+    private WelcomeBanner? _banner;
+
     /// <summary>Set by <c>--qa-capture</c>: frames to screenshot before the engine exits.</summary>
     public QaCapture? QaCapture { get; init; }
 
@@ -57,6 +64,12 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         _mouse = InputContext.Mice[0];
         _mouse.MouseDown += OnMouseDown;
         _mouse.MouseUp += OnMouseUp;
+
+        // M9: the language menu lists every compiled catalog (Content/locale/<locale>/LC_MESSAGES/messages.mo).
+        _locales = [.. Tr.GetAvailableLocales()];
+        _localeNames = [.. _locales.Select(LocaleId.DisplayName)];
+        _text.Refresh();
+        Tr.LocaleChanged += OnLocaleChanged;
 
         // The scene (fly camera, sky, SpineBoy, floor, spinning box, five shadow-casting lights) is data:
         // Content/Scenes/Sandbox.mscene, generated from SandboxSceneBuilder. The tree processes and renders it.
@@ -99,22 +112,36 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
         // Developer overlay (F12). Frame stats, VSync and Max FPS moved to the RmlUi HUD.
         ImGui.SetNextWindowPos(new Vector2(0, 120), ImGuiCond.FirstUseEver, new Vector2(0, 0));
-        if (ImGui.Begin("Developer", ImGuiWindowFlags.AlwaysAutoResize))
+        if (ImGui.Begin(_text.Window, ImGuiWindowFlags.AlwaysAutoResize))
         {
+            if (!Node.IsInstanceValid(_banner))
+                _banner = Tree.CurrentScene?.GetNodeOrNull<WelcomeBanner>("Welcome");
+            if (_banner is { } banner)
+            {
+                ImGui.TextUnformatted(banner.DisplayTitle);
+                ImGui.TextUnformatted(banner.DisplayHint);
+                ImGui.Separator();
+            }
+
             ImGui.Value("DeltaTime", gameTime.DeltaTime);
 
             var isFullScreen = Window.WindowState is WindowState.Fullscreen;
-            if (ImGui.Checkbox("FullScreen", ref isFullScreen))
+            if (ImGui.Checkbox(_text.FullScreen, ref isFullScreen))
                 Window.WindowState = isFullScreen ? WindowState.Fullscreen : WindowState.Normal;
 
             if (Ui is { } ui)
             {
                 var debugger = ui.DebuggerVisible;
-                if (ImGui.Checkbox("UI debugger (F8)", ref debugger))
+                if (ImGui.Checkbox(_text.UiDebugger, ref debugger))
                     ui.DebuggerVisible = debugger;
             }
 
-            ImGui.SeparatorText("Camera");
+            ImGui.SeparatorText(_text.Language);
+            var localeIndex = Array.IndexOf(_locales, Tr.CurrentLocale);
+            if (ImGui.Combo(_text.LanguageCombo, ref localeIndex, _localeNames, _localeNames.Length) && localeIndex >= 0)
+                Tr.SetLocale(_locales[localeIndex]); // nodes re-translate (WelcomeBanner), the overlay refreshes
+
+            ImGui.SeparatorText(_text.Camera);
             if (camera is not null)
             {
                 // Formatted into stack buffers: interpolated strings would allocate every frame.
@@ -127,8 +154,8 @@ public sealed class Game(in EngineOptions options) : Engine(options)
                     ImGui.TextUnformatted(text[..written]);
             }
 
-            ImGui.SeparatorText("Scene");
-            ImGui.Value("Nodes", Tree.NodeCount);
+            ImGui.SeparatorText(_text.Scene);
+            ImGui.TextUnformatted(_text.NodeCount(Tree.NodeCount));
 
             ImGui.SeparatorText("Physics");
             if (Servers.Get<PhysicsServer3D>() is { } physics)
@@ -161,8 +188,53 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
     protected override void OnClose()
     {
+        Tr.LocaleChanged -= OnLocaleChanged;
         StopQaWakeTimer();
         base.OnClose(); // frees the scene tree and its GPU objects
+    }
+
+    private void OnLocaleChanged(object? sender, LocaleChangedEventArgs e) => _text.Refresh();
+
+    /// <summary>
+    /// The overlay's translated labels. ImGui identifies widgets by label, so each label keeps a fixed id after "###"
+    /// and a language switch does not reset widget state. Strings are rebuilt on locale change, never per frame.
+    /// </summary>
+    private sealed class OverlayText
+    {
+        private int _nodeCount = -1;
+        private string _nodeCountText = string.Empty;
+
+        public string Window { get; private set; } = string.Empty;
+        public string FullScreen { get; private set; } = string.Empty;
+        public string UiDebugger { get; private set; } = string.Empty;
+        public string Language { get; private set; } = string.Empty;
+        public string LanguageCombo { get; private set; } = string.Empty;
+        public string Camera { get; private set; } = string.Empty;
+        public string Scene { get; private set; } = string.Empty;
+
+        public void Refresh()
+        {
+            Window = Tr._("Developer") + "###Developer";
+            FullScreen = Tr._("Full screen") + "###FullScreen";
+            UiDebugger = Tr._("UI debugger (F8)") + "###UiDebugger";
+            Language = Tr._("Language");
+            LanguageCombo = "###Language";
+            Camera = Tr.P("overlay section", "Camera");
+            Scene = Tr.P("overlay section", "Scene");
+            _nodeCount = -1;
+        }
+
+        /// <summary>"N nodes in the tree" in the current language; re-formatted only when the count changes.</summary>
+        public string NodeCount(int count)
+        {
+            if (count != _nodeCount)
+            {
+                _nodeCount = count;
+                _nodeCountText = Tr.N("{0} node in the scene tree", "{0} nodes in the scene tree", count);
+            }
+
+            return _nodeCountText;
+        }
     }
 
     // --qa-resize / --qa-minimize: scripted window changes for `just qa`.

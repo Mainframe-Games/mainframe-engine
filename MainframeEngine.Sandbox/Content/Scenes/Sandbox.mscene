@@ -843,6 +843,14 @@
           "Range": 12,
           "OuterConeAngle": 28
         }
+      },
+      {
+        "type": "WelcomeBanner",
+        "name": "Welcome",
+        "props": {
+          "Title": "Welcome to the Mainframe Engine Sandbox",
+          "Hint": "Hold the right mouse button to look around; move with W, A, S and D."
+        }
       }
     ]
   }

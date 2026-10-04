@@ -161,6 +161,14 @@ public static class SandboxSceneBuilder
             OuterConeAngle = 28f,
         }, new Vector3(-0.2f, -1, 0.4f)));
 
+        // M9: translatable scene text ([Export(Translatable = true)]), shown by the overlay in the current language.
+        Add(root, new WelcomeBanner
+        {
+            Name = "Welcome",
+            Title = "Welcome to the Mainframe Engine Sandbox",
+            Hint = "Hold the right mouse button to look around; move with W, A, S and D.",
+        });
+
         return root;
     }
 
