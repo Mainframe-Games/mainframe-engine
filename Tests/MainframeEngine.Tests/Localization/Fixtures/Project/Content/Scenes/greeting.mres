@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "uid": "res_0000000000a3",
+  "type": "DialogueLine",
+  "props": {
+    "Text": "Greetings from a resource file",
+    "Speaker": "Narrator"
+  }
+}

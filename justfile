@@ -80,6 +80,32 @@ format:
 format-check:
     dotnet format {{solution}} --verify-no-changes --exclude Plugins/Spine
 
+# --- Localization (docs/design/localization.md) -------------------------------------------------------------------
+# The Sandbox's catalogs: Content/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
+l10n_dir := "MainframeEngine.Sandbox/Content/locale"
+l10n := "dotnet run --project Tools/MainframeEngine.L10n -c Release --"
+
+# Extract strings (C# via GetText.Extractor, RML and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale
+l10n-extract:
+    dotnet tool restore
+    dotnet build MainframeEngine.Sandbox -p:CompileLocales=false
+    dotnet tool run GetText.Extractor -s MainframeEngine.Sandbox/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Sandbox" --include {{artifacts / "l10n" / "code.pot"}} --rml MainframeEngine.Sandbox/Content --scenes MainframeEngine.Sandbox/Content --assembly MainframeEngine.Sandbox/bin/Debug/net10.0/MainframeEngine.Sandbox.dll
+    {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
+    {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
+
+# Compile every .po to the committed .mo next to it (the build compiles them into the output itself)
+l10n-compile:
+    {{l10n}} compile --dir {{l10n_dir}}
+
+# Fail if a committed .mo is stale or a translation breaks its placeholders (and compare with GNU msgfmt when installed)
+l10n-check:
+    {{l10n}} check --dir {{l10n_dir}} --msgfmt
+
+# Translation coverage per locale
+l10n-stats:
+    {{l10n}} stats --dir {{l10n_dir}} --pot {{l10n_dir}}/messages.pot
+
 # Remove build outputs and artifacts
 clean:
     dotnet clean {{solution}} -v q

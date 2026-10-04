@@ -1,0 +1,79 @@
+<Project>
+  <!--
+    Build-time catalog compilation for game projects (docs/design/localization.md). Import it from the game's csproj:
+
+      <Import Project="..\build\Localization.targets" />
+
+    1. Every Content/locale/<locale>/LC_MESSAGES/<domain>.po is compiled to
+       obj/<Configuration>/locale/<locale>/LC_MESSAGES/<domain>.mo by mf-l10n (Tools/MainframeEngine.L10n, built
+       first through a project reference): a C# .mo writer identical to GNU msgfmt, so builds never need gettext.
+       Only catalogs whose .po (or the tool) changed are recompiled. A translation that breaks its placeholders or
+       plural count fails the build with the file and line.
+    2. The compiled .mo files are copied to the output as Content/locale/<locale>/LC_MESSAGES/<domain>.mo, where
+       Tr loads them. When the tool cannot run (-p:CompileLocales=false, or its output is missing) the committed .mo
+       files next to the .po are copied instead, with a warning; `just l10n-compile` keeps them current and
+       `just l10n-check` (CI) verifies them. .po/.pot sources never reach the output.
+  -->
+
+  <PropertyGroup>
+    <CompileLocales Condition="'$(CompileLocales)' == ''">true</CompileLocales>
+    <LocaleOutputDir>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(BaseIntermediateOutputPath), $(Configuration), locale))))</LocaleOutputDir>
+    <MfL10nProject>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)../Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj))</MfL10nProject>
+    <_MfL10nDotnet Condition="'$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</_MfL10nDotnet>
+    <_MfL10nDotnet Condition="'$(DOTNET_HOST_PATH)' == ''">dotnet</_MfL10nDotnet>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <LocaleCatalog Include="Content/locale/**/*.po">
+      <SubDir>%(RecursiveDir)</SubDir>
+    </LocaleCatalog>
+    <!-- Sources and committed binaries are build inputs; IncludeLocaleCatalogsInOutput adds the right .mo files. -->
+    <None Update="Content/locale/**/*.po;Content/locale/**/*.pot;Content/locale/**/*.mo" CopyToOutputDirectory="Never" />
+  </ItemGroup>
+
+  <!-- Builds mf-l10n before this project (it is a build tool here, not a dependency of the game). -->
+  <ItemGroup Condition="'$(CompileLocales)' == 'true'">
+    <ProjectReference Include="$(MfL10nProject)" ReferenceOutputAssembly="false" Private="false"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishTrimmed;PublishReadyToRun" />
+  </ItemGroup>
+
+  <Target Name="ResolveMfL10n" Condition="'$(CompileLocales)' == 'true'">
+    <MSBuild Projects="$(MfL10nProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" PropertyName="MfL10nPath" />
+    </MSBuild>
+    <PropertyGroup>
+      <MfL10nAvailable Condition="'$(MfL10nPath)' != '' and Exists('$(MfL10nPath)')">true</MfL10nAvailable>
+    </PropertyGroup>
+    <Warning Condition="'$(MfL10nAvailable)' != 'true' and '@(LocaleCatalog)' != ''" Code="MFL10N001"
+             Text="mf-l10n was not built ($(MfL10nPath)); using the committed .mo files. Translation edits will not take effect until 'just l10n-compile' is run." />
+  </Target>
+
+  <Target Name="CompileLocaleCatalogs" DependsOnTargets="ResolveMfL10n"
+          Condition="'$(CompileLocales)' == 'true' and '@(LocaleCatalog)' != ''"
+          Inputs="@(LocaleCatalog);$(MfL10nPath)"
+          Outputs="@(LocaleCatalog->'$(LocaleOutputDir)%(SubDir)%(Filename).mo')">
+    <Exec Condition="'$(MfL10nAvailable)' == 'true'"
+          Command="&quot;$(_MfL10nDotnet)&quot; &quot;$(MfL10nPath)&quot; compile &quot;%(LocaleCatalog.FullPath)&quot; -o &quot;$(LocaleOutputDir)%(LocaleCatalog.SubDir)%(LocaleCatalog.Filename).mo&quot;"
+          StandardOutputImportance="low"
+          CustomErrorRegularExpression=": error:"
+          CustomWarningRegularExpression=": warning:" />
+  </Target>
+
+  <!--
+    Runs before AssignTargetPaths so referencing projects (which ask for this project's copy-to-output items) get the
+    catalogs too.
+  -->
+  <Target Name="IncludeLocaleCatalogsInOutput" BeforeTargets="AssignTargetPaths" DependsOnTargets="CompileLocaleCatalogs;ResolveMfL10n">
+    <ItemGroup Condition="'$(CompileLocales)' == 'true' and '$(MfL10nAvailable)' == 'true'">
+      <_LocaleBinary Include="@(LocaleCatalog->'$(LocaleOutputDir)%(SubDir)%(Filename).mo')" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(CompileLocales)' != 'true' or '$(MfL10nAvailable)' != 'true'">
+      <_CommittedLocaleBinary Include="@(LocaleCatalog->'%(RootDir)%(Directory)%(Filename).mo')" />
+      <_LocaleBinary Include="@(_CommittedLocaleBinary)" Condition="Exists('%(FullPath)')" />
+    </ItemGroup>
+    <ItemGroup>
+      <None Include="@(_LocaleBinary)" Link="Content/locale/%(_LocaleBinary.SubDir)%(_LocaleBinary.Filename)%(_LocaleBinary.Extension)"
+            CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    </ItemGroup>
+  </Target>
+</Project>

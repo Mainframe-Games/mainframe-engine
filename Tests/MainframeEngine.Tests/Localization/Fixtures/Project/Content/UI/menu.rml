@@ -1,0 +1,28 @@
+<rml>
+<head>
+    <title>Main menu (not extracted)</title>
+    <link type="text/rcss" href="menu.rcss"/>
+    <style>
+        body { font-family: Lato; }
+        /* <p>Not text</p> */
+    </style>
+    <script>var x = "<p>nor this</p>";</script>
+</head>
+<body title="Main menu">
+    <!-- <p>Commented out</p> -->
+    <h1>Start   game</h1>
+    <p>Press <b>Start</b> to   continue
+       your adventure.</p>
+    <button>Options &amp; settings</button>
+    <input type="text" placeholder="Player name" value="Typed by the player"/>
+    <input type="submit" value="Apply"/>
+    <input type="checkbox" value="vsync"/>
+    <p>{{ score }}</p>
+    <p>Score: {{ score }}</p>
+    <p class="hud no-tr">Debug build</p>
+    <div class="no-tr"><span>Nested opt-out</span><span title="Not this either">x</span></div>
+    <textarea>Default notes</textarea>
+    <p>Fish &lt;3 &#169; &#x263A;</p>
+    <p>Settings</p>
+</body>
+</rml>

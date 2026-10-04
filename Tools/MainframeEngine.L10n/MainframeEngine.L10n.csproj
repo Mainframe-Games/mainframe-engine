@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    mf-l10n: the engine's localization tool (docs/design/localization.md). Extracts translatable text from RML
+    documents and scenes into a .pot, merges it with the GetText.NET extractor's C# template, updates .po files,
+    generates the qps pseudo-locale and compiles .po to GNU .mo in C#, so builds never need GNU gettext.
+    Built by build/Localization.targets for projects that compile catalogs; run with `just l10n-extract` /
+    `just l10n-compile`, or run this project directly with a command as its first argument.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>mf-l10n</AssemblyName>
+    <RootNamespace>MainframeEngine.L10n</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- RmlLocalization (shared RML parser), LocaleId and TypeRegistry ([Export(Translatable)] properties). -->
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MainframeEngine.Tests" />
+  </ItemGroup>
+
+</Project>

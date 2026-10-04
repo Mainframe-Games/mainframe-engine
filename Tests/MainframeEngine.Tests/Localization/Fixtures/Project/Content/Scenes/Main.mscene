@@ -1,0 +1,32 @@
+{
+  // Hand-edited scene: comments and trailing commas are allowed, as for the scene loader.
+  "format": 1,
+  "uid": "scn_0000000000a2",
+  "resources": {
+    "1": { "type": "DialogueLine", "props": { "Text": "Hello, traveller!", "Speaker": "Guard" } },
+  },
+  "root": {
+    "type": "Node",
+    "name": "Main",
+    "children": [
+      {
+        "type": "LocalizedLabel",
+        "name": "Title",
+        "props": {
+          "Text": "Settings",
+          "Lines": ["First line", "Second line"],
+          "Key": "title",
+          "Line": { "res": "1" }
+        }
+      },
+      {
+        "instance": "scn_0000000000a1",
+        "path": "Content/Scenes/Sub.mscene",
+        "name": "Panel",
+        "props": { "Text": "Overridden panel title" },
+        "overrides": { "Caption": { "Text": "Overridden caption", "Key": "x" } }
+      },
+      { "type": "UnknownWidget", "name": "Mystery", "props": { "Text": "Unknown type text" } }
+    ]
+  }
+}

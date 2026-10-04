@@ -37,6 +37,13 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
 
+  <!-- M9: mf-l10n (in-process CLI, .po/.mo, extractors) and its fixture project (data, never compiled here). -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Tools\MainframeEngine.L10n\MainframeEngine.L10n.csproj" />
+    <Compile Remove="Localization\Fixtures\**" />
+    <None Include="Localization\Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- The Sandbox scene is parsed and round-tripped by the serialization tests. -->
   <ItemGroup>
     <None Include="..\..\MainframeEngine.Sandbox\Content\Scenes\Sandbox.mscene"
