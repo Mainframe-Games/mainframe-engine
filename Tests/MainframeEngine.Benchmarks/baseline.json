@@ -89,6 +89,21 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "PhysicsBenchmarks.Raycast10k3D",
+      "MeanNs": 963042.192,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "PhysicsBenchmarks.Step1kRigidBodies2D",
+      "MeanNs": 920510.886,
+      "AllocatedBytes": 352
+    },
+    {
+      "Name": "PhysicsBenchmarks.Step1kRigidBodies3D",
+      "MeanNs": 502144.392,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "ReplicationBenchmarks.CaptureChanges([NodeCount=1000])",
       "MeanNs": 11439.88,
       "AllocatedBytes": 0
