@@ -41,6 +41,8 @@ public class Node3D : Node, ITransformNotifiable
     private bool _visible = true;
     private bool _notifyTransform;
     private bool _notificationQueued;
+    private bool _trackGlobalChanges;
+    private bool _trackLocalChanges;
 
     /// <summary>Position relative to the parent.</summary>
     [Export]
@@ -248,9 +250,34 @@ public class Node3D : Node, ITransformNotifiable
     {
     }
 
+    /// <summary>
+    /// Enables <see cref="OnGlobalTransformInvalidated"/>: called synchronously whenever this node's global
+    /// transform becomes dirty (its own or an ancestor's transform was set, or it was reparented). Physics bodies
+    /// use it to push moved nodes to their server without a per-step scan.
+    /// </summary>
+    private protected void TrackGlobalTransformChanges(bool enable) => _trackGlobalChanges = enable;
+
+    /// <summary>Enables <see cref="OnLocalTransformChanged"/>: called whenever a local transform property is set.</summary>
+    private protected void TrackLocalTransformChanges(bool enable) => _trackLocalChanges = enable;
+
+    /// <summary>A local transform property was set (see <see cref="TrackLocalTransformChanges"/>); record it only.</summary>
+    private protected virtual void OnLocalTransformChanged()
+    {
+    }
+
+    /// <summary>
+    /// The global transform was just invalidated (see <see cref="TrackGlobalTransformChanges"/>). Runs during dirty
+    /// propagation: implementations must only record the fact, not read transforms.
+    /// </summary>
+    private protected virtual void OnGlobalTransformInvalidated()
+    {
+    }
+
     private void MarkLocalDirty()
     {
         _dirty |= Dirty.Local;
+        if (_trackLocalChanges)
+            OnLocalTransformChanged();
         InvalidateGlobal();
     }
 
@@ -263,6 +290,8 @@ public class Node3D : Node, ITransformNotifiable
         _dirty |= Dirty.Global;
         if (_notifyTransform)
             QueueTransformNotification();
+        if (_trackGlobalChanges)
+            OnGlobalTransformInvalidated();
 
         var children = ChildList;
         if (children is null)

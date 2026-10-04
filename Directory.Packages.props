@@ -20,12 +20,15 @@
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.Windowing.Sdl" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Box2D.NET" Version="3.1.654" />
     <PackageVersion Include="ENet-CSharp" Version="2.4.8" />
     <PackageVersion Include="ImGui.NET" Version="1.89.9.3" />
     <!-- Audio (M7): SoundFlow (MIT; miniaudio natives for every desktop RID inside the package) and NVorbis
          (MIT, fully managed OGG Vorbis decoding). Pinned exactly; see ADR 0030. -->
     <PackageVersion Include="NVorbis" Version="[0.10.5]" />
     <PackageVersion Include="SoundFlow" Version="[1.4.1]" />
+    <!-- Physics (M6): pinned exactly, both APIs change between minors (docs/design/physics.md). -->
+    <PackageVersion Include="Jitter2" Version="2.9.0" />
     <PackageVersion Include="StbImageSharp" Version="2.30.15" />
     <PackageVersion Include="Steamworks.NET" Version="2024.8.0" />
   </ItemGroup>

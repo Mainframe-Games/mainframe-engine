@@ -34,6 +34,12 @@ public class SceneViewport : Node
     public World2D World2D { get; } = new();
 
     /// <summary>
+    /// Debug line batch drawn after this viewport's visuals and cleared every frame (physics shapes, gizmos). 2D
+    /// producers draw in the z = 0 plane.
+    /// </summary>
+    public DebugLines DebugLines { get; } = new();
+
+    /// <summary>
     /// The camera the 3D world is rendered with: the last camera made <see cref="Camera3D.Current"/>, or the
     /// first one to enter the viewport.
     /// </summary>

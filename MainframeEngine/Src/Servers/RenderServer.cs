@@ -14,7 +14,8 @@ internal interface IRenderResourceOwner
 /// Draws <see cref="World3D"/>s: a facade over the existing renderer and <see cref="ShadowSystem"/>. Visual
 /// nodes create their GPU objects through it when they enter a tree, and it renders a viewport's world each
 /// frame: the shadow pass (every shadow-casting visual for every light) and the main pass (sky, then visuals by
-/// <see cref="VisualInstance3D.RenderPriority"/> and tree-entry order) with the viewport's active camera.
+/// <see cref="VisualInstance3D.RenderPriority"/> and tree-entry order, then the viewport's <see cref="DebugLines"/>)
+/// with the viewport's active camera.
 /// </summary>
 /// <remarks>
 /// The draw loops are allocation-free. Opaque/transparent buckets, shared pipelines and multiple render targets
@@ -24,6 +25,7 @@ public sealed class RenderServer : IServer
 {
     private readonly HashSet<IRenderResourceOwner> _owners = [];
     private ShadowSystem? _shadows;
+    private DebugLinesRenderer? _debugLines;
     private bool _disposed;
 
     public RenderServer(IRenderer renderer)
@@ -108,26 +110,41 @@ public sealed class RenderServer : IServer
     /// <summary>
     /// Draws <paramref name="viewport"/>'s world inside the main (HDR scene) render pass: writes the frame's shared
     /// set 0 (camera + the world's lights, <see cref="FrameContext.Begin"/>), then the sky of its
-    /// <see cref="WorldEnvironment"/>, then every visible visual. Nothing is drawn without an active camera.
+    /// <see cref="WorldEnvironment"/>, then every visible visual, then its <see cref="SceneViewport.DebugLines"/>
+    /// (cleared afterwards, drawn or not). Nothing is drawn without an active camera.
     /// </summary>
     public void RenderMain(SceneViewport viewport)
     {
         ArgumentNullException.ThrowIfNull(viewport);
-        if (Vulkan is not { FrameStarted: true } vk)
-            return;
+        try
+        {
+            if (Vulkan is not { FrameStarted: true } vk)
+                return;
 
-        var extent = vk.SwapchainExtent;
-        var camera = GetRenderCamera(viewport, extent);
-        if (camera is null)
-            return;
+            var extent = vk.SwapchainExtent;
+            var camera = GetRenderCamera(viewport, extent);
+            if (camera is null)
+                return;
 
-        var world = viewport.World3D;
-        EnsureResources(world);
-        vk.Frame.Begin(camera, world.Lights); // shared set 0: camera + lights, once per frame
-        world.Environment?.DrawSky(this, camera);
-        foreach (var visual in world.VisualList)
-            if (visual.IsVisibleInTree())
-                visual.Draw(camera, world.Lights);
+            var world = viewport.World3D;
+            EnsureResources(world);
+            vk.Frame.Begin(camera, world.Lights); // shared set 0: camera + lights, once per frame
+            world.Environment?.DrawSky(this, camera);
+            foreach (var visual in world.VisualList)
+                if (visual.IsVisibleInTree())
+                    visual.Draw(camera, world.Lights);
+
+            if (viewport.DebugLines.LineCount > 0)
+            {
+                _debugLines ??= new DebugLinesRenderer(vk);
+                _debugLines.Draw(viewport.DebugLines, camera);
+            }
+        }
+        finally
+        {
+            // Immediate mode: the frame's lines are consumed, or dropped when nothing could be drawn.
+            viewport.DebugLines.Clear();
+        }
     }
 
     /// <summary>The camera <see cref="RenderMain"/> uses for <paramref name="viewport"/> (3D camera first, then 2D).</summary>
@@ -159,6 +176,8 @@ public sealed class RenderServer : IServer
         foreach (var owner in _owners.ToArray())
             owner.ReleaseRenderResourcesForShutdown();
         _owners.Clear();
+        _debugLines?.Dispose();
+        _debugLines = null;
         _shadows?.Dispose();
         _shadows = null;
         _disposed = true;

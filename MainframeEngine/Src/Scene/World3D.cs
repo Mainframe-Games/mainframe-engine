@@ -10,6 +10,20 @@ public sealed class World3D
     private readonly List<VisualInstance3D> _visuals = [];
     private readonly List<WorldEnvironment> _environments = [];
 
+    public World3D()
+    {
+        DirectSpaceState = new PhysicsDirectSpaceState3D(this);
+    }
+
+    /// <summary>
+    /// Raycasts, shape casts and overlap queries against this world's physics (Godot's
+    /// <c>World3D.direct_space_state</c>). Finds nothing until a physics body has entered the world.
+    /// </summary>
+    public PhysicsDirectSpaceState3D DirectSpaceState { get; }
+
+    /// <summary>The physics space simulating this world, created by the <see cref="PhysicsServer3D"/> for its first body.</summary>
+    public PhysicsSpace3D? PhysicsSpace { get; internal set; }
+
     /// <summary>Lights registered by light nodes, packed into the lights UBO by the renderer.</summary>
     public LightEnvironment Lights { get; } = new();
 
@@ -59,5 +73,20 @@ public sealed class World3D
     }
 }
 
-/// <summary>The 2D world of a <see cref="SceneViewport"/>. 2D rendering arrives with sprites and the UI (M8).</summary>
-public sealed class World2D;
+/// <summary>
+/// The 2D world of a <see cref="SceneViewport"/>: its 2D physics space and queries. 2D rendering arrives with sprites
+/// and the UI (M8).
+/// </summary>
+public sealed class World2D
+{
+    public World2D()
+    {
+        DirectSpaceState = new PhysicsDirectSpaceState2D(this);
+    }
+
+    /// <summary>Raycasts, shape casts and overlap queries against this world's 2D physics (pixels).</summary>
+    public PhysicsDirectSpaceState2D DirectSpaceState { get; }
+
+    /// <summary>The physics space simulating this world, created by the <see cref="PhysicsServer2D"/> for its first body.</summary>
+    public PhysicsSpace2D? PhysicsSpace { get; internal set; }
+}

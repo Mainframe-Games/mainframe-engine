@@ -224,6 +224,11 @@ public sealed partial class SceneTree
             // A tolerance so a frame delta equal to the step (fixed-delta runs) always steps exactly once.
             var tolerance = step * 1e-6;
             var steps = 0;
+            var paused = Paused;
+            if (!paused && _accumulator + tolerance >= step)
+                foreach (var server in Servers.FixedStepServers)
+                    server.BeforeFixedSteps();
+
             while (_accumulator + tolerance >= step && steps < MaxPhysicsStepsPerFrame)
             {
                 RunPhysicsStep((float)step);
@@ -234,6 +239,9 @@ public sealed partial class SceneTree
             if (_accumulator + tolerance >= step)
                 _accumulator = 0; // spiral-of-death guard: drop the backlog
             PhysicsInterpolationFraction = (float)Math.Clamp(_accumulator / step, 0, 1);
+            if (!paused)
+                foreach (var server in Servers.FixedStepServers)
+                    server.AfterFixedSteps(PhysicsInterpolationFraction);
 
             RunProcess(gameTime);
             FlushDeferred();

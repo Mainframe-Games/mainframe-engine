@@ -15,9 +15,25 @@ public interface IFrameServer : IServer
 }
 
 /// <summary>A server that steps with the fixed physics tick, after <see cref="Node.OnPhysicsProcess"/> (physics).</summary>
+/// <remarks>
+/// Per frame, while the tree is not paused: <see cref="BeforeFixedSteps"/> (only on frames that run at least one
+/// step), then <see cref="FixedStep"/> once per step (after that step's <see cref="Node.OnPhysicsProcess"/>), then
+/// <see cref="AfterFixedSteps"/> with <see cref="SceneTree.PhysicsInterpolationFraction"/> before process — the
+/// hook physics servers use to interpolate what they render between the last two steps.
+/// </remarks>
 public interface IFixedStepServer : IServer
 {
     void FixedStep(float delta);
+
+    /// <summary>Called before the first fixed step of a frame (restore simulation state the frame changed).</summary>
+    void BeforeFixedSteps()
+    {
+    }
+
+    /// <summary>Called once per frame after the fixed steps (possibly none), with the interpolation fraction (0..1).</summary>
+    void AfterFixedSteps(float interpolationFraction)
+    {
+    }
 }
 
 /// <summary>
