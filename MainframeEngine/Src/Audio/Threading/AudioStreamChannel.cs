@@ -51,6 +51,9 @@ internal sealed class AudioStreamChannel
 
     public int VoiceIndex { get; }
 
+    /// <summary>Game thread: set once the channel has been handed to the <see cref="AudioStreamer"/>.</summary>
+    public bool Registered { get; set; }
+
     // ---------------------------------------------------------------------------------------------
     // Game thread
     // ---------------------------------------------------------------------------------------------

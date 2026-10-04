@@ -335,6 +335,16 @@ public sealed class AudioServerTests
         Assert.Equal(0.75f, AudioTestUtil.Render(server, 512, tree)[1000], 3);
         tree.Paused = true;
         Assert.Equal(0.5f, AudioTestUtil.Render(server, 512, tree)[1000], 3); // the menu click keeps playing
+
+        // A pausable sound started while paused waits (silently) for the unpause.
+        server.PlayOneShot(AudioTestUtil.Constant(0.125f, 5f), bus: "SFX");
+        server.Flush();
+        var capture = new float[1024];
+        server.RenderNullDevice(512, capture);
+        Assert.Equal(0.5f, capture[1], 3);
+        Assert.Equal(0.5f, capture[1000], 3);
+        tree.Paused = false;
+        Assert.Equal(0.875f, AudioTestUtil.Render(server, 512, tree)[1000], 3);
         tree.Shutdown();
     }
 

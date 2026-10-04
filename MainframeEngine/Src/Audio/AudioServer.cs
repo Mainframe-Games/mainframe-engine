@@ -431,7 +431,7 @@ public sealed class AudioServer : IFrameServer
         ComputeOneShot(volume, pitch, position, ref parameters);
         stream.GetLoopFrames(source, out var loopStart, out var loopEnd);
         var handle = Play(source, busIndex, owner: null, priority, startFrame: 0, stream.Loop, loopStart, loopEnd,
-            position.HasValue, parameters);
+            position.HasValue, parameters, processMode);
         if (!handle.IsValid)
             return handle;
 
@@ -439,7 +439,6 @@ public sealed class AudioServer : IFrameServer
         slot.OneShotVolume = volume;
         slot.OneShotPitch = pitch;
         slot.OneShotPosition = position ?? default;
-        slot.ProcessMode = processMode;
         return handle;
     }
 
@@ -477,6 +476,8 @@ public sealed class AudioServer : IFrameServer
         {
             // Streams restart decoding at the new position under the same voice generation.
             StartVoice(handle.Index, ref slot, streamSource, frame, slot.Last);
+            if (slot.Paused)
+                Enqueue(new AudioCommand { Type = AudioCommandType.PauseVoice, Index = handle.Index, Generation = handle.Generation });
             return;
         }
 
@@ -788,7 +789,7 @@ public sealed class AudioServer : IFrameServer
     // ---------------------------------------------------------------------------------------------
 
     private AudioVoiceHandle Play(AudioSource source, int busIndex, IAudioVoiceOwner? owner, int priority, double startFrame,
-        bool loop, long loopStart, long loopEnd, bool positional, VoiceParams initial)
+        bool loop, long loopStart, long loopEnd, bool positional, VoiceParams initial, ProcessMode processMode = ProcessMode.Pausable)
     {
         var bus = _buses[busIndex];
         var index = AllocateVoice(bus, priority);
@@ -799,6 +800,8 @@ public sealed class AudioServer : IFrameServer
         }
 
         ref var slot = ref _slots[index];
+        if (slot.CloseStreamAtFrame != 0 && source is not AudioStreamSource)
+            _graph.Voices[index].StreamChannel?.Request(null, 0, false, 0, 0); // the previous sound's file: close it now
         slot.Generation++;
         slot.CloseStreamAtFrame = 0;
         if (slot.Generation == 0)
@@ -814,7 +817,7 @@ public sealed class AudioServer : IFrameServer
         slot.Loop = loop;
         slot.LoopStart = loopStart;
         slot.LoopEnd = loopEnd;
-        slot.ProcessMode = ProcessMode.Pausable;
+        slot.ProcessMode = processMode;
         slot.OneShotVolume = 1f;
         slot.OneShotPitch = 1f;
         if (!bus.DirectAudible)
@@ -822,6 +825,14 @@ public sealed class AudioServer : IFrameServer
         slot.Gain = initial.Gain;
         slot.Last = initial;
         StartVoice(index, ref slot, source, startFrame, initial);
+
+        // Started while it may not run (e.g. the tree is paused): pause it in the same batch, before it sounds.
+        if (!(owner?.VoicesActive ?? CanProcess(processMode, Tree?.Paused ?? false)))
+        {
+            slot.Paused = true;
+            Enqueue(new AudioCommand { Type = AudioCommandType.PauseVoice, Index = index, Generation = slot.Generation });
+        }
+
         return new AudioVoiceHandle(index, slot.Generation);
     }
 
@@ -837,7 +848,12 @@ public sealed class AudioServer : IFrameServer
                 voice.StreamChannel = channel; // published to the audio thread by the play command below
             }
 
-            _streamer.Register(channel);
+            if (!channel.Registered)
+            {
+                _streamer.Register(channel);
+                channel.Registered = true;
+            }
+
             streamGeneration = channel.Request(streamSource, (long)startFrame, slot.Loop, slot.LoopStart, slot.LoopEnd);
             _streamer.Wake();
         }
