@@ -540,8 +540,11 @@ public sealed unsafe partial class VulkanUiRenderer
         {
             DestroyTargets();
             _targetExtent = extent;
-            _stencil = GpuImage.Create(_ctx, new GpuImageDesc(extent.Width, extent.Height, _stencilFormat,
-                ImageUsageFlags.DepthStencilAttachmentBit) { ViewAspect = FormatInfo.AttachmentAspect(_stencilFormat) });
+            var stencilDesc = new GpuImageDesc(extent.Width, extent.Height, _stencilFormat, ImageUsageFlags.DepthStencilAttachmentBit)
+            {
+                ViewAspect = FormatInfo.AttachmentAspect(_stencilFormat),
+            };
+            _stencil = GpuImage.Create(_ctx, stencilDesc);
         }
 
         while (_layers.Count < layerCount)

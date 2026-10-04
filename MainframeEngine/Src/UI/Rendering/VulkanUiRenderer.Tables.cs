@@ -316,58 +316,58 @@ public sealed unsafe partial class VulkanUiRenderer
                 f.Matrix = Matrix4x4.CreateScale(value, value, value);
                 break;
             case RmlFilterKind.Contrast:
-            {
-                f.Kind = UiFilterKind.ColorMatrix;
-                var grayness = 0.5f - 0.5f * value;
-                f.Matrix = Matrix4x4.CreateScale(value, value, value);
-                f.Matrix.M14 = grayness; // column 3 = constant term (scaled by alpha in the shader)
-                f.Matrix.M24 = grayness;
-                f.Matrix.M34 = grayness;
-                break;
-            }
+                {
+                    f.Kind = UiFilterKind.ColorMatrix;
+                    var grayness = 0.5f - 0.5f * value;
+                    f.Matrix = Matrix4x4.CreateScale(value, value, value);
+                    f.Matrix.M14 = grayness; // column 3 = constant term (scaled by alpha in the shader)
+                    f.Matrix.M24 = grayness;
+                    f.Matrix.M34 = grayness;
+                    break;
+                }
             case RmlFilterKind.Invert:
-            {
-                f.Kind = UiFilterKind.ColorMatrix;
-                var v = Math.Clamp(value, 0f, 1f);
-                var inverted = 1f - 2f * v;
-                f.Matrix = Matrix4x4.CreateScale(inverted, inverted, inverted);
-                f.Matrix.M14 = v;
-                f.Matrix.M24 = v;
-                f.Matrix.M34 = v;
-                break;
-            }
+                {
+                    f.Kind = UiFilterKind.ColorMatrix;
+                    var v = Math.Clamp(value, 0f, 1f);
+                    var inverted = 1f - 2f * v;
+                    f.Matrix = Matrix4x4.CreateScale(inverted, inverted, inverted);
+                    f.Matrix.M14 = v;
+                    f.Matrix.M24 = v;
+                    f.Matrix.M34 = v;
+                    break;
+                }
             case RmlFilterKind.Grayscale:
-            {
-                f.Kind = UiFilterKind.ColorMatrix;
-                var rev = 1f - value;
-                var g = value * new Vector3(0.2126f, 0.7152f, 0.0722f);
-                f.Matrix = Rows(new Vector4(g.X + rev, g.Y, g.Z, 0), new Vector4(g.X, g.Y + rev, g.Z, 0),
-                    new Vector4(g.X, g.Y, g.Z + rev, 0));
-                break;
-            }
+                {
+                    f.Kind = UiFilterKind.ColorMatrix;
+                    var rev = 1f - value;
+                    var g = value * new Vector3(0.2126f, 0.7152f, 0.0722f);
+                    f.Matrix = Rows(new Vector4(g.X + rev, g.Y, g.Z, 0), new Vector4(g.X, g.Y + rev, g.Z, 0),
+                        new Vector4(g.X, g.Y, g.Z + rev, 0));
+                    break;
+                }
             case RmlFilterKind.Sepia:
-            {
-                f.Kind = UiFilterKind.ColorMatrix;
-                var rev = 1f - value;
-                var r = value * new Vector3(0.393f, 0.769f, 0.189f);
-                var g = value * new Vector3(0.349f, 0.686f, 0.168f);
-                var b = value * new Vector3(0.272f, 0.534f, 0.131f);
-                f.Matrix = Rows(new Vector4(r.X + rev, r.Y, r.Z, 0), new Vector4(g.X, g.Y + rev, g.Z, 0),
-                    new Vector4(b.X, b.Y, b.Z + rev, 0));
-                break;
-            }
+                {
+                    f.Kind = UiFilterKind.ColorMatrix;
+                    var rev = 1f - value;
+                    var r = value * new Vector3(0.393f, 0.769f, 0.189f);
+                    var g = value * new Vector3(0.349f, 0.686f, 0.168f);
+                    var b = value * new Vector3(0.272f, 0.534f, 0.131f);
+                    f.Matrix = Rows(new Vector4(r.X + rev, r.Y, r.Z, 0), new Vector4(g.X, g.Y + rev, g.Z, 0),
+                        new Vector4(b.X, b.Y, b.Z + rev, 0));
+                    break;
+                }
             case RmlFilterKind.HueRotate:
-            {
-                // https://www.w3.org/TR/filter-effects-1/#attr-valuedef-type-huerotate (value in radians)
-                f.Kind = UiFilterKind.ColorMatrix;
-                var s = MathF.Sin(value);
-                var c = MathF.Cos(value);
-                f.Matrix = Rows(
-                    new Vector4(0.213f + 0.787f * c - 0.213f * s, 0.715f - 0.715f * c - 0.715f * s, 0.072f - 0.072f * c + 0.928f * s, 0),
-                    new Vector4(0.213f - 0.213f * c + 0.143f * s, 0.715f + 0.285f * c + 0.140f * s, 0.072f - 0.072f * c - 0.283f * s, 0),
-                    new Vector4(0.213f - 0.213f * c - 0.787f * s, 0.715f - 0.715f * c + 0.715f * s, 0.072f + 0.928f * c + 0.072f * s, 0));
-                break;
-            }
+                {
+                    // https://www.w3.org/TR/filter-effects-1/#attr-valuedef-type-huerotate (value in radians)
+                    f.Kind = UiFilterKind.ColorMatrix;
+                    var s = MathF.Sin(value);
+                    var c = MathF.Cos(value);
+                    f.Matrix = Rows(
+                        new Vector4(0.213f + 0.787f * c - 0.213f * s, 0.715f - 0.715f * c - 0.715f * s, 0.072f - 0.072f * c + 0.928f * s, 0),
+                        new Vector4(0.213f - 0.213f * c + 0.143f * s, 0.715f + 0.285f * c + 0.140f * s, 0.072f - 0.072f * c - 0.283f * s, 0),
+                        new Vector4(0.213f - 0.213f * c - 0.787f * s, 0.715f - 0.715f * c + 0.715f * s, 0.072f + 0.928f * c + 0.072f * s, 0));
+                    break;
+                }
             case RmlFilterKind.Saturate:
                 f.Kind = UiFilterKind.ColorMatrix;
                 f.Matrix = Rows(
@@ -469,26 +469,26 @@ public sealed unsafe partial class VulkanUiRenderer
         switch (kind)
         {
             case RmlShaderKind.LinearGradient:
-            {
-                g.Function = (int)(repeating ? GradientFunction.RepeatingLinear : GradientFunction.Linear);
-                var p0 = Vec2(parameters, "p0"u8, Vector2.Zero);
-                g.P = p0;
-                g.V = Vec2(parameters, "p1"u8, Vector2.Zero) - p0;
-                break;
-            }
+                {
+                    g.Function = (int)(repeating ? GradientFunction.RepeatingLinear : GradientFunction.Linear);
+                    var p0 = Vec2(parameters, "p0"u8, Vector2.Zero);
+                    g.P = p0;
+                    g.V = Vec2(parameters, "p1"u8, Vector2.Zero) - p0;
+                    break;
+                }
             case RmlShaderKind.RadialGradient:
                 g.Function = (int)(repeating ? GradientFunction.RepeatingRadial : GradientFunction.Radial);
                 g.P = Vec2(parameters, "center"u8, Vector2.Zero);
                 g.V = Vector2.One / Vec2(parameters, "radius"u8, Vector2.One);
                 break;
             case RmlShaderKind.ConicGradient:
-            {
-                g.Function = (int)(repeating ? GradientFunction.RepeatingConic : GradientFunction.Conic);
-                g.P = Vec2(parameters, "center"u8, Vector2.Zero);
-                var angle = Number(parameters, "angle"u8, 0f);
-                g.V = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
-                break;
-            }
+                {
+                    g.Function = (int)(repeating ? GradientFunction.RepeatingConic : GradientFunction.Conic);
+                    g.P = Vec2(parameters, "center"u8, Vector2.Zero);
+                    var angle = Number(parameters, "angle"u8, 0f);
+                    g.V = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                    break;
+                }
             default:
                 Log.Warning($"[UI] Unsupported shader '{RmlCore.Decode(name)}'.");
                 return 0;
