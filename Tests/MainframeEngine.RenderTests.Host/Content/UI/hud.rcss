@@ -66,6 +66,16 @@ h1 {
     height: 48dp;
 }
 
+/* engine://scene: the HDR scene target (linear float, encoded to sRGB, not tonemapped) as a picture-in-picture. */
+#pip {
+    position: absolute;
+    right: 8dp;
+    top: 46dp;
+    width: 96dp;
+    height: 54dp;
+    border: 1dp #ffffff;
+}
+
 #label {
     position: absolute;
     left: 8dp;
