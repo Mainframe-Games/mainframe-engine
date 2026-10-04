@@ -115,7 +115,7 @@ flowchart TD
 - **Stats** (top left): FPS, ms, frame, UI draw calls (refreshed four times a second; the frame every frame).
 - **Scene** panel (top right), bound two-way: exposure slider (`IVulkanContext.Exposure`), spin-speed slider (the
   `Box`), Max FPS dropdown (Unlimited/30/60/120/144/240), Sun and Coloured lights checkboxes (energy to 0 and back),
-  VSync, Collision shapes (the physics server's debug draw); buttons **Widgets** (shows the widget-library demo window in the `Menus` layer), **Dev overlay** (ImGui),
+  VSync, Colliders (the physics server's collision-shape debug draw); buttons **Widgets** (shows the widget-library demo window in the `Menus` layer), **Dev overlay** (ImGui),
   **Credits** (the engine's `Content/UI/credits.rml`, with the FreeType credit its licence requires) and **Quit**.
 - **Hints** along the bottom.
 
