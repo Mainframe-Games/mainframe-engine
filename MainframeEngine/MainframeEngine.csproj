@@ -7,7 +7,12 @@
 
     <!-- NuGet Packages -->
     <ItemGroup>
-        <PackageReference Include="ENet-CSharp" />
+        <!--
+          Managed assembly only: the package's natives are x86_64-only and its build/ENet-CSharp.targets copies them
+          next to the app, where they would shadow ours. Excluded assets do not flow to referencing projects either.
+          Our natives come from runtimes/ (see "Native libraries" below).
+        -->
+        <PackageReference Include="ENet-CSharp" ExcludeAssets="native;build;buildTransitive" />
         <PackageReference Include="ImGui.NET" />
         <PackageReference Include="Silk.NET.Assimp" />
         <PackageReference Include="Silk.NET.Input" />
@@ -41,5 +46,28 @@
       <None Update="Content\Shaders\shaders.lock">
         <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </None>
+    </ItemGroup>
+
+    <!--
+      Native libraries (docs/design/natives.md): runtimes/<rid>/native/ holds the binaries we build (Native/,
+      natives.yml), laid out the way NuGet expects so a future engine package carries them as RID-specific native
+      assets. Project references cannot express RID-specific native assets (deps.json only lists package assets),
+      so for builds the files are copied flat next to the app, where the runtime's default probing finds them:
+      - RID-agnostic build (dotnet build/run/test, and every referencing app: the SDK builds this library without a
+        RID even under "dotnet publish -r"): one RID per OS. File names never clash across OSes (enet.dll,
+        libenet.so, libenet.dylib); the macOS files are universal (arm64 + x86_64), so osx-arm64 serves both.
+      - This project built with an explicit RID: only that RID's files.
+      A RID whose files are missing (win/linux before natives.yml artifacts land) is skipped, not an error.
+    -->
+    <ItemGroup>
+      <None Update="runtimes\**" CopyToOutputDirectory="Never" Pack="true" PackagePath="/" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+      <None Update="runtimes\win-x64\native\*;runtimes\linux-x64\native\*;runtimes\osx-arm64\native\*"
+            Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(RuntimeIdentifier)' != ''">
+      <None Update="runtimes\$(RuntimeIdentifier)\native\*"
+            Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
 </Project>
