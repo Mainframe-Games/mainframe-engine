@@ -210,6 +210,7 @@ public class UiDocument : Node
         }
 
         _modelsChanged = false;
+        ApplyPanelTitle();
         ApplyVisibility();
         RebindElements();
         OnLoaded();
@@ -244,6 +245,7 @@ public class UiDocument : Node
         {
             _document = reloaded;
             _modelsChanged = false;
+            ApplyPanelTitle();
             ApplyVisibility();
             RebindElements();
         }
@@ -283,6 +285,20 @@ public class UiDocument : Node
         else
             _document.Hide();
     }
+
+    /// <summary>Panel windows (<c>widgets/panel.rml</c>): the document's &lt;title&gt; goes into the title bar.</summary>
+    private void ApplyPanelTitle()
+    {
+        var titleElement = _document.GetElementById(PanelTitleId);
+        if (titleElement.IsNull)
+            return;
+        var title = _document.Title;
+        if (title.Length > 0)
+            titleElement.SetInnerRml(title.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal));
+    }
+
+    /// <summary>The title element of the widget library's panel template.</summary>
+    public const string PanelTitleId = "mf-panel-title";
 
     private void RebindElements()
     {

@@ -1,0 +1,44 @@
+<rml>
+<head>
+    <title>Render test text</title>
+    <style>
+        body {
+            font-family: LatoLatin;
+            color: #ffffff;
+            background-color: #1a1d24;
+            width: 100%;
+            height: 100%;
+            padding: 8dp;
+        }
+        p { display: block; margin-bottom: 2dp; }
+        .s10 { font-size: 10dp; }
+        .s12 { font-size: 12dp; }
+        .s16 { font-size: 16dp; }
+        .s24 { font-size: 24dp; }
+        .bold { font-weight: bold; }
+        .italic { font-style: italic; }
+        .mono { font-family: "Roboto Mono"; font-size: 12dp; color: #9fe870; }
+        .dark { background-color: #f2f2f2; color: #141414; padding: 2dp 4dp; }
+        .outline { font-size: 20dp; color: #ffcc33; font-effect: outline(1dp #000000); }
+        .glow { font-size: 20dp; color: #ffffff; font-effect: glow(2dp #3d8bfd); }
+        .shadow { font-size: 20dp; font-effect: shadow(2dp 2dp #000000); }
+        .right { text-align: right; width: 300dp; }
+        .center { text-align: center; width: 300dp; }
+        .spaced { letter-spacing: 2dp; font-size: 12dp; }
+    </style>
+</head>
+<body>
+    <p class="s10">10dp The quick brown fox jumps over the lazy dog 0123456789</p>
+    <p class="s12">12dp The quick brown fox jumps over the lazy dog 0123456789</p>
+    <p class="s16">16dp Sphinx of black quartz, judge my vow.</p>
+    <p class="s24">24dp Mainframe <span class="bold">Bold</span> <span class="italic">Italic</span></p>
+    <p class="mono">fps 120.0  frame 00042  ms 8.33 // Roboto Mono</p>
+    <p class="s12 dark">Dark on light: kerning AV To Wa Ty, accents éèàüñçø ÆŒ</p>
+    <p class="outline">Outlined text</p>
+    <p class="glow">Glowing text</p>
+    <p class="shadow">Shadowed text</p>
+    <p class="s12 right">Right aligned</p>
+    <p class="s12 center">Centred</p>
+    <p class="spaced">L E T T E R  spacing</p>
+</body>
+</rml>

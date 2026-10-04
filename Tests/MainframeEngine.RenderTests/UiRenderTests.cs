@@ -1,0 +1,86 @@
+using MainframeEngine.RenderTests.Host.Scenes;
+
+namespace MainframeEngine.RenderTests;
+
+/// <summary>
+/// The game UI (RmlUi via <see cref="VulkanUiRenderer"/>): goldens for a HUD over the 3D scene, effects (clip masks,
+/// transforms, filters, gradients), text and the widget library, exact sRGB compositing after the tonemap, the
+/// validation gate and determinism. The allocation gate covers the UI through the <c>sandbox</c> scene.
+/// </summary>
+public class UiRenderTests
+{
+    private static string Output(string scene) => Path.Combine(RenderTestEnvironment.ArtifactsDirectory, scene);
+
+    [Fact]
+    public void HudOverTheSceneMatchesGoldenWithExactSrgbColours()
+    {
+        var result = HostRunner.Run("ui-hud", Output("ui-hud"), "--capture", "30", "--size", "480x270", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+
+        // The opaque swatch (#3366cc) sits 8dp from the top-right, after the 50% and rounded swatches; the UI is
+        // composited after the tonemap, so its sRGB value reaches the swapchain unchanged.
+        var capture = result.Captures.Single();
+        var image = Png.ReadRgba8(capture.Path);
+        var dp = image.Width / 480f;
+        var x = (int)((480 - 8 - 3 * 34 + 4 + 15) * dp);
+        var y = (int)((8 + 15) * dp);
+        var i = (y * image.Width + x) * 4;
+        var c = UiHudScene.SwatchColor;
+        Assert.True(Math.Abs(image.Pixels[i] - c[0]) <= 1 && Math.Abs(image.Pixels[i + 1] - c[1]) <= 1 && Math.Abs(image.Pixels[i + 2] - c[2]) <= 1,
+            $"Swatch pixel ({x},{y}) is ({image.Pixels[i]}, {image.Pixels[i + 1]}, {image.Pixels[i + 2]}), expected #3366cc exactly.");
+
+        Gates.AssertMatchesGolden(result, 30);
+    }
+
+    [Fact]
+    public void ClipMasksTransformsFiltersAndGradientsMatchGolden()
+    {
+        var result = HostRunner.Run("ui-effects", Output("ui-effects"), "--capture", "10", "--size", "480x270", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
+    public void TextMatchesGolden()
+    {
+        var result = HostRunner.Run("ui-text", Output("ui-text"), "--capture", "5", "--size", "400x300", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 5);
+    }
+
+    [Fact]
+    public void WidgetLibraryMatchesGolden()
+    {
+        var result = HostRunner.Run("ui-widgets", Output("ui-widgets"), "--capture", "10", "--size", "520x440", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
+    public void UiCapturesAreDeterministicAcrossRuns()
+    {
+        var first = HostRunner.Run("ui-effects", Output("ui-determinism-a"), "--capture", "12", "--size", "480x270", "--hidden");
+        var second = HostRunner.Run("ui-effects", Output("ui-determinism-b"), "--capture", "12", "--size", "480x270", "--hidden");
+
+        var a = Png.ReadRgba8(first.Captures[0].Path);
+        var b = Png.ReadRgba8(second.Captures[0].Path);
+        var comparison = ImageComparison.Compare(a, b, channelTolerance: 0);
+        Assert.True(comparison.SizeMatches && comparison.DifferingPixels == 0,
+            $"Two runs of the same UI frame differ in {comparison.DifferingPixels} pixels.");
+    }
+
+    [Fact]
+    public void UiSurvivesSwapchainRecreation()
+    {
+        // Resizing recreates the swapchain and the UI's layer targets; the HUD must keep rendering cleanly.
+        var result = HostRunner.Run("ui-hud", Output("ui-hud-resize"), "--resize", "400x300@10", "--capture", "5,30", "--hidden");
+
+        Assert.Equal(2, result.Captures.Count);
+        Gates.AssertValidationClean(result);
+    }
+}

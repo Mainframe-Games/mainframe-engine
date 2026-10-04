@@ -32,7 +32,7 @@ public class GameInputNode : Node
 /// <summary>A headless UI server in a scene tree, documents loaded from a temporary source content folder.</summary>
 public sealed class UiTestTree : IDisposable
 {
-    public UiTestTree(UiServerOptions? options = null)
+    public UiTestTree(UiServerOptions? options = null, Vector2? viewport = null)
     {
         ContentDirectory = Directory.CreateTempSubdirectory("mf-ui-test").FullName;
         Directory.CreateDirectory(Path.Combine(ContentDirectory, "UI"));
@@ -40,7 +40,7 @@ public sealed class UiTestTree : IDisposable
         {
             HotReload = false,
             SourceContentDirectories = [ContentDirectory],
-            HeadlessViewport = new Vector2(800, 600),
+            HeadlessViewport = viewport ?? new Vector2(800, 600),
         });
         Servers.Register(Server);
         Tree = new SceneTree(Servers);
@@ -447,6 +447,29 @@ public sealed class UiServerTests
         ui.AddLayer(0, doc);
         ui.Tick();
         Assert.Contains("Jouer", doc.GetElementById("t")!.InnerRml, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(1f)]
+    [InlineData(2f)]
+    public void WidgetDemoLoadsWithThePanelTemplateAndTitle(float dpRatio)
+    {
+        using var ui = new UiTestTree(viewport: new Vector2(1280, 1280));
+        var doc = new UiDocument { Name = "Demo", Source = "Content/UI/widgets/demo.rml" };
+        var layer = ui.AddLayer(0, doc);
+        layer.ScaleMode = UiScaleMode.ReferenceResolution;
+        layer.ReferenceResolution = new Vector2(1280 / dpRatio, 1280 / dpRatio);
+        ui.Tick(2);
+        Assert.True(doc.IsLoaded);
+        Assert.Contains("Widget library", doc.GetElementById(UiDocument.PanelTitleId)!.InnerRml, StringComparison.Ordinal);
+
+        var body = doc.Document.AsElement().Bounds;
+        var bar = doc.GetElementById("mf-panel-bar")!.Bounds;
+        var content = doc.GetElementById("mf-panel-content")!.Bounds;
+        Assert.True(Math.Abs(bar.Width - content.Width) < 0.5f, $"bar {bar}, content {content}, body {body}");
+        Assert.True(Math.Abs(body.Width - 2 - bar.Width) < 0.5f, $"bar {bar}, content {content}, body {body}"); // 1 px border each side
+        foreach (var id in (string[])["primary", "volume", "quality", "name", "vsync", "mode-a", "loading", "health", "notes"])
+            Assert.NotNull(doc.GetElementById(id));
     }
 
     [Fact]

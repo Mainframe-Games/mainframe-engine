@@ -6,23 +6,24 @@ using MainframeEngine.Gizmos;
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
 /// <summary>
-/// Mirrors the Sandbox's per-frame work — Spine, shadows, sky, grid and the ImGui debug window with
-/// light and axis gizmos — for the steady-state allocation gate. Its ImGui text shows timings, so it
-/// is not used for golden images.
+/// Mirrors the Sandbox's per-frame work — Spine, shadows, sky, grid, the RmlUi HUD (data bindings dirtied every frame)
+/// and the ImGui debug window with light and axis gizmos — for the steady-state allocation gate. Its ImGui text shows
+/// timings, so it is not used for golden images.
 /// </summary>
 public sealed class SandboxScene(HostOptions host) : SpineScene(host)
 {
     private AudioPlayer3D? _orbiting;
 
     /// <summary>
-    /// Adds the Sandbox's audio (M7) and physics (M6) stacks, so the allocation gate covers
-    /// <c>AudioServer.Process</c> with moving positional voices and physics steps, interpolation and contacts.
+    /// Adds the Sandbox's audio (M7) and physics (M6) stacks and the RmlUi HUD (M8), so the allocation gate covers
+    /// <c>AudioServer.Process</c> with moving positional voices, physics steps, interpolation and contacts, and the UI.
     /// </summary>
     protected override void AddNodes(Node scene)
     {
         base.AddNodes(scene);
         AddAudio(scene);
         AddPhysics(scene);
+        scene.AddChild(UiHudScene.CreateHudLayer());
     }
 
     private void AddAudio(Node scene)

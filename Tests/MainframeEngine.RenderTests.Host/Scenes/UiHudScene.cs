@@ -10,11 +10,14 @@ public sealed class UiHudScene(HostOptions host) : LitShapesScene(host)
     /// <summary>The opaque swatch colour (sRGB bytes) the test checks exactly.</summary>
     public static readonly byte[] SwatchColor = [0x33, 0x66, 0xCC];
 
-    protected override void AddNodes(Node scene)
+    protected override void AddNodes(Node scene) => scene.AddChild(CreateHudLayer());
+
+    /// <summary>The HUD layer (also added to the allocation-gate scene): its bindings are dirtied every frame.</summary>
+    public static UiLayer CreateHudLayer()
     {
         var layer = new UiLayer { Name = "Hud", Layer = 0 };
         layer.AddChild(new HudDocument { Name = "HudDocument", Source = "Content/UI/hud.rml", AutoFocus = false });
-        scene.AddChild(layer);
+        return layer;
     }
 
     private sealed class HudDocument : UiDocument

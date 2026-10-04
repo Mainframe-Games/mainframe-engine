@@ -1,0 +1,294 @@
+/*
+ * Mainframe Engine shared widget library (docs/design/game-ui.md#widget-library).
+ *
+ * Link it from a document:  <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+ * Panel windows also need:  <link type="text/template" href="/Content/UI/widgets/panel.rml"/>
+ *
+ * Styles RmlUi's built-in controls: button, input.range (slider), input.checkbox, input.radio, select (dropdown),
+ * input.text / input.password / textarea (text fields), progress, plus .panel, headings, labels and scrollbars.
+ * Sizes are in dp so they follow the layer's scale mode (HiDPI, reference resolution). Interactive controls opt back
+ * into pointer events, so a HUD body can use `pointer-events: none` and still have clickable widgets.
+ * Colours are sRGB, composited exactly as authored (after the tonemap).
+ */
+
+body {
+    font-family: LatoLatin;
+    font-size: 14dp;
+    color: #e6e9ef;
+}
+
+div, p, h1, h2, h3, label.block, section { display: block; }
+
+h1 { font-size: 22dp; font-weight: bold; margin-bottom: 8dp; color: #ffffff; }
+h2 { font-size: 17dp; font-weight: bold; margin-bottom: 6dp; color: #ffffff; }
+h3 { font-size: 14dp; font-weight: bold; margin-bottom: 4dp; color: #b8c3d9; }
+em { font-style: italic; }
+strong { font-weight: bold; }
+.mono { font-family: "Roboto Mono"; }
+.muted { color: #8a95ab; }
+
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+
+.panel {
+    display: block;
+    padding: 12dp;
+    background-color: #121722e6;
+    border: 1dp #2e3850;
+    border-radius: 8dp;
+    box-shadow: #00000080 0dp 4dp 12dp 0dp;
+}
+
+.panel-title {
+    display: block;
+    padding: 6dp 12dp;
+    margin: -12dp -12dp 10dp -12dp;
+    background-color: #1c2333;
+    border-bottom: 1dp #2e3850;
+    border-radius: 8dp 8dp 0dp 0dp;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.row {
+    display: block;
+    height: 28dp;
+    line-height: 28dp;
+    margin-bottom: 6dp;
+}
+
+.row label.caption {
+    display: inline-block;
+    width: 110dp;
+    color: #b8c3d9;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+button {
+    display: inline-block;
+    padding: 0dp 14dp;
+    height: 28dp;
+    line-height: 28dp;
+    text-align: center;
+    background-color: #2b3445;
+    border: 1dp #44506a;
+    border-radius: 4dp;
+    color: #e6e9ef;
+    cursor: pointer;
+    tab-index: auto;
+    nav: auto;
+    pointer-events: auto;
+}
+
+button:hover { background-color: #36425a; border-color: #5b6a8c; }
+button:active { background-color: #222a38; }
+button:focus-visible { border-color: #5aa0ff; }
+button:disabled, button.disabled {
+    color: #6b7488;
+    background-color: #20262f;
+    border-color: #2b3242;
+    cursor: unavailable;
+    pointer-events: none;
+}
+
+button.primary { background-color: #2f6fd6; border-color: #5aa0ff; color: #ffffff; }
+button.primary:hover { background-color: #3b7ee8; }
+button.primary:active { background-color: #275fb8; }
+
+/* ── Slider (input type="range") ──────────────────────────────────────────── */
+
+input.range {
+    display: inline-block;
+    width: 160dp;
+    height: 18dp;
+    vertical-align: middle;
+    tab-index: auto;
+    nav: auto;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+input.range slidertrack {
+    margin-top: 7dp;
+    height: 4dp;
+    background-color: #0b0e14;
+    border-radius: 2dp;
+}
+
+/* Positioned against the track (offsets add to the track's), so 0 keeps it on the track. */
+input.range sliderprogress {
+    margin-top: 0dp;
+    height: 4dp;
+    background-color: #3d8bfd;
+    border-radius: 2dp;
+}
+
+input.range sliderbar {
+    width: 14dp;
+    height: 14dp;
+    margin-top: 2dp;
+    margin-left: -7dp;
+    margin-right: -7dp;
+    background-color: #e6e9ef;
+    border-radius: 7dp;
+}
+
+input.range:hover sliderbar, input.range sliderbar:hover { background-color: #ffffff; }
+input.range:focus-visible sliderbar { background-color: #5aa0ff; }
+input.range sliderarrowdec, input.range sliderarrowinc { width: 0dp; height: 0dp; }
+
+/* ── Checkbox and radio ───────────────────────────────────────────────────── */
+
+input.checkbox, input.radio {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 16dp;
+    height: 16dp;
+    vertical-align: middle;
+    background-color: #0b0e14;
+    border: 1dp #5b6a8c;
+    tab-index: auto;
+    nav: auto;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+input.checkbox { border-radius: 3dp; }
+input.radio { border-radius: 8dp; }
+
+input.checkbox:hover, input.radio:hover { border-color: #8aa4d6; }
+input.checkbox:focus-visible, input.radio:focus-visible { border-color: #5aa0ff; }
+
+input.checkbox:checked {
+    background-color: #3d8bfd;
+    border-color: #3d8bfd;
+    decorator: image(images/check.png contain);
+}
+
+input.radio:checked {
+    border-color: #3d8bfd;
+    decorator: radial-gradient(circle closest-side, #3d8bfd 50%, #0b0e14 62%);
+}
+
+/* ── Dropdown (select) ────────────────────────────────────────────────────── */
+
+select {
+    display: inline-block;
+    width: 160dp;
+    height: 26dp;
+    vertical-align: middle;
+    text-align: left;
+    background-color: #0b0e14;
+    border: 1dp #44506a;
+    border-radius: 3dp;
+    tab-index: auto;
+    nav: auto;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+select:hover { border-color: #5b6a8c; }
+select:focus-visible { border-color: #5aa0ff; }
+
+select selectvalue {
+    margin-right: 22dp;
+    padding: 4dp 8dp;
+    height: 18dp;
+    line-height: 18dp;
+}
+
+select selectarrow {
+    width: 22dp;
+    height: 26dp;
+    decorator: image(images/arrow-down.png contain);
+    image-color: #b8c3d9;
+}
+
+select selectbox {
+    margin-top: 2dp;
+    padding: 4dp 0dp;
+    background-color: #1c2333;
+    border: 1dp #44506a;
+    border-radius: 3dp;
+}
+
+select selectbox option {
+    padding: 4dp 8dp;
+    line-height: 18dp;
+}
+
+select selectbox option:hover { background-color: #2f6fd6; color: #ffffff; }
+select selectbox option:checked { font-weight: bold; }
+
+/* ── Text fields ──────────────────────────────────────────────────────────── */
+
+input.text, input.password, textarea {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 200dp;
+    padding: 4dp 8dp;
+    vertical-align: middle;
+    text-align: left;
+    background-color: #0b0e14;
+    border: 1dp #44506a;
+    border-radius: 3dp;
+    color: #e6e9ef;
+    cursor: text;
+    tab-index: auto;
+    nav: auto;
+    pointer-events: auto;
+}
+
+input.text, input.password { height: 26dp; line-height: 16dp; }
+textarea { height: 80dp; line-height: 18dp; }
+
+input.text:hover, input.password:hover, textarea:hover { border-color: #5b6a8c; }
+input.text:focus-visible, input.password:focus-visible, textarea:focus-visible { border-color: #5aa0ff; }
+input.text:placeholder-shown, input.password:placeholder-shown, textarea:placeholder-shown { color: #6b7488; }
+
+input.text selection, input.password selection, textarea selection {
+    background-color: #2f6fd6;
+    color: #ffffff;
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────────────── */
+
+progress {
+    display: block;
+    height: 10dp;
+    background-color: #0b0e14;
+    border: 1dp #2e3850;
+    border-radius: 5dp;
+}
+
+progress fill {
+    border-radius: 4dp;
+    decorator: horizontal-gradient(#2f6fd6 #5ec8ff);
+}
+
+progress.health fill { decorator: horizontal-gradient(#d23c3c #4fd16b); }
+
+/* ── Scrollbars ───────────────────────────────────────────────────────────── */
+
+scrollbarvertical { width: 8dp; margin-left: 2dp; }
+scrollbarvertical slidertrack { background-color: #0b0e1480; border-radius: 4dp; }
+scrollbarvertical sliderbar { background-color: #44506a; border-radius: 4dp; }
+scrollbarvertical sliderbar:hover { background-color: #5b6a8c; }
+scrollbarvertical sliderarrowdec, scrollbarvertical sliderarrowinc { height: 0dp; }
+
+scrollbarhorizontal { height: 8dp; margin-top: 2dp; }
+scrollbarhorizontal slidertrack { background-color: #0b0e1480; border-radius: 4dp; }
+scrollbarhorizontal sliderbar { background-color: #44506a; border-radius: 4dp; }
+scrollbarhorizontal sliderarrowdec, scrollbarhorizontal sliderarrowinc { width: 0dp; }
+
+/* ── HUD helpers ──────────────────────────────────────────────────────────── */
+
+/* A HUD body lets the game keep the mouse everywhere except over widgets. */
+body.hud { pointer-events: none; width: 100%; height: 100%; }
+
+.stat {
+    display: block;
+    font-family: "Roboto Mono";
+    font-size: 13dp;
+    color: #e6e9ef;
+}

@@ -1,0 +1,46 @@
+<rml>
+<head>
+    <title>Widget library</title>
+    <link type="text/template" href="panel.rml"/>
+    <style>
+        body { left: 16dp; top: 16dp; width: 440dp; }
+        .buttons button { margin-right: 6dp; }
+        .group { display: block; margin-bottom: 10dp; }
+        .group label { margin-left: 6dp; margin-right: 12dp; }
+        progress { margin-top: 4dp; margin-bottom: 4dp; }
+        #notes { width: 100%; height: 54dp; }
+    </style>
+</head>
+<body template="mf-panel" id="widget-demo">
+    <h3>Buttons</h3>
+    <div class="group buttons">
+        <button id="primary" class="primary">Play</button>
+        <button id="secondary">Options</button>
+        <button id="disabled" class="disabled">Locked</button>
+    </div>
+
+    <div class="row"><label class="caption">Volume</label><input id="volume" type="range" min="0" max="100" step="1" value="70"/></div>
+    <div class="row"><label class="caption">Quality</label>
+        <select id="quality">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high" selected="">High</option>
+        </select>
+    </div>
+    <div class="row"><label class="caption">Player name</label><input id="name" type="text" value="Ada" maxlength="24"/></div>
+
+    <div class="group">
+        <input id="vsync" type="checkbox" checked=""/><label>VSync</label>
+        <input id="hints" type="checkbox"/><label>Hints</label>
+        <input id="mode-a" type="radio" name="mode" value="a" checked=""/><label>Windowed</label>
+        <input id="mode-b" type="radio" name="mode" value="b"/><label>Fullscreen</label>
+    </div>
+
+    <h3>Progress</h3>
+    <progress id="loading" value="0.65"/>
+    <progress id="health" class="health" value="0.35"/>
+
+    <h3>Notes</h3>
+    <textarea id="notes">The quick brown fox jumps over the lazy dog.</textarea>
+</body>
+</rml>
