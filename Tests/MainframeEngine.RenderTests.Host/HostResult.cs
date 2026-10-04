@@ -46,5 +46,19 @@ public sealed record HostResult
     /// <summary>The device's <c>maxMemoryAllocationCount</c> limit.</summary>
     public long MaxMemoryAllocationCount { get; init; }
 
+    /// <summary>Frame times over the <c>--perf</c> window (wall clock between frames, VSync off), in ms; 0 when not measured.</summary>
+    public double AverageFrameMs { get; init; }
+    public double P95FrameMs { get; init; }
+    public int PerfMeasuredFrames { get; init; }
+
+    /// <summary>The configuration the engine was built in (Debug/Release).</summary>
+    public string Configuration { get; init; } = "";
+
+    /// <summary>Mesh draw statistics of the last frame (instances, culled, draw calls).</summary>
+    public int MeshInstances { get; init; }
+    public int MeshDrawCalls { get; init; }
+    public int MeshShadowDrawCalls { get; init; }
+    public int MeshPipelines { get; init; }
+
     public sealed record CaptureInfo(uint Frame, string Path, int Width, int Height);
 }

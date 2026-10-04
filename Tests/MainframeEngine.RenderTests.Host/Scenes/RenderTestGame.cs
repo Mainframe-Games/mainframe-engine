@@ -16,6 +16,8 @@ public abstract class RenderTestGame : Engine
     private uint _pendingCapture;
     private long _allocationStart;
     private long? _allocatedBytes;
+    private readonly List<double> _frameTimes = [];
+    private long _lastFrameTimestamp;
 
     protected RenderTestGame(HostOptions host) : base(CreateOptions(host))
     {
@@ -27,7 +29,7 @@ public abstract class RenderTestGame : Engine
         GameName = $"Render test: {host.Scene}",
         WindowSize = new Vector2D<int>(host.Width, host.Height),
         WindowVisible = !host.Hidden,
-        EnableValidation = true,
+        EnableValidation = !host.NoValidation,
         EnableFrameCapture = true,
         VSync = false,
         FixedDeltaTime = 1f / 60f,
@@ -37,6 +39,9 @@ public abstract class RenderTestGame : Engine
     };
 
     protected IVulkanContext Vulkan => (IVulkanContext)Renderer;
+
+    /// <summary>The host options (scene parameters such as <see cref="HostOptions.Count"/>).</summary>
+    protected HostOptions Host => _host;
 
     /// <summary>Aspect of the image actually being rendered (the swapchain extent, in pixels).</summary>
     protected float AspectRatio
@@ -69,6 +74,15 @@ public abstract class RenderTestGame : Engine
                 _allocationStart = GC.GetAllocatedBytesForCurrentThread();
             else if (frame == (uint)(_host.AllocationWarmupFrames + _host.AllocationMeasuredFrames + 1))
                 _allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
+        }
+
+        // Frame time: wall clock between consecutive updates (one per rendered frame, VSync off).
+        if (_host.PerfMeasuredFrames > 0)
+        {
+            var now = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (frame > (uint)_host.PerfWarmupFrames + 1 && _frameTimes.Count < _host.PerfMeasuredFrames)
+                _frameTimes.Add(System.Diagnostics.Stopwatch.GetElapsedTime(_lastFrameTimestamp, now).TotalMilliseconds);
+            _lastFrameTimestamp = now;
         }
 
         if (Array.BinarySearch(_host.CaptureFrames, frame) >= 0)
@@ -111,6 +125,9 @@ public abstract class RenderTestGame : Engine
         var pipelineCacheBytes = Vulkan.Pipelines.LoadedBytes;
         var shaderModules = Vulkan.Shaders.Count;
         Vulkan.Vk.GetPhysicalDeviceProperties(Vulkan.PhysicalDevice, out var props);
+        var meshStats = Servers.Render?.MeshStats ?? default;
+        var meshPipelines = Servers.Render?.PipelineStates?.Count ?? 0;
+        var sortedTimes = _frameTimes.Order().ToArray();
 
         DisposeScene();
         base.OnClose(); // destroys the device: leaks and in-use destruction are reported here
@@ -136,10 +153,25 @@ public abstract class RenderTestGame : Engine
             GpuReservedBytes = (long)gpu.ReservedBytes,
             ShaderModuleCount = shaderModules,
             MaxMemoryAllocationCount = props.Limits.MaxMemoryAllocationCount,
+            AverageFrameMs = sortedTimes.Length > 0 ? sortedTimes.Average() : 0,
+            P95FrameMs = sortedTimes.Length > 0 ? sortedTimes[(int)Math.Min(sortedTimes.Length - 1, Math.Ceiling(sortedTimes.Length * 0.95) - 1)] : 0,
+            PerfMeasuredFrames = sortedTimes.Length,
+            Configuration = BuildConfiguration,
+            MeshInstances = meshStats.Instances,
+            MeshDrawCalls = meshStats.DrawCalls,
+            MeshShadowDrawCalls = meshStats.ShadowDrawCalls,
+            MeshPipelines = meshPipelines,
         };
     }
 
     protected abstract void DisposeScene();
+
+    private const string BuildConfiguration =
+#if DEBUG
+        "Debug";
+#else
+        "Release";
+#endif
 
     private unsafe (string Name, string Driver, string Tag) DescribeDevice()
     {

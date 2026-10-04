@@ -17,16 +17,13 @@ if (args is ["--write-net-scene", var netScenePath])
     return 0;
 }
 
-// Parse first: --qa-capture paths are relative to where the Sandbox was launched from.
+// --qa-capture paths are relative to where the Sandbox was launched from. Content paths ("Content/...") resolve
+// against the build output through ContentPaths / AssetDatabase.Current, whatever the working directory.
 var qa = QaCapture.FromArgs(args);
 var qaAudio = QaAudio.FromArgs(args);
 
 // --server [port] / --client <host> [port]: the multiplayer demo (M5).
 var network = NetworkDemo.FromArgs(args);
-
-// Content paths are relative ("Content/..."); resolve them against the build output no matter where
-// the Sandbox is launched from (dotnet run, just, IDE).
-Environment.CurrentDirectory = AppContext.BaseDirectory;
 
 var options = qa?.Apply(Game.DefaultOptions) ?? Game.DefaultOptions;
 if (network is not null)

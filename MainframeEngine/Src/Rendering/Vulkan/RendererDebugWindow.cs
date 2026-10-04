@@ -10,8 +10,12 @@ namespace MainframeEngine;
 /// </summary>
 public static class RendererDebugWindow
 {
-    /// <summary>Draws the window (does nothing for non-Vulkan renderers).</summary>
-    public static void Draw(IRenderer renderer)
+    /// <summary>
+    /// Draws the window (does nothing for non-Vulkan renderers). With <paramref name="server"/> it also shows the
+    /// frame's mesh draw statistics (instances, culled, draw calls, binds), the pipeline cache and resident
+    /// meshes/materials/textures.
+    /// </summary>
+    public static void Draw(IRenderer renderer, RenderServer? server = null)
     {
         if (renderer is not IVulkanContext vk)
             return;
@@ -36,6 +40,17 @@ public static class RendererDebugWindow
 
         if (renderer is VulkanRenderer vr)
             Line(text, $"Scene {VulkanRenderer.SceneColorFormat} -> {vr.SwapchainFormat} ({vr.Encoding})");
+
+        if (server is not null)
+        {
+            ImGui.SeparatorText("Meshes");
+            var stats = server.MeshStats;
+            Line(text, $"Draw calls: {stats.DrawCalls} ({stats.SurfaceInstances} surfaces, {stats.Instances} instances, {stats.Culled} culled)");
+            Line(text, $"Binds: {stats.PipelineBinds} pipeline, {stats.MaterialBinds} material; shadow draws {stats.ShadowDrawCalls}, ID draws {stats.ObjectIdDrawCalls}");
+            var (meshes, materials, textures) = server.ResidentResources;
+            var pipelines = server.PipelineStates;
+            Line(text, $"Resident: {meshes} meshes, {materials} materials, {textures} textures; {pipelines?.Count ?? 0} pipelines ({pipelines?.Hits ?? 0} hits)");
+        }
 
         ImGui.SeparatorText("GPU memory");
         var totals = vk.Allocator.Totals;

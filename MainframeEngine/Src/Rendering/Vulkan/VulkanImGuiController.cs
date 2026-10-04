@@ -18,8 +18,14 @@ namespace MainframeEngine;
 /// <c>DisplayFramebufferScale</c> = framebuffer pixels / points; clip rectangles are scaled to
 /// framebuffer pixels for the scissor.
 /// </remarks>
-internal sealed unsafe class VulkanImGuiController : IDisposable
+internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureRegistry
 {
+    // ImGui texture ids → descriptor sets: id 1 is the font atlas; Register adds images (offscreen views).
+    private const uint MaxUserTextures = 64;
+    private const nint FontTextureId = 1;
+    private readonly Dictionary<nint, DescriptorSet> _textureSets = [];
+    private nint _nextTextureId = FontTextureId + 1;
+
     private readonly IVulkanContext _ctx;
     private readonly IWindow _window;
     private readonly IInputContext _input;
@@ -68,6 +74,9 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
 
         UpdateDisplayMetrics(io);
         io.DeltaTime = 1f / 60f;
+
+        if (ctx is VulkanRenderer renderer)
+            renderer.ImGuiTextures = this;
     }
 
     /// <summary>Call once per frame before the game's OnImGui.</summary>
@@ -294,7 +303,7 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         _fontTexture = GpuTexture.Create2D(_ctx, (uint)width, (uint)height, new ReadOnlySpan<byte>(pixels, size),
             TextureColorSpace.Linear, TextureSampling.LinearRepeat);
 
-        io.Fonts.SetTexID(1);
+        io.Fonts.SetTexID(FontTextureId);
         io.Fonts.ClearTexData();
     }
 
@@ -307,10 +316,59 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         _descriptorSetLayout = PipelineBuilder.CreateSetLayout(_ctx,
             [new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit }],
             "ImGui font");
-        _descriptorPool = PipelineBuilder.CreatePool(_ctx, 1,
-            [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 }], "ImGui font");
+        // The font plus registered images; freeable, so re-registered images return their sets.
+        var size = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = MaxUserTextures + 1 };
+        var poolInfo = new DescriptorPoolCreateInfo
+        {
+            SType = StructureType.DescriptorPoolCreateInfo,
+            Flags = DescriptorPoolCreateFlags.FreeDescriptorSetBit,
+            MaxSets = MaxUserTextures + 1,
+            PoolSizeCount = 1,
+            PPoolSizes = &size,
+        };
+        _ctx.Vk.CreateDescriptorPool(_ctx.Device, in poolInfo, null, out _descriptorPool).Check("vkCreateDescriptorPool (ImGui)");
         _descriptorSet = PipelineBuilder.AllocateSet(_ctx, _descriptorPool, _descriptorSetLayout, "ImGui font");
         PipelineBuilder.WriteImage(_ctx, _descriptorSet, 0, _fontTexture.Descriptor);
+        _textureSets[FontTextureId] = _descriptorSet;
+    }
+
+    // IImGuiTextureRegistry
+
+    public nint Register(ImageView view, Sampler sampler)
+    {
+        if (_textureSets.Count > MaxUserTextures)
+            throw new InvalidOperationException($"At most {MaxUserTextures} images can be registered with ImGui.");
+        var id = _nextTextureId++;
+        _textureSets[id] = CreateImageSet(view, sampler);
+        return id;
+    }
+
+    public void Update(nint textureId, ImageView view, Sampler sampler)
+    {
+        if (textureId == FontTextureId || !_textureSets.TryGetValue(textureId, out var old))
+            throw new ArgumentException($"ImGui texture {textureId} is not registered.", nameof(textureId));
+        // Frames in flight may still bind the old set: write a new one, free the old one when they finish.
+        _textureSets[textureId] = CreateImageSet(view, sampler);
+        _ctx.Deletions.Enqueue(GpuDeletion.Of(_descriptorPool, old));
+    }
+
+    public void Unregister(nint textureId)
+    {
+        if (textureId == FontTextureId || !_textureSets.Remove(textureId, out var old))
+            return;
+        _ctx.Deletions.Enqueue(GpuDeletion.Of(_descriptorPool, old));
+    }
+
+    private DescriptorSet CreateImageSet(ImageView view, Sampler sampler)
+    {
+        var set = PipelineBuilder.AllocateSet(_ctx, _descriptorPool, _descriptorSetLayout, "ImGui image");
+        PipelineBuilder.WriteImage(_ctx, set, 0, new DescriptorImageInfo
+        {
+            Sampler = sampler.Handle != 0 ? sampler : _fontTexture.Sampler,
+            ImageView = view,
+            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+        });
+        return set;
     }
 
     #endregion
@@ -384,6 +442,7 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &vbOffset);
         vk.CmdBindIndexBuffer(cb, indexBuffer.Handle, 0, IndexType.Uint16);
 
+        var boundTexture = FontTextureId;
         var ds = _descriptorSet;
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 0, 1, &ds, 0, null);
 
@@ -443,6 +502,13 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
                 };
                 vk.CmdSetScissor(cb, 0, 1, &scissor);
 
+                // Registered images (ImGui.Image with a sub-viewport's id) bind their own set.
+                if (cmd.TextureId != boundTexture && _textureSets.TryGetValue(cmd.TextureId, out var textureSet))
+                {
+                    vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 0, 1, &textureSet, 0, null);
+                    boundTexture = cmd.TextureId;
+                }
+
                 vk.CmdDrawIndexed(cb, cmd.ElemCount, 1,
                     idxOffset + cmd.IdxOffset,
                     vtxOffset + (int)cmd.VtxOffset, 0);
@@ -471,6 +537,9 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
     public void Dispose()
     {
         TeardownInput();
+        if (_ctx is VulkanRenderer renderer && ReferenceEquals(renderer.ImGuiTextures, this))
+            renderer.ImGuiTextures = null;
+        _textureSets.Clear(); // destroying the pool frees every set
 
         foreach (var buffer in _vertexBuffers)
             buffer?.Dispose();

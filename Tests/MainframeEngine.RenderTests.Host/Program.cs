@@ -3,9 +3,7 @@ using MainframeEngine;
 using MainframeEngine.RenderTests.Host;
 using MainframeEngine.RenderTests.Host.Scenes;
 
-// Content paths are relative to the output folder.
-Environment.CurrentDirectory = AppContext.BaseDirectory;
-
+// Content paths resolve against the output folder (ContentPaths, AssetDatabase.Current), not the working directory.
 var options = HostOptions.Parse(args);
 Directory.CreateDirectory(options.OutputDirectory);
 if (options.PipelineCacheDirectory is not null)
@@ -22,8 +20,13 @@ RenderTestGame game = options.Scene switch
     "physics" => new PhysicsScene(options),
     "physics-debug" => new PhysicsDebugScene(options),
     "sky-grid" => new SkyGridScene(options),
+    "materials" => new MaterialsScene(options),
+    "gltf" => new GltfScene(options),
+    "instances" => new InstancesScene(options),
+    "picking" => new PickingScene(options),
     _ => throw new ArgumentException(
-        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, spine, spine-no-shadows, sandbox, color-pipeline, physics, physics-debug, sky-grid."),
+        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, spine, spine-no-shadows, sandbox, color-pipeline, " +
+        "physics, physics-debug, sky-grid, materials, gltf, instances, picking."),
 };
 
 using (game)

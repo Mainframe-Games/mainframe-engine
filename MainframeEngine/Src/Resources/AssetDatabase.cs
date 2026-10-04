@@ -63,12 +63,14 @@ public sealed class AssetDatabase
     }
 
     /// <summary>
-    /// The database the loader uses. Defaults to one rooted at the current directory (the app folder for
-    /// games), filled lazily from the index or a scan on the first UID lookup.
+    /// The database the loader uses. Defaults to one rooted at <see cref="ContentPaths.BaseDirectory"/> (the
+    /// application folder, which holds <c>Content/</c>) — never the working directory, so games load the same
+    /// files however they are launched. Filled lazily from the index or a scan on the first UID lookup. Tools (the
+    /// editor) assign one rooted at the open project.
     /// </summary>
     public static AssetDatabase Current
     {
-        get => _current ??= new AssetDatabase(Environment.CurrentDirectory);
+        get => _current ??= new AssetDatabase(ContentPaths.BaseDirectory);
         set => _current = value ?? throw new ArgumentNullException(nameof(value));
     }
 

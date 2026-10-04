@@ -594,7 +594,9 @@ public sealed class SerializationTests : IDisposable
     public void TheSandboxSceneParsesAndResavesIdentically()
     {
         // FlyCamera and SpinningBox live in the Sandbox assembly: here they load as MissingNodes, which must
-        // write back exactly what they read.
+        // write back exactly what they read (including the inline resources they reference). The scene instances
+        // the glTF test model, which the test output carries, so resolve assets against the output folder.
+        AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory);
         var path = Path.Combine(AppContext.BaseDirectory, "Content", "Scenes", "Sandbox.mscene");
         var original = File.ReadAllText(path).ReplaceLineEndings("\n");
         var scene = PackedScene.Parse(File.ReadAllBytes(path));

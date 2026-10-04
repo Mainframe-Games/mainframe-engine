@@ -286,6 +286,75 @@ public class SceneTests
     }
 
     [Fact]
+    public void MaterialFeaturesRenderCleanlyAndMatchGolden()
+    {
+        // Textured box, alpha-cutout quad, normal-mapped sphere, emissive unshaded capsule, mirrored box, blended glass.
+        var result = HostRunner.Run("materials", Output("materials"), "--capture", "20", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 20);
+    }
+
+    [Fact]
+    public void ImportedGltfModelRendersAndMatchesGolden()
+    {
+        var result = HostRunner.Run("gltf", Output("gltf"), "--capture", "20", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 20);
+    }
+
+    [Fact]
+    public void ThousandInstancesBatchIntoAFewDrawsAndMatchGolden()
+    {
+        var result = HostRunner.Run("instances", Output("instances"), "--capture", "20", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Equal(1001, result.MeshInstances);
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 20);
+    }
+
+    [Fact]
+    public void TenThousandInstancesAllocateNothingPerFrame()
+    {
+        const int warmup = 60, measured = 120;
+        var result = HostRunner.Run("instances", Output("instances-10k-alloc"), "--count", "10000", "--alloc", $"{warmup}:{measured}", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0,
+            $"10k-instance frames allocated {result.AllocatedBytes} managed bytes over {measured} frames.");
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void TenThousandInstancesRenderAtSixtyFps()
+    {
+        // Frame time with VSync and validation off. The 60 fps bar (16.7 ms) is enforced for Release builds (the
+        // shipping configuration); Debug runs report the number only.
+        var result = HostRunner.Run("instances", Output("instances-10k-perf"), "--count", "10000", "--perf", "60:300", "--no-validation", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Equal(300, result.PerfMeasuredFrames);
+        TestContext.Current.SendDiagnosticMessage(
+            $"10k instances ({result.Configuration}, {result.DeviceName}): {result.AverageFrameMs:0.00} ms average, " +
+            $"{result.P95FrameMs:0.00} ms p95, {result.MeshDrawCalls} draws");
+        if (result.Configuration == "Release")
+            Assert.True(result.AverageFrameMs < 1000.0 / 60, $"10k instances average {result.AverageFrameMs:0.00} ms per frame (< 16.67 ms required).");
+    }
+
+    [Fact]
+    public void ObjectIdPickingAndSubViewportsWork()
+    {
+        var result = HostRunner.Run("picking", Output("picking"), "--capture", "20", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 20);
+    }
+
+    [Fact]
     public void CapturesAreDeterministicAcrossRuns()
     {
         var first = HostRunner.Run("lit-shapes", Output("determinism-a"), "--capture", "30", "--hidden");

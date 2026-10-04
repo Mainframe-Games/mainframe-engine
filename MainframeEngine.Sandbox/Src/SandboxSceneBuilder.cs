@@ -11,6 +11,8 @@ namespace MainframeEngine.Sandbox;
 /// </summary>
 public static class SandboxSceneBuilder
 {
+    private const string TestModelFolder = "Content/Models/TestModel";
+
     public static Node Build()
     {
         var root = new Node3D { Name = "Sandbox" };
@@ -32,9 +34,66 @@ public static class SandboxSceneBuilder
             Scale = new Vector3(0.1f, 0.1f, 0.1f),
             Animation = "walk",
         });
-        Add(root, new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(10, 10) } });
-        var box = new SpinningBox { Name = "Box", Position = new Vector3(3, 1, 0), Mesh = new BoxMesh() };
+
+        // M3 meshes and materials: a textured floor (the checker's .meta asks for nearest filtering), the spinning
+        // box, a few primitives (blended glass, emissive capsule, cylinder) and the glTF test model, instanced
+        // from its file by UID (imported through Assimp; only its overrides are saved here).
+        var checker = ResourceLoader.Load<Texture2D>(TestModelFolder + "/checker.png");
+        Add(root, new MeshInstance3D
+        {
+            Name = "Floor",
+            Mesh = new PlaneMesh { Size = new Vector2(10, 10) },
+            MaterialOverride = new StandardMaterial3D { AlbedoTexture = checker, UvScale = new Vector2(5, 5), Specular = 0.1f },
+        });
+        var box = new SpinningBox
+        {
+            Name = "Box",
+            Position = new Vector3(3, 1, 0),
+            Mesh = new BoxMesh(),
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 230, 120, 80) },
+        };
         Add(root, box);
+        Add(root, new MeshInstance3D
+        {
+            Name = "Glass",
+            Position = new Vector3(1.5f, 0.6f, 2.5f),
+            Mesh = new SphereMesh { Radius = 0.6f, Height = 1.2f },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = Color.FromArgb(110, 120, 180, 255),
+                Transparency = AlphaMode.Blend,
+                Specular = 1f,
+                Shininess = 96f,
+            },
+        });
+        Add(root, new MeshInstance3D
+        {
+            Name = "Lamp",
+            Position = new Vector3(-1.5f, 0.75f, 2.5f),
+            Mesh = new CapsuleMesh { Radius = 0.25f, Height = 1.5f },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = Color.Black,
+                EmissionColor = Color.FromArgb(255, 255, 160, 60),
+                EmissionEnergy = 2f,
+                ShadingMode = ShadingMode.Unshaded,
+            },
+        });
+        Add(root, new MeshInstance3D
+        {
+            Name = "Column",
+            Position = new Vector3(-3.5f, 1f, -2.5f),
+            Mesh = new CylinderMesh { TopRadius = 0.35f, BottomRadius = 0.45f, Height = 2f },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 210, 205, 190), Specular = 0.5f, Shininess = 64f },
+        });
+
+        var model = ResourceLoader.Load<PackedScene>(TestModelFolder + "/test_model.gltf");
+        var instance = model.Instantiate<Node3D>();
+        instance.Name = "Model";
+        instance.Position = new Vector3(-2.5f, 0, -0.5f);
+        instance.RotationDegrees = new Vector3(0, 20, 0);
+        Add(root, instance);
+        model.Release();
 
         // A quiet looping hum attached to the box (M7): streamed OGG, positional, on the SFX bus. Walk the fly
         // camera around it to hear the panning and the distance attenuation / low-pass.

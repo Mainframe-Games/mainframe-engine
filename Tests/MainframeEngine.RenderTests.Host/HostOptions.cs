@@ -4,7 +4,8 @@ namespace MainframeEngine.RenderTests.Host;
 
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
-/// [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--pipeline-cache dir]</c>.
+/// [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--pipeline-cache dir]
+/// [--count N] [--perf warmup:frames] [--no-validation]</c>.
 /// </summary>
 public sealed record HostOptions
 {
@@ -30,6 +31,16 @@ public sealed record HostOptions
 
     /// <summary>Directory for the persisted pipeline cache (overrides <c>MAINFRAME_PIPELINE_CACHE_DIR</c>).</summary>
     public string? PipelineCacheDirectory { get; init; }
+
+    /// <summary>Scene-specific size (the instance count of the <c>instances</c> scene); 0 = the scene's default.</summary>
+    public int Count { get; init; }
+
+    /// <summary>Frame-time measurement: frames skipped first, then frames measured; 0 = off.</summary>
+    public int PerfWarmupFrames { get; init; }
+    public int PerfMeasuredFrames { get; init; }
+
+    /// <summary>Runs without the validation layers (performance measurements).</summary>
+    public bool NoValidation { get; init; }
 
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
@@ -91,6 +102,20 @@ public sealed record HostOptions
                 case "--pipeline-cache":
                     options = options with { PipelineCacheDirectory = Path.GetFullPath(Next()) };
                     break;
+                case "--count":
+                    options = options with { Count = int.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--perf":
+                    var perf = Next().Split(':');
+                    options = options with
+                    {
+                        PerfWarmupFrames = int.Parse(perf[0], CultureInfo.InvariantCulture),
+                        PerfMeasuredFrames = int.Parse(perf[1], CultureInfo.InvariantCulture),
+                    };
+                    break;
+                case "--no-validation":
+                    options = options with { NoValidation = true };
+                    break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");
             }
@@ -103,6 +128,8 @@ public sealed record HostOptions
         var needed = Math.Max(
             options.CaptureFrames.Length > 0 ? (int)options.CaptureFrames[^1] + 1 : 1,
             options.AllocationMeasuredFrames > 0 ? options.AllocationWarmupFrames + options.AllocationMeasuredFrames + 2 : 1);
+        if (options.PerfMeasuredFrames > 0)
+            needed = Math.Max(needed, options.PerfWarmupFrames + options.PerfMeasuredFrames + 2);
         return options with { MaxFrames = Math.Max(options.MaxFrames, needed) };
     }
 }
