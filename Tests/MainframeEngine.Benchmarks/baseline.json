@@ -20,7 +20,7 @@
     },
     {
       "Name": "CameraBenchmarks.Node3DModelMatrix",
-      "MeanNs": 25.091,
+      "MeanNs": 13.368,
       "AllocatedBytes": 0
     },
     {
@@ -51,6 +51,26 @@
     {
       "Name": "NetBufferBenchmarks.WritePooled",
       "MeanNs": 15.77,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "SceneTreeBenchmarks.GetNodePathLookup",
+      "MeanNs": 39.224,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "SceneTreeBenchmarks.ProcessTick10k",
+      "MeanNs": 48449.696,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "SceneTreeBenchmarks.SceneSaveLoadRoundTrip1k",
+      "MeanNs": 2601303.714,
+      "AllocatedBytes": 3428386
+    },
+    {
+      "Name": "SceneTreeBenchmarks.TransformPropagationDirtySubtree10k",
+      "MeanNs": 117405.237,
       "AllocatedBytes": 0
     }
   ]
