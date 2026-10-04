@@ -14,6 +14,7 @@
         -->
         <PackageReference Include="ENet-CSharp" ExcludeAssets="native;build;buildTransitive" />
         <PackageReference Include="Box2D.NET" />
+        <PackageReference Include="GetText.NET" />
         <PackageReference Include="ImGui.NET" />
         <PackageReference Include="NVorbis" />
         <PackageReference Include="SoundFlow" />

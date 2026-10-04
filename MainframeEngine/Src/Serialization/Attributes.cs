@@ -32,6 +32,14 @@ public sealed class ExportAttribute : Attribute
 
     /// <summary>For <see cref="NodePath"/> values: the node type the path must point to.</summary>
     public Type? NodeType { get; set; }
+
+    /// <summary>
+    /// The string is player-facing text: <c>mf-l10n extract</c> writes its scene values to the translation template,
+    /// and the node shows it through <see cref="Node.Atr"/> (re-translating in <see cref="Node.OnLocaleChanged"/>).
+    /// The stored value stays the source text (the msgid). Only <c>string</c>, <c>string[]</c> and
+    /// <c>List&lt;string&gt;</c> members may be translatable (MFG010).
+    /// </summary>
+    public bool Translatable { get; set; }
 }
 
 /// <summary>

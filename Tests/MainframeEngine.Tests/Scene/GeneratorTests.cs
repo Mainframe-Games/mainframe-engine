@@ -272,6 +272,34 @@ public sealed class GeneratorTests
     }
 
     [Fact]
+    public void TranslatableExportsAreTextOnly()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            using MainframeEngine;
+
+            namespace Game;
+
+            public class Label : Node
+            {
+                [Export(Translatable = true)] public string Text { get; set; } = "";
+                [Export(Translatable = true)] public string[] Lines { get; set; } = [];
+                [Export(Translatable = true)] public List<string>? Items { get; set; }
+                [Export(Translatable = true)] public int Count { get; set; }
+                [Export(Translatable = true)] public List<int>? Numbers { get; set; }
+            }
+            """;
+
+        var (_, diagnostics, result) = Run(source, "GenTranslatable");
+        var generated = Generated(result);
+        Assert.Equal(3, generated.Split("Translatable = true").Length - 1); // Text, Lines, Items
+        var errors = diagnostics.Where(d => d.Id == "MFG010").ToList();
+        Assert.Equal(2, errors.Count);
+        Assert.Contains(errors, d => d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("'Count' has type 'int'", StringComparison.Ordinal));
+        Assert.All(errors, d => Assert.Equal(DiagnosticSeverity.Error, d.Severity));
+    }
+
+    [Fact]
     public void UnrelatedEditsDoNotRegenerate()
     {
         var compilation = CSharpCompilation.Create(
@@ -306,8 +334,9 @@ public sealed class GeneratorTests
 
         var node3D = TypeRegistry.Get(typeof(Node3D))!;
         Assert.Equal(["Position", "RotationDegrees", "Scale", "Visible"], node3D.DeclaredProperties.Select(p => p.Name));
-        // Base members first; within a type, declaration order (partial files by path: Node.Groups.cs, Node.Processing.cs).
-        Assert.Equal(["UniqueNameInOwner", "ProcessMode", "ProcessPriority", "Position", "RotationDegrees", "Scale", "Visible"],
+        // Base members first; within a type, declaration order (partial files by path: Node.Groups.cs, Node.Localization.cs,
+        // Node.Processing.cs).
+        Assert.Equal(["UniqueNameInOwner", "AutoTranslateMode", "ProcessMode", "ProcessPriority", "Position", "RotationDegrees", "Scale", "Visible"],
             node3D.Properties.Select(p => p.Name));
         Assert.Same(TypeRegistry.Get(typeof(Node)), node3D.Base);
         Assert.Equal(["TreeEntered", "Ready", "TreeExiting", "TreeExited", "Renamed", "ChildEnteredTree", "ChildExitingTree"],

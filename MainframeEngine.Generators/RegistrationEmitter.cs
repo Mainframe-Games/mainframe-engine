@@ -145,6 +145,8 @@ internal static class RegistrationEmitter
             parts.Add("Flags = true");
         if (e.NodeType is not null)
             parts.Add($"NodeType = typeof({e.NodeType})");
+        if (e.Translatable)
+            parts.Add("Translatable = true");
         return parts.Count == 0 ? "null" : $"new {Ser}.ExportHints {{ {string.Join(", ", parts)} }}";
     }
 

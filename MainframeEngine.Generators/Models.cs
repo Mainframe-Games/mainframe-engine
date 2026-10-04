@@ -78,7 +78,8 @@ internal sealed record ExportModel(
     bool Multiline,
     bool Flags,
     string? NodeType,
-    string? Group);
+    string? Group,
+    bool Translatable);
 
 /// <summary>A <c>[Signal]</c> event.</summary>
 internal sealed record SignalModel(string Name, string DelegateType, EquatableArray<string> ParameterTypes, bool CanForward);

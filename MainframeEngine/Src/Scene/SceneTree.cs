@@ -40,6 +40,8 @@ public sealed partial class SceneTree
     private double _accumulator;
     private bool _inTick;
     private bool _shutDown;
+    private readonly int _threadId = Environment.CurrentManagedThreadId; // the thread that runs this tree
+    private volatile bool _localeChangePending;
 
     public SceneTree(ServerRegistry? servers = null)
     {
@@ -47,6 +49,7 @@ public sealed partial class SceneTree
         Root = new SceneViewport(isTreeRoot: true) { Name = "root" };
         Root.PropagateEnterTree(this, null, 0);
         Root.PropagateReady();
+        Localization.Tr.Track(this); // M9: re-translate nodes when the locale changes
     }
 
     /// <summary>The root viewport (<c>/root</c>); holds the default <see cref="World3D"/> and <see cref="World2D"/>.</summary>
@@ -118,6 +121,12 @@ public sealed partial class SceneTree
 
     /// <summary>Raised when a node leaves the tree (after its <see cref="Node.OnExitTree"/>).</summary>
     public event Action<Node>? NodeRemoved;
+
+    /// <summary>
+    /// Raised after <see cref="Localization.Tr.SetLocale"/>, once every node in the tree has run
+    /// <see cref="Node.OnLocaleChanged"/> (at the end of the frame when the locale changed during <see cref="Tick"/>).
+    /// </summary>
+    public event Action? LocaleChanged;
 
     /// <summary>The node with <paramref name="id"/> if it is inside this tree.</summary>
     public Node? Find(NodeId id) => _nodesById.GetValueOrDefault(id);
@@ -213,6 +222,13 @@ public sealed partial class SceneTree
         ObjectDisposedException.ThrowIf(_shutDown, this);
         if (_inTick)
             throw new InvalidOperationException("SceneTree.Tick is not re-entrant.");
+
+        // M9: a locale change made on another thread is applied here, on the tree's own thread.
+        if (_localeChangePending)
+        {
+            _localeChangePending = false;
+            PropagateLocaleChanged();
+        }
 
         _inTick = true;
         ProcessDeltaTime = gameTime.DeltaTime;
@@ -644,6 +660,40 @@ public sealed partial class SceneTree
         _timers.Clear();
         _transformQueue.Clear();
         _shutDown = true;
+        Localization.Tr.Untrack(this);
+    }
+
+    /// <summary>
+    /// The locale changed (<see cref="Localization.Tr"/>): runs <see cref="Node.OnLocaleChanged"/> on every node, parents
+    /// first, then <see cref="LocaleChanged"/>. Deferred to the end of the frame while ticking, so nodes never re-translate
+    /// in the middle of process callbacks, and to the next <see cref="Tick"/> when the locale changed on another thread
+    /// than the one that created the tree.
+    /// </summary>
+    internal void OnLocaleChanged()
+    {
+        if (_shutDown)
+            return;
+        if (Environment.CurrentManagedThreadId != _threadId)
+        {
+            _localeChangePending = true;
+            return;
+        }
+
+        if (_inTick)
+        {
+            CallDeferred(static state => ((SceneTree)state!).PropagateLocaleChanged(), this);
+            return;
+        }
+
+        PropagateLocaleChanged();
+    }
+
+    private void PropagateLocaleChanged()
+    {
+        if (_shutDown)
+            return;
+        Root.PropagateLocaleChanged();
+        LocaleChanged?.Invoke();
     }
 
     private sealed class TreeOrderComparer : IComparer<Node>

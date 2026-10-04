@@ -37,6 +37,11 @@ internal static class Diagnostics
         "'{0}' declares [Export], [Signal], [Replicated] or [Rpc] members but cannot be registered: it must be public or internal and not nested in a private type{1}",
         Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor TranslatableNotString = new(
+        "MFG010", "Translatable [Export] is not text",
+        "[Export(Translatable = true)] member '{0}' has type '{1}'; only string, string[] and List<string> can be translated",
+        Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
+
     private const string NetCategory = "MainframeEngine.Networking";
 
     public static readonly DiagnosticDescriptor InvalidReplicated = new(
@@ -64,6 +69,7 @@ internal static class Diagnostics
         "MFG003" => SignalNotAccessible,
         "MFG004" => DuplicateTypeName,
         "MFG005" => InvalidMigration,
+        "MFG010" => TranslatableNotString,
         _ => TypeNotAccessible,
     };
 }

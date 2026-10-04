@@ -216,7 +216,7 @@ internal static class TypeModelBuilder
         }
 
         string? range = null, file = null, nodeType = null;
-        bool directory = false, multiline = false, flags = false;
+        bool directory = false, multiline = false, flags = false, translatable = false;
         foreach (var named in attribute.NamedArguments)
         {
             switch (named.Key)
@@ -227,11 +227,30 @@ internal static class TypeModelBuilder
                 case "Multiline": multiline = named.Value.Value is true; break;
                 case "Flags": flags = named.Value.Value is true; break;
                 case "NodeType": nodeType = (named.Value.Value as ITypeSymbol)?.ToDisplayString(TypeFormat); break;
+                case "Translatable": translatable = named.Value.Value is true; break;
             }
         }
 
-        return new ExportModel(member.Name, valueType.ToDisplayString(TypeFormat), codec, range, file, directory, multiline, flags, nodeType, group);
+        if (translatable && !IsStringOrStringCollection(valueType))
+        {
+            diagnostics.Add(new DiagnosticInfo(Diagnostics.TranslatableNotString.Id, location, member.Name, valueType.ToDisplayString()));
+            translatable = false;
+        }
+
+        return new ExportModel(member.Name, valueType.ToDisplayString(TypeFormat), codec, range, file, directory, multiline, flags, nodeType, group,
+            translatable);
     }
+
+    /// <summary><c>string</c>, <c>string[]</c> or <c>List&lt;string&gt;</c>: the types <c>Translatable</c> accepts.</summary>
+    private static bool IsStringOrStringCollection(ITypeSymbol type) => type switch
+    {
+        { SpecialType: SpecialType.System_String } => true,
+        IArrayTypeSymbol { Rank: 1, ElementType.SpecialType: SpecialType.System_String } => true,
+        INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } named =>
+            named.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.List<T>"
+            && named.TypeArguments[0].SpecialType == SpecialType.System_String,
+        _ => false,
+    };
 
     /// <summary>The codec expression for <paramref name="type"/>, or null when scenes cannot store it.</summary>
     internal static string? CodecFor(ITypeSymbol type)

@@ -86,6 +86,15 @@ public struct EngineOptions()
 
     /// <summary>Shows the ImGui developer overlay at start-up; F12 toggles it at runtime (<see cref="Engine.DevOverlayVisible"/>).</summary>
     public bool DevOverlayVisible = true;
+
+    /// <summary>
+    /// Starting locale (<c>es</c>, <c>pt_BR</c>), typically from the player's settings. Null picks the OS UI language
+    /// when catalogs exist for it, otherwise <see cref="Localization.LocalizationOptions.SourceLocale"/> (M9).
+    /// </summary>
+    public string? Locale;
+
+    /// <summary>Catalog location, domain, source locale and fallbacks for <see cref="Localization.Tr"/>; null uses the defaults.</summary>
+    public Localization.LocalizationOptions? Localization;
 }
 
 public abstract class Engine : IDisposable
@@ -171,6 +180,8 @@ public abstract class Engine : IDisposable
     {
         EngineOptions = engineOptions;
         DevOverlayVisible = engineOptions.DevOverlayVisible;
+        // M9: catalogs load before any game code runs, so constructors and OnLoad can translate.
+        Localization.Tr.Configure(engineOptions.Localization ?? new Localization.LocalizationOptions(), engineOptions.Locale);
         Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond }; // M2
 
         // Linux: Silk.NET cannot find package natives (libSDL2) in runtimes/linux-x64/native on its own.

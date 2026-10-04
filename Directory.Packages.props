@@ -22,6 +22,8 @@
     <PackageVersion Include="Silk.NET.Windowing.Sdl" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Box2D.NET" Version="3.1.654" />
     <PackageVersion Include="ENet-CSharp" Version="2.4.8" />
+    <!-- Localization runtime (.mo catalogs, Plural-Forms evaluation). Pinned: 11.0 is a preview with sparse notes (M9, ADR 0060). -->
+    <PackageVersion Include="GetText.NET" Version="[10.0.1]" />
     <PackageVersion Include="ImGui.NET" Version="1.89.9.3" />
     <!-- Audio (M7): SoundFlow (MIT; miniaudio natives for every desktop RID inside the package) and NVorbis
          (MIT, fully managed OGG Vorbis decoding). Pinned exactly; see ADR 0030. -->

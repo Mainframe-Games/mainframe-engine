@@ -32,6 +32,7 @@ public sealed class NodeTypeInfo
     private IReadOnlyList<ExportPropertyInfo>? _allProperties;
     private Dictionary<string, ExportPropertyInfo>? _propertiesByName;
     private IReadOnlyList<SignalInfo>? _allSignals;
+    private IReadOnlyList<ExportPropertyInfo>? _translatable;
     private object? _defaultInstance;
 
     public NodeTypeInfo(
@@ -140,6 +141,28 @@ public sealed class NodeTypeInfo
         }
     }
 
+    /// <summary>
+    /// Exported members marked <see cref="ExportAttribute.Translatable"/> (base types first): the strings
+    /// <c>mf-l10n</c> extracts from scenes and the editor checks against the translation template.
+    /// </summary>
+    public IReadOnlyList<ExportPropertyInfo> TranslatableProperties
+    {
+        get
+        {
+            if (_translatable is not null)
+                return _translatable;
+            var list = new List<ExportPropertyInfo>();
+            foreach (var p in Properties)
+            {
+                if (p.Hints.Translatable)
+                    list.Add(p);
+            }
+
+            _translatable = list;
+            return list;
+        }
+    }
+
     public ExportPropertyInfo? FindProperty(string name)
     {
         _ = Properties;
@@ -196,6 +219,9 @@ public sealed record ExportHints
     public bool Multiline { get; init; }
     public bool Flags { get; init; }
     public Type? NodeType { get; init; }
+
+    /// <summary>Player-facing text extracted for translation (<see cref="ExportAttribute.Translatable"/>).</summary>
+    public bool Translatable { get; init; }
 
     /// <summary>Parses <see cref="Range"/> (<c>"min,max[,step]"</c>).</summary>
     public bool TryGetRange(out double min, out double max, out double step)
