@@ -37,7 +37,7 @@
     </style>
 </head>
 <body>
-    <handle move_target="#document" id="mf-panel-bar"><span id="mf-panel-title">Panel</span></handle>
+    <handle move_target="#document" id="mf-panel-bar"><span id="mf-panel-title" class="no-tr">Panel</span></handle>
     <div id="mf-panel-content"></div>
 </body>
 </template>

@@ -223,7 +223,7 @@ extracted from C#, RML documents and scene files, and the language can be switch
 | `Tr` API, catalog management, runtime locale switching | ✅ | [Localization](design/localization.md#runtime-api) |
 | Extraction (C# extractor + `mf-l10n` for RML and scenes), `.mo` build step (in-house, `msgfmt`-identical) | ✅ | [Localization](design/localization.md#workflow) |
 | `[Export(Translatable)]` scene strings, re-translation on locale change | ✅ | [Localization](design/localization.md#scene-strings) |
-| RmlUi `TranslateString` hook, per-locale fonts (engine contract ✅; `UiServer` wiring after M8 integration) | 🚧 | [Localization](design/localization.md#game-ui-rmlui) |
+| RmlUi `TranslateString` hook, `no-tr`, translated attributes, per-locale fonts, live re-translation (`UiServer`) | ✅ | [Localization](design/localization.md#game-ui-rmlui) |
 | Pseudo-locale for testing | ✅ | [Localization](design/localization.md#pseudo-localization) |
 
 ## M10 — Editor

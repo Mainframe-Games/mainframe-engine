@@ -271,7 +271,9 @@ output: `TrTests` (catalogs, fallback chain, contexts, Polish/Russian plurals, f
 lookups), `RmlLocalizationTests`, `NodeLocalizationTests` (re-translation immediate/deferred/cross-thread),
 `GettextFormatTests` (`.po`/`.mo`, byte equality with GNU `msgfmt` when installed — CI installs gettext on Linux),
 `ExtractionTests` (runs the pinned `GetText.Extractor` local tool: `dotnet tool restore`) and `L10nCliTests`
-(end-to-end `mf-l10n`). See [Localization](localization.md#testing).
+(end-to-end `mf-l10n`); the game UI's translation (`UI/UiLocalizationTests`, in the `SerialRmlUi` collection, restoring
+`Tr` through the fixture) includes a 0-byte gate over translated HUD frames. The render tests' `sandbox` allocation gate
+runs in Spanish with the RmlUi HUD. See [Localization](localization.md#testing).
 
 ## Benchmarks
 

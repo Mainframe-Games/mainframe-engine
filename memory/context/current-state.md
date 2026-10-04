@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-05 (sky-fix, M3b meshes/materials and M8 game UI integrated, branch `integrate/w4`)_
+_Last updated: 2026-10-05 (M9 localization integrated and wired into the M8 game UI, branch `integrate/m9`)_
 
 ## Where things left off
 
@@ -62,8 +62,11 @@ _Last updated: 2026-10-05 (sky-fix, M3b meshes/materials and M8 game UI integrat
   GetText.NET extractor matches by method name). `Tr` is process-wide: tests touching it join the `LocalizationState`
   collection and restore with `Tr.ResetForTests()`. Catalogs live in `Content/locale/<locale>/LC_MESSAGES/messages.po`
   next to their committed `.mo`; `build/Localization.targets` compiles them with `mf-l10n` (no gettext needed). After
-  string changes: `just l10n-extract`, translate, `just l10n-compile`. The RmlUi `UiServer` hook is a documented
-  contract (`Tr.TranslateMarkup`, `RmlLocalization.PrepareDocument`, `FontFallbackTable`) wired after M8 integration.
+  string changes: `just l10n-extract`, translate, `just l10n-compile`. The `UiServer` translates RmlUi documents
+  (`UiServerOptions.TextTranslator`, default `Tr`): `.rml` sources through `PrepareDocument` (attributes, `no-tr`), text
+  nodes through `TranslateString`; a locale change reloads loaded documents at the next `UiServer.Process`. Data-view
+  templates (`{{ … }}`) are translated once and marked (U+FDD0) so substituted values are never looked up. Opt out per element with
+  `class="no-tr"` (the credits' licence notices do).
 - ENet macOS natives are x86_64-only (won't load on Apple Silicon); Steamworks.NET has
   no osx-arm64 assets.
 

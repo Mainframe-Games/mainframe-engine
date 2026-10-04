@@ -115,9 +115,11 @@ flowchart TD
 
 - **Stats** (top left): FPS, ms, frame, UI draw calls (refreshed four times a second; the frame every frame).
 - **Scene** panel (top right), bound two-way: exposure slider (`IVulkanContext.Exposure`), spin-speed slider (the
-  `Box`), Max FPS dropdown (Unlimited/30/60/120/144/240), Sun and Coloured lights checkboxes (energy to 0 and back),
+  `Box`), Max FPS dropdown (Unlimited/30/60/120/144/240), **Language** dropdown (every compiled catalog; switches
+  `Tr` live), Sun and Coloured lights checkboxes (energy to 0 and back),
   VSync, Colliders (the physics server's collision-shape debug draw); buttons **Widgets** (shows the widget-library demo window in the `Menus` layer), **Dev overlay** (ImGui),
   **Credits** (the engine's `Content/UI/credits.rml`, with the FreeType credit its licence requires) and **Quit**.
+- **Welcome** (top centre): the scene's `WelcomeBanner` title and hint in the current language.
 - **Hints** along the bottom.
 
 Right-drag look and Escape ignore presses on the HUD (`UiServer.IsPointerOverUi`, `TextInputActive`). Debug builds load
@@ -126,9 +128,9 @@ the HUD from the project's `Content/` folder and hot-reload it on save. See [Gam
 ## Developer overlay (ImGui, F12)
 
 Hidden by default (`EngineOptions.DevOverlayVisible = false` in the Sandbox); F12 toggles it. The "Developer" window
-has delta time, a fullscreen checkbox, the UI debugger toggle (also F8), the active camera's position and forward
-vector, the node count, the physics section (collision-shape toggle, body/awake counts), the network demo's panel
-(with `--server`/`--client`) and the audio bus mixer (`AudioImGui.DrawMixer`: output device, voice/steal/underrun
+shows the translated welcome banner, delta time, a fullscreen checkbox, the UI debugger toggle (also F8), a
+**Language** combo, the active camera's position and forward vector, the node count (a plural message), the physics
+section (collision-shape toggle, body/awake counts), the network demo's panel (with `--server`/`--client`) and the audio bus mixer (`AudioImGui.DrawMixer`: output device, voice/steal/underrun
 counters, and a volume slider, mute, solo and peak meter per bus); the light and axis gizmos and the Renderer window
 (exposure, mesh draw stats, GPU memory, uploads, pipeline cache) draw with it.
 
@@ -136,8 +138,8 @@ counters, and a volume slider, mute, solo and peak meter per bus); the light and
 
 Every player-facing string is translated ([Localization](localization.md)): `en` (source), `es` and the `qps`
 pseudo-locale (Latin-1 accents, which both ImGui's built-in font and the HUD's Lato Latin can draw) live in
-`Content/locale/` and are compiled at build time. The HUD's text — `hud.rml`, the widget library and the welcome banner —
-goes through `UiServer.Translator` and re-translates when the locale changes; the HUD's **Language** dropdown and the
+`Content/locale/` and are compiled at build time. The HUD's text — `hud.rml`, the widget library and the credits (licence notices
+opt out with `no-tr`), and the welcome banner — goes through the UI server and re-translates when the locale changes; the HUD's **Language** dropdown and the
 developer overlay's **Language** combo both list `Tr.GetAvailableLocales()` and switch at run time. Overlay strings are
 rebuilt only when the locale changes and every label pins its ImGui id with `###`, so switching language keeps widget
 state and frames stay allocation-free. `--locale <name>` starts in a language; otherwise the OS language is used when a

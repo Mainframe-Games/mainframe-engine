@@ -1,4 +1,5 @@
 using System.Numerics;
+using MainframeEngine.Localization;
 using MainframeEngine.UI.Rml;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
@@ -28,6 +29,20 @@ public sealed record UiServerOptions
 
     /// <summary>Framebuffer size used when there is no window (headless tests).</summary>
     public Vector2 HeadlessViewport { get; init; } = new(1280, 720);
+
+    /// <summary>
+    /// Localization (M9): document sources go through its <see cref="ITextTranslator.PrepareDocument"/>, text nodes
+    /// through its <see cref="ITextTranslator.TryTranslateMarkup(ReadOnlySpan{byte}, out string)"/>, and its
+    /// <see cref="ITextTranslator.LocaleChanged"/> reloads the documents. Defaults to the engine's catalogs
+    /// (<see cref="Localization.TextTranslator.Current"/>, i.e. <see cref="Tr"/>); null leaves UI text untranslated.
+    /// </summary>
+    public ITextTranslator? TextTranslator { get; init; } = Localization.TextTranslator.Current;
+
+    /// <summary>
+    /// The per-locale font table (<see cref="FontFallbackTable"/>, a <c>.mres</c>) whose faces are loaded as fallback
+    /// faces at start-up and on every locale change; nothing happens when the file does not exist. Null disables it.
+    /// </summary>
+    public string? FontFallbackTablePath { get; init; } = FontFallbackTable.DefaultPath;
 
     public const bool DefaultHotReload =
 #if DEBUG
@@ -88,6 +103,9 @@ public sealed class UiServer : IFrameServer, IInputServer
     private readonly List<UiLayer> _layers = [];
     private readonly UiHotReload? _hotReload;
     private readonly UiImeWatch? _ime;
+    private readonly ITextTranslator? _textTranslator;
+    private readonly HashSet<string> _fallbackFonts = new(StringComparer.Ordinal);
+    private int _localeChanged; // set by LocaleChanged (any thread), applied at the start of Process
     private bool _layersDirty;
     private int _contextCounter;
     private RmlContext? _debuggerContext;
@@ -119,6 +137,9 @@ public sealed class UiServer : IFrameServer, IInputServer
         Files = new UiFileInterface();
         foreach (var directory in _options.SourceContentDirectories)
             Files.AddSourceDirectory(directory);
+        _textTranslator = _options.TextTranslator;
+        if (_textTranslator is not null)
+            Files.DocumentPreprocessor = _textTranslator.PrepareDocument; // no-tr marks, translated attributes
         if (_options.HotReload)
             foreach (var directory in UiServerOptions.SourceDirectoriesOf(typeof(UiServer).Assembly)) // the engine's own widgets
                 Files.AddSourceDirectory(directory);
@@ -132,12 +153,20 @@ public sealed class UiServer : IFrameServer, IInputServer
                 : new NullUiRenderer();
             if (_options.LoadDefaultFonts)
                 LoadFonts(_options.FontDirectory);
+            if (_textTranslator is not null)
+                LoadLocaleFonts();
         }
         catch
         {
             RmlCore.Shutdown();
             (RenderInterface as IDisposable)?.Dispose();
             throw;
+        }
+
+        if (_textTranslator is not null)
+        {
+            Translator = TranslateText;
+            _textTranslator.LocaleChanged += OnLocaleChanged;
         }
 
         if (_options.HotReload)
@@ -180,12 +209,22 @@ public sealed class UiServer : IFrameServer, IInputServer
     /// <summary>Framebuffer pixels per window point (2 on Retina).</summary>
     public float PixelScale { get; private set; } = 1f;
 
-    /// <summary>Localization hook (M9): RmlUi's <c>TranslateString</c>.</summary>
+    /// <summary>
+    /// Localization hook: RmlUi's <c>TranslateString</c>, called for every text node RmlUi creates (and for data-bound
+    /// text whenever its value changes). Set to the <see cref="UiServerOptions.TextTranslator"/>'s
+    /// <c>TryTranslateMarkup</c> by default (docs/design/localization.md#game-ui-rmlui); replace or clear it to opt out.
+    /// </summary>
     public UiTranslator? Translator
     {
         get => _system.Translator;
         set => _system.Translator = value;
     }
+
+    /// <summary>The translator UI text and documents go through (<see cref="UiServerOptions.TextTranslator"/>), or null.</summary>
+    public ITextTranslator? TextTranslator => _textTranslator;
+
+    /// <summary>Fallback font faces loaded from the <see cref="FontFallbackTable"/> so far (content paths).</summary>
+    public IReadOnlyCollection<string> FallbackFonts => _fallbackFonts;
 
     /// <summary>False while the engine skips rendering (minimised): contexts update but record no draw commands.</summary>
     public Func<bool>? CanRender { get; set; }
@@ -242,6 +281,137 @@ public sealed class UiServer : IFrameServer, IInputServer
     public bool UnregisterTexture(string name) => Renderer?.UnregisterTexture(name) ?? false;
 
     private Stream? OpenFile(string path) => Files.Open(path);
+
+    // ── Localization ─────────────────────────────────────────────────────────────────────────────────────────
+
+    // RmlLocalization.OptOutMarker (U+FDD0) in UTF-8.
+    private static ReadOnlySpan<byte> OptOutMarkerUtf8 => [0xEF, 0xB7, 0x90];
+
+    /// <summary>
+    /// RmlUi's <c>TranslateString</c>. Plain text runs go to <see cref="ITextTranslator.TryTranslateMarkup(ReadOnlySpan{byte}, out string)"/>.
+    /// A run with a data expression (<c>Health {{ health }}</c>) is the template of a data view, which RmlUi sends
+    /// through here again after every substitution (<c>Salud 72</c>): the template is translated once and kept with
+    /// the opt-out marker in front, so each substituted text arrives marked and is returned unmarked without a lookup
+    /// (no double translation of values, no "missing translation" per value, no allocation per frame). The data view
+    /// replaces the template's text on the context's first update, before anything renders.
+    /// </summary>
+    private bool TranslateText(ReadOnlySpan<byte> utf8, RmlStringSink output)
+    {
+        if (_textTranslator is not { } translator)
+            return false;
+        if (utf8.IndexOf("{{"u8) < 0)
+        {
+            if (utf8.StartsWith(OptOutMarkerUtf8))
+            {
+                output.Set(utf8[OptOutMarkerUtf8.Length..]); // no-tr text or a substituted data view: as is, no string
+                return true;
+            }
+
+            if (!translator.TryTranslateMarkup(utf8, out var text))
+                return false;
+            output.Set(text.AsSpan());
+            return true;
+        }
+
+        if (utf8.StartsWith(OptOutMarkerUtf8))
+            return false; // a no-tr template (PrepareDocument marked it): keep the marker for its substituted text
+
+        if (translator.TryTranslateMarkup(utf8, out var translated))
+        {
+            output.Set(string.Concat(RmlLocalization.OptOutMarker.ToString(), translated).AsSpan());
+            return true;
+        }
+
+        // Untranslated template ({{ fps }}, or no catalog entry): the same text, marked.
+        var length = OptOutMarkerUtf8.Length + utf8.Length;
+        var rented = length > 512 ? System.Buffers.ArrayPool<byte>.Shared.Rent(length) : null;
+        var marked = rented is null ? stackalloc byte[length] : rented.AsSpan(0, length);
+        try
+        {
+            OptOutMarkerUtf8.CopyTo(marked);
+            utf8.CopyTo(marked[OptOutMarkerUtf8.Length..]);
+            output.Set(marked);
+        }
+        finally
+        {
+            if (rented is not null)
+                System.Buffers.ArrayPool<byte>.Shared.Return(rented);
+        }
+
+        return true;
+    }
+
+    // May run on any thread and inside an RmlUi callback (a language dropdown's data binding): only flag it here.
+    private void OnLocaleChanged(object? sender, LocaleChangedEventArgs e) => Interlocked.Exchange(ref _localeChanged, 1);
+
+    /// <summary>
+    /// Applies a locale change at a safe point (start of <see cref="Process"/>, no RmlUi callback running): loads the
+    /// new locale's fallback fonts, drops cached templates (their attributes were translated) and reloads every
+    /// loaded document, so text nodes and attributes are translated again. Data models survive the reload.
+    /// </summary>
+    private void ApplyLocaleChange()
+    {
+        LoadLocaleFonts();
+        RmlCore.ClearTemplateCache();
+        var reloaded = 0;
+        foreach (var layer in _layers)
+        {
+            foreach (var document in layer.DocumentList.ToArray())
+            {
+                if (!document.IsLoaded)
+                    continue; // loads in the new locale when first needed
+                document.Reload();
+                reloaded++;
+            }
+        }
+
+        Log.Info($"[UI] Locale '{_textTranslator?.Locale}': reloaded {reloaded} document(s)");
+    }
+
+    /// <summary>Loads the faces the <see cref="FontFallbackTable"/> lists for the current locale chain (once each).</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "A broken font table must not stop the UI (or a locale switch); it is logged.")]
+    private void LoadLocaleFonts()
+    {
+        if (_textTranslator is null || _options.FontFallbackTablePath is not { Length: > 0 } tablePath)
+            return;
+        IReadOnlyList<string> fonts;
+        try
+        {
+            var table = FontFallbackTable.TryLoad(tablePath);
+            if (table is null)
+                return;
+            fonts = table.Resolve(_textTranslator.LocaleChain);
+            table.Release();
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"[UI] Could not read the font fallback table '{tablePath}': {e.Message}");
+            return;
+        }
+
+        foreach (var font in fonts)
+        {
+            if (_fallbackFonts.Contains(font))
+                continue;
+            var full = Files.ResolvePath(font);
+            if (full is null)
+            {
+                Log.Warning($"[UI] Fallback font '{font}' ({tablePath}) not found.");
+                continue;
+            }
+
+            try
+            {
+                RmlCore.LoadFontFace(full, fallbackFace: true); // RmlUi cannot unload one face: faces accumulate
+                _fallbackFonts.Add(font);
+            }
+            catch (RmlException e)
+            {
+                Log.Warning($"[UI] Could not load fallback font '{font}': {e.Message}");
+            }
+        }
+    }
 
     // ── Layers ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -305,6 +475,8 @@ public sealed class UiServer : IFrameServer, IInputServer
             return;
 
         RmlCore.ProcessPendingReleases();
+        if (Interlocked.Exchange(ref _localeChanged, 0) != 0)
+            ApplyLocaleChange();
         var delta = gameTime.DeltaTime;
         _system.Time += delta;
 
@@ -795,6 +967,8 @@ public sealed class UiServer : IFrameServer, IInputServer
         if (_disposed)
             return;
         _disposed = true;
+        if (_textTranslator is not null)
+            _textTranslator.LocaleChanged -= OnLocaleChanged;
         _hotReload?.Dispose();
         _ime?.Dispose();
 

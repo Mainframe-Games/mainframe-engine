@@ -1,7 +1,7 @@
 # ADR 0064 — RML translation contract for the game UI
 
 - **Date:** 2026-10-05
-- **Status:** accepted (UiServer wiring pending M8 integration)
+- **Status:** accepted; wired into `UiServer` when M8 and M9 were integrated
 - **Milestone:** M9 (lane m9), consumed by M8
 
 ## Context
@@ -30,7 +30,12 @@ and serves documents through `UiFileInterface`; this lane must not touch `Mainfr
 
 ## Consequences
 
-- Exact `no-tr` semantics without changing the native shim. The orchestrator wires three calls into `UiServer` after
-  M8 lands (documented in docs/design/localization.md#game-ui-rmlui); the milestone row stays 🚧 until then.
+- Exact `no-tr` semantics without changing the native shim. Wired at integration (docs/design/localization.md#game-ui-rmlui):
+  `UiServerOptions.TextTranslator` (default `TextTranslator.Current`) feeds `UiFileInterface.DocumentPreprocessor`
+  and `UiServer.Translator`; the locale change is applied at the start of `UiServer.Process` (never inside an RmlUi
+  callback). Found then: RmlUi also sends data-bound text *after substitution* (`Salud 72`) through `TranslateString` on
+  every change — each new value was looked up, logged as missing and allocated, and a value equal to a msgid would be
+  translated. The server translates a `{{ … }}` template once and returns it marked with U+FDD0; the data view copies
+  the marker into every substituted text, which is returned unmarked without a lookup.
 - Inline markup splits sentences into several messages, as RmlUi translates per text node; translators see each
   fragment with an `RML <element>` comment.

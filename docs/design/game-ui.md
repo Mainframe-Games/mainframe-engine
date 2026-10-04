@@ -250,12 +250,23 @@ Interactive controls set `pointer-events: auto`, `tab-index: auto` and `nav: aut
 **Fonts** (OFL 1.1, [ADR 0052](../../memory/decisions/0052-bundled-ui-fonts.md)): Lato Latin regular/bold/italic
 (`font-family: LatoLatin`) and Roboto Mono (`"Roboto Mono"`), in `Content/UI/fonts/` with their licences.
 
+## Localization
+
+Documents are translated through the engine's gettext catalogs (`UiServerOptions.TextTranslator`, default `Tr`; M9):
+every `.rml` source passes `RmlLocalization.PrepareDocument` (translated `title`/`placeholder`/button `value`
+attributes, `class="no-tr"` opt-out), text nodes go through `UiServer.Translator` (RmlUi's `TranslateString`), data-view
+templates are translated once so bound values never are, and on a locale change the server loads the locale's
+fallback fonts (`FontFallbackTable`) and reloads every loaded document at the start of its next `Process` — never
+inside an RmlUi callback, so a language dropdown can switch the language it lives in. Strings are extracted with
+`mf-l10n extract --rml`. See [Localization](localization.md#game-ui-rmlui).
+
 ## Sandbox
 
 The Sandbox's HUD ([`hud.rml`](../../MainframeEngine.Sandbox/Content/UI/hud.rml),
 [`SandboxHud`](../../MainframeEngine.Sandbox/Src/Nodes/SandboxHud.cs)) shows frame stats and two-way bindings to live
-scene state (exposure, spin speed, max FPS, sun and coloured lights, VSync), with buttons for the widget demo, the
-ImGui developer overlay and quitting. See [Sandbox](sandbox.md).
+scene state (exposure, spin speed, max FPS, language, sun and coloured lights, VSync), the scene's translated welcome
+banner, and buttons for the widget demo, the ImGui developer overlay, the credits and quitting; it is translated into
+Spanish and the `qps` pseudo-locale. See [Sandbox](sandbox.md).
 
 ## Testing
 
@@ -272,6 +283,8 @@ ImGui developer overlay and quitting. See [Sandbox](sandbox.md).
   opaque swatch is checked to be exactly `#3366cc`), `ui-effects` (clip masks, rotated clip, gradients, box-shadow,
   blur, drop-shadow, grayscale, opacity, mask-image, backdrop blur), `ui-text`, `ui-widgets`, determinism and swapchain
   recreation. The `sandbox` allocation gate carries the HUD (bindings dirtied every frame): 0 B per frame.
+- **Localization** (`UiLocalizationTests.cs`, headless): translation at load and after a locale switch, `no-tr`,
+  bound values untranslated, deferred switching from a click handler, fallback fonts, 0 B over 200 translated HUD frames.
 - **Benchmarks** (`UiBenchmarks`): update of a 500-element document idle (~9 µs) and with 500 dirtied bindings
   (~260 µs), full relayout (~190 µs), one render's ~1 000 callbacks into C# (~43 µs); all 0 B.
 

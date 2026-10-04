@@ -208,7 +208,7 @@ public class UiDocument : Node
         try
         {
             _document = string.IsNullOrEmpty(Source)
-                ? context.LoadDocumentFromMemory(Rml!, $"memory/{Name}.rml")
+                ? context.LoadDocumentFromMemory(_layer.Server?.Files.PrepareDocument(Rml!) ?? Rml!, $"memory/{Name}.rml")
                 : context.LoadDocument(Source);
         }
         catch (RmlException e)
@@ -302,8 +302,13 @@ public class UiDocument : Node
         if (titleElement.IsNull)
             return;
         var title = _document.Title;
-        if (title.Length > 0)
-            titleElement.SetInnerRml(title.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal));
+        if (title.Length == 0)
+            return;
+        var rml = title.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal);
+        // The title is already translated (RmlUi translates <title>): the opt-out marker keeps it from a second lookup.
+        if (_layer?.Server is { TextTranslator: not null, Translator: not null })
+            rml = Localization.RmlLocalization.OptOutMarker + rml;
+        titleElement.SetInnerRml(rml);
     }
 
     /// <summary>The title element of the widget library's panel template.</summary>

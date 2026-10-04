@@ -1,3 +1,4 @@
+using System.Text;
 using MainframeEngine.UI.Rml;
 
 namespace MainframeEngine;
@@ -10,10 +11,38 @@ namespace MainframeEngine;
 /// <remarks>
 /// A path <c>Content/UI/hud.rml</c> is looked up as <c>&lt;source&gt;/UI/hud.rml</c> in each source directory (in
 /// order), then in the application's <c>Content/</c>. Absolute paths are used as-is.
+/// <para><b>Localization (M9):</b> every <c>.rml</c> file (documents and templates) is served through
+/// <see cref="DocumentPreprocessor"/> — by default <see cref="Localization.ITextTranslator.PrepareDocument"/>, which
+/// translates attributes and marks <c>no-tr</c> text — before RmlUi parses it.</para>
 /// </remarks>
 public sealed class UiFileInterface : RmlContentFileInterface
 {
     private readonly List<string> _sourceDirectories = [];
+
+    /// <summary>
+    /// Rewrites every <c>.rml</c> source before RmlUi parses it (the <see cref="UiServer"/> installs
+    /// <see cref="Localization.ITextTranslator.PrepareDocument"/>); null serves files unchanged.
+    /// </summary>
+    public Func<string, string>? DocumentPreprocessor { get; set; }
+
+    /// <summary>An in-memory document source after <see cref="DocumentPreprocessor"/> (what a file would be served as).</summary>
+    public string PrepareDocument(string source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return DocumentPreprocessor is { } prepare ? prepare(source) : source;
+    }
+
+    public override Stream? Open(string path)
+    {
+        if (DocumentPreprocessor is null || !path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
+            return base.Open(path);
+        var full = ResolvePath(path);
+        if (full is null)
+            return null;
+        // Documents load once (and on reload or a locale change), never per frame.
+        var prepared = PrepareDocument(File.ReadAllText(full, Encoding.UTF8));
+        return new MemoryStream(Encoding.UTF8.GetBytes(prepared), writable: false);
+    }
 
     /// <summary>Directories standing in for <c>Content/</c>, checked before the application's copy.</summary>
     public IReadOnlyList<string> SourceDirectories => _sourceDirectories;

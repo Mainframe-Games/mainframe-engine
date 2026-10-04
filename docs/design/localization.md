@@ -179,24 +179,39 @@ public sealed class WelcomeBanner : Node
 
 ## Game UI (RmlUi)
 
-The UI lane (M8) is built in parallel; this side ships the contract, the M8 `UiServer` wiring happens when both are
-integrated ([milestones](../milestones.md#m9--localization-)). RmlUi only sends **text nodes** to its
-`TranslateString` callback, and only the text — no element — so the engine splits the work:
+The [game UI](game-ui.md)'s `UiServer` translates every document through `UiServerOptions.TextTranslator` (an
+`ITextTranslator`, default `TextTranslator.Current`, i.e. `Tr`; `null` turns UI localization off). RmlUi only sends
+**text nodes** to its `TranslateString` callback, and only the text — no element — so the work is split:
 
-1. **Document sources** — the UI file interface passes every `.rml` it serves through
-   `RmlLocalization.PrepareDocument(source)` (or `ITextTranslator.PrepareDocument`): it translates the `title` and
-   `placeholder` attributes and `value` of `<input type="submit|button">` (RmlUi never sends attributes to
-   `TranslateString`), and prefixes text nodes inside `no-tr` elements with `RmlLocalization.OptOutMarker` (U+FDD0,
-   a Unicode noncharacter).
-2. **Text nodes** — `UiServer.Translator` (M8's `UiTranslator(ReadOnlySpan<byte> utf8, RmlStringSink output)`) calls
-   `Tr.TranslateMarkup(utf8, out var text)` and, on true, `output.Set(text)` and returns true (RmlUi gets 1);
-   otherwise returns false (0, text unchanged). Opted-out text comes back without the marker and untranslated.
-3. **Locale changes** — on `Tr.LocaleChanged` the server loads the faces of
-   `FontFallbackTable.TryLoad()?.ResolveCurrent()` as fallback faces, reloads every visible document from its
-   `Source` (data models live in C#; call `DirtyAll()` on models whose strings come from `Tr`).
+1. **Document sources** — `UiFileInterface.DocumentPreprocessor` (set to `ITextTranslator.PrepareDocument` →
+   `RmlLocalization.PrepareDocument`) rewrites every `.rml` the file interface serves (documents and templates) and
+   every in-memory `UiDocument.Rml`: it translates the `title` and `placeholder` attributes and `value` of
+   `<input type="submit|button">` (RmlUi never sends attributes to `TranslateString`), and prefixes text nodes inside
+   `no-tr` elements with `RmlLocalization.OptOutMarker` (U+FDD0, a Unicode noncharacter).
+2. **Text nodes** — `UiServer.Translator` (`UiTranslator(ReadOnlySpan<byte> utf8, RmlStringSink output)`) calls
+   `ITextTranslator.TryTranslateMarkup` → `Tr.TranslateMarkup(utf8, out var text)` and, on true, `output.Set(text)`
+   (RmlUi gets 1); otherwise RmlUi keeps the text. Marked runs (opted out) come back without the marker, untranslated
+   and without a lookup.
+   **Data-bound text**: RmlUi sends a data view's template (`Health {{ health }}`) through `TranslateString` when it
+   creates the text node, and then **every substituted text** (`Salud 72`) again whenever a bound value changes. The
+   server therefore translates a run containing `{{` once and returns it with the opt-out marker in front (a `no-tr`
+   template keeps the marker `PrepareDocument` gave it): the data view copies the marker into every substituted text,
+   which comes back unmarked without a lookup. So bound values are never translated (a player named "Play" stays
+   "Play"), never logged as missing, and a frame of HUD updates allocates nothing (the `sandbox` allocation gate runs
+   the HUD in Spanish). The data view replaces the marked template on the context's first update, before rendering.
+3. **Locale changes** — `ITextTranslator.LocaleChanged` only flags the server (it may fire on any thread, or inside an
+   RmlUi callback such as a language dropdown's data binding). At the start of the next `UiServer.Process` — after the
+   queued handle releases, before any context updates — the server loads the faces of the `FontFallbackTable`
+   (`UiServerOptions.FontFallbackTablePath`, default `Content/locale/fonts.mres`) for the new `LocaleChain` as fallback
+   faces, drops the template cache and reloads every loaded document from its source. Data models and `UiElement`
+   subscriptions survive the reload; call `Dirty`/`DirtyAll()` on models whose strings come from `Tr` or from
+   `Node.Atr` (for example in the document's `OnLocaleChanged`).
+4. **Panel titles** — RmlUi translates `<head><title>`; `UiDocument` writes that already-translated title into the
+   `mf-panel` title bar with the opt-out marker, so it is not looked up a second time.
 
 ```csharp
-// UiServer wiring after M8 integration
+// The core of what the UiServer installs (UiServer.TranslateText, which also marks data-view templates as above);
+// replace UiServer.Translator to customise.
 ui.Translator = static (utf8, sink) =>
 {
     if (!Tr.TranslateMarkup(utf8, out var text))
@@ -204,8 +219,6 @@ ui.Translator = static (utf8, sink) =>
     sink.Set(text.AsSpan());
     return true;
 };
-// UiFileInterface.Open: if (path ends with ".rml") serve RmlLocalization.PrepareDocument(File.ReadAllText(full))
-Tr.LocaleChanged += (_, _) => { LoadFonts(FontFallbackTable.TryLoad()?.ResolveCurrent() ?? []); ReloadDocuments(); };
 ```
 
 **Matching rules** (one parser, `RmlLocalization.Scan`, for extraction and runtime, so msgids always match):
@@ -237,10 +250,14 @@ uses it). In `qps`, strings that bypass translation appear without brackets, and
 
 ## Sandbox
 
-The Sandbox ([sandbox.md](sandbox.md)) ships `en` (source), `es` (hand-written) and `qps`. Its overlay labels go
-through `Tr` (rebuilt only on a locale change, ImGui ids pinned with `###`, so frames stay allocation-free), the
-**Language** menu switches between `Tr.GetAvailableLocales()` at run time, the node count is a plural, and
-`WelcomeBanner` in `Sandbox.mscene` shows translatable scene strings. `--locale es` starts in Spanish.
+The Sandbox ([sandbox.md](sandbox.md)) ships `en` (source), `es` (hand-written) and `qps`. Its RmlUi HUD
+(`hud.rml`), the engine's widget demo and credits are translated by the UI server (`just l10n-extract` reads both
+`MainframeEngine.Sandbox/Content` and `MainframeEngine/Content/UI`); the HUD's **Language** dropdown (a `data-for`
+`<select>` over `Tr.GetAvailableLocales()`) switches at run time, its stat abbreviations and the credits' licence
+notices opt out with `no-tr`, and `WelcomeBanner` in `Sandbox.mscene` (translatable scene strings) is shown at the top
+of the HUD. The F12 ImGui developer overlay has its own **Language** combo; its labels go through `Tr` (rebuilt only on
+a locale change, ImGui ids pinned with `###`, so frames stay allocation-free) and the node count is a plural.
+`--locale es` starts in Spanish.
 
 ## Testing
 
@@ -252,7 +269,12 @@ cross-thread); `.po` parse/write round trips, `.mo` write/read with hash-table c
 byte equality with GNU `msgfmt` (skipped when it is not installed); placeholder checks; pseudo-locale; extraction
 from RML/scene/resource/C# fixtures (the C# test runs the real extractor via `dotnet tool run`); and an end-to-end
 `mf-l10n` run on a fixture project (extract → update → translate → compile → check → pseudo → stats → runtime).
-Generator test: MFG010. Benchmarks: `LocalizationBenchmarks` in [baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json).
+Generator test: MFG010. Game UI ([UiLocalizationTests](../../Tests/MainframeEngine.Tests/UI/UiLocalizationTests.cs), headless
+`UiServer`): text and attributes translated at load and again after a locale switch (data models survive), `no-tr`,
+in-memory documents and panel titles, bound values never translated, a switch from inside a click handler deferred to
+the next frame, fallback fonts following the locale, no translator, and **0 B over 200 translated HUD frames** with
+missing-translation logging on.
+Benchmarks: `LocalizationBenchmarks` in [baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json).
 
 ## Not done yet
 
@@ -263,6 +285,10 @@ Generator test: MFG010. Benchmarks: `LocalizationBenchmarks` in [baseline.json](
 
 ## Known issues
 
+- A text node with `{{` that is not inside a data model (a broken binding) shows its template text with the
+  invisible opt-out marker in front.
+- RmlUi passes `<textarea>` content to `TranslateString` although it is never extracted: in a non-source locale with
+  missing-translation logging on, the content is logged once as missing.
 - `update` matches msgids exactly; an edited source string loses its translation (kept as an obsolete entry).
 - A constant interpolated string with escaped braces (`$"{{x}}"`, no holes) compiles to a plain string, so its
   runtime msgid (`{x}`) differs from the extracted one (`{{x}}`); write such strings as normal literals.
