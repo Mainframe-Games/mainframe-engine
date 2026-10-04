@@ -145,6 +145,12 @@ meanwhile (2 updates, ~0 frames on macOS).
 `Ms = 1000 / Fps` (integer). It is ticked from the **Update** event, so it measures update rate,
 not presented frames.
 
+`Engine.LastFrameCpuMilliseconds` is the CPU cost of the last rendered frame: its updates (ImGui, `OnUpdate`, the
+tree tick) plus `RenderFrame` (draw-list build, command recording, submit), minus the time the renderer was blocked
+on the GPU or the swapchain (`IVulkanContext.LastFrameWaitMilliseconds`: the frame slot's fence, acquire, present and
+a capture's read-back). It does not depend on GPU speed, so the render tests' frame-rate gate uses it on CPU Vulkan
+devices ([Testing](testing.md#render-tests)).
+
 ## Shutdown
 
 `Closing` → `OnClose()` (base): dispose the input router → `Tree.Shutdown()` (frees every node, so

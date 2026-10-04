@@ -13,6 +13,16 @@ public sealed record HostResult
     public required string DeviceName { get; init; }
     public required string Driver { get; init; }
 
+    /// <summary>
+    /// <c>VkPhysicalDeviceType</c> as Silk.NET names it: <c>DiscreteGpu</c>, <c>IntegratedGpu</c>, <c>VirtualGpu</c>,
+    /// <c>Cpu</c> (a software rasterizer such as lavapipe) or <c>Other</c>.
+    /// </summary>
+    public string DeviceType { get; init; } = "";
+
+    /// <summary>True on a CPU (software) Vulkan device: wall-clock frame rates say nothing about the engine there.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsCpuDevice => DeviceType == nameof(Silk.NET.Vulkan.PhysicalDeviceType.Cpu);
+
     /// <summary>Golden-image folder for this driver: <c>lavapipe</c>, <c>moltenvk</c>, ...</summary>
     public required string PlatformTag { get; init; }
 
@@ -50,6 +60,13 @@ public sealed record HostResult
     public double AverageFrameMs { get; init; }
     public double P95FrameMs { get; init; }
     public int PerfMeasuredFrames { get; init; }
+
+    /// <summary>
+    /// CPU time per frame over the same window (<c>Engine.LastFrameCpuMilliseconds</c>: update, draw lists and
+    /// command recording, without GPU/swapchain waits), in ms; 0 when not measured.
+    /// </summary>
+    public double AverageCpuFrameMs { get; init; }
+    public double P95CpuFrameMs { get; init; }
 
     /// <summary>The configuration the engine was built in (Debug/Release).</summary>
     public string Configuration { get; init; } = "";

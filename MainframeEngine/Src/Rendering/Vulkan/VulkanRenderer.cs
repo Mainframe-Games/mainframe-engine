@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -64,6 +65,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
     private int _currentFrame;
     private uint _currentImageIndex;
     private bool _frameStarted;
+    private long _frameWaitTicks; // Stopwatch ticks blocked on fences, acquire and present since BeginFrame
     private bool _framebufferResized;
     private bool _vsync;
 
@@ -125,6 +127,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
     public CommandPool CommandPool => _commandPool;
     public Queue GraphicsQueue => _graphicsQueue;
     public bool FrameStarted => _frameStarted;
+    public double LastFrameWaitMilliseconds => Stopwatch.GetElapsedTime(0, _frameWaitTicks).TotalMilliseconds;
     public int FrameSlot => _currentFrame;
     public CommandBuffer CurrentCommandBuffer => _frameStarted ? _commandBuffers[_currentFrame] : default;
     public Extent2D SwapchainExtent => _swapChainExtent;
@@ -165,6 +168,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
 
     public void BeginFrame()
     {
+        _frameWaitTicks = 0;
+
         // A pending resize/VSync change, or a minimised window (0×0 drawable): no frame until the
         // swapchain can be rebuilt with a real extent.
         if (_framebufferResized && !RecreateSwapchain())
@@ -172,8 +177,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
 
         // The slot's previous submission must be done before its command buffer and per-frame
         // resources (UBOs, vertex buffers keyed by FrameSlot) are reused.
+        var waitStart = Stopwatch.GetTimestamp();
         _vk!.WaitForFences(_device, 1, in _inFlightFences[_currentFrame], true, ulong.MaxValue)
             .Check("vkWaitForFences (frame slot)");
+        _frameWaitTicks += Stopwatch.GetTimestamp() - waitStart;
 
         // Frames finish in submission order: everything up to this slot's last frame is done.
         var completed = _slotFrameNumber[_currentFrame];
@@ -181,8 +188,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         _uploads!.Release(completed);
 
         uint imageIndex;
+        var acquireStart = Stopwatch.GetTimestamp();
         var result = _khrSwapChain!.AcquireNextImage(_device, _swapChain, ulong.MaxValue,
             _imageAvailableSemaphores[_currentFrame], default, &imageIndex);
+        _frameWaitTicks += Stopwatch.GetTimestamp() - acquireStart;
 
         if (result == Result.ErrorOutOfDateKhr)
         {
@@ -264,11 +273,13 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
             PImageIndices = &imageIndex,
         };
 
+        var presentStart = Stopwatch.GetTimestamp();
         var presentResult = _khrSwapChain!.QueuePresent(_presentQueue, in presentInfo);
 
         // Read back before any recreation below (it waits for this frame's fence).
         if (_captureRecorded)
             ReadBackCapture(frameFence);
+        _frameWaitTicks += Stopwatch.GetTimestamp() - presentStart;
 
         if (presentResult == Result.ErrorOutOfDateKhr || presentResult == Result.SuboptimalKhr || _framebufferResized)
         {

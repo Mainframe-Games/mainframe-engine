@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Silk.NET.Core;
 using Silk.NET.Input;
 using Silk.NET.Input.Sdl;
@@ -149,6 +150,17 @@ public abstract class Engine : IDisposable
 
     /// <summary>Number of frames rendered and presented so far (skipped frames are not counted).</summary>
     public int RenderedFrameCount => _renderedFrames;
+
+    /// <summary>
+    /// CPU time of the last rendered frame, in milliseconds: its update (ImGui, <see cref="OnUpdate(in GameTime)"/>,
+    /// the scene tree tick) and render (draw-list build, shadow/offscreen/main/overlay command recording, submit),
+    /// without the time the renderer was blocked on the GPU or the swapchain
+    /// (<see cref="IVulkanContext.LastFrameWaitMilliseconds"/>). Unlike the wall-clock frame time it does not depend on
+    /// how fast the GPU is (on a CPU rasterizer such as lavapipe, the GPU wait dominates).
+    /// </summary>
+    public double LastFrameCpuMilliseconds { get; private set; }
+
+    private long _updateTicks; // Stopwatch ticks of the updates since the last rendered frame
 
     public string GameName => EngineOptions.GameName;
     public RenderingBackend RenderingBackend => EngineOptions.RenderingBackend;
@@ -335,6 +347,7 @@ public abstract class Engine : IDisposable
 
     private void OnUpdate(double delta)
     {
+        var start = Stopwatch.GetTimestamp();
         _fps.Update();
         _gameTime.DeltaTime = EngineOptions.FixedDeltaTime > 0f ? EngineOptions.FixedDeltaTime : (float)delta;
         _gameTime.FrameCount = _fps.TotalFrameCount;
@@ -347,6 +360,7 @@ public abstract class Engine : IDisposable
             OnImGui(_gameTime);
         OnUpdate(_gameTime);
         Tree.Tick(_gameTime); // M2: physics steps, process, deferred calls/frees, transform sync
+        _updateTicks += Stopwatch.GetTimestamp() - start;
     }
 
     private void OnRender(double delta)
@@ -379,6 +393,8 @@ public abstract class Engine : IDisposable
             Window.IsEventDriven = false;
             _waitingForRestore = false;
         }
+
+        var renderStart = Stopwatch.GetTimestamp();
 
         // M3: cull and sort the scene's meshes, create/update their GPU resources (uploads join this frame).
         Servers.Render?.PrepareFrame(Root);
@@ -416,6 +432,11 @@ public abstract class Engine : IDisposable
 
         if (!frameStarted)
             return;
+
+        var cpuTicks = _updateTicks + Stopwatch.GetTimestamp() - renderStart;
+        _updateTicks = 0;
+        var waitMs = Renderer is IVulkanContext context ? context.LastFrameWaitMilliseconds : 0;
+        LastFrameCpuMilliseconds = Math.Max(0, Stopwatch.GetElapsedTime(0, cpuTicks).TotalMilliseconds - waitMs);
 
         _renderedFrames++;
 

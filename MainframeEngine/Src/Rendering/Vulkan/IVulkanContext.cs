@@ -38,6 +38,13 @@ public interface IVulkanContext
     bool FrameStarted { get; }
 
     /// <summary>
+    /// Milliseconds the CPU spent blocked on the GPU or the swapchain during the last BeginFrame/EndFrame: the frame
+    /// slot's fence wait, acquiring the swapchain image, presenting and a frame capture's read-back.
+    /// <see cref="Engine.LastFrameCpuMilliseconds"/> is the frame's time without it.
+    /// </summary>
+    double LastFrameWaitMilliseconds { get; }
+
+    /// <summary>
     /// Index (0 .. <see cref="MaxFramesInFlight"/> - 1) of the frame being recorded. Key per-frame resources
     /// by this; they are not in use by the GPU while <see cref="FrameStarted"/> is true.
     /// </summary>

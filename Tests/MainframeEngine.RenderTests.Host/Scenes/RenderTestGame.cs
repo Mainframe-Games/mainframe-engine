@@ -17,6 +17,7 @@ public abstract class RenderTestGame : Engine
     private long _allocationStart;
     private long? _allocatedBytes;
     private readonly List<double> _frameTimes = [];
+    private readonly List<double> _cpuFrameTimes = [];
     private long _lastFrameTimestamp;
     private double _shadowCpuMs, _shadowGpuMs;
 
@@ -92,6 +93,7 @@ public abstract class RenderTestGame : Engine
             if (frame > (uint)_host.PerfWarmupFrames + 1 && _frameTimes.Count < _host.PerfMeasuredFrames)
             {
                 _frameTimes.Add(System.Diagnostics.Stopwatch.GetElapsedTime(_lastFrameTimestamp, now).TotalMilliseconds);
+                _cpuFrameTimes.Add(LastFrameCpuMilliseconds); // the previous frame's update + render, GPU waits excluded
                 if (Servers.Render?.ExistingShadows is { } shadows)
                 {
                     _shadowCpuMs += shadows.LastCpuMilliseconds;
@@ -150,7 +152,7 @@ public abstract class RenderTestGame : Engine
 
     protected override void OnClose()
     {
-        var (deviceName, driver, tag) = DescribeDevice();
+        var (deviceName, driver, tag, deviceType) = DescribeDevice();
         var validation = Vulkan.Validation;
         var gpu = Vulkan.Allocator.Totals;
         var pipelineCacheBytes = Vulkan.Pipelines.LoadedBytes;
@@ -159,6 +161,7 @@ public abstract class RenderTestGame : Engine
         var meshStats = Servers.Render?.MeshStats ?? default;
         var meshPipelines = Servers.Render?.PipelineStates?.Count ?? 0;
         var sortedTimes = _frameTimes.Order().ToArray();
+        var sortedCpuTimes = _cpuFrameTimes.Order().ToArray();
 
         DisposeScene();
         base.OnClose(); // destroys the device: leaks and in-use destruction are reported here
@@ -167,6 +170,7 @@ public abstract class RenderTestGame : Engine
         {
             Scene = _host.Scene,
             DeviceName = deviceName,
+            DeviceType = deviceType,
             Driver = driver,
             PlatformTag = tag,
             ValidationEnabled = validation.IsEnabled,
@@ -185,7 +189,9 @@ public abstract class RenderTestGame : Engine
             ShaderModuleCount = shaderModules,
             MaxMemoryAllocationCount = props.Limits.MaxMemoryAllocationCount,
             AverageFrameMs = sortedTimes.Length > 0 ? sortedTimes.Average() : 0,
-            P95FrameMs = sortedTimes.Length > 0 ? sortedTimes[(int)Math.Min(sortedTimes.Length - 1, Math.Ceiling(sortedTimes.Length * 0.95) - 1)] : 0,
+            P95FrameMs = P95(sortedTimes),
+            AverageCpuFrameMs = sortedCpuTimes.Length > 0 ? sortedCpuTimes.Average() : 0,
+            P95CpuFrameMs = P95(sortedCpuTimes),
             PerfMeasuredFrames = sortedTimes.Length,
             Configuration = BuildConfiguration,
             MeshInstances = meshStats.Instances,
@@ -199,6 +205,9 @@ public abstract class RenderTestGame : Engine
 
     protected abstract void DisposeScene();
 
+    private static double P95(double[] sorted) =>
+        sorted.Length > 0 ? sorted[(int)Math.Min(sorted.Length - 1, Math.Ceiling(sorted.Length * 0.95) - 1)] : 0;
+
     private const string BuildConfiguration =
 #if DEBUG
         "Debug";
@@ -206,7 +215,7 @@ public abstract class RenderTestGame : Engine
         "Release";
 #endif
 
-    private unsafe (string Name, string Driver, string Tag) DescribeDevice()
+    private unsafe (string Name, string Driver, string Tag, string DeviceType) DescribeDevice()
     {
         var driverProps = new PhysicalDeviceDriverProperties { SType = StructureType.PhysicalDeviceDriverProperties };
         var props = new PhysicalDeviceProperties2 { SType = StructureType.PhysicalDeviceProperties2, PNext = &driverProps };
@@ -221,6 +230,6 @@ public abstract class RenderTestGame : Engine
             DriverId.MesaLlvmpipe => "lavapipe",
             _ => driver.ToLowerInvariant(),
         };
-        return (name, driver, tag);
+        return (name, driver, tag, props.Properties.DeviceType.ToString());
     }
 }
