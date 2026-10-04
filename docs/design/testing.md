@@ -11,8 +11,10 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | Project | Kind | Runs on |
 |---|---|---|
 | [`Tests/MainframeEngine.Tests`](../../Tests/MainframeEngine.Tests/) | xUnit v3 unit tests, no window/GPU | every OS in CI (`just test`) |
-| [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests | lavapipe in CI, MoltenVK locally (`just test-render`) |
+| [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run) | lavapipe in CI, MoltenVK locally (`just test-render`) |
 | [`Tests/MainframeEngine.RenderTests.Host`](../../Tests/MainframeEngine.RenderTests.Host/) | Console app that runs one scene | launched by the render tests |
+| [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless | every OS in CI (`just test`) |
+| [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`), see [Editor](editor.md#testing-and-qa) |
 | [`Tests/MainframeEngine.Benchmarks`](../../Tests/MainframeEngine.Benchmarks/) | BenchmarkDotNet, `MemoryDiagnoser` | locally (`just bench`) |
 
 The test projects run through VSTest (`Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio`, with

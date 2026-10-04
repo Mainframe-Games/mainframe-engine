@@ -96,7 +96,7 @@ public sealed class EditorQaScript : IEditorAutomation
 
     private void Execute(EditorApp app, EditorWorkspace workspace, string[] step)
     {
-        Log.Info($"[QA] {string.Join(' ', step)}");
+        Console.WriteLine($"[QA] {string.Join(' ', step)}"); // stdout only: the editor's Output panel shows what the app logs
         var tree = app.Tree;
         switch (step[0])
         {
@@ -199,6 +199,10 @@ public sealed class EditorQaScript : IEditorAutomation
                     Silk.NET.SDL.SdlProvider.SDL.Value.PushEvent(&quit);
                 }
 
+                break;
+            case "clear-output":
+                workspace.Output.Clear();
+                workspace.OutputPanel.Refresh();
                 break;
             case "select":
                 if (workspace.Session.Active is { } selectScene)

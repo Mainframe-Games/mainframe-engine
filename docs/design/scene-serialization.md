@@ -3,7 +3,7 @@
 ## Purpose
 
 Scenes and shared data are stored as text files with stable UIDs, so they can be loaded, instanced,
-diffed in git and edited by the [editor](future/editor.md):
+diffed in git and edited by the [editor](editor.md):
 
 - **`*.mscene`** — a node tree with property values, nested scene instances with overrides, persistent
   groups and signal connections (`PackedScene`).

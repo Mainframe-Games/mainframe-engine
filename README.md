@@ -33,7 +33,7 @@ Where the engine is heading:
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) 1.4.1 + [NVorbis](https://github.com/NVorbis/NVorbis) (M7 ✅): `AudioServer`, bus mixer, 2D/3D audio nodes, streaming | [Audio](docs/design/audio.md) |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) 6.3, engine-owned binding, Vulkan renderer (M8 ✅) | [Game UI](docs/design/game-ui.md) |
 | Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) runtime, in-house `mf-l10n` tooling (M9 ✅) | [Localization](docs/design/localization.md) |
-| Editor | `MainframeEngine.Editor`, a separate project whose UI is built with the same RmlUi stack as games | [Editor](docs/design/future/editor.md) |
+| Editor | `MainframeEngine.Editor`, a separate project whose UI is built with the same RmlUi stack as games (E1–E3 shipped) | [Editor](docs/design/editor.md) · [Future](docs/design/future/editor.md) |
 | Rendering backend | Backend-neutral GPU API, then WebGPU | [Backend abstraction](docs/design/future/rendering-backend-abstraction.md) |
 
 ---
@@ -353,6 +353,25 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`gl
 - **SceneGrid/** — debug grid overlay
 - **ImGui/** — Vulkan ImGui rendering backend
 - **Post/** — fullscreen tonemap (exposure + ACES)
+
+---
+
+## Editor
+
+`MainframeEngine.Editor` is a Godot-style scene editor whose UI is built with the engine's own RmlUi game UI
+([design](docs/design/editor.md)). It edits `.mscene` files: a scene tree (drag to reparent, add/duplicate/delete/
+rename, instance scenes), an inspector generated from the nodes' `[Export]` metadata (numbers, sliders, enums, flags,
+vectors, colours, node paths, resources, arrays), undo/redo with a history menu, and a 3D viewport with an orbit/fly
+camera, GPU picking, selection boxes and translate/rotate/scale gizmos with snapping. Scenes open in tabs, each in its
+own world; nothing but `[Tool]` nodes runs while editing.
+
+![Mainframe Editor](docs/images/editor.png)
+
+```sh
+just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene
+```
+
+Projects, game-code reload and play mode are next ([roadmap](docs/design/future/editor.md)).
 
 ---
 

@@ -36,7 +36,7 @@ flowchart LR
 | [M7](#m7--audio-) | SoundFlow audio nodes, buses, 3D panning | ✅ |
 | [M8](#m8--game-ui-rmlui-) | RmlUi HTML/CSS game UI (also the editor's UI) | ✅ |
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
-| [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | ⬜ |
+| [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | 🚧 E1–E3 + E4 engine side ✅ |
 | [M11](#m11--backend-abstraction--webgpu) | Backend-neutral render API, WebGPU | ⬜ |
 
 ---
@@ -233,9 +233,9 @@ core, and its UI is built entirely with the M8 game UI stack (RmlUi).
 
 | Feature | Status | Design doc |
 |---|---|---|
-| E1 Shell: editor csproj, `EditorApp`, RmlUi layout, Output panel, open/save scenes | ⬜ | [Editor](design/future/editor.md#phases) |
-| E2 Scene tree + inspector (`[Export]`) + undo/redo | ⬜ | [Editor](design/future/editor.md#inspector) |
-| E3 Viewport: render target in RmlUi, editor camera, ID picking, gizmos | ⬜ | [Editor](design/future/editor.md#viewport) |
+| E1 Shell: editor csproj, `EditorApp`, RmlUi layout, Output panel, open/save scenes | ✅ | [Editor](design/editor.md) |
+| E2 Scene tree + inspector (`[Export]`) + undo/redo | ✅ | [Editor](design/editor.md#inspector) |
+| E3 Viewport: render target in RmlUi, editor camera, ID picking, gizmos | ✅ | [Editor](design/editor.md#viewport) |
 | E4 engine side: `project.mfproj` + `ProjectSettings`, `GameHost`, input actions, autoloads, `ILogSink` routing, editor link (play/stop/pause/reload, log streaming), collectible game-assembly load/unload/reload, `mfgame` template + CI smoke | ✅ | [Projects & GameHost](design/project-and-gamehost.md) |
 | E4 editor side: open/new project, file system panel, Play/Stop buttons, Output panel over the link, reload UI | ⬜ | [Editor](design/future/editor.md#game-project-and-code-reload) |
 | E5 Polish: signals tab, multi-select, 2D editing, custom inspectors | ⬜ | [Editor](design/future/editor.md#phases) |

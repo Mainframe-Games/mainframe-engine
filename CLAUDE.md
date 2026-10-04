@@ -82,11 +82,17 @@ awake (`caffeinate -u -t 600 &`).
   (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol, client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template (not published; `build/template-smoke.sh`)
 - `MainframeEngine.Sandbox/` — test game; the only executable game project
+- `MainframeEngine.Editor/` — the editor exe (M10 E1–E3; `just editor <scene>`): `EditorApp : Engine` runs the tree in
+  `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Content/Editor/`;
+  `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Inspector/`, `SceneTree/`, `Viewport/` (camera,
+  gizmos, picking), `UI/` (panels, dialogs), `Qa/` (`--qa-script`, `--smoke`). References engine core only (no
+  generator: editor nodes stay unregistered). See `docs/design/editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Examples/` — standalone tutorial projects, not part of the engine
-- `Tests/` — unit tests, render tests (+ host), benchmarks; see `docs/design/testing.md`
+- `Tests/` — unit tests (engine, editor), render tests (+ host, editor smoke), benchmarks, QA scripts (`Tests/QA`); see `docs/design/testing.md`
 - `build/` — scripts shared by `justfile` and CI (`shaders.sh`)
+- `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Content/Brand/`
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
 
 ## Key Patterns

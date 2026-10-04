@@ -4,7 +4,7 @@
 
 HTML/CSS-style game UI: documents (`.rml`) and style sheets (`.rcss`) laid out by [RmlUi](https://github.com/mikke89/RmlUi)
 **6.3**, bound to C# state, fed the engine's input and rendered on the engine's Vulkan device after the tonemap. The
-same stack will be the [editor's](future/editor.md#ui-rmlui) UI. Milestone M8 ([Milestones](../milestones.md#m8--game-ui-rmlui-)).
+same stack is the [editor's](editor.md#ui) UI. Milestone M8 ([Milestones](../milestones.md#m8--game-ui-rmlui-)).
 
 | Layer | Where | What |
 |---|---|---|
@@ -97,7 +97,8 @@ model.Dirty("health");                                                      // v
 - Lists and structs use the shim's dynamic variables (`mfrmlui_data_model_bind_variable`): every value is a 64-bit node
   token (`element index + 1` in bits 16..47, `member index + 1` in bits 0..15). `RmlStructType<T>` describes members
   once (`.Member("name", static i => i.Name)`); lists may hold scalars or structs of scalars (deeper nesting is not
-  supported yet). Lists are read live: change them and call `Dirty`.
+  supported yet). Lists are read live: change them and call `Dirty`. A list may shrink between updates: rows past the
+  new end resolve to "none" while RmlUi drops their elements, without warnings.
 - The `Bind(name, owner, static getter, static setter)` overloads are what a future `[UiBindable]` source generator
   can emit without closures.
 - Every binding holds a `GCHandle` freed by the shim's release callback, exactly once, when the model is removed, its
@@ -304,4 +305,4 @@ Spanish and the `qps` pseudo-locale. See [Sandbox](sandbox.md).
 
 [Milestones](../milestones.md) · [Native libraries](natives.md) · [Color pipeline](color-pipeline.md) ·
 [GPU resources](gpu-resources.md) · [Scene graph & nodes](scene-graph-and-nodes.md#input) ·
-[ImGui & debug tools](imgui-and-debug-tools.md) · [Editor](future/editor.md) · [Localization](localization.md)
+[ImGui & debug tools](imgui-and-debug-tools.md) · [Editor](editor.md) · [Localization](localization.md)

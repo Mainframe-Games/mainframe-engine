@@ -1,6 +1,6 @@
 # Proposal: Mainframe Editor
 
-**Milestone:** M10 · **Status:** ⬜ planned · **New project:** `MainframeEngine.Editor` (exe) →
+**Milestone:** M10 · **Status:** E1–E3 ✅ shipped — see the current-state [Editor](../editor.md) doc; E4/E5 ⬜ planned · **New project:** `MainframeEngine.Editor` (exe) →
 references `MainframeEngine` · **Depends on:** [Node system](../scene-graph-and-nodes.md),
 [Scene serialization](../scene-serialization.md), [Materials & meshes](../materials-and-meshes.md) (render
 targets), [Game UI (RmlUi)](../game-ui.md), [SDL windowing](../build-and-platforms.md#windowing-sdl2)
@@ -228,28 +228,28 @@ these.
 
 | Phase | Deliverable |
 |---|---|
-| E1 · Shell | `MainframeEngine.Editor` csproj, `EditorApp`, RmlUi layout with splitters, menu bar, Output panel, open/save `.mscene` |
-| E2 · Tree + Inspector | scene tree panel (add/remove/rename/reparent), inspector with property widgets, undo/redo |
-| E3 · Viewport | render target in `<viewport>`, editor camera, grid, ID picking, selection outline, transform gizmos with snapping |
+| E1 · Shell ✅ | `MainframeEngine.Editor` csproj, `EditorApp`, RmlUi layout with splitters, menu bar, Output panel, open/save `.mscene` — [shipped](../editor.md) |
+| E2 · Tree + Inspector ✅ | scene tree panel (add/remove/rename/reparent), inspector with property widgets, undo/redo — [shipped](../editor.md#inspector) |
+| E3 · Viewport ✅ | render target in `<viewport>`, editor camera, grid, ID picking, selection outline, transform gizmos with snapping — [shipped](../editor.md#viewport) |
 | E4 · Project + Play | open/new project, game assembly load and reload, file system panel with drag-drop, out-of-process play/stop with log streaming |
 | E5 · Polish | signals tab, multi-select, resource sub-inspectors, 2D editing, custom inspectors, layout persistence |
 
 ## Task list
 
-- [ ] Add the `MainframeEngine.Editor` project to the solution (refs `MainframeEngine` only)
-- [ ] `EditorApp : Engine`
+- [x] Add the `MainframeEngine.Editor` project to the solution (refs `MainframeEngine` only)
+- [x] `EditorApp : Engine`
 - [x] `GameHost : Engine` + `project.mfproj` in core; input actions; autoloads
 - [x] Engine side of code reload: `GameAssemblyLoader` (collectible ALC), `MissingNode` round trip, file watcher
 - [x] Engine side of play: editor link (`EditorLinkServer`/`EditorLinkClient`), `--scene`/`--editor-port`
 - [x] `ILogSink` routing (console, file, memory, editor link); `mfgame` template
 - [ ] Shared RmlUi widgets (`tree-view`, `property-*`, `splitter`, `tabs`, `context-menu`) in core content
-- [ ] Editor documents + theme
-- [ ] `EditorSession` (open scenes, selection, `UndoRedo`)
-- [ ] `ViewportService`: render targets, editor camera, ID picking, gizmos
+- [x] Editor documents + theme
+- [x] `EditorSession` (open scenes, selection, `UndoRedo`)
+- [x] `ViewportService` (shipped as `ViewportController`): render targets, editor camera, ID picking, gizmos
 - [ ] `ProjectService`: `AssetDatabase`, build, collectible ALC reload, `MissingNode`
 - [ ] `PlayService`: launch game, debug channel, log streaming
-- [ ] Output panel (over `MemoryLogSink` and the editor link)
-- [ ] Docs: editor user guide + current-state design doc once E1 lands
+- [x] Output panel over an `ILogSink` (in-process log); the editor link's game logs come with E4
+- [x] Current-state design doc ([Editor](../editor.md)) — a user guide comes with E4
 
 ## Open questions
 
