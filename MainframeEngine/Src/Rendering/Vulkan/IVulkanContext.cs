@@ -52,4 +52,13 @@ public interface IVulkanContext
 
     /// <summary>Validation-layer warnings and errors reported since startup (or the last reset).</summary>
     VulkanValidationLog Validation { get; }
+
+    /// <summary>Device-memory sub-allocator for every buffer and image (see <see cref="GpuBuffer"/>, <see cref="GpuImage"/>).</summary>
+    GpuAllocator Allocator { get; }
+
+    /// <summary>Staging uploads, recorded at the start of the next frame's command buffer.</summary>
+    UploadQueue Uploads { get; }
+
+    /// <summary>Destroys GPU objects once the frames that may use them have finished (use instead of vkDeviceWaitIdle).</summary>
+    DeletionQueue Deletions { get; }
 }

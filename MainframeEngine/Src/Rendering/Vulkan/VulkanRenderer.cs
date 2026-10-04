@@ -43,9 +43,14 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
     // depth buffer
     private Format _depthFormat;
-    private Image _depthImage;
-    private DeviceMemory _depthImageMemory;
-    private ImageView _depthImageView;
+    private GpuImage? _depthImage;
+
+    // GPU memory, uploads and deferred destruction (created right after the device)
+    private GpuAllocator? _allocator;
+    private DeletionQueue? _deletions;
+    private UploadQueue? _uploads;
+    private ulong _frameNumber;                                      // frames that started recording (1-based)
+    private readonly ulong[] _slotFrameNumber = new ulong[MaxFramesInFlight]; // last frame recorded in each slot
 
     // commands: one primary command buffer per frame slot (allocated once, reset each frame)
     private CommandPool _commandPool;
@@ -81,10 +86,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private bool _captureRequested;
     private bool _captureRecorded;
     private FrameCapture? _completedCapture;
-    private VkBuffer _captureBuffer;
-    private DeviceMemory _captureMemory;
-    private ulong _captureBufferSize;
-    private nint _captureMapped;
+    private GpuBuffer? _captureBuffer;
 
     private readonly string[] _deviceExtensions = [KhrSwapchain.ExtensionName];
 
@@ -132,6 +134,9 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public uint CurrentImageIndex => _currentImageIndex;
     public Silk.NET.Vulkan.Framebuffer CurrentFramebuffer => _swapChainFramebuffers![_currentImageIndex];
     public VulkanValidationLog Validation => _validation;
+    public GpuAllocator Allocator => _allocator ?? throw new InvalidOperationException("The device is not initialised.");
+    public UploadQueue Uploads => _uploads ?? throw new InvalidOperationException("The device is not initialised.");
+    public DeletionQueue Deletions => _deletions ?? throw new InvalidOperationException("The device is not initialised.");
 
     #endregion
 
@@ -159,6 +164,11 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         // resources (UBOs, vertex buffers keyed by FrameSlot) are reused.
         _vk!.WaitForFences(_device, 1, in _inFlightFences[_currentFrame], true, ulong.MaxValue)
             .Check("vkWaitForFences (frame slot)");
+
+        // Frames finish in submission order: everything up to this slot's last frame is done.
+        var completed = _slotFrameNumber[_currentFrame];
+        _deletions!.Collect(completed);
+        _uploads!.Release(completed);
 
         uint imageIndex;
         var result = _khrSwapChain!.AcquireNextImage(_device, _swapChain, ulong.MaxValue,
@@ -188,6 +198,13 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         };
         _vk.BeginCommandBuffer(cb, in beginInfo).Check("vkBeginCommandBuffer");
         _frameStarted = true;
+
+        _frameNumber++;
+        _slotFrameNumber[_currentFrame] = _frameNumber;
+        _deletions.BeginFrame(_frameNumber);
+
+        // Pending staging copies and layout initialisations run first, before any pass reads them.
+        _uploads.Record(cb);
     }
 
     public void BeginRenderPass()
@@ -350,7 +367,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             ImageOffset       = default,
             ImageExtent       = new Extent3D(_swapChainExtent.Width, _swapChainExtent.Height, 1),
         };
-        _vk.CmdCopyImageToBuffer(cb, image, ImageLayout.TransferSrcOptimal, _captureBuffer, 1, &region);
+        _vk.CmdCopyImageToBuffer(cb, image, ImageLayout.TransferSrcOptimal, _captureBuffer!.Handle, 1, &region);
 
         var toPresent = toTransfer with
         {
@@ -366,7 +383,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             DstAccessMask       = AccessFlags.HostReadBit,
             SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
             DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-            Buffer              = _captureBuffer,
+            Buffer              = _captureBuffer.Handle,
             Offset              = 0,
             Size                = Vk.WholeSize,
         };
@@ -385,7 +402,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
         var width = (int)_swapChainExtent.Width;
         var height = (int)_swapChainExtent.Height;
-        var src = new ReadOnlySpan<byte>((void*)_captureMapped, width * height * 4);
+        var src = new ReadOnlySpan<byte>((void*)_captureBuffer!.MappedPointer, width * height * 4);
         var pixels = new byte[src.Length];
         var swapRedBlue = _swapChainImageFormat is Format.B8G8R8A8Unorm or Format.B8G8R8A8Srgb;
         for (var i = 0; i < src.Length; i += 4)
@@ -402,53 +419,12 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private void EnsureCaptureBuffer()
     {
         var size = (ulong)_swapChainExtent.Width * _swapChainExtent.Height * 4;
-        if (_captureBuffer.Handle != 0 && _captureBufferSize == size)
+        if (_captureBuffer is not null && _captureBuffer.Size == size)
             return;
 
-        DestroyCaptureBuffer();
-
-        var bufferInfo = new BufferCreateInfo
-        {
-            SType       = StructureType.BufferCreateInfo,
-            Size        = size,
-            Usage       = BufferUsageFlags.TransferDstBit,
-            SharingMode = SharingMode.Exclusive,
-        };
-        if (_vk!.CreateBuffer(_device, in bufferInfo, null, out _captureBuffer) != Result.Success)
-            throw new VulkanException("[Vulkan] Failed to create the frame capture buffer!");
-
-        _vk.GetBufferMemoryRequirements(_device, _captureBuffer, out var memReq);
-        const MemoryPropertyFlags required = MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit;
-        var memoryType = TryFindMemoryType(memReq.MemoryTypeBits, required | MemoryPropertyFlags.HostCachedBit)
-                         ?? FindMemoryType(memReq.MemoryTypeBits, required);
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType           = StructureType.MemoryAllocateInfo,
-            AllocationSize  = memReq.Size,
-            MemoryTypeIndex = memoryType,
-        };
-        if (_vk.AllocateMemory(_device, in allocInfo, null, out _captureMemory) != Result.Success)
-            throw new VulkanException("[Vulkan] Failed to allocate frame capture memory!");
-
-        _vk.BindBufferMemory(_device, _captureBuffer, _captureMemory, 0);
-        void* mapped;
-        _vk.MapMemory(_device, _captureMemory, 0, size, 0, &mapped);
-        _captureMapped = (nint)mapped;
-        _captureBufferSize = size;
-    }
-
-    private void DestroyCaptureBuffer()
-    {
-        if (_captureBuffer.Handle == 0)
-            return;
-
-        _vk!.UnmapMemory(_device, _captureMemory);
-        _vk.DestroyBuffer(_device, _captureBuffer, null);
-        _vk.FreeMemory(_device, _captureMemory, null);
-        _captureBuffer = default;
-        _captureMemory = default;
-        _captureMapped = 0;
-        _captureBufferSize = 0;
+        // Replaced only between frames that do not capture; the old one is retired by the deletion queue.
+        _captureBuffer?.Dispose();
+        _captureBuffer = GpuBuffer.Create(this, size, BufferUsageFlags.TransferDstBit, GpuMemoryUsage.Readback);
     }
 
     #endregion
@@ -462,6 +438,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         CreateSurface();
         PickPhysicalDevice();
         CreateLogicalDevice();
+        CreateGpuMemory();
         CreateSwapchain();
         CreateImageViews();
         CreateRenderPass();
@@ -543,6 +520,14 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         SilkMarshal.Free((nint)createInfo.PpEnabledExtensionNames);
         if (_enableValidationLayers)
             SilkMarshal.Free((nint)createInfo.PpEnabledLayerNames);
+    }
+
+    // The allocator, deletion queue and upload queue live as long as the device.
+    private void CreateGpuMemory()
+    {
+        _allocator = GpuAllocator.Create(_vk!, _physicalDevice, _device);
+        _deletions = new DeletionQueue(new VulkanDestroyer(_vk!, _device, _allocator));
+        _uploads = new UploadQueue(this, _allocator, _deletions);
     }
 
     private string[] GetRequiredExtensions()
@@ -982,7 +967,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         for (int i = 0; i < _swapChainImageViews.Length; i++)
         {
             fbAttachments[0] = _swapChainImageViews[i];
-            fbAttachments[1] = _depthImageView;
+            fbAttachments[1] = _depthImage!.View;
             var fbInfo = new FramebufferCreateInfo
             {
                 SType           = StructureType.FramebufferCreateInfo,
@@ -1073,83 +1058,17 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         throw new VulkanException("[Vulkan] Failed to find supported depth format!");
     }
 
-    private uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
-        => TryFindMemoryType(typeFilter, properties)
-           ?? throw new VulkanException("[Vulkan] Failed to find suitable memory type!");
-
-    private uint? TryFindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
-    {
-        _vk!.GetPhysicalDeviceMemoryProperties(_physicalDevice, out var memProps);
-        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
-        {
-            if ((typeFilter & (1u << (int)i)) != 0 &&
-                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
-                return i;
-        }
-        return null;
-    }
-
     private void CreateDepthResources()
     {
-        var imageInfo = new ImageCreateInfo
-        {
-            SType         = StructureType.ImageCreateInfo,
-            ImageType     = ImageType.Type2D,
-            Format        = _depthFormat,
-            Extent        = new Extent3D(_swapChainExtent.Width, _swapChainExtent.Height, 1),
-            MipLevels     = 1,
-            ArrayLayers   = 1,
-            Samples       = SampleCountFlags.Count1Bit,
-            Tiling        = ImageTiling.Optimal,
-            Usage         = ImageUsageFlags.DepthStencilAttachmentBit,
-            SharingMode   = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined,
-        };
-
-        if (_vk!.CreateImage(_device, in imageInfo, null, out _depthImage) != Result.Success)
-            throw new VulkanException("[Vulkan] Failed to create depth image!");
-
-        _vk!.GetImageMemoryRequirements(_device, _depthImage, out var memReq);
-
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType           = StructureType.MemoryAllocateInfo,
-            AllocationSize  = memReq.Size,
-            MemoryTypeIndex = FindMemoryType(memReq.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
-        };
-
-        if (_vk!.AllocateMemory(_device, in allocInfo, null, out _depthImageMemory) != Result.Success)
-            throw new VulkanException("[Vulkan] Failed to allocate depth image memory!");
-
-        _vk!.BindImageMemory(_device, _depthImage, _depthImageMemory, 0);
-
-        var viewInfo = new ImageViewCreateInfo
-        {
-            SType            = StructureType.ImageViewCreateInfo,
-            Image            = _depthImage,
-            ViewType         = ImageViewType.Type2D,
-            Format           = _depthFormat,
-            SubresourceRange =
-            {
-                AspectMask     = ImageAspectFlags.DepthBit,
-                BaseMipLevel   = 0,
-                LevelCount     = 1,
-                BaseArrayLayer = 0,
-                LayerCount     = 1,
-            },
-        };
-
-        if (_vk!.CreateImageView(_device, in viewInfo, null, out _depthImageView) != Result.Success)
-            throw new VulkanException("[Vulkan] Failed to create depth image view!");
-
+        _depthImage = GpuImage.Create(this, new GpuImageDesc(_swapChainExtent.Width, _swapChainExtent.Height, _depthFormat,
+            ImageUsageFlags.DepthStencilAttachmentBit));
         Log.Info("[Vulkan] Depth resources created.");
     }
 
     private void DestroyDepthResources()
     {
-        _vk!.DestroyImageView(_device, _depthImageView, null);
-        _vk!.FreeMemory(_device, _depthImageMemory, null);
-        _vk!.DestroyImage(_device, _depthImage, null);
+        _depthImage?.Dispose();
+        _depthImage = null;
     }
 
     #endregion
@@ -1228,6 +1147,10 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             CreateRenderFinishedSemaphores();
         }
 
+        // The device was idle: release what the old swapchain resources (and earlier frames) held.
+        _deletions!.Collect(_frameNumber);
+        _uploads!.Release(_frameNumber);
+
         _framebufferResized = false;
         return true;
     }
@@ -1247,8 +1170,14 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             vk.DeviceWaitIdle(_device);
             _shadowFallback?.Dispose();
             _shadowFallback = null;
-            DestroyCaptureBuffer();
+            _captureBuffer?.Dispose();
+            _captureBuffer = null;
             CleanupSwapchain();
+
+            // Everything games and subsystems released is idle now; then the memory itself.
+            _deletions?.FlushAll();
+            _uploads?.Dispose();
+            _allocator?.Dispose();
 
             for (int i = 0; i < MaxFramesInFlight; i++)
             {

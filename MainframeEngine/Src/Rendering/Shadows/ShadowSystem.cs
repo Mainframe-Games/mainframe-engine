@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
-using VkBuffer = Silk.NET.Vulkan.Buffer;
 using VkSampler = Silk.NET.Vulkan.Sampler;
 
 namespace MainframeEngine;
@@ -52,20 +51,15 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
     private struct Map2D
     {
-        public Image       Image;
-        public DeviceMemory Memory;
-        public ImageView   View;        // full 2D view (for sampling)
+        public GpuImage    Image;       // default view: the full 2D map (sampling and rendering)
         public Framebuffer Framebuffer;
     }
 
     private struct MapCube
     {
-        public Image        Image;
-        public DeviceMemory Memory;
-        public ImageView    CubeView;                          // full cube view (for sampling)
-        public ImageView[]  FaceViews = new ImageView[6];     // one per face (for rendering)
-        public Framebuffer[] FaceFramebuffers = new Framebuffer[6];
-        public MapCube() { }
+        public GpuImage      Image;                            // default view: the cube (for sampling)
+        public Framebuffer[] FaceFramebuffers = new Framebuffer[6]; // one per face view (for rendering)
+        public MapCube(GpuImage image) { Image = image; }
     }
 
     // ── Fields ────────────────────────────────────────────────────────────────
@@ -87,8 +81,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
     // Light-VP ring: MaxFramesInFlight × MaxShadowPasses matrices, bound with a dynamic offset per pass.
     private readonly UniformRing  _vpRing;
-    private VkBuffer              _vpBuffer;
-    private DeviceMemory          _vpMemory;
+    private GpuBuffer             _vpBuffer = null!;
     private nint                  _vpMapped;
     private DescriptorPool        _vpPool;
     private DescriptorSetLayout   _vpSetLayout;
@@ -110,9 +103,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private readonly DescriptorSet[] _mainSets = new DescriptorSet[IVulkanContext.MaxFramesInFlight];
 
     // Shadow matrices UBO, one per frame slot
-    private readonly VkBuffer[]     _matBuffers = new VkBuffer[IVulkanContext.MaxFramesInFlight];
-    private readonly DeviceMemory[] _matMemory  = new DeviceMemory[IVulkanContext.MaxFramesInFlight];
-    private readonly nint[]         _matMapped  = new nint[IVulkanContext.MaxFramesInFlight];
+    private readonly GpuBuffer[] _matBuffers = new GpuBuffer[IVulkanContext.MaxFramesInFlight];
 
     // CPU-side matrices updated by RenderShadows each frame
     private readonly Matrix4x4[] _dirMats  = new Matrix4x4[MaxShadowDir];
@@ -230,7 +221,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         TransitionAll(cb, numDir, numSpot, numPoint, toWrite: false);
 
         // Upload light-space matrices to this frame slot's UBO
-        var dst = (float*)(void*)_matMapped[frameSlot];
+        var dst = (float*)(void*)_matBuffers[frameSlot].MappedPointer;
         for (int i = 0; i < MaxShadowDir; i++) Unsafe.Copy(dst + i * 16, ref _dirMats[i]);
         dst += MaxShadowDir * 16;
         for (int i = 0; i < MaxShadowSpot; i++) Unsafe.Copy(dst + i * 16, ref _spotMats[i]);
@@ -348,11 +339,11 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             : PipelineStageFlags.FragmentShaderBit;
 
         for (int i = 0; i < numDir; i++)
-            VkHelpers.DepthBarrier(vk, cb, _dirMaps[i].Image, _depthFormat, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
+            VkHelpers.DepthBarrier(vk, cb, _dirMaps[i].Image.Handle, _depthFormat, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
         for (int i = 0; i < numSpot; i++)
-            VkHelpers.DepthBarrier(vk, cb, _spotMaps[i].Image, _depthFormat, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
+            VkHelpers.DepthBarrier(vk, cb, _spotMaps[i].Image.Handle, _depthFormat, 1, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
         for (int i = 0; i < numPoint; i++)
-            VkHelpers.DepthBarrier(vk, cb, _ptMaps[i].Image, _depthFormat, 6, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
+            VkHelpers.DepthBarrier(vk, cb, _ptMaps[i].Image.Handle, _depthFormat, 6, oldLayout, newLayout, srcAccess, dstAccess, srcStage, dstStage);
     }
 
     // ── Shared with ShadowFallback ────────────────────────────────────────────
@@ -463,7 +454,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     }
 
     /// <summary>Writes the four set-2 bindings: one UBO, then the dir/spot 2D views and the point cube views.</summary>
-    internal static void WriteMainSet(IVulkanContext ctx, DescriptorSet set, VkBuffer matrices,
+    internal static void WriteMainSet(IVulkanContext ctx, DescriptorSet set, Silk.NET.Vulkan.Buffer matrices,
         ReadOnlySpan<ImageView> dirViews, ReadOnlySpan<ImageView> spotViews, ReadOnlySpan<ImageView> cubeViews, VkSampler cubeSampler)
     {
         var matBufInfo = new DescriptorBufferInfo { Buffer = matrices, Offset = 0, Range = ShadowMatricesUboSize };
@@ -586,8 +577,9 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         var vk     = _ctx.Vk;
         var device = _ctx.Device;
 
-        _vpMapped = VkHelpers.CreateMappedBuffer(_ctx, _vpRing.Size, BufferUsageFlags.UniformBufferBit, out _vpBuffer, out _vpMemory);
-        Unsafe.InitBlock((void*)_vpMapped, 0, (uint)_vpRing.Size);
+        _vpBuffer = GpuBuffer.Create(_ctx, _vpRing.Size, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
+        _vpMapped = _vpBuffer.MappedPointer;
+        _vpBuffer.MappedSpan.Clear();
 
         // Binding 0 = dynamic UBO (vertex stage): one matrix per sub-pass, selected by the dynamic offset.
         var bind = new DescriptorSetLayoutBinding
@@ -625,7 +617,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         };
         vk.AllocateDescriptorSets(device, in allocInfo, out _vpSet).Check("vkAllocateDescriptorSets (light VP)");
 
-        var bufInfo = new DescriptorBufferInfo { Buffer = _vpBuffer, Offset = 0, Range = (ulong)sizeof(Matrix4x4) };
+        var bufInfo = _vpBuffer.Descriptor(0, (ulong)sizeof(Matrix4x4));
         var write   = new WriteDescriptorSet
         {
             SType           = StructureType.WriteDescriptorSet,
@@ -822,26 +814,22 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
     private Map2D CreateMap2D(uint size)
     {
-        VkHelpers.CreateImage(_ctx, size, size, 1, _depthFormat,
-            ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit, ImageCreateFlags.None,
-            out var image, out var memory);
-        var view = VkHelpers.CreateDepthView(_ctx, image, _depthFormat, ImageViewType.Type2D, 0, 1);
-        return new Map2D { Image = image, Memory = memory, View = view, Framebuffer = CreateDepthFramebuffer(view, size) };
+        var image = GpuImage.Create(_ctx, new GpuImageDesc(size, size, _depthFormat,
+            ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit));
+        return new Map2D { Image = image, Framebuffer = CreateDepthFramebuffer(image.View, size) };
     }
 
     private MapCube CreateMapCube(uint size)
     {
-        var cube = new MapCube();
-        VkHelpers.CreateImage(_ctx, size, size, 6, _depthFormat,
-            ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit, ImageCreateFlags.CreateCubeCompatibleBit,
-            out cube.Image, out cube.Memory);
-
-        cube.CubeView = VkHelpers.CreateDepthView(_ctx, cube.Image, _depthFormat, ImageViewType.TypeCube, 0, 6);
-        for (uint face = 0; face < 6; face++)
+        var cube = new MapCube(GpuImage.Create(_ctx, new GpuImageDesc(size, size, _depthFormat,
+            ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit)
         {
-            cube.FaceViews[face] = VkHelpers.CreateDepthView(_ctx, cube.Image, _depthFormat, ImageViewType.Type2D, face, 1);
-            cube.FaceFramebuffers[face] = CreateDepthFramebuffer(cube.FaceViews[face], size);
-        }
+            ArrayLayers = 6,
+            Flags = ImageCreateFlags.CreateCubeCompatibleBit,
+            ViewType = ImageViewType.TypeCube,
+        }));
+        for (uint face = 0; face < 6; face++)
+            cube.FaceFramebuffers[face] = CreateDepthFramebuffer(cube.Image.CreateView(ImageViewType.Type2D, face, 1), size);
         return cube;
     }
 
@@ -853,9 +841,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
         for (int i = 0; i < slots; i++)
         {
-            _matMapped[i] = VkHelpers.CreateMappedBuffer(_ctx, ShadowMatricesUboSize, BufferUsageFlags.UniformBufferBit,
-                out _matBuffers[i], out _matMemory[i]);
-            Unsafe.InitBlock((void*)_matMapped[i], 0, ShadowMatricesUboSize);
+            _matBuffers[i] = GpuBuffer.Create(_ctx, ShadowMatricesUboSize, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
+            _matBuffers[i].MappedSpan.Clear();
         }
 
         MainDescSetLayout = CreateMainSetLayout(_ctx, _sampler2DShadow);
@@ -876,32 +863,31 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         Span<ImageView> dirViews = stackalloc ImageView[MaxShadowDir];
         Span<ImageView> spotViews = stackalloc ImageView[MaxShadowSpot];
         Span<ImageView> cubeViews = stackalloc ImageView[MaxShadowPoint];
-        for (int i = 0; i < MaxShadowDir; i++) dirViews[i] = _dirMaps[i].View;
-        for (int i = 0; i < MaxShadowSpot; i++) spotViews[i] = _spotMaps[i].View;
-        for (int i = 0; i < MaxShadowPoint; i++) cubeViews[i] = _ptMaps[i].CubeView;
+        for (int i = 0; i < MaxShadowDir; i++) dirViews[i] = _dirMaps[i].Image.View;
+        for (int i = 0; i < MaxShadowSpot; i++) spotViews[i] = _spotMaps[i].Image.View;
+        for (int i = 0; i < MaxShadowPoint; i++) cubeViews[i] = _ptMaps[i].Image.View;
 
         // The image infos are identical for every frame slot; only the matrices UBO differs.
         for (int slot = 0; slot < slots; slot++)
-            WriteMainSet(_ctx, _mainSets[slot], _matBuffers[slot], dirViews, spotViews, cubeViews, _samplerCube);
+            WriteMainSet(_ctx, _mainSets[slot], _matBuffers[slot].Handle, dirViews, spotViews, cubeViews, _samplerCube);
     }
 
     /// <summary>
-    /// Transitions every shadow map slot (including unused ones) to DepthStencilReadOnlyOptimal
-    /// so that descriptors referencing all slots are valid from the very first frame.
+    /// Transitions every shadow map slot (including unused ones) to DepthStencilReadOnlyOptimal so that
+    /// descriptors referencing all slots are valid from the very first frame. Recorded by the upload queue
+    /// at the start of the next frame (no queue wait).
     /// </summary>
     private void InitializeShadowMapLayouts()
     {
-        VkHelpers.SubmitAndWait(_ctx, this, static (self, cb) =>
-        {
-            var vk = self._ctx.Vk;
-            void Transition(Image img, uint layers) => VkHelpers.DepthBarrier(vk, cb, img, self._depthFormat, layers,
-                ImageLayout.Undefined, ImageLayout.DepthStencilReadOnlyOptimal,
-                AccessFlags.None, AccessFlags.ShaderReadBit, PipelineStageFlags.TopOfPipeBit, PipelineStageFlags.FragmentShaderBit);
+        var uploads = _ctx.Uploads;
+        var aspect = VkHelpers.DepthBarrierAspects(_depthFormat);
+        void Init(GpuImage image, uint layers) => uploads.TransitionImage(image.Handle, aspect, layers, 1,
+            ImageLayout.Undefined, ImageLayout.DepthStencilReadOnlyOptimal, PipelineStageFlags.FragmentShaderBit, AccessFlags.ShaderReadBit);
 
-            for (int i = 0; i < MaxShadowDir; i++) Transition(self._dirMaps[i].Image, 1);
-            for (int i = 0; i < MaxShadowSpot; i++) Transition(self._spotMaps[i].Image, 1);
-            for (int i = 0; i < MaxShadowPoint; i++) Transition(self._ptMaps[i].Image, 6);
-        });
+        for (int i = 0; i < MaxShadowDir; i++) Init(_dirMaps[i].Image, 1);
+        for (int i = 0; i < MaxShadowSpot; i++) Init(_spotMaps[i].Image, 1);
+        for (int i = 0; i < MaxShadowPoint; i++) Init(_ptMaps[i].Image, 6);
+        uploads.FlushIfRecording();
     }
 
     // ── Public shadow-pipeline accessors (for shapes' DrawShadow methods) ─────
@@ -919,67 +905,55 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
     // ── Dispose ───────────────────────────────────────────────────────────────
 
+    /// <summary>Releases every GPU object through the deletion queue (no device wait).</summary>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
 
-        var vk  = _ctx.Vk;
-        var dev = _ctx.Device;
-        vk.DeviceWaitIdle(dev);
+        var deletions = _ctx.Deletions;
 
-        // Shadow maps
-        for (int i = 0; i < MaxShadowDir; i++) DestroyMap2D(ref _dirMaps[i]);
-        for (int i = 0; i < MaxShadowSpot; i++) DestroyMap2D(ref _spotMaps[i]);
-        for (int i = 0; i < MaxShadowPoint; i++) DestroyMapCube(ref _ptMaps[i]);
+        // Shadow maps (framebuffers before their views)
+        for (int i = 0; i < MaxShadowDir; i++) DestroyMap2D(deletions, _dirMaps[i]);
+        for (int i = 0; i < MaxShadowSpot; i++) DestroyMap2D(deletions, _spotMaps[i]);
+        for (int i = 0; i < MaxShadowPoint; i++) DestroyMapCube(deletions, _ptMaps[i]);
 
         // Main descriptor resources (before the samplers baked into the layout)
-        vk.DestroyDescriptorPool(dev, _mainPool, null);
-        vk.DestroyDescriptorSetLayout(dev, MainDescSetLayout, null);
-        for (int i = 0; i < _matBuffers.Length; i++)
-            VkHelpers.DestroyMappedBuffer(_ctx, _matBuffers[i], _matMemory[i]);
+        deletions.Enqueue(GpuDeletion.Of(_mainPool));
+        deletions.Enqueue(GpuDeletion.Of(MainDescSetLayout));
+        foreach (var buffer in _matBuffers)
+            buffer.Dispose();
 
-        vk.DestroySampler(dev, _sampler2DShadow, null);
-        vk.DestroySampler(dev, _samplerCube, null);
+        deletions.Enqueue(GpuDeletion.Of(_sampler2DShadow));
+        deletions.Enqueue(GpuDeletion.Of(_samplerCube));
 
         // Pipelines
-        vk.DestroyPipeline(dev, _pipe2D_S32, null);
-        vk.DestroyPipeline(dev, _pipe2D_S12, null);
-        vk.DestroyPipeline(dev, _pipePoint_S32, null);
-        vk.DestroyPipeline(dev, _pipePoint_S12, null);
-        vk.DestroyPipelineLayout(dev, _layout2D, null);
-        vk.DestroyPipelineLayout(dev, _layoutPoint, null);
+        deletions.Enqueue(GpuDeletion.Of(_pipe2D_S32));
+        deletions.Enqueue(GpuDeletion.Of(_pipe2D_S12));
+        deletions.Enqueue(GpuDeletion.Of(_pipePoint_S32));
+        deletions.Enqueue(GpuDeletion.Of(_pipePoint_S12));
+        deletions.Enqueue(GpuDeletion.Of(_layout2D));
+        deletions.Enqueue(GpuDeletion.Of(_layoutPoint));
 
         // Light VP ring
-        VkHelpers.DestroyMappedBuffer(_ctx, _vpBuffer, _vpMemory);
-        vk.DestroyDescriptorPool(dev, _vpPool, null);
-        vk.DestroyDescriptorSetLayout(dev, _vpSetLayout, null);
+        _vpBuffer.Dispose();
+        deletions.Enqueue(GpuDeletion.Of(_vpPool));
+        deletions.Enqueue(GpuDeletion.Of(_vpSetLayout));
 
-        vk.DestroyRenderPass(dev, _shadowRenderPass, null);
+        deletions.Enqueue(GpuDeletion.Of(_shadowRenderPass));
     }
 
-    private void DestroyMap2D(ref Map2D m)
+    private static void DestroyMap2D(DeletionQueue deletions, in Map2D m)
     {
-        var vk  = _ctx.Vk;
-        var dev = _ctx.Device;
-        vk.DestroyFramebuffer(dev, m.Framebuffer, null);
-        vk.DestroyImageView(dev, m.View, null);
-        vk.DestroyImage(dev, m.Image, null);
-        vk.FreeMemory(dev, m.Memory, null);
+        deletions.Enqueue(GpuDeletion.Of(m.Framebuffer));
+        m.Image?.Dispose();
     }
 
-    private void DestroyMapCube(ref MapCube m)
+    private static void DestroyMapCube(DeletionQueue deletions, in MapCube m)
     {
-        var vk  = _ctx.Vk;
-        var dev = _ctx.Device;
-        for (int f = 0; f < 6; f++)
-        {
-            vk.DestroyFramebuffer(dev, m.FaceFramebuffers[f], null);
-            vk.DestroyImageView(dev, m.FaceViews[f], null);
-        }
-        vk.DestroyImageView(dev, m.CubeView, null);
-        vk.DestroyImage(dev, m.Image, null);
-        vk.FreeMemory(dev, m.Memory, null);
+        foreach (var fb in m.FaceFramebuffers)
+            deletions.Enqueue(GpuDeletion.Of(fb));
+        m.Image?.Dispose();
     }
 }
 
