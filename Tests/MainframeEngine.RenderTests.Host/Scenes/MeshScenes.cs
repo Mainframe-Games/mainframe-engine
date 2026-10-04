@@ -272,8 +272,12 @@ public sealed class InstancesScene(HostOptions host) : MeshSceneBase(host)
             Fail($"expected {Count + 1} mesh instances, got {stats.Instances}");
         if (stats.DrawCalls > 2)
             Fail($"{Count} boxes with one mesh and material took {stats.DrawCalls} draw calls (expected 2 with the floor)");
-        if (stats.ShadowDrawCalls > 2)
-            Fail($"shadow casters took {stats.ShadowDrawCalls} draws for one light (expected ≤ 2)");
+        // One light: at most two instanced draws (boxes, floor) per cascade it renders.
+        var passes = render.ExistingShadows?.RenderedPasses ?? 0;
+        if (passes is < 1 or > ShadowSystem.MaxCascades)
+            Fail($"expected 1–{ShadowSystem.MaxCascades} cascade passes for one sun, got {passes}");
+        if (stats.ShadowDrawCalls > 2 * passes)
+            Fail($"shadow casters took {stats.ShadowDrawCalls} draws in {passes} passes (expected ≤ 2 per pass)");
         if (render.PipelineStates is not { Count: >= 1 and <= 2 })
             Fail($"expected 1–2 mesh pipelines, got {render.PipelineStates?.Count}");
     }

@@ -13,9 +13,6 @@ public sealed class MultiLightScene(HostOptions host) : LitShapesScene(host)
 {
     private const uint CheckFrame = 10;
 
-    private DirectionalLight _dir = null!;
-    private SpotLight _spot = null!;
-    private PointLight _point = null!;
     private bool _checked;
 
     protected override void AddLights(Node scene)
@@ -51,9 +48,6 @@ public sealed class MultiLightScene(HostOptions host) : LitShapesScene(host)
         scene.AddChild(dir);
         scene.AddChild(spot);
         scene.AddChild(point);
-        _dir = (DirectionalLight)dir.Light;
-        _spot = (SpotLight)spot.Light;
-        _point = (PointLight)point.Light;
     }
 
     // The render server records the shadow passes after the OnShadowPass hook; the ring still holds this
@@ -76,31 +70,38 @@ public sealed class MultiLightScene(HostOptions host) : LitShapesScene(host)
         base.DisposeScene();
     }
 
-    // After recording, every pass's ring slot must hold the matrix for that pass (not the last one written).
+    // After recording, every pass's ring slot must hold the matrix planned for that pass (not the last one written):
+    // the sun's cascades, the spot's atlas tile and the point light's six cube faces.
     private void CheckPassMatrices(ShadowSystem shadows)
     {
         var slot = Vulkan.FrameSlot;
-
-        var dirExpected = ShadowSystem.CalcDirLightMatrix(_dir);
-        var spotExpected = ShadowSystem.CalcSpotLightMatrix(_spot);
-        Expect("dir pass 0", shadows.ReadPassMatrix(slot, ShadowSystem.PassIndexDir(0)), dirExpected);
-        Expect("spot pass 0", shadows.ReadPassMatrix(slot, ShadowSystem.PassIndexSpot(0)), spotExpected);
-
-        var faces = new Matrix4x4[6];
-        for (var face = 0; face < 6; face++)
-            faces[face] = shadows.ReadPassMatrix(slot, ShadowSystem.PassIndexPoint(0, face));
-
-        for (var a = 0; a < 6; a++)
+        var passes = shadows.Passes;
+        var cascades = 0;
+        var tiles = 0;
+        var faces = 0;
+        var offsets = new HashSet<uint>();
+        var matrices = new List<Matrix4x4>();
+        foreach (var pass in passes)
         {
-            if (faces[a] == dirExpected || faces[a] == spotExpected)
-                Fail($"point face {a} holds a dir/spot matrix");
-            for (var b = a + 1; b < 6; b++)
-                if (faces[a] == faces[b])
-                    Fail(string.Create(CultureInfo.InvariantCulture, $"point faces {a} and {b} share one matrix"));
+            if (!shadows.PassRendered(pass.Index))
+                continue;
+            switch (pass.Kind)
+            {
+                case ShadowPassKind.Cascade: cascades++; break;
+                case ShadowPassKind.AtlasTile: tiles++; break;
+                case ShadowPassKind.CubeFace: faces++; break;
+            }
+
+            Expect(string.Create(CultureInfo.InvariantCulture, $"{pass.Kind} pass {pass.Index}"), shadows.ReadPassMatrix(slot, pass.Index), pass.ViewProjection);
+            if (!offsets.Add(shadows.PassOffset(slot, pass.Index)))
+                Fail(string.Create(CultureInfo.InvariantCulture, $"pass {pass.Index} shares a ring offset"));
+            if (matrices.Contains(pass.ViewProjection))
+                Fail(string.Create(CultureInfo.InvariantCulture, $"pass {pass.Index} has the same matrix as an earlier pass"));
+            matrices.Add(pass.ViewProjection);
         }
 
-        if (shadows.PassOffset(slot, ShadowSystem.PassIndexSpot(0)) == shadows.PassOffset(slot, ShadowSystem.PassIndexDir(0)))
-            Fail("dir and spot passes share a ring offset");
+        if (cascades == 0 || tiles != 1 || faces != 6)
+            Fail(string.Create(CultureInfo.InvariantCulture, $"expected cascades, 1 atlas tile and 6 cube faces; rendered {cascades}, {tiles}, {faces}"));
     }
 
     private void Expect(string what, Matrix4x4 actual, Matrix4x4 expected)
