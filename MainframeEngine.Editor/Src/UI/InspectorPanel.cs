@@ -14,7 +14,7 @@ namespace MainframeEngine.Editor;
 /// dropdowns and buttons commit at once. When the scene changes (undo, gizmo drag) only the values that changed are
 /// written back into the existing elements; the RML is regenerated only when the selection or structure changes.
 /// </summary>
-public sealed class InspectorPanel : EditorDocument
+public sealed partial class InspectorPanel : EditorDocument
 {
     private const int MaxResourceDepth = 3;
 
@@ -35,6 +35,7 @@ public sealed class InspectorPanel : EditorDocument
     private RmlEventListener? _mouseUp;
     private InspectorModel? _model;
     private object? _target;
+    private List<object> _targets = [];
     private bool _rebuildPending;
     // Set while the panel writes into its own elements (rebuild, value refresh): RmlUi raises change events for
     // programmatic value/attribute changes (sliders, checkboxes), which must not be taken for user edits.
@@ -48,6 +49,9 @@ public sealed class InspectorPanel : EditorDocument
 
     /// <summary>The object being inspected (the primary selection), or null.</summary>
     public object? Target => _target;
+
+    /// <summary>Every inspected object: the selection (several when multi-selecting, the primary last).</summary>
+    public IReadOnlyList<object> Targets => _targets;
 
     /// <summary>The property model on screen.</summary>
     public InspectorModel? Model => _model;
@@ -64,6 +68,7 @@ public sealed class InspectorPanel : EditorDocument
         _change = root.AddEventListener("change", OnChange);
         _blur = root.AddEventListener("blur", OnBlur, inCapturePhase: true);
         _mouseUp = root.AddEventListener("mouseup", _ => Workspace.Session.Active?.History.EndMerge());
+        AttachSignals(document);
         Rebuild();
     }
 
@@ -96,11 +101,13 @@ public sealed class InspectorPanel : EditorDocument
     {
         _rebuildPending = false;
         var scene = Workspace.Session.Active;
-        var node = scene?.Selection.Primary;
+        _targets = SelectedTargets(scene);
+        var node = _targets.Count > 0 ? (Node)_targets[^1] : null;
         _target = node;
         _scene = scene;
         _rows.Clear();
-        _model = node is null ? null : InspectorModel.Build(node);
+        _model = _targets.Count == 0 ? null : InspectorModel.Build(_targets);
+        RebuildSignals();
         if (!IsLoaded)
             return;
         var body = Document.GetElementById("inspector-body");
@@ -113,7 +120,7 @@ public sealed class InspectorPanel : EditorDocument
         }
 
         var rml = new StringBuilder(4096);
-        AppendHeader(rml, scene, node);
+        AppendHeader(rml, scene, node, _targets);
         if (_model!.CustomInspector?.GetHeaderRml(node) is { } custom)
             rml.Append(custom);
         AppendSections(rml, _model, 0);
@@ -124,8 +131,43 @@ public sealed class InspectorPanel : EditorDocument
     public const string EmptyRml =
         "<div class=\"empty\"><span class=\"icon icon-lg icon-pointer icon-muted\"></span><div>Select a node to edit its properties.</div></div>";
 
-    private static void AppendHeader(StringBuilder rml, EditedScene scene, Node node)
+    // The selection as inspector targets (nodes that still exist), in selection order: the primary is last.
+    private static List<object> SelectedTargets(EditedScene? scene)
     {
+        if (scene is null || scene.Selection.Count == 0)
+            return [];
+        var nodes = scene.Selection.Nodes;
+        var list = new List<object>(nodes.Count);
+        foreach (var n in nodes)
+            if (!n.IsFreed)
+                list.Add(n);
+        return list;
+    }
+
+    private static bool SameTargets(List<object> a, IReadOnlyList<Node> b)
+    {
+        if (a.Count != b.Count)
+            return false;
+        for (var i = 0; i < a.Count; i++)
+            if (!ReferenceEquals(a[i], b[i]))
+                return false;
+        return true;
+    }
+
+    private static void AppendHeader(StringBuilder rml, EditedScene scene, Node node, List<object> targets)
+    {
+        if (targets.Count > 1)
+        {
+            // Multi-selection: the shared type, no name field (names stay unique per node).
+            var common = InspectorModel.CommonType(targets)?.Name ?? "Node";
+            rml.Append("<div class=\"insp-head\"><div class=\"insp-type\" data-tooltip=\"").Append(targets.Count)
+                .Append(" Selected — edits apply to every selected node as one undo step; differing values show as —\">")
+                .Append("<span class=\"icon icon-lg icon-stack-2 insp-icon\"></span><span class=\"insp-type-name\">").Append(targets.Count)
+                .Append(" × ").Append(RmlText.Escape(common)).Append("</span></div><div class=\"insp-multi\"><span>Shared properties of ")
+                .Append(targets.Count).Append(" nodes; differing values show as —.</span></div></div>");
+            return;
+        }
+
         var info = TypeRegistry.GetNearest(node.GetType());
         var type = info?.Name ?? node.GetType().Name;
         var family = node is MissingNode ? "icon-missing" : EditorIcons.Family(node.GetType());
@@ -146,10 +188,6 @@ public sealed class InspectorPanel : EditorDocument
         rml.Append("<div class=\"insp-head\"><div class=\"insp-type\" data-tooltip=\"").Append(RmlText.Escape(tooltip.ToString())).Append("\"><span class=\"")
             .Append(EditorIcons.Classes(node)).Append(" icon-lg insp-icon\"></span><span class=\"insp-type-name ").Append(family.Replace("icon-", "t-", StringComparison.Ordinal))
             .Append("\">").Append(RmlText.Escape(type)).Append("</span>");
-        if (scene.Selection.Count > 1)
-            rml.Append("<span class=\"insp-badge\" data-tooltip=\"").Append(scene.Selection.Count)
-                .Append(" Selected — the inspector edits the last selected node\"><span class=\"icon icon-sm icon-stack-2\"></span>")
-                .Append("<span>").Append(scene.Selection.Count).Append("</span></span>");
         rml.Append("</div>");
         if (!ReferenceEquals(node, scene.Root) && node.SceneFilePath is { } instance)
             rml.Append("<div class=\"insp-instance\" data-tooltip=\"Instanced Scene — its own nodes are edited in that scene\"><span class=\"icon icon-sm icon-movie icon-info\"></span>")
@@ -182,7 +220,7 @@ public sealed class InspectorPanel : EditorDocument
     {
         var index = _rows.Count;
         var value = property.GetValue();
-        _rows.Add(new RowView { Property = property, Depth = depth, Shown = Snapshot(value) });
+        _rows.Add(new RowView { Property = property, Depth = depth, Shown = SnapshotOf(property) });
         var nested = depth switch { 0 => "", 1 => " nested", _ => " nested2" };
         rml.Append("<div class=\"prop").Append(nested).Append("\"><div class=\"prop-label\" data-tooltip=\"")
             .Append(RmlText.Escape(property.Tooltip)).Append("\"><span class=\"").Append(PropertyIcons.Classes(property, value))
@@ -193,7 +231,7 @@ public sealed class InspectorPanel : EditorDocument
 
         if (property.Kind == PropertyEditorKind.Color && _expanded.Contains((property.Target, property.Name)))
             AppendColorPicker(rml, property, index, value);
-        if (property.Kind == PropertyEditorKind.Resource && value is Resource resource && !resource.IsExternal &&
+        if (property.Kind == PropertyEditorKind.Resource && value is Resource resource && !resource.IsExternal && !property.IsMulti &&
             depth + 1 < MaxResourceDepth && _expanded.Contains((property.Target, property.Name)))
             AppendSections(rml, InspectorModel.Build(resource), depth + 1);
     }
@@ -203,25 +241,25 @@ public sealed class InspectorPanel : EditorDocument
         switch (p.Kind)
         {
             case PropertyEditorKind.Bool:
-                rml.Append("<input type=\"checkbox\" class=\"checkbox\" id=\"").Append(FieldId(row, 0)).Append("\" data-row=\"").Append(row).Append('"')
-                    .Append(value is true ? " checked=\"\"" : "").Append("/>");
+                rml.Append("<input type=\"checkbox\" class=\"checkbox").Append(p.IsMixed ? " mixed" : "").Append("\" id=\"").Append(FieldId(row, 0))
+                    .Append("\" data-row=\"").Append(row).Append('"').Append(value is true && !p.IsMixed ? " checked=\"\"" : "").Append("/>");
                 break;
 
             case PropertyEditorKind.Range:
                 rml.Append("<input type=\"range\" class=\"range\" id=\"").Append(SliderId(row, 0)).Append("\" data-row=\"").Append(row)
                     .Append("\" data-comp=\"0\" data-slider=\"1\" min=\"").Append(Num(p.Min)).Append("\" max=\"").Append(Num(p.Max))
                     .Append("\" step=\"").Append(Num(p.Step)).Append("\" value=\"").Append(RmlText.Escape(p.FormatComponent(value, 0))).Append("\"/>");
-                AppendText(rml, row, 0, p.FormatComponent(value, 0));
+                AppendText(rml, row, 0, p, value);
                 break;
 
             case PropertyEditorKind.IntegerNumber or PropertyEditorKind.FloatNumber or PropertyEditorKind.Text or PropertyEditorKind.NodePath:
-                AppendText(rml, row, 0, p.FormatComponent(value, 0));
+                AppendText(rml, row, 0, p, value);
                 if (p.Kind == PropertyEditorKind.NodePath)
                     AppendButton(rml, row, "pick-node", "crosshair", "Pick Node — choose the target from the scene");
                 break;
 
             case PropertyEditorKind.FilePath or PropertyEditorKind.DirectoryPath:
-                AppendText(rml, row, 0, p.FormatComponent(value, 0));
+                AppendText(rml, row, 0, p, value);
                 AppendButton(rml, row, "browse", "folder-open",
                     p.Kind == PropertyEditorKind.DirectoryPath ? "Browse — choose a folder" : "Browse — choose a file");
                 break;
@@ -234,6 +272,12 @@ public sealed class InspectorPanel : EditorDocument
             case PropertyEditorKind.Enum:
                 rml.Append("<select id=\"").Append(FieldId(row, 0)).Append("\" data-row=\"").Append(row).Append("\" data-enum=\"1\">");
                 var current = value is null ? "" : value.ToString();
+                if (p.IsMixed)
+                {
+                    rml.Append("<option value=\"\" selected=\"\">—</option>");
+                    current = null;
+                }
+
                 foreach (var name in p.EnumNames)
                     rml.Append("<option value=\"").Append(name).Append('"').Append(name == current ? " selected=\"\"" : "")
                         .Append('>').Append(RmlText.Escape(InspectorProperty.Humanize(name))).Append("</option>");
@@ -245,7 +289,7 @@ public sealed class InspectorPanel : EditorDocument
                 var flag = 0;
                 foreach (var (name, bits) in p.FlagChoices())
                 {
-                    rml.Append("<span class=\"flag\"><input type=\"checkbox\" class=\"checkbox\" id=\"").Append(FieldId(row, flag++))
+                    rml.Append("<span class=\"flag\"><input type=\"checkbox\" class=\"checkbox").Append(FlagMixed(p, bits) ? " mixed" : "").Append("\" id=\"").Append(FieldId(row, flag++))
                         .Append("\" data-row=\"").Append(row).Append("\" data-flag=\"").Append(bits.ToString(CultureInfo.InvariantCulture)).Append('"')
                         .Append(InspectorProperty.HasFlag(value, bits) ? " checked=\"\"" : "").Append("/>").Append(RmlText.Escape(name)).Append("</span>");
                 }
@@ -257,7 +301,7 @@ public sealed class InspectorPanel : EditorDocument
                 for (var c = 0; c < p.Components; c++)
                 {
                     rml.Append("<span class=\"axis ").Append("xyzw"[c]).Append("\">").Append("XYZW"[c]).Append("</span>");
-                    AppendText(rml, row, c, p.FormatComponent(value, c));
+                    AppendText(rml, row, c, p, value);
                 }
 
                 break;
@@ -266,7 +310,7 @@ public sealed class InspectorPanel : EditorDocument
                 rml.Append("<div class=\"swatch\" id=\"").Append(SwatchId(row)).Append("\" data-row=\"").Append(row)
                     .Append("\" data-action=\"color\" data-tooltip=\"Color Picker — click for RGBA sliders\" style=\"background-color: ")
                     .Append(ValueText.ColorHex(value)).Append(";\"></div>");
-                AppendText(rml, row, 9, ValueText.ColorHex(value));
+                AppendText(rml, row, 9, p, value);
                 break;
 
             case PropertyEditorKind.Resource:
@@ -275,9 +319,9 @@ public sealed class InspectorPanel : EditorDocument
                     rml.Append("<div class=\"res-label\" id=\"").Append(FieldId(row, 0)).Append("\">");
                     if (value is not null)
                         rml.Append("<span class=\"").Append(EditorIcons.Classes(resourceType)).Append(" icon-sm res-icon\"></span>");
-                    rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.Format(value))).Append("</span></div>");
+                    rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.IsMixed ? "— (differs)" : p.Format(value))).Append("</span></div>");
                     var expanded = _expanded.Contains((p.Target, p.Name));
-                    if (value is Resource { IsExternal: false } && RowDepth(row) + 1 < MaxResourceDepth)
+                    if (value is Resource { IsExternal: false } && !p.IsMulti && RowDepth(row) + 1 < MaxResourceDepth)
                         AppendButton(rml, row, "res-edit", expanded ? "chevron-up" : "pencil",
                             expanded ? "Fold — hide the resource's properties" : "Edit — show the resource's properties below", expanded);
                     AppendButton(rml, row, "res-load", "folder-open", "Load — use a resource file (.mres, image, model, sound)");
@@ -286,6 +330,12 @@ public sealed class InspectorPanel : EditorDocument
                         AppendButton(rml, row, "res-clear", "x", "Clear — empty the slot");
                     break;
                 }
+
+            case PropertyEditorKind.Array when p.IsMulti:
+                // Arrays are per-node values: edit them one node at a time.
+                rml.Append("<span class=\"readonly\" id=\"").Append(FieldId(row, 0)).Append("\">")
+                    .Append(RmlText.Escape(p.IsMixed ? "— (differs)" : p.Format(value))).Append("</span>");
+                break;
 
             case PropertyEditorKind.Array:
                 AppendArray(rml, p, row, value as IList);
@@ -340,9 +390,33 @@ public sealed class InspectorPanel : EditorDocument
         rml.Append("</div>");
     }
 
-    private static void AppendText(StringBuilder rml, int row, int component, string text) =>
-        rml.Append("<input type=\"text\" class=\"text\" id=\"").Append(FieldId(row, component)).Append("\" data-row=\"").Append(row)
-            .Append("\" data-comp=\"").Append(component).Append("\" value=\"").Append(RmlText.Escape(text)).Append("\"/>");
+    // A field of property p: empty with a "—" placeholder when the selected nodes differ in that field.
+    private static void AppendText(StringBuilder rml, int row, int component, InspectorProperty p, object? value)
+    {
+        var mixed = IsFieldMixed(p, component);
+        var text = component == 9 ? ValueText.ColorHex(value) : p.FormatComponent(value, component);
+        rml.Append("<input type=\"text\" class=\"text").Append(mixed ? " mixed" : "").Append("\" id=\"").Append(FieldId(row, component))
+            .Append("\" data-row=\"").Append(row).Append("\" data-comp=\"").Append(component).Append('"');
+        if (mixed)
+            rml.Append(" placeholder=\"—\" value=\"\"/>");
+        else
+            rml.Append(" value=\"").Append(RmlText.Escape(text)).Append("\"/>");
+    }
+
+    // Component 9 is the colour's hex field (the whole value).
+    private static bool IsFieldMixed(InspectorProperty p, int component) =>
+        p.IsMulti && (component == 9 || p.Components == 1 ? p.IsMixed : p.IsComponentMixed(component));
+
+    private static bool FlagMixed(InspectorProperty p, long bits)
+    {
+        if (!p.IsMulti)
+            return false;
+        var first = InspectorProperty.HasFlag(p.Info.GetValue(p.Target), bits);
+        foreach (var target in p.Targets)
+            if (InspectorProperty.HasFlag(p.Info.GetValue(target), bits) != first)
+                return true;
+        return false;
+    }
 
     // An icon-only row button: the tooltip names it and says what it does.
     private static void AppendButton(StringBuilder rml, int row, string action, string icon, string tooltip, bool active = false) =>
@@ -361,6 +435,25 @@ public sealed class InspectorPanel : EditorDocument
         type is not null && (type == typeof(string) || type == typeof(bool) || type == typeof(float) || type == typeof(double) ||
                              InspectorProperty.IsIntegerType(type) || type.IsEnum || type == typeof(NodePath));
 
+    // What a row shows: the value for one target; for several, every target's value (so the mixed state is covered).
+    private static object? SnapshotOf(InspectorProperty p)
+    {
+        if (!p.IsMulti)
+            return Snapshot(p.GetValue());
+        var builder = new StringBuilder();
+        foreach (var target in p.Targets)
+        {
+            var value = p.Info.GetValue(target);
+            builder.Append('\u001e');
+            if (value is Resource resource)
+                builder.Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(resource));
+            else
+                builder.Append(value is IList ? Snapshot(value) as string : ValueText.Format(value));
+        }
+
+        return builder.ToString();
+    }
+
     // Value-type values are compared by value on refresh; lists by content count (a changed count rebuilds).
     private static object? Snapshot(object? value)
     {
@@ -378,13 +471,15 @@ public sealed class InspectorPanel : EditorDocument
     public void OnSceneEdited()
     {
         var scene = Workspace.Session.Active;
-        if (!ReferenceEquals(scene?.Selection.Primary, _target) || _rebuildPending)
+        if (!ReferenceEquals(scene?.Selection.Primary, _target) || _rebuildPending ||
+            (scene is not null && !SameTargets(_targets, scene.Selection.Nodes)))
         {
             Rebuild();
             return;
         }
 
         RefreshValues();
+        RefreshSignals();
     }
 
     /// <summary>Writes changed values into the existing elements (rebuilds when a resource or array changed shape).</summary>
@@ -420,10 +515,11 @@ public sealed class InspectorPanel : EditorDocument
         {
             var view = _rows[row];
             var value = view.Property.GetValue();
-            var snapshot = Snapshot(value);
+            var snapshot = SnapshotOf(view.Property);
             if (Equals(snapshot, view.Shown))
                 continue;
-            if (view.Property.Kind is PropertyEditorKind.Resource or PropertyEditorKind.Array or PropertyEditorKind.NodePath)
+            // Several nodes: the mixed state of any field may change; regenerate (multi-selections are small).
+            if (view.Property.Kind is PropertyEditorKind.Resource or PropertyEditorKind.Array or PropertyEditorKind.NodePath || view.Property.IsMulti)
             {
                 Rebuild(); // different resource or element count: the rows below change; a node path's icon is its target's
                 return;
@@ -570,6 +666,8 @@ public sealed class InspectorPanel : EditorDocument
 
     protected override void OnClickElement(RmlEvent e)
     {
+        if (HandleSignalClick(e))
+            return;
         if (FindAttribute(e.Target, "data-section") is { } section)
         {
             if (!_collapsedSections.Remove(section))
@@ -655,6 +753,9 @@ public sealed class InspectorPanel : EditorDocument
         var p = _rows[row].Property;
         if (p.IsReadOnly)
             return false;
+        // An untouched mixed field ("—") commits nothing.
+        if (p.IsMulti && text.Trim().Length == 0 && IsFieldMixed(p, component))
+            return false;
         var current = p.GetValue();
         var parsed = component == 9 ? p.TryParse(text, out var value) : p.TryParseComponent(component, text, out value);
         if (!parsed)
@@ -665,9 +766,17 @@ public sealed class InspectorPanel : EditorDocument
             return false;
         }
 
-        if (Equals(Snapshot(current), Snapshot(value)))
-            return false;
-        SetValue(p, value, mergeKey);
+        if (!p.IsMulti)
+        {
+            if (Equals(Snapshot(current), Snapshot(value)))
+                return false;
+            SetValue(p, value, mergeKey);
+            return true;
+        }
+
+        // Several nodes: a component edit keeps each node's other components (set X on all, Y/Z stay theirs).
+        var whole = component == 9 || p.Components == 1;
+        SetValueEach(p, target => whole || !p.TryParseComponent(p.Info.GetValue(target), component, text, out var own) ? value : own, mergeKey);
         return true;
     }
 
@@ -684,9 +793,10 @@ public sealed class InspectorPanel : EditorDocument
             var hex = $"#{(byte)MathF.Round(rgba.X * 255):x2}{(byte)MathF.Round(rgba.Y * 255):x2}{(byte)MathF.Round(rgba.Z * 255):x2}{(byte)MathF.Round(rgba.W * 255):x2}";
             if (p.IsFloatColor)
             {
-                // Keep HDR (> 1) components of the others: set only the dragged channel.
-                if (p.TryParseComponent(component, ValueText.Number(channel), out var vector))
-                    SetValue(p, vector, mergeKey);
+                // Keep HDR (> 1) components of the others: set only the dragged channel (on every selected node).
+                var channelText = ValueText.Number(channel);
+                if (p.TryParseComponent(component, channelText, out _))
+                    SetValueEach(p, target => p.TryParseComponent(p.Info.GetValue(target), component, channelText, out var own) ? own : p.Info.GetValue(target), mergeKey);
                 return;
             }
 
@@ -729,11 +839,23 @@ public sealed class InspectorPanel : EditorDocument
     }
 
     // Edits go to the history of the scene the inspected object belongs to (not whatever tab is active now).
-    private void SetValue(InspectorProperty p, object? value, string? mergeKey)
+    private void SetValue(InspectorProperty p, object? value, string? mergeKey) => SetValueEach(p, _ => value, mergeKey);
+
+    // One value per edited object (multi-selection: one undo step for all of them).
+    private void SetValueEach(InspectorProperty p, Func<object, object?> valueFor, string? mergeKey)
     {
         if (_scene is not { } scene || !Workspace.Session.Scenes.Contains(scene))
             return;
-        scene.SetProperty(p.Target, p.Info, value, mergeKey);
+        if (!p.IsMulti)
+        {
+            scene.SetProperty(p.Target, p.Info, valueFor(p.Target), mergeKey);
+            return;
+        }
+
+        var values = new object?[p.Targets.Count];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = valueFor(p.Targets[i]);
+        scene.SetProperties(p.Targets, p.Info, values, mergeKey);
     }
 
     // Arrays are values: edit a copy and set it (undoable as one property change).
@@ -850,7 +972,7 @@ public sealed class InspectorPanel : EditorDocument
         Workspace.ListPicker.Show($"Pick {p.Label}", items, "Pick", payload =>
         {
             if (payload is Node target && Node.IsInstanceValid(target) && Node.IsInstanceValid(owner))
-                SetValue(p, owner.GetPathTo(target), null);
+                SetValueEach(p, t => t is Node each && Node.IsInstanceValid(each) ? each.GetPathTo(target) : owner.GetPathTo(target), null);
         });
     }
 

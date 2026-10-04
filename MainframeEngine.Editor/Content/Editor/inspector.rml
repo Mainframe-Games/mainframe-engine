@@ -124,15 +124,53 @@
         .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
         .color-picker { padding: 2dp 8dp 6dp 12dp; }
         .color-picker .prop { padding-left: 0dp; }
+        .insp-multi { color: #b4bccc; font-size: 11dp; line-height: 15dp; }
+        input.text.mixed { color: #8b93a5; }
+        input.checkbox.mixed { background-color: #3b3f4b; border-color: #8b93a5; }
+        .tabs { display: flex; flex-direction: row; flex: 0 0 auto; }
+        .tabs button { width: 26dp; padding: 0dp; margin-left: 3dp; }
+        .sig { padding: 0dp; }
+        .sig-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 24dp;
+            padding: 0dp 6dp 0dp 10dp;
+            white-space: nowrap;
+        }
+        .sig-row:hover { background-color: #262931; }
+        .sig-name { flex: 1 1 auto; color: #e8ebf2; font-size: 12dp; overflow: hidden; }
+        .sig-params { color: #6b7488; font-size: 11dp; }
+        .sig-conn {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 22dp;
+            padding: 0dp 6dp 0dp 30dp;
+            color: #b4bccc;
+            font-size: 11dp;
+            white-space: nowrap;
+        }
+        .sig-conn .grow { overflow: hidden; }
+        .sig-flags { color: #8b93a5; margin-left: 4dp; }
     </style>
 </head>
 <body class="panel-doc">
     <div class="panel-header">
         <span class="icon icon-adjustments-horizontal title-icon"></span>
-        <span class="panel-title">Inspector</span>
+        <span class="panel-title" id="inspector-title">Inspector</span>
+        <div class="tabs">
+            <button id="tab-properties" class="tool-button small active" data-tab="properties"
+                    data-tooltip="Properties — the selected node's exported values"><span class="icon icon-adjustments-horizontal icon-sm"></span></button>
+            <button id="tab-signals" class="tool-button small" data-tab="signals"
+                    data-tooltip="Signals — connect the selected node's signals to methods of other nodes (saved in the scene)"><span class="icon icon-plug-connected icon-sm"></span></button>
+        </div>
     </div>
     <div class="panel-body" id="inspector-body">
         <div class="empty"><span class="icon icon-lg icon-pointer icon-muted"></span><div>Select a node to edit its properties.</div></div>
+    </div>
+    <div class="panel-body sig hidden" id="signals-body">
+        <div class="empty">Select a node to see its signals.</div>
     </div>
 </body>
 </rml>

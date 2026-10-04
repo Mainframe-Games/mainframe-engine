@@ -23,14 +23,24 @@ public sealed record InspectorSection(string Title, IReadOnlyList<InspectorPrope
 public sealed class InspectorModel
 {
     private InspectorModel(object target, NodeTypeInfo? type, IReadOnlyList<InspectorSection> sections, ICustomInspector? custom)
+        : this([target], type, sections, custom)
     {
-        Target = target;
+    }
+
+    private InspectorModel(IReadOnlyList<object> targets, NodeTypeInfo? type, IReadOnlyList<InspectorSection> sections, ICustomInspector? custom)
+    {
+        Targets = targets;
+        Target = targets[^1];
         TypeInfo = type;
         Sections = sections;
         CustomInspector = custom;
     }
 
+    /// <summary>The inspected object (the primary one of a multi-selection).</summary>
     public object Target { get; }
+
+    /// <summary>Every inspected object (several for a multi-selection, the primary last).</summary>
+    public IReadOnlyList<object> Targets { get; }
 
     /// <summary>The registered type info (null for unregistered types, which show no properties).</summary>
     public NodeTypeInfo? TypeInfo { get; }
@@ -72,6 +82,76 @@ public sealed class InspectorModel
         }
 
         return new InspectorModel(target, info, [.. sections.Select(s => new InspectorSection(s.Title, s.Rows, s.Type, s.IsGroup))], custom);
+    }
+
+    /// <summary>
+    /// Builds the model for several objects edited together (multi-selection, primary last): only the properties every
+    /// one of them has (the same exported member, e.g. <c>Node3D.Position</c> on a light and a mesh), in the primary's
+    /// order. Edits apply to all of them; differing values show as mixed. Custom inspectors apply to single objects only.
+    /// </summary>
+    public static InspectorModel Build(IReadOnlyList<object> targets)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        if (targets.Count == 0)
+            throw new ArgumentException("Nothing to inspect.", nameof(targets));
+        if (targets.Count == 1)
+            return Build(targets[0]);
+        var primary = targets[^1];
+        var info = TypeRegistry.GetNearest(primary.GetType());
+        if (info is null)
+            return new InspectorModel(targets, null, [], null);
+
+        var others = new NodeTypeInfo?[targets.Count - 1];
+        for (var i = 0; i < others.Length; i++)
+            others[i] = TypeRegistry.GetNearest(targets[i].GetType());
+        var sections = new List<(string Title, List<InspectorProperty> Rows)>();
+        foreach (var property in info.Properties)
+        {
+            var shared = true;
+            foreach (var other in others)
+                if (other is null || !ReferenceEquals(other.FindProperty(property.Name), property))
+                {
+                    shared = false;
+                    break;
+                }
+
+            if (!shared)
+                continue;
+            var title = property.Group ?? property.DeclaringType.Name;
+            var section = sections.FindIndex(s => string.Equals(s.Title, title, StringComparison.Ordinal));
+            if (section < 0)
+            {
+                sections.Add((title, []));
+                section = sections.Count - 1;
+            }
+
+            sections[section].Rows.Add(new InspectorProperty(targets, property));
+        }
+
+        return new InspectorModel(targets, info, [.. sections.Select(s => new InspectorSection(s.Title, s.Rows))], null);
+    }
+
+    /// <summary>The most derived registered type all <paramref name="targets"/> share ("Node3D" for a light and a mesh).</summary>
+    public static NodeTypeInfo? CommonType(IReadOnlyList<object> targets)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        if (targets.Count == 0)
+            return null;
+        for (var info = TypeRegistry.GetNearest(targets[^1].GetType()); info is not null; info = info.Base)
+        {
+            var all = true;
+            foreach (var target in targets)
+                if (!info.Type.IsInstanceOfType(target))
+                {
+                    all = false;
+                    break;
+                }
+
+            if (all)
+                return info;
+        }
+
+        return null;
     }
 }
 

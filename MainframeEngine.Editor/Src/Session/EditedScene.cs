@@ -96,6 +96,39 @@ public sealed class EditedScene : IDisposable
         History.Commit(new SetPropertyAction(target, property, old, value), mergeKey: mergeKey);
     }
 
+    /// <summary>
+    /// Sets <paramref name="property"/> on several objects at once (multi-selection) as ONE history entry:
+    /// <paramref name="values"/>[i] goes to <paramref name="targets"/>[i]. Nothing is recorded when no value changes.
+    /// Every target is part of the entry (unchanged ones too), so a continuous edit with <paramref name="mergeKey"/>
+    /// keeps merging into it.
+    /// </summary>
+    public void SetProperties(IReadOnlyList<object> targets, ExportPropertyInfo property, IReadOnlyList<object?> values, string? mergeKey = null)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(property);
+        ArgumentNullException.ThrowIfNull(values);
+        if (targets.Count != values.Count)
+            throw new ArgumentException("One value per target is needed.", nameof(values));
+        if (targets.Count == 1)
+        {
+            SetProperty(targets[0], property, values[0], mergeKey);
+            return;
+        }
+
+        var actions = new IEditorAction[targets.Count];
+        var changed = false;
+        for (var i = 0; i < targets.Count; i++)
+        {
+            var old = property.GetValue(targets[i]);
+            changed |= !Equals(old, values[i]);
+            actions[i] = new SetPropertyAction(targets[i], property, old, values[i]);
+        }
+
+        if (!changed)
+            return;
+        History.Commit(new CompositeAction($"Set {property.Name} on {targets.Count} nodes", actions), mergeKey: mergeKey);
+    }
+
     /// <summary>Adds <paramref name="node"/> under <paramref name="parent"/> (default: the primary selection, else the root) and selects it.</summary>
     public Node AddNode(Node node, Node? parent = null, int index = -1)
     {
@@ -204,6 +237,34 @@ public sealed class EditedScene : IDisposable
         if (target < 0 || target >= node.Parent.ChildCount)
             return false;
         History.Commit(new MoveInTreeAction(node, target));
+        return true;
+    }
+
+    /// <summary>
+    /// Connects <paramref name="source"/>'s <paramref name="signal"/> to <paramref name="method"/> on
+    /// <paramref name="target"/> (both nodes of this scene) through the history; the scene saves the connection.
+    /// Throws <see cref="ArgumentException"/>/<see cref="InvalidOperationException"/> with a user-facing message when
+    /// the signal or a compatible method does not exist, or the connection already exists.
+    /// </summary>
+    public void ConnectSignal(Node source, string signal, Node target, string method, ConnectFlags flags = ConnectFlags.None)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+        if (!IsEditable(source) || !IsEditable(target))
+            throw new InvalidOperationException("Both nodes must belong to the edited scene (not to an instanced sub-scene).");
+        if (source.IsConnected(signal, target, method))
+            throw new InvalidOperationException($"{source.Name}.{signal} is already connected to {target.Name}.{method}.");
+        // Connect validates the signal and the method; the action's Do runs it.
+        History.Commit(new ConnectSignalAction(source, signal, target, method, flags));
+    }
+
+    /// <summary>Removes a persisted connection through the history.</summary>
+    public bool DisconnectSignal(SignalConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        if (!connection.Source.IsConnected(connection.Signal, connection.Target, connection.Method))
+            return false;
+        History.Commit(new DisconnectSignalAction(connection));
         return true;
     }
 

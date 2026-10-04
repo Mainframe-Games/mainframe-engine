@@ -64,8 +64,18 @@ public enum PropertyEditorKind
 public sealed class InspectorProperty
 {
     internal InspectorProperty(object target, ExportPropertyInfo info)
+        : this([target], info)
     {
-        Target = target;
+    }
+
+    /// <summary>A row editing <paramref name="info"/> on several objects at once (multi-selection); the last is the primary.</summary>
+    internal InspectorProperty(IReadOnlyList<object> targets, ExportPropertyInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        if (targets.Count == 0)
+            throw new ArgumentException("An inspector row needs at least one target.", nameof(targets));
+        Targets = targets;
+        Target = targets[^1];
         Info = info;
         Label = Humanize(info.Name);
         var type = info.ValueType;
@@ -96,8 +106,40 @@ public sealed class InspectorProperty
             ResourceType = ValueType;
     }
 
-    /// <summary>The node or resource the property belongs to.</summary>
+    /// <summary>The node or resource the property belongs to (the primary one when several are edited).</summary>
     public object Target { get; }
+
+    /// <summary>Every object the row edits (one, or the multi-selection with <see cref="Target"/> last).</summary>
+    public IReadOnlyList<object> Targets { get; }
+
+    /// <summary>True when the row edits several objects.</summary>
+    public bool IsMulti => Targets.Count > 1;
+
+    /// <summary>True when the edited objects do not all have the same value (shown as "—").</summary>
+    public bool IsMixed
+    {
+        get
+        {
+            if (Targets.Count < 2)
+                return false;
+            foreach (var target in Targets)
+                if (!ReferenceEquals(target, Target) && !Info.ValueEquals(Target, target))
+                    return true;
+            return false;
+        }
+    }
+
+    /// <summary>True when field <paramref name="component"/> (a vector axis, a colour channel) differs between the edited objects.</summary>
+    public bool IsComponentMixed(int component)
+    {
+        if (Targets.Count < 2)
+            return false;
+        var text = FormatComponent(Info.GetValue(Target), component);
+        foreach (var target in Targets)
+            if (!ReferenceEquals(target, Target) && !string.Equals(FormatComponent(Info.GetValue(target), component), text, StringComparison.Ordinal))
+                return true;
+        return false;
+    }
 
     public ExportPropertyInfo Info { get; }
 

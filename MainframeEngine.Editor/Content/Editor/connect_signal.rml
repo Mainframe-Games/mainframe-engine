@@ -1,0 +1,64 @@
+<rml>
+<head>
+    <title>Connect Signal</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 640dp; height: 470dp; margin-left: -320dp; margin-top: -235dp; }
+        .columns { display: flex; flex-direction: row; flex: 1 1 auto; }
+        .column { display: flex; flex-direction: column; flex: 1 1 auto; width: 50%; }
+        .column + .column { margin-left: 10dp; }
+        .column-title { display: block; flex: 0 0 auto; margin-bottom: 4dp; color: #b4bccc; font-size: 11dp; }
+        .indent { display: inline-block; height: 1dp; }
+        .count { flex: 1 1 auto; text-align: right; color: #6b7488; font-size: 11dp; }
+        .hint { display: block; flex: 0 0 auto; min-height: 16dp; color: #8b93a5; font-size: 11dp; margin-bottom: 6dp; }
+        .flags-row label { display: flex; flex-direction: row; align-items: center; margin-right: 16dp; color: #b4bccc; }
+        .flags-row input.checkbox { margin-right: 5dp; }
+    </style>
+</head>
+<body class="backdrop" data-model="connect_signal">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-plug icon-sm"></span> {{title}}</div>
+        <div class="dialog-body">
+            <div class="columns">
+                <div class="column">
+                    <div class="column-title">Connect to node</div>
+                    <div class="list" id="nodes">
+                        <div data-for="n : nodes" data-attr-class="n.css" data-event-click="pick_node(n.index)">
+                            <span class="indent" data-style-width="n.indent"></span>
+                            <span data-attr-class="n.icon"></span>
+                            <span>{{n.label}}</span>
+                            <span class="count" data-if="n.count > 0">{{n.count}}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="column-title">Compatible methods</div>
+                    <div class="list" id="methods">
+                        <div data-for="m : methods" data-attr-class="m.css" data-event-click="pick_method(m.index)" data-event-dblclick="activate_method(m.index)">
+                            <span class="icon icon-math-function icon-sm"></span>
+                            <span>{{m.label}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="hint">{{hint}}</div>
+            <div class="dialog-row">
+                <span class="caption">Method</span>
+                <input type="text" class="text" id="method" data-value="method"/>
+            </div>
+            <div class="dialog-row flags-row">
+                <label data-tooltip="Deferred — call the method at the end of the frame instead of during the emission">
+                    <input type="checkbox" class="checkbox" id="deferred" data-checked="deferred"/>Deferred</label>
+                <label data-tooltip="One shot — disconnect after the first emission">
+                    <input type="checkbox" class="checkbox" id="one-shot" data-checked="one_shot"/>One shot</label>
+            </div>
+            <div class="dialog-error">{{error}}</div>
+        </div>
+        <div class="dialog-buttons">
+            <button data-event-click="cancel()">Cancel</button>
+            <button class="primary" id="connect" data-event-click="ok()">Connect</button>
+        </div>
+    </div>
+</body>
+</rml>

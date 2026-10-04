@@ -87,6 +87,7 @@ public sealed class EditorWorkspace : Node
     public ListPickerDialog ListPicker { get; private set; } = null!;
     public MessageDialog Message { get; private set; } = null!;
     public TreePickerDialog TreePicker { get; private set; } = null!;
+    public ConnectSignalDialog SignalDialog { get; private set; } = null!;
     public UiLayer TooltipLayer { get; private set; } = null!;
 
     /// <summary>The tooltip widget (null until the workspace is ready).</summary>
@@ -97,7 +98,8 @@ public sealed class EditorWorkspace : Node
     public ViewportController Viewport { get; private set; } = null!;
 
     /// <summary>True while a modal dialog is open (shortcuts are suspended).</summary>
-    public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || TreePicker.Visible || Message.Visible || Splash.Visible;
+    public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || TreePicker.Visible || Message.Visible || Splash.Visible ||
+                                SignalDialog.Visible;
 
     /// <summary>The modifier keys held (host state, or tracked from key events when the host has none).</summary>
     public EditorModifiers Modifiers => Host.ReportsModifiers && !TrackKeyModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
@@ -138,10 +140,12 @@ public sealed class EditorWorkspace : Node
         ListPicker = new ListPickerDialog(this) { Name = "ListPicker" };
         TreePicker = new TreePickerDialog(this) { Name = "TreePicker" };
         Message = new MessageDialog(this) { Name = "Message" };
+        SignalDialog = new ConnectSignalDialog(this) { Name = "ConnectSignal" };
         DialogLayer.AddChild(Popup);
         DialogLayer.AddChild(FilePicker);
         DialogLayer.AddChild(ListPicker);
         DialogLayer.AddChild(TreePicker);
+        DialogLayer.AddChild(SignalDialog);
         DialogLayer.AddChild(Message);
 
         // Tooltips: above the dialogs, below the splash; the overlay never takes the mouse.
