@@ -48,8 +48,10 @@ jobs:
       - name: Restore
         run: dotnet restore MainframeEngine.sln
 
+      # CompileShaders=false: the runners have no glslc, so use the committed .spv (the shaders job checks them
+      # against their sources); otherwise the "glslc not found" build warning would fail -warnaserror.
       - name: Build (warnings are errors)
-        run: dotnet build MainframeEngine.sln -c Release --no-restore -warnaserror
+        run: dotnet build MainframeEngine.sln -c Release --no-restore -warnaserror -p:CompileShaders=false
 
       - name: Unit tests
         run: >-
@@ -155,7 +157,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Build render tests
-        run: dotnet build Tests/MainframeEngine.RenderTests -c Release -warnaserror
+        run: dotnet build Tests/MainframeEngine.RenderTests -c Release -warnaserror -p:CompileShaders=false
 
       - name: Render tests (golden images, validation gate, allocation gate)
         run: >-

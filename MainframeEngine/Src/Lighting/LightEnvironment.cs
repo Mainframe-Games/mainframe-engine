@@ -9,9 +9,10 @@ namespace MainframeEngine;
 
 public class LightEnvironment
 {
-    public const int MaxDirectional = 4;
-    public const int MaxPoint = 16;
-    public const int MaxSpot = 8;
+    // From Content/Shaders/limits.json (generated ShaderLimits / include/limits.glsl): C# and GLSL cannot drift.
+    public const int MaxDirectional = ShaderLimits.MaxDirectionalLights;
+    public const int MaxPoint = ShaderLimits.MaxPointLights;
+    public const int MaxSpot = ShaderLimits.MaxSpotLights;
 
     /// <summary>
     /// Size in bytes of the std140 lights UBO read by <c>Shapes.vk.frag</c> and <c>SpineLit.vk.frag</c>:

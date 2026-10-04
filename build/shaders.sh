@@ -8,23 +8,32 @@
 #                                        (a source edited without recompiling, or an uncommitted .spv)
 #   build/shaders.sh list                print the shader sources considered
 #
-# Shaders: MainframeEngine/Content/Shaders/**/*.vk.{vert,frag,comp} (engine; legacy GL files are
-# ignored) and Examples/SilkVulkanExamples/Content/Shaders/**/*.{vert,frag,comp} (all Vulkan).
+# Shaders: MainframeEngine/Content/Shaders/**/*.vk.{vert,frag,comp} (engine, compiled with
+# -I MainframeEngine/Content/Shaders/include exactly like the MSBuild CompileShaders target in
+# build/Shaders.targets) and Examples/SilkVulkanExamples/Content/Shaders/**/*.{vert,frag,comp}. The engine's
+# shared includes (include/*.glsl, incl. the generated limits.glsl) are locked too: editing one makes every
+# engine .spv stale until recompiled.
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 LOCK="MainframeEngine/Content/Shaders/shaders.lock"
 TARGET_ENV="vulkan1.2"
+ENGINE_SHADERS="MainframeEngine/Content/Shaders"
+INCLUDE_DIR="$ENGINE_SHADERS/include"
 
 cd "$ROOT"
 
 list_sources() {
     {
-        find MainframeEngine/Content/Shaders -type f \
+        find "$ENGINE_SHADERS" -type f \
             \( -name '*.vk.vert' -o -name '*.vk.frag' -o -name '*.vk.comp' \)
         find Examples/SilkVulkanExamples/Content/Shaders -type f \
             \( -name '*.vert' -o -name '*.frag' -o -name '*.comp' \)
     } | LC_ALL=C sort
+}
+
+list_includes() {
+    find "$INCLUDE_DIR" -type f -name '*.glsl' | LC_ALL=C sort
 }
 
 sha256() {
@@ -51,7 +60,7 @@ compile() {
         else
             spv="$src.spv"
         fi
-        glslc --target-env="$TARGET_ENV" "$src" -o "$spv"
+        glslc --target-env="$TARGET_ENV" -I "$INCLUDE_DIR" "$src" -o "$spv"
         spirv-val --target-env "$TARGET_ENV" "$spv"
         count=$((count + 1))
     done
@@ -69,6 +78,9 @@ write_lock() {
                 exit 1
             fi
             echo "$(sha256 "$src") $(sha256 "$src.spv") $src"
+        done
+        for inc in $(list_includes); do
+            echo "$(sha256 "$inc") - $inc"
         done
     } > "$tmp"
     mv "$tmp" "$LOCK"
@@ -96,6 +108,13 @@ check_lock() {
             failed=1
         fi
     done
+    for inc in $(list_includes); do
+        line=$(grep " $inc\$" "$LOCK" || true)
+        if [ -z "$line" ] || [ "$(sha256 "$inc")" != "$(echo "$line" | cut -d' ' -f1)" ]; then
+            echo "stale: include $inc changed (or is new) since the shaders were compiled" >&2
+            failed=1
+        fi
+    done
     for locked in $(grep -v '^#' "$LOCK" | cut -d' ' -f3); do
         [ -f "$locked" ] || { echo "stale: $locked is in $LOCK but no longer exists" >&2; failed=1; }
     done
@@ -110,6 +129,6 @@ case "${1:-}" in
     compile) compile "${2:-}" ;;
     lock) write_lock ;;
     check) check_lock ;;
-    list) list_sources ;;
+    list) list_sources; list_includes ;;
     *) sed -n '2,12p' "$0" >&2; exit 2 ;;
 esac

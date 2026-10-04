@@ -40,14 +40,10 @@
                         OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
-    <!-- Copy everything in content folder to build destination -->
+    <!-- Copy everything in content folder to build destination (shaders: see build/Shaders.targets) -->
     <ItemGroup>
       <None Update="Content\**">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <!-- Build bookkeeping for build/shaders.sh, not runtime content -->
-      <None Update="Content\Shaders\shaders.lock">
-        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 
@@ -73,4 +69,7 @@
       <None Update="runtimes\$(RuntimeIdentifier)\native\*"
             Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
+
+    <!-- Build-time shader compilation and the C#/GLSL limits generated from Content/Shaders/limits.json -->
+    <Import Project="..\build\Shaders.targets" />
 </Project>

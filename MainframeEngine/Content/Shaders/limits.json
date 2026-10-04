@@ -1,0 +1,11 @@
+{
+  "comment": "Single source of truth for limits shared by C# and GLSL. The build (build/Shaders.targets) generates MainframeEngine/Src/Rendering/Generated/ShaderLimits.g.cs and Content/Shaders/include/limits.glsl from this file; edit here, never there. One limit per line, keys in this order.",
+  "limits": [
+    { "glsl": "MAX_DIR_LIGHTS", "csharp": "MaxDirectionalLights", "value": 4, "summary": "Directional lights in the lights UBO." },
+    { "glsl": "MAX_POINT_LIGHTS", "csharp": "MaxPointLights", "value": 16, "summary": "Point lights in the lights UBO." },
+    { "glsl": "MAX_SPOT_LIGHTS", "csharp": "MaxSpotLights", "value": 8, "summary": "Spot lights in the lights UBO." },
+    { "glsl": "MAX_SHADOW_DIR", "csharp": "MaxShadowDirectional", "value": 4, "summary": "Directional shadow maps (one per directional light)." },
+    { "glsl": "MAX_SHADOW_SPOT", "csharp": "MaxShadowSpot", "value": 7, "summary": "Spot shadow maps: one less than the spot lights, to fit MoltenVK's 16 fragment samplers (4 + 7 + 4 + 1 material texture)." },
+    { "glsl": "MAX_SHADOW_POINT", "csharp": "MaxShadowPoint", "value": 4, "summary": "Point shadow cube maps (six passes each)." }
+  ]
+}

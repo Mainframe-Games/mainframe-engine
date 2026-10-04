@@ -29,12 +29,13 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 {
     // ── Limits ────────────────────────────────────────────────────────────────
 
-    public const int MaxShadowDir   = LightEnvironment.MaxDirectional; // 4
-    // One less than LightEnvironment.MaxSpot: the fragment stage's sampler budget is 16 on
-    // MoltenVK (maxPerStageDescriptorSamplers) — 4 dir + 7 spot + 4 point + 1 material texture.
-    // The 8th spot light still lights, it just casts no shadow.
-    public const int MaxShadowSpot  = 7;
-    public const int MaxShadowPoint = 4;   // cube maps are expensive
+    // From Content/Shaders/limits.json (generated ShaderLimits / include/limits.glsl). Spot: one less than
+    // LightEnvironment.MaxSpot, because the fragment stage's sampler budget is 16 on MoltenVK
+    // (maxPerStageDescriptorSamplers) — 4 dir + 7 spot + 4 point + 1 material texture. The 8th spot light
+    // still lights, it just casts no shadow. Point: cube maps are expensive.
+    public const int MaxShadowDir   = ShaderLimits.MaxShadowDirectional;
+    public const int MaxShadowSpot  = ShaderLimits.MaxShadowSpot;
+    public const int MaxShadowPoint = ShaderLimits.MaxShadowPoint;
 
     /// <summary>Shadow sub-passes per frame: one per dir/spot map, six per point cube map (35).</summary>
     public const int MaxShadowPasses = MaxShadowDir + MaxShadowSpot + MaxShadowPoint * 6;
