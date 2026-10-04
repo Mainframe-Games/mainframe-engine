@@ -1,199 +1,144 @@
-﻿using System.Diagnostics;
-using System.Globalization;
-using Steamworks;
-
 namespace MainframeEngine;
 
+/// <summary>
+/// Steam lobbies: create, join (including invites accepted in the overlay), leave and search. Every call is a no-op
+/// returning null/empty without Steam. Async results complete inside <see cref="Steam.RunCallbacks"/> (main thread),
+/// or after <see cref="Timeout"/> (logged, null/empty result).
+/// </summary>
 public static class SteamLobby
 {
+    /// <summary>Result count limit for lobby searches.</summary>
+    public const int MaxLobbies = 60;
+
+    /// <summary>Largest lobby Steam allows.</summary>
+    public const int MaxLobbyMembers = 250;
+
+    /// <summary>How long async lobby calls wait for Steam before giving up.</summary>
+    public static TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>Lobby metadata changed (for <see cref="Current"/> or a lobby from a search).</summary>
     public static event Action<SteamLobbyInfo>? OnLobbyUpdated;
 
-    /// <summary>
-    /// Filter for searching for lobbies.
-    /// </summary>
-    public const int MaxLobbies = 60;
+    /// <summary>This user entered a lobby through <see cref="JoinLobbyAsync"/> or an accepted invite.</summary>
+    public static event Action<SteamLobbyInfo>? OnLobbyJoined;
+
+    /// <summary>A user entered (<c>joined</c> true) or left a lobby this user is in: (lobbyId, steamId, joined).</summary>
+    public static event Action<ulong, ulong, bool>? OnMemberChanged;
+
+    /// <summary>The lobby this user is in, if any.</summary>
     public static SteamLobbyInfo? Current { get; private set; }
 
-    private static TaskCompletionSource<ulong>? _createLobbyTask;
-    private static TaskCompletionSource<ulong>? _joinLobbyTask;
-    private static TaskCompletionSource<HashSet<ulong>>? _lobbyIdsTask;
-
-    private static Callback<LobbyCreated_t> _lobbyCreated;
-    private static Callback<GameLobbyJoinRequested_t> _lobbyRequested;
-    private static Callback<LobbyEnter_t> _lobbyEntered;
-    private static Callback<LobbyMatchList_t> _lobbyListRequest;
-    private static Callback<LobbyDataUpdate_t> _lobbyDataUpdated;
-
-    static SteamLobby()
-    {
-        // create
-        _lobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreatedCallback);
-
-        // join
-        _lobbyRequested = Callback<GameLobbyJoinRequested_t>.Create(OnLobbyRequest);
-        _lobbyEntered = Callback<LobbyEnter_t>.Create(OnLobbyEntered);
-
-        // get
-        _lobbyListRequest = Callback<LobbyMatchList_t>.Create(OnLobbyListCallback);
-        _lobbyDataUpdated = Callback<LobbyDataUpdate_t>.Create(OnLobbyDataUpdated);
-    }
-
-    #region Create
-
+    /// <summary>Creates a lobby, makes it <see cref="Current"/> and advertises it in rich presence.</summary>
+    /// <param name="lobbyName">Stored as lobby metadata.</param>
+    /// <param name="maxPlayers">1 to <see cref="MaxLobbyMembers"/>.</param>
+    /// <param name="appVersion">Stored as lobby metadata when given (lets clients filter incompatible builds).</param>
+    /// <param name="friendsOnly">Friends-only instead of public.</param>
+    /// <param name="cancellationToken">Cancels the wait (throws <see cref="OperationCanceledException"/>).</param>
+    /// <returns>The lobby, or null without Steam, on failure or on timeout.</returns>
     public static async Task<SteamLobbyInfo?> CreateLobbyAsync(
         string lobbyName,
         int maxPlayers,
         string? appVersion = null,
-        bool friendsOnly = false)
+        bool friendsOnly = false,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(lobbyName);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxPlayers, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxPlayers, MaxLobbyMembers);
         if (!Steam.Valid)
-            throw new InvalidOperationException("Steam not initialised");
+            return null;
 
-        var lobbyType = friendsOnly
-            ? ELobbyType.k_ELobbyTypeFriendsOnly
-            : ELobbyType.k_ELobbyTypePublic;
+        var lobbyId = await SteamLobbyApi.CreateLobbyAsync(friendsOnly, maxPlayers, Timeout, cancellationToken).ConfigureAwait(false);
+        if (lobbyId == 0 || !Steam.Valid)
+            return null;
 
-        _createLobbyTask = new TaskCompletionSource<ulong>();
-        SteamMatchmaking.CreateLobby(lobbyType, maxPlayers);
-        var lobbyId = await _createLobbyTask.Task;
-
-        Current = new SteamLobbyInfo(lobbyId)
+        var lobby = new SteamLobbyInfo(lobbyId)
         {
-            HostId = Steam.SteamId,
-            LobbyName = lobbyName,
-            AppVersion = appVersion ?? throw new ArgumentNullException(nameof(appVersion)), //Application.version,
+            HostId        = Steam.SteamId,
+            LobbyName     = lobbyName,
             IsAdvertising = true,
-            Country = SteamUtils.GetIPCountry()
+            Country       = SteamApi.GetIpCountry(),
         };
+        if (appVersion is not null)
+            lobby.AppVersion = appVersion;
 
-        SteamRichPresence.SetConnect(Steam.SteamId.ToString(CultureInfo.InvariantCulture));
-        SteamRichPresence.SetGroup(Current.PlayerCount);
-
-        return Current;
+        Current = lobby;
+        SteamRichPresence.SetConnect(Steam.SteamId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        SteamRichPresence.SetGroup(lobby.PlayerCount);
+        return lobby;
     }
 
-    private static void OnLobbyCreatedCallback(LobbyCreated_t callback)
+    /// <summary>Joins a lobby and makes it <see cref="Current"/> once Steam confirms.</summary>
+    /// <returns>The lobby, or null without Steam, when refused (full, locked, gone…) or on timeout.</returns>
+    public static async Task<SteamLobbyInfo?> JoinLobbyAsync(ulong lobbyId, CancellationToken cancellationToken = default)
     {
-        if (callback.m_eResult != EResult.k_EResultOK)
-        {
-            Trace.TraceError("Failed to created lobby");
-            return;
-        }
-
-        Trace.Write($"Lobby created: {callback.m_ulSteamIDLobby}");
-        _createLobbyTask?.TrySetResult(callback.m_ulSteamIDLobby);
-    }
-
-    #endregion
-
-    #region Join
-
-    public static async Task<SteamLobbyInfo?> JoinLobbyAsync(ulong lobbyId)
-    {
+        ArgumentOutOfRangeException.ThrowIfZero(lobbyId);
         if (!Steam.Valid)
-            throw new InvalidOperationException("Steam not initialised");
+            return null;
 
-        _joinLobbyTask = new TaskCompletionSource<ulong>();
-        SteamMatchmaking.JoinLobby((CSteamID)lobbyId);
-        Current = new SteamLobbyInfo(lobbyId);
-        await _joinLobbyTask.Task;
-        return Current;
+        var entered = await SteamLobbyApi.JoinLobbyAsync(lobbyId, Timeout, cancellationToken).ConfigureAwait(false);
+        if (!entered || !Steam.Valid)
+            return null;
+
+        var lobby = new SteamLobbyInfo(lobbyId);
+        Current = lobby;
+        OnLobbyJoined?.Invoke(lobby);
+        return lobby;
     }
 
-    private static void OnLobbyRequest(GameLobbyJoinRequested_t callback)
-    {
-        Trace.Write($"Lobby request from {callback.m_steamIDFriend}");
-        SteamMatchmaking.JoinLobby(callback.m_steamIDLobby);
-    }
-
-    private static void OnLobbyEntered(LobbyEnter_t callback)
-    {
-        Trace.Write($"Lobby Entered: {callback.m_ulSteamIDLobby}");
-        _joinLobbyTask?.SetResult(0);
-    }
-
-    #endregion
-
-    #region Leave
-
+    /// <summary>Leaves <see cref="Current"/>, if any.</summary>
     public static void LeaveLobby()
     {
-        if (!Steam.Valid || Current is null)
-            return;
-
-        SteamMatchmaking.LeaveLobby((CSteamID)Current.LobbyId);
+        var lobby = Current;
         Current = null;
-    }
-
-    #endregion
-
-    #region Lobby List
-
-    public static async Task<List<SteamLobbyInfo>> GetLobbyListAsync(bool friendsOnly)
-    {
-        HashSet<ulong> lobbyIds;
-
-        if (friendsOnly)
-        {
-            lobbyIds = new HashSet<ulong>();
-            foreach (var lobbyId in GetLobbyIdsFromFriends())
-                lobbyIds.Add(lobbyId);
-        }
-        else
-        {
-            _lobbyIdsTask = new TaskCompletionSource<HashSet<ulong>>();
-            SteamMatchmaking.AddRequestLobbyListResultCountFilter(MaxLobbies);
-            SteamMatchmaking.RequestLobbyList();
-            lobbyIds = await _lobbyIdsTask.Task;
-        }
-
-        return lobbyIds.Select(x => new SteamLobbyInfo(x)).ToList();
+        if (lobby is not null && Steam.Valid)
+            SteamLobbyApi.LeaveLobby(lobby.LobbyId);
     }
 
     /// <summary>
-    /// Docs: https://partner.steamgames.com/doc/features/multiplayer/matchmaking
+    /// Lists lobbies: public ones from a Steam search (up to <see cref="MaxLobbies"/>), or with
+    /// <paramref name="friendsOnly"/> the lobbies of friends playing this game. Empty without Steam.
     /// </summary>
-    private static IEnumerable<ulong> GetLobbyIdsFromFriends()
+    public static async Task<List<SteamLobbyInfo>> GetLobbyListAsync(bool friendsOnly, CancellationToken cancellationToken = default)
     {
-        var cFriends = SteamFriends.GetFriendCount(EFriendFlags.k_EFriendFlagImmediate);
-        for (int i = 0; i < cFriends; i++)
+        if (!Steam.Valid)
+            return [];
+
+        var ids = friendsOnly
+            ? SteamApi.GetFriendLobbyIds(Steam.AppId)
+            : await SteamLobbyApi.RequestLobbyListAsync(MaxLobbies, Timeout, cancellationToken).ConfigureAwait(false);
+
+        var lobbies = new List<SteamLobbyInfo>(ids.Count);
+        foreach (var id in ids)
         {
-            var steamIDFriend = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
-            var isInGame = SteamFriends.GetFriendGamePlayed(steamIDFriend, out var friendGameInfo);
-            var isThisGame = friendGameInfo.m_gameID.m_GameID == Steam.AppId;
-            if (isInGame && isThisGame && friendGameInfo.m_steamIDLobby.IsValid())
-            {
-                SteamMatchmaking.RequestLobbyData(friendGameInfo.m_steamIDLobby);
-                yield return friendGameInfo.m_steamIDLobby.m_SteamID;
-            }
+            if (!lobbies.Exists(l => l.LobbyId == id))
+                lobbies.Add(new SteamLobbyInfo(id));
+        }
+
+        return lobbies;
+    }
+
+    internal static async Task JoinFromInviteAsync(ulong lobbyId)
+    {
+        try
+        {
+            if (Current?.LobbyId == lobbyId)
+                return;
+            LeaveLobby();
+            await JoinLobbyAsync(lobbyId).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            // Fire-and-forget from a Steam callback: report instead of losing the exception.
+            Log.Error($"[Steam] joining lobby {lobbyId} from an invite failed: {e}");
         }
     }
 
-    private static void OnLobbyListCallback(LobbyMatchList_t callback)
-    {
-        if (_lobbyIdsTask == null)
-            throw new InvalidOperationException($"{nameof(_lobbyIdsTask)} is null");
+    internal static void RaiseLobbyUpdated(SteamLobbyInfo lobby) => OnLobbyUpdated?.Invoke(lobby);
 
-        var lobbyIds = new HashSet<ulong>();
-        for (int i = 0; i < callback.m_nLobbiesMatching; i++)
-        {
-            var lobbyId = SteamMatchmaking.GetLobbyByIndex(i);
-            lobbyIds.Add((ulong)lobbyId);
-            SteamMatchmaking.RequestLobbyData(lobbyId);
-        }
+    internal static void RaiseMemberChanged(ulong lobbyId, ulong steamId, bool joined) =>
+        OnMemberChanged?.Invoke(lobbyId, steamId, joined);
 
-        _lobbyIdsTask.SetResult(lobbyIds);
-    }
-
-    #endregion
-
-    #region Updates
-
-    private static void OnLobbyDataUpdated(LobbyDataUpdate_t param)
-    {
-        var info = new SteamLobbyInfo(param.m_ulSteamIDLobby);
-        OnLobbyUpdated?.Invoke(info);
-    }
-
-    #endregion
+    /// <summary>Forgets <see cref="Current"/> (Steam shutdown).</summary>
+    internal static void Reset() => Current = null;
 }
