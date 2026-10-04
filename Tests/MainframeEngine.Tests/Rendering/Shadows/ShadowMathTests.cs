@@ -74,7 +74,8 @@ public sealed class ShadowMathTests
 
         // Symmetric frustum: the centre is on the view axis, between the slice planes.
         Assert.True(MathF.Abs(center.X) < 1e-3f && MathF.Abs(center.Y) < 1e-3f);
-        Assert.InRange(-center.Z, near, far);
+        // A centre clamped to the far plane lands on it only up to float rounding (40.0000038 on linux-x64).
+        Assert.InRange(-center.Z, near - 1e-3f, far + 1e-3f);
         Assert.Equal(0f, radius % ShadowMath.RadiusQuantum, 4);
     }
 
