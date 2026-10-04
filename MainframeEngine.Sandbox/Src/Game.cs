@@ -11,8 +11,10 @@ namespace MainframeEngine.Sandbox;
 
 /// <summary>
 /// The Sandbox: loads <see cref="MainScene"/> into the engine's scene tree (which processes and renders it),
-/// adds the debug grid, and draws an ImGui debug overlay. This class only handles window-level input (cursor
-/// mode, Escape), the overlay and the <c>--qa-*</c> scripts; the fly camera is a scene node (<see cref="FlyCamera"/>).
+/// adds the debug grid and the RmlUi HUD (<see cref="SandboxHud"/>: stats and live scene settings; a widget-library
+/// demo window), and keeps the ImGui windows as the developer overlay (F12). This class only handles window-level
+/// input (cursor mode, Escape), the overlay and the <c>--qa-*</c> scripts; the fly camera is a scene node
+/// (<see cref="FlyCamera"/>).
 /// </summary>
 public sealed class Game(in EngineOptions options) : Engine(options)
 {
@@ -23,11 +25,11 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         GameName = "Mainframe Engine Sandbox",
         RenderingBackend = RenderingBackend.Vulkan,
         WindowSize = new Vector2D<int>(1920, 1080),
-        IconPath = "Content/Branding/mg_300_circle.png"
+        IconPath = "Content/Branding/mg_300_circle.png",
+        DevOverlayVisible = false, // the RmlUi HUD is the game UI; F12 shows the ImGui developer windows
+        // Debug builds load UI documents straight from the project's Content/ folder, so hot reload needs no rebuild.
+        Ui = new UiServerOptions { SourceContentDirectories = UiServerOptions.SourceDirectoriesOf(typeof(Game).Assembly) },
     };
-
-    private static readonly int[] FpsPresets = [0, 30, 60, 120, 144, 240];
-    private static readonly string[] FpsLabels = ["Unlimited", "30", "60", "120", "144", "240"];
 
     /// <summary>Set by <c>--qa-capture</c>: frames to screenshot before the engine exits.</summary>
     public QaCapture? QaCapture { get; init; }
@@ -64,6 +66,15 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         // visuals (RenderPriority -100).
         Root.AddChild(new Grid3D { Name = "Grid" });
 
+        // M8 game UI: the HUD layer, and a menu layer above it with the widget-library demo (hidden until asked for).
+        var widgetDemo = new UiDocument { Name = "WidgetDemo", Source = "Content/UI/widgets/demo.rml", Visible = false };
+        var menus = new UiLayer { Name = "Menus", Layer = 10 };
+        menus.AddChild(widgetDemo);
+        var hud = new UiLayer { Name = "Hud", Layer = 0 };
+        hud.AddChild(new SandboxHud { Name = "SandboxHud", Game = this, WidgetDemo = widgetDemo });
+        Root.AddChild(hud);
+        Root.AddChild(menus);
+
         // M5: host or join (both ends have loaded the same level, so spawned boxes go to the same parent path).
         Network?.Start(this);
     }
@@ -84,27 +95,22 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         if (camera is not null)
             Root.World3D.Lights.DrawLightGizmos(camera.RenderCamera);
 
-        ImGui.SetNextWindowPos(Vector2.Zero, ImGuiCond.Always, new Vector2(0, 0));
-        if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
+        // Developer overlay (F12). Frame stats, VSync and Max FPS moved to the RmlUi HUD.
+        ImGui.SetNextWindowPos(new Vector2(0, 120), ImGuiCond.FirstUseEver, new Vector2(0, 0));
+        if (ImGui.Begin("Developer", ImGuiWindowFlags.AlwaysAutoResize))
         {
-            ImGui.Value("FrameCount", gameTime.FrameCount);
             ImGui.Value("DeltaTime", gameTime.DeltaTime);
-            ImGui.Value("FPS", gameTime.FramesPerSecond);
-            ImGui.Value("Ms", gameTime.FramesTimeMs);
-
-            var vsync = Renderer.VSync;
-            if (ImGui.Checkbox("VSync", ref vsync))
-                Renderer.VSync = vsync;
 
             var isFullScreen = Window.WindowState is WindowState.Fullscreen;
             if (ImGui.Checkbox("FullScreen", ref isFullScreen))
                 Window.WindowState = isFullScreen ? WindowState.Fullscreen : WindowState.Normal;
 
-            var currentFps = MaxFPS;
-            var selectedIndex = Array.IndexOf(FpsPresets, currentFps);
-            if (selectedIndex < 0) selectedIndex = 0;
-            if (ImGui.Combo("Max FPS", ref selectedIndex, FpsLabels, FpsLabels.Length))
-                MaxFPS = FpsPresets[selectedIndex];
+            if (Ui is { } ui)
+            {
+                var debugger = ui.DebuggerVisible;
+                if (ImGui.Checkbox("UI debugger (F8)", ref debugger))
+                    ui.DebuggerVisible = debugger;
+            }
 
             ImGui.SeparatorText("Camera");
             if (camera is not null)
@@ -247,13 +253,15 @@ public sealed class Game(in EngineOptions options) : Engine(options)
                 : CursorMode.Raw;
         }
 
-        if (key == Key.Escape)
+        // Escape quits, unless it is closing something in the UI (a text field has focus).
+        if (key == Key.Escape && Ui is not { TextInputActive: true })
             Quit(ExitCode.Ok);
     }
 
     private void OnMouseDown(IMouse mouse, MouseButton button)
     {
-        if (button is MouseButton.Right)
+        // Right-drag looks around, unless the press landed on the HUD.
+        if (button is MouseButton.Right && Ui is not { IsPointerOverUi: true })
             _mouse.Cursor.CursorMode = CursorMode.Raw;
     }
 

@@ -1,0 +1,38 @@
+/* Sandbox HUD (on top of the engine's widget library). Hot-reloads in Debug builds: edit and save. */
+
+#stats {
+    position: absolute;
+    left: 12dp;
+    top: 12dp;
+    width: 150dp;
+    padding: 8dp 10dp;
+}
+
+#stats .label { color: #8a95ab; }
+
+#settings {
+    position: absolute;
+    right: 12dp;
+    top: 12dp;
+    width: 340dp;
+    pointer-events: auto;
+}
+
+#settings .row label.caption { width: 90dp; }
+#settings input.range { width: 160dp; }
+#settings .value { display: inline-block; width: 44dp; margin-left: 8dp; text-align: right; color: #b8c3d9; font-size: 12dp; }
+#settings select { width: 160dp; }
+
+.toggles { display: block; margin: 4dp 0dp 10dp 0dp; }
+.toggles label { margin-left: 6dp; margin-right: 14dp; vertical-align: middle; }
+
+.buttons button { margin-right: 6dp; }
+
+#hints {
+    position: absolute;
+    left: 12dp;
+    bottom: 10dp;
+    font-size: 12dp;
+    color: #d8deea;
+    font-effect: shadow(1dp 1dp #000000c0);
+}

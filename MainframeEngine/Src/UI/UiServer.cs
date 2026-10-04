@@ -35,6 +35,26 @@ public sealed record UiServerOptions
 #else
         false;
 #endif
+
+    /// <summary>The assembly metadata key Debug builds record their project's Content folder under.</summary>
+    public const string ContentSourceMetadataKey = "MainframeContentSource";
+
+    /// <summary>
+    /// The source Content folders Debug builds of <paramref name="assemblies"/> recorded
+    /// (<c>[AssemblyMetadata("MainframeContentSource", ...)]</c>) and that exist on this machine; empty for Release
+    /// builds and installed games.
+    /// </summary>
+    public static IReadOnlyList<string> SourceDirectoriesOf(params System.Reflection.Assembly[] assemblies)
+    {
+        ArgumentNullException.ThrowIfNull(assemblies);
+        var directories = new List<string>();
+        foreach (var assembly in assemblies)
+            foreach (var attribute in assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false))
+                if (attribute is System.Reflection.AssemblyMetadataAttribute { Key: ContentSourceMetadataKey, Value: { Length: > 0 } value } &&
+                    Directory.Exists(value))
+                    directories.Add(value);
+        return directories;
+    }
 }
 
 /// <summary>
@@ -98,6 +118,9 @@ public sealed class UiServer : IFrameServer, IInputServer
         Files = new UiFileInterface();
         foreach (var directory in _options.SourceContentDirectories)
             Files.AddSourceDirectory(directory);
+        if (_options.HotReload)
+            foreach (var directory in UiServerOptions.SourceDirectoriesOf(typeof(UiServer).Assembly)) // the engine's own widgets
+                Files.AddSourceDirectory(directory);
 
         _system = new UiSystemInterface(window, input);
         RmlCore.Initialise(_system, Files);
@@ -174,6 +197,18 @@ public sealed class UiServer : IFrameServer, IInputServer
 
     /// <summary>True while a UI text field has keyboard focus.</summary>
     public bool TextInputActive => _system.TextInputActive;
+
+    /// <summary>True when the mouse is over (or dragging) an interactive UI element of a visible layer.</summary>
+    public bool IsPointerOverUi
+    {
+        get
+        {
+            for (var i = 0; i < _layers.Count; i++)
+                if (_layers[i] is { Visible: true, Context: { IsDisposed: false } context } && context.IsMouseInteracting)
+                    return true;
+            return RmlDebugger.Visible && _debuggerContext is { IsDisposed: false } debugger && debugger.IsMouseInteracting;
+        }
+    }
 
     // ── Fonts and textures ───────────────────────────────────────────────────────────────────────────────────
 

@@ -21,4 +21,13 @@
         </None>
     </ItemGroup>
 
+
+    <!-- Debug builds record this project's Content folder so the UI can load (and hot-reload) from the sources. -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>MainframeContentSource</_Parameter1>
+        <_Parameter2>$(MSBuildProjectDirectory)/Content</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+
 </Project>
