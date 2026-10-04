@@ -46,6 +46,8 @@
     <div class="menu-title" id="menu-file" data-menu="file">File</div>
     <div class="menu-title" id="menu-edit" data-menu="edit">Edit</div>
     <div class="menu-title" id="menu-view" data-menu="view">View</div>
+    <div class="menu-title" id="menu-project" data-menu="project">Project</div>
+    <div class="menu-title" id="menu-run" data-menu="run">Run</div>
     <div class="menu-title" id="menu-help" data-menu="help">Help</div>
     <div id="window-title">
         <span id="title-icon" class="icon icon-sm icon-movie hidden"></span>

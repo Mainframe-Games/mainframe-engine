@@ -1,0 +1,59 @@
+<rml>
+<head>
+    <title>New Project</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 600dp; height: 420dp; margin-left: -300dp; margin-top: -210dp; }
+        .dialog-row .caption { width: 96dp; }
+        .dialog-row button { width: 26dp; padding: 0dp; margin-left: 6dp; }
+        .target { display: block; flex: 0 0 auto; margin: 0dp 0dp 8dp 96dp; color: #8b93a5; font-size: 11dp; white-space: nowrap; overflow: hidden; }
+        .sdk { display: block; flex: 0 0 auto; margin: 0dp 0dp 8dp 96dp; color: #4ade80; font-size: 11dp; }
+        .log {
+            display: block;
+            flex: 1 1 auto;
+            padding: 6dp 8dp;
+            background-color: #0e1013;
+            border: 1dp #2f333d;
+            border-radius: 3dp;
+            color: #b4bccc;
+            font-family: "Roboto Mono";
+            font-size: 10dp;
+            line-height: 13dp;
+            white-space: pre-wrap;
+            overflow: hidden;
+        }
+        .about { display: block; flex: 0 0 auto; color: #8b93a5; font-size: 11dp; line-height: 15dp; margin-bottom: 10dp; }
+    </style>
+</head>
+<body class="backdrop" data-model="new_project">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-sm icon-square-plus"></span> New Project</div>
+        <div class="dialog-body">
+            <div class="about">A game project from the <span class="mono">mfgame</span> template: a class library for your nodes, a launcher running it with GameHost, <span class="mono">project.mfproj</span> and a sample scene.</div>
+            <div class="dialog-row">
+                <span class="caption">Name</span>
+                <input type="text" class="text" id="np-name" data-value="name"/>
+            </div>
+            <div class="dialog-row">
+                <span class="caption">Location</span>
+                <input type="text" class="text" id="np-location" data-value="location"/>
+                <button id="np-browse-location" data-event-click="browse_location()" data-tooltip="Browse — choose the folder the project goes in"><span class="icon icon-sm icon-folder-open"></span></button>
+            </div>
+            <div class="target">{{target}}</div>
+            <div class="dialog-row">
+                <span class="caption">Engine</span>
+                <input type="text" class="text" id="np-engine" data-value="engine"/>
+                <button id="np-browse-engine" data-event-click="browse_engine()" data-tooltip="Browse — the engine checkout the game builds against (holds MainframeEngine.sln)"><span class="icon icon-sm icon-folder-open"></span></button>
+            </div>
+            <div class="sdk" data-if="sdk != ''"><span class="icon icon-sm icon-circle-check"></span> {{sdk}}</div>
+            <div class="log" id="np-log">{{log}}</div>
+            <div class="dialog-error" id="np-error">{{error}}</div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="np-cancel" data-event-click="cancel()">Cancel</button>
+            <button class="primary" id="np-create" data-class-disabled="busy || error != ''" data-event-click="create()">Create &amp; Open</button>
+        </div>
+    </div>
+</body>
+</rml>

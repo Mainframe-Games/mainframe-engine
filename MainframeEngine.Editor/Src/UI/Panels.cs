@@ -28,7 +28,7 @@ public sealed class MenuBarPanel : EditorDocument
     {
         if (!IsLoaded)
             return;
-        foreach (var name in (ReadOnlySpan<string>)["file", "edit", "view", "help"])
+        foreach (var name in (ReadOnlySpan<string>)["file", "edit", "view", "project", "run", "help"])
             Document.GetElementById($"menu-{name}").SetClass("open", false);
     }
 
@@ -118,6 +118,112 @@ public sealed class ToolbarPanel : EditorDocument
         }
         document.GetElementById("tool-snap").SetClass("active", gizmo.Snap.Enabled);
         document.GetElementById("tool-grid").SetClass("active", Workspace.Viewport?.GridVisible ?? true);
+        RefreshPlay();
+    }
+
+    private string _instancesRml = "";
+    private string _playStatus = "";
+
+    /// <summary>Re-applies the play controls' states and the running instances (on play/project changes, never per frame).</summary>
+    public void RefreshPlay()
+    {
+        if (!IsLoaded)
+            return;
+        var document = Document;
+        var play = Workspace.Play;
+        var project = Workspace.Project;
+        var canPlay = project.LauncherProject is not null && !play.IsBuilding;
+        document.GetElementById("play").SetClass("disabled", !canPlay);
+        document.GetElementById("play-scene").SetClass("disabled", !canPlay || Workspace.Session.Active is null);
+        document.GetElementById("pause").SetClass("disabled", !play.IsPlaying);
+        document.GetElementById("pause").SetClass("active", play.IsPaused);
+        document.GetElementById("stop").SetClass("disabled", !play.IsPlaying);
+        var build = document.GetElementById("build-reload");
+        build.SetClass("disabled", project.GameLibraryProject is null);
+        build.SetClass("attention", project.NeedsRebuild && !project.IsBuilding);
+        build.SetClass("busy", play.IsBuilding);
+
+        var rml = new System.Text.StringBuilder();
+        foreach (var instance in play.Service.Instances)
+        {
+            var (css, icon) = instance.State switch
+            {
+                PlayInstanceState.Launching => ("launching", "loader-2"),
+                PlayInstanceState.Running => ("running", "player-play"),
+                PlayInstanceState.Paused => ("paused", "player-pause"),
+                PlayInstanceState.Stopping => ("stopping", "player-stop"),
+                PlayInstanceState.Crashed => ("crashed", "alert-octagon"),
+                _ => ("exited", "check"),
+            };
+            rml.Append("<div class=\"instance ").Append(css).Append("\" data-instance=\"").Append(instance.Number)
+                .Append("\" data-tooltip=\"").Append(RmlText.Escape($"{instance.Label} #{instance.Number} — {instance.State}. Click to pause, reload its scene or stop it."))
+                .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span>").Append(RmlText.Escape(instance.Label)).Append("</div>");
+        }
+
+        var instances = rml.ToString();
+        if (!string.Equals(instances, _instancesRml, StringComparison.Ordinal))
+        {
+            _instancesRml = instances;
+            document.GetElementById("instances").SetInnerRml(instances);
+        }
+
+        var status = play.IsBuilding || project.IsBuilding ? "Building…" : "";
+        if (!string.Equals(status, _playStatus, StringComparison.Ordinal))
+        {
+            _playStatus = status;
+            SetText("play-status", status);
+        }
+    }
+
+    protected override void OnClickElement(RmlEvent e)
+    {
+        if (FindAttribute(e.Target, "data-instance") is not { } text ||
+            !int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ||
+            Workspace.Play.Service.Instances.FirstOrDefault(i => i.Number == number) is not { } instance)
+            return;
+        var element = FindWithAttribute(e.Target, "data-instance");
+        var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+        ShowInstanceMenu(instance, element.Bounds.X / scale, (element.Bounds.Y + element.Bounds.Height) / scale);
+    }
+
+    /// <summary>The per-instance menu: pause/resume, reload its scene, stop, clear finished instances.</summary>
+    public void ShowInstanceMenu(PlayInstance instance, float x, float y)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        var service = Workspace.Play.Service;
+        var paused = service.IsPaused(instance);
+        Workspace.Popup.Show(
+        [
+            MenuItem.Header($"{instance.Label} #{instance.Number} · {instance.State}"),
+            new MenuItem(paused ? "Resume" : "Pause", "pause", null, instance.IsAlive && instance.HasConnected),
+            new MenuItem("Reload Scene", "reload", null, instance.IsAlive && instance.HasConnected),
+            new MenuItem("Stop", "stop", null, instance.IsAlive),
+            MenuItem.Separator,
+            new MenuItem("Clear Finished", "clear", null, service.Instances.Any(i => !i.IsAlive)),
+        ], x, y, command =>
+        {
+            switch (command)
+            {
+                case "pause" when paused:
+                    service.Resume(instance);
+                    break;
+                case "pause":
+                    service.Pause(instance);
+                    break;
+                case "reload":
+                    Workspace.Commands.SaveAll();
+                    service.ReloadScene(instance);
+                    break;
+                case "stop":
+                    service.Stop(instance);
+                    break;
+                case "clear":
+                    service.ClearExited();
+                    break;
+            }
+
+            RefreshPlay();
+        });
     }
 
     /// <summary>Writes the frame stats without allocating (stack-formatted span into the element).</summary>
@@ -133,33 +239,6 @@ public sealed class ToolbarPanel : EditorDocument
         var tenths = (int)MathF.Round(ms * 10f);
         if (text.TryWrite(CultureInfo.InvariantCulture, $"{(int)MathF.Round(fps)} fps  {tenths / 10}.{tenths % 10} ms", out var written))
             element.SetInnerRml(text[..written]);
-    }
-}
-
-/// <summary>The FileSystem dock: a placeholder until projects arrive (E4); shows the project folder.</summary>
-public sealed class FileSystemPanel : EditorDocument
-{
-    private string? _shown;
-
-    public FileSystemPanel(EditorWorkspace workspace)
-        : base(workspace, "filesystem.rml")
-    {
-    }
-
-    protected override void OnAttach(RmlDocument document)
-    {
-        _shown = null;
-        Refresh();
-    }
-
-    public void Refresh()
-    {
-        // The folder name only: absolute paths overflow the dock (and differ between machines in captures).
-        var root = Workspace.Session.ProjectRoot is { } path ? Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)) : "none";
-        if (string.Equals(root, _shown, StringComparison.Ordinal))
-            return;
-        _shown = root;
-        SetText("project-root", root);
     }
 }
 

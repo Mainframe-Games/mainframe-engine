@@ -7,7 +7,7 @@ namespace MainframeEngine.Editor;
 /// lives in (one edited world per tab). Every edit goes through <see cref="History"/> so it can be undone; the
 /// operations here build the right <see cref="IEditorAction"/>s.
 /// </summary>
-public sealed class EditedScene : IDisposable
+public sealed class EditedScene : IDisposable, IInspectorContext
 {
     private readonly List<PackedScene> _heldScenes = [];
     private bool _disposed;

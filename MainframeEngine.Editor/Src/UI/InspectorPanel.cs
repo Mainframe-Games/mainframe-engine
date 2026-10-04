@@ -67,8 +67,67 @@ public sealed partial class InspectorPanel : EditorDocument
         _mouseUp?.Remove();
         _change = root.AddEventListener("change", OnChange);
         _blur = root.AddEventListener("blur", OnBlur, inCapturePhase: true);
-        _mouseUp = root.AddEventListener("mouseup", _ => Workspace.Session.Active?.History.EndMerge());
+        _mouseUp = root.AddEventListener("mouseup", OnMouseUp);
         AttachSignals(document);
+        Rebuild();
+    }
+
+    private void OnMouseUp(RmlEvent e)
+    {
+        (EditContext?.History ?? Workspace.Session.Active?.History)?.EndMerge();
+        if (Workspace.FileDrag is { } file && TryRow(e.Target, out var row))
+            DropFile(row, file);
+    }
+
+    /// <summary>
+    /// A file dragged from the FileSystem panel onto row <paramref name="row"/>: a resource row takes the loaded resource
+    /// (when its type fits the slot), a file path row takes the project path. False when the row cannot take it.
+    /// </summary>
+    public bool DropFile(int row, string file)
+    {
+        Workspace.EndFileDrag();
+        if ((uint)row >= (uint)_rows.Count)
+            return false;
+        var p = _rows[row].Property;
+        if (p.Kind is PropertyEditorKind.FilePath)
+        {
+            SetValue(p, ProjectRelative(file), null);
+            return true;
+        }
+
+        if (p.Kind != PropertyEditorKind.Resource)
+            return false;
+        Resource resource;
+        try
+        {
+            resource = ResourceLoader.Load(AssetDatabase.Current.ToProjectPath(file));
+        }
+        catch (Exception ex) when (EditorCommands.IsRecoverable(ex))
+        {
+            Log.Warning($"[Editor] {Path.GetFileName(file)} is not a resource ({ex.Message}).");
+            return false;
+        }
+
+        if (p.ResourceType is { } type && !type.IsInstanceOfType(resource))
+        {
+            resource.Release();
+            Log.Warning($"[Editor] {Path.GetFileName(file)} is a {resource.GetType().Name}; {p.Label} takes a {type.Name}.");
+            return false;
+        }
+
+        SetValue(p, resource, null);
+        return true;
+    }
+
+    /// <summary>Forgets every inspected object (before a code reload unloads game types).</summary>
+    public void ReleaseReferences()
+    {
+        _expanded.Clear();
+        _rows.Clear();
+        _model = null;
+        _target = null;
+        _targets = [];
+        _signalRows = [];
         Rebuild();
     }
 
@@ -101,6 +160,12 @@ public sealed partial class InspectorPanel : EditorDocument
     {
         _rebuildPending = false;
         var scene = Workspace.Session.Active;
+        if (_resource is { } resource)
+        {
+            RebuildResource(resource, scene);
+            return;
+        }
+
         _targets = SelectedTargets(scene);
         var node = _targets.Count > 0 ? (Node)_targets[^1] : null;
         _target = node;
@@ -130,6 +195,24 @@ public sealed partial class InspectorPanel : EditorDocument
     /// <summary>The body shown without a selection.</summary>
     public const string EmptyRml =
         "<div class=\"empty\"><span class=\"icon icon-lg icon-pointer icon-muted\"></span><div>Select a node to edit its properties.</div></div>";
+
+    private void RebuildResource(EditedResource resource, EditedScene? scene)
+    {
+        _targets = [resource.Resource];
+        _target = resource.Resource;
+        _scene = scene;
+        _rows.Clear();
+        _model = InspectorModel.Build(resource.Resource);
+        RebuildSignals();
+        if (!IsLoaded || Document.GetElementById("inspector-body") is not { IsNull: false } body)
+            return;
+        var rml = new StringBuilder(4096);
+        AppendResourceHeader(rml, resource);
+        if (_model.CustomInspector?.GetHeaderRml(resource.Resource) is { } custom)
+            rml.Append(custom);
+        AppendSections(rml, _model, 0);
+        body.SetInnerRml(rml.ToString());
+    }
 
     // The selection as inspector targets (nodes that still exist), in selection order: the primary is last.
     private static List<object> SelectedTargets(EditedScene? scene)
@@ -470,8 +553,11 @@ public sealed partial class InspectorPanel : EditorDocument
     /// <summary>The scene changed (edit, undo, redo): update values in place, or rebuild when the structure changed.</summary>
     public void OnSceneEdited()
     {
+        if (_resource is not null)
+            return; // a resource file is inspected; its own history refreshes it
         var scene = Workspace.Session.Active;
-        if (!ReferenceEquals(scene?.Selection.Primary, _target) || _rebuildPending ||
+        // A custom inspector's header shows values too: regenerate it with the rows.
+        if (!ReferenceEquals(scene?.Selection.Primary, _target) || _rebuildPending || _model?.CustomInspector is not null ||
             (scene is not null && !SameTargets(_targets, scene.Selection.Nodes)))
         {
             Rebuild();
@@ -682,8 +768,10 @@ public sealed partial class InspectorPanel : EditorDocument
         var action = actionElement.GetAttribute("data-action") ?? "";
         if (!TryRow(actionElement, out var row))
         {
-            if (_model?.CustomInspector is { } custom && _target is not null && Workspace.Session.Active is { } scene)
-                custom.OnAction(_target, action, scene);
+            if (HandleResourceAction(action))
+                return;
+            if (_model?.CustomInspector is { } custom && _target is not null && EditContext is { } context)
+                custom.OnAction(_target, action, context);
             return;
         }
 
@@ -844,11 +932,11 @@ public sealed partial class InspectorPanel : EditorDocument
     // One value per edited object (multi-selection: one undo step for all of them).
     private void SetValueEach(InspectorProperty p, Func<object, object?> valueFor, string? mergeKey)
     {
-        if (_scene is not { } scene || !Workspace.Session.Scenes.Contains(scene))
+        if (EditContext is not { } context)
             return;
-        if (!p.IsMulti)
+        if (!p.IsMulti || context is not EditedScene scene)
         {
-            scene.SetProperty(p.Target, p.Info, valueFor(p.Target), mergeKey);
+            context.SetProperty(p.Target, p.Info, valueFor(p.Target), mergeKey);
             return;
         }
 

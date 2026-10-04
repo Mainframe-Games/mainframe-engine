@@ -153,6 +153,16 @@
         }
         .sig-conn .grow { overflow: hidden; }
         .sig-flags { color: #8b93a5; margin-left: 4dp; }
+        .res-file { display: block; flex: 1 1 auto; font-weight: bold; color: #e8ebf2; }
+        .insp-name-row button { width: 24dp; padding: 0dp; margin-left: 4dp; }
+        .mixer { display: block; margin: 6dp 8dp; padding: 6dp; background-color: #1b1d23; border: 1dp #2a2d36; border-radius: 4dp; }
+        .mixer-title { display: flex; flex-direction: row; align-items: center; height: 24dp; font-weight: bold; color: #e8ebf2; }
+        .mixer-title button { margin-left: auto; width: 22dp; padding: 0dp; }
+        .mixer-bus { display: flex; flex-direction: row; align-items: center; height: 26dp; border-top: 1dp #23262e; }
+        .mixer-name { display: block; width: 70dp; font-weight: bold; white-space: nowrap; overflow: hidden; }
+        .mixer-send { display: block; flex: 1 1 auto; color: #8b93a5; font-size: 11dp; white-space: nowrap; overflow: hidden; }
+        .mixer-db { display: block; width: 56dp; text-align: center; font-size: 11dp; }
+        .mixer-bus button { width: 20dp; height: 20dp; line-height: 20dp; padding: 0dp; margin-left: 2dp; }
     </style>
 </head>
 <body class="panel-doc">

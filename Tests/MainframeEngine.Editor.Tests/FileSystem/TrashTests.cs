@@ -19,7 +19,10 @@ public sealed class TrashTests : IDisposable
     public void MacTrashMovesAFileToTheFinderTrash()
     {
         Assert.SkipUnless(OperatingSystem.IsMacOS(), "The Finder trash exists on macOS only.");
-        // Left in the user's Trash (clearly named); the test never deletes anything permanently.
+        // Opt-in: it leaves a small, clearly named file in the user's Trash (nothing is ever deleted permanently), so a
+        // plain `just test` does not litter it. Run with MAINFRAME_TEST_SYSTEM_TRASH=1 to check the real trash.
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("MAINFRAME_TEST_SYSTEM_TRASH") == "1",
+            "Set MAINFRAME_TEST_SYSTEM_TRASH=1 to move a test file to the real Finder trash.");
         var file = Path.Combine(_temp, $"mf-trash-test-{Guid.NewGuid():N}.txt");
         File.WriteAllText(file, "Mainframe editor trash test; safe to delete.");
 

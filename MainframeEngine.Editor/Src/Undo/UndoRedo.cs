@@ -180,6 +180,18 @@ public sealed class UndoRedo
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// The scene differs from its file although the history does not say so (a scene restored after a code reload
+    /// with unsaved changes): dirty until the next <see cref="MarkSaved"/>.
+    /// </summary>
+    public void MarkUnsaved()
+    {
+        if (!_savedReachable)
+            return;
+        _savedReachable = false;
+        Changed?.Invoke();
+    }
+
     /// <summary>Drops the whole history (keeping the scene as it is); the save point is lost unless it is the current state.</summary>
     public void Clear()
     {

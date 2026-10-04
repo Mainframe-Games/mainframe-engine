@@ -3,19 +3,106 @@
     <title>FileSystem</title>
     <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        .tools { display: flex; flex-direction: row; flex: 0 0 auto; }
+        .tools button { width: 22dp; padding: 0dp; margin-left: 2dp; }
+        .fs-path {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            flex: 0 0 auto;
+            height: 24dp;
+            padding: 0dp 6dp;
+            border-bottom: 1dp #2a2d36;
+            color: #b4bccc;
+            font-size: 11dp;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .fs-path button { width: 20dp; padding: 0dp; margin: 0dp 6dp 0dp 0dp; }
+        .fs-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 22dp;
+            padding-right: 6dp;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .fs-row:hover { background-color: #2a2e38; }
+        .fs-row.selected { background-color: #1d4ed8; color: #ffffff; }
+        .fs-row.drop { background-color: #1e3a8a; }
+        .fs-row .fs-name { flex: 1 1 auto; overflow: hidden; }
+        .indent { display: inline-block; height: 1dp; }
+        .fs-grid { display: flex; flex-direction: row; flex-wrap: wrap; padding: 4dp; }
+        .tile {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 76dp;
+            height: 82dp;
+            margin: 2dp;
+            padding: 4dp 2dp;
+            border-radius: 4dp;
+            cursor: pointer;
+        }
+        .tile:hover { background-color: #2a2e38; }
+        .tile.selected { background-color: #1d4ed8; color: #ffffff; }
+        .tile.drop { background-color: #1e3a8a; }
+        .tile .preview { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 52dp; height: 52dp; }
+        .tile img { max-width: 52dp; max-height: 52dp; }
+        .tile .fs-name { display: block; width: 72dp; margin-top: 3dp; font-size: 11dp; text-align: center; white-space: nowrap; overflow: hidden; }
+        .badge-error { image-color: #f87171; color: #f87171; }
+        .badge-warn { image-color: #fbbf24; color: #fbbf24; }
+        .badge-unsaved { image-color: #93c5fd; color: #93c5fd; }
+        .fs-empty { padding: 14dp; color: #8b93a5; line-height: 18dp; }
+    </style>
 </head>
-<body class="panel-doc">
+<body class="panel-doc" data-model="filesystem">
     <div class="panel-header">
         <span class="icon icon-folder title-icon" style="margin-right: 6dp; image-color: #8b93a5;"></span>
         <span class="panel-title">FileSystem</span>
-    </div>
-    <div class="panel-body">
-        <div class="panel-placeholder">
-            <span class="icon icon-lg icon-folder-cog icon-muted" style="display: block; margin-bottom: 8dp;"></span>
-            The project's <span class="mono">Content/</span> browser arrives with projects (E4).
-            <br/><br/>
-            Project folder:<br/><span class="mono" id="project-root">none</span>
+        <div class="tools" data-if="has_project">
+            <button class="small icon-button" id="fs-new-folder" data-command="fs.new_folder" data-tooltip="New Folder — create a folder in the selected one"><span class="icon icon-folder-plus icon-sm"></span></button>
+            <button class="small icon-button" id="fs-new-scene" data-command="fs.new_scene" data-tooltip="New Scene — a 3D scene in the selected folder (right-click for 2D)"><span class="icon icon-movie icon-sm"></span></button>
+            <button class="small icon-button" id="fs-new-resource" data-command="fs.new_resource" data-tooltip="New Resource — save a new resource (.mres) in the selected folder"><span class="icon icon-file-plus icon-sm"></span></button>
+            <button class="small icon-button" id="fs-view-tree" data-class-active="view == 0" data-event-click="set_view(0)" data-tooltip="Tree view — the whole project"><span class="icon icon-list-tree icon-sm"></span></button>
+            <button class="small icon-button" id="fs-view-list" data-class-active="view == 1" data-event-click="set_view(1)" data-tooltip="List view — the current folder"><span class="icon icon-list icon-sm"></span></button>
+            <button class="small icon-button" id="fs-view-grid" data-class-active="view == 2" data-event-click="set_view(2)" data-tooltip="Grid view — the current folder with thumbnails"><span class="icon icon-layout-grid icon-sm"></span></button>
+            <button class="small icon-button" id="fs-meta" data-class-active="show_meta" data-event-click="toggle_meta()" data-tooltip="Show .meta files — the UID sidecars the editor creates"><span class="icon icon-file-info icon-sm"></span></button>
         </div>
+    </div>
+    <div class="fs-path" data-if="has_project &amp;&amp; view != 0">
+        <button class="small icon-button" id="fs-up" data-event-click="up()" data-tooltip="Up — the parent folder"><span class="icon icon-arrow-up icon-sm"></span></button>
+        <span class="mono">{{folder}}</span>
+    </div>
+    <div class="panel-body" id="fs-body" data-if="has_project &amp;&amp; view != 2">
+        <div data-for="r : rows" data-attr-class="'fs-row' + (r.selected ? ' selected' : '') + (r.drop ? ' drop' : '')"
+             data-attr-data-tooltip="r.tip"
+             data-event-mousedown="press(r.index)" data-event-mousemove="hover(r.index)" data-event-mouseup="release(r.index)"
+             data-event-dblclick="activate(r.index)">
+            <span class="indent" data-style-width="r.indent"></span>
+            <span class="arrow" data-if="view == 0" data-class-collapsed="!r.expanded" data-class-none="!r.dir || !r.has_children" data-event-mousedown="toggle(r.index)"></span>
+            <span data-attr-class="r.icon"></span>
+            <span class="fs-name">{{r.name}}</span>
+            <span data-attr-class="r.badge"></span>
+        </div>
+    </div>
+    <div class="panel-body fs-grid" id="fs-grid" data-if="has_project &amp;&amp; view == 2">
+        <div data-for="r : rows" data-attr-class="'tile' + (r.selected ? ' selected' : '') + (r.drop ? ' drop' : '')"
+             data-attr-data-tooltip="r.tip"
+             data-event-mousedown="press(r.index)" data-event-mousemove="hover(r.index)" data-event-mouseup="release(r.index)"
+             data-event-dblclick="activate(r.index)">
+            <div class="preview">
+                <img data-if="r.thumb != ''" data-attr-src="r.thumb"/>
+                <span data-if="r.thumb == ''" data-attr-class="r.icon"></span>
+            </div>
+            <span class="fs-name">{{r.name}}</span>
+        </div>
+    </div>
+    <div class="fs-empty" data-if="!has_project">
+        <span class="icon icon-folder-open icon-lg"></span><br/>
+        No project is open. Open or create one from the Project menu (or the Project Manager).
     </div>
 </body>
 </rml>

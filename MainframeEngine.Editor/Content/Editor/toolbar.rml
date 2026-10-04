@@ -26,6 +26,28 @@
         .play button.tool-button { width: 32dp; }
         #play .icon { image-color: #4ade80; }
         #play.disabled .icon, #pause.disabled .icon, #stop.disabled .icon { image-color: #4b5263; }
+        .play button.attention { border-color: #f59e0b; }
+        .play button.busy { background-color: #3a2f12; border-color: #b45309; }
+        #instances { display: flex; flex-direction: row; align-items: center; }
+        .instance {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 22dp;
+            margin-left: 4dp;
+            padding: 0dp 6dp 0dp 4dp;
+            border: 1dp #3b3f4b;
+            border-radius: 11dp;
+            background-color: #23262e;
+            font-size: 11dp;
+            cursor: pointer;
+        }
+        .instance:hover { border-color: #4b5263; }
+        .instance.running { border-color: #15803d; }
+        .instance.paused { border-color: #b45309; }
+        .instance.crashed { border-color: #b91c1c; }
+        .instance.exited { color: #6b7488; }
+        #play-status { margin-left: 6dp; font-size: 11dp; white-space: nowrap; }
     </style>
 </head>
 <body class="panel-doc toolbar">
@@ -46,9 +68,13 @@
     </div>
     <div class="spacer"></div>
     <div class="group play">
-        <button id="play" class="tool-button disabled" data-tooltip="Play — run the game (arrives with projects, E4)"><span class="icon icon-player-play-filled"></span></button>
-        <button id="pause" class="tool-button disabled" data-tooltip="Pause — pause the running game (arrives with projects, E4)"><span class="icon icon-player-pause"></span></button>
-        <button id="stop" class="tool-button disabled" data-tooltip="Stop — stop the running game (arrives with projects, E4)"><span class="icon icon-player-stop"></span></button>
+        <button id="play" class="tool-button" data-command="play.main" data-tooltip="Play (F5) — build the project and run its main scene"><span class="icon icon-player-play-filled"></span></button>
+        <button id="play-scene" class="tool-button" data-command="play.scene" data-tooltip="Play Scene (F6) — save and run the open scene"><span class="icon icon-movie"></span></button>
+        <button id="pause" class="tool-button disabled" data-command="play.pause" data-tooltip="Pause (F7) — pause or resume the running game"><span class="icon icon-player-pause"></span></button>
+        <button id="stop" class="tool-button disabled" data-command="play.stop" data-tooltip="Stop (F8) — stop every running game"><span class="icon icon-player-stop"></span></button>
+        <button id="build-reload" class="tool-button" data-command="project.build_reload" data-tooltip="Build &amp; Reload (Ctrl+Shift+B) — compile the game's C# and reload it in the editor"><span class="icon icon-hammer"></span></button>
+        <div id="instances"></div>
+        <span id="play-status" class="muted"></span>
     </div>
     <div class="spacer"></div>
     <span id="stats" class="mono" data-tooltip="Frame Rate — editor frames per second and frame time"></span>

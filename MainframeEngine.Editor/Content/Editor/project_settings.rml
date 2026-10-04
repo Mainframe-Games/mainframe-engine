@@ -1,0 +1,111 @@
+<rml>
+<head>
+    <title>Project Settings</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 860dp; height: 600dp; margin-left: -430dp; margin-top: -300dp; }
+        .ps-columns { display: flex; flex-direction: row; flex: 1 1 auto; }
+        #ps-nav { display: block; flex: 0 0 auto; width: 170dp; padding: 6dp 0dp; border-right: 1dp #2f333d; }
+        .ps-nav { display: flex; flex-direction: row; align-items: center; height: 28dp; padding: 0dp 12dp; cursor: pointer; color: #c9cedb; }
+        .ps-nav .icon { margin-right: 8dp; }
+        .ps-nav:hover { background-color: #2a2e38; }
+        .ps-nav.selected { background-color: #1d4ed8; color: #ffffff; }
+        #ps-body { display: block; flex: 1 1 auto; padding: 8dp 16dp; overflow-y: auto; }
+        .ps-section-title { display: block; font-size: 15dp; font-weight: bold; color: #e8ebf2; margin: 2dp 0dp 10dp 0dp; }
+        .ps-row { display: flex; flex-direction: row; align-items: center; min-height: 28dp; }
+        .ps-label { display: block; flex: 0 0 auto; width: 200dp; color: #b4bccc; font-size: 12dp; }
+        .ps-editor { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
+        .ps-editor input.text { flex: 1 1 auto; width: 60dp; }
+        .ps-editor select { flex: 1 1 auto; width: 60dp; }
+        .ps-editor button { width: 22dp; padding: 0dp; margin-left: 4dp; }
+        .ps-add { display: flex; flex-direction: row; align-items: center; margin: 4dp 0dp 10dp 0dp; }
+        .ps-add input.text { flex: 1 1 auto; width: 60dp; margin-right: 4dp; }
+        .ps-add button { width: 24dp; padding: 0dp; }
+        .ps-action { display: block; margin-bottom: 8dp; padding: 6dp 8dp; background-color: #1b1d23; border: 1dp #2a2d36; border-radius: 4dp; }
+        .ps-action-head { display: flex; flex-direction: row; align-items: center; }
+        .ps-action-head .icon { margin-right: 6dp; }
+        .ps-action-name { flex: 1 1 auto; width: 80dp; font-weight: bold; }
+        input.text.ps-deadzone { width: 48dp; margin-right: 6dp; }
+        .ps-action-head button { width: 22dp; padding: 0dp; margin-left: 3dp; }
+        .ps-small { color: #8b93a5; font-size: 11dp; margin: 0dp 6dp; }
+        .ps-help { display: block; margin: 0dp 0dp 8dp 0dp; }
+        .ps-bindings { display: flex; flex-direction: row; flex-wrap: wrap; margin-top: 6dp; }
+        .chip {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 22dp;
+            margin: 0dp 4dp 4dp 0dp;
+            padding: 0dp 2dp 0dp 6dp;
+            border-radius: 11dp;
+            background-color: #262931;
+            border: 1dp #3b3f4b;
+            font-family: "Roboto Mono";
+            font-size: 11dp;
+        }
+        .chip .icon { margin-right: 4dp; }
+        .chip button { width: 18dp; height: 18dp; line-height: 18dp; padding: 0dp; margin-left: 4dp; border-radius: 9dp; }
+        .ps-autoload { display: flex; flex-direction: row; align-items: center; height: 28dp; }
+        .ps-autoload .icon { margin: 0dp 6dp; }
+        .ps-autoload-name { display: block; width: 140dp; font-weight: bold; }
+        .ps-autoload-what { display: block; flex: 1 1 auto; color: #b4bccc; font-size: 11dp; }
+        .ps-autoload button { width: 22dp; padding: 0dp; margin-left: 3dp; }
+        .empty { padding: 10dp 0dp; color: #8b93a5; }
+        .ps-top { display: flex; flex-direction: row; align-items: center; }
+        .ps-top .dialog-title { flex: 1 1 auto; }
+        .ps-tools { display: flex; flex-direction: row; align-items: center; padding: 0dp 10dp; background-color: #262931; border-bottom: 1dp #2f333d; height: 37dp; }
+        .ps-tools button { width: 26dp; padding: 0dp; }
+        #ps-state { margin-left: 8dp; color: #8b93a5; font-size: 11dp; }
+        #ps-capture {
+            position: absolute;
+            left: 0dp;
+            top: 0dp;
+            width: 100%;
+            height: 100%;
+            background-color: #000000a0;
+            border-radius: 6dp;
+            tab-index: auto;
+            pointer-events: auto;
+        }
+        #ps-capture-box {
+            position: absolute;
+            left: 50%;
+            top: 45%;
+            width: 420dp;
+            margin-left: -210dp;
+            padding: 18dp;
+            background-color: #1e3a8a;
+            border: 1dp #3b82f6;
+            border-radius: 6dp;
+            color: #ffffff;
+            text-align: center;
+            line-height: 18dp;
+        }
+    </style>
+</head>
+<body class="backdrop">
+    <div class="dialog" id="dialog">
+        <div class="ps-top">
+            <div class="dialog-title"><span class="icon icon-sm icon-settings"></span> Project Settings</div>
+            <div class="ps-tools">
+                <button id="ps-undo" class="small icon-button" data-tooltip="Undo (Ctrl+Z) — revert the last settings change"><span class="icon icon-sm icon-arrow-back-up"></span></button>
+                <button id="ps-redo" class="small icon-button" data-tooltip="Redo (Ctrl+Shift+Z)"><span class="icon icon-sm icon-arrow-forward-up"></span></button>
+                <span id="ps-state">Saved</span>
+            </div>
+        </div>
+        <div class="ps-columns">
+            <div id="ps-nav"></div>
+            <div id="ps-body"></div>
+        </div>
+        <div class="dialog-error" id="ps-error" style="padding: 0dp 14dp;"></div>
+        <div class="dialog-buttons">
+            <button id="ps-close">Close</button>
+            <button class="primary" id="ps-save">Save</button>
+        </div>
+        <div id="ps-capture" class="hidden">
+            <div id="ps-capture-box"><span class="icon icon-lg icon-keyboard"></span><br/><span id="ps-capture-text"></span></div>
+        </div>
+    </div>
+</body>
+</rml>

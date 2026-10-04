@@ -44,6 +44,9 @@ public interface IEditorHost
     /// </summary>
     bool ReportsModifiers => false;
 
+    /// <summary>Whether the primary mouse button is held (ends file drags released outside every drop target).</summary>
+    bool PrimaryMouseDown => false;
+
     void SetTitle(string title);
 
     /// <summary>Closes the editor (after the workspace has dealt with unsaved changes).</summary>

@@ -1,0 +1,136 @@
+<rml>
+<head>
+    <title>Project Manager</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        body.pm {
+            position: absolute;
+            left: 0dp;
+            top: 0dp;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: #15171c;
+            pointer-events: auto;
+        }
+        .pm-header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            flex: 0 0 auto;
+            height: 64dp;
+            padding: 0dp 22dp;
+            background-color: #172554;
+            border-bottom: 1dp #1e3a8a;
+        }
+        #pm-logo { width: 40dp; height: 40dp; margin-right: 14dp; }
+        .pm-title { display: block; font-size: 20dp; font-weight: bold; color: #ffffff; letter-spacing: 0.5dp; }
+        .pm-subtitle { display: block; font-size: 12dp; color: #93c5fd; }
+        .pm-main { display: flex; flex-direction: row; flex: 1 1 auto; padding: 16dp 22dp; }
+        .pm-left { display: flex; flex-direction: column; flex: 1 1 auto; }
+        .pm-search { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin-bottom: 8dp; }
+        .pm-search input.text { flex: 1 1 auto; width: 100dp; height: 26dp; }
+        .pm-search .icon { margin-right: 6dp; }
+        .pm-list {
+            display: block;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            background-color: #1b1d23;
+            border: 1dp #2f333d;
+            border-radius: 4dp;
+        }
+        .pm-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 52dp;
+            padding: 0dp 12dp;
+            border-bottom: 1dp #23262e;
+            cursor: pointer;
+        }
+        .pm-row:hover { background-color: #23262e; }
+        .pm-row.selected { background-color: #1e3a8a; }
+        .pm-row .icon { margin-right: 12dp; }
+        .pm-info { display: flex; flex-direction: column; flex: 1 1 auto; overflow: hidden; }
+        .pm-name { display: block; font-size: 14dp; font-weight: bold; color: #e8ebf2; }
+        .pm-folder { display: block; font-size: 11dp; color: #8b93a5; white-space: nowrap; overflow: hidden; }
+        .pm-row.missing .pm-name { color: #8b93a5; }
+        .pm-row.missing .pm-folder { color: #f87171; }
+        .pm-when { flex: 0 0 auto; font-size: 11dp; color: #8b93a5; margin-left: 12dp; }
+        .pm-empty { padding: 40dp 20dp; text-align: center; color: #8b93a5; line-height: 20dp; }
+        .pm-actions { display: flex; flex-direction: column; flex: 0 0 auto; width: 210dp; margin-left: 18dp; }
+        .pm-actions button {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 32dp;
+            line-height: 32dp;
+            margin: 0dp 0dp 8dp 0dp;
+            padding: 0dp 12dp;
+            text-align: left;
+            font-size: 13dp;
+        }
+        .pm-actions button .icon { margin-right: 10dp; }
+        .pm-spacer { flex: 1 1 auto; }
+        .pm-sdk {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            padding: 8dp 10dp;
+            border-radius: 4dp;
+            font-size: 11dp;
+            line-height: 15dp;
+            background-color: #1b1d23;
+            border: 1dp #2f333d;
+            color: #b4bccc;
+        }
+        .pm-sdk.bad { background-color: #2a1414; border-color: #7f1d1d; color: #fca5a5; }
+        .pm-sdk .icon { margin-right: 8dp; }
+        .pm-link { color: #93c5fd; cursor: pointer; text-decoration: underline; }
+    </style>
+</head>
+<body class="pm" data-model="project_manager">
+    <div class="pm-header">
+        <img id="pm-logo" src="/Content/Brand/logo-256.png"/>
+        <div>
+            <span class="pm-title">Mainframe Engine</span>
+            <span class="pm-subtitle">Projects · {{version}}</span>
+        </div>
+    </div>
+    <div class="pm-main">
+        <div class="pm-left">
+            <div class="pm-search">
+                <span class="icon icon-search"></span>
+                <input type="text" class="text" id="pm-query" data-value="query" placeholder="Filter projects"/>
+            </div>
+            <div class="pm-list" id="pm-list">
+                <div data-for="p : projects" data-attr-class="'pm-row' + (p.selected ? ' selected' : '') + (p.valid ? '' : ' missing')"
+                     data-event-click="select(p.index)" data-event-dblclick="activate(p.index)">
+                    <span data-attr-class="p.valid ? 'icon icon-lg icon-folder-code' : 'icon icon-lg icon-folder-x'"></span>
+                    <div class="pm-info">
+                        <span class="pm-name">{{p.name}}</span>
+                        <span class="pm-folder">{{p.folder}}</span>
+                    </div>
+                    <span class="pm-when">{{p.when}}</span>
+                </div>
+                <div class="pm-empty" data-if="count == 0">
+                    <span class="icon icon-lg icon-folders"></span><br/>
+                    No projects yet.<br/>Create a new project, or open the folder of an existing one.
+                </div>
+            </div>
+        </div>
+        <div class="pm-actions">
+            <button class="primary" id="pm-new" data-event-click="new()" data-tooltip="New Project — create a game from the mfgame template"><span class="icon icon-plus"></span>New Project</button>
+            <button id="pm-browse" data-event-click="browse()" data-tooltip="Open Folder — open a project folder (with project.mfproj)"><span class="icon icon-folder-open"></span>Open Folder…</button>
+            <button id="pm-open" data-class-disabled="!has_selection" data-event-click="open()" data-tooltip="Open — open the selected project (Enter)"><span class="icon icon-player-play"></span>Open</button>
+            <button id="pm-remove" data-class-disabled="!has_selection" data-event-click="remove()" data-tooltip="Remove from List — forget the selected project (its files stay)"><span class="icon icon-trash-x"></span>Remove from List</button>
+            <div class="pm-spacer"></div>
+            <div data-attr-class="sdk_ok ? 'pm-sdk' : 'pm-sdk bad'" id="pm-sdk">
+                <span data-attr-class="sdk_ok ? 'icon icon-sm icon-circle-check' : 'icon icon-sm icon-alert-triangle'"></span>
+                <div>{{sdk_text}}<br/><span class="pm-link" data-if="!sdk_ok" data-event-click="download()">Download .NET</span></div>
+            </div>
+        </div>
+    </div>
+</body>
+</rml>

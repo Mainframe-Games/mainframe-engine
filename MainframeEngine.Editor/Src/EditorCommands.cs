@@ -116,7 +116,22 @@ public sealed class EditorCommands
                 return true;
             case "help.shortcuts": ShowShortcuts(); return true;
             case "help.about": ShowAbout(); return true;
-            default: return false;
+            case "play.main": _workspace.Play.PlayMain(); return true;
+            case "play.scene": _workspace.Play.PlayCurrent(); return true;
+            case "play.pause": _workspace.Play.TogglePause(); return true;
+            case "play.stop": _workspace.Play.Stop(); return true;
+            case "play.another": _workspace.Play.PlayAnotherInstance(); return true;
+            case "play.reload_scene": _workspace.Play.ReloadScene(); return true;
+            case "project.build_reload": _workspace.Project.BuildAndReload(); return true;
+            case "project.reload_code": _workspace.Project.ReloadGameAssembly(); return true;
+            case "project.open": ChooseProjectFolder(); return true;
+            case "project.new": _workspace.NewProject.Open(); return true;
+            case "project.manager": ShowProjectManager(); return true;
+            case "project.settings": _workspace.ProjectSettings.Open(); return true;
+            case "project.close": CloseProject(); return true;
+            case "editor.settings": _workspace.EditorSettingsDialog.Open(); return true;
+            default:
+                return id.StartsWith("fs.", StringComparison.Ordinal) && _workspace.FileSystem.RunCommand(id);
         }
     }
 
@@ -288,6 +303,130 @@ public sealed class EditorCommands
         });
     }
 
+    // ── Projects ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Opens the project in <paramref name="directory"/>: asks to save unsaved scenes, closes them and the previous
+    /// project's code, then opens it (building its game code when needed) and its main scene, behind the splash.
+    /// </summary>
+    public void OpenProject(string directory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        AfterUnsavedScenes("Open Project", () =>
+            _workspace.RunWithSplash($"Opening {Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar))}…", () => OpenProjectNow(directory, null)));
+    }
+
+    /// <summary>Opens a project at once (no questions): start-up and <see cref="OpenProject"/>; then <paramref name="scene"/> or the main scene.</summary>
+    public void OpenProjectNow(string directory, string? scene)
+    {
+        _workspace.ProjectManager.Close();
+        _workspace.Play.Stop();
+        Session.CloseAll();
+        _workspace.Inspector.CloseResource();
+        try
+        {
+            _workspace.Project.Open(directory, onReady: () => OpenStartScene(scene));
+        }
+        catch (Exception e) when (IsRecoverable(e))
+        {
+            ReportError($"Could not open the project at {directory}", e);
+            if (Session.Scenes.Count == 0 && Session.ProjectRoot is null)
+                _workspace.ProjectManager.Open();
+        }
+    }
+
+    // The requested scene, else the project's main scene, else an empty scene.
+    private void OpenStartScene(string? scene)
+    {
+        var path = scene ?? _workspace.Project.MainScenePath();
+        if (path is not null)
+        {
+            try
+            {
+                Session.Open(path);
+                return;
+            }
+            catch (Exception e) when (IsRecoverable(e))
+            {
+                Log.Error($"[Editor] Could not open '{path}': {e.Message}");
+            }
+        }
+
+        if (Session.Scenes.Count == 0)
+            Session.NewScene();
+    }
+
+    private void ChooseProjectFolder()
+    {
+        var start = Session.ProjectRoot is { } root && Path.GetDirectoryName(root) is { } parent
+            ? parent
+            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        _workspace.FilePicker.Show(new FilePickerModel(FilePickerMode.Folder, start, []), "Open Project Folder", "Open", folder =>
+        {
+            if (!File.Exists(Path.Combine(folder, ProjectSettings.FileName)))
+            {
+                _workspace.Message.Show(new MessageRequest
+                {
+                    Title = "Not a Project",
+                    Message = $"{folder} has no {ProjectSettings.FileName}.",
+                    Buttons = ["OK"],
+                });
+                return;
+            }
+
+            OpenProject(folder);
+        });
+    }
+
+    private void ShowProjectManager() => AfterUnsavedScenes("Project Manager", () =>
+    {
+        _workspace.Play.Stop();
+        Session.CloseAll();
+        _workspace.Inspector.CloseResource();
+        _workspace.Project.Close();
+        _workspace.ProjectManager.Open();
+    });
+
+    private void CloseProject() => AfterUnsavedScenes("Close Project", () =>
+    {
+        _workspace.Play.Stop();
+        Session.CloseAll();
+        _workspace.Inspector.CloseResource();
+        _workspace.Project.Close();
+        _workspace.ProjectManager.Open();
+    });
+
+    // Runs then once unsaved scenes were saved or discarded (Save All / Don't Save / Cancel).
+    private void AfterUnsavedScenes(string title, Action then)
+    {
+        var dirty = Session.Scenes.Where(s => s.IsDirty).ToArray();
+        if (dirty.Length == 0)
+        {
+            then();
+            return;
+        }
+
+        _workspace.Message.Show(new MessageRequest
+        {
+            Title = title,
+            Message = $"Save the changes to {string.Join(", ", dirty.Select(s => s.DisplayName))} first?",
+            Buttons = ["Save All", "Don't Save", "Cancel"],
+            DefaultButton = 0,
+            CancelButton = 2,
+            Callback = (button, _) =>
+            {
+                if (button == 1)
+                    then();
+                else if (button == 0)
+                    SaveAll(saved =>
+                    {
+                        if (saved)
+                            then();
+                    });
+            },
+        });
+    }
+
     // ── Nodes ────────────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>The Add Node dialog: every registered node type as an inheritance tree (abstract types are structure only).</summary>
@@ -424,6 +563,10 @@ public sealed class EditorCommands
                 new MenuItem("New Scene", "file.new", "Ctrl+N", Icon: "file-plus"),
                 new MenuItem("Open Scene…", "file.open", "Ctrl+O", Icon: "folder-open"),
                 MenuItem.Separator,
+                new MenuItem("New Project…", "project.new", Icon: "square-plus"),
+                new MenuItem("Open Project…", "project.open", Icon: "folder-open"),
+                new MenuItem("Project Manager…", "project.manager", Icon: "folders"),
+                MenuItem.Separator,
                 new MenuItem("Save", "file.save", "Ctrl+S", scene is not null, Icon: "device-floppy"),
                 new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", scene is not null, Icon: "file-export"),
                 MenuItem.Separator,
@@ -453,6 +596,27 @@ public sealed class EditorCommands
                     Icon: scene?.Camera.Is2D == true ? "box" : "square"),
                 MenuItem.Separator,
                 new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G", Icon: "grid-3x3"),
+            ],
+            "project" =>
+            [
+                new MenuItem("Project Settings…", "project.settings", null, Session.Project is not null),
+                MenuItem.Separator,
+                new MenuItem("Build & Reload Code", "project.build_reload", "Ctrl+Shift+B", _workspace.Project.GameLibraryProject is not null && !_workspace.Project.IsBuilding),
+                new MenuItem("Reload Code", "project.reload_code", null, _workspace.Project.IsGameLoaded),
+                MenuItem.Separator,
+                new MenuItem("Editor Settings…", "editor.settings"),
+                MenuItem.Separator,
+                new MenuItem("Close Project", "project.close", null, Session.ProjectRoot is not null),
+            ],
+            "run" =>
+            [
+                new MenuItem("Play", "play.main", "F5", _workspace.Project.LauncherProject is not null),
+                new MenuItem("Play Scene", "play.scene", "F6", _workspace.Project.LauncherProject is not null && scene is not null),
+                new MenuItem("Run Another Instance", "play.another", "Shift+F5", _workspace.Project.LauncherProject is not null),
+                MenuItem.Separator,
+                new MenuItem(_workspace.Play.IsPaused ? "Resume" : "Pause", "play.pause", "F7", _workspace.Play.IsPlaying),
+                new MenuItem("Reload Scene in Game", "play.reload_scene", null, _workspace.Play.IsPlaying),
+                new MenuItem("Stop", "play.stop", "F8", _workspace.Play.IsPlaying),
             ],
             "help" =>
             [
@@ -494,7 +658,8 @@ public sealed class EditorCommands
                   "Ctrl+A add node · Ctrl+Shift+A instance scene · Ctrl+Up/Down move in tree\n" +
                   "Q select · W move · E rotate · R scale · T local/global · Y snap · F frame · G grid\n" +
                   "Viewport: click select · RMB+WASD/QE fly (Shift faster) · Alt+LMB or MMB orbit · Shift+MMB pan · wheel zoom\n" +
-                  "1 / 3 / 7 front, right, top view · F12 developer overlay · F8 UI debugger",
+                  "1 / 3 / 7 front, right, top view · F12 developer overlay · F9 UI debugger\n" +
+                  "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · Ctrl+Shift+B build & reload code",
         Buttons = ["Close"],
     });
 

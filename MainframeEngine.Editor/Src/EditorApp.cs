@@ -89,7 +89,15 @@ public sealed class EditorApp : Engine, IEditorHost
             Audio = new AudioOptions { Enabled = false },
             // Collision shapes are part of what the editor shows.
             DebugCollisionShapes = true,
-            Ui = new UiServerOptions { SourceContentDirectories = UiServerOptions.SourceDirectoriesOf(typeof(EditorApp).Assembly) },
+            Ui = new UiServerOptions
+            {
+                // The accent overlay (Editor Settings) is checked before the editor's own style sheets.
+                SourceContentDirectories = options.Workspace.ThemeOverlayDirectory is { } overlay
+                    ? [overlay, .. UiServerOptions.SourceDirectoriesOf(typeof(EditorApp).Assembly)]
+                    : UiServerOptions.SourceDirectoriesOf(typeof(EditorApp).Assembly),
+                // F8 is Stop (Godot's play keys F5–F8): the RmlUi debugger moves to F9.
+                DebuggerKey = Key.F9,
+            },
         };
     }
 
@@ -200,6 +208,8 @@ public sealed class EditorApp : Engine, IEditorHost
     }
 
     public bool ReportsModifiers => _keyboard is not null;
+
+    public bool PrimaryMouseDown => InputContext.Mice.Count > 0 && InputContext.Mice[0].IsButtonPressed(MouseButton.Left);
 
     public void SetTitle(string title) => Window.Title = title;
 

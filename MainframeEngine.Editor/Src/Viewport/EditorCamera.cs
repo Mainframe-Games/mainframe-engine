@@ -99,6 +99,21 @@ public sealed class EditorCamera
     /// <summary>World position of the camera.</summary>
     public Vector3 Position => Is2D ? new Vector3(Center2D, Depth2D) : Pivot - Forward * Distance;
 
+    /// <summary>Copies the whole view state (3D pose, 2D view, fly speed) from <paramref name="other"/>.</summary>
+    public void CopyFrom(EditorCamera other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        Pivot = other.Pivot;
+        Distance = other.Distance;
+        Yaw = other.Yaw;
+        Pitch = other.Pitch;
+        FieldOfView = other.FieldOfView;
+        FlySpeed = other.FlySpeed;
+        Is2D = other.Is2D;
+        Center2D = other.Center2D;
+        Zoom2D = other.Zoom2D;
+    }
+
     /// <summary>Default view: looking at the origin from above and to the front.</summary>
     public void Reset()
     {

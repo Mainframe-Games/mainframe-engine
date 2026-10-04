@@ -24,6 +24,42 @@ public sealed record EditorWorkspaceOptions
     /// <summary>Where crash recovery copies of unsaved scenes go (default <c>~/.mainframe/recovery</c>).</summary>
     public string RecoveryDirectory { get; init; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "recovery");
+
+    /// <summary>A project folder (holding <c>project.mfproj</c>) to open at start-up; wins over <see cref="InitialScene"/>'s project.</summary>
+    public string? InitialProject { get; init; }
+
+    /// <summary>
+    /// Shows the Project Manager at start-up when neither a project nor a scene is given (the editor executable's
+    /// default; tests and scripted runs open a new scene instead).
+    /// </summary>
+    public bool ShowProjectManager { get; init; }
+
+    /// <summary>
+    /// The recent projects list (the editor executable passes <c>~/.mainframe/recent_projects.json</c>); null keeps it
+    /// in memory (tests, scripted runs).
+    /// </summary>
+    public string? RecentProjectsPath { get; init; }
+
+    /// <summary>
+    /// The editor settings file (the editor executable passes <c>~/.mainframe/editor_settings.json</c>); null uses the
+    /// defaults in memory (tests, scripted runs).
+    /// </summary>
+    public string? EditorSettingsPath { get; init; }
+
+    /// <summary>
+    /// A content folder checked before the editor's own for the generated accent theme (<see cref="EditorTheme"/>); the
+    /// editor app passes it to the UI server. Null disables accent colours other than the default.
+    /// </summary>
+    public string? ThemeOverlayDirectory { get; init; }
+
+    /// <summary>Builds games (default: <c>dotnet build</c>); tests pass a fake.</summary>
+    public IGameBuilder? GameBuilder { get; init; }
+
+    /// <summary>Launches games (default: a process); tests pass a fake.</summary>
+    public IGameLauncher? GameLauncher { get; init; }
+
+    /// <summary>Opens source files (default: the external code editor command); tests record instead.</summary>
+    public Func<System.Diagnostics.ProcessStartInfo, bool>? StartCodeEditor { get; init; }
 }
 
 /// <summary>
@@ -35,7 +71,7 @@ public sealed record EditorWorkspaceOptions
 /// text field has focus). Hosted by <see cref="EditorApp"/>, or headless in tests.
 /// </summary>
 [Tool]
-public sealed class EditorWorkspace : Node
+public sealed partial class EditorWorkspace : Node
 {
     private string _title = "";
     private double _statsTimer;
@@ -54,6 +90,14 @@ public sealed class EditorWorkspace : Node
         Commands = new EditorCommands(this);
         ScenesHost = new Node { Name = "EditedScenes" };
         Session = new EditorSession(ScenesHost);
+        Settings = EditorSettings.Load(Options.EditorSettingsPath);
+        RecentProjects = RecentProjects.Load(Options.RecentProjectsPath);
+        CodeEditor = new CodeEditorLauncher(() => Settings, () => Session.ProjectRoot, Options.StartCodeEditor);
+        var dotnet = DotnetSdk.FindDotnet() ?? "dotnet";
+        Play = new PlayController(this, Options.GameBuilder ?? new DotnetGameBuilder(dotnet), Options.GameLauncher ?? new ProcessGameLauncher(dotnet));
+        Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
+        // Output source links open through the code editor of the Editor Settings.
+        SourceOpener = (file, line) => CodeEditor.Open(file, line);
     }
 
     public IEditorHost Host { get; }
@@ -65,6 +109,21 @@ public sealed class EditorWorkspace : Node
 
     /// <summary>Opens a source file at a line (the Output panel's source links); default <see cref="ExternalEditor.Open"/>.</summary>
     public Func<string, int, bool> SourceOpener { get; set; } = ExternalEditor.Open;
+
+    /// <summary>The editor's preferences (Editor Settings dialog).</summary>
+    public EditorSettings Settings { get; private set; }
+
+    /// <summary>Recently opened projects (Project Manager).</summary>
+    public RecentProjects RecentProjects { get; }
+
+    /// <summary>The open game project: its code (load, build, reload) and watchers.</summary>
+    public ProjectService Project { get; }
+
+    /// <summary>Out-of-process Play.</summary>
+    public PlayController Play { get; }
+
+    /// <summary>Opens source files in the external code editor.</summary>
+    public CodeEditorLauncher CodeEditor { get; }
 
     /// <summary>Mode, space and snapping of the transform gizmo (shared by every tab).</summary>
     public TransformGizmo Gizmo { get; } = new();
@@ -99,7 +158,7 @@ public sealed class EditorWorkspace : Node
 
     /// <summary>True while a modal dialog is open (shortcuts are suspended).</summary>
     public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || TreePicker.Visible || Message.Visible || Splash.Visible ||
-                                SignalDialog.Visible;
+                                SignalDialog.Visible || ProjectDialogOpen;
 
     /// <summary>The modifier keys held (host state, or tracked from key events when the host has none).</summary>
     public EditorModifiers Modifiers => Host.ReportsModifiers && !TrackKeyModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
@@ -147,6 +206,7 @@ public sealed class EditorWorkspace : Node
         DialogLayer.AddChild(TreePicker);
         DialogLayer.AddChild(SignalDialog);
         DialogLayer.AddChild(Message);
+        CreateProjectUi();
 
         // Tooltips: above the dialogs, below the splash; the overlay never takes the mouse.
         TooltipLayer = new UiLayer { Name = "EditorTooltips", Layer = 90 };
@@ -162,6 +222,7 @@ public sealed class EditorWorkspace : Node
         Viewport = new ViewportController(this) { Name = "ViewportController" };
         AddChild(Viewport);
         AddChild(PanelLayer);
+        AddChild(ProjectLayer);
         AddChild(DialogLayer);
         AddChild(TooltipLayer);
         AddChild(SplashLayer);
@@ -174,7 +235,8 @@ public sealed class EditorWorkspace : Node
         SyncLayout();
         if (Options.ShowSplash)
             Splash.Show("Starting…", 0.15f, minimumSeconds: _firstLaunch ? 1.0 : 0);
-        RunWithSplash(Options.InitialScene is { } initial ? $"Loading {Path.GetFileName(initial)}…" : "Creating a new scene…", OpenInitialScene);
+        ApplyAccent();
+        StartUp();
         RefreshAll();
     }
 
@@ -245,6 +307,7 @@ public sealed class EditorWorkspace : Node
         Session.ActiveChanged -= OnActiveChanged;
         Session.SceneEdited -= OnSceneEdited;
         Session.SelectionChanged -= OnSelectionChanged;
+        Session.ProjectChanged -= OnProjectChanged;
         base.OnExitTree();
     }
 
@@ -252,7 +315,9 @@ public sealed class EditorWorkspace : Node
     {
         if (disposing)
         {
+            Play.Dispose();
             Session.Dispose();
+            Project.Dispose();
             Output.Dispose();
         }
 
@@ -263,6 +328,7 @@ public sealed class EditorWorkspace : Node
     {
         RunPendingLoad();
         Splash.Tick(gameTime.DeltaTime);
+        ProcessProjects(gameTime.DeltaTime);
         if (Output.Drain())
             OutputPanel.Refresh();
         OutputPanel.Tick();
@@ -313,6 +379,7 @@ public sealed class EditorWorkspace : Node
     }
 
     // The title only changes with the active scene, its file or its dirty state: compare those, build strings on change.
+    // The title only changes with the active scene, its file or its dirty state (and the project): compare those.
     private EditedScene? _titleScene;
     private string? _titleFile;
     private bool _titleDirty;
@@ -326,7 +393,9 @@ public sealed class EditorWorkspace : Node
         _titleScene = active;
         _titleFile = active?.FilePath;
         _titleDirty = dirty;
-        var title = active is null ? "Mainframe Editor" : $"{active.Title} — Mainframe Editor";
+        var projectName = Session.Project?.Name;
+        var suffix = projectName is null ? "Mainframe Editor" : $"{projectName} — Mainframe Editor";
+        var title = active is null ? suffix : $"{active.Title} — {suffix}";
         if (string.Equals(title, _title, StringComparison.Ordinal))
             return;
         _title = title;
@@ -339,6 +408,7 @@ public sealed class EditorWorkspace : Node
     private void OnScenesChanged()
     {
         ViewportPanel.RefreshTabs();
+        FileSystem.UpdateUnsaved();
         FileSystem.Refresh();
     }
 
@@ -353,11 +423,15 @@ public sealed class EditorWorkspace : Node
     private void OnSelectionChanged(EditedScene scene)
     {
         SceneTree.Refresh();
-        Inspector.Rebuild();
+        if (Inspector.InspectedResource is not null)
+            Inspector.CloseResource(); // rebuilds for the selection
+        else
+            Inspector.Rebuild();
     }
 
     private void RefreshAll()
     {
+        Toolbar.RefreshPlay();
         ViewportPanel.RefreshTabs();
         SceneTree.Refresh();
         Inspector.Rebuild();
@@ -387,7 +461,7 @@ public sealed class EditorWorkspace : Node
             return;
         }
 
-        var command = ShortcutFor(key.Key, Modifiers);
+        var command = ProjectShortcutFor(key.Key, Modifiers) ?? ShortcutFor(key.Key, Modifiers);
         if (command is null)
             return;
         GetViewport()?.SetInputAsHandled();

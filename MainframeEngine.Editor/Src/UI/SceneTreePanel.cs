@@ -219,6 +219,14 @@ public sealed class SceneTreePanel : EditorDocument
     /// <summary>Mouse up over row <paramref name="index"/>: completes a drag (reparent/reorder) if one is in progress.</summary>
     public void Release(int index)
     {
+        if (Workspace.FileDrag is { } file && (uint)index < (uint)_rows.Count)
+        {
+            var dropTarget = _rows[index].Node;
+            CancelDrag();
+            Workspace.DropFileOnNode(file, dropTarget);
+            return;
+        }
+
         if (!_dragging || _dragSource < 0 || index != _dropRow || _dropPosition == TreeDropPosition.None)
         {
             CancelDrag();

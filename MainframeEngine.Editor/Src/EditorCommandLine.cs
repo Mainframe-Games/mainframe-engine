@@ -7,13 +7,14 @@ namespace MainframeEngine.Editor;
 public static class EditorCommandLine
 {
     public const string Usage =
-        "Usage: MainframeEngine.Editor [scene.mscene] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
+        "Usage: MainframeEngine.Editor [scene.mscene | project folder | project.mfproj] [--project <folder>] [--project-manager] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
         "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--no-validation]]";
 
     public static EditorAppOptions Parse(IReadOnlyList<string> args)
     {
         ArgumentNullException.ThrowIfNull(args);
-        string? scene = null, layout = EditorLayout.DefaultPath, qaScript = null, qaOut = null, smoke = null, smokeScene = null;
+        string? scene = null, project = null, layout = EditorLayout.DefaultPath, qaScript = null, qaOut = null, smoke = null, smokeScene = null;
+        var projectManager = false;
         Vector2D<int>? size = null;
         var scale = 0f;
         var hidden = false;
@@ -29,6 +30,12 @@ public static class EditorCommandLine
             {
                 case "--layout":
                     layout = Next();
+                    break;
+                case "--project":
+                    project = ProjectFolderOf(Path.GetFullPath(Next())) ?? throw new ArgumentException("--project needs a folder holding project.mfproj (or the file).");
+                    break;
+                case "--project-manager":
+                    projectManager = true;
                     break;
                 case "--no-layout":
                     layout = null;
@@ -75,7 +82,11 @@ public static class EditorCommandLine
                 default:
                     if (args[i].StartsWith("--", StringComparison.Ordinal))
                         throw new ArgumentException($"Unknown option {args[i]}.");
-                    scene = Path.GetFullPath(args[i]);
+                    var path = Path.GetFullPath(args[i]);
+                    if (ProjectFolderOf(path) is { } folder)
+                        project = folder;
+                    else
+                        scene = path;
                     break;
             }
         }
@@ -106,7 +117,14 @@ public static class EditorCommandLine
             var script = EditorQaScript.Load(Path.GetFullPath(qaScript), Path.GetFullPath(qaOut ?? "artifacts/qa-editor"));
             return new EditorAppOptions
             {
-                Workspace = new EditorWorkspaceOptions { LayoutPath = null, InitialScene = scene },
+                // Deterministic: no persisted layout, recents or settings; the Project Manager only when asked for.
+                Workspace = new EditorWorkspaceOptions
+                {
+                    LayoutPath = null,
+                    InitialScene = scene,
+                    InitialProject = project,
+                    ShowProjectManager = projectManager,
+                },
                 WindowSize = size ?? new Vector2D<int>(1600, 960),
                 ContentScale = scale,
                 Hidden = hidden,
@@ -119,11 +137,31 @@ public static class EditorCommandLine
 
         return new EditorAppOptions
         {
-            Workspace = new EditorWorkspaceOptions { LayoutPath = layout, InitialScene = scene },
+            Workspace = new EditorWorkspaceOptions
+            {
+                LayoutPath = layout,
+                InitialScene = scene,
+                InitialProject = project,
+                ShowProjectManager = projectManager || (scene is null && project is null),
+                RecentProjectsPath = RecentProjects.DefaultPath,
+                EditorSettingsPath = EditorSettings.DefaultPath,
+                ThemeOverlayDirectory = EditorTheme.DefaultOverlayDirectory,
+            },
             WindowSize = size,
             ContentScale = scale,
             Hidden = hidden,
             VSync = vsync,
         };
+    }
+
+    /// <summary>The project folder for <paramref name="path"/> (a folder holding <c>project.mfproj</c>, or the file), or null.</summary>
+    public static string? ProjectFolderOf(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        if (Directory.Exists(path) && File.Exists(Path.Combine(path, ProjectSettings.FileName)))
+            return path;
+        if (File.Exists(path) && string.Equals(Path.GetFileName(path), ProjectSettings.FileName, StringComparison.OrdinalIgnoreCase))
+            return Path.GetDirectoryName(path);
+        return null;
     }
 }

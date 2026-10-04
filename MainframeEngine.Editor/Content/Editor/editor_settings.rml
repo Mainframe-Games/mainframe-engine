@@ -1,0 +1,63 @@
+<rml>
+<head>
+    <title>Editor Settings</title>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 560dp; height: 360dp; margin-left: -280dp; margin-top: -180dp; }
+        .dialog-row .caption { width: 120dp; }
+        .dialog-row select { flex: 1 1 auto; width: 60dp; }
+        #es-swatches { display: flex; flex-direction: row; }
+        .swatch-choice { display: block; width: 22dp; height: 22dp; margin-right: 6dp; border-radius: 11dp; border: 2dp #2f333d; cursor: pointer; }
+        .swatch-choice:hover { border-color: #ffffff; }
+        #es-accent { width: 84dp; margin-left: 6dp; }
+        .current { display: block; width: 22dp; height: 22dp; border-radius: 3dp; margin-left: 6dp; }
+        #es-presets { display: flex; flex-direction: row; flex-wrap: wrap; margin: 0dp 0dp 8dp 120dp; }
+        #es-presets button { margin: 0dp 4dp 4dp 0dp; }
+        .hint { display: block; margin: 0dp 0dp 8dp 120dp; color: #8b93a5; font-size: 11dp; }
+        label.check { display: flex; flex-direction: row; align-items: center; color: #b4bccc; }
+        label.check input.checkbox { margin-right: 6dp; }
+    </style>
+</head>
+<body class="backdrop" data-model="editor_settings">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-sm icon-adjustments"></span> Editor Settings</div>
+        <div class="dialog-body">
+            <div class="dialog-row">
+                <span class="caption">Accent colour</span>
+                <div id="es-swatches"></div>
+                <input type="text" class="text mono" id="es-accent" data-value="accent"/>
+                <div class="current" data-style-background-color="accent"></div>
+            </div>
+            <div class="dialog-row">
+                <span class="caption">Autosave</span>
+                <select id="es-autosave" data-value="autosave">
+                    <option value="0">Off</option>
+                    <option value="1">Every minute</option>
+                    <option value="2">Every 2 minutes</option>
+                    <option value="5">Every 5 minutes</option>
+                    <option value="10">Every 10 minutes</option>
+                    <option value="30">Every 30 minutes</option>
+                </select>
+            </div>
+            <div class="hint">Saves open scenes that have a file (untitled ones are never written).</div>
+            <div class="dialog-row">
+                <span class="caption">Code editor</span>
+                <input type="text" class="text mono" id="es-command" data-value="command" placeholder="System default"/>
+            </div>
+            <div id="es-presets"></div>
+            <div class="hint">{file}, {line}, {column} and {project} are filled in. Opens C# files and clicked build errors.</div>
+            <div class="dialog-row">
+                <span class="caption">Code reload</span>
+                <label class="check" data-tooltip="Reload the game code in the editor whenever its build output changes (IDE builds included)">
+                    <input type="checkbox" class="checkbox" id="es-auto-reload" data-checked="auto_reload"/>Reload automatically after builds</label>
+            </div>
+            <div class="dialog-error">{{error}}</div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="es-cancel" data-event-click="cancel()">Cancel</button>
+            <button class="primary" id="es-apply" data-event-click="apply()">Apply</button>
+        </div>
+    </div>
+</body>
+</rml>

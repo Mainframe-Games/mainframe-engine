@@ -96,6 +96,21 @@ public sealed partial class ViewportController : Node
     /// <summary>True while a pick request is waiting for the GPU.</summary>
     public bool IsPicking => _pick.IsValid;
 
+    /// <summary>Forgets cached scene nodes (before a code reload unloads game types).</summary>
+    public void ReleaseSceneReferences()
+    {
+        CancelDrag();
+        _iconNodes.Clear();
+        _iconsVersion = -1;
+        _nodes2D.Clear();
+        _nodes2DVersion = -1;
+        _gizmoNode = null;
+        _gizmoNode2D = null;
+        _pick = default;
+        _pickScene = null;
+        _scene = null;
+    }
+
     /// <summary>Called when the active tab changed.</summary>
     public void OnActiveSceneChanged()
     {
@@ -179,6 +194,15 @@ public sealed partial class ViewportController : Node
             return;
         switch (inputEvent)
         {
+            case InputEventMouseButton { Pressed: false } drop when _workspace.FileDrag is { } file && _drag == DragKind.None:
+                _mouse = drop.Position * _workspace.Host.PointerScale;
+                if (ViewRect.Contains(_mouse.X, _mouse.Y))
+                {
+                    _workspace.DropFileOnViewport(file);
+                    Handled();
+                }
+
+                break;
             case InputEventMouseButton button:
                 _mouse = button.Position * _workspace.Host.PointerScale;
                 if (button.Pressed ? Press(scene, button) : Release(scene, button))

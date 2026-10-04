@@ -171,6 +171,16 @@ public interface ICustomInspector
     void OnAction(object target, string action, EditedScene scene)
     {
     }
+
+    /// <summary>
+    /// A click on an element with <c>data-action</c>, for a node of a scene or a resource file inspected on its own: edit
+    /// through <paramref name="context"/> so it can be undone. By default forwards scene contexts to the overload above.
+    /// </summary>
+    void OnAction(object target, string action, IInspectorContext context)
+    {
+        if (context is EditedScene scene)
+            OnAction(target, action, scene);
+    }
 }
 
 /// <summary>Registers an <see cref="ICustomInspector"/> for <see cref="TargetType"/> and its subclasses.</summary>

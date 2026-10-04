@@ -49,6 +49,77 @@ public sealed class EditorSession : IDisposable
     /// <summary>The active scene's selection changed.</summary>
     public event Action<EditedScene>? SelectionChanged;
 
+    /// <summary>The project changed: opened, switched, or its settings were replaced (Project Settings dialog).</summary>
+    public event Action? ProjectChanged;
+
+    /// <summary>
+    /// Opens the project in <paramref name="directory"/> (the folder holding <c>project.mfproj</c>): loads its settings
+    /// and points the asset database (scanned, creating missing <c>.meta</c> sidecars) and content resolution at it.
+    /// Scenes stay open only when they belong to it; the caller closes the others first. Throws when the folder has no
+    /// project file or the file cannot be read.
+    /// </summary>
+    public void OpenProject(string directory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        var root = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var file = Path.Combine(root, ProjectSettings.FileName);
+        if (!File.Exists(file))
+            throw new FileNotFoundException($"'{root}' is not a Mainframe project: it has no {ProjectSettings.FileName}.", file);
+        if (ProjectRoot is not null && !PathsEqual(ProjectRoot, root) && _scenes.Count > 0)
+            throw new InvalidOperationException($"Close the scenes of {ProjectRoot} before opening another project.");
+        var settings = ProjectSettings.Load(file);
+        ProjectRoot = root;
+        Project = settings;
+        var database = new AssetDatabase(root);
+        database.Refresh(createMissingMeta: true);
+        AssetDatabase.Current = database;
+        ContentPaths.ProjectDirectory = root;
+        Log.Info($"[Editor] Project '{settings.Name}': {root}");
+        ProjectChanged?.Invoke();
+    }
+
+    /// <summary>Replaces the project's settings (after the Project Settings dialog saved them).</summary>
+    public void SetProjectSettings(ProjectSettings settings)
+    {
+        Project = settings ?? throw new ArgumentNullException(nameof(settings));
+        ProjectChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// A file or folder moved from <paramref name="oldPath"/> to <paramref name="newPath"/> (FileSystem rename/move): open
+    /// scenes inside it follow, so saving them writes the new file.
+    /// </summary>
+    public void FilesMoved(string oldPath, string newPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newPath);
+        var from = Path.GetFullPath(oldPath).TrimEnd(Path.DirectorySeparatorChar);
+        var to = Path.GetFullPath(newPath).TrimEnd(Path.DirectorySeparatorChar);
+        var changed = false;
+        foreach (var scene in _scenes)
+        {
+            if (scene.FilePath is not { } file)
+                continue;
+            if (PathsEqual(file, from))
+                scene.FilePath = to;
+            else if (file.StartsWith(from + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                scene.FilePath = to + file[from.Length..];
+            else
+                continue;
+            changed = true;
+        }
+
+        if (changed)
+            ScenesChanged?.Invoke();
+    }
+
+    /// <summary>Closes every scene without asking (the caller dealt with unsaved changes).</summary>
+    public void CloseAll()
+    {
+        foreach (var scene in _scenes.ToArray())
+            Close(scene);
+    }
+
     /// <summary>Opens a new, empty scene with a <paramref name="rootType"/> root and makes it active.</summary>
     public EditedScene NewScene(string rootType = "Node3D")
     {
@@ -185,6 +256,7 @@ public sealed class EditorSession : IDisposable
         Log.Info(Project is { } project
             ? $"[Editor] Project '{project.Name}': {root}"
             : $"[Editor] Project folder (no {ProjectSettings.FileName}): {root}");
+        ProjectChanged?.Invoke();
     }
 
     /// <summary>
@@ -219,7 +291,7 @@ public sealed class EditorSession : IDisposable
         }
     }
 
-    private EditedScene Attach(Node root, string? filePath, PackedScene? source, int untitled)
+    private EditedScene Attach(Node root, string? filePath, PackedScene? source, int untitled, int index = -1)
     {
         var viewport = new SubViewport
         {
@@ -235,8 +307,82 @@ public sealed class EditorSession : IDisposable
         scene.Camera.Is2D = root is Node2D;
         scene.Changed += OnSceneChanged;
         scene.Selection.Changed += OnSelectionChanged;
-        _scenes.Add(scene);
+        if (index >= 0 && index <= _scenes.Count)
+            _scenes.Insert(index, scene);
+        else
+            _scenes.Add(scene);
         ScenesChanged?.Invoke();
+        return scene;
+    }
+
+    // ── Code reload ──────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Takes <paramref name="scene"/> out of the session for a code reload: serializes it (unsaved edits included,
+    /// game types and missing types with their data), remembers its tab position, file, dirty state, selection and
+    /// view, and frees its nodes so nothing references the game assembly any more. <see cref="Resume"/> puts it back.
+    /// Its undo history cannot survive (the actions point at the freed nodes).
+    /// </summary>
+    public SceneSnapshot Suspend(EditedScene scene)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        var index = _scenes.IndexOf(scene);
+        if (index < 0)
+            throw new ArgumentException("The scene is not open in this session.", nameof(scene));
+        var snapshot = CaptureSnapshot(scene, index);
+        Close(scene);
+        return snapshot;
+    }
+
+    private static SceneSnapshot CaptureSnapshot(EditedScene scene, int index)
+    {
+        var uid = scene.FilePath is { } path ? AssetDatabase.Current.GetUid(path) : null;
+        var selection = new List<string>(scene.Selection.Count);
+        foreach (var node in scene.Selection.Nodes)
+            if (!node.IsFreed && (ReferenceEquals(node, scene.Root) || scene.Root.IsAncestorOf(node)))
+                selection.Add(scene.Root.GetPathTo(node).Path);
+        var camera = new EditorCamera();
+        camera.CopyFrom(scene.Camera);
+        return new SceneSnapshot(SceneSaver.ToJson(scene.Root, uid), scene.FilePath, scene.IsDirty, scene.UntitledNumber, index,
+            selection, camera);
+    }
+
+    /// <summary>
+    /// Re-creates a scene taken out by <see cref="Suspend"/> with the types loaded now (a type the new build lacks
+    /// loads as <see cref="MissingNode"/>, keeping its data): same tab position, file, selection and view; dirty when it
+    /// was. Activate it with <see cref="Activate"/> when it was the active tab.
+    /// </summary>
+    public EditedScene Resume(SceneSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        PackedScene? source = null;
+        Node root;
+        if (snapshot.FilePath is { } file && !snapshot.Dirty && File.Exists(file))
+        {
+            // Unchanged on disk: load it like Open, so the loader's references are released with the tab.
+            source = ResourceLoader.Load<PackedScene>(AssetDatabase.Current.ToProjectPath(file));
+            try
+            {
+                root = source.Instantiate();
+            }
+            catch
+            {
+                source.Release();
+                throw;
+            }
+        }
+        else
+        {
+            root = PackedScene.Parse(snapshot.Json, snapshot.FilePath).Instantiate();
+        }
+
+        var scene = Attach(root, snapshot.FilePath, source, snapshot.UntitledNumber, snapshot.Index);
+        scene.Camera.CopyFrom(snapshot.Camera);
+        foreach (var path in snapshot.Selection)
+            if (root.GetNodeOrNull(path) is { } node)
+                scene.Selection.Add(node);
+        if (snapshot.Dirty)
+            scene.History.MarkUnsaved();
         return scene;
     }
 
@@ -253,7 +399,7 @@ public sealed class EditorSession : IDisposable
             SelectionChanged?.Invoke(active);
     }
 
-    private static bool PathsEqual(string a, string b) =>
+    internal static bool PathsEqual(string a, string b) =>
         string.Equals(Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar), Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar),
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
@@ -270,3 +416,13 @@ public sealed class EditorSession : IDisposable
         Active = null;
     }
 }
+
+/// <summary>An open scene taken out of the session for a code reload (<see cref="EditorSession.Suspend"/>).</summary>
+public sealed record SceneSnapshot(
+    byte[] Json,
+    string? FilePath,
+    bool Dirty,
+    int UntitledNumber,
+    int Index,
+    IReadOnlyList<string> Selection,
+    EditorCamera Camera);

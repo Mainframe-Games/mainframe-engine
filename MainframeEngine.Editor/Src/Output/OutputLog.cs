@@ -11,7 +11,10 @@ public enum OutputLevel
     Error,
 }
 
-/// <summary>One line of the Output panel.</summary>
+/// <summary>
+/// One line of the Output panel. <see cref="CallerFile"/>/<see cref="CallerLine"/> make it clickable: the editor's own
+/// log calls, build errors and game log calls open in the external code editor (click-to-source).
+/// </summary>
 public sealed record OutputMessage(OutputLevel Level, string Text, DateTime Time)
 {
     private string? _sourceText;
@@ -162,6 +165,33 @@ public sealed class OutputLog : ILogSink, IDisposable
     {
         var (category, message) = OutputCategories.SplitPrefix(text ?? "");
         _incoming.Enqueue(new OutputMessage(level, message, DateTime.Now) { Category = category });
+    }
+
+    /// <summary>
+    /// Adds a message pointing at <paramref name="file"/>:<paramref name="line"/> (a build diagnostic: click-to-source;
+    /// thread-safe). A leading <c>[Name] </c> becomes its category.
+    /// </summary>
+    public void Add(OutputLevel level, string text, string? file, int line)
+    {
+        var (category, message) = OutputCategories.SplitPrefix(text ?? "");
+        _incoming.Enqueue(new OutputMessage(level, message, DateTime.Now) { Category = category, CallerFile = file ?? "", CallerLine = line });
+    }
+
+    /// <summary>
+    /// Adds a running game's log entry (category <c>game</c>, or the game's own category, with the instance label when
+    /// several games run); its call site becomes the click target when the source file exists on this machine.
+    /// </summary>
+    public void AddGame(in LogEntry entry, string? instanceLabel)
+    {
+        var category = entry.Category.Length == 0 ? "game" : entry.Category;
+        var text = instanceLabel is null ? entry.Message : $"{instanceLabel}: {entry.Message}";
+        _incoming.Enqueue(new OutputMessage(ToOutputLevel(entry.Level), text, entry.Timestamp.ToLocalTime())
+        {
+            // Marked as game output, keeping the game's own category when it has one.
+            Category = entry.Category.Length == 0 ? "game" : $"game·{category}",
+            CallerFile = entry.CallerFile ?? "",
+            CallerLine = entry.CallerLine,
+        });
     }
 
     /// <summary>
