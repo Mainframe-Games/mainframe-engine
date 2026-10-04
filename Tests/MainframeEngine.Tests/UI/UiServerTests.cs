@@ -467,7 +467,7 @@ public sealed class UiServerTests
         var bar = doc.GetElementById("mf-panel-bar")!.Bounds;
         var content = doc.GetElementById("mf-panel-content")!.Bounds;
         Assert.True(Math.Abs(bar.Width - content.Width) < 0.5f, $"bar {bar}, content {content}, body {body}");
-        Assert.True(Math.Abs(body.Width - 2 - bar.Width) < 0.5f, $"bar {bar}, content {content}, body {body}"); // 1 px border each side
+        Assert.True(Math.Abs(body.Width - 2 * dpRatio - bar.Width) < 0.5f, $"bar {bar}, content {content}, body {body}"); // 1dp border each side
         foreach (var id in (string[])["primary", "volume", "quality", "name", "vsync", "mode-a", "loading", "health", "notes"])
             Assert.NotNull(doc.GetElementById(id));
     }
