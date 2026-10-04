@@ -60,7 +60,12 @@ public static class TypeRegistry
                     ByName.Remove(info.Name);
             }
 
-            Examined.Remove(assembly);
+            // A collectible (game) assembly being unloaded must never be scanned and registered again (that would pin
+            // its context): mark it examined, weakly. Others may be re-examined.
+            if (assembly.IsCollectible)
+                ExaminedCollectible.AddOrUpdate(assembly, Marker);
+            else
+                Examined.Remove(assembly);
         }
 
         Changed?.Invoke();

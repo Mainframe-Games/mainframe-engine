@@ -140,9 +140,13 @@ public sealed class GameAssemblyLoader : IDisposable
         if (Assembly is not { } assembly || _context is not { } context)
             return false;
         var name = assembly.GetName().Name;
-        ResourceLoader.ReleaseTypesOf(assembly);
-        TypeRegistry.UnregisterAssembly(assembly);
-        ReplicationRegistry.UnregisterAssembly(assembly);
+        // The game assembly and every private dependency loaded with it (which may declare node types too).
+        foreach (var loaded in context.Assemblies)
+        {
+            ResourceLoader.ReleaseTypesOf(loaded);
+            TypeRegistry.UnregisterAssembly(loaded);
+            ReplicationRegistry.UnregisterAssembly(loaded);
+        }
         Assembly = null;
         _context = null;
         _lastContext = new WeakReference(context, trackResurrection: false);

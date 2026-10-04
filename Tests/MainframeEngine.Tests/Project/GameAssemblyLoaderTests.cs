@@ -298,7 +298,7 @@ public sealed class GameAssemblyLoaderTests : IDisposable
     public void PrivateDependenciesLoadFromTheGameFolderIntoTheSameContext()
     {
         var bin = Path.Combine(_root, "bin", "deps");
-        var dependency = GameCompiler.Compile("namespace Helpers; public static class Damage { public static int Double(int x) => x * 2; }", "ReloadHelpers", bin);
+        var dependency = GameCompiler.Compile("namespace Helpers; public static class Damage { public static int Double(int x) => x * 2; } public class HelperNode : MainframeEngine.Node { }", "ReloadHelpers", bin);
         var game = GameCompiler.Compile("""
             using MainframeEngine;
             namespace DepGame;
@@ -310,6 +310,7 @@ public sealed class GameAssemblyLoaderTests : IDisposable
         Assert.Equal(42, UsePower());
         Assert.True(loader.Unload(TimeSpan.FromSeconds(10)));
         Assert.DoesNotContain(AppDomain.CurrentDomain.GetAssemblies(), a => a.GetName().Name == "ReloadHelpers" && !a.IsCollectible);
+        Assert.Null(TypeRegistry.Get("HelperNode")); // the dependency's types went too, and a later scan does not bring them back
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -317,6 +318,7 @@ public sealed class GameAssemblyLoaderTests : IDisposable
     {
         var node = TypeRegistry.CreateNode("DepNode");
         var power = (int)TypeRegistry.Get("DepNode")!.FindProperty("Power")!.GetValue(node)!;
+        Assert.NotNull(TypeRegistry.Get("HelperNode")); // registered by a lookup-miss scan of the loaded dependency
         Assert.True(node.GetType().Assembly.IsCollectible);
         node.Free();
         return power;
