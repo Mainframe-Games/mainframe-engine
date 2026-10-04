@@ -30,6 +30,8 @@ public abstract class RenderTestGame : Engine
     {
         GameName = $"Render test: {host.Scene}",
         WindowSize = new Vector2D<int>(host.Width, host.Height),
+        // Captures are Width×Height × Scale pixels on any display (1× monitor, 2× Retina), so goldens do not depend on it.
+        ContentScale = host.Scale,
         WindowVisible = !host.Hidden,
         EnableValidation = !host.NoValidation,
         EnableFrameCapture = true,
@@ -114,7 +116,7 @@ public abstract class RenderTestGame : Engine
 
         // Swapchain-recreation and shutdown hooks (frame numbers from the command line).
         if (frame == _host.ResizeAtFrame)
-            Window.Size = new Vector2D<int>(_host.ResizeTo.Width, _host.ResizeTo.Height);
+            ResizeWindow(new Vector2D<int>(_host.ResizeTo.Width, _host.ResizeTo.Height));
         if (frame == _host.ToggleVSyncAtFrame)
             Renderer.VSync = !Renderer.VSync;
         if (frame == _host.QuitWithErrorAtFrame)
@@ -181,6 +183,7 @@ public abstract class RenderTestGame : Engine
             AllocatedBytes = _allocatedBytes,
             MeasuredFrames = _allocatedBytes is null ? 0 : _host.AllocationMeasuredFrames,
             Captures = _captures,
+            ContentScale = _host.Scale,
             SceneCheckFailures = _checkFailures,
             PipelineCacheLoadedBytes = pipelineCacheBytes,
             GpuDeviceMemoryCount = gpu.DeviceMemoryCount,

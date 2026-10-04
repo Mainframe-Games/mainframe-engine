@@ -31,6 +31,13 @@ public sealed record UiServerOptions
     public Vector2 HeadlessViewport { get; init; } = new(1280, 720);
 
     /// <summary>
+    /// Fixed content scale: the dp ratio of <see cref="UiScaleMode.Dpi"/> layers (and the visual debugger) whatever the
+    /// display's backing scale. 0 (default) follows the display (<see cref="UiServer.PixelScale"/>). The engine sets it
+    /// from <see cref="EngineOptions.ContentScale"/>.
+    /// </summary>
+    public float ContentScale { get; init; }
+
+    /// <summary>
     /// Localization (M9): document sources go through its <see cref="ITextTranslator.PrepareDocument"/>, text nodes
     /// through its <see cref="ITextTranslator.TryTranslateMarkup(ReadOnlySpan{byte}, out string)"/>, and its
     /// <see cref="ITextTranslator.LocaleChanged"/> reloads the documents. Defaults to the engine's catalogs
@@ -207,8 +214,14 @@ public sealed class UiServer : IFrameServer, IInputServer
     /// <summary>Framebuffer size the contexts are laid out at.</summary>
     public Vector2 ViewportSize { get; private set; }
 
-    /// <summary>Framebuffer pixels per window point (2 on Retina).</summary>
+    /// <summary>Framebuffer pixels per OS window point (2 on Retina): converts mouse and IME positions.</summary>
     public float PixelScale { get; private set; } = 1f;
+
+    /// <summary>
+    /// Pixels per layout point: the dp ratio of <see cref="UiScaleMode.Dpi"/> layers. <see cref="UiServerOptions.ContentScale"/>
+    /// when set, otherwise <see cref="PixelScale"/>.
+    /// </summary>
+    public float ContentScale => _options.ContentScale > 0f ? _options.ContentScale : PixelScale;
 
     /// <summary>
     /// Localization hook: RmlUi's <c>TranslateString</c>, called for every text node RmlUi creates (and for data-bound
@@ -421,7 +434,7 @@ public sealed class UiServer : IFrameServer, IInputServer
         ObjectDisposedException.ThrowIf(_disposed, this);
         UpdateViewport();
         var context = new RmlContext($"layer{++_contextCounter}:{layer.Name}", (int)ViewportSize.X, (int)ViewportSize.Y, RenderInterface);
-        context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(ViewportSize, PixelScale));
+        context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(ViewportSize, ContentScale));
         _layers.Add(layer);
         _layersDirty = true;
         return context;
@@ -551,7 +564,7 @@ public sealed class UiServer : IFrameServer, IInputServer
             if (!layer.Visible || layer.Context is not { } context)
                 continue;
             context.SetDimensions((int)ViewportSize.X, (int)ViewportSize.Y);
-            context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(ViewportSize, PixelScale));
+            context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(ViewportSize, ContentScale));
             var documents = layer.DocumentList;
             for (var d = 0; d < documents.Count; d++)
                 documents[d].PrepareFrame();
@@ -562,7 +575,7 @@ public sealed class UiServer : IFrameServer, IInputServer
         if (debugger is not null)
         {
             debugger.SetDimensions((int)ViewportSize.X, (int)ViewportSize.Y);
-            debugger.SetDensityIndependentPixelRatio(PixelScale);
+            debugger.SetDensityIndependentPixelRatio(ContentScale);
             debugger.Update();
         }
 

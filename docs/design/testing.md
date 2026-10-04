@@ -21,7 +21,9 @@ Cobertura XML to `artifacts/coverage`. The engine exposes internals to the test 
 `InternalsVisibleTo`.
 
 Unit tests cover pure logic: `GameTime`/`FPSCounter`, `EngineOptions` defaults (validation on in
-Debug, off in Release), the macOS Vulkan loader probe order, the shadow light-VP ring offsets and pass
+Debug, off in Release, `ContentScale` 0), the fixed-content-scale size math (`WindowPixelsTests`: layout points ×
+scale → pixels, pixels ÷ display scale → OS window points; `UiServerTests`: a fixed `ContentScale` is the dp ratio of
+`Dpi` layers while input keeps the display's pixels per point), the macOS Vulkan loader probe order, the shadow light-VP ring offsets and pass
 indices, `ChooseUp`, the shadow-fallback matrix, `SpineNode` (scale setter, `SetAnimation` replace vs
 `QueueAnimation`, Spine's update order, vertex growth past the initial capacity, atlas pixel release —
 SpineBoy is linked into the test output and a non-Vulkan `IRenderer` skips GPU work), `NetBuffer` round trips
@@ -156,7 +158,8 @@ sequenceDiagram
   `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)). The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
   M3 (the physics crates share one `BoxMesh` and one material per colour). Every host scene runs audio on the silent
   null device.
-- **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
+- **Host hooks** (command line): `--size WxH` (layout points), `--scale S` (fixed content scale, see *Window* below),
+  `--resize WxH@frame` (layout points, through `Engine.ResizeWindow`), `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
   `result.json` records it), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (wall-clock
   and CPU frame times: average and p95 in `result.json`, plus the shadow pass's CPU/GPU milliseconds), `--no-validation`,
@@ -166,7 +169,9 @@ sequenceDiagram
   `artifacts/render-tests/pipeline-cache`.
 - **Tests:** `LitShapesRenderCleanlyAndMatchGoldens`, `MultipleShadowCastingLightsEachUseTheirOwnMatrix`,
   `SpineRendersCleanlyAndMatchesGolden`, `SpineRendersWithoutAShadowSystem`,
-  `SwapchainRecreationOnResizeAndVSyncToggleIsClean`, `QuitWithErrorReturnsErrorExitCode`,
+  `SwapchainRecreationOnResizeAndVSyncToggleIsClean` (exact pixel sizes before and after the resize),
+  `FixedContentScaleCapturesAtTheExactPixelSize` (`--scale 1` and `--scale 3` — 3 is no Mac or CI display's backing scale,
+  so the window is always resized — at start-up and after a resize), `QuitWithErrorReturnsErrorExitCode`,
   `SandboxSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`,
   `PipelineCacheIsPersistedAndReloaded` (cold run writes, warm run loads),
   `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →
@@ -190,10 +195,15 @@ sequenceDiagram
   `PcfSoftensShadowEdges`, `EveryLightTypeCastsShadowsAtOnce`, `ShadowMapViewerIsValidationClean`,
   `ShadowsOfEveryLightTypeAllocateNothingPerFrame`, `CutoutMaterialsCastCutoutShadows`,
   `ShadowEdgesDoNotShimmerWhenTheCameraMoves`.
-- **Comparing drivers at one resolution.** `--size 160x120` on a Retina Mac renders 320×240, the size of
-  the lavapipe frames, so MoltenVK and lavapipe output can be diffed pixel for pixel.
-- **Window.** 320×240, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On a
-  Retina Mac the framebuffer, and so the capture, is 640×480.
+- **Window.** 320×240 layout points, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. The host
+  sets `EngineOptions.ContentScale` (`--scale`, default `HostOptions.CanonicalScale`: **2 on macOS, 1 elsewhere**), so
+  captures are exactly the layout size × the scale in pixels — 640×480 for the `moltenvk` goldens, 320×240 for
+  `lavapipe` — whatever the backing scale of the display the window lands on (a 1× external monitor or a 2× Retina
+  panel), and RmlUi's dp ratio and ImGui's scale are that scale too, so UI goldens match as well. The engine sizes the
+  OS window for the display (640×480 pt on a 1× monitor, 320×240 pt on Retina) before the swapchain exists and fails
+  start-up if the framebuffer cannot reach the request; `result.json` records the scale (`ContentScale`).
+- **Comparing drivers at one resolution.** `--scale 1` on a Mac renders 320×240, the size of the lavapipe frames, so
+  MoltenVK and lavapipe output can be diffed pixel for pixel.
 
 ### Frame capture
 
@@ -245,13 +255,14 @@ both runs must be green with no `No golden` warnings (`CapturesAreDeterministicA
 tests cover run-to-run stability).
 
 Expected `lavapipe` vs `moltenvk` differences (rasterizer, resolution and CPU, not bugs). Rendered at the same
-resolution (`--size 160x120` locally), the scenes with a grid differ in about 1.2 % of pixels (`shadow-lights`
+resolution (`--scale 1` locally), the scenes with a grid differ in about 1.2 % of pixels (`shadow-lights`
 1.5 %), all on grid lines; sky, floor, lit and shadowed surfaces match. `csm`, `shadow-pcf`, `shadow-cutout`,
 `shadow-shimmer`, `gltf`, `instances` and `physics` frame 30 match to within ±4 on ≥ 99.99 % of pixels. The UI scenes
-(`ui-*`), `picking` and `color-pipeline` lay out ImGui/RmlUi in points, so compare them at their own sizes (MoltenVK
-renders them at 2× on a Retina Mac): layout, colours and effects must match, glyph rasterization differs.
+(`ui-*`), `picking` and `color-pipeline` lay out ImGui/RmlUi in points, so compare them at their own sizes (the `moltenvk`
+set is at scale 2): layout, colours and effects must match, glyph rasterization differs.
 
-- **Resolution.** Frames are 320×240, not the 640×480 of a Retina Mac, so the distant grid aliases more.
+- **Resolution.** Frames are 320×240 (scale 1), not the 640×480 of the `moltenvk` set (scale 2), so the distant grid
+  aliases more.
 - **Line rasterization.** Distant 1-pixel grid lines step differently (scattered single pixels).
 - **Lines on pixel boundaries.** The camera looks straight down −Z, so the Y (yellow) and Z (blue) axis
   lines project exactly onto the boundary between two pixel columns. Lavapipe rasterizes such lines as

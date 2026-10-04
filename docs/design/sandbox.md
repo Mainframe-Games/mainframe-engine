@@ -27,15 +27,17 @@ dotnet run --project MainframeEngine.Sandbox -- --write-scene MainframeEngine.Sa
 
 ## QA capture
 
-`--qa-capture <dir> [--qa-frames 30,90,180]` (`just qa` → `artifacts/qa`) runs with a fixed 60 Hz
-timestep and VSync off, saves `sandbox_frameNNNN.png` for each listed frame through
-`Engine.CaptureFrame()`, and exits one frame after the last capture (or scripted step).
+`--qa-capture <dir> [--qa-frames 30,90,180] [--qa-size WxH] [--qa-scale S]` (`just qa` → `artifacts/qa`) runs with a
+fixed 60 Hz timestep and VSync off, saves `sandbox_frameNNNN.png` for each listed frame through
+`Engine.CaptureFrame()`, and exits one frame after the last capture (or scripted step). Captures have a fixed pixel
+size on any display: `--qa-size` layout points (default 1280×720) × `--qa-scale` (default 1, the HUD's dp ratio) via
+`EngineOptions.ContentScale`.
 
 Scripted window/input steps (they log `[QA]` lines; combine freely):
 
 | Flag | Effect |
 |---|---|
-| `--qa-resize WxH@frame` | sets `Window.Size` (points) → swapchain recreation; later captures have the new size |
+| `--qa-resize WxH@frame` | `Engine.ResizeWindow` (layout points) → swapchain recreation; later captures are exactly WxH × the QA scale pixels |
 | `--qa-minimize frame` | minimises, restores after 1.5 s (a timer pushes SDL events to wake the blocked loop; it is stopped, waiting for in-flight callbacks, before SDL shuts down) and logs the updates/frames that ran meanwhile. Captures listed during the minimised period are taken after restore, one at a time, and keep their listed frame number in the file name. |
 | `--qa-input frame` | pushes a right-button drag into SDL's event queue for 22 frames and logs the camera forward before/after (SDL input → `IMouse` → `InputRouter` → `FlyCamera.OnInput`) |
 

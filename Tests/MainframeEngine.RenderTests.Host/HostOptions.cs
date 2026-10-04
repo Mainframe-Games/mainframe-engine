@@ -4,7 +4,7 @@ namespace MainframeEngine.RenderTests.Host;
 
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
-/// [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--pipeline-cache dir]
+/// [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--pipeline-cache dir]
 /// [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]</c>.
 /// </summary>
 public sealed record HostOptions
@@ -15,11 +15,25 @@ public sealed record HostOptions
     public int MaxFrames { get; init; }
     public int AllocationWarmupFrames { get; init; }
     public int AllocationMeasuredFrames { get; init; }
+    /// <summary>Window size in layout points; the capture is <see cref="Width"/> × <see cref="Scale"/> pixels wide.</summary>
     public int Width { get; init; } = 320;
     public int Height { get; init; } = 240;
+
+    /// <summary>
+    /// Fixed content scale (<c>EngineOptions.ContentScale</c>): captures are exactly <see cref="Width"/>×<see cref="Height"/>
+    /// × this many pixels and the UI's dp ratio is this, whatever the display's backing scale. Defaults to
+    /// <see cref="CanonicalScale"/>.
+    /// </summary>
+    public float Scale { get; init; } = CanonicalScale;
+
+    /// <summary>
+    /// The scale the goldens are recorded at: 2 on macOS (the <c>moltenvk</c> set, first recorded on a Retina display),
+    /// 1 elsewhere (<c>lavapipe</c> and other drivers).
+    /// </summary>
+    public static float CanonicalScale => OperatingSystem.IsMacOS() ? 2f : 1f;
     public bool Hidden { get; init; }
 
-    /// <summary>Resize the window to <see cref="ResizeTo"/> (points) on this frame; 0 = never.</summary>
+    /// <summary>Resize the window to <see cref="ResizeTo"/> (layout points, × <see cref="Scale"/> pixels) on this frame; 0 = never.</summary>
     public uint ResizeAtFrame { get; init; }
     public (int Width, int Height) ResizeTo { get; init; }
 
@@ -54,7 +68,7 @@ public sealed record HostOptions
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
         if (args.Count == 0)
-            throw new ArgumentException("Usage: <scene> --out <dir> [--capture 30,60] [--frames N] [--alloc warmup:count] [--size WxH] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame]");
+            throw new ArgumentException("Usage: <scene> --out <dir> [--capture 30,60] [--frames N] [--alloc warmup:count] [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame]");
 
         var options = new HostOptions { Scene = args[0], OutputDirectory = "" };
         for (var i = 1; i < args.Count; i++)
@@ -88,6 +102,13 @@ public sealed record HostOptions
                     {
                         Width = int.Parse(size[0], CultureInfo.InvariantCulture),
                         Height = int.Parse(size[1], CultureInfo.InvariantCulture),
+                    };
+                    break;
+                case "--scale":
+                    var scale = float.Parse(Next(), CultureInfo.InvariantCulture);
+                    options = options with
+                    {
+                        Scale = scale > 0f && float.IsFinite(scale) ? scale : throw new ArgumentException($"--scale must be positive, got {scale}."),
                     };
                     break;
                 case "--hidden":

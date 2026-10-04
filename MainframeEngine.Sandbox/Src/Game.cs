@@ -299,8 +299,8 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
         if (frame == qa.ResizeFrame)
         {
-            Window.Size = qa.ResizeTo;
-            Log.Info($"[QA] Resized to {qa.ResizeTo.X}x{qa.ResizeTo.Y} pt");
+            ResizeWindow(qa.ResizeTo); // layout points: exactly ResizeTo × the QA scale pixels on any display
+            Log.Info($"[QA] Resized to {qa.ResizeTo.X}x{qa.ResizeTo.Y} pt ({FramebufferSize.X}x{FramebufferSize.Y} px)");
         }
 
         if (frame == qa.MinimizeFrame && _qaMinimizedAt == 0)

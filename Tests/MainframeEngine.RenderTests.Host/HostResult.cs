@@ -32,6 +32,9 @@ public sealed record HostResult
     public required IReadOnlyList<string> ValidationMessages { get; init; }
     public required int RenderedFrames { get; init; }
 
+    /// <summary>The fixed content scale the host ran at (<c>--scale</c>): captures are the window size × this in pixels.</summary>
+    public float ContentScale { get; init; } = 1f;
+
     /// <summary>What <c>Engine.Run()</c> returned (the host process exits with it).</summary>
     public int ExitCode { get; init; }
 

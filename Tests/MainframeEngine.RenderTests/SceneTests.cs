@@ -9,13 +9,18 @@ public class SceneTests
 {
     private static string Output(string scene) => Path.Combine(RenderTestEnvironment.ArtifactsDirectory, scene);
 
+    /// <summary>Layout points → capture pixels at the run's fixed content scale.</summary>
+    private static int Px(HostResult result, int points) => (int)MathF.Round(points * result.ContentScale);
+
     [Fact]
     public void LitShapesRenderCleanlyAndMatchGoldens()
     {
         var result = HostRunner.Run("lit-shapes", Output("lit-shapes"), "--capture", "1,60", "--hidden");
 
         Assert.Equal(2, result.Captures.Count);
-        Assert.All(result.Captures, c => Assert.Equal(c.Width * 3, c.Height * 4)); // 4:3 window, any DPI scale
+        // 320×240 layout points at the canonical scale (2 on macOS, 1 elsewhere), whatever the display's backing scale.
+        Assert.Equal(HostOptions.CanonicalScale, result.ContentScale);
+        Assert.All(result.Captures, c => Assert.Equal((Px(result, 320), Px(result, 240)), (c.Width, c.Height)));
         Gates.AssertValidationClean(result);
         Gates.AssertMatchesGolden(result, 1);
         Gates.AssertMatchesGolden(result, 60);
@@ -95,8 +100,29 @@ public class SceneTests
 
         var before = result.Captures.Single(c => c.Frame == 5);
         var after = result.Captures.Single(c => c.Frame == 40);
-        Assert.Equal(before.Width * 400 / 320, after.Width); // same DPI scale, new size
-        Assert.Equal(before.Height * 300 / 240, after.Height);
+        Assert.Equal((Px(result, 320), Px(result, 240)), (before.Width, before.Height));
+        Assert.Equal((Px(result, 400), Px(result, 300)), (after.Width, after.Height)); // same scale, new size
+        Gates.AssertValidationClean(result);
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("3")] // no Mac or CI display's backing scale: the window is always resized to reach it
+    public void FixedContentScaleCapturesAtTheExactPixelSize(string scale)
+    {
+        // EngineOptions.ContentScale: the swapchain is the layout size × the scale in pixels on any display (1× monitor,
+        // 2× Retina) — at start-up and after Engine.ResizeWindow.
+        var result = HostRunner.Run("lit-shapes", Output($"fixed-scale-{scale}"),
+            "--size", "200x150", "--scale", scale, "--resize", "100x80@4", "--capture", "2,8", "--hidden");
+
+        var s = int.Parse(scale, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(s, result.ContentScale);
+        var first = result.Captures.Single(c => c.Frame == 2);
+        var resized = result.Captures.Single(c => c.Frame == 8);
+        Assert.Equal((200 * s, 150 * s), (first.Width, first.Height));
+        Assert.Equal((100 * s, 80 * s), (resized.Width, resized.Height));
+        var image = Png.ReadRgba8(first.Path);
+        Assert.Equal((200 * s, 150 * s), (image.Width, image.Height));
         Gates.AssertValidationClean(result);
     }
 

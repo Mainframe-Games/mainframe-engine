@@ -22,7 +22,7 @@ File: [Rendering/Vulkan/VulkanImGuiController.cs](../../MainframeEngine/Src/Rend
 | Vertex | stride 20: `pos` RG32F, `uv` RG32F, `col` RGBA8 UNORM. Indices are `uint16`. |
 | Pipeline | No cull, no depth, blend `SrcAlpha/OneMinusSrcAlpha` for color and `One/OneMinusSrcAlpha` for alpha. Dynamic viewport and scissor. Viewport **not** Y-flipped. |
 | Buffers | Per frame slot, host-mapped, grown to `max(required, 1 MB or 2× current)` |
-| HiDPI | Viewport covers the swapchain (pixels); clip rectangles are converted to pixels with `FramebufferScale` and clamped to the extent for the scissor. Mouse positions from SDL are in points, matching `DisplaySize`. |
+| HiDPI | Viewport covers the swapchain (pixels); clip rectangles are converted to pixels with `FramebufferScale` and clamped to the extent for the scissor. Mouse positions from SDL are in points, matching `DisplaySize`. With a fixed `EngineOptions.ContentScale`, `DisplaySize` is the framebuffer ÷ that scale, `DisplayFramebufferScale` is the scale, and mouse positions are converted from OS points. |
 | Input | Silk mouse and keyboard forwarded through static handlers: navigation keys, letters, digits, F1–F12, modifiers |
 
 ```mermaid

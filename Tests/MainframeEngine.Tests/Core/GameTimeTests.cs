@@ -21,6 +21,7 @@ public class GameTimeTests
         Assert.Equal(RenderingBackend.Vulkan, options.RenderingBackend);
         Assert.Equal(800, options.WindowSize.X);
         Assert.Equal(600, options.WindowSize.Y);
+        Assert.Equal(0f, options.ContentScale); // follows the display
         Assert.True(options.VSync);
         Assert.Equal(EngineOptions.DefaultEnableValidation, options.EnableValidation);
         Assert.True(options.WindowVisible);

@@ -16,7 +16,8 @@ namespace MainframeEngine;
 /// <remarks>
 /// HiDPI: ImGui works in window points (<c>DisplaySize</c>, SDL mouse coordinates) and
 /// <c>DisplayFramebufferScale</c> = framebuffer pixels / points; clip rectangles are scaled to
-/// framebuffer pixels for the scissor.
+/// framebuffer pixels for the scissor. With a fixed content scale (<see cref="EngineOptions.ContentScale"/>) ImGui's
+/// points are framebuffer pixels / that scale instead, and mouse positions are converted from the OS window's points.
 /// </remarks>
 internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureRegistry
 {
@@ -48,6 +49,8 @@ internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureR
     private readonly GpuBuffer?[] _indexBuffers = new GpuBuffer?[IVulkanContext.MaxFramesInFlight];
 
     private readonly nint _imguiCtx;
+    private readonly float _fixedContentScale; // EngineOptions.ContentScale; 0 = the display's
+    private float _mouseToLayout = 1f;         // OS window points → ImGui points (1 unless the content scale is fixed)
     private bool _frameBegun; // NewFrame called, Render/EndFrame not yet
 
     // ImDrawVert: vec2 pos (8) + vec2 uv (8) + uint col (4) = 20 bytes
@@ -55,11 +58,12 @@ internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureR
     // ImDrawIdx is ushort by default
     private const uint IndexSize = 2;
 
-    public VulkanImGuiController(IVulkanContext ctx, IInputContext input, IWindow window)
+    public VulkanImGuiController(IVulkanContext ctx, IInputContext input, IWindow window, float fixedContentScale = 0f)
     {
         _ctx = ctx;
         _input = input;
         _window = window;
+        _fixedContentScale = fixedContentScale;
 
         _imguiCtx = ImGui.CreateContext();
         ImGui.SetCurrentContext(_imguiCtx);
@@ -123,10 +127,20 @@ internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureR
     {
         var points = _window.Size;
         var pixels = WindowPixels.FramebufferSize(_window);
+        if (_fixedContentScale > 0f)
+        {
+            var scale = _fixedContentScale;
+            io.DisplaySize = new Vector2(Math.Max(pixels.X, 0) / scale, Math.Max(pixels.Y, 0) / scale);
+            io.DisplayFramebufferScale = new Vector2(scale);
+            _mouseToLayout = points.X > 0 && pixels.X > 0 ? (float)pixels.X / points.X / scale : 1f;
+            return;
+        }
+
         io.DisplaySize = new Vector2(Math.Max(points.X, 0), Math.Max(points.Y, 0));
         io.DisplayFramebufferScale = points.X > 0 && points.Y > 0 && pixels.X > 0 && pixels.Y > 0
             ? new Vector2((float)pixels.X / points.X, (float)pixels.Y / points.Y)
             : Vector2.One;
+        _mouseToLayout = 1f;
     }
 
     #region Input
@@ -165,8 +179,8 @@ internal sealed unsafe class VulkanImGuiController : IDisposable, IImGuiTextureR
         }
     }
 
-    private static void OnMouseMove(IMouse _, Vector2 pos) =>
-        ImGui.GetIO().AddMousePosEvent(pos.X, pos.Y);
+    private void OnMouseMove(IMouse _, Vector2 pos) =>
+        ImGui.GetIO().AddMousePosEvent(pos.X * _mouseToLayout, pos.Y * _mouseToLayout);
 
     private static void OnMouseDown(IMouse _, MouseButton btn) =>
         ImGui.GetIO().AddMouseButtonEvent(MapMouseButton(btn), true);

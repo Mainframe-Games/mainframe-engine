@@ -147,6 +147,13 @@ flowchart TD
   `SDL_Vulkan_GetDrawableSize` in **pixels** (3024×1692 for a 1512×846 pt Retina window); the
   renderer's extent fallback, minimise detection, ImGui's framebuffer scale and game aspect ratios
   use it. Prefer it over `Window.FramebufferSize`.
+- **Fixed content scale.** `EngineOptions.ContentScale` > 0 makes the framebuffer exactly `WindowSize` × that scale in
+  pixels on any display: before `OnLoad` creates the swapchain, the engine measures the display's pixels per point and
+  sizes the OS window to the request ÷ that ratio (`WindowPixels.ResizeToPixels`; again after centring, in case it moved
+  displays), and throws if the framebuffer still differs (a fractional scale that does not divide it). The UI's dp
+  ratio (`UiServer.ContentScale`) and ImGui's points use the fixed scale; mouse and IME positions keep converting with
+  the display's real pixels per point. `Engine.ResizeWindow` resizes in the same layout points. Render tests and
+  `--qa-capture` use it so images do not depend on the monitor; 0 (default) follows the display.
 - **Finding libSDL2 (and other Silk.NET package natives).** A RID-agnostic build (`dotnet build/run/test`)
   keeps package natives under `runtimes/<rid>/native/`. Silk.NET's `DefaultPathResolver` picks that
   folder from the distro-specific RID of `Microsoft.DotNet.PlatformAbstractions` (`ubuntu.24.04-x64`).

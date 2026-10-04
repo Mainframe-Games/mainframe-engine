@@ -13,8 +13,20 @@ public struct EngineOptions()
 {
     public required string GameName;
     public RenderingBackend RenderingBackend = RenderingBackend.Vulkan;
+    /// <summary>Initial window size in points (OS points, or layout points when <see cref="ContentScale"/> is fixed).</summary>
     public Vector2D<int> WindowSize = new(800, 600);
     public string? IconPath;
+
+    /// <summary>
+    /// Fixed content scale: pixels per point of <see cref="WindowSize"/>. When greater than zero the framebuffer (swapchain,
+    /// frame captures) is exactly <see cref="WindowSize"/> × <see cref="ContentScale"/> pixels on any display: the OS window
+    /// is sized for the backing scale of the display it lands on (a 2× Retina window gets half the points of a 1× monitor's
+    /// one), and the UI's dp ratio and ImGui use this scale instead of the display's. Start-up fails when the window cannot
+    /// reach that size (a fractional display scale that does not divide it). 0 (default) follows the display: the window
+    /// is <see cref="WindowSize"/> OS points and the framebuffer whatever that is in pixels. Render tests and QA captures
+    /// set it so their images do not depend on the monitor.
+    /// </summary>
+    public float ContentScale;
 
     /// <summary>Starts with vertical sync on; toggle at runtime with <see cref="IRenderer.VSync"/>.</summary>
     public bool VSync = true;
@@ -175,6 +187,27 @@ public abstract class Engine : IDisposable
     public Vector2D<int> FramebufferSize => WindowPixels.FramebufferSize(Window);
 
     /// <summary>
+    /// Pixels per layout point: <see cref="EngineOptions.ContentScale"/> when fixed, otherwise the display's backing scale
+    /// (framebuffer pixels per OS window point, 2 on Retina).
+    /// </summary>
+    public float ContentScale => WindowPixels.ContentScale(Window, FramebufferSize, EngineOptions.ContentScale);
+
+    /// <summary>
+    /// Resizes the window to <paramref name="size"/> points. With a fixed <see cref="EngineOptions.ContentScale"/> these are
+    /// layout points and the framebuffer becomes exactly <paramref name="size"/> × that scale pixels on any display (or this
+    /// throws); otherwise they are OS window points. The swapchain is rebuilt on the next frame.
+    /// </summary>
+    public void ResizeWindow(Vector2D<int> size)
+    {
+        if (size.X <= 0 || size.Y <= 0)
+            throw new ArgumentOutOfRangeException(nameof(size), size, "The window size must be positive.");
+        if (EngineOptions.ContentScale > 0f)
+            EnsureFramebufferSize(WindowPixels.PixelsFor(size, EngineOptions.ContentScale));
+        else
+            Window.Size = size;
+    }
+
+    /// <summary>
     /// Caps the frame rate. Set to 0 for unlimited.
     /// Has no effect when VSync is enabled (the display refresh rate governs timing).
     /// </summary>
@@ -190,6 +223,9 @@ public abstract class Engine : IDisposable
 
     protected Engine(in EngineOptions engineOptions)
     {
+        if (!float.IsFinite(engineOptions.ContentScale) || engineOptions.ContentScale < 0f)
+            throw new ArgumentOutOfRangeException(nameof(engineOptions), engineOptions.ContentScale,
+                $"{nameof(EngineOptions)}.{nameof(EngineOptions.ContentScale)} must be 0 (the display's) or a positive scale.");
         EngineOptions = engineOptions;
         DevOverlayVisible = engineOptions.DevOverlayVisible;
         // M9: catalogs load before any game code runs, so constructors and OnLoad can translate.
@@ -222,7 +258,7 @@ public abstract class Engine : IDisposable
             // Silk reports only "not applicable" — surface SDL's own reason (missing video driver, display, …).
             throw new PlatformNotSupportedException($"{e.Message} SDL: {DescribeSdlFailure()}", e);
         }
-        Window.Load += CenterWindow;
+        Window.Load += PlaceWindow;
         Window.Load += OnLoad;
         Window.FramebufferResize += OnFramebufferResize;
         Window.Update += OnUpdate;
@@ -254,18 +290,42 @@ public abstract class Engine : IDisposable
         }
     }
 
-    // Monitors can only be queried once the window exists, and there may be none at all (a
-    // sleeping display on macOS, some headless X servers).
+    // Runs when the window exists, before OnLoad creates the swapchain. Monitors can only be queried once the window
+    // exists, and there may be none at all (a sleeping display on macOS, some headless X servers).
+    private void PlaceWindow()
+    {
+        if (EngineOptions.ContentScale <= 0f)
+        {
+            CenterWindow();
+            return;
+        }
+
+        var pixels = WindowPixels.PixelsFor(EngineOptions.WindowSize, EngineOptions.ContentScale);
+        WindowPixels.ResizeToPixels(Window, pixels); // size for this display first, so centring uses the final size
+        CenterWindow();
+        EnsureFramebufferSize(pixels); // centring may have moved it to a display of another scale
+    }
+
     private void CenterWindow()
     {
         if (Window.Monitor is { } monitor)
             Window.Center(monitor);
     }
 
+    private void EnsureFramebufferSize(Vector2D<int> pixels)
+    {
+        var reached = WindowPixels.ResizeToPixels(Window, pixels);
+        if (reached != pixels)
+            throw new InvalidOperationException(
+                $"{nameof(EngineOptions)}.{nameof(EngineOptions.ContentScale)} {EngineOptions.ContentScale} asks for a {pixels.X}x{pixels.Y} px " +
+                $"framebuffer, but the window ({Window.Size.X}x{Window.Size.Y} pt) is {reached.X}x{reached.Y} px on this display.");
+    }
+
     protected virtual void OnLoad()
     {
         InputContext = Window.CreateInput();
-        Log.Info($"[Window] SDL window {Window.Size.X}x{Window.Size.Y} pt, framebuffer {FramebufferSize.X}x{FramebufferSize.Y} px");
+        Log.Info($"[Window] SDL window {Window.Size.X}x{Window.Size.Y} pt, framebuffer {FramebufferSize.X}x{FramebufferSize.Y} px" +
+                 (EngineOptions.ContentScale > 0f ? $" (fixed content scale {EngineOptions.ContentScale})" : ""));
 
         Renderer = new VulkanRenderer(Window, new VulkanRendererOptions
         {
@@ -275,7 +335,7 @@ public abstract class Engine : IDisposable
         });
 
         if (Renderer is IVulkanContext vkCtx)
-            _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
+            _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window, EngineOptions.ContentScale);
 
         // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,
         // Steam, then the render server last, so nothing outlives what it depends on (the UI's GPU objects go while the
@@ -295,7 +355,10 @@ public abstract class Engine : IDisposable
         if (EngineOptions.EnableUi)
         {
             // M8: RmlUi game UI — sees input before the tree's nodes, renders after the tonemap below ImGui.
-            var ui = new UiServer(Renderer, Window, InputContext, EngineOptions.Ui);
+            var uiOptions = EngineOptions.Ui ?? new UiServerOptions();
+            if (EngineOptions.ContentScale > 0f)
+                uiOptions = uiOptions with { ContentScale = EngineOptions.ContentScale };
+            var ui = new UiServer(Renderer, Window, InputContext, uiOptions);
             ui.CanRender = () => !IsMinimised();
             Servers.Register(ui);
         }

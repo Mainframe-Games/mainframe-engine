@@ -133,6 +133,35 @@ public sealed class UiServerTests
     }
 
     [Fact]
+    public void FixedContentScaleIsTheDpRatioWhateverTheDisplayScale()
+    {
+        // EngineOptions.ContentScale reaches the server as UiServerOptions.ContentScale: Dpi layers lay out at it while
+        // input keeps using the display's pixels per point (1 headless).
+        using var ui = new UiTestTree(new UiServerOptions { ContentScale = 2f });
+        var layer = ui.AddLayer(0);
+        ui.Tick();
+
+        Assert.Equal(1f, ui.Server.PixelScale);
+        Assert.Equal(2f, ui.Server.ContentScale);
+        Assert.Equal(2f, layer.Context?.DensityIndependentPixelRatio);
+
+        layer.ScaleMode = UiScaleMode.Pixels; // the other scale modes ignore it
+        ui.Tick();
+        Assert.Equal(1f, layer.Context?.DensityIndependentPixelRatio);
+    }
+
+    [Fact]
+    public void ContentScaleFollowsTheDisplayByDefault()
+    {
+        using var ui = new UiTestTree();
+        var layer = ui.AddLayer(0);
+        ui.Tick();
+
+        Assert.Equal(ui.Server.PixelScale, ui.Server.ContentScale);
+        Assert.Equal(1f, layer.Context?.DensityIndependentPixelRatio);
+    }
+
+    [Fact]
     public void DocumentLoadsLazilyWithModelsBoundInOnReady()
     {
         using var ui = new UiTestTree();
