@@ -294,7 +294,7 @@ public abstract class Engine : IDisposable
 
             Servers.Render?.RenderMain(Root); // M2: sky, then the scene tree's visuals
             OnRenderMainPass(_gameTime);
-            _vkImGuiController?.Render(); // inside the render pass, before EndFrame
+            _vkImGuiController?.Render(); // tonemaps the scene target, then ImGui in the overlay pass
         }
         else
         {

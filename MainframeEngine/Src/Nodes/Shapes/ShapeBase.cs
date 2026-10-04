@@ -211,8 +211,8 @@ public abstract class ShapeBase : VisualInstance3D
         }
 
         // --- Shaders ---
-        var vertCode   = File.ReadAllBytes(vertSpvPath);
-        var fragCode   = File.ReadAllBytes(fragSpvPath);
+        var vertCode   = File.ReadAllBytes(ContentPaths.Resolve(vertSpvPath));
+        var fragCode   = File.ReadAllBytes(ContentPaths.Resolve(fragSpvPath));
         var vertModule = CreateShaderModule(ctx, vertCode);
         var fragModule = CreateShaderModule(ctx, fragCode);
         var entryPoint = (byte*)SilkMarshal.StringToPtr("main");

@@ -11,7 +11,7 @@ namespace MainframeEngine;
 public class WorldEnvironment : Node, IRenderResourceOwner
 {
     private World3D? _world;
-    private Vector3 _ambientColor = new(0.08f, 0.08f, 0.10f);
+    private Vector3 _ambientColor = LightEnvironment.DefaultAmbientColor;
     private SkyEnvironment? _skyEnvironment;
     private RenderServer? _server;
     private SkyEnvironmentType _builtMode;
@@ -22,7 +22,10 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export]
     public Sky? Sky { get; set; }
 
-    /// <summary>Ambient light color for every lit surface in the world.</summary>
+    /// <summary>
+    /// Ambient light color for every lit surface in the world, authored in sRGB (converted to linear by the
+    /// <see cref="LightEnvironment"/>). Defaults to <see cref="LightEnvironment.DefaultAmbientColor"/>.
+    /// </summary>
     [Export]
     public Vector3 AmbientColor
     {

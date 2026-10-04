@@ -26,7 +26,7 @@ flowchart LR
 | Step | Who | Detail |
 |---|---|---|
 | `BeginRenderPass()` | Engine, after the shadow pass | Begins the scene target pass; clears colour to `SetClearColor` **converted to linear**, depth to 1 |
-| scene draws | game `OnRenderMainPass` | Pipelines built against `IVulkanContext.RenderPass` (the scene pass) write linear HDR colour |
+| scene draws | `RenderServer.RenderMain` (the scene tree), then game `OnRenderMainPass` | Pipelines built against `IVulkanContext.RenderPass` (the scene pass) write linear HDR colour |
 | `BeginOverlayPass()` | ImGui controller (`Render`), or `EndFrame` | Ends the scene pass; begins the swapchain pass; draws the fullscreen tonemap triangle; leaves the pass open for the overlay |
 | overlay draws | ImGui | Pipelines built against `IVulkanContext.OverlayRenderPass` |
 | `EndFrame()` | Engine | Runs whatever step is missing (a frame always ends tonemapped and presentable), ends the pass, optional frame capture |
@@ -60,6 +60,7 @@ IEC 61966-2-1 curves.
   (`RendererDebugWindow`).
 - **Ambient default:** `LightEnvironment.DefaultAmbientColor` is sRGB (0.22, 0.22, 0.25) — linear
   ≈ 0.04, which after ACES' toe lights unlit surfaces like the old gamma-space (0.08, 0.08, 0.10) did.
+  `WorldEnvironment.AmbientColor` defaults to the same value.
 - The pass reads the scene with `texelFetch` at `gl_FragCoord` (one texel per pixel, no filtering),
   viewport not flipped (the scene image already has +Y up).
 

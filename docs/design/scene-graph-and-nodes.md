@@ -249,8 +249,9 @@ them in reverse order after the tree is freed.
 
 - `RenderShadows(viewport)` — every shadow-casting, visible `VisualInstance3D` into every light's map
   (`ShadowSystem.RenderShadows<TState>` with static lambdas).
-- `RenderMain(viewport)` — the `WorldEnvironment`'s sky first, then visible visuals by `RenderPriority`
-  then tree-entry order.
+- `RenderMain(viewport)` — writes the frame's shared set 0 (`IVulkanContext.Frame.Begin(camera, World3D.Lights)`:
+  camera + lights, once per frame), then the `WorldEnvironment`'s sky, then visible visuals by `RenderPriority`
+  then tree-entry order, all into the HDR scene target ([Color pipeline](color-pipeline.md)).
 - `ShadowsEnabled = false` runs without a `ShadowSystem` (lit pipelines bind the fallback set).
 - It tracks every GPU resource owner it created, so nodes removed but never freed are still released at
   shutdown.

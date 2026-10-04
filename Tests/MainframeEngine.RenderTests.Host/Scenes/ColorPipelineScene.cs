@@ -22,7 +22,7 @@ public sealed class ColorPipelineScene(HostOptions host) : RenderTestGame(host)
     public static readonly (Vector2 Min, Vector2 Max) OpaqueRect = (new Vector2(10, 10), new Vector2(60, 60));
     public static readonly (Vector2 Min, Vector2 Max) BlendRect = (new Vector2(70, 10), new Vector2(120, 60));
 
-    private readonly Camera3D _camera = new();
+    private readonly PerspectiveCamera _camera = new();
     private SkyEnvironment _sky = null!;
 
     protected override void LoadScene()

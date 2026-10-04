@@ -106,7 +106,8 @@ public sealed class RenderServer : IServer
     }
 
     /// <summary>
-    /// Draws <paramref name="viewport"/>'s world inside the main render pass: the sky of its
+    /// Draws <paramref name="viewport"/>'s world inside the main (HDR scene) render pass: writes the frame's shared
+    /// set 0 (camera + the world's lights, <see cref="FrameContext.Begin"/>), then the sky of its
     /// <see cref="WorldEnvironment"/>, then every visible visual. Nothing is drawn without an active camera.
     /// </summary>
     public void RenderMain(SceneViewport viewport)
@@ -122,6 +123,7 @@ public sealed class RenderServer : IServer
 
         var world = viewport.World3D;
         EnsureResources(world);
+        vk.Frame.Begin(camera, world.Lights); // shared set 0: camera + lights, once per frame
         world.Environment?.DrawSky(this, camera);
         foreach (var visual in world.VisualList)
             if (visual.IsVisibleInTree())

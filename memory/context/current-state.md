@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-05 (M2 node system & scenes, lane `m2`)_
+_Last updated: 2026-10-05 (M3a GPU resources/colour pipeline integrated onto M2, branch `integrate/m3a`)_
 
 ## Where things left off
 
@@ -41,7 +41,9 @@ _Last updated: 2026-10-05 (M2 node system & scenes, lane `m2`)_
   an HDR target, tonemapped (exposure 1.3, ACES) into a UNORM swapchain; ImGui after the tonemap.
   Authored colours are sRGB (converted to linear by the engine). MoltenVK: mutable-format swapchain
   UNORM views go stale — keep the default UNORM swapchain. Node-side shapes still use the old raw
-  Vulkan path (m3b).
+  Vulkan path (m3b). Integrated with M2: `RenderServer.RenderMain` writes set 0 (`Frame.Begin`) per frame;
+  `WorldEnvironment.AmbientColor` defaults to `LightEnvironment.DefaultAmbientColor`; ADRs are 0005–0007
+  (m3a) and 0010–0012 (M2); unused: 0008, 0009, 0013+.
 - Validation is on by default only in Debug builds (`EngineOptions.EnableValidation`).
 - Render tests / `just qa` need the display awake (`caffeinate -u`). The unbundled `dotnet` Sandbox
   process can't be driven by computer-use; use the `--qa-*` scripted flags instead.

@@ -106,10 +106,10 @@ sequenceDiagram
         alt FrameStarted
             E->>G: OnShadowPass(gameTime) — no render pass active
             E->>R: RenderServer.RenderShadows(Root) — the tree's shadow casters
-            E->>R: BeginRenderPass() — clear color + depth
-            E->>R: RenderServer.RenderMain(Root) — sky, then the tree's visuals
+            E->>R: BeginRenderPass() — HDR scene target: clear color (linear) + depth
+            E->>R: RenderServer.RenderMain(Root) — set 0 (camera + lights), sky, then the tree's visuals
             E->>G: OnRenderMainPass(gameTime) — anything drawn by hand
-            E->>I: Render() — ImGui draw data in main pass
+            E->>I: Render() — BeginOverlayPass (tonemap into the swapchain), then ImGui
         else swapchain out of date / being rebuilt
             E->>I: DiscardFrame()
         end

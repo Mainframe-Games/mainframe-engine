@@ -249,6 +249,6 @@ public readonly struct SpineFolder(in string rootFolder)
 {
     public readonly string Path = rootFolder;
     public readonly string Name = rootFolder.Split('/')[^1];
-    public readonly string AtlasPath = Directory.GetFiles(rootFolder, "*.atlas")[0];
-    public readonly string JsonPath = Directory.GetFiles(rootFolder, "*.json")[0];
+    public readonly string AtlasPath = Directory.GetFiles(ContentPaths.Resolve(rootFolder), "*.atlas")[0];
+    public readonly string JsonPath = Directory.GetFiles(ContentPaths.Resolve(rootFolder), "*.json")[0];
 }
