@@ -145,13 +145,15 @@ sequenceDiagram
   one mesh and material; self-checks the batch statistics) and `picking` (object-ID picks in the main view and a
   `SubViewport` shown through ImGui; self-checked), and the game-UI scenes (M8) `ui-hud` (HUD over lit-shapes),
   `ui-effects`, `ui-text`, `ui-widgets` (documents in the host's `Content/UI/` and the engine's widget demo;
-  `--size` gives them larger windows). The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
+  `--size` gives them larger windows), and the shadow scenes (M4) `csm`, `shadow-pcf`, `shadow-lights`,
+  `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)). The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
   M3 (the physics crates share one `BoxMesh` and one material per colour). Every host scene runs audio on the silent
   null device.
 - **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
   `result.json` records it), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (frame
-  times: average and p95 in `result.json`), `--no-validation`. Scene self-check failures are reported in
+  times: average and p95 in `result.json`, plus the shadow pass's CPU/GPU milliseconds), `--no-validation`,
+  `--no-shadows` (every light's `CastsShadows` off). Scene self-check failures are reported in
   `SceneCheckFailures`; `result.json` also records GPU allocator totals, shader-module count and the
   pipeline-cache bytes loaded. The runner points `MAINFRAME_PIPELINE_CACHE_DIR` at
   `artifacts/render-tests/pipeline-cache`.
@@ -174,7 +176,10 @@ sequenceDiagram
   multi-light test also asserts sub-allocation (≤ 16 `VkDeviceMemory`). `UiRenderTests`:
   `HudOverTheSceneMatchesGoldenWithExactSrgbColours`, `ClipMasksTransformsFiltersAndGradientsMatchGolden`,
   `TextMatchesGolden`, `WidgetLibraryMatchesGolden`, `UiCapturesAreDeterministicAcrossRuns`,
-  `UiSurvivesSwapchainRecreation`.
+  `UiSurvivesSwapchainRecreation`. `ShadowTests`: `CascadesCoverTheShadowDistanceAndMatchGoldens`,
+  `PcfSoftensShadowEdges`, `EveryLightTypeCastsShadowsAtOnce`, `ShadowMapViewerIsValidationClean`,
+  `ShadowsOfEveryLightTypeAllocateNothingPerFrame`, `CutoutMaterialsCastCutoutShadows`,
+  `ShadowEdgesDoNotShimmerWhenTheCameraMoves`.
 - **Comparing drivers at one resolution.** `--size 160x120` on a Retina Mac renders 320×240, the size of
   the lavapipe frames, so MoltenVK and lavapipe output can be diffed pixel for pixel.
 - **Window.** 320×240, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On a
@@ -285,7 +290,8 @@ alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurves
 `SpatialProjection32Emitters`, `ServerFrame32PositionalVoices`, `MixBlock480Frames32Voices`; physics:
 `Step1kRigidBodies3D`, `Step1kRigidBodies2D`, `Raycast10k3D`; the game UI: `Update500Idle`,
 `Update500DirtyBindings`, `Relayout500`, `Render500Callbacks`; `LocalizationBenchmarks`: `Tr` hit/miss/context
-lookups, formatting, `TranslateMarkup`, locale switch) and compares with
+lookups, formatting, `TranslateMarkup`, locale switch; `ShadowSetupBenchmarks`: `PlanSunCascades`, `PlanEveryLightType`,
+`PackAtlasElevenTiles`) and compares with
 [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. A run fails too when a benchmark produces no result
 or nothing runs at all (a filter that matches nothing, a build failure), and `just bench-baseline` then writes

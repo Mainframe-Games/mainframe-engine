@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-05 (M9 localization integrated and wired into the M8 game UI, branch `integrate/m9`)_
+_Last updated: 2026-10-05 (M4 Shadows v2 integrated with physics, audio, UI and localization, branch `integrate/m4`)_
 
 ## Where things left off
 
@@ -15,6 +15,8 @@ _Last updated: 2026-10-05 (M9 localization integrated and wired into the M8 game
 - M3 is done (m3a + m3b, ADRs 0005–0007, 0013–0019): `MeshInstance3D`/`Sprite3D` + primitive meshes,
   `StandardMaterial3D`, `Texture2D`, Assimp import, instanced batches, object-ID picking, `SubViewport`. `Box3d`/`Quad`
   are gone (old scenes upgrade through `RemovedNodeTypes`).
+- M4 is done (ADRs 0070–0074): cascaded sun shadows, PCF, a spot/secondary-directional atlas, per-light settings,
+  culled and cutout casters (see the shadow gotchas below).
 - M8 is done (ADRs 0050–0053): RmlUi `UiServer`/`UiLayer`/`UiDocument` (registered last, shut down first), UI renders
   after the tonemap below ImGui; the Sandbox HUD is RmlUi and ImGui is the F12 developer overlay.
 - M6 physics is done (lane `m6`, ADRs 0020–0025): `PhysicsServer3D` (Jitter2 2.9.0) / `PhysicsServer2D`
@@ -40,11 +42,13 @@ _Last updated: 2026-10-05 (M9 localization integrated and wired into the M8 game
 - HiDPI: SDL reports window size AND Silk's `IWindow.FramebufferSize` in points for Vulkan windows; use
   `Engine.FramebufferSize` (pixels, `SDL_Vulkan_GetDrawableSize`).
 - Per-frame GPU resources are keyed by `IVulkanContext.FrameSlot` (2 slots), never by swapchain image.
-- `ShadowSystem.RenderShadows` once per frame (per-frame-slot dynamic-offset light-VP ring).
-- Shadow comparison samplers are IMMUTABLE (baked into the set-2 layout, shared by ShadowSystem and
-  the renderer's ShadowFallback) — required by MoltenVK (mutableComparisonSamplers=false).
-  MaxShadowSpot is 7, one less than LightEnvironment.MaxSpot, to fit MoltenVK's 16 per-stage sampler
-  limit (4 dir + 7 spot + 4 point + 1 material texture); the 8th spot light casts no shadow.
+- `ShadowSystem.RenderShadows` once per frame — it throws on a second call (per-frame-slot light-VP ring). The
+  tree-level overload takes the camera, caster bounds and cull/draw callbacks (`ShadowPass`); the old overloads draw
+  without culling. Light matrices live in `ShadowMath`, pass indices in `Passes`.
+- M4 Shadows v2 (ADRs 0070–0074, `docs/design/shadow-system.md`): sun cascades (2D array), one atlas for spot +
+  secondary directional lights, point cubes — 6 shadow samplers, every spot casts. Comparison samplers are IMMUTABLE
+  (set-2 layout, shared with ShadowFallback; MoltenVK mutableComparisonSamplers=false). `shadeLightsBlinnPhong` takes
+  the geometric normal too (Mesh, Spine via `shadeLights`); `shadows.glsl` clamps every dynamic shadow index (Metal).
   The limits live only in `Content/Shaders/limits.json` (generated C# + `include/limits.glsl`); shaders
   compile in `dotnet build`, but run `just shaders` after shader/include edits to refresh the committed
   `.spv` fallback + `shaders.lock`.
