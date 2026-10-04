@@ -175,7 +175,8 @@ public static class SandboxSceneBuilder
         Add(root, floor);
         Add(root, floor, new CollisionShape3D { Name = "Shape", Position = new Vector3(0, -0.5f, 0), Shape = new BoxShape3D { Size = new Vector3(10, 1, 10) } });
 
-        var crates = new Node3D { Name = "Crates", Position = new Vector3(-3, 0, 1.5f) };
+        // Back right, clear of the M3 showcase meshes (which have no colliders).
+        var crates = new Node3D { Name = "Crates", Position = new Vector3(1.5f, 0, -2.5f) };
         Add(root, crates);
         var cube = new BoxShape3D { Size = new Vector3(0.5f) };
         var mesh = new BoxMesh { Size = new Vector3(0.5f) };

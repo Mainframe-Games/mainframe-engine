@@ -84,7 +84,7 @@ signal. It logs the device, frame rate, peaks and counters (`[QA] Audio …`) an
 | Primitives | "Glass" blended `SphereMesh`, "Lamp" emissive unshaded `CapsuleMesh`, "Column" `CylinderMesh` |
 | Model | the glTF test model (`Content/Models/TestModel/test_model.gltf`, imported through Assimp), instanced by UID as "Model" |
 | Ambience | `AudioPlayer3D` "Ambience" under the box: inline `AudioStream` `Content/Audio/ambient_hum.ogg` (a generated, seamless 6 s pad; `Stream` load mode, looping, `LoopEnd` 6 s), SFX bus, −18 dB, `Autoplay`, `UnitSize` 3, `MaxDistance` 60, `LowPassAtMaxDistance` 1500 Hz — fly around the box to hear panning and distance |
-| Physics (M6) | `StaticBody3D` "FloorCollider" (a 10 × 1 × 10 `BoxShape3D` under the floor plane) and "Crates": 9 `RigidBody3D` crates (shared 0.5 m `BoxShape3D`, `MeshInstance3D` visuals sharing one `BoxMesh` and one material) dropped from 1.5–6.3 m that tumble onto the floor and sleep. The ImGui window has a "Collision shapes" toggle and body/awake counts |
+| Physics (M6) | `StaticBody3D` "FloorCollider" (a 10 × 1 × 10 `BoxShape3D` under the floor plane) and "Crates" (back right, at (1.5, 0, −2.5), clear of the M3 meshes, which have no colliders): 9 `RigidBody3D` crates (shared 0.5 m `BoxShape3D`, `MeshInstance3D` visuals sharing one `BoxMesh` and one material) dropped from 1.5–6.3 m that tumble onto the floor and sleep. The ImGui window has a "Collision shapes" toggle and body/awake counts |
 | Lights | every shadow type at once: 2 `DirectionalLight3D` (warm key "Sun" 0.8, cool "Fill" 0.2), 1 `OmniLight3D` (blue, right of the box), 2 `SpotLight3D` (warm and green cones) — all shadow-casting; directions come from the nodes' rotations |
 
 ## Lifecycle
