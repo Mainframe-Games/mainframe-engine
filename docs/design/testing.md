@@ -245,9 +245,12 @@ below; anything else is an engine bug to fix, not a golden to commit. Commit the
 both runs must be green with no `No golden` warnings (`CapturesAreDeterministicAcrossRuns` and the other determinism
 tests cover run-to-run stability).
 
-Expected `lavapipe` vs `moltenvk` differences (rasterizer and resolution, not bugs). At the same
-resolution (`--size 160x120` locally) the golden scenes differ in about 1.2 % of pixels, all on grid lines;
-sky, floor and lit surfaces match:
+Expected `lavapipe` vs `moltenvk` differences (rasterizer, resolution and CPU, not bugs). Rendered at the same
+resolution (`--size 160x120` locally), the scenes with a grid differ in about 1.2 % of pixels (`shadow-lights`
+1.5 %), all on grid lines; sky, floor, lit and shadowed surfaces match. `csm`, `shadow-pcf`, `shadow-cutout`,
+`shadow-shimmer`, `gltf`, `instances` and `physics` frame 30 match to within ±4 on ≥ 99.99 % of pixels. The UI scenes
+(`ui-*`), `picking` and `color-pipeline` lay out ImGui/RmlUi in points, so compare them at their own sizes (MoltenVK
+renders them at 2× on a Retina Mac): layout, colours and effects must match, glyph rasterization differs.
 
 - **Resolution.** Frames are 320×240, not the 640×480 of a Retina Mac, so the distant grid aliases more.
 - **Line rasterization.** Distant 1-pixel grid lines step differently (scattered single pixels).
@@ -256,13 +259,20 @@ sky, floor and lit surfaces match:
   nothing or as dashes; Metal fills one column.
 - **Coplanar lines.** Grid lines on the floor quad z-fight, because line and triangle depths are
   interpolated differently. Lavapipe shows the receding ones dashed; MoltenVK hides them.
+- **Texture LOD.** Lavapipe picks mip levels slightly differently, so the high-frequency normal map on the
+  `materials` sphere shades differently on ~0.7 % of the pixels (the bumps look the same).
+- **Physics after contact.** `physics` frame 150 and `physics-debug` (2–3 %): CI runs on x64/glibc, Macs on
+  arm64/macOS, and the float results of the two (math library, SIMD code generation) differ in the last bits, which a
+  stack of colliding crates amplifies into slightly different resting poses. Frame 30 (before contact) matches;
+  each platform is deterministic run to run (`PhysicsCapturesAreDeterministicAcrossRuns`).
 
 Before the grid clipped its lines in the vertex shader ([Scene grid](scene-grid.md#clipping-in-the-vertex-shader)),
 lavapipe also dropped grid lines whose endpoints projected far off-screen and drew stray fragments that
 covered the ground below the horizon with a grey haze; that was a real difference, not one of the above.
 
 Lavapipe output changes with the Mesa/LLVM version in the runner image (recorded on Ubuntu 24.04:
-`llvmpipe (LLVM 20.1.2, 256 bits)`). If an image update breaks the goldens, re-record them as above.
+`llvmpipe (LLVM 20.1.2, 256 bits)`). If an image update breaks the goldens, re-record them as above
+([Recording goldens](#recording-goldens)).
 
 ### Gates
 
