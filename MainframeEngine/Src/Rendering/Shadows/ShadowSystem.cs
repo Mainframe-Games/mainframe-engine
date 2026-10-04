@@ -228,6 +228,36 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         set => _planner.MaxAtlasSize = (int)BitOperations.RoundUpToPowerOf2((uint)Math.Clamp(value, ShadowPlanner.MinAtlasSize, Math.Min(MaxImageSize, 16384)));
     }
 
+    /// <summary>Most cascades of the primary directional light (1–4, default 4): caps each light's cascade count.</summary>
+    public int CascadeLimit
+    {
+        get => _planner.CascadeLimit;
+        set => _planner.CascadeLimit = value;
+    }
+
+    /// <summary>
+    /// Largest side of any one shadow map — cascade layer, atlas tile or cube face (default 8192: no cap below the
+    /// per-kind limits). Caps the lights' <see cref="Light.ShadowResolution"/>.
+    /// </summary>
+    public int ResolutionLimit
+    {
+        get => _planner.ResolutionLimit;
+        set => _planner.ResolutionLimit = value;
+    }
+
+    /// <summary>
+    /// Applies a quality preset (<see cref="ShadowQualitySettings.For"/>): atlas size, filter, cascade and resolution
+    /// limits. <see cref="ShadowQuality.Off"/> is handled by <see cref="RenderServer.ShadowQuality"/> (no shadow system).
+    /// </summary>
+    public void Apply(in ShadowQualitySettings settings)
+    {
+        MaxAtlasSize = settings.MaxAtlasSize;
+        Filter = settings.Filter;
+        FilterRadius = settings.FilterRadius;
+        CascadeLimit = settings.CascadeLimit;
+        ResolutionLimit = settings.ResolutionLimit;
+    }
+
     /// <summary>Constant depth bias of the caster rasterisation (default 1.25; the hardware's minimum resolvable units).</summary>
     public float DepthBiasConstant { get; set; } = 1.25f;
 

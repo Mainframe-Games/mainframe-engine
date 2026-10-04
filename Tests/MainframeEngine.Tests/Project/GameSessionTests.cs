@@ -11,7 +11,8 @@ public sealed class GameHostOptionsTests
         var o = GameHostOptions.Parse(
         [
             "--project", "/p/project.mfproj", "--scene", "scn_0123456789ab", "--editor-port", "5123", "--max-frames", "30",
-            "--fixed-fps", "60", "--hidden", "--no-vsync", "--no-log-file", "--validation", "--my-game-flag", "x",
+            "--fixed-fps", "60", "--hidden", "--no-vsync", "--no-log-file", "--validation", "--locale", "pt-BR",
+            "--screenshot", "out/shot.png", "--my-game-flag", "x",
         ]);
 
         Assert.Equal("/p/project.mfproj", o.ProjectPath);
@@ -21,6 +22,10 @@ public sealed class GameHostOptionsTests
         Assert.Equal(60, o.FixedFps);
         Assert.True(o.Hidden && o.NoVSync && o.Validation);
         Assert.False(o.LogFile);
+        Assert.Equal("pt-BR", o.Locale);
+        Assert.Equal("out/shot.png", o.ScreenshotPath);
+        Assert.Equal(30, o.ScreenshotFrame); // the last frame of --max-frames
+        Assert.Equal(60, GameHostOptions.Parse(["--screenshot", "a.png"]).ScreenshotFrame);
         Assert.Equal(["--my-game-flag", "x"], o.Remaining);
     }
 
@@ -37,19 +42,26 @@ public sealed class GameHostOptionsTests
         Assert.Equal(engine.WindowVisible, applied.WindowVisible);
         Assert.Equal(engine.VSync, applied.VSync);
         Assert.Equal(engine.FixedDeltaTime, applied.FixedDeltaTime);
+        Assert.Equal(engine.Locale, applied.Locale);
+        Assert.False(applied.EnableFrameCapture);
     }
 
     [Fact]
     public void OverridesApplyToEngineOptions()
     {
-        var applied = GameHostOptions.Parse(["--max-frames", "5", "--fixed-fps", "50", "--hidden", "--no-vsync", "--validation"])
-            .Apply(new ProjectSettings { Name = "G" }.ToEngineOptions());
+        var settings = new ProjectSettings { Name = "G" };
+        settings.Localization.DefaultLocale = "es";
+        var applied = GameHostOptions.Parse(["--max-frames", "5", "--fixed-fps", "50", "--hidden", "--no-vsync", "--validation",
+                "--locale", "de", "--screenshot", "s.png"])
+            .Apply(settings.ToEngineOptions());
 
         Assert.Equal(5, applied.MaxFrames);
         Assert.Equal(0.02f, applied.FixedDeltaTime, 6);
         Assert.False(applied.WindowVisible);
         Assert.False(applied.VSync);
         Assert.True(applied.EnableValidation);
+        Assert.Equal("de", applied.Locale); // the player's choice beats the project's default locale
+        Assert.True(applied.EnableFrameCapture);
     }
 
     [Theory]
@@ -59,6 +71,8 @@ public sealed class GameHostOptionsTests
     [InlineData("--editor-port", "port")]
     [InlineData("--max-frames", "-1")]
     [InlineData("--project", "--hidden")]
+    [InlineData("--locale")]
+    [InlineData("--screenshot")]
     public void BadValuesThrow(params string[] args)
     {
         var e = Assert.Throws<ArgumentException>(() => GameHostOptions.Parse(args));

@@ -110,8 +110,8 @@ public sealed class ProjectSettings
     }
 
     /// <summary>
-    /// Engine options from these settings (window, VSync, physics, audio, Steam). Settings that need a running engine
-    /// (frame cap, exposure, shadows, input, autoloads, main scene) are applied by <see cref="GameHost"/>.
+    /// Engine options from these settings (window, VSync, physics, audio, localization, Steam). Settings that need a
+    /// running engine (frame cap, exposure, shadow quality, input, autoloads, main scene) are applied by <see cref="GameHost"/>.
     /// </summary>
     public EngineOptions ToEngineOptions() => new()
     {
@@ -123,6 +123,8 @@ public sealed class ProjectSettings
         Physics3D = Physics.Physics3D,
         Physics2D = Physics.Physics2D,
         SteamAppId = SteamAppId,
+        Locale = Localization.DefaultLocale,
+        Localization = Localization.ToOptions(),
         Audio = new AudioOptions
         {
             Enabled = Audio.Enabled,
@@ -256,16 +258,18 @@ public sealed class LocalizationProjectSettings
 
     /// <summary>Catalog domain (<c>{Domain}.mo</c>).</summary>
     public string Domain { get; set; } = "messages";
-}
 
-/// <summary>Shadow map budget (<see cref="RenderingProjectSettings.Shadows"/>).</summary>
-public enum ShadowQuality
-{
-    /// <summary>No shadow maps (<see cref="RenderServer.ShadowsEnabled"/> = false).</summary>
-    Off,
-    Low,
-    Medium,
-    High,
+    /// <summary>
+    /// The <see cref="Localization.Tr"/> options for this section (<see cref="EngineOptions.Localization"/>; the engine
+    /// passes them to <see cref="Localization.Tr.Configure"/> with <see cref="DefaultLocale"/> before any game code runs).
+    /// </summary>
+    public Localization.LocalizationOptions ToOptions() => new()
+    {
+        Domain = Domain,
+        LocaleDirectory = LocaleDirectory,
+        SourceLocale = SourceLocale,
+        FallbackLocales = [.. Fallbacks],
+    };
 }
 
 /// <summary>The <c>rendering</c> section.</summary>
@@ -284,19 +288,11 @@ public sealed class RenderingProjectSettings
     } = IVulkanContext.DefaultExposure;
 
     /// <summary>
-    /// Shadow quality. <see cref="ShadowQuality.Off"/> disables shadow maps; the other levels select the shadow-map
-    /// budget (<see cref="ShadowAtlasSize"/>).
+    /// Shadow quality (<see cref="RenderServer.ShadowQuality"/>). <see cref="ShadowQuality.Off"/> disables shadow maps;
+    /// the other levels select the shadow budget — atlas size, PCF filter, cascades, map resolution
+    /// (<see cref="ShadowQualitySettings.For"/>). Default <see cref="ShadowQuality.High"/>, the engine's defaults.
     /// </summary>
     public ShadowQuality Shadows { get; set; } = ShadowQuality.High;
-
-    /// <summary>The shadow-atlas size a quality level asks for (0 when off): 2048, 4096 or 8192 texels.</summary>
-    public static int ShadowAtlasSize(ShadowQuality quality) => quality switch
-    {
-        ShadowQuality.Low => 2048,
-        ShadowQuality.Medium => 4096,
-        ShadowQuality.High => 8192,
-        _ => 0,
-    };
 }
 
 /// <summary>

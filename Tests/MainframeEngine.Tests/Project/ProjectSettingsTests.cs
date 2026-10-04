@@ -276,16 +276,50 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal("res_00000000beef", o.Audio.BusLayoutPath);
         Assert.Equal(44100, o.Audio.SampleRate);
         Assert.Equal(20, o.Audio.BufferMilliseconds);
+        Assert.Equal("es", o.Locale);
+        Assert.NotNull(o.Localization);
+        Assert.Equal("game", o.Localization.Domain);
+        Assert.Equal("Content/lang", o.Localization.LocaleDirectory);
+        Assert.Equal("en_GB", o.Localization.SourceLocale);
+        Assert.Equal(["es", "fr"], o.Localization.FallbackLocales);
+
+        var defaults = new ProjectSettings().ToEngineOptions();
+        Assert.Null(defaults.Locale); // the OS language when a catalog exists, else the source locale
+        Assert.Equal(new MainframeEngine.Localization.LocalizationOptions(), defaults.Localization! with { FallbackLocales = [] });
 
         Assert.Equal("Untitled", new ProjectSettings { Name = "Untitled" }.ToEngineOptions().GameName); // title defaults to the name
     }
 
     [Fact]
-    public void ShadowQualityMapsToAnAtlasBudget()
+    public void ShadowQualityLevelsScaleTheShadowBudget()
     {
-        Assert.Equal(0, RenderingProjectSettings.ShadowAtlasSize(ShadowQuality.Off));
-        Assert.True(RenderingProjectSettings.ShadowAtlasSize(ShadowQuality.Low) < RenderingProjectSettings.ShadowAtlasSize(ShadowQuality.Medium));
-        Assert.True(RenderingProjectSettings.ShadowAtlasSize(ShadowQuality.Medium) < RenderingProjectSettings.ShadowAtlasSize(ShadowQuality.High));
+        var low = ShadowQualitySettings.For(ShadowQuality.Low);
+        var medium = ShadowQualitySettings.For(ShadowQuality.Medium);
+        var high = ShadowQualitySettings.For(ShadowQuality.High);
+
+        // High is exactly what a new shadow system starts with (the Sandbox and every render test).
+        Assert.Equal(new ShadowQualitySettings(ShadowPlanner.DefaultMaxAtlasSize, new ShadowPlanner().Filter, new ShadowPlanner().FilterRadius,
+            new ShadowPlanner().CascadeLimit, new ShadowPlanner().ResolutionLimit), high);
+        Assert.Equal((1024, ShadowFilter.Hard, 2, 1024), (low.MaxAtlasSize, low.Filter, low.CascadeLimit, low.ResolutionLimit));
+        Assert.Equal((2048, ShadowFilter.Pcf3x3, 3, 2048), (medium.MaxAtlasSize, medium.Filter, medium.CascadeLimit, medium.ResolutionLimit));
+        Assert.True(low.MaxAtlasSize < medium.MaxAtlasSize && medium.MaxAtlasSize < high.MaxAtlasSize);
+        Assert.True(low.CascadeLimit < medium.CascadeLimit && medium.CascadeLimit < high.CascadeLimit);
+        Assert.Equal(ShadowQuality.High, new ProjectSettings().Rendering.Shadows);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ShadowQualitySettings.For((ShadowQuality)42));
+    }
+
+    [Fact]
+    public void TheRenderServerAppliesShadowQuality()
+    {
+        var render = new RenderServer(new HeadlessRenderer());
+        Assert.Equal(ShadowQuality.High, render.ShadowQuality);
+        render.ShadowQuality = ShadowQuality.Off;
+        Assert.False(render.ShadowsEnabled);
+        Assert.Null(render.Shadows);
+        render.ShadowQuality = ShadowQuality.Medium;
+        Assert.True(render.ShadowsEnabled);
+        Assert.Throws<ArgumentOutOfRangeException>(() => render.ShadowQuality = (ShadowQuality)9);
+        Assert.Equal(ShadowQuality.Medium, render.ShadowQuality);
     }
 
     [Theory]
@@ -305,5 +339,28 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(EngineInfo.Version));
         Assert.DoesNotContain('+', EngineInfo.Version);
         Assert.Equal(EngineInfo.Version, new ProjectSettings().EngineVersion);
+    }
+
+    /// <summary>An <see cref="IRenderer"/> that is not an <see cref="IVulkanContext"/> (no shadow system is ever created).</summary>
+    private sealed class HeadlessRenderer : IRenderer
+    {
+        public RenderingBackend Backend => RenderingBackend.Vulkan;
+        public bool VSync { get; set; }
+        public void OnResize(Silk.NET.Maths.Vector2D<int> newSize) { }
+        public void BeginFrame() { }
+        public void EndFrame() { }
+        public void SetClearColor(float r, float g, float b, float a = 1) { }
+        public void Clear() { }
+        public void EnableDepthTest() { }
+        public void DisableDepthTest() { }
+        public void RequestCapture() { }
+
+        public bool TryTakeCapture([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out FrameCapture? capture)
+        {
+            capture = null;
+            return false;
+        }
+
+        public void Dispose() { }
     }
 }

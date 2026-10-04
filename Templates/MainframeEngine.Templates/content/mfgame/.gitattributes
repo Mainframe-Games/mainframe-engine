@@ -29,3 +29,7 @@
 # fonts
 *.ttf filter=lfs diff=lfs merge=lfs -text
 *.otf filter=lfs diff=lfs merge=lfs -text
+# localization: gettext sources are text, compiled catalogs are binary (committed next to their .po)
+*.po text eol=lf
+*.pot text eol=lf
+*.mo binary

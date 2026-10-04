@@ -4,7 +4,8 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Runs a game project without an <see cref="Engine"/> subclass: reads <c>project.mfproj</c>
-/// (<see cref="ProjectSettings"/>), applies its settings (window, physics, audio, exposure, shadows, input map), adds
+/// (<see cref="ProjectSettings"/>), applies its settings (window, physics, audio, localization, exposure, shadow quality,
+/// input map), adds
 /// the autoloads and starts the main scene — or <c>--scene</c> — and lets the scene tree run the game. A launcher is one
 /// line: <c>return GameHost.Run(args, typeof(MyNode).Assembly);</c>. Command-line flags: <see cref="GameHostOptions"/>.
 /// </summary>
@@ -22,6 +23,8 @@ public class GameHost : Engine
         Session = new GameSession(Tree, settings, HostOptions);
         Session.QuitRequested += code => Quit(code);
     }
+
+    private int _updates;
 
     public ProjectSettings Settings { get; }
 
@@ -99,13 +102,35 @@ public class GameHost : Engine
             MaxFPS = Settings.Window.MaxFps;
         if (Renderer is IVulkanContext vk)
             vk.Exposure = Settings.Rendering.Exposure;
-        if (Settings.Rendering.Shadows == ShadowQuality.Off && Servers.Render is { } render)
-            render.ShadowsEnabled = false; // before any visual creates GPU resources
+        if (Servers.Render is { } render)
+            render.ShadowQuality = Settings.Rendering.Shadows; // before any visual creates GPU resources (Off)
         if (!Session.Start())
             Quit(ExitCode.Error);
     }
 
-    protected override void OnUpdate(in GameTime gameTime) => Session.Update(gameTime);
+    protected override void OnUpdate(in GameTime gameTime)
+    {
+        Session.Update(gameTime);
+        if (HostOptions.ScreenshotPath is not null && ++_updates == HostOptions.ScreenshotFrame)
+            CaptureFrame();
+    }
+
+    protected override void OnFrameCaptured(FrameCapture capture)
+    {
+        if (HostOptions.ScreenshotPath is not { } path)
+            return;
+        try
+        {
+            if (Path.GetDirectoryName(Path.GetFullPath(path)) is { Length: > 0 } directory)
+                Directory.CreateDirectory(directory);
+            capture.SavePng(path);
+            Log.Info($"[GameHost] Screenshot saved to {Path.GetFullPath(path)} ({capture.Width}x{capture.Height}).");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Error($"[GameHost] Could not save the screenshot '{path}': {e.Message}");
+        }
+    }
 
     protected override void OnClose()
     {

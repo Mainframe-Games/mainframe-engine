@@ -299,6 +299,8 @@ Shadows are optional:
 | `DebugCascades` | false | cascade tint |
 | `StableCascades` | true | texel snapping |
 | `MaxAtlasSize` | 4096 | power of two, ≥ 512 |
+| `CascadeLimit` | 4 | caps each directional light's `CascadeCount` (1–4) |
+| `ResolutionLimit` | 8192 | caps every map side (cascade layer, atlas tile, cube face); power of two |
 | `DepthBiasConstant`, `DepthBiasSlope` | 1.25, 1.75 | raster bias of 2D maps |
 | `PlannedPasses`, `RenderedPasses`, `Passes`, `PassRendered(i)` | — | the last frame's passes |
 | `LastCpuMilliseconds`, `LastGpuMilliseconds` | — | CPU time of `RenderShadows`; GPU time between two timestamps (read when the frame slot comes round) |
@@ -309,6 +311,23 @@ Shadows are optional:
 - the settings above, the pass, draw and instance counts, the CPU and GPU times;
 - a **Maps** tree that shows the cascade layers and the atlas (depth as red). ImGui images can name their layout
   (`IImGuiTextureRegistry.Register(view, sampler, layout)`), here `DEPTH_STENCIL_READ_ONLY_OPTIMAL`.
+
+### Quality levels
+
+`RenderServer.ShadowQuality` (from `project.mfproj` `rendering.shadows`, applied by `GameHost`) sets a project-wide
+budget with `ShadowQualitySettings.For(level)` → `ShadowSystem.Apply` ([ADR 0095](../../memory/decisions/0095-shadow-quality-levels.md)).
+The limits cap the per-light settings below; they never raise them.
+
+| Level | `MaxAtlasSize` | `Filter` (`FilterRadius`) | `CascadeLimit` | `ResolutionLimit` |
+|---|---|---|---|---|
+| `High` (default) | 4096 | `Poisson16` (1.5) | 4 | 8192 (none) |
+| `Medium` | 2048 | `Pcf3x3` (1.5) | 3 | 2048 |
+| `Low` | 1024 | `Hard` (1) | 2 | 1024 |
+| `Off` | — no `ShadowSystem`: `ShadowsEnabled = false`, lit pipelines bind the fallback set | | | |
+
+`High` is exactly a new shadow system's defaults, so it changes nothing. The levels other than `Off` can change at
+any time (the planner re-packs the atlas and re-creates maps whose size changed); `Off` must be chosen before visuals
+create GPU resources, like `ShadowsEnabled`.
 
 Per-light settings live on `Light`, exported on `Light3D` and saved in scenes when they differ from the defaults:
 

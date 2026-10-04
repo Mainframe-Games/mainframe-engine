@@ -22,8 +22,9 @@ how the host is tested without a GPU.
 - The **input map** is a section of the project file with one string per binding (`key:Space`, `pad1:A`,
   `axis:LeftX-`) — not an `.mres` of binding resources: diffable, hand-editable, and the runtime `InputMap` stays
   a small allocation-free structure. The **audio bus layout** stays its own `.mres` (ADR 0035) referenced by path or
-  UID. **Localization** mirrors M9's `LocalizationOptions` fields (wired when M9 integrates). **Shadow quality**
-  `Off` disables shadow maps today; Low/Medium/High map to an atlas budget (`ShadowAtlasSize`) for M4's planner.
+  UID. **Localization** mirrors M9's `LocalizationOptions` fields (`ToOptions()` → `EngineOptions.Localization`, so
+  `Tr.Configure` uses them at start-up). **Shadow quality** `Off` disables shadow maps; Low/Medium/High map to
+  `ShadowQualitySettings` (atlas, filter, cascades, map resolution; ADR 0095).
 - `GameHost : Engine` (non-abstract, not sealed) maps settings to `EngineOptions`, applies the rest after
   `base.OnLoad()`, and delegates to `GameSession`, which works on any `SceneTree` (autoloads, start scene, editor
   commands) so it is unit-tested headless. `GameHost.Run(args, assemblies)` is the one-line launcher.

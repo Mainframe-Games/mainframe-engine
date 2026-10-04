@@ -399,6 +399,34 @@ public static class Tr
             Trees.RemoveAll(w => !w.TryGetTarget(out var t) || ReferenceEquals(t, tree));
     }
 
+    /// <summary>
+    /// Code reload (<see cref="GameAssemblyLoader.Unload"/>): drops every <see cref="LocaleChanged"/> handler, and every
+    /// tracked tree's <see cref="SceneTree.LocaleChanged"/> handler, whose code lives in <paramref name="assembly"/>, so a
+    /// forgotten subscription cannot keep an unloaded game assembly alive. Catalogs and cached formats hold only strings.
+    /// </summary>
+    internal static void ReleaseCodeOf(System.Reflection.Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+        lock (StateLock)
+            LocaleChanged = CodeReload.Without(LocaleChanged, assembly, "Tr.LocaleChanged");
+
+        SceneTree[] trees;
+        lock (Trees)
+        {
+            var live = new List<SceneTree>(Trees.Count);
+            foreach (var weak in Trees)
+            {
+                if (weak.TryGetTarget(out var tree))
+                    live.Add(tree);
+            }
+
+            trees = [.. live];
+        }
+
+        foreach (var tree in trees)
+            tree.ReleaseCodeOf(assembly);
+    }
+
     // A failing listener or node must not leave the others in the old language: each is isolated and logged.
     [SuppressMessage("Design", "CA1031:Do not catch general exception types",
         Justification = "Listener failures are logged; the remaining listeners and trees must still be notified.")]

@@ -349,6 +349,10 @@ public sealed class TrTests : IDisposable
         Assert.Equal("zh", LocaleId.Language("zh_Hans_CN"));
         Assert.Equal(["zh_Hans_CN", "zh_Hans", "zh", "en"], LocaleId.Chain("zh-Hans-CN", "en"));
         Assert.Equal(["en_US", "en"], LocaleId.Chain("en_US", "en"));
+        // Fallbacks serve other languages only: the source language never shows a fallback's translation.
+        Assert.Equal(["pt_BR", "pt", "es", "en"], LocaleId.Chain("pt-BR", "en", ["es"]));
+        Assert.Equal(["en_GB", "en"], LocaleId.Chain("en_GB", "en", ["es"]));
+        Assert.Equal(["en"], LocaleId.Chain("en", "en", ["es"]));
         Assert.Equal("en", LocaleId.GetCulture("qps").Name);
         Assert.Equal(CultureInfo.GetCultureInfo("es").NativeName, LocaleId.DisplayName("es"));
         Assert.Equal("Pseudo-locale (qps)", LocaleId.DisplayName("qps"));

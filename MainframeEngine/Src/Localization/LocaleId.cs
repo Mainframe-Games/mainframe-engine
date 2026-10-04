@@ -82,13 +82,16 @@ public static class LocaleId
     /// <summary>
     /// The lookup chain for <paramref name="locale"/>: the locale, then each shorter parent (<c>zh_Hans_CN</c> →
     /// <c>zh_Hans</c> → <c>zh</c>), then <paramref name="fallbacks"/> (in order, each with its parents), then
-    /// <paramref name="sourceLocale"/> (the language the msgids are written in). Duplicates are removed.
+    /// <paramref name="sourceLocale"/> (the language the msgids are written in). Duplicates are removed. A locale of the
+    /// source language (<c>en_GB</c> with source <c>en</c>) skips the fallbacks: its missing messages show the source
+    /// text, never another language's translation.
     /// </summary>
     public static IReadOnlyList<string> Chain(string locale, string sourceLocale, IEnumerable<string>? fallbacks = null)
     {
         var chain = new List<string>(4);
-        AddWithParents(chain, Normalize(locale));
-        if (fallbacks is not null)
+        var normalized = Normalize(locale);
+        AddWithParents(chain, normalized);
+        if (fallbacks is not null && Language(normalized) != Language(Normalize(sourceLocale)))
         {
             foreach (var fallback in fallbacks)
                 AddWithParents(chain, Normalize(fallback));

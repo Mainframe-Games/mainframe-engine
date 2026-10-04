@@ -17,7 +17,8 @@ namespace MainframeEngine;
 /// <remarks>
 /// <para>Reload cycle (docs/design/project-and-gamehost.md): serialize open scenes → free every node of game types and
 /// drop every reference to game types/instances → <see cref="Unload"/> (unregisters the types, forgets cached
-/// resources of them, unloads the context and waits until the GC has collected it) → <see cref="Load"/> → re-instantiate.
+/// resources of them, drops game handlers left on <see cref="Localization.Tr.LocaleChanged"/> and scene-tree events and
+/// UI data models still bound to game code, unloads the context and waits until the GC has collected it) → <see cref="Load"/> → re-instantiate.
 /// Scenes naming a type the new build no longer has load as <see cref="MissingNode"/>, keeping its data.</para>
 /// <para>Not thread-safe: use from one thread (the editor's main thread).</para>
 /// </remarks>
@@ -144,8 +145,10 @@ public sealed class GameAssemblyLoader : IDisposable
         foreach (var loaded in context.Assemblies)
         {
             ResourceLoader.ReleaseTypesOf(loaded);
-            TypeRegistry.UnregisterAssembly(loaded);
+            TypeRegistry.UnregisterAssembly(loaded); // also its translatable-property metadata (M9)
             ReplicationRegistry.UnregisterAssembly(loaded);
+            Localization.Tr.ReleaseCodeOf(loaded); // forgotten Tr/SceneTree.LocaleChanged subscriptions
+            UiServer.ReleaseCodeOf(loaded); // data models bound to game code, documents awaiting RmlUi's deferred unload
         }
         Assembly = null;
         _context = null;

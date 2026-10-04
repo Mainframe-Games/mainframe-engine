@@ -135,9 +135,17 @@ Tr.LocaleChanged += (_, e) => Log.Info($"{e.PreviousLocale} -> {e.Locale}");
 - Files: `{LocaleDirectory}/{locale}/LC_MESSAGES/{Domain}.mo`, default `Content/locale/<locale>/LC_MESSAGES/messages.mo`
   (resolved with [`ContentPaths`](build-and-platforms.md)). Locale folders use gettext names (`pt_BR`, `zh_Hans_CN`).
 - `SetLocale("pt_BR")` loads every catalog of the chain **`pt_BR → pt → FallbackLocales… → SourceLocale (en)`**
-  that exists and merges them into one immutable set (first catalog wins per message; each message keeps its own
+  (a locale of the source language, such as `en_GB`, skips the fallbacks: its missing messages show the source text,
+  never a fallback's translation) that exists and merges them into one immutable set (first catalog wins per message; each message keeps its own
   catalog's plural rule). The source locale needs no catalog. A corrupt catalog is logged and skipped. Switching
   between two 2 000-message catalogs costs about 2 ms (benchmark `SwitchLocale`).
+- **Projects:** `project.mfproj`'s `localization` section (`defaultLocale`, `sourceLocale`, `fallbacks`, `directory`,
+  `domain`) becomes `EngineOptions.Localization`/`Locale` through `ProjectSettings.ToEngineOptions()`; `GameHost`'s
+  `--locale` overrides the default ([projects](project-and-gamehost.md#projectmfproj)). Games built from the `mfgame`
+  template import `build/Localization.targets` with `LocaleContentRoot=../Content`.
+- **Code reload:** unloading a game assembly (`GameAssemblyLoader`) drops `Tr.LocaleChanged` and `SceneTree.LocaleChanged`
+  handlers of game code that never unsubscribed (logged as warnings); translatable-property metadata goes with the
+  type registration.
 - **Startup** (`Engine` constructor → `Tr.Configure(EngineOptions.Localization ?? new(), EngineOptions.Locale)`):
   `EngineOptions.Locale` (player settings) if catalogs exist for its chain (itself, its parents or `FallbackLocales`),
   otherwise the OS UI language under the same rule, otherwise the source locale; invalid names are ignored, so a bad

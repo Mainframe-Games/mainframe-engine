@@ -201,6 +201,9 @@ public sealed unsafe class RmlContext : IDisposable
 
     internal void ForgetModel(RmlDataModel model) => _models.Remove(model);
 
+    /// <summary>The live data models created in this context (a snapshot is not taken: do not dispose while iterating).</summary>
+    public IReadOnlyList<RmlDataModel> DataModels => _models;
+
     /// <summary>Unloads every document, removes the data models (their bindings are released) and destroys the context.</summary>
     public void Dispose()
     {

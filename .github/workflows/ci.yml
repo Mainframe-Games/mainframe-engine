@@ -241,12 +241,14 @@ jobs:
       - name: Pack the template package
         run: dotnet pack Templates/MainframeEngine.Templates -c Release -o "$RUNNER_TEMP/templates"
 
-      - name: Upload the smoke game's log
+      - name: Upload the smoke game's log and screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: template-smoke-log
-          path: ${{ runner.temp }}/template-smoke/userdata/**/*.log
+          path: |
+            ${{ runner.temp }}/template-smoke/userdata/**/*.log
+            ${{ runner.temp }}/template-smoke/screenshot.png
           if-no-files-found: warn
 
   ci-success:

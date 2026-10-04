@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Template smoke test (CI job "template", `just template-smoke`): installs the mfgame template from this checkout into
 # a private template hive, creates SmokeGame against this engine (--engine-path), builds it with warnings as errors and
-# runs its GameHost launcher for a few frames with a hidden window. Fails on any build error or non-zero exit code.
+# runs its GameHost launcher for a few frames with a hidden window, saving the last frame to <work-dir>/screenshot.png.
+# Fails on any build error, a non-zero exit code, a missing screenshot or an [ERROR]/[FATAL] line in the game's log.
 #
 # usage: build/template-smoke.sh [work-dir] [frames]
 # env:   CONFIGURATION (Debug), BUILD_ARGS (extra dotnet build arguments), SKIP_RUN=1 (build only)
@@ -37,7 +38,7 @@ fi
 
 # Logs go to a throwaway user-data folder, not the runner's home.
 MAINFRAME_USER_DATA="$work/userdata" dotnet "$out/SmokeGame.Launcher.dll" \
-  --max-frames "$frames" --hidden --fixed-fps 60 --no-vsync
+  --max-frames "$frames" --hidden --fixed-fps 60 --no-vsync --screenshot "$work/screenshot.png"
 
 log="$work/userdata/SmokeGame/logs/SmokeGame.log"
 if [ ! -s "$log" ]; then
@@ -46,6 +47,10 @@ if [ ! -s "$log" ]; then
 fi
 if grep -E '\[(ERROR|FATAL)\]' "$log"; then
   echo "template-smoke: the game logged errors (above)" >&2
+  exit 1
+fi
+if [ ! -s "$work/screenshot.png" ]; then
+  echo "template-smoke: no screenshot at $work/screenshot.png" >&2
   exit 1
 fi
 echo "template-smoke: SmokeGame built and ran $frames frames"

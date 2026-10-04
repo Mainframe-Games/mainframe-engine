@@ -17,7 +17,7 @@ Decisions: [project file + GameHost](../../memory/decisions/0090-project-file-an
 
 | Type | File | Notes |
 |---|---|---|
-| `ProjectSettings` (+ `WindowSettings`, `PhysicsProjectSettings`, `AudioProjectSettings`, `LocalizationProjectSettings`, `RenderingProjectSettings`, `AutoloadSettings`, `ShadowQuality`) | [Project/ProjectSettings.cs](../../MainframeEngine/Src/Project/ProjectSettings.cs) | the contents of `project.mfproj`; `Load`, `Parse`, `Save`, `ToJson`, `ToEngineOptions` |
+| `ProjectSettings` (+ `WindowSettings`, `PhysicsProjectSettings`, `AudioProjectSettings`, `LocalizationProjectSettings`, `RenderingProjectSettings`, `AutoloadSettings`) | [Project/ProjectSettings.cs](../../MainframeEngine/Src/Project/ProjectSettings.cs) | the contents of `project.mfproj`; `Load`, `Parse`, `Save`, `ToJson`, `ToEngineOptions` |
 | `ProjectSettingsFormat`, `ProjectMigration` | [Project/ProjectSettingsFormat.cs](../../MainframeEngine/Src/Project/ProjectSettingsFormat.cs) | reader/writer, `format` migrations |
 | `GameHost : Engine`, `GameHostOptions`, `GameSession` | [Project/](../../MainframeEngine/Src/Project/) | runs a project; command line; the testable session logic |
 | `InputMap`, `InputAction`, `InputBinding`, `InputState`, `Input` | [Scene/Input/](../../MainframeEngine/Src/Scene/Input/) | actions; per-tree polled state (`SceneTree.Input`); static facade |
@@ -83,11 +83,20 @@ commas tolerated). Only values that differ from the defaults are written, except
   (development builds `0.0.0-*` never warn).
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.
-- **Audio bus layout**: a reference to the `.mres` resource ([Audio](audio.md#buses)); missing → the default layout.
-- **Localization** mirrors M9's `LocalizationOptions` (`SourceLocale`, `FallbackLocales`, locale folder, domain) plus
-  the starting locale; `GameHost` passes it to `Tr` once M9 is integrated.
-- **Shadows**: `Off` runs without shadow maps (`RenderServer.ShadowsEnabled = false`); `Low`/`Medium`/`High` select a
-  shadow-atlas budget (`RenderingProjectSettings.ShadowAtlasSize`: 2048/4096/8192) for the M4 shadow planner.
+- **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the
+  `PhysicsSettings3D`/`2D` the engine builds `PhysicsServer3D`/`2D` with (gravity, substeps, solver, sleeping,
+  determinism), `maxStepsPerFrame` → `SceneTree.MaxPhysicsStepsPerFrame` at `GameSession.Start`.
+- **Audio bus layout**: a reference to the `.mres` resource ([Audio](audio.md#buses)) the `AudioServer` loads; missing
+  → the built-in default layout, invalid → the default with an `[ERROR]`.
+- **Localization** (`LocalizationProjectSettings.ToOptions()` → `EngineOptions.Localization`, `defaultLocale` →
+  `EngineOptions.Locale`): the engine constructor calls `Tr.Configure` with them before any game code runs, so the
+  catalog folder, domain, source locale and fallback chain are the project's. `defaultLocale` is used when catalogs
+  exist for its chain (itself, its parents or the fallbacks), else the OS language under the same rule, else the source
+  locale; `--locale` (the player's choice) overrides it. Fallbacks never apply to the source language itself.
+- **Shadows** (`RenderServer.ShadowQuality`, applied in `GameHost.OnLoad` before any visual exists): `Off` runs without
+  shadow maps (`ShadowsEnabled = false`); `Low`/`Medium`/`High` apply `ShadowQualitySettings.For(level)` to the shadow
+  system — atlas size, PCF filter, cascade limit and per-map resolution limit
+  ([shadow quality levels](shadow-system.md#quality-levels)). `High` is the shadow system's defaults.
 
 ## GameHost
 
@@ -108,12 +117,14 @@ does not load), 2 (bad command line).
 | `--editor-port <n>` | connect the editor link to `localhost:n` |
 | `--max-frames <n>` · `--fixed-fps <n>` · `--hidden` · `--no-vsync` · `--validation` | headless/CI runs |
 | `--no-log-file` | no log file |
+| `--locale <name>` | start in this locale (overrides `localization.defaultLocale`) |
+| `--screenshot <file.png>` | save the frame `--max-frames` ends on (frame 60 without it) as a PNG |
 
 Anything else is left in `GameHostOptions.Remaining` for the game.
 
-Startup: `ProjectSettings.ToEngineOptions()` (window, VSync, physics settings and tick, audio, Steam) + the flags →
-`Engine` constructor → `GameSession` (connects the editor link first) → `OnLoad`: `base.OnLoad()`, frame cap,
-exposure, shadows off when asked, then `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,
+Startup: `ProjectSettings.ToEngineOptions()` (window, VSync, physics settings and tick, audio, localization, Steam) +
+the flags → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects the editor link first) → `OnLoad`:
+`base.OnLoad()`, frame cap, exposure, shadow quality, then `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
 `Tree.ChangeSceneToFile(--scene ?? mainScene)`. Each frame `GameSession.Update` applies editor commands and reports
 status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the Sandbox).
@@ -207,9 +218,14 @@ loader.Load();                    // the rebuilt dll; re-instantiate the scenes
 - The engine and every assembly the host already has are shared with the default context; the game's private
   dependencies load into its context from the build folder (`.deps.json` when present). Files are read into memory,
   so the build can overwrite them.
-- `Unload` releases what would pin the context: type and replication registrations, cached resources of game types
-  and cached scenes' inline tables holding them (`ResourceLoader.ReleaseTypesOf`), `Node`'s per-type caches (weak for
-  collectible types). It then unloads and runs the GC until a weak reference to the context dies (default 5 s);
+- `Unload` releases what would pin the context: type and replication registrations (with M9's translatable-property
+  metadata, which lives in `NodeTypeInfo`), cached resources of game types and cached scenes' inline tables holding
+  them (`ResourceLoader.ReleaseTypesOf`), `Node`'s per-type caches (weak for collectible types), and — for game code
+  that forgot to clean up — handlers of game code left on `Tr.LocaleChanged` and on any live `SceneTree`'s events
+  (`Tr.ReleaseCodeOf`), and in the game UI (`UiServer.ReleaseCodeOf`): data models still bound to game delegates,
+  owners or types are disposed, documents closed since the last UI frame are destroyed (their element listeners) and
+  queued RmlUi handles are released. Each forced removal logs a warning naming the handler or model. `Tr`'s catalogs
+  and format caches hold only strings. It then unloads and runs the GC until a weak reference to the context dies (default 5 s);
   `LastUnloadedContext` stays alive when something leaked.
 - Keep game objects out of long-lived locals of the code that unloads (Debug builds extend temporaries to the end of
   the method): touch them in separate methods.
@@ -234,9 +250,14 @@ dotnet run --project MyGame/MyGame.Launcher
 | `--engine-source package` | *future*: a `PackageReference` to `MainframeEngine` instead ([distribution](future/distribution-nuget.md)) |
 | `--engine-version` | recorded in `project.mfproj` (and the package version) |
 
+A new game's `project.mfproj` spells out the defaults it starts from: a 1280×720 VSync window, 60 Hz physics with
+5 steps per frame and Earth gravity, `Content/Settings/AudioBusLayout.mres` (shipped: Master → Music, SFX, UI, Voice),
+`en` as the source locale with catalogs in `Content/locale` (the launcher imports `build/Localization.targets` with
+`LocaleContentRoot=../Content`, so a `.po` added there is compiled and shipped) and `High` shadows.
+
 `just template-smoke` (`build/template-smoke.sh`) installs the template into a private hive, creates `SmokeGame`
-against the checkout, builds it warnings-as-errors and runs it for 30 hidden frames, failing on any `[ERROR]` in its
-log; CI's `template` job does the same on lavapipe and packs the template (`just template-pack`).
+against the checkout, builds it warnings-as-errors and runs it for 30 hidden frames with `--screenshot`, failing on any
+`[ERROR]` in its log or a missing screenshot; CI's `template` job does the same on lavapipe and packs the template (`just template-pack`).
 
 ## Testing
 
@@ -250,12 +271,14 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 | `LogRoutingTests`, `LogSinkTests`, `UserDataPathsTests` | entries, categories, explicit categories, filtering, **0 B when filtered** (and to a memory sink), invariant culture, failing/recursive sinks, console format; memory ring/`CopySince`, file format, run and size rotation; per-OS folders |
 | `EditorLinkProtocolTests`, `EditorLinkConnectionTests` | every frame round-trips, back-to-back frames, bad lengths, malformed bodies, truncation; streaming in order, commands, goodbye, reconnect after the editor restarts (queued logs delivered) or drops the link, a stalled editor (never blocks, drops reported exactly), no editor at all, garbage peers, several games by id |
 | `GameHostOptionsTests`, `GameSessionTests`, `GameSessionEditorLinkTests` | flags and overrides; autoloads (scene/type/disabled/broken), `--scene`, missing scene, reload from disk, commands; a session against a real `EditorLinkServer` |
+| `ProjectServersTests`, `ProjectLocalizationTests` | a project file's gravity moves a body at its tick rate, `maxStepsPerFrame` reaches the tree, the referenced bus layout is the one the audio server mixes with; `defaultLocale` + fallbacks drive `Tr`, `--locale` overrides |
+| `GameUnloadLeakTests` | a game type with `[Export(Translatable)]` re-translated on a locale switch, and a game HUD (`UiDocument` data model, data event, element listener, a raw model never disposed) — with forgotten `Tr`/`SceneTree.LocaleChanged` subscriptions — unload and are **collected** with no UI frame in between |
 | `GameAssemblyLoaderTests`, `DebouncerTests` | Roslyn-compiled game assemblies: load → tick → save/load scenes with inline game resources → unload → **collected** → rebuild in place → reload with values kept; `MissingNode` round trip while unloaded; leak detection; private dependencies; build-output discovery; debounce and the real watcher |
 
 ## Known issues
 
-- Localization settings are stored but applied only once M9 (`Tr`) is integrated; shadow Low/Medium/High await M4's
-  atlas planner (`Off` works).
+- Shadow quality cannot switch between `Off` and the other levels after visuals exist (no shadow system to create
+  or drop at run time); `Low`/`Medium`/`High` switch at any time.
 - The template's sample scene has a fixed UID (unique within each game, the same across games).
 - Game-registered `RemovedNodeTypes` upgrades and `Codecs.Register` codecs are not removed on unload.
 - The editor link has no authentication (loopback only).

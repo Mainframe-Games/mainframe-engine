@@ -178,6 +178,7 @@ public sealed class UiServer : IFrameServer, IInputServer
         }
 
         _ime = UiImeWatch.TryCreate(window);
+        s_live = new WeakReference<UiServer>(this);
         Log.Info($"[UI] RmlUi {RmlCore.RmlUiVersion} (mfrmlui ABI {RmlCore.AbiVersion >> 16}.{RmlCore.AbiVersion & 0xFFFF}), " +
                  $"{(RenderInterface is VulkanUiRenderer ? "Vulkan renderer" : "headless")}");
     }
@@ -465,6 +466,59 @@ public sealed class UiServer : IFrameServer, IInputServer
             if (_layers[i].Visible && _layers[i].Context is { } c)
                 return c;
         return null;
+    }
+
+    // ── Code reload ──────────────────────────────────────────────────────────────────────────────────────────
+
+    private static WeakReference<UiServer>? s_live; // RmlUi is process-global: at most one server exists
+
+    /// <summary>
+    /// Code reload (<see cref="GameAssemblyLoader.Unload"/>, after the game's nodes were freed): removes data models whose
+    /// bindings still call or hold code from <paramref name="assembly"/> (a game that bound a model straight on a layer's
+    /// context and never disposed it), finishes RmlUi's deferred unload of documents closed since the last frame (their
+    /// element listeners hold game delegates) and releases queued handles — so the UI keeps no reference into the
+    /// unloading game assembly without waiting for a frame. Must run on the RmlUi thread.
+    /// </summary>
+    internal static void ReleaseCodeOf(System.Reflection.Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+        if (s_live is null || !s_live.TryGetTarget(out var server) || server._disposed || !RmlCore.IsInitialised)
+            return;
+        if (RmlCore.OwnerThreadId != Environment.CurrentManagedThreadId || RmlCore.IsInCallback)
+        {
+            Log.Warning("[UI] Game code unloaded off the UI thread (or inside a UI callback); UI references to it are released at the next frame.");
+            return;
+        }
+
+        server.ReleaseCode(assembly);
+    }
+
+    private void ReleaseCode(System.Reflection.Assembly assembly)
+    {
+        if (Translator is { } translator && CodeReload.IsFrom(translator, assembly))
+        {
+            Log.Warning($"[UI] UiServer.Translator was game code ({assembly.GetName().Name}); restored the default translator.");
+            Translator = _textTranslator is null ? null : TranslateText;
+        }
+
+        RmlCore.ProcessPendingReleases();
+        foreach (var layer in _layers)
+        {
+            if (layer.Context is not { IsDisposed: false } context)
+                continue;
+            foreach (var model in context.DataModels.ToArray())
+            {
+                if (!model.UsesCode(assembly))
+                    continue;
+                Log.Warning($"[UI] Data model '{model.Name}' was still bound to unloaded game code ({assembly.GetName().Name}); " +
+                            "removed it. Dispose models when their owner leaves the tree (UiDocument.CreateDataModel does).");
+                model.Dispose();
+            }
+
+            context.Update(); // RmlUi destroys documents closed since the last update here (and their listeners)
+        }
+
+        RmlCore.ProcessPendingReleases();
     }
 
     // ── Frame ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -967,6 +1021,8 @@ public sealed class UiServer : IFrameServer, IInputServer
         if (_disposed)
             return;
         _disposed = true;
+        if (s_live is not null && s_live.TryGetTarget(out var live) && ReferenceEquals(live, this))
+            s_live = null;
         if (_textTranslator is not null)
             _textTranslator.LocaleChanged -= OnLocaleChanged;
         _hotReload?.Dispose();

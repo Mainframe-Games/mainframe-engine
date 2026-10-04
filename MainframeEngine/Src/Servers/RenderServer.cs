@@ -77,10 +77,35 @@ public sealed class RenderServer : IServer
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_shadows is null && ShadowsEnabled && Vulkan is { } vk)
+            {
                 _shadows = new ShadowSystem(vk);
+                _shadows.Apply(ShadowQualitySettings.For(ShadowQuality));
+            }
+
             return _shadows;
         }
     }
+
+    /// <summary>
+    /// The project-wide shadow budget (default <see cref="MainframeEngine.ShadowQuality.High"/>, the shadow system's
+    /// defaults): <see cref="MainframeEngine.ShadowQuality.Off"/> turns <see cref="ShadowsEnabled"/> off (set it before
+    /// visuals create GPU resources); the other levels apply <see cref="ShadowQualitySettings.For"/> to the shadow
+    /// system — now, or when it is created — and may change at any time. Settings changed on <see cref="Shadows"/>
+    /// afterwards are kept until the next change of quality.
+    /// </summary>
+    public ShadowQuality ShadowQuality
+    {
+        get;
+        set
+        {
+            if (!Enum.IsDefined(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown shadow quality.");
+            ShadowsEnabled = value != ShadowQuality.Off; // throws (unchanged) when toggling after visuals exist
+            field = value;
+            if (value != ShadowQuality.Off)
+                _shadows?.Apply(ShadowQualitySettings.For(value));
+        }
+    } = ShadowQuality.High;
 
     /// <summary>The shadow system if it already exists (never creates one).</summary>
     public ShadowSystem? ExistingShadows => _shadows;

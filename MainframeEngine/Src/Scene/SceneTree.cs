@@ -138,6 +138,20 @@ public sealed partial class SceneTree
     /// </summary>
     public event Action? LocaleChanged;
 
+    /// <summary>
+    /// Code reload: removes this tree's event handlers whose code lives in <paramref name="assembly"/> (an unloading game
+    /// assembly) — a game node that subscribed to <see cref="LocaleChanged"/> and friends without unsubscribing would
+    /// otherwise keep the assembly alive for as long as the (editor's) tree lives.
+    /// </summary>
+    internal void ReleaseCodeOf(System.Reflection.Assembly assembly)
+    {
+        ProcessFrame = CodeReload.Without(ProcessFrame, assembly, "SceneTree.ProcessFrame");
+        PhysicsFrame = CodeReload.Without(PhysicsFrame, assembly, "SceneTree.PhysicsFrame");
+        NodeAdded = CodeReload.Without(NodeAdded, assembly, "SceneTree.NodeAdded");
+        NodeRemoved = CodeReload.Without(NodeRemoved, assembly, "SceneTree.NodeRemoved");
+        LocaleChanged = CodeReload.Without(LocaleChanged, assembly, "SceneTree.LocaleChanged");
+    }
+
     /// <summary>The node with <paramref name="id"/> if it is inside this tree.</summary>
     public Node? Find(NodeId id) => _nodesById.GetValueOrDefault(id);
 

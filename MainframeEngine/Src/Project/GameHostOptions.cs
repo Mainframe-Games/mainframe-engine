@@ -14,6 +14,8 @@ namespace MainframeEngine;
 /// <item><term><c>--no-vsync</c></term><description>start with VSync off</description></item>
 /// <item><term><c>--no-log-file</c></term><description>do not write <c>{user data}/{game}/logs/{game}.log</c></description></item>
 /// <item><term><c>--validation</c></term><description>enable the Vulkan validation layers</description></item>
+/// <item><term><c>--locale &lt;name&gt;</c></term><description>start in this locale (the player's choice) instead of the project's <c>defaultLocale</c></description></item>
+/// <item><term><c>--screenshot &lt;file.png&gt;</c></term><description>save the frame <c>--max-frames</c> ends on (frame 60 without it) as a PNG (smoke runs, CI)</description></item>
 /// </list>
 /// Arguments the host does not know are kept in <see cref="Remaining"/> for the game.
 /// </summary>
@@ -36,6 +38,15 @@ public sealed record GameHostOptions
     public bool LogFile { get; init; } = true;
 
     public bool Validation { get; init; }
+
+    /// <summary>The starting locale, overriding <see cref="LocalizationProjectSettings.DefaultLocale"/>.</summary>
+    public string? Locale { get; init; }
+
+    /// <summary>PNG path for <c>--screenshot</c> (enables frame capture).</summary>
+    public string? ScreenshotPath { get; init; }
+
+    /// <summary>The update on which <c>--screenshot</c> is taken: the last of <see cref="MaxFrames"/>, else the 60th.</summary>
+    public int ScreenshotFrame => MaxFrames > 0 ? MaxFrames : 60;
 
     /// <summary>Arguments not consumed by the host, in order.</summary>
     public IReadOnlyList<string> Remaining { get; init; } = [];
@@ -78,6 +89,12 @@ public sealed record GameHostOptions
                 case "--validation":
                     options = options with { Validation = true };
                     break;
+                case "--locale":
+                    options = options with { Locale = Value(args, ref i) };
+                    break;
+                case "--screenshot":
+                    options = options with { ScreenshotPath = Value(args, ref i) };
+                    break;
                 default:
                     remaining.Add(arg);
                     break;
@@ -100,6 +117,10 @@ public sealed record GameHostOptions
             options.VSync = false;
         if (Validation)
             options.EnableValidation = true;
+        if (Locale is not null)
+            options.Locale = Locale;
+        if (ScreenshotPath is not null)
+            options.EnableFrameCapture = true;
         return options;
     }
 

@@ -152,6 +152,33 @@ public sealed class ShadowPlannerTests
     }
 
     [Fact]
+    public void QualityLimitsCapCascadesAndEveryMapSize()
+    {
+        var planner = new ShadowPlanner { CascadeLimit = 2, ResolutionLimit = 1000 }; // rounded up to 1024
+        Assert.Equal(1024, planner.ResolutionLimit);
+        var point = Point(0);
+        point.ShadowResolution = 2048;
+        var secondSun = Sun();
+        secondSun.ShadowResolution = 4096; // a 2048 tile, capped to 1024
+        planner.Plan(Lights(Sun(), secondSun, Spot(-3, 2048), point), Camera(), Aabb.Empty);
+
+        Assert.Equal(2, planner.CascadeCount); // the sun asks for 4
+        Assert.Equal(2f, planner.Uniforms.Csm.X);
+        Assert.Equal(1024, planner.CascadeResolution); // the sun asks for 2048
+        Assert.Equal(1024, planner.CubeResolutions[0]);
+        Assert.All(Enumerable.Range(0, planner.AtlasMapCount).Select(planner.AtlasTile), t => Assert.Equal(1024, t.Size));
+        Assert.Equal(2 + 2 + 6, planner.PassCount);
+
+        // Limits above a light's own settings change nothing; the cascade limit is clamped to 1..4.
+        planner.CascadeLimit = 9;
+        planner.ResolutionLimit = Light.MaxShadowResolution;
+        planner.Plan(Lights(Sun()), Camera(), Aabb.Empty);
+        Assert.Equal((4, DirectionalLight.DefaultShadowResolution), (planner.CascadeCount, planner.CascadeResolution));
+        planner.CascadeLimit = 0;
+        Assert.Equal(1, planner.CascadeLimit);
+    }
+
+    [Fact]
     public void TheAtlasIsRepackedOnlyWhenItsTilesChange()
     {
         var planner = new ShadowPlanner();

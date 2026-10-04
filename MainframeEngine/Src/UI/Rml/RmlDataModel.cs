@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -47,6 +48,7 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         ArgumentNullException.ThrowIfNull(get);
         RmlValue<T>.EnsureSupported();
+        NoteCode(typeof(T), get, set);
         return BindScalar(name, new FuncBinding<T>(get, set), set is not null);
     }
 
@@ -55,6 +57,7 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         ArgumentNullException.ThrowIfNull(get);
         RmlValue<T>.EnsureSupported();
+        NoteCode(typeof(T), get, set, owner);
         return BindScalar(name, new StateBinding<TOwner, T>(owner, get, set), set is not null);
     }
 
@@ -76,6 +79,7 @@ public sealed unsafe class RmlDataModel : IDisposable
     public RmlDataModel Event(string name, Action handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
+        NoteCode(null, handler);
         return Event(name, new EventBinding(handler, null));
     }
 
@@ -83,6 +87,7 @@ public sealed unsafe class RmlDataModel : IDisposable
     public RmlDataModel Event(string name, RmlDataEventCallback handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
+        NoteCode(null, handler);
         return Event(name, new EventBinding(null, handler));
     }
 
@@ -108,6 +113,7 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         ArgumentNullException.ThrowIfNull(items);
         RmlValue<T>.EnsureSupported();
+        NoteCode(typeof(T), null, null, items);
         return BindVariable(name, RmlNative.VariableArray, new ListBinding<T>(items, null));
     }
 
@@ -116,6 +122,7 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(type);
+        NoteCode(typeof(T), null, null, items);
         return BindVariable(name, RmlNative.VariableArray, new ListBinding<T>(items, type));
     }
 
@@ -124,6 +131,7 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         ArgumentNullException.ThrowIfNull(get);
         ArgumentNullException.ThrowIfNull(type);
+        NoteCode(typeof(T), get);
         return BindVariable(name, RmlNative.VariableStruct, new StructBinding<T>(get, type));
     }
 
@@ -156,6 +164,34 @@ public sealed unsafe class RmlDataModel : IDisposable
         gc.Free(); // a failed bind never calls release
         throw new RmlException($"Binding '{name}' in data model '{Name}'", status);
     }
+
+    // ── Code reload ──────────────────────────────────────────────────────────────────────────────────────────
+
+    // Collectible assemblies (editor-loaded game code) this model's bindings call or hold: the UI server disposes the
+    // model when one of them unloads (UiServer.ReleaseCodeOf). Binding is set-up time, so the reflection is fine here.
+    private List<Assembly>? _collectibleCode;
+
+    private void NoteCode(Type? valueType, Delegate? first, Delegate? second = null, object? state = null)
+    {
+        NoteAssembly(valueType?.Assembly);
+        NoteAssembly(first?.Method.DeclaringType?.Assembly);
+        NoteAssembly(first?.Target?.GetType().Assembly);
+        NoteAssembly(second?.Method.DeclaringType?.Assembly);
+        NoteAssembly(second?.Target?.GetType().Assembly);
+        NoteAssembly(state?.GetType().Assembly);
+    }
+
+    private void NoteAssembly(Assembly? assembly)
+    {
+        if (assembly is not { IsCollectible: true })
+            return;
+        _collectibleCode ??= [];
+        if (!_collectibleCode.Contains(assembly))
+            _collectibleCode.Add(assembly);
+    }
+
+    /// <summary>True when a binding of this model calls or holds code from <paramref name="assembly"/> (a collectible game assembly).</summary>
+    internal bool UsesCode(Assembly assembly) => _collectibleCode?.Contains(assembly) == true;
 
     // ── Dirtying ─────────────────────────────────────────────────────────────────────────────────────────────
 

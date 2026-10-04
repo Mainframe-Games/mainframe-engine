@@ -6,6 +6,22 @@
   "assemblies": [
     "MyGame"
   ],
+  "window": {
+    "width": 1280,
+    "height": 720,
+    "vsync": true
+  },
+  "physics": {
+    "ticksPerSecond": 60,
+    "maxStepsPerFrame": 5,
+    "3d": {
+      "gravity": [
+        0,
+        -9.81,
+        0
+      ]
+    }
+  },
   "input": {
     "spin_faster": {
       "bindings": [
@@ -21,5 +37,16 @@
         "axis:LeftTrigger+"
       ]
     }
+  },
+  "audio": {
+    "busLayout": "Content/Settings/AudioBusLayout.mres"
+  },
+  "localization": {
+    "sourceLocale": "en",
+    "fallbacks": [],
+    "directory": "Content/locale"
+  },
+  "rendering": {
+    "shadows": "High"
   }
 }

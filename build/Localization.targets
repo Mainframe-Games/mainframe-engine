@@ -4,7 +4,10 @@
 
       <Import Project="..\build\Localization.targets" />
 
-    1. Every Content/locale/<locale>/LC_MESSAGES/<domain>.po is compiled to
+    LocaleContentRoot (default "Content") is the game's content folder relative to the importing project; a launcher
+    whose content lives beside it (the mfgame template: ../Content, linked as Content/) sets it before the import.
+
+    1. Every $(LocaleContentRoot)/locale/<locale>/LC_MESSAGES/<domain>.po is compiled to
        obj/<Configuration>/locale/<locale>/LC_MESSAGES/<domain>.mo by mf-l10n (Tools/MainframeEngine.L10n, built
        first through a project reference): a C# .mo writer identical to GNU msgfmt, so builds never need gettext.
        Only catalogs whose .po (or the tool) changed are recompiled. A translation that breaks its placeholders or
@@ -17,6 +20,7 @@
 
   <PropertyGroup>
     <CompileLocales Condition="'$(CompileLocales)' == ''">true</CompileLocales>
+    <LocaleContentRoot Condition="'$(LocaleContentRoot)' == ''">Content</LocaleContentRoot>
     <LocaleOutputDir>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(BaseIntermediateOutputPath), $(Configuration), locale))))</LocaleOutputDir>
     <MfL10nProject>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)../Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj))</MfL10nProject>
     <_MfL10nDotnet Condition="'$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</_MfL10nDotnet>
@@ -24,11 +28,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <LocaleCatalog Include="Content/locale/**/*.po">
+    <LocaleCatalog Include="$(LocaleContentRoot)/locale/**/*.po">
       <SubDir>%(RecursiveDir)</SubDir>
     </LocaleCatalog>
     <!-- Sources and committed binaries are build inputs; IncludeLocaleCatalogsInOutput adds the right .mo files. -->
-    <None Update="Content/locale/**/*.po;Content/locale/**/*.pot;Content/locale/**/*.mo" CopyToOutputDirectory="Never" />
+    <None Update="$(LocaleContentRoot)/locale/**/*.po;$(LocaleContentRoot)/locale/**/*.pot;$(LocaleContentRoot)/locale/**/*.mo" CopyToOutputDirectory="Never" />
   </ItemGroup>
 
   <!-- Builds mf-l10n before this project (it is a build tool here, not a dependency of the game). -->

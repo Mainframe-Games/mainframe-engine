@@ -57,6 +57,23 @@ internal sealed class ShadowPlanner
     /// <summary>Largest atlas the planner may use (power of two).</summary>
     public int MaxAtlasSize { get; set; } = DefaultMaxAtlasSize;
 
+    /// <summary>Most cascades the primary directional light gets (1–4; its <see cref="DirectionalLight.CascadeCount"/> is capped to this).</summary>
+    public int CascadeLimit
+    {
+        get;
+        set => field = Math.Clamp(value, 1, ShaderLimits.MaxShadowCascades);
+    } = ShaderLimits.MaxShadowCascades;
+
+    /// <summary>
+    /// Largest side of any one map — cascade layer, atlas tile or cube face (a power of two). Caps each light's
+    /// <see cref="Light.ShadowResolution"/>; default <see cref="Light.MaxShadowResolution"/> (no cap).
+    /// </summary>
+    public int ResolutionLimit
+    {
+        get;
+        set => field = (int)BitOperations.RoundUpToPowerOf2((uint)Math.Clamp(value, Light.MinShadowResolution, Light.MaxShadowResolution));
+    } = Light.MaxShadowResolution;
+
     /// <summary>Least pull-back of the cascade near plane towards the light (covers casters without bounds, such as Spine).</summary>
     public float MinCasterPullback { get; set; } = 10f;
 
@@ -158,7 +175,7 @@ internal sealed class ShadowPlanner
             var light = points[i];
             if (!light.CastsShadows || light.Range <= 0f)
                 continue;
-            var resolution = Math.Clamp(light.ShadowResolutionPow2, MinCubeResolution, MaxCubeResolution);
+            var resolution = Math.Clamp(Math.Min(light.ShadowResolutionPow2, ResolutionLimit), MinCubeResolution, MaxCubeResolution);
             CubeResolutions[cube] = resolution;
             _cubeLightIndex[cube] = i;
             Uniforms.PointCodes[i] = cube + 1;
@@ -204,7 +221,7 @@ internal sealed class ShadowPlanner
         _atlasIsDirectional[k] = directional;
         // A secondary directional light gets one tile of half its resolution (the primary's resolution is per cascade,
         // four of them): a 2048 sun as fill light costs a 1024 tile.
-        var resolution = directional ? light.ShadowResolutionPow2 / 2 : light.ShadowResolutionPow2;
+        var resolution = Math.Min(directional ? light.ShadowResolutionPow2 / 2 : light.ShadowResolutionPow2, ResolutionLimit);
         _atlasRequests[k] = Math.Clamp(resolution, MinAtlasTile, Math.Max(MinAtlasTile, MaxAtlasSize / 2));
         if (directional)
             Uniforms.DirCodes[index] = k + 2;
@@ -256,7 +273,7 @@ internal sealed class ShadowPlanner
         float near, float far, in Aabb casterBounds)
     {
         var rotation = ShadowMath.LightRotation(light.Direction);
-        var resolution = Math.Clamp(light.ShadowResolutionPow2, MinCascadeResolution, MaxCascadeResolution);
+        var resolution = Math.Clamp(Math.Min(light.ShadowResolutionPow2, ResolutionLimit), MinCascadeResolution, MaxCascadeResolution);
         Span<float> splits = stackalloc float[ShaderLimits.MaxShadowCascades];
         int count;
         float distance;
@@ -269,7 +286,7 @@ internal sealed class ShadowPlanner
                 return;
             }
 
-            count = light.CascadeCount;
+            count = Math.Min(light.CascadeCount, CascadeLimit);
             splits = splits[..count];
             ShadowMath.ComputeSplits(near, distance, light.CascadeSplitLambda, splits);
         }
