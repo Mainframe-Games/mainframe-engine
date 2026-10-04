@@ -74,7 +74,7 @@ own sets 0–2; they adopt this model with the materials rewrite.
 | `Sky/Sky.Procedural.vk.frag` | same | NDC xy | s0 frame | `SkyParams` (96 B) |
 | `Sky/Sky.Panoramic.vk.frag` | same | NDC xy | s0 frame, s1 b0 `sampler2D` (sRGB) | `SkyParams` |
 | `Sky/Sky.Cubemap.vk.frag` | same | NDC xy | s0 frame, s1 b0 `samplerCube` (sRGB) | `SkyParams` |
-| `SceneGrid/SceneGrid.vk.vert/.frag` | `SceneGrid` | 0 `vec3`, 1 `vec4` | s0 frame | — |
+| `SceneGrid/SceneGrid.vk.vert/.frag` | `SceneGrid` | 0 `vec3`, 1 `vec4`, 2 `vec3` (other end of the line; the vertex shader clips the line) | s0 frame | — |
 | `Post/Fullscreen.vk.vert` | tonemap pass | `gl_VertexIndex` | — | — |
 | `Post/Tonemap.vk.frag` | `VulkanRenderer` | `gl_FragCoord` | s0 b0 `sampler2D` HDR scene | `float exposure; uint encodeSrgb` (8 B) |
 | `ImGui/ImGui.vk.vert/.frag` | `VulkanImGuiController` | 0 `vec2`, 1 `vec2`, 2 `vec4` | s0 b0 `sampler2D fontSampler` (UNORM) | `vec2 scale; vec2 translate`; specialization 0 `kLinearizeColors` |

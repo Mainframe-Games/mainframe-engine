@@ -22,8 +22,8 @@ draws it first in the main pass. See [Scene graph & nodes](scene-graph-and-nodes
 
 | Property | Default |
 |---|---|
-| `SkyColor`, `HorizonColor`, `GroundColor` | gradient stops |
-| `SunDirection`, `SunColor` | — |
+| `SkyColor`, `HorizonColor`, `GroundColor` | gradient stops, sRGB: (0.18, 0.48, 0.87), (0.70, 0.85, 1.00), `SkyEnvironment.DefaultGroundColor` (0.42, 0.39, 0.35) |
+| `SunDirection`, `SunColor` | normalize(0.3, 1, 0.5); (1.00, 0.95, 0.85) |
 | `SunIntensity` | 20 |
 | `SunAngularRadius` | 0.53° |
 | `HorizonSharpness` | 6 |
@@ -54,6 +54,11 @@ Colours are authored in sRGB and decoded to linear in the shader; the sun (`SunC
 20 by default) is an HDR value that the tonemap rolls off instead of clipping
 ([Color pipeline](color-pipeline.md)).
 
+The ground default is calibrated for exposure + ACES (like the ambient default): it displays as a muted earth
+tone of about (95, 86, 74) at the default exposure. The pre-M3 default (0.15, 0.14, 0.13) fell into the
+tonemap's toe and displayed as (15, 13, 11), a black void below the horizon. A unit test pins the displayed
+range and that `Sky` (the scene resource) uses the same default.
+
 ## How it draws
 
 ```mermaid
@@ -79,6 +84,14 @@ sequenceDiagram
 - Draw the sky **first** in the main pass. It does not write depth.
 - The sky needs an `IVulkanContext`. With any other renderer, the constructor and `Dispose` silently
   do nothing.
+
+## Testing
+
+The `sky-grid` render scene draws only the procedural sky and the grid; the test recomputes every pixel's sky
+colour on the CPU (`SkyGridReference`: `skyRay`, gradient, sun, exposure, ACES, sRGB encode) and requires all
+pixels more than 2 px from a projected grid line to match within ±3 — above the horizon, in the
+horizon-to-ground gradient and in the plain ground — on every driver ([Testing](testing.md#render-tests)).
+This would catch a wrong ray, NaN/Inf, a uniform/push-constant layout mismatch or an encoding difference.
 
 ## Known issues
 

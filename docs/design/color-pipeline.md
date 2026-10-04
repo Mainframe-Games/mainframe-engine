@@ -107,16 +107,19 @@ target will be another.
   every scene pixel must equal `encode(aces(decode(c) · exposure))` (±2) at two exposures; an opaque
   ImGui rectangle must keep its exact sRGB value and 50 % white over black must give 128 (sRGB-space
   blend, as before). Covers the sRGB texture decode, HDR target, exposure, ACES, encode and the overlay.
-- Unit tests: transfer curves, ACES properties, default-exposure calibration, swapchain choice.
+- `sky-grid` render scene: every procedural-sky pixel away from the grid lines must equal the CPU reference
+  (ray → gradient → exposure → ACES → encode, ±3) — the whole chain on a gradient, on every driver.
+- Unit tests: transfer curves, ACES properties, default-exposure and sky-ground calibration, swapchain choice.
 - Goldens (`moltenvk`) re-recorded for M3 and reviewed: no clipping where lights overlap, coloured
   lights stay saturated, shadows keep the ambient tint.
 
 ## Known issues
 
-- The procedural sky's ground gradient was inverted before M3 (ground colour at the horizon); fixed, so
-  the area beyond the test scenes' floor is now the dark ground colour. The scene grid draws before the
-  floor and writes depth, so grid lines over the floor show the sky behind it (previously light blue,
-  now dark) — a pre-existing ordering artefact.
+- The procedural sky's ground gradient was inverted before M3 (ground colour at the horizon); fixed, and
+  the ground default recalibrated for ACES ([Sky](sky.md#procedural-parameters)), so the area beyond the test
+  scenes' floor is a muted earth tone. The scene grid draws before the floor and writes depth, so grid lines
+  over the floor can show the sky behind it where the coplanar z-fight goes the line's way — a pre-existing
+  ordering artefact.
 - No bloom, no auto-exposure, no HDR display output.
 
 ## Related docs

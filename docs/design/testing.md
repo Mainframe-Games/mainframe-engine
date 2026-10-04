@@ -124,13 +124,14 @@ sequenceDiagram
   two boxes, one shadow-casting directional light), `multi-light` (same geometry, directional + spot +
   point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
   `spine` (adds SpineBoy, content linked from the Sandbox), `spine-no-shadows` (Spine and shapes with
-  no `ShadowSystem`: the fallback set 2), `sandbox` (adds the Sandbox's ImGui windows — including
+  no `ShadowSystem`: the fallback shadow set), `sandbox` (adds the Sandbox's ImGui windows — including
   `RendererDebugWindow` — gizmos and the audio bus mixer, a streamed ambience and an orbiting doppler voice, and
   self-checks that both play, plus a stack of physics crates on single-threaded Jitter2; not used for goldens because
   it shows timings), `color-pipeline` (a solid-colour sRGB panorama fills the frame; ImGui rectangles; exposure
   changes on frame 8), `physics` (crates and a ball dropped on a floor and ramp; Jitter2's deterministic solver on
   one thread so frames reproduce), `physics-debug` (the same with collision-shape debug lines, drawn into the HDR
-  scene target with sRGB-authored colours converted to linear). Every host scene runs audio on the silent null
+  scene target with sRGB-authored colours converted to linear), `sky-grid` (only the procedural sky and the grid,
+  camera inside the grid so lines pass beside and behind it). Every host scene runs audio on the silent null
   device.
 - **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
@@ -146,8 +147,13 @@ sequenceDiagram
   `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →
   encode within ±2 at two exposures; ImGui colour exact and blended in sRGB space),
   `PhysicsSceneRendersCleanlyAndMatchesGoldens` (frames 30, 150), `PhysicsDebugDrawRendersCleanlyAndMatchesGolden`,
-  `PhysicsCapturesAreDeterministicAcrossRuns`. The multi-light test also asserts sub-allocation (≤ 16
-  `VkDeviceMemory`).
+  `PhysicsCapturesAreDeterministicAcrossRuns`,
+  `ProceduralSkyAndGridMatchTheReferenceMath` (`SkyGridReference` recomputes each pixel's sky colour and
+  projects the grid lines on the CPU: every pixel > 2 px from a line must be the sky within ±3, and every
+  line over the ground must be visibly drawn — driver-independent, so it runs on both drivers without
+  goldens). The multi-light test also asserts sub-allocation (≤ 16 `VkDeviceMemory`).
+- **Comparing drivers at one resolution.** `--size 160x120` on a Retina Mac renders 320×240, the size of
+  the lavapipe frames, so MoltenVK and lavapipe output can be diffed pixel for pixel.
 - **Window.** 320×240, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On a
   Retina Mac the framebuffer, and so the capture, is 640×480.
 
@@ -191,15 +197,21 @@ commit them with the change that caused them. PNGs are stored in Git LFS.
 4. Copy the frames into `Goldens/lavapipe/`, commit, and re-run CI. It passes only if the frames match
    (`CapturesAreDeterministicAcrossRuns` covers run-to-run stability).
 
-Expected `lavapipe` vs `moltenvk` differences (rasterizer and resolution, not bugs):
+Expected `lavapipe` vs `moltenvk` differences (rasterizer and resolution, not bugs). At the same
+resolution (`--size 160x120` locally) the golden scenes differ in about 1.2 % of pixels, all on grid lines;
+sky, floor and lit surfaces match:
 
-- **Resolution.** Frames are 320×240, not the 640×480 of a Retina Mac. The distant grid aliases more,
-  showing bright horizontal streaks near the horizon.
+- **Resolution.** Frames are 320×240, not the 640×480 of a Retina Mac, so the distant grid aliases more.
+- **Line rasterization.** Distant 1-pixel grid lines step differently (scattered single pixels).
 - **Lines on pixel boundaries.** The camera looks straight down −Z, so the Y (yellow) and Z (blue) axis
   lines project exactly onto the boundary between two pixel columns. Lavapipe rasterizes such lines as
   nothing or as dashes; Metal fills one column.
 - **Coplanar lines.** Grid lines on the floor quad z-fight, because line and triangle depths are
-  interpolated differently. Lavapipe shows them dashed or hidden.
+  interpolated differently. Lavapipe shows the receding ones dashed; MoltenVK hides them.
+
+Before the grid clipped its lines in the vertex shader ([Scene grid](scene-grid.md#clipping-in-the-vertex-shader)),
+lavapipe also dropped grid lines whose endpoints projected far off-screen and drew stray fragments that
+covered the ground below the horizon with a grey haze; that was a real difference, not one of the above.
 
 Lavapipe output changes with the Mesa/LLVM version in the runner image (recorded on Ubuntu 24.04:
 `llvmpipe (LLVM 20.1.2, 256 bits)`). If an image update breaks the goldens, re-record them as above.
