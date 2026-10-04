@@ -69,7 +69,7 @@ classDiagram
 
 - [ ] API interfaces + `VulkanDevice`
 - [ ] Port subsystems in the order above
-- [ ] Shader cross-compilation in the [asset pipeline](asset-and-shader-pipeline.md)
+- [ ] Shader cross-compilation in the [shader build](../shaders.md)
 - [ ] `WebGpuDevice` (dependency decision: wgpu-native binding)
 - [ ] Drop `IRenderer.Clear`/`EnableDepthTest`/`DisableDepthTest`
 

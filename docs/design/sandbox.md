@@ -15,7 +15,8 @@ Files: [Program.cs](../../MainframeEngine.Sandbox/Program.cs), [Src/Game.cs](../
 `MainframeEngine.Generators` as an analyzer so its node types are registered for the scene file.
 
 `Game` takes its `EngineOptions` (`Game.DefaultOptions` is the window below). `Program` sets the
-working directory to the build output so relative content paths resolve wherever it is launched from.
+working directory to the build output; engine content no longer needs it (`ContentPaths` resolves against
+`AppContext.BaseDirectory`), but `SpineFolder` still enumerates its folder relative to the working directory.
 
 `--write-scene <path>` builds the scene in code (`SandboxSceneBuilder.Build()`) and saves it with
 `SceneSaver` without opening a window — that is how the committed scene file is produced (its UID is kept):

@@ -49,7 +49,7 @@ flowchart TD
 
 ## Open questions
 
-- Shared GLSL includes need `glslc -I` (see [asset & shader pipeline](asset-and-shader-pipeline.md)).
+- Shared GLSL includes (`include/shadows.glsl`) are compiled with `glslc -I` (see [Shaders](../shaders.md#shared-includes)).
 - Do we want EVSM or contact-hardening later?
 
 ## Related

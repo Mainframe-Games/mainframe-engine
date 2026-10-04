@@ -45,8 +45,8 @@ flowchart TD
         S1 --> S2["GetShadow2DPipeline(12) / GetShadowPointPipeline(12)<br/>push model (64/80 B), draw"]
     end
     subgraph Main["RenderServer.RenderMain"]
-        V --> M1["write VP + lights UBO, upload vertices"]
-        M1 --> M2["bind sets 0,1,2 (+ texture set per batch)<br/>push model + worldNormal, CmdDraw per batch"]
+        V --> M1["Frame.EnsureCamera/EnsureLights (set 0, once per frame), upload vertices"]
+        M1 --> M2["bind sets 0,1 (+ texture set 2 per batch)<br/>push model + worldNormal, CmdDraw per batch"]
     end
 ```
 
@@ -55,7 +55,8 @@ flowchart TD
 - Walks `Skeleton.DrawOrder`. A `RegionAttachment` produces 6 vertices (two triangles, not indexed).
   A `MeshAttachment` produces one vertex per triangle index.
 - Each slot is pushed `ZSpacing` (default 0.01) further along z to avoid z-fighting.
-- Tint = skeleton RGBA × slot RGBA. When `pma` is set, RGB is also multiplied by alpha.
+- Tint = skeleton RGBA × slot RGBA, straight (never × alpha) and sRGB-authored; premultiplication happens
+  once, in the fragment shader.
 - A new batch starts whenever the atlas page changes.
 - The CPU arrays start at 8192 vertices and **grow** (doubling) when a pose needs more; GPU vertex
   buffers grow the same way per frame slot. Steady-state poses never allocate.
@@ -73,24 +74,26 @@ flowchart TD
 
 | Set | With `ShadowSystem` | Without `ShadowSystem` |
 |---|---|---|
-| 0 | VP UBO (vertex), per frame slot | same |
-| 1 | Lights UBO, 1200 B (fragment), per frame slot | same |
-| 2 | `ShadowSystem.MainDescSetLayout` | renderer's "no shadows" fallback (same layout, everything lit) |
-| 3 | `sampler2D uTexture`, one static set per atlas page | same |
+| 0 | the per-frame shared set (`FrameContext`): camera + lights UBO | same |
+| 1 | `ShadowSystem.MainDescSetLayout` | renderer's "no shadows" fallback (same layout, everything lit) |
+| 2 | `sampler2D uTexture`, one static set per atlas page | same |
 
-Push constant (vertex, 80 B): `mat4 model` + `vec4 worldNormal`. The normal is
+Push constant (128-byte vertex+fragment range, 80 B used): `mat4 model` + `vec4 worldNormal`. The normal is
 `normalize(TransformNormal(+Z, model))`, so the whole skeleton shares one normal.
 
-Pipeline: `SpineLit.vk.{vert,frag}`, no culling, CCW, alpha blend (`SrcAlpha/OneMinusSrcAlpha` for color,
-`One/OneMinusSrcAlpha` for alpha), depth test and write `Less`. The fragment shader discards alpha < 0.01.
-Textures are `R8G8B8A8Unorm`, with one shared Linear/ClampToEdge sampler.
+Pipeline: `SpineLit.vk.{vert,frag}`, no culling, CCW, **premultiplied** blend (`One/OneMinusSrcAlpha`),
+depth test and write `Less`. The fragment shader discards alpha < 0.01. Pages are `GpuTexture`s with a
+Linear/ClampToEdge sampler: straight-alpha atlases `R8G8B8A8_SRGB`, premultiplied (`pma: true`, e.g.
+SpineBoy) `R8G8B8A8_UNORM`, which the shader un-premultiplies, decodes and re-premultiplies
+(specialization constant `kPremultipliedTexture`) — see [Color pipeline](color-pipeline.md#spine-premultiplied-alpha).
+Vertex buffers are per-frame-slot `GpuBuffer`s that grow by doubling; `Dispose` defers to the deletion queue.
 
 ## Invariants
 
 - `Folder` cannot change once the skeleton is loaded. A `ShadowSystem` is optional
   (`RenderServer.ShadowsEnabled = false`, or the tree-less constructor): without one the node binds the
-  renderer's fallback at set 2 and casts no shadows. `Animation` (exported) is the animation set when the
-  skeleton loads; before loading, `SetAnimation` just sets it.
+  renderer's fallback at set 1 and casts no shadows (`DrawShadow*` are no-ops). `Animation` (exported) is the
+  animation set when the skeleton loads; before loading, `SetAnimation` just sets it.
 - `SpineScale` (default `SpineNode.DefaultSpineScale = 0.02`) applies to the skeleton immediately and
   keeps `FlipX`. `SetAnimation` replaces track 0 now; `QueueAnimation` appends after the current one.
 - Atlas pixel arrays are released after the GPU upload (`SpineTextureLoader.ReleasePixelData`); only the
@@ -99,13 +102,11 @@ Textures are `R8G8B8A8Unorm`, with one shared Linear/ClampToEdge sampler.
 
 ## Known issues
 
-- **Premultiplied alpha is applied twice:** PMA vertex color combined with a `SrcAlpha` blend.
 - Clipping attachments, per-slot blend modes and two-color tint are ignored.
 - Only `atlas.Pages[0].pma` is honoured.
 - Single-sided: a sprite casts a shadow only from its front side (shadow pipelines cull back faces).
-- An unlit path (`Spine.vk.*`) is compiled but not loaded by any code.
 
 ## Related docs
 
 [Scene graph & nodes](scene-graph-and-nodes.md) · [Lighting](lighting.md) · [Shadow system](shadow-system.md) ·
-[Future: color pipeline](future/color-pipeline.md)
+[Color pipeline](color-pipeline.md)

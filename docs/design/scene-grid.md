@@ -22,13 +22,12 @@ opaque.
 
 | Resource | Detail |
 |---|---|
-| Vertex buffer | device-local, uploaded once via staging |
-| Set 0, binding 0 | VP UBO per frame slot (vertex stage) |
+| Vertex buffer | device-local `GpuBuffer.CreateStatic`, filled by the upload queue |
+| Set 0 | the per-frame shared set (`FrameContext`): `viewProjection`, near/far |
 | Pipeline | `LineList`, width 1, no cull, alpha blend (`SrcAlpha/OneMinusSrcAlpha` for color, `One/Zero` for alpha), depth test + write `Less` |
-| Shaders | `SceneGrid.vk.vert` (plain `projection · view · position`; no depth remap since M1), `SceneGrid.vk.frag` (linearizes depth with near 0.1 / far 1000 and fades color and alpha by `1 − linearDepth/far`) |
+| Shaders | `SceneGrid.vk.vert` (plain `projection · view · position`; no depth remap since M1), `SceneGrid.vk.frag` (linearizes depth with the camera's near/far from set 0, decodes the sRGB line colour, fades colour and alpha by `1 − linearDepth/far`) |
 
-`Draw(camera)` writes the VP UBO for the current frame slot, sets a Y-flipped viewport, and issues
-`CmdDraw(vertexCount)`. Draw it after the sky and before scene geometry.
+`Draw(camera)` calls `Frame.EnsureCamera(camera)` (writes set 0 unless already written this frame), sets a Y-flipped viewport, binds set 0 and draws.
 
 ## Known issues
 
@@ -37,7 +36,6 @@ opaque.
 - Vertices are built with `stackalloc` ([SceneGrid3d.cs:9](../../MainframeEngine/Src/Rendering/SceneGrid/SceneGrid3d.cs)),
   about 33 KB at the default size. A large `gridSize` can overflow the stack.
 - The grid writes depth even though it alpha-blends.
-- The shader's hard-coded near/far (0.1/1000) duplicates the `Camera3D` constants.
 
 ## Related docs
 

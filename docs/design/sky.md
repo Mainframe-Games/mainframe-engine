@@ -32,26 +32,27 @@ draws it first in the main pass. See [Scene graph & nodes](scene-graph-and-nodes
 
 | Resource | Detail |
 |---|---|
-| Set 0, binding 0 | `SkyUbo` per frame slot, host-mapped, fragment stage |
+| Set 0 | The per-frame shared set (`FrameContext`): camera (`invProjection`, `invViewRotation`); `Draw(camera)` calls `EnsureCamera` |
 | Set 1, binding 0 | `CombinedImageSampler` (Panoramic/Cubemap only), one shared set |
-| Texture | `R8G8B8A8Srgb`, 1 mip. Panoramic: 2D image. Cubemap: 6 layers, `CubeCompatible`, Cube view. Uploaded with three one-time submits, each followed by `QueueWaitIdle`. |
+| Push constants | `SkyParams` (96 B, below) |
+| Texture | `GpuTexture`, `R8G8B8A8Srgb` (decoded to linear by the sampler), 1 mip. Panoramic: 2D image. Cubemap: 6 layers, `CubeCompatible`, Cube view. Uploaded by the upload queue at the start of the next frame (no queue wait). |
 | Sampler | Linear, ClampToEdge |
-| Pipeline | No vertex input, no cull, **depth test/write off**, no blend, dynamic viewport and scissor, main render pass, no push constants |
+| Pipeline | No vertex input, no cull, **depth test/write off**, no blend, dynamic viewport and scissor, HDR scene pass; layout from `FrameContext.CreatePipelineLayout` |
 
-### `SkyUbo` (std140, 224 B)
+### `SkyParams` (push constants, 96 B)
 
 | Offset | Field |
 |---|---|
-| 0 | `mat4 invProj` |
-| 64 | `mat4 invViewRot` |
-| 128 | `vec4 skyColor` |
-| 144 | `vec4 horizonColor` |
-| 160 | `vec4 groundColor` |
-| 176 | `vec4 sunDirection` |
-| 192 | `vec4 sunColorIntensity` |
-| 208 | `float sunSize` (cos of radius) |
-| 212 | `float horizonSharpness` |
-| 216 | padding ×2 |
+| 0 | `vec4 skyColor` |
+| 16 | `vec4 horizonColor` |
+| 32 | `vec4 groundColor` |
+| 48 | `vec4 sunDirection` |
+| 64 | `vec4 sunColorIntensity` (rgb colour, a intensity) |
+| 80 | `vec4 sun` (x = cos of angular radius, y = horizon sharpness) |
+
+Colours are authored in sRGB and decoded to linear in the shader; the sun (`SunColor × SunIntensity`,
+20 by default) is an HDR value that the tonemap rolls off instead of clipping
+([Color pipeline](color-pipeline.md)).
 
 ## How it draws
 
@@ -61,16 +62,15 @@ sequenceDiagram
     participant S as SkyEnvironment
     participant GPU
     G->>S: Draw(camera)  (first, before geometry)
-    S->>S: invProj = inverse(proj), invViewRot = inverse(view without translation)
-    S->>S: write SkyUbo[FrameSlot]
-    S->>GPU: Y-flipped viewport, bind set 0 (+ set 1), CmdDraw(3)
+    S->>S: Frame.EnsureCamera(camera) (set 0, once per frame)
+    S->>GPU: Y-flipped viewport, bind set 0 (+ set 1), push SkyParams, CmdDraw(3)
     GPU->>GPU: Sky.vk.vert emits fullscreen triangle (-1,-1) (3,-1) (-1,3), z = 0
-    GPU->>GPU: frag reconstructs dir = normalize(mat3(invViewRot) · unproject(ndc))
+    GPU->>GPU: frag: skyRay(ndc) = normalize(mat3(invViewRotation) · unproject(ndc)) (include/sky.glsl)
 ```
 
 | Fragment shader | Technique |
 |---|---|
-| `Sky.Procedural.vk.frag` | Above horizon: `mix(horizon, sky, clamp(y·sharpness))`. Below: `mix(ground, horizon, clamp(−y·sharpness))`. Sun disc: `smoothstep` on `dot(dir, sunDir)` × color × intensity. |
+| `Sky.Procedural.vk.frag` | Linear colours. Above horizon: `mix(horizon, sky, clamp(y·sharpness))`. Below: `mix(horizon, ground, clamp(−y·sharpness))` (inverted before M3: the ground colour sat at the horizon). Sun disc: `smoothstep` on `dot(dir, sunDir)` × color × intensity. |
 | `Sky.Panoramic.vk.frag` | `u = atan(z, x)/2π + 0.5`, `v = 0.5 − asin(y)/π` |
 | `Sky.Cubemap.vk.frag` | `texture(samplerCube, dir)` |
 
@@ -82,14 +82,10 @@ sequenceDiagram
 
 ## Known issues
 
-- A Panoramic sky with a `null` path still sets `HasTexture`, so the set 1 write uses null view and
-  sampler handles.
-- Cubemap faces are assumed to all match `faces[0]` dimensions; this is not checked.
-- The comment claims "Total: 240 bytes" ([SkyEnvironment.cs:55](../../MainframeEngine/Src/Rendering/Sky/SkyEnvironment.cs)); the struct is 224 B. This is harmless because the code uses `sizeof`.
-- sRGB textures are sampled (linearized) and then written to a UNORM swapchain, so the sky renders
-  darker than the source image.
+- Cubemap faces must be square and equal-sized (checked); a Panoramic or Cubemap sky without paths throws.
+- The panorama is sampled without mips (the longitude seam would select the smallest mip).
 
 ## Related docs
 
 [Cameras & input](cameras-and-input.md) · [Coordinate conventions](coordinate-conventions.md) ·
-[Future: color pipeline](future/color-pipeline.md)
+[Color pipeline](color-pipeline.md) · [GPU resources](gpu-resources.md)

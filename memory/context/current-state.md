@@ -33,8 +33,15 @@ _Last updated: 2026-10-05 (M2 node system & scenes, lane `m2`)_
   the renderer's ShadowFallback) — required by MoltenVK (mutableComparisonSamplers=false).
   MaxShadowSpot is 7, one less than LightEnvironment.MaxSpot, to fit MoltenVK's 16 per-stage sampler
   limit (4 dir + 7 spot + 4 point + 1 material texture); the 8th spot light casts no shadow.
-  Keep C# constants and the MAX_SHADOW_* defines in Shapes.vk.frag / SpineLit.vk.frag in sync, and
-  run `just shaders` after shader edits.
+  The limits live only in `Content/Shaders/limits.json` (generated C# + `include/limits.glsl`); shaders
+  compile in `dotnet build`, but run `just shaders` after shader/include edits to refresh the committed
+  `.spv` fallback + `shaders.lock`.
+- M3 (lane m3a): GPU memory only through `GpuAllocator`/`GpuBuffer`/`GpuImage`/`GpuTexture`, uploads
+  through `UploadQueue`, `Dispose` through `DeletionQueue` (no Queue/DeviceWaitIdle). Scene renders into
+  an HDR target, tonemapped (exposure 1.3, ACES) into a UNORM swapchain; ImGui after the tonemap.
+  Authored colours are sRGB (converted to linear by the engine). MoltenVK: mutable-format swapchain
+  UNORM views go stale — keep the default UNORM swapchain. Node-side shapes still use the old raw
+  Vulkan path (m3b).
 - Validation is on by default only in Debug builds (`EngineOptions.EnableValidation`).
 - Render tests / `just qa` need the display awake (`caffeinate -u`). The unbundled `dotnet` Sandbox
   process can't be driven by computer-use; use the `--qa-*` scripted flags instead.

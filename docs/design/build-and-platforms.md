@@ -13,9 +13,11 @@ just test               # unit tests          just test-render   # render tests
 just sandbox            # dotnet run --project MainframeEngine.Sandbox
 ```
 
-`just` (1.58+) wraps every local command; run `just` for the list. The Sandbox and the render-test
-host set the working directory to `AppContext.BaseDirectory` at startup, because content paths
-(`"Content/..."`) are relative. Engine code still resolves them against the working directory.
+`just` (1.58+) wraps every local command; run `just` for the list. Engine code resolves every content
+path with `ContentPaths.Resolve` against `AppContext.BaseDirectory` (rooted paths unchanged,
+`"Content/…"` relative to the app folder, anything else relative to `Content/`), so it works from any
+working directory. The Sandbox and the render-test host still pin the working directory for
+`SpineFolder`, which enumerates its folder relative to it.
 
 ### Solution
 
@@ -65,22 +67,36 @@ New NuGet dependencies must be discussed before they are added (CLAUDE.md).
 
 ### Content
 
-`MainframeEngine.csproj` copies `Content\**` with `CopyToOutputDirectory=Always` (except
-`shaders.lock`); this flows to the Sandbox and test outputs through project references. The Sandbox
-copies its own `Content\**` as well.
+`MainframeEngine.csproj` copies `Content\**` with `CopyToOutputDirectory=Always`, except
+`Content/Shaders/**` (sources, includes, lock, committed `.spv`), whose compiled `.spv` files are added by
+[`build/Shaders.targets`](../../build/Shaders.targets); this flows to the Sandbox and test outputs through
+project references. The Sandbox copies its own `Content\**` as well.
 
 ### Shaders
 
-Shaders are GLSL in `MainframeEngine/Content/Shaders/**`. Only `*.vk.*` files are used; the `.spv`
-files are committed. [`build/shaders.sh`](../../build/shaders.sh) (POSIX sh, used by `just` and CI):
+Shaders are GLSL in `MainframeEngine/Content/Shaders/**` (`*.vk.*`, shared includes in `include/`).
+**`dotnet build` compiles them** ([`build/Shaders.targets`](../../build/Shaders.targets),
+[ADR 0007](../../memory/decisions/0007-build-time-shaders-and-shared-limits.md)):
+
+| Target | What it does |
+|---|---|
+| `GenerateShaderLimits` | `Content/Shaders/limits.json` → `Src/Rendering/Generated/ShaderLimits.g.cs` + `include/limits.glsl` (rewritten only when the content changes; both committed) |
+| `CompileShaders` | Incremental (sources, includes, `limits.json`): `glslc --target-env=vulkan1.2 -I Content/Shaders/include` → `obj/<config>/Shaders/**.spv`; glslc errors are build errors. glslc = `$(Glslc)`, `$(VULKAN_SDK)/bin/glslc` or `PATH`. |
+| `IncludeShadersInOutput` | Copies the compiled `.spv` (or, without glslc, the committed ones after warning `MFSHADER001`) to `Content/Shaders/` in every output |
+
+`-p:CompileShaders=false` uses the committed `.spv` files (CI does: no glslc on the runners, and the
+warning would fail `-warnaserror`). The committed `.spv` files are the fallback for machines without
+the Vulkan SDK; [`build/shaders.sh`](../../build/shaders.sh) (POSIX sh, used by `just` and CI) keeps
+them current:
 
 | Command | What it does |
 |---|---|
-| `just shaders` | `glslc --target-env=vulkan1.2` on every engine `*.vk.{vert,frag,comp}` and every `Examples/SilkVulkanExamples` shader, `spirv-val` each result, then rewrite `MainframeEngine/Content/Shaders/shaders.lock` |
-| `just shaders-check` | Fails if a source or `.spv` no longer matches the lock (source edited without recompiling, or `.spv` not committed) |
+| `just shaders` | `glslc --target-env=vulkan1.2 -I MainframeEngine/Content/Shaders/include` on every engine `*.vk.{vert,frag,comp}` (same flags as the build) and every `Examples/SilkVulkanExamples` shader, `spirv-val` each result, then rewrite `MainframeEngine/Content/Shaders/shaders.lock` |
+| `just shaders-check` | Fails if a source, an include or a `.spv` no longer matches the lock (source edited without recompiling, or `.spv` not committed) |
 
-The lock stores the sha256 of each source and of its `.spv`. After editing a shader, run
-`just shaders` and commit the `.spv` files with the lock. See [Shaders](shaders.md).
+The lock stores the sha256 of each source and of its `.spv`, and of each `include/*.glsl`. After
+editing a shader or include, run `just shaders` and commit the `.spv` files with the lock. See
+[Shaders](shaders.md).
 
 ### CI
 
@@ -90,7 +106,7 @@ Git LFS files.
 
 | Job | Runs |
 |---|---|
-| `build-test` (ubuntu-24.04, windows-latest, macos-14) | `dotnet build -c Release -warnaserror`, unit tests with coverage; uploads `.trx` results and (Linux) Cobertura coverage |
+| `build-test` (ubuntu-24.04, windows-latest, macos-14) | `dotnet build -c Release -warnaserror -p:CompileShaders=false` (committed `.spv`), unit tests with coverage; uploads `.trx` results and (Linux) Cobertura coverage |
 | `format` | `dotnet format --verify-no-changes --exclude Plugins/Spine` |
 | `shaders` | apt `glslc` + `spirv-tools`, compiles every shader to a temp dir, `spirv-val`, `build/shaders.sh check` |
 | `render-tests` | Ubuntu with lavapipe (`mesa-vulkan-drivers`, `VK_DRIVER_FILES` = `lvp_icd.x86_64.json`), `vulkan-validationlayers`, Xvfb; uploads `artifacts/render-tests` (frames, diffs) |
@@ -174,19 +190,19 @@ and the bundled `libMoltenVK.dylib` (no validation layers through that one).
 | Steamworks | ⚠ no `steam_api` shipped | ⚠ same | ⚠ same | ❌ no osx-arm64 assets |
 
 MoltenVK limits that shaped the design: `mutableComparisonSamplers = false` (shadow samplers are
-immutable) and 16 samplers per shader stage (`MaxShadowSpot = 7`). See [Shadow system](shadow-system.md).
+immutable), 16 samplers per shader stage (`MaxShadowSpot = 7`), and a mutable-format swapchain whose
+UNORM view intermittently resolves to a stale drawable (why the default swapchain is UNORM; see
+[Color pipeline](color-pipeline.md#swapchain)). See [Shadow system](shadow-system.md).
 
 ## Known issues
 
-- [`MainframeEngine.Sandbox.csproj`](../../MainframeEngine.Sandbox/MainframeEngine.Sandbox.csproj) has
-  stale `Content\SpineBoy\*` entries; the files live in `Content/Models/Spine/SpineBoy/`.
-- Engine content paths are CWD-relative; only the Sandbox and the render-test host pin the working
-  directory (proper fix: `ContentPaths`, M3).
-- `.spv` files are still compiled by hand (`just shaders`); `shaders-check` only detects drift.
+- `SpineFolder` (node code) still lists its folder relative to the working directory.
+- Node-side shape shaders are still loaded by path through `File.ReadAllBytes` (CWD-relative), not the
+  shader-module cache; the materials rewrite moves them.
 - The window layer may report no monitor while a Mac's display sleeps; the engine then skips window
   centering.
 
 ## Related docs
 
 [Architecture overview](architecture-overview.md) · [Testing](testing.md) · [Shaders](shaders.md) ·
-[Future: asset & shader pipeline](future/asset-and-shader-pipeline.md)
+[GPU resources](gpu-resources.md) · [Color pipeline](color-pipeline.md)

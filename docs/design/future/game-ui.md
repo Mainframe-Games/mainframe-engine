@@ -1,8 +1,8 @@
 # Proposal: Game UI (RmlUi)
 
 **Milestone:** M8 · **Status:** ⬜ planned · **Decision:** RmlUi for HTML/CSS-style UI (agreed
-2026-10-05) · **Depends on:** [SDL windowing](../build-and-platforms.md#windowing-sdl2), [GPU resource management](gpu-resource-management.md),
-[Color pipeline](color-pipeline.md) · **Used by:** games and the [Editor](editor.md)
+2026-10-05) · **Depends on:** [SDL windowing](../build-and-platforms.md#windowing-sdl2), [GPU resources](../gpu-resources.md),
+[Color pipeline](../color-pipeline.md) · **Used by:** games and the [Editor](editor.md)
 
 ## Library
 
@@ -93,7 +93,7 @@ buffer logic is reused. Instance, device and swapchain code is dropped.
 | Phase | Pass |
 |---|---|
 | v1 (basic set) | inside the main render pass, after scene geometry and before ImGui. Depth test off. |
-| v2 (effects) | its own **UI render pass** after the tonemap ([Color pipeline](color-pipeline.md)). It loads swapchain colour, adds an `S8`/`D24S8` stencil attachment for clip masks, and has offscreen layer targets for filters. |
+| v2 (effects) | its own **UI render pass** after the tonemap ([Color pipeline](../color-pipeline.md)). It loads swapchain colour, adds an `S8`/`D24S8` stencil attachment for clip masks, and has offscreen layer targets for filters. |
 
 ## System and file interfaces
 
@@ -225,4 +225,4 @@ flowchart LR
 ## Related
 
 [Milestones](../../milestones.md) · [Editor](editor.md) · [Localization](localization.md) · [SDL windowing](../build-and-platforms.md#windowing-sdl2) ·
-[ImGui & debug tools](../imgui-and-debug-tools.md) · [Color pipeline](color-pipeline.md)
+[ImGui & debug tools](../imgui-and-debug-tools.md) · [Color pipeline](../color-pipeline.md)

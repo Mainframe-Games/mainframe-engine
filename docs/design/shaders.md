@@ -3,71 +3,101 @@
 ## Purpose
 
 Inventory of every GLSL file in [`MainframeEngine/Content/Shaders`](../../MainframeEngine/Content/Shaders),
-which C# class loads it, its interface (inputs, sets, bindings, push constants), and the constants
-that must stay in sync with C#.
+which C# class loads it, its interface (inputs, sets, bindings, push constants), and how shaders are
+built, shared and kept in sync with C#.
 
 ## Workflow
 
-- Vulkan shaders use the `*.vk.vert` / `*.vk.frag` naming. Compile each one by hand:
-  `glslc X.vk.frag -o X.vk.frag.spv`. The `.spv` files are committed and copied to the output via
-  `Content/**`.
-- C# loads the `.spv` with `File.ReadAllBytes("Content/Shaders/...")`, relative to the working directory.
-- Entry point is always `main`.
+Shaders compile as part of `dotnet build` ([ADR 0007](../../memory/decisions/0007-build-time-shaders-and-shared-limits.md)).
 
 ```mermaid
 flowchart LR
-    A["edit *.vk.frag"] --> B["glslc → *.vk.frag.spv"] --> C["commit both"] --> D["dotnet build copies Content/**"] --> E["File.ReadAllBytes at pipeline creation"]
+    J["limits.json"] -->|GenerateShaderLimits| L["include/limits.glsl<br/>Src/Rendering/Generated/ShaderLimits.g.cs"]
+    A["*.vk.vert / *.vk.frag<br/>+ include/*.glsl"] -->|"CompileShaders (incremental)<br/>glslc --target-env=vulkan1.2 -I include"| S["obj/&lt;config&gt;/Shaders/**.spv"]
+    L --> S
+    S -->|copied| O["bin/…/Content/Shaders/**.spv"]
+    C["committed *.spv<br/>(just shaders)"] -.->|"no glslc: warning MFSHADER001"| O
+    O --> R["ShaderModuleCache.Get(&quot;Shaders/…spv&quot;)<br/>(ContentPaths)"]
 ```
+
+- Vulkan shaders use the `*.vk.vert` / `*.vk.frag` naming; entry point `main`. The targets live in
+  [`build/Shaders.targets`](../../build/Shaders.targets), imported by `MainframeEngine.csproj`.
+- `glslc` is `$(Glslc)`, else `$(VULKAN_SDK)/bin/glslc`, else `glslc` on `PATH`. Without it the build
+  warns and copies the committed `.spv` files; `-p:CompileShaders=false` forces that (CI does: its
+  runners have no glslc and build with `-warnaserror`).
+- Shader sources, includes and `shaders.lock` are not copied to the output; only `.spv` files are.
+- **After editing a shader** run `just shaders` (recompiles the committed `.spv` with the same flags
+  and rewrites `shaders.lock`) and commit the `.spv` files with the lock. `just shaders-check` (and CI)
+  fail when a source, an include or a `.spv` no longer matches the lock.
+- C# loads modules through `IVulkanContext.Shaders` (`ShaderModuleCache`): one module per file, shared
+  by every pipeline. Pipelines go through `IVulkanContext.Pipelines` (the persisted pipeline cache).
+
+## Shared includes
+
+`#extension GL_GOOGLE_include_directive : require`, then `#include "x.glsl"` (resolved through `-I include`).
+
+| Include | Contents | Override macros |
+|---|---|---|
+| `limits.glsl` | **Generated** from `limits.json` — `MAX_DIR_LIGHTS`, `MAX_POINT_LIGHTS`, `MAX_SPOT_LIGHTS`, `MAX_SHADOW_DIR/SPOT/POINT` | — |
+| `common.glsl` | `PI`, `srgbToLinear`, `linearToSrgb`; includes `limits.glsl` | — |
+| `frame.glsl` | Set 0 binding 0 `FrameData` (camera, viewport, near/far, time, exposure), `linearizeDepth` | — |
+| `shadows.glsl` | Shadow set (matrices UBO, dir/spot comparison maps, point cube maps) and `sampleDirShadow/SpotShadow/PointShadow` | `SHADOW_SET` (default 1) |
+| `lights.glsl` | Lights UBO, Blinn-Phong per light, `shadeLights(base, N, worldPos)` (needs `shadows.glsl` first) | `LIGHTS_SET`/`LIGHTS_BINDING` (default 0/1) |
+| `sky.glsl` | Sky push constants (`SkyParams`), `skyRay(ndc)` | — |
+
+## Descriptor frequency model
+
+| Set | Frequency | Contents | Owner |
+|---|---|---|---|
+| 0 | per frame | b0 `FrameData` (368 B), b1 lights UBO (1200 B) | `FrameContext` (`IVulkanContext.Frame`) |
+| 1 | per frame | shadows (`shadows.glsl`) | `ShadowSystem` or the renderer's fallback |
+| 2+ | per material / object | textures | the drawer |
+| push | per draw | 128-byte vertex+fragment range: model matrix (+ extras) | the drawer |
+
+`FrameContext.Begin(camera, lights)` writes set 0 once per frame; renderer-owned drawers (sky, grid,
+Spine) call `EnsureCamera`/`EnsureLights` with the camera they were given, which write only if nothing
+has this frame. Pipeline layouts made with `FrameContext.CreatePipelineLayout` share set 0 (and set 1
+when they take shadows) and the push range, so they are compatible. Shapes (node code) still use their
+own sets 0–2; they adopt this model with the materials rewrite.
 
 ## In use
 
 | Shader | Loaded by | Inputs | Sets / bindings | Push constants |
 |---|---|---|---|---|
 | `Shapes/Shapes.vk.vert` | `ShapeBase` (`Box3d`, `Quad`) | 0 `vec3 pos`, 1 `vec2 uv` (unused), 2 `vec3 normal` | s0 b0 `ViewProjection{view, projection}` | `mat4 model; vec4 color` (80 B) |
-| `Shapes/Shapes.vk.frag` | same | world pos, normal | s1 b0 lights · s2 b0 shadow matrices, b1 `sampler2DShadow[4]`, b2 `sampler2DShadow[7]`, b3 `samplerCube[4]` | same block |
-| `Spine/SpineLit.vk.vert` | `SpineRenderer` | 0 `vec3`, 1 `vec2`, 2 `vec4` | s0 b0 `ViewProjection` | `mat4 model; vec4 worldNormal` |
-| `Spine/SpineLit.vk.frag` | same | uv, color, world pos, normal | s1 lights · s2 shadows (as Shapes) · s3 b0 `sampler2D uTexture` | — |
-| `Shadows/Shadow2D.vk.vert/.frag` | `ShadowSystem` | 0 `vec3` | s0 b0 `LightVP{mat4}` | `mat4 model` (64 B). The frag shader is empty (depth only). |
-| `Shadows/ShadowPoint.vk.vert/.frag` | `ShadowSystem` | 0 `vec3` | s0 b0 `LightVP{mat4}` | `mat4 model; vec4 lightPosRange` (80 B). The frag shader writes linear `gl_FragDepth`. |
+| `Shapes/Shapes.vk.frag` | same | world pos, normal | s1 b0 lights · s2 shadows (`LIGHTS_SET 1`, `SHADOW_SET 2`) | same block; colour decoded sRGB → linear |
+| `Spine/SpineLit.vk.vert` | `SpineRenderer` | 0 `vec3`, 1 `vec2`, 2 `vec4` | s0 frame | `mat4 model; vec4 worldNormal` |
+| `Spine/SpineLit.vk.frag` | same | uv, tint, world pos, normal | s0 frame + lights · s1 shadows · s2 b0 `sampler2D` | — ; specialization 0 `kPremultipliedTexture` |
+| `Shadows/Shadow2D.vk.vert/.frag` | `ShadowSystem` | 0 `vec3` | s0 b0 `LightVP{mat4}` (dynamic offset) | `mat4 model` (64 B). The frag shader is empty (depth only). |
+| `Shadows/ShadowPoint.vk.vert/.frag` | `ShadowSystem` | 0 `vec3` | s0 b0 `LightVP{mat4}` (dynamic offset) | `mat4 model; vec4 lightPosRange` (80 B). The frag shader writes linear `gl_FragDepth`. |
 | `Sky/Sky.vk.vert` | `SkyEnvironment` | `gl_VertexIndex` | — | — |
-| `Sky/Sky.Procedural.vk.frag` | same | NDC xy | s0 b0 `SkyUbo` | — |
-| `Sky/Sky.Panoramic.vk.frag` | same | NDC xy | s0 b0 `SkyUbo`, s1 b0 `sampler2D` | — |
-| `Sky/Sky.Cubemap.vk.frag` | same | NDC xy | s0 b0 `SkyUbo`, s1 b0 `samplerCube` | — |
-| `SceneGrid/SceneGrid.vk.vert/.frag` | `SceneGrid` | 0 `vec3`, 1 `vec4` | s0 b0 `ViewProjection` | — |
-| `ImGui/ImGui.vk.vert/.frag` | `VulkanImGuiController` | 0 `vec2`, 1 `vec2`, 2 `vec4` | s0 b0 `sampler2D fontSampler` | `vec2 scale; vec2 translate` |
+| `Sky/Sky.Procedural.vk.frag` | same | NDC xy | s0 frame | `SkyParams` (96 B) |
+| `Sky/Sky.Panoramic.vk.frag` | same | NDC xy | s0 frame, s1 b0 `sampler2D` (sRGB) | `SkyParams` |
+| `Sky/Sky.Cubemap.vk.frag` | same | NDC xy | s0 frame, s1 b0 `samplerCube` (sRGB) | `SkyParams` |
+| `SceneGrid/SceneGrid.vk.vert/.frag` | `SceneGrid` | 0 `vec3`, 1 `vec4` | s0 frame | — |
+| `Post/Fullscreen.vk.vert` | tonemap pass | `gl_VertexIndex` | — | — |
+| `Post/Tonemap.vk.frag` | `VulkanRenderer` | `gl_FragCoord` | s0 b0 `sampler2D` HDR scene | `float exposure; uint encodeSrgb` (8 B) |
+| `ImGui/ImGui.vk.vert/.frag` | `VulkanImGuiController` | 0 `vec2`, 1 `vec2`, 2 `vec4` | s0 b0 `sampler2D fontSampler` (UNORM) | `vec2 scale; vec2 translate`; specialization 0 `kLinearizeColors` |
 
-## Compiled but not loaded
-
-| Shader | Note |
-|---|---|
-| `Shapes/Quad.vk.*` | Flat-color quad. `Quad` now uses `Shapes.vk.*`. |
-| `Spine/Spine.vk.*` | Unlit Spine (s0 VP, s1 `sampler2D`, push `model`) |
-
-## Legacy OpenGL (`#version 330 core`, never loaded)
-
-`Shapes/Shapes.{vert,frag}`, `Shapes/Quad.{vert,frag}`, `SceneGrid/SceneGrid.{vert,frag}`,
-`Spine/Spine.{vert,frag}` (the multi-texture blend the README describes).
+The legacy OpenGL shaders and the unused `Quad.vk.*`/`Spine.vk.*` were deleted in M3.
 
 ## Constants that must match C#
 
-| Define (in `Shapes.vk.frag` and `SpineLit.vk.frag`) | Value | C# source |
-|---|---|---|
-| `MAX_DIR_LIGHTS` | 4 | `LightEnvironment.MaxDirectional` |
-| `MAX_POINT_LIGHTS` | 16 | `LightEnvironment.MaxPoint` |
-| `MAX_SPOT_LIGHTS` | 8 | `LightEnvironment.MaxSpot` |
-| `MAX_SHADOW_DIR` | 4 | `ShadowSystem.MaxShadowDir` |
-| `MAX_SHADOW_SPOT` | 7 | `ShadowSystem.MaxShadowSpot` |
-| `MAX_SHADOW_POINT` | 4 | `ShadowSystem.MaxShadowPoint` |
+Light and shadow limits come from [`limits.json`](../../MainframeEngine/Content/Shaders/limits.json)
+(edit only there): `LightEnvironment.MaxDirectional/MaxPoint/MaxSpot` and
+`ShadowSystem.MaxShadowDir/MaxShadowSpot/MaxShadowPoint` are defined from the generated `ShaderLimits`;
+`ShaderLimitsTests` fails if the generated files drift or a shader re-`#define`s a limit.
 
-The UBO layouts (`LightsUBO` 1200 B, `SkyUbo` 224 B, `ShadowMatricesUBO` 704 B) must match the C#
-writers byte for byte. See [Lighting](lighting.md#lights-ubo), [Sky](sky.md#skyubo-std140-224-b) and
-[Shadow system](shadow-system.md#main-pass-descriptor-set-set-2).
+The UBO and push layouts (`LightsUBO` 1200 B, `FrameData` 368 B, `SkyParams` 96 B, `ShadowMatricesUBO`
+704 B) must match the C# writers byte for byte. See [Lighting](lighting.md#lights-ubo),
+[Sky](sky.md) and [Shadow system](shadow-system.md#main-pass-descriptor-set-set-2).
 
 ## Known issues
 
-- No build-time compilation: `.spv` files can drift from their source.
-- Unused and legacy files add noise: 8 GL files, plus `Quad.vk.*` and `Spine.vk.*`.
+- `.spv` files are committed as the no-SDK fallback, so a shader change touches both the source and
+  the binary (enforced by `shaders.lock`).
 
 ## Related docs
 
-[Build & platforms](build-and-platforms.md) · [Future: asset & shader pipeline](future/asset-and-shader-pipeline.md)
+[Build & platforms](build-and-platforms.md) · [GPU resources](gpu-resources.md) ·
+[Color pipeline](color-pipeline.md) · [Vulkan renderer](vulkan-renderer.md)

@@ -149,7 +149,8 @@ it polls them every frame in `OnProcess` (or call `Poll()`).
 ### Rendering (`Rendering/`)
 
 **Vulkan Backend:**
-- `IRenderer` / `VulkanRenderer` — full Vulkan 1.2 implementation with swapchain management (recreated on resize/VSync/image-count changes), 2 frames-in-flight synchronization with per-frame-slot resources, validation layers (on in Debug builds), and depth buffer support
+- `IRenderer` / `VulkanRenderer` — full Vulkan 1.2 implementation with swapchain management (recreated on resize/VSync/image-count changes), 2 frames-in-flight synchronization with per-frame-slot resources, validation layers (on in Debug builds), an HDR scene target with exposure + ACES tonemapping and linear lighting, and a persisted pipeline cache
+- GPU resources — in-house `GpuAllocator` (64 MiB blocks), staging `UploadQueue`, frame-deferred `DeletionQueue`, `GpuBuffer`/`GpuImage`/`GpuTexture`, offscreen `RenderTarget`s
 - `IVulkanContext` — exposes Vulkan primitives (device, queues, render pass, command buffers) to renderable objects
 
 **Cameras:**
@@ -163,7 +164,7 @@ it polls them every frame in `OnProcess` (or call `Poll()`).
 - All shapes inherit from `ShapeBase` → `VisualInstance3D` → `Node3D`; the render server creates their GPU objects when they enter the tree
 
 **Spine Renderer (`Rendering/Spine/`):**
-- `SpineRenderer` — batch-renders Spine skeletons (RegionAttachment, MeshAttachment) with per-slot tinting, premultiplied alpha, and multi-texture atlas support
+- `SpineRenderer` — batch-renders Spine skeletons (RegionAttachment, MeshAttachment) with per-slot tinting, premultiplied alpha handled once in the shader, and multi-texture atlas support
 - `SpineTextureLoader` — loads Spine atlas textures via StbImageSharp
 
 **Sky Rendering (`Rendering/Sky/`):**
@@ -283,7 +284,7 @@ Steamworks.NET wrappers. **Status:** scaffold. Steam is not initialized yet (`St
 
 ## Shaders
 
-GLSL sources in `Content/Shaders/` are compiled to SPIR-V via `glslc`. The `.spv` files are copied to the output directory and loaded at runtime.
+GLSL sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`glslc`, with shared includes in `include/`; the committed `.spv` files are the fallback when the Vulkan SDK is missing) and loaded at runtime through `ContentPaths`. Light/shadow limits come from `limits.json`. See [Shaders](docs/design/shaders.md).
 
 **Engine shaders** (`MainframeEngine/Content/Shaders/`):
 - **Shapes/** — vertex/fragment for quad and box rendering (`.vk.vert`/`.vk.frag`)
@@ -292,6 +293,7 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V via `glslc`. The `.spv
 - **Shadows/** — depth pass shaders for 2D and omnidirectional point light shadow maps
 - **SceneGrid/** — debug grid overlay
 - **ImGui/** — Vulkan ImGui rendering backend
+- **Post/** — fullscreen tonemap (exposure + ACES)
 
 ---
 

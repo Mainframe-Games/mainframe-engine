@@ -233,4 +233,4 @@ Saving and loading run at load time and may allocate. Measured with BenchmarkDot
 
 [Scene graph & nodes](scene-graph-and-nodes.md) · [Sandbox](sandbox.md) · [Testing](testing.md) ·
 [Future: editor](future/editor.md) · [Future: networking replication](future/networking-replication.md) ·
-[Future: asset & shader pipeline](future/asset-and-shader-pipeline.md)
+[Shaders](shaders.md)

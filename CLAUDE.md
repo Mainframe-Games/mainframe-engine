@@ -19,13 +19,19 @@ just bench            # benchmarks vs Tests/MainframeEngine.Benchmarks/baseline.
 Build settings live in `Directory.Build.props` / `Directory.Packages.props` (central package
 versions — never put `Version` on a `PackageReference`); the SDK is pinned in `global.json`.
 
-Shaders must be recompiled to SPIR-V after any change, and the `.spv` files plus
-`MainframeEngine/Content/Shaders/shaders.lock` committed (CI fails on stale `.spv`):
+Shaders compile during `dotnet build` (`build/Shaders.targets`: `glslc -I Content/Shaders/include`,
+incremental; without glslc the build warns and ships the committed `.spv`). The committed `.spv` files
+are that fallback, so after any shader or `include/*.glsl` change also refresh them and commit them with
+`MainframeEngine/Content/Shaders/shaders.lock` (CI fails on stale `.spv`):
 
 ```bash
-just shaders          # glslc --target-env=vulkan1.2 + spirv-val on every shader, rewrites shaders.lock
+just shaders          # glslc --target-env=vulkan1.2 -I include + spirv-val on every shader, rewrites shaders.lock
 just shaders-check
 ```
+
+Light/shadow limits live only in `MainframeEngine/Content/Shaders/limits.json` (the build generates
+`ShaderLimits.g.cs` and `include/limits.glsl`). Load content with `ContentPaths.Resolve`, never a
+working-directory-relative path.
 
 Rendering changes must keep the render tests green; if output changes intentionally, run
 `just golden-update`, inspect the PNGs and commit them (see `docs/design/testing.md`). Per-frame code
@@ -119,8 +125,13 @@ namespaces — qualify the latter.
 3. `Tree.Tick` — fixed-step `OnPhysicsProcess` (60 Hz, ≤5 steps, 0.25 s clamp), `OnProcess`, deferred calls
    and `QueueFree`, transform sync (`OnTransformChanged`), frame servers
 4. `OnShadowPass` (no render pass active), then `RenderServer.RenderShadows(Root)` — the tree's casters
-5. `RenderServer.RenderMain(Root)` — sky, then the tree's visuals; then `OnRenderMainPass` for hand-drawn
-   geometry, then ImGui
+5. `RenderServer.RenderMain(Root)` — writes the shared set 0 (`IVulkanContext.Frame.Begin(camera, lights)`),
+   then sky, then the tree's visuals; then `OnRenderMainPass` for hand-drawn geometry
+   (`node.Draw(camera, lights)`). All of it renders into the HDR scene target (linear colour).
+6. ImGui — drawn after the tonemap pass, in the overlay pass (sRGB, unchanged)
+
+Colours authored by people (lights, shapes, sky, clear colour) are sRGB; the engine converts them to linear.
+Exposure: `IVulkanContext.Exposure`. See `docs/design/color-pipeline.md`.
 
 Shadow pass and main pass only run when `IVulkanContext.FrameStarted` (a frame can be skipped while the
 swapchain is rebuilt; while minimised the engine renders nothing and blocks on window events).
@@ -130,6 +141,12 @@ swapchain is rebuilt; while minimised the engine renders nothing and blocks on w
 Key per-frame GPU resources (UBOs, dynamic vertex buffers, their descriptor sets) by
 `IVulkanContext.FrameSlot` and size them `IVulkanContext.MaxFramesInFlight` — never by swapchain image
 (`SwapchainImageCount`/`CurrentImageIndex` are driver-chosen and change on recreation).
+
+GPU memory comes from `IVulkanContext.Allocator` through `GpuBuffer`/`GpuImage`/`GpuTexture`; uploads go
+through `IVulkanContext.Uploads` (recorded at frame start — never `vkQueueWaitIdle`), and `Dispose`
+hands objects to `IVulkanContext.Deletions` (never `vkDeviceWaitIdle`). Create pipelines through
+`IVulkanContext.Pipelines` and shader modules through `IVulkanContext.Shaders`
+(`docs/design/gpu-resources.md`).
 
 ### Shadow Pass
 

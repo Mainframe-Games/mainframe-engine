@@ -77,7 +77,7 @@ Lobby metadata carries `connect = "enet:ip:port"` or `"steam:<steamId>"`. The
 
 ### Avatars
 
-`SteamUtils.GetImageRGBA` → `VkTexture` (from [GPU resource management](gpu-resource-management.md)).
+`SteamUtils.GetImageRGBA` → `GpuTexture` (from [GPU resources](../gpu-resources.md)).
 Expose it to ImGui once the ImGui controller supports `TextureId`.
 
 ## Task list

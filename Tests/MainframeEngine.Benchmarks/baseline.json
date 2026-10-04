@@ -24,6 +24,16 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "GpuAllocatorBenchmarks.AllocateFreeBuffer",
+      "MeanNs": 333.605,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "GpuAllocatorBenchmarks.ChurnMixedKinds",
+      "MeanNs": 95.542,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "LightUboBenchmarks.PackAllSlots",
       "MeanNs": 86.425,
       "AllocatedBytes": 0

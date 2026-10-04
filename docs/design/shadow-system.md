@@ -3,7 +3,10 @@
 ## Purpose
 
 `ShadowSystem` renders depth maps for directional, spot and point lights during the shadow pre-pass,
-and exposes a descriptor set (set 2) that lit shaders sample in the main pass.
+and exposes a descriptor set that lit shaders sample in the main pass (set 2 for shapes; set 1 — the
+shared per-frame shadow set — for Spine and pipelines built with `FrameContext`). Maps and buffers are
+`GpuImage`/`GpuBuffer`s from the GPU allocator; their initial layouts are set by the upload queue and
+`Dispose` defers to the deletion queue (see [GPU resources](gpu-resources.md)).
 
 File: [Rendering/Shadows/ShadowSystem.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowSystem.cs)
 (`public sealed unsafe class ShadowSystem : IDisposable`, ctor `ShadowSystem(IVulkanContext)`).

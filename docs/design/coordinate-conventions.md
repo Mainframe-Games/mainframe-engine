@@ -51,12 +51,16 @@ passes.) The grid shader's `LinearizeDepth` assumes this [0, 1] convention. Reve
 
 | Surface | Format | Effect |
 |---|---|---|
-| Swapchain | `B8G8R8A8Unorm` (not sRGB) | Shader output is displayed as-is |
-| Sky textures | `R8G8B8A8Srgb` | Linearized on sample and written to UNORM, so they render **darker** than the source |
-| Spine, ImGui textures | `R8G8B8A8Unorm` | Gamma values are passed straight through |
-| Lighting | computed on gamma values | No linear-space math, no tonemapping |
+| Scene target | `R16G16B16A16Sfloat`, linear | Lighting and blending of scene content in linear space |
+| Swapchain | `B8G8R8A8Unorm`, sRGB-encoded by the tonemap shader | Exposure + ACES, then sRGB encode |
+| Sky, albedo, straight-alpha Spine textures | `R8G8B8A8Srgb` | Decoded to linear on sample |
+| Data textures, ImGui font, PMA Spine atlases | `R8G8B8A8Unorm` | PMA atlases are decoded in the shader |
+| Authored colours (lights, shapes, sky, grid, clear) | sRGB | Converted to linear once |
+| ImGui | sRGB, drawn after the tonemap | Unchanged |
+
+Details: [Color pipeline](color-pipeline.md).
 
 ## Related docs
 
 [Vulkan renderer](vulkan-renderer.md) · [Shadow system](shadow-system.md) · [Cameras & input](cameras-and-input.md) ·
-[Future: color pipeline](future/color-pipeline.md)
+[Color pipeline](color-pipeline.md)

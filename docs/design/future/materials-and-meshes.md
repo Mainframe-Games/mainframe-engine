@@ -57,10 +57,16 @@ public static class ModelLoader { static Node Load(string path); }   // Assimp �
 
 ## Task list
 
-- [ ] `PipelineCache` (hash of state) and `ShaderModuleCache`
-- [ ] `FrameContext` with shared set 0/1; renumber sets in `Shapes.vk.*` and `SpineLit.vk.*`
-- [ ] `Texture` type (StbImageSharp → device image + mips)
-- [ ] Offscreen render targets + object-ID (`R32_UINT`) pass, needed by the [editor viewport](editor.md#viewport)
+- [ ] `PipelineCache` (hash of state) — the persisted `VkPipelineCache`, `ShaderModuleCache` and
+      `PipelineBuilder` shipped in M3 ([GPU resources](../gpu-resources.md#pipeline-cache)); a state-hash
+      cache of `VkPipeline`s for materials remains
+- [ ] `FrameContext` with shared set 0/1 — shipped and adopted by sky, grid and `SpineLit`
+      ([Shaders](../shaders.md#descriptor-frequency-model)); renumber the sets in `Shapes.vk.*` with the
+      node-side rewrite
+- [x] `Texture` type (StbImageSharp → device image + mips) — `GpuTexture` ([GPU resources](../gpu-resources.md#wrappers))
+- [ ] Offscreen render targets + object-ID (`R32_UINT`) pass, needed by the [editor viewport](editor.md#viewport) —
+      `RenderTarget` (any colour formats + depth, resizable) shipped with the colour pipeline
+      ([Color pipeline](../color-pipeline.md#render-targets)); the ID pass remains
 - [ ] `Material`, `Mesh`, `MeshNode`; port `Box3d`/`Quad`
 - [ ] Assimp `ModelLoader` (positions, normals, UVs, indices, node hierarchy)
 - [ ] Remove duplicate `WriteLightsUbo` implementations
@@ -73,5 +79,5 @@ public static class ModelLoader { static Node Load(string path); }   // Assimp �
 
 ## Related
 
-[Milestones](../../milestones.md) · [GPU resource management](gpu-resource-management.md) ·
-[Color pipeline](color-pipeline.md) · [Node system](../scene-graph-and-nodes.md)
+[Milestones](../../milestones.md) · [GPU resources](../gpu-resources.md) ·
+[Color pipeline](../color-pipeline.md) · [Node system](../scene-graph-and-nodes.md)

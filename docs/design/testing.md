@@ -26,8 +26,13 @@ indices, `ChooseUp`, the shadow-fallback matrix, `SpineNode` (scale setter, `Set
 `QueueAnimation`, Spine's update order, vertex growth past the initial capacity, atlas pixel release —
 SpineBoy is linked into the test output and a non-Vulkan `IRenderer` skips GPU work), `NetBuffer` round trips
 and the pool, `PeerId`/`NodeId`, `Log` filtering, camera matrices against
-[Coordinate conventions](coordinate-conventions.md), the 1200-byte std140 lights UBO, the PNG codec and
-`VulkanValidationLog`. Tests that touch process-wide state (`NetBufferPool`, `Console`, `Log.LogLevel`)
+[Coordinate conventions](coordinate-conventions.md), the 1200-byte std140 lights UBO (linear colours), the
+PNG codec, `VulkanValidationLog`, and since M3: the GPU allocator through a fake device (`FreeListBlock`
+alignment, granularity, best fit, fragmentation/coalescing, randomised invariants; memory-type choice,
+dedicated path, block reuse and release, exhaustion fallback, stats), the staging ring (wrap-around,
+release), the deletion queue (frame ordering, zero allocation), `ContentPaths`, the generated shader
+limits against `limits.json`, the pipeline-cache header/file name/directory rules, `FrameData` (std140
+size, near/far recovery), sRGB curves, the ACES tonemap and the swapchain-format choice. Tests that touch process-wide state (`NetBufferPool`, `Console`, `Log.LogLevel`)
 share a non-parallel collection.
 
 The scene system (M2) has its own suites under [`Scene/`](../../Tests/MainframeEngine.Tests/Scene/), with
@@ -71,15 +76,23 @@ sequenceDiagram
   two boxes, one shadow-casting directional light), `multi-light` (same geometry, directional + spot +
   point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
   `spine` (adds SpineBoy, content linked from the Sandbox), `spine-no-shadows` (Spine and shapes with
-  no `ShadowSystem`: the fallback set 2), `sandbox` (adds the Sandbox's ImGui window and gizmos; not
-  used for goldens because it shows timings).
+  no `ShadowSystem`: the fallback shadow set), `sandbox` (adds the Sandbox's ImGui windows — including
+  `RendererDebugWindow` — and gizmos; not used for goldens because it shows timings), `color-pipeline`
+  (a solid-colour sRGB panorama fills the frame; ImGui rectangles; exposure changes on frame 8).
 - **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
-  `result.json` records it). Scene self-check failures are reported in `SceneCheckFailures`.
+  `result.json` records it), `--pipeline-cache dir`. Scene self-check failures are reported in
+  `SceneCheckFailures`; `result.json` also records GPU allocator totals, shader-module count and the
+  pipeline-cache bytes loaded. The runner points `MAINFRAME_PIPELINE_CACHE_DIR` at
+  `artifacts/render-tests/pipeline-cache`.
 - **Tests:** `LitShapesRenderCleanlyAndMatchGoldens`, `MultipleShadowCastingLightsEachUseTheirOwnMatrix`,
   `SpineRendersCleanlyAndMatchesGolden`, `SpineRendersWithoutAShadowSystem`,
   `SwapchainRecreationOnResizeAndVSyncToggleIsClean`, `QuitWithErrorReturnsErrorExitCode`,
-  `SandboxSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`.
+  `SandboxSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`,
+  `PipelineCacheIsPersistedAndReloaded` (cold run writes, warm run loads),
+  `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →
+  encode within ±2 at two exposures; ImGui colour exact and blended in sRGB space). The multi-light test
+  also asserts sub-allocation (≤ 16 `VkDeviceMemory`).
 - **Window.** 320×240, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On a
   Retina Mac the framebuffer, and so the capture, is 640×480.
 
@@ -127,8 +140,9 @@ cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.Te
 ## Benchmarks
 
 `just bench` runs every benchmark (`NetBuffer` write/read, camera and model matrices, lights UBO packing,
-and the scene tree: `ProcessTick10k`, `TransformPropagationDirtySubtree10k`, `GetNodePathLookup`,
-`SceneSaveLoadRoundTrip1k`) and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
+the scene tree: `ProcessTick10k`, `TransformPropagationDirtySubtree10k`, `GetNodePathLookup`,
+`SceneSaveLoadRoundTrip1k`; GPU allocator alloc/free and churn) and compares with
+[`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. Results also land
 in `artifacts/bench`. Baselines are machine-specific (the file records machine and runtime), so
 compare on the machine that recorded them; refresh with `just bench-baseline` when a change is

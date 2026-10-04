@@ -1,7 +1,7 @@
 # Proposal: Localization (GetText.NET)
 
 **Milestone:** M9 · **Status:** ⬜ planned · **Depends on:** [Game UI](game-ui.md),
-[Scene serialization](../scene-serialization.md), [Asset & shader pipeline](asset-and-shader-pipeline.md)
+[Scene serialization](../scene-serialization.md), [Shaders](../shaders.md)
 
 ## Library
 
@@ -45,7 +45,7 @@ flowchart LR
   references. It also generates the pseudo-locale (see below).
 - **Build step:** an MSBuild target compiles each `Content/Locale/*/messages.po` → `messages.mo` in the
   output with `msgfmt`. If gettext tools are missing, it warns and falls back to committed `.mo`
-  files, the same pattern as the [shader pipeline](asset-and-shader-pipeline.md).
+  files, the same pattern as the [shader pipeline](../shaders.md).
 - The editor gets a **Project → Localization** panel that runs extract → merge and shows translation
   coverage per language.
 

@@ -12,11 +12,11 @@ that wrap these light objects and register them with their world's `LightEnviron
 
 | Type | File | Fields (defaults) |
 |---|---|---|
-| `Light` (abstract) | [Light.cs](../../MainframeEngine/Src/Lighting/Light.cs) | `Position`, `Color = (1,1,1)`, `Intensity = 1` |
+| `Light` (abstract) | [Light.cs](../../MainframeEngine/Src/Lighting/Light.cs) | `Position`, `Color = (1,1,1)` (sRGB; `LinearColor` is converted when set), `Intensity = 1` |
 | `DirectionalLight` | [DirectionalLight.cs](../../MainframeEngine/Src/Lighting/DirectionalLight.cs) | `Direction = normalize(-0.5,-1,-0.3)`. `Position` is used only by the gizmo. |
 | `PointLight` | [PointLight.cs](../../MainframeEngine/Src/Lighting/PointLight.cs) | `Range = 10` |
 | `SpotLight` | [SpotLight.cs](../../MainframeEngine/Src/Lighting/SpotLight.cs) | `Direction = -Y`, `Range = 20`, `InnerConeAngle = 15°`, `OuterConeAngle = 30°` (half-angles) |
-| `LightEnvironment` | [LightEnvironment.cs](../../MainframeEngine/Src/Lighting/LightEnvironment.cs) | `AmbientColor = (0.08,0.08,0.10)` |
+| `LightEnvironment` | [LightEnvironment.cs](../../MainframeEngine/Src/Lighting/LightEnvironment.cs) | `AmbientColor = DefaultAmbientColor = (0.22,0.22,0.25)` (sRGB; ≈ 0.04 linear) |
 
 ### `LightEnvironment`
 
@@ -34,13 +34,17 @@ that wrap these light objects and register them with their world's `LightEnviron
   point lights as a dot with range rings, spot lights as cones, and directional lights as an arrow plus
   sun icon. The directional arrow is drawn in 2D and is not camera-projected.
 
-`LightEnvironment` owns **no GPU resources**. Each consumer writes its own copy of the lights UBO every
-frame through the shared `internal LightEnvironment.WriteUbo(Span<byte>, in Vector3 cameraPosition)`
-(size `LightEnvironment.UboSize`), used by `ShapeBase` and `SpineRenderer`. Unit tests pin the layout.
+`LightEnvironment` owns **no GPU resources**. The lights UBO is written through the shared
+`internal LightEnvironment.WriteUbo(Span<byte>, in Vector3 cameraPosition)` (size `LightEnvironment.UboSize`):
+once per frame into the shared set 0 by `FrameContext` (read by Spine, sky, grid), and per shape by `ShapeBase`
+(until the materials rewrite moves shapes to set 0). Unit tests pin the layout.
 
 ## Lights UBO
 
-std140, **1200 bytes** = `48 + 4×32 + 16×32 + 8×64`. Bound as set 1, binding 0, fragment stage.
+std140, **1200 bytes** = `48 + 4×32 + 16×32 + 8×64`. Colours are written **linear** (`Light.LinearColor`,
+ambient converted when set). Spine and future scene pipelines read it from the per-frame shared set 0,
+binding 1 (`FrameContext`, written once per frame); shapes still bind their own copy as set 1, binding 0.
+Shaders get the struct and the shading loop from `include/lights.glsl`.
 
 ![Lights UBO layout](../images/lights-ubo-layout.svg)
 
@@ -68,8 +72,8 @@ result = ambient · base
 | Spot cone | `clamp((cosθ − cosOuter) / max(cosInner − cosOuter, 1e-4), 0, 1)` |
 | Shadow | see [Shadow system](shadow-system.md#sampling-in-the-main-pass) |
 
-All lighting runs in gamma (non-linear) space. There is no tonemapping (see
-[Coordinate conventions](coordinate-conventions.md#color-space)).
+All lighting runs in linear space into the HDR scene target; the tonemap pass (exposure + ACES) maps it
+to the display, so overlapping lights no longer clip (see [Color pipeline](color-pipeline.md)).
 
 ## Usage
 
@@ -88,17 +92,16 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass
 
 ## Invariants
 
-- The `MAX_*_LIGHTS` defines in both lit shaders must equal the C# limits.
+- The light limits come from `Content/Shaders/limits.json` (generated `ShaderLimits` / `include/limits.glsl`).
 - The UBO layout must match the shader `LightsUBO` struct byte for byte.
 
 ## Known issues
 
-- Each drawable uploads its own 1200 B copy of the lights UBO per frame.
+- Shapes still upload their own 1200 B copy of the lights UBO per frame (the materials rewrite moves them to set 0).
 - Lights over the limit are dropped silently, with no warning.
-- No linear-space lighting or HDR.
 - Directional gizmo arrows are not projected through the camera.
 
 ## Related docs
 
 [Shadow system](shadow-system.md) · [Shaders](shaders.md) ·
-[Future: materials & meshes](future/materials-and-meshes.md) · [Future: color pipeline](future/color-pipeline.md)
+[Future: materials & meshes](future/materials-and-meshes.md) · [Color pipeline](color-pipeline.md)

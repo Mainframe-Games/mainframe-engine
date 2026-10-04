@@ -29,7 +29,7 @@ flowchart LR
 | [M0](#m0--foundation-) | Vulkan renderer, lighting, shadows, sky, Spine, tooling, SDL windowing | ✅ |
 | [M1](#m1--stabilization-) | Fix correctness bugs blocking everything else | ✅ |
 | [M2](#m2--node-system--scenes-) | Godot-style node tree, scene tree, scene files | ✅ |
-| [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | ⬜ |
+| [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | 🚧 |
 | [M4](#m4--shadows-v2) | Cascades, PCF, atlas | ⬜ |
 | [M5](#m5--multiplayer) | Message protocol, replication, Steam | ⬜ |
 | [M6](#m6--physics) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ⬜ |
@@ -117,12 +117,12 @@ pipeline, and shaders compiled as part of the build.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| Pipeline cache + per-frame shared descriptor sets | ⬜ | [Materials & meshes](design/future/materials-and-meshes.md) |
+| Pipeline cache + per-frame shared descriptor sets | 🚧 persisted `VkPipelineCache`, shader-module cache, set 0/1 (`FrameContext`) in renderer-owned pipelines; state-hash cache + shapes pending | [GPU resources](design/gpu-resources.md#pipeline-cache), [Materials & meshes](design/future/materials-and-meshes.md) |
 | `Material`, `Mesh`, `MeshNode`, textures | ⬜ | [Materials & meshes](design/future/materials-and-meshes.md) |
 | Model loading via Assimp | ⬜ | [Materials & meshes](design/future/materials-and-meshes.md) |
-| GPU allocator, upload queue, deferred deletion | ⬜ | [GPU resource management](design/future/gpu-resource-management.md) |
-| Linear lighting, HDR target, tonemapping, sRGB, Spine PMA | ⬜ | [Color pipeline](design/future/color-pipeline.md) |
-| Build-time shader compilation, includes, `ContentPaths` | ⬜ | [Asset & shader pipeline](design/future/asset-and-shader-pipeline.md) |
+| GPU allocator, upload queue, deferred deletion | ✅ | [GPU resources](design/gpu-resources.md) |
+| Linear lighting, HDR target, tonemapping, sRGB, Spine PMA | ✅ | [Color pipeline](design/color-pipeline.md) |
+| Build-time shader compilation, includes, `ContentPaths` | ✅ | [Shaders](design/shaders.md), [Build & platforms](design/build-and-platforms.md#shaders) |
 
 ## M4 — Shadows v2
 
