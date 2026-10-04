@@ -46,6 +46,9 @@
   <!-- Audio decoder/server tests: tiny generated tones (WAV, OGG, MP3, FLAC; stored in Git LFS). -->
   <ItemGroup>
     <None Update="Content\Audio\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The Sandbox scene's ambience, so the scene can be played in a test tree. -->
+    <None Include="..\..\MainframeEngine.Sandbox\Content\Audio\ambient_hum.ogg"
+          Link="Content\Audio\ambient_hum.ogg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- SpineNode tests load SpineBoy (shared with the Sandbox rather than duplicated). -->

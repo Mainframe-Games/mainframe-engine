@@ -3,6 +3,7 @@ using SoundFlow.Abstracts;
 using SoundFlow.Abstracts.Devices;
 using SoundFlow.Backends.MiniAudio;
 using SoundFlow.Backends.MiniAudio.Devices;
+using SoundFlow.Backends.MiniAudio.Enums;
 using SoundFlow.Enums;
 using SoundFlow.Structs;
 
@@ -69,7 +70,7 @@ internal sealed class SoundFlowOutput : AudioOutput
             engine.UpdateAudioDevicesInfo();
             if (engine.PlaybackDevices.Length == 0)
             {
-                failure = $"no playback device ({engine.ActiveBackend} backend)";
+                failure = $"no playback device ({BackendName(engine.ActiveBackend)} backend)";
                 engine.Dispose();
                 return null;
             }
@@ -82,8 +83,14 @@ internal sealed class SoundFlowOutput : AudioOutput
                 Capture = new DeviceSubConfig(),
             };
             var device = engine.InitializePlaybackDevice(null, format, config);
-            var info = device.Info;
-            var name = $"{info?.Name ?? "default device"} ({engine.ActiveBackend})";
+            string? defaultName = null;
+            foreach (var candidate in engine.PlaybackDevices)
+            {
+                if (candidate.IsDefault)
+                    defaultName = candidate.Name;
+            }
+
+            var name = $"{device.Info?.Name ?? defaultName ?? "default device"} ({BackendName(engine.ActiveBackend)})";
             failure = null;
             return new SoundFlowOutput(engine, device, format, name);
         }
@@ -104,6 +111,31 @@ internal sealed class SoundFlowOutput : AudioOutput
             return null;
         }
     }
+
+    /// <summary>
+    /// The backend's name by miniaudio's native <c>ma_backend</c> value. SoundFlow 1.4.1 reports the native value cast to
+    /// its own <see cref="MiniAudioBackend"/> enum, which starts with <c>Null</c> and so is off by one (Core Audio shows
+    /// as <c>WinMm</c>); map by number instead.
+    /// </summary>
+    internal static string BackendName(MiniAudioBackend backend) => (int)backend switch
+    {
+        0 => "WASAPI",
+        1 => "DirectSound",
+        2 => "WinMM",
+        3 => "Core Audio",
+        4 => "sndio",
+        5 => "audio(4)",
+        6 => "OSS",
+        7 => "PulseAudio",
+        8 => "ALSA",
+        9 => "JACK",
+        10 => "AAudio",
+        11 => "OpenSL ES",
+        12 => "Web Audio",
+        13 => "custom",
+        14 => "null",
+        _ => backend.ToString(),
+    };
 
     public override void Start(AudioMixRoot root)
     {

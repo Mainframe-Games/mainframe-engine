@@ -19,6 +19,7 @@ if (args is ["--write-net-scene", var netScenePath])
 
 // Parse first: --qa-capture paths are relative to where the Sandbox was launched from.
 var qa = QaCapture.FromArgs(args);
+var qaAudio = QaAudio.FromArgs(args);
 
 // --server [port] / --client <host> [port]: the multiplayer demo (M5).
 var network = NetworkDemo.FromArgs(args);
@@ -37,7 +38,7 @@ if (network is not null)
 if (network is not null)
     options.GameName += network.IsServer ? $" [server :{network.Port}]" : $" [client -> {network.Host}:{network.Port}]";
 
-using var game = new Game(options) { QaCapture = qa, Network = network };
+using var game = new Game(options) { QaCapture = qa, Network = network, QaAudio = qaAudio };
 var exitCode = game.Run();
 Log.Debug($"Game Exit: {exitCode}");
 return (int)exitCode;

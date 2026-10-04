@@ -140,6 +140,35 @@ public sealed class AudioSerializationTests
         Assert.Equal(0, server.Stats.ActiveVoices);
     }
 
+    [Fact]
+    public void TheSandboxAmbiencePlaysFromItsSceneFile()
+    {
+        var previous = AssetDatabase.Current;
+        AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory); // "Content/..." resolves like the Sandbox's
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Content", "Scenes", "Sandbox.mscene");
+            var tree = new SceneTree();
+            using var server = AudioTestUtil.CreateServer(tree);
+            tree.ChangeScene(PackedScene.Parse(File.ReadAllBytes(path)).Instantiate());
+            var ambience = tree.CurrentScene!.GetNode<AudioPlayer3D>("Box/Ambience");
+            Assert.True(ambience.Stream!.IsStreamed);
+            Assert.True(ambience.Playing);
+            Assert.Equal(-18f, ambience.VolumeDb);
+
+            server.Flush();
+            Assert.True(server.WaitForStreams(4096, TimeSpan.FromSeconds(5)));
+            var output = AudioTestUtil.Render(server, 4096, tree);
+            Assert.True(AudioTestUtil.Peak(output, 0) > 0.001f, "the ambience is silent");
+            Assert.True(AudioTestUtil.Peak(output, 0) < 0.2f, "the ambience should be quiet");
+            tree.Shutdown();
+        }
+        finally
+        {
+            AssetDatabase.Current = previous;
+        }
+    }
+
     private static T Own<T>(Node root, Node parent, T child) where T : Node
     {
         parent.AddChild(child);

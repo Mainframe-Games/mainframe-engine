@@ -19,6 +19,8 @@
     <None Include="..\..\MainframeEngine.Sandbox\Content\Models\Spine\SpineBoy\**"
           LinkBase="Content\Models\Spine\SpineBoy"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\MainframeEngine.Sandbox\Content\Audio\ambient_hum.ogg"
+          Link="Content\Audio\ambient_hum.ogg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

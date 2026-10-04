@@ -35,6 +35,9 @@ public sealed class Game(in EngineOptions options) : Engine(options)
     /// <summary>Set by <c>--server</c> / <c>--client host</c>: the multiplayer demo (M5).</summary>
     public NetworkDemo? Network { get; init; }
 
+    /// <summary>Set by <c>--qa-audio</c>: plays a test melody through the device, checks the audio server, exits.</summary>
+    public QaAudio? QaAudio { get; init; }
+
     private IMouse _mouse = null!;
 
     /// <summary>The scene's camera (null until the scene is loaded).</summary>
@@ -71,6 +74,8 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             CaptureFrame();
         RunQaScript(gameTime.FrameCount);
         Network?.Update(gameTime);
+        if (QaAudio?.Update(Servers.Get<AudioServer>()) is { } audioResult)
+            Quit(audioResult);
     }
 
     protected override void OnImGui(in GameTime gameTime)
@@ -118,6 +123,8 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             ImGui.Value("Nodes", Tree.NodeCount);
 
             Network?.DrawImGui();
+            if (Servers.Get<AudioServer>() is { } audio)
+                AudioImGui.DrawMixer(audio);
         }
         ImGui.End();
 

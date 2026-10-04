@@ -32,6 +32,8 @@ public abstract class RenderTestGame : Engine
         VSync = false,
         FixedDeltaTime = 1f / 60f,
         MaxFrames = host.MaxFrames,
+        // The silent null device: CI machines have no audio device, and render tests should not make noise.
+        Audio = new AudioOptions { Device = AudioDeviceMode.Null, BusLayoutPath = null },
     };
 
     protected IVulkanContext Vulkan => (IVulkanContext)Renderer;

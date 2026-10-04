@@ -32,7 +32,28 @@ public static class SandboxSceneBuilder
             Animation = "walk",
         });
         Add(root, new Quad { Name = "Floor", RotationDegrees = new Vector3(90, 0, 0), Scale = new Vector3(10, 10, 1) });
-        Add(root, new SpinningBox { Name = "Box", Position = new Vector3(3, 1, 0) });
+        var box = new SpinningBox { Name = "Box", Position = new Vector3(3, 1, 0) };
+        Add(root, box);
+
+        // A quiet looping hum attached to the box (M7): streamed OGG, positional, on the SFX bus. Walk the fly
+        // camera around it to hear the panning and the distance attenuation / low-pass.
+        Add(root, box, new AudioPlayer3D
+        {
+            Name = "Ambience",
+            Stream = new AudioStream
+            {
+                File = "Content/Audio/ambient_hum.ogg",
+                LoadMode = AudioLoadMode.Stream,
+                Loop = true,
+                LoopEnd = 6f, // the file is a 6 s seamless loop (the encoder pads its tail)
+            },
+            Bus = "SFX",
+            VolumeDb = -18f,
+            Autoplay = true,
+            UnitSize = 3f,
+            MaxDistance = 60f,
+            LowPassAtMaxDistance = 1500f,
+        });
 
         // Every shadow type at once (2 directional + 1 point + 2 spot): each shadow sub-pass uses its own
         // light matrix (M1 renderer stabilization).
@@ -113,9 +134,11 @@ public static class SandboxSceneBuilder
         }
     }
 
-    private static void Add(Node root, Node child)
+    private static void Add(Node root, Node child) => Add(root, root, child);
+
+    private static void Add(Node root, Node parent, Node child)
     {
-        root.AddChild(child);
+        parent.AddChild(child);
         child.Owner = root;
     }
 

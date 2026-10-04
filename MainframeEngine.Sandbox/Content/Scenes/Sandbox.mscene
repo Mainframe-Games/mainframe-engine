@@ -8,6 +8,15 @@
         "Mode": "Panoramic",
         "Panorama": "Content/Sky/sky_10_2k.png"
       }
+    },
+    "2": {
+      "type": "AudioStream",
+      "props": {
+        "File": "Content/Audio/ambient_hum.ogg",
+        "LoadMode": "Stream",
+        "Loop": true,
+        "LoopEnd": 6
+      }
     }
   },
   "root": {
@@ -77,7 +86,24 @@
             1,
             0
           ]
-        }
+        },
+        "children": [
+          {
+            "type": "AudioPlayer3D",
+            "name": "Ambience",
+            "props": {
+              "Stream": {
+                "res": "2"
+              },
+              "Bus": "SFX",
+              "VolumeDb": -18,
+              "Autoplay": true,
+              "UnitSize": 3,
+              "MaxDistance": 60,
+              "LowPassAtMaxDistance": 1500
+            }
+          }
+        ]
       },
       {
         "type": "DirectionalLight3D",

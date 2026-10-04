@@ -86,6 +86,7 @@ public class SceneTests
         const int warmup = 120, measured = 300;
         var result = HostRunner.Run("sandbox", Output("sandbox"), "--alloc", $"{warmup}:{measured}", "--hidden");
 
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures)); // audio really plays
         Assert.Equal(measured, result.MeasuredFrames);
         Assert.True(result.AllocatedBytes == 0,
             $"Steady-state frames allocated {result.AllocatedBytes} managed bytes over {measured} frames " +
