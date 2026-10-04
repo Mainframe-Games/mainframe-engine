@@ -42,24 +42,35 @@ internal static class SkyGridReference
     }
 
     /// <summary>
-    /// Pixels within <paramref name="radius"/> pixels of a line of <see cref="SceneGrid3d"/>(<paramref name="gridSize"/>):
-    /// each line is clipped to the near and far planes in clip space, projected (Y-flipped viewport) and stamped.
+    /// The lines of <see cref="SceneGrid3d"/>(<paramref name="gridSize"/>) in pixels: each is clipped to the near and
+    /// far planes in clip space, projected (Y-flipped viewport) and clipped to the image grown by <paramref name="margin"/>.
+    /// Lines that miss the image are left out.
     /// </summary>
-    public static bool[] GridLineMask(in Matrix4x4 viewProjection, uint gridSize, int width, int height, float radius)
+    public static List<(Vector2 Start, Vector2 End)> ProjectGridLines(in Matrix4x4 viewProjection, uint gridSize, int width, int height, float margin)
     {
-        var mask = new bool[width * height];
+        var lines = new List<(Vector2, Vector2)>();
         var half = (int)gridSize / 2;
         for (var i = -half; i <= half; i++)
         {
-            Stamp(mask, viewProjection, new Vector3(half, 0, i), new Vector3(-half, 0, i), width, height, radius);  // along X
-            Stamp(mask, viewProjection, new Vector3(i, 0, -half), new Vector3(i, 0, half), width, height, radius);  // along Z
+            Project(lines, viewProjection, new Vector3(half, 0, i), new Vector3(-half, 0, i), width, height, margin);  // along X
+            Project(lines, viewProjection, new Vector3(i, 0, -half), new Vector3(i, 0, half), width, height, margin);  // along Z
         }
 
-        Stamp(mask, viewProjection, new Vector3(0, half, 0), new Vector3(0, -half, 0), width, height, radius); // Y axis
+        Project(lines, viewProjection, new Vector3(0, half, 0), new Vector3(0, -half, 0), width, height, margin); // Y axis
+        return lines;
+    }
+
+    /// <summary>Pixels whose centre is within <paramref name="radius"/> pixels of one of <paramref name="lines"/>.</summary>
+    public static bool[] LineMask(List<(Vector2 Start, Vector2 End)> lines, int width, int height, float radius)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        var mask = new bool[width * height];
+        foreach (var (start, end) in lines)
+            Stamp(mask, start, end, width, height, radius);
         return mask;
     }
 
-    private static void Stamp(bool[] mask, in Matrix4x4 viewProjection, Vector3 a, Vector3 b, int width, int height, float radius)
+    private static void Project(List<(Vector2, Vector2)> lines, in Matrix4x4 viewProjection, Vector3 a, Vector3 b, int width, int height, float margin)
     {
         var ca = Vector4.Transform(new Vector4(a, 1f), viewProjection);
         var cb = Vector4.Transform(new Vector4(b, 1f), viewProjection);
@@ -71,16 +82,17 @@ internal static class SkyGridReference
         var pa = ToPixel(Vector4.Lerp(ca, cb, t0), width, height);
         var pb = ToPixel(Vector4.Lerp(ca, cb, t1), width, height);
 
-        // Clip to the image (plus the stamp radius) so off-screen spans cost nothing.
         var d = pb - pa;
         float s0 = 0f, s1 = 1f;
-        var m = radius + 1f;
+        var m = margin;
         if (!ClipPlane(pa.X + m, pb.X + m, ref s0, ref s1) || !ClipPlane(width + m - pa.X, width + m - pb.X, ref s0, ref s1) ||
             !ClipPlane(pa.Y + m, pb.Y + m, ref s0, ref s1) || !ClipPlane(height + m - pa.Y, height + m - pb.Y, ref s0, ref s1))
             return;
-        var start = pa + d * s0;
-        var end = pa + d * s1;
+        lines.Add((pa + d * s0, pa + d * s1));
+    }
 
+    private static void Stamp(bool[] mask, Vector2 start, Vector2 end, int width, int height, float radius)
+    {
         var length = Vector2.Distance(start, end);
         var steps = Math.Max(1, (int)MathF.Ceiling(length / 0.25f));
         var reach = (int)MathF.Ceiling(radius);

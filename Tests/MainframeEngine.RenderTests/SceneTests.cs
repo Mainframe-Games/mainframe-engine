@@ -184,9 +184,23 @@ public class SceneTests
         var camera = SkyGridScene.CreateCamera((float)w / h);
         var frame = FrameData.From(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position,
             new Silk.NET.Vulkan.Extent2D((uint)w, (uint)h), 0f, IVulkanContext.DefaultExposure);
-        var lines = SkyGridReference.GridLineMask(frame.ViewProjection, SkyGridScene.GridSize, w, h, radius: 2f);
+        var lines = SkyGridReference.ProjectGridLines(frame.ViewProjection, SkyGridScene.GridSize, w, h, margin: 3f);
+        var nearLine = SkyGridReference.LineMask(lines, w, h, radius: 2f);
+        var sky = new System.Numerics.Vector3[w * h];
+        var rays = new System.Numerics.Vector3[w * h];
+        for (var y = 0; y < h; y++)
+        {
+            for (var x = 0; x < w; x++)
+            {
+                rays[y * w + x] = SkyGridReference.Ray(frame, x, y, w, h);
+                sky[y * w + x] = SkyGridReference.SkyPixel(SkyGridScene.SkySettings, rays[y * w + x], IVulkanContext.DefaultExposure);
+            }
+        }
 
-        // Every pixel away from a grid line is sky: above the horizon, the horizon-to-ground gradient, and the
+        System.Numerics.Vector3 Actual(int i) => new(image.Pixels[i * 4], image.Pixels[i * 4 + 1], image.Pixels[i * 4 + 2]);
+        var groundY = -1f / SkyGridScene.SkySettings.HorizonSharpness; // below this the sky is the plain ground colour
+
+        // 1. Every pixel away from a grid line is sky: above the horizon, the horizon-to-ground gradient, and the
         // ground colour between lines. A wrong ray, gradient, NaN, uniform layout or colour encoding changes these;
         // a stray line fragment (e.g. a line clipped badly by the rasterizer) shows where no line projects.
         const float tolerance = 3f;
@@ -198,13 +212,13 @@ public class SceneTests
             for (var x = 0; x < w; x++)
             {
                 var i = y * w + x;
-                if (lines[i]) continue;
-                var ray = SkyGridReference.Ray(frame, x, y, w, h);
-                var expected = SkyGridReference.SkyPixel(SkyGridScene.SkySettings, ray, IVulkanContext.DefaultExposure);
-                var actual = new System.Numerics.Vector3(image.Pixels[i * 4], image.Pixels[i * 4 + 1], image.Pixels[i * 4 + 2]);
+                if (nearLine[i]) continue;
+                var ray = rays[i];
+                var expected = sky[i];
+                var actual = Actual(i);
                 checkedPixels++;
                 if (ray.Y > 0.05f) above++;
-                if (ray.Y < -1f / SkyGridScene.SkySettings.HorizonSharpness) ground++;
+                if (ray.Y < groundY) ground++;
 
                 var delta = System.Numerics.Vector3.Abs(actual - expected);
                 if (delta.X <= tolerance && delta.Y <= tolerance && delta.Z <= tolerance) continue;
@@ -222,6 +236,44 @@ public class SceneTests
         Assert.True(bad == 0,
             $"{bad} of {checkedPixels} sky pixels away from any grid line differ from the reference by more than " +
             $"±{tolerance} (red in {Path.ChangeExtension(capture.Path, ".mismatch.png")}):\n{failures}");
+
+        // 2. Every grid line over the plain ground is drawn: sample each projected line every 3 px; some pixel next to
+        // the sample must differ visibly from the sky (white at α 0.1 over the ground, or an opaque axis colour).
+        // Lines whose endpoints project far off-screen must not be dropped either.
+        int sampledLines = 0, missingLines = 0;
+        var missing = new System.Text.StringBuilder();
+        foreach (var (start, end) in lines)
+        {
+            var steps = (int)(System.Numerics.Vector2.Distance(start, end) / 3f);
+            int samples = 0, drawn = 0;
+            for (var s = 0; s <= steps; s++)
+            {
+                var p = System.Numerics.Vector2.Lerp(start, end, steps == 0 ? 0f : s / (float)steps);
+                int px = (int)p.X, py = (int)p.Y;
+                if (px < 2 || py < 2 || px >= w - 2 || py >= h - 2 || rays[py * w + px].Y >= groundY) continue;
+                samples++;
+                var visible = false;
+                for (var y = py - 1; y <= py + 1 && !visible; y++)
+                {
+                    for (var x = px - 1; x <= px + 1 && !visible; x++)
+                    {
+                        var d = System.Numerics.Vector3.Abs(Actual(y * w + x) - sky[y * w + x]);
+                        visible = MathF.Max(d.X, MathF.Max(d.Y, d.Z)) >= 8f;
+                    }
+                }
+
+                if (visible) drawn++;
+            }
+
+            if (samples < 5) continue;
+            sampledLines++;
+            if (drawn >= samples * 3 / 4) continue;
+            if (missingLines++ < 8)
+                missing.AppendLine(System.FormattableString.Invariant($"  ({start.X:0},{start.Y:0})→({end.X:0},{end.Y:0}): {drawn} of {samples} samples drawn"));
+        }
+
+        Assert.True(sampledLines >= 20, $"Only {sampledLines} grid lines cross the ground region.");
+        Assert.True(missingLines == 0, $"{missingLines} of {sampledLines} grid lines over the ground are missing or broken:\n{missing}");
     }
 
     private static void AssertPixel(PngImage image, int x, int y, System.Numerics.Vector3 expected, float tolerance, string what)
