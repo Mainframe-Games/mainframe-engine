@@ -113,6 +113,19 @@ brand:
     fi
     cp png/logo-{32,48,256,512}.png png/logo-macos-512.png ../../../MainframeEngine/Content/Brand/
 
+# Rebuild the editor icon atlas (MainframeEngine.Editor/Content/icons) from icons.txt and the vendored Tabler SVGs (needs inkscape)
+editor-icons:
+    python3 build/editor-icons/make_atlas.py
+
+# Vendor the SVGs of newly listed icons from the @tabler/icons npm package (needs npm), then rebuild the atlas
+editor-icons-fetch version="3.48.0":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work="{{artifacts}}/tabler-icons"
+    rm -rf "$work" && mkdir -p "$work"
+    (cd "$work" && npm pack "@tabler/icons@{{version}}" >/dev/null && tar xzf tabler-icons-*.tgz)
+    python3 build/editor-icons/make_atlas.py --tabler "$work/package"
+
 # Apply dotnet format (the vendored Spine runtime is excluded)
 format:
     dotnet format {{solution}} --exclude Plugins/Spine
