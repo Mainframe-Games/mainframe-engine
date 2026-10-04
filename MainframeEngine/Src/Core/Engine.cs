@@ -183,6 +183,7 @@ public abstract class Engine : IDisposable
         // M9: catalogs load before any game code runs, so constructors and OnLoad can translate.
         Localization.Tr.Configure(engineOptions.Localization ?? new Localization.LocalizationOptions(), engineOptions.Locale);
         Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond }; // M2
+        MainframeEngine.Input.Current = Tree.Input; // M10: Input.IsActionPressed(...) reads the engine's tree
 
         // Linux: Silk.NET cannot find package natives (libSDL2) in runtimes/linux-x64/native on its own.
         SilkNativeResolver.Install();
@@ -511,8 +512,13 @@ public abstract class Engine : IDisposable
         _quitRequested = true;
     }
 
+    /// <summary>The code <see cref="Run"/> will return (set by <see cref="Quit"/>; <see cref="ExitCode.Ok"/> otherwise).</summary>
+    public ExitCode CurrentExitCode => _exitCode;
+
     public void Dispose()
     {
+        if (ReferenceEquals(MainframeEngine.Input.Current, Tree.Input))
+            MainframeEngine.Input.Current = null;
         Window.Dispose();
     }
 }
