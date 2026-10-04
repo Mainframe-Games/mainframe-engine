@@ -1,16 +1,27 @@
+using MainframeEngine.Localization;
 using MainframeEngine.UI.Rml;
 
 namespace MainframeEngine.Sandbox;
 
 /// <summary>
 /// The Sandbox's RmlUi HUD (<c>Content/UI/hud.rml</c>): frame stats, and scene settings wired two-way to live state —
-/// exposure, the box's spin speed, max FPS, the sun and coloured lights, VSync, collision shapes — plus buttons for the widget demo,
-/// the ImGui dev overlay, the engine credits and quitting. Replaces the stats/settings part of the old ImGui window (the ImGui windows
-/// remain as the F12 developer overlay).
+/// exposure, the box's spin speed, max FPS, the language, the sun and coloured lights, VSync, collision shapes — plus buttons for the
+/// widget demo, the ImGui dev overlay, the engine credits and quitting. Replaces the stats/settings part of the old ImGui window (the
+/// ImGui windows remain as the F12 developer overlay). Its text is translated by the UI server (M9); the language dropdown switches
+/// <see cref="Tr"/>, after which the UI server reloads the document in the new language and the scene's
+/// <see cref="WelcomeBanner"/> (shown at the top) re-translates.
 /// </summary>
 public sealed class SandboxHud : UiDocument
 {
     private static readonly string[] FpsValues = ["0", "30", "60", "120", "144", "240"];
+
+    private static readonly RmlStructType<LocaleItem> LocaleType = new RmlStructType<LocaleItem>()
+        .Member("id", static l => l.Id)
+        .Member("name", static l => l.Name);
+
+    private readonly List<LocaleItem> _locales = [];
+    private WelcomeBanner? _banner;
+    private bool _bannerResolved;
 
     private RmlDataModel _model = null!;
     private float _sunEnergy = -1f;
@@ -38,6 +49,10 @@ public sealed class SandboxHud : UiDocument
 
     protected override void OnReady()
     {
+        // M9: every compiled catalog (Content/locale/<locale>/LC_MESSAGES/messages.mo), named in its own language.
+        foreach (var locale in Tr.GetAvailableLocales())
+            _locales.Add(new LocaleItem(locale, LocaleId.DisplayName(locale)));
+
         _model = CreateDataModel("sandbox")
             .Bind("fps", this, static h => (int)h._fps)
             .Bind("ms", this, static h => h._ms)
@@ -50,6 +65,10 @@ public sealed class SandboxHud : UiDocument
             .Bind("lamps", this, static h => h.LampsOn, static (h, v) => h.LampsOn = v)
             .Bind("vsync", this, static h => h.Game.Renderer.VSync, static (h, v) => h.Game.Renderer.VSync = v)
             .Bind("shapes", this, static h => h.CollisionShapes, static (h, v) => h.CollisionShapes = v)
+            .Bind("locale", this, static h => h.Locale, static (h, v) => h.Locale = v)
+            .BindList("locales", _locales, LocaleType)
+            .Bind("welcomeTitle", this, static h => h._banner?.DisplayTitle ?? string.Empty)
+            .Bind("welcomeHint", this, static h => h._banner?.DisplayHint ?? string.Empty)
             .Event("toggleWidgets", () =>
             {
                 if (WidgetDemo is not null)
@@ -70,6 +89,14 @@ public sealed class SandboxHud : UiDocument
         _frame = gameTime.FrameCount;
         _model.Dirty("frame");
 
+        // The scene loads after the HUD: pick up its banner once it is there.
+        if (!_bannerResolved && Tree?.CurrentScene is { } scene)
+        {
+            _bannerResolved = true;
+            _banner = scene.FindChild("Welcome", recursive: false) as WelcomeBanner;
+            DirtyWelcome();
+        }
+
         // Stats change every frame; four updates a second are readable (and re-layout less text).
         _statsTimer -= gameTime.DeltaTime;
         if (_statsTimer > 0)
@@ -82,6 +109,42 @@ public sealed class SandboxHud : UiDocument
         _model.Dirty("ms");
         _model.Dirty("uiDraws");
     }
+
+    // Runs after Tr.SetLocale (the UI server reloads this document at its next frame; data models survive). The
+    // banner re-translates in the same pass, so its strings are read when the views next update.
+    protected override void OnLocaleChanged()
+    {
+        if (_model is null)
+            return;
+        DirtyWelcome();
+        _model.Dirty("locale");
+    }
+
+    private void DirtyWelcome()
+    {
+        _model.Dirty("welcomeTitle");
+        _model.Dirty("welcomeHint");
+    }
+
+    /// <summary>The dropdown's entry for the current locale: the first link of its chain that has a catalog (es_MX → es).</summary>
+    private string Locale
+    {
+        get
+        {
+            foreach (var locale in Tr.LocaleChain)
+                foreach (var item in _locales)
+                    if (item.Id == locale)
+                        return item.Id;
+            return Tr.CurrentLocale;
+        }
+        set
+        {
+            if (!string.IsNullOrEmpty(value) && value != Locale)
+                Tr.SetLocale(value);
+        }
+    }
+
+    private sealed record LocaleItem(string Id, string Name);
 
     private float Exposure
     {

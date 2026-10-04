@@ -4,12 +4,21 @@
     <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
     <link type="text/rcss" href="hud.rcss"/>
 </head>
+<!--
+  Text is translated through the Sandbox's catalogs (Content/locale, `just l10n-extract`); the stat abbreviations
+  opt out with class="no-tr". Data-bound values ({{ ... }}) are not translated.
+-->
 <body class="hud" data-model="sandbox">
     <div id="stats" class="panel">
-        <span class="stat"><span class="label">FPS</span> {{ fps }}</span>
-        <span class="stat"><span class="label">ms </span> {{ ms | format(2) }}</span>
-        <span class="stat"><span class="label">frm</span> {{ frame }}</span>
-        <span class="stat"><span class="label">ui </span> {{ uiDraws }} draws</span>
+        <span class="stat"><span class="label no-tr">FPS</span> {{ fps }}</span>
+        <span class="stat"><span class="label no-tr">ms </span> {{ ms | format(2) }}</span>
+        <span class="stat"><span class="label no-tr">frm</span> {{ frame }}</span>
+        <span class="stat"><span class="label no-tr">ui </span> {{ uiDraws }} draws</span>
+    </div>
+
+    <div id="welcome" data-if="welcomeTitle != ''">
+        <div class="title">{{ welcomeTitle }}</div>
+        <div class="hint">{{ welcomeHint }}</div>
     </div>
 
     <div id="settings" class="panel">
@@ -35,11 +44,17 @@
                 <option value="240">240</option>
             </select>
         </div>
+        <div class="row">
+            <label class="caption">Language</label>
+            <select id="language" data-value="locale">
+                <option data-for="l : locales" data-attr-value="l.id">{{ l.name }}</option>
+            </select>
+        </div>
         <div class="toggles">
-            <input id="sun" type="checkbox" data-checked="sun"/><label>Sun</label>
-            <input id="lamps" type="checkbox" data-checked="lamps"/><label>Coloured lights</label>
-            <input id="vsync" type="checkbox" data-checked="vsync"/><label>VSync</label>
-            <input id="shapes" type="checkbox" data-checked="shapes"/><label>Colliders</label>
+            <span class="toggle"><input id="sun" type="checkbox" data-checked="sun"/><label>Sun</label></span>
+            <span class="toggle"><input id="lamps" type="checkbox" data-checked="lamps"/><label>Coloured lights</label></span>
+            <span class="toggle"><input id="vsync" type="checkbox" data-checked="vsync"/><label>VSync</label></span>
+            <span class="toggle"><input id="shapes" type="checkbox" data-checked="shapes"/><label>Colliders</label></span>
         </div>
         <div class="buttons">
             <button id="widgets" data-event-click="toggleWidgets">Widgets</button>

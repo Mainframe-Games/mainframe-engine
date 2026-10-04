@@ -14,19 +14,33 @@
     position: absolute;
     right: 12dp;
     top: 12dp;
-    width: 380dp;
+    width: 420dp;
     pointer-events: auto;
 }
 
-#settings .row label.caption { width: 90dp; }
+#settings .row label.caption { width: 130dp; }
 #settings input.range { width: 160dp; }
 #settings .value { display: inline-block; width: 44dp; margin-left: 8dp; text-align: right; color: #b8c3d9; font-size: 12dp; }
 #settings select { width: 160dp; }
 
 .toggles { display: block; margin: 4dp 0dp 10dp 0dp; }
+.toggles .toggle { display: inline-block; white-space: nowrap; margin-bottom: 4dp; } /* a checkbox never wraps from its label */
 .toggles label { margin-left: 6dp; margin-right: 14dp; vertical-align: middle; }
 
-.buttons button { margin-right: 6dp; }
+.buttons button { margin-right: 6dp; margin-bottom: 4dp; }
+
+/* The scene's WelcomeBanner (translatable scene strings, M9), top centre. */
+#welcome {
+    position: absolute;
+    left: 0dp;
+    right: 0dp;
+    top: 14dp;
+    text-align: center;
+    color: #ffffff;
+    font-effect: shadow(1dp 1dp #000000c0);
+}
+#welcome .title { font-size: 20dp; font-weight: bold; }
+#welcome .hint { font-size: 13dp; color: #d8deea; margin-top: 2dp; }
 
 #hints {
     position: absolute;

@@ -85,12 +85,12 @@ format-check:
 l10n_dir := "MainframeEngine.Sandbox/Content/locale"
 l10n := "dotnet run --project Tools/MainframeEngine.L10n -c Release --"
 
-# Extract strings (C# via GetText.Extractor, RML and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale
+# Extract strings (C# via GetText.Extractor; RML — the Sandbox HUD and the engine widget library — and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale
 l10n-extract:
     dotnet tool restore
     dotnet build MainframeEngine.Sandbox -p:CompileLocales=false
     dotnet tool run GetText.Extractor -s MainframeEngine.Sandbox/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Sandbox" --include {{artifacts / "l10n" / "code.pot"}} --rml MainframeEngine.Sandbox/Content --scenes MainframeEngine.Sandbox/Content --assembly MainframeEngine.Sandbox/bin/Debug/net10.0/MainframeEngine.Sandbox.dll
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Sandbox" --include {{artifacts / "l10n" / "code.pot"}} --rml MainframeEngine.Sandbox/Content --rml MainframeEngine/Content/UI --scenes MainframeEngine.Sandbox/Content --assembly MainframeEngine.Sandbox/bin/Debug/net10.0/MainframeEngine.Sandbox.dll
     {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
     {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
 
