@@ -48,3 +48,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - xUnit v3 4.x defaults to Microsoft.Testing.Platform; test projects opt out
   (`UseMicrosoftTestingPlatformRunner`/`IsTestingPlatformApplication` = false) to keep VSTest + coverlet.
 
+
+### 2026-10-05 — Natives lane (integrated)
+- `0a3…`→ cherry-picked as `Natives:` commits (ENet 2.4.8 universal dylib from source, `mfrmlui` flat C ABI shim over RmlUi 6.3 + FreeType 2.14.3 — 121 exports, in-house; PourrezJ shim MIT but unsuitable ABI). ADRs 0001/0002. `natives.yml` builds win/linux/macos.
+- TODO: download `natives-all` artifact from first natives.yml run, commit win-x64/linux-x64 binaries + updated `Native/natives.lock`.
+- TODO (lane C): exclude ENet-CSharp package's own x86_64 natives so ours from `runtimes/` load on osx-arm64.
+
+### 2026-10-05 — Integration
+- CI checkout now inits only `Plugins/Spine` (native submodules are natives.yml's job).
+- Pushed `feature/m0-m10`; draft PR https://github.com/Mainframe-Games/mainframe-engine/pull/4 (Closes #1, #2). Auto-fix CI monitor enabled.
