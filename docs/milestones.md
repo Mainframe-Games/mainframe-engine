@@ -42,7 +42,7 @@ flowchart LR
 | [M7](#m7--audio-) | SoundFlow audio nodes, buses, 3D panning | ✅ |
 | [M8](#m8--game-ui-rmlui-) | RmlUi HTML/CSS game UI (also the editor's UI) | ✅ |
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
-| [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | 🚧 E1–E3 + E4 engine side ✅ |
+| [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [M11](#m11--backend-abstraction--webgpu) | Backend-neutral render API, WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -200,7 +200,8 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | `AudioStream` resources (memory vs stream), OGG via NVorbis | ✅ | [Audio](design/audio.md#streams-and-resources) |
 | Positional audio: listener-space projection, attenuation curves, pan smoothing (engine panner, [ADR 0031](../memory/decisions/0031-positional-audio-engine-panner.md)) | ✅ | [Audio](design/audio.md#spatialization) |
 | Voice pool, polyphony, stealing, pause handling | ✅ | [Audio](design/audio.md#voices) |
-| Editor preview, range gizmos, Audio bus panel | ⬜ (M10) | [Editor](design/future/editor.md) |
+| Audio bus panel (the `AudioBusLayout` mixer inspector), audio range spheres in the editor viewport | ✅ (M10) | [Editor](design/editor.md#resource-files-and-custom-inspectors) |
+| Audio preview in the editor, draggable range handles | ⬜ | [Future: editor](design/future/editor.md) |
 
 ## M8 — Game UI (RmlUi) ✅
 
@@ -234,7 +235,7 @@ extracted from C#, RML documents and scene files, and the language can be switch
 | RmlUi `TranslateString` hook, `no-tr`, translated attributes, per-locale fonts, live re-translation (`UiServer`) | ✅ | [Localization](design/localization.md#game-ui-rmlui) |
 | Pseudo-locale for testing | ✅ | [Localization](design/localization.md#pseudo-localization) |
 
-## M10 — Editor
+## M10 — Editor ✅
 
 A Godot-style editor in a separate `MainframeEngine.Editor` project. It depends only on the engine
 core, and its UI is built entirely with the M8 game UI stack (RmlUi).
@@ -246,8 +247,9 @@ core, and its UI is built entirely with the M8 game UI stack (RmlUi).
 | E3 Viewport: render target in RmlUi, editor camera, ID picking, gizmos | ✅ | [Editor](design/editor.md#viewport) |
 | Icons over text: Tabler icon atlas (`just editor-icons`), `[EditorIcon]` + families for every node/resource type, tooltips, icons in the scene tree, inspector (every property), toolbar, menus, Output, dialogs; Godot-style create dialog (tree, fuzzy search, favourites, recent) | ✅ | [Editor: icons](design/editor.md#icons) |
 | E4 engine side: `project.mfproj` + `ProjectSettings`, `GameHost`, input actions, autoloads, `ILogSink` routing, editor link (play/stop/pause/reload, log streaming), collectible game-assembly load/unload/reload, `mfgame` template + CI smoke | ✅ | [Projects & GameHost](design/project-and-gamehost.md) |
-| E4 editor side: open/new project, file system panel, Play/Stop buttons, Output panel over the link, reload UI | ⬜ | [Editor](design/future/editor.md#game-project-and-code-reload) |
-| E5 Polish: signals tab, multi-select, 2D editing, custom inspectors | ⬜ | [Editor](design/future/editor.md#phases) |
+| E4 editor side: Project Manager (recent projects, .NET SDK check), New Project wizard (`dotnet new mfgame`), Project Settings (every section, input map binding capture, undo), FileSystem panel (tree/list/grid, thumbnails, badges, create/rename/move with UID reference fix-ups, OS trash, drag and drop), Play (F5/F6/F7/F8, build errors and game logs in Output, several instances), code reload into a collectible context with scenes re-created | ✅ | [Editor: projects](design/editor.md#projects) · [Play](design/editor.md#play) · [FileSystem](design/editor.md#filesystem-panel) |
+| E5 Polish: signals tab, multi-select editing, 2D editing mode, resource files and `[CustomInspector]` example (audio bus mixer), editor settings (accent, autosave, external code editor), resizable inspector name column | ✅ | [Editor](design/editor.md#signals) |
+| After M10: remote scene tree, simulate mode, box selection, multi-node gizmo, docking | ⬜ | [Future: editor](design/future/editor.md) |
 
 ## M11 — Backend abstraction / WebGPU
 

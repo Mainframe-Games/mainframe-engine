@@ -33,7 +33,7 @@ Where the engine is heading:
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) 1.4.1 + [NVorbis](https://github.com/NVorbis/NVorbis) (M7 ✅): `AudioServer`, bus mixer, 2D/3D audio nodes, streaming | [Audio](docs/design/audio.md) |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) 6.3, engine-owned binding, Vulkan renderer (M8 ✅) | [Game UI](docs/design/game-ui.md) |
 | Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) runtime, in-house `mf-l10n` tooling (M9 ✅) | [Localization](docs/design/localization.md) |
-| Editor | `MainframeEngine.Editor`, a separate project whose UI is built with the same RmlUi stack as games (E1–E3 shipped) | [Editor](docs/design/editor.md) · [Future](docs/design/future/editor.md) |
+| Editor | `MainframeEngine.Editor`, a separate project whose UI is built with the same RmlUi stack as games (M10 ✅) | [Editor](docs/design/editor.md) · [Future](docs/design/future/editor.md) |
 | Rendering backend | Backend-neutral GPU API, then WebGPU | [Backend abstraction](docs/design/future/rendering-backend-abstraction.md) |
 
 ---
@@ -358,20 +358,25 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`gl
 
 ## Editor
 
-`MainframeEngine.Editor` is a Godot-style scene editor whose UI is built with the engine's own RmlUi game UI
-([design](docs/design/editor.md)). It edits `.mscene` files: a scene tree (drag to reparent, add/duplicate/delete/
-rename, instance scenes), an inspector generated from the nodes' `[Export]` metadata (numbers, sliders, enums, flags,
-vectors, colours, node paths, resources, arrays), undo/redo with a history menu, and a 3D viewport with an orbit/fly
-camera, GPU picking, selection boxes and translate/rotate/scale gizmos with snapping. Scenes open in tabs, each in its
-own world; nothing but `[Tool]` nodes runs while editing.
+`MainframeEngine.Editor` is a Godot-style editor whose UI is built with the engine's own RmlUi game UI
+([design](docs/design/editor.md)). It works on game projects: a Project Manager and New Project wizard, project
+settings (input map included), a FileSystem panel (thumbnails, drag and drop, rename/move that keeps references,
+delete to the OS trash), and Play — the game builds and runs in its own process, its logs and build errors land in the
+Output panel, and code changes reload into the open editor. Scenes get a scene tree (drag to reparent,
+add/duplicate/delete/rename, instance scenes), an inspector generated from the nodes' `[Export]` metadata (several
+nodes at once, a Signals tab, custom inspectors), undo/redo with a history menu, and a 3D or 2D viewport with GPU
+picking and translate/rotate/scale gizmos with snapping. Scenes open in tabs, each in its own world; nothing but
+`[Tool]` nodes runs while editing.
 
 ![Mainframe Editor](docs/images/editor.png)
 
 ```sh
-just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene
+just editor                                                        # Project Manager
+just editor path/to/MyGame                                         # open a project
+just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene  # open one scene
 ```
 
-Projects, game-code reload and play mode are next ([roadmap](docs/design/future/editor.md)).
+What comes after M10 is in the [roadmap](docs/design/future/editor.md).
 
 ---
 
@@ -453,5 +458,22 @@ This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGam
 `Content/Scenes/Main.mscene`. Read input through actions (`Input.IsActionPressed("spin_faster")`), and see
 [Projects & GameHost](docs/design/project-and-gamehost.md) for the project file, launcher flags
 (`--scene`, `--max-frames`, `--hidden`, `--editor-port`) and the editor link.
+
+### Make a game (in the editor)
+
+1. `just editor` opens the **Project Manager** (it checks for a .NET 10 SDK and links to the download if missing).
+2. **New Project**: a name (a C# identifier, e.g. `MyGame`) and a parent folder; the engine checkout is found
+   automatically. Create runs `dotnet new mfgame`, builds the game and opens it — `Content/Scenes/Main.mscene` with the
+   template's `Spinner` node.
+3. Edit the scene: **Add Node** (Cmd/Ctrl+A), drag files from the **FileSystem** panel onto the scene tree or the
+   viewport, change properties in the inspector, connect signals in its Signals tab. Cmd/Ctrl+S saves.
+4. **Play** with F5 (F6 plays the open scene, Shift+F5 starts another instance, F7 pauses, F8 stops). The editor saves,
+   builds, and runs the game in its own window; its log streams into Output (category `game`), and build errors there
+   open in your code editor.
+5. Write code: double-click a `.cs` file (or an Output link) to open it in your code editor (Project › Editor Settings
+   picks one). Add an `[Export]` property, then **Build & Reload** (Cmd/Ctrl+Shift+B) — the open scenes are re-created
+   with the new code and the property shows up in the inspector. Builds from your IDE reload too.
+6. Project › Project Settings edits `project.mfproj`: window, input actions (press a key to bind it), physics, audio,
+   localization, rendering, autoloads.
 
 **macOS:** Vulkan runs through MoltenVK. A copy is bundled via `Silk.NET.MoltenVK.Native`, so nothing needs to be installed to run. Installing the [Vulkan SDK](https://vulkan.lunarg.com) is still recommended for development — it provides the validation layers and `glslc`. `VulkanLoaderBootstrap` hands the Vulkan library to SDL (`SDL_Vulkan_LoadLibrary`) and Silk.NET explicitly, because modern macOS dyld no longer finds `/usr/local/lib` when the loader is dlopened by name.

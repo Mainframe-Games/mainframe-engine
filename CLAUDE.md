@@ -14,6 +14,9 @@ just qa               # Sandbox --qa-capture → PNG screenshots in artifacts/qa
 just golden-update    # re-record render-test goldens for this driver; inspect the PNGs before committing
 just format           # dotnet format (format-check is what CI runs)
 just bench            # benchmarks vs Tests/MainframeEngine.Benchmarks/baseline.json
+just editor [project|scene]  # the editor (no argument: the Project Manager)
+just qa-editor        # scripted editor QA (Tests/QA/editor-walkthrough.qa) → artifacts/qa-editor
+just qa-projects      # create a game, play it, edit its C#, reload (needs the .NET SDK) → artifacts/qa-projects
 ```
 
 Build settings live in `Directory.Build.props` / `Directory.Packages.props` (central package
@@ -87,11 +90,15 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
   (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol, client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template (not published; `build/template-smoke.sh`)
 - `MainframeEngine.Sandbox/` — test game; the only executable game project
-- `MainframeEngine.Editor/` — the editor exe (M10 E1–E3; `just editor <scene>`): `EditorApp : Engine` runs the tree in
+- `MainframeEngine.Editor/` — the editor exe (M10; `just editor [project|scene]`): `EditorApp : Engine` runs the tree in
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Content/Editor/`;
   `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Inspector/`, `SceneTree/`, `Viewport/` (camera,
-  gizmos, picking), `UI/` (panels, dialogs), `Qa/` (`--qa-script`, `--smoke`). References engine core only (no
-  generator: editor nodes stay unregistered). See `docs/design/editor.md`
+  3D/2D gizmos, picking), `Projects/` (`ProjectService`: game assembly in a collectible ALC, code reload; New Project,
+  Project Settings), `Play/` (`dotnet build` + game processes over the editor link), `FileSystem/` (file tree, moves
+  with UID reference fix-ups, OS trash), `Settings/` (editor settings, code editor), `UI/` (panels, dialogs), `Qa/`
+  (`--qa-script`, `--smoke`). The RmlUi debugger is F9 (F5–F8 are Play keys). Code reload re-creates scenes that use
+  game code: editor code must not keep game nodes/types in fields or statics past `ReleaseEditorReferences`.
+  References engine core only (no generator: editor nodes stay unregistered). See `docs/design/editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Examples/` — standalone tutorial projects, not part of the engine

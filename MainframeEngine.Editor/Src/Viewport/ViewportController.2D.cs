@@ -30,7 +30,7 @@ public sealed partial class ViewportController
 
     private const string Info2D = "2D · pixels";
 
-    /// <summary>Switches the active tab between the 2D and 3D views (View › 2D, Ctrl+Shift+2 isn't bound; auto for Node2D roots).</summary>
+    /// <summary>Switches the active tab between the 2D and 3D views (View › 2D View; Node2D roots open in 2D).</summary>
     public void Toggle2D()
     {
         if (_workspace.Session.Active is not { } scene)

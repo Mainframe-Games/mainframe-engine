@@ -4,14 +4,18 @@
 
 The Mainframe Editor (`MainframeEngine.Editor`, milestone M10) edits `.mscene` files the way Godot does: a scene tree,
 an inspector driven by the generated node metadata, a 3D viewport with picking and gizmos, undo/redo, all in a UI built
-with the engine's own game UI stack (RmlUi). This page describes what ships (phases **E1 shell**, **E2 scene tree +
-inspector + undo**, **E3 viewport**). Projects, game-assembly loading, the file system browser and out-of-process play
-(E4) and the polish phase (E5) are still proposals: [Future: editor](future/editor.md).
+with the engine's own game UI stack (RmlUi). This page describes what ships: **E1 shell**, **E2 scene tree +
+inspector + undo**, **E3 viewport**, **E4 projects** (Project Manager, New Project wizard, project settings, the
+FileSystem panel, out-of-process Play, game code loading and reload) and **E5 polish** (signals, multi-select editing, 2D
+editing, resource files and custom inspectors, editor settings). What is still open is in
+[Future: editor](future/editor.md).
 
 ![The editor with the Sandbox scene](../images/editor.png)
 
 ```sh
-just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene   # or: dotnet run --project MainframeEngine.Editor -- <scene>
+just editor                                  # the Project Manager (recent projects, New Project, Open)
+just editor path/to/MyGame                   # open a project folder (or its project.mfproj)
+just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene   # open one scene (its project becomes current)
 ```
 
 On macOS the app is called **Mainframe Engine** (Dock tooltip, bold app menu, Cmd+Tab) in development runs as well as in
@@ -29,7 +33,11 @@ Decisions: [0080 code-driven editor, edit mode, a SubViewport per tab](../../mem
 [0087 tooltip widget](../../memory/decisions/0087-editor-tooltips.md) ·
 [0088 tree create dialog](../../memory/decisions/0088-editor-create-dialog.md) ·
 [0089 icons over text](../../memory/decisions/0089-editor-icons-over-text.md) ·
-[0096 macOS app name](../../memory/decisions/0096-macos-app-name.md).
+[0096 macOS app name](../../memory/decisions/0096-macos-app-name.md) ·
+[0097 projects and code reload](../../memory/decisions/0097-editor-projects-and-code-reload.md) ·
+[0098 Play pipeline](../../memory/decisions/0098-editor-play-pipeline.md) ·
+[0099 FileSystem panel and reference fix-ups](../../memory/decisions/0099-filesystem-panel-and-reference-fixups.md) ·
+[0101 E5 polish](../../memory/decisions/0101-editor-polish-e5.md).
 
 ## Structure
 
@@ -37,11 +45,14 @@ Decisions: [0080 code-driven editor, edit mode, a SubViewport per tab](../../mem
 flowchart TB
     App["EditorApp : Engine<br/>Tree.EditMode = true · IEditorHost"] --> WS["EditorWorkspace [Tool]"]
     WS --> S["EditorSession<br/>open scenes, active tab, project folder"]
+    WS --> PS["ProjectService<br/>project, game assembly (collectible ALC), reload"]
+    WS --> PC["PlayController → PlayService<br/>dotnet build, game processes, EditorLinkServer"]
     S --> ES["EditedScene (per tab)<br/>root · file · UndoRedo · Selection · EditorCamera"]
     ES --> SV["SubViewport (own World3D)<br/>scene root + EditorGrid"]
     WS --> VC["ViewportController [Tool]<br/>camera, picking, gizmo, icons"]
     WS --> PL["UiLayer 0: panels<br/>menubar · toolbar · scene_tree · filesystem · viewport · inspector · output · splitters"]
-    WS --> DL["UiLayer 50: dialogs<br/>popup menu · file picker · list picker · message box"]
+    WS --> DL["UiLayer 50: dialogs<br/>popup menu · file picker · list picker · message box · connect signal · settings"]
+    WS --> PM["UiLayer 40: Project Manager · New Project"]
     WS --> SP["UiLayer 100: splash"]
     WS --> C["EditorCommands (ids)<br/>menus · buttons · shortcuts · QA scripts"]
     VC -- "CameraOverride, OverlayLines" --> SV
@@ -59,6 +70,11 @@ flowchart TB
 | `SceneTreeModel` | [SceneTree/](../../MainframeEngine.Editor/Src/SceneTree/) | Flattened rows with expand state |
 | `EditorCamera`, `TransformGizmo`, `ViewportController` | [Viewport/](../../MainframeEngine.Editor/Src/Viewport/) | Camera math, gizmo math, the viewport's per-frame work |
 | `EditorLayout`, `FilePickerModel`, `OutputLog`, `AtomicFile` | [Layout/](../../MainframeEngine.Editor/Src/Layout/), [Files/](../../MainframeEngine.Editor/Src/Files/), [Output/](../../MainframeEngine.Editor/Src/Output/) | Pure models (unit-tested) |
+| `ProjectService`, `ProjectCreator`, `RecentProjects`, `ProjectSettingsModel`, `DotnetSdk` | [Projects/](../../MainframeEngine.Editor/Src/Projects/) | The open project, game assembly load/reload, New Project (`dotnet new mfgame`), recent list, the settings dialog's model |
+| `PlayService`, `PlayController`, `GameBuilder`, `GameLauncher` | [Play/](../../MainframeEngine.Editor/Src/Play/) | Build, launch, track and control game instances |
+| `ProjectFileSystem`, `FileOperations`, `ReferenceFixer`, `Trash`, `ThumbnailCache` | [FileSystem/](../../MainframeEngine.Editor/Src/FileSystem/) | The FileSystem panel's model and file operations |
+| `EditorSettings`, `CodeEditorLauncher`, `EditorTheme` | [Settings/](../../MainframeEngine.Editor/Src/Settings/) | Editor preferences, the external code editor, the accent overlay |
+| `ProcessRunner` | [Tools/](../../MainframeEngine.Editor/Src/Tools/) | Child processes (`dotnet`) with line callbacks, timeout and a clean MSBuild environment |
 | Panels and dialogs | [UI/](../../MainframeEngine.Editor/Src/UI/) | One `EditorDocument` (a `UiDocument`) per RML file in [Content/Editor](../../MainframeEngine.Editor/Content/Editor/) |
 
 ## Edit mode and edited worlds
@@ -75,25 +91,26 @@ flowchart TB
 - Audio is disabled in the editor process. The edited scene is **shadowed**: its view sets `SubViewport.Shadows`, and
   since the editor's main world draws nothing, the shared shadow maps (Shadows v2: cascades, atlas, PCF) go to the
   active tab's view.
-- **Projects (interim, until the E4 project UI):** opening (or first saving) a scene makes its project current: the
-  nearest ancestor folder holding a `project.mfproj` (its `ProjectSettings` load into `EditorSession.Project`; an
-  unreadable file is reported and ignored), else — a folder without one — the folder above the scene's `Content/`.
-  `AssetDatabase.Current` and `ContentPaths.ProjectDirectory` point there, so the scene's textures, models, sky and Spine
-  folders load from the project sources. Node types are the engine's (game types load as `MissingNode`, kept intact and
-  written back — the inspector says so). Game assemblies arrive with E4.
+- **The current project** (see [Projects](#projects)) sets `AssetDatabase.Current` and `ContentPaths.ProjectDirectory`,
+  so scenes' textures, models, sky and Spine folders load from the project sources. Opening a lone scene without a
+  project makes its project current: the nearest ancestor folder holding a `project.mfproj`, else the folder above the
+  scene's `Content/`. Game node types come from the project's game assembly; a type that is not loaded is a
+  `MissingNode`, kept intact and written back (the inspector says so).
 
 ## UI
 
 | Panel | Document | What it does |
 |---|---|---|
-| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New, Open, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, grid), Help (shortcuts, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
-| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G); Play/Pause/Stop disabled until E4; fps / frame-time readout |
+| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (shortcuts, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
+| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G); the play group — Play (F5), Play Scene (F6), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B) — with a chip per running instance (status icon, label; click for its menu) and a build/reload status; fps / frame-time readout |
 | Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
-| Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below) |
+| Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
 | Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`): level icon, time, category icon (subsystem; name in the tooltip), text, ×N for folded repeats, a link to the logging source line (opens `MAINFRAME_CODE_EDITOR`, VS Code or the system app). Header: per-level toggles with counts, filter field, Collapse Duplicates, Follow, Copy, Clear (filters and toggles persisted) |
-| File system | `filesystem.rml` | Placeholder until E4 (shows the project folder) |
+| File system | `filesystem.rml` | The project's files as a tree, list or thumbnail grid ([FileSystem panel](#filesystem-panel)) |
 | Splitters | `splitters.rml` | Four drag handles (left dock, right dock, output, scene tree / file system) |
+| Project Manager, New Project | `project_manager.rml`, `new_project.rml` | Layer 40 above the panels ([Projects](#projects)) |
+| Settings dialogs | `project_settings.rml`, `editor_settings.rml`, `connect_signal.rml` | Project Settings, Editor Settings, Connect Signal |
 | Dialogs | `tree_picker.rml`, `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml` | The create dialog (Add Node, New Resource, Instance Scene; below), modal file picker with file-type icons (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (node paths), message box / prompt with a title icon, popup menus |
 | Tooltips | `tooltip.rml` | Its own layer above the dialogs ([Tooltips](#tooltips)) |
 | Splash | `splash.rml` | Logo, "Mainframe Engine", "Editor vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts and while a scene loads, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch |
@@ -105,14 +122,15 @@ flowchart TB
   the window size and the output filter persist in **`~/.mainframe/editor_layout.json`** (user profile on every OS,
   written atomically; unreadable, newer or nonsensical files fall back to defaults).
 - **Lists are data-bound** (no work on idle frames); the inspector is generated RML updated in place (see below).
-- **ImGui** remains the F12 developer overlay; F8 opens the RmlUi debugger.
+- **ImGui** remains the F12 developer overlay; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
 
 ### Keyboard shortcuts
 
 Cmd (macOS) or Ctrl: N new · O open · S save · Shift+S save as · W close tab · Q quit · Z undo · Shift+Z / Y redo ·
-D duplicate · A add node · Shift+A instance scene · Up/Down move in tree. Plain keys: Delete/Backspace delete, F2
-rename, F frame, G grid, Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top. Shortcuts are unhandled input:
-a focused text field keeps its keys, and closed dialogs release focus.
+D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload. Plain keys:
+Delete/Backspace delete, F2 rename, F frame, G grid, Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5
+play (Shift+F5 another instance), F6 play the open scene, F7 pause/resume, F8 stop, F9 RmlUi debugger. Shortcuts are
+unhandled input: a focused text field keeps its keys, and closed dialogs release focus.
 
 ## Icons
 
@@ -225,6 +243,11 @@ comes from the value type and the `[Export]` hints:
   summary" (the member's `<summary>`, recorded by the generator), then the hints (range and step, file filter, folder,
   target node type, translated) and the member with its type (`RotationDegrees: Vector3`). Row actions (pick node,
   browse, resource edit/load/new/clear, array add/remove, colour picker) are icon buttons with tooltips.
+- **The name column** fits the longest label (up to a cap) unless the splitter between names and values was dragged;
+  the dragged width persists (`InspectorLabelWidth` in `editor_layout.json`), double-clicking the splitter returns to
+  automatic. Long names end in an ellipsis; the tooltip has the full name.
+- **Several selected nodes** edit together ([Multi-select editing](#multi-select-editing)); the **Signals** tab is
+  described under [Signals](#signals).
 
 - Edits go through the scene's undo history: text fields commit on Enter or focus loss (a field being edited commits
   to its own node before the inspector switches to another), checkboxes/dropdowns/buttons at once, slider drags as
@@ -233,14 +256,15 @@ comes from the value type and the `[Export]` hints:
   existing elements; the RML is regenerated when the selection or a shape (array length, resource) changes.
 - **`[CustomInspector(typeof(T))]`** classes implementing `ICustomInspector` (public parameterless constructor) can add
   header RML (elements with `data-action` call back), hide generated rows and act through the scene's history. The
-  editor's own `MissingNodeInspector` explains missing types. They are found in loaded assemblies that reference the
-  editor; game assemblies join with E4.
+  editor's own `MissingNodeInspector` explains missing types, `AudioBusLayoutInspector` edits bus layouts. They are
+  found in loaded assemblies that reference the editor, game assemblies included
+  ([Resource files and custom inspectors](#resource-files-and-custom-inspectors)).
 
 ## Undo / redo
 
 Each tab has an `UndoRedo` of `IEditorAction`s (`Do`, `Undo`, `TryMerge`): `SetPropertyAction`, `AddNodeAction` (new
 nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `RenameAction`, `MoveInTreeAction`,
-`CompositeAction`.
+`CompositeAction` (multi-node edits), `ConnectSignalAction`/`DisconnectSignalAction`.
 
 - Committing after undo cuts the redo branch; beyond 256 entries the oldest are dropped. Actions holding detached nodes
   free them when they leave the history (`IDiscardableAction`).
@@ -273,6 +297,129 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
   with direction, cone and (selected) range, camera frusta, audio markers and range spheres, collision shapes
   (physics debug draw).
 
+### 2D view
+
+Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plane** in pixels (y up); View › 2D View /
+3D View switches any tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)). Middle or right drag (or Alt+left)
+pans, the wheel zooms around the mouse, F frames the selection. A pixel grid (power-of-two steps at least 16 screen
+pixels apart, every 8th brighter, coloured axes), Node2D markers, collision shape outlines and Camera2D frames are
+drawn. Picking is on the CPU (rectangle and circle shapes, then node origins; later nodes are on top).
+`TransformGizmo2D` (axis arrows and a free-move square, a rotation ring, scale handles) shares the tool, space and snap
+settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. There is no sprite
+rendering yet, so 2D scenes show shapes, markers and camera frames.
+
+## Projects
+
+([0097](../../memory/decisions/0097-editor-projects-and-code-reload.md)) The editor works on a game project: a folder
+with `project.mfproj` and the `mfgame` template's C# projects ([Project & game host](project-and-gamehost.md)).
+
+- **Start-up**: a project argument (folder or `project.mfproj`, or `--project <dir>`) opens it; a scene argument opens
+  that scene and makes its project current; neither (or `--project-manager`) shows the **Project Manager**.
+- **Project Manager** (`project_manager.rml`, UI layer 40): the recent projects (`~/.mainframe/recent_projects.json`,
+  newest first; a missing folder is flagged and can be removed from the list), New Project, Open Folder, and the
+  **.NET SDK check** (`DotnetSdk`: a .NET 10 or newer SDK is required; without one, a link to the download page).
+  File › Project Manager returns to it.
+- **New Project** (`new_project.rml`): name, parent folder, the engine checkout (found above the editor, or chosen) and
+  a live validation (`NewProjectValidation`: a valid C# identifier, an empty or missing target folder, the SDK).
+  Create runs `dotnet new mfgame --engine-path …` from a private template hive (`~/.mainframe/templates`; the user's
+  global templates are untouched), builds the game, then opens it.
+- **`ProjectService`** opens a project: `EditorSession.OpenProject` (the asset database scans `Content/` and creates
+  missing `.meta` sidecars), `GameProjectLayout` finds the game library, launcher and solution, and the game assembly
+  loads into a collectible `AssemblyLoadContext` (`GameAssemblyLoader`), built first when it is missing or fails to
+  load. Its node and resource types join the create dialog, the inspector and `[CustomInspector]` discovery.
+- **Code reload**: a debounced watcher on the build output reloads after any build (the editor's Build & Reload, F5,
+  or an IDE's); a watcher on the sources shows "rebuild needed". Only scenes that use game code (`GameCodeScanner`:
+  game or missing node/resource types, nested resources included) are serialized (unsaved edits included), freed, the
+  old assembly unloaded and **verified collected**, the new one loaded and the scenes re-instantiated in the same tabs
+  with their file, dirty state, selection and camera. Their undo history is dropped; other scenes keep theirs. A type
+  the new build no longer has loads as `MissingNode` with its data. If the old context survives, `ReferencePathFinder`
+  logs the reference path that keeps it alive.
+- **Project Settings** (Project › Project Settings, `ProjectSettingsModel`): every section of `project.mfproj` —
+  Application (name, main scene, game assemblies, Steam app id), Window, Input Map (actions, deadzones, bindings
+  captured from the next key or mouse press, gamepad inputs from a list), Physics 3D/2D, Audio, Localization,
+  Rendering, Autoloads. Each edit is undoable (the dialog's own history, Ctrl+Z inside it); invalid values are refused
+  with a message; Save writes the file atomically and applies it to the session.
+
+## Play
+
+([0098](../../memory/decisions/0098-editor-play-pipeline.md)) Games run **out of process**, connected over the editor
+link ([Project & game host](project-and-gamehost.md)).
+
+| Action | Key | What happens |
+|---|---|---|
+| Play | F5 | save the open scenes that have a file, `dotnet build` the solution, launch the game with `--editor-port` (its main scene) |
+| Play Scene | F6 | the same with `--scene <uid>` of the open tab (an untitled scene asks for a file first) |
+| Run Another Instance | Shift+F5 | one more instance (server + client tests); each gets a label |
+| Pause / Resume | F7 | over the link |
+| Stop | F8 | a stop command; the process is killed after 3 s (at once if it never connected) |
+| Reload Scene in Game | Run menu, instance menu | the game re-reads its current scene from disk |
+| Build & Reload | Ctrl/Cmd+Shift+B | build, then reload the editor's game code |
+
+- **Build errors** (`GameBuilder`: `-v:minimal -p:GenerateFullPaths=true`) are parsed into Output lines of category
+  `build`; clicking one opens the file at its line in the code editor. A failed build does not launch.
+- **Game logs** stream into Output as category `game` (`game·Category` for the game's own categories), with the
+  instance label when several run; their caller file and line open in the code editor. Process stdout/stderr is shown
+  only until the game connects, or when it crashes before connecting.
+- **Instances** (`PlayService`): each is a chip in the toolbar (status icon — launching, running, paused, exited,
+  crashed — and label); clicking it opens its menu (pause/resume, reload scene, stop, clear). A hello is matched to its
+  instance by process id. Exit code 0 or a requested stop is *exited*, anything else *crashed* (the exit code is
+  logged).
+
+## FileSystem panel
+
+([0099](../../memory/decisions/0099-filesystem-panel-and-reference-fixups.md)) The project folder (C# and project
+files included; build output, `.mainframe` and `.meta` sidecars hidden — header toggles) in three views: a **tree**,
+the current folder as a **list**, or a **grid** of tiles with thumbnails (images decoded and downscaled in the
+background into `<project>/.mainframe/cache/thumbnails`). Every entry has its file-kind icon (`EditorIcons.ForFile`;
+scenes tinted by their root type's family, resources by type) and badges: unsaved (an open scene with changes),
+missing dependency, import error (invalid JSON, undecodable image).
+
+- **Double click** opens scenes in a tab, resource files in the inspector, C# files in the code editor; folders open.
+- **Right-click menu**: Open, New Folder, New Scene, New Resource (the create dialog), Rename (F2), Move To, Move to
+  Trash (Del), Copy Path, Copy UID, Reveal in Finder / Show in File Manager.
+- **Rename and move** keep references working: the `.meta` moves with the file, and every scene, resource and
+  `project.mfproj` that refers to a moved file is rewritten (`ReferenceFixer`: `path` hints of `ref`/`instance` objects
+  by UID, and plain path strings; folders map every file inside). Open scenes follow the move.
+- **Delete** moves to the OS trash (macOS `NSFileManager`, Windows recycle bin, the freedesktop trash on Linux); only
+  when there is no trash does it ask before deleting permanently. Open scenes inside are closed first.
+- **Drag** a file onto a folder (move), a scene tree row (a scene is instanced under it; a resource is assigned to a
+  matching slot), the viewport (instanced under the root) or an inspector resource slot.
+- A debounced watcher picks up outside changes; the panel applies them on the main thread.
+
+## Signals
+
+The inspector's **Signals** tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)) lists the selected node's
+`[Signal]`s, each with the connections the edited scene owns (connections inside instanced sub-scene files belong to
+those files and are not listed). **Connect** opens `connect_signal.rml`: the scene's nodes, the target's methods that
+match the signal (`Node.Connect`'s rule), Deferred and One Shot flags. Connect and disconnect are undoable actions
+(`SignalActions`) and are saved with the scene.
+
+## Multi-select editing
+
+With several nodes selected, the inspector shows the properties **every** selected node has (the same exported member,
+such as `Node3D.Position` on a light and a mesh). A value that differs shows "—"; editing one vector component keeps
+each node's other components. An edit is one undo entry for all nodes (`EditedScene.SetProperties`), and slider drags
+merge as usual. Arrays, nested resource sub-inspectors, custom inspectors and the Signals tab stay single-node.
+
+## Resource files and custom inspectors
+
+A `.mres` file opened from the FileSystem panel is edited in the inspector (`EditedResource`) with its own undo
+history and Save. `ICustomInspector` gets an `IInspectorContext` (a scene or a resource; the `EditedScene` overload
+still works), so a custom inspector can act on either. The shipped example is `AudioBusLayoutInspector`: a mixer strip
+for `AudioBusLayout` buses, every change undoable. Game assemblies' `[CustomInspector]`s are found when they load.
+
+## Editor settings
+
+Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/editor_settings.json`):
+
+- **Accent colour**, applied live: recoloured copies of `theme.rcss` and `dialogs.rcss` go to an overlay content folder
+  checked before the editor's own, and the style sheets reload.
+- **Autosave** every N minutes (0 = off) for scenes that have a file.
+- **External code editor**: a command with `{file}`, `{line}`, `{column}` and `{project}` placeholders (with presets);
+  empty means `MAINFRAME_CODE_EDITOR`, else VS Code when found, else the OS default. Used by Output links, build errors
+  and C# files.
+- **Reload code automatically** after builds.
+
 ## Files and safety
 
 - Open/Save/Save As go through the RmlUi file picker; scenes are written by `SceneSaver` (temp file + rename) and keep
@@ -298,6 +445,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 | `WindowIcon` byte order for window icons | `Core/WindowIcon.cs` |
 | `[EditorIcon]`, `EditorIconFamily`, `Export(Icon)`; `NodeTypeInfo.Icon/IconFamily/Description`, `ExportHints.Icon/Description` | [Scene serialization](scene-serialization.md#source-generator) |
 | `UiServer.ClipboardText` (the Output panel's Copy) | `UI/UiServer.cs` |
+| `SceneTree.ReleaseCodeOf` also clears the process lists' snapshots (they held freed game nodes and kept an unloaded game assembly alive) | `Scene/SceneTree.cs` |
+| Unregistering a UI texture releases RmlUi's texture cache entry, so a name registered again is reloaded (the viewport after switching tabs) | `UI/Rendering/VulkanUiRenderer.Tables.cs` |
 
 ## Testing and QA
 
@@ -319,10 +468,22 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   `--smoke` run in a hidden window — open Sandbox.mscene, select the Column by GPU picking at its projected pixel, change
   its position through the inspector model, undo/redo, save to a temp file, reload and re-save byte-identically — plus
   the editor window golden, frame times on the scene, the allocation gate (0 B over 300 idle frames with 1 000 nodes,
-  validation on) and the splash golden.
+  validation on), the splash golden, and the **Project Manager** and **FileSystem panel** goldens
+  (`--smoke-golden project-manager|filesystem`, a fixed sample project).
+- **Projects, Play and FileSystem tests**: the New Project validation, recent projects, SDK detection, the
+  `ProjectSettingsModel` (every setting, input map, autoloads, undo, save), build-diagnostic parsing, `PlayService`
+  with fake builder/launcher and a real `EditorLinkServer`, the file tree, file operations and reference fix-ups,
+  thumbnails and the trash (the real OS trash only with `MAINFRAME_TEST_SYSTEM_TRASH=1`). **Code reload** is tested
+  with game assemblies compiled by Roslyn in the test (`CodeReloadTests`: a type added, changed and removed; state kept;
+  the old context collected). `ProjectWorkflowTests` drive the headless editor through the panels (create, open,
+  rename with fix-ups, drag onto the scene tree, Play with a fake launcher). A slow integration test
+  (`Category=Slow`) runs the real `dotnet new mfgame` and build.
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
   editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, drags, gizmo drags, keys,
-  text, commands, dialog answers, `window-close`) with captures in `artifacts/qa-editor`.
+  text, commands, dialog answers, `window-close`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
+  ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
+  saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
+  each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`).
 
 ## Performance
 
@@ -332,15 +493,18 @@ average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate 
 
 ## Known issues
 
-- Game node types load as `MissingNode` until E4 loads game assemblies (the Sandbox's `FlyCamera`, `SpinningBox`).
-- Single selection for the gizmo and the inspector (the last selected node); multi-object editing is E5.
-- No orthographic camera, box selection or 2D editing yet (E5).
+- A code reload drops the undo history of the scenes it re-creates (selection, view and dirty state are kept).
+- The gizmo moves the last selected node only; there is no box selection. 2D scenes have no sprites to show yet.
+- Signal connections are real delegates in the editor: a `[Tool]` node emitting in edit mode calls its targets.
+- The accent colour recolours the shared style sheets; a few inline document styles keep the default blue.
+- A scene file rewritten by a reference fix-up loses hand-written formatting (other files are untouched).
 - Lines are one framebuffer pixel wide; gizmo handles are drawn as several parallel lines.
 - The Output panel has four levels (the engine's `Log` has no trace level). Icons are fixed-colour glyphs tinted per
   family; there are no per-icon multi-colour glyphs like Godot's.
 
 ## Related docs
 
-[Future: editor (E4/E5)](future/editor.md) · [Game UI](game-ui.md) · [Scene graph & nodes](scene-graph-and-nodes.md) ·
+[Future: editor](future/editor.md) · [Project & game host](project-and-gamehost.md) · [Game UI](game-ui.md) ·
+[Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Scene serialization](scene-serialization.md) · [Materials & meshes](materials-and-meshes.md) · [Release](release.md) ·
 [Testing](testing.md)

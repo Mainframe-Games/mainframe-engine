@@ -5,7 +5,7 @@
 How a game is laid out and run without an `Engine` subclass, and the engine-side pieces the editor builds its
 project workflow on (M10 E4): the project file, `GameHost`, input actions, log routing, the editor link used by
 out-of-process play, collectible loading of game assemblies for code reload, and the `mfgame` template. The editor UI
-that drives them lives in `MainframeEngine.Editor` ([Editor](future/editor.md)).
+that drives them lives in `MainframeEngine.Editor` ([Editor](editor.md#projects)).
 
 Decisions: [project file + GameHost](../../memory/decisions/0090-project-file-and-gamehost.md),
 [log sinks](../../memory/decisions/0091-structured-log-sinks.md),
@@ -285,6 +285,6 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 
 ## Related docs
 
-[Editor](future/editor.md) · [Engine lifecycle](engine-lifecycle.md) · [Cameras & input](cameras-and-input.md) ·
+[Editor](editor.md) · [Engine lifecycle](engine-lifecycle.md) · [Cameras & input](cameras-and-input.md) ·
 [Scene serialization](scene-serialization.md) · [Distribution via NuGet](future/distribution-nuget.md) ·
 [Release](release.md) · [Testing](testing.md)

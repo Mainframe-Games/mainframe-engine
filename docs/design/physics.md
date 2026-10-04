@@ -328,10 +328,11 @@ draw; the fixed-step hooks; allocation gates (3D and 2D). Render tests: `physics
 - No physics-aware replication yet (M5): bodies simulate wherever they run, so a networked game simulates on the
   server and replicates poses through its own `[Replicated]` members; clients should freeze or not simulate their
   copies. Client-side prediction for `CharacterBody` is a later concern ([Networking](networking.md)).
-- The editor's shape gizmos, edit-mode worlds and "create collision from mesh" arrive with the [Editor](future/editor.md) (M10).
+- The [Editor](editor.md) draws collision shapes in its edit-mode worlds; shape handles and "create collision from mesh"
+  are [open items](future/editor.md).
 
 ## Related docs
 
 [Milestones](../milestones.md) · [Scene graph & nodes](scene-graph-and-nodes.md) ·
-[Scene serialization](scene-serialization.md) · [Testing](testing.md) · [Future: editor](future/editor.md) ·
+[Scene serialization](scene-serialization.md) · [Testing](testing.md) · [Editor](editor.md) ·
 [Networking](networking.md)

@@ -307,5 +307,5 @@ Benchmarks: `LocalizationBenchmarks` in [baseline.json](../../Tests/MainframeEng
 ## Related docs
 
 [Scene serialization](scene-serialization.md) · [Scene graph & nodes](scene-graph-and-nodes.md) ·
-[Game UI](game-ui.md) · [Future: editor](future/editor.md) · [Shaders](shaders.md) ·
+[Game UI](game-ui.md) · [Editor](editor.md) · [Shaders](shaders.md) ·
 [Sandbox](sandbox.md) · [Milestones](../milestones.md)

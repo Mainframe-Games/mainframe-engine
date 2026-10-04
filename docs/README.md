@@ -34,7 +34,7 @@ Proposed design · Diagram · Task list · Open questions. See [milestones.md](m
 
 | Proposal | Milestone |
 |---|---|
-| [Editor](design/future/editor.md) | M10 |
+| [Editor, after M10](design/future/editor.md): remote scene tree, simulate mode, box selection, docking | after M10 |
 | [Rendering backend abstraction (WebGPU)](design/future/rendering-backend-abstraction.md) | M11 |
 | [Mobile core (Android + iOS)](design/future/mobile.md): platform layer, lifecycle and safe areas, TBDR rendering and quality tiers, touch/gestures/virtual controls, ASTC/KTX2 asset cooking, AOT and size budgets, editor deploy and live preview, store pipeline | M12 |
 | [Mobile platform services](design/future/mobile-services.md): IAP, achievements/leaderboards/cloud saves, consent + ads, notifications, analytics/crash reporting via `mfplatform` shims | M13 |

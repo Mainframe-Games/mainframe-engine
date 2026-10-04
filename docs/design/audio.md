@@ -260,4 +260,4 @@ their own `ProcessMode` (default `Pausable`).
 
 [Scene graph & nodes](scene-graph-and-nodes.md) · [Scene serialization](scene-serialization.md) ·
 [Engine lifecycle](engine-lifecycle.md) · [Testing](testing.md) · [Sandbox](sandbox.md) ·
-[Game UI](game-ui.md) · [Future: editor](future/editor.md)
+[Game UI](game-ui.md) · [Editor](editor.md)

@@ -250,5 +250,5 @@ Saving and loading run at load time and may allocate. Measured with BenchmarkDot
 ## Related docs
 
 [Scene graph & nodes](scene-graph-and-nodes.md) · [Sandbox](sandbox.md) · [Testing](testing.md) ·
-[Future: editor](future/editor.md) · [Networking: replication](networking.md#replication) ·
+[Editor](editor.md) · [Networking: replication](networking.md#replication) ·
 [Shaders](shaders.md)

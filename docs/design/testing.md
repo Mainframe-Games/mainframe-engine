@@ -13,8 +13,8 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | [`Tests/MainframeEngine.Tests`](../../Tests/MainframeEngine.Tests/) | xUnit v3 unit tests, no window/GPU | every OS in CI (`just test`) |
 | [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run) | lavapipe in CI, MoltenVK locally (`just test-render`) |
 | [`Tests/MainframeEngine.RenderTests.Host`](../../Tests/MainframeEngine.RenderTests.Host/) | Console app that runs one scene | launched by the render tests |
-| [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless | every OS in CI (`just test`) |
-| [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`), see [Editor](editor.md#testing-and-qa) |
+| [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless; projects, Play (fake builder/launcher), FileSystem, code reload (Roslyn-compiled game assemblies); one `Category=Slow` test runs the real `dotnet new mfgame` + build | every OS in CI (`just test`) |
+| [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`, `just qa-projects`), see [Editor](editor.md#testing-and-qa) |
 | [`Tests/MainframeEngine.Benchmarks`](../../Tests/MainframeEngine.Benchmarks/) | BenchmarkDotNet, `MemoryDiagnoser` | locally (`just bench`) |
 
 The test projects run through VSTest (`Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio`, with
@@ -205,7 +205,9 @@ sequenceDiagram
   OS window for the display (640×480 pt on a 1× monitor, 320×240 pt on Retina) before the swapchain exists and fails
   start-up if the framebuffer cannot reach the request; `result.json` records the scale (`ContentScale`).
   The editor's smoke runs (`EditorRenderTests`) pass the same canonical `--scale` to `MainframeEngine.Editor`: the
-  editor window golden is 1280×720 points (2560×1440 `moltenvk`, 1280×720 `lavapipe`), the splash 960×600 points.
+  editor window golden is 1280×720 points (2560×1440 `moltenvk`, 1280×720 `lavapipe`), the splash 960×600 points;
+  the Project Manager and FileSystem panel goldens (`--smoke-golden project-manager|filesystem`) use the editor window
+  size.
 - **Comparing drivers at one resolution.** `--scale 1` on a Mac renders 320×240, the size of the lavapipe frames, so
   MoltenVK and lavapipe output can be diffed pixel for pixel.
 

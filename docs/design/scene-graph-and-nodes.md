@@ -328,4 +328,4 @@ without a tree (Examples/SpineExamples).
 [Scene serialization](scene-serialization.md) · [Engine lifecycle](engine-lifecycle.md) ·
 [Spine](spine.md) · [Lighting](lighting.md) · [Cameras & input](cameras-and-input.md) ·
 [Shadow system](shadow-system.md) · [Materials & meshes](materials-and-meshes.md) ·
-[Future: editor](future/editor.md)
+[Editor](editor.md)
