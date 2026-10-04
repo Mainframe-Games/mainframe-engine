@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-05 (M3a GPU resources/colour pipeline integrated onto M2, branch `integrate/m3a`)_
+_Last updated: 2026-10-05 (sky-fix, M3b meshes/materials and M8 game UI integrated, branch `integrate/w4`)_
 
 ## Where things left off
 
@@ -12,6 +12,11 @@ _Last updated: 2026-10-05 (M3a GPU resources/colour pipeline integrated onto M2,
   servers (`RenderServer`) instead of `Node.Initialize`, light/camera/sky/grid nodes, `[Export]`/`[Signal]`
   registered by `MainframeEngine.Generators`, `.mscene`/`.mres` JSON with UIDs + `AssetDatabase`. The Sandbox
   loads `Content/Scenes/Sandbox.mscene` (regenerate with `--write-scene`).
+- M3 is done (m3a + m3b, ADRs 0005–0007, 0013–0019): `MeshInstance3D`/`Sprite3D` + primitive meshes,
+  `StandardMaterial3D`, `Texture2D`, Assimp import, instanced batches, object-ID picking, `SubViewport`. `Box3d`/`Quad`
+  are gone (old scenes upgrade through `RemovedNodeTypes`).
+- M8 is done (ADRs 0050–0053): RmlUi `UiServer`/`UiLayer`/`UiDocument` (registered last, shut down first), UI renders
+  after the tonemap below ImGui; the Sandbox HUD is RmlUi and ImGui is the F12 developer overlay.
 - M6 physics is done (lane `m6`, ADRs 0020–0025): `PhysicsServer3D` (Jitter2 2.9.0) / `PhysicsServer2D`
   (Box2D.NET 3.1.654, pixels, 100 px/m), body/area/shape nodes, interpolated node transforms, layers (Godot OR),
   signals after the step, `DirectSpaceState` queries, engine-side `MoveAndSlide`, `DebugLines` collision-shape draw.
@@ -47,8 +52,7 @@ _Last updated: 2026-10-05 (M3a GPU resources/colour pipeline integrated onto M2,
   through `UploadQueue`, `Dispose` through `DeletionQueue` (no Queue/DeviceWaitIdle). Scene renders into
   an HDR target, tonemapped (exposure 1.3, ACES) into a UNORM swapchain; ImGui after the tonemap.
   Authored colours are sRGB (converted to linear by the engine). MoltenVK: mutable-format swapchain
-  UNORM views go stale — keep the default UNORM swapchain. Node-side shapes still use the old raw
-  Vulkan path (m3b). Integrated with M2: `RenderServer.RenderMain` writes set 0 (`Frame.Begin`) per frame;
+  UNORM views go stale — keep the default UNORM swapchain. Integrated with M2: `RenderServer.RenderMain` writes set 0 (`Frame.Begin`) per frame;
   `WorldEnvironment.AmbientColor` defaults to `LightEnvironment.DefaultAmbientColor`; ADRs are 0005–0007
   (m3a) and 0010–0012 (M2); unused: 0008, 0009, 0013+.
 - Validation is on by default only in Debug builds (`EngineOptions.EnableValidation`).
