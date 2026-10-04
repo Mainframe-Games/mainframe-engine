@@ -37,7 +37,7 @@ All types live in `MainframeEngine.Networking`, except `NetworkNode`, which is i
 | `NetBufferPool` | [Buffers/NetBufferPool.cs](../../MainframeEngine/Src/Networking/Buffers/NetBufferPool.cs) | Internal, thread-safe pool of writers and readers |
 | `INetworkTransferable` | [Transfer/INetworkTransferable.cs](../../MainframeEngine/Src/Networking/Transfer/INetworkTransferable.cs) | `NetworkWrite(writer)` / `NetworkRead(reader)`: the message payload contract |
 | `PeerId` | [PeerId.cs](../../MainframeEngine/Src/Networking/PeerId.cs) | `ulong`; never reused within a transport |
-| `NetworkNode` | [Nodes/NetworkNode.cs](../../MainframeEngine/Src/Nodes/NetworkNode.cs) | Owns a server and/or client bus, pumps them in `OnUpdate` |
+| `NetworkNode` | [Nodes/NetworkNode.cs](../../MainframeEngine/Src/Nodes/NetworkNode.cs) | Owns a server and/or client bus, pumps them every frame in `OnProcess` (or `Poll()`) |
 | `NetworkUtils` | [Utils/NetworkUtils.cs](../../MainframeEngine/Src/Networking/Utils/NetworkUtils.cs) | Local/public IP, regions, server ids |
 
 ## Usage
@@ -60,7 +60,7 @@ server.Subscribe((in MessageContext ctx, in Chat chat) => server.Broadcast(chat,
 
 var client = node.StartClient("127.0.0.1", NetworkUtils.DefaultPort);
 client.Subscribe((in MessageContext ctx, in Chat chat) => Log.Info(chat.Text));
-// every frame: node.OnUpdate(gameTime) → Poll (dispatch) then Flush, for both buses
+// every frame (OnProcess, or node.Poll() without a tree): Poll (dispatch) then Flush, for both buses
 ```
 
 Without a node, build the bus yourself: `new MessageBus(EnetTransport.Listen(port, max), registry)`, or

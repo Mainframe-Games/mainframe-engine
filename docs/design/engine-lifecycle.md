@@ -2,15 +2,17 @@
 
 ## Purpose
 
-`Engine` owns the window, input, renderer and ImGui, and drives the game loop through Silk.NET's
-window events. Games subclass it and override four abstract hooks.
+`Engine` owns the window, input, renderer, ImGui, the engine servers and a `SceneTree`, and drives the
+game loop through Silk.NET's window events. Games subclass it, put nodes in the tree (usually a scene
+loaded from a file) and let the tree run the frame; four optional legacy hooks remain for code that draws
+or updates by hand.
 
 ## Key types
 
 | Type | File | Notes |
 |---|---|---|
-| `Engine` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `public abstract class Engine : IDisposable` |
-| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock) |
+| `Engine` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `public abstract class Engine : IDisposable`; `Tree` (`SceneTree`), `Root`, `Servers` |
+| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `SteamAppId` (0 = no Steam) |
 | `FrameCapture` | [FrameCapture.cs](../../MainframeEngine/Src/Rendering/FrameCapture.cs) | RGBA8 pixels of a rendered frame, `SavePng(path)` |
 | `GameTime` | [GameTime.cs](../../MainframeEngine/Src/Core/GameTime.cs) | `FrameCount`, `DeltaTime`, `FramesPerSecond`, `FramesTimeMs` |
 | `FPSCounter` | [FPSCounter.cs](../../MainframeEngine/Src/Core/FPSCounter.cs) | 500 ms sampling window |
@@ -22,17 +24,24 @@ window events. Games subclass it and override four abstract hooks.
 ```csharp
 public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 {
-    protected override void OnLoad() { base.OnLoad(); /* create ShadowSystem, Node.Initialize, nodes */ }
+    protected override void OnLoad()
+    {
+        base.OnLoad();                                          // input, renderer, ImGui, servers
+        Tree.ChangeSceneToFile("Content/Scenes/Main.mscene");   // the tree processes and renders it
+    }
+
+    // Optional legacy hooks (virtual since M2): OnImGui, OnUpdate, OnShadowPass, OnRenderMainPass.
     protected override void OnImGui(in GameTime t) { }
-    protected override void OnUpdate(in GameTime t) { }
-    protected override void OnShadowPass(in GameTime t) { }
-    protected override void OnRenderMainPass(in GameTime t) { }
-    protected override void OnClose() { /* dispose game objects */ base.OnClose(); }
 }
 ```
 
-- Call `base.OnLoad()` **first** (it creates input, renderer and ImGui).
-- Call `base.OnClose()` **last** (it disposes ImGui, input and the renderer).
+- Call `base.OnLoad()` **first** (it creates input, renderer, ImGui, the `RenderServer` — and the
+  `SteamServer` when `SteamAppId` is set — and routes input into the tree).
+- Call `base.OnClose()` **last** (it frees the scene tree, disposes the servers, clears the resource
+  cache, then disposes ImGui, input and the renderer).
+- Behaviour lives in node types (`OnProcess`, `OnPhysicsProcess`, `OnInput`, …), see
+  [Scene graph & nodes](scene-graph-and-nodes.md). A game can still keep everything in the legacy hooks:
+  an empty tree costs nothing.
 - `Run()` blocks until the window closes and returns an `ExitCode`. `Quit(code)` records the code and
   requests shutdown; the window closes at the end of that iteration's render (SDL raises `Closing`
   synchronously inside `Close()`, and `OnClose` disposes the renderer, so closing mid-update would
@@ -53,7 +62,10 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 2. **`Load`:** centres the window on its monitor (skipped when none is reported, e.g. a sleeping
    macOS display), then **`OnLoad()`** (base): `Window.CreateInput()` (SDL input) →
    `new VulkanRenderer(Window, { EnableValidation, VSync, EnableFrameCapture })` →
-   `new VulkanImGuiController(...)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
+   `new VulkanImGuiController(...)` → `Servers.Register(new RenderServer(Renderer))` (+ `SteamServer`)
+   → `new InputRouter(InputContext, Tree)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
+   The `SceneTree` itself is created in the constructor (no GPU needed), so nodes can be built before
+   `OnLoad`; visuals that enter the tree before the render server exists get their GPU objects lazily.
 
 ### Deterministic runs and frame capture
 
@@ -65,8 +77,9 @@ frames). `CaptureFrame()` — legal from `OnImGui`, `OnUpdate` or a render hook,
 
 ## The frame
 
-Update and Render are separate Silk.NET window events. ImGui is built **before** game update, and
-the shadow pass runs with the command buffer open but no render pass active.
+Update and Render are separate Silk.NET window events. ImGui is built **before** game update, the
+scene tree ticks **after** the legacy `OnUpdate` hook, and the shadow pass runs with the command buffer
+open but no render pass active.
 
 ```mermaid
 sequenceDiagram
@@ -82,6 +95,7 @@ sequenceDiagram
     E->>I: Update(delta) → ImGui.NewFrame()
     E->>G: OnImGui(gameTime)
     E->>G: OnUpdate(gameTime)
+    E->>E: Tree.Tick(gameTime) — physics steps, OnProcess, deferred/QueueFree, transform sync, frame servers
 
     W->>E: Render(delta)
     alt minimised (WindowState or 0×0 drawable)
@@ -91,8 +105,10 @@ sequenceDiagram
         E->>R: BeginFrame() (slot fence wait, acquire, begin cmd buffer)
         alt FrameStarted
             E->>G: OnShadowPass(gameTime) — no render pass active
+            E->>R: RenderServer.RenderShadows(Root) — the tree's shadow casters
             E->>R: BeginRenderPass() — clear color + depth
-            E->>G: OnRenderMainPass(gameTime) — sky, grid, nodes
+            E->>R: RenderServer.RenderMain(Root) — sky, then the tree's visuals
+            E->>G: OnRenderMainPass(gameTime) — anything drawn by hand
             E->>I: Render() — ImGui draw data in main pass
         else swapchain out of date / being rebuilt
             E->>I: DiscardFrame()
@@ -125,16 +141,19 @@ not presented frames.
 
 ## Shutdown
 
-`Closing` → `OnClose()` (base): dispose ImGui controller → dispose input → dispose renderer.
+`Closing` → `OnClose()` (base): dispose the input router → `Tree.Shutdown()` (frees every node, so
+visuals release their GPU objects) → `Servers.Dispose()` (reverse order; the render server releases
+anything still alive and its `ShadowSystem`) → `ResourceLoader.ClearCache()` → dispose ImGui controller →
+dispose input → dispose renderer.
 `Run()` returns the exit code (`Ok` unless `Quit(code)` set another). `Dispose()` disposes the window.
 
 ## Invariants
 
 - `Renderer` is `null!` until `base.OnLoad()` runs.
-- `Node.Initialize` must run after the renderer and `ShadowSystem` exist, before any node is created.
-  See [Scene graph & nodes](scene-graph-and-nodes.md).
-- Anything drawn must be recorded inside `OnShadowPass` or `OnRenderMainPass`; the command buffer is
-  only valid while `IVulkanContext.FrameStarted` is true.
+- `Servers.Render` is null until `base.OnLoad()` runs; nodes reach servers through `Tree.Servers`
+  (there is no static `Node.Initialize` any more). See [Scene graph & nodes](scene-graph-and-nodes.md).
+- Anything drawn by hand must be recorded inside `OnShadowPass` or `OnRenderMainPass`; the command
+  buffer is only valid while `IVulkanContext.FrameStarted` is true.
 
 ## Known issues
 
@@ -142,8 +161,10 @@ not presented frames.
 - **FPS counts updates, not presents.**
 - README/CLAUDE.md show `Game(in EngineOptions options)`; the Sandbox uses a parameterless primary
   constructor that passes options to `Engine` directly. Both work.
+- The tree runs one fixed-step loop per update event, so physics process follows `UpdatesPerSecond`
+  frames (accumulated), not a separate thread.
 
 ## Related docs
 
 [Architecture overview](architecture-overview.md) · [Vulkan renderer](vulkan-renderer.md) ·
-[Sandbox](sandbox.md) · [Build & platforms](build-and-platforms.md)
+[Sandbox](sandbox.md) · [Build & platforms](build-and-platforms.md) · [Scene graph & nodes](scene-graph-and-nodes.md)

@@ -20,6 +20,9 @@ host set the working directory to `AppContext.BaseDirectory` at startup, because
 ### Solution
 
 [`MainframeEngine.sln`](../../MainframeEngine.sln) contains `MainframeEngine`,
+`MainframeEngine.Generators` (the source generator, netstandard2.0, referenced as an analyzer by the
+engine, the Sandbox and the unit tests; its only package, `Microsoft.CodeAnalysis.CSharp`, is build-time
+only — see [Scene serialization](scene-serialization.md#source-generator)),
 `MainframeEngine.Sandbox`, `Examples/SpineExamples`, `Examples/SilkVulkanExamples`,
 `Plugins/spine-csharp` and, in the `Tests` folder, `MainframeEngine.Tests`,
 `MainframeEngine.RenderTests`, `MainframeEngine.RenderTests.Host` and `MainframeEngine.Benchmarks`

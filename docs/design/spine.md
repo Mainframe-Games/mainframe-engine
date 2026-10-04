@@ -9,7 +9,7 @@ Renders Spine skeletal animations as lit, shadow-casting geometry in the 3D scen
 
 | Type | File | Role |
 |---|---|---|
-| `SpineNode : Node3D` | [Nodes/SpineNode.cs](../../MainframeEngine/Src/Nodes/SpineNode.cs) | Loads the atlas and skeleton, drives animation, forwards draw calls |
+| `SpineNode : VisualInstance3D` | [Nodes/SpineNode.cs](../../MainframeEngine/Src/Nodes/SpineNode.cs) | Loads the atlas and skeleton, drives animation in `OnProcess`, forwards draw calls (the design's `SpineSprite3D`) |
 | `SpineFolder` | same file | `readonly struct`: folder → `Name`, first `*.atlas`, first `*.json` (throws if missing) |
 | `SpineRenderer` (internal) | [Rendering/Spine/SpineRenderer.cs](../../MainframeEngine/Src/Rendering/Spine/SpineRenderer.cs) | Builds vertices, owns the pipeline, buffers and descriptor sets |
 | `SpineTextureLoader` | [Rendering/Spine/SpineTextureLoader.cs](../../MainframeEngine/Src/Rendering/Spine/SpineTextureLoader.cs) | Decodes atlas pages to RGBA (StbImageSharp); `page.rendererObject = page index` |
@@ -18,32 +18,33 @@ Renders Spine skeletal animations as lit, shadow-casting geometry in the 3D scen
 ## Usage
 
 ```csharp
-Node.Initialize(Renderer, shadowSystem);
-var boy = new SpineNode(Renderer, new SpineFolder("Content/Models/Spine/SpineBoy"))
-{
-    Scale = new Vector3(0.1f),
-};
-boy.SetAnimation("walk");
-// OnUpdate:          boy.OnUpdate(gameTime);
-// OnShadowPass:      inside RenderShadows → boy.DrawShadow2D(cb) / boy.DrawShadowPoint(cb, pos, range)
-// OnRenderMainPass:  boy.Draw(camera, lights);
+// In a scene (or a .mscene file: "type": "SpineNode", "props": { "Folder": ..., "Animation": "walk" }):
+var boy = new SpineNode { Folder = "Content/Models/Spine/SpineBoy", Animation = "walk", Scale = new Vector3(0.1f) };
+Root.AddChild(boy);   // the render server creates its renderer; it animates in OnProcess, draws and casts shadows
+boy.SetAnimation("run");
 ```
+
+The skeleton data (atlas, JSON) loads on the CPU on first use (`Skeleton`, entering the tree, the first
+process); the GPU renderer is created through the `RenderServer` when the node enters a tree, with the
+server's `ShadowSystem`. Tree-less code (Examples/SpineExamples) uses
+`new SpineNode(renderer, folder)` (loads immediately, no shadows), then `Advance(gameTime)` and
+`Draw(camera, lights)` inside the main pass.
 
 ## Per-frame data flow
 
 ```mermaid
 flowchart TD
-    subgraph Update["OnUpdate"]
+    subgraph Update["OnProcess (scene tree)"]
         U1["AnimationState.Update(dt)"] --> U2["AnimationState.Apply(Skeleton)"]
         U2 --> U3["Skeleton.Update(dt) (physics time)<br/>Skeleton.UpdateWorldTransform(UpdateType)"]
         U3 --> U4["SpineRenderer.BuildVertices(ZSpacing, ModelMatrix)"]
         U4 --> V[("CPU: Vertex[ ] (stride 40)<br/>+ Vector3[ ] shadow positions<br/>+ batches by atlas page")]
     end
-    subgraph Shadow["OnShadowPass (per light / face)"]
+    subgraph Shadow["RenderServer.RenderShadows (per light / face)"]
         V --> S1["upload positions → frame-slot VB (once per frame)"]
         S1 --> S2["GetShadow2DPipeline(12) / GetShadowPointPipeline(12)<br/>push model (64/80 B), draw"]
     end
-    subgraph Main["OnRenderMainPass"]
+    subgraph Main["RenderServer.RenderMain"]
         V --> M1["write VP + lights UBO, upload vertices"]
         M1 --> M2["bind sets 0,1,2 (+ texture set per batch)<br/>push model + worldNormal, CmdDraw per batch"]
     end
@@ -86,13 +87,15 @@ Textures are `R8G8B8A8Unorm`, with one shared Linear/ClampToEdge sampler.
 
 ## Invariants
 
-- Call `Node.Initialize` before constructing a `SpineNode`. A `ShadowSystem` is optional: without one
-  the node binds the renderer's fallback at set 2 and casts no shadows (`DrawShadow*` are no-ops).
+- `Folder` cannot change once the skeleton is loaded. A `ShadowSystem` is optional
+  (`RenderServer.ShadowsEnabled = false`, or the tree-less constructor): without one the node binds the
+  renderer's fallback at set 2 and casts no shadows. `Animation` (exported) is the animation set when the
+  skeleton loads; before loading, `SetAnimation` just sets it.
 - `SpineScale` (default `SpineNode.DefaultSpineScale = 0.02`) applies to the skeleton immediately and
   keeps `FlipX`. `SetAnimation` replaces track 0 now; `QueueAnimation` appends after the current one.
 - Atlas pixel arrays are released after the GPU upload (`SpineTextureLoader.ReleasePixelData`); only the
   page sizes stay.
-- Draw Spine after opaque geometry. It alpha-blends but also writes depth.
+- Draw Spine after opaque geometry (tree order / `RenderPriority`). It alpha-blends but also writes depth.
 
 ## Known issues
 

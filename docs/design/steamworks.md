@@ -134,8 +134,10 @@ assemblies. Upgrading the package is a dependency decision and must be discussed
 
 ## Known issues / not done
 
-- **No `Engine` hook yet.** Games must call `TryInitialize`, `RunCallbacks` and `Shutdown` themselves; the orchestrator
-  adds the hook. No `EngineOptions.SteamAppId`.
+- **Engine hook (M2):** set `EngineOptions.SteamAppId` and the engine registers a `SteamServer` (an
+  `IFrameServer`): `TryInitialize` at startup, `RunCallbacks` once per frame after the scene tree's process step,
+  `Shutdown` with the other servers. Inert when Steam cannot start. Dev builds that need `writeDevAppIdFile`
+  register `new SteamServer(appId, writeDevAppIdFile: true)` themselves.
 - **Avatars** (`SteamUtils.GetImageRGBA` → Vulkan texture, ImGui `TextureId`) are not implemented. The old
   commented-out Unity `SteamAvatar` and `SteamRemotePlay` files were deleted.
 - **Transport.** `SteamSocketsTransport` is a stub; lobbies carry no transport address yet. The planned connect

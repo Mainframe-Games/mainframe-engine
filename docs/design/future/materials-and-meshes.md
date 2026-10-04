@@ -74,4 +74,4 @@ public static class ModelLoader { static Node Load(string path); }   // Assimp �
 ## Related
 
 [Milestones](../../milestones.md) · [GPU resource management](gpu-resource-management.md) ·
-[Color pipeline](color-pipeline.md) · [Node system](node-system.md)
+[Color pipeline](color-pipeline.md) · [Node system](../scene-graph-and-nodes.md)

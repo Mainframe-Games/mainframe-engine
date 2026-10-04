@@ -3,7 +3,10 @@
 ## Purpose
 
 Draws the background as a fullscreen triangle before any geometry. There are three types: procedural
-gradient + sun, equirectangular panorama, or cubemap.
+gradient + sun, equirectangular panorama, or cubemap. In scenes the sky is a `WorldEnvironment` node holding
+a `Sky` resource (`Mode`, `Panorama`, `CubemapFaces` and the procedural/sun parameters below); the render
+server builds the matching `SkyEnvironment` on first draw, rebuilds it when the mode or images change, and
+draws it first in the main pass. See [Scene graph & nodes](scene-graph-and-nodes.md#servers-and-render-nodes).
 
 ## Key types
 

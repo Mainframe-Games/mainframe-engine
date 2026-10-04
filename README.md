@@ -28,7 +28,7 @@ Where the engine is heading:
 | Area | Plan | Design doc |
 |---|---|---|
 | Windowing / input | SDL2 via Silk.NET (switched from GLFW in M0) | [Build & platforms](docs/design/build-and-platforms.md#windowing-sdl2) |
-| Scene model | Godot-style nodes: `SceneTree`, lifecycle callbacks, signals, groups, `.mscene` scene files | [Node system](docs/design/future/node-system.md), [Scene serialization](docs/design/future/scene-serialization.md) |
+| Scene model | Godot-style nodes: `SceneTree`, lifecycle callbacks, signals, groups, `.mscene` scene files | [Scene graph & nodes](docs/design/scene-graph-and-nodes.md), [Scene serialization](docs/design/scene-serialization.md) |
 | Physics | [Jitter2](https://github.com/notgiven688/jitterphysics2) for 3D, [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3) for 2D | [Physics](docs/design/future/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | [Audio](docs/design/future/audio.md) |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) (HTML/CSS-style documents) | [Game UI](docs/design/future/game-ui.md) |
@@ -45,14 +45,19 @@ mainframe-engine/
 ├── MainframeEngine/          # Core engine library
 │   └── Src/
 │       ├── Core/             # Engine base class, timing, FPS counter
-│       ├── Rendering/        # Vulkan renderer, cameras, spine, sky, shadows, scene grids
-│       ├── Nodes/            # Scene graph nodes (Node, Node3D, SpineNode, shapes)
+│       ├── Scene/            # Node, SceneTree, Node2D/Node3D, transforms, cameras/lights/sky nodes, input
+│       ├── Resources/        # Resource, PackedScene, ResourceLoader/Saver, AssetDatabase, UIDs
+│       ├── Serialization/    # [Export]/[Signal] attributes, TypeRegistry, JSON scene reader/writer
+│       ├── Servers/          # ServerRegistry, RenderServer
+│       ├── Rendering/        # Vulkan renderer, camera math, spine, sky, shadows, scene grids
+│       ├── Nodes/            # Drawable and network nodes (SpineNode, Box3d, Quad, NetworkNode)
 │       ├── Lighting/         # Directional, point, and spot lights
 │       ├── Networking/       # ENet client/server, buffered serialization, object pooling
 │       ├── Steamworks/       # Steam API wrappers
 │       ├── Debugging/        # Structured logging
 │       └── Utils/            # ImGui gizmos, color extensions
 │
+├── MainframeEngine.Generators/  # Source generator: [Export]/[Signal] type registration (analyzer)
 ├── MainframeEngine.Sandbox/  # Test game demonstrating full engine features
 │
 ├── Plugins/
@@ -69,21 +74,23 @@ mainframe-engine/
 
 ### Game Loop (`Core/`)
 
-Games subclass `Engine` and override its abstract methods:
+Games subclass `Engine`, load a scene into the engine-owned scene tree, and let it run the frame:
 
 ```csharp
 public sealed class Game(in EngineOptions options) : Engine(options)
 {
-    protected override void OnLoad() { base.OnLoad(); /* setup */ }
-    protected override void OnUpdate(in GameTime gameTime) { }
-    protected override void OnShadowPass(in GameTime gameTime) { }
-    protected override void OnRenderMainPass(in GameTime gameTime) { }
+    protected override void OnLoad()
+    {
+        base.OnLoad();                                      // window, renderer, ImGui, servers
+        Tree.ChangeSceneToFile("Content/Scenes/Main.mscene");
+    }
+
+    // Optional legacy hooks: OnImGui, OnUpdate, OnShadowPass, OnRenderMainPass.
     protected override void OnImGui(in GameTime gameTime) { }
-    protected override void OnClose() { /* cleanup */ base.OnClose(); }
 }
 ```
 
-`Engine` manages the Silk.NET window, Vulkan renderer, input context, and ImGui, and drives the game loop. `GameTime` provides per-frame timing (DeltaTime, FPS, FrameTimeMs, FrameCount).
+`Engine` manages the SDL window, Vulkan renderer, input context, ImGui and the `SceneTree`, and drives the game loop. `GameTime` provides per-frame timing (DeltaTime, FPS, FrameTimeMs, FrameCount).
 
 **`EngineOptions`** configures startup:
 
@@ -99,43 +106,45 @@ new EngineOptions
 
 The frame loop order is:
 1. `OnImGui` — ImGui window construction
-2. `OnUpdate` — game logic
-3. `OnShadowPass` — depth pre-pass (before main render pass)
-4. `OnRenderMainPass` — geometry and sky rendering
+2. `OnUpdate` — game logic (legacy hook)
+3. Scene tree tick — fixed-step `OnPhysicsProcess`, `OnProcess`, deferred calls and `QueueFree`, transform sync
+4. Shadow pass — `OnShadowPass`, then the render server's shadow casters
+5. Main pass — the render server draws the sky and visuals, then `OnRenderMainPass`, then ImGui
 
-### Nodes (`Nodes/`)
+### Nodes and scenes (`Scene/`, `Resources/`)
 
-The engine uses a lightweight scene graph. `Node` is the base class; `Node3D` adds position, rotation, and scale with TRS matrix composition.
-
-```
-Node
-├── Node3D            (Position, Rotation, Scale → ModelMatrix)
-│   ├── Box3d         (3D lit cube, shadow casting/receiving)
-│   ├── Quad          (2D lit quad, shadow casting/receiving)
-│   └── SpineNode     (Spine skeletal animation as a 3D node)
-└── NetworkNode       (ENet server/client lifecycle management)
-```
-
-`Node.Initialize(renderer, shadowSystem)` must be called once after the renderer and shadow system are created (see Sandbox).
-
-**`NetworkNode`** manages the ENet library lifecycle and wraps `EnetServer` / `EnetClient` as a scene graph node. Call `StartServer` or `StartClient` to begin networking, and the node's `OnUpdate` automatically polls ENet events.
-
-**`NodeId`** is a type-safe auto-incrementing identifier for nodes (starts at 1; 0 = error).
-
-**`SpineNode`** wraps a Spine skeleton as a `Node3D`, handling animation state, world transform updates, and rendering:
+Everything in a game is a node in a Godot-style tree: `Node` (name, parent, children, owner, groups, signals,
+`ProcessMode`), `Node3D` / `Node2D` (cached, dirty-flagged transforms; quaternion rotation), and front-ends
+for the renderer: `Camera3D`, `DirectionalLight3D` / `OmniLight3D` / `SpotLight3D`, `WorldEnvironment` (sky),
+`Box3d`, `Quad`, `SpineNode`, `Grid3D`. The `SceneTree` runs `OnEnterTree` / `OnReady` / `OnPhysicsProcess` /
+`OnProcess` / `OnExitTree`, input (`OnInput`), groups, `CallDeferred` and `QueueFree`; servers
+(`RenderServer`, …) own the GPU objects behind the nodes.
 
 ```csharp
-var folder = new SpineFolder("Content/Spine/character");
-var spineNode = new SpineNode(Renderer, folder);
-spineNode.SetAnimation("walk");
-spineNode.Position = new Vector3(0, 0, 0);
-spineNode.Scale = new Vector3(0.1f);
+public sealed class Spinner : Node3D
+{
+    [Export] public float DegreesPerSecond { get; set; } = 45;
+    [Signal] public event Action? Spun;
 
-// In OnUpdate:
-spineNode.OnUpdate(gameTime);
-// In OnRenderMainPass:
-spineNode.Draw(camera, lights);
+    protected override void OnProcess(in GameTime time) =>
+        RotationDegrees += new Vector3(0, DegreesPerSecond * time.DeltaTime, 0);
+}
+
+var level = ResourceLoader.Load<PackedScene>("Content/Scenes/Level.mscene").Instantiate();
+Tree.Root.AddChild(level);
+level.GetNode<SpineNode>("Player/Body").SetAnimation("walk");
+SceneSaver.Save(level, "Content/Scenes/Level.mscene");
 ```
+
+Scenes (`.mscene`) and resources (`.mres`) are JSON with stable UIDs, nested scene instances with overrides,
+and only non-default values. `[Export]` members are registered by the `MainframeEngine.Generators` source
+generator (no runtime reflection). See [Scene graph & nodes](docs/design/scene-graph-and-nodes.md) and
+[Scene serialization](docs/design/scene-serialization.md).
+
+**`NetworkNode`** manages the ENet library lifecycle and wraps the server and client message buses as a node;
+it polls them every frame in `OnProcess` (or call `Poll()`).
+
+**`NodeId`** is a runtime-unique node identifier (starts at 1; 0 = invalid); `SceneTree.Find(id)` looks a node up.
 
 ### Rendering (`Rendering/`)
 
@@ -144,15 +153,14 @@ spineNode.Draw(camera, lights);
 - `IVulkanContext` — exposes Vulkan primitives (device, queues, render pass, command buffers) to renderable objects
 
 **Cameras:**
-- `Camera3D` — perspective projection with mouse-look
-- `Camera2D` — orthographic projection
-- Both implement `ICamera` (ViewMatrix, ProjectionMatrix)
+- `Camera3D` / `Camera2D` nodes — the viewport's active camera; they drive the camera math below
+- `PerspectiveCamera` / `OrthographicCamera` — `ICamera` (ViewMatrix, ProjectionMatrix), usable without a tree
 
 **Shape Primitives (`Nodes/Shapes/`):**
 - `Box3d` — 3D cube with shadow casting/receiving
 - `Quad` — 2D quad with shadow casting/receiving
 - `SceneGrid3d` / `SceneGrid2d` — debug grid overlays
-- All shapes inherit from `ShapeBase` which inherits `Node3D` for TRS matrix composition
+- All shapes inherit from `ShapeBase` → `VisualInstance3D` → `Node3D`; the render server creates their GPU objects when they enter the tree
 
 **Spine Renderer (`Rendering/Spine/`):**
 - `SpineRenderer` — batch-renders Spine skeletons (RegionAttachment, MeshAttachment) with per-slot tinting, premultiplied alpha, and multi-texture atlas support
@@ -201,7 +209,7 @@ UDP networking built on [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp
 - `NetworkUtils` — default port (`6969`), region constants (OCE, USE, USW, EU, Asia), and `GetPrimaryLocalIPv4()` for LAN discovery
 
 ```csharp
-// Server (call net.OnUpdate(gameTime) every frame to poll ENet)
+// Server (add the node to the scene tree, or call net.Poll() every frame, to pump ENet)
 var net = new NetworkNode();
 net.StartServer(port: 7777, maxClients: 16);
 

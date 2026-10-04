@@ -1,7 +1,7 @@
 # Proposal: Physics (Jitter2 3D · Box2D 2D)
 
 **Milestone:** M6 · **Status:** ⬜ planned · **Decision:** Jitter2 for 3D; Box2D for 2D, because
-Jitter2 is 3D-only (agreed 2026-10-05) · **Depends on:** [Node system](node-system.md)
+Jitter2 is 3D-only (agreed 2026-10-05) · **Depends on:** [Node system](../scene-graph-and-nodes.md)
 
 ## Libraries
 
@@ -85,7 +85,7 @@ classDiagram
 
 The 2D side mirrors this (`StaticBody2D`, `RigidBody2D`, `CharacterBody2D`, `Area2D`,
 `CollisionShape2D`). All bodies derive from `Node3D`/`Node2D`. Shapes are **`Resource`s**, so they
-are shareable and serialized ([Scene serialization](scene-serialization.md)).
+are shareable and serialized ([Scene serialization](../scene-serialization.md)).
 
 ### Shape resources → library shapes
 
@@ -264,5 +264,5 @@ interpolate them. Client-side prediction for `CharacterBody` is a later concern.
 
 ## Related
 
-[Milestones](../../milestones.md) · [Node system](node-system.md) · [Scene serialization](scene-serialization.md) ·
+[Milestones](../../milestones.md) · [Node system](../scene-graph-and-nodes.md) · [Scene serialization](../scene-serialization.md) ·
 [Editor](editor.md) · [Networking & replication](networking-replication.md)

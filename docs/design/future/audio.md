@@ -1,7 +1,7 @@
 # Proposal: Audio (SoundFlow)
 
 **Milestone:** M7 · **Status:** ⬜ planned · **Decision:** SoundFlow (agreed 2026-10-05) ·
-**Depends on:** [Node system](node-system.md)
+**Depends on:** [Node system](../scene-graph-and-nodes.md)
 
 ## Library
 
@@ -90,7 +90,7 @@ Signals: `Finished`. Methods: `Play(fromSeconds)`, `Stop()`, `Seek()`, `GetPlayb
 | `AudioStream` (wav/mp3/flac/ogg) | **Load mode: Memory** (default for files under 1 MB) | decoded once, shared samples → `AssetDataProvider` per voice |
 | | **Load mode: Stream** (default for music) | `StreamDataProvider` over a file stream, one per playing instance |
 
-The import settings live in the asset's `.meta` sidecar ([Scene serialization](scene-serialization.md#uids-and-the-asset-database)):
+The import settings live in the asset's `.meta` sidecar ([Scene serialization](../scene-serialization.md#uids-and-the-asset-database)):
 load mode, loop and loop points, default bus.
 
 ### Formats
@@ -199,4 +199,4 @@ batched flush.
 
 ## Related
 
-[Milestones](../../milestones.md) · [Node system](node-system.md) · [Game UI](game-ui.md) · [Editor](editor.md)
+[Milestones](../../milestones.md) · [Node system](../scene-graph-and-nodes.md) · [Game UI](game-ui.md) · [Editor](editor.md)

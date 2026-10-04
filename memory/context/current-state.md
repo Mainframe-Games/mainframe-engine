@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-05 (M0 SDL + M1 stabilization, lane `m0-m1`)_
+_Last updated: 2026-10-05 (M2 node system & scenes, lane `m2`)_
 
 ## Where things left off
 
@@ -8,8 +8,18 @@ _Last updated: 2026-10-05 (M0 SDL + M1 stabilization, lane `m0-m1`)_
   casters, Spine, ImGui). Vulkan goes through MoltenVK; `Silk.NET.MoltenVK.Native` is bundled so no
   SDK install is needed to run. Windowing/input are SDL2 (Silk.NET SDL backend; GLFW removed).
 - M0 and M1 are done (see `docs/milestones.md`, ADRs 0003/0004).
+- M2 is done (lane `m2`, ADRs 0010–0012): Godot-style `SceneTree` owned by `Engine` (`Engine.Tree`/`Root`),
+  servers (`RenderServer`) instead of `Node.Initialize`, light/camera/sky/grid nodes, `[Export]`/`[Signal]`
+  registered by `MainframeEngine.Generators`, `.mscene`/`.mres` JSON with UIDs + `AssetDatabase`. The Sandbox
+  loads `Content/Scenes/Sandbox.mscene` (regenerate with `--write-scene`).
 
 ## Known gotchas
+
+- Scene tree: node constructors must stay cheap (the type registry instantiates every serialized type);
+  acquire GPU objects through the render server (`VisualInstance3D.InitializeRenderResources`). Projects
+  declaring node/resource types need the generator analyzer reference or they cannot be saved/loaded.
+  `MainframeEngine.Timer` shadows `System.Threading.Timer` inside `MainframeEngine.*` namespaces. The old math
+  cameras are `PerspectiveCamera`/`OrthographicCamera`; `Camera3D`/`Camera2D` are nodes.
 
 - macOS: SDL and Silk.NET must bind the SAME Vulkan library — `VulkanLoaderBootstrap` enforces this
   (`Probe()` then `HandOffToSdl()` → `SDL_Vulkan_LoadLibrary`; Silk via `TryCreateVk`). Don't add a

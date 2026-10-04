@@ -30,6 +30,20 @@ and the pool, `PeerId`/`NodeId`, `Log` filtering, camera matrices against
 `VulkanValidationLog`. Tests that touch process-wide state (`NetBufferPool`, `Console`, `Log.LogLevel`)
 share a non-parallel collection.
 
+The scene system (M2) has its own suites under [`Scene/`](../../Tests/MainframeEngine.Tests/Scene/), with
+test node and resource types in `TestNodes.cs` (registered by the source generator like a game's):
+
+| Suite | Covers |
+|---|---|
+| `NodeTreeTests` | children/order, unique and sanitized names, the name index, owners, reparenting, `NodePath` (relative, absolute, `%unique`), `GetPathTo`, wildcards, freeing |
+| `SceneTreeTests` | enter/ready/exit order, ready-once, built-in signals, children added during callbacks, priority/tree order, `SetProcess`, the fixed-step accumulator (clamp, substep cap, backlog drop), pause modes, `QueueFree` during iteration, deferred call order, groups, `NodeId` registry, `ChangeScene`, timers, input routing, shutdown |
+| `SignalTests` | generated signal infos, connect/disconnect by name, `[SignalHandler]`, one-shot, deferred, auto-disconnect on free |
+| `TransformTests` | Euler ↔ quaternion vs the legacy `Rx·Ry·Rz` matrices, model matrix, dirty propagation, global setters, `Reparent` keep/drop global, `LookAt`, notification batching, `Transform3D`/`Transform2D` math |
+| `WorldTests` | visual registration order, light nodes ↔ `LightEnvironment`, active camera selection, camera sync vs the legacy camera, `WorldEnvironment` ambient, render-server resource tracking (non-Vulkan renderer), server ticking |
+| `SerializationTests` | every property type round-trips, non-default-only output, encodings, owned-only saving, outside-the-tree instancing, groups/unique names, persisted connections and flags, nested instances (overrides, added children, sub-scene edits flowing through), self-instancing rejection, external resources and the cache, ref counting, UID stability across re-save and file moves, asset database scan/meta/index, migrations, `MissingNode`, error reporting, the Sandbox scene re-saving byte-identically |
+| `GeneratorTests` | `CSharpGeneratorDriver` over game-like sources: emitted registration compiles, loads in a collectible context and works (properties, groups, hints, signals, migrations, abstract/tool/TypeName), every diagnostic, incremental caching; the engine's own registrations |
+| `SceneTreeAllocationTests` | **0 bytes** over 120 steady-state ticks of a 10 002-node tree (physics, process, transform propagation and notifications, input, groups) and over `GetNode` lookups |
+
 ## Render tests
 
 ```mermaid
@@ -52,7 +66,8 @@ sequenceDiagram
   output folder; the runner launches it with `DOTNET_HOST_PATH`.
 - **Deterministic frames.** `EngineOptions.FixedDeltaTime` gives every update the same delta, so frame
   *N* always shows the same pose. `CapturesAreDeterministicAcrossRuns` checks two runs are bit-identical.
-- **Scenes** (in the host, built from engine nodes): `lit-shapes` (procedural sky, grid, floor quad,
+- **Scenes** (in the host, built as node trees that the engine's scene tree and render server draw):
+  `lit-shapes` (procedural sky, grid, floor quad,
   two boxes, one shadow-casting directional light), `multi-light` (same geometry, directional + spot +
   point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
   `spine` (adds SpineBoy, content linked from the Sandbox), `spine-no-shadows` (Spine and shapes with
@@ -111,8 +126,9 @@ cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.Te
 
 ## Benchmarks
 
-`just bench` runs every benchmark (`NetBuffer` write/read, camera and model matrices, lights UBO packing)
-and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
+`just bench` runs every benchmark (`NetBuffer` write/read, camera and model matrices, lights UBO packing,
+and the scene tree: `ProcessTick10k`, `TransformPropagationDirtySubtree10k`, `GetNodePathLookup`,
+`SceneSaveLoadRoundTrip1k`) and compares with [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. Results also land
 in `artifacts/bench`. Baselines are machine-specific (the file records machine and runtime), so
 compare on the machine that recorded them; refresh with `just bench-baseline` when a change is

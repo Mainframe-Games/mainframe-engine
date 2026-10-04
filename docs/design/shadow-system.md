@@ -119,7 +119,7 @@ same queue.
 
 ### Without a `ShadowSystem`
 
-Shadows are optional. When `Node.Initialize` gets no shadow system, lit pipelines (Shapes, SpineLit)
+Shadows are optional. Without a shadow system (`RenderServer.ShadowsEnabled = false`, or tree-less nodes), lit pipelines (Shapes, SpineLit)
 still declare **the same set indices** and bind the renderer's `ShadowFallback` as set 2: the same
 layout (built by the shared `CreateMainSetLayout`), 1×1 depth maps (2D and cube) cleared to 1.0, and
 light-space matrices that map every position to depth 2 — outside the [0, 1] range the shaders treat as

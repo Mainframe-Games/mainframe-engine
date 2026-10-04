@@ -1,6 +1,6 @@
 # Proposal: Networking & Replication
 
-**Milestone:** M5 · **Status:** 🟨 partly shipped · **Depends on:** [Node system](node-system.md) (NodeId registry)
+**Milestone:** M5 · **Status:** 🟨 partly shipped · **Depends on:** [Node system](../scene-graph-and-nodes.md) (NodeId registry)
 
 > **Shipped (M5 scaffold lane):** the message layer, the transport abstraction, the peer-lifecycle fixes, pooled
 > span-based buffers and the osx-arm64 ENet native. These are documented in [Networking](../networking.md). Still
@@ -95,8 +95,9 @@ decision and must be discussed first.
 - [x] `ITransport`; `EnetTransport` (fix the peer lifecycle), plus `LoopbackTransport`; `SteamSocketsTransport` is a stub
 - [x] `MessageRegistry` + header + dispatch; delete the test `Read` handlers
 - [x] Public events, on `MessageBus` (`NetworkNode` exposes its `Server`/`Client` buses)
-- [ ] `NodeId → Node` registry (from Scene v2) + spawn/despawn
-- [ ] Snapshot serialization (`[Replicated]` source generator or a manual `INetworkTransferable`)
+- [ ] Spawn/despawn on top of the M2 `NodeId` registry (`SceneTree.Find(NodeId)`, `NodeAdded`/`NodeRemoved`) and `PackedScene` (spawn by scene UID)
+- [ ] Snapshot serialization: `[Replicated]` through the M2 source generator — add a per-member collection to its
+  `TypeModel` and a replication emitter beside `RegistrationEmitter` (see [Scene serialization](../scene-serialization.md#source-generator))
 - [ ] Client interpolation buffer
 - [ ] RPCs
 - [x] osx-arm64 ENet native (universal dylib from `natives.yml`; package natives excluded)

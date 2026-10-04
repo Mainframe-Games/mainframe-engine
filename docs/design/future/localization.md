@@ -1,7 +1,7 @@
 # Proposal: Localization (GetText.NET)
 
 **Milestone:** M9 · **Status:** ⬜ planned · **Depends on:** [Game UI](game-ui.md),
-[Scene serialization](scene-serialization.md), [Asset & shader pipeline](asset-and-shader-pipeline.md)
+[Scene serialization](../scene-serialization.md), [Asset & shader pipeline](asset-and-shader-pipeline.md)
 
 ## Library
 
@@ -136,4 +136,4 @@ Selecting `qps` in the debug menu shows untranslated hard-coded strings (no brac
 
 ## Related
 
-[Milestones](../../milestones.md) · [Game UI](game-ui.md) · [Scene serialization](scene-serialization.md) · [Editor](editor.md)
+[Milestones](../../milestones.md) · [Game UI](game-ui.md) · [Scene serialization](../scene-serialization.md) · [Editor](editor.md)

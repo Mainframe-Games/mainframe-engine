@@ -2,16 +2,22 @@
 
 ## Purpose
 
-Cameras provide view and projection matrices to every drawable. Input handling lives in the game,
-not the engine. The engine only exposes `InputContext`.
+Cameras provide view and projection matrices to every drawable. In scenes they are nodes
+(`Camera3D`, `Camera2D`) that the render server uses for their viewport; the matrix math lives in
+`PerspectiveCamera` / `OrthographicCamera`, which tree-less code can still use directly. Input from the
+window is routed through the scene tree as `InputEvent`s (`Node.OnInput` / `OnUnhandledInput`); games
+can also read Silk's `InputContext` directly.
 
 ## Key types
 
 | Type | File |
 |---|---|
 | `ICamera` | [Camera/ICamera.cs](../../MainframeEngine/Src/Rendering/Camera/ICamera.cs) — `Position`, `Forward`, `Up`, `ViewMatrix`, `ProjectionMatrix` |
-| `Camera3D` | [Camera/Camera3D.cs](../../MainframeEngine/Src/Rendering/Camera/Camera3D.cs) |
-| `Camera2D` | [Camera/Camera2D.cs](../../MainframeEngine/Src/Rendering/Camera/Camera2D.cs) |
+| `PerspectiveCamera` | [Camera/PerspectiveCamera.cs](../../MainframeEngine/Src/Rendering/Camera/PerspectiveCamera.cs) (was `Camera3D` before M2) |
+| `OrthographicCamera` | [Camera/OrthographicCamera.cs](../../MainframeEngine/Src/Rendering/Camera/OrthographicCamera.cs) (was `Camera2D`) |
+| `Camera3D` (node) | [Scene/Nodes3D/Camera3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/Camera3D.cs) |
+| `Camera2D` (node) | [Scene/Nodes2D/Camera2D.cs](../../MainframeEngine/Src/Scene/Nodes2D/Camera2D.cs) |
+| `InputEvent*`, `InputRouter` | [Scene/Input/](../../MainframeEngine/Src/Scene/Input/) |
 
 All math is `System.Numerics`: right-handed, row vectors. Projections produce depth in **[0, 1]**.
 
@@ -25,73 +31,98 @@ classDiagram
         +Matrix4x4 ViewMatrix
         +Matrix4x4 ProjectionMatrix
     }
-    class Camera3D {
-        +float Yaw
-        +float Pitch
+    class PerspectiveCamera {
         +float FieldOfView
+        +float Near
+        +float Far
         +float AspectRatio
         +ModifyZoom(float)
         +ModifyDirection(dx, dy)
         +LookAt(Vector3)
     }
-    class Camera2D {
+    class OrthographicCamera {
         +Vector2 Size
         +float Zoom
         +ModifyZoom(float)
     }
-    ICamera <|.. Camera3D
-    ICamera <|.. Camera2D
+    class Camera3D { <<node>> +bool Current +float Fov +SyncRenderCamera(aspect) }
+    class Camera2D { <<node>> +bool Current +float Zoom +float Distance }
+    ICamera <|.. PerspectiveCamera
+    ICamera <|.. OrthographicCamera
+    Camera3D o-- PerspectiveCamera
+    Camera2D o-- OrthographicCamera
 ```
 
-## `Camera3D`
+## Camera nodes
+
+- **`Camera3D : Node3D`** looks along its global `-Z` from its global position. Exported: `Current`,
+  `Fov` (45°), `Near` (0.1), `Far` (1000). The viewport's active camera is the last one made
+  `Current`, else the first to enter (`SceneViewport.ActiveCamera3D`). Each frame the render server calls
+  `SyncRenderCamera(aspect)` — position, forward, up (global basis Y) and the swapchain aspect — and draws
+  with `RenderCamera` (the wrapped `PerspectiveCamera`). Orient it with `LookAt(target)` or
+  `RotationDegrees`.
+- **`Camera2D : Node2D`**: `Current`, `Zoom`, `Distance` (how far in front of the z = 0 plane it sits,
+  default 500). Used when the viewport has no 3D camera; the framebuffer size becomes its `Size`.
+
+## `PerspectiveCamera`
 
 | Property | Default / behaviour |
 |---|---|
 | `Forward` / `Up` | −Z / +Y |
 | `Yaw` / `Pitch` | −90° / 0°. Pitch is clamped to ±89°. |
-| `FieldOfView` | 45°. `ModifyZoom` clamps it to 1–90°. |
+| `FieldOfView`, `Near`, `Far` | 45°, 0.1, 1000. `ModifyZoom` clamps the FOV to 1–90°. |
 | `ViewMatrix` | `CreateLookAt(Position, Position + Forward, Up)` |
-| `ProjectionMatrix` | `CreatePerspectiveFieldOfView(FOV, AspectRatio, 0.1, 1000)` |
+| `ProjectionMatrix` | `CreatePerspectiveFieldOfView(FOV, AspectRatio, Near, Far)` |
 | `ModifyDirection(dx, dy)` | `yaw += dx; pitch -= dy`, then rebuilds `Forward` |
 | `LookAt(target)` | sets `Forward` and recomputes yaw/pitch |
 
-`AspectRatio` is not updated automatically. The game must set it every frame; the Sandbox does this in
-`OnRenderMainPass` from `IVulkanContext.SwapchainExtent` (pixels — the image being rendered; see
-[Build & platforms](build-and-platforms.md#windowing-sdl2) for points vs pixels).
+Tree-less code must set `AspectRatio` every frame (from `IVulkanContext.SwapchainExtent` — pixels, the
+image being rendered; see [Build & platforms](build-and-platforms.md#windowing-sdl2)).
 
-## `Camera2D`
+## `OrthographicCamera`
 
 Orthographic projection: `CreateOrthographic(Size.X·Zoom, Size.Y·Zoom, 0.1, 1000)`, centred on
-the camera. The game must set `Size` to the framebuffer size. `ModifyZoom(a)` computes
-`Zoom = clamp(Zoom + a·0.1, 0.001, 10)`.
+the camera. `ModifyZoom(a)` computes `Zoom = clamp(Zoom + a·0.1, 0.001, 10)`.
 
-## Input (Sandbox)
+## Input
 
 The engine creates `InputContext` in `OnLoad` (Silk's **SDL** input backend: keyboard, mouse, gamepads)
-and leaves bindings to the game. `CursorMode.Raw` maps to SDL relative mouse mode. `just qa` can drive a
-scripted right-drag through SDL's event queue (`--qa-input <frame>`), which checks the SDL → `IMouse` →
-fly-camera path end to end.
+and an `InputRouter` that turns its callbacks into events pushed through the scene tree
+(`SceneTree.PushInput`): `InputEventKey` (key, scancode, pressed), `InputEventText`,
+`InputEventMouseButton`, `InputEventMouseMotion` (position, relative), `InputEventMouseWheel`,
+`InputEventGamepadButton`, `InputEventGamepadAxis` (sticks, triggers). Nodes get them in `OnInput` in
+reverse tree order, then `OnUnhandledInput`, until one calls `GetViewport().SetInputAsHandled()`; paused
+nodes get none. Events are reused instances (read them in the callback, `Clone()` to keep one). Devices
+connected later are picked up. See [Scene graph & nodes](scene-graph-and-nodes.md#input).
+
+`CursorMode.Raw` maps to SDL relative mouse mode. `just qa` can drive a scripted right-drag through SDL's
+event queue (`--qa-input <frame>`), which checks the SDL → `IMouse` → `InputRouter` → `FlyCamera` path end
+to end.
+
+### Sandbox controls
+
+The Sandbox camera is a `FlyCamera : Camera3D` node in its scene; `Game` handles the cursor and Escape.
 
 | Input | Action |
 |---|---|
 | Hold **right mouse** | Enable fly camera (cursor → Raw). Release → Normal. |
-| Mouse move (while held) | `ModifyDirection(dx·0.1, dy·0.1)` |
-| W / S | forward / back along `Forward` |
-| A / D | strafe along `Cross(Forward, Up)` |
-| Q / E | down / up along `Up` |
-| Left Shift | 2× speed (base 10 u/s) |
+| Mouse move (while held) | yaw/pitch by `LookSensitivity` (0.1°/px), pitch clamped ±89° |
+| W / S | forward / back along the camera's forward |
+| A / D | strafe along `Cross(Forward, +Y)` |
+| Q / E | down / up along +Y |
+| Left Shift | 2× speed (`Speed`, 10 u/s) |
 | Left Alt | toggle Raw/Normal cursor (does not enable look) |
-| Escape | close window |
+| Escape | quit |
 
-`Examples/SpineExamples` uses a different scheme. Movement is enabled whenever the cursor is Raw; in 2D,
-mouse movement pans and the wheel zooms.
+`Examples/SpineExamples` (no scene tree) uses the math cameras directly. Movement is enabled whenever the
+cursor is Raw; in 2D, mouse movement pans and the wheel zooms.
 
 ## Known issues
 
 - README says "right-click to capture, Alt to release". The code is hold-right-click to move, and Alt only toggles the cursor.
-- `Camera2D.Size` and `Camera3D.AspectRatio` must be pushed by the game every frame.
-- The Sandbox's 2D movement branch is dead code, because `isPerspectiveCamera` is always true.
+- ImGui does not consume input before the tree (the game UI server will, M8).
 
 ## Related docs
 
-[Coordinate conventions](coordinate-conventions.md) · [Sandbox](sandbox.md) · [ImGui & debug tools](imgui-and-debug-tools.md)
+[Coordinate conventions](coordinate-conventions.md) · [Sandbox](sandbox.md) · [ImGui & debug tools](imgui-and-debug-tools.md) ·
+[Scene graph & nodes](scene-graph-and-nodes.md)

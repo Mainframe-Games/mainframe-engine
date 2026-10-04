@@ -1,8 +1,8 @@
 # Proposal: Mainframe Editor
 
 **Milestone:** M10 · **Status:** ⬜ planned · **New project:** `MainframeEngine.Editor` (exe) →
-references `MainframeEngine` · **Depends on:** [Node system](node-system.md),
-[Scene serialization](scene-serialization.md), [Materials & meshes](materials-and-meshes.md) (render
+references `MainframeEngine` · **Depends on:** [Node system](../scene-graph-and-nodes.md),
+[Scene serialization](../scene-serialization.md), [Materials & meshes](materials-and-meshes.md) (render
 targets), [Game UI (RmlUi)](game-ui.md), [SDL windowing](../build-and-platforms.md#windowing-sdl2)
 
 ## Problem
@@ -170,7 +170,7 @@ sequenceDiagram
 
 ## Inspector
 
-- The selection's `NodeTypeInfo` (from the [source generator](scene-serialization.md#property-model))
+- The selection's `NodeTypeInfo` (from the [source generator](../scene-serialization.md#property-model))
   provides the property list. The inspector shows one row per `[Export]` property, with a widget
   chosen from the property type and hints.
 - Multi-selection shows common properties. Mixed values display as "—".
@@ -208,7 +208,7 @@ sequenceDiagram
 
 | Change | Where | Reason |
 |---|---|---|
-| Multiple worlds per process (`World3D` instances) | [Node system](node-system.md#servers) | edited scene separate from editor UI |
+| Multiple worlds per process (`World3D` instances) | [Node system](../scene-graph-and-nodes.md#servers-and-render-nodes) | edited scene separate from editor UI |
 | Offscreen render targets + object-ID pass | [Materials & meshes](materials-and-meshes.md) / RenderServer | viewport and picking |
 | `UiServer` can wrap an engine texture as an RmlUi texture | [Game UI](game-ui.md) | `<viewport>` element |
 | `ILogSink` on `Log` | `Debugging/Log.cs` | Output panel and debug channel |
@@ -248,5 +248,5 @@ sequenceDiagram
 
 ## Related
 
-[Milestones](../../milestones.md) · [Node system](node-system.md) · [Scene serialization](scene-serialization.md) ·
+[Milestones](../../milestones.md) · [Node system](../scene-graph-and-nodes.md) · [Scene serialization](../scene-serialization.md) ·
 [Game UI](game-ui.md) · [Materials & meshes](materials-and-meshes.md) · [SDL windowing](../build-and-platforms.md#windowing-sdl2)

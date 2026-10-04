@@ -3,7 +3,10 @@
 ## Purpose
 
 CPU-side light descriptions plus a fixed-size uniform layout consumed by lit shaders (shapes and
-Spine). The lighting model is forward Blinn-Phong with shadow attenuation.
+Spine). The lighting model is forward Blinn-Phong with shadow attenuation. In scenes, lights are nodes
+(`DirectionalLight3D`, `OmniLight3D`, `SpotLight3D`; see [Scene graph & nodes](scene-graph-and-nodes.md#servers-and-render-nodes))
+that wrap these light objects and register them with their world's `LightEnvironment`
+(`SceneViewport.World3D.Lights`); `WorldEnvironment.AmbientColor` sets the ambient term.
 
 ## Key types
 
@@ -23,8 +26,8 @@ Spine). The lighting model is forward Blinn-Phong with shadow attenuation.
 | `MaxPoint` | 16 |
 | `MaxSpot` | 8 |
 
-- `AddLight(Light)` routes the light by its runtime type. Unknown subclasses are ignored. There is
-  **no remove API**.
+- `AddLight(Light)` routes the light by its runtime type. Unknown subclasses are ignored.
+  `RemoveLight(Light)` removes it (light nodes do both on enter/exit); `Count` counts every light.
 - Lists (`DirectionalLights`, `PointLights`, `SpotLights`) are `internal`.
 - Lights beyond the limits are silently dropped when the UBO is written.
 - `DrawLightGizmos(ICamera)` is `[Conditional("DEBUG")]`. It draws on the ImGui background draw list:
@@ -71,12 +74,16 @@ All lighting runs in gamma (non-linear) space. There is no tonemapping (see
 ## Usage
 
 ```csharp
+// Scene tree: a light node drives a DirectionalLight from its transform (direction = global -Z).
+var sun = new DirectionalLight3D { Position = new(0, 5, 0), Energy = 0.9f };
+sun.LookAt(sun.Position + Vector3.Normalize(new(0, -0.5f, -1)));
+Root.AddChild(sun);   // registered in Root.World3D.Lights; synced after process when it moves
+
+// Tree-less: a LightEnvironment by hand.
 var lights = new LightEnvironment();
 lights.AddLight(new DirectionalLight { Direction = Vector3.Normalize(new(0, -0.5f, -1)), Intensity = 0.9f });
-// main pass
-node.Draw(camera, lights);
-// shadow pass
-shadowSystem.RenderShadows(lights, draw2D, drawPoint);
+node.Draw(camera, lights);                                   // main pass
+shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass
 ```
 
 ## Invariants
@@ -87,7 +94,7 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);
 ## Known issues
 
 - Each drawable uploads its own 1200 B copy of the lights UBO per frame.
-- No light removal. Lights over the limit are dropped silently, with no warning.
+- Lights over the limit are dropped silently, with no warning.
 - No linear-space lighting or HDR.
 - Directional gizmo arrows are not projected through the camera.
 

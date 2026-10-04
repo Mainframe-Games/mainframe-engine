@@ -48,8 +48,14 @@ awake (`caffeinate -u -t 600 &`).
 ## Project Structure
 
 - `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`
-- `MainframeEngine/Src/Nodes/` — scene graph: `Node`, `Node3D`, `SpineNode`, shapes
-- `MainframeEngine/Src/Rendering/` — Vulkan renderer, cameras, sky, shadows, scene grids, Spine renderer
+- `MainframeEngine/Src/Scene/` — Godot-style node tree: `Node`, `SceneTree`, `Node3D`/`Node2D`, transforms, `NodePath`,
+  camera/light/sky/grid nodes (`Nodes3D/`, `Nodes2D/`), input events
+- `MainframeEngine/Src/Nodes/` — drawable/network nodes: `SpineNode`, `ShapeBase`/`Box3d`/`Quad`, `NetworkNode`
+- `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`
+- `MainframeEngine/Src/Resources/`, `Src/Serialization/` — `Resource`, `PackedScene`, loader/savers, `AssetDatabase`;
+  `[Export]`/`[Signal]` attributes, `TypeRegistry`, JSON scene format
+- `MainframeEngine.Generators/` — Roslyn source generator registering node/resource types (referenced as an analyzer)
+- `MainframeEngine/Src/Rendering/` — Vulkan renderer, camera math, sky, shadows, scene grids, Spine renderer
 - `MainframeEngine/Src/Lighting/` — `LightEnvironment`, `DirectionalLight`, `PointLight`, `SpotLight`
 - `MainframeEngine/Src/Steamworks/` — Steam API wrappers
 - `MainframeEngine/Src/Debugging/` — `Log`
@@ -64,32 +70,57 @@ awake (`caffeinate -u -t 600 &`).
 
 ### Extending the Engine
 
-Games subclass `Engine` (not an interface). Override the four abstract methods:
+Games subclass `Engine` (not an interface) and put nodes in the engine-owned `SceneTree` (Godot model);
+the tree processes and renders them. Behaviour is node subclasses (`OnReady`, `OnProcess`,
+`OnPhysicsProcess`, `OnInput`, …), not code in the `Engine` subclass:
 
 ```csharp
 public sealed class Game(in EngineOptions options) : Engine(options)
 {
-    protected override void OnImGui(in GameTime gameTime) { }
-    protected override void OnUpdate(in GameTime gameTime) { }
-    protected override void OnShadowPass(in GameTime gameTime) { }
-    protected override void OnRenderMainPass(in GameTime gameTime) { }
+    protected override void OnLoad()
+    {
+        base.OnLoad();
+        Tree.ChangeSceneToFile("Content/Scenes/Main.mscene"); // or Root.AddChild(nodeBuiltInCode)
+    }
 }
 ```
 
-Call `base.OnLoad()` at the start of any `OnLoad` override. Call `base.OnClose()` at the end of any `OnClose` override (disposes renderer, ImGui, input; keeps the exit code set by `Quit`). `Quit(code)` closes the window after the current frame — prefer it to `Window.Close()`.
+The legacy hooks `OnImGui`, `OnUpdate`, `OnShadowPass`, `OnRenderMainPass` are optional virtuals. Call
+`base.OnLoad()` at the start of any `OnLoad` override. Call `base.OnClose()` at the end of any `OnClose`
+override (frees the scene tree, disposes servers, then renderer, ImGui, input; keeps the exit code set by
+`Quit`). `Quit(code)` closes the window after the current frame — prefer it to `Window.Close()`.
 
 `EngineOptions.EnableValidation` defaults to on in Debug builds and off in Release; set it to override.
 
-### Node Initialization
+### Nodes, servers and scenes
 
-`Node.Initialize(Renderer, shadowSystem)` must be called in `OnLoad` after the renderer (and the `ShadowSystem`, if any) are created, before any nodes/shapes are constructed. The shadow system is optional: without one, lit pipelines bind the renderer's "no shadows" fallback set (same set indices).
+There is no `Node.Initialize`: nodes reach engine servers through `Tree.Servers` (`RenderServer` is
+registered in `base.OnLoad()`). Visual nodes (`VisualInstance3D`: `Box3d`, `Quad`, `SpineNode`, `Grid3D`)
+create their GPU objects through the render server when they enter the tree and release them when freed;
+lights (`DirectionalLight3D`, `OmniLight3D`, `SpotLight3D`), cameras (`Camera3D`) and the sky
+(`WorldEnvironment` + `Sky`) are nodes too. Node constructors must stay cheap and side-effect free (the
+type registry instantiates every serialized type; scenes are instantiated outside the tree).
+`RenderServer.ShadowsEnabled = false` (before visuals initialize) runs without a `ShadowSystem`: lit
+pipelines then bind the "no shadows" fallback set.
+
+Serialized members are `[Export]` (public/internal, read-write) and signals are `[Signal]` C# events; any
+project declaring node/resource types references `MainframeEngine.Generators` as an analyzer
+(`OutputItemType="Analyzer" ReferenceOutputAssembly="false"`). Scenes are `.mscene` JSON
+(`SceneSaver.Save`, `ResourceLoader.Load<PackedScene>`, `Instantiate()`); see
+`docs/design/scene-serialization.md`. Rebuild the Sandbox scene with
+`dotnet run --project MainframeEngine.Sandbox -- --write-scene MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene`.
+`MainframeEngine.Timer` (the Godot node) shadows `System.Threading.Timer` inside `MainframeEngine.*`
+namespaces — qualify the latter.
 
 ### Frame Order
 
 1. `OnImGui` — build ImGui windows (called before update, inside ImGui frame)
-2. `OnUpdate` — game logic
-3. `OnShadowPass` — depth pre-pass (no render pass active; use raw command buffers)
-4. `OnRenderMainPass` — sky first, then geometry (`node.Draw(camera, lights)`)
+2. `OnUpdate` — game logic (legacy hook)
+3. `Tree.Tick` — fixed-step `OnPhysicsProcess` (60 Hz, ≤5 steps, 0.25 s clamp), `OnProcess`, deferred calls
+   and `QueueFree`, transform sync (`OnTransformChanged`), frame servers
+4. `OnShadowPass` (no render pass active), then `RenderServer.RenderShadows(Root)` — the tree's casters
+5. `RenderServer.RenderMain(Root)` — sky, then the tree's visuals; then `OnRenderMainPass` for hand-drawn
+   geometry, then ImGui
 
 Shadow pass and main pass only run when `IVulkanContext.FrameStarted` (a frame can be skipped while the
 swapchain is rebuilt; while minimised the engine renders nothing and blocks on window events).
@@ -106,7 +137,10 @@ Key per-frame GPU resources (UBOs, dynamic vertex buffers, their descriptor sets
 
 ### SpineNode
 
-Use `SpineNode` (not `SpineRenderer` directly) for scene integration. Call `OnUpdate` in your update loop, `DrawShadow2D`/`DrawShadowPoint` from the shadow callbacks, and `Draw(camera, lights)` in `OnRenderMainPass`. `SpineScale` applies immediately; `SetAnimation` replaces track 0 (`QueueAnimation` appends).
+Use `SpineNode` (not `SpineRenderer` directly): set `Folder` (and optionally `Animation`) and add it to the
+tree — it advances in `OnProcess` and the render server draws it and its shadows. Tree-less code uses
+`new SpineNode(renderer, folder)` + `Advance(gameTime)` + `Draw(camera, lights)`. `SpineScale` applies
+immediately; `SetAnimation` replaces track 0 (`QueueAnimation` appends).
 
 ## Rendering Backend
 

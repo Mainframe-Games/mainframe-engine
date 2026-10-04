@@ -27,8 +27,8 @@ flowchart LR
 | Milestone | Theme | Status |
 |---|---|---|
 | [M0](#m0--foundation-) | Vulkan renderer, lighting, shadows, sky, Spine, tooling, SDL windowing | ✅ |
-| [M1](#m1--stabilization) | Fix correctness bugs blocking everything else | ✅ |
-| [M2](#m2--node-system--scenes) | Godot-style node tree, scene tree, scene files | ⬜ |
+| [M1](#m1--stabilization-) | Fix correctness bugs blocking everything else | ✅ |
+| [M2](#m2--node-system--scenes-) | Godot-style node tree, scene tree, scene files | ✅ |
 | [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | ⬜ |
 | [M4](#m4--shadows-v2) | Cascades, PCF, atlas | ⬜ |
 | [M5](#m5--multiplayer) | Message protocol, replication, Steam | ⬜ |
@@ -86,7 +86,7 @@ and CLAUDE.md back in line with the code.
 | `SpineNode` scale, animation order, `SetAnimation`, vertex growth, pixel release | ✅ | [Spine](design/spine.md) |
 | CLAUDE.md sync with the code (README synced 2026-10-05) | ✅ | [CLAUDE.md](../CLAUDE.md) |
 
-## M2 — Node system & scenes
+## M2 — Node system & scenes ✅
 
 Adopt a Godot-style node system. Everything in a game becomes a node in an engine-owned `SceneTree`:
 - lifecycle callbacks, signals, groups and node paths;
@@ -94,17 +94,20 @@ Adopt a Godot-style node system. Everything in a game becomes a node in an engin
 - servers behind the nodes instead of the static `Node.Initialize`.
 
 Scenes and resources are saved as text files with stable UIDs. This is the foundation for the
-editor and for replication.
+editor and for replication. Physics, audio and UI nodes arrive with their milestones (M6–M8) on the server
+registration pattern M2 defines; `Box3d`/`Quad` give way to `MeshInstance3D` in M3.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| Node tree: children, owner, unique names, `NodePath`, `GetNode<T>`, groups | ⬜ | [Node system](design/future/node-system.md) |
-| `SceneTree`: lifecycle (enter/ready/process/physics/exit), pause, deferred calls, `QueueFree` | ⬜ | [Node system](design/future/node-system.md#lifecycle) |
-| `[Signal]` events + serializable connections | ⬜ | [Node system](design/future/node-system.md#signals) |
-| `Node2D`/`Node3D` with cached global transforms; lights, cameras, sky as nodes | ⬜ | [Node system](design/future/node-system.md#node-catalog) |
-| Servers (`RenderServer`, …) replace static `Node.Initialize`; `NodeId` registry | ⬜ | [Node system](design/future/node-system.md#servers) |
-| `[Export]` + source-generated type registry | ⬜ | [Scene serialization](design/future/scene-serialization.md#property-model) |
-| `.mscene` / `.mres` files, `PackedScene`, nested instances, UIDs + `AssetDatabase` | ⬜ | [Scene serialization](design/future/scene-serialization.md) |
+| Node tree: children, owner, unique names, `NodePath`, `GetNode<T>`, groups | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#the-tree) |
+| `SceneTree`: lifecycle (enter/ready/process/physics/exit), pause, deferred calls, `QueueFree` | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#lifecycle) |
+| `[Signal]` events + serializable connections | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#signals) |
+| `Node2D`/`Node3D` with cached global transforms; lights, cameras, sky as nodes | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#transforms) |
+| Servers (`RenderServer`, …) replace static `Node.Initialize`; `NodeId` registry | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#servers-and-render-nodes) |
+| Input events routed through the tree (`OnInput` / `OnUnhandledInput`) | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#input) |
+| `[Export]` + source-generated type registry (`MainframeEngine.Generators`) | ✅ | [Scene serialization](design/scene-serialization.md#property-model) |
+| `.mscene` / `.mres` files, `PackedScene`, nested instances, UIDs + `AssetDatabase` | ✅ | [Scene serialization](design/scene-serialization.md) |
+| Sandbox scene loaded from `Content/Scenes/Sandbox.mscene` | ✅ | [Sandbox](design/sandbox.md) |
 
 ## M3 — Materials, meshes & resources
 
