@@ -139,3 +139,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - M10a editor (E1–E3) + C3 brand/icons (Dock icon ABGR fix, macOS icon grid), splash, README logo; editor Output = ILogSink; project.mfproj discovery; SubViewport shadows. ADRs 0080–0084. CI green run 37238375239.
 - Gates: engine 1162 + editor 155 tests ×3, render 43 ×2, all checks clean; editor 8.3 ms avg frame.
 - Mobile design: docs/design/future/mobile.md (M12), mobile-services.md (M13), ADR 0100 (amends 0011 for exports), plumbing checklist in lane brief.
+
+### 2026-10-05 — v1.0.0 + lock step; M10c-icons integrated (local only)
+- a631d0d: first release v1.0.0; engine/editor/generator share one version (verified 1.0.0+sha in all three); editor startup lock-step check.
+- M10c-icons (c5940a0..b716e3e): [EditorIcon] + families + doc summaries via generator, Tabler atlas (164 icons, `just editor-icons`), tooltips, icons across tree/inspector/toolbar/menus/output/tabs/dialogs, Godot-style create dialog. ADRs 0085–0089. Gates: 1170 engine + 243 editor tests, render 43.
+- Lavapipe goldens to record at the final push: editor_frame0051 (+ any from m10c-projects).
+- Still running: m10c-projects (told to rebase onto local feature + label-column polish).
