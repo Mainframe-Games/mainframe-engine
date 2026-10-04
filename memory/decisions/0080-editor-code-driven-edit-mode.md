@@ -21,7 +21,8 @@ and how edited scenes are kept from running game code. The plan's default: code-
    `ViewportController`) are `[Tool]`; `UiLayer`/`UiDocument` have no process callbacks, so they need nothing.
 3. **One edited world per tab = one `SubViewport` per scene** under the workspace, the scene root its child. Only the
    active tab's viewport renders (`UpdateMode`). Its LDR target is published to RmlUi as `engine://editor-viewport`
-   (new `SubViewport.ColorTarget`). Rendered without shadows (sub-viewport limitation, M3).
+   (new `SubViewport.ColorTarget`). Shadowed since integration with M4: the view sets `SubViewport.Shadows`, which
+   hands it the shared shadow maps because the editor's main world draws nothing.
 4. **Editor camera via `SceneViewport.CameraOverride`** (an `ICamera`; a `PerspectiveCamera` gets the view's aspect),
    so the scene's `Camera3D`s and their `Current` flags are never touched (no false dirty state, nothing to restore).
 5. **Gizmos and handles draw in `SceneViewport.OverlayLines`**: the debug-line renderer's second pipeline without depth

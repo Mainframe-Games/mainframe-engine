@@ -27,11 +27,11 @@ public sealed record OutputMessage(OutputLevel Level, string Text, DateTime Time
 }
 
 /// <summary>
-/// Collects engine <see cref="Log"/> messages for the Output panel through the interim <see cref="Log.MessageLogged"/>
-/// hook (replaced by the log-sink API later). Messages may come from any thread; they are queued and moved into a
-/// bounded history on the main thread by <see cref="Drain"/>, which costs nothing when no message arrived.
+/// Collects engine <see cref="Log"/> messages for the Output panel: an <see cref="ILogSink"/> registered by
+/// <see cref="Attach"/>. Messages may come from any thread; they are queued and moved into a bounded history on the
+/// main thread by <see cref="Drain"/>, which costs nothing when no message arrived.
 /// </summary>
-public sealed class OutputLog : IDisposable
+public sealed class OutputLog : ILogSink, IDisposable
 {
     private readonly ConcurrentQueue<OutputMessage> _incoming = new();
     private readonly List<OutputMessage> _messages = [];
@@ -66,14 +66,22 @@ public sealed class OutputLog : IDisposable
     {
         if (_attached)
             return;
-        Log.MessageLogged += OnMessage;
+        Log.AddSink(this);
         _attached = true;
     }
 
     /// <summary>Adds a message (thread-safe; also used for the editor's own notices).</summary>
     public void Add(OutputLevel level, string text) => _incoming.Enqueue(new OutputMessage(level, text ?? "", DateTime.Now));
 
-    private void OnMessage(Log.Level level, string text) => Add(ToOutputLevel(level), text);
+    /// <summary>
+    /// <see cref="ILogSink"/>: queues the entry as <c>[Category] message</c> (any thread). Only registered sinks are
+    /// called, so this runs between <see cref="Attach"/> and <see cref="Dispose"/>.
+    /// </summary>
+    public void Write(in LogEntry entry)
+    {
+        var text = entry.Category.Length == 0 ? entry.Message : $"[{entry.Category}] {entry.Message}";
+        _incoming.Enqueue(new OutputMessage(ToOutputLevel(entry.Level), text, entry.Timestamp.ToLocalTime()));
+    }
 
     public static OutputLevel ToOutputLevel(Log.Level level) => level switch
     {
@@ -127,7 +135,7 @@ public sealed class OutputLog : IDisposable
     {
         if (!_attached)
             return;
-        Log.MessageLogged -= OnMessage;
+        Log.RemoveSink(this);
         _attached = false;
     }
 }

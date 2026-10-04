@@ -6,7 +6,9 @@ namespace MainframeEngine.Editor;
 /// <c>[Tool]</c> nodes process. Opening, saving and closing go through here; edits go through <see cref="EditedScene"/>.
 /// </summary>
 /// <remarks>
-/// Until projects arrive (E4), the project is the folder that contains the opened scene's <c>Content/</c> folder:
+/// Until the project UI arrives (E4 editor side), the project is found from the opened scene: the nearest ancestor
+/// folder holding a <c>project.mfproj</c> (<see cref="ProjectSettings"/>, loaded into <see cref="Project"/>), else —
+/// for folders without one — the folder that contains the scene's <c>Content/</c> folder.
 /// <see cref="AssetDatabase.Current"/> and <see cref="ContentPaths.ProjectDirectory"/> are pointed at it so the scene's
 /// resources resolve from the project sources.
 /// </remarks>
@@ -28,6 +30,12 @@ public sealed class EditorSession : IDisposable
 
     /// <summary>The project folder (contains <c>Content/</c>) resources resolve against; null until a scene is opened or saved.</summary>
     public string? ProjectRoot { get; private set; }
+
+    /// <summary>
+    /// The project's settings when <see cref="ProjectRoot"/> holds a readable <c>project.mfproj</c>; null for a folder
+    /// found by the <c>Content/</c> fallback (or an unreadable file, which is reported in the Output panel).
+    /// </summary>
+    public ProjectSettings? Project { get; private set; }
 
     /// <summary>Tabs opened, closed, renamed (saved as), or their dirty state changed.</summary>
     public event Action? ScenesChanged;
@@ -156,9 +164,9 @@ public sealed class EditorSession : IDisposable
     public bool HasUnsavedChanges => _scenes.Any(s => s.IsDirty);
 
     /// <summary>
-    /// Points the asset database and content resolution at the project containing <paramref name="scenePath"/> (the
-    /// nearest ancestor folder with a <c>Content/</c> folder holding the file; else the file's folder). Refuses to
-    /// switch projects while scenes of another project are open.
+    /// Points the asset database and content resolution at the project containing <paramref name="scenePath"/> (see
+    /// <see cref="FindProjectRoot"/>) and loads its <c>project.mfproj</c> when there is one. Refuses to switch projects
+    /// while scenes of another project are open.
     /// </summary>
     public void UseProjectOf(string scenePath, bool allowSwitch = false)
     {
@@ -169,21 +177,46 @@ public sealed class EditorSession : IDisposable
             throw new InvalidOperationException(
                 $"'{scenePath}' belongs to the project at {root}, but scenes of {ProjectRoot} are open. Close them first.");
         ProjectRoot = root;
+        Project = LoadProjectSettings(root);
         var database = new AssetDatabase(root);
         database.Refresh();
         AssetDatabase.Current = database;
         ContentPaths.ProjectDirectory = root;
-        Log.Info($"[Editor] Project folder: {root}");
+        Log.Info(Project is { } project
+            ? $"[Editor] Project '{project.Name}': {root}"
+            : $"[Editor] Project folder (no {ProjectSettings.FileName}): {root}");
     }
 
-    /// <summary>The folder above the nearest <c>Content/</c> ancestor of <paramref name="path"/>, else its folder.</summary>
+    /// <summary>
+    /// The project folder of <paramref name="path"/>: the nearest ancestor holding a <c>project.mfproj</c>; else (a
+    /// folder without project settings) the folder above the nearest <c>Content/</c> ancestor; else the file's folder.
+    /// </summary>
     public static string FindProjectRoot(string path)
     {
         var directory = Path.GetDirectoryName(Path.GetFullPath(path));
         for (var d = directory; d is not null; d = Path.GetDirectoryName(d))
+            if (File.Exists(Path.Combine(d, ProjectSettings.FileName)))
+                return d;
+        for (var d = directory; d is not null; d = Path.GetDirectoryName(d))
             if (string.Equals(Path.GetFileName(d), ContentPaths.FolderName, StringComparison.Ordinal))
                 return Path.GetDirectoryName(d) ?? d;
         return directory ?? Path.GetFullPath(".");
+    }
+
+    private static ProjectSettings? LoadProjectSettings(string root)
+    {
+        var file = Path.Combine(root, ProjectSettings.FileName);
+        if (!File.Exists(file))
+            return null;
+        try
+        {
+            return ProjectSettings.Load(file);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            Log.Warning($"[Editor] {e.Message} The project's settings are ignored.");
+            return null;
+        }
     }
 
     private EditedScene Attach(Node root, string? filePath, PackedScene? source, int untitled)
@@ -192,6 +225,7 @@ public sealed class EditorSession : IDisposable
         {
             Name = $"EditedScene{++_viewportCounter}",
             UpdateMode = SubViewportUpdateMode.Disabled,
+            Shadows = true, // the editor's main world is empty, so the active tab's view gets the shadow maps
             ClearColor = System.Drawing.Color.FromArgb(255, 48, 52, 61),
         };
         _host.AddChild(viewport);

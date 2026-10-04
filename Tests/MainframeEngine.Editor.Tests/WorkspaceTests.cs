@@ -9,11 +9,13 @@ public sealed class HeadlessEditor : IDisposable
     private readonly AssetDatabase _previousDatabase = AssetDatabase.Current;
     private readonly string? _previousProject = ContentPaths.ProjectDirectory;
     private readonly List<string> _rmlMessages = [];
+    private readonly RmlMessageSink _rmlSink;
 
     public HeadlessEditor(string? initialScene = null)
     {
         Directory = System.IO.Directory.CreateTempSubdirectory("mf-editor-ui").FullName;
-        Log.MessageLogged += OnLog;
+        _rmlSink = new RmlMessageSink(_rmlMessages);
+        Log.AddSink(_rmlSink);
         Server = new UiServer(options: new UiServerOptions { HotReload = false, HeadlessViewport = new Vector2(1600, 900) });
         Servers.Register(Server);
         Tree = new SceneTree(Servers) { EditMode = true };
@@ -46,11 +48,15 @@ public sealed class HeadlessEditor : IDisposable
         }
     }
 
-    private void OnLog(Log.Level level, string text)
+    /// <summary>Keeps RmlUi/UI warnings and errors.</summary>
+    private sealed class RmlMessageSink(List<string> messages) : ILogSink
     {
-        if (level >= Log.Level.Warning && (text.Contains("[RmlUi]", StringComparison.Ordinal) || text.Contains("[UI]", StringComparison.Ordinal)))
-            lock (_rmlMessages)
-                _rmlMessages.Add(text);
+        public void Write(in LogEntry entry)
+        {
+            if (entry.Level >= Log.Level.Warning && entry.Category is "RmlUi" or "UI")
+                lock (messages)
+                    messages.Add($"[{entry.Category}] {entry.Message}");
+        }
     }
 
     public void Tick(int frames = 1)
@@ -72,7 +78,7 @@ public sealed class HeadlessEditor : IDisposable
 
     public void Dispose()
     {
-        Log.MessageLogged -= OnLog;
+        Log.RemoveSink(_rmlSink);
         Tree.Shutdown();
         Servers.Dispose();
         ResourceLoader.ClearCache();

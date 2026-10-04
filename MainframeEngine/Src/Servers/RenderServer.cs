@@ -33,6 +33,8 @@ public sealed class RenderServer : IServer
     private readonly List<(TaskCompletionSource<PickResult> Completion, PickResult Result)> _pickCompletions = [];
     private bool _warnedTooManyViews;
     private ShadowSystem? _shadows;
+    private SubViewport? _shadowView;      // the sub-viewport that owns the shadow maps this frame (see SubViewport.Shadows)
+    private ulong _shadowViewRenderedFrame = ulong.MaxValue; // frame number its shadow maps were recorded in
     private DebugLinesRenderer? _debugLines;
     private MeshRenderer? _meshes;
     private SubViewportCompositor? _compositor;
@@ -149,7 +151,12 @@ public sealed class RenderServer : IServer
             _subViewports.Add(viewport);
     }
 
-    internal void RemoveSubViewport(SubViewport viewport) => _subViewports.Remove(viewport);
+    internal void RemoveSubViewport(SubViewport viewport)
+    {
+        _subViewports.Remove(viewport);
+        if (ReferenceEquals(_shadowView, viewport))
+            _shadowView = null;
+    }
 
     // ── Frame ──────────────────────────────────────────────────────────────────
 
@@ -172,34 +179,64 @@ public sealed class RenderServer : IServer
         if (world.GeometryList.Count > 0 && GetRenderCamera(root, vk.SwapchainExtent) is { } camera)
             Meshes!.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
 
+        _shadowView = FindShadowView(root);
         foreach (var sub in _subViewports)
         {
             if (!ShouldRender(sub) && !NeedsObjectIds(sub))
                 continue;
             EnsureResources(sub.World3D);
             if (sub.World3D.GeometryList.Count > 0 && GetRenderCamera(sub, Extent(sub)) is { } subCamera)
-                Meshes!.Prepare(EnsureTargets(sub).Draws, sub.World3D, subCamera, collectCasters: false);
+                Meshes!.Prepare(EnsureTargets(sub).Draws, sub.World3D, subCamera, collectCasters: ReferenceEquals(sub, _shadowView));
         }
+    }
+
+    // The shadow maps are shared (one set, one light-matrix ring region per frame): the main world uses them, unless it
+    // has nothing to shadow; then the first rendering sub-viewport that asks for them (SubViewport.Shadows) gets them.
+    private SubViewport? FindShadowView(SceneViewport root)
+    {
+        if (!ShadowsEnabled || root.World3D.VisualList.Count > 0)
+            return null;
+        foreach (var sub in _subViewports)
+            if (sub.Shadows && ShouldRender(sub))
+                return sub;
+        return null;
     }
 
     /// <summary>
     /// Records the shadow maps for <paramref name="viewport"/>'s world. Call with the frame's command buffer open
     /// and no render pass active (<see cref="Engine"/> does, after <c>OnShadowPass</c>).
     /// </summary>
+    /// <remarks>
+    /// When the main world has nothing to shadow, the shadow maps go to the sub-viewport that asked for them
+    /// (<see cref="SubViewport.Shadows"/>, e.g. the editor's view) instead.
+    /// </remarks>
     public void RenderShadows(SceneViewport viewport)
     {
         ArgumentNullException.ThrowIfNull(viewport);
-        var world = viewport.World3D;
-        if (world.VisualList.Count == 0 || Vulkan is not { FrameStarted: true } vk || Shadows is not { } shadows)
+        if (Vulkan is not { FrameStarted: true } vk)
             return;
+        if (viewport.World3D.VisualList.Count == 0 && ReferenceEquals(viewport, _root) && _shadowView is { IsInsideTree: true } sub)
+        {
+            if (RenderShadows(vk, sub.World3D, GetRenderCamera(sub, Extent(sub)), EnsureTargets(sub).Draws))
+                _shadowViewRenderedFrame = vk.FrameNumber;
+            return;
+        }
+
+        RenderShadows(vk, viewport.World3D, GetRenderCamera(viewport, vk.SwapchainExtent), _mainDraws);
+    }
+
+    // Records the shadow maps for world as seen by camera; false when there was nothing to do.
+    private bool RenderShadows(IVulkanContext vk, World3D world, ICamera? camera, MeshViewDraws draws)
+    {
+        if (world.VisualList.Count == 0 || Shadows is not { } shadows)
+            return false;
 
         EnsureResources(world);
         MeshRenderer? meshes = null;
-        var camera = GetRenderCamera(viewport, vk.SwapchainExtent);
         if (world.GeometryList.Count > 0 && camera is not null)
         {
             meshes = Meshes!;
-            meshes.Prepare(_mainDraws, world, camera, collectCasters: true); // no-op when PrepareFrame ran
+            meshes.Prepare(draws, world, camera, collectCasters: true); // no-op when PrepareFrame ran
         }
 
         // Visuals drawn one by one (Spine) have no bounds: they cast into every pass.
@@ -213,8 +250,8 @@ public sealed class RenderServer : IServer
             }
         }
 
-        var casterBounds = meshes is null ? Aabb.Empty : _mainDraws.CasterBounds;
-        shadows.RenderShadows(world.Lights, camera, casterBounds, new ShadowState(world.VisualList, meshes, _mainDraws, unbounded),
+        var casterBounds = meshes is null ? Aabb.Empty : draws.CasterBounds;
+        shadows.RenderShadows(world.Lights, camera, casterBounds, new ShadowState(world.VisualList, meshes, draws, unbounded),
             static (ShadowState s, in ShadowPass pass) =>
                 (s.Meshes?.CullShadowCasters(s.Draws, pass) ?? false) | s.Unbounded, // always cull: it writes the instances
             static (ShadowState s, CommandBuffer cb, in ShadowPass pass) =>
@@ -232,6 +269,7 @@ public sealed class RenderServer : IServer
                         visual.DrawShadow2D(cb);
                 }
             });
+        return true;
     }
 
     private readonly record struct ShadowState(List<VisualInstance3D> Visuals, MeshRenderer? Meshes, MeshViewDraws Draws, bool Unbounded);
@@ -298,7 +336,8 @@ public sealed class RenderServer : IServer
         if (camera is not null)
         {
             EnsureResources(world);
-            frame.Begin(camera, world.Lights, shadows: false); // the shadow maps belong to the main world
+            // The shadow maps belong to the main world, unless this view owns them this frame (SubViewport.Shadows).
+            frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber);
             meshes = world.GeometryList.Count > 0 ? Meshes : null;
             meshes?.Prepare(targets.Draws, world, camera, collectCasters: false);
         }

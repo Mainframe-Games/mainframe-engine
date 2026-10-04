@@ -416,7 +416,9 @@ Before M4, 116 MiB was allocated whatever the lights.
 - Cascade layers that did not render this frame keep stale contents. They are not sampled (disabled), but the debug
   viewer shows them.
 - Spine and other non-batched visuals have no bounds: they are drawn into every pass and keep every pass alive.
-- Offscreen views (`SubViewport`) of other worlds have no shadows.
+- Offscreen views (`SubViewport`) of other worlds have no shadows, except one view with `SubViewport.Shadows` while the
+  main world has no visuals (the editor): `RenderServer.RenderShadows` then plans and draws the maps for that view's
+  world and camera instead.
 - Point lights past the fourth shadowed one, and atlas tiles that do not fit at the minimum size, light without a
   shadow (no warning).
 - No contact-hardening (PCSS), EVSM or screen-space contact shadows; PCF only ([ADR 0072](../../memory/decisions/0072-pcf-and-receiver-bias.md)).

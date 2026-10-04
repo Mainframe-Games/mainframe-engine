@@ -388,6 +388,44 @@ public sealed class SceneOperationsTests : IDisposable
     }
 
     [Fact]
+    public void AProjectFileMarksTheProjectFolderBeforeTheContentFolderFallback()
+    {
+        // <project>/Game/project.mfproj wins over <project>/Game/Assets/Content (the Content/ fallback would pick Assets).
+        var game = Path.Combine(_host.ProjectDirectory, "Game");
+        var content = Path.Combine(game, "Assets", "Content", "Scenes");
+        Directory.CreateDirectory(content);
+        new ProjectSettings { Name = "Discovered" }.Save(game);
+        var path = Path.Combine(content, "Level.mscene");
+
+        Assert.Equal(game, EditorSession.FindProjectRoot(path));
+
+        _host.Session.UseProjectOf(path);
+        Assert.Equal(game, _host.Session.ProjectRoot);
+        Assert.Equal(game, ContentPaths.ProjectDirectory);
+        Assert.Equal("Discovered", _host.Session.Project?.Name);
+    }
+
+    [Fact]
+    public void AFolderWithoutAProjectFileFallsBackToTheFolderAboveContent()
+    {
+        var path = _host.ScenePath("Plain.mscene");
+        Assert.Equal(_host.ProjectDirectory, EditorSession.FindProjectRoot(path));
+        _host.Session.UseProjectOf(path);
+        Assert.Null(_host.Session.Project);
+    }
+
+    [Fact]
+    public void AnUnreadableProjectFileKeepsTheFolderAndIgnoresTheSettings()
+    {
+        File.WriteAllText(Path.Combine(_host.ProjectDirectory, ProjectSettings.FileName), "{ not json");
+        var path = _host.ScenePath("Broken.mscene");
+        Assert.Equal(_host.ProjectDirectory, EditorSession.FindProjectRoot(path));
+        _host.Session.UseProjectOf(path);
+        Assert.Equal(_host.ProjectDirectory, _host.Session.ProjectRoot);
+        Assert.Null(_host.Session.Project);
+    }
+
+    [Fact]
     public void EditedScenesDoNotProcessOutsideToolNodes()
     {
         var scene = NewScene();

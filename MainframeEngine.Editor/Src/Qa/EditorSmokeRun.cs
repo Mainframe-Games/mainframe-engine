@@ -36,6 +36,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
     private VulkanValidationLog? _validation;
     private (string Name, string Driver, string Tag) _device = ("unknown", "unknown", "unknown");
     private int _renderedFrames;
+    private float _contentScale = 1f;
     private uint _captureFrame;
 
     private enum Step
@@ -347,6 +348,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
     {
         ArgumentNullException.ThrowIfNull(app);
         _renderedFrames = app.RenderedFrameCount;
+        _contentScale = app.PixelScale;
         if (app.Renderer is IVulkanContext vulkan)
         {
             _validation = vulkan.Validation;
@@ -374,6 +376,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
             ValidationErrors = _validation?.ErrorCount ?? 0,
             ValidationMessages = _validation?.Messages ?? [],
             RenderedFrames = _renderedFrames,
+            ContentScale = _contentScale,
             ExitCode = exitCode,
             SceneCheckFailures = _failures,
             AllocatedBytes = _allocated,

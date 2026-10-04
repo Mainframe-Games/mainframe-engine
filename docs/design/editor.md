@@ -61,9 +61,12 @@ flowchart TB
   `engine://editor-viewport` and shown by an `<img>` in the viewport panel; the view's pixel size follows the panel.
 - **The editor camera** is `SceneViewport.CameraOverride` — the scene's own `Camera3D`s and their `Current` flags are
   never touched.
-- Audio is disabled in the editor process. Offscreen views have no shadow maps yet (M3 limitation), so the editor view
-  is unshadowed.
-- **Projects (interim, until E4):** opening (or first saving) a scene makes the folder above its `Content/` the project:
+- Audio is disabled in the editor process. The edited scene is **shadowed**: its view sets `SubViewport.Shadows`, and
+  since the editor's main world draws nothing, the shared shadow maps (Shadows v2: cascades, atlas, PCF) go to the
+  active tab's view.
+- **Projects (interim, until the E4 project UI):** opening (or first saving) a scene makes its project current: the
+  nearest ancestor folder holding a `project.mfproj` (its `ProjectSettings` load into `EditorSession.Project`; an
+  unreadable file is reported and ignored), else — a folder without one — the folder above the scene's `Content/`.
   `AssetDatabase.Current` and `ContentPaths.ProjectDirectory` point there, so the scene's textures, models, sky and Spine
   folders load from the project sources. Node types are the engine's (game types load as `MissingNode`, kept intact and
   written back — the inspector says so). Game assemblies arrive with E4.
@@ -77,7 +80,7 @@ flowchart TB
 | Scene tree | `scene_tree.rml` | The hierarchy (instanced sub-scenes are one row tagged "scene"; their insides are not listed), type icons by category, expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu (add child, instance scene, rename, duplicate, move up/down, delete) |
 | Viewport | `viewport.rml` | Scene tabs (title with `*` when dirty, close, +), the 3D view, the view's mode in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Type, editable name, custom-inspector header, collapsible sections per declaring type / `[ExportGroup]`, one row per `[Export]` (below) |
-| Output | `output.rml` | Engine `Log` messages (time, level colour), Debug/Info/Warnings/Errors filters with counts (persisted), Clear; follows the newest line |
+| Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`; the category shows as `[Category]`) (time, level colour), Debug/Info/Warnings/Errors filters with counts (persisted), Clear; follows the newest line |
 | File system | `filesystem.rml` | Placeholder until E4 (shows the project folder) |
 | Splitters | `splitters.rml` | Four drag handles (left dock, right dock, output, scene tree / file system) |
 | Dialogs | `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml` | Modal file picker (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (Add Node, node paths, resource types), message box / prompt, popup menus |
@@ -187,7 +190,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 |---|---|
 | `SceneTree.EditMode`, `Node.IsTool` | [Scene graph & nodes](scene-graph-and-nodes.md) |
 | `SceneViewport.CameraOverride`, `SceneViewport.OverlayLines`, `SubViewport.ColorTarget` | [Scene graph & nodes](scene-graph-and-nodes.md), [Materials & meshes](materials-and-meshes.md#offscreen-views-subviewport) |
-| `Log.MessageLogged` (interim listener, replaced by the log-sink API) | `Debugging/Log.cs` |
+| `SubViewport.Shadows` (a view of another world may own the shadow maps when the main world has nothing to shadow) | `Scene/SubViewport.cs`, `Servers/RenderServer.cs` |
 | `ContentPaths.ProjectDirectory` | `Core/ContentPaths.cs` |
 | List bindings tolerate rows past the end of a list that just shrank | [Game UI](game-ui.md#data-binding) |
 | `WindowIcon` byte order for window icons | `Core/WindowIcon.cs` |
@@ -212,12 +215,12 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 
 ## Performance
 
-Apple M5, MoltenVK, 1280×720 hidden window, Sandbox.mscene open (sky, five lights, Spine, physics crates, a glTF model), Debug build
-with validation: **8.3 ms average, 9.2 ms p95** per frame (the 120 Hz display rate). Idle frames allocate nothing.
+Apple M5, MoltenVK, hidden 1280×720-point window at content scale 2 (2560×1440 px), Sandbox.mscene open (sky, five
+lights with Shadows v2 cascades and atlas, Spine, physics crates, a glTF model), Debug build with validation: **8.3 ms
+average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate nothing.
 
 ## Known issues
 
-- The editor view has no shadows (offscreen views lack shadow maps).
 - Game node types load as `MissingNode` until E4 loads game assemblies (the Sandbox's `FlyCamera`, `SpinningBox`).
 - Single selection for the gizmo and the inspector (the last selected node); multi-object editing is E5.
 - No orthographic camera, box selection or 2D editing yet (E5).

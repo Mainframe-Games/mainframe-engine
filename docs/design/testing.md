@@ -204,6 +204,8 @@ sequenceDiagram
   panel), and RmlUi's dp ratio and ImGui's scale are that scale too, so UI goldens match as well. The engine sizes the
   OS window for the display (640×480 pt on a 1× monitor, 320×240 pt on Retina) before the swapchain exists and fails
   start-up if the framebuffer cannot reach the request; `result.json` records the scale (`ContentScale`).
+  The editor's smoke runs (`EditorRenderTests`) pass the same canonical `--scale` to `MainframeEngine.Editor`: the
+  editor window golden is 1280×720 points (2560×1440 `moltenvk`, 1280×720 `lavapipe`), the splash 960×600 points.
 - **Comparing drivers at one resolution.** `--scale 1` on a Mac renders 320×240, the size of the lavapipe frames, so
   MoltenVK and lavapipe output can be diffed pixel for pixel.
 

@@ -280,7 +280,9 @@ render server renders it after the shadow pass and before the main pass. It uses
 | `ColorImage` | `R8G8B8A8_UNORM` | tonemapped (exposure, ACES) and sRGB-encoded by `SubViewportCompositor`, ready for UI; `ImGuiTextureId` shows it with `ImGui.Image` |
 | `ObjectIdImage` | `R32_UINT` + depth | picking (`ObjectIds` or pending picks) |
 
-Shadow maps belong to the main world, so offscreen worlds are lit without shadows (`counts.w`). Up to
+There is one set of shadow maps. It belongs to the main world, so offscreen worlds are lit without shadows
+(`counts.w`) — unless the main world has no visuals and a rendering `SubViewport` sets `Shadows`: the first such view
+then gets the shadow maps for its own world and camera (the editor's view). Up to
 `FrameContext.MaxViews - 1` (7) offscreen views render per frame.
 
 ## Compatibility
@@ -338,7 +340,7 @@ Measured on an Apple M5 with MoltenVK:
 - Each `Sprite3D` owns its quad mesh and material, so sprites are not batched together. To batch many, share a
   `MeshInstance3D` with a `QuadMesh` and one material.
 - Entries upgraded from removed types (`Box3d`/`Quad`) skip `[SerializedMigration]`s of their replacement type.
-- Offscreen views have no shadows.
+- Offscreen views have no shadows while the main world draws anything (one set of shadow maps; `SubViewport.Shadows`).
 - Mesh data in `.mscene`/`.mres` is JSON arrays (ADR 0011). Imported models are not re-serialized: scenes
   reference the model file.
 

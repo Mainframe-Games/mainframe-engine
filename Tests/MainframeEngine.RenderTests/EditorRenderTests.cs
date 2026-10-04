@@ -1,3 +1,5 @@
+using MainframeEngine.RenderTests.Host;
+
 namespace MainframeEngine.RenderTests;
 
 /// <summary>
@@ -9,6 +11,9 @@ namespace MainframeEngine.RenderTests;
 public class EditorRenderTests
 {
     private static string Output(string name) => Path.Combine(RenderTestEnvironment.ArtifactsDirectory, name);
+
+    /// <summary>Layout points → capture pixels at the run's fixed content scale.</summary>
+    private static int Px(HostResult result, int points) => (int)MathF.Round(points * result.ContentScale);
 
     private static string SandboxScene =>
         Path.Combine(RenderTestEnvironment.RepositoryRoot, "MainframeEngine.Sandbox", "Content", "Scenes", "Sandbox.mscene");
@@ -26,6 +31,8 @@ public class EditorRenderTests
             $"Idle editor frames with 1 000 nodes allocated {result.AllocatedBytes} managed bytes over {result.MeasuredFrames} frames.");
         Assert.True(result.PerfMeasuredFrames > 0);
         var capture = Assert.Single(result.Captures);
+        Assert.Equal(HostOptions.CanonicalScale, result.ContentScale);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
         Gates.AssertMatchesGolden(result, capture.Frame);
     }
 
@@ -36,6 +43,8 @@ public class EditorRenderTests
 
         Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
         Gates.AssertValidationClean(result);
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 960), Px(result, 600)), (capture.Width, capture.Height));
         Gates.AssertMatchesGolden(result, 20);
     }
 }

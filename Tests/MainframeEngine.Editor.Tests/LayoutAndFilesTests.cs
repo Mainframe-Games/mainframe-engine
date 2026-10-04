@@ -253,3 +253,21 @@ public sealed class OutputLogTests
     [InlineData(Log.Level.Fatal, OutputLevel.Error)]
     public void LevelsMapToTheFilterBuckets(Log.Level level, OutputLevel expected) => Assert.Equal(expected, OutputLog.ToOutputLevel(level));
 }
+
+public sealed class EditorCommandLineTests
+{
+    [Fact]
+    public void ScaleSetsTheFixedContentScale()
+    {
+        Assert.Equal(2f, EditorCommandLine.Parse(["--scale", "2", "--size", "1280x720"]).ContentScale);
+        Assert.Equal(0f, EditorCommandLine.Parse([]).ContentScale); // follows the display
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("NaN")]
+    [InlineData("big")]
+    public void ScaleMustBeAPositiveNumber(string value) =>
+        Assert.Throws<ArgumentException>(() => EditorCommandLine.Parse(["--scale", value]));
+}

@@ -172,13 +172,14 @@ public sealed class ViewportController : Node
         switch (inputEvent)
         {
             case InputEventMouseButton button:
-                _mouse = button.Position;
+                _mouse = button.Position * _workspace.Host.PointerScale;
                 if (button.Pressed ? Press(scene, button) : Release(scene, button))
                     Handled();
                 break;
             case InputEventMouseMotion motion:
-                var delta = motion.Position - _mouse;
-                _mouse = motion.Position;
+                var position = motion.Position * _workspace.Host.PointerScale;
+                var delta = position - _mouse;
+                _mouse = position;
                 if (Move(scene, delta))
                     Handled();
                 break;
@@ -200,9 +201,9 @@ public sealed class ViewportController : Node
 
     private bool Press(EditedScene scene, InputEventMouseButton e)
     {
-        if (_drag != DragKind.None || !ViewRect.Contains(e.Position.X, e.Position.Y))
+        if (_drag != DragKind.None || !ViewRect.Contains(_mouse.X, _mouse.Y))
             return false;
-        _pressAt = e.Position;
+        _pressAt = _mouse; // the event's position in layout points
         var alt = (_workspace.Modifiers & EditorModifiers.Alt) != 0;
         var shift = (_workspace.Modifiers & EditorModifiers.Shift) != 0;
         switch (e.Button)
@@ -246,8 +247,8 @@ public sealed class ViewportController : Node
         _drag = DragKind.None;
         if (drag == DragKind.Gizmo)
             EndGizmo(scene, commit: true);
-        else if (drag == DragKind.Click && Vector2.Distance(e.Position, _pressAt) <= ClickPixels)
-            Pick(scene, e.Position, (_workspace.Modifiers & (EditorModifiers.Command | EditorModifiers.Shift)) != 0);
+        else if (drag == DragKind.Click && Vector2.Distance(_mouse, _pressAt) <= ClickPixels)
+            Pick(scene, _mouse, (_workspace.Modifiers & (EditorModifiers.Command | EditorModifiers.Shift)) != 0);
         else if (drag == DragKind.Fly)
             Array.Clear(_flyKeys);
         return true;

@@ -7,7 +7,7 @@ namespace MainframeEngine.Editor;
 public static class EditorCommandLine
 {
     public const string Usage =
-        "Usage: MainframeEngine.Editor [scene.mscene] [--layout <file>] [--size WxH] [--hidden] [--no-vsync] " +
+        "Usage: MainframeEngine.Editor [scene.mscene] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
         "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--no-validation]]";
 
     public static EditorAppOptions Parse(IReadOnlyList<string> args)
@@ -15,6 +15,7 @@ public static class EditorCommandLine
         ArgumentNullException.ThrowIfNull(args);
         string? scene = null, layout = EditorLayout.DefaultPath, qaScript = null, qaOut = null, smoke = null, smokeScene = null;
         Vector2D<int>? size = null;
+        var scale = 0f;
         var hidden = false;
         var vsync = true;
         var captureFrame = 0u;
@@ -38,6 +39,11 @@ public static class EditorCommandLine
                         !int.TryParse(parts[1], CultureInfo.InvariantCulture, out var h) || w < 320 || h < 240)
                         throw new ArgumentException("--size needs WxH (at least 320x240).");
                     size = new Vector2D<int>(w, h);
+                    break;
+                case "--scale":
+                    // EngineOptions.ContentScale: the framebuffer is exactly --size × S pixels on any display.
+                    if (!float.TryParse(Next(), NumberStyles.Float, CultureInfo.InvariantCulture, out scale) || !(scale > 0f) || !float.IsFinite(scale))
+                        throw new ArgumentException("--scale needs a positive number (pixels per point).");
                     break;
                 case "--hidden":
                     hidden = true;
@@ -85,6 +91,7 @@ public static class EditorCommandLine
             {
                 Workspace = new EditorWorkspaceOptions { LayoutPath = null, InitialScene = smokeRun.ScenePath, ShowSplash = false, OutputTimestamps = false, ShowFrameStats = false },
                 WindowSize = size ?? new Vector2D<int>(1280, 720),
+                ContentScale = scale,
                 Hidden = hidden,
                 VSync = false,
                 EnableValidation = validation,
@@ -101,6 +108,7 @@ public static class EditorCommandLine
             {
                 Workspace = new EditorWorkspaceOptions { LayoutPath = null, InitialScene = scene },
                 WindowSize = size ?? new Vector2D<int>(1600, 960),
+                ContentScale = scale,
                 Hidden = hidden,
                 VSync = vsync,
                 FixedDeltaTime = 1f / 60f,
@@ -113,6 +121,7 @@ public static class EditorCommandLine
         {
             Workspace = new EditorWorkspaceOptions { LayoutPath = layout, InitialScene = scene },
             WindowSize = size,
+            ContentScale = scale,
             Hidden = hidden,
             VSync = vsync,
         };

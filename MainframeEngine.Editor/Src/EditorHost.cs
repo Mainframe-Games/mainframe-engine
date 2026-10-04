@@ -18,11 +18,17 @@ public enum EditorModifiers
 /// </summary>
 public interface IEditorHost
 {
-    /// <summary>Window size in points (= dp of the editor UI layer).</summary>
+    /// <summary>Window size in layout points (= dp of the editor UI layer).</summary>
     Vector2 WindowSize { get; }
 
-    /// <summary>Framebuffer pixels per point (2 on Retina).</summary>
+    /// <summary>Framebuffer pixels per layout point (2 on Retina, or the fixed <see cref="EngineOptions.ContentScale"/>).</summary>
     float PixelScale { get; }
+
+    /// <summary>
+    /// Layout points per mouse-event point (OS window points): 1 unless a fixed content scale differs from the display's
+    /// backing scale. Multiply input-event positions by it before comparing them with layout rectangles.
+    /// </summary>
+    float PointerScale => 1f;
 
     /// <summary>Smoothed frames per second and frame time (ms), for the toolbar readout.</summary>
     float FramesPerSecond { get; }

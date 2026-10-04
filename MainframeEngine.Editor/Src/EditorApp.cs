@@ -14,6 +14,12 @@ public sealed record EditorAppOptions
     /// <summary>Window size in points; null uses the persisted size (or 1600×960).</summary>
     public Vector2D<int>? WindowSize { get; init; }
 
+    /// <summary>
+    /// Fixed pixels per point (<see cref="EngineOptions.ContentScale"/>, <c>--scale</c>): the framebuffer is exactly
+    /// <see cref="WindowSize"/> × this on any display (render tests, QA captures). 0 follows the display.
+    /// </summary>
+    public float ContentScale { get; init; }
+
     public bool Hidden { get; init; }
     public bool VSync { get; init; } = true;
     public bool EnableValidation { get; init; } = EngineOptions.DefaultEnableValidation;
@@ -70,6 +76,7 @@ public sealed class EditorApp : Engine, IEditorHost
         {
             GameName = "Mainframe Editor",
             WindowSize = size,
+            ContentScale = options.ContentScale,
             WindowVisible = !options.Hidden,
             VSync = options.VSync,
             EnableValidation = options.EnableValidation,
@@ -98,7 +105,7 @@ public sealed class EditorApp : Engine, IEditorHost
         _closeFilter = CloseRequestFilter.TryInstall();
         Workspace = new EditorWorkspace(this, _options.Workspace);
         Root.AddChild(Workspace);
-        Log.Info($"[Editor] Ready ({Window.Size.X}x{Window.Size.Y} pt, {PixelScale:0.#}x).");
+        Log.Info($"[Editor] Ready ({LayoutSize.X}x{LayoutSize.Y} pt, {PixelScale:0.#}x).");
     }
 
     protected override void OnUpdate(in GameTime gameTime)
@@ -136,9 +143,34 @@ public sealed class EditorApp : Engine, IEditorHost
 
     // ── IEditorHost ──────────────────────────────────────────────────────────────────────────────────────────────
 
-    Vector2 IEditorHost.WindowSize => new(Window.Size.X, Window.Size.Y);
+    Vector2 IEditorHost.WindowSize => LayoutSize;
 
-    public float PixelScale => Window.Size.X > 0 ? (float)FramebufferSize.X / Window.Size.X : 1f;
+    /// <summary>The window in layout points (the editor UI's dp): the framebuffer divided by <see cref="PixelScale"/>.</summary>
+    private Vector2 LayoutSize
+    {
+        get
+        {
+            var framebuffer = FramebufferSize;
+            var scale = PixelScale;
+            return framebuffer.X > 0 && framebuffer.Y > 0
+                ? new Vector2(MathF.Round(framebuffer.X / scale), MathF.Round(framebuffer.Y / scale))
+                : new Vector2(Window.Size.X, Window.Size.Y);
+        }
+    }
+
+    /// <summary>Pixels per layout point: the fixed <see cref="EngineOptions.ContentScale"/>, else the display's (2 on Retina).</summary>
+    public float PixelScale => MathF.Max(0.01f, ContentScale);
+
+    /// <summary>Layout points per mouse point (OS window point): 1 unless a fixed content scale differs from the display's.</summary>
+    public float PointerScale
+    {
+        get
+        {
+            var framebuffer = FramebufferSize;
+            var display = Window.Size.X > 0 && framebuffer.X > 0 ? (float)framebuffer.X / Window.Size.X : 1f;
+            return display / PixelScale;
+        }
+    }
 
     public float FramesPerSecond => _lastFps;
 

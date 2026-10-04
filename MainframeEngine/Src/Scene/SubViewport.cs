@@ -24,7 +24,8 @@ public enum SubViewportUpdateMode : byte
 /// object-ID target for picking. The editor viewport is one of these.
 /// </summary>
 /// <remarks>
-/// Limits (M3): shadow maps belong to the main world, so sub-viewport worlds are lit without shadows; at most
+/// Limits: there is one set of shadow maps, used by the main world; a sub-viewport world is lit without shadows unless
+/// it sets <see cref="Shadows"/> and the main world has nothing to shadow (the editor). At most
 /// <see cref="FrameContext.MaxViews"/> - 1 sub-viewports render per frame.
 /// </remarks>
 public class SubViewport : SceneViewport
@@ -44,6 +45,14 @@ public class SubViewport : SceneViewport
 
     [Export]
     public SubViewportUpdateMode UpdateMode { get; set; }
+
+    /// <summary>
+    /// Render shadow maps for this view's world. The engine has one set of shadow maps: the main world uses it whenever it
+    /// has visuals; otherwise the first rendering sub-viewport with this set gets it (the editor's view of the edited
+    /// scene). Other sub-viewports are lit without shadows.
+    /// </summary>
+    [Export]
+    public bool Shadows { get; set; }
 
     /// <summary>Also render the object-ID target every frame (hover/picking in tools). Picks work without it.</summary>
     [Export]

@@ -37,7 +37,10 @@ public static class HostRunner
     public static HostResult RunEditor(string outputDirectory, IReadOnlyDictionary<string, string>? environment, params string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
-        return Launch("MainframeEngine.Editor.dll", ["--smoke", outputDirectory, .. args], "editor", outputDirectory, environment, 0);
+        // At the goldens' canonical content scale (2 on macOS, 1 elsewhere), like the scene host: captures are --size × that
+        // in pixels on any display.
+        var scale = HostOptions.CanonicalScale.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return Launch("MainframeEngine.Editor.dll", ["--smoke", outputDirectory, "--scale", scale, .. args], "editor", outputDirectory, environment, 0);
     }
 
     private static HostResult Launch(string dll, IReadOnlyList<string> arguments, string scene, string outputDirectory,
