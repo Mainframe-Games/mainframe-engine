@@ -220,7 +220,7 @@ public abstract class Engine : IDisposable
             return;
 
         var img = ImageResult.FromMemory(
-            File.ReadAllBytes(path),
+            File.ReadAllBytes(ContentPaths.Resolve(path)),
             ColorComponents.RedGreenBlueAlpha
         ) ?? throw new InvalidDataException($"Failed to decode window icon '{path}'.");
         var ico = new RawImage(img.Width, img.Height, img.Data);

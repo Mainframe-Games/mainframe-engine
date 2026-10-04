@@ -203,7 +203,7 @@ public class SkyEnvironment : IDisposable
 
     private unsafe void LoadPanoramic(IVulkanContext ctx, string path)
     {
-        var img = ImageResult.FromMemory(File.ReadAllBytes(path), ColorComponents.RedGreenBlueAlpha);
+        var img = ImageResult.FromMemory(File.ReadAllBytes(ContentPaths.Resolve(path)), ColorComponents.RedGreenBlueAlpha);
         CreateTexture2d(ctx, (uint)img.Width, (uint)img.Height, img.Data);
     }
 
@@ -213,7 +213,7 @@ public class SkyEnvironment : IDisposable
             throw new ArgumentException("Cubemap requires exactly 6 face paths (+X, -X, +Y, -Y, +Z, -Z).", nameof(facePaths));
 
         var faces = facePaths
-            .Select(p => ImageResult.FromMemory(File.ReadAllBytes(p), ColorComponents.RedGreenBlueAlpha))
+            .Select(p => ImageResult.FromMemory(File.ReadAllBytes(ContentPaths.Resolve(p)), ColorComponents.RedGreenBlueAlpha))
             .ToArray();
         CreateTextureCube(ctx, (uint)faces[0].Width, (uint)faces[0].Height,
             faces.Select(f => f.Data).ToArray());
@@ -526,12 +526,12 @@ public class SkyEnvironment : IDisposable
         }
 
         // Shaders
-        var vertCode = File.ReadAllBytes("Content/Shaders/Sky/Sky.vk.vert.spv");
+        var vertCode = File.ReadAllBytes(ContentPaths.Resolve("Shaders/Sky/Sky.vk.vert.spv"));
         var fragCode = Type switch
         {
-            SkyEnvironmentType.Procedural => File.ReadAllBytes("Content/Shaders/Sky/Sky.Procedural.vk.frag.spv"),
-            SkyEnvironmentType.Panoramic  => File.ReadAllBytes("Content/Shaders/Sky/Sky.Panoramic.vk.frag.spv"),
-            SkyEnvironmentType.Cubemap    => File.ReadAllBytes("Content/Shaders/Sky/Sky.Cubemap.vk.frag.spv"),
+            SkyEnvironmentType.Procedural => File.ReadAllBytes(ContentPaths.Resolve("Shaders/Sky/Sky.Procedural.vk.frag.spv")),
+            SkyEnvironmentType.Panoramic  => File.ReadAllBytes(ContentPaths.Resolve("Shaders/Sky/Sky.Panoramic.vk.frag.spv")),
+            SkyEnvironmentType.Cubemap    => File.ReadAllBytes(ContentPaths.Resolve("Shaders/Sky/Sky.Cubemap.vk.frag.spv")),
             _ => throw new InvalidOperationException(),
         };
 

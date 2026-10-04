@@ -467,8 +467,8 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         var vk = _ctx.Vk;
         var device = _ctx.Device;
 
-        var vertCode = File.ReadAllBytes("Content/Shaders/ImGui/ImGui.vk.vert.spv");
-        var fragCode = File.ReadAllBytes("Content/Shaders/ImGui/ImGui.vk.frag.spv");
+        var vertCode = File.ReadAllBytes(ContentPaths.Resolve("Shaders/ImGui/ImGui.vk.vert.spv"));
+        var fragCode = File.ReadAllBytes(ContentPaths.Resolve("Shaders/ImGui/ImGui.vk.frag.spv"));
         var vertModule = CreateShaderModule(vertCode);
         var fragModule = CreateShaderModule(fragCode);
         var entryPoint = (byte*)SilkMarshal.StringToPtr("main");

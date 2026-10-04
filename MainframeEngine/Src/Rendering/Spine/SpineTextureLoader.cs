@@ -18,7 +18,7 @@ public class SpineTextureLoader : TextureLoader
         // For Vulkan: load raw pixels now (for dimension info + later GPU upload).
         // page.rendererObject stores the index into VkImageData so SpineRenderer
         // can look up which descriptor set to bind per-batch.
-        using var stream = File.OpenRead(path);
+        using var stream = File.OpenRead(ContentPaths.Resolve(path));
         var img = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
         int idx = VkImageData.Count;
         VkImageData.Add((img.Data, img.Width, img.Height));

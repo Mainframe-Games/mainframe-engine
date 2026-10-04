@@ -256,8 +256,8 @@ public abstract class SceneGrid : IDisposable
         }
 
         // --- Shaders ---
-        var vertCode = File.ReadAllBytes("Content/Shaders/SceneGrid/SceneGrid.vk.vert.spv");
-        var fragCode = File.ReadAllBytes("Content/Shaders/SceneGrid/SceneGrid.vk.frag.spv");
+        var vertCode = File.ReadAllBytes(ContentPaths.Resolve("Shaders/SceneGrid/SceneGrid.vk.vert.spv"));
+        var fragCode = File.ReadAllBytes(ContentPaths.Resolve("Shaders/SceneGrid/SceneGrid.vk.frag.spv"));
         var vertModule = CreateShaderModule(ctx, vertCode);
         var fragModule = CreateShaderModule(ctx, fragCode);
         var entryPoint = (byte*)SilkMarshal.StringToPtr("main");

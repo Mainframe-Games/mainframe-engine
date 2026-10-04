@@ -684,8 +684,8 @@ internal sealed class SpineRenderer : IDisposable
     {
         var vk = ctx.Vk;
 
-        var vertCode   = File.ReadAllBytes("Content/Shaders/Spine/SpineLit.vk.vert.spv");
-        var fragCode   = File.ReadAllBytes("Content/Shaders/Spine/SpineLit.vk.frag.spv");
+        var vertCode   = File.ReadAllBytes(ContentPaths.Resolve("Shaders/Spine/SpineLit.vk.vert.spv"));
+        var fragCode   = File.ReadAllBytes(ContentPaths.Resolve("Shaders/Spine/SpineLit.vk.frag.spv"));
         var vertModule = CreateShaderModule(ctx, vertCode);
         var fragModule = CreateShaderModule(ctx, fragCode);
         var entry      = (byte*)SilkMarshal.StringToPtr("main");
