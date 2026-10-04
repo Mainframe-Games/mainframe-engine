@@ -158,4 +158,4 @@ Vertex and index buffers are device-local and uploaded through a staging buffer 
 ## Related docs
 
 [Engine lifecycle](engine-lifecycle.md) · [Spine](spine.md) · [Shadow system](shadow-system.md) ·
-[Future: scene graph v2](future/scene-graph-v2.md) · [Future: materials & meshes](future/materials-and-meshes.md)
+[Future: node system](future/node-system.md) · [Future: materials & meshes](future/materials-and-meshes.md)

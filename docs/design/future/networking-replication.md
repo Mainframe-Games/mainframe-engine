@@ -1,6 +1,6 @@
 # Proposal: Networking & Replication
 
-**Milestone:** M5 · **Status:** ⬜ planned · **Depends on:** [Scene graph v2](scene-graph-v2.md) (NodeId registry)
+**Milestone:** M5 · **Status:** ⬜ planned · **Depends on:** [Node system](node-system.md) (NodeId registry)
 
 ## Problem
 

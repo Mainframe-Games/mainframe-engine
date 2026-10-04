@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Mainframe Editor layout (v1)</title>
+  <desc>Planned editor window: menu bar and toolbar on top, scene tree and file system on the left, viewport tabs in the center, inspector on the right, output log at the bottom. All panels are RmlUi documents.</desc>
+  <rect width="960" height="600" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .t{fill:#d1d5db;font-size:12px}
+    .s{fill:#9ca3af;font-size:11px}
+    .doc{fill:#93c5fd;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+  </style>
+
+  <!-- window -->
+  <rect x="20" y="20" width="920" height="540" rx="8" fill="#1f2128" stroke="#111827"/>
+  <!-- title bar -->
+  <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
+  <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
+  <text x="400" y="38" class="s">Mainframe Editor — MyGame — Main.mscene*</text>
+
+  <!-- menu + toolbar -->
+  <rect x="20" y="46" width="920" height="30" fill="#2a2d36"/>
+  <text x="32" y="66" class="t">Scene   Edit   Project   Help</text>
+  <g>
+    <rect x="300" y="52" width="26" height="18" rx="3" fill="#3b3f4b"/><text x="306" y="65" class="t">W</text>
+    <rect x="330" y="52" width="26" height="18" rx="3" fill="#3b3f4b"/><text x="337" y="65" class="t">E</text>
+    <rect x="360" y="52" width="26" height="18" rx="3" fill="#3b3f4b"/><text x="367" y="65" class="t">R</text>
+    <text x="396" y="65" class="s">snap ▾  local ▾</text>
+  </g>
+  <g>
+    <rect x="530" y="52" width="26" height="18" rx="3" fill="#166534"/><text x="538" y="65" class="t">▶</text>
+    <rect x="560" y="52" width="26" height="18" rx="3" fill="#3b3f4b"/><text x="567" y="65" class="t">⏸</text>
+    <rect x="590" y="52" width="26" height="18" rx="3" fill="#3b3f4b"/><text x="597" y="65" class="t">⏹</text>
+  </g>
+  <text x="760" y="66" class="doc">editor/main.rml</text>
+
+  <!-- left column -->
+  <rect x="24" y="80" width="200" height="250" fill="#262931" stroke="#3b3f4b"/>
+  <text x="34" y="98" class="hdr">Scene</text>
+  <text x="34" y="122" class="t">▾ ◇ Main (Node3D)</text>
+  <text x="50" y="142" class="t">☀ Sun (DirectionalLight3D)</text>
+  <text x="50" y="162" class="t">🎥 Camera (Camera3D)</text>
+  <text x="50" y="182" class="t">▾ ⬡ Floor (StaticBody3D)</text>
+  <text x="66" y="202" class="t">▣ CollisionShape3D</text>
+  <rect x="44" y="210" width="176" height="18" fill="#1d4ed8" opacity="0.55"/>
+  <text x="50" y="223" class="t">▾ ⬡ Crate (RigidBody3D)</text>
+  <text x="66" y="243" class="t">◼ MeshInstance3D</text>
+  <text x="66" y="263" class="t">▣ CollisionShape3D</text>
+  <text x="50" y="283" class="t">⎘ Player (instance)</text>
+  <text x="50" y="303" class="t">▤ HUD (UiDocument)</text>
+  <text x="34" y="324" class="doc">editor/scene_tree.rml</text>
+
+  <rect x="24" y="334" width="200" height="130" fill="#262931" stroke="#3b3f4b"/>
+  <text x="34" y="352" class="hdr">FileSystem</text>
+  <text x="34" y="374" class="t">▾ Content</text>
+  <text x="50" y="392" class="t">▸ Scenes</text>
+  <text x="50" y="410" class="t">▸ Materials</text>
+  <text x="50" y="428" class="t">▸ UI  ▸ Audio</text>
+  <text x="34" y="456" class="doc">editor/filesystem.rml</text>
+
+  <!-- splitters -->
+  <rect x="224" y="80" width="4" height="384" fill="#4b5563"/>
+  <rect x="712" y="80" width="4" height="384" fill="#4b5563"/>
+  <rect x="24" y="464" width="912" height="4" fill="#4b5563"/>
+
+  <!-- viewport -->
+  <rect x="228" y="80" width="484" height="384" fill="#20232a" stroke="#3b3f4b"/>
+  <rect x="228" y="80" width="110" height="22" fill="#2f333d"/><text x="238" y="96" class="t">Main.mscene*</text>
+  <rect x="338" y="80" width="100" height="22" fill="#262931"/><text x="348" y="96" class="s">Player.mscene</text>
+  <!-- viewport content -->
+  <rect x="232" y="104" width="476" height="356" fill="#3a5160"/>
+  <g stroke="#5b7383" stroke-width="1">
+    <line x1="232" y1="380" x2="708" y2="380"/><line x1="232" y1="410" x2="708" y2="410"/><line x1="232" y1="440" x2="708" y2="440"/>
+    <line x1="300" y1="360" x2="250" y2="460"/><line x1="400" y1="360" x2="380" y2="460"/><line x1="500" y1="360" x2="510" y2="460"/><line x1="600" y1="360" x2="640" y2="460"/>
+  </g>
+  <rect x="430" y="300" width="70" height="70" fill="#c7a574" stroke="#f59e0b" stroke-width="2"/>
+  <!-- gizmo -->
+  <line x1="465" y1="335" x2="535" y2="335" stroke="#ef4444" stroke-width="3"/>
+  <polygon points="535,329 547,335 535,341" fill="#ef4444"/>
+  <line x1="465" y1="335" x2="465" y2="265" stroke="#22c55e" stroke-width="3"/>
+  <polygon points="459,265 465,253 471,265" fill="#22c55e"/>
+  <line x1="465" y1="335" x2="420" y2="370" stroke="#3b82f6" stroke-width="3"/>
+  <circle cx="636" cy="140" r="9" fill="#fde047"/>
+  <text x="242" y="124" class="s">Perspective ▾   Grid ▾   Gizmos ▾</text>
+  <text x="560" y="452" class="doc">&lt;viewport&gt; element</text>
+
+  <!-- inspector -->
+  <rect x="716" y="80" width="220" height="384" fill="#262931" stroke="#3b3f4b"/>
+  <text x="726" y="98" class="hdr">Inspector</text>
+  <text x="840" y="98" class="s">Node | Signals</text>
+  <text x="726" y="122" class="t">Crate : RigidBody3D</text>
+  <text x="726" y="146" class="s">▾ Transform</text>
+  <text x="736" y="166" class="t">Position</text>
+  <rect x="806" y="155" width="38" height="16" rx="2" fill="#3b3f4b"/><rect x="848" y="155" width="38" height="16" rx="2" fill="#3b3f4b"/><rect x="890" y="155" width="38" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="812" y="167" class="s">3.0</text><text x="854" y="167" class="s">1.0</text><text x="896" y="167" class="s">0.0</text>
+  <text x="736" y="190" class="t">Rotation</text>
+  <rect x="806" y="179" width="38" height="16" rx="2" fill="#3b3f4b"/><rect x="848" y="179" width="38" height="16" rx="2" fill="#3b3f4b"/><rect x="890" y="179" width="38" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="736" y="214" class="t">Scale</text>
+  <rect x="806" y="203" width="38" height="16" rx="2" fill="#3b3f4b"/><rect x="848" y="203" width="38" height="16" rx="2" fill="#3b3f4b"/><rect x="890" y="203" width="38" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="726" y="240" class="s">▾ RigidBody3D</text>
+  <text x="736" y="260" class="t">Mass</text><rect x="806" y="249" width="122" height="16" rx="2" fill="#3b3f4b"/><text x="812" y="261" class="s">1.0</text>
+  <text x="736" y="282" class="t">Motion</text><rect x="806" y="271" width="122" height="16" rx="2" fill="#3b3f4b"/><text x="812" y="283" class="s">Dynamic ▾</text>
+  <text x="736" y="304" class="t">Gravity</text><rect x="806" y="293" width="122" height="16" rx="2" fill="#3b3f4b"/><text x="812" y="305" class="s">1.0</text>
+  <text x="726" y="330" class="s">▸ Collision</text>
+  <text x="726" y="352" class="s">▸ Node</text>
+  <text x="726" y="456" class="doc">editor/inspector.rml</text>
+
+  <!-- output -->
+  <rect x="24" y="468" width="912" height="88" fill="#262931" stroke="#3b3f4b"/>
+  <text x="34" y="486" class="hdr">Output</text>
+  <text x="120" y="486" class="s">All · Info · Warn · Error</text>
+  <text x="34" y="508" class="t">[12:01:03.112] [INFO] Loaded project MyGame (12 node types)</text>
+  <text x="34" y="526" class="t">[12:01:05.480] [INFO] Saved Content/Scenes/Main.mscene</text>
+  <text x="34" y="544" class="t" fill="#fca5a5">[12:01:09.017] [ERROR] Player.cs:42 NullReferenceException (game process)</text>
+  <text x="760" y="550" class="doc">editor/output.rml</text>
+
+  <text x="20" y="586" class="cap">Every panel is an RmlUi document (blue labels) using shared widgets from MainframeEngine/Content/UI/widgets — the same UI stack games use.</text>
+</svg>

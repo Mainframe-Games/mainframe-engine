@@ -1,7 +1,7 @@
 # Proposal: Renderer Stabilization
 
 **Milestone:** M1 · **Status:** ⬜ planned · **Touches:** `ShadowSystem`, `VulkanRenderer`, lit shaders,
-`SpineRenderer`, `Engine`, README
+`SpineRenderer`, `Engine`, CLAUDE.md
 
 ## Problem
 
@@ -94,7 +94,7 @@ mismatch.
 | `DisplayFramebufferScale` for HiDPI | `VulkanImGuiController` |
 | `SpineScale` setter applies to `Skeleton`. `SetAnimation` uses `SetAnimation`, not `AddAnimation`. Apply before `UpdateWorldTransform`. | `SpineNode` |
 | Remove peers on disconnect/timeout | `ENetServer.cs:57-67` |
-| Bring README examples in line with the code (`PeerId`, internal ctors, `Draw`) | README |
+| Bring CLAUDE.md in line with the code (`Draw` not `OnRender`, SDL loader handoff); README was synced 2026-10-05 | CLAUDE.md |
 
 ## Task list
 
@@ -107,7 +107,7 @@ mismatch.
 - [ ] Fix the render pass dependency; enable the dynamic-indexing feature
 - [ ] Dummy shadow set for no-`ShadowSystem` cases
 - [ ] Engine, ImGui, Spine and ENet small fixes
-- [ ] README sync
+- [ ] CLAUDE.md sync
 - [ ] Validate: Sandbox with 2 directional + 1 point + 2 spot lights, toggle VSync, resize, minimize
 
 ## Open questions

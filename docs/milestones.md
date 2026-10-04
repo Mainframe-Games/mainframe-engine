@@ -8,25 +8,36 @@ current-state doc, and future features link to a proposal in [`design/future/`](
 ```mermaid
 flowchart LR
     M0["M0 Foundation 🚧"] --> M1["M1 Stabilization"]
-    M1 --> M2["M2 Scene graph v2"]
+    M1 --> M2["M2 Node system & scenes"]
     M1 --> M3["M3 Materials, meshes & resources"]
     M2 --> M3
     M3 --> M4["M4 Shadows v2"]
     M2 --> M5["M5 Multiplayer"]
-    M3 --> M6["M6 Game systems"]
-    M3 --> M7["M7 Backend abstraction / WebGPU"]
+    M2 --> M6["M6 Physics"]
+    M2 --> M7["M7 Audio"]
+    M0 --> M8["M8 Game UI (RmlUi)"]
+    M3 --> M8
+    M8 --> M9["M9 Localization"]
+    M2 --> M10["M10 Editor"]
+    M3 --> M10
+    M8 --> M10
+    M3 --> M11["M11 Backend abstraction / WebGPU"]
 ```
 
 | Milestone | Theme | Status |
 |---|---|---|
 | [M0](#m0--foundation-) | Vulkan renderer, lighting, shadows, sky, Spine, tooling, SDL windowing | 🚧 |
 | [M1](#m1--stabilization) | Fix correctness bugs blocking everything else | ⬜ |
-| [M2](#m2--scene-graph-v2) | Real hierarchy, engine-owned scene | ⬜ |
+| [M2](#m2--node-system--scenes) | Godot-style node tree, scene tree, scene files | ⬜ |
 | [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | ⬜ |
 | [M4](#m4--shadows-v2) | Cascades, PCF, atlas | ⬜ |
 | [M5](#m5--multiplayer) | Message protocol, replication, Steam | ⬜ |
-| [M6](#m6--game-systems) | Audio, physics, game UI | ⬜ |
-| [M7](#m7--backend-abstraction--webgpu) | Backend-neutral render API, WebGPU | ⬜ |
+| [M6](#m6--physics) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ⬜ |
+| [M7](#m7--audio) | SoundFlow audio nodes, buses, 3D panning | ⬜ |
+| [M8](#m8--game-ui-rmlui) | RmlUi HTML/CSS game UI (also the editor's UI) | ⬜ |
+| [M9](#m9--localization) | GetText.NET translations for code, UI and scenes | ⬜ |
+| [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | ⬜ |
+| [M11](#m11--backend-abstraction--webgpu) | Backend-neutral render API, WebGPU | ⬜ |
 
 ---
 
@@ -73,20 +84,27 @@ and CLAUDE.md back in line with the code.
 | Spine without `ShadowSystem` (dummy set) | ⬜ | [Renderer stabilization §5](design/future/renderer-stabilization.md#5-spine-without-shadows) |
 | Exit code, validation in Debug only, ImGui frame pairing and HiDPI | ⬜ | [Renderer stabilization §6](design/future/renderer-stabilization.md#6-small-fixes) |
 | `SpineNode` scale, animation order, `SetAnimation` | ⬜ | [Renderer stabilization §6](design/future/renderer-stabilization.md#6-small-fixes) |
-| README / CLAUDE.md sync with the code | ⬜ | [Renderer stabilization §6](design/future/renderer-stabilization.md#6-small-fixes) |
+| CLAUDE.md sync with the code (README synced 2026-10-05) | ⬜ | [Renderer stabilization §6](design/future/renderer-stabilization.md#6-small-fixes) |
 
-## M2 — Scene graph v2
+## M2 — Node system & scenes
 
-Replace the game-owned flat node list with an engine-owned `Scene`: a parent/child hierarchy, cached
-world transforms, injected services instead of the static `Node.Initialize`, and a `NodeId` registry
-that networking will need.
+Adopt a Godot-style node system. Everything in a game becomes a node in an engine-owned `SceneTree`:
+- lifecycle callbacks, signals, groups and node paths;
+- lights, cameras, the sky, physics, audio and UI as node types;
+- servers behind the nodes instead of the static `Node.Initialize`.
+
+Scenes and resources are saved as text files with stable UIDs. This is the foundation for the
+editor and for replication.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| Children, reparenting, cached local/world TRS (quaternions) | ⬜ | [Scene graph v2](design/future/scene-graph-v2.md) |
-| Engine-owned `Scene` with update / shadow / draw traversal | ⬜ | [Scene graph v2](design/future/scene-graph-v2.md) |
-| `EngineServices` injection (remove static `Node.Initialize`) | ⬜ | [Scene graph v2](design/future/scene-graph-v2.md) |
-| `NodeId → Node` registry | ⬜ | [Scene graph v2](design/future/scene-graph-v2.md) |
+| Node tree: children, owner, unique names, `NodePath`, `GetNode<T>`, groups | ⬜ | [Node system](design/future/node-system.md) |
+| `SceneTree`: lifecycle (enter/ready/process/physics/exit), pause, deferred calls, `QueueFree` | ⬜ | [Node system](design/future/node-system.md#lifecycle) |
+| `[Signal]` events + serializable connections | ⬜ | [Node system](design/future/node-system.md#signals) |
+| `Node2D`/`Node3D` with cached global transforms; lights, cameras, sky as nodes | ⬜ | [Node system](design/future/node-system.md#node-catalog) |
+| Servers (`RenderServer`, …) replace static `Node.Initialize`; `NodeId` registry | ⬜ | [Node system](design/future/node-system.md#servers) |
+| `[Export]` + source-generated type registry | ⬜ | [Scene serialization](design/future/scene-serialization.md#property-model) |
+| `.mscene` / `.mres` files, `PackedScene`, nested instances, UIDs + `AssetDatabase` | ⬜ | [Scene serialization](design/future/scene-serialization.md) |
 
 ## M3 — Materials, meshes & resources
 
@@ -130,18 +148,78 @@ support.
 | Steam init / callback pump / native packaging | ⬜ | [Steamworks integration](design/future/steamworks-integration.md) |
 | Lobby fixes, avatars as textures, achievements persistence | ⬜ | [Steamworks integration](design/future/steamworks-integration.md) |
 
-## M6 — Game systems
+## M6 — Physics
 
-The systems a shippable game needs beyond rendering. Each one requires a dependency decision (an ADR in
-`memory/decisions/`) before any package is added.
+Godot-style physics nodes on two pure-C# engines:
+- **Jitter2** for 3D;
+- **Box2D.NET** (a Box2D v3 port) for 2D, because Jitter2 is 3D-only.
+
+Both run on a fixed timestep with interpolated rendering, collision layers, signals and queries.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| Audio: 2D/3D sources, streaming, buses | ⬜ | [Audio](design/future/audio.md) |
-| Physics: rigid bodies, fixed step, queries, debug draw | ⬜ | [Physics](design/future/physics.md) |
-| Game UI + localization | ⬜ | [Game UI](design/future/game-ui.md) |
+| `PhysicsServer3D` (Jitter2 2.9) + `PhysicsServer2D` (Box2D.NET 3.1) per world | ⬜ | [Physics](design/future/physics.md#servers) |
+| Body nodes (static, rigid, character, area) + `CollisionShape` children + shape resources | ⬜ | [Physics](design/future/physics.md#node-model) |
+| Fixed step, `OnPhysicsProcess`, interpolation | ⬜ | [Physics](design/future/physics.md#fixed-timestep-and-interpolation) |
+| Layers/masks, contact and area signals, raycast/shape-cast queries | ⬜ | [Physics](design/future/physics.md#contacts-areas-and-signals) |
+| `CharacterBody.MoveAndSlide`, debug draw | ⬜ | [Physics](design/future/physics.md#characterbody-moveandslide) |
 
-## M7 — Backend abstraction / WebGPU
+## M7 — Audio
+
+Audio nodes on **SoundFlow** (MIT, miniaudio, ships natives including osx-arm64):
+- a bus mixer;
+- in-memory and streamed sounds;
+- positional audio through SoundFlow's `SurroundPlayer` panner, with engine-side attenuation and
+  listener orientation.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| `AudioServer`: device, bus tree, batched command queue | ⬜ | [Audio](design/future/audio.md#architecture) |
+| `AudioPlayer` / `AudioPlayer2D` / `AudioPlayer3D` / `AudioListener3D` | ⬜ | [Audio](design/future/audio.md#nodes) |
+| `AudioStream` resources (memory vs stream), OGG decision | ⬜ | [Audio](design/future/audio.md#streams-and-resources) |
+| Positional audio via `SurroundPlayer` + attenuation curves + smoothing | ⬜ | [Audio](design/future/audio.md#spatialization) |
+| Voice pool, polyphony, pause handling | ⬜ | [Audio](design/future/audio.md#voice-management) |
+
+## M8 — Game UI (RmlUi)
+
+HTML/CSS-style UI using **RmlUi 6.3**, through an engine-owned native binding and a Vulkan render
+interface on the engine's device. This same stack is the editor's UI.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| Native C ABI shim (RmlUi 6.3 + FreeType) and CI builds per platform | ⬜ | [Game UI](design/future/game-ui.md#projects-and-natives) |
+| `VulkanUiRenderer` v1 (basic render interface) | ⬜ | [Game UI](design/future/game-ui.md#render-interface-vulkan) |
+| `UiServer`, `UiLayer`, `UiDocument`, data binding, element events | ⬜ | [Game UI](design/future/game-ui.md#contexts-layers-and-documents) |
+| Input routing, IME, clipboard, gamepad navigation | ⬜ | [Game UI](design/future/game-ui.md#input-routing) |
+| Hot reload, debugger, shared widget library | ⬜ | [Game UI](design/future/game-ui.md#development-tools) |
+| v2: UI pass with stencil clip masks, layers and filters | ⬜ | [Game UI](design/future/game-ui.md#where-ui-renders-in-the-frame) |
+
+## M9 — Localization
+
+Translations with **GetText.NET**, using the gettext workflow (`.pot` → `.po` → `.mo`). Strings are
+extracted from C#, RML documents and scene files, and the language can be switched at runtime.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| `Tr` API, catalog management, runtime locale switching | ⬜ | [Localization](design/future/localization.md#runtime-api) |
+| Extraction (C# extractor + `mf-l10n` for RML and scenes), `msgfmt` build step | ⬜ | [Localization](design/future/localization.md#workflow) |
+| RmlUi `TranslateString` hook, per-locale fonts | ⬜ | [Localization](design/future/localization.md#rmlui-integration) |
+| Pseudo-locale for testing | ⬜ | [Localization](design/future/localization.md#pseudo-localization) |
+
+## M10 — Editor
+
+A Godot-style editor in a separate `MainframeEngine.Editor` project. It depends only on the engine
+core, and its UI is built entirely with the M8 game UI stack (RmlUi).
+
+| Feature | Status | Design doc |
+|---|---|---|
+| E1 Shell: editor csproj, `EditorApp`, RmlUi layout, Output panel, open/save scenes | ⬜ | [Editor](design/future/editor.md#phases) |
+| E2 Scene tree + inspector (`[Export]`) + undo/redo | ⬜ | [Editor](design/future/editor.md#inspector) |
+| E3 Viewport: render target in RmlUi, editor camera, ID picking, gizmos | ⬜ | [Editor](design/future/editor.md#viewport) |
+| E4 Projects: game assembly load and reload, file system panel, out-of-process play | ⬜ | [Editor](design/future/editor.md#game-project-and-code-reload) |
+| E5 Polish: signals tab, multi-select, 2D editing, custom inspectors | ⬜ | [Editor](design/future/editor.md#phases) |
+
+## M11 — Backend abstraction / WebGPU
 
 Hide Vulkan behind a backend-neutral GPU API, so nodes no longer record raw `Vk` commands, then add
 the WebGPU backend the README promises.

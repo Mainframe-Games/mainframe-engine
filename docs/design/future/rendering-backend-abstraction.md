@@ -1,6 +1,6 @@
 # Proposal: Rendering Backend Abstraction (WebGPU)
 
-**Milestone:** M7 · **Status:** ⬜ planned · **Depends on:** M3 (materials, resources)
+**Milestone:** M11 · **Status:** ⬜ planned · **Depends on:** M3 (materials, resources)
 
 ## Problem
 

@@ -60,6 +60,7 @@ public static class ModelLoader { static Node Load(string path); }   // Assimp �
 - [ ] `PipelineCache` (hash of state) and `ShaderModuleCache`
 - [ ] `FrameContext` with shared set 0/1; renumber sets in `Shapes.vk.*` and `SpineLit.vk.*`
 - [ ] `Texture` type (StbImageSharp → device image + mips)
+- [ ] Offscreen render targets + object-ID (`R32_UINT`) pass, needed by the [editor viewport](editor.md#viewport)
 - [ ] `Material`, `Mesh`, `MeshNode`; port `Box3d`/`Quad`
 - [ ] Assimp `ModelLoader` (positions, normals, UVs, indices, node hierarchy)
 - [ ] Remove duplicate `WriteLightsUbo` implementations
@@ -73,4 +74,4 @@ public static class ModelLoader { static Node Load(string path); }   // Assimp �
 ## Related
 
 [Milestones](../../milestones.md) · [GPU resource management](gpu-resource-management.md) ·
-[Color pipeline](color-pipeline.md) · [Scene graph v2](scene-graph-v2.md)
+[Color pipeline](color-pipeline.md) · [Node system](node-system.md)
