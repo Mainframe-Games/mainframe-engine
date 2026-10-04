@@ -141,7 +141,15 @@ public abstract class Engine : IDisposable
             IsVisible = engineOptions.WindowVisible,
         };
 
-        Window = Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new InvalidOperationException("Failed to create the window.");
+        try
+        {
+            Window = Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new InvalidOperationException("Failed to create the window.");
+        }
+        catch (PlatformNotSupportedException e)
+        {
+            // Silk reports only "not applicable" — surface SDL's own reason (missing video driver, display, …).
+            throw new PlatformNotSupportedException($"{e.Message} SDL: {DescribeSdlFailure()}", e);
+        }
         Window.Load += CenterWindow;
         Window.Load += OnLoad;
         Window.FramebufferResize += OnFramebufferResize;
@@ -159,6 +167,19 @@ public abstract class Engine : IDisposable
         SdlWindowing.RegisterPlatform();
         SdlInput.RegisterPlatform();
         Silk.NET.Windowing.Window.PrioritizeSdl();
+    }
+
+    private static string DescribeSdlFailure()
+    {
+        try
+        {
+            var sdl = Silk.NET.SDL.SdlProvider.SDL.Value;
+            return sdl.GetErrorS() is { Length: > 0 } error ? error : "SDL loaded but reported no error";
+        }
+        catch (Exception e)
+        {
+            return $"{e.GetType().Name}: {e.Message}";
+        }
     }
 
     // Monitors can only be queried once the window exists, and there may be none at all (a

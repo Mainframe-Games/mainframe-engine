@@ -123,6 +123,8 @@ jobs:
       VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
       # SDL2 picks its video driver at runtime; Xvfb is X11 (no Wayland compositor on the runner).
       SDL_VIDEODRIVER: x11
+      # No sound device on the runner; SDL subsystems that probe audio must not fail window creation.
+      SDL_AUDIODRIVER: dummy
       RENDER_TEST_ARTIFACTS: ${{ github.workspace }}/artifacts/render-tests
     steps:
       - uses: actions/checkout@v4

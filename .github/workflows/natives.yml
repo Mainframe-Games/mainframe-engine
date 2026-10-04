@@ -165,6 +165,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true # Windows .dll files are stored in Git LFS
 
       - name: Verify Native/natives.lock
         run: Native/natives-lock.sh verify
