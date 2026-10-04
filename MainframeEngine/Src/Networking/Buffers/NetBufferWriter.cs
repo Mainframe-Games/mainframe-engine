@@ -161,6 +161,33 @@ public sealed class NetBufferWriter : IBufferWriter<byte>, IDisposable
         Write((byte)value);
     }
 
+    /// <summary>Writes a 7-bit encoded unsigned 64-bit integer (1 to 10 bytes; small values are short).</summary>
+    public void WriteVarUInt64(ulong value)
+    {
+        while (value >= 0x80)
+        {
+            Write((byte)(value | 0x80));
+            value >>= 7;
+        }
+        Write((byte)value);
+    }
+
+    /// <summary>Overwrites two bytes already written at <paramref name="position"/> (little-endian), e.g. a length prefix.</summary>
+    public void PatchUInt16(int position, ushort value)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(position);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(position, _position - sizeof(ushort));
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.AsSpan(position), value);
+    }
+
+    /// <summary>Drops everything written after <paramref name="position"/> (e.g. an entry that turned out empty).</summary>
+    public void Truncate(int position)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(position);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(position, _position);
+        _position = position;
+    }
+
     /// <summary>Writes a string as a 7-bit encoded UTF-8 byte count followed by the UTF-8 bytes. Does not allocate.</summary>
     public void Write(string value)
     {

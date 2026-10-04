@@ -21,6 +21,12 @@ internal static class TypeModelBuilder
     private const string SerializedVersionAttribute = "MainframeEngine.SerializedVersionAttribute";
     private const string SerializedMigrationAttribute = "MainframeEngine.SerializedMigrationAttribute";
     private const string PropertyBagType = "MainframeEngine.Serialization.PropertyBag";
+    private const string ReplicatedAttribute = "MainframeEngine.ReplicatedAttribute";
+    private const string RpcAttribute = "MainframeEngine.RpcAttribute";
+    private const string TransferableInterface = "MainframeEngine.Networking.INetworkTransferable";
+
+    /// <summary>Most <c>[Replicated]</c> members one type may declare (one bit each in a 64-bit change mask).</summary>
+    public const int MaxReplicatedPerType = 64;
     private const string Codecs = "global::MainframeEngine.Serialization.Codecs";
 
     /// <summary>Fully qualified, no nullable annotations (usable in typeof and generic arguments).</summary>
@@ -66,7 +72,8 @@ internal static class TypeModelBuilder
     {
         var diagnostics = new List<DiagnosticInfo>();
         var members = OrderedMembers(type);
-        var hasAnnotatedMembers = members.Any(m => HasAttribute(m, ExportAttribute) || HasAttribute(m, SignalAttribute));
+        var hasAnnotatedMembers = members.Any(m => HasAttribute(m, ExportAttribute) || HasAttribute(m, SignalAttribute)
+                                                   || HasAttribute(m, ReplicatedAttribute) || HasAttribute(m, RpcAttribute));
 
         if (!IsAccessibleFromAssembly(type))
         {
@@ -80,6 +87,8 @@ internal static class TypeModelBuilder
         var exports = new List<ExportModel>();
         var signals = new List<SignalModel>();
         var migrations = new List<MigrationModel>();
+        var replicated = new List<ReplicatedModel>();
+        var rpcs = new List<RpcModel>();
         string? group = null;
 
         foreach (var member in members)
@@ -87,6 +96,19 @@ internal static class TypeModelBuilder
             ct.ThrowIfCancellationRequested();
             if (GetAttribute(member, ExportGroupAttribute) is { } groupAttribute)
                 group = groupAttribute.ConstructorArguments.FirstOrDefault().Value as string is { Length: > 0 } g ? g : null;
+
+            // Networking attributes are independent of [Export]: a member may be both saved and replicated.
+            if (GetAttribute(member, ReplicatedAttribute) is { } replicatedAttribute)
+            {
+                if (BuildReplicated(member, replicatedAttribute, diagnostics) is { } model)
+                    replicated.Add(model);
+            }
+
+            if (member is IMethodSymbol rpcMethod && GetAttribute(rpcMethod, RpcAttribute) is { } rpcAttribute)
+            {
+                if (BuildRpc(rpcMethod, rpcAttribute, diagnostics) is { } model)
+                    rpcs.Add(model);
+            }
 
             if (GetAttribute(member, ExportAttribute) is { } export)
             {
@@ -105,6 +127,13 @@ internal static class TypeModelBuilder
             }
         }
 
+        if (replicated.Count > MaxReplicatedPerType)
+        {
+            diagnostics.Add(new DiagnosticInfo(Diagnostics.TooManyReplicated.Id, LocationInfo.From(type.Locations.FirstOrDefault()),
+                type.Name, replicated.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            replicated.RemoveRange(MaxReplicatedPerType, replicated.Count - MaxReplicatedPerType);
+        }
+
         return new TypeModel(
             FullName: type.ToDisplayString(TypeFormat),
             TypeName: GetAttribute(type, TypeNameAttribute)?.ConstructorArguments.FirstOrDefault().Value as string ?? type.Name,
@@ -118,7 +147,14 @@ internal static class TypeModelBuilder
             Signals: EquatableArray.From(signals),
             Migrations: EquatableArray.From(migrations),
             Location: LocationInfo.From(type.Locations.FirstOrDefault()),
-            Diagnostics: EquatableArray.From(diagnostics));
+            Diagnostics: EquatableArray.From(diagnostics))
+        {
+            Replicated = EquatableArray.From(replicated),
+            Rpcs = EquatableArray.From(rpcs),
+            Namespace = type.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : null,
+            IsPublic = IsPublicFromOutside(type),
+            FlatName = FlatName(type),
+        };
     }
 
     // Inaccessible types are reported, never registered (see RegistrationEmitter).
@@ -253,6 +289,188 @@ internal static class TypeModelBuilder
         var canForward = invoke.ReturnsVoid && invoke.Parameters.Length <= 8
                          && invoke.Parameters.All(p => p.RefKind == RefKind.None && !p.Type.IsRefLikeType);
         return new SignalModel(evt.Name, delegateType.ToDisplayString(TypeFormat), new EquatableArray<string>(parameters), canForward);
+    }
+
+    private static ReplicatedModel? BuildReplicated(ISymbol member, AttributeData attribute, List<DiagnosticInfo> diagnostics)
+    {
+        var location = LocationInfo.From(member.Locations.FirstOrDefault());
+        ITypeSymbol valueType;
+        switch (member)
+        {
+            case IPropertySymbol property:
+                if (property.IsStatic || property.IsIndexer || property.GetMethod is null || property.SetMethod is null
+                    || property.SetMethod.IsInitOnly || !IsAccessible(property.GetMethod) || !IsAccessible(property.SetMethod))
+                {
+                    diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidReplicated.Id, location, member.Name,
+                        "must be a non-static property with a public or internal getter and setter (not init-only)"));
+                    return null;
+                }
+
+                valueType = property.Type;
+                break;
+            case IFieldSymbol field:
+                if (field.IsStatic || field.IsReadOnly || field.IsConst || !IsAccessible(field))
+                {
+                    diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidReplicated.Id, location, member.Name,
+                        "must be a non-static public or internal field that is not readonly or const"));
+                    return null;
+                }
+
+                valueType = field.Type;
+                break;
+            default:
+                return null;
+        }
+
+        var value = NetValue(member.Name, valueType, requireEquatable: true, out var error);
+        if (value is null)
+        {
+            diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidReplicated.Id, location, member.Name, error ?? ""));
+            return null;
+        }
+
+        var interpolate = attribute.NamedArguments.Any(a => a.Key == "Interpolate" && a.Value.Value is true);
+        if (interpolate && !IsInterpolatable(valueType))
+        {
+            diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidReplicated.Id, location, member.Name,
+                $"has type '{valueType.ToDisplayString()}', which cannot be interpolated (float, double, Vector2/3/4, Quaternion)"));
+            return null;
+        }
+
+        return new ReplicatedModel(value, interpolate);
+    }
+
+    private static RpcModel? BuildRpc(IMethodSymbol method, AttributeData attribute, List<DiagnosticInfo> diagnostics)
+    {
+        var location = LocationInfo.From(method.Locations.FirstOrDefault());
+        if (method.IsStatic || !method.ReturnsVoid || method.IsGenericMethod || !IsAccessible(method)
+            || method.MethodKind != MethodKind.Ordinary)
+        {
+            diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidRpc.Id, location, method.Name,
+                "must be a non-static, non-generic public or internal method returning void"));
+            return null;
+        }
+
+        var parameters = new List<NetValueModel>();
+        foreach (var parameter in method.Parameters)
+        {
+            if (parameter.RefKind != RefKind.None || parameter.IsParams)
+            {
+                diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidRpc.Id, location, method.Name,
+                    $"parameter '{parameter.Name}' must be passed by value (no ref, out, in or params)"));
+                return null;
+            }
+
+            var value = NetValue(parameter.Name, parameter.Type, requireEquatable: false, out var error);
+            if (value is null)
+            {
+                diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidRpc.Id, location, method.Name, $"parameter '{parameter.Name}' {error}"));
+                return null;
+            }
+
+            parameters.Add(value);
+        }
+
+        // Enum arguments arrive boxed as the enum's underlying type (RpcMode is a byte).
+        var mode = attribute.ConstructorArguments.FirstOrDefault().Value is System.IConvertible m
+            ? m.ToInt32(System.Globalization.CultureInfo.InvariantCulture)
+            : 1; // RpcMode.Authority
+        var reliable = true;
+        var callLocal = false;
+        foreach (var named in attribute.NamedArguments)
+        {
+            if (named.Key == "Reliable")
+                reliable = named.Value.Value is true;
+            else if (named.Key == "CallLocal")
+                callLocal = named.Value.Value is true;
+        }
+
+        return new RpcModel(method.Name, mode, reliable, callLocal, method.DeclaredAccessibility == Accessibility.Public,
+            EquatableArray.From(parameters));
+    }
+
+    private static readonly HashSet<string> BuiltInNetTypes =
+    [
+        "System.Numerics.Vector2", "System.Numerics.Vector3", "System.Numerics.Vector4", "System.Numerics.Quaternion",
+        "System.Drawing.Color", "MainframeEngine.Networking.PeerId", "MainframeEngine.Transform3D", "MainframeEngine.Transform2D",
+    ];
+
+    private static readonly HashSet<string> InterpolatableTypes =
+    [
+        "System.Numerics.Vector2", "System.Numerics.Vector3", "System.Numerics.Vector4", "System.Numerics.Quaternion",
+    ];
+
+    /// <summary>How the network codec handles <paramref name="type"/>, or null (with <paramref name="error"/>).</summary>
+    internal static NetValueModel? NetValue(string name, ITypeSymbol type, bool requireEquatable, out string? error)
+    {
+        error = null;
+        var display = type.ToDisplayString(TypeFormat);
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_Boolean:
+            case SpecialType.System_Byte:
+            case SpecialType.System_SByte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+            case SpecialType.System_Decimal:
+            case SpecialType.System_Char:
+            case SpecialType.System_String:
+                return new NetValueModel(name, display, NetCodecKind.Builtin, null);
+        }
+
+        if (type is INamedTypeSymbol named)
+        {
+            if (named.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum && named.EnumUnderlyingType is { } underlying)
+                return new NetValueModel(name, display, NetCodecKind.Enum, underlying.ToDisplayString(TypeFormat));
+
+            if (BuiltInNetTypes.Contains(named.OriginalDefinition.ToDisplayString()))
+                return new NetValueModel(name, display, NetCodecKind.Builtin, null);
+
+            if (named.TypeKind == Microsoft.CodeAnalysis.TypeKind.Struct && !named.IsRefLikeType
+                && named.AllInterfaces.Any(i => i.ToDisplayString() == TransferableInterface))
+            {
+                if (requireEquatable && !named.AllInterfaces.Any(i =>
+                        i.OriginalDefinition.ToDisplayString() == "System.IEquatable<T>"
+                        && SymbolEqualityComparer.Default.Equals(i.TypeArguments[0], named)))
+                {
+                    error = $"has type '{type.ToDisplayString()}': replicated INetworkTransferable structs must implement " +
+                            $"IEquatable<{type.Name}> (change detection must not box)";
+                    return null;
+                }
+
+                return new NetValueModel(name, display, NetCodecKind.Transferable, null);
+            }
+        }
+
+        error = $"has type '{type.ToDisplayString()}', which the network codec cannot send (bool, integers, float, double, decimal, " +
+                "char, string, enums, Vector2/3/4, Quaternion, Color, Transform3D/2D, PeerId and INetworkTransferable structs)";
+        return null;
+    }
+
+    private static bool IsInterpolatable(ITypeSymbol type) =>
+        type.SpecialType is SpecialType.System_Single or SpecialType.System_Double
+        || InterpolatableTypes.Contains(type.OriginalDefinition.ToDisplayString());
+
+    private static bool IsPublicFromOutside(INamedTypeSymbol type)
+    {
+        for (var t = type; t is not null; t = t.ContainingType)
+            if (t.DeclaredAccessibility != Accessibility.Public)
+                return false;
+        return true;
+    }
+
+    private static string FlatName(INamedTypeSymbol type)
+    {
+        var parts = new List<string>();
+        for (var t = type; t is not null; t = t.ContainingType)
+            parts.Insert(0, t.Name);
+        return string.Join("_", parts);
     }
 
     private static MigrationModel? BuildMigration(IMethodSymbol method, AttributeData attribute, List<DiagnosticInfo> diagnostics)

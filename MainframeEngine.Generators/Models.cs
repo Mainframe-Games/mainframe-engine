@@ -86,10 +86,33 @@ internal sealed record SignalModel(string Name, string DelegateType, EquatableAr
 /// <summary>A <c>[SerializedMigration(n)]</c> method.</summary>
 internal sealed record MigrationModel(int FromVersion, string MethodName);
 
+/// <summary>How generated replication code reads and writes one value with <c>NetCodec</c>.</summary>
+internal enum NetCodecKind
+{
+    /// <summary><c>NetCodec.Write(w, v)</c> / <c>NetCodec.Read(r, out T v)</c> overloads (primitives, string, vectors...).</summary>
+    Builtin,
+
+    /// <summary>An enum: written as its underlying integer type (<see cref="NetValueModel.UnderlyingType"/>).</summary>
+    Enum,
+
+    /// <summary>A struct implementing <c>INetworkTransferable</c>: <c>NetCodec.WriteValue</c> / <c>ReadValue</c>.</summary>
+    Transferable,
+}
+
+/// <summary>A value the network code serializes: a <c>[Replicated]</c> member or an <c>[Rpc]</c> parameter.</summary>
+internal sealed record NetValueModel(string Name, string Type, NetCodecKind Kind, string? UnderlyingType);
+
+/// <summary>A <c>[Replicated]</c> property or field.</summary>
+internal sealed record ReplicatedModel(NetValueModel Value, bool Interpolate);
+
+/// <summary>An <c>[Rpc]</c> method.</summary>
+internal sealed record RpcModel(string Name, int Mode, bool Reliable, bool CallLocal, bool IsPublic, EquatableArray<NetValueModel> Parameters);
+
 /// <summary>
-/// Everything the emitters need about one node or resource type. New per-member features (for example
-/// <c>[Replicated]</c> for networking) add a collection here, fill it in <see cref="TypeModelBuilder"/> and get
-/// their own emitter; the registration emitter stays unchanged.
+/// Everything the emitters need about one node or resource type. Per-member features add a collection here,
+/// fill it in <see cref="TypeModelBuilder"/> and get their own emitter; <c>[Replicated]</c>/<c>[Rpc]</c>
+/// (<see cref="Replicated"/>, <see cref="Rpcs"/>) are emitted by <see cref="ReplicationEmitter"/> and the
+/// registration emitter stays unchanged.
 /// </summary>
 internal sealed record TypeModel(
     string FullName,
@@ -104,4 +127,22 @@ internal sealed record TypeModel(
     EquatableArray<SignalModel> Signals,
     EquatableArray<MigrationModel> Migrations,
     LocationInfo? Location,
-    EquatableArray<DiagnosticInfo> Diagnostics);
+    EquatableArray<DiagnosticInfo> Diagnostics)
+{
+    /// <summary><c>[Replicated]</c> members in declaration order (networking, <see cref="ReplicationEmitter"/>).</summary>
+    public EquatableArray<ReplicatedModel> Replicated { get; init; } = EquatableArray<ReplicatedModel>.Empty;
+
+    /// <summary><c>[Rpc]</c> methods in declaration order.</summary>
+    public EquatableArray<RpcModel> Rpcs { get; init; } = EquatableArray<RpcModel>.Empty;
+
+    /// <summary>The containing namespace (null for the global namespace).</summary>
+    public string? Namespace { get; init; }
+
+    /// <summary>The type and every containing type are public.</summary>
+    public bool IsPublic { get; init; }
+
+    /// <summary>Containing types and the type, joined with <c>_</c> (unique within the namespace).</summary>
+    public string FlatName { get; init; } = TypeName;
+
+    public bool HasNetworking => Replicated.Count > 0 || Rpcs.Count > 0;
+}

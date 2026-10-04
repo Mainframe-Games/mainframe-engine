@@ -4,7 +4,8 @@ namespace MainframeEngine.Generators;
 
 /// <summary>
 /// Finds every class deriving from <c>MainframeEngine.Node</c> or <c>MainframeEngine.Resource</c> and emits
-/// their <c>NodeTypeInfo</c> registration (see <see cref="RegistrationEmitter"/>). The pipeline is incremental:
+/// their <c>NodeTypeInfo</c> registration (see <see cref="RegistrationEmitter"/>), plus replication state and RPC
+/// dispatch for networked members (<see cref="ReplicationEmitter"/>). The pipeline is incremental:
 /// per-type models are value-equatable, so edits that do not change a type's shape do not regenerate.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
@@ -21,8 +22,11 @@ public sealed class NodeRegistrationGenerator : IIncrementalGenerator
 
         var assemblyName = context.CompilationProvider.Select(static (compilation, _) => compilation.AssemblyName ?? "Assembly");
 
-        context.RegisterSourceOutput(
-            types.Collect().Combine(assemblyName),
-            static (spc, input) => RegistrationEmitter.Emit(spc, input.Left, input.Right));
+        var collected = types.Collect().Combine(assemblyName);
+
+        context.RegisterSourceOutput(collected, static (spc, input) => RegistrationEmitter.Emit(spc, input.Left, input.Right));
+
+        // Networking ([Replicated], [Rpc]): a second file, only for assemblies that declare networked members.
+        context.RegisterSourceOutput(collected, static (spc, input) => ReplicationEmitter.Emit(spc, input.Left, input.Right));
     }
 }

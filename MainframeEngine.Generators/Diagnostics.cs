@@ -34,11 +34,31 @@ internal static class Diagnostics
 
     public static readonly DiagnosticDescriptor TypeNotAccessible = new(
         "MFG006", "Node or resource type is not accessible",
-        "'{0}' declares [Export] or [Signal] members but cannot be registered: it must be public or internal and not nested in a private type{1}",
+        "'{0}' declares [Export], [Signal], [Replicated] or [Rpc] members but cannot be registered: it must be public or internal and not nested in a private type{1}",
         Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
+
+    private const string NetCategory = "MainframeEngine.Networking";
+
+    public static readonly DiagnosticDescriptor InvalidReplicated = new(
+        "MFG007", "Invalid [Replicated] member",
+        "[Replicated] member '{0}' {1}",
+        NetCategory, DiagnosticSeverity.Error, isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor InvalidRpc = new(
+        "MFG008", "Invalid [Rpc] method",
+        "[Rpc] method '{0}' {1}",
+        NetCategory, DiagnosticSeverity.Error, isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor TooManyReplicated = new(
+        "MFG009", "Too many [Replicated] members",
+        "'{0}' declares {1} [Replicated] members; a type may declare at most 64 (move some to a base or child node)",
+        NetCategory, DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     public static DiagnosticDescriptor ById(string id) => id switch
     {
+        "MFG007" => InvalidReplicated,
+        "MFG008" => InvalidRpc,
+        "MFG009" => TooManyReplicated,
         "MFG001" => ExportNotAccessible,
         "MFG002" => UnsupportedExportType,
         "MFG003" => SignalNotAccessible,

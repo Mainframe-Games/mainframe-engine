@@ -152,6 +152,30 @@ public sealed class NetBufferReader : IDisposable
         throw new InvalidDataException("Malformed 7-bit encoded integer.");
     }
 
+    /// <summary>Reads a 7-bit encoded unsigned integer written by <see cref="NetBufferWriter.WriteVarUInt64"/>.</summary>
+    public ulong ReadVarUInt64()
+    {
+        ulong result = 0;
+        for (var shift = 0; shift < 70; shift += 7)
+        {
+            var b = ReadByte();
+            if (shift == 63 && b > 0x01)
+                break; // more than 64 bits
+            result |= (ulong)(b & 0x7F) << shift;
+            if (b < 0x80)
+                return result;
+        }
+
+        throw new InvalidDataException("Malformed 7-bit encoded integer.");
+    }
+
+    /// <summary>Skips <paramref name="count"/> bytes.</summary>
+    public void Skip(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        Take(count);
+    }
+
     /// <summary>Reads a length-prefixed UTF-8 string. Allocates the string.</summary>
     public string ReadString()
     {

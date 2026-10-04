@@ -11,3 +11,6 @@ MFG003 | MainframeEngine.Serialization | Error | [Signal] event is not accessibl
 MFG004 | MainframeEngine.Serialization | Error | Duplicate scene type name
 MFG005 | MainframeEngine.Serialization | Error | Invalid serialized migration
 MFG006 | MainframeEngine.Serialization | Error | Node or resource type is not accessible
+MFG007 | MainframeEngine.Networking | Error | Invalid [Replicated] member
+MFG008 | MainframeEngine.Networking | Error | Invalid [Rpc] method
+MFG009 | MainframeEngine.Networking | Error | Too many [Replicated] members
