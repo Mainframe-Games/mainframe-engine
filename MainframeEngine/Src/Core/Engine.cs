@@ -59,6 +59,12 @@ public struct EngineOptions()
     /// optional: it is inert when Steam cannot start). 0 (default) leaves Steam alone.
     /// </summary>
     public uint SteamAppId;
+
+    /// <summary>
+    /// Audio (M7): the engine registers an <see cref="AudioServer"/> when <see cref="AudioOptions.Enabled"/>. Without a
+    /// usable device it runs on the silent null device; startup never fails because of audio.
+    /// </summary>
+    public AudioOptions Audio = new();
 }
 
 public abstract class Engine : IDisposable
@@ -217,11 +223,27 @@ public abstract class Engine : IDisposable
         Servers.Register(new RenderServer(Renderer));
         if (EngineOptions.SteamAppId != 0)
             Servers.Register(new SteamServer(EngineOptions.SteamAppId));
+        if (EngineOptions.Audio.Enabled)
+            RegisterAudioServer(EngineOptions.Audio);
         // M5: replication for the engine's tree; idle (no network) until StartServer/StartClient.
         Multiplayer = Networking.MultiplayerApi.Attach(Tree);
         _inputRouter = new InputRouter(InputContext, Tree);
 
         SetWindowIcon(EngineOptions.IconPath);
+    }
+
+    // M7: AudioServer.Create already falls back to the null device; this guard only keeps an unexpected failure
+    // (e.g. a broken bus layout resource type) from taking the game down — audio is never worth a failed startup.
+    private void RegisterAudioServer(in AudioOptions options)
+    {
+        try
+        {
+            Servers.Register(AudioServer.Create(options, Tree));
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            Log.Error($"[Audio] Audio is unavailable: {e}");
+        }
     }
 
     private void SetWindowIcon(in string? path = null)

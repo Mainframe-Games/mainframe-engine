@@ -43,6 +43,11 @@
           Link="Content\Scenes\Sandbox.mscene" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Audio decoder/server tests: tiny generated tones (WAV, OGG, MP3, FLAC; stored in Git LFS). -->
+  <ItemGroup>
+    <None Update="Content\Audio\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- SpineNode tests load SpineBoy (shared with the Sandbox rather than duplicated). -->
   <ItemGroup>
     <None Include="..\..\MainframeEngine.Sandbox\Content\Models\Spine\SpineBoy\**"
