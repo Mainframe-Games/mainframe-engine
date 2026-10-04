@@ -154,6 +154,8 @@ public sealed class OutputPanel : EditorDocument
     private RmlDataModel? _model;
     private int _filter;
     private int _shownVersion = -1;
+    private long _shownTotal;      // OutputLog.TotalAdded already reflected in _visible
+    private int _shownClears = -1; // OutputLog.ClearCount reflected; -1 forces a full rebuild
     private int _scrollCountdown;
     private readonly int[] _counts = new int[4];
 
@@ -190,6 +192,7 @@ public sealed class OutputPanel : EditorDocument
         _filter ^= 1 << (int)level;
         Workspace.Layout.SetOutputFilter(_filter);
         _shownVersion = -1;
+        _shownClears = -1;
         Refresh();
     }
 
@@ -206,14 +209,34 @@ public sealed class OutputPanel : EditorDocument
         if (_shownVersion == log.Version)
             return;
         _shownVersion = log.Version;
-        _visible.Clear();
-        Array.Clear(_counts);
-        foreach (var message in log.Messages)
+        var messages = log.Messages;
+        var added = log.TotalAdded - _shownTotal;
+        if (_shownClears != log.ClearCount || added > messages.Count || log.Dropped > 0)
         {
-            _counts[(int)message.Level]++;
-            if (IsShown(message.Level))
-                _visible.Add(message);
+            // Full rebuild: first time, filter changed, cleared, or the history dropped old lines.
+            _visible.Clear();
+            Array.Clear(_counts);
+            foreach (var message in messages)
+            {
+                _counts[(int)message.Level]++;
+                if (IsShown(message.Level))
+                    _visible.Add(message);
+            }
         }
+        else
+        {
+            // Only the new lines (a busy log appends a few per frame).
+            for (var i = messages.Count - (int)added; i < messages.Count; i++)
+            {
+                var message = messages[i];
+                _counts[(int)message.Level]++;
+                if (IsShown(message.Level))
+                    _visible.Add(message);
+            }
+        }
+
+        _shownTotal = log.TotalAdded;
+        _shownClears = log.ClearCount;
 
         if (_model is null)
             return;

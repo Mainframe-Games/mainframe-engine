@@ -97,8 +97,18 @@ public sealed class EditorSession : IDisposable
         ArgumentNullException.ThrowIfNull(scene);
         var target = path is not null ? Path.GetFullPath(path) : scene.FilePath
                      ?? throw new InvalidOperationException("The scene has no file yet; choose one (Save As).");
-        if (ProjectRoot is null || scene.FilePath is null)
+        // Saving into another project's folder switches the project only when no other open scene belongs to the current
+        // one (their resource paths are relative to it); otherwise refuse, like Open.
+        var root = FindProjectRoot(target);
+        if (ProjectRoot is null || !PathsEqual(ProjectRoot, root))
+        {
+            if (ProjectRoot is not null && _scenes.Any(s => !ReferenceEquals(s, scene) && s.FilePath is not null))
+                throw new InvalidOperationException(
+                    $"'{target}' is in the project at {root}, but other scenes of {ProjectRoot} are open. " +
+                    "Save it inside the current project, or close the other scenes first.");
             UseProjectOf(target, allowSwitch: true);
+        }
+
         SceneSaver.Save(scene.Root, target);
         scene.FilePath = target;
         scene.History.MarkSaved();

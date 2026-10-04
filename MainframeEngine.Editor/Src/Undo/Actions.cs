@@ -177,14 +177,21 @@ public sealed class AddNodeAction : IDiscardableAction
     private OwnerSnapshot _owners;
     private bool _ownersAssigned;
 
-    public AddNodeAction(Node parent, Node node, Node sceneRoot, int index = -1, string? name = null)
+    public AddNodeAction(Node parent, Node node, Node sceneRoot, int index = -1, string? name = null, Node? after = null)
     {
         Parent = parent ?? throw new ArgumentNullException(nameof(parent));
         Node = node ?? throw new ArgumentNullException(nameof(node));
         _sceneRoot = sceneRoot ?? throw new ArgumentNullException(nameof(sceneRoot));
         Index = index;
+        After = after;
         Name = name ?? $"Add {node.Name}";
     }
+
+    /// <summary>
+    /// When set, the node goes right after this sibling, resolved when the action runs (several duplicates of siblings
+    /// in one entry each land next to their original whatever was inserted before them).
+    /// </summary>
+    public Node? After { get; }
 
     public Node Parent { get; }
     public Node Node { get; }
@@ -194,8 +201,9 @@ public sealed class AddNodeAction : IDiscardableAction
     public void Do()
     {
         Parent.AddChild(Node);
-        if (Index >= 0 && Index < Parent.ChildCount)
-            Parent.MoveChild(Node, Index);
+        var index = After is { } after && ReferenceEquals(after.Parent, Parent) ? after.GetIndex() + 1 : Index;
+        if (index >= 0 && index < Parent.ChildCount)
+            Parent.MoveChild(Node, index);
         if (!_ownersAssigned)
         {
             AssignOwners(Node, _sceneRoot);

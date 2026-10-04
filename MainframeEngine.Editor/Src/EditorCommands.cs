@@ -26,6 +26,14 @@ public sealed class EditorCommands
     public bool Execute(string id)
     {
         ArgumentException.ThrowIfNullOrEmpty(id);
+        // While the mouse drives the viewport (a gizmo drag applies live, committed on release), commands that change
+        // the scene or its history would interleave with the drag's own entry: ignore them until it ends.
+        if (_workspace.Viewport?.IsInteracting == true && ChangesScene(id))
+        {
+            Log.Info($"[Editor] '{id}' ignored while dragging in the viewport.");
+            return false;
+        }
+
         try
         {
             var known = Run(id);
@@ -40,6 +48,10 @@ public sealed class EditorCommands
             return false;
         }
     }
+
+    private static bool ChangesScene(string id) =>
+        id.StartsWith("edit.", StringComparison.Ordinal) || id.StartsWith("node.", StringComparison.Ordinal) ||
+        id.StartsWith("scene.", StringComparison.Ordinal) || id.StartsWith("file.", StringComparison.Ordinal);
 
     /// <summary>Exceptions the editor survives (everything but process-fatal ones).</summary>
     public static bool IsRecoverable(Exception e) => e is not (OutOfMemoryException or StackOverflowException or AccessViolationException);
@@ -182,6 +194,42 @@ public sealed class EditorCommands
         }
 
         return ok;
+    }
+
+    /// <summary>
+    /// Saves every dirty scene: those with a file at once, then each untitled one through Save As (one dialog after the
+    /// other). <paramref name="then"/> gets true only when everything was saved (false on a failure or a cancelled dialog).
+    /// </summary>
+    public void SaveAll(Action<bool> then)
+    {
+        ArgumentNullException.ThrowIfNull(then);
+        if (!SaveAll() && Session.Scenes.Any(s => s.IsDirty && s.FilePath is not null))
+        {
+            then(false); // a file-backed save failed (already reported)
+            return;
+        }
+
+        var untitled = new Queue<EditedScene>(Session.Scenes.Where(s => s.IsDirty && s.FilePath is null));
+        void Next(bool previousSaved)
+        {
+            if (!previousSaved)
+            {
+                then(false);
+                return;
+            }
+
+            if (untitled.Count == 0)
+            {
+                then(true);
+                return;
+            }
+
+            var scene = untitled.Dequeue();
+            Session.Activate(scene);
+            Save(scene, saveAs: true, then: Next);
+        }
+
+        Next(true);
     }
 
     private bool TrySave(EditedScene scene, string? path)

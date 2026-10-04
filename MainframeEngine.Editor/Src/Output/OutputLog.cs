@@ -14,9 +14,10 @@ public enum OutputLevel
 /// <summary>One line of the Output panel.</summary>
 public sealed record OutputMessage(OutputLevel Level, string Text, DateTime Time)
 {
-    public string TimeText => Time.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+    // Computed once: the Output panel's data bindings read these whenever its list is refreshed.
+    public string TimeText { get; } = Time.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
 
-    public string LevelText => Level switch
+    public string LevelText { get; } = Level switch
     {
         OutputLevel.Debug => "debug",
         OutputLevel.Info => "info",
@@ -47,6 +48,12 @@ public sealed class OutputLog : IDisposable
 
     /// <summary>The history, oldest first (main thread).</summary>
     public IReadOnlyList<OutputMessage> Messages => _messages;
+
+    /// <summary>Messages ever added to the history (drained), including dropped ones.</summary>
+    public long TotalAdded { get; private set; }
+
+    /// <summary>Bumped by <see cref="Clear"/>.</summary>
+    public int ClearCount { get; private set; }
 
     /// <summary>Messages dropped because the history was full.</summary>
     public long Dropped { get; private set; }
@@ -84,12 +91,15 @@ public sealed class OutputLog : IDisposable
         while (_incoming.TryDequeue(out var message))
         {
             _messages.Add(message);
-            if (_messages.Count > Capacity)
-            {
-                var excess = _messages.Count - Capacity;
-                _messages.RemoveRange(0, excess);
-                Dropped += excess;
-            }
+            TotalAdded++;
+        }
+
+        // Trim once per drain, not per message (a burst would shift the list once for every line).
+        if (_messages.Count > Capacity)
+        {
+            var excess = _messages.Count - Capacity;
+            _messages.RemoveRange(0, excess);
+            Dropped += excess;
         }
 
         Version++;
@@ -99,6 +109,7 @@ public sealed class OutputLog : IDisposable
     public void Clear()
     {
         _messages.Clear();
+        ClearCount++;
         Version++;
     }
 

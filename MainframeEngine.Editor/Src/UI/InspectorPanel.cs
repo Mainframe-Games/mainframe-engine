@@ -36,7 +36,10 @@ public sealed class InspectorPanel : EditorDocument
     private InspectorModel? _model;
     private object? _target;
     private bool _rebuildPending;
-    private bool _rebuilding;
+    // Set while the panel writes into its own elements (rebuild, value refresh): RmlUi raises change events for
+    // programmatic value/attribute changes (sliders, checkboxes), which must not be taken for user edits.
+    private bool _suppressEvents;
+    private EditedScene? _scene; // the scene the inspected object belongs to
 
     public InspectorPanel(EditorWorkspace workspace)
         : base(workspace, "inspector.rml")
@@ -77,14 +80,15 @@ public sealed class InspectorPanel : EditorDocument
                 focus.Blur();
         }
 
-        _rebuilding = true;
+        var suppressed = _suppressEvents;
+        _suppressEvents = true;
         try
         {
             RebuildNow();
         }
         finally
         {
-            _rebuilding = false;
+            _suppressEvents = suppressed;
         }
     }
 
@@ -94,6 +98,7 @@ public sealed class InspectorPanel : EditorDocument
         var scene = Workspace.Session.Active;
         var node = scene?.Selection.Primary;
         _target = node;
+        _scene = scene;
         _rows.Clear();
         _model = node is null ? null : InspectorModel.Build(node);
         if (!IsLoaded)
@@ -346,6 +351,20 @@ public sealed class InspectorPanel : EditorDocument
     /// <summary>Writes changed values into the existing elements (rebuilds when a resource or array changed shape).</summary>
     public void RefreshValues()
     {
+        var suppressed = _suppressEvents;
+        _suppressEvents = true;
+        try
+        {
+            RefreshValuesNow();
+        }
+        finally
+        {
+            _suppressEvents = suppressed;
+        }
+    }
+
+    private void RefreshValuesNow()
+    {
         if (_target is Node { IsFreed: true })
         {
             Rebuild();
@@ -439,7 +458,7 @@ public sealed class InspectorPanel : EditorDocument
 
     private void OnChange(RmlEvent e)
     {
-        if (_rebuilding)
+        if (_suppressEvents)
             return;
         var target = e.Target;
         if (target.Id == "node-name")
@@ -490,7 +509,7 @@ public sealed class InspectorPanel : EditorDocument
 
     private void OnBlur(RmlEvent e)
     {
-        if (_rebuilding)
+        if (_suppressEvents)
             return;
         var target = e.Target;
         if (target.TagName is not ("input" or "textarea") || target.GetAttribute("type") is "checkbox" or "range")
@@ -607,7 +626,7 @@ public sealed class InspectorPanel : EditorDocument
             return false;
         }
 
-        if (Equals(Snapshot(current), Snapshot(value)) && mergeKey is null)
+        if (Equals(Snapshot(current), Snapshot(value)))
             return false;
         SetValue(p, value, mergeKey);
         return true;
@@ -670,9 +689,10 @@ public sealed class InspectorPanel : EditorDocument
         });
     }
 
+    // Edits go to the history of the scene the inspected object belongs to (not whatever tab is active now).
     private void SetValue(InspectorProperty p, object? value, string? mergeKey)
     {
-        if (Workspace.Session.Active is not { } scene)
+        if (_scene is not { } scene || !Workspace.Session.Scenes.Contains(scene))
             return;
         scene.SetProperty(p.Target, p.Info, value, mergeKey);
     }

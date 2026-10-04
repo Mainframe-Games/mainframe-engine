@@ -32,6 +32,12 @@ public interface IEditorHost
     /// <summary>Modifier keys currently held.</summary>
     EditorModifiers Modifiers { get; }
 
+    /// <summary>
+    /// True when <see cref="Modifiers"/> reads the keyboard state directly (a real window); otherwise the workspace also
+    /// tracks modifiers from the key events it sees.
+    /// </summary>
+    bool ReportsModifiers => false;
+
     void SetTitle(string title);
 
     /// <summary>Closes the editor (after the workspace has dealt with unsaved changes).</summary>

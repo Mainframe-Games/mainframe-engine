@@ -217,6 +217,51 @@ public sealed class SceneOperationsTests : IDisposable
     }
 
     [Fact]
+    public void DuplicatingSeveralSiblingsPutsEachCopyRightAfterItsOriginal()
+    {
+        var scene = NewScene();
+        var a = Add(scene, "A");
+        var b = Add(scene, "B");
+        Add(scene, "C");
+
+        scene.Duplicate([a, b]);
+        Assert.Equal(["A", "A2", "B", "B2", "C"], scene.Root.Children.Select(c => c.Name));
+
+        scene.History.Undo();
+        scene.History.Redo();
+        Assert.Equal(["A", "A2", "B", "B2", "C"], scene.Root.Children.Select(c => c.Name));
+    }
+
+    [Fact]
+    public void SavingIntoAnotherProjectIsRefusedWhileScenesOfTheCurrentOneAreOpen()
+    {
+        var first = NewScene();
+        _host.Session.Save(first, _host.ScenePath("First.mscene"));
+        var other = Directory.CreateTempSubdirectory("mf-other-project").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(other, "Content"));
+            var second = NewScene();
+            Add(second, "X");
+
+            var error = Assert.Throws<InvalidOperationException>(() => _host.Session.Save(second, Path.Combine(other, "Content", "S.mscene")));
+            Assert.Contains("other scenes", error.Message, StringComparison.Ordinal);
+            Assert.True(second.IsDirty);
+            Assert.Equal(_host.ProjectDirectory, _host.Session.ProjectRoot);
+            Assert.Equal(_host.ProjectDirectory, AssetDatabase.Current.ProjectRoot);
+
+            // Alone, a scene may move the session to another project.
+            _host.Session.Close(first);
+            _host.Session.Save(second, Path.Combine(other, "Content", "S.mscene"));
+            Assert.Equal(other, _host.Session.ProjectRoot);
+        }
+        finally
+        {
+            Directory.Delete(other, recursive: true);
+        }
+    }
+
+    [Fact]
     public void DuplicatingAnInstancedSceneKeepsItAnInstance()
     {
         var subPath = _host.ScenePath("Sub.mscene");

@@ -91,7 +91,7 @@ public sealed class EditorWorkspace : Node
     public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || Message.Visible || Splash.Visible;
 
     /// <summary>The modifier keys held (host state, or tracked from key events when the host has none).</summary>
-    public EditorModifiers Modifiers => Host.Modifiers | _trackedModifiers;
+    public EditorModifiers Modifiers => Host.ReportsModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
 
     protected override void OnReady()
     {
@@ -446,10 +446,21 @@ public sealed class EditorWorkspace : Node
             {
                 if (button == 2)
                     return;
-                if (button == 0 && !Commands.SaveAll())
-                    return; // a save failed or was cancelled: stay open
-                SaveLayout();
-                Host.Quit();
+                if (button == 1)
+                {
+                    SaveLayout();
+                    Host.Quit();
+                    return;
+                }
+
+                // Save All: untitled scenes get a Save As dialog each; a failure or cancel keeps the editor open.
+                Commands.SaveAll(saved =>
+                {
+                    if (!saved)
+                        return;
+                    SaveLayout();
+                    Host.Quit();
+                });
             },
         });
     }
@@ -469,7 +480,11 @@ public sealed class EditorWorkspace : Node
             {
                 var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
                 var name = Path.GetFileNameWithoutExtension(scene.DisplayName.Replace(' ', '_'));
+                // Same names in the same second (two "Untitled" tabs, two Main.mscene of different folders) must not
+                // overwrite each other: number them.
                 var path = Path.Combine(Options.RecoveryDirectory, $"{name}-{stamp}.mscene");
+                for (var n = 2; File.Exists(path) || written.Contains(path); n++)
+                    path = Path.Combine(Options.RecoveryDirectory, $"{name}-{stamp}-{n}.mscene");
                 AtomicFile.WriteAllBytes(path, SceneSaver.ToJson(scene.Root));
                 written.Add(path);
             }

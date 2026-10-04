@@ -91,8 +91,8 @@ public sealed class EditedScene : IDisposable
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(property);
         var old = property.GetValue(target);
-        if (Equals(old, value) && mergeKey is null)
-            return;
+        if (Equals(old, value))
+            return; // nothing changed (also mid-drag: no entry, no redo branch cut, no dirty flag)
         History.Commit(new SetPropertyAction(target, property, old, value), mergeKey: mergeKey);
     }
 
@@ -160,7 +160,7 @@ public sealed class EditedScene : IDisposable
         for (var i = 0; i < roots.Count; i++)
         {
             var original = roots[i];
-            actions[i] = new AddNodeAction(original.Parent!, copies[i], Root, original.GetIndex() + 1, $"Duplicate {original.Name}");
+            actions[i] = new AddNodeAction(original.Parent!, copies[i], Root, name: $"Duplicate {original.Name}", after: original);
         }
 
         History.Commit(actions.Length == 1 ? actions[0] : new CompositeAction($"Duplicate {actions.Length} nodes", actions));

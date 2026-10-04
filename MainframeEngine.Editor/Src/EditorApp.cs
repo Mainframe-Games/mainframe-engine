@@ -165,6 +165,8 @@ public sealed class EditorApp : Engine, IEditorHost
         }
     }
 
+    public bool ReportsModifiers => _keyboard is not null;
+
     public void SetTitle(string title) => Window.Title = title;
 
     void IEditorHost.Quit() => Quit(ExitCode.Ok);

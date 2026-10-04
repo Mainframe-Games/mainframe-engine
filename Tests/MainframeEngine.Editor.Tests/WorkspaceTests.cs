@@ -440,6 +440,155 @@ public sealed class WorkspaceTests : IDisposable
         Assert.Contains("\"Unsaved\"", File.ReadAllText(written), StringComparison.Ordinal);
     }
 
+    // ── Review regressions ───────────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void UndoRefreshingSlidersCheckboxesAndFlagsDoesNotCreateHistoryEntries()
+    {
+        var node = new AllHintsNode { Name = "All" };
+        _editor.Scene.AddNode(node, _editor.Scene.Root);
+        _editor.Tick(2);
+        int Row(string name) => W.Inspector.Rows.ToList().FindIndex(r => r.Name == name && ReferenceEquals(r.Target, node));
+        var history = _editor.Scene.History;
+
+        W.Inspector.Commit(Row("Volume"), 0, "7.5");      // slider + field
+        W.Inspector.RunAction(Row("Tint"), "color");       // opens the RGBA sliders
+        W.Inspector.Commit(Row("Tint"), 9, "#336699");
+        W.Inspector.Commit(Row("Enabled"), 0, "false");    // checkbox
+        W.Inspector.Commit(Row("Mask"), 0, "World, Enemies"); // flags
+        W.Inspector.Commit(Row("Mood"), 0, "Calm");        // dropdown
+        history.EndMerge();
+        _editor.Tick();
+        var entries = history.Actions.Count;
+
+        for (var i = 0; i < 5; i++)
+        {
+            history.Undo();
+            _editor.Tick(); // the inspector writes the old values back into its sliders, boxes and dropdown
+        }
+
+        Assert.Equal(entries, history.Actions.Count);
+        Assert.Equal(entries - 5, history.Position);
+        Assert.True(history.CanRedo);
+        Assert.Equal(5f, node.Volume);
+        Assert.Equal(Layers.World, node.Mask);
+        Assert.True(node.Enabled);
+        Assert.Equal(1, history.Position); // only the Add remains applied
+        history.Redo();
+        Assert.Equal(7.5f, node.Volume);
+    }
+
+    [Fact]
+    public void SettingAnUnchangedValueNeverAddsAnEntryEvenWhileMerging()
+    {
+        var node = AddChild("N");
+        var position = Serialization.TypeRegistry.GetRequired(typeof(Node3D)).FindProperty("Position")!;
+        var before = _editor.Scene.History.Actions.Count;
+        _editor.Scene.History.Undo();
+        _editor.Scene.History.Redo();
+
+        _editor.Scene.SetProperty(node, position, node.Position, "drag");
+
+        Assert.Equal(before, _editor.Scene.History.Actions.Count);
+        Assert.False(_editor.Scene.History.CanRedo);
+    }
+
+    [Fact]
+    public void ShiftDuringFlyDoesNotLeaveTheModifierStuck()
+    {
+        AddChild("A");
+        var view = W.Layout.ViewportImage;
+        var center = new Vector2(view.X + view.Width / 2, view.Y + view.Height / 2);
+        _editor.Tree.PushInput(new InputEventMouseButton { Button = MouseButton.Right, Pressed = true, Position = center });
+        Assert.True(W.Viewport.IsFlying);
+        _editor.Tree.PushInput(new InputEventKey { Key = Key.ShiftLeft, Pressed = true });
+        _editor.Tree.PushInput(new InputEventKey { Key = Key.ShiftLeft, Pressed = false });
+        _editor.Tree.PushInput(new InputEventMouseButton { Button = MouseButton.Right, Pressed = false, Position = center });
+
+        Assert.Equal(EditorModifiers.None, W.Modifiers);
+        _editor.Key(Key.Z, Key.ControlLeft); // undo, not redo
+        Assert.Equal(0, _editor.Scene.Root.ChildCount);
+    }
+
+    [Fact]
+    public void SceneCommandsAreIgnoredWhileTheViewportIsDragged()
+    {
+        AddChild("A");
+        var view = W.Layout.ViewportImage;
+        var center = new Vector2(view.X + view.Width / 2, view.Y + view.Height / 2);
+        _editor.Tree.PushInput(new InputEventMouseButton { Button = MouseButton.Middle, Pressed = true, Position = center });
+        Assert.True(W.Viewport.IsInteracting);
+
+        Assert.False(W.Commands.Execute("edit.undo"));
+        Assert.Equal(1, _editor.Scene.Root.ChildCount);
+        Assert.True(W.Commands.Execute("gizmo.rotate")); // tool switches are fine
+
+        _editor.Tree.PushInput(new InputEventMouseButton { Button = MouseButton.Middle, Pressed = false, Position = center });
+        Assert.True(W.Commands.Execute("edit.undo"));
+        Assert.Equal(0, _editor.Scene.Root.ChildCount);
+    }
+
+    [Fact]
+    public void SaveAllOnQuitAsksForAFileForUntitledScenes()
+    {
+        AddChild("Unsaved");
+        W.RequestQuit();
+        W.Message.Answer(0); // Save All
+        _editor.Tick();
+        Assert.True(W.FilePicker.Visible);
+        Assert.False(_editor.Host.QuitRequested);
+
+        W.FilePicker.Cancel(); // cancelling the dialog keeps the editor open
+        Assert.False(_editor.Host.QuitRequested);
+
+        W.RequestQuit();
+        W.Message.Answer(0);
+        _editor.Tick();
+        W.FilePicker.NavigateTo(_editor.Directory);
+        W.FilePicker.Model!.FileName = "Quit";
+        W.FilePicker.Accept();
+        Assert.True(File.Exists(Path.Combine(_editor.Directory, "Quit.mscene")));
+        Assert.True(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
+    public void RecoveryCopiesOfSameNamedScenesDoNotOverwriteEachOther()
+    {
+        AddChild("One");
+        var second = W.Session.NewScene();
+        second.AddNode(new Node3D { Name = "Two" }, second.Root);
+        W.Session.NewScene().AddNode(new Node3D { Name = "Three" }, W.Session.Active!.Root);
+
+        var written = W.WriteRecoveryCopies();
+
+        Assert.Equal(3, written.Count);
+        Assert.Equal(3, written.Distinct().Count());
+        Assert.All(written, path => Assert.True(File.Exists(path)));
+    }
+
+    [Fact]
+    public void TheOutputPanelAppendsNewLinesAndRebuildsWhenOldOnesAreDropped()
+    {
+        W.Output.Clear();
+        W.OutputPanel.Refresh();
+        for (var i = 0; i < 5; i++)
+            W.Output.Add(OutputLevel.Info, $"line {i}");
+        _editor.Tick();
+        W.Output.Add(OutputLevel.Warning, "line 5");
+        _editor.Tick();
+
+        Assert.Equal(["line 0", "line 1", "line 2", "line 3", "line 4", "line 5"],
+            W.OutputPanel.VisibleMessages.Where(m => m.Text.StartsWith("line ", StringComparison.Ordinal)).Select(m => m.Text));
+        Assert.Same(W.OutputPanel.VisibleMessages[0].TimeText, W.OutputPanel.VisibleMessages[0].TimeText); // computed once
+
+        for (var i = 0; i < W.Output.Capacity + 10; i++)
+            W.Output.Add(OutputLevel.Debug, $"burst {i}");
+        _editor.Tick();
+        Assert.Equal(W.Output.Capacity, W.Output.Messages.Count);
+        Assert.Equal($"burst {W.Output.Capacity + 9}", W.OutputPanel.VisibleMessages[^1].Text);
+        Assert.Equal(W.Output.Messages.Count(m => W.OutputPanel.IsShown(m.Level)), W.OutputPanel.VisibleMessages.Count);
+    }
+
     [Fact]
     public void LayoutIsSavedWhenTheWorkspaceLeaves()
     {

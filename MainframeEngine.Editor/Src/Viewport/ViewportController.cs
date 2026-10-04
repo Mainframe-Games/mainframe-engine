@@ -89,6 +89,9 @@ public sealed class ViewportController : Node
     /// <summary>True while the mouse flies the camera (RMB held).</summary>
     public bool IsFlying => _drag == DragKind.Fly;
 
+    /// <summary>True while the mouse drives the view (gizmo drag, orbit, pan, fly or a pending click).</summary>
+    public bool IsInteracting => _drag != DragKind.None;
+
     /// <summary>True while a pick request is waiting for the GPU.</summary>
     public bool IsPicking => _pick.IsValid;
 
@@ -218,6 +221,7 @@ public sealed class ViewportController : Node
             case MouseButton.Right:
                 _drag = DragKind.Fly;
                 Array.Clear(_flyKeys);
+                _fast = false;
                 return true;
             default:
                 return false;
@@ -292,8 +296,9 @@ public sealed class ViewportController : Node
         };
         if (key.Key is Key.ShiftLeft or Key.ShiftRight)
         {
+            // Noted but never consumed: the workspace tracks modifiers from the same events.
             _fast = key.Pressed;
-            return true;
+            return false;
         }
 
         if (index < 0)
@@ -307,6 +312,7 @@ public sealed class ViewportController : Node
         if (_drag == DragKind.Gizmo && _scene is { } scene)
             EndGizmo(scene, commit: false);
         _drag = DragKind.None;
+        _fast = false;
         Array.Clear(_flyKeys);
     }
 
