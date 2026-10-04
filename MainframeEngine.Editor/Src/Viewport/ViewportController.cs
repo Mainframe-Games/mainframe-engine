@@ -12,7 +12,7 @@ namespace MainframeEngine.Editor;
 /// the gizmo — into the view's debug and overlay lines. Steady-state frames allocate nothing.
 /// </summary>
 [Tool]
-public sealed class ViewportController : Node
+public sealed partial class ViewportController : Node
 {
     private static readonly Vector4 SelectionColor = new(1f, 0.62f, 0.15f, 1f);
     private static readonly Vector4 LightColor = new(1f, 0.9f, 0.35f, 0.9f);
@@ -58,6 +58,7 @@ public sealed class ViewportController : Node
     public ViewportController(EditorWorkspace workspace)
     {
         _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
+        Gizmo2D = new TransformGizmo2D(workspace.Gizmo);
     }
 
     /// <summary>Whether the reference grid is drawn.</summary>
@@ -68,7 +69,7 @@ public sealed class ViewportController : Node
         {
             field = value;
             if (_grid is not null)
-                _grid.Visible = value;
+                _grid.Visible = value && _scene?.Camera.Is2D != true;
         }
     } = true;
 
@@ -111,9 +112,10 @@ public sealed class ViewportController : Node
 
         if (_grid is { IsFreed: false })
             _grid.Free();
-        _grid = new Grid3D { Name = "EditorGrid", Visible = GridVisible };
+        _grid = new Grid3D { Name = "EditorGrid", Visible = GridVisible && !_scene.Camera.Is2D };
         _scene.Viewport.AddChild(_grid);
-        _scene.Viewport.CameraOverride = _scene.Camera.RenderCamera;
+        _scene.Viewport.CameraOverride = _scene.Camera.ActiveCamera;
+        _nodes2DVersion = -1;
     }
 
     protected override void OnProcess(in GameTime gameTime)
@@ -141,11 +143,17 @@ public sealed class ViewportController : Node
                 scene.Camera.Fly(move, gameTime.DeltaTime, _fast || (_workspace.Modifiers & EditorModifiers.Shift) != 0);
         }
 
-        scene.Camera.Apply();
+        scene.Camera.Apply(pixels);
+        if (!ReferenceEquals(viewport.CameraOverride, scene.Camera.ActiveCamera))
+            viewport.CameraOverride = scene.Camera.ActiveCamera;
         _workspace.Gizmo.PixelScale = _workspace.Host.PixelScale;
-        _workspace.ViewportPanel.SetInfo(_drag == DragKind.Fly ? FlyInfo : PerspectiveInfo, _drag == DragKind.Fly ? "plane" : "perspective");
+        _workspace.ViewportPanel.SetInfo(scene.Camera.Is2D ? Info2D : _drag == DragKind.Fly ? FlyInfo : PerspectiveInfo,
+            scene.Camera.Is2D ? "square" : _drag == DragKind.Fly ? "plane" : "perspective");
         PollPick(scene);
-        DrawEditorVisuals(scene, pixels);
+        if (scene.Camera.Is2D)
+            DrawEditorVisuals2D(scene, pixels);
+        else
+            DrawEditorVisuals(scene, pixels);
     }
 
     private const string PerspectiveInfo = "Perspective";
@@ -184,7 +192,9 @@ public sealed class ViewportController : Node
                     Handled();
                 break;
             case InputEventMouseWheel wheel when ViewRect.Contains(_mouse.X, _mouse.Y) || _drag == DragKind.Fly:
-                if (_drag == DragKind.Fly)
+                if (scene.Camera.Is2D)
+                    scene.Camera.Zoom2DAt(wheel.Delta.Y, LocalPixel(_mouse), ViewPixels);
+                else if (_drag == DragKind.Fly)
                     scene.Camera.FlySpeed *= MathF.Pow(1.2f, wheel.Delta.Y);
                 else
                     scene.Camera.Zoom(wheel.Delta.Y);
@@ -204,6 +214,8 @@ public sealed class ViewportController : Node
         if (_drag != DragKind.None || !ViewRect.Contains(_mouse.X, _mouse.Y))
             return false;
         _pressAt = _mouse; // the event's position in layout points
+        if (scene.Camera.Is2D)
+            return Press2D(scene, e);
         var alt = (_workspace.Modifiers & EditorModifiers.Alt) != 0;
         var shift = (_workspace.Modifiers & EditorModifiers.Shift) != 0;
         switch (e.Button)
@@ -234,7 +246,7 @@ public sealed class ViewportController : Node
         var drag = _drag;
         if (drag == DragKind.None)
             return false;
-        var matches = drag switch
+        var matches = scene.Camera.Is2D ? Release2DMatches(drag, e.Button) : drag switch
         {
             DragKind.Click or DragKind.Gizmo => e.Button == MouseButton.Left,
             DragKind.Orbit => e.Button is MouseButton.Left or MouseButton.Middle,
@@ -245,7 +257,9 @@ public sealed class ViewportController : Node
         if (!matches)
             return true;
         _drag = DragKind.None;
-        if (drag == DragKind.Gizmo)
+        if (drag == DragKind.Gizmo && scene.Camera.Is2D)
+            EndGizmo2D(scene, commit: true);
+        else if (drag == DragKind.Gizmo)
             EndGizmo(scene, commit: true);
         else if (drag == DragKind.Click && Vector2.Distance(_mouse, _pressAt) <= ClickPixels)
             Pick(scene, _mouse, (_workspace.Modifiers & (EditorModifiers.Command | EditorModifiers.Shift)) != 0);
@@ -262,11 +276,17 @@ public sealed class ViewportController : Node
             case DragKind.Orbit:
                 scene.Camera.Orbit(delta.X, delta.Y);
                 return true;
+            case DragKind.Pan when scene.Camera.Is2D:
+                scene.Camera.Pan2D(delta.X * scale, delta.Y * scale);
+                return true;
             case DragKind.Pan:
                 scene.Camera.Pan(delta.X * scale, delta.Y * scale, ViewPixels.Y);
                 return true;
             case DragKind.Fly:
                 scene.Camera.Look(delta.X, delta.Y);
+                return true;
+            case DragKind.Gizmo when scene.Camera.Is2D:
+                UpdateGizmo2D(scene);
                 return true;
             case DragKind.Gizmo:
                 UpdateGizmo(scene);
@@ -275,6 +295,14 @@ public sealed class ViewportController : Node
                 return true;
             default:
                 // Hover highlight of the gizmo handles.
+                if (scene.Camera.Is2D)
+                {
+                    Gizmo2D.Hovered = ViewRect.Contains(_mouse.X, _mouse.Y) && GizmoTarget2D(scene) is { } node2D
+                        ? Gizmo2D.HitTest(scene.Camera, ViewPixels, node2D.GlobalPosition, node2D.GlobalRotation, LocalPixel(_mouse))
+                        : GizmoHandle.None;
+                    return false;
+                }
+
                 if (ViewRect.Contains(_mouse.X, _mouse.Y) && GizmoTarget(scene) is { } node)
                     _workspace.Gizmo.Hovered = _workspace.Gizmo.HitTest(scene.Camera, ViewPixels, node.GlobalPosition, node.GlobalRotation, LocalPixel(_mouse));
                 else
@@ -311,7 +339,13 @@ public sealed class ViewportController : Node
     private void CancelDrag()
     {
         if (_drag == DragKind.Gizmo && _scene is { } scene)
-            EndGizmo(scene, commit: false);
+        {
+            if (_gizmoNode2D is not null)
+                EndGizmo2D(scene, commit: false);
+            else
+                EndGizmo(scene, commit: false);
+        }
+
         _drag = DragKind.None;
         _fast = false;
         Array.Clear(_flyKeys);
@@ -334,6 +368,15 @@ public sealed class ViewportController : Node
     {
         ArgumentNullException.ThrowIfNull(scene);
         var pixel = LocalPixel(windowPoint);
+        if (scene.Camera.Is2D)
+        {
+            if (Pick2D(scene, pixel) is { } picked)
+                Select(scene, picked, additive);
+            else if (!additive)
+                scene.Selection.Clear();
+            return;
+        }
+
         if (PickIcon(scene, pixel) is { } icon)
         {
             Select(scene, icon, additive);
@@ -495,6 +538,12 @@ public sealed class ViewportController : Node
     {
         if (_workspace.Session.Active is not { } scene)
             return;
+        if (scene.Camera.Is2D)
+        {
+            FrameSelection2D(scene);
+            return;
+        }
+
         var bounds = Aabb.Empty;
         foreach (var node in scene.Selection.Nodes)
             if (node is Node3D n3)

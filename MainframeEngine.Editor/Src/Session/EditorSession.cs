@@ -231,6 +231,8 @@ public sealed class EditorSession : IDisposable
         _host.AddChild(viewport);
         viewport.AddChild(root);
         var scene = new EditedScene(root, filePath, viewport, source) { UntitledNumber = untitled };
+        // Node2D scenes open in the 2D view (orthographic, pixels, y up); View › 2D switches.
+        scene.Camera.Is2D = root is Node2D;
         scene.Changed += OnSceneChanged;
         scene.Selection.Changed += OnSelectionChanged;
         _scenes.Add(scene);

@@ -104,7 +104,16 @@ public sealed class EditorCommands
             case "view.front": Active?.Camera.SetView(EditorView.Front); return true;
             case "view.right": Active?.Camera.SetView(EditorView.Right); return true;
             case "view.top": Active?.Camera.SetView(EditorView.Top); return true;
-            case "view.reset": Active?.Camera.Reset(); return true;
+            case "view.reset":
+                if (Active?.Camera is { Is2D: true } camera2D)
+                    camera2D.Reset2D();
+                else
+                    Active?.Camera.Reset();
+                return true;
+            case "view.2d":
+                _workspace.Viewport.Toggle2D();
+                _workspace.Toolbar.Refresh();
+                return true;
             case "help.shortcuts": ShowShortcuts(); return true;
             case "help.about": ShowAbout(); return true;
             default: return false;
@@ -440,6 +449,8 @@ public sealed class EditorCommands
                 new MenuItem("Right View", "view.right", "3", scene is not null, Icon: "square-letter-r"),
                 new MenuItem("Top View", "view.top", "7", scene is not null, Icon: "square-letter-t"),
                 new MenuItem("Reset Camera", "view.reset", null, scene is not null, Icon: "refresh"),
+                new MenuItem(scene?.Camera.Is2D == true ? "3D View" : "2D View", "view.2d", null, scene is not null,
+                    Icon: scene?.Camera.Is2D == true ? "box" : "square"),
                 MenuItem.Separator,
                 new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G", Icon: "grid-3x3"),
             ],
