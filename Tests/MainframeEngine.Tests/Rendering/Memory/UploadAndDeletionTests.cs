@@ -122,6 +122,7 @@ public sealed class DeletionQueueTests
 
         queue.BeginFrame(1);
         queue.Enqueue(Item(10)); // released while frame 1 records
+        queue.EndFrame();
         queue.BeginFrame(2);
         queue.Enqueue(Item(20));
 
@@ -137,15 +138,24 @@ public sealed class DeletionQueueTests
     }
 
     [Fact]
-    public void LoadTimeReleasesGoAtTheFirstCollect()
+    public void ReleasesBetweenFramesWaitForTheNextFrame()
     {
+        // The next frame records pending uploads that may still reference the object.
         var recorder = new Recorder();
         var queue = new DeletionQueue(recorder);
-        queue.Enqueue(Item(1)); // before any frame
+        queue.Enqueue(Item(1)); // load time, before any frame
 
         queue.Collect(completedFrame: 0);
+        Assert.Empty(recorder.Destroyed);
 
+        queue.BeginFrame(1);
+        queue.EndFrame();
+        queue.Enqueue(Item(2)); // after frame 1 was submitted
+        queue.Collect(completedFrame: 1);
         Assert.Equal([1ul], recorder.Destroyed);
+
+        queue.Collect(completedFrame: 2);
+        Assert.Equal([1ul, 2ul], recorder.Destroyed);
     }
 
     [Fact]

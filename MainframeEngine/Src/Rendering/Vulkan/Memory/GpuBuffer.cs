@@ -103,8 +103,9 @@ public sealed unsafe class GpuBuffer : IDisposable
     }
 
     /// <summary>
-    /// Fills a range: a direct copy for mapped buffers, otherwise through the upload queue (recorded at the
-    /// start of the next frame; never while frames in flight may read the old contents of that range).
+    /// Fills a range: a direct copy for mapped buffers (the caller must not overwrite data a frame in flight
+    /// still reads — use per-frame-slot buffers), otherwise through the upload queue (recorded at the start of the
+    /// next frame, after earlier frames' reads of the buffer have finished).
     /// </summary>
     public void Upload(ReadOnlySpan<byte> data, ulong offset = 0)
     {

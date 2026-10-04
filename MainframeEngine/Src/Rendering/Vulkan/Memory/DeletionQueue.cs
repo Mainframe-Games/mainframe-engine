@@ -45,9 +45,11 @@ internal interface IGpuDestroyer
 
 /// <summary>
 /// Defers destroying GPU objects until the frames that may still use them have finished, instead of
-/// <c>vkDeviceWaitIdle</c> in every <c>Dispose</c>. An object enqueued while frame <i>N</i> is being recorded
-/// (or after frame <i>N</i> was submitted) is destroyed once frame <i>N</i>'s frame-slot fence has signalled,
-/// which the renderer observes at the start of frame <i>N</i> + <see cref="IVulkanContext.MaxFramesInFlight"/>.
+/// <c>vkDeviceWaitIdle</c> in every <c>Dispose</c>. An object enqueued while frame <i>N</i> is being recorded is
+/// destroyed once frame <i>N</i>'s frame-slot fence has signalled, which the renderer observes at the start of
+/// frame <i>N</i> + <see cref="IVulkanContext.MaxFramesInFlight"/>. An object enqueued between frames (load time,
+/// <c>OnUpdate</c>) waits for the <i>next</i> frame too, because that frame records the upload queue's pending
+/// copies, which may still reference it.
 /// </summary>
 /// <remarks>
 /// Keyed by frame number rather than slot index so objects released between frames (after a submit, before
@@ -69,6 +71,9 @@ public sealed class DeletionQueue
     /// <summary>The newest frame number that has started recording (objects released now may be used by it).</summary>
     public ulong CurrentFrame { get; private set; }
 
+    /// <summary>True between the renderer's <see cref="BeginFrame"/> and <see cref="EndFrame"/>.</summary>
+    public bool IsRecording { get; private set; }
+
     /// <summary>Every frame up to and including this one has finished on the GPU.</summary>
     public ulong CompletedFrame { get; private set; }
 
@@ -80,7 +85,7 @@ public sealed class DeletionQueue
     {
         if (item.Handle == 0 && item.Allocation.IsNull)
             return;
-        _pending.Enqueue((CurrentFrame, item));
+        _pending.Enqueue((IsRecording ? CurrentFrame : CurrentFrame + 1, item));
     }
 
     /// <summary>Renderer: frame <paramref name="frame"/> starts recording.</summary>
@@ -89,7 +94,11 @@ public sealed class DeletionQueue
         if (frame < CurrentFrame)
             throw new ArgumentOutOfRangeException(nameof(frame), "Frame numbers only increase.");
         CurrentFrame = frame;
+        IsRecording = true;
     }
+
+    /// <summary>Renderer: the current frame has been submitted.</summary>
+    internal void EndFrame() => IsRecording = false;
 
     /// <summary>Renderer: every frame up to <paramref name="completedFrame"/> has finished; destroy what they held.</summary>
     internal void Collect(ulong completedFrame)
@@ -107,6 +116,7 @@ public sealed class DeletionQueue
     /// <summary>Destroys everything now. Only when the device is idle (swapchain teardown, shutdown).</summary>
     internal void FlushAll()
     {
+        IsRecording = false;
         CompletedFrame = CurrentFrame;
         while (_pending.TryDequeue(out var entry))
             _destroyer.Destroy(entry.Item);

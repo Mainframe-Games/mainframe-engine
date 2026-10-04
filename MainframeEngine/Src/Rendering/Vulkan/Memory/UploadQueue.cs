@@ -213,7 +213,17 @@ public sealed unsafe class UploadQueue : IDisposable
                     AccessFlags.None, AccessFlags.TransferWriteBit);
         }
 
-        FlushBarriers(cb, PipelineStageFlags.TopOfPipeBit, PipelineStageFlags.TransferBit);
+        // Source: every stage that reads uploaded resources, so earlier frames' reads of a resource that is being
+        // re-uploaded (GpuBuffer.Upload on an existing buffer, a replaced image) finish before it is overwritten.
+        const PipelineStageFlags consumers = PipelineStageFlags.VertexInputBit | PipelineStageFlags.VertexShaderBit |
+                                             PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.TransferBit;
+        var anyBufferCopy = false;
+        foreach (ref readonly var op in ops)
+            anyBufferCopy |= op.Kind == OpKind.CopyBuffer;
+        if (_barriers.Count > 0)
+            FlushBarriers(cb, consumers, PipelineStageFlags.TransferBit);
+        else if (anyBufferCopy)
+            _vk.CmdPipelineBarrier(cb, consumers, PipelineStageFlags.TransferBit, 0, 0, null, 0, null, 0, null); // execution dependency (WAR)
 
         // 2. Copies and clears.
         var buffersWritten = false;

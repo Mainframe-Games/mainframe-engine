@@ -248,6 +248,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         var frameFence = _inFlightFences[_currentFrame];
         _vk.ResetFences(_device, 1, in frameFence).Check("vkResetFences");
         _vk.QueueSubmit(_graphicsQueue, 1, in submitInfo, frameFence).Check("vkQueueSubmit (frame)");
+        _deletions!.EndFrame();
 
         var swapChainHandle = _swapChain;
         var presentInfo = new PresentInfoKHR

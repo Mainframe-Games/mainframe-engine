@@ -81,7 +81,8 @@ sequenceDiagram
   that copies them and reclaimed when that frame's fence has signalled. Uploads larger than half the
   ring, or that do not fit, use a temporary staging buffer released through the deletion queue.
 - **Recording**: everything pending is recorded at the start of the next frame's command buffer, before
-  the shadow pass: one `UNDEFINED → TRANSFER_DST` batch, the copies and clears, mip chains (blits,
+  the shadow pass: one `UNDEFINED → TRANSFER_DST` batch (whose source stages are the readers, so a
+  re-upload waits for earlier frames' reads), the copies and clears, mip chains (blits,
   when `GpuImage.MipLevels > 1`), then one batch to the final layouts (`SHADER_READ_ONLY_OPTIMAL` for
   textures, `DEPTH_STENCIL_READ_ONLY_OPTIMAL` for shadow maps) and a memory barrier for buffer
   consumers. Resources created at load time or in `OnUpdate`/`OnImGui` are ready for that frame.
@@ -93,9 +94,10 @@ sequenceDiagram
 
 `Dispose` on every renderer-owned object (`GpuBuffer`, `GpuImage`, `GpuTexture`, `RenderTarget`, sky,
 grid, Spine renderer, ImGui controller, shadow system, frame context) enqueues `GpuDeletion`s instead of
-waiting for the device. Each entry is tagged with the newest frame that has started recording; it is
-destroyed (handle first, then its memory) once that frame's slot fence has been waited on — at the start
-of frame *N* + `MaxFramesInFlight`. Frame numbers, not slot indices, so objects released between a
+waiting for the device. An entry released while frame *N* records is tagged *N*; one released between
+frames (load time, `OnUpdate`) is tagged with the next frame, which records the upload queue's pending
+copies that may still reference it. It is destroyed (handle first, then its memory) once that frame's
+slot fence has been waited on — at the start of frame *N* + `MaxFramesInFlight`. Frame numbers, not slot indices, so objects released between a
 submit and the next acquire wait for the right fence. Swapchain recreation (device idle) collects
 everything; renderer disposal flushes the queue before freeing the allocator.
 
