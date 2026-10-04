@@ -15,16 +15,28 @@ public static class EditorBrand
     /// <summary>The splash logo (RmlUi renders PNGs, not SVG).</summary>
     public const string SplashLogoPath = "/Content/Brand/logo-512.png";
 
-    /// <summary>"v1.2.3" from the informational version (build metadata stripped), "v0.0.0-dev" for local builds.</summary>
-    public static string Version
+    /// <summary>
+    /// "v1.2.3": the editor ships in lock step with the engine core (one release tag, one <c>-p:Version</c> for the whole
+    /// build graph — docs/design/release.md), so this is <see cref="EngineInfo.Version"/>. "v0.0.0-dev" for local builds.
+    /// </summary>
+    public static string Version => "v" + EngineInfo.Version;
+
+    /// <summary>The editor assembly's own version (build metadata stripped); equals <see cref="EngineInfo.Version"/> in any consistent build.</summary>
+    public static string AssemblyVersion
     {
         get
         {
             var assembly = typeof(EditorBrand).Assembly;
             var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-                                ?? assembly.GetName().Version?.ToString() ?? "0.0.0";
+                                ?? assembly.GetName().Version?.ToString(3) ?? "0.0.0";
             var plus = informational.IndexOf('+', StringComparison.Ordinal);
-            return "v" + (plus >= 0 ? informational[..plus] : informational);
+            return plus >= 0 ? informational[..plus] : informational;
         }
     }
+
+    /// <summary>
+    /// True when the editor and the engine core it loaded come from the same build. A mismatch means a broken install
+    /// (e.g. a hand-copied MainframeEngine.dll); the editor logs an error at startup.
+    /// </summary>
+    public static bool VersionsMatch => string.Equals(AssemblyVersion, EngineInfo.Version, StringComparison.Ordinal);
 }

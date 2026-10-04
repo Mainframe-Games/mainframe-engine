@@ -468,9 +468,9 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         {
             SType = StructureType.ApplicationInfo,
             PApplicationName = (byte*)Marshal.StringToHGlobalAnsi("Mainframe Engine"),
-            ApplicationVersion = new Version32(1, 0, 0),
+            ApplicationVersion = EngineInfo.VulkanVersion,
             PEngineName = (byte*)Marshal.StringToHGlobalAnsi("Mainframe Engine"),
-            EngineVersion = new Version32(1, 0, 0),
+            EngineVersion = EngineInfo.VulkanVersion, // drivers may key per-engine workarounds on it
             ApiVersion = Vk.Version12
         };
 

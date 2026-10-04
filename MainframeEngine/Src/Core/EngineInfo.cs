@@ -11,6 +11,17 @@ public static class EngineInfo
     /// </summary>
     public static string Version { get; } = ReadVersion();
 
+    /// <summary><see cref="Version"/> packed for <c>VkApplicationInfo.engineVersion</c> (0.0.0 for development builds).</summary>
+    internal static Silk.NET.Core.Version32 VulkanVersion
+    {
+        get
+        {
+            if (!TryParse(Version, out var v))
+                return new Silk.NET.Core.Version32(0, 0, 0);
+            return new Silk.NET.Core.Version32((uint)v.Major, (uint)v.Minor, (uint)v.Build);
+        }
+    }
+
     /// <summary>
     /// True when a project created with engine <paramref name="projectVersion"/> may need an upgrade on this engine:
     /// the versions differ in major or minor. Development builds (<c>0.0.0-*</c>) and unparsable versions are always

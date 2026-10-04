@@ -99,6 +99,8 @@ public sealed class EditorApp : Engine, IEditorHost
     protected override void OnLoad()
     {
         base.OnLoad();
+        if (!EditorBrand.VersionsMatch)
+            Log.Error($"[Editor] Editor {EditorBrand.AssemblyVersion} is running engine core {EngineInfo.Version}; they ship in lock step. Reinstall the editor.");
         Tree.EditMode = true;
         Renderer.SetClearColor(0.082f, 0.09f, 0.11f);
         _keyboard = InputContext.Keyboards.Count > 0 ? InputContext.Keyboards[0] : null;

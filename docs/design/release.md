@@ -20,9 +20,17 @@ Release tags (`v*`) are immutable (`release-tags-immutable` ruleset: no update, 
 bumped. Local builds are `0.0.0-dev` (`Directory.Build.props`); releases pass `-p:Version=X.Y.Z`.
 
 Each publish bumps the **patch** of the latest `vX.Y.Z` tag ([`build/next-version.sh`](../../build/next-version.sh);
-first release `v0.1.0`). A minor/major bump is done by pushing a tag by hand on the commit to release
-from (e.g. `v0.2.0`); the next publish continues from it (`v0.2.1`). `just next-version` prints what the
+first release `v1.0.0`). A minor/major bump is done by pushing a tag by hand on the commit to release
+from (e.g. `v1.1.0`); the next publish continues from it (`v1.1.1`). `just next-version` prints what the
 next publish would create.
+
+**Engine and editor are versioned in lock step.** There is one version for the whole product: the release tag.
+`dotnet publish -p:Version=X.Y.Z` is a global MSBuild property, so it flows to every project in the build graph —
+the editor, the engine core, the generator and every referenced project get the same `X.Y.Z`. At run time
+`EngineInfo.Version` is the single source of truth: the editor shows it (`EditorBrand.Version`), checks at startup
+that its own assembly version matches the engine core it loaded (`EditorBrand.VersionsMatch`, an error otherwise),
+new projects record it in `project.mfproj` (`engineVersion`), the editor link handshake carries it, and the planned
+NuGet packages ([distribution via NuGet](future/distribution-nuget.md)) use it as their package version.
 
 ## Publishing
 

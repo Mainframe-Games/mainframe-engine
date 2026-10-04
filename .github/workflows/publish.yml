@@ -1,7 +1,7 @@
 name: publish
 
 # Manual release of the editor. Only brogan89 can run it, and only from main.
-# Version = latest vX.Y.Z tag with the patch bumped (first release: v0.1.0). Nothing is committed to
+# Version = latest vX.Y.Z tag with the patch bumped (first release: v1.0.0). Nothing is committed to
 # main: the version lives in the tag, and builds get it via -p:Version. See docs/design/release.md.
 on:
   workflow_dispatch:
