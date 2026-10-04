@@ -20,6 +20,7 @@ namespace MainframeEngine;
 /// pose; inside <see cref="Node.OnPhysicsProcess"/> it is the physics pose.
 /// </para>
 /// </remarks>
+[EditorIcon("atom-2", Family = EditorIconFamily.Physics)]
 public abstract class CollisionObject3D : Node3D
 {
     private bool _applyingPose;
@@ -171,11 +172,13 @@ public abstract class CollisionObject3D : Node3D
 }
 
 /// <summary>Base of the 3D bodies that collide (Godot's <c>PhysicsBody3D</c>): static, rigid and character bodies.</summary>
+[EditorIcon("atom")]
 public abstract class PhysicsBody3D : CollisionObject3D
 {
 }
 
 /// <summary>An immovable body (Godot's <c>StaticBody3D</c>): floors, walls, level geometry. Moving it by code teleports it.</summary>
+[EditorIcon("box")]
 public class StaticBody3D : PhysicsBody3D
 {
     private readonly ResourceSubscription<PhysicsMaterial> _material;

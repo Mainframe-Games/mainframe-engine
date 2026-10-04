@@ -198,6 +198,82 @@ public sealed class GeneratorTests
     }
 
     [Fact]
+    public void EditorIconsFamiliesAndDocSummariesAreRecorded()
+    {
+        const string source = """
+            using MainframeEngine;
+            namespace Game;
+
+            /// <summary>
+            /// The player: moves with <see cref="Speed"/>, a <c>Node3D</c> with &lt;feelings&gt;.
+            /// </summary>
+            [EditorIcon("run", Family = EditorIconFamily.Physics)]
+            public class IconPlayer : Node3D
+            {
+                /// <summary>Metres per second.</summary>
+                [Export(Icon = "gauge")] public float Speed { get; set; }
+
+                /// <summary>Health <b>points</b>.</summary>
+                [EditorIcon("heart")] [Export] public int Health;
+
+                /// <inheritdoc/>
+                [Export] public string Note { get; set; } = "";
+            }
+
+            public class IconChild : IconPlayer;
+
+            [EditorIcon("", Family = EditorIconFamily.Audio)]
+            public class FamilyOnly : Node3D;
+            """;
+        var (output, diagnostics, result) = Run(source, "GenIcons");
+        Assert.Empty(diagnostics.Where(d => d.Severity >= DiagnosticSeverity.Warning));
+        var generated = Generated(result);
+        Assert.Contains("icon: \"run\"", generated, StringComparison.Ordinal);
+        Assert.Contains("iconFamily: (global::MainframeEngine.EditorIconFamily)6", generated, StringComparison.Ordinal);
+        Assert.Contains("description: \"The player: moves with Speed, a Node3D with <feelings>.\"", generated, StringComparison.Ordinal);
+        Assert.Contains("Icon = \"gauge\", Description = \"Metres per second.\"", generated, StringComparison.Ordinal);
+        Assert.Contains("Icon = \"heart\", Description = \"Health points.\"", generated, StringComparison.Ordinal);
+
+        using var stream = new MemoryStream();
+        var emit = output.Emit(stream, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(emit.Success, string.Join('\n', emit.Diagnostics));
+        var context = new AssemblyLoadContext("generator-icons", isCollectible: true);
+        try
+        {
+            stream.Position = 0;
+            var assembly = context.LoadFromStream(stream);
+            TypeRegistry.EnsureRegistered(assembly);
+            var player = TypeRegistry.Get("IconPlayer")!;
+            Assert.Equal("run", player.Icon);
+            Assert.Equal(EditorIconFamily.Physics, player.IconFamily);
+            Assert.Equal("The player: moves with Speed, a Node3D with <feelings>.", player.Description);
+            Assert.Equal("gauge", player.FindProperty("Speed")!.Hints.Icon);
+            Assert.Equal("Metres per second.", player.FindProperty("Speed")!.Hints.Description);
+            Assert.Equal("heart", player.FindProperty("Health")!.Hints.Icon);
+            Assert.Null(player.FindProperty("Note")!.Hints.Description); // <inheritdoc/> has no summary
+            Assert.Null(TypeRegistry.Get("IconChild")!.Icon); // inherited by the editor, not copied
+            var familyOnly = TypeRegistry.Get("FamilyOnly")!;
+            Assert.Null(familyOnly.Icon);
+            Assert.Equal(EditorIconFamily.Audio, familyOnly.IconFamily);
+            TypeRegistry.UnregisterAssembly(assembly);
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
+    [Theory]
+    [InlineData("<summary>Plain.</summary>", "Plain.")]
+    [InlineData(" <summary>\n Two\n lines.\n </summary>\n <remarks>x</remarks>", "Two lines.")]
+    [InlineData("<summary>See <see cref=\"T:MainframeEngine.Node3D\"/> and <see cref=\"Node.Name\"/>.</summary>", "See Node3D and Name.")]
+    [InlineData("<summary>A <see langword=\"null\"/> <paramref name=\"x\"/> <c>code</c>.</summary>", "A null x code.")]
+    [InlineData("<summary><see cref=\"X\">custom text</see></summary>", "custom text")]
+    [InlineData("<remarks>No summary.</remarks>", null)]
+    [InlineData("<summary>   </summary>", null)]
+    public void DocSummariesBecomePlainText(string xml, string? expected) => Assert.Equal(expected, DocComments.ToPlainText(xml));
+
+    [Fact]
     public void PartialTypesRegisterWhenTheFirstPartHasNoBaseList()
     {
         var compilation = CSharpCompilation.Create(

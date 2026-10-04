@@ -7,6 +7,7 @@ namespace MainframeEngine;
 /// <see cref="Distance"/> units in front of the z = 0 plane. Used by the render server when the viewport has no
 /// <see cref="Camera3D"/>. Wraps an <see cref="OrthographicCamera"/>.
 /// </summary>
+[EditorIcon("camera")]
 public class Camera2D : Node2D, ICurrentCamera
 {
     private readonly OrthographicCamera _camera = new();

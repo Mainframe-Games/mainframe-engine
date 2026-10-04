@@ -7,6 +7,7 @@ namespace MainframeEngine;
 /// rebuilt when a parameter changes. Serialized by its parameters only. Conventions: Y up, counter-clockwise
 /// front faces, UV origin top-left, centred on the origin.
 /// </summary>
+[EditorIcon("shape-3")]
 public abstract class PrimitiveMesh : Mesh
 {
     private MeshSurface? _surface;
@@ -65,6 +66,7 @@ public abstract class PrimitiveMesh : Mesh
 }
 
 /// <summary>An axis-aligned box (Godot's <c>BoxMesh</c>): 24 vertices, one 0..1 UV square per face.</summary>
+[EditorIcon("cube")]
 public sealed class BoxMesh : PrimitiveMesh
 {
     [Export]
@@ -105,6 +107,7 @@ public sealed class BoxMesh : PrimitiveMesh
 }
 
 /// <summary>A flat rectangle in the XZ plane facing +Y (Godot's <c>PlaneMesh</c>), optionally subdivided.</summary>
+[EditorIcon("square-rotated")]
 public sealed class PlaneMesh : PrimitiveMesh
 {
     /// <summary>Width (X) and depth (Z).</summary>
@@ -171,6 +174,7 @@ public sealed class PlaneMesh : PrimitiveMesh
 }
 
 /// <summary>A rectangle in the XY plane facing +Z (Godot's <c>QuadMesh</c>).</summary>
+[EditorIcon("square")]
 public sealed class QuadMesh : PrimitiveMesh
 {
     [Export]
@@ -211,6 +215,7 @@ public sealed class QuadMesh : PrimitiveMesh
 }
 
 /// <summary>A UV sphere (Godot's <c>SphereMesh</c>); <see cref="Height"/> ≠ 2 × <see cref="Radius"/> gives an ellipsoid.</summary>
+[EditorIcon("sphere")]
 public sealed class SphereMesh : PrimitiveMesh
 {
     [Export]
@@ -325,6 +330,7 @@ public sealed class SphereMesh : PrimitiveMesh
 }
 
 /// <summary>A cylinder or truncated cone along Y (Godot's <c>CylinderMesh</c>), with optional caps.</summary>
+[EditorIcon("cylinder")]
 public sealed class CylinderMesh : PrimitiveMesh
 {
     [Export]
@@ -461,6 +467,7 @@ public sealed class CylinderMesh : PrimitiveMesh
 }
 
 /// <summary>A capsule along Y (Godot's <c>CapsuleMesh</c>): <see cref="Height"/> includes both hemispheres.</summary>
+[EditorIcon("capsule")]
 public sealed class CapsuleMesh : PrimitiveMesh
 {
     [Export]

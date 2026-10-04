@@ -11,6 +11,7 @@ namespace MainframeEngine;
 /// (<see cref="DefaultPath"/>) so it diffs, merges and loads like every other M2 resource; the editor's project
 /// settings (M10, <c>project.mfproj</c>) can embed the same resource inline instead.
 /// </summary>
+[EditorIcon("adjustments")]
 public class AudioBusLayout : Resource
 {
     /// <summary>The root bus every other bus ultimately sends to; it always exists.</summary>
@@ -66,6 +67,7 @@ public class AudioBusLayout : Resource
 }
 
 /// <summary>One bus of an <see cref="AudioBusLayout"/>.</summary>
+[EditorIcon("adjustments-horizontal")]
 public class AudioBusInfo : Resource
 {
     [Export]
@@ -98,6 +100,7 @@ public class AudioBusInfo : Resource
 /// A bus effect: a resource that creates the SoundFlow <see cref="SoundModifier"/> processing the bus's mix.
 /// Parameters are read when the layout is applied (<see cref="AudioServer.ApplyBusLayout"/>).
 /// </summary>
+[EditorIcon("wave-sine")]
 public abstract class AudioEffect : Resource
 {
     [Export]
@@ -108,6 +111,7 @@ public abstract class AudioEffect : Resource
 }
 
 /// <summary>One-pole low-pass (SoundFlow <c>LowPassModifier</c>).</summary>
+[EditorIcon("wave-sine")]
 public class AudioEffectLowPass : AudioEffect
 {
     [Export(Range = "10,20000,1")]
@@ -118,6 +122,7 @@ public class AudioEffectLowPass : AudioEffect
 }
 
 /// <summary>One-pole high-pass (SoundFlow <c>HighPassModifier</c>).</summary>
+[EditorIcon("wave-sine")]
 public class AudioEffectHighPass : AudioEffect
 {
     [Export(Range = "10,20000,1")]
@@ -130,6 +135,7 @@ public class AudioEffectHighPass : AudioEffect
 /// <summary>
 /// Freeverb reverb (the engine's allocation-free <c>ReverbProcessor</c>: 8 damped combs + 4 all-passes per channel).
 /// </summary>
+[EditorIcon("ripple")]
 public class AudioEffectReverb : AudioEffect
 {
     /// <summary>Tail length (0..1).</summary>
@@ -157,6 +163,7 @@ public class AudioEffectReverb : AudioEffect
 }
 
 /// <summary>Feed-forward compressor (SoundFlow <c>CompressorModifier</c>).</summary>
+[EditorIcon("arrows-minimize")]
 public class AudioEffectCompressor : AudioEffect
 {
     [Export(Range = "-60,0,0.1")]

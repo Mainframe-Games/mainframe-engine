@@ -79,7 +79,9 @@ internal sealed record ExportModel(
     bool Flags,
     string? NodeType,
     string? Group,
-    bool Translatable);
+    bool Translatable,
+    string? Icon,
+    string? Description);
 
 /// <summary>A <c>[Signal]</c> event.</summary>
 internal sealed record SignalModel(string Name, string DelegateType, EquatableArray<string> ParameterTypes, bool CanForward);
@@ -146,4 +148,13 @@ internal sealed record TypeModel(
     public string FlatName { get; init; } = TypeName;
 
     public bool HasNetworking => Replicated.Count > 0 || Rpcs.Count > 0;
+
+    /// <summary><c>[EditorIcon("name")]</c> on the type (null: inherit).</summary>
+    public string? Icon { get; init; }
+
+    /// <summary><c>[EditorIcon(Family = …)]</c> as the enum's integer value (0: inherit).</summary>
+    public int IconFamily { get; init; }
+
+    /// <summary>The type's XML doc summary as plain text.</summary>
+    public string? Description { get; init; }
 }

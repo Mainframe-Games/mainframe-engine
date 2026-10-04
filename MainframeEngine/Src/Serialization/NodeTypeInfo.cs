@@ -44,7 +44,10 @@ public sealed class NodeTypeInfo
         SignalInfo[] signals,
         MigrationInfo[] migrations,
         int version,
-        NodeTypeTraits flags)
+        NodeTypeTraits flags,
+        string? icon = null,
+        EditorIconFamily iconFamily = EditorIconFamily.Inherit,
+        string? description = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(type);
@@ -62,6 +65,9 @@ public sealed class NodeTypeInfo
         Migrations = [.. migrations.OrderBy(m => m.FromVersion)];
         Version = version;
         Flags = flags | (factory is null ? NodeTypeTraits.Abstract : NodeTypeTraits.None);
+        Icon = string.IsNullOrEmpty(icon) ? null : icon;
+        IconFamily = iconFamily;
+        Description = string.IsNullOrEmpty(description) ? null : description;
 
         foreach (var p in properties)
             p.DeclaringType = this;
@@ -81,6 +87,18 @@ public sealed class NodeTypeInfo
     public NodeTypeInfo? Base => BaseType is null ? null : TypeRegistry.GetNearest(BaseType);
 
     public NodeTypeTraits Flags { get; }
+
+    /// <summary>
+    /// The editor icon declared on this type with <see cref="EditorIconAttribute"/> (a Tabler icon name), or null to use
+    /// the nearest base type's (the editor resolves inheritance).
+    /// </summary>
+    public string? Icon { get; }
+
+    /// <summary>The icon colour family declared on this type (<see cref="EditorIconFamily.Inherit"/>: the base type's).</summary>
+    public EditorIconFamily IconFamily { get; }
+
+    /// <summary>The type's XML doc <c>&lt;summary&gt;</c> as plain text (the editor's Add Node description), or null.</summary>
+    public string? Description { get; }
 
     public bool IsNode => (Flags & NodeTypeTraits.Node) != 0;
     public bool IsResource => (Flags & NodeTypeTraits.Resource) != 0;
@@ -222,6 +240,12 @@ public sealed record ExportHints
 
     /// <summary>Player-facing text extracted for translation (<see cref="ExportAttribute.Translatable"/>).</summary>
     public bool Translatable { get; init; }
+
+    /// <summary>The inspector icon (<see cref="ExportAttribute.Icon"/> or <see cref="EditorIconAttribute"/> on the member), or null.</summary>
+    public string? Icon { get; init; }
+
+    /// <summary>The member's XML doc <c>&lt;summary&gt;</c> as plain text (inspector tooltip), or null.</summary>
+    public string? Description { get; init; }
 
     /// <summary>Parses <see cref="Range"/> (<c>"min,max[,step]"</c>).</summary>
     public bool TryGetRange(out double min, out double max, out double step)

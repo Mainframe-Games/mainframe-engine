@@ -4,6 +4,7 @@ namespace MainframeEngine;
 /// Overrides where 3D sound is heard from (Godot's <c>AudioListener3D</c>). The listener looks down its −Z axis like a
 /// camera. Without a current listener, the viewport's active <see cref="Camera3D"/> is the listener.
 /// </summary>
+[EditorIcon("ear", Family = EditorIconFamily.Audio)]
 public class AudioListener3D : Node3D
 {
     private bool _current;

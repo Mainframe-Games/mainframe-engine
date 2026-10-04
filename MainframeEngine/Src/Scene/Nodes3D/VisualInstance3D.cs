@@ -15,6 +15,7 @@ namespace MainframeEngine;
 /// <see cref="ShadowSystem.RenderShadows{TState}"/>. The draw methods stay public so tree-less code (examples)
 /// can still drive a node by hand.
 /// </remarks>
+[EditorIcon("cube-3d-sphere")]
 public abstract class VisualInstance3D : Node3D, IRenderResourceOwner
 {
     private World3D? _world;

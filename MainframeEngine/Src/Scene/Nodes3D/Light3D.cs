@@ -7,6 +7,7 @@ namespace MainframeEngine;
 /// the node is inside a tree the light is registered with its world's <see cref="World3D.Lights"/>, and its
 /// position/direction follow the node's global transform (synced after process, only when it changed).
 /// </summary>
+[EditorIcon("bulb")]
 public abstract class Light3D : Node3D
 {
     private World3D? _world;
@@ -93,6 +94,7 @@ public abstract class Light3D : Node3D
 }
 
 /// <summary>A sun-like light shining along the node's <c>-Z</c> axis (wraps <see cref="DirectionalLight"/>).</summary>
+[EditorIcon("sun")]
 public class DirectionalLight3D : Light3D
 {
     private readonly DirectionalLight _light = new();
@@ -140,6 +142,7 @@ public class DirectionalLight3D : Light3D
 }
 
 /// <summary>A point light with a range (Godot's <c>OmniLight3D</c>; wraps <see cref="PointLight"/>).</summary>
+[EditorIcon("bulb")]
 public class OmniLight3D : Light3D
 {
     private readonly PointLight _light = new();
@@ -157,6 +160,7 @@ public class OmniLight3D : Light3D
 }
 
 /// <summary>A cone light shining along the node's <c>-Z</c> axis (wraps <see cref="SpotLight"/>).</summary>
+[EditorIcon("lamp")]
 public class SpotLight3D : Light3D
 {
     private readonly SpotLight _light = new();

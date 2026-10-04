@@ -5,6 +5,7 @@ namespace MainframeEngine;
 /// of a collision object count. The node's transform (relative to the body, scale included) places the shape;
 /// several shape children make a compound body.
 /// </summary>
+[EditorIcon("shape", Family = EditorIconFamily.Physics)]
 public class CollisionShape3D : Node3D
 {
     private Shape3D? _shape;

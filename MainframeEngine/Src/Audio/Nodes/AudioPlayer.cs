@@ -6,6 +6,7 @@ namespace MainframeEngine;
 /// Plays an <see cref="AudioStream"/> without position — music, UI, ambience beds (Godot's <c>AudioStreamPlayer</c>).
 /// Pauses with the tree according to its <see cref="Node.ProcessMode"/>; stops when it leaves the tree.
 /// </summary>
+[EditorIcon("volume", Family = EditorIconFamily.Audio)]
 public class AudioPlayer : Node, IAudioVoiceOwner
 {
     private readonly AudioPlayback _playback = new();

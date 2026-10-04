@@ -7,6 +7,7 @@ namespace MainframeEngine;
 /// with its active camera (<see cref="SceneViewport.ActiveCamera3D"/>): the one marked <see cref="Current"/>,
 /// or the first to enter. Wraps a <see cref="PerspectiveCamera"/> that the render server syncs each frame.
 /// </summary>
+[EditorIcon("video")]
 public class Camera3D : Node3D, ICurrentCamera
 {
     private readonly PerspectiveCamera _camera = new();

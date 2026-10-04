@@ -9,6 +9,7 @@ namespace MainframeEngine;
 /// mesh into instanced draws (opaque front-to-back by state, transparent back to front), culls them against the
 /// camera frustum, draws them into the shadow maps and the object-ID pass.
 /// </summary>
+[EditorIcon("cube-unfolded")]
 public abstract class GeometryInstance3D : VisualInstance3D
 {
     /// <summary>Replaces the material of every surface (null: each surface's own material).</summary>
@@ -47,6 +48,7 @@ public abstract class GeometryInstance3D : VisualInstance3D
 }
 
 /// <summary>Draws a <see cref="MainframeEngine.Mesh"/> (Godot's <c>MeshInstance3D</c>): primitives, imported models, procedural geometry.</summary>
+[EditorIcon("cube")]
 public class MeshInstance3D : GeometryInstance3D
 {
     [Export]
@@ -72,6 +74,7 @@ public enum SpriteAlphaCut : byte
 /// <see cref="MeshInstance3D"/> with a <see cref="QuadMesh"/> and material to batch many). Billboarding is not
 /// supported yet.
 /// </summary>
+[EditorIcon("photo")]
 public class Sprite3D : GeometryInstance3D
 {
     private readonly QuadMesh _quad = new();

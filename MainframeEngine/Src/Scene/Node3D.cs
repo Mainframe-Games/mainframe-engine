@@ -19,6 +19,7 @@ namespace MainframeEngine;
 /// after process when their global transform changed.
 /// </para>
 /// </remarks>
+[EditorIcon("axis-x", Family = EditorIconFamily.Space3D)]
 public class Node3D : Node, ITransformNotifiable
 {
     [Flags]

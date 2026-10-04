@@ -5,6 +5,7 @@ namespace MainframeEngine;
 /// <c>SceneGrid3D</c>, renamed so it does not differ from the renderer class by case only): it casts no shadows
 /// and draws before other visuals (<see cref="VisualInstance3D.RenderPriority"/> -100).
 /// </summary>
+[EditorIcon("grid-3x3")]
 public sealed class Grid3D : VisualInstance3D
 {
     private SceneGrid3d? _grid;

@@ -7,6 +7,7 @@ namespace MainframeEngine;
 /// loaded). It keeps the serialized type name and properties so saving the scene again loses nothing, like
 /// Godot's handling of missing scripts. Its children load normally.
 /// </summary>
+[EditorIcon("help-hexagon")]
 public sealed class MissingNode : Node
 {
     public MissingNode()
@@ -35,6 +36,7 @@ public sealed class MissingNode : Node
 }
 
 /// <summary>Stands in for a resource whose type is not registered; see <see cref="MissingNode"/>.</summary>
+[EditorIcon("help-hexagon")]
 public sealed class MissingResource : Resource
 {
     public MissingResource()

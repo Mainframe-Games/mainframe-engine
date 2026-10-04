@@ -20,6 +20,7 @@ public readonly record struct KinematicCollision3D(Vector3 Position, Vector3 Nor
 /// (<see cref="FloorSnapLength"/>) when walking over edges and down slopes. Dynamic bodies it walks into are pushed
 /// (it is a kinematic body in the simulation).
 /// </summary>
+[EditorIcon("run")]
 public class CharacterBody3D : PhysicsBody3D
 {
     private const int MaxReportedCollisions = 16;

@@ -17,6 +17,7 @@ namespace MainframeEngine;
 /// It unloads when the node leaves the tree. With hot reload the document is reloaded in place: data models (C# state)
 /// and <see cref="UiElement"/> subscriptions survive.
 /// </summary>
+[EditorIcon("layout", Family = EditorIconFamily.Ui)]
 public class UiDocument : Node
 {
     private readonly List<RmlDataModel> _models = [];

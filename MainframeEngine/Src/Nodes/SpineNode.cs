@@ -10,6 +10,7 @@ namespace MainframeEngine;
 /// data is loaded on the CPU on first use and the GPU renderer is created through the
 /// <see cref="RenderServer"/> when the node enters a tree. Animation advances in <see cref="Node.OnProcess"/>.
 /// </summary>
+[EditorIcon("bone")]
 public class SpineNode : VisualInstance3D
 {
     /// <summary>Skeleton-space to world scale used when none is set (SpineBoy is ~500 units tall).</summary>

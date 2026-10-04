@@ -17,6 +17,7 @@ public enum PeerType : byte
 /// live on the buses (<see cref="MessageBus.PeerConnected"/>, <see cref="MessageBus.Subscribe{T}"/>). Constructing
 /// the node does not touch the network or the ENet native library; starting does.
 /// </remarks>
+[EditorIcon("network", Family = EditorIconFamily.Network)]
 public class NetworkNode : Node
 {
     private static readonly Lazy<string> LocalIpLazy =

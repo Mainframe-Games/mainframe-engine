@@ -1,6 +1,7 @@
 namespace MainframeEngine.Localization;
 
 /// <summary>The fonts one locale needs beyond the defaults (for example Noto Sans JP for <c>ja</c>).</summary>
+[EditorIcon("language")]
 public sealed class LocaleFontSet : Resource
 {
     /// <summary>The locale the fonts serve (<c>ja</c>, <c>zh_Hans</c>, <c>pt_BR</c>); matched against the lookup chain.</summary>
@@ -22,6 +23,7 @@ public sealed class LocaleFontSet : Resource
 /// fallback faces. RmlUi cannot unload a single face, so faces accumulate over a session; fallback faces only
 /// supply glyphs the primary font lacks, so earlier locales' faces never change how later text looks.
 /// </remarks>
+[EditorIcon("typography")]
 public sealed class FontFallbackTable : Resource
 {
     /// <summary>Conventional location of the project's table.</summary>

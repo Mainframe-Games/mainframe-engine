@@ -7,6 +7,7 @@ namespace MainframeEngine;
 /// and signalled after it, on the main thread.
 /// </summary>
 /// <remarks>Areas detect bodies, not other areas (Box2D 3.1 sensors cannot see sensors; both servers match).</remarks>
+[EditorIcon("border-corners")]
 public class Area3D : CollisionObject3D
 {
     private bool _monitoring = true;

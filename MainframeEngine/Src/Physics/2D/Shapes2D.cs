@@ -51,6 +51,7 @@ internal struct ShapeGeometry2D
 /// gives a body its shape; resources are shareable and saved with scenes. The physics server converts to Box2D's metres
 /// with <see cref="PhysicsSettings2D.PixelsPerMeter"/>.
 /// </summary>
+[EditorIcon("shape")]
 public abstract class Shape2D : Resource
 {
     /// <summary>Segment-based shapes: static and kinematic bodies only (no area, so no mass).</summary>
@@ -99,6 +100,7 @@ public abstract class Shape2D : Resource
 }
 
 /// <summary>An axis-aligned rectangle (Godot's <c>RectangleShape2D</c>); <see cref="Size"/> is the full extent in pixels.</summary>
+[EditorIcon("square")]
 public sealed class RectangleShape2D : Shape2D
 {
     [Export]
@@ -139,6 +141,7 @@ public sealed class RectangleShape2D : Shape2D
 }
 
 /// <summary>A circle (Godot's <c>CircleShape2D</c>), radius in pixels.</summary>
+[EditorIcon("circle")]
 public sealed class CircleShape2D : Shape2D
 {
     [Export]
@@ -167,6 +170,7 @@ public sealed class CircleShape2D : Shape2D
 }
 
 /// <summary>A capsule along local Y (Godot's <c>CapsuleShape2D</c>); <see cref="Height"/> includes both caps (pixels).</summary>
+[EditorIcon("capsule-horizontal")]
 public sealed class CapsuleShape2D : Shape2D
 {
     [Export]
@@ -223,6 +227,7 @@ public sealed class CapsuleShape2D : Shape2D
 }
 
 /// <summary>A convex polygon (Godot's <c>ConvexPolygonShape2D</c>): up to 8 points (Box2D's limit), hull computed from them.</summary>
+[EditorIcon("polygon")]
 public sealed class ConvexPolygonShape2D : Shape2D
 {
     /// <summary>Box2D's maximum polygon vertex count.</summary>
@@ -256,6 +261,7 @@ public sealed class ConvexPolygonShape2D : Shape2D
 }
 
 /// <summary>A line segment from <see cref="A"/> to <see cref="B"/> (Godot's <c>SegmentShape2D</c>); static/kinematic bodies.</summary>
+[EditorIcon("line")]
 public sealed class SegmentShape2D : Shape2D
 {
     [Export]
@@ -304,6 +310,7 @@ public sealed class SegmentShape2D : Shape2D
 /// Independent segments (Godot's <c>ConcavePolygonShape2D</c>): every 2 entries of <see cref="Segments"/> form one —
 /// level outlines and terrain. Static and kinematic bodies only.
 /// </summary>
+[EditorIcon("vector-triangle")]
 public sealed class ConcavePolygonShape2D : Shape2D
 {
     [Export]

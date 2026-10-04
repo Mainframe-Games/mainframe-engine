@@ -14,6 +14,7 @@ namespace MainframeEngine;
 /// those nodes. Inline resources are created once per <see cref="PackedScene"/> and shared by all its instances;
 /// external ones are loaded once through <see cref="ResourceLoader"/> and released with the scene.
 /// </remarks>
+[EditorIcon("movie")]
 public sealed class PackedScene : Resource
 {
     [ThreadStatic]

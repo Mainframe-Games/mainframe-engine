@@ -13,6 +13,7 @@ namespace MainframeEngine;
 /// Stereo or wider sources are folded to mono before panning. Changes are smoothed on the audio thread
 /// (<c>SpatialSmoother</c>), so moving emitters do not zipper.
 /// </remarks>
+[EditorIcon("volume", Family = EditorIconFamily.Audio)]
 public class AudioPlayer3D : Node3D, IAudioVoiceOwner
 {
     private readonly AudioPlayback _playback = new();

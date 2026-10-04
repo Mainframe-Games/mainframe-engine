@@ -4,6 +4,7 @@ namespace MainframeEngine;
 /// Gives its parent <see cref="CollisionObject2D"/> a shape (Godot's <c>CollisionShape2D</c>). Only direct children of
 /// a collision object count; the node's transform (pixels, relative to the body, scale included) places the shape.
 /// </summary>
+[EditorIcon("shape", Family = EditorIconFamily.Physics)]
 public class CollisionShape2D : Node2D
 {
     private Shape2D? _shape;

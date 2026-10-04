@@ -18,6 +18,7 @@ public readonly record struct KinematicCollision2D(Vector2 Position, Vector2 Nor
 /// slide (Box2D shape casts), classify floor/wall/ceiling against <see cref="UpDirection"/> (+Y: 2D space is Y-up),
 /// snap to the floor.
 /// </summary>
+[EditorIcon("run")]
 public class CharacterBody2D : PhysicsBody2D
 {
     private const int MaxReportedCollisions = 16;

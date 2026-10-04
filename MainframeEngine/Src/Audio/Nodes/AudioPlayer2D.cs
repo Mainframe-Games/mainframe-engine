@@ -9,6 +9,7 @@ namespace MainframeEngine;
 /// </summary>
 /// <remarks>Gain is <c>(1 − d / MaxDistance)^Attenuation</c>; pan is the horizontal offset over
 /// <see cref="AudioServer.PanDistance2D"/>, scaled by <see cref="PanningStrength"/>.</remarks>
+[EditorIcon("volume", Family = EditorIconFamily.Audio)]
 public class AudioPlayer2D : Node2D, IAudioVoiceOwner
 {
     private readonly AudioPlayback _playback = new();

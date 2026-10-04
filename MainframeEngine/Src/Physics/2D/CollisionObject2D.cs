@@ -8,6 +8,7 @@ namespace MainframeEngine;
 /// <see cref="CollisionShape2D"/> children. Same rules as <see cref="CollisionObject3D"/>: moving the node is pushed to
 /// the physics server; dynamic, kinematic and character bodies render interpolated between steps.
 /// </summary>
+[EditorIcon("atom-2", Family = EditorIconFamily.Physics)]
 public abstract class CollisionObject2D : Node2D
 {
     private uint _layer = CollisionLayers.Default;
@@ -154,11 +155,13 @@ public abstract class CollisionObject2D : Node2D
 }
 
 /// <summary>Base of the 2D bodies that collide (Godot's <c>PhysicsBody2D</c>).</summary>
+[EditorIcon("atom")]
 public abstract class PhysicsBody2D : CollisionObject2D
 {
 }
 
 /// <summary>An immovable body (Godot's <c>StaticBody2D</c>): floors, walls, level geometry. Moving it by code teleports it.</summary>
+[EditorIcon("box")]
 public class StaticBody2D : PhysicsBody2D
 {
     private readonly ResourceSubscription<PhysicsMaterial> _material;
@@ -201,6 +204,7 @@ public class StaticBody2D : PhysicsBody2D
 /// A simulated 2D body (Godot's <c>RigidBody2D</c>), in pixels: dynamic (gravity, forces, contacts) or kinematic (moved by
 /// code). Mass is in kg; forces and impulses are in pixel units (N = kg·px/s²) and converted at the server boundary.
 /// </summary>
+[EditorIcon("ball-bowling")]
 public class RigidBody2D : PhysicsBody2D
 {
     private RigidBodyMode _mode;
@@ -437,6 +441,7 @@ public class RigidBody2D : PhysicsBody2D
 /// fire for static, rigid and character bodies whose layer is in <see cref="CollisionObject2D.CollisionMask"/>.
 /// </summary>
 /// <remarks>Areas detect bodies, not other areas (Box2D 3.1 sensors don't detect sensors).</remarks>
+[EditorIcon("border-corners")]
 public class Area2D : CollisionObject2D
 {
     /// <summary>Detect bodies (when false, current overlaps are dropped with <see cref="BodyExited"/>).</summary>

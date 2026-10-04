@@ -29,6 +29,7 @@ public enum AudioLoadMode
 /// </remarks>
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix",
     Justification = "Godot's name for the resource (ADR 0010); it is not a System.IO.Stream.")]
+[EditorIcon("music")]
 public class AudioStream : Resource
 {
     /// <summary>Files at or above this size default to <see cref="AudioLoadMode.Stream"/> under <see cref="AudioLoadMode.Auto"/>.</summary>

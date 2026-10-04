@@ -28,6 +28,7 @@ public enum SubViewportUpdateMode : byte
 /// it sets <see cref="Shadows"/> and the main world has nothing to shadow (the editor). At most
 /// <see cref="FrameContext.MaxViews"/> - 1 sub-viewports render per frame.
 /// </remarks>
+[EditorIcon("device-desktop")]
 public class SubViewport : SceneViewport
 {
     private RenderServer? _server;

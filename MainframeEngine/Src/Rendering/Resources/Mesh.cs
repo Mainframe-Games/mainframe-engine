@@ -12,6 +12,7 @@ namespace MainframeEngine;
 /// on the next frame. Subclasses: <see cref="ArrayMesh"/> (explicit surfaces, imported models) and the
 /// <see cref="PrimitiveMesh"/> generators (<see cref="BoxMesh"/>, <see cref="SphereMesh"/>, ...).
 /// </remarks>
+[EditorIcon("vector-triangle")]
 public abstract class Mesh : Resource
 {
     private int _version = 1;
@@ -78,6 +79,7 @@ public abstract class Mesh : Resource
 /// <see cref="NotifyChanged"/>. Missing normals are generated (smooth, area-weighted) and missing UVs are zero
 /// when the surface is uploaded.
 /// </remarks>
+[EditorIcon("polygon")]
 public sealed class MeshSurface : Resource
 {
     private Vector3[] _positions = [];
@@ -186,6 +188,7 @@ public sealed class MeshSurface : Resource
 /// A mesh built from explicit <see cref="MeshSurface"/>s (Godot's <c>ArrayMesh</c>): imported models, procedural
 /// geometry. Serializes its surfaces inline.
 /// </summary>
+[EditorIcon("vector-triangle")]
 public sealed class ArrayMesh : Mesh
 {
     private List<MeshSurface> _surfaces = [];

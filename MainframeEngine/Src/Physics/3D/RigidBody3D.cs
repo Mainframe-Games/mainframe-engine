@@ -7,6 +7,7 @@ namespace MainframeEngine;
 /// or by code (<see cref="RigidBodyMode.Kinematic"/>). Don't set a dynamic body's transform every frame — apply
 /// forces/impulses or set velocities; <see cref="Teleport"/> moves it explicitly.
 /// </summary>
+[EditorIcon("ball-bowling")]
 public class RigidBody3D : PhysicsBody3D
 {
     private RigidBodyMode _mode;

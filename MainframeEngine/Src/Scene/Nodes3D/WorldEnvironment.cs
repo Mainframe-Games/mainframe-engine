@@ -8,6 +8,7 @@ namespace MainframeEngine;
 /// on first draw and rebuilds it when the sky's mode or images change. Only the first environment in a world is
 /// used.
 /// </summary>
+[EditorIcon("world", Family = EditorIconFamily.Space3D)]
 public class WorldEnvironment : Node, IRenderResourceOwner
 {
     private World3D? _world;
@@ -114,6 +115,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
 /// Sky settings for a <see cref="WorldEnvironment"/>: procedural gradient + sun, an equirectangular panorama,
 /// or a cubemap (see <see cref="SkyEnvironment"/>). Defaults match <see cref="SkyEnvironment"/>'s.
 /// </summary>
+[EditorIcon("cloud")]
 public class Sky : Resource
 {
     [Export]

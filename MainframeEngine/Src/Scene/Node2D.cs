@@ -7,6 +7,7 @@ namespace MainframeEngine;
 /// global transform relative to the nearest <see cref="Node2D"/> parent. Same dirty-flag and notification
 /// rules as <see cref="Node3D"/>.
 /// </summary>
+[EditorIcon("axis-y", Family = EditorIconFamily.Space2D)]
 public class Node2D : Node, ITransformNotifiable
 {
     private Vector2 _position;

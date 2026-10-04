@@ -9,6 +9,7 @@ namespace MainframeEngine;
 /// Named <c>SceneViewport</c> rather than Godot's <c>Viewport</c> because the renderer uses
 /// <c>Silk.NET.Vulkan.Viewport</c> unqualified throughout the <c>MainframeEngine</c> namespace (see the Godot-names ADR in memory/decisions).
 /// </remarks>
+[EditorIcon("device-desktop")]
 public class SceneViewport : Node
 {
     private readonly List<Camera3D> _cameras3D = [];

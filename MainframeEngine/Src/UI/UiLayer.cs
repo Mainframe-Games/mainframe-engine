@@ -28,6 +28,7 @@ public enum UiScaleMode
 /// Needs the <see cref="UiServer"/> (registered by <see cref="Engine"/>); without one the layer stays inert. Author
 /// sizes in <c>dp</c> so they follow <see cref="ScaleMode"/>; <c>px</c> are always framebuffer pixels.
 /// </remarks>
+[EditorIcon("stack-2", Family = EditorIconFamily.Ui)]
 public class UiLayer : Node
 {
     private readonly List<UiDocument> _documents = [];

@@ -119,7 +119,14 @@ internal static class RegistrationEmitter
             traits.Add($"{Ser}.NodeTypeTraits.Tool");
         if (m.IsAbstract)
             traits.Add($"{Ser}.NodeTypeTraits.Abstract");
-        sb.AppendLine($"{i2}flags: {string.Join(" | ", traits)}));");
+        sb.Append($"{i2}flags: {string.Join(" | ", traits)}");
+        if (m.Icon is not null)
+            sb.Append($",\n{i2}icon: {Literal(m.Icon)}");
+        if (m.IconFamily != 0)
+            sb.Append($",\n{i2}iconFamily: (global::MainframeEngine.EditorIconFamily){m.IconFamily}");
+        if (m.Description is not null)
+            sb.Append($",\n{i2}description: {Literal(m.Description)}");
+        sb.AppendLine("));");
     }
 
     private static string Forwarder(SignalModel s)
@@ -147,6 +154,10 @@ internal static class RegistrationEmitter
             parts.Add($"NodeType = typeof({e.NodeType})");
         if (e.Translatable)
             parts.Add("Translatable = true");
+        if (e.Icon is not null)
+            parts.Add($"Icon = {Literal(e.Icon)}");
+        if (e.Description is not null)
+            parts.Add($"Description = {Literal(e.Description)}");
         return parts.Count == 0 ? "null" : $"new {Ser}.ExportHints {{ {string.Join(", ", parts)} }}";
     }
 

@@ -58,6 +58,7 @@ internal sealed class ResourceSubscription<T>(Action onChanged) where T : Resour
 /// Surface properties shared by static and rigid bodies (Godot's <c>PhysicsMaterial</c>): friction and bounce. A
 /// <see cref="Resource"/>, so one material can be shared and saved. Bodies without one use the defaults.
 /// </summary>
+[EditorIcon("feather")]
 public sealed class PhysicsMaterial : Resource
 {
     /// <summary>Default friction for bodies without a material.</summary>

@@ -9,6 +9,7 @@ namespace MainframeEngine;
 /// its shape; the same resource can be shared by many shapes and is saved with the scene (inline) or as a
 /// <c>.mres</c>. Changing a property rebuilds every body using it at the next physics step.
 /// </summary>
+[EditorIcon("shape")]
 public abstract class Shape3D : Resource
 {
     private RigidBodyShape? _queryShape;
@@ -59,6 +60,7 @@ public abstract class Shape3D : Resource
 }
 
 /// <summary>A box (Godot's <c>BoxShape3D</c>); <see cref="Size"/> is the full extent.</summary>
+[EditorIcon("box")]
 public sealed class BoxShape3D : Shape3D
 {
     [Export]
@@ -84,6 +86,7 @@ public sealed class BoxShape3D : Shape3D
 }
 
 /// <summary>A sphere (Godot's <c>SphereShape3D</c>).</summary>
+[EditorIcon("sphere")]
 public sealed class SphereShape3D : Shape3D
 {
     [Export]
@@ -107,6 +110,7 @@ public sealed class SphereShape3D : Shape3D
 }
 
 /// <summary>A capsule along local Y (Godot's <c>CapsuleShape3D</c>); <see cref="Height"/> includes both caps.</summary>
+[EditorIcon("capsule")]
 public sealed class CapsuleShape3D : Shape3D
 {
     [Export]
@@ -148,6 +152,7 @@ public sealed class CapsuleShape3D : Shape3D
 }
 
 /// <summary>A cylinder along local Y (Godot's <c>CylinderShape3D</c>).</summary>
+[EditorIcon("cylinder")]
 public sealed class CylinderShape3D : Shape3D
 {
     [Export]
@@ -189,6 +194,7 @@ public sealed class CylinderShape3D : Shape3D
 /// The convex hull of a point cloud (Godot's <c>ConvexPolygonShape3D</c>). Jitter2 uses the points' support map
 /// directly, so keep the set small (a few dozen points); the hull is only built for debug drawing.
 /// </summary>
+[EditorIcon("polygon")]
 public sealed class ConvexPolygonShape3D : Shape3D
 {
     private Vector3[] _hullTriangles = [];
@@ -248,6 +254,7 @@ public sealed class ConvexPolygonShape3D : Shape3D
 /// A triangle soup (Godot's <c>ConcavePolygonShape3D</c>): every 3 entries of <see cref="Faces"/> form a triangle.
 /// Static and kinematic bodies only (triangles have no volume, so no mass); one-sided against back faces.
 /// </summary>
+[EditorIcon("vector-triangle")]
 public sealed class ConcavePolygonShape3D : Shape3D
 {
     /// <summary>Triangle vertices, 3 per triangle (counter-clockwise when seen from the solid side's outside).</summary>
@@ -300,6 +307,7 @@ public sealed class ConcavePolygonShape3D : Shape3D
 /// 1-unit grid centred on the origin (scale the <see cref="CollisionShape3D"/> to change the cell size). Jitter2 has
 /// no native height field, so it is built as a triangle mesh — static and kinematic bodies only.
 /// </summary>
+[EditorIcon("mountain")]
 public sealed class HeightMapShape3D : Shape3D
 {
     private Vector3[]? _faces;

@@ -41,6 +41,7 @@ public enum ShadingMode : byte
 /// the renderer keeps one descriptor set (set 2) per material; instances drawn with the same material and mesh
 /// are batched into one instanced draw.
 /// </summary>
+[EditorIcon("palette")]
 public abstract class Material : Resource
 {
     private int _version = 1;
@@ -97,6 +98,7 @@ public readonly record struct MaterialRenderState(AlphaMode Alpha, CullMode Cull
 /// modes (opaque, cutout, blend), culling and double-sided lighting. Colours are authored in sRGB, like every
 /// colour in the engine, and converted to linear for the shader.
 /// </summary>
+[EditorIcon("palette")]
 public sealed class StandardMaterial3D : Material
 {
     /// <summary>The material used when a surface has none: white, lit, opaque.</summary>

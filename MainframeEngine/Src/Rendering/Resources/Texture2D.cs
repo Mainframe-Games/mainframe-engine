@@ -141,6 +141,7 @@ public sealed record TextureImportSettings
 /// Textures created in code (<see cref="FromPixels"/>, <see cref="FromEncoded"/>) are not saved with scenes; only
 /// file-backed (external) textures persist, as references.
 /// </remarks>
+[EditorIcon("photo")]
 public sealed class Texture2D : Resource
 {
     private string? _filePath;     // absolute path of an image file

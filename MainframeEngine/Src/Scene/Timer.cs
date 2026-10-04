@@ -14,6 +14,7 @@ public enum TimerProcessCallback
 /// Counts down <see cref="WaitTime"/> seconds and emits <see cref="Timeout"/> (Godot's <c>Timer</c>). Pauses with
 /// the tree according to its <see cref="Node.ProcessMode"/>.
 /// </summary>
+[EditorIcon("clock")]
 public class Timer : Node
 {
     private TimerProcessCallback _callback;

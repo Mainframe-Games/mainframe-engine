@@ -40,6 +40,63 @@ public sealed class ExportAttribute : Attribute
     /// <c>List&lt;string&gt;</c> members may be translatable (MFG010).
     /// </summary>
     public bool Translatable { get; set; }
+
+    /// <summary>
+    /// The inspector icon shown before the property's name: a Tabler icon name such as <c>"gauge"</c> (see
+    /// <see cref="EditorIconAttribute"/>). Default: chosen by the editor from the name and value type.
+    /// </summary>
+    public string? Icon { get; set; }
+}
+
+/// <summary>
+/// The colour family of an editor icon (Godot-style tints; the editor's <c>icon-3d</c> … <c>icon-resource</c> classes).
+/// <see cref="Inherit"/> takes the nearest base type's family.
+/// </summary>
+public enum EditorIconFamily
+{
+    /// <summary>Use the nearest base type's family (the default).</summary>
+    Inherit = 0,
+
+    /// <summary>Plain nodes and logic (grey).</summary>
+    Logic,
+
+    /// <summary>3D nodes (red).</summary>
+    Space3D,
+
+    /// <summary>2D nodes (blue).</summary>
+    Space2D,
+
+    /// <summary>User interface (green).</summary>
+    Ui,
+
+    /// <summary>Audio (teal).</summary>
+    Audio,
+
+    /// <summary>Physics bodies, areas and shapes (amber).</summary>
+    Physics,
+
+    /// <summary>Networking (purple).</summary>
+    Network,
+
+    /// <summary>Resources (neutral).</summary>
+    Resource,
+}
+
+/// <summary>
+/// The editor icon of a node or resource type (scene tree, Add Node dialog, inspector header, file system) or of an
+/// exported member (inspector row): a <a href="https://tabler.io/icons">Tabler</a> icon name such as <c>"cube"</c>,
+/// which must be in the editor's icon atlas (<c>MainframeEngine.Editor/Content/icons/icons.txt</c>). Types without one
+/// use their nearest base type's icon; an empty name keeps the inherited icon and only sets <see cref="Family"/>.
+/// <c>MainframeEngine.Generators</c> records it in the type's <see cref="Serialization.NodeTypeInfo"/>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, Inherited = false)]
+public sealed class EditorIconAttribute(string name) : Attribute
+{
+    /// <summary>The Tabler icon name ("" to inherit).</summary>
+    public string Name { get; } = name ?? "";
+
+    /// <summary>The icon's colour family (types only); <see cref="EditorIconFamily.Inherit"/> takes the base type's.</summary>
+    public EditorIconFamily Family { get; set; }
 }
 
 /// <summary>

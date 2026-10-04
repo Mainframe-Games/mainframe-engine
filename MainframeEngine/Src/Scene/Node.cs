@@ -20,6 +20,7 @@ namespace MainframeEngine;
 /// constructor. Nodes are single-threaded: only touch a node that is inside a tree from the main thread.
 /// </para>
 /// </remarks>
+[EditorIcon("circle-dot", Family = EditorIconFamily.Logic)]
 public partial class Node : IDisposable
 {
     /// <summary>Children are found by linear scan up to this count; above it a name index is kept.</summary>

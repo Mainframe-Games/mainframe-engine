@@ -14,6 +14,7 @@ namespace MainframeEngine;
 /// <see cref="ResourceLoader"/> reference-counts external resources (<see cref="Release"/>) and calls
 /// <see cref="OnUnloaded"/> when the last reference goes; GPU-backed resources release their objects there.
 /// </remarks>
+[EditorIcon("package", Family = EditorIconFamily.Resource)]
 public abstract class Resource
 {
     private int _referenceCount;

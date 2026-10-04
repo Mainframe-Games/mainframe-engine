@@ -17,6 +17,7 @@ internal static class TypeModelBuilder
     private const string ExportGroupAttribute = "MainframeEngine.ExportGroupAttribute";
     private const string SignalAttribute = "MainframeEngine.SignalAttribute";
     private const string ToolAttribute = "MainframeEngine.ToolAttribute";
+    private const string EditorIconAttribute = "MainframeEngine.EditorIconAttribute";
     private const string TypeNameAttribute = "MainframeEngine.TypeNameAttribute";
     private const string SerializedVersionAttribute = "MainframeEngine.SerializedVersionAttribute";
     private const string SerializedMigrationAttribute = "MainframeEngine.SerializedMigrationAttribute";
@@ -112,7 +113,7 @@ internal static class TypeModelBuilder
 
             if (GetAttribute(member, ExportAttribute) is { } export)
             {
-                if (BuildExport(member, export, group, diagnostics) is { } model)
+                if (BuildExport(member, export, group, diagnostics, ct) is { } model)
                     exports.Add(model);
             }
             else if (member is IEventSymbol evt && HasAttribute(evt, SignalAttribute))
@@ -154,8 +155,17 @@ internal static class TypeModelBuilder
             Namespace = type.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : null,
             IsPublic = IsPublicFromOutside(type),
             FlatName = FlatName(type),
+            Icon = IconName(type),
+            IconFamily = GetAttribute(type, EditorIconAttribute) is { } icon
+                ? icon.NamedArguments.FirstOrDefault(a => a.Key == "Family").Value.Value is int family ? family : 0
+                : 0,
+            Description = DocComments.SummaryOf(type, ct),
         };
     }
+
+    /// <summary>The non-empty name of an <c>[EditorIcon("name")]</c> on <paramref name="symbol"/>, or null.</summary>
+    private static string? IconName(ISymbol symbol) =>
+        GetAttribute(symbol, EditorIconAttribute)?.ConstructorArguments.FirstOrDefault().Value as string is { Length: > 0 } name ? name : null;
 
     // Inaccessible types are reported, never registered (see RegistrationEmitter).
     private static TypeModel Empty(INamedTypeSymbol type, RegisteredKind kind, List<DiagnosticInfo> diagnostics) =>
@@ -177,7 +187,8 @@ internal static class TypeModelBuilder
         return null;
     }
 
-    private static ExportModel? BuildExport(ISymbol member, AttributeData attribute, string? group, List<DiagnosticInfo> diagnostics)
+    private static ExportModel? BuildExport(ISymbol member, AttributeData attribute, string? group, List<DiagnosticInfo> diagnostics,
+        CancellationToken ct)
     {
         ITypeSymbol valueType;
         var location = LocationInfo.From(member.Locations.FirstOrDefault());
@@ -215,7 +226,7 @@ internal static class TypeModelBuilder
             return null;
         }
 
-        string? range = null, file = null, nodeType = null;
+        string? range = null, file = null, nodeType = null, icon = IconName(member);
         bool directory = false, multiline = false, flags = false, translatable = false;
         foreach (var named in attribute.NamedArguments)
         {
@@ -228,6 +239,7 @@ internal static class TypeModelBuilder
                 case "Flags": flags = named.Value.Value is true; break;
                 case "NodeType": nodeType = (named.Value.Value as ITypeSymbol)?.ToDisplayString(TypeFormat); break;
                 case "Translatable": translatable = named.Value.Value is true; break;
+                case "Icon" when named.Value.Value is string { Length: > 0 } name: icon = name; break;
             }
         }
 
@@ -238,7 +250,7 @@ internal static class TypeModelBuilder
         }
 
         return new ExportModel(member.Name, valueType.ToDisplayString(TypeFormat), codec, range, file, directory, multiline, flags, nodeType, group,
-            translatable);
+            translatable, icon, DocComments.SummaryOf(member, ct));
     }
 
     /// <summary><c>string</c>, <c>string[]</c> or <c>List&lt;string&gt;</c>: the types <c>Translatable</c> accepts.</summary>
