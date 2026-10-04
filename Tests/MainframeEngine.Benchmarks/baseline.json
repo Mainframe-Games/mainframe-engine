@@ -1,0 +1,47 @@
+{
+  "Machine": "macOS 27.0.1 Arm64, 10 cores",
+  "Runtime": ".NET 10.0.12",
+  "Recorded": "2026-10-04",
+  "Benchmarks": [
+    {
+      "Name": "CameraBenchmarks.Camera2DViewProjection",
+      "MeanNs": 8.558,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "CameraBenchmarks.Camera3DModifyDirection",
+      "MeanNs": 7.123,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "CameraBenchmarks.Camera3DViewProjection",
+      "MeanNs": 9.714,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "CameraBenchmarks.Node3DModelMatrix",
+      "MeanNs": 25.091,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "LightUboBenchmarks.PackAllSlots",
+      "MeanNs": 86.425,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "LightUboBenchmarks.PackSingleDirectional",
+      "MeanNs": 18.188,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "NetBufferBenchmarks.ReadPooled",
+      "MeanNs": 40.998,
+      "AllocatedBytes": 40
+    },
+    {
+      "Name": "NetBufferBenchmarks.WritePooled",
+      "MeanNs": 27.659,
+      "AllocatedBytes": 0
+    }
+  ]
+}

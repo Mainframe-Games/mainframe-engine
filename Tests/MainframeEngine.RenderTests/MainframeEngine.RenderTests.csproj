@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Headless Vulkan render tests: golden images, validation-layer gate, allocation gate.
+    Each scene runs in MainframeEngine.RenderTests.Host (a separate process); see docs/design/testing.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <!-- Run through VSTest (Microsoft.NET.Test.Sdk + xunit.runner.visualstudio), like the unit tests. -->
+    <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Referenced for its result types and so the host lands in this output folder. -->
+    <ProjectReference Include="..\MainframeEngine.RenderTests.Host\MainframeEngine.RenderTests.Host.csproj" />
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Goldens are read from (and UPDATE_GOLDENS=1 writes to) the source tree, not the output. -->
+    <AssemblyMetadata Include="GoldensDirectory" Value="$(MSBuildProjectDirectory)$([System.IO.Path]::DirectorySeparatorChar)Goldens" />
+    <AssemblyMetadata Include="RepositoryRoot" Value="$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Runs one render-test scene in its own process and reports the results as JSON + PNGs.
+    Render tests launch it out of process because windowing (GLFW/Cocoa) must own the process main
+    thread on macOS, and so a driver crash fails one test instead of the whole test run.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+  </ItemGroup>
+
+  <!-- Spine test content is shared with the Sandbox rather than duplicated. -->
+  <ItemGroup>
+    <None Include="..\..\MainframeEngine.Sandbox\Content\Models\Spine\SpineBoy\**"
+          LinkBase="Content\Models\Spine\SpineBoy"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

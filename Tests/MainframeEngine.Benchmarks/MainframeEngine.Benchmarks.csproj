@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- BenchmarkDotNet suite; run with "just bench" (Release build, see docs/design/testing.md). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- BenchmarkDotNet generates and builds its own project per run; keep ours optimised and quiet. -->
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Project>
+  <!-- Shared by every project under Tests/; chains to the repo-wide props first. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <!--
+      CA1515 (make public types internal): xUnit only discovers public test classes and
+      BenchmarkDotNet only runs public benchmark types, so test assemblies must stay public.
+    -->
+    <NoWarn>$(NoWarn);CA1515</NoWarn>
+  </PropertyGroup>
+</Project>
