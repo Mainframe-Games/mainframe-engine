@@ -79,7 +79,7 @@ public sealed class TemplateLocatorTests : IDisposable
     {
         var checkout = TemplateLocator.FindEngineCheckout();
         Assert.NotNull(checkout);
-        Assert.True(File.Exists(Path.Combine(checkout, "MainframeEngine.sln")));
+        Assert.True(File.Exists(Path.Combine(checkout, "MainframeEngine.slnx")));
         Assert.StartsWith(checkout, AppContext.BaseDirectory, StringComparison.Ordinal);
 
         var template = TemplateLocator.FindTemplate(checkout);

@@ -5,7 +5,7 @@
 Local commands are `just` recipes (run `just` to list them); CI calls `dotnet` directly.
 
 ```bash
-just build            # dotnet build MainframeEngine.sln — 0 warnings, warnings are errors
+just build            # dotnet build MainframeEngine.slnx — 0 warnings, warnings are errors
 just test             # unit tests (Tests/MainframeEngine.Tests)
 just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
 just sandbox          # dotnet run --project MainframeEngine.Sandbox

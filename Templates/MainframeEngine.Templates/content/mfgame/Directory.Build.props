@@ -13,7 +13,7 @@
     <!-- The engine package version (one version for the editor, the engine and its source generator). -->
     <MainframeEngineVersion>MAINFRAME_ENGINE_VERSION</MainframeEngineVersion>
 <!--#else -->
-    <!-- The engine checkout this game builds against (the folder holding MainframeEngine.sln). -->
+    <!-- The engine checkout this game builds against (the folder holding MainframeEngine.slnx). -->
     <MainframeEnginePath>$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'MAINFRAME_ENGINE_PATH'))))</MainframeEnginePath>
 <!--#endif -->
   </PropertyGroup>

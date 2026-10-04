@@ -438,7 +438,7 @@ Full C# port of the Spine skeletal animation runtime:
 ## Getting Started
 
 1. Clone the repository
-2. Open `MainframeEngine.sln` in Visual Studio or Rider
+2. Open `MainframeEngine.slnx` in Visual Studio or Rider
 3. Set `MainframeEngine.Sandbox` as the startup project
 4. Build and run — requires .NET 10 SDK
 

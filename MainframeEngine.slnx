@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/Examples/">
+    <Project Path="Examples/SilkVulkanExamples/SilkVulkanExamples.csproj" />
+    <Project Path="Examples/SpineExamples/SpineExamples.csproj" />
+  </Folder>
+  <Folder Name="/Plugins/">
+    <Project Path="Plugins/Spine/spine-csharp/spine-csharp.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/MainframeEngine.Benchmarks/MainframeEngine.Benchmarks.csproj" />
+    <Project Path="Tests/MainframeEngine.Editor.Tests/MainframeEngine.Editor.Tests.csproj" />
+    <Project Path="Tests/MainframeEngine.RenderTests.Host/MainframeEngine.RenderTests.Host.csproj" />
+    <Project Path="Tests/MainframeEngine.RenderTests/MainframeEngine.RenderTests.csproj" />
+    <Project Path="Tests/MainframeEngine.Tests/MainframeEngine.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Tools/">
+    <Project Path="Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj" />
+  </Folder>
+  <Project Path="MainframeEngine.Editor/MainframeEngine.Editor.csproj" />
+  <Project Path="MainframeEngine.Generators/MainframeEngine.Generators.csproj" />
+  <Project Path="MainframeEngine.Sandbox/MainframeEngine.Sandbox.csproj" />
+  <Project Path="MainframeEngine/MainframeEngine.csproj" />
+</Solution>

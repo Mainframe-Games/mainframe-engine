@@ -8,7 +8,7 @@ what works on each platform.
 ## Building
 
 ```bash
-just build              # dotnet build MainframeEngine.sln (warnings are errors)
+just build              # dotnet build MainframeEngine.slnx (warnings are errors)
 just test               # unit tests          just test-render   # render tests
 just sandbox            # dotnet run --project MainframeEngine.Sandbox
 ```
@@ -21,14 +21,17 @@ working directory. The Sandbox and the render-test host still pin the working di
 
 ### Solution
 
-[`MainframeEngine.sln`](../../MainframeEngine.sln) contains `MainframeEngine`,
+[`MainframeEngine.slnx`](../../MainframeEngine.slnx) (the XML solution format, SDK 9.0.200+; migrated from
+`MainframeEngine.sln` with `dotnet sln migrate`) contains `MainframeEngine`,
 `MainframeEngine.Generators` (the source generator, netstandard2.0, referenced as an analyzer by the
 engine, the Sandbox and the unit tests; its only package, `Microsoft.CodeAnalysis.CSharp`, is build-time
 only — see [Scene serialization](scene-serialization.md#source-generator)),
-`MainframeEngine.Sandbox`, `Examples/SpineExamples`, `Examples/SilkVulkanExamples`,
-`Plugins/spine-csharp` and, in the `Tests` folder, `MainframeEngine.Tests`,
-`MainframeEngine.RenderTests`, `MainframeEngine.RenderTests.Host` and `MainframeEngine.Benchmarks`
-(see [Testing](testing.md)). Configurations: `Debug|Any CPU` and `Release|Any CPU` only.
+`MainframeEngine.Sandbox`, `MainframeEngine.Editor`, and the solution folders `Examples` (`SpineExamples`,
+`SilkVulkanExamples`), `Plugins` (`spine-csharp`), `Tools` (`MainframeEngine.L10n`, the `mf-l10n` CLI) and `Tests`
+(`MainframeEngine.Tests`, `MainframeEngine.Editor.Tests`, `MainframeEngine.RenderTests`,
+`MainframeEngine.RenderTests.Host` and `MainframeEngine.Benchmarks`; see [Testing](testing.md)). The template package
+`Templates/MainframeEngine.Templates` is not in the solution (it is packed on its own: `just template-pack`), nor is
+its `mfgame` content, which CI's `template` job instantiates and builds (`just template-smoke`). Configurations: `Debug|Any CPU` and `Release|Any CPU` only.
 
 ### Shared build settings
 

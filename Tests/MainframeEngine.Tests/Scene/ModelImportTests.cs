@@ -229,9 +229,9 @@ public sealed class ModelImportTests : IDisposable
     private static string RepositoryRoot()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-            if (File.Exists(Path.Combine(dir.FullName, "MainframeEngine.sln")))
+            if (File.Exists(Path.Combine(dir.FullName, "MainframeEngine.slnx")))
                 return dir.FullName;
-        throw new DirectoryNotFoundException("MainframeEngine.sln not found above the test output.");
+        throw new DirectoryNotFoundException("MainframeEngine.slnx not found above the test output.");
     }
 
     private static void AssertNear(Vector3 expected, Vector3 actual, float tolerance = 1e-4f) =>

@@ -125,7 +125,7 @@ public static class NewProjectValidation
     public static string? ValidateEnginePath(string enginePath)
     {
         if (string.IsNullOrWhiteSpace(enginePath))
-            return "Choose the Mainframe Engine folder (the checkout holding MainframeEngine.sln).";
+            return "Choose the Mainframe Engine folder (the checkout holding MainframeEngine.slnx).";
         try
         {
             if (!Path.IsPathFullyQualified(enginePath))

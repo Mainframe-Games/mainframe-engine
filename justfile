@@ -3,7 +3,7 @@
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
-solution := "MainframeEngine.sln"
+solution := "MainframeEngine.slnx"
 artifacts := justfile_directory() / "artifacts"
 
 # List recipes

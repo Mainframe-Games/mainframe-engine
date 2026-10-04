@@ -18,11 +18,11 @@ public sealed partial class ShaderLimitsTests
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "MainframeEngine.sln")))
+            if (File.Exists(Path.Combine(dir.FullName, "MainframeEngine.slnx")))
                 return dir.FullName;
         }
 
-        throw new InvalidOperationException("Repository root (MainframeEngine.sln) not found above the test output.");
+        throw new InvalidOperationException("Repository root (MainframeEngine.slnx) not found above the test output.");
     }
 
     private static List<(string Glsl, string CSharp, int Value)> ReadJson()

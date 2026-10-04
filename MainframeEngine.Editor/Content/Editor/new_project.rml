@@ -45,7 +45,7 @@
             <div class="dialog-row">
                 <span class="caption">Engine</span>
                 <input type="text" class="text" id="np-engine" data-value="engine"/>
-                <button id="np-browse-engine" data-event-click="browse_engine()" data-tooltip="Browse — the engine checkout the game builds against (holds MainframeEngine.sln)"><span class="icon icon-sm icon-folder-open"></span></button>
+                <button id="np-browse-engine" data-event-click="browse_engine()" data-tooltip="Browse — the engine checkout the game builds against (holds MainframeEngine.slnx)"><span class="icon icon-sm icon-folder-open"></span></button>
             </div>
             <div class="sdk" data-if="sdk != ''"><span class="icon icon-sm icon-circle-check"></span> {{sdk}}</div>
             <div class="log" id="np-log">{{log}}</div>

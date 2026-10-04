@@ -33,7 +33,7 @@
     "EnginePath": {
       "type": "parameter",
       "datatype": "string",
-      "description": "Path of the engine checkout (the folder holding MainframeEngine.sln); absolute, or relative to the new project folder.",
+      "description": "Path of the engine checkout (the folder holding MainframeEngine.slnx); absolute, or relative to the new project folder.",
       "defaultValue": "../mainframe-engine",
       "replaces": "MAINFRAME_ENGINE_PATH"
     },
