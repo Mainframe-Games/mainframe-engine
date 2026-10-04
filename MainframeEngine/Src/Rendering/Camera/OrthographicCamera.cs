@@ -2,7 +2,11 @@
 
 namespace MainframeEngine;
 
-public class Camera2D : ICamera
+/// <summary>
+/// Orthographic camera math. Scenes use the <see cref="Camera2D"/> node, which drives one of these;
+/// tree-less code can use it directly.
+/// </summary>
+public class OrthographicCamera : ICamera
 {
     public Vector3 Position { get; set; }
     public Vector3 Forward { get; set; } = -Vector3.UnitZ;

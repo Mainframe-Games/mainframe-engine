@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace MainframeEngine.Networking;
+namespace MainframeEngine;
 
 /// <summary>
 /// Represents a unique identifier for a network node within a networking system.
@@ -37,7 +37,7 @@ public readonly struct NodeId(in uint id) : IEquatable<NodeId>, IEquatable<uint>
     public static bool operator !=(NodeId a, NodeId b) => !(a == b);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator ulong(NodeId peerId) => peerId._id;
+    public static implicit operator ulong(NodeId nodeId) => nodeId._id;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator NodeId(uint id) => new(id);

@@ -32,9 +32,10 @@ public class Quad : ShapeBase
     private VkBuffer     _indexBuffer;
     private DeviceMemory _indexBufferMemory;
 
-    public Quad()
+    protected override void InitializeRenderResources(RenderServer server)
     {
-        if (Renderer is IVulkanContext vkCtx)
+        base.InitializeRenderResources(server);
+        if (server.Renderer is IVulkanContext vkCtx)
         {
             CreateVertexBuffer(vkCtx);
             CreateIndexBuffer(vkCtx);
@@ -52,7 +53,7 @@ public class Quad : ShapeBase
         }
     }
 
-    public override unsafe void Dispose()
+    protected override unsafe void ReleaseRenderResources()
     {
         if (VkCtx is null)
             return;
@@ -64,7 +65,7 @@ public class Quad : ShapeBase
         vk.FreeMemory(device, _indexBufferMemory, null);
         vk.DestroyBuffer(device, _vertexBuffer, null);
         vk.FreeMemory(device, _vertexBufferMemory, null);
-        base.Dispose();
+        base.ReleaseRenderResources();
     }
 
     protected override unsafe void DrawGeometry(CommandBuffer cb)

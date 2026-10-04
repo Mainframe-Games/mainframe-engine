@@ -109,6 +109,18 @@ public class LightEnvironment
         }
     }
 
+    /// <summary>Removes a light added with <see cref="AddLight"/>; returns false if it was not present.</summary>
+    public bool RemoveLight(Light light) => light switch
+    {
+        DirectionalLight dl => DirectionalLights.Remove(dl),
+        PointLight pl => PointLights.Remove(pl),
+        SpotLight sl => SpotLights.Remove(sl),
+        _ => false,
+    };
+
+    /// <summary>Number of lights of every type (including ones beyond the per-type UBO limits).</summary>
+    public int Count => DirectionalLights.Count + PointLights.Count + SpotLights.Count;
+
 
     #region Gizmos
 

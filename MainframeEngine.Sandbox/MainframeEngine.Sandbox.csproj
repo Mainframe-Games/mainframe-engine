@@ -9,6 +9,9 @@
 
     <ItemGroup>
       <ProjectReference Include="..\MainframeEngine\MainframeEngine.csproj" />
+      <!-- Registers the Sandbox's own node types (FlyCamera, SpinningBox) for Content/Scenes/Sandbox.mscene. -->
+      <ProjectReference Include="..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
+                        OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <!-- Copy everything in content folder to build destination -->

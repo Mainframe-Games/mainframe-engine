@@ -2,7 +2,11 @@
 
 namespace MainframeEngine;
 
-public class Camera3D : ICamera
+/// <summary>
+/// Perspective camera math (view + projection from a position, forward and up vector). Scenes use the
+/// <see cref="Camera3D"/> node, which drives one of these; tree-less code can use it directly.
+/// </summary>
+public class PerspectiveCamera : ICamera
 {
     public Vector3 Position { get; set; }
     public Vector3 Forward { get; set; } = -Vector3.UnitZ;
@@ -12,7 +16,10 @@ public class Camera3D : ICamera
     private float Yaw { get; set; } = -90f;
     private float Pitch { get; set; }
 
-    public float FieldOfView { get; private set; } = 45f;
+    public float FieldOfView { get; set; } = 45f;
+
+    public float Near { get; set; } = 0.1f;
+    public float Far { get; set; } = 1000.0f;
 
     public Matrix4x4 ViewMatrix
         => Matrix4x4.CreateLookAt(Position, Position + Forward, Up);
@@ -21,8 +28,8 @@ public class Camera3D : ICamera
         Matrix4x4.CreatePerspectiveFieldOfView(
             float.DegreesToRadians(FieldOfView),
             AspectRatio,
-            0.1f,
-            1000.0f
+            Near,
+            Far
         );
 
     public void ModifyZoom(float zoomAmount)

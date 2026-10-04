@@ -25,12 +25,12 @@ internal sealed class Game : Engine
     private float _cameraSpeed = 20f;
     private bool CanMoveCamera => _mouse.Cursor.CursorMode is CursorMode.Raw;
 
-    private readonly Camera2D _cameraOrth = new()
+    private readonly OrthographicCamera _cameraOrth = new()
     {
         Position = new Vector3(0f, 1f, 0f),
         Zoom = 0.01f,
     };
-    private readonly Camera3D _cameraPer = new()
+    private readonly PerspectiveCamera _cameraPer = new()
     {
         Position = new Vector3(0f, 1f, 5f),
     };
@@ -72,7 +72,7 @@ internal sealed class Game : Engine
             return;
 
         var position = _spineNode.Position;
-        var rotation = _spineNode.Rotation;
+        var rotation = _spineNode.RotationDegrees;
         var scale = _spineNode.Scale.X;
 
         _inspectorUI.OnImGui(
@@ -81,7 +81,7 @@ internal sealed class Game : Engine
             ref position, ref rotation, ref scale);
 
         _spineNode.Position = position;
-        _spineNode.Rotation = rotation;
+        _spineNode.RotationDegrees = rotation;
         _spineNode.Scale = new Vector3(scale, scale, scale);
     }
 
@@ -95,7 +95,7 @@ internal sealed class Game : Engine
             ? Skeleton.Physics.Update
             : Skeleton.Physics.None;
 
-        _spineNode?.OnUpdate(gameTime);
+        _spineNode?.Advance(gameTime);
     }
 
     protected override void OnShadowPass(in GameTime gameTime)
@@ -159,7 +159,7 @@ internal sealed class Game : Engine
         var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
         var speed = baseSpeed * (float)delta;
 
-        if (camera is Camera3D)
+        if (camera is PerspectiveCamera)
         {
             if (_keyboard.IsKeyPressed(Key.W)) camera.Position += speed * camera.Forward;
             if (_keyboard.IsKeyPressed(Key.S)) camera.Position -= speed * camera.Forward;
@@ -201,7 +201,7 @@ internal sealed class Game : Engine
         var dy = (pos.Y - _lastMousePos.Y) * 0.1f;
         _lastMousePos = pos;
 
-        if (CurrentCamera is Camera3D cam3d)
+        if (CurrentCamera is PerspectiveCamera cam3d)
             cam3d.ModifyDirection(dx, dy);
         else
             CurrentCamera.Position += new Vector3(-dx * 0.1f, dy * 0.1f, 0);
@@ -209,7 +209,7 @@ internal sealed class Game : Engine
 
     private void OnMouseScroll(IMouse mouse, ScrollWheel scroll)
     {
-        if (CurrentCamera is Camera2D cam2d)
+        if (CurrentCamera is OrthographicCamera cam2d)
             cam2d.ModifyZoom(-scroll.Y * 0.05f);
     }
 

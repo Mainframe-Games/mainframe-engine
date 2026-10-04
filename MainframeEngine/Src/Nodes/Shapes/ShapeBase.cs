@@ -8,14 +8,15 @@ using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
-public abstract class ShapeBase : Node3D
+public abstract class ShapeBase : VisualInstance3D
 {
+    [Export]
     public Color Color { get; set; } = Color.White;
 
     private const int LightsUboSize = LightEnvironment.UboSize;
 
     protected IVulkanContext? VkCtx { get; private set; }
-    protected static ShadowSystem? Shadows => ShadowSystem;
+    protected ShadowSystem? Shadows { get; private set; }
 
     // Set 2: the game's ShadowSystem, or the renderer's "no shadows" fallback (same layout).
     private IShadowDescriptors? _shadowDescriptors;
@@ -49,8 +50,15 @@ public abstract class ShapeBase : Node3D
     private nint[]              _lightsUboMapped  = null!;
 
     // -------------------------------------------------------------------------
-    // Init — called once from subclass constructor, after geometry buffers are created
+    // Init — subclasses override InitializeRenderResources: call base first, create geometry buffers,
+    // then InitLitVulkan. Runs when the node first enters a tree with a RenderServer.
     // -------------------------------------------------------------------------
+
+    protected override void InitializeRenderResources(RenderServer server)
+    {
+        base.InitializeRenderResources(server);
+        Shadows = server.Shadows;
+    }
 
     protected unsafe void InitLitVulkan(
         IVulkanContext ctx,
@@ -408,10 +416,10 @@ public abstract class ShapeBase : Node3D
     }
 
     // -------------------------------------------------------------------------
-    // Dispose — call from subclass Dispose after cleaning up geometry buffers
+    // Release — call from subclass ReleaseRenderResources after cleaning up geometry buffers
     // -------------------------------------------------------------------------
 
-    public override unsafe void Dispose()
+    protected override unsafe void ReleaseRenderResources()
     {
         if (VkCtx is null) return;
         var vk     = VkCtx.Vk;
@@ -437,7 +445,9 @@ public abstract class ShapeBase : Node3D
         vk.DestroyPipeline(device, _pipeline, null);
         vk.DestroyPipelineLayout(device, _pipelineLayout, null);
 
-        base.Dispose();
+        VkCtx = null;
+        Shadows = null;
+        base.ReleaseRenderResources();
     }
 
 

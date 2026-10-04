@@ -10,7 +10,7 @@ public enum PeerType : byte
 
 /// <summary>
 /// Scene-graph entry point for networking: owns an ENet server and/or client <see cref="MessageBus"/> (both for a
-/// listen server) and pumps them in <see cref="OnUpdate"/>.
+/// listen server) and pumps them every frame (<see cref="Poll"/>, called from <see cref="Node.OnProcess"/>).
 /// </summary>
 /// <remarks>
 /// Register every message type in <see cref="Messages"/> before starting; connection events and message handlers
@@ -37,17 +37,27 @@ public class NetworkNode : Node
     /// </summary>
     public static string LocalIp => LocalIpLazy.Value;
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        StopServer();
-        StopClient();
-        base.Dispose();
+        if (disposing)
+        {
+            StopServer();
+            StopClient();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    /// <summary>Pumps the buses every frame while the node is in a tree.</summary>
+    protected override void OnProcess(in GameTime gameTime)
+    {
+        base.OnProcess(in gameTime);
+        Poll();
     }
 
     /// <summary>Polls both buses (dispatching handlers and events), then flushes anything they queued.</summary>
-    public override void OnUpdate(in GameTime gameTime)
+    public void Poll()
     {
-        base.OnUpdate(in gameTime);
         Server?.Poll();
         Client?.Poll();
         Server?.Flush();

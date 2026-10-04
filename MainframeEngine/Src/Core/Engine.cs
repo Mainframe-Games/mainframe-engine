@@ -50,6 +50,15 @@ public struct EngineOptions()
     /// simulation and animation are deterministic (golden-image tests, QA captures).
     /// </summary>
     public float FixedDeltaTime;
+
+    /// <summary>Fixed rate of <see cref="Node.OnPhysicsProcess"/> and the physics servers (M2).</summary>
+    public int PhysicsTicksPerSecond = 60;
+
+    /// <summary>
+    /// The game's Steam app id; when non-zero the engine registers a <see cref="SteamServer"/> (Steam stays
+    /// optional: it is inert when Steam cannot start). 0 (default) leaves Steam alone.
+    /// </summary>
+    public uint SteamAppId;
 }
 
 public abstract class Engine : IDisposable
@@ -62,10 +71,25 @@ public abstract class Engine : IDisposable
     private GameTime _gameTime;
     private readonly FPSCounter _fps = new();
     private int _renderedFrames;
+    private InputRouter? _inputRouter; // M2: routes window input into the scene tree
 
     public IWindow Window { get; }
     public IInputContext InputContext { get; private set; } = null!;
     public IRenderer Renderer { get; private set; } = null!;
+
+    // --- M2 scene tree ------------------------------------------------------------------------------
+    // The engine owns a SceneTree and runs it every frame (process after the legacy OnUpdate hook, the
+    // RenderServer draws its root world after the legacy render hooks open each pass). Games may keep
+    // using only the legacy hooks: an empty tree costs nothing.
+
+    /// <summary>The engine-owned scene tree; add nodes under <see cref="Root"/> or call <see cref="SceneTree.ChangeScene(Node)"/>.</summary>
+    public SceneTree Tree { get; }
+
+    /// <summary>The tree's root viewport (<c>/root</c>).</summary>
+    public SceneViewport Root => Tree.Root;
+
+    /// <summary>Engine servers (the <see cref="RenderServer"/> exists after <see cref="OnLoad"/>).</summary>
+    public ServerRegistry Servers => Tree.Servers;
 
     private EngineOptions EngineOptions { get; }
 
@@ -101,6 +125,7 @@ public abstract class Engine : IDisposable
     protected Engine(in EngineOptions engineOptions)
     {
         EngineOptions = engineOptions;
+        Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond }; // M2
 
         UseSdl();
 
@@ -159,6 +184,12 @@ public abstract class Engine : IDisposable
         if (Renderer is IVulkanContext vkCtx)
             _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
 
+        // M2: the render server replaces the static Node.Initialize; tree input comes from the window.
+        Servers.Register(new RenderServer(Renderer));
+        if (EngineOptions.SteamAppId != 0)
+            Servers.Register(new SteamServer(EngineOptions.SteamAppId));
+        _inputRouter = new InputRouter(InputContext, Tree);
+
         SetWindowIcon(EngineOptions.IconPath);
     }
 
@@ -192,6 +223,7 @@ public abstract class Engine : IDisposable
 
         OnImGui(_gameTime);
         OnUpdate(_gameTime);
+        Tree.Tick(_gameTime); // M2: physics steps, process, deferred calls/frees, transform sync
     }
 
     private void OnRender(double delta)
@@ -234,10 +266,12 @@ public abstract class Engine : IDisposable
         {
             // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
             OnShadowPass(_gameTime);
+            Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters
 
             // Begin the main render pass, then let the game draw geometry.
             (Renderer as IVulkanContext)?.BeginRenderPass();
 
+            Servers.Render?.RenderMain(Root); // M2: sky, then the scene tree's visuals
             OnRenderMainPass(_gameTime);
             _vkImGuiController?.Render(); // inside the render pass, before EndFrame
         }
@@ -276,10 +310,27 @@ public abstract class Engine : IDisposable
     {
     }
 
-    protected abstract void OnImGui(in GameTime gameTime);
-    protected abstract void OnUpdate(in GameTime gameTime);
-    protected abstract void OnShadowPass(in GameTime gameTime);
-    protected abstract void OnRenderMainPass(in GameTime gameTime);
+    // Legacy per-frame hooks, optional since the scene tree (M2) can drive everything.
+
+    /// <summary>Build ImGui windows (inside the ImGui frame, before update).</summary>
+    protected virtual void OnImGui(in GameTime gameTime)
+    {
+    }
+
+    /// <summary>Game logic, before the scene tree's tick.</summary>
+    protected virtual void OnUpdate(in GameTime gameTime)
+    {
+    }
+
+    /// <summary>Depth pre-pass recording (no render pass active), before the scene tree's shadow casters.</summary>
+    protected virtual void OnShadowPass(in GameTime gameTime)
+    {
+    }
+
+    /// <summary>Main-pass drawing, after the scene tree's sky and visuals.</summary>
+    protected virtual void OnRenderMainPass(in GameTime gameTime)
+    {
+    }
 
     private bool IsMinimised()
     {
@@ -289,9 +340,20 @@ public abstract class Engine : IDisposable
         return size.X <= 0 || size.Y <= 0;
     }
 
-    /// <summary>Disposes ImGui, input and the renderer. Call <c>base.OnClose()</c> last. Keeps the exit code set by <see cref="Quit"/>.</summary>
+    /// <summary>
+    /// Frees the scene tree and servers, then disposes ImGui, input and the renderer. Call <c>base.OnClose()</c>
+    /// last. Keeps the exit code set by <see cref="Quit"/>.
+    /// </summary>
     protected virtual void OnClose()
     {
+        // M2: free the scene (nodes release their GPU objects), then the servers and cached resources,
+        // while the renderer is still alive.
+        _inputRouter?.Dispose();
+        _inputRouter = null;
+        Tree.Shutdown();
+        Servers.Dispose();
+        ResourceLoader.ClearCache();
+
         _vkImGuiController?.Dispose();
         _vkImGuiController = null;
         InputContext?.Dispose();

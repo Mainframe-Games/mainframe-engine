@@ -22,6 +22,25 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+    <!-- Registers the test node/resource types ([Export], [Signal]) like any game assembly. -->
+    <ProjectReference Include="..\..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <!--
+    Generator tests drive the generator with CSharpGeneratorDriver, so they also need its assembly and
+    Roslyn as ordinary (test-only) references. Aliased so the generator's internals never clash with ours.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
+                      SetTargetFramework="TargetFramework=netstandard2.0" Aliases="generators" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <!-- The Sandbox scene is parsed and round-tripped by the serialization tests. -->
+  <ItemGroup>
+    <None Include="..\..\MainframeEngine.Sandbox\Content\Scenes\Sandbox.mscene"
+          Link="Content\Scenes\Sandbox.mscene" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- SpineNode tests load SpineBoy (shared with the Sandbox rather than duplicated). -->

@@ -14,7 +14,7 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
 {
     protected override void OnImGui(in GameTime gameTime)
     {
-        Lights.DrawLightGizmos(Camera);
+        Lights.DrawLightGizmos(Camera.RenderCamera);
 
         ImGui.SetNextWindowPos(Vector2.Zero, ImGuiCond.Always, Vector2.Zero);
         if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
@@ -24,12 +24,12 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
             ImGui.Value("FPS", gameTime.FramesPerSecond);
 
             Span<char> text = stackalloc char[64];
-            var p = Camera.Position;
+            var p = Camera.GlobalPosition;
             if (text.TryWrite(CultureInfo.InvariantCulture, $"Position: <{p.X:0.00}, {p.Y:0.00}, {p.Z:0.00}>", out var written))
                 ImGui.TextUnformatted(text[..written]);
         }
         ImGui.End();
 
-        ImGuiCoordGizmo.DrawCoordinateGizmo(Camera);
+        ImGuiCoordGizmo.DrawCoordinateGizmo(Camera.RenderCamera);
     }
 }

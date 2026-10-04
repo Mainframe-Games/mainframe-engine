@@ -35,6 +35,9 @@
     <!-- Local References -->
     <ItemGroup>
       <ProjectReference Include="..\Plugins\Spine\spine-csharp\spine-csharp.csproj" />
+      <!-- Source generator: [Export]/[Signal] type registration for the engine's own node and resource types. -->
+      <ProjectReference Include="..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
+                        OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <!-- Copy everything in content folder to build destination -->

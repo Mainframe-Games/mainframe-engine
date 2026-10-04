@@ -60,7 +60,7 @@ public sealed class NetworkNodeTests
         while (!condition())
         {
             Assert.True(DateTime.UtcNow < deadline, "Condition not met in time.");
-            node.OnUpdate(default);
+            node.Poll();
             Thread.Sleep(1);
         }
     }

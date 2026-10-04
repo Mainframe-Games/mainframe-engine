@@ -5,16 +5,13 @@ using Spine;
 namespace MainframeEngine.Tests.Nodes;
 
 /// <summary>SpineNode logic without a GPU: a non-Vulkan renderer skips every Vulkan resource.</summary>
-[Collection(nameof(Debugging.SerialConsole))] // Node.Initialize is process-wide state
 public sealed class SpineNodeTests
 {
     private static readonly string SpineBoy = Path.Combine(AppContext.BaseDirectory, "Content", "Models", "Spine", "SpineBoy");
 
     private static SpineNode CreateNode()
     {
-        var renderer = new HeadlessRenderer();
-        Node.Initialize(renderer);
-        return new SpineNode(renderer, new SpineFolder(SpineBoy));
+        return new SpineNode(new HeadlessRenderer(), new SpineFolder(SpineBoy));
     }
 
     private static GameTime Frame(float dt) => new() { DeltaTime = dt, FrameCount = 1 };
@@ -47,7 +44,7 @@ public sealed class SpineNodeTests
         Assert.Equal("walk", node.CurrentAnimation?.Name);
 
         node.SetAnimation("run");
-        node.OnUpdate(Frame(1f / 60f));
+        node.Advance(Frame(1f / 60f));
         Assert.Equal("run", node.CurrentAnimation?.Name);
     }
 
@@ -58,7 +55,7 @@ public sealed class SpineNodeTests
         node.SetAnimation("walk");
 
         node.QueueAnimation("run");
-        node.OnUpdate(Frame(1f / 60f));
+        node.Advance(Frame(1f / 60f));
 
         Assert.Equal("walk", node.CurrentAnimation?.Name);
     }
@@ -68,7 +65,7 @@ public sealed class SpineNodeTests
     {
         using var node = CreateNode();
         node.SetAnimation("walk");
-        node.OnUpdate(Frame(0.3f));
+        node.Advance(Frame(0.3f));
 
         // Reference: Spine's documented order on an identical skeleton.
         var reference = new Skeleton(node.Skeleton.Data) { ScaleX = node.Skeleton.ScaleX, ScaleY = node.Skeleton.ScaleY };
@@ -93,8 +90,8 @@ public sealed class SpineNodeTests
     public void VerticesGrowPastTheInitialCapacityInsteadOfThrowing()
     {
         using var node = CreateNode();
-        node.OnUpdate(Frame(1f / 60f));
-        var needed = node.SpineRenderer.PreparedVertexCount;
+        node.Advance(Frame(1f / 60f));
+        var needed = node.SpineRenderer!.PreparedVertexCount;
         Assert.True(needed > 64, $"SpineBoy should need more than 64 vertices (got {needed}).");
 
         using var small = new SpineRenderer(new HeadlessRenderer(), node.Skeleton, pma: false, new SpineTextureLoader(),
@@ -110,8 +107,8 @@ public sealed class SpineNodeTests
     {
         using var node = CreateNode();
 
-        Assert.NotEmpty(node.TextureLoader.VkImageData);
-        Assert.All(node.TextureLoader.VkImageData, page =>
+        Assert.NotEmpty(node.TextureLoader!.VkImageData);
+        Assert.All(node.TextureLoader!.VkImageData, page =>
         {
             Assert.Empty(page.Pixels);
             Assert.True(page.Width > 0 && page.Height > 0);

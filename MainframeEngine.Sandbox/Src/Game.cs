@@ -5,13 +5,19 @@ using MainframeEngine.Gizmos;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
-using Color = System.Drawing.Color;
 using MouseButton = Silk.NET.Input.MouseButton;
 
 namespace MainframeEngine.Sandbox;
 
+/// <summary>
+/// The Sandbox: loads <see cref="MainScene"/> into the engine's scene tree (which processes and renders it),
+/// adds the debug grid, and draws an ImGui debug overlay. This class only handles window-level input (cursor
+/// mode, Escape), the overlay and the <c>--qa-*</c> scripts; the fly camera is a scene node (<see cref="FlyCamera"/>).
+/// </summary>
 public sealed class Game(in EngineOptions options) : Engine(options)
 {
+    public const string MainScene = "Content/Scenes/Sandbox.mscene";
+
     public static EngineOptions DefaultOptions => new()
     {
         GameName = "Mainframe Engine Sandbox",
@@ -26,21 +32,10 @@ public sealed class Game(in EngineOptions options) : Engine(options)
     /// <summary>Set by <c>--qa-capture</c>: frames to screenshot before the engine exits.</summary>
     public QaCapture? QaCapture { get; init; }
 
-    private readonly Camera3D _camera3D = new();
-
-    private SkyEnvironment _sky = null!;
-    private readonly LightEnvironment _lights = new();
-    private ShadowSystem _shadowSystem = null!;
-    private SceneGrid3d _sceneGrid3d = null!;
-
-    private readonly List<Node> _nodes = [];
-
-    private IKeyboard _keyboard = null!;
     private IMouse _mouse = null!;
 
-    private bool CanMoveCamera => _mouse.IsButtonPressed(MouseButton.Right);
-    private Vector2 _lastMousePosition;
-    private float _cameraSpeed = 10;
+    /// <summary>The scene's camera (null until the scene is loaded).</summary>
+    private Camera3D? Camera => Root.ActiveCamera3D;
 
     protected override void OnLoad()
     {
@@ -48,87 +43,20 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
         Renderer.SetClearColor(0.18f, 0.31f, 0.31f); // DarkSlateGray
 
-        _camera3D.Position = new Vector3(0, 5f, 10f);
-        _camera3D.LookAt(Vector3.Zero);
-
-        _keyboard = InputContext.Keyboards[0];
-        _keyboard.KeyDown += OnKeyDown;
+        var keyboard = InputContext.Keyboards[0];
+        keyboard.KeyDown += OnKeyDown;
 
         _mouse = InputContext.Mice[0];
         _mouse.MouseDown += OnMouseDown;
         _mouse.MouseUp += OnMouseUp;
-        _mouse.MouseMove += OnMouseMove;
 
-        _sky = new SkyPanoramic(Renderer, "Content/Sky/sky_10_2k.png");
-        _sceneGrid3d = new SceneGrid3d(Renderer);
+        // The scene (fly camera, sky, SpineBoy, floor, spinning box, five shadow-casting lights) is data:
+        // Content/Scenes/Sandbox.mscene, generated from SandboxSceneBuilder. The tree processes and renders it.
+        Tree.ChangeSceneToFile(MainScene);
 
-        // Shadow system must be created before any shadow-casting/receiving shapes.
-        _shadowSystem = new ShadowSystem((IVulkanContext)Renderer);
-
-        // TODO: see if we can put this into Engine class
-        Node.Initialize(Renderer, _shadowSystem);
-
-        var spineNode = new SpineNode(Renderer, new SpineFolder("Content/Models/Spine/SpineBoy"));
-        spineNode.Scale = new Vector3(0.1f, 0.1f, 0.1f);
-        // _spineNode.SetAnimation("W/Run");
-        spineNode.SetAnimation("walk");
-        _nodes.Add(spineNode);
-
-        _nodes.Add(new Quad
-        {
-            Rotation = new Vector3(90, 0, 0),
-            Scale = new Vector3(10, 10, 1),
-            Color = Color.White
-        });
-        _nodes.Add(new Box3d
-        {
-            Position = new Vector3(3, 1, 0),
-            Color = Color.White
-        });
-
-        // Every shadow type at once (2 directional + 1 point + 2 spot): each shadow sub-pass uses its
-        // own light matrix (M1 renderer stabilization).
-        _lights.AddLight(new DirectionalLight
-        {
-            Position = new Vector3(0, 5, 0),
-            Direction = Vector3.Normalize(new Vector3(0, -0.5f, -1)),
-            Color = new Vector3(1f, 0.95f, 0.8f),
-            Intensity = 0.8f
-        });
-        _lights.AddLight(new DirectionalLight
-        {
-            Position = new Vector3(0, 5, 0),
-            Direction = Vector3.Normalize(new Vector3(-0.8f, -1f, 0.3f)),
-            Color = new Vector3(0.6f, 0.7f, 1f),
-            Intensity = 0.2f
-        });
-        _lights.AddLight(new PointLight
-        {
-            Position = new Vector3(4.5f, 1.5f, 2f),
-            Color = new Vector3(0.2f, 0.5f, 1f),
-            Intensity = 0.8f,
-            Range = 8
-        });
-        _lights.AddLight(new SpotLight
-        {
-            Position = new Vector3(-3, 4, 3),
-            Direction = Vector3.Normalize(new Vector3(0.5f, -1, -0.5f)),
-            Color = new Vector3(1f, 0.6f, 0.4f),
-            Intensity = 0.9f,
-            Range = 15f,
-            InnerConeAngle = 12f,
-            OuterConeAngle = 25f
-        });
-        _lights.AddLight(new SpotLight
-        {
-            Position = new Vector3(3, 4, -2),
-            Direction = Vector3.Normalize(new Vector3(-0.2f, -1, 0.4f)),
-            Color = new Vector3(0.5f, 1f, 0.6f),
-            Intensity = 0.7f,
-            Range = 12f,
-            InnerConeAngle = 15f,
-            OuterConeAngle = 28f
-        });
+        // Editor-style reference grid: added at runtime (not saved with the scene); draws before the scene's
+        // visuals (RenderPriority -100).
+        Root.AddChild(new Grid3D { Name = "Grid" });
     }
 
     protected override void OnUpdate(in GameTime gameTime)
@@ -136,22 +64,13 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         if (QaCapture?.ShouldCapture(gameTime.FrameCount) == true)
             CaptureFrame();
         RunQaScript(gameTime.FrameCount);
-
-        UpdateCameraPosition(gameTime.DeltaTime);
-
-        foreach (var node in _nodes)
-        {
-            node.OnUpdate(gameTime);
-
-            // rotate the box
-            if (node is Box3d box)
-                box.Rotation += new Vector3(1, 1, 0) * 20 * gameTime.DeltaTime;
-        }
     }
 
     protected override void OnImGui(in GameTime gameTime)
     {
-        _lights.DrawLightGizmos(_camera3D);
+        var camera = Camera;
+        if (camera is not null)
+            Root.World3D.Lights.DrawLightGizmos(camera.RenderCamera);
 
         ImGui.SetNextWindowPos(Vector2.Zero, ImGuiCond.Always, new Vector2(0, 0));
         if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
@@ -176,54 +95,25 @@ public sealed class Game(in EngineOptions options) : Engine(options)
                 MaxFPS = FpsPresets[selectedIndex];
 
             ImGui.SeparatorText("Camera");
-            // Formatted into stack buffers: interpolated strings would allocate every frame.
-            Span<char> text = stackalloc char[64];
-            var p = _camera3D.Position;
-            if (text.TryWrite(CultureInfo.InvariantCulture, $"Position: <{p.X:0.00}, {p.Y:0.00}, {p.Z:0.00}>", out var written))
-                ImGui.TextUnformatted(text[..written]);
-            var f = _camera3D.Forward;
-            if (text.TryWrite(CultureInfo.InvariantCulture, $"Forward: <{f.X:0.00}, {f.Y:0.00}, {f.Z:0.00}>", out written))
-                ImGui.TextUnformatted(text[..written]);
+            if (camera is not null)
+            {
+                // Formatted into stack buffers: interpolated strings would allocate every frame.
+                Span<char> text = stackalloc char[64];
+                var p = camera.GlobalPosition;
+                if (text.TryWrite(CultureInfo.InvariantCulture, $"Position: <{p.X:0.00}, {p.Y:0.00}, {p.Z:0.00}>", out var written))
+                    ImGui.TextUnformatted(text[..written]);
+                var f = camera.GlobalForward;
+                if (text.TryWrite(CultureInfo.InvariantCulture, $"Forward: <{f.X:0.00}, {f.Y:0.00}, {f.Z:0.00}>", out written))
+                    ImGui.TextUnformatted(text[..written]);
+            }
+
+            ImGui.SeparatorText("Scene");
+            ImGui.Value("Nodes", Tree.NodeCount);
         }
         ImGui.End();
 
-        ImGuiCoordGizmo.DrawCoordinateGizmo(_camera3D);
-    }
-
-    protected override void OnShadowPass(in GameTime gameTime)
-    {
-        // Static lambdas with the node list as state: no per-frame closure allocations.
-        _shadowSystem.RenderShadows(
-            _lights,
-            _nodes,
-            draw2D: static (nodes, cb, _, _, _) =>
-            {
-                foreach (var node in nodes)
-                    node.DrawShadow2D(cb);
-            },
-            drawPoint: static (nodes, cb, _, _, _, lightPos, lightRange) =>
-            {
-                foreach (var node in nodes)
-                    node.DrawShadowPoint(cb, lightPos, lightRange);
-            }
-        );
-    }
-
-    protected override void OnRenderMainPass(in GameTime gameTime)
-    {
-        Renderer.EnableDepthTest();
-        Renderer.Clear();
-
-        // render core stuff
-        // Aspect of the image being rendered: the swapchain extent (pixels).
-        if (Renderer is IVulkanContext vk)
-            _camera3D.AspectRatio = (float)vk.SwapchainExtent.Width / Math.Max(1u, vk.SwapchainExtent.Height);
-        _sky.Draw(_camera3D); // must be drawn first — renders behind all geometry
-        _sceneGrid3d.Draw(_camera3D);
-
-        // render game stuff
-        foreach (var node in _nodes)
-            node.Draw(_camera3D, _lights);
+        if (camera is not null)
+            ImGuiCoordGizmo.DrawCoordinateGizmo(camera.RenderCamera);
     }
 
     protected override void OnFrameCaptured(FrameCapture capture)
@@ -234,20 +124,14 @@ public sealed class Game(in EngineOptions options) : Engine(options)
     protected override void OnClose()
     {
         StopQaWakeTimer();
-        _shadowSystem.Dispose();
-        _sky.Dispose();
-        _sceneGrid3d.Dispose();
-        foreach (var shape in _nodes)
-            shape.Dispose();
-
-        base.OnClose();
+        base.OnClose(); // frees the scene tree and its GPU objects
     }
 
     // --qa-resize / --qa-minimize: scripted window changes for `just qa`.
     private long _qaMinimizedAt;
     private int _qaRenderedAtMinimize;
     private int _qaUpdatesWhileMinimized;
-    private Timer? _qaWakeTimer;
+    private System.Threading.Timer? _qaWakeTimer;
 
     private void RunQaScript(uint frame)
     {
@@ -261,7 +145,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             var y = Window.Size.Y / 2;
             if (step == 0)
             {
-                Log.Info($"[QA] Input: right-drag starts, camera forward {_camera3D.Forward}");
+                Log.Info($"[QA] Input: right-drag starts, camera forward {Camera?.GlobalForward}");
                 QaCapture.PushMouse(Window, Silk.NET.SDL.EventType.Mousebuttondown, x, y, 0, 0);
             }
             else if (step == (int)QaCapture.InputFrames - 1)
@@ -270,7 +154,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             }
             else if (step == (int)QaCapture.InputFrames - 2)
             {
-                Log.Info($"[QA] Input: right-drag ends, camera forward {_camera3D.Forward}, cursor {_mouse.Cursor.CursorMode}");
+                Log.Info($"[QA] Input: right-drag ends, camera forward {Camera?.GlobalForward}, cursor {_mouse.Cursor.CursorMode}");
             }
             else
             {
@@ -291,7 +175,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             _qaRenderedAtMinimize = RenderedFrameCount;
             _qaUpdatesWhileMinimized = 0;
             QaCapture.WakeEnabled = true;
-            _qaWakeTimer = new Timer(static _ => QaCapture.WakeEventLoop(), null, 100, 100);
+            _qaWakeTimer = new System.Threading.Timer(static _ => QaCapture.WakeEventLoop(), null, 100, 100);
             Log.Info("[QA] Minimised");
             return;
         }
@@ -324,45 +208,6 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         _qaWakeTimer = null;
     }
 
-    private void UpdateCameraPosition(double deltaTime)
-    {
-        if (!CanMoveCamera)
-            return;
-
-        var camera = _camera3D;
-        var baseSpeed = _keyboard.IsKeyPressed(Key.ShiftLeft) ? _cameraSpeed * 2 : _cameraSpeed;
-        var moveSpeed = baseSpeed * (float)deltaTime;
-
-        var isPerspectiveCamera = camera is Camera3D;
-
-        if (isPerspectiveCamera)
-        {
-            if (_keyboard.IsKeyPressed(Key.W))
-                camera.Position += moveSpeed * camera.Forward;
-            if (_keyboard.IsKeyPressed(Key.S))
-                camera.Position -= moveSpeed * camera.Forward;
-            if (_keyboard.IsKeyPressed(Key.A))
-                camera.Position -= Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-            if (_keyboard.IsKeyPressed(Key.D))
-                camera.Position += Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-            if (_keyboard.IsKeyPressed(Key.Q))
-                camera.Position -= camera.Up * moveSpeed;
-            if (_keyboard.IsKeyPressed(Key.E))
-                camera.Position += camera.Up * moveSpeed;
-        }
-        else
-        {
-            if (_keyboard.IsKeyPressed(Key.W))
-                camera.Position += camera.Up * moveSpeed;
-            if (_keyboard.IsKeyPressed(Key.S))
-                camera.Position -= camera.Up * moveSpeed;
-            if (_keyboard.IsKeyPressed(Key.A))
-                camera.Position -= Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-            if (_keyboard.IsKeyPressed(Key.D))
-                camera.Position += Vector3.Normalize(Vector3.Cross(camera.Forward, camera.Up)) * moveSpeed;
-        }
-    }
-
     public void OnKeyDown(IKeyboard keyboard, Key key, int arg3)
     {
         if (key is Key.AltLeft)
@@ -374,28 +219,6 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
         if (key == Key.Escape)
             Quit(ExitCode.Ok);
-    }
-
-    private void OnMouseMove(IMouse mouse, Vector2 position)
-    {
-        if (!CanMoveCamera)
-        {
-            _lastMousePosition = default;
-            return;
-        }
-
-        if (_lastMousePosition == default)
-        {
-            _lastMousePosition = position;
-        }
-        else
-        {
-            const float lookSensitivity = 0.1f;
-            var xOffset = (position.X - _lastMousePosition.X) * lookSensitivity;
-            var yOffset = (position.Y - _lastMousePosition.Y) * lookSensitivity;
-            _lastMousePosition = position;
-            _camera3D.ModifyDirection(xOffset, yOffset);
-        }
     }
 
     private void OnMouseDown(IMouse mouse, MouseButton button)

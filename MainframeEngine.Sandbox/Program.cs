@@ -1,6 +1,14 @@
 ﻿using MainframeEngine;
 using MainframeEngine.Sandbox;
 
+// --write-scene <path>: regenerate the scene file from SandboxSceneBuilder (no window, no GPU).
+if (args is ["--write-scene", var scenePath])
+{
+    var uid = SandboxSceneBuilder.Write(Path.GetFullPath(scenePath));
+    Log.Info($"Wrote {scenePath} ({uid})");
+    return 0;
+}
+
 // Parse first: --qa-capture paths are relative to where the Sandbox was launched from.
 var qa = QaCapture.FromArgs(args);
 

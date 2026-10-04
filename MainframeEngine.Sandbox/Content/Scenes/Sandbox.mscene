@@ -1,0 +1,195 @@
+{
+  "format": 1,
+  "uid": "scn_491645bea2fa",
+  "resources": {
+    "1": {
+      "type": "Sky",
+      "props": {
+        "Mode": "Panoramic",
+        "Panorama": "Content/Sky/sky_10_2k.png"
+      }
+    }
+  },
+  "root": {
+    "type": "Node3D",
+    "name": "Sandbox",
+    "children": [
+      {
+        "type": "FlyCamera",
+        "name": "Camera",
+        "props": {
+          "Position": [
+            0,
+            5,
+            10
+          ],
+          "RotationDegrees": [
+            -26.565054,
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "type": "WorldEnvironment",
+        "name": "Environment",
+        "props": {
+          "Sky": {
+            "res": "1"
+          }
+        }
+      },
+      {
+        "type": "SpineNode",
+        "name": "SpineBoy",
+        "props": {
+          "Scale": [
+            0.1,
+            0.1,
+            0.1
+          ],
+          "Folder": "Content/Models/Spine/SpineBoy",
+          "Animation": "walk"
+        }
+      },
+      {
+        "type": "Quad",
+        "name": "Floor",
+        "props": {
+          "RotationDegrees": [
+            90,
+            0,
+            0
+          ],
+          "Scale": [
+            10,
+            10,
+            1
+          ]
+        }
+      },
+      {
+        "type": "SpinningBox",
+        "name": "Box",
+        "props": {
+          "Position": [
+            3,
+            1,
+            0
+          ]
+        }
+      },
+      {
+        "type": "DirectionalLight3D",
+        "name": "Sun",
+        "props": {
+          "Position": [
+            0,
+            5,
+            0
+          ],
+          "RotationDegrees": [
+            -26.56506,
+            0,
+            0
+          ],
+          "Color": [
+            1,
+            0.95,
+            0.8
+          ],
+          "Energy": 0.8
+        }
+      },
+      {
+        "type": "DirectionalLight3D",
+        "name": "Fill",
+        "props": {
+          "Position": [
+            0,
+            5,
+            0
+          ],
+          "RotationDegrees": [
+            130.5106,
+            69.44396,
+            -180
+          ],
+          "Color": [
+            0.6,
+            0.7,
+            1
+          ],
+          "Energy": 0.2
+        }
+      },
+      {
+        "type": "OmniLight3D",
+        "name": "BlueLamp",
+        "props": {
+          "Position": [
+            4.5,
+            1.5,
+            2
+          ],
+          "Color": [
+            0.2,
+            0.5,
+            1
+          ],
+          "Energy": 0.8,
+          "Range": 8
+        }
+      },
+      {
+        "type": "SpotLight3D",
+        "name": "WarmSpot",
+        "props": {
+          "Position": [
+            -3,
+            4,
+            3
+          ],
+          "RotationDegrees": [
+            -54.735615,
+            -45,
+            0
+          ],
+          "Color": [
+            1,
+            0.6,
+            0.4
+          ],
+          "Energy": 0.9,
+          "Range": 15,
+          "InnerConeAngle": 12,
+          "OuterConeAngle": 25
+        }
+      },
+      {
+        "type": "SpotLight3D",
+        "name": "GreenSpot",
+        "props": {
+          "Position": [
+            3,
+            4,
+            -2
+          ],
+          "RotationDegrees": [
+            114.09485,
+            26.565062,
+            180
+          ],
+          "Color": [
+            0.5,
+            1,
+            0.6
+          ],
+          "Energy": 0.7,
+          "Range": 12,
+          "OuterConeAngle": 28
+        }
+      }
+    ]
+  }
+}

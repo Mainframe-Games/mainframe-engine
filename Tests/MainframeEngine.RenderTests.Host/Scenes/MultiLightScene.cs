@@ -18,43 +18,49 @@ public sealed class MultiLightScene(HostOptions host) : LitShapesScene(host)
     private PointLight _point = null!;
     private bool _checked;
 
-    protected override void AddLights(LightEnvironment lights)
+    protected override void AddLights(Node scene)
     {
-        lights.AmbientColor = new Vector3(0.12f, 0.12f, 0.14f);
+        Environment.AmbientColor = new Vector3(0.12f, 0.12f, 0.14f);
 
-        _dir = new DirectionalLight
+        var dir = Aim(new DirectionalLight3D
         {
+            Name = "Sun",
             Position = new Vector3(0, 5, 0),
-            Direction = Vector3.Normalize(new Vector3(0.7f, -1f, -0.2f)), // shadows fall to +X
             Color = new Vector3(1f, 0.95f, 0.85f),
-            Intensity = 0.45f,
-        };
-        _spot = new SpotLight
+            Energy = 0.45f,
+        }, new Vector3(0.7f, -1f, -0.2f)); // shadows fall to +X
+        var spot = Aim(new SpotLight3D
         {
+            Name = "Spot",
             Position = new Vector3(-3.5f, 4.5f, 2.5f),
-            Direction = Vector3.Normalize(new Vector3(0.6f, -1f, -0.45f)),
             Color = new Vector3(1f, 0.55f, 0.35f),
-            Intensity = 1.1f,
+            Energy = 1.1f,
             Range = 14f,
             InnerConeAngle = 22f,
             OuterConeAngle = 34f,
-        };
-        _point = new PointLight
+        }, new Vector3(0.6f, -1f, -0.45f));
+        var point = new OmniLight3D
         {
+            Name = "Point",
             Position = new Vector3(0f, 1.3f, 2.6f),
             Color = new Vector3(0.35f, 0.6f, 1f),
-            Intensity = 1.2f,
+            Energy = 1.2f,
             Range = 8f,
         };
 
-        lights.AddLight(_dir);
-        lights.AddLight(_spot);
-        lights.AddLight(_point);
+        scene.AddChild(dir);
+        scene.AddChild(spot);
+        scene.AddChild(point);
+        _dir = (DirectionalLight)dir.Light;
+        _spot = (SpotLight)spot.Light;
+        _point = (PointLight)point.Light;
     }
 
-    protected override void OnShadowPass(in GameTime gameTime)
+    // The render server records the shadow passes after the OnShadowPass hook; the ring still holds this
+    // frame's matrices during the main pass.
+    protected override void OnRenderMainPass(in GameTime gameTime)
     {
-        base.OnShadowPass(gameTime);
+        base.OnRenderMainPass(gameTime);
         if (gameTime.FrameCount == CheckFrame && Shadows is { } shadows)
         {
             CheckPassMatrices(shadows);

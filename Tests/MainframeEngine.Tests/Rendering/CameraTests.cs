@@ -18,7 +18,7 @@ public class CameraTests
     [Fact]
     public void Camera3DDefaultsLookDownNegativeZWithYUp()
     {
-        var camera = new Camera3D();
+        var camera = new PerspectiveCamera();
 
         Assert.Equal(-Vector3.UnitZ, camera.Forward);
         Assert.Equal(Vector3.UnitY, camera.Up);
@@ -30,7 +30,7 @@ public class CameraTests
     [Fact]
     public void Camera3DDepthMapsNearAndFarToVulkanZeroToOne()
     {
-        var camera = new Camera3D { AspectRatio = 16f / 9f };
+        var camera = new PerspectiveCamera { AspectRatio = 16f / 9f };
 
         var near = ToNdc(camera, new Vector3(0, 0, -0.1f), out _);
         var far = ToNdc(camera, new Vector3(0, 0, -1000f), out _);
@@ -44,7 +44,7 @@ public class CameraTests
     [Fact]
     public void Camera3DProjectsRightAndUpToPositiveNdc()
     {
-        var camera = new Camera3D { AspectRatio = 1f };
+        var camera = new PerspectiveCamera { AspectRatio = 1f };
 
         var right = ToNdc(camera, new Vector3(1, 0, -5), out var wRight);
         var up = ToNdc(camera, new Vector3(0, 1, -5), out _);
@@ -58,7 +58,7 @@ public class CameraTests
     [Fact]
     public void Camera3DPointsBehindTheCameraHaveNegativeW()
     {
-        var camera = new Camera3D { AspectRatio = 1f };
+        var camera = new PerspectiveCamera { AspectRatio = 1f };
 
         ToNdc(camera, new Vector3(0, 0, 5), out var w);
 
@@ -68,7 +68,7 @@ public class CameraTests
     [Fact]
     public void Camera3DFieldOfViewMatchesTheFrustumEdge()
     {
-        var camera = new Camera3D { AspectRatio = 1f };
+        var camera = new PerspectiveCamera { AspectRatio = 1f };
         var halfHeight = MathF.Tan(float.DegreesToRadians(45f) / 2f) * 10f;
 
         var edge = ToNdc(camera, new Vector3(0, halfHeight, -10f), out _);
@@ -79,7 +79,7 @@ public class CameraTests
     [Fact]
     public void LookAtPointsTheCameraAtTheTarget()
     {
-        var camera = new Camera3D { Position = new Vector3(0, 5, 10), AspectRatio = 1f };
+        var camera = new PerspectiveCamera { Position = new Vector3(0, 5, 10), AspectRatio = 1f };
 
         camera.LookAt(Vector3.Zero);
 
@@ -98,7 +98,7 @@ public class CameraTests
     [Fact]
     public void LookAtItsOwnPositionIsIgnored()
     {
-        var camera = new Camera3D { Position = new Vector3(1, 2, 3) };
+        var camera = new PerspectiveCamera { Position = new Vector3(1, 2, 3) };
 
         camera.LookAt(new Vector3(1, 2, 3));
 
@@ -108,7 +108,7 @@ public class CameraTests
     [Fact]
     public void ModifyDirectionClampsPitchShortOfVertical()
     {
-        var camera = new Camera3D();
+        var camera = new PerspectiveCamera();
 
         camera.ModifyDirection(0, -1000f); // look up as far as possible
 
@@ -119,7 +119,7 @@ public class CameraTests
     [Fact]
     public void ModifyDirectionYawsAroundY()
     {
-        var camera = new Camera3D();
+        var camera = new PerspectiveCamera();
 
         camera.ModifyDirection(90f, 0f); // yaw −90° → 0°: from −Z to +X
 
@@ -133,7 +133,7 @@ public class CameraTests
     [InlineData(5f, 40f)]
     public void ModifyZoomClampsFieldOfView(float amount, float expected)
     {
-        var camera = new Camera3D();
+        var camera = new PerspectiveCamera();
 
         camera.ModifyZoom(amount);
 
@@ -143,7 +143,7 @@ public class CameraTests
     [Fact]
     public void Camera2DOrthographicExtentFollowsSizeAndZoom()
     {
-        var camera = new Camera2D { Position = new Vector3(0, 0, 10), Size = new Vector2(20, 10) };
+        var camera = new OrthographicCamera { Position = new Vector3(0, 0, 10), Size = new Vector2(20, 10) };
 
         var corner = ToNdc(camera, new Vector3(10, 5, 0), out var w);
 
@@ -159,7 +159,7 @@ public class CameraTests
     [Fact]
     public void Camera2DZoomIsClamped()
     {
-        var camera = new Camera2D();
+        var camera = new OrthographicCamera();
 
         camera.ModifyZoom(1000f);
         Assert.Equal(10f, camera.Zoom);
@@ -174,7 +174,7 @@ public class CameraTests
         var node = new Node3D
         {
             Position = new Vector3(10, 0, 0),
-            Rotation = new Vector3(0, 90, 0),
+            RotationDegrees = new Vector3(0, 90, 0),
             Scale = new Vector3(2, 2, 2),
         };
 

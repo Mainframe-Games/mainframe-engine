@@ -27,6 +27,19 @@ public sealed class SteamTests
     }
 
     [Fact]
+    public void SteamServerIsInertWithoutSteamAndTicksWithTheTree()
+    {
+        using var servers = new ServerRegistry();
+        var steam = new SteamServer(Spacewar);
+        servers.Register(steam);
+        Assert.False(steam.Started);
+
+        var tree = new SceneTree(servers);
+        tree.Tick(new GameTime { DeltaTime = 1f / 60f }); // RunCallbacks is skipped, not thrown
+        tree.Shutdown();
+    }
+
+    [Fact]
     public void Arm64ProcessesAreReportedAsUnsupported()
     {
         if (RuntimeInformation.ProcessArchitecture != Architecture.Arm64)

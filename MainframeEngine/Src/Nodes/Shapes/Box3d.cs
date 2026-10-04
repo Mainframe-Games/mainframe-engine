@@ -69,9 +69,10 @@ public class Box3d : ShapeBase
     private VkBuffer     _vertexBuffer;
     private DeviceMemory _vertexBufferMemory;
 
-    public Box3d()
+    protected override void InitializeRenderResources(RenderServer server)
     {
-        if (Renderer is IVulkanContext vkCtx)
+        base.InitializeRenderResources(server);
+        if (server.Renderer is IVulkanContext vkCtx)
         {
             CreateVertexBuffer(vkCtx);
             InitLitVulkan(vkCtx,
@@ -87,7 +88,7 @@ public class Box3d : ShapeBase
         }
     }
 
-    public override unsafe void Dispose()
+    protected override unsafe void ReleaseRenderResources()
     {
         if (VkCtx is null)
             return;
@@ -96,7 +97,7 @@ public class Box3d : ShapeBase
         VkCtx.Vk.DeviceWaitIdle(VkCtx.Device);
         VkCtx.Vk.DestroyBuffer(VkCtx.Device, _vertexBuffer, null);
         VkCtx.Vk.FreeMemory(VkCtx.Device, _vertexBufferMemory, null);
-        base.Dispose();
+        base.ReleaseRenderResources();
     }
 
     protected override unsafe void DrawGeometry(CommandBuffer cb)

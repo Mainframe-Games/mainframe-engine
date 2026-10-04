@@ -7,13 +7,14 @@ public class SpineScene(HostOptions host) : LitShapesScene(host)
 {
     public const string SpineFolder = "Content/Models/Spine/SpineBoy";
 
-    protected override void AddNodes(List<Node> nodes)
+    protected override void AddNodes(Node scene)
     {
-        var spine = new SpineNode(Renderer, new SpineFolder(SpineFolder))
+        scene.AddChild(new SpineNode
         {
+            Name = "SpineBoy",
+            Folder = SpineFolder,
             Scale = new Vector3(0.1f, 0.1f, 0.1f),
-        };
-        spine.SetAnimation("walk");
-        nodes.Add(spine);
+            Animation = "walk",
+        });
     }
 }
