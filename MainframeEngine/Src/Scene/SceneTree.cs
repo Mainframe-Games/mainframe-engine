@@ -40,7 +40,7 @@ public sealed partial class SceneTree
     private double _accumulator;
     private bool _inTick;
     private bool _shutDown;
-    private readonly int _threadId = Environment.CurrentManagedThreadId; // the thread that runs this tree
+    private volatile int _threadId = Environment.CurrentManagedThreadId; // the thread that last ran (or created) this tree
     private volatile bool _localeChangePending;
 
     public SceneTree(ServerRegistry? servers = null)
@@ -224,6 +224,7 @@ public sealed partial class SceneTree
             throw new InvalidOperationException("SceneTree.Tick is not re-entrant.");
 
         // M9: a locale change made on another thread is applied here, on the tree's own thread.
+        _threadId = Environment.CurrentManagedThreadId;
         if (_localeChangePending)
         {
             _localeChangePending = false;

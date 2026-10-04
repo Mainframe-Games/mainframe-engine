@@ -253,18 +253,19 @@ internal static class MoFormat
     }
 
     /// <summary>
-    /// gettext's <c>hash_string</c> (hashpjw) over the msgid bytes up to the first NUL. Computed in 64 bits like
-    /// <c>unsigned long</c> on LP64 systems, so a carry out of bit 31 folds back in exactly as msgfmt's does.
+    /// gettext's <c>hash_string</c> (hashpjw) over the msgid bytes up to the first NUL. gettext folds only bits 28–31
+    /// (<c>0xf &lt;&lt; 28</c>); a carry out of bit 31 stays above the 32 bits it stores, so 32-bit wrapping arithmetic
+    /// gives the same result.
     /// </summary>
     public static uint HashPjw(ReadOnlySpan<byte> key)
     {
-        ulong hash = 0;
+        uint hash = 0;
         foreach (var b in key)
         {
             if (b == 0)
                 break;
-            hash = (hash << 4) + b;
-            var g = hash & 0xFFFF_FFFF_F000_0000UL;
+            hash = unchecked((hash << 4) + b);
+            var g = hash & 0xF000_0000u;
             if (g != 0)
             {
                 hash ^= g >> 24;
@@ -272,7 +273,7 @@ internal static class MoFormat
             }
         }
 
-        return (uint)hash;
+        return hash;
     }
 
     private static int CompareCString(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)

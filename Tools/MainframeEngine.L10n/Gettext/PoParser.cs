@@ -235,12 +235,33 @@ internal static class PoParser
         }
     }
 
-    /// <summary>Parses one C-style quoted string (<c>"…"</c>), resolving escapes.</summary>
+    /// <summary>
+    /// Parses one C-style quoted string (<c>"…"</c>), resolving escapes. <c>\xNN</c> and octal escapes are bytes, as in
+    /// msgfmt: consecutive ones are decoded together as UTF-8 (<c>"\xC3\xB1"</c> is <c>ñ</c>).
+    /// </summary>
     public static string ParseString(string text, string fileName = "<po>", int lineNumber = 0)
     {
         if (text.Length < 2 || text[0] != '"')
             throw new PoFormatException(fileName, lineNumber, "expected a quoted string");
         var sb = new StringBuilder(text.Length);
+        List<byte>? bytes = null;
+
+        void FlushBytes()
+        {
+            if (bytes is not { Count: > 0 })
+                return;
+            try
+            {
+                sb.Append(StrictUtf8.GetString([.. bytes]));
+            }
+            catch (DecoderFallbackException)
+            {
+                throw new PoFormatException(fileName, lineNumber, "escaped bytes are not valid UTF-8");
+            }
+
+            bytes.Clear();
+        }
+
         var i = 1;
         while (i < text.Length)
         {
@@ -249,11 +270,13 @@ internal static class PoParser
             {
                 if (text.AsSpan(i + 1).Trim().Length != 0)
                     throw new PoFormatException(fileName, lineNumber, "unexpected text after the closing quote");
+                FlushBytes();
                 return sb.ToString();
             }
 
             if (c != '\\')
             {
+                FlushBytes();
                 sb.Append(c);
                 i++;
                 continue;
@@ -263,49 +286,53 @@ internal static class PoParser
                 break;
             var e = text[i + 1];
             i += 2;
-            switch (e)
+            if (e == 'x')
             {
-                case 'n': sb.Append('\n'); break;
-                case 't': sb.Append('\t'); break;
-                case 'r': sb.Append('\r'); break;
-                case 'a': sb.Append('\a'); break;
-                case 'b': sb.Append('\b'); break;
-                case 'f': sb.Append('\f'); break;
-                case 'v': sb.Append('\v'); break;
-                case '\\': sb.Append('\\'); break;
-                case '"': sb.Append('"'); break;
-                case '\'': sb.Append('\''); break;
-                case '?': sb.Append('?'); break;
-                case 'x':
-                    {
-                        var start = i;
-                        while (i < text.Length && i - start < 2 && char.IsAsciiHexDigit(text[i]))
-                            i++;
-                        if (i == start)
-                            throw new PoFormatException(fileName, lineNumber, "\\x needs hex digits");
-                        sb.Append((char)int.Parse(text.AsSpan(start, i - start), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
-                        break;
-                    }
-
-                case >= '0' and <= '7':
-                    {
-                        var start = i - 1;
-                        while (i < text.Length && i - start < 3 && text[i] is >= '0' and <= '7')
-                            i++;
-                        var value = 0;
-                        foreach (var d in text.AsSpan(start, i - start))
-                            value = value * 8 + (d - '0');
-                        sb.Append((char)value);
-                        break;
-                    }
-
-                default:
-                    throw new PoFormatException(fileName, lineNumber, $"unknown escape '\\{e}'");
+                var start = i;
+                while (i < text.Length && i - start < 2 && char.IsAsciiHexDigit(text[i]))
+                    i++;
+                if (i == start)
+                    throw new PoFormatException(fileName, lineNumber, "\\x needs hex digits");
+                (bytes ??= []).Add(byte.Parse(text.AsSpan(start, i - start), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
+                continue;
             }
+
+            if (e is >= '0' and <= '7')
+            {
+                var start = i - 1;
+                while (i < text.Length && i - start < 3 && text[i] is >= '0' and <= '7')
+                    i++;
+                var value = 0;
+                foreach (var d in text.AsSpan(start, i - start))
+                    value = value * 8 + (d - '0');
+                if (value > 0xFF)
+                    throw new PoFormatException(fileName, lineNumber, "octal escape out of range");
+                (bytes ??= []).Add((byte)value);
+                continue;
+            }
+
+            FlushBytes();
+            sb.Append(e switch
+            {
+                'n' => '\n',
+                't' => '\t',
+                'r' => '\r',
+                'a' => '\a',
+                'b' => '\b',
+                'f' => '\f',
+                'v' => '\v',
+                '\\' => '\\',
+                '"' => '"',
+                '\'' => '\'',
+                '?' => '?',
+                _ => throw new PoFormatException(fileName, lineNumber, $"unknown escape '\\{e}'"),
+            });
         }
 
         throw new PoFormatException(fileName, lineNumber, "unterminated string");
     }
+
+    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private static string Shorten(string text) => text.Length <= 40 ? text : text[..40] + "…";
 }

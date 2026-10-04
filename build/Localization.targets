@@ -38,7 +38,9 @@
   </ItemGroup>
 
   <Target Name="ResolveMfL10n" Condition="'$(CompileLocales)' == 'true'">
-    <MSBuild Projects="$(MfL10nProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+    <!-- Same global properties as the project reference that builds the tool (no RID), or the path would not exist. -->
+    <MSBuild Projects="$(MfL10nProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)"
+             RemoveProperties="RuntimeIdentifier;SelfContained;PublishTrimmed;PublishReadyToRun">
       <Output TaskParameter="TargetOutputs" PropertyName="MfL10nPath" />
     </MSBuild>
     <PropertyGroup>

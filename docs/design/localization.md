@@ -63,8 +63,8 @@ flowchart LR
 - New languages: `mf-l10n update --pot … --dir … --create fr,pt_BR` writes a catalog with the CLDR
   `Plural-Forms` for the language (about 40 languages tabled; others get the English rule to edit).
 - `update` is an exact-match `msgmerge`: messages follow the template, translations and translator comments are kept,
-  a message that gained or lost a plural keeps its old text marked `fuzzy`, and translated messages that left the
-  template become obsolete `#~` entries. There is no fuzzy matching of edited msgids (use `msgmerge` if wanted:
+  a message that gained or lost a plural keeps its old text marked `fuzzy`, translated messages that left the
+  template become obsolete `#~` entries, and an obsolete entry whose message returns gets its translation back. There is no fuzzy matching of edited msgids (use `msgmerge` if wanted:
   the files are standard).
 
 ### Build step
@@ -82,11 +82,14 @@ committed `.mo` files instead — the same pattern as the [shader pipeline](shad
 `mf-l10n compile` reproduces GNU `msgfmt` byte for byte (verified by a unit test against `msgfmt` 1.0 for catalogs
 of 0–257 messages with contexts, plurals and UTF-8, and by `just l10n-check --msgfmt`): revision 0, little-endian,
 messages sorted by msgid bytes, untranslated/fuzzy/obsolete messages dropped (a fuzzy header is kept, `--use-fuzzy`
-keeps fuzzy messages), strings NUL-terminated after the tables, and the `hashpjw` hash table with gettext's sizing
+keeps fuzzy messages), strings NUL-terminated after the tables, and the `hashpjw` hash table (32-bit, folding bits 28–31; a regression test covers a carry out of bit 31) with
+gettext's sizing
 (next odd prime ≥ 4n/3, at least 3) and double hashing. `MoFormat.Read` reads either byte order and verifies that the
 hash table finds every message.
 
-Before writing, `compile` checks every translation: the `Plural-Forms` count must match `msgstr[n]`;
+Locale folders must already have their normalised names (`pt_BR`, not `pt-BR`; the runtime only looks there and
+Linux paths are case-sensitive), or `compile`/`check` fail. Before writing, `compile` checks every compiled
+translation (fuzzy entries are skipped unless `--use-fuzzy`): the `Plural-Forms` count must match `msgstr[n]`;
 `csharp-format` messages must be valid composite formats that use no argument index the source lacks (dropping one
 only warns, `--strict` makes warnings fatal); RML text must keep exactly the source's `{{ data expressions }}`.
 
@@ -124,7 +127,8 @@ Tr.LocaleChanged += (_, e) => Log.Info($"{e.PreviousLocale} -> {e.Locale}");
 - **Missing translations** are logged once per message and locale (`LocalizationOptions.LogMissingTranslations`,
   on in Debug builds of the engine), never while the current language is the source language; bad translated
   formats are logged once as warnings.
-- Lookups are thread-safe (immutable sets swapped atomically). Switch locales on the main thread.
+- Lookups are thread-safe (immutable sets swapped atomically). Switch locales on the main thread. A throwing
+  `LocaleChanged` listener or `OnLocaleChanged` override is logged and does not stop the other notifications.
 
 ### Catalogs and the locale chain
 
@@ -135,8 +139,9 @@ Tr.LocaleChanged += (_, e) => Log.Info($"{e.PreviousLocale} -> {e.Locale}");
   catalog's plural rule). The source locale needs no catalog. A corrupt catalog is logged and skipped. Switching
   between two 2 000-message catalogs costs about 2 ms (benchmark `SwitchLocale`).
 - **Startup** (`Engine` constructor → `Tr.Configure(EngineOptions.Localization ?? new(), EngineOptions.Locale)`):
-  `EngineOptions.Locale` (player settings) if catalogs exist for it, otherwise the OS UI language if catalogs exist
-  for it or its language, otherwise the source locale. `Tr.GetAvailableLocales()` lists the source locale plus every
+  `EngineOptions.Locale` (player settings) if catalogs exist for its chain (itself, its parents or `FallbackLocales`),
+  otherwise the OS UI language under the same rule, otherwise the source locale; invalid names are ignored, so a bad
+  saved setting cannot stop the game. `Tr.SetLocale` itself accepts any valid name (no catalog: source text). `Tr.GetAvailableLocales()` lists the source locale plus every
   folder with a catalog; `LocaleId.DisplayName` gives menu names (`español`, `Pseudo-locale (qps)`).
 - `Tr.Culture` is the locale's `CultureInfo` for formatting; the process `CurrentCulture`/`CurrentUICulture` are not
   changed (parsing code stays culture-stable).
@@ -167,7 +172,8 @@ public sealed class WelcomeBanner : Node
   `OnReady` too (entering a tree is not a locale change).
 - `mf-l10n extract --scenes` reads `.mscene`/`.mres` JSON and extracts translatable values of nodes, nested-instance
   properties and overrides (typed through the instanced scene file), and inline resources, with `#:` references to
-  the value's line and `#.` comments naming the node path and property. It learns which properties are translatable
+  the value's line and `#.` comments naming the node path and property. Instanced scene paths resolve against
+  `--root`, else against the folders above the scene file (so `--root` may be the repository root). It learns which properties are translatable
   from `TypeRegistry` (engine types, plus game assemblies passed with `--assembly`); `--translatable Type.Property`
   adds more. Types it does not know are reported.
 
@@ -204,8 +210,10 @@ Tr.LocaleChanged += (_, _) => { LoadFonts(FontFallbackTable.TryLoad()?.ResolveCu
 
 **Matching rules** (one parser, `RmlLocalization.Scan`, for extraction and runtime, so msgids always match):
 
-- Translated: text nodes, and the attributes above. Not translated: `head`, `style`, `script` and `textarea`
+- Translated: text nodes (including `<head><title>`, which RmlUi also sends to `TranslateString`), and the attributes
+  above (a `<textarea>`'s `placeholder` too). Not translated: other `head` content, `style`, `script` and `textarea`
   content, comments, CDATA, processing instructions, and runs with no letter outside `{{ … }}` (`{{score}}`, `100%`).
+  Unquoted attribute values are quoted when translated.
 - The msgid is the text with entities decoded (`&amp; &lt; &gt; &quot; &apos; &nbsp;`, numeric), whitespace runs
   collapsed to one space and trimmed. Inline markup splits a paragraph into separate messages
   (`Press <b>Start</b> now` → `Press`, `Start`, `now`), exactly as RmlUi translates each text node.

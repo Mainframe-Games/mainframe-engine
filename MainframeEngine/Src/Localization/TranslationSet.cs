@@ -123,7 +123,9 @@ internal sealed class TranslationSet
     public static TranslationSet Empty(string locale) =>
         new(LocaleId.Normalize(locale), [LocaleId.Normalize(locale)], [], new Dictionary<string, TranslationEntry>(StringComparer.Ordinal), false);
 
-    /// <summary>Loads every catalog of <paramref name="locale"/>'s chain that exists.</summary>
+    /// <summary>Loads every catalog of <paramref name="locale"/>'s chain that exists; unreadable ones are logged and skipped.</summary>
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "GetText.NET throws assorted exception types on corrupt files; a bad catalog must not stop the game.")]
     public static TranslationSet Load(LocalizationOptions options, string locale)
     {
         locale = LocaleId.Normalize(locale);
@@ -141,9 +143,7 @@ internal sealed class TranslationSet
                 Merge(entries, stream, candidate);
                 loaded.Add(candidate);
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or CatalogLoadingException
-                                          or FormatException or InvalidDataException or ArgumentException
-                                          or OverflowException or GetText.Plural.Ast.ParserException)
+            catch (Exception e) when (e is not OutOfMemoryException)
             {
                 Log.Error($"[L10n] Could not load catalog '{path}': {e.Message}");
             }

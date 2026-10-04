@@ -16,7 +16,7 @@ and serves documents through `UiFileInterface`; this lane must not touch `Mainfr
 
 - One parser, `RmlLocalization.Scan`, for extraction (`mf-l10n`) and runtime, so msgids always match. A msgid is
   the run's text with entities decoded, whitespace collapsed and trimmed; runs without a letter outside `{{ … }}` are
-  skipped; `head`/`style`/`script`/`textarea`, comments and CDATA are ignored.
+  skipped; `style`/`script`/`textarea` content, `head` (except its `title`), comments and CDATA are ignored.
 - Text nodes: `Tr.TranslateMarkup(utf8 | string, out string)` — normalise, look up, return the translation
   entity-encoded (translations can never inject markup) with the run's outer whitespace kept as one space.
 - `no-tr`: `RmlLocalization.PrepareDocument(source)`, run by the UI file interface on every `.rml`, prefixes text inside

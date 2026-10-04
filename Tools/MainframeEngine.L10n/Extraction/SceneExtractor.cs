@@ -19,6 +19,7 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
     };
 
     private readonly Dictionary<string, Dictionary<string, string>?> _instanceTypes = new(StringComparer.Ordinal);
+    private string _currentFile = string.Empty;
 
     /// <summary>File extensions scanned in directories.</summary>
     public static readonly string[] Extensions = [".mscene", ".mres"];
@@ -29,6 +30,7 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
     /// <summary>Adds the translatable values of one file; returns how many were added.</summary>
     public int Extract(string file, string reference, TemplateBuilder builder)
     {
+        _currentFile = Path.GetFullPath(file);
         var bytes = File.ReadAllBytes(file);
         var lines = JsonLineIndex.Build(bytes);
         using var document = JsonDocument.Parse(bytes, JsonOptions);
@@ -67,7 +69,7 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
         else if (node.TryGetProperty("instance", out _))
         {
             var types = node.TryGetProperty("path", out var p) && p.ValueKind == JsonValueKind.String
-                ? InstanceTypes(p.GetString()!, depth: 0)
+                ? InstanceTypes(p.GetString()!, _currentFile, depth: 0)
                 : null;
             if (types is null)
             {
@@ -140,44 +142,61 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
     }
 
     /// <summary>
-    /// Node path → type for the scene at <paramref name="scenePath"/> (project-relative), including nodes of scenes it
-    /// instances, so instance properties and overrides can be typed. Null when the file cannot be read.
+    /// Node path → type for the scene at <paramref name="scenePath"/> (a content path such as
+    /// <c>Content/Scenes/Player.mscene</c>), including nodes of scenes it instances, so instance properties and
+    /// overrides can be typed. Null when the file cannot be found or read.
     /// </summary>
-    private Dictionary<string, string>? InstanceTypes(string scenePath, int depth)
+    private Dictionary<string, string>? InstanceTypes(string scenePath, string fromFile, int depth)
     {
-        if (_instanceTypes.TryGetValue(scenePath, out var cached))
+        if (depth > MaxInstanceDepth || ResolveScene(scenePath, fromFile) is not { } file)
+            return null;
+        if (_instanceTypes.TryGetValue(file, out var cached))
             return cached;
-        _instanceTypes[scenePath] = null; // cycle guard
-        if (depth > MaxInstanceDepth)
-            return null;
-        var file = Path.Combine(projectRoot, scenePath);
-        if (!File.Exists(file))
-            return null;
+        _instanceTypes[file] = null; // cycle guard
 
         var types = new Dictionary<string, string>(StringComparer.Ordinal);
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllBytes(file), JsonOptions);
             if (document.RootElement.TryGetProperty("root", out var root))
-                CollectTypes(root, ".", types, depth);
+                CollectTypes(root, ".", types, file, depth);
         }
         catch (JsonException)
         {
             return null;
         }
 
-        _instanceTypes[scenePath] = types;
+        _instanceTypes[file] = types;
         return types;
     }
 
-    private void CollectTypes(JsonElement node, string path, Dictionary<string, string> types, int depth)
+    /// <summary>
+    /// The file for a scene path stored in a scene: relative to the project root, else to the folder that holds the
+    /// referencing file's <c>Content/</c> (any ancestor of it), so extraction works whatever <c>--root</c> is.
+    /// </summary>
+    private string? ResolveScene(string scenePath, string fromFile)
+    {
+        var candidate = Path.GetFullPath(Path.Combine(projectRoot, scenePath));
+        if (File.Exists(candidate))
+            return candidate;
+        for (var directory = Path.GetDirectoryName(fromFile); !string.IsNullOrEmpty(directory); directory = Path.GetDirectoryName(directory))
+        {
+            candidate = Path.GetFullPath(Path.Combine(directory, scenePath));
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    private void CollectTypes(JsonElement node, string path, Dictionary<string, string> types, string file, int depth)
     {
         if (node.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String)
         {
             types[path] = type.GetString()!;
         }
         else if (node.TryGetProperty("path", out var scene) && scene.ValueKind == JsonValueKind.String
-                 && InstanceTypes(scene.GetString()!, depth + 1) is { } inner)
+                 && InstanceTypes(scene.GetString()!, file, depth + 1) is { } inner)
         {
             foreach (var (innerPath, innerType) in inner)
                 types[innerPath == "." ? path : path == "." ? innerPath : $"{path}/{innerPath}"] = innerType;
@@ -191,7 +210,7 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
                 continue;
             var parent = child.TryGetProperty("parent", out var p) && p.ValueKind == JsonValueKind.String ? p.GetString()! : null;
             var basePath = parent is null or "." ? path : path == "." ? parent : $"{path}/{parent}";
-            CollectTypes(child, basePath == "." ? name.GetString()! : $"{basePath}/{name.GetString()}", types, depth);
+            CollectTypes(child, basePath == "." ? name.GetString()! : $"{basePath}/{name.GetString()}", types, file, depth);
         }
     }
 

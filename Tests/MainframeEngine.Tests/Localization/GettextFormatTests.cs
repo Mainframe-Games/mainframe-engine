@@ -85,6 +85,8 @@ public sealed class GettextFormatTests
         Assert.Equal(3, messages[2].Translations.Count);
         Assert.Equal("Line one\nLine \"two\"\t\\ end", messages[3].Id);
         Assert.Equal("Linia AB", messages[3].Translations[0]);
+        Assert.Equal("ñ", PoParser.ParseString("\"\\xC3\\xB1\""));   // escaped bytes decode as UTF-8, like msgfmt
+        Assert.Equal("ñ", PoParser.ParseString("\"\\303\\261\""));
         Assert.False(messages[4].HasTranslation);
         Assert.True(messages[5].IsFuzzy);
         Assert.Equal("Żółw 🐢", messages[6].Id);
@@ -172,6 +174,8 @@ public sealed class GettextFormatTests
         Assert.Equal(('a' << 4) + (uint)'b', MoFormat.HashPjw("ab"u8));
         Assert.Equal(0x089ABAA8u, MoFormat.HashPjw("abcdefgh"u8)); // folds the high nibble back in
         Assert.Equal(MoFormat.HashPjw("Hello"u8), MoFormat.HashPjw("Hello\0ignored"u8)); // stops at NUL
+        // Adding a byte carries out of bit 31 here; gettext drops the carry (verified against msgfmt 1.0).
+        Assert.Equal(0x0043A5D5u, MoFormat.HashPjw("{zbi$2a>Qx(#>@[pWZaq^~<.HK#I/6]N.M$O-&9> N4tod~U"u8));
     }
 
     /// <summary>
@@ -188,7 +192,11 @@ public sealed class GettextFormatTests
         Directory.CreateDirectory(directory);
         try
         {
-            var samples = new List<string> { SamplePo };
+            var samples = new List<string>
+            {
+                SamplePo,
+                "msgid \"\"\nmsgstr \"Content-Type: text/plain; charset=UTF-8\\n\"\n\nmsgid \"{zbi$2a>Qx(#>@[pWZaq^~<.HK#I/6]N.M$O-&9> N4tod~U\"\nmsgstr \"x\"\n",
+            };
             foreach (var count in new[] { 0, 1, 2, 3, 7, 40, 257 })
                 samples.Add(GeneratedPo(count));
 

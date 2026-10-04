@@ -1,6 +1,6 @@
 <rml>
 <head>
-    <title>Main menu (not extracted)</title>
+    <title>Main menu title</title>
     <link type="text/rcss" href="menu.rcss"/>
     <style>
         body { font-family: Lato; }
@@ -21,7 +21,7 @@
     <p>Score: {{ score }}</p>
     <p class="hud no-tr">Debug build</p>
     <div class="no-tr"><span>Nested opt-out</span><span title="Not this either">x</span></div>
-    <textarea>Default notes</textarea>
+    <textarea placeholder=Notes>Default notes</textarea>
     <p>Fish &lt;3 &#169; &#x263A;</p>
     <p>Settings</p>
 </body>

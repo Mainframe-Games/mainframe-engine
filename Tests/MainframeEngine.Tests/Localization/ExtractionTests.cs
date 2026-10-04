@@ -17,7 +17,7 @@ public sealed class ExtractionTests
     {
         var builder = new TemplateBuilder();
         var added = RmlExtractor.Extract(Path.Combine(Project, "Content", "UI", "menu.rml"), "Content/UI/menu.rml", builder);
-        Assert.Equal(11, added);
+        Assert.Equal(13, added);
         var entries = Extracted(builder);
         Assert.Equal(["Content/UI/menu.rml:13"], entries["Start game"].References);
         Assert.Equal(["RML <h1>"], entries["Start game"].ExtractedComments);
@@ -27,7 +27,8 @@ public sealed class ExtractionTests
         Assert.False(entries.ContainsKey("Nested opt-out"));
         Assert.False(entries.ContainsKey("Typed by the player"));
         Assert.False(entries.ContainsKey("Default notes"));
-        Assert.False(entries.ContainsKey("Main menu (not extracted)"));
+        Assert.Equal(["RML <title>"], entries["Main menu title"].ExtractedComments);
+        Assert.Equal(["RML <textarea placeholder=\"…\">"], entries["Notes"].ExtractedComments);
     }
 
     [Fact]

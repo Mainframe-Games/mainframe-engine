@@ -137,7 +137,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
             }
 
             ImGui.SeparatorText(_text.Language);
-            var localeIndex = Array.IndexOf(_locales, Tr.CurrentLocale);
+            var localeIndex = LocaleIndex();
             if (ImGui.Combo(_text.LanguageCombo, ref localeIndex, _localeNames, _localeNames.Length) && localeIndex >= 0)
                 Tr.SetLocale(_locales[localeIndex]); // nodes re-translate (WelcomeBanner), the overlay refreshes
 
@@ -193,7 +193,32 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         base.OnClose(); // frees the scene tree and its GPU objects
     }
 
-    private void OnLocaleChanged(object? sender, LocaleChangedEventArgs e) => _text.Refresh();
+    private void OnLocaleChanged(object? sender, LocaleChangedEventArgs e)
+    {
+        _text.Refresh();
+        _localeIndex = -2;
+    }
+
+    private int _localeIndex = -2; // -2: not resolved for the current locale yet
+
+    // The menu entry for the current locale: its first chain link that has a catalog (en_US → en, es_MX → es).
+    private int LocaleIndex()
+    {
+        if (_localeIndex != -2)
+            return _localeIndex;
+        _localeIndex = -1;
+        foreach (var locale in Tr.LocaleChain)
+        {
+            var index = Array.IndexOf(_locales, locale);
+            if (index >= 0)
+            {
+                _localeIndex = index;
+                break;
+            }
+        }
+
+        return _localeIndex;
+    }
 
     /// <summary>
     /// The overlay's translated labels. ImGui identifies widgets by label, so each label keeps a fixed id after "###"

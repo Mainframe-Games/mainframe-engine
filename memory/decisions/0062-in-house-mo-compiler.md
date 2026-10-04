@@ -14,8 +14,8 @@ Windows or macOS, and no additional NuGet package was approved for `.po` handlin
 
 - `Tools/MainframeEngine.L10n` (`mf-l10n`, net10.0 exe) implements `.po` parsing/writing and a `.mo` writer in C#
   that reproduces `msgfmt` byte for byte: revision 0, little-endian, messages sorted by msgid bytes (up to the first
-  NUL), untranslated/fuzzy/obsolete dropped (fuzzy header kept), the `hashpjw` hash table (64-bit arithmetic as on
-  LP64) with gettext's sizing (next odd prime ≥ 4n/3, minimum 3 — derived empirically against msgfmt 1.0 for 1–120
+  NUL), untranslated/fuzzy/obsolete dropped (fuzzy header kept), the `hashpjw` hash table (32-bit, folding bits
+  28–31 like gettext's `0xf << 28` mask) with gettext's sizing (next odd prime ≥ 4n/3, minimum 3 — derived empirically against msgfmt 1.0 for 1–120
   messages) and double hashing.
 - `build/Localization.targets` builds the tool through a project reference (`ReferenceOutputAssembly=false`,
   RID/self-contained properties removed) and runs it per `.po` into `obj/<Configuration>/locale`, incrementally; the

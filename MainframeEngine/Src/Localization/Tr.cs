@@ -53,6 +53,7 @@ public static class Tr
         SourceFormats.GetAlternateLookup<ReadOnlySpan<char>>();
 
     private static LocalizationOptions _options = new();
+    private static int _sourceFormatCount;
     private static volatile TranslationSet _set = TranslationSet.Empty(_options.SourceLocale);
 
     /// <summary>
@@ -94,7 +95,7 @@ public static class Tr
 
         lock (StateLock)
             _options = options;
-        SetLocale(locale ?? ResolveStartupLocale(null));
+        SetLocale(ResolveStartupLocale(locale));
     }
 
     /// <summary>
@@ -130,8 +131,9 @@ public static class Tr
     public static void Reload() => SetLocale(CurrentLocale);
 
     /// <summary>
-    /// The locale to start with: <paramref name="preferred"/> (user settings) if it has catalogs, else the OS UI
-    /// language if catalogs exist for it (or its language), else the source locale.
+    /// The locale to start with: <paramref name="preferred"/> (user settings) if catalogs exist for its chain (itself,
+    /// its parents or <see cref="LocalizationOptions.FallbackLocales"/>), else the OS UI language under the same rule,
+    /// else the source locale. Invalid names are ignored.
     /// </summary>
     public static string ResolveStartupLocale(string? preferred)
     {
@@ -144,7 +146,7 @@ public static class Tr
                 continue;
             if (LocaleId.Language(normalized) == LocaleId.Language(source))
                 return normalized;
-            foreach (var link in LocaleId.Chain(normalized, source))
+            foreach (var link in LocaleId.Chain(normalized, source, options.FallbackLocales))
             {
                 if (link != source && File.Exists(options.CatalogPath(link)))
                     return normalized;
@@ -397,9 +399,26 @@ public static class Tr
             Trees.RemoveAll(w => !w.TryGetTarget(out var t) || ReferenceEquals(t, tree));
     }
 
+    // A failing listener or node must not leave the others in the old language: each is isolated and logged.
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "Listener failures are logged; the remaining listeners and trees must still be notified.")]
     private static void RaiseLocaleChanged(string previous, string locale)
     {
-        LocaleChanged?.Invoke(null, new LocaleChangedEventArgs(previous, locale));
+        if (LocaleChanged is { } handlers)
+        {
+            var args = new LocaleChangedEventArgs(previous, locale);
+            foreach (var handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    ((EventHandler<LocaleChangedEventArgs>)handler)(null, args);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"[L10n] LocaleChanged handler {handler.Method.DeclaringType?.Name}.{handler.Method.Name} failed: {e}");
+                }
+            }
+        }
 
         SceneTree[] trees;
         lock (Trees)
@@ -415,7 +434,16 @@ public static class Tr
         }
 
         foreach (var tree in trees)
-            tree.OnLocaleChanged();
+        {
+            try
+            {
+                tree.OnLocaleChanged();
+            }
+            catch (Exception e)
+            {
+                Log.Error($"[L10n] Re-translating a scene tree failed: {e}");
+            }
+        }
     }
 
     private static string Message<TArgs>(string? context, string format, in TArgs args)
@@ -431,7 +459,7 @@ public static class Tr
         var set = _set;
         TranslationEntry? entry;
         if (context is null ? set.TryGet(format, out entry) : set.TryGet(context, format, out entry))
-            return FormatTranslated(set, context, format, formatString, entry, 0, args);
+            return FormatTranslated(set, context, format, entry, 0, format, formatString, args);
 
         set.OnMissing(context, format);
         return FormatSource(set, format, formatString, args);
@@ -448,15 +476,18 @@ public static class Tr
         {
             var form = entry.FormIndex(n);
             if (entry.Forms[form].Length > 0)
-                return FormatTranslated(set, context, singular, null, entry, form, args);
+            {
+                var source = n == 1 ? singular : plural;
+                return FormatTranslated(set, context, singular, entry, form, source, source, args);
+            }
         }
         else
         {
             set.OnMissing(context, singular);
         }
 
-        var source = n == 1 ? singular : plural;
-        return FormatSource(set, source, source, args);
+        var untranslated = n == 1 ? singular : plural;
+        return FormatSource(set, untranslated, untranslated, args);
     }
 
     private static string PluralSpan(string? context, ref TrInterpolatedStringHandler singular, ref TrInterpolatedStringHandler plural, long n)
@@ -469,8 +500,12 @@ public static class Tr
             var form = entry.FormIndex(n);
             if (entry.Forms[form].Length > 0)
             {
-                return FormatTranslated(set, context, key, null, entry, form,
-                    new ArgsSpan(form == 0 ? singular.Arguments : plural.Arguments));
+                // Form 0 is not "n == 1" in every language (Russian uses it for 21), so translated forms get the
+                // larger argument set; the fallback uses the source text matching n with its own arguments.
+                var arguments = plural.Arguments.Length >= singular.Arguments.Length ? plural.Arguments : singular.Arguments;
+                return n == 1
+                    ? FormatTranslated(set, context, key, entry, form, singular.Format, null, new ArgsSpan(arguments))
+                    : FormatTranslated(set, context, key, entry, form, plural.Format, null, new ArgsSpan(arguments));
             }
         }
         else
@@ -483,8 +518,13 @@ public static class Tr
             : FormatSource(set, plural.Format, null, new ArgsSpan(plural.Arguments));
     }
 
+    /// <summary>
+    /// Formats translated form <paramref name="form"/>; on a bad translation logs it under <paramref name="key"/> and
+    /// formats <paramref name="source"/> (for plurals: the source text matching n) instead.
+    /// </summary>
     private static string FormatTranslated<TArgs>(
-        TranslationSet set, string? context, ReadOnlySpan<char> source, string? sourceString, TranslationEntry entry, int form, in TArgs args)
+        TranslationSet set, string? context, ReadOnlySpan<char> key, TranslationEntry entry, int form,
+        ReadOnlySpan<char> source, string? sourceString, in TArgs args)
         where TArgs : IFormatArgs, allows ref struct
     {
         var text = entry.Forms[form];
@@ -503,7 +543,7 @@ public static class Tr
             }
         }
 
-        set.OnBadFormat(context, source, entry, form);
+        set.OnBadFormat(context, key, entry, form);
         return FormatSource(set, source, sourceString, args);
     }
 
@@ -544,8 +584,8 @@ public static class Tr
             parsed = null;
         }
 
-        if (SourceFormats.Count < MaxCachedSourceFormats)
-            SourceFormats.TryAdd(text, parsed);
+        if (Volatile.Read(ref _sourceFormatCount) < MaxCachedSourceFormats && SourceFormats.TryAdd(text, parsed))
+            Interlocked.Increment(ref _sourceFormatCount);
         return parsed;
     }
 }

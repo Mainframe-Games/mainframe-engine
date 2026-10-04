@@ -19,8 +19,8 @@ The proposal placed catalogs at `Content/Locale/{locale}/messages.mo` (no `LC_ME
   `zh-hans-cn` → `zh_Hans_CN`); .NET names are accepted everywhere.
 - Chain: the locale, its parents (`zh_Hans_CN → zh_Hans → zh`), `FallbackLocales` (each with parents), then
   `SourceLocale` (default `en`, needs no catalog). First catalog with the message wins.
-- Startup: `EngineOptions.Locale` if catalogs exist for it, else the OS UI language if catalogs exist for it or its
-  language, else the source locale. The source language never logs missing translations.
+- Startup: `EngineOptions.Locale` if catalogs exist for its chain (including `FallbackLocales`), else the OS UI
+  language under the same rule, else the source locale; invalid names are ignored. The source language never logs missing translations.
 - `Tr.Culture` formats `Tr` messages; the process `CurrentCulture`/`CurrentUICulture` are **not** changed (the proposal
   set both to keep `CatalogManager` consistent, which we do not use, and changing them breaks culture-sensitive
   parsing elsewhere).

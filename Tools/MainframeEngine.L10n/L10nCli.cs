@@ -224,6 +224,15 @@ internal static class L10nCli
         var existing = catalog.ByKey();
         var header = catalog.Header;
         var oldObsolete = catalog.Entries.Where(static e => e.Obsolete).ToList();
+        // A message that comes back gets its obsolete translation back (as msgmerge does).
+        foreach (var obsolete in oldObsolete)
+        {
+            if (!existing.ContainsKey(obsolete.Key) && obsolete.HasTranslation)
+            {
+                existing[obsolete.Key] = obsolete;
+            }
+        }
+
         var merged = new List<PoEntry>();
         if (header is not null)
             merged.Add(header);
@@ -270,7 +279,7 @@ internal static class L10nCli
         var obsoleted = 0;
         foreach (var (key, old) in existing)
         {
-            if (used.Contains(key) || !old.HasTranslation)
+            if (used.Contains(key) || !old.HasTranslation || old.Obsolete)
                 continue;
             old.Obsolete = true;
             old.References.Clear();
@@ -352,7 +361,7 @@ internal static class L10nCli
     internal static int CompileOne(string poPath, string moPath, bool useFuzzy, bool strict, TextWriter output, TextWriter error)
     {
         var catalog = PoParser.ParseFile(poPath);
-        var (errors, warnings) = Validate(catalog, poPath, error);
+        var (errors, warnings) = Validate(catalog, poPath, error, useFuzzy);
         if (errors > 0 || (strict && warnings > 0))
         {
             error.WriteLine($"mf-l10n: {poPath}: {errors} error(s), {warnings} warning(s); not compiled");
@@ -372,7 +381,7 @@ internal static class L10nCli
         return 0;
     }
 
-    private static (int Errors, int Warnings) Validate(PoCatalog catalog, string poPath, TextWriter error)
+    private static (int Errors, int Warnings) Validate(PoCatalog catalog, string poPath, TextWriter error, bool useFuzzy = false)
     {
         int errors = 0, warnings = 0;
         var plurals = catalog.PluralCount;
@@ -384,6 +393,8 @@ internal static class L10nCli
 
         foreach (var entry in catalog.Messages)
         {
+            if (entry.IsFuzzy && !useFuzzy)
+                continue; // not compiled, so a work-in-progress translation cannot break the build
             foreach (var issue in Placeholders.Check(entry, plurals))
             {
                 error.WriteLine($"{poPath}: {(issue.IsError ? "error" : "warning")}: {issue.Message}");
@@ -555,9 +566,19 @@ internal static class L10nCli
         foreach (var folder in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal))
         {
             var path = Path.Combine(folder, "LC_MESSAGES", domain + extension);
-            var locale = LocaleId.Normalize(Path.GetFileName(folder));
-            if (locale.Length > 0 && File.Exists(path))
-                result.Add((locale, path));
+            if (!File.Exists(path))
+                continue;
+            var name = Path.GetFileName(folder);
+            var locale = LocaleId.Normalize(name);
+            // The runtime only looks in the normalised folder (case-sensitive on Linux): reject anything else.
+            if (locale != name)
+            {
+                throw new InvalidDataException(locale.Length == 0
+                    ? $"{folder}: '{name}' is not a locale name"
+                    : $"{folder}: rename the folder to '{locale}' (the runtime looks for gettext-style names)");
+            }
+
+            result.Add((locale, path));
         }
 
         return result;

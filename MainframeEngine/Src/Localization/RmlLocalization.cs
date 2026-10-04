@@ -41,9 +41,10 @@ public readonly record struct RmlTextRun(
 /// translators see are exactly the keys the game looks up.
 /// </summary>
 /// <remarks>
-/// <para><b>What is translated.</b> Text nodes and the <c>title</c> and <c>placeholder</c> attributes of any element,
-/// and <c>value</c> of <c>&lt;input type="submit|button"&gt;</c>. Content of <c>head</c>, <c>style</c>, <c>script</c>
-/// and <c>textarea</c>, comments and CDATA are not. A run is a candidate only when it has a letter outside
+/// <para><b>What is translated.</b> Text nodes (including the document's <c>&lt;head&gt;&lt;title&gt;</c>), the
+/// <c>title</c> and <c>placeholder</c> attributes of any element, and <c>value</c> of
+/// <c>&lt;input type="submit|button"&gt;</c>. Other content of <c>head</c>, <c>style</c>, <c>script</c> and
+/// <c>textarea</c>, comments and CDATA are not. A run is a candidate only when it has a letter outside
 /// <c>{{ data expressions }}</c> (so <c>{{score}}</c> or <c>100%</c> are not extracted or looked up).</para>
 /// <para><b>Matching</b> is exact on the normalised text: entities decoded (<c>&amp;amp; &amp;lt; &amp;gt; &amp;quot;
 /// &amp;apos; &amp;nbsp;</c>, numeric), runs of spaces/tabs/newlines collapsed to one space, trimmed. Inline markup
@@ -91,7 +92,7 @@ public static class RmlLocalization
                 var end = source.IndexOf('<', i);
                 if (end < 0)
                     end = source.Length;
-                if (skipDepth == 0 && stack.Count > 0)
+                if ((skipDepth == 0 && stack.Count > 0) || IsDocumentTitle(stack, skipDepth))
                     AddTextRun(runs, source, i, end - i, stack[^1], ref lineCounter);
                 i = end;
                 continue;
@@ -177,10 +178,16 @@ public static class RmlLocalization
                 continue;
             }
 
-            var quote = run.Start > 0 ? source[run.Start - 1] : '"';
+            // Quoted values keep their quote; an unquoted value is quoted so a translation with spaces stays one value.
+            var before = run.Start > 0 ? source[run.Start - 1] : ' ';
+            var quoted = before is '"' or '\'';
             sb ??= new StringBuilder(source.Length + 16);
             sb.Append(source, copied, run.Start - copied);
-            AppendEncoded(sb, entry.Forms[0], quote is '\'' ? '\'' : '"');
+            if (!quoted)
+                sb.Append('"');
+            AppendEncoded(sb, entry.Forms[0], quoted ? before : '"');
+            if (!quoted)
+                sb.Append('"');
             copied = run.Start + run.Length;
         }
 
@@ -442,7 +449,8 @@ public static class RmlLocalization
 
         var parentOptedOut = stack.Count > 0 && stack[^1].OptedOut;
         var optedOut = parentOptedOut || HasOptOutClass(source, attributes);
-        if (skipDepth == 0 && name is not ("head" or "style" or "script" or "textarea"))
+        // A textarea's attributes (placeholder, title) are translated; only its content is not.
+        if (skipDepth == 0 && name is not ("head" or "style" or "script"))
         {
             foreach (var (attrName, valueStart, valueLength) in attributes)
             {
@@ -525,6 +533,10 @@ public static class RmlLocalization
     }
 
     private static bool IsSkipped(string element) => Array.IndexOf(SkippedElements, element) >= 0;
+
+    // <head><title>: RmlUi passes the document title through TranslateString too.
+    private static bool IsDocumentTitle(List<(string Name, bool OptedOut)> stack, int skipDepth) =>
+        skipDepth == 1 && stack.Count >= 2 && stack[^1].Name == "title" && stack[^2].Name == "head";
 
     private static bool IsBlank(char c) => c is ' ' or '\t' or '\n' or '\r' or '\f';
 

@@ -23,6 +23,7 @@ public sealed class RmlLocalizationTests : IDisposable
         var extracted = runs.Where(r => !r.OptedOut).Select(r => (r.Kind, r.Text, r.Line)).ToList();
         Assert.Equal(
         [
+            (RmlTextKind.Text, "Main menu title", 3),
             (RmlTextKind.Attribute, "Main menu", 11),
             (RmlTextKind.Text, "Start game", 13),
             (RmlTextKind.Text, "Press", 14),
@@ -32,6 +33,7 @@ public sealed class RmlLocalizationTests : IDisposable
             (RmlTextKind.Attribute, "Player name", 17),
             (RmlTextKind.Attribute, "Apply", 18),
             (RmlTextKind.Text, "Score: {{ score }}", 21),
+            (RmlTextKind.Attribute, "Notes", 24),
             (RmlTextKind.Text, "Fish <3 © ☺", 25),
             (RmlTextKind.Text, "Settings", 26),
         ], extracted);
@@ -123,6 +125,9 @@ public sealed class RmlLocalizationTests : IDisposable
 
             msgid "Not this either"
             msgstr "Tampoco esto"
+
+            msgid "Notes"
+            msgstr "Notas del jugador"
             """);
         _fixture.Use("es");
 
@@ -136,8 +141,10 @@ public sealed class RmlLocalizationTests : IDisposable
         Assert.Contains("<p class=\"hud no-tr\">﷐Debug build</p>", prepared, StringComparison.Ordinal);
         Assert.Contains("<span>﷐Nested opt-out</span>", prepared, StringComparison.Ordinal);
         Assert.Contains("<h1>Start   game</h1>", prepared, StringComparison.Ordinal); // text nodes are left to TranslateString
-        Assert.Equal(source.Length + 3 /* markers */, prepared.Length - ("Menú principal".Length - "Main menu".Length)
-            - ("Nombre del &quot;jugador&quot;".Length - "Player name".Length) - ("Aplicar".Length - "Apply".Length));
+        Assert.Contains("<textarea placeholder=\"Notas del jugador\">Default notes</textarea>", prepared, StringComparison.Ordinal);
+        Assert.Equal(source.Length + 3 /* markers */ + 2 /* quotes */, prepared.Length - ("Menú principal".Length - "Main menu".Length)
+            - ("Nombre del &quot;jugador&quot;".Length - "Player name".Length) - ("Aplicar".Length - "Apply".Length)
+            - ("Notas del jugador".Length - "Notes".Length));
 
         // Through the translator interface (what UiServer will call) and with nothing to change.
         var translator = TextTranslator.Current; // the ITextTranslator UiServer will be given
