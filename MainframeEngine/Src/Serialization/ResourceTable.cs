@@ -55,6 +55,15 @@ internal sealed class ResourceTable(Dictionary<string, JsonElement> entries, str
     }
 
     /// <summary>Drops the references this table took on external resources.</summary>
+    /// <summary>True when a resource this table created or loaded has a type from <paramref name="assembly"/>.</summary>
+    public bool References(System.Reflection.Assembly assembly)
+    {
+        foreach (var resource in _resolved.Values)
+            if (resource.GetType().Assembly == assembly)
+                return true;
+        return false;
+    }
+
     public void ReleaseExternal()
     {
         foreach (var r in _external)

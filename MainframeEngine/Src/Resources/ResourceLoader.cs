@@ -74,6 +74,82 @@ public static class ResourceLoader
     }
 
     /// <summary>
+    /// Forgets everything cached that refers to types from <paramref name="assembly"/> before a game assembly is
+    /// unloaded: resources of its types (and resources whose inline sub-resources are of its types) are evicted and
+    /// unloaded, and cached scenes drop inline-resource tables that hold its types. Free every node of the assembly's
+    /// types first. Returns the number of evicted resources.
+    /// </summary>
+    public static int ReleaseTypesOf(System.Reflection.Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+        List<Resource> evicted = [];
+        List<PackedScene> scenes = [];
+        lock (Gate)
+        {
+            foreach (var (key, resource) in Cache.ToArray())
+            {
+                if (resource is PackedScene scene)
+                {
+                    if (!scenes.Contains(scene))
+                        scenes.Add(scene);
+                    continue;
+                }
+
+                if (resource.GetType().Assembly != assembly && resource.Dependencies?.References(assembly) != true)
+                    continue;
+                Cache.Remove(key);
+                if (!evicted.Contains(resource))
+                    evicted.Add(resource);
+            }
+        }
+
+        foreach (var resource in evicted)
+        {
+            resource.ClearReferences();
+            Unload(resource);
+        }
+
+        foreach (var scene in scenes)
+            scene.ForgetResourcesOf(assembly);
+        return evicted.Count;
+    }
+
+    /// <summary>
+    /// Re-reads every cached <see cref="PackedScene"/> from its file, so the next <see cref="PackedScene.Instantiate"/>
+    /// uses what is on disk now (a running game reloading a scene the editor just saved). Live instances are unaffected.
+    /// Returns how many scenes were refreshed; scenes whose file is gone or unreadable keep their content (logged).
+    /// </summary>
+    public static int RefreshCachedScenes()
+    {
+        PackedScene[] scenes;
+        lock (Gate)
+            scenes =
+            [
+                .. Cache.Values.OfType<PackedScene>()
+                    .Where(s => s.ResourcePath?.EndsWith(SceneFormat.SceneExtension, StringComparison.OrdinalIgnoreCase) == true)
+                    .Distinct(),
+            ]; // imported models are PackedScenes too, but are not .mscene files
+
+        var assets = AssetDatabase.Current;
+        var refreshed = 0;
+        foreach (var scene in scenes)
+        {
+            var fullPath = assets.ToAbsolutePath(scene.ResourcePath!);
+            try
+            {
+                scene.SetContent(File.ReadAllBytes(fullPath), assets.ToProjectPath(fullPath));
+                refreshed++;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
+            {
+                Log.Warning($"[Resources] Could not refresh '{scene.ResourcePath}': {e.Message}");
+            }
+        }
+
+        return refreshed;
+    }
+
+    /// <summary>
     /// Resolves a reference from a file: by UID first (the path is only a hint, so moved files still resolve),
     /// then by path.
     /// </summary>

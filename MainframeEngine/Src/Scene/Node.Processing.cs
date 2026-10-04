@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace MainframeEngine;
 
@@ -35,6 +36,7 @@ public partial class Node
     }
 
     private static readonly ConcurrentDictionary<Type, Callbacks> OverriddenCallbacks = new();
+    private static readonly ConditionalWeakTable<Type, StrongBox<Callbacks>> CollectibleCallbacks = new();
 
     private Callbacks _enabledCallbacks;
     private ProcessMode _processMode;
@@ -166,7 +168,12 @@ public partial class Node
 
     private void InitializeProcessFlags()
     {
-        _enabledCallbacks = OverriddenCallbacks.GetOrAdd(GetType(), static type => FindOverrides(type));
+        var type = GetType();
+        // Types from collectible (editor-loaded game) assemblies are cached weakly so the cache never keeps their
+        // load context alive after an unload.
+        _enabledCallbacks = type.Assembly.IsCollectible
+            ? CollectibleCallbacks.GetValue(type, static t => new StrongBox<Callbacks>(FindOverrides(t))).Value
+            : OverriddenCallbacks.GetOrAdd(type, static t => FindOverrides(t));
     }
 
     private void SetCallback(Callbacks callback, bool enable)

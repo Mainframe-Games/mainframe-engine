@@ -14,6 +14,8 @@ public static class TypeRegistry
     private static readonly Dictionary<string, NodeTypeInfo> ByName = new(StringComparer.Ordinal);
     private static readonly Dictionary<Type, NodeTypeInfo> ByType = [];
     private static readonly HashSet<System.Reflection.Assembly> Examined = [];
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Assembly, object> ExaminedCollectible = new();
+    private static readonly object Marker = new();
 
     /// <summary>Raised after types are registered or unregistered.</summary>
     public static event Action? Changed;
@@ -57,6 +59,8 @@ public static class TypeRegistry
                 if (ByName.TryGetValue(info.Name, out var byName) && byName == info)
                     ByName.Remove(info.Name);
             }
+
+            Examined.Remove(assembly);
         }
 
         Changed?.Invoke();
@@ -94,9 +98,18 @@ public static class TypeRegistry
         {
             lock (Gate)
             {
-                // Each assembly is examined once (a scene with many unknown types would rescan otherwise).
-                if (!Examined.Add(assembly))
+                // Each assembly is examined once (a scene with many unknown types would rescan otherwise). Collectible
+                // (game) assemblies are remembered weakly so the set never keeps their load context alive.
+                if (assembly.IsCollectible)
+                {
+                    if (ExaminedCollectible.TryGetValue(assembly, out _))
+                        continue;
+                    ExaminedCollectible.Add(assembly, Marker);
+                }
+                else if (!Examined.Add(assembly))
+                {
                     continue;
+                }
             }
 
             if (assembly.IsDynamic)

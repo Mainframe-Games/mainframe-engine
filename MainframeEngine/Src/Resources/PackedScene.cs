@@ -244,6 +244,33 @@ public sealed class PackedScene : Resource
         _subScenes = new Dictionary<string, PackedScene>(StringComparer.Ordinal);
     }
 
+    /// <summary>
+    /// Drops the inline-resource tables (current and retired) holding resources whose type comes from
+    /// <paramref name="assembly"/>, releasing their external references, so an unloaded game assembly is not kept
+    /// alive by this cached scene. The next instantiation builds a fresh table. Returns how many tables were dropped.
+    /// </summary>
+    internal int ForgetResourcesOf(System.Reflection.Assembly assembly)
+    {
+        var dropped = 0;
+        if (_resources is not null && _resources.References(assembly))
+        {
+            _resources.ReleaseExternal();
+            _resources = null;
+            dropped++;
+        }
+
+        for (var i = _retiredTables.Count - 1; i >= 0; i--)
+        {
+            if (!_retiredTables[i].References(assembly))
+                continue;
+            _retiredTables[i].ReleaseExternal();
+            _retiredTables.RemoveAt(i);
+            dropped++;
+        }
+
+        return dropped;
+    }
+
     protected internal override void OnUnloaded()
     {
         RetireResources();
