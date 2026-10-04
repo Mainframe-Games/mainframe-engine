@@ -4,6 +4,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
+    <!-- A few tests read native buffers (SDL surfaces) directly. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Run through VSTest (Microsoft.NET.Test.Sdk + xunit.runner.visualstudio) so coverlet.collector works. -->
     <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
     <IsTestingPlatformApplication>false</IsTestingPlatformApplication>

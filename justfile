@@ -95,20 +95,23 @@ brand:
     set -euo pipefail
     cd docs/images/brand
     mkdir -p png
+    # Full-bleed tile (Windows .ico, Linux, docs): the simplified artwork at 48 px and below.
     for n in 16 24 32 48; do inkscape logo-small.svg -w $n -h $n -o png/logo-$n.png; done
     for n in 64 128 256 512 1024; do inkscape logo.svg -w $n -h $n -o png/logo-$n.png; done
     python3 ../../../build/brand/make-ico.py logo.ico png/logo-{16,24,32,48,64,128,256}.png
+    # macOS: Apple's icon grid (824 px tile on a 1024 canvas) for the .icns and the Dock icon at runtime.
+    for n in 16 32 64 128 256 512 1024; do inkscape logo-macos.svg -w $n -h $n -o png/logo-macos-$n.png; done
     if command -v iconutil >/dev/null; then
       set_dir="$(mktemp -d)/Mainframe.iconset"; mkdir -p "$set_dir"
       for n in 16 32 128 256 512; do
-        cp png/logo-$n.png "$set_dir/icon_${n}x${n}.png"
-        cp png/logo-$((n * 2)).png "$set_dir/icon_${n}x${n}@2x.png" 2>/dev/null || inkscape logo.svg -w $((n * 2)) -h $((n * 2)) -o "$set_dir/icon_${n}x${n}@2x.png"
+        cp png/logo-macos-$n.png "$set_dir/icon_${n}x${n}.png"
+        cp png/logo-macos-$((n * 2)).png "$set_dir/icon_${n}x${n}@2x.png"
       done
       iconutil -c icns "$set_dir" -o logo.icns
     else
       echo "iconutil not found (macOS only): logo.icns left unchanged"
     fi
-    cp png/logo-{32,48,256,512}.png ../../../MainframeEngine/Content/Brand/
+    cp png/logo-{32,48,256,512}.png png/logo-macos-512.png ../../../MainframeEngine/Content/Brand/
 
 # Apply dotnet format (the vendored Spine runtime is excluded)
 format:

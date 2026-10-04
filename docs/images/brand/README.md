@@ -4,13 +4,17 @@
 |---|---|
 | `logo.svg` | Master artwork, full detail — use at **64 px and above** |
 | `logo-small.svg` | Simplified artwork — use at **48 px and below** (title bars, favicons, small icons) |
+| `logo-macos.svg` | `logo.svg` on Apple's app-icon grid: 1024 canvas, 824 px tile centred (100 px transparent margin), corner radius ≈ 185 px — for `logo.icns` and the macOS Dock icon |
+| `png/logo-macos-{16…1024}.png` | Rendered from `logo-macos.svg` (the `.icns` iconset) |
 | `png/logo-{16,24,32,48}.png` | Rendered from `logo-small.svg` |
 | `png/logo-{64,128,256,512,1024}.png` | Rendered from `logo.svg` |
 | `logo.ico` | Windows icon (16–256, 7 sizes) — the editor's `ApplicationIcon` |
-| `logo.icns` | macOS icon — the editor app bundle's `CFBundleIconFile` |
+| `logo.icns` | macOS icon, from `logo-macos.svg` — the editor app bundle's `CFBundleIconFile` |
 
-Engine content carries copies for apps (`ContentPaths`: `Content/Brand/logo-{32,48,256,512}.png`): window icons
-(`EngineOptions.IconPath`) and the editor splash screen (RmlUi renders PNG, not SVG).
+Engine content carries copies for apps (`ContentPaths`: `Content/Brand/logo-{32,48,256,512}.png`,
+`logo-macos-512.png`): window icons (`EngineOptions.IconPath` — `logo-macos-512.png` on macOS, where it is the Dock icon;
+`logo-48.png` elsewhere) and the editor splash screen (RmlUi renders PNG, not SVG). Windows `.ico` and Linux PNGs stay
+full-bleed, as is their convention.
 
 ## Colours
 

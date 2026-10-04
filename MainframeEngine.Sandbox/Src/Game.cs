@@ -26,8 +26,8 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         GameName = "Mainframe Engine Sandbox",
         RenderingBackend = RenderingBackend.Vulkan,
         WindowSize = new Vector2D<int>(1920, 1080),
-        // The engine logo (docs/images/brand): the large one for the macOS Dock, the small artwork in title bars.
-        IconPath = OperatingSystem.IsMacOS() ? "Content/Brand/logo-256.png" : "Content/Brand/logo-48.png",
+        // The engine logo (docs/images/brand): Apple's icon grid for the macOS Dock, the small artwork in title bars.
+        IconPath = OperatingSystem.IsMacOS() ? "Content/Brand/logo-macos-512.png" : "Content/Brand/logo-48.png",
         DevOverlayVisible = false, // the RmlUi HUD is the game UI; F12 shows the ImGui developer windows
         // Debug builds load UI documents straight from the project's Content/ folder, so hot reload needs no rebuild.
         Ui = new UiServerOptions { SourceContentDirectories = UiServerOptions.SourceDirectoriesOf(typeof(Game).Assembly) },
