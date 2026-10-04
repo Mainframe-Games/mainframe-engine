@@ -11,6 +11,12 @@
     <PackageReference Include="BenchmarkDotNet" />
   </ItemGroup>
 
+  <!-- BenchmarkHost builds the benchmarks from this file rather than searching the repository for it (the search
+       also finds the copies in .claude/worktrees and then fails). -->
+  <ItemGroup>
+    <AssemblyMetadata Include="BenchmarkProjectFile" Value="$(MSBuildProjectFullPath)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
     <!-- Registers the benchmark node types ([Replicated] boxes) like a game assembly. -->

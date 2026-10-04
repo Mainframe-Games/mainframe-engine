@@ -276,7 +276,11 @@ alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurves
 `Step1kRigidBodies3D`, `Step1kRigidBodies2D`, `Raycast10k3D`; the game UI: `Update500Idle`,
 `Update500DirtyBindings`, `Relayout500`, `Render500Callbacks`) and compares with
 [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
-fails when its mean is **more than 10 % slower** or it allocates more per operation. Results also land
+fails when its mean is **more than 10 % slower** or it allocates more per operation. A run fails too when a benchmark produces no result
+or nothing runs at all (a filter that matches nothing, a build failure), and `just bench-baseline` then writes
+nothing. BenchmarkDotNet builds the benchmarks from the project file recorded at build time (`BenchmarkProjectFile`
+assembly metadata) instead of searching the repository, whose search also finds the copies in git worktrees under
+`.claude/worktrees/` and then builds nothing. Results also land
 in `artifacts/bench`. Baselines are machine-specific (the file records machine and runtime), so
 compare on the machine that recorded them; refresh with `just bench-baseline` when a change is
 intentionally slower or a new benchmark is added, and commit the file.
