@@ -288,7 +288,10 @@ Tr.SetLocale("es");                                       // runtime switch: nod
 
 ### Logging (`Debugging/`)
 
-`Log` — structured logger with severity levels (Debug, Info, Warning, Error, Fatal), ANSI color output, and optional verbose mode with caller source location.
+`Log` — severity levels (Debug, Info, Warning, Error, Fatal); every message becomes a structured `LogEntry` (UTC time,
+`[Category]`, message, call site) routed to `ILogSink`s: colored console (default), a rotating `FileLogSink` in the
+per-user data folder, a `MemoryLogSink` ring for tools, and the editor link. Filtered-out messages — including
+interpolated `$"..."` ones — allocate nothing.
 
 ### Utilities (`Utils/`)
 
@@ -414,5 +417,22 @@ Full C# port of the Spine skeletal animation runtime:
 2. Open `MainframeEngine.sln` in Visual Studio or Rider
 3. Set `MainframeEngine.Sandbox` as the startup project
 4. Build and run — requires .NET 10 SDK
+
+### A new game
+
+Games are their own projects; the engine runs them with `GameHost` from a `project.mfproj` (no `Engine` subclass):
+
+```bash
+git clone --recurse-submodules <this repo> mainframe-engine     # Plugins/Spine is a submodule
+dotnet new install mainframe-engine/Templates/MainframeEngine.Templates/content/mfgame
+dotnet new mfgame -n MyGame --engine-path "$PWD/mainframe-engine"
+dotnet run --project MyGame/MyGame.Launcher
+```
+
+This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGame.Launcher/`
+(`GameHost.Run(args, ...)`), `project.mfproj` (main scene, window, physics, input actions, autoloads, …) and
+`Content/Scenes/Main.mscene`. Read input through actions (`Input.IsActionPressed("spin_faster")`), and see
+[Projects & GameHost](docs/design/project-and-gamehost.md) for the project file, launcher flags
+(`--scene`, `--max-frames`, `--hidden`, `--editor-port`) and the editor link.
 
 **macOS:** Vulkan runs through MoltenVK. A copy is bundled via `Silk.NET.MoltenVK.Native`, so nothing needs to be installed to run. Installing the [Vulkan SDK](https://vulkan.lunarg.com) is still recommended for development — it provides the validation layers and `glslc`. `VulkanLoaderBootstrap` hands the Vulkan library to SDL (`SDL_Vulkan_LoadLibrary`) and Silk.NET explicitly, because modern macOS dyld no longer finds `/usr/local/lib` when the loader is dlopened by name.

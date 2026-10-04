@@ -113,6 +113,7 @@ Git LFS files.
 | `format` | `dotnet format --verify-no-changes --exclude Plugins/Spine` |
 | `shaders` | apt `glslc` + `spirv-tools`, compiles every shader to a temp dir, `spirv-val`, `build/shaders.sh check` |
 | `render-tests` | Ubuntu with lavapipe (`mesa-vulkan-drivers`, `VK_DRIVER_FILES` = `lvp_icd.json`), `vulkan-validationlayers`, Xvfb; compares against `Goldens/lavapipe/`; uploads `artifacts/render-tests` (frames, diffs). Re-recording: [Testing](testing.md#golden-images) |
+| `template` | Ubuntu with lavapipe + Xvfb: `build/template-smoke.sh` installs the `mfgame` template from source, builds a game against the checkout (Release, warnings as errors) and runs its `GameHost` launcher for 30 hidden frames, failing on logged errors; packs `MainframeEngine.Templates`. See [Projects & GameHost](project-and-gamehost.md#template) |
 | `ci-success` | Runs always; fails unless every job above succeeded. **The required status check** in the `main` ruleset — do not rename. |
 
 ## Windowing: SDL2

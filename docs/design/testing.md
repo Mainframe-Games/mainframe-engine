@@ -99,6 +99,13 @@ table, so the 2D suites share the non-parallel `SerialBox2D` collection.
 | `PhysicsAllocationTests`, `Physics2DAllocationTests` | **0 bytes** per steady-state frame with ~500 bodies, monitors, areas, characters, debug draw and every query (3D single- and multi-threaded); 2D: 0 bytes beyond Box2D.NET's own step allocations |
 | `DebugDrawTests`, `FixedStepHookTests` | `DebugLines` primitives and cap, server debug draw; `BeforeFixedSteps`/`AfterFixedSteps` order and pause |
 
+Projects and tooling (M10, engine side) have suites under [`Project/`](../../Tests/MainframeEngine.Tests/Project/)
+(project file and migrations, `GameHost` options and `GameSession`, the editor link over real sockets, collectible
+game-assembly load → unload → **GC-verified collection** → reload with Roslyn-compiled game assemblies), plus
+`LogRoutingTests`/`LogSinkTests` (0 B when filtered) and `InputMapTests` (0 B polling); details in
+[Projects & GameHost → Testing](project-and-gamehost.md#testing). The `mfgame` template is built and run by CI's
+`template` job (`just template-smoke`).
+
 The game UI (M8) has its own suites under [`UI/`](../../Tests/MainframeEngine.Tests/UI/), in the serial
 `SerialRmlUi` collection because RmlUi is process-global: `RmlBindingTests` (the managed binding against the real
 `mfrmlui`), `UiServerTests` (headless `UiServer` with `NullUiRenderer`: documents, layers, input routing, hot reload,

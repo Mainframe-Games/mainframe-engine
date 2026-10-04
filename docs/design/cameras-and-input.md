@@ -95,6 +95,12 @@ reverse tree order, then `OnUnhandledInput`, until one calls `GetViewport().SetI
 nodes get none. Events are reused instances (read them in the callback, `Clone()` to keep one). Devices
 connected later are picked up. See [Scene graph & nodes](scene-graph-and-nodes.md#input).
 
+**Input actions (M10).** Every tree also keeps polled state (`SceneTree.Input`, an `InputState`) fed by `PushInput`
+before the UI and nodes: `InputMap` actions (keys, mouse buttons, gamepad buttons and axis directions, from
+`project.mfproj`), read with `Input.IsActionPressed/JustPressed/JustReleased`, `GetActionStrength`, `GetAxis`,
+`GetVector`, or on events with `inputEvent.IsActionPressed("jump")`. See
+[Projects & GameHost → Input actions](project-and-gamehost.md#input-actions).
+
 `CursorMode.Raw` maps to SDL relative mouse mode. `just qa` can drive a scripted right-drag through SDL's
 event queue (`--qa-input <frame>`), which checks the SDL → `IMouse` → `InputRouter` → `FlyCamera` path end
 to end.

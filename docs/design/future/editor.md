@@ -204,6 +204,15 @@ sequenceDiagram
 - **New project wizard:** creates the csproj pair from templates (`dotnet new`-style), `project.mfproj`,
   `Content/Scenes/Main.mscene`.
 
+**Engine side shipped (E4, lane m10b)** — see [Projects, GameHost and the editor link](../project-and-gamehost.md):
+`ProjectSettings`/`project.mfproj` (versioned, migrations), `GameHost` (`--scene`, `--editor-port`, autoloads, input
+map), `InputMap` + `Input.IsActionPressed`, `ILogSink` routing (console, rotating file, `MemoryLogSink` for the Output
+panel), the editor link (`EditorLinkServer` in the editor ↔ `EditorLinkClient` in the game: hello, logs, status;
+stop/pause/resume/reload-scene commands; several games at once), `GameAssemblyLoader` (collectible load, verified
+unload, build-output discovery), `DebouncedFileWatcher`, and the `mfgame` template (`dotnet new mfgame`, which the
+wizard can run). The editor-side services (`ProjectService`, `PlayService`, Output panel, file system panel) consume
+these.
+
 ## Engine changes this requires
 
 | Change | Where | Reason |
@@ -211,8 +220,8 @@ sequenceDiagram
 | Multiple worlds per process (`World3D` instances) | [Node system](../scene-graph-and-nodes.md#servers-and-render-nodes) | edited scene separate from editor UI |
 | Offscreen render targets + object-ID pass | [Materials & meshes](../materials-and-meshes.md) / RenderServer | viewport and picking |
 | `UiServer` can wrap an engine texture as an RmlUi texture | [Game UI](../game-ui.md) | `<viewport>` element |
-| `ILogSink` on `Log` | `Debugging/Log.cs` | Output panel and debug channel |
-| `GameHost` + `project.mfproj` | core | play mode and shipping games without a subclass |
+| `ILogSink` on `Log` ✅ | `Debugging/` | Output panel and debug channel |
+| `GameHost` + `project.mfproj` ✅, editor link ✅, `GameAssemblyLoader` ✅ | `Project/`, `EditorLink/` | play mode, code reload and shipping games without a subclass |
 | `[Tool]` attribute respected by `SceneTree` in editor mode | Node system | edit-time behaviour |
 
 ## Phases
@@ -228,14 +237,18 @@ sequenceDiagram
 ## Task list
 
 - [ ] Add the `MainframeEngine.Editor` project to the solution (refs `MainframeEngine` only)
-- [ ] `EditorApp : Engine`; `GameHost : Engine` + `project.mfproj` in core
+- [ ] `EditorApp : Engine`
+- [x] `GameHost : Engine` + `project.mfproj` in core; input actions; autoloads
+- [x] Engine side of code reload: `GameAssemblyLoader` (collectible ALC), `MissingNode` round trip, file watcher
+- [x] Engine side of play: editor link (`EditorLinkServer`/`EditorLinkClient`), `--scene`/`--editor-port`
+- [x] `ILogSink` routing (console, file, memory, editor link); `mfgame` template
 - [ ] Shared RmlUi widgets (`tree-view`, `property-*`, `splitter`, `tabs`, `context-menu`) in core content
 - [ ] Editor documents + theme
 - [ ] `EditorSession` (open scenes, selection, `UndoRedo`)
 - [ ] `ViewportService`: render targets, editor camera, ID picking, gizmos
 - [ ] `ProjectService`: `AssetDatabase`, build, collectible ALC reload, `MissingNode`
 - [ ] `PlayService`: launch game, debug channel, log streaming
-- [ ] `ILogSink` + Output panel
+- [ ] Output panel (over `MemoryLogSink` and the editor link)
 - [ ] Docs: editor user guide + current-state design doc once E1 lands
 
 ## Open questions

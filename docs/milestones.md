@@ -236,7 +236,8 @@ core, and its UI is built entirely with the M8 game UI stack (RmlUi).
 | E1 Shell: editor csproj, `EditorApp`, RmlUi layout, Output panel, open/save scenes | ⬜ | [Editor](design/future/editor.md#phases) |
 | E2 Scene tree + inspector (`[Export]`) + undo/redo | ⬜ | [Editor](design/future/editor.md#inspector) |
 | E3 Viewport: render target in RmlUi, editor camera, ID picking, gizmos | ⬜ | [Editor](design/future/editor.md#viewport) |
-| E4 Projects: game assembly load and reload, file system panel, out-of-process play | ⬜ | [Editor](design/future/editor.md#game-project-and-code-reload) |
+| E4 engine side: `project.mfproj` + `ProjectSettings`, `GameHost`, input actions, autoloads, `ILogSink` routing, editor link (play/stop/pause/reload, log streaming), collectible game-assembly load/unload/reload, `mfgame` template + CI smoke | ✅ | [Projects & GameHost](design/project-and-gamehost.md) |
+| E4 editor side: open/new project, file system panel, Play/Stop buttons, Output panel over the link, reload UI | ⬜ | [Editor](design/future/editor.md#game-project-and-code-reload) |
 | E5 Polish: signals tab, multi-select, 2D editing, custom inspectors | ⬜ | [Editor](design/future/editor.md#phases) |
 
 ## M11 — Backend abstraction / WebGPU

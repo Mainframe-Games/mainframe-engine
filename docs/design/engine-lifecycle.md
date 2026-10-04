@@ -21,6 +21,10 @@ or updates by hand.
 
 ## Writing a game
 
+Game projects normally do not subclass `Engine`: `GameHost : Engine` runs a `project.mfproj` (window, physics,
+input map, autoloads, main scene) — see [Projects & GameHost](project-and-gamehost.md). Subclassing `Engine` (as the
+Sandbox and render tests do) remains supported:
+
 ```csharp
 public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 {

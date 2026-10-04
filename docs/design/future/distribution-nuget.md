@@ -1,7 +1,9 @@
 # Future: distribution via NuGet — how games consume the engine
 
-**Status:** proposal (plan only). Today games reference `MainframeEngine.csproj` from a checkout of this
-repo; the [release workflow](../release.md) ships only the editor.
+**Status:** proposal; the template part has shipped (M10). Today games reference `MainframeEngine.csproj` from a
+checkout of this repo — `dotnet new mfgame --engine-path <checkout>` sets that up
+([Projects & GameHost → Template](../project-and-gamehost.md#template)); the [release workflow](../release.md)
+ships only the editor.
 
 ## Problem
 
@@ -71,13 +73,18 @@ Engine content is resolved through `ContentPaths` relative to `AppContext.BaseDi
   lives in `MainframeEngine.csproj`/`Directory.Build.targets` today so repo and package builds share it.
 - Ship `MainframeEngine.Generators` inside the package's `analyzers` folder.
 - `ContentPaths` search order: game `Content/` → `Content/Mainframe/` (engine).
-- Template project under `Templates/` with a template test in CI (`dotnet new mfgame` → `dotnet build`).
+- ~~Template project under `Templates/` with a template test in CI~~ — done (M10): `Templates/MainframeEngine.Templates`,
+  CI job `template`. Its `--engine-source package` option already writes
+  `<PackageReference Include="MainframeEngine" Version="$(MainframeEngineVersion)" />`; once the package exists, CI
+  should smoke-test that branch too.
 
 ## Tasks
 
 - [ ] Packaging metadata + `buildTransitive` targets; `dotnet pack` produces a package that a scratch
       game (outside the repo) can build, run and publish for each RID — CI job.
-- [ ] `MainframeEngine.Templates` (`mfgame`) + CI template test.
+- [x] `MainframeEngine.Templates` (`mfgame`: `MyGame` + `MyGame.Launcher` running `GameHost` + `project.mfproj` +
+      `Content/`) + CI template test (project-reference mode; `just template-smoke`, `just template-pack`).
+- [ ] Template smoke test in package mode once the engine package exists; `mfnode` item template.
 - [ ] `packages` job in `publish.yml` → GitHub Packages.
 - [ ] Editor new-project wizard uses `dotnet new mfgame` with the editor's version; upgrade prompt.
 - [ ] Later: `MainframeEngine.Sdk`; nuget.org.
