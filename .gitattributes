@@ -32,3 +32,7 @@
 # 3D model data (glTF buffers, binary glTF) are binary
 *.bin binary
 *.glb binary
+
+# fonts are binary (never EOL-normalised)
+*.ttf binary
+*.otf binary
