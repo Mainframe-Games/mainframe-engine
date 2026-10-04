@@ -331,12 +331,13 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         var image = _swapChainImages![imageIndex];
         var range = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, 1);
 
-        // Chained to the render pass's outgoing dependency (dst = TRANSFER / TRANSFER_READ), which
-        // already made the colour writes and the final layout transition available and visible.
+        // An explicit dependency on the colour writes, not only a chain through the render pass's outgoing
+        // dependency: MoltenVK does not order the copy after the last tiles of the pass otherwise, and a slow frame
+        // was captured with its bottom tiles still black.
         var toTransfer = new ImageMemoryBarrier
         {
             SType               = StructureType.ImageMemoryBarrier,
-            SrcAccessMask       = AccessFlags.None,
+            SrcAccessMask       = AccessFlags.ColorAttachmentWriteBit,
             DstAccessMask       = AccessFlags.TransferReadBit,
             OldLayout           = ImageLayout.PresentSrcKhr,
             NewLayout           = ImageLayout.TransferSrcOptimal,
@@ -345,8 +346,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
             Image               = image,
             SubresourceRange    = range,
         };
-        _vk!.CmdPipelineBarrier(cb, PipelineStageFlags.TransferBit, PipelineStageFlags.TransferBit,
-            0, 0, null, 0, null, 1, &toTransfer);
+        _vk!.CmdPipelineBarrier(cb, PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.TransferBit,
+            PipelineStageFlags.TransferBit, 0, 0, null, 0, null, 1, &toTransfer);
 
         var region = new BufferImageCopy
         {

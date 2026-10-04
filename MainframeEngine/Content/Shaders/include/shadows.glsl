@@ -133,9 +133,16 @@ bool shadowProject(ShadowMap2D map, vec3 worldPos, vec3 N, vec3 L, vec3 lightPos
     return ls.w > 0.0 && all(greaterThanEqual(coord, vec3(0.0))) && all(lessThanEqual(coord, vec3(1.0)));
 }
 
+// Every dynamic index into the shadow block or a sampler array is clamped to its range. The compiler may evaluate
+// both sides of `?:`, `&&` and `||` (glslang turns side-effect-free operands into selects), and out-of-range
+// indices are not clamped by Metal: an out-of-range vector component or array layer read faults the GPU, which
+// drops whole tiles of the frame.
+int clampCascade(int c) { return clamp(c, 0, MAX_SHADOW_CASCADES - 1); }
+
 // Shadow term of cascade c, or -1 when worldPos lies outside the cascade's map.
 float cascadeTerm(int c, vec3 worldPos, vec3 N, vec3 L)
 {
+    c = clampCascade(c);
     if (shadow.cascadeEnabled[c] == 0.0)
         return 1.0;
     vec3 coord;
@@ -153,10 +160,12 @@ float shadowViewDepth(vec3 worldPos)
 int shadowCascadeIndex(float viewDepth)
 {
     int count = int(shadow.csm.x);
-    int c = 0;
-    while (c < count && viewDepth > shadow.cascadeSplits[c])
-        c++;
-    return c;
+    for (int i = 0; i < MAX_SHADOW_CASCADES; i++)
+    {
+        if (i >= count || viewDepth <= shadow.cascadeSplits[i]) // i is always in range
+            return i;
+    }
+    return MAX_SHADOW_CASCADES;
 }
 
 // Primary directional light: pick the cascade by view depth, blend into the next one over the last `csm.y` of the
@@ -172,15 +181,17 @@ float sampleCascades(vec3 worldPos, vec3 N, vec3 L)
     float s     = cascadeTerm(c, worldPos, N, L);
     if (s < 0.0)
         s = 1.0; // outside its own map (cannot happen with the sphere fit): lit
-    float start = c == 0 ? 0.0 : shadow.cascadeSplits[c - 1];
-    float end   = shadow.cascadeSplits[c];
+    float start = c > 0 ? shadow.cascadeSplits[clampCascade(c - 1)] : 0.0;
+    float end   = shadow.cascadeSplits[clampCascade(c)];
     float band  = (end - start) * shadow.csm.y;
     if (band > 0.0 && depth > end - band)
     {
         float t = smoothstep(end - band, end, depth);
         // Past the last cascade: fade to lit. The blend band lies before the next cascade's slice, so its sphere may
         // not reach the frustum's edge there: keep this cascade's term when the point is outside the next map.
-        float next = c + 1 < count ? cascadeTerm(c + 1, worldPos, N, L) : 1.0;
+        float next = 1.0;
+        if (c + 1 < count)
+            next = cascadeTerm(c + 1, worldPos, N, L);
         if (next >= 0.0)
             s = mix(s, next, t);
     }
@@ -189,7 +200,7 @@ float sampleCascades(vec3 worldPos, vec3 N, vec3 L)
 
 float sampleAtlasMap(int k, vec3 worldPos, vec3 N, vec3 L, vec3 lightPos)
 {
-    ShadowMap2D map = shadow.atlasMaps[k];
+    ShadowMap2D map = shadow.atlasMaps[clamp(k, 0, MAX_SHADOW_ATLAS_MAPS - 1)];
     float fade = 0.0;
     if (map.params.y < 0.0) // secondary directional light: shadowed up to its distance, faded over the last tenth
     {
@@ -232,7 +243,7 @@ float pointShadow(int i, vec3 worldPos, vec3 N, vec3 lightPos, float range)
     int code = shadow.pointCodes[i >> 2][i & 3];
     if (code == 0)
         return 1.0;
-    int  c = code - 1;
+    int  c = clamp(code - 1, 0, MAX_SHADOW_POINT - 1);
     vec4 params = shadow.pointParams[c];
     vec3 toLight = lightPos - worldPos;
     float dist = length(toLight);
