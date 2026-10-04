@@ -25,9 +25,11 @@ RenderTestGame game = options.Scene switch
     "instances" => new InstancesScene(options),
     "picking" => new PickingScene(options),
     "ui-hud" => new UiHudScene(options),
+    "ui-effects" => new UiDocumentScene(options, "Content/UI/effects.rml"),
+    "ui-debug" => new UiDocumentScene(options, "Content/UI/debug.rml"),
     _ => throw new ArgumentException(
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, spine, spine-no-shadows, sandbox, color-pipeline, " +
-        "physics, physics-debug, sky-grid, materials, gltf, instances, picking, ui-hud."),
+        "physics, physics-debug, sky-grid, materials, gltf, instances, picking, ui-hud, ui-effects, ui-debug."),
 };
 
 using (game)

@@ -151,6 +151,7 @@ public sealed unsafe partial class VulkanUiRenderer
         }
 
         EndPass();
+        Barrier(); // the overlay pass samples the base layer
         _hasContent = true;
         Stats = new UiRenderStats(_commandCount, _drawCalls, _passes, _liveGeometry, _liveTextures, _arena.ChunkCount, _layers.Count);
     }
@@ -191,6 +192,8 @@ public sealed unsafe partial class VulkanUiRenderer
 
     private void BeginPass(RenderPass pass, Framebuffer framebuffer, Extent2D extent, ClearValue* clears, uint clearCount)
     {
+        Barrier();
+
         var info = new RenderPassBeginInfo
         {
             SType = StructureType.RenderPassBeginInfo,
@@ -205,6 +208,40 @@ public sealed unsafe partial class VulkanUiRenderer
         _passes++;
 
         // Bindings and push constants are re-established per pass (layer and filter passes alternate).
+        _boundPipeline = default;
+        _boundSet0 = default;
+        _boundBuffer = default;
+        _pushedTransform = int.MinValue;
+        _boundScissor = new Rect2D(default, new Extent2D(uint.MaxValue, uint.MaxValue));
+        _stencilRefValid = false;
+    }
+
+    /// <summary>
+    /// Orders every earlier UI pass's attachment writes before the next pass's reads and writes. The render passes'
+    /// external subpass dependencies already say this, but MoltenVK does not turn them into Metal synchronisation for
+    /// sub-allocated (heap-placed) images, so later passes read stale layers; an explicit barrier is honoured
+    /// everywhere and costs nothing measurable.
+    /// </summary>
+    private void Barrier()
+    {
+        const PipelineStageFlags stages = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.FragmentShaderBit |
+                                          PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit;
+        var barrier = new MemoryBarrier
+        {
+            SType = StructureType.MemoryBarrier,
+            SrcAccessMask = AccessFlags.ColorAttachmentWriteBit | AccessFlags.DepthStencilAttachmentWriteBit,
+            DstAccessMask = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit | AccessFlags.ShaderReadBit |
+                            AccessFlags.DepthStencilAttachmentReadBit | AccessFlags.DepthStencilAttachmentWriteBit,
+        };
+        _vk.CmdPipelineBarrier(_cb, stages, stages, 0, 1, &barrier, 0, null, 0, null);
+    }
+
+    /// <summary>
+    /// After <c>vkCmdClearAttachments</c>: drivers may implement it as a draw with their own state (MoltenVK does),
+    /// leaving the encoder's pipeline, stencil reference, viewport and scissor changed behind our cache's back.
+    /// </summary>
+    private void InvalidateStateAfterClear()
+    {
         _boundPipeline = default;
         _boundSet0 = default;
         _boundBuffer = default;
@@ -354,6 +391,8 @@ public sealed unsafe partial class VulkanUiRenderer
             };
             var rect = new ClearRect(scissor.ToRect2D(), 0, 1);
             _vk.CmdClearAttachments(_cb, 1, &attachment, 1, &rect);
+            InvalidateStateAfterClear();
+            SetFullViewport();
         }
 
         var pipeline = c.ClipOp == RmlClipMaskOperation.Intersect ? _clipIncrementPipeline : _clipReplacePipeline;
@@ -629,6 +668,8 @@ public sealed unsafe partial class VulkanUiRenderer
             var attachment = new ClearAttachment { AspectMask = ImageAspectFlags.ColorBit, ColorAttachment = 0 };
             var rect = new ClearRect(border.ToRect2D(), 0, 1);
             _vk.CmdClearAttachments(_cb, 1, &attachment, 1, &rect);
+            InvalidateStateAfterClear();
+            SetFullViewport();
         }
 
         BindPipeline(_blurPipeline);

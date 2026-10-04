@@ -1,0 +1,87 @@
+<rml>
+<head>
+    <title>Render test effects</title>
+    <style>
+        body {
+            font-family: LatoLatin;
+            font-size: 12dp;
+            color: #ffffff;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        div, p { display: block; }
+        .cell {
+            position: absolute;
+            width: 90dp;
+            height: 60dp;
+            text-align: center;
+            line-height: 60dp;
+        }
+        .row1 { top: 12dp; }
+        .row2 { top: 90dp; }
+        .row3 { top: 168dp; }
+        .col1 { left: 12dp; }
+        .col2 { left: 128dp; }
+        .col3 { left: 244dp; }
+        .col4 { left: 360dp; }
+
+        #bg {
+            position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%;
+            decorator: repeating-linear-gradient(0deg, #303848 0dp, #303848 10dp, #404a5c 10dp, #404a5c 20dp);
+        }
+
+        /* Clip mask: rounded corners clip the children (stencil). */
+        #clip {
+            border-radius: 20dp;
+            overflow: hidden;
+            background-color: #204060;
+        }
+        #clip .stripe { position: absolute; left: 0dp; width: 100%; height: 20dp; }
+        #clip .a { top: 0dp; background-color: #e0c040; }
+        #clip .b { top: 40dp; background-color: #40c0e0; }
+
+        /* Clip mask under a transform: a rotated, rounded box clipping its content. */
+        #rotated {
+            transform: rotate(12deg);
+            border-radius: 12dp;
+            overflow: hidden;
+            background-color: #603060;
+        }
+        #rotated .stripe { position: absolute; left: 0dp; top: 20dp; width: 100%; height: 20dp; background-color: #f0f0f0; }
+
+        #linear { decorator: linear-gradient(90deg, #ff0000, #0000ff); }
+        #radial { decorator: radial-gradient(circle, #ffff00, #00800000); }
+        #conic { decorator: conic-gradient(#ff0000, #00ff00, #0000ff, #ff0000); border-radius: 30dp; }
+        #repeating { decorator: repeating-linear-gradient(45deg, #ffffff 0dp, #ffffff 6dp, #000000 6dp, #000000 12dp); }
+
+        #shadow { background-color: #f0f0f0; color: #202020; box-shadow: #000000c0 6dp 6dp 6dp 0dp; border-radius: 6dp; }
+        #blur { background-color: #40a040; filter: blur(3dp); }
+        #drop { color: #ffcc00; font-size: 20dp; filter: drop-shadow(#000000 3dp 3dp 2dp); }
+        #gray { decorator: linear-gradient(90deg, #ff0000, #00ff00); filter: grayscale(1); }
+
+        #opacity { background-color: #ff8000; filter: opacity(0.5); }
+        #hue { background-color: #ff0000; filter: hue-rotate(120deg); }
+        #mask { background-color: #00c0ff; mask-image: radial-gradient(circle, #000000 50%, #00000000 70%); }
+        #backdrop { backdrop-filter: blur(4dp); background-color: #ffffff30; border: 1dp #ffffff; }
+    </style>
+</head>
+<body>
+    <div id="bg"></div>
+    <div class="cell row1 col1" id="clip"><div class="stripe a"></div><div class="stripe b"></div></div>
+    <div class="cell row1 col2" id="rotated"><div class="stripe"></div></div>
+    <div class="cell row1 col3" id="linear"></div>
+    <div class="cell row1 col4" id="radial"></div>
+
+    <div class="cell row2 col1" id="conic"></div>
+    <div class="cell row2 col2" id="repeating"></div>
+    <div class="cell row2 col3" id="shadow">shadow</div>
+    <div class="cell row2 col4" id="blur">blur</div>
+
+    <div class="cell row3 col1" id="drop">Drop</div>
+    <div class="cell row3 col2" id="gray"></div>
+    <div class="cell row3 col3" id="opacity">50%</div>
+    <div class="cell row3 col4" id="mask"></div>
+    <div class="cell row2 col3" id="backdrop" style="top: 130dp; left: 300dp; width: 60dp; height: 60dp;"></div>
+</body>
+</rml>
