@@ -23,5 +23,4 @@ void main()
     outWorldPos   = worldPos.xyz;
     outNormal     = normalize(mat3(transpose(inverse(pc.model))) * inNormal);
     gl_Position   = vp.projection * vp.view * worldPos;
-    gl_Position.z = gl_Position.z * 0.5 + gl_Position.w * 0.5;
 }

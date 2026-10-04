@@ -18,7 +18,6 @@ layout(location = 1) out vec4 outColor;
 
 void main() {
     gl_Position = vp.projection * vp.view * pc.model * vec4(inPos, 1.0);
-    gl_Position.z = gl_Position.z * 0.5 + gl_Position.w * 0.5;
     outUV = inUV;
     outColor = inColor;
 }
