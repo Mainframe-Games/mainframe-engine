@@ -39,8 +39,10 @@ state is baked into each pipeline.
 (`default` outside a frame), `SwapchainExtent` (pixels; the scene target has the same size),
 `SwapchainImageCount`, `CurrentImageIndex`, `CurrentFramebuffer` (the scene target's), `BeginRenderPass()`,
 `Validation`, and since M3: `SceneTarget`, `OverlayRenderPass`, `OverlayEncodesSrgb`, `BeginOverlayPass()`,
-`Exposure` (+ `const DefaultExposure = 1.3`), `Frame` (`FrameContext`), `Allocator`, `Uploads`,
-`Deletions`, `Pipelines`, `Shaders`.
+`Exposure` (+ `const DefaultExposure = 1.3`), `Frame` (`FrameContext`, with per-view copies and `Extent` of the
+view being drawn), `Allocator`, `Uploads`, `Deletions`, `Pipelines`, `Shaders`, `MaxSamplerAnisotropy` (the
+`samplerAnisotropy` feature is enabled when available) and `ImGuiTextures` (`IImGuiTextureRegistry`: images for
+`ImGui.Image`, e.g. a `SubViewport`).
 
 Always guard the cast: `if (Renderer is IVulkanContext vk) { ... }`.
 
@@ -114,8 +116,8 @@ Order within a frame and the colour handling are described in [Color pipeline](c
 
 Subsystems key uniform buffers, dynamic vertex/index buffers and the descriptor sets that point at
 them by **`IVulkanContext.FrameSlot`** and allocate `IVulkanContext.MaxFramesInFlight` (2) copies:
-the `FrameContext` (set 0: camera + lights, written once per frame for every scene pipeline), Shapes
-(VP + lights UBOs), Spine (main and shadow vertex buffers), ImGui (vertex/index buffers), the shadow
+the `FrameContext` (set 0: camera + lights, written once per frame and view for every scene pipeline), the
+mesh renderer's instance buffer and picking readbacks, Spine (main and shadow vertex buffers), ImGui (vertex/index buffers), the shadow
 system (matrices UBO, set 1/2, light-VP ring). All are `GpuBuffer`s in persistently mapped
 `Dynamic` memory. The slot's
 fence is waited in `BeginFrame`, so the CPU never writes data the GPU is still reading, and nothing
@@ -156,7 +158,6 @@ renderer; renderer-owned objects defer to the deletion queue, so their `Dispose`
 ## Known issues
 
 - Physical device selection does not prefer discrete GPUs or check swapchain support.
-- Node-side shapes still upload with `QueueWaitIdle` and allocate their own memory (materials rewrite).
 - `EndFrame` ends the render pass without checking that one was begun (the engine always begins it).
 - A surface-format change on recreation is fatal (no pipeline-recreation callbacks for the swapchain passes yet).
 

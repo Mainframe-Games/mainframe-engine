@@ -50,8 +50,8 @@ mainframe-engine/
 │       ├── Serialization/    # [Export]/[Signal] attributes, TypeRegistry, JSON scene reader/writer
 │       ├── Servers/          # ServerRegistry, RenderServer
 │       ├── Audio/            # AudioServer, buses, audio nodes, streams, decoders, mixer graph (SoundFlow)
-│       ├── Rendering/        # Vulkan renderer, camera math, spine, sky, shadows, scene grids
-│       ├── Nodes/            # Drawable and network nodes (SpineNode, Box3d, Quad, NetworkNode)
+│       ├── Rendering/        # Vulkan renderer, meshes/materials/textures, camera math, spine, sky, shadows, scene grids
+│       ├── Nodes/            # Drawable and network nodes (SpineNode, NetworkNode)
 │       ├── Lighting/         # Directional, point, and spot lights
 │       ├── Networking/       # Replication (MultiplayerApi), messages, transports, pooled buffers
 │       ├── Steamworks/       # Steam API wrappers
@@ -117,7 +117,7 @@ The frame loop order is:
 Everything in a game is a node in a Godot-style tree: `Node` (name, parent, children, owner, groups, signals,
 `ProcessMode`), `Node3D` / `Node2D` (cached, dirty-flagged transforms; quaternion rotation), and front-ends
 for the renderer: `Camera3D`, `DirectionalLight3D` / `OmniLight3D` / `SpotLight3D`, `WorldEnvironment` (sky),
-`Box3d`, `Quad`, `SpineNode`, `Grid3D`. The `SceneTree` runs `OnEnterTree` / `OnReady` / `OnPhysicsProcess` /
+`MeshInstance3D`, `Sprite3D`, `SpineNode`, `Grid3D`, `SubViewport`. The `SceneTree` runs `OnEnterTree` / `OnReady` / `OnPhysicsProcess` /
 `OnProcess` / `OnExitTree`, input (`OnInput`), groups, `CallDeferred` and `QueueFree`; servers
 (`RenderServer`, …) own the GPU objects behind the nodes.
 
@@ -158,11 +158,12 @@ it polls them every frame in `OnProcess` (or call `Poll()`).
 - `Camera3D` / `Camera2D` nodes — the viewport's active camera; they drive the camera math below
 - `PerspectiveCamera` / `OrthographicCamera` — `ICamera` (ViewMatrix, ProjectionMatrix), usable without a tree
 
-**Shape Primitives (`Nodes/Shapes/`):**
-- `Box3d` — 3D cube with shadow casting/receiving
-- `Quad` — 2D quad with shadow casting/receiving
+**Meshes and materials (`Rendering/Resources/`, `Rendering/Meshes/`):**
+- `MeshInstance3D` / `Sprite3D` draw `Mesh`es (`ArrayMesh`, `BoxMesh`, `PlaneMesh`, `QuadMesh`, `SphereMesh`, `CylinderMesh`, `CapsuleMesh`) with `StandardMaterial3D` (Blinn-Phong: albedo/normal/emission textures, opaque/cutout/blend, culling, double-sided) and `Texture2D`
+- The render server culls, sorts and batches them into instanced draws (10 000 instances in a couple of draws); shared pipelines come from a state-hash cache
+- Models (glTF/FBX/OBJ) import through Assimp into scenes; `RenderServer.PickAsync` picks objects on the GPU; `SubViewport` renders a world offscreen (ImGui texture)
 - `SceneGrid3d` / `SceneGrid2d` — debug grid overlays
-- All shapes inherit from `ShapeBase` → `VisualInstance3D` → `Node3D`; the render server creates their GPU objects when they enter the tree
+- See [Materials & meshes](docs/design/materials-and-meshes.md) and [Asset pipeline](docs/design/asset-pipeline.md)
 
 **Spine Renderer (`Rendering/Spine/`):**
 - `SpineRenderer` — batch-renders Spine skeletons (RegionAttachment, MeshAttachment) with per-slot tinting, premultiplied alpha handled once in the shader, and multi-texture atlas support
@@ -320,7 +321,7 @@ when `EngineOptions.SteamAppId` is set; every wrapper is a no-op without Steam. 
 GLSL sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`glslc`, with shared includes in `include/`; the committed `.spv` files are the fallback when the Vulkan SDK is missing) and loaded at runtime through `ContentPaths`. Light/shadow limits come from `limits.json`. See [Shaders](docs/design/shaders.md).
 
 **Engine shaders** (`MainframeEngine/Content/Shaders/`):
-- **Shapes/** — vertex/fragment for quad and box rendering (`.vk.vert`/`.vk.frag`)
+- **Mesh/** — batched mesh instances (`Mesh.vk.*`: StandardMaterial3D) and the object-ID pass (`MeshId.vk.frag`)
 - **Spine/** — lit, shadow-receiving skeletal animation (`SpineLit.vk.*`)
 - **Sky/** — procedural gradient, panoramic equirectangular, and cubemap variants
 - **Shadows/** — depth pass shaders for 2D and omnidirectional point light shadow maps
@@ -336,8 +337,8 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`gl
 - 3D scene with a `Camera3D` fly camera (hold right mouse to look, WASD/QE to move, Shift for speed; Alt toggles the cursor)
 - `SkyPanoramic` backdrop
 - Directional light with debug gizmos
-- Shadow casting/receiving on shapes
-- `Box3d`, `Quad`, and `SceneGrid3d` rendering
+- Shadow casting/receiving on meshes
+- `MeshInstance3D` primitives with textured, blended and emissive materials, an imported glTF model, and `SceneGrid3d`
 - `SpineNode` animation (SpineBoy character)
 - ImGui debug overlay with FPS, delta time, frame count, frame time, VSync toggle, fullscreen toggle, MaxFPS selector
 - Light gizmo visualization via `LightEnvironment.DrawLightGizmos()`

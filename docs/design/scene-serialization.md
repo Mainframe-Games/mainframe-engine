@@ -148,7 +148,13 @@ one collection per member feature; `TypeModelBuilder` fills them and each featur
 - **Connections**: persisted (`ConnectFlags.Persist`) connections between nodes of this scene, made in it
   (not in a sub-scene's file), with paths relative to the root; extra flags as `"flags"`.
 - Unknown types load as **`MissingNode`/`MissingResource`**, keeping the type name, version and raw
-  properties, and are written back unchanged (their children load normally). Unknown properties are
+  properties, and are written back unchanged (their children load normally). Resources their raw properties
+  reference (`{"res": key}`) are resolved and re-keyed into the new file's table, so they survive a re-save (M3).
+- **Removed engine types** (`RemovedNodeTypes`, M3) load as their replacement instead: `Box3d`/`Quad` become
+  `MeshInstance3D`s with a primitive mesh and a material carrying their colour; saving writes the new type. Games
+  can register upgrades for their own retired types (a type-level counterpart of `[SerializedMigration]`).
+- Files other than `.mscene`/`.mres` (images, models) are **imported** — see [Asset pipeline](asset-pipeline.md);
+  a scene instancing a model stores its UID + path like any nested scene. Unknown properties are
   ignored with a warning; a bad value throws `InvalidDataException` naming the file, node and property.
 
 ## Loading and instancing
@@ -199,8 +205,8 @@ flowchart LR
   (`AssetMeta`: `uid`, `importer`, `settings`), created by the editor (`Scan(createMissingMeta: true)`).
 - `AssetDatabase` maps UID ↔ project-relative path (`/` separators). `Refresh()` reads
   `Content/assets.index.json` when present (shipped builds; `WriteIndex()` produces it) and scans `Content/`
-  otherwise; `AssetDatabase.Current` (rooted at the working directory — the app folder for games) fills
-  itself lazily on the first UID lookup. `Move(from, to)` moves a file and its meta and updates the map.
+  otherwise; `AssetDatabase.Current` (rooted at `ContentPaths.BaseDirectory` — the app folder, never the working
+  directory, since M3) fills itself lazily on the first UID lookup. `Move(from, to)` moves a file and its meta and updates the map.
 
 ## Versioning
 

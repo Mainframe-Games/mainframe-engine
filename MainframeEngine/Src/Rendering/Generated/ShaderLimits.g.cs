@@ -19,7 +19,7 @@ internal static class ShaderLimits
     /// <summary>Directional shadow maps (one per directional light).</summary>
     public const int MaxShadowDirectional = 4;
 
-    /// <summary>Spot shadow maps: one less than the spot lights, to fit MoltenVK's 16 fragment samplers (4 + 7 + 4 + 1 material texture).</summary>
+    /// <summary>Spot shadow maps: one less than the spot lights, to fit MoltenVK's 16 fragment samplers (4 + 7 + 4 + 1 material sampler shared by its textures, ADR 0019).</summary>
     public const int MaxShadowSpot = 7;
 
     /// <summary>Point shadow cube maps (six passes each).</summary>

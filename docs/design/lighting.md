@@ -36,8 +36,8 @@ that wrap these light objects and register them with their world's `LightEnviron
 
 `LightEnvironment` owns **no GPU resources**. The lights UBO is written through the shared
 `internal LightEnvironment.WriteUbo(Span<byte>, in Vector3 cameraPosition)` (size `LightEnvironment.UboSize`):
-once per frame into the shared set 0 by `FrameContext` (read by Spine, sky, grid), and per shape by `ShapeBase`
-(until the materials rewrite moves shapes to set 0). Unit tests pin the layout.
+once per frame (and view) into the shared set 0 by `FrameContext`, read by every lit pipeline (meshes, Spine).
+Unit tests pin the layout.
 
 ## Lights UBO
 
@@ -59,7 +59,8 @@ Shaders get the struct and the shading loop from `include/lights.glsl`.
 
 ## Shading model
 
-Implemented identically in `Shapes.vk.frag` and `SpineLit.vk.frag`:
+`lights.glsl` (`shadeLightsBlinnPhong`), used by `Mesh.vk.frag` with the material's specular strength and
+shininess and by `SpineLit.vk.frag` through `shadeLights` (strength 0.3, exponent 32):
 
 ```
 result = ambient · base
@@ -97,11 +98,10 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass
 
 ## Known issues
 
-- Shapes still upload their own 1200 B copy of the lights UBO per frame (the materials rewrite moves them to set 0).
 - Lights over the limit are dropped silently, with no warning.
 - Directional gizmo arrows are not projected through the camera.
 
 ## Related docs
 
 [Shadow system](shadow-system.md) · [Shaders](shaders.md) ·
-[Future: materials & meshes](future/materials-and-meshes.md) · [Color pipeline](color-pipeline.md)
+[Materials & meshes](materials-and-meshes.md) · [Color pipeline](color-pipeline.md)

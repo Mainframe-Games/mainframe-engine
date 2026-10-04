@@ -31,7 +31,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
     // From Content/Shaders/limits.json (generated ShaderLimits / include/limits.glsl). Spot: one less than
     // LightEnvironment.MaxSpot, because the fragment stage's sampler budget is 16 on MoltenVK
-    // (maxPerStageDescriptorSamplers) — 4 dir + 7 spot + 4 point + 1 material texture. The 8th spot light
+    // (maxPerStageDescriptorSamplers) — 4 dir + 7 spot + 4 point + 1 material sampler (ADR 0019). The 8th spot light
     // still lights, it just casts no shadow. Point: cube maps are expensive.
     public const int MaxShadowDir   = ShaderLimits.MaxShadowDirectional;
     public const int MaxShadowSpot  = ShaderLimits.MaxShadowSpot;

@@ -122,20 +122,21 @@ written back (temp file + rename) when the renderer is disposed.
 | Validation | The `VkPipelineCacheHeaderVersionOne` header must match the device (vendor, device, UUID); data the driver rejects is dropped; I/O errors are logged, never fatal |
 | Stats | `LoadedBytes` (0 on a cold start) — the render tests check a second run loads the first run's file |
 
-The render-test host keeps its cache under `artifacts/render-tests/pipeline-cache`. A state-hash
-cache of `VkPipeline` objects (shared by materials) is part of the M3 materials work.
+The render-test host keeps its cache under `artifacts/render-tests/pipeline-cache`. On top of it, mesh
+pipelines come from a state-hash `PipelineStateCache` (one `VkPipeline` per distinct material state, shader set,
+vertex layout and render pass) — see [Materials & meshes](materials-and-meshes.md#pipelines-pipelinestatecache).
 
 `ShaderModuleCache.Get(path)` loads each `.spv` once (resolved through `ContentPaths`, so the same file
 under two spellings is one module) and keeps it until the renderer is disposed.
 
 ## Known issues
 
-- Node-side shapes (`ShapeBase`, `Box3d`, `Quad`) still allocate their own memory, upload with
-  `vkQueueWaitIdle` and dispose with `vkDeviceWaitIdle`; they move onto these types with the
-  materials/mesh rewrite of `Src/Nodes`.
+- Since M3 every drawable goes through these types: the mesh renderer's vertex/index buffers, material UBOs
+  and textures, the per-frame instance buffer and picking readbacks. `GpuDeletion` also returns descriptor sets
+  to freeable pools (`GpuObjectKind.DescriptorSet`).
 - No defragmentation, aliasing or async-compute uploads (non-goals).
 
 ## Related docs
 
 [Vulkan renderer](vulkan-renderer.md) · [Color pipeline](color-pipeline.md) · [Shaders](shaders.md) ·
-[Testing](testing.md) · [Future: materials & meshes](future/materials-and-meshes.md)
+[Testing](testing.md) · [Materials & meshes](materials-and-meshes.md) · [Asset pipeline](asset-pipeline.md)

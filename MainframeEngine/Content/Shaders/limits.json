@@ -5,7 +5,7 @@
     { "glsl": "MAX_POINT_LIGHTS", "csharp": "MaxPointLights", "value": 16, "summary": "Point lights in the lights UBO." },
     { "glsl": "MAX_SPOT_LIGHTS", "csharp": "MaxSpotLights", "value": 8, "summary": "Spot lights in the lights UBO." },
     { "glsl": "MAX_SHADOW_DIR", "csharp": "MaxShadowDirectional", "value": 4, "summary": "Directional shadow maps (one per directional light)." },
-    { "glsl": "MAX_SHADOW_SPOT", "csharp": "MaxShadowSpot", "value": 7, "summary": "Spot shadow maps: one less than the spot lights, to fit MoltenVK's 16 fragment samplers (4 + 7 + 4 + 1 material texture)." },
+    { "glsl": "MAX_SHADOW_SPOT", "csharp": "MaxShadowSpot", "value": 7, "summary": "Spot shadow maps: one less than the spot lights, to fit MoltenVK's 16 fragment samplers (4 + 7 + 4 + 1 material sampler shared by its textures, ADR 0019)." },
     { "glsl": "MAX_SHADOW_POINT", "csharp": "MaxShadowPoint", "value": 4, "summary": "Point shadow cube maps (six passes each)." }
   ]
 }

@@ -42,7 +42,8 @@ flowchart LR
 | `common.glsl` | `PI`, `srgbToLinear`, `linearToSrgb`; includes `limits.glsl` | — |
 | `frame.glsl` | Set 0 binding 0 `FrameData` (camera, viewport, near/far, time, exposure), `linearizeDepth` | — |
 | `shadows.glsl` | Shadow set (matrices UBO, dir/spot comparison maps, point cube maps) and `sampleDirShadow/SpotShadow/PointShadow` | `SHADOW_SET` (default 1) |
-| `lights.glsl` | Lights UBO, Blinn-Phong per light, `shadeLights(base, N, worldPos)` (needs `shadows.glsl` first) | `LIGHTS_SET`/`LIGHTS_BINDING` (default 0/1) |
+| `lights.glsl` | Lights UBO, Blinn-Phong per light, `shadeLightsBlinnPhong(base, N, worldPos, specular, shininess)` and `shadeLights` (0.3, 32); `counts.w = 1` skips shadow maps (offscreen views) (needs `shadows.glsl` first) | `LIGHTS_SET`/`LIGHTS_BINDING` (default 0/1) |
+| `material.glsl` | `StandardMaterial3D` set 2 (parameters UBO, one sampler, albedo/normal/emission images), `materialUv/Albedo/Emission`, `materialNormal` (derivative tangent frame) | — |
 | `sky.glsl` | Sky push constants (`SkyParams`), `skyRay(ndc)` | — |
 
 ## Descriptor frequency model
@@ -51,21 +52,25 @@ flowchart LR
 |---|---|---|---|
 | 0 | per frame | b0 `FrameData` (368 B), b1 lights UBO (1200 B) | `FrameContext` (`IVulkanContext.Frame`) |
 | 1 | per frame | shadows (`shadows.glsl`) | `ShadowSystem` or the renderer's fallback |
-| 2+ | per material / object | textures | the drawer |
-| push | per draw | 128-byte vertex+fragment range: model matrix (+ extras) | the drawer |
+| 2 | per material | `StandardMaterial3D` (`material.glsl`); other drawers' textures (sky, Spine) | `MaterialGpu`, the drawer |
+| binding 1 (vertex input) | per instance | mesh instances: model matrix + object id (`MeshInstanceData`) | `MeshRenderer` instance buffer |
+| push | per draw | 128-byte vertex+fragment range: model matrix (+ extras) for non-batched drawers | the drawer |
 
 `FrameContext.Begin(camera, lights)` writes set 0 once per frame; renderer-owned drawers (sky, grid,
 Spine) call `EnsureCamera`/`EnsureLights` with the camera they were given, which write only if nothing
 has this frame. Pipeline layouts made with `FrameContext.CreatePipelineLayout` share set 0 (and set 1
-when they take shadows) and the push range, so they are compatible. Shapes (node code) still use their
-own sets 0–2; they adopt this model with the materials rewrite.
+when they take shadows) and the push range, so they are compatible. Every frame *view* (main view, offscreen
+`SubViewport`s) has its own set 0 copy (`FrameContext.SetView`). Meshes follow the model through the
+[mesh renderer](materials-and-meshes.md#descriptor-sets).
 
 ## In use
 
 | Shader | Loaded by | Inputs | Sets / bindings | Push constants |
 |---|---|---|---|---|
-| `Shapes/Shapes.vk.vert` | `ShapeBase` (`Box3d`, `Quad`) | 0 `vec3 pos`, 1 `vec2 uv` (unused), 2 `vec3 normal` | s0 b0 `ViewProjection{view, projection}` | `mat4 model; vec4 color` (80 B) |
-| `Shapes/Shapes.vk.frag` | same | world pos, normal | s1 b0 lights · s2 shadows (`LIGHTS_SET 1`, `SHADOW_SET 2`) | same block; colour decoded sRGB → linear |
+| `Mesh/Mesh.vk.vert` | `MeshRenderer` (all mesh pipelines) | 0 `vec3 pos`, 1 `vec3 normal`, 2 `vec2 uv`; instance 3–6 model rows, 7 `uint objectId` | s0 frame | — |
+| `Mesh/Mesh.vk.frag` | `MeshRenderer` (`MeshLit`) | world pos, normal, uv, id | s0 frame + lights · s1 shadows · s2 material | — ; specialization 0 `kAlphaMode` |
+| `Mesh/MeshId.vk.frag` | `MeshRenderer` (`MeshObjectId`) | same | s2 material (cutout) | — ; specialization 0 `kAlphaMode`; writes `uint` |
+| `Shadows/Shadow2DInstanced.vk.vert`, `ShadowPointInstanced.vk.vert` | `ShadowSystem` (instanced casters) | 0 `vec3`; instance 1–4 model rows | s0 b0 `LightVP` (dynamic offset) | point: `lightPosRange` at offset 64 |
 | `Spine/SpineLit.vk.vert` | `SpineRenderer` | 0 `vec3`, 1 `vec2`, 2 `vec4` | s0 frame | `mat4 model; vec4 worldNormal` |
 | `Spine/SpineLit.vk.frag` | same | uv, tint, world pos, normal | s0 frame + lights · s1 shadows · s2 b0 `sampler2D` | — ; specialization 0 `kPremultipliedTexture` |
 | `Shadows/Shadow2D.vk.vert/.frag` | `ShadowSystem` | 0 `vec3` | s0 b0 `LightVP{mat4}` (dynamic offset) | `mat4 model` (64 B). The frag shader is empty (depth only). |
@@ -79,7 +84,8 @@ own sets 0–2; they adopt this model with the materials rewrite.
 | `Post/Tonemap.vk.frag` | `VulkanRenderer` | `gl_FragCoord` | s0 b0 `sampler2D` HDR scene | `float exposure; uint encodeSrgb` (8 B) |
 | `ImGui/ImGui.vk.vert/.frag` | `VulkanImGuiController` | 0 `vec2`, 1 `vec2`, 2 `vec4` | s0 b0 `sampler2D fontSampler` (UNORM) | `vec2 scale; vec2 translate`; specialization 0 `kLinearizeColors` |
 
-The legacy OpenGL shaders and the unused `Quad.vk.*`/`Spine.vk.*` were deleted in M3.
+The legacy OpenGL shaders and the unused `Quad.vk.*`/`Spine.vk.*` were deleted in M3, and `Shapes/Shapes.vk.*`
+with `ShapeBase` (replaced by the mesh shaders).
 
 ## Constants that must match C#
 

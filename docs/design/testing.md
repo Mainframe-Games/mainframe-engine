@@ -27,7 +27,9 @@ indices, `ChooseUp`, the shadow-fallback matrix, `SpineNode` (scale setter, `Set
 SpineBoy is linked into the test output and a non-Vulkan `IRenderer` skips GPU work), `NetBuffer` round trips
 and the pool, `PeerId`/`NodeId`, `Log` filtering, camera matrices against
 [Coordinate conventions](coordinate-conventions.md), the 1200-byte std140 lights UBO (linear colours), the
-PNG codec, `VulkanValidationLog`, and since M3: the GPU allocator through a fake device (`FreeListBlock`
+PNG codec, `VulkanValidationLog`, the M3 meshes/materials suites
+([Materials & meshes](materials-and-meshes.md#testing): generators, bounds/culling, pipeline keys and cache, draw
+sorting, mesh/material/texture serialization, `.meta` import settings, the Assimp glTF import), and since M3: the GPU allocator through a fake device (`FreeListBlock`
 alignment, granularity, best fit, fragmentation/coalescing, randomised invariants; memory-type choice,
 dedicated path, block reuse and release, exhaustion fallback, stats), the staging ring (wrap-around,
 release), the deletion queue (frame ordering, zero allocation), `ContentPaths`, the generated shader
@@ -131,11 +133,16 @@ sequenceDiagram
   changes on frame 8), `physics` (crates and a ball dropped on a floor and ramp; Jitter2's deterministic solver on
   one thread so frames reproduce), `physics-debug` (the same with collision-shape debug lines, drawn into the HDR
   scene target with sRGB-authored colours converted to linear), `sky-grid` (only the procedural sky and the grid,
-  camera inside the grid so lines pass beside and behind it). Every host scene runs audio on the silent null
-  device.
+  camera inside the grid so lines pass beside and behind it), and since M3 `materials` (textured, cutout,
+  normal-mapped, emissive, mirrored and blended primitives), `gltf` (the generated glTF test model imported through
+  Assimp, plus a mirrored instance), `instances` (`--count` boxes, default 1 000, one mesh and material; self-checks
+  the batch statistics) and `picking` (object-ID picks in the main view and a `SubViewport` shown through ImGui;
+  self-checked). The lit and physics scenes use `MeshInstance3D`s with primitive meshes since M3 (the physics crates
+  share one `BoxMesh` and one material). Every host scene runs audio on the silent null device.
 - **Host hooks** (command line): `--resize WxH@frame`, `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
-  `result.json` records it), `--pipeline-cache dir`. Scene self-check failures are reported in
+  `result.json` records it), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (frame
+  times: average and p95 in `result.json`), `--no-validation`. Scene self-check failures are reported in
   `SceneCheckFailures`; `result.json` also records GPU allocator totals, shader-module count and the
   pipeline-cache bytes loaded. The runner points `MAINFRAME_PIPELINE_CACHE_DIR` at
   `artifacts/render-tests/pipeline-cache`.
@@ -151,7 +158,11 @@ sequenceDiagram
   `ProceduralSkyAndGridMatchTheReferenceMath` (`SkyGridReference` recomputes each pixel's sky colour and
   projects the grid lines on the CPU: every pixel > 2 px from a line must be the sky within ±3, and every
   line over the ground must be visibly drawn — driver-independent, so it runs on both drivers without
-  goldens). The multi-light test also asserts sub-allocation (≤ 16 `VkDeviceMemory`).
+  goldens), `MaterialFeaturesRenderCleanlyAndMatchGolden`, `ImportedGltfModelRendersAndMatchesGolden`,
+  `ThousandInstancesBatchIntoAFewDrawsAndMatchGolden`, `ObjectIdPickingAndSubViewportsWork`,
+  `TenThousandInstancesAllocateNothingPerFrame` (0 B over 120 frames with 10 000 instances) and
+  `TenThousandInstancesRenderAtSixtyFps` (validation off; < 16.7 ms enforced for Release builds). The
+  multi-light test also asserts sub-allocation (≤ 16 `VkDeviceMemory`).
 - **Comparing drivers at one resolution.** `--size 160x120` on a Retina Mac renders 320×240, the size of
   the lavapipe frames, so MoltenVK and lavapipe output can be diffed pixel for pixel.
 - **Window.** 320×240, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On a
@@ -245,7 +256,8 @@ real per-frame allocation repeats in every window, so it still fails the gate.
 ## Benchmarks
 
 `just bench` runs every benchmark (`NetBuffer` write/read, replication capture/encode/decode at 100 and 1000
-nodes, camera and model matrices, lights UBO packing, the scene tree: `ProcessTick10k`,
+nodes, camera and model matrices, lights UBO packing, the mesh draw list for 10k instances
+(`MeshDrawListBenchmarks`: build + sort opaque/transparent, instance writes), the scene tree: `ProcessTick10k`,
 `TransformPropagationDirtySubtree10k`, `GetNodePathLookup`, `SceneSaveLoadRoundTrip1k`; GPU allocator
 alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurvesAllModels`,
 `SpatialProjection32Emitters`, `ServerFrame32PositionalVoices`, `MixBlock480Frames32Voices`; physics:

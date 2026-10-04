@@ -75,4 +75,4 @@ classDiagram
 
 ## Related
 
-[Milestones](../../milestones.md) · [Vulkan renderer](../vulkan-renderer.md) · [Materials & meshes](materials-and-meshes.md)
+[Milestones](../../milestones.md) · [Vulkan renderer](../vulkan-renderer.md) · [Materials & meshes](../materials-and-meshes.md)

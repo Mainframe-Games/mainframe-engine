@@ -68,9 +68,10 @@ classDiagram
     Light3D <|-- DirectionalLight3D
     Light3D <|-- OmniLight3D
     Light3D <|-- SpotLight3D
-    VisualInstance3D <|-- ShapeBase
-    ShapeBase <|-- Box3d
-    ShapeBase <|-- Quad
+    VisualInstance3D <|-- GeometryInstance3D
+    GeometryInstance3D <|-- MeshInstance3D
+    GeometryInstance3D <|-- Sprite3D
+    SceneViewport <|-- SubViewport
     VisualInstance3D <|-- SpineNode
     VisualInstance3D <|-- Grid3D
     Node2D <|-- Camera2D
@@ -89,7 +90,9 @@ classDiagram
 | `VisualInstance3D`, `Camera3D`, `Light3D` (+3), `WorldEnvironment`, `Sky`, `Grid3D` | [Scene/Nodes3D/](../../MainframeEngine/Src/Scene/Nodes3D/) | render front-ends |
 | `Camera2D` | [Scene/Nodes2D/](../../MainframeEngine/Src/Scene/Nodes2D/) | |
 | `IServer`, `ServerRegistry`, `RenderServer` | [Servers/](../../MainframeEngine/Src/Servers/) | |
-| `ShapeBase`, `Box3d`, `Quad`, `SpineNode`, `NetworkNode` | [Nodes/](../../MainframeEngine/Src/Nodes/) | existing drawables, retargeted onto `VisualInstance3D` |
+| `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | batched mesh drawables — see [Materials & meshes](materials-and-meshes.md) |
+| `SubViewport` | [Scene/SubViewport.cs](../../MainframeEngine/Src/Scene/SubViewport.cs) | offscreen view with its own world |
+| `SpineNode`, `NetworkNode` | [Nodes/](../../MainframeEngine/Src/Nodes/) | existing drawables, retargeted onto `VisualInstance3D` |
 
 ## The tree
 
@@ -254,11 +257,18 @@ them in reverse order after the tree is freed.
 **`RenderServer`** draws a viewport's `World3D` with its active camera
 (`SceneViewport.ActiveCamera3D`, else `ActiveCamera2D`; aspect from the swapchain extent):
 
-- `RenderShadows(viewport)` — every shadow-casting, visible `VisualInstance3D` into every light's map
-  (`ShadowSystem.RenderShadows<TState>` with static lambdas).
+- `PrepareFrame(root)` (M3, before `BeginFrame`) — culls and sorts the world's `GeometryInstance3D`s (and every
+  `SubViewport`'s), creates/updates their GPU meshes, materials and textures, completes finished picks.
+- `RenderShadows(viewport)` — every shadow-casting, visible visual into every light's map
+  (`ShadowSystem.RenderShadows<TState>` with static lambdas): batched mesh casters as instanced draws, other
+  visuals through `DrawShadow2D`/`DrawShadowPoint`.
+- `RenderOffscreen(root)` (M3) — `SubViewport`s and object-ID picking passes, before the main pass.
 - `RenderMain(viewport)` — writes the frame's shared set 0 (`IVulkanContext.Frame.Begin(camera, World3D.Lights)`:
-  camera + lights, once per frame), then the `WorldEnvironment`'s sky, then visible visuals by `RenderPriority`
-  then tree-entry order, all into the HDR scene target ([Color pipeline](color-pipeline.md)).
+  camera + lights, once per frame), then the `WorldEnvironment`'s sky, visuals with a negative `RenderPriority`,
+  the opaque mesh batches, the other visuals by `RenderPriority` then tree-entry order, and the transparent mesh
+  batches back to front, all into the HDR scene target ([Color pipeline](color-pipeline.md)).
+- `PickAsync(x, y)` / `RequestPick` + `TryGetPickResult` — GPU picking ([Materials & meshes](materials-and-meshes.md#picking-object-ids));
+  `MeshStats`, `PipelineStates`, `ResidentResources` — diagnostics.
 - `ShadowsEnabled = false` runs without a `ShadowSystem` (lit pipelines bind the fallback set).
 - It tracks every GPU resource owner it created, so nodes removed but never freed are still released at
   shutdown.
@@ -268,7 +278,8 @@ them in reverse order after the tree is freed.
 | Node | Wraps | Notes |
 |---|---|---|
 | `VisualInstance3D` | — | registers with `World3D` while in a tree; creates GPU objects through the server on first enter (or lazily at the first draw); releases them on `Free` or server shutdown; `CastShadows`, `RenderPriority` |
-| `Box3d`, `Quad` (`ShapeBase`) | lit flat-colored meshes | pipeline per instance until M3's `MeshInstance3D` |
+| `MeshInstance3D`, `Sprite3D` (`GeometryInstance3D`) | `MeshRenderer` | `Mesh`, `MaterialOverride`; never drawn one by one: culled, sorted and batched into instanced draws (M3, [Materials & meshes](materials-and-meshes.md)) |
+| `SubViewport` | its own `World3D`, offscreen targets | rendered before the main pass; picking; `ImGuiTextureId` |
 | `SpineNode` | `SpineRenderer` | `Folder`, `Animation` (played on load), `SpineScale`; skeleton data loads on the CPU on first use |
 | `Grid3D` | `SceneGrid3d` | debug/editor grid: no shadows, `RenderPriority` -100 |
 | `Camera3D` | `PerspectiveCamera` | `Current`, `Fov`, `Near`, `Far`; looks along `-Z`; `RenderCamera` is the synced math camera |
@@ -290,10 +301,8 @@ without a tree (Examples/SpineExamples).
 
 ## Known issues
 
-- Each `ShapeBase` still builds its own pipeline and descriptor sets (fixed by M3 materials/meshes,
-  which also replaces `Box3d`/`Quad` with `MeshInstance3D`).
-- The tree root is the only viewport; sub-viewports (editor scene views) and 2D rendering come later
-  (M8/M10). `Camera2D` renders 3D visuals orthographically.
+- `SubViewport`s render 3D only, without shadows; 2D rendering comes later (M8). `Camera2D` renders 3D visuals
+  orthographically.
 - Euler angles use X→Y→Z order (engine legacy), not Godot's Y→X→Z.
 - Re-sorting a process list after a structural change is O(n log n); spawning every frame in a very large
   tree pays it each frame.
@@ -302,5 +311,5 @@ without a tree (Examples/SpineExamples).
 
 [Scene serialization](scene-serialization.md) · [Engine lifecycle](engine-lifecycle.md) ·
 [Spine](spine.md) · [Lighting](lighting.md) · [Cameras & input](cameras-and-input.md) ·
-[Shadow system](shadow-system.md) · [Future: materials & meshes](future/materials-and-meshes.md) ·
+[Shadow system](shadow-system.md) · [Materials & meshes](materials-and-meshes.md) ·
 [Future: editor](future/editor.md)

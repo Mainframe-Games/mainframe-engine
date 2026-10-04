@@ -56,7 +56,9 @@ awake (`caffeinate -u -t 600 &`).
 - `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`
 - `MainframeEngine/Src/Scene/` — Godot-style node tree: `Node`, `SceneTree`, `Node3D`/`Node2D`, transforms, `NodePath`,
   camera/light/sky/grid nodes (`Nodes3D/`, `Nodes2D/`), input events
-- `MainframeEngine/Src/Nodes/` — drawable/network nodes: `SpineNode`, `ShapeBase`/`Box3d`/`Quad`, `NetworkNode`
+- `MainframeEngine/Src/Nodes/` — drawable/network nodes: `SpineNode`, `NetworkNode` (meshes: `Scene/Nodes3D/GeometryInstance3D.cs`)
+- `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;
+  `MeshRenderer` batching, `PipelineStateCache`, picking, sub-viewports; `Src/Resources/Import/` — texture/model (Assimp) importers
 - `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`
 - `MainframeEngine/Src/Audio/` — `AudioServer` (SoundFlow; null device when there is no audio device), buses,
   `AudioStream`, audio nodes (`AudioPlayer`/`2D`/`3D`, `AudioListener3D`); audio-thread code in `Graph/`, lock-free
@@ -108,7 +110,7 @@ override (frees the scene tree, disposes servers, then renderer, ImGui, input; k
 ### Nodes, servers and scenes
 
 There is no `Node.Initialize`: nodes reach engine servers through `Tree.Servers` (`RenderServer` is
-registered in `base.OnLoad()`). Visual nodes (`VisualInstance3D`: `Box3d`, `Quad`, `SpineNode`, `Grid3D`)
+registered in `base.OnLoad()`). Visual nodes (`VisualInstance3D`: `MeshInstance3D`, `Sprite3D`, `SpineNode`, `Grid3D`)
 create their GPU objects through the render server when they enter the tree and release them when freed;
 lights (`DirectionalLight3D`, `OmniLight3D`, `SpotLight3D`), cameras (`Camera3D`) and the sky
 (`WorldEnvironment` + `Sky`) are nodes too. Node constructors must stay cheap and side-effect free (the

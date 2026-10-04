@@ -2,7 +2,7 @@
 
 **Milestone:** M10 · **Status:** ⬜ planned · **New project:** `MainframeEngine.Editor` (exe) →
 references `MainframeEngine` · **Depends on:** [Node system](../scene-graph-and-nodes.md),
-[Scene serialization](../scene-serialization.md), [Materials & meshes](materials-and-meshes.md) (render
+[Scene serialization](../scene-serialization.md), [Materials & meshes](../materials-and-meshes.md) (render
 targets), [Game UI (RmlUi)](game-ui.md), [SDL windowing](../build-and-platforms.md#windowing-sdl2)
 
 ## Problem
@@ -149,7 +149,7 @@ sequenceDiagram
 
 - **Render target:** each viewport owns color, depth and an **object-ID target** (`R32_UINT`, the
   node's `NodeId`). This needs offscreen render-target support from
-  [M3](materials-and-meshes.md). The color target is registered with `UiServer` as a texture handle,
+  [M3](../materials-and-meshes.md#offscreen-views-subviewport). The color target is registered with `UiServer` as a texture handle,
   and the `<viewport>` element draws it.
 - **Editor camera:** independent of the scene's `Camera3D`.
   - Fly: hold RMB + WASD/QE, like the Sandbox.
@@ -209,7 +209,7 @@ sequenceDiagram
 | Change | Where | Reason |
 |---|---|---|
 | Multiple worlds per process (`World3D` instances) | [Node system](../scene-graph-and-nodes.md#servers-and-render-nodes) | edited scene separate from editor UI |
-| Offscreen render targets + object-ID pass | [Materials & meshes](materials-and-meshes.md) / RenderServer | viewport and picking |
+| Offscreen render targets + object-ID pass | [Materials & meshes](../materials-and-meshes.md) / RenderServer | viewport and picking |
 | `UiServer` can wrap an engine texture as an RmlUi texture | [Game UI](game-ui.md) | `<viewport>` element |
 | `ILogSink` on `Log` | `Debugging/Log.cs` | Output panel and debug channel |
 | `GameHost` + `project.mfproj` | core | play mode and shipping games without a subclass |
@@ -249,4 +249,4 @@ sequenceDiagram
 ## Related
 
 [Milestones](../../milestones.md) · [Node system](../scene-graph-and-nodes.md) · [Scene serialization](../scene-serialization.md) ·
-[Game UI](game-ui.md) · [Materials & meshes](materials-and-meshes.md) · [SDL windowing](../build-and-platforms.md#windowing-sdl2)
+[Game UI](game-ui.md) · [Materials & meshes](../materials-and-meshes.md) · [SDL windowing](../build-and-platforms.md#windowing-sdl2)

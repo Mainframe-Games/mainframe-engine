@@ -78,8 +78,12 @@ test (directional + spot + point) checks the ring contents after recording and c
 | `_pipe2D_S32`, `_pipe2D_S12` | `Shadow2DLayout` (set 0 = light VP, dynamic UBO) | 64 B `mat4 model` (vertex) | `Shadow2D.vk.*` |
 | `_pipePoint_S32`, `_pipePoint_S12` | `ShadowPointLayout` (set 0 = light VP, dynamic UBO) | 80 B `mat4 model + vec4 lightPosRange` (vertex + fragment) | `ShadowPoint.vk.*` |
 
-`S12`/`S32` is the vertex stride: Spine uses 12 (positions only), `Box3d` and `Quad` use 32
-(pos3 · uv2 · normal3).
+`S12`/`S32` is the vertex stride: Spine uses 12 (positions only); 32 is the mesh vertex (`MeshVertex`,
+position first). Batched meshes use the **instanced caster pipelines** instead —
+`GetInstancedCasterPipeline(point, cull, mirrored)` (built on first use: positions at binding 0, the instance's
+model matrix at binding 1, `Shadow2DInstanced`/`ShadowPointInstanced.vk.vert`, the same layouts; point passes push
+`lightPosRange` at offset 64), one draw per (cull, mirrored, mesh surface) run — see
+[Materials & meshes](materials-and-meshes.md#record).
 Only location 0 (`vec3`) is read. Use the accessors `GetShadow2DPipeline(stride)` and
 `GetShadowPointPipeline(stride)`.
 
@@ -88,8 +92,9 @@ negative-height viewport, which keeps CCW = front; the shadow passes use a stand
 mirrors the winding, so geometric front faces (facing the light) arrive clockwise. The shadow pipelines
 therefore use `FrontFace = Clockwise` and `CullMode = Back`: back faces are culled and the static depth
 bias (constant 1.25, slope 1.75) handles acne. (Before M1 this was `CCW + cull Front` — identical
-rasterisation, mislabelled as "Peter Pan" front-face culling.) Single-sided casters (Spine sprites,
-`Quad`) cast only from their front side. Depth `Less`, dynamic viewport and scissor.
+rasterisation, mislabelled as "Peter Pan" front-face culling.) Single-sided casters (Spine sprites, quads and
+planes) cast only from their front side; double-sided materials cast with culling disabled, and mirrored instances
+use a counter-clockwise front face. Depth `Less`, dynamic viewport and scissor.
 
 ### Samplers (immutable)
 
@@ -122,7 +127,7 @@ same queue.
 
 ### Without a `ShadowSystem`
 
-Shadows are optional. Without a shadow system (`RenderServer.ShadowsEnabled = false`, or tree-less nodes), lit pipelines (Shapes, SpineLit)
+Shadows are optional. Without a shadow system (`RenderServer.ShadowsEnabled = false`, or tree-less nodes), lit pipelines (meshes, SpineLit)
 still declare **the same set indices** and bind the renderer's `ShadowFallback` as set 2: the same
 layout (built by the shared `CreateMainSetLayout`), 1×1 depth maps (2D and cube) cleared to 1.0, and
 light-space matrices that map every position to depth 2 — outside the [0, 1] range the shaders treat as
@@ -168,7 +173,7 @@ Every sub-pass clears depth to 1, sets an **unflipped** viewport, and binds the 
 its own dynamic offset. Directional and spot lights use `ChooseUp` (world up, or +Z when the light is
 within ~8° of vertical, where `CreateLookAt` would degenerate). Nodes
 generally ignore the pipeline and layout arguments and fetch the right pipeline through the accessors
-(see `Box3d.DrawShadow2D`).
+(see `SpineNode.DrawShadow2D`); batched meshes are drawn by the render server's mesh renderer in the same callbacks.
 
 ## Sampling in the main pass
 
@@ -181,7 +186,7 @@ Only the first `min(count, MAX_SHADOW_*)` lights of each type sample a map; the 
 
 ## Invariants
 
-- C# constants and the `MAX_SHADOW_*` defines in `Shapes.vk.frag` and `SpineLit.vk.frag` must match.
+- C# constants and the `MAX_SHADOW_*` defines (generated from `limits.json`) must match.
   Recompile the `.spv` files after editing.
 - Keep the total sampler count per stage ≤ 16 for MoltenVK.
 - Shadow casters must pick the pipeline that matches their vertex stride.

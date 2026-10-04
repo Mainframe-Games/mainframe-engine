@@ -27,7 +27,11 @@ animation, debug grids/gizmos, and early networking and Steam wrappers.
 |---|---|---|
 | `Core/` | `Engine`, `EngineOptions`, `GameTime`, `FPSCounter`, `ExitCode`, `RenderingBackend` | [Engine lifecycle](engine-lifecycle.md) |
 | `Scene/` | `Node`, `SceneTree`, `SceneViewport`, `World3D`, `Node3D`/`Node2D`, `Transform3D`/`Transform2D`, `NodePath`, `NodeId`, `Timer`; `Nodes3D/` (`VisualInstance3D`, `Camera3D`, lights, `WorldEnvironment`, `Grid3D`), `Nodes2D/` (`Camera2D`), `Input/` | [Scene graph & nodes](scene-graph-and-nodes.md) |
-| `Nodes/` | `SpineNode`, `NetworkNode`, `Shapes/` (`ShapeBase`, `Box3d`, `Quad`) | [Scene graph & nodes](scene-graph-and-nodes.md) |
+| `Nodes/` | `SpineNode`, `NetworkNode` | [Scene graph & nodes](scene-graph-and-nodes.md) |
+| `Scene/Nodes3D/GeometryInstance3D.cs`, `Scene/SubViewport.cs` | `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D`, `SubViewport` | [Materials & meshes](materials-and-meshes.md) |
+| `Rendering/Resources/` | `Mesh`/`ArrayMesh`/`MeshSurface`, primitive meshes, `StandardMaterial3D`, `Texture2D` | [Materials & meshes](materials-and-meshes.md) |
+| `Rendering/Meshes/` | `MeshRenderer` (batching), `PipelineStateCache`, `DrawList`, `Aabb`/`Frustum`, picking, sub-viewport compositor | [Materials & meshes](materials-and-meshes.md) |
+| `Resources/Import/` | `AssetImporters`, `TextureImporter`, `ModelImporter` (Assimp) | [Asset pipeline](asset-pipeline.md) |
 | `Servers/` | `IServer`, `ServerRegistry`, `RenderServer` | [Scene graph & nodes](scene-graph-and-nodes.md#servers-and-render-nodes) |
 | `Resources/` | `Resource`, `PackedScene`, `ResourceLoader`, `SceneSaver`/`ResourceSaver`, `AssetDatabase`, `AssetUid` | [Scene serialization](scene-serialization.md) |
 | `Serialization/` | attributes, `TypeRegistry`, `NodeTypeInfo`, codecs, scene reader/writer | [Scene serialization](scene-serialization.md) |
