@@ -114,6 +114,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 
         if (camera is not null)
             ImGuiCoordGizmo.DrawCoordinateGizmo(camera.RenderCamera);
+        RendererDebugWindow.Draw(Renderer); // exposure, GPU memory, uploads, pipeline cache
     }
 
     protected override void OnFrameCaptured(FrameCapture capture)

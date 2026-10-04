@@ -21,6 +21,7 @@ layout(push_constant) uniform PushConstants {
 
 void main()
 {
+    // The shape colour is sRGB-authored (System.Drawing.Color); light it in linear space.
     vec3 N = normalize(inNormal);
-    outColor = vec4(shadeLights(pc.color.xyz, N, inWorldPos), 1.0);
+    outColor = vec4(shadeLights(srgbToLinear(pc.color.xyz), N, inWorldPos), 1.0);
 }

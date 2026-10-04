@@ -51,6 +51,8 @@ public class LightEnvironmentTests
         Assert.Single(env.SpotLights);
     }
 
+    private static float L(float srgb) => ColorSpace.SrgbToLinear(srgb);
+
     [Fact]
     public void HeaderHoldsAmbientCameraAndCounts()
     {
@@ -62,7 +64,8 @@ public class LightEnvironmentTests
 
         var (f, i) = Pack(env, new Vector3(4, 5, 6));
 
-        Assert.Equal([0.1f, 0.2f, 0.3f, 0f], f[0..4]);
+        // sRGB-authored colours are packed linear.
+        Assert.Equal([L(0.1f), L(0.2f), L(0.3f), 0f], f[0..4]);
         Assert.Equal([4f, 5f, 6f, 0f], f[4..8]);
         Assert.Equal([1, 1, 2, 0], i[8..12]);
     }
@@ -87,10 +90,10 @@ public class LightEnvironmentTests
         var (f, _) = Pack(env);
 
         var dir = HeaderFloats;
-        Assert.Equal([0f, -1f, 0f, 0.5f, 1f, 0.5f, 0.25f, 0f], f[dir..(dir + DirFloats)]);
+        Assert.Equal([0f, -1f, 0f, 0.5f, 1f, L(0.5f), L(0.25f), 0f], f[dir..(dir + DirFloats)]);
 
         var point = HeaderFloats + LightEnvironment.MaxDirectional * DirFloats;
-        Assert.Equal([1f, 2f, 3f, 7f, 0.1f, 0.2f, 0.3f, 2f], f[point..(point + PointFloats)]);
+        Assert.Equal([1f, 2f, 3f, 7f, L(0.1f), L(0.2f), L(0.3f), 2f], f[point..(point + PointFloats)]);
 
         var spot = point + LightEnvironment.MaxPoint * PointFloats;
         Assert.Equal([-1f, 4f, 2f, 15f, 0f, -1f, 0f, 3f, 1f, 1f, 1f], f[spot..(spot + 11)]);

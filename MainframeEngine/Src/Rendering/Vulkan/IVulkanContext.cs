@@ -17,9 +17,19 @@ public interface IVulkanContext
     /// <summary>Frames the CPU may record ahead of the GPU; per-frame resources come in this many copies.</summary>
     const int MaxFramesInFlight = 2;
 
+    /// <summary>
+    /// Exposure the renderer starts with. Calibrated (ADR "ACES fitted tonemap") so a white surface lit at about
+    /// 0.75 shows as bright as it did before the HDR pipeline; ACES' toe and shoulder then do the rest.
+    /// </summary>
+    const float DefaultExposure = 1.3f;
+
     Vk Vk { get; }
     Device Device { get; }
     PhysicalDevice PhysicalDevice { get; }
+    /// <summary>
+    /// The HDR scene pass (<see cref="SceneTarget"/>: <c>R16G16B16A16_SFLOAT</c> colour + depth). Scene pipelines
+    /// (sky, grid, shapes, Spine, meshes) are built against it and write linear colour.
+    /// </summary>
     RenderPass RenderPass { get; }
     CommandPool CommandPool { get; }
     Queue GraphicsQueue { get; }
@@ -45,10 +55,32 @@ public interface IVulkanContext
     /// <summary>The acquired swapchain image. Do not key per-frame resources by it; use <see cref="FrameSlot"/>.</summary>
     uint CurrentImageIndex { get; }
 
+    /// <summary>The scene target's framebuffer (the scene pass renders offscreen; see <see cref="SceneTarget"/>).</summary>
     Framebuffer CurrentFramebuffer { get; }
 
-    /// <summary>Begins the main render pass. Called by Engine after shadow passes complete.</summary>
+    /// <summary>Begins the main (HDR scene) render pass. Called by Engine after shadow passes complete.</summary>
     void BeginRenderPass();
+
+    /// <summary>The offscreen HDR scene target (colour + depth), sized to the swapchain.</summary>
+    RenderTarget SceneTarget { get; }
+
+    /// <summary>
+    /// The pass UI is drawn in after tonemapping (ImGui): it targets the swapchain image in the encoding the UI was
+    /// authored for. Build overlay pipelines against it.
+    /// </summary>
+    RenderPass OverlayRenderPass { get; }
+
+    /// <summary>
+    /// True when the overlay target encodes linear → sRGB on write, so sRGB-authored overlay colours must be
+    /// linearised in the shader; false when they are written as-is (the usual case).
+    /// </summary>
+    bool OverlayEncodesSrgb { get; }
+
+    /// <summary>
+    /// Ends the scene pass, tonemaps it into the swapchain and begins the overlay pass. Idempotent; EndFrame does it
+    /// when nobody else did.
+    /// </summary>
+    void BeginOverlayPass();
 
     /// <summary>Validation-layer warnings and errors reported since startup (or the last reset).</summary>
     VulkanValidationLog Validation { get; }

@@ -29,14 +29,38 @@ public class LightEnvironment
     private const int PointStride       = 32; // vec4 position+range, vec4 color+intensity
     private const int SpotStride        = 64; // vec4 position+range, vec4 direction+intensity, vec4 color+cosInner, vec4 cosOuter
 
-    public Vector3 AmbientColor { get; set; } = new(0.08f, 0.08f, 0.10f);
+    private Vector3 _ambientColor;
+    private Vector3 _ambientLinear;
+
+    /// <summary>Ambient light colour as authored (sRGB); the UBO carries it converted to linear.</summary>
+    public Vector3 AmbientColor
+    {
+        get => _ambientColor;
+        set
+        {
+            _ambientColor = value;
+            _ambientLinear = ColorSpace.SrgbToLinear(value);
+        }
+    }
+
+    /// <summary>
+    /// Default ambient (sRGB). Linear ≈ (0.04, 0.04, 0.05): with the ACES tonemap, unlit surfaces read about as
+    /// bright as the old gamma-space default of (0.08, 0.08, 0.10) did.
+    /// </summary>
+    public static readonly Vector3 DefaultAmbientColor = new(0.22f, 0.22f, 0.25f);
+
+    public LightEnvironment()
+    {
+        AmbientColor = DefaultAmbientColor;
+    }
     internal List<DirectionalLight> DirectionalLights { get; } = [];
     internal List<PointLight> PointLights { get; } = [];
     internal List<SpotLight> SpotLights { get; } = [];
 
     /// <summary>
     /// Packs the lights into <paramref name="destination"/> using the std140 layout described by
-    /// <see cref="UboSize"/>. Lights beyond the per-type maximum are ignored; unused slots are zeroed.
+    /// <see cref="UboSize"/>. Lights beyond the per-type maximum are ignored; unused slots are zeroed. Colours are
+    /// written linear (<see cref="Light.LinearColor"/>): the shaders light in linear space.
     /// </summary>
     internal void WriteUbo(Span<byte> destination, in Vector3 cameraPosition)
     {
@@ -53,7 +77,7 @@ public class LightEnvironment
         int numSpot  = Math.Min(SpotLights.Count,        MaxSpot);
 
         // Header
-        f[0] = AmbientColor.X; f[1] = AmbientColor.Y; f[2] = AmbientColor.Z;
+        f[0] = _ambientLinear.X; f[1] = _ambientLinear.Y; f[2] = _ambientLinear.Z;
         f[4] = cameraPosition.X; f[5] = cameraPosition.Y; f[6] = cameraPosition.Z;
         i[8] = numDir; i[9] = numPoint; i[10] = numSpot;
 
@@ -63,7 +87,7 @@ public class LightEnvironment
             var l = DirectionalLights[n];
             f[o + 0] = l.Direction.X; f[o + 1] = l.Direction.Y; f[o + 2] = l.Direction.Z;
             f[o + 3] = l.Intensity;
-            f[o + 4] = l.Color.X; f[o + 5] = l.Color.Y; f[o + 6] = l.Color.Z;
+            f[o + 4] = l.LinearColor.X; f[o + 5] = l.LinearColor.Y; f[o + 6] = l.LinearColor.Z;
         }
 
         o = (UboHeaderSize + MaxDirectional * DirectionalStride) / sizeof(float);
@@ -72,7 +96,7 @@ public class LightEnvironment
             var l = PointLights[n];
             f[o + 0] = l.Position.X; f[o + 1] = l.Position.Y; f[o + 2] = l.Position.Z;
             f[o + 3] = l.Range;
-            f[o + 4] = l.Color.X; f[o + 5] = l.Color.Y; f[o + 6] = l.Color.Z;
+            f[o + 4] = l.LinearColor.X; f[o + 5] = l.LinearColor.Y; f[o + 6] = l.LinearColor.Z;
             f[o + 7] = l.Intensity;
         }
 
@@ -84,7 +108,7 @@ public class LightEnvironment
             f[o + 3] = l.Range;
             f[o + 4] = l.Direction.X; f[o + 5] = l.Direction.Y; f[o + 6] = l.Direction.Z;
             f[o + 7] = l.Intensity;
-            f[o + 8] = l.Color.X; f[o + 9] = l.Color.Y; f[o + 10] = l.Color.Z;
+            f[o + 8] = l.LinearColor.X; f[o + 9] = l.LinearColor.Y; f[o + 10] = l.LinearColor.Z;
             f[o + 11] = float.Cos(float.DegreesToRadians(l.InnerConeAngle));
             f[o + 12] = float.Cos(float.DegreesToRadians(l.OuterConeAngle));
         }

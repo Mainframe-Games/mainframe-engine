@@ -31,5 +31,6 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
         ImGui.End();
 
         ImGuiCoordGizmo.DrawCoordinateGizmo(Camera.RenderCamera);
+        RendererDebugWindow.Draw(Renderer);
     }
 }

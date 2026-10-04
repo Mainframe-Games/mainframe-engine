@@ -111,11 +111,11 @@ internal sealed class SpineRenderer : IDisposable
             var attachment = slot.Attachment;
             if (attachment is null) continue;
 
+            // Straight (non-premultiplied) sRGB tint: premultiplied alpha is handled once, in SpineLit.vk.frag.
             var tintA = _skeleton.A * slot.A;
-            var alpha = _pma ? tintA : 1;
-            var tintR = _skeleton.R * slot.R * alpha;
-            var tintG = _skeleton.G * slot.G * alpha;
-            var tintB = _skeleton.B * slot.B * alpha;
+            var tintR = _skeleton.R * slot.R;
+            var tintG = _skeleton.G * slot.G;
+            var tintB = _skeleton.B * slot.B;
 
             switch (attachment)
             {
@@ -358,12 +358,14 @@ internal sealed class SpineRenderer : IDisposable
         _shadowDescriptors = ShadowFallback.Resolve(_shadowSystem, ctx);
 
         // --- Textures (uploaded by the upload queue at the start of the next frame) ---
+        // Straight-alpha atlases are sRGB images (decoded by the sampler). Premultiplied atlases were multiplied in
+        // sRGB space, so they are stored UNORM and the shader un-premultiplies, decodes and re-premultiplies.
+        var colorSpace = _pma ? TextureColorSpace.Linear : TextureColorSpace.Srgb;
         _textures = new GpuTexture[texCount];
         for (int t = 0; t < texCount; t++)
         {
             var (pixels, width, height) = imageData[t];
-            _textures[t] = GpuTexture.Create2D(ctx, (uint)width, (uint)height, pixels, TextureColorSpace.Linear,
-                TextureSampling.LinearClamp);
+            _textures[t] = GpuTexture.Create2D(ctx, (uint)width, (uint)height, pixels, colorSpace, TextureSampling.LinearClamp);
         }
 
         // --- Set 2: one combined image sampler per atlas page ---
@@ -393,9 +395,15 @@ internal sealed class SpineRenderer : IDisposable
             new() { Location = 2, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32A32Sfloat, Offset = 20 },
         ];
 
-        var state = new PipelineState { DepthTest = true, DepthWrite = true, Blend = BlendMode.Alpha };
+        // The fragment shader outputs premultiplied colour for both atlas kinds (constant 0 = atlas is PMA).
+        var premultiplied = _pma ? 1u : 0u;
+        var entry = new SpecializationMapEntry { ConstantID = 0, Offset = 0, Size = sizeof(uint) };
+        var specialization = new SpecializationInfo { MapEntryCount = 1, PMapEntries = &entry, DataSize = sizeof(uint), PData = &premultiplied };
+
+        var state = new PipelineState { DepthTest = true, DepthWrite = true, Blend = BlendMode.Premultiplied };
         _pipeline = PipelineBuilder.Create(ctx, state, _pipelineLayout, ctx.RenderPass,
-            "Shaders/Spine/SpineLit.vk.vert.spv", "Shaders/Spine/SpineLit.vk.frag.spv", bindings, attributes, "Spine");
+            "Shaders/Spine/SpineLit.vk.vert.spv", "Shaders/Spine/SpineLit.vk.frag.spv", bindings, attributes, "Spine",
+            &specialization);
     }
 
     #endregion

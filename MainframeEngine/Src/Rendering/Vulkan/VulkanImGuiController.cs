@@ -9,7 +9,8 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Vulkan ImGui renderer. Must be created after the Vulkan renderer is initialized.
-/// Call Update() each frame before game OnImGui, then Render() inside the render pass — or
+/// Call Update() each frame before game OnImGui, then Render() after the main pass (it moves the renderer to the
+/// overlay pass: after tonemapping, in the swapchain's encoding) — or
 /// DiscardFrame() when no frame is rendered, so every NewFrame is paired with Render/EndFrame.
 /// </summary>
 /// <remarks>
@@ -93,6 +94,9 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
 
         ImGui.SetCurrentContext(_imguiCtx);
         ImGui.Render();
+
+        // After tonemapping, straight into the swapchain image (the UI is authored in sRGB, not scene light).
+        _ctx.BeginOverlayPass();
         RenderDrawData(ImGui.GetDrawData());
     }
 
@@ -328,9 +332,14 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         ];
 
         // Straight alpha, no depth: ImGui's expected output.
+        // Specialization constant 0: linearise the sRGB-authored colours when the overlay target encodes sRGB.
+        var linearize = _ctx.OverlayEncodesSrgb ? 1u : 0u;
+        var entry = new SpecializationMapEntry { ConstantID = 0, Offset = 0, Size = sizeof(uint) };
+        var specialization = new SpecializationInfo { MapEntryCount = 1, PMapEntries = &entry, DataSize = sizeof(uint), PData = &linearize };
+
         _pipeline = PipelineBuilder.Create(_ctx, new PipelineState { Blend = BlendMode.Alpha }, _pipelineLayout,
-            _ctx.RenderPass, "Shaders/ImGui/ImGui.vk.vert.spv", "Shaders/ImGui/ImGui.vk.frag.spv",
-            bindings, attributes, "ImGui");
+            _ctx.OverlayRenderPass, "Shaders/ImGui/ImGui.vk.vert.spv", "Shaders/ImGui/ImGui.vk.frag.spv",
+            bindings, attributes, "ImGui", &specialization);
     }
 
     #endregion

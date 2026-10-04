@@ -1,4 +1,5 @@
 using MainframeEngine.RenderTests.Host;
+using MainframeEngine.RenderTests.Host.Scenes;
 
 [assembly: Xunit.v3.Parallelization(Mode = Xunit.Sdk.ParallelMode.None)] // one GPU, one window at a time
 
@@ -106,6 +107,39 @@ public class SceneTests
         Assert.True(warm.PipelineCacheLoadedBytes > 0, "The second run did not load the pipeline cache written by the first.");
         Assert.Single(Directory.GetFiles(cacheDir, "pipelines-*.bin"));
         Gates.AssertValidationClean(warm);
+    }
+
+    [Fact]
+    public void HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath()
+    {
+        var result = HostRunner.Run("color-pipeline", Output("color-pipeline"), "--capture", "4,12", "--hidden");
+        Gates.AssertValidationClean(result);
+
+        foreach (var (frame, exposure) in new[] { (4u, IVulkanContext.DefaultExposure), (12u, ColorPipelineScene.SecondExposure) })
+        {
+            var image = Png.ReadRgba8(result.Captures.Single(c => c.Frame == frame).Path);
+            var scale = image.Width / 320f; // HiDPI: ImGui works in points, the capture is in pixels
+
+            // Scene: sRGB texture → linear (sampler) → × exposure → ACES → sRGB (swapchain view or shader).
+            var c = ColorPipelineScene.SkyColor;
+            var linear = ColorSpace.SrgbToLinear(new System.Numerics.Vector3(c[0], c[1], c[2]) / 255f);
+            var expected = ColorSpace.LinearToSrgb(ColorSpace.AcesFitted(linear * exposure)) * 255f;
+            AssertPixel(image, image.Width / 2, image.Height * 3 / 4, expected, 2, $"scene, exposure {exposure}");
+
+            // Overlay: written as authored, blended in sRGB space like before the HDR pipeline.
+            var o = ColorPipelineScene.OverlayColor;
+            AssertPixel(image, (int)(35 * scale), (int)(35 * scale), new System.Numerics.Vector3(o.X, o.Y, o.Z) * 255f, 1, "opaque ImGui colour");
+            AssertPixel(image, (int)(95 * scale), (int)(35 * scale), new System.Numerics.Vector3(127.5f), 2, "50% white over black (sRGB blend)");
+        }
+    }
+
+    private static void AssertPixel(PngImage image, int x, int y, System.Numerics.Vector3 expected, float tolerance, string what)
+    {
+        var i = (y * image.Width + x) * 4;
+        var actual = new System.Numerics.Vector3(image.Pixels[i], image.Pixels[i + 1], image.Pixels[i + 2]);
+        var delta = System.Numerics.Vector3.Abs(actual - expected);
+        Assert.True(delta.X <= tolerance && delta.Y <= tolerance && delta.Z <= tolerance,
+            $"{what}: pixel ({x},{y}) is {actual}, expected {expected} ±{tolerance}.");
     }
 
     [Fact]

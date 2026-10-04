@@ -16,7 +16,7 @@ namespace MainframeEngine;
 /// Vulkan rendering backend.
 /// Implements IVulkanContext so shapes can record draw commands into the active command buffer.
 /// </summary>
-internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
+internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
 {
     private readonly IWindow _window;
 
@@ -36,14 +36,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private Format _swapChainImageFormat;
     private Extent2D _swapChainExtent;
 
-    // image views + render pass + framebuffers
-    private ImageView[]? _swapChainImageViews;
-    private RenderPass _renderPass;
-    private Silk.NET.Vulkan.Framebuffer[]? _swapChainFramebuffers;
-
-    // depth buffer
-    private Format _depthFormat;
-    private GpuImage? _depthImage;
+    // Passes, views, framebuffers and the HDR scene target: VulkanRenderer.Presentation.cs
 
     // GPU memory, uploads and deferred destruction (created right after the device)
     private GpuAllocator? _allocator;
@@ -52,7 +45,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private PipelineCache? _pipelineCache;
     private ShaderModuleCache? _shaderModules;
     private FrameContext? _frameContext;
-    private float _exposure = DefaultExposure;
+    private float _exposure = IVulkanContext.DefaultExposure;
     private ulong _frameNumber;                                      // frames that started recording (1-based)
     private readonly ulong[] _slotFrameNumber = new ulong[MaxFramesInFlight]; // last frame recorded in each slot
 
@@ -127,7 +120,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public Vk Vk => _vk!;
     public Device Device => _device;
     public PhysicalDevice PhysicalDevice => _physicalDevice;
-    public RenderPass RenderPass => _renderPass;
+    public RenderPass RenderPass => SceneTarget.RenderPass;
     public CommandPool CommandPool => _commandPool;
     public Queue GraphicsQueue => _graphicsQueue;
     public bool FrameStarted => _frameStarted;
@@ -136,7 +129,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public Extent2D SwapchainExtent => _swapChainExtent;
     public uint SwapchainImageCount => (uint)(_swapChainImages?.Length ?? 0);
     public uint CurrentImageIndex => _currentImageIndex;
-    public Silk.NET.Vulkan.Framebuffer CurrentFramebuffer => _swapChainFramebuffers![_currentImageIndex];
+    public Silk.NET.Vulkan.Framebuffer CurrentFramebuffer => SceneTarget.Framebuffer;
     public VulkanValidationLog Validation => _validation;
     public GpuAllocator Allocator => _allocator ?? throw new InvalidOperationException("The device is not initialised.");
     public UploadQueue Uploads => _uploads ?? throw new InvalidOperationException("The device is not initialised.");
@@ -145,9 +138,6 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public ShaderModuleCache Shaders => _shaderModules ?? throw new InvalidOperationException("The device is not initialised.");
     public FrameContext Frame => _frameContext ??= new FrameContext(this);
     public ulong FrameNumber => _frameNumber;
-
-    /// <summary>Exposure used when the renderer starts (see docs/design/color-pipeline.md).</summary>
-    public const float DefaultExposure = 1f;
 
     public float Exposure
     {
@@ -224,40 +214,19 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         _uploads.Record(cb);
     }
 
-    public void BeginRenderPass()
-    {
-        if (!_frameStarted) return;
-        var cb       = _commandBuffers[_currentFrame];
-        var clearValues = stackalloc ClearValue[2];
-        clearValues[0] = new ClearValue { Color = new() { Float32_0 = _clearR, Float32_1 = _clearG, Float32_2 = _clearB, Float32_3 = _clearA } };
-        clearValues[1] = new ClearValue { DepthStencil = new() { Depth = 1.0f, Stencil = 0 } };
-
-        var renderPassInfo = new RenderPassBeginInfo
-        {
-            SType           = StructureType.RenderPassBeginInfo,
-            RenderPass      = _renderPass,
-            Framebuffer     = _swapChainFramebuffers![_currentImageIndex],
-            RenderArea      = { Offset = default, Extent = _swapChainExtent },
-            ClearValueCount = 2,
-            PClearValues    = clearValues,
-        };
-
-        _vk!.CmdBeginRenderPass(cb, &renderPassInfo, SubpassContents.Inline);
-    }
-
     public void EndFrame()
     {
         if (!_frameStarted) return;
-        _frameStarted = false;
 
         var imageIndex = _currentImageIndex;
         var cb = _commandBuffers[_currentFrame];
 
-        // Close render pass and command buffer
-        _vk!.CmdEndRenderPass(cb);
+        // Finish the pass sequence (scene → tonemap → overlay) and close the command buffer
+        EndPasses(cb);
+        _frameStarted = false;
         if (_captureRequested)
             RecordCapture(cb, imageIndex);
-        _vk.EndCommandBuffer(cb).Check("vkEndCommandBuffer");
+        _vk!.EndCommandBuffer(cb).Check("vkEndCommandBuffer");
 
         var waitSemaphore = _imageAvailableSemaphores[_currentFrame];
         var waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
@@ -457,13 +426,10 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         CreateLogicalDevice();
         CreateGpuMemory();
         CreateSwapchain();
-        CreateImageViews();
-        CreateRenderPass();
-        CreateDepthResources();
-        CreateFramebuffers();
         CreateCommandPool();
         CreateCommandBuffers();
         CreateSyncObjects();
+        CreatePresentation(); // after the command pool: the scene target and tonemap pipeline use the upload queue
     }
 
     private void CreateInstance()
@@ -703,11 +669,13 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             };
         }
 
-        var deviceExtensions = _deviceExtensions;
+        var extensionList = new List<string>(_deviceExtensions);
 
         // Spec requires enabling VK_KHR_portability_subset when the device advertises it (MoltenVK does).
         if (IsDeviceExtensionAvailable(_physicalDevice, "VK_KHR_portability_subset"))
-            deviceExtensions = deviceExtensions.Append("VK_KHR_portability_subset").ToArray();
+            extensionList.Add("VK_KHR_portability_subset");
+        AddPresentationExtensions(extensionList); // sRGB swapchain with a UNORM overlay view, when available
+        var deviceExtensions = extensionList.ToArray();
 
         // The lit shaders index their shadow sampler arrays with a loop counter, which needs
         // shaderSampledImageArrayDynamicIndexing (supported by MoltenVK, lavapipe and desktop GPUs).
@@ -749,7 +717,9 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private void CreateSwapchain(SwapchainKHR oldSwapchain = default)
     {
         var support = QuerySwapChainSupport(_physicalDevice);
-        var format = ChooseSurfaceFormat(support.Formats);
+        var (format, encoding, overlayFormat) = ChooseSurfaceFormat(support.Formats, _mutableFormatAvailable, _requestedEncoding);
+        _encoding = encoding;
+        _overlayFormat = overlayFormat;
         var presentMode = ChoosePresentMode(support.PresentModes);
         var extent = ChooseExtent(support.Capabilities);
 
@@ -806,6 +776,11 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             OldSwapchain = oldSwapchain,
         };
 
+        // sRGB swapchain whose images can also be viewed as UNORM (the overlay pass), when chosen.
+        var formatList = default(ImageFormatListCreateInfo);
+        var viewFormats = stackalloc Format[2];
+        ApplyMutableFormat(ref createInfo, &formatList, viewFormats);
+
         if (_khrSwapChain is null && !_vk!.TryGetDeviceExtension(_instance, _device, out _khrSwapChain))
             throw new NotSupportedException("[Vulkan] VK_KHR_swapchain extension not found.");
 
@@ -842,14 +817,6 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         return details;
     }
 
-    private static SurfaceFormatKHR ChooseSurfaceFormat(SurfaceFormatKHR[] formats)
-    {
-        foreach (var f in formats)
-            if (f is { Format: Format.B8G8R8A8Unorm, ColorSpace: ColorSpaceKHR.SpaceSrgbNonlinearKhr })
-                return f;
-        return formats[0];
-    }
-
     private PresentModeKHR ChoosePresentMode(IReadOnlyList<PresentModeKHR> modes)
     {
         if (_vsync)
@@ -873,134 +840,6 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             Width = Math.Clamp((uint)size.X, capabilities.MinImageExtent.Width, capabilities.MaxImageExtent.Width),
             Height = Math.Clamp((uint)size.Y, capabilities.MinImageExtent.Height, capabilities.MaxImageExtent.Height),
         };
-    }
-
-    private void CreateImageViews()
-    {
-        _swapChainImageViews = new ImageView[_swapChainImages!.Length];
-        for (int i = 0; i < _swapChainImages.Length; i++)
-        {
-            var createInfo = new ImageViewCreateInfo
-            {
-                SType = StructureType.ImageViewCreateInfo,
-                Image = _swapChainImages[i],
-                ViewType = ImageViewType.Type2D,
-                Format = _swapChainImageFormat,
-                Components = { R = ComponentSwizzle.Identity, G = ComponentSwizzle.Identity, B = ComponentSwizzle.Identity, A = ComponentSwizzle.Identity },
-                SubresourceRange = { AspectMask = ImageAspectFlags.ColorBit, BaseMipLevel = 0, LevelCount = 1, BaseArrayLayer = 0, LayerCount = 1 }
-            };
-
-            if (_vk!.CreateImageView(_device, in createInfo, null, out _swapChainImageViews[i]) != Result.Success)
-                throw new VulkanException("[Vulkan] Failed to create image view!");
-        }
-    }
-
-    private void CreateRenderPass()
-    {
-        _depthFormat = FindDepthFormat();
-
-        var colorAttachment = new AttachmentDescription
-        {
-            Format         = _swapChainImageFormat,
-            Samples        = SampleCountFlags.Count1Bit,
-            LoadOp         = AttachmentLoadOp.Clear,
-            StoreOp        = AttachmentStoreOp.Store,
-            StencilLoadOp  = AttachmentLoadOp.DontCare,
-            StencilStoreOp = AttachmentStoreOp.DontCare,
-            InitialLayout  = ImageLayout.Undefined,
-            FinalLayout    = ImageLayout.PresentSrcKhr,
-        };
-
-        var depthAttachment = new AttachmentDescription
-        {
-            Format         = _depthFormat,
-            Samples        = SampleCountFlags.Count1Bit,
-            LoadOp         = AttachmentLoadOp.Clear,
-            StoreOp        = AttachmentStoreOp.DontCare,
-            StencilLoadOp  = AttachmentLoadOp.DontCare,
-            StencilStoreOp = AttachmentStoreOp.DontCare,
-            InitialLayout  = ImageLayout.Undefined,
-            FinalLayout    = ImageLayout.DepthStencilAttachmentOptimal,
-        };
-
-        var colorRef = new AttachmentReference { Attachment = 0, Layout = ImageLayout.ColorAttachmentOptimal };
-        var depthRef = new AttachmentReference { Attachment = 1, Layout = ImageLayout.DepthStencilAttachmentOptimal };
-        var subpass = new SubpassDescription
-        {
-            PipelineBindPoint       = PipelineBindPoint.Graphics,
-            ColorAttachmentCount    = 1,
-            PColorAttachments       = &colorRef,
-            PDepthStencilAttachment = &depthRef,
-        };
-
-        // One depth image is shared by every frame in flight, so this frame's depth clear must wait
-        // for the previous frame's depth writes (late fragment tests): a write-after-write hazard.
-        // The colour attachment waits on the acquire semaphore at COLOR_ATTACHMENT_OUTPUT.
-        var dependency = new SubpassDependency
-        {
-            SrcSubpass    = Vk.SubpassExternal,
-            DstSubpass    = 0,
-            SrcStageMask  = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.LateFragmentTestsBit,
-            SrcAccessMask = AccessFlags.DepthStencilAttachmentWriteBit,
-            DstStageMask  = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.EarlyFragmentTestsBit,
-            DstAccessMask = AccessFlags.ColorAttachmentWriteBit | AccessFlags.DepthStencilAttachmentWriteBit,
-        };
-
-        // Outgoing: the colour writes and the final PRESENT_SRC layout transition happen-before the
-        // transfer stage, so a frame-capture copy recorded after the pass (RecordCapture, whose
-        // barrier starts at TRANSFER) is chained to them. Presentation itself waits on the
-        // render-finished semaphore, which covers all commands.
-        var outgoing = new SubpassDependency
-        {
-            SrcSubpass    = 0,
-            DstSubpass    = Vk.SubpassExternal,
-            SrcStageMask  = PipelineStageFlags.ColorAttachmentOutputBit,
-            SrcAccessMask = AccessFlags.ColorAttachmentWriteBit,
-            DstStageMask  = PipelineStageFlags.TransferBit,
-            DstAccessMask = AccessFlags.TransferReadBit,
-        };
-
-        var attachments = stackalloc AttachmentDescription[] { colorAttachment, depthAttachment };
-        var dependencies = stackalloc SubpassDependency[] { dependency, outgoing };
-        var renderPassInfo = new RenderPassCreateInfo
-        {
-            SType           = StructureType.RenderPassCreateInfo,
-            AttachmentCount = 2,
-            PAttachments    = attachments,
-            SubpassCount    = 1,
-            PSubpasses      = &subpass,
-            DependencyCount = 2,
-            PDependencies   = dependencies,
-        };
-
-        if (_vk!.CreateRenderPass(_device, in renderPassInfo, null, out _renderPass) != Result.Success)
-            throw new VulkanException("[Vulkan] Failed to create render pass!");
-
-        Log.Info("[Vulkan] Render pass created.");
-    }
-
-    private void CreateFramebuffers()
-    {
-        _swapChainFramebuffers = new Silk.NET.Vulkan.Framebuffer[_swapChainImageViews!.Length];
-        var fbAttachments = stackalloc ImageView[2];
-        for (int i = 0; i < _swapChainImageViews.Length; i++)
-        {
-            fbAttachments[0] = _swapChainImageViews[i];
-            fbAttachments[1] = _depthImage!.View;
-            var fbInfo = new FramebufferCreateInfo
-            {
-                SType           = StructureType.FramebufferCreateInfo,
-                RenderPass      = _renderPass,
-                AttachmentCount = 2,
-                PAttachments    = fbAttachments,
-                Width           = _swapChainExtent.Width,
-                Height          = _swapChainExtent.Height,
-                Layers          = 1,
-            };
-
-            if (_vk!.CreateFramebuffer(_device, in fbInfo, null, out _swapChainFramebuffers[i]) != Result.Success)
-                throw new VulkanException("[Vulkan] Failed to create framebuffer!");
-        }
     }
 
     private void CreateCommandPool()
@@ -1077,37 +916,15 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         throw new VulkanException("[Vulkan] Failed to find supported depth format!");
     }
 
-    private void CreateDepthResources()
-    {
-        _depthImage = GpuImage.Create(this, new GpuImageDesc(_swapChainExtent.Width, _swapChainExtent.Height, _depthFormat,
-            ImageUsageFlags.DepthStencilAttachmentBit));
-        Log.Info("[Vulkan] Depth resources created.");
-    }
-
-    private void DestroyDepthResources()
-    {
-        _depthImage?.Dispose();
-        _depthImage = null;
-    }
-
     #endregion
 
     #region Swapchain Recreation
 
-    // Everything sized or formatted by the swapchain except the swapchain handle itself.
+    // Everything sized or formatted by the swapchain except the swapchain handle itself (the scene target is
+    // resized, not destroyed, so pipelines built against its render pass stay valid).
     private void DestroySwapchainDependents()
     {
-        DestroyDepthResources();
-
-        if (_swapChainFramebuffers is not null)
-            foreach (var fb in _swapChainFramebuffers)
-                _vk!.DestroyFramebuffer(_device, fb, null);
-        _swapChainFramebuffers = null;
-
-        if (_swapChainImageViews is not null)
-            foreach (var iv in _swapChainImageViews)
-                _vk!.DestroyImageView(_device, iv, null);
-        _swapChainImageViews = null;
+        DestroySwapchainViews();
     }
 
     private void CleanupSwapchain()
@@ -1155,9 +972,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
                 "pipelines built against the main render pass would be incompatible.");
         }
 
-        CreateImageViews();
-        CreateDepthResources();
-        CreateFramebuffers();
+        RecreatePresentation();
 
         if (_swapChainImages!.Length != oldImageCount)
         {
@@ -1193,6 +1008,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             _captureBuffer = null;
             _frameContext?.Dispose();
             _frameContext = null;
+            DestroyPresentation();
             CleanupSwapchain();
 
             // Everything games and subsystems released is idle now; then the memory itself.
@@ -1210,7 +1026,6 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
             DestroyRenderFinishedSemaphores();
 
             vk.DestroyCommandPool(_device, _commandPool, null); // frees the frame-slot command buffers
-            vk.DestroyRenderPass(_device, _renderPass, null);
             vk.DestroyDevice(_device, null);
             _device = default;
         }
