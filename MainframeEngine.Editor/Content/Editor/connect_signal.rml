@@ -49,9 +49,9 @@
             </div>
             <div class="dialog-row flags-row">
                 <label data-tooltip="Deferred — call the method at the end of the frame instead of during the emission">
-                    <input type="checkbox" class="checkbox" id="deferred" data-checked="deferred"/>Deferred</label>
+                    <input type="checkbox" class="checkbox" id="deferred" data-checked="deferred"/><span>Deferred</span></label>
                 <label data-tooltip="One shot — disconnect after the first emission">
-                    <input type="checkbox" class="checkbox" id="one-shot" data-checked="one_shot"/>One shot</label>
+                    <input type="checkbox" class="checkbox" id="one-shot" data-checked="one_shot"/><span>One shot</span></label>
             </div>
             <div class="dialog-error">{{error}}</div>
         </div>

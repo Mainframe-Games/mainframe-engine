@@ -50,7 +50,7 @@
             <div class="dialog-row">
                 <span class="caption">Code reload</span>
                 <label class="check" data-tooltip="Reload the game code in the editor whenever its build output changes (IDE builds included)">
-                    <input type="checkbox" class="checkbox" id="es-auto-reload" data-checked="auto_reload"/>Reload automatically after builds</label>
+                    <input type="checkbox" class="checkbox" id="es-auto-reload" data-checked="auto_reload"/><span>Reload automatically after builds</span></label>
             </div>
             <div class="dialog-error">{{error}}</div>
         </div>

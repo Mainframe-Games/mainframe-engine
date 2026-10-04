@@ -61,6 +61,8 @@ public sealed partial class EditorWorkspace
         if (Options.InitialScene is null && Options.ShowProjectManager)
         {
             ProjectManager.Open();
+            if (Splash.Visible)
+                Splash.Finish();
             return;
         }
 

@@ -121,10 +121,10 @@
             </div>
         </div>
         <div class="pm-actions">
-            <button class="primary" id="pm-new" data-event-click="new()" data-tooltip="New Project — create a game from the mfgame template"><span class="icon icon-plus"></span>New Project</button>
-            <button id="pm-browse" data-event-click="browse()" data-tooltip="Open Folder — open a project folder (with project.mfproj)"><span class="icon icon-folder-open"></span>Open Folder…</button>
-            <button id="pm-open" data-class-disabled="!has_selection" data-event-click="open()" data-tooltip="Open — open the selected project (Enter)"><span class="icon icon-player-play"></span>Open</button>
-            <button id="pm-remove" data-class-disabled="!has_selection" data-event-click="remove()" data-tooltip="Remove from List — forget the selected project (its files stay)"><span class="icon icon-trash-x"></span>Remove from List</button>
+            <button class="primary" id="pm-new" data-event-click="new()" data-tooltip="New Project — create a game from the mfgame template"><span class="icon icon-plus"></span><span>New Project</span></button>
+            <button id="pm-browse" data-event-click="browse()" data-tooltip="Open Folder — open a project folder (with project.mfproj)"><span class="icon icon-folder-open"></span><span>Open Folder…</span></button>
+            <button id="pm-open" data-class-disabled="!has_selection" data-event-click="open()" data-tooltip="Open — open the selected project (Enter)"><span class="icon icon-player-play"></span><span>Open</span></button>
+            <button id="pm-remove" data-class-disabled="!has_selection" data-event-click="remove()" data-tooltip="Remove from List — forget the selected project (its files stay)"><span class="icon icon-trash-x"></span><span>Remove from List</span></button>
             <div class="pm-spacer"></div>
             <div data-attr-class="sdk_ok ? 'pm-sdk' : 'pm-sdk bad'" id="pm-sdk">
                 <span data-attr-class="sdk_ok ? 'icon icon-sm icon-circle-check' : 'icon icon-sm icon-alert-triangle'"></span>

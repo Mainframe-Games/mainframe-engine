@@ -18,8 +18,8 @@ public sealed class AudioBusLayoutInspector : ICustomInspector
     {
         var layout = (AudioBusLayout)target;
         var rml = new StringBuilder(1024);
-        rml.Append("<div class=\"mixer\"><div class=\"mixer-title\"><span class=\"icon icon-sm icon-adjustments-horizontal icon-audio\"></span> Mixer · ")
-            .Append(layout.Buses.Count).Append(" bus").Append(layout.Buses.Count == 1 ? "" : "es")
+        rml.Append("<div class=\"mixer\"><div class=\"mixer-title\"><span class=\"icon icon-sm icon-adjustments-horizontal icon-audio\"></span><span>Mixer · ")
+            .Append(layout.Buses.Count).Append(" bus").Append(layout.Buses.Count == 1 ? "" : "es").Append("</span>")
             .Append("<button class=\"small icon-button\" data-action=\"bus-add\" data-tooltip=\"Add Bus — a new bus sending to Master\">")
             .Append("<span class=\"icon icon-sm icon-plus\"></span></button></div>");
         for (var i = 0; i < layout.Buses.Count; i++)

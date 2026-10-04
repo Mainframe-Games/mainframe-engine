@@ -88,7 +88,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
             var nav = new StringBuilder();
             foreach (var (name, icon) in ProjectSettingsModel.Sections)
                 nav.Append("<div class=\"ps-nav").Append(name == _section ? " selected" : "").Append("\" data-section=\"").Append(RmlText.Escape(name))
-                    .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span>").Append(RmlText.Escape(name)).Append("</div>");
+                    .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span><span>").Append(RmlText.Escape(name)).Append("</span></div>");
             Document.GetElementById("ps-nav").SetInnerRml(nav.ToString());
 
             var body = new StringBuilder(4096);
@@ -184,7 +184,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
                     InputBindingKind.GamepadButton or InputBindingKind.GamepadAxis => "device-gamepad-2",
                     _ => "keyboard",
                 };
-                rml.Append("<span class=\"chip\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span>").Append(RmlText.Escape(text))
+                rml.Append("<span class=\"chip\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span><span>").Append(RmlText.Escape(text)).Append("</span>")
                     .Append("<button class=\"small icon-button\" data-op=\"unbind\" data-action=\"").Append(name).Append("\" data-binding=\"").Append(RmlText.Escape(text))
                     .Append("\" data-tooltip=\"Remove this binding\"><span class=\"icon icon-sm icon-x\"></span></button></span>");
             }

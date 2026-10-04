@@ -25,6 +25,13 @@ namespace MainframeEngine.Editor;
 /// accept / cancel             # the open dialog's OK / Cancel
 /// capture name                # saves &lt;out&gt;/name.png
 /// log text                    # writes to the output
+/// wait-for project|idle|playing|stopped [seconds]   # until a project and scene are open / no build runs / a game runs
+/// file-drag Content/x.mscene #element-id   # drags a project file from the FileSystem panel onto an element
+/// edit-file path text…        # appends a line to a project file (QA of code reload)
+/// replace-in-file path old new   # edits a project file in place
+/// timing label                # logs the seconds since the previous timing mark
+/// set #element-id text…       # sets a field's value (unbound fields; data-bound ones: use the dialog's own step)
+/// new-project folder name     # fills the New Project wizard's location and name
 /// quit
 /// </code>
 /// </summary>
@@ -34,6 +41,10 @@ public sealed class EditorQaScript : IEditorAutomation
     private readonly string _outputDirectory;
     private int _index;
     private int _wait;
+    private Func<EditorWorkspace, bool>? _waitFor;
+    private double _waitForDeadline;
+    private long _waitStart;
+    private long _timingMark = System.Diagnostics.Stopwatch.GetTimestamp();
     private string? _pendingCapture;
     private Vector2 _mouse;
     private (Vector2 From, Vector2 To, MouseButton Button, int Frames, int Done)? _drag;
@@ -78,6 +89,15 @@ public sealed class EditorQaScript : IEditorAutomation
         {
             _wait--;
             return;
+        }
+
+        if (_waitFor is { } condition)
+        {
+            if (!condition(workspace) && System.Diagnostics.Stopwatch.GetElapsedTime(_waitStart).TotalSeconds < _waitForDeadline)
+                return;
+            if (!condition(workspace))
+                Log.Warning("[QA] wait-for timed out.");
+            _waitFor = null;
         }
 
         if (_index >= _steps.Count)
@@ -234,6 +254,70 @@ public sealed class EditorQaScript : IEditorAutomation
                 }
 
                 break;
+            case "wait-for":
+                _waitFor = step[1] switch
+                {
+                    "project" => static w => w.Project.Root is not null && !w.Project.IsBuilding && w.Session.Active is not null && !w.Splash.Visible,
+                    "idle" => static w => !w.Project.IsBuilding && !w.Play.IsBuilding,
+                    "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running),
+                    "stopped" => static w => !w.Play.IsPlaying,
+                    _ => throw new ArgumentException($"Unknown wait-for '{step[1]}'."),
+                };
+                _waitForDeadline = step.Length > 2 ? Float(step, 2) : 120;
+                _waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
+                break;
+            case "file-drag":
+                {
+                    var file = Path.Combine(workspace.Session.ProjectRoot ?? "", step[1]);
+                    workspace.FileSystem.BeginDrag(file);
+                    var target = Point(workspace, step, 2);
+                    tree.PushInput(new InputEventMouseMotion { Position = target });
+                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = false, Position = target });
+                    break;
+                }
+
+            case "edit-file":
+                File.AppendAllText(Path.Combine(workspace.Session.ProjectRoot ?? "", step[1]), string.Join(' ', step[2..]) + "\n");
+                break;
+            case "replace-in-file":
+                {
+                    var file = Path.Combine(workspace.Session.ProjectRoot ?? "", step[1]);
+                    var text = File.ReadAllText(file);
+                    var old = step[2].Replace("\\s", " ", StringComparison.Ordinal);
+                    var replacement = string.Join(' ', step[3..]).Replace("\\n", "\n", StringComparison.Ordinal);
+                    if (!text.Contains(old, StringComparison.Ordinal))
+                        Log.Warning($"[QA] '{old}' not found in {step[1]}.");
+                    File.WriteAllText(file, text.Replace(old, replacement, StringComparison.Ordinal));
+                    break;
+                }
+
+            case "set":
+                {
+                    var id = step[1].TrimStart('#');
+                    var value = string.Join(' ', step[2..]);
+                    var found = false;
+                    foreach (var layer in (ReadOnlySpan<UiLayer>)[workspace.DialogLayer, workspace.ProjectLayer, workspace.PanelLayer])
+                        foreach (var document in layer.Documents)
+                            if (!found && document.Visible && document.IsLoaded && document.Document.GetElementById(id) is { IsNull: false } field)
+                            {
+                                field.SetValue(value);
+                                found = true;
+                            }
+
+                    if (!found)
+                        Log.Warning($"[QA] No visible field #{id}.");
+                    break;
+                }
+
+            case "new-project":
+                workspace.NewProject.Location = step[1];
+                workspace.NewProject.ProjectName = step[2];
+                break;
+            case "timing":
+                var now = System.Diagnostics.Stopwatch.GetTimestamp();
+                Log.Info($"[QA] timing {string.Join(' ', step[1..])}: {System.Diagnostics.Stopwatch.GetElapsedTime(_timingMark, now).TotalSeconds:0.00} s");
+                _timingMark = now;
+                break;
             case "quit":
                 app.Quit(ExitCode.Ok);
                 break;
@@ -293,7 +377,7 @@ public sealed class EditorQaScript : IEditorAutomation
         if (step[at].StartsWith('#'))
         {
             var id = step[at][1..];
-            foreach (var layer in (ReadOnlySpan<UiLayer>)[workspace.DialogLayer, workspace.PanelLayer])
+            foreach (var layer in (ReadOnlySpan<UiLayer>)[workspace.DialogLayer, workspace.ProjectLayer, workspace.PanelLayer])
                 foreach (var document in layer.Documents)
                 {
                     if (!document.Visible || !document.IsLoaded || document.Document.GetElementById(id) is not { IsNull: false } element)

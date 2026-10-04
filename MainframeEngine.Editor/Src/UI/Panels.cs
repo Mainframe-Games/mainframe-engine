@@ -157,7 +157,7 @@ public sealed class ToolbarPanel : EditorDocument
             };
             rml.Append("<div class=\"instance ").Append(css).Append("\" data-instance=\"").Append(instance.Number)
                 .Append("\" data-tooltip=\"").Append(RmlText.Escape($"{instance.Label} #{instance.Number} — {instance.State}. Click to pause, reload its scene or stop it."))
-                .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span>").Append(RmlText.Escape(instance.Label)).Append("</div>");
+                .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span><span>").Append(RmlText.Escape(instance.Label)).Append("</span></div>");
         }
 
         var instances = rml.ToString();
