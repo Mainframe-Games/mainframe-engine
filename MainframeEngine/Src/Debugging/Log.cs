@@ -1,9 +1,20 @@
-﻿using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace MainframeEngine;
 
-public static class Log
+/// <summary>
+/// The engine log. Every message becomes a structured <see cref="LogEntry"/> (level, UTC time, category, message,
+/// call site) and is handed to each registered <see cref="ILogSink"/>: the console (<see cref="ConsoleSink"/>, on by
+/// default), a rotating file (<see cref="FileLogSink"/>), an in-memory ring for tools (<see cref="MemoryLogSink"/>), or
+/// the editor link. <see cref="LogLevel"/> filters before anything is formatted: a filtered-out call — including an
+/// interpolated <c>$"..."</c> message — allocates nothing.
+/// </summary>
+/// <remarks>
+/// A message that starts with <c>[Name] </c> (the engine's convention, e.g. <c>"[Audio] ..."</c>) is logged under
+/// category <c>Name</c>; <see cref="Write(Level, string, string, string, string, int)"/> takes the category explicitly.
+/// Sinks may be called from any thread that logs; the sink list is copy-on-write, so logging takes no lock.
+/// </remarks>
+public static partial class Log
 {
     [Flags]
     public enum Level
@@ -16,56 +27,87 @@ public static class Log
         Fatal = 1 << 4,
 
         /// <summary>
-        /// Includes sourceMemberName, sourceFile, sourceLineNumber
+        /// Not a severity: the console sink appends the call site (member, file and line) when set.
         /// </summary>
-        Verbose = 1 << 5
+        Verbose = 1 << 5,
     }
 
-    // static Log()
-    // {
-    //     LogLevel |= Level.Verbose;
-    //     
-    //     Console.WriteLine($"This is {RED}Red{NORMAL}, {GREEN}Green{NORMAL}, {YELLOW}Yellow{NORMAL}, {BLUE}Blue{NORMAL}, {MAGENTA}Magenta{NORMAL}, {CYAN}Cyan{NORMAL}, {GREY}Grey{NORMAL}! ");
-    //     Console.WriteLine($"This is {BOLD}Bold{NOBOLD}, {UNDERLINE}Underline{NOUNDERLINE}, {REVERSE}Reverse{NOREVERSE}! ");
-    //     Debug("Test");
-    //     Info("Test");
-    //     Warning("Test");
-    //     Error("Test");
-    //     Fatal(new Exception("Test"));
-    // }
+    /// <summary>The levels enabled by default: everything except <see cref="Level.Verbose"/>.</summary>
+    public const Level DefaultLevel = (Level)~0 & ~Level.Verbose;
 
-    private static readonly string NL          = Environment.NewLine;
-    private static readonly string NORMAL      = Console.IsOutputRedirected ? string.Empty : "\x1b[39m";
-    private static readonly string RED         = Console.IsOutputRedirected ? string.Empty : "\x1b[91m";
-    private static readonly string GREEN       = Console.IsOutputRedirected ? string.Empty : "\x1b[92m";
-    private static readonly string YELLOW      = Console.IsOutputRedirected ? string.Empty : "\x1b[93m";
-    private static readonly string BLUE        = Console.IsOutputRedirected ? string.Empty : "\x1b[94m";
-    private static readonly string MAGENTA     = Console.IsOutputRedirected ? string.Empty : "\x1b[95m";
-    private static readonly string CYAN        = Console.IsOutputRedirected ? string.Empty : "\x1b[96m";
-    private static readonly string GREY        = Console.IsOutputRedirected ? string.Empty : "\x1b[97m";
-    private static readonly string BOLD        = Console.IsOutputRedirected ? string.Empty : "\x1b[1m";
-    private static readonly string NOBOLD      = Console.IsOutputRedirected ? string.Empty : "\x1b[22m";
-    private static readonly string UNDERLINE   = Console.IsOutputRedirected ? string.Empty : "\x1b[4m";
-    private static readonly string NOUNDERLINE = Console.IsOutputRedirected ? string.Empty : "\x1b[24m";
-    private static readonly string REVERSE     = Console.IsOutputRedirected ? string.Empty : "\x1b[7m";
-    private static readonly string NOREVERSE   = Console.IsOutputRedirected ? string.Empty : "\x1b[27m";
+    private static volatile int s_level = (int)DefaultLevel;
+    private static readonly Lock SinkGate = new();
+    private static volatile ILogSink[] s_sinks;
 
-    private static readonly string TimeStampColor = NORMAL;
+    [ThreadStatic]
+    private static bool t_inSink; // a sink that logs must not recurse into the sinks
 
-    private static string TimeStamp => DateTime.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
-    public static Level LogLevel { get; set; } = (Level)~0 & ~Level.Verbose;
-
-    private static void PrintToConsole(string message, string color, string memberName, string sourceFilePath, int sourceLineNumber)
+    static Log()
     {
-        if (LogLevel.HasFlag(Level.Verbose))
+        ConsoleSink = new ConsoleLogSink();
+        s_sinks = [ConsoleSink];
+    }
+
+    /// <summary>Enabled levels (flags). Messages at other levels are dropped before formatting.</summary>
+    public static Level LogLevel
+    {
+        get => (Level)s_level;
+        set => s_level = (int)value;
+    }
+
+    /// <summary>The console sink registered by default. Remove it with <see cref="RemoveSink"/> to silence stdout.</summary>
+    public static ConsoleLogSink ConsoleSink { get; }
+
+    /// <summary>The registered sinks (a snapshot).</summary>
+    public static IReadOnlyList<ILogSink> Sinks => s_sinks;
+
+    /// <summary>True when messages at <paramref name="level"/> pass <see cref="LogLevel"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsEnabled(Level level) => (s_level & (int)level & ~(int)Level.Verbose) != 0;
+
+    /// <summary>Adds <paramref name="sink"/> (no-op when it is already registered).</summary>
+    public static void AddSink(ILogSink sink)
+    {
+        ArgumentNullException.ThrowIfNull(sink);
+        lock (SinkGate)
         {
-            var fileName = Path.GetFileName(sourceFilePath);
-            Console.WriteLine($"{TimeStampColor}[{TimeStamp}]{color} {message} {TimeStampColor}[{fileName}:{sourceLineNumber} {memberName}]");
+            var current = s_sinks;
+            if (Array.IndexOf(current, sink) >= 0)
+                return;
+            s_sinks = [.. current, sink];
         }
-        else
+    }
+
+    /// <summary>Removes <paramref name="sink"/>; returns false when it was not registered.</summary>
+    public static bool RemoveSink(ILogSink sink)
+    {
+        ArgumentNullException.ThrowIfNull(sink);
+        lock (SinkGate)
         {
-            Console.WriteLine($"{TimeStampColor}[{TimeStamp}]{color} {message}");
+            var current = s_sinks;
+            var index = Array.IndexOf(current, sink);
+            if (index < 0)
+                return false;
+            var next = new ILogSink[current.Length - 1];
+            current.AsSpan(0, index).CopyTo(next);
+            current.AsSpan(index + 1).CopyTo(next.AsSpan(index));
+            s_sinks = next;
+            return true;
         }
+    }
+
+    /// <summary>Logs <paramref name="message"/> under an explicit <paramref name="category"/>.</summary>
+    public static void Write(
+        Level level,
+        string category,
+        string message,
+        [CallerMemberName] string sourceMemberName = "",
+        [CallerFilePath] string sourceFilePath = "",
+        [CallerLineNumber] int sourceLineNumber = 0)
+    {
+        if (IsEnabled(level))
+            Dispatch(new LogEntry(SingleLevel(level), DateTime.UtcNow, category ?? string.Empty, message ?? string.Empty,
+                sourceMemberName, sourceFilePath, sourceLineNumber));
     }
 
     public static void Debug(
@@ -74,8 +116,19 @@ public static class Log
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLineNumber = 0)
     {
-        if (LogLevel.HasFlag(Level.Debug))
-            PrintToConsole($"[Debug]\t{message}", GREY, sourceMemberName, sourceFilePath, sourceLineNumber);
+        if (IsEnabled(Level.Debug))
+            Emit(Level.Debug, message, sourceMemberName, sourceFilePath, sourceLineNumber);
+    }
+
+    /// <summary>Interpolated form: nothing is formatted (or allocated) while <see cref="Level.Debug"/> is filtered out.</summary>
+    public static void Debug(
+        ref DebugInterpolatedStringHandler message,
+        [CallerMemberName] string sourceMemberName = "",
+        [CallerFilePath] string sourceFilePath = "",
+        [CallerLineNumber] int sourceLineNumber = 0)
+    {
+        if (message.Enabled)
+            Emit(Level.Debug, message.ToStringAndClear(), sourceMemberName, sourceFilePath, sourceLineNumber);
     }
 
     public static void Info(
@@ -84,8 +137,19 @@ public static class Log
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLineNumber = 0)
     {
-        if (LogLevel.HasFlag(Level.Info))
-            PrintToConsole($"[INFO]\t{message}", BLUE, sourceMemberName, sourceFilePath, sourceLineNumber);
+        if (IsEnabled(Level.Info))
+            Emit(Level.Info, message, sourceMemberName, sourceFilePath, sourceLineNumber);
+    }
+
+    /// <summary>Interpolated form: nothing is formatted (or allocated) while <see cref="Level.Info"/> is filtered out.</summary>
+    public static void Info(
+        ref InfoInterpolatedStringHandler message,
+        [CallerMemberName] string sourceMemberName = "",
+        [CallerFilePath] string sourceFilePath = "",
+        [CallerLineNumber] int sourceLineNumber = 0)
+    {
+        if (message.Enabled)
+            Emit(Level.Info, message.ToStringAndClear(), sourceMemberName, sourceFilePath, sourceLineNumber);
     }
 
     public static void Warning(
@@ -94,8 +158,19 @@ public static class Log
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLineNumber = 0)
     {
-        if (LogLevel.HasFlag(Level.Warning))
-            PrintToConsole($"[WARN]\t{message}", YELLOW, sourceMemberName, sourceFilePath, sourceLineNumber);
+        if (IsEnabled(Level.Warning))
+            Emit(Level.Warning, message, sourceMemberName, sourceFilePath, sourceLineNumber);
+    }
+
+    /// <summary>Interpolated form: nothing is formatted (or allocated) while <see cref="Level.Warning"/> is filtered out.</summary>
+    public static void Warning(
+        ref WarningInterpolatedStringHandler message,
+        [CallerMemberName] string sourceMemberName = "",
+        [CallerFilePath] string sourceFilePath = "",
+        [CallerLineNumber] int sourceLineNumber = 0)
+    {
+        if (message.Enabled)
+            Emit(Level.Warning, message.ToStringAndClear(), sourceMemberName, sourceFilePath, sourceLineNumber);
     }
 
     public static void Error(
@@ -104,8 +179,19 @@ public static class Log
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLineNumber = 0)
     {
-        if (LogLevel.HasFlag(Level.Error))
-            PrintToConsole($"[ERROR]\t{message}", RED, sourceMemberName, sourceFilePath, sourceLineNumber);
+        if (IsEnabled(Level.Error))
+            Emit(Level.Error, message, sourceMemberName, sourceFilePath, sourceLineNumber);
+    }
+
+    /// <summary>Interpolated form: nothing is formatted (or allocated) while <see cref="Level.Error"/> is filtered out.</summary>
+    public static void Error(
+        ref ErrorInterpolatedStringHandler message,
+        [CallerMemberName] string sourceMemberName = "",
+        [CallerFilePath] string sourceFilePath = "",
+        [CallerLineNumber] int sourceLineNumber = 0)
+    {
+        if (message.Enabled)
+            Emit(Level.Error, message.ToStringAndClear(), sourceMemberName, sourceFilePath, sourceLineNumber);
     }
 
     public static void Fatal(
@@ -114,7 +200,54 @@ public static class Log
         [CallerFilePath] string sourceFilePath = "",
         [CallerLineNumber] int sourceLineNumber = 0)
     {
-        if (LogLevel.HasFlag(Level.Fatal))
-            PrintToConsole($"[FATAL]\t{exception}", RED, sourceMemberName, sourceFilePath, sourceLineNumber);
+        if (IsEnabled(Level.Fatal))
+            Emit(Level.Fatal, exception?.ToString() ?? string.Empty, sourceMemberName, sourceFilePath, sourceLineNumber);
+    }
+
+    private static void Emit(Level level, string message, string member, string file, int line)
+    {
+        message ??= string.Empty;
+        var category = LogCategories.Split(message, out var body);
+        Dispatch(new LogEntry(level, DateTime.UtcNow, category, body, member, file, line));
+    }
+
+    /// <summary>Hands an already-built entry to every sink (used by the editor link to replay a game's log).</summary>
+    public static void Dispatch(in LogEntry entry)
+    {
+        if (t_inSink)
+            return;
+        t_inSink = true;
+        try
+        {
+            foreach (var sink in s_sinks)
+            {
+                try
+                {
+                    sink.Write(entry);
+                }
+                catch (Exception e) when (e is not OutOfMemoryException)
+                {
+                    // A broken sink must never take the game down or stop the other sinks.
+                    try
+                    {
+                        Console.Error.WriteLine($"[Log] Sink {sink.GetType().Name} failed: {e.Message}");
+                    }
+                    catch (IOException)
+                    {
+                    }
+                }
+            }
+        }
+        finally
+        {
+            t_inSink = false;
+        }
+    }
+
+    // The lowest severity flag of a combined value (Write(Level.Error | Level.Verbose, ...) logs an error).
+    private static Level SingleLevel(Level level)
+    {
+        var severity = (int)level & ~(int)Level.Verbose;
+        return (Level)(severity & -severity);
     }
 }
