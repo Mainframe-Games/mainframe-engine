@@ -192,7 +192,8 @@ jobs:
         if: always()
         run: |
           dir=artifacts/render-tests/new-goldens
-          files=$(cd "$dir" 2>/dev/null && find . -name '*.png' | sed 's|^\./||' | sort)
+          files=""
+          if [ -d "$dir" ]; then files=$(cd "$dir" && find . -name '*.png' | sed 's|^\./||' | sort); fi
           if [ -z "$files" ]; then
             echo "Every compared frame has a golden."
             exit 0
