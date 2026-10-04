@@ -50,10 +50,11 @@ public sealed class ReplicationAllocationTests
         for (var i = 0; i < 120; i++) // warm-up: JIT, pools, list capacities, interpolation buffers
             Frame();
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 240; i++)
-            Frame();
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationGate.SmallestWindow(() =>
+        {
+            for (var i = 0; i < 240; i++)
+                Frame();
+        });
 
         Assert.Equal(0, allocated);
 

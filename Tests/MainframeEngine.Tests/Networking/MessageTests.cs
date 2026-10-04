@@ -316,13 +316,16 @@ public sealed class MessageBusTests
         for (var i = 0; i < 200; i++)
             Round();
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 1000; i++)
-            Round();
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var windows   = 0;
+        var allocated = AllocationGate.SmallestWindow(() =>
+        {
+            windows++;
+            for (var i = 0; i < 1000; i++)
+                Round();
+        });
 
         Assert.Equal(0, allocated);
-        Assert.Equal(2400, counter);
+        Assert.Equal(400 + 2000 * windows, counter);
     }
 
     // Regression (flake ~1 in 15 full runs): the loopback transport's packet copies came from ArrayPool<byte>.Shared,
@@ -336,8 +339,8 @@ public sealed class MessageBusTests
         var client = pair.Server.Peers[0];
         var server = pair.Client.Peers[0];
         var message = new TransformMessage { NodeId = 1, Position = Vector3.One, Rotation = Quaternion.Identity };
-        pair.ServerEvents.Transforms.Capacity = 64_000;
-        pair.ClientEvents.Transforms.Capacity = 64_000;
+        pair.ServerEvents.Transforms.Capacity = 100_000; // warm-up + AllocationGate.MaxWindows windows
+        pair.ClientEvents.Transforms.Capacity = 100_000;
 
         void Round()
         {
@@ -368,10 +371,11 @@ public sealed class MessageBusTests
         long allocated;
         try
         {
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            for (var i = 0; i < 30_000; i++)
-                Round();
-            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            allocated = AllocationGate.SmallestWindow(() =>
+            {
+                for (var i = 0; i < 30_000; i++)
+                    Round();
+            });
         }
         finally
         {

@@ -236,7 +236,11 @@ Per-frame code must not allocate: use static lambdas with state (`ShadowSystem.R
 cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.TextUnformatted`). Unit-test
 allocation gates run in parallel with other test classes, so per-frame code must not rely on process-wide pools that
 other threads share (`ArrayPool<T>.Shared` partitions): the in-process transports use a private `PacketPool` for that
-reason (a loopback test once failed ~1 in 15 runs when another test thread drained the shared pool).
+reason (a loopback test once failed ~1 in 15 runs when another test thread drained the shared pool). The unit gates measure
+through `AllocationGate.SmallestWindow`, which runs the steady-state window up to three times and keeps the smallest
+count: with many test threads running, a window occasionally reported a few KB (always under one 8 KB allocation
+quantum) that instrumentation placed in code that cannot allocate, and that never appears when the test runs alone. A
+real per-frame allocation repeats in every window, so it still fails the gate.
 
 ## Benchmarks
 

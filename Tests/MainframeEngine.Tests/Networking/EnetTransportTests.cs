@@ -240,13 +240,15 @@ public sealed class EnetTransportTests
         for (var i = 0; i < 100; i++)
             Round(ref target);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 500; i++)
-            Round(ref target);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationGate.SmallestWindow(() =>
+        {
+            for (var i = 0; i < 500; i++)
+                Round(ref target);
+        });
 
         Assert.Equal(0, allocated);
-        Assert.Equal(1200, received);
+        Assert.Equal(target, received);
+        Assert.True(received >= 1200);
     }
 
     [Fact]

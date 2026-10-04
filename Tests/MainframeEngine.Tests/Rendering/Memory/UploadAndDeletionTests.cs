@@ -208,14 +208,15 @@ public sealed class DeletionQueueTests
         }
 
         recorder.Destroyed.Capacity = 1000;
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (ulong f = 11; f <= 200; f++)
+        ulong frame = 11;
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
         {
-            queue.BeginFrame(f);
-            queue.Enqueue(Item(f));
-            queue.Collect(f - 1);
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            for (var end = frame + 190; frame < end; frame++)
+            {
+                queue.BeginFrame(frame);
+                queue.Enqueue(Item(frame));
+                queue.Collect(frame - 1);
+            }
+        }));
     }
 }

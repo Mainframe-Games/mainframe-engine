@@ -238,12 +238,13 @@ public sealed class NetBufferTests : IDisposable
         for (var i = 0; i < 10; i++)
             Round(position);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var sum = 0f;
-        for (var i = 0; i < 1000; i++)
-            sum += Round(position);
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+        {
+            sum = 0f;
+            for (var i = 0; i < 1000; i++)
+                sum += Round(position);
+        }));
         Assert.Equal(1000f, sum);
     }
 

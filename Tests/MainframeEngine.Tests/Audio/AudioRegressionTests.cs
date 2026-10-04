@@ -40,10 +40,11 @@ public sealed class AudioRegressionTests
         Assert.True(tail > 1e-4f, $"no reverb tail ({tail})");
         Assert.True(late < tail * 1e-3f, $"tail does not decay ({late} vs {tail})");
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var b = 0; b < 200; b++)
-            reverb.Process(block, 2);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+        {
+            for (var b = 0; b < 200; b++)
+                reverb.Process(block, 2);
+        }));
     }
 
     [Fact]
@@ -74,14 +75,14 @@ public sealed class AudioRegressionTests
             server.RenderNullDevice(800, buffer);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 300; i++)
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
         {
-            tree.Tick(AudioTestUtil.Frame);
-            server.RenderNullDevice(800, buffer);
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            for (var i = 0; i < 300; i++)
+            {
+                tree.Tick(AudioTestUtil.Frame);
+                server.RenderNullDevice(800, buffer);
+            }
+        }));
         Assert.True(AudioTestUtil.Peak(buffer, 0) > 0.01f);
         tree.Shutdown();
     }

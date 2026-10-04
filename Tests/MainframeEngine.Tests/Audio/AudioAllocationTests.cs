@@ -87,10 +87,12 @@ public sealed class AudioAllocationTests
                 Thread.Sleep(1); // let the streaming thread start and fill
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 240; i < 540; i++)
-            Frame(i);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var next      = 240;
+        var allocated = AllocationGate.SmallestWindow(() =>
+        {
+            for (var end = next + 300; next < end; next++)
+                Frame(next);
+        });
 
         Assert.Equal(0, allocated);
         Assert.True(finished > 5);

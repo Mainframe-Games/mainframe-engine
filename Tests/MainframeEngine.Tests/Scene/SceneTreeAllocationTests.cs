@@ -45,16 +45,16 @@ public sealed class SceneTreeAllocationTests
             tree.CallGroup("branches", 0, NoOp);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 120; i++)
+        var allocated = AllocationGate.SmallestWindow(() =>
         {
-            tree.Tick(time);
-            tree.PushInput(input);
-            tree.CallGroup("branches", 0, NoOp);
-            _ = tree.GetNodesInGroup("branches").Count;
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            for (var i = 0; i < 120; i++)
+            {
+                tree.Tick(time);
+                tree.PushInput(input);
+                tree.CallGroup("branches", 0, NoOp);
+                _ = tree.GetNodesInGroup("branches").Count;
+            }
+        });
         Assert.Equal(0, allocated);
         tree.Shutdown();
     }
@@ -74,9 +74,10 @@ public sealed class SceneTreeAllocationTests
         NodePath path = "N0_10/N1_10/N2_10/N3_10/N4_10/N5_10";
         Assert.NotNull(root.GetNodeOrNull(path));
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 1000; i++)
-            _ = root.GetNodeOrNull(path);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+        {
+            for (var i = 0; i < 1000; i++)
+                _ = root.GetNodeOrNull(path);
+        }));
     }
 }
