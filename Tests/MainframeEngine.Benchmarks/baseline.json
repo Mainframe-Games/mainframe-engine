@@ -167,6 +167,26 @@
       "Name": "SceneTreeBenchmarks.TransformPropagationDirtySubtree10k",
       "MeanNs": 117405.237,
       "AllocatedBytes": 0
+    },
+    {
+      "Name": "UiBenchmarks.Relayout500",
+      "MeanNs": 192083.274,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "UiBenchmarks.Render500Callbacks",
+      "MeanNs": 43464.416,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "UiBenchmarks.Update500DirtyBindings",
+      "MeanNs": 259102.588,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "UiBenchmarks.Update500Idle",
+      "MeanNs": 8788.811,
+      "AllocatedBytes": 0
     }
   ]
 }
