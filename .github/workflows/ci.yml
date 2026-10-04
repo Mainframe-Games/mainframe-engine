@@ -135,7 +135,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             mesa-vulkan-drivers vulkan-validationlayers libvulkan1 vulkan-tools xvfb xauth \
-            libx11-6 libx11-xcb1 libxrandr2 libxinerama1 libxcursor1 libxi6 libxkbcommon0
+            libx11-6 libx11-xcb1 libxext6 libxfixes3 libxrandr2 libxinerama1 libxcursor1 libxi6 libxss1 libxkbcommon0
           ls -l /usr/share/vulkan/icd.d/ /usr/share/vulkan/explicit_layer.d/
           test -f "$VK_DRIVER_FILES"
           vulkaninfo --summary

@@ -45,7 +45,7 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.22.0*
 
 | Package | Version | Used by / for |
 |---|---|---|
-| Silk.NET.Windowing, .Input | 2.22.0 | Window, GLFW (transitive), keyboard/mouse |
+| Silk.NET.Windowing.Sdl, .Input.Sdl | 2.22.0 | Window, keyboard/mouse/gamepad on SDL2 (`Silk.NET.SDL`, `Ultz.Native.SDL` 2.30.8 transitive). GLFW is not referenced ([ADR 0003](../../memory/decisions/0003-sdl2-via-silk-net-2x.md)). |
 | Silk.NET.Vulkan (+ Extensions.EXT/KHR) | 2.22.0 | Vulkan bindings |
 | Silk.NET.MoltenVK.Native | 2.22.0 | Bundled MoltenVK for macOS |
 | Silk.NET.Assimp | 2.22.0 | *Referenced but unused* (kept for M3) |
@@ -93,17 +93,54 @@ Git LFS files.
 | `render-tests` | Ubuntu with lavapipe (`mesa-vulkan-drivers`, `VK_DRIVER_FILES` = `lvp_icd.x86_64.json`), `vulkan-validationlayers`, Xvfb; uploads `artifacts/render-tests` (frames, diffs) |
 | `ci-success` | Runs always; fails unless every job above succeeded. **The required status check** in the `main` ruleset — do not rename. |
 
-## macOS: Vulkan loader bootstrap
+## Windowing: SDL2
 
-Vulkan on macOS runs on MoltenVK. GLFW (which creates the surface) and Silk.NET's `Vk` must bind the
-**same** Vulkan library: instances from two different loaders are not interchangeable, and modern
-dyld no longer searches `/usr/local/lib` for leaf-name `dlopen`.
-[`VulkanLoaderBootstrap`](../../MainframeEngine/Src/Rendering/Vulkan/VulkanLoaderBootstrap.cs) is the
-first thing the `Engine` constructor calls. On other platforms it is a no-op.
+Window, Vulkan surface and input run on **SDL2** through Silk.NET's SDL backend
+(`Silk.NET.Windowing.Sdl`, `Silk.NET.Input.Sdl`; decision in
+[ADR 0003](../../memory/decisions/0003-sdl2-via-silk-net-2x.md)). SDL brings the community controller
+database, rumble/gyro, IME text input, clipboard and DPI queries that later milestones need, and is
+Silk.NET 3's long-term backend. Games see no difference: `Engine.Window`, `InputContext`, the events
+and the frame loop are unchanged.
 
 ```mermaid
 flowchart TD
-    A["Engine ctor"] --> B{"OS is macOS?"}
+    A["Engine ctor"] --> B["SdlWindowing / SdlInput.RegisterPlatform()<br/>Window.PrioritizeSdl()"]
+    B --> C{"macOS?"}
+    C -- yes --> D["VulkanLoaderBootstrap.Probe()<br/>resolve libvulkan / MoltenVK path"]
+    D --> E["HandOffToSdl(): SDL_Vulkan_LoadLibrary(path)"]
+    C -- no --> F
+    E --> F["Window.Create(WindowOptions.DefaultVulkan)<br/>SDL window with SDL_WINDOW_VULKAN"]
+    F --> G["VulkanRenderer: instance extensions from<br/>IWindow.VkSurface (SDL_Vulkan_GetInstanceExtensions)"]
+    G --> H["VkSurface.Create: SDL_Vulkan_CreateSurface"]
+    H --> I["Window.CreateInput(): SDL input backend"]
+```
+
+- The platforms are registered explicitly in the `Engine` constructor (no reflection discovery, so
+  trimming/AOT keep them). GLFW is not in the dependency graph and is never loaded.
+- **HiDPI.** SDL reports `IWindow.Size` in points, and Silk's `IWindow.FramebufferSize` returns the GL
+  drawable, which for a Vulkan window is also in points. `Engine.FramebufferSize`
+  ([`WindowPixels`](../../MainframeEngine/Src/Core/WindowPixels.cs)) returns
+  `SDL_Vulkan_GetDrawableSize` in **pixels** (3024×1692 for a 1512×846 pt Retina window); the
+  renderer's extent fallback, minimise detection, ImGui's framebuffer scale and game aspect ratios
+  use it. Prefer it over `Window.FramebufferSize`.
+- On Linux, SDL dlopens X11 (or Wayland) at runtime; CI installs `libx11-6 libxext6 libxfixes3
+  libxrandr2 libxinerama1 libxcursor1 libxi6 libxss1 libxkbcommon0` for the Xvfb render tests.
+
+## macOS: Vulkan loader bootstrap
+
+Vulkan on macOS runs on MoltenVK. SDL (which creates the surface) and Silk.NET's `Vk` must bind the
+**same** Vulkan library: instances from two different loaders are not interchangeable, and modern
+dyld no longer searches `/usr/local/lib` for leaf-name `dlopen`.
+[`VulkanLoaderBootstrap`](../../MainframeEngine/Src/Rendering/Vulkan/VulkanLoaderBootstrap.cs) runs in
+the `Engine` constructor after SDL is selected and before the window exists, in two steps:
+`Probe()` (find and load a library, set `ActiveLibraryPath`) and `HandOffToSdl()`
+(`SDL_Vulkan_LoadLibrary(ActiveLibraryPath)` on the shared `SdlProvider` instance). On other
+platforms both are no-ops and SDL and Silk load the system loader. `MAINFRAME_VULKAN_LIBRARY=<path>`
+forces one library, which is how each source below is QA'd.
+
+```mermaid
+flowchart TD
+    A["Engine ctor (after PrioritizeSdl)"] --> B{"OS is macOS?"}
     B -- no --> Z["no-op"]
     B -- yes --> C["Probe candidates in order"]
     C --> C1["libvulkan.1.dylib in app dir or<br/>runtimes/osx-*/native"]
@@ -112,7 +149,7 @@ flowchart TD
     C3 -->|miss| C4["~/VulkanSDK/(highest version)/macOS/lib"]
     C4 -->|miss| C5["bundled libMoltenVK.dylib"]
     C1 & C2 & C3 & C4 & C5 -->|hit| D["NativeLibrary.Load → ActiveLibraryPath"]
-    D --> E["glfwInitVulkanLoader(vkGetInstanceProcAddr)"]
+    D --> E["SDL_Vulkan_LoadLibrary(ActiveLibraryPath)"]
     E --> F["VulkanRenderer: TryCreateVk()<br/>new Vk(DefaultNativeContext(ActiveLibraryPath))"]
 ```
 
@@ -121,8 +158,8 @@ The renderer then enables `VK_KHR_portability_enumeration` (instance) and `VK_KH
 
 **Rule:** never call bare `Vk.GetApi()` in engine code; take `Vk` from `IVulkanContext`.
 
-> Planned (M0): windowing moves from GLFW to SDL, and the handoff becomes `SDL_Vulkan_LoadLibrary`. See
-> [SDL windowing](future/sdl-windowing.md).
+Verified on macOS arm64 against all three sources: SDK loader (`/usr/local/lib`), `~/VulkanSDK/<ver>`
+and the bundled `libMoltenVK.dylib` (no validation layers through that one).
 
 ## Platform matrix
 
@@ -138,13 +175,13 @@ immutable) and 16 samplers per shader stage (`MaxShadowSpot = 7`). See [Shadow s
 
 ## Known issues
 
-- `VulkanLoaderBootstrap` relies on `Silk.NET.GLFW`, which arrives only transitively through Windowing.
 - [`MainframeEngine.Sandbox.csproj`](../../MainframeEngine.Sandbox/MainframeEngine.Sandbox.csproj) has
   stale `Content\SpineBoy\*` entries; the files live in `Content/Models/Spine/SpineBoy/`.
 - Engine content paths are CWD-relative; only the Sandbox and the render-test host pin the working
   directory (proper fix: `ContentPaths`, M3).
 - `.spv` files are still compiled by hand (`just shaders`); `shaders-check` only detects drift.
-- GLFW reports no monitor while a Mac's display sleeps; the engine then skips window centering.
+- The window layer may report no monitor while a Mac's display sleeps; the engine then skips window
+  centering.
 
 ## Related docs
 

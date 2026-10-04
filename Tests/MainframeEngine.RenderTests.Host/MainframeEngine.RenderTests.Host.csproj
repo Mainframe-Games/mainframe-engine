@@ -2,7 +2,7 @@
 
   <!--
     Runs one render-test scene in its own process and reports the results as JSON + PNGs.
-    Render tests launch it out of process because windowing (GLFW/Cocoa) must own the process main
+    Render tests launch it out of process because windowing (SDL/Cocoa) must own the process main
     thread on macOS, and so a driver crash fails one test instead of the whole test run.
   -->
   <PropertyGroup>

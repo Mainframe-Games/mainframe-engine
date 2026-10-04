@@ -43,7 +43,7 @@ flowchart LR
 
 | Step | Detail |
 |---|---|
-| Instance | API 1.2, GLFW-required extensions, `VK_EXT_debug_utils` if validating, `VK_KHR_portability_enumeration` + flag when available (macOS). Layer `VK_LAYER_KHRONOS_validation` (dropped with a warning if missing). |
+| Instance | API 1.2, window-required extensions (SDL), `VK_EXT_debug_utils` if validating, `VK_KHR_portability_enumeration` + flag when available (macOS). Layer `VK_LAYER_KHRONOS_validation` (dropped with a warning if missing). |
 | Debug messenger | Warning/Error × General/Performance/Validation → static `[UnmanagedCallersOnly]` callback → `VulkanValidationLog` (`IVulkanContext.Validation`: counts + first 64 messages) and `Log.Warning`/`Log.Error`. Verbose/info are not subscribed (they would allocate a string per message). |
 | Physical device | First device with graphics + present queue families. No feature or extension scoring. |
 | Logical device | One queue per unique family. Extensions: `VK_KHR_swapchain` (+ `VK_KHR_portability_subset` if advertised). **No features enabled.** |

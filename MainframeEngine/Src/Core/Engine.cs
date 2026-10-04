@@ -1,7 +1,9 @@
 using Silk.NET.Core;
 using Silk.NET.Input;
+using Silk.NET.Input.Sdl;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
+using Silk.NET.Windowing.Sdl;
 using StbImageSharp;
 
 namespace MainframeEngine;
@@ -65,6 +67,13 @@ public abstract class Engine : IDisposable
     public string? IconPath => EngineOptions.IconPath;
 
     /// <summary>
+    /// Framebuffer size in pixels — what the swapchain, viewports and aspect ratios use. On HiDPI
+    /// displays this is larger than <see cref="IWindow.Size"/> (points); prefer it over
+    /// <see cref="IWindow.FramebufferSize"/>, which SDL reports in points for Vulkan windows.
+    /// </summary>
+    public Vector2D<int> FramebufferSize => WindowPixels.FramebufferSize(Window);
+
+    /// <summary>
     /// Caps the frame rate. Set to 0 for unlimited.
     /// Has no effect when VSync is enabled (the display refresh rate governs timing).
     /// </summary>
@@ -82,7 +91,9 @@ public abstract class Engine : IDisposable
     {
         EngineOptions = engineOptions;
 
-        // macOS: GLFW can't find the Vulkan loader on its own (dyld no longer searches
+        UseSdl();
+
+        // macOS: SDL can't find the Vulkan loader on its own (dyld no longer searches
         // /usr/local/lib for leaf-name dlopen) — hand it one before the window is created.
         VulkanLoaderBootstrap.Initialize();
 
@@ -103,8 +114,19 @@ public abstract class Engine : IDisposable
         Window.Closing += OnClose;
     }
 
+    /// <summary>
+    /// Windowing and input run on SDL2 (Silk.NET's SDL backend). Registered explicitly rather than
+    /// discovered by reflection, so trimmed/AOT builds keep the backend; GLFW is not referenced.
+    /// </summary>
+    private static void UseSdl()
+    {
+        SdlWindowing.RegisterPlatform();
+        SdlInput.RegisterPlatform();
+        Silk.NET.Windowing.Window.PrioritizeSdl();
+    }
+
     // Monitors can only be queried once the window exists, and there may be none at all (a
-    // sleeping display on macOS, some headless X servers) — querying a null monitor crashes GLFW.
+    // sleeping display on macOS, some headless X servers).
     private void CenterWindow()
     {
         if (Window.Monitor is { } monitor)
@@ -114,6 +136,7 @@ public abstract class Engine : IDisposable
     protected virtual void OnLoad()
     {
         InputContext = Window.CreateInput();
+        Log.Info($"[Window] SDL window {Window.Size.X}x{Window.Size.Y} pt, framebuffer {FramebufferSize.X}x{FramebufferSize.Y} px");
 
         Renderer = new VulkanRenderer(Window, new VulkanRendererOptions
         {

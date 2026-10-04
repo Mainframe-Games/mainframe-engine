@@ -43,7 +43,7 @@ flowchart LR
     Sandbox["MainframeEngine.Sandbox"] --> Engine["MainframeEngine"]
     SpineEx["Examples/SpineExamples"] --> Engine
     Engine --> SpineRT["spine-csharp<br/>(submodule)"]
-    Engine --> Silk["Silk.NET<br/>Windowing · Input · Vulkan · MoltenVK"]
+    Engine --> Silk["Silk.NET<br/>Windowing + Input (SDL2) · Vulkan · MoltenVK"]
     Engine --> ImGui["ImGui.NET"]
     Engine --> Stb["StbImageSharp"]
     Engine --> ENet["ENet-CSharp"]

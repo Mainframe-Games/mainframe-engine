@@ -196,7 +196,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
         Renderer.Clear();
 
         // render core stuff
-        var frameBufferSize = new Vector2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
+        var frameBufferSize = new Vector2(FramebufferSize.X, Math.Max(1, FramebufferSize.Y));
         _camera3D.AspectRatio = frameBufferSize.X / frameBufferSize.Y;
         _sky.Draw(_camera3D); // must be drawn first — renders behind all geometry
         _sceneGrid3d.Draw(_camera3D);

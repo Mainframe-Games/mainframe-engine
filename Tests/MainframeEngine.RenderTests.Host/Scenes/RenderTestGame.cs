@@ -36,7 +36,14 @@ public abstract class RenderTestGame : Engine
 
     protected IVulkanContext Vulkan => (IVulkanContext)Renderer;
 
-    protected float AspectRatio => (float)Window.FramebufferSize.X / Math.Max(1, Window.FramebufferSize.Y);
+    protected float AspectRatio
+    {
+        get
+        {
+            var size = FramebufferSize;
+            return (float)size.X / Math.Max(1, size.Y);
+        }
+    }
 
     protected override void OnLoad()
     {

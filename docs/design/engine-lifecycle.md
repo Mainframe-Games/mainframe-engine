@@ -37,11 +37,14 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 
 ## Startup
 
-1. **Constructor:** stores options → `VulkanLoaderBootstrap.Initialize()` → creates the window from
+1. **Constructor:** stores options → selects SDL (`SdlWindowing`/`SdlInput.RegisterPlatform()`,
+   `Window.PrioritizeSdl()`) → `VulkanLoaderBootstrap.Initialize()` (macOS probe +
+   `SDL_Vulkan_LoadLibrary` handoff, see [Build & platforms](build-and-platforms.md#windowing-sdl2))
+   → creates the window from
    `WindowOptions.DefaultVulkan` (title `"{GameName} ({RenderingBackend})"`, API 1.2) → subscribes
    `Load`, `FramebufferResize`, `Update`, `Render`, `Closing`.
-2. **`Load`:** centres the window on its monitor (skipped when GLFW reports none, e.g. a sleeping
-   macOS display), then **`OnLoad()`** (base): `Window.CreateInput()` →
+2. **`Load`:** centres the window on its monitor (skipped when none is reported, e.g. a sleeping
+   macOS display), then **`OnLoad()`** (base): `Window.CreateInput()` (SDL input) →
    `new VulkanRenderer(Window, { EnableValidation, VSync, EnableFrameCapture })` →
    `new VulkanImGuiController(...)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
 

@@ -13,12 +13,13 @@
   <ItemGroup>
     <PackageVersion Include="Silk.NET" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.Assimp" Version="$(SilkNetVersion)" />
-    <PackageVersion Include="Silk.NET.Input" Version="$(SilkNetVersion)" />
+    <!-- Windowing and input run on SDL2 (ADR 0003); the GLFW backend packages are not referenced. -->
+    <PackageVersion Include="Silk.NET.Input.Sdl" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.Vulkan" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="$(SilkNetVersion)" />
-    <PackageVersion Include="Silk.NET.Windowing" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Silk.NET.Windowing.Sdl" Version="$(SilkNetVersion)" />
     <PackageVersion Include="ENet-CSharp" Version="2.4.8" />
     <PackageVersion Include="ImGui.NET" Version="1.89.9.3" />
     <PackageVersion Include="StbImageSharp" Version="2.30.15" />

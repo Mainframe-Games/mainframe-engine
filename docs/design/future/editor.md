@@ -3,7 +3,7 @@
 **Milestone:** M10 · **Status:** ⬜ planned · **New project:** `MainframeEngine.Editor` (exe) →
 references `MainframeEngine` · **Depends on:** [Node system](node-system.md),
 [Scene serialization](scene-serialization.md), [Materials & meshes](materials-and-meshes.md) (render
-targets), [Game UI (RmlUi)](game-ui.md), [SDL windowing](sdl-windowing.md)
+targets), [Game UI (RmlUi)](game-ui.md), [SDL windowing](../build-and-platforms.md#windowing-sdl2)
 
 ## Problem
 
@@ -249,4 +249,4 @@ sequenceDiagram
 ## Related
 
 [Milestones](../../milestones.md) · [Node system](node-system.md) · [Scene serialization](scene-serialization.md) ·
-[Game UI](game-ui.md) · [Materials & meshes](materials-and-meshes.md) · [SDL windowing](sdl-windowing.md)
+[Game UI](game-ui.md) · [Materials & meshes](materials-and-meshes.md) · [SDL windowing](../build-and-platforms.md#windowing-sdl2)

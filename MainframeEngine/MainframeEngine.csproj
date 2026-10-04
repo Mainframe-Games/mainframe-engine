@@ -15,9 +15,9 @@
         <PackageReference Include="ENet-CSharp" ExcludeAssets="native;build;buildTransitive" />
         <PackageReference Include="ImGui.NET" />
         <PackageReference Include="Silk.NET.Assimp" />
-        <PackageReference Include="Silk.NET.Input" />
+        <PackageReference Include="Silk.NET.Input.Sdl" />
         <PackageReference Include="Silk.NET.MoltenVK.Native" />
-        <PackageReference Include="Silk.NET.Windowing" />
+        <PackageReference Include="Silk.NET.Windowing.Sdl" />
         <PackageReference Include="Silk.NET.Vulkan" />
         <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
         <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />

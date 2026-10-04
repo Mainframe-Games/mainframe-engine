@@ -1,7 +1,7 @@
 # Proposal: Game UI (RmlUi)
 
 **Milestone:** M8 · **Status:** ⬜ planned · **Decision:** RmlUi for HTML/CSS-style UI (agreed
-2026-10-05) · **Depends on:** [SDL windowing](sdl-windowing.md), [GPU resource management](gpu-resource-management.md),
+2026-10-05) · **Depends on:** [SDL windowing](../build-and-platforms.md#windowing-sdl2), [GPU resource management](gpu-resource-management.md),
 [Color pipeline](color-pipeline.md) · **Used by:** games and the [Editor](editor.md)
 
 ## Library
@@ -224,5 +224,5 @@ flowchart LR
 
 ## Related
 
-[Milestones](../../milestones.md) · [Editor](editor.md) · [Localization](localization.md) · [SDL windowing](sdl-windowing.md) ·
+[Milestones](../../milestones.md) · [Editor](editor.md) · [Localization](localization.md) · [SDL windowing](../build-and-platforms.md#windowing-sdl2) ·
 [ImGui & debug tools](../imgui-and-debug-tools.md) · [Color pipeline](color-pipeline.md)

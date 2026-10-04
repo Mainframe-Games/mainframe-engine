@@ -459,8 +459,8 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
     private void CreateInstance()
     {
-        // On macOS Vk must bind the same library the bootstrap gave GLFW — a mismatched pair
-        // produces instances glfwCreateWindowSurface rejects.
+        // On macOS Vk must bind the same library the bootstrap gave SDL — a mismatched pair
+        // produces instances SDL_Vulkan_CreateSurface rejects.
         _vk = VulkanLoaderBootstrap.TryCreateVk() ?? Vk.GetApi();
 
         if (_enableValidationLayers && !CheckValidationLayerSupport())
@@ -532,8 +532,9 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
     private string[] GetRequiredExtensions()
     {
-        var glfwExtensions = _window.VkSurface!.GetRequiredExtensions(out var count);
-        var extensions = SilkMarshal.PtrToStringArray((nint)glfwExtensions, (int)count);
+        // SDL_Vulkan_GetInstanceExtensions through Silk's surface abstraction.
+        var windowExtensions = _window.VkSurface!.GetRequiredExtensions(out var count);
+        var extensions = SilkMarshal.PtrToStringArray((nint)windowExtensions, (int)count);
         return _enableValidationLayers
             ? extensions.Append(ExtDebugUtils.ExtensionName).ToArray()
             : extensions;
@@ -839,7 +840,7 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
         if (capabilities.CurrentExtent.Width != uint.MaxValue)
             return capabilities.CurrentExtent;
 
-        var size = _window.FramebufferSize;
+        var size = WindowPixels.FramebufferSize(_window);
         return new Extent2D
         {
             Width = Math.Clamp((uint)size.X, capabilities.MinImageExtent.Width, capabilities.MaxImageExtent.Width),
@@ -1130,10 +1131,10 @@ internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
     private void RecreateSwapchain()
     {
-        var size = _window.FramebufferSize;
+        var size = WindowPixels.FramebufferSize(_window);
         while (size.X == 0 || size.Y == 0)
         {
-            size = _window.FramebufferSize;
+            size = WindowPixels.FramebufferSize(_window);
             _window.DoEvents();
         }
 

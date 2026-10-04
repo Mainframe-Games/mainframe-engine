@@ -9,11 +9,9 @@
     <ItemGroup>
         <PackageReference Include="ImGui.NET" />
         <PackageReference Include="Silk.NET.Assimp" />
-        <PackageReference Include="Silk.NET.Input" />
         <PackageReference Include="Silk.NET.Vulkan" />
         <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
         <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
-        <PackageReference Include="Silk.NET.Windowing" />
         <PackageReference Include="StbImageSharp" />
     </ItemGroup>
 

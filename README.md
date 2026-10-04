@@ -27,7 +27,7 @@ Where the engine is heading:
 
 | Area | Plan | Design doc |
 |---|---|---|
-| Windowing / input | Switch from GLFW to SDL (via Silk.NET) | [SDL windowing](docs/design/future/sdl-windowing.md) |
+| Windowing / input | SDL2 via Silk.NET (switched from GLFW in M0) | [Build & platforms](docs/design/build-and-platforms.md#windowing-sdl2) |
 | Scene model | Godot-style nodes: `SceneTree`, lifecycle callbacks, signals, groups, `.mscene` scene files | [Node system](docs/design/future/node-system.md), [Scene serialization](docs/design/future/scene-serialization.md) |
 | Physics | [Jitter2](https://github.com/notgiven688/jitterphysics2) for 3D, [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3) for 2D | [Physics](docs/design/future/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | [Audio](docs/design/future/audio.md) |
@@ -240,7 +240,7 @@ Steamworks.NET wrappers. **Status:** scaffold. Steam is not initialized yet (`St
 
 | System | Library | Version |
 |--------|---------|---------|
-| Windowing / Input | Silk.NET | 2.21.0 |
+| Windowing / Input | Silk.NET (SDL2 backend) | 2.22.0 |
 | Vulkan bindings | Silk.NET.Vulkan | 2.22.0 |
 | Skeletal animation | Spine Runtime | (Plugin) |
 | Debug UI | ImGui.NET | 1.89.9.3 |
@@ -254,7 +254,7 @@ Steamworks.NET wrappers. **Status:** scaffold. Steam is not initialized yet (`St
 
 | System | Library | Milestone | Design doc |
 |--------|---------|-----------|------------|
-| Windowing / input | SDL2 via Silk.NET (already a transitive dependency) | M0 | [SDL windowing](docs/design/future/sdl-windowing.md) |
+| Windowing / input | SDL2 via Silk.NET 2.22 (`Silk.NET.Windowing.Sdl`/`.Input.Sdl`) | M0 ✅ | [Build & platforms](docs/design/build-and-platforms.md#windowing-sdl2) |
 | Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) | M6 | [Physics](docs/design/future/physics.md) |
 | Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3 port; replaces box2d-netstandard, which is unmaintained) | M6 | [Physics](docs/design/future/physics.md) |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | M7 | [Audio](docs/design/future/audio.md) |
@@ -346,4 +346,4 @@ Full C# port of the Spine skeletal animation runtime:
 3. Set `MainframeEngine.Sandbox` as the startup project
 4. Build and run — requires .NET 10 SDK
 
-**macOS:** Vulkan runs through MoltenVK. A copy is bundled via `Silk.NET.MoltenVK.Native`, so nothing needs to be installed to run. Installing the [Vulkan SDK](https://vulkan.lunarg.com) is still recommended for development — it provides the validation layers and `glslc`. `VulkanLoaderBootstrap` hands the Vulkan library to GLFW and Silk.NET explicitly, because modern macOS dyld no longer finds `/usr/local/lib` when GLFW dlopens the loader by name.
+**macOS:** Vulkan runs through MoltenVK. A copy is bundled via `Silk.NET.MoltenVK.Native`, so nothing needs to be installed to run. Installing the [Vulkan SDK](https://vulkan.lunarg.com) is still recommended for development — it provides the validation layers and `glslc`. `VulkanLoaderBootstrap` hands the Vulkan library to SDL (`SDL_Vulkan_LoadLibrary`) and Silk.NET explicitly, because modern macOS dyld no longer finds `/usr/local/lib` when the loader is dlopened by name.

@@ -33,10 +33,13 @@ must not allocate (allocation gate) and must produce no validation warnings.
 
 Vulkan runs through MoltenVK, bundled via the `Silk.NET.MoltenVK.Native` package — no install
 needed to run. The Vulkan SDK (lunarg.com) is recommended for development (validation layers,
-`glslc`). `VulkanLoaderBootstrap` (called first in the `Engine` constructor) hands the same
-Vulkan library to GLFW (`glfwInitVulkanLoader`) and to Silk.NET's `Vk` — required because
-modern macOS dyld no longer searches `/usr/local/lib` for leaf-name dlopen, and the two would
-otherwise bind different libraries whose instances are not interchangeable. The renderer
+`glslc`). Windowing and input are SDL2 (Silk.NET SDL backend; GLFW is not referenced).
+`VulkanLoaderBootstrap` (called in the `Engine` constructor after SDL is selected, before the
+window exists) probes for a Vulkan library and hands the same one to SDL (`SDL_Vulkan_LoadLibrary`)
+and to Silk.NET's `Vk` — required because modern macOS dyld no longer searches `/usr/local/lib` for
+leaf-name dlopen, and the two would otherwise bind different libraries whose instances are not
+interchangeable. HiDPI: use `Engine.FramebufferSize` (pixels), not `Window.FramebufferSize` (points
+under SDL). The renderer
 enables `VK_KHR_portability_enumeration`/`VK_KHR_portability_subset` capability-conditionally;
 Windows/Linux are unaffected.
 
