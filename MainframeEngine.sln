@@ -32,6 +32,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine.L10n", "Too
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine.Editor", "MainframeEngine.Editor\MainframeEngine.Editor.csproj", "{EDC28A8D-7FA5-40BA-9E42-781DA29B9F5A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MainframeEngine.Editor.Tests", "Tests\MainframeEngine.Editor.Tests\MainframeEngine.Editor.Tests.csproj", "{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -186,6 +188,18 @@ Global
 		{EDC28A8D-7FA5-40BA-9E42-781DA29B9F5A}.Release|x64.Build.0 = Release|Any CPU
 		{EDC28A8D-7FA5-40BA-9E42-781DA29B9F5A}.Release|x86.ActiveCfg = Release|Any CPU
 		{EDC28A8D-7FA5-40BA-9E42-781DA29B9F5A}.Release|x86.Build.0 = Release|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Debug|x64.Build.0 = Debug|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Debug|x86.Build.0 = Debug|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Release|x64.ActiveCfg = Release|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Release|x64.Build.0 = Release|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Release|x86.ActiveCfg = Release|Any CPU
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -199,5 +213,6 @@ Global
 		{7F3D1F31-6B8F-49B1-B2F0-5F22D76288DC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{B85F4586-FE23-41A9-8552-DC0DD872F400} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{531822C8-BB14-445A-9345-57A1740DAAF8} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{CAD2762F-ACC6-4920-BB2C-8328D9D6CF0E} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

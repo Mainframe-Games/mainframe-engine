@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Editor unit tests (no window, no GPU): models, undo/redo, scene operations, and the RmlUi panels headless. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MainframeEngine.Editor\MainframeEngine.Editor.csproj" />
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+    <!-- Registers the test node types ([Export] with every hint) like a game assembly. -->
+    <ProjectReference Include="..\..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

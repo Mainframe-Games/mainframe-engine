@@ -147,14 +147,19 @@ public sealed class EditorCommands
 
         if (!saveAs && scene.FilePath is not null)
         {
-            then?.Invoke(TrySave(scene, null));
+            var saved = TrySave(scene, null); // not inside then?.Invoke(...): a null callback would skip the save
+            then?.Invoke(saved);
             return;
         }
 
         var name = scene.FilePath is null ? "NewScene.mscene" : Path.GetFileName(scene.FilePath);
         var model = new FilePickerModel(FilePickerMode.Save, StartDirectory(scene), ["*.mscene"], name);
         _workspace.FilePicker.Show(model, saveAs ? "Save Scene As" : "Save Scene", "Save",
-            path => then?.Invoke(TrySave(scene, path)),
+            path =>
+            {
+                var saved = TrySave(scene, path);
+                then?.Invoke(saved);
+            },
             onCancel: () => then?.Invoke(false));
     }
 

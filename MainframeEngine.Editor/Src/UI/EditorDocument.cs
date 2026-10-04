@@ -122,6 +122,22 @@ public abstract class EditorDocument : UiDocument
         return default;
     }
 
+    /// <summary>
+    /// Hides the document and gives up keyboard focus: a hidden dialog must not keep a text field focused, or the UI would
+    /// keep taking every key and the editor's shortcuts would stop working.
+    /// </summary>
+    protected void HideAndReleaseFocus()
+    {
+        if (IsLoaded && Layer?.Context is { IsDisposed: false } context)
+        {
+            var focus = context.FocusElement;
+            if (!focus.IsNull && focus.OwnerDocument == Document)
+                focus.Blur();
+        }
+
+        Visible = false;
+    }
+
     /// <summary>Sets an element's text content (escaped), when the element exists.</summary>
     protected void SetText(string id, string text)
     {

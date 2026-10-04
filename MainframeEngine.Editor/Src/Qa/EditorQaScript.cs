@@ -191,6 +191,10 @@ public sealed class EditorQaScript : IEditorAutomation
             case "log":
                 Log.Info($"[QA] {string.Join(' ', step[1..])}");
                 break;
+            case "select":
+                if (workspace.Session.Active is { } selectScene)
+                    selectScene.Selection.Set(selectScene.Root.GetNode(string.Join(' ', step[1..])));
+                break;
             case "state":
                 if (workspace.Session.Active is { } active)
                 {

@@ -196,7 +196,7 @@ public sealed class FilePickerDialog : EditorDocument
 
     private void Close()
     {
-        Visible = false;
+        HideAndReleaseFocus();
         Model = null;
         _onAccept = null;
         _onCancel = null;

@@ -79,6 +79,12 @@ jobs:
       - name: Localization catalogs
         run: dotnet run --project Tools/MainframeEngine.L10n -c Release --no-build -- check --dir MainframeEngine.Sandbox/Content/locale --msgfmt
 
+      - name: Editor unit tests
+        run: >-
+          dotnet test Tests/MainframeEngine.Editor.Tests -c Release --no-build
+          --logger "trx;LogFileName=editor-tests.trx"
+          --results-directory TestResults
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

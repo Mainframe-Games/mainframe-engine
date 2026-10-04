@@ -121,7 +121,7 @@ public sealed class EditorCamera
     {
         Pivot = center;
         var halfFov = float.DegreesToRadians(FieldOfView) * 0.5f;
-        Distance = MathF.Max(radius, 0.25f) / MathF.Sin(halfFov) * 1.15f;
+        Distance = MathF.Max(radius, 0.25f) / MathF.Sin(halfFov) * 1.6f;
     }
 
     /// <summary>Axis-aligned views: front (looking along -Z), right (along -X), top (down).</summary>

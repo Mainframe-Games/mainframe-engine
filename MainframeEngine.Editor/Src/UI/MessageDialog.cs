@@ -91,7 +91,7 @@ public sealed class MessageDialog : EditorDocument
             return;
         var text = IsLoaded && !Document.GetElementById("input").IsNull ? Document.GetElementById("input").Value ?? "" : "";
         Current = null;
-        Visible = false;
+        HideAndReleaseFocus();
         try
         {
             request.Callback?.Invoke(button, text);

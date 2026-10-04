@@ -278,9 +278,20 @@ public sealed class EditorWorkspace : Node
         EditorLayout.Save(path, Layout.Settings);
     }
 
+    // The title only changes with the active scene, its file or its dirty state: compare those, build strings on change.
+    private EditedScene? _titleScene;
+    private string? _titleFile;
+    private bool _titleDirty;
+
     private void UpdateTitle()
     {
         var active = Session.Active;
+        var dirty = active?.IsDirty == true;
+        if (_title.Length > 0 && ReferenceEquals(active, _titleScene) && ReferenceEquals(active?.FilePath, _titleFile) && dirty == _titleDirty)
+            return;
+        _titleScene = active;
+        _titleFile = active?.FilePath;
+        _titleDirty = dirty;
         var title = active is null ? "Mainframe Editor" : $"{active.Title} — Mainframe Editor";
         if (string.Equals(title, _title, StringComparison.Ordinal))
             return;

@@ -100,7 +100,9 @@ public sealed class ToolbarPanel : EditorDocument
         if (element.IsNull)
             return;
         Span<char> text = stackalloc char[48];
-        if (text.TryWrite(CultureInfo.InvariantCulture, $"{fps:0} fps  {ms:0.0} ms", out var written))
+        // Integers only: custom float format strings allocate in the runtime's number formatting.
+        var tenths = (int)MathF.Round(ms * 10f);
+        if (text.TryWrite(CultureInfo.InvariantCulture, $"{(int)MathF.Round(fps)} fps  {tenths / 10}.{tenths % 10} ms", out var written))
             element.SetInnerRml(text[..written]);
     }
 }

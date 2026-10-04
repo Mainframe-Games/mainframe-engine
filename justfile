@@ -14,9 +14,10 @@ default:
 build config="Debug":
     dotnet build {{solution}} -c {{config}}
 
-# Unit tests (no GPU)
+# Unit tests (no GPU): engine and editor
 test:
     dotnet test Tests/MainframeEngine.Tests
+    dotnet test Tests/MainframeEngine.Editor.Tests
 
 # Unit tests with coverage (Cobertura XML under artifacts/coverage)
 coverage:
@@ -41,6 +42,14 @@ shaders:
 # Fail if a shader source or .spv no longer matches shaders.lock
 shaders-check:
     sh build/shaders.sh check
+
+# Run the editor (extra args are passed through, e.g. just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene)
+editor *args:
+    dotnet run --project MainframeEngine.Editor -- {{args}}
+
+# Scripted editor QA: input + captures into artifacts/qa-editor (default script: the Sandbox walkthrough)
+qa-editor script="Tests/QA/editor-walkthrough.qa":
+    dotnet run --project MainframeEngine.Editor -c Release -- MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene --hidden --qa-script {{script}} --qa-out {{artifacts / "qa-editor"}}
 
 # Run the Sandbox (extra args are passed through, e.g. just sandbox --qa-capture out)
 sandbox *args:

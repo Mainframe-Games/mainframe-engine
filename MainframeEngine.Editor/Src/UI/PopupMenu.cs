@@ -94,7 +94,7 @@ public sealed class PopupMenu : EditorDocument
     {
         if (!Visible)
             return;
-        Visible = false;
+        HideAndReleaseFocus();
         var onClose = _onClose;
         _onClose = null;
         _onCommand = null;

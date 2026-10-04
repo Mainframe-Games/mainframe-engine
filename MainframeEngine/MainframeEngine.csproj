@@ -35,6 +35,7 @@
       <InternalsVisibleTo Include="MainframeEngine.Tests" />
       <InternalsVisibleTo Include="MainframeEngine.RenderTests.Host" />
       <InternalsVisibleTo Include="MainframeEngine.Benchmarks" />
+      <InternalsVisibleTo Include="MainframeEngine.Editor.Tests" />
     </ItemGroup>
 
     <!-- Local References -->

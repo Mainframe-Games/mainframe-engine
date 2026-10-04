@@ -146,7 +146,7 @@ public sealed class ListPickerDialog : EditorDocument
 
     private void Close()
     {
-        Visible = false;
+        HideAndReleaseFocus();
         _onAccept = null;
         _items = [];
         _rows.Clear();

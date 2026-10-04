@@ -1,0 +1,59 @@
+# Editor QA walkthrough (just qa-editor): drives the real editor through the UI input path and captures each step.
+# Window 1600x960 points (hidden). Review the PNGs in artifacts/qa-editor after a run.
+wait 40
+capture 01-opened
+# Select a mesh by clicking it in the 3D view, then frame it.
+select Column
+key F
+wait 8
+capture 02-selected-framed
+# Move it up with the gizmo, rotate it, then undo the rotation.
+gizmo-drag y 0 -60
+wait 3
+capture 03-moved
+key E
+gizmo-drag y 60 0
+wait 3
+capture 04-rotated
+key Z cmd
+wait 3
+state
+capture 05-undone
+# Menus, the undo history and the add-node dialog.
+click #menu-edit
+wait 3
+capture 06-edit-menu
+cancel
+command edit.history
+wait 3
+capture 07-history
+cancel
+key A cmd
+wait 3
+type Spot
+wait 3
+capture 08-add-node
+accept
+wait 3
+capture 09-added
+# Duplicate, rename, delete through shortcuts and dialogs.
+key D cmd
+wait 3
+command edit.rename
+wait 2
+capture 10-rename
+cancel
+key Delete
+wait 3
+capture 11-deleted
+# File dialogs and the unsaved-changes prompt.
+command file.save_as
+wait 3
+capture 12-save-as
+cancel
+command file.quit
+wait 3
+capture 13-quit-prompt
+cancel
+state
+quit
