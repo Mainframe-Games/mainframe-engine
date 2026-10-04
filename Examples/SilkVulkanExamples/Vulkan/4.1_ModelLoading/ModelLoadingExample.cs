@@ -81,7 +81,7 @@ public unsafe class ModelLoadingExample : ExampleBase
         var samplerB = new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit };
         var bindings = stackalloc[] { uboB, samplerB };
         var li = new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 2, PBindings = bindings };
-        if (Vk.CreateDescriptorSetLayout(Device, in li, null, out _descriptorSetLayout) != Result.Success) throw new Exception("failed!");
+        if (Vk.CreateDescriptorSetLayout(Device, in li, null, out _descriptorSetLayout) != Result.Success) throw new InvalidOperationException("failed!");
     }
 
     private void CreateUniformBuffers()
@@ -95,18 +95,16 @@ public unsafe class ModelLoadingExample : ExampleBase
         int n = SwapChainImages.Length;
         var poolSizes = stackalloc DescriptorPoolSize[] { new() { Type = DescriptorType.UniformBuffer, DescriptorCount = (uint)n }, new() { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (uint)n } };
         var pi = new DescriptorPoolCreateInfo { SType = StructureType.DescriptorPoolCreateInfo, PoolSizeCount = 2, PPoolSizes = poolSizes, MaxSets = (uint)n };
-        if (Vk.CreateDescriptorPool(Device, in pi, null, out _descriptorPool) != Result.Success) throw new Exception("failed!");
+        if (Vk.CreateDescriptorPool(Device, in pi, null, out _descriptorPool) != Result.Success) throw new InvalidOperationException("failed!");
         var ls = new DescriptorSetLayout[n]; Array.Fill(ls, _descriptorSetLayout); _descriptorSets = new DescriptorSet[n];
         fixed (DescriptorSetLayout* lp = ls) { var ai = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _descriptorPool, DescriptorSetCount = (uint)n, PSetLayouts = lp }; fixed (DescriptorSet* sp = _descriptorSets) Vk.AllocateDescriptorSets(Device, in ai, sp); }
+        var writes = stackalloc WriteDescriptorSet[2];
         for (int i = 0; i < n; i++)
         {
             var bi = new DescriptorBufferInfo { Buffer = _uniformBuffers[i], Offset = 0, Range = (ulong)sizeof(UniformBufferObject) };
             var imgInfo = new DescriptorImageInfo { ImageLayout = ImageLayout.ShaderReadOnlyOptimal, ImageView = _textureImageView, Sampler = _textureSampler };
-            var writes = stackalloc WriteDescriptorSet[]
-            {
-                new() { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, PBufferInfo = &bi },
-                new() { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = &imgInfo },
-            };
+            writes[0] = new() { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, PBufferInfo = &bi };
+            writes[1] = new() { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = &imgInfo };
             Vk.UpdateDescriptorSets(Device, 2, writes, 0, null);
         }
     }
@@ -138,10 +136,10 @@ public unsafe class ModelLoadingExample : ExampleBase
 
         var dsl = _descriptorSetLayout;
         var pli = new PipelineLayoutCreateInfo { SType = StructureType.PipelineLayoutCreateInfo, SetLayoutCount = 1, PSetLayouts = &dsl };
-        if (Vk.CreatePipelineLayout(Device, in pli, null, out _pipelineLayout) != Result.Success) throw new Exception("failed!");
+        if (Vk.CreatePipelineLayout(Device, in pli, null, out _pipelineLayout) != Result.Success) throw new InvalidOperationException("failed!");
 
         var pci = new GraphicsPipelineCreateInfo { SType = StructureType.GraphicsPipelineCreateInfo, StageCount = 2, PStages = stages, PVertexInputState = &vi, PInputAssemblyState = &ia, PViewportState = &vps, PRasterizationState = &rast, PMultisampleState = &ms, PDepthStencilState = &dss, PColorBlendState = &cb, PDynamicState = &dyn, Layout = _pipelineLayout, RenderPass = RenderPass, Subpass = 0 };
-        if (Vk.CreateGraphicsPipelines(Device, default, 1, in pci, null, out _graphicsPipeline) != Result.Success) throw new Exception("failed!");
+        if (Vk.CreateGraphicsPipelines(Device, default, 1, in pci, null, out _graphicsPipeline) != Result.Success) throw new InvalidOperationException("failed!");
         Vk.DestroyShaderModule(Device, vertModule, null); Vk.DestroyShaderModule(Device, fragModule, null);
         SilkMarshal.Free((nint)vs.PName); SilkMarshal.Free((nint)fs.PName);
     }

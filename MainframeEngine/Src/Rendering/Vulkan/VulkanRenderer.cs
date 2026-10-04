@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.Core;
@@ -7,6 +8,7 @@ using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 using Silk.NET.Vulkan.Extensions.KHR;
 using Silk.NET.Windowing;
+using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
@@ -14,7 +16,7 @@ namespace MainframeEngine;
 /// Vulkan rendering backend.
 /// Implements IVulkanContext so shapes can record draw commands into the active command buffer.
 /// </summary>
-internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
+internal sealed unsafe class VulkanRenderer : IRenderer, IVulkanContext
 {
     private readonly IWindow _window;
 
@@ -59,7 +61,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private uint _currentImageIndex;
     private bool _frameStarted;
     private bool _framebufferResized;
-    private bool _vsync = true;
+    private bool _vsync;
 
     // clear color
     private float _clearR, _clearG, _clearB, _clearA = 1f;
@@ -69,6 +71,19 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     private readonly string[] _validationLayers = ["VK_LAYER_KHRONOS_validation"];
     private ExtDebugUtils? _debugUtils;
     private DebugUtilsMessengerEXT _debugMessenger;
+    private readonly VulkanValidationLog _validation = new();
+    private GCHandle _validationHandle; // user data for the static debug callback
+
+    // frame capture (opt-in: swapchain needs TRANSFER_SRC usage)
+    private readonly bool _enableFrameCapture;
+    private bool _captureSupported;
+    private bool _captureRequested;
+    private bool _captureRecorded;
+    private FrameCapture? _completedCapture;
+    private VkBuffer _captureBuffer;
+    private DeviceMemory _captureMemory;
+    private ulong _captureBufferSize;
+    private nint _captureMapped;
 
     private readonly string[] _deviceExtensions = [KhrSwapchain.ExtensionName];
 
@@ -103,13 +118,16 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public uint SwapchainImageCount => (uint)(_swapChainImages?.Length ?? 0);
     public uint CurrentImageIndex => _currentImageIndex;
     public Silk.NET.Vulkan.Framebuffer CurrentFramebuffer => _swapChainFramebuffers![_currentImageIndex];
+    public VulkanValidationLog Validation => _validation;
 
     #endregion
 
-    public VulkanRenderer(IWindow window, bool enableValidationLayers)
+    public VulkanRenderer(IWindow window, in VulkanRendererOptions options)
     {
         _window = window;
-        _enableValidationLayers = enableValidationLayers;
+        _enableValidationLayers = options.EnableValidation;
+        _vsync = options.VSync;
+        _enableFrameCapture = options.EnableFrameCapture;
         InitVulkan();
     }
 
@@ -125,7 +143,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             RecreateSwapchain();
         }
 
-        _vk!.WaitForFences(_device, 1, _inFlightFences![_currentFrame], true, ulong.MaxValue);
+        _vk!.WaitForFences(_device, 1, in _inFlightFences![_currentFrame], true, ulong.MaxValue);
 
         uint imageIndex;
         var result = _khrSwapChain!.AcquireNextImage(_device, _swapChain, ulong.MaxValue,
@@ -138,13 +156,13 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         }
 
         if (result != Result.Success && result != Result.SuboptimalKhr)
-            throw new Exception("[Vulkan] Failed to acquire swap chain image!");
+            throw new VulkanException("[Vulkan] Failed to acquire swap chain image!");
 
         _currentImageIndex = imageIndex;
         _frameStarted = true;
 
         if (_imagesInFlight![imageIndex].Handle != 0)
-            _vk!.WaitForFences(_device, 1, _imagesInFlight[imageIndex], true, ulong.MaxValue);
+            _vk!.WaitForFences(_device, 1, in _imagesInFlight[imageIndex], true, ulong.MaxValue);
         _imagesInFlight[imageIndex] = _inFlightFences[_currentFrame];
 
         // Begin command buffer
@@ -152,8 +170,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         _vk!.ResetCommandBuffer(cb, 0);
 
         var beginInfo = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo };
-        if (_vk!.BeginCommandBuffer(cb, beginInfo) != Result.Success)
-            throw new Exception("[Vulkan] Failed to begin recording command buffer!");
+        if (_vk!.BeginCommandBuffer(cb, in beginInfo) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to begin recording command buffer!");
 
     }
 
@@ -188,8 +206,10 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
         // Close render pass and command buffer
         _vk!.CmdEndRenderPass(cb);
+        if (_captureRequested)
+            RecordCapture(cb, imageIndex);
         if (_vk!.EndCommandBuffer(cb) != Result.Success)
-            throw new Exception("[Vulkan] Failed to record command buffer!");
+            throw new VulkanException("[Vulkan] Failed to record command buffer!");
 
         var waitSemaphore = _imageAvailableSemaphores![_currentFrame];
         var waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
@@ -208,10 +228,11 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             PSignalSemaphores = &signalSemaphore,
         };
 
-        _vk!.ResetFences(_device, 1, _inFlightFences![_currentFrame]);
+        var frameFence = _inFlightFences![_currentFrame];
+        _vk!.ResetFences(_device, 1, in frameFence);
 
-        if (_vk!.QueueSubmit(_graphicsQueue, 1, submitInfo, _inFlightFences[_currentFrame]) != Result.Success)
-            throw new Exception("[Vulkan] Failed to submit draw command buffer!");
+        if (_vk!.QueueSubmit(_graphicsQueue, 1, in submitInfo, frameFence) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to submit draw command buffer!");
 
         var swapChainHandle = _swapChain;
         var presentInfo = new PresentInfoKHR
@@ -224,7 +245,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             PImageIndices = &imageIndex,
         };
 
-        var presentResult = _khrSwapChain!.QueuePresent(_presentQueue, presentInfo);
+        var presentResult = _khrSwapChain!.QueuePresent(_presentQueue, in presentInfo);
 
         if (presentResult == Result.ErrorOutOfDateKhr || presentResult == Result.SuboptimalKhr || _framebufferResized)
         {
@@ -233,8 +254,11 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         }
         else if (presentResult != Result.Success)
         {
-            throw new Exception("[Vulkan] Failed to present swap chain image!");
+            throw new VulkanException("[Vulkan] Failed to present swap chain image!");
         }
+
+        if (_captureRecorded)
+            ReadBackCapture(frameFence);
 
         _currentFrame = (_currentFrame + 1) % MaxFramesInFlight;
     }
@@ -253,6 +277,164 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     // Depth state is pipeline state in Vulkan — handled per-pipeline, not as a global toggle.
     public void EnableDepthTest() { }
     public void DisableDepthTest() { }
+
+    public void RequestCapture()
+    {
+        if (!_captureSupported)
+        {
+            Log.Warning("[Vulkan] Frame capture requested but not available (needs EnableFrameCapture and a " +
+                        "swapchain with TRANSFER_SRC usage in B8G8R8A8/R8G8B8A8).");
+            return;
+        }
+
+        _captureRequested = true;
+    }
+
+    public bool TryTakeCapture([NotNullWhen(true)] out FrameCapture? capture)
+    {
+        capture = _completedCapture;
+        _completedCapture = null;
+        return capture is not null;
+    }
+
+    #endregion
+
+    #region Frame capture
+
+    // Records swapchain image → host buffer after the main pass. The pass leaves the image in
+    // PRESENT_SRC; move it to TRANSFER_SRC for the copy and back again before present.
+    private void RecordCapture(CommandBuffer cb, uint imageIndex)
+    {
+        _captureRequested = false;
+        EnsureCaptureBuffer();
+
+        var image = _swapChainImages![imageIndex];
+        var range = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, 1);
+
+        var toTransfer = new ImageMemoryBarrier
+        {
+            SType               = StructureType.ImageMemoryBarrier,
+            SrcAccessMask       = AccessFlags.ColorAttachmentWriteBit,
+            DstAccessMask       = AccessFlags.TransferReadBit,
+            OldLayout           = ImageLayout.PresentSrcKhr,
+            NewLayout           = ImageLayout.TransferSrcOptimal,
+            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            Image               = image,
+            SubresourceRange    = range,
+        };
+        _vk!.CmdPipelineBarrier(cb, PipelineStageFlags.ColorAttachmentOutputBit, PipelineStageFlags.TransferBit,
+            0, 0, null, 0, null, 1, &toTransfer);
+
+        var region = new BufferImageCopy
+        {
+            BufferOffset      = 0,
+            BufferRowLength   = 0, // tightly packed
+            BufferImageHeight = 0,
+            ImageSubresource  = new ImageSubresourceLayers(ImageAspectFlags.ColorBit, 0, 0, 1),
+            ImageOffset       = default,
+            ImageExtent       = new Extent3D(_swapChainExtent.Width, _swapChainExtent.Height, 1),
+        };
+        _vk.CmdCopyImageToBuffer(cb, image, ImageLayout.TransferSrcOptimal, _captureBuffer, 1, &region);
+
+        var toPresent = toTransfer with
+        {
+            SrcAccessMask = AccessFlags.TransferReadBit,
+            DstAccessMask = AccessFlags.None,
+            OldLayout     = ImageLayout.TransferSrcOptimal,
+            NewLayout     = ImageLayout.PresentSrcKhr,
+        };
+        var toHost = new BufferMemoryBarrier
+        {
+            SType               = StructureType.BufferMemoryBarrier,
+            SrcAccessMask       = AccessFlags.TransferWriteBit,
+            DstAccessMask       = AccessFlags.HostReadBit,
+            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            Buffer              = _captureBuffer,
+            Offset              = 0,
+            Size                = Vk.WholeSize,
+        };
+        _vk.CmdPipelineBarrier(cb, PipelineStageFlags.TransferBit,
+            PipelineStageFlags.BottomOfPipeBit | PipelineStageFlags.HostBit,
+            0, 0, null, 1, &toHost, 1, &toPresent);
+
+        _captureRecorded = true;
+    }
+
+    // Waits for the frame that contains the copy, then converts the readback to RGBA8.
+    private void ReadBackCapture(Fence frameFence)
+    {
+        _captureRecorded = false;
+        _vk!.WaitForFences(_device, 1, in frameFence, true, ulong.MaxValue);
+
+        var width = (int)_swapChainExtent.Width;
+        var height = (int)_swapChainExtent.Height;
+        var src = new ReadOnlySpan<byte>((void*)_captureMapped, width * height * 4);
+        var pixels = new byte[src.Length];
+        var swapRedBlue = _swapChainImageFormat is Format.B8G8R8A8Unorm or Format.B8G8R8A8Srgb;
+        for (var i = 0; i < src.Length; i += 4)
+        {
+            pixels[i] = swapRedBlue ? src[i + 2] : src[i];
+            pixels[i + 1] = src[i + 1];
+            pixels[i + 2] = swapRedBlue ? src[i] : src[i + 2];
+            pixels[i + 3] = 255; // composited opaque; shader alpha is meaningless here
+        }
+
+        _completedCapture = new FrameCapture(width, height, pixels);
+    }
+
+    private void EnsureCaptureBuffer()
+    {
+        var size = (ulong)_swapChainExtent.Width * _swapChainExtent.Height * 4;
+        if (_captureBuffer.Handle != 0 && _captureBufferSize == size)
+            return;
+
+        DestroyCaptureBuffer();
+
+        var bufferInfo = new BufferCreateInfo
+        {
+            SType       = StructureType.BufferCreateInfo,
+            Size        = size,
+            Usage       = BufferUsageFlags.TransferDstBit,
+            SharingMode = SharingMode.Exclusive,
+        };
+        if (_vk!.CreateBuffer(_device, in bufferInfo, null, out _captureBuffer) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to create the frame capture buffer!");
+
+        _vk.GetBufferMemoryRequirements(_device, _captureBuffer, out var memReq);
+        const MemoryPropertyFlags required = MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit;
+        var memoryType = TryFindMemoryType(memReq.MemoryTypeBits, required | MemoryPropertyFlags.HostCachedBit)
+                         ?? FindMemoryType(memReq.MemoryTypeBits, required);
+        var allocInfo = new MemoryAllocateInfo
+        {
+            SType           = StructureType.MemoryAllocateInfo,
+            AllocationSize  = memReq.Size,
+            MemoryTypeIndex = memoryType,
+        };
+        if (_vk.AllocateMemory(_device, in allocInfo, null, out _captureMemory) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to allocate frame capture memory!");
+
+        _vk.BindBufferMemory(_device, _captureBuffer, _captureMemory, 0);
+        void* mapped;
+        _vk.MapMemory(_device, _captureMemory, 0, size, 0, &mapped);
+        _captureMapped = (nint)mapped;
+        _captureBufferSize = size;
+    }
+
+    private void DestroyCaptureBuffer()
+    {
+        if (_captureBuffer.Handle == 0)
+            return;
+
+        _vk!.UnmapMemory(_device, _captureMemory);
+        _vk.DestroyBuffer(_device, _captureBuffer, null);
+        _vk.FreeMemory(_device, _captureMemory, null);
+        _captureBuffer = default;
+        _captureMemory = default;
+        _captureMapped = 0;
+        _captureBufferSize = 0;
+    }
 
     #endregion
 
@@ -287,6 +469,10 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             _enableValidationLayers = false;
         }
 
+        _validation.IsEnabled = _enableValidationLayers;
+        if (_enableValidationLayers)
+            _validationHandle = GCHandle.Alloc(_validation);
+
         var appInfo = new ApplicationInfo
         {
             SType = StructureType.ApplicationInfo,
@@ -312,7 +498,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         if (OperatingSystem.IsMacOS() && IsInstanceExtensionAvailable("VK_KHR_portability_enumeration"))
         {
             extensions = extensions.Append("VK_KHR_portability_enumeration").ToArray();
-            createInfo.Flags |= InstanceCreateFlags.InstanceCreateEnumeratePortabilityBitKhr;
+            createInfo.Flags |= InstanceCreateFlags.EnumeratePortabilityBitKhr;
         }
 
         createInfo.EnabledExtensionCount = (uint)extensions.Length;
@@ -323,8 +509,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             createInfo.EnabledLayerCount = (uint)_validationLayers.Length;
             createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(_validationLayers);
 
-            DebugUtilsMessengerCreateInfoEXT debugCreateInfo = new();
-            PopulateDebugMessengerCreateInfo(ref debugCreateInfo);
+            var debugCreateInfo = CreateDebugMessengerInfo();
             createInfo.PNext = &debugCreateInfo;
         }
         else
@@ -333,8 +518,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             createInfo.PNext = null;
         }
 
-        if (_vk.CreateInstance(createInfo, null, out _instance) != Result.Success)
-            throw new Exception("[Vulkan] Failed to create instance!");
+        if (_vk.CreateInstance(in createInfo, null, out _instance) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to create instance!");
 
         Log.Info($"[Vulkan] Instance created.");
 
@@ -374,30 +559,32 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         return props.Any(p => Marshal.PtrToStringAnsi((IntPtr)p.ExtensionName) == name);
     }
 
-    private static void PopulateDebugMessengerCreateInfo(ref DebugUtilsMessengerCreateInfoEXT createInfo)
+    // Warnings and errors only: verbose/info traffic is per-call noise that would cost a string
+    // allocation per message every frame. The callback is a static unmanaged function pointer (no
+    // delegate to keep alive); the collector arrives through pUserData.
+    private DebugUtilsMessengerCreateInfoEXT CreateDebugMessengerInfo() => new()
     {
-        createInfo.SType = StructureType.DebugUtilsMessengerCreateInfoExt;
-        createInfo.MessageSeverity =
-            DebugUtilsMessageSeverityFlagsEXT.VerboseBitExt |
+        SType = StructureType.DebugUtilsMessengerCreateInfoExt,
+        MessageSeverity =
             DebugUtilsMessageSeverityFlagsEXT.WarningBitExt |
-            DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt;
-        createInfo.MessageType =
+            DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt,
+        MessageType =
             DebugUtilsMessageTypeFlagsEXT.GeneralBitExt |
             DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt |
-            DebugUtilsMessageTypeFlagsEXT.ValidationBitExt;
-        createInfo.PfnUserCallback = (DebugUtilsMessengerCallbackFunctionEXT)DebugCallback;
-    }
+            DebugUtilsMessageTypeFlagsEXT.ValidationBitExt,
+        PfnUserCallback = new PfnDebugUtilsMessengerCallbackEXT(&DebugCallback),
+        PUserData = (void*)GCHandle.ToIntPtr(_validationHandle),
+    };
 
     private void SetupDebugMessenger()
     {
         if (!_enableValidationLayers) return;
         if (!_vk!.TryGetInstanceExtension(_instance, out _debugUtils)) return;
 
-        var createInfo = new DebugUtilsMessengerCreateInfoEXT();
-        PopulateDebugMessengerCreateInfo(ref createInfo);
+        var createInfo = CreateDebugMessengerInfo();
 
-        if (_debugUtils!.CreateDebugUtilsMessenger(_instance, createInfo, null, out _debugMessenger) != Result.Success)
-            throw new Exception("[Vulkan] Failed to set up debug messenger!");
+        if (_debugUtils!.CreateDebugUtilsMessenger(_instance, in createInfo, null, out _debugMessenger) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to set up debug messenger!");
     }
 
     private bool CheckValidationLayerSupport()
@@ -412,14 +599,20 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         return _validationLayers.All(names.Contains);
     }
 
-    private static uint DebugCallback(
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static Bool32 DebugCallback(
         DebugUtilsMessageSeverityFlagsEXT severity,
         DebugUtilsMessageTypeFlagsEXT types,
         DebugUtilsMessengerCallbackDataEXT* data,
         void* userData)
     {
-        Log.Debug($"[Vulkan] {Marshal.PtrToStringAnsi((nint)data->PMessage)}");
-        return Vk.False;
+        if (userData is not null && GCHandle.FromIntPtr((nint)userData).Target is VulkanValidationLog log)
+        {
+            var message = Marshal.PtrToStringUTF8((nint)data->PMessage) ?? string.Empty;
+            log.Record((severity & DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt) != 0, message);
+        }
+
+        return Vk.False; // never abort the call that triggered the message
     }
 
     private void CreateSurface()
@@ -442,7 +635,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
                 return;
             }
         }
-        throw new Exception("[Vulkan] Failed to find a suitable GPU!");
+        throw new VulkanException("[Vulkan] Failed to find a suitable GPU!");
     }
 
     private bool IsDeviceSuitable(PhysicalDevice device)
@@ -513,8 +706,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(_validationLayers);
         }
 
-        if (_vk!.CreateDevice(_physicalDevice, createInfo, null, out _device) != Result.Success)
-            throw new Exception("[Vulkan] Failed to create logical device!");
+        if (_vk!.CreateDevice(_physicalDevice, in createInfo, null, out _device) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to create logical device!");
 
         Log.Info("[Vulkan] Logical device created.");
         _vk!.GetDeviceQueue(_device, indices.GraphicsFamily!.Value, 0, out _graphicsQueue);
@@ -548,6 +741,16 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             ImageUsage = ImageUsageFlags.ColorAttachmentBit,
         };
 
+        // Frame capture copies out of the swapchain image, which needs TRANSFER_SRC usage.
+        _captureSupported = _enableFrameCapture &&
+                            (support.Capabilities.SupportedUsageFlags & ImageUsageFlags.TransferSrcBit) != 0 &&
+                            format.Format is Format.B8G8R8A8Unorm or Format.B8G8R8A8Srgb
+                                          or Format.R8G8B8A8Unorm or Format.R8G8B8A8Srgb;
+        if (_captureSupported)
+            createInfo.ImageUsage |= ImageUsageFlags.TransferSrcBit;
+        else if (_enableFrameCapture)
+            Log.Warning($"[Vulkan] Frame capture unavailable for swapchain format {format.Format}.");
+
         var indices = FindQueueFamilies(_physicalDevice);
         var queueFamilies = stackalloc[] { indices.GraphicsFamily!.Value, indices.PresentFamily!.Value };
 
@@ -577,8 +780,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         if (!_vk!.TryGetDeviceExtension(_instance, _device, out _khrSwapChain))
             throw new NotSupportedException("[Vulkan] VK_KHR_swapchain extension not found.");
 
-        if (_khrSwapChain!.CreateSwapchain(_device, createInfo, null, out _swapChain) != Result.Success)
-            throw new Exception("[Vulkan] Failed to create swap chain!");
+        if (_khrSwapChain!.CreateSwapchain(_device, in createInfo, null, out _swapChain) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to create swap chain!");
 
         _khrSwapChain.GetSwapchainImages(_device, _swapChain, ref imageCount, null);
         _swapChainImages = new Image[imageCount];
@@ -659,8 +862,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
                 SubresourceRange = { AspectMask = ImageAspectFlags.ColorBit, BaseMipLevel = 0, LevelCount = 1, BaseArrayLayer = 0, LayerCount = 1 }
             };
 
-            if (_vk!.CreateImageView(_device, createInfo, null, out _swapChainImageViews[i]) != Result.Success)
-                throw new Exception("[Vulkan] Failed to create image view!");
+            if (_vk!.CreateImageView(_device, in createInfo, null, out _swapChainImageViews[i]) != Result.Success)
+                throw new VulkanException("[Vulkan] Failed to create image view!");
         }
     }
 
@@ -724,8 +927,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             PDependencies   = &dependency,
         };
 
-        if (_vk!.CreateRenderPass(_device, renderPassInfo, null, out _renderPass) != Result.Success)
-            throw new Exception("[Vulkan] Failed to create render pass!");
+        if (_vk!.CreateRenderPass(_device, in renderPassInfo, null, out _renderPass) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to create render pass!");
 
         Log.Info("[Vulkan] Render pass created.");
     }
@@ -749,8 +952,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
                 Layers          = 1,
             };
 
-            if (_vk!.CreateFramebuffer(_device, fbInfo, null, out _swapChainFramebuffers[i]) != Result.Success)
-                throw new Exception("[Vulkan] Failed to create framebuffer!");
+            if (_vk!.CreateFramebuffer(_device, in fbInfo, null, out _swapChainFramebuffers[i]) != Result.Success)
+                throw new VulkanException("[Vulkan] Failed to create framebuffer!");
         }
     }
 
@@ -763,8 +966,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             Flags = CommandPoolCreateFlags.ResetCommandBufferBit,
         };
 
-        if (_vk!.CreateCommandPool(_device, poolInfo, null, out _commandPool) != Result.Success)
-            throw new Exception("[Vulkan] Failed to create command pool!");
+        if (_vk!.CreateCommandPool(_device, in poolInfo, null, out _commandPool) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to create command pool!");
 
         Log.Info("[Vulkan] Command pool created.");
     }
@@ -781,8 +984,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         };
 
         fixed (CommandBuffer* ptr = _commandBuffers)
-            if (_vk!.AllocateCommandBuffers(_device, allocInfo, ptr) != Result.Success)
-                throw new Exception("[Vulkan] Failed to allocate command buffers!");
+            if (_vk!.AllocateCommandBuffers(_device, in allocInfo, ptr) != Result.Success)
+                throw new VulkanException("[Vulkan] Failed to allocate command buffers!");
 
         Log.Info($"[Vulkan] {_commandBuffers.Length} command buffers allocated.");
     }
@@ -799,14 +1002,14 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
 
         for (int i = 0; i < MaxFramesInFlight; i++)
         {
-            if (_vk!.CreateSemaphore(_device, semInfo, null, out _imageAvailableSemaphores[i]) != Result.Success ||
-                _vk!.CreateFence(_device, fenceInfo, null, out _inFlightFences[i]) != Result.Success)
-                throw new Exception("[Vulkan] Failed to create sync objects!");
+            if (_vk!.CreateSemaphore(_device, in semInfo, null, out _imageAvailableSemaphores[i]) != Result.Success ||
+                _vk!.CreateFence(_device, in fenceInfo, null, out _inFlightFences[i]) != Result.Success)
+                throw new VulkanException("[Vulkan] Failed to create sync objects!");
         }
 
         for (int i = 0; i < _renderFinishedSemaphores.Length; i++)
-            if (_vk!.CreateSemaphore(_device, semInfo, null, out _renderFinishedSemaphores[i]) != Result.Success)
-                throw new Exception("[Vulkan] Failed to create render finished semaphore!");
+            if (_vk!.CreateSemaphore(_device, in semInfo, null, out _renderFinishedSemaphores[i]) != Result.Success)
+                throw new VulkanException("[Vulkan] Failed to create render finished semaphore!");
 
         Log.Info("[Vulkan] Sync objects created.");
     }
@@ -820,10 +1023,14 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             if ((props.OptimalTilingFeatures & FormatFeatureFlags.DepthStencilAttachmentBit) != 0)
                 return format;
         }
-        throw new Exception("[Vulkan] Failed to find supported depth format!");
+        throw new VulkanException("[Vulkan] Failed to find supported depth format!");
     }
 
     private uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
+        => TryFindMemoryType(typeFilter, properties)
+           ?? throw new VulkanException("[Vulkan] Failed to find suitable memory type!");
+
+    private uint? TryFindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
     {
         _vk!.GetPhysicalDeviceMemoryProperties(_physicalDevice, out var memProps);
         for (uint i = 0; i < memProps.MemoryTypeCount; i++)
@@ -832,7 +1039,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
                 (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
                 return i;
         }
-        throw new Exception("[Vulkan] Failed to find suitable memory type!");
+        return null;
     }
 
     private void CreateDepthResources()
@@ -852,8 +1059,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             InitialLayout = ImageLayout.Undefined,
         };
 
-        if (_vk!.CreateImage(_device, imageInfo, null, out _depthImage) != Result.Success)
-            throw new Exception("[Vulkan] Failed to create depth image!");
+        if (_vk!.CreateImage(_device, in imageInfo, null, out _depthImage) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to create depth image!");
 
         _vk!.GetImageMemoryRequirements(_device, _depthImage, out var memReq);
 
@@ -864,8 +1071,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             MemoryTypeIndex = FindMemoryType(memReq.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
         };
 
-        if (_vk!.AllocateMemory(_device, allocInfo, null, out _depthImageMemory) != Result.Success)
-            throw new Exception("[Vulkan] Failed to allocate depth image memory!");
+        if (_vk!.AllocateMemory(_device, in allocInfo, null, out _depthImageMemory) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to allocate depth image memory!");
 
         _vk!.BindImageMemory(_device, _depthImage, _depthImageMemory, 0);
 
@@ -885,8 +1092,8 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
             },
         };
 
-        if (_vk!.CreateImageView(_device, viewInfo, null, out _depthImageView) != Result.Success)
-            throw new Exception("[Vulkan] Failed to create depth image view!");
+        if (_vk!.CreateImageView(_device, in viewInfo, null, out _depthImageView) != Result.Success)
+            throw new VulkanException("[Vulkan] Failed to create depth image view!");
 
         Log.Info("[Vulkan] Depth resources created.");
     }
@@ -945,6 +1152,7 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
     public void Dispose()
     {
         _vk!.DeviceWaitIdle(_device);
+        DestroyCaptureBuffer();
         CleanupSwapchain();
 
         for (int i = 0; i < MaxFramesInFlight; i++)
@@ -966,6 +1174,10 @@ internal unsafe class VulkanRenderer : IRenderer, IVulkanContext
         _khrSurface?.DestroySurface(_instance, _surface, null);
         _vk?.DestroyInstance(_instance, null);
         _vk?.Dispose();
+
+        // Freed last: instance destruction can still report through the callback.
+        if (_validationHandle.IsAllocated)
+            _validationHandle.Free();
     }
 
     private struct QueueFamilyIndices

@@ -14,31 +14,31 @@ namespace MainframeEngine.Networking;
 public readonly struct NodeId(in uint id) : IEquatable<NodeId>, IEquatable<uint>
 {
     private readonly uint _id = id;
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override string ToString() => $"(NodeId: {_id})";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode() => _id.GetHashCode();
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Equals(uint other) => _id == other;
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override bool Equals(object? obj) => obj is NodeId nodeId && Equals(nodeId);
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Equals(NodeId other) => _id == other._id;
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(NodeId a, NodeId b) => a._id == b._id;
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(NodeId a, NodeId b) => !(a == b);
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator ulong(NodeId peerId) => peerId._id;
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator NodeId(uint id) => new(id);
 
@@ -49,5 +49,5 @@ public readonly struct NodeId(in uint id) : IEquatable<NodeId>, IEquatable<uint>
     /// <returns>A new <see cref="NodeId"/> instance representing the next unique identifier.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static NodeId GetNext() => new(_nextId++);
-    
+
 }

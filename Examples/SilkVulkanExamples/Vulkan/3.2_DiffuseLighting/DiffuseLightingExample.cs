@@ -143,7 +143,7 @@ public unsafe class DiffuseLightingExample : ExampleBase
     {
         var uboBinding = new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit };
         var li = new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &uboBinding };
-        if (Vk.CreateDescriptorSetLayout(Device, in li, null, out _descriptorSetLayout) != Result.Success) throw new Exception("failed to create descriptor set layout!");
+        if (Vk.CreateDescriptorSetLayout(Device, in li, null, out _descriptorSetLayout) != Result.Success) throw new InvalidOperationException("failed to create descriptor set layout!");
     }
 
     private void CreateUniformBuffers()
@@ -165,10 +165,10 @@ public unsafe class DiffuseLightingExample : ExampleBase
         int count = SwapChainImages.Length;
         var poolSize = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = (uint)count * 2 };
         var poolInfo = new DescriptorPoolCreateInfo { SType = StructureType.DescriptorPoolCreateInfo, PoolSizeCount = 1, PPoolSizes = &poolSize, MaxSets = (uint)count * 2 };
-        if (Vk.CreateDescriptorPool(Device, in poolInfo, null, out _descriptorPool) != Result.Success) throw new Exception("failed to create descriptor pool!");
+        if (Vk.CreateDescriptorPool(Device, in poolInfo, null, out _descriptorPool) != Result.Success) throw new InvalidOperationException("failed to create descriptor pool!");
         var layouts = new DescriptorSetLayout[count]; Array.Fill(layouts, _descriptorSetLayout);
         _descriptorSets = new DescriptorSet[count];
-        fixed (DescriptorSetLayout* lp = layouts) { var ai = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _descriptorPool, DescriptorSetCount = (uint)count, PSetLayouts = lp }; fixed (DescriptorSet* sp = _descriptorSets) if (Vk.AllocateDescriptorSets(Device, in ai, sp) != Result.Success) throw new Exception("failed to allocate descriptor sets!"); }
+        fixed (DescriptorSetLayout* lp = layouts) { var ai = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _descriptorPool, DescriptorSetCount = (uint)count, PSetLayouts = lp }; fixed (DescriptorSet* sp = _descriptorSets) if (Vk.AllocateDescriptorSets(Device, in ai, sp) != Result.Success) throw new InvalidOperationException("failed to allocate descriptor sets!"); }
         for (int i = 0; i < count; i++) { var bi = new DescriptorBufferInfo { Buffer = _uniformBuffers[i], Offset = 0, Range = (ulong)sizeof(LightingUBO) }; var w = new WriteDescriptorSet { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, PBufferInfo = &bi }; Vk.UpdateDescriptorSets(Device, 1, &w, 0, null); }
     }
 
@@ -194,7 +194,7 @@ public unsafe class DiffuseLightingExample : ExampleBase
         var cba = new PipelineColorBlendAttachmentState { ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit | ColorComponentFlags.BBit | ColorComponentFlags.ABit };
         var cb = new PipelineColorBlendStateCreateInfo { SType = StructureType.PipelineColorBlendStateCreateInfo, AttachmentCount = 1, PAttachments = &cba };
         var pi = new GraphicsPipelineCreateInfo { SType = StructureType.GraphicsPipelineCreateInfo, StageCount = 2, PStages = stages, PVertexInputState = &vi, PInputAssemblyState = &ia, PViewportState = &vps, PRasterizationState = &rast, PMultisampleState = &ms, PDepthStencilState = &ds, PColorBlendState = &cb, PDynamicState = &dyn, Layout = layout, RenderPass = RenderPass, Subpass = 0 };
-        if (Vk.CreateGraphicsPipelines(Device, default, 1, in pi, null, out var pipeline) != Result.Success) throw new Exception("failed to create pipeline!");
+        if (Vk.CreateGraphicsPipelines(Device, default, 1, in pi, null, out var pipeline) != Result.Success) throw new InvalidOperationException("failed to create pipeline!");
         SilkMarshal.Free((nint)vs.PName); SilkMarshal.Free((nint)fs.PName);
         return pipeline;
     }
@@ -203,7 +203,7 @@ public unsafe class DiffuseLightingExample : ExampleBase
     {
         var dsLayout = _descriptorSetLayout;
         var pli = new PipelineLayoutCreateInfo { SType = StructureType.PipelineLayoutCreateInfo, SetLayoutCount = 1, PSetLayouts = &dsLayout };
-        if (Vk.CreatePipelineLayout(Device, in pli, null, out _pipelineLayout) != Result.Success) throw new Exception("failed to create pipeline layout!");
+        if (Vk.CreatePipelineLayout(Device, in pli, null, out _pipelineLayout) != Result.Success) throw new InvalidOperationException("failed to create pipeline layout!");
         var lv = CreateShaderModule("Content/Shaders/DiffuseLighting/shader.vert.spv");
         var lf = CreateShaderModule("Content/Shaders/DiffuseLighting/shader.frag.spv");
         var lampFrag = CreateShaderModule("Content/Shaders/DiffuseLighting/lamp.frag.spv");

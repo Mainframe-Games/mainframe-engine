@@ -6,7 +6,7 @@ namespace MainframeEngine;
 
 public class SpineNode : Node3D
 {
-    public readonly Skeleton Skeleton;
+    public Skeleton Skeleton { get; }
     private readonly AnimationState _animation;
     private readonly SpineRenderer _spineRenderer;
 
@@ -53,13 +53,13 @@ public class SpineNode : Node3D
         _spineRenderer.BuildVertices(ZSpacing, ModelMatrix);
     }
 
-    public override void Draw(in ICamera camera, in LightEnvironment lights)
+    public override void Draw(in ICamera camera, in LightEnvironment lightEnvironment)
     {
-        base.Draw(camera, lights);
+        base.Draw(camera, lightEnvironment);
         _spineRenderer.Draw(
             camera.ViewMatrix,
             camera.ProjectionMatrix,
-            lights,
+            lightEnvironment,
             camera.Position);
     }
 

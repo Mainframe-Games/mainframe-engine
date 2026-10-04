@@ -1,0 +1,41 @@
+<Project>
+  <!--
+    Central package management: every PackageReference version lives here, project files reference
+    packages without a Version. New dependencies must be discussed first (CLAUDE.md).
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+    <SilkNetVersion>2.22.0</SilkNetVersion>
+  </PropertyGroup>
+
+  <!-- Engine -->
+  <ItemGroup>
+    <PackageVersion Include="Silk.NET" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Silk.NET.Assimp" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Silk.NET.Input" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Silk.NET.Vulkan" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="Silk.NET.Windowing" Version="$(SilkNetVersion)" />
+    <PackageVersion Include="ENet-CSharp" Version="2.4.8" />
+    <PackageVersion Include="ImGui.NET" Version="1.89.9.3" />
+    <PackageVersion Include="StbImageSharp" Version="2.30.15" />
+    <PackageVersion Include="Steamworks.NET" Version="2024.8.0" />
+  </ItemGroup>
+
+  <!-- Examples only -->
+  <ItemGroup>
+    <PackageVersion Include="Spectre.Console" Version="0.54.1-alpha.0.86" />
+  </ItemGroup>
+
+  <!-- Tests and tooling only -->
+  <ItemGroup>
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
+  </ItemGroup>
+</Project>

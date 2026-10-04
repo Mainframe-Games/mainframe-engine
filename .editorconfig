@@ -1,0 +1,21 @@
+root = true
+
+[*]
+end_of_line = lf
+
+[*.{cs,csx}]
+indent_style = space
+indent_size = 4
+
+# The renderer column-aligns declarations and initializers (`var cb       = ...`,
+# `Binding   = 0,`); keep that alignment instead of collapsing it.
+csharp_space_around_declaration_statements = ignore
+csharp_space_around_binary_operators = ignore
+
+# CA1051: public fields on structs are deliberate (EngineOptions, vertex/UBO layouts are
+# plain data copied by value or passed by ref to Vulkan). Classes still get the rule.
+dotnet_code_quality.CA1051.exclude_structs = true
+
+[*.{csproj,props,targets,xml,json,yml,yaml}]
+indent_style = space
+indent_size = 2

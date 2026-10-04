@@ -3,7 +3,7 @@
 /// <summary>
 /// Contains all relevant data per frame
 /// </summary>
-public struct GameTime   
+public struct GameTime
 {
     public uint FrameCount { get; internal set; }
     public float DeltaTime { get; internal set; }

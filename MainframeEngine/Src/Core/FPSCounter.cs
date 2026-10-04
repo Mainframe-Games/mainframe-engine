@@ -2,10 +2,10 @@
 
 namespace MainframeEngine;
 
-internal class FPSCounter
+internal sealed class FPSCounter
 {
     private readonly Stopwatch _stopwatch = new();
-    private uint FrameCount { get;set; }
+    private uint FrameCount { get; set; }
     public uint TotalFrameCount { get; private set; }
     public uint Fps { get; private set; }
     public uint Ms { get; private set; }

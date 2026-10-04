@@ -21,7 +21,7 @@ public unsafe class VkPipeline : IDisposable
         _owner = owner;
 
         if (owner.Vk.CreatePipelineLayout(owner.Device, in layoutCreateInfo, null, out var layout) != Result.Success)
-            throw new Exception("failed to create pipeline layout!");
+            throw new InvalidOperationException("failed to create pipeline layout!");
 
         Layout = layout;
 
@@ -29,7 +29,7 @@ public unsafe class VkPipeline : IDisposable
         pipelineInfoWithLayout.Layout = layout;
 
         if (owner.Vk.CreateGraphicsPipelines(owner.Device, default, 1, in pipelineInfoWithLayout, null, out var pipeline) != Result.Success)
-            throw new Exception("failed to create graphics pipeline!");
+            throw new InvalidOperationException("failed to create graphics pipeline!");
 
         Handle = pipeline;
     }

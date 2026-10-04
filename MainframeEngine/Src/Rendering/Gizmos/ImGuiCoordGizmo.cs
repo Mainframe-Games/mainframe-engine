@@ -13,7 +13,7 @@ public static class ImGuiCoordGizmo
         new(new Vector3(0, -1, 0), Color.FromArgb(255, 60, 200, 60), "Y+"),
         new(new Vector3(0, 0, 1), Color.FromArgb(255, 60, 120, 220), "Z+"),
     ];
-    
+
     /// <summary>
     /// Draws a corner gizmo showing the XYZ axes of the right-handed world coordinate system,
     /// oriented by the current camera view. +X=red, +Y=green, +Z=blue (toward viewer).
@@ -30,8 +30,7 @@ public static class ImGuiCoordGizmo
 
         // Sort back-to-front so axes closer to the viewer draw on top.
         // A positive dot with Forward means the axis points into the scene (farther away).
-        Array.Sort(_axes, (a, b) =>
-            Vector3.Dot(a.Direction, camForward).CompareTo(Vector3.Dot(b.Direction, camForward)));
+        SortByDepth(_axes, camForward);
 
         var dl = ImGui.GetForegroundDrawList();
 
@@ -53,7 +52,25 @@ public static class ImGuiCoordGizmo
             return new Vector2(vx, vy);
         }
     }
-    
+
+    // Insertion sort by ascending dot(direction, forward): three elements, and unlike
+    // Array.Sort with a capturing comparison it allocates nothing per frame.
+    private static void SortByDepth(Span<Axis> axes, Vector3 forward)
+    {
+        for (var i = 1; i < axes.Length; i++)
+        {
+            var current = axes[i];
+            var depth = Vector3.Dot(current.Direction, forward);
+            var j = i - 1;
+            while (j >= 0 && Vector3.Dot(axes[j].Direction, forward) > depth)
+            {
+                axes[j + 1] = axes[j];
+                j--;
+            }
+            axes[j + 1] = current;
+        }
+    }
+
     private readonly struct Axis(Vector3 direction, Color color, string label)
     {
         public Vector3 Direction => direction;

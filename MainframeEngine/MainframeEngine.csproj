@@ -2,34 +2,31 @@
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <LangVersion>default</LangVersion>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <!-- NuGet Packages -->
     <ItemGroup>
-        <PackageReference Include="ENet-CSharp" Version="2.4.8" />
-        <PackageReference Include="ImGui.NET" Version="1.89.9.3" />
-        <PackageReference Include="Silk.NET.Assimp" Version="2.21.0" />
-        <PackageReference Include="Silk.NET.Input" Version="2.21.0" />
-        <PackageReference Include="Silk.NET.MoltenVK.Native" Version="2.22.0" />
-        <PackageReference Include="Silk.NET.Windowing" Version="2.21.0" />
-        <PackageReference Include="Silk.NET.Vulkan" Version="2.22.0" />
-        <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.22.0" />
-        <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.22.0" />
-        <PackageReference Include="StbImageSharp" Version="2.30.15" />
-        <PackageReference Include="Steamworks.NET" Version="2024.8.0" />
+        <PackageReference Include="ENet-CSharp" />
+        <PackageReference Include="ImGui.NET" />
+        <PackageReference Include="Silk.NET.Assimp" />
+        <PackageReference Include="Silk.NET.Input" />
+        <PackageReference Include="Silk.NET.MoltenVK.Native" />
+        <PackageReference Include="Silk.NET.Windowing" />
+        <PackageReference Include="Silk.NET.Vulkan" />
+        <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
+        <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
+        <PackageReference Include="StbImageSharp" />
+        <PackageReference Include="Steamworks.NET" />
     </ItemGroup>
     
+    <!-- Test and tooling assemblies may use internals (UBO packing, pools, counters) -->
+    <ItemGroup>
+      <InternalsVisibleTo Include="MainframeEngine.Tests" />
+      <InternalsVisibleTo Include="MainframeEngine.RenderTests.Host" />
+      <InternalsVisibleTo Include="MainframeEngine.Benchmarks" />
+    </ItemGroup>
+
     <!-- Local References -->
     <ItemGroup>
       <ProjectReference Include="..\Plugins\Spine\spine-csharp\spine-csharp.csproj" />
@@ -39,6 +36,10 @@
     <ItemGroup>
       <None Update="Content\**">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <!-- Build bookkeeping for build/shaders.sh, not runtime content -->
+      <None Update="Content\Shaders\shaders.lock">
+        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 </Project>

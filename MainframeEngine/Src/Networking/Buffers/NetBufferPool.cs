@@ -8,7 +8,7 @@ internal static class NetBufferPool
 {
     private static readonly Queue<NetBufferWriter> _availableWriterPool = [];
     private static readonly List<NetBufferWriter> _activeWriterPool = [];
-    
+
     private static readonly Queue<NetBufferReader> _availableReaderPool = [];
     private static readonly List<NetBufferReader> _activeReaderPool = [];
 
@@ -71,11 +71,11 @@ internal static class NetBufferPool
         {
             buffer = new NetBufferReader(data, length);
         }
-        
+
         _activeReaderPool.Add(buffer);
         return buffer;
     }
-    
+
     public static NetBufferReader GetReader(ReadOnlySpan<byte> data, int length)
     {
         NetBufferReader buffer;
@@ -89,7 +89,7 @@ internal static class NetBufferPool
         {
             buffer = new NetBufferReader(data, length);
         }
-        
+
         _activeReaderPool.Add(buffer);
         return buffer;
     }
@@ -102,7 +102,7 @@ internal static class NetBufferPool
     public static NetBufferWriter GetWriter(int capacity = 1024)
     {
         NetBufferWriter buffer;
-        
+
         if (_availableWriterPool.Count > 0)
         {
             buffer = _availableWriterPool.Dequeue();
@@ -112,7 +112,7 @@ internal static class NetBufferPool
         {
             buffer = new NetBufferWriter(capacity);
         }
-        
+
         _activeWriterPool.Add(buffer);
         return buffer;
     }
@@ -124,7 +124,7 @@ internal static class NetBufferPool
     public static void ReturnToPool(NetBuffer buffer)
     {
         buffer.Reset();
-        
+
         switch (buffer)
         {
             case NetBufferWriter writer:
@@ -147,10 +147,10 @@ internal static class NetBufferPool
             buffer.Destroy();
         foreach (var buffer in _activeReaderPool)
             buffer.Destroy();
-        
+
         _activeWriterPool.Clear();
         _activeReaderPool.Clear();
-        
+
         while (_availableWriterPool.Count > 0)
             _availableWriterPool.Dequeue().Destroy();
         while (_availableReaderPool.Count > 0)

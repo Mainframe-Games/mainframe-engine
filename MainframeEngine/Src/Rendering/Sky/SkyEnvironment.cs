@@ -19,21 +19,21 @@ public class SkyEnvironment : IDisposable
     // ─── Procedural parameters ────────────────────────────────────────────────
 
     /// <summary>Zenith / upper sky color (procedural only).</summary>
-    public Vector3 SkyColor         { get; set; } = new(0.18f, 0.48f, 0.87f);
+    public Vector3 SkyColor { get; set; } = new(0.18f, 0.48f, 0.87f);
     /// <summary>Color at the horizon band (procedural only).</summary>
-    public Vector3 HorizonColor     { get; set; } = new(0.70f, 0.85f, 1.00f);
+    public Vector3 HorizonColor { get; set; } = new(0.70f, 0.85f, 1.00f);
     /// <summary>Color of the ground / nadir hemisphere (procedural only).</summary>
-    public Vector3 GroundColor      { get; set; } = new(0.15f, 0.14f, 0.13f);
+    public Vector3 GroundColor { get; set; } = new(0.15f, 0.14f, 0.13f);
     /// <summary>World-space direction toward the sun (procedural only).</summary>
-    public Vector3 SunDirection     { get; set; } = Vector3.Normalize(new(0.3f, 1f, 0.5f));
+    public Vector3 SunDirection { get; set; } = Vector3.Normalize(new(0.3f, 1f, 0.5f));
     /// <summary>Sun disk color (procedural only).</summary>
-    public Vector3 SunColor         { get; set; } = new(1.00f, 0.95f, 0.85f);
+    public Vector3 SunColor { get; set; } = new(1.00f, 0.95f, 0.85f);
     /// <summary>Sun brightness multiplier (procedural only).</summary>
-    public float   SunIntensity     { get; set; } = 20f;
+    public float SunIntensity { get; set; } = 20f;
     /// <summary>Angular radius of the sun disk in degrees. Default ≈ real sun (0.53°).</summary>
-    public float   SunAngularRadius { get; set; } = 0.53f;
+    public float SunAngularRadius { get; set; } = 0.53f;
     /// <summary>How sharply sky blends into horizon / ground. Higher = tighter band.</summary>
-    public float   HorizonSharpness { get; set; } = 6f;
+    public float HorizonSharpness { get; set; } = 6f;
 
     public SkyEnvironmentType Type { get; }
 
@@ -127,9 +127,9 @@ public class SkyEnvironment : IDisposable
         {
             InvProj           = invProj,
             InvViewRot        = invViewRot,
-            SkyColor          = new Vector4(SkyColor,     1f),
+            SkyColor          = new Vector4(SkyColor, 1f),
             HorizonColor      = new Vector4(HorizonColor, 1f),
-            GroundColor       = new Vector4(GroundColor,  1f),
+            GroundColor       = new Vector4(GroundColor, 1f),
             SunDirection      = new Vector4(Vector3.Normalize(SunDirection), 0f),
             SunColorIntensity = new Vector4(SunColor, SunIntensity),
             SunSize           = MathF.Cos(float.DegreesToRadians(SunAngularRadius)),
@@ -139,9 +139,12 @@ public class SkyEnvironment : IDisposable
         // Use the same Y-flip viewport as the rest of the engine.
         var viewport = new Viewport
         {
-            X = 0, Y = extent.Height,
-            Width = extent.Width, Height = -(float)extent.Height,
-            MinDepth = 0f, MaxDepth = 1f,
+            X = 0,
+            Y = extent.Height,
+            Width = extent.Width,
+            Height = -(float)extent.Height,
+            MinDepth = 0f,
+            MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);
 
@@ -253,11 +256,12 @@ public class SkyEnvironment : IDisposable
             SubresourceRange = new ImageSubresourceRange
             {
                 AspectMask = ImageAspectFlags.ColorBit,
-                LevelCount = 1, LayerCount = 1,
+                LevelCount = 1,
+                LayerCount = 1,
             },
         };
-        if (vk.CreateImageView(device, viewInfo, null, out _texView) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to create panoramic image view!");
+        if (vk.CreateImageView(device, in viewInfo, null, out _texView) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to create panoramic image view!");
 
         CreateSampler(ctx);
     }
@@ -297,21 +301,22 @@ public class SkyEnvironment : IDisposable
         {
             SType    = StructureType.ImageViewCreateInfo,
             Image    = _texImage,
-            ViewType = ImageViewType.Cube,
+            ViewType = ImageViewType.TypeCube,
             Format   = Format.R8G8B8A8Srgb,
             SubresourceRange = new ImageSubresourceRange
             {
                 AspectMask = ImageAspectFlags.ColorBit,
-                LevelCount = 1, LayerCount = 6,
+                LevelCount = 1,
+                LayerCount = 6,
             },
         };
-        if (vk.CreateImageView(device, viewInfo, null, out _texView) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to create cubemap image view!");
+        if (vk.CreateImageView(device, in viewInfo, null, out _texView) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to create cubemap image view!");
 
         CreateSampler(ctx);
     }
 
-    private unsafe void CreateImage(IVulkanContext ctx, uint w, uint h, uint arrayLayers,
+    private static unsafe void CreateImage(IVulkanContext ctx, uint w, uint h, uint arrayLayers,
         ImageCreateFlags flags, Format format,
         out VkImage image, out DeviceMemory memory)
     {
@@ -333,8 +338,8 @@ public class SkyEnvironment : IDisposable
             SharingMode   = SharingMode.Exclusive,
             InitialLayout = ImageLayout.Undefined,
         };
-        if (vk.CreateImage(device, info, null, out image) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to create image!");
+        if (vk.CreateImage(device, in info, null, out image) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to create image!");
 
         vk.GetImageMemoryRequirements(device, image, out var memReq);
         var ai = new MemoryAllocateInfo
@@ -343,8 +348,8 @@ public class SkyEnvironment : IDisposable
             AllocationSize  = memReq.Size,
             MemoryTypeIndex = FindMemoryType(ctx, memReq.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
         };
-        if (vk.AllocateMemory(device, ai, null, out memory) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to allocate image memory!");
+        if (vk.AllocateMemory(device, in ai, null, out memory) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to allocate image memory!");
 
         vk.BindImageMemory(device, image, memory, 0);
     }
@@ -361,8 +366,8 @@ public class SkyEnvironment : IDisposable
             AddressModeV = SamplerAddressMode.ClampToEdge,
             AddressModeW = SamplerAddressMode.ClampToEdge,
         };
-        if (ctx.Vk.CreateSampler(ctx.Device, info, null, out _texSampler) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to create sampler!");
+        if (ctx.Vk.CreateSampler(ctx.Device, in info, null, out _texSampler) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to create sampler!");
     }
 
     // ─── Pipeline creation ────────────────────────────────────────────────────
@@ -387,8 +392,8 @@ public class SkyEnvironment : IDisposable
             BindingCount = 1,
             PBindings    = &uboBinding,
         };
-        if (vk.CreateDescriptorSetLayout(device, uboLayoutInfo, null, out _uboSetLayout) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to create UBO descriptor set layout!");
+        if (vk.CreateDescriptorSetLayout(device, in uboLayoutInfo, null, out _uboSetLayout) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to create UBO descriptor set layout!");
 
         // Texture descriptor set layout (set = 1, Panoramic / Cubemap only)
         if (HasTexture)
@@ -406,8 +411,8 @@ public class SkyEnvironment : IDisposable
                 BindingCount = 1,
                 PBindings    = &texBinding,
             };
-            if (vk.CreateDescriptorSetLayout(device, texLayoutInfo, null, out _texSetLayout) != Result.Success)
-                throw new Exception("[SkyEnvironment] Failed to create texture descriptor set layout!");
+            if (vk.CreateDescriptorSetLayout(device, in texLayoutInfo, null, out _texSetLayout) != Result.Success)
+                throw new VulkanException("[SkyEnvironment] Failed to create texture descriptor set layout!");
         }
 
         // UBO buffers (one per swapchain image)
@@ -436,10 +441,12 @@ public class SkyEnvironment : IDisposable
             var pi = new DescriptorPoolCreateInfo
             {
                 SType = StructureType.DescriptorPoolCreateInfo,
-                PoolSizeCount = 2, PPoolSizes = ps, MaxSets = imageCount + 1,
+                PoolSizeCount = 2,
+                PPoolSizes = ps,
+                MaxSets = imageCount + 1,
             };
-            if (vk.CreateDescriptorPool(device, pi, null, out _descPool) != Result.Success)
-                throw new Exception("[SkyEnvironment] Failed to create descriptor pool!");
+            if (vk.CreateDescriptorPool(device, in pi, null, out _descPool) != Result.Success)
+                throw new VulkanException("[SkyEnvironment] Failed to create descriptor pool!");
         }
         else
         {
@@ -447,10 +454,12 @@ public class SkyEnvironment : IDisposable
             var pi = new DescriptorPoolCreateInfo
             {
                 SType = StructureType.DescriptorPoolCreateInfo,
-                PoolSizeCount = 1, PPoolSizes = &ps, MaxSets = imageCount,
+                PoolSizeCount = 1,
+                PPoolSizes = &ps,
+                MaxSets = imageCount,
             };
-            if (vk.CreateDescriptorPool(device, pi, null, out _descPool) != Result.Success)
-                throw new Exception("[SkyEnvironment] Failed to create descriptor pool!");
+            if (vk.CreateDescriptorPool(device, in pi, null, out _descPool) != Result.Success)
+                throw new VulkanException("[SkyEnvironment] Failed to create descriptor pool!");
         }
 
         // Allocate and write UBO descriptor sets
@@ -465,13 +474,13 @@ public class SkyEnvironment : IDisposable
         };
         _uboSets = new DescriptorSet[imageCount];
         fixed (DescriptorSet* p = _uboSets)
-            if (vk.AllocateDescriptorSets(device, uboAlloc, p) != Result.Success)
-                throw new Exception("[SkyEnvironment] Failed to allocate UBO descriptor sets!");
+            if (vk.AllocateDescriptorSets(device, in uboAlloc, p) != Result.Success)
+                throw new VulkanException("[SkyEnvironment] Failed to allocate UBO descriptor sets!");
 
         for (int i = 0; i < imageCount; i++)
         {
             var bufInfo = new DescriptorBufferInfo
-                { Buffer = _uboBuffers[i], Offset = 0, Range = (ulong)sizeof(SkyUbo) };
+            { Buffer = _uboBuffers[i], Offset = 0, Range = (ulong)sizeof(SkyUbo) };
             var write = new WriteDescriptorSet
             {
                 SType           = StructureType.WriteDescriptorSet,
@@ -495,8 +504,8 @@ public class SkyEnvironment : IDisposable
                 DescriptorSetCount = 1,
                 PSetLayouts        = &texLayout,
             };
-            if (vk.AllocateDescriptorSets(device, texAlloc, out _texSet) != Result.Success)
-                throw new Exception("[SkyEnvironment] Failed to allocate texture descriptor set!");
+            if (vk.AllocateDescriptorSets(device, in texAlloc, out _texSet) != Result.Success)
+                throw new VulkanException("[SkyEnvironment] Failed to allocate texture descriptor set!");
 
             var imgInfo = new DescriptorImageInfo
             {
@@ -550,7 +559,7 @@ public class SkyEnvironment : IDisposable
 
         // No vertex input — positions are baked into the vertex shader.
         var vertexInput = new PipelineVertexInputStateCreateInfo
-            { SType = StructureType.PipelineVertexInputStateCreateInfo };
+        { SType = StructureType.PipelineVertexInputStateCreateInfo };
         var inputAssembly = new PipelineInputAssemblyStateCreateInfo
         {
             SType    = StructureType.PipelineInputAssemblyStateCreateInfo,
@@ -559,7 +568,8 @@ public class SkyEnvironment : IDisposable
         var viewportState = new PipelineViewportStateCreateInfo
         {
             SType = StructureType.PipelineViewportStateCreateInfo,
-            ViewportCount = 1, ScissorCount = 1,
+            ViewportCount = 1,
+            ScissorCount = 1,
         };
         var rasterizer = new PipelineRasterizationStateCreateInfo
         {
@@ -617,8 +627,8 @@ public class SkyEnvironment : IDisposable
             SetLayoutCount = setLayoutCount,
             PSetLayouts    = setLayouts,
         };
-        if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to create pipeline layout!");
+        if (vk.CreatePipelineLayout(device, in pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to create pipeline layout!");
 
         var depthStencil = new PipelineDepthStencilStateCreateInfo
         {
@@ -644,8 +654,8 @@ public class SkyEnvironment : IDisposable
             RenderPass          = ctx.RenderPass,
             Subpass             = 0,
         };
-        if (vk.CreateGraphicsPipelines(device, default, 1, pipelineInfo, null, out _pipeline) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to create sky pipeline!");
+        if (vk.CreateGraphicsPipelines(device, default, 1, in pipelineInfo, null, out _pipeline) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to create sky pipeline!");
 
         SilkMarshal.Free((nint)entryPoint);
         vk.DestroyShaderModule(device, vertModule, null);
@@ -654,7 +664,7 @@ public class SkyEnvironment : IDisposable
 
     // ─── Vulkan helpers ───────────────────────────────────────────────────────
 
-    private unsafe void TransitionLayout(IVulkanContext ctx, VkImage image,
+    private static unsafe void TransitionLayout(IVulkanContext ctx, VkImage image,
         ImageLayout oldLayout, ImageLayout newLayout, uint layerCount)
     {
         var cb = BeginOneTimeCmd(ctx);
@@ -670,7 +680,8 @@ public class SkyEnvironment : IDisposable
             SubresourceRange    = new ImageSubresourceRange
             {
                 AspectMask = ImageAspectFlags.ColorBit,
-                LevelCount = 1, LayerCount = layerCount,
+                LevelCount = 1,
+                LayerCount = layerCount,
             },
         };
 
@@ -723,7 +734,7 @@ public class SkyEnvironment : IDisposable
         EndOneTimeCmd(ctx, cb);
     }
 
-    private unsafe CommandBuffer BeginOneTimeCmd(IVulkanContext ctx)
+    private static unsafe CommandBuffer BeginOneTimeCmd(IVulkanContext ctx)
     {
         var vk = ctx.Vk;
         var alloc = new CommandBufferAllocateInfo
@@ -734,16 +745,17 @@ public class SkyEnvironment : IDisposable
             CommandBufferCount = 1,
         };
         CommandBuffer cb;
-        vk.AllocateCommandBuffers(ctx.Device, alloc, &cb);
-        vk.BeginCommandBuffer(cb, new CommandBufferBeginInfo
+        vk.AllocateCommandBuffers(ctx.Device, in alloc, &cb);
+        var beginInfo = new CommandBufferBeginInfo
         {
             SType = StructureType.CommandBufferBeginInfo,
             Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
-        });
+        };
+        vk.BeginCommandBuffer(cb, in beginInfo);
         return cb;
     }
 
-    private unsafe void EndOneTimeCmd(IVulkanContext ctx, CommandBuffer cb)
+    private static unsafe void EndOneTimeCmd(IVulkanContext ctx, CommandBuffer cb)
     {
         var vk = ctx.Vk;
         vk.EndCommandBuffer(cb);
@@ -753,12 +765,12 @@ public class SkyEnvironment : IDisposable
             CommandBufferCount = 1,
             PCommandBuffers    = &cb,
         };
-        vk.QueueSubmit(ctx.GraphicsQueue, 1, submit, default);
+        vk.QueueSubmit(ctx.GraphicsQueue, 1, in submit, default);
         vk.QueueWaitIdle(ctx.GraphicsQueue);
         vk.FreeCommandBuffers(ctx.Device, ctx.CommandPool, 1, &cb);
     }
 
-    private unsafe void CreateBuffer(IVulkanContext ctx, ulong size,
+    private static unsafe void CreateBuffer(IVulkanContext ctx, ulong size,
         BufferUsageFlags usage, MemoryPropertyFlags props,
         out VkBuffer buffer, out DeviceMemory memory)
     {
@@ -770,8 +782,8 @@ public class SkyEnvironment : IDisposable
             Usage       = usage,
             SharingMode = SharingMode.Exclusive,
         };
-        if (vk.CreateBuffer(ctx.Device, bi, null, out buffer) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to create buffer!");
+        if (vk.CreateBuffer(ctx.Device, in bi, null, out buffer) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to create buffer!");
 
         vk.GetBufferMemoryRequirements(ctx.Device, buffer, out var memReq);
         var ai = new MemoryAllocateInfo
@@ -780,8 +792,8 @@ public class SkyEnvironment : IDisposable
             AllocationSize  = memReq.Size,
             MemoryTypeIndex = FindMemoryType(ctx, memReq.MemoryTypeBits, props),
         };
-        if (vk.AllocateMemory(ctx.Device, ai, null, out memory) != Result.Success)
-            throw new Exception("[SkyEnvironment] Failed to allocate memory!");
+        if (vk.AllocateMemory(ctx.Device, in ai, null, out memory) != Result.Success)
+            throw new VulkanException("[SkyEnvironment] Failed to allocate memory!");
 
         vk.BindBufferMemory(ctx.Device, buffer, memory, 0);
     }
@@ -793,7 +805,7 @@ public class SkyEnvironment : IDisposable
             if ((typeBits & (1u << (int)i)) != 0 &&
                 (memProps.MemoryTypes[(int)i].PropertyFlags & props) == props)
                 return i;
-        throw new Exception("[SkyEnvironment] No suitable memory type found!");
+        throw new VulkanException("[SkyEnvironment] No suitable memory type found!");
     }
 
     private unsafe ShaderModule CreateShaderModule(IVulkanContext ctx, byte[] code)
@@ -806,8 +818,8 @@ public class SkyEnvironment : IDisposable
                 CodeSize = (nuint)code.Length,
                 PCode    = (uint*)ptr,
             };
-            if (ctx.Vk.CreateShaderModule(ctx.Device, ci, null, out var m) != Result.Success)
-                throw new Exception("[SkyEnvironment] Failed to create shader module!");
+            if (ctx.Vk.CreateShaderModule(ctx.Device, in ci, null, out var m) != Result.Success)
+                throw new VulkanException("[SkyEnvironment] Failed to create shader module!");
             return m;
         }
     }

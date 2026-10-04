@@ -11,15 +11,11 @@ namespace MainframeEngine;
 public abstract class ShapeBase : Node3D
 {
     public Color Color { get; set; } = Color.White;
-    
-        private const int LightsUboSize =
-        48 +
-        LightEnvironment.MaxDirectional * 32 +
-        LightEnvironment.MaxPoint       * 32 +
-        LightEnvironment.MaxSpot        * 64;
 
-    protected IVulkanContext? VkCtx   { get; private set; }
-    protected ShadowSystem? Shadows => ShadowSystem;
+    private const int LightsUboSize = LightEnvironment.UboSize;
+
+    protected IVulkanContext? VkCtx { get; private set; }
+    protected static ShadowSystem? Shadows => ShadowSystem;
     [StructLayout(LayoutKind.Sequential)]
     protected struct VpUbo
     {
@@ -54,12 +50,12 @@ public abstract class ShapeBase : Node3D
     // -------------------------------------------------------------------------
 
     protected unsafe void InitLitVulkan(
-        IVulkanContext                    ctx,
-        VertexInputBindingDescription     vertexBinding,
+        IVulkanContext ctx,
+        VertexInputBindingDescription vertexBinding,
         VertexInputAttributeDescription[] vertexAttribs,
-        string                            vertSpvPath,
-        string                            fragSpvPath,
-        CullModeFlags                     cullMode = CullModeFlags.BackBit)
+        string vertSpvPath,
+        string fragSpvPath,
+        CullModeFlags cullMode = CullModeFlags.BackBit)
     {
         VkCtx   = ctx;
 
@@ -81,8 +77,8 @@ public abstract class ShapeBase : Node3D
             BindingCount = 1,
             PBindings    = &vpBinding,
         };
-        if (vk.CreateDescriptorSetLayout(device, vpLayoutInfo, null, out _vpDescSetLayout) != Result.Success)
-            throw new Exception("[Vulkan] LitShape: Failed to create VP descriptor set layout.");
+        if (vk.CreateDescriptorSetLayout(device, in vpLayoutInfo, null, out _vpDescSetLayout) != Result.Success)
+            throw new VulkanException("[Vulkan] LitShape: Failed to create VP descriptor set layout.");
 
         var lightsBinding = new DescriptorSetLayoutBinding
         {
@@ -97,8 +93,8 @@ public abstract class ShapeBase : Node3D
             BindingCount = 1,
             PBindings    = &lightsBinding,
         };
-        if (vk.CreateDescriptorSetLayout(device, lightsLayoutInfo, null, out _lightsDescSetLayout) != Result.Success)
-            throw new Exception("[Vulkan] LitShape: Failed to create Lights descriptor set layout.");
+        if (vk.CreateDescriptorSetLayout(device, in lightsLayoutInfo, null, out _lightsDescSetLayout) != Result.Success)
+            throw new VulkanException("[Vulkan] LitShape: Failed to create Lights descriptor set layout.");
 
         // --- UBO buffers ---
         _vpUboBuffers     = new VkBuffer[imageCount];
@@ -139,8 +135,8 @@ public abstract class ShapeBase : Node3D
             PPoolSizes    = &poolSize,
             MaxSets       = imageCount * 2,
         };
-        if (vk.CreateDescriptorPool(device, poolInfo, null, out _descPool) != Result.Success)
-            throw new Exception("[Vulkan] LitShape: Failed to create descriptor pool.");
+        if (vk.CreateDescriptorPool(device, in poolInfo, null, out _descPool) != Result.Success)
+            throw new VulkanException("[Vulkan] LitShape: Failed to create descriptor pool.");
 
         // --- Allocate VP descriptor sets ---
         var vpLayouts = stackalloc DescriptorSetLayout[(int)imageCount];
@@ -154,8 +150,8 @@ public abstract class ShapeBase : Node3D
         };
         _vpDescSets = new DescriptorSet[imageCount];
         fixed (DescriptorSet* p = _vpDescSets)
-            if (vk.AllocateDescriptorSets(device, vpAlloc, p) != Result.Success)
-                throw new Exception("[Vulkan] LitShape: Failed to allocate VP descriptor sets.");
+            if (vk.AllocateDescriptorSets(device, in vpAlloc, p) != Result.Success)
+                throw new VulkanException("[Vulkan] LitShape: Failed to allocate VP descriptor sets.");
 
         // --- Allocate Lights descriptor sets ---
         var lightsLayouts = stackalloc DescriptorSetLayout[(int)imageCount];
@@ -169,14 +165,14 @@ public abstract class ShapeBase : Node3D
         };
         _lightsDescSets = new DescriptorSet[imageCount];
         fixed (DescriptorSet* p = _lightsDescSets)
-            if (vk.AllocateDescriptorSets(device, lightsAlloc, p) != Result.Success)
-                throw new Exception("[Vulkan] LitShape: Failed to allocate Lights descriptor sets.");
+            if (vk.AllocateDescriptorSets(device, in lightsAlloc, p) != Result.Success)
+                throw new VulkanException("[Vulkan] LitShape: Failed to allocate Lights descriptor sets.");
 
         // --- Write descriptor sets ---
         for (int i = 0; i < imageCount; i++)
         {
             var vpBuf = new DescriptorBufferInfo
-                { Buffer = _vpUboBuffers[i], Offset = 0, Range = (ulong)sizeof(VpUbo) };
+            { Buffer = _vpUboBuffers[i], Offset = 0, Range = (ulong)sizeof(VpUbo) };
             var vpWrite = new WriteDescriptorSet
             {
                 SType           = StructureType.WriteDescriptorSet,
@@ -187,7 +183,7 @@ public abstract class ShapeBase : Node3D
                 PBufferInfo     = &vpBuf,
             };
             var lightsBuf = new DescriptorBufferInfo
-                { Buffer = _lightsUboBuffers[i], Offset = 0, Range = (ulong)LightsUboSize };
+            { Buffer = _lightsUboBuffers[i], Offset = 0, Range = (ulong)LightsUboSize };
             var lightsWrite = new WriteDescriptorSet
             {
                 SType           = StructureType.WriteDescriptorSet,
@@ -307,8 +303,8 @@ public abstract class ShapeBase : Node3D
                 PushConstantRangeCount = 1,
                 PPushConstantRanges    = &pushRange,
             };
-            if (vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
-                throw new Exception("[Vulkan] LitShape: Failed to create pipeline layout.");
+            if (vk.CreatePipelineLayout(device, in pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
+                throw new VulkanException("[Vulkan] LitShape: Failed to create pipeline layout.");
 
             var depthStencil = new PipelineDepthStencilStateCreateInfo
             {
@@ -335,8 +331,8 @@ public abstract class ShapeBase : Node3D
                 RenderPass          = ctx.RenderPass,
                 Subpass             = 0,
             };
-            if (vk.CreateGraphicsPipelines(device, default, 1, pipelineInfo, null, out _pipeline) != Result.Success)
-                throw new Exception("[Vulkan] LitShape: Failed to create graphics pipeline.");
+            if (vk.CreateGraphicsPipelines(device, default, 1, in pipelineInfo, null, out _pipeline) != Result.Success)
+                throw new VulkanException("[Vulkan] LitShape: Failed to create graphics pipeline.");
         }
 
         SilkMarshal.Free((nint)entryPoint);
@@ -348,17 +344,17 @@ public abstract class ShapeBase : Node3D
     // Draw — sealed; subclasses implement DrawGeometry instead
     // -------------------------------------------------------------------------
 
-    public override void Draw(in ICamera camera, in LightEnvironment lights)
+    public override void Draw(in ICamera camera, in LightEnvironment lightEnvironment)
     {
-        base.Draw(camera, lights);
+        base.Draw(camera, lightEnvironment);
         if (VkCtx is not null)
-            DrawLit(camera, lights);
+            DrawLit(camera, lightEnvironment);
     }
 
     /// <summary>Bind vertex/index buffers and issue the draw call for the main pass.</summary>
     protected abstract void DrawGeometry(CommandBuffer cb);
 
-    private unsafe void DrawLit(ICamera camera, LightEnvironment lights)
+    private unsafe void DrawLit(ICamera camera, LightEnvironment lightEnvironment)
     {
         var vk       = VkCtx!.Vk;
         var cb       = VkCtx.CurrentCommandBuffer;
@@ -370,13 +366,16 @@ public abstract class ShapeBase : Node3D
             View       = camera.ViewMatrix,
             Projection = camera.ProjectionMatrix,
         };
-        WriteLightsUbo(_lightsUboMapped[imageIdx], lights, camera.Position);
+        lightEnvironment.WriteUbo(new Span<byte>((void*)_lightsUboMapped[imageIdx], LightsUboSize), camera.Position);
 
         var viewport = new Viewport
         {
-            X = 0, Y = extent.Height,
-            Width = extent.Width, Height = -(float)extent.Height,
-            MinDepth = 0f, MaxDepth = 1f,
+            X = 0,
+            Y = extent.Height,
+            Width = extent.Width,
+            Height = -(float)extent.Height,
+            MinDepth = 0f,
+            MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);
         var scissor = new Rect2D { Offset = default, Extent = extent };
@@ -433,71 +432,16 @@ public abstract class ShapeBase : Node3D
         vk.DestroyDescriptorSetLayout(device, _vpDescSetLayout, null);
         vk.DestroyPipeline(device, _pipeline, null);
         vk.DestroyPipelineLayout(device, _pipelineLayout, null);
-        
+
         base.Dispose();
     }
 
-    // -------------------------------------------------------------------------
-    // Lights UBO writer
-    // -------------------------------------------------------------------------
-
-    private static unsafe void WriteLightsUbo(nint ptr, LightEnvironment env, Vector3 camPos)
-    {
-        Unsafe.InitBlock((void*)ptr, 0, (uint)LightsUboSize);
-        float* f  = (float*)ptr;
-        int    fi = 0;
-
-        f[fi++] = env.AmbientColor.X; f[fi++] = env.AmbientColor.Y;
-        f[fi++] = env.AmbientColor.Z; fi++;
-
-        f[fi++] = camPos.X; f[fi++] = camPos.Y; f[fi++] = camPos.Z; fi++;
-
-        int numDir   = Math.Min(env.DirectionalLights.Count, LightEnvironment.MaxDirectional);
-        int numPoint = Math.Min(env.PointLights.Count,       LightEnvironment.MaxPoint);
-        int numSpot  = Math.Min(env.SpotLights.Count,        LightEnvironment.MaxSpot);
-        var ci = (int*)(f + fi);
-        ci[0] = numDir; ci[1] = numPoint; ci[2] = numSpot; ci[3] = 0;
-        fi += 4;
-
-        for (int i = 0; i < numDir; i++)
-        {
-            var l = env.DirectionalLights[i];
-            f[fi++] = l.Direction.X; f[fi++] = l.Direction.Y; f[fi++] = l.Direction.Z;
-            f[fi++] = l.Intensity;
-            f[fi++] = l.Color.X; f[fi++] = l.Color.Y; f[fi++] = l.Color.Z;
-            fi++;
-        }
-        fi += (LightEnvironment.MaxDirectional - numDir) * 8;
-
-        for (int i = 0; i < numPoint; i++)
-        {
-            var l = env.PointLights[i];
-            f[fi++] = l.Position.X; f[fi++] = l.Position.Y; f[fi++] = l.Position.Z;
-            f[fi++] = l.Range;
-            f[fi++] = l.Color.X; f[fi++] = l.Color.Y; f[fi++] = l.Color.Z;
-            f[fi++] = l.Intensity;
-        }
-        fi += (LightEnvironment.MaxPoint - numPoint) * 8;
-
-        for (int i = 0; i < numSpot; i++)
-        {
-            var l = env.SpotLights[i];
-            f[fi++] = l.Position.X; f[fi++] = l.Position.Y; f[fi++] = l.Position.Z;
-            f[fi++] = l.Range;
-            f[fi++] = l.Direction.X; f[fi++] = l.Direction.Y; f[fi++] = l.Direction.Z;
-            f[fi++] = l.Intensity;
-            f[fi++] = l.Color.X; f[fi++] = l.Color.Y; f[fi++] = l.Color.Z;
-            f[fi++] = float.Cos(float.DegreesToRadians(l.InnerConeAngle));
-            f[fi++] = float.Cos(float.DegreesToRadians(l.OuterConeAngle));
-            fi += 3;
-        }
-    }
 
     // -------------------------------------------------------------------------
     // Vulkan helpers (available to subclasses for geometry buffer creation)
     // -------------------------------------------------------------------------
 
-    protected unsafe void CreateBuffer(IVulkanContext ctx, ulong size,
+    protected static unsafe void CreateBuffer(IVulkanContext ctx, ulong size,
         BufferUsageFlags usage, MemoryPropertyFlags properties,
         out VkBuffer buffer, out DeviceMemory memory)
     {
@@ -509,8 +453,8 @@ public abstract class ShapeBase : Node3D
             Usage       = usage,
             SharingMode = SharingMode.Exclusive,
         };
-        if (vk.CreateBuffer(ctx.Device, bi, null, out buffer) != Result.Success)
-            throw new Exception("[Vulkan] LitShape: Failed to create buffer.");
+        if (vk.CreateBuffer(ctx.Device, in bi, null, out buffer) != Result.Success)
+            throw new VulkanException("[Vulkan] LitShape: Failed to create buffer.");
         vk.GetBufferMemoryRequirements(ctx.Device, buffer, out var memReq);
         var ai = new MemoryAllocateInfo
         {
@@ -518,12 +462,12 @@ public abstract class ShapeBase : Node3D
             AllocationSize  = memReq.Size,
             MemoryTypeIndex = FindMemoryType(ctx, memReq.MemoryTypeBits, properties),
         };
-        if (vk.AllocateMemory(ctx.Device, ai, null, out memory) != Result.Success)
-            throw new Exception("[Vulkan] LitShape: Failed to allocate buffer memory.");
+        if (vk.AllocateMemory(ctx.Device, in ai, null, out memory) != Result.Success)
+            throw new VulkanException("[Vulkan] LitShape: Failed to allocate buffer memory.");
         vk.BindBufferMemory(ctx.Device, buffer, memory, 0);
     }
 
-    protected unsafe void CopyBuffer(IVulkanContext ctx, VkBuffer src, VkBuffer dst, ulong size)
+    protected static unsafe void CopyBuffer(IVulkanContext ctx, VkBuffer src, VkBuffer dst, ulong size)
     {
         var vk        = ctx.Vk;
         var allocInfo = new CommandBufferAllocateInfo
@@ -534,12 +478,13 @@ public abstract class ShapeBase : Node3D
             CommandBufferCount = 1,
         };
         CommandBuffer cb;
-        vk.AllocateCommandBuffers(ctx.Device, allocInfo, &cb);
-        vk.BeginCommandBuffer(cb, new CommandBufferBeginInfo
+        vk.AllocateCommandBuffers(ctx.Device, in allocInfo, &cb);
+        var beginInfo = new CommandBufferBeginInfo
         {
             SType = StructureType.CommandBufferBeginInfo,
             Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
-        });
+        };
+        vk.BeginCommandBuffer(cb, in beginInfo);
         var region = new BufferCopy { Size = size };
         vk.CmdCopyBuffer(cb, src, dst, 1, &region);
         vk.EndCommandBuffer(cb);
@@ -549,7 +494,7 @@ public abstract class ShapeBase : Node3D
             CommandBufferCount = 1,
             PCommandBuffers    = &cb,
         };
-        vk.QueueSubmit(ctx.GraphicsQueue, 1, submitInfo, default);
+        vk.QueueSubmit(ctx.GraphicsQueue, 1, in submitInfo, default);
         vk.QueueWaitIdle(ctx.GraphicsQueue);
         vk.FreeCommandBuffers(ctx.Device, ctx.CommandPool, 1, &cb);
     }
@@ -561,7 +506,7 @@ public abstract class ShapeBase : Node3D
             if ((typeBits & (1u << (int)i)) != 0 &&
                 (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
                 return i;
-        throw new Exception("[Vulkan] LitShape: No suitable memory type found.");
+        throw new VulkanException("[Vulkan] LitShape: No suitable memory type found.");
     }
 
     protected unsafe ShaderModule CreateShaderModule(IVulkanContext ctx, byte[] code)
@@ -574,8 +519,8 @@ public abstract class ShapeBase : Node3D
                 CodeSize = (nuint)code.Length,
                 PCode    = (uint*)ptr,
             };
-            if (ctx.Vk.CreateShaderModule(ctx.Device, ci, null, out var module) != Result.Success)
-                throw new Exception("[Vulkan] LitShape: Failed to create shader module.");
+            if (ctx.Vk.CreateShaderModule(ctx.Device, in ci, null, out var module) != Result.Success)
+                throw new VulkanException("[Vulkan] LitShape: Failed to create shader module.");
             return module;
         }
     }

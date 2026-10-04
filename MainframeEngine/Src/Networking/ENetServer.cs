@@ -11,7 +11,7 @@ public sealed class EnetServer : IDisposable
     private readonly Host _server;
     private readonly Stopwatch _stopwatch = new();
     private readonly Dictionary<PeerId, Peer> _connectedPeers = [];
-    
+
     internal EnetServer(in ushort port, in int maxClients)
     {
         _server = new Host();
@@ -70,11 +70,11 @@ public sealed class EnetServer : IDisposable
                     Console.WriteLine(
                         $"[Server] Packet received from Peer - ID: {netEvent.Peer.ID}, IP: {netEvent.Peer.IP}, Channel ID: {netEvent.ChannelID}, Data length: {netEvent.Packet.Length}"
                     );
-                    
+
                     var data = new ReadOnlySpan<byte>((void*)netEvent.Packet.Data, netEvent.Packet.Length);
                     using (var reader = NetBufferPool.GetReader(data, data.Length))
                         Read(reader);
-                    
+
                     netEvent.Packet.Dispose();
                     break;
 
@@ -95,13 +95,13 @@ public sealed class EnetServer : IDisposable
             foreach (var peer in _connectedPeers.Values)
             {
                 if (!peer.Send(channel, ref packet))
-                    throw new Exception($"Failed to send packet. channelId: {channel}");
+                    throw new InvalidOperationException($"Failed to send packet. channelId: {channel}");
             }
             packet.Dispose();
         }
     }
 
-    private void Read(in NetBufferReader reader)
+    private static void Read(in NetBufferReader reader)
     {
         var message = reader.ReadString();
         Console.WriteLine($"[Server] Message: {message}");

@@ -183,7 +183,7 @@ public unsafe class HelloQuadExample : ExampleBase
         };
 
         if (Vk.CreatePipelineLayout(Device, in pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
-            throw new Exception("failed to create pipeline layout!");
+            throw new InvalidOperationException("failed to create pipeline layout!");
 
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
@@ -204,7 +204,7 @@ public unsafe class HelloQuadExample : ExampleBase
         };
 
         if (Vk.CreateGraphicsPipelines(Device, default, 1, in pipelineInfo, null, out _graphicsPipeline) != Result.Success)
-            throw new Exception("failed to create graphics pipeline!");
+            throw new InvalidOperationException("failed to create graphics pipeline!");
 
         Vk.DestroyShaderModule(Device, vertModule, null);
         Vk.DestroyShaderModule(Device, fragModule, null);

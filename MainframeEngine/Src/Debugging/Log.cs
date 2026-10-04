@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace MainframeEngine;
 
@@ -13,13 +14,13 @@ public static class Log
         Warning = 1 << 2,
         Error = 1 << 3,
         Fatal = 1 << 4,
-        
+
         /// <summary>
         /// Includes sourceMemberName, sourceFile, sourceLineNumber
         /// </summary>
         Verbose = 1 << 5
     }
-    
+
     // static Log()
     // {
     //     LogLevel |= Level.Verbose;
@@ -32,7 +33,7 @@ public static class Log
     //     Error("Test");
     //     Fatal(new Exception("Test"));
     // }
-    
+
     private static readonly string NL          = Environment.NewLine;
     private static readonly string NORMAL      = Console.IsOutputRedirected ? string.Empty : "\x1b[39m";
     private static readonly string RED         = Console.IsOutputRedirected ? string.Empty : "\x1b[91m";
@@ -48,11 +49,11 @@ public static class Log
     private static readonly string NOUNDERLINE = Console.IsOutputRedirected ? string.Empty : "\x1b[24m";
     private static readonly string REVERSE     = Console.IsOutputRedirected ? string.Empty : "\x1b[7m";
     private static readonly string NOREVERSE   = Console.IsOutputRedirected ? string.Empty : "\x1b[27m";
-    
+
     private static readonly string TimeStampColor = NORMAL;
-    
-    private static string TimeStamp => DateTime.Now.ToString("HH:mm:ss.fff");
-    public static Level LogLevel = (Level)~0 & ~Level.Verbose;
+
+    private static string TimeStamp => DateTime.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
+    public static Level LogLevel { get; set; } = (Level)~0 & ~Level.Verbose;
 
     private static void PrintToConsole(string message, string color, string memberName, string sourceFilePath, int sourceLineNumber)
     {

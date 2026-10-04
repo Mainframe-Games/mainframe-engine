@@ -86,12 +86,14 @@ public class Box3d : ShapeBase
                 "Content/Shaders/Shapes/Shapes.vk.frag.spv");
         }
     }
-    
+
     public override unsafe void Dispose()
     {
-        if (VkCtx is null) 
+        if (VkCtx is null)
             return;
-        
+
+        // The GPU may still be drawing the last frame with these buffers.
+        VkCtx.Vk.DeviceWaitIdle(VkCtx.Device);
         VkCtx.Vk.DestroyBuffer(VkCtx.Device, _vertexBuffer, null);
         VkCtx.Vk.FreeMemory(VkCtx.Device, _vertexBufferMemory, null);
         base.Dispose();

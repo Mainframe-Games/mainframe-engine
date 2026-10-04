@@ -16,13 +16,13 @@ public class NetBufferWriter : NetBuffer
     {
         _writer = new BinaryWriter(_memory, Encoding.UTF8, true);
     }
-    
+
     public override void Destroy()
     {
         _writer.Dispose();
         base.Destroy();
     }
-    
+
     public void Write(bool value) => _writer.Write(value);
     public void Write(byte value) => _writer.Write(value);
     public void Write(byte[] buffer) => _writer.Write(buffer);
@@ -49,7 +49,7 @@ public class NetBufferWriter : NetBuffer
         Write(position.Y);
         Write(position.Z);
     }
-    
+
     public void Write<T>(T[] array) where T : INetworkTransferable
     {
         Write(array.Length);

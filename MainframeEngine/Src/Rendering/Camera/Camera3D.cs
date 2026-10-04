@@ -13,7 +13,7 @@ public class Camera3D : ICamera
     private float Pitch { get; set; }
 
     public float FieldOfView { get; private set; } = 45f;
-    
+
     public Matrix4x4 ViewMatrix
         => Matrix4x4.CreateLookAt(Position, Position + Forward, Up);
 
@@ -43,26 +43,26 @@ public class Camera3D : ICamera
         cameraDirection.X =
             MathF.Cos(float.DegreesToRadians(Yaw))
             * MathF.Cos(float.DegreesToRadians(Pitch));
-        cameraDirection.Y = MathF.Sin( float.DegreesToRadians(Pitch));
+        cameraDirection.Y = MathF.Sin(float.DegreesToRadians(Pitch));
         cameraDirection.Z =
             MathF.Sin(float.DegreesToRadians(Yaw))
             * MathF.Cos(float.DegreesToRadians(Pitch));
 
         Forward = Vector3.Normalize(cameraDirection);
     }
-    
+
     /// <summary>
     /// Orients the camera to face the given world-space position.
     /// </summary>
     public virtual void LookAt(in Vector3 target)
     {
         var dir = target - Position;
-        
+
         if (Vector3.Dot(dir, dir) < 1e-10f)
             return;
-        
+
         Forward = Vector3.Normalize(dir);
-        
+
         // 3D only - dont need for 2D
         Pitch = float.RadiansToDegrees(MathF.Asin(Math.Clamp(Forward.Y, -1f, 1f)));
         Yaw = float.RadiansToDegrees(MathF.Atan2(Forward.Z, Forward.X));

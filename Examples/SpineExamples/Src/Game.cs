@@ -6,7 +6,7 @@ using Spine;
 
 namespace SilkSpine;
 
-internal class Game : Engine
+internal sealed class Game : Engine
 {
     private static readonly SpineFolder[] Folders =
     [
@@ -70,11 +70,11 @@ internal class Game : Engine
     {
         if (_spineNode is null)
             return;
-        
+
         var position = _spineNode.Position;
         var rotation = _spineNode.Rotation;
         var scale = _spineNode.Scale.X;
-        
+
         _inspectorUI.OnImGui(
             _spineNode.Skeleton, CurrentCamera,
             ref _cameraSpeed,
@@ -134,7 +134,7 @@ internal class Game : Engine
     {
         _spineNode?.Dispose();
         _spineNode = new SpineNode(Renderer, folder);
-        
+
         _inspectorUI.SpineScale = _spineNode.SpineScale;
         _inspectorUI.ZSpacing = _spineNode.ZSpacing;
     }
@@ -213,7 +213,7 @@ internal class Game : Engine
 
     private void OnMouseDown(IMouse mouse, MouseButton btn)
     {
-        if (btn == MouseButton.Right) 
+        if (btn == MouseButton.Right)
             _mouse.Cursor.CursorMode = CursorMode.Raw;
     }
 

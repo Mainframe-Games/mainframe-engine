@@ -1,0 +1,40 @@
+<Project>
+  <!--
+    Shared build settings for every project in the repo. Project files only add what is unique to
+    them (TFM, output type, references). See docs/design/build-and-platforms.md.
+  -->
+
+  <PropertyGroup>
+    <!-- Third-party code vendored as a git submodule: built, but never held to our warning rules. -->
+    <IsVendoredProject Condition="'$(MSBuildProjectName)' == 'spine-csharp'">true</IsVendoredProject>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <!-- Local and CI builds are always 0.0.0-dev; the publish workflow overrides with -p:Version=X.Y.Z. -->
+    <Version>0.0.0-dev</Version>
+    <Authors>Mainframe Games</Authors>
+    <Company>Mainframe Games</Company>
+    <Product>Mainframe Engine</Product>
+    <Copyright>Copyright (c) Mainframe Games</Copyright>
+  </PropertyGroup>
+
+  <!--
+    Analyzer rules from latest-recommended that don't fit a game engine. Every suppression needs a
+    reason here; per-rule options (e.g. CA1051 structs) live in .editorconfig.
+  -->
+  <PropertyGroup>
+    <!--
+      CA1816 (call GC.SuppressFinalize in Dispose): engine types own GPU handles that may only be
+      destroyed on the render thread with the device alive, so none of them has (or may ever have) a
+      finalizer. Dispose is always explicit and deterministic; the call would be dead code.
+    -->
+    <NoWarn>$(NoWarn);CA1816</NoWarn>
+  </PropertyGroup>
+</Project>

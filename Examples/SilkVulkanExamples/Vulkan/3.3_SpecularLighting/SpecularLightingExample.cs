@@ -127,7 +127,7 @@ public unsafe class SpecularLightingExample : ExampleBase
     {
         var ub = new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit };
         var li = new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &ub };
-        if (Vk.CreateDescriptorSetLayout(Device, in li, null, out _descriptorSetLayout) != Result.Success) throw new Exception("failed!");
+        if (Vk.CreateDescriptorSetLayout(Device, in li, null, out _descriptorSetLayout) != Result.Success) throw new InvalidOperationException("failed!");
     }
 
     private void CreateUniformBuffers()
@@ -141,7 +141,7 @@ public unsafe class SpecularLightingExample : ExampleBase
         int n = SwapChainImages.Length;
         var ps = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = (uint)n * 2 };
         var pi = new DescriptorPoolCreateInfo { SType = StructureType.DescriptorPoolCreateInfo, PoolSizeCount = 1, PPoolSizes = &ps, MaxSets = (uint)n * 2 };
-        if (Vk.CreateDescriptorPool(Device, in pi, null, out _descriptorPool) != Result.Success) throw new Exception("failed!");
+        if (Vk.CreateDescriptorPool(Device, in pi, null, out _descriptorPool) != Result.Success) throw new InvalidOperationException("failed!");
         var ls = new DescriptorSetLayout[n]; Array.Fill(ls, _descriptorSetLayout); _descriptorSets = new DescriptorSet[n];
         fixed (DescriptorSetLayout* lp = ls) { var ai = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _descriptorPool, DescriptorSetCount = (uint)n, PSetLayouts = lp }; fixed (DescriptorSet* sp = _descriptorSets) Vk.AllocateDescriptorSets(Device, in ai, sp); }
         for (int i = 0; i < n; i++) { var bi = new DescriptorBufferInfo { Buffer = _uniformBuffers[i], Offset = 0, Range = (ulong)sizeof(LightingUBO) }; var w = new WriteDescriptorSet { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, PBufferInfo = &bi }; Vk.UpdateDescriptorSets(Device, 1, &w, 0, null); }
@@ -170,7 +170,7 @@ public unsafe class SpecularLightingExample : ExampleBase
     private void CreatePipelines()
     {
         var dsl = _descriptorSetLayout; var pli = new PipelineLayoutCreateInfo { SType = StructureType.PipelineLayoutCreateInfo, SetLayoutCount = 1, PSetLayouts = &dsl };
-        if (Vk.CreatePipelineLayout(Device, in pli, null, out _pipelineLayout) != Result.Success) throw new Exception("failed!");
+        if (Vk.CreatePipelineLayout(Device, in pli, null, out _pipelineLayout) != Result.Success) throw new InvalidOperationException("failed!");
         var lv = CreateShaderModule("Content/Shaders/SpecularLighting/shader.vert.spv");
         var lf = CreateShaderModule("Content/Shaders/SpecularLighting/shader.frag.spv");
         var lampF = CreateShaderModule("Content/Shaders/SpecularLighting/lamp.frag.spv");

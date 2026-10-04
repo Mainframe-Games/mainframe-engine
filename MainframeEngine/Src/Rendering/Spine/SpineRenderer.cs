@@ -9,7 +9,7 @@ using VkBuffer = Silk.NET.Vulkan.Buffer;
 
 namespace MainframeEngine;
 
-internal class SpineRenderer : IDisposable
+internal sealed class SpineRenderer : IDisposable
 {
     private const int MaxVertices = 8192;
     private readonly float[] _worldVerticesPositions = new float[MaxVertices];
@@ -17,11 +17,7 @@ internal class SpineRenderer : IDisposable
     private readonly Vector3[] _shadowPositions = new Vector3[MaxVertices];
     private int _preparedVertexCount;
 
-    private const int LightsUboSize =
-        48 +
-        LightEnvironment.MaxDirectional * 32 +
-        LightEnvironment.MaxPoint       * 32 +
-        LightEnvironment.MaxSpot        * 64;
+    private const int LightsUboSize = LightEnvironment.UboSize;
 
     // Vulkan — VP UBO
     private IVulkanContext? _vkCtx;
@@ -136,35 +132,35 @@ internal class SpineRenderer : IDisposable
             switch (attachment)
             {
                 case RegionAttachment region:
-                {
-                    int texIdx = ResolveTexIdx(region.Region);
-                    BeginBatch(texIdx, vertexIndex);
-                    region.ComputeWorldVertices(slot, _worldVerticesPositions, 0);
+                    {
+                        int texIdx = ResolveTexIdx(region.Region);
+                        BeginBatch(texIdx, vertexIndex);
+                        region.ComputeWorldVertices(slot, _worldVerticesPositions, 0);
 
-                    AddVertex(_worldVerticesPositions[0], _worldVerticesPositions[1], z, region.UVs[0], region.UVs[1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                    AddVertex(_worldVerticesPositions[2], _worldVerticesPositions[3], z, region.UVs[2], region.UVs[3], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                    AddVertex(_worldVerticesPositions[4], _worldVerticesPositions[5], z, region.UVs[4], region.UVs[5], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                    AddVertex(_worldVerticesPositions[4], _worldVerticesPositions[5], z, region.UVs[4], region.UVs[5], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                    AddVertex(_worldVerticesPositions[6], _worldVerticesPositions[7], z, region.UVs[6], region.UVs[7], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                    AddVertex(_worldVerticesPositions[0], _worldVerticesPositions[1], z, region.UVs[0], region.UVs[1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                    break;
-                }
+                        AddVertex(_worldVerticesPositions[0], _worldVerticesPositions[1], z, region.UVs[0], region.UVs[1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
+                        AddVertex(_worldVerticesPositions[2], _worldVerticesPositions[3], z, region.UVs[2], region.UVs[3], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
+                        AddVertex(_worldVerticesPositions[4], _worldVerticesPositions[5], z, region.UVs[4], region.UVs[5], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
+                        AddVertex(_worldVerticesPositions[4], _worldVerticesPositions[5], z, region.UVs[4], region.UVs[5], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
+                        AddVertex(_worldVerticesPositions[6], _worldVerticesPositions[7], z, region.UVs[6], region.UVs[7], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
+                        AddVertex(_worldVerticesPositions[0], _worldVerticesPositions[1], z, region.UVs[0], region.UVs[1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
+                        break;
+                    }
 
                 case MeshAttachment mesh:
-                {
-                    if (mesh.WorldVerticesLength > _worldVerticesPositions.Length) continue;
-
-                    int texIdx = ResolveTexIdx(mesh.Region);
-                    BeginBatch(texIdx, vertexIndex);
-                    mesh.ComputeWorldVertices(slot, _worldVerticesPositions);
-
-                    for (int j = 0; j < mesh.Triangles.Length; j++)
                     {
-                        var idx = mesh.Triangles[j] << 1;
-                        AddVertex(_worldVerticesPositions[idx], _worldVerticesPositions[idx + 1], z, mesh.UVs[idx], mesh.UVs[idx + 1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
+                        if (mesh.WorldVerticesLength > _worldVerticesPositions.Length) continue;
+
+                        int texIdx = ResolveTexIdx(mesh.Region);
+                        BeginBatch(texIdx, vertexIndex);
+                        mesh.ComputeWorldVertices(slot, _worldVerticesPositions);
+
+                        for (int j = 0; j < mesh.Triangles.Length; j++)
+                        {
+                            var idx = mesh.Triangles[j] << 1;
+                            AddVertex(_worldVerticesPositions[idx], _worldVerticesPositions[idx + 1], z, mesh.UVs[idx], mesh.UVs[idx + 1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
+                        }
+                        break;
                     }
-                    break;
-                }
             }
 
             z += zSpacing;
@@ -294,7 +290,7 @@ internal class SpineRenderer : IDisposable
         *(VkVpUbo*)(void*)_vkUboMapped[imageIdx] = new VkVpUbo { View = view, Projection = projection };
 
         // Update Lights UBO
-        WriteLightsUbo(_lightsUboMapped[imageIdx], lights, cameraPosition);
+        lights.WriteUbo(new Span<byte>((void*)_lightsUboMapped[imageIdx], LightsUboSize), cameraPosition);
 
         // Upload main vertex buffer
         var requiredBytes = (ulong)(vertexCount * sizeof(Vertex));
@@ -314,9 +310,12 @@ internal class SpineRenderer : IDisposable
         // Right-handed viewport (negative height flips Y)
         var viewport = new Viewport
         {
-            X = 0, Y = extent.Height,
-            Width = extent.Width, Height = -(float)extent.Height,
-            MinDepth = 0f, MaxDepth = 1f,
+            X = 0,
+            Y = extent.Height,
+            Width = extent.Width,
+            Height = -(float)extent.Height,
+            MinDepth = 0f,
+            MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);
         var scissor = new Rect2D { Offset = default, Extent = extent };
@@ -421,12 +420,13 @@ internal class SpineRenderer : IDisposable
         var samplerInfo = new SamplerCreateInfo
         {
             SType        = StructureType.SamplerCreateInfo,
-            MagFilter    = Filter.Linear, MinFilter = Filter.Linear,
+            MagFilter    = Filter.Linear,
+            MinFilter = Filter.Linear,
             AddressModeU = SamplerAddressMode.ClampToEdge,
             AddressModeV = SamplerAddressMode.ClampToEdge,
             AddressModeW = SamplerAddressMode.ClampToEdge,
         };
-        ctx.Vk.CreateSampler(ctx.Device, samplerInfo, null, out _vkSampler);
+        ctx.Vk.CreateSampler(ctx.Device, in samplerInfo, null, out _vkSampler);
 
         // --- VP UBOs ---
         _vkUboBuffers = new VkBuffer[imageCount];
@@ -473,30 +473,33 @@ internal class SpineRenderer : IDisposable
         // --- Descriptor set layouts ---
         var uboBinding = new DescriptorSetLayoutBinding
         {
-            Binding = 0, DescriptorType = DescriptorType.UniformBuffer,
-            DescriptorCount = 1, StageFlags = ShaderStageFlags.VertexBit,
+            Binding = 0,
+            DescriptorType = DescriptorType.UniformBuffer,
+            DescriptorCount = 1,
+            StageFlags = ShaderStageFlags.VertexBit,
         };
-        ctx.Vk.CreateDescriptorSetLayout(ctx.Device,
-            new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &uboBinding },
-            null, out _vkUboLayout);
+        var uboBindingLayoutInfo = new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &uboBinding };
+        ctx.Vk.CreateDescriptorSetLayout(ctx.Device, in uboBindingLayoutInfo, null, out _vkUboLayout);
 
         var lightsBinding = new DescriptorSetLayoutBinding
         {
-            Binding = 0, DescriptorType = DescriptorType.UniformBuffer,
-            DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit,
+            Binding = 0,
+            DescriptorType = DescriptorType.UniformBuffer,
+            DescriptorCount = 1,
+            StageFlags = ShaderStageFlags.FragmentBit,
         };
-        ctx.Vk.CreateDescriptorSetLayout(ctx.Device,
-            new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &lightsBinding },
-            null, out _lightsDescSetLayout);
+        var lightsBindingLayoutInfo = new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &lightsBinding };
+        ctx.Vk.CreateDescriptorSetLayout(ctx.Device, in lightsBindingLayoutInfo, null, out _lightsDescSetLayout);
 
         var texBinding = new DescriptorSetLayoutBinding
         {
-            Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit,
+            Binding = 0,
+            DescriptorType = DescriptorType.CombinedImageSampler,
+            DescriptorCount = 1,
+            StageFlags = ShaderStageFlags.FragmentBit,
         };
-        ctx.Vk.CreateDescriptorSetLayout(ctx.Device,
-            new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &texBinding },
-            null, out _vkTexLayout);
+        var texBindingLayoutInfo = new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &texBinding };
+        ctx.Vk.CreateDescriptorSetLayout(ctx.Device, in texBindingLayoutInfo, null, out _vkTexLayout);
 
         // --- Descriptor pool ---
         var poolSizes = stackalloc DescriptorPoolSize[]
@@ -504,22 +507,22 @@ internal class SpineRenderer : IDisposable
             new() { Type = DescriptorType.UniformBuffer,        DescriptorCount = (uint)(imageCount * 2) }, // VP + Lights
             new() { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (uint)(imageCount * texCount) },
         };
-        ctx.Vk.CreateDescriptorPool(ctx.Device,
-            new DescriptorPoolCreateInfo
-            {
-                SType = StructureType.DescriptorPoolCreateInfo,
-                PoolSizeCount = 2, PPoolSizes = poolSizes,
-                MaxSets = (uint)(imageCount * 2 + imageCount * texCount),
-            }, null, out _vkDescPool);
+        var poolInfo = new DescriptorPoolCreateInfo
+        {
+            SType = StructureType.DescriptorPoolCreateInfo,
+            PoolSizeCount = 2,
+            PPoolSizes = poolSizes,
+            MaxSets = (uint)(imageCount * 2 + imageCount * texCount),
+        };
+        ctx.Vk.CreateDescriptorPool(ctx.Device, in poolInfo, null, out _vkDescPool);
 
         // --- Allocate and write VP descriptor sets ---
         var vpLayouts = stackalloc DescriptorSetLayout[imageCount];
         for (int i = 0; i < imageCount; i++) vpLayouts[i] = _vkUboLayout;
         _vkUboDescSets = new DescriptorSet[imageCount];
+        var vpAlloc = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _vkDescPool, DescriptorSetCount = (uint)imageCount, PSetLayouts = vpLayouts };
         fixed (DescriptorSet* ptr = _vkUboDescSets)
-            ctx.Vk.AllocateDescriptorSets(ctx.Device,
-                new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _vkDescPool, DescriptorSetCount = (uint)imageCount, PSetLayouts = vpLayouts },
-                ptr);
+            ctx.Vk.AllocateDescriptorSets(ctx.Device, in vpAlloc, ptr);
 
         for (int i = 0; i < imageCount; i++)
         {
@@ -532,10 +535,9 @@ internal class SpineRenderer : IDisposable
         var lightsLayouts = stackalloc DescriptorSetLayout[imageCount];
         for (int i = 0; i < imageCount; i++) lightsLayouts[i] = _lightsDescSetLayout;
         _lightsDescSets = new DescriptorSet[imageCount];
+        var lightsAlloc = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _vkDescPool, DescriptorSetCount = (uint)imageCount, PSetLayouts = lightsLayouts };
         fixed (DescriptorSet* ptr = _lightsDescSets)
-            ctx.Vk.AllocateDescriptorSets(ctx.Device,
-                new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _vkDescPool, DescriptorSetCount = (uint)imageCount, PSetLayouts = lightsLayouts },
-                ptr);
+            ctx.Vk.AllocateDescriptorSets(ctx.Device, in lightsAlloc, ptr);
 
         for (int i = 0; i < imageCount; i++)
         {
@@ -549,10 +551,9 @@ internal class SpineRenderer : IDisposable
         var texLayouts = stackalloc DescriptorSetLayout[totalTexSets];
         for (int i = 0; i < totalTexSets; i++) texLayouts[i] = _vkTexLayout;
         var flatTexSets = new DescriptorSet[totalTexSets];
+        var texAlloc = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _vkDescPool, DescriptorSetCount = (uint)totalTexSets, PSetLayouts = texLayouts };
         fixed (DescriptorSet* ptr = flatTexSets)
-            ctx.Vk.AllocateDescriptorSets(ctx.Device,
-                new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _vkDescPool, DescriptorSetCount = (uint)totalTexSets, PSetLayouts = texLayouts },
-                ptr);
+            ctx.Vk.AllocateDescriptorSets(ctx.Device, in texAlloc, ptr);
 
         _vkTexDescSets = new DescriptorSet[imageCount][];
         for (int i = 0; i < imageCount; i++)
@@ -592,14 +593,15 @@ internal class SpineRenderer : IDisposable
             ImageType     = ImageType.Type2D,
             Format        = Silk.NET.Vulkan.Format.R8G8B8A8Unorm,
             Extent        = new Extent3D { Width = (uint)data.Width, Height = (uint)data.Height, Depth = 1 },
-            MipLevels     = 1, ArrayLayers = 1,
+            MipLevels     = 1,
+            ArrayLayers = 1,
             Samples       = SampleCountFlags.Count1Bit,
             Tiling        = ImageTiling.Optimal,
             Usage         = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit,
             SharingMode   = SharingMode.Exclusive,
             InitialLayout = ImageLayout.Undefined,
         };
-        vk.CreateImage(ctx.Device, imageInfo, null, out _vkImages[texIndex]);
+        vk.CreateImage(ctx.Device, in imageInfo, null, out _vkImages[texIndex]);
 
         vk.GetImageMemoryRequirements(ctx.Device, _vkImages[texIndex], out var memReq);
         var allocInfo = new MemoryAllocateInfo
@@ -608,7 +610,7 @@ internal class SpineRenderer : IDisposable
             AllocationSize  = memReq.Size,
             MemoryTypeIndex = FindMemoryType(ctx, memReq.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
         };
-        vk.AllocateMemory(ctx.Device, allocInfo, null, out _vkImageMemory[texIndex]);
+        vk.AllocateMemory(ctx.Device, in allocInfo, null, out _vkImageMemory[texIndex]);
         vk.BindImageMemory(ctx.Device, _vkImages[texIndex], _vkImageMemory[texIndex], 0);
 
         var cb = BeginOneTimeCommands(ctx);
@@ -635,7 +637,7 @@ internal class SpineRenderer : IDisposable
             Format           = Silk.NET.Vulkan.Format.R8G8B8A8Unorm,
             SubresourceRange = new ImageSubresourceRange { AspectMask = ImageAspectFlags.ColorBit, LevelCount = 1, LayerCount = 1 },
         };
-        vk.CreateImageView(ctx.Device, viewInfo, null, out _vkImageViews[texIndex]);
+        vk.CreateImageView(ctx.Device, in viewInfo, null, out _vkImageViews[texIndex]);
     }
 
     private unsafe void CreateVkPipeline(IVulkanContext ctx)
@@ -657,7 +659,9 @@ internal class SpineRenderer : IDisposable
         // Vertex layout: Position(vec3,0) + UV(vec2,12) + Color(vec4,20) + TextureIndex(float,36) = stride 40
         var bindingDesc = new VertexInputBindingDescription
         {
-            Binding = 0, Stride = (uint)sizeof(Vertex), InputRate = VertexInputRate.Vertex,
+            Binding = 0,
+            Stride = (uint)sizeof(Vertex),
+            InputRate = VertexInputRate.Vertex,
         };
         var attribs = stackalloc VertexInputAttributeDescription[]
         {
@@ -668,16 +672,21 @@ internal class SpineRenderer : IDisposable
         var vertexInput = new PipelineVertexInputStateCreateInfo
         {
             SType = StructureType.PipelineVertexInputStateCreateInfo,
-            VertexBindingDescriptionCount = 1,   PVertexBindingDescriptions   = &bindingDesc,
-            VertexAttributeDescriptionCount = 3, PVertexAttributeDescriptions = attribs,
+            VertexBindingDescriptionCount = 1,
+            PVertexBindingDescriptions   = &bindingDesc,
+            VertexAttributeDescriptionCount = 3,
+            PVertexAttributeDescriptions = attribs,
         };
         var inputAssembly = new PipelineInputAssemblyStateCreateInfo
         {
-            SType = StructureType.PipelineInputAssemblyStateCreateInfo, Topology = PrimitiveTopology.TriangleList,
+            SType = StructureType.PipelineInputAssemblyStateCreateInfo,
+            Topology = PrimitiveTopology.TriangleList,
         };
         var viewportState = new PipelineViewportStateCreateInfo
         {
-            SType = StructureType.PipelineViewportStateCreateInfo, ViewportCount = 1, ScissorCount = 1,
+            SType = StructureType.PipelineViewportStateCreateInfo,
+            ViewportCount = 1,
+            ScissorCount = 1,
         };
         var rasterizer = new PipelineRasterizationStateCreateInfo
         {
@@ -689,7 +698,8 @@ internal class SpineRenderer : IDisposable
         };
         var multisampling = new PipelineMultisampleStateCreateInfo
         {
-            SType = StructureType.PipelineMultisampleStateCreateInfo, RasterizationSamples = SampleCountFlags.Count1Bit,
+            SType = StructureType.PipelineMultisampleStateCreateInfo,
+            RasterizationSamples = SampleCountFlags.Count1Bit,
         };
         var blendAttachment = new PipelineColorBlendAttachmentState
         {
@@ -706,17 +716,23 @@ internal class SpineRenderer : IDisposable
         };
         var colorBlend = new PipelineColorBlendStateCreateInfo
         {
-            SType = StructureType.PipelineColorBlendStateCreateInfo, AttachmentCount = 1, PAttachments = &blendAttachment,
+            SType = StructureType.PipelineColorBlendStateCreateInfo,
+            AttachmentCount = 1,
+            PAttachments = &blendAttachment,
         };
         var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
         var dynamicState  = new PipelineDynamicStateCreateInfo
         {
-            SType = StructureType.PipelineDynamicStateCreateInfo, DynamicStateCount = 2, PDynamicStates = dynamicStates,
+            SType = StructureType.PipelineDynamicStateCreateInfo,
+            DynamicStateCount = 2,
+            PDynamicStates = dynamicStates,
         };
         var depthStencil = new PipelineDepthStencilStateCreateInfo
         {
             SType = StructureType.PipelineDepthStencilStateCreateInfo,
-            DepthTestEnable = true, DepthWriteEnable = true, DepthCompareOp = CompareOp.Less,
+            DepthTestEnable = true,
+            DepthWriteEnable = true,
+            DepthCompareOp = CompareOp.Less,
         };
 
         // Pipeline layout: set 0 = VP, set 1 = Lights, [set 2 = Shadows,] set N = Texture
@@ -735,18 +751,21 @@ internal class SpineRenderer : IDisposable
             Offset     = 0,
             Size       = (uint)sizeof(PushConstant), // 80 bytes: mat4 model + vec4 normal
         };
-        vk.CreatePipelineLayout(ctx.Device,
-            new PipelineLayoutCreateInfo
-            {
-                SType                  = StructureType.PipelineLayoutCreateInfo,
-                SetLayoutCount         = numSets, PSetLayouts = setLayouts,
-                PushConstantRangeCount = 1, PPushConstantRanges = &pushRange,
-            }, null, out _vkPipelineLayout);
+        var pipelineLayoutInfo = new PipelineLayoutCreateInfo
+        {
+            SType                  = StructureType.PipelineLayoutCreateInfo,
+            SetLayoutCount         = numSets,
+            PSetLayouts = setLayouts,
+            PushConstantRangeCount = 1,
+            PPushConstantRanges = &pushRange,
+        };
+        vk.CreatePipelineLayout(ctx.Device, in pipelineLayoutInfo, null, out _vkPipelineLayout);
 
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType               = StructureType.GraphicsPipelineCreateInfo,
-            StageCount          = 2, PStages             = stages,
+            StageCount          = 2,
+            PStages             = stages,
             PVertexInputState   = &vertexInput,
             PInputAssemblyState = &inputAssembly,
             PViewportState      = &viewportState,
@@ -758,7 +777,7 @@ internal class SpineRenderer : IDisposable
             Layout              = _vkPipelineLayout,
             RenderPass          = ctx.RenderPass,
         };
-        vk.CreateGraphicsPipelines(ctx.Device, default, 1, pipelineInfo, null, out _vkPipeline);
+        vk.CreateGraphicsPipelines(ctx.Device, default, 1, in pipelineInfo, null, out _vkPipeline);
 
         SilkMarshal.Free((nint)entry);
         vk.DestroyShaderModule(ctx.Device, vertModule, null);
@@ -774,7 +793,7 @@ internal class SpineRenderer : IDisposable
     {
         var ctx     = _vkCtx!;
         var bufInfo = new BufferCreateInfo { SType = StructureType.BufferCreateInfo, Size = size, Usage = usage, SharingMode = SharingMode.Exclusive };
-        ctx.Vk.CreateBuffer(ctx.Device, bufInfo, null, out buffer);
+        ctx.Vk.CreateBuffer(ctx.Device, in bufInfo, null, out buffer);
         ctx.Vk.GetBufferMemoryRequirements(ctx.Device, buffer, out var memReq);
         var allocInfo = new MemoryAllocateInfo
         {
@@ -782,7 +801,7 @@ internal class SpineRenderer : IDisposable
             AllocationSize  = memReq.Size,
             MemoryTypeIndex = FindMemoryType(ctx, memReq.MemoryTypeBits, properties),
         };
-        ctx.Vk.AllocateMemory(ctx.Device, allocInfo, null, out memory);
+        ctx.Vk.AllocateMemory(ctx.Device, in allocInfo, null, out memory);
         ctx.Vk.BindBufferMemory(ctx.Device, buffer, memory, 0);
     }
 
@@ -793,15 +812,16 @@ internal class SpineRenderer : IDisposable
             if ((typeBits & (1u << (int)i)) != 0 &&
                 (memProps.MemoryTypes[(int)i].PropertyFlags & props) == props)
                 return i;
-        throw new Exception("[Vulkan] No suitable memory type!");
+        throw new VulkanException("[Vulkan] No suitable memory type!");
     }
 
     private static unsafe CommandBuffer BeginOneTimeCommands(IVulkanContext ctx)
     {
         var allocInfo = new CommandBufferAllocateInfo { SType = StructureType.CommandBufferAllocateInfo, Level = CommandBufferLevel.Primary, CommandPool = ctx.CommandPool, CommandBufferCount = 1 };
         CommandBuffer cb;
-        ctx.Vk.AllocateCommandBuffers(ctx.Device, allocInfo, &cb);
-        ctx.Vk.BeginCommandBuffer(cb, new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo, Flags = CommandBufferUsageFlags.OneTimeSubmitBit });
+        ctx.Vk.AllocateCommandBuffers(ctx.Device, in allocInfo, &cb);
+        var beginInfo = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo, Flags = CommandBufferUsageFlags.OneTimeSubmitBit };
+        ctx.Vk.BeginCommandBuffer(cb, in beginInfo);
         return cb;
     }
 
@@ -809,7 +829,7 @@ internal class SpineRenderer : IDisposable
     {
         ctx.Vk.EndCommandBuffer(cb);
         var submitInfo = new SubmitInfo { SType = StructureType.SubmitInfo, CommandBufferCount = 1, PCommandBuffers = &cb };
-        ctx.Vk.QueueSubmit(ctx.GraphicsQueue, 1, submitInfo, default);
+        ctx.Vk.QueueSubmit(ctx.GraphicsQueue, 1, in submitInfo, default);
         ctx.Vk.QueueWaitIdle(ctx.GraphicsQueue);
         ctx.Vk.FreeCommandBuffers(ctx.Device, ctx.CommandPool, 1, &cb);
     }
@@ -820,7 +840,8 @@ internal class SpineRenderer : IDisposable
         var barrier = new ImageMemoryBarrier
         {
             SType               = StructureType.ImageMemoryBarrier,
-            OldLayout           = oldLayout, NewLayout = newLayout,
+            OldLayout           = oldLayout,
+            NewLayout = newLayout,
             SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
             DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
             Image               = image,
@@ -848,7 +869,7 @@ internal class SpineRenderer : IDisposable
         fixed (byte* ptr = code)
         {
             var info = new ShaderModuleCreateInfo { SType = StructureType.ShaderModuleCreateInfo, CodeSize = (nuint)code.Length, PCode = (uint*)ptr };
-            ctx.Vk.CreateShaderModule(ctx.Device, info, null, out var m);
+            ctx.Vk.CreateShaderModule(ctx.Device, in info, null, out var m);
             return m;
         }
     }
@@ -857,57 +878,6 @@ internal class SpineRenderer : IDisposable
 
     #region Lights UBO writer
 
-    private static unsafe void WriteLightsUbo(nint ptr, LightEnvironment env, Vector3 camPos)
-    {
-        Unsafe.InitBlock((void*)ptr, 0, (uint)LightsUboSize);
-        float* f  = (float*)ptr;
-        int    fi = 0;
-
-        f[fi++] = env.AmbientColor.X; f[fi++] = env.AmbientColor.Y;
-        f[fi++] = env.AmbientColor.Z; fi++;
-
-        f[fi++] = camPos.X; f[fi++] = camPos.Y; f[fi++] = camPos.Z; fi++;
-
-        int numDir   = Math.Min(env.DirectionalLights.Count, LightEnvironment.MaxDirectional);
-        int numPoint = Math.Min(env.PointLights.Count,       LightEnvironment.MaxPoint);
-        int numSpot  = Math.Min(env.SpotLights.Count,        LightEnvironment.MaxSpot);
-        var ci = (int*)(f + fi);
-        ci[0] = numDir; ci[1] = numPoint; ci[2] = numSpot; ci[3] = 0;
-        fi += 4;
-
-        for (int i = 0; i < numDir; i++)
-        {
-            var l = env.DirectionalLights[i];
-            f[fi++] = l.Direction.X; f[fi++] = l.Direction.Y; f[fi++] = l.Direction.Z;
-            f[fi++] = l.Intensity;
-            f[fi++] = l.Color.X; f[fi++] = l.Color.Y; f[fi++] = l.Color.Z;
-            fi++;
-        }
-        fi += (LightEnvironment.MaxDirectional - numDir) * 8;
-
-        for (int i = 0; i < numPoint; i++)
-        {
-            var l = env.PointLights[i];
-            f[fi++] = l.Position.X; f[fi++] = l.Position.Y; f[fi++] = l.Position.Z;
-            f[fi++] = l.Range;
-            f[fi++] = l.Color.X; f[fi++] = l.Color.Y; f[fi++] = l.Color.Z;
-            f[fi++] = l.Intensity;
-        }
-        fi += (LightEnvironment.MaxPoint - numPoint) * 8;
-
-        for (int i = 0; i < numSpot; i++)
-        {
-            var l = env.SpotLights[i];
-            f[fi++] = l.Position.X; f[fi++] = l.Position.Y; f[fi++] = l.Position.Z;
-            f[fi++] = l.Range;
-            f[fi++] = l.Direction.X; f[fi++] = l.Direction.Y; f[fi++] = l.Direction.Z;
-            f[fi++] = l.Intensity;
-            f[fi++] = l.Color.X; f[fi++] = l.Color.Y; f[fi++] = l.Color.Z;
-            f[fi++] = float.Cos(float.DegreesToRadians(l.InnerConeAngle));
-            f[fi++] = float.Cos(float.DegreesToRadians(l.OuterConeAngle));
-            fi += 3;
-        }
-    }
 
     #endregion
 

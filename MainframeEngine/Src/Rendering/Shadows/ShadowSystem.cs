@@ -2,7 +2,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
-using VkBuffer  = Silk.NET.Vulkan.Buffer;
+using VkBuffer = Silk.NET.Vulkan.Buffer;
 using VkSampler = Silk.NET.Vulkan.Sampler;
 
 namespace MainframeEngine;
@@ -85,7 +85,7 @@ public sealed unsafe class ShadowSystem : IDisposable
 
     // Main-pass descriptor set (set=2 in Shapes.vk.frag)
     private DescriptorPool      _mainPool;
-    public  DescriptorSetLayout MainDescSetLayout { get; private set; }
+    public DescriptorSetLayout MainDescSetLayout { get; private set; }
     private DescriptorSet[]     _mainSets = null!; // one per swapchain image
 
     // Shadow matrices UBO (per swapchain image, like Box3d VP UBO)
@@ -124,12 +124,31 @@ public sealed unsafe class ShadowSystem : IDisposable
     /// draw2D: bind VB, push model matrix via layout2D, call CmdDraw.
     /// drawPoint: bind VB, push model+lightPosRange via layoutPoint, call CmdDraw.
     /// </summary>
+    /// <remarks>
+    /// Allocates if the callbacks capture state; prefer the
+    /// <see cref="RenderShadows{TState}(LightEnvironment, TState, ShadowDraw2D{TState}, ShadowDrawPoint{TState})"/>
+    /// overload with static lambdas in per-frame code.
+    /// </remarks>
     public void RenderShadows(
         LightEnvironment lights,
         Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout> draw2D,
         Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout, Vector3, float> drawPoint)
     {
-        var vk = _ctx.Vk;
+        RenderShadows(lights, (draw2D, drawPoint),
+            static (s, cb, p32, p12, layout) => s.draw2D(cb, p32, p12, layout),
+            static (s, cb, p32, p12, layout, lightPos, lightRange) => s.drawPoint(cb, p32, p12, layout, lightPos, lightRange));
+    }
+
+    /// <summary>
+    /// Allocation-free form of <see cref="RenderShadows(LightEnvironment, Action{CommandBuffer, Pipeline, Pipeline, PipelineLayout}, Action{CommandBuffer, Pipeline, Pipeline, PipelineLayout, Vector3, float})"/>:
+    /// <paramref name="state"/> is handed to the callbacks so they can be static lambdas.
+    /// </summary>
+    public void RenderShadows<TState>(
+        LightEnvironment lights,
+        TState state,
+        ShadowDraw2D<TState> draw2D,
+        ShadowDrawPoint<TState> drawPoint)
+    {
         var cb = _ctx.CurrentCommandBuffer;
 
         int numDir   = Math.Min(lights.DirectionalLights.Count, MaxShadowDir);
@@ -147,8 +166,9 @@ public sealed unsafe class ShadowSystem : IDisposable
             _dirMats[i] = CalcDirLightMatrix(light);
             *(Matrix4x4*)(void*)_vpMapped = _dirMats[i];
 
-            RenderShadowPass2D(cb, _dirMaps[i].Framebuffer, DirSize, DirSize, _layout2D,
-                draw2D);
+            BeginShadowPass(cb, _dirMaps[i].Framebuffer, DirSize, DirSize, _layout2D);
+            draw2D(state, cb, _pipe2D_S32, _pipe2D_S12, _layout2D);
+            _ctx.Vk.CmdEndRenderPass(cb);
         }
 
         // ── Spot shadow maps ─────────────────────────────────────────────────
@@ -158,31 +178,24 @@ public sealed unsafe class ShadowSystem : IDisposable
             _spotMats[i] = CalcSpotLightMatrix(light);
             *(Matrix4x4*)(void*)_vpMapped = _spotMats[i];
 
-            RenderShadowPass2D(cb, _spotMaps[i].Framebuffer, SpotSize, SpotSize, _layout2D,
-                draw2D);
+            BeginShadowPass(cb, _spotMaps[i].Framebuffer, SpotSize, SpotSize, _layout2D);
+            draw2D(state, cb, _pipe2D_S32, _pipe2D_S12, _layout2D);
+            _ctx.Vk.CmdEndRenderPass(cb);
         }
 
         // ── Point shadow cube maps ───────────────────────────────────────────
-        var cubeFaces = new[] {
-            (Vector3.UnitX,     -Vector3.UnitY),  // +X
-            (-Vector3.UnitX,    -Vector3.UnitY),  // -X
-            (Vector3.UnitY,      Vector3.UnitZ),   // +Y
-            (-Vector3.UnitY,    -Vector3.UnitZ),   // -Y
-            (Vector3.UnitZ,     -Vector3.UnitY),   // +Z
-            (-Vector3.UnitZ,    -Vector3.UnitY),   // -Z
-        };
-
         for (int i = 0; i < numPoint; i++)
         {
             var light = lights.PointLights[i];
             for (int face = 0; face < 6; face++)
             {
-                var (dir, up) = cubeFaces[face];
+                var (dir, up) = CubeFaces[face];
                 var faceVP = CalcPointFaceMatrix(light.Position, dir, up, light.Range);
                 *(Matrix4x4*)(void*)_vpMapped = faceVP;
 
-                RenderShadowPass2D(cb, _ptMaps[i].FaceFramebuffers[face], PointSize, PointSize, _layoutPoint,
-                    (c, p32, p12, lay) => drawPoint(c, p32, p12, lay, light.Position, light.Range));
+                BeginShadowPass(cb, _ptMaps[i].FaceFramebuffers[face], PointSize, PointSize, _layoutPoint);
+                drawPoint(state, cb, _pipePoint_S32, _pipePoint_S12, _layoutPoint, light.Position, light.Range);
+                _ctx.Vk.CmdEndRenderPass(cb);
             }
         }
 
@@ -193,17 +206,26 @@ public sealed unsafe class ShadowSystem : IDisposable
         // Upload light-space matrices to per-image UBO
         var imgIdx = _ctx.CurrentImageIndex;
         var dst    = (float*)(void*)_matMapped[imgIdx];
-        for (int i = 0; i < MaxShadowDir;  i++) Unsafe.Copy(dst + i * 16, ref _dirMats[i]);
+        for (int i = 0; i < MaxShadowDir; i++) Unsafe.Copy(dst + i * 16, ref _dirMats[i]);
         dst += MaxShadowDir * 16;
         for (int i = 0; i < MaxShadowSpot; i++) Unsafe.Copy(dst + i * 16, ref _spotMats[i]);
     }
 
+    // Look direction and up vector per cube face, in Vulkan face order (+X, -X, +Y, -Y, +Z, -Z).
+    private static readonly (Vector3 Dir, Vector3 Up)[] CubeFaces =
+    [
+        (Vector3.UnitX,  -Vector3.UnitY),
+        (-Vector3.UnitX, -Vector3.UnitY),
+        (Vector3.UnitY,   Vector3.UnitZ),
+        (-Vector3.UnitY, -Vector3.UnitZ),
+        (Vector3.UnitZ,  -Vector3.UnitY),
+        (-Vector3.UnitZ, -Vector3.UnitY),
+    ];
+
     // ── Shadow pass helpers ───────────────────────────────────────────────────
 
-    private void RenderShadowPass2D(
-        CommandBuffer cb, Framebuffer fb, uint width, uint height,
-        PipelineLayout bindLayout,
-        Action<CommandBuffer, Pipeline, Pipeline, PipelineLayout> draw)
+    // Begins a depth-only shadow render pass and binds the light VP set; the caller draws, then ends it.
+    private void BeginShadowPass(CommandBuffer cb, Framebuffer fb, uint width, uint height, PipelineLayout bindLayout)
     {
         var vk = _ctx.Vk;
 
@@ -223,8 +245,12 @@ public sealed unsafe class ShadowSystem : IDisposable
         // in the fragment shader uses standard NDC→[0,1] mapping so the viewport must match.
         var vp = new Viewport
         {
-            X = 0, Y = 0, Width = width, Height = height,
-            MinDepth = 0f, MaxDepth = 1f,
+            X = 0,
+            Y = 0,
+            Width = width,
+            Height = height,
+            MinDepth = 0f,
+            MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &vp);
         var sc = new Rect2D { Extent = new Extent2D(width, height) };
@@ -232,10 +258,6 @@ public sealed unsafe class ShadowSystem : IDisposable
 
         var vpSet = _vpSet;
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, bindLayout, 0, 1, &vpSet, 0, null);
-
-        draw(cb, _pipe2D_S32, _pipe2D_S12, bindLayout);
-
-        vk.CmdEndRenderPass(cb);
     }
 
     // ── Light matrix computation ──────────────────────────────────────────────
@@ -295,8 +317,8 @@ public sealed unsafe class ShadowSystem : IDisposable
         // when transitioning to write — this is valid and avoids first-frame layout tracking issues.
         var barrierOldLayout = toWrite ? ImageLayout.Undefined : oldLayout;
 
-        for (int i = 0; i < numDir;   i++) Barrier(_dirMaps[i].Image);
-        for (int i = 0; i < numSpot;  i++) Barrier(_spotMaps[i].Image);
+        for (int i = 0; i < numDir; i++) Barrier(_dirMaps[i].Image);
+        for (int i = 0; i < numSpot; i++) Barrier(_spotMaps[i].Image);
         for (int i = 0; i < numPoint; i++) Barrier(_ptMaps[i].Image, 6);
         return;
 
@@ -366,8 +388,8 @@ public sealed unsafe class ShadowSystem : IDisposable
             DependencyCount = 1,
             PDependencies   = &dep,
         };
-        if (vk.CreateRenderPass(_ctx.Device, info, null, out _shadowRenderPass) != Result.Success)
-            throw new Exception("[Shadow] Failed to create shadow render pass!");
+        if (vk.CreateRenderPass(_ctx.Device, in info, null, out _shadowRenderPass) != Result.Success)
+            throw new VulkanException("[Shadow] Failed to create shadow render pass!");
     }
 
     private void CreateVpUboResources()
@@ -398,15 +420,17 @@ public sealed unsafe class ShadowSystem : IDisposable
             BindingCount = 1,
             PBindings    = &bind,
         };
-        vk.CreateDescriptorSetLayout(device, layoutInfo, null, out _vpSetLayout);
+        vk.CreateDescriptorSetLayout(device, in layoutInfo, null, out _vpSetLayout);
 
         var poolSize = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 1 };
         var poolInfo = new DescriptorPoolCreateInfo
         {
-            SType = StructureType.DescriptorPoolCreateInfo, MaxSets = 1,
-            PoolSizeCount = 1, PPoolSizes = &poolSize,
+            SType = StructureType.DescriptorPoolCreateInfo,
+            MaxSets = 1,
+            PoolSizeCount = 1,
+            PPoolSizes = &poolSize,
         };
-        vk.CreateDescriptorPool(device, poolInfo, null, out _vpPool);
+        vk.CreateDescriptorPool(device, in poolInfo, null, out _vpPool);
 
         var allocInfo = new DescriptorSetAllocateInfo
         {
@@ -415,7 +439,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             DescriptorSetCount = 1,
             PSetLayouts        = (DescriptorSetLayout*)Unsafe.AsPointer(ref _vpSetLayout),
         };
-        vk.AllocateDescriptorSets(device, allocInfo, out _vpSet);
+        vk.AllocateDescriptorSets(device, in allocInfo, out _vpSet);
 
         var bufInfo = new DescriptorBufferInfo { Buffer = _vpBuffer, Offset = 0, Range = (ulong)sizeof(Matrix4x4) };
         var write   = new WriteDescriptorSet
@@ -442,19 +466,23 @@ public sealed unsafe class ShadowSystem : IDisposable
         var l2DInfo = new PipelineLayoutCreateInfo
         {
             SType                  = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount         = 1, PSetLayouts = &vpLayout,
-            PushConstantRangeCount = 1, PPushConstantRanges = &push2D,
+            SetLayoutCount         = 1,
+            PSetLayouts = &vpLayout,
+            PushConstantRangeCount = 1,
+            PPushConstantRanges = &push2D,
         };
-        vk.CreatePipelineLayout(device, l2DInfo, null, out _layout2D);
+        vk.CreatePipelineLayout(device, in l2DInfo, null, out _layout2D);
 
         var pushPt = new PushConstantRange { StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, Offset = 0, Size = 80 };
         var lPtInfo = new PipelineLayoutCreateInfo
         {
             SType                  = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount         = 1, PSetLayouts = &vpLayout,
-            PushConstantRangeCount = 1, PPushConstantRanges = &pushPt,
+            SetLayoutCount         = 1,
+            PSetLayouts = &vpLayout,
+            PushConstantRangeCount = 1,
+            PPushConstantRanges = &pushPt,
         };
-        vk.CreatePipelineLayout(device, lPtInfo, null, out _layoutPoint);
+        vk.CreatePipelineLayout(device, in lPtInfo, null, out _layoutPoint);
 
         // ── Shared pipeline state ─────────────────────────────────────────────
         var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
@@ -487,7 +515,9 @@ public sealed unsafe class ShadowSystem : IDisposable
         };
         var viewportState = new PipelineViewportStateCreateInfo
         {
-            SType = StructureType.PipelineViewportStateCreateInfo, ViewportCount = 1, ScissorCount = 1,
+            SType = StructureType.PipelineViewportStateCreateInfo,
+            ViewportCount = 1,
+            ScissorCount = 1,
         };
         var rasterizer = new PipelineRasterizationStateCreateInfo
         {
@@ -521,8 +551,8 @@ public sealed unsafe class ShadowSystem : IDisposable
         };
 
         // ── Build pipeline for each stride ────────────────────────────────────
-        _pipe2D_S32   = BuildPipeline(stages2D, 2, 32, _layout2D,   _shadowRenderPass, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
-        _pipe2D_S12   = BuildPipeline(stages2D, 2, 12, _layout2D,   _shadowRenderPass, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
+        _pipe2D_S32   = BuildPipeline(stages2D, 2, 32, _layout2D, _shadowRenderPass, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
+        _pipe2D_S12   = BuildPipeline(stages2D, 2, 12, _layout2D, _shadowRenderPass, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
         _pipePoint_S32 = BuildPipeline(stagesPt, 2, 32, _layoutPoint, _shadowRenderPass, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
         _pipePoint_S12 = BuildPipeline(stagesPt, 2, 12, _layoutPoint, _shadowRenderPass, ref inputAssembly, ref viewportState, ref rasterizer, ref multisampling, ref depthStencil, ref dynamicState);
 
@@ -543,11 +573,14 @@ public sealed unsafe class ShadowSystem : IDisposable
     {
         var bindingDesc = new VertexInputBindingDescription
         {
-            Binding = 0, Stride = stride, InputRate = VertexInputRate.Vertex,
+            Binding = 0,
+            Stride = stride,
+            InputRate = VertexInputRate.Vertex,
         };
         var attrib = new VertexInputAttributeDescription
         {
-            Location = 0, Binding = 0,
+            Location = 0,
+            Binding = 0,
             Format   = Format.R32G32B32Sfloat,
             Offset   = 0,
         };
@@ -560,12 +593,12 @@ public sealed unsafe class ShadowSystem : IDisposable
             PVertexAttributeDescriptions    = &attrib,
         };
 
-        fixed (PipelineInputAssemblyStateCreateInfo* pIA  = &ia)
-        fixed (PipelineViewportStateCreateInfo*       pVPS = &vps)
-        fixed (PipelineRasterizationStateCreateInfo*  pR   = &rast)
-        fixed (PipelineMultisampleStateCreateInfo*    pMS  = &ms)
-        fixed (PipelineDepthStencilStateCreateInfo*   pDS  = &ds)
-        fixed (PipelineDynamicStateCreateInfo*         pDyn = &dyn)
+        fixed (PipelineInputAssemblyStateCreateInfo* pIA = &ia)
+        fixed (PipelineViewportStateCreateInfo* pVPS = &vps)
+        fixed (PipelineRasterizationStateCreateInfo* pR = &rast)
+        fixed (PipelineMultisampleStateCreateInfo* pMS = &ms)
+        fixed (PipelineDepthStencilStateCreateInfo* pDS = &ds)
+        fixed (PipelineDynamicStateCreateInfo* pDyn = &dyn)
         {
             var pipeInfo = new GraphicsPipelineCreateInfo
             {
@@ -583,15 +616,15 @@ public sealed unsafe class ShadowSystem : IDisposable
                 RenderPass          = rp,
                 Subpass             = 0,
             };
-            _ctx.Vk.CreateGraphicsPipelines(_ctx.Device, default, 1, pipeInfo, null, out var pipe);
+            _ctx.Vk.CreateGraphicsPipelines(_ctx.Device, default, 1, in pipeInfo, null, out var pipe);
             return pipe;
         }
     }
 
     private void CreateShadowMaps()
     {
-        for (int i = 0; i < MaxShadowDir;   i++) _dirMaps[i]  = CreateMap2D(DirSize);
-        for (int i = 0; i < MaxShadowSpot;  i++) _spotMaps[i] = CreateMap2D(SpotSize);
+        for (int i = 0; i < MaxShadowDir; i++) _dirMaps[i]  = CreateMap2D(DirSize);
+        for (int i = 0; i < MaxShadowSpot; i++) _spotMaps[i] = CreateMap2D(SpotSize);
         for (int i = 0; i < MaxShadowPoint; i++) _ptMaps[i]   = CreateMapCube(PointSize);
     }
 
@@ -613,7 +646,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             Format           = _depthFormat,
             SubresourceRange = { AspectMask = ImageAspectFlags.DepthBit, LevelCount = 1, LayerCount = 1 },
         };
-        vk.CreateImageView(device, viewInfo, null, out var view);
+        vk.CreateImageView(device, in viewInfo, null, out var view);
 
         var fbAtt    = view;
         var fbInfo   = new FramebufferCreateInfo
@@ -622,9 +655,11 @@ public sealed unsafe class ShadowSystem : IDisposable
             RenderPass      = _shadowRenderPass,
             AttachmentCount = 1,
             PAttachments    = &fbAtt,
-            Width = size, Height = size, Layers = 1,
+            Width = size,
+            Height = size,
+            Layers = 1,
         };
-        vk.CreateFramebuffer(device, fbInfo, null, out var fb);
+        vk.CreateFramebuffer(device, in fbInfo, null, out var fb);
 
         return new Map2D { Image = image, Memory = memory, View = view, Framebuffer = fb };
     }
@@ -645,11 +680,11 @@ public sealed unsafe class ShadowSystem : IDisposable
         {
             SType            = StructureType.ImageViewCreateInfo,
             Image            = cube.Image,
-            ViewType         = ImageViewType.Cube,
+            ViewType         = ImageViewType.TypeCube,
             Format           = _depthFormat,
             SubresourceRange = { AspectMask = ImageAspectFlags.DepthBit, LevelCount = 1, LayerCount = 6 },
         };
-        vk.CreateImageView(device, cubeViewInfo, null, out cube.CubeView);
+        vk.CreateImageView(device, in cubeViewInfo, null, out cube.CubeView);
 
         // Per-face views and framebuffers
         for (uint face = 0; face < 6; face++)
@@ -668,7 +703,7 @@ public sealed unsafe class ShadowSystem : IDisposable
                     LayerCount     = 1,
                 },
             };
-            vk.CreateImageView(device, faceViewInfo, null, out cube.FaceViews[face]);
+            vk.CreateImageView(device, in faceViewInfo, null, out cube.FaceViews[face]);
 
             var att  = cube.FaceViews[face];
             var fbInfo = new FramebufferCreateInfo
@@ -677,9 +712,11 @@ public sealed unsafe class ShadowSystem : IDisposable
                 RenderPass      = _shadowRenderPass,
                 AttachmentCount = 1,
                 PAttachments    = &att,
-                Width = size, Height = size, Layers = 1,
+                Width = size,
+                Height = size,
+                Layers = 1,
             };
-            vk.CreateFramebuffer(device, fbInfo, null, out cube.FaceFramebuffers[face]);
+            vk.CreateFramebuffer(device, in fbInfo, null, out cube.FaceFramebuffers[face]);
         }
 
         return cube;
@@ -704,7 +741,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             CompareOp        = CompareOp.Less,
             MipmapMode       = SamplerMipmapMode.Nearest,
         };
-        vk.CreateSampler(device, info2D, null, out _sampler2DShadow);
+        vk.CreateSampler(device, in info2D, null, out _sampler2DShadow);
 
         // Plain sampler for cube shadow maps (samplerCube, manual comparison in shader)
         var infoCube = new SamplerCreateInfo
@@ -717,7 +754,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             AddressModeW = SamplerAddressMode.ClampToEdge,
             MipmapMode   = SamplerMipmapMode.Nearest,
         };
-        vk.CreateSampler(device, infoCube, null, out _samplerCube);
+        vk.CreateSampler(device, in infoCube, null, out _samplerCube);
     }
 
     private void CreateMainDescriptorResources()
@@ -749,7 +786,7 @@ public sealed unsafe class ShadowSystem : IDisposable
         // compareEnable samplers through vkUpdateDescriptorSets.
         var dirSamplers  = stackalloc VkSampler[MaxShadowDir];
         var spotSamplers = stackalloc VkSampler[MaxShadowSpot];
-        for (int i = 0; i < MaxShadowDir;  i++) dirSamplers[i]  = _sampler2DShadow;
+        for (int i = 0; i < MaxShadowDir; i++) dirSamplers[i]  = _sampler2DShadow;
         for (int i = 0; i < MaxShadowSpot; i++) spotSamplers[i] = _sampler2DShadow;
 
         var bindings = stackalloc DescriptorSetLayoutBinding[]
@@ -771,10 +808,12 @@ public sealed unsafe class ShadowSystem : IDisposable
         };
         var layoutInfo = new DescriptorSetLayoutCreateInfo
         {
-            SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 4, PBindings = bindings,
+            SType = StructureType.DescriptorSetLayoutCreateInfo,
+            BindingCount = 4,
+            PBindings = bindings,
         };
         DescriptorSetLayout layout;
-        vk.CreateDescriptorSetLayout(device, layoutInfo, null, out layout);
+        vk.CreateDescriptorSetLayout(device, in layoutInfo, null, out layout);
         MainDescSetLayout = layout;
 
         // ── Descriptor pool ───────────────────────────────────────────────────
@@ -786,10 +825,12 @@ public sealed unsafe class ShadowSystem : IDisposable
         };
         var poolInfo = new DescriptorPoolCreateInfo
         {
-            SType = StructureType.DescriptorPoolCreateInfo, MaxSets = (uint)imgCount,
-            PoolSizeCount = 2, PPoolSizes = poolSizes,
+            SType = StructureType.DescriptorPoolCreateInfo,
+            MaxSets = (uint)imgCount,
+            PoolSizeCount = 2,
+            PPoolSizes = poolSizes,
         };
-        vk.CreateDescriptorPool(device, poolInfo, null, out _mainPool);
+        vk.CreateDescriptorPool(device, in poolInfo, null, out _mainPool);
 
         // ── Allocate descriptor sets ──────────────────────────────────────────
         _mainSets = new DescriptorSet[imgCount];
@@ -798,49 +839,74 @@ public sealed unsafe class ShadowSystem : IDisposable
         var allocInfo = new DescriptorSetAllocateInfo
         {
             SType = StructureType.DescriptorSetAllocateInfo,
-            DescriptorPool = _mainPool, DescriptorSetCount = (uint)imgCount, PSetLayouts = layouts,
+            DescriptorPool = _mainPool,
+            DescriptorSetCount = (uint)imgCount,
+            PSetLayouts = layouts,
         };
         fixed (DescriptorSet* p = _mainSets)
-            vk.AllocateDescriptorSets(device, allocInfo, p);
+            vk.AllocateDescriptorSets(device, in allocInfo, p);
 
         // ── Write descriptor sets ─────────────────────────────────────────────
+        // The image infos are identical for every swapchain image; only the UBO differs.
+        // Dir/spot shadow map image infos — Sampler stays null: b1/b2 use immutable
+        // samplers from the layout, so only the image views are written.
+        var dirInfos = stackalloc DescriptorImageInfo[MaxShadowDir];
+        for (int i = 0; i < MaxShadowDir; i++)
+            dirInfos[i] = new DescriptorImageInfo
+            { ImageView = _dirMaps[i].View, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
+
+        var spotInfos = stackalloc DescriptorImageInfo[MaxShadowSpot];
+        for (int i = 0; i < MaxShadowSpot; i++)
+            spotInfos[i] = new DescriptorImageInfo
+            { ImageView = _spotMaps[i].View, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
+
+        // Point shadow cube map image infos
+        var ptInfos = stackalloc DescriptorImageInfo[MaxShadowPoint];
+        for (int i = 0; i < MaxShadowPoint; i++)
+            ptInfos[i] = new DescriptorImageInfo
+            { Sampler = _samplerCube, ImageView = _ptMaps[i].CubeView, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
+
+        var writes = stackalloc WriteDescriptorSet[4];
         for (int img = 0; img < imgCount; img++)
         {
             var matBufInfo = new DescriptorBufferInfo
-                { Buffer = _matBuffers[img], Offset = 0, Range = ShadowMatricesUboSize };
+            { Buffer = _matBuffers[img], Offset = 0, Range = ShadowMatricesUboSize };
 
-            // Dir/spot shadow map image infos — Sampler stays null: b1/b2 use immutable
-            // samplers from the layout, so only the image views are written.
-            var dirInfos = stackalloc DescriptorImageInfo[MaxShadowDir];
-            for (int i = 0; i < MaxShadowDir; i++)
-                dirInfos[i] = new DescriptorImageInfo
-                    { ImageView = _dirMaps[i].View, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
-
-            var spotInfos = stackalloc DescriptorImageInfo[MaxShadowSpot];
-            for (int i = 0; i < MaxShadowSpot; i++)
-                spotInfos[i] = new DescriptorImageInfo
-                    { ImageView = _spotMaps[i].View, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
-
-            // Point shadow cube map image infos
-            var ptInfos = stackalloc DescriptorImageInfo[MaxShadowPoint];
-            for (int i = 0; i < MaxShadowPoint; i++)
-                ptInfos[i] = new DescriptorImageInfo
-                    { Sampler = _samplerCube, ImageView = _ptMaps[i].CubeView, ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal };
-
-            var writes = stackalloc WriteDescriptorSet[]
+            writes[0] = new()
             {
-                new() { SType = StructureType.WriteDescriptorSet, DstSet = _mainSets[img],
-                        DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer,
-                        DescriptorCount = 1, PBufferInfo = &matBufInfo },
-                new() { SType = StructureType.WriteDescriptorSet, DstSet = _mainSets[img],
-                        DstBinding = 1, DescriptorType = DescriptorType.CombinedImageSampler,
-                        DescriptorCount = MaxShadowDir, PImageInfo = dirInfos },
-                new() { SType = StructureType.WriteDescriptorSet, DstSet = _mainSets[img],
-                        DstBinding = 2, DescriptorType = DescriptorType.CombinedImageSampler,
-                        DescriptorCount = MaxShadowSpot, PImageInfo = spotInfos },
-                new() { SType = StructureType.WriteDescriptorSet, DstSet = _mainSets[img],
-                        DstBinding = 3, DescriptorType = DescriptorType.CombinedImageSampler,
-                        DescriptorCount = MaxShadowPoint, PImageInfo = ptInfos },
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _mainSets[img],
+                DstBinding = 0,
+                DescriptorType = DescriptorType.UniformBuffer,
+                DescriptorCount = 1,
+                PBufferInfo = &matBufInfo
+            };
+            writes[1] = new()
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _mainSets[img],
+                DstBinding = 1,
+                DescriptorType = DescriptorType.CombinedImageSampler,
+                DescriptorCount = MaxShadowDir,
+                PImageInfo = dirInfos
+            };
+            writes[2] = new()
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _mainSets[img],
+                DstBinding = 2,
+                DescriptorType = DescriptorType.CombinedImageSampler,
+                DescriptorCount = MaxShadowSpot,
+                PImageInfo = spotInfos
+            };
+            writes[3] = new()
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _mainSets[img],
+                DstBinding = 3,
+                DescriptorType = DescriptorType.CombinedImageSampler,
+                DescriptorCount = MaxShadowPoint,
+                PImageInfo = ptInfos
             };
             vk.UpdateDescriptorSets(device, 4, writes, 0, null);
         }
@@ -862,14 +928,14 @@ public sealed unsafe class ShadowSystem : IDisposable
             Level              = CommandBufferLevel.Primary,
             CommandBufferCount = 1,
         };
-        vk.AllocateCommandBuffers(device, allocInfo, out var cb);
+        vk.AllocateCommandBuffers(device, in allocInfo, out var cb);
 
         var beginInfo = new CommandBufferBeginInfo
         {
             SType = StructureType.CommandBufferBeginInfo,
             Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
         };
-        vk.BeginCommandBuffer(cb, beginInfo);
+        vk.BeginCommandBuffer(cb, in beginInfo);
 
         void Transition(Image img, uint layers)
         {
@@ -897,9 +963,9 @@ public sealed unsafe class ShadowSystem : IDisposable
                 0, 0, null, 0, null, 1, &b);
         }
 
-        for (int i = 0; i < MaxShadowDir;   i++) Transition(_dirMaps[i].Image,  1);
-        for (int i = 0; i < MaxShadowSpot;  i++) Transition(_spotMaps[i].Image, 1);
-        for (int i = 0; i < MaxShadowPoint; i++) Transition(_ptMaps[i].Image,   6);
+        for (int i = 0; i < MaxShadowDir; i++) Transition(_dirMaps[i].Image, 1);
+        for (int i = 0; i < MaxShadowSpot; i++) Transition(_spotMaps[i].Image, 1);
+        for (int i = 0; i < MaxShadowPoint; i++) Transition(_ptMaps[i].Image, 6);
 
         vk.EndCommandBuffer(cb);
 
@@ -910,7 +976,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             CommandBufferCount = 1,
             PCommandBuffers    = &cbHandle,
         };
-        vk.QueueSubmit(_ctx.GraphicsQueue, 1, submit, default);
+        vk.QueueSubmit(_ctx.GraphicsQueue, 1, in submit, default);
         vk.QueueWaitIdle(_ctx.GraphicsQueue);
 
         vk.FreeCommandBuffers(device, _ctx.CommandPool, 1, &cbHandle);
@@ -926,7 +992,7 @@ public sealed unsafe class ShadowSystem : IDisposable
     public Pipeline GetShadowPointPipeline(uint strideBytes) =>
         strideBytes == 12 ? _pipePoint_S12 : _pipePoint_S32;
 
-    public PipelineLayout Shadow2DLayout   => _layout2D;
+    public PipelineLayout Shadow2DLayout => _layout2D;
     public PipelineLayout ShadowPointLayout => _layoutPoint;
 
     // ── Low-level helpers ─────────────────────────────────────────────────────
@@ -952,7 +1018,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             SharingMode   = SharingMode.Exclusive,
             InitialLayout = ImageLayout.Undefined,
         };
-        vk.CreateImage(dev, info, null, out image);
+        vk.CreateImage(dev, in info, null, out image);
         vk.GetImageMemoryRequirements(dev, image, out var req);
         var alloc = new MemoryAllocateInfo
         {
@@ -960,7 +1026,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             AllocationSize = req.Size,
             MemoryTypeIndex = FindMemoryType(req.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
         };
-        vk.AllocateMemory(dev, alloc, null, out memory);
+        vk.AllocateMemory(dev, in alloc, null, out memory);
         vk.BindImageMemory(dev, image, memory, 0);
     }
 
@@ -971,10 +1037,12 @@ public sealed unsafe class ShadowSystem : IDisposable
         var dev = _ctx.Device;
         var info = new BufferCreateInfo
         {
-            SType = StructureType.BufferCreateInfo, Size = size,
-            Usage = usage, SharingMode = SharingMode.Exclusive,
+            SType = StructureType.BufferCreateInfo,
+            Size = size,
+            Usage = usage,
+            SharingMode = SharingMode.Exclusive,
         };
-        vk.CreateBuffer(dev, info, null, out buffer);
+        vk.CreateBuffer(dev, in info, null, out buffer);
         vk.GetBufferMemoryRequirements(dev, buffer, out var req);
         var alloc = new MemoryAllocateInfo
         {
@@ -982,7 +1050,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             AllocationSize = req.Size,
             MemoryTypeIndex = FindMemoryType(req.MemoryTypeBits, props),
         };
-        vk.AllocateMemory(dev, alloc, null, out memory);
+        vk.AllocateMemory(dev, in alloc, null, out memory);
         vk.BindBufferMemory(dev, buffer, memory, 0);
     }
 
@@ -996,7 +1064,7 @@ public sealed unsafe class ShadowSystem : IDisposable
                 CodeSize = (nuint)code.Length,
                 PCode    = (uint*)ptr,
             };
-            _ctx.Vk.CreateShaderModule(_ctx.Device, info, null, out var module);
+            _ctx.Vk.CreateShaderModule(_ctx.Device, in info, null, out var module);
             return module;
         }
     }
@@ -1008,7 +1076,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             if ((typeBits & (1u << (int)i)) != 0 &&
                 (memProps.MemoryTypes[(int)i].PropertyFlags & props) == props)
                 return i;
-        throw new Exception("[Shadow] No suitable memory type found.");
+        throw new VulkanException("[Shadow] No suitable memory type found.");
     }
 
     private Format FindDepthFormat()
@@ -1020,7 +1088,7 @@ public sealed unsafe class ShadowSystem : IDisposable
             if ((props.OptimalTilingFeatures & FormatFeatureFlags.DepthStencilAttachmentBit) != 0)
                 return fmt;
         }
-        throw new Exception("[Shadow] No supported depth format.");
+        throw new VulkanException("[Shadow] No supported depth format.");
     }
 
     // ── Dispose ───────────────────────────────────────────────────────────────
@@ -1032,7 +1100,7 @@ public sealed unsafe class ShadowSystem : IDisposable
         vk.DeviceWaitIdle(dev);
 
         // Shadow maps
-        for (int i = 0; i < MaxShadowDir;  i++) DestroyMap2D(ref _dirMaps[i]);
+        for (int i = 0; i < MaxShadowDir; i++) DestroyMap2D(ref _dirMaps[i]);
         for (int i = 0; i < MaxShadowSpot; i++) DestroyMap2D(ref _spotMaps[i]);
         for (int i = 0; i < MaxShadowPoint; i++) DestroyMapCube(ref _ptMaps[i]);
 
@@ -1090,3 +1158,12 @@ public sealed unsafe class ShadowSystem : IDisposable
         vk.DestroyImage(dev, m.Image, null);
     }
 }
+
+/// <summary>Records directional/spot shadow casters; see <see cref="ShadowSystem.RenderShadows{TState}"/>.</summary>
+public delegate void ShadowDraw2D<in TState>(
+    TState state, CommandBuffer cb, Pipeline pipelineStride32, Pipeline pipelineStride12, PipelineLayout layout);
+
+/// <summary>Records point-light shadow casters for one cube face; see <see cref="ShadowSystem.RenderShadows{TState}"/>.</summary>
+public delegate void ShadowDrawPoint<in TState>(
+    TState state, CommandBuffer cb, Pipeline pipelineStride32, Pipeline pipelineStride12, PipelineLayout layout,
+    Vector3 lightPosition, float lightRange);

@@ -15,11 +15,13 @@ using System.Collections;
 using Steamworks;
 #endif
 
+namespace MainframeEngine;
+
 //
 // The SteamManager provides a base implementation of Steamworks.NET on which you can build upon.
 // It handles the basics of starting up and shutting down the SteamAPI for use.
 //
-public static class SteamManager 
+public static class SteamManager
 {
 #if !DISABLESTEAMWORKS
 	protected static bool s_EverInitialized;

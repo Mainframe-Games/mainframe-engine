@@ -10,14 +10,14 @@ namespace MainframeEngine.Networking;
 public class NetBufferReader : NetBuffer
 {
     private readonly BinaryReader _reader;
-    
-    public NetBufferReader(byte[] buffer, int length) 
+
+    public NetBufferReader(byte[] buffer, int length)
         : base(buffer, length)
     {
         _reader = new BinaryReader(_memory, Encoding.UTF8, true);
     }
-    
-    public NetBufferReader(ReadOnlySpan<byte> buffer, int length) 
+
+    public NetBufferReader(ReadOnlySpan<byte> buffer, int length)
         : base(buffer, length)
     {
         _reader = new BinaryReader(_memory, Encoding.UTF8, true);
@@ -28,7 +28,7 @@ public class NetBufferReader : NetBuffer
         _reader.Dispose();
         base.Destroy();
     }
-    
+
     public bool ReadBoolean() => _reader.ReadBoolean();
     public byte ReadByte() => _reader.ReadByte();
     public byte[] ReadBytes(int count) => _reader.ReadBytes(count);
@@ -55,12 +55,12 @@ public class NetBufferReader : NetBuffer
             Z = ReadSingle()
         };
     }
-    
+
     public T[] ReadArray<T>() where T : INetworkTransferable, new()
     {
         var length = _reader.ReadInt32();
         var array = new T[length];
-        
+
         for (int i = 0; i < length; i++)
         {
             array[i] = new T();

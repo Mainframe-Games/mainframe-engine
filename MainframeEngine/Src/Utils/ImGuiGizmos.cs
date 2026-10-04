@@ -31,7 +31,7 @@ public static class ImGuiGizmos
             var colorPacked = color.ToImColor();
             dl.DrawSunIcon(center, colorPacked);
         }
-        
+
         public void DrawSunIcon(in Vector2 center, in uint color)
         {
             const float innerR = 6f;

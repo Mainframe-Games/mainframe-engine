@@ -51,14 +51,15 @@ public class Quad : ShapeBase
                 CullModeFlags.None);
         }
     }
-    
+
     public override unsafe void Dispose()
     {
-        if (VkCtx is null) 
+        if (VkCtx is null)
             return;
-        
+
         var vk     = VkCtx.Vk;
         var device = VkCtx.Device;
+        vk.DeviceWaitIdle(device); // the GPU may still be drawing the last frame with these buffers
         vk.DestroyBuffer(device, _indexBuffer, null);
         vk.FreeMemory(device, _indexBufferMemory, null);
         vk.DestroyBuffer(device, _vertexBuffer, null);

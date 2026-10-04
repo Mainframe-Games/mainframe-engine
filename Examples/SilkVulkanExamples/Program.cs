@@ -3,7 +3,7 @@ using Silk.NET.Windowing;
 using SilkVulkanExamples.Vulkan;
 using Spectre.Console;
 
-var example = GetExample();
+using var example = GetExample();
 Console.WriteLine($"Running {example.Name}");
 
 var windowOptions = WindowOptions.DefaultVulkan with
@@ -12,13 +12,14 @@ var windowOptions = WindowOptions.DefaultVulkan with
     Title = example.Name,
 };
 
-var window = Window.Create(windowOptions) ?? throw new NullReferenceException();
+var window = Window.Create(windowOptions) ?? throw new InvalidOperationException("Failed to create the window.");
 
-example.Initialize(window);
-example.Run();
-example.Shutdown();
-
-window.Dispose();
+using (window)
+{
+    example.Initialize(window);
+    example.Run();
+    example.Dispose(); // shut down before the window is disposed
+}
 
 Console.WriteLine("Program terminated.");
 return;
@@ -29,7 +30,7 @@ static IExample GetExample()
         .Assembly.GetTypes()
         .Where(x => x.IsSubclassOf(typeof(ExampleBase)) && !x.IsAbstract)
         .ToArray();
-    
+
     var choice = AnsiConsole.Prompt(
         new SelectionPrompt<string>()
             .Title("Select an example to run:")
@@ -38,6 +39,6 @@ static IExample GetExample()
     AnsiConsole.MarkupLine($"You selected: [green]{choice}[/]");
     var selected = exampleTypes.First(x => x.Name == choice);
     var example = Activator.CreateInstance(selected) as IExample
-        ?? throw new NullReferenceException("Failed to create example instance.");
+        ?? throw new InvalidOperationException("Failed to create example instance.");
     return example;
 }

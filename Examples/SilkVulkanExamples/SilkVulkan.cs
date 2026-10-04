@@ -167,7 +167,7 @@ public unsafe class SilkVulkan : IDisposable
         window.Center();
 
         if (window.VkSurface is null)
-            throw new Exception("Windowing platform doesn't support Vulkan.");
+            throw new InvalidOperationException("Windowing platform doesn't support Vulkan.");
     }
 
     private void InitVulkan(string appName)
@@ -234,7 +234,7 @@ public unsafe class SilkVulkan : IDisposable
         }
 
         if (vk.CreateInstance(in createInfo, null, out instance) != Result.Success)
-            throw new Exception("failed to create instance!");
+            throw new InvalidOperationException("failed to create instance!");
 
         Log.Info($"[Vulkan] Instance: {instance}");
 
@@ -282,7 +282,7 @@ public unsafe class SilkVulkan : IDisposable
         PopulateDebugMessengerCreateInfo(ref createInfo);
 
         if (debugUtils!.CreateDebugUtilsMessenger(instance, in createInfo, null, out debugMessenger) is not Result.Success)
-            throw new Exception("failed to set up debug messenger!");
+            throw new InvalidOperationException("failed to set up debug messenger!");
     }
 
     private bool CheckValidationLayerSupport()
@@ -338,7 +338,7 @@ public unsafe class SilkVulkan : IDisposable
         }
 
         if (physicalDevice.Handle == 0)
-            throw new Exception("failed to find a suitable GPU!");
+            throw new InvalidOperationException("failed to find a suitable GPU!");
     }
 
     private bool IsDeviceSuitable(PhysicalDevice device)
@@ -429,7 +429,7 @@ public unsafe class SilkVulkan : IDisposable
         }
 
         if (vk!.CreateDevice(physicalDevice, in createInfo, null, out device) != Result.Success)
-            throw new Exception("failed to create logical device!");
+            throw new InvalidOperationException("failed to create logical device!");
 
         Log.Info($"[Vulkan] Logical Device: {device}");
 
@@ -501,7 +501,7 @@ public unsafe class SilkVulkan : IDisposable
             throw new NotSupportedException("VK_KHR_swapchain extension not found.");
 
         if (khrSwapChain!.CreateSwapchain(device, in creatInfo, null, out swapChain) != Result.Success)
-            throw new Exception("failed to create swap chain!");
+            throw new InvalidOperationException("failed to create swap chain!");
 
         khrSwapChain.GetSwapchainImages(device, swapChain, ref imageCount, null);
         swapChainImages = new Image[imageCount];
@@ -621,7 +621,7 @@ public unsafe class SilkVulkan : IDisposable
             };
 
             if (vk!.CreateImageView(device, in createInfo, null, out swapChainImageViews[i]) != Result.Success)
-                throw new Exception("failed to create image views!");
+                throw new InvalidOperationException("failed to create image views!");
         }
 
         Log.Info($"[Vulkan] Image Views: {swapChainImageViews.Length}");
@@ -680,7 +680,7 @@ public unsafe class SilkVulkan : IDisposable
         };
 
         if (vk!.CreateRenderPass(device, in renderPassInfo, null, out renderPass) != Result.Success)
-            throw new Exception("failed to create render pass!");
+            throw new InvalidOperationException("failed to create render pass!");
 
         Log.Info($"[Vulkan] Render Pass: {renderPass}");
     }
@@ -792,7 +792,7 @@ public unsafe class SilkVulkan : IDisposable
         };
 
         if (vk!.CreatePipelineLayout(device, in pipelineLayoutInfo, null, out pipelineLayout) != Result.Success)
-            throw new Exception("failed to create pipeline layout!");
+            throw new InvalidOperationException("failed to create pipeline layout!");
 
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
@@ -812,7 +812,7 @@ public unsafe class SilkVulkan : IDisposable
         };
 
         if (vk!.CreateGraphicsPipelines(device, default, 1, in pipelineInfo, null, out graphicsPipeline) != Result.Success)
-            throw new Exception("failed to create graphics pipeline!");
+            throw new InvalidOperationException("failed to create graphics pipeline!");
 
         Log.Info($"[Vulkan] Graphics Pipeline: {graphicsPipeline}");
 
@@ -835,7 +835,7 @@ public unsafe class SilkVulkan : IDisposable
         {
             createInfo.PCode = (uint*)codePtr;
             if (vk!.CreateShaderModule(device, in createInfo, null, out var shaderModule) != Result.Success)
-                throw new Exception("failed to create shader module!");
+                throw new InvalidOperationException("failed to create shader module!");
             return shaderModule;
         }
     }
@@ -862,7 +862,7 @@ public unsafe class SilkVulkan : IDisposable
             };
 
             if (vk!.CreateFramebuffer(device, in framebufferInfo, null, out swapChainFramebuffers[i]) != Result.Success)
-                throw new Exception("failed to create framebuffer!");
+                throw new InvalidOperationException("failed to create framebuffer!");
         }
 
         Log.Info($"[Vulkan] Framebuffers: {swapChainFramebuffers.Length}");
@@ -882,7 +882,7 @@ public unsafe class SilkVulkan : IDisposable
         };
 
         if (vk!.CreateCommandPool(device, in poolInfo, null, out commandPool) != Result.Success)
-            throw new Exception("failed to create command pool!");
+            throw new InvalidOperationException("failed to create command pool!");
 
         Log.Info($"[Vulkan] Command Pool: {commandPool}");
     }
@@ -900,13 +900,13 @@ public unsafe class SilkVulkan : IDisposable
 
         fixed (CommandBuffer* commandBuffersPtr = commandBuffers)
             if (vk!.AllocateCommandBuffers(device, in allocInfo, commandBuffersPtr) != Result.Success)
-                throw new Exception("failed to allocate command buffers!");
+                throw new InvalidOperationException("failed to allocate command buffers!");
 
         for (int i = 0; i < commandBuffers.Length; i++)
         {
             var beginInfo = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo };
             if (vk!.BeginCommandBuffer(commandBuffers[i], in beginInfo) != Result.Success)
-                throw new Exception("failed to begin recording command buffer!");
+                throw new InvalidOperationException("failed to begin recording command buffer!");
 
             var clearColor = new ClearValue
             {
@@ -929,7 +929,7 @@ public unsafe class SilkVulkan : IDisposable
             vk!.CmdEndRenderPass(commandBuffers[i]);
 
             if (vk!.EndCommandBuffer(commandBuffers[i]) != Result.Success)
-                throw new Exception("failed to record command buffer!");
+                throw new InvalidOperationException("failed to record command buffer!");
         }
 
         Log.Info($"[Vulkan] Command Buffers: {commandBuffers.Length}");
@@ -958,13 +958,13 @@ public unsafe class SilkVulkan : IDisposable
         {
             if (vk!.CreateSemaphore(device, in semaphoreInfo, null, out imageAvailableSemaphores[i]) != Result.Success ||
                 vk!.CreateFence(device, in fenceInfo, null, out inFlightFences[i]) != Result.Success)
-                throw new Exception("failed to create synchronization objects!");
+                throw new InvalidOperationException("failed to create synchronization objects!");
         }
 
         for (int i = 0; i < renderFinishedSemaphores.Length; i++)
         {
             if (vk!.CreateSemaphore(device, in semaphoreInfo, null, out renderFinishedSemaphores[i]) != Result.Success)
-                throw new Exception("failed to create render finished semaphore!");
+                throw new InvalidOperationException("failed to create render finished semaphore!");
         }
 
         Log.Info("[Vulkan] Sync Objects created");
@@ -991,7 +991,7 @@ public unsafe class SilkVulkan : IDisposable
         }
         else if (result != Result.Success && result != Result.SuboptimalKhr)
         {
-            throw new Exception("failed to acquire swap chain image!");
+            throw new InvalidOperationException("failed to acquire swap chain image!");
         }
 
         if (imagesInFlight![imageIndex].Handle != 0)
@@ -1021,7 +1021,7 @@ public unsafe class SilkVulkan : IDisposable
         vk!.ResetFences(device, 1, in inFlightFences[currentFrame]);
 
         if (vk!.QueueSubmit(graphicsQueue, 1, in submitInfo, inFlightFences[currentFrame]) != Result.Success)
-            throw new Exception("failed to submit draw command buffer!");
+            throw new InvalidOperationException("failed to submit draw command buffer!");
 
         var swapChainHandle = swapChain;
         var presentInfo = new PresentInfoKHR
@@ -1043,7 +1043,7 @@ public unsafe class SilkVulkan : IDisposable
         }
         else if (result != Result.Success)
         {
-            throw new Exception("failed to present swap chain image!");
+            throw new InvalidOperationException("failed to present swap chain image!");
         }
 
         currentFrame = (currentFrame + 1) % MaxFramesInFlight;

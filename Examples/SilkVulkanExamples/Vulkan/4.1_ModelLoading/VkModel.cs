@@ -21,7 +21,7 @@ public unsafe class VkModel : IDisposable
         if (scene == null || scene->MFlags == Assimp.SceneFlagsIncomplete || scene->MRootNode == null)
         {
             var error = assimp.GetErrorStringS();
-            throw new Exception($"Assimp error: {error}");
+            throw new InvalidOperationException($"Assimp error: {error}");
         }
 
         ProcessNode(scene->MRootNode, scene);

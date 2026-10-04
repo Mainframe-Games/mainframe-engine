@@ -2,44 +2,44 @@
 
 public readonly struct SteamFriend(ulong steamId, string username) : IEquatable<SteamFriend>, IComparable<SteamFriend>
 {
-	public readonly ulong SteamId = steamId;
-	public readonly string Username = username;
-		
-	public bool IsMe => SteamId == Steam.SteamId;
+    public ulong SteamId { get; } = steamId;
+    public string Username { get; } = username;
 
-	public override string ToString()
-	{
-		return $"Username: {Username}, SteamId: {SteamId}";
-	}
+    public bool IsMe => SteamId == Steam.SteamId;
 
-	public bool Equals(SteamFriend other)
-	{
-		return SteamId == other.SteamId;
-	}
+    public override string ToString()
+    {
+        return $"Username: {Username}, SteamId: {SteamId}";
+    }
 
-	public override bool Equals(object? obj)
-	{
-		return obj is SteamFriend other && Equals(other);
-	}
+    public bool Equals(SteamFriend other)
+    {
+        return SteamId == other.SteamId;
+    }
 
-	public override int GetHashCode()
-	{
-		return SteamId.GetHashCode();
-	}
+    public override bool Equals(object? obj)
+    {
+        return obj is SteamFriend other && Equals(other);
+    }
 
-	public int CompareTo(SteamFriend other)
-	{
-		return SteamId.CompareTo(other.SteamId);
-	}
+    public override int GetHashCode()
+    {
+        return SteamId.GetHashCode();
+    }
 
-	// TODO: Implement Getting avatar
-	// public Sprite GetAvatarSprite()
-	// {
-	// 	var sprite = SteamAvatar.GetAvatar(SteamId);
-	// 	if (!sprite)
-	// 		Trace.TraceWarning($"Failed to get avatar for: {ToString()}");
-	// 	return sprite;
-	// }
+    public int CompareTo(SteamFriend other)
+    {
+        return SteamId.CompareTo(other.SteamId);
+    }
+
+    // TODO: Implement Getting avatar
+    // public Sprite GetAvatarSprite()
+    // {
+    // 	var sprite = SteamAvatar.GetAvatar(SteamId);
+    // 	if (!sprite)
+    // 		Trace.TraceWarning($"Failed to get avatar for: {ToString()}");
+    // 	return sprite;
+    // }
 
     public static bool operator ==(SteamFriend left, SteamFriend right)
     {
@@ -50,4 +50,9 @@ public readonly struct SteamFriend(ulong steamId, string username) : IEquatable<
     {
         return !(left == right);
     }
+
+    public static bool operator <(SteamFriend left, SteamFriend right) => left.CompareTo(right) < 0;
+    public static bool operator <=(SteamFriend left, SteamFriend right) => left.CompareTo(right) <= 0;
+    public static bool operator >(SteamFriend left, SteamFriend right) => left.CompareTo(right) > 0;
+    public static bool operator >=(SteamFriend left, SteamFriend right) => left.CompareTo(right) >= 0;
 }

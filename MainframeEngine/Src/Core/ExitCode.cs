@@ -1,6 +1,6 @@
 namespace MainframeEngine;
 
-public enum ExitCode 
+public enum ExitCode
 {
     Ok = 0,
     Error = 1

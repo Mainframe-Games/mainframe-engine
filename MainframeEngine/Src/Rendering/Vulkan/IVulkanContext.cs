@@ -28,4 +28,7 @@ public interface IVulkanContext
 
     /// <summary>Begins the main render pass. Called by Engine after shadow passes complete.</summary>
     void BeginRenderPass();
+
+    /// <summary>Validation-layer warnings and errors reported since startup (or the last reset).</summary>
+    VulkanValidationLog Validation { get; }
 }

@@ -3,3 +3,11 @@
 **/obj/**
 *.user
 *.DS_Store
+
+# Build / test outputs
+artifacts/
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# Agent worktrees (local only)
+.claude/worktrees/

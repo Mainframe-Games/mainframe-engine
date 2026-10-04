@@ -5,25 +5,25 @@ namespace MainframeEngine.Networking;
 
 public static class NetworkUtils
 {
-    public const ushort DEFAULT_PORT = 6969;
-    
-    public const string REGION_OCE = "oce";
-    public const string REGION_USE = "use";
-    public const string REGION_USW = "usw";
-    public const string REGION_EU = "eu";
-    public const string REGION_ASIA = "asia";
-    
-    public static string[] RegionKeys => [REGION_OCE, REGION_USE, REGION_USW, REGION_EU, REGION_ASIA];
-    
+    public const ushort DefaultPort = 6969;
+
+    public const string RegionOce = "oce";
+    public const string RegionUse = "use";
+    public const string RegionUsw = "usw";
+    public const string RegionEu = "eu";
+    public const string RegionAsia = "asia";
+
+    public static string[] RegionKeys => [RegionOce, RegionUse, RegionUsw, RegionEu, RegionAsia];
+
     public static readonly Dictionary<string, string> Regions = new()
     {
-        [REGION_OCE] = "Australia / NZ",
-        [REGION_USE] = "US East",
-        [REGION_USW] = "US West",
-        [REGION_EU] = "Europe",
-        [REGION_ASIA] = "Asia",
+        [RegionOce] = "Australia / NZ",
+        [RegionUse] = "US East",
+        [RegionUsw] = "US West",
+        [RegionEu] = "Europe",
+        [RegionAsia] = "Asia",
     };
-    
+
     /// <summary>
     /// Retrieves the primary local IPv4 address of the current machine by creating a UDP socket and
     /// connecting to an external address without sending any data. This operation allows the operating
@@ -62,7 +62,7 @@ public static class NetworkUtils
         var ip = Environment.GetEnvironmentVariable("PUBLIC_IP");
         if (!string.IsNullOrWhiteSpace(ip))
             return ip;
-        
+
         using var http = new HttpClient();
         ip = await http.GetStringAsync("https://api.ipify.org");
         return ip.Trim();

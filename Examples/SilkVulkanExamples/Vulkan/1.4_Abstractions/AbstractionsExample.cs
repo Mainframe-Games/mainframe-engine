@@ -56,7 +56,7 @@ public unsafe class AbstractionsExample : ExampleBase
         };
 
         if (Vk.CreateDescriptorSetLayout(Device, in layoutInfo, null, out _descriptorSetLayout) != Result.Success)
-            throw new Exception("failed to create descriptor set layout!");
+            throw new InvalidOperationException("failed to create descriptor set layout!");
     }
 
     private void CreateVertexAndIndexBuffers()
@@ -84,7 +84,7 @@ public unsafe class AbstractionsExample : ExampleBase
             MaxSets = 1,
         };
         if (Vk.CreateDescriptorPool(Device, in poolInfo, null, out _descriptorPool) != Result.Success)
-            throw new Exception("failed to create descriptor pool!");
+            throw new InvalidOperationException("failed to create descriptor pool!");
 
         var layout = _descriptorSetLayout;
         var allocInfo = new DescriptorSetAllocateInfo
@@ -95,7 +95,7 @@ public unsafe class AbstractionsExample : ExampleBase
             PSetLayouts = &layout,
         };
         if (Vk.AllocateDescriptorSets(Device, in allocInfo, out _descriptorSet) != Result.Success)
-            throw new Exception("failed to allocate descriptor set!");
+            throw new InvalidOperationException("failed to allocate descriptor set!");
 
         var imageInfo = new DescriptorImageInfo
         {

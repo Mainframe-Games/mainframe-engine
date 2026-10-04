@@ -4,11 +4,11 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-public class Node : IDisposable 
+public class Node : IDisposable
 {
     public string Name { get; set; } = string.Empty;
     public NodeId Id { get; } = NodeId.GetNext();
-    
+
     public Node? Parent { get; set; }
 
     protected static IRenderer Renderer { get; private set; } = null!;
@@ -20,19 +20,19 @@ public class Node : IDisposable
         Renderer = renderer;
         ShadowSystem = shadows;
     }
-    
+
     public virtual void Dispose() { }
 
     public void AddChild(in Node node)
     {
         Parent = node;
     }
-    
+
     public void RemoveChild(in Node node)
     {
         Parent = null;
     }
-    
+
     public virtual void Draw(in ICamera camera, in LightEnvironment lightEnvironment)
     {
     }

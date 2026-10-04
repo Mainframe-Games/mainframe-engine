@@ -137,7 +137,7 @@ public unsafe class AmbientLightingExample : ExampleBase
         var uboBinding = new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit };
         var layoutInfo = new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 1, PBindings = &uboBinding };
         if (Vk.CreateDescriptorSetLayout(Device, in layoutInfo, null, out _descriptorSetLayout) != Result.Success)
-            throw new Exception("failed to create descriptor set layout!");
+            throw new InvalidOperationException("failed to create descriptor set layout!");
     }
 
     private void CreateUniformBuffers()
@@ -164,7 +164,7 @@ public unsafe class AmbientLightingExample : ExampleBase
         var poolSize = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = (uint)count * 2 };
         var poolInfo = new DescriptorPoolCreateInfo { SType = StructureType.DescriptorPoolCreateInfo, PoolSizeCount = 1, PPoolSizes = &poolSize, MaxSets = (uint)count * 2 };
         if (Vk.CreateDescriptorPool(Device, in poolInfo, null, out _descriptorPool) != Result.Success)
-            throw new Exception("failed to create descriptor pool!");
+            throw new InvalidOperationException("failed to create descriptor pool!");
 
         var layouts = new DescriptorSetLayout[count];
         Array.Fill(layouts, _descriptorSetLayout);
@@ -175,7 +175,7 @@ public unsafe class AmbientLightingExample : ExampleBase
             var allocInfo = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _descriptorPool, DescriptorSetCount = (uint)count, PSetLayouts = layoutsPtr };
             fixed (DescriptorSet* setsPtr = _descriptorSets)
                 if (Vk.AllocateDescriptorSets(Device, in allocInfo, setsPtr) != Result.Success)
-                    throw new Exception("failed to allocate descriptor sets!");
+                    throw new InvalidOperationException("failed to allocate descriptor sets!");
         }
 
         for (int i = 0; i < count; i++)
@@ -208,16 +208,23 @@ public unsafe class AmbientLightingExample : ExampleBase
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType = StructureType.GraphicsPipelineCreateInfo,
-            StageCount = 2, PStages = shaderStages,
-            PVertexInputState = &vertexInputInfo, PInputAssemblyState = &inputAssembly,
-            PViewportState = &viewportState, PRasterizationState = &rasterizer,
-            PMultisampleState = &multisampling, PDepthStencilState = &depthStencil,
-            PColorBlendState = &colorBlending, PDynamicState = &dynamicState,
-            Layout = layout, RenderPass = RenderPass, Subpass = 0,
+            StageCount = 2,
+            PStages = shaderStages,
+            PVertexInputState = &vertexInputInfo,
+            PInputAssemblyState = &inputAssembly,
+            PViewportState = &viewportState,
+            PRasterizationState = &rasterizer,
+            PMultisampleState = &multisampling,
+            PDepthStencilState = &depthStencil,
+            PColorBlendState = &colorBlending,
+            PDynamicState = &dynamicState,
+            Layout = layout,
+            RenderPass = RenderPass,
+            Subpass = 0,
         };
 
         if (Vk.CreateGraphicsPipelines(Device, default, 1, in pipelineInfo, null, out var pipeline) != Result.Success)
-            throw new Exception("failed to create graphics pipeline!");
+            throw new InvalidOperationException("failed to create graphics pipeline!");
 
         SilkMarshal.Free((nint)vertStage.PName);
         SilkMarshal.Free((nint)fragStage.PName);
@@ -229,7 +236,7 @@ public unsafe class AmbientLightingExample : ExampleBase
         var dsLayout = _descriptorSetLayout;
         var pipelineLayoutInfo = new PipelineLayoutCreateInfo { SType = StructureType.PipelineLayoutCreateInfo, SetLayoutCount = 1, PSetLayouts = &dsLayout };
         if (Vk.CreatePipelineLayout(Device, in pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
-            throw new Exception("failed to create pipeline layout!");
+            throw new InvalidOperationException("failed to create pipeline layout!");
 
         var litVert = CreateShaderModule("Content/Shaders/AmbientLighting/shader.vert.spv");
         var litFrag = CreateShaderModule("Content/Shaders/AmbientLighting/shader.frag.spv");

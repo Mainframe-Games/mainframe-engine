@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    Imported after each project file, so these settings win over the project's own (the vendored
+    spine-csharp.csproj enables nullable itself). Vendored code is upstream's to fix: keep its
+    nullable annotations but drop the warnings, the analyzers and warnings-as-errors.
+  -->
+  <PropertyGroup Condition="'$(IsVendoredProject)' == 'true'">
+    <Nullable>annotations</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RunAnalyzers>false</RunAnalyzers>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+  </PropertyGroup>
+</Project>

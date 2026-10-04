@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Silk.NET.Maths;
 
 namespace MainframeEngine;
@@ -30,4 +31,13 @@ public interface IRenderer : IDisposable
 
     void EnableDepthTest();
     void DisableDepthTest();
+
+    /// <summary>
+    /// Requests a CPU copy of the frame currently being built. Collect it with
+    /// <see cref="TryTakeCapture"/> after <see cref="EndFrame"/>. Prefer <see cref="Engine.CaptureFrame"/>.
+    /// </summary>
+    void RequestCapture();
+
+    /// <summary>Returns the frame copied by the last <see cref="RequestCapture"/>, once, after it has been rendered.</summary>
+    bool TryTakeCapture([NotNullWhen(true)] out FrameCapture? capture);
 }

@@ -19,48 +19,49 @@ public unsafe abstract class ExampleBase : IExample
 {
     public string Name => GetType().Name.Replace("Example", "");
 
-    protected IWindow Window = null!;
-    protected IInputContext InputContext = null!;
-    public Vk Vk = null!;
-    protected Instance Instance;
-    protected PhysicalDevice PhysicalDevice;
-    public Device Device;
-    protected Queue GraphicsQueue;
-    protected Queue PresentQueue;
-    protected KhrSurface KhrSurface = null!;
-    protected SurfaceKHR Surface;
-    protected KhrSwapchain KhrSwapChain = null!;
-    protected SwapchainKHR SwapChain;
-    protected Image[] SwapChainImages = [];
-    protected Format SwapChainImageFormat;
-    protected Extent2D SwapChainExtent;
-    protected ImageView[] SwapChainImageViews = [];
-    protected RenderPass RenderPass;
-    protected Framebuffer[] SwapChainFramebuffers = [];
-    protected CommandPool CommandPool;
-    protected CommandBuffer[] CommandBuffers = [];
+    private protected IWindow Window = null!;
+    private protected IInputContext InputContext = null!;
+    internal Vk Vk = null!;
+    private protected Instance Instance;
+    private protected PhysicalDevice PhysicalDevice;
+    internal Device Device;
+    private protected Queue GraphicsQueue;
+    private protected Queue PresentQueue;
+    private protected KhrSurface KhrSurface = null!;
+    private protected SurfaceKHR Surface;
+    private protected KhrSwapchain KhrSwapChain = null!;
+    private protected SwapchainKHR SwapChain;
+    private protected Image[] SwapChainImages = [];
+    private protected Format SwapChainImageFormat;
+    private protected Extent2D SwapChainExtent;
+    private protected ImageView[] SwapChainImageViews = [];
+    private protected RenderPass RenderPass;
+    private protected Framebuffer[] SwapChainFramebuffers = [];
+    private protected CommandPool CommandPool;
+    private protected CommandBuffer[] CommandBuffers = [];
 
     // Depth buffer
-    protected Image DepthImage;
-    protected DeviceMemory DepthImageMemory;
-    protected ImageView DepthImageView;
+    private protected Image DepthImage;
+    private protected DeviceMemory DepthImageMemory;
+    private protected ImageView DepthImageView;
 
     // Sync objects
     protected const int MaxFramesInFlight = 2;
-    protected Semaphore[] ImageAvailableSemaphores = [];
-    protected Semaphore[] RenderFinishedSemaphores = [];
-    protected Fence[] InFlightFences = [];
-    protected Fence[] ImagesInFlight = [];
-    protected int CurrentFrame;
-    protected bool FramebufferResized;
+    private protected Semaphore[] ImageAvailableSemaphores = [];
+    private protected Semaphore[] RenderFinishedSemaphores = [];
+    private protected Fence[] InFlightFences = [];
+    private protected Fence[] ImagesInFlight = [];
+    private protected int CurrentFrame;
+    private protected bool FramebufferResized;
 
     // Validation layers
-    protected bool EnableValidationLayers = true;
+    private protected bool EnableValidationLayers = true;
     private readonly string[] _validationLayers = ["VK_LAYER_KHRONOS_validation"];
     private ExtDebugUtils? _debugUtils;
     private DebugUtilsMessengerEXT _debugMessenger;
 
     private readonly string[] _deviceExtensions = [KhrSwapchain.ExtensionName];
+    private bool _disposed;
 
     // Called by Program.cs
     public void Initialize(IWindow window)
@@ -72,7 +73,7 @@ public unsafe abstract class ExampleBase : IExample
         Window.Initialize();
 
         if (Window.VkSurface is null)
-            throw new Exception("Windowing platform doesn't support Vulkan.");
+            throw new InvalidOperationException("Windowing platform doesn't support Vulkan.");
 
         SetupInput();
         InitVulkan();
@@ -81,8 +82,13 @@ public unsafe abstract class ExampleBase : IExample
 
     public void Run() => Window.Run();
 
-    public void Shutdown()
+    // Called by Program.cs after the window loop exits.
+    public void Dispose()
     {
+        if (_disposed)
+            return;
+        _disposed = true;
+
         Vk.DeviceWaitIdle(Device);
         OnClose();
         CleanupVulkan();
@@ -182,7 +188,7 @@ public unsafe abstract class ExampleBase : IExample
         }
 
         if (Vk.CreateInstance(in createInfo, null, out Instance) != Result.Success)
-            throw new Exception("failed to create instance!");
+            throw new InvalidOperationException("failed to create instance!");
 
         Marshal.FreeHGlobal((IntPtr)appInfo.PApplicationName);
         Marshal.FreeHGlobal((IntPtr)appInfo.PEngineName);
@@ -226,7 +232,7 @@ public unsafe abstract class ExampleBase : IExample
         PopulateDebugMessengerCreateInfo(ref createInfo);
 
         if (_debugUtils!.CreateDebugUtilsMessenger(Instance, in createInfo, null, out _debugMessenger) != Result.Success)
-            throw new Exception("failed to set up debug messenger!");
+            throw new InvalidOperationException("failed to set up debug messenger!");
     }
 
     private bool CheckValidationLayerSupport()
@@ -276,7 +282,7 @@ public unsafe abstract class ExampleBase : IExample
         }
 
         if (PhysicalDevice.Handle == 0)
-            throw new Exception("failed to find a suitable GPU!");
+            throw new InvalidOperationException("failed to find a suitable GPU!");
     }
 
     private bool IsDeviceSuitable(PhysicalDevice device)
@@ -384,7 +390,7 @@ public unsafe abstract class ExampleBase : IExample
         }
 
         if (Vk.CreateDevice(PhysicalDevice, in createInfo, null, out Device) != Result.Success)
-            throw new Exception("failed to create logical device!");
+            throw new InvalidOperationException("failed to create logical device!");
 
         Vk.GetDeviceQueue(Device, indices.GraphicsFamily!.Value, 0, out GraphicsQueue);
         Vk.GetDeviceQueue(Device, indices.PresentFamily!.Value, 0, out PresentQueue);
@@ -448,7 +454,7 @@ public unsafe abstract class ExampleBase : IExample
             throw new NotSupportedException("VK_KHR_swapchain extension not found.");
 
         if (KhrSwapChain.CreateSwapchain(Device, in createInfo, null, out SwapChain) != Result.Success)
-            throw new Exception("failed to create swap chain!");
+            throw new InvalidOperationException("failed to create swap chain!");
 
         KhrSwapChain.GetSwapchainImages(Device, SwapChain, ref imageCount, null);
         SwapChainImages = new Image[imageCount];
@@ -572,7 +578,7 @@ public unsafe abstract class ExampleBase : IExample
                 return format;
         }
 
-        throw new Exception("failed to find supported format!");
+        throw new InvalidOperationException("failed to find supported format!");
     }
 
     protected static bool HasStencilComponent(Format format)
@@ -650,15 +656,17 @@ public unsafe abstract class ExampleBase : IExample
         };
 
         if (Vk.CreateRenderPass(Device, in renderPassInfo, null, out RenderPass) != Result.Success)
-            throw new Exception("failed to create render pass!");
+            throw new InvalidOperationException("failed to create render pass!");
     }
 
     private void CreateFramebuffers()
     {
         SwapChainFramebuffers = new Framebuffer[SwapChainImageViews.Length];
+        var attachments = stackalloc ImageView[2];
         for (int i = 0; i < SwapChainImageViews.Length; i++)
         {
-            var attachments = stackalloc ImageView[] { SwapChainImageViews[i], DepthImageView };
+            attachments[0] = SwapChainImageViews[i];
+            attachments[1] = DepthImageView;
 
             var framebufferInfo = new FramebufferCreateInfo
             {
@@ -672,7 +680,7 @@ public unsafe abstract class ExampleBase : IExample
             };
 
             if (Vk.CreateFramebuffer(Device, in framebufferInfo, null, out SwapChainFramebuffers[i]) != Result.Success)
-                throw new Exception("failed to create framebuffer!");
+                throw new InvalidOperationException("failed to create framebuffer!");
         }
     }
 
@@ -687,7 +695,7 @@ public unsafe abstract class ExampleBase : IExample
         };
 
         if (Vk.CreateCommandPool(Device, in poolInfo, null, out CommandPool) != Result.Success)
-            throw new Exception("failed to create command pool!");
+            throw new InvalidOperationException("failed to create command pool!");
     }
 
     private void CreateCommandBuffers()
@@ -703,7 +711,7 @@ public unsafe abstract class ExampleBase : IExample
 
         fixed (CommandBuffer* commandBuffersPtr = CommandBuffers)
             if (Vk.AllocateCommandBuffers(Device, in allocInfo, commandBuffersPtr) != Result.Success)
-                throw new Exception("failed to allocate command buffers!");
+                throw new InvalidOperationException("failed to allocate command buffers!");
     }
 
     private void CreateSyncObjects()
@@ -724,13 +732,13 @@ public unsafe abstract class ExampleBase : IExample
         {
             if (Vk.CreateSemaphore(Device, in semaphoreInfo, null, out ImageAvailableSemaphores[i]) != Result.Success ||
                 Vk.CreateFence(Device, in fenceInfo, null, out InFlightFences[i]) != Result.Success)
-                throw new Exception("failed to create synchronization objects!");
+                throw new InvalidOperationException("failed to create synchronization objects!");
         }
 
         for (int i = 0; i < RenderFinishedSemaphores.Length; i++)
         {
             if (Vk.CreateSemaphore(Device, in semaphoreInfo, null, out RenderFinishedSemaphores[i]) != Result.Success)
-                throw new Exception("failed to create render finished semaphore!");
+                throw new InvalidOperationException("failed to create render finished semaphore!");
         }
     }
 
@@ -753,7 +761,7 @@ public unsafe abstract class ExampleBase : IExample
         }
         else if (result != Result.Success && result != Result.SuboptimalKhr)
         {
-            throw new Exception("failed to acquire swap chain image!");
+            throw new InvalidOperationException("failed to acquire swap chain image!");
         }
 
         if (ImagesInFlight[imageIndex].Handle != 0)
@@ -784,7 +792,7 @@ public unsafe abstract class ExampleBase : IExample
         Vk.ResetFences(Device, 1, in InFlightFences[CurrentFrame]);
 
         if (Vk.QueueSubmit(GraphicsQueue, 1, in submitInfo, InFlightFences[CurrentFrame]) != Result.Success)
-            throw new Exception("failed to submit draw command buffer!");
+            throw new InvalidOperationException("failed to submit draw command buffer!");
 
         var swapChainHandle = SwapChain;
         var presentInfo = new PresentInfoKHR
@@ -806,7 +814,7 @@ public unsafe abstract class ExampleBase : IExample
         }
         else if (result != Result.Success)
         {
-            throw new Exception("failed to present swap chain image!");
+            throw new InvalidOperationException("failed to present swap chain image!");
         }
 
         CurrentFrame = (CurrentFrame + 1) % MaxFramesInFlight;
@@ -818,7 +826,7 @@ public unsafe abstract class ExampleBase : IExample
 
         var beginInfo = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo };
         if (Vk.BeginCommandBuffer(commandBuffer, in beginInfo) != Result.Success)
-            throw new Exception("failed to begin recording command buffer!");
+            throw new InvalidOperationException("failed to begin recording command buffer!");
 
         // Two clear values: color + depth
         var clearValues = stackalloc ClearValue[]
@@ -859,7 +867,7 @@ public unsafe abstract class ExampleBase : IExample
         Vk.CmdEndRenderPass(commandBuffer);
 
         if (Vk.EndCommandBuffer(commandBuffer) != Result.Success)
-            throw new Exception("failed to record command buffer!");
+            throw new InvalidOperationException("failed to record command buffer!");
     }
 
     #endregion
@@ -924,7 +932,7 @@ public unsafe abstract class ExampleBase : IExample
             }
         }
 
-        throw new Exception("failed to find suitable memory type!");
+        throw new InvalidOperationException("failed to find suitable memory type!");
     }
 
     public void CreateBuffer(ulong size, BufferUsageFlags usage, MemoryPropertyFlags props,
@@ -940,7 +948,7 @@ public unsafe abstract class ExampleBase : IExample
 
         fixed (Buffer* bufferPtr = &buffer)
             if (Vk.CreateBuffer(Device, in bufferInfo, null, bufferPtr) != Result.Success)
-                throw new Exception("failed to create buffer!");
+                throw new InvalidOperationException("failed to create buffer!");
 
         Vk.GetBufferMemoryRequirements(Device, buffer, out var memRequirements);
 
@@ -953,7 +961,7 @@ public unsafe abstract class ExampleBase : IExample
 
         fixed (DeviceMemory* memoryPtr = &memory)
             if (Vk.AllocateMemory(Device, in allocInfo, null, memoryPtr) != Result.Success)
-                throw new Exception("failed to allocate buffer memory!");
+                throw new InvalidOperationException("failed to allocate buffer memory!");
 
         Vk.BindBufferMemory(Device, buffer, memory, 0);
     }
@@ -1029,7 +1037,7 @@ public unsafe abstract class ExampleBase : IExample
 
         fixed (Image* imagePtr = &image)
             if (Vk.CreateImage(Device, in imageInfo, null, imagePtr) != Result.Success)
-                throw new Exception("failed to create image!");
+                throw new InvalidOperationException("failed to create image!");
 
         Vk.GetImageMemoryRequirements(Device, image, out var memRequirements);
 
@@ -1042,7 +1050,7 @@ public unsafe abstract class ExampleBase : IExample
 
         fixed (DeviceMemory* imageMemoryPtr = &imageMemory)
             if (Vk.AllocateMemory(Device, in allocInfo, null, imageMemoryPtr) != Result.Success)
-                throw new Exception("failed to allocate image memory!");
+                throw new InvalidOperationException("failed to allocate image memory!");
 
         Vk.BindImageMemory(Device, image, imageMemory, 0);
     }
@@ -1099,7 +1107,7 @@ public unsafe abstract class ExampleBase : IExample
         }
         else
         {
-            throw new Exception("unsupported layout transition!");
+            throw new InvalidOperationException("unsupported layout transition!");
         }
 
         Vk.CmdPipelineBarrier(commandBuffer,
@@ -1153,7 +1161,7 @@ public unsafe abstract class ExampleBase : IExample
         };
 
         if (Vk.CreateImageView(Device, in viewInfo, null, out var imageView) != Result.Success)
-            throw new Exception("failed to create image view!");
+            throw new InvalidOperationException("failed to create image view!");
 
         return imageView;
     }
@@ -1214,7 +1222,7 @@ public unsafe abstract class ExampleBase : IExample
         };
 
         if (Vk.CreateSampler(Device, in samplerInfo, null, out var sampler) != Result.Success)
-            throw new Exception("failed to create texture sampler!");
+            throw new InvalidOperationException("failed to create texture sampler!");
 
         return (image, imageMemory, view, sampler);
     }
@@ -1236,12 +1244,12 @@ public unsafe abstract class ExampleBase : IExample
         {
             createInfo.PCode = (uint*)codePtr;
             if (Vk.CreateShaderModule(Device, in createInfo, null, out var shaderModule) != Result.Success)
-                throw new Exception("failed to create shader module!");
+                throw new InvalidOperationException("failed to create shader module!");
             return shaderModule;
         }
     }
 
-    protected PipelineShaderStageCreateInfo MakeShaderStage(ShaderStageFlags stage, ShaderModule module, string entryPoint = "main")
+    protected static PipelineShaderStageCreateInfo MakeShaderStage(ShaderStageFlags stage, ShaderModule module, string entryPoint = "main")
     {
         return new PipelineShaderStageCreateInfo
         {

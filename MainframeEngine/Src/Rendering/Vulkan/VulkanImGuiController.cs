@@ -14,7 +14,7 @@ namespace MainframeEngine;
 /// Vulkan ImGui renderer. Must be created after the Vulkan renderer is initialized.
 /// Call Update() each frame before game OnImGui, then Render() inside the render pass.
 /// </summary>
-internal unsafe class VulkanImGuiController : IDisposable
+internal sealed unsafe class VulkanImGuiController : IDisposable
 {
     private readonly IVulkanContext _ctx;
     private readonly IWindow _window;
@@ -152,8 +152,8 @@ internal unsafe class VulkanImGuiController : IDisposable
 
     private static int MapMouseButton(MouseButton btn) => btn switch
     {
-        MouseButton.Left   => 0,
-        MouseButton.Right  => 1,
+        MouseButton.Left => 0,
+        MouseButton.Right => 1,
         MouseButton.Middle => 2,
         MouseButton.Button4 => 3,
         MouseButton.Button5 => 4,
@@ -186,43 +186,74 @@ internal unsafe class VulkanImGuiController : IDisposable
 
     private static ImGuiKey MapKey(Key key) => key switch
     {
-        Key.Tab        => ImGuiKey.Tab,
-        Key.Left       => ImGuiKey.LeftArrow,
-        Key.Right      => ImGuiKey.RightArrow,
-        Key.Up         => ImGuiKey.UpArrow,
-        Key.Down       => ImGuiKey.DownArrow,
-        Key.PageUp     => ImGuiKey.PageUp,
-        Key.PageDown   => ImGuiKey.PageDown,
-        Key.Home       => ImGuiKey.Home,
-        Key.End        => ImGuiKey.End,
-        Key.Insert     => ImGuiKey.Insert,
-        Key.Delete     => ImGuiKey.Delete,
-        Key.Backspace  => ImGuiKey.Backspace,
-        Key.Space      => ImGuiKey.Space,
-        Key.Enter      => ImGuiKey.Enter,
-        Key.Escape     => ImGuiKey.Escape,
+        Key.Tab => ImGuiKey.Tab,
+        Key.Left => ImGuiKey.LeftArrow,
+        Key.Right => ImGuiKey.RightArrow,
+        Key.Up => ImGuiKey.UpArrow,
+        Key.Down => ImGuiKey.DownArrow,
+        Key.PageUp => ImGuiKey.PageUp,
+        Key.PageDown => ImGuiKey.PageDown,
+        Key.Home => ImGuiKey.Home,
+        Key.End => ImGuiKey.End,
+        Key.Insert => ImGuiKey.Insert,
+        Key.Delete => ImGuiKey.Delete,
+        Key.Backspace => ImGuiKey.Backspace,
+        Key.Space => ImGuiKey.Space,
+        Key.Enter => ImGuiKey.Enter,
+        Key.Escape => ImGuiKey.Escape,
         Key.GraveAccent => ImGuiKey.GraveAccent,
-        Key.CapsLock   => ImGuiKey.CapsLock,
+        Key.CapsLock => ImGuiKey.CapsLock,
         Key.ScrollLock => ImGuiKey.ScrollLock,
-        Key.NumLock    => ImGuiKey.NumLock,
+        Key.NumLock => ImGuiKey.NumLock,
         Key.PrintScreen => ImGuiKey.PrintScreen,
-        Key.Pause      => ImGuiKey.Pause,
-        Key.F1  => ImGuiKey.F1,  Key.F2  => ImGuiKey.F2,  Key.F3  => ImGuiKey.F3,
-        Key.F4  => ImGuiKey.F4,  Key.F5  => ImGuiKey.F5,  Key.F6  => ImGuiKey.F6,
-        Key.F7  => ImGuiKey.F7,  Key.F8  => ImGuiKey.F8,  Key.F9  => ImGuiKey.F9,
-        Key.F10 => ImGuiKey.F10, Key.F11 => ImGuiKey.F11, Key.F12 => ImGuiKey.F12,
-        Key.A => ImGuiKey.A, Key.B => ImGuiKey.B, Key.C => ImGuiKey.C,
-        Key.D => ImGuiKey.D, Key.E => ImGuiKey.E, Key.F => ImGuiKey.F,
-        Key.G => ImGuiKey.G, Key.H => ImGuiKey.H, Key.I => ImGuiKey.I,
-        Key.J => ImGuiKey.J, Key.K => ImGuiKey.K, Key.L => ImGuiKey.L,
-        Key.M => ImGuiKey.M, Key.N => ImGuiKey.N, Key.O => ImGuiKey.O,
-        Key.P => ImGuiKey.P, Key.Q => ImGuiKey.Q, Key.R => ImGuiKey.R,
-        Key.S => ImGuiKey.S, Key.T => ImGuiKey.T, Key.U => ImGuiKey.U,
-        Key.V => ImGuiKey.V, Key.W => ImGuiKey.W, Key.X => ImGuiKey.X,
-        Key.Y => ImGuiKey.Y, Key.Z => ImGuiKey.Z,
-        Key.Number0 => ImGuiKey._0, Key.Number1 => ImGuiKey._1, Key.Number2 => ImGuiKey._2,
-        Key.Number3 => ImGuiKey._3, Key.Number4 => ImGuiKey._4, Key.Number5 => ImGuiKey._5,
-        Key.Number6 => ImGuiKey._6, Key.Number7 => ImGuiKey._7, Key.Number8 => ImGuiKey._8,
+        Key.Pause => ImGuiKey.Pause,
+        Key.F1 => ImGuiKey.F1,
+        Key.F2 => ImGuiKey.F2,
+        Key.F3 => ImGuiKey.F3,
+        Key.F4 => ImGuiKey.F4,
+        Key.F5 => ImGuiKey.F5,
+        Key.F6 => ImGuiKey.F6,
+        Key.F7 => ImGuiKey.F7,
+        Key.F8 => ImGuiKey.F8,
+        Key.F9 => ImGuiKey.F9,
+        Key.F10 => ImGuiKey.F10,
+        Key.F11 => ImGuiKey.F11,
+        Key.F12 => ImGuiKey.F12,
+        Key.A => ImGuiKey.A,
+        Key.B => ImGuiKey.B,
+        Key.C => ImGuiKey.C,
+        Key.D => ImGuiKey.D,
+        Key.E => ImGuiKey.E,
+        Key.F => ImGuiKey.F,
+        Key.G => ImGuiKey.G,
+        Key.H => ImGuiKey.H,
+        Key.I => ImGuiKey.I,
+        Key.J => ImGuiKey.J,
+        Key.K => ImGuiKey.K,
+        Key.L => ImGuiKey.L,
+        Key.M => ImGuiKey.M,
+        Key.N => ImGuiKey.N,
+        Key.O => ImGuiKey.O,
+        Key.P => ImGuiKey.P,
+        Key.Q => ImGuiKey.Q,
+        Key.R => ImGuiKey.R,
+        Key.S => ImGuiKey.S,
+        Key.T => ImGuiKey.T,
+        Key.U => ImGuiKey.U,
+        Key.V => ImGuiKey.V,
+        Key.W => ImGuiKey.W,
+        Key.X => ImGuiKey.X,
+        Key.Y => ImGuiKey.Y,
+        Key.Z => ImGuiKey.Z,
+        Key.Number0 => ImGuiKey._0,
+        Key.Number1 => ImGuiKey._1,
+        Key.Number2 => ImGuiKey._2,
+        Key.Number3 => ImGuiKey._3,
+        Key.Number4 => ImGuiKey._4,
+        Key.Number5 => ImGuiKey._5,
+        Key.Number6 => ImGuiKey._6,
+        Key.Number7 => ImGuiKey._7,
+        Key.Number8 => ImGuiKey._8,
         Key.Number9 => ImGuiKey._9,
         Key.ShiftLeft or Key.ShiftRight => ImGuiKey.None,
         Key.ControlLeft or Key.ControlRight => ImGuiKey.None,
@@ -267,7 +298,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             SharingMode = SharingMode.Exclusive,
             InitialLayout = ImageLayout.Undefined,
         };
-        _ctx.Vk.CreateImage(_ctx.Device, imageInfo, null, out _fontImage);
+        _ctx.Vk.CreateImage(_ctx.Device, in imageInfo, null, out _fontImage);
 
         _ctx.Vk.GetImageMemoryRequirements(_ctx.Device, _fontImage, out var memReq);
         var allocInfo = new MemoryAllocateInfo
@@ -276,7 +307,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             AllocationSize = memReq.Size,
             MemoryTypeIndex = FindMemoryType(memReq.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
         };
-        _ctx.Vk.AllocateMemory(_ctx.Device, allocInfo, null, out _fontImageMemory);
+        _ctx.Vk.AllocateMemory(_ctx.Device, in allocInfo, null, out _fontImageMemory);
         _ctx.Vk.BindImageMemory(_ctx.Device, _fontImage, _fontImageMemory, 0);
 
         // Upload via staging buffer
@@ -314,7 +345,7 @@ internal unsafe class VulkanImGuiController : IDisposable
                 LayerCount = 1,
             },
         };
-        _ctx.Vk.CreateImageView(_ctx.Device, viewInfo, null, out _fontImageView);
+        _ctx.Vk.CreateImageView(_ctx.Device, in viewInfo, null, out _fontImageView);
 
         // Sampler
         var samplerInfo = new SamplerCreateInfo
@@ -326,7 +357,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             AddressModeV = SamplerAddressMode.Repeat,
             AddressModeW = SamplerAddressMode.Repeat,
         };
-        _ctx.Vk.CreateSampler(_ctx.Device, samplerInfo, null, out _fontSampler);
+        _ctx.Vk.CreateSampler(_ctx.Device, in samplerInfo, null, out _fontSampler);
 
         io.Fonts.SetTexID(1);
         io.Fonts.ClearTexData();
@@ -351,7 +382,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             BindingCount = 1,
             PBindings = &binding,
         };
-        _ctx.Vk.CreateDescriptorSetLayout(_ctx.Device, layoutInfo, null, out _descriptorSetLayout);
+        _ctx.Vk.CreateDescriptorSetLayout(_ctx.Device, in layoutInfo, null, out _descriptorSetLayout);
 
         var poolSize = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 };
         var poolInfo = new DescriptorPoolCreateInfo
@@ -361,7 +392,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             PPoolSizes = &poolSize,
             MaxSets = 1,
         };
-        _ctx.Vk.CreateDescriptorPool(_ctx.Device, poolInfo, null, out _descriptorPool);
+        _ctx.Vk.CreateDescriptorPool(_ctx.Device, in poolInfo, null, out _descriptorPool);
 
         var setLayout = _descriptorSetLayout;
         var dsAlloc = new DescriptorSetAllocateInfo
@@ -371,7 +402,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             DescriptorSetCount = 1,
             PSetLayouts = &setLayout,
         };
-        _ctx.Vk.AllocateDescriptorSets(_ctx.Device, dsAlloc, out _descriptorSet);
+        _ctx.Vk.AllocateDescriptorSets(_ctx.Device, in dsAlloc, out _descriptorSet);
 
         var imageInfo = new DescriptorImageInfo
         {
@@ -428,8 +459,10 @@ internal unsafe class VulkanImGuiController : IDisposable
         var vertexInput = new PipelineVertexInputStateCreateInfo
         {
             SType = StructureType.PipelineVertexInputStateCreateInfo,
-            VertexBindingDescriptionCount = 1,   PVertexBindingDescriptions = &bindingDesc,
-            VertexAttributeDescriptionCount = 3, PVertexAttributeDescriptions = attribs,
+            VertexBindingDescriptionCount = 1,
+            PVertexBindingDescriptions = &bindingDesc,
+            VertexAttributeDescriptionCount = 3,
+            PVertexAttributeDescriptions = attribs,
         };
 
         var inputAssembly = new PipelineInputAssemblyStateCreateInfo
@@ -440,7 +473,8 @@ internal unsafe class VulkanImGuiController : IDisposable
         var viewportState = new PipelineViewportStateCreateInfo
         {
             SType = StructureType.PipelineViewportStateCreateInfo,
-            ViewportCount = 1, ScissorCount = 1,
+            ViewportCount = 1,
+            ScissorCount = 1,
         };
         var rasterizer = new PipelineRasterizationStateCreateInfo
         {
@@ -473,13 +507,15 @@ internal unsafe class VulkanImGuiController : IDisposable
         var colorBlend = new PipelineColorBlendStateCreateInfo
         {
             SType = StructureType.PipelineColorBlendStateCreateInfo,
-            AttachmentCount = 1, PAttachments = &blendAttachment,
+            AttachmentCount = 1,
+            PAttachments = &blendAttachment,
         };
         var dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
         var dynamicState = new PipelineDynamicStateCreateInfo
         {
             SType = StructureType.PipelineDynamicStateCreateInfo,
-            DynamicStateCount = 2, PDynamicStates = dynamicStates,
+            DynamicStateCount = 2,
+            PDynamicStates = dynamicStates,
         };
 
         var descLayout = _descriptorSetLayout;
@@ -492,10 +528,12 @@ internal unsafe class VulkanImGuiController : IDisposable
         var pipelineLayoutInfo = new PipelineLayoutCreateInfo
         {
             SType = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount = 1, PSetLayouts = &descLayout,
-            PushConstantRangeCount = 1, PPushConstantRanges = &pushRange,
+            SetLayoutCount = 1,
+            PSetLayouts = &descLayout,
+            PushConstantRangeCount = 1,
+            PPushConstantRanges = &pushRange,
         };
-        vk.CreatePipelineLayout(device, pipelineLayoutInfo, null, out _pipelineLayout);
+        vk.CreatePipelineLayout(device, in pipelineLayoutInfo, null, out _pipelineLayout);
 
         var depthStencil = new PipelineDepthStencilStateCreateInfo
         {
@@ -507,7 +545,8 @@ internal unsafe class VulkanImGuiController : IDisposable
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType = StructureType.GraphicsPipelineCreateInfo,
-            StageCount = 2, PStages = stages,
+            StageCount = 2,
+            PStages = stages,
             PVertexInputState = &vertexInput,
             PInputAssemblyState = &inputAssembly,
             PViewportState = &viewportState,
@@ -519,7 +558,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             Layout = _pipelineLayout,
             RenderPass = _ctx.RenderPass,
         };
-        vk.CreateGraphicsPipelines(device, default, 1, pipelineInfo, null, out _pipeline);
+        vk.CreateGraphicsPipelines(device, default, 1, in pipelineInfo, null, out _pipeline);
 
         SilkMarshal.Free((nint)entryPoint);
         vk.DestroyShaderModule(device, vertModule, null);
@@ -578,10 +617,12 @@ internal unsafe class VulkanImGuiController : IDisposable
         // Standard (non-flipped) viewport — ImGui Y+ down matches Vulkan NDC
         var viewport = new Viewport
         {
-            X = 0, Y = 0,
+            X = 0,
+            Y = 0,
             Width = extent.Width,
             Height = extent.Height,
-            MinDepth = 0f, MaxDepth = 1f,
+            MinDepth = 0f,
+            MaxDepth = 1f,
         };
         vk.CmdSetViewport(cb, 0, 1, &viewport);
 
@@ -676,7 +717,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             Usage = usage,
             SharingMode = SharingMode.Exclusive,
         };
-        _ctx.Vk.CreateBuffer(_ctx.Device, bufInfo, null, out buffer);
+        _ctx.Vk.CreateBuffer(_ctx.Device, in bufInfo, null, out buffer);
 
         _ctx.Vk.GetBufferMemoryRequirements(_ctx.Device, buffer, out var memReq);
         var allocInfo = new MemoryAllocateInfo
@@ -685,7 +726,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             AllocationSize = memReq.Size,
             MemoryTypeIndex = FindMemoryType(memReq.MemoryTypeBits, properties),
         };
-        _ctx.Vk.AllocateMemory(_ctx.Device, allocInfo, null, out memory);
+        _ctx.Vk.AllocateMemory(_ctx.Device, in allocInfo, null, out memory);
         _ctx.Vk.BindBufferMemory(_ctx.Device, buffer, memory, 0);
     }
 
@@ -696,7 +737,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             if ((typeBits & (1u << (int)i)) != 0 &&
                 (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
                 return i;
-        throw new Exception("[Vulkan] No suitable memory type found!");
+        throw new VulkanException("[Vulkan] No suitable memory type found!");
     }
 
     private CommandBuffer BeginOneTimeCommands()
@@ -709,14 +750,14 @@ internal unsafe class VulkanImGuiController : IDisposable
             CommandBufferCount = 1,
         };
         CommandBuffer cb;
-        _ctx.Vk.AllocateCommandBuffers(_ctx.Device, allocInfo, &cb);
+        _ctx.Vk.AllocateCommandBuffers(_ctx.Device, in allocInfo, &cb);
 
         var beginInfo = new CommandBufferBeginInfo
         {
             SType = StructureType.CommandBufferBeginInfo,
             Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
         };
-        _ctx.Vk.BeginCommandBuffer(cb, beginInfo);
+        _ctx.Vk.BeginCommandBuffer(cb, in beginInfo);
         return cb;
     }
 
@@ -729,7 +770,7 @@ internal unsafe class VulkanImGuiController : IDisposable
             CommandBufferCount = 1,
             PCommandBuffers = &cb,
         };
-        _ctx.Vk.QueueSubmit(_ctx.GraphicsQueue, 1, submitInfo, default);
+        _ctx.Vk.QueueSubmit(_ctx.GraphicsQueue, 1, in submitInfo, default);
         _ctx.Vk.QueueWaitIdle(_ctx.GraphicsQueue);
         _ctx.Vk.FreeCommandBuffers(_ctx.Device, _ctx.CommandPool, 1, &cb);
     }
@@ -786,7 +827,7 @@ internal unsafe class VulkanImGuiController : IDisposable
                 CodeSize = (nuint)code.Length,
                 PCode = (uint*)ptr,
             };
-            _ctx.Vk.CreateShaderModule(_ctx.Device, createInfo, null, out var module);
+            _ctx.Vk.CreateShaderModule(_ctx.Device, in createInfo, null, out var module);
             return module;
         }
     }

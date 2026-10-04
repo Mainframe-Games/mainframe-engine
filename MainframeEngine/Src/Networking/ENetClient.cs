@@ -65,11 +65,11 @@ public sealed class EnetClient : IDisposable
                     Console.WriteLine(
                         $"Packet received from server - Channel ID: {netEvent.ChannelID}, Data length: {netEvent.Packet.Length}"
                     );
-                    
+
                     var data = new ReadOnlySpan<byte>((void*)netEvent.Packet.Data, netEvent.Packet.Length);
                     using (var reader = NetBufferPool.GetReader(data, data.Length))
                         Read(reader);
-                    
+
                     netEvent.Packet.Dispose();
                     break;
 
@@ -91,7 +91,7 @@ public sealed class EnetClient : IDisposable
         }
     }
 
-    private void Read(in NetBufferReader reader)
+    private static void Read(in NetBufferReader reader)
     {
         var number = reader.ReadByte();
         var message = reader.ReadString();

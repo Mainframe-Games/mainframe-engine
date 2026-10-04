@@ -109,7 +109,7 @@ public unsafe class TexturesExample : ExampleBase
         };
 
         if (Vk.CreateDescriptorSetLayout(Device, in layoutInfo, null, out _descriptorSetLayout) != Result.Success)
-            throw new Exception("failed to create descriptor set layout!");
+            throw new InvalidOperationException("failed to create descriptor set layout!");
     }
 
     private void CreateDescriptorPool()
@@ -129,7 +129,7 @@ public unsafe class TexturesExample : ExampleBase
         };
 
         if (Vk.CreateDescriptorPool(Device, in poolInfo, null, out _descriptorPool) != Result.Success)
-            throw new Exception("failed to create descriptor pool!");
+            throw new InvalidOperationException("failed to create descriptor pool!");
     }
 
     private void CreateDescriptorSet()
@@ -144,7 +144,7 @@ public unsafe class TexturesExample : ExampleBase
         };
 
         if (Vk.AllocateDescriptorSets(Device, in allocInfo, out _descriptorSet) != Result.Success)
-            throw new Exception("failed to allocate descriptor set!");
+            throw new InvalidOperationException("failed to allocate descriptor set!");
 
         var imageInfo = new DescriptorImageInfo
         {
@@ -256,7 +256,7 @@ public unsafe class TexturesExample : ExampleBase
         };
 
         if (Vk.CreatePipelineLayout(Device, in pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
-            throw new Exception("failed to create pipeline layout!");
+            throw new InvalidOperationException("failed to create pipeline layout!");
 
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
@@ -277,7 +277,7 @@ public unsafe class TexturesExample : ExampleBase
         };
 
         if (Vk.CreateGraphicsPipelines(Device, default, 1, in pipelineInfo, null, out _graphicsPipeline) != Result.Success)
-            throw new Exception("failed to create graphics pipeline!");
+            throw new InvalidOperationException("failed to create graphics pipeline!");
 
         Vk.DestroyShaderModule(Device, vertModule, null);
         Vk.DestroyShaderModule(Device, fragModule, null);

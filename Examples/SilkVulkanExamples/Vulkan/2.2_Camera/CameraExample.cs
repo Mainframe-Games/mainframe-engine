@@ -177,7 +177,7 @@ public unsafe class CameraExample : ExampleBase
         var bindings = stackalloc[] { uboBinding, samplerBinding };
         var layoutInfo = new DescriptorSetLayoutCreateInfo { SType = StructureType.DescriptorSetLayoutCreateInfo, BindingCount = 2, PBindings = bindings };
         if (Vk.CreateDescriptorSetLayout(Device, in layoutInfo, null, out _descriptorSetLayout) != Result.Success)
-            throw new Exception("failed to create descriptor set layout!");
+            throw new InvalidOperationException("failed to create descriptor set layout!");
     }
 
     private void CreateUniformBuffers()
@@ -208,7 +208,7 @@ public unsafe class CameraExample : ExampleBase
         };
         var poolInfo = new DescriptorPoolCreateInfo { SType = StructureType.DescriptorPoolCreateInfo, PoolSizeCount = 2, PPoolSizes = poolSizes, MaxSets = (uint)count };
         if (Vk.CreateDescriptorPool(Device, in poolInfo, null, out _descriptorPool) != Result.Success)
-            throw new Exception("failed to create descriptor pool!");
+            throw new InvalidOperationException("failed to create descriptor pool!");
 
         var layouts = new DescriptorSetLayout[count];
         Array.Fill(layouts, _descriptorSetLayout);
@@ -219,22 +219,22 @@ public unsafe class CameraExample : ExampleBase
             var allocInfo = new DescriptorSetAllocateInfo
             {
                 SType = StructureType.DescriptorSetAllocateInfo,
-                DescriptorPool = _descriptorPool, DescriptorSetCount = (uint)count, PSetLayouts = layoutsPtr,
+                DescriptorPool = _descriptorPool,
+                DescriptorSetCount = (uint)count,
+                PSetLayouts = layoutsPtr,
             };
             fixed (DescriptorSet* setsPtr = _descriptorSets)
                 if (Vk.AllocateDescriptorSets(Device, in allocInfo, setsPtr) != Result.Success)
-                    throw new Exception("failed to allocate descriptor sets!");
+                    throw new InvalidOperationException("failed to allocate descriptor sets!");
         }
 
+        var writes = stackalloc WriteDescriptorSet[2];
         for (int i = 0; i < count; i++)
         {
             var bufferInfo = new DescriptorBufferInfo { Buffer = _uniformBuffers[i], Offset = 0, Range = (ulong)sizeof(UniformBufferObject) };
             var imageInfo = new DescriptorImageInfo { ImageLayout = ImageLayout.ShaderReadOnlyOptimal, ImageView = _textureImageView, Sampler = _textureSampler };
-            var writes = stackalloc WriteDescriptorSet[]
-            {
-                new() { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, PBufferInfo = &bufferInfo },
-                new() { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = &imageInfo },
-            };
+            writes[0] = new() { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, PBufferInfo = &bufferInfo };
+            writes[1] = new() { SType = StructureType.WriteDescriptorSet, DstSet = _descriptorSets[i], DstBinding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = &imageInfo };
             Vk.UpdateDescriptorSets(Device, 2, writes, 0, null);
         }
     }
@@ -267,20 +267,27 @@ public unsafe class CameraExample : ExampleBase
         var dsLayout = _descriptorSetLayout;
         var pipelineLayoutInfo = new PipelineLayoutCreateInfo { SType = StructureType.PipelineLayoutCreateInfo, SetLayoutCount = 1, PSetLayouts = &dsLayout };
         if (Vk.CreatePipelineLayout(Device, in pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
-            throw new Exception("failed to create pipeline layout!");
+            throw new InvalidOperationException("failed to create pipeline layout!");
 
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType = StructureType.GraphicsPipelineCreateInfo,
-            StageCount = 2, PStages = shaderStages,
-            PVertexInputState = &vertexInputInfo, PInputAssemblyState = &inputAssembly,
-            PViewportState = &viewportState, PRasterizationState = &rasterizer,
-            PMultisampleState = &multisampling, PDepthStencilState = &depthStencil,
-            PColorBlendState = &colorBlending, PDynamicState = &dynamicState,
-            Layout = _pipelineLayout, RenderPass = RenderPass, Subpass = 0,
+            StageCount = 2,
+            PStages = shaderStages,
+            PVertexInputState = &vertexInputInfo,
+            PInputAssemblyState = &inputAssembly,
+            PViewportState = &viewportState,
+            PRasterizationState = &rasterizer,
+            PMultisampleState = &multisampling,
+            PDepthStencilState = &depthStencil,
+            PColorBlendState = &colorBlending,
+            PDynamicState = &dynamicState,
+            Layout = _pipelineLayout,
+            RenderPass = RenderPass,
+            Subpass = 0,
         };
         if (Vk.CreateGraphicsPipelines(Device, default, 1, in pipelineInfo, null, out _graphicsPipeline) != Result.Success)
-            throw new Exception("failed to create graphics pipeline!");
+            throw new InvalidOperationException("failed to create graphics pipeline!");
 
         Vk.DestroyShaderModule(Device, vertModule, null);
         Vk.DestroyShaderModule(Device, fragModule, null);

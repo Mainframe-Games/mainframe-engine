@@ -3,28 +3,18 @@
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <LangVersion>default</LangVersion>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="ImGui.NET" Version="1.89.9.3" />
-        <PackageReference Include="Silk.NET.Assimp" Version="2.21.0" />
-        <PackageReference Include="Silk.NET.Input" Version="2.21.0" />
-<PackageReference Include="Silk.NET.Vulkan" Version="2.22.0" />
-        <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.22.0" />
-        <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.22.0" />
-        <PackageReference Include="Silk.NET.Windowing" Version="2.21.0" />
-        <PackageReference Include="StbImageSharp" Version="2.30.15" />
+        <PackageReference Include="ImGui.NET" />
+        <PackageReference Include="Silk.NET.Assimp" />
+        <PackageReference Include="Silk.NET.Input" />
+        <PackageReference Include="Silk.NET.Vulkan" />
+        <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
+        <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
+        <PackageReference Include="Silk.NET.Windowing" />
+        <PackageReference Include="StbImageSharp" />
     </ItemGroup>
 
     <ItemGroup>

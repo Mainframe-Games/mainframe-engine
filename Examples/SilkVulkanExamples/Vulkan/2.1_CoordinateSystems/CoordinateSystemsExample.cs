@@ -140,7 +140,7 @@ public unsafe class CoordinateSystemsExample : ExampleBase
             PBindings = bindings,
         };
         if (Vk.CreateDescriptorSetLayout(Device, in layoutInfo, null, out _descriptorSetLayout) != Result.Success)
-            throw new Exception("failed to create descriptor set layout!");
+            throw new InvalidOperationException("failed to create descriptor set layout!");
     }
 
     private void CreateUniformBuffers()
@@ -173,10 +173,12 @@ public unsafe class CoordinateSystemsExample : ExampleBase
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
-            PoolSizeCount = 2, PPoolSizes = poolSizes, MaxSets = (uint)count,
+            PoolSizeCount = 2,
+            PPoolSizes = poolSizes,
+            MaxSets = (uint)count,
         };
         if (Vk.CreateDescriptorPool(Device, in poolInfo, null, out _descriptorPool) != Result.Success)
-            throw new Exception("failed to create descriptor pool!");
+            throw new InvalidOperationException("failed to create descriptor pool!");
 
         var layouts = new DescriptorSetLayout[count];
         Array.Fill(layouts, _descriptorSetLayout);
@@ -193,9 +195,10 @@ public unsafe class CoordinateSystemsExample : ExampleBase
             };
             fixed (DescriptorSet* setsPtr = _descriptorSets)
                 if (Vk.AllocateDescriptorSets(Device, in allocInfo, setsPtr) != Result.Success)
-                    throw new Exception("failed to allocate descriptor sets!");
+                    throw new InvalidOperationException("failed to allocate descriptor sets!");
         }
 
+        var writes = stackalloc WriteDescriptorSet[2];
         for (int i = 0; i < count; i++)
         {
             var bufferInfo = new DescriptorBufferInfo
@@ -210,26 +213,23 @@ public unsafe class CoordinateSystemsExample : ExampleBase
                 ImageView = _textureImageView,
                 Sampler = _textureSampler,
             };
-            var writes = stackalloc WriteDescriptorSet[]
+            writes[0] = new()
             {
-                new()
-                {
-                    SType = StructureType.WriteDescriptorSet,
-                    DstSet = _descriptorSets[i],
-                    DstBinding = 0,
-                    DescriptorType = DescriptorType.UniformBuffer,
-                    DescriptorCount = 1,
-                    PBufferInfo = &bufferInfo,
-                },
-                new()
-                {
-                    SType = StructureType.WriteDescriptorSet,
-                    DstSet = _descriptorSets[i],
-                    DstBinding = 1,
-                    DescriptorType = DescriptorType.CombinedImageSampler,
-                    DescriptorCount = 1,
-                    PImageInfo = &imageInfo,
-                },
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _descriptorSets[i],
+                DstBinding = 0,
+                DescriptorType = DescriptorType.UniformBuffer,
+                DescriptorCount = 1,
+                PBufferInfo = &bufferInfo,
+            };
+            writes[1] = new()
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _descriptorSets[i],
+                DstBinding = 1,
+                DescriptorType = DescriptorType.CombinedImageSampler,
+                DescriptorCount = 1,
+                PImageInfo = &imageInfo,
             };
             Vk.UpdateDescriptorSets(Device, 2, writes, 0, null);
         }
@@ -252,8 +252,10 @@ public unsafe class CoordinateSystemsExample : ExampleBase
         var vertexInputInfo = new PipelineVertexInputStateCreateInfo
         {
             SType = StructureType.PipelineVertexInputStateCreateInfo,
-            VertexBindingDescriptionCount = 1, PVertexBindingDescriptions = &bindingDesc,
-            VertexAttributeDescriptionCount = 2, PVertexAttributeDescriptions = attrDescs,
+            VertexBindingDescriptionCount = 1,
+            PVertexBindingDescriptions = &bindingDesc,
+            VertexAttributeDescriptionCount = 2,
+            PVertexAttributeDescriptions = attrDescs,
         };
         var inputAssembly = new PipelineInputAssemblyStateCreateInfo { SType = StructureType.PipelineInputAssemblyStateCreateInfo, Topology = PrimitiveTopology.TriangleList };
         var viewportState = new PipelineViewportStateCreateInfo { SType = StructureType.PipelineViewportStateCreateInfo, ViewportCount = 1, ScissorCount = 1 };
@@ -275,23 +277,31 @@ public unsafe class CoordinateSystemsExample : ExampleBase
         var pipelineLayoutInfo = new PipelineLayoutCreateInfo
         {
             SType = StructureType.PipelineLayoutCreateInfo,
-            SetLayoutCount = 1, PSetLayouts = &dsLayout,
+            SetLayoutCount = 1,
+            PSetLayouts = &dsLayout,
         };
         if (Vk.CreatePipelineLayout(Device, in pipelineLayoutInfo, null, out _pipelineLayout) != Result.Success)
-            throw new Exception("failed to create pipeline layout!");
+            throw new InvalidOperationException("failed to create pipeline layout!");
 
         var pipelineInfo = new GraphicsPipelineCreateInfo
         {
             SType = StructureType.GraphicsPipelineCreateInfo,
-            StageCount = 2, PStages = shaderStages,
-            PVertexInputState = &vertexInputInfo, PInputAssemblyState = &inputAssembly,
-            PViewportState = &viewportState, PRasterizationState = &rasterizer,
-            PMultisampleState = &multisampling, PDepthStencilState = &depthStencil,
-            PColorBlendState = &colorBlending, PDynamicState = &dynamicState,
-            Layout = _pipelineLayout, RenderPass = RenderPass, Subpass = 0,
+            StageCount = 2,
+            PStages = shaderStages,
+            PVertexInputState = &vertexInputInfo,
+            PInputAssemblyState = &inputAssembly,
+            PViewportState = &viewportState,
+            PRasterizationState = &rasterizer,
+            PMultisampleState = &multisampling,
+            PDepthStencilState = &depthStencil,
+            PColorBlendState = &colorBlending,
+            PDynamicState = &dynamicState,
+            Layout = _pipelineLayout,
+            RenderPass = RenderPass,
+            Subpass = 0,
         };
         if (Vk.CreateGraphicsPipelines(Device, default, 1, in pipelineInfo, null, out _graphicsPipeline) != Result.Success)
-            throw new Exception("failed to create graphics pipeline!");
+            throw new InvalidOperationException("failed to create graphics pipeline!");
 
         Vk.DestroyShaderModule(Device, vertModule, null);
         Vk.DestroyShaderModule(Device, fragModule, null);

@@ -17,7 +17,7 @@ public class NetworkNode : Node
 {
     public EnetServer? Server { get; private set; }
     public EnetClient? Client { get; private set; }
-    
+
     /// <summary>
     /// Represents the primary local IPv4 address of the network node. This value is initialized
     /// using a utility method to determine the primary IP address of the hosting machine. It is
@@ -29,7 +29,7 @@ public class NetworkNode : Node
     {
         Library.Initialize();
     }
-    
+
     public override void Dispose()
     {
         Server?.Dispose();

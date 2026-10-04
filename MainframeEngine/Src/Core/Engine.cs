@@ -3,7 +3,6 @@ using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
 using StbImageSharp;
-using Monitor = Silk.NET.Windowing.Monitor;
 
 namespace MainframeEngine;
 
@@ -13,6 +12,33 @@ public struct EngineOptions()
     public RenderingBackend RenderingBackend = RenderingBackend.Vulkan;
     public Vector2D<int> WindowSize = new(800, 600);
     public string? IconPath;
+
+    /// <summary>Starts with vertical sync on; toggle at runtime with <see cref="IRenderer.VSync"/>.</summary>
+    public bool VSync = true;
+
+    /// <summary>
+    /// Enables the Khronos validation layers when they are installed. Messages are counted by
+    /// <see cref="IVulkanContext.Validation"/>.
+    /// </summary>
+    public bool EnableValidation = true;
+
+    /// <summary>
+    /// Allows <see cref="Engine.CaptureFrame"/>. The swapchain gains transfer-source usage, which some
+    /// drivers (MoltenVK) render slightly slower to, so it is opt-in.
+    /// </summary>
+    public bool EnableFrameCapture;
+
+    /// <summary>Creates the window visible. Tests may hide it where the platform still presents.</summary>
+    public bool WindowVisible = true;
+
+    /// <summary>Closes the engine after this many rendered frames; 0 runs until the window closes.</summary>
+    public int MaxFrames;
+
+    /// <summary>
+    /// When greater than zero, every update receives this delta time instead of wall-clock time, so
+    /// simulation and animation are deterministic (golden-image tests, QA captures).
+    /// </summary>
+    public float FixedDeltaTime;
 }
 
 public abstract class Engine : IDisposable
@@ -22,13 +48,17 @@ public abstract class Engine : IDisposable
     private ExitCode _exitCode;
     private GameTime _gameTime;
     private readonly FPSCounter _fps = new();
+    private int _renderedFrames;
 
     public IWindow Window { get; }
     public IInputContext InputContext { get; private set; } = null!;
     public IRenderer Renderer { get; private set; } = null!;
-    
+
     private EngineOptions EngineOptions { get; }
-    
+
+    /// <summary>Number of frames rendered and presented so far (skipped frames are not counted).</summary>
+    public int RenderedFrameCount => _renderedFrames;
+
     public string GameName => EngineOptions.GameName;
     public RenderingBackend RenderingBackend => EngineOptions.RenderingBackend;
     public Vector2D<int> WindowSize => EngineOptions.WindowSize;
@@ -60,60 +90,71 @@ public abstract class Engine : IDisposable
         {
             Title = $"{engineOptions.GameName} ({engineOptions.RenderingBackend})",
             API = WindowOptions.DefaultVulkan.API with { Version = new APIVersion(1, 2) },
-            Size = engineOptions.WindowSize
+            Size = engineOptions.WindowSize,
+            IsVisible = engineOptions.WindowVisible,
         };
 
-        Window = Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new NullReferenceException();
+        Window = Silk.NET.Windowing.Window.Create(windowOptions) ?? throw new InvalidOperationException("Failed to create the window.");
+        Window.Load += CenterWindow;
         Window.Load += OnLoad;
         Window.FramebufferResize += OnFramebufferResize;
         Window.Update += OnUpdate;
         Window.Render += OnRender;
         Window.Closing += OnClose;
+    }
 
-        var monitor = Monitor.GetMainMonitor(Window);
-        var centerScreen = (monitor.VideoMode.Resolution - Window.Size) / 2;
-        Window.Position = centerScreen!.Value;
+    // Monitors can only be queried once the window exists, and there may be none at all (a
+    // sleeping display on macOS, some headless X servers) — querying a null monitor crashes GLFW.
+    private void CenterWindow()
+    {
+        if (Window.Monitor is { } monitor)
+            Window.Center(monitor);
     }
 
     protected virtual void OnLoad()
     {
         InputContext = Window.CreateInput();
 
-        Renderer = new VulkanRenderer(Window, enableValidationLayers: true);
+        Renderer = new VulkanRenderer(Window, new VulkanRendererOptions
+        {
+            EnableValidation = EngineOptions.EnableValidation,
+            VSync = EngineOptions.VSync,
+            EnableFrameCapture = EngineOptions.EnableFrameCapture,
+        });
 
         if (Renderer is IVulkanContext vkCtx)
             _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window);
-        
+
         SetWindowIcon(EngineOptions.IconPath);
     }
-    
+
     private void SetWindowIcon(in string? path = null)
     {
         if (path is null)
             return;
-        
+
         var img = ImageResult.FromMemory(
             File.ReadAllBytes(path),
             ColorComponents.RedGreenBlueAlpha
-        ) ?? throw new NullReferenceException();
+        ) ?? throw new InvalidDataException($"Failed to decode window icon '{path}'.");
         var ico = new RawImage(img.Width, img.Height, img.Data);
         Window.SetWindowIcon(ref ico);
     }
-    
+
     protected virtual void OnFramebufferResize(Vector2D<int> newSize)
     {
         Renderer.OnResize(newSize);
     }
-    
+
     private void OnUpdate(double delta)
     {
         _fps.Update();
-        _gameTime.DeltaTime = (float)delta;
+        _gameTime.DeltaTime = EngineOptions.FixedDeltaTime > 0f ? EngineOptions.FixedDeltaTime : (float)delta;
         _gameTime.FrameCount = _fps.TotalFrameCount;
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;
 
-        _vkImGuiController?.Update((float)delta);
+        _vkImGuiController?.Update(_gameTime.DeltaTime);
 
         OnImGui(_gameTime);
         OnUpdate(_gameTime);
@@ -125,7 +166,8 @@ public abstract class Engine : IDisposable
 
         // For Vulkan, BeginFrame can return early without starting a frame (swapchain recreation
         // during resize / fullscreen toggle). Skip draw calls in that case.
-        if (Renderer is not IVulkanContext vk || vk.FrameStarted)
+        var frameStarted = Renderer is not IVulkanContext vk || vk.FrameStarted;
+        if (frameStarted)
         {
             // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
             OnShadowPass(_gameTime);
@@ -138,8 +180,38 @@ public abstract class Engine : IDisposable
         }
 
         Renderer.EndFrame();
+
+        if (!frameStarted)
+            return;
+
+        _renderedFrames++;
+
+        if (Renderer.TryTakeCapture(out var capture))
+            OnFrameCaptured(capture);
+
+        if (EngineOptions.MaxFrames > 0 && _renderedFrames >= EngineOptions.MaxFrames)
+            Window.Close();
     }
-    
+
+    /// <summary>
+    /// Copies the frame being built in this iteration (call from <see cref="OnImGui"/>,
+    /// <see cref="OnUpdate(in GameTime)"/> or a render hook) back to the CPU once it has been rendered;
+    /// <see cref="OnFrameCaptured"/> receives the pixels. Requires
+    /// <see cref="EngineOptions.EnableFrameCapture"/>.
+    /// </summary>
+    public void CaptureFrame()
+    {
+        if (!EngineOptions.EnableFrameCapture)
+            throw new InvalidOperationException($"Frame capture is disabled; set {nameof(EngineOptions)}.{nameof(EngineOptions.EnableFrameCapture)}.");
+
+        Renderer.RequestCapture();
+    }
+
+    /// <summary>Receives the result of <see cref="CaptureFrame"/> after the frame has been presented.</summary>
+    protected virtual void OnFrameCaptured(FrameCapture capture)
+    {
+    }
+
     protected abstract void OnImGui(in GameTime gameTime);
     protected abstract void OnUpdate(in GameTime gameTime);
     protected abstract void OnShadowPass(in GameTime gameTime);
