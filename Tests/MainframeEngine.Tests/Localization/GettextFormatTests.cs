@@ -167,6 +167,30 @@ public sealed class GettextFormatTests
     public void HashTableSizesMatchGettext(int messages, int size) => Assert.Equal(size, MoFormat.HashTableSize(messages));
 
     [Fact]
+    public void LegacyMsgfmtSizingDiffersOnlyForTwoMessages()
+    {
+        Assert.Equal(5, MoFormat.LegacyHashTableSize(2));
+        for (var count = 0; count <= 300; count++)
+            if (count != 2)
+                Assert.Equal(MoFormat.HashTableSize(count), MoFormat.LegacyHashTableSize(count));
+    }
+
+    [Fact]
+    public void LegacySizedOutputMatchesGettext021ByteForByte()
+    {
+        // msgfmt 0.21 (Ubuntu 24.04) output for a header plus one message: a 5-slot hash table (gettext 1.0 uses 3).
+        const string po = "msgid \"\"\nmsgstr \"Content-Type: text/plain; charset=UTF-8\\n\"\n\nmsgid \"{zbi$2a>Qx(#>@[pWZaq^~<.HK#I/6]N.M$O-&9> N4tod~U\"\nmsgstr \"x\"\n";
+        var gettext021 = Convert.FromHexString(
+            "de12049500000000020000001c0000002c000000050000003c00000000000000500000003000000051000000280000008200000001000000ab00" +
+            "00000100000000000000020000000000000000000000007b7a62692432613e517828233e405b70575a61715e7e3c2e484b23492f365d4e2e4d24" +
+            "4f2d26393e204e34746f647e5500436f6e74656e742d547970653a20746578742f706c61696e3b20636861727365743d5554462d380a007800");
+        var messages = MoFormat.SelectMessages(PoParser.Parse(po));
+
+        Assert.Equal(gettext021, MoFormat.Write(messages, MoFormat.LegacyHashTableSize(messages.Count)));
+        Assert.Equal(2, MoFormat.Read(gettext021).Count);
+    }
+
+    [Fact]
     public void HashPjwMatchesGettext()
     {
         Assert.Equal(0u, MoFormat.HashPjw([]));

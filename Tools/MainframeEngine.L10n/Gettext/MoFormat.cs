@@ -40,9 +40,18 @@ internal static class MoFormat
 
     public static byte[] Write(PoCatalog catalog, bool useFuzzy = false) => Write(SelectMessages(catalog, useFuzzy));
 
-    public static byte[] Write(IReadOnlyList<MoMessage> messages)
+    public static byte[] Write(IReadOnlyList<MoMessage> messages) => Write(messages, hashTableSize: null);
+
+    /// <summary>
+    /// Writes with an explicit hash table size instead of <see cref="HashTableSize"/> (null). Only for comparing with
+    /// older msgfmt builds whose sizing differs (<see cref="LegacyHashTableSize"/>); the table must have room for
+    /// every message.
+    /// </summary>
+    public static byte[] Write(IReadOnlyList<MoMessage> messages, int? hashTableSize)
     {
         ArgumentNullException.ThrowIfNull(messages);
+        if (hashTableSize is { } explicitSize && (explicitSize <= messages.Count || explicitSize < 3))
+            throw new ArgumentOutOfRangeException(nameof(hashTableSize), explicitSize, "The hash table needs more slots than messages (and at least 3).");
         var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
         var items = new List<(byte[] Original, byte[] Translation)>(messages.Count);
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -58,7 +67,7 @@ internal static class MoFormat
         items.Sort(static (a, b) => CompareCString(a.Original, b.Original));
 
         var count = items.Count;
-        var hashSize = HashTableSize(count);
+        var hashSize = hashTableSize ?? HashTableSize(count);
         var originalsTable = HeaderSize;
         var translationsTable = originalsTable + 8 * count;
         var hashTable = translationsTable + 8 * count;
@@ -228,6 +237,12 @@ internal static class MoFormat
         var size = NextPrime((uint)(count * 4 / 3));
         return (int)Math.Max(size, 3u);
     }
+
+    /// <summary>
+    /// The size gettext 0.21 and older choose (Ubuntu 24.04 ships 0.21): their <c>is_prime</c> rejects 3, so a
+    /// two-message catalog gets a 5-slot table instead of 3. Every other count matches <see cref="HashTableSize"/>.
+    /// </summary>
+    public static int LegacyHashTableSize(int count) => count == 2 ? 5 : HashTableSize(count);
 
     // gettext's next_prime/is_prime: odd seed, trial division by odd numbers up to the square root.
     private static uint NextPrime(uint seed)

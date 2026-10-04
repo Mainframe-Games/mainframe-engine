@@ -498,19 +498,28 @@ internal static class L10nCli
                 return 1;
             }
 
-            if (!File.ReadAllBytes(temp).AsSpan().SequenceEqual(expected))
-            {
-                error.WriteLine($"{poPath}: error: msgfmt output differs from mf-l10n's");
-                return 1;
-            }
+            var actual = File.ReadAllBytes(temp);
+            if (actual.AsSpan().SequenceEqual(expected) || MatchesLegacyMsgfmt(poPath, actual))
+                return 0;
 
-            return 0;
+            error.WriteLine($"{poPath}: error: msgfmt output differs from mf-l10n's");
+            return 1;
         }
         finally
         {
             if (File.Exists(temp))
                 File.Delete(temp);
         }
+    }
+
+    // gettext 0.21 and older (e.g. Ubuntu 24.04) size a two-message hash table 5 instead of 3; everything else is the
+    // same, so their output must equal ours written with that size.
+    private static bool MatchesLegacyMsgfmt(string poPath, byte[] msgfmtOutput)
+    {
+        var messages = MoFormat.SelectMessages(PoParser.ParseFile(poPath));
+        var legacySize = MoFormat.LegacyHashTableSize(messages.Count);
+        return legacySize != MoFormat.HashTableSize(messages.Count) &&
+               msgfmtOutput.AsSpan().SequenceEqual(MoFormat.Write(messages, legacySize));
     }
 
     // ------------------------------------------------------------------------------------------------
