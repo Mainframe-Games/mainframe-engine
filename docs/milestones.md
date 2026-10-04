@@ -7,7 +7,7 @@ current-state doc, and future features link to a proposal in [`design/future/`](
 
 ```mermaid
 flowchart LR
-    M0["M0 Foundation ✅"] --> M1["M1 Stabilization"]
+    M0["M0 Foundation 🚧"] --> M1["M1 Stabilization"]
     M1 --> M2["M2 Scene graph v2"]
     M1 --> M3["M3 Materials, meshes & resources"]
     M2 --> M3
@@ -19,7 +19,7 @@ flowchart LR
 
 | Milestone | Theme | Status |
 |---|---|---|
-| [M0](#m0--foundation-) | Vulkan renderer, lighting, shadows, sky, Spine, tooling | ✅ |
+| [M0](#m0--foundation-) | Vulkan renderer, lighting, shadows, sky, Spine, tooling, SDL windowing | 🚧 |
 | [M1](#m1--stabilization) | Fix correctness bugs blocking everything else | ⬜ |
 | [M2](#m2--scene-graph-v2) | Real hierarchy, engine-owned scene | ⬜ |
 | [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | ⬜ |
@@ -30,11 +30,12 @@ flowchart LR
 
 ---
 
-## M0 — Foundation ✅
+## M0 — Foundation 🚧
 
 The engine runs on Windows, Linux and macOS (MoltenVK, including Apple Silicon at 120 fps in the
 Sandbox). It renders a lit, shadowed 3D scene with a sky, a reference grid, an animated Spine character
-and an ImGui debug overlay. Networking and Steam exist only as scaffolds.
+and an ImGui debug overlay. Networking and Steam exist only as scaffolds. The last M0 item moves
+windowing and input from GLFW to SDL, so later input, gamepad and Steam work builds on it.
 
 | Feature | Status | Design doc |
 |---|---|---|
@@ -52,6 +53,7 @@ and an ImGui debug overlay. Networking and Steam exist only as scaffolds.
 | Shader set + SPIR-V | ✅ | [Shaders](design/shaders.md) |
 | ENet client/server + pooled buffers (scaffold) | ✅ ² | [Networking](design/networking.md) |
 | Steamworks wrappers (scaffold, inert) | ✅ ² | [Steamworks](design/steamworks.md) |
+| Switch windowing and input from GLFW to SDL (macOS loader handoff via `SDL_Vulkan_LoadLibrary`) | ⬜ | [SDL windowing](design/future/sdl-windowing.md) |
 
 ¹ Correct only with a single shadow-casting directional/spot light (fixed in M1).
 ² Scaffold only; completed in M5.

@@ -91,6 +91,9 @@ The renderer then enables `VK_KHR_portability_enumeration` (instance) and `VK_KH
 
 **Rule:** never call bare `Vk.GetApi()` in engine code; take `Vk` from `IVulkanContext`.
 
+> Planned (M0): windowing moves from GLFW to SDL, and the handoff becomes `SDL_Vulkan_LoadLibrary`. See
+> [SDL windowing](future/sdl-windowing.md).
+
 ## Platform matrix
 
 | Feature | Windows x64 | Linux x64 | macOS x64 | macOS arm64 |
