@@ -206,6 +206,29 @@ public sealed unsafe class RmlContext : IDisposable
     {
         if (_handle.IsClosed)
             return;
+        if (_disposeQueued)
+        {
+            if (!RmlCore.IsInCallback)
+                DisposeNow(); // the deferred call
+            return;
+        }
+
+        if (RmlCore.DeferIfInCallback(this))
+        {
+            _disposeQueued = true; // destroyed once the dispatch that is running returns
+            return;
+        }
+
+        DisposeNow();
+    }
+
+    private bool _disposeQueued;
+
+    private void DisposeNow()
+    {
+        _disposeQueued = false;
+        if (_handle.IsClosed)
+            return;
         foreach (var model in _models)
             model.MarkRemovedWithContext();
         _models.Clear();

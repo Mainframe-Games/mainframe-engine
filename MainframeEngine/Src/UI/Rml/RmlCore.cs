@@ -29,8 +29,10 @@ public static unsafe class RmlCore
     private static GCHandle _file;
     private static readonly Dictionary<ulong, Stream> Files = [];
     private static ulong _nextFile;
-    private static readonly HashSet<RmlHandle> LiveHandles = [];
+    // Weak, so an owner dropped without Dispose can still be finalized (its release is then deferred to this thread).
+    private static readonly List<WeakReference<RmlHandle>> LiveHandles = [];
     private static readonly Queue<RmlHandle> PendingReleases = new();
+    private static readonly Queue<IDisposable> DeferredDisposals = new();
     private static readonly Lock PendingLock = new();
     private static uint? _loadedAbi;
 
@@ -181,13 +183,14 @@ public static unsafe class RmlCore
         if (!IsInitialised)
             return;
 
+        CallbackDepth = 0;
         ProcessPendingReleases();
 
         // Contexts and data models die with the library: their handles must not be released again.
-        foreach (var handle in LiveHandles)
-            if (handle.DiesWithLibrary)
+        foreach (var weak in LiveHandles.ToArray())
+            if (weak.TryGetTarget(out var handle) && handle.DiesWithLibrary)
                 handle.MarkDestroyedByLibrary();
-        LiveHandles.RemoveWhere(static h => h.DiesWithLibrary);
+        LiveHandles.RemoveAll(static w => !w.TryGetTarget(out var h) || h.DiesWithLibrary);
 
         var status = RmlNative.Shutdown();
         RmlDebugger.Reset();
@@ -272,9 +275,52 @@ public static unsafe class RmlCore
 
     // ── Owned handle bookkeeping ─────────────────────────────────────────────────────────────────────────────
 
-    internal static void Track(RmlHandle handle) => LiveHandles.Add(handle);
+    internal static void Track(RmlHandle handle)
+    {
+        LiveHandles.RemoveAll(static w => !w.TryGetTarget(out _));
+        LiveHandles.Add(new WeakReference<RmlHandle>(handle));
+    }
 
-    internal static void Untrack(RmlHandle handle) => LiveHandles.Remove(handle);
+    internal static void Untrack(RmlHandle handle) =>
+        LiveHandles.RemoveAll(w => !w.TryGetTarget(out var h) || ReferenceEquals(h, handle));
+
+    /// <summary>Live owned handles (diagnostics, tests).</summary>
+    internal static int LiveHandleCount
+    {
+        get
+        {
+            var n = 0;
+            foreach (var w in LiveHandles)
+                if (w.TryGetTarget(out _))
+                    n++;
+            return n;
+        }
+    }
+
+    // ── Re-entrancy ──────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Depth of C# event/data callbacks currently running inside an RmlUi call. While it is non-zero RmlUi is in the
+    /// middle of dispatching (e.g. a click inside <c>ProcessMouseButtonUp</c>), so destroying a context or data model
+    /// would pull objects out from under it: such disposals are deferred (<see cref="DisposeWhenSafe"/>).
+    /// </summary>
+    public static int CallbackDepth { get; private set; }
+
+    /// <summary>True while a C# handler runs inside an RmlUi dispatch.</summary>
+    public static bool IsInCallback => CallbackDepth > 0;
+
+    internal static void EnterCallback() => CallbackDepth++;
+
+    internal static void ExitCallback() => CallbackDepth = Math.Max(0, CallbackDepth - 1);
+
+    /// <summary>Disposes now, or after the current RmlUi dispatch returns (next <see cref="ProcessPendingReleases"/>).</summary>
+    internal static bool DeferIfInCallback(IDisposable disposable)
+    {
+        if (CallbackDepth == 0)
+            return false;
+        DeferredDisposals.Enqueue(disposable);
+        return true;
+    }
 
     /// <summary>A handle whose owner was collected without being disposed: released on the RmlUi thread later.</summary>
     internal static void DeferRelease(RmlHandle handle)
@@ -283,9 +329,16 @@ public static unsafe class RmlCore
             PendingReleases.Enqueue(handle);
     }
 
-    /// <summary>Releases handles queued from other threads (finalizers). Called by the UI server every frame.</summary>
+    /// <summary>
+    /// Releases handles queued from other threads (finalizers) and disposals deferred out of RmlUi callbacks. Called by
+    /// the UI server every frame (outside any dispatch).
+    /// </summary>
     public static void ProcessPendingReleases()
     {
+        if (CallbackDepth > 0)
+            return;
+        while (DeferredDisposals.TryDequeue(out var disposable))
+            disposable.Dispose();
         while (true)
         {
             RmlHandle? handle;

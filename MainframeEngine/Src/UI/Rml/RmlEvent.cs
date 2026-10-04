@@ -163,11 +163,16 @@ public sealed unsafe class RmlEventListener
     {
         try
         {
+            RmlCore.EnterCallback();
             Self(user).Handler(new RmlEvent(evt));
         }
         catch (Exception e)
         {
             RmlCore.Report(e, "element event listener");
+        }
+        finally
+        {
+            RmlCore.ExitCallback();
         }
     }
 

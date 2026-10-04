@@ -68,7 +68,7 @@ the layer's scale mode); `px` are framebuffer pixels.
 |---|---|
 | `RmlNative` | Every export as `[LibraryImport("mfrmlui")]` with blittable signatures only (handles `nint`, strings NUL-terminated UTF-8 `byte*`, callbacks `delegate* unmanaged[Cdecl]`): source-generated direct calls, no marshalling stubs or allocations |
 | `RmlCore` | `EnsureLibrary` (loads the library, checks the ABI: equal major, minor ≥ 0; clear `RmlException` when missing or incompatible), `Initialise(system, file)`, `Shutdown`, fonts, cache clearing, `ProcessPendingReleases` |
-| `RmlHandle` (+ `RmlContextHandle`, `RmlDataModelHandle`, `RmlRenderInterfaceHandle`) | `SafeHandle`s over the owned objects. Released exactly once on the RmlUi thread; a handle whose owner was collected undisposed is queued and released by the UI server (RmlUi is never called from the finalizer thread). Contexts and data models RmlUi destroys itself (shutdown, context destroy) are invalidated, not released twice |
+| `RmlHandle` (+ `RmlContextHandle`, `RmlDataModelHandle`, `RmlRenderInterfaceHandle`) | `SafeHandle`s over the owned objects, tracked weakly. Released exactly once on the RmlUi thread; a handle whose owner was collected undisposed is queued and released by the UI server (RmlUi is never called from the finalizer thread). Contexts and data models RmlUi destroys itself (shutdown, context destroy) are invalidated, not released twice. Disposing a context or data model **from inside an RmlUi callback** (a click handler freeing its layer, a data event removing its document) is deferred until the dispatch returns (`RmlCore.IsInCallback`; drained at the start of the next UI frame) |
 | `RmlContext` | Size, dp ratio, `Update`/`Render`, documents, root/hover/focus elements, **input methods returning `true` = consumed** (RmlUi's raw `Process*` returns the opposite; the shim resolves it once), data models |
 | `RmlDocument`, `RmlElement` | Borrowed handles as `readonly struct`s: tree, query selectors (span overloads write into caller buffers), attributes, classes, properties, inner RML, form values, focus/click, bounds, listeners |
 | `RmlEvent`, `RmlVariant`, `RmlDictionary`, `RmlDataEvent` | Callback-scoped borrowed objects as **`ref struct`s**, so they cannot outlive the callback |
@@ -110,7 +110,7 @@ model.Dirty("health");                                                      // v
 | `UiServer` ([UiServer.cs](../../MainframeEngine/Src/UI/UiServer.cs)) | `IFrameServer` + `IInputServer` registered by `Engine`. Owns RmlUi (init, shutdown), the render interface, fonts (every `.ttf`/`.otf` in `Content/UI/fonts`), the system and file interfaces, one context per layer, input routing, hot reload, the debugger (F8), `engine://` textures (`RegisterTexture`), the `Translator` hook (M9) |
 | `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer. `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Dpi` default: 1 dp = pixels per point; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis). Games typically use HUD (0), menus (10), overlay (100) |
 | `UiDocument : Node` ([UiDocument.cs](../../MainframeEngine/Src/UI/UiDocument.cs)) | `[Export] Source` (or inline `Rml`), `Visible`, `Modal`, `AutoFocus`; `[Signal] Loaded`, `Reloaded`; `CreateDataModel`, `GetElementById`, `QuerySelector`, `Show`/`Hide`, `Reload`. Must be below a `UiLayer` |
-| `UiElement` ([UiElement.cs](../../MainframeEngine/Src/UI/UiElement.cs)) | A cached element wrapper with C# events (`Click`, `DoubleClick`, `MouseDown/Up/Over/Out`, `Change`, `Submit`, `Focused`, `Blurred`, `KeyDown/Up`, `On(type, …)`); native listeners attach only for subscribed types |
+| `UiElement` ([UiElement.cs](../../MainframeEngine/Src/UI/UiElement.cs)) | A cached element wrapper with C# events (`Click`, `DoubleClick`, `MouseDown/Up/Over/Out`, `Change`, `Submit`, `Focused`, `Blurred`, `KeyDown/Up`, `On(type, …)`); native listeners attach only for subscribed types. Every access looks the element up again by id, so a wrapper follows elements the DOM replaces (inner RML, `data-for`, `data-if`) and reports invalid — never dangling — once removed |
 
 **Lazy loading.** A document loads on first element access or, at the latest, when the server prepares the next frame.
 So `CreateDataModel` in `OnReady` (children are ready before parents, documents enter after their layer) runs before
@@ -183,8 +183,10 @@ flowchart LR
   ([ADR 0050](../../memory/decisions/0050-ui-offscreen-layer-and-overlay-hook.md)).
 - **Lifetime.** Releases (geometry ranges, descriptor sets) are tagged with the frame that may still use them and
   collected once its fence has been waited on; `GpuTexture`/`GpuImage`/framebuffers go through the deletion queue.
-  Texture descriptor sets come from growable pools with `FREE_DESCRIPTOR_SET`. If a frame is skipped after RmlUi
-  saved a layer into a texture (box-shadow), that texture never got its content, so the renderer asks RmlUi to
+  Texture descriptor sets come from growable pools with `FREE_DESCRIPTOR_SET`. A command list is replayed at most
+  once: a render without a new update (frame-rate cap) re-composites the base layer it already produced instead of
+  replaying references to resources released since. A hidden UI (`Visible = false`) still replays lists that save
+  layers into textures (box-shadows), and if a frame is skipped after RmlUi saved a layer, the renderer asks RmlUi to
   regenerate its textures.
 - `NullUiRenderer` hands out handles without a GPU, so layout, data binding and input work headless (unit tests).
 
@@ -205,7 +207,7 @@ only one); a consumed event never reaches `OnInput`/`OnUnhandledInput` ([ADR 005
 
 | Input | Behaviour |
 |---|---|
-| Mouse move/buttons/wheel | Window points × pixels-per-point → context pixels; wheel `-y` (RmlUi scrolls down for positive). Consumed only over interactive elements (`pointer-events: none` on a HUD body lets the game keep the mouse elsewhere). A button pressed where the UI did not consume it keeps the mouse with the game until released (camera drags cross the HUD); raw/disabled cursor mode skips the UI. Lower layers get a mouse-leave when a higher one takes the pointer |
+| Mouse move/buttons/wheel | Window points × pixels-per-point → context pixels; wheel `-y` (RmlUi scrolls down for positive). Consumed only over interactive elements (`pointer-events: none` on a HUD body lets the game keep the mouse elsewhere). A press keeps the mouse with whoever took it until release: one the game took crosses the HUD (camera drags), one the UI took (a slider drag) stays with the UI even when released over the world. Raw/disabled cursor mode skips the UI. Lower layers get a mouse-leave when a higher one takes the pointer |
 | Keys | Silk keys → `Rml::Input::KeyIdentifier` (`UiInputMap`), modifiers tracked from key events. Unhandled keys propagate; a **focused text field takes every key**; the release of a key the UI consumed is consumed too |
 | Text | Silk's `KeyChar` (UTF-16; surrogate pairs joined) → `ProcessTextInput` (UTF-8 on the stack). Control characters arrive as keys |
 | IME | `ActivateKeyboard` places SDL's text-input rectangle at the caret (the OS draws the candidate window); an SDL event watch publishes `SDL_TEXTEDITING` as `UiServer.Composition`/`CompositionChanged`; committed text arrives as text input. Inline composition rendering needs `TextInputContext` in the shim (ABI 1.1) |

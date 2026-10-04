@@ -96,6 +96,7 @@ public sealed class UiServer : IFrameServer, IInputServer
     // Input state.
     private readonly bool[] _uiKeys = new bool[(int)Key.Menu + 1]; // keys whose press the UI consumed
     private int _uiPadButtons;                                     // gamepad buttons whose press the UI consumed
+    private int _uiMouseButtons;                                   // mouse buttons whose press the UI consumed
     private RmlKeyModifiers _modifiers;
     private char _highSurrogate;
     private int _gameMouseButtons;   // buttons pressed while the game had the mouse
@@ -581,7 +582,7 @@ public sealed class UiServer : IFrameServer, IInputServer
             (consumer is null || consumer.Layer > _hoverLayer.Layer))
             previous.ProcessMouseLeave();
         _hoverLayer = consumer;
-        return consumer is not null;
+        return consumer is not null || _uiMouseButtons != 0; // a UI drag keeps the mouse even off the element
     }
 
     private bool HandleMouseButton(InputEventMouseButton e)
@@ -601,9 +602,12 @@ public sealed class UiServer : IFrameServer, IInputServer
                 return false;
             }
 
-            HandleMouseMove(e.Position); // the press position may differ from the last move
+            if ((_uiMouseButtons & ~bit) == 0)
+                HandleMouseMove(e.Position); // the press position may differ from the last move
             var consumed = Route(InputKind.MouseDown, button, 0);
-            if (!consumed)
+            if (consumed)
+                _uiMouseButtons |= bit;
+            else
                 _gameMouseButtons |= bit;
             return consumed;
         }
@@ -614,7 +618,11 @@ public sealed class UiServer : IFrameServer, IInputServer
             return false;
         }
 
-        return Route(InputKind.MouseUp, button, 0);
+        // A press the UI took (e.g. a slider drag) ends in the UI even if released over the world.
+        var routed = Route(InputKind.MouseUp, button, 0);
+        var owned = (_uiMouseButtons & bit) != 0;
+        _uiMouseButtons &= ~bit;
+        return routed || owned;
     }
 
     private bool HandleGamepadButton(InputEventGamepadButton e)
@@ -702,12 +710,10 @@ public sealed class UiServer : IFrameServer, IInputServer
             if (!layer.Visible || layer.Context is not { } context)
                 continue;
 
-            var focus = context.FocusElement;
-            if (IsDirection(key) && (focus.IsNull || focus == focus.OwnerDocument.AsElement()))
+            if (IsDirection(key) && !HasElementFocus(context.FocusElement))
             {
                 context.ProcessKeyDown(RmlKey.Tab, RmlKeyModifiers.None);
-                var focused = context.FocusElement;
-                if (!focused.IsNull && focused != focused.OwnerDocument.AsElement())
+                if (HasElementFocus(context.FocusElement))
                     return true;
             }
             else if (context.ProcessKeyDown(key, _modifiers))
@@ -720,6 +726,18 @@ public sealed class UiServer : IFrameServer, IInputServer
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// True when <paramref name="focus"/> is an element inside a document — not nothing, the context root (no owner
+    /// document) or a document itself.
+    /// </summary>
+    internal static bool HasElementFocus(RmlElement focus)
+    {
+        if (focus.IsNull)
+            return false;
+        var document = focus.OwnerDocument;
+        return !document.IsNull && focus != document.AsElement();
     }
 
     private bool RouteText(ReadOnlySpan<char> text)

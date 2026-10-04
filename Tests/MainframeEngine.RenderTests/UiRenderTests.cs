@@ -75,6 +75,31 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void HiddenUiStillRendersTheLayersItSavesIntoTextures()
+    {
+        // Box-shadows are rendered once into a saved texture and then cached by RmlUi: while the UI is hidden that
+        // texture must still get its content, or the shadows stay empty once the UI is shown (review regression).
+        var result = HostRunner.Run("ui-effects", Output("ui-hidden"), "--ui-hidden-until", "9", "--capture", "10", "--size", "480x270", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
+    public void RendersWithoutAnUpdateRecompositeTheLastUi()
+    {
+        // Updates at 30 Hz, renders unthrottled: renders between updates must not replay a list whose temporary
+        // geometry was already released (review regression); the UI keeps showing and validation stays clean.
+        var result = HostRunner.Run("ui-effects", Output("ui-update-rate"), "--update-rate", "30", "--capture", "10", "--frames", "100000",
+            "--size", "480x270", "--hidden");
+
+        Assert.Single(result.Captures);
+        Assert.True(result.RenderedFrames > 10, $"{result.RenderedFrames} renders for 10 updates: expected more renders than updates.");
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
     public void UiSurvivesSwapchainRecreation()
     {
         // Resizing recreates the swapchain and the UI's layer targets; the HUD must keep rendering cleanly.

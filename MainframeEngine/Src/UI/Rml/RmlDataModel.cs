@@ -186,9 +186,23 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         if (!IsValid)
             return;
+        if (_disposeQueued)
+        {
+            if (RmlCore.IsInCallback)
+                return;
+        }
+        else if (RmlCore.DeferIfInCallback(this))
+        {
+            _disposeQueued = true; // removed once the dispatch that is running returns (it may be this model's event)
+            return;
+        }
+
+        _disposeQueued = false;
         _context.ForgetModel(this);
         _handle.ReleaseNow();
     }
+
+    private bool _disposeQueued;
 
     internal void MarkRemovedWithContext() => _handle.MarkDestroyedByLibrary();
 
@@ -216,11 +230,16 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         try
         {
+            RmlCore.EnterCallback();
             Target<ScalarBinding>(user).Set(new RmlVariant(variant));
         }
         catch (Exception e)
         {
             RmlCore.Report(e, "data binding setter");
+        }
+        finally
+        {
+            RmlCore.ExitCallback();
         }
     }
 
@@ -242,11 +261,16 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         try
         {
+            RmlCore.EnterCallback();
             Target<EventBinding>(user).Invoke(new RmlDataEvent(evt, arguments, count));
         }
         catch (Exception e)
         {
             RmlCore.Report(e, "data event");
+        }
+        finally
+        {
+            RmlCore.ExitCallback();
         }
     }
 
@@ -269,12 +293,17 @@ public sealed unsafe class RmlDataModel : IDisposable
     {
         try
         {
+            RmlCore.EnterCallback();
             return Target<VariableBinding>(user).Set(node, new RmlVariant(variant)) ? 1 : 0;
         }
         catch (Exception e)
         {
             RmlCore.Report(e, "data variable set");
             return 0;
+        }
+        finally
+        {
+            RmlCore.ExitCallback();
         }
     }
 

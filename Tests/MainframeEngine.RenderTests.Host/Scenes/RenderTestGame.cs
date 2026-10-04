@@ -57,6 +57,13 @@ public abstract class RenderTestGame : Engine
     {
         base.OnLoad();
         Renderer.SetClearColor(0.1f, 0.1f, 0.1f);
+        if (_host.UpdateRate > 0)
+        {
+            // Renders run unthrottled, updates at UpdateRate: the UI renderer sees renders without a new update.
+            Window.FramesPerSecond = 0;
+            Window.UpdatesPerSecond = _host.UpdateRate;
+        }
+
         LoadScene();
     }
 
@@ -91,6 +98,9 @@ public abstract class RenderTestGame : Engine
             CaptureFrame();
         }
 
+        if (_host.UiHiddenUntilFrame > 0 && Ui?.Renderer is { } ui)
+            ui.Visible = frame > _host.UiHiddenUntilFrame;
+
         // Swapchain-recreation and shutdown hooks (frame numbers from the command line).
         if (frame == _host.ResizeAtFrame)
             Window.Size = new Vector2D<int>(_host.ResizeTo.Width, _host.ResizeTo.Height);
@@ -107,6 +117,10 @@ public abstract class RenderTestGame : Engine
         var path = Path.Combine(_host.OutputDirectory, $"{_host.Scene}_frame{_pendingCapture:D4}.png");
         capture.SavePng(path);
         _captures.Add(new HostResult.CaptureInfo(_pendingCapture, path, capture.Width, capture.Height));
+
+        // With --update-rate the render count per update is unbounded: stop once every capture is taken.
+        if (_host.UpdateRate > 0 && _captures.Count == _host.CaptureFrames.Length)
+            Quit(ExitCode.Ok);
     }
 
     /// <summary>Set once the engine has shut down; includes validation messages from teardown.</summary>

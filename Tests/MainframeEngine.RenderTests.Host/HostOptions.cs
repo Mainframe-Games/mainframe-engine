@@ -42,6 +42,12 @@ public sealed record HostOptions
     /// <summary>Runs without the validation layers (performance measurements).</summary>
     public bool NoValidation { get; init; }
 
+    /// <summary>Hide the game UI's renderer (<c>VulkanUiRenderer.Visible</c>) up to and including this frame; 0 = never.</summary>
+    public uint UiHiddenUntilFrame { get; init; }
+
+    /// <summary>Limit updates to this rate while rendering unthrottled (several renders per update); 0 = off.</summary>
+    public int UpdateRate { get; init; }
+
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
         if (args.Count == 0)
@@ -115,6 +121,12 @@ public sealed record HostOptions
                     break;
                 case "--no-validation":
                     options = options with { NoValidation = true };
+                    break;
+                case "--ui-hidden-until":
+                    options = options with { UiHiddenUntilFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--update-rate":
+                    options = options with { UpdateRate = int.Parse(Next(), CultureInfo.InvariantCulture) };
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");

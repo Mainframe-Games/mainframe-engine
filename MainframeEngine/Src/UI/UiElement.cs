@@ -44,6 +44,7 @@ public sealed class UiElement
 {
     private readonly Dictionary<string, Subscription> _subscriptions = new(StringComparer.Ordinal);
     private RmlElement _element;
+    private bool _removing; // our own listener removals (not the element going away)
 
     private sealed class Subscription(string type)
     {
@@ -64,10 +65,30 @@ public sealed class UiElement
     /// <summary>The id the element was looked up by (used to find it again after a reload); null for selector lookups.</summary>
     public string? Id { get; }
 
-    /// <summary>The underlying element (null once its document is unloaded).</summary>
-    public RmlElement Element => _element;
+    /// <summary>
+    /// The underlying element: looked up again by <see cref="Id"/> on every access, so it is null (never dangling) once
+    /// the DOM removed it or the document unloaded.
+    /// </summary>
+    public RmlElement Element
+    {
+        get
+        {
+            Refresh();
+            return _element;
+        }
+    }
 
-    public bool IsValid => !_element.IsNull;
+    public bool IsValid => !Element.IsNull;
+
+    /// <summary>Follows the document: an element replaced by RML changes (or a reload) is looked up again by id.</summary>
+    private void Refresh()
+    {
+        if (Id is null)
+            return;
+        var current = Document.FindLive(Id);
+        if (current != _element)
+            Rebind(current);
+    }
 
     // ── Content and style ────────────────────────────────────────────────────────────────────────────────────
 
@@ -101,7 +122,7 @@ public sealed class UiElement
 
     public RmlRect Bounds => Valid.Bounds;
 
-    private RmlElement Valid => _element.IsNull
+    private RmlElement Valid => Element.IsNull
         ? throw new InvalidOperationException($"UI element '{Id}' is no longer part of a loaded document.")
         : _element;
 
@@ -204,8 +225,7 @@ public sealed class UiElement
         sub.Handlers -= handler;
         if (sub.Handlers is not null)
             return;
-        sub.Listener?.Remove();
-        sub.Listener = null;
+        RemoveListener(sub);
         _subscriptions.Remove(eventType);
     }
 
@@ -213,7 +233,34 @@ public sealed class UiElement
     {
         if (_element.IsNull || sub.Listener is { IsAttached: true })
             return;
-        sub.Listener = _element.AddEventListener(sub.Type, e => Raise(sub, e));
+        var listener = _element.AddEventListener(sub.Type, e => Raise(sub, e));
+        if (listener is not null)
+            listener.Detached += detached => OnDetached(sub, detached);
+        sub.Listener = listener;
+    }
+
+    private void RemoveListener(Subscription sub)
+    {
+        _removing = true;
+        try
+        {
+            sub.Listener?.Remove();
+        }
+        finally
+        {
+            _removing = false;
+        }
+
+        sub.Listener = null;
+    }
+
+    /// <summary>RmlUi detached a listener we did not remove: its element was destroyed, so forget the element.</summary>
+    private void OnDetached(Subscription sub, RmlEventListener listener)
+    {
+        if (_removing || !ReferenceEquals(sub.Listener, listener))
+            return;
+        sub.Listener = null;
+        _element = default;
     }
 
     private void Raise(Subscription sub, RmlEvent e) => sub.Handlers?.Invoke(new UiEvent(this, e));
@@ -224,12 +271,7 @@ public sealed class UiElement
         if (element != _element)
         {
             foreach (var sub in _subscriptions.Values)
-            {
-                if (sub.Listener is { IsAttached: true })
-                    sub.Listener.Remove();
-                sub.Listener = null;
-            }
-
+                RemoveListener(sub);
             _element = element;
         }
 
@@ -237,5 +279,5 @@ public sealed class UiElement
             Attach(sub);
     }
 
-    public override string ToString() => $"UiElement #{Id} ({(IsValid ? "valid" : "detached")})";
+    public override string ToString() => $"UiElement #{Id} ({(_element.IsNull ? "detached" : "attached")})";
 }

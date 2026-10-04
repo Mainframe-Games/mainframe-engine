@@ -158,17 +158,26 @@ public class UiDocument : Node
     public UiElement? GetElementById(string id)
     {
         ArgumentException.ThrowIfNullOrEmpty(id);
-        if (_elements.TryGetValue(id, out var cached))
-            return cached;
         if (!EnsureLoaded())
-            return null;
+            return _elements.GetValueOrDefault(id);
         var element = _document.GetElementById(id);
+        if (_elements.TryGetValue(id, out var cached))
+        {
+            // The DOM may have replaced the element (inner RML, data-for, data-if): follow it, never keep a dangling one.
+            if (element != cached.Element)
+                cached.Rebind(element);
+            return element.IsNull ? null : cached;
+        }
+
         if (element.IsNull)
             return null;
         var wrapper = new UiElement(this, element, id);
         _elements.Add(id, wrapper);
         return wrapper;
     }
+
+    /// <summary>The live element with <paramref name="id"/> in the loaded document (no loading), or a null element.</summary>
+    internal RmlElement FindLive(string id) => IsLoaded ? _document.GetElementById(id) : default;
 
     /// <summary>The first element matching a CSS selector, or null (not cached; prefer ids for subscriptions).</summary>
     public UiElement? QuerySelector(string selector)

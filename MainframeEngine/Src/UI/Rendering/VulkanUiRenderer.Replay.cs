@@ -91,17 +91,36 @@ public sealed unsafe partial class VulkanUiRenderer
     void IOverlayRenderer.RecordOffscreen(CommandBuffer commandBuffer)
     {
         CollectReleases(_ctx.Deletions.CompletedFrame);
-        _listConsumed = true;
-        _hasContent = false;
-        if (!Visible || _commandCount == 0 || IsDisposed)
+        var extent = _ctx.SwapchainExtent;
+
+        // A render without an update in between (frame-rate cap): the list was already replayed and the resources it
+        // references may have been released since, so it is not replayed again — the base layer still holds its
+        // result and is composited as is (unless the swapchain was resized).
+        if (_listConsumed)
         {
+            _hasContent = _hasContent && Visible && !IsDisposed &&
+                          extent.Width == _targetExtent.Width && extent.Height == _targetExtent.Height;
+            return;
+        }
+
+        _hasContent = false;
+        if (_commandCount == 0 || IsDisposed)
+        {
+            _listConsumed = true;
             Stats = new UiRenderStats(_commandCount, 0, 0, _liveGeometry, _liveTextures, _arena.ChunkCount, _layers.Count);
             return;
         }
 
-        var extent = _ctx.SwapchainExtent;
+        // Zero-sized swapchain: nothing can be drawn; the list stays unconsumed (BeginFrame regenerates saved textures).
         if (extent.Width == 0 || extent.Height == 0)
             return;
+
+        // Hidden UI still replays a list that saves layers into textures (box-shadows), or they would stay empty.
+        if (!Visible && !_listHasSavedTargets)
+        {
+            _listConsumed = true;
+            return;
+        }
 
         EnsureTargets(extent, _maxLayerDepth + 1);
         EnsureGradientCapacity(_shaderDraws);
@@ -152,7 +171,8 @@ public sealed unsafe partial class VulkanUiRenderer
 
         EndPass();
         Barrier(); // the overlay pass samples the base layer
-        _hasContent = true;
+        _listConsumed = true;
+        _hasContent = Visible;
         Stats = new UiRenderStats(_commandCount, _drawCalls, _passes, _liveGeometry, _liveTextures, _arena.ChunkCount, _layers.Count);
     }
 

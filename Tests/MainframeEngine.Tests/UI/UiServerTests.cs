@@ -472,6 +472,132 @@ public sealed class UiServerTests
             Assert.NotNull(doc.GetElementById(id));
     }
 
+    // ── Review regressions ───────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GamepadNavigationOverAPassiveHudDoesNotThrow()
+    {
+        // AutoFocus off and nothing focusable: focus stays on the context root, which has no owner document.
+        using var ui = new UiTestTree();
+        var doc = new UiDocument { Name = "Passive", AutoFocus = false, Rml = UiTestTree.Page("<p>HP 100</p>", "class='hud'") };
+        ui.AddLayer(0, doc);
+        ui.Tick();
+
+        Assert.False(UiServer.HasElementFocus(doc.Layer!.Context!.FocusElement));
+        Assert.False(ui.Pad(ButtonName.DPadDown, true));
+        Assert.False(ui.Pad(ButtonName.DPadDown, false));
+        Assert.False(ui.Tree.PushInput(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = new Vector2(0.9f, 0) }));
+        ui.Tick(40); // held stick repeats
+        Assert.False(ui.Tree.PushInput(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = Vector2.Zero }));
+        Assert.False(UiServer.HasElementFocus(default));
+    }
+
+    [Fact]
+    public void CachedElementsFollowTheDomWhenRmlReplacesThem()
+    {
+        using var ui = new UiTestTree();
+        var doc = new UiDocument { Name = "Dom", Rml = UiTestTree.Page("<div id='box'><button id='go'>Go</button></div>") };
+        ui.AddLayer(0, doc);
+        ui.Tick();
+        var go = doc.GetElementById("go")!;
+        var clicks = 0;
+        go.Click += _ => clicks++;
+
+        // Replace the button through inner RML: the old element is destroyed on the next update.
+        doc.GetElementById("box")!.InnerRml = "<button id='go'>Again</button>";
+        ui.Tick();
+        Assert.False(go.Element.IsNull); // (RmlUi may reuse the destroyed element's address for the new one)
+        Assert.Same(go, doc.GetElementById("go"));
+        Assert.Contains("Again", go.InnerRml, StringComparison.Ordinal);
+        go.PerformClick(); // the subscription moved to the new element
+        Assert.Equal(1, clicks);
+
+        // Removed entirely: the wrapper reports invalid instead of dangling.
+        doc.GetElementById("box")!.InnerRml = "<p>gone</p>";
+        ui.Tick();
+        Assert.False(go.IsValid);
+        Assert.True(go.Element.IsNull);
+        Assert.Null(doc.GetElementById("go"));
+        Assert.Throws<InvalidOperationException>(() => go.InnerRml);
+    }
+
+    [Fact]
+    public void FreeingALayerFromItsOwnClickHandlerIsDeferredSafely()
+    {
+        using var ui = new UiTestTree();
+        var doc = new UiDocument { Name = "Menu", Rml = UiTestTree.Page("<button id='close'>Close</button>") };
+        var layer = ui.AddLayer(0, doc);
+        ui.Tick();
+        var context = layer.Context!;
+        doc.GetElementById("close")!.Click += _ => layer.Free(); // destroys the context while it dispatches the click
+        var b = doc.GetElementById("close")!.Bounds;
+
+        ui.Move(b.X + 5, b.Y + 5);
+        ui.Button(MouseButton.Left, true, b.X + 5, b.Y + 5);
+        ui.Button(MouseButton.Left, false, b.X + 5, b.Y + 5); // click → Free inside ProcessMouseButtonUp
+        Assert.False(context.IsDisposed); // still alive until the dispatch returned
+        Assert.Empty(ui.Server.Layers);
+        ui.Tick();
+        Assert.True(context.IsDisposed); // destroyed at the start of the next frame
+    }
+
+    [Fact]
+    public void RemovingADocumentFromItsDataEventIsDeferredSafely()
+    {
+        using var ui = new UiTestTree();
+        var doc = new UiDocument { Name = "Dialog", Rml = UiTestTree.Page("<button id='ok' data-event-click='ok'>OK</button>", "data-model='dialog'") };
+        var layer = ui.AddLayer(0, doc);
+        ui.Tick();
+        var model = doc.CreateDataModel("dialog").Event("ok", () => doc.Free()); // removes its own model mid-event
+        ui.Tick(2);
+        doc.GetElementById("ok")!.PerformClick();
+        Assert.True(model.IsValid); // removal waits for the event to finish
+        ui.Tick();
+        Assert.False(model.IsValid);
+        Assert.Empty(layer.Documents);
+    }
+
+    [Fact]
+    public void ReleaseOfAMousePressTheUiTookStaysWithTheUi()
+    {
+        using var ui = new UiTestTree();
+        var doc = new UiDocument
+        {
+            Name = "Slider",
+            Rml = UiTestTree.Page("<input id='s' type='range' min='0' max='100' value='50' style='display: block; width: 200px; height: 20px; pointer-events: auto;'/>", "style='pointer-events: none;'"),
+        };
+        ui.AddLayer(0, doc);
+        ui.Tick();
+        var s = doc.GetElementById("s")!.Bounds;
+
+        Assert.True(ui.Move(s.X + 100, s.Y + 10));
+        Assert.True(ui.Button(MouseButton.Left, true, s.X + 100, s.Y + 10)); // grab the slider
+        Assert.True(ui.Move(700, 550));                                       // drag out over the world
+        Assert.True(ui.Button(MouseButton.Left, false, 700, 550));            // release there: still the UI's
+        Assert.Empty(ui.Game.Seen);
+        Assert.False(ui.Move(700, 560)); // afterwards the world has the mouse again
+    }
+
+    [Fact]
+    public void LeakedHandlesAreTrackedWeaklyAndReleasedOnTheUiThread()
+    {
+        using var ui = new UiTestTree();
+        using (new RmlContext("warm-up", 10, 10, ui.Server.RenderInterface)) // creates the render interface handle
+        {
+        }
+
+        var before = RmlCore.LiveHandleCount;
+        CreateAndDrop(ui);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        ui.Tick(); // drains the deferred release on this thread
+        Assert.True(RmlCore.LiveHandleCount <= before, $"live handles {RmlCore.LiveHandleCount} > {before}");
+
+        static void CreateAndDrop(UiTestTree tree) =>
+            _ = new RmlContext("leaked", 10, 10, tree.Server.RenderInterface); // never disposed
+    }
+
     [Fact]
     public void EngineCreditsCarryTheFreeTypeCredit()
     {
