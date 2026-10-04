@@ -11,11 +11,13 @@ namespace MainframeEngine;
 
 internal sealed class SpineRenderer : IDisposable
 {
-    private const int MaxVertices = 8192;
-    private readonly float[] _worldVerticesPositions = new float[MaxVertices];
-    private readonly Vertex[] _vertices = new Vertex[MaxVertices];
-    private readonly Vector3[] _shadowPositions = new Vector3[MaxVertices];
+    /// <summary>Initial CPU/GPU vertex capacity; arrays and buffers grow (doubling) when a pose needs more.</summary>
+    internal const int DefaultVertexCapacity = 8192;
+    private float[] _worldVerticesPositions;
+    private Vertex[] _vertices;
+    private Vector3[] _shadowPositions;
     private int _preparedVertexCount;
+    private int _shadowUploadedSlots; // bit per frame slot: shadow positions uploaded since the last BuildVertices
 
     private const int LightsUboSize = LightEnvironment.UboSize;
 
@@ -55,12 +57,13 @@ internal sealed class SpineRenderer : IDisposable
     private DescriptorPool _vkDescPool;
     private DescriptorSet[] _vkUboDescSets = null!;
     private DescriptorSet[] _lightsDescSets = null!;
-    private DescriptorSet[][] _vkTexDescSets = null!; // [imageIdx][texIdx]
+    private DescriptorSet[] _vkTexDescSets = null!; // [texIdx]: static, shared by every frame slot
 
-    // Vulkan — pipeline
+    // Vulkan — pipeline. Sets: 0 VP, 1 lights, 2 shadows (ShadowSystem or the fallback), 3 texture.
+    private const uint TexSetIndex = 3;
     private PipelineLayout _vkPipelineLayout;
     private Pipeline _vkPipeline;
-    private int _texSetIndex; // 2 (no shadows) or 3 (with shadows)
+    private IShadowDescriptors? _shadowDescriptors;
 
     // Per-frame draw batches: (texIdx, vertexStart)
     private readonly List<(int texIdx, int start)> _vkBatches = new();
@@ -91,18 +94,34 @@ internal sealed class SpineRenderer : IDisposable
         public Vector4   WorldNormal; // 16 bytes
     }
 
-    public SpineRenderer(IRenderer renderer, Skeleton skeleton, bool pma, SpineTextureLoader textureLoader, ShadowSystem? shadowSystem = null)
+    public SpineRenderer(IRenderer renderer, Skeleton skeleton, bool pma, SpineTextureLoader textureLoader,
+        ShadowSystem? shadowSystem = null, int initialVertexCapacity = DefaultVertexCapacity)
     {
+        ArgumentNullException.ThrowIfNull(skeleton);
+        ArgumentNullException.ThrowIfNull(textureLoader);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(initialVertexCapacity);
         _skeleton = skeleton;
         _pma = pma;
         _shadowSystem = shadowSystem;
+        _worldVerticesPositions = new float[initialVertexCapacity];
+        _vertices = new Vertex[initialVertexCapacity];
+        _shadowPositions = new Vector3[initialVertexCapacity];
 
         if (renderer is IVulkanContext vkCtx)
         {
             _vkCtx = vkCtx;
             CreateVkResources(vkCtx, textureLoader.VkImageData);
         }
+
+        // The pixels live on the GPU now (or are not needed); keep only the dimensions.
+        textureLoader.ReleasePixelData();
     }
+
+    /// <summary>Vertices built by the last <see cref="BuildVertices"/>.</summary>
+    internal int PreparedVertexCount => _preparedVertexCount;
+
+    /// <summary>Current CPU vertex capacity (grows on demand).</summary>
+    internal int VertexCapacity => _vertices.Length;
 
     /// <summary>
     /// Rebuilds the CPU vertex arrays from the current skeleton pose.
@@ -113,6 +132,7 @@ internal sealed class SpineRenderer : IDisposable
     {
         _modelMatrix = model;
         _vkBatches.Clear();
+        _shadowUploadedSlots = 0;
 
         var vertexIndex = 0;
         var z = 0f;
@@ -134,6 +154,7 @@ internal sealed class SpineRenderer : IDisposable
                 case RegionAttachment region:
                     {
                         int texIdx = ResolveTexIdx(region.Region);
+                        EnsureVertexCapacity(vertexIndex + 6);
                         BeginBatch(texIdx, vertexIndex);
                         region.ComputeWorldVertices(slot, _worldVerticesPositions, 0);
 
@@ -148,7 +169,9 @@ internal sealed class SpineRenderer : IDisposable
 
                 case MeshAttachment mesh:
                     {
-                        if (mesh.WorldVerticesLength > _worldVerticesPositions.Length) continue;
+                        if (mesh.WorldVerticesLength > _worldVerticesPositions.Length)
+                            Array.Resize(ref _worldVerticesPositions, GrowCapacity(_worldVerticesPositions.Length, mesh.WorldVerticesLength));
+                        EnsureVertexCapacity(vertexIndex + mesh.Triangles.Length);
 
                         int texIdx = ResolveTexIdx(mesh.Region);
                         BeginBatch(texIdx, vertexIndex);
@@ -166,11 +189,23 @@ internal sealed class SpineRenderer : IDisposable
             z += zSpacing;
         }
 
+        if (_shadowPositions.Length < _vertices.Length)
+            Array.Resize(ref _shadowPositions, _vertices.Length);
         for (int j = 0; j < vertexIndex; j++)
             _shadowPositions[j] = _vertices[j].Position;
 
         _preparedVertexCount = vertexIndex;
     }
+
+    // Grows the CPU vertex array (doubling) so `required` vertices fit. Steady-state poses never
+    // grow, so this allocates only while a skeleton reaches a new maximum.
+    private void EnsureVertexCapacity(int required)
+    {
+        if (required > _vertices.Length)
+            Array.Resize(ref _vertices, GrowCapacity(_vertices.Length, required));
+    }
+
+    private static int GrowCapacity(int current, int required) => Math.Max(required, current * 2);
 
     /// <summary>
     /// Uploads pre-built vertex data to the GPU and issues main-pass draw commands.
@@ -216,10 +251,10 @@ internal sealed class SpineRenderer : IDisposable
     public unsafe void DrawShadow2D(CommandBuffer cb)
     {
         if (_vkCtx is null || _shadowSystem is null || _preparedVertexCount == 0) return;
-        var imageIdx = (int)_vkCtx.CurrentImageIndex;
+        var imageIdx = _vkCtx.FrameSlot;
 
-        // Upload current-frame shadow positions to the per-image GPU buffer.
-        // This runs before the main pass so the data is always up to date.
+        // Upload this frame's shadow positions to the frame slot's GPU buffer (once per frame:
+        // a buffer already bound by an earlier pass of this frame must not be replaced).
         UploadShadowVertices(imageIdx);
 
         var vk     = _vkCtx.Vk;
@@ -244,7 +279,7 @@ internal sealed class SpineRenderer : IDisposable
     public unsafe void DrawShadowPoint(CommandBuffer cb, Vector3 lightPos, float lightRange)
     {
         if (_vkCtx is null || _shadowSystem is null || _preparedVertexCount == 0) return;
-        var imageIdx = (int)_vkCtx.CurrentImageIndex;
+        var imageIdx = _vkCtx.FrameSlot;
 
         UploadShadowVertices(imageIdx);
 
@@ -268,6 +303,10 @@ internal sealed class SpineRenderer : IDisposable
 
     private unsafe void UploadShadowVertices(int imageIdx)
     {
+        var bit = 1 << imageIdx;
+        if ((_shadowUploadedSlots & bit) != 0) return;
+        _shadowUploadedSlots |= bit;
+
         var shadowRequired = (ulong)(_preparedVertexCount * sizeof(Vector3));
         EnsureShadowVertexBuffer(imageIdx, shadowRequired);
         fixed (Vector3* src = _shadowPositions)
@@ -284,7 +323,7 @@ internal sealed class SpineRenderer : IDisposable
         var vk       = _vkCtx!.Vk;
         var cb       = _vkCtx.CurrentCommandBuffer;
         var extent   = _vkCtx.SwapchainExtent;
-        var imageIdx = (int)_vkCtx.CurrentImageIndex;
+        var imageIdx = _vkCtx.FrameSlot;
 
         // Update VP UBO
         *(VkVpUbo*)(void*)_vkUboMapped[imageIdx] = new VkVpUbo { View = view, Projection = projection };
@@ -321,13 +360,12 @@ internal sealed class SpineRenderer : IDisposable
         var scissor = new Rect2D { Offset = default, Extent = extent };
         vk.CmdSetScissor(cb, 0, 1, &scissor);
 
-        // Bind VP + Lights (and optionally Shadows) descriptor sets
+        // Bind VP + Lights + Shadows (real or fallback) descriptor sets
         var sets = stackalloc DescriptorSet[3];
         sets[0] = _vkUboDescSets[imageIdx];
         sets[1] = _lightsDescSets[imageIdx];
-        uint numSets = 2;
-        if (_shadowSystem is not null) { sets[2] = _shadowSystem.GetMainSet(); numSets = 3; }
-        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _vkPipelineLayout, 0, numSets, sets, 0, null);
+        sets[2] = _shadowDescriptors!.GetMainSet();
+        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _vkPipelineLayout, 0, 3, sets, 0, null);
 
         // Push model matrix + world-space normal
         var push = new PushConstant { Model = _modelMatrix, WorldNormal = new Vector4(worldNormal, 0f) };
@@ -340,9 +378,9 @@ internal sealed class SpineRenderer : IDisposable
             int count = b + 1 < _vkBatches.Count ? _vkBatches[b + 1].start - start : vertexCount - start;
             if (count <= 0) continue;
 
-            var texDs = _vkTexDescSets[imageIdx][texIdx];
+            var texDs = _vkTexDescSets[texIdx];
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _vkPipelineLayout,
-                (uint)_texSetIndex, 1, &texDs, 0, null);
+                TexSetIndex, 1, &texDs, 0, null);
 
             vk.CmdDraw(cb, (uint)count, 1, (uint)start, 0);
         }
@@ -361,7 +399,7 @@ internal sealed class SpineRenderer : IDisposable
         }
 
         _vkVertexCapacity[imageIdx] = Math.Max(required, _vkVertexCapacity[imageIdx] == 0
-            ? (ulong)(MaxVertices * sizeof(Vertex))
+            ? (ulong)(DefaultVertexCapacity * sizeof(Vertex))
             : _vkVertexCapacity[imageIdx] * 2);
         CreateBuffer(_vkVertexCapacity[imageIdx],
             BufferUsageFlags.VertexBufferBit,
@@ -386,7 +424,7 @@ internal sealed class SpineRenderer : IDisposable
         }
 
         _shadowVertexCapacity[imageIdx] = Math.Max(required, _shadowVertexCapacity[imageIdx] == 0
-            ? (ulong)(MaxVertices * sizeof(Vector3))
+            ? (ulong)(DefaultVertexCapacity * sizeof(Vector3))
             : _shadowVertexCapacity[imageIdx] * 2);
         CreateBuffer(_shadowVertexCapacity[imageIdx],
             BufferUsageFlags.VertexBufferBit,
@@ -407,8 +445,10 @@ internal sealed class SpineRenderer : IDisposable
 
     private unsafe void CreateVkResources(IVulkanContext ctx, List<(byte[] Pixels, int Width, int Height)> imageData)
     {
-        var imageCount = (int)ctx.SwapchainImageCount;
+        // Per-frame UBOs/vertex buffers are keyed by IVulkanContext.FrameSlot, never by swapchain image.
+        const int imageCount = IVulkanContext.MaxFramesInFlight;
         var texCount   = imageData.Count;
+        _shadowDescriptors = ShadowFallback.Resolve(_shadowSystem, ctx);
 
         // --- Textures ---
         _vkImages      = new Image[texCount];
@@ -505,14 +545,14 @@ internal sealed class SpineRenderer : IDisposable
         var poolSizes = stackalloc DescriptorPoolSize[]
         {
             new() { Type = DescriptorType.UniformBuffer,        DescriptorCount = (uint)(imageCount * 2) }, // VP + Lights
-            new() { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (uint)(imageCount * texCount) },
+            new() { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (uint)texCount },
         };
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
             PoolSizeCount = 2,
             PPoolSizes = poolSizes,
-            MaxSets = (uint)(imageCount * 2 + imageCount * texCount),
+            MaxSets = (uint)(imageCount * 2 + texCount),
         };
         ctx.Vk.CreateDescriptorPool(ctx.Device, in poolInfo, null, out _vkDescPool);
 
@@ -546,24 +586,23 @@ internal sealed class SpineRenderer : IDisposable
             ctx.Vk.UpdateDescriptorSets(ctx.Device, 1, &write, 0, null);
         }
 
-        // --- Allocate and write Texture descriptor sets [imageIdx][texIdx] ---
-        int totalTexSets = imageCount * texCount;
-        var texLayouts = stackalloc DescriptorSetLayout[totalTexSets];
-        for (int i = 0; i < totalTexSets; i++) texLayouts[i] = _vkTexLayout;
-        var flatTexSets = new DescriptorSet[totalTexSets];
-        var texAlloc = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _vkDescPool, DescriptorSetCount = (uint)totalTexSets, PSetLayouts = texLayouts };
-        fixed (DescriptorSet* ptr = flatTexSets)
-            ctx.Vk.AllocateDescriptorSets(ctx.Device, in texAlloc, ptr);
-
-        _vkTexDescSets = new DescriptorSet[imageCount][];
-        for (int i = 0; i < imageCount; i++)
+        // --- Allocate and write Texture descriptor sets [texIdx] (immutable, shared by all frame slots) ---
+        _vkTexDescSets = new DescriptorSet[texCount];
+        if (texCount > 0)
         {
-            _vkTexDescSets[i] = new DescriptorSet[texCount];
+            var texLayouts = new DescriptorSetLayout[texCount];
+            Array.Fill(texLayouts, _vkTexLayout);
+            fixed (DescriptorSetLayout* layoutsPtr = texLayouts)
+            fixed (DescriptorSet* ptr = _vkTexDescSets)
+            {
+                var texAlloc = new DescriptorSetAllocateInfo { SType = StructureType.DescriptorSetAllocateInfo, DescriptorPool = _vkDescPool, DescriptorSetCount = (uint)texCount, PSetLayouts = layoutsPtr };
+                ctx.Vk.AllocateDescriptorSets(ctx.Device, in texAlloc, ptr).Check("vkAllocateDescriptorSets (Spine textures)");
+            }
+
             for (int t = 0; t < texCount; t++)
             {
-                _vkTexDescSets[i][t] = flatTexSets[i * texCount + t];
                 var imgInfo = new DescriptorImageInfo { Sampler = _vkSampler, ImageView = _vkImageViews[t], ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
-                var write   = new WriteDescriptorSet { SType = StructureType.WriteDescriptorSet, DstSet = _vkTexDescSets[i][t], DstBinding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = &imgInfo };
+                var write   = new WriteDescriptorSet { SType = StructureType.WriteDescriptorSet, DstSet = _vkTexDescSets[t], DstBinding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = &imgInfo };
                 ctx.Vk.UpdateDescriptorSets(ctx.Device, 1, &write, 0, null);
             }
         }
@@ -735,15 +774,14 @@ internal sealed class SpineRenderer : IDisposable
             DepthCompareOp = CompareOp.Less,
         };
 
-        // Pipeline layout: set 0 = VP, set 1 = Lights, [set 2 = Shadows,] set N = Texture
+        // Pipeline layout: set 0 = VP, set 1 = Lights, set 2 = Shadows (or the fallback), set 3 = Texture.
+        // Always the same indices, matching SpineLit.vk.frag whether or not a ShadowSystem exists.
         var setLayouts = stackalloc DescriptorSetLayout[4];
         setLayouts[0] = _vkUboLayout;
         setLayouts[1] = _lightsDescSetLayout;
-        uint numSets = 2;
-        if (_shadowSystem is not null) { setLayouts[2] = _shadowSystem.MainDescSetLayout; numSets = 3; }
-        setLayouts[numSets] = _vkTexLayout;
-        _texSetIndex = (int)numSets;
-        numSets++;
+        setLayouts[2] = _shadowDescriptors!.MainDescSetLayout;
+        setLayouts[TexSetIndex] = _vkTexLayout;
+        const uint numSets = 4;
 
         var pushRange = new PushConstantRange
         {

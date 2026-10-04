@@ -16,6 +16,9 @@ public abstract class ShapeBase : Node3D
 
     protected IVulkanContext? VkCtx { get; private set; }
     protected static ShadowSystem? Shadows => ShadowSystem;
+
+    // Set 2: the game's ShadowSystem, or the renderer's "no shadows" fallback (same layout).
+    private IShadowDescriptors? _shadowDescriptors;
     [StructLayout(LayoutKind.Sequential)]
     protected struct VpUbo
     {
@@ -61,7 +64,9 @@ public abstract class ShapeBase : Node3D
 
         var vk         = ctx.Vk;
         var device     = ctx.Device;
-        var imageCount = ctx.SwapchainImageCount;
+        // Per-frame UBOs and sets, keyed by IVulkanContext.FrameSlot (never by swapchain image).
+        const uint slotCount = IVulkanContext.MaxFramesInFlight;
+        _shadowDescriptors = ShadowFallback.Resolve(Shadows, ctx);
 
         // --- Descriptor set layouts ---
         var vpBinding = new DescriptorSetLayoutBinding
@@ -97,14 +102,14 @@ public abstract class ShapeBase : Node3D
             throw new VulkanException("[Vulkan] LitShape: Failed to create Lights descriptor set layout.");
 
         // --- UBO buffers ---
-        _vpUboBuffers     = new VkBuffer[imageCount];
-        _vpUboMemory      = new DeviceMemory[imageCount];
-        _vpUboMapped      = new nint[imageCount];
-        _lightsUboBuffers = new VkBuffer[imageCount];
-        _lightsUboMemory  = new DeviceMemory[imageCount];
-        _lightsUboMapped  = new nint[imageCount];
+        _vpUboBuffers     = new VkBuffer[slotCount];
+        _vpUboMemory      = new DeviceMemory[slotCount];
+        _vpUboMapped      = new nint[slotCount];
+        _lightsUboBuffers = new VkBuffer[slotCount];
+        _lightsUboMemory  = new DeviceMemory[slotCount];
+        _lightsUboMapped  = new nint[slotCount];
 
-        for (int i = 0; i < imageCount; i++)
+        for (int i = 0; i < slotCount; i++)
         {
             CreateBuffer(ctx, (ulong)sizeof(VpUbo),
                 BufferUsageFlags.UniformBufferBit,
@@ -122,54 +127,54 @@ public abstract class ShapeBase : Node3D
             _lightsUboMapped[i] = (nint)ptr;
         }
 
-        // --- Descriptor pool (VP + Lights, imageCount each) ---
+        // --- Descriptor pool (VP + Lights, slotCount each) ---
         var poolSize = new DescriptorPoolSize
         {
             Type            = DescriptorType.UniformBuffer,
-            DescriptorCount = imageCount * 2,
+            DescriptorCount = slotCount * 2,
         };
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType         = StructureType.DescriptorPoolCreateInfo,
             PoolSizeCount = 1,
             PPoolSizes    = &poolSize,
-            MaxSets       = imageCount * 2,
+            MaxSets       = slotCount * 2,
         };
         if (vk.CreateDescriptorPool(device, in poolInfo, null, out _descPool) != Result.Success)
             throw new VulkanException("[Vulkan] LitShape: Failed to create descriptor pool.");
 
         // --- Allocate VP descriptor sets ---
-        var vpLayouts = stackalloc DescriptorSetLayout[(int)imageCount];
-        for (int i = 0; i < imageCount; i++) vpLayouts[i] = _vpDescSetLayout;
+        var vpLayouts = stackalloc DescriptorSetLayout[(int)slotCount];
+        for (int i = 0; i < slotCount; i++) vpLayouts[i] = _vpDescSetLayout;
         var vpAlloc = new DescriptorSetAllocateInfo
         {
             SType              = StructureType.DescriptorSetAllocateInfo,
             DescriptorPool     = _descPool,
-            DescriptorSetCount = imageCount,
+            DescriptorSetCount = slotCount,
             PSetLayouts        = vpLayouts,
         };
-        _vpDescSets = new DescriptorSet[imageCount];
+        _vpDescSets = new DescriptorSet[slotCount];
         fixed (DescriptorSet* p = _vpDescSets)
             if (vk.AllocateDescriptorSets(device, in vpAlloc, p) != Result.Success)
                 throw new VulkanException("[Vulkan] LitShape: Failed to allocate VP descriptor sets.");
 
         // --- Allocate Lights descriptor sets ---
-        var lightsLayouts = stackalloc DescriptorSetLayout[(int)imageCount];
-        for (int i = 0; i < imageCount; i++) lightsLayouts[i] = _lightsDescSetLayout;
+        var lightsLayouts = stackalloc DescriptorSetLayout[(int)slotCount];
+        for (int i = 0; i < slotCount; i++) lightsLayouts[i] = _lightsDescSetLayout;
         var lightsAlloc = new DescriptorSetAllocateInfo
         {
             SType              = StructureType.DescriptorSetAllocateInfo,
             DescriptorPool     = _descPool,
-            DescriptorSetCount = imageCount,
+            DescriptorSetCount = slotCount,
             PSetLayouts        = lightsLayouts,
         };
-        _lightsDescSets = new DescriptorSet[imageCount];
+        _lightsDescSets = new DescriptorSet[slotCount];
         fixed (DescriptorSet* p = _lightsDescSets)
             if (vk.AllocateDescriptorSets(device, in lightsAlloc, p) != Result.Success)
                 throw new VulkanException("[Vulkan] LitShape: Failed to allocate Lights descriptor sets.");
 
         // --- Write descriptor sets ---
-        for (int i = 0; i < imageCount; i++)
+        for (int i = 0; i < slotCount; i++)
         {
             var vpBuf = new DescriptorBufferInfo
             { Buffer = _vpUboBuffers[i], Offset = 0, Range = (ulong)sizeof(VpUbo) };
@@ -283,12 +288,12 @@ public abstract class ShapeBase : Node3D
                 PDynamicStates    = dynamicStates,
             };
 
-            // Pipeline layout: set=0 (VP), set=1 (Lights), [set=2 (Shadows)], push constants
+            // Pipeline layout: set=0 (VP), set=1 (Lights), set=2 (Shadows or fallback), push constants
             var setLayouts = stackalloc DescriptorSetLayout[3];
             setLayouts[0] = _vpDescSetLayout;
             setLayouts[1] = _lightsDescSetLayout;
-            uint numSetLayouts = 2;
-            if (Shadows is not null) { setLayouts[2] = Shadows.MainDescSetLayout; numSetLayouts = 3; }
+            setLayouts[2] = _shadowDescriptors.MainDescSetLayout;
+            const uint numSetLayouts = 3;
             var pushRange = new PushConstantRange
             {
                 StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit,
@@ -359,14 +364,14 @@ public abstract class ShapeBase : Node3D
         var vk       = VkCtx!.Vk;
         var cb       = VkCtx.CurrentCommandBuffer;
         var extent   = VkCtx.SwapchainExtent;
-        var imageIdx = VkCtx.CurrentImageIndex;
+        var frameSlot = VkCtx.FrameSlot;
 
-        *(VpUbo*)(void*)_vpUboMapped[imageIdx] = new VpUbo
+        *(VpUbo*)(void*)_vpUboMapped[frameSlot] = new VpUbo
         {
             View       = camera.ViewMatrix,
             Projection = camera.ProjectionMatrix,
         };
-        lightEnvironment.WriteUbo(new Span<byte>((void*)_lightsUboMapped[imageIdx], LightsUboSize), camera.Position);
+        lightEnvironment.WriteUbo(new Span<byte>((void*)_lightsUboMapped[frameSlot], LightsUboSize), camera.Position);
 
         var viewport = new Viewport
         {
@@ -384,12 +389,11 @@ public abstract class ShapeBase : Node3D
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
 
         var sets = stackalloc DescriptorSet[3];
-        sets[0] = _vpDescSets[imageIdx];
-        sets[1] = _lightsDescSets[imageIdx];
-        uint numSets = 2;
-        if (Shadows is not null) { sets[2] = Shadows.GetMainSet(); numSets = 3; }
+        sets[0] = _vpDescSets[frameSlot];
+        sets[1] = _lightsDescSets[frameSlot];
+        sets[2] = _shadowDescriptors!.GetMainSet();
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout,
-            0, numSets, sets, 0, null);
+            0, 3, sets, 0, null);
 
         var push = new PushConstant
         {

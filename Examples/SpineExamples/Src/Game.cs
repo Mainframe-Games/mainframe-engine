@@ -146,7 +146,9 @@ internal sealed class Game : Engine
 
     private void SetSpineScale()
     {
-        _spineNode?.FlipX(_inspectorUI.IsFlipped);
+        if (_spineNode is null) return;
+        _spineNode.SpineScale = _inspectorUI.SpineScale;
+        _spineNode.FlipX(_inspectorUI.IsFlipped);
     }
 
     private void UpdateCamera(double delta)

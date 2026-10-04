@@ -97,10 +97,10 @@ public abstract class SceneGrid : IDisposable
         var vk = _vkCtx!.Vk;
         var cb = _vkCtx.CurrentCommandBuffer;
         var extent = _vkCtx.SwapchainExtent;
-        var imageIdx = _vkCtx.CurrentImageIndex;
+        var frameSlot = _vkCtx.FrameSlot;
 
         // Update VP UBO for this image
-        *(VpUbo*)(void*)_vkUboMapped[imageIdx] = new VpUbo
+        *(VpUbo*)(void*)_vkUboMapped[frameSlot] = new VpUbo
         {
             View = camera.ViewMatrix,
             Projection = camera.ProjectionMatrix,
@@ -127,7 +127,7 @@ public abstract class SceneGrid : IDisposable
         var offset = 0ul;
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &offset);
 
-        var descSet = _vkDescriptorSets[imageIdx];
+        var descSet = _vkDescriptorSets[frameSlot];
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _vkPipelineLayout,
             0, 1, &descSet, 0, null);
 
@@ -166,7 +166,7 @@ public abstract class SceneGrid : IDisposable
     {
         var vk = ctx.Vk;
         var device = ctx.Device;
-        var imageCount = ctx.SwapchainImageCount;
+        const uint slotCount = IVulkanContext.MaxFramesInFlight; // per frame slot, never per swapchain image
 
         // --- Descriptor set layout (binding 0 = VP UBO) ---
         var uboBinding = new DescriptorSetLayoutBinding
@@ -185,12 +185,12 @@ public abstract class SceneGrid : IDisposable
         if (vk.CreateDescriptorSetLayout(device, in descLayoutInfo, null, out _vkDescriptorSetLayout) != Result.Success)
             throw new VulkanException("[Vulkan] Failed to create descriptor set layout!");
 
-        // --- UBO buffers (one per swapchain image, persistently mapped) ---
-        _vkUboBuffers = new VkBuffer[imageCount];
-        _vkUboMemory = new DeviceMemory[imageCount];
-        _vkUboMapped = new nint[imageCount];
+        // --- UBO buffers (one per frame slot, persistently mapped) ---
+        _vkUboBuffers = new VkBuffer[slotCount];
+        _vkUboMemory = new DeviceMemory[slotCount];
+        _vkUboMapped = new nint[slotCount];
 
-        for (int i = 0; i < imageCount; i++)
+        for (int i = 0; i < slotCount; i++)
         {
             CreateBuffer(ctx, (ulong)sizeof(VpUbo),
                 BufferUsageFlags.UniformBufferBit,
@@ -206,35 +206,35 @@ public abstract class SceneGrid : IDisposable
         var poolSize = new DescriptorPoolSize
         {
             Type = DescriptorType.UniformBuffer,
-            DescriptorCount = imageCount,
+            DescriptorCount = slotCount,
         };
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
             PoolSizeCount = 1,
             PPoolSizes = &poolSize,
-            MaxSets = imageCount,
+            MaxSets = slotCount,
         };
         if (vk.CreateDescriptorPool(device, in poolInfo, null, out _vkDescriptorPool) != Result.Success)
             throw new VulkanException("[Vulkan] Failed to create descriptor pool!");
 
         // --- Descriptor sets ---
-        var layouts = stackalloc DescriptorSetLayout[(int)imageCount];
-        for (int i = 0; i < imageCount; i++) layouts[i] = _vkDescriptorSetLayout;
+        var layouts = stackalloc DescriptorSetLayout[(int)slotCount];
+        for (int i = 0; i < slotCount; i++) layouts[i] = _vkDescriptorSetLayout;
 
         var dsAllocInfo = new DescriptorSetAllocateInfo
         {
             SType = StructureType.DescriptorSetAllocateInfo,
             DescriptorPool = _vkDescriptorPool,
-            DescriptorSetCount = imageCount,
+            DescriptorSetCount = slotCount,
             PSetLayouts = layouts,
         };
-        _vkDescriptorSets = new DescriptorSet[imageCount];
+        _vkDescriptorSets = new DescriptorSet[slotCount];
         fixed (DescriptorSet* ptr = _vkDescriptorSets)
             if (vk.AllocateDescriptorSets(device, in dsAllocInfo, ptr) != Result.Success)
                 throw new VulkanException("[Vulkan] Failed to allocate descriptor sets!");
 
-        for (int i = 0; i < imageCount; i++)
+        for (int i = 0; i < slotCount; i++)
         {
             var bufferInfo = new DescriptorBufferInfo
             {

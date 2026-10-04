@@ -12,8 +12,14 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Vulkan ImGui renderer. Must be created after the Vulkan renderer is initialized.
-/// Call Update() each frame before game OnImGui, then Render() inside the render pass.
+/// Call Update() each frame before game OnImGui, then Render() inside the render pass — or
+/// DiscardFrame() when no frame is rendered, so every NewFrame is paired with Render/EndFrame.
 /// </summary>
+/// <remarks>
+/// HiDPI: ImGui works in window points (<c>DisplaySize</c>, SDL mouse coordinates) and
+/// <c>DisplayFramebufferScale</c> = framebuffer pixels / points; clip rectangles are scaled to
+/// framebuffer pixels for the scissor.
+/// </remarks>
 internal sealed unsafe class VulkanImGuiController : IDisposable
 {
     private readonly IVulkanContext _ctx;
@@ -35,7 +41,7 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
     private PipelineLayout _pipelineLayout;
     private Pipeline _pipeline;
 
-    // Per-frame vertex/index buffers (one per swapchain image), host-visible + persistently mapped
+    // Per-frame vertex/index buffers (one per frame slot), host-visible + persistently mapped
     private VkBuffer[] _vertexBuffers;
     private DeviceMemory[] _vertexMemory;
     private nint[] _vertexMapped;
@@ -47,6 +53,7 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
     private ulong[] _indexCapacity;
 
     private readonly nint _imguiCtx;
+    private bool _frameBegun; // NewFrame called, Render/EndFrame not yet
 
     // ImDrawVert: vec2 pos (8) + vec2 uv (8) + uint col (4) = 20 bytes
     private const uint VertexSize = 20;
@@ -59,7 +66,7 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         _input = input;
         _window = window;
 
-        var n = (int)ctx.SwapchainImageCount;
+        const int n = IVulkanContext.MaxFramesInFlight;
         _vertexBuffers = new VkBuffer[n];
         _vertexMemory = new DeviceMemory[n];
         _vertexMapped = new nint[n];
@@ -80,7 +87,7 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         CreatePipeline();
         SetupInput();
 
-        io.DisplaySize = new Vector2(_window.Size.X, _window.Size.Y);
+        UpdateDisplayMetrics(io);
         io.DeltaTime = 1f / 60f;
     }
 
@@ -88,18 +95,47 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
     public void Update(float deltaTime)
     {
         ImGui.SetCurrentContext(_imguiCtx);
+
+        // Several updates per render (or a render that never came): close the open frame first.
+        if (_frameBegun)
+            ImGui.EndFrame();
+
         var io = ImGui.GetIO();
-        io.DisplaySize = new Vector2(_window.Size.X, _window.Size.Y);
-        io.DeltaTime = deltaTime;
+        UpdateDisplayMetrics(io);
+        io.DeltaTime = deltaTime > 0f ? deltaTime : 1f / 60f;
         ImGui.NewFrame();
+        _frameBegun = true;
     }
 
     /// <summary>Call inside the render pass, after game OnRender, before EndFrame.</summary>
     public void Render()
     {
+        if (!_frameBegun) return;
+        _frameBegun = false;
+
         ImGui.SetCurrentContext(_imguiCtx);
         ImGui.Render();
         RenderDrawData(ImGui.GetDrawData());
+    }
+
+    /// <summary>Ends the open ImGui frame without drawing (the render frame was skipped).</summary>
+    public void DiscardFrame()
+    {
+        if (!_frameBegun) return;
+        _frameBegun = false;
+
+        ImGui.SetCurrentContext(_imguiCtx);
+        ImGui.EndFrame();
+    }
+
+    private void UpdateDisplayMetrics(ImGuiIOPtr io)
+    {
+        var points = _window.Size;
+        var pixels = WindowPixels.FramebufferSize(_window);
+        io.DisplaySize = new Vector2(Math.Max(points.X, 0), Math.Max(points.Y, 0));
+        io.DisplayFramebufferScale = points.X > 0 && points.Y > 0 && pixels.X > 0 && pixels.Y > 0
+            ? new Vector2((float)pixels.X / points.X, (float)pixels.Y / points.Y)
+            : Vector2.One;
     }
 
     #region Input
@@ -577,7 +613,7 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         var vk = _ctx.Vk;
         var cb = _ctx.CurrentCommandBuffer;
         var extent = _ctx.SwapchainExtent;
-        var imageIdx = (int)_ctx.CurrentImageIndex;
+        var imageIdx = _ctx.FrameSlot;
 
         var totalVtxBytes = (ulong)(drawData.TotalVtxCount * VertexSize);
         var totalIdxBytes = (ulong)(drawData.TotalIdxCount * IndexSize);
@@ -634,6 +670,10 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
         var pushData = stackalloc float[] { scale.X, scale.Y, translate.X, translate.Y };
         vk.CmdPushConstants(cb, _pipelineLayout, ShaderStageFlags.VertexBit, 0, 16, pushData);
 
+        // Clip rectangles are in display points; the scissor is in framebuffer pixels.
+        var clipOffset = drawData.DisplayPos;
+        var clipScale = drawData.FramebufferScale;
+
         // Draw each command list
         var vtxOffset = 0;
         var idxOffset = 0u;
@@ -647,25 +687,21 @@ internal sealed unsafe class VulkanImGuiController : IDisposable
                 // Skip user callbacks
                 if (cmd.UserCallback != 0) continue;
 
-                var clipMin = new Vector2(
-                    cmd.ClipRect.X - drawData.DisplayPos.X,
-                    cmd.ClipRect.Y - drawData.DisplayPos.Y);
-                var clipMax = new Vector2(
-                    cmd.ClipRect.Z - drawData.DisplayPos.X,
-                    cmd.ClipRect.W - drawData.DisplayPos.Y);
+                var clipMin = Vector2.Max(
+                    new Vector2(cmd.ClipRect.X - clipOffset.X, cmd.ClipRect.Y - clipOffset.Y) * clipScale,
+                    Vector2.Zero);
+                var clipMax = Vector2.Min(
+                    new Vector2(cmd.ClipRect.Z - clipOffset.X, cmd.ClipRect.W - clipOffset.Y) * clipScale,
+                    new Vector2(extent.Width, extent.Height));
                 if (clipMax.X <= clipMin.X || clipMax.Y <= clipMin.Y) continue;
 
                 var scissor = new Rect2D
                 {
-                    Offset = new Offset2D
-                    {
-                        X = Math.Max(0, (int)clipMin.X),
-                        Y = Math.Max(0, (int)clipMin.Y),
-                    },
+                    Offset = new Offset2D { X = (int)clipMin.X, Y = (int)clipMin.Y },
                     Extent = new Extent2D
                     {
-                        Width  = (uint)Math.Min(clipMax.X - clipMin.X, extent.Width),
-                        Height = (uint)Math.Min(clipMax.Y - clipMin.Y, extent.Height),
+                        Width  = (uint)(clipMax.X - clipMin.X),
+                        Height = (uint)(clipMax.Y - clipMin.Y),
                     },
                 };
                 vk.CmdSetScissor(cb, 0, 1, &scissor);

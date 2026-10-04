@@ -115,7 +115,7 @@ public class SkyEnvironment : IDisposable
         var vk       = _ctx.Vk;
         var cb       = _ctx.CurrentCommandBuffer;
         var extent   = _ctx.SwapchainExtent;
-        var imageIdx = _ctx.CurrentImageIndex;
+        var frameSlot = _ctx.FrameSlot;
 
         // Build the UBO: inverse projection + rotation-only inverse view.
         Matrix4x4.Invert(camera.ProjectionMatrix, out var invProj);
@@ -123,7 +123,7 @@ public class SkyEnvironment : IDisposable
         viewRot.M41 = viewRot.M42 = viewRot.M43 = 0f; // strip translation
         Matrix4x4.Invert(viewRot, out var invViewRot);
 
-        *(SkyUbo*)(void*)_uboMapped[imageIdx] = new SkyUbo
+        *(SkyUbo*)(void*)_uboMapped[frameSlot] = new SkyUbo
         {
             InvProj           = invProj,
             InvViewRot        = invViewRot,
@@ -155,12 +155,12 @@ public class SkyEnvironment : IDisposable
 
         if (HasTexture)
         {
-            var sets = stackalloc[] { _uboSets[imageIdx], _texSet };
+            var sets = stackalloc[] { _uboSets[frameSlot], _texSet };
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 0, 2, sets, 0, null);
         }
         else
         {
-            var set = _uboSets[imageIdx];
+            var set = _uboSets[frameSlot];
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 0, 1, &set, 0, null);
         }
 
@@ -376,7 +376,7 @@ public class SkyEnvironment : IDisposable
     {
         var vk         = ctx.Vk;
         var device     = ctx.Device;
-        var imageCount = ctx.SwapchainImageCount;
+        const uint slotCount = IVulkanContext.MaxFramesInFlight; // per frame slot, never per swapchain image
 
         // UBO descriptor set layout (set = 0)
         var uboBinding = new DescriptorSetLayoutBinding
@@ -415,11 +415,11 @@ public class SkyEnvironment : IDisposable
                 throw new VulkanException("[SkyEnvironment] Failed to create texture descriptor set layout!");
         }
 
-        // UBO buffers (one per swapchain image)
-        _uboBuffers = new VkBuffer[imageCount];
-        _uboMemory  = new DeviceMemory[imageCount];
-        _uboMapped  = new nint[imageCount];
-        for (int i = 0; i < imageCount; i++)
+        // UBO buffers (one per frame slot)
+        _uboBuffers = new VkBuffer[slotCount];
+        _uboMemory  = new DeviceMemory[slotCount];
+        _uboMapped  = new nint[slotCount];
+        for (int i = 0; i < slotCount; i++)
         {
             CreateBuffer(ctx, (ulong)sizeof(SkyUbo),
                 BufferUsageFlags.UniformBufferBit,
@@ -435,7 +435,7 @@ public class SkyEnvironment : IDisposable
         {
             var ps = stackalloc[]
             {
-                new DescriptorPoolSize { Type = DescriptorType.UniformBuffer,       DescriptorCount = imageCount },
+                new DescriptorPoolSize { Type = DescriptorType.UniformBuffer,       DescriptorCount = slotCount },
                 new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 },
             };
             var pi = new DescriptorPoolCreateInfo
@@ -443,41 +443,41 @@ public class SkyEnvironment : IDisposable
                 SType = StructureType.DescriptorPoolCreateInfo,
                 PoolSizeCount = 2,
                 PPoolSizes = ps,
-                MaxSets = imageCount + 1,
+                MaxSets = slotCount + 1,
             };
             if (vk.CreateDescriptorPool(device, in pi, null, out _descPool) != Result.Success)
                 throw new VulkanException("[SkyEnvironment] Failed to create descriptor pool!");
         }
         else
         {
-            var ps = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = imageCount };
+            var ps = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = slotCount };
             var pi = new DescriptorPoolCreateInfo
             {
                 SType = StructureType.DescriptorPoolCreateInfo,
                 PoolSizeCount = 1,
                 PPoolSizes = &ps,
-                MaxSets = imageCount,
+                MaxSets = slotCount,
             };
             if (vk.CreateDescriptorPool(device, in pi, null, out _descPool) != Result.Success)
                 throw new VulkanException("[SkyEnvironment] Failed to create descriptor pool!");
         }
 
         // Allocate and write UBO descriptor sets
-        var uboLayouts = stackalloc DescriptorSetLayout[(int)imageCount];
-        for (int i = 0; i < imageCount; i++) uboLayouts[i] = _uboSetLayout;
+        var uboLayouts = stackalloc DescriptorSetLayout[(int)slotCount];
+        for (int i = 0; i < slotCount; i++) uboLayouts[i] = _uboSetLayout;
         var uboAlloc = new DescriptorSetAllocateInfo
         {
             SType              = StructureType.DescriptorSetAllocateInfo,
             DescriptorPool     = _descPool,
-            DescriptorSetCount = imageCount,
+            DescriptorSetCount = slotCount,
             PSetLayouts        = uboLayouts,
         };
-        _uboSets = new DescriptorSet[imageCount];
+        _uboSets = new DescriptorSet[slotCount];
         fixed (DescriptorSet* p = _uboSets)
             if (vk.AllocateDescriptorSets(device, in uboAlloc, p) != Result.Success)
                 throw new VulkanException("[SkyEnvironment] Failed to allocate UBO descriptor sets!");
 
-        for (int i = 0; i < imageCount; i++)
+        for (int i = 0; i < slotCount; i++)
         {
             var bufInfo = new DescriptorBufferInfo
             { Buffer = _uboBuffers[i], Offset = 0, Range = (ulong)sizeof(SkyUbo) };

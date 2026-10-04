@@ -20,9 +20,18 @@ public struct EngineOptions()
 
     /// <summary>
     /// Enables the Khronos validation layers when they are installed. Messages are counted by
-    /// <see cref="IVulkanContext.Validation"/>.
+    /// <see cref="IVulkanContext.Validation"/>. Defaults to on in Debug builds of the engine and off in
+    /// Release; set it explicitly to override (render tests force it on).
     /// </summary>
-    public bool EnableValidation = true;
+    public bool EnableValidation = DefaultEnableValidation;
+
+    /// <summary>Validation default for this engine build: true in Debug, false in Release.</summary>
+    public const bool DefaultEnableValidation =
+#if DEBUG
+        true;
+#else
+        false;
+#endif
 
     /// <summary>
     /// Allows <see cref="Engine.CaptureFrame"/>. The swapchain gains transfer-source usage, which some
@@ -48,6 +57,7 @@ public abstract class Engine : IDisposable
     private VulkanImGuiController? _vkImGuiController;
 
     private ExitCode _exitCode;
+    private bool _waitingForRestore; // IsEventDriven was switched on while minimised
     private GameTime _gameTime;
     private readonly FPSCounter _fps = new();
     private int _renderedFrames;
@@ -185,6 +195,25 @@ public abstract class Engine : IDisposable
 
     private void OnRender(double delta)
     {
+        // Minimised (or no drawable area): render nothing and block on window events instead of
+        // spinning the loop; the frame's ImGui NewFrame is closed so frames stay paired.
+        if (IsMinimised())
+        {
+            _vkImGuiController?.DiscardFrame();
+            if (!Window.IsEventDriven)
+            {
+                Window.IsEventDriven = true;
+                _waitingForRestore = true;
+            }
+            return;
+        }
+
+        if (_waitingForRestore)
+        {
+            Window.IsEventDriven = false;
+            _waitingForRestore = false;
+        }
+
         Renderer.BeginFrame();
 
         // For Vulkan, BeginFrame can return early without starting a frame (swapchain recreation
@@ -200,6 +229,10 @@ public abstract class Engine : IDisposable
 
             OnRenderMainPass(_gameTime);
             _vkImGuiController?.Render(); // inside the render pass, before EndFrame
+        }
+        else
+        {
+            _vkImGuiController?.DiscardFrame();
         }
 
         Renderer.EndFrame();
@@ -240,12 +273,21 @@ public abstract class Engine : IDisposable
     protected abstract void OnShadowPass(in GameTime gameTime);
     protected abstract void OnRenderMainPass(in GameTime gameTime);
 
+    private bool IsMinimised()
+    {
+        if (Window.WindowState == WindowState.Minimized)
+            return true;
+        var size = FramebufferSize;
+        return size.X <= 0 || size.Y <= 0;
+    }
+
+    /// <summary>Disposes ImGui, input and the renderer. Call <c>base.OnClose()</c> last. Keeps the exit code set by <see cref="Quit"/>.</summary>
     protected virtual void OnClose()
     {
-        _exitCode = 0;
         _vkImGuiController?.Dispose();
-        InputContext.Dispose();
-        Renderer.Dispose();
+        _vkImGuiController = null;
+        InputContext?.Dispose();
+        Renderer?.Dispose();
     }
 
     public ExitCode Run()
