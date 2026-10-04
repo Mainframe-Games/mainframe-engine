@@ -4,7 +4,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M5 (scaffold+replication),M7,natives,ci-fix; publish.yml + release/NuGet docs written. Running: `lane/m3b`, `lane/m6`, `lane/m8`, `lane/m9`, `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
+- **Current wave:** W3/W4 — integrated: M0,M1,M2,M3a,M5 (scaffold+replication),M6,M7,natives,ci-fix; publish.yml + release/NuGet docs written. Done, awaiting integration: `lane/sky-fix`, `lane/m3b`, `lane/m8`. Running: `lane/m9`, `lane/sky-fix` (MoltenVK vs lavapipe sky-ground discrepancy + lavapipe goldens).
 - **Next action:** integrate finished lanes (rebase onto feature, run gates); then M4 (after m3b), M9 (after m8), M10 (after all); publish.yml; distribution-nuget.md; final QA.
 - **Open blockers:** none
 
@@ -100,3 +100,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-05 — Lane M7 audio (integrated)
 - AudioServer (SoundFlow 1.4.1, null-device fallback), buses (.mres layout), lock-free command ring, AudioPlayer/2D/3D/Listener3D, WAV/OGG(NVorbis)/MP3/FLAC, engine panning (no SurroundPlayer — ADR 0031), own allocation-free reverb, `--qa-audio` verified on MacBook speakers. ADRs 0030–0035. Review findings fixed.
 - Gates after integration: unit 539 (+1 skip), render 14, format clean.
+
+### 2026-10-05 — Lane M6 physics (integrated via integrate/m6)
+- Jitter2 3D + Box2D.NET 2D servers, bodies/shapes, layers (Godot rule, ADR 0021), queued signals, queries, MoveAndSlide, interpolation (ADR 0024), debug lines (rebuilt on shared set 0/allocator during integration), opt-in `Deterministic`. ADRs 0020–0025.
+- Flakes fixed at root: in-process transports used shared ArrayPool (cross-test theft) → private pool; sandbox alloc gate JIT tiering → host runs `DOTNET_TieredCompilation=0`.
+- Gates: unit 615 (+1 skip) ×8 runs, render 17 ×3, 0 validation, 0 B, 121 fps.
+- **TODO:** `just bench` prints "No regressions" when nothing ran (duplicate projects under .claude/worktrees confuse BenchmarkDotNet) → must fail when 0 benchmarks ran + exclude worktrees. Physics bodies not replicated yet (documented).
+- Lanes done awaiting integration: sky-fix (grid line clipping in shader — lavapipe mis-rasterized huge off-screen lines; ground colour recalibrated; lavapipe+moltenvk goldens re-recorded; CI run 37222465099 green), m3b (meshes/materials/textures/MeshInstance3D, Box3d/Quad removed with RemovedNodeTypes upgrade, Assimp, picking, SubViewport; ADRs 0013–0019), m8 (RmlUi binding/renderer/UiServer/widgets/HUD; ADRs 0050–0053).
