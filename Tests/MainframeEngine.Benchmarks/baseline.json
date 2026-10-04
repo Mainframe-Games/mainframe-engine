@@ -69,6 +69,21 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "MeshDrawListBenchmarks.BuildAndSortOpaque10k",
+      "MeanNs": 140374.824,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "MeshDrawListBenchmarks.BuildAndSortTransparent10k",
+      "MeanNs": 143030.114,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "MeshDrawListBenchmarks.WriteInstances10k",
+      "MeanNs": 51526.232,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "MessageBenchmarks.DecodeAndDispatchSnapshot",
       "MeanNs": 10.551,
       "AllocatedBytes": 0
