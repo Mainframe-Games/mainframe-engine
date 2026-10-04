@@ -1,6 +1,7 @@
 <rml>
 <head>
     <title>Connect Signal</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>

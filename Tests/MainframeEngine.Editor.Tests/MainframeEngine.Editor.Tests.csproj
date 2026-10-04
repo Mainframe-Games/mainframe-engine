@@ -27,4 +27,14 @@
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <!--
+    Code reload tests compile game assemblies with Roslyn and the engine's generator (like the engine's
+    GameAssemblyLoaderTests): the generator and Roslyn as ordinary test-only references, aliased.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
+                      SetTargetFramework="TargetFramework=netstandard2.0" Aliases="generators" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
 </Project>

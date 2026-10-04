@@ -171,6 +171,37 @@
     i-arrows-up-down: 22px 202px 16px 16px;
     i-circle-check: 42px 202px 16px 16px;
     i-external-link: 62px 202px 16px 16px;
+    i-alert-octagon: 82px 202px 16px 16px;
+    i-antenna-bars-5: 102px 202px 16px 16px;
+    i-app-window: 122px 202px 16px 16px;
+    i-arrow-forward: 142px 202px 16px 16px;
+    i-brightness-half: 162px 202px 16px 16px;
+    i-browser: 182px 202px 16px 16px;
+    i-check: 202px 202px 16px 16px;
+    i-circle-x: 222px 202px 16px 16px;
+    i-file-info: 242px 202px 16px 16px;
+    i-folder-code: 262px 202px 16px 16px;
+    i-folder-plus: 282px 202px 16px 16px;
+    i-folder-x: 302px 202px 16px 16px;
+    i-folders: 2px 222px 16px 16px;
+    i-hammer: 22px 222px 16px 16px;
+    i-headphones: 42px 222px 16px 16px;
+    i-keyboard-show: 62px 222px 16px 16px;
+    i-layout-grid: 82px 222px 16px 16px;
+    i-list-tree: 102px 222px 16px 16px;
+    i-loader-2: 122px 222px 16px 16px;
+    i-math-function: 142px 222px 16px 16px;
+    i-minus: 162px 222px 16px 16px;
+    i-mouse: 182px 222px 16px 16px;
+    i-player-skip-forward: 202px 222px 16px 16px;
+    i-player-track-next: 222px 222px 16px 16px;
+    i-plug: 242px 222px 16px 16px;
+    i-plug-connected: 262px 222px 16px 16px;
+    i-plug-x: 282px 222px 16px 16px;
+    i-reload: 302px 222px 16px 16px;
+    i-square-plus: 2px 242px 16px 16px;
+    i-trash-x: 22px 242px 16px 16px;
+    i-volume-off: 42px 242px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -339,6 +370,37 @@
     l-arrows-up-down: 33px 303px 24px 24px;
     l-circle-check: 63px 303px 24px 24px;
     l-external-link: 93px 303px 24px 24px;
+    l-alert-octagon: 123px 303px 24px 24px;
+    l-antenna-bars-5: 153px 303px 24px 24px;
+    l-app-window: 183px 303px 24px 24px;
+    l-arrow-forward: 213px 303px 24px 24px;
+    l-brightness-half: 243px 303px 24px 24px;
+    l-browser: 273px 303px 24px 24px;
+    l-check: 303px 303px 24px 24px;
+    l-circle-x: 333px 303px 24px 24px;
+    l-file-info: 363px 303px 24px 24px;
+    l-folder-code: 393px 303px 24px 24px;
+    l-folder-plus: 423px 303px 24px 24px;
+    l-folder-x: 453px 303px 24px 24px;
+    l-folders: 3px 333px 24px 24px;
+    l-hammer: 33px 333px 24px 24px;
+    l-headphones: 63px 333px 24px 24px;
+    l-keyboard-show: 93px 333px 24px 24px;
+    l-layout-grid: 123px 333px 24px 24px;
+    l-list-tree: 153px 333px 24px 24px;
+    l-loader-2: 183px 333px 24px 24px;
+    l-math-function: 213px 333px 24px 24px;
+    l-minus: 243px 333px 24px 24px;
+    l-mouse: 273px 333px 24px 24px;
+    l-player-skip-forward: 303px 333px 24px 24px;
+    l-player-track-next: 333px 333px 24px 24px;
+    l-plug: 363px 333px 24px 24px;
+    l-plug-connected: 393px 333px 24px 24px;
+    l-plug-x: 423px 333px 24px 24px;
+    l-reload: 453px 333px 24px 24px;
+    l-square-plus: 3px 363px 24px 24px;
+    l-trash-x: 33px 363px 24px 24px;
+    l-volume-off: 63px 363px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -510,6 +572,37 @@
         i-arrows-up-down: 44px 404px 32px 32px;
         i-circle-check: 84px 404px 32px 32px;
         i-external-link: 124px 404px 32px 32px;
+        i-alert-octagon: 164px 404px 32px 32px;
+        i-antenna-bars-5: 204px 404px 32px 32px;
+        i-app-window: 244px 404px 32px 32px;
+        i-arrow-forward: 284px 404px 32px 32px;
+        i-brightness-half: 324px 404px 32px 32px;
+        i-browser: 364px 404px 32px 32px;
+        i-check: 404px 404px 32px 32px;
+        i-circle-x: 444px 404px 32px 32px;
+        i-file-info: 484px 404px 32px 32px;
+        i-folder-code: 524px 404px 32px 32px;
+        i-folder-plus: 564px 404px 32px 32px;
+        i-folder-x: 604px 404px 32px 32px;
+        i-folders: 4px 444px 32px 32px;
+        i-hammer: 44px 444px 32px 32px;
+        i-headphones: 84px 444px 32px 32px;
+        i-keyboard-show: 124px 444px 32px 32px;
+        i-layout-grid: 164px 444px 32px 32px;
+        i-list-tree: 204px 444px 32px 32px;
+        i-loader-2: 244px 444px 32px 32px;
+        i-math-function: 284px 444px 32px 32px;
+        i-minus: 324px 444px 32px 32px;
+        i-mouse: 364px 444px 32px 32px;
+        i-player-skip-forward: 404px 444px 32px 32px;
+        i-player-track-next: 444px 444px 32px 32px;
+        i-plug: 484px 444px 32px 32px;
+        i-plug-connected: 524px 444px 32px 32px;
+        i-plug-x: 564px 444px 32px 32px;
+        i-reload: 604px 444px 32px 32px;
+        i-square-plus: 4px 484px 32px 32px;
+        i-trash-x: 44px 484px 32px 32px;
+        i-volume-off: 84px 484px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -678,6 +771,37 @@
         l-arrows-up-down: 66px 606px 48px 48px;
         l-circle-check: 126px 606px 48px 48px;
         l-external-link: 186px 606px 48px 48px;
+        l-alert-octagon: 246px 606px 48px 48px;
+        l-antenna-bars-5: 306px 606px 48px 48px;
+        l-app-window: 366px 606px 48px 48px;
+        l-arrow-forward: 426px 606px 48px 48px;
+        l-brightness-half: 486px 606px 48px 48px;
+        l-browser: 546px 606px 48px 48px;
+        l-check: 606px 606px 48px 48px;
+        l-circle-x: 666px 606px 48px 48px;
+        l-file-info: 726px 606px 48px 48px;
+        l-folder-code: 786px 606px 48px 48px;
+        l-folder-plus: 846px 606px 48px 48px;
+        l-folder-x: 906px 606px 48px 48px;
+        l-folders: 6px 666px 48px 48px;
+        l-hammer: 66px 666px 48px 48px;
+        l-headphones: 126px 666px 48px 48px;
+        l-keyboard-show: 186px 666px 48px 48px;
+        l-layout-grid: 246px 666px 48px 48px;
+        l-list-tree: 306px 666px 48px 48px;
+        l-loader-2: 366px 666px 48px 48px;
+        l-math-function: 426px 666px 48px 48px;
+        l-minus: 486px 666px 48px 48px;
+        l-mouse: 546px 666px 48px 48px;
+        l-player-skip-forward: 606px 666px 48px 48px;
+        l-player-track-next: 666px 666px 48px 48px;
+        l-plug: 726px 666px 48px 48px;
+        l-plug-connected: 786px 666px 48px 48px;
+        l-plug-x: 846px 666px 48px 48px;
+        l-reload: 906px 666px 48px 48px;
+        l-square-plus: 6px 726px 48px 48px;
+        l-trash-x: 66px 726px 48px 48px;
+        l-volume-off: 126px 726px 48px 48px;
     }
 }
 
@@ -845,6 +969,37 @@
 .icon-arrows-up-down { decorator: image(i-arrows-up-down); }
 .icon-circle-check { decorator: image(i-circle-check); }
 .icon-external-link { decorator: image(i-external-link); }
+.icon-alert-octagon { decorator: image(i-alert-octagon); }
+.icon-antenna-bars-5 { decorator: image(i-antenna-bars-5); }
+.icon-app-window { decorator: image(i-app-window); }
+.icon-arrow-forward { decorator: image(i-arrow-forward); }
+.icon-brightness-half { decorator: image(i-brightness-half); }
+.icon-browser { decorator: image(i-browser); }
+.icon-check { decorator: image(i-check); }
+.icon-circle-x { decorator: image(i-circle-x); }
+.icon-file-info { decorator: image(i-file-info); }
+.icon-folder-code { decorator: image(i-folder-code); }
+.icon-folder-plus { decorator: image(i-folder-plus); }
+.icon-folder-x { decorator: image(i-folder-x); }
+.icon-folders { decorator: image(i-folders); }
+.icon-hammer { decorator: image(i-hammer); }
+.icon-headphones { decorator: image(i-headphones); }
+.icon-keyboard-show { decorator: image(i-keyboard-show); }
+.icon-layout-grid { decorator: image(i-layout-grid); }
+.icon-list-tree { decorator: image(i-list-tree); }
+.icon-loader-2 { decorator: image(i-loader-2); }
+.icon-math-function { decorator: image(i-math-function); }
+.icon-minus { decorator: image(i-minus); }
+.icon-mouse { decorator: image(i-mouse); }
+.icon-player-skip-forward { decorator: image(i-player-skip-forward); }
+.icon-player-track-next { decorator: image(i-player-track-next); }
+.icon-plug { decorator: image(i-plug); }
+.icon-plug-connected { decorator: image(i-plug-connected); }
+.icon-plug-x { decorator: image(i-plug-x); }
+.icon-reload { decorator: image(i-reload); }
+.icon-square-plus { decorator: image(i-square-plus); }
+.icon-trash-x { decorator: image(i-trash-x); }
+.icon-volume-off { decorator: image(i-volume-off); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1010,3 +1165,34 @@
 .icon-lg.icon-arrows-up-down { decorator: image(l-arrows-up-down); }
 .icon-lg.icon-circle-check { decorator: image(l-circle-check); }
 .icon-lg.icon-external-link { decorator: image(l-external-link); }
+.icon-lg.icon-alert-octagon { decorator: image(l-alert-octagon); }
+.icon-lg.icon-antenna-bars-5 { decorator: image(l-antenna-bars-5); }
+.icon-lg.icon-app-window { decorator: image(l-app-window); }
+.icon-lg.icon-arrow-forward { decorator: image(l-arrow-forward); }
+.icon-lg.icon-brightness-half { decorator: image(l-brightness-half); }
+.icon-lg.icon-browser { decorator: image(l-browser); }
+.icon-lg.icon-check { decorator: image(l-check); }
+.icon-lg.icon-circle-x { decorator: image(l-circle-x); }
+.icon-lg.icon-file-info { decorator: image(l-file-info); }
+.icon-lg.icon-folder-code { decorator: image(l-folder-code); }
+.icon-lg.icon-folder-plus { decorator: image(l-folder-plus); }
+.icon-lg.icon-folder-x { decorator: image(l-folder-x); }
+.icon-lg.icon-folders { decorator: image(l-folders); }
+.icon-lg.icon-hammer { decorator: image(l-hammer); }
+.icon-lg.icon-headphones { decorator: image(l-headphones); }
+.icon-lg.icon-keyboard-show { decorator: image(l-keyboard-show); }
+.icon-lg.icon-layout-grid { decorator: image(l-layout-grid); }
+.icon-lg.icon-list-tree { decorator: image(l-list-tree); }
+.icon-lg.icon-loader-2 { decorator: image(l-loader-2); }
+.icon-lg.icon-math-function { decorator: image(l-math-function); }
+.icon-lg.icon-minus { decorator: image(l-minus); }
+.icon-lg.icon-mouse { decorator: image(l-mouse); }
+.icon-lg.icon-player-skip-forward { decorator: image(l-player-skip-forward); }
+.icon-lg.icon-player-track-next { decorator: image(l-player-track-next); }
+.icon-lg.icon-plug { decorator: image(l-plug); }
+.icon-lg.icon-plug-connected { decorator: image(l-plug-connected); }
+.icon-lg.icon-plug-x { decorator: image(l-plug-x); }
+.icon-lg.icon-reload { decorator: image(l-reload); }
+.icon-lg.icon-square-plus { decorator: image(l-square-plus); }
+.icon-lg.icon-trash-x { decorator: image(l-trash-x); }
+.icon-lg.icon-volume-off { decorator: image(l-volume-off); }

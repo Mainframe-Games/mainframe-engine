@@ -176,12 +176,17 @@ public sealed unsafe partial class VulkanUiRenderer
             Resolve(flags, target.Description.ColorAttachments[colorAttachment].Format)));
     }
 
-    /// <summary>Removes an engine texture; documents using it stop drawing it.</summary>
+    /// <summary>
+    /// Removes an engine texture; documents using it stop drawing it. RmlUi caches textures by source, so its textures
+    /// are released too: a texture registered later under the same name is loaded again instead of the cached one.
+    /// </summary>
     public bool UnregisterTexture(string name)
     {
         if (!_engineTextures.Remove(name, out var existing))
             return false;
         existing.IsRegistered = false;
+        if (RmlCore.IsInitialised)
+            RmlCore.ReleaseTextures(this);
         return true;
     }
 

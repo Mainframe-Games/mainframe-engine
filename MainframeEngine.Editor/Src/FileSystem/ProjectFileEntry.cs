@@ -17,7 +17,8 @@ public sealed class ProjectFileEntry
         Name = Path.GetFileName(fullPath);
         Extension = isDirectory ? "" : Path.GetExtension(fullPath);
         Kind = FileKinds.Of(fullPath, isDirectory);
-        Icon = isDirectory ? "folder" : EditorIcons.ForFile(fullPath);
+        Icon = EditorIcons.ForFile(fullPath, isDirectory);
+        Family = EditorIcons.FileFamily(fullPath, isDirectory);
     }
 
     /// <summary>Absolute path.</summary>

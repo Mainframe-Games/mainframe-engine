@@ -124,7 +124,19 @@ public sealed class ProjectService : IDisposable
             return;
         }
 
-        LoadGameAssembly();
+        if (!LoadGameAssembly())
+        {
+            // Typically a build made against another engine version: rebuild it once, then load.
+            Log.Info($"[Project] Rebuilding {Path.GetFileName(GameLibraryProject)}.");
+            Build(GameLibraryProject, result =>
+            {
+                if (result.Succeeded)
+                    LoadGameAssembly();
+                onReady?.Invoke();
+            });
+            return;
+        }
+
         NeedsRebuild = SourcesNewerThan(output);
         if (NeedsRebuild)
             Log.Info("[Project] The game's sources changed since its last build: Build & Reload to use them.");
@@ -254,7 +266,9 @@ public sealed class ProjectService : IDisposable
         CustomInspectors.Reset();
         _workspace.ReleaseEditorReferences();
         LastUnloadCollected = UnloadForReload(loader);
-        var loaded = LoadAfterUnload(dll);
+        if (LastUnloadCollected == false)
+            ReportLeak(loader);
+        var loaded = LoadAfterUnload(loader, dll);
         ResumeScenes(snapshots);
         LastReloadDuration = stopwatch.Elapsed;
         ReloadCount++;
@@ -296,14 +310,28 @@ public sealed class ProjectService : IDisposable
     private int _activeIndex = -1;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool UnloadForReload(GameAssemblyLoader loader) => loader.Unload(TimeSpan.FromSeconds(5));
+    private static bool UnloadForReload(GameAssemblyLoader loader) => loader.Unload(TimeSpan.FromSeconds(2));
+
+    // Names what keeps the unloaded assembly alive (a reference path from the editor), so it can be fixed.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ReportLeak(GameAssemblyLoader loader)
+    {
+        if (loader.LastUnloadedContext?.Target is not System.Runtime.Loader.AssemblyLoadContext context)
+            return;
+        var assembly = context.Assemblies.FirstOrDefault();
+        if (assembly is null)
+            return;
+        var path = ReferencePathFinder.PathTo(assembly, _workspace, _workspace.Tree?.Root ?? (object)_workspace);
+        Log.Warning($"[Project] The previous game code is still referenced{(path is null ? " (from outside the editor's objects)" : $": {path}")}.");
+    }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private bool LoadAfterUnload(string dll)
+    private bool LoadAfterUnload(GameAssemblyLoader previous, string dll)
     {
         try
         {
-            _loader = new GameAssemblyLoader(dll);
+            // The same build output keeps its loader (generations count the reloads); a moved output gets a new one.
+            _loader = string.Equals(previous.AssemblyPath, Path.GetFullPath(dll), StringComparison.Ordinal) ? previous : new GameAssemblyLoader(dll);
             _loader.Load();
             RememberLoaded(dll);
             CustomInspectors.Reset();

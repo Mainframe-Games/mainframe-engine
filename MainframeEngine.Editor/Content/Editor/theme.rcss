@@ -198,6 +198,8 @@ scrollbarhorizontal sliderarrowdec, scrollbarhorizontal sliderarrowinc { width: 
 
 .icon-sm { width: 14dp; height: 14dp; }
 .icon-lg { width: 24dp; height: 24dp; }
+/* .icon sets display after the generic .hidden: hidden icons need their own rule. */
+.icon.hidden { display: none; }
 
 .icon-3d { image-color: #fc7f7f; }
 .icon-2d { image-color: #8da5f3; }

@@ -195,11 +195,11 @@ public sealed class ToolbarPanel : EditorDocument
         Workspace.Popup.Show(
         [
             MenuItem.Header($"{instance.Label} #{instance.Number} · {instance.State}"),
-            new MenuItem(paused ? "Resume" : "Pause", "pause", null, instance.IsAlive && instance.HasConnected),
-            new MenuItem("Reload Scene", "reload", null, instance.IsAlive && instance.HasConnected),
-            new MenuItem("Stop", "stop", null, instance.IsAlive),
+            new MenuItem(paused ? "Resume" : "Pause", "pause", null, instance.IsAlive && instance.HasConnected, Icon: paused ? "player-play" : "player-pause"),
+            new MenuItem("Reload Scene", "reload", null, instance.IsAlive && instance.HasConnected, Icon: "refresh"),
+            new MenuItem("Stop", "stop", null, instance.IsAlive, Icon: "player-stop"),
             MenuItem.Separator,
-            new MenuItem("Clear Finished", "clear", null, service.Instances.Any(i => !i.IsAlive)),
+            new MenuItem("Clear Finished", "clear", null, service.Instances.Any(i => !i.IsAlive), Icon: "trash-x"),
         ], x, y, command =>
         {
             switch (command)

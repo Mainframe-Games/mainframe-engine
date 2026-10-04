@@ -440,7 +440,7 @@ public sealed class IconLintTests : IDisposable
     [Fact]
     public void EveryMenuItemHasAnIcon()
     {
-        foreach (var menu in new[] { "file", "edit", "view", "help" })
+        foreach (var menu in new[] { "file", "edit", "view", "project", "run", "help" })
             foreach (var item in W.Commands.MenuItems(menu).Where(i => !i.IsSeparator && !i.IsHeader))
             {
                 Assert.False(string.IsNullOrEmpty(item.Icon), $"{menu} › {item.Label} has no icon");

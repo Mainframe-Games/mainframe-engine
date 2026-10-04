@@ -11,7 +11,7 @@ public sealed class HeadlessEditor : IDisposable
     private readonly List<string> _rmlMessages = [];
     private readonly RmlMessageSink _rmlSink;
 
-    public HeadlessEditor(string? initialScene = null)
+    public HeadlessEditor(string? initialScene = null, Func<EditorWorkspaceOptions, EditorWorkspaceOptions>? configure = null)
     {
         Directory = System.IO.Directory.CreateTempSubdirectory("mf-editor-ui").FullName;
         _rmlSink = new RmlMessageSink(_rmlMessages);
@@ -19,13 +19,14 @@ public sealed class HeadlessEditor : IDisposable
         Server = new UiServer(options: new UiServerOptions { HotReload = false, HeadlessViewport = new Vector2(1600, 900) });
         Servers.Register(Server);
         Tree = new SceneTree(Servers) { EditMode = true };
-        Workspace = new EditorWorkspace(Host, new EditorWorkspaceOptions
+        var options = new EditorWorkspaceOptions
         {
             LayoutPath = Path.Combine(Directory, "layout.json"),
             InitialScene = initialScene,
             ShowSplash = false,
             RecoveryDirectory = Path.Combine(Directory, "recovery"),
-        });
+        };
+        Workspace = new EditorWorkspace(Host, configure?.Invoke(options) ?? options);
         Tree.Root.AddChild(Workspace);
         Tick(3);
     }

@@ -308,11 +308,10 @@ public sealed class ProjectFileSystem : IDisposable
         var info = typeName is null or "instance" ? null : TypeRegistry.Get(typeName);
         return entry.Kind switch
         {
-            FileKind.Scene when info is { IsNode: true } => (EditorIcons.For(info.Type), IconFamily.Of(info.Type)),
-            FileKind.Scene => ("movie", IconFamily.Logic),
-            FileKind.Resource when info is { IsResource: true } => (EditorIcons.For(info.Type), IconFamily.Resource),
-            FileKind.Resource => ("file-description", IconFamily.Resource),
-            _ => (EditorIcons.ForFile(entry.FullPath), null),
+            // Scenes by their root's type and family, resources by their type; other files by extension (EditorIcons).
+            FileKind.Scene when info is { IsNode: true } => (EditorIcons.For(info.Type), EditorIcons.Family(info.Type)),
+            FileKind.Resource when info is { IsResource: true } => (EditorIcons.For(info.Type), "icon-resource"),
+            _ => (EditorIcons.ForFile(entry.FullPath, entry.IsDirectory), EditorIcons.FileFamily(entry.FullPath, entry.IsDirectory)),
         };
     }
 

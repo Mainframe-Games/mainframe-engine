@@ -456,20 +456,20 @@ public sealed class FileSystemPanel : EditorDocument
         var isRoot = entry.Depth == 0;
         Workspace.Popup.Show(
         [
-            new MenuItem("Open", "fs.open", "Double-click", !entry.IsDirectory),
+            new MenuItem("Open", "fs.open", "Double-click", !entry.IsDirectory, Icon: "external-link"),
             MenuItem.Separator,
-            new MenuItem("New Folder…", "fs.new_folder"),
-            new MenuItem("New Scene…", "fs.new_scene"),
-            new MenuItem("New 2D Scene…", "fs.new_scene_2d"),
-            new MenuItem("New Resource…", "fs.new_resource"),
+            new MenuItem("New Folder…", "fs.new_folder", Icon: "folder-plus"),
+            new MenuItem("New Scene…", "fs.new_scene", Icon: "movie"),
+            new MenuItem("New 2D Scene…", "fs.new_scene_2d", Icon: "square"),
+            new MenuItem("New Resource…", "fs.new_resource", Icon: "file-plus"),
             MenuItem.Separator,
-            new MenuItem("Rename…", "fs.rename", "F2", !isRoot),
-            new MenuItem("Move To…", "fs.move", null, !isRoot),
-            new MenuItem("Move to Trash", "fs.delete", "Del", !isRoot),
+            new MenuItem("Rename…", "fs.rename", "F2", !isRoot, Icon: "pencil"),
+            new MenuItem("Move To…", "fs.move", null, !isRoot, Icon: "folder-open"),
+            new MenuItem("Move to Trash", "fs.delete", "Del", !isRoot, Icon: "trash"),
             MenuItem.Separator,
-            new MenuItem("Copy Path", "fs.copy_path"),
-            new MenuItem("Copy UID", "fs.copy_uid", null, entry.Uid is not null),
-            new MenuItem(OperatingSystem.IsMacOS() ? "Reveal in Finder" : "Show in File Manager", "fs.reveal"),
+            new MenuItem("Copy Path", "fs.copy_path", Icon: "copy"),
+            new MenuItem("Copy UID", "fs.copy_uid", null, entry.Uid is not null, Icon: "copy"),
+            new MenuItem(OperatingSystem.IsMacOS() ? "Reveal in Finder" : "Show in File Manager", "fs.reveal", Icon: "folder"),
         ], x, y, command => Workspace.Commands.Execute(command));
     }
 

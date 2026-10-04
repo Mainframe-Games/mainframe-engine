@@ -77,7 +77,7 @@ public sealed class ProjectFileSystemTests : IDisposable
         var main = Entry(FileSystemProject.MainPath);
         Assert.Equal(FileKind.Scene, main.Kind);
         Assert.Equal("Node3D", main.RootTypeName);
-        Assert.Equal("cube", main.Icon);
+        Assert.Equal(EditorIcons.For(typeof(Node3D)), main.Icon);
         Assert.Equal("icon-3d", main.Family);
         Assert.Equal(_project.MainUid, main.Uid);
 
@@ -97,8 +97,8 @@ public sealed class ProjectFileSystemTests : IDisposable
 
         var wood = Entry(FileSystemProject.WoodPath);
         Assert.Equal(FileKind.Texture, wood.Kind);
-        Assert.Equal("photo", wood.Icon);
-        Assert.Null(wood.Family);
+        Assert.Equal(EditorIcons.ForFile(wood.FullPath), wood.Icon);
+        Assert.Equal(EditorIcons.FileFamily(wood.FullPath), wood.Family);
         Assert.Equal(_project.WoodUid, wood.Uid);
 
         var folder = Entry("Content");
@@ -106,7 +106,7 @@ public sealed class ProjectFileSystemTests : IDisposable
         Assert.Equal("folder", folder.Icon);
 
         Assert.Equal(FileKind.Project, Entry("project.mfproj").Kind);
-        Assert.Equal("settings", Entry("project.mfproj").Icon);
+        Assert.Equal(EditorIcons.ForFile("project.mfproj"), Entry("project.mfproj").Icon);
 
         File.WriteAllText(_project.Abs("Content/Scenes/Ui.mscene"), """{ "format": 1, "uid": "scn_00000000aaaa", "root": { "type": "UiLayer", "name": "Ui" } }""");
         File.WriteAllText(_project.Abs("Content/Scenes/Body.mscene"), """{ "format": 1, "root": { "type": "RigidBody3D", "name": "Body" } }""");
@@ -114,10 +114,10 @@ public sealed class ProjectFileSystemTests : IDisposable
         File.WriteAllText(_project.Abs("Content/Scenes/Inherited.mscene"), """{ "format": 1, "root": { "instance": "scn_0000000000ab", "path": "Content/Scenes/Player.mscene", "name": "P" } }""");
         File.WriteAllText(_project.Abs("Content/locale.po"), "");
         _fs.Refresh();
-        Assert.Equal(("layout", "icon-ui"), (Entry("Content/Scenes/Ui.mscene").Icon, Entry("Content/Scenes/Ui.mscene").Family));
+        Assert.Equal((EditorIcons.For(typeof(UiLayer)), "icon-ui"), (Entry("Content/Scenes/Ui.mscene").Icon, Entry("Content/Scenes/Ui.mscene").Family));
         Assert.Equal("scn_00000000aaaa", Entry("Content/Scenes/Ui.mscene").Uid);
         Assert.Equal("icon-physics", Entry("Content/Scenes/Body.mscene").Family);
-        Assert.Equal(("movie", "icon-logic"), (Entry("Content/Scenes/Odd.mscene").Icon, Entry("Content/Scenes/Odd.mscene").Family));
+        Assert.Equal((EditorIcons.ForFile("x.mscene"), EditorIcons.FileFamily("x.mscene")), (Entry("Content/Scenes/Odd.mscene").Icon, Entry("Content/Scenes/Odd.mscene").Family));
         Assert.Equal("instance", Entry("Content/Scenes/Inherited.mscene").RootTypeName);
         Assert.Equal(FileKind.Translation, Entry("Content/locale.po").Kind);
     }

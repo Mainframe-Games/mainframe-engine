@@ -83,7 +83,7 @@ public sealed partial class InspectorPanel
             var parameters = row.Signature.AsSpan(row.Name.Length);
             rml.Append("<div class=\"sig-row\"><span class=\"icon icon-antenna-bars-5 icon-sm icon-logic\"></span><span class=\"sig-name\">")
                 .Append(RmlText.Escape(row.Name)).Append("<span class=\"sig-params\">").Append(RmlText.Escape(parameters.ToString()))
-                .Append("</span></span><button class=\"small icon-button\" data-signal-action=\"connect\" data-signal=\"").Append(i)
+                .Append("</span></span><button class=\"tool-button small\" data-signal-action=\"connect\" data-signal=\"").Append(i)
                 .Append("\" data-tooltip=\"Connect ").Append(RmlText.Escape(row.Name))
                 .Append(" — call a method of a node in this scene when it is emitted\"><span class=\"icon icon-plug icon-sm\"></span></button></div>");
             for (var j = 0; j < row.Connections.Count; j++)
@@ -94,7 +94,7 @@ public sealed partial class InspectorPanel
                 var flags = connection.Flags & ~ConnectFlags.Persist;
                 if (flags != ConnectFlags.None)
                     rml.Append("<span class=\"sig-flags\">").Append(RmlText.Escape(flags.ToString())).Append("</span>");
-                rml.Append("<button class=\"small icon-button\" data-signal-action=\"disconnect\" data-signal=\"").Append(i).Append("\" data-conn=\"")
+                rml.Append("<button class=\"tool-button small\" data-signal-action=\"disconnect\" data-signal=\"").Append(i).Append("\" data-conn=\"")
                     .Append(j).Append("\" data-tooltip=\"Disconnect — remove this connection from the scene\"><span class=\"icon icon-plug-x icon-sm\"></span></button></div>");
             }
         }

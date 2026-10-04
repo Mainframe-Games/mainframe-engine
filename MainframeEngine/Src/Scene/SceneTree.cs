@@ -159,6 +159,11 @@ public sealed partial class SceneTree
         NodeAdded = CodeReload.Without(NodeAdded, assembly, "SceneTree.NodeAdded");
         NodeRemoved = CodeReload.Without(NodeRemoved, assembly, "SceneTree.NodeRemoved");
         LocaleChanged = CodeReload.Without(LocaleChanged, assembly, "SceneTree.LocaleChanged");
+        // The callback lists' iteration snapshots still hold the nodes of the last frame (freed game nodes included).
+        _process.ClearSnapshot();
+        _physics.ClearSnapshot();
+        _input.ClearSnapshot();
+        _unhandledInput.ClearSnapshot();
     }
 
     /// <summary>The node with <paramref name="id"/> if it is inside this tree.</summary>
@@ -330,7 +335,7 @@ public sealed partial class SceneTree
         var editMode = EditMode;
         foreach (var node in _physics.Snapshot(this))
         {
-            if (ReferenceEquals(node.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
+            if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
                 (!editMode || node.IsTool))
                 node.InvokePhysicsProcess(delta);
         }
@@ -352,7 +357,7 @@ public sealed partial class SceneTree
         var editMode = EditMode;
         foreach (var node in _process.Snapshot(this))
         {
-            if (ReferenceEquals(node.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
+            if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
                 (!editMode || node.IsTool))
                 node.InvokeProcess(gameTime);
         }
@@ -388,7 +393,7 @@ public sealed partial class SceneTree
         for (var i = nodes.Length - 1; i >= 0 && !Root.IsInputHandled; i--)
         {
             var node = nodes[i];
-            if (ReferenceEquals(node.Tree, this) && node.WantsInput && node.CanProcess(paused) && (!editMode || node.IsTool))
+            if (ReferenceEquals(node?.Tree, this) && node.WantsInput && node.CanProcess(paused) && (!editMode || node.IsTool))
                 node.InvokeInput(inputEvent);
         }
 
@@ -396,7 +401,7 @@ public sealed partial class SceneTree
         for (var i = nodes.Length - 1; i >= 0 && !Root.IsInputHandled; i--)
         {
             var node = nodes[i];
-            if (ReferenceEquals(node.Tree, this) && node.WantsUnhandledInput && node.CanProcess(paused) && (!editMode || node.IsTool))
+            if (ReferenceEquals(node?.Tree, this) && node.WantsUnhandledInput && node.CanProcess(paused) && (!editMode || node.IsTool))
                 node.InvokeUnhandledInput(inputEvent);
         }
 
@@ -540,7 +545,7 @@ public sealed partial class SceneTree
             for (var i = 0; i < count; i++)
             {
                 var node = buffer[i];
-                if (ReferenceEquals(node.Tree, this) && node.IsInGroup(group))
+                if (ReferenceEquals(node?.Tree, this) && node.IsInGroup(group))
                     action(node, state);
             }
         }
@@ -798,6 +803,10 @@ public sealed partial class SceneTree
         }
 
         public void MarkDirty() => _dirty = true;
+
+        /// <summary>Drops the last iteration's references (the next <see cref="Snapshot"/> refills it).</summary>
+        // Safe during an iteration: the loops skip the cleared (null) slots for the rest of that frame.
+        public void ClearSnapshot() => Array.Clear(_snapshot);
 
         private void Add(Node node)
         {

@@ -599,24 +599,25 @@ public sealed class EditorCommands
             ],
             "project" =>
             [
-                new MenuItem("Project Settings…", "project.settings", null, Session.Project is not null),
+                new MenuItem("Project Settings…", "project.settings", null, Session.Project is not null, Icon: "settings"),
                 MenuItem.Separator,
-                new MenuItem("Build & Reload Code", "project.build_reload", "Ctrl+Shift+B", _workspace.Project.GameLibraryProject is not null && !_workspace.Project.IsBuilding),
-                new MenuItem("Reload Code", "project.reload_code", null, _workspace.Project.IsGameLoaded),
+                new MenuItem("Build & Reload Code", "project.build_reload", "Ctrl+Shift+B",
+                    _workspace.Project.GameLibraryProject is not null && !_workspace.Project.IsBuilding, Icon: "hammer"),
+                new MenuItem("Reload Code", "project.reload_code", null, _workspace.Project.IsGameLoaded, Icon: "reload"),
                 MenuItem.Separator,
-                new MenuItem("Editor Settings…", "editor.settings"),
+                new MenuItem("Editor Settings…", "editor.settings", Icon: "adjustments"),
                 MenuItem.Separator,
-                new MenuItem("Close Project", "project.close", null, Session.ProjectRoot is not null),
+                new MenuItem("Close Project", "project.close", null, Session.ProjectRoot is not null, Icon: "folder-x"),
             ],
             "run" =>
             [
-                new MenuItem("Play", "play.main", "F5", _workspace.Project.LauncherProject is not null),
-                new MenuItem("Play Scene", "play.scene", "F6", _workspace.Project.LauncherProject is not null && scene is not null),
-                new MenuItem("Run Another Instance", "play.another", "Shift+F5", _workspace.Project.LauncherProject is not null),
+                new MenuItem("Play", "play.main", "F5", _workspace.Project.LauncherProject is not null, Icon: "player-play-filled"),
+                new MenuItem("Play Scene", "play.scene", "F6", _workspace.Project.LauncherProject is not null && scene is not null, Icon: "movie"),
+                new MenuItem("Run Another Instance", "play.another", "Shift+F5", _workspace.Project.LauncherProject is not null, Icon: "copy"),
                 MenuItem.Separator,
-                new MenuItem(_workspace.Play.IsPaused ? "Resume" : "Pause", "play.pause", "F7", _workspace.Play.IsPlaying),
-                new MenuItem("Reload Scene in Game", "play.reload_scene", null, _workspace.Play.IsPlaying),
-                new MenuItem("Stop", "play.stop", "F8", _workspace.Play.IsPlaying),
+                new MenuItem(_workspace.Play.IsPaused ? "Resume" : "Pause", "play.pause", "F7", _workspace.Play.IsPlaying, Icon: "player-pause"),
+                new MenuItem("Reload Scene in Game", "play.reload_scene", null, _workspace.Play.IsPlaying, Icon: "refresh"),
+                new MenuItem("Stop", "play.stop", "F8", _workspace.Play.IsPlaying, Icon: "player-stop"),
             ],
             "help" =>
             [

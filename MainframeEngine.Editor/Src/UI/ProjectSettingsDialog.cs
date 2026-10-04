@@ -145,10 +145,10 @@ public sealed class ProjectSettingsDialog : EditorDocument
             default:
                 rml.Append("<input type=\"text\" class=\"text\" data-key=\"").Append(key).Append("\" value=\"").Append(RmlText.Escape(value)).Append("\"/>");
                 if (setting.Kind is SettingKind.Scene or SettingKind.File)
-                    rml.Append("<button class=\"small icon-button\" data-browse=\"").Append(key).Append("\" data-tooltip=\"Browse — pick ")
+                    rml.Append("<button class=\"tool-button small\" data-browse=\"").Append(key).Append("\" data-tooltip=\"Browse — pick ")
                         .Append(setting.Kind == SettingKind.Scene ? "a scene of the project" : "a file of the project").Append("\"><span class=\"icon icon-sm icon-folder-open\"></span></button>");
                 if (setting.Key == "audio.busLayout")
-                    rml.Append("<button class=\"small icon-button\" data-edit-file=\"").Append(key)
+                    rml.Append("<button class=\"tool-button small\" data-edit-file=\"").Append(key)
                         .Append("\" data-tooltip=\"Edit — open the bus layout in the inspector\"><span class=\"icon icon-sm icon-pencil\"></span></button>");
                 break;
         }
@@ -159,7 +159,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
     private static void RenderInputMap(StringBuilder rml, InputMap map)
     {
         rml.Append("<div class=\"ps-add\"><input type=\"text\" class=\"text\" id=\"ps-new-action\" placeholder=\"New action name (e.g. jump)\"/>")
-            .Append("<button class=\"small icon-button\" data-op=\"add-action\" data-tooltip=\"Add Action — add the named action\"><span class=\"icon icon-sm icon-plus\"></span></button></div>");
+            .Append("<button class=\"tool-button small\" data-op=\"add-action\" data-tooltip=\"Add Action — add the named action\"><span class=\"icon icon-sm icon-plus\"></span></button></div>");
         if (map.Actions.Count == 0)
             rml.Append("<div class=\"empty\">No actions yet. Actions name inputs (\"jump\" → Space, pad A) so code asks Input.IsActionPressed(\"jump\").</div>");
         foreach (var action in map.Actions)
@@ -169,11 +169,11 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 .Append("<input type=\"text\" class=\"text ps-action-name\" data-action-name=\"").Append(name).Append("\" value=\"").Append(name).Append("\"/>")
                 .Append("<span class=\"ps-small\">deadzone</span><input type=\"text\" class=\"text ps-deadzone\" data-deadzone=\"").Append(name).Append("\" value=\"")
                 .Append(ValueText.Number(action.Deadzone)).Append("\"/>")
-                .Append("<button class=\"small icon-button\" data-op=\"capture\" data-action=\"").Append(name)
+                .Append("<button class=\"tool-button small\" data-op=\"capture\" data-action=\"").Append(name)
                 .Append("\" data-tooltip=\"Add Key or Mouse Button — press it to bind it\"><span class=\"icon icon-sm icon-keyboard-show\"></span></button>")
-                .Append("<button class=\"small icon-button\" data-op=\"pad\" data-action=\"").Append(name)
+                .Append("<button class=\"tool-button small\" data-op=\"pad\" data-action=\"").Append(name)
                 .Append("\" data-tooltip=\"Add Gamepad Input — a button or stick/trigger direction\"><span class=\"icon icon-sm icon-device-gamepad-2\"></span></button>")
-                .Append("<button class=\"small icon-button\" data-op=\"remove-action\" data-action=\"").Append(name)
+                .Append("<button class=\"tool-button small\" data-op=\"remove-action\" data-action=\"").Append(name)
                 .Append("\" data-tooltip=\"Remove Action\"><span class=\"icon icon-sm icon-trash\"></span></button></div><div class=\"ps-bindings\">");
             foreach (var binding in action.Bindings)
             {
@@ -185,7 +185,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
                     _ => "keyboard",
                 };
                 rml.Append("<span class=\"chip\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span><span>").Append(RmlText.Escape(text)).Append("</span>")
-                    .Append("<button class=\"small icon-button\" data-op=\"unbind\" data-action=\"").Append(name).Append("\" data-binding=\"").Append(RmlText.Escape(text))
+                    .Append("<button class=\"tool-button small\" data-op=\"unbind\" data-action=\"").Append(name).Append("\" data-binding=\"").Append(RmlText.Escape(text))
                     .Append("\" data-tooltip=\"Remove this binding\"><span class=\"icon icon-sm icon-x\"></span></button></span>");
             }
 
@@ -205,15 +205,15 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 .Append(autoload.Enabled ? " checked=\"\"" : "").Append(" data-tooltip=\"Enabled\"/><span class=\"icon icon-sm icon-")
                 .Append(autoload.Scene is not null ? "movie" : "circle").Append("\"></span><span class=\"ps-autoload-name\">").Append(RmlText.Escape(autoload.Name))
                 .Append("</span><span class=\"ps-autoload-what mono\">").Append(RmlText.Escape(autoload.Scene ?? autoload.Type ?? "")).Append("</span>")
-                .Append("<button class=\"small icon-button\" data-op=\"autoload-up\" data-index=\"").Append(i).Append("\" data-tooltip=\"Move Up\"><span class=\"icon icon-sm icon-arrow-up\"></span></button>")
-                .Append("<button class=\"small icon-button\" data-op=\"autoload-down\" data-index=\"").Append(i).Append("\" data-tooltip=\"Move Down\"><span class=\"icon icon-sm icon-arrow-down\"></span></button>")
-                .Append("<button class=\"small icon-button\" data-op=\"autoload-remove\" data-index=\"").Append(i).Append("\" data-tooltip=\"Remove\"><span class=\"icon icon-sm icon-trash\"></span></button></div>");
+                .Append("<button class=\"tool-button small\" data-op=\"autoload-up\" data-index=\"").Append(i).Append("\" data-tooltip=\"Move Up\"><span class=\"icon icon-sm icon-arrow-up\"></span></button>")
+                .Append("<button class=\"tool-button small\" data-op=\"autoload-down\" data-index=\"").Append(i).Append("\" data-tooltip=\"Move Down\"><span class=\"icon icon-sm icon-arrow-down\"></span></button>")
+                .Append("<button class=\"tool-button small\" data-op=\"autoload-remove\" data-index=\"").Append(i).Append("\" data-tooltip=\"Remove\"><span class=\"icon icon-sm icon-trash\"></span></button></div>");
         }
 
         rml.Append("<div class=\"ps-add\"><input type=\"text\" class=\"text\" id=\"ps-autoload-name\" placeholder=\"Name\"/>")
             .Append("<input type=\"text\" class=\"text\" id=\"ps-autoload-what\" placeholder=\"Scene (Content/…/X.mscene) or node type\"/>")
-            .Append("<button class=\"small icon-button\" data-op=\"autoload-browse\" data-tooltip=\"Browse — pick a scene\"><span class=\"icon icon-sm icon-folder-open\"></span></button>")
-            .Append("<button class=\"small icon-button\" data-op=\"autoload-add\" data-tooltip=\"Add Autoload\"><span class=\"icon icon-sm icon-plus\"></span></button></div>");
+            .Append("<button class=\"tool-button small\" data-op=\"autoload-browse\" data-tooltip=\"Browse — pick a scene\"><span class=\"icon icon-sm icon-folder-open\"></span></button>")
+            .Append("<button class=\"tool-button small\" data-op=\"autoload-add\" data-tooltip=\"Add Autoload\"><span class=\"icon icon-sm icon-plus\"></span></button></div>");
     }
 
     // ── Events ───────────────────────────────────────────────────────────────────────────────────────────────────

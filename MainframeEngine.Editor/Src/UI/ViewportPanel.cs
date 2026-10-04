@@ -124,6 +124,11 @@ public sealed class ViewportPanel : EditorDocument
         _info = info;
         SetText("view-info-text", info);
         if (IsLoaded && Document.GetElementById("view-info-icon") is { IsNull: false } element)
-            element.SetClassNames(icon == "plane" ? "icon icon-sm icon-plane" : "icon icon-sm icon-perspective");
+            element.SetClassNames(icon switch
+            {
+                "plane" => "icon icon-sm icon-plane",
+                "square" => "icon icon-sm icon-square",
+                _ => "icon icon-sm icon-perspective",
+            });
     }
 }

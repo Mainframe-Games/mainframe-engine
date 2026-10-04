@@ -1,6 +1,7 @@
 <rml>
 <head>
     <title>Project Settings</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
@@ -89,8 +90,8 @@
         <div class="ps-top">
             <div class="dialog-title"><span class="icon icon-sm icon-settings"></span> Project Settings</div>
             <div class="ps-tools">
-                <button id="ps-undo" class="small icon-button" data-tooltip="Undo (Ctrl+Z) — revert the last settings change"><span class="icon icon-sm icon-arrow-back-up"></span></button>
-                <button id="ps-redo" class="small icon-button" data-tooltip="Redo (Ctrl+Shift+Z)"><span class="icon icon-sm icon-arrow-forward-up"></span></button>
+                <button id="ps-undo" class="tool-button small" data-tooltip="Undo (Ctrl+Z) — revert the last settings change"><span class="icon icon-sm icon-arrow-back-up"></span></button>
+                <button id="ps-redo" class="tool-button small" data-tooltip="Redo (Ctrl+Shift+Z)"><span class="icon icon-sm icon-arrow-forward-up"></span></button>
                 <span id="ps-state">Saved</span>
             </div>
         </div>

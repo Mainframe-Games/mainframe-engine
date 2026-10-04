@@ -85,8 +85,8 @@ public sealed partial class InspectorPanel
             .Append(EditorIcons.For(resource.Resource.GetType())).Append(" icon-resource\"></span> ").Append(RmlText.Escape(type))
             .Append(" · resource file</div><div class=\"insp-name-row\"><span class=\"res-file mono\" id=\"res-file\">")
             .Append(RmlText.Escape(Path.GetFileName(resource.FilePath) + (resource.IsDirty ? " *" : "")))
-            .Append("</span><button class=\"small icon-button\" data-action=\"inspector-save\" data-tooltip=\"Save — write the resource file\">")
-            .Append("<span class=\"icon icon-sm icon-device-floppy\"></span></button><button class=\"small icon-button\" data-action=\"inspector-close\" ")
+            .Append("</span><button class=\"tool-button small\" data-action=\"inspector-save\" data-tooltip=\"Save — write the resource file\">")
+            .Append("<span class=\"icon icon-sm icon-device-floppy\"></span></button><button class=\"tool-button small\" data-action=\"inspector-close\" ")
             .Append("data-tooltip=\"Close — back to the selected node\"><span class=\"icon icon-sm icon-x\"></span></button></div></div>");
     }
 

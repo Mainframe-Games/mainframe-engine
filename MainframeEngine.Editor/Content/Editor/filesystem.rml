@@ -63,17 +63,17 @@
         <span class="icon icon-folder title-icon" style="margin-right: 6dp; image-color: #8b93a5;"></span>
         <span class="panel-title">FileSystem</span>
         <div class="tools" data-if="has_project">
-            <button class="small icon-button" id="fs-new-folder" data-command="fs.new_folder" data-tooltip="New Folder — create a folder in the selected one"><span class="icon icon-folder-plus icon-sm"></span></button>
-            <button class="small icon-button" id="fs-new-scene" data-command="fs.new_scene" data-tooltip="New Scene — a 3D scene in the selected folder (right-click for 2D)"><span class="icon icon-movie icon-sm"></span></button>
-            <button class="small icon-button" id="fs-new-resource" data-command="fs.new_resource" data-tooltip="New Resource — save a new resource (.mres) in the selected folder"><span class="icon icon-file-plus icon-sm"></span></button>
-            <button class="small icon-button" id="fs-view-tree" data-class-active="view == 0" data-event-click="set_view(0)" data-tooltip="Tree view — the whole project"><span class="icon icon-list-tree icon-sm"></span></button>
-            <button class="small icon-button" id="fs-view-list" data-class-active="view == 1" data-event-click="set_view(1)" data-tooltip="List view — the current folder"><span class="icon icon-list icon-sm"></span></button>
-            <button class="small icon-button" id="fs-view-grid" data-class-active="view == 2" data-event-click="set_view(2)" data-tooltip="Grid view — the current folder with thumbnails"><span class="icon icon-layout-grid icon-sm"></span></button>
-            <button class="small icon-button" id="fs-meta" data-class-active="show_meta" data-event-click="toggle_meta()" data-tooltip="Show .meta files — the UID sidecars the editor creates"><span class="icon icon-file-info icon-sm"></span></button>
+            <button class="tool-button small" id="fs-new-folder" data-command="fs.new_folder" data-tooltip="New Folder — create a folder in the selected one"><span class="icon icon-folder-plus icon-sm"></span></button>
+            <button class="tool-button small" id="fs-new-scene" data-command="fs.new_scene" data-tooltip="New Scene — a 3D scene in the selected folder (right-click for 2D)"><span class="icon icon-movie icon-sm"></span></button>
+            <button class="tool-button small" id="fs-new-resource" data-command="fs.new_resource" data-tooltip="New Resource — save a new resource (.mres) in the selected folder"><span class="icon icon-file-plus icon-sm"></span></button>
+            <button class="tool-button small" id="fs-view-tree" data-class-active="view == 0" data-event-click="set_view(0)" data-tooltip="Tree view — the whole project"><span class="icon icon-list-tree icon-sm"></span></button>
+            <button class="tool-button small" id="fs-view-list" data-class-active="view == 1" data-event-click="set_view(1)" data-tooltip="List view — the current folder"><span class="icon icon-list icon-sm"></span></button>
+            <button class="tool-button small" id="fs-view-grid" data-class-active="view == 2" data-event-click="set_view(2)" data-tooltip="Grid view — the current folder with thumbnails"><span class="icon icon-layout-grid icon-sm"></span></button>
+            <button class="tool-button small" id="fs-meta" data-class-active="show_meta" data-event-click="toggle_meta()" data-tooltip="Show .meta files — the UID sidecars the editor creates"><span class="icon icon-file-info icon-sm"></span></button>
         </div>
     </div>
     <div class="fs-path" data-if="has_project &amp;&amp; view != 0">
-        <button class="small icon-button" id="fs-up" data-event-click="up()" data-tooltip="Up — the parent folder"><span class="icon icon-arrow-up icon-sm"></span></button>
+        <button class="tool-button small" id="fs-up" data-event-click="up()" data-tooltip="Up — the parent folder"><span class="icon icon-arrow-up icon-sm"></span></button>
         <span class="mono">{{folder}}</span>
     </div>
     <div class="panel-body" id="fs-body" data-if="has_project &amp;&amp; view != 2">
