@@ -172,6 +172,58 @@ public class SceneTests
         }
     }
 
+    [Fact]
+    public void ProceduralSkyAndGridMatchTheReferenceMath()
+    {
+        var result = HostRunner.Run("sky-grid", Output("sky-grid"), "--capture", "3", "--hidden");
+        Gates.AssertValidationClean(result);
+
+        var capture = result.Captures.Single();
+        var image = Png.ReadRgba8(capture.Path);
+        int w = image.Width, h = image.Height;
+        var camera = SkyGridScene.CreateCamera((float)w / h);
+        var frame = FrameData.From(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position,
+            new Silk.NET.Vulkan.Extent2D((uint)w, (uint)h), 0f, IVulkanContext.DefaultExposure);
+        var lines = SkyGridReference.GridLineMask(frame.ViewProjection, SkyGridScene.GridSize, w, h, radius: 2f);
+
+        // Every pixel away from a grid line is sky: above the horizon, the horizon-to-ground gradient, and the
+        // ground colour between lines. A wrong ray, gradient, NaN, uniform layout or colour encoding changes these;
+        // a stray line fragment (e.g. a line clipped badly by the rasterizer) shows where no line projects.
+        const float tolerance = 3f;
+        int checkedPixels = 0, above = 0, ground = 0, bad = 0;
+        var failures = new System.Text.StringBuilder();
+        var diff = (byte[])image.Pixels.Clone();
+        for (var y = 0; y < h; y++)
+        {
+            for (var x = 0; x < w; x++)
+            {
+                var i = y * w + x;
+                if (lines[i]) continue;
+                var ray = SkyGridReference.Ray(frame, x, y, w, h);
+                var expected = SkyGridReference.SkyPixel(SkyGridScene.SkySettings, ray, IVulkanContext.DefaultExposure);
+                var actual = new System.Numerics.Vector3(image.Pixels[i * 4], image.Pixels[i * 4 + 1], image.Pixels[i * 4 + 2]);
+                checkedPixels++;
+                if (ray.Y > 0.05f) above++;
+                if (ray.Y < -1f / SkyGridScene.SkySettings.HorizonSharpness) ground++;
+
+                var delta = System.Numerics.Vector3.Abs(actual - expected);
+                if (delta.X <= tolerance && delta.Y <= tolerance && delta.Z <= tolerance) continue;
+                diff[i * 4] = 255;
+                diff[i * 4 + 1] = diff[i * 4 + 2] = 0;
+                if (bad++ < 8)
+                    failures.AppendLine(System.FormattableString.Invariant($"  ({x},{y}) ray.y {ray.Y:0.###}: {actual}, expected {expected}"));
+            }
+        }
+
+        if (bad > 0)
+            Png.WriteRgba8(Path.ChangeExtension(capture.Path, ".mismatch.png"), w, h, diff);
+        Assert.True(checkedPixels > w * h / 3, $"Only {checkedPixels} of {w * h} pixels are clear of grid lines.");
+        Assert.True(above > w * h / 10 && ground > w * h / 10, $"Sky pixels checked above the horizon: {above}, in the ground: {ground}.");
+        Assert.True(bad == 0,
+            $"{bad} of {checkedPixels} sky pixels away from any grid line differ from the reference by more than " +
+            $"±{tolerance} (red in {Path.ChangeExtension(capture.Path, ".mismatch.png")}):\n{failures}");
+    }
+
     private static void AssertPixel(PngImage image, int x, int y, System.Numerics.Vector3 expected, float tolerance, string what)
     {
         var i = (y * image.Width + x) * 4;

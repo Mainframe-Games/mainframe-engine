@@ -21,8 +21,9 @@ RenderTestGame game = options.Scene switch
     "color-pipeline" => new ColorPipelineScene(options),
     "physics" => new PhysicsScene(options),
     "physics-debug" => new PhysicsDebugScene(options),
+    "sky-grid" => new SkyGridScene(options),
     _ => throw new ArgumentException(
-        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, spine, spine-no-shadows, sandbox, color-pipeline, physics, physics-debug."),
+        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, spine, spine-no-shadows, sandbox, color-pipeline, physics, physics-debug, sky-grid."),
 };
 
 using (game)
