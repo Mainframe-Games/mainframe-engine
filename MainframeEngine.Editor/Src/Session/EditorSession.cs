@@ -58,7 +58,10 @@ public sealed class EditorSession : IDisposable
     /// Scenes stay open only when they belong to it; the caller closes the others first. Throws when the folder has no
     /// project file or the file cannot be read.
     /// </summary>
-    public void OpenProject(string directory)
+    /// <param name="directory">The project folder (a real path when it comes from <see cref="ProjectService"/>).</param>
+    /// <param name="displayPath">How to show the folder to the user — the path as they opened it, before symbolic links
+    /// such as macOS's <c>/tmp</c> → <c>/private/tmp</c> were resolved; defaults to <paramref name="directory"/>.</param>
+    public void OpenProject(string directory, string? displayPath = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         var root = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -74,7 +77,7 @@ public sealed class EditorSession : IDisposable
         database.Refresh(createMissingMeta: true);
         AssetDatabase.Current = database;
         ContentPaths.ProjectDirectory = root;
-        Log.Info($"[Editor] Project '{settings.Name}': {root}");
+        Log.Info($"[Editor] Project '{settings.Name}': {displayPath ?? root}");
         ProjectChanged?.Invoke();
     }
 

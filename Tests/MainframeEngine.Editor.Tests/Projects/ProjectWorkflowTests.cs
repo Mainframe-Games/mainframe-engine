@@ -34,7 +34,7 @@ internal sealed class TestProject : IDisposable
     public string Name { get; }
     public string Root { get; }
 
-    public string Abs(string relative) => Path.Combine(Root, relative);
+    public string Abs(string relative) => Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));
 
     public void Dispose()
     {

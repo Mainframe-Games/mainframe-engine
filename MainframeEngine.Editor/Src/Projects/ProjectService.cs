@@ -92,9 +92,10 @@ public sealed class ProjectService : IDisposable
     public void Open(string directory, Action? onReady = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-        var root = GameProjectLayout.RealPath(Path.GetFullPath(directory));
+        var opened = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var root = GameProjectLayout.RealPath(opened); // MSBuild needs real paths; the user sees the one they opened
         CloseCode();
-        Session.OpenProject(root);
+        Session.OpenProject(root, displayPath: opened);
         Root = root;
         var settings = Session.Project!;
         GameLibraryProject = GameProjectLayout.GameLibraryProjectOf(root, settings);

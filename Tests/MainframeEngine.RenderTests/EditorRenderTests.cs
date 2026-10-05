@@ -1,3 +1,4 @@
+using MainframeEngine.Editor;
 using MainframeEngine.RenderTests.Host;
 
 namespace MainframeEngine.RenderTests;
@@ -52,7 +53,7 @@ public class EditorRenderTests
     public void FileSystemPanelMatchesGolden()
     {
         // The template's content as a project in a fixed temp folder (no game code: nothing to build).
-        var project = Path.Combine(Path.GetTempPath(), "mainframe-golden", "FsGame");
+        var project = Path.Combine(GoldenPaths.Root, "FsGame");
         if (Directory.Exists(project))
             Directory.Delete(project, recursive: true);
         CopyDirectory(Path.Combine(RenderTestEnvironment.RepositoryRoot, "Templates", "MainframeEngine.Templates", "content", "mfgame", "Content"),

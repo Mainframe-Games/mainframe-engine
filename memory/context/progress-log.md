@@ -4,7 +4,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Status:** M0–M10 complete locally; final push pending.
+- **Status:** M0–M10 complete; pushed, PR #4 ready for review (awaiting CI + user rebase-merge, then publish v1.0.0).
 - **Next action:** orchestrator's single final push of `feature/m0-m10` → CI (expect green, no "No golden" warnings) →
   PR #4 to `main` (rebase merge) → `publish.yml` for the release. Then M11 (backend abstraction), M12/M13 (mobile).
 - **Open blockers:** none. User actions: Steamworks natives (partner login); macOS code signing/notarization.
@@ -173,3 +173,6 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   index, architecture overview, current-state.
 - Follow-up chip: moltenvk/lavapipe editor goldens embed the machine temp path (/var/folders/... on this Mac).
 
+
+### 2026-10-05 — Portable editor goldens
+- Editor golden runs use `GoldenPaths.Root` = `/tmp/mainframe-golden` (was per-user macOS `/var/folders/…/T/`); ProjectService shows the path as opened (MSBuild still gets the real path). moltenvk editor goldens re-recorded; lavapipe unchanged.

@@ -263,7 +263,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
             case ("project-manager", 3):
                 {
                     // Recent projects in a fixed temp folder: one present, one gone (its row is flagged missing).
-                    var root = Path.Combine(Path.GetTempPath(), "mainframe-golden");
+                    var root = GoldenPaths.Root;
                     foreach (var (name, present) in new[] { ("PuzzleBox", false), ("SpaceGame", true) })
                     {
                         var folder = Path.Combine(root, name);
