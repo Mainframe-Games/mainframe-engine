@@ -166,7 +166,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          lfs: true # Windows .dll files are stored in Git LFS
+          lfs: false
+
+      # Windows .dll files are stored in Git LFS; fetch only the committed natives.
+      - name: Fetch the natives from LFS
+        run: git lfs pull --include="MainframeEngine/runtimes/**"
 
       - name: Verify Native/natives.lock
         run: Native/natives-lock.sh verify

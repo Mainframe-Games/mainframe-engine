@@ -14,3 +14,6 @@ BenchmarkDotNet.Artifacts/
 
 # ImGui window layout written at runtime
 imgui.ini
+
+# CI: LFS object IDs hashed for the LFS cache key (.github/workflows)
+.lfs-assets-id
