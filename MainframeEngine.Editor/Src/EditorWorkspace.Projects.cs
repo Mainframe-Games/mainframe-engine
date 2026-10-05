@@ -19,6 +19,11 @@ public sealed partial class EditorWorkspace
     public ProjectSettingsDialog ProjectSettings { get; private set; } = null!;
     public EditorSettingsDialog EditorSettingsDialog { get; private set; } = null!;
 
+    /// <summary>Editor updates (badges, dialog, Update &amp; restart).</summary>
+    public UpdateController Updates { get; private set; } = null!;
+
+    public UpdateDialog UpdateDialog { get; private set; } = null!;
+
     /// <summary>A file dragged out of the FileSystem panel (absolute path) until the mouse is released.</summary>
     public string? FileDrag { get; private set; }
 
@@ -34,6 +39,10 @@ public sealed partial class EditorWorkspace
         DialogLayer.AddChild(NewProject);
         DialogLayer.AddChild(ProjectSettings);
         DialogLayer.AddChild(EditorSettingsDialog);
+        Updates = new UpdateController(this, Options.Updates);
+        UpdateDialog = new UpdateDialog(this) { Name = "UpdateDialog" };
+        DialogLayer.AddChild(UpdateDialog);
+        Updates.Changed += OnUpdatesChanged;
         DialogLayer.MoveChild(FilePicker, DialogLayer.ChildCount - 1);
         DialogLayer.MoveChild(ListPicker, DialogLayer.ChildCount - 1);
         DialogLayer.MoveChild(Message, DialogLayer.ChildCount - 1);
@@ -45,13 +54,14 @@ public sealed partial class EditorWorkspace
     }
 
     private bool ProjectDialogOpen =>
-        NewProject.Visible || ProjectSettings.Visible || EditorSettingsDialog.Visible || ProjectManager.Visible;
+        NewProject.Visible || ProjectSettings.Visible || EditorSettingsDialog.Visible || UpdateDialog.Visible || ProjectManager.Visible;
 
     // ── Start-up ─────────────────────────────────────────────────────────────────────────────────────────────────
 
     // A project (argument or the scene's project), else the scene, else the Project Manager (editor executable), else a new scene.
     private void StartUp()
     {
+        Updates.Start();
         if (Options.InitialProject is { } project)
         {
             RunWithSplash($"Opening {Path.GetFileName(project.TrimEnd(Path.DirectorySeparatorChar))}…", () => Commands.OpenProjectNow(project, Options.InitialScene));
@@ -75,6 +85,7 @@ public sealed partial class EditorWorkspace
     {
         Project.Update();
         Play.Update();
+        Updates.Tick();
         FileSystem.Tick();
         if (ProjectManager.Visible)
             ProjectManager.Tick();
@@ -130,6 +141,13 @@ public sealed partial class EditorWorkspace
     }
 
     private void OnProjectStateChanged() => Toolbar.RefreshPlay();
+
+    private void OnUpdatesChanged()
+    {
+        Toolbar.RefreshUpdate();
+        ProjectManager.RefreshUpdate();
+        UpdateDialog.Refresh();
+    }
 
     // ── Settings ─────────────────────────────────────────────────────────────────────────────────────────────────
 

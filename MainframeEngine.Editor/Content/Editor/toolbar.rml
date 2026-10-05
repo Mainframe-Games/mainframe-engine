@@ -22,6 +22,9 @@
         .group button.tool-button { width: 28dp; height: 26dp; line-height: 26dp; }
         .spacer { flex: 1 1 auto; }
         #snap-step { width: 46dp; margin-left: 4dp; }
+        #update { display: none; margin-right: 6dp; }
+        #update.shown { display: inline-block; }
+        #update .icon { image-color: #4ade80; }
         #stats { padding: 0dp 10dp 0dp 6dp; color: #8b93a5; white-space: nowrap; }
         .play button.tool-button { width: 32dp; }
         #play .icon { image-color: #4ade80; }
@@ -77,6 +80,7 @@
         <span id="play-status" class="muted"></span>
     </div>
     <div class="spacer"></div>
+    <button id="update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>
     <span id="stats" class="mono" data-tooltip="Frame Rate — editor frames per second and frame time"></span>
 </body>
 </rml>

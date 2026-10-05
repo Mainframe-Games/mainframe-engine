@@ -256,21 +256,41 @@ public sealed class ProjectManager : EditorDocument
         }
     }
 
-    protected override void OnAttach(RmlDocument document) => document.AsElement().AddEventListener("keydown", e =>
+    /// <summary>True while the update badge is shown (a newer release is available).</summary>
+    public bool UpdateBadgeVisible { get; private set; }
+
+    /// <summary>Shows or hides the update badge (on <see cref="UpdateController.Changed"/>, never per frame).</summary>
+    public void RefreshUpdate()
     {
-        if (!Visible)
+        var release = Workspace.Updates?.Available?.Release;
+        UpdateBadgeVisible = release is not null;
+        if (!IsLoaded)
             return;
-        switch ((RmlKey)e.GetParameter("key_identifier", 0))
+        var badge = Document.GetElementById("pm-update");
+        badge.SetClass("shown", UpdateBadgeVisible);
+        if (release is not null)
+            badge.SetAttribute("data-tooltip", $"Mainframe Engine v{release.Version} is available — click for the release notes and Update and restart");
+    }
+
+    protected override void OnAttach(RmlDocument document)
+    {
+        document.AsElement().AddEventListener("keydown", e =>
         {
-            case RmlKey.Return or RmlKey.NumpadEnter:
-                OpenSelected();
-                break;
-            case RmlKey.Down:
-                Select(Math.Min(_rows.Count - 1, _selected + 1));
-                break;
-            case RmlKey.Up:
-                Select(Math.Max(0, _selected - 1));
-                break;
-        }
-    });
+            if (!Visible)
+                return;
+            switch ((RmlKey)e.GetParameter("key_identifier", 0))
+            {
+                case RmlKey.Return or RmlKey.NumpadEnter:
+                    OpenSelected();
+                    break;
+                case RmlKey.Down:
+                    Select(Math.Min(_rows.Count - 1, _selected + 1));
+                    break;
+                case RmlKey.Up:
+                    Select(Math.Max(0, _selected - 1));
+                    break;
+            }
+        });
+        RefreshUpdate();
+    }
 }

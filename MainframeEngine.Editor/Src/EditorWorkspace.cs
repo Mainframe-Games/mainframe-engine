@@ -321,6 +321,7 @@ public sealed partial class EditorWorkspace : Node
     {
         if (disposing)
         {
+            Updates?.Dispose();
             Play.Dispose();
             Session.Dispose();
             Project.Dispose();
