@@ -120,7 +120,7 @@ The Sandbox camera is a `FlyCamera : Camera3D` node in its scene; `Game` handles
 | Left Alt | toggle Raw/Normal cursor (does not enable look) |
 | Escape | quit |
 
-`Examples/SpineExamples` (no scene tree) uses the math cameras directly. Movement is enabled whenever the
+Tree-less code (no scene tree) can use the math cameras directly. Movement is enabled whenever the
 cursor is Raw; in 2D, mouse movement pans and the wheel zooms.
 
 ## Known issues

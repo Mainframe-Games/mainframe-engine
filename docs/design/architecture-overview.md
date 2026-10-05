@@ -24,8 +24,6 @@ RmlUi game UI, physics, audio, replication, localization and an ImGui developer 
 | [`Templates/MainframeEngine.Templates`](../../Templates/MainframeEngine.Templates/) | `dotnet new` template package (not in the solution) | `mfgame`: a game's node library + `GameHost` launcher + `project.mfproj`. See [Projects & GameHost](project-and-gamehost.md). |
 | `Tests/*` | xUnit v3 test projects, render-test host, BenchmarkDotNet | See [Testing](testing.md). |
 | `Plugins/Spine/spine-csharp` | class library (git submodule) | Spine C# runtime. Vendored — do not modify. |
-| `Examples/SpineExamples` | exe | Spine showcase that references the engine (runs without a `ShadowSystem`, see [Spine](spine.md#known-issues)). |
-| `Examples/SilkVulkanExamples` | exe | Standalone Vulkan tutorial ports. Does **not** reference the engine. |
 
 ## Source layout (`MainframeEngine/Src`)
 
@@ -70,7 +68,6 @@ flowchart LR
     Sandbox -. build tool .-> L10n["mf-l10n<br/>(Tools/MainframeEngine.L10n)"]
     L10n --> Engine
     Engine -. analyzer .-> Gen
-    SpineEx["Examples/SpineExamples"] --> Engine
     Engine --> SpineRT["spine-csharp<br/>(submodule)"]
     Engine --> Silk["Silk.NET<br/>Windowing + Input (SDL2) · Vulkan · MoltenVK"]
     Engine --> ImGui["ImGui.NET"]

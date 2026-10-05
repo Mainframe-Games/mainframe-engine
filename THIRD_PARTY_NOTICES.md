@@ -27,11 +27,8 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
 | [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
 | [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
-| Spine example skeletons, atlases and textures (spineboy, raptor, celestial-circus, windmill) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `MainframeEngine.Sandbox/Content/Models/Spine/SpineBoy`, `Examples/SpineExamples/Content/*` | Sandbox and examples only (see [below](#spine-example-assets)) |
+| Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `MainframeEngine.Sandbox/Content/Models/Spine/SpineBoy` | Sandbox only (see [below](#spine-example-assets)) |
 | [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `MainframeEngine.Sandbox/Content/Sky`, `Examples/EditorShowcase/Content/Sky` | Sandbox and EditorShowcase only |
-| [Silk.NET](https://github.com/dotnet/Silk.NET) tutorial code and logo textures | — | MIT | `Examples/SilkVulkanExamples` | nothing (example project; see [below](#silknet-examples)) |
-| [LearnOpenGL](https://learnopengl.com) (Joey de Vries) lesson structure and lighting shaders | — | CC BY 4.0 | `Examples/SilkVulkanExamples` | nothing (example project) |
-| [Vulkan Tutorial](https://vulkan-tutorial.com) (Alexander Overvoorde) code | — | CC0 1.0 | `Examples/SilkVulkanExamples` | nothing (example project) |
 
 Managed NuGet dependencies (Silk.NET, ImGui.NET, StbImageSharp, Steamworks.NET, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
 their packages and are not repeated here.
@@ -403,11 +400,6 @@ product requires a [Spine Editor licence](http://esotericsoftware.com/spine-edit
 
 - `MainframeEngine.Sandbox/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (also linked into
   `Tests/MainframeEngine.Tests` and `Tests/MainframeEngine.RenderTests.Host`; the `spine*` render-test goldens show it)
-- `Examples/SpineExamples/Content/SpineBoy/spineboy-pro.{atlas,json,png}`
-- `Examples/SpineExamples/Content/Raptor/raptor-pro.{atlas,json,png}`
-- `Examples/SpineExamples/Content/CelestialCircus/celestial-circus-pro.{atlas,json}`, `celestial-circus-pro.png`,
-  `celestial-circus-pro_2.png`
-- `Examples/SpineExamples/Content/Windmill/windmill-ess.{atlas,json,png}`
 
 ## Poly Haven sky panoramas
 
@@ -415,46 +407,6 @@ The panoramic sky `sky_10_2k.png` (in `MainframeEngine.Sandbox/Content/Sky/` and
 is one of the Poly Haven sky panoramas (CC0), converted to an 8-bit 4096×2048 PNG. Poly Haven assets are released
 under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication; see
 https://polyhaven.com/license): no attribution is required, and it is given here as a courtesy.
-
-## Silk.NET examples
-
-`Examples/SilkVulkanExamples` (a tutorial project, not part of the engine or its builds) ports code from the
-[Silk.NET](https://github.com/dotnet/Silk.NET) tutorials and examples and uses the Silk.NET logo textures from those
-examples (`Content/Textures/silk.png`, `Content/Textures/LightingMaps/silkBoxed.png`,
-`Content/Textures/LightingMaps/silkSpecular.png`):
-
-```text
-MIT License
-
-Copyright (c) 2021- .NET Foundation and Contributors
-Copyright (c) 2019-2020 Ultz Limited
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-The Silk.NET tutorials follow [LearnOpenGL](https://learnopengl.com) by Joey de Vries: the example series' lesson
-structure (coordinate systems, camera, lighting, materials, lighting maps, model loading) and its Phong lighting
-shaders are adapted from LearnOpenGL's code, licensed under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (attribution: Joey de Vries, https://learnopengl.com; changes: ported
-to C#, Silk.NET and Vulkan/GLSL 450). No LearnOpenGL textures
-(which are CC BY-NC 4.0) are included. The Vulkan setup code follows Alexander Overvoorde's
-[Vulkan Tutorial](https://vulkan-tutorial.com), whose code is [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
 ## SoundFlow
 

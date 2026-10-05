@@ -304,7 +304,7 @@ them in reverse order after the tree is freed.
 | `WorldEnvironment` | `SkyEnvironment` | `Sky` resource (procedural / panoramic / cubemap + colors), `AmbientColor` |
 
 The pre-M2 math cameras are now `PerspectiveCamera` / `OrthographicCamera` (`ICamera`), still usable
-without a tree (Examples/SpineExamples).
+without a tree.
 
 ## Invariants
 

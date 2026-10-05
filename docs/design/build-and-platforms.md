@@ -26,8 +26,7 @@ working directory. The Sandbox and the render-test host still pin the working di
 `MainframeEngine.Generators` (the source generator, netstandard2.0, referenced as an analyzer by the
 engine, the Sandbox and the unit tests; its only package, `Microsoft.CodeAnalysis.CSharp`, is build-time
 only — see [Scene serialization](scene-serialization.md#source-generator)),
-`MainframeEngine.Sandbox`, `MainframeEngine.Editor`, and the solution folders `Examples` (`SpineExamples`,
-`SilkVulkanExamples`), `Plugins` (`spine-csharp`), `Tools` (`MainframeEngine.L10n`, the `mf-l10n` CLI) and `Tests`
+`MainframeEngine.Sandbox`, `MainframeEngine.Editor`, and the solution folders `Plugins` (`spine-csharp`), `Tools` (`MainframeEngine.L10n`, the `mf-l10n` CLI) and `Tests`
 (`MainframeEngine.Tests`, `MainframeEngine.Editor.Tests`, `MainframeEngine.RenderTests`,
 `MainframeEngine.RenderTests.Host` and `MainframeEngine.Benchmarks`; see [Testing](testing.md)). The template package
 `Templates/MainframeEngine.Templates` is not in the solution (it is packed on its own: `just template-pack`), nor is
@@ -57,14 +56,12 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.22.0*
 | Silk.NET.Vulkan (+ Extensions.EXT/KHR) | 2.22.0 | Vulkan bindings |
 | Silk.NET.MoltenVK.Native | 2.22.0 | Bundled MoltenVK for macOS |
 | Silk.NET.Assimp | 2.22.0 | *Referenced but unused* (kept for M3) |
-| Silk.NET (meta) | 2.22.0 | `Examples/SilkVulkanExamples` |
 | ImGui.NET | 1.89.9.3 | Debug UI |
 | StbImageSharp | 2.30.15 | Image decoding (sky, Spine atlas, icon) |
 | ENet-CSharp | 2.4.8 | UDP networking |
 | Steamworks.NET | 2024.8.0 | Steam wrappers (inert, see [Steamworks](steamworks.md)) |
 | SoundFlow | 1.4.1 (exact) | Audio device, mixer graph, MP3/FLAC decoding ([Audio](audio.md), [ADR 0030](../../memory/decisions/0030-soundflow-audio-backend.md)). Ships its miniaudio natives in `runtimes/<rid>/native/` (win-x64/x86/arm64, linux-x64/arm/arm64, osx-x64/arm64, …); NuGet copies them to the app's `runtimes/` and SoundFlow resolves them. |
 | NVorbis | 0.10.5 (exact) | OGG Vorbis decoding, managed ([ADR 0032](../../memory/decisions/0032-ogg-via-nvorbis.md)) |
-| Spectre.Console | 0.54.1-alpha.0.86 | Example picker in `SilkVulkanExamples` |
 | xunit.v3, xunit.runner.visualstudio, Microsoft.NET.Test.Sdk, coverlet.collector | see props | Tests only |
 | BenchmarkDotNet | see props | Benchmarks only |
 
@@ -96,7 +93,7 @@ them current:
 
 | Command | What it does |
 |---|---|
-| `just shaders` | `glslc --target-env=vulkan1.2 -I MainframeEngine/Content/Shaders/include` on every engine `*.vk.{vert,frag,comp}` (same flags as the build) and every `Examples/SilkVulkanExamples` shader, `spirv-val` each result, then rewrite `MainframeEngine/Content/Shaders/shaders.lock` |
+| `just shaders` | `glslc --target-env=vulkan1.2 -I MainframeEngine/Content/Shaders/include` on every engine `*.vk.{vert,frag,comp}` (same flags as the build), `spirv-val` each result, then rewrite `MainframeEngine/Content/Shaders/shaders.lock` |
 | `just shaders-check` | Fails if a source, an include or a `.spv` no longer matches the lock (source edited without recompiling, or `.spv` not committed) |
 
 The lock stores the sha256 of each source and of its `.spv`, and of each `include/*.glsl`. After

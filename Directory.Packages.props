@@ -11,7 +11,6 @@
 
   <!-- Engine -->
   <ItemGroup>
-    <PackageVersion Include="Silk.NET" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.Assimp" Version="$(SilkNetVersion)" />
     <!-- Windowing and input run on SDL2 (ADR 0003); the GLFW backend packages are not referenced. -->
     <PackageVersion Include="Silk.NET.Input.Sdl" Version="$(SilkNetVersion)" />
@@ -45,7 +44,6 @@
 
   <!-- Examples only -->
   <ItemGroup>
-    <PackageVersion Include="Spectre.Console" Version="0.54.1-alpha.0.86" />
   </ItemGroup>
 
   <!-- Tests and tooling only -->
