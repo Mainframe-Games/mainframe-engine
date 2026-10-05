@@ -61,9 +61,26 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
+      # The editor build needs only the engine's and editor's LFS content.
+      # Git LFS objects are cached by object ID (.lfs-assets-id), so repeat runs use no LFS bandwidth.
       - uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
+
+      - name: List LFS objects
+        shell: bash
+        run: git lfs ls-files -l --exclude="docs/images/*.png,Examples/**,Tests/**,MainframeEngine.Sandbox/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+
+      - name: Cache LFS objects
+        uses: actions/cache@v4
+        with:
+          path: .git/lfs
+          key: lfs-publish-${{ runner.os }}-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-publish-${{ runner.os }}-
+
+      - name: Fetch LFS objects
+        shell: bash
+        run: git lfs pull --exclude="docs/images/*.png,Examples/**,Tests/**,MainframeEngine.Sandbox/**"
 
       - run: git submodule update --init --depth 1 Plugins/Spine
 
