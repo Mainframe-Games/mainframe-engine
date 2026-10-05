@@ -24,7 +24,7 @@ dotnet new mfgame -n SmokeGame -o "$work/SmokeGame" --engine-path "$repo" --debu
 dotnet build "$work/SmokeGame/SmokeGame.slnx" -c "$config" -warnaserror ${BUILD_ARGS:-}
 
 out="$work/SmokeGame/SmokeGame.Launcher/bin/$config/net10.0"
-for required in SmokeGame.Launcher.dll SmokeGame.dll project.mfproj Content/Scenes/Main.mscene; do
+for required in SmokeGame.Launcher.dll SmokeGame.dll project.mfproj Content/Scenes/Main.mscene Content/icon.png; do
   if [ ! -e "$out/$required" ]; then
     echo "template-smoke: $required is missing from $out" >&2
     exit 1
