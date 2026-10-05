@@ -33,9 +33,6 @@ public interface IUpdateService
 /// <summary>Updates from GitHub Releases into <c>~/.mainframe/updates</c>.</summary>
 public sealed class GitHubUpdateService : IUpdateService
 {
-    // One client for the process (like NetworkUtils); the feed applies its own 10 s timeout, downloads have none.
-    private static readonly Lazy<HttpClient> Http = new(() => new HttpClient { Timeout = Timeout.InfiniteTimeSpan });
-
     private readonly string _updatesDirectory;
     private readonly string? _rid = UpdatePlatform.CurrentRid;
     private readonly Lazy<InstallLocation> _install;
@@ -53,14 +50,14 @@ public sealed class GitHubUpdateService : IUpdateService
     public InstallLocation Install => _install.Value;
 
     public Task<UpdateCheckResult> CheckAsync(CancellationToken ct) =>
-        new UpdateChecker(new ReleaseFeed(Http.Value, CurrentVersion), CurrentVersion, _rid).CheckAsync(ct);
+        new UpdateChecker(new ReleaseFeed(EditorHttp.Shared, CurrentVersion), CurrentVersion, _rid).CheckAsync(ct);
 
     public Task<StagedUpdate> DownloadAsync(UpdateCheckResult update, IProgress<double>? progress, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(update);
         if (!update.IsUpdate || _rid is null)
             throw new InvalidOperationException("Only an available update can be downloaded.");
-        return new UpdateDownloader(Http.Value, CurrentVersion).DownloadAsync(update.Release!, update.Asset!, _rid, _updatesDirectory, progress, ct);
+        return new UpdateDownloader(EditorHttp.Shared, CurrentVersion).DownloadAsync(update.Release!, update.Asset!, _rid, _updatesDirectory, progress, ct);
     }
 
     public ProcessStartInfo ApplierStartInfo(StagedUpdate staged, string? project)
