@@ -95,7 +95,7 @@ from the defaults. See [Shadow system](shadow-system.md).
 // Scene tree: a light node drives a DirectionalLight from its transform (direction = global -Z).
 var sun = new DirectionalLight3D { Position = new(0, 5, 0), Energy = 0.9f };
 sun.LookAt(sun.Position + Vector3.Normalize(new(0, -0.5f, -1)));
-Root.AddChild(sun);   // registered in Root.World3D.Lights; synced after process when it moves
+Root.AddChild(sun);   // registered in Root.World3D.Lights while visible; synced after process when it moves
 
 // Tree-less: a LightEnvironment by hand.
 var lights = new LightEnvironment();

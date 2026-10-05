@@ -121,6 +121,7 @@ public class Node3D : Node, ITransformNotifiable
                 return;
             _visible = value;
             OnVisibilityChanged();
+            NotifyVisibilityInTreeChanged();
         }
     }
 
@@ -252,6 +253,22 @@ public class Node3D : Node, ITransformNotifiable
     /// <summary>Called when <see cref="Visible"/> changes on this node.</summary>
     protected virtual void OnVisibilityChanged()
     {
+    }
+
+    /// <summary>
+    /// Called on this node and every 3D descendant when <see cref="Visible"/> changes on this node or an ancestor:
+    /// <see cref="IsVisibleInTree"/> may have changed (lights use it to join or leave their world's lights).
+    /// </summary>
+    private protected virtual void OnVisibilityInTreeChanged()
+    {
+    }
+
+    private void NotifyVisibilityInTreeChanged()
+    {
+        OnVisibilityInTreeChanged();
+        foreach (var child in Children)
+            if (child is Node3D child3D)
+                child3D.NotifyVisibilityInTreeChanged();
     }
 
     /// <summary>
