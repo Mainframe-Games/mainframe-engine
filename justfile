@@ -111,7 +111,7 @@ bench filter="*":
 bench-baseline:
     dotnet run -c Release --project Tests/MainframeEngine.Benchmarks -- --filter '*' --artifacts {{artifacts / "bench"}} --baseline-write Tests/MainframeEngine.Benchmarks/baseline.json
 
-# Publish + package the editor exactly like the release workflow (default RID: this machine's)
+# Publish + package the editor and the Demo exactly like the release workflow (default RID: this machine's)
 publish-local rid="" version="0.0.0-local":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -120,6 +120,7 @@ publish-local rid="" version="0.0.0-local":
     dotnet publish MainframeEngine.Editor/MainframeEngine.Editor.csproj -c Release -r "$rid" --self-contained \
       -p:Version={{version}} -p:PublishReadyToRun=true -o "{{artifacts}}/publish/$rid"
     build/package-editor.sh "$rid" "{{version}}" "{{artifacts}}/publish/$rid" "{{artifacts}}/release"
+    build/package-demo.sh "{{version}}" "{{artifacts}}/release"
 
 # Next release version the publish workflow would create (patch bump of the latest vX.Y.Z tag)
 next-version:

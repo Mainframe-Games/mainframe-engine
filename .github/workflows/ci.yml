@@ -337,6 +337,11 @@ jobs:
       - name: Build, test and run every Demo scene
         run: xvfb-run -a -s "-screen 0 1280x1024x24" build/demo-smoke.sh "$RUNNER_TEMP/demo-smoke" 10
 
+      - name: Demo release zip
+        run: |
+          build/package-demo.sh 0.0.0-ci "$RUNNER_TEMP/demo-zip"
+          dotnet run --project MainframeEngine.Editor -c Release -- --validate-demo-zip "$RUNNER_TEMP/demo-zip/MainframeEngine.Demo.zip"
+
       - name: Pack the template package
         run: dotnet pack Templates/MainframeEngine.Templates -c Release -o "$RUNNER_TEMP/templates"
 
