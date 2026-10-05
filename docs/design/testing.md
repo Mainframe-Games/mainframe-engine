@@ -11,7 +11,7 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | Project | Kind | Runs on |
 |---|---|---|
 | [`Tests/MainframeEngine.Tests`](../../Tests/MainframeEngine.Tests/) | xUnit v3 unit tests, no window/GPU | every OS in CI (`just test`) |
-| [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run) | lavapipe in CI, MoltenVK locally (`just test-render`) |
+| [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run) | lavapipe in CI and in Docker (`just render-tests-linux`), MoltenVK locally (`just test-render`) |
 | [`Tests/MainframeEngine.RenderTests.Host`](../../Tests/MainframeEngine.RenderTests.Host/) | Console app that runs one scene | launched by the render tests |
 | [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless; projects, Play (fake builder/launcher), FileSystem, code reload (Roslyn-compiled game assemblies); one `Category=Slow` test runs the real `dotnet new mfgame` + build | every OS in CI (`just test`) |
 | [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`, `just qa-projects`), see [Editor](editor.md#testing-and-qa) |
@@ -243,12 +243,19 @@ commit them with the change that caused them. PNGs are stored in Git LFS.
 
 #### Recording goldens
 
-`moltenvk`: `just golden-update` on a Mac. `lavapipe` (CI only; any change to rendered output needs both sets): on
-a branch (never `main` or `feature/*`), `git rm` the `lavapipe` goldens whose output changed on purpose (a new scene
-has none), then from the repository root:
+`moltenvk`: `just golden-update` on a Mac. `lavapipe` (any change to rendered output needs both sets): locally with
+Docker ([Linux tests in Docker](#linux-tests-in-docker)) — `git rm` the `lavapipe` goldens whose output changed on
+purpose (a new scene has none), then from the repository root:
 
 ```sh
-git commit -qm "Drop stale lavapipe goldens" --allow-empty && git push -u origin HEAD
+just render-tests-linux        # optionally: just render-tests-linux --filter "FullyQualifiedName~EditorRenderTests"
+cp artifacts/linux/render-tests/new-goldens/lavapipe/*.png Tests/MainframeEngine.RenderTests/Goldens/lavapipe/
+just render-tests-linux        # every test passes and "Every compared frame has a golden."
+```
+
+Without Docker, use CI: on a branch (never `main` or `feature/*`), commit the removals and push, then
+
+```sh
 run=$(gh workflow run ci.yml --ref "$(git branch --show-current)" | grep -oE '[0-9]+$') # prints the run's URL
 gh run watch "$run" --exit-status
 rm -rf /tmp/rt && gh run download "$run" -n render-tests -D /tmp/rt
@@ -256,8 +263,8 @@ cp /tmp/rt/artifacts/render-tests/new-goldens/lavapipe/*.png Tests/MainframeEngi
 ```
 
 Then **look at every copied PNG** next to its `moltenvk` golden: the only allowed differences are the ones listed
-below; anything else is an engine bug to fix, not a golden to commit. Commit the PNGs, push, and run CI twice more:
-both runs must be green with no `No golden` warnings (`CapturesAreDeterministicAcrossRuns` and the other determinism
+below; anything else is an engine bug to fix, not a golden to commit. Commit the PNGs and run the render tests on lavapipe
+twice more (Docker or CI): both runs must pass with no frame left without a golden (`CapturesAreDeterministicAcrossRuns` and the other determinism
 tests cover run-to-run stability).
 
 Expected `lavapipe` vs `moltenvk` differences (rasterizer, resolution and CPU, not bugs). Rendered at the same
@@ -287,7 +294,7 @@ lavapipe also dropped grid lines whose endpoints projected far off-screen and dr
 covered the ground below the horizon with a grey haze; that was a real difference, not one of the above.
 
 Lavapipe output changes with the Mesa/LLVM version in the runner image (recorded on Ubuntu 24.04:
-`llvmpipe (LLVM 20.1.2, 256 bits)`). If an image update breaks the goldens, re-record them as above
+`llvmpipe (LLVM 20.1.2, 256 bits)`, Mesa 25.2.8). If an image update breaks the goldens, re-record them as above
 ([Recording goldens](#recording-goldens)).
 
 ### Gates
@@ -325,6 +332,32 @@ lookups), `RmlLocalizationTests`, `NodeLocalizationTests` (re-translation immedi
 (end-to-end `mf-l10n`); the game UI's translation (`UI/UiLocalizationTests`, in the `SerialRmlUi` collection, restoring
 `Tr` through the fixture) includes a 0-byte gate over translated HUD frames. The render tests' `sandbox` allocation gate
 runs in Spanish with the RmlUi HUD. See [Localization](localization.md#testing).
+
+### Linux tests in Docker
+
+`just test-linux` and `just render-tests-linux` run CI's Linux jobs locally ([`build/linux/run.sh`](../../build/linux/run.sh)):
+an `ubuntu:24.04` container for **linux/amd64** ([`build/linux/Dockerfile`](../../build/linux/Dockerfile): the apt
+packages of `ci.yml` — `mesa-vulkan-drivers`, `vulkan-validationlayers`, Xvfb, the X libraries, gettext — and the .NET
+SDK from `global.json` via `dotnet-install.sh`), with CI's environment (`VK_DRIVER_FILES`/`VK_ICD_FILENAMES` = lavapipe,
+`SDL_VIDEODRIVER=x11`, `SDL_AUDIODRIVER=dummy`, `CI=true`). x86_64 matters: the `lavapipe` goldens are CI's x86_64
+llvmpipe output, and physics after contact differs between x64 and arm64 (see below).
+
+- The script sends the working tree — tracked and untracked-but-not-ignored files (so new goldens count), the Spine
+  C# sources, and `.git` without LFS objects (SourceLink stamps the commit) — into a cached volume
+  (`mainframe-linux-work`; NuGet packages in `mainframe-linux-nuget`), builds the solution Release with
+  `-warnaserror -p:CompileShaders=false`, and runs the suite: `unit` (engine tests, `mf-l10n check --msgfmt`, editor
+  tests), `render` (`xvfb-run … dotnet test Tests/MainframeEngine.RenderTests`, extra arguments passed through) or
+  `all` (`build/linux/run.sh all`).
+- Results land in `artifacts/linux/`: `TestResults/*.trx` and `render-tests/` (failed comparisons' actual/expected/diff
+  PNGs; frames without a golden in `render-tests/new-goldens/lavapipe/`, also listed at the end of the run).
+- Docker Desktop on Apple Silicon runs the container under x86_64 emulation (Rosetta): the first run builds the image
+  and restores packages; later runs rebuild incrementally. Docker needs about 8 GB of memory. Emulated test processes can stall
+  with every thread idle (seen ~190 tests into the parallel unit suite, while tests start processes, SDL and sockets;
+  never on native x64): the image sets `DOTNET_EnableWriteXorExecute=0`, which makes it rare, every suite runs with
+  `--blame-hang-timeout 5m`, and a run aborted that way (not one with failed tests) is retried once.
+- The image's Mesa must match CI's for the goldens to match: both are Ubuntu 24.04's `mesa-vulkan-drivers`
+  (recorded with `llvmpipe (LLVM 20.1.2, 256 bits)`, Mesa 25.2.8). An image update that changes the output needs the
+  goldens re-recorded.
 
 ## Benchmarks
 
