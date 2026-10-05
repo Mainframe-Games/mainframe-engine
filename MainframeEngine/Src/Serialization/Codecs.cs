@@ -73,6 +73,9 @@ public static class Codecs
         Cache<Transform2D>.Value = new FloatArrayCodec<Transform2D>(6,
             static (t, d) => { d[0] = t.X.X; d[1] = t.X.Y; d[2] = t.Y.X; d[3] = t.Y.Y; d[4] = t.Origin.X; d[5] = t.Origin.Y; },
             static s => new Transform2D(new Vector2(s[0], s[1]), new Vector2(s[2], s[3]), new Vector2(s[4], s[5])));
+        Cache<Rect2>.Value = new FloatArrayCodec<Rect2>(4,
+            static (r, d) => { d[0] = r.Position.X; d[1] = r.Position.Y; d[2] = r.Size.X; d[3] = r.Size.Y; },
+            static s => new Rect2(s[0], s[1], s[2], s[3]));
         Cache<NodePath>.Value = new NodePathCodec();
     }
 

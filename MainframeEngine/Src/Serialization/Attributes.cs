@@ -9,7 +9,7 @@ namespace MainframeEngine;
 /// <remarks>
 /// Supported types: <c>bool</c>, integer and floating-point primitives, <c>string</c>, enums,
 /// <c>Vector2/3/4</c>, <c>Quaternion</c>, <c>System.Drawing.Color</c>, <see cref="Transform3D"/>,
-/// <see cref="Transform2D"/>, <see cref="NodePath"/>, <see cref="Resource"/> subclasses (inline or external)
+/// <see cref="Transform2D"/>, <see cref="Rect2"/>, <see cref="NodePath"/>, <see cref="Resource"/> subclasses (inline or external)
 /// and arrays / <c>List&lt;T&gt;</c> of these.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, Inherited = true)]

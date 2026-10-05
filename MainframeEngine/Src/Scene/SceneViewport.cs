@@ -23,7 +23,26 @@ public class SceneViewport : Node
     internal SceneViewport(bool isTreeRoot)
     {
         IsTreeRoot = isTreeRoot;
+        RootCanvas = new Canvas(this, null);
     }
+
+    private readonly List<CanvasLayer> _canvasLayers = [];
+
+    /// <summary>The viewport's own canvas (layer 0): canvas items not under a <see cref="CanvasLayer"/>.</summary>
+    public Canvas RootCanvas { get; }
+
+    /// <summary>
+    /// Canvas space → viewport pixels for <see cref="RootCanvas"/> (Godot's <c>Viewport.canvas_transform</c>; the current
+    /// <see cref="Camera2D"/> sets it).
+    /// </summary>
+    public Transform2D CanvasTransform { get; set; } = Transform2D.Identity;
+
+    /// <summary>The canvas layers in this viewport (any order; the canvas server sorts them).</summary>
+    public IReadOnlyList<CanvasLayer> CanvasLayers => _canvasLayers;
+
+    internal void AddCanvasLayer(CanvasLayer layer) => _canvasLayers.Add(layer);
+
+    internal void RemoveCanvasLayer(CanvasLayer layer) => _canvasLayers.Remove(layer);
 
     /// <summary>True for <see cref="SceneTree.Root"/>.</summary>
     public bool IsTreeRoot { get; }

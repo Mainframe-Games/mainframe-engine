@@ -196,3 +196,14 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   `Camera2D`/editor 2D view look along +Z with up −Y (rotation, not mirror), editor screen↔world, grid (z = +1),
   gizmo axes. 2D physics/editor tests mirrored (y → −y). Gates: build, Release, unit 1170 + editor 443, render 45/45,
   format.
+
+### 2026-10-05 — 2D canvas renderer (ADR 0111, port E2/E3)
+- `CanvasItem` (base of `Node2D`), `Sprite2D`, `CanvasLayer`, `CanvasModulate`, `Canvas` (viewport root canvas / layer),
+  `Rect2` (serializable), `CanvasDrawList` + `CanvasPrimitives` (Godot's tessellation and `Triangulate`),
+  `CanvasCuller` (port of `_cull_canvas_item`), `CanvasServer` (frame server: redraws, cull, `CanvasFrame` batches),
+  `VulkanCanvasRenderer` (RGBA8 gamma-space layer, Godot blend states, composite after the tonemap below the UI),
+  `CanvasItemMaterial`, `Shader`/`ShaderMaterial` stubs (E5). Shaders `Canvas/Canvas.vk.{vert,frag}`, `include/canvas.glsl`.
+- Tests: `Canvas/CanvasTests` (order, z, y-sort, modulate, culling, top level, redraws, frame), `CanvasPrimitivesTests`;
+  render test `canvas` (+ moltenvk golden; lavapipe golden still to record). Gates: build, Release, unit 1184 + editor
+  443, render 46/46, format, shaders.
+- Icons: used existing atlas names (`stack-2`, `contrast`, `brush`) — new Tabler names need `just editor-icons-fetch`.

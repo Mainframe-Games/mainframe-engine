@@ -352,6 +352,8 @@ public abstract class Engine : IDisposable
         // M6: physics servers, stepped by the tree's fixed tick; they create a space per world on demand.
         Servers.Register(new PhysicsServer3D(EngineOptions.Physics3D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
         Servers.Register(new PhysicsServer2D(EngineOptions.Physics2D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
+        // 2D canvas (ADR 0111): gamma-space canvas layer composited after the tonemap, below the game UI (registered first).
+        Servers.Register(new CanvasServer(Tree, () => new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y), Renderer));
         if (EngineOptions.EnableUi)
         {
             // M8: RmlUi game UI — sees input before the tree's nodes, renders after the tonemap below ImGui.

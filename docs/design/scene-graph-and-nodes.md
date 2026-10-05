@@ -317,8 +317,9 @@ without a tree.
 
 ## Known issues
 
-- `SubViewport`s render 3D only, without shadows unless `Shadows` is set and the main world draws nothing (the editor); 2D rendering comes later (M8). `Camera2D` renders 3D visuals
-  orthographically.
+- `SubViewport`s render 3D only, without shadows unless `Shadows` is set and the main world draws nothing (the editor).
+  2D canvas items draw through the canvas renderer ([2D canvas](canvas.md)); `Camera2D` still renders 3D visuals
+  orthographically and does not yet move the canvas (E9).
 - Euler angles use X→Y→Z order (engine legacy), not Godot's Y→X→Z.
 - Re-sorting a process list after a structural change is O(n log n); spawning every frame in a very large
   tree pays it each frame.

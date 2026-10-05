@@ -25,6 +25,7 @@ RenderTestGame game = options.Scene switch
     "instances" => new InstancesScene(options),
     "picking" => new PickingScene(options),
     "ui-hud" => new UiHudScene(options),
+    "canvas" => new CanvasScene(options),
     "ui-effects" => new UiDocumentScene(options, "Content/UI/effects.rml"),
     "ui-widgets" => new UiDocumentScene(options, "Content/UI/widgets/demo.rml"),
     "ui-text" => new UiDocumentScene(options, "Content/UI/text.rml"),

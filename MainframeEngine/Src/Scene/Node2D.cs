@@ -8,7 +8,7 @@ namespace MainframeEngine;
 /// rules as <see cref="Node3D"/>.
 /// </summary>
 [EditorIcon("axis-y", Family = EditorIconFamily.Space2D)]
-public class Node2D : Node, ITransformNotifiable
+public class Node2D : CanvasItem, ITransformNotifiable
 {
     private Vector2 _position;
     private float _rotation;
@@ -17,7 +17,6 @@ public class Node2D : Node, ITransformNotifiable
     private Transform2D _global = Transform2D.Identity;
     private bool _localDirty = true;
     private bool _globalDirty = true;
-    private bool _visible = true;
     private bool _notifyTransform;
     private bool _notificationQueued;
     private Track _track; // engine-internal change hooks (physics)
@@ -71,17 +70,6 @@ public class Node2D : Node, ITransformNotifiable
         }
     }
 
-    /// <summary>Draw order among 2D nodes (higher draws on top).</summary>
-    [Export]
-    public int ZIndex { get; set; }
-
-    [Export]
-    public bool Visible
-    {
-        get => _visible;
-        set => _visible = value;
-    }
-
     public Transform2D Transform
     {
         get
@@ -124,14 +112,18 @@ public class Node2D : Node, ITransformNotifiable
 
     public float GlobalRotation => GlobalTransform.Rotation;
 
-    public Node2D? ParentNode2D => Parent as Node2D;
+    /// <summary>The parent the transform is relative to: the parent <see cref="Node2D"/>, or null for roots and top-level nodes.</summary>
+    public Node2D? ParentNode2D => TopLevel ? null : Parent as Node2D;
 
-    public bool IsVisibleInTree()
+    public override Transform2D GetTransform() => Transform;
+
+    public override Transform2D GetGlobalTransform() => GlobalTransform;
+
+    // As in Godot, toggling top level does not move the node: its local transform is reinterpreted (as global or back).
+    private protected override void OnTopLevelChanged()
     {
-        for (var n = this; n is not null; n = n.ParentNode2D)
-            if (!n._visible)
-                return false;
-        return true;
+        _globalDirty = false;
+        InvalidateGlobal();
     }
 
     /// <summary>Requests <see cref="OnTransformChanged"/> after process when the global transform changed.</summary>
@@ -233,6 +225,7 @@ public class Node2D : Node, ITransformNotifiable
 
     private protected override void OnParentChanged()
     {
+        base.OnParentChanged();
         _globalDirty = false;
         InvalidateGlobal();
     }
