@@ -9,6 +9,9 @@ internal sealed class FakeUpdateService : IUpdateService
     public TaskCompletionSource<UpdateCheckResult>? PendingCheck { get; set; }
     public UpdateResult? LastResult { get; set; }
     public Exception? StartError { get; set; }
+
+    /// <summary>Like a real download past its last token check (verify, extract): Cancel does not stop it.</summary>
+    public bool IgnoresCancellation { get; set; }
     public int Checks { get; private set; }
     public int Downloads { get; private set; }
     public TaskCompletionSource<StagedUpdate> Download { get; private set; } = new();
@@ -25,7 +28,8 @@ internal sealed class FakeUpdateService : IUpdateService
     {
         Downloads++;
         Download = new TaskCompletionSource<StagedUpdate>();
-        ct.Register(() => Download.TrySetCanceled(ct));
+        if (!IgnoresCancellation)
+            ct.Register(() => Download.TrySetCanceled(ct));
         progress?.Report(0.5);
         return Download.Task;
     }

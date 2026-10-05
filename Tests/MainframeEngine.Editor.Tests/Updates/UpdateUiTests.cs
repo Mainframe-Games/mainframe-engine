@@ -215,6 +215,23 @@ public sealed class UpdateUiTests : IDisposable
     }
 
     [Fact]
+    public void CancelWhileVerifyingOrUnpackingDoesNotInstall()
+    {
+        _service.CheckResult = FakeUpdateService.Update();
+        _service.IgnoresCancellation = true;
+        Start();
+        W.UpdateDialog.Open();
+        W.Updates.Primary();
+        W.Updates.Cancel();
+        _service.Download.SetResult(FakeUpdateService.Staged()); // the download finished anyway
+        _editor!.Tick();
+        Assert.Equal(UpdateState.Idle, W.Updates.State);
+        Assert.Null(W.Updates.Staged);
+        Assert.Empty(_service.Started);
+        Assert.False(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
     public void AnApplierThatCannotStartKeepsTheEditorOpen()
     {
         _service.CheckResult = FakeUpdateService.Update();

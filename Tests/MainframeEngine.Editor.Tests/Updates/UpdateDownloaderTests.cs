@@ -174,6 +174,22 @@ public sealed class UpdateDownloaderTests : IDisposable
     }
 
     [Fact]
+    public async Task CancellingAfterTheDownloadFinishedStillDeletesTheFolder()
+    {
+        // The last progress report (1.0) comes after the body is read and before the checksum and extraction.
+        var archive = TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
+        using var cancel = new CancellationTokenSource();
+        var reports = 0;
+        var progress = new CallbackProgress(value =>
+        {
+            if (value >= 1.0 && ++reports == 2)
+                cancel.Cancel();
+        });
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Download("linux-x64", archive, progress: progress, ct: cancel.Token));
+        Assert.False(Directory.Exists(Path.Combine(Updates, "1.1.0")));
+    }
+
+    [Fact]
     public async Task AnEarlierStagingOfTheSameVersionIsReplaced()
     {
         Directory.CreateDirectory(Path.Combine(Updates, "1.1.0", "app", "stale"));
@@ -224,5 +240,10 @@ public sealed class UpdateDownloaderTests : IDisposable
     private sealed class SyncProgress(List<double> reports) : IProgress<double>
     {
         public void Report(double value) => reports.Add(value);
+    }
+
+    private sealed class CallbackProgress(Action<double> report) : IProgress<double>
+    {
+        public void Report(double value) => report(value);
     }
 }

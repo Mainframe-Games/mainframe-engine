@@ -188,9 +188,12 @@ public sealed class UpdateController(EditorWorkspace workspace, IUpdateService? 
 
     private void FinishDownload(Task<StagedUpdate> download)
     {
+        // A Cancel the download no longer saw (it finished verifying or unpacking first) still cancels: never install
+        // against an explicit Cancel. The staged folder stays until the next download replaces it.
+        var cancelled = _downloadCancel?.IsCancellationRequested ?? false;
         _downloadCancel?.Dispose();
         _downloadCancel = null;
-        if (download.IsCanceled || download.Exception?.GetBaseException() is OperationCanceledException)
+        if (cancelled || download.IsCanceled || download.Exception?.GetBaseException() is OperationCanceledException)
         {
             State = UpdateState.Idle;
             Changed?.Invoke();

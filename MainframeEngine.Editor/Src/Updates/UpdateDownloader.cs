@@ -35,8 +35,10 @@ public sealed class UpdateDownloader(HttpClient http, string editorVersion)
             var archive = Path.Combine(folder, asset.Name);
             await DownloadFileAsync(asset, archive, progress, ct).ConfigureAwait(false);
             Verify(archive, asset.Sha256);
+            ct.ThrowIfCancellationRequested(); // Cancel stays offered while hashing and unpacking
             var extracted = Path.Combine(folder, "app");
             Extract(archive, extracted);
+            ct.ThrowIfCancellationRequested();
             File.Delete(archive);
             var root = UpdatePlatform.StagedRoot(extracted, release.Version, rid);
             var executable = UpdatePlatform.ExecutablePath(root, rid);
