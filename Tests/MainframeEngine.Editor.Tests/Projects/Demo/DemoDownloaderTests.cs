@@ -26,7 +26,9 @@ public sealed class DemoDownloaderTests : IDisposable
 
         Assert.Equal(Request().Destination, destination);
         Assert.True(File.Exists(Path.Combine(destination, "project.mfproj")));
-        Assert.Contains("<MainframeEnginePath>/engine</MainframeEnginePath>", File.ReadAllText(Path.Combine(destination, "Directory.Build.props")));
+        // The engine path is written resolved ("/engine" is D:\engine on Windows).
+        Assert.Contains($"<MainframeEnginePath>{GameProjectLayout.RealPath("/engine")}</MainframeEnginePath>",
+            File.ReadAllText(Path.Combine(destination, "Directory.Build.props")));
         Assert.Equal(DemoRelease.AssetUrl("1.2.3"), handler.Requests.Single().RequestUri);
         Assert.Empty(Directory.EnumerateFileSystemEntries(Downloads));
         Assert.NotEmpty(progress.Values);
