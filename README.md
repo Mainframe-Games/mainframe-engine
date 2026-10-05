@@ -11,7 +11,7 @@ This engine is mostly for educational purposes. One day I will make a game using
 **Target:** .NET 10, Vulkan 1.2 (MoltenVK on macOS) · **Platforms:** macOS (Apple Silicon), Windows x64, Linux x64 ·
 **Version:** 1.0.0 (milestones M0–M10 complete; see [Releases & versioning](#releases--versioning))
 
-![The editor with the Sandbox scene](docs/images/editor.png)
+![The editor: a 3D scene with a spot light selected, its inspector, the FileSystem and Output panels](docs/images/editor.png)
 
 ---
 
@@ -91,6 +91,7 @@ mainframe-engine/
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
 ├── MainframeEngine.Editor/      # The editor (RmlUi UI in Content/Editor)
 ├── MainframeEngine.Sandbox/     # Test game demonstrating the engine's features
+├── Examples/                    # Standalone examples; EditorShowcase is the editor screenshots' game project
 ├── Templates/                   # `dotnet new mfgame` game template
 ├── Tools/MainframeEngine.L10n/  # mf-l10n: extract (RML, scenes), update, pseudo-locale, .po -> .mo compiler
 ├── Native/                      # Native shim sources (mfrmlui over RmlUi + FreeType, ENet), built by natives.yml
@@ -393,13 +394,19 @@ nodes at once, a Signals tab, custom inspectors), undo/redo with a history menu,
 picking and translate/rotate/scale gizmos with snapping. Scenes open in tabs, each in its own world; nothing but
 `[Tool]` nodes runs while editing.
 
-![Mainframe Editor](docs/images/editor.png)
+| Project Manager | Create New Node |
+|---|---|
+| ![The Project Manager with recent projects](docs/images/editor-project-manager.png) | ![The create dialog: favourites, recent types, a searched inheritance tree and the type's description](docs/images/editor-add-node.png) |
 
 ```sh
 just editor                                                        # Project Manager
 just editor path/to/MyGame                                         # open a project
+just editor Examples/EditorShowcase                                # the showcase project from the screenshots
 just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene  # open one scene
 ```
+
+The screenshots come from `just readme-screenshots` ([Tests/QA/readme-screenshots.qa](Tests/QA/readme-screenshots.qa)
+and the `mfgame`-based [Examples/EditorShowcase](Examples/EditorShowcase) project).
 
 What comes after M10 is in the [roadmap](docs/design/future/editor.md).
 
@@ -511,6 +518,7 @@ just test             # engine + editor unit tests (no GPU)
 just test-render      # render tests: golden images, Vulkan validation gate, 0-bytes-per-frame allocation gate
 just render-tests-linux  # the same on lavapipe in an x86_64 Docker container, like CI
 just qa               # Sandbox screenshots;  just qa-editor / just qa-projects: scripted editor walkthroughs
+just readme-screenshots  # regenerate the editor screenshots in docs/images (needs ImageMagick)
 just bench            # benchmarks against Tests/MainframeEngine.Benchmarks/baseline.json
 ```
 
