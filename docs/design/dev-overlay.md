@@ -80,8 +80,8 @@ visible):
 ### Shadow-map images
 
 The Shadows panel shows each cascade layer and the atlas as `<img src="engine://dev-shadow-cascade-N"/>` and
-`engine://dev-shadow-atlas`. They are registered through `UiServer.RegisterTexture(name, Func<UiTextureView> source,
-flags)`, which asks the source every frame the image is drawn, so the view survives shadow-map re-creation:
+`engine://dev-shadow-atlas`. They are registered through the engine-internal `UiServer.RegisterTexture(name, Func<UiTextureView> source,
+flags)` (not public API), which asks the source every frame the image is drawn, so the view survives shadow-map re-creation:
 
 - `UiTextureView(View, Sampler, Layout, Width, Height, Generation)`; a zero `View` means "nothing to show" and nothing is
   drawn. `Generation` identifies the image's incarnation: change it whenever the image is recreated, so the UI writes a

@@ -310,7 +310,7 @@ The dev overlay's **Shadows** panel ([Developer overlay](dev-overlay.md)) shows:
 
 - the settings above, the pass, draw and instance counts, the CPU and GPU times;
 - a **Maps** section that shows the cascade layers and the atlas as grey images (`engine://dev-shadow-*`, registered
-  with `UiServer.RegisterTexture(name, source, UiTextureConversion.DepthToGray)`; the source reports the layout,
+  with the internal `UiServer.RegisterTexture(name, source, UiTextureConversion.DepthToGray)` overload; the source reports the layout,
   here `DEPTH_STENCIL_READ_ONLY_OPTIMAL`, and `ShadowSystem.MapsGeneration` as the image generation).
 
 ### Quality levels

@@ -82,7 +82,8 @@ to the display, so overlapping lights no longer clip (see [Color pipeline](color
 
 Every light casts shadows unless `CastsShadows` is false. The shadow system decides which map each light gets:
 
-- the first shadowed directional light: cascades;
+- the first shadowed directional light: cascades (a light that is hidden and shown again is appended to the end of its
+  list, so re-showing a directional light can change which one gets the cascades);
 - other directional and spot lights: atlas tiles;
 - the first four shadowed point lights: cubes.
 

@@ -91,8 +91,9 @@ public interface IVulkanContext
     void BeginOverlayPass();
 
     /// <summary>
-    /// Adds a renderer drawn after tonemapping, below the dev overlay. Renderers draw in ascending <paramref name="order"/>
-    /// (see <see cref="OverlayOrder"/>); equal orders draw in registration order. Adding a renderer twice is a no-op.
+    /// Adds a renderer drawn after tonemapping. Renderers draw in ascending <paramref name="order"/> (see
+    /// <see cref="OverlayOrder"/>); equal orders draw in registration order. Renderers at or below <see cref="OverlayOrder.Ui"/>
+    /// draw below the UI (which includes the dev overlay); higher orders draw above it. Adding a renderer twice is a no-op.
     /// </summary>
     void AddOverlayRenderer(IOverlayRenderer renderer, int order = OverlayOrder.Ui);
 

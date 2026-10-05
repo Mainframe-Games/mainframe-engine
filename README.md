@@ -423,7 +423,10 @@ scene per feature: Basic 3D and 2D, Audio 2D and 3D, UI, Physics 2D and 3D, and 
 and every scene has a small RmlUi panel with its controls. Press F12 in the Demo (or in any game) to open the developer
 overlay: frame, renderer, shadow-map, GPU, audio, physics and network panels, plus light and axis gizmo toggles
 ([Developer overlay](docs/design/dev-overlay.md)). Its scenes, localization catalogs and tests live in the
-project, so it is also the reference for how a game is laid out.
+project, so it is also the reference for how a game is laid out. Its Spine example is Esoteric Software's, not MIT (and the sky
+panorama is CC0): see its [NOTICE.md](Examples/Demo/NOTICE.md). The editor's Project Manager has **Demo…**
+(Download Demo Project): it fetches the Demo of the running editor version from GitHub Releases into a folder you choose,
+points it at your engine checkout and opens it.
 
 ```bash
 just demo                                          # the Basic 3D scene

@@ -1,6 +1,6 @@
 # Proposal: MainframeEngine.Demo — one scene per feature
 
-**Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D1, first) · **Status:** ⬜ planned ·
+**Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D1, first) · **Status:** ✅ ·
 **Depends on:** [M10 projects & GameHost](../project-and-gamehost.md); the 2D canvas renderer from the Crash Site
 Defense port (`origin/mainframe-engine-port`: `CanvasItem` draw API, `Sprite2D`, `CanvasLayer`, Godot `Camera2D`,
 Y-down 2D, window stretch — [Canvas](../canvas.md), ADRs 0110–0114), which this work is based on ·
