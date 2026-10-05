@@ -39,6 +39,13 @@ public sealed class ModelImportTests : IDisposable
     }
 
     [Fact]
+    public void AssimpIsAlsoLookedUpInThisRidsRuntimesFolder()
+    {
+        // Silk.NET alone misses runtimes/linux-x64/native on distros newer than its RID graph (Ubuntu 24.04).
+        Assert.Contains(ModelImporter.AssimpLibraryNames(), name => Path.IsPathRooted(name) && File.Exists(name));
+    }
+
+    [Fact]
     public void GltfImportsAsANodeHierarchyWithMeshesAndMaterials()
     {
         var scene = ResourceLoader.Load<PackedScene>(ModelPath);
