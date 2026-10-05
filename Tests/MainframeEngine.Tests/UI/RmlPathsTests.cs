@@ -36,6 +36,9 @@ public sealed class RmlPathsTests : IDisposable
     [InlineData("Content/UI/doc.rml", "../Brand/a.png", "Content/Brand/a.png")]
     [InlineData("Content/UI/doc.rml", "./a.png", "Content/UI/a.png")]
     [InlineData("doc.rml", "a\\b.png", "a/b.png")]
+    [InlineData("/Users/x/Content/UI/doc.rml", "a.png", "/Users/x/Content/UI/a.png")]
+    [InlineData("/Users/x/Content/UI/doc.rml", "../b.png", "/Users/x/Content/b.png")]
+    [InlineData("C:/Games/UI/doc.rml", "a.png", "C:/Games/UI/a.png")]
     public void RelativePathsJoinTheDocumentFolder(string document, string path, string expected) =>
         Assert.Equal(expected, RmlPaths.Join(document, path));
 }

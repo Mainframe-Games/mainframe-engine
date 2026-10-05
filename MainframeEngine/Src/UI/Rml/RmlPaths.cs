@@ -39,6 +39,7 @@ public static class RmlPaths
                 parts.Add(part);
         }
 
-        return string.Join('/', parts);
+        // A rooted document folder stays rooted (a drive prefix survives as the first segment).
+        return (path.StartsWith('/') ? "/" : "") + string.Join('/', parts);
     }
 }

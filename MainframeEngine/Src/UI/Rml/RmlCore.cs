@@ -440,17 +440,26 @@ public static unsafe class RmlCore
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void SysJoinPath(nint user, byte* documentPath, byte* path, nint output)
     {
-        string? joined = null;
         try
         {
-            joined = RmlPaths.Join(RmlUtf8.ToString(documentPath) ?? "", RmlUtf8.ToString(path) ?? "");
+            var raw = RmlUtf8.ToString(path) ?? "";
+            string joined;
+            try
+            {
+                joined = RmlPaths.Join(RmlUtf8.ToString(documentPath) ?? "", raw);
+            }
+            catch (Exception e)
+            {
+                Report(e, "JoinPath");
+                joined = raw;
+            }
+
+            new RmlStringSink(output).Set(joined.AsSpan());
         }
         catch (Exception e)
         {
             Report(e, "JoinPath");
         }
-
-        new RmlStringSink(output).Set((joined ?? RmlUtf8.ToString(path) ?? "").AsSpan());
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

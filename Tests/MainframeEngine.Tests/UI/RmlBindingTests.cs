@@ -202,7 +202,7 @@ public sealed class RmlBindingTests
     [Fact]
     public void AbsoluteImageSourcesReachTheRendererUnchanged()
     {
-        var directory = Directory.CreateTempSubdirectory("mf-abs-img").FullName;
+        var directory = Directory.CreateTempSubdirectory("mf abs é").FullName;
         try
         {
             // The recording renderer never decodes, so the bytes only need to exist.
