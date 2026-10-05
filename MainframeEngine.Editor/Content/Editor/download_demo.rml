@@ -5,7 +5,7 @@
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
-        #dialog { left: 50%; top: 50%; width: 560dp; height: 300dp; margin-left: -280dp; margin-top: -150dp; }
+        #dialog { left: 50%; top: 50%; width: 560dp; height: 340dp; margin-left: -280dp; margin-top: -170dp; }
         .dialog-row button { width: 26dp; padding: 0dp; margin-left: 6dp; }
         .dd-info { display: block; flex: 0 0 auto; margin-bottom: 8dp; color: #8b93a5; font-size: 11dp; line-height: 15dp; }
         .dd-bar { display: block; flex: 0 0 auto; height: 8dp; border-radius: 4dp; background-color: #ffffff1a; margin-top: 4dp; }
@@ -23,6 +23,7 @@
                 <input type="text" class="text" id="dd-location" data-value="location"/>
                 <button id="dd-browse" data-event-click="browse()" data-tooltip="Browse — choose the folder the demo goes in"><span class="icon icon-sm icon-folder-open"></span></button>
             </div>
+            <div class="dd-info" id="dd-dev-note" data-if="dev">This is a development build: it downloads the latest release's Demo, which may not match this engine version.</div>
             <div class="dd-info">Creates {{target}}</div>
             <div class="dd-info">Engine: {{engine}}</div>
             <div class="dd-bar" data-if="busy"><div class="dd-fill" data-style-width="bar"></div></div>

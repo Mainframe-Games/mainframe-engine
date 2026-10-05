@@ -12,7 +12,7 @@ public sealed record DemoDownloadRequest(string ParentDirectory, string FolderNa
 /// <c>downloadsDirectory</c> (the zip) and a hidden staging folder beside the destination (the extracted project, so the final
 /// move is a same-volume rename), points it at the engine and moves it to the destination. Runs off the UI thread; failures
 /// are <see cref="DemoDownloadException"/>s, cancellation is <see cref="OperationCanceledException"/>; either way the work
-/// files are deleted and the destination is not created.
+/// files are deleted, the destination is not created and a parent folder the download had to create is removed again.
 /// </summary>
 public sealed class DemoDownloader(HttpClient http, string editorVersion, string downloadsDirectory)
 {
@@ -28,6 +28,8 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
         var id = Guid.NewGuid().ToString("N");
         var zipPath = Path.Combine(downloadsDirectory, $"demo-{id}.zip");
         var work = Path.Combine(request.ParentDirectory, $".mainframe-demo-{id}"); // same volume as the destination
+        var createdFolder = FirstMissingFolder(request.ParentDirectory); // removed again unless the download succeeds
+        var succeeded = false;
         try
         {
             Directory.CreateDirectory(downloadsDirectory);
@@ -42,6 +44,7 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
             if (Directory.Exists(request.Destination))
                 Directory.Delete(request.Destination);
             Directory.Move(root, request.Destination);
+            succeeded = true;
             return request.Destination;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -52,6 +55,39 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
         {
             TryDelete(zipPath);
             TryDeleteDirectory(work);
+            if (!succeeded && createdFolder is not null)
+                TryDeleteEmptyChain(request.ParentDirectory, createdFolder);
+        }
+    }
+
+    /// <summary>The outermost folder of <paramref name="directory"/>'s path that does not exist yet (what creating it will add), or null.</summary>
+    private static string? FirstMissingFolder(string directory)
+    {
+        string? missing = null;
+        for (var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+             current is not null && !Directory.Exists(current);
+             current = Path.GetDirectoryName(current))
+            missing = current;
+        return missing;
+    }
+
+    /// <summary>Deletes <paramref name="leaf"/> and its parents up to <paramref name="top"/> while they are empty.</summary>
+    private static void TryDeleteEmptyChain(string leaf, string top)
+    {
+        try
+        {
+            var topPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(top));
+            for (var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(leaf)); current is not null; current = Path.GetDirectoryName(current))
+            {
+                if (!Directory.Exists(current) || Directory.EnumerateFileSystemEntries(current).Any())
+                    return;
+                Directory.Delete(current);
+                if (current == topPath)
+                    return;
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
         }
     }
 
@@ -101,6 +137,7 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
         }
         catch (Exception e) when (e is HttpRequestException or IOException)
         {
+            ct.ThrowIfCancellationRequested(); // a cancelled read can surface as an IOException: that is a cancel, not an interruption
             throw new DemoDownloadException("The demo download was interrupted: " + e.Message, e);
         }
     }

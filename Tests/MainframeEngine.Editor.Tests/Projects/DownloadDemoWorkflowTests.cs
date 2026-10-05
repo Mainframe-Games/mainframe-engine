@@ -62,6 +62,38 @@ public sealed class DownloadDemoWorkflowTests : IDisposable
         Assert.Empty(editor.RmlMessages);
     }
 
+    [Theory]
+    [InlineData("0.0.0-dev", true)]
+    [InlineData("1.5.0-rc.1", true)]
+    [InlineData("1.4.2", false)]
+    public void OnlyDevelopmentBuildsGetANoteThatTheLatestDemoMayNotMatch(string version, bool note)
+    {
+        var editor = Editor(StubHandler.Bytes([]));
+        var dialog = editor.Workspace.DownloadDemo;
+        dialog.EngineVersionOverride = version;
+        Assert.Equal(note, dialog.IsDevelopmentBuild);
+        Assert.Contains("may not match", dialog.Document.GetElementById("dd-dev-note").InnerRml, StringComparison.Ordinal);
+        Assert.Empty(editor.RmlMessages);
+    }
+
+    [Fact]
+    public void TheDevelopmentNoteIsOnlyShownOnDevelopmentBuilds()
+    {
+        var editor = Editor(StubHandler.Bytes([]));
+        var dialog = editor.Workspace.DownloadDemo;
+        float ErrorY()
+        {
+            dialog.Open();
+            editor.Tick(3);
+            return dialog.Document.GetElementById("dd-error").Bounds.Y; // below the note: it moves down by the note's height
+        }
+
+        dialog.EngineVersionOverride = "1.4.2";
+        var release = ErrorY();
+        dialog.EngineVersionOverride = "0.0.0-dev";
+        Assert.True(ErrorY() > release + 10);
+    }
+
     [Fact]
     public void DownloadOpensTheDemoAndAddsItToRecentProjects()
     {

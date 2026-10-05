@@ -31,6 +31,14 @@ public sealed class DownloadDemoDialog : EditorDocument
     /// <summary>Tests: "" simulates no engine checkout; null uses <see cref="TemplateLocator.FindEngineCheckout"/>.</summary>
     public string? EngineCheckoutOverride { get; set; }
 
+    /// <summary>Tests: the engine version to use instead of <see cref="EngineInfo.Version"/>.</summary>
+    public string? EngineVersionOverride { get; set; }
+
+    private string EngineVersion => EngineVersionOverride ?? EngineInfo.Version;
+
+    /// <summary>True on development and prerelease builds, which download the latest release's Demo (it may not match).</summary>
+    public bool IsDevelopmentBuild => DemoRelease.IsDevelopment(EngineVersion);
+
     public bool Busy => _download is not null;
 
     /// <summary>The validation error (empty when the download may start).</summary>
@@ -58,6 +66,7 @@ public sealed class DownloadDemoDialog : EditorDocument
             .Bind("version", this, static _ => EditorBrand.Version)
             .Bind("target", this, static d => Path.Combine(d._location.Trim(), FolderName))
             .Bind("engine", this, static d => d._engine.Length == 0 ? "—" : d._engine)
+            .Bind("dev", this, static d => d.IsDevelopmentBuild)
             .Bind("busy", this, static d => d.Busy)
             .Bind("bar", this, static d => $"{Math.Max(0, d._progress.Value) * 100:0}%")
             .Bind("status", this, static d => d._progress.Value < 0 ? "Downloading…" : $"Downloading… {d._progress.Value:P0}")
@@ -131,7 +140,7 @@ public sealed class DownloadDemoDialog : EditorDocument
         _progress = new ProgressSink();
         var handler = Workspace.Options.DemoHttpHandler?.Invoke();
         var http = handler is null ? EditorHttp.Shared : new HttpClient(handler);
-        var downloader = new DemoDownloader(http, EngineInfo.Version, Workspace.Options.DemoDownloadsDirectory ?? DemoDownloader.DefaultDownloadsDirectory);
+        var downloader = new DemoDownloader(http, EngineVersion, Workspace.Options.DemoDownloadsDirectory ?? DemoDownloader.DefaultDownloadsDirectory);
         _download = downloader.DownloadAsync(new DemoDownloadRequest(_location.Trim(), FolderName, _engine), _progress, _cancel.Token);
         Log.Info($"[Editor] Downloading the demo to {Path.Combine(_location.Trim(), FolderName)}…");
         _model?.DirtyAll();

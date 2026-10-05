@@ -113,6 +113,59 @@ public sealed class DemoDownloaderTests : IDisposable
         Assert.Empty(Directory.EnumerateFileSystemEntries(Downloads));
     }
 
+    [Fact]
+    public async Task FailureRemovesTheParentFoldersItCreated()
+    {
+        var request = new DemoDownloadRequest(Path.Combine(_directory, "new", "deeper"), "MainframeEngine.Demo", "/engine");
+        await Assert.ThrowsAsync<DemoDownloadException>(() =>
+            new DemoDownloader(new HttpClient(StubHandler.Status(HttpStatusCode.NotFound)), "1.2.3", Downloads).DownloadAsync(request, ct: TestContext.Current.CancellationToken));
+        Assert.False(Directory.Exists(Path.Combine(_directory, "new")));
+        Assert.True(Directory.Exists(_directory));
+    }
+
+    [Fact]
+    public async Task CancellingRemovesAParentFolderItCreated()
+    {
+        using var cancel = new CancellationTokenSource();
+        var body = new SlowStream(ValidZip(), afterBytes: 16, onPause: cancel.Cancel);
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(body) });
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            new DemoDownloader(new HttpClient(handler), "1.2.3", Downloads).DownloadAsync(Request(), ct: cancel.Token));
+        Assert.False(Directory.Exists(Request().ParentDirectory));
+    }
+
+    [Fact]
+    public async Task FailureKeepsAnExistingParentFolder()
+    {
+        Directory.CreateDirectory(Request().ParentDirectory);
+        await Assert.ThrowsAsync<DemoDownloadException>(() =>
+            new DemoDownloader(new HttpClient(StubHandler.Status(HttpStatusCode.NotFound)), "1.2.3", Downloads).DownloadAsync(Request(), ct: TestContext.Current.CancellationToken));
+        Assert.True(Directory.Exists(Request().ParentDirectory));
+    }
+
+    [Fact]
+    public async Task AnIoErrorDuringACancelledReadIsACancellationNotAnInterruption()
+    {
+        Directory.CreateDirectory(Request().ParentDirectory);
+        using var cancel = new CancellationTokenSource();
+        var body = new CancelThenFailStream(ValidZip(), afterBytes: 16, cancel.Cancel);
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(body) });
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            new DemoDownloader(new HttpClient(handler), "1.2.3", Downloads).DownloadAsync(Request(), ct: cancel.Token));
+    }
+
+    /// <summary>Returns <paramref name="afterBytes"/> bytes, then cancels and fails with an IOException (a cancelled socket read).</summary>
+    private sealed class CancelThenFailStream(byte[] data, int afterBytes, Action cancel) : MemoryStream(data)
+    {
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (Position < afterBytes)
+                return base.ReadAsync(buffer[..(int)Math.Min(buffer.Length, afterBytes - Position)], cancellationToken);
+            cancel();
+            throw new IOException("read aborted");
+        }
+    }
+
     private sealed class SyncProgress : IProgress<double>
     {
         public List<double> Values { get; } = [];
