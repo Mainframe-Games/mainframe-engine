@@ -17,7 +17,8 @@ public enum AutoTranslateMode
 
 public partial class Node
 {
-    private AutoTranslateMode _autoTranslateMode;
+    // Stored as a byte (with the process modes): keeps Node at 232 bytes, see Node.Processing.cs.
+    private byte _autoTranslateMode;
 
     /// <summary>
     /// Whether <see cref="Atr(string, string?)"/> translates for this node (default: inherit; translated at the root).
@@ -26,12 +27,12 @@ public partial class Node
     [Export]
     public AutoTranslateMode AutoTranslateMode
     {
-        get => _autoTranslateMode;
+        get => (AutoTranslateMode)_autoTranslateMode;
         set
         {
-            if (_autoTranslateMode == value)
+            if (_autoTranslateMode == (byte)value)
                 return;
-            _autoTranslateMode = value;
+            _autoTranslateMode = (byte)value;
             if (_tree is not null)
                 PropagateLocaleChanged();
         }
@@ -42,7 +43,7 @@ public partial class Node
     {
         for (var node = this; node is not null; node = node._parent)
         {
-            switch (node._autoTranslateMode)
+            switch ((AutoTranslateMode)node._autoTranslateMode)
             {
                 case AutoTranslateMode.Always:
                     return true;
