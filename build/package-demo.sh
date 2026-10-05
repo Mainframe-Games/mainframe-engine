@@ -18,6 +18,31 @@ if grep -rl --binary-files=text '^version https://git-lfs.github.com/spec/v1' "$
   grep -rl --binary-files=text '^version https://git-lfs.github.com/spec/v1' "$dest" >&2
   exit 1
 fi
+
+# The Demo builds outside this repo, where the root Directory.Packages.props (central package management) does not apply:
+# ship one with exactly the packages the Demo's projects reference, versions read from the root file now.
+central="$repo/Directory.Packages.props"
+packages="$(cd "$dest" && find . -name '*.csproj' -print0 | xargs -0 grep -h -o '<PackageReference [^>]*Include="[^"]*"' |
+  sed -E 's/.*Include="([^"]*)".*/\1/' | sort -u)"
+{
+  echo '<Project>'
+  echo '  <!-- Central package versions for this project, copied from the engine checkout it was packaged from. -->'
+  echo '  <PropertyGroup>'
+  echo '    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>'
+  echo '  </PropertyGroup>'
+  echo '  <ItemGroup>'
+  for package in $packages; do
+    entry="$(grep -E "<PackageVersion Include=\"$package\" Version=\"[^\"]*\"" "$central" | head -n 1 || true)"
+    pin="$(printf '%s' "$entry" | sed -E 's/.*Version="([^"]*)".*/\1/')"
+    if [ -z "$entry" ] || [ -z "$pin" ] || [[ "$pin" == *'$('* ]]; then
+      echo "error: the Demo references $package, which has no literal version in Directory.Packages.props" >&2
+      exit 1
+    fi
+    echo "    <PackageVersion Include=\"$package\" Version=\"$pin\" />"
+  done
+  echo '  </ItemGroup>'
+  echo '</Project>'
+} > "$dest/Directory.Packages.props"
 (cd "$stage" && zip -qr -X "$out/MainframeEngine.Demo-v$version.zip" MainframeEngine.Demo)
 cp "$out/MainframeEngine.Demo-v$version.zip" "$out/MainframeEngine.Demo.zip"
 ls -la "$out"/MainframeEngine.Demo*.zip

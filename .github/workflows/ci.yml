@@ -281,7 +281,7 @@ jobs:
     # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally), then build, test and run every scene of
     # Examples/Demo the same way (build/demo-smoke.sh).
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.json
       VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
@@ -340,7 +340,7 @@ jobs:
       - name: Demo release zip
         run: |
           build/package-demo.sh 0.0.0-ci "$RUNNER_TEMP/demo-zip"
-          dotnet run --project MainframeEngine.Editor -c Release -- --validate-demo-zip "$RUNNER_TEMP/demo-zip/MainframeEngine.Demo.zip"
+          dotnet run --project MainframeEngine.Editor -c Release -- --validate-demo-zip "$RUNNER_TEMP/demo-zip/MainframeEngine.Demo.zip" --build
 
       - name: Pack the template package
         run: dotnet pack Templates/MainframeEngine.Templates -c Release -o "$RUNNER_TEMP/templates"
