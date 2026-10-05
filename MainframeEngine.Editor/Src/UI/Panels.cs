@@ -82,9 +82,32 @@ public sealed class ToolbarPanel : EditorDocument
     protected override void OnAttach(RmlDocument document)
     {
         _shownLocal = null;
+        _badgeVersion = null;
         _snapListener?.Remove();
         _snapListener = document.GetElementById("snap-step").AddEventListener("change", OnSnapStep);
         Refresh();
+        RefreshUpdate();
+    }
+
+    private ReleaseVersion? _badgeVersion;
+
+    /// <summary>True while the update badge is shown (a newer release is available).</summary>
+    public bool UpdateBadgeVisible { get; private set; }
+
+    /// <summary>Shows or hides the update badge (on <see cref="UpdateController.Changed"/>, never per frame).</summary>
+    public void RefreshUpdate()
+    {
+        var release = Workspace.Updates?.Available?.Release;
+        UpdateBadgeVisible = release is not null;
+        if (!IsLoaded)
+            return;
+        var badge = Document.GetElementById("update");
+        badge.SetClass("shown", UpdateBadgeVisible);
+        if (release is not null && _badgeVersion != release.Version)
+        {
+            _badgeVersion = release.Version;
+            badge.SetAttribute("data-tooltip", $"Mainframe Engine v{release.Version} is available — click for the release notes and Update and restart");
+        }
     }
 
     private void OnSnapStep(RmlEvent e)

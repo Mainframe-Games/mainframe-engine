@@ -165,6 +165,7 @@ public static class EditorCommandLine
                 RecentProjectsPath = RecentProjects.DefaultPath,
                 EditorSettingsPath = EditorSettings.DefaultPath,
                 ThemeOverlayDirectory = EditorTheme.DefaultOverlayDirectory,
+                Updates = hidden ? null : new GitHubUpdateService(),
             },
             WindowSize = size,
             ContentScale = scale,

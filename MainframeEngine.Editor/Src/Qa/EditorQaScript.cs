@@ -39,6 +39,7 @@ namespace MainframeEngine.Editor;
 /// open-project folder         # opens a project like the Project Manager does
 /// camera x y z distance yaw pitch      # the active scene's editor camera: orbit pivot, distance, degrees
 /// collapse Node/Path / expand Node/Path  # a scene tree row
+/// update-preview X.Y.Z       # the update dialog for a made-up release (no network)
 /// quit
 /// </code>
 /// </summary>
@@ -233,6 +234,8 @@ public sealed class EditorQaScript : IEditorAutomation
                     workspace.FilePicker.Cancel();
                 else if (workspace.Message.Current is { } message)
                     workspace.Message.Answer(message.CancelButton >= 0 ? message.CancelButton : message.Buttons.Count - 1);
+                else if (workspace.UpdateDialog.Visible)
+                    workspace.UpdateDialog.Close();
                 else
                     workspace.Popup.Close();
                 break;
@@ -387,10 +390,24 @@ public sealed class EditorQaScript : IEditorAutomation
             case "quit":
                 app.Quit(ExitCode.Ok);
                 break;
+            case "update-preview":
+                workspace.Updates.ShowPreview(PreviewUpdate(step[1]));
+                break;
             default:
                 Log.Warning($"[QA] Unknown step '{step[0]}'.");
                 break;
         }
+    }
+
+    // update-preview X.Y.Z: the update dialog as a check would show it (QA runs never touch the network).
+    private static UpdateCheckResult PreviewUpdate(string version)
+    {
+        if (!ReleaseVersion.TryParse(version, out var v))
+            throw new FormatException($"update-preview needs X.Y.Z, not '{version}'.");
+        var release = new ReleaseInfo(v, "v" + v, "## What's Changed\n* Example release notes for the QA capture.\n* A second line.",
+            new Uri($"https://github.com/Mainframe-Games/mainframe-engine/releases/tag/v{v}"), []);
+        var asset = new ReleaseAsset(UpdatePlatform.AssetName(v, "osx-arm64"), new Uri("https://example.invalid/"), 0, new string('0', 64));
+        return new UpdateCheckResult(UpdateCheckStatus.UpdateAvailable, release, asset);
     }
 
     private void StepDrag(EditorApp app, (Vector2 From, Vector2 To, MouseButton Button, int Frames, int Done) drag)

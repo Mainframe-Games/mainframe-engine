@@ -43,6 +43,7 @@ public sealed class EditorSettingsDialog : EditorDocument
                 static (d, v) => d._working.AutosaveMinutes = int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var m) ? m : 0)
             .Bind("command", this, static d => d._working.CodeEditorCommand, static (d, v) => d._working.CodeEditorCommand = v ?? "")
             .Bind("auto_reload", this, static d => d._working.AutoReloadCode, static (d, v) => d._working.AutoReloadCode = v)
+            .Bind("check_updates", this, static d => d._working.CheckForUpdates, static (d, v) => d._working.CheckForUpdates = v)
             .Bind("error", this, static d => d._error)
             .Event("apply", _ => Apply())
             .Event("cancel", _ => HideAndReleaseFocus());

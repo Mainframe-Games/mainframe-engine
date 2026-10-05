@@ -101,7 +101,7 @@ flowchart TB
 
 | Panel | Document | What it does |
 |---|---|---|
-| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (shortcuts, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
+| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
 | Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G); the play group — Play (F5), Play Scene (F6), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B) — with a chip per running instance (status icon, label; click for its menu) and a build/reload status; fps / frame-time readout |
 | Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
@@ -419,6 +419,14 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
   empty means `MAINFRAME_CODE_EDITOR`, else VS Code when found, else the OS default. Used by Output links, build errors
   and C# files.
 - **Reload code automatically** after builds.
+- **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
+
+## Updates
+
+Released builds check GitHub Releases at start-up (Editor Settings › Updates; Help › Check for Updates… always works). A
+newer release shows a green badge in the toolbar and the Project Manager; it opens the update dialog (notes, View
+release, **Update & restart**). Runs with `--hidden`, `--smoke`, `--qa-script` and tests have no update service; QA
+captures the dialog with `update-preview X.Y.Z`. See [Editor updates](editor-updates.md).
 
 ## Files and safety
 
@@ -483,7 +491,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   text, commands, dialog answers, `window-close`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
-  each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`).
+  each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
+  walkthrough also captures the update dialog (`update-preview X.Y.Z`, no network) and the Editor Settings dialog.
 - **README screenshots** (`just readme-screenshots`, [readme-screenshots.qa](../../Tests/QA/readme-screenshots.qa)):
   the Project Manager (`recent-project` seeds the list), the showcase scene (`open-project`, `camera`, `collapse`), the
   create dialog (`favorite`, `search`, `pick`) and a new game after a code reload while it plays, captured at 2x
@@ -515,4 +524,4 @@ average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate 
 [Future: editor](future/editor.md) · [Project & game host](project-and-gamehost.md) · [Game UI](game-ui.md) ·
 [Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Scene serialization](scene-serialization.md) · [Materials & meshes](materials-and-meshes.md) · [Release](release.md) ·
-[Testing](testing.md)
+[Editor updates](editor-updates.md) · [Testing](testing.md)
