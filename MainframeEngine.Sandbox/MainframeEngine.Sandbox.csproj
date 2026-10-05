@@ -22,6 +22,15 @@
     </ItemGroup>
 
 
+    <!-- Content shared with the tests lives in Tests/Content (this project is deleted in a later task). -->
+    <ItemGroup>
+      <!-- One item per folder: %(RecursiveDir) is relative to the wildcard, so LinkBase must carry the folder name. -->
+      <None Include="..\Tests\Content\Models\**" LinkBase="Content\Models" CopyToOutputDirectory="PreserveNewest" />
+      <None Include="..\Tests\Content\Audio\**" LinkBase="Content\Audio" CopyToOutputDirectory="PreserveNewest" />
+      <None Include="..\Tests\Content\Sky\**" LinkBase="Content\Sky" CopyToOutputDirectory="PreserveNewest" />
+      <None Include="..\Tests\Content\locale\**\*.mo" LinkBase="Content\locale" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
     <!-- Debug builds record this project's Content folder so the UI can load (and hot-reload) from the sources. -->
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
       <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">

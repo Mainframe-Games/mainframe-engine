@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using MainframeEngine.Serialization;
+using MainframeEngine.Tests.TestAssets;
 
 namespace MainframeEngine.Tests.Scene;
 
@@ -602,24 +603,37 @@ public sealed class SerializationTests : IDisposable
     }
 
     [Fact]
-    public void TheSandboxSceneParsesAndResavesIdentically()
+    public void TheShowcaseFixtureMatchesItsBuilderAndResavesIdentically()
     {
-        // FlyCamera and SpinningBox live in the Sandbox assembly: here they load as MissingNodes, which must
-        // write back exactly what they read (including the inline resources they reference). The scene instances
-        // the glTF test model, which the test output carries, so resolve assets against the output folder.
+        var committed = Path.Combine(TestPaths.RepositoryRoot(), "Tests", "Content", "Scenes", "Showcase.mscene");
+        if (Environment.GetEnvironmentVariable("UPDATE_TEST_ASSETS") == "1")
+        {
+            // The builder loads the glTF test model and the checker texture from the test output.
+            AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory);
+            ShowcaseSceneBuilder.Write(committed);
+            var copy = Path.Combine(AppContext.BaseDirectory, "Content", "Scenes", "Showcase.mscene"); // the output copy is stale
+            Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
+            File.Copy(committed, copy, overwrite: true);
+        }
+
+        // The scene instances the glTF test model, which the test output carries, so resolve assets against the output folder.
         AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory);
-        var path = Path.Combine(AppContext.BaseDirectory, "Content", "Scenes", "Sandbox.mscene");
-        var original = File.ReadAllText(path).ReplaceLineEndings("\n");
-        var scene = PackedScene.Parse(File.ReadAllBytes(path));
-        var root = scene.Instantiate();
-
-        Assert.IsType<MissingNode>(root.GetNode("Camera"));
-        Assert.Equal("Content/Sky/sky_10_2k.png", root.GetNode<WorldEnvironment>("Environment").Sky!.Panorama);
-        Assert.Equal(5, root.Children.Count(c => c is Light3D));
-
-        var resaved = Encoding.UTF8.GetString(SceneSaver.ToJson(root, scene.Uid)).ReplaceLineEndings("\n");
-        Assert.Equal(original.TrimEnd(), resaved.TrimEnd());
-        root.Free();
+        var scene = ResourceLoader.Load<PackedScene>("Content/Scenes/Showcase.mscene");
+        var root = scene.Instantiate<Node3D>();
+        try
+        {
+            Assert.IsType<Camera3D>(root.GetNode("Camera"));
+            Assert.Equal("Content/Sky/sky_10_2k.png", root.GetNode<WorldEnvironment>("Environment").Sky!.Panorama);
+            Assert.Equal(5, root.Children.Count(c => c is Light3D));
+            Assert.NotNull(root.GetNodeOrNull<MeshInstance3D>("Column"));
+            Assert.Equal(File.ReadAllText(committed).ReplaceLineEndings("\n").TrimEnd(),
+                Encoding.UTF8.GetString(SceneSaver.ToJson(root, scene.Uid)).ReplaceLineEndings("\n").TrimEnd());
+        }
+        finally
+        {
+            root.Free();
+            scene.Release();
+        }
     }
 }
 

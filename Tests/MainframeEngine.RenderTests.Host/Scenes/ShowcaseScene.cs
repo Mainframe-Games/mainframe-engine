@@ -7,12 +7,12 @@ using MainframeEngine.Localization;
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
 /// <summary>
-/// Mirrors the Sandbox's per-frame work — Spine, shadows, sky, grid, the RmlUi HUD (data bindings dirtied every frame)
+/// Mirrors the showcase fixture's per-frame work — Spine, shadows, sky, grid, the RmlUi HUD (data bindings dirtied every frame)
 /// and the ImGui debug window with light and axis gizmos — for the steady-state allocation gate. Its ImGui text shows
-/// timings, so it is not used for golden images. Its labels are looked up in the Sandbox's Spanish catalog every frame
+/// timings, so it is not used for golden images. Its labels are looked up in the Spanish test catalog (Tests/Content/locale) every frame
 /// (M9), so the gate also covers translation lookups.
 /// </summary>
-public sealed class SandboxScene(HostOptions host) : SpineScene(host)
+public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
 {
     private AudioPlayer3D? _orbiting;
 
@@ -23,7 +23,7 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
     }
 
     /// <summary>
-    /// Adds the Sandbox's audio (M7) and physics (M6) stacks and the RmlUi HUD (M8), so the allocation gate covers
+    /// Adds the showcase's audio (M7) and physics (M6) stacks and the RmlUi HUD (M8), so the allocation gate covers
     /// <c>AudioServer.Process</c> with moving positional voices, physics steps, interpolation and contacts, and the UI.
     /// </summary>
     protected override void AddNodes(Node scene)
@@ -36,7 +36,7 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
 
     private void AddAudio(Node scene)
     {
-        // As in the Sandbox: the streamed ambience on a box-like emitter plus an orbiting, looping in-memory tone.
+        // As in the showcase fixture: the streamed ambience on a box-like emitter plus an orbiting, looping in-memory tone.
         scene.AddChild(new AudioPlayer3D
         {
             Name = "Ambience",
@@ -65,7 +65,7 @@ public sealed class SandboxScene(HostOptions host) : SpineScene(host)
         scene.AddChild(_orbiting);
     }
 
-    /// <summary>A static floor collider and a tower of crates (the Sandbox's physics stack).</summary>
+    /// <summary>A static floor collider and a tower of crates (the showcase's physics stack).</summary>
     private void AddPhysics(Node scene)
     {
         // Single-threaded: Jitter2's worker pool allocates 56 B about once per 5 000 multi-threaded steps (inside the

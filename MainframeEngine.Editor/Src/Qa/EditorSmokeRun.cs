@@ -8,7 +8,7 @@ namespace MainframeEngine.Editor;
 
 /// <summary>
 /// <c>--smoke &lt;dir&gt;</c>: the editor's end-to-end check, run by the render tests in a real window. With the given scene
-/// open (the Sandbox): frame a known mesh and select it by GPU picking at its projected pixel, change its position through
+/// open (the showcase fixture): frame a known mesh and select it by GPU picking at its projected pixel, change its position through
 /// the inspector model, undo/redo, save to a temp file, reload and compare (values and a byte-stable re-save), capture the
 /// editor window (golden), measure frame times on the scene, then open a 1 000-node scene and measure the managed
 /// allocations of idle frames. Writes <c>result.json</c> (the render tests' result format) after shutdown, so validation
@@ -136,7 +136,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         {
             case Step.Start when _stepFrame >= 10:
                 {
-                    // A known mesh, framed so it fills the view centre: the Sandbox's "Column", else the first editable mesh.
+                    // A known mesh, framed so it fills the view centre: the fixture's "Column", else the first editable mesh.
                     _target = scene.Root.GetNodeOrNull<MeshInstance3D>("Column") is { Mesh: not null } column
                         ? column
                         : FindMesh(scene, scene.Root);
@@ -240,7 +240,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         switch (_frame)
         {
             case 3:
-                workspace.Splash.Show("Loading Sandbox.mscene…", 0.4f);
+                workspace.Splash.Show("Loading Showcase.mscene…", 0.4f);
                 break;
             case 20:
                 _captureFrame = _frame;

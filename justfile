@@ -167,8 +167,8 @@ format-check:
     dotnet format {{solution}} --verify-no-changes --exclude Plugins/Spine
 
 # --- Localization (docs/design/localization.md) -------------------------------------------------------------------
-# The Sandbox's catalogs: Content/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
-l10n_dir := "MainframeEngine.Sandbox/Content/locale"
+# The test content catalogs (until the Demo has its own): Tests/Content/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
+l10n_dir := "Tests/Content/locale"
 l10n := "dotnet run --project Tools/MainframeEngine.L10n -c Release --"
 
 # Extract strings (C# via GetText.Extractor; RML — the Sandbox HUD and the engine widget library — and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale

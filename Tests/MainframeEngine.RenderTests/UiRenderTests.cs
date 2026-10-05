@@ -5,7 +5,7 @@ namespace MainframeEngine.RenderTests;
 /// <summary>
 /// The game UI (RmlUi via <see cref="VulkanUiRenderer"/>): goldens for a HUD over the 3D scene, effects (clip masks,
 /// transforms, filters, gradients), text and the widget library, exact sRGB compositing after the tonemap, the
-/// validation gate and determinism. The allocation gate covers the UI through the <c>sandbox</c> scene.
+/// validation gate and determinism. The allocation gate covers the UI through the <c>showcase</c> scene.
 /// </summary>
 public class UiRenderTests
 {

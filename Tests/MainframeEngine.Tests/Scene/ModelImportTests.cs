@@ -214,24 +214,16 @@ public sealed class ModelImportTests : IDisposable
     [Fact]
     public void TheCommittedTestModelMatchesTheGenerator()
     {
-        // The Sandbox and the render tests use the committed copy; it must be what the generator writes.
+        // The tests (and the render tests) use the committed copy; it must be what the generator writes.
         // UPDATE_TEST_ASSETS=1 rewrites the committed copy from the generator.
         if (Environment.GetEnvironmentVariable("UPDATE_TEST_ASSETS") == "1")
-            TestModel.Write(Path.Combine(RepositoryRoot(), "MainframeEngine.Sandbox", "Content", "Models", "TestModel"));
+            TestModel.Write(Path.Combine(TestPaths.RepositoryRoot(), "Tests", "Content", "Models", "TestModel"));
         var committed = Path.Combine(AppContext.BaseDirectory, "Content", "Models", "TestModel");
         var generated = Path.Combine(_project, "Content", "Models", "TestModel");
         foreach (var file in new[] { TestModel.GltfFile, TestModel.BinFile, TestModel.GltfFile + ".meta", TestModel.TextureFile + ".meta" })
             Assert.True(File.ReadAllBytes(Path.Combine(committed, file)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(generated, file))),
-                $"{file} differs from the generator: run the generator (TestModel.Write) into MainframeEngine.Sandbox/Content/Models/TestModel.");
+                $"{file} differs from the generator: run the generator (TestModel.Write) into Tests/Content/Models/TestModel.");
         Assert.Equal(TestModel.Checker(8), Png.ReadRgba8(Path.Combine(committed, TestModel.TextureFile)).Pixels);
-    }
-
-    private static string RepositoryRoot()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-            if (File.Exists(Path.Combine(dir.FullName, "MainframeEngine.slnx")))
-                return dir.FullName;
-        throw new DirectoryNotFoundException("MainframeEngine.slnx not found above the test output.");
     }
 
     private static void AssertNear(Vector3 expected, Vector3 actual, float tolerance = 1e-4f) =>

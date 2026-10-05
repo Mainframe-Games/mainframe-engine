@@ -138,7 +138,7 @@ public class SceneTests
     }
 
     [Fact]
-    public void SandboxSteadyStateAllocatesNothing()
+    public void ShowcaseSteadyStateAllocatesNothing()
     {
         const int warmup = 120, measured = 300;
         // Without tiered compilation: the gate is about the code a steady-state frame runs, which is optimized code.
@@ -148,7 +148,7 @@ public class SceneTests
         // measured a few dozen frames of ImGui text formatting before it. Fully optimized code from the start measures
         // the steady state deterministically.
         var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
-            "sandbox", Output("sandbox"), "--alloc", $"{warmup}:{measured}", "--hidden");
+            "showcase", Output("showcase"), "--alloc", $"{warmup}:{measured}", "--hidden");
 
         Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures)); // audio really plays
         Assert.Equal(measured, result.MeasuredFrames);

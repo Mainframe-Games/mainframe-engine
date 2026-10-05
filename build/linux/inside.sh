@@ -39,7 +39,7 @@ if [ "$suite" = all ] || [ "$suite" = unit ]; then
   run_tests Tests/MainframeEngine.Tests -c Release --no-build "${hang[@]}" \
     --logger "trx;LogFileName=unit-tests.trx" --results-directory TestResults "$@" || status=1
   dotnet run --project Tools/MainframeEngine.L10n -c Release --no-build -- \
-    check --dir MainframeEngine.Sandbox/Content/locale --msgfmt || status=1
+    check --dir Tests/Content/locale --msgfmt || status=1
   run_tests Tests/MainframeEngine.Editor.Tests -c Release --no-build "${hang[@]}" \
     --logger "trx;LogFileName=editor-tests.trx" --results-directory TestResults "$@" || status=1
 fi
