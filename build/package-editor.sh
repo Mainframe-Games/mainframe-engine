@@ -26,8 +26,15 @@ case "$rid" in
     ;;
   win-*)
     mkdir -p "$staging/$name" && cp -R "$publish_dir"/. "$staging/$name/"
-    (cd "$staging" && if command -v zip >/dev/null; then zip -qr "$out_dir/${name}.zip" "$name"; \
-      else powershell -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath '$out_dir/${name}.zip'"; fi)
+    archive="$out_dir/${name}.zip"
+    if command -v zip >/dev/null; then
+      (cd "$staging" && zip -qr "$archive" "$name")
+    else
+      # Windows runners have no zip: use PowerShell, which needs Windows paths (Git Bash's /d/a/... are not).
+      src="$staging/$name"
+      if command -v cygpath >/dev/null; then src="$(cygpath -w "$src")"; archive="$(cygpath -w "$archive")"; fi
+      powershell -NoProfile -NonInteractive -Command "\$ErrorActionPreference = 'Stop'; Compress-Archive -Path '$src' -DestinationPath '$archive' -Force"
+    fi
     ;;
   linux-*)
     mkdir -p "$staging/$name" && cp -R "$publish_dir"/. "$staging/$name/"
