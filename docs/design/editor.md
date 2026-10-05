@@ -341,14 +341,14 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   uses `releases/latest/download/MainframeEngine.Demo.zip`; `DemoRelease` holds the one base URL) through the shared
   `EditorHttp` client into `~/.mainframe/downloads/`, with a progress bar and a size cap; `DemoArchive` extracts into a
   hidden staging folder beside the destination with zip-slip, symlink and 1 GiB guards and validates it (one top folder
-  with `project.mfproj`, a launcher project, scenes); `EnginePathRewriter` points `MainframeEnginePath` of its
+  with `project.mfproj`, a desktop project, scenes); `EnginePathRewriter` points `MainframeEnginePath` of its
   `Directory.Build.props` at the engine checkout; then the folder is moved into place (same volume), the project opens
   like a New Project and joins the recent list. Cancel stops the download; a failure (no published demo, no network,
   disk) shows its message with Download still enabled to retry, and the zip and staging folder are always deleted, so
   the destination is never half written. Tests inject `EditorWorkspaceOptions.DemoHttpHandler` /
   `DemoDownloadsDirectory`.
 - **`ProjectService`** opens a project: `EditorSession.OpenProject` (the asset database scans `Content/` and creates
-  missing `.meta` sidecars), `GameProjectLayout` finds the game library, launcher and solution, and the game assembly
+  missing `.meta` sidecars), `GameProjectLayout` finds the game library, desktop project (or a legacy `*.Launcher`) and solution, and the game assembly
   loads into a collectible `AssemblyLoadContext` (`GameAssemblyLoader`), built first when it is missing or fails to
   load. Its node and resource types join the create dialog, the inspector and `[CustomInspector]` discovery.
 - **Code reload**: a debounced watcher on the build output reloads after any build (the editor's Build & Reload, F5,

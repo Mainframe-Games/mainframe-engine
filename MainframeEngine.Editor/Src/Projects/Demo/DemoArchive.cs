@@ -65,8 +65,8 @@ public static class DemoArchive
             throw new DemoDownloadException($"The demo's {ProjectSettings.FileName} could not be read: {e.Message}", e);
         }
 
-        if (GameProjectLayout.LauncherProjectOf(projectRoot) is null)
-            throw new DemoDownloadException("The demo has no *.Launcher project.");
+        if (GameProjectLayout.DesktopProjectOf(projectRoot) is null)
+            throw new DemoDownloadException("The demo has no *.Desktop project.");
         if (!Directory.Exists(Path.Combine(projectRoot, "Content", "Scenes")))
             throw new DemoDownloadException("The demo has no Content/Scenes folder.");
         if (!File.Exists(Path.Combine(projectRoot, "Directory.Build.props")))

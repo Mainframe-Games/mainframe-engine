@@ -26,7 +26,7 @@ build steps (shader compilation, `.po → .mo`).
 | Package | Contents |
 |---|---|
 | `MainframeEngine` | `lib/net10.0/MainframeEngine.dll` (+ xml docs, snupkg symbols) · `runtimes/<rid>/native/*` (RmlUi shim, ENet) · `analyzers/dotnet/cs/MainframeEngine.Generators.dll` (generator bundled, so games get it automatically) · `contentFiles`/`buildTransitive/MainframeEngine.targets` that copies engine `Content/**` to the game's output and publish folder |
-| `MainframeEngine.Templates` | `dotnet new` templates: `mfgame` (class library `MyGame` + `MyGame.Launcher` exe running `GameHost` + `project.mfproj` + `Content/`), `mfnode` (node script) |
+| `MainframeEngine.Templates` | `dotnet new` templates: `mfgame` (class library `MyGame` + `MyGame.Desktop` exe running `GameHost` + `project.mfproj` + `Content/`), `mfnode` (node script) |
 | `MainframeEngine.Sdk` *(later)* | MSBuild SDK (`<Project Sdk="MainframeEngine.Sdk/X.Y.Z">`) owning shader compilation, localization compile, content rules and RID defaults, so game projects stay one-liners |
 
 Dependencies (Silk.NET, SoundFlow, Jitter2, Box2D.NET, GetText.NET, NVorbis, Steamworks.NET,
@@ -82,7 +82,7 @@ Engine content is resolved through `ContentPaths` relative to `AppContext.BaseDi
 
 - [ ] Packaging metadata + `buildTransitive` targets; `dotnet pack` produces a package that a scratch
       game (outside the repo) can build, run and publish for each RID — CI job.
-- [x] `MainframeEngine.Templates` (`mfgame`: `MyGame` + `MyGame.Launcher` running `GameHost` + `project.mfproj` +
+- [x] `MainframeEngine.Templates` (`mfgame`: `MyGame` + `MyGame.Desktop` running `GameHost` + `project.mfproj` +
       `Content/`) + CI template test (project-reference mode; `just template-smoke`, `just template-pack`).
 - [ ] Template smoke test in package mode once the engine package exists; `mfnode` item template.
 - [ ] `packages` job in `publish.yml` → GitHub Packages.

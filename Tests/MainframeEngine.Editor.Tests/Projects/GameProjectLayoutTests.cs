@@ -27,15 +27,27 @@ public sealed class GameProjectLayoutTests : IDisposable
     {
         var solution = Touch("MyGame.slnx");
         var library = Touch("MyGame", "MyGame.csproj");
-        var launcher = Touch("MyGame.Launcher", "MyGame.Launcher.csproj");
+        var desktop = Touch("MyGame.Desktop", "MyGame.Desktop.csproj");
         Touch("MyGame", "bin", "Debug", "net10.0", "Other.csproj"); // not one level down
 
         Assert.Equal(Path.Combine(_directory, "project.mfproj"), GameProjectLayout.ProjectFileOf(_directory));
         Assert.Equal(solution, GameProjectLayout.SolutionOf(_directory));
         Assert.Equal(library, GameProjectLayout.GameLibraryProjectOf(_directory, Settings("MyGame")));
-        Assert.Equal(library, GameProjectLayout.GameLibraryProjectOf(_directory, Settings())); // the only non-launcher project
+        Assert.Equal(library, GameProjectLayout.GameLibraryProjectOf(_directory, Settings())); // the only project that is not a desktop head
         Assert.Equal(library, GameProjectLayout.GameLibraryProjectOf(_directory, Settings("Renamed"))); // assembly renamed in the csproj
-        Assert.Equal(launcher, GameProjectLayout.LauncherProjectOf(_directory));
+        Assert.Equal(desktop, GameProjectLayout.DesktopProjectOf(_directory));
+    }
+
+    [Fact]
+    public void ProjectsMadeBeforeTheRenameStillHaveALauncher()
+    {
+        var library = Touch("MyGame", "MyGame.csproj");
+        var legacy = Touch("MyGame.Launcher", "MyGame.Launcher.csproj");
+        Assert.Equal(legacy, GameProjectLayout.DesktopProjectOf(_directory));
+        Assert.Equal(library, GameProjectLayout.GameLibraryProjectOf(_directory, Settings())); // the launcher is not the library
+
+        var desktop = Touch("MyGame.Desktop", "MyGame.Desktop.csproj");
+        Assert.Equal(desktop, GameProjectLayout.DesktopProjectOf(_directory)); // the current name wins
     }
 
     [Fact]
@@ -54,18 +66,18 @@ public sealed class GameProjectLayoutTests : IDisposable
     public void AmbiguousOrMissingProjectsGiveNull()
     {
         Assert.Null(GameProjectLayout.GameLibraryProjectOf(_directory, Settings("MyGame")));
-        Assert.Null(GameProjectLayout.LauncherProjectOf(_directory));
+        Assert.Null(GameProjectLayout.DesktopProjectOf(_directory));
         Touch("One", "One.csproj");
         Touch("Two", "Two.csproj");
-        Touch("A.Launcher", "A.Launcher.csproj");
-        Touch("B.Launcher", "B.Launcher.csproj");
+        Touch("A.Desktop", "A.Desktop.csproj");
+        Touch("B.Desktop", "B.Desktop.csproj");
         Assert.Null(GameProjectLayout.GameLibraryProjectOf(_directory, Settings()));
         Assert.Equal(Path.Combine(_directory, "Two", "Two.csproj"), GameProjectLayout.GameLibraryProjectOf(_directory, Settings("Two")));
-        Assert.Null(GameProjectLayout.LauncherProjectOf(_directory));
+        Assert.Null(GameProjectLayout.DesktopProjectOf(_directory));
 
         var missing = Path.Combine(_directory, "missing");
         Assert.Null(GameProjectLayout.SolutionOf(missing));
-        Assert.Null(GameProjectLayout.LauncherProjectOf(missing));
+        Assert.Null(GameProjectLayout.DesktopProjectOf(missing));
         Assert.Null(GameProjectLayout.GameLibraryProjectOf(missing, Settings()));
     }
 

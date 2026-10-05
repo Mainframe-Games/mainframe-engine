@@ -155,7 +155,7 @@ public sealed class ToolbarPanel : EditorDocument
         var document = Document;
         var play = Workspace.Play;
         var project = Workspace.Project;
-        var canPlay = project.LauncherProject is not null && !play.IsBuilding;
+        var canPlay = project.DesktopProject is not null && !play.IsBuilding;
         document.GetElementById("play").SetClass("disabled", !canPlay);
         document.GetElementById("play-scene").SetClass("disabled", !canPlay || Workspace.Session.Active is null);
         document.GetElementById("pause").SetClass("disabled", !play.IsPlaying);

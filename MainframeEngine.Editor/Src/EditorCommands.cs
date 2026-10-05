@@ -626,9 +626,9 @@ public sealed class EditorCommands
             ],
             "run" =>
             [
-                new MenuItem("Play", "play.main", "F5", _workspace.Project.LauncherProject is not null, Icon: "player-play-filled"),
-                new MenuItem("Play Scene", "play.scene", "F6", _workspace.Project.LauncherProject is not null && scene is not null, Icon: "movie"),
-                new MenuItem("Run Another Instance", "play.another", "Shift+F5", _workspace.Project.LauncherProject is not null, Icon: "copy"),
+                new MenuItem("Play", "play.main", "F5", _workspace.Project.DesktopProject is not null, Icon: "player-play-filled"),
+                new MenuItem("Play Scene", "play.scene", "F6", _workspace.Project.DesktopProject is not null && scene is not null, Icon: "movie"),
+                new MenuItem("Run Another Instance", "play.another", "Shift+F5", _workspace.Project.DesktopProject is not null, Icon: "copy"),
                 MenuItem.Separator,
                 new MenuItem(_workspace.Play.IsPaused ? "Resume" : "Pause", "play.pause", "F7", _workspace.Play.IsPlaying, Icon: "player-pause"),
                 new MenuItem("Reload Scene in Game", "play.reload_scene", null, _workspace.Play.IsPlaying, Icon: "refresh"),

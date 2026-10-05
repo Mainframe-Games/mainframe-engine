@@ -141,14 +141,14 @@ public sealed class PlayController : IDisposable
     private void Play(string? scene, string label, IReadOnlyList<string>? extraArguments = null)
     {
         var project = _workspace.Project;
-        if (project.Root is null || project.LauncherProject is null || project.BuildPath is null)
+        if (project.Root is null || project.DesktopProject is null || project.BuildPath is null)
         {
             _workspace.Message.Show(new MessageRequest
             {
                 Title = "Play",
                 Message = project.Root is null
                     ? "Open a game project to play it (File › Open Project…)."
-                    : "This project has no launcher project (*.Launcher/*.Launcher.csproj) to run.",
+                    : "This project has no desktop project (*.Desktop/*.Desktop.csproj) to run.",
                 Buttons = ["OK"],
             });
             return;
@@ -164,7 +164,7 @@ public sealed class PlayController : IDisposable
         if (!_workspace.Commands.SaveAll())
             Log.Warning("[Play] Some scenes could not be saved; the game runs what is on disk.");
         _extraInstances = 0;
-        Launch(new PlayRequest(project.BuildPath, project.LauncherProject, scene, label, extraArguments));
+        Launch(new PlayRequest(project.BuildPath, project.DesktopProject, scene, label, extraArguments));
     }
 
     private void Launch(PlayRequest request)

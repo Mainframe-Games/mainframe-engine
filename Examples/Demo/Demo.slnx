@@ -1,5 +1,5 @@
 <Solution>
   <Project Path="Demo/Demo.csproj" />
-  <Project Path="Demo.Launcher/Demo.Launcher.csproj" />
+  <Project Path="Demo.Desktop/Demo.Desktop.csproj" />
   <Project Path="Demo.Tests/Demo.Tests.csproj" />
 </Solution>

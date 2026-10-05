@@ -51,7 +51,7 @@ Examples/Demo/
 ├── project.mfproj               name "Mainframe Demo", main scene = Basic 3D, window.icon, autoloads, locales
 ├── Demo/                        node library (references MainframeEngine + Generators as analyzer)
 │   └── Src/{Nav,Basic3D,Basic2D,Audio,Ui,Physics,Spine}/…
-├── Demo.Launcher/               return GameHost.Run(args, typeof(Demo.DemoNav).Assembly);
+├── Demo.Desktop/               return GameHost.Run(args, typeof(Demo.DemoNav).Assembly);
 └── Content/
     ├── icon.png                 project / window icon (see Project icons)
     ├── Nav/Nav.mscene, Nav.rml, nav.rcss
@@ -116,7 +116,7 @@ scene, `Layer = 10`) for its controls, and nothing that depends on another scene
 
 ## Screenshots
 
-- `just demo-screenshots` builds `Examples/Demo/Demo.slnx` and runs the Launcher once per scene:
+- `just demo-screenshots` builds `Examples/Demo/Demo.slnx` and runs `Demo.Desktop` once per scene:
   `--scene Content/Scenes/<scene>.mscene --fixed-fps 60 --max-frames 180 --screenshot docs/images/demo/<scene>.png`
   at 1920×1080 (GameHost's existing `--screenshot` saves the last frame; `--fixed-fps` makes it deterministic).
   The window size comes from `project.mfproj`; a `--window-size WxH` GameHost flag is added if the project size is not
@@ -138,7 +138,7 @@ scene, `Layer = 10`) for its controls, and nothing that depends on another scene
 | Allocation gate `SceneTests.SandboxSteadyStateAllocatesNothing` on `RenderTests.Host/Scenes/SandboxScene.cs` | Renamed `ShowcaseScene` / `ShowcaseSteadyStateAllocatesNothing`; same content minus ImGui (see [Remove ImGui](remove-imgui.md)). |
 | Editor smoke (`EditorSmokeRun.cs:11,139,243`, `EditorRenderTests.cs:19-27`): opens `Sandbox.mscene`, frames `Column` | Opens the fixture `Showcase.mscene`; splash text updated. |
 | l10n: `justfile` `l10n_dir` + `l10n-extract` (lines 170-179), `ci.yml:113`, `build/linux/inside.sh:42` | Point at `Examples/Demo/Content/locale`, extract from `Examples/Demo/Demo/Src` + `Content` + the Demo assembly. `.po`/`.mo` are not LFS, so the CI check works without LFS. |
-| `just sandbox`, `just qa` (`--qa-capture`, `--qa-resize`, `--qa-minimize`, `--qa-input`) | `just demo` (run the Launcher); `just qa` becomes an alias of `just demo-screenshots`. Resize is already covered by render tests (`SceneTests.SwapchainRecreationOnResizeAndVSyncToggleIsClean`, `--resize`); minimise and the synthetic mouse-look input move to the render-test host as new `--minimize frame` / `--input frame` options (`Tests/MainframeEngine.RenderTests.Host/HostOptions.cs`) with one test each. |
+| `just sandbox`, `just qa` (`--qa-capture`, `--qa-resize`, `--qa-minimize`, `--qa-input`) | `just demo` (run `Demo.Desktop`); `just qa` becomes an alias of `just demo-screenshots`. Resize is already covered by render tests (`SceneTests.SwapchainRecreationOnResizeAndVSyncToggleIsClean`, `--resize`); minimise and the synthetic mouse-look input move to the render-test host as new `--minimize frame` / `--input frame` options (`Tests/MainframeEngine.RenderTests.Host/HostOptions.cs`) with one test each. |
 | `IconTests.cs:154` scans `MainframeEngine.Sandbox/Src` | Scans `Examples/Demo/Demo/Src`. |
 | `just editor` with no project + docs: `just editor Examples/EditorShowcase` | `just editor Examples/Demo`; `justfile:76-77` links and builds the Demo instead. |
 | CI: Sandbox builds as part of `MainframeEngine.slnx` | The `template` job additionally runs `dotnet build Examples/Demo/Demo.slnx` and a headless `--max-frames 10` run of every scene (no LFS needed to build; a run needs content, so the job pulls LFS for `Examples/Demo/**`). |

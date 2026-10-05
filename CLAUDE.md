@@ -11,7 +11,7 @@ just test             # unit tests: engine (Tests/MainframeEngine.Tests) + edito
 just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
 just test-linux       # CI's Linux unit/editor tests in Docker (x86_64 ubuntu:24.04)
 just render-tests-linux  # render tests on lavapipe in Docker: checks/records the `lavapipe` goldens locally
-just demo             # the Demo game: dotnet run --project Examples/Demo/Demo.Launcher (extra args: --scene Content/Scenes/x.mscene, ...)
+just demo             # the Demo game: dotnet run --project Examples/Demo/Demo.Desktop (extra args: --scene Content/Scenes/x.mscene, ...)
 just demo-screenshots # one PNG per Demo scene in docs/images/demo (README Showcase); `just qa` is an alias
 just golden-update    # re-record render-test goldens for this driver; inspect the PNGs before committing
 just format           # dotnet format (format-check is what CI runs)
@@ -98,7 +98,7 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
 - `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `GameHost`/`GameSession`, `GameAssemblyLoader`
   (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol, client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template (not published; `build/template-smoke.sh`)
-- `Examples/Demo/` — the Demo game (a `GameHost` project of its own: `Demo`, `Demo.Launcher`, `Demo.Tests`): one scene per feature, nav bar; README screenshots (`just demo-screenshots`). Standalone, not part of `MainframeEngine.slnx` (`Examples/Demo/Demo.slnx`); see `docs/design/demo.md`
+- `Examples/Demo/` — the Demo game (a `GameHost` project of its own: `Demo`, `Demo.Desktop`, `Demo.Tests`): one scene per feature, nav bar; README screenshots (`just demo-screenshots`). Standalone, not part of `MainframeEngine.slnx` (`Examples/Demo/Demo.slnx`); see `docs/design/demo.md`
 - `MainframeEngine.Editor/` — the editor exe (M10; `just editor [project|scene]`): `EditorApp : Engine` runs the tree in
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Content/Editor/`;
   `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Inspector/`, `SceneTree/`, `Viewport/` (camera,
@@ -129,7 +129,7 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
 ### Extending the Engine
 
 **Game projects (M10):** no `Engine` subclass. `dotnet new mfgame -n MyGame --engine-path <checkout>` (template in
-`Templates/`, `just template-smoke`) creates `MyGame` (node library + generator), `MyGame.Launcher`
+`Templates/`, `just template-smoke`) creates `MyGame` (node library + generator), `MyGame.Desktop`
 (`return GameHost.Run(args, typeof(SomeNode).Assembly);`) and `project.mfproj` (`ProjectSettings`: main scene, window,
 physics, input map, audio, localization, rendering, autoloads; versioned JSON with migrations). `GameHost` flags:
 `--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`. Input actions: `Input.IsActionPressed("jump")`
@@ -176,7 +176,7 @@ project declaring node/resource types references `MainframeEngine.Generators` as
 (`OutputItemType="Analyzer" ReferenceOutputAssembly="false"`). Scenes are `.mscene` JSON
 (`SceneSaver.Save`, `ResourceLoader.Load<PackedScene>`, `Instantiate()`); see
 `docs/design/scene-serialization.md`. Regenerate the Demo scenes with
-`dotnet run --project Examples/Demo/Demo.Launcher -- --write-scenes Examples/Demo/Content/Scenes`.
+`dotnet run --project Examples/Demo/Demo.Desktop -- --write-scenes Examples/Demo/Content/Scenes`.
 `MainframeEngine.Timer` (the Godot node) shadows `System.Threading.Timer` inside `MainframeEngine.*`
 namespaces — qualify the latter.
 

@@ -418,7 +418,7 @@ What comes after M10 is in the [roadmap](docs/design/future/editor.md).
 
 ## Demo
 
-[Examples/Demo](Examples/Demo) is a standalone game project (`project.mfproj`, a node library and a launcher) with one
+[Examples/Demo](Examples/Demo) is a standalone game project (`project.mfproj`, a node library and its desktop project) with one
 scene per feature: Basic 3D and 2D, Audio 2D and 3D, UI, Physics 2D and 3D, and Spine. A navigation bar switches scenes
 and every scene has a small RmlUi panel with its controls. Press F12 in the Demo (or in any game) to open the developer
 overlay: frame, renderer, shadow-map, GPU, audio, physics and network panels, plus light and axis gizmo toggles
@@ -461,13 +461,13 @@ Games are their own projects; the engine runs them with `GameHost` from a `proje
 git clone --recurse-submodules <this repo> mainframe-engine     # Plugins/Spine is a submodule
 dotnet new install mainframe-engine/Templates/MainframeEngine.Templates/content/mfgame
 dotnet new mfgame -n MyGame --engine-path "$PWD/mainframe-engine"
-dotnet run --project MyGame/MyGame.Launcher
+dotnet run --project MyGame/MyGame.Desktop
 ```
 
-This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGame.Launcher/`
+This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGame.Desktop/`
 (`GameHost.Run(args, ...)`), `project.mfproj` (main scene, window, physics, input actions, autoloads, …) and
 `Content/Scenes/Main.mscene`. Read input through actions (`Input.IsActionPressed("spin_faster")`), and see
-[Projects & GameHost](docs/design/project-and-gamehost.md) for the project file, launcher flags
+[Projects & GameHost](docs/design/project-and-gamehost.md) for the project file, `GameHost` flags
 (`--scene`, `--max-frames`, `--hidden`, `--editor-port`) and the editor link.
 
 ### Make a game (in the editor)

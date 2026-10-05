@@ -6,7 +6,7 @@ namespace MainframeEngine;
 /// Runs a game project without an <see cref="Engine"/> subclass: reads <c>project.mfproj</c>
 /// (<see cref="ProjectSettings"/>), applies its settings (window, physics, audio, localization, exposure, shadow quality,
 /// input map), adds
-/// the autoloads and starts the main scene — or <c>--scene</c> — and lets the scene tree run the game. A launcher is one
+/// the autoloads and starts the main scene — or <c>--scene</c> — and lets the scene tree run the game. A game's desktop project is one
 /// line: <c>return GameHost.Run(args, typeof(MyNode).Assembly);</c>. Command-line flags: <see cref="GameHostOptions"/>.
 /// </summary>
 /// <remarks>

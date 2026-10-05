@@ -19,7 +19,7 @@ internal static class DemoZips
     {
         [$"{top}/project.mfproj"] = """{ "format": 1, "name": "Mainframe Demo", "mainScene": "Content/Scenes/basic_3d.mscene" }""",
         [$"{top}/Directory.Build.props"] = Props,
-        [$"{top}/Demo.Launcher/Demo.Launcher.csproj"] = "<Project />",
+        [$"{top}/Demo.Desktop/Demo.Desktop.csproj"] = "<Project />",
         [$"{top}/Content/Scenes/basic_3d.mscene"] = "{}",
     };
 

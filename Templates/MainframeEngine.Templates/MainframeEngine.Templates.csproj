@@ -10,7 +10,7 @@
     <PackageType>Template</PackageType>
     <PackageId>MainframeEngine.Templates</PackageId>
     <Title>Mainframe Engine templates</Title>
-    <Description>dotnet new templates for Mainframe Engine games: mfgame (game library + GameHost launcher + project.mfproj + Content).</Description>
+    <Description>dotnet new templates for Mainframe Engine games: mfgame (game library + GameHost desktop project + project.mfproj + Content).</Description>
     <PackageTags>mainframe;game;engine;templates</PackageTags>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>true</IsPackable>

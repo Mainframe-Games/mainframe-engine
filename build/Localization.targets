@@ -4,8 +4,8 @@
 
       <Import Project="..\build\Localization.targets" />
 
-    LocaleContentRoot (default "Content") is the game's content folder relative to the importing project; a launcher
-    whose content lives beside it (the mfgame template: ../Content, linked as Content/) sets it before the import.
+    LocaleContentRoot (default "Content") is the game's content folder relative to the importing project; a desktop
+    project whose content lives beside it (the mfgame template: ../Content, linked as Content/) sets it before the import.
 
     1. Every $(LocaleContentRoot)/locale/<locale>/LC_MESSAGES/<domain>.po is compiled to
        obj/<Configuration>/locale/<locale>/LC_MESSAGES/<domain>.mo by mf-l10n (Tools/MainframeEngine.L10n, built

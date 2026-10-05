@@ -34,13 +34,17 @@ MyGame/                      ← dotnet new mfgame -n MyGame --engine-path <engi
 ├─ project.mfproj            ← ProjectSettings (copied next to the app)
 ├─ Content/Scenes/Main.mscene
 ├─ MyGame/MyGame.csproj      ← class library: node/resource types (generator as analyzer)
-├─ MyGame.Launcher/          ← exe: return GameHost.Run(args, typeof(MyGame.Spinner).Assembly);
+├─ MyGame.Desktop/           ← exe: return GameHost.Run(args, typeof(MyGame.Spinner).Assembly);
 ├─ Directory.Build.props     ← TargetFramework, warnings as errors, MainframeEnginePath
 ├─ MyGame.slnx · global.json · .gitignore · .gitattributes (LFS rules)
 ```
 
-The launcher copies `project.mfproj` and `Content/**` to its output; engine content and natives come through the
-engine project reference, as for the Demo. The editor loads `MyGame.dll` (the library), never the launcher.
+`MyGame.Desktop` is the game's desktop *head*: the executable for Windows, macOS and Linux. The planned mobile heads
+(`MyGame.Android`, `MyGame.iOS` — [mobile](future/mobile.md)) sit next to it over the same library. The desktop project
+copies `project.mfproj` and `Content/**` to its output; engine content and natives come through the engine project
+reference, as for the Demo. The editor loads `MyGame.dll` (the library), never a head; Play builds and runs the desktop
+project (`GameProjectLayout.DesktopProjectOf`). Projects made before the rename have `MyGame.Launcher`, which the editor
+still finds when there is no `*.Desktop` project.
 
 ## `project.mfproj`
 
@@ -101,7 +105,7 @@ commas tolerated). Only values that differ from the defaults are written, except
 ## GameHost
 
 ```csharp
-// MyGame.Launcher/Program.cs
+// MyGame.Desktop/Program.cs
 return GameHost.Run(args, typeof(MyGame.Spinner).Assembly);
 ```
 
@@ -135,7 +139,7 @@ status. `GameHost` can be subclassed (call the bases); subclassing `Engine` dire
 ### UI hot reload
 
 Debug engine builds (`UiServerOptions.DefaultHotReload`) hot-reload the game's `.rml`/`.rcss` from the project sources:
-`GameHost.Run` hands the launcher's game assemblies to the `GameHost` constructor, and `GameHost.CreateUiOptions` turns
+`GameHost.Run` hands the desktop project's game assemblies to the `GameHost` constructor, and `GameHost.CreateUiOptions` turns
 their `[AssemblyMetadata("MainframeContentSource", …)]` folders (`UiServerOptions.SourceDirectoriesOf`) into the UI's
 source directories, so saving a document in the project's `Content/` reloads it in the running game. The `mfgame`
 template's `MyGame.csproj` records its sibling `Content/` folder under that key in Debug builds only; Release builds and
@@ -190,7 +194,7 @@ sequenceDiagram
     participant E as Editor (EditorLinkServer)
     participant G as Game (GameHost + EditorLinkClient)
     E->>E: listen on localhost:0 → Port
-    E->>G: launch MyGame.Launcher --scene <uid> --editor-port <Port>
+    E->>G: launch MyGame.Desktop --scene <uid> --editor-port <Port>
     G->>E: Hello (protocol, pid, project, engine version)
     loop while running
         G-->>E: Log entries · Status (state, frame, fps, scene) every 0.5 s and on change
@@ -253,7 +257,7 @@ loader.Load();                    // the rebuilt dll; re-instantiate the scenes
 ```bash
 dotnet new install Templates/MainframeEngine.Templates/content/mfgame
 dotnet new mfgame -n MyGame --engine-path /path/to/mainframe-engine
-dotnet run --project MyGame/MyGame.Launcher
+dotnet run --project MyGame/MyGame.Desktop
 ```
 
 | Option | |
@@ -264,7 +268,7 @@ dotnet run --project MyGame/MyGame.Launcher
 
 A new game's `project.mfproj` spells out the defaults it starts from: a 1280×720 VSync window, 60 Hz physics with
 5 steps per frame and Earth gravity, `Content/Settings/AudioBusLayout.mres` (shipped: Master → Music, SFX, UI, Voice),
-`en` as the source locale with catalogs in `Content/locale` (the launcher imports `build/Localization.targets` with
+`en` as the source locale with catalogs in `Content/locale` (the desktop project imports `build/Localization.targets` with
 `LocaleContentRoot=../Content`, so a `.po` added there is compiled and shipped) and `High` shadows.
 
 `just template-smoke` (`build/template-smoke.sh`) installs the template into a private hive, creates `SmokeGame`

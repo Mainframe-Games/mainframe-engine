@@ -69,7 +69,7 @@ flowchart LR
 
 ### Build step
 
-[build/Localization.targets](../../build/Localization.targets) (imported by the Demo's launcher; every game imports it the same way)
+[build/Localization.targets](../../build/Localization.targets) (imported by the Demo's desktop project; every game imports it the same way)
 compiles every `Content/locale/<locale>/LC_MESSAGES/<domain>.po` to `obj/<Configuration>/locale/…/.mo` with
 `mf-l10n` (built first through a project reference with `ReferenceOutputAssembly=false`), incrementally per
 catalog, and copies the results to the output as `Content/locale/…/<domain>.mo`. A translation that breaks its

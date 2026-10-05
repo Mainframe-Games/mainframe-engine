@@ -86,7 +86,7 @@ readme-screenshots:
 
 # The Demo game (one scene per feature; F12 dev overlay)
 demo *args:
-    dotnet run --project Examples/Demo/Demo.Launcher -- {{args}}
+    dotnet run --project Examples/Demo/Demo.Desktop -- {{args}}
 
 # One screenshot per Demo scene into docs/images/demo (README Showcase); display awake (caffeinate -u)
 demo-screenshots frames="240":

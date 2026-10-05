@@ -16,7 +16,7 @@ config="${CONFIGURATION:-Release}"
 dotnet build "$repo/Examples/Demo/Demo.slnx" -c "$config" -warnaserror ${BUILD_ARGS:-}
 dotnet test "$repo/Examples/Demo/Demo.Tests" -c "$config" --no-build
 
-bin="$repo/Examples/Demo/Demo.Launcher/bin/$config/net10.0"
+bin="$repo/Examples/Demo/Demo.Desktop/bin/$config/net10.0"
 mkdir -p "$work"
 failed=0
 # Every committed scene file is a scene to run. Only this script's own outputs under $work are cleaned (the folder is the
@@ -32,7 +32,7 @@ for file in "${scenes[@]}"; do
   # One user-data folder per scene, so a scene's log is its own.
   userdata="$work/userdata/$scene"
   rm -rf "$userdata" "$work/$scene.png"
-  MAINFRAME_USER_DATA="$userdata" dotnet "$bin/Demo.Launcher.dll" --scene "Content/Scenes/$scene.mscene" \
+  MAINFRAME_USER_DATA="$userdata" dotnet "$bin/Demo.Desktop.dll" --scene "Content/Scenes/$scene.mscene" \
     --max-frames "$frames" --hidden --fixed-fps 60 --no-vsync --screenshot "$work/$scene.png"
   if [ ! -s "$work/$scene.png" ]; then
     echo "demo-smoke: $scene produced no screenshot" >&2

@@ -44,10 +44,10 @@ public sealed class ProjectService : IDisposable
     /// <summary>The game library project (<c>MyGame/MyGame.csproj</c>), or null for a project without code.</summary>
     public string? GameLibraryProject { get; private set; }
 
-    /// <summary>The launcher project (<c>MyGame.Launcher/MyGame.Launcher.csproj</c>) Play runs.</summary>
-    public string? LauncherProject { get; private set; }
+    /// <summary>The desktop project (<c>MyGame.Desktop/MyGame.Desktop.csproj</c>) Play runs.</summary>
+    public string? DesktopProject { get; private set; }
 
-    /// <summary>The solution (<c>MyGame.slnx</c>) Play builds; else the launcher (or library) project.</summary>
+    /// <summary>The solution (<c>MyGame.slnx</c>) Play builds; else the desktop (or library) project.</summary>
     public string? BuildPath { get; private set; }
 
     /// <summary>The loaded game assembly's file, or null.</summary>
@@ -99,9 +99,9 @@ public sealed class ProjectService : IDisposable
         Root = root;
         var settings = Session.Project!;
         GameLibraryProject = GameProjectLayout.GameLibraryProjectOf(root, settings);
-        LauncherProject = GameProjectLayout.LauncherProjectOf(root);
-        // The launcher references the library, so building it builds both when there is no solution.
-        BuildPath = GameProjectLayout.SolutionOf(root) ?? LauncherProject ?? GameLibraryProject;
+        DesktopProject = GameProjectLayout.DesktopProjectOf(root);
+        // The desktop project references the library, so building it builds both when there is no solution.
+        BuildPath = GameProjectLayout.SolutionOf(root) ?? DesktopProject ?? GameLibraryProject;
         _workspace.RecentProjects.Touch(root, settings.Name);
         StartWatching();
         Changed?.Invoke();
@@ -163,7 +163,7 @@ public sealed class ProjectService : IDisposable
         CloseCode();
         Root = null;
         GameLibraryProject = null;
-        LauncherProject = null;
+        DesktopProject = null;
         BuildPath = null;
         NeedsRebuild = false;
         Changed?.Invoke();

@@ -277,7 +277,7 @@ jobs:
           if-no-files-found: warn
 
   template:
-    # `dotnet new mfgame` from source against this checkout, build it, run its GameHost launcher headless for 30
+    # `dotnet new mfgame` from source against this checkout, build it, run its desktop project (GameHost) headless for 30
     # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally), then build, test and run every scene of
     # Examples/Demo the same way (build/demo-smoke.sh).
     runs-on: ubuntu-24.04
