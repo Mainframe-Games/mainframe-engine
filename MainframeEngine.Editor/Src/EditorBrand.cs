@@ -24,6 +24,9 @@ public static class EditorBrand
     /// <summary>"Mainframe Editor v1.2.3": the window title's suffix and the About box heading.</summary>
     public static string NameWithVersion => "Mainframe Editor " + Version;
 
+    /// <summary>The engine and editor's source repository (the About box links to it).</summary>
+    public static readonly Uri RepositoryUrl = new("https://github.com/Mainframe-Games/mainframe-engine");
+
     /// <summary>The editor assembly's own version (build metadata stripped); equals <see cref="EngineInfo.Version"/> in any consistent build.</summary>
     public static string AssemblyVersion
     {

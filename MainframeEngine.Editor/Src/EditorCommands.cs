@@ -1,4 +1,5 @@
 using MainframeEngine.Serialization;
+using System.Runtime.InteropServices;
 
 namespace MainframeEngine.Editor;
 
@@ -683,7 +684,24 @@ public sealed class EditorCommands
     private void ShowAbout() => _workspace.Message.Show(new MessageRequest
     {
         Title = "About",
-        Message = $"{EditorBrand.NameWithVersion}\nMainframe Engine — Vulkan, RmlUi, .NET 10.",
-        Buttons = ["OK"],
+        Message = $"{EditorBrand.NameWithVersion}\n" +
+                  "A modular C# game engine and Godot-style editor. Open source under the MIT licence.\n\n" +
+                  "Engine: Vulkan 1.2 renderer (HDR, materials, cascaded shadows, glTF/FBX/OBJ import) · " +
+                  "Godot-style node tree with .mscene scenes · RmlUi game UI · Jitter2 3D and Box2D 2D physics · " +
+                  "SoundFlow audio · multiplayer replication · gettext localization · Spine animation.\n\n" +
+                  "Editor: scene tree, inspector and undo · 3D/2D viewport with gizmos · FileSystem panel · " +
+                  "Play in a separate process · C# code reload. Its UI is built with the engine's own RmlUi.\n\n" +
+                  $"{RuntimeInformation.FrameworkDescription} · " +
+                  $"{RuntimeInformation.OSDescription} " +
+                  $"({RuntimeInformation.OSArchitecture})\n" +
+                  EditorBrand.RepositoryUrl.AbsoluteUri,
+        Icon = "info-circle",
+        Buttons = ["OK", "GitHub"],
+        CancelButton = 0,
+        Callback = (button, _) =>
+        {
+            if (button == 1)
+                OsShell.OpenUrl(EditorBrand.RepositoryUrl);
+        },
     });
 }
