@@ -160,6 +160,7 @@ public sealed class SceneTreeTests : IDisposable
 
         _tree.Tick(Frame(1f / 120f)); // half a step: no physics this frame
         Assert.Single(node.PhysicsDeltas);
+        Assert.Equal(1f / 120f, _tree.ProcessDeltaTime, 1e-6f); // nothing dropped: process gets the frame's delta
         Assert.InRange(_tree.PhysicsInterpolationFraction, 0.49f, 0.51f);
 
         _tree.Tick(Frame(1f / 120f)); // completes the step
@@ -180,6 +181,8 @@ public sealed class SceneTreeTests : IDisposable
 
         _tree.Tick(Frame(10f)); // clamped to 0.25 s = 15 steps, capped at 5
         Assert.Equal(5, node.PhysicsDeltas.Count);
+        // Process sees only the time physics ran (Godot drops the skipped steps from process_step too).
+        Assert.Equal(5f / 60f, _tree.ProcessDeltaTime, 1e-5f);
 
         // The backlog is dropped, not carried into the next frames.
         _tree.Tick(Frame(0));

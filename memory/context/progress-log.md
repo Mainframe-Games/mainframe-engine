@@ -190,3 +190,77 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   (Sandbox.mscene 856 → 570 lines).
 - Gates: build 0 warnings, Release -warnaserror, unit 1185 (+1 skip) + editor 443 (+1 skip), format-check,
   render 45/45, template-smoke OK.
+### 2026-10-05 — Crash Site Defense port: 2D is Y-down (ADR 0110)
+- Branch `mainframe-engine-port` (the game repo's `engine/` submodule; Brogan: push directly, no PRs). E1 of the port
+  (`crash-site-defense/docs/porting.md`): `PhysicsSettings2D.Gravity` +980, `CharacterBody2D.UpDirection` −Y,
+  `Camera2D`/editor 2D view look along +Z with up −Y (rotation, not mirror), editor screen↔world, grid (z = +1),
+  gizmo axes. 2D physics/editor tests mirrored (y → −y). Gates: build, Release, unit 1170 + editor 443, render 45/45,
+  format.
+
+### 2026-10-05 — 2D canvas renderer (ADR 0111, port E2/E3)
+- `CanvasItem` (base of `Node2D`), `Sprite2D`, `CanvasLayer`, `CanvasModulate`, `Canvas` (viewport root canvas / layer),
+  `Rect2` (serializable), `CanvasDrawList` + `CanvasPrimitives` (Godot's tessellation and `Triangulate`),
+  `CanvasCuller` (port of `_cull_canvas_item`), `CanvasServer` (frame server: redraws, cull, `CanvasFrame` batches),
+  `VulkanCanvasRenderer` (RGBA8 gamma-space layer, Godot blend states, composite after the tonemap below the UI),
+  `CanvasItemMaterial`, `Shader`/`ShaderMaterial` stubs (E5). Shaders `Canvas/Canvas.vk.{vert,frag}`, `include/canvas.glsl`.
+- Tests: `Canvas/CanvasTests` (order, z, y-sort, modulate, culling, top level, redraws, frame), `CanvasPrimitivesTests`;
+  render test `canvas` (+ moltenvk golden; lavapipe golden still to record). Gates: build, Release, unit 1184 + editor
+  443, render 46/46, format, shaders.
+- Icons: used existing atlas names (`stack-2`, `contrast`, `brush`) — new Tabler names need `just editor-icons-fetch`.
+
+### 2026-10-05 — Camera2D + content scale (port E9)
+- `Camera2D` rewritten as a port of Godot 4.7's (anchor, Godot zoom, offset, limits, drag, smoothing incl. the zoom/offset
+  re-scroll that keeps the smoothed position); it writes `SceneViewport.CanvasTransform`. 2D cameras become active only
+  when made current (`Enabled` cameras make themselves current on entering a viewport without one).
+- `ContentScale.Compute` = `Window::_update_viewport_size`; root `SceneViewport.SetSize` each frame (engine + canvas
+  server), `GetVisibleRect`, `StretchTransform`; project `window.stretchMode/Aspect/Scale/ScaleMode` (Godot spellings
+  accepted) and `rendering.canvasClearColor` applied by `GameSession.Start`. Canvas golden re-recorded with a 480×270
+  canvas_items stretch. Tests: Camera2DTests, CanvasProjectSettingsTests. Gates green (unit 1190, editor 443, render 46).
+
+### 2026-10-05 — SVG via Godot's ThorVG: mfsvg (ADR 0112, port E8)
+- `Native/Svg`: ThorVG 1.0.3 copied from Godot 4.7.2 `thirdparty/thorvg` (PNG loader off), C ABI `mfsvg_*` mirroring
+  `ImageLoaderSVG`; smoke test. macOS universal built locally; Linux (Ubuntu 22.04 GCC) and Windows (mingw-w64, static,
+  interim until natives.yml/MSVC) built in Docker (amd64 emulation). `natives-lock.sh`/`build.sh`/`natives.yml` know mfsvg.
+- **Pending:** `natives-lock.sh verify` now fails for enet/mfrmlui (the shared `Native/CMakeLists.txt` input changed); run
+  natives.yml on the branch to rebuild every native (MSVC mfsvg.dll) and refresh the lock.
+- C#: `Svg.Rasterize/Size/PixelSize` (LibraryImport `mfsvg`), `ImageOps.FixAlphaEdges` (Godot's `fix_alpha_edges`), `.svg`
+  in `TextureImporter`, `TextureImportSettings.SvgScale/FixAlphaBorder` (meta `svgScale`, `fixAlphaBorder`).
+- Verified: every Crash Site Defense SVG rasterised + fixed is byte-identical to Godot's imported `.ctex` (lossless WebP),
+  the emblem 13 bytes off by 1. Tests: Imaging/SvgTests. Gates green (unit 1193, editor 443, render 46).
+
+### 2026-10-05 — Canvas shaders in Godot's shading language (ADR 0113, port E5)
+- `CanvasShaderCompiler` (Godot canvas_item → GLSL: std140 block + sampler bindings, defaults, hints, render modes,
+  varyings, vertex()/fragment(), built-ins), `Shader` resource (`.gdshader` importer, `Shader.Load/FromProgram`,
+  `WriteUniformBlock`), `ShaderMaterial` (parameters by name), `CanvasShaderBuild` + tool `mf-shaders`
+  (`Tools/MainframeEngine.ShaderBuild`; `just canvas-shaders[-check]`): SPIR-V + `.spvlock` committed next to the source.
+- Renderer: per-shader set/pipeline layouts and pipelines, a per-frame material UBO ring (dynamic offsets, sized up front),
+  material sets rebuilt on texture change, sampler-uniform textures uploaded in the frame step. `Texture2D.SetPixels`.
+- All seven Crash Site Defense shaders translate and compile unchanged. Render test `canvas` gained a shaded sprite
+  (Content/Shaders/wave.gdshader). Tests: CanvasShaderCompilerTests, Texture2DPixelsTests. Gates green (unit 1198,
+  editor 443, render 46, shaders, canvas shaders).
+
+### 2026-10-05 — Game value types in scenes/resources ([SerializableValue])
+- `[SerializableValue]` structs may be `[Export]` types; the generator emits `Codecs.Deferred<T>()` (resolved at use, so
+  the game can register codecs in any module initializer); `Codecs.FloatArray<T>` builds array codecs. `.svg` assets get
+  `tex_` UIDs. Test: Scene/SerializableValueTests. Gates green (unit 1199, editor 443; no render change).
+
+### 2026-10-05 — Sound files through ResourceLoader (port G3)
+- `AudioImporter` (`.wav/.ogg/.mp3/.flac` → `AudioStream.Load` with the `.meta` settings) registered in `AssetImporters`,
+  so `.mres` resources can reference sound files as imported assets (Crash Site Defense's SoundDefs). Test: the
+  AudioDecoderTests import case loads through `ResourceLoader`. Gates green (unit 1199, editor 443; no render change).
+
+### 2026-10-05 — Godot runtime rules for the port's first world render (ADR 0114)
+- Process delta minus dropped physics time (Godot's rule; first-frame stalls no longer reach Camera2D smoothing);
+  offline `IsServer`; `++` user args (`GameHost.UserArgs`); `SceneTree.Quit` / `SceneTree.CaptureFrame` +
+  `--frame-capture`; `ProjectSettings.Version` + `GameHost.Project`; `Node2D.Skew` / `Transform2D.Skew` with exact
+  transform storage; shader build outputs skipped by the asset scan. Tests: SceneTreeHostTests, skew, tick delta,
+  offline server, user args, version, scan skip. Gates green (unit 1203, editor 443, render 46).
+
+### 2026-10-05 — window.contentScale (port E17)
+- Project setting `window.contentScale` → `EngineOptions.ContentScale` (1 = window size in pixels, Godot's rule). With
+  it Crash Site Defense's seed-4242 frame matches Godot's within 1/255 per pixel outside the not-yet-ported crew member.
+
+### 2026-10-06 — D2 Remove ImGui (ADR 0115)
+- RmlUi `DevOverlay` (F12, built-in panels, `AddPanel`) and Vulkan `ScreenGizmos` (light + axis gizmos) replace ImGui;
+  ImGui.NET, `cimgui`, `VulkanImGuiController`, `OnImGui` and the ImGui texture registry are gone. Overlay hidden by
+  default (render tests opt in); goldens re-recorded. Docs: `docs/design/dev-overlay.md` (replaces imgui-and-debug-tools).

@@ -15,7 +15,7 @@ public readonly record struct KinematicCollision2D(Vector2 Position, Vector2 Nor
 /// <summary>
 /// A 2D body moved by code with collision response (Godot's <c>CharacterBody2D</c>), in pixels. The same
 /// <see cref="MoveAndSlide"/> algorithm as <see cref="CharacterBody3D"/>: recover to <see cref="SafeMargin"/>, sweep and
-/// slide (Box2D shape casts), classify floor/wall/ceiling against <see cref="UpDirection"/> (+Y: 2D space is Y-up),
+/// slide (Box2D shape casts), classify floor/wall/ceiling against <see cref="UpDirection"/> (−Y: 2D space is Y-down, as in Godot),
 /// snap to the floor.
 /// </summary>
 [EditorIcon("run")]
@@ -26,7 +26,7 @@ public class CharacterBody2D : PhysicsBody2D
     private readonly KinematicCollision2D[] _collisions = new KinematicCollision2D[MaxReportedCollisions];
     private readonly CharacterContact2D[] _recoveryContacts = new CharacterContact2D[8];
     private int _collisionCount;
-    private Vector2 _upDirection = Vector2.UnitY;
+    private Vector2 _upDirection = -Vector2.UnitY;
     private float _floorMaxAngle = MathF.PI / 4;
     private bool _onFloor, _onWall, _onCeiling;
     private Vector2 _floorNormal, _wallNormal;
@@ -37,7 +37,7 @@ public class CharacterBody2D : PhysicsBody2D
     [Export]
     public Vector2 Velocity { get; set; }
 
-    /// <summary>"Up" for floor/ceiling classification (normalized on set; default +Y).</summary>
+    /// <summary>"Up" for floor/ceiling classification (normalized on set; default −Y, screen up).</summary>
     [Export]
     public Vector2 UpDirection
     {

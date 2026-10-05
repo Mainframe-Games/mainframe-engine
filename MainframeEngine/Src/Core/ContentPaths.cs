@@ -10,7 +10,7 @@ namespace MainframeEngine;
 /// Three forms are accepted, so engine-relative and game-relative paths share one API:
 /// <list type="bullet">
 /// <item>rooted paths are returned unchanged (normalised);</item>
-/// <item><c>"Content/…"</c> (the form games and the Sandbox pass, e.g. <c>"Content/Sky/sky.png"</c>) is relative to
+/// <item><c>"Content/…"</c> (the form games pass, e.g. <c>"Content/Sky/sky.png"</c>) is relative to
 /// <see cref="BaseDirectory"/>;</item>
 /// <item>anything else is relative to <see cref="Root"/> (<c>"Shaders/Sky/Sky.vk.vert.spv"</c>).</item>
 /// </list>

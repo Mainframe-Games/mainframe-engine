@@ -277,7 +277,7 @@ render server renders it after the shadow pass and before the main pass. It uses
 | Target | Format | Use |
 |---|---|---|
 | `SceneImage` (+ `DepthImage`) | `R16G16B16A16_SFLOAT` + scene depth format (sampleable) | HDR colour; render-pass compatible with the main scene pass, so every scene pipeline (sky, grid, Spine, meshes) draws into it |
-| `ColorImage` | `R8G8B8A8_UNORM` | tonemapped (exposure, ACES) and sRGB-encoded by `SubViewportCompositor`, ready for UI; `ImGuiTextureId` shows it with `ImGui.Image` |
+| `ColorImage` | `R8G8B8A8_UNORM` | tonemapped (exposure, ACES) and sRGB-encoded by `SubViewportCompositor`, ready for UI; publish its render target once with `UiServer.RegisterTexture(name, viewport.ColorTarget!)` and show it as `<img src="engine://name"/>` |
 | `ObjectIdImage` | `R32_UINT` + depth | picking (`ObjectIds` or pending picks) |
 
 There is one set of shadow maps. It belongs to the main world, so offscreen worlds are lit without shadows
@@ -326,7 +326,7 @@ Measured on an Apple M5 with MoltenVK:
   - `materials`: textured, cutout, normal map, emissive, mirrored, blend;
   - `gltf`: the imported model, also mirrored;
   - `instances`: 1 000 boxes in 2 draws, self-checked;
-  - `picking`: picks in the main view and a `SubViewport`, self-checked, with the view drawn through ImGui;
+  - `picking`: picks in the main view and a `SubViewport`, self-checked, with the view shown through a `UiDocument` `<img src="engine://picking-preview"/>`;
   - the 10k allocation gate and the 10k frame-time test (< 16.7 ms enforced in Release).
   - The pre-M3 `lit-shapes`, `multi-light` and `spine` goldens still match after the port to `MeshInstance3D`.
 

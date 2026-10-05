@@ -1,0 +1,175 @@
+{
+  "format": 2,
+  "uid": "scn_180848afc544",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "StandardMaterial3D_s8kz4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.22745098, 0.26666668, 0.3764706, 1]
+      }
+    },
+    "PlaneMesh_dcv7g": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [200, 200]
+      }
+    },
+    "StandardMaterial3D_g5tlr": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1]
+      }
+    },
+    "SphereMesh_d4vtf": {
+      "type": "SphereMesh"
+    },
+    "StandardMaterial3D_fnbyk": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.14509805, 0.3882353, 0.92156863, 1],
+        "EmissionColor": [0.14509805, 0.3882353, 0.92156863, 1],
+        "EmissionEnergy": 0.6
+      }
+    },
+    "BoxMesh_26t34": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.8, 1.1, 0.8]
+      }
+    },
+    "AudioStream_z55l0": {
+      "type": "AudioStream",
+      "props": {
+        "File": "Content/Audio/ambient_hum.ogg",
+        "LoadMode": "Stream",
+        "Loop": true
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "audio_3d",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0, 13, 15.5],
+        "RotationDegrees": [-39.986885, 0, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "props": {
+        "Sky": { "res": "Sky_5kj71" },
+        "AmbientColor": [0.34, 0.4, 0.58]
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-50, 30, 0],
+        "Energy": 1.1
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_s8kz4" },
+        "Mesh": { "res": "PlaneMesh_dcv7g" }
+      }
+    },
+    {
+      "name": "Listener",
+      "parent": ".",
+      "type": "AudioListener3D",
+      "props": {
+        "Position": [0, 1, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Head",
+      "parent": "Listener",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_g5tlr" },
+        "Mesh": { "res": "SphereMesh_d4vtf" }
+      }
+    },
+    {
+      "name": "Range",
+      "parent": "Listener",
+      "type": "DistanceRing",
+      "props": {
+        "Radius": 12
+      }
+    },
+    {
+      "name": "OrbitPath",
+      "parent": "Listener",
+      "type": "DistanceRing",
+      "props": {
+        "Radius": 6,
+        "Color": [1, 1, 1, 0.22]
+      }
+    },
+    {
+      "name": "Orbit",
+      "parent": ".",
+      "type": "Orbiter",
+      "props": {
+        "Position": [0, 1, 0]
+      }
+    },
+    {
+      "name": "Speaker",
+      "parent": "Orbit",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_fnbyk" },
+        "Mesh": { "res": "BoxMesh_26t34" }
+      }
+    },
+    {
+      "name": "Emitter",
+      "parent": "Orbit",
+      "type": "AudioPlayer3D",
+      "props": {
+        "Stream": { "res": "AudioStream_z55l0" },
+        "Bus": "SFX",
+        "VolumeDb": -6,
+        "Autoplay": true,
+        "UnitSize": 2,
+        "MaxDistance": 12,
+        "LowPassAtMaxDistance": 1200,
+        "DopplerTracking": true
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Audio3DPanel"
+    }
+  ]
+}

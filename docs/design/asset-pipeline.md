@@ -18,7 +18,7 @@ covers everything `ResourceLoader` *imports*.
   the working directory.
 - `AssetDatabase.Current` is rooted at `ContentPaths.BaseDirectory`, the folder holding `Content/`. Since M3 it no
   longer uses the working directory either, so a game loads the same files however it is launched (`dotnet run`, an
-  IDE, a test runner, a published app). The Sandbox and the render-test host no longer change directory at startup.
+  IDE, a test runner, a published app). The render-test host and games no longer change directory at startup.
 - Tools assign `AssetDatabase.Current` to the open project. Tests assign it to a temporary project.
 - Relative asset paths (`"Content/Models/Crate.gltf"`) are project-relative with `/` separators. UIDs resolve
   through the database first, and the path is only a hint.
@@ -56,6 +56,8 @@ Games can `AssetImporters.Register` their own importers.
 | `filter` | `linear`, `nearest` (`linear`) | sampler filter |
 | `wrap` | `repeat`, `clamp`, `mirror` (`repeat`) | sampler addressing |
 | `anisotropy` | 1–16 (`8`) | clamped to the device; 1 = off |
+| `svgScale` | > 0 (`1`) | `.svg` only: rasterisation scale (Godot's `svg/scale`); SVGs are rasterised at load by `mfsvg` (ThorVG as in Godot, ADR 0112) |
+| `fixAlphaBorder` | bool (`false`) | Godot's `process/fix_alpha_border`: nearly transparent pixels take their nearest opaque neighbour's colour |
 
 Missing keys take the defaults. Invalid values are logged and replaced by the default, and unknown keys are
 ignored with a warning. `TextureImportSettings.ToMetaSettings()` writes the object, for tools. Changing
@@ -103,7 +105,7 @@ There is no on-disk cache of imported data: scenes stay JSON and never bake bina
 `Tests/MainframeEngine.Tests/TestAssets/TestModel.cs` generates a small CC0 glTF (`test_model.gltf`/`.bin`, a
 checker PNG and their `.meta` files). It contains a two-level node hierarchy, one box mesh shared by two nodes, a
 two-primitive mesh with an opaque double-sided material and a blended one, and an empty node. The committed copy
-lives in `MainframeEngine.Sandbox/Content/Models/TestModel/`, where the Sandbox and the render tests use it. To
+lives in `Tests/Content/Models/TestModel/` (the shared test assets) and in `Examples/Demo/Content/Models/TestModel/`, where the Demo uses it. To
 regenerate it, run `UPDATE_TEST_ASSETS=1 dotnet test Tests/MainframeEngine.Tests --filter TheCommittedTestModel`.
 A unit test fails if the committed copy and the generator drift apart.
 

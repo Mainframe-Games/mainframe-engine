@@ -18,17 +18,17 @@ public sealed class Physics2DAllocationTests
         h.AddGround(width: 20000);
         for (var i = 0; i < 480; i++)
         {
-            var box = h.AddBox(new Vector2(i % 60 * 70 - 2100, 25 + i / 60 * 60), 50, $"Box{i}");
+            var box = h.AddBox(new Vector2(i % 60 * 70 - 2100, -25 - i / 60 * 60), 50, $"Box{i}");
             box.ContactMonitor = i % 8 == 0;
             box.CanSleep = i % 2 == 0;
         }
 
-        var area = h.AddArea(new Vector2(0, 100), new Vector2(1000, 200));
+        var area = h.AddArea(new Vector2(0, -100), new Vector2(1000, 200));
         var entered = 0;
         area.BodyEntered += _ => entered++;
         for (var i = 0; i < 4; i++)
         {
-            var character = new WalkerCharacter2D { Name = $"Walker{i}", Position = new Vector2(3000 + i * 200, 100), Walk = new Vector2(40, 0) };
+            var character = new WalkerCharacter2D { Name = $"Walker{i}", Position = new Vector2(3000 + i * 200, -100), Walk = new Vector2(40, 0) };
             character.AddChild(new CollisionShape2D { Shape = new CapsuleShape2D { Radius = 20, Height = 80 } });
             h.Add(character);
         }
@@ -36,16 +36,16 @@ public sealed class Physics2DAllocationTests
         var query = h.Query;
         var results = new List<CollisionObject2D>(64);
         var probe = new CircleShape2D { Radius = 20 };
-        var probeAt = Transform2D.FromTrs(new Vector2(0, 600), 0, Vector2.One);
+        var probeAt = Transform2D.FromTrs(new Vector2(0, -600), 0, Vector2.One);
 
         void Frame(float delta)
         {
             h.Run(1, delta);
-            query.RayCast(new Vector2(30, 1000), new Vector2(30, -1000), out _);
-            query.ShapeCast(probe, probeAt, new Vector2(0, -1000), out _);
+            query.RayCast(new Vector2(30, -1000), new Vector2(30, 1000), out _);
+            query.ShapeCast(probe, probeAt, new Vector2(0, 1000), out _);
             results.Clear();
             query.IntersectShape(probe, probeAt, results);
-            query.IntersectPoint(new Vector2(10, 10), results);
+            query.IntersectPoint(new Vector2(10, -10), results);
             h.Tree.Root.DebugLines.Clear();
         }
 

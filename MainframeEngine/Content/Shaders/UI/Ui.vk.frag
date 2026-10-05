@@ -19,10 +19,13 @@ layout(location = 0) out vec4 outColor;
 
 const uint kEncodeSrgb = 1u;  // the sampler returns linear colour: encode to sRGB
 const uint kPremultiply = 2u; // the texture stores straight alpha
+const uint kDepthToGray = 4u; // a depth map: .r as grey, alpha 1
 
 void main()
 {
     vec4 texel = texture(uiTexture, inTexCoord);
+    if ((pc.textureFlags & kDepthToGray) != 0u)
+        texel = vec4(texel.rrr, 1.0);
     if ((pc.textureFlags & kEncodeSrgb) != 0u)
         texel.rgb = linearToSrgb(clamp(texel.rgb, 0.0, 1.0));
     if ((pc.textureFlags & kPremultiply) != 0u)

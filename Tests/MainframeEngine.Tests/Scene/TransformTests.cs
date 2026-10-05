@@ -246,4 +246,23 @@ public sealed class TransformTests
         root.Visible = false;
         Assert.False(child.IsVisibleInTree());
     }
+
+    [Fact]
+    public void Node2DKeepsASkewedTransformAndDecomposesItLikeGodot()
+    {
+        // A cast-shadow shear: X stays the unit axis, Y leans to the left and shortens.
+        var shear = new Transform2D(new Vector2(1, 0), new Vector2(-1.2f, 0.4f), new Vector2(5, 7));
+        using var node = new Node2D { Transform = shear };
+        Assert.Equal(shear.X, node.Transform.X);
+        Assert.Equal(shear.Y, node.Transform.Y); // kept exactly, not rebuilt from the decomposition
+        Assert.Equal(new Vector2(5, 7), node.Position);
+        Assert.Equal(0f, node.Rotation, 5);
+        Assert.Equal(MathF.Atan2(1.2f, 0.4f), node.Skew, 4); // Godot: acos(x̂·ŷ) − π/2
+        Assert.Equal(new Vector2(1, new Vector2(-1.2f, 0.4f).Length()), node.Scale);
+
+        // Rebuilding from the values gives the same transform (Godot's Transform2D(rot, scale, skew, pos)).
+        node.Position = node.Position;
+        Assert.True(Vector2.Distance(shear.Y, node.Transform.Y) < Eps, $"{node.Transform.Y}");
+        Assert.Equal(0f, Transform2D.Identity.Skew, 6);
+    }
 }

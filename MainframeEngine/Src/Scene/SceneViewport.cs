@@ -1,3 +1,4 @@
+using System.Numerics;
 namespace MainframeEngine;
 
 /// <summary>
@@ -23,7 +24,65 @@ public class SceneViewport : Node
     internal SceneViewport(bool isTreeRoot)
     {
         IsTreeRoot = isTreeRoot;
+        RootCanvas = new Canvas(this, null);
     }
+
+    private readonly List<CanvasLayer> _canvasLayers = [];
+
+    /// <summary>The viewport's own canvas (layer 0): canvas items not under a <see cref="CanvasLayer"/>.</summary>
+    public Canvas RootCanvas { get; }
+
+    /// <summary>
+    /// Canvas space → viewport pixels for <see cref="RootCanvas"/> (Godot's <c>Viewport.canvas_transform</c>; the current
+    /// <see cref="Camera2D"/> sets it).
+    /// </summary>
+    public Transform2D CanvasTransform { get; set; } = Transform2D.Identity;
+
+    /// <summary>The canvas layers in this viewport (any order; the canvas server sorts them).</summary>
+    public IReadOnlyList<CanvasLayer> CanvasLayers => _canvasLayers;
+
+    // ── Size and content scale (Godot's Window content_scale_* for the root viewport) ──────────────────────────────
+
+    /// <summary>How the root viewport's 2D content scales with the window (the root only; Godot's <c>content_scale_mode</c>).</summary>
+    public ContentScaleMode ContentScaleMode { get; set; }
+
+    public ContentScaleAspect ContentScaleAspect { get; set; } = ContentScaleAspect.Keep;
+
+    /// <summary>The base size in canvas units (Godot's <c>display/window/size/viewport_width/height</c>).</summary>
+    public Vector2 ContentScaleSize { get; set; }
+
+    public float ContentScaleFactor { get; set; } = 1f;
+
+    public ContentScaleStretch ContentScaleStretch { get; set; }
+
+    /// <summary>The size of the viewport's target in pixels (the window framebuffer for the root).</summary>
+    public Vector2 Size { get; private set; }
+
+    /// <summary>The content scale result for <see cref="Size"/>.</summary>
+    public ContentScaleResult ContentScaleResult { get; private set; }
+
+    /// <summary>Canvas units → target pixels (Godot's stretch transform with the letterbox margin).</summary>
+    public Transform2D StretchTransform { get; private set; } = Transform2D.Identity;
+
+    /// <summary>The visible area in canvas units (Godot's <c>get_visible_rect</c>).</summary>
+    public Rect2 GetVisibleRect() => new(Vector2.Zero, ContentScaleResult.VisibleSize);
+
+    /// <summary>Sets the target size and recomputes the content scale (the engine calls this for the root each frame).</summary>
+    public void SetSize(Vector2 pixels)
+    {
+        if (pixels == Size && _scaleKey == (ContentScaleMode, ContentScaleAspect, ContentScaleSize, ContentScaleFactor, ContentScaleStretch))
+            return;
+        Size = pixels;
+        _scaleKey = (ContentScaleMode, ContentScaleAspect, ContentScaleSize, ContentScaleFactor, ContentScaleStretch);
+        ContentScaleResult = ContentScale.Compute(pixels, ContentScaleMode, ContentScaleAspect, ContentScaleSize, ContentScaleFactor, ContentScaleStretch);
+        StretchTransform = ContentScaleResult.StretchTransform;
+    }
+
+    private (ContentScaleMode, ContentScaleAspect, Vector2, float, ContentScaleStretch) _scaleKey;
+
+    internal void AddCanvasLayer(CanvasLayer layer) => _canvasLayers.Add(layer);
+
+    internal void RemoveCanvasLayer(CanvasLayer layer) => _canvasLayers.Remove(layer);
 
     /// <summary>True for <see cref="SceneTree.Root"/>.</summary>
     public bool IsTreeRoot { get; }
@@ -101,20 +160,27 @@ public class SceneViewport : Node
             ActiveCamera3D = FindCurrent(_cameras3D, except: camera) ?? camera;
     }
 
+    // 2D cameras follow Godot: a camera is active only once made current (Camera2D makes itself current on entering a
+    // viewport without one when Enabled); when the current one leaves, the next enabled camera takes over.
     internal void AddCamera(Camera2D camera)
     {
         _cameras2D.Add(camera);
         if (camera.Current)
             MakeCurrent(camera);
-        else
-            ActiveCamera2D ??= camera;
     }
 
     internal void RemoveCamera(Camera2D camera)
     {
         _cameras2D.Remove(camera);
-        if (ReferenceEquals(ActiveCamera2D, camera))
-            ActiveCamera2D = _cameras2D.Count > 0 ? FindCurrent(_cameras2D) : null;
+        if (!ReferenceEquals(ActiveCamera2D, camera))
+            return;
+        ActiveCamera2D = null;
+        foreach (var next in _cameras2D)
+            if (next.Enabled)
+            {
+                next.MakeCurrent();
+                break;
+            }
     }
 
     internal void MakeCurrent(Camera2D camera)

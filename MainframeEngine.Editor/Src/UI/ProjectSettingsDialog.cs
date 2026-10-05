@@ -104,7 +104,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 default:
                     foreach (var setting in ProjectSettingsModel.Settings)
                         if (setting.Section == _section)
-                            RenderSetting(body, setting, setting.Get(model.Current));
+                            RenderSetting(body, setting, setting.Get(model.Current), Workspace.Session.ProjectRoot);
                     break;
             }
 
@@ -122,7 +122,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
         }
     }
 
-    private static void RenderSetting(StringBuilder rml, ProjectSetting setting, string value)
+    private static void RenderSetting(StringBuilder rml, ProjectSetting setting, string value, string? projectRoot)
     {
         rml.Append("<div class=\"ps-row\"><div class=\"ps-label\"").Append(setting.Tooltip.Length > 0 ? $" data-tooltip=\"{RmlText.Escape(setting.Tooltip)}\"" : "")
             .Append('>').Append(RmlText.Escape(setting.Label)).Append("</div><div class=\"ps-editor\">");
@@ -147,6 +147,8 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 if (setting.Kind is SettingKind.Scene or SettingKind.File)
                     rml.Append("<button class=\"tool-button small\" data-browse=\"").Append(key).Append("\" data-tooltip=\"Browse — pick ")
                         .Append(setting.Kind == SettingKind.Scene ? "a scene of the project" : "a file of the project").Append("\"><span class=\"icon icon-sm icon-folder-open\"></span></button>");
+                if (setting.Key == "window.icon" && IconPreviewPath(projectRoot, value) is { } preview)
+                    rml.Append("<img class=\"ps-preview\" src=\"").Append(RmlText.Escape(preview)).Append("\"/>");
                 if (setting.Key == "audio.busLayout")
                     rml.Append("<button class=\"tool-button small\" data-edit-file=\"").Append(key)
                         .Append("\" data-tooltip=\"Edit — open the bus layout in the inspector\"><span class=\"icon icon-sm icon-pencil\"></span></button>");
@@ -154,6 +156,22 @@ public sealed class ProjectSettingsDialog : EditorDocument
         }
 
         rml.Append("</div></div>");
+    }
+
+    // The absolute path of the window icon when it is an existing PNG of the project (the preview beside its field), else null.
+    private static string? IconPreviewPath(string? projectRoot, string value)
+    {
+        if (projectRoot is null || value.Length == 0 || !value.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            return null;
+        try
+        {
+            var full = Path.GetFullPath(value, projectRoot);
+            return File.Exists(full) ? full : null;
+        }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
     }
 
     private static void RenderInputMap(StringBuilder rml, InputMap map)

@@ -1,0 +1,10 @@
+body.hud { pointer-events: none; }
+.demo-panel {
+    pointer-events: auto;
+    position: absolute; left: 16dp; top: 60dp; width: 280dp;
+    padding: 14dp; border-radius: 10dp;
+    background-color: #0b1220d9; border: 1dp #ffffff1f; color: #e2e8f0;
+}
+.demo-panel h1 { font-size: 18dp; margin-bottom: 4dp; }
+.demo-panel p.hint { font-size: 13dp; color: #94a3b8; margin-bottom: 10dp; }
+.demo-row { display: flex; align-items: center; justify-content: space-between; margin: 6dp 0; }

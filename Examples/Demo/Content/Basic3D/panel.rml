@@ -1,0 +1,16 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Content/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="basic3d">
+    <div class="demo-panel">
+        <h1>Basic 3D</h1>
+        <p class="hint">Primitives, materials, a glTF model, panoramic sky, cascaded and spot shadows.</p>
+        <div class="demo-row"><span>Pause orbit</span><input type="checkbox" data-checked="paused"/></div>
+        <div class="demo-row"><span>Sun</span><input type="checkbox" data-checked="sun"/></div>
+        <div class="demo-row"><span>Lamps</span><input type="checkbox" data-checked="lamps"/></div>
+        <div class="demo-row"><span>Exposure</span><input type="range" min="0.3" max="3" step="0.05" data-value="exposure"/></div>
+    </div>
+</body>
+</rml>

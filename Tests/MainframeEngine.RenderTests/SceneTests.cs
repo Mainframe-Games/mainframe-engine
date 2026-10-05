@@ -36,6 +36,16 @@ public class SceneTests
     }
 
     [Fact]
+    public void SpineUnderCamera2DIsUprightAndFrontFacing()
+    {
+        var result = HostRunner.Run("spine-2d", Output("spine-2d"), "--capture", "10", "--hidden");
+
+        Assert.Empty(result.SceneCheckFailures);
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
     public void MultipleShadowCastingLightsEachUseTheirOwnMatrix()
     {
         // Directional + spot + point (6 cube faces): 8 shadow sub-passes in one frame.
@@ -105,6 +115,35 @@ public class SceneTests
         Gates.AssertValidationClean(result);
     }
 
+    [Fact]
+    public void MinimiseAndRestoreIsCleanAndResumesRendering()
+    {
+        // The window is minimised on frame 10 and restored ~1.5 s later (the engine blocks on events meanwhile, a wake timer
+        // pushes SDL events so the restore can run); the host checks nothing was rendered while minimised.
+        var result = HostRunner.Run("lit-shapes", Output("minimize"),
+            "--minimize", "10", "--capture", "5,40", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        var before = result.Captures.Single(c => c.Frame == 5);
+        var after = result.Captures.Single(c => c.Frame == 40); // rendered after the restore
+        Assert.Equal((Px(result, 320), Px(result, 240)), (before.Width, before.Height));
+        Assert.Equal((Px(result, 320), Px(result, 240)), (after.Width, after.Height));
+        Assert.True(File.Exists(after.Path));
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void ASyntheticRightDragLooksAroundThroughTheInputPath()
+    {
+        // SDL events pushed by the host (button down, motion, button up) reach a node's OnInput through Silk's IMouse and
+        // the InputRouter; the mouse-look scene fails its own check unless the camera turned and then stopped looking.
+        var result = HostRunner.Run("mouse-look", Output("mouse-look"),
+            "--input", "5", "--frames", "40", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+    }
+
     [Theory]
     [InlineData("1")]
     [InlineData("3")] // no Mac or CI display's backing scale: the window is always resized to reach it
@@ -138,17 +177,17 @@ public class SceneTests
     }
 
     [Fact]
-    public void SandboxSteadyStateAllocatesNothing()
+    public void ShowcaseSteadyStateAllocatesNothing()
     {
         const int warmup = 120, measured = 300;
         // Without tiered compilation: the gate is about the code a steady-state frame runs, which is optimized code.
         // With tiering, some generic BCL code starts at tier 0 — notably the interpolated-string handlers' AppendFormatted<T>,
         // which boxes each formatted value (24 B) until the background JIT promotes it after ~30 calls — and when that
         // promotion lands is timing-dependent (the call-counting delay restarts on every tier-0 JIT), so ~1 run in 3
-        // measured a few dozen frames of ImGui text formatting before it. Fully optimized code from the start measures
+        // measured a few dozen frames of dev overlay formatting before it. Fully optimized code from the start measures
         // the steady state deterministically.
         var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
-            "sandbox", Output("sandbox"), "--alloc", $"{warmup}:{measured}", "--hidden");
+            "showcase", Output("showcase"), "--alloc", $"{warmup}:{measured}", "--hidden");
 
         Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures)); // audio really plays
         Assert.Equal(measured, result.MeasuredFrames);
@@ -183,7 +222,7 @@ public class SceneTests
         foreach (var (frame, exposure) in new[] { (4u, IVulkanContext.DefaultExposure), (12u, ColorPipelineScene.SecondExposure) })
         {
             var image = Png.ReadRgba8(result.Captures.Single(c => c.Frame == frame).Path);
-            var scale = image.Width / 320f; // HiDPI: ImGui works in points, the capture is in pixels
+            var scale = image.Width / 320f; // HiDPI: the gizmo rects are drawn at host scale (points × scale), the capture is in pixels
 
             // Scene: sRGB texture → linear (sampler) → × exposure → ACES → sRGB (swapchain view or shader).
             var c = ColorPipelineScene.SkyColor;
@@ -193,7 +232,7 @@ public class SceneTests
 
             // Overlay: written as authored, blended in sRGB space like before the HDR pipeline.
             var o = ColorPipelineScene.OverlayColor;
-            AssertPixel(image, (int)(35 * scale), (int)(35 * scale), new System.Numerics.Vector3(o.X, o.Y, o.Z) * 255f, 1, "opaque ImGui colour");
+            AssertPixel(image, (int)(35 * scale), (int)(35 * scale), new System.Numerics.Vector3(o.X, o.Y, o.Z) * 255f, 1, "opaque gizmo colour");
             AssertPixel(image, (int)(95 * scale), (int)(35 * scale), new System.Numerics.Vector3(127.5f), 2, "50% white over black (sRGB blend)");
         }
     }

@@ -27,6 +27,14 @@ public sealed class GameHostOptionsTests
         Assert.Equal(30, o.ScreenshotFrame); // the last frame of --max-frames
         Assert.Equal(60, GameHostOptions.Parse(["--screenshot", "a.png"]).ScreenshotFrame);
         Assert.Equal(["--my-game-flag", "x"], o.Remaining);
+        Assert.Empty(o.UserArgs);
+
+        // After ++ nothing is parsed: the game may reuse a host flag's name.
+        var user = GameHostOptions.Parse(["--max-frames", "5", "++", "--screenshot", "game.png", "++", "--max-frames"]);
+        Assert.Equal(5, user.MaxFrames);
+        Assert.Null(user.ScreenshotPath);
+        Assert.Equal(["--screenshot", "game.png", "++", "--max-frames"], user.UserArgs);
+        Assert.Empty(user.Remaining);
     }
 
     [Fact]

@@ -150,8 +150,8 @@ public sealed class ShadowPcfScene(HostOptions host) : ShadowSceneBase(host)
 /// </summary>
 public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
 {
-    private const uint CheckFrame = 10;
-    private bool _checked;
+    private const uint CheckFrame = 10, OverlayCheckFrame = 19; // --count 2 resizes on frame 20
+    private bool _checked, _overlayChecked;
 
     protected override void Build(Node3D scene)
     {
@@ -159,6 +159,15 @@ public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
         Camera.LookAt(new Vector3(0, 0.3f, 0));
         scene.AddChild(new Grid3D { Name = "Grid" });
         scene.AddChild(new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(14, 14) }, MaterialOverride = Plain(215, 210, 200) });
+
+        // --count 2 shows the dev overlay with only the Shadows panel open: its depth images (cascade layers, atlas) are
+        // sampled in their read-only depth layout and must be validation-clean.
+        if (Host.Count == 2)
+        {
+            DevOverlayVisible = true;
+            foreach (var panel in DevOverlay!.Panels)
+                panel.Expanded = panel.Id == "shadows";
+        }
 
         var box = new BoxMesh();
         scene.AddChild(new MeshInstance3D { Name = "BoxA", Position = new Vector3(-2.5f, 0.5f, 0.5f), RotationDegrees = new Vector3(0, 30, 0), Mesh = box, MaterialOverride = Plain(230, 120, 80) });
@@ -175,20 +184,11 @@ public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
         scene.AddChild(new OmniLight3D { Name = "LampCool", Position = new Vector3(1.6f, 1.2f, -0.2f), Color = new Vector3(0.4f, 0.7f, 1f), Energy = 1.2f, Range = 6f, ShadowResolution = 256 });
     }
 
-    // --count 2 draws the renderer window with the shadow maps open: depth images shown by ImGui in their read-only
-    // depth layout must be validation-clean.
-    protected override void OnImGui(in GameTime gameTime)
-    {
-        base.OnImGui(gameTime);
-        if (Host.Count != 2)
-            return;
-        RendererDebugWindow.ExpandShadowMaps = true;
-        RendererDebugWindow.Draw(Renderer, Servers.Render);
-    }
-
     protected override void OnRenderMainPass(in GameTime gameTime)
     {
         base.OnRenderMainPass(gameTime);
+        if (Host.Count == 2 && gameTime.FrameCount == OverlayCheckFrame)
+            CheckOverlayMaps();
         if (gameTime.FrameCount != CheckFrame || Shadows is not { } shadows)
             return;
         _checked = true;
@@ -230,10 +230,32 @@ public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
             Fail(string.Create(CultureInfo.InvariantCulture, $"shadow maps use {shadows.MapMemoryBytes >> 20} MiB (the M1 layout used 116 MiB whatever the lights)"));
     }
 
+    /// <summary>
+    /// --count 2: before the resize, the overlay's Shadows panel must really have drawn the depth maps (its values refresh
+    /// at 4 Hz, so the maps appear a few frames in); otherwise the validation test would not sample them at all.
+    /// </summary>
+    private void CheckOverlayMaps()
+    {
+        _overlayChecked = true;
+        var renderer = Ui?.Renderer;
+        if (renderer is null)
+        {
+            Fail("no Vulkan UI renderer: the dev overlay cannot draw the shadow maps");
+            return;
+        }
+
+        if (renderer.EngineTextureDraws("dev-shadow-cascade-") == 0)
+            Fail("the dev overlay's Shadows panel never drew a cascade image (engine://dev-shadow-cascade-*)");
+        if (renderer.EngineTextureDraws("dev-shadow-atlas") == 0)
+            Fail("the dev overlay's Shadows panel never drew the atlas image (engine://dev-shadow-atlas)");
+    }
+
     protected override void DisposeScene()
     {
         if (!_checked && Host.AllocationMeasuredFrames == 0)
             Fail($"the shadow self-check did not run on frame {CheckFrame}");
+        if (Host.Count == 2 && !_overlayChecked)
+            Fail($"the dev overlay shadow-map check did not run on frame {OverlayCheckFrame}");
         base.DisposeScene();
     }
 }

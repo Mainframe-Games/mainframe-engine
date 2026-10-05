@@ -11,9 +11,9 @@
   </Folder>
   <Folder Name="/Tools/">
     <Project Path="Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj" />
+    <Project Path="Tools/MainframeEngine.ShaderBuild/MainframeEngine.ShaderBuild.csproj" />
   </Folder>
   <Project Path="MainframeEngine.Editor/MainframeEngine.Editor.csproj" />
   <Project Path="MainframeEngine.Generators/MainframeEngine.Generators.csproj" />
-  <Project Path="MainframeEngine.Sandbox/MainframeEngine.Sandbox.csproj" />
   <Project Path="MainframeEngine/MainframeEngine.csproj" />
 </Solution>

@@ -51,7 +51,7 @@ public interface IEditorAutomation
 /// The editor executable's engine host (<c>EditorApp : Engine</c>, code-driven per ADR 0080): runs the engine's scene
 /// tree in <see cref="SceneTree.EditMode"/> with an <see cref="EditorWorkspace"/> under the root, implements
 /// <see cref="IEditorHost"/> over the SDL window, and intercepts window-close requests (close button, Cmd+Q) so unsaved
-/// scenes are asked about first. ImGui stays the F12 developer overlay.
+/// scenes are asked about first. F12 toggles the engine's developer overlay.
 /// </summary>
 public sealed class EditorApp : Engine, IEditorHost
 {

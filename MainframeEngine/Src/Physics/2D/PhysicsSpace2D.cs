@@ -261,6 +261,9 @@ public sealed class PhysicsSpace2D : IDisposable
 
     public int ObjectCount => _records.Count;
 
+    /// <summary>Bodies currently awake (simulated).</summary>
+    public int ActiveBodyCount => b2World_GetAwakeBodyCount(_world);
+
     public long StepCount => _step;
 
     /// <summary>Gravity in px/s².</summary>

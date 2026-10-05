@@ -4,13 +4,15 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Base of the light nodes. Each wraps one of the renderer's <see cref="MainframeEngine.Light"/> objects: while
-/// the node is inside a tree the light is registered with its world's <see cref="World3D.Lights"/>, and its
-/// position/direction follow the node's global transform (synced after process, only when it changed).
+/// the node is inside a tree and visible (<see cref="Node3D.IsVisibleInTree"/>) the light is registered with its
+/// world's <see cref="World3D.Lights"/>, and its position/direction follow the node's global transform (synced
+/// after process, only when it changed). Hiding the node or an ancestor switches the light off.
 /// </summary>
 [EditorIcon("bulb")]
 public abstract class Light3D : Node3D
 {
     private World3D? _world;
+    private bool _registered;
 
     private protected Light3D()
     {
@@ -77,14 +79,42 @@ public abstract class Light3D : Node3D
         base.OnEnterTree();
         SyncTransform();
         _world = GetWorld3D();
-        _world?.Lights.AddLight(Light);
+        UpdateRegistration();
     }
 
     protected override void OnExitTree()
     {
-        _world?.Lights.RemoveLight(Light);
+        Unregister();
         _world = null;
         base.OnExitTree();
+    }
+
+    private protected override void OnVisibilityInTreeChanged() => UpdateRegistration();
+
+    private void UpdateRegistration()
+    {
+        if (_world is null)
+            return;
+        if (IsVisibleInTree())
+        {
+            if (_registered)
+                return;
+            SyncTransform();
+            _world.Lights.AddLight(Light);
+            _registered = true;
+        }
+        else
+        {
+            Unregister();
+        }
+    }
+
+    private void Unregister()
+    {
+        if (!_registered)
+            return;
+        _world?.Lights.RemoveLight(Light);
+        _registered = false;
     }
 
     protected override void OnTransformChanged() => SyncTransform();

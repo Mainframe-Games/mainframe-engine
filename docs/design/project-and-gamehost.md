@@ -40,7 +40,7 @@ MyGame/                      ← dotnet new mfgame -n MyGame --engine-path <engi
 ```
 
 The launcher copies `project.mfproj` and `Content/**` to its output; engine content and natives come through the
-engine project reference, as for the Sandbox. The editor loads `MyGame.dll` (the library), never the launcher.
+engine project reference, as for the Demo. The editor loads `MyGame.dll` (the library), never the launcher.
 
 ## `project.mfproj`
 
@@ -119,15 +119,27 @@ does not load), 2 (bad command line).
 | `--no-log-file` | no log file |
 | `--locale <name>` | start in this locale (overrides `localization.defaultLocale`) |
 | `--screenshot <file.png>` | save the frame `--max-frames` ends on (frame 60 without it) as a PNG |
+| `--frame-capture` | allow `SceneTree.CaptureFrame` (a game's own screenshot harness; implied by `--screenshot`) |
+| `++ …` | everything after `++` is the game's (`GameHost.UserArgs`, Godot's `OS.get_cmdline_user_args`), never parsed by the host |
 
-Anything else is left in `GameHostOptions.Remaining` for the game.
+Anything else before `++` is left in `GameHostOptions.Remaining` for the game. Nodes ask the host to quit with
+`SceneTree.Quit(code)`; `GameHost.Project` is the running project's settings (its `version` for build stamps).
 
 Startup: `ProjectSettings.ToEngineOptions()` (window, VSync, physics settings and tick, audio, localization, Steam) +
 the flags → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects the editor link first) → `OnLoad`:
 `base.OnLoad()`, frame cap, exposure, shadow quality, then `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
 `Tree.ChangeSceneToFile(--scene ?? mainScene)`. Each frame `GameSession.Update` applies editor commands and reports
-status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the Sandbox).
+status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the editor and render-test host do).
+
+### UI hot reload
+
+Debug engine builds (`UiServerOptions.DefaultHotReload`) hot-reload the game's `.rml`/`.rcss` from the project sources:
+`GameHost.Run` hands the launcher's game assemblies to the `GameHost` constructor, and `GameHost.CreateUiOptions` turns
+their `[AssemblyMetadata("MainframeContentSource", …)]` folders (`UiServerOptions.SourceDirectoriesOf`) into the UI's
+source directories, so saving a document in the project's `Content/` reloads it in the running game. The `mfgame`
+template's `MyGame.csproj` records its sibling `Content/` folder under that key in Debug builds only; Release builds and
+installed games load from the output folder. An explicit `EngineOptions.Ui` (tests, engine subclasses) is left alone.
 
 ## Input actions
 

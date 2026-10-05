@@ -216,7 +216,7 @@ public sealed class ProjectCreator
         return null;
     }
 
-    private static string? Verify(string target)
+    internal static string? Verify(string target)
     {
         var projectFile = GameProjectLayout.ProjectFileOf(target);
         if (!File.Exists(projectFile))
@@ -224,15 +224,18 @@ public sealed class ProjectCreator
         var scene = Path.Combine(target, "Content", "Scenes", "Main.mscene");
         if (!File.Exists(scene))
             return $"The template did not create Content/Scenes/Main.mscene in '{target}'.";
+        ProjectSettings settings;
         try
         {
-            ProjectSettings.Load(projectFile);
+            settings = ProjectSettings.Load(projectFile);
         }
         catch (Exception e) when (EditorCommands.IsRecoverable(e))
         {
             return $"The new project's {ProjectSettings.FileName} could not be read: {e.Message}";
         }
 
+        if (settings.Window.Icon is { Length: > 0 } icon && !File.Exists(Path.Combine(target, icon)))
+            return $"The new project's icon '{icon}' is missing.";
         return null;
     }
 

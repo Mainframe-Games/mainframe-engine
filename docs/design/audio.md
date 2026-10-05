@@ -25,7 +25,6 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 | `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.meta` import settings |
 | `AudioPlayer`, `AudioPlayer2D`, `AudioPlayer3D`, `AudioListener3D` | [Audio/Nodes/](../../MainframeEngine/Src/Audio/Nodes/) | nodes |
 | `AudioMath`, `AttenuationModel` | [Audio/AudioMath.cs](../../MainframeEngine/Src/Audio/AudioMath.cs) | dB, attenuation curves, listener projection, pan law, doppler |
-| `AudioImGui` | [Audio/AudioImGui.cs](../../MainframeEngine/Src/Audio/AudioImGui.cs) | debug bus mixer |
 | `AudioMixRoot`, `AudioGraph`, `AudioVoice`, `VoiceSource`, `SpatialSmoother`, `BusProcessor` | [Audio/Graph/](../../MainframeEngine/Src/Audio/Graph/) | audio-thread side (internal) |
 | `SpscRing<T>`, `AudioStreamChannel`, `AudioStreamer` | [Audio/Threading/](../../MainframeEngine/Src/Audio/Threading/) | lock-free rings, streaming thread (internal) |
 | `AudioDecoder` (`WavDecoder`, `VorbisDecoder`, `MiniAudioFileDecoder`), `AudioClipData`, `AudioStreamSource` | [Audio/Decoding/](../../MainframeEngine/Src/Audio/Decoding/) | decoding (internal) |
@@ -127,7 +126,9 @@ preload their stream when they enter it.
 `AudioStream` (resource) holds `File` (project path or `aud_` UID), `LoadMode`, `Loop`, `LoopStart`, `LoopEnd`
 (seconds; 0 = end). `AudioStream.Load(path)` applies import settings from the file's `.meta` sidecar
 (`"importer": "audio", "settings": {"loadMode", "loop", "loopStart", "loopEnd"}`); `AudioStream.FromSamples` wraps
-generated PCM (procedural audio, the QA melody, tests). Loading happens on first use or `Preload()`; a failure is
+generated PCM (procedural audio, the QA melody, tests). `AudioImporter` makes sound files loadable through
+`ResourceLoader` too (`.wav/.ogg/.mp3/.flac` → `AudioStream.Load`), so a resource's `AudioStream` property can reference
+the file directly, as an imported asset (path + `aud_` UID) like a texture. Loading happens on first use or `Preload()`; a failure is
 logged once and the stream stays silent (`LoadError`).
 
 | Load mode | What happens | Used for |
@@ -225,17 +226,15 @@ their own `ProcessMode` (default `Pausable`).
 
 ## Debugging and QA
 
-- `AudioImGui.DrawMixer(server)` draws the device, voice/steal/underrun counters and a fader, mute, solo and peak
-  meter per bus (allocation-free); the Sandbox shows it in its debug window.
+- The dev overlay's Audio panel ([Developer overlay](dev-overlay.md)) shows the device, voice/steal/underrun counters and a
+  fader, mute, solo and peak meter per bus (allocation-free; writes go through `AudioServer` commands).
 - `AudioServer.Stats`: active/total voices, steals, rejected plays, stream underruns and errors, rendered frames and
   blocks, pending commands, fault flag.
-- The Sandbox's `--qa-audio` plays a melody through the real device next to the scene's streamed ambience and
-  checks the counters and bus peaks, exiting non-zero on failure.
 
 ## Performance
 
 - Steady-state frames allocate nothing on the game thread or the audio thread, with positional, moving, streamed,
-  paused/resumed and finishing voices (unit test `AudioAllocationTests`; the render-test `sandbox` scene gate also
+  paused/resumed and finishing voices (unit test `AudioAllocationTests`; the render-test `showcase` scene gate also
   plays a streamed and an orbiting doppler voice).
 - Benchmarks ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json), Apple M5): a 64-command batch
   enqueue + drain ≈ 0.25 µs; spatial math for 32 emitters ≈ 0.25 µs; `AudioServer` frame for 32 moving positional
@@ -259,5 +258,5 @@ their own `ProcessMode` (default `Pausable`).
 ## Related docs
 
 [Scene graph & nodes](scene-graph-and-nodes.md) · [Scene serialization](scene-serialization.md) ·
-[Engine lifecycle](engine-lifecycle.md) · [Testing](testing.md) · [Sandbox](sandbox.md) ·
+[Engine lifecycle](engine-lifecycle.md) · [Testing](testing.md) · [Demo](demo.md) ·
 [Game UI](game-ui.md) · [Editor](editor.md)

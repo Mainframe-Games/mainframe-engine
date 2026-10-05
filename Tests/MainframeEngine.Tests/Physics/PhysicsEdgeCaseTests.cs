@@ -47,14 +47,14 @@ public sealed class PhysicsEdgeCaseTests
     public void MovingAStaticPlatformWakesBodiesResting2D()
     {
         using var h = new PhysicsHarness2D();
-        var platform = h.AddStaticBox(new Vector2(0, -50), new Vector2(400, 100), name: "Platform");
-        var box = h.AddBox(new Vector2(0, 25));
+        var platform = h.AddStaticBox(new Vector2(0, 50), new Vector2(400, 100), name: "Platform");
+        var box = h.AddBox(new Vector2(0, -25));
         h.RunSeconds(3f);
         Assert.True(box.Sleeping);
 
-        platform.Position = new Vector2(0, -250);
+        platform.Position = new Vector2(0, 250);
         h.RunSeconds(1f);
-        Assert.True(box.Position.Y < -100, $"box at {box.Position}");
+        Assert.True(box.Position.Y > 100, $"box at {box.Position}");
     }
 
     [Fact]

@@ -112,7 +112,11 @@ public sealed partial class MultiplayerApi : IFrameServer
 
     public MultiplayerMode Mode { get; private set; }
 
-    public bool IsServer => Mode == MultiplayerMode.Server;
+    /// <summary>
+    /// True on the server and while offline (Godot's rule: a game with no peer is its own authority, id
+    /// <see cref="ServerPeerId"/>, so server-stepped logic runs in single-player and tool scenes). False only on a client.
+    /// </summary>
+    public bool IsServer => Mode != MultiplayerMode.Client;
 
     public bool IsClient => Mode == MultiplayerMode.Client;
 

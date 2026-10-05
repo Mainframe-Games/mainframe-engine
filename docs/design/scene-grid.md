@@ -4,8 +4,8 @@
 
 Editor-style reference grid with colored axis lines, drawn as a line list that fades with distance. In a
 scene tree it is the `Grid3D` node (`GridSize`; no shadows; `RenderPriority` -100 so it draws before other
-visuals, as the grid always did); it is a debug visual, added at runtime rather than saved (the Sandbox adds
-one under `/root`).
+visuals, as the grid always did); it is a debug visual, added at runtime rather than saved (the render-test
+scenes add one under `/root`).
 
 ## Key types
 

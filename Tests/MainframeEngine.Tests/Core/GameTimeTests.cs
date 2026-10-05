@@ -32,7 +32,7 @@ public class GameTimeTests
         Assert.Equal(new System.Numerics.Vector3(0, -9.81f, 0), options.Physics3D.Gravity);
         Assert.True(options.Physics3D.MultiThreaded);
         Assert.Equal(100f, options.Physics2D.PixelsPerMeter);
-        Assert.Equal(new System.Numerics.Vector2(0, -980f), options.Physics2D.Gravity);
+        Assert.Equal(new System.Numerics.Vector2(0, 980f), options.Physics2D.Gravity); // 2D is Y-down
         Assert.Equal(4, options.Physics2D.SubstepCount);
         Assert.False(options.DebugCollisionShapes);
     }

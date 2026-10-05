@@ -26,6 +26,8 @@ public static class AssetImporters
     {
         Register(new TextureImporter());
         Register(new ModelImporter());
+        Register(new ShaderImporter());
+        Register(new AudioImporter());
     }
 
     /// <summary>Registers (or replaces) the importer for its extensions.</summary>
@@ -58,12 +60,12 @@ public static class AssetImporters
     }
 }
 
-/// <summary>Images (PNG, JPEG, TGA, BMP) → <see cref="Texture2D"/> with <see cref="TextureImportSettings"/>.</summary>
+/// <summary>Images (PNG, JPEG, TGA, BMP, SVG) → <see cref="Texture2D"/> with <see cref="TextureImportSettings"/>.</summary>
 public sealed class TextureImporter : IAssetImporter
 {
     public string Name => TextureImportSettings.ImporterName;
 
-    public IReadOnlyList<string> Extensions { get; } = [".png", ".jpg", ".jpeg", ".tga", ".bmp"];
+    public IReadOnlyList<string> Extensions { get; } = [".png", ".jpg", ".jpeg", ".tga", ".bmp", ".svg"];
 
     public Resource Import(string fullPath, string projectPath, AssetMeta? meta) =>
         Texture2D.FromFile(fullPath, TextureImportSettings.FromMeta(meta, projectPath));

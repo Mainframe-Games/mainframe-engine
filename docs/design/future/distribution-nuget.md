@@ -29,7 +29,7 @@ build steps (shader compilation, `.po → .mo`).
 | `MainframeEngine.Templates` | `dotnet new` templates: `mfgame` (class library `MyGame` + `MyGame.Launcher` exe running `GameHost` + `project.mfproj` + `Content/`), `mfnode` (node script) |
 | `MainframeEngine.Sdk` *(later)* | MSBuild SDK (`<Project Sdk="MainframeEngine.Sdk/X.Y.Z">`) owning shader compilation, localization compile, content rules and RID defaults, so game projects stay one-liners |
 
-Dependencies (Silk.NET, ImGui.NET, SoundFlow, Jitter2, Box2D.NET, GetText.NET, NVorbis, Steamworks.NET,
+Dependencies (Silk.NET, SoundFlow, Jitter2, Box2D.NET, GetText.NET, NVorbis, Steamworks.NET,
 StbImageSharp, spine-csharp) flow as normal package dependencies. `spine-csharp` is a project reference
 today: it ships inside the `MainframeEngine` package as a second assembly
 (`PrivateAssets` + `IncludeAssets` trick) until it is published separately.

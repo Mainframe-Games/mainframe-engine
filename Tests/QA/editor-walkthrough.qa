@@ -9,7 +9,7 @@ capture 01b-tooltip
 move 800 500
 wait 2
 # Select a mesh by clicking it in the 3D view, then frame it.
-select Column
+select Ring/Column
 key F
 wait 8
 capture 02-selected-framed
@@ -57,7 +57,7 @@ command project.new
 wait 3
 capture 11b-new-project
 cancel
-select Crates/Crate0
+select Ring/Box
 click #tab-signals
 wait 3
 click 1582 105

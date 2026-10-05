@@ -36,6 +36,7 @@ public sealed class RenderServer : IServer
     private SubViewport? _shadowView;      // the sub-viewport that owns the shadow maps this frame (see SubViewport.Shadows)
     private ulong _shadowViewRenderedFrame = ulong.MaxValue; // frame number its shadow maps were recorded in
     private DebugLinesRenderer? _debugLines;
+    private ScreenGizmosRenderer? _screenGizmosRenderer;
     private MeshRenderer? _meshes;
     private SubViewportCompositor? _compositor;
     private ObjectIdPicker? _rootPicker;
@@ -48,6 +49,22 @@ public sealed class RenderServer : IServer
     }
 
     public IRenderer Renderer { get; }
+
+    /// <summary>
+    /// Screen-space gizmos (framebuffer pixels, sRGB), drawn after the tonemap between the 2D canvas and the UI, then
+    /// cleared. Fill it any time before the frame's overlay pass; <see cref="Engine"/> clears it for frames that are
+    /// not drawn.
+    /// </summary>
+    public ScreenGizmoBatch ScreenGizmos { get; } = new();
+
+    /// <summary>Draws light icons/ranges for the root viewport's lights (dev overlay toggle).</summary>
+    public bool ShowLightGizmos { get; set; }
+
+    /// <summary>Draws the corner XYZ axes for the root viewport's camera (dev overlay toggle).</summary>
+    public bool ShowAxisGizmo { get; set; }
+
+    /// <summary>Pixels per layout point for the light/axis gizmos. <see cref="Engine"/> sets it each frame from the UI content scale.</summary>
+    public float GizmoScale { get; set; } = 1f;
 
     /// <summary>The Vulkan context, when the renderer is the Vulkan backend.</summary>
     public IVulkanContext? Vulkan => Renderer as IVulkanContext;
@@ -172,6 +189,7 @@ public sealed class RenderServer : IServer
         if (Vulkan is not { } vk || _disposed)
             return;
 
+        _screenGizmosRenderer ??= new ScreenGizmosRenderer(vk, ScreenGizmos);
         CollectPicks();
         _meshes?.BeginPreparation(); // rebuild even when the last frame was skipped (same predicted frame number)
         var world = root.World3D;
@@ -379,8 +397,9 @@ public sealed class RenderServer : IServer
     /// Draws <paramref name="viewport"/>'s world inside the main (HDR scene) render pass: writes the frame's shared
     /// set 0 (camera + the world's lights, <see cref="FrameContext.Begin(ICamera, LightEnvironment?)"/>), then the sky
     /// of its <see cref="WorldEnvironment"/>, the visuals and the batched meshes, then its
-    /// <see cref="SceneViewport.DebugLines"/> (cleared afterwards, drawn or not). Nothing is drawn without an active
-    /// camera.
+    /// <see cref="SceneViewport.DebugLines"/> (cleared afterwards, drawn or not). For the tree's root viewport it also
+    /// queues the light and axis gizmos (<see cref="ShowLightGizmos"/>, <see cref="ShowAxisGizmo"/>) on
+    /// <see cref="ScreenGizmos"/>. Nothing is drawn without an active camera.
     /// </summary>
     public void RenderMain(SceneViewport viewport)
     {
@@ -407,6 +426,14 @@ public sealed class RenderServer : IServer
 
             DrawWorld(world, camera, meshes, _mainDraws, vk.CurrentCommandBuffer);
             DrawLines(vk, viewport, camera);
+            if (viewport.IsTreeRoot && (ShowLightGizmos || ShowAxisGizmo))
+            {
+                var size = new Vector2(vk.SwapchainExtent.Width, vk.SwapchainExtent.Height);
+                if (ShowLightGizmos)
+                    LightGizmos.Draw(ScreenGizmos, camera, size, world.Lights, GizmoScale);
+                if (ShowAxisGizmo)
+                    AxisGizmo.Draw(ScreenGizmos, camera, size, GizmoScale);
+            }
         }
         finally
         {
@@ -596,6 +623,8 @@ public sealed class RenderServer : IServer
         _owners.Clear();
         _debugLines?.Dispose();
         _debugLines = null;
+        _screenGizmosRenderer?.Dispose();
+        _screenGizmosRenderer = null;
         foreach (var sub in _subViewportsWithTargets)
         {
             sub.Targets?.Dispose();

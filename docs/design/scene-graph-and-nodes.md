@@ -197,7 +197,10 @@ is stable. Decomposed angles snap within 0.0005° of a whole degree so scene fil
   `OnLocalTransformChanged()` on every local set. Physics bodies and collision shapes use them to push moves to their
   server without per-step scans.
 
-`Node2D` mirrors this in 2D (`Transform2D`, rotation in radians, `RotationDegrees` serialized, `ZIndex`).
+`Node2D` mirrors this in 2D (`Transform2D`, rotation in radians, `RotationDegrees` serialized, `ZIndex`), plus Godot's
+`Skew` (`SkewDegrees` serialized); a transform assigned to `Transform` is kept exactly and only decomposed for the getters.
+`SceneTree.Tick` gives process callbacks the frame's delta minus the physics time it dropped (the `MaxFrameDelta` clamp
+and the backlog beyond `MaxPhysicsStepsPerFrame`), as Godot does, so a stall reads as the steps physics ran (ADR 0114).
 
 ## Groups, deferred calls, timers
 
@@ -251,7 +254,7 @@ stopping once a node calls `GetViewport().SetInputAsHandled()`. Nodes that canno
 skipped. One event instance per type is reused (allocation-free): `Clone()` an event to keep it.
 Before any node, `PushInput` offers the event to every `IInputServer` (M8: the `UiServer`); an event the
 game UI consumed stops there and is reported handled — see [Game UI → input routing](game-ui.md#input-routing).
-ImGui reads Silk input directly and does not consume tree events.
+The dev overlay is an RmlUi layer, so it is covered by the same server: a click on its panel never reaches nodes.
 
 ## Servers and render nodes
 
@@ -295,7 +298,7 @@ them in reverse order after the tree is freed.
 |---|---|---|
 | `VisualInstance3D` | — | registers with `World3D` while in a tree; creates GPU objects through the server on first enter (or lazily at the first draw); releases them on `Free` or server shutdown; `CastShadows`, `RenderPriority` |
 | `MeshInstance3D`, `Sprite3D` (`GeometryInstance3D`) | `MeshRenderer` | `Mesh`, `MaterialOverride`; never drawn one by one: culled, sorted and batched into instanced draws (M3, [Materials & meshes](materials-and-meshes.md)) |
-| `SubViewport` | its own `World3D`, offscreen targets | rendered before the main pass; picking; `ImGuiTextureId` |
+| `SubViewport` | its own `World3D`, offscreen targets | rendered before the main pass; picking; shown in the UI as an `engine://` image |
 | `SpineNode` | `SpineRenderer` | `Folder`, `Animation` (played on load), `SpineScale`; skeleton data loads on the CPU on first use |
 | `Grid3D` | `SceneGrid3d` | debug/editor grid: no shadows, `RenderPriority` -100 |
 | `Camera3D` | `PerspectiveCamera` | `Current`, `Fov`, `Near`, `Far`; looks along `-Z`; `RenderCamera` is the synced math camera |
@@ -317,8 +320,9 @@ without a tree.
 
 ## Known issues
 
-- `SubViewport`s render 3D only, without shadows unless `Shadows` is set and the main world draws nothing (the editor); 2D rendering comes later (M8). `Camera2D` renders 3D visuals
-  orthographically.
+- `SubViewport`s render 3D only, without shadows unless `Shadows` is set and the main world draws nothing (the editor).
+  2D canvas items draw through the canvas renderer ([2D canvas](canvas.md)); `Camera2D` still renders 3D visuals
+  orthographically and does not yet move the canvas (E9).
 - Euler angles use X→Y→Z order (engine legacy), not Godot's Y→X→Z.
 - Re-sorting a process list after a structural change is O(n log n); spawning every frame in a very large
   tree pays it each frame.

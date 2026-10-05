@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
   <title>Main render pass and draw order</title>
-  <desc>The command buffer for one frame: the shadow pre-pass with one shadow render pass per light, then the main render pass with two attachments and the draw order sky, grid, nodes, ImGui.</desc>
+  <desc>The command buffer for one frame: the shadow pre-pass with one shadow render pass per light, then the main render pass with two attachments and the draw order sky, grid, nodes; the overlays (gizmos, UI) follow after the tonemap.</desc>
   <rect width="960" height="470" fill="#ffffff"/>
   <style>
     .hdr{font-weight:600;font-size:14px;fill:#111827}
@@ -49,9 +49,9 @@
     <text x="660" y="158" class="s">shapes, Spine</text>
     <text x="660" y="174" class="s">sets 0/1/2(/3)</text>
     <rect x="778" y="118" width="128" height="70" rx="6" fill="#ffffff" stroke="#2563eb"/>
-    <text x="788" y="140" class="t">4. ImGui</text>
+    <text x="788" y="140" class="t">4. Overlays</text>
     <text x="788" y="158" class="s">unflipped, no depth</text>
-    <text x="788" y="174" class="s">scissor per cmd</text>
+    <text x="788" y="174" class="s">gizmos, UI</text>
   </g>
 
   <text x="394" y="214" class="s">Clear values: color = SetClearColor(r,g,b,a) · depth = 1.0 · stencil = 0</text>

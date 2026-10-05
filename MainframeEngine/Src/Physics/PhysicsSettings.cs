@@ -64,8 +64,8 @@ public sealed class PhysicsSettings3D
 /// </summary>
 public sealed class PhysicsSettings2D
 {
-    /// <summary>Gravity in px/s² (default 980 down, −Y: 9.8 m/s² at 100 px/m). 2D space is Y-up.</summary>
-    public Vector2 Gravity { get; set; } = new(0, -980f);
+    /// <summary>Gravity in px/s² (default 980 down, +Y: 9.8 m/s² at 100 px/m). 2D space is Y-down, as in Godot.</summary>
+    public Vector2 Gravity { get; set; } = new(0, 980f);
 
     /// <summary>
     /// Pixels per metre (default 100). Box2D is tuned for objects of 0.1–10 m, so a 100 px crate is 1 m inside

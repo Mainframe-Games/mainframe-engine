@@ -6,7 +6,7 @@ namespace MainframeEngine.Tests.Physics;
 [CollectionDefinition(nameof(SerialBox2D), DisableParallelization = true)]
 public sealed class SerialBox2D;
 
-/// <summary>A headless scene tree with a 2D physics server (100 px/m, 980 px/s² down), stepped at 60 Hz.</summary>
+/// <summary>A headless scene tree with a 2D physics server (100 px/m, 980 px/s² down = +Y: 2D is Y-down), stepped at 60 Hz.</summary>
 internal sealed class PhysicsHarness2D : IDisposable
 {
     public const float Step = 1f / 60f;
@@ -42,10 +42,10 @@ internal sealed class PhysicsHarness2D : IDisposable
         return node;
     }
 
-    /// <summary>A static ground whose top is at <paramref name="y"/> (pixels).</summary>
+    /// <summary>A static ground whose top is at <paramref name="y"/> (pixels; the ground extends down, +Y).</summary>
     public StaticBody2D AddGround(float y = 0, float width = 4000, uint layer = CollisionLayers.Default, uint mask = CollisionLayers.Default)
     {
-        var ground = new StaticBody2D { Name = "Ground", Position = new Vector2(0, y - 50), CollisionLayer = layer, CollisionMask = mask };
+        var ground = new StaticBody2D { Name = "Ground", Position = new Vector2(0, y + 50), CollisionLayer = layer, CollisionMask = mask };
         ground.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(width, 100) } });
         return Add(ground);
     }
@@ -87,7 +87,7 @@ internal sealed class WalkerCharacter2D : CharacterBody2D
     {
         var velocity = Velocity;
         velocity.X = Walk.X;
-        velocity.Y -= Gravity * delta;
+        velocity.Y += Gravity * delta; // Y-down: gravity pulls +Y
         Velocity = velocity;
         MoveAndSlide();
     }

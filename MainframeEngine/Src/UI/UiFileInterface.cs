@@ -5,8 +5,8 @@ namespace MainframeEngine;
 
 /// <summary>
 /// The UI file interface: <c>.rml</c>/<c>.rcss</c>/templates/fonts/images through <see cref="ContentPaths"/>, with
-/// optional <b>source content directories</b> checked first. In development the Sandbox points one at its project's
-/// <c>Content/</c> folder, so documents load straight from the files being edited and hot reload needs no rebuild.
+/// optional <b>source content directories</b> checked first. In development (a Debug <c>GameHost</c> run) the game points
+/// one at its project's <c>Content/</c> folder, so documents load straight from the files being edited and hot reload needs no rebuild.
 /// </summary>
 /// <remarks>
 /// A path <c>Content/UI/hud.rml</c> is looked up as <c>&lt;source&gt;/UI/hud.rml</c> in each source directory (in

@@ -10,12 +10,12 @@ FileSystem panel, out-of-process Play, game code loading and reload) and **E5 po
 editing, resource files and custom inspectors, editor settings). What is still open is in
 [Future: editor](future/editor.md).
 
-![The editor with the Sandbox scene](../images/editor.png)
+![The editor with the Demo's Basic 3D scene](../images/editor.png)
 
 ```sh
 just editor                                  # the Project Manager (recent projects, New Project, Open)
 just editor path/to/MyGame                   # open a project folder (or its project.mfproj)
-just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene   # open one scene (its project becomes current)
+just editor Examples/Demo/Content/Scenes/basic_3d.mscene   # open one scene (its project becomes current)
 ```
 
 On macOS the app is called **Mainframe Engine** (Dock tooltip, bold app menu, Cmd+Tab) in development runs as well as in
@@ -122,7 +122,7 @@ flowchart TB
   the window size and the output filter persist in **`~/.mainframe/editor_layout.json`** (user profile on every OS,
   written atomically; unreadable, newer or nonsensical files fall back to defaults).
 - **Lists are data-bound** (no work on idle frames); the inspector is generated RML updated in place (see below).
-- **ImGui** remains the F12 developer overlay; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
+- The F12 developer overlay ([Developer overlay](dev-overlay.md)) is off by default in the editor; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
 
 ### Keyboard shortcuts
 
@@ -299,7 +299,7 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
 
 ### 2D view
 
-Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plane** in pixels (y up); View › 2D View /
+Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plane** in pixels (y down, as in Godot; seen from −Z); View › 2D View /
 3D View switches any tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)). Middle or right drag (or Alt+left)
 pans, the wheel zooms around the mouse, F frames the selection. A pixel grid (power-of-two steps at least 16 screen
 pixels apart, every 8th brighter, coloured axes), Node2D markers, collision shape outlines and Camera2D frames are
@@ -316,13 +316,34 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
 - **Start-up**: a project argument (folder or `project.mfproj`, or `--project <dir>`) opens it; a scene argument opens
   that scene and makes its project current; neither (or `--project-manager`) shows the **Project Manager**.
 - **Project Manager** (`project_manager.rml`, UI layer 40): the recent projects (`~/.mainframe/recent_projects.json`,
-  newest first; a missing folder is flagged and can be removed from the list), New Project, Open Folder, and the
+  newest first; a missing folder is flagged and can be removed from the list), New Project, Open Folder, Download Demo, and the
   **.NET SDK check** (`DotnetSdk`: a .NET 10 or newer SDK is required; without one, a link to the download page).
-  File › Project Manager returns to it.
+  File › Project Manager returns to it. Each row shows the project's **icon**, `window.icon` of its `project.mfproj`
+  (Godot's `application/config/icon`): `ProjectIconResolver` resolves it to an absolute PNG inside the project folder
+  (anything else, a missing file or a malformed project means no icon, and the row keeps the folder glyph), caching by
+  the modification times of `project.mfproj` and the icon, and reports a change once so the rows rebuild and
+  `RmlCore.ReleaseTextures()` re-reads the image. New projects ship `Content/icon.png` (the template default, the brand
+  logo) with `window.icon` set, and the Demo has its own. Project Settings › Window › Icon previews the PNG (32 dp)
+  beside its field.
 - **New Project** (`new_project.rml`): name, parent folder, the engine checkout (found above the editor, or chosen) and
   a live validation (`NewProjectValidation`: a valid C# identifier, an empty or missing target folder, the SDK).
   Create runs `dotnet new mfgame --engine-path …` from a private template hive (`~/.mainframe/templates`; the user's
   global templates are untouched), builds the game, then opens it.
+- **Download Demo** (`download_demo.rml`, `DownloadDemoDialog`; the Demo… button of the Project Manager): fetches the
+  [Demo](demo.md) for this editor version and opens it. The location (default `~/MainframeProjects`, created when
+  missing) and the engine checkout (found above the editor, or `MAINFRAME_ENGINE_PATH`; without one Download stays
+  disabled with the same explanation as New Project) are validated as you type; the demo goes to
+  `<location>/MainframeEngine.Demo`, which must not exist or be empty. `DemoDownloader` streams
+  `MainframeEngine.Demo-vX.Y.Z.zip` from the GitHub release of `EngineInfo.Version` (a development or prerelease build
+  uses `releases/latest/download/MainframeEngine.Demo.zip`; `DemoRelease` holds the one base URL) through the shared
+  `EditorHttp` client into `~/.mainframe/downloads/`, with a progress bar and a size cap; `DemoArchive` extracts into a
+  hidden staging folder beside the destination with zip-slip, symlink and 1 GiB guards and validates it (one top folder
+  with `project.mfproj`, a launcher project, scenes); `EnginePathRewriter` points `MainframeEnginePath` of its
+  `Directory.Build.props` at the engine checkout; then the folder is moved into place (same volume), the project opens
+  like a New Project and joins the recent list. Cancel stops the download; a failure (no published demo, no network,
+  disk) shows its message with Download still enabled to retry, and the zip and staging folder are always deleted, so
+  the destination is never half written. Tests inject `EditorWorkspaceOptions.DemoHttpHandler` /
+  `DemoDownloadsDirectory`.
 - **`ProjectService`** opens a project: `EditorSession.OpenProject` (the asset database scans `Content/` and creates
   missing `.meta` sidecars), `GameProjectLayout` finds the game library, launcher and solution, and the game assembly
   loads into a collectible `AssemblyLoadContext` (`GameAssemblyLoader`), built first when it is missing or fails to
@@ -473,7 +494,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   Tooltip timing, placement, keyboard focus and dismissal, the create dialog's tree and search, Output features, scene
   tree badges and inspector icons have their own tests ([IconPanelTests](../../Tests/MainframeEngine.Editor.Tests/IconPanelTests.cs)).
 - **Render tests** ([EditorRenderTests](../../Tests/MainframeEngine.RenderTests/EditorRenderTests.cs)): the editor's
-  `--smoke` run in a hidden window — open Sandbox.mscene, select the Column by GPU picking at its projected pixel, change
+  `--smoke` run in a hidden window — open the showcase fixture (`Tests/Content/Scenes/Showcase.mscene`), select the Column by GPU picking at its projected pixel, change
   its position through the inspector model, undo/redo, save to a temp file, reload and re-save byte-identically — plus
   the editor window golden, frame times on the scene, the allocation gate (0 B over 300 idle frames with 1 000 nodes,
   validation on), the splash golden, and the **Project Manager** and **FileSystem panel** goldens
@@ -497,14 +518,14 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   the Project Manager (`recent-project` seeds the list), the showcase scene (`open-project`, `camera`, `collapse`), the
   create dialog (`favorite`, `search`, `pick`) and a new game after a code reload while it plays, captured at 2x
   (`--scale 2`, 3200×1920 px) and downscaled to 1600×960 into `docs/images/editor*.png` with ImageMagick. The scene is
-  [Examples/EditorShowcase](../../Examples/EditorShowcase) — a project from the `mfgame` template (engine by project
-  reference, `../..`) whose game code the editor loads, so every node type resolves. Projects are opened from the
-  neutral `/tmp/MainframeProjects` (the recipe links the showcase there), so no user path is on screen; editor log
-  lines show project files relative to the project (`Saved Content/Scenes/Main.mscene`).
+  [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose
+  game code the editor loads, so every node type resolves. Projects are opened from the
+  neutral `/tmp/MainframeProjects` (the recipe links the Demo there), so no user path is on screen; editor log
+  lines show project files relative to the project (`Saved Content/Scenes/basic_3d.mscene`).
 
 ## Performance
 
-Apple M5, MoltenVK, hidden 1280×720-point window at content scale 2 (2560×1440 px), Sandbox.mscene open (sky, five
+Apple M5, MoltenVK, hidden 1280×720-point window at content scale 2 (2560×1440 px), the showcase fixture scene open (sky, five
 lights with Shadows v2 cascades and atlas, Spine, physics crates, a glTF model), Debug build with validation: **8.3 ms
 average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate nothing.
 

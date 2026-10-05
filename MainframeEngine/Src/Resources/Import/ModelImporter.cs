@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Silk.NET.Assimp;
 using AiMaterial = Silk.NET.Assimp.Material;
@@ -184,13 +185,25 @@ public sealed unsafe class ModelImporter : IAssetImporter
                 return _assimp;
             try
             {
-                return _assimp = Assimp.GetApi();
+                return _assimp = new Assimp(Assimp.CreateDefaultContext(AssimpLibraryNames()));
             }
             catch (Exception e) when (e is DllNotFoundException or FileNotFoundException or InvalidOperationException or PlatformNotSupportedException)
             {
                 throw new InvalidOperationException($"The Assimp native library could not be loaded ({e.Message}); models cannot be imported.", e);
             }
         }
+    }
+
+    /// <summary>
+    /// Silk.NET's library name (as <c>AssimpLibraryNameContainer</c> lists it), then the same file in this RID's
+    /// <c>runtimes/&lt;rid&gt;/native</c> folder. Silk finds that folder only for RIDs in its own distro list or .NET's
+    /// frozen RID graph, which has no newer distros (Ubuntu 24.04 reports <c>ubuntu.24.04-x64</c>), so it missed the
+    /// package's linux-x64 library there.
+    /// </summary>
+    internal static string[] AssimpLibraryNames()
+    {
+        var name = OperatingSystem.IsWindows() ? "Assimp64.dll" : OperatingSystem.IsMacOS() ? "libassimp.5.dylib" : "libassimp.so.5";
+        return [name, Path.Combine(AppContext.BaseDirectory, "runtimes", RuntimeInformation.RuntimeIdentifier, "native", name)];
     }
 
     private static Node3D ImportWithAssimp(string fullPath, string projectPath, ModelImportSettings settings)

@@ -20,6 +20,6 @@
     <p class="no-tr">Portions of this software are copyright © 2026 The FreeType Project (https://freetype.org). All rights reserved.</p>
     <p class="no-tr">Lato (SIL OFL 1.1) — Copyright (c) 2010-2015 Łukasz Dziedzic. Roboto Mono (SIL OFL 1.1) — Copyright 2015 The Roboto Mono Project Authors.</p>
     <h3>Other</h3>
-    <p class="no-tr">Spine Runtimes — Esoteric Software. ENet — Lee Salzman, nxrighthere (MIT). Silk.NET, ImGui.NET, StbImageSharp — see THIRD_PARTY_NOTICES.</p>
+    <p class="no-tr">Spine Runtimes — Esoteric Software. ENet — Lee Salzman, nxrighthere (MIT). Silk.NET, StbImageSharp — see THIRD_PARTY_NOTICES.</p>
 </body>
 </rml>

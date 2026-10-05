@@ -109,7 +109,7 @@ model.Dirty("health");                                                      // v
 | Type | Role |
 |---|---|
 | `UiServer` ([UiServer.cs](../../MainframeEngine/Src/UI/UiServer.cs)) | `IFrameServer` + `IInputServer` registered by `Engine`. Owns RmlUi (init, shutdown), the render interface, fonts (every `.ttf`/`.otf` in `Content/UI/fonts`), the system and file interfaces, one context per layer, input routing, hot reload, the debugger (F8), `engine://` textures (`RegisterTexture`), the `Translator` hook ([Localization](localization.md#game-ui-rmlui)) |
-| `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer. `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Dpi` default: 1 dp = `UiServer.ContentScale` — the display's pixels per point, or the fixed `EngineOptions.ContentScale`; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis). Games typically use HUD (0), menus (10), overlay (100) |
+| `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer. `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Dpi` default: 1 dp = `UiServer.ContentScale` — the display's pixels per point, or the fixed `EngineOptions.ContentScale`; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis). Games typically use HUD (0), menus (10), overlay (100). In the editor (`SceneTree.EditMode`), a layer of an edited scene (below a sub-viewport, not the tree's root viewport) that is not a `[Tool]` type is inert: it has a context so `OnReady` code works, but the server never updates, draws or routes input to it, so a game HUD cannot cover the editor's panels |
 | `UiDocument : Node` ([UiDocument.cs](../../MainframeEngine/Src/UI/UiDocument.cs)) | `[Export] Source` (or inline `Rml`), `Visible`, `Modal`, `AutoFocus`; `[Signal] Loaded`, `Reloaded`; `CreateDataModel`, `GetElementById`, `QuerySelector`, `Show`/`Hide`, `Reload`. Must be below a `UiLayer` |
 | `UiElement` ([UiElement.cs](../../MainframeEngine/Src/UI/UiElement.cs)) | A cached element wrapper with C# events (`Click`, `DoubleClick`, `MouseDown/Up/Over/Out`, `Change`, `Submit`, `Focused`, `Blurred`, `KeyDown/Up`, `On(type, …)`); native listeners attach only for subscribed types. Every access looks the element up again by id, so a wrapper follows elements the DOM replaces (inner RML, `data-for`, `data-if`) and reports invalid — never dangling — once removed |
 
@@ -133,7 +133,7 @@ flowchart LR
     O --> L["UI passes on an offscreen layer<br/>RGBA8 premultiplied sRGB + stencil"]
     L --> T["tonemap → swapchain"]
     T --> C["composite UI layer<br/>(premultiplied over)"]
-    C --> I["ImGui"]
+    C --> I["dev overlay<br/>(an RmlUi layer, on top)"]
 ```
 
 - **Recording.** RmlUi's callbacks, issued during `UiServer.Process`, append `UiCommand` structs (geometry draw, shader
@@ -142,8 +142,8 @@ flowchart LR
   cannot redirect a draw. Filters and gradient parameters are copied into the frame's list.
 - **Replay** happens inside `IVulkanContext.BeginOverlayPass` through the new `IOverlayRenderer` hook
   ([IOverlayRenderer.cs](../../MainframeEngine/Src/Rendering/Vulkan/IOverlayRenderer.cs)): `RecordOffscreen` after the
-  scene pass ends (UI passes), `RecordOverlay` after the tonemap and before ImGui (one fullscreen premultiplied
-  composite). Frames with no UI commands record nothing.
+  scene pass ends (UI passes), `RecordOverlay` after the tonemap, after the canvas and the screen gizmos (`OverlayOrder.Ui`; one fullscreen
+  premultiplied composite). Frames with no UI commands record nothing.
 - **Colour.** Documents are authored in sRGB and blended in sRGB space, like a browser: layers are `R8G8B8A8_UNORM`
   holding premultiplied sRGB-encoded values, and the composite writes them unchanged into the UNORM swapchain view, so
   exposure and ACES never touch the UI (`#3366cc` lands as `#3366cc`, checked by a render test). On an sRGB-only
@@ -153,8 +153,11 @@ flowchart LR
   20-byte `Rml::Vertex`) then 32-bit indices, so a draw is one `vkCmdDrawIndexed(count, 1, firstIndex,
   vertexOffset, 0)` and buffers rebind only on a chunk change. RmlUi compiles geometry once and re-renders it by
   handle (geometry caching); ranges are freed only after the frames that may read them complete.
-- **Textures.** Images load through the UI file interface (StbImageSharp), are **premultiplied on load** and get a mip
-  chain; generated textures (font atlases) arrive premultiplied. Both are `GpuTexture`s (`R8G8B8A8_UNORM`) through
+- **Textures.** Images load through the UI file interface (StbImageSharp). An `src` that is an absolute path to an
+  existing file (`<img src="/home/me/Game/Content/icon.png">`, `C:\…`) loads as written (the `JoinPath` callback keeps
+  it instead of joining it onto the document's folder; the editor's Project Manager shows project icons this way).
+  Textures are cached by source: `RmlCore.ReleaseTextures()` drops them so a changed file is re-read. Images are
+  **premultiplied on load** and get a mip chain; generated textures (font atlases) arrive premultiplied. Both are `GpuTexture`s (`R8G8B8A8_UNORM`) through
   the upload queue — created during `Process`, between frames, so nothing waits on the GPU. Untextured geometry binds a
   1×1 white texture. `engine://name` resolves to a registered `GpuTexture` or `RenderTarget` colour attachment
   (`UiServer.RegisterTexture`); the shader encodes sRGB-format and float sources and premultiplies straight alpha
@@ -222,13 +225,18 @@ only one); a consumed event never reaches `OnInput`/`OnUnhandledInput` ([ADR 005
   source content folder; changes are debounced (150 ms) and applied on the main thread — `.rcss` re-reads style sheets
   keeping the DOM, `.rml` reloads documents (data models are C# state and survive; `UiElement` subscriptions are
   re-attached by id), images and fonts release textures. A document that failed to load is retried.
+  `UiServer.HotReloadEnabled` reports whether the watcher is on, and `UiServer.HotReloaded` (`Action<UiReloadKind,
+  string?>`) is raised on the main thread after every reload with its kind and the last changed file (null for a manual
+  `Reload(kind)`); unlike `UiDocument.Reloaded` it also fires for style-sheet-only reloads, so a game can show a reload
+  counter.
 - **Source content folders.** Debug builds record their project's `Content` folder
   (`[AssemblyMetadata("MainframeContentSource", …)]`); `UiServerOptions.SourceDirectoriesOf(assembly)` returns those
   that exist, and `UiFileInterface` checks them before the output's `Content/`, so edits apply without a rebuild. The
   engine adds its own (widgets) automatically.
 - **Debugger:** F8 (`UiServerOptions.DebuggerKey`, `UiServer.DebuggerVisible`) shows RmlUi's visual debugger in its own
   context on top, inspecting the top visible layer.
-- **ImGui** stays the developer overlay: `Engine.DevOverlayVisible`, toggled with F12 (`EngineOptions.DevOverlayVisible`).
+- **Developer overlay:** an RmlUi layer on top of every other layer: `Engine.DevOverlayVisible`, toggled with F12
+  (`EngineOptions.DevOverlayVisible`); see [Developer overlay](dev-overlay.md).
 
 ## Widget library
 
@@ -246,7 +254,7 @@ only one); a consumed event never reaches `OnInput`/`OnUnhandledInput` ([ADR 005
 | HUD helpers | `body.hud` (`pointer-events: none`, full screen), `.stat` (monospace), `.row`/`label.caption` |
 
 Interactive controls set `pointer-events: auto`, `tab-index: auto` and `nav: auto`. `demo.rml` shows them all
-(the Sandbox's "Widgets" button; the `ui-widgets` golden).
+(the Demo's UI scene; the `ui-widgets` golden).
 
 **Fonts** (OFL 1.1, [ADR 0052](../../memory/decisions/0052-bundled-ui-fonts.md)): Lato Latin regular/bold/italic
 (`font-family: LatoLatin`) and Roboto Mono (`"Roboto Mono"`), in `Content/UI/fonts/` with their licences.
@@ -261,13 +269,12 @@ fallback fonts (`FontFallbackTable`) and reloads every loaded document at the st
 inside an RmlUi callback, so a language dropdown can switch the language it lives in. Strings are extracted with
 `mf-l10n extract --rml`. See [Localization](localization.md#game-ui-rmlui).
 
-## Sandbox
+## Demo
 
-The Sandbox's HUD ([`hud.rml`](../../MainframeEngine.Sandbox/Content/UI/hud.rml),
-[`SandboxHud`](../../MainframeEngine.Sandbox/Src/Nodes/SandboxHud.cs)) shows frame stats and two-way bindings to live
-scene state (exposure, spin speed, max FPS, language, sun and coloured lights, VSync), the scene's translated welcome
-banner, and buttons for the widget demo, the ImGui developer overlay, the credits and quitting; it is translated into
-Spanish and the `qps` pseudo-locale. See [Sandbox](sandbox.md).
+Every [Demo](demo.md) scene has a small RmlUi panel (`UiDocument` + `CreateDataModel`, two-way bindings to live scene
+state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded nav bar (tabs, FPS, language picker). The
+**UI** scene is the reference: the widget gallery, a data-bound form, and a live counter of UI hot reloads
+(`UiServer.HotReloaded`).
 
 ## Testing
 
@@ -283,7 +290,7 @@ Spanish and the `qps` pseudo-locale. See [Sandbox](sandbox.md).
 - **Render** (`Tests/MainframeEngine.RenderTests/UiRenderTests.cs`, goldens): `ui-hud` (HUD over the lit scene; the
   opaque swatch is checked to be exactly `#3366cc`), `ui-effects` (clip masks, rotated clip, gradients, box-shadow,
   blur, drop-shadow, grayscale, opacity, mask-image, backdrop blur), `ui-text`, `ui-widgets`, determinism and swapchain
-  recreation. The `sandbox` allocation gate carries the HUD (bindings dirtied every frame): 0 B per frame.
+  recreation. The `showcase` allocation gate carries the HUD (bindings dirtied every frame): 0 B per frame.
 - **Localization** (`UiLocalizationTests.cs`, headless): translation at load and after a locale switch, `no-tr`,
   bound values untranslated, deferred switching from a click handler, fallback fonts, 0 B over 200 translated HUD frames.
 - **Benchmarks** (`UiBenchmarks`): update of a 500-element document idle (~9 µs) and with 500 dirtied bindings
@@ -305,4 +312,4 @@ Spanish and the `qps` pseudo-locale. See [Sandbox](sandbox.md).
 
 [Milestones](../milestones.md) · [Native libraries](natives.md) · [Color pipeline](color-pipeline.md) ·
 [GPU resources](gpu-resources.md) · [Scene graph & nodes](scene-graph-and-nodes.md#input) ·
-[ImGui & debug tools](imgui-and-debug-tools.md) · [Editor](editor.md) · [Localization](localization.md)
+[Developer overlay](dev-overlay.md) · [Editor](editor.md) · [Localization](localization.md)

@@ -9,12 +9,12 @@ public sealed class Camera2DMathTests
     private static readonly Vector2 View = new(1000, 600);
 
     [Fact]
-    public void ScreenAndWorldConvertBothWaysWithYUp()
+    public void ScreenAndWorldConvertBothWaysWithYDown()
     {
         var camera = new EditorCamera { Is2D = true, Center2D = new Vector2(100, 50), Zoom2D = 2f };
         Assert.Equal(new Vector2(100, 50), camera.ScreenToWorld2D(View / 2, View));
         Assert.Equal(new Vector2(110, 50), camera.ScreenToWorld2D(View / 2 + new Vector2(20, 0), View));
-        Assert.Equal(new Vector2(100, 60), camera.ScreenToWorld2D(View / 2 - new Vector2(0, 20), View)); // up on screen = +y
+        Assert.Equal(new Vector2(100, 60), camera.ScreenToWorld2D(View / 2 + new Vector2(0, 20), View)); // down on screen = +y (Godot)
         var world = new Vector2(-37.5f, 210f);
         var pixel = camera.WorldToScreen2D(world, View);
         Assert.True(Vector2.Distance(world, camera.ScreenToWorld2D(pixel, View)) < 1e-3f);
@@ -22,7 +22,7 @@ public sealed class Camera2DMathTests
         Assert.True(camera.Project(new Vector3(world, 0), View.X, View.Y, out var projected));
         Assert.Equal(pixel, projected);
         var (origin, direction) = camera.Ray(pixel.X, pixel.Y, View.X, View.Y);
-        Assert.Equal(-Vector3.UnitZ, direction);
+        Assert.Equal(Vector3.UnitZ, direction); // the z = 0 plane is seen from −Z
         Assert.True(Vector2.Distance(world, new Vector2(origin.X, origin.Y)) < 1e-3f);
         Assert.Equal(0.5f, camera.WorldPerPixel(Vector3.Zero, View.Y));
         Assert.Same(camera.OrthoCamera, camera.ActiveCamera);
@@ -94,7 +94,7 @@ public sealed class TransformGizmo2DTests
         var (_, gizmo, camera) = Create(GizmoMode.Translate);
         Assert.Equal(GizmoHandle.Center, gizmo.HitTest(camera, View, Vector2.Zero, 0, Center + new Vector2(3, -3)));
         Assert.Equal(GizmoHandle.X, gizmo.HitTest(camera, View, Vector2.Zero, 0, Center + new Vector2(60, 2)));
-        Assert.Equal(GizmoHandle.Y, gizmo.HitTest(camera, View, Vector2.Zero, 0, Center + new Vector2(-2, -60))); // up
+        Assert.Equal(GizmoHandle.Y, gizmo.HitTest(camera, View, Vector2.Zero, 0, Center + new Vector2(-2, 60))); // down (+y)
         Assert.Equal(GizmoHandle.None, gizmo.HitTest(camera, View, Vector2.Zero, 0, Center + new Vector2(60, 60)));
 
         var (shared, rotate, _) = Create(GizmoMode.Rotate);
@@ -122,7 +122,7 @@ public sealed class TransformGizmo2DTests
         shared.Snap = new GizmoSnap(true, Translate: 8f);
         gizmo.BeginDrag(GizmoHandle.Center, camera, View, origin, start, 0, start, Vector2.One);
         (position, _, _) = gizmo.Drag(camera, View, origin + new Vector2(30, -30));
-        Assert.Equal(new Vector2(24f, 24f), position);
+        Assert.Equal(new Vector2(24f, -8f), position); // (25.25, -9.5) snapped to 8
     }
 
     [Fact]
@@ -130,10 +130,10 @@ public sealed class TransformGizmo2DTests
     {
         var (shared, gizmo, camera) = Create(GizmoMode.Translate);
         shared.Local = true;
-        var rotation = MathF.PI / 2; // X axis points up
-        Assert.Equal(GizmoHandle.X, gizmo.HitTest(camera, View, Vector2.Zero, rotation, Center + new Vector2(1, -60)));
-        gizmo.BeginDrag(GizmoHandle.X, camera, View, Center + new Vector2(0, -40), Vector2.Zero, rotation, Vector2.Zero, Vector2.One);
-        var (position, _, _) = gizmo.Drag(camera, View, Center + new Vector2(25, -70));
+        var rotation = MathF.PI / 2; // X axis points down (rotation is clockwise on screen)
+        Assert.Equal(GizmoHandle.X, gizmo.HitTest(camera, View, Vector2.Zero, rotation, Center + new Vector2(1, 60)));
+        gizmo.BeginDrag(GizmoHandle.X, camera, View, Center + new Vector2(0, 40), Vector2.Zero, rotation, Vector2.Zero, Vector2.One);
+        var (position, _, _) = gizmo.Drag(camera, View, Center + new Vector2(25, 70));
         Assert.Equal(new Vector2(0, 30), position);
     }
 
@@ -142,10 +142,10 @@ public sealed class TransformGizmo2DTests
     {
         var (shared, gizmo, camera) = Create(GizmoMode.Rotate);
         gizmo.BeginDrag(GizmoHandle.Z, camera, View, Center + new Vector2(80, 0), Vector2.Zero, 0.1f, Vector2.Zero, Vector2.One);
-        var (_, rotation, _) = gizmo.Drag(camera, View, Center + new Vector2(0, -80)); // a quarter turn counter-clockwise
+        var (_, rotation, _) = gizmo.Drag(camera, View, Center + new Vector2(0, 80)); // a quarter turn clockwise on screen = +π/2 (y down)
         Assert.Equal(0.1f + MathF.PI / 2, rotation, 4);
         shared.Snap = new GizmoSnap(true);
-        (_, rotation, _) = gizmo.Drag(camera, View, Center + new Vector2(0, -80));
+        (_, rotation, _) = gizmo.Drag(camera, View, Center + new Vector2(0, 80));
         Assert.Equal(float.DegreesToRadians(90), rotation, 4);
     }
 

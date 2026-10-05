@@ -123,14 +123,14 @@ public sealed class PhysicsSerializationTests
     public void TwoDimensionalBodiesAndShapesRoundTripAndSimulate()
     {
         var root = new Node2D { Name = "Level" };
-        var ground = Own(root, new StaticBody2D { Name = "Ground", Position = new Vector2(0, -50) });
+        var ground = Own(root, new StaticBody2D { Name = "Ground", Position = new Vector2(0, 50) });
         Own(root, new CollisionShape2D { Name = "Rect", Shape = new RectangleShape2D { Size = new Vector2(1000, 100) } }, ground);
-        Own(root, new CollisionShape2D { Name = "Edges", Shape = new ConcavePolygonShape2D { Segments = [new(-500, 50), new(500, 50)] } }, ground);
+        Own(root, new CollisionShape2D { Name = "Edges", Shape = new ConcavePolygonShape2D { Segments = [new(-500, -50), new(500, -50)] } }, ground);
         Own(root, new CollisionShape2D { Name = "Edge", Shape = new SegmentShape2D { A = new Vector2(-10, 0), B = new Vector2(10, 0) } }, ground);
-        var ball = (RigidBody2D)Own(root, new RigidBody2D { Name = "Ball", Position = new Vector2(0, 200), Mass = 2, ContactMonitor = true, AngularVelocity = 1 });
+        var ball = (RigidBody2D)Own(root, new RigidBody2D { Name = "Ball", Position = new Vector2(0, -200), Mass = 2, ContactMonitor = true, AngularVelocity = 1 });
         Own(root, new CollisionShape2D { Name = "Circle", Shape = new CircleShape2D { Radius = 15 } }, ball);
         Own(root, new CollisionShape2D { Name = "Capsule", Shape = new CapsuleShape2D { Radius = 5, Height = 40 } }, ball);
-        Own(root, new CollisionShape2D { Name = "Tri", Shape = new ConvexPolygonShape2D { Points = [new(-5, 0), new(5, 0), new(0, 8)] } }, ball);
+        Own(root, new CollisionShape2D { Name = "Tri", Shape = new ConvexPolygonShape2D { Points = [new(-5, 0), new(5, 0), new(0, -8)] } }, ball);
         var player = (CharacterBody2D)Own(root, new CharacterBody2D { Name = "Player", FloorSnapLength = 4, SafeMargin = 0.5f });
         Own(root, new CollisionShape2D { Shape = new CapsuleShape2D() }, player);
         Own(root, new Area2D { Name = "Zone", Monitoring = false });
@@ -158,7 +158,7 @@ public sealed class PhysicsSerializationTests
         using var h = new PhysicsHarness2D();
         h.Add(copy);
         h.RunSeconds(2f);
-        Assert.InRange(ballCopy.Position.Y, 14, 30);
+        Assert.InRange(ballCopy.Position.Y, -30, -14);
     }
 
     [Fact]

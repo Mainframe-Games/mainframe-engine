@@ -1,0 +1,184 @@
+{
+  "format": 2,
+  "uid": "scn_ab089b3990bd",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "BoxShape3D_4qo38": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [30, 1, 16]
+      }
+    },
+    "StandardMaterial3D_q0nl5": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.30588236, 0.3529412, 0.4392157, 1]
+      }
+    },
+    "BoxMesh_r1v1x": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [30, 1, 16]
+      }
+    },
+    "BoxShape3D_2yr2w": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [6, 0.3, 4]
+      }
+    },
+    "StandardMaterial3D_gb47x": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_t95sh": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [6, 0.3, 4]
+      }
+    },
+    "CapsuleShape3D_muvvz": {
+      "type": "CapsuleShape3D"
+    },
+    "StandardMaterial3D_nf8qe": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1]
+      }
+    },
+    "CapsuleMesh_egjeq": {
+      "type": "CapsuleMesh"
+    }
+  },
+  "nodes": [
+    {
+      "name": "physics_3d",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0, 6, 13],
+        "RotationDegrees": [-19.093493, 0, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-55, -30, 0],
+        "Energy": 1.2
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [0, -0.5, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Floor",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_4qo38" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Floor",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_q0nl5" },
+        "Mesh": { "res": "BoxMesh_r1v1x" }
+      }
+    },
+    {
+      "name": "Ramp",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [5.5, 1, 0],
+        "RotationDegrees": [0, 0, 18]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ramp",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_2yr2w" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Ramp",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_gb47x" },
+        "Mesh": { "res": "BoxMesh_t95sh" }
+      }
+    },
+    {
+      "name": "Pusher",
+      "parent": ".",
+      "type": "Pusher3D",
+      "props": {
+        "Position": [-6, 1.05, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Pusher",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_muvvz" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Pusher",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_nf8qe" },
+        "Mesh": { "res": "CapsuleMesh_egjeq" }
+      }
+    },
+    {
+      "name": "Crates",
+      "parent": ".",
+      "type": "Dropper3D"
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Physics3DPanel"
+    }
+  ]
+}

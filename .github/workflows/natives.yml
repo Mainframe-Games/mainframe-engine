@@ -33,16 +33,16 @@ jobs:
           - name: osx-universal
             os: macos-14
             rids: "osx-arm64 osx-x64"
-            libs: "libenet.dylib libmfrmlui.dylib"
+            libs: "libenet.dylib libmfrmlui.dylib libmfsvg.dylib"
           - name: win-x64
             os: windows-latest
             rids: "win-x64"
-            libs: "enet.dll mfrmlui.dll"
+            libs: "enet.dll mfrmlui.dll mfsvg.dll"
           - name: linux-x64
             # Oldest supported runner image: the binaries then only require glibc <= 2.35.
             os: ubuntu-22.04
             rids: "linux-x64"
-            libs: "libenet.so libmfrmlui.so"
+            libs: "libenet.so libmfrmlui.so libmfsvg.so"
     defaults:
       run:
         shell: bash

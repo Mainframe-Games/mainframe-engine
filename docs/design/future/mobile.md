@@ -160,7 +160,6 @@ platform-specific assemblies and registered by the head before the engine starts
   | `enet` | `.so` | static `.a` in `enet.xcframework` |
   | miniaudio (SoundFlow's native) | SoundFlow package (already 16 KB aligned) | SoundFlow's `miniaudio.framework` on device; **ours** for the simulator (none shipped) |
   | `mfplatform` (M13 shim) | `.so` (JNI bridge) + `.aar` | static xcframework |
-  | cimgui (ImGui.NET) | not shipped: the dev overlay is off on mobile in M12 | not shipped |
   | Assimp | **not shipped**: models are cooked at export ([Asset pipeline](#asset-pipeline)) | not shipped |
   | Steamworks | not shipped: `SteamServer` is never registered on mobile | not shipped |
 
@@ -253,7 +252,7 @@ stateDiagram-v2
     so the activity is never recreated: a rotation or fold is just a resize.
   - **Android pre-rotation, cheaply.** Only the passes that write the swapchain need to know the transform:
     - The scene, shadow and UI layers render into offscreen targets in logical (rotated) orientation.
-    - The present passes (tonemap, UI composite, ImGui) multiply their fullscreen/clip-space positions by the
+    - The present passes (tonemap, then the overlay renderers: canvas, screen gizmos, UI composite, dev overlay) multiply their fullscreen/clip-space positions by the
       `preTransform` rotation.
     - The swapchain stays at the identity extent with `preTransform = currentTransform`.
     - When the scene and tonemap are merged into one render pass ([Rendering](#rendering)), the scene pass draws into
@@ -324,10 +323,10 @@ stateDiagram-v2
 ```mermaid
 flowchart LR
     subgraph Today["Desktop today"]
-        A1["Shadow passes"] --> A2["Scene pass<br/>RGBA16F Clear/STORE<br/>depth Clear/DontCare"] --> A3["UI layer passes<br/>RGBA8 + stencil (offscreen)"] --> A4["Present pass<br/>tonemap (reads RGBA16F)<br/>+ UI composite + ImGui"]
+        A1["Shadow passes"] --> A2["Scene pass<br/>RGBA16F Clear/STORE<br/>depth Clear/DontCare"] --> A3["UI layer passes<br/>RGBA8 + stencil (offscreen)"] --> A4["Present pass<br/>tonemap (reads RGBA16F)<br/>+ canvas, screen gizmos, UI composite, dev overlay"]
     end
     subgraph Mobile["Mobile (TBDR) layout"]
-        B1["Shadow passes<br/>D16, Clear/STORE"] --> B2["One render pass, 2 subpasses<br/>0: scene → HDR (transient, lazily allocated)<br/>1: tonemap via input attachment → swapchain<br/>+ direct UI + ImGui in subpass 1"]
+        B1["Shadow passes<br/>D16, Clear/STORE"] --> B2["One render pass, 2 subpasses<br/>0: scene → HDR (transient, lazily allocated)<br/>1: tonemap via input attachment → swapchain<br/>+ direct overlays (canvas, gizmos, UI) in subpass 1"]
         B3["UI layer passes only when a document<br/>uses filters / mask-image / box-shadow"] -.-> B2
     end
 ```
@@ -338,7 +337,7 @@ flowchart LR
 | HDR format RGBA16F (8 B/px) | `B10G11R11_UFLOAT_PACK32` (4 B/px) on Low/Medium tiers when it is a supported colour attachment (the UI never reads the HDR target; scene alpha is unused) | half the HDR tile footprint |
 | UI always renders into an offscreen RGBA8 + stencil layer, then a fullscreen composite | **Direct UI mode:** when a frame's UI command list has no `PushLayer`/filter/`SaveLayer*` commands (the common HUD case), replay it straight into subpass 1 after the tonemap. Stencil clip masks need the swapchain pass to have a stencil attachment (transient `S8`). The offscreen path stays for documents that need layers. | one fullscreen pass + 1 RGBA8 + stencil target |
 | No MSAA | Tier option: 4× MSAA scene colour + depth as transient attachments, **resolved on tile** in subpass 0 (`pResolveAttachments`), so the resolve costs no bandwidth. The tonemap input reads the resolved single-sample image. | MSAA is nearly free on TBDR, unlike a post-process AA |
-| Shadow maps D32 | `D16_UNORM` on mobile tiers (comparison sampling unchanged): half the memory/bandwidth. Cascades capped by the tier. | Sandbox: 86 → ~43 MiB |
+| Shadow maps D32 | `D16_UNORM` on mobile tiers (comparison sampling unchanged): half the memory/bandwidth. Cascades capped by the tier. | Demo: 86 → ~43 MiB |
 | `vkCmdClearAttachments` in UI layer passes | `LOAD_OP_CLEAR` at pass begin wherever possible (a clear inside a pass is a draw on TBDR, and on MoltenVK it also resets the stencil reference) | — |
 
 - **Merge conditions.** The merge needs the scene target and the swapchain to have the same extent. With a dynamic
@@ -382,7 +381,7 @@ A tier is a bundle of existing knobs:
     - up after 60 frames under 70 %.
   - Targets are allocated once at the tier's maximum, and rendering uses a viewport/scissor subset, so a scale change
     never reallocates.
-  - The UI and ImGui always render at native resolution.
+  - The UI, the screen gizmos and the dev overlay always render at native resolution.
 - **Thermal and power governor** (`PerformanceGovernor`, a frame server):
   - Inputs:
     - Android: `getThermalHeadroom(10 s forecast)`, polled no more than once a second, and `PowerManager`
@@ -397,7 +396,7 @@ A tier is a bundle of existing knobs:
   - Recovery goes in reverse after 30 s at nominal.
   - Android `PerformanceHintManager` sessions report the game and render thread target/actual durations each frame,
     so the CPU governor clocks to the work instead of overshooting.
-  - All of it is visible in a `Performance` ImGui/editor-link status block (thermal level, scale, fps cap).
+  - All of it is visible in a `Performance` dev-overlay panel and editor-link status block (thermal level, scale, fps cap).
 - **Frame pacing.**
   - Android: **Swappy** (AGDK frame pacing, static prefab lib) is linked into the Android native platform library and
     driven through a small C API. `SwappyVk_setSwapIntervalNS` for 30/60/90/120, with `SwappyVk_queuePresent` instead
@@ -532,8 +531,8 @@ flowchart LR
   - The dp ratio is the display density, and the template's mobile theme bumps minimum touch targets to 44 pt / 48 dp.
   - Hot reload works over the editor link ([Live preview](#live-preview)).
   - The F8 debugger stays available in dev builds, toggled by a three-finger long press.
-- **ImGui** (developer overlay) is off on mobile in M12: ImGui.NET ships no Android/iOS cimgui. If needed later,
-  cimgui joins `natives.yml`.
+- The **dev overlay** is an RmlUi layer (it replaced the old immediate-mode overlay, [ADR 0115](../../../memory/decisions/0115-remove-imgui.md)), so it
+  needs no extra native library on mobile; only a touch gesture to toggle it (there is no F12) is open.
 
 ### Asset pipeline
 
@@ -755,7 +754,7 @@ macOS):
 
 | Recipe | Does |
 |---|---|
-| `just android-build [config=Debug]` | `dotnet build MainframeEngine.Sandbox.Android -c <config>` (Release: AAB + APK, signed with the debug key unless `MF_ANDROID_KEYSTORE` is set) |
+| `just android-build [config=Debug]` | `dotnet build Examples/Demo/Demo.Android -c <config>` (Release: AAB + APK, signed with the debug key unless `MF_ANDROID_KEYSTORE` is set) |
 | `just android-run [device]` | build → `adb install -r` → `adb reverse` → launch → `adb logcat --pid` |
 | `just android-emulator [arm64\|x86_64]` | create/boot a Vulkan-capable AVD (`sdkmanager`, `avdmanager`, `emulator -gpu host`) |
 | `just ios-build [config] [sim\|device]` | simulator: no signing; device: automatic signing with the user's team (a free personal team works for their own device, with 7-day profiles) |
@@ -766,9 +765,9 @@ macOS):
 
 | Job | Runner | Does |
 |---|---|---|
-| `android` | ubuntu-24.04 | Workload install, then build the Sandbox and template Android heads in Release (AAB + APK, debug-signed). 16 KB alignment check (`zipalign -c -P 16`, `llvm-readelf`). Size report vs budget. Upload the APK. |
-| `android-emulator` | ubuntu-24.04 (KVM) | Boot an x86_64 AVD (official `sdkmanager`/`emulator` CLI, KVM through a udev rule, no third-party action), `-gpu swiftshader_indirect`. Install the Sandbox x86_64 debug APK, run 300 frames with `--qa-capture`, and fail on errors, validation messages or a missing screenshot. Lifecycle QA via `adb shell input keyevent HOME` / `am start`. |
-| `ios` | macos-26 (Xcode 26.x) | Build the Sandbox iOS head for `iossimulator-arm64` (NativeAOT publish and Mono debug) and for `ios-arm64` **unsigned** (`-p:EnableCodeSigning=false`), with size and `__TEXT` reports. |
+| `android` | ubuntu-24.04 | Workload install, then build the Demo and template Android heads in Release (AAB + APK, debug-signed). 16 KB alignment check (`zipalign -c -P 16`, `llvm-readelf`). Size report vs budget. Upload the APK. |
+| `android-emulator` | ubuntu-24.04 (KVM) | Boot an x86_64 AVD (official `sdkmanager`/`emulator` CLI, KVM through a udev rule, no third-party action), `-gpu swiftshader_indirect`. Install the Demo x86_64 debug APK, run 300 frames with the GameHost `--screenshot` flag (`--max-frames 300 --screenshot <file>`), and fail on errors, validation messages or a missing screenshot. Lifecycle QA via `adb shell input keyevent HOME` / `am start`. |
+| `ios` | macos-26 (Xcode 26.x) | Build the Demo iOS head for `iossimulator-arm64` (NativeAOT publish and Mono debug) and for `ios-arm64` **unsigned** (`-p:EnableCodeSigning=false`), with size and `__TEXT` reports. |
 | `ios-simulator` | macos-26 | `simctl` boot → install → launch with `--max-frames 300 --screenshot` → collect the PNG + log (`simctl get_app_container`). Smoke only (simulator Metal limits). |
 | `profiles` | ubuntu-24.04 (lavapipe) | The render tests with the Khronos Profiles layer emulating `VP_ANDROID_baseline_2022` (+ `--mobile-path`: merged pass, transient attachments, D16, direct UI) and validation on. |
 | `natives` (natives.yml) | + `android-arm64`, `android-x64` (dev), `ios` legs | NDK r28+ / Xcode, CTest where runnable (simulator CTest through `simctl spawn`), lock |
@@ -863,7 +862,7 @@ flowchart LR
 | Simulator (CI) | `ios-simulator` | boot + frames + screenshot; lifecycle via `simctl` (`ui … appearance`, background with `simctl launch` of another app) |
 | On-device render test host | `MainframeEngine.RenderTests.Mobile` (Android + iOS heads of the existing host) | runs the render-test scenes on a phone, writes PNGs + `result.json` to app storage, pulled by `adb pull` / `devicectl … copy from`. Goldens per driver tag as today (`adreno-…`, `mali-…`, `apple-gpu-…`) — **local/manual** in M12, CI later through a device farm |
 | Device farm (later) | Firebase Test Lab (Android **Game Loop** tests on physical devices, free daily quota); iOS on FTL needs a signed build (paid account) | nightly smoke + performance capture on 3 reference devices |
-| Manual QA matrix | reference devices | **Android:** Galaxy A54/A55 (Mali-G68, Exynos 1380/1480), Pixel 7a (Mali-G710), Redmi Note 12/13 Pro (Adreno 6xx), one Android 10 device. **iOS:** iPhone 12/13 (A14/A15, the "3-year-old mid-range" bar), iPhone 15 Pro (ProMotion), iPad 9th gen (A13, iOS 16). Checklist: 60 fps in the Sandbox at the device's `auto` tier, 20-minute thermal soak, pause/resume ×50, rotate ×20, call interruption, Bluetooth audio + gamepad, split screen, low-memory, cold start time. |
+| Manual QA matrix | reference devices | **Android:** Galaxy A54/A55 (Mali-G68, Exynos 1380/1480), Pixel 7a (Mali-G710), Redmi Note 12/13 Pro (Adreno 6xx), one Android 10 device. **iOS:** iPhone 12/13 (A14/A15, the "3-year-old mid-range" bar), iPhone 15 Pro (ProMotion), iPad 9th gen (A13, iOS 16). Checklist: 60 fps in the Demo at the device's `auto` tier, 20-minute thermal soak, pause/resume ×50, rotate ×20, call interruption, Bluetooth audio + gamepad, split screen, low-memory, cold start time. |
 
 The allocation gate ("0 B per steady-state frame") applies on mobile too. The on-device host counts
 `GC.GetAllocatedBytesForCurrentThread` the same way, with NativeAOT/Mono AOT, where allocations from tiering do not
@@ -877,9 +876,9 @@ Each spike is a throwaway branch with a written result (ADR or doc update) and a
 
 | Spike | Question | Pass criteria |
 |---|---|---|
-| S1 Silk 2.23 + SDL hosts | **Bump Silk.NET 2.22 → 2.23 on the spike branch** (decided: try 2.23 first). Is its Android SDL (`libSDL2.so`, `libmain.so`) 16 KB aligned (`llvm-readelf -l`, no XA0141)? Do its iOS SDL + MoltenVK static libs link and run? Do `SilkActivity` and `SilkMobile.RunApp` run the `Engine` loop, with touch, lifecycle events and text input through an SDL event watch? If 2.23 fails the alignment or iOS checks → fallback: vendor + build SDL2/MoltenVK in `natives.yml` (with S5) | Clear-colour + ImGui-free `Engine` on a Pixel/Galaxy and an iPhone; background/foreground ×20 without a crash; XA0141-free AAB; ADR records 2.23 adopted or the fallback taken |
+| S1 Silk 2.23 + SDL hosts | **Bump Silk.NET 2.22 → 2.23 on the spike branch** (decided: try 2.23 first). Is its Android SDL (`libSDL2.so`, `libmain.so`) 16 KB aligned (`llvm-readelf -l`, no XA0141)? Do its iOS SDL + MoltenVK static libs link and run? Do `SilkActivity` and `SilkMobile.RunApp` run the `Engine` loop, with touch, lifecycle events and text input through an SDL event watch? If 2.23 fails the alignment or iOS checks → fallback: vendor + build SDL2/MoltenVK in `natives.yml` (with S5) | Clear-colour `Engine` on a Pixel/Galaxy and an iPhone; background/foreground ×20 without a crash; XA0141-free AAB; ADR records 2.23 adopted or the fallback taken |
 | S2 .NET + runtime pick | On the **then-current .NET** (likely 11 / CoreCLR): publish the template game with each runtime candidate per platform ([AOT table](#aot-app-size-and-startup)); triage trim/AOT warnings (Jitter2, Box2D.NET, GetText.NET, SoundFlow, NVorbis, spine-csharp); compare size, startup, frame time | 0 unexplained warnings; the scene loads and runs; ADR picks the .NET version and runtime per platform with the numbers |
-| S3 MoltenVK iOS | MoltenVK (Silk 2.23's 1.4.1, or the vendored fallback from S1) static on iOS 16 + 17 devices; merged scene/tonemap pass as one Metal encoder with programmable blending; memoryless for transient attachments; `VK_GOOGLE_display_timing` | the Sandbox renders at 60 fps on an iPhone 12; the frame capture (Xcode GPU trace) shows one encoder for scene + tonemap |
+| S3 MoltenVK iOS | MoltenVK (Silk 2.23's 1.4.1, or the vendored fallback from S1) static on iOS 16 + 17 devices; merged scene/tonemap pass as one Metal encoder with programmable blending; memoryless for transient attachments; `VK_GOOGLE_display_timing` | the Demo renders at 60 fps on an iPhone 12; the frame capture (Xcode GPU trace) shows one encoder for scene + tonemap |
 | S4 Audio | SoundFlow on Android (AAudio) and iOS (its framework + our simulator build), NativeAOT; interruption + route change; suspend/resume | `--qa-audio` passes on both; a phone call interruption resumes cleanly |
 | S5 Natives per RID | NDK r28 builds of `mfrmlui`, `enet`, SDL2; iOS static xcframeworks; P/Invoke resolution (NativeAOT `DirectPInvoke`, Mono main-program resolver) | CTest on the emulator/simulator; the managed ABI check (`mfrmlui_abi_version`) passes on device |
 | S6 Vulkan 1.1 baseline | Shaders at `vulkan1.1`; render tests under the `VP_ANDROID_baseline_2022` profile on lavapipe; a 1.1-only Mali device | 0 profile/validation errors; goldens unchanged |
@@ -889,11 +888,11 @@ Each spike is a throwaway branch with a written result (ADR or doc update) and a
 
 | Phase | Deliverable | Acceptance |
 |---|---|---|
-| M12.1 Platform layer | `MainframeEngine.Android`/`.iOS`, seams, `IContentFileSystem` + `.mfpak`, natives in CI (android-arm64/x64, ios xcframeworks), Sandbox heads, `mfgame --platforms`, `just android-*`/`ios-*` | the Sandbox runs on a reference Android phone, the iOS simulator and an iPhone from `just *-run`; CI `android` + `ios` jobs green |
+| M12.1 Platform layer | `MainframeEngine.Android`/`.iOS`, seams, `IContentFileSystem` + `.mfpak`, natives in CI (android-arm64/x64, ios xcframeworks), Demo heads, `mfgame --platforms`, `just android-*`/`ios-*` | the Demo runs on a reference Android phone, the iOS simulator and an iPhone from `just *-run`; CI `android` + `ios` jobs green |
 | M12.2 Lifecycle & display | lifecycle events/callbacks, surface suspend/resume, present-pipeline rebuild on format change, pre-rotation, safe areas + `mf-safe-area`, immersive/edge-to-edge, multi-window, low memory, audio session, back button | the QA checklist (pause ×50, rotate ×20, interruption, split screen, low memory) passes on the reference devices with 0 validation errors |
-| M12.3 Rendering | Vulkan 1.1 baseline, merged pass + transient attachments, direct UI, D16 shadows, B10G11R11, MSAA on tile, tiers + `auto`, dynamic resolution, governor, Swappy, 30/60/120 | Sandbox ≥ 60 fps at `auto` on the reference mid-range devices; 20-minute soak holds ≥ 55 fps p95 without a forced 30 fps step on iPhone 12; `profiles` job green |
+| M12.3 Rendering | Vulkan 1.1 baseline, merged pass + transient attachments, direct UI, D16 shadows, B10G11R11, MSAA on tile, tiers + `auto`, dynamic resolution, governor, Swappy, 30/60/120 | Demo ≥ 60 fps at `auto` on the reference mid-range devices; 20-minute soak holds ≥ 55 fps p95 without a forced 30 fps step on iPhone 12; `profiles` job green |
 | M12.4 Input | touch events, `GestureServer`, virtual controls + `virtual:` bindings, sensors, haptics, soft-keyboard inset | a touch demo scene (joystick + buttons + pinch-zoom camera) playable; unit tests for every recogniser |
-| M12.5 Assets | `mf-cook`, KTX2 runtime path, ASTC/ETC2 presets in `.meta`, cooked models, packs, PAD (install-time/fast-follow/on-demand) + TCFT, size report/budgets | a cooked Sandbox within budget; PAD local testing passes; no Assimp on device |
+| M12.5 Assets | `mf-cook`, KTX2 runtime path, ASTC/ETC2 presets in `.meta`, cooked models, packs, PAD (install-time/fast-follow/on-demand) + TCFT, size report/budgets | a cooked Demo within budget; PAD local testing passes; no Assimp on device |
 | M12.6 AOT/size/startup | `IsAotCompatible` clean, release builds on the runtimes S2 picked, startup markers, budgets in CI | cold start ≤ 1.5 s / 2.0 s; sizes within budget |
 | M12.7 Editor | export presets + dialog, device discovery, one-click run, link transports (adb reverse, usbmux, Bonjour), live preview, device simulation + touch emulation | from the editor: edit a scene on desktop → it changes on the phone in < 2 s without a rebuild |
 | M12.8 Pipeline & compliance | `mobile-publish.yml`, upload scripts, privacy manifest scan, store checklists, docs | a dispatched run uploads to Play internal + TestFlight (once accounts exist); without secrets the run stops at `guard` with a clear message |
@@ -969,7 +968,7 @@ independent and desktop-testable.
     the main loop runs while the app is in the background.
 12. **Natives are built, not downloaded.** New native code joins `Native/` + `natives.yml` with a flat versioned C ABI
     (the `mfrmlui` pattern), is buildable as a static library, and keeps ELF segments 16 KB aligned.
-13. **Platform features are optional servers.** Steam, ImGui and audio devices already degrade gracefully (null
+13. **Platform features are optional servers.** Steam and audio devices already degrade gracefully (null
     device, no Steam). Keep new platform integrations behind a seam with a null implementation, never a hard
     dependency in `Engine`.
 14. **Paths per user are `UserDataPaths`.** Never `Environment.CurrentDirectory`, `~` or the app folder for saves,
@@ -1025,8 +1024,8 @@ Decided by the user on 2026-10-05 and recorded in [ADR 0100](../../../memory/dec
    Assets with our own CDN? Default: bundled-only for M12.
 2. **Editor link on iOS devices:** in-house usbmux client (no dependency, private-ish protocol) vs Wi-Fi only? Default:
    both, with usbmux preferred if S7 shows it is stable on current macOS.
-3. **ImGui on device** for engine developers: build cimgui per mobile RID, or rely on the RmlUi debugger + editor
-   link? Default: the editor link (fps/thermal/tier status) + RmlUi debugger; revisit after M12.3.
+3. **Dev overlay on device** for engine developers: which touch gesture toggles the RmlUi dev overlay, next to the RmlUi
+   debugger and the editor link? Default: the editor link (fps/thermal/tier status) + RmlUi debugger; revisit after M12.3.
 
 ## Related
 

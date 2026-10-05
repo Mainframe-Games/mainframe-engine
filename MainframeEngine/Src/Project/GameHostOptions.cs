@@ -15,9 +15,12 @@ namespace MainframeEngine;
 /// <item><term><c>--no-log-file</c></term><description>do not write <c>{user data}/{game}/logs/{game}.log</c></description></item>
 /// <item><term><c>--validation</c></term><description>enable the Vulkan validation layers</description></item>
 /// <item><term><c>--locale &lt;name&gt;</c></term><description>start in this locale (the player's choice) instead of the project's <c>defaultLocale</c></description></item>
+/// <item><term><c>--frame-capture</c></term><description>allow <see cref="SceneTree.CaptureFrame"/> (game screenshot harnesses)</description></item>
 /// <item><term><c>--screenshot &lt;file.png&gt;</c></term><description>save the frame <c>--max-frames</c> ends on (frame 60 without it) as a PNG (smoke runs, CI)</description></item>
 /// </list>
-/// Arguments the host does not know are kept in <see cref="Remaining"/> for the game.
+/// Arguments the host does not know are kept in <see cref="Remaining"/> for the game. Everything after <c>++</c> is the
+/// game's own and is never parsed by the host (<see cref="UserArgs"/>, Godot's <c>OS.get_cmdline_user_args</c>), so a game
+/// flag may share a name with a host flag (<c>-- --screenshot a.png ++ --screenshot b.png</c>).
 /// </summary>
 public sealed record GameHostOptions
 {
@@ -39,6 +42,9 @@ public sealed record GameHostOptions
 
     public bool Validation { get; init; }
 
+    /// <summary><c>--frame-capture</c>: the game may capture frames (implied by <c>--screenshot</c>).</summary>
+    public bool FrameCapture { get; init; }
+
     /// <summary>The starting locale, overriding <see cref="LocalizationProjectSettings.DefaultLocale"/>.</summary>
     public string? Locale { get; init; }
 
@@ -51,6 +57,12 @@ public sealed record GameHostOptions
     /// <summary>Arguments not consumed by the host, in order.</summary>
     public IReadOnlyList<string> Remaining { get; init; } = [];
 
+    /// <summary>The arguments after the first <c>++</c>, untouched (empty without one).</summary>
+    public IReadOnlyList<string> UserArgs { get; init; } = [];
+
+    /// <summary>The separator before the game's own arguments.</summary>
+    public const string UserArgsSeparator = "++";
+
     /// <summary>Parses <paramref name="args"/>; throws <see cref="ArgumentException"/> on a missing or invalid value.</summary>
     public static GameHostOptions Parse(IReadOnlyList<string> args)
     {
@@ -60,6 +72,8 @@ public sealed record GameHostOptions
         for (var i = 0; i < args.Count; i++)
         {
             var arg = args[i];
+            if (arg == UserArgsSeparator)
+                return options with { Remaining = remaining, UserArgs = [.. args.Skip(i + 1)] };
             switch (arg)
             {
                 case "--project":
@@ -79,6 +93,9 @@ public sealed record GameHostOptions
                     break;
                 case "--hidden":
                     options = options with { Hidden = true };
+                    break;
+                case "--frame-capture":
+                    options = options with { FrameCapture = true };
                     break;
                 case "--no-vsync":
                     options = options with { NoVSync = true };
@@ -119,7 +136,7 @@ public sealed record GameHostOptions
             options.EnableValidation = true;
         if (Locale is not null)
             options.Locale = Locale;
-        if (ScreenshotPath is not null)
+        if (ScreenshotPath is not null || FrameCapture)
             options.EnableFrameCapture = true;
         return options;
     }

@@ -8,16 +8,16 @@ namespace MainframeEngine;
 /// rules as <see cref="Node3D"/>.
 /// </summary>
 [EditorIcon("axis-y", Family = EditorIconFamily.Space2D)]
-public class Node2D : Node, ITransformNotifiable
+public class Node2D : CanvasItem, ITransformNotifiable
 {
     private Vector2 _position;
     private float _rotation;
     private Vector2 _scale = Vector2.One;
+    private float _skew;
     private Transform2D _local = Transform2D.Identity;
     private Transform2D _global = Transform2D.Identity;
     private bool _localDirty = true;
     private bool _globalDirty = true;
-    private bool _visible = true;
     private bool _notifyTransform;
     private bool _notificationQueued;
     private Track _track; // engine-internal change hooks (physics)
@@ -41,7 +41,7 @@ public class Node2D : Node, ITransformNotifiable
         }
     }
 
-    /// <summary>Rotation in radians (counter-clockwise).</summary>
+    /// <summary>Rotation in radians (clockwise on screen: 2D is Y-down, as in Godot).</summary>
     public float Rotation
     {
         get => _rotation;
@@ -71,15 +71,23 @@ public class Node2D : Node, ITransformNotifiable
         }
     }
 
-    /// <summary>Draw order among 2D nodes (higher draws on top).</summary>
-    [Export]
-    public int ZIndex { get; set; }
-
-    [Export]
-    public bool Visible
+    /// <summary>Shear in radians: the Y axis leans this far off perpendicular (Godot's <c>skew</c>; cast shadows use it).</summary>
+    public float Skew
     {
-        get => _visible;
-        set => _visible = value;
+        get => _skew;
+        set
+        {
+            _skew = value;
+            MarkLocalDirty();
+        }
+    }
+
+    /// <summary>Skew in degrees (the serialized form).</summary>
+    [Export]
+    public float SkewDegrees
+    {
+        get => float.RadiansToDegrees(_skew);
+        set => Skew = float.DegreesToRadians(value);
     }
 
     public Transform2D Transform
@@ -94,7 +102,13 @@ public class Node2D : Node, ITransformNotifiable
             _position = value.Origin;
             _rotation = value.Rotation;
             _scale = value.Scale;
-            MarkLocalDirty();
+            _skew = value.Skew;
+            // As in Godot, the transform set is kept exactly (the values above are only its decomposition).
+            _local = value;
+            _localDirty = false;
+            if ((_track & Track.Local) != 0)
+                OnLocalTransformChanged();
+            InvalidateGlobal();
         }
     }
 
@@ -124,14 +138,18 @@ public class Node2D : Node, ITransformNotifiable
 
     public float GlobalRotation => GlobalTransform.Rotation;
 
-    public Node2D? ParentNode2D => Parent as Node2D;
+    /// <summary>The parent the transform is relative to: the parent <see cref="Node2D"/>, or null for roots and top-level nodes.</summary>
+    public Node2D? ParentNode2D => TopLevel ? null : Parent as Node2D;
 
-    public bool IsVisibleInTree()
+    public override Transform2D GetTransform() => Transform;
+
+    public override Transform2D GetGlobalTransform() => GlobalTransform;
+
+    // As in Godot, toggling top level does not move the node: its local transform is reinterpreted (as global or back).
+    private protected override void OnTopLevelChanged()
     {
-        for (var n = this; n is not null; n = n.ParentNode2D)
-            if (!n._visible)
-                return false;
-        return true;
+        _globalDirty = false;
+        InvalidateGlobal();
     }
 
     /// <summary>Requests <see cref="OnTransformChanged"/> after process when the global transform changed.</summary>
@@ -191,7 +209,7 @@ public class Node2D : Node, ITransformNotifiable
     {
         if (!_localDirty)
             return;
-        _local = Transform2D.FromTrs(_position, _rotation, _scale);
+        _local = Transform2D.FromTrs(_position, _rotation, _scale, _skew);
         _localDirty = false;
     }
 
@@ -233,6 +251,7 @@ public class Node2D : Node, ITransformNotifiable
 
     private protected override void OnParentChanged()
     {
+        base.OnParentChanged();
         _globalDirty = false;
         InvalidateGlobal();
     }

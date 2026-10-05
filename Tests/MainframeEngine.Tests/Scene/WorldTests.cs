@@ -87,7 +87,7 @@ public sealed class WorldTests : IDisposable
         Assert.Same(second, viewport.ActiveCamera3D);
         first.Free();
 
-        var flat = new Camera2D { Zoom = 0.5f };
+        var flat = new Camera2D { Zoom = new Vector2(0.5f) };
         _tree.Root.AddChild(flat);
         Assert.Same(flat, viewport.ActiveCamera2D);
     }
@@ -117,6 +117,55 @@ public sealed class WorldTests : IDisposable
         var extent = new Extent2D(1920, 1080);
         Assert.Same(math, RenderServer.GetRenderCamera(_tree.Root, extent));
         Assert.Equal(1920f / 1080f, math.AspectRatio, 5);
+    }
+
+    [Fact]
+    public void HiddenLightsAreNotInTheWorldsLights()
+    {
+        var lights = _tree.Root.World3D.Lights;
+        var sun = new DirectionalLight3D { Visible = false };
+        var lamp = new OmniLight3D();
+        _tree.Root.AddChild(sun);
+        _tree.Root.AddChild(lamp);
+        Assert.Empty(lights.DirectionalLights);
+        Assert.Single(lights.PointLights);
+
+        sun.Visible = true;
+        Assert.Single(lights.DirectionalLights);
+        sun.Visible = true;
+        Assert.Single(lights.DirectionalLights);
+
+        lamp.Visible = false;
+        Assert.Empty(lights.PointLights);
+        lamp.Visible = true;
+        Assert.Single(lights.PointLights);
+
+        _tree.Root.RemoveChild(lamp);
+        Assert.Empty(lights.PointLights);
+        lamp.Free();
+    }
+
+    [Fact]
+    public void HidingAnAncestorSwitchesItsLightsOff()
+    {
+        var lights = _tree.Root.World3D.Lights;
+        var group = new Node3D();
+        var middle = new Node3D();
+        var spot = new SpotLight3D();
+        group.AddChild(middle);
+        middle.AddChild(spot);
+        _tree.Root.AddChild(group);
+        Assert.Single(lights.SpotLights);
+
+        group.Visible = false;
+        Assert.Empty(lights.SpotLights);
+
+        spot.Visible = false;
+        group.Visible = true;
+        Assert.Empty(lights.SpotLights); // still hidden itself
+
+        spot.Visible = true;
+        Assert.Single(lights.SpotLights);
     }
 
     [Fact]

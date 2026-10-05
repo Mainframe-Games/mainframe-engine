@@ -151,7 +151,7 @@ public sealed partial class IconAtlasTests
                 IconAtlas.AssertExists(m.Groups[1].Value, Path.GetFileName(file));
         }
 
-        foreach (var folder in new[] { "MainframeEngine.Editor/Src", "MainframeEngine/Src", "MainframeEngine.Sandbox/Src" })
+        foreach (var folder in new[] { "MainframeEngine.Editor/Src", "MainframeEngine/Src", "Examples/Demo/Demo/Src" })
         {
             foreach (var file in Directory.EnumerateFiles(Path.Combine(IconAtlas.Root, folder), "*.cs", SearchOption.AllDirectories))
             {

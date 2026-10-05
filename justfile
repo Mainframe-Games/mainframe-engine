@@ -51,13 +51,14 @@ shaders:
 shaders-check:
     sh build/shaders.sh check
 
-# Run the editor (extra args are passed through, e.g. just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene)
+# Run the editor (extra args are passed through, e.g. just editor Examples/Demo/Content/Scenes/basic_3d.mscene)
 editor *args:
     dotnet run --project MainframeEngine.Editor -- {{args}}
 
-# Scripted editor QA: input + captures into artifacts/qa-editor (default script: the Sandbox walkthrough)
+# Scripted editor QA: input + captures into artifacts/qa-editor (opens the Demo project; default script: the walkthrough of its Basic 3D scene)
 qa-editor script="Tests/QA/editor-walkthrough.qa":
-    dotnet run --project MainframeEngine.Editor -c Release -- MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene --hidden --qa-script {{script}} --qa-out {{artifacts / "qa-editor"}}
+    dotnet build Examples/Demo/Demo.slnx -v q -nologo
+    dotnet run --project MainframeEngine.Editor -c Release -- Examples/Demo --hidden --qa-script {{script}} --qa-out {{artifacts / "qa-editor"}}
 
 # E4 workflow QA: create a game from the editor, edit, save, play (game screenshot), change its C#, reload (artifacts/qa-projects)
 qa-projects:
@@ -68,13 +69,13 @@ qa-projects:
 readme-screenshots:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Neutral project folder (no user paths on screen): the showcase project is linked in, MyGame is created there.
+    # Neutral project folder (no user paths on screen): the Demo project is linked in, MyGame is created there.
     projects=/tmp/MainframeProjects
     out="{{artifacts}}/readme-screenshots"
     rm -rf "$projects" "$out"
     mkdir -p "$projects"
-    ln -s "{{justfile_directory()}}/Examples/EditorShowcase" "$projects/EditorShowcase"
-    dotnet build Examples/EditorShowcase/EditorShowcase.slnx -v q -nologo
+    ln -s "{{justfile_directory()}}/Examples/Demo" "$projects/Demo"
+    dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
       --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
     for name in editor editor-add-node editor-game-project editor-project-manager; do
@@ -83,13 +84,16 @@ readme-screenshots:
     done
     ls -la docs/images/editor*.png
 
-# Run the Sandbox (extra args are passed through, e.g. just sandbox --qa-capture out)
-sandbox *args:
-    dotnet run --project MainframeEngine.Sandbox -- {{args}}
+# The Demo game (one scene per feature; F12 dev overlay)
+demo *args:
+    dotnet run --project Examples/Demo/Demo.Launcher -- {{args}}
 
-# Screenshot the Sandbox at fixed frames into artifacts/qa, then exit
-qa frames="30,90,180":
-    dotnet run --project MainframeEngine.Sandbox -c Release -- --qa-capture {{artifacts / "qa"}} --qa-frames {{frames}}
+# One screenshot per Demo scene into docs/images/demo (README Showcase); display awake (caffeinate -u)
+demo-screenshots frames="240":
+    build/demo-screenshots.sh {{frames}}
+
+# Capture the Demo scenes (alias of demo-screenshots)
+qa frames="240": (demo-screenshots frames)
 
 # Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
 template-smoke frames="30":
@@ -107,7 +111,7 @@ bench filter="*":
 bench-baseline:
     dotnet run -c Release --project Tests/MainframeEngine.Benchmarks -- --filter '*' --artifacts {{artifacts / "bench"}} --baseline-write Tests/MainframeEngine.Benchmarks/baseline.json
 
-# Publish + package the editor exactly like the release workflow (default RID: this machine's)
+# Publish + package the editor and the Demo exactly like the release workflow (default RID: this machine's)
 publish-local rid="" version="0.0.0-local":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -116,6 +120,7 @@ publish-local rid="" version="0.0.0-local":
     dotnet publish MainframeEngine.Editor/MainframeEngine.Editor.csproj -c Release -r "$rid" --self-contained \
       -p:Version={{version}} -p:PublishReadyToRun=true -o "{{artifacts}}/publish/$rid"
     build/package-editor.sh "$rid" "{{version}}" "{{artifacts}}/publish/$rid" "{{artifacts}}/release"
+    build/package-demo.sh "{{version}}" "{{artifacts}}/release"
 
 # Next release version the publish workflow would create (patch bump of the latest vX.Y.Z tag)
 next-version:
@@ -167,16 +172,17 @@ format-check:
     dotnet format {{solution}} --verify-no-changes --exclude Plugins/Spine
 
 # --- Localization (docs/design/localization.md) -------------------------------------------------------------------
-# The Sandbox's catalogs: Content/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
-l10n_dir := "MainframeEngine.Sandbox/Content/locale"
+# The Demo's catalogs: Examples/Demo/Content/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
+# (Tests/Content/locale is the render tests' own Spanish catalog; it is not managed by these recipes.)
+l10n_dir := "Examples/Demo/Content/locale"
 l10n := "dotnet run --project Tools/MainframeEngine.L10n -c Release --"
 
-# Extract strings (C# via GetText.Extractor; RML — the Sandbox HUD and the engine widget library — and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale
+# Extract strings (C# via GetText.Extractor; RML — the Demo panels and the engine widget library — and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale
 l10n-extract:
     dotnet tool restore
-    dotnet build MainframeEngine.Sandbox -p:CompileLocales=false
-    dotnet tool run GetText.Extractor -s MainframeEngine.Sandbox/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Sandbox" --include {{artifacts / "l10n" / "code.pot"}} --rml MainframeEngine.Sandbox/Content --rml MainframeEngine/Content/UI --scenes MainframeEngine.Sandbox/Content --assembly MainframeEngine.Sandbox/bin/Debug/net10.0/MainframeEngine.Sandbox.dll
+    dotnet build Examples/Demo/Demo/Demo.csproj -p:CompileLocales=false
+    dotnet tool run GetText.Extractor -s Examples/Demo/Demo/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --rml Examples/Demo/Content --rml MainframeEngine/Content/UI --scenes Examples/Demo/Content --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
     {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
     {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
 
@@ -196,3 +202,11 @@ l10n-stats:
 clean:
     dotnet clean {{solution}} -v q
     {{ if os_family() == "windows" { "if (Test-Path artifacts) { Remove-Item -Recurse -Force artifacts }" } else { "rm -rf artifacts" } }}
+
+# Build the SPIR-V of canvas shaders (.gdshader, ADR 0113) under the given folders (default: the render-test host's)
+canvas-shaders *folders="Tests/MainframeEngine.RenderTests.Host/Content":
+    dotnet run --project Tools/MainframeEngine.ShaderBuild -- build {{folders}}
+
+# Fail when any canvas shader's committed SPIR-V is stale
+canvas-shaders-check *folders="Tests/MainframeEngine.RenderTests.Host/Content":
+    dotnet run --project Tools/MainframeEngine.ShaderBuild -- check {{folders}}

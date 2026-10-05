@@ -202,6 +202,7 @@
     i-square-plus: 2px 242px 16px 16px;
     i-trash-x: 22px 242px 16px 16px;
     i-volume-off: 42px 242px 16px 16px;
+    i-download: 62px 242px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -401,6 +402,7 @@
     l-square-plus: 3px 363px 24px 24px;
     l-trash-x: 33px 363px 24px 24px;
     l-volume-off: 63px 363px 24px 24px;
+    l-download: 93px 363px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -603,6 +605,7 @@
         i-square-plus: 4px 484px 32px 32px;
         i-trash-x: 44px 484px 32px 32px;
         i-volume-off: 84px 484px 32px 32px;
+        i-download: 124px 484px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -802,6 +805,7 @@
         l-square-plus: 6px 726px 48px 48px;
         l-trash-x: 66px 726px 48px 48px;
         l-volume-off: 126px 726px 48px 48px;
+        l-download: 186px 726px 48px 48px;
     }
 }
 
@@ -1000,6 +1004,7 @@
 .icon-square-plus { decorator: image(i-square-plus); }
 .icon-trash-x { decorator: image(i-trash-x); }
 .icon-volume-off { decorator: image(i-volume-off); }
+.icon-download { decorator: image(i-download); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1196,3 +1201,4 @@
 .icon-lg.icon-square-plus { decorator: image(l-square-plus); }
 .icon-lg.icon-trash-x { decorator: image(l-trash-x); }
 .icon-lg.icon-volume-off { decorator: image(l-volume-off); }
+.icon-lg.icon-download { decorator: image(l-download); }

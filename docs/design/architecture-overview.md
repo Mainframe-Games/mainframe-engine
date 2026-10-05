@@ -4,10 +4,10 @@
 
 Mainframe Engine is a C# (.NET 10) game engine built on Vulkan 1.2 through Silk.NET. It is a
 learning-oriented engine with a Godot-style scene model: a game is a project (`project.mfproj`) whose node library
-`GameHost` runs (or, for the Sandbox and tests, an `Engine` subclass), with nodes in the engine-owned `SceneTree`,
+`GameHost` runs (or, for the editor and tests, an `Engine` subclass), with nodes in the engine-owned `SceneTree`,
 usually loaded from a scene file. The engine provides windowing, a Vulkan renderer, the node tree with servers behind
 it, scene/resource files, materials and model import, lighting, cascaded shadows, skies, Spine skeletal animation,
-RmlUi game UI, physics, audio, replication, localization and an ImGui developer overlay; the editor
+RmlUi game UI, physics, audio, replication, localization and an RmlUi developer overlay (F12); the editor
 (`MainframeEngine.Editor`) is built on the same engine and UI stack.
 
 ![Architecture layers](../images/architecture-layers.svg)
@@ -19,7 +19,7 @@ RmlUi game UI, physics, audio, replication, localization and an ImGui developer 
 | [`MainframeEngine`](../../MainframeEngine/MainframeEngine.csproj) | class library | The engine. Ships `Content/**` (compiled `.spv` shaders, assets) to dependants' output; shaders compile during the build (`build/Shaders.targets`). |
 | [`MainframeEngine.Generators`](../../MainframeEngine.Generators/MainframeEngine.Generators.csproj) | Roslyn source generator (netstandard2.0, referenced as an analyzer) | Registers every node/resource type's `[Export]` properties and `[Signal]` events. See [Scene serialization](scene-serialization.md#source-generator). |
 | [`MainframeEngine.L10n`](../../Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj) (`mf-l10n`) | exe (build tool) | Localization tooling: RML/scene extraction, `.po` update, pseudo-locale, `.po` → `.mo` compiler run by `build/Localization.targets`. See [Localization](localization.md). |
-| [`MainframeEngine.Sandbox`](../../MainframeEngine.Sandbox/MainframeEngine.Sandbox.csproj) | exe | The test game (an `Engine` subclass). See [Sandbox](sandbox.md). |
+| [`Examples/Demo`](../../Examples/Demo/) | game project (own solution, not in `MainframeEngine.slnx`) | The Demo: a `GameHost` game with one scene per engine feature. See [Demo](demo.md). |
 | [`MainframeEngine.Editor`](../../MainframeEngine.Editor/MainframeEngine.Editor.csproj) | exe | The editor (`EditorApp : Engine`, RmlUi panels); loads game projects' assemblies into collectible contexts and plays them in separate processes. See [Editor](editor.md). |
 | [`Templates/MainframeEngine.Templates`](../../Templates/MainframeEngine.Templates/) | `dotnet new` template package (not in the solution) | `mfgame`: a game's node library + `GameHost` launcher + `project.mfproj`. See [Projects & GameHost](project-and-gamehost.md). |
 | `Tests/*` | xUnit v3 test projects, render-test host, BenchmarkDotNet | See [Testing](testing.md). |
@@ -39,13 +39,14 @@ RmlUi game UI, physics, audio, replication, localization and an ImGui developer 
 | `Servers/` | `IServer`, `ServerRegistry`, `RenderServer` | [Scene graph & nodes](scene-graph-and-nodes.md#servers-and-render-nodes) |
 | `Resources/` | `Resource`, `PackedScene`, `ResourceLoader`, `SceneSaver`/`ResourceSaver`, `AssetDatabase`, `AssetUid` | [Scene serialization](scene-serialization.md) |
 | `Serialization/` | attributes, `TypeRegistry`, `NodeTypeInfo`, codecs, scene reader/writer | [Scene serialization](scene-serialization.md) |
-| `Rendering/Vulkan/` | `VulkanRenderer`, `IVulkanContext`, `VulkanLoaderBootstrap`, `VulkanImGuiController` | [Vulkan renderer](vulkan-renderer.md) |
+| `Rendering/Vulkan/` | `VulkanRenderer`, `IVulkanContext`, `VulkanLoaderBootstrap` | [Vulkan renderer](vulkan-renderer.md) |
 | `Rendering/Shadows/` | `ShadowSystem` | [Shadow system](shadow-system.md) |
 | `Rendering/Sky/` | `SkyEnvironment` + Procedural/Panoramic/Cubemap | [Sky](sky.md) |
 | `Rendering/Spine/` | `SpineRenderer`, `SpineTextureLoader` | [Spine](spine.md) |
 | `Rendering/SceneGrid/` | `SceneGrid`, `SceneGrid2d`, `SceneGrid3d` | [Scene grid](scene-grid.md) |
 | `Rendering/Camera/` | `ICamera`, `PerspectiveCamera`, `OrthographicCamera` (math; the nodes wrap them) | [Cameras & input](cameras-and-input.md) |
-| `Rendering/Gizmos/`, `Utils/`, `Debugging/` | `ImGuiCoordGizmo`, `ImGuiGizmos`, `ColorExtensions`, `Log` | [ImGui & debug tools](imgui-and-debug-tools.md) |
+| `Rendering/Gizmos/`, `Debugging/DevOverlay/` | `ScreenGizmoBatch`, `LightGizmos`, `AxisGizmo`, `DevOverlay` | [Developer overlay](dev-overlay.md) |
+| `Debugging/`, `Utils/` | `Log` and its sinks | [Project & GameHost](project-and-gamehost.md#log-routing) |
 | `Lighting/` | `LightEnvironment`, `Light` + Directional/Point/Spot | [Lighting](lighting.md) |
 | `Networking/` | `MultiplayerApi` (replication, RPCs), messages, transports (ENet, loopback, simulated), `PeerId`, `NetBuffer*` | [Networking](networking.md) |
 | `Physics/` | `PhysicsServer3D` (Jitter2), `PhysicsServer2D` (Box2D.NET), body/area/shape nodes, queries, `DebugLines` | [Physics](physics.md) |
@@ -60,17 +61,16 @@ RmlUi game UI, physics, audio, replication, localization and an ImGui developer 
 
 ```mermaid
 flowchart LR
-    Sandbox["MainframeEngine.Sandbox"] --> Engine["MainframeEngine"]
+    Demo["Examples/Demo<br/>(GameHost launcher)"] --> Engine["MainframeEngine"]
     Editor["MainframeEngine.Editor"] --> Engine
     Game["mfgame projects<br/>(GameHost launcher)"] --> Engine
     Game -. analyzer .-> Gen
-    Sandbox -. analyzer .-> Gen["MainframeEngine.Generators"]
-    Sandbox -. build tool .-> L10n["mf-l10n<br/>(Tools/MainframeEngine.L10n)"]
+    Demo -. analyzer .-> Gen["MainframeEngine.Generators"]
+    Demo -. build tool .-> L10n["mf-l10n<br/>(Tools/MainframeEngine.L10n)"]
     L10n --> Engine
     Engine -. analyzer .-> Gen
     Engine --> SpineRT["spine-csharp<br/>(submodule)"]
     Engine --> Silk["Silk.NET<br/>Windowing + Input (SDL2) · Vulkan · MoltenVK"]
-    Engine --> ImGui["ImGui.NET"]
     Engine --> Stb["StbImageSharp"]
     Engine --> ENet["ENet-CSharp"]
     Engine --> Steam["Steamworks.NET"]
@@ -85,8 +85,8 @@ flowchart LR
 ## Design principles in the current code
 
 - **Games are node libraries.** A game project's code is node types; `GameHost` runs it from `project.mfproj` (no
-  `Engine` subclass). An `Engine` subclass is still supported (the Sandbox, tests, the editor); its four legacy hooks
-  (`OnImGui`, `OnUpdate`, `OnShadowPass`, `OnRenderMainPass`) are optional.
+  `Engine` subclass). An `Engine` subclass is still supported (the editor, the render-test host); its three legacy hooks
+  (`OnUpdate`, `OnShadowPass`, `OnRenderMainPass`) are optional.
 - **The engine owns the scene.** A `SceneTree` (Godot model) runs lifecycle, physics/process, deferred
   calls, transform sync and input for every node; behaviour is C# node subclasses. Scenes are data
   (`.mscene`) loaded through `ResourceLoader`; node properties are discovered by a source generator, not
@@ -113,7 +113,7 @@ flowchart LR
 |---|---|---|
 | Window | `Engine` ctor | `Engine.Dispose` |
 | `SceneTree` (root viewport, `World3D` with its `LightEnvironment`) | `Engine` ctor | `Engine.OnClose` (`Tree.Shutdown()` frees every node) |
-| Input context, `VulkanRenderer`, `VulkanImGuiController`, servers (`RenderServer` → `ShadowSystem`, `DebugLinesRenderer`; `PhysicsServer3D/2D` → one space per world) | `Engine.OnLoad` | `Engine.OnClose` (servers after the tree, before the renderer) |
+| Input context, `VulkanRenderer`, servers (`RenderServer` → `ShadowSystem`, `DebugLinesRenderer`; `PhysicsServer3D/2D` → one space per world) | `Engine.OnLoad` | `Engine.OnClose` (servers after the tree, before the renderer) |
 | Nodes and their GPU objects (shapes, Spine, sky, grid) | the game / `PackedScene.Instantiate` (GPU objects: the render server on enter) | `Free`/`QueueFree`, else the tree shutdown; orphans by the render server |
 | Loaded resources (`PackedScene`, `.mres`) | `ResourceLoader.Load` | last `Release()`, else `ResourceLoader.ClearCache()` in `Engine.OnClose` |
 

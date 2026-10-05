@@ -40,6 +40,7 @@ public abstract class RenderTestGame : Engine
         MaxFrames = host.MaxFrames,
         // The silent null device: CI machines have no audio device, and render tests should not make noise.
         Audio = new AudioOptions { Device = AudioDeviceMode.Null, BusLayoutPath = null },
+        DevOverlayVisible = false, // scenes opt in (showcase, shadow-lights --count 2)
         Locale = "en", // never the machine's language: captures must not depend on it
     };
 
@@ -121,6 +122,8 @@ public abstract class RenderTestGame : Engine
             Renderer.VSync = !Renderer.VSync;
         if (frame == _host.QuitWithErrorAtFrame)
             Quit(ExitCode.Error);
+        RunInputScript(frame);
+        RunMinimizeScript(frame);
 
         UpdateScene(gameTime);
 
@@ -131,6 +134,85 @@ public abstract class RenderTestGame : Engine
             foreach (var light in lights.SpotLights) light.CastsShadows = false;
             foreach (var light in lights.PointLights) light.CastsShadows = false;
         }
+    }
+
+    /// <summary>Frames covered by the scripted right-drag (<c>--input</c>): button down, motion, button up.</summary>
+    public const uint InputFrames = 22;
+
+    private void RunInputScript(uint frame)
+    {
+        var start = _host.InputAtFrame;
+        if (start == 0 || frame < start || frame >= start + InputFrames)
+            return;
+        var step = (int)(frame - start);
+        var x = Window.Size.X / 2 + step * 8;
+        var y = Window.Size.Y / 2;
+        if (step == 0)
+            QaSdl.PushMouse(Window, Silk.NET.SDL.EventType.Mousebuttondown, x, y, 0, 0);
+        else if (step == (int)InputFrames - 1)
+            QaSdl.PushMouse(Window, Silk.NET.SDL.EventType.Mousebuttonup, x, y, 0, 0);
+        else if (step != (int)InputFrames - 2) // one quiet frame before the release
+            QaSdl.PushMouse(Window, Silk.NET.SDL.EventType.Mousemotion, x, y, 8, 0);
+    }
+
+    // --minimize: minimise, count the updates and frames while minimised, restore after MinimizedSeconds.
+    private const double MinimizedSeconds = 1.5;
+    private long _minimizedAt;
+    private bool _minimizeDone;
+    private int _renderedAtSettle; // frames rendered once the minimise has taken effect
+    private System.Threading.Timer? _wakeTimer;
+
+    private void RunMinimizeScript(uint frame)
+    {
+        if (_host.MinimizeAtFrame == 0)
+            return;
+
+        if (frame == _host.MinimizeAtFrame && _minimizedAt == 0 && !_minimizeDone)
+        {
+            Window.WindowState = Silk.NET.Windowing.WindowState.Minimized;
+            _minimizedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+            _renderedAtSettle = -1;
+            QaSdl.WakeEnabled = true;
+            var windowId = QaSdl.WindowId(Window);
+            _wakeTimer = new System.Threading.Timer(_ => QaSdl.WakeEventLoop(windowId), null, 100, 100);
+            return;
+        }
+
+        if (_minimizedAt == 0)
+            return;
+        var elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(_minimizedAt).TotalSeconds;
+        if (_renderedAtSettle < 0 && elapsed >= 0.5)
+        {
+            // The minimise (a frame or two in flight) has taken effect by now — unless the window system has no minimise
+            // (a bare Xvfb without a window manager), where there is nothing to check and the run only proves it stays clean.
+            _renderedAtSettle = Window.WindowState == Silk.NET.Windowing.WindowState.Minimized ? RenderedFrameCount : int.MaxValue;
+        }
+        if (elapsed >= MinimizedSeconds)
+        {
+            // While minimised the engine renders nothing (it blocks on events); growth since then means it spun.
+            var rendered = _renderedAtSettle == int.MaxValue ? 0 : RenderedFrameCount - _renderedAtSettle;
+            if (rendered > 0)
+                Fail($"{rendered} frames were rendered while the window was minimised; expected none.");
+            StopWakeTimer();
+            _minimizedAt = 0;
+            _minimizeDone = true;
+            Window.WindowState = Silk.NET.Windowing.WindowState.Normal;
+        }
+    }
+
+    // Stops the wake timer and waits for an in-flight callback, so no SDL call races SDL shutdown.
+    private void StopWakeTimer()
+    {
+        QaSdl.WakeEnabled = false;
+        if (_wakeTimer is null)
+            return;
+        using (var done = new ManualResetEvent(false))
+        {
+            if (_wakeTimer.Dispose(done))
+                done.WaitOne();
+        }
+
+        _wakeTimer = null;
     }
 
     protected override void OnFrameCaptured(FrameCapture capture)
@@ -165,6 +247,7 @@ public abstract class RenderTestGame : Engine
         var sortedTimes = _frameTimes.Order().ToArray();
         var sortedCpuTimes = _cpuFrameTimes.Order().ToArray();
 
+        StopWakeTimer();
         DisposeScene();
         base.OnClose(); // destroys the device: leaks and in-use destruction are reported here
 

@@ -4,7 +4,7 @@ using MainframeEngine.RenderTests.Host;
 namespace MainframeEngine.RenderTests;
 
 /// <summary>
-/// The editor in a real (hidden) window on the GPU, through its <c>--smoke</c> run: Sandbox.mscene open, a mesh selected by
+/// The editor in a real (hidden) window on the GPU, through its <c>--smoke</c> run: Showcase.mscene open, a mesh selected by
 /// GPU picking at its projected pixel, a property changed through the inspector model, undo/redo, save, reload and
 /// compare; the editor window golden; frame times on the scene; and the allocation gate (0 B per idle frame with a
 /// 1 000-node scene). Also the splash screen golden.
@@ -16,15 +16,15 @@ public class EditorRenderTests
     /// <summary>Layout points → capture pixels at the run's fixed content scale.</summary>
     private static int Px(HostResult result, int points) => (int)MathF.Round(points * result.ContentScale);
 
-    private static string SandboxScene =>
-        Path.Combine(RenderTestEnvironment.RepositoryRoot, "MainframeEngine.Sandbox", "Content", "Scenes", "Sandbox.mscene");
+    private static string ShowcaseScene =>
+        Path.Combine(RenderTestEnvironment.RepositoryRoot, "Tests", "Content", "Scenes", "Showcase.mscene");
 
     [Fact]
     public void SmokeRunPicksEditsUndoesSavesReloadsAndAllocatesNothingWhenIdle()
     {
         var result = HostRunner.RunEditor(Output("editor"),
             new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
-            "--smoke-scene", SandboxScene, "--hidden", "--size", "1280x720");
+            "--smoke-scene", ShowcaseScene, "--hidden", "--size", "1280x720");
 
         Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
         Gates.AssertValidationClean(result);

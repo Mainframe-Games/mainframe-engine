@@ -1,0 +1,101 @@
+{
+  "format": 2,
+  "uid": "scn_dd5b85182ae1",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "StandardMaterial3D_s8kz4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.30588236, 0.3529412, 0.4392157, 1]
+      }
+    },
+    "PlaneMesh_dcv7g": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [30, 30]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "spine",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera3D",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0, 1.5, 7],
+        "RotationDegrees": [-1.6365775, 0, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Camera2D",
+      "parent": ".",
+      "type": "Camera2D",
+      "props": {
+        "Enabled": false
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-40, 25, 0],
+        "Energy": 1.2
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_s8kz4" },
+        "Mesh": { "res": "PlaneMesh_dcv7g" }
+      }
+    },
+    {
+      "name": "Pivot",
+      "parent": ".",
+      "type": "Node3D",
+      "props": {
+        "Scale": [0.25, 0.25, 0.25]
+      }
+    },
+    {
+      "name": "SpineBoy",
+      "parent": "Pivot",
+      "type": "SpineNode",
+      "props": {
+        "Folder": "Content/Models/Spine/SpineBoy",
+        "Animation": "walk"
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "SpinePanel"
+    }
+  ]
+}

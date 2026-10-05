@@ -10,7 +10,7 @@ namespace MainframeEngine;
 /// staging space is reclaimed when that frame's fence signals.
 /// </summary>
 /// <remarks>
-/// <para>Resources created at load time or in <c>OnUpdate</c>/<c>OnImGui</c> are ready for the same frame's
+/// <para>Resources created at load time or in <c>OnUpdate</c> are ready for the same frame's
 /// draws. Creating one while a frame is being recorded (inside the shadow or main pass callbacks) cannot
 /// join that command buffer; the GPU wrappers then call <see cref="FlushIfRecording"/>, which submits the
 /// pending work in a one-shot command buffer and waits on its fence (never <c>vkQueueWaitIdle</c>).</para>

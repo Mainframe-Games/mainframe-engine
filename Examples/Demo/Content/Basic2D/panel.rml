@@ -1,0 +1,14 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Content/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="basic2d">
+    <div class="demo-panel">
+        <h1>Basic 2D</h1>
+        <p class="hint">Canvas items: gradients, polygons, circles, lines and a sprite, Godot-style.</p>
+        <div class="demo-row"><span>Zoom</span><input type="range" min="0.5" max="2.5" step="0.05" data-value="zoom"/></div>
+        <div class="demo-row"><span>Pause animation</span><input type="checkbox" data-checked="paused"/></div>
+    </div>
+</body>
+</rml>

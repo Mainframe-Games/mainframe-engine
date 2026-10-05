@@ -48,16 +48,21 @@ internal static class ReleaseFixtures
 }
 
 /// <summary>An <see cref="HttpMessageHandler"/> that answers from a function and records requests.</summary>
-internal sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+internal sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond) : HttpMessageHandler
 {
+    public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : this((r, _) => Task.FromResult(respond(r))) { }
+
     public List<HttpRequestMessage> Requests { get; } = [];
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Requests.Add(request);
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(respond(request));
+        return respond(request, cancellationToken);
     }
+
+    public static StubHandler Bytes(byte[] body) =>
+        new(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(body) });
 
     public static StubHandler Json(string json) =>
         new(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") });

@@ -143,7 +143,6 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
     public FrameContext Frame => _frameContext ??= new FrameContext(this);
     public ulong FrameNumber => _frameNumber;
     public float MaxSamplerAnisotropy => _maxSamplerAnisotropy;
-    public IImGuiTextureRegistry? ImGuiTextures { get; internal set; }
 
     public float Exposure
     {

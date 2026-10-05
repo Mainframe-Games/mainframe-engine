@@ -19,6 +19,8 @@ public sealed unsafe partial class VulkanUiRenderer
         public Framebuffer SavedFramebuffer;
         public UiEngineTexture? Engine;  // engine://
         public ImageView BoundView;      // the view Set points at (engine textures follow resizes)
+        public ImageLayout BoundLayout;  // the layout the view is sampled in (depth maps: DepthStencilReadOnlyOptimal)
+        public ulong BoundGeneration;    // UiTextureView.Generation Set was written for
         public DescriptorSet Set;
         public DescriptorPool Pool;
         public uint Flags;
@@ -38,8 +40,9 @@ public sealed unsafe partial class VulkanUiRenderer
         slot.Width = width;
         slot.Height = height;
         slot.Flags = flags;
-        (slot.Set, slot.Pool) = AllocateTextureSet(texture.View, texture.Sampler);
+        (slot.Set, slot.Pool) = AllocateTextureSet(texture.View, texture.Sampler, ImageLayout.ShaderReadOnlyOptimal);
         slot.BoundView = texture.View;
+        slot.BoundLayout = ImageLayout.ShaderReadOnlyOptimal;
         return MakeHandle(index, slot.Generation);
     }
 
@@ -98,14 +101,31 @@ public sealed unsafe partial class VulkanUiRenderer
         if (slot.Engine is { } engine)
         {
             // Engine textures can be replaced (render target resize) or unregistered while RmlUi holds the handle.
-            if (!engine.IsRegistered || !engine.TryGetView(out var view, out var sampler))
+            if (!engine.IsRegistered)
                 return false;
-            if (view.Handle != slot.BoundView.Handle)
+            if (!engine.TryGetImage(out var image))
+            {
+                // Nothing to show: drop the set so it never outlives the view it points at (the image may be destroyed
+                // and a new one created with the same handle value); the next valid view allocates a fresh set.
+                FreeTextureSet(slot.Set, slot.Pool);
+                slot.Set = default;
+                slot.Pool = default;
+                slot.BoundView = default;
+                slot.BoundLayout = default;
+                slot.BoundGeneration = 0;
+                return false;
+            }
+
+            if (image.NeedsRebind(slot.BoundView, slot.BoundLayout, slot.BoundGeneration))
             {
                 FreeTextureSet(slot.Set, slot.Pool);
-                (slot.Set, slot.Pool) = AllocateTextureSet(view, sampler);
-                slot.BoundView = view;
+                (slot.Set, slot.Pool) = AllocateTextureSet(image.View, image.Sampler, image.Layout);
+                slot.BoundView = image.View;
+                slot.BoundLayout = image.Layout;
+                slot.BoundGeneration = image.Generation;
             }
+
+            engine.Draws++;
         }
 
         set = slot.Set;
@@ -142,8 +162,9 @@ public sealed unsafe partial class VulkanUiRenderer
         slot.SavedFramebuffer = CreateFramebuffer(_postPassDiscard, image.View, default, (uint)width, (uint)height, "UI saved layer");
         slot.Width = width;
         slot.Height = height;
-        (slot.Set, slot.Pool) = AllocateTextureSet(image.View, _linearSampler);
+        (slot.Set, slot.Pool) = AllocateTextureSet(image.View, _linearSampler, ImageLayout.ShaderReadOnlyOptimal);
         slot.BoundView = image.View;
+        slot.BoundLayout = ImageLayout.ShaderReadOnlyOptimal;
         return MakeHandle(index, slot.Generation);
     }
 
@@ -175,6 +196,14 @@ public sealed unsafe partial class VulkanUiRenderer
         Register(name, new UiEngineTexture(target, colorAttachment, _linearSampler,
             Resolve(flags, target.Description.ColorAttachments[colorAttachment].Format)));
     }
+
+    /// <summary>
+    /// Publishes an image whose view may change or disappear (shadow maps) as <c>engine://name</c>. The source is asked
+    /// every frame the image is drawn; a view with a zero handle means "nothing to show" and nothing is drawn. The
+    /// image must be in the layout the source reports when the UI renders.
+    /// </summary>
+    internal void RegisterTexture(string name, Func<UiTextureView> source, UiTextureConversion flags) =>
+        Register(name, new UiEngineTexture(source, (uint)(flags & ~UiTextureConversion.Auto)));
 
     /// <summary>
     /// Removes an engine texture; documents using it stop drawing it. RmlUi caches textures by source, so its textures
@@ -209,24 +238,49 @@ public sealed unsafe partial class VulkanUiRenderer
         return (uint)((encode ? UiTextureConversion.EncodeSrgb : 0) | UiTextureConversion.Premultiply);
     }
 
+    /// <summary>Draws that resolved the engine textures whose name starts with <paramref name="namePrefix"/> to an image (test hook).</summary>
+    internal long EngineTextureDraws(string namePrefix)
+    {
+        var total = 0L;
+        foreach (var (name, texture) in _engineTextures)
+            if (name.StartsWith(namePrefix, StringComparison.Ordinal))
+                total += texture.Draws;
+        return total;
+    }
+
     private ulong LoadEngineTexture(string name, out int width, out int height)
     {
         width = height = 0;
-        if (!_engineTextures.TryGetValue(name, out var engine) || !engine.TryGetView(out var view, out var sampler))
+        if (!_engineTextures.TryGetValue(name, out var engine))
         {
             Log.Warning($"[UI] Engine texture '{EngineScheme}{name}' is not registered.");
             return 0;
         }
 
-        (width, height) = engine.Size;
+        var hasView = engine.TryGetImage(out var image);
+        if (!hasView && !engine.IsSource)
+        {
+            Log.Warning($"[UI] Engine texture '{EngineScheme}{name}' is not registered.");
+            return 0;
+        }
+
+        (width, height) = ((int)image.Width, (int)image.Height);
         var index = NewTextureSlot();
         ref var slot = ref _textures[index];
         slot.Engine = engine;
         slot.Width = width;
         slot.Height = height;
         slot.Flags = engine.Flags;
-        (slot.Set, slot.Pool) = AllocateTextureSet(view, sampler);
-        slot.BoundView = view;
+        if (hasView)
+        {
+            (slot.Set, slot.Pool) = AllocateTextureSet(image.View, image.Sampler, image.Layout);
+            slot.BoundView = image.View;
+            slot.BoundLayout = image.Layout;
+            slot.BoundGeneration = image.Generation;
+        }
+
+        // else: a source without an image yet (a normal state, e.g. shadow maps before the first shadow pass): the
+        // slot has no set and ResolveTexture binds one when the view appears.
         return MakeHandle(index, slot.Generation);
     }
 
@@ -551,13 +605,28 @@ public sealed unsafe partial class VulkanUiRenderer
     }
 }
 
-/// <summary>An engine texture or render target published to documents as <c>engine://name</c>.</summary>
+/// <summary>
+/// An image a <see cref="UiEngineTexture"/> source reports each time it is drawn. A zero <see cref="View"/> means there
+/// is nothing to show. <see cref="Generation"/> identifies the image's incarnation: a source changes it whenever the
+/// image is recreated (even if a new view reuses the old handle value, or no frame drew it in between), which makes the
+/// UI write a fresh descriptor set instead of binding one that points at a destroyed view.
+/// </summary>
+internal readonly record struct UiTextureView(
+    ImageView View, Sampler Sampler, ImageLayout Layout, uint Width, uint Height, ulong Generation = 0)
+{
+    /// <summary>Whether a descriptor set written for (<paramref name="boundView"/>, layout, generation) no longer matches.</summary>
+    public bool NeedsRebind(ImageView boundView, ImageLayout boundLayout, ulong boundGeneration) =>
+        View.Handle != boundView.Handle || Layout != boundLayout || Generation != boundGeneration;
+}
+
+/// <summary>An engine texture, render target or image source published to documents as <c>engine://name</c>.</summary>
 internal sealed class UiEngineTexture
 {
     private readonly GpuTexture? _texture;
     private readonly RenderTarget? _target;
     private readonly int _attachment;
     private readonly Sampler _targetSampler;
+    private readonly Func<UiTextureView>? _source;
 
     public UiEngineTexture(GpuTexture texture, uint flags)
     {
@@ -573,25 +642,48 @@ internal sealed class UiEngineTexture
         Flags = flags;
     }
 
+    public UiEngineTexture(Func<UiTextureView> source, uint flags)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        _source = source;
+        Flags = flags;
+    }
+
     public uint Flags { get; }
 
     public bool IsRegistered { get; set; } = true;
 
-    public (int Width, int Height) Size => _texture is not null
-        ? ((int)_texture.Width, (int)_texture.Height)
-        : ((int)_target!.Extent.Width, (int)_target.Extent.Height);
+    /// <summary>Times a draw resolved this texture to an image (so tests can prove an <c>engine://</c> image was drawn).</summary>
+    public long Draws { get; set; }
 
-    public bool TryGetView(out ImageView view, out Sampler sampler)
+    /// <summary>A source's image can be absent and appear later; textures and render targets always have one.</summary>
+    public bool IsSource => _source is not null;
+
+    /// <summary>The current image (view, sampler, layout, size, generation); false when there is nothing to show.</summary>
+    public bool TryGetImage(out UiTextureView image)
     {
+        if (_source is not null)
+        {
+            image = _source();
+            return image.View.Handle != 0;
+        }
+
         if (_texture is not null)
         {
-            view = _texture.View;
-            sampler = _texture.Sampler;
+            image = new UiTextureView(_texture.View, _texture.Sampler, ImageLayout.ShaderReadOnlyOptimal, _texture.Width, _texture.Height);
             return true;
         }
 
-        view = _target!.GetColor(_attachment).View;
-        sampler = _targetSampler;
+        var view = _target!.GetColor(_attachment).View;
+        image = new UiTextureView(view, _targetSampler, ImageLayout.ShaderReadOnlyOptimal, _target.Extent.Width, _target.Extent.Height);
         return view.Handle != 0;
+    }
+
+    /// <summary>The image to sample, its sampler and the layout it is in; false when there is nothing to show.</summary>
+    public bool TryGetView(out ImageView view, out Sampler sampler, out ImageLayout layout)
+    {
+        var found = TryGetImage(out var image);
+        (view, sampler, layout) = (image.View, image.Sampler, image.Layout);
+        return found;
     }
 }

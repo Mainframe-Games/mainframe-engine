@@ -12,6 +12,7 @@ project(MainframeNatives LANGUAGES C CXX)
 
 option(MF_NATIVES_ENET "Build the ENet native library (enet)" ON)
 option(MF_NATIVES_RMLUI "Build the RmlUi C ABI shim (mfrmlui)" ON)
+option(MF_NATIVES_SVG "Build the SVG rasteriser (mfsvg, ThorVG)" ON)
 
 include(CTest)
 
@@ -20,4 +21,7 @@ if(MF_NATIVES_ENET)
 endif()
 if(MF_NATIVES_RMLUI)
 	add_subdirectory(RmlUi)
+endif()
+if(MF_NATIVES_SVG)
+	add_subdirectory(Svg)
 endif()

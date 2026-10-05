@@ -236,6 +236,32 @@ public sealed class UiServerTests
     }
 
     [Fact]
+    public void ReloadingAnInMemoryDocumentLogsNoWarning()
+    {
+        using var ui = new UiTestTree();
+        var doc = new UiDocument { Name = "Memory", Rml = UiTestTree.Page("<p id='v'>one</p>") };
+        ui.AddLayer(0, doc);
+        ui.Tick();
+        Assert.True(doc.IsLoaded);
+
+        var sink = new MemoryLogSink { Levels = Log.Level.Warning | Log.Level.Error };
+        Log.AddSink(sink);
+        try
+        {
+            doc.Rml = UiTestTree.Page("<p id='v'>two</p>");
+            doc.Reload();
+            ui.Tick();
+        }
+        finally
+        {
+            Log.RemoveSink(sink);
+        }
+
+        Assert.DoesNotContain(sink.Snapshot(), e => e.Category == "RmlUi");
+        Assert.Equal("two", doc.GetElementById("v")!.InnerRml);
+    }
+
+    [Fact]
     public void ModelCreatedAfterLoadingReloadsTheDocument()
     {
         using var ui = new UiTestTree();
@@ -421,6 +447,28 @@ public sealed class UiServerTests
         doc.GetElementById("btn")!.PerformClick(); // the OnReady subscription was re-attached
         Assert.Equal(1, doc.Clicks);
         Assert.Equal(1, doc.Pings); // and the data model (C# state) still serves the new document
+    }
+
+    [Fact]
+    public void HotReloadEnabledFollowsOptions()
+    {
+        using var off = new UiTestTree(new UiServerOptions { HotReload = false });
+        Assert.False(off.Server.HotReloadEnabled);
+    }
+
+    [Fact]
+    public void ReloadRaisesHotReloadedForStyleSheetsToo()
+    {
+        using var ui = new UiTestTree();
+        ui.AddLayer(0, new UiDocument { Source = ui.Write("UI/page.rml", UiTestTree.Page("<p id='x'>x</p>")) });
+        ui.Tick();
+        var events = new List<(UiReloadKind Kind, string? Path)>();
+        ui.Server.HotReloaded += (kind, path) => events.Add((kind, path));
+
+        ui.Server.Reload(UiReloadKind.StyleSheets);
+        ui.Server.Reload(UiReloadKind.Documents);
+
+        Assert.Equal([(UiReloadKind.StyleSheets, (string?)null), (UiReloadKind.Documents, (string?)null)], events);
     }
 
     [Fact]

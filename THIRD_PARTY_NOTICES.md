@@ -7,13 +7,15 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 
 - Keep these notices with any distribution of the engine, the editor, or a game built with it.
 - Credits screens must show the FreeType credit, because the FreeType License has an advertising clause. The engine
-  ships a ready-made credits document, `Content/UI/credits.rml` (the Sandbox's **Credits** button shows it).
+  ships a ready-made credits document, `Content/UI/credits.rml` (load it from a **Credits** button in your game's UI).
 
 | Component | Version | Licence | Where | Shipped in |
 |---|---|---|---|---|
 | [FreeType](https://freetype.org) | 2.14.3 | FreeType License (FTL), chosen over GPLv2 | `Native/RmlUi/external/freetype` (submodule) | `mfrmlui` native library (static) |
 | zlib (bundled in FreeType's gzip module) | 1.3.1 | zlib | inside FreeType | `mfrmlui` native library (static) |
 | [RmlUi](https://github.com/mikke89/RmlUi) | 6.3 | MIT | `Native/RmlUi/external/RmlUi` (submodule) | `mfrmlui` native library (static) |
+| [ThorVG](https://github.com/thorvg/thorvg) (the copy vendored by Godot 4.7.2, `thirdparty/thorvg`) | 1.0.3 | MIT | `Native/Svg/thorvg` | `mfsvg` native library (static) |
+| [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`) | 4.7.2 | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs` | engine |
 | robin_hood, itlib (bundled in RmlUi Core) | — | MIT | inside RmlUi | `mfrmlui` native library (static) |
 | Courier Prime Code font (embedded in the RmlUi Debugger) | — | SIL OFL 1.1 | inside RmlUi | `mfrmlui` native library (static) |
 | [Lato](http://www.latofonts.com/) (Latin subset: regular, bold, italic) | 2.0 | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
@@ -27,10 +29,10 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
 | [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
 | [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
-| Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `MainframeEngine.Sandbox/Content/Models/Spine/SpineBoy` | Sandbox only (see [below](#spine-example-assets)) |
-| [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `MainframeEngine.Sandbox/Content/Sky`, `Examples/EditorShowcase/Content/Sky` | Sandbox and EditorShowcase only |
+| Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
+| [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
 
-Managed NuGet dependencies (Silk.NET, ImGui.NET, StbImageSharp, Steamworks.NET, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
+Managed NuGet dependencies (Silk.NET, StbImageSharp, Steamworks.NET, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
 their packages and are not repeated here.
 
 ## FreeType
@@ -302,6 +304,56 @@ fonts, in `MainframeEngine/Content/UI/fonts/OFL-Lato.txt` and `OFL-RobotoMono.tx
 The OFL allows bundling and redistribution with software; the fonts may not be sold on their own, and modified
 versions may not use the reserved font names.
 
+## ThorVG
+
+The SVG rasteriser `mfsvg` statically links ThorVG 1.0.3 (the exact sources Godot 4.7.2 vendors in `thirdparty/thorvg`).
+
+```
+MIT License
+
+Copyright (c) 2020 - 2026 ThorVG Project
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Godot Engine
+
+Parts of the 2D canvas, camera, window stretch and image code are ports of Godot Engine 4.7.2 (C++ → C#).
+
+```
+Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md).
+Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
 ## ENet
 
 ENet library (C), from ENet-CSharp `Source/Native/enet.h` and `enet.c`:
@@ -398,12 +450,13 @@ SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 runtimes. **They are not covered by this repository's MIT licence**; using them (or the Spine Runtimes) in your own
 product requires a [Spine Editor licence](http://esotericsoftware.com/spine-editor-license). Copies in this repository:
 
-- `MainframeEngine.Sandbox/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (also linked into
-  `Tests/MainframeEngine.Tests` and `Tests/MainframeEngine.RenderTests.Host`; the `spine*` render-test goldens show it)
+- `Examples/Demo/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (the Demo's Spine scene) and
+  `Tests/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (linked into `Tests/MainframeEngine.Tests` and
+  `Tests/MainframeEngine.RenderTests.Host`; the `spine*` render-test goldens show it)
 
 ## Poly Haven sky panoramas
 
-The panoramic sky `sky_10_2k.png` (in `MainframeEngine.Sandbox/Content/Sky/` and `Examples/EditorShowcase/Content/Sky/`)
+The panoramic sky `sky_10_2k.png` (in `Examples/Demo/Content/Sky/` and `Tests/Content/Sky/`)
 is one of the Poly Haven sky panoramas (CC0), converted to an 8-bit 4096×2048 PNG. Poly Haven assets are released
 under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication; see
 https://polyhaven.com/license): no attribution is required, and it is given here as a courtesy.

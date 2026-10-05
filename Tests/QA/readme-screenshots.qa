@@ -1,24 +1,21 @@
 # README screenshots (just readme-screenshots): raw 2x captures into artifacts/readme-screenshots; the recipe downscales
 # them into docs/images. Projects live under the neutral /tmp/MainframeProjects (no user paths on screen): the recipe
-# links Examples/EditorShowcase there and the workflow part creates MyGame there.
+# links Examples/Demo there and the workflow part creates MyGame there.
 wait 30
 # 1. The Project Manager with a few recent projects.
-recent-project /tmp/MainframeProjects/EditorShowcase EditorShowcase 0.2
+recent-project /tmp/MainframeProjects/Demo Demo 0.2
 recent-project /tmp/MainframeProjects/SpaceMiner SpaceMiner 26
 recent-project /tmp/MainframeProjects/PuzzleBox PuzzleBox 120
 move 900 600
 wait 20
 capture editor-project-manager
-# 2. The showcase scene: a light selected, debug lines filtered out, the Play tooltip showing.
-open-project /tmp/MainframeProjects/EditorShowcase
+# 2. The Demo's Basic 3D scene (the project's main scene opens with it): a light selected, debug lines filtered out, the Play tooltip showing.
+open-project /tmp/MainframeProjects/Demo
 wait-for project 300
-wait 10
+wait 40
 click #level-debug
-collapse Crates/Crate0
-collapse Crates/Crate1
-collapse Crates/Crate2
-collapse Crates/Crate3
-select WarmSpot
+collapse Ring
+select Lights/WarmSpot
 camera -0.3 0.9 -0.8 8.8 -18 -16
 move #play
 wait 60
@@ -44,6 +41,7 @@ wait 30
 capture editor-add-node
 cancel
 wait 5
+state
 # 4. The game workflow: create MyGame, add an [Export] property to its C#, Build & Reload, play it.
 command project.new
 wait 10

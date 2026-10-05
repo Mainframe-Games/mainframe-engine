@@ -13,9 +13,11 @@ RenderTestGame game = options.Scene switch
 {
     "lit-shapes" => new LitShapesScene(options),
     "multi-light" => new MultiLightScene(options),
+    "mouse-look" => new MouseLookScene(options),
     "spine" => new SpineScene(options),
     "spine-no-shadows" => new SpineNoShadowsScene(options),
-    "sandbox" => new SandboxScene(options),
+    "spine-2d" => new Spine2DScene(options),
+    "showcase" => new ShowcaseScene(options),
     "color-pipeline" => new ColorPipelineScene(options),
     "physics" => new PhysicsScene(options),
     "physics-debug" => new PhysicsDebugScene(options),
@@ -25,6 +27,7 @@ RenderTestGame game = options.Scene switch
     "instances" => new InstancesScene(options),
     "picking" => new PickingScene(options),
     "ui-hud" => new UiHudScene(options),
+    "canvas" => new CanvasScene(options),
     "ui-effects" => new UiDocumentScene(options, "Content/UI/effects.rml"),
     "ui-widgets" => new UiDocumentScene(options, "Content/UI/widgets/demo.rml"),
     "ui-text" => new UiDocumentScene(options, "Content/UI/text.rml"),
@@ -34,7 +37,7 @@ RenderTestGame game = options.Scene switch
     "shadow-cutout" => new ShadowCutoutScene(options),
     "shadow-shimmer" => new ShadowShimmerScene(options),
     _ => throw new ArgumentException(
-        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, spine, spine-no-shadows, sandbox, color-pipeline, " +
+        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-2d, showcase, color-pipeline, " +
         "physics, physics-debug, sky-grid, materials, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, " +
         "csm, shadow-pcf, shadow-lights, shadow-cutout, shadow-shimmer."),
 };

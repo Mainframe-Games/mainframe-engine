@@ -54,10 +54,6 @@ public sealed class SkyGridScene(HostOptions host) : RenderTestGame(host)
     {
     }
 
-    protected override void OnImGui(in GameTime gameTime)
-    {
-    }
-
     protected override void OnShadowPass(in GameTime gameTime)
     {
     }

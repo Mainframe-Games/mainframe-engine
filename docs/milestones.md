@@ -43,6 +43,7 @@ flowchart LR
 | [M8](#m8--game-ui-rmlui-) | RmlUi HTML/CSS game UI (also the editor's UI) | ✅ |
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
+| [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -52,8 +53,8 @@ flowchart LR
 ## M0 — Foundation ✅
 
 The engine runs on Windows, Linux and macOS (MoltenVK, including Apple Silicon at 120 fps in the
-Sandbox). It renders a lit, shadowed 3D scene with a sky, a reference grid, an animated Spine character
-and an ImGui debug overlay. Networking and Steam exist only as scaffolds. The last M0 item moves
+test game, later replaced by the [Demo](design/demo.md)). It renders a lit, shadowed 3D scene with a sky, a reference grid, an animated Spine character
+and a debug overlay (an immediate-mode one then, the RmlUi [dev overlay](design/dev-overlay.md) since D2). Networking and Steam exist only as scaffolds. The last M0 item moves
 windowing and input from GLFW to SDL2 (via Silk.NET 2.22), so later input, gamepad and Steam work builds on it.
 
 | Feature | Status | Design doc |
@@ -68,7 +69,7 @@ windowing and input from GLFW to SDL2 (via Silk.NET 2.22), so later input, gamep
 | Spine skeletal animation, lit + shadow-casting | ✅ | [Spine](design/spine.md) |
 | 2D/3D cameras, fly camera controls | ✅ | [Cameras & input](design/cameras-and-input.md) |
 | Scene grid 2D/3D | ✅ | [Scene grid](design/scene-grid.md) |
-| ImGui Vulkan backend, `Log`, axis and light gizmos | ✅ | [ImGui & debug tools](design/imgui-and-debug-tools.md) |
+| Debug overlay backend, `Log`, axis and light gizmos (since D2: RmlUi `DevOverlay` + Vulkan `ScreenGizmos`) | ✅ | [Developer overlay](design/dev-overlay.md) |
 | Shader set + SPIR-V | ✅ | [Shaders](design/shaders.md) |
 | ENet client/server + pooled buffers (scaffold) | ✅ ² | [Networking](design/networking.md) |
 | Steamworks wrappers (scaffold, inert) | ✅ ² | [Steamworks](design/steamworks.md) |
@@ -90,7 +91,7 @@ and CLAUDE.md back in line with the code.
 | Remove the double depth remap | ✅ | [Coordinate conventions: depth](design/coordinate-conventions.md#depth) |
 | Depth hazard dependency, dynamic-indexing feature, depth-format features, explicit cull mode | ✅ | [Vulkan renderer](design/vulkan-renderer.md#main-render-pass) · [Shadow system](design/shadow-system.md#pipelines) |
 | Spine without `ShadowSystem` (dummy set) | ✅ | [Shadow system: without a ShadowSystem](design/shadow-system.md#without-a-shadowsystem) |
-| Exit code, validation in Debug only, ImGui frame pairing and HiDPI, no busy-wait when minimised | ✅ | [Engine lifecycle](design/engine-lifecycle.md) · [ImGui & debug tools](design/imgui-and-debug-tools.md) |
+| Exit code, validation in Debug only, overlay frame pairing and HiDPI, no busy-wait when minimised | ✅ | [Engine lifecycle](design/engine-lifecycle.md) · [Developer overlay](design/dev-overlay.md) |
 | `SpineNode` scale, animation order, `SetAnimation`, vertex growth, pixel release | ✅ | [Spine](design/spine.md) |
 | CLAUDE.md sync with the code (README synced 2026-10-05) | ✅ | [CLAUDE.md](../CLAUDE.md) |
 
@@ -115,7 +116,7 @@ registration pattern M2 defines; `Box3d`/`Quad` give way to `MeshInstance3D` in 
 | Input events routed through the tree (`OnInput` / `OnUnhandledInput`) | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#input) |
 | `[Export]` + source-generated type registry (`MainframeEngine.Generators`) | ✅ | [Scene serialization](design/scene-serialization.md#property-model) |
 | `.mscene` / `.mres` files, `PackedScene`, nested instances, UIDs + `AssetDatabase` | ✅ | [Scene serialization](design/scene-serialization.md) |
-| Sandbox scene loaded from `Content/Scenes/Sandbox.mscene` | ✅ | [Sandbox](design/sandbox.md) |
+| Test-game scene loaded from a `.mscene` file (today: every Demo scene) | ✅ | [Demo](design/demo.md) |
 
 ## M3 — Materials, meshes & resources ✅
 
@@ -129,7 +130,7 @@ pipeline, and shaders compiled as part of the build.
 | `Material`, `Mesh`, `MeshInstance3D`, `Sprite3D`, textures (sRGB/UNORM per usage, GPU mips, `.meta` settings); `Box3d`/`Quad` removed | ✅ | [Materials & meshes](design/materials-and-meshes.md) |
 | Instanced, sorted batches (opaque by state, transparent back to front), frustum culling, instanced shadow casters, draw stats | ✅ | [Materials & meshes](design/materials-and-meshes.md#frame) |
 | Model loading via Assimp (glTF/FBX/OBJ → `PackedScene`), import settings, import cache | ✅ | [Asset pipeline](design/asset-pipeline.md) |
-| Object-ID picking (`PickAsync`), `SubViewport` offscreen views (ImGui texture) | ✅ | [Materials & meshes](design/materials-and-meshes.md#picking-object-ids) |
+| Object-ID picking (`PickAsync`), `SubViewport` offscreen views (shown through `engine://` UI textures) | ✅ | [Materials & meshes](design/materials-and-meshes.md#picking-object-ids) |
 | GPU allocator, upload queue, deferred deletion | ✅ | [GPU resources](design/gpu-resources.md) |
 | Linear lighting, HDR target, tonemapping, sRGB, Spine PMA | ✅ | [Color pipeline](design/color-pipeline.md) |
 | Build-time shader compilation, includes, `ContentPaths` | ✅ | [Shaders](design/shaders.md), [Build & platforms](design/build-and-platforms.md#shaders) |
@@ -150,7 +151,7 @@ the sampler count.
 
 Turn the networking and Steam scaffolds into a working multiplayer stack: a typed message protocol,
 server-authoritative node replication, a transport abstraction (ENet / Steam sockets), working lobbies, and Apple
-Silicon support. The Sandbox has a `--server` / `--client <host>` demo.
+Silicon support.
 
 | Feature | Status | Design doc |
 |---|---|---|
@@ -207,7 +208,7 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 
 HTML/CSS-style UI using **RmlUi 6.3**, through an engine-owned native binding and a Vulkan render
 interface on the engine's device. This same stack is the editor's UI. Documents render into an offscreen
-premultiplied sRGB layer composited after the tonemap (below ImGui), with clip masks, layers, filters and
+premultiplied sRGB layer composited after the tonemap (below the dev overlay), with clip masks, layers, filters and
 gradients; the UI sees input before the scene tree.
 
 | Feature | Status | Design doc |
@@ -219,7 +220,7 @@ gradients; the UI sees input before the scene tree.
 | `UiServer`, `UiLayer`, `UiDocument`, data binding, element events | ✅ | [Game UI](design/game-ui.md#uiserver-uilayer-uidocument) |
 | Input routing, IME placement, clipboard, gamepad navigation | ✅ | [Game UI](design/game-ui.md#input-routing) |
 | Hot reload, debugger (F8), shared widget library, bundled fonts | ✅ | [Game UI](design/game-ui.md#development-tools) |
-| Sandbox HUD; ImGui as the F12 developer overlay | ✅ | [Game UI](design/game-ui.md#sandbox), [Sandbox](design/sandbox.md) |
+| Demo panels as the game-UI reference; the F12 developer overlay | ✅ | [Game UI](design/game-ui.md#demo), [Demo](design/demo.md) |
 | Inline IME composition (shim ABI 1.1 `TextInputContext`) | ⬜ | [Game UI](design/game-ui.md#known-issues) |
 
 ## M9 — Localization ✅
@@ -250,6 +251,18 @@ core, and its UI is built entirely with the M8 game UI stack (RmlUi).
 | E4 editor side: Project Manager (recent projects, .NET SDK check), New Project wizard (`dotnet new mfgame`), Project Settings (every section, input map binding capture, undo), FileSystem panel (tree/list/grid, thumbnails, badges, create/rename/move with UID reference fix-ups, OS trash, drag and drop), Play (F5/F6/F7/F8, build errors and game logs in Output, several instances), code reload into a collectible context with scenes re-created | ✅ | [Editor: projects](design/editor.md#projects) · [Play](design/editor.md#play) · [FileSystem](design/editor.md#filesystem-panel) |
 | E5 Polish: signals tab, multi-select editing, 2D editing mode, resource files and `[CustomInspector]` example (audio bus mixer), editor settings (accent, autosave, external code editor), resizable inspector name column | ✅ | [Editor](design/editor.md#signals) |
 | After M10: remote scene tree, simulate mode, box selection, multi-node gizmo, docking | ⬜ | [Future: editor](design/future/editor.md) |
+
+## Demo & polish ✅
+
+Replace the old test game with a real, downloadable game project that shows one feature per scene, retire ImGui, and polish
+the Project Manager. Order: D1 → D2 → D3 → D4.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| D1 `Examples/Demo` (GameHost project): nav-bar autoload, Basic 3D / Basic 2D / Audio 2D / Audio 3D / UI + hot reload / Physics 2D / Physics 3D / Spine (Camera2D ↔ Camera3D) scenes, README screenshot gallery; the old test game and the editor-screenshot project removed | ✅ | [Demo](design/demo.md) (proposal: [Demo project](design/future/demo-project.md)) |
+| D2 Remove ImGui: RmlUi `DevOverlay` (F12, panels, `AddPanel`), Vulkan `ScreenGizmos` (light + axis gizmos) | ✅ | [Developer overlay](design/dev-overlay.md) (proposal: [Remove ImGui](design/future/remove-imgui.md), [ADR 0115](../memory/decisions/0115-remove-imgui.md)) |
+| D3 Project icons in the Project Manager (`window.icon`, template default icon, RmlUi absolute-path fix) | ✅ | [Project icons](design/future/project-icons.md) |
+| D4 "Download Demo Project" (release zip asset, download + extract + engine-path rewrite) | ✅ | [Demo download](design/future/demo-download.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 

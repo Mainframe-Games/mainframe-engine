@@ -21,7 +21,7 @@ public struct EngineOptions()
     /// Fixed content scale: pixels per point of <see cref="WindowSize"/>. When greater than zero the framebuffer (swapchain,
     /// frame captures) is exactly <see cref="WindowSize"/> × <see cref="ContentScale"/> pixels on any display: the OS window
     /// is sized for the backing scale of the display it lands on (a 2× Retina window gets half the points of a 1× monitor's
-    /// one), and the UI's dp ratio and ImGui use this scale instead of the display's. Start-up fails when the window cannot
+    /// one), and the UI's dp ratio uses this scale instead of the display's. Start-up fails when the window cannot
     /// reach that size (a fractional display scale that does not divide it). 0 (default) follows the display: the window
     /// is <see cref="WindowSize"/> OS points and the framebuffer whatever that is in pixels. Render tests and QA captures
     /// set it so their images do not depend on the monitor.
@@ -97,8 +97,8 @@ public struct EngineOptions()
     /// <summary>UI server options (fonts, hot reload, source content folders); null uses the defaults.</summary>
     public UiServerOptions? Ui;
 
-    /// <summary>Shows the ImGui developer overlay at start-up; F12 toggles it at runtime (<see cref="Engine.DevOverlayVisible"/>).</summary>
-    public bool DevOverlayVisible = true;
+    /// <summary>Shows the developer overlay (RmlUi, F12) at start-up; F12 toggles it at runtime (<see cref="Engine.DevOverlayVisible"/>).</summary>
+    public bool DevOverlayVisible;
 
     /// <summary>
     /// Starting locale (<c>es</c>, <c>pt_BR</c>), typically from the player's settings. Null picks the OS UI language
@@ -112,8 +112,6 @@ public struct EngineOptions()
 
 public abstract class Engine : IDisposable
 {
-    private VulkanImGuiController? _vkImGuiController;
-
     private ExitCode _exitCode;
     private bool _waitingForRestore; // IsEventDriven was switched on while minimised
     private bool _quitRequested;      // Quit() called; the window closes after this iteration's render
@@ -130,10 +128,24 @@ public abstract class Engine : IDisposable
     public UiServer? Ui => Servers.Get<UiServer>();
 
     /// <summary>
-    /// Whether the ImGui developer overlay (<see cref="OnImGui"/>, renderer/debug windows) is drawn. F12 toggles it.
+    /// Whether the developer overlay (the in-engine <c>DevOverlay</c>) is drawn. F12 toggles it.
     /// The game UI is unaffected.
     /// </summary>
-    public bool DevOverlayVisible { get; set; }
+    public bool DevOverlayVisible
+    {
+        get => _devOverlayVisible;
+        set
+        {
+            _devOverlayVisible = value;
+            if (DevOverlay is not null)
+                DevOverlay.Visible = value;
+        }
+    }
+
+    private bool _devOverlayVisible;
+
+    /// <summary>The RmlUi developer overlay (F12; null when <see cref="EngineOptions.EnableUi"/> is off or before <see cref="OnLoad"/>).</summary>
+    public DevOverlay? DevOverlay { get; private set; }
 
     /// <summary>The key that toggles <see cref="DevOverlayVisible"/>.</summary>
     public Key DevOverlayKey { get; set; } = Key.F12;
@@ -164,7 +176,7 @@ public abstract class Engine : IDisposable
     public int RenderedFrameCount => _renderedFrames;
 
     /// <summary>
-    /// CPU time of the last rendered frame, in milliseconds: its update (ImGui, <see cref="OnUpdate(in GameTime)"/>,
+    /// CPU time of the last rendered frame, in milliseconds: its update (<see cref="OnUpdate(in GameTime)"/>,
     /// the scene tree tick) and render (draw-list build, shadow/offscreen/main/overlay command recording, submit),
     /// without the time the renderer was blocked on the GPU or the swapchain
     /// (<see cref="IVulkanContext.LastFrameWaitMilliseconds"/>). Unlike the wall-clock frame time it does not depend on
@@ -232,6 +244,9 @@ public abstract class Engine : IDisposable
         Localization.Tr.Configure(engineOptions.Localization ?? new Localization.LocalizationOptions(), engineOptions.Locale);
         Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond }; // M2
         MainframeEngine.Input.Current = Tree.Input; // M10: Input.IsActionPressed(...) reads the engine's tree
+        Tree.QuitRequested += code => Quit((ExitCode)code);
+        Tree.CanCaptureFrame = engineOptions.EnableFrameCapture;
+        Tree.CaptureRequested += CaptureFrame;
 
         // Linux: Silk.NET cannot find package natives (libSDL2) in runtimes/linux-x64/native on its own.
         SilkNativeResolver.Install();
@@ -334,9 +349,6 @@ public abstract class Engine : IDisposable
             EnableFrameCapture = EngineOptions.EnableFrameCapture,
         });
 
-        if (Renderer is IVulkanContext vkCtx)
-            _vkImGuiController = new VulkanImGuiController(vkCtx, InputContext, Window, EngineOptions.ContentScale);
-
         // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,
         // Steam, then the render server last, so nothing outlives what it depends on (the UI's GPU objects go while the
         // renderer is alive; multiplayer's Steam transport on SteamServer; every server's nodes are gone before any
@@ -352,15 +364,20 @@ public abstract class Engine : IDisposable
         // M6: physics servers, stepped by the tree's fixed tick; they create a space per world on demand.
         Servers.Register(new PhysicsServer3D(EngineOptions.Physics3D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
         Servers.Register(new PhysicsServer2D(EngineOptions.Physics2D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
+        // 2D canvas (ADR 0111): gamma-space canvas layer composited after the tonemap, below the game UI (registered first).
+        Servers.Register(new CanvasServer(Tree, () => new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y), Renderer));
         if (EngineOptions.EnableUi)
         {
-            // M8: RmlUi game UI — sees input before the tree's nodes, renders after the tonemap below ImGui.
+            // M8: RmlUi game UI — sees input before the tree's nodes, renders after the tonemap below the dev overlay.
             var uiOptions = EngineOptions.Ui ?? new UiServerOptions();
             if (EngineOptions.ContentScale > 0f)
                 uiOptions = uiOptions with { ContentScale = EngineOptions.ContentScale };
             var ui = new UiServer(Renderer, Window, InputContext, uiOptions);
             ui.CanRender = () => !IsMinimised();
             Servers.Register(ui);
+            DevOverlay = new DevOverlay(Tree) { Visible = DevOverlayVisible };
+            Servers.Register(DevOverlay);
+            DevOverlayPanels.AddBuiltIns(DevOverlay, this);
         }
 
         _inputRouter = new InputRouter(InputContext, Tree);
@@ -418,11 +435,8 @@ public abstract class Engine : IDisposable
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;
 
-        _vkImGuiController?.Update(_gameTime.DeltaTime);
-
-        if (DevOverlayVisible)
-            OnImGui(_gameTime);
         OnUpdate(_gameTime);
+        Tree.Root.SetSize(new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y)); // content scale (stretch) for the 2D canvas
         Tree.Tick(_gameTime); // M2: physics steps, process, deferred calls/frees, transform sync
         _updateTicks += Stopwatch.GetTimestamp() - start;
     }
@@ -440,10 +454,10 @@ public abstract class Engine : IDisposable
     private void RenderFrame()
     {
         // Minimised (or no drawable area): render nothing and block on window events instead of
-        // spinning the loop; the frame's ImGui NewFrame is closed so frames stay paired.
+        // spinning the loop.
         if (IsMinimised())
         {
-            _vkImGuiController?.DiscardFrame();
+            Servers.Render?.ScreenGizmos.Clear(); // nothing is drawn: do not let the shapes pile up
             if (!Window.IsEventDriven)
             {
                 Window.IsEventDriven = true;
@@ -478,20 +492,19 @@ public abstract class Engine : IDisposable
             // Begin the main render pass, then let the game draw geometry.
             (Renderer as IVulkanContext)?.BeginRenderPass();
 
-            Servers.Render?.RenderMain(Root); // M2: sky, then the scene tree's visuals
+            if (Servers.Render is { } render)
+            {
+                render.GizmoScale = ContentScale;
+                render.RenderMain(Root); // M2: sky, then the scene tree's visuals
+            }
             OnRenderMainPass(_gameTime);
-            // Tonemaps the scene target, draws the game UI, then ImGui in the overlay pass. With the overlay hidden
-            // the frame is discarded and EndFrame runs the tonemap + UI.
-            if (DevOverlayVisible)
-                _vkImGuiController?.Render();
-            else
-                _vkImGuiController?.DiscardFrame();
         }
         else
         {
-            _vkImGuiController?.DiscardFrame();
+            Servers.Render?.ScreenGizmos.Clear(); // skipped frame (swapchain rebuild): the overlay pass will not draw them
         }
 
+        // Tonemaps the scene target, then draws the canvas, game UI, screen gizmos and dev overlay in the overlay pass.
         Renderer.EndFrame();
 
         if (!frameStarted)
@@ -505,11 +518,14 @@ public abstract class Engine : IDisposable
         _renderedFrames++;
 
         if (Renderer.TryTakeCapture(out var capture))
+        {
             OnFrameCaptured(capture);
+            Tree.DeliverCapture(capture);
+        }
     }
 
     /// <summary>
-    /// Copies the frame being built in this iteration (call from <see cref="OnImGui"/>,
+    /// Copies the frame being built in this iteration (call from
     /// <see cref="OnUpdate(in GameTime)"/> or a render hook) back to the CPU once it has been rendered;
     /// <see cref="OnFrameCaptured"/> receives the pixels. Requires
     /// <see cref="EngineOptions.EnableFrameCapture"/>.
@@ -528,11 +544,6 @@ public abstract class Engine : IDisposable
     }
 
     // Legacy per-frame hooks, optional since the scene tree (M2) can drive everything.
-
-    /// <summary>Build ImGui windows (inside the ImGui frame, before update).</summary>
-    protected virtual void OnImGui(in GameTime gameTime)
-    {
-    }
 
     /// <summary>Game logic, before the scene tree's tick.</summary>
     protected virtual void OnUpdate(in GameTime gameTime)
@@ -558,7 +569,7 @@ public abstract class Engine : IDisposable
     }
 
     /// <summary>
-    /// Frees the scene tree and servers, then disposes ImGui, input and the renderer. Call <c>base.OnClose()</c>
+    /// Frees the scene tree and servers, then disposes input and the renderer. Call <c>base.OnClose()</c>
     /// last. Keeps the exit code set by <see cref="Quit"/>.
     /// </summary>
     protected virtual void OnClose()
@@ -574,8 +585,6 @@ public abstract class Engine : IDisposable
         Servers.Dispose();
         ResourceLoader.ClearCache();
 
-        _vkImGuiController?.Dispose();
-        _vkImGuiController = null;
         InputContext?.Dispose();
         Renderer?.Dispose();
     }
@@ -589,7 +598,7 @@ public abstract class Engine : IDisposable
     /// <summary>
     /// Requests shutdown with <paramref name="exitCode"/> (returned by <see cref="Run"/>). The window
     /// closes at the end of the current iteration's render, so it is safe to call from
-    /// <see cref="OnUpdate(in GameTime)"/>, <see cref="OnImGui"/> or input handlers.
+    /// <see cref="OnUpdate(in GameTime)"/> or input handlers.
     /// </summary>
     public void Quit(in ExitCode exitCode)
     {

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
   <title>Viewport and depth conventions</title>
-  <desc>Left: the main pass uses a Y-flipped viewport while shadow and ImGui passes do not. Right: the projection already outputs depth 0..1, and the extra GL-style remap in the main-pass vertex shaders compresses it to 0.5..1.</desc>
+  <desc>Left: the main pass uses a Y-flipped viewport while shadow and overlay passes do not. Right: the projection already outputs depth 0..1, and the extra GL-style remap in the main-pass vertex shaders compresses it to 0.5..1.</desc>
   <rect width="960" height="440" fill="#ffffff"/>
   <style>
     .hdr{font-weight:600;font-size:14px;fill:#111827}
@@ -32,7 +32,7 @@
   <text x="300" y="140" class="s">uv = ndc·0.5+0.5</text>
 
   <rect x="20" y="220" width="420" height="70" rx="6" fill="#f9fafb" stroke="#9ca3af"/>
-  <text x="30" y="242" class="s">ImGui: unflipped (Y-down matches Vulkan).</text>
+  <text x="30" y="242" class="s">Overlays (gizmos, UI): unflipped (Y-down).</text>
   <text x="30" y="260" class="s">A flipped viewport reverses winding: CCW-front in main pass vs</text>
   <text x="30" y="278" class="s">CCW-front + Cull Front in shadow pass → effectively back-face cull (inferred).</text>
 

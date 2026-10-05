@@ -55,6 +55,15 @@ flowchart LR
   right-click → Open), `MainframeEngine-X.Y.Z-win-x64.zip`, `MainframeEngine-X.Y.Z-linux-x64.tar.gz`; the
   GitHub Release is titled "Mainframe Engine vX.Y.Z". `just publish-local [rid]` produces the same archive
   locally. The executable inside stays `MainframeEngine.Editor` (the assembly name the workflow and tests use).
+- **Demo assets.** The `demo` job (needs `guard` and `ci`; the release waits for it) pulls the Demo's LFS content and runs
+  [`build/package-demo.sh`](../../build/package-demo.sh) `<version> <out-dir>`, which zips `Examples/Demo` (tracked and
+  unignored files, no `bin/`/`obj/`, failing on LFS pointer files) under a top folder `MainframeEngine.Demo/` as
+  `MainframeEngine.Demo-vX.Y.Z.zip` (plus a generated `Directory.Packages.props` with the versions of the packages the Demo
+  references, read from the repo's, since the Demo builds outside it) and a stable-name copy `MainframeEngine.Demo.zip`. Both are attached to the release;
+  the editor's **Download Demo** button fetches the first (or the second from a development build), see
+  [Editor: projects](editor.md#projects). CI zips the Demo the same way (version `0.0.0-ci`) and runs
+  `MainframeEngine.Editor --validate-demo-zip <zip> --build` on it (validates, points it at the checkout like Download
+  Demo and builds `Demo.slnx` out of tree), so a Demo zip that is broken or only builds inside the repo fails before a release.
 - **Requirements on the user's machine.** Creating and playing game projects runs `dotnet build`, so the
   .NET 10 SDK must be installed even though the editor itself is self-contained.
 

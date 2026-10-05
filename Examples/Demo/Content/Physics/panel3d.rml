@@ -1,0 +1,15 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Content/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="physics3d">
+    <div class="demo-panel">
+        <h1>Physics 3D</h1>
+        <p class="hint">Jitter2 rigid bodies, a ramp and a character body. Click the floor to drop a crate.</p>
+        <div class="demo-row"><span>Bodies</span><span>{{count}}</span></div>
+        <div class="demo-row"><span>Collision shapes</span><input type="checkbox" data-checked="shapes"/></div>
+        <div class="demo-row"><button data-event-click="rain()">Rain crates</button><button data-event-click="reset()">Reset</button></div>
+    </div>
+</body>
+</rml>

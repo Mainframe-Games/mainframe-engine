@@ -33,11 +33,11 @@ case "$(uname -s)" in
 	Darwin)
 		platform_args=("-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0)
 		rids=(osx-arm64 osx-x64)
-		libs=(libenet.dylib libmfrmlui.dylib)
+		libs=(libenet.dylib libmfrmlui.dylib libmfsvg.dylib)
 		;;
 	Linux)
 		rids=(linux-x64)
-		libs=(libenet.so libmfrmlui.so)
+		libs=(libenet.so libmfrmlui.so libmfsvg.so)
 		;;
 	*)
 		echo "Unsupported host: $(uname -s). On Windows use the commands in docs/design/natives.md." >&2

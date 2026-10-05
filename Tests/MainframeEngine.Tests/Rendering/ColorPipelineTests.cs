@@ -103,7 +103,7 @@ public sealed class SwapchainFormatTests
     private static SurfaceFormatKHR F(Format format) => new(format, ColorSpaceKHR.SpaceSrgbNonlinearKhr);
 
     [Fact]
-    public void UnormIsPreferredSoImGuiStaysExact()
+    public void UnormIsPreferredSoOverlaysStayExact()
     {
         var (format, encoding, overlay) = VulkanRenderer.ChooseSurfaceFormat(
             [F(Format.B8G8R8A8Srgb), F(Format.B8G8R8A8Unorm)], mutableFormatAvailable: false);

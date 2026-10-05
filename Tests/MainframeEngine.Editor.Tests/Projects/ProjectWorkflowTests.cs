@@ -162,6 +162,50 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.Equal(_project.Root, w.RecentProjects.Items[0].Path);
     }
 
+    // The project's window icon: the brand logo copied to Content/icon.png and named by window.icon.
+    private string WriteIcon()
+    {
+        var icon = _project.Abs("Content/icon.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(icon)!);
+        File.Copy(ContentPaths.Resolve("Content/Brand/logo-48.png"), icon);
+        var settings = ProjectSettings.Load(_project.Abs(ProjectSettings.FileName));
+        settings.Window.Icon = "Content/icon.png";
+        settings.Save(_project.Root);
+        return icon;
+    }
+
+    [Fact]
+    public void ProjectManagerShowsTheProjectIcon()
+    {
+        var icon = WriteIcon();
+        _editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true, GameBuilder = _builder, GameLauncher = _launcher });
+        var w = _editor.Workspace;
+        w.RecentProjects.Touch(Path.Combine(_project.Root, "gone"), "Gone");
+        w.RecentProjects.Touch(_project.Root, _project.Name);
+        w.ProjectManager.Open();
+        _editor.Tick(3);
+
+        Assert.Equal(icon, w.ProjectManager.VisibleProjects.Single(p => p.Name == _project.Name).Icon);
+        Assert.Equal("", w.ProjectManager.VisibleProjects.Single(p => p.Name == "Gone").Icon); // a missing project has none
+        Assert.Empty(_editor.RmlMessages);
+    }
+
+    [Fact]
+    public void ProjectSettingsPreviewsTheWindowIconWhenItIsAnExistingPng()
+    {
+        WriteIcon();
+        var w = Open().Workspace;
+        Assert.True(w.ProjectSettings.Open());
+        w.ProjectSettings.SelectSection("Window");
+        _editor!.Tick();
+        Assert.Contains("ps-preview", w.ProjectSettings.Document.GetElementById("ps-body").InnerRml, StringComparison.Ordinal);
+
+        Assert.Null(w.ProjectSettings.Model!.Set("window.icon", "Content/missing.png"));
+        _editor.Tick();
+        Assert.DoesNotContain("ps-preview", w.ProjectSettings.Document.GetElementById("ps-body").InnerRml, StringComparison.Ordinal);
+        Assert.Empty(_editor.RmlMessages);
+    }
+
     [Fact]
     public void TheNewProjectWizardValidatesAsYouType()
     {
@@ -529,7 +573,9 @@ public sealed class ProjectWorkflowTests : IDisposable
         var scene = w.Session.Active!;
         scene.AddNode(new Node3D { Name = "Autosaved" }, scene.Root);
         Assert.True(scene.IsDirty);
-        _editor!.Tree.Tick(new GameTime { DeltaTime = 61f });
+        // 61 s of 50 ms frames (one 61 s frame would count only the physics steps it ran, as in Godot).
+        for (var i = 0; i < 1220; i++)
+            _editor!.Tree.Tick(new GameTime { DeltaTime = 0.05f });
         Assert.False(scene.IsDirty);
         Assert.Contains("Autosaved", File.ReadAllText(scene.FilePath!), StringComparison.Ordinal);
     }

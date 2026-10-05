@@ -18,7 +18,7 @@ draws by recording into `IVulkanContext.CurrentCommandBuffer` between `BeginFram
 | `RenderTarget` | [Rendering/Vulkan/RenderTarget.cs](../../MainframeEngine/Src/Rendering/Vulkan/RenderTarget.cs) | public — offscreen colour/depth targets (the scene target is one) |
 | `GpuAllocator`, `UploadQueue`, `DeletionQueue`, `GpuBuffer`/`GpuImage`/`GpuTexture`, `PipelineCache`, `ShaderModuleCache` | see [GPU resources](gpu-resources.md) | public |
 | `VulkanLoaderBootstrap` | [Rendering/Vulkan/VulkanLoaderBootstrap.cs](../../MainframeEngine/Src/Rendering/Vulkan/VulkanLoaderBootstrap.cs) | internal — see [Build & platforms](build-and-platforms.md#macos-vulkan-loader-bootstrap) |
-| `VulkanImGuiController` | [Rendering/Vulkan/VulkanImGuiController.cs](../../MainframeEngine/Src/Rendering/Vulkan/VulkanImGuiController.cs) | internal — see [ImGui & debug tools](imgui-and-debug-tools.md) |
+| `IOverlayRenderer`, `OverlayOrder` | [IOverlayRenderer.cs](../../MainframeEngine/Src/Rendering/Vulkan/IOverlayRenderer.cs), [OverlayRendererList.cs](../../MainframeEngine/Src/Rendering/Vulkan/OverlayRendererList.cs) | public — overlay draw order: canvas 0, screen gizmos 100, UI 200 (see [Developer overlay](dev-overlay.md#screen-gizmos)) |
 | `UniformRing` | [Rendering/Vulkan/UniformRing.cs](../../MainframeEngine/Src/Rendering/Vulkan/UniformRing.cs) | internal — dynamic-offset UBO ring math (shadow light matrices) |
 | `VkHelpers`, `VulkanResultExtensions.Check` | [VkHelpers.cs](../../MainframeEngine/Src/Rendering/Vulkan/VkHelpers.cs), [VulkanException.cs](../../MainframeEngine/Src/Rendering/Vulkan/VulkanException.cs) | internal — depth barriers; `result.Check("what")` throws `VulkanException` |
 | `PipelineBuilder` | [PipelineBuilder.cs](../../MainframeEngine/Src/Rendering/Vulkan/PipelineBuilder.cs) | internal — pipelines, layouts, descriptor sets with the engine's conventions |
@@ -41,8 +41,8 @@ state is baked into each pipeline.
 `Validation`, and since M3: `SceneTarget`, `OverlayRenderPass`, `OverlayEncodesSrgb`, `BeginOverlayPass()`,
 `Exposure` (+ `const DefaultExposure = 1.3`), `Frame` (`FrameContext`, with per-view copies and `Extent` of the
 view being drawn), `Allocator`, `Uploads`, `Deletions`, `Pipelines`, `Shaders`, `MaxSamplerAnisotropy` (the
-`samplerAnisotropy` feature is enabled when available) and `ImGuiTextures` (`IImGuiTextureRegistry`: images for
-`ImGui.Image`, e.g. a `SubViewport`).
+`samplerAnisotropy` feature is enabled when available). Images for the UI (a `SubViewport`, shadow maps) go through
+`UiServer.RegisterTexture` (`engine://name`).
 
 Always guard the cast: `if (Renderer is IVulkanContext vk) { ... }`.
 
@@ -79,7 +79,7 @@ Every Vulkan call that returns a `Result` in init, per-frame and recreation path
 | Shadow passes | shadow maps | depth | `ShadowSystem` |
 | **Scene** (`RenderPass`) | `SceneTarget` | 0 `R16G16B16A16_SFLOAT` Clear/Store → `SHADER_READ_ONLY`; 1 depth Clear/DontCare | sky, grid, shapes, Spine, meshes |
 | Present | swapchain image | colour DontCare/Store, `UNDEFINED → PRESENT_SRC` (or `→ COLOR_ATTACHMENT` when a separate overlay pass follows) | tonemap |
-| Overlay (`OverlayRenderPass`) | same pass as Present by default; a separate Load pass on a UNORM view in the `SrgbWithUnormOverlay` mode | | ImGui |
+| Overlay (`OverlayRenderPass`) | same pass as Present by default; a separate Load pass on a UNORM view in the `SrgbWithUnormOverlay` mode | | canvas, screen gizmos, UI, dev overlay |
 
 The scene pass's incoming dependency orders this frame's writes after the previous frame's tonemap read
 and depth writes; its outgoing one makes the colour visible to the tonemap's fragment shader. The
@@ -94,7 +94,7 @@ tonemap read the scene target's last tile rows before they were stored, and capt
 `RenderTarget` pass therefore ends with `RenderTarget.End`, which records that barrier for each attachment it keeps
 (by final layout: `SHADER_READ_ONLY` → fragment-shader reads, `TRANSFER_SRC` → transfer reads, a sampled depth →
 fragment-shader reads): the scene target before the tonemap, an offscreen `SubViewport`'s HDR target before the
-compositor's tonemap and its LDR target before ImGui/UI sample it, and the object-ID target before the readback
+compositor's tonemap and its LDR target before the UI samples it, and the object-ID target before the readback
 copy. The UI renderer's own passes use global barriers ([ADR 0050](../../memory/decisions/0050-ui-offscreen-layer-and-overlay-hook.md));
 they never touch the HDR image, so the two never overlap. Clear values: `SetClearColor` (sRGB, converted to linear) and depth 1.
 Order within a frame and the colour handling are described in [Color pipeline](color-pipeline.md).
@@ -128,7 +128,7 @@ Order within a frame and the colour handling are described in [Color pipeline](c
 Subsystems key uniform buffers, dynamic vertex/index buffers and the descriptor sets that point at
 them by **`IVulkanContext.FrameSlot`** and allocate `IVulkanContext.MaxFramesInFlight` (2) copies:
 the `FrameContext` (set 0: camera + lights, written once per frame and view for every scene pipeline), the
-mesh renderer's instance buffer and picking readbacks, Spine (main and shadow vertex buffers), ImGui (vertex/index buffers), the shadow
+mesh renderer's instance buffer and picking readbacks, Spine (main and shadow vertex buffers), the screen gizmos (vertex buffer), the shadow
 system (matrices UBO, set 1/2, light-VP ring). All are `GpuBuffer`s in persistently mapped
 `Dynamic` memory. The slot's
 fence is waited in `BeginFrame`, so the CPU never writes data the GPU is still reading, and nothing
@@ -145,7 +145,7 @@ Triggered by OutOfDate/Suboptimal, `OnResize`, or setting `VSync` (present mode)
 2. `DeviceWaitIdle`.
 3. Destroy the swapchain framebuffers and views; create the new swapchain with **`OldSwapchain`** =
    the current one, then destroy the old one.
-4. If the surface format changed, throw `VulkanException`: the tonemap and ImGui pipelines are built
+4. If the surface format changed, throw `VulkanException`: the tonemap and overlay pipelines are built
    against the swapchain passes. `ChooseSurfaceFormat` is deterministic per surface, so this does not
    happen on the supported platforms. (Scene pipelines no longer depend on the swapchain format.)
 5. Recreate views and framebuffers; **resize the scene target** (its render pass is kept, so scene

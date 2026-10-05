@@ -73,6 +73,9 @@ public static class Codecs
         Cache<Transform2D>.Value = new FloatArrayCodec<Transform2D>(6,
             static (t, d) => { d[0] = t.X.X; d[1] = t.X.Y; d[2] = t.Y.X; d[3] = t.Y.Y; d[4] = t.Origin.X; d[5] = t.Origin.Y; },
             static s => new Transform2D(new Vector2(s[0], s[1]), new Vector2(s[2], s[3]), new Vector2(s[4], s[5])));
+        Cache<Rect2>.Value = new FloatArrayCodec<Rect2>(4,
+            static (r, d) => { d[0] = r.Position.X; d[1] = r.Position.Y; d[2] = r.Size.X; d[3] = r.Size.Y; },
+            static s => new Rect2(s[0], s[1], s[2], s[3]));
         Cache<NodePath>.Value = new NodePathCodec();
     }
 
@@ -82,6 +85,40 @@ public static class Codecs
 
     /// <summary>Registers (or replaces) the codec for <typeparamref name="T"/>.</summary>
     public static void Register<T>(ValueCodec<T> codec) => Cache<T>.Value = codec ?? throw new ArgumentNullException(nameof(codec));
+
+    /// <summary>
+    /// A codec that looks up <typeparamref name="T"/>'s registered codec when used, not when created: generated type
+    /// registration (which may run before the game registers its codecs) uses it for <see cref="SerializableValueAttribute"/>
+    /// types.
+    /// </summary>
+    public static ValueCodec<T> Deferred<T>() => DeferredCodec<T>.Instance;
+
+    private sealed class DeferredCodec<T> : ValueCodec<T>
+    {
+        public static readonly DeferredCodec<T> Instance = new();
+
+        private static ValueCodec<T> Target => Cache<T>.Value is { } codec && codec is not DeferredCodec<T>
+            ? codec
+            : throw new InvalidOperationException($"No codec is registered for {typeof(T).FullName} ([SerializableValue]): call Codecs.Register before loading scenes or resources.");
+
+        public override void Write(Utf8JsonWriter writer, T value, SerializationContext context) => Target.Write(writer, value, context);
+
+        public override T Read(JsonElement element, DeserializationContext context) => Target.Read(element, context);
+
+        public override bool ValueEquals(T a, T b) => Target.ValueEquals(a, b);
+    }
+
+    /// <summary>
+    /// A codec storing <typeparamref name="T"/> as a JSON array of <paramref name="count"/> numbers, like the built-in
+    /// vectors and colours (for <see cref="SerializableValueAttribute"/> types).
+    /// </summary>
+    public static ValueCodec<T> FloatArray<T>(int count, Action<T, Span<float>> unpack, Func<float[], T> pack, Func<T, T, bool>? equals = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        ArgumentNullException.ThrowIfNull(unpack);
+        ArgumentNullException.ThrowIfNull(pack);
+        return new FloatArrayCodec<T>(count, (v, d) => unpack(v, d), pack, equals);
+    }
 
     /// <summary>Enums by name (flags as <c>"A, B"</c>).</summary>
     public static ValueCodec<TEnum> EnumOf<TEnum>() where TEnum : struct, Enum => EnumCache<TEnum>.Value;

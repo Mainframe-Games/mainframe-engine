@@ -211,6 +211,19 @@ public class AudioStream : Resource
     }
 }
 
+/// <summary>
+/// Sound files → <see cref="AudioStream"/> with the <c>.meta</c> sidecar's import settings, so a resource property of type
+/// <see cref="AudioStream"/> can reference a <c>.wav</c>/<c>.ogg</c> directly (Godot's imported <c>AudioStreamWAV</c>).
+/// </summary>
+public sealed class AudioImporter : IAssetImporter
+{
+    public string Name => "audio";
+
+    public IReadOnlyList<string> Extensions { get; } = [".wav", ".ogg", ".mp3", ".flac"];
+
+    public Resource Import(string fullPath, string projectPath, AssetMeta? meta) => AudioStream.Load(projectPath);
+}
+
 /// <summary>Decoded clips shared between streams over the same file (weakly held: unused clips are collected).</summary>
 internal static class AudioClipCache
 {

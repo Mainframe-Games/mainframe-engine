@@ -30,9 +30,11 @@ that wrap these light objects and register them with their world's `LightEnviron
   `RemoveLight(Light)` removes it (light nodes do both on enter/exit); `Count` counts every light.
 - Lists (`DirectionalLights`, `PointLights`, `SpotLights`) are `internal`.
 - Lights beyond the limits are silently dropped when the UBO is written.
-- `DrawLightGizmos(ICamera)` is `[Conditional("DEBUG")]`. It draws on the ImGui background draw list:
-  point lights as a dot with range rings, spot lights as cones, and directional lights as an arrow plus
-  sun icon. The directional arrow is drawn in 2D and is not camera-projected.
+- Light gizmos are `LightGizmos.Draw(ScreenGizmoBatch, camera, viewport, lights, scale)`
+  (`Rendering/Gizmos/`), queued by `RenderServer.RenderMain` for the root viewport while
+  `RenderServer.ShowLightGizmos` is on: point lights as a dot with range rings, spot lights as cones, and
+  directional lights as an arrow (projected along the light direction) plus sun icon. Points behind the camera are
+  skipped.
 
 `LightEnvironment` owns **no GPU resources**. The lights UBO is written through the shared
 `internal LightEnvironment.WriteUbo(Span<byte>, in Vector3 cameraPosition)` (size `LightEnvironment.UboSize`):
@@ -80,7 +82,8 @@ to the display, so overlapping lights no longer clip (see [Color pipeline](color
 
 Every light casts shadows unless `CastsShadows` is false. The shadow system decides which map each light gets:
 
-- the first shadowed directional light: cascades;
+- the first shadowed directional light: cascades (a light that is hidden and shown again is appended to the end of its
+  list, so re-showing a directional light can change which one gets the cascades);
 - other directional and spot lights: atlas tiles;
 - the first four shadowed point lights: cubes.
 
@@ -95,7 +98,7 @@ from the defaults. See [Shadow system](shadow-system.md).
 // Scene tree: a light node drives a DirectionalLight from its transform (direction = global -Z).
 var sun = new DirectionalLight3D { Position = new(0, 5, 0), Energy = 0.9f };
 sun.LookAt(sun.Position + Vector3.Normalize(new(0, -0.5f, -1)));
-Root.AddChild(sun);   // registered in Root.World3D.Lights; synced after process when it moves
+Root.AddChild(sun);   // registered in Root.World3D.Lights while visible; synced after process when it moves
 
 // Tree-less: a LightEnvironment by hand.
 var lights = new LightEnvironment();

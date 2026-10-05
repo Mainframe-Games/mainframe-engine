@@ -18,14 +18,14 @@
 
   <!-- Game -->
   <rect x="110" y="30" width="830" height="60" rx="8" fill="#fef3c7" stroke="#d97706"/>
-  <text x="130" y="55" class="hdr">Game : Engine  (MainframeEngine.Sandbox)</text>
-  <text x="130" y="75" class="sub">overrides OnLoad · OnImGui · OnUpdate · OnShadowPass · OnRenderMainPass · OnClose — owns List&lt;Node&gt;, ShadowSystem, Sky, Grid, Lights, Camera</text>
+  <text x="130" y="55" class="hdr">Game  (GameHost, e.g. Examples/Demo)</text>
+  <text x="130" y="75" class="sub">overrides OnLoad · OnUpdate · OnShadowPass · OnRenderMainPass · OnClose — owns List&lt;Node&gt;, ShadowSystem, Sky, Grid, Lights, Camera</text>
 
   <!-- Core -->
   <rect x="110" y="115" width="830" height="70" rx="8" fill="#dbeafe" stroke="#2563eb"/>
   <text x="130" y="140" class="hdr">Engine (Core/)</text>
-  <text x="130" y="160" class="sub">IWindow (Silk.NET) · IInputContext · IRenderer · VulkanImGuiController · GameTime / FPSCounter · EngineOptions · ExitCode</text>
-  <text x="130" y="176" class="sub">Update → NewFrame, OnImGui, OnUpdate  |  Render → BeginFrame, OnShadowPass, BeginRenderPass, OnRenderMainPass, ImGui, EndFrame</text>
+  <text x="130" y="160" class="sub">IWindow (Silk.NET) · IInputContext · IRenderer · DevOverlay · GameTime / FPSCounter · EngineOptions · ExitCode</text>
+  <text x="130" y="176" class="sub">Update → OnUpdate, Tree.Tick  |  Render → BeginFrame, OnShadowPass, BeginRenderPass, OnRenderMainPass, EndFrame (overlays)</text>
 
   <!-- Systems row 1 -->
   <g>
@@ -52,10 +52,10 @@
 
     <rect x="734" y="210" width="206" height="100" rx="8" fill="#dcfce7" stroke="#16a34a"/>
     <text x="746" y="232" class="hdr">Debug</text>
-    <text x="746" y="252" class="sub">Log (ANSI console)</text>
-    <text x="746" y="268" class="sub">ImGuiCoordGizmo</text>
-    <text x="746" y="284" class="sub">ImGuiGizmos (C# 14 ext.)</text>
-    <text x="746" y="300" class="sub">Light gizmos [DEBUG]</text>
+    <text x="746" y="252" class="sub">Log (sinks)</text>
+    <text x="746" y="268" class="sub">DevOverlay (RmlUi, F12)</text>
+    <text x="746" y="284" class="sub">ScreenGizmoBatch</text>
+    <text x="746" y="300" class="sub">AxisGizmo · LightGizmos</text>
   </g>
 
   <!-- Systems row 2: online -->
@@ -70,7 +70,7 @@
   <rect x="110" y="390" width="830" height="70" rx="8" fill="#fee2e2" stroke="#dc2626"/>
   <text x="130" y="414" class="hdr">Vulkan backend (Rendering/Vulkan/)</text>
   <text x="130" y="434" class="sub">VulkanRenderer : IRenderer, IVulkanContext — instance · device · swapchain · main render pass · 2 frames in flight · per-image command buffers</text>
-  <text x="130" y="450" class="sub">VulkanLoaderBootstrap (macOS: one Vulkan library for GLFW and Silk.NET) · VulkanImGuiController · Content/Shaders/*.spv</text>
+  <text x="130" y="450" class="sub">VulkanLoaderBootstrap (macOS: one Vulkan library for GLFW and Silk.NET) · Content/Shaders/*.spv</text>
 
   <!-- External -->
   <g>
@@ -81,8 +81,8 @@
     <text x="291" y="514" class="hdr">MoltenVK</text>
     <text x="291" y="534" class="sub">macOS Vulkan → Metal</text>
     <rect x="448" y="490" width="155" height="60" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
-    <text x="460" y="514" class="hdr">ImGui.NET</text>
-    <text x="460" y="534" class="sub">StbImageSharp</text>
+    <text x="460" y="514" class="hdr">StbImageSharp</text>
+    <text x="460" y="534" class="sub">image decoding</text>
     <rect x="617" y="490" width="155" height="60" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
     <text x="629" y="514" class="hdr">spine-csharp</text>
     <text x="629" y="534" class="sub">git submodule</text>

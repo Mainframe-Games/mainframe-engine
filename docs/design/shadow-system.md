@@ -306,11 +306,12 @@ Shadows are optional:
 | `LastCpuMilliseconds`, `LastGpuMilliseconds` | — | CPU time of `RenderShadows`; GPU time between two timestamps (read when the frame slot comes round) |
 | `CascadeResolution`, `AtlasSize`, `AtlasPackCount`, `MapMemoryBytes` | — | resources |
 
-`RendererDebugWindow` has a **Shadows** section:
+The dev overlay's **Shadows** panel ([Developer overlay](dev-overlay.md)) shows:
 
 - the settings above, the pass, draw and instance counts, the CPU and GPU times;
-- a **Maps** tree that shows the cascade layers and the atlas (depth as red). ImGui images can name their layout
-  (`IImGuiTextureRegistry.Register(view, sampler, layout)`), here `DEPTH_STENCIL_READ_ONLY_OPTIMAL`.
+- a **Maps** section that shows the cascade layers and the atlas as grey images (`engine://dev-shadow-*`, registered
+  with the internal `UiServer.RegisterTexture(name, source, UiTextureConversion.DepthToGray)` overload; the source reports the layout,
+  here `DEPTH_STENCIL_READ_ONLY_OPTIMAL`, and `ShadowSystem.MapsGeneration` as the image generation).
 
 ### Quality levels
 
@@ -351,7 +352,7 @@ the two timestamps:
 
 | Scene | Passes | Shadow CPU | Shadow GPU |
 |---|---|---|---|
-| Sandbox (2 directional, 2 spot, 1 point, Spine) | 13 | 0.014–0.026 ms | 0.96–1.0 ms |
+| Showcase scene (2 directional, 2 spot, 1 point, Spine) | 13 | 0.014–0.026 ms | 0.96–1.0 ms |
 | `shadow-lights` (sun, 3 spots, 2 points) | 19 | 0.02–0.05 ms | 1.1–1.4 ms |
 | `csm` (sun over 68 posts) | 4 | 0.013–0.034 ms | 1.0–1.14 ms |
 | 10 000 instances, one sun | 4 | 0.48–0.85 ms (culling 4 × 10k casters + instance writes) | 1.17 ms |
@@ -364,9 +365,9 @@ Planning alone ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.
 | `PlanEveryLightType` (2 suns, 3 spots, 2 points) | 1.37 µs |
 | `PackAtlasElevenTiles` | 0.25 µs |
 
-The Sandbox still runs at the display's 120 fps in Release.
+The showcase scene ran at the display's 120 fps in Release when this was measured.
 
-**Memory:** maps exist only for lights that need them. The Sandbox uses 86 MiB:
+**Memory:** maps exist only for lights that need them. The showcase scene used 86 MiB:
 
 | Map | Size |
 |---|---|

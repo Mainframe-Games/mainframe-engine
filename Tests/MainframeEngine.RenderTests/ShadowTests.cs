@@ -110,12 +110,15 @@ public class ShadowTests
     }
 
     [Fact]
-    public void ShadowMapViewerIsValidationClean()
+    public void DevOverlayShadowsPanelIsValidationClean()
     {
-        // The renderer window's "Maps" tree shows the cascade layers and the atlas through ImGui.
-        var result = HostRunner.Run("shadow-lights", Output("shadow-lights-viewer"), "--count", "2", "--capture", "12", "--hidden");
+        // The dev overlay's Shadows panel samples the cascade layers and the atlas in their read-only depth layout, also
+        // across a swapchain rebuild (--resize). The panel's values refresh at 4 Hz, so the maps only appear after the
+        // first refresh that sees the shadow system (~frame 16): resize and capture after it, in a window tall enough
+        // for the maps to be on screen before the resize.
+        var result = HostRunner.Run("shadow-lights", Output("shadow-lights-overlay"), "--count", "2", "--size", "500x1000", "--resize", "400x300@20", "--capture", "30", "--hidden");
 
-        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Empty(result.SceneCheckFailures);
         Gates.AssertValidationClean(result);
     }
 

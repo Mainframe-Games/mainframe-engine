@@ -19,6 +19,7 @@
         .ps-editor { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
         .ps-editor input.text { flex: 1 1 auto; width: 60dp; }
         .ps-editor select { flex: 1 1 auto; width: 60dp; }
+        .ps-editor .ps-preview { flex: 0 0 auto; width: 32dp; height: 32dp; margin-left: 6dp; border-radius: 4dp; }
         .ps-editor button { width: 22dp; padding: 0dp; margin-left: 4dp; }
         .ps-add { display: flex; flex-direction: row; align-items: center; margin: 4dp 0dp 10dp 0dp; }
         .ps-add input.text { flex: 1 1 auto; width: 60dp; margin-right: 4dp; }

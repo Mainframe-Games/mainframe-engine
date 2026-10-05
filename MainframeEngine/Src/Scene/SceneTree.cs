@@ -114,7 +114,10 @@ public sealed partial class SceneTree
     /// </summary>
     public float PhysicsInterpolationFraction { get; private set; }
 
-    /// <summary>Delta time (seconds) of the frame being (or last) processed by <see cref="Tick"/>.</summary>
+    /// <summary>
+    /// Delta time (seconds) <see cref="Tick"/> gave process callbacks for the frame being (or last) processed: the frame's
+    /// delta minus the physics time it dropped (see <see cref="Tick"/>).
+    /// </summary>
     public float ProcessDeltaTime { get; private set; }
 
     /// <summary>Frames processed by <see cref="Tick"/>.</summary>
@@ -270,11 +273,12 @@ public sealed partial class SceneTree
         }
 
         _inTick = true;
-        ProcessDeltaTime = gameTime.DeltaTime;
         try
         {
             var step = 1.0 / PhysicsTicksPerSecond;
-            _accumulator += Math.Clamp(gameTime.DeltaTime, 0f, MaxFrameDelta);
+            var clamped = Math.Clamp(gameTime.DeltaTime, 0f, MaxFrameDelta);
+            var dropped = (double)gameTime.DeltaTime - clamped;
+            _accumulator += clamped;
 
             // A tolerance so a frame delta equal to the step (fixed-delta runs) always steps exactly once.
             var tolerance = step * 1e-6;
@@ -293,18 +297,28 @@ public sealed partial class SceneTree
             }
 
             if (_accumulator + tolerance >= step)
-                _accumulator = 0; // spiral-of-death guard: drop the backlog
+            {
+                // Spiral-of-death guard: drop the backlog (whole steps; the remainder stays for interpolation).
+                var backlog = Math.Floor((_accumulator + tolerance) / step) * step;
+                dropped += backlog;
+                _accumulator = Math.Max(0, _accumulator - backlog);
+            }
             PhysicsInterpolationFraction = (float)Math.Clamp(_accumulator / step, 0, 1);
             if (stepServers)
                 foreach (var server in Servers.FixedStepServers)
                     server.AfterFixedSteps(PhysicsInterpolationFraction);
 
-            RunProcess(gameTime);
+            // Godot's rule (main.cpp, Main::iteration): process sees the frame's time minus the physics steps it dropped, so a
+            // long hitch (a load, the first frame) reads as at most the steps physics ran, not the whole stall.
+            var processTime = gameTime;
+            processTime.DeltaTime = (float)Math.Max(0, gameTime.DeltaTime - dropped);
+            ProcessDeltaTime = processTime.DeltaTime;
+            RunProcess(processTime);
             FlushDeferred();
             FlushTransformNotifications();
 
             foreach (var server in Servers.FrameServers)
-                server.Process(gameTime);
+                server.Process(processTime);
 
             ProcessFrames++;
         }

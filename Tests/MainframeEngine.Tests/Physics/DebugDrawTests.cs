@@ -70,7 +70,7 @@ public sealed class DebugDrawTests
         using var h2 = new PhysicsHarness2D();
         h2.Server.DebugDrawEnabled = true;
         h2.AddGround();
-        h2.AddBox(new Vector2(0, 100));
+        h2.AddBox(new Vector2(0, -100));
         h2.Run(1);
         Assert.Equal(8, h2.Tree.Root.DebugLines.LineCount); // two rectangles
     }

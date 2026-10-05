@@ -299,6 +299,10 @@ public sealed class UiServer : IFrameServer, IInputServer
     public void RegisterTexture(string name, RenderTarget target, int colorAttachment = 0, UiTextureConversion conversion = UiTextureConversion.Auto) =>
         Renderer?.RegisterTexture(name, target, colorAttachment, conversion);
 
+    /// <summary>Publishes an image source (shadow maps) as <c>engine://name</c>; no view means nothing is drawn.</summary>
+    internal void RegisterTexture(string name, Func<UiTextureView> source, UiTextureConversion flags = UiTextureConversion.DepthToGray) =>
+        Renderer?.RegisterTexture(name, source, flags);
+
     public bool UnregisterTexture(string name) => Renderer?.UnregisterTexture(name) ?? false;
 
     private Stream? OpenFile(string path) => Files.Open(path);
@@ -445,6 +449,14 @@ public sealed class UiServer : IFrameServer, IInputServer
         _layers.Add(layer);
         _layersDirty = true;
         return context;
+    }
+
+    /// <summary>A context for a layer the server does not manage (see <see cref="UiLayer"/>): never updated, drawn or given input.</summary>
+    internal RmlContext CreateInertContext(UiLayer layer)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        UpdateViewport();
+        return new RmlContext($"inert{++_contextCounter}:{layer.Name}", (int)ViewportSize.X, (int)ViewportSize.Y, RenderInterface);
     }
 
     internal void RemoveLayer(UiLayer layer)
@@ -628,8 +640,20 @@ public sealed class UiServer : IFrameServer, IInputServer
 
     // ── Hot reload ───────────────────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>True when the server watches UI files and reloads them on change (Debug engine builds by default).</summary>
+    public bool HotReloadEnabled => _options.HotReload;
+
+    /// <summary>
+    /// Raised on the main thread after a hot reload (file change or <see cref="Reload(UiReloadKind)"/>): the kind and the
+    /// changed file (null for a manual reload). Unlike <see cref="UiDocument.Reloaded"/> it also fires for stylesheet-only
+    /// reloads.
+    /// </summary>
+    public event Action<UiReloadKind, string?>? HotReloaded;
+
     /// <summary>Applies a batch of file changes (hot reload; also callable by tools and tests).</summary>
-    public void Reload(UiReloadKind kind)
+    public void Reload(UiReloadKind kind) => Reload(kind, null);
+
+    private void Reload(UiReloadKind kind, string? path)
     {
         if (kind == UiReloadKind.None)
             return;
@@ -654,12 +678,13 @@ public sealed class UiServer : IFrameServer, IInputServer
         }
 
         Log.Info($"[UI] Hot reload: {kind}");
+        HotReloaded?.Invoke(kind, path);
     }
 
     private void ApplyHotReload()
     {
-        if (_hotReload is not null && _hotReload.TryTake(out var kind))
-            Reload(kind);
+        if (_hotReload is not null && _hotReload.TryTake(out var kind, out var path))
+            Reload(kind, path);
     }
 
     // ── Debugger ─────────────────────────────────────────────────────────────────────────────────────────────

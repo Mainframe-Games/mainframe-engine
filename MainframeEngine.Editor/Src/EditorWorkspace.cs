@@ -66,6 +66,12 @@ public sealed record EditorWorkspaceOptions
     /// update checks (tests, <c>--smoke</c>, <c>--qa-script</c>, <c>--hidden</c>).
     /// </summary>
     public IUpdateService? Updates { get; init; }
+
+    /// <summary>The HTTP handler the Download Demo dialog uses (default: the editor's shared client); tests pass a stub.</summary>
+    public Func<HttpMessageHandler>? DemoHttpHandler { get; init; }
+
+    /// <summary>Where the Download Demo dialog keeps the zip while it extracts (default <c>~/.mainframe/downloads</c>); tests use a temp folder.</summary>
+    public string? DemoDownloadsDirectory { get; init; }
 }
 
 /// <summary>

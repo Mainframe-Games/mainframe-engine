@@ -61,8 +61,16 @@ classDiagram
   `SyncRenderCamera(aspect)` — position, forward, up (global basis Y) and the swapchain aspect — and draws
   with `RenderCamera` (the wrapped `PerspectiveCamera`). Orient it with `LookAt(target)` or
   `RotationDegrees`.
+  **Rays:** `ProjectRayOrigin(pixel)` / `ProjectRayNormal(pixel)` give the world ray through a framebuffer pixel
+  (top-left origin; the viewport's `Size`, so pass `SceneViewport`/input pixel coordinates), like Godot's
+  `project_ray_origin/normal`. `Camera3D.ProjectRay(ICamera, pixel, viewportSize)` is the tree-less form; feed the
+  ray to `DirectSpaceState` for picking.
 - **`Camera2D : Node2D`**: `Current`, `Zoom`, `Distance` (how far in front of the z = 0 plane it sits,
   default 500). Used when the viewport has no 3D camera; the framebuffer size becomes its `Size`.
+  A viewport that has any `Camera3D` in its tree always renders with one: clearing `Current` on the active
+  camera makes another take over, or leaves the same one active when it is the only one (`ClearCurrent`). A
+  `Camera2D` only takes over once every `Camera3D` has left the tree (the Demo's Spine scene detaches its
+  `Camera3D` in 2D mode and re-adds it for 3D).
 
 ## `PerspectiveCamera`
 
@@ -101,34 +109,25 @@ before the UI and nodes: `InputMap` actions (keys, mouse buttons, gamepad button
 `GetVector`, or on events with `inputEvent.IsActionPressed("jump")`. See
 [Projects & GameHost → Input actions](project-and-gamehost.md#input-actions).
 
-`CursorMode.Raw` maps to SDL relative mouse mode. `just qa` can drive a scripted right-drag through SDL's
-event queue (`--qa-input <frame>`), which checks the SDL → `IMouse` → `InputRouter` → `FlyCamera` path end
-to end.
+`CursorMode.Raw` maps to SDL relative mouse mode. The render test `ASyntheticRightDragLooksAroundThroughTheInputPath`
+(the host's `--input <frame>` and its `mouse-look` scene) pushes a synthetic SDL right-button drag and checks that it
+reaches a node's `OnInput` through SDL → Silk `IMouse` → `InputRouter` and turns the camera.
 
-### Sandbox controls
+### Demo controls
 
-The Sandbox camera is a `FlyCamera : Camera3D` node in its scene; `Game` handles the cursor and Escape.
+The [Demo](demo.md) has no free-fly camera: Basic 3D orbits automatically (`OrbitCamera`), Basic 2D zooms from its
+panel, and the click-driven scenes (Audio 2D, Physics 2D and 3D) map the mouse into the world — canvas units through
+the root viewport's transforms (`CanvasInput`), a `Camera3D.ProjectRay*` ray for Physics 3D. Number keys 1–8 switch
+scenes and Escape quits.
 
-| Input | Action |
-|---|---|
-| Hold **right mouse** | Enable fly camera (cursor → Raw). Release → Normal. |
-| Mouse move (while held) | yaw/pitch by `LookSensitivity` (0.1°/px), pitch clamped ±89° |
-| W / S | forward / back along the camera's forward |
-| A / D | strafe along `Cross(Forward, +Y)` |
-| Q / E | down / up along +Y |
-| Left Shift | 2× speed (`Speed`, 10 u/s) |
-| Left Alt | toggle Raw/Normal cursor (does not enable look) |
-| Escape | quit |
-
-Tree-less code (no scene tree) can use the math cameras directly. Movement is enabled whenever the
-cursor is Raw; in 2D, mouse movement pans and the wheel zooms.
+Tree-less code (no scene tree) can use the math cameras directly; in 2D, mouse movement pans and the wheel zooms.
 
 ## Known issues
 
 - README says "right-click to capture, Alt to release". The code is hold-right-click to move, and Alt only toggles the cursor.
-- ImGui does not consume input before the tree (the game UI server will, M8).
+- The dev overlay and game UI see input before the tree (`UiServer`, M8); a consumed event never reaches nodes.
 
 ## Related docs
 
-[Coordinate conventions](coordinate-conventions.md) · [Sandbox](sandbox.md) · [ImGui & debug tools](imgui-and-debug-tools.md) ·
+[Coordinate conventions](coordinate-conventions.md) · [Demo](demo.md) · [Developer overlay](dev-overlay.md) ·
 [Scene graph & nodes](scene-graph-and-nodes.md)

@@ -10,13 +10,13 @@ what works on each platform.
 ```bash
 just build              # dotnet build MainframeEngine.slnx (warnings are errors)
 just test               # unit tests          just test-render   # render tests
-just sandbox            # dotnet run --project MainframeEngine.Sandbox
+just demo               # dotnet run --project Examples/Demo/Demo.Launcher
 ```
 
 `just` (1.58+) wraps every local command; run `just` for the list. Engine code resolves every content
 path with `ContentPaths.Resolve` against `AppContext.BaseDirectory` (rooted paths unchanged,
 `"Content/…"` relative to the app folder, anything else relative to `Content/`), so it works from any
-working directory. The Sandbox and the render-test host still pin the working directory for
+working directory. The render-test host still pins the working directory for
 `SpineFolder`, which enumerates its folder relative to it.
 
 ### Solution
@@ -24,9 +24,9 @@ working directory. The Sandbox and the render-test host still pin the working di
 [`MainframeEngine.slnx`](../../MainframeEngine.slnx) (the XML solution format, SDK 9.0.200+; migrated from
 `MainframeEngine.sln` with `dotnet sln migrate`) contains `MainframeEngine`,
 `MainframeEngine.Generators` (the source generator, netstandard2.0, referenced as an analyzer by the
-engine, the Sandbox and the unit tests; its only package, `Microsoft.CodeAnalysis.CSharp`, is build-time
+engine and the unit tests; its only package, `Microsoft.CodeAnalysis.CSharp`, is build-time
 only — see [Scene serialization](scene-serialization.md#source-generator)),
-`MainframeEngine.Sandbox`, `MainframeEngine.Editor`, and the solution folders `Plugins` (`spine-csharp`), `Tools` (`MainframeEngine.L10n`, the `mf-l10n` CLI) and `Tests`
+`MainframeEngine.Editor`, and the solution folders `Plugins` (`spine-csharp`), `Tools` (`MainframeEngine.L10n`, the `mf-l10n` CLI) and `Tests`
 (`MainframeEngine.Tests`, `MainframeEngine.Editor.Tests`, `MainframeEngine.RenderTests`,
 `MainframeEngine.RenderTests.Host` and `MainframeEngine.Benchmarks`; see [Testing](testing.md)). The template package
 `Templates/MainframeEngine.Templates` is not in the solution (it is packed on its own: `just template-pack`), nor is
@@ -56,7 +56,6 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.23.0*
 | Silk.NET.Vulkan (+ Extensions.EXT/KHR) | 2.22.0 | Vulkan bindings |
 | Silk.NET.MoltenVK.Native | 2.22.0 | Bundled MoltenVK for macOS |
 | Silk.NET.Assimp | 2.22.0 | *Referenced but unused* (kept for M3) |
-| ImGui.NET | 1.91.6.1 | Debug UI |
 | StbImageSharp | 2.30.16 | Image decoding (sky, Spine atlas, icon) |
 | ENet-CSharp | 2.4.8 | UDP networking |
 | Steamworks.NET | 2024.8.0 | Steam wrappers (inert, see [Steamworks](steamworks.md)) |
@@ -71,8 +70,8 @@ New NuGet dependencies must be discussed before they are added (CLAUDE.md).
 
 `MainframeEngine.csproj` copies `Content\**` with `CopyToOutputDirectory=Always`, except
 `Content/Shaders/**` (sources, includes, lock, committed `.spv`), whose compiled `.spv` files are added by
-[`build/Shaders.targets`](../../build/Shaders.targets); this flows to the Sandbox and test outputs through
-project references. The Sandbox copies its own `Content\**` as well.
+[`build/Shaders.targets`](../../build/Shaders.targets); this flows to the test outputs and to games (the Demo) through
+project references. A game copies its own `Content\**` as well.
 
 ### Shaders
 
@@ -151,15 +150,15 @@ flowchart TD
   drawable, which for a Vulkan window is also in points. `Engine.FramebufferSize`
   ([`WindowPixels`](../../MainframeEngine/Src/Core/WindowPixels.cs)) returns
   `SDL_Vulkan_GetDrawableSize` in **pixels** (3024×1692 for a 1512×846 pt Retina window); the
-  renderer's extent fallback, minimise detection, ImGui's framebuffer scale and game aspect ratios
+  renderer's extent fallback, minimise detection and game aspect ratios
   use it. Prefer it over `Window.FramebufferSize`.
 - **Fixed content scale.** `EngineOptions.ContentScale` > 0 makes the framebuffer exactly `WindowSize` × that scale in
   pixels on any display: before `OnLoad` creates the swapchain, the engine measures the display's pixels per point and
   sizes the OS window to the request ÷ that ratio (`WindowPixels.ResizeToPixels`; again after centring, in case it moved
   displays), and throws if the framebuffer still differs (a fractional scale that does not divide it). The UI's dp
-  ratio (`UiServer.ContentScale`) and ImGui's points use the fixed scale; mouse and IME positions keep converting with
+  ratio (`UiServer.ContentScale`) and the gizmo scale (`RenderServer.GizmoScale`) use the fixed scale; mouse and IME positions keep converting with
   the display's real pixels per point. `Engine.ResizeWindow` resizes in the same layout points. Render tests and
-  `--qa-capture` use it so images do not depend on the monitor; 0 (default) follows the display.
+  the Demo's screenshots use it so images do not depend on the monitor; 0 (default) follows the display.
 - **Finding libSDL2 (and other Silk.NET package natives).** A RID-agnostic build (`dotnet build/run/test`)
   keeps package natives under `runtimes/<rid>/native/`. Silk.NET's `DefaultPathResolver` picks that
   folder from the distro-specific RID of `Microsoft.DotNet.PlatformAbstractions` (`ubuntu.24.04-x64`).
@@ -217,10 +216,10 @@ and the bundled `libMoltenVK.dylib` (no validation layers through that one).
 
 | Feature | Windows x64 | Linux x64 | macOS x64 | macOS arm64 |
 |---|---|---|---|---|
-| Vulkan renderer | ✅ | ✅ | ✅ MoltenVK | ✅ MoltenVK (verified, 120 fps Sandbox) |
+| Vulkan renderer | ✅ | ✅ | ✅ MoltenVK | ✅ MoltenVK (verified, the Demo at 120 fps) |
 | Validation layers | Vulkan SDK | Vulkan SDK | Vulkan SDK | Vulkan SDK |
 | ENet networking | ✅ | ✅ | ✅ | ❌ native is x86_64-only |
-| Audio (SoundFlow/miniaudio) | ✅ WASAPI | ✅ ALSA/PulseAudio | ✅ Core Audio | ✅ Core Audio (verified with `--qa-audio`); null device on machines without one (CI) |
+| Audio (SoundFlow/miniaudio) | ✅ WASAPI | ✅ ALSA/PulseAudio | ✅ Core Audio | ✅ Core Audio (verified with the Demo's Audio scenes); null device on machines without one (CI) |
 | Steamworks | ⚠ no `steam_api` shipped | ⚠ same | ⚠ same | ❌ no osx-arm64 assets |
 
 MoltenVK limits that shaped the design: `mutableComparisonSamplers = false` (shadow samplers are

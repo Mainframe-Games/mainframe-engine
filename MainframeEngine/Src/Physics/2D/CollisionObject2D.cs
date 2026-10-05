@@ -363,7 +363,7 @@ public class RigidBody2D : PhysicsBody2D
         }
     }
 
-    /// <summary>Angular velocity in rad/s (counter-clockwise).</summary>
+    /// <summary>Angular velocity in rad/s (positive turns clockwise on screen: 2D is Y-down).</summary>
     [Export]
     public float AngularVelocity
     {

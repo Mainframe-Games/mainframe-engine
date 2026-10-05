@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Globalization;
 using System.Numerics;
-using ImGuiNET;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
@@ -286,7 +285,7 @@ public sealed class InstancesScene(HostOptions host) : MeshSceneBase(host)
 /// <summary>
 /// Object-ID picking and an offscreen view. Frame 3 requests picks at the projected centres of three boxes and at a
 /// sky pixel of the main view, and at the centre of a <see cref="SubViewport"/> (its own world: a sphere under its
-/// own camera and light) shown in the corner through ImGui. Frame 15 checks every result.
+/// own camera and light) shown in the corner through a UI image (<c>engine://picking-preview</c>). Frame 15 checks every result.
 /// </summary>
 public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
 {
@@ -300,6 +299,7 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
     private MeshInstance3D _frozenBox = null!;
     private PickHandle _polled;
     private bool _checked;
+    private bool _registered;
 
     protected override void Build(Node3D scene)
     {
@@ -316,7 +316,7 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
             scene.AddChild(_boxes[i]);
         }
 
-        // Offscreen view of another world: rendered before the main pass, shown with ImGui.Image.
+        // Offscreen view of another world: rendered before the main pass, shown by a UI image.
         _view = new SubViewport { Name = "Preview", Width = 96, Height = 96, ClearColor = Color.FromArgb(255, 30, 30, 40) };
         var camera = new Camera3D { Name = "PreviewCamera", Position = new Vector3(0, 0.5f, 3f) };
         camera.LookAt(Vector3.Zero);
@@ -345,6 +345,22 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
     protected override void UpdateScene(in GameTime gameTime)
     {
         var render = Servers.Render!;
+        if (!_registered && _view.ColorTarget is { } target)
+        {
+            // The target exists once the view has rendered. engine:// textures must be registered before a document loads
+            // them, so the preview document is added only now.
+            Servers.Get<UiServer>()!.RegisterTexture("picking-preview", target);
+            _registered = true;
+            var layer = new UiLayer { Name = "Preview", Layer = 0 };
+            Tree.Root.AddChild(layer);
+            layer.AddChild(new UiDocument
+            {
+                Name = "PreviewDoc",
+                AutoFocus = false,
+                Rml = """<rml><head><style>body{pointer-events:none;} img{position:absolute;left:8dp;top:8dp;width:96dp;height:96dp;}</style></head><body><img src="engine://picking-preview"/></body></rml>""",
+            });
+        }
+
         if (gameTime.FrameCount == PickFrame)
         {
             foreach (var box in _boxes)
@@ -380,17 +396,11 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
                 Fail($"polled pick: expected {_boxes[0].Name}, got {polled.Node?.Name ?? "nothing"}");
             if (render.TryGetPickResult(_polled, out _))
                 Fail("a polled result was returned twice");
-            if (_view.RenderCount == 0 || _view.ColorImage is null || _view.ImGuiTextureId == 0)
-                Fail("the sub-viewport was not rendered or registered with ImGui");
+            if (_view.RenderCount == 0 || _view.ColorImage is null || !_registered)
+                Fail("the sub-viewport was not rendered or registered as a UI texture");
             if (_frozen.RenderCount != 1 || _frozen.UpdateMode != SubViewportUpdateMode.Disabled)
                 Fail($"the UpdateMode.Once view rendered {_frozen.RenderCount} times");
         }
-    }
-
-    protected override void OnImGui(in GameTime gameTime)
-    {
-        if (_view.ImGuiTextureId != 0)
-            ImGui.GetForegroundDrawList().AddImage(_view.ImGuiTextureId, new Vector2(8, 8), new Vector2(8 + 96, 8 + 96));
     }
 
     protected override void DisposeScene()

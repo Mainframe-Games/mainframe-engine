@@ -154,7 +154,7 @@ internal sealed class NetAllTypes : Node
     [Replicated(Interpolate = true)] public Vector4 SmoothV4;
 }
 
-/// <summary>A movable box for the allocation test and benchmarks (Sandbox-like).</summary>
+/// <summary>A movable box for the allocation test and benchmarks (game-like).</summary>
 internal sealed class NetBox : Node3D
 {
     [Replicated(Interpolate = true)]

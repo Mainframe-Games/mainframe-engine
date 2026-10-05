@@ -11,14 +11,24 @@ namespace MainframeEngine;
 /// </summary>
 /// <remarks>
 /// Not sealed: a game that needs the legacy hooks can subclass it (call the base methods). Subclassing
-/// <see cref="Engine"/> directly keeps working too (the Sandbox does).
+/// <see cref="Engine"/> directly keeps working too (the editor and the render-test host do).
 /// </remarks>
 public class GameHost : Engine
 {
     public GameHost(ProjectSettings settings, GameHostOptions? options = null)
-        : base((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()))
+        : this(settings, options, [])
+    {
+    }
+
+    /// <param name="settings">The project settings.</param>
+    /// <param name="options">Command-line options.</param>
+    /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Content/</c> UI (<see cref="CreateUiOptions"/>).</param>
+    public GameHost(ProjectSettings settings, GameHostOptions? options, IReadOnlyList<Assembly> gameAssemblies)
+        : base(WithUi((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()),
+            CreateUiOptions(settings, gameAssemblies)))
     {
         Settings = settings;
+        Project = settings;
         HostOptions = options ?? new GameHostOptions();
         Session = new GameSession(Tree, settings, HostOptions);
         Session.QuitRequested += code => Quit(code);
@@ -26,12 +36,41 @@ public class GameHost : Engine
 
     private int _updates;
 
+    /// <summary>
+    /// The UI options a game runs with: with <paramref name="hotReload"/> (Debug engine builds) the UI also watches the
+    /// game assemblies' <c>MainframeContentSource</c> folders (their source <c>Content/</c>), so editing an <c>.rml</c> or
+    /// <c>.rcss</c> in the project reloads the running game.
+    /// </summary>
+    public static UiServerOptions CreateUiOptions(ProjectSettings settings, IReadOnlyList<Assembly> gameAssemblies,
+        bool hotReload = UiServerOptions.DefaultHotReload)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(gameAssemblies);
+        return new UiServerOptions
+        {
+            HotReload = hotReload,
+            SourceContentDirectories = hotReload ? UiServerOptions.SourceDirectoriesOf([.. gameAssemblies]) : [],
+        };
+    }
+
+    private static EngineOptions WithUi(EngineOptions options, UiServerOptions ui)
+    {
+        options.Ui ??= ui;
+        return options;
+    }
+
     public ProjectSettings Settings { get; }
 
     public GameHostOptions HostOptions { get; }
 
     /// <summary>The project session (autoloads, scene, editor link).</summary>
     public GameSession Session { get; }
+
+    /// <summary>The running game's project settings (null before <see cref="Run"/> loads them; tools and tests have none).</summary>
+    public static ProjectSettings? Project { get; private set; }
+
+    /// <summary>The game's own command-line arguments: everything after <c>++</c> (<see cref="GameHostOptions.UserArgs"/>).</summary>
+    public static IReadOnlyList<string> UserArgs { get; private set; } = [];
 
     /// <summary>
     /// Parses <paramref name="args"/>, loads the project (<c>--project</c>, else <c>project.mfproj</c> next to the app),
@@ -46,6 +85,7 @@ public class GameHost : Engine
         try
         {
             options = GameHostOptions.Parse(args);
+            UserArgs = options.UserArgs;
         }
         catch (ArgumentException e)
         {
@@ -74,7 +114,7 @@ public class GameHost : Engine
         try
         {
             GameSession.LoadGameAssemblies(settings, gameAssemblies);
-            host = new GameHost(settings, options);
+            host = new GameHost(settings, options, gameAssemblies);
             return (int)host.Run();
         }
         catch (Exception e) when (e is not OutOfMemoryException)

@@ -192,6 +192,13 @@ public sealed class AudioDecoderTests : IDisposable
             Assert.Equal(0.4f, stream.LoopEnd);
             Assert.True(stream.Preload());
             Assert.True(stream.IsStreamed);
+
+            // ResourceLoader imports sound files too (a resource's AudioStream property can point at a .wav).
+            var loaded = ResourceLoader.Load<AudioStream>("loop.wav");
+            Assert.True(loaded.Loop);
+            Assert.Equal("aud_0123456789ab", loaded.Uid);
+            Assert.True(loaded.Preload());
+            loaded.Release();
         }
         finally
         {

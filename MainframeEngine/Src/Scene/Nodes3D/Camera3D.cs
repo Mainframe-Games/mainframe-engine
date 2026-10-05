@@ -76,6 +76,36 @@ public class Camera3D : Node3D, ICurrentCamera
         return _camera;
     }
 
+    /// <summary>
+    /// The world-space ray through <paramref name="pixel"/> (top-left origin, framebuffer pixels) of a viewport of
+    /// <paramref name="viewportSize"/> seen by <paramref name="camera"/> (Godot's <c>project_ray_origin/normal</c>).
+    /// </summary>
+    public static (Vector3 Origin, Vector3 Direction) ProjectRay(ICamera camera, Vector2 pixel, Vector2 viewportSize)
+    {
+        ArgumentNullException.ThrowIfNull(camera);
+        if (!(viewportSize.X > 0f && viewportSize.Y > 0f))
+            return (camera.Position, camera.Forward); // no viewport area (0x0): no pixel to look through, not NaN
+        var ndc = new Vector2(pixel.X / viewportSize.X * 2f - 1f, 1f - pixel.Y / viewportSize.Y * 2f);
+        if (!Matrix4x4.Invert(camera.ViewMatrix * camera.ProjectionMatrix, out var inverse))
+            return (camera.Position, camera.Forward);
+        // z = 0.5 is inside the clip volume for both 0..1 and -1..1 depth conventions.
+        var far = Vector4.Transform(new Vector4(ndc, 0.5f, 1f), inverse);
+        var point = new Vector3(far.X, far.Y, far.Z) / far.W;
+        return (camera.Position, Vector3.Normalize(point - camera.Position));
+    }
+
+    /// <summary>Origin of the ray through <paramref name="pixel"/> of this camera's viewport (framebuffer pixels).</summary>
+    public Vector3 ProjectRayOrigin(Vector2 pixel) => RayThrough(pixel).Origin;
+
+    /// <summary>Direction of the ray through <paramref name="pixel"/> of this camera's viewport (framebuffer pixels).</summary>
+    public Vector3 ProjectRayNormal(Vector2 pixel) => RayThrough(pixel).Direction;
+
+    private (Vector3 Origin, Vector3 Direction) RayThrough(Vector2 pixel)
+    {
+        var size = GetViewport()?.Size ?? Vector2.One;
+        return ProjectRay(SyncRenderCamera(size.X / MathF.Max(size.Y, 1f)), pixel, size);
+    }
+
     protected override void OnEnterTree()
     {
         base.OnEnterTree();

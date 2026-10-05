@@ -39,7 +39,7 @@ jobs:
 
       - name: List LFS objects
         shell: bash
-        run: git lfs ls-files -l --exclude="docs/images/*.png,Examples/**,Tests/MainframeEngine.RenderTests/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+        run: git lfs ls-files -l --exclude="docs/images/*.png,docs/images/demo/**,Examples/**,Tests/MainframeEngine.RenderTests/**" | cut -d' ' -f1 | sort > .lfs-assets-id
 
       - name: Cache LFS objects
         uses: actions/cache@v4
@@ -50,7 +50,7 @@ jobs:
 
       - name: Fetch LFS objects
         shell: bash
-        run: git lfs pull --exclude="docs/images/*.png,Examples/**,Tests/MainframeEngine.RenderTests/**"
+        run: git lfs pull --exclude="docs/images/*.png,docs/images/demo/**,Examples/**,Tests/MainframeEngine.RenderTests/**"
 
       # Only the managed build needs Spine; native submodules (RmlUi, FreeType, ENet) are natives.yml's job.
       - run: git submodule update --init --depth 1 Plugins/Spine
@@ -110,7 +110,7 @@ jobs:
 
       # Committed .mo files match their .po, translations keep their placeholders (and msgfmt -c agrees where installed).
       - name: Localization catalogs
-        run: dotnet run --project Tools/MainframeEngine.L10n -c Release --no-build -- check --dir MainframeEngine.Sandbox/Content/locale --msgfmt
+        run: dotnet run --project Tools/MainframeEngine.L10n -c Release --no-build -- check --dir Examples/Demo/Content/locale --msgfmt
 
       - name: Editor unit tests
         run: >-
@@ -191,7 +191,7 @@ jobs:
       SDL_AUDIODRIVER: dummy
       RENDER_TEST_ARTIFACTS: ${{ github.workspace }}/artifacts/render-tests
     steps:
-      # LFS content the render tests need (engine/editor/Sandbox content, goldens); not docs/Examples images.
+      # LFS content the render tests need (engine/editor/test content, goldens); not docs/Examples images.
       # Git LFS objects are cached by object ID (.lfs-assets-id), so repeat runs use no LFS bandwidth.
       - uses: actions/checkout@v4
         with:
@@ -199,7 +199,7 @@ jobs:
 
       - name: List LFS objects
         shell: bash
-        run: git lfs ls-files -l --exclude="docs/images/*.png,Examples/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+        run: git lfs ls-files -l --exclude="docs/images/*.png,docs/images/demo/**,Examples/**" | cut -d' ' -f1 | sort > .lfs-assets-id
 
       - name: Cache LFS objects
         uses: actions/cache@v4
@@ -210,7 +210,7 @@ jobs:
 
       - name: Fetch LFS objects
         shell: bash
-        run: git lfs pull --exclude="docs/images/*.png,Examples/**"
+        run: git lfs pull --exclude="docs/images/*.png,docs/images/demo/**,Examples/**"
 
       # Only the managed build needs Spine; native submodules (RmlUi, FreeType, ENet) are natives.yml's job.
       - run: git submodule update --init --depth 1 Plugins/Spine
@@ -278,9 +278,10 @@ jobs:
 
   template:
     # `dotnet new mfgame` from source against this checkout, build it, run its GameHost launcher headless for 30
-    # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally).
+    # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally), then build, test and run every scene of
+    # Examples/Demo the same way (build/demo-smoke.sh).
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.json
       VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
@@ -289,7 +290,7 @@ jobs:
       CONFIGURATION: Release
       BUILD_ARGS: -p:CompileShaders=false
     steps:
-      # The smoke game needs only the engine's LFS content.
+      # The smoke games need the engine's and the Demo's LFS content (not tests or docs images).
       # Git LFS objects are cached by object ID (.lfs-assets-id), so repeat runs use no LFS bandwidth.
       - uses: actions/checkout@v4
         with:
@@ -297,7 +298,7 @@ jobs:
 
       - name: List LFS objects
         shell: bash
-        run: git lfs ls-files -l --exclude="docs/images/*.png,Examples/**,Tests/**,MainframeEngine.Sandbox/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+        run: git lfs ls-files -l --exclude="docs/images/*.png,docs/images/demo/**,Tests/**" | cut -d' ' -f1 | sort > .lfs-assets-id
 
       - name: Cache LFS objects
         uses: actions/cache@v4
@@ -308,7 +309,7 @@ jobs:
 
       - name: Fetch LFS objects
         shell: bash
-        run: git lfs pull --exclude="docs/images/*.png,Examples/**,Tests/**,MainframeEngine.Sandbox/**"
+        run: git lfs pull --exclude="docs/images/*.png,docs/images/demo/**,Tests/**"
 
       - run: git submodule update --init --depth 1 Plugins/Spine
 
@@ -333,17 +334,27 @@ jobs:
       - name: Instantiate, build and run the mfgame template
         run: xvfb-run -a -s "-screen 0 1280x1024x24" build/template-smoke.sh "$RUNNER_TEMP/template-smoke" 30
 
+      - name: Build, test and run every Demo scene
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" build/demo-smoke.sh "$RUNNER_TEMP/demo-smoke" 10
+
+      - name: Demo release zip
+        run: |
+          build/package-demo.sh 0.0.0-ci "$RUNNER_TEMP/demo-zip"
+          dotnet run --project MainframeEngine.Editor -c Release -- --validate-demo-zip "$RUNNER_TEMP/demo-zip/MainframeEngine.Demo.zip" --build
+
       - name: Pack the template package
         run: dotnet pack Templates/MainframeEngine.Templates -c Release -o "$RUNNER_TEMP/templates"
 
-      - name: Upload the smoke game's log and screenshot
+      - name: Upload the smoke games' logs and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: template-smoke-log
+          name: template-and-demo-smoke
           path: |
             ${{ runner.temp }}/template-smoke/userdata/**/*.log
             ${{ runner.temp }}/template-smoke/screenshot.png
+            ${{ runner.temp }}/demo-smoke/userdata/**/*.log
+            ${{ runner.temp }}/demo-smoke/*.png
           if-no-files-found: warn
 
   ci-success:

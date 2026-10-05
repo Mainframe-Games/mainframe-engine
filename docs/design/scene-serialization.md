@@ -59,7 +59,7 @@ public partial class DirectionalLight3D : Light3D   // `partial` is not required
 ### Source generator
 
 `MainframeEngine.Generators` runs on every project that references it as an analyzer (the engine, the
-Sandbox, the unit tests; games will too):
+unit tests, every game such as the Demo):
 
 ```xml
 <ProjectReference Include="..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
@@ -300,6 +300,13 @@ Saving and loading run at load time and may allocate. Measured with BenchmarkDot
 ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json)): `SceneSaveLoadRoundTrip1k`
 (serialize, parse and instantiate a 1 000-node scene).
 
+## Game value types
+
+A game struct marked `[SerializableValue]` may be an `[Export]` type (or an array/list element) once its codec is
+registered (`Codecs.Register(Codecs.FloatArray<T>(...))`, before anything loads). Generated registration uses
+`Codecs.Deferred<T>()`, which looks the codec up when a value is read or written, so a module initializer of the game can
+register it in any order. Crash Site Defense uses this for its copies of Godot's math structs (`Godot.Vector2`, `Color`, …).
+
 ## Known issues
 
 - Renaming a node inside a sub-scene breaks overrides that target it by path.
@@ -314,6 +321,6 @@ Saving and loading run at load time and may allocate. Measured with BenchmarkDot
 
 ## Related docs
 
-[Scene graph & nodes](scene-graph-and-nodes.md) · [Sandbox](sandbox.md) · [Testing](testing.md) ·
+[Scene graph & nodes](scene-graph-and-nodes.md) · [Demo](demo.md) · [Testing](testing.md) ·
 [Editor](editor.md) · [Networking: replication](networking.md#replication) ·
 [Shaders](shaders.md)

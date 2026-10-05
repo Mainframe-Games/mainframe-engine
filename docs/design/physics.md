@@ -137,7 +137,7 @@ flowchart LR
   kinematic body with sensor shapes that never sleeps.
 - **Settings** (`PhysicsSettings3D`): `Gravity` (−9.81 Y), `SubstepCount` (1), `SolverIterations` (6) and
   `RelaxationIterations` (4), `AllowDeactivation`, `MultiThreaded`, `Deterministic`. (`PhysicsSettings2D`):
-  `Gravity` (−980 px/s² Y), **`PixelsPerMeter` (100)**, `SubstepCount` (4), `AllowSleep`, `EnableContinuous`.
+  `Gravity` (+980 px/s² Y: 2D is Y-down, ADR 0110), **`PixelsPerMeter` (100)**, `SubstepCount` (4), `AllowSleep`, `EnableContinuous`.
 - **Units**: 3D is metres. Box2D is tuned for 0.1–10 m objects, so 2D nodes work in pixels and the space converts
   with `PixelsPerMeter` (fixed per space) at its boundary — positions, velocities, forces (kg·px/s²), torques and
   query results.
@@ -268,7 +268,7 @@ to a few millimetres (closer reports "overlapping"), so `CharacterBody3D.SafeMar
 - `PhysicsServer3D/2D.DebugDrawEnabled` (or `EngineOptions.DebugCollisionShapes`) draws every enabled collision shape
   each frame (after interpolation, so lines match what is rendered) into the viewport's
   `SceneViewport.DebugLines`. Colours: static green, dynamic orange, sleeping grey, kinematic/character blue,
-  areas cyan. 2D shapes are drawn in the z = 0 plane in pixels (where `Camera2D` looks). The Sandbox has a toggle.
+  areas cyan. 2D shapes are drawn in the z = 0 plane in pixels (where `Camera2D` looks). The Demo's Physics panels have a toggle.
 - `DebugLines` is an immediate-mode batch of coloured segments (boxes, circles, spheres, capsules, cylinders,
   triangle lists, 2D polygons); the render server draws a viewport's batch after its visuals and clears it every
   frame (also when nothing could be drawn). At most 2¹⁸ lines per frame; more are dropped (`DroppedLines`).
@@ -284,7 +284,7 @@ to a few millimetres (closer reports "overlapping"), so `CharacterBody3D.SafeMar
 
 - **3D: zero managed allocations** in steady-state physics frames (≈ 500 bodies, contact monitors, areas,
   characters, debug draw and every query kind, single- and multi-threaded) — unit-tested, and the render-test
-  allocation gate's Sandbox scene steps a crate stack (single-threaded: Jitter2's worker pool itself allocates 56 B
+  allocation gate's showcase scene steps a crate stack (single-threaded: Jitter2's worker pool itself allocates 56 B
   about once per 5 000 multi-threaded steps, so the multi-threaded unit test excludes the library's share). Per-step work is O(moving bodies + monitors + areas); sleeping
   bodies cost no pose writes.
 - **2D**: the engine's code allocates nothing, but Box2D.NET 3.1.654 allocates inside `b2World_Step` (a

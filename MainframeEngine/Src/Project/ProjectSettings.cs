@@ -28,6 +28,9 @@ public sealed class ProjectSettings
         }
     } = "Game";
 
+    /// <summary>The game's own version (Godot's <c>application/config/version</c>); empty when the project sets none.</summary>
+    public string Version { get; set; } = "";
+
     /// <summary>The scene <see cref="GameHost"/> starts with: a UID (<c>scn_…</c>) or a <c>Content/…</c> path.</summary>
     public string? MainScene { get; set; }
 
@@ -117,6 +120,7 @@ public sealed class ProjectSettings
     {
         GameName = Window.Title ?? Name,
         WindowSize = new Vector2D<int>(Window.Width, Window.Height),
+        ContentScale = Window.ContentScale,
         IconPath = Window.Icon,
         VSync = Window.VSync,
         PhysicsTicksPerSecond = Physics.TicksPerSecond,
@@ -179,6 +183,46 @@ public sealed class WindowSettings
 
     /// <summary>Window icon (a <c>Content/…</c> PNG), or null.</summary>
     public string? Icon { get; set; }
+
+    /// <summary>
+    /// How 2D content scales with the window (Godot's <c>display/window/stretch/mode</c>); the base size is
+    /// <see cref="Width"/> × <see cref="Height"/>. <see cref="ContentScaleMode.Disabled"/> (default): one canvas unit per pixel.
+    /// </summary>
+    public ContentScaleMode StretchMode { get; set; }
+
+    /// <summary>Godot's <c>display/window/stretch/aspect</c> (default keep).</summary>
+    public ContentScaleAspect StretchAspect { get; set; } = ContentScaleAspect.Keep;
+
+    /// <summary>Godot's <c>display/window/stretch/scale</c>.</summary>
+    public float StretchScale
+    {
+        get;
+        set
+        {
+            if (!(value > 0) || !float.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The stretch scale must be positive and finite.");
+            field = value;
+        }
+    } = 1f;
+
+    /// <summary>Godot's <c>display/window/stretch/scale_mode</c>.</summary>
+    public ContentScaleStretch StretchScaleMode { get; set; }
+
+    /// <summary>
+    /// Pixels per point of <see cref="Width"/> × <see cref="Height"/> (<see cref="EngineOptions.ContentScale"/>). 0 (default):
+    /// the size is in OS points (a Retina window is twice as many pixels). 1: the size is in pixels on every display, as in
+    /// Godot (a 1920×1080 window is 960×540 points on a 2× screen).
+    /// </summary>
+    public float ContentScale
+    {
+        get;
+        set
+        {
+            if (!(value >= 0) || !float.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The content scale must be 0 or positive and finite.");
+            field = value;
+        }
+    }
 }
 
 /// <summary>The <c>physics</c> section: the fixed tick and the 3D/2D server settings.</summary>
@@ -293,6 +337,12 @@ public sealed class RenderingProjectSettings
     /// (<see cref="ShadowQualitySettings.For"/>). Default <see cref="ShadowQuality.High"/>, the engine's defaults.
     /// </summary>
     public ShadowQuality Shadows { get; set; } = ShadowQuality.High;
+
+    /// <summary>
+    /// Opaque background of the 2D canvas (<see cref="CanvasServer.ClearColor"/>; a 2D game: Godot's viewport clear colour,
+    /// gamma-space RGBA), or null (default) to draw the canvas over the 3D scene.
+    /// </summary>
+    public System.Numerics.Vector4? CanvasClearColor { get; set; }
 }
 
 /// <summary>

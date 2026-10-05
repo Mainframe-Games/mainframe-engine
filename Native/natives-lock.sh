@@ -44,6 +44,7 @@ component_inputs() {
 	case "$1" in
 		enet) echo "Native/CMakeLists.txt Native/ENet/CMakeLists.txt Native/ENet/exports.macos.txt Native/ENet/exports.linux.map" ;;
 		mfrmlui) echo "Native/CMakeLists.txt Native/RmlUi/CMakeLists.txt Native/RmlUi/include Native/RmlUi/shim" ;;
+		mfsvg) echo "Native/CMakeLists.txt Native/Svg/CMakeLists.txt Native/Svg/include Native/Svg/shim Native/Svg/thorvg" ;;
 		*) return 1 ;;
 	esac
 }
@@ -52,6 +53,7 @@ component_submodules() {
 	case "$1" in
 		enet) echo "Native/ENet/upstream" ;;
 		mfrmlui) echo "Native/RmlUi/external/RmlUi Native/RmlUi/external/freetype" ;;
+		mfsvg) echo "" ;;
 		*) return 1 ;;
 	esac
 }
@@ -78,6 +80,7 @@ component_of() {
 	case "$(basename "$1")" in
 		enet.dll | libenet.so | libenet.dylib) echo enet ;;
 		mfrmlui.dll | libmfrmlui.so | libmfrmlui.dylib) echo mfrmlui ;;
+		mfsvg.dll | libmfsvg.so | libmfsvg.dylib) echo mfsvg ;;
 		*) echo "" ;;
 	esac
 }
@@ -108,9 +111,10 @@ cmd_update() {
 		esac
 	done
 
-	local enet_inputs mfrmlui_inputs
+	local enet_inputs mfrmlui_inputs mfsvg_inputs
 	enet_inputs="$(inputs_hash enet)"
 	mfrmlui_inputs="$(inputs_hash mfrmlui)"
+	mfsvg_inputs="$(inputs_hash mfsvg)"
 
 	local tmp
 	tmp="$(mktemp)"
@@ -127,6 +131,7 @@ cmd_update() {
 		for sub in $(component_submodules enet); do echo "submodule enet $sub $(submodule_commit "$sub")"; done
 		echo "component mfrmlui inputs $mfrmlui_inputs"
 		for sub in $(component_submodules mfrmlui); do echo "submodule mfrmlui $sub $(submodule_commit "$sub")"; done
+		echo "component mfsvg inputs $mfsvg_inputs"
 		echo
 
 		local path component sha old_sha old_inputs current
@@ -135,7 +140,11 @@ cmd_update() {
 			component="$(component_of "$path")"
 			[[ -n "$component" ]] || continue
 			sha="$(sha256_file "$repo_root/$path")"
-			if [[ "$component" == enet ]]; then current="$enet_inputs"; else current="$mfrmlui_inputs"; fi
+			case "$component" in
+				enet) current="$enet_inputs" ;;
+				mfsvg) current="$mfsvg_inputs" ;;
+				*) current="$mfrmlui_inputs" ;;
+			esac
 			old_sha="$(locked_field "$path" 2)"
 			old_inputs="$(locked_field "$path" 4)"
 			if [[ $restamp -eq 0 && "$stamped" != *" $path "* && "$old_sha" == "$sha" && -n "$old_inputs" ]]; then
@@ -157,7 +166,7 @@ cmd_verify() {
 	fi
 
 	local component expected locked
-	for component in enet mfrmlui; do
+	for component in enet mfrmlui mfsvg; do
 		expected="$(inputs_hash "$component")"
 		locked="$(awk -v c="$component" '$1 == "component" && $2 == c { print $4 }' "$lock_file")"
 		if [[ "$expected" != "$locked" ]]; then

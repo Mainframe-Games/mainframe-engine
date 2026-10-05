@@ -12,7 +12,8 @@ Most subtle rendering bugs in the engine come from a mismatch here.
 | Convention | Value |
 |---|---|
 | Math library | `System.Numerics` |
-| Handedness | right-handed, +Y up, camera looks down −Z |
+| Handedness | right-handed, +Y up, camera looks down −Z (3D) |
+| 2D | **Y-down** like Godot and screen space (ADR 0110): `Node2D` +Y is down on screen, positive rotation is clockwise on screen, 2D gravity is +Y, `CharacterBody2D.UpDirection` is −Y. `Camera2D` and the editor's 2D view look at the z = 0 plane along **+Z** from behind it (a rotation, not a mirror), so 3D visuals drawn by a 2D camera show their back faces |
 | Vector convention | **row vectors**: `world = v × Model`, `clip = v × Model × View × Proj` |
 | Matrix upload | `Matrix4x4` is written raw into UBOs/push constants; GLSL reads it column-major, which transposes it, so `proj * view * model * v` in GLSL is correct |
 | Model matrix | `Scale × RotX × RotY × RotZ × Translation` (Euler degrees) |
@@ -24,7 +25,7 @@ Most subtle rendering bugs in the engine come from a mismatch here.
 |---|---|---|
 | Main pass: shapes, Spine, grid, sky | **Y-flipped** (`y = height`, `height = −height`) | Keep +Y up on screen, like GL |
 | Shadow passes | not flipped | Shadow UVs are computed as `ndc·0.5 + 0.5` and match unflipped rendering |
-| ImGui | not flipped | ImGui is Y-down, the same as Vulkan |
+| Overlay pass (screen gizmos, UI) | not flipped | Pixel space is Y-down, the same as Vulkan |
 
 A flipped viewport reverses winding. Geometry is authored CCW. The main pass uses `FrontFace = CCW`
 *with* the flip, so CCW stays front. The shadow passes render *without* the flip, so geometric front
@@ -54,9 +55,9 @@ passes.) The grid shader's `LinearizeDepth` assumes this [0, 1] convention. Reve
 | Scene target | `R16G16B16A16Sfloat`, linear | Lighting and blending of scene content in linear space |
 | Swapchain | `B8G8R8A8Unorm`, sRGB-encoded by the tonemap shader | Exposure + ACES, then sRGB encode |
 | Sky, albedo, straight-alpha Spine textures | `R8G8B8A8Srgb` | Decoded to linear on sample |
-| Data textures, ImGui font, PMA Spine atlases | `R8G8B8A8Unorm` | PMA atlases are decoded in the shader |
+| Data textures, PMA Spine atlases | `R8G8B8A8Unorm` | PMA atlases are decoded in the shader |
 | Authored colours (lights, shapes, sky, grid, clear) | sRGB | Converted to linear once |
-| ImGui | sRGB, drawn after the tonemap | Unchanged |
+| Screen gizmos, UI | sRGB, drawn after the tonemap | Unchanged |
 
 Details: [Color pipeline](color-pipeline.md).
 

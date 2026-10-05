@@ -141,13 +141,13 @@ public sealed class AudioSerializationTests
     }
 
     [Fact]
-    public void TheSandboxAmbiencePlaysFromItsSceneFile()
+    public void TheShowcaseAmbiencePlaysFromItsSceneFile()
     {
         var previous = AssetDatabase.Current;
-        AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory); // "Content/..." resolves like the Sandbox's
+        AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory); // "Content/..." resolves like a game's
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Content", "Scenes", "Sandbox.mscene");
+            var path = Path.Combine(AppContext.BaseDirectory, "Content", "Scenes", "Showcase.mscene");
             var tree = new SceneTree();
             using var server = AudioTestUtil.CreateServer(tree);
             tree.ChangeScene(PackedScene.Parse(File.ReadAllBytes(path)).Instantiate());

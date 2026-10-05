@@ -1,0 +1,197 @@
+# Spanish translation of Mainframe Engine render tests.
+msgid ""
+msgstr ""
+"Project-Id-Version: Mainframe Engine render tests\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. RML <span>
+msgid "{{ uiDraws }} draws"
+msgstr "{{ uiDraws }} llamadas"
+
+#. RML <div>
+msgid "Scene"
+msgstr "Escena"
+
+#. RML <label>
+msgid "Exposure"
+msgstr "Exposición"
+
+#. RML <label>
+msgid "Spin speed"
+msgstr "Velocidad de giro"
+
+#. RML <label>
+msgid "Max FPS"
+msgstr "FPS máximos"
+
+#. RML <option>
+msgid "Unlimited"
+msgstr "Sin límite"
+
+#. RML <label>
+msgid "Language"
+msgstr "Idioma"
+
+#. RML <label>
+msgid "Sun"
+msgstr "Sol"
+
+#. RML <label>
+msgid "Coloured lights"
+msgstr "Luces de colores"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:33
+msgid "VSync"
+msgstr "Sincr. vertical"
+
+#. RML <label>
+msgid "Colliders"
+msgstr "Colisionadores"
+
+#. RML <button>
+msgid "Widgets"
+msgstr "Widgets"
+
+#. RML <button>
+msgid "Dev overlay"
+msgstr "Depuración"
+
+#. RML <button>
+#. RML <title>
+#: MainframeEngine/Content/UI/credits.rml:3
+msgid "Credits"
+msgstr "Créditos"
+
+#. RML <button>
+msgid "Quit"
+msgstr "Salir"
+
+#. RML <div>
+msgid "Right-drag look · WASD move · Q/E down/up · F8 UI debugger · F12 dev overlay · Esc quit"
+msgstr "Botón derecho: mirar · WASD: mover · Q/E: bajar/subir · F8: depurador de UI · F12: depuración · Esc: salir"
+
+msgid "Developer"
+msgstr "Desarrollador"
+
+msgid "Full screen"
+msgstr "Pantalla completa"
+
+msgid "UI debugger (F8)"
+msgstr "Depurador de UI (F8)"
+
+msgctxt "overlay section"
+msgid "Camera"
+msgstr "Cámara"
+
+msgctxt "overlay section"
+msgid "Scene"
+msgstr "Escena"
+
+#, csharp-format
+msgid "{0} node in the scene tree"
+msgid_plural "{0} nodes in the scene tree"
+msgstr[0] "{0} nodo en el árbol de escena"
+msgstr[1] "{0} nodos en el árbol de escena"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/credits.rml:17
+msgid "Made with Mainframe Engine"
+msgstr "Hecho con Mainframe Engine"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/credits.rml:18
+msgid "User interface"
+msgstr "Interfaz de usuario"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/credits.rml:22
+msgid "Other"
+msgstr "Otros"
+
+#. RML <title>
+#: MainframeEngine/Content/UI/widgets/demo.rml:3
+msgid "Widget library"
+msgstr "Biblioteca de widgets"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/widgets/demo.rml:15
+msgid "Buttons"
+msgstr "Botones"
+
+#. RML <button>
+#: MainframeEngine/Content/UI/widgets/demo.rml:17
+msgid "Play"
+msgstr "Jugar"
+
+#. RML <button>
+#: MainframeEngine/Content/UI/widgets/demo.rml:18
+msgid "Options"
+msgstr "Opciones"
+
+#. RML <button>
+#: MainframeEngine/Content/UI/widgets/demo.rml:19
+msgid "Locked"
+msgstr "Bloqueado"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:22
+msgid "Volume"
+msgstr "Volumen"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:23
+msgid "Quality"
+msgstr "Calidad"
+
+#. RML <option>
+#: MainframeEngine/Content/UI/widgets/demo.rml:25
+msgid "Low"
+msgstr "Baja"
+
+#. RML <option>
+#: MainframeEngine/Content/UI/widgets/demo.rml:26
+msgid "Medium"
+msgstr "Media"
+
+#. RML <option>
+#: MainframeEngine/Content/UI/widgets/demo.rml:27
+msgid "High"
+msgstr "Alta"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:30
+msgid "Player name"
+msgstr "Nombre del jugador"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:34
+msgid "Hints"
+msgstr "Consejos"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:35
+msgid "Windowed"
+msgstr "Ventana"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:36
+msgid "Fullscreen"
+msgstr "Pantalla completa"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/widgets/demo.rml:39
+msgid "Progress"
+msgstr "Progreso"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/widgets/demo.rml:43
+msgid "Notes"
+msgstr "Notas"
+
+#~ msgid "Game Window"
+#~ msgstr "Ventana del juego"

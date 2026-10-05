@@ -78,15 +78,25 @@ public sealed class UiHotReload : IDisposable
     /// Main thread: when changes are pending and the debounce interval has passed since the last one, returns what
     /// they require and clears the queue.
     /// </summary>
-    public bool TryTake(out UiReloadKind kind)
+    public bool TryTake(out UiReloadKind kind) => TryTake(out kind, out _);
+
+    /// <summary>
+    /// As <see cref="TryTake(out UiReloadKind)"/>, also returning the most recently changed file of the batch.
+    /// </summary>
+    public bool TryTake(out UiReloadKind kind, out string? lastPath)
     {
         kind = UiReloadKind.None;
+        lastPath = null;
         if (_changes.IsEmpty)
             return false;
         if (Stopwatch.GetElapsedTime(Interlocked.Read(ref _lastChange)) < Debounce)
             return false;
         while (_changes.TryDequeue(out var path))
+        {
             kind |= Classify(path);
+            lastPath = path;
+        }
+
         return kind != UiReloadKind.None;
     }
 

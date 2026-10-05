@@ -34,6 +34,7 @@ public class UiLayer : Node
     private readonly List<UiDocument> _documents = [];
     private int _layer;
     private bool _visible = true;
+    private bool _inert;
 
     /// <summary>Draw and input order: higher layers draw on top and receive input first.</summary>
     [Export]
@@ -94,6 +95,14 @@ public class UiLayer : Node
         }
     }
 
+    /// <summary>
+    /// A layer of a scene being edited (<see cref="SceneTree.EditMode"/>, below a sub-viewport rather than the tree's root
+    /// viewport) that is not a <see cref="ToolAttribute"/> type is inert: it gets a context, so data models and elements
+    /// still work from <see cref="Node.OnReady"/>, but the server never updates, draws or routes input to it. Otherwise a
+    /// game HUD would paint over the editor's panels and steal their input.
+    /// </summary>
+    private bool IsInertInEditor => Tree is { EditMode: true } tree && !IsTool && !ReferenceEquals(GetViewport(), tree.Root);
+
     protected override void OnEnterTree()
     {
         base.OnEnterTree();
@@ -101,6 +110,13 @@ public class UiLayer : Node
         if (Server is null)
         {
             Log.Warning($"[UI] UiLayer '{Name}' entered a tree without a UiServer; its documents will not load.");
+            return;
+        }
+
+        if (IsInertInEditor)
+        {
+            Context = Server.CreateInertContext(this);
+            _inert = true;
             return;
         }
 
@@ -117,7 +133,11 @@ public class UiLayer : Node
 
         if (Server is not null)
         {
-            Server.RemoveLayer(this);
+            if (_inert)
+                Context?.Dispose();
+            else
+                Server.RemoveLayer(this);
+            _inert = false;
             Context = null;
             Server = null;
         }
