@@ -39,7 +39,7 @@ jobs:
 
       - name: List LFS objects
         shell: bash
-        run: git lfs ls-files -l --exclude="docs/**,Examples/**,Tests/MainframeEngine.RenderTests/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+        run: git lfs ls-files -l --exclude="docs/images/*.png,Examples/**,Tests/MainframeEngine.RenderTests/**" | cut -d' ' -f1 | sort > .lfs-assets-id
 
       - name: Cache LFS objects
         uses: actions/cache@v4
@@ -50,7 +50,7 @@ jobs:
 
       - name: Fetch LFS objects
         shell: bash
-        run: git lfs pull --exclude="docs/**,Examples/**,Tests/MainframeEngine.RenderTests/**"
+        run: git lfs pull --exclude="docs/images/*.png,Examples/**,Tests/MainframeEngine.RenderTests/**"
 
       # Only the managed build needs Spine; native submodules (RmlUi, FreeType, ENet) are natives.yml's job.
       - run: git submodule update --init --depth 1 Plugins/Spine
@@ -183,7 +183,7 @@ jobs:
 
       - name: List LFS objects
         shell: bash
-        run: git lfs ls-files -l --exclude="docs/**,Examples/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+        run: git lfs ls-files -l --exclude="docs/images/*.png,Examples/**" | cut -d' ' -f1 | sort > .lfs-assets-id
 
       - name: Cache LFS objects
         uses: actions/cache@v4
@@ -194,7 +194,7 @@ jobs:
 
       - name: Fetch LFS objects
         shell: bash
-        run: git lfs pull --exclude="docs/**,Examples/**"
+        run: git lfs pull --exclude="docs/images/*.png,Examples/**"
 
       # Only the managed build needs Spine; native submodules (RmlUi, FreeType, ENet) are natives.yml's job.
       - run: git submodule update --init --depth 1 Plugins/Spine
@@ -281,7 +281,7 @@ jobs:
 
       - name: List LFS objects
         shell: bash
-        run: git lfs ls-files -l --exclude="docs/**,Examples/**,Tests/**,MainframeEngine.Sandbox/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+        run: git lfs ls-files -l --exclude="docs/images/*.png,Examples/**,Tests/**,MainframeEngine.Sandbox/**" | cut -d' ' -f1 | sort > .lfs-assets-id
 
       - name: Cache LFS objects
         uses: actions/cache@v4
@@ -292,7 +292,7 @@ jobs:
 
       - name: Fetch LFS objects
         shell: bash
-        run: git lfs pull --exclude="docs/**,Examples/**,Tests/**,MainframeEngine.Sandbox/**"
+        run: git lfs pull --exclude="docs/images/*.png,Examples/**,Tests/**,MainframeEngine.Sandbox/**"
 
       - run: git submodule update --init --depth 1 Plugins/Spine
 
