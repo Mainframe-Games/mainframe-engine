@@ -342,16 +342,16 @@ interpolated `$"..."` ones — allocate nothing.
 | Vulkan on macOS | Silk.NET.MoltenVK.Native | 2.23.0 |
 | Model loading | Silk.NET.Assimp | 2.23.0 |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) + FreeType (in-house `mfrmlui` C ABI shim) | 6.3 / 2.14.3 |
-| Debug UI | ImGui.NET | 1.89.9.3 |
+| Debug UI | ImGui.NET | 1.91.6.1 |
 | Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) | 2.9.0 |
 | Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3 port) | 3.1.654 |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) (miniaudio) | 1.4.1 |
 | OGG Vorbis decoding | NVorbis | 0.10.5 |
 | Networking | ENet-CSharp (natives built in-house) | 2.4.8 |
 | Localization | [GetText.NET](https://github.com/perpetualKid/GetText.NET) | 10.0.1 |
-| Source generator | Microsoft.CodeAnalysis.CSharp | 4.14.0 |
+| Source generator | Microsoft.CodeAnalysis.CSharp | 5.9.0 |
 | Skeletal animation | Spine Runtime | (Plugin) |
-| Image loading | StbImageSharp | 2.30.15 |
+| Image loading | StbImageSharp | 2.30.16 |
 | Steam platform | Steamworks.NET | 2024.8.0 |
 
 Versions are central in `Directory.Packages.props`; new packages are discussed before they are added.

@@ -23,23 +23,24 @@
     <PackageVersion Include="ENet-CSharp" Version="2.4.8" />
     <!-- Localization runtime (.mo catalogs, Plural-Forms evaluation). Pinned: 11.0 is a preview with sparse notes (M9, ADR 0060). -->
     <PackageVersion Include="GetText.NET" Version="[10.0.1]" />
-    <PackageVersion Include="ImGui.NET" Version="1.89.9.3" />
+    <PackageVersion Include="ImGui.NET" Version="1.91.6.1" />
     <!-- Audio (M7): SoundFlow (MIT; miniaudio natives for every desktop RID inside the package) and NVorbis
          (MIT, fully managed OGG Vorbis decoding). Pinned exactly; see ADR 0030. -->
     <PackageVersion Include="NVorbis" Version="[0.10.5]" />
     <PackageVersion Include="SoundFlow" Version="[1.4.1]" />
     <!-- Physics (M6): pinned exactly, both APIs change between minors (docs/design/physics.md). -->
     <PackageVersion Include="Jitter2" Version="2.9.0" />
-    <PackageVersion Include="StbImageSharp" Version="2.30.15" />
+    <PackageVersion Include="StbImageSharp" Version="2.30.16" />
     <PackageVersion Include="Steamworks.NET" Version="2024.8.0" />
   </ItemGroup>
 
   <!--
     Build-time only: MainframeEngine.Generators (source generator, loaded by the compiler as an analyzer) and its
-    tests. Never a runtime dependency of the engine or games. 4.14 runs on the .NET 10 SDK's compiler and newer.
+    tests. Never a runtime dependency of the engine or games. 5.9 needs the compiler of SDK 10.0.401 or newer
+    (global.json, also in the game template).
   -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
   </ItemGroup>
 
   <!-- Examples only -->

@@ -56,8 +56,8 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.23.0*
 | Silk.NET.Vulkan (+ Extensions.EXT/KHR) | 2.22.0 | Vulkan bindings |
 | Silk.NET.MoltenVK.Native | 2.22.0 | Bundled MoltenVK for macOS |
 | Silk.NET.Assimp | 2.22.0 | *Referenced but unused* (kept for M3) |
-| ImGui.NET | 1.89.9.3 | Debug UI |
-| StbImageSharp | 2.30.15 | Image decoding (sky, Spine atlas, icon) |
+| ImGui.NET | 1.91.6.1 | Debug UI |
+| StbImageSharp | 2.30.16 | Image decoding (sky, Spine atlas, icon) |
 | ENet-CSharp | 2.4.8 | UDP networking |
 | Steamworks.NET | 2024.8.0 | Steam wrappers (inert, see [Steamworks](steamworks.md)) |
 | SoundFlow | 1.4.1 (exact) | Audio device, mixer graph, MP3/FLAC decoding ([Audio](audio.md), [ADR 0030](../../memory/decisions/0030-soundflow-audio-backend.md)). Ships its miniaudio natives in `runtimes/<rid>/native/` (win-x64/x86/arm64, linux-x64/arm/arm64, osx-x64/arm64, …); NuGet copies them to the app's `runtimes/` and SoundFlow resolves them. |
