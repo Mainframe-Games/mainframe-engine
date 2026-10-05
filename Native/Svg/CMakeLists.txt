@@ -59,6 +59,11 @@ add_library(mfsvg_thorvg STATIC
 target_include_directories(mfsvg_thorvg PUBLIC "${TVG}/inc"
 	PRIVATE "${TVG}/src/common" "${TVG}/src/loaders/svg" "${TVG}/src/loaders/raw" "${TVG}/src/renderer" "${TVG}/src/renderer/sw_engine")
 target_compile_definitions(mfsvg_thorvg PUBLIC TVG_STATIC PRIVATE THORVG_FILE_IO_SUPPORT)
+if(WIN32)
+	# tvgCommon.h includes <windows.h>, whose min/max macros break std::min/std::max and tvgMath.h's min()/max()
+	# under MSVC. Godot defines NOMINMAX for its whole Windows build; do the same for ThorVG.
+	target_compile_definitions(mfsvg_thorvg PRIVATE NOMINMAX)
+endif()
 target_compile_features(mfsvg_thorvg PRIVATE cxx_std_17)
 find_package(Threads REQUIRED)
 target_link_libraries(mfsvg_thorvg PUBLIC Threads::Threads)
