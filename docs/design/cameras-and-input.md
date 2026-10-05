@@ -61,6 +61,10 @@ classDiagram
   `SyncRenderCamera(aspect)` — position, forward, up (global basis Y) and the swapchain aspect — and draws
   with `RenderCamera` (the wrapped `PerspectiveCamera`). Orient it with `LookAt(target)` or
   `RotationDegrees`.
+  **Rays:** `ProjectRayOrigin(pixel)` / `ProjectRayNormal(pixel)` give the world ray through a framebuffer pixel
+  (top-left origin; the viewport's `Size`, so pass `SceneViewport`/input pixel coordinates), like Godot's
+  `project_ray_origin/normal`. `Camera3D.ProjectRay(ICamera, pixel, viewportSize)` is the tree-less form; feed the
+  ray to `DirectSpaceState` for picking.
 - **`Camera2D : Node2D`**: `Current`, `Zoom`, `Distance` (how far in front of the z = 0 plane it sits,
   default 500). Used when the viewport has no 3D camera; the framebuffer size becomes its `Size`.
 
