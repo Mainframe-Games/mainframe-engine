@@ -199,6 +199,28 @@ public sealed class RmlBindingTests
         host.AssertNoRmlErrors();
     }
 
+    [Fact]
+    public void AbsoluteImageSourcesReachTheRendererUnchanged()
+    {
+        var directory = Directory.CreateTempSubdirectory("mf-abs-img").FullName;
+        try
+        {
+            // The recording renderer never decodes, so the bytes only need to exist.
+            var png = Path.Combine(directory, "icon.png");
+            File.WriteAllBytes(png, [1]);
+            var source = png.Replace('\\', '/');
+            using var host = new RmlTestHost();
+            host.Show(RmlTestHost.Page($"<img src=\"{source}\"/>"));
+
+            Assert.Contains(host.Renderer.LoadedTextures, t => t.Replace('\\', '/') == source);
+            host.AssertNoRmlErrors();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     // ── Events ───────────────────────────────────────────────────────────────────────────────────────────────
 
     [Fact]

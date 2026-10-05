@@ -142,6 +142,7 @@ public static unsafe class RmlCore
                 GetClipboardText = &SysGetClipboard,
                 ActivateKeyboard = &SysActivateKeyboard,
                 DeactivateKeyboard = &SysDeactivateKeyboard,
+                JoinPath = &SysJoinPath,
             };
         }
 
@@ -434,6 +435,22 @@ public static unsafe class RmlCore
         {
             Report(e, nameof(RmlSystemInterface.GetClipboardText));
         }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void SysJoinPath(nint user, byte* documentPath, byte* path, nint output)
+    {
+        string? joined = null;
+        try
+        {
+            joined = RmlPaths.Join(RmlUtf8.ToString(documentPath) ?? "", RmlUtf8.ToString(path) ?? "");
+        }
+        catch (Exception e)
+        {
+            Report(e, "JoinPath");
+        }
+
+        new RmlStringSink(output).Set((joined ?? RmlUtf8.ToString(path) ?? "").AsSpan());
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
