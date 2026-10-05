@@ -5,15 +5,15 @@ namespace MainframeEngine;
 /// <summary>
 /// Colour pipeline (docs/design/color-pipeline.md): the scene renders into an HDR offscreen target
 /// (<see cref="SceneTarget"/>, <c>R16G16B16A16_SFLOAT</c> + depth); the tonemap pass (exposure, ACES fitted)
-/// writes it to the swapchain; then the overlay pass draws ImGui, which is authored in sRGB, so it is composited
-/// exactly as before the colour pipeline existed.
+/// writes it to the swapchain; then the overlay pass draws the canvas, UI and dev overlay, which are authored in sRGB, so they are
+/// composited exactly as authored.
 /// </summary>
 /// <remarks>
 /// <para>Swapchain choice (<see cref="SwapchainEncoding"/>, <see cref="ChooseSurfaceFormat"/>): by default a UNORM
-/// swapchain whose tonemap shader encodes sRGB, with ImGui in the same pass writing its sRGB values unchanged. A
+/// swapchain whose tonemap shader encodes sRGB, with the overlay renderers in the same pass writing their sRGB values unchanged. A
 /// surface without 8-bit UNORM formats gets an sRGB swapchain: with <c>VK_KHR_swapchain_mutable_format</c> the
-/// tonemap writes an sRGB view (hardware encode) and the overlay a UNORM view of the same image; otherwise ImGui
-/// linearises its colours (blending then happens in linear space). <c>MAINFRAME_SWAPCHAIN_ENCODING</c> forces a
+/// tonemap writes an sRGB view (hardware encode) and the overlay a UNORM view of the same image; otherwise the overlay
+/// renderers linearise their colours (blending then happens in linear space). <c>MAINFRAME_SWAPCHAIN_ENCODING</c> forces a
 /// path for QA.</para>
 /// <para>Pass order per frame: <see cref="BeginRenderPass"/> (scene) → <see cref="BeginOverlayPass"/> (end scene,
 /// tonemap, begin overlay) → <see cref="EndFrame"/>, which runs whatever is missing so a frame always ends
@@ -86,7 +86,7 @@ internal sealed unsafe partial class VulkanRenderer
 
     /// <summary>
     /// Picks the surface format and where sRGB encoding happens (ADR "colour pipeline"): a UNORM swapchain with the
-    /// tonemap shader encoding first (exact ImGui, tonemap and UI in one pass, works everywhere); an sRGB swapchain
+    /// tonemap shader encoding first (exact overlays, tonemap and UI in one pass, works everywhere); an sRGB swapchain
     /// only when no 8-bit UNORM format is offered, or when <c>MAINFRAME_SWAPCHAIN_ENCODING</c> asks for one.
     /// Deterministic for a surface, so recreation keeps the choice.
     /// </summary>

@@ -32,7 +32,7 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
 | [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
 
-Managed NuGet dependencies (Silk.NET, ImGui.NET, StbImageSharp, Steamworks.NET, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
+Managed NuGet dependencies (Silk.NET, StbImageSharp, Steamworks.NET, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
 their packages and are not repeated here.
 
 ## FreeType

@@ -4,7 +4,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Tonemaps offscreen views (<see cref="SubViewport"/>) into their LDR targets with the same shader as the main
-/// view (exposure, ACES fitted, sRGB encoding into an <c>R8G8B8A8_UNORM</c> image), so ImGui and UI draw them
+/// view (exposure, ACES fitted, sRGB encoding into an <c>R8G8B8A8_UNORM</c> image), so the UI draws them
 /// exactly like the swapchain shows the main view. Owns the shared pipeline, layouts, a sampler for displaying
 /// the results, and the per-view descriptor sets.
 /// </summary>
@@ -49,7 +49,7 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
             "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/Tonemap.vk.frag.spv", [], [], "sub-viewport tonemap");
     }
 
-    /// <summary>Linear, clamped sampler for showing view images (ImGui).</summary>
+    /// <summary>Linear, clamped sampler for showing view images (the UI).</summary>
     public Sampler DisplaySampler { get; }
 
     /// <summary>The tonemapped target: sRGB-encoded values in a UNORM image, sampled afterwards.</summary>
@@ -98,7 +98,7 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
         vk.CmdPushConstants(cb, _layout, ShaderStageFlags.FragmentBit, 0, 8, push);
         PipelineBuilder.SetViewport(vk, cb, ldr.Extent, flipY: false);
         vk.CmdDraw(cb, 3, 1, 0, 0);
-        ldr.End(cb); // explicit barrier: ImGui, the UI and materials sample the result later in the frame
+        ldr.End(cb); // explicit barrier: the UI and materials sample the result later in the frame
     }
 
     public void Dispose()

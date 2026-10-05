@@ -9,7 +9,7 @@ namespace MainframeEngine;
 /// <summary>
 /// Draws the <see cref="CanvasServer"/>'s <see cref="CanvasFrame"/> on the engine's Vulkan device (ADR 0111): into an
 /// offscreen <c>R8G8B8A8_UNORM</c> layer sized to the swapchain, blending in gamma space with Godot's blend states, then
-/// composited (premultiplied) onto the swapchain right after the tonemap, below the game UI and ImGui. Textures are
+/// composited (premultiplied) onto the swapchain right after the tonemap, below the game UI and the dev overlay. Textures are
 /// uploaded in the frame step (<see cref="PrepareTextures"/>) so their uploads are recorded at the next frame's start,
 /// before the pass that samples them.
 /// </summary>

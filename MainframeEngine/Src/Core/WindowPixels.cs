@@ -7,8 +7,8 @@ namespace MainframeEngine;
 /// <summary>
 /// Framebuffer size in pixels. On HiDPI displays SDL's window size is in points (a Retina window of
 /// 1512×846 pt is 3024×1692 px), and Silk's <see cref="IWindow.FramebufferSize"/> reports the GL
-/// drawable, which for a Vulkan window is the point size. The swapchain, viewports, scissors and
-/// ImGui's framebuffer scale need pixels, so this asks SDL for the Vulkan drawable size.
+/// drawable, which for a Vulkan window is the point size. The swapchain, viewports and scissors
+/// need pixels, so this asks SDL for the Vulkan drawable size.
 /// </summary>
 internal static unsafe class WindowPixels
 {
@@ -38,7 +38,7 @@ internal static unsafe class WindowPixels
     }
 
     /// <summary>
-    /// The content scale (pixels per layout point: the UI's dp ratio, ImGui's framebuffer scale): <paramref name="fixedScale"/>
+    /// The content scale (pixels per layout point: the UI's dp ratio): <paramref name="fixedScale"/>
     /// when it is set (<see cref="EngineOptions.ContentScale"/>), otherwise the display's <see cref="Scale"/>.
     /// </summary>
     public static float ContentScale(IWindow window, Vector2D<int> framebufferSize, float fixedScale) =>

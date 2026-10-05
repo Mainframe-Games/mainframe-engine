@@ -105,7 +105,7 @@ internal sealed unsafe class UiSystemInterface : RmlSystemInterface
             return;
 
         // IME candidate window at the caret (SDL wants window points). SDL keeps text input enabled for the whole
-        // session (Silk's KeyChar and ImGui rely on it), so only the rectangle moves.
+        // session (Silk's KeyChar relies on it), so only the rectangle moves.
         var scale = PixelScale > 0 ? PixelScale : 1f;
         var rect = new Rectangle<int>((int)(caretPosition.X / scale), (int)(caretPosition.Y / scale), 1,
             Math.Max(1, (int)(lineHeight / scale)));

@@ -36,7 +36,7 @@ public readonly record struct UiRenderStats(
 /// <see cref="RmlContext.Render"/> in the UI server's frame step, are recorded into a CPU command list; the GPU work is
 /// recorded later, inside <see cref="IVulkanContext.BeginOverlayPass"/>: the UI renders into an offscreen premultiplied
 /// sRGB layer (with a stencil buffer for clip masks and further layers for filters), which is composited onto the
-/// swapchain after tonemapping and below ImGui — so it looks exactly as authored, unaffected by exposure or ACES.
+/// swapchain after tonemapping and below the dev overlay — so it looks exactly as authored, unaffected by exposure or ACES.
 /// </summary>
 /// <remarks>
 /// <para>Supports RmlUi 6.3's full interface: compiled geometry (a retained, sub-allocated arena), textures (images via

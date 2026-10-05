@@ -13,7 +13,7 @@ internal enum PseudoCharset
 
     /// <summary>
     /// Only letters with a Latin-1 accented form (vowels, c, n, y, d); renders with fonts limited to Latin-1, such as
-    /// ImGui's built-in font.
+    /// simple bitmap fonts.
     /// </summary>
     Latin1,
 }

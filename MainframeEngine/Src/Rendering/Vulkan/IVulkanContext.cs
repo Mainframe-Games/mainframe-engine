@@ -72,7 +72,7 @@ public interface IVulkanContext
     RenderTarget SceneTarget { get; }
 
     /// <summary>
-    /// The pass UI is drawn in after tonemapping (ImGui): it targets the swapchain image in the encoding the UI was
+    /// The pass UI is drawn in after tonemapping (canvas, UI, dev overlay): it targets the swapchain image in the encoding the UI was
     /// authored for. Build overlay pipelines against it.
     /// </summary>
     RenderPass OverlayRenderPass { get; }
@@ -91,7 +91,7 @@ public interface IVulkanContext
     void BeginOverlayPass();
 
     /// <summary>
-    /// Adds a renderer drawn after tonemapping, below ImGui. Renderers draw in ascending <paramref name="order"/>
+    /// Adds a renderer drawn after tonemapping, below the dev overlay. Renderers draw in ascending <paramref name="order"/>
     /// (see <see cref="OverlayOrder"/>); equal orders draw in registration order. Adding a renderer twice is a no-op.
     /// </summary>
     void AddOverlayRenderer(IOverlayRenderer renderer, int order = OverlayOrder.Ui);
@@ -134,32 +134,4 @@ public interface IVulkanContext
 
     /// <summary>Largest anisotropic filtering level samplers may use (1 when the device lacks samplerAnisotropy).</summary>
     float MaxSamplerAnisotropy { get; }
-
-    /// <summary>
-    /// Registers images for <c>ImGui.Image</c> (offscreen views, textures); null until the engine's ImGui renderer
-    /// exists.
-    /// </summary>
-    IImGuiTextureRegistry? ImGuiTextures { get; }
-}
-
-/// <summary>
-/// Maps sampled images to ImGui texture ids. An id stays valid until <see cref="Unregister"/>; <see cref="Update"/>
-/// points it at a new image (e.g. after a render target resize) without disturbing frames in flight.
-/// </summary>
-public interface IImGuiTextureRegistry
-{
-    /// <summary>Registers an image (in <c>SHADER_READ_ONLY_OPTIMAL</c> when drawn) and returns its ImGui texture id.</summary>
-    nint Register(ImageView view, Sampler sampler) => Register(view, sampler, ImageLayout.ShaderReadOnlyOptimal);
-
-    /// <summary>Registers an image that is in <paramref name="layout"/> when drawn (e.g. a read-only depth map).</summary>
-    nint Register(ImageView view, Sampler sampler, ImageLayout layout);
-
-    /// <summary>Points <paramref name="textureId"/> at another image.</summary>
-    void Update(nint textureId, ImageView view, Sampler sampler) => Update(textureId, view, sampler, ImageLayout.ShaderReadOnlyOptimal);
-
-    /// <summary>Points <paramref name="textureId"/> at another image, in <paramref name="layout"/> when drawn.</summary>
-    void Update(nint textureId, ImageView view, Sampler sampler, ImageLayout layout);
-
-    /// <summary>Releases <paramref name="textureId"/> (once frames in flight no longer use it).</summary>
-    void Unregister(nint textureId);
 }

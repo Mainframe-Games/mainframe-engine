@@ -20,7 +20,7 @@ public enum SubViewportUpdateMode : byte
 /// An offscreen view (Godot's <c>SubViewport</c>): its children live in their own <see cref="SceneViewport.World3D"/>
 /// and are rendered with the sub-viewport's camera into its own targets before the main pass — HDR colour + depth
 /// (<see cref="SceneImage"/>, <see cref="DepthImage"/>), the tonemapped sRGB-encoded result (<see cref="ColorImage"/>,
-/// usable as a texture or with <c>ImGui.Image(ImGuiTextureId, ...)</c>) and, with <see cref="ObjectIds"/>, an
+/// usable as a texture, e.g. in the UI) and, with <see cref="ObjectIds"/>, an
 /// object-ID target for picking. The editor viewport is one of these.
 /// </summary>
 /// <remarks>
@@ -84,12 +84,6 @@ public class SubViewport : SceneViewport
     /// <summary>The object-ID target (<c>R32_UINT</c>, transfer source); null until an ID pass ran.</summary>
     public GpuImage? ObjectIdImage => Targets?.Picker?.Target?.GetColor(0);
 
-    /// <summary>
-    /// The ImGui texture id of <see cref="ColorImage"/> (0 until first rendered). Stable across resizes; draw with
-    /// <c>ImGui.Image((nint)id, size)</c>.
-    /// </summary>
-    public nint ImGuiTextureId => Targets?.ImGuiTextureId ?? 0;
-
     /// <summary>Times the view has been rendered.</summary>
     public long RenderCount => Targets?.RenderCount ?? 0;
 
@@ -140,8 +134,7 @@ public class SubViewport : SceneViewport
 
 /// <summary>
 /// GPU state of a <see cref="SubViewport"/>: HDR scene target (compatible with the main scene pass, so every scene
-/// pipeline draws into it), the LDR tonemapped target, an optional object-ID picker, the tonemap descriptor set and
-/// the ImGui registration.
+/// pipeline draws into it), the LDR tonemapped target, an optional object-ID picker and the tonemap descriptor set.
 /// </summary>
 internal sealed class SubViewportTargets : IDisposable
 {
@@ -162,11 +155,10 @@ internal sealed class SubViewportTargets : IDisposable
     public RenderTarget? Ldr { get; private set; }
     public ObjectIdPicker? Picker { get; set; }
     public MeshViewDraws Draws { get; } = new();
-    public nint ImGuiTextureId { get; private set; }
     public long RenderCount { get; set; }
     public DescriptorSet TonemapSet => _tonemapSet;
 
-    /// <summary>Creates or resizes the targets; rewrites the tonemap set and ImGui texture when images change.</summary>
+    /// <summary>Creates or resizes the targets; rewrites the tonemap set when images change.</summary>
     public void Ensure(Extent2D extent)
     {
         var changed = false;
@@ -188,22 +180,12 @@ internal sealed class SubViewportTargets : IDisposable
 
         _compositor.FreeSet(_tonemapSet);
         _tonemapSet = _compositor.AllocateSet(Hdr.GetColor(0).View);
-        if (_ctx.ImGuiTextures is { } imgui)
-        {
-            if (ImGuiTextureId == 0)
-                ImGuiTextureId = imgui.Register(Ldr!.GetColor(0).View, _compositor.DisplaySampler);
-            else
-                imgui.Update(ImGuiTextureId, Ldr!.GetColor(0).View, _compositor.DisplaySampler);
-        }
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        if (ImGuiTextureId != 0)
-            _ctx.ImGuiTextures?.Unregister(ImGuiTextureId);
-        ImGuiTextureId = 0;
         _compositor.FreeSet(_tonemapSet);
         _tonemapSet = default;
         Picker?.Dispose();

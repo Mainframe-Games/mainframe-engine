@@ -10,6 +10,3 @@ TestResults/
 *.user
 *.suo
 .DS_Store
-
-# Written at runtime by the engine's developer overlay
-imgui.ini
