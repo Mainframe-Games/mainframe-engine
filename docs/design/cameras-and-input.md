@@ -109,7 +109,9 @@ before the UI and nodes: `InputMap` actions (keys, mouse buttons, gamepad button
 `GetVector`, or on events with `inputEvent.IsActionPressed("jump")`. See
 [Projects & GameHost → Input actions](project-and-gamehost.md#input-actions).
 
-`CursorMode.Raw` maps to SDL relative mouse mode.
+`CursorMode.Raw` maps to SDL relative mouse mode. The render test `ASyntheticRightDragLooksAroundThroughTheInputPath`
+(the host's `--input <frame>` and its `mouse-look` scene) pushes a synthetic SDL right-button drag and checks that it
+reaches a node's `OnInput` through SDL → Silk `IMouse` → `InputRouter` and turns the camera.
 
 ### Demo controls
 

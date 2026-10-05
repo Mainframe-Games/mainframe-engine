@@ -115,6 +115,35 @@ public class SceneTests
         Gates.AssertValidationClean(result);
     }
 
+    [Fact]
+    public void MinimiseAndRestoreIsCleanAndResumesRendering()
+    {
+        // The window is minimised on frame 10 and restored ~1.5 s later (the engine blocks on events meanwhile, a wake timer
+        // pushes SDL events so the restore can run); the host checks nothing was rendered while minimised.
+        var result = HostRunner.Run("lit-shapes", Output("minimize"),
+            "--minimize", "10", "--capture", "5,40", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        var before = result.Captures.Single(c => c.Frame == 5);
+        var after = result.Captures.Single(c => c.Frame == 40); // rendered after the restore
+        Assert.Equal((Px(result, 320), Px(result, 240)), (before.Width, before.Height));
+        Assert.Equal((Px(result, 320), Px(result, 240)), (after.Width, after.Height));
+        Assert.True(File.Exists(after.Path));
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void ASyntheticRightDragLooksAroundThroughTheInputPath()
+    {
+        // SDL events pushed by the host (button down, motion, button up) reach a node's OnInput through Silk's IMouse and
+        // the InputRouter; the mouse-look scene fails its own check unless the camera turned and then stopped looking.
+        var result = HostRunner.Run("mouse-look", Output("mouse-look"),
+            "--input", "5", "--frames", "40", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+    }
+
     [Theory]
     [InlineData("1")]
     [InlineData("3")] // no Mac or CI display's backing scale: the window is always resized to reach it

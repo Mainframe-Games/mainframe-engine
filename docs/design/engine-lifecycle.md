@@ -129,8 +129,10 @@ While the window is minimised (`WindowState.Minimized`, or `Engine.FramebufferSi
 renders nothing, closes the ImGui frame, and switches the window to `IsEventDriven` so Silk's loop
 blocks in `SDL_WaitEvent` instead of spinning; the first render after restore switches it back. The
 renderer likewise refuses to rebuild a 0×0 swapchain and keeps the request pending (no busy wait).
-Minimised for 1.5 s on macOS this ran 2 updates and ~0 frames (measured with the old test game's `--qa-minimize`
-flag, which was removed with it; no automated test covers it).
+Covered by the render test `MinimiseAndRestoreIsCleanAndResumesRendering` (the host's `--minimize <frame>`: minimise,
+stay minimised 1.5 s while a timer pushes SDL window events so updates keep running, restore): no frames are rendered
+while minimised, validation stays clean, and frames captured after the restore have the right size. (Where the window
+system cannot minimise, e.g. a bare Xvfb, the run only proves that nothing breaks.)
 
 ### `MaxFPS` and VSync
 

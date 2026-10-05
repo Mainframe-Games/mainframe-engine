@@ -155,7 +155,7 @@ sequenceDiagram
   `sky-grid` (only the procedural sky and the grid, camera inside the grid so lines pass beside and behind it), since
   M3 `materials` (textured, cutout, normal-mapped, emissive, mirrored and blended primitives), `gltf` (the generated
   glTF test model imported through Assimp, plus a mirrored instance), `instances` (`--count` boxes, default 1 000,
-  one mesh and material; self-checks the batch statistics) and `picking` (object-ID picks in the main view and a
+  one mesh and material; self-checks the batch statistics) and `mouse-look` (the lit-shapes scene with a mouse-look camera; self-checks the `--input` drag turned it) and `picking` (object-ID picks in the main view and a
   `SubViewport` shown through ImGui; self-checked), and the game-UI scenes (M8) `ui-hud` (HUD over lit-shapes),
   `ui-effects`, `ui-text`, `ui-widgets` (documents in the host's `Content/UI/` and the engine's widget demo;
   `--size` gives them larger windows), and the shadow scenes (M4) `csm`, `shadow-pcf`, `shadow-lights`,
@@ -165,7 +165,8 @@ sequenceDiagram
 - **Host hooks** (command line): `--size WxH` (layout points), `--scale S` (fixed content scale, see *Window* below),
   `--resize WxH@frame` (layout points, through `Engine.ResizeWindow`), `--toggle-vsync frame` (swapchain recreation
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
-  `result.json` records it), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (wall-clock
+  `result.json` records it), `--minimize frame` (minimise, restore after 1.5 s; the host fails if frames render while
+  minimised) and `--input frame` (a synthetic SDL right-button drag, read by the `mouse-look` scene's camera), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (wall-clock
   and CPU frame times: average and p95 in `result.json`, plus the shadow pass's CPU/GPU milliseconds), `--no-validation`,
   `--no-shadows` (every light's `CastsShadows` off). Scene self-check failures are reported in
   `SceneCheckFailures`; `result.json` also records the Vulkan device type (`DeviceType`), GPU allocator totals, shader-module count and the
@@ -176,6 +177,7 @@ sequenceDiagram
   `SwapchainRecreationOnResizeAndVSyncToggleIsClean` (exact pixel sizes before and after the resize),
   `FixedContentScaleCapturesAtTheExactPixelSize` (`--scale 1` and `--scale 3` — 3 is no Mac or CI display's backing scale,
   so the window is always resized — at start-up and after a resize), `QuitWithErrorReturnsErrorExitCode`,
+  `MinimiseAndRestoreIsCleanAndResumesRendering`, `ASyntheticRightDragLooksAroundThroughTheInputPath`,
   `ShowcaseSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`,
   `PipelineCacheIsPersistedAndReloaded` (cold run writes, warm run loads),
   `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →

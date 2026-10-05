@@ -4,8 +4,8 @@ namespace MainframeEngine.RenderTests.Host;
 
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
-/// [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--pipeline-cache dir]
-/// [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]</c>.
+/// [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--minimize frame] [--input frame]
+/// [--pipeline-cache dir] [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]</c>.
 /// </summary>
 public sealed record HostOptions
 {
@@ -43,6 +43,18 @@ public sealed record HostOptions
     /// <summary>Call <c>Quit(ExitCode.Error)</c> on this frame; 0 = never.</summary>
     public uint QuitWithErrorAtFrame { get; init; }
 
+    /// <summary>
+    /// Minimise the window on this frame and restore it about 1.5 s later (the engine must block on events, not spin,
+    /// and resume rendering after the restore); 0 = never.
+    /// </summary>
+    public uint MinimizeAtFrame { get; init; }
+
+    /// <summary>
+    /// First frame of a scripted right-button drag (synthetic SDL mouse events: button down, motion, button up over
+    /// <see cref="RenderTestGame.InputFrames"/> frames), which the <c>mouse-look</c> scene turns into camera rotation; 0 = never.
+    /// </summary>
+    public uint InputAtFrame { get; init; }
+
     /// <summary>Directory for the persisted pipeline cache (overrides <c>MAINFRAME_PIPELINE_CACHE_DIR</c>).</summary>
     public string? PipelineCacheDirectory { get; init; }
 
@@ -68,7 +80,7 @@ public sealed record HostOptions
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
         if (args.Count == 0)
-            throw new ArgumentException("Usage: <scene> --out <dir> [--capture 30,60] [--frames N] [--alloc warmup:count] [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame]");
+            throw new ArgumentException("Usage: <scene> --out <dir> [--capture 30,60] [--frames N] [--alloc warmup:count] [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--minimize frame] [--input frame]");
 
         var options = new HostOptions { Scene = args[0], OutputDirectory = "" };
         for (var i = 1; i < args.Count; i++)
@@ -128,6 +140,12 @@ public sealed record HostOptions
                     break;
                 case "--quit-error":
                     options = options with { QuitWithErrorAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--minimize":
+                    options = options with { MinimizeAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--input":
+                    options = options with { InputAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
                     break;
                 case "--pipeline-cache":
                     options = options with { PipelineCacheDirectory = Path.GetFullPath(Next()) };

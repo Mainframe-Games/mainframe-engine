@@ -21,7 +21,13 @@ mkdir -p "$work"
 failed=0
 # Every committed scene file is a scene to run. Only this script's own outputs under $work are cleaned (the folder is the
 # caller's): each scene's user-data folder and screenshot.
-for file in "$repo"/Examples/Demo/Content/Scenes/*.mscene; do
+shopt -s nullglob
+scenes=("$repo"/Examples/Demo/Content/Scenes/*.mscene)
+if [ "${#scenes[@]}" -eq 0 ]; then
+  echo "demo-smoke: no scenes found in $repo/Examples/Demo/Content/Scenes" >&2
+  exit 1
+fi
+for file in "${scenes[@]}"; do
   scene="$(basename "$file" .mscene)"
   # One user-data folder per scene, so a scene's log is its own.
   userdata="$work/userdata/$scene"
