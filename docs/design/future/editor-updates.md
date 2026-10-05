@@ -96,7 +96,7 @@ flowchart LR
    update and keeps the staged files for the next click). `RequestQuit` gains an optional continuation that runs
    once quitting is confirmed.
 5. The continuation **stops Play** (`PlayController.Stop`), starts the staged executable with
-   `--apply-update <install-root> --wait-pid <editor pid> [--project <open project folder>]`, then quits.
+   `--apply-update <install-root> --wait-pid <editor pid> --from <current version> [--project <open project folder>]`, then quits.
 
 ### Applying (`--apply-update`)
 
@@ -108,13 +108,15 @@ flowchart LR
    the rename is atomic). On Windows, retry the rename for up to 10 s (antivirus and indexers hold files briefly).
 3. **Copy** the staged install (the `.app` bundle on macOS, the folder elsewhere) to `<root>`. A copy, not a move:
    `~/.mainframe` and the install may be on different volumes. `File.Copy` keeps Unix permissions.
-4. **Relaunch** detached: macOS `open -n "<root>" --args [--project …]` (LaunchServices then shows the app name, as
-   in [ADR 0096](../../../memory/decisions/0096-macos-app-name.md)); Windows and Linux start
+4. **Record** `~/.mainframe/updates/result.json` (`from`, `to`, `ok`, `error`) — before relaunching, so the new editor
+   always finds it.
+5. **Relaunch** detached and exit: macOS `open -n "<root>" --args [--project …]` (LaunchServices then shows the app
+   name, as in [ADR 0096](../../../memory/decisions/0096-macos-app-name.md)); Windows and Linux start
    `<root>/MainframeEngine.Editor[.exe]` with the same arguments.
-5. **Record** `~/.mainframe/updates/result.json` (`from`, `to`, `ok`, `error`) and exit.
 
-If step 2 fails, nothing changed: relaunch the old editor. If step 3 or 4 fails: delete the partial `<root>`, rename
-`<root>.old` back, relaunch the old editor, record the error.
+If step 1 or 2 fails, nothing changed: record the error and relaunch the old editor. If step 3 or 5 fails: delete the
+partial `<root>`, rename `<root>.old` back, record the error (overwriting a success record) and relaunch the old
+editor.
 
 **On every start** of a release build (in the background; dev builds skip it, the `CheckForUpdates` setting and QA
 flags do not), the editor reads and deletes `result.json` — logging "Updated to vX.Y.Z" or "Update to vX.Y.Z failed: … (see
@@ -152,12 +154,14 @@ All new code lives in `MainframeEngine.Editor/Src/Updates/`. No new packages: `H
 | `ReleaseFeed` | Fetches `releases/latest` with the headers above. | `HttpClient` (constructor takes an `HttpMessageHandler`) |
 | `UpdatePlatform` | Current RID, asset name for a version, staged-executable path inside an extracted archive. | — |
 | `InstallLocation` | Install root from a base directory; `CanReplace` (writable, not translocated, bundled). Path logic is pure; the writability probe is separate. | — |
-| `UpdateChecker` | The gating rules, version comparison, `CheckAsync` → `UpdateCheckResult` (update / up to date / dev build / unsupported platform / error). Results reach the main thread through a `ConcurrentQueue` drained each frame (the `ThumbnailCache` pattern). | `ReleaseFeed`, `UpdatePlatform`, `EditorSettings` |
+| `UpdateChecker` | Dev-build and platform rules, version comparison, `CheckAsync` → `UpdateCheckResult` (update / up to date / dev build / unsupported platform / error). | `ReleaseFeed`, `UpdatePlatform` |
+| `IUpdateService`, `GitHubUpdateService` | The editor's seam: check, download, start the applier, reveal, clean up. `EditorWorkspaceOptions.Updates` holds it; only the editor executable sets it (not with `--hidden`), so tests, `--smoke` and `--qa-script` runs have no updates. Tests and QA pass fakes. | the units above |
+| `UpdateController` | Owned by the workspace: the start-up check (honours `CheckForUpdates`), clean-up reporting, download state, Update & restart. Polls its tasks each frame on the main thread (the Project Manager's SDK-check pattern). | `IUpdateService`, `EditorWorkspace` |
 | `UpdateDownloader` | Download with progress and cancellation, SHA-256 check, extraction, staged-executable lookup. | `HttpClient` |
 | `UpdateApplier` | `--apply-update`: wait, back up, copy, relaunch, roll back, write `result.json`; `CleanUpAfterUpdate` for the next start. Process waiting and launching are injected. | — |
-| `UI/UpdateBadge`, `UI/UpdateDialog` | Badge (Project Manager, toolbar) and dialog (`Content/Editor/` RML), `help.check_updates`. | `UpdateChecker`, `UpdateDownloader`, `EditorWorkspace.RequestQuit`, `PlayController` |
+| Badges, `UI/UpdateDialog` | Badge buttons in the toolbar and Project Manager (`help.update`), the dialog (`Content/Editor/update.rml`), `help.check_updates`. | `UpdateController` |
 
-Other changes: `EditorSettings.CheckForUpdates` (+ the Editor Settings checkbox); `RequestQuit(Action? onConfirmed)`;
+Other changes: `EditorSettings.CheckForUpdates` (+ the Editor Settings checkbox); `RequestQuit(Func<bool>? beforeQuit)` (runs once quitting is confirmed; false keeps the editor open);
 `Program.cs` dispatches `--apply-update` before `EditorCommandLine.Parse`; a Help menu item. `publish.yml` and the
 archive layout do not change.
 
@@ -179,7 +183,7 @@ Unit tests in `Tests/MainframeEngine.Editor.Tests/Updates/`, no network:
 - version comparison (newer, equal, older, dev build);
 - `UpdatePlatform`: asset names and staged-executable paths per RID; unsupported combinations;
 - `InstallLocation`: `.app` bundle root, flat folder root, bare macOS executable, translocated path;
-- `UpdateChecker` gating: setting off, dev build, `--smoke`/`--qa-script`/`--hidden`; error and rate-limit responses
+- gating: setting off, dev build, no `Updates` service (tests, `--smoke`, `--qa-script`, `--hidden`); error and rate-limit responses
   through a fake `HttpMessageHandler`;
 - `UpdateDownloader` with a fake handler: digest match, mismatch, missing; cancellation deletes the folder; a tar
   keeps the execute bit (Unix only); an archive entry escaping the folder is rejected;
