@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "uid": "scn_afc36075c640",
+  "nodes": [
+    {
+      "name": "audio_2d",
+      "type": "Node3D"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "uid": "scn_dd5b85182ae1",
+  "nodes": [
+    {
+      "name": "spine",
+      "type": "Node3D"
+    }
+  ]
+}

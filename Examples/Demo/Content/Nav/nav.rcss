@@ -1,0 +1,16 @@
+body.hud { pointer-events: none; }
+#nav-bar {
+    pointer-events: auto;
+    position: absolute; left: 0; top: 0; right: 0; height: 44dp;
+    display: flex; align-items: center; padding: 0 12dp;
+    background-color: #0b1220e6; border-bottom: 1dp #ffffff1a;
+}
+#nav-logo { width: 28dp; height: 28dp; margin-right: 12dp; }
+#nav-tabs { display: flex; flex: 1; }
+.nav-tab { margin-right: 4dp; padding: 6dp 12dp; border-radius: 6dp; color: #c7d2fe; background-color: transparent; }
+.nav-tab:hover { background-color: #ffffff14; }
+.nav-tab.active { background-color: #2563eb; color: #ffffff; }
+#nav-right { display: flex; align-items: center; }
+#nav-fps { margin-right: 12dp; color: #94a3b8; font-size: 13dp; }
+#nav-locale { width: 72dp; margin-right: 12dp; }
+#nav-hint { color: #64748b; font-size: 12dp; }

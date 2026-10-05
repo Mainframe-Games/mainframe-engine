@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "uid": "scn_180848afc544",
+  "nodes": [
+    {
+      "name": "audio_3d",
+      "type": "Node3D"
+    }
+  ]
+}

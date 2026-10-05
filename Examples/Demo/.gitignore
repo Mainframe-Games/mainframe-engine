@@ -1,0 +1,15 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+TestResults/
+
+# IDEs and OS
+.vs/
+.idea/
+*.user
+*.suo
+.DS_Store
+
+# Written at runtime by the engine's developer overlay
+imgui.ini

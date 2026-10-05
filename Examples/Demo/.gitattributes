@@ -1,0 +1,35 @@
+# Text files use LF everywhere (scenes, resources and project.mfproj are written with LF on every OS).
+* text=auto eol=lf
+*.mscene text eol=lf
+*.mres text eol=lf
+*.mfproj text eol=lf
+*.meta text eol=lf
+
+# Large binary content lives in Git LFS (run `git lfs install` once per machine).
+# images
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.tga filter=lfs diff=lfs merge=lfs -text
+*.psd filter=lfs diff=lfs merge=lfs -text
+*.psb filter=lfs diff=lfs merge=lfs -text
+*.ico filter=lfs diff=lfs merge=lfs -text
+# audio and video
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.flac filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+# models and source art
+*.glb filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.spine filter=lfs diff=lfs merge=lfs -text
+# fonts
+*.ttf filter=lfs diff=lfs merge=lfs -text
+*.otf filter=lfs diff=lfs merge=lfs -text
+# localization: gettext sources are text, compiled catalogs are binary (committed next to their .po)
+*.po text eol=lf
+*.pot text eol=lf
+*.mo binary

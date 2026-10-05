@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "uid": "scn_5d86059a6aa9",
+  "nodes": [
+    {
+      "name": "basic_3d",
+      "type": "Node3D"
+    }
+  ]
+}

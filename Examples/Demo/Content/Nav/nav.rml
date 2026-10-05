@@ -1,0 +1,23 @@
+<rml>
+<head>
+    <title>Demo navigation</title>
+    <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="nav.rcss"/>
+</head>
+<body class="hud" data-model="nav">
+    <div id="nav-bar">
+        <img id="nav-logo" src="/Content/icon.png"/>
+        <div id="nav-tabs">
+            <button data-for="t : tabs" data-attr-class="t.active ? 'nav-tab active' : 'nav-tab'"
+                    data-event-click="open(t.index)">{{t.title}}</button>
+        </div>
+        <div id="nav-right">
+            <span id="nav-fps">{{fps}} FPS</span>
+            <select id="nav-locale" data-value="locale">
+                <option data-for="l : locales" data-attr-value="l">{{l}}</option>
+            </select>
+            <span id="nav-hint">F12</span>
+        </div>
+    </div>
+</body>
+</rml>

@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "uid": "scn_d80c94c20eef",
+  "nodes": [
+    {
+      "name": "physics_2d",
+      "type": "Node3D"
+    }
+  ]
+}
