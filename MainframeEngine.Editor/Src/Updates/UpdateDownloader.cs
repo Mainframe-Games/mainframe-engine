@@ -27,11 +27,11 @@ public sealed class UpdateDownloader(HttpClient http, string editorVersion)
             throw new UpdateException("The download address is not HTTPS; the update was refused.");
 
         var folder = Path.Combine(updatesDirectory, release.Version.ToString());
-        if (Directory.Exists(folder))
-            Directory.Delete(folder, recursive: true);
-        Directory.CreateDirectory(folder);
         try
         {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+            Directory.CreateDirectory(folder);
             var archive = Path.Combine(folder, asset.Name);
             await DownloadFileAsync(asset, archive, progress, ct).ConfigureAwait(false);
             Verify(archive, asset.Sha256);
@@ -44,17 +44,21 @@ public sealed class UpdateDownloader(HttpClient http, string editorVersion)
                 throw new UpdateException($"The downloaded archive has no {Path.GetFileName(executable)}.");
             return new StagedUpdate(release.Version, folder, root, executable);
         }
-        catch (Exception)
+        catch (Exception e)
         {
             try
             {
-                Directory.Delete(folder, recursive: true);
+                if (Directory.Exists(folder))
+                    Directory.Delete(folder, recursive: true);
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
             {
-                Log.Warning($"[Editor] Could not delete {folder}: {e.Message}");
+                Log.Warning($"[Editor] Could not delete {folder}: {cleanup.Message}");
             }
 
+            // Callers only ever see UpdateException or cancellation: stray file-system errors (disk full, locked folder) end up here.
+            if (e is IOException or UnauthorizedAccessException)
+                throw new UpdateException($"The update could not be staged ({e.Message}).", e);
             throw;
         }
     }
@@ -78,7 +82,16 @@ public sealed class UpdateDownloader(HttpClient http, string editorVersion)
             if (!response.IsSuccessStatusCode)
                 throw new UpdateException($"The download failed: GitHub answered {(int)response.StatusCode} ({response.ReasonPhrase}).");
             var total = response.Content.Headers.ContentLength ?? asset.Size;
-            var source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            Stream source;
+            try
+            {
+                source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is IOException or HttpRequestException)
+            {
+                throw new UpdateException($"The download failed ({e.Message}).", e);
+            }
+
             await using (source.ConfigureAwait(false))
             {
                 var target = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, BufferSize, useAsync: true);
@@ -87,7 +100,7 @@ public sealed class UpdateDownloader(HttpClient http, string editorVersion)
                     var buffer = new byte[BufferSize];
                     long done = 0;
                     int read;
-                    while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+                    while ((read = await ReadAsync(source, buffer, ct).ConfigureAwait(false)) > 0)
                     {
                         await target.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                         done += read;
@@ -99,6 +112,18 @@ public sealed class UpdateDownloader(HttpClient http, string editorVersion)
         }
 
         progress?.Report(1.0);
+    }
+
+    private static async Task<int> ReadAsync(Stream source, byte[] buffer, CancellationToken ct)
+    {
+        try
+        {
+            return await source.ReadAsync(buffer, ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is IOException or HttpRequestException)
+        {
+            throw new UpdateException($"The download failed ({e.Message}).", e);
+        }
     }
 
     /// <summary>Throws <see cref="UpdateException"/> unless <paramref name="file"/>'s SHA-256 is <paramref name="sha256"/> (hex).</summary>

@@ -139,6 +139,17 @@ public sealed class UpdateDownloaderTests : IDisposable
     }
 
     [Fact]
+    public async Task ADroppedConnectionIsAnUpdateException()
+    {
+        var (release, asset) = Release("linux-x64", [1, 2, 3]);
+        using var http = new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new DroppingStream()) }));
+        var e = await Assert.ThrowsAsync<UpdateException>(() =>
+            new UpdateDownloader(http, "1.0.0").DownloadAsync(release, asset, "linux-x64", Updates, null, TestContext.Current.CancellationToken));
+        Assert.Contains("download failed", e.Message, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(Path.Combine(Updates, "1.1.0")));
+    }
+
+    [Fact]
     public async Task NonHttpsDownloadsAreRefused()
     {
         var archive = TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
@@ -168,6 +179,46 @@ public sealed class UpdateDownloaderTests : IDisposable
         Directory.CreateDirectory(Path.Combine(Updates, "1.1.0", "app", "stale"));
         var staged = await Download("linux-x64", TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable)));
         Assert.False(Directory.Exists(Path.Combine(staged.Folder, "app", "stale")));
+    }
+
+    /// <summary>Yields a few bytes, then fails like a connection that drops mid-body.</summary>
+    private sealed class DroppingStream : Stream
+    {
+        private bool _sent;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            if (_sent)
+                throw new IOException("The connection was reset.");
+            _sent = true;
+            buffer[0] = 1;
+            return 1;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Read(buffer.Span));
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private sealed class SyncProgress(List<double> reports) : IProgress<double>
