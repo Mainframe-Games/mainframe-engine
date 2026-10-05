@@ -6,14 +6,8 @@ namespace Demo;
 /// <summary>The Spine scene's controls: Camera3D ↔ Camera2D toggle and the animation picker.</summary>
 public sealed class SpinePanel : UiDocument
 {
-    /// <summary>
-    /// Skeleton scale under the Camera3D: the engine default. Small skeleton scales (below ~0.01) distort Spine's IK
-    /// poses, so the 3D view shrinks the pivot node instead (<see cref="PivotScale3D"/>).
-    /// </summary>
-    public const float Scale3D = SpineNode.DefaultSpineScale;
-
-    /// <summary>Pivot scale under the Camera3D: SpineBoy is ~540 skeleton units, so 0.02 x 540 x 0.25 = 2.7 m tall.</summary>
-    public const float PivotScale3D = 0.25f;
+    /// <summary>Skeleton scale under the Camera3D: SpineBoy is ~540 skeleton units, so 0.005 x 540 = 2.7 m tall.</summary>
+    public const float Scale3D = 0.005f;
 
     /// <summary>Skeleton scale under the Camera2D (1 unit = 1 canvas pixel).</summary>
     public const float Scale2D = 0.7f;
@@ -98,7 +92,6 @@ public sealed class SpinePanel : UiDocument
 
         // Under the Y-down Camera2D the Y-up skeleton is turned over about X (ADR 0110); 1 unit = 1 canvas pixel.
         pivot.RotationDegrees = mode2d ? new Vector3(180, 0, 0) : Vector3.Zero;
-        pivot.Scale = mode2d ? Vector3.One : new Vector3(PivotScale3D);
         pivot.Position = mode2d ? new Vector3(0, 230, 0) : Vector3.Zero;
         spine.SpineScale = mode2d ? Scale2D : Scale3D;
         sun.RotationDegrees = mode2d ? SunRotation2D : SunRotation3D;

@@ -70,10 +70,7 @@
     {
       "name": "Pivot",
       "parent": ".",
-      "type": "Node3D",
-      "props": {
-        "Scale": [0.25, 0.25, 0.25]
-      }
+      "type": "Node3D"
     },
     {
       "name": "SpineBoy",
@@ -81,7 +78,8 @@
       "type": "SpineNode",
       "props": {
         "Folder": "Content/Models/Spine/SpineBoy",
-        "Animation": "walk"
+        "Animation": "walk",
+        "SpineScale": 0.005
       }
     },
     {
