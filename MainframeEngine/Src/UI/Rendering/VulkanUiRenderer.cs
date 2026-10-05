@@ -20,6 +20,9 @@ public enum UiTextureConversion
     /// <summary>The texture has straight alpha: premultiply in the shader.</summary>
     Premultiply = 2,
 
+    /// <summary>Sample <c>.r</c> as grey with alpha 1 (depth maps); the view is sampled in the layout its source reports.</summary>
+    DepthToGray = 4,
+
     /// <summary>Choose from the format: <see cref="EncodeSrgb"/> for sRGB and float formats, plus <see cref="Premultiply"/>.</summary>
     Auto = 1 << 8,
 }

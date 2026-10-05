@@ -92,7 +92,7 @@ public sealed unsafe partial class VulkanUiRenderer
         CreatePipelines();
 
         _white = GpuTexture.Create2D(_ctx, 1, 1, [255, 255, 255, 255], TextureColorSpace.Linear, TextureSampling.NearestClamp);
-        (_whiteSet, _) = AllocateTextureSet(_white.View, _white.Sampler);
+        (_whiteSet, _) = AllocateTextureSet(_white.View, _white.Sampler, ImageLayout.ShaderReadOnlyOptimal);
 
         _uniformPool = PipelineBuilder.CreatePool(_ctx, 1,
             [new DescriptorPoolSize { Type = DescriptorType.UniformBufferDynamic, DescriptorCount = 1 }], "UI uniforms");
@@ -412,7 +412,7 @@ public sealed unsafe partial class VulkanUiRenderer
 
     // ── Descriptor sets ──────────────────────────────────────────────────────────────────────────────────────
 
-    private (DescriptorSet Set, DescriptorPool Pool) AllocateTextureSet(ImageView view, Sampler sampler)
+    private (DescriptorSet Set, DescriptorPool Pool) AllocateTextureSet(ImageView view, Sampler sampler, ImageLayout imageLayout)
     {
         for (var attempt = 0; attempt < 2; attempt++)
         {
@@ -434,7 +434,7 @@ public sealed unsafe partial class VulkanUiRenderer
                     {
                         Sampler = sampler,
                         ImageView = view,
-                        ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+                        ImageLayout = imageLayout,
                     });
                     return (set, pool);
                 }
@@ -570,7 +570,7 @@ public sealed unsafe partial class VulkanUiRenderer
             Framebuffer = CreateFramebuffer(pass, image.View, withStencil ? _stencil!.View : default, _targetExtent.Width,
                 _targetExtent.Height, what),
         };
-        (target.Set, target.Pool) = AllocateTextureSet(image.View, _linearSampler);
+        (target.Set, target.Pool) = AllocateTextureSet(image.View, _linearSampler, ImageLayout.ShaderReadOnlyOptimal);
         return target;
     }
 

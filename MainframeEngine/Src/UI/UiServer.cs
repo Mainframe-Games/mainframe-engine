@@ -299,6 +299,10 @@ public sealed class UiServer : IFrameServer, IInputServer
     public void RegisterTexture(string name, RenderTarget target, int colorAttachment = 0, UiTextureConversion conversion = UiTextureConversion.Auto) =>
         Renderer?.RegisterTexture(name, target, colorAttachment, conversion);
 
+    /// <summary>Publishes an image source (shadow maps) as <c>engine://name</c>; no view means nothing is drawn.</summary>
+    internal void RegisterTexture(string name, Func<UiTextureView> source, UiTextureConversion flags = UiTextureConversion.DepthToGray) =>
+        Renderer?.RegisterTexture(name, source, flags);
+
     public bool UnregisterTexture(string name) => Renderer?.UnregisterTexture(name) ?? false;
 
     private Stream? OpenFile(string path) => Files.Open(path);
