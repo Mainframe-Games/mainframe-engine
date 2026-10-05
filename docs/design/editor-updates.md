@@ -1,8 +1,8 @@
-# Future: editor updates — check GitHub Releases, update in place
+# Editor updates — check GitHub Releases, update in place
 
-**Status:** approved design, not implemented. Today an editor install never changes: users download a newer archive
-from GitHub Releases by hand ([Release & versioning](../release.md)). Engine packages for games without the editor are
-a separate sub-project ([distribution via NuGet](distribution-nuget.md)).
+**Status:** implemented. Engine packages for games without the editor are a separate sub-project
+([distribution via NuGet](future/distribution-nuget.md)); the release archives are described in
+[Release & versioning](release.md).
 
 ## Problem
 
@@ -49,7 +49,7 @@ update when:
 1. `tag_name` is `vX.Y.Z` (three numeric parts, no suffix) and `X.Y.Z` is **strictly greater** than
    `EngineInfo.Version` — never a downgrade;
 2. it has the asset for this platform: `MainframeEngine-X.Y.Z-<rid>.tar.gz` (`osx-arm64`, `linux-x64`) or
-   `MainframeEngine-X.Y.Z-win-x64.zip` — the names [`build/package-editor.sh`](../../../build/package-editor.sh)
+   `MainframeEngine-X.Y.Z-win-x64.zip` — the names [`build/package-editor.sh`](../../build/package-editor.sh)
    already produces. The RID comes from `OperatingSystem` + `RuntimeInformation.ProcessArchitecture`; any other
    combination (Intel Mac, Windows on ARM, …) has no update;
 3. that asset has a `digest` of the form `sha256:<hex>`.
@@ -67,8 +67,13 @@ update dialog:
 - the release notes (`body`, shown as plain text in a scrolling box) and **View release** (opens `html_url` in the
   browser);
 - **Update & restart** (or **Download** when the install cannot be replaced — see [Fallback](#fallback-download-and-reveal))
-  and **Later**;
+  and **Later** (Escape does the same);
 - while downloading: a progress bar (bytes / `size`) and **Cancel**; on failure: the error and **Retry**.
+
+`help.update` (the badge's command) does nothing while there is no available update. The download continues into
+Update & restart automatically **only while the dialog is open**. After **Later** (or Escape) a running download
+finishes quietly and waits in the *Ready* state: the badge stays, and reopening the dialog offers **Restart now** — the
+editor never quits unattended.
 
 ### Update & restart
 
@@ -82,7 +87,7 @@ flowchart LR
     A --> N["new editor:<br/>delete .old + staging<br/>report result"]
 ```
 
-1. **Download** `browser_download_url` (HTTPS; GitHub redirects to its asset host) into a freshly emptied
+1. **Download** `browser_download_url` (HTTPS only — a non-HTTPS asset URL is refused; GitHub redirects to its asset host) into a freshly emptied
    `~/.mainframe/updates/X.Y.Z/`, streaming with progress. **Cancel** deletes the folder.
 2. **Verify** the SHA-256 of the file against `digest`. A mismatch deletes the file and shows the error with
    **Retry**.
@@ -111,7 +116,7 @@ flowchart LR
 4. **Record** `~/.mainframe/updates/result.json` (`from`, `to`, `ok`, `error`) — before relaunching, so the new editor
    always finds it.
 5. **Relaunch** detached and exit: macOS `open -n "<root>" --args [--project …]` (LaunchServices then shows the app
-   name, as in [ADR 0096](../../../memory/decisions/0096-macos-app-name.md)); Windows and Linux start
+   name, as in [ADR 0096](../../memory/decisions/0096-macos-app-name.md)); Windows and Linux start
    `<root>/MainframeEngine.Editor[.exe]` with the same arguments.
 
 If step 1 or 2 fails, nothing changed: record the error and relaunch the old editor. If step 3 or 5 fails: delete the
@@ -120,7 +125,8 @@ editor.
 
 **On every start** of a release build (in the background; dev builds skip it, the `CheckForUpdates` setting and QA
 flags do not), the editor reads and deletes `result.json` — logging "Updated to vX.Y.Z" or "Update to vX.Y.Z failed: … (see
-~/.mainframe/updates/update.log)" to the Output panel — then deletes `<root>.old` and every staging folder. The
+~/.mainframe/updates/update.log)" to the Output panel — then deletes `<root>.old` and the staging folders — except those of versions **newer than the running editor**,
+which belong to a second editor that is mid-download or has a staged update waiting. The
 applier cannot do this itself: it runs from the staging folder, which Windows will not let it delete.
 
 ### Install root
@@ -192,8 +198,8 @@ Unit tests in `Tests/MainframeEngine.Editor.Tests/Updates/`, no network:
   `CleanUpAfterUpdate` reads `result.json` and deletes `.old` and staging.
 
 Editor QA: the badge is hidden without an update, so existing goldens do not change. One QA screenshot of the update
-dialog with an injected `UpdateCheckResult` (a new QA-script command that injects a result instead of checking),
-recorded in `just qa-editor`.
+dialog with an injected `UpdateCheckResult` (the QA-script step `update-preview X.Y.Z` — it injects a made-up release
+instead of checking), recorded in `just qa-editor` as `14-update.png`.
 
 End to end (manual, before the first release that ships the updater, on each OS; documented in `release.md`):
 `dotnet publish` the editor with `-p:Version=0.9.0` and `just publish-local`, unpack it somewhere writable, launch it,
@@ -201,12 +207,6 @@ click the badge, **Update & restart**, and confirm the relaunched editor shows t
 project, and left no `.old` folder or staging behind. Repeat from a read-only location to see the **Download**
 fallback.
 
-## Docs when this ships
-
-This file moves to `docs/design/editor-updates.md` (status: implemented); [Release & versioning](../release.md) gets
-an "Updates" section linking it and the end-to-end recipe; [Editor](../editor.md) mentions the badge, the Help item
-and the setting.
-
 ## Related docs
 
-[Release & versioning](../release.md) · [Editor](../editor.md) · [Future: distribution via NuGet](distribution-nuget.md)
+[Release & versioning](release.md) · [Editor](editor.md) · [Future: distribution via NuGet](future/distribution-nuget.md)

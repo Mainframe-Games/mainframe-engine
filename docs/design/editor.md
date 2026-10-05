@@ -419,6 +419,14 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
   empty means `MAINFRAME_CODE_EDITOR`, else VS Code when found, else the OS default. Used by Output links, build errors
   and C# files.
 - **Reload code automatically** after builds.
+- **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
+
+## Updates
+
+Released builds check GitHub Releases at start-up (Editor Settings › Updates; Help › Check for Updates… always works). A
+newer release shows a green badge in the toolbar and the Project Manager; it opens the update dialog (notes, View
+release, **Update & restart**). Runs with `--hidden`, `--smoke`, `--qa-script` and tests have no update service; QA
+captures the dialog with `update-preview X.Y.Z`. See [Editor updates](editor-updates.md).
 
 ## Files and safety
 
@@ -483,7 +491,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   text, commands, dialog answers, `window-close`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
-  each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`).
+  each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
+  walkthrough also captures the update dialog (`update-preview X.Y.Z`, no network) and the Editor Settings dialog.
 - **README screenshots** (`just readme-screenshots`, [readme-screenshots.qa](../../Tests/QA/readme-screenshots.qa)):
   the Project Manager (`recent-project` seeds the list), the showcase scene (`open-project`, `camera`, `collapse`), the
   create dialog (`favorite`, `search`, `pick`) and a new game after a code reload while it plays, captured at 2x
@@ -515,4 +524,4 @@ average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate 
 [Future: editor](future/editor.md) · [Project & game host](project-and-gamehost.md) · [Game UI](game-ui.md) ·
 [Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Scene serialization](scene-serialization.md) · [Materials & meshes](materials-and-meshes.md) · [Release](release.md) ·
-[Testing](testing.md)
+[Editor updates](editor-updates.md) · [Testing](testing.md)

@@ -58,6 +58,22 @@ flowchart LR
 - **Requirements on the user's machine.** Creating and playing game projects runs `dotnet build`, so the
   .NET 10 SDK must be installed even though the editor itself is self-contained.
 
+## Updates
+
+Released editors check GitHub Releases at start-up and update themselves in place — badge, release notes, **Update &
+restart**: download, SHA-256 check, swap by the downloaded editor (`--apply-update`), relaunch. Nothing in the release
+workflow is specific to it: the archives' names and layout are the contract. See [Editor updates](editor-updates.md).
+
+**End-to-end check** (manual, on each OS, before a release that changes the updater):
+
+1. `just publish-local <rid> 0.9.0` and unpack `artifacts/release/MainframeEngine-0.9.0-<rid>.*` somewhere writable
+   (macOS: `~/Applications`, then right-click → Open once).
+2. Start it, open a project, click the badge, **Update & restart**.
+3. The editor relaunches as the latest release with the project open; `~/.mainframe/updates/update.log` shows the run.
+   When the latest release itself contains the updater, `<root>.old` and the staging folder are gone after it starts and
+   the Output panel says "Updated to vX.Y.Z".
+4. Repeat from a read-only location (macOS: straight from Downloads, i.e. translocated) to see **Download** and the hint.
+
 ## macOS app name
 
 The product name macOS shows — Dock tooltip, the bold app menu next to the Apple menu, Cmd+Tab, Finder — is
@@ -83,5 +99,6 @@ does not work: `NSProcessInfo.processName` (even set before `NSApplication` exis
 LaunchServices name alone; only private LaunchServices calls could change it.
 
 ## Related docs
+[Editor updates](editor-updates.md) ·
 [Build & platforms](build-and-platforms.md) · [Testing](testing.md) ·
 [Future: distribution via NuGet](future/distribution-nuget.md)

@@ -28,7 +28,7 @@
 </head>
 <body class="backdrop" data-model="update">
     <div class="dialog" id="dialog">
-        <div class="dialog-title"><span class="icon icon-sm icon-arrow-bar-to-down"></span> {{title}}</div>
+        <div class="dialog-title"><span class="icon icon-sm icon-arrow-bar-to-down"></span><span>{{title}}</span></div>
         <div class="dialog-body">
             <span id="up-current">{{current}}</span>
             <div id="up-notes">{{notes}}</div>

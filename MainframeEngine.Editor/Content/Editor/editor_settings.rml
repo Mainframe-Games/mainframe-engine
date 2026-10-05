@@ -22,7 +22,7 @@
 </head>
 <body class="backdrop" data-model="editor_settings">
     <div class="dialog" id="dialog">
-        <div class="dialog-title"><span class="icon icon-sm icon-adjustments"></span> Editor Settings</div>
+        <div class="dialog-title"><span class="icon icon-sm icon-adjustments"></span><span>Editor Settings</span></div>
         <div class="dialog-body">
             <div class="dialog-row">
                 <span class="caption">Accent colour</span>
