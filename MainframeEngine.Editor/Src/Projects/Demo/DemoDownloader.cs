@@ -9,12 +9,15 @@ public sealed record DemoDownloadRequest(string ParentDirectory, string FolderNa
 
 /// <summary>
 /// Downloads the Demo zip for <c>editorVersion</c>, extracts and validates it in a work folder under
-/// <c>downloadsDirectory</c>, points it at the engine and moves it to the destination. Runs off the UI thread; failures
+/// <c>downloadsDirectory</c> (the zip) and a hidden staging folder beside the destination (the extracted project, so the final
+/// move is a same-volume rename), points it at the engine and moves it to the destination. Runs off the UI thread; failures
 /// are <see cref="DemoDownloadException"/>s, cancellation is <see cref="OperationCanceledException"/>; either way the work
 /// files are deleted and the destination is not created.
 /// </summary>
 public sealed class DemoDownloader(HttpClient http, string editorVersion, string downloadsDirectory)
 {
+    private const long MaxDownloadBytes = 1L << 30;
+
     public static string DefaultDownloadsDirectory { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "downloads");
 
@@ -22,12 +25,13 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
     {
         ArgumentNullException.ThrowIfNull(request);
         await Task.CompletedTask.ConfigureAwait(ConfigureAwaitOptions.ForceYielding); // off the caller's thread
-        Directory.CreateDirectory(downloadsDirectory);
         var id = Guid.NewGuid().ToString("N");
         var zipPath = Path.Combine(downloadsDirectory, $"demo-{id}.zip");
-        var work = Path.Combine(downloadsDirectory, $"demo-{id}");
+        var work = Path.Combine(request.ParentDirectory, $".mainframe-demo-{id}"); // same volume as the destination
         try
         {
+            Directory.CreateDirectory(downloadsDirectory);
+            Directory.CreateDirectory(request.ParentDirectory);
             await DownloadZipAsync(zipPath, progress, ct).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
             var root = DemoArchive.ExtractAndValidate(zipPath, work);
@@ -78,14 +82,26 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
             var buffer = new byte[81920];
             long done = 0;
             int read;
-            while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+            while ((read = await ReadChunkAsync(source, buffer, ct).ConfigureAwait(false)) > 0)
             {
                 await file.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                 done += read;
-                if (done > DemoArchive.MaxUncompressedBytes)
+                if (done > MaxDownloadBytes)
                     throw new DemoDownloadException("The demo download is larger than expected.");
                 progress?.Report(total > 0 ? (double)done / total : -1);
             }
+        }
+    }
+
+    private static async Task<int> ReadChunkAsync(Stream source, byte[] buffer, CancellationToken ct)
+    {
+        try
+        {
+            return await source.ReadAsync(buffer, ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is HttpRequestException or IOException)
+        {
+            throw new DemoDownloadException("The demo download was interrupted: " + e.Message, e);
         }
     }
 
