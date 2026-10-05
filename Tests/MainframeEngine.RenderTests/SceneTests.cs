@@ -36,6 +36,16 @@ public class SceneTests
     }
 
     [Fact]
+    public void SpineUnderCamera2DIsUprightAndFrontFacing()
+    {
+        var result = HostRunner.Run("spine-2d", Output("spine-2d"), "--capture", "10", "--hidden");
+
+        Assert.Empty(result.SceneCheckFailures);
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
     public void MultipleShadowCastingLightsEachUseTheirOwnMatrix()
     {
         // Directional + spot + point (6 cube faces): 8 shadow sub-passes in one frame.
