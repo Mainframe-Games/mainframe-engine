@@ -171,16 +171,17 @@ format-check:
     dotnet format {{solution}} --verify-no-changes --exclude Plugins/Spine
 
 # --- Localization (docs/design/localization.md) -------------------------------------------------------------------
-# The test content catalogs (until the Demo has its own): Tests/Content/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
-l10n_dir := "Tests/Content/locale"
+# The Demo's catalogs: Examples/Demo/Content/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
+# (Tests/Content/locale is the render tests' own Spanish catalog; it is not managed by these recipes.)
+l10n_dir := "Examples/Demo/Content/locale"
 l10n := "dotnet run --project Tools/MainframeEngine.L10n -c Release --"
 
-# Extract strings (C# via GetText.Extractor; RML — the Sandbox HUD and the engine widget library — and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale
+# Extract strings (C# via GetText.Extractor; RML — the Demo panels and the engine widget library — and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale
 l10n-extract:
     dotnet tool restore
-    dotnet build MainframeEngine.Sandbox -p:CompileLocales=false
-    dotnet tool run GetText.Extractor -s MainframeEngine.Sandbox/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Sandbox" --include {{artifacts / "l10n" / "code.pot"}} --rml MainframeEngine.Sandbox/Content --rml MainframeEngine/Content/UI --scenes MainframeEngine.Sandbox/Content --assembly MainframeEngine.Sandbox/bin/Debug/net10.0/MainframeEngine.Sandbox.dll
+    dotnet build Examples/Demo/Demo/Demo.csproj -p:CompileLocales=false
+    dotnet tool run GetText.Extractor -s Examples/Demo/Demo/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --rml Examples/Demo/Content --rml MainframeEngine/Content/UI --scenes Examples/Demo/Content --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
     {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
     {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
 

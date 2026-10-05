@@ -110,7 +110,7 @@ jobs:
 
       # Committed .mo files match their .po, translations keep their placeholders (and msgfmt -c agrees where installed).
       - name: Localization catalogs
-        run: dotnet run --project Tools/MainframeEngine.L10n -c Release --no-build -- check --dir Tests/Content/locale --msgfmt
+        run: dotnet run --project Tools/MainframeEngine.L10n -c Release --no-build -- check --dir Examples/Demo/Content/locale --msgfmt
 
       - name: Editor unit tests
         run: >-

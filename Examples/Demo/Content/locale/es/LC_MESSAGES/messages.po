@@ -1,0 +1,468 @@
+# Spanish translation of Mainframe Engine Demo.
+msgid ""
+msgstr ""
+"Project-Id-Version: Mainframe Engine Demo\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. RML <h1>
+#: Examples/Demo/Content/Audio/panel2d.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:122
+msgid "Audio 2D"
+msgstr "Audio 2D"
+
+#. RML <p>
+#: Examples/Demo/Content/Audio/panel2d.rml:9
+msgid "The emitter sweeps past the camera (the listener). Click anywhere to play a blip there."
+msgstr "El emisor pasa junto a la cámara (el oyente). Haz clic en cualquier punto para reproducir un pitido allí."
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel2d.rml:10
+msgid "Master"
+msgstr "Principal"
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel2d.rml:11
+msgid "SFX"
+msgstr "Efectos"
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel2d.rml:12
+msgid "Music"
+msgstr "Música"
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel2d.rml:13
+msgid "Panning"
+msgstr "Panorama"
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel2d.rml:14
+msgid "Max distance"
+msgstr "Distancia máxima"
+
+#. RML <h1>
+#: Examples/Demo/Content/Audio/panel3d.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:123
+msgid "Audio 3D"
+msgstr "Audio 3D"
+
+#. RML <p>
+#: Examples/Demo/Content/Audio/panel3d.rml:9
+msgid "A looping emitter orbits the listener. Wear headphones."
+msgstr "Un emisor en bucle orbita alrededor del oyente. Ponte auriculares."
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel3d.rml:10
+msgid "Attenuation"
+msgstr "Atenuación"
+
+#. RML <option>
+#: Examples/Demo/Content/Audio/panel3d.rml:12
+msgid "Disabled"
+msgstr "Desactivada"
+
+#. RML <option>
+#: Examples/Demo/Content/Audio/panel3d.rml:12
+msgid "Inverse"
+msgstr "Inversa"
+
+#. RML <option>
+#: Examples/Demo/Content/Audio/panel3d.rml:13
+msgid "Inverse square"
+msgstr "Inversa al cuadrado"
+
+#. RML <option>
+#: Examples/Demo/Content/Audio/panel3d.rml:13
+msgid "Logarithmic"
+msgstr "Logarítmica"
+
+#. RML <option>
+#: Examples/Demo/Content/Audio/panel3d.rml:14
+msgid "Exponential"
+msgstr "Exponencial"
+
+#. RML <option>
+#: Examples/Demo/Content/Audio/panel3d.rml:14
+msgid "Linear"
+msgstr "Lineal"
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel3d.rml:16
+msgid "Low-pass at distance"
+msgstr "Paso bajo con la distancia"
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel3d.rml:17
+msgid "Doppler"
+msgstr "Doppler"
+
+#. RML <span>
+#: Examples/Demo/Content/Audio/panel3d.rml:18
+msgid "Orbit speed"
+msgstr "Velocidad de órbita"
+
+#. RML <h1>
+#: Examples/Demo/Content/Basic2D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:121
+msgid "Basic 2D"
+msgstr "2D básico"
+
+#. RML <p>
+#: Examples/Demo/Content/Basic2D/panel.rml:9
+msgid "Canvas items: gradients, polygons, circles, lines and a sprite, Godot-style."
+msgstr "Elementos de lienzo: degradados, polígonos, círculos, líneas y un sprite, al estilo Godot."
+
+#. RML <span>
+#: Examples/Demo/Content/Basic2D/panel.rml:10
+msgid "Zoom"
+msgstr "Zoom"
+
+#. RML <span>
+#: Examples/Demo/Content/Basic2D/panel.rml:11
+msgid "Pause animation"
+msgstr "Pausar animación"
+
+#. RML <h1>
+#: Examples/Demo/Content/Basic3D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:120
+msgid "Basic 3D"
+msgstr "3D básico"
+
+#. RML <p>
+#: Examples/Demo/Content/Basic3D/panel.rml:9
+msgid "Primitives, materials, a glTF model, panoramic sky, cascaded and spot shadows."
+msgstr "Primitivas, materiales, un modelo glTF, cielo panorámico, sombras en cascada y de foco."
+
+#. RML <span>
+#: Examples/Demo/Content/Basic3D/panel.rml:10
+msgid "Pause orbit"
+msgstr "Pausar órbita"
+
+#. RML <span>
+#: Examples/Demo/Content/Basic3D/panel.rml:11
+msgid "Sun"
+msgstr "Sol"
+
+#. RML <span>
+#: Examples/Demo/Content/Basic3D/panel.rml:12
+msgid "Lamps"
+msgstr "Lámparas"
+
+#. RML <span>
+#: Examples/Demo/Content/Basic3D/panel.rml:13
+msgid "Exposure"
+msgstr "Exposición"
+
+#. RML <title>
+#: Examples/Demo/Content/Nav/nav.rml:3
+msgid "Demo navigation"
+msgstr "Navegación de la demo"
+
+#. RML <span>
+#: Examples/Demo/Content/Nav/nav.rml:15
+msgid "{{fps}} FPS"
+msgstr "{{fps}} FPS"
+
+#. RML <span>
+#: Examples/Demo/Content/Nav/nav.rml:19
+msgid "F12"
+msgstr "F12"
+
+#. RML <h1>
+#: Examples/Demo/Content/Physics/panel2d.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:125
+msgid "Physics 2D"
+msgstr "Física 2D"
+
+#. RML <p>
+#: Examples/Demo/Content/Physics/panel2d.rml:9
+msgid "Box2D bodies through a funnel and pegboard. Click to spawn a body."
+msgstr "Cuerpos de Box2D a través de un embudo y un tablero de clavijas. Haz clic para crear un cuerpo."
+
+#. RML <span>
+#: Examples/Demo/Content/Physics/panel2d.rml:10
+#: Examples/Demo/Content/Physics/panel3d.rml:10
+msgid "Bodies"
+msgstr "Cuerpos"
+
+#. RML <span>
+#: Examples/Demo/Content/Physics/panel2d.rml:11
+#: Examples/Demo/Content/Physics/panel3d.rml:11
+msgid "Collision shapes"
+msgstr "Formas de colisión"
+
+#. RML <button>
+#: Examples/Demo/Content/Physics/panel2d.rml:12
+#: Examples/Demo/Content/Physics/panel3d.rml:12
+msgid "Reset"
+msgstr "Reiniciar"
+
+#. RML <h1>
+#: Examples/Demo/Content/Physics/panel3d.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:126
+msgid "Physics 3D"
+msgstr "Física 3D"
+
+#. RML <p>
+#: Examples/Demo/Content/Physics/panel3d.rml:9
+msgid "Jitter2 rigid bodies, a ramp and a character body. Click the floor to drop a crate."
+msgstr "Cuerpos rígidos de Jitter2, una rampa y un cuerpo de personaje. Haz clic en el suelo para soltar una caja."
+
+#. RML <button>
+#: Examples/Demo/Content/Physics/panel3d.rml:12
+msgid "Rain crates"
+msgstr "Lluvia de cajas"
+
+#. RML <h1>
+#: Examples/Demo/Content/Spine/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:127
+msgid "Spine"
+msgstr "Spine"
+
+#. RML <p>
+#: Examples/Demo/Content/Spine/panel.rml:9
+msgid "SpineBoy rendered through the 3D pipeline, under a 3D or a 2D camera."
+msgstr "SpineBoy dibujado con el pipeline 3D, bajo una cámara 3D o 2D."
+
+#. RML <span>
+#: Examples/Demo/Content/Spine/panel.rml:10
+msgid "2D camera"
+msgstr "Cámara 2D"
+
+#. RML <span>
+#: Examples/Demo/Content/Spine/panel.rml:11
+msgid "Animation"
+msgstr "Animación"
+
+#. RML <option>
+#: Examples/Demo/Content/Spine/panel.rml:13
+msgid "Walk"
+msgstr "Caminar"
+
+#. RML <option>
+#: Examples/Demo/Content/Spine/panel.rml:14
+msgid "Run"
+msgstr "Correr"
+
+#. RML <option>
+#: Examples/Demo/Content/Spine/panel.rml:15
+msgid "Jump"
+msgstr "Saltar"
+
+#. RML <option>
+#: Examples/Demo/Content/Spine/panel.rml:16
+msgid "Idle"
+msgstr "Reposo"
+
+#. RML <title>
+#: Examples/Demo/Content/UI/showcase.rml:3
+msgid "UI showcase"
+msgstr "Muestra de interfaz"
+
+#. RML <h1>
+#: Examples/Demo/Content/UI/showcase.rml:10
+msgid "UI + hot reload"
+msgstr "Interfaz + recarga en caliente"
+
+#. RML <p>
+#: Examples/Demo/Content/UI/showcase.rml:11
+msgid "(or"
+msgstr "(o"
+
+#. RML <p>
+#: Examples/Demo/Content/UI/showcase.rml:11
+msgid ") and save — this page reloads live."
+msgstr ") y guarda: esta página se recarga al instante."
+
+#. RML <code>
+#: Examples/Demo/Content/UI/showcase.rml:11
+msgid ".rml"
+msgstr ".rml"
+
+#. RML <code>
+#: Examples/Demo/Content/UI/showcase.rml:11
+msgid "Content/UI/showcase.rcss"
+msgstr "Content/UI/showcase.rcss"
+
+#. RML <p>
+#: Examples/Demo/Content/UI/showcase.rml:11
+msgid "Edit"
+msgstr "Edita"
+
+#. RML <p>
+#: Examples/Demo/Content/UI/showcase.rml:12
+msgid "Hot reload is off in this build (it runs with a Debug engine)."
+msgstr "La recarga en caliente está desactivada en esta compilación (requiere un motor en Debug)."
+
+#. RML <span>
+#: Examples/Demo/Content/UI/showcase.rml:13
+msgid "Reloads"
+msgstr "Recargas"
+
+#. RML <span>
+#: Examples/Demo/Content/UI/showcase.rml:14
+msgid "Last reload"
+msgstr "Última recarga"
+
+#. RML <button>
+#: Examples/Demo/Content/UI/showcase.rml:15
+msgid "Reset counter"
+msgstr "Reiniciar contador"
+
+#. RML <h1>
+#: Examples/Demo/Content/UI/showcase.rml:18
+msgid "Data binding"
+msgstr "Enlace de datos"
+
+#. RML <span>
+#: Examples/Demo/Content/UI/showcase.rml:19
+msgid "Name"
+msgstr "Nombre"
+
+#. RML <p>
+#: Examples/Demo/Content/UI/showcase.rml:20
+msgid "Hello,"
+msgstr "Hola,"
+
+#. RML <span>
+#: Examples/Demo/Content/UI/showcase.rml:21
+msgid "Volume {{volume | format(2)}}"
+msgstr "Volumen {{volume | format(2)}}"
+
+#. RML <span>
+#. RML <label>
+#: Examples/Demo/Content/UI/showcase.rml:23
+#: MainframeEngine/Content/UI/widgets/demo.rml:23
+msgid "Quality"
+msgstr "Calidad"
+
+#. RML <option>
+#: Examples/Demo/Content/UI/showcase.rml:24
+#: MainframeEngine/Content/UI/widgets/demo.rml:27
+msgid "High"
+msgstr "Alta"
+
+#. RML <option>
+#: Examples/Demo/Content/UI/showcase.rml:24
+#: MainframeEngine/Content/UI/widgets/demo.rml:25
+msgid "Low"
+msgstr "Baja"
+
+#. RML <option>
+#: Examples/Demo/Content/UI/showcase.rml:24
+#: MainframeEngine/Content/UI/widgets/demo.rml:26
+msgid "Medium"
+msgstr "Media"
+
+#. RML <span>
+#: Examples/Demo/Content/UI/showcase.rml:25
+msgid "Accent"
+msgstr "Acento"
+
+#. RML <option>
+#: Examples/Demo/Content/UI/showcase.rml:26
+msgid "Blue"
+msgstr "Azul"
+
+#. RML <option>
+#: Examples/Demo/Content/UI/showcase.rml:26
+msgid "Green"
+msgstr "Verde"
+
+#. RML <option>
+#: Examples/Demo/Content/UI/showcase.rml:26
+msgid "Rose"
+msgstr "Rosa"
+
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:124
+msgid "UI"
+msgstr "Interfaz"
+
+#. RML <title>
+#: MainframeEngine/Content/UI/credits.rml:3
+msgid "Credits"
+msgstr "Créditos"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/credits.rml:17
+msgid "Made with Mainframe Engine"
+msgstr "Hecho con Mainframe Engine"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/credits.rml:18
+msgid "User interface"
+msgstr "Interfaz de usuario"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/credits.rml:22
+msgid "Other"
+msgstr "Otros"
+
+#. RML <title>
+#: MainframeEngine/Content/UI/widgets/demo.rml:3
+msgid "Widget library"
+msgstr "Biblioteca de widgets"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/widgets/demo.rml:15
+msgid "Buttons"
+msgstr "Botones"
+
+#. RML <button>
+#: MainframeEngine/Content/UI/widgets/demo.rml:17
+msgid "Play"
+msgstr "Jugar"
+
+#. RML <button>
+#: MainframeEngine/Content/UI/widgets/demo.rml:18
+msgid "Options"
+msgstr "Opciones"
+
+#. RML <button>
+#: MainframeEngine/Content/UI/widgets/demo.rml:19
+msgid "Locked"
+msgstr "Bloqueado"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:22
+msgid "Volume"
+msgstr "Volumen"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:30
+msgid "Player name"
+msgstr "Nombre del jugador"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:33
+msgid "VSync"
+msgstr "Sincr. vertical"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:34
+msgid "Hints"
+msgstr "Consejos"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:35
+msgid "Windowed"
+msgstr "Ventana"
+
+#. RML <label>
+#: MainframeEngine/Content/UI/widgets/demo.rml:36
+msgid "Fullscreen"
+msgstr "Pantalla completa"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/widgets/demo.rml:39
+msgid "Progress"
+msgstr "Progreso"
+
+#. RML <h3>
+#: MainframeEngine/Content/UI/widgets/demo.rml:43
+msgid "Notes"
+msgstr "Notas"

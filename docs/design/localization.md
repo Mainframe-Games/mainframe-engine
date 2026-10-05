@@ -51,7 +51,7 @@ flowchart LR
 
 | Recipe | What it runs |
 |---|---|
-| `just l10n-extract` | builds the Sandbox, runs the GetText.NET extractor over `MainframeEngine.Sandbox/Src`, `mf-l10n extract` (RML + scenes + the C# template), `update` (every `.po`) and `pseudo` (qps, Latin-1 accents for ImGui's font) |
+| `just l10n-extract` | builds the Demo, runs the GetText.NET extractor over `Examples/Demo/Demo/Src`, `mf-l10n extract` (RML + scenes + the C# template), `update` (every `.po`) and `pseudo` (qps, Latin-1 accents for ImGui's font) |
 | `just l10n-compile` | `mf-l10n compile --dir …/Content/locale`: refreshes the committed `.mo` next to each `.po` |
 | `just l10n-check` | fails when a committed `.mo` is missing or stale, or a translation breaks its placeholders; with GNU `msgfmt` on PATH it also runs `msgfmt -c` and requires byte-identical output |
 | `just l10n-stats` | coverage per locale |
