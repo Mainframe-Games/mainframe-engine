@@ -1,0 +1,596 @@
+{
+  "format": 1,
+  "uid": "scn_5ea7a1e00001",
+  "resources": {
+    "1": {
+      "type": "Sky",
+      "props": {
+        "Mode": "Panoramic",
+        "Panorama": "Content/Sky/sky_10_2k.png"
+      }
+    },
+    "3": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.46,
+          0.48,
+          0.52,
+          1
+        ],
+        "Specular": 0.2,
+        "Shininess": 24
+      }
+    },
+    "4": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [
+          12,
+          12
+        ]
+      }
+    },
+    "5": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.9019608,
+          0.47058824,
+          0.3137255,
+          1
+        ],
+        "Specular": 0.4,
+        "Shininess": 48
+      }
+    },
+    "6": {
+      "type": "BoxMesh"
+    },
+    "7": {
+      "type": "AudioStream",
+      "props": {
+        "File": "Content/Audio/ambient_hum.ogg",
+        "LoadMode": "Stream",
+        "Loop": true
+      }
+    },
+    "8": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.47058824,
+          0.7058824,
+          1,
+          0.43137255
+        ],
+        "Specular": 1,
+        "Shininess": 96,
+        "Transparency": "Blend"
+      }
+    },
+    "9": {
+      "type": "SphereMesh",
+      "props": {
+        "Radius": 0.6,
+        "Height": 1.2
+      }
+    },
+    "10": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "EmissionColor": [
+          1,
+          0.627451,
+          0.23529412,
+          1
+        ],
+        "EmissionEnergy": 2,
+        "ShadingMode": "Unshaded"
+      }
+    },
+    "11": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.2,
+        "Height": 1.0
+      }
+    },
+    "12": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.8235294,
+          0.8039216,
+          0.74509805,
+          1
+        ],
+        "Specular": 0.5,
+        "Shininess": 64
+      }
+    },
+    "13": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 0.35,
+        "BottomRadius": 0.45
+      }
+    },
+    "14": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [
+          12,
+          1,
+          12
+        ]
+      }
+    },
+    "15": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    },
+    "16": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    },
+    "17": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.8235294,
+          0.54901963,
+          0.27450982,
+          1
+        ]
+      }
+    },
+    "18": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.7058824,
+          0.43137255,
+          0.23529412,
+          1
+        ]
+      }
+    },
+    "19": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [
+          0.5882353,
+          0.37254903,
+          0.21568628,
+          1
+        ]
+      }
+    }
+  },
+  "root": {
+    "type": "Node3D",
+    "name": "Main",
+    "children": [
+      {
+        "type": "Camera3D",
+        "name": "Camera",
+        "props": {
+          "Position": [
+            0,
+            4,
+            9
+          ],
+          "RotationDegrees": [
+            -22,
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "type": "WorldEnvironment",
+        "name": "Environment",
+        "props": {
+          "Sky": {
+            "res": "1"
+          }
+        }
+      },
+      {
+        "type": "DirectionalLight3D",
+        "name": "Sun",
+        "props": {
+          "Position": [
+            0,
+            6,
+            0
+          ],
+          "RotationDegrees": [
+            -40,
+            -30,
+            0
+          ],
+          "Color": [
+            1,
+            0.95,
+            0.8
+          ],
+          "Energy": 1.0
+        }
+      },
+      {
+        "type": "OmniLight3D",
+        "name": "BlueLamp",
+        "props": {
+          "Position": [
+            3.8,
+            1.5,
+            1.6
+          ],
+          "Color": [
+            0.2,
+            0.5,
+            1
+          ],
+          "Energy": 0.9,
+          "Range": 7
+        }
+      },
+      {
+        "type": "SpotLight3D",
+        "name": "WarmSpot",
+        "props": {
+          "Position": [
+            -1.5,
+            3.2,
+            1.5
+          ],
+          "RotationDegrees": [
+            -50,
+            22,
+            0
+          ],
+          "Color": [
+            1,
+            0.6,
+            0.4
+          ],
+          "Energy": 0.9,
+          "Range": 15,
+          "InnerConeAngle": 12,
+          "OuterConeAngle": 25
+        }
+      },
+      {
+        "type": "StaticBody3D",
+        "name": "Ground",
+        "children": [
+          {
+            "type": "CollisionShape3D",
+            "name": "Shape",
+            "props": {
+              "Position": [
+                0,
+                -0.5,
+                0
+              ],
+              "Shape": {
+                "res": "14"
+              }
+            }
+          },
+          {
+            "type": "MeshInstance3D",
+            "name": "Floor",
+            "props": {
+              "MaterialOverride": {
+                "res": "3"
+              },
+              "Mesh": {
+                "res": "4"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "type": "Spinner",
+        "name": "Spinner",
+        "props": {
+          "Position": [
+            2.6,
+            1,
+            -0.5
+          ],
+          "RotationDegrees": [
+            0,
+            30,
+            0
+          ],
+          "MaterialOverride": {
+            "res": "5"
+          },
+          "Mesh": {
+            "res": "6"
+          }
+        },
+        "children": [
+          {
+            "type": "AudioPlayer3D",
+            "name": "Hum",
+            "props": {
+              "Stream": {
+                "res": "7"
+              },
+              "Bus": "SFX",
+              "VolumeDb": -18,
+              "Autoplay": true,
+              "UnitSize": 3,
+              "MaxDistance": 40
+            }
+          }
+        ]
+      },
+      {
+        "type": "MeshInstance3D",
+        "name": "Glass",
+        "props": {
+          "Position": [
+            1.5,
+            0.6,
+            2.2
+          ],
+          "MaterialOverride": {
+            "res": "8"
+          },
+          "Mesh": {
+            "res": "9"
+          }
+        }
+      },
+      {
+        "type": "MeshInstance3D",
+        "name": "Lamp",
+        "props": {
+          "Position": [
+            -0.6,
+            0.5,
+            2.4
+          ],
+          "MaterialOverride": {
+            "res": "10"
+          },
+          "Mesh": {
+            "res": "11"
+          }
+        }
+      },
+      {
+        "type": "MeshInstance3D",
+        "name": "Column",
+        "props": {
+          "Position": [
+            -3.6,
+            1,
+            -2.4
+          ],
+          "MaterialOverride": {
+            "res": "12"
+          },
+          "Mesh": {
+            "res": "13"
+          }
+        }
+      },
+      {
+        "instance": "mdl_7e57a55e7000",
+        "path": "Content/Models/TestModel/test_model.gltf",
+        "name": "Model",
+        "props": {
+          "Position": [
+            -2.4,
+            0,
+            -0.2
+          ],
+          "RotationDegrees": [
+            0,
+            20,
+            0
+          ]
+        }
+      },
+      {
+        "type": "Node3D",
+        "name": "Crates",
+        "props": {
+          "Position": [
+            0.6,
+            0,
+            -1.6
+          ]
+        },
+        "children": [
+          {
+            "type": "RigidBody3D",
+            "name": "Crate0",
+            "props": {
+              "Position": [
+                -0.35,
+                0.3,
+                0
+              ],
+              "RotationDegrees": [
+                0,
+                10,
+                0
+              ],
+              "Mass": 2
+            },
+            "children": [
+              {
+                "type": "CollisionShape3D",
+                "name": "Shape",
+                "props": {
+                  "Shape": {
+                    "res": "15"
+                  }
+                }
+              },
+              {
+                "type": "MeshInstance3D",
+                "name": "Visual",
+                "props": {
+                  "MaterialOverride": {
+                    "res": "17"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "RigidBody3D",
+            "name": "Crate1",
+            "props": {
+              "Position": [
+                0.35,
+                0.3,
+                0.05
+              ],
+              "RotationDegrees": [
+                0,
+                -15,
+                0
+              ],
+              "Mass": 2
+            },
+            "children": [
+              {
+                "type": "CollisionShape3D",
+                "name": "Shape",
+                "props": {
+                  "Shape": {
+                    "res": "15"
+                  }
+                }
+              },
+              {
+                "type": "MeshInstance3D",
+                "name": "Visual",
+                "props": {
+                  "MaterialOverride": {
+                    "res": "18"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "RigidBody3D",
+            "name": "Crate2",
+            "props": {
+              "Position": [
+                0,
+                0.9,
+                0
+              ],
+              "RotationDegrees": [
+                0,
+                30,
+                0
+              ],
+              "Mass": 2
+            },
+            "children": [
+              {
+                "type": "CollisionShape3D",
+                "name": "Shape",
+                "props": {
+                  "Shape": {
+                    "res": "15"
+                  }
+                }
+              },
+              {
+                "type": "MeshInstance3D",
+                "name": "Visual",
+                "props": {
+                  "MaterialOverride": {
+                    "res": "19"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "RigidBody3D",
+            "name": "Crate3",
+            "props": {
+              "Position": [
+                1.1,
+                0.3,
+                0.5
+              ],
+              "RotationDegrees": [
+                0,
+                40,
+                0
+              ],
+              "Mass": 2
+            },
+            "children": [
+              {
+                "type": "CollisionShape3D",
+                "name": "Shape",
+                "props": {
+                  "Shape": {
+                    "res": "15"
+                  }
+                }
+              },
+              {
+                "type": "MeshInstance3D",
+                "name": "Visual",
+                "props": {
+                  "MaterialOverride": {
+                    "res": "17"
+                  },
+                  "Mesh": {
+                    "res": "16"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

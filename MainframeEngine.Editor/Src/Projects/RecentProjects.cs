@@ -117,6 +117,27 @@ public sealed class RecentProjects
         Save();
     }
 
+    /// <summary>
+    /// Adds <paramref name="project"/> as given — with its own <see cref="RecentProject.LastOpenedUtc"/>, in date order
+    /// (replacing an entry for the same folder) — and saves. For importing lists and QA; opening a project uses
+    /// <see cref="Touch"/>.
+    /// </summary>
+    public void Add(RecentProject project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentException.ThrowIfNullOrWhiteSpace(project.Path);
+        ArgumentException.ThrowIfNullOrWhiteSpace(project.Name);
+        var entry = project with { Path = Normalize(project.Path), LastOpenedUtc = DateTime.SpecifyKind(project.LastOpenedUtc, DateTimeKind.Utc) };
+        var index = IndexOf(entry.Path);
+        if (index >= 0)
+            _items.RemoveAt(index);
+        var at = _items.FindIndex(p => p.LastOpenedUtc < entry.LastOpenedUtc);
+        _items.Insert(at < 0 ? _items.Count : at, entry);
+        if (_items.Count > MaxItems)
+            _items.RemoveRange(MaxItems, _items.Count - MaxItems);
+        Save();
+    }
+
     /// <summary>Removes the project in <paramref name="projectDirectory"/> and saves; false when it was not listed.</summary>
     public bool Remove(string projectDirectory)
     {

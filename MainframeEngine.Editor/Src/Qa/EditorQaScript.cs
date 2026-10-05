@@ -22,6 +22,7 @@ namespace MainframeEngine.Editor;
 /// menu 2                      # choose item 2 of the open popup menu (or: menu edit.undo)
 /// pick Floor                  # tree or list picker: select the row with this label
 /// search omni                 # tree or list picker: type into the search field
+/// favorite OmniLight3D        # tree picker: star or un-star the row with this label
 /// accept / cancel             # the open dialog's OK / Cancel
 /// capture name                # saves &lt;out&gt;/name.png
 /// log text                    # writes to the output
@@ -34,6 +35,10 @@ namespace MainframeEngine.Editor;
 /// new-project folder name     # fills the New Project wizard's location and name
 /// add-node Type [Name]        # adds a node under the selection (or the root) of the active scene
 /// play-args args…             # Play (F5) with extra game arguments, e.g. --screenshot out.png
+/// recent-project folder name [hours]   # lists a project in the Project Manager, opened hours ago (creates its project.mfproj)
+/// open-project folder         # opens a project like the Project Manager does
+/// camera x y z distance yaw pitch      # the active scene's editor camera: orbit pivot, distance, degrees
+/// collapse Node/Path / expand Node/Path  # a scene tree row
 /// quit
 /// </code>
 /// </summary>
@@ -199,6 +204,10 @@ public sealed class EditorQaScript : IEditorAutomation
                 else
                     workspace.ListPicker.SelectLabel(string.Join(' ', step[1..]));
                 break;
+            case "favorite":
+                if (!workspace.TreePicker.ToggleFavoriteLabel(string.Join(' ', step[1..])))
+                    Log.Warning($"[QA] No row '{string.Join(' ', step[1..])}' in the tree picker.");
+                break;
             case "search":
                 if (workspace.TreePicker.Visible)
                     workspace.TreePicker.SetQuery(string.Join(' ', step[1..]));
@@ -264,7 +273,8 @@ public sealed class EditorQaScript : IEditorAutomation
             case "wait-for":
                 _waitFor = step[1] switch
                 {
-                    "project" => static w => w.Project.Root is not null && !w.Project.IsBuilding && w.Session.Active is not null && !w.Splash.Visible,
+                    "project" => static w => w.Project.Root is not null && !w.Project.IsBuilding && w.Session.Active is not null && !w.Splash.Visible &&
+                                            !w.NewProject.Visible,
                     "idle" => static w => !w.Project.IsBuilding && !w.Play.IsBuilding,
                     "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running && i.Frame >= 90),
                     "stopped" => static w => !w.Play.IsPlaying,
@@ -322,6 +332,43 @@ public sealed class EditorQaScript : IEditorAutomation
                     var node = Serialization.TypeRegistry.CreateNode(step[1]);
                     node.Name = step.Length > 2 ? step[2] : step[1];
                     addTo.AddNode(node);
+                }
+
+                break;
+            case "recent-project":
+                {
+                    var folder = Path.GetFullPath(step[1]);
+                    if (!File.Exists(Path.Combine(folder, ProjectSettings.FileName)))
+                        new ProjectSettings { Name = step[2] }.Save(Directory.CreateDirectory(folder).FullName);
+                    var hours = step.Length > 3 ? Float(step, 3) : 0f;
+                    workspace.RecentProjects.Add(new RecentProject(folder, step[2], DateTime.UtcNow.AddHours(-hours)));
+                    if (workspace.ProjectManager.Visible)
+                        workspace.ProjectManager.Open(); // re-reads the list
+                    break;
+                }
+
+            case "open-project":
+                workspace.Commands.OpenProject(Path.GetFullPath(string.Join(' ', step[1..])));
+                break;
+            case "camera":
+                if (workspace.Session.Active is { } viewed)
+                {
+                    viewed.Camera.Pivot = new Vector3(Float(step, 1), Float(step, 2), Float(step, 3));
+                    viewed.Camera.Distance = Float(step, 4);
+                    viewed.Camera.Yaw = Float(step, 5);
+                    viewed.Camera.Pitch = Float(step, 6);
+                }
+
+                break;
+            case "collapse" or "expand":
+                if (workspace.Session.Active?.Root.GetNodeOrNull(string.Join(' ', step[1..])) is { } row)
+                {
+                    workspace.SceneTree.Model.SetExpanded(row, step[0] == "expand");
+                    workspace.SceneTree.Refresh();
+                }
+                else
+                {
+                    Log.Warning($"[QA] No node '{string.Join(' ', step[1..])}' in the active scene.");
                 }
 
                 break;
@@ -458,7 +505,7 @@ public sealed class EditorQaScript : IEditorAutomation
         ArgumentNullException.ThrowIfNull(capture);
         var path = Path.Combine(_outputDirectory, (_pendingCapture ?? "capture") + ".png");
         capture.SavePng(path);
-        Log.Info($"[QA] Captured {path}");
+        Console.WriteLine($"[QA] Captured {path}"); // stdout only: later captures show a clean Output panel
     }
 
     public void OnClosing(EditorApp app)

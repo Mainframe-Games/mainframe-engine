@@ -63,6 +63,26 @@ qa-editor script="Tests/QA/editor-walkthrough.qa":
 qa-projects:
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --qa-script Tests/QA/project-workflow.qa --qa-out {{artifacts / "qa-projects"}}
 
+# Regenerate the README's editor screenshots (docs/images/editor*.png): Tests/QA/readme-screenshots.qa captures at 2x,
+# ImageMagick downscales to 1600x960. macOS/Linux; needs the display awake and `magick`. Review the PNGs before committing.
+readme-screenshots:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Neutral project folder (no user paths on screen): the showcase project is linked in, MyGame is created there.
+    projects=/tmp/MainframeProjects
+    out="{{artifacts}}/readme-screenshots"
+    rm -rf "$projects" "$out"
+    mkdir -p "$projects"
+    ln -s "{{justfile_directory()}}/Examples/EditorShowcase" "$projects/EditorShowcase"
+    dotnet build Examples/EditorShowcase/EditorShowcase.slnx -v q -nologo
+    dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
+      --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
+    for name in editor editor-add-node editor-game-project editor-project-manager; do
+      magick "$out/$name.png" -filter Lanczos -resize 1600x960 -strip -define png:compression-level=9 \
+        -define png:compression-filter=5 "docs/images/$name.png"
+    done
+    ls -la docs/images/editor*.png
+
 # Run the Sandbox (extra args are passed through, e.g. just sandbox --qa-capture out)
 sandbox *args:
     dotnet run --project MainframeEngine.Sandbox -- {{args}}

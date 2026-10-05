@@ -508,7 +508,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
         if (Model is not { } model || !model.Save())
             return false;
         Workspace.Session.SetProjectSettings(model.Current);
-        Log.Info($"[Editor] Saved {model.FilePath}");
+        Log.Info($"[Editor] Saved {Workspace.Session.DisplayPath(model.FilePath)}");
         Render();
         return true;
     }

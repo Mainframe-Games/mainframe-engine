@@ -77,10 +77,8 @@ public class RmlSystemInterface
             case RmlLogType.Warning:
                 Log.Warning($"[RmlUi] {message}");
                 break;
-            case RmlLogType.Info:
-                Log.Info($"[RmlUi] {message}");
-                break;
             default:
+                // RmlUi's Info messages are load chatter ("Loaded font face … from '<absolute path>'"): debug detail.
                 Log.Debug($"[RmlUi] {message}");
                 break;
         }

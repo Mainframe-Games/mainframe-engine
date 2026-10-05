@@ -261,7 +261,7 @@ public sealed class EditorCommands
         try
         {
             Session.Save(scene, path);
-            Log.Info($"[Editor] Saved {scene.FilePath}");
+            Log.Info($"[Editor] Saved {Session.DisplayPath(scene.FilePath)}");
             return true;
         }
         catch (Exception e) when (IsRecoverable(e))

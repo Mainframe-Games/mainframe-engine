@@ -512,7 +512,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         if (_vk.CreateInstance(in createInfo, null, out _instance) != Result.Success)
             throw new VulkanException("[Vulkan] Failed to create instance!");
 
-        Log.Info($"[Vulkan] Instance created.");
+        Log.Debug($"[Vulkan] Instance created.");
 
         Marshal.FreeHGlobal((IntPtr)appInfo.PApplicationName);
         Marshal.FreeHGlobal((IntPtr)appInfo.PEngineName);
@@ -623,7 +623,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
             throw new NotSupportedException("[Vulkan] KHR_surface extension not found.");
 
         _surface = _window.VkSurface!.Create<AllocationCallbacks>(_instance.ToHandle(), null).ToSurface();
-        Log.Info("[Vulkan] Surface created.");
+        Log.Debug("[Vulkan] Surface created.");
     }
 
     private void PickPhysicalDevice()
@@ -633,7 +633,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
             if (IsDeviceSuitable(d))
             {
                 _physicalDevice = d;
-                Log.Info("[Vulkan] Physical device selected.");
+                Log.Debug("[Vulkan] Physical device selected.");
                 return;
             }
         }
@@ -727,7 +727,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         if (_vk!.CreateDevice(_physicalDevice, in createInfo, null, out _device) != Result.Success)
             throw new VulkanException("[Vulkan] Failed to create logical device!");
 
-        Log.Info("[Vulkan] Logical device created.");
+        Log.Debug("[Vulkan] Logical device created.");
         _vk!.GetDeviceQueue(_device, indices.GraphicsFamily!.Value, 0, out _graphicsQueue);
         _vk!.GetDeviceQueue(_device, indices.PresentFamily!.Value, 0, out _presentQueue);
 
@@ -815,7 +815,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
 
         _swapChainImageFormat = format.Format;
         _swapChainExtent = extent;
-        Log.Info("[Vulkan] Swapchain created.");
+        Log.Debug("[Vulkan] Swapchain created.");
     }
 
     private SwapChainSupportDetails QuerySwapChainSupport(PhysicalDevice device)
@@ -876,7 +876,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         if (_vk!.CreateCommandPool(_device, in poolInfo, null, out _commandPool) != Result.Success)
             throw new VulkanException("[Vulkan] Failed to create command pool!");
 
-        Log.Info("[Vulkan] Command pool created.");
+        Log.Debug("[Vulkan] Command pool created.");
     }
 
     // One per frame slot, allocated once: they never depend on the swapchain.
@@ -893,7 +893,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         fixed (CommandBuffer* ptr = _commandBuffers)
             _vk!.AllocateCommandBuffers(_device, in allocInfo, ptr).Check("vkAllocateCommandBuffers (frame slots)");
 
-        Log.Info($"[Vulkan] {MaxFramesInFlight} frame-slot command buffers allocated.");
+        Log.Debug($"[Vulkan] {MaxFramesInFlight} frame-slot command buffers allocated.");
     }
 
     private void CreateSyncObjects()
@@ -908,7 +908,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         }
 
         CreateRenderFinishedSemaphores();
-        Log.Info("[Vulkan] Sync objects created.");
+        Log.Debug("[Vulkan] Sync objects created.");
     }
 
     private void CreateRenderFinishedSemaphores()
@@ -998,7 +998,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
 
         if (_swapChainImages!.Length != oldImageCount)
         {
-            Log.Info($"[Vulkan] Swapchain image count {oldImageCount} → {_swapChainImages.Length}.");
+            Log.Info($"[Vulkan] Swapchain image count {oldImageCount} -> {_swapChainImages.Length}.");
             DestroyRenderFinishedSemaphores();
             CreateRenderFinishedSemaphores();
         }

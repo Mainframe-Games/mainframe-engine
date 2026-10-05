@@ -205,11 +205,37 @@ public sealed class PlayController : IDisposable
         // crashes before connecting), stdout/stderr is all there is.
         if (instance.HasConnected && instance.IsAlive)
             return;
-        var level = line.Contains("[ERROR]", StringComparison.Ordinal) || line.Contains("[FATAL]", StringComparison.Ordinal) ||
-                    line.Contains("Unhandled exception", StringComparison.Ordinal)
-            ? OutputLevel.Error
-            : OutputLevel.Info;
-        _workspace.Output.Add(level, $"[game·{instance.Label}] {line}");
+        var (level, text) = ParseConsoleLine(line);
+        _workspace.Output.Add(level, $"[game·{instance.Label}] {text}");
+    }
+
+    /// <summary>
+    /// A game's console line as an Output level and text: the engine's own lines (<c>[12:00:00.123] [WARN]\t[Audio]
+    /// message</c>, <see cref="ConsoleLogSink"/>) lose the time stamp (the Output panel shows its own) and keep their
+    /// level; other lines are Info, or Error when they look like a crash.
+    /// </summary>
+    internal static (OutputLevel Level, string Text) ParseConsoleLine(string line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        var tab = line.IndexOf('\t');
+        var split = tab > 0 ? line.IndexOf("] [", 0, tab, StringComparison.Ordinal) : -1;
+        if (split > 0 && line[0] == '[' && line[tab - 1] == ']')
+        {
+            OutputLevel? tagged = line.AsSpan(split + 3, tab - split - 4) switch
+            {
+                "Debug" => OutputLevel.Debug,
+                "INFO" => OutputLevel.Info,
+                "WARN" => OutputLevel.Warning,
+                "ERROR" or "FATAL" => OutputLevel.Error,
+                _ => null,
+            };
+            if (tagged is { } known)
+                return (known, line[(tab + 1)..]);
+        }
+
+        var crash = line.Contains("[ERROR]", StringComparison.Ordinal) || line.Contains("[FATAL]", StringComparison.Ordinal) ||
+                    line.Contains("Unhandled exception", StringComparison.Ordinal);
+        return (crash ? OutputLevel.Error : OutputLevel.Info, line);
     }
 
     private void OnBuildOutput(string line)

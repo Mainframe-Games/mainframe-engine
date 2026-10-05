@@ -139,7 +139,7 @@ internal sealed unsafe partial class VulkanRenderer
         _sceneTarget = new RenderTarget(this,
             new RenderTargetDesc("scene", [RenderTargetAttachment.Sampled(SceneColorFormat)], _depthFormat), _swapChainExtent);
         CreateTonemap();
-        Log.Info($"[Vulkan] Colour pipeline: HDR {SceneColorFormat} → tonemap → {_swapChainImageFormat} ({_encoding}).");
+        Log.Info($"[Vulkan] Colour pipeline: HDR {SceneColorFormat} -> tonemap -> {_swapChainImageFormat} ({_encoding}).");
     }
 
     /// <summary>After swapchain recreation (device idle): new views and framebuffers, resized scene target.</summary>

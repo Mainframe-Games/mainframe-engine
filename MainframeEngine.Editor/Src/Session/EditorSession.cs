@@ -402,6 +402,24 @@ public sealed class EditorSession : IDisposable
             SelectionChanged?.Invoke(active);
     }
 
+    /// <summary>
+    /// How to show <paramref name="path"/> to the user: relative to the project (<c>Content/Scenes/Main.mscene</c>, with
+    /// <c>/</c>) when it is inside <see cref="ProjectRoot"/>, else the full path.
+    /// </summary>
+    public string DisplayPath(string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return "";
+        var full = Path.GetFullPath(path);
+        if (ProjectRoot is not { } root)
+            return full;
+        var relative = Path.GetRelativePath(root, full);
+        return relative is "." or ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+               Path.IsPathRooted(relative)
+            ? full
+            : relative.Replace('\\', '/');
+    }
+
     internal static bool PathsEqual(string a, string b) =>
         string.Equals(Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar), Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar),
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);

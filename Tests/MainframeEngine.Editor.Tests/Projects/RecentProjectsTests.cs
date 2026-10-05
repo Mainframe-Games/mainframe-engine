@@ -38,6 +38,21 @@ public sealed class RecentProjectsTests : IDisposable
     }
 
     [Fact]
+    public void AddKeepsTheGivenTimeInDateOrder()
+    {
+        var now = DateTime.UtcNow;
+        var recent = new RecentProjects(FilePath);
+        recent.Add(new RecentProject(Project("Old"), "Old", now.AddDays(-5)));
+        recent.Add(new RecentProject(Project("New"), "New", now));
+        recent.Add(new RecentProject(Project("Mid"), "Mid", now.AddHours(-26)));
+        Assert.Equal(["New", "Mid", "Old"], recent.Items.Select(p => p.Name));
+
+        recent.Add(new RecentProject(Project("Old"), "Old again", now.AddMinutes(1))); // same folder: replaced, moved up
+        Assert.Equal(["Old again", "New", "Mid"], recent.Items.Select(p => p.Name));
+        Assert.Equal(["Old again", "New", "Mid"], RecentProjects.Load(FilePath).Items.Select(p => p.Name)); // saved
+    }
+
+    [Fact]
     public void KeepsAtMostMaxItems()
     {
         var recent = new RecentProjects(null);

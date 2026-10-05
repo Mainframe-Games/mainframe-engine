@@ -484,6 +484,14 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`).
+- **README screenshots** (`just readme-screenshots`, [readme-screenshots.qa](../../Tests/QA/readme-screenshots.qa)):
+  the Project Manager (`recent-project` seeds the list), the showcase scene (`open-project`, `camera`, `collapse`), the
+  create dialog (`favorite`, `search`, `pick`) and a new game after a code reload while it plays, captured at 2x
+  (`--scale 2`, 3200×1920 px) and downscaled to 1600×960 into `docs/images/editor*.png` with ImageMagick. The scene is
+  [Examples/EditorShowcase](../../Examples/EditorShowcase) — a project from the `mfgame` template (engine by project
+  reference, `../..`) whose game code the editor loads, so every node type resolves. Projects are opened from the
+  neutral `/tmp/MainframeProjects` (the recipe links the showcase there), so no user path is on screen; editor log
+  lines show project files relative to the project (`Saved Content/Scenes/Main.mscene`).
 
 ## Performance
 

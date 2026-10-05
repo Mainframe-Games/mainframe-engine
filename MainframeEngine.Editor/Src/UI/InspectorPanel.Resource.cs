@@ -58,7 +58,7 @@ public sealed partial class InspectorPanel
         try
         {
             resource.Save();
-            Log.Info($"[Editor] Saved {resource.FilePath}");
+            Log.Info($"[Editor] Saved {Workspace.Session.DisplayPath(resource.FilePath)}");
             Rebuild();
             return true;
         }

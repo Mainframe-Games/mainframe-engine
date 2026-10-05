@@ -10,13 +10,13 @@
         .side { display: flex; flex-direction: column; flex: 0 0 auto; width: 200dp; margin-right: 12dp; }
         .side-title { display: flex; flex-direction: row; align-items: center; height: 22dp; color: #b4bccc; font-size: 12dp; font-weight: bold; }
         .side-title .icon { margin-right: 5dp; image-color: #8b93a5; }
-        .side-list { display: block; flex: 1 1 auto; overflow-y: auto; background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; margin-bottom: 8dp; }
+        .side-list { display: block; flex: 1 1 0dp; min-height: 0dp; overflow-y: auto; background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; margin-bottom: 8dp; }
         .side-empty { display: block; padding: 6dp 8dp; color: #5f6676; font-size: 11dp; }
         .main { display: flex; flex-direction: column; flex: 1 1 auto; }
         .search-row { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin-bottom: 8dp; }
         .search-row .icon { margin-right: 6dp; image-color: #8b93a5; }
         .search-row input.text { flex: 1 1 auto; width: 60dp; }
-        .tree-list { display: block; flex: 1 1 auto; overflow-y: auto; background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; }
+        .tree-list { display: block; flex: 1 1 0dp; min-height: 0dp; overflow-y: auto; background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; }
         .pick-row { display: flex; flex-direction: row; align-items: center; height: 22dp; padding-right: 4dp; white-space: nowrap; cursor: pointer; }
         .pick-row:hover { background-color: #2a2e38; }
         .pick-row.selected { background-color: #1d4ed8; color: #ffffff; }

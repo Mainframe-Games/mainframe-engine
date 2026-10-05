@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The executable: runs the project with GameHost (project.mfproj next to the app). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../EditorShowcase/EditorShowcase.csproj" />
+  </ItemGroup>
+
+  <!-- The project file and the game's content are copied next to the app. -->
+  <ItemGroup>
+    <None Include="../project.mfproj" Link="project.mfproj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Content/**" LinkBase="Content" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    Localization: Content/locale/<locale>/LC_MESSAGES/messages.po catalogs are compiled to .mo at build time (no gettext
+    needed) and copied to Content/locale/ next to the app, where Tr loads them. Add a language with the engine's
+    mf-l10n tool (extract, update, compile; docs/design/localization.md).
+  -->
+  <PropertyGroup>
+    <LocaleContentRoot>../Content</LocaleContentRoot>
+  </PropertyGroup>
+  <Import Project="$(MainframeEnginePath)/build/Localization.targets" />
+
+</Project>

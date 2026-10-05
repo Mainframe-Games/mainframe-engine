@@ -68,7 +68,7 @@ public sealed unsafe class PipelineCache : IDisposable
         }
 
         if (LoadedBytes > 0)
-            Log.Info($"[PipelineCache] Loaded {LoadedBytes} bytes from {FilePath}.");
+            Log.Debug($"[PipelineCache] Loaded {LoadedBytes} bytes from {FilePath}.");
     }
 
     /// <summary>Pass to <c>vkCreateGraphicsPipelines</c> / <c>vkCreateComputePipelines</c>.</summary>

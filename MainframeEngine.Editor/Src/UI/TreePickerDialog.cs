@@ -205,6 +205,16 @@ public sealed class TreePickerDialog : EditorDocument
         return true;
     }
 
+    /// <summary>Stars or un-stars the entry labelled <paramref name="label"/> (QA scripts, tests).</summary>
+    public bool ToggleFavoriteLabel(string label)
+    {
+        var row = _rows.FindIndex(r => string.Equals(r.Entry.Label, label, StringComparison.Ordinal));
+        if (row < 0)
+            return false;
+        ToggleFavorite(row);
+        return true;
+    }
+
     public void Toggle(int index)
     {
         _tree.Toggle(index);

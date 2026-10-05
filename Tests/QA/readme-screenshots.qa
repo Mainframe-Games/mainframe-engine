@@ -1,0 +1,71 @@
+# README screenshots (just readme-screenshots): raw 2x captures into artifacts/readme-screenshots; the recipe downscales
+# them into docs/images. Projects live under the neutral /tmp/MainframeProjects (no user paths on screen): the recipe
+# links Examples/EditorShowcase there and the workflow part creates MyGame there.
+wait 30
+# 1. The Project Manager with a few recent projects.
+recent-project /tmp/MainframeProjects/EditorShowcase EditorShowcase 0.2
+recent-project /tmp/MainframeProjects/SpaceMiner SpaceMiner 26
+recent-project /tmp/MainframeProjects/PuzzleBox PuzzleBox 120
+move 900 600
+wait 20
+capture editor-project-manager
+# 2. The showcase scene: a light selected, debug lines filtered out, the Play tooltip showing.
+open-project /tmp/MainframeProjects/EditorShowcase
+wait-for project 300
+wait 10
+click #level-debug
+collapse Crates/Crate0
+collapse Crates/Crate1
+collapse Crates/Crate2
+collapse Crates/Crate3
+select WarmSpot
+camera -0.3 0.9 -0.8 8.8 -18 -16
+move #play
+wait 60
+capture editor
+# 3. The create dialog: a favourite, a recent type (added and undone), a search and a description.
+move 800 500
+key A cmd
+wait 5
+search Omni
+pick OmniLight3D
+accept
+wait 5
+key Z cmd
+wait 5
+key A cmd
+wait 5
+favorite MeshInstance3D
+favorite RigidBody3D
+search Body3D
+pick RigidBody3D
+click 900 640 # the description pane: the search field's focus tooltip goes away
+wait 30
+capture editor-add-node
+cancel
+wait 5
+# 4. The game workflow: create MyGame, add an [Export] property to its C#, Build & Reload, play it.
+command project.new
+wait 10
+new-project /tmp/MainframeProjects MyGame
+wait 30 # the .NET SDK check enables Create
+click #np-create
+wait-for project 300
+wait 20
+clear-output
+replace-in-file MyGame/Src/Spinner.cs =\s45f; = 45f;\n\n/// <summary>Bobbing height, in metres.</summary>\n[Export(Range = "0,10,0.1")]\npublic float Wobble { get; set; } = 2.5f;
+command project.build_reload
+wait 3
+wait-for idle 120
+wait 10
+select Spinner
+camera 0 0.6 0 4.6 -38 -18
+play-args --hidden
+wait-for playing 120
+wait 30
+move 800 500
+wait 10
+capture editor-game-project
+command play.stop
+wait-for stopped 30
+quit
