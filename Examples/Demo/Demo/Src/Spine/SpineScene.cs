@@ -23,7 +23,7 @@ public static class SpineScene
         Add(root, root, new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(30, 30) },
             MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(78, 90, 112) } });
 
-        var pivot = Add(root, root, new Node3D { Name = "Pivot", Scale = new Vector3(SpinePanel.PivotScale3D) });
+        var pivot = Add(root, root, new Node3D { Name = "Pivot" });
         Add(root, pivot, new SpineNode { Name = "SpineBoy", Folder = "Content/Models/Spine/SpineBoy", Animation = "walk", SpineScale = SpinePanel.Scale3D });
 
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });

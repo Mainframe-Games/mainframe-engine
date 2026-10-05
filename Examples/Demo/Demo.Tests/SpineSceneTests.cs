@@ -44,7 +44,6 @@ public sealed class SpineSceneTests : IDisposable
         Assert.True(viewport.ActiveCamera3D!.Current);
         Assert.False(Camera2D.Current);
         Assert.Equal(Vector3.Zero, Pivot.RotationDegrees);
-        Assert.Equal(new Vector3(SpinePanel.PivotScale3D), Pivot.Scale);
         Assert.Equal(SpinePanel.Scale3D, Spine.SpineScale);
     }
 
@@ -60,7 +59,6 @@ public sealed class SpineSceneTests : IDisposable
         Assert.Same(Camera2D, viewport.ActiveCamera2D);
         Assert.True(Camera2D.Current);
         Assert.Equal(new Vector3(180, 0, 0), Pivot.RotationDegrees);
-        Assert.Equal(Vector3.One, Pivot.Scale);
         Assert.Equal(SpinePanel.Scale2D, Spine.SpineScale);
         Assert.Equal(SpinePanel.SunRotation2D, Scene.GetNode<DirectionalLight3D>("Sun").RotationDegrees);
     }
@@ -80,7 +78,6 @@ public sealed class SpineSceneTests : IDisposable
         Assert.True(camera3d.Current);
         Assert.False(Camera2D.Current);
         Assert.Equal(Vector3.Zero, Pivot.RotationDegrees);
-        Assert.Equal(new Vector3(SpinePanel.PivotScale3D), Pivot.Scale);
         Assert.Equal(SpinePanel.Scale3D, Spine.SpineScale);
         Assert.Equal(SpinePanel.SunRotation3D, Scene.GetNode<DirectionalLight3D>("Sun").RotationDegrees);
     }
