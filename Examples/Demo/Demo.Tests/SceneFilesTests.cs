@@ -3,6 +3,7 @@ using MainframeEngine;
 
 namespace Demo.Tests;
 
+[Collection(nameof(SerialRmlUi))]
 public sealed class SceneFilesTests
 {
     private static string DemoRoot =>
@@ -30,13 +31,18 @@ public sealed class SceneFilesTests
     [Fact]
     public void SwitchingEveryTabTwiceLeavesOneScene()
     {
-        var tree = new SceneTree(new ServerRegistry());
+        // Scenes carry UI panels, so the tree needs a (headless) UI server.
+        using var servers = new ServerRegistry();
+        servers.Register(new UiServer(options: new UiServerOptions { HotReload = false }));
+        var tree = new SceneTree(servers);
         foreach (var _ in Enumerable.Range(0, 2))
             foreach (var scene in DemoScenes.All)
             {
                 tree.ChangeScene(scene.Build());
                 Assert.Single(tree.Root.Children, c => DemoScenes.ByRootName(c.Name) is not null);
             }
+
+        tree.Shutdown();
     }
 
     private static string PackedSceneUid(string json) =>

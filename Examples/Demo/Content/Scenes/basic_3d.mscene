@@ -1,10 +1,323 @@
 {
   "format": 2,
   "uid": "scn_5d86059a6aa9",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky",
+      "props": {
+        "Mode": "Panoramic",
+        "Panorama": "Content/Sky/sky_10_2k.png"
+      }
+    },
+    "StandardMaterial3D_8z8yd": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.30588236, 0.34509805, 0.43137255, 1],
+        "Specular": 0.8,
+        "Shininess": 96
+      }
+    },
+    "CylinderMesh_29pp5": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 6,
+        "BottomRadius": 6.2,
+        "Height": 0.4,
+        "RadialSegments": 96
+      }
+    },
+    "StandardMaterial3D_s8kz4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.23529412, 0.29803923, 0.3764706, 1],
+        "Specular": 0.8,
+        "Shininess": 8
+      }
+    },
+    "PlaneMesh_dcv7g": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [600, 600]
+      }
+    },
+    "StandardMaterial3D_eoc20": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.9098039, 0.3647059, 0.24705882, 1],
+        "Specular": 0.8,
+        "Shininess": 48
+      }
+    },
+    "BoxMesh_0x1l0": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1.4, 1.4, 1.4]
+      }
+    },
+    "StandardMaterial3D_945k4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.27450982, 0.54901963, 0.9411765, 1],
+        "Specular": 0.8,
+        "Shininess": 128
+      }
+    },
+    "SphereMesh_uyjbc": {
+      "type": "SphereMesh",
+      "props": {
+        "Radius": 0.8,
+        "Height": 1.6
+      }
+    },
+    "StandardMaterial3D_k9n1u": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.98039216, 0.8, 0.08235294, 1],
+        "Specular": 0.8,
+        "Shininess": 48
+      }
+    },
+    "CapsuleMesh_ta3s6": {
+      "type": "CapsuleMesh"
+    },
+    "StandardMaterial3D_rgal9": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1],
+        "Specular": 0.8,
+        "Shininess": 48
+      }
+    },
+    "CylinderMesh_0joy9": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 0.45,
+        "BottomRadius": 0.6,
+        "Height": 3
+      }
+    },
+    "StandardMaterial3D_r0f97": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.8627451, 1, 0.3529412],
+        "Specular": 2,
+        "Shininess": 256,
+        "Transparency": "Blend"
+      }
+    },
+    "SphereMesh_ik9pz": {
+      "type": "SphereMesh",
+      "props": {
+        "Radius": 0.9,
+        "Height": 1.8
+      }
+    },
+    "StandardMaterial3D_3iyot": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [1, 0.47058824, 0.11764706, 1],
+        "EmissionColor": [1, 0.6666667, 0.3137255, 1],
+        "EmissionEnergy": 1.2,
+        "ShadingMode": "Unshaded"
+      }
+    },
+    "CapsuleMesh_af7v5": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.25,
+        "Height": 1.2
+      }
+    }
+  },
   "nodes": [
     {
       "name": "basic_3d",
       "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "OrbitCamera",
+      "props": {
+        "Current": true,
+        "Fov": 50,
+        "Radius": 11.5,
+        "Height": 3.6,
+        "Target": [0, 1.4, 0]
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "props": {
+        "Sky": { "res": "Sky_5kj71" },
+        "AmbientColor": [0.36, 0.4, 0.5]
+      }
+    },
+    {
+      "name": "Plinth",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, -0.2, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_8z8yd" },
+        "Mesh": { "res": "CylinderMesh_29pp5" }
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, -0.4, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_s8kz4" },
+        "Mesh": { "res": "PlaneMesh_dcv7g" }
+      }
+    },
+    {
+      "name": "Ring",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Box",
+      "parent": "Ring",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [3.2, 0.7, 0],
+        "RotationDegrees": [0, 25, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_eoc20" },
+        "Mesh": { "res": "BoxMesh_0x1l0" }
+      }
+    },
+    {
+      "name": "Sphere",
+      "parent": "Ring",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [-3.2, 0.8, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_945k4" },
+        "Mesh": { "res": "SphereMesh_uyjbc" }
+      }
+    },
+    {
+      "name": "Capsule",
+      "parent": "Ring",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, 1, 3.2],
+        "MaterialOverride": { "res": "StandardMaterial3D_k9n1u" },
+        "Mesh": { "res": "CapsuleMesh_ta3s6" }
+      }
+    },
+    {
+      "name": "Column",
+      "parent": "Ring",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, 1.5, -3.2],
+        "MaterialOverride": { "res": "StandardMaterial3D_rgal9" },
+        "Mesh": { "res": "CylinderMesh_0joy9" }
+      }
+    },
+    {
+      "name": "Glass",
+      "parent": "Ring",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [2.3, 0.9, 2.3],
+        "MaterialOverride": { "res": "StandardMaterial3D_r0f97" },
+        "Mesh": { "res": "SphereMesh_ik9pz" }
+      }
+    },
+    {
+      "name": "Lamp",
+      "parent": "Ring",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [-2.3, 0.6, -2.3],
+        "MaterialOverride": { "res": "StandardMaterial3D_3iyot" },
+        "Mesh": { "res": "CapsuleMesh_af7v5" }
+      }
+    },
+    {
+      "name": "Model",
+      "parent": ".",
+      "instance": "mdl_7e57a55e7000",
+      "path": "Content/Models/TestModel/test_model.gltf",
+      "props": {
+        "Position": [0, 0.05, 0]
+      }
+    },
+    {
+      "name": "Lights",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Sun",
+      "parent": "Lights",
+      "type": "DirectionalLight3D",
+      "props": {
+        "Position": [6, 10, 4],
+        "RotationDegrees": [-54.20425, 56.309933, 0],
+        "Color": [1, 0.95, 0.86],
+        "Energy": 1.8,
+        "ShadowCascades": 3
+      }
+    },
+    {
+      "name": "Blue",
+      "parent": "Lights",
+      "type": "OmniLight3D",
+      "props": {
+        "Position": [-3, 2.5, 3],
+        "Color": [0.35, 0.55, 1],
+        "Energy": 2.5,
+        "Range": 7
+      }
+    },
+    {
+      "name": "WarmSpot",
+      "parent": "Lights",
+      "type": "SpotLight3D",
+      "props": {
+        "Position": [4, 6, -4],
+        "RotationDegrees": [133.31386, 45, 180],
+        "Color": [1, 0.6, 0.3],
+        "Energy": 9,
+        "Range": 16,
+        "InnerConeAngle": 18,
+        "OuterConeAngle": 28
+      }
+    },
+    {
+      "name": "MintSpot",
+      "parent": "Lights",
+      "type": "SpotLight3D",
+      "props": {
+        "Position": [-5, 5, -2],
+        "RotationDegrees": [143.39572, -68.19859, -180],
+        "Color": [0.4, 1, 0.75],
+        "Energy": 7,
+        "Range": 16,
+        "InnerConeAngle": 14,
+        "OuterConeAngle": 24
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Basic3DPanel"
     }
   ]
 }
