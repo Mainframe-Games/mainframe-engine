@@ -20,7 +20,7 @@ public static class DemoScenes
         Scene("audio_2d", "Audio 2D", "volume", Audio2DScene.Build),
         Scene("audio_3d", "Audio 3D", "headphones", Audio3DScene.Build),
         Scene("ui", "UI", "layout", UiScene.Build),
-        Scene("physics_2d", "Physics 2D", "circles", static () => Placeholder("physics_2d")),
+        Scene("physics_2d", "Physics 2D", "circles", Physics2DScene.Build),
         Scene("physics_3d", "Physics 3D", "box", Physics3DScene.Build),
         Scene("spine", "Spine", "run", static () => Placeholder("spine")),
     ];
