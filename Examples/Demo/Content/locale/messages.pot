@@ -297,7 +297,7 @@ msgstr ""
 
 #. RML <p>
 #: Examples/Demo/Content/UI/showcase.rml:12
-msgid "Hot reload is off in this build (it runs with a Debug engine)."
+msgid "Hot reload is off in this build. Run a Debug build to enable it."
 msgstr ""
 
 #. RML <span>

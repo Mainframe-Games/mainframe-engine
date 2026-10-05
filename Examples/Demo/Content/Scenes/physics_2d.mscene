@@ -11,13 +11,13 @@
     "RectangleShape2D_80nmt": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [360, 20]
+        "Size": [300, 20]
       }
     },
     "RectangleShape2D_h3eq0": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [360, 20]
+        "Size": [300, 20]
       }
     },
     "RectangleShape2D_5xy0t": {
@@ -199,6 +199,7 @@
       "parent": ".",
       "type": "Camera2D",
       "props": {
+        "Position": [-60, 0],
         "Current": true
       }
     },
@@ -243,7 +244,7 @@
       "parent": ".",
       "type": "StaticBody2D",
       "props": {
-        "Position": [-260, -160],
+        "Position": [-225, -170],
         "RotationDegrees": 30
       }
     },
@@ -260,7 +261,7 @@
       "parent": "LeftFunnel",
       "type": "DemoShape2D",
       "props": {
-        "Size": [360, 20],
+        "Size": [300, 20],
         "Color": [0.39, 0.45, 0.55, 1],
         "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
       }
@@ -270,7 +271,7 @@
       "parent": ".",
       "type": "StaticBody2D",
       "props": {
-        "Position": [260, -160],
+        "Position": [225, -170],
         "RotationDegrees": -30
       }
     },
@@ -287,7 +288,7 @@
       "parent": "RightFunnel",
       "type": "DemoShape2D",
       "props": {
-        "Size": [360, 20],
+        "Size": [300, 20],
         "Color": [0.39, 0.45, 0.55, 1],
         "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
       }

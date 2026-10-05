@@ -51,13 +51,14 @@ shaders:
 shaders-check:
     sh build/shaders.sh check
 
-# Run the editor (extra args are passed through, e.g. just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene)
+# Run the editor (extra args are passed through, e.g. just editor Examples/Demo/Content/Scenes/basic_3d.mscene)
 editor *args:
     dotnet run --project MainframeEngine.Editor -- {{args}}
 
-# Scripted editor QA: input + captures into artifacts/qa-editor (default script: the Sandbox walkthrough)
+# Scripted editor QA: input + captures into artifacts/qa-editor (opens the Demo project; default script: the walkthrough of its Basic 3D scene)
 qa-editor script="Tests/QA/editor-walkthrough.qa":
-    dotnet run --project MainframeEngine.Editor -c Release -- MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene --hidden --qa-script {{script}} --qa-out {{artifacts / "qa-editor"}}
+    dotnet build Examples/Demo/Demo.slnx -v q -nologo
+    dotnet run --project MainframeEngine.Editor -c Release -- Examples/Demo --hidden --qa-script {{script}} --qa-out {{artifacts / "qa-editor"}}
 
 # E4 workflow QA: create a game from the editor, edit, save, play (game screenshot), change its C#, reload (artifacts/qa-projects)
 qa-projects:
@@ -68,13 +69,13 @@ qa-projects:
 readme-screenshots:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Neutral project folder (no user paths on screen): the showcase project is linked in, MyGame is created there.
+    # Neutral project folder (no user paths on screen): the Demo project is linked in, MyGame is created there.
     projects=/tmp/MainframeProjects
     out="{{artifacts}}/readme-screenshots"
     rm -rf "$projects" "$out"
     mkdir -p "$projects"
-    ln -s "{{justfile_directory()}}/Examples/EditorShowcase" "$projects/EditorShowcase"
-    dotnet build Examples/EditorShowcase/EditorShowcase.slnx -v q -nologo
+    ln -s "{{justfile_directory()}}/Examples/Demo" "$projects/Demo"
+    dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
       --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
     for name in editor editor-add-node editor-game-project editor-project-manager; do
@@ -87,13 +88,12 @@ readme-screenshots:
 demo *args:
     dotnet run --project Examples/Demo/Demo.Launcher -- {{args}}
 
-# Run the Sandbox (extra args are passed through, e.g. just sandbox --qa-capture out)
-sandbox *args:
-    dotnet run --project MainframeEngine.Sandbox -- {{args}}
+# One screenshot per Demo scene into docs/images/demo (README Showcase); display awake (caffeinate -u)
+demo-screenshots frames="240":
+    build/demo-screenshots.sh {{frames}}
 
-# Screenshot the Sandbox at fixed frames into artifacts/qa, then exit
-qa frames="30,90,180":
-    dotnet run --project MainframeEngine.Sandbox -c Release -- --qa-capture {{artifacts / "qa"}} --qa-frames {{frames}}
+# Capture the Demo scenes (alias of demo-screenshots)
+qa frames="240": (demo-screenshots frames)
 
 # Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
 template-smoke frames="30":

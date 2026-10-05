@@ -37,6 +37,19 @@ Steam integration is wrapped but inert until Steamworks natives can ship ([Steam
 
 ---
 
+## Showcase
+
+Every screenshot is a scene of the [Demo](Examples/Demo) (`just demo`; `just demo-screenshots` re-captures them).
+
+| | |
+|---|---|
+| ![Basic 3D](docs/images/demo/basic_3d.png)<br>**Basic 3D** — primitives, glTF, sky, cascaded + spot shadows | ![Basic 2D](docs/images/demo/basic_2d.png)<br>**Basic 2D** — canvas items, gradients, sprites |
+| ![Audio 2D](docs/images/demo/audio_2d.png)<br>**Audio 2D** — panning past a 2D listener, one-shots | ![Audio 3D](docs/images/demo/audio_3d.png)<br>**Audio 3D** — attenuation, low-pass, doppler |
+| ![UI](docs/images/demo/ui.png)<br>**UI** — RmlUi widgets, data binding, hot reload | ![Spine](docs/images/demo/spine.png)<br>**Spine** — under a 3D or 2D camera |
+| ![Physics 2D](docs/images/demo/physics_2d.png)<br>**Physics 2D** — Box2D | ![Physics 3D](docs/images/demo/physics_3d.png)<br>**Physics 3D** — Jitter2 |
+
+---
+
 ## Documentation & Roadmap
 
 - **[Design docs](docs/README.md):** how each subsystem works today, one topic per file, with known issues.
@@ -56,12 +69,12 @@ bundled).
 git clone --recurse-submodules <this repo> mainframe-engine   # Plugins/Spine is a submodule
 cd mainframe-engine
 just build          # dotnet build MainframeEngine.slnx (warnings are errors)
-just sandbox        # the Sandbox test game
+just demo           # the Demo game: one scene per feature
 just editor         # the editor's Project Manager
 just test           # engine + editor unit tests
 ```
 
-Or open `MainframeEngine.slnx` in Rider or Visual Studio and run `MainframeEngine.Sandbox` or `MainframeEngine.Editor`.
+Or open `MainframeEngine.slnx` in Rider or Visual Studio and run `Examples/Demo/Demo.Launcher` or `MainframeEngine.Editor`.
 `just` lists every recipe (render tests, QA screenshots, benchmarks, shaders, localization, packaging).
 
 ---
@@ -93,7 +106,7 @@ mainframe-engine/
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
 ├── MainframeEngine.Editor/      # The editor (RmlUi UI in Content/Editor)
 ├── MainframeEngine.Sandbox/     # Test game demonstrating the engine's features
-├── Examples/                    # EditorShowcase: the editor screenshots' game project
+├── Examples/                    # Demo: the showcase game (one scene per feature) and the editor screenshots' project
 ├── Templates/                   # `dotnet new mfgame` game template
 ├── Tools/MainframeEngine.L10n/  # mf-l10n: extract (RML, scenes), update, pseudo-locale, .po -> .mo compiler
 ├── Native/                      # Native shim sources (mfrmlui over RmlUi + FreeType, ENet), built by natives.yml
@@ -402,34 +415,32 @@ picking and translate/rotate/scale gizmos with snapping. Scenes open in tabs, ea
 ```sh
 just editor                                                        # Project Manager
 just editor path/to/MyGame                                         # open a project
-just editor Examples/EditorShowcase                                # the showcase project from the screenshots
-just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene  # open one scene
+just editor Examples/Demo                                          # the Demo project from the screenshots
+just editor Examples/Demo/Content/Scenes/basic_3d.mscene           # open one scene
 ```
 
 The screenshots come from `just readme-screenshots` ([Tests/QA/readme-screenshots.qa](Tests/QA/readme-screenshots.qa)
-and the `mfgame`-based [Examples/EditorShowcase](Examples/EditorShowcase) project).
+and the [Demo](Examples/Demo) project).
 
 What comes after M10 is in the [roadmap](docs/design/future/editor.md).
 
 ---
 
-## Sandbox
+## Demo
 
-`MainframeEngine.Sandbox` is the engine's test game: its scene is a file (`Content/Scenes/Sandbox.mscene`) loaded into
-the scene tree, and behaviour lives in node types. It shows:
-- a `Camera3D` fly camera (hold right mouse to look, WASD/QE to move, Shift for speed; Alt toggles the cursor)
-- a panoramic sky, a directional sun and spot/point lamps with cascaded and atlas shadows
-- `MeshInstance3D` primitives with textured, cutout, blended and emissive materials, an imported glTF model, a grid
-- `SpineNode` animation (SpineBoy), a stack of Jitter2 physics crates
-- an RmlUi HUD (stats, exposure, lights, language dropdown: English, Spanish, the `qps` pseudo-locale; `--locale es`)
-- a streamed, looping 3D hum on the spinning box; `--qa-audio` plays a test melody through the real device
-- the F12 ImGui developer overlay: frame stats, renderer/GPU memory, light gizmos, audio bus faders and meters,
-  network and physics panels
-- multiplayer: `--server` / `--client <host>` replicate orbiting boxes
+[Examples/Demo](Examples/Demo) is a standalone game project (`project.mfproj`, a node library and a launcher) with one
+scene per feature: Basic 3D and 2D, Audio 2D and 3D, UI, Physics 2D and 3D, and Spine. A navigation bar switches scenes
+and every scene has a small RmlUi panel with its controls. Its scenes, localization catalogs and tests live in the
+project, so it is also the reference for how a game is laid out.
 
-![The Sandbox](docs/images/sandbox.png)
+```bash
+just demo                                          # the Basic 3D scene
+just demo --scene Content/Scenes/physics_2d.mscene # any scene (--max-frames, --screenshot, ... are GameHost flags)
+just editor Examples/Demo                          # open it in the editor
+```
 
-`just qa` captures screenshots at fixed frames into `artifacts/qa`. See [Sandbox](docs/design/sandbox.md).
+F12 toggles the ImGui developer overlay (frame stats, GPU memory, light gizmos, audio buses, physics). See
+[Demo](docs/design/demo.md).
 
 ---
 
@@ -494,7 +505,7 @@ This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGam
 just test             # engine + editor unit tests (no GPU)
 just test-render      # render tests: golden images, Vulkan validation gate, 0-bytes-per-frame allocation gate
 just render-tests-linux  # the same on lavapipe in an x86_64 Docker container, like CI
-just qa               # Sandbox screenshots;  just qa-editor / just qa-projects: scripted editor walkthroughs
+just qa               # one screenshot per Demo scene (docs/images/demo);  just qa-editor / just qa-projects: scripted editor walkthroughs
 just readme-screenshots  # regenerate the editor screenshots in docs/images (needs ImageMagick)
 just bench            # benchmarks against Tests/MainframeEngine.Benchmarks/baseline.json
 ```

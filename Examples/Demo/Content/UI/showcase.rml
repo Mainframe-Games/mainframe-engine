@@ -9,7 +9,7 @@
     <div id="banner" class="demo-panel">
         <h1>UI + hot reload</h1>
         <p id="hot-on" class="hint" data-if="hot">Edit <code>Content/UI/showcase.rcss</code> (or <code>.rml</code>) and save — this page reloads live.</p>
-        <p id="hot-off" class="hint" data-if="!hot">Hot reload is off in this build (it runs with a Debug engine).</p>
+        <p id="hot-off" class="hint" data-if="!hot">Hot reload is off in this build. Run a Debug build to enable it.</p>
         <div class="demo-row"><span>Reloads</span><span id="reloads">{{reloads}}</span></div>
         <div class="demo-row"><span>Last reload</span><span>{{last}}</span></div>
         <button data-event-click="reset()">Reset counter</button>

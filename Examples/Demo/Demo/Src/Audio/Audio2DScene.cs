@@ -19,6 +19,12 @@ public static class Audio2DScene
             Color = new Vector4(0.06f, 0.08f, 0.14f, 1),
             ColorBottom = new Vector4(0.12f, 0.06f, 0.18f, 1),
         });
+        for (var i = 1; i <= 4; i++)
+            Add(root, root, new DemoShape2D
+            {
+                Name = $"Ripple{i}", Kind = DemoShapeKind.Circle, Radius = i * 150f,
+                Color = new Vector4(0.3f, 0.5f, 1f, 0.025f), Outline = new Vector4(0.45f, 0.62f, 1f, 0.22f - i * 0.04f), OutlineWidth = 2f,
+            });
         Add(root, root, new DemoShape2D
         {
             Name = "Listener",
@@ -29,6 +35,7 @@ public static class Audio2DScene
             OutlineWidth = 3f,
         });
         var sweeper = Add(root, root, new Sweeper2D { Name = "Sweeper", Position = new Vector2(0, -140) });
+        Add(root, sweeper, new DemoShape2D { Name = "Glow", Kind = DemoShapeKind.Circle, Radius = 38f, Color = new Vector4(0.15f, 0.39f, 0.92f, 0.28f) });
         Add(root, sweeper, new DemoShape2D { Name = "Marker", Kind = DemoShapeKind.Circle, Radius = 20f, Color = new Vector4(0.15f, 0.39f, 0.92f, 1) });
         Add(root, sweeper, new AudioPlayer2D
         {

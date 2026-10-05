@@ -174,8 +174,8 @@ msgstr "[Çöñtéñt/ÛÎ/shöwçåsé.rçss ~~~~~~]"
 msgid "Edit"
 msgstr "[Éðît ~]"
 
-msgid "Hot reload is off in this build (it runs with a Debug engine)."
-msgstr "[Höt rélöåð îs öff îñ thîs bûîlð (ît rûñs wîth å Ðébûg éñgîñé). ~~~~~~~~~~~~~~]"
+msgid "Hot reload is off in this build. Run a Debug build to enable it."
+msgstr "[Höt rélöåð îs öff îñ thîs bûîlð. Rûñ å Ðébûg bûîlð tö éñåblé ît. ~~~~~~~~~~~~~~]"
 
 msgid "Reloads"
 msgstr "[Rélöåðs ~~]"

@@ -10,7 +10,7 @@ what works on each platform.
 ```bash
 just build              # dotnet build MainframeEngine.slnx (warnings are errors)
 just test               # unit tests          just test-render   # render tests
-just sandbox            # dotnet run --project MainframeEngine.Sandbox
+just demo               # dotnet run --project Examples/Demo/Demo.Launcher
 ```
 
 `just` (1.58+) wraps every local command; run `just` for the list. Engine code resolves every content

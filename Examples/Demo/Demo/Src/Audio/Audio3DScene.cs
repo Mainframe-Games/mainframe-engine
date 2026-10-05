@@ -11,16 +11,21 @@ public static class Audio3DScene
     public static Node Build()
     {
         var root = new Node3D { Name = "audio_3d" };
-        var camera = Add(root, root, new Camera3D { Name = "Camera", Current = true, Position = new Vector3(0, 9, 12) });
+        var camera = Add(root, root, new Camera3D { Name = "Camera", Current = true, Position = new Vector3(0, 13, 15.5f) });
         camera.LookAt(Vector3.Zero);
         camera.RotationDegrees = camera.RotationDegrees; // pin the Euler angles the saver writes
-        Add(root, root, new WorldEnvironment { Name = "Environment", Sky = new Sky { Mode = SkyEnvironmentType.Procedural } });
+        Add(root, root, new WorldEnvironment
+        {
+            Name = "Environment",
+            Sky = new Sky { Mode = SkyEnvironmentType.Procedural },
+            AmbientColor = new Vector3(0.34f, 0.4f, 0.58f),
+        });
         Add(root, root, new DirectionalLight3D { Name = "Sun", Energy = 1.1f, CastsShadows = true, RotationDegrees = new Vector3(-50, 30, 0) });
         Add(root, root, new MeshInstance3D
         {
             Name = "Floor",
-            Mesh = new PlaneMesh { Size = new Vector2(40, 40) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(28, 33, 45) },
+            Mesh = new PlaneMesh { Size = new Vector2(200, 200) },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(58, 68, 96) },
         });
 
         var listener = Add(root, root, new AudioListener3D { Name = "Listener", Current = true, Position = new Vector3(0, 1, 0) });
@@ -31,6 +36,7 @@ public static class Audio3DScene
             MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(226, 232, 240) },
         });
         Add(root, listener, new DistanceRing { Name = "Range", Radius = 12f });
+        Add(root, listener, new DistanceRing { Name = "OrbitPath", Radius = 6f, Color = new Vector4(1f, 1f, 1f, 0.22f) });
 
         var orbit = Add(root, root, new Orbiter { Name = "Orbit", Radius = 6f, Position = new Vector3(0, 1, 0) });
         Add(root, orbit, new MeshInstance3D

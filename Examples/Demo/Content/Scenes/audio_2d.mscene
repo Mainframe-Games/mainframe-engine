@@ -35,6 +35,54 @@
       }
     },
     {
+      "name": "Ripple1",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 150,
+        "Color": [0.3, 0.5, 1, 0.025],
+        "Outline": [0.45, 0.62, 1, 0.18],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Ripple2",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 300,
+        "Color": [0.3, 0.5, 1, 0.025],
+        "Outline": [0.45, 0.62, 1, 0.14],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Ripple3",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 450,
+        "Color": [0.3, 0.5, 1, 0.025],
+        "Outline": [0.45, 0.62, 1, 0.1],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Ripple4",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 600,
+        "Color": [0.3, 0.5, 1, 0.025],
+        "Outline": [0.45, 0.62, 1, 0.060000002],
+        "OutlineWidth": 2
+      }
+    },
+    {
       "name": "Listener",
       "parent": ".",
       "type": "DemoShape2D",
@@ -52,6 +100,16 @@
       "type": "Sweeper2D",
       "props": {
         "Position": [0, -140]
+      }
+    },
+    {
+      "name": "Glow",
+      "parent": "Sweeper",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 38,
+        "Color": [0.15, 0.39, 0.92, 0.28]
       }
     },
     {

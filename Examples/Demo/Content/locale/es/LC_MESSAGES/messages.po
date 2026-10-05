@@ -295,8 +295,8 @@ msgstr "Edita"
 
 #. RML <p>
 #: Examples/Demo/Content/UI/showcase.rml:12
-msgid "Hot reload is off in this build (it runs with a Debug engine)."
-msgstr "La recarga en caliente está desactivada en esta compilación (requiere un motor en Debug)."
+msgid "Hot reload is off in this build. Run a Debug build to enable it."
+msgstr "La recarga en caliente está desactivada en esta compilación. Usa una compilación Debug para activarla."
 
 #. RML <span>
 #: Examples/Demo/Content/UI/showcase.rml:13
@@ -466,3 +466,7 @@ msgstr "Progreso"
 #: MainframeEngine/Content/UI/widgets/demo.rml:43
 msgid "Notes"
 msgstr "Notas"
+
+#. RML <p>
+#~ msgid "Hot reload is off in this build (it runs with a Debug engine)."
+#~ msgstr "La recarga en caliente está desactivada en esta compilación (requiere un motor en Debug)."

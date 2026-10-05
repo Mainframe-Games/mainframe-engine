@@ -8,13 +8,13 @@
     "StandardMaterial3D_s8kz4": {
       "type": "StandardMaterial3D",
       "props": {
-        "AlbedoColor": [0.10980392, 0.12941177, 0.1764706, 1]
+        "AlbedoColor": [0.22745098, 0.26666668, 0.3764706, 1]
       }
     },
     "PlaneMesh_dcv7g": {
       "type": "PlaneMesh",
       "props": {
-        "Size": [40, 40]
+        "Size": [200, 200]
       }
     },
     "StandardMaterial3D_g5tlr": {
@@ -59,8 +59,8 @@
       "parent": ".",
       "type": "Camera3D",
       "props": {
-        "Position": [0, 9, 12],
-        "RotationDegrees": [-36.869907, 0, 0],
+        "Position": [0, 13, 15.5],
+        "RotationDegrees": [-39.986885, 0, 0],
         "Current": true
       }
     },
@@ -69,7 +69,8 @@
       "parent": ".",
       "type": "WorldEnvironment",
       "props": {
-        "Sky": { "res": "Sky_5kj71" }
+        "Sky": { "res": "Sky_5kj71" },
+        "AmbientColor": [0.34, 0.4, 0.58]
       }
     },
     {
@@ -114,6 +115,15 @@
       "type": "DistanceRing",
       "props": {
         "Radius": 12
+      }
+    },
+    {
+      "name": "OrbitPath",
+      "parent": "Listener",
+      "type": "DistanceRing",
+      "props": {
+        "Radius": 6,
+        "Color": [1, 1, 1, 0.22]
       }
     },
     {

@@ -12,7 +12,8 @@ public static class Physics2DScene
     public static Node Build()
     {
         var root = new Node2D { Name = "physics_2d" };
-        Add(root, root, new Camera2D { Name = "Camera", Current = true });
+        // The camera sits left of the origin so the world is drawn right of the left-hand panel.
+        Add(root, root, new Camera2D { Name = "Camera", Current = true, Position = new Vector2(-60, 0) });
         Add(root, root, new DemoShape2D
         {
             Name = "Backdrop", Kind = DemoShapeKind.Rect, Size = new Vector2(1600, 900),
@@ -20,8 +21,8 @@ public static class Physics2DScene
         });
 
         StaticRect(root, "Ground", new Vector2(0, 330), new Vector2(1100, 30), 0f);
-        StaticRect(root, "LeftFunnel", new Vector2(-260, -160), new Vector2(360, 20), 30f);
-        StaticRect(root, "RightFunnel", new Vector2(260, -160), new Vector2(360, 20), -30f);
+        StaticRect(root, "LeftFunnel", new Vector2(-225, -170), new Vector2(300, 20), 30f);
+        StaticRect(root, "RightFunnel", new Vector2(225, -170), new Vector2(300, 20), -30f);
         StaticRect(root, "LeftWall", new Vector2(-540, 120), new Vector2(20, 440), 0f);
         StaticRect(root, "RightWall", new Vector2(540, 120), new Vector2(20, 440), 0f);
         for (var row = 0; row < 4; row++)
