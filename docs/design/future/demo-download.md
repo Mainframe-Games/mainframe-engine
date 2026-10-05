@@ -66,7 +66,7 @@ A `build/package-demo.sh` script does steps 2–3 so `just publish-local` can pr
 3. **Extract** to a temp folder next to the destination with a **zip-slip guard**: every entry's full path must stay
    inside the temp folder; symlink entries are rejected; total uncompressed size is capped at 1 GiB.
 4. **Validate**: exactly one top-level folder containing `project.mfproj` that loads with `ProjectSettingsFormat`,
-   a `*.Launcher/*.Launcher.csproj` (`GameProjectLayout`) and `Content/Scenes/`.
+   a `*.Desktop/*.Desktop.csproj`, or `*.Launcher` from before the rename (`GameProjectLayout`) and `Content/Scenes/`.
 5. **Point at the engine**: rewrite `MainframeEnginePath` in the Demo's `Directory.Build.props` to
    `GameProjectLayout.RealPath(engineCheckout)` — the same value New Project passes as `--engine-path`
    (`ProjectCreator.cs:192`). The rewrite edits only that property (XML, preserving the rest of the file).

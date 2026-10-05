@@ -21,7 +21,7 @@ RmlUi game UI, physics, audio, replication, localization and an RmlUi developer 
 | [`MainframeEngine.L10n`](../../Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj) (`mf-l10n`) | exe (build tool) | Localization tooling: RML/scene extraction, `.po` update, pseudo-locale, `.po` → `.mo` compiler run by `build/Localization.targets`. See [Localization](localization.md). |
 | [`Examples/Demo`](../../Examples/Demo/) | game project (own solution, not in `MainframeEngine.slnx`) | The Demo: a `GameHost` game with one scene per engine feature. See [Demo](demo.md). |
 | [`MainframeEngine.Editor`](../../MainframeEngine.Editor/MainframeEngine.Editor.csproj) | exe | The editor (`EditorApp : Engine`, RmlUi panels); loads game projects' assemblies into collectible contexts and plays them in separate processes. See [Editor](editor.md). |
-| [`Templates/MainframeEngine.Templates`](../../Templates/MainframeEngine.Templates/) | `dotnet new` template package (not in the solution) | `mfgame`: a game's node library + `GameHost` launcher + `project.mfproj`. See [Projects & GameHost](project-and-gamehost.md). |
+| [`Templates/MainframeEngine.Templates`](../../Templates/MainframeEngine.Templates/) | `dotnet new` template package (not in the solution) | `mfgame`: a game's node library + `GameHost` desktop project + `project.mfproj`. See [Projects & GameHost](project-and-gamehost.md). |
 | `Tests/*` | xUnit v3 test projects, render-test host, BenchmarkDotNet | See [Testing](testing.md). |
 | `Plugins/Spine/spine-csharp` | class library (git submodule) | Spine C# runtime. Vendored — do not modify. |
 
@@ -61,9 +61,9 @@ RmlUi game UI, physics, audio, replication, localization and an RmlUi developer 
 
 ```mermaid
 flowchart LR
-    Demo["Examples/Demo<br/>(GameHost launcher)"] --> Engine["MainframeEngine"]
+    Demo["Examples/Demo<br/>(GameHost desktop project)"] --> Engine["MainframeEngine"]
     Editor["MainframeEngine.Editor"] --> Engine
-    Game["mfgame projects<br/>(GameHost launcher)"] --> Engine
+    Game["mfgame projects<br/>(GameHost desktop project)"] --> Engine
     Game -. analyzer .-> Gen
     Demo -. analyzer .-> Gen["MainframeEngine.Generators"]
     Demo -. build tool .-> L10n["mf-l10n<br/>(Tools/MainframeEngine.L10n)"]

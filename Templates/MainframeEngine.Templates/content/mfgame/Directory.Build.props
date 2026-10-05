@@ -1,5 +1,5 @@
 <Project>
-  <!-- Settings shared by MyGame and MyGame.Launcher. -->
+  <!-- Settings shared by MyGame and MyGame.Desktop. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>

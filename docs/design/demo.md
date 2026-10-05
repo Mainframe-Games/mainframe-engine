@@ -3,7 +3,7 @@
 ## Purpose
 
 [`Examples/Demo`](../../Examples/Demo/) ("Mainframe Demo") is a real game project: a `project.mfproj`, a node library
-and a `GameHost` launcher, built from the `mfgame` template and opened by the editor like any user game. It has one
+and a `GameHost` desktop project (`Demo.Desktop`), built from the `mfgame` template and opened by the editor like any user game. It has one
 isolated scene per engine feature, switched from a nav bar, and every scene is a README screenshot. It replaced the
 old test game (an `Engine` subclass the editor could not open) and the editor-screenshot project. The proposal it was
 built from is [future/demo-project.md](future/demo-project.md); this page is the current state.
@@ -19,7 +19,7 @@ Examples/Demo/
 ├── project.mfproj            "Mainframe Demo", main scene basic_3d, window.icon, canvas_items stretch,
 │                             autoload Nav (DemoNavLayer), locales
 ├── Demo/                     the node library: Src/{Nav,Basic3D,Basic2D,Audio,Ui,Physics,Spine,Shared}
-├── Demo.Launcher/            `GameHost.Run(args, typeof(Demo.DemoScenes).Assembly)` + `--write-scenes <dir>`
+├── Demo.Desktop/            `GameHost.Run(args, typeof(Demo.DemoScenes).Assembly)` + `--write-scenes <dir>`
 ├── Demo.Tests/               xUnit v3 tests of the Demo (see Tests and CI)
 └── Content/
     ├── Scenes/{basic_3d,basic_2d,audio_2d,audio_3d,ui,physics_2d,physics_3d,spine}.mscene
@@ -90,7 +90,7 @@ Scenes are built in code (`DemoScenes.All[i].Build`, helpers in `DemoBuild.Add`,
 saved) and saved as `.mscene` (format 2). The committed files are generated:
 
 ```bash
-dotnet run --project Examples/Demo/Demo.Launcher -- --write-scenes Examples/Demo/Content/Scenes
+dotnet run --project Examples/Demo/Demo.Desktop -- --write-scenes Examples/Demo/Content/Scenes
 ```
 
 `SceneFilesTests.CommittedScenesMatchTheBuilders` is the contract: for every scene, building it and serializing it with
@@ -108,7 +108,7 @@ counter and the last-reload time. Release builds of the engine do not hot reload
 
 ## Screenshots
 
-`just demo-screenshots` (alias `just qa`; `build/demo-screenshots.sh`) builds the Demo in Release and runs the launcher
+`just demo-screenshots` (alias `just qa`; `build/demo-screenshots.sh`) builds the Demo in Release and runs `Demo.Desktop`
 once per scene (`--fixed-fps 60 --max-frames 240 --screenshot docs/images/demo/<id>.png`; `GameHost` saves the last
 frame, and the fixed step makes it deterministic). The nav bar is part of every image. The eight PNGs
 (`docs/images/demo/`, Git LFS) form the README's Showcase gallery; re-take them when a scene changes visibly. They need

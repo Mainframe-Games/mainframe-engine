@@ -3,8 +3,9 @@ namespace MainframeEngine.Editor;
 /// <summary>
 /// Where things are in a game project made from the <c>mfgame</c> template (docs/design/project-and-gamehost.md):
 /// <c>project.mfproj</c> and the solution at the root, the game library at <c>Name/Name.csproj</c> (the assembly the
-/// editor loads) and the launcher at <c>Name.Launcher/Name.Launcher.csproj</c> (what Play runs). Hand-renamed
-/// projects are found by looking one folder level down.
+/// editor loads) and the desktop head at <c>Name.Desktop/Name.Desktop.csproj</c> (the executable Play runs; projects made
+/// before the rename have <c>Name.Launcher</c>, still found). Hand-renamed projects are found by looking one folder level
+/// down.
 /// </summary>
 /// <remarks>
 /// The project paths returned are real paths (<see cref="RealPath"/>): MSBuild fails to find the engine's project
@@ -13,8 +14,11 @@ namespace MainframeEngine.Editor;
 /// </remarks>
 public static class GameProjectLayout
 {
-    /// <summary>The launcher project suffix (<c>MyGame.Launcher.csproj</c>).</summary>
-    public const string LauncherSuffix = ".Launcher.csproj";
+    /// <summary>The desktop head's project suffix (<c>MyGame.Desktop.csproj</c>).</summary>
+    public const string DesktopSuffix = ".Desktop.csproj";
+
+    /// <summary>The desktop head's suffix in projects made before it was renamed (<c>MyGame.Launcher.csproj</c>).</summary>
+    public const string LegacyDesktopSuffix = ".Launcher.csproj";
 
     /// <summary>The project file of <paramref name="projectDirectory"/>: <c>&lt;dir&gt;/project.mfproj</c>.</summary>
     public static string ProjectFileOf(string projectDirectory)
@@ -86,7 +90,7 @@ public static class GameProjectLayout
 
     /// <summary>
     /// The game library's <c>.csproj</c> (built and loaded by the editor): <c>&lt;dir&gt;/&lt;A&gt;/&lt;A&gt;.csproj</c>
-    /// for the first of <see cref="ProjectSettings.Assemblies"/>, else the only non-launcher project one level down.
+    /// for the first of <see cref="ProjectSettings.Assemblies"/>, else the only project one level down that is not a desktop head.
     /// Null when there is none or it is ambiguous.
     /// </summary>
     public static string? GameLibraryProjectOf(string projectDirectory, ProjectSettings settings)
@@ -104,28 +108,36 @@ public static class GameProjectLayout
                 return conventional;
         }
 
-        var libraries = ProjectsOneLevelDown(projectDirectory).Where(p => !IsLauncher(p)).ToArray();
+        var libraries = ProjectsOneLevelDown(projectDirectory).Where(p => !IsDesktop(p)).ToArray();
         return libraries.Length == 1 ? libraries[0] : null;
     }
 
     /// <summary>
-    /// The launcher project (<c>*/*.Launcher.csproj</c>) that Play builds and runs; the one named after the folder when
-    /// there are several. Null when there is none.
+    /// The desktop head (<c>*/*.Desktop.csproj</c>, else a legacy <c>*/*.Launcher.csproj</c>) that Play builds and runs;
+    /// the one named after the folder when there are several. Null when there is none (or several, none named so).
     /// </summary>
-    public static string? LauncherProjectOf(string projectDirectory)
+    public static string? DesktopProjectOf(string projectDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectDirectory);
         if (!Directory.Exists(projectDirectory))
             return null;
         var folderName = Path.GetFileName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectDirectory)));
         projectDirectory = RealPath(projectDirectory);
-        var launchers = ProjectsOneLevelDown(projectDirectory).Where(IsLauncher).ToArray();
-        if (launchers.Length <= 1)
-            return launchers.FirstOrDefault();
-        return launchers.FirstOrDefault(p => string.Equals(Path.GetFileName(p), folderName + LauncherSuffix, StringComparison.OrdinalIgnoreCase));
+        var projects = ProjectsOneLevelDown(projectDirectory);
+        foreach (var suffix in (string[])[DesktopSuffix, LegacyDesktopSuffix])
+        {
+            var heads = projects.Where(p => p.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (heads.Length == 1)
+                return heads[0];
+            if (heads.Length > 1)
+                return heads.FirstOrDefault(p => string.Equals(Path.GetFileName(p), folderName + suffix, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return null;
     }
 
-    private static bool IsLauncher(string project) => project.EndsWith(LauncherSuffix, StringComparison.OrdinalIgnoreCase);
+    private static bool IsDesktop(string project) =>
+        project.EndsWith(DesktopSuffix, StringComparison.OrdinalIgnoreCase) || project.EndsWith(LegacyDesktopSuffix, StringComparison.OrdinalIgnoreCase);
 
     private static List<string> ProjectsOneLevelDown(string projectDirectory)
     {

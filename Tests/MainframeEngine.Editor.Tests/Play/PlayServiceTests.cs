@@ -45,7 +45,7 @@ public sealed class PlayHarness : IDisposable
 
     public PlayInstance LaunchRunning(string label = "Game", string? scene = null, IReadOnlyList<string>? extra = null)
     {
-        var instance = Service.Launch("/fake/MyGame.Launcher", "/fake", scene, label, extra);
+        var instance = Service.Launch("/fake/MyGame.Desktop", "/fake", scene, label, extra);
         Pump(() => instance.State == PlayInstanceState.Running, $"{label} to connect");
         return instance;
     }
@@ -69,7 +69,7 @@ public sealed class PlayServiceTests
         var diagnostic = new BuildDiagnostic(BuildDiagnosticSeverity.Error, "CS1002", "; expected", "/p/Foo.cs", 3, 9, "/p/MyGame.csproj");
         play.Builder.Result = FakeGameBuilder.Failure(diagnostic);
 
-        var task = play.Service.BuildAndLaunchAsync(new PlayRequest("/p/MyGame.sln", "/p/MyGame.Launcher/MyGame.Launcher.csproj", null), TestContext.Current.CancellationToken);
+        var task = play.Service.BuildAndLaunchAsync(new PlayRequest("/p/MyGame.sln", "/p/MyGame.Desktop/MyGame.Desktop.csproj", null), TestContext.Current.CancellationToken);
         Assert.True(play.Service.IsBuilding);
         play.Pump(() => task.IsCompleted, "the build");
 
@@ -129,7 +129,7 @@ public sealed class PlayServiceTests
         using var play = new PlayHarness();
         const string Scene = "Content/Scenes/Level.mscene";
 
-        var instance = play.Service.Launch("/fake/MyGame.Launcher", "/fake", Scene, "Game");
+        var instance = play.Service.Launch("/fake/MyGame.Desktop", "/fake", Scene, "Game");
         Assert.Equal(PlayInstanceState.Launching, instance.State);
         Assert.Equal(1, instance.Number);
         Assert.Equal(["--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", Scene], instance.Arguments);
@@ -257,7 +257,7 @@ public sealed class PlayServiceTests
     {
         using var play = new PlayHarness();
         play.Launcher.ModeFor = _ => FakeGameMode.NeverConnects;
-        var instance = play.Service.Launch("/fake/MyGame.Launcher", "/fake", null, "Game");
+        var instance = play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Game");
 
         play.Game(instance).TriggerCrash();
         play.Pump(() => !instance.IsAlive, "crash");
@@ -273,7 +273,7 @@ public sealed class PlayServiceTests
     {
         using var play = new PlayHarness();
         play.Launcher.ModeFor = _ => FakeGameMode.NeverConnects;
-        var instance = play.Service.Launch("/fake/MyGame.Launcher", "/fake", null, "Game");
+        var instance = play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Game");
         for (var i = 0; i < 10; i++)
             play.Service.Update();
         Assert.Equal(PlayInstanceState.Launching, instance.State);
@@ -314,7 +314,7 @@ public sealed class PlayServiceTests
         var play = new PlayHarness();
         var running = play.LaunchRunning();
         play.Launcher.ModeFor = _ => FakeGameMode.NeverConnects;
-        var stuck = play.Service.Launch("/fake/MyGame.Launcher", "/fake", null, "Stuck");
+        var stuck = play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Stuck");
         var games = play.Launcher.Games;
 
         play.Service.Dispose();
@@ -327,9 +327,9 @@ public sealed class PlayServiceTests
     }
 
     [Fact]
-    public async Task BuildAndLaunchRunsTheLauncherOutputFromItsFolder()
+    public async Task BuildAndLaunchRunsTheDesktopOutputFromItsFolder()
     {
-        using var project = new LauncherProject();
+        using var project = new DesktopProject();
         using var play = new PlayHarness();
 
         var task = play.Service.BuildAndLaunchAsync(new PlayRequest("/p/MyGame.sln", project.ProjectFile, "Content/Scenes/Main.mscene", "Game", ["--hidden"]), TestContext.Current.CancellationToken);
@@ -350,7 +350,7 @@ public sealed class PlayServiceTests
     public async Task SkipBuildWithoutOutputReturnsNull()
     {
         using var play = new PlayHarness();
-        var task = play.Service.BuildAndLaunchAsync(new PlayRequest("/p/MyGame.sln", "/no/such/Launcher.csproj", null, SkipBuild: true), TestContext.Current.CancellationToken);
+        var task = play.Service.BuildAndLaunchAsync(new PlayRequest("/p/MyGame.sln", "/no/such/Game.Desktop.csproj", null, SkipBuild: true), TestContext.Current.CancellationToken);
 
         Assert.True(task.IsCompleted);
         Assert.Null(await task);
@@ -402,7 +402,7 @@ public sealed class PlayServiceTests
     [Fact]
     public void FindLauncherProgramPrefersTheAppHost()
     {
-        using var project = new LauncherProject();
+        using var project = new DesktopProject();
         Assert.Equal(project.AppHost, ProcessGameLauncher.FindLauncherProgram(project.ProjectFile));
         Assert.Equal(project.AppHost, ProcessGameLauncher.FindLauncherProgram(Path.GetDirectoryName(project.ProjectFile)!));
 
@@ -417,10 +417,10 @@ public sealed class PlayServiceTests
     {
         using var play = new PlayHarness();
         play.Launcher.ModeFor = _ => FakeGameMode.NeverConnects;
-        var crashed = play.Service.Launch("/fake/MyGame.Launcher", "/fake", null, "Crashed");
+        var crashed = play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Crashed");
         play.Game(crashed).TriggerCrash();
         play.Pump(() => !crashed.IsAlive, "crash");
-        var waiting = play.Service.Launch("/fake/MyGame.Launcher", "/fake", null, "Waiting");
+        var waiting = play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Waiting");
         play.Pump(() => play.Output.Any(o => o.Instance == waiting), "the waiting game's output");
         for (var i = 0; i < 200; i++)
             play.Service.Update();
@@ -439,17 +439,17 @@ public sealed class PlayServiceTests
     }
 }
 
-/// <summary>A temporary <c>MyGame.Launcher.csproj</c> with a fake <c>bin/Debug/net10.0</c> build output.</summary>
-public sealed class LauncherProject : IDisposable
+/// <summary>A temporary <c>MyGame.Desktop.csproj</c> with a fake <c>bin/Debug/net10.0</c> build output.</summary>
+public sealed class DesktopProject : IDisposable
 {
-    public LauncherProject()
+    public DesktopProject()
     {
-        Directory = System.IO.Directory.CreateTempSubdirectory("mf-play-launcher").FullName;
-        ProjectFile = Path.Combine(Directory, "MyGame.Launcher.csproj");
+        Directory = System.IO.Directory.CreateTempSubdirectory("mf-play-desktop").FullName;
+        ProjectFile = Path.Combine(Directory, "MyGame.Desktop.csproj");
         File.WriteAllText(ProjectFile, "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup></Project>");
         var bin = System.IO.Directory.CreateDirectory(Path.Combine(Directory, "bin", "Debug", "net10.0")).FullName;
-        Dll = Path.Combine(bin, "MyGame.Launcher.dll");
-        AppHost = Path.Combine(bin, OperatingSystem.IsWindows() ? "MyGame.Launcher.exe" : "MyGame.Launcher");
+        Dll = Path.Combine(bin, "MyGame.Desktop.dll");
+        AppHost = Path.Combine(bin, OperatingSystem.IsWindows() ? "MyGame.Desktop.exe" : "MyGame.Desktop");
         File.WriteAllText(Dll, "");
         File.WriteAllText(AppHost, "");
     }

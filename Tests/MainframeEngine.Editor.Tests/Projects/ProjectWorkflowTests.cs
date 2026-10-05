@@ -4,7 +4,7 @@ using Silk.NET.Input;
 
 namespace MainframeEngine.Editor.Tests.Projects;
 
-/// <summary>A small game project on disk (no game code): project file, two scenes, a launcher with a fake build output.</summary>
+/// <summary>A small game project on disk (no game code): project file, two scenes, a desktop project with a fake build output.</summary>
 internal sealed class TestProject : IDisposable
 {
     public TestProject(string name = "Workflow")
@@ -25,10 +25,10 @@ internal sealed class TestProject : IDisposable
         File.WriteAllText(Abs("Content/Scenes/Level.mscene"), """
             { "format": 1, "uid": "scn_00000000a002", "root": { "type": "Node3D", "name": "Level" } }
             """);
-        var launcher = Abs($"{name}.Launcher");
-        Directory.CreateDirectory(Path.Combine(launcher, "bin", "Debug", "net10.0"));
-        File.WriteAllText(Path.Combine(launcher, $"{name}.Launcher.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
-        File.WriteAllText(Path.Combine(launcher, "bin", "Debug", "net10.0", $"{name}.Launcher.dll"), "fake");
+        var desktop = Abs($"{name}.Desktop");
+        Directory.CreateDirectory(Path.Combine(desktop, "bin", "Debug", "net10.0"));
+        File.WriteAllText(Path.Combine(desktop, $"{name}.Desktop.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
+        File.WriteAllText(Path.Combine(desktop, "bin", "Debug", "net10.0", $"{name}.Desktop.dll"), "fake");
     }
 
     public string Name { get; }
@@ -522,7 +522,7 @@ public sealed class ProjectWorkflowTests : IDisposable
     public void PlayBuildsLaunchesStreamsLogsAndStops()
     {
         var w = Open().Workspace;
-        Assert.NotNull(w.Project.LauncherProject);
+        Assert.NotNull(w.Project.DesktopProject);
         Assert.False(w.Toolbar.Document.GetElementById("play").IsClassSet("disabled"));
         Assert.True(w.Toolbar.Document.GetElementById("stop").IsClassSet("disabled"));
 

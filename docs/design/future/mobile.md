@@ -101,7 +101,7 @@ The engine runs on Windows, Linux and macOS only. Everything that makes a phone 
 flowchart TB
     subgraph Game["Game project (from mfgame)"]
         GL["MyGame (net10.0)<br/>nodes, generator"]
-        GD["MyGame.Launcher (desktop exe)"]
+        GD["MyGame.Desktop (desktop head, exe)"]
         GA["MyGame.Android (net10.0-android)<br/>MainActivity : MainframeActivity"]
         GI["MyGame.iOS (net10.0-ios)<br/>Main → MainframeApp.Run"]
     end
@@ -141,7 +141,7 @@ platform-specific assemblies and registered by the head before the engine starts
   from the desktop solution filter, so `just build` stays workload-free. The mobile solution (`MainframeEngine.Mobile.slnf`)
   and the `just android-*`/`ios-*` recipes include them.
 - **Game heads (from `mfgame --platforms desktop,android,ios`).** The template gains two head projects next to
-  `MyGame.Launcher`:
+  `MyGame.Desktop`:
   - `MyGame.Android`: `MainActivity : MainframeActivity`, holding the app id, icons and manifest.
   - `MyGame.iOS`: `Main.cs` → `MainframeApp.Run(args, typeof(MyGame.Spinner).Assembly)`, plus `Info.plist`,
     `PrivacyInfo.xcprivacy`, `Entitlements.plist`, `LaunchScreen.storyboard` and the asset catalogue.

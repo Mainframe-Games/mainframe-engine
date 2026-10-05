@@ -31,7 +31,7 @@
     <div class="dialog" id="dialog">
         <div class="dialog-title"><span class="icon icon-sm icon-square-plus"></span><span>New Project</span></div>
         <div class="dialog-body">
-            <div class="about">A game project from the <span class="mono">mfgame</span> template: a class library for your nodes, a launcher running it with GameHost, <span class="mono">project.mfproj</span> and a sample scene.</div>
+            <div class="about">A game project from the <span class="mono">mfgame</span> template: a class library for your nodes, a desktop project running it with GameHost, <span class="mono">project.mfproj</span> and a sample scene.</div>
             <div class="dialog-row">
                 <span class="caption">Name</span>
                 <input type="text" class="text" id="np-name" data-value="name"/>

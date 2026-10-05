@@ -69,7 +69,7 @@ public sealed class ProjectCreationIntegrationTests(ITestOutputHelper output) : 
 
         var solution = GameProjectLayout.SolutionOf(project);
         Assert.Equal(Path.Combine(project, "CreatedGame.slnx"), solution);
-        Assert.Equal(Path.Combine(project, "CreatedGame.Launcher", "CreatedGame.Launcher.csproj"), GameProjectLayout.LauncherProjectOf(project));
+        Assert.Equal(Path.Combine(project, "CreatedGame.Desktop", "CreatedGame.Desktop.csproj"), GameProjectLayout.DesktopProjectOf(project));
         var library = GameProjectLayout.GameLibraryProjectOf(project, settings);
         Assert.Equal(Path.Combine(project, "CreatedGame", "CreatedGame.csproj"), library);
 

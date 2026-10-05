@@ -21,6 +21,17 @@ public sealed class DemoArchiveTests : IDisposable
     }
 
     [Fact]
+    public void AnOlderReleasesZipWithDemoLauncherIsStillValid()
+    {
+        var files = DemoZips.ValidProject();
+        files.Remove("MainframeEngine.Demo/Demo.Desktop/Demo.Desktop.csproj");
+        files["MainframeEngine.Demo/Demo.Launcher/Demo.Launcher.csproj"] = "<Project />";
+        var zip = DemoZips.Write(Path.Combine(_directory, "legacy.zip"), files);
+        var root = DemoArchive.ExtractAndValidate(zip, Work());
+        Assert.True(File.Exists(Path.Combine(root, "Demo.Launcher", "Demo.Launcher.csproj")));
+    }
+
+    [Fact]
     public void EntriesEscapingTheFolderAreRefused()
     {
         var files = DemoZips.ValidProject();
@@ -87,7 +98,7 @@ public sealed class DemoArchiveTests : IDisposable
 
     [Theory]
     [InlineData("MainframeEngine.Demo/project.mfproj")]
-    [InlineData("MainframeEngine.Demo/Demo.Launcher/Demo.Launcher.csproj")]
+    [InlineData("MainframeEngine.Demo/Demo.Desktop/Demo.Desktop.csproj")]
     [InlineData("MainframeEngine.Demo/Content/Scenes/basic_3d.mscene")]
     public void MissingProjectPartsAreRefused(string missing)
     {

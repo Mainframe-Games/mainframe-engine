@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Template smoke test (CI job "template", `just template-smoke`): installs the mfgame template from this checkout into
 # a private template hive, creates SmokeGame against this engine (--engine-path), builds it with warnings as errors and
-# runs its GameHost launcher for a few frames with a hidden window, saving the last frame to <work-dir>/screenshot.png.
+# runs its desktop project (GameHost) for a few frames with a hidden window, saving the last frame to <work-dir>/screenshot.png.
 # Fails on any build error, a non-zero exit code, a missing screenshot or an [ERROR]/[FATAL] line in the game's log.
 #
 # usage: build/template-smoke.sh [work-dir] [frames]
@@ -23,8 +23,8 @@ dotnet new mfgame -n SmokeGame -o "$work/SmokeGame" --engine-path "$repo" --debu
 # shellcheck disable=SC2086 # BUILD_ARGS is a list of arguments
 dotnet build "$work/SmokeGame/SmokeGame.slnx" -c "$config" -warnaserror ${BUILD_ARGS:-}
 
-out="$work/SmokeGame/SmokeGame.Launcher/bin/$config/net10.0"
-for required in SmokeGame.Launcher.dll SmokeGame.dll project.mfproj Content/Scenes/Main.mscene Content/icon.png; do
+out="$work/SmokeGame/SmokeGame.Desktop/bin/$config/net10.0"
+for required in SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Content/Scenes/Main.mscene Content/icon.png; do
   if [ ! -e "$out/$required" ]; then
     echo "template-smoke: $required is missing from $out" >&2
     exit 1
@@ -37,7 +37,7 @@ if [ "${SKIP_RUN:-0}" = "1" ]; then
 fi
 
 # Logs go to a throwaway user-data folder, not the runner's home.
-MAINFRAME_USER_DATA="$work/userdata" dotnet "$out/SmokeGame.Launcher.dll" \
+MAINFRAME_USER_DATA="$work/userdata" dotnet "$out/SmokeGame.Desktop.dll" \
   --max-frames "$frames" --hidden --fixed-fps 60 --no-vsync --screenshot "$work/screenshot.png"
 
 log="$work/userdata/SmokeGame/logs/SmokeGame.log"

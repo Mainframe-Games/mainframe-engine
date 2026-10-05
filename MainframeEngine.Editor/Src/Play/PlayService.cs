@@ -6,7 +6,7 @@ namespace MainframeEngine.Editor;
 
 /// <summary>What <see cref="PlayService.BuildAndLaunchAsync"/> builds and runs.</summary>
 /// <param name="BuildPath">The project or solution to build.</param>
-/// <param name="LauncherProject">The launcher project (<c>MyGame.Launcher.csproj</c>) whose output is run.</param>
+/// <param name="DesktopProject">The desktop project (<c>MyGame.Desktop.csproj</c>) whose output is run.</param>
 /// <param name="Scene">The <c>--scene</c> (null: the project's main scene).</param>
 /// <param name="Label">The instance's display name.</param>
 /// <param name="ExtraArguments">More game arguments (before <c>--editor-port</c>/<c>--scene</c>).</param>
@@ -14,7 +14,7 @@ namespace MainframeEngine.Editor;
 /// <param name="Configuration">The build configuration whose output is looked up.</param>
 public sealed record PlayRequest(
     string BuildPath,
-    string LauncherProject,
+    string DesktopProject,
     string? Scene,
     string Label = "Game",
     IReadOnlyList<string>? ExtraArguments = null,
@@ -172,7 +172,7 @@ public sealed class PlayService : IDisposable
 
     /// <summary>
     /// Builds <see cref="PlayRequest.BuildPath"/> (unless <see cref="PlayRequest.SkipBuild"/>; joins a build already
-    /// running), then launches the launcher project's output from its own folder. Null when the build failed (see
+    /// running), then launches the desktop project's output from its own folder. Null when the build failed (see
     /// <see cref="LastBuild"/>/<see cref="BuildFinished"/>), was cancelled, or there is no program to run (logged).
     /// </summary>
     public Task<PlayInstance?> BuildAndLaunchAsync(PlayRequest request, CancellationToken ct = default)
@@ -333,10 +333,10 @@ public sealed class PlayService : IDisposable
 
     private PlayInstance? LaunchBuilt(PlayRequest request)
     {
-        var program = ProcessGameLauncher.FindLauncherProgram(request.LauncherProject, request.Configuration);
+        var program = ProcessGameLauncher.FindLauncherProgram(request.DesktopProject, request.Configuration);
         if (program is null)
         {
-            Log.Error($"[Play] No build output for '{request.LauncherProject}' ({request.Configuration}); build the launcher project first.");
+            Log.Error($"[Play] No build output for '{request.DesktopProject}' ({request.Configuration}); build the desktop project first.");
             return null;
         }
 
