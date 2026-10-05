@@ -20,6 +20,7 @@ public sealed unsafe partial class VulkanUiRenderer
         public UiEngineTexture? Engine;  // engine://
         public ImageView BoundView;      // the view Set points at (engine textures follow resizes)
         public ImageLayout BoundLayout;  // the layout the view is sampled in (depth maps: DepthStencilReadOnlyOptimal)
+        public ulong BoundGeneration;    // UiTextureView.Generation Set was written for
         public DescriptorSet Set;
         public DescriptorPool Pool;
         public uint Flags;
@@ -100,14 +101,28 @@ public sealed unsafe partial class VulkanUiRenderer
         if (slot.Engine is { } engine)
         {
             // Engine textures can be replaced (render target resize) or unregistered while RmlUi holds the handle.
-            if (!engine.IsRegistered || !engine.TryGetView(out var view, out var sampler, out var layout))
-                return false; // nothing to show (a source without an image): no stale set is bound
-            if (view.Handle != slot.BoundView.Handle || layout != slot.BoundLayout)
+            if (!engine.IsRegistered)
+                return false;
+            if (!engine.TryGetImage(out var image))
+            {
+                // Nothing to show: drop the set so it never outlives the view it points at (the image may be destroyed
+                // and a new one created with the same handle value); the next valid view allocates a fresh set.
+                FreeTextureSet(slot.Set, slot.Pool);
+                slot.Set = default;
+                slot.Pool = default;
+                slot.BoundView = default;
+                slot.BoundLayout = default;
+                slot.BoundGeneration = 0;
+                return false;
+            }
+
+            if (image.NeedsRebind(slot.BoundView, slot.BoundLayout, slot.BoundGeneration))
             {
                 FreeTextureSet(slot.Set, slot.Pool);
-                (slot.Set, slot.Pool) = AllocateTextureSet(view, sampler, layout);
-                slot.BoundView = view;
-                slot.BoundLayout = layout;
+                (slot.Set, slot.Pool) = AllocateTextureSet(image.View, image.Sampler, image.Layout);
+                slot.BoundView = image.View;
+                slot.BoundLayout = image.Layout;
+                slot.BoundGeneration = image.Generation;
             }
         }
 
@@ -230,14 +245,14 @@ public sealed unsafe partial class VulkanUiRenderer
             return 0;
         }
 
-        var hasView = engine.TryGetView(out var view, out var sampler, out var layout);
+        var hasView = engine.TryGetImage(out var image);
         if (!hasView && !engine.IsSource)
         {
             Log.Warning($"[UI] Engine texture '{EngineScheme}{name}' is not registered.");
             return 0;
         }
 
-        (width, height) = engine.Size;
+        (width, height) = ((int)image.Width, (int)image.Height);
         var index = NewTextureSlot();
         ref var slot = ref _textures[index];
         slot.Engine = engine;
@@ -246,9 +261,10 @@ public sealed unsafe partial class VulkanUiRenderer
         slot.Flags = engine.Flags;
         if (hasView)
         {
-            (slot.Set, slot.Pool) = AllocateTextureSet(view, sampler, layout);
-            slot.BoundView = view;
-            slot.BoundLayout = layout;
+            (slot.Set, slot.Pool) = AllocateTextureSet(image.View, image.Sampler, image.Layout);
+            slot.BoundView = image.View;
+            slot.BoundLayout = image.Layout;
+            slot.BoundGeneration = image.Generation;
         }
 
         // else: a source without an image yet (a normal state, e.g. shadow maps before the first shadow pass): the
@@ -578,10 +594,18 @@ public sealed unsafe partial class VulkanUiRenderer
 }
 
 /// <summary>
-/// An image whose view, sampler and layout a <see cref="UiEngineTexture"/> source reports each time it is drawn. A zero
-/// <see cref="View"/> means there is nothing to show.
+/// An image a <see cref="UiEngineTexture"/> source reports each time it is drawn. A zero <see cref="View"/> means there
+/// is nothing to show. <see cref="Generation"/> identifies the image's incarnation: a source changes it whenever the
+/// image is recreated (even if a new view reuses the old handle value, or no frame drew it in between), which makes the
+/// UI write a fresh descriptor set instead of binding one that points at a destroyed view.
 /// </summary>
-internal readonly record struct UiTextureView(ImageView View, Sampler Sampler, ImageLayout Layout, uint Width, uint Height);
+internal readonly record struct UiTextureView(
+    ImageView View, Sampler Sampler, ImageLayout Layout, uint Width, uint Height, ulong Generation = 0)
+{
+    /// <summary>Whether a descriptor set written for (<paramref name="boundView"/>, layout, generation) no longer matches.</summary>
+    public bool NeedsRebind(ImageView boundView, ImageLayout boundLayout, ulong boundGeneration) =>
+        View.Handle != boundView.Handle || Layout != boundLayout || Generation != boundGeneration;
+}
 
 /// <summary>An engine texture, render target or image source published to documents as <c>engine://name</c>.</summary>
 internal sealed class UiEngineTexture
@@ -620,42 +644,31 @@ internal sealed class UiEngineTexture
     /// <summary>A source's image can be absent and appear later; textures and render targets always have one.</summary>
     public bool IsSource => _source is not null;
 
-    public (int Width, int Height) Size
+    /// <summary>The current image (view, sampler, layout, size, generation); false when there is nothing to show.</summary>
+    public bool TryGetImage(out UiTextureView image)
     {
-        get
+        if (_source is not null)
         {
-            if (_source is not null)
-            {
-                var current = _source();
-                return ((int)current.Width, (int)current.Height);
-            }
-
-            return _texture is not null
-                ? ((int)_texture.Width, (int)_texture.Height)
-                : ((int)_target!.Extent.Width, (int)_target.Extent.Height);
+            image = _source();
+            return image.View.Handle != 0;
         }
+
+        if (_texture is not null)
+        {
+            image = new UiTextureView(_texture.View, _texture.Sampler, ImageLayout.ShaderReadOnlyOptimal, _texture.Width, _texture.Height);
+            return true;
+        }
+
+        var view = _target!.GetColor(_attachment).View;
+        image = new UiTextureView(view, _targetSampler, ImageLayout.ShaderReadOnlyOptimal, _target.Extent.Width, _target.Extent.Height);
+        return view.Handle != 0;
     }
 
     /// <summary>The image to sample, its sampler and the layout it is in; false when there is nothing to show.</summary>
     public bool TryGetView(out ImageView view, out Sampler sampler, out ImageLayout layout)
     {
-        layout = ImageLayout.ShaderReadOnlyOptimal;
-        if (_source is not null)
-        {
-            var current = _source();
-            (view, sampler, layout) = (current.View, current.Sampler, current.Layout);
-            return view.Handle != 0;
-        }
-
-        if (_texture is not null)
-        {
-            view = _texture.View;
-            sampler = _texture.Sampler;
-            return true;
-        }
-
-        view = _target!.GetColor(_attachment).View;
-        sampler = _targetSampler;
-        return view.Handle != 0;
+        var found = TryGetImage(out var image);
+        (view, sampler, layout) = (image.View, image.Sampler, image.Layout);
+        return found;
     }
 }
