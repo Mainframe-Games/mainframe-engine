@@ -3,8 +3,9 @@ using Silk.NET.Vulkan;
 namespace MainframeEngine;
 
 /// <summary>
-/// Something drawn after tonemapping, in the swapchain's (sRGB) encoding, below ImGui — the game UI
-/// (<see cref="VulkanUiRenderer"/>). Register with <see cref="IVulkanContext.AddOverlayRenderer"/>.
+/// Something drawn after tonemapping, in the swapchain's (sRGB) encoding, below ImGui — the 2D canvas, screen gizmos
+/// and the game UI (<see cref="VulkanUiRenderer"/>). Register with <see cref="IVulkanContext.AddOverlayRenderer"/>;
+/// renderers run in <see cref="OverlayOrder"/> order (canvas, gizmos, UI).
 /// </summary>
 /// <remarks>
 /// Frame order inside <see cref="IVulkanContext.BeginOverlayPass"/>: the scene pass ends, then

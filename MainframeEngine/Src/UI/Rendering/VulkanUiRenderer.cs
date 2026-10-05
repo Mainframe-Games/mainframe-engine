@@ -57,7 +57,7 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
         _openFile = openFile;
         _arena = new UiGeometryArena(ctx);
         CreateResources();
-        ctx.AddOverlayRenderer(this);
+        ctx.AddOverlayRenderer(this, OverlayOrder.Ui);
     }
 
     /// <summary>When false nothing is composited (the command list is still consumed).</summary>

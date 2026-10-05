@@ -352,8 +352,8 @@ internal sealed unsafe partial class VulkanRenderer
 
         // Offscreen overlay work (UI layers, clip masks, filters) between the scene pass and the tonemap. It never touches
         // the HDR image; the UI renderer orders its own passes with explicit barriers (ADR 0050).
-        foreach (var overlay in _overlayRenderers)
-            overlay.RecordOffscreen(cb);
+        for (var i = 0; i < _overlayRenderers.Count; i++)
+            _overlayRenderers[i].RecordOffscreen(cb);
 
         BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _tonemapPipeline);
@@ -375,21 +375,17 @@ internal sealed unsafe partial class VulkanRenderer
         }
 
         _passState = PassState.Overlay;
-        foreach (var overlay in _overlayRenderers)
-            overlay.RecordOverlay(cb);
+        for (var i = 0; i < _overlayRenderers.Count; i++)
+            _overlayRenderers[i].RecordOverlay(cb);
     }
 
     // ── Overlay renderers (game UI) ───────────────────────────────────────────
 
-    private readonly List<IOverlayRenderer> _overlayRenderers = [];
+    private readonly OverlayRendererList _overlayRenderers = new();
     private Format _stencilFormat;
 
-    public void AddOverlayRenderer(IOverlayRenderer renderer)
-    {
-        ArgumentNullException.ThrowIfNull(renderer);
-        if (!_overlayRenderers.Contains(renderer))
-            _overlayRenderers.Add(renderer);
-    }
+    public void AddOverlayRenderer(IOverlayRenderer renderer, int order = OverlayOrder.Ui) =>
+        _overlayRenderers.Add(renderer, order);
 
     public bool RemoveOverlayRenderer(IOverlayRenderer renderer) => _overlayRenderers.Remove(renderer);
 

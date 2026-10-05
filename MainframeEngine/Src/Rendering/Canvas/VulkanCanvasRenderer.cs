@@ -114,7 +114,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         _ctx = ctx;
         _server = server;
         CreateResources();
-        ctx.AddOverlayRenderer(this);
+        ctx.AddOverlayRenderer(this, OverlayOrder.Canvas);
     }
 
     /// <summary>Draw calls of the last frame.</summary>

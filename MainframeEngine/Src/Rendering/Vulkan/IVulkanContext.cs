@@ -90,8 +90,11 @@ public interface IVulkanContext
     /// </summary>
     void BeginOverlayPass();
 
-    /// <summary>Adds a renderer drawn after tonemapping, below ImGui (the game UI). Order of registration is draw order.</summary>
-    void AddOverlayRenderer(IOverlayRenderer renderer);
+    /// <summary>
+    /// Adds a renderer drawn after tonemapping, below ImGui. Renderers draw in ascending <paramref name="order"/>
+    /// (see <see cref="OverlayOrder"/>); equal orders draw in registration order. Adding a renderer twice is a no-op.
+    /// </summary>
+    void AddOverlayRenderer(IOverlayRenderer renderer, int order = OverlayOrder.Ui);
 
     /// <summary>Removes a renderer added with <see cref="AddOverlayRenderer"/>.</summary>
     bool RemoveOverlayRenderer(IOverlayRenderer renderer);
