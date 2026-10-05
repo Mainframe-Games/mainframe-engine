@@ -86,6 +86,40 @@ public static class Codecs
     /// <summary>Registers (or replaces) the codec for <typeparamref name="T"/>.</summary>
     public static void Register<T>(ValueCodec<T> codec) => Cache<T>.Value = codec ?? throw new ArgumentNullException(nameof(codec));
 
+    /// <summary>
+    /// A codec that looks up <typeparamref name="T"/>'s registered codec when used, not when created: generated type
+    /// registration (which may run before the game registers its codecs) uses it for <see cref="SerializableValueAttribute"/>
+    /// types.
+    /// </summary>
+    public static ValueCodec<T> Deferred<T>() => DeferredCodec<T>.Instance;
+
+    private sealed class DeferredCodec<T> : ValueCodec<T>
+    {
+        public static readonly DeferredCodec<T> Instance = new();
+
+        private static ValueCodec<T> Target => Cache<T>.Value is { } codec && codec is not DeferredCodec<T>
+            ? codec
+            : throw new InvalidOperationException($"No codec is registered for {typeof(T).FullName} ([SerializableValue]): call Codecs.Register before loading scenes or resources.");
+
+        public override void Write(Utf8JsonWriter writer, T value, SerializationContext context) => Target.Write(writer, value, context);
+
+        public override T Read(JsonElement element, DeserializationContext context) => Target.Read(element, context);
+
+        public override bool ValueEquals(T a, T b) => Target.ValueEquals(a, b);
+    }
+
+    /// <summary>
+    /// A codec storing <typeparamref name="T"/> as a JSON array of <paramref name="count"/> numbers, like the built-in
+    /// vectors and colours (for <see cref="SerializableValueAttribute"/> types).
+    /// </summary>
+    public static ValueCodec<T> FloatArray<T>(int count, Action<T, Span<float>> unpack, Func<float[], T> pack, Func<T, T, bool>? equals = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        ArgumentNullException.ThrowIfNull(unpack);
+        ArgumentNullException.ThrowIfNull(pack);
+        return new FloatArrayCodec<T>(count, (v, d) => unpack(v, d), pack, equals);
+    }
+
     /// <summary>Enums by name (flags as <c>"A, B"</c>).</summary>
     public static ValueCodec<TEnum> EnumOf<TEnum>() where TEnum : struct, Enum => EnumCache<TEnum>.Value;
 

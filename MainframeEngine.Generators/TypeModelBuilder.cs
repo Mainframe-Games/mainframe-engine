@@ -299,6 +299,11 @@ internal static class TypeModelBuilder
         if (BuiltInValueTypes.Contains(metadataName))
             return $"{Codecs}.Get<{display}>()";
 
+        // Game value types opt in with [SerializableValue] and register their codec at startup.
+        if (named.TypeKind == Microsoft.CodeAnalysis.TypeKind.Struct &&
+            named.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "MainframeEngine.SerializableValueAttribute"))
+            return $"{Codecs}.Deferred<{display}>()";
+
         if (metadataName == "System.Collections.Generic.List<T>" && named.TypeArguments.Length == 1)
             return CodecFor(named.TypeArguments[0]) is { } element ? $"{Codecs}.ListOf({element})" : null;
 

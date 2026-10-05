@@ -238,3 +238,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - All seven Crash Site Defense shaders translate and compile unchanged. Render test `canvas` gained a shaded sprite
   (Content/Shaders/wave.gdshader). Tests: CanvasShaderCompilerTests, Texture2DPixelsTests. Gates green (unit 1198,
   editor 443, render 46, shaders, canvas shaders).
+
+### 2026-10-05 — Game value types in scenes/resources ([SerializableValue])
+- `[SerializableValue]` structs may be `[Export]` types; the generator emits `Codecs.Deferred<T>()` (resolved at use, so
+  the game can register codecs in any module initializer); `Codecs.FloatArray<T>` builds array codecs. `.svg` assets get
+  `tex_` UIDs. Test: Scene/SerializableValueTests. Gates green (unit 1199, editor 443; no render change).
