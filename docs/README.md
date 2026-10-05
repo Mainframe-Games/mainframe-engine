@@ -24,7 +24,7 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 | Games & editor | [Projects & GameHost](design/project-and-gamehost.md) (`project.mfproj`, `GameHost`, editor link, code reload, `mfgame` template) · [Editor](design/editor.md) · [Future: editor](design/future/editor.md) |
 | Rendering | [Vulkan renderer](design/vulkan-renderer.md) · [2D canvas](design/canvas.md) · [GPU resources](design/gpu-resources.md) · [Materials & meshes](design/materials-and-meshes.md) · [Asset pipeline](design/asset-pipeline.md) · [Color pipeline](design/color-pipeline.md) · [Shadow system](design/shadow-system.md) · [Lighting](design/lighting.md) · [Sky](design/sky.md) · [Spine](design/spine.md) · [Scene grid](design/scene-grid.md) · [Cameras & input](design/cameras-and-input.md) · [Shaders](design/shaders.md) · [Coordinate conventions](design/coordinate-conventions.md) |
 | UI | [Game UI (RmlUi)](design/game-ui.md) · [Native libraries](design/natives.md) |
-| Tooling | [ImGui & debug tools](design/imgui-and-debug-tools.md) · [Testing](design/testing.md) |
+| Tooling | [Developer overlay & gizmos](design/dev-overlay.md) · [Testing](design/testing.md) |
 | Audio | [Audio](design/audio.md) |
 | Online | [Networking](design/networking.md) · [Steamworks](design/steamworks.md) |
 

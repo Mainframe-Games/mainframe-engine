@@ -170,7 +170,7 @@ works on this machine: `steam:` → `SteamSocketsTransport` (always unavailable 
 - **Steam Networking Sockets.** `SteamSocketsTransport` is a stub (its intended mapping is documented in the type);
   implementing it needs the natives. Until then `steam:` addresses are skipped and ENet is used.
 - **Avatars** (`SteamFriends.GetLargeFriendAvatar` → `SteamUtils.GetImageRGBA` → a Vulkan texture through the M3 GPU
-  resource path, plus ImGui `TextureId` support) are not implemented: without a running Steam there is no image to
+  resource path, then `UiServer.RegisterTexture` for the UI) are not implemented: without a running Steam there is no image to
   load or test. The old commented-out Unity `SteamAvatar` and `SteamRemotePlay` files were deleted.
 - **Member updates.** `OnLobbyUpdated` reports lobby-level metadata updates only; member data updates are ignored.
 - **Lobby continuations** run inside `RunCallbacks` on the main thread. A continuation after a timeout runs on a

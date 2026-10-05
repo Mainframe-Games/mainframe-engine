@@ -259,3 +259,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-05 — window.contentScale (port E17)
 - Project setting `window.contentScale` → `EngineOptions.ContentScale` (1 = window size in pixels, Godot's rule). With
   it Crash Site Defense's seed-4242 frame matches Godot's within 1/255 per pixel outside the not-yet-ported crew member.
+
+### 2026-10-06 — D2 Remove ImGui (ADR 0115)
+- RmlUi `DevOverlay` (F12, built-in panels, `AddPanel`) and Vulkan `ScreenGizmos` (light + axis gizmos) replace ImGui;
+  ImGui.NET, `cimgui`, `VulkanImGuiController`, `OnImGui` and the ImGui texture registry are gone. Overlay hidden by
+  default (render tests opt in); goldens re-recorded. Docs: `docs/design/dev-overlay.md` (replaces imgui-and-debug-tools).

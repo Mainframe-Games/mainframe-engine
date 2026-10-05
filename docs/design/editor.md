@@ -122,7 +122,7 @@ flowchart TB
   the window size and the output filter persist in **`~/.mainframe/editor_layout.json`** (user profile on every OS,
   written atomically; unreadable, newer or nonsensical files fall back to defaults).
 - **Lists are data-bound** (no work on idle frames); the inspector is generated RML updated in place (see below).
-- **ImGui** remains the F12 developer overlay; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
+- The F12 developer overlay ([Developer overlay](dev-overlay.md)) is off by default in the editor; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
 
 ### Keyboard shortcuts
 

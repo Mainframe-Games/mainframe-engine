@@ -54,7 +54,7 @@ flowchart LR
 
 The engine runs on Windows, Linux and macOS (MoltenVK, including Apple Silicon at 120 fps in the
 test game, later replaced by the [Demo](design/demo.md)). It renders a lit, shadowed 3D scene with a sky, a reference grid, an animated Spine character
-and an ImGui debug overlay. Networking and Steam exist only as scaffolds. The last M0 item moves
+and a debug overlay (an immediate-mode one then, the RmlUi [dev overlay](design/dev-overlay.md) since D2). Networking and Steam exist only as scaffolds. The last M0 item moves
 windowing and input from GLFW to SDL2 (via Silk.NET 2.22), so later input, gamepad and Steam work builds on it.
 
 | Feature | Status | Design doc |
@@ -69,7 +69,7 @@ windowing and input from GLFW to SDL2 (via Silk.NET 2.22), so later input, gamep
 | Spine skeletal animation, lit + shadow-casting | ✅ | [Spine](design/spine.md) |
 | 2D/3D cameras, fly camera controls | ✅ | [Cameras & input](design/cameras-and-input.md) |
 | Scene grid 2D/3D | ✅ | [Scene grid](design/scene-grid.md) |
-| ImGui Vulkan backend, `Log`, axis and light gizmos | ✅ | [ImGui & debug tools](design/imgui-and-debug-tools.md) |
+| Debug overlay backend, `Log`, axis and light gizmos (since D2: RmlUi `DevOverlay` + Vulkan `ScreenGizmos`) | ✅ | [Developer overlay](design/dev-overlay.md) |
 | Shader set + SPIR-V | ✅ | [Shaders](design/shaders.md) |
 | ENet client/server + pooled buffers (scaffold) | ✅ ² | [Networking](design/networking.md) |
 | Steamworks wrappers (scaffold, inert) | ✅ ² | [Steamworks](design/steamworks.md) |
@@ -91,7 +91,7 @@ and CLAUDE.md back in line with the code.
 | Remove the double depth remap | ✅ | [Coordinate conventions: depth](design/coordinate-conventions.md#depth) |
 | Depth hazard dependency, dynamic-indexing feature, depth-format features, explicit cull mode | ✅ | [Vulkan renderer](design/vulkan-renderer.md#main-render-pass) · [Shadow system](design/shadow-system.md#pipelines) |
 | Spine without `ShadowSystem` (dummy set) | ✅ | [Shadow system: without a ShadowSystem](design/shadow-system.md#without-a-shadowsystem) |
-| Exit code, validation in Debug only, ImGui frame pairing and HiDPI, no busy-wait when minimised | ✅ | [Engine lifecycle](design/engine-lifecycle.md) · [ImGui & debug tools](design/imgui-and-debug-tools.md) |
+| Exit code, validation in Debug only, overlay frame pairing and HiDPI, no busy-wait when minimised | ✅ | [Engine lifecycle](design/engine-lifecycle.md) · [Developer overlay](design/dev-overlay.md) |
 | `SpineNode` scale, animation order, `SetAnimation`, vertex growth, pixel release | ✅ | [Spine](design/spine.md) |
 | CLAUDE.md sync with the code (README synced 2026-10-05) | ✅ | [CLAUDE.md](../CLAUDE.md) |
 
@@ -130,7 +130,7 @@ pipeline, and shaders compiled as part of the build.
 | `Material`, `Mesh`, `MeshInstance3D`, `Sprite3D`, textures (sRGB/UNORM per usage, GPU mips, `.meta` settings); `Box3d`/`Quad` removed | ✅ | [Materials & meshes](design/materials-and-meshes.md) |
 | Instanced, sorted batches (opaque by state, transparent back to front), frustum culling, instanced shadow casters, draw stats | ✅ | [Materials & meshes](design/materials-and-meshes.md#frame) |
 | Model loading via Assimp (glTF/FBX/OBJ → `PackedScene`), import settings, import cache | ✅ | [Asset pipeline](design/asset-pipeline.md) |
-| Object-ID picking (`PickAsync`), `SubViewport` offscreen views (ImGui texture) | ✅ | [Materials & meshes](design/materials-and-meshes.md#picking-object-ids) |
+| Object-ID picking (`PickAsync`), `SubViewport` offscreen views (shown through `engine://` UI textures) | ✅ | [Materials & meshes](design/materials-and-meshes.md#picking-object-ids) |
 | GPU allocator, upload queue, deferred deletion | ✅ | [GPU resources](design/gpu-resources.md) |
 | Linear lighting, HDR target, tonemapping, sRGB, Spine PMA | ✅ | [Color pipeline](design/color-pipeline.md) |
 | Build-time shader compilation, includes, `ContentPaths` | ✅ | [Shaders](design/shaders.md), [Build & platforms](design/build-and-platforms.md#shaders) |
@@ -208,7 +208,7 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 
 HTML/CSS-style UI using **RmlUi 6.3**, through an engine-owned native binding and a Vulkan render
 interface on the engine's device. This same stack is the editor's UI. Documents render into an offscreen
-premultiplied sRGB layer composited after the tonemap (below ImGui), with clip masks, layers, filters and
+premultiplied sRGB layer composited after the tonemap (below the dev overlay), with clip masks, layers, filters and
 gradients; the UI sees input before the scene tree.
 
 | Feature | Status | Design doc |
@@ -220,7 +220,7 @@ gradients; the UI sees input before the scene tree.
 | `UiServer`, `UiLayer`, `UiDocument`, data binding, element events | ✅ | [Game UI](design/game-ui.md#uiserver-uilayer-uidocument) |
 | Input routing, IME placement, clipboard, gamepad navigation | ✅ | [Game UI](design/game-ui.md#input-routing) |
 | Hot reload, debugger (F8), shared widget library, bundled fonts | ✅ | [Game UI](design/game-ui.md#development-tools) |
-| Demo panels as the game-UI reference; ImGui as the F12 developer overlay | ✅ | [Game UI](design/game-ui.md#demo), [Demo](design/demo.md) |
+| Demo panels as the game-UI reference; the F12 developer overlay | ✅ | [Game UI](design/game-ui.md#demo), [Demo](design/demo.md) |
 | Inline IME composition (shim ABI 1.1 `TextInputContext`) | ⬜ | [Game UI](design/game-ui.md#known-issues) |
 
 ## M9 — Localization ✅
@@ -260,7 +260,7 @@ the Project Manager. Order: D1 → D2 → D3 → D4.
 | Feature | Status | Design doc |
 |---|---|---|
 | D1 `Examples/Demo` (GameHost project): nav-bar autoload, Basic 3D / Basic 2D / Audio 2D / Audio 3D / UI + hot reload / Physics 2D / Physics 3D / Spine (Camera2D ↔ Camera3D) scenes, README screenshot gallery; the old test game and the editor-screenshot project removed | ✅ | [Demo](design/demo.md) (proposal: [Demo project](design/future/demo-project.md)) |
-| D2 Remove ImGui: RmlUi `DevOverlay` (F12, panels, `AddPanel`), Vulkan `ScreenGizmos` (light + axis gizmos) | ⬜ | [Remove ImGui](design/future/remove-imgui.md) |
+| D2 Remove ImGui: RmlUi `DevOverlay` (F12, panels, `AddPanel`), Vulkan `ScreenGizmos` (light + axis gizmos) | ✅ | [Developer overlay](design/dev-overlay.md) (proposal: [Remove ImGui](design/future/remove-imgui.md), [ADR 0115](../memory/decisions/0115-remove-imgui.md)) |
 | D3 Project icons in the Project Manager (`window.icon`, template default icon, RmlUi absolute-path fix) | ⬜ | [Project icons](design/future/project-icons.md) |
 | D4 "Download Demo Project" (release zip asset, download + extract + engine-path rewrite) | ⬜ | [Demo download](design/future/demo-download.md) |
 

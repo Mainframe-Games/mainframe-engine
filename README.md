@@ -99,8 +99,8 @@ mainframe-engine/
 │   │   ├── Localization/        # Tr (gettext catalogs, locale switching), RML text, font fallback
 │   │   ├── Project/, EditorLink/ # project.mfproj, GameHost, game-assembly loading; game <-> editor protocol
 │   │   ├── Steamworks/          # Steam API wrappers (inert without natives)
-│   │   ├── Debugging/           # Log + ILogSink sinks
-│   │   └── Imaging/, Utils/     # PNG codec, ImGui gizmos
+│   │   ├── Debugging/           # Log + ILogSink sinks, the F12 dev overlay (DevOverlay)
+│   │   └── Imaging/, Utils/     # PNG codec, helpers
 │   ├── Content/                 # Shaders (GLSL + committed SPIR-V), UI widgets and fonts, brand icons
 │   └── runtimes/                # Native libraries per RID (mfrmlui, ENet)
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
@@ -128,16 +128,15 @@ public sealed class Game(in EngineOptions options) : Engine(options)
 {
     protected override void OnLoad()
     {
-        base.OnLoad();                                      // window, renderer, ImGui, servers
+        base.OnLoad();                                      // window, renderer, servers
         Tree.ChangeSceneToFile("Content/Scenes/Main.mscene");
     }
 
-    // Optional legacy hooks: OnImGui, OnUpdate, OnShadowPass, OnRenderMainPass.
-    protected override void OnImGui(in GameTime gameTime) { }
+    // Optional legacy hooks: OnUpdate, OnShadowPass, OnRenderMainPass.
 }
 ```
 
-`Engine` manages the SDL window, Vulkan renderer, input context, ImGui and the `SceneTree`, and drives the game loop. `GameTime` provides per-frame timing (DeltaTime, FPS, FrameTimeMs, FrameCount).
+`Engine` manages the SDL window, Vulkan renderer, input context and the `SceneTree`, and drives the game loop. `GameTime` provides per-frame timing (DeltaTime, FPS, FrameTimeMs, FrameCount).
 
 **`EngineOptions`** configures startup:
 
@@ -152,13 +151,12 @@ new EngineOptions
 ```
 
 The frame loop order is:
-1. `OnImGui` — ImGui window construction (only while the F12 developer overlay is shown)
-2. `OnUpdate` — game logic (legacy hook)
-3. Scene tree tick — fixed-step `OnPhysicsProcess` + physics, `OnProcess`, deferred calls and `QueueFree`, transform sync, UI update
-4. Frame preparation — the render server culls, sorts and uploads meshes
-5. Shadow pass — `OnShadowPass`, then the render server's shadow casters; then sub-viewports and picking passes
-6. Main pass — the render server draws the sky and visuals into the HDR target, then `OnRenderMainPass`
-7. Overlay — tonemap, game UI, then ImGui
+1. `OnUpdate` — game logic (legacy hook)
+2. Scene tree tick — fixed-step `OnPhysicsProcess` + physics, `OnProcess`, deferred calls and `QueueFree`, transform sync, UI update
+3. Frame preparation — the render server culls, sorts and uploads meshes
+4. Shadow pass — `OnShadowPass`, then the render server's shadow casters; then sub-viewports and picking passes
+5. Main pass — the render server draws the sky and visuals into the HDR target, then `OnRenderMainPass`
+6. Overlay — tonemap, 2D canvas, screen gizmos, game UI, then the dev overlay on top
 
 ### Nodes and scenes (`Scene/`, `Resources/`)
 
@@ -209,7 +207,7 @@ it polls them every frame in `OnProcess` (or call `Poll()`).
 **Meshes and materials (`Rendering/Resources/`, `Rendering/Meshes/`):**
 - `MeshInstance3D` / `Sprite3D` draw `Mesh`es (`ArrayMesh`, `BoxMesh`, `PlaneMesh`, `QuadMesh`, `SphereMesh`, `CylinderMesh`, `CapsuleMesh`) with `StandardMaterial3D` (Blinn-Phong: albedo/normal/emission textures, opaque/cutout/blend, culling, double-sided) and `Texture2D`
 - The render server culls, sorts and batches them into instanced draws (10 000 instances in a couple of draws); shared pipelines come from a state-hash cache
-- Models (glTF/FBX/OBJ) import through Assimp into scenes; `RenderServer.PickAsync` picks objects on the GPU; `SubViewport` renders a world offscreen (ImGui texture)
+- Models (glTF/FBX/OBJ) import through Assimp into scenes; `RenderServer.PickAsync` picks objects on the GPU; `SubViewport` renders a world offscreen (shown in the UI as an `engine://` image)
 - `SceneGrid3d` / `SceneGrid2d` — debug grid overlays
 - See [Materials & meshes](docs/design/materials-and-meshes.md) and [Asset pipeline](docs/design/asset-pipeline.md)
 
@@ -227,8 +225,10 @@ it polls them every frame in `OnProcess` (or call `Poll()`).
 - `ShadowSystem` — cascaded shadow maps (texel-snapped, blended) for the sun, a shadow atlas for spot and secondary directional lights, cube maps for point lights; PCF filtering, per-light `CastsShadows`/`ShadowResolution`, per-pass caster culling, alpha-tested cutout casters. Optional: without it, lit nodes bind a "no shadows" fallback
 - See [Shadow system](docs/design/shadow-system.md)
 
-**ImGui:**
-- `VulkanImGuiController` — ImGui backend for Vulkan
+**Developer overlay and gizmos (`Debugging/DevOverlay/`, `Rendering/Gizmos/`):**
+- `DevOverlay` — the RmlUi developer overlay (F12): frame, renderer, shadow-map, GPU, audio, physics and network panels; games add their own with `AddPanel`
+- `ScreenGizmos` — Vulkan screen-space shapes (light icons and ranges, the corner XYZ axes) drawn after the tonemap
+- See [Developer overlay](docs/design/dev-overlay.md)
 
 ### Lighting (`Lighting/`)
 
@@ -236,7 +236,7 @@ it polls them every frame in `OnProcess` (or call `Poll()`).
 - `DirectionalLight` — parallel sun-like light
 - `PointLight` — omnidirectional light with range and falloff
 - `SpotLight` — cone light with inner/outer angles
-- ImGui debug gizmos for visualizing light positions, ranges, and cone shapes
+- Debug gizmos (screen gizmos, toggled from the dev overlay) for visualizing light positions, ranges, and cone shapes
 
 ### Networking (`Networking/`)
 
@@ -346,7 +346,6 @@ interpolated `$"..."` ones — allocate nothing.
 | Vulkan on macOS | Silk.NET.MoltenVK.Native | 2.23.0 |
 | Model loading | Silk.NET.Assimp | 2.23.0 |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) + FreeType (in-house `mfrmlui` C ABI shim) | 6.3 / 2.14.3 |
-| Debug UI | ImGui.NET | 1.91.6.1 |
 | Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) | 2.9.0 |
 | Physics 2D | [Box2D.NET](https://github.com/ikpil/Box2D.NET) (Box2D v3 port) | 3.1.654 |
 | Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow) (miniaudio) | 1.4.1 |
@@ -382,7 +381,7 @@ GLSL sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`gl
 - **Sky/** — procedural gradient, panoramic equirectangular, and cubemap variants
 - **Shadows/** — depth pass shaders for 2D and omnidirectional point light shadow maps
 - **SceneGrid/** — debug grid overlay
-- **ImGui/** — Vulkan ImGui rendering backend
+- **Gizmos/** — screen-space gizmo shapes (`ScreenGizmo.vk.*`)
 - **Post/** — fullscreen tonemap (exposure + ACES)
 
 ---
@@ -421,7 +420,9 @@ What comes after M10 is in the [roadmap](docs/design/future/editor.md).
 
 [Examples/Demo](Examples/Demo) is a standalone game project (`project.mfproj`, a node library and a launcher) with one
 scene per feature: Basic 3D and 2D, Audio 2D and 3D, UI, Physics 2D and 3D, and Spine. A navigation bar switches scenes
-and every scene has a small RmlUi panel with its controls. Its scenes, localization catalogs and tests live in the
+and every scene has a small RmlUi panel with its controls. Press F12 in the Demo (or in any game) to open the developer
+overlay: frame, renderer, shadow-map, GPU, audio, physics and network panels, plus light and axis gizmo toggles
+([Developer overlay](docs/design/dev-overlay.md)). Its scenes, localization catalogs and tests live in the
 project, so it is also the reference for how a game is laid out.
 
 ```bash

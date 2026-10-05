@@ -125,9 +125,9 @@ Tree-less code (no scene tree) can use the math cameras directly; in 2D, mouse m
 ## Known issues
 
 - README says "right-click to capture, Alt to release". The code is hold-right-click to move, and Alt only toggles the cursor.
-- ImGui does not consume input before the tree (the game UI server will, M8).
+- The dev overlay and game UI see input before the tree (`UiServer`, M8); a consumed event never reaches nodes.
 
 ## Related docs
 
-[Coordinate conventions](coordinate-conventions.md) · [Demo](demo.md) · [ImGui & debug tools](imgui-and-debug-tools.md) ·
+[Coordinate conventions](coordinate-conventions.md) · [Demo](demo.md) · [Developer overlay](dev-overlay.md) ·
 [Scene graph & nodes](scene-graph-and-nodes.md)

@@ -160,7 +160,6 @@ platform-specific assemblies and registered by the head before the engine starts
   | `enet` | `.so` | static `.a` in `enet.xcframework` |
   | miniaudio (SoundFlow's native) | SoundFlow package (already 16 KB aligned) | SoundFlow's `miniaudio.framework` on device; **ours** for the simulator (none shipped) |
   | `mfplatform` (M13 shim) | `.so` (JNI bridge) + `.aar` | static xcframework |
-  | cimgui (ImGui.NET) | not shipped: the dev overlay is off on mobile in M12 | not shipped |
   | Assimp | **not shipped**: models are cooked at export ([Asset pipeline](#asset-pipeline)) | not shipped |
   | Steamworks | not shipped: `SteamServer` is never registered on mobile | not shipped |
 
@@ -253,7 +252,7 @@ stateDiagram-v2
     so the activity is never recreated: a rotation or fold is just a resize.
   - **Android pre-rotation, cheaply.** Only the passes that write the swapchain need to know the transform:
     - The scene, shadow and UI layers render into offscreen targets in logical (rotated) orientation.
-    - The present passes (tonemap, UI composite, ImGui) multiply their fullscreen/clip-space positions by the
+    - The present passes (tonemap, then the overlay renderers: canvas, screen gizmos, UI composite, dev overlay) multiply their fullscreen/clip-space positions by the
       `preTransform` rotation.
     - The swapchain stays at the identity extent with `preTransform = currentTransform`.
     - When the scene and tonemap are merged into one render pass ([Rendering](#rendering)), the scene pass draws into
@@ -324,10 +323,10 @@ stateDiagram-v2
 ```mermaid
 flowchart LR
     subgraph Today["Desktop today"]
-        A1["Shadow passes"] --> A2["Scene pass<br/>RGBA16F Clear/STORE<br/>depth Clear/DontCare"] --> A3["UI layer passes<br/>RGBA8 + stencil (offscreen)"] --> A4["Present pass<br/>tonemap (reads RGBA16F)<br/>+ UI composite + ImGui"]
+        A1["Shadow passes"] --> A2["Scene pass<br/>RGBA16F Clear/STORE<br/>depth Clear/DontCare"] --> A3["UI layer passes<br/>RGBA8 + stencil (offscreen)"] --> A4["Present pass<br/>tonemap (reads RGBA16F)<br/>+ canvas, screen gizmos, UI composite, dev overlay"]
     end
     subgraph Mobile["Mobile (TBDR) layout"]
-        B1["Shadow passes<br/>D16, Clear/STORE"] --> B2["One render pass, 2 subpasses<br/>0: scene → HDR (transient, lazily allocated)<br/>1: tonemap via input attachment → swapchain<br/>+ direct UI + ImGui in subpass 1"]
+        B1["Shadow passes<br/>D16, Clear/STORE"] --> B2["One render pass, 2 subpasses<br/>0: scene → HDR (transient, lazily allocated)<br/>1: tonemap via input attachment → swapchain<br/>+ direct overlays (canvas, gizmos, UI) in subpass 1"]
         B3["UI layer passes only when a document<br/>uses filters / mask-image / box-shadow"] -.-> B2
     end
 ```
@@ -382,7 +381,7 @@ A tier is a bundle of existing knobs:
     - up after 60 frames under 70 %.
   - Targets are allocated once at the tier's maximum, and rendering uses a viewport/scissor subset, so a scale change
     never reallocates.
-  - The UI and ImGui always render at native resolution.
+  - The UI, the screen gizmos and the dev overlay always render at native resolution.
 - **Thermal and power governor** (`PerformanceGovernor`, a frame server):
   - Inputs:
     - Android: `getThermalHeadroom(10 s forecast)`, polled no more than once a second, and `PowerManager`
@@ -397,7 +396,7 @@ A tier is a bundle of existing knobs:
   - Recovery goes in reverse after 30 s at nominal.
   - Android `PerformanceHintManager` sessions report the game and render thread target/actual durations each frame,
     so the CPU governor clocks to the work instead of overshooting.
-  - All of it is visible in a `Performance` ImGui/editor-link status block (thermal level, scale, fps cap).
+  - All of it is visible in a `Performance` dev-overlay panel and editor-link status block (thermal level, scale, fps cap).
 - **Frame pacing.**
   - Android: **Swappy** (AGDK frame pacing, static prefab lib) is linked into the Android native platform library and
     driven through a small C API. `SwappyVk_setSwapIntervalNS` for 30/60/90/120, with `SwappyVk_queuePresent` instead
@@ -532,8 +531,8 @@ flowchart LR
   - The dp ratio is the display density, and the template's mobile theme bumps minimum touch targets to 44 pt / 48 dp.
   - Hot reload works over the editor link ([Live preview](#live-preview)).
   - The F8 debugger stays available in dev builds, toggled by a three-finger long press.
-- **ImGui** (developer overlay) is off on mobile in M12: ImGui.NET ships no Android/iOS cimgui. If needed later,
-  cimgui joins `natives.yml`.
+- The **dev overlay** is an RmlUi layer (it replaced the old immediate-mode overlay, [ADR 0115](../../../memory/decisions/0115-remove-imgui.md)), so it
+  needs no extra native library on mobile; only a touch gesture to toggle it (there is no F12) is open.
 
 ### Asset pipeline
 
@@ -877,7 +876,7 @@ Each spike is a throwaway branch with a written result (ADR or doc update) and a
 
 | Spike | Question | Pass criteria |
 |---|---|---|
-| S1 Silk 2.23 + SDL hosts | **Bump Silk.NET 2.22 → 2.23 on the spike branch** (decided: try 2.23 first). Is its Android SDL (`libSDL2.so`, `libmain.so`) 16 KB aligned (`llvm-readelf -l`, no XA0141)? Do its iOS SDL + MoltenVK static libs link and run? Do `SilkActivity` and `SilkMobile.RunApp` run the `Engine` loop, with touch, lifecycle events and text input through an SDL event watch? If 2.23 fails the alignment or iOS checks → fallback: vendor + build SDL2/MoltenVK in `natives.yml` (with S5) | Clear-colour + ImGui-free `Engine` on a Pixel/Galaxy and an iPhone; background/foreground ×20 without a crash; XA0141-free AAB; ADR records 2.23 adopted or the fallback taken |
+| S1 Silk 2.23 + SDL hosts | **Bump Silk.NET 2.22 → 2.23 on the spike branch** (decided: try 2.23 first). Is its Android SDL (`libSDL2.so`, `libmain.so`) 16 KB aligned (`llvm-readelf -l`, no XA0141)? Do its iOS SDL + MoltenVK static libs link and run? Do `SilkActivity` and `SilkMobile.RunApp` run the `Engine` loop, with touch, lifecycle events and text input through an SDL event watch? If 2.23 fails the alignment or iOS checks → fallback: vendor + build SDL2/MoltenVK in `natives.yml` (with S5) | Clear-colour `Engine` on a Pixel/Galaxy and an iPhone; background/foreground ×20 without a crash; XA0141-free AAB; ADR records 2.23 adopted or the fallback taken |
 | S2 .NET + runtime pick | On the **then-current .NET** (likely 11 / CoreCLR): publish the template game with each runtime candidate per platform ([AOT table](#aot-app-size-and-startup)); triage trim/AOT warnings (Jitter2, Box2D.NET, GetText.NET, SoundFlow, NVorbis, spine-csharp); compare size, startup, frame time | 0 unexplained warnings; the scene loads and runs; ADR picks the .NET version and runtime per platform with the numbers |
 | S3 MoltenVK iOS | MoltenVK (Silk 2.23's 1.4.1, or the vendored fallback from S1) static on iOS 16 + 17 devices; merged scene/tonemap pass as one Metal encoder with programmable blending; memoryless for transient attachments; `VK_GOOGLE_display_timing` | the Sandbox renders at 60 fps on an iPhone 12; the frame capture (Xcode GPU trace) shows one encoder for scene + tonemap |
 | S4 Audio | SoundFlow on Android (AAudio) and iOS (its framework + our simulator build), NativeAOT; interruption + route change; suspend/resume | `--qa-audio` passes on both; a phone call interruption resumes cleanly |
@@ -969,7 +968,7 @@ independent and desktop-testable.
     the main loop runs while the app is in the background.
 12. **Natives are built, not downloaded.** New native code joins `Native/` + `natives.yml` with a flat versioned C ABI
     (the `mfrmlui` pattern), is buildable as a static library, and keeps ELF segments 16 KB aligned.
-13. **Platform features are optional servers.** Steam, ImGui and audio devices already degrade gracefully (null
+13. **Platform features are optional servers.** Steam and audio devices already degrade gracefully (null
     device, no Steam). Keep new platform integrations behind a seam with a null implementation, never a hard
     dependency in `Engine`.
 14. **Paths per user are `UserDataPaths`.** Never `Environment.CurrentDirectory`, `~` or the app folder for saves,
@@ -1025,8 +1024,8 @@ Decided by the user on 2026-10-05 and recorded in [ADR 0100](../../../memory/dec
    Assets with our own CDN? Default: bundled-only for M12.
 2. **Editor link on iOS devices:** in-house usbmux client (no dependency, private-ish protocol) vs Wi-Fi only? Default:
    both, with usbmux preferred if S7 shows it is stable on current macOS.
-3. **ImGui on device** for engine developers: build cimgui per mobile RID, or rely on the RmlUi debugger + editor
-   link? Default: the editor link (fps/thermal/tier status) + RmlUi debugger; revisit after M12.3.
+3. **Dev overlay on device** for engine developers: which touch gesture toggles the RmlUi dev overlay, next to the RmlUi
+   debugger and the editor link? Default: the editor link (fps/thermal/tier status) + RmlUi debugger; revisit after M12.3.
 
 ## Related
 

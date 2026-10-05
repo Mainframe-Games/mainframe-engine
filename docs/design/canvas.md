@@ -82,7 +82,7 @@ Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when t
 2. `BeginOverlayPass`: `RecordOffscreen` writes the frame's geometry into per-frame-slot dynamic buffers and draws the
    batches into the canvas layer, cleared to `CanvasServer.ClearColor` (opaque: a 2D game; null: transparent over the
    3D scene). After the tonemap `RecordOverlay` composites the layer premultiplied (Godot's mix blend into a
-   transparent target is premultiplied by construction), then the game UI and ImGui draw.
+   transparent target is premultiplied by construction), then the screen gizmos, the game UI and the dev overlay draw (`OverlayOrder`).
 
 ## Known issues
 

@@ -61,7 +61,7 @@ classDiagram
 ## Migration order
 
 1. Wrap Vulkan objects behind the interfaces (no behaviour change).
-2. Port Sky and Grid (simplest), then shapes/materials, Spine, shadows, ImGui.
+2. Port Sky and Grid (simplest), then shapes/materials, Spine, shadows, screen gizmos.
 3. Remove `IVulkanContext` from public node APIs.
 4. Implement `WebGpuDevice`; select it from `EngineOptions.RenderingBackend`.
 

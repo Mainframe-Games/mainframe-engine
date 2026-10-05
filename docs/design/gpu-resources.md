@@ -30,7 +30,7 @@ recreation and shutdown waits for the device.
 | `ShaderModuleCache` | [ShaderModuleCache.cs](../../MainframeEngine/Src/Rendering/Vulkan/ShaderModuleCache.cs) | One `VkShaderModule` per `.spv` |
 | `PipelineBuilder`, `PipelineState`, `BlendMode` | [PipelineBuilder.cs](../../MainframeEngine/Src/Rendering/Vulkan/PipelineBuilder.cs) | internal — pipeline/descriptor boilerplate with the engine's conventions |
 | `RenderTarget` | [RenderTarget.cs](../../MainframeEngine/Src/Rendering/Vulkan/RenderTarget.cs) | Offscreen colour + depth targets — see [Color pipeline](color-pipeline.md#render-targets) |
-| `RendererDebugWindow` | [RendererDebugWindow.cs](../../MainframeEngine/Src/Rendering/Vulkan/RendererDebugWindow.cs) | ImGui readout of all of the above |
+| `GpuStats` panel | [DevOverlayStats.cs](../../MainframeEngine/Src/Debugging/DevOverlay/DevOverlayStats.cs) | the dev overlay's GPU memory and Renderer panels read all of the above ([Developer overlay](dev-overlay.md)) |
 
 The wrappers are named `Gpu*` rather than the proposal's `Vk*`: the codebase aliases
 `VkBuffer = Silk.NET.Vulkan.Buffer` in many files, and a type of that name in the `MainframeEngine`
@@ -85,7 +85,7 @@ sequenceDiagram
   re-upload waits for earlier frames' reads), the copies and clears, mip chains (blits,
   when `GpuImage.MipLevels > 1`), then one batch to the final layouts (`SHADER_READ_ONLY_OPTIMAL` for
   textures, `DEPTH_STENCIL_READ_ONLY_OPTIMAL` for shadow maps) and a memory barrier for buffer
-  consumers. Resources created at load time or in `OnUpdate`/`OnImGui` are ready for that frame.
+  consumers. Resources created at load time or in `OnUpdate` are ready for that frame.
 - **Mid-frame creation**: a resource created while a frame is being recorded cannot join that command
   buffer; the wrappers call `FlushIfRecording()`, which submits the pending work in a one-shot command
   buffer and waits on its **fence** (`SubmitAndWait`). Nothing in the engine calls `vkQueueWaitIdle`.
@@ -93,7 +93,7 @@ sequenceDiagram
 ## Deletion queue
 
 `Dispose` on every renderer-owned object (`GpuBuffer`, `GpuImage`, `GpuTexture`, `RenderTarget`, sky,
-grid, Spine renderer, ImGui controller, shadow system, frame context) enqueues `GpuDeletion`s instead of
+grid, Spine renderer, screen-gizmo renderer, shadow system, frame context) enqueues `GpuDeletion`s instead of
 waiting for the device. An entry released while frame *N* records is tagged *N*; one released between
 frames (load time, `OnUpdate`) is tagged with the next frame, which records the upload queue's pending
 copies that may still reference it. It is destroyed (handle first, then its memory) once that frame's

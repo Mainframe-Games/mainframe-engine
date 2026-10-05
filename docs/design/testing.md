@@ -145,18 +145,18 @@ sequenceDiagram
   two boxes, one shadow-casting directional light), `multi-light` (same geometry, directional + spot +
   point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
   `spine` (adds SpineBoy, content linked from `Tests/Content`), `spine-no-shadows` (Spine and shapes with
-  no `ShadowSystem`: the fallback shadow set), `showcase` (mirrors the showcase fixture scene: the ImGui windows — including
-  `RendererDebugWindow` — gizmos, the audio bus mixer and the RmlUi HUD with bindings dirtied every frame, a
+  no `ShadowSystem`: the fallback shadow set), `showcase` (mirrors the showcase fixture scene: the dev overlay with every panel expanded and a
+  test panel, the light and axis screen gizmos, the audio bus mixer panel and the RmlUi HUD with bindings dirtied every frame, a
   streamed ambience and an orbiting doppler voice, and self-checks that both play, plus a stack of physics crates on
   single-threaded Jitter2; not used for goldens because it shows timings), `color-pipeline` (a solid-colour sRGB
-  panorama fills the frame; ImGui rectangles; exposure changes on frame 8), `physics` (crates and a ball dropped on a
+  panorama fills the frame; screen-gizmo rectangles; exposure changes on frame 8), `physics` (crates and a ball dropped on a
   floor and ramp; Jitter2's deterministic solver on one thread so frames reproduce), `physics-debug` (the same with
   collision-shape debug lines, drawn into the HDR scene target with sRGB-authored colours converted to linear),
   `sky-grid` (only the procedural sky and the grid, camera inside the grid so lines pass beside and behind it), since
   M3 `materials` (textured, cutout, normal-mapped, emissive, mirrored and blended primitives), `gltf` (the generated
   glTF test model imported through Assimp, plus a mirrored instance), `instances` (`--count` boxes, default 1 000,
   one mesh and material; self-checks the batch statistics) and `mouse-look` (the lit-shapes scene with a mouse-look camera; self-checks the `--input` drag turned it) and `picking` (object-ID picks in the main view and a
-  `SubViewport` shown through ImGui; self-checked), and the game-UI scenes (M8) `ui-hud` (HUD over lit-shapes),
+  `SubViewport` shown through a `UiDocument` `<img src="engine://picking-preview"/>`; self-checked), and the game-UI scenes (M8) `ui-hud` (HUD over lit-shapes),
   `ui-effects`, `ui-text`, `ui-widgets` (documents in the host's `Content/UI/` and the engine's widget demo;
   `--size` gives them larger windows), and the shadow scenes (M4) `csm`, `shadow-pcf`, `shadow-lights`,
   `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)). The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
@@ -181,7 +181,7 @@ sequenceDiagram
   `ShowcaseSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`,
   `PipelineCacheIsPersistedAndReloaded` (cold run writes, warm run loads),
   `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →
-  encode within ±2 at two exposures; ImGui colour exact and blended in sRGB space),
+  encode within ±2 at two exposures; screen-gizmo colour exact and blended in sRGB space),
   `PhysicsSceneRendersCleanlyAndMatchesGoldens` (frames 30, 150), `PhysicsDebugDrawRendersCleanlyAndMatchesGolden`,
   `PhysicsCapturesAreDeterministicAcrossRuns`,
   `ProceduralSkyAndGridMatchTheReferenceMath` (`SkyGridReference` recomputes each pixel's sky colour and
@@ -198,14 +198,15 @@ sequenceDiagram
   `HudOverTheSceneMatchesGoldenWithExactSrgbColours`, `ClipMasksTransformsFiltersAndGradientsMatchGolden`,
   `TextMatchesGolden`, `WidgetLibraryMatchesGolden`, `UiCapturesAreDeterministicAcrossRuns`,
   `UiSurvivesSwapchainRecreation`. `ShadowTests`: `CascadesCoverTheShadowDistanceAndMatchGoldens`,
-  `PcfSoftensShadowEdges`, `EveryLightTypeCastsShadowsAtOnce`, `ShadowMapViewerIsValidationClean`,
+  `PcfSoftensShadowEdges`, `EveryLightTypeCastsShadowsAtOnce`, `DevOverlayShadowsPanelIsValidationClean` (the dev overlay is hidden in every scene unless it opts in;
+  this one shows the Shadows panel, also across a resize),
   `ShadowsOfEveryLightTypeAllocateNothingPerFrame`, `CutoutMaterialsCastCutoutShadows`,
   `ShadowEdgesDoNotShimmerWhenTheCameraMoves`.
 - **Window.** 320×240 layout points, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. The host
   sets `EngineOptions.ContentScale` (`--scale`, default `HostOptions.CanonicalScale`: **2 on macOS, 1 elsewhere**), so
   captures are exactly the layout size × the scale in pixels — 640×480 for the `moltenvk` goldens, 320×240 for
   `lavapipe` — whatever the backing scale of the display the window lands on (a 1× external monitor or a 2× Retina
-  panel), and RmlUi's dp ratio and ImGui's scale are that scale too, so UI goldens match as well. The engine sizes the
+  panel), and RmlUi's dp ratio and the gizmo scale are that scale too, so UI goldens match as well. The engine sizes the
   OS window for the display (640×480 pt on a 1× monitor, 320×240 pt on Retina) before the swapchain exists and fails
   start-up if the framebuffer cannot reach the request; `result.json` records the scale (`ContentScale`).
   The editor's smoke runs (`EditorRenderTests`) pass the same canonical `--scale` to `MainframeEngine.Editor`: the
@@ -275,7 +276,7 @@ Expected `lavapipe` vs `moltenvk` differences (rasterizer, resolution and CPU, n
 resolution (`--scale 1` locally), the scenes with a grid differ in about 1.2 % of pixels (`shadow-lights`
 1.5 %), all on grid lines; sky, floor, lit and shadowed surfaces match. `csm`, `shadow-pcf`, `shadow-cutout`,
 `shadow-shimmer`, `gltf`, `instances` and `physics` frame 30 match to within ±4 on ≥ 99.99 % of pixels. The UI scenes
-(`ui-*`), `picking` and `color-pipeline` lay out ImGui/RmlUi in points, so compare them at their own sizes (the `moltenvk`
+(`ui-*`), `picking` and `color-pipeline` lay out RmlUi in points, so compare them at their own sizes (the `moltenvk`
 set is at scale 2): layout, colours and effects must match, glyph rasterization differs.
 
 - **Resolution.** Frames are 320×240 (scale 1), not the 640×480 of the `moltenvk` set (scale 2), so the distant grid
@@ -315,10 +316,10 @@ messages). Without the layers installed the validation gate skips locally and fa
 The allocation gate's host runs without tiered compilation: tier-0 code of some generic BCL methods allocates where
 the optimized code does not (the interpolated-string handlers' `AppendFormatted<T>` boxes each value until the
 background JIT promotes it), and when that promotion lands depends on timing, so with tiering about one run in three
-measured a few dozen frames of tier-0 ImGui text formatting. The gate checks the optimized code the steady state runs.
+measured a few dozen frames of tier-0 text formatting. The gate checks the optimized code the steady state runs.
 
 Per-frame code must not allocate: use static lambdas with state (`ShadowSystem.RenderShadows<TState>`),
-cached arrays, and stack-formatted ImGui text (`Span<char>.TryWrite` + `ImGui.TextUnformatted`). Unit-test
+cached arrays, and bound numbers formatted by the RML (dev overlay panels bind `int`/`float`, not strings). Unit-test
 allocation gates run in parallel with other test classes, so per-frame code must not rely on process-wide pools that
 other threads share (`ArrayPool<T>.Shared` partitions): the in-process transports use a private `PacketPool` for that
 reason (a loopback test once failed ~1 in 15 runs when another test thread drained the shared pool). The unit gates measure

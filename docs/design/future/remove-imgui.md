@@ -1,9 +1,9 @@
 # Proposal: Remove ImGui — RmlUi dev overlay and Vulkan screen gizmos
 
-**Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D2) · **Status:** ⬜ planned ·
+**Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D2) · **Status:** ✅ done (see [Developer overlay](../dev-overlay.md)) ·
 **Depends on:** [Demo project](demo-project.md) (removes the Sandbox, the biggest ImGui user) ·
-**Replaces:** [ImGui and debug tools](../imgui-and-debug-tools.md) · **Decision:** new ADR in `memory/decisions/`
-(ImGui removed; RmlUi is the only UI stack)
+**Replaced:** `docs/design/imgui-and-debug-tools.md` (now [Developer overlay](../dev-overlay.md)) · **Decision:**
+[ADR 0115](../../../memory/decisions/0115-remove-imgui.md) (ImGui removed; RmlUi is the only UI stack)
 
 ## Problem
 

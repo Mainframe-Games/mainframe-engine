@@ -2,9 +2,9 @@
 
 ## Purpose
 
-`Engine` owns the window, input, renderer, ImGui, the engine servers and a `SceneTree`, and drives the
+`Engine` owns the window, input, renderer, the engine servers and a `SceneTree`, and drives the
 game loop through Silk.NET's window events. Games subclass it, put nodes in the tree (usually a scene
-loaded from a file) and let the tree run the frame; four optional legacy hooks remain for code that draws
+loaded from a file) and let the tree run the frame; three optional legacy hooks remain for code that draws
 or updates by hand.
 
 ## Key types
@@ -12,7 +12,7 @@ or updates by hand.
 | Type | File | Notes |
 |---|---|---|
 | `Engine` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `public abstract class Engine : IDisposable`; `Tree` (`SceneTree`), `Root`, `Servers` |
-| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `Physics3D`/`Physics2D` (physics settings; `Physics2D.PixelsPerMeter = 100`), `DebugCollisionShapes`, `SteamAppId` (0 = no Steam), `Audio` (`AudioOptions`: `Enabled = true`, `Device = Auto`, 48 kHz, 10 ms, `BusLayoutPath`), `EnableUi = true` (registers the `UiServer`, M8), `Ui` (`UiServerOptions`), `DevOverlayVisible = true` (ImGui; F12 toggles `Engine.DevOverlayVisible`) |
+| `EngineOptions` | [Engine.cs](../../MainframeEngine/Src/Core/Engine.cs) | `struct` with `required GameName`, `RenderingBackend = Vulkan`, `WindowSize = 800×600`, `IconPath`, `VSync = true`, `EnableValidation = DefaultEnableValidation` (**true in Debug, false in Release**), `EnableFrameCapture`, `WindowVisible = true`, `MaxFrames` (0 = until closed), `FixedDeltaTime` (0 = wall clock), `PhysicsTicksPerSecond = 60`, `Physics3D`/`Physics2D` (physics settings; `Physics2D.PixelsPerMeter = 100`), `DebugCollisionShapes`, `SteamAppId` (0 = no Steam), `Audio` (`AudioOptions`: `Enabled = true`, `Device = Auto`, 48 kHz, 10 ms, `BusLayoutPath`), `EnableUi = true` (registers the `UiServer`, M8), `Ui` (`UiServerOptions`), `DevOverlayVisible = false` (the RmlUi dev overlay; F12 toggles `Engine.DevOverlayVisible`, see [Developer overlay](dev-overlay.md)) |
 | `FrameCapture` | [FrameCapture.cs](../../MainframeEngine/Src/Rendering/FrameCapture.cs) | RGBA8 pixels of a rendered frame, `SavePng(path)` |
 | `GameTime` | [GameTime.cs](../../MainframeEngine/Src/Core/GameTime.cs) | `FrameCount`, `DeltaTime`, `FramesPerSecond`, `FramesTimeMs` |
 | `FPSCounter` | [FPSCounter.cs](../../MainframeEngine/Src/Core/FPSCounter.cs) | 500 ms sampling window |
@@ -30,19 +30,18 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 {
     protected override void OnLoad()
     {
-        base.OnLoad();                                          // input, renderer, ImGui, servers
+        base.OnLoad();                                          // input, renderer, servers
         Tree.ChangeSceneToFile("Content/Scenes/Main.mscene");   // the tree processes and renders it
     }
 
-    // Optional legacy hooks (virtual since M2): OnImGui, OnUpdate, OnShadowPass, OnRenderMainPass.
-    protected override void OnImGui(in GameTime t) { }
+    // Optional legacy hooks (virtual since M2): OnUpdate, OnShadowPass, OnRenderMainPass.
 }
 ```
 
-- Call `base.OnLoad()` **first** (it creates input, renderer, ImGui, the `RenderServer` — and the
+- Call `base.OnLoad()` **first** (it creates input, renderer, the `RenderServer` — and the
   `SteamServer` when `SteamAppId` is set, and `MultiplayerApi` as `Engine.Multiplayer` — and routes input into the tree).
 - Call `base.OnClose()` **last** (it frees the scene tree, disposes the servers, clears the resource
-  cache, then disposes ImGui, input and the renderer).
+  cache, then disposes input and the renderer).
 - Behaviour lives in node types (`OnProcess`, `OnPhysicsProcess`, `OnInput`, …), see
   [Scene graph & nodes](scene-graph-and-nodes.md). A game can still keep everything in the legacy hooks:
   an empty tree costs nothing.
@@ -66,10 +65,10 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 2. **`Load`:** centres the window on its monitor (skipped when none is reported, e.g. a sleeping
    macOS display), then **`OnLoad()`** (base): `Window.CreateInput()` (SDL input) →
    `new VulkanRenderer(Window, { EnableValidation, VSync, EnableFrameCapture })` →
-   `new VulkanImGuiController(...)` → `Servers.Register(new RenderServer(Renderer))` (+ `SteamServer`, + `MultiplayerApi.Attach(Tree)`)
+   `Servers.Register(new RenderServer(Renderer))` (+ `SteamServer`, + `MultiplayerApi.Attach(Tree)`)
    → `AudioServer.Create(options.Audio, Tree)` when `Audio.Enabled` (never fails startup: no device means the
    silent null device; see [Audio](audio.md)) → `PhysicsServer3D`, `PhysicsServer2D` ([Physics](physics.md))
-   → `new InputRouter(InputContext, Tree)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
+   → `UiServer` and the `DevOverlay` with its built-in panels ([Developer overlay](dev-overlay.md)) → `new InputRouter(InputContext, Tree)` → `SetWindowIcon(IconPath)` (StbImageSharp, RGBA).
    The `SceneTree` itself is created in the constructor (no GPU needed), so nodes can be built before
    `OnLoad`; visuals that enter the tree before the render server exists get their GPU objects lazily.
 
@@ -77,14 +76,14 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
 
 Tests and QA tools set `FixedDeltaTime` (every update gets that delta instead of wall-clock time) and
 `MaxFrames` (the window closes after that many rendered frames; `RenderedFrameCount` excludes skipped
-frames). `CaptureFrame()` — legal from `OnImGui`, `OnUpdate` or a render hook, and only with
+frames). `CaptureFrame()` — legal from `OnUpdate`, a node's `OnProcess` or a render hook, and only with
 `EnableFrameCapture` — copies the frame being built back to the CPU; after `EndFrame` the engine calls
 `protected virtual OnFrameCaptured(FrameCapture)`. See [Testing](testing.md).
 
 ## The frame
 
-Update and Render are separate Silk.NET window events. ImGui is built **before** game update, the
-scene tree ticks **after** the legacy `OnUpdate` hook, and the shadow pass runs with the command buffer
+Update and Render are separate Silk.NET window events. The scene tree ticks **after** the legacy
+`OnUpdate` hook, and the shadow pass runs with the command buffer
 open but no render pass active.
 
 ```mermaid
@@ -94,18 +93,15 @@ sequenceDiagram
     participant E as Engine
     participant G as Game (subclass)
     participant R as VulkanRenderer
-    participant I as ImGui controller
 
     W->>E: Update(delta)
     E->>E: FPSCounter.Update(), fill GameTime
-    E->>I: Update(delta) → ImGui.NewFrame()
-    E->>G: OnImGui(gameTime) — only while DevOverlayVisible (F12)
     E->>G: OnUpdate(gameTime)
     E->>E: Tree.Tick(gameTime) — physics steps, OnProcess, deferred/QueueFree, transform sync, frame servers (UiServer: UI update + render into its command list)
 
     W->>E: Render(delta)
     alt minimised (WindowState or 0×0 drawable)
-        E->>I: DiscardFrame() → ImGui.EndFrame()
+        E->>E: ScreenGizmos.Clear() — nothing is drawn
         Note over E,W: IsEventDriven = true: the loop blocks on window events until restored
     else
         E->>R: BeginFrame() (slot fence wait, acquire, begin cmd buffer)
@@ -115,18 +111,17 @@ sequenceDiagram
             E->>R: BeginRenderPass() — HDR scene target: clear color (linear) + depth
             E->>R: RenderServer.RenderMain(Root) — set 0 (camera + lights), sky, then the tree's visuals
             E->>G: OnRenderMainPass(gameTime) — anything drawn by hand
-            E->>I: Render() — BeginOverlayPass (UI layers offscreen, tonemap into the swapchain, UI composite), then ImGui (DiscardFrame when the overlay is hidden; EndFrame then runs BeginOverlayPass)
         else swapchain out of date / being rebuilt
-            E->>I: DiscardFrame()
+            E->>E: ScreenGizmos.Clear()
         end
-        E->>R: EndFrame() (end pass, submit, present)
+        E->>R: EndFrame() — UI layers offscreen, tonemap into the swapchain, then the overlay pass in OverlayOrder (canvas, screen gizmos, UI layers, dev overlay); end pass, submit, present
     end
 ```
 
 ### Minimise
 
 While the window is minimised (`WindowState.Minimized`, or `Engine.FramebufferSize` is 0×0) `OnRender`
-renders nothing, closes the ImGui frame, and switches the window to `IsEventDriven` so Silk's loop
+renders nothing (the screen gizmos are discarded), and switches the window to `IsEventDriven` so Silk's loop
 blocks in `SDL_WaitEvent` instead of spinning; the first render after restore switches it back. The
 renderer likewise refuses to rebuild a 0×0 swapchain and keeps the request pending (no busy wait).
 Covered by the render test `MinimiseAndRestoreIsCleanAndResumesRendering` (the host's `--minimize <frame>`: minimise,
@@ -147,7 +142,7 @@ system cannot minimise, e.g. a bare Xvfb, the run only proves that nothing break
 `Ms = 1000 / Fps` (integer). It is ticked from the **Update** event, so it measures update rate,
 not presented frames.
 
-`Engine.LastFrameCpuMilliseconds` is the CPU cost of the last rendered frame: its updates (ImGui, `OnUpdate`, the
+`Engine.LastFrameCpuMilliseconds` is the CPU cost of the last rendered frame: its updates (`OnUpdate`, the
 tree tick) plus `RenderFrame` (draw-list build, command recording, submit), minus the time the renderer was blocked
 on the GPU or the swapchain (`IVulkanContext.LastFrameWaitMilliseconds`: the frame slot's fence, acquire, present and
 a capture's read-back). It does not depend on GPU speed, so the render tests' frame-rate gate uses it on CPU Vulkan
@@ -158,7 +153,7 @@ devices ([Testing](testing.md#render-tests)).
 `Closing` → `OnClose()` (base): dispose the input router → `Tree.Shutdown()` (frees every node, so
 visuals release their GPU objects and audio players stop) → `Servers.Dispose()` (reverse registration order — registered Render, Steam, Audio, Physics 3D/2D, UI: the UI server
 releases RmlUi and its GPU objects first, the physics servers their worlds, the audio server stops the device and
-streaming thread; the render server releases anything still alive and its `ShadowSystem` last) → `ResourceLoader.ClearCache()` → dispose ImGui controller →
+streaming thread; the render server releases anything still alive and its `ShadowSystem` last) → `ResourceLoader.ClearCache()` →
 dispose input → dispose renderer.
 `Run()` returns the exit code (`Ok` unless `Quit(code)` set another). `Dispose()` disposes the window.
 

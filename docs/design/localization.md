@@ -51,7 +51,7 @@ flowchart LR
 
 | Recipe | What it runs |
 |---|---|
-| `just l10n-extract` | builds the Demo, runs the GetText.NET extractor over `Examples/Demo/Demo/Src`, `mf-l10n extract` (RML + scenes + the C# template), `update` (every `.po`) and `pseudo` (qps, Latin-1 accents for ImGui's font) |
+| `just l10n-extract` | builds the Demo, runs the GetText.NET extractor over `Examples/Demo/Demo/Src`, `mf-l10n extract` (RML + scenes + the C# template), `update` (every `.po`) and `pseudo` (qps, Latin-1 accents for fonts limited to Latin-1) |
 | `just l10n-compile` | `mf-l10n compile --dir …/Content/locale`: refreshes the committed `.mo` next to each `.po` |
 | `just l10n-check` | fails when a committed `.mo` is missing or stale, or a translation breaks its placeholders; with GNU `msgfmt` on PATH it also runs `msgfmt -c` and requires byte-identical output |
 | `just l10n-stats` | coverage per locale |
@@ -253,7 +253,7 @@ over a session; fallback faces only supply missing glyphs, so they never change 
 `mf-l10n pseudo --pot … --dir …` writes `qps/LC_MESSAGES/messages.po` (and `--compile` its `.mo`): every message is
 accented (`Settings` → `[Šéţţîñĝš ~~]`), padded by about 30% (`--expansion`), and bracketed. Format items
 (`{0:N2}`), escaped braces, `{{ data }}` expressions, `%s` sequences and outer whitespace are kept. `--charset latin1`
-only uses Latin-1 accents (`[Séttîñgs ~~]`) for fonts limited to Latin-1, such as ImGui's built-in font. In `qps`, strings that bypass translation appear without brackets, and clipped brackets show truncation.
+only uses Latin-1 accents (`[Séttîñgs ~~]`) for fonts limited to Latin-1. In `qps`, strings that bypass translation appear without brackets, and clipped brackets show truncation.
 
 ## Demo
 

@@ -25,7 +25,6 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 | `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.meta` import settings |
 | `AudioPlayer`, `AudioPlayer2D`, `AudioPlayer3D`, `AudioListener3D` | [Audio/Nodes/](../../MainframeEngine/Src/Audio/Nodes/) | nodes |
 | `AudioMath`, `AttenuationModel` | [Audio/AudioMath.cs](../../MainframeEngine/Src/Audio/AudioMath.cs) | dB, attenuation curves, listener projection, pan law, doppler |
-| `AudioImGui` | [Audio/AudioImGui.cs](../../MainframeEngine/Src/Audio/AudioImGui.cs) | debug bus mixer |
 | `AudioMixRoot`, `AudioGraph`, `AudioVoice`, `VoiceSource`, `SpatialSmoother`, `BusProcessor` | [Audio/Graph/](../../MainframeEngine/Src/Audio/Graph/) | audio-thread side (internal) |
 | `SpscRing<T>`, `AudioStreamChannel`, `AudioStreamer` | [Audio/Threading/](../../MainframeEngine/Src/Audio/Threading/) | lock-free rings, streaming thread (internal) |
 | `AudioDecoder` (`WavDecoder`, `VorbisDecoder`, `MiniAudioFileDecoder`), `AudioClipData`, `AudioStreamSource` | [Audio/Decoding/](../../MainframeEngine/Src/Audio/Decoding/) | decoding (internal) |
@@ -227,8 +226,8 @@ their own `ProcessMode` (default `Pausable`).
 
 ## Debugging and QA
 
-- `AudioImGui.DrawMixer(server)` draws the device, voice/steal/underrun counters and a fader, mute, solo and peak
-  meter per bus (allocation-free).
+- The dev overlay's Audio panel ([Developer overlay](dev-overlay.md)) shows the device, voice/steal/underrun counters and a
+  fader, mute, solo and peak meter per bus (allocation-free; writes go through `AudioServer` commands).
 - `AudioServer.Stats`: active/total voices, steals, rejected plays, stream underruns and errors, rendered frames and
   blocks, pending commands, fault flag.
 

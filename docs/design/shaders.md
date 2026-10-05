@@ -82,7 +82,7 @@ when they take shadows) and the push range, so they are compatible. Every frame 
 | `SceneGrid/SceneGrid.vk.vert/.frag` | `SceneGrid` | 0 `vec3`, 1 `vec4`, 2 `vec3` (other end of the line; the vertex shader clips the line) | s0 frame | — |
 | `Post/Fullscreen.vk.vert` | tonemap pass | `gl_VertexIndex` | — | — |
 | `Post/Tonemap.vk.frag` | `VulkanRenderer` | `gl_FragCoord` | s0 b0 `sampler2D` HDR scene | `float exposure; uint encodeSrgb` (8 B) |
-| `ImGui/ImGui.vk.vert/.frag` | `VulkanImGuiController` | 0 `vec2`, 1 `vec2`, 2 `vec4` | s0 b0 `sampler2D fontSampler` (UNORM) | `vec2 scale; vec2 translate`; specialization 0 `kLinearizeColors` |
+| `Gizmos/ScreenGizmo.vk.vert/.frag` | `ScreenGizmosRenderer` ([Developer overlay](dev-overlay.md#screen-gizmos)) | 0 `vec2` (pixels), 1 `vec4` (sRGB, straight alpha) | — | `vec2 scale; vec2 translate`; specialization 0 `kLinearizeColors` |
 
 The legacy OpenGL shaders and the unused `Quad.vk.*`/`Spine.vk.*` were deleted in M3, and `Shapes/Shapes.vk.*`
 with `ShapeBase` (replaced by the mesh shaders).

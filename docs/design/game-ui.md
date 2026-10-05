@@ -133,7 +133,7 @@ flowchart LR
     O --> L["UI passes on an offscreen layer<br/>RGBA8 premultiplied sRGB + stencil"]
     L --> T["tonemap → swapchain"]
     T --> C["composite UI layer<br/>(premultiplied over)"]
-    C --> I["ImGui"]
+    C --> I["dev overlay<br/>(an RmlUi layer, on top)"]
 ```
 
 - **Recording.** RmlUi's callbacks, issued during `UiServer.Process`, append `UiCommand` structs (geometry draw, shader
@@ -142,8 +142,8 @@ flowchart LR
   cannot redirect a draw. Filters and gradient parameters are copied into the frame's list.
 - **Replay** happens inside `IVulkanContext.BeginOverlayPass` through the new `IOverlayRenderer` hook
   ([IOverlayRenderer.cs](../../MainframeEngine/Src/Rendering/Vulkan/IOverlayRenderer.cs)): `RecordOffscreen` after the
-  scene pass ends (UI passes), `RecordOverlay` after the tonemap and before ImGui (one fullscreen premultiplied
-  composite). Frames with no UI commands record nothing.
+  scene pass ends (UI passes), `RecordOverlay` after the tonemap, after the canvas and the screen gizmos (`OverlayOrder.Ui`; one fullscreen
+  premultiplied composite). Frames with no UI commands record nothing.
 - **Colour.** Documents are authored in sRGB and blended in sRGB space, like a browser: layers are `R8G8B8A8_UNORM`
   holding premultiplied sRGB-encoded values, and the composite writes them unchanged into the UNORM swapchain view, so
   exposure and ACES never touch the UI (`#3366cc` lands as `#3366cc`, checked by a render test). On an sRGB-only
@@ -232,7 +232,8 @@ only one); a consumed event never reaches `OnInput`/`OnUnhandledInput` ([ADR 005
   engine adds its own (widgets) automatically.
 - **Debugger:** F8 (`UiServerOptions.DebuggerKey`, `UiServer.DebuggerVisible`) shows RmlUi's visual debugger in its own
   context on top, inspecting the top visible layer.
-- **ImGui** stays the developer overlay: `Engine.DevOverlayVisible`, toggled with F12 (`EngineOptions.DevOverlayVisible`).
+- **Developer overlay:** an RmlUi layer on top of every other layer: `Engine.DevOverlayVisible`, toggled with F12
+  (`EngineOptions.DevOverlayVisible`); see [Developer overlay](dev-overlay.md).
 
 ## Widget library
 
@@ -308,4 +309,4 @@ state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded
 
 [Milestones](../milestones.md) · [Native libraries](natives.md) · [Color pipeline](color-pipeline.md) ·
 [GPU resources](gpu-resources.md) · [Scene graph & nodes](scene-graph-and-nodes.md#input) ·
-[ImGui & debug tools](imgui-and-debug-tools.md) · [Editor](editor.md) · [Localization](localization.md)
+[Developer overlay](dev-overlay.md) · [Editor](editor.md) · [Localization](localization.md)

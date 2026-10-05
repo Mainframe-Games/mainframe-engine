@@ -306,11 +306,12 @@ Shadows are optional:
 | `LastCpuMilliseconds`, `LastGpuMilliseconds` | — | CPU time of `RenderShadows`; GPU time between two timestamps (read when the frame slot comes round) |
 | `CascadeResolution`, `AtlasSize`, `AtlasPackCount`, `MapMemoryBytes` | — | resources |
 
-`RendererDebugWindow` has a **Shadows** section:
+The dev overlay's **Shadows** panel ([Developer overlay](dev-overlay.md)) shows:
 
 - the settings above, the pass, draw and instance counts, the CPU and GPU times;
-- a **Maps** tree that shows the cascade layers and the atlas (depth as red). ImGui images can name their layout
-  (`IImGuiTextureRegistry.Register(view, sampler, layout)`), here `DEPTH_STENCIL_READ_ONLY_OPTIMAL`.
+- a **Maps** section that shows the cascade layers and the atlas as grey images (`engine://dev-shadow-*`, registered
+  with `UiServer.RegisterTexture(name, source, UiTextureConversion.DepthToGray)`; the source reports the layout,
+  here `DEPTH_STENCIL_READ_ONLY_OPTIMAL`, and `ShadowSystem.MapsGeneration` as the image generation).
 
 ### Quality levels
 

@@ -56,7 +56,6 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.23.0*
 | Silk.NET.Vulkan (+ Extensions.EXT/KHR) | 2.22.0 | Vulkan bindings |
 | Silk.NET.MoltenVK.Native | 2.22.0 | Bundled MoltenVK for macOS |
 | Silk.NET.Assimp | 2.22.0 | *Referenced but unused* (kept for M3) |
-| ImGui.NET | 1.91.6.1 | Debug UI |
 | StbImageSharp | 2.30.16 | Image decoding (sky, Spine atlas, icon) |
 | ENet-CSharp | 2.4.8 | UDP networking |
 | Steamworks.NET | 2024.8.0 | Steam wrappers (inert, see [Steamworks](steamworks.md)) |
@@ -151,13 +150,13 @@ flowchart TD
   drawable, which for a Vulkan window is also in points. `Engine.FramebufferSize`
   ([`WindowPixels`](../../MainframeEngine/Src/Core/WindowPixels.cs)) returns
   `SDL_Vulkan_GetDrawableSize` in **pixels** (3024×1692 for a 1512×846 pt Retina window); the
-  renderer's extent fallback, minimise detection, ImGui's framebuffer scale and game aspect ratios
+  renderer's extent fallback, minimise detection and game aspect ratios
   use it. Prefer it over `Window.FramebufferSize`.
 - **Fixed content scale.** `EngineOptions.ContentScale` > 0 makes the framebuffer exactly `WindowSize` × that scale in
   pixels on any display: before `OnLoad` creates the swapchain, the engine measures the display's pixels per point and
   sizes the OS window to the request ÷ that ratio (`WindowPixels.ResizeToPixels`; again after centring, in case it moved
   displays), and throws if the framebuffer still differs (a fractional scale that does not divide it). The UI's dp
-  ratio (`UiServer.ContentScale`) and ImGui's points use the fixed scale; mouse and IME positions keep converting with
+  ratio (`UiServer.ContentScale`) and the gizmo scale (`RenderServer.GizmoScale`) use the fixed scale; mouse and IME positions keep converting with
   the display's real pixels per point. `Engine.ResizeWindow` resizes in the same layout points. Render tests and
   the Demo's screenshots use it so images do not depend on the monitor; 0 (default) follows the display.
 - **Finding libSDL2 (and other Silk.NET package natives).** A RID-agnostic build (`dotnet build/run/test`)
