@@ -29,7 +29,7 @@
 </head>
 <body class="backdrop" data-model="new_project">
     <div class="dialog" id="dialog">
-        <div class="dialog-title"><span class="icon icon-sm icon-square-plus"></span> New Project</div>
+        <div class="dialog-title"><span class="icon icon-sm icon-square-plus"></span><span>New Project</span></div>
         <div class="dialog-body">
             <div class="about">A game project from the <span class="mono">mfgame</span> template: a class library for your nodes, a launcher running it with GameHost, <span class="mono">project.mfproj</span> and a sample scene.</div>
             <div class="dialog-row">

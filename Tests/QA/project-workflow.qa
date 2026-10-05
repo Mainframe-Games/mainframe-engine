@@ -15,6 +15,11 @@ wait-for project 300
 timing create-build-open
 wait 20
 capture 04-project-open
+command project.settings
+wait 3
+capture 04b-project-settings
+key Escape
+wait 2
 # Add nodes and save.
 select Spinner
 add-node OmniLight3D Lamp
