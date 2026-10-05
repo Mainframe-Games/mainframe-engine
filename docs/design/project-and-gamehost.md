@@ -114,7 +114,8 @@ commas tolerated). Only values that differ from the defaults are written, except
 `isDemo` (Application › Demo Build) marks the game's **Steam demo** build, as opposed to the full game:
 
 - **Compile time.** Every project of the game imports the engine's
-  [`build/MainframeGame.props`](../../build/MainframeGame.props) (the template's `Directory.Build.props` does). It reads
+  [`build/MainframeGame.props`](../../build/MainframeGame.props) (the template's `Directory.Build.props` does, as does
+  `Examples/Demo`'s). It reads
   `isDemo` from the nearest `project.mfproj` and, when true, adds `DEMO` to `DefineConstants`, so game code separates
   the builds with `#if DEMO` / `#if !DEMO` (cut content, a "buy the full game" screen). A build overrides the file with
   `-p:MainframeDemo=true|false`: `dotnet publish MyGame.Desktop -c Release -p:MainframeDemo=true` makes the demo from
