@@ -9,20 +9,40 @@ public readonly record struct ProjectIcon(string? Path, bool Changed);
 /// </summary>
 public sealed class ProjectIconResolver
 {
-    private readonly Dictionary<string, (DateTime ProjectWrite, string? Icon, DateTime IconWrite)> _cache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (DateTime ProjectWrite, string? Candidate, DateTime IconWrite)> _cache = new(StringComparer.Ordinal);
 
     public ProjectIcon Resolve(string projectDirectory)
     {
         var root = Path.GetFullPath(projectDirectory);
         var projectFile = GameProjectLayout.ProjectFileOf(root);
         var projectWrite = File.Exists(projectFile) ? File.GetLastWriteTimeUtc(projectFile) : DateTime.MinValue;
+
+        // If project.mfproj doesn't exist, return default immediately without calling ProjectSettings.Load
+        if (projectWrite == DateTime.MinValue)
+        {
+            _cache.Remove(root);
+            return new ProjectIcon(null, false);
+        }
+
+        var isFirstResolution = !_cache.ContainsKey(root);
         _cache.TryGetValue(root, out var cached);
-        var icon = cached.ProjectWrite == projectWrite && cached.ProjectWrite != default ? cached.Icon : ReadIcon(root, projectFile);
-        var iconWrite = icon is not null && File.Exists(icon) ? File.GetLastWriteTimeUtc(icon) : DateTime.MinValue;
-        if (icon is not null && iconWrite == DateTime.MinValue)
-            icon = null;
-        var changed = icon is not null && (cached.Icon != icon || cached.IconWrite != iconWrite);
-        _cache[root] = (projectWrite, icon, iconWrite);
+
+        // Re-read candidate only if project.mfproj's mtime changed
+        var candidate = cached.ProjectWrite == projectWrite ? cached.Candidate : ReadIcon(root, projectFile);
+
+        // Always stat the candidate (check existence and get modification time)
+        var iconWrite = candidate is not null && File.Exists(candidate) ? File.GetLastWriteTimeUtc(candidate) : DateTime.MinValue;
+
+        // Path is the candidate if it exists (IconWrite != MinValue), else null
+        var icon = candidate is not null && iconWrite != DateTime.MinValue ? candidate : null;
+
+        // Previous icon for change detection: reconstruct from cache
+        var previousIcon = cached.Candidate is not null && cached.IconWrite != DateTime.MinValue ? cached.Candidate : null;
+
+        // Changed on first resolution, when icon path changed, or when (icon exists and mtime changed)
+        var changed = isFirstResolution || previousIcon != icon || (icon is not null && cached.IconWrite != iconWrite);
+
+        _cache[root] = (projectWrite, candidate, iconWrite);
         return new ProjectIcon(icon, changed);
     }
 
@@ -36,7 +56,7 @@ public sealed class ProjectIconResolver
             var inside = full.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
             return inside && string.Equals(Path.GetExtension(full), ".png", StringComparison.OrdinalIgnoreCase) ? full : null;
         }
-        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException or NotSupportedException)
         {
             return null;
         }
