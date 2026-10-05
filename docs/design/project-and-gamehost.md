@@ -132,6 +132,15 @@ autoloads (each added as `/root/{Name}`, in order, before the scene; a failing o
 `Tree.ChangeSceneToFile(--scene ?? mainScene)`. Each frame `GameSession.Update` applies editor commands and reports
 status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the Sandbox).
 
+### UI hot reload
+
+Debug engine builds (`UiServerOptions.DefaultHotReload`) hot-reload the game's `.rml`/`.rcss` from the project sources:
+`GameHost.Run` hands the launcher's game assemblies to the `GameHost` constructor, and `GameHost.CreateUiOptions` turns
+their `[AssemblyMetadata("MainframeContentSource", …)]` folders (`UiServerOptions.SourceDirectoriesOf`) into the UI's
+source directories, so saving a document in the project's `Content/` reloads it in the running game. The `mfgame`
+template's `MyGame.csproj` records its sibling `Content/` folder under that key in Debug builds only; Release builds and
+installed games load from the output folder. An explicit `EngineOptions.Ui` (tests, engine subclasses) is left alone.
+
 ## Input actions
 
 `InputMap` holds named actions (`InputAction`: deadzone, bindings). `InputBinding` is a key, a mouse button, a

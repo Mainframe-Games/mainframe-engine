@@ -16,7 +16,16 @@ namespace MainframeEngine;
 public class GameHost : Engine
 {
     public GameHost(ProjectSettings settings, GameHostOptions? options = null)
-        : base((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()))
+        : this(settings, options, [])
+    {
+    }
+
+    /// <param name="settings">The project settings.</param>
+    /// <param name="options">Command-line options.</param>
+    /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Content/</c> UI (<see cref="CreateUiOptions"/>).</param>
+    public GameHost(ProjectSettings settings, GameHostOptions? options, IReadOnlyList<Assembly> gameAssemblies)
+        : base(WithUi((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()),
+            CreateUiOptions(settings, gameAssemblies)))
     {
         Settings = settings;
         Project = settings;
@@ -26,6 +35,29 @@ public class GameHost : Engine
     }
 
     private int _updates;
+
+    /// <summary>
+    /// The UI options a game runs with: with <paramref name="hotReload"/> (Debug engine builds) the UI also watches the
+    /// game assemblies' <c>MainframeContentSource</c> folders (their source <c>Content/</c>), so editing an <c>.rml</c> or
+    /// <c>.rcss</c> in the project reloads the running game.
+    /// </summary>
+    public static UiServerOptions CreateUiOptions(ProjectSettings settings, IReadOnlyList<Assembly> gameAssemblies,
+        bool hotReload = UiServerOptions.DefaultHotReload)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(gameAssemblies);
+        return new UiServerOptions
+        {
+            HotReload = hotReload,
+            SourceContentDirectories = hotReload ? UiServerOptions.SourceDirectoriesOf([.. gameAssemblies]) : [],
+        };
+    }
+
+    private static EngineOptions WithUi(EngineOptions options, UiServerOptions ui)
+    {
+        options.Ui ??= ui;
+        return options;
+    }
 
     public ProjectSettings Settings { get; }
 
@@ -82,7 +114,7 @@ public class GameHost : Engine
         try
         {
             GameSession.LoadGameAssemblies(settings, gameAssemblies);
-            host = new GameHost(settings, options);
+            host = new GameHost(settings, options, gameAssemblies);
             return (int)host.Run();
         }
         catch (Exception e) when (e is not OutOfMemoryException)
