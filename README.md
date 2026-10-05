@@ -337,10 +337,10 @@ interpolated `$"..."` ones — allocate nothing.
 
 | System | Library | Version |
 |--------|---------|---------|
-| Windowing / Input | Silk.NET (SDL2 backend) | 2.22.0 |
-| Vulkan bindings | Silk.NET.Vulkan | 2.22.0 |
-| Vulkan on macOS | Silk.NET.MoltenVK.Native | 2.22.0 |
-| Model loading | Silk.NET.Assimp | 2.22.0 |
+| Windowing / Input | Silk.NET (SDL2 backend) | 2.23.0 |
+| Vulkan bindings | Silk.NET.Vulkan | 2.23.0 |
+| Vulkan on macOS | Silk.NET.MoltenVK.Native | 2.23.0 |
+| Model loading | Silk.NET.Assimp | 2.23.0 |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) + FreeType (in-house `mfrmlui` C ABI shim) | 6.3 / 2.14.3 |
 | Debug UI | ImGui.NET | 1.89.9.3 |
 | Physics 3D | [Jitter2](https://github.com/notgiven688/jitterphysics2) | 2.9.0 |

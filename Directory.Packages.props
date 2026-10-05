@@ -6,7 +6,7 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
-    <SilkNetVersion>2.22.0</SilkNetVersion>
+    <SilkNetVersion>2.23.0</SilkNetVersion>
   </PropertyGroup>
 
   <!-- Engine -->

@@ -48,7 +48,7 @@ in each project that needs it and must stay. The build has **0 warnings** in Deb
 
 ### Packages
 
-All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.22.0**.
+All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.23.0**.
 
 | Package | Version | Used by / for |
 |---|---|---|
