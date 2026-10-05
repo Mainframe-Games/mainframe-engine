@@ -64,9 +64,7 @@ internal static class SteamApi
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static (SteamStatus Status, string Message) Initialize(string nativeFileName)
     {
-        // Same name and probing as Steamworks.NET's own DllImport (steam_api64 on Windows x64, steam_api elsewhere).
-        var importName = OperatingSystem.IsWindows() && Environment.Is64BitProcess ? "steam_api64" : "steam_api";
-        if (!NativeLibrary.TryLoad(importName, typeof(SteamAPI).Assembly, null, out _))
+        if (!TryLoadNative())
         {
             return (SteamStatus.NativeLibraryMissing,
                 $"'{nativeFileName}' was not found next to the app. It comes from the Steamworks SDK " +
@@ -95,6 +93,17 @@ internal static class SteamApi
             Log.Warning("[Steam] RequestCurrentStats failed; achievements may be unavailable");
         return (SteamStatus.Running, "Steam is running.");
     }
+
+    // Same name and probing as Steamworks.NET's own DllImport (steam_api64 on Windows x64, steam_api elsewhere).
+    private static bool TryLoadNative()
+    {
+        var importName = OperatingSystem.IsWindows() && Environment.Is64BitProcess ? "steam_api64" : "steam_api";
+        return NativeLibrary.TryLoad(importName, typeof(SteamAPI).Assembly, null, out _);
+    }
+
+    /// <summary><c>SteamAPI_RestartAppIfNecessary</c>; false without the native library.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static bool RestartAppIfNecessary(uint appId) => TryLoadNative() && SteamAPI.RestartAppIfNecessary(new AppId_t(appId));
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static void RunCallbacks() => SteamAPI.RunCallbacks();

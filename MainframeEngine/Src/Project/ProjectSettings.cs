@@ -4,7 +4,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// A game project's settings — the contents of <c>project.mfproj</c> next to its <c>Content/</c> folder: name, main
-/// scene, game assemblies, window, physics, input map, audio, localization, rendering, Steam and autoloads, plus the
+/// scene, game assemblies, demo build, window, physics, input map, audio, localization, rendering, Steam and autoloads, plus the
 /// engine version the project was created with. <see cref="GameHost"/> applies them; the editor edits them.
 /// </summary>
 /// <remarks>
@@ -46,6 +46,14 @@ public sealed class ProjectSettings
     /// </summary>
     public List<string> Assemblies { get; } = [];
 
+    /// <summary>
+    /// This is the game's demo (a Steam demo: its own app on Steam, <see cref="SteamProjectSettings.DemoAppId"/>), not the
+    /// full game. Game projects compile with <c>DEMO</c> defined when it is set (<c>#if DEMO</c>; the engine's
+    /// <c>build/MainframeGame.props</c>, overridden per build with <c>-p:MainframeDemo=true|false</c>), and
+    /// <see cref="GameHost"/> replaces it with the value the running game was built with.
+    /// </summary>
+    public bool IsDemo { get; set; }
+
     public WindowSettings Window { get; } = new();
 
     public PhysicsProjectSettings Physics { get; } = new();
@@ -63,8 +71,14 @@ public sealed class ProjectSettings
 
     public RenderingProjectSettings Rendering { get; } = new();
 
-    /// <summary>The game's Steam app id; 0 (default) leaves Steam alone (<see cref="EngineOptions.SteamAppId"/>).</summary>
-    public uint SteamAppId { get; set; }
+    public SteamProjectSettings Steam { get; } = new();
+
+    /// <summary>
+    /// The Steam app id this build starts Steam with (<see cref="EngineOptions.SteamAppId"/>):
+    /// <see cref="SteamProjectSettings.DemoAppId"/> for a demo (<see cref="IsDemo"/>), else
+    /// <see cref="SteamProjectSettings.AppId"/>. 0 leaves Steam alone.
+    /// </summary>
+    public uint SteamAppId => IsDemo ? Steam.DemoAppId : Steam.AppId;
 
     /// <summary>Singleton nodes added under the root before the main scene, in order (Godot's autoloads).</summary>
     public List<AutoloadSettings> Autoloads { get; } = [];
@@ -314,6 +328,32 @@ public sealed class LocalizationProjectSettings
         SourceLocale = SourceLocale,
         FallbackLocales = [.. Fallbacks],
     };
+}
+
+/// <summary>The <c>steam</c> section: Steamworks app ids and start-up behaviour (docs/design/steamworks.md).</summary>
+public sealed class SteamProjectSettings
+{
+    /// <summary>The full game's Steam app id; 0 (default) leaves Steam alone in full builds.</summary>
+    public uint AppId { get; set; }
+
+    /// <summary>
+    /// The demo's Steam app id (a demo is a separate app on Steamworks), used by demo builds
+    /// (<see cref="ProjectSettings.IsDemo"/>); 0 (default) leaves Steam alone in demo builds.
+    /// </summary>
+    public uint DemoAppId { get; set; }
+
+    /// <summary>
+    /// Development runs (started by the editor's Play, or a Debug build) write <c>steam_appid.txt</c> next to the game so
+    /// Steam starts without the game being launched by Steam. Default true; shipped (Release) builds never write it.
+    /// </summary>
+    public bool DevAppIdFile { get; set; } = true;
+
+    /// <summary>
+    /// Shipped (Release) builds started outside Steam ask Steam to relaunch them through the Steam client and exit
+    /// (<see cref="MainframeEngine.Steam.RestartAppIfNecessary"/>), so ownership and the overlay always apply. Default
+    /// false; development runs never restart.
+    /// </summary>
+    public bool RestartThroughSteam { get; set; }
 }
 
 /// <summary>The <c>rendering</c> section.</summary>

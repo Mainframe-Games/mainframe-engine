@@ -24,8 +24,8 @@ public class GameHost : Engine
     /// <param name="options">Command-line options.</param>
     /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Content/</c> UI (<see cref="CreateUiOptions"/>).</param>
     public GameHost(ProjectSettings settings, GameHostOptions? options, IReadOnlyList<Assembly> gameAssemblies)
-        : base(WithUi((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()),
-            CreateUiOptions(settings, gameAssemblies)))
+        : base(WithUi(WithSteam((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()),
+            settings, options), CreateUiOptions(settings, gameAssemblies)))
     {
         Settings = settings;
         Project = settings;
@@ -57,6 +57,57 @@ public class GameHost : Engine
     {
         options.Ui ??= ui;
         return options;
+    }
+
+    private static EngineOptions WithSteam(EngineOptions options, ProjectSettings settings, GameHostOptions? host)
+    {
+        options.SteamWriteDevAppIdFile = settings.Steam.DevAppIdFile && IsDevelopmentRun(host ?? new GameHostOptions());
+        return options;
+    }
+
+    /// <summary>
+    /// The assembly metadata key the engine's <c>build/MainframeGame.props</c> stamps on game projects: <c>"true"</c> in
+    /// demo builds (<c>DEMO</c> defined), <c>"false"</c> otherwise.
+    /// </summary>
+    public const string DemoMetadataKey = "MainframeDemo";
+
+    /// <summary>
+    /// Whether the running game is its demo build (<see cref="ProjectSettings.IsDemo"/> as the game was built — the
+    /// runtime counterpart of <c>#if DEMO</c>). False when no project is running.
+    /// </summary>
+    public static bool IsDemo => Project?.IsDemo == true;
+
+    /// <summary>
+    /// The demo flag <paramref name="assemblies"/> were built with (<see cref="DemoMetadataKey"/>; the first that has it
+    /// wins), or null when none was built with the engine's game build props.
+    /// </summary>
+    public static bool? BuiltAsDemo(IEnumerable<Assembly?> assemblies)
+    {
+        ArgumentNullException.ThrowIfNull(assemblies);
+        foreach (var assembly in assemblies)
+        {
+            if (assembly is null)
+                continue;
+            foreach (var metadata in assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+            {
+                if (metadata.Key == DemoMetadataKey && bool.TryParse(metadata.Value, out var demo))
+                    return demo;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A development run — started by the editor (<see cref="GameHostOptions.EditorPort"/>) or a Debug build of the game
+    /// (its entry assembly is not optimized) — rather than a shipped build: it may write <c>steam_appid.txt</c> and never
+    /// relaunches through Steam.
+    /// </summary>
+    public static bool IsDevelopmentRun(GameHostOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.EditorPort is not null
+               || Assembly.GetEntryAssembly()?.GetCustomAttribute<System.Diagnostics.DebuggableAttribute>()?.IsJITOptimizerDisabled == true;
     }
 
     public ProjectSettings Settings { get; }
@@ -105,6 +156,17 @@ public class GameHost : Engine
         {
             Log.Error($"[GameHost] {e.Message}");
             return (int)ExitCode.Error;
+        }
+
+        // The build decides demo or full game (-p:MainframeDemo may differ from the project file it copied).
+        if (BuiltAsDemo([Assembly.GetEntryAssembly(), .. gameAssemblies]) is { } demo)
+            settings.IsDemo = demo;
+        if (settings.IsDemo)
+            Log.Info($"[GameHost] Demo build (Steam app {settings.SteamAppId}).");
+        if (settings.Steam.RestartThroughSteam && !IsDevelopmentRun(options) && Steam.RestartAppIfNecessary(settings.SteamAppId))
+        {
+            Log.Info($"[GameHost] Not started by Steam: relaunching through Steam (app {settings.SteamAppId}).");
+            return (int)ExitCode.Ok;
         }
 
         var fileLog = options.LogFile ? TryCreateFileLog(settings.Name) : null;

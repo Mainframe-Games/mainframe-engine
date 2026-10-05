@@ -83,6 +83,7 @@ public sealed class ProjectSettingsModel
         ("Localization", "language"),
         ("Rendering", "brightness-half"),
         ("Autoloads", "stack-2"),
+        ("Steamworks", "brand-steam"),
     ];
 
     /// <summary>Every scalar setting (input map and autoloads have their own operations).</summary>
@@ -94,8 +95,9 @@ public sealed class ProjectSettingsModel
             static (s, v) => s.MainScene = string.IsNullOrWhiteSpace(v) ? null : v.Trim(), "The scene the game starts with (Play ▶ runs it)."),
         new("assemblies", "Application", "Game Assemblies", SettingKind.List, static s => string.Join(", ", s.Assemblies),
             static (s, v) => Replace(s.Assemblies, SplitList(v)), "Assemblies holding the game's node types (loaded before scenes)."),
-        new("steamAppId", "Application", "Steam App Id", SettingKind.WholeNumber, static s => s.SteamAppId.ToString(CultureInfo.InvariantCulture),
-            static (s, v) => s.SteamAppId = ParseUInt(v), "0 leaves Steam alone."),
+        new("isDemo", "Application", "Demo Build", SettingKind.Bool, static s => Bool(s.IsDemo), static (s, v) => s.IsDemo = ParseBool(v),
+            "This build is the game's Steam demo: game code compiles with DEMO defined (#if DEMO) and Steam starts with the Demo App ID. " +
+            "A build can override it: -p:MainframeDemo=true|false."),
         new("engineVersion", "Application", "Engine Version", SettingKind.ReadOnly, static s => s.EngineVersion, null,
             "The engine version the project was created with."),
 
@@ -163,6 +165,17 @@ public sealed class ProjectSettingsModel
         new("rendering.shadows", "Rendering", "Shadow Quality", SettingKind.Choice, static s => s.Rendering.Shadows.ToString(),
             static (s, v) => s.Rendering.Shadows = Enum.Parse<ShadowQuality>(v, ignoreCase: true),
             "Off, or the Low/Medium/High atlas size, filter and cascades.", Choices: Enum.GetNames<ShadowQuality>()),
+
+        new("steam.appId", "Steamworks", "App ID", SettingKind.WholeNumber, static s => s.Steam.AppId.ToString(CultureInfo.InvariantCulture),
+            static (s, v) => s.Steam.AppId = ParseUInt(v), "The full game's Steam app id (480: Spacewar, Valve's test app). 0 leaves Steam alone."),
+        new("steam.demoAppId", "Steamworks", "Demo App ID", SettingKind.WholeNumber, static s => s.Steam.DemoAppId.ToString(CultureInfo.InvariantCulture),
+            static (s, v) => s.Steam.DemoAppId = ParseUInt(v), "The demo's own Steam app id, used by demo builds (Application › Demo Build). 0 leaves Steam alone in the demo."),
+        new("steam.devAppIdFile", "Steamworks", "Run Outside Steam in Development", SettingKind.Bool, static s => Bool(s.Steam.DevAppIdFile),
+            static (s, v) => s.Steam.DevAppIdFile = ParseBool(v),
+            "Play and Debug builds write steam_appid.txt next to the game, so Steam starts without launching the game through Steam. Never in Release builds."),
+        new("steam.restartThroughSteam", "Steamworks", "Relaunch Through Steam", SettingKind.Bool, static s => Bool(s.Steam.RestartThroughSteam),
+            static (s, v) => s.Steam.RestartThroughSteam = ParseBool(v),
+            "Release builds started outside Steam ask Steam to start them again and exit, so ownership checks and the overlay always apply."),
     ];
 
     /// <summary>The setting with <paramref name="key"/>, or null.</summary>

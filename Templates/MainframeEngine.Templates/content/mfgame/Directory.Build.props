@@ -17,4 +17,9 @@
     <MainframeEnginePath>$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'MAINFRAME_ENGINE_PATH'))))</MainframeEnginePath>
 <!--#endif -->
   </PropertyGroup>
+
+<!--#if (!UsePackage) -->
+  <!-- Demo builds: "isDemo" in project.mfproj (or -p:MainframeDemo=true) compiles the game with DEMO defined (#if DEMO). -->
+  <Import Project="$(MainframeEnginePath)/build/MainframeGame.props" />
+<!--#endif -->
 </Project>

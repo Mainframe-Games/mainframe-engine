@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "MyGame",
   "engineVersion": "MAINFRAME_ENGINE_VERSION",
   "mainScene": "Content/Scenes/Main.mscene",
