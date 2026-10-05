@@ -96,8 +96,9 @@ batch drawn **after tonemapping in the overlay pass**, so colours are exact sRGB
   one pipeline, one dynamic vertex buffer per frame slot (`IVulkanContext.FrameSlot`, `MaxFramesInFlight`), capacity
   grows only on overflow (allocation gate stays green), pipeline created through `IVulkanContext.Pipelines`, shaders
   `Content/Shaders/Gizmos/ScreenGizmo.vk.{vert,frag}` (+ committed `.spv`, `shaders.lock`).
-- Registered with `IVulkanContext.AddOverlayRenderer` **before** the UI renderer, so game UI and the dev overlay draw
-  on top of gizmos.
+- Overlay renderers get an explicit order (`IVulkanContext.AddOverlayRenderer(renderer, order)`; registration order
+  breaks ties): canvas (`OverlayOrder.Canvas = 0`, from the port) → `ScreenGizmos` (`OverlayOrder.Gizmos = 100`) → UI
+  (`OverlayOrder.Ui = 200`), so game UI and the dev overlay draw on top of gizmos, and gizmos on top of 2D.
 - Lives on the render server (`RenderServer.ScreenGizmos`), cleared every frame like `DebugLines`.
 
 **Ports (1:1, they already project on the CPU):**

@@ -1,8 +1,9 @@
 # Proposal: MainframeEngine.Demo — one scene per feature
 
 **Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D1, first) · **Status:** ⬜ planned ·
-**Depends on:** [M10 projects & GameHost](../project-and-gamehost.md); the Basic 2D scene and the Physics 2D visuals
-depend on the 2D drawable nodes (sprite / polygon / shape primitives) coming from the Crash Site Defense port ·
+**Depends on:** [M10 projects & GameHost](../project-and-gamehost.md); the 2D canvas renderer from the Crash Site
+Defense port (`origin/mainframe-engine-port`: `CanvasItem` draw API, `Sprite2D`, `CanvasLayer`, Godot `Camera2D`,
+Y-down 2D, window stretch — [Canvas](../canvas.md), ADRs 0110–0114), which this work is based on ·
 **Followed by:** [Remove ImGui](remove-imgui.md), [Project icons](project-icons.md),
 [Demo download](demo-download.md)
 
@@ -31,7 +32,9 @@ CI check runs on, the assets linked into unit and render tests, the editor smoke
 
 ## Non-goals
 
-- 2D drawable nodes. They arrive with the Crash Site Defense port; this proposal only consumes them.
+- New engine 2D node types. The port provides `CanvasItem` (`OnDraw` + `DrawRect`/`DrawCircle`/`DrawPolygon`/…),
+  `Sprite2D` and `CanvasLayer`; there is no `Polygon2D`, gradient resource or 2D text. The Demo draws its shapes with
+  small Demo-owned `CanvasItem` nodes (`DemoShape2D`, per-vertex colours for gradients) and puts text in RmlUi.
 - A networking demo (dropped from the showcase; networking stays covered by its tests).
 - New engine features beyond the two small changes listed under [Engine changes](#engine-changes).
 
@@ -86,13 +89,13 @@ scene, `Layer = 10`) for its controls, and nothing that depends on another scene
 | Scene | Content | Controls |
 |---|---|---|
 | **Basic 3D** | Primitive composition on a reflective-looking checker/plinth: boxes, spheres, cylinders, capsules, tori-like arrangements with varied `StandardMaterial3D` (albedo, emission, blended glass); the glTF test model; panoramic sky (`WorldEnvironment` + `Sky`); one cascaded-shadow sun, a coloured omni and two spot lights, all shadowed; slow orbiting camera. | pause orbit, sun angle, toggle lights, exposure |
-| **Basic 2D** | Primitive composition under a `Camera2D`: layered shapes, gradients, sprites — built from the 2D drawable nodes of the Crash Site Defense port. **Gated on that work**; until it lands the tab is shown disabled with a tooltip. | zoom, pause animation |
+| **Basic 2D** | Primitive composition under a `Camera2D` (canvas units, Y-down): a gradient sky (per-vertex-colour quad), layered rolling hills (polygons), sun with rays, orbiting circles, a `Sprite2D` (engine logo), slowly animated with `OnDraw` + `QueueRedraw`. Drawn by Demo `DemoShape2D` nodes. | zoom, pause animation |
 | **Audio 2D** | `AudioPlayer2D` emitter sweeping left↔right past the `Camera2D` listener (listener = active Camera2D, `AudioServer.cs:828`), drawn as a moving marker; click anywhere to play a one-shot at that position (`AudioServer.PlayOneShot`). | Master / Music / SFX bus volume sliders, panning strength, max distance |
 | **Audio 3D** | `AudioPlayer3D` orbiting an `AudioListener3D` (a visible head mesh at the centre); the emitter's distance ring is drawn with `DebugLines`. | attenuation model, low-pass at max distance on/off, doppler on/off, orbit speed |
 | **UI + hot reload** | Engine widget gallery (`/Content/UI/widgets/demo.rml` content) plus a data-bound panel (`CreateDataModel`, sliders/toggles driving a live value). A banner: *"Edit `Content/UI/showcase.rcss` (or `.rml`) and save — this page reloads live"*, with a **reload counter** and last-reload time driven by `UiDocument.Reloaded`. In builds without hot reload (Release engine) the banner says so. | theme accent picker, counter reset |
-| **Physics 2D** | Funnel / pegboard of `StaticBody2D`s; `RigidBody2D` circles, boxes and capsules rain in. Visuals use the 2D drawable nodes; until they land, collision-shape debug draw (`PhysicsServer2D.DebugDrawEnabled`). | click to spawn, reset, debug shapes |
+| **Physics 2D** | Funnel / pegboard of `StaticBody2D`s; `RigidBody2D` circles and boxes rain in (gravity +Y, Y-down). Each body has a `DemoShape2D` child drawing its shape. Clicks are mapped window → canvas through the root viewport's `StretchTransform × CanvasTransform`. | click to spawn, reset, debug shapes |
 | **Physics 3D** | Stacked crates and a ramp (`StaticBody3D` + `RigidBody3D`, shared `BoxShape3D`), a `CharacterBody3D` pusher. | click to drop a body at the cursor (ray query via `DirectSpaceState`), reset, debug shapes |
-| **Spine** | SpineBoy (`SpineNode`, `Folder = Content/Models/Spine/SpineBoy`) on a lit floor. **Both** a `Camera3D` and a `Camera2D` are in the scene; the toggle switches `Current` (`RenderServer.GetRenderCamera` prefers the active Camera3D, `RenderServer.cs:559-575`, so the 3D camera is made non-current). `SpineScale` is set per camera mode (~1 under Camera2D, where 1 unit ≈ 1 px). | **Camera2D / Camera3D toggle**, animation picker (walk / run / jump / idle), time scale |
+| **Spine** | SpineBoy (`SpineNode`, `Folder = Content/Models/Spine/SpineBoy`) on a lit floor. **Both** a `Camera3D` and a `Camera2D` are in the scene; the toggle switches `Current` (`RenderServer.GetRenderCamera` prefers the active Camera3D, so the 3D camera is made non-current). Under `Camera2D` (Y-down, looking along +Z) a Y-up skeleton appears upside down and from the back (ADR 0110), so the 2D mode puts SpineBoy under a pivot rotated 180° about X; `SpineScale` is set per mode (~1 under Camera2D, where 1 unit = 1 canvas pixel). 3D visuals render below every canvas item, so the scene keeps `rendering.canvasClearColor` unset. | **Camera2D / Camera3D toggle**, animation picker (walk / run / jump / idle), time scale |
 
 ## Engine changes
 
@@ -103,8 +106,13 @@ scene, `Layer = 10`) for its controls, and nothing that depends on another scene
    (`UiServerOptions.DefaultHotReload`), `GameHost` adds the game assemblies' `MainframeContentSource` folders
    (`UiServerOptions.SourceDirectoriesOf`) and the project folder's `Content/`. The template gains the Debug-only
    `MainframeContentSource` assembly attribute the Sandbox csproj has (lines 25-31), so every new project gets it.
-2. **Spine under `Camera2D`.** `SpineNode.Draw` only uses the camera's view/projection, so it should already work;
-   add a render test (golden) that draws SpineBoy under a `Camera2D` with no `Camera3D`, and fix whatever it finds.
+2. **Spine under `Camera2D`.** `SpineNode.Draw` only uses the camera's view/projection; with the port's Y-down
+   `Camera2D` the skeleton needs the 180°-about-X pivot described above. Add a render test (golden) that draws SpineBoy
+   under a `Camera2D` with no `Camera3D` and the pivot, upright and front-facing.
+3. **Hot reload status.** `UiServer.HotReloadEnabled` (public) and `UiServer.HotReloaded` (event with the reload kind
+   and path) — `UiDocument.Reloaded` does not fire for stylesheet-only reloads, and the UI scene's counter must.
+4. **Camera rays.** `Camera3D.ProjectRayOrigin(Vector2)` / `ProjectRayNormal(Vector2)` (Godot API, viewport pixels)
+   for the Physics 3D click-to-drop.
 
 ## Screenshots
 
@@ -166,6 +174,6 @@ asset-pipeline, audio, build-and-platforms, cameras-and-input, game-ui, localiza
 1. Engine: GameHost source hot reload + template `MainframeContentSource`; Spine/Camera2D render test.
 2. `Tests/Content/` move, fixture scene + builder, test renames, editor smoke switch.
 3. `Examples/Demo` skeleton from the template, nav autoload, Basic 3D, UI, Audio 3D, Physics 3D, Spine scenes.
-4. Audio 2D; Physics 2D (debug draw); Basic 2D + Physics 2D visuals once the 2D nodes land.
+4. Audio 2D, Physics 2D and Basic 2D on the port's canvas renderer (`DemoShape2D`).
 5. l10n move, justfile/CI/QA scripts, screenshots + README Showcase.
 6. Delete Sandbox + EditorShowcase, docs sweep.
