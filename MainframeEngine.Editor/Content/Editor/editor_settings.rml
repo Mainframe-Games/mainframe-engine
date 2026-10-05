@@ -5,7 +5,7 @@
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
-        #dialog { left: 50%; top: 50%; width: 560dp; height: 360dp; margin-left: -280dp; margin-top: -180dp; }
+        #dialog { left: 50%; top: 50%; width: 560dp; height: 400dp; margin-left: -280dp; margin-top: -200dp; }
         .dialog-row .caption { width: 120dp; }
         .dialog-row select { flex: 1 1 auto; width: 60dp; }
         #es-swatches { display: flex; flex-direction: row; }
@@ -52,6 +52,11 @@
                 <span class="caption">Code reload</span>
                 <label class="check" data-tooltip="Reload the game code in the editor whenever its build output changes (IDE builds included)">
                     <input type="checkbox" class="checkbox" id="es-auto-reload" data-checked="auto_reload"/><span>Reload automatically after builds</span></label>
+            </div>
+            <div class="dialog-row">
+                <span class="caption">Updates</span>
+                <label class="check" data-tooltip="Look for a newer Mainframe Engine release on GitHub when the editor starts">
+                    <input type="checkbox" class="checkbox" id="es-check-updates" data-checked="check_updates"/><span>Check for updates at startup</span></label>
             </div>
             <div class="dialog-error">{{error}}</div>
         </div>

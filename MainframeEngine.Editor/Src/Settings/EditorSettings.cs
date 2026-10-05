@@ -8,7 +8,7 @@ namespace MainframeEngine.Editor;
 /// <summary>
 /// The editor's own preferences (Editor › Editor Settings), per user in <c>~/.mainframe/editor_settings.json</c>: the
 /// theme accent colour, the autosave interval, the external code editor command (opens <c>.cs</c> files and
-/// click-to-source lines) and whether code reloads automatically after a build.
+/// click-to-source lines), whether code reloads automatically after a build and whether the editor checks for updates.
 /// </summary>
 public sealed class EditorSettings
 {
@@ -54,6 +54,9 @@ public sealed class EditorSettings
     /// <summary>Reload the game code automatically when its build output changes.</summary>
     public bool AutoReloadCode { get; set; } = true;
 
+    /// <summary>Look for a newer editor on GitHub Releases at start-up (Help › Check for Updates… works either way).</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     /// <summary><c>~/.mainframe/editor_settings.json</c>.</summary>
     public static string DefaultPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "editor_settings.json");
@@ -74,6 +77,7 @@ public sealed class EditorSettings
                 AutosaveMinutes = data.AutosaveMinutes,
                 CodeEditorCommand = data.CodeEditor ?? "",
                 AutoReloadCode = data.AutoReloadCode ?? true,
+                CheckForUpdates = data.CheckForUpdates ?? true,
             };
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
@@ -94,6 +98,7 @@ public sealed class EditorSettings
             AutosaveMinutes = AutosaveMinutes,
             CodeEditor = CodeEditorCommand,
             AutoReloadCode = AutoReloadCode,
+            CheckForUpdates = CheckForUpdates,
         };
         AtomicFile.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(data, EditorSettingsJson.Default.EditorSettingsData));
     }
@@ -104,6 +109,7 @@ public sealed class EditorSettings
         AutosaveMinutes = AutosaveMinutes,
         CodeEditorCommand = CodeEditorCommand,
         AutoReloadCode = AutoReloadCode,
+        CheckForUpdates = CheckForUpdates,
     };
 
     /// <summary>
@@ -180,6 +186,7 @@ internal sealed class EditorSettingsData
     public int AutosaveMinutes { get; set; }
     public string? CodeEditor { get; set; }
     public bool? AutoReloadCode { get; set; }
+    public bool? CheckForUpdates { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, NewLine = "\n", PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
