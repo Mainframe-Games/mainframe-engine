@@ -1,12 +1,11 @@
 using System.Numerics;
-using ImGuiNET;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
 /// <summary>
 /// Numeric checks of the colour pipeline. The whole frame is a panoramic sky made from a solid sRGB texture
 /// (<see cref="SkyColor"/>), so every scene pixel is <c>encode(aces(decode(c) · exposure))</c>, which the test
-/// recomputes with <see cref="ColorSpace"/>. Two ImGui rectangles check the overlay: an opaque one must keep its
+/// recomputes with <see cref="ColorSpace"/>. Two screen-gizmo rectangles check the overlay: an opaque one must keep its
 /// sRGB value exactly, and 50 % white over black must blend in sRGB space (≈128, as before the colour pipeline;
 /// a linear blend would give ≈188). Exposure switches to <see cref="SecondExposure"/> on frame
 /// <see cref="ExposureSwitchFrame"/>.
@@ -18,7 +17,7 @@ public sealed class ColorPipelineScene(HostOptions host) : RenderTestGame(host)
     public const float SecondExposure = 2.5f;
     public const uint ExposureSwitchFrame = 8;
 
-    /// <summary>ImGui rectangles in points: opaque colour, then black with 50 % white over it.</summary>
+    /// <summary>Gizmo rectangles in points (drawn at host scale, so pixels = points × scale): opaque colour, then black with 50 % white over it.</summary>
     public static readonly (Vector2 Min, Vector2 Max) OpaqueRect = (new Vector2(10, 10), new Vector2(60, 60));
     public static readonly (Vector2 Min, Vector2 Max) BlendRect = (new Vector2(70, 10), new Vector2(120, 60));
 
@@ -43,14 +42,13 @@ public sealed class ColorPipelineScene(HostOptions host) : RenderTestGame(host)
     {
         if (gameTime.FrameCount == ExposureSwitchFrame)
             Vulkan.Exposure = SecondExposure;
-    }
 
-    protected override void OnImGui(in GameTime gameTime)
-    {
-        var draw = ImGui.GetForegroundDrawList();
-        draw.AddRectFilled(OpaqueRect.Min, OpaqueRect.Max, ImGui.ColorConvertFloat4ToU32(OverlayColor));
-        draw.AddRectFilled(BlendRect.Min, BlendRect.Max, ImGui.ColorConvertFloat4ToU32(new Vector4(0, 0, 0, 1)));
-        draw.AddRectFilled(BlendRect.Min, BlendRect.Max, ImGui.ColorConvertFloat4ToU32(new Vector4(1, 1, 1, 0.5f)));
+        // The gizmo batch is cleared after every drawn frame, so the rectangles are re-added each update.
+        var gizmos = Servers.Render!.ScreenGizmos;
+        var scale = Host.Scale;
+        gizmos.FilledRect(OpaqueRect.Min * scale, OpaqueRect.Max * scale, OverlayColor);
+        gizmos.FilledRect(BlendRect.Min * scale, BlendRect.Max * scale, new Vector4(0, 0, 0, 1));
+        gizmos.FilledRect(BlendRect.Min * scale, BlendRect.Max * scale, new Vector4(1, 1, 1, 0.5f));
     }
 
     protected override void OnShadowPass(in GameTime gameTime)

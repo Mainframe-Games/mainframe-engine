@@ -449,6 +449,7 @@ public abstract class Engine : IDisposable
         // spinning the loop; the frame's ImGui NewFrame is closed so frames stay paired.
         if (IsMinimised())
         {
+            Servers.Render?.ScreenGizmos.Clear(); // nothing is drawn: do not let the shapes pile up
             _vkImGuiController?.DiscardFrame();
             if (!Window.IsEventDriven)
             {
@@ -495,6 +496,7 @@ public abstract class Engine : IDisposable
         }
         else
         {
+            Servers.Render?.ScreenGizmos.Clear(); // skipped frame (swapchain rebuild): the overlay pass will not draw them
             _vkImGuiController?.DiscardFrame();
         }
 

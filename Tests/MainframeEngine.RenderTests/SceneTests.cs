@@ -222,7 +222,7 @@ public class SceneTests
         foreach (var (frame, exposure) in new[] { (4u, IVulkanContext.DefaultExposure), (12u, ColorPipelineScene.SecondExposure) })
         {
             var image = Png.ReadRgba8(result.Captures.Single(c => c.Frame == frame).Path);
-            var scale = image.Width / 320f; // HiDPI: ImGui works in points, the capture is in pixels
+            var scale = image.Width / 320f; // HiDPI: the gizmo rects are drawn at host scale (points × scale), the capture is in pixels
 
             // Scene: sRGB texture → linear (sampler) → × exposure → ACES → sRGB (swapchain view or shader).
             var c = ColorPipelineScene.SkyColor;
@@ -232,7 +232,7 @@ public class SceneTests
 
             // Overlay: written as authored, blended in sRGB space like before the HDR pipeline.
             var o = ColorPipelineScene.OverlayColor;
-            AssertPixel(image, (int)(35 * scale), (int)(35 * scale), new System.Numerics.Vector3(o.X, o.Y, o.Z) * 255f, 1, "opaque ImGui colour");
+            AssertPixel(image, (int)(35 * scale), (int)(35 * scale), new System.Numerics.Vector3(o.X, o.Y, o.Z) * 255f, 1, "opaque gizmo colour");
             AssertPixel(image, (int)(95 * scale), (int)(35 * scale), new System.Numerics.Vector3(127.5f), 2, "50% white over black (sRGB blend)");
         }
     }

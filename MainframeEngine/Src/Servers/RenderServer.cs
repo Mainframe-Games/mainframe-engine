@@ -36,6 +36,7 @@ public sealed class RenderServer : IServer
     private SubViewport? _shadowView;      // the sub-viewport that owns the shadow maps this frame (see SubViewport.Shadows)
     private ulong _shadowViewRenderedFrame = ulong.MaxValue; // frame number its shadow maps were recorded in
     private DebugLinesRenderer? _debugLines;
+    private ScreenGizmosRenderer? _screenGizmosRenderer;
     private MeshRenderer? _meshes;
     private SubViewportCompositor? _compositor;
     private ObjectIdPicker? _rootPicker;
@@ -48,6 +49,13 @@ public sealed class RenderServer : IServer
     }
 
     public IRenderer Renderer { get; }
+
+    /// <summary>
+    /// Screen-space gizmos (framebuffer pixels, sRGB), drawn after the tonemap between the 2D canvas and the UI, then
+    /// cleared. Fill it any time before the frame's overlay pass; <see cref="Engine"/> clears it for frames that are
+    /// not drawn.
+    /// </summary>
+    public ScreenGizmoBatch ScreenGizmos { get; } = new();
 
     /// <summary>The Vulkan context, when the renderer is the Vulkan backend.</summary>
     public IVulkanContext? Vulkan => Renderer as IVulkanContext;
@@ -172,6 +180,7 @@ public sealed class RenderServer : IServer
         if (Vulkan is not { } vk || _disposed)
             return;
 
+        _screenGizmosRenderer ??= new ScreenGizmosRenderer(vk, ScreenGizmos);
         CollectPicks();
         _meshes?.BeginPreparation(); // rebuild even when the last frame was skipped (same predicted frame number)
         var world = root.World3D;
@@ -596,6 +605,8 @@ public sealed class RenderServer : IServer
         _owners.Clear();
         _debugLines?.Dispose();
         _debugLines = null;
+        _screenGizmosRenderer?.Dispose();
+        _screenGizmosRenderer = null;
         foreach (var sub in _subViewportsWithTargets)
         {
             sub.Targets?.Dispose();
