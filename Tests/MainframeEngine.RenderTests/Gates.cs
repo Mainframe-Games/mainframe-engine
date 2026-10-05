@@ -27,20 +27,22 @@ public static class Gates
     /// device's tag only this comparison is skipped: the test goes on (its other gates and assertions still apply),
     /// reports a warning and copies the frame to <c>new-goldens/&lt;platform-tag&gt;/</c> in the artifacts folder,
     /// ready to review and commit. <c>UPDATE_GOLDENS=1</c> records goldens instead of comparing. On mismatch, writes
-    /// <c>.expected.png</c> and <c>.diff.png</c> next to the actual frame.
+    /// <c>.expected.png</c> and <c>.diff.png</c> next to the actual frame. <paramref name="goldenFile"/> compares with
+    /// another scene's golden (a scene that must render identically); it is never recorded from this one.
     /// </summary>
     public static void AssertMatchesGolden(HostResult result, uint frame,
         int channelTolerance = ImageComparison.DefaultChannelTolerance,
-        double maxDifferingPercent = ImageComparison.DefaultMaxDifferingPercent)
+        double maxDifferingPercent = ImageComparison.DefaultMaxDifferingPercent,
+        string? goldenFile = null)
     {
         ArgumentNullException.ThrowIfNull(result);
         var capture = result.Captures.SingleOrDefault(c => c.Frame == frame)
                       ?? throw new InvalidOperationException($"Frame {frame} was not captured.");
 
-        var fileName = Path.GetFileName(capture.Path);
+        var fileName = goldenFile ?? Path.GetFileName(capture.Path);
         var goldenPath = Path.Combine(RenderTestEnvironment.GoldensDirectory, result.PlatformTag, fileName);
 
-        if (RenderTestEnvironment.UpdateGoldens)
+        if (RenderTestEnvironment.UpdateGoldens && goldenFile is null)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(goldenPath)!);
             File.Copy(capture.Path, goldenPath, overwrite: true);

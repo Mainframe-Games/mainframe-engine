@@ -88,6 +88,9 @@ internal sealed class SpineRenderer : IDisposable
     /// <summary>Vertices built by the last <see cref="BuildVertices"/>.</summary>
     internal int PreparedVertexCount => _preparedVertexCount;
 
+    /// <summary>Vertex <paramref name="index"/> of the last <see cref="BuildVertices"/>, in world space (model matrix applied).</summary>
+    internal Vector3 PreparedWorldPosition(int index) => Vector3.Transform(_vertices[index].Position, _modelMatrix);
+
     /// <summary>Current CPU vertex capacity (grows on demand).</summary>
     internal int VertexCapacity => _vertices.Length;
 
