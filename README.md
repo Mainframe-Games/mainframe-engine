@@ -6,7 +6,9 @@ a node/scene system with source-generated serialization, cascaded shadows, mater
 Jitter2/Box2D physics, SoundFlow audio, server-authoritative multiplayer, gettext localization and Spine skeletal
 animation — and an editor whose UI is built with the engine's own game UI.
 
-This engine is mostly for educational purposes. One day I will make a game using it but for now its mostly for learning how engines work and setting up a framework in which I like to work. Feel free to use as you wish and submit pull requests or feature requests in Issues, but this engine is mostly for me 😁
+Mainframe Engine is open source under the MIT licence (see [License](#license)). It started as a way to learn how
+engines work and to build a framework I like working in, and it is in active development. Feel free to use it, and
+to send pull requests or feature requests in Issues 😁
 
 **Target:** .NET 10, Vulkan 1.2 (MoltenVK on macOS) · **Platforms:** macOS (Apple Silicon), Windows x64, Linux x64 ·
 **Version:** 1.0.0 (milestones M0–M10 complete; see [Releases & versioning](#releases--versioning))
@@ -536,3 +538,17 @@ it. [`publish.yml`](.github/workflows/publish.yml) (manual, `main` only) re-runs
 and attaches self-contained editor builds for osx-arm64 (`Mainframe Engine.app`), win-x64 and linux-x64 to a GitHub
 Release. `just publish-local` builds the same archive locally. Creating and playing game projects needs the .NET 10
 SDK. See [Release & versioning](docs/design/release.md).
+
+---
+
+## License
+
+- **Engine code** (everything in this repository unless noted otherwise) is MIT licensed — see [LICENSE](LICENSE).
+- **Third-party components and assets** keep their own licences; they are listed, with their notices, in
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Keep those notices with any distribution of the engine, the editor
+  or a game built with it.
+- **Spine:** `Plugins/Spine` (spine-csharp) is under the
+  [Spine Runtimes License](https://esotericsoftware.com/spine-runtimes-license), **not MIT**. A game that uses
+  `SpineNode` (or anything else from the Spine Runtimes) needs its own
+  [Spine Editor licence](http://esotericsoftware.com/spine-editor-license). The bundled Spine example assets
+  (SpineBoy, Raptor, Celestial Circus, Windmill) are © Esoteric Software and are not covered by the MIT licence.

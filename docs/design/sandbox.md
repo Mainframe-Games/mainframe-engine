@@ -77,7 +77,7 @@ signal. It logs the device, frame rate, peaks and counters (`[QA] Audio …`) an
 | Clear color | (0.18, 0.31, 0.31), dark slate grey |
 | Root | `Node3D` "Sandbox" (the scene file's root; nodes below are owned by it) |
 | Camera | `FlyCamera : Camera3D` at (0, 5, 10) looking at the origin; hold RMB to look, WASD/QE to move, Shift ×2 (`Speed`, `LookSensitivity` exported) |
-| Sky | `WorldEnvironment` with an inline `Sky` resource: `Panoramic`, `Content/Sky/sky_10_2k.png` |
+| Sky | `WorldEnvironment` with an inline `Sky` resource: `Panoramic`, `Content/Sky/sky_10_2k.png` (a Poly Haven panorama, CC0; see [THIRD_PARTY_NOTICES](../../THIRD_PARTY_NOTICES.md)) |
 | Grid | `Grid3D` added under `/root` at runtime (not saved; draws first, `RenderPriority` -100) |
 | Shadows | the render server's `ShadowSystem` |
 | Spine | `SpineNode` "SpineBoy": `Folder = Content/Models/Spine/SpineBoy`, default `SpineScale` (0.02), `Scale = 0.1`, `Animation = "walk"` |
@@ -154,7 +154,6 @@ Controls are listed in [Cameras & input](cameras-and-input.md#sandbox-controls).
 
 - Steady-state frames allocate nothing (enforced by the render-test allocation gate).
 - The ImGui gizmos use the camera synced at the previous render (one frame behind a moving camera).
-- `sky_16_2k.png` ships but is unused.
 
 ## Related docs
 
