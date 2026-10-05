@@ -100,6 +100,8 @@ public sealed class GitHubUpdateService : IUpdateService
     {
         if (!ReleaseVersion.TryParse(CurrentVersion, out var current))
             return Task.FromResult<UpdateResult?>(null); // development builds never touch ~/.mainframe/updates
-        return Task.Run(() => UpdateCleanup.Run(Install.Kind == InstallKind.NotBundled ? null : Install.Root, _updatesDirectory, current));
+        // The root from the path alone: no writability probe on every start.
+        var root = _rid is null ? null : InstallLocation.FindRoot(AppContext.BaseDirectory, _rid);
+        return Task.Run(() => UpdateCleanup.Run(root, _updatesDirectory, current));
     }
 }

@@ -153,7 +153,8 @@ public sealed class UpdateController(EditorWorkspace workspace, IUpdateService? 
         var result = check.IsCompletedSuccessfully
             ? check.Result
             : new UpdateCheckResult(UpdateCheckStatus.Failed, Error: check.Exception?.GetBaseException().Message);
-        if (result.IsUpdate)
+        // A newer release found mid-download or once staged waits: the dialog must describe what "Restart now" installs.
+        if (result.IsUpdate && State is not (UpdateState.Downloading or UpdateState.Ready))
             Available = result;
         else if (result.Status == UpdateCheckStatus.Failed)
             Log.Info($"[Editor] Update check: {result.Error}");

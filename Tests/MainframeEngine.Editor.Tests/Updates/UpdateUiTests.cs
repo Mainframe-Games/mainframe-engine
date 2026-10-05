@@ -158,6 +158,27 @@ public sealed class UpdateUiTests : IDisposable
     }
 
     [Fact]
+    public void ANewerReleaseDoesNotReplaceTheOneBeingDownloadedOrStaged()
+    {
+        _service.CheckResult = FakeUpdateService.Update("1.1.0");
+        Start();
+        W.Updates.Primary();
+        _service.CheckResult = FakeUpdateService.Update("1.2.0");
+        W.Commands.Execute("help.check_updates");
+        _editor!.Tick();
+        Assert.Equal(new ReleaseVersion(1, 1, 0), W.Updates.Available!.Release!.Version); // while downloading
+
+        W.UpdateDialog.Close(); // Later: the download finishes quietly
+        _service.Download.SetResult(FakeUpdateService.Staged());
+        _editor.Tick();
+        Assert.Equal(UpdateState.Ready, W.Updates.State);
+        W.Commands.Execute("help.check_updates");
+        _editor.Tick();
+        Assert.Equal(new ReleaseVersion(1, 1, 0), W.Updates.Available!.Release!.Version); // "Restart now" installs 1.1.0
+        Assert.Empty(_service.Started);
+    }
+
+    [Fact]
     public void HelpUpdateDoesNothingWithoutAnUpdate()
     {
         Start();

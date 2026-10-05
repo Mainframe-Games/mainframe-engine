@@ -27,6 +27,8 @@ public sealed class UpdateDownloader(HttpClient http, string editorVersion)
             throw new UpdateException("The download address is not HTTPS; the update was refused.");
 
         var folder = Path.Combine(updatesDirectory, release.Version.ToString());
+        // Off the caller's (UI) thread before the first file-system call: deleting an earlier staging can take a while.
+        await Task.CompletedTask.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
         try
         {
             if (Directory.Exists(folder))
