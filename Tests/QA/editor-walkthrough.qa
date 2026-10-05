@@ -75,5 +75,16 @@ command file.quit
 wait 3
 capture 13-quit-prompt
 cancel
+# The update badge and dialog (a preview: QA runs never touch the network).
+update-preview 9.9.9
+wait 3
+capture 14-update
+cancel
+# Editor Settings, with its Updates row.
+command editor.settings
+wait 3
+capture 15-editor-settings
+click #es-cancel
+wait 3
 state
 quit

@@ -1,0 +1,48 @@
+<rml>
+<head>
+    <title>Update</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 520dp; height: 380dp; margin-left: -260dp; margin-top: -190dp; }
+        #up-current { display: block; color: #8b93a5; font-size: 12dp; margin-bottom: 8dp; }
+        #up-notes {
+            display: block;
+            flex: 1 1 auto;
+            height: 160dp;
+            overflow-y: auto;
+            padding: 8dp;
+            white-space: pre-wrap;
+            background-color: #1b1d23;
+            border: 1dp #2f333d;
+            border-radius: 3dp;
+            color: #b4bccc;
+            font-size: 12dp;
+        }
+        #up-hint { display: block; margin-top: 8dp; color: #f59e0b; font-size: 12dp; }
+        #up-bar { display: block; height: 6dp; margin-top: 10dp; background-color: #23262e; border-radius: 3dp; }
+        #up-fill { display: block; height: 6dp; background-color: #3b82f6; border-radius: 3dp; }
+        .dialog-buttons .spacer { flex: 1 1 auto; }
+    </style>
+</head>
+<body class="backdrop" data-model="update">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-sm icon-arrow-bar-to-down"></span><span>{{title}}</span></div>
+        <div class="dialog-body">
+            <span id="up-current">{{current}}</span>
+            <div id="up-notes">{{notes}}</div>
+            <div id="up-hint" data-if="hint != ''">{{hint}}</div>
+            <div id="up-bar" data-if="downloading"><div id="up-fill" data-style-width="progress"></div></div>
+            <div class="dialog-error">{{error}}</div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="up-view" data-event-click="view()" data-tooltip="View Release — open the release page on GitHub"><span class="icon icon-external-link"></span></button>
+            <div class="spacer"></div>
+            <button id="up-later" data-event-click="later()">Later</button>
+            <button id="up-cancel" data-if="downloading" data-event-click="cancel()">Cancel</button>
+            <button class="primary" id="up-primary" data-if="!downloading" data-event-click="primary()">{{primary}}</button>
+        </div>
+    </div>
+</body>
+</rml>

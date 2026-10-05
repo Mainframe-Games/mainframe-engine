@@ -4,6 +4,12 @@ using MainframeEngine.Editor;
 // MainframeEngine.Editor [scene.mscene] [--layout <file>] [--size WxH] [--hidden]
 //   [--qa-script <file> --qa-out <dir>]   scripted clicks/keys + frame captures (docs/design/editor.md#qa)
 //   [--smoke <dir> [--smoke-scene <file>]]   headless-style smoke run used by the render tests
+//   --apply-update <root> --wait-pid <pid> --from <version> [--project <folder>]   (internal: editor updates)
+// The staged editor of an update (docs/design/editor-updates.md): installs itself over the old editor and relaunches.
+// No window, SDL or engine is created.
+if (ApplyUpdateRequest.IsApplyUpdate(args))
+    return UpdateApplier.RunFromCommandLine(args);
+
 EditorAppOptions options;
 try
 {

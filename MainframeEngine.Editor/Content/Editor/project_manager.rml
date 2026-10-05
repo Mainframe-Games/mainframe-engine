@@ -74,6 +74,9 @@
         }
         .pm-actions button .icon { margin-right: 10dp; }
         .pm-spacer { flex: 1 1 auto; }
+        #pm-update { display: none; }
+        #pm-update.shown { display: inline-block; }
+        #pm-update .icon { image-color: #4ade80; }
         .pm-sdk {
             display: flex;
             flex-direction: row;
@@ -98,6 +101,8 @@
             <span class="pm-title">Mainframe Engine</span>
             <span class="pm-subtitle">Projects · {{version}}</span>
         </div>
+        <div class="pm-spacer"></div>
+        <button id="pm-update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>
     </div>
     <div class="pm-main">
         <div class="pm-left">

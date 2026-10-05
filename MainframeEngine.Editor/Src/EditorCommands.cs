@@ -116,6 +116,11 @@ public sealed class EditorCommands
                 return true;
             case "help.shortcuts": ShowShortcuts(); return true;
             case "help.about": ShowAbout(); return true;
+            case "help.check_updates": _workspace.Updates.CheckNow(); return true;
+            case "help.update":
+                if (_workspace.Updates.Available is { IsUpdate: true })
+                    _workspace.UpdateDialog.Open();
+                return true;
             case "play.main": _workspace.Play.PlayMain(); return true;
             case "play.scene": _workspace.Play.PlayCurrent(); return true;
             case "play.pause": _workspace.Play.TogglePause(); return true;
@@ -622,6 +627,7 @@ public sealed class EditorCommands
             "help" =>
             [
                 new MenuItem("Keyboard Shortcuts", "help.shortcuts", Icon: "keyboard"),
+                new MenuItem("Check for Updates…", "help.check_updates", null, _workspace.Updates.IsEnabled, Icon: "refresh"),
                 new MenuItem("About Mainframe Editor", "help.about", Icon: "info-circle"),
             ],
             _ => [],
