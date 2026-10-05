@@ -4,10 +4,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Current wave:** W5 — M0–M9 + M10 E1–E3 (editor) + E4 engine side (GameHost/projects/EditorLink/loader/template) integrated; CI-final + fixed ContentScale render tests + mobile design docs (M12/M13) in.
-- **Next action:** M10c lane (E4 editor side: project UI, filesystem panel, play via EditorLink, code reload; E5 polish; the full editor ICON PASS — see Claude memory m10c-scope-additions + feedback-editor-icons-over-text); then .slnx migration; final QA + benchmark baseline on quiet machine; PR ready.
-- **Open blockers:** none
-- **NO PUSHES (user, 2026-10-05):** GitHub Actions minutes nearly exhausted — commit locally only, no `gh workflow run`; one final push at the end (that run also records lavapipe goldens for new editor scenes). Lane agents told the same.
+- **Status:** M0–M10 complete locally; final push pending.
+- **Next action:** orchestrator's single final push of `feature/m0-m10` → CI (expect green, no "No golden" warnings) →
+  PR #4 to `main` (rebase merge) → `publish.yml` for the release. Then M11 (backend abstraction), M12/M13 (mobile).
+- **Open blockers:** none. User actions: Steamworks natives (partner login); macOS code signing/notarization.
+- **NO PUSHES (user, 2026-10-05):** GitHub Actions minutes nearly exhausted — commit locally only, no `gh workflow run`;
+  one final push at the end. Linux/lavapipe checks now run locally in Docker (`just test-linux`, `just render-tests-linux`).
 
 ## Log
 
@@ -145,3 +147,29 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - M10c-icons (c5940a0..b716e3e): [EditorIcon] + families + doc summaries via generator, Tabler atlas (164 icons, `just editor-icons`), tooltips, icons across tree/inspector/toolbar/menus/output/tabs/dialogs, Godot-style create dialog. ADRs 0085–0089. Gates: 1170 engine + 243 editor tests, render 43.
 - Lavapipe goldens to record at the final push: editor_frame0051 (+ any from m10c-projects).
 - Still running: m10c-projects (told to rebase onto local feature + label-column polish).
+
+### 2026-10-05 — Final: .slnx, Linux in Docker, gates, benchmarks, docs (local only)
+- Commits: `9b1b971` .slnx migration (sln deleted; CI/justfile/docs/tests/editor text updated) · `df7add7` Docker Linux
+  test env (`build/linux/`, `just test-linux`, `just render-tests-linux`, testing.md) · `ccfaf21` Linux/CI-only test
+  fixes · `3812cb8` lavapipe goldens (editor_frame0051, editor-project-manager_frame0040, editor-filesystem_frame0040;
+  recorded in Docker, inspected vs moltenvk) · `49f119c` Node modes as bytes (Node 240→232 B) · `d330400` bench baseline ·
+  `5f6d90d` docs sync.
+- Docker (x86_64 ubuntu:24.04 under Rosetta, llvmpipe LLVM 20.1.2 / Mesa 25.2.8): unit 1169 (+2 skip), editor 433
+  (+1 skip), l10n OK, render 45/45 with every frame compared. Rosetta gotchas: `DOTNET_EnableWriteXorExecute=0`;
+  occasional whole-process test stall → blame + one retry in inside.sh.
+- Docker found 4 bugs CI would have hit: editor Output source-link test vs CI path mapping (`/_/`; Tests props now
+  `DeterministicSourcePaths=false`); ProjectCreation test building without glslc (`-p:CompileShaders=false`); Sandbox
+  alloc gate 78.5 B/frame on x64 CI builds (RendererDebugWindow formatted enums per frame → cached line); editor idle
+  gate 216 B/100 frames (tier-0 `AppendFormatted<int>` boxing → int.TryFormat).
+- Local gates (final tree): build 0 warnings; Release -warnaserror 0; `just test` ×3: 1170 (+1 skip) + 433 (+1 skip);
+  `just test-render` ×3: 45/45 (validation 0, alloc 0 B, all goldens compared); format/shaders (69)/l10n clean;
+  template-smoke OK; `just qa` Sandbox 120 fps (8.3 ms); `qa-projects` create→play→reload OK (build+launch 7.1 s, reload
+  0.81 s, editor 120 fps / 8.3 ms); `publish-local osx-arm64` → 57 MB tar.gz, packaged app opens the Project Manager
+  (v0.0.0-local).
+- Bench: old baseline flagged Node3DModelMatrix +14 %, TransformPropagation10k +12 %, RoundTrip1k +15.9 KB, SwitchLocale
+  +312 B. Bisected the transform ones to M9's Node field (layout; M2 padded to 240 B reproduces; hooks not the cause);
+  RoundTrip = Node size (now 232 B); SwitchLocale = listener isolation. Baseline re-recorded 2026-10-05.
+- Docs: README (features, screenshots, getting started, testing/CI, release), CLAUDE.md, milestones (M0–M10 ✅), docs
+  index, architecture overview, current-state.
+- Follow-up chip: moltenvk/lavapipe editor goldens embed the machine temp path (/var/folders/... on this Mac).
+
