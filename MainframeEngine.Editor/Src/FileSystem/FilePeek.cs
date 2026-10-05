@@ -47,7 +47,7 @@ internal sealed class FilePeek
                 return new FilePeek { Length = length, ModifiedUtc = modifiedUtc, Error = "The file is not a JSON object." };
 
             string? typeName = null;
-            if (kind == FileKind.Scene && top.TryGetProperty("root", out var root) && root.ValueKind == JsonValueKind.Object)
+            if (kind == FileKind.Scene && SceneRoot(top) is { } root)
                 typeName = root.TryGetProperty("instance", out _) ? "instance" : GetString(root, "type");
             else if (kind == FileKind.Resource)
                 typeName = GetString(top, "type");
@@ -68,6 +68,15 @@ internal sealed class FilePeek
         {
             return new FilePeek { Length = length, ModifiedUtc = modifiedUtc, Error = $"Invalid JSON: {e.Message}" };
         }
+    }
+
+    // The root node entry: the first of "nodes" (format 2) or "root" (format 1).
+    private static JsonElement? SceneRoot(JsonElement top)
+    {
+        if (top.TryGetProperty("nodes", out var nodes) && nodes.ValueKind == JsonValueKind.Array && nodes.GetArrayLength() > 0
+            && nodes[0].ValueKind == JsonValueKind.Object)
+            return nodes[0];
+        return top.TryGetProperty("root", out var root) && root.ValueKind == JsonValueKind.Object ? root : null;
     }
 
     private static string? GetString(JsonElement element, string name) =>

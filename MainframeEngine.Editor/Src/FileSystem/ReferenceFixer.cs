@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using MainframeEngine.Serialization;
 
 namespace MainframeEngine.Editor;
 
@@ -10,7 +11,9 @@ namespace MainframeEngine.Editor;
 /// <c>project.mfproj</c>, the <c>path</c> hint of <c>{"ref"|"instance": uid, "path": …}</c> objects whose UID (or old
 /// hint) belongs to a moved file, and every string value exactly equal to a moved path (textures, sky panoramas,
 /// file-hinted properties, <c>mainScene</c>, autoload scenes, the bus layout, the window icon). Only files that changed
-/// are written, atomically, in the scene writer's style (2-space indent, <c>\n</c>, non-ASCII unescaped).
+/// are written, atomically, in the writers' style: scenes and resources laid out like the scene writer
+/// (<see cref="SceneFormat.FormatJson"/>), <c>project.mfproj</c> like the project writer (2-space indent, <c>\n</c>, non-ASCII
+/// unescaped).
 /// </summary>
 public static class ReferenceFixer
 {
@@ -63,7 +66,8 @@ public static class ReferenceFixer
 
             try
             {
-                AtomicFile.WriteAllBytes(file, Serialize(node, endsWithNewLine: bytes.Length > 0 && bytes[^1] == (byte)'\n'));
+                var sceneStyle = !string.Equals(Path.GetFileName(file), ProjectSettings.FileName, StringComparison.OrdinalIgnoreCase);
+                AtomicFile.WriteAllBytes(file, Serialize(node, sceneStyle, endsWithNewLine: bytes.Length > 0 && bytes[^1] == (byte)'\n'));
                 updated.Add(file);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -155,11 +159,18 @@ public static class ReferenceFixer
     private static string? StringOf(JsonNode? node) =>
         node is JsonValue value && value.GetValueKind() == JsonValueKind.String ? value.GetValue<string>() : null;
 
-    private static byte[] Serialize(JsonNode node, bool endsWithNewLine)
+    private static byte[] Serialize(JsonNode node, bool sceneStyle, bool endsWithNewLine)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer, WriteOptions))
             node.WriteTo(writer);
+        if (sceneStyle)
+        {
+            var laidOut = SceneFormat.FormatJson(buffer.WrittenSpan);
+            buffer.Clear();
+            buffer.Write(laidOut);
+        }
+
         if (endsWithNewLine)
             buffer.Write("\n"u8);
         return buffer.WrittenSpan.ToArray();

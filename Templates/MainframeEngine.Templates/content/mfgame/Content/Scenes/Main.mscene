@@ -1,100 +1,73 @@
 {
-  "format": 1,
+  "format": 2,
   "uid": "scn_5ea7a1e00001",
   "resources": {
-    "1": {
-      "type": "StandardMaterial3D",
-      "props": {
-        "AlbedoColor": [
-          0.9019608,
-          0.47058824,
-          0.3137255,
-          1
-        ]
-      }
+    "Sky_5kj71": {
+      "type": "Sky"
     },
-    "2": {
-      "type": "BoxMesh"
-    },
-    "3": {
+    "PlaneMesh_dcv7g": {
       "type": "PlaneMesh",
       "props": {
-        "Size": [
-          10,
-          10
-        ]
+        "Size": [10, 10]
       }
     },
-    "4": {
-      "type": "Sky"
+    "StandardMaterial3D_4ymgq": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.9019608, 0.47058824, 0.3137255, 1]
+      }
+    },
+    "BoxMesh_4ymgq": {
+      "type": "BoxMesh"
     }
   },
-  "root": {
-    "type": "Node3D",
-    "name": "Main",
-    "children": [
-      {
-        "type": "Camera3D",
-        "name": "Camera",
-        "props": {
-          "Position": [
-            0,
-            2.5,
-            5
-          ],
-          "RotationDegrees": [
-            -26.565054,
-            0,
-            0
-          ]
-        }
-      },
-      {
-        "type": "WorldEnvironment",
-        "name": "Environment",
-        "props": {
-          "Sky": {
-            "res": "4"
-          }
-        }
-      },
-      {
-        "type": "DirectionalLight3D",
-        "name": "Sun",
-        "props": {
-          "RotationDegrees": [
-            -50,
-            30,
-            0
-          ]
-        }
-      },
-      {
-        "type": "MeshInstance3D",
-        "name": "Floor",
-        "props": {
-          "Mesh": {
-            "res": "3"
-          }
-        }
-      },
-      {
-        "type": "Spinner",
-        "name": "Spinner",
-        "props": {
-          "Position": [
-            0,
-            0.5,
-            0
-          ],
-          "MaterialOverride": {
-            "res": "1"
-          },
-          "Mesh": {
-            "res": "2"
-          }
-        }
+  "nodes": [
+    {
+      "name": "Main",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0, 2.5, 5],
+        "RotationDegrees": [-26.565054, 0, 0]
       }
-    ]
-  }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-50, 30, 0]
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Mesh": { "res": "PlaneMesh_dcv7g" }
+      }
+    },
+    {
+      "name": "Spinner",
+      "parent": ".",
+      "type": "Spinner",
+      "props": {
+        "Position": [0, 0.5, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_4ymgq" },
+        "Mesh": { "res": "BoxMesh_4ymgq" }
+      }
+    }
+  ]
 }

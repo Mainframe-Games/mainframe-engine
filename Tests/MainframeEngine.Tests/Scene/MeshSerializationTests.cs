@@ -234,9 +234,9 @@ public sealed class MeshSerializationTests : IDisposable
         var root = PackedScene.Parse(json).Instantiate();
         Assert.IsType<MissingNode>(root.GetNode("G"));
 
-        var saved = JsonDocument.Parse(SceneSaver.ToJson(root)).RootElement;
+        var saved = SceneJson.Parse(SceneSaver.ToJson(root));
         var resources = saved.GetProperty("resources");
-        var props = saved.GetProperty("root").GetProperty("children")[0].GetProperty("props");
+        var props = SceneJson.Node(saved, "G").GetProperty("props");
         var shapeKey = props.GetProperty("Shape").GetProperty("res").GetString()!;
         var listKey = props.GetProperty("List")[0].GetProperty("res").GetString()!;
         Assert.Equal("BoxMesh", resources.GetProperty(shapeKey).GetProperty("type").GetString());

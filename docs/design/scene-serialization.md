@@ -12,7 +12,8 @@ diffed in git and edited by the [editor](editor.md):
 Property access is **source-generated**: `MainframeEngine.Generators` emits a `NodeTypeInfo` (factory,
 typed getter/setter delegates, hints, signals, migrations) for every node and resource type, so loading
 and saving use no reflection. Decisions: [JSON scenes, no binary bake](../../memory/decisions/0011-json-scenes-no-binary-bake.md),
-[source-generated type registry](../../memory/decisions/0012-source-generated-type-registry.md).
+[source-generated type registry](../../memory/decisions/0012-source-generated-type-registry.md),
+[scene format 2](../../memory/decisions/0102-scene-format-2.md).
 
 ## Key types
 
@@ -108,54 +109,118 @@ one collection per member feature; `TypeModelBuilder` fills them and each featur
 
 ## File format
 
+Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
+
 ```json
 {
-  "format": 1,
+  "format": 2,
   "uid": "scn_491645bea2fa",
   "resources": {
-    "1": { "type": "Sky", "props": { "Mode": "Panoramic", "Panorama": "Content/Sky/sky_10_2k.png" } },
-    "2": { "ref": "res_7b21aa90c1d4", "path": "Content/Materials/Crate.mres" }
+    "Sky_5kj71": {
+      "type": "Sky",
+      "props": {
+        "Mode": "Panoramic",
+        "Panorama": "Content/Sky/sky_10_2k.png"
+      }
+    },
+    "StandardMaterial3D_7b21a": {
+      "ref": "res_7b21aa90c1d4",
+      "path": "Content/Materials/Crate.mres"
+    }
   },
-  "root": {
-    "type": "Node3D", "name": "Main",
-    "children": [
-      { "type": "WorldEnvironment", "name": "Environment", "props": { "Sky": { "res": "1" } } },
-      { "type": "DirectionalLight3D", "name": "Sun",
-        "props": { "RotationDegrees": [-26.56506, 0, 0], "Color": [1, 0.95, 0.8], "Energy": 0.8 } },
-      { "instance": "scn_a12b77d03e9f", "path": "Content/Scenes/Player.mscene", "name": "Player",
-        "props": { "Position": [0, 0, 2] },
-        "overrides": { "Hitbox": { "Radius": 0.5 } },
-        "children": [ { "type": "Node3D", "name": "Hat" },
-                      { "type": "Node3D", "name": "Badge", "parent": "Hitbox" } ] }
-    ]
-  },
+  "nodes": [
+    {
+      "name": "Main",
+      "type": "Node3D"
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-26.56506, 0, 0],
+        "Color": [1, 0.95, 0.8],
+        "Energy": 0.8
+      }
+    },
+    {
+      "name": "Player",
+      "parent": ".",
+      "instance": "scn_a12b77d03e9f",
+      "path": "Content/Scenes/Player.mscene",
+      "props": {
+        "Position": [0, 0, 2]
+      },
+      "overrides": {
+        "Hitbox": {
+          "Radius": 0.5
+        }
+      }
+    },
+    {
+      "name": "Badge",
+      "parent": "Player/Hitbox",
+      "type": "Node3D"
+    },
+    {
+      "name": "Hat",
+      "parent": "Player",
+      "type": "Node3D"
+    }
+  ],
   "connections": [
-    { "from": "Player/Hitbox", "signal": "BodyEntered", "to": ".", "method": "OnPlayerHit", "flags": "Deferred" }
+    {
+      "from": "Player/Hitbox",
+      "signal": "BodyEntered",
+      "to": ".",
+      "method": "OnPlayerHit",
+      "flags": "Deferred"
+    }
   ]
 }
 ```
 
-- Written with `Utf8JsonWriter` (indented, UTF-8, non-ASCII unescaped); read with `JsonDocument`
-  (comments and trailing commas tolerated for hand edits). The `.meta` sidecars and the runtime index use a
-  source-generated `JsonSerializerContext`.
+- Written with `Utf8JsonWriter` (UTF-8, non-ASCII unescaped), then laid out by `SceneJsonLayout`
+  (`SceneFormat.FormatJson`): two-space indent and `\n` on every OS, one member per line, except arrays of up to 16
+  scalars (vectors, colours, transforms, group names) and resource references (`{ "res": "…" }`), which stay on one
+  line. Read with `JsonDocument` (comments and trailing commas tolerated for hand edits). The `.meta` sidecars and the
+  runtime index use a source-generated `JsonSerializerContext`.
 - **Only non-default values are written**: a property is skipped when it equals the type's
   `DefaultInstance` (codec equality; resources by reference).
 - Values: vectors, quaternions, colors (RGBA floats 0..1) and transforms (column vectors + origin) are
   arrays; enums are names (flags `"A, B"`); `NodePath` is a string; non-finite floats are strings
   (`"NaN"`, `"Infinity"`); resources are `{"res": "key"}` into the table, `null` when unset.
-- A node entry is `type`, `name`, optional `v` (type version when not 1), `props`, `groups` (persistent
-  only) and `children` (nodes **owned** by the scene root, in order).
+- **`nodes`** is a flat list in tree order (parents before children, siblings in order): the root first, then every
+  node **owned** by the scene root. An entry is `name`, `parent` (path from the root, `"."` for the root's children;
+  the root has none), `type`, optional `v` (type version when not 1), `props` and `groups` (persistent only).
+  Reparenting a node changes its own `parent` line (and its descendants'), not the indentation of a subtree.
 - **Nested instances** store the sub-scene's UID (`instance`) with the path as a hint, the instance's
-  name, its root properties that differ from a pristine instance of the sub-scene (`props`), `overrides`
-  keyed by path inside the instance (nodes owned by the instance or by instances nested in it), and
-  `children` this scene added under the instance (`parent` is the path inside the instance when not the
-  instance root). Changing a sub-scene therefore flows into every instance that did not override the value.
+  name and parent, its root properties that differ from a pristine instance of the sub-scene (`props`), and `overrides`
+  keyed by path inside the instance (nodes owned by the instance or by instances nested in it). Nodes this scene
+  added inside an instance are listed like any other node, their `parent` path running through it
+  (`"Player/Hitbox"`). Changing a sub-scene therefore flows into every instance that did not override the value.
   The instance's `v` and `overrideVersions` (path → version, when not 1) record the type versions the
   values were written with, so they migrate like any other entry. Inline resources are compared by value
   when diffing, so an instance never records an "override" that only differs by resource identity.
-- **Resources**: inline resources (no file) get table keys `"1"`, `"2"`, … in discovery order and are
-  written once even when referenced many times; external ones (`ResourceSaver.Save`d) are `ref` (UID) +
-  `path` (hint). An inline `PackedScene` cannot be referenced (save it first).
+- **Resources**: inline resources (no file) are written once even when referenced many times; external ones
+  (`ResourceSaver.Save`d) are `ref` (UID) + `path` (hint). An inline `PackedScene` cannot be referenced (save it
+  first). Table keys are `Type_xxxxx` (five base-36 digits) and **stable**: an inline resource remembers the key it
+  was loaded with (`Resource.SceneLocalId`, Godot's `resource_scene_unique_id`) and keeps it on every save, so
+  adding or removing a resource never renames the others. A new resource's key is hashed (FNV-1a) from where it is
+  first used (node path and property, or the referencing resource's key and property), so saving the same tree twice
+  writes the same bytes; an external reference's key is hashed from its UID. Collisions within a file are re-hashed.
+  The table is in discovery order.
+- **Format 1** files (`"root"` with nested `"children"`, resources keyed `"1"`, `"2"`… in discovery order, children
+  added inside an instance listed under it with `parent` relative to the instance) still load; their numbered keys
+  are not kept, so the next save writes format 2 with fresh keys.
 - **Connections**: persisted (`ConnectFlags.Persist`) connections between nodes of this scene, made in it
   (not in a sub-scene's file), with paths relative to the root; extra flags as `"flags"`.
 - Unknown types load as **`MissingNode`/`MissingResource`**, keeping the type name, version and raw
@@ -221,8 +286,8 @@ flowchart LR
 
 ## Versioning
 
-- **File format**: `format` (currently 1). Newer formats are rejected; older ones would be upgraded by
-  `SceneFormat.UpgradeFile` before parsing.
+- **File format**: `format` (currently 2). Newer formats are rejected; older ones load (format 1 differs in layout
+  only: `SceneDocument.Parse` reads both).
 - **Types**: `[SerializedVersion(n)]` sets a type's layout version (default 1); entries store `v` when it is
   not 1. On load, `[SerializedMigration(from)]` methods (`static void M(PropertyBag)`) upgrade older data
   step by step (rename, convert or drop properties) before it is applied; saving writes the current

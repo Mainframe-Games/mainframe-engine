@@ -155,7 +155,7 @@ public sealed class ModelImportTests : IDisposable
 
         var json = SceneSaver.ToJson(level);
         level.Free();
-        var entry = JsonDocument.Parse(json).RootElement.GetProperty("root").GetProperty("children")[0];
+        var entry = SceneJson.ChildrenOf(SceneJson.Parse(json), ".")[0];
         Assert.Equal(TestModel.ModelUid, entry.GetProperty("instance").GetString());
         Assert.Equal(ModelPath, entry.GetProperty("path").GetString());
         Assert.Equal(4, entry.GetProperty("props").GetProperty("Position")[0].GetSingle());

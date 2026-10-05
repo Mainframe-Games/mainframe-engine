@@ -197,7 +197,7 @@ public sealed class SceneEdgeCaseTests : IDisposable
         Assert.Equal(9f, level.GetNode<MigratedNode>("Sub/Engine").Speed);
 
         // Written back with the current version.
-        var saved = JsonDocument.Parse(SceneSaver.ToJson(level)).RootElement.GetProperty("root").GetProperty("children")[0];
+        var saved = SceneJson.Node(SceneJson.Parse(SceneSaver.ToJson(level)), "Sub");
         Assert.Equal(3, saved.GetProperty("overrideVersions").GetProperty("Engine").GetInt32());
         level.Free();
     }
@@ -216,7 +216,7 @@ public sealed class SceneEdgeCaseTests : IDisposable
         instance.Owner = level;
         ResourceLoader.ClearCache(); // the writer reloads the sub-scene: new inline resource instances
 
-        var entry = JsonDocument.Parse(SceneSaver.ToJson(level)).RootElement.GetProperty("root").GetProperty("children")[0];
+        var entry = SceneJson.Node(SceneJson.Parse(SceneSaver.ToJson(level)), "Sub");
         Assert.False(entry.TryGetProperty("props", out _));
         level.Free();
     }
@@ -225,7 +225,7 @@ public sealed class SceneEdgeCaseTests : IDisposable
     public void EquivalentColorsAreNotWrittenAsOverrides()
     {
         var quad = new Sprite3D { Modulate = Color.FromArgb(255, 255, 255, 255) }; // equal to Color.White by value
-        var root = JsonDocument.Parse(SceneSaver.ToJson(quad)).RootElement.GetProperty("root");
+        var root = SceneJson.Root(SceneJson.Parse(SceneSaver.ToJson(quad)));
         Assert.False(root.TryGetProperty("props", out _));
         quad.Free();
     }

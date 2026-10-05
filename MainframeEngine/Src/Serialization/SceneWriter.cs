@@ -1,14 +1,14 @@
 using System.Buffers;
-using System.Globalization;
 using System.Text.Json;
 
 namespace MainframeEngine.Serialization;
 
 /// <summary>
 /// Writes a node tree (or a resource) as a <c>.mscene</c> (<c>.mres</c>) document. Only nodes owned by the root
-/// are written; nested scene instances become an instance reference plus the properties that differ from a
-/// pristine instance of the sub-scene; properties equal to the type's default are skipped; resources are
-/// collected into the file's table (inline) or referenced by UID (external).
+/// are written, as a flat list in tree order with each node's parent path; nested scene instances become an
+/// instance reference plus the properties that differ from a pristine instance of the sub-scene; properties equal
+/// to the type's default are skipped; resources are collected into the file's table (inline) or referenced by UID
+/// (external), under keys that stay the same from save to save.
 /// </summary>
 internal sealed class SceneWriter : SerializationContext
 {
@@ -17,9 +17,14 @@ internal sealed class SceneWriter : SerializationContext
 
     private readonly List<Resource> _resources = [];
     private readonly Dictionary<Resource, string> _keys = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<string> _usedKeys = new(StringComparer.Ordinal);
     private readonly List<PackedScene> _loadedSubScenes = [];
     private readonly AssetDatabase _assets = AssetDatabase.Current;
     private Node _root = null!;
+
+    // Where the value being written lives (node path or resource key, and member): the seed of a new resource's key.
+    private string _siteOwner = string.Empty;
+    private string _siteMember = string.Empty;
 
     public override string AddResource(Resource resource)
     {
@@ -29,10 +34,58 @@ internal sealed class SceneWriter : SerializationContext
         if (resource is PackedScene { IsExternal: false })
             throw new InvalidOperationException("A PackedScene can only be referenced once it is saved to a file.");
 
-        key = (_resources.Count + 1).ToString(CultureInfo.InvariantCulture);
+        key = NewKey(resource);
         _keys[resource] = key;
+        _usedKeys.Add(key);
         _resources.Add(resource);
         return key;
+    }
+
+    /// <summary>
+    /// The resource's table key, <c>Type_xxxxx</c>. An inline resource keeps the key it was loaded or last saved with;
+    /// a new one gets a key hashed from where it is first used (node path and property), so saving the same tree twice
+    /// writes the same keys and adding a resource never renames the others. External references are keyed by their UID.
+    /// </summary>
+    private string NewKey(Resource resource)
+    {
+        if (resource.IsExternal)
+            return UniqueKey(TypeNameOf(resource), resource.Uid ?? resource.ResourcePath!);
+        if (resource.SceneLocalId is { Length: > 0 } kept && !_usedKeys.Contains(kept))
+            return kept;
+        var key = UniqueKey(TypeNameOf(resource), $"{_siteOwner}:{_siteMember}");
+        resource.SceneLocalId = key;
+        return key;
+    }
+
+    private string UniqueKey(string typeName, string seed)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var key = $"{typeName}_{Hash5(attempt == 0 ? seed : $"{seed}#{attempt}")}";
+            if (!_usedKeys.Contains(key))
+                return key;
+        }
+    }
+
+    private static string TypeNameOf(Resource resource) => resource is MissingResource missing
+        ? missing.OriginalType
+        : TypeRegistry.Get(resource.GetType())?.Name ?? resource.GetType().Name;
+
+    // Five base-36 digits (60 million values) of a 64-bit FNV-1a hash: short, and collisions within a file are retried.
+    private static string Hash5(string seed)
+    {
+        var hash = 14695981039346656037UL;
+        foreach (var b in System.Text.Encoding.UTF8.GetBytes(seed))
+            hash = (hash ^ b) * 1099511628211UL;
+
+        Span<char> digits = stackalloc char[5];
+        for (var i = digits.Length - 1; i >= 0; i--)
+        {
+            digits[i] = "0123456789abcdefghijklmnopqrstuvwxyz"[(int)(hash % 36)];
+            hash /= 36;
+        }
+
+        return new string(digits);
     }
 
     /// <summary>Serializes the scene rooted at <paramref name="root"/>.</summary>
@@ -46,29 +99,28 @@ internal sealed class SceneWriter : SerializationContext
             // the table before the nodes with stable keys.
             using (var sink = new Utf8JsonWriter(Stream.Null, DiscoveryOptions))
             {
-                WriteNode(sink, root);
+                WriteNodes(sink);
                 for (var i = 0; i < _resources.Count; i++)
                     WriteResourceEntry(sink, _resources[i]);
             }
 
             var discovered = _resources.Count;
             var buffer = new ArrayBufferWriter<byte>();
-            using (var w = new Utf8JsonWriter(buffer, SceneFormat.WriteOptions))
+            using (var w = new Utf8JsonWriter(buffer, SceneFormat.CompactWriteOptions))
             {
                 w.WriteStartObject();
                 w.WriteNumber("format", SceneFormat.Current);
                 if (uid is not null)
                     w.WriteString("uid", uid);
                 WriteResourceTable(w);
-                w.WritePropertyName("root");
-                WriteNode(w, root);
+                WriteNodes(w);
                 WriteConnections(w);
                 w.WriteEndObject();
             }
 
             if (_resources.Count != discovered)
                 throw new InvalidOperationException("Exported resource properties changed while saving; save again.");
-            return buffer.WrittenSpan.ToArray();
+            return SceneJsonLayout.Format(buffer.WrittenSpan);
         }
         finally
         {
@@ -85,13 +137,14 @@ internal sealed class SceneWriter : SerializationContext
         // The resource itself is the file, not a table entry; its sub-resources go in the table.
         using (var sink = new Utf8JsonWriter(Stream.Null, DiscoveryOptions))
         {
+            _siteOwner = string.Empty;
             WriteProps(sink, resource, info, info.DefaultInstance, "props");
             for (var i = 0; i < _resources.Count; i++)
                 WriteResourceEntry(sink, _resources[i]);
         }
 
         var buffer = new ArrayBufferWriter<byte>();
-        using (var w = new Utf8JsonWriter(buffer, SceneFormat.WriteOptions))
+        using (var w = new Utf8JsonWriter(buffer, SceneFormat.CompactWriteOptions))
         {
             w.WriteStartObject();
             w.WriteNumber("format", SceneFormat.Current);
@@ -104,7 +157,7 @@ internal sealed class SceneWriter : SerializationContext
             w.WriteEndObject();
         }
 
-        return buffer.WrittenSpan.ToArray();
+        return SceneJsonLayout.Format(buffer.WrittenSpan);
     }
 
     private void WriteResourceTable(Utf8JsonWriter w)
@@ -123,6 +176,7 @@ internal sealed class SceneWriter : SerializationContext
 
     private void WriteResourceEntry(Utf8JsonWriter w, Resource resource)
     {
+        _siteOwner = _keys[resource];
         w.WriteStartObject();
         if (resource.IsExternal)
         {
@@ -138,6 +192,7 @@ internal sealed class SceneWriter : SerializationContext
             if (missing.RawProperties.ValueKind == JsonValueKind.Object)
             {
                 w.WritePropertyName("props");
+                _siteMember = "props";
                 RawProperties.Write(w, missing.RawProperties, missing.ResourceReferences, this);
             }
         }
@@ -153,61 +208,72 @@ internal sealed class SceneWriter : SerializationContext
         w.WriteEndObject();
     }
 
+    /// <summary>
+    /// The <c>"nodes"</c> list: the root, then every node owned by it in tree order (parents before children). Inside a
+    /// nested instance, the instance's own nodes are not listed but are searched for nodes this scene added under them.
+    /// </summary>
+    private void WriteNodes(Utf8JsonWriter w)
+    {
+        w.WriteStartArray("nodes");
+        WriteNode(w, _root);
+        WriteDescendants(w, _root, insideInstance: false);
+        w.WriteEndArray();
+    }
+
+    private void WriteDescendants(Utf8JsonWriter w, Node node, bool insideInstance)
+    {
+        foreach (var child in node.Children)
+        {
+            if (ReferenceEquals(child.Owner, _root))
+            {
+                WriteNode(w, child);
+                WriteDescendants(w, child, insideInstance: child.SceneFilePath is not null);
+            }
+            else if (insideInstance)
+            {
+                WriteDescendants(w, child, insideInstance: true);
+            }
+        }
+    }
+
     private void WriteNode(Utf8JsonWriter w, Node node)
     {
+        var isRoot = ReferenceEquals(node, _root);
+        _siteOwner = isRoot ? "." : _root.GetPathTo(node).Path;
         w.WriteStartObject();
-        if (!ReferenceEquals(node, _root) && node.SceneFilePath is not null)
+        w.WriteString("name", node.Name);
+        if (!isRoot)
+            w.WriteString("parent", _root.GetPathTo(node.Parent!).Path);
+
+        if (!isRoot && node.SceneFilePath is not null)
         {
             WriteInstance(w, node);
         }
         else if (node is MissingNode missing)
         {
             w.WriteString("type", missing.OriginalType);
-            w.WriteString("name", node.Name);
             if (missing.Version != 1)
                 w.WriteNumber("v", missing.Version);
             if (missing.RawProperties.ValueKind == JsonValueKind.Object)
             {
                 w.WritePropertyName("props");
+                _siteMember = "props";
                 RawProperties.Write(w, missing.RawProperties, missing.ResourceReferences, this);
             }
 
             WriteGroups(w, node, null);
-            WriteOwnedChildren(w, node);
         }
         else
         {
             var info = InfoFor(node);
             w.WriteString("type", info.Name);
-            w.WriteString("name", node.Name);
             if (info.Version != 1)
                 w.WriteNumber("v", info.Version);
             WriteProps(w, node, info, info.DefaultInstance, "props");
             WriteGroups(w, node, null);
-            WriteOwnedChildren(w, node);
         }
 
         w.WriteEndObject();
-    }
-
-    private void WriteOwnedChildren(Utf8JsonWriter w, Node node)
-    {
-        var started = false;
-        foreach (var child in node.Children)
-        {
-            if (!ReferenceEquals(child.Owner, _root))
-                continue;
-            if (!started)
-            {
-                w.WriteStartArray("children");
-                started = true;
-            }
-
-            WriteNode(w, child);
-        }
-
-        if (started)
-            w.WriteEndArray();
     }
 
     private void WriteInstance(Utf8JsonWriter w, Node instance)
@@ -223,7 +289,6 @@ internal sealed class SceneWriter : SerializationContext
             else
                 w.WriteNull("instance");
             w.WriteString("path", _assets.ToProjectPath(sub.ResourcePath ?? instance.SceneFilePath!));
-            w.WriteString("name", instance.Name);
             var rootInfo = InfoFor(instance);
             if (rootInfo.Version != 1)
                 w.WriteNumber("v", rootInfo.Version);
@@ -231,7 +296,6 @@ internal sealed class SceneWriter : SerializationContext
             WriteProps(w, instance, rootInfo, pristine, "props");
             WriteGroups(w, instance, pristine);
             WriteOverrides(w, instance, pristine);
-            WriteAddedChildren(w, instance);
         }
         finally
         {
@@ -253,7 +317,7 @@ internal sealed class SceneWriter : SerializationContext
         {
             var node = stack.Pop();
             if (ReferenceEquals(node.Owner, _root))
-                continue; // added by this scene: written as a child entry instead
+                continue; // added by this scene: listed as a node of its own
 
             var path = instance.GetPathTo(node).Path;
             if (pristine.GetNodeOrNull(path) is { } counterpart && counterpart.GetType() == node.GetType()
@@ -265,6 +329,7 @@ internal sealed class SceneWriter : SerializationContext
                     started = true;
                 }
 
+                _siteOwner = _root.GetPathTo(node).Path;
                 WriteProps(w, node, info, counterpart, path);
                 if (info.Version != 1)
                     (versions ??= []).Add((path, info.Version));
@@ -282,60 +347,6 @@ internal sealed class SceneWriter : SerializationContext
         w.WriteStartObject("overrideVersions");
         foreach (var (path, version) in versions)
             w.WriteNumber(path, version);
-        w.WriteEndObject();
-    }
-
-    // Nodes owned by this scene but parented inside the instance (its root or deeper).
-    private void WriteAddedChildren(Utf8JsonWriter w, Node instance)
-    {
-        var started = false;
-        var stack = new Stack<Node>();
-        stack.Push(instance);
-        while (stack.Count > 0)
-        {
-            var parent = stack.Pop();
-            foreach (var child in parent.Children)
-            {
-                if (ReferenceEquals(child.Owner, _root))
-                {
-                    if (!started)
-                    {
-                        w.WriteStartArray("children");
-                        started = true;
-                    }
-
-                    if (ReferenceEquals(parent, instance))
-                    {
-                        WriteNode(w, child);
-                    }
-                    else
-                    {
-                        WriteNodeWithParent(w, child, instance.GetPathTo(parent).Path);
-                    }
-                }
-                else
-                {
-                    stack.Push(child);
-                }
-            }
-        }
-
-        if (started)
-            w.WriteEndArray();
-    }
-
-    private void WriteNodeWithParent(Utf8JsonWriter w, Node node, string parentPath)
-    {
-        // WriteNode with "parent" first: the forward-only writer cannot insert it afterwards, so the body goes
-        // through a temporary buffer (rare: a node added below a nested instance's root).
-        var buffer = new ArrayBufferWriter<byte>();
-        using (var inner = new Utf8JsonWriter(buffer))
-            WriteNode(inner, node);
-        using var doc = JsonDocument.Parse(buffer.WrittenMemory);
-        w.WriteStartObject();
-        w.WriteString("parent", parentPath);
-        foreach (var property in doc.RootElement.EnumerateObject())
-            property.WriteTo(w);
         w.WriteEndObject();
     }
 
@@ -361,6 +372,7 @@ internal sealed class SceneWriter : SerializationContext
             }
 
             w.WritePropertyName(property.Name);
+            _siteMember = property.Name;
             property.Write(w, target, this);
         }
 

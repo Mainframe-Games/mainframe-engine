@@ -6,10 +6,12 @@ namespace MainframeEngine.Serialization;
 public static class SceneFormat
 {
     /// <summary>
-    /// Current file format number. Files with a higher number are rejected; lower numbers are upgraded by
-    /// <see cref="UpgradeFile"/> before parsing (format 1 is the first, so there is nothing to upgrade yet).
+    /// Current file format number. Files with a higher number are rejected; older ones still load. Format 2 lists the
+    /// nodes flat (<c>"nodes"</c>, each with its <c>"parent"</c> path) and keys inline resources by stable ids
+    /// (<c>"StandardMaterial3D_k3x9a"</c>); format 1 nested <c>"children"</c> under <c>"root"</c> and numbered the
+    /// resources <c>"1"</c>, <c>"2"</c>… in discovery order (re-keyed on the next save).
     /// </summary>
-    public const int Current = 1;
+    public const int Current = 2;
 
     public const string SceneExtension = ".mscene";
     public const string ResourceExtension = ".mres";
@@ -20,9 +22,15 @@ public static class SceneFormat
             throw new InvalidDataException($"'{source}' has format {format}; this engine reads up to {Current}. Update the engine.");
         if (format < 1)
             throw new InvalidDataException($"'{source}' has an invalid format number {format}.");
-        // Future: `if (format == 1) root = UpgradeFormat1To2(root);` etc.
+        // Formats 1 and 2 differ in layout only; SceneDocument.Parse reads both.
         return root;
     }
+
+    /// <summary>
+    /// Lays out JSON in the scene file style: two-space indent, one member per line, short arrays of scalars on one
+    /// line (<c>[0, 1.5, 0]</c>). Tools that rewrite scene or resource files use it to keep their diffs minimal.
+    /// </summary>
+    public static byte[] FormatJson(ReadOnlySpan<byte> json) => SceneJsonLayout.Format(json);
 
     internal static readonly JsonDocumentOptions ReadOptions = new()
     {
@@ -30,8 +38,14 @@ public static class SceneFormat
         AllowTrailingCommas = true,
     };
 
-    // Scene and resource files are committed content: "\n" on every OS (the default is Environment.NewLine), so
-    // a save on Windows is byte-identical to one on macOS/Linux.
+    // Scene and resource files are written compact, then laid out by SceneJsonLayout (its "\n" on every OS keeps a
+    // save on Windows byte-identical to one on macOS/Linux).
+    internal static readonly JsonWriterOptions CompactWriteOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    // Other committed JSON (project.mfproj): "\n" on every OS (the default is Environment.NewLine).
     internal static readonly JsonWriterOptions WriteOptions = new()
     {
         Indented = true,
@@ -54,7 +68,7 @@ internal sealed class NodeEntry
     public List<string> Groups { get; } = [];
 
     /// <summary>For children added under a nested instance: path from the instance root to the parent.</summary>
-    public string? ParentPath { get; init; }
+    public string? ParentPath { get; set; }
 
     public bool IsInstance { get; init; }
 }
@@ -81,8 +95,13 @@ internal sealed class SceneDocument
         var format = root.TryGetProperty("format", out var f) ? f.GetInt32() : SceneFormat.Current;
         root = SceneFormat.UpgradeFile(root, format, source);
 
-        if (!root.TryGetProperty("root", out var rootNode))
-            throw new InvalidDataException($"'{source}' has no \"root\" node.");
+        NodeEntry rootEntry;
+        if (root.TryGetProperty("nodes", out var nodes))
+            rootEntry = ParseNodeList(nodes, source);
+        else if (root.TryGetProperty("root", out var rootNode))
+            rootEntry = ParseNode(rootNode, source); // format 1: children nested in their parents
+        else
+            throw new InvalidDataException($"'{source}' has no \"nodes\".");
 
         var connections = new List<ConnectionEntry>();
         if (root.TryGetProperty("connections", out var conns))
@@ -103,7 +122,7 @@ internal sealed class SceneDocument
             Format = format,
             Uid = root.TryGetProperty("uid", out var uid) ? uid.GetString() : null,
             Resources = ParseResourceTable(root, source),
-            Root = ParseNode(rootNode, source),
+            Root = rootEntry,
             Connections = connections,
         };
     }
@@ -120,7 +139,68 @@ internal sealed class SceneDocument
         return table;
     }
 
-    private static NodeEntry ParseNode(JsonElement e, string source)
+    /// <summary>
+    /// Format 2: the nodes in tree order, parents first. The root has no <c>"parent"</c>; every other node names its
+    /// parent by path from the root (<c>"."</c> for the root itself). A parent inside a nested instance (not listed in
+    /// the file) becomes <see cref="NodeEntry.ParentPath"/> relative to that instance.
+    /// </summary>
+    private static NodeEntry ParseNodeList(JsonElement nodes, string source)
+    {
+        if (nodes.ValueKind != JsonValueKind.Array || nodes.GetArrayLength() == 0)
+            throw new InvalidDataException($"'{source}': \"nodes\" must be a non-empty array.");
+
+        NodeEntry? root = null;
+        var byPath = new Dictionary<string, NodeEntry>(StringComparer.Ordinal);
+        foreach (var e in nodes.EnumerateArray())
+        {
+            var entry = ParseNode(e, source, nestedChildren: false);
+            if (root is null)
+            {
+                if (e.TryGetProperty("parent", out _))
+                    throw new InvalidDataException($"'{source}': the first node is the root; it cannot have a \"parent\".");
+                root = entry;
+                byPath["."] = entry;
+                continue;
+            }
+
+            if (!e.TryGetProperty("parent", out var p) || p.GetString() is not { Length: > 0 } parentPath)
+                throw new InvalidDataException($"'{source}': node '{entry.Name}' has no \"parent\" (only the first node is the root).");
+            if (entry.Name.Length == 0)
+                throw new InvalidDataException($"'{source}': a node under '{parentPath}' has no \"name\".");
+
+            Attach(entry, parentPath, byPath, source);
+            var path = parentPath == "." ? entry.Name : $"{parentPath}/{entry.Name}";
+            if (!byPath.TryAdd(path, entry))
+                throw new InvalidDataException($"'{source}': two nodes are named '{path}'.");
+        }
+
+        return root!;
+    }
+
+    // Adds entry under the node at parentPath: a listed node, or a node inside the nearest listed instance above it.
+    private static void Attach(NodeEntry entry, string parentPath, Dictionary<string, NodeEntry> byPath, string source)
+    {
+        if (byPath.TryGetValue(parentPath, out var parent))
+        {
+            parent.Children.Add(entry);
+            return;
+        }
+
+        for (var cut = parentPath.LastIndexOf('/'); cut > 0; cut = parentPath.LastIndexOf('/', cut - 1))
+        {
+            if (!byPath.TryGetValue(parentPath[..cut], out var ancestor))
+                continue;
+            if (!ancestor.IsInstance)
+                break;
+            entry.ParentPath = parentPath[(cut + 1)..];
+            ancestor.Children.Add(entry);
+            return;
+        }
+
+        throw new InvalidDataException($"'{source}': parent '{parentPath}' of '{entry.Name}' is not an earlier node or inside an instance.");
+    }
+
+    private static NodeEntry ParseNode(JsonElement e, string source, bool nestedChildren = true)
     {
         if (e.ValueKind != JsonValueKind.Object)
             throw new InvalidDataException($"'{source}': node entries must be objects.");
@@ -143,7 +223,7 @@ internal sealed class SceneDocument
             InstanceUid = instanceUid,
             InstancePath = instancePath,
             Props = e.TryGetProperty("props", out var props) ? props : default,
-            ParentPath = e.TryGetProperty("parent", out var parent) ? parent.GetString() : null,
+            ParentPath = nestedChildren && e.TryGetProperty("parent", out var parent) ? parent.GetString() : null,
         };
 
         if (e.TryGetProperty("overrides", out var overrides))
@@ -158,7 +238,7 @@ internal sealed class SceneDocument
         if (e.TryGetProperty("groups", out var groups))
             foreach (var g in groups.EnumerateArray())
                 entry.Groups.Add(g.GetString()!);
-        if (e.TryGetProperty("children", out var children))
+        if (nestedChildren && e.TryGetProperty("children", out var children))
             foreach (var c in children.EnumerateArray())
                 entry.Children.Add(ParseNode(c, source));
         return entry;

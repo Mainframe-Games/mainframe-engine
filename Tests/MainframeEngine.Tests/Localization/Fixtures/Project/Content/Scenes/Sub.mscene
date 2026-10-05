@@ -1,21 +1,22 @@
 {
-  "format": 1,
+  "format": 2,
   "uid": "scn_0000000000a1",
-  "root": {
-    "type": "LocalizedLabel",
-    "name": "Panel",
-    "props": {
-      "Text": "Panel title"
-    },
-    "children": [
-      {
-        "type": "LocalizedLabel",
-        "name": "Caption",
-        "props": {
-          "Text": "Caption text",
-          "Key": "caption-id"
-        }
+  "nodes": [
+    {
+      "name": "Panel",
+      "type": "LocalizedLabel",
+      "props": {
+        "Text": "Panel title"
       }
-    ]
-  }
+    },
+    {
+      "name": "Caption",
+      "parent": ".",
+      "type": "LocalizedLabel",
+      "props": {
+        "Text": "Caption text",
+        "Key": "caption-id"
+      }
+    }
+  ]
 }

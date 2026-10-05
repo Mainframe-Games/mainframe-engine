@@ -181,3 +181,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `chore/public-readiness`: THIRD_PARTY_NOTICES for Spine example assets (not MIT), the Poly Haven sky (CC0), the
   Silk.NET/LearnOpenGL/Vulkan Tutorial origins of `Examples/SilkVulkanExamples`; README License section; unused
   `sky_16_2k.png` removed; CI jobs fetch only needed LFS files with an `.git/lfs` cache.
+
+### 2026-10-05 — Scene format 2 (branch `scene-format-2`)
+- ADR 0102: flat `"nodes"` list with `parent` paths; stable inline resource keys `Type_xxxxx` (`Resource.SceneLocalId`,
+  new keys hashed from their first use site, so saves are deterministic); `SceneJsonLayout` keeps arrays of ≤16
+  scalars and `{ "res": … }` on one line. Format 1 still loads (re-keyed on save). Editor `FilePeek`/`ReferenceFixer`
+  and the `mf-l10n` scene extractor read both layouts. Sandbox, NetBox, template and EditorShowcase files re-saved
+  (Sandbox.mscene 856 → 570 lines).
+- Gates: build 0 warnings, Release -warnaserror, unit 1185 (+1 skip) + editor 443 (+1 skip), format-check,
+  render 45/45, template-smoke OK.

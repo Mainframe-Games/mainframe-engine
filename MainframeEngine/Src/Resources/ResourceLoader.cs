@@ -315,7 +315,7 @@ public static class ResourceLoader
         var version = root.TryGetProperty("v", out var v) ? v.GetInt32() : 1;
         var props = root.TryGetProperty("props", out var p) ? p : default;
 
-        var table = new ResourceTable(SceneDocument.ParseResourceTable(root, pathKey), pathKey);
+        var table = new ResourceTable(SceneDocument.ParseResourceTable(root, pathKey), pathKey, keepKeys: format >= 2);
         Resource resource;
         var info = TypeRegistry.Get(typeName);
         if (info is { IsResource: true, IsAbstract: false })

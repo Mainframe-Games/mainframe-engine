@@ -5,9 +5,10 @@ namespace MainframeEngine.Serialization;
 /// <summary>
 /// The <c>"resources"</c> table of a scene or resource file: inline resources are created on first use (and
 /// shared by everything in the file that references them), external ones are loaded through
-/// <see cref="ResourceLoader"/> and released with the table.
+/// <see cref="ResourceLoader"/> and released with the table. With <paramref name="keepKeys"/> (format 2 files) inline
+/// resources remember their key (<see cref="Resource.SceneLocalId"/>), so the next save writes them under the same one.
 /// </summary>
-internal sealed class ResourceTable(Dictionary<string, JsonElement> entries, string source) : DeserializationContext
+internal sealed class ResourceTable(Dictionary<string, JsonElement> entries, string source, bool keepKeys) : DeserializationContext
 {
     private readonly Dictionary<string, Resource> _resolved = new(StringComparer.Ordinal);
     private readonly List<Resource> _external = [];
@@ -43,18 +44,21 @@ internal sealed class ResourceTable(Dictionary<string, JsonElement> entries, str
         {
             Log.Warning($"[Scene] '{source}': unknown resource type '{typeName}'; kept as MissingResource.");
             var missing = new MissingResource(typeName, version, props);
+            if (keepKeys)
+                missing.SceneLocalId = key;
             _resolved[key] = missing;
             missing.ResourceReferences = RawProperties.ResolveReferences(props, this);
             return missing;
         }
 
         resource = (Resource)info.CreateInstance();
+        if (keepKeys)
+            resource.SceneLocalId = key;
         _resolved[key] = resource; // before applying: self-references resolve to the same object
         PropertyApplier.Apply(resource, info, props, version, this, $"{source} (resource \"{key}\")");
         return resource;
     }
 
-    /// <summary>Drops the references this table took on external resources.</summary>
     /// <summary>True when a resource this table created or loaded has a type from <paramref name="assembly"/>.</summary>
     public bool References(System.Reflection.Assembly assembly)
     {
@@ -64,6 +68,7 @@ internal sealed class ResourceTable(Dictionary<string, JsonElement> entries, str
         return false;
     }
 
+    /// <summary>Drops the references this table took on external resources.</summary>
     public void ReleaseExternal()
     {
         foreach (var r in _external)
