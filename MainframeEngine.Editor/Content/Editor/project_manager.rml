@@ -52,7 +52,9 @@
         }
         .pm-row:hover { background-color: #23262e; }
         .pm-row.selected { background-color: #1e3a8a; }
-        .pm-row .icon { margin-right: 12dp; }
+        .pm-row .icon { margin: 0dp 18dp 0dp 6dp; } /* the folder glyph centred in the same 36dp + 12dp slot as an icon, so names align */
+        .pm-row .pm-icon { width: 36dp; height: 36dp; margin-right: 12dp; border-radius: 6dp; }
+        .pm-row.missing .pm-icon { opacity: 0.4; }
         .pm-info { display: flex; flex-direction: column; flex: 1 1 auto; overflow: hidden; }
         .pm-name { display: block; font-size: 14dp; font-weight: bold; color: #e8ebf2; }
         .pm-folder { display: block; font-size: 11dp; color: #8b93a5; white-space: nowrap; overflow: hidden; }
@@ -113,7 +115,8 @@
             <div class="pm-list" id="pm-list">
                 <div data-for="p : projects" data-attr-class="'pm-row' + (p.selected ? ' selected' : '') + (p.valid ? '' : ' missing')"
                      data-event-click="select(p.index)" data-event-dblclick="activate(p.index)">
-                    <span data-attr-class="p.valid ? 'icon icon-lg icon-folder-code' : 'icon icon-lg icon-folder-x'"></span>
+                    <img class="pm-icon" data-if="p.has_icon" data-attr-src="p.icon"/>
+                    <span data-if="!p.has_icon" data-attr-class="p.valid ? 'icon icon-lg icon-folder-code' : 'icon icon-lg icon-folder-x'"></span>
                     <div class="pm-info">
                         <span class="pm-name">{{p.name}}</span>
                         <span class="pm-folder">{{p.folder}}</span>

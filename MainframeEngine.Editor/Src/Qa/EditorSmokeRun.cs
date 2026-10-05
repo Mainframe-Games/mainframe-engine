@@ -262,15 +262,23 @@ public sealed class EditorSmokeRun : IEditorAutomation
         {
             case ("project-manager", 3):
                 {
-                    // Recent projects in a fixed temp folder: one present, one gone (its row is flagged missing).
+                    // Recent projects in a fixed temp folder: one present with an icon, one gone (its row is flagged missing).
                     var root = GoldenPaths.Root;
                     foreach (var (name, present) in new[] { ("PuzzleBox", false), ("SpaceGame", true) })
                     {
                         var folder = Path.Combine(root, name);
                         if (present)
-                            new ProjectSettings { Name = name }.Save(Directory.CreateDirectory(folder).FullName);
+                        {
+                            // The present project has an icon (the brand logo), the way every new project does.
+                            new ProjectSettings { Name = name, Window = { Icon = "Content/icon.png" } }.Save(Directory.CreateDirectory(folder).FullName);
+                            Directory.CreateDirectory(Path.Combine(folder, "Content"));
+                            File.Copy(ContentPaths.Resolve("Content/Brand/logo-256.png"), Path.Combine(folder, "Content", "icon.png"), overwrite: true);
+                        }
                         else if (Directory.Exists(folder))
+                        {
                             Directory.Delete(folder, recursive: true);
+                        }
+
                         workspace.RecentProjects.Touch(folder, name);
                     }
 

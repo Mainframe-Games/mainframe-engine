@@ -261,7 +261,7 @@ the Project Manager. Order: D1 → D2 → D3 → D4.
 |---|---|---|
 | D1 `Examples/Demo` (GameHost project): nav-bar autoload, Basic 3D / Basic 2D / Audio 2D / Audio 3D / UI + hot reload / Physics 2D / Physics 3D / Spine (Camera2D ↔ Camera3D) scenes, README screenshot gallery; the old test game and the editor-screenshot project removed | ✅ | [Demo](design/demo.md) (proposal: [Demo project](design/future/demo-project.md)) |
 | D2 Remove ImGui: RmlUi `DevOverlay` (F12, panels, `AddPanel`), Vulkan `ScreenGizmos` (light + axis gizmos) | ✅ | [Developer overlay](design/dev-overlay.md) (proposal: [Remove ImGui](design/future/remove-imgui.md), [ADR 0115](../memory/decisions/0115-remove-imgui.md)) |
-| D3 Project icons in the Project Manager (`window.icon`, template default icon, RmlUi absolute-path fix) | ⬜ | [Project icons](design/future/project-icons.md) |
+| D3 Project icons in the Project Manager (`window.icon`, template default icon, RmlUi absolute-path fix) | ✅ | [Project icons](design/future/project-icons.md) |
 | D4 "Download Demo Project" (release zip asset, download + extract + engine-path rewrite) | ⬜ | [Demo download](design/future/demo-download.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜

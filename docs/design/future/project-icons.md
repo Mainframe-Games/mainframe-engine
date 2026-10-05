@@ -1,6 +1,6 @@
 # Proposal: Project icons in the Project Manager
 
-**Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D3) · **Status:** ⬜ planned ·
+**Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D3) · **Status:** ✅ done ·
 **Depends on:** [M10 editor → projects](../editor.md#projects) · **Related:** [Demo project](demo-project.md) (ships
 an icon), [Demo download](demo-download.md)
 

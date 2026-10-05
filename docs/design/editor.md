@@ -318,7 +318,13 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
 - **Project Manager** (`project_manager.rml`, UI layer 40): the recent projects (`~/.mainframe/recent_projects.json`,
   newest first; a missing folder is flagged and can be removed from the list), New Project, Open Folder, and the
   **.NET SDK check** (`DotnetSdk`: a .NET 10 or newer SDK is required; without one, a link to the download page).
-  File › Project Manager returns to it.
+  File › Project Manager returns to it. Each row shows the project's **icon**, `window.icon` of its `project.mfproj`
+  (Godot's `application/config/icon`): `ProjectIconResolver` resolves it to an absolute PNG inside the project folder
+  (anything else, a missing file or a malformed project means no icon, and the row keeps the folder glyph), caching by
+  the modification times of `project.mfproj` and the icon, and reports a change once so the rows rebuild and
+  `RmlCore.ReleaseTextures()` re-reads the image. New projects ship `Content/icon.png` (the template default, the brand
+  logo) with `window.icon` set, and the Demo has its own. Project Settings › Window › Icon previews the PNG (32 dp)
+  beside its field.
 - **New Project** (`new_project.rml`): name, parent folder, the engine checkout (found above the editor, or chosen) and
   a live validation (`NewProjectValidation`: a valid C# identifier, an empty or missing target folder, the SDK).
   Create runs `dotnet new mfgame --engine-path …` from a private template hive (`~/.mainframe/templates`; the user's

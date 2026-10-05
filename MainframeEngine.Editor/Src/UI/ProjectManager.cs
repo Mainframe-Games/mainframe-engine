@@ -18,8 +18,12 @@ public sealed class ProjectManager : EditorDocument
         public required bool Valid { get; init; }
         public required string When { get; init; }
         public required string Folder { get; init; }
+        public string Icon { get; init; } = "";
         public bool Selected { get; set; }
     }
+
+    /// <summary>A listed project (Name, Path, and the absolute path of its icon PNG — "" when it has none), for tests and QA.</summary>
+    public sealed record Entry(string Name, string Path, string Icon);
 
     private static readonly RmlStructType<Row> RowType = new RmlStructType<Row>()
         .Member("name", static r => r.Project.Name)
@@ -27,9 +31,12 @@ public sealed class ProjectManager : EditorDocument
         .Member("when", static r => r.When)
         .Member("valid", static r => r.Valid)
         .Member("index", static r => r.Index)
-        .Member("selected", static r => r.Selected);
+        .Member("selected", static r => r.Selected)
+        .Member("icon", static r => r.Icon)
+        .Member("has_icon", static r => r.Icon.Length > 0);
 
     private readonly List<Row> _rows = [];
+    private readonly ProjectIconResolver _icons = new();
     private RmlDataModel? _model;
     private string _query = "";
     private int _selected = -1;
@@ -48,7 +55,7 @@ public sealed class ProjectManager : EditorDocument
     public DotnetSdkInfo? Sdk { get; private set; }
 
     /// <summary>The listed projects (after the filter), for tests and QA.</summary>
-    public IReadOnlyList<RecentProject> VisibleProjects => _rows.Select(r => r.Project).ToArray();
+    public IReadOnlyList<Entry> VisibleProjects => _rows.Select(r => new Entry(r.Project.Name, r.Project.Path, r.Icon)).ToArray();
 
     protected override void OnReady()
     {
@@ -123,17 +130,22 @@ public sealed class ProjectManager : EditorDocument
         _rows.Clear();
         _selected = -1;
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var iconsChanged = false;
         foreach (var project in Workspace.RecentProjects.Items)
         {
             if (_query.Length > 0 && !project.Name.Contains(_query, StringComparison.OrdinalIgnoreCase) &&
                 !project.Path.Contains(_query, StringComparison.OrdinalIgnoreCase))
                 continue;
             var folder = project.Path.StartsWith(home, StringComparison.Ordinal) ? "~" + project.Path[home.Length..] : project.Path;
+            var valid = RecentProjects.IsValid(project);
+            var icon = valid ? _icons.Resolve(project.Path) : default;
+            iconsChanged |= icon.Changed;
             _rows.Add(new Row
             {
                 Project = project,
                 Index = _rows.Count,
-                Valid = RecentProjects.IsValid(project),
+                Valid = valid,
+                Icon = icon.Path ?? "",
                 When = Ago(project.LastOpenedUtc),
                 Folder = folder,
             });
@@ -144,6 +156,10 @@ public sealed class ProjectManager : EditorDocument
             }
         }
 
+        // RmlUi caches textures by source: an icon that changed on disk is re-read after the release (the Project Manager is the
+        // only document using them while it is open).
+        if (iconsChanged)
+            RmlCore.ReleaseTextures();
         _model?.DirtyAll();
     }
 

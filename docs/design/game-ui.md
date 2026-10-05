@@ -153,8 +153,11 @@ flowchart LR
   20-byte `Rml::Vertex`) then 32-bit indices, so a draw is one `vkCmdDrawIndexed(count, 1, firstIndex,
   vertexOffset, 0)` and buffers rebind only on a chunk change. RmlUi compiles geometry once and re-renders it by
   handle (geometry caching); ranges are freed only after the frames that may read them complete.
-- **Textures.** Images load through the UI file interface (StbImageSharp), are **premultiplied on load** and get a mip
-  chain; generated textures (font atlases) arrive premultiplied. Both are `GpuTexture`s (`R8G8B8A8_UNORM`) through
+- **Textures.** Images load through the UI file interface (StbImageSharp). An `src` that is an absolute path to an
+  existing file (`<img src="/home/me/Game/Content/icon.png">`, `C:\…`) loads as written (the `JoinPath` callback keeps
+  it instead of joining it onto the document's folder; the editor's Project Manager shows project icons this way).
+  Textures are cached by source: `RmlCore.ReleaseTextures()` drops them so a changed file is re-read. Images are
+  **premultiplied on load** and get a mip chain; generated textures (font atlases) arrive premultiplied. Both are `GpuTexture`s (`R8G8B8A8_UNORM`) through
   the upload queue — created during `Process`, between frames, so nothing waits on the GPU. Untextured geometry binds a
   1×1 white texture. `engine://name` resolves to a registered `GpuTexture` or `RenderTarget` colour attachment
   (`UiServer.RegisterTexture`); the shader encodes sRGB-format and float sources and premultiplies straight alpha
