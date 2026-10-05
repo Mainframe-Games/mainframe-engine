@@ -1,9 +1,9 @@
 {
-  "format": 1,
+  "format": 2,
   "uid": "res_5ea7a1e00002",
   "type": "AudioBusLayout",
   "resources": {
-    "1": {
+    "AudioBusInfo_u5rb1": {
       "type": "AudioBusInfo",
       "props": {
         "Name": "Master",
@@ -11,27 +11,27 @@
         "MaxVoices": 16
       }
     },
-    "2": {
+    "AudioBusInfo_9fwoh": {
       "type": "AudioBusInfo",
       "props": {
         "Name": "Music",
         "MaxVoices": 4
       }
     },
-    "3": {
+    "AudioBusInfo_ixqmw": {
       "type": "AudioBusInfo",
       "props": {
         "Name": "SFX",
         "MaxVoices": 32
       }
     },
-    "4": {
+    "AudioBusInfo_frsnf": {
       "type": "AudioBusInfo",
       "props": {
         "Name": "UI"
       }
     },
-    "5": {
+    "AudioBusInfo_zy2q2": {
       "type": "AudioBusInfo",
       "props": {
         "Name": "Voice"
@@ -41,21 +41,11 @@
   "props": {
     "ResourceName": "Bus layout",
     "Buses": [
-      {
-        "res": "1"
-      },
-      {
-        "res": "2"
-      },
-      {
-        "res": "3"
-      },
-      {
-        "res": "4"
-      },
-      {
-        "res": "5"
-      }
+      { "res": "AudioBusInfo_u5rb1" },
+      { "res": "AudioBusInfo_9fwoh" },
+      { "res": "AudioBusInfo_ixqmw" },
+      { "res": "AudioBusInfo_frsnf" },
+      { "res": "AudioBusInfo_zy2q2" }
     ]
   }
 }

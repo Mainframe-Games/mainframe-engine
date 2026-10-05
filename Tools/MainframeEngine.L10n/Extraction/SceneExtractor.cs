@@ -43,8 +43,10 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
                 ExtractResource(context, resource.Value, $"resources/{resource.Name}", $"resource {resource.Name}");
         }
 
-        if (root.TryGetProperty("root", out var node) && node.ValueKind == JsonValueKind.Object)
-            ExtractNode(context, node, "root", parentPath: null);
+        if (root.TryGetProperty("nodes", out var nodes) && nodes.ValueKind == JsonValueKind.Array)
+            ExtractNodeList(context, nodes);
+        else if (root.TryGetProperty("root", out var node) && node.ValueKind == JsonValueKind.Object)
+            ExtractNode(context, node, "root", parentPath: null); // format 1: children nested
         else if (root.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String)
             ExtractProps(context, type.GetString()!, root, "", Path.GetFileName(file)); // a .mres file
 
@@ -57,11 +59,51 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
             ExtractProps(context, type.GetString()!, resource, jsonPath, label);
     }
 
+    // Format 2: the root first, then every node with its "parent" path from the root.
+    private void ExtractNodeList(FileContext context, JsonElement nodes)
+    {
+        var rootName = "?";
+        var i = 0;
+        foreach (var node in nodes.EnumerateArray())
+        {
+            if (node.ValueKind == JsonValueKind.Object)
+            {
+                var name = NameOf(node);
+                var parent = node.TryGetProperty("parent", out var p) && p.ValueKind == JsonValueKind.String ? p.GetString()! : null;
+                if (i == 0)
+                    rootName = name;
+                var nodePath = i == 0 ? name : parent is null or "." ? $"{rootName}/{name}" : $"{rootName}/{parent}/{name}";
+                ExtractEntry(context, node, $"nodes/{i}", nodePath);
+            }
+
+            i++;
+        }
+    }
+
+    private static string NameOf(JsonElement node) =>
+        node.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString()! : "?";
+
     private void ExtractNode(FileContext context, JsonElement node, string jsonPath, string? parentPath)
     {
-        var name = node.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString()! : "?";
+        var name = NameOf(node);
         var nodePath = parentPath is null ? name : $"{parentPath}/{name}";
+        ExtractEntry(context, node, jsonPath, nodePath);
 
+        if (node.TryGetProperty("children", out var children) && children.ValueKind == JsonValueKind.Array)
+        {
+            var i = 0;
+            foreach (var child in children.EnumerateArray())
+            {
+                if (child.ValueKind == JsonValueKind.Object)
+                    ExtractNode(context, child, $"{jsonPath}/children/{i}", nodePath);
+                i++;
+            }
+        }
+    }
+
+    // One node's own values: its properties, or an instance's root properties and overrides.
+    private void ExtractEntry(FileContext context, JsonElement node, string jsonPath, string nodePath)
+    {
         if (node.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String)
         {
             ExtractProps(context, type.GetString()!, node, jsonPath, $"node {nodePath}");
@@ -89,17 +131,6 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
                             UnknownTypes.Add($"(override target {target.Name})");
                     }
                 }
-            }
-        }
-
-        if (node.TryGetProperty("children", out var children) && children.ValueKind == JsonValueKind.Array)
-        {
-            var i = 0;
-            foreach (var child in children.EnumerateArray())
-            {
-                if (child.ValueKind == JsonValueKind.Object)
-                    ExtractNode(context, child, $"{jsonPath}/children/{i}", nodePath);
-                i++;
             }
         }
     }
@@ -158,7 +189,9 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllBytes(file), JsonOptions);
-            if (document.RootElement.TryGetProperty("root", out var root))
+            if (document.RootElement.TryGetProperty("nodes", out var nodes) && nodes.ValueKind == JsonValueKind.Array)
+                CollectTypes(nodes, types, file, depth);
+            else if (document.RootElement.TryGetProperty("root", out var root))
                 CollectTypes(root, ".", types, file, depth);
         }
         catch (JsonException)
@@ -189,18 +222,25 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
         return null;
     }
 
+    // Format 2: paths come from each node's "parent" (relative to the root, "." for the root itself).
+    private void CollectTypes(JsonElement nodes, Dictionary<string, string> types, string file, int depth)
+    {
+        var first = true;
+        foreach (var node in nodes.EnumerateArray())
+        {
+            if (node.ValueKind != JsonValueKind.Object)
+                continue;
+            var parent = node.TryGetProperty("parent", out var p) && p.ValueKind == JsonValueKind.String ? p.GetString()! : ".";
+            var path = first ? "." : parent == "." ? NameOf(node) : $"{parent}/{NameOf(node)}";
+            CollectEntryType(node, path, types, file, depth);
+            first = false;
+        }
+    }
+
+    // Format 1: children nested in their parents.
     private void CollectTypes(JsonElement node, string path, Dictionary<string, string> types, string file, int depth)
     {
-        if (node.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String)
-        {
-            types[path] = type.GetString()!;
-        }
-        else if (node.TryGetProperty("path", out var scene) && scene.ValueKind == JsonValueKind.String
-                 && InstanceTypes(scene.GetString()!, file, depth + 1) is { } inner)
-        {
-            foreach (var (innerPath, innerType) in inner)
-                types[innerPath == "." ? path : path == "." ? innerPath : $"{path}/{innerPath}"] = innerType;
-        }
+        CollectEntryType(node, path, types, file, depth);
 
         if (!node.TryGetProperty("children", out var children) || children.ValueKind != JsonValueKind.Array)
             return;
@@ -211,6 +251,21 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
             var parent = child.TryGetProperty("parent", out var p) && p.ValueKind == JsonValueKind.String ? p.GetString()! : null;
             var basePath = parent is null or "." ? path : path == "." ? parent : $"{path}/{parent}";
             CollectTypes(child, basePath == "." ? name.GetString()! : $"{basePath}/{name.GetString()}", types, file, depth);
+        }
+    }
+
+    // The node's type at path, or the types of an instanced scene's nodes under path.
+    private void CollectEntryType(JsonElement node, string path, Dictionary<string, string> types, string file, int depth)
+    {
+        if (node.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String)
+        {
+            types[path] = type.GetString()!;
+        }
+        else if (node.TryGetProperty("path", out var scene) && scene.ValueKind == JsonValueKind.String
+                 && InstanceTypes(scene.GetString()!, file, depth + 1) is { } inner)
+        {
+            foreach (var (innerPath, innerType) in inner)
+                types[innerPath == "." ? path : path == "." ? innerPath : $"{path}/{innerPath}"] = innerType;
         }
     }
 

@@ -36,3 +36,9 @@ no new dependency, readable/writable by the runtime and the editor, stable refer
 
 Amended by [ADR 0100](0100-mobile-strategy.md#amendment-to-adr-0011-cooked-binary-exports). Source and editor data
 stay JSON, as above. **Exports** (the mobile `mf-cook` step) may cook meshes and scenes to binary build artefacts.
+
+## Amendment (2026-10-05, layout)
+
+Amended by [ADR 0102](0102-scene-format-2.md): format 2 lists nodes flat with parent paths, keys inline resources by
+stable `Type_xxxxx` ids instead of discovery-order numbers, and keeps short arrays on one line (replacing the
+one-value-per-line vectors above).

@@ -63,6 +63,25 @@ public sealed class ExtractionTests
     }
 
     [Fact]
+    public void ExtractsFromFlatNodeLists()
+    {
+        // Format 2 (Level.mscene): a flat "nodes" list with parent paths, a node added inside an instance, and an
+        // override typed through the instanced scene (itself format 2).
+        TypeRegistry.EnsureRegistered(typeof(LocalizedLabel).Assembly);
+        var builder = new TemplateBuilder();
+        var extractor = new SceneExtractor(TranslatablePropertyIndex.FromRegistry([], []), Project);
+        Assert.Equal(3, extractor.Extract(Path.Combine(Project, "Content", "Scenes", "Level.mscene"), "Content/Scenes/Level.mscene", builder));
+
+        var entries = Extracted(builder);
+        Assert.Equal(["Content/Scenes/Level.mscene:8"], entries["Halt! Who goes there?"].References); // inline resource
+        Assert.Equal(["Content/Scenes/Level.mscene:24"], entries["Level caption"].References);
+        Assert.Equal(["node Level/Panel/Caption (LocalizedLabel.Text)"], entries["Level caption"].ExtractedComments);
+        Assert.Equal(["Content/Scenes/Level.mscene:33"], entries["Press E to talk"].References);
+        Assert.Equal(["node Level/Panel/Caption/Hint (LocalizedLabel.Text)"], entries["Press E to talk"].ExtractedComments);
+        Assert.Empty(extractor.UnknownTypes);
+    }
+
+    [Fact]
     public void ExplicitTranslatablePropertiesWorkWithoutAssemblies()
     {
         var index = TranslatablePropertyIndex.From(("UnknownWidget", "Text"));

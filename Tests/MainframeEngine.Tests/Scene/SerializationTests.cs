@@ -119,15 +119,15 @@ public sealed class SerializationTests : IDisposable
     {
         var node = new AllTypesNode { Name = "N" };
         var json = Json(SceneSaver.ToJson(node));
-        Assert.False(json.GetProperty("root").TryGetProperty("props", out _));
+        Assert.False(SceneJson.Root(json).TryGetProperty("props", out _));
         Assert.False(json.TryGetProperty("resources", out _));
 
         node.Int = 8;
         node.Position = new Vector3(0, 1, 0);
         json = Json(SceneSaver.ToJson(node));
-        var props = json.GetProperty("root").GetProperty("props");
+        var props = SceneJson.Root(json).GetProperty("props");
         Assert.Equal(["Position", "Int"], props.EnumerateObject().Select(p => p.Name));
-        Assert.Equal("[0,1,0]", props.GetProperty("Position").GetRawText().Replace(" ", "", StringComparison.Ordinal).Replace("\n", "", StringComparison.Ordinal));
+        Assert.Equal("[0, 1, 0]", props.GetProperty("Position").GetRawText()); // short arrays stay on one line
         node.Free();
     }
 
@@ -158,7 +158,7 @@ public sealed class SerializationTests : IDisposable
     public void ValuesUseReadableEncodings()
     {
         var node = new AllTypesNode { Mode = TestMode.Second, Flags = TestFlags.A | TestFlags.B, Tint = Color.FromArgb(255, 255, 0, 51) };
-        var props = Json(SceneSaver.ToJson(node)).GetProperty("root").GetProperty("props");
+        var props = SceneJson.Root(Json(SceneSaver.ToJson(node))).GetProperty("props");
         Assert.Equal("Second", props.GetProperty("Mode").GetString());
         Assert.Equal("A, B", props.GetProperty("Flags").GetString());
         Assert.Equal([1f, 0f, 0.2f, 1f], props.GetProperty("Tint").EnumerateArray().Select(e => e.GetSingle()));
@@ -295,7 +295,8 @@ public sealed class SerializationTests : IDisposable
         Assert.Equal("Content/Scenes/Player.mscene", player.SceneFilePath);
 
         var bytes = SceneSaver.ToJson(level);
-        var entry = Json(bytes).GetProperty("root").GetProperty("children")[0];
+        var file = Json(bytes);
+        var entry = SceneJson.Node(file, "Hero");
         Assert.Equal(playerScene.Uid, entry.GetProperty("instance").GetString());
         Assert.Equal("Content/Scenes/Player.mscene", entry.GetProperty("path").GetString());
         Assert.Equal("Hero", entry.GetProperty("name").GetString());
@@ -303,10 +304,10 @@ public sealed class SerializationTests : IDisposable
         var overrides = entry.GetProperty("overrides");
         Assert.Equal(["Hitbox"], overrides.EnumerateObject().Select(p => p.Name));
         Assert.Equal(99, overrides.GetProperty("Hitbox").GetProperty("Int").GetInt32());
-        var added = entry.GetProperty("children");
-        Assert.Equal(2, added.GetArrayLength());
-        Assert.Equal("Hat", added[0].GetProperty("name").GetString());
-        Assert.Equal("Hitbox", added[1].GetProperty("parent").GetString());
+        // Added nodes are listed after the instance in tree order (Hitbox is Hero's first child), parent paths through it.
+        Assert.Equal(["Level", "Hero", "Badge", "Hat"], file.GetProperty("nodes").EnumerateArray().Select(n => n.GetProperty("name").GetString()));
+        Assert.Equal("Hero", SceneJson.Node(file, "Hero/Hat").GetProperty("parent").GetString());
+        Assert.Equal("Hero/Hitbox", SceneJson.Node(file, "Hero/Hitbox/Badge").GetProperty("parent").GetString());
         Assert.False(Json(bytes).TryGetProperty("connections", out _)); // the sub-scene owns its connection
 
         var copy = PackedScene.Parse(bytes).Instantiate();
@@ -529,7 +530,7 @@ public sealed class SerializationTests : IDisposable
         Assert.Equal(3.5f, node.Speed);
         Assert.Equal(new Vector3(2), node.Size);
 
-        var saved = Json(SceneSaver.ToJson(node)).GetProperty("root");
+        var saved = SceneJson.Root(Json(SceneSaver.ToJson(node)));
         Assert.Equal(3, saved.GetProperty("v").GetInt32());
         Assert.True(saved.GetProperty("props").TryGetProperty("Speed", out _));
         node.Free();
@@ -549,11 +550,12 @@ public sealed class SerializationTests : IDisposable
         Assert.Equal("DeletedEnemy", boss.OriginalType);
         Assert.Equal(new Vector3(1, 0, 0), root.GetNode<Node3D>("Boss/Weapon").Position);
 
-        var saved = Json(SceneSaver.ToJson(root)).GetProperty("root").GetProperty("children")[0];
+        var file = Json(SceneSaver.ToJson(root));
+        var saved = SceneJson.Node(file, "Boss");
         Assert.Equal("DeletedEnemy", saved.GetProperty("type").GetString());
         Assert.Equal(2, saved.GetProperty("v").GetInt32());
         Assert.Equal(100, saved.GetProperty("props").GetProperty("Health").GetInt32());
-        Assert.Equal("Weapon", saved.GetProperty("children")[0].GetProperty("name").GetString());
+        Assert.Equal("Node3D", SceneJson.Node(file, "Boss/Weapon").GetProperty("type").GetString());
         root.Free();
     }
 

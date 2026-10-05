@@ -106,7 +106,7 @@ public sealed class PackedScene : Resource
 
         try
         {
-            _resources ??= new ResourceTable(document.Resources, source);
+            _resources ??= new ResourceTable(document.Resources, source, keepKeys: document.Format >= 2);
             var owners = new List<(Node Node, Node Owner)>();
             var root = BuildNode(document.Root, sceneRoot: null, source, owners);
             // Owners must be ancestors, so they are assigned once the whole tree is assembled.

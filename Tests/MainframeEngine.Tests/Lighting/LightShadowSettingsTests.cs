@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MainframeEngine.Serialization;
+using MainframeEngine.Tests.Scene;
 
 namespace MainframeEngine.Tests.Lighting;
 
@@ -81,8 +82,7 @@ public sealed class LightShadowSettingsTests
         Assert.Equal(256, ((SpotLight3D)copy.GetChild(1)).ShadowResolution);
 
         // Defaults are not written: the point light saves no shadow properties.
-        using var doc = JsonDocument.Parse(json);
-        var lampEntry = doc.RootElement.GetProperty("root").GetProperty("children").EnumerateArray().First(n => n.GetProperty("name").GetString() == "Lamp");
+        var lampEntry = SceneJson.Node(SceneJson.Parse(json), "Lamp");
         Assert.False(lampEntry.TryGetProperty("props", out _));
 
         copy.Free();

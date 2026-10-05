@@ -1,0 +1,38 @@
+{
+  "format": 2,
+  "uid": "scn_0000000000a3",
+  "resources": {
+    "DialogueLine_q2m7x": {
+      "type": "DialogueLine",
+      "props": {
+        "Text": "Halt! Who goes there?"
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "Level",
+      "type": "Node"
+    },
+    {
+      "name": "Panel",
+      "parent": ".",
+      "instance": "scn_0000000000a1",
+      "path": "Content/Scenes/Sub.mscene",
+      "overrides": {
+        "Caption": {
+          "Text": "Level caption"
+        }
+      }
+    },
+    {
+      "name": "Hint",
+      "parent": "Panel/Caption",
+      "type": "LocalizedLabel",
+      "props": {
+        "Text": "Press E to talk",
+        "Line": { "res": "DialogueLine_q2m7x" }
+      }
+    }
+  ]
+}

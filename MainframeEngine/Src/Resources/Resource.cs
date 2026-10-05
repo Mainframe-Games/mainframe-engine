@@ -29,6 +29,12 @@ public abstract class Resource
     /// <summary>Stable id of the resource file (<c>res_xxxxxxxx</c>); null for inline resources.</summary>
     public string? Uid { get; internal set; }
 
+    /// <summary>
+    /// The key of an inline resource in the resources table of the file it was loaded from or last saved to (Godot's
+    /// <c>resource_scene_unique_id</c>). Saving reuses it, so a resource keeps its key while others are added or removed.
+    /// </summary>
+    internal string? SceneLocalId { get; set; }
+
     /// <summary>True when the resource lives in its own file (referenced by UID from scenes).</summary>
     public bool IsExternal => ResourcePath is not null;
 
