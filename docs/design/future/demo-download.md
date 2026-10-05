@@ -1,6 +1,6 @@
 # Proposal: "Download Demo Project" in the Project Manager
 
-**Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D4, last) · **Status:** ⬜ planned ·
+**Milestone:** [Demo & polish](../../milestones.md#demo--polish-) (D4, last) · **Status:** ✅ done ·
 **Depends on:** [Demo project](demo-project.md) (the thing downloaded), [Release](../release.md) (`publish.yml`) ·
 **Related:** [Project icons](project-icons.md)
 

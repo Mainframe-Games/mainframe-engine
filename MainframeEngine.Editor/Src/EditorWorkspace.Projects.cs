@@ -16,6 +16,7 @@ public sealed partial class EditorWorkspace
 
     public ProjectManager ProjectManager { get; private set; } = null!;
     public NewProjectDialog NewProject { get; private set; } = null!;
+    public DownloadDemoDialog DownloadDemo { get; private set; } = null!;
     public ProjectSettingsDialog ProjectSettings { get; private set; } = null!;
     public EditorSettingsDialog EditorSettingsDialog { get; private set; } = null!;
 
@@ -33,10 +34,12 @@ public sealed partial class EditorWorkspace
         ProjectManager = new ProjectManager(this) { Name = "ProjectManager" };
         ProjectLayer.AddChild(ProjectManager);
         NewProject = new NewProjectDialog(this) { Name = "NewProject" };
+        DownloadDemo = new DownloadDemoDialog(this) { Name = "DownloadDemo" };
         ProjectSettings = new ProjectSettingsDialog(this) { Name = "ProjectSettings" };
         EditorSettingsDialog = new EditorSettingsDialog(this) { Name = "EditorSettings" };
         // Above the other dialogs' layer order: pickers and message boxes these dialogs open come later in the list.
         DialogLayer.AddChild(NewProject);
+        DialogLayer.AddChild(DownloadDemo);
         DialogLayer.AddChild(ProjectSettings);
         DialogLayer.AddChild(EditorSettingsDialog);
         Updates = new UpdateController(this, Options.Updates);
@@ -54,7 +57,7 @@ public sealed partial class EditorWorkspace
     }
 
     private bool ProjectDialogOpen =>
-        NewProject.Visible || ProjectSettings.Visible || EditorSettingsDialog.Visible || UpdateDialog.Visible || ProjectManager.Visible;
+        NewProject.Visible || DownloadDemo.Visible || ProjectSettings.Visible || EditorSettingsDialog.Visible || UpdateDialog.Visible || ProjectManager.Visible;
 
     // ── Start-up ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -91,6 +94,8 @@ public sealed partial class EditorWorkspace
             ProjectManager.Tick();
         if (NewProject.Visible)
             NewProject.Tick();
+        if (DownloadDemo.Visible)
+            DownloadDemo.Tick();
         if (FileDrag is not null && !Host.PrimaryMouseDown)
             EndFileDrag();
         Autosave(deltaTime);

@@ -132,6 +132,7 @@
         <div class="pm-actions">
             <button class="primary" id="pm-new" data-event-click="new()" data-tooltip="New Project — create a game from the mfgame template"><span class="icon icon-plus"></span><span>New Project</span></button>
             <button id="pm-browse" data-event-click="browse()" data-tooltip="Open Folder — open a project folder (with project.mfproj)"><span class="icon icon-folder-open"></span><span>Open Folder…</span></button>
+            <button id="pm-download-demo" data-event-click="download_demo()" data-tooltip="Download Demo — get the demo project for this editor version"><span class="icon icon-download"></span><span>Demo…</span></button>
             <button id="pm-open" data-class-disabled="!has_selection" data-event-click="open()" data-tooltip="Open — open the selected project (Enter)"><span class="icon icon-player-play"></span><span>Open</span></button>
             <button id="pm-remove" data-class-disabled="!has_selection" data-event-click="remove()" data-tooltip="Remove from List — forget the selected project (its files stay)"><span class="icon icon-trash-x"></span><span>Remove from List</span></button>
             <div class="pm-spacer"></div>

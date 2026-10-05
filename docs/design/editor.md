@@ -316,7 +316,7 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
 - **Start-up**: a project argument (folder or `project.mfproj`, or `--project <dir>`) opens it; a scene argument opens
   that scene and makes its project current; neither (or `--project-manager`) shows the **Project Manager**.
 - **Project Manager** (`project_manager.rml`, UI layer 40): the recent projects (`~/.mainframe/recent_projects.json`,
-  newest first; a missing folder is flagged and can be removed from the list), New Project, Open Folder, and the
+  newest first; a missing folder is flagged and can be removed from the list), New Project, Open Folder, Download Demo, and the
   **.NET SDK check** (`DotnetSdk`: a .NET 10 or newer SDK is required; without one, a link to the download page).
   File › Project Manager returns to it. Each row shows the project's **icon**, `window.icon` of its `project.mfproj`
   (Godot's `application/config/icon`): `ProjectIconResolver` resolves it to an absolute PNG inside the project folder
@@ -329,6 +329,21 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   a live validation (`NewProjectValidation`: a valid C# identifier, an empty or missing target folder, the SDK).
   Create runs `dotnet new mfgame --engine-path …` from a private template hive (`~/.mainframe/templates`; the user's
   global templates are untouched), builds the game, then opens it.
+- **Download Demo** (`download_demo.rml`, `DownloadDemoDialog`; the Demo… button of the Project Manager): fetches the
+  [Demo](demo.md) for this editor version and opens it. The location (default `~/MainframeProjects`, created when
+  missing) and the engine checkout (found above the editor, or `MAINFRAME_ENGINE_PATH`; without one Download stays
+  disabled with the same explanation as New Project) are validated as you type; the demo goes to
+  `<location>/MainframeEngine.Demo`, which must not exist or be empty. `DemoDownloader` streams
+  `MainframeEngine.Demo-vX.Y.Z.zip` from the GitHub release of `EngineInfo.Version` (a development or prerelease build
+  uses `releases/latest/download/MainframeEngine.Demo.zip`; `DemoRelease` holds the one base URL) through the shared
+  `EditorHttp` client into `~/.mainframe/downloads/`, with a progress bar and a size cap; `DemoArchive` extracts into a
+  hidden staging folder beside the destination with zip-slip, symlink and 1 GiB guards and validates it (one top folder
+  with `project.mfproj`, a launcher project, scenes); `EnginePathRewriter` points `MainframeEnginePath` of its
+  `Directory.Build.props` at the engine checkout; then the folder is moved into place (same volume), the project opens
+  like a New Project and joins the recent list. Cancel stops the download; a failure (no published demo, no network,
+  disk) shows its message with Download still enabled to retry, and the zip and staging folder are always deleted, so
+  the destination is never half written. Tests inject `EditorWorkspaceOptions.DemoHttpHandler` /
+  `DemoDownloadsDirectory`.
 - **`ProjectService`** opens a project: `EditorSession.OpenProject` (the asset database scans `Content/` and creates
   missing `.meta` sidecars), `GameProjectLayout` finds the game library, launcher and solution, and the game assembly
   loads into a collectible `AssemblyLoadContext` (`GameAssemblyLoader`), built first when it is missing or fails to

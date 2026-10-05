@@ -1,0 +1,38 @@
+<rml>
+<head>
+    <title>Download Demo Project</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 560dp; height: 300dp; margin-left: -280dp; margin-top: -150dp; }
+        .dialog-row button { width: 26dp; padding: 0dp; margin-left: 6dp; }
+        .dd-info { display: block; flex: 0 0 auto; margin-bottom: 8dp; color: #8b93a5; font-size: 11dp; line-height: 15dp; }
+        .dd-bar { display: block; flex: 0 0 auto; height: 8dp; border-radius: 4dp; background-color: #ffffff1a; margin-top: 4dp; }
+        .dd-fill { display: block; height: 8dp; border-radius: 4dp; background-color: #2563eb; }
+        .dd-status { display: block; flex: 0 0 auto; margin-top: 6dp; color: #b4bccc; font-size: 11dp; }
+    </style>
+</head>
+<body class="backdrop" data-model="download_demo">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-sm icon-download"></span><span>Download Demo Project</span></div>
+        <div class="dialog-body">
+            <div class="dd-info">The Demo project for this editor version (<span class="mono">{{version}}</span>), downloaded from GitHub and set up to build against your engine checkout.</div>
+            <div class="dialog-row">
+                <span class="caption">Location</span>
+                <input type="text" class="text" id="dd-location" data-value="location"/>
+                <button id="dd-browse" data-event-click="browse()" data-tooltip="Browse — choose the folder the demo goes in"><span class="icon icon-sm icon-folder-open"></span></button>
+            </div>
+            <div class="dd-info">Creates {{target}}</div>
+            <div class="dd-info">Engine: {{engine}}</div>
+            <div class="dd-bar" data-if="busy"><div class="dd-fill" data-style-width="bar"></div></div>
+            <div class="dd-status" data-if="busy">{{status}}</div>
+            <div class="dialog-error" id="dd-error">{{error}}{{failure}}</div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="dd-cancel" data-event-click="cancel()">Cancel</button>
+            <button class="primary" id="dd-download" data-class-disabled="busy || error != ''" data-event-click="download()">Download &amp; Open</button>
+        </div>
+    </div>
+</body>
+</rml>

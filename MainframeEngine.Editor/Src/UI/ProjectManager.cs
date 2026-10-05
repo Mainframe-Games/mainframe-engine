@@ -81,6 +81,7 @@ public sealed class ProjectManager : EditorDocument
             .Event("open", _ => OpenSelected())
             .Event("new", _ => NewProject())
             .Event("browse", _ => OpenFolder())
+            .Event("download_demo", _ => Workspace.DownloadDemo.Open())
             .Event("remove", _ => RemoveSelected())
             .Event("download", _ => OpenDownloadPage());
     }
