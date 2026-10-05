@@ -381,6 +381,16 @@ in `artifacts/bench`. Baselines are machine-specific (the file records machine a
 compare on the machine that recorded them; refresh with `just bench-baseline` when a change is
 intentionally slower or a new benchmark is added, and commit the file.
 
+The baseline was re-recorded on 2026-10-05 (M0–M10 complete, quiet machine). Against the previous entries, which
+dated from the milestone that added each benchmark, four had moved, each investigated before re-recording:
+`SceneSaveLoadRoundTrip1k` allocated 16 B more per node (`Node` grew 224 → 240 B with replication, localization and
+`[Tool]` state; the modes are now bytes, 232 B); `SwitchLocale` allocates ~300 B more (listener isolation iterates
+`GetInvocationList()`); `Node3DModelMatrix` (+1.5 ns) and `TransformPropagationDirtySubtree10k` (+10 %) bisect to the
+M9 commit that added a field to `Node`, with no change to the transform code: padding the M2 `Node` to 240 B
+reproduces it and removing the M6 transform hooks does not help, so it is object layout (where `Node3D`'s transform
+fields land), not slower code. Shrinking today's `Node` to 232 B did not bring it back (the exact field offsets differ
+from M2's), so the new numbers are the baseline.
+
 ## Related docs
 
 [Build & platforms](build-and-platforms.md) · [Engine lifecycle](engine-lifecycle.md) ·

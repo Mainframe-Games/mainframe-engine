@@ -1,236 +1,236 @@
 {
   "Machine": "macOS 27.0.1 Arm64, 10 cores",
   "Runtime": ".NET 10.0.12",
-  "Recorded": "2026-10-04",
+  "Recorded": "2026-10-05",
   "Benchmarks": [
     {
       "Name": "AudioBenchmarks.AttenuationCurvesAllModels",
-      "MeanNs": 1056.738,
+      "MeanNs": 1041.793,
       "AllocatedBytes": 0
     },
     {
       "Name": "AudioBenchmarks.CommandBatchEnqueueAndDrain64",
-      "MeanNs": 252.758,
+      "MeanNs": 253.455,
       "AllocatedBytes": 0
     },
     {
       "Name": "AudioBenchmarks.MixBlock480Frames32Voices",
-      "MeanNs": 58706.862,
+      "MeanNs": 56505.892,
       "AllocatedBytes": 0
     },
     {
       "Name": "AudioBenchmarks.ServerFrame32PositionalVoices",
-      "MeanNs": 2161.089,
+      "MeanNs": 2167.187,
       "AllocatedBytes": 0
     },
     {
       "Name": "AudioBenchmarks.SpatialProjection32Emitters",
-      "MeanNs": 248.579,
+      "MeanNs": 248.334,
       "AllocatedBytes": 0
     },
     {
       "Name": "CameraBenchmarks.Camera2DViewProjection",
-      "MeanNs": 8.558,
+      "MeanNs": 8.527,
       "AllocatedBytes": 0
     },
     {
       "Name": "CameraBenchmarks.Camera3DModifyDirection",
-      "MeanNs": 7.123,
+      "MeanNs": 6.973,
       "AllocatedBytes": 0
     },
     {
       "Name": "CameraBenchmarks.Camera3DViewProjection",
-      "MeanNs": 9.714,
+      "MeanNs": 10.578,
       "AllocatedBytes": 0
     },
     {
       "Name": "CameraBenchmarks.Node3DModelMatrix",
-      "MeanNs": 13.368,
+      "MeanNs": 15.103,
       "AllocatedBytes": 0
     },
     {
       "Name": "GpuAllocatorBenchmarks.AllocateFreeBuffer",
-      "MeanNs": 333.605,
+      "MeanNs": 322.069,
       "AllocatedBytes": 0
     },
     {
       "Name": "GpuAllocatorBenchmarks.ChurnMixedKinds",
-      "MeanNs": 95.542,
+      "MeanNs": 96.118,
       "AllocatedBytes": 0
     },
     {
       "Name": "LightUboBenchmarks.PackAllSlots",
-      "MeanNs": 86.425,
+      "MeanNs": 86.489,
       "AllocatedBytes": 0
     },
     {
       "Name": "LightUboBenchmarks.PackSingleDirectional",
-      "MeanNs": 18.188,
+      "MeanNs": 17.875,
       "AllocatedBytes": 0
     },
     {
       "Name": "LocalizationBenchmarks.FormatOneArgument",
-      "MeanNs": 19.818,
+      "MeanNs": 19.195,
       "AllocatedBytes": 64
     },
     {
       "Name": "LocalizationBenchmarks.LookupContextHit",
-      "MeanNs": 14.992,
+      "MeanNs": 14.576,
       "AllocatedBytes": 0
     },
     {
       "Name": "LocalizationBenchmarks.LookupHit",
-      "MeanNs": 3.608,
+      "MeanNs": 3.736,
       "AllocatedBytes": 0
     },
     {
       "Name": "LocalizationBenchmarks.LookupMiss",
-      "MeanNs": 2.897,
+      "MeanNs": 2.526,
       "AllocatedBytes": 0
     },
     {
       "Name": "LocalizationBenchmarks.SwitchLocale",
-      "MeanNs": 2122213.623,
-      "AllocatedBytes": 1398548
+      "MeanNs": 2066302.424,
+      "AllocatedBytes": 1398860
     },
     {
       "Name": "LocalizationBenchmarks.TranslateMarkupHit",
-      "MeanNs": 53.711,
+      "MeanNs": 52.159,
       "AllocatedBytes": 144
     },
     {
       "Name": "MeshDrawListBenchmarks.BuildAndSortOpaque10k",
-      "MeanNs": 140374.824,
+      "MeanNs": 140220.243,
       "AllocatedBytes": 0
     },
     {
       "Name": "MeshDrawListBenchmarks.BuildAndSortTransparent10k",
-      "MeanNs": 143030.114,
+      "MeanNs": 144082.296,
       "AllocatedBytes": 0
     },
     {
       "Name": "MeshDrawListBenchmarks.WriteInstances10k",
-      "MeanNs": 51526.232,
+      "MeanNs": 51602.59,
       "AllocatedBytes": 0
     },
     {
       "Name": "MessageBenchmarks.DecodeAndDispatchSnapshot",
-      "MeanNs": 10.551,
+      "MeanNs": 10.811,
       "AllocatedBytes": 0
     },
     {
       "Name": "MessageBenchmarks.EncodeSnapshot",
-      "MeanNs": 14.353,
+      "MeanNs": 14.216,
       "AllocatedBytes": 0
     },
     {
       "Name": "NetBufferBenchmarks.ReadPooled",
-      "MeanNs": 19.508,
+      "MeanNs": 19.535,
       "AllocatedBytes": 40
     },
     {
       "Name": "NetBufferBenchmarks.WritePooled",
-      "MeanNs": 15.77,
+      "MeanNs": 15.876,
       "AllocatedBytes": 0
     },
     {
       "Name": "PhysicsBenchmarks.Raycast10k3D",
-      "MeanNs": 963042.192,
+      "MeanNs": 965690.08,
       "AllocatedBytes": 0
     },
     {
       "Name": "PhysicsBenchmarks.Step1kRigidBodies2D",
-      "MeanNs": 920510.886,
+      "MeanNs": 926728.979,
       "AllocatedBytes": 352
     },
     {
       "Name": "PhysicsBenchmarks.Step1kRigidBodies3D",
-      "MeanNs": 502144.392,
+      "MeanNs": 497413.607,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.CaptureChanges([NodeCount=1000])",
-      "MeanNs": 11439.88,
+      "MeanNs": 11038.746,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.CaptureChanges([NodeCount=100])",
-      "MeanNs": 721.834,
+      "MeanNs": 682.131,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.DecodeSnapshot([NodeCount=1000])",
-      "MeanNs": 25745.293,
+      "MeanNs": 24937.201,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.DecodeSnapshot([NodeCount=100])",
-      "MeanNs": 2026.838,
+      "MeanNs": 2064.821,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.EncodeSnapshot([NodeCount=1000])",
-      "MeanNs": 16143.479,
+      "MeanNs": 15796.793,
       "AllocatedBytes": 0
     },
     {
       "Name": "ReplicationBenchmarks.EncodeSnapshot([NodeCount=100])",
-      "MeanNs": 1294.436,
+      "MeanNs": 1238.64,
       "AllocatedBytes": 0
     },
     {
       "Name": "SceneTreeBenchmarks.GetNodePathLookup",
-      "MeanNs": 39.224,
+      "MeanNs": 38.52,
       "AllocatedBytes": 0
     },
     {
       "Name": "SceneTreeBenchmarks.ProcessTick10k",
-      "MeanNs": 48449.696,
+      "MeanNs": 47485.482,
       "AllocatedBytes": 0
     },
     {
       "Name": "SceneTreeBenchmarks.SceneSaveLoadRoundTrip1k",
-      "MeanNs": 2601303.714,
-      "AllocatedBytes": 3428641
+      "MeanNs": 2645682.272,
+      "AllocatedBytes": 3436600
     },
     {
       "Name": "SceneTreeBenchmarks.TransformPropagationDirtySubtree10k",
-      "MeanNs": 117405.237,
+      "MeanNs": 129446.486,
       "AllocatedBytes": 0
     },
     {
       "Name": "ShadowSetupBenchmarks.PackAtlasElevenTiles",
-      "MeanNs": 254.742,
+      "MeanNs": 229.95,
       "AllocatedBytes": 0
     },
     {
       "Name": "ShadowSetupBenchmarks.PlanEveryLightType",
-      "MeanNs": 1367.229,
+      "MeanNs": 1316.574,
       "AllocatedBytes": 0
     },
     {
       "Name": "ShadowSetupBenchmarks.PlanSunCascades",
-      "MeanNs": 516.321,
+      "MeanNs": 481.393,
       "AllocatedBytes": 0
     },
     {
       "Name": "UiBenchmarks.Relayout500",
-      "MeanNs": 192083.274,
+      "MeanNs": 189037.123,
       "AllocatedBytes": 0
     },
     {
       "Name": "UiBenchmarks.Render500Callbacks",
-      "MeanNs": 43464.416,
+      "MeanNs": 39785.047,
       "AllocatedBytes": 0
     },
     {
       "Name": "UiBenchmarks.Update500DirtyBindings",
-      "MeanNs": 259102.588,
+      "MeanNs": 250641.896,
       "AllocatedBytes": 0
     },
     {
       "Name": "UiBenchmarks.Update500Idle",
-      "MeanNs": 8788.811,
+      "MeanNs": 8755.306,
       "AllocatedBytes": 0
     }
   ]
