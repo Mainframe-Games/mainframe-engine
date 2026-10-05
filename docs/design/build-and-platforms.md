@@ -42,7 +42,7 @@ its `mfgame` content, which CI's `template` job instantiates and builds (`just t
 | [`Directory.Build.targets`](../../Directory.Build.targets) | Exempts the vendored `spine-csharp` (submodule) from warnings-as-errors, analyzers and nullable warnings |
 | [`Directory.Packages.props`](../../Directory.Packages.props) | Central package management: every version lives here; project files have no `Version` |
 | [`.editorconfig`](../../.editorconfig) | Formatting (`dotnet format`) and analyzer options; keeps column-aligned declarations |
-| [`Tests/Directory.Build.props`](../../Tests/Directory.Build.props) | Test-project defaults (chains to the root props) |
+| [`Tests/Directory.Build.props`](../../Tests/Directory.Build.props) | Test-project defaults (chains to the root props); `DeterministicSourcePaths=false`, so CI builds keep real `[CallerFilePath]` paths that tests check against files on disk |
 
 Every project targets `net10.0` (the vendored Spine runtime keeps `net8.0`). `AllowUnsafeBlocks` is set
 in each project that needs it and must stay. The build has **0 warnings** in Debug and Release.

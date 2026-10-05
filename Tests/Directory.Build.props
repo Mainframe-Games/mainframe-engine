@@ -10,5 +10,10 @@
       BenchmarkDotNet only runs public benchmark types, so test assemblies must stay public.
     -->
     <NoWarn>$(NoWarn);CA1515</NoWarn>
+    <!--
+      Keep real source paths in CI builds too (ContinuousIntegrationBuild would map them to /_/): tests check
+      [CallerFilePath]-based features against files on disk (the editor Output panel's source links).
+    -->
+    <DeterministicSourcePaths>false</DeterministicSourcePaths>
   </PropertyGroup>
 </Project>

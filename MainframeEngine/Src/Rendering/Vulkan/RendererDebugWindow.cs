@@ -39,7 +39,7 @@ public static class RendererDebugWindow
             vk.Exposure = IVulkanContext.DefaultExposure;
 
         if (renderer is VulkanRenderer vr)
-            Line(text, $"Scene {VulkanRenderer.SceneColorFormat} -> {vr.SwapchainFormat} ({vr.Encoding})");
+            ImGui.TextUnformatted(ColourPipelineLine(vr));
 
         if (server is not null)
         {
@@ -142,6 +142,24 @@ public static class RendererDebugWindow
     }
 
     private static double Mib(ulong bytes) => bytes / (1024.0 * 1024.0);
+
+    // Built only when the swapchain format or encoding changes: formatting enums allocates in some builds (the
+    // lavapipe render tests measured ~80 B/frame from this line on x64 CI-style builds), and the text rarely changes.
+    private static string? _colourPipelineLine;
+    private static (Silk.NET.Vulkan.Format Format, VulkanRenderer.SwapchainEncoding Encoding) _colourPipelineKey;
+
+    private static string ColourPipelineLine(VulkanRenderer renderer)
+    {
+        var key = (renderer.SwapchainFormat, renderer.Encoding);
+        if (_colourPipelineLine is null || key != _colourPipelineKey)
+        {
+            _colourPipelineKey = key;
+            _colourPipelineLine = string.Create(CultureInfo.InvariantCulture,
+                $"Scene {VulkanRenderer.SceneColorFormat} -> {key.SwapchainFormat} ({key.Encoding})");
+        }
+
+        return _colourPipelineLine;
+    }
 
     private static void Line(Span<char> buffer, [System.Runtime.CompilerServices.InterpolatedStringHandlerArgument(nameof(buffer))] ref MemoryExtensions.TryWriteInterpolatedStringHandler handler)
     {

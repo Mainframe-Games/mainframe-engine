@@ -73,9 +73,10 @@ public sealed class ProjectCreationIntegrationTests(ITestOutputHelper output) : 
         var library = GameProjectLayout.GameLibraryProjectOf(project, settings);
         Assert.Equal(Path.Combine(project, "CreatedGame", "CreatedGame.csproj"), library);
 
-        // The same build Play runs; warnings are errors, as for the template smoke test.
+        // The same build Play runs; warnings are errors, as for the template smoke test, which also uses the committed
+        // SPIR-V (CompileShaders=false): without glslc (CI runners) the shader step would warn and fail the build.
         var stopwatch = Stopwatch.StartNew();
-        var build = await ProcessRunner.RunAsync(sdk.DotnetPath!, ["build", solution!, "-warnaserror", "-nologo"], workingDirectory: project,
+        var build = await ProcessRunner.RunAsync(sdk.DotnetPath!, ["build", solution!, "-warnaserror", "-nologo", "-p:CompileShaders=false"], workingDirectory: project,
             timeout: BuildTimeout, cancellationToken: ct);
         output.WriteLine($"build: {Seconds(stopwatch.Elapsed)} (exit {build.ExitCode})");
         Assert.True(build.Succeeded, string.Join('\n', build.Output.TakeLast(40)));

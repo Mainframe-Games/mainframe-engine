@@ -235,10 +235,32 @@ public sealed class ToolbarPanel : EditorDocument
         if (element.IsNull)
             return;
         Span<char> text = stackalloc char[48];
-        // Integers only: custom float format strings allocate in the runtime's number formatting.
-        var tenths = (int)MathF.Round(ms * 10f);
-        if (text.TryWrite(CultureInfo.InvariantCulture, $"{(int)MathF.Round(fps)} fps  {tenths / 10}.{tenths % 10} ms", out var written))
-            element.SetInnerRml(text[..written]);
+        // "60 fps  16.6 ms". Integers only (custom float format strings allocate in the runtime's number formatting),
+        // written with int.TryFormat rather than an interpolated handler: the handler's generic AppendFormatted<int>
+        // boxes each value while it still runs as tier-0 code, which a busy process (parallel tests, the editor's
+        // start-up) can keep it at for a long time.
+        var tenths = Math.Max(0, (int)MathF.Round(ms * 10f));
+        var length = 0;
+        if (Append(text, ref length, (int)MathF.Round(fps)) && Append(text, ref length, " fps  ") &&
+            Append(text, ref length, tenths / 10) && Append(text, ref length, ".") && Append(text, ref length, tenths % 10) &&
+            Append(text, ref length, " ms"))
+            element.SetInnerRml(text[..length]);
+    }
+
+    private static bool Append(Span<char> text, ref int length, int value)
+    {
+        if (!value.TryFormat(text[length..], out var written, default, CultureInfo.InvariantCulture))
+            return false;
+        length += written;
+        return true;
+    }
+
+    private static bool Append(Span<char> text, ref int length, ReadOnlySpan<char> value)
+    {
+        if (!value.TryCopyTo(text[length..]))
+            return false;
+        length += value.Length;
+        return true;
     }
 }
 
