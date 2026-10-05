@@ -18,7 +18,7 @@ public static class DemoScenes
         Scene("basic_3d", "Basic 3D", "cube", Basic3DScene.Build),
         Scene("basic_2d", "Basic 2D", "square", static () => Placeholder("basic_2d")),
         Scene("audio_2d", "Audio 2D", "volume", static () => Placeholder("audio_2d")),
-        Scene("audio_3d", "Audio 3D", "headphones", static () => Placeholder("audio_3d")),
+        Scene("audio_3d", "Audio 3D", "headphones", Audio3DScene.Build),
         Scene("ui", "UI", "layout", static () => Placeholder("ui")),
         Scene("physics_2d", "Physics 2D", "circles", static () => Placeholder("physics_2d")),
         Scene("physics_3d", "Physics 3D", "box", static () => Placeholder("physics_3d")),

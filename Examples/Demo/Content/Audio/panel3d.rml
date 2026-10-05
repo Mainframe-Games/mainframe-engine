@@ -1,0 +1,21 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Content/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="audio3d">
+    <div class="demo-panel">
+        <h1>Audio 3D</h1>
+        <p class="hint">A looping emitter orbits the listener. Wear headphones.</p>
+        <div class="demo-row"><span>Attenuation</span>
+            <select data-value="model">
+                <option value="0">Disabled</option><option value="1">Inverse</option>
+                <option value="2">Inverse square</option><option value="3">Logarithmic</option>
+                <option value="4">Linear</option><option value="5">Exponential</option>
+            </select></div>
+        <div class="demo-row"><span>Low-pass at distance</span><input type="checkbox" data-checked="lowpass"/></div>
+        <div class="demo-row"><span>Doppler</span><input type="checkbox" data-checked="doppler"/></div>
+        <div class="demo-row"><span>Orbit speed</span><input type="range" min="-180" max="180" step="5" data-value="speed"/></div>
+    </div>
+</body>
+</rml>
