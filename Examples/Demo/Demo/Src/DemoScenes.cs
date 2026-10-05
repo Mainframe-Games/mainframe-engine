@@ -16,7 +16,7 @@ public static class DemoScenes
     public static IReadOnlyList<DemoSceneInfo> All { get; } =
     [
         Scene("basic_3d", "Basic 3D", "cube", Basic3DScene.Build),
-        Scene("basic_2d", "Basic 2D", "square", static () => Placeholder("basic_2d")),
+        Scene("basic_2d", "Basic 2D", "square", Basic2DScene.Build),
         Scene("audio_2d", "Audio 2D", "volume", Audio2DScene.Build),
         Scene("audio_3d", "Audio 3D", "headphones", Audio3DScene.Build),
         Scene("ui", "UI", "layout", UiScene.Build),
