@@ -108,7 +108,7 @@ public sealed class EditorCommands
                 if (Active?.Camera is { Is2D: true } camera2D)
                     camera2D.Reset2D();
                 else
-                    Active?.Camera.Reset();
+                    Active?.Camera?.Reset();
                 return true;
             case "view.2d":
                 _workspace.Viewport.Toggle2D();
