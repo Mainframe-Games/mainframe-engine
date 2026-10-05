@@ -45,7 +45,7 @@ RmlUi game UI, physics, audio, replication, localization and an ImGui developer 
 | `Rendering/Spine/` | `SpineRenderer`, `SpineTextureLoader` | [Spine](spine.md) |
 | `Rendering/SceneGrid/` | `SceneGrid`, `SceneGrid2d`, `SceneGrid3d` | [Scene grid](scene-grid.md) |
 | `Rendering/Camera/` | `ICamera`, `PerspectiveCamera`, `OrthographicCamera` (math; the nodes wrap them) | [Cameras & input](cameras-and-input.md) |
-| `Rendering/Gizmos/`, `Utils/`, `Debugging/` | `ImGuiCoordGizmo`, `ImGuiGizmos`, `ColorExtensions`, `Log` | [ImGui & debug tools](imgui-and-debug-tools.md) |
+| `Rendering/Gizmos/`, `Utils/`, `Debugging/` | `ScreenGizmoBatch`, `LightGizmos`, `AxisGizmo`, `Log` | [ImGui & debug tools](imgui-and-debug-tools.md) |
 | `Lighting/` | `LightEnvironment`, `Light` + Directional/Point/Spot | [Lighting](lighting.md) |
 | `Networking/` | `MultiplayerApi` (replication, RPCs), messages, transports (ENet, loopback, simulated), `PeerId`, `NetBuffer*` | [Networking](networking.md) |
 | `Physics/` | `PhysicsServer3D` (Jitter2), `PhysicsServer2D` (Box2D.NET), body/area/shape nodes, queries, `DebugLines` | [Physics](physics.md) |

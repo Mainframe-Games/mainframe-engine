@@ -69,15 +69,9 @@ File: [Debugging/Log.cs](../../MainframeEngine/Src/Debugging/Log.cs). `public st
 
 | Tool | File | What it draws |
 |---|---|---|
-| `ImGuiGizmos` (C# 14 `extension(ImDrawListPtr)`) | [Utils/ImGuiGizmos.cs](../../MainframeEngine/Src/Utils/ImGuiGizmos.cs) | `DrawArrow(from, to, col, head=10, thickness=2)`, `DrawSunIcon(center, color)` |
-| `ImGuiCoordGizmo.DrawCoordinateGizmo(camera)` | [Rendering/Gizmos/ImGuiCoordGizmo.cs](../../MainframeEngine/Src/Rendering/Gizmos/ImGuiCoordGizmo.cs) | Top-right world-axis widget (X red, Y green, Z blue), depth-sorted, on the foreground draw list |
-| `LightEnvironment.DrawLightGizmos(camera)` | [Lighting/LightEnvironment.cs](../../MainframeEngine/Src/Lighting/LightEnvironment.cs) | `[Conditional("DEBUG")]` light icons on the background draw list |
-| `ColorExtensions.ToImColor` | [Utils/ColorExtensions.cs](../../MainframeEngine/Src/Utils/ColorExtensions.cs) | `System.Drawing.Color` → ImGui `uint` |
-
-### Known issues
-
-- `ImGuiCoordGizmo` defines the Y axis as (0, −1, 0) to compensate for screen Y-down, which makes its
-  depth sort wrong for Y. It also sorts a static array in place and allocates a comparer every frame.
+| `ScreenGizmoBatch` | [Rendering/Gizmos/ScreenGizmoBatch.cs](../../MainframeEngine/Src/Rendering/Gizmos/ScreenGizmoBatch.cs) | Screen-space lines, circles, arrows, glyphs (framebuffer pixels), drawn after the tonemap |
+| `LightGizmos.Draw` | [Rendering/Gizmos/LightGizmos.cs](../../MainframeEngine/Src/Rendering/Gizmos/LightGizmos.cs) | Light icons, range rings, spot cones, sun arrows (`RenderServer.ShowLightGizmos`) |
+| `AxisGizmo.Draw` | [Rendering/Gizmos/AxisGizmo.cs](../../MainframeEngine/Src/Rendering/Gizmos/AxisGizmo.cs) | Top-right world-axis widget (X red, Y green, Z blue), depth-sorted (`RenderServer.ShowAxisGizmo`) |
 
 ## Related docs
 

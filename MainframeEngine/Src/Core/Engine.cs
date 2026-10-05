@@ -485,7 +485,11 @@ public abstract class Engine : IDisposable
             // Begin the main render pass, then let the game draw geometry.
             (Renderer as IVulkanContext)?.BeginRenderPass();
 
-            Servers.Render?.RenderMain(Root); // M2: sky, then the scene tree's visuals
+            if (Servers.Render is { } render)
+            {
+                render.GizmoScale = ContentScale;
+                render.RenderMain(Root); // M2: sky, then the scene tree's visuals
+            }
             OnRenderMainPass(_gameTime);
             // Tonemaps the scene target, draws the game UI, then ImGui in the overlay pass. With the overlay hidden
             // the frame is discarded and EndFrame runs the tonemap + UI.

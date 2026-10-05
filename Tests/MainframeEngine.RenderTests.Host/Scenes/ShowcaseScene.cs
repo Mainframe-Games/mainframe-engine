@@ -1,14 +1,13 @@
 using System.Globalization;
 using System.Numerics;
 using ImGuiNET;
-using MainframeEngine.Gizmos;
 using MainframeEngine.Localization;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
 /// <summary>
 /// Mirrors the showcase fixture's per-frame work — Spine, shadows, sky, grid, the RmlUi HUD (data bindings dirtied every frame)
-/// and the ImGui debug window with light and axis gizmos — for the steady-state allocation gate. Its ImGui text shows
+/// the light and axis screen gizmos and the ImGui debug window — for the steady-state allocation gate. Its ImGui text shows
 /// timings, so it is not used for golden images. Its labels are looked up in the Spanish test catalog (Tests/Content/locale) every frame
 /// (M9), so the gate also covers translation lookups.
 /// </summary>
@@ -20,6 +19,8 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
     {
         base.LoadScene();
         Tr.SetLocale("es");
+        Servers.Render!.ShowLightGizmos = true; // the allocation gate covers the screen-gizmo path
+        Servers.Render.ShowAxisGizmo = true;
     }
 
     /// <summary>
@@ -116,8 +117,6 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
 
     protected override void OnImGui(in GameTime gameTime)
     {
-        Lights.DrawLightGizmos(Camera.RenderCamera);
-
         ImGui.SetNextWindowPos(Vector2.Zero, ImGuiCond.Always, Vector2.Zero);
         if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
         {
@@ -138,7 +137,6 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
         }
         ImGui.End();
 
-        ImGuiCoordGizmo.DrawCoordinateGizmo(Camera.RenderCamera);
         RendererDebugWindow.Draw(Renderer, Servers.Render);
     }
 }

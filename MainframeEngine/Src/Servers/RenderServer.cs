@@ -57,6 +57,15 @@ public sealed class RenderServer : IServer
     /// </summary>
     public ScreenGizmoBatch ScreenGizmos { get; } = new();
 
+    /// <summary>Draws light icons/ranges for the root viewport's lights (dev overlay toggle).</summary>
+    public bool ShowLightGizmos { get; set; }
+
+    /// <summary>Draws the corner XYZ axes for the root viewport's camera (dev overlay toggle).</summary>
+    public bool ShowAxisGizmo { get; set; }
+
+    /// <summary>Pixels per layout point for the light/axis gizmos. <see cref="Engine"/> sets it each frame from the UI content scale.</summary>
+    public float GizmoScale { get; set; } = 1f;
+
     /// <summary>The Vulkan context, when the renderer is the Vulkan backend.</summary>
     public IVulkanContext? Vulkan => Renderer as IVulkanContext;
 
@@ -388,8 +397,9 @@ public sealed class RenderServer : IServer
     /// Draws <paramref name="viewport"/>'s world inside the main (HDR scene) render pass: writes the frame's shared
     /// set 0 (camera + the world's lights, <see cref="FrameContext.Begin(ICamera, LightEnvironment?)"/>), then the sky
     /// of its <see cref="WorldEnvironment"/>, the visuals and the batched meshes, then its
-    /// <see cref="SceneViewport.DebugLines"/> (cleared afterwards, drawn or not). Nothing is drawn without an active
-    /// camera.
+    /// <see cref="SceneViewport.DebugLines"/> (cleared afterwards, drawn or not). For the tree's root viewport it also
+    /// queues the light and axis gizmos (<see cref="ShowLightGizmos"/>, <see cref="ShowAxisGizmo"/>) on
+    /// <see cref="ScreenGizmos"/>. Nothing is drawn without an active camera.
     /// </summary>
     public void RenderMain(SceneViewport viewport)
     {
@@ -416,6 +426,14 @@ public sealed class RenderServer : IServer
 
             DrawWorld(world, camera, meshes, _mainDraws, vk.CurrentCommandBuffer);
             DrawLines(vk, viewport, camera);
+            if (viewport.IsTreeRoot && (ShowLightGizmos || ShowAxisGizmo))
+            {
+                var size = new Vector2(vk.SwapchainExtent.Width, vk.SwapchainExtent.Height);
+                if (ShowLightGizmos)
+                    LightGizmos.Draw(ScreenGizmos, camera, size, world.Lights, GizmoScale);
+                if (ShowAxisGizmo)
+                    AxisGizmo.Draw(ScreenGizmos, camera, size, GizmoScale);
+            }
         }
         finally
         {

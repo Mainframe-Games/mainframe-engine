@@ -30,9 +30,11 @@ that wrap these light objects and register them with their world's `LightEnviron
   `RemoveLight(Light)` removes it (light nodes do both on enter/exit); `Count` counts every light.
 - Lists (`DirectionalLights`, `PointLights`, `SpotLights`) are `internal`.
 - Lights beyond the limits are silently dropped when the UBO is written.
-- `DrawLightGizmos(ICamera)` is `[Conditional("DEBUG")]`. It draws on the ImGui background draw list:
-  point lights as a dot with range rings, spot lights as cones, and directional lights as an arrow plus
-  sun icon. The directional arrow is drawn in 2D and is not camera-projected.
+- Light gizmos are `LightGizmos.Draw(ScreenGizmoBatch, camera, viewport, lights, scale)`
+  (`Rendering/Gizmos/`), queued by `RenderServer.RenderMain` for the root viewport while
+  `RenderServer.ShowLightGizmos` is on: point lights as a dot with range rings, spot lights as cones, and
+  directional lights as an arrow (projected along the light direction) plus sun icon. Points behind the camera are
+  skipped.
 
 `LightEnvironment` owns **no GPU resources**. The lights UBO is written through the shared
 `internal LightEnvironment.WriteUbo(Span<byte>, in Vector3 cameraPosition)` (size `LightEnvironment.UboSize`):

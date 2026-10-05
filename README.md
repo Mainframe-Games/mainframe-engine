@@ -335,11 +335,6 @@ Tr.SetLocale("es");                                       // runtime switch: nod
 per-user data folder, a `MemoryLogSink` ring for tools, and the editor link. Filtered-out messages — including
 interpolated `$"..."` ones — allocate nothing.
 
-### Utilities (`Utils/`)
-
-- `ImGuiGizmos` — ImDrawList extensions for rendering debug arrows (`DrawArrow`) and sun icons (`DrawSunIcon`) in ImGui
-- `ColorExtensions` — `System.Drawing.Color` to ImGui `uint` conversion via `ToImColor()`
-
 ---
 
 ## Tech Stack
