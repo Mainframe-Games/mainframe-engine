@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-05 — M0–M10 complete on `feature/m0-m10` (local; final push + PR to `main` pending)._
+_Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publish and public-release prep next._
 
 ## What exists
 
@@ -22,7 +22,8 @@ _Last updated: 2026-10-05 — M0–M10 complete on `feature/m0-m10` (local; fina
   gate, 0-B allocation gate); benchmarks with `baseline.json`; QA scripts (`just qa`, `qa-editor`, `qa-projects`).
   Lavapipe can be run locally in Docker: `just render-tests-linux` (x86_64 ubuntu:24.04, same packages as CI).
 - **CI:** `ci.yml` (build-test ×3 OS, format, shaders, render-tests on lavapipe, template smoke, `ci-success`),
-  `publish.yml`, `natives.yml`. GitHub Actions minutes are scarce: run things locally (Docker for Linux) first.
+  `publish.yml`, `natives.yml`. Jobs fetch only the LFS files they need, cached by object ID. GitHub Actions
+  minutes are scarce: run things locally (Docker for Linux) first.
 
 ## Known gotchas
 
@@ -58,8 +59,8 @@ _Last updated: 2026-10-05 — M0–M10 complete on `feature/m0-m10` (local; fina
 
 ## Next steps
 
-1. Final push of `feature/m0-m10`, CI green (the lavapipe goldens were recorded locally in Docker — CI should show
-   no "No golden" warnings), PR → `main` (rebase merge), then `publish.yml` for the first release tag.
+1. Publish v1.0.0 (`publish.yml`); finish public-release prep (`chore/public-readiness`: licence notices, README
+   License section, CI LFS caching).
 2. M11 — backend-neutral GPU API + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
 3. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
    mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.

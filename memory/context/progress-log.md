@@ -4,12 +4,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Status:** M0–M10 complete; pushed, PR #4 ready for review (awaiting CI + user rebase-merge, then publish v1.0.0).
-- **Next action:** orchestrator's single final push of `feature/m0-m10` → CI (expect green, no "No golden" warnings) →
-  PR #4 to `main` (rebase merge) → `publish.yml` for the release. Then M11 (backend abstraction), M12/M13 (mobile).
+- **Status:** M0–M10 merged to `main` (fast-forward to `ec6bd70`, 2026-10-05).
+- **Next action:** publish v1.0.0 (`publish.yml`); public-release prep on `chore/public-readiness` (licence notices,
+  README License section, CI LFS caching). Then M11 (backend abstraction), M12/M13 (mobile).
 - **Open blockers:** none. User actions: Steamworks natives (partner login); macOS code signing/notarization.
-- **NO PUSHES (user, 2026-10-05):** GitHub Actions minutes nearly exhausted — commit locally only, no `gh workflow run`;
-  one final push at the end. Linux/lavapipe checks now run locally in Docker (`just test-linux`, `just render-tests-linux`).
 
 ## Log
 
@@ -176,3 +174,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ### 2026-10-05 — Portable editor goldens
 - Editor golden runs use `GoldenPaths.Root` = `/tmp/mainframe-golden` (was per-user macOS `/var/folders/…/T/`); ProjectService shows the path as opened (MSBuild still gets the real path). moltenvk editor goldens re-recorded; lavapipe unchanged.
+
+### 2026-10-05 — Merged; public-release prep
+- `feature/m0-m10` fast-forwarded into `main` (`ec6bd70`). The "no pushes" rule (Actions minutes nearly exhausted;
+  commit locally, one final push) applied during the M0–M10 build and is lifted.
+- `chore/public-readiness`: THIRD_PARTY_NOTICES for Spine example assets (not MIT), the Poly Haven sky (CC0), the
+  Silk.NET/LearnOpenGL/Vulkan Tutorial origins of `Examples/SilkVulkanExamples`; README License section; unused
+  `sky_16_2k.png` removed; CI jobs fetch only needed LFS files with an `.git/lfs` cache.
