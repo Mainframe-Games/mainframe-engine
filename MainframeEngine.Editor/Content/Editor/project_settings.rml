@@ -88,7 +88,7 @@
 <body class="backdrop">
     <div class="dialog" id="dialog">
         <div class="ps-top">
-            <div class="dialog-title"><span class="icon icon-sm icon-settings"></span> Project Settings</div>
+            <div class="dialog-title"><span class="icon icon-sm icon-settings"></span><span>Project Settings</span></div>
             <div class="ps-tools">
                 <button id="ps-undo" class="tool-button small" data-tooltip="Undo (Ctrl+Z) — revert the last settings change"><span class="icon icon-sm icon-arrow-back-up"></span></button>
                 <button id="ps-redo" class="tool-button small" data-tooltip="Redo (Ctrl+Shift+Z)"><span class="icon icon-sm icon-arrow-forward-up"></span></button>

@@ -225,7 +225,11 @@ public sealed class EditorQaScript : IEditorAutomation
                     workspace.Message.Answer(message.DefaultButton);
                 break;
             case "cancel":
-                if (workspace.TreePicker.Visible)
+                if (workspace.SignalDialog.Visible)
+                    workspace.SignalDialog.Cancel();
+                else if (workspace.NewProject.Visible)
+                    workspace.NewProject.Cancel();
+                else if (workspace.TreePicker.Visible)
                     workspace.TreePicker.Cancel();
                 else if (workspace.ListPicker.Visible)
                     workspace.ListPicker.Cancel();

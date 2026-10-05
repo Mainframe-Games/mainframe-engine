@@ -19,7 +19,7 @@
 </head>
 <body class="backdrop" data-model="connect_signal">
     <div class="dialog" id="dialog">
-        <div class="dialog-title"><span class="icon icon-plug icon-sm"></span> {{title}}</div>
+        <div class="dialog-title"><span class="icon icon-plug icon-sm"></span><span>{{title}}</span></div>
         <div class="dialog-body">
             <div class="columns">
                 <div class="column">

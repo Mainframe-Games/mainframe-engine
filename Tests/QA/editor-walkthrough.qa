@@ -52,6 +52,20 @@ cancel
 key Delete
 wait 3
 capture 11-deleted
+# Dialog titles: icon and text side by side (New Project, Connect Signal from the Signals tab's first connect button).
+command project.new
+wait 3
+capture 11b-new-project
+cancel
+select Crates/Crate0
+click #tab-signals
+wait 3
+click 1582 105
+wait 3
+capture 11c-connect-signal
+cancel
+click #tab-properties
+wait 2
 # File dialogs and the unsaved-changes prompt.
 command file.save_as
 wait 3
