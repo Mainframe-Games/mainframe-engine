@@ -18,7 +18,8 @@ macOS, Windows and Linux, without a terminal.
   version, reopening the project that was open.
 - Never interrupts work: no modal at startup; unsaved scenes go through the normal quit dialog; any failure leaves
   the old install working.
-- Automatic checks can be turned off; **Help › Check for Updates…** always works.
+- Automatic checks can be turned off; **Help › Check for Updates…** still works in every run that has an update
+  service (released builds; the item is disabled in tests, `--smoke`, `--qa-script` and `--hidden` runs).
 
 ## Non-goals
 
@@ -70,7 +71,14 @@ update dialog:
   and **Later** (Escape does the same);
 - while downloading: a progress bar (bytes / `size`) and **Cancel**; on failure: the error and **Retry**.
 
-`help.update` (the badge's command) does nothing while there is no available update. The download continues into
+**Cancel** stays offered while the archive is hashed and unpacked. The downloader checks the token after verifying
+and after extracting (its clean-up then deletes the folder), and a Cancel the download task no longer saw still
+counts: the controller reads the token before disposing it and returns to *Idle* — the editor never quits into the
+applier against an explicit Cancel.
+
+`help.update` (the badge's command) does nothing while there is no available update. A check that finds a newer
+release while one is downloading or staged keeps the one in progress (the dialog describes what **Restart now**
+installs). The download continues into
 Update & restart automatically **only while the dialog is open**. After **Later** (or Escape) a running download
 finishes quietly and waits in the *Ready* state: the badge stays, and reopening the dialog offers **Restart now** — the
 editor never quits unattended.
@@ -103,6 +111,10 @@ flowchart LR
 5. The continuation **stops Play** (`PlayController.Stop`), starts the staged executable with
    `--apply-update <install-root> --wait-pid <editor pid> --from <current version> [--project <open project folder>]`, then quits.
 
+**Applier argument contract.** The old editor starts the *new* version's applier, so every future applier must keep
+accepting `--apply-update <root> --wait-pid <pid> --from <version> [--project <folder>]` exactly (arguments passed
+through `ProcessStartInfo.ArgumentList`, never a joined string). New options may be added only as optional ones.
+
 ### Applying (`--apply-update`)
 
 `Program.cs` handles `--apply-update` before any window, SDL or engine exists; the process has no UI and appends to
@@ -112,22 +124,34 @@ flowchart LR
 2. **Back up**: delete a stale `<root>.old` if present, then rename `<root>` → `<root>.old` (same parent folder, so
    the rename is atomic). On Windows, retry the rename for up to 10 s (antivirus and indexers hold files briefly).
 3. **Copy** the staged install (the `.app` bundle on macOS, the folder elsewhere) to `<root>`. A copy, not a move:
-   `~/.mainframe` and the install may be on different volumes. `File.Copy` keeps Unix permissions.
+   `~/.mainframe` and the install may be on different volumes. `File.Copy` keeps Unix permissions. Then **keep the
+   user's entries**: every top-level entry of `<root>.old` whose name the new release does not have (notes, a project
+   kept in the editor's folder) is moved into the new `<root>` and logged; an entry both have keeps the new release's
+   version. A failure here is an install failure (roll back).
 4. **Record** `~/.mainframe/updates/result.json` (`from`, `to`, `ok`, `error`) — before relaunching, so the new editor
    always finds it.
 5. **Relaunch** detached and exit: macOS `open -n "<root>" --args [--project …]` (LaunchServices then shows the app
    name, as in [ADR 0096](../../memory/decisions/0096-macos-app-name.md)); Windows and Linux start
    `<root>/MainframeEngine.Editor[.exe]` with the same arguments.
 
-If step 1 or 2 fails, nothing changed: record the error and relaunch the old editor. If step 3 or 5 fails: delete the
-partial `<root>`, rename `<root>.old` back, record the error (overwriting a success record) and relaunch the old
-editor.
+If step 1 or 2 fails, nothing changed: record the error and relaunch the old editor. If step 3 or 5 fails, roll back:
+rename the partial `<root>` aside to `<root>.failed` (deleting a stale one first; with the same Windows retry — a
+rename works where deleting freshly written, still-scanned DLLs does not), rename `<root>.old` back, move the user's
+entries kept in step 3 from `.failed` into the restored root, delete `.failed` (best-effort; kept, and named in the
+error, if one of the user's entries could not be moved back), record the error (overwriting a success record) and
+relaunch the old editor. If `<root>.old` cannot be moved back, the applier relaunches the **backup's** editor
+(`<root>.old`; on macOS its executable directly, since a folder named `.app.old` is no bundle) — never the
+half-installed copy — and the error names the backup's path.
 
-**On every start** of a release build (in the background; dev builds skip it, the `CheckForUpdates` setting and QA
-flags do not), the editor reads and deletes `result.json` — logging "Updated to vX.Y.Z" or "Update to vX.Y.Z failed: … (see
-~/.mainframe/updates/update.log)" to the Output panel — then deletes `<root>.old` and the staging folders — except those of versions **newer than the running editor**,
-which belong to a second editor that is mid-download or has a staged update waiting. The
-applier cannot do this itself: it runs from the staging folder, which Windows will not let it delete.
+**On every start** of a release build that has an update service (in the background; not in tests, `--smoke`,
+`--qa-script` or `--hidden` runs, and dev builds skip it; the `CheckForUpdates` setting does not), the editor reads
+and deletes `result.json` — logging "Updated to vX.Y.Z" or "Update to vX.Y.Z failed: … (see
+~/.mainframe/updates/update.log)" to the Output panel — then deletes `<root>.old` and a leftover `<root>.failed`
+(both are **kept after a failed update**: the backup may be the only working install, the partial copy may hold the
+user's files) and the staging folders — except those of versions **newer than the running editor**, which belong to a
+second editor that is mid-download or has a staged update waiting. The root comes from the path alone (no
+writability probe). The applier cannot do this itself: it runs from the staging folder, which Windows will not let it
+delete.
 
 ### Install root
 
@@ -135,6 +159,8 @@ applier cannot do this itself: it runs from the staging folder, which Windows wi
   outside a bundle cannot be updated in place.
 - **Windows, Linux:** the root is `AppContext.BaseDirectory` (the unpacked `MainframeEngine-X.Y.Z-<rid>` folder). The
   folder keeps its name after an update; the version in the name is just where it was first unpacked.
+- Every platform: `InstallLocation.Inspect` treats the root as an install only when it holds the editor executable
+  (`UpdatePlatform.ExecutablePath`); otherwise the update is downloaded for installing by hand.
 
 ### Fallback: download and reveal
 
@@ -147,7 +173,8 @@ cannot be replaced when:
 - macOS App Translocation: the path contains `/AppTranslocation/` (an unsigned app opened from where it was
   downloaded runs from a random read-only copy). The dialog says "Move Mainframe Engine to Applications to enable
   automatic updates.";
-- macOS without a bundle (above).
+- macOS without a bundle, or a root without the editor executable (above). The dialog says "This editor does not run
+  from a released Mainframe Engine install, so the update is downloaded for you to install by hand."
 
 ## Components
 
@@ -159,12 +186,12 @@ All new code lives in `MainframeEngine.Editor/Src/Updates/`. No new packages: `H
 | `ReleaseInfo` | Record: version, tag, notes, page URL, assets (name, URL, size, SHA-256). `ReleaseFeed.Parse(json)` is pure. | — |
 | `ReleaseFeed` | Fetches `releases/latest` with the headers above. | `HttpClient` (constructor takes an `HttpMessageHandler`) |
 | `UpdatePlatform` | Current RID, asset name for a version, staged-executable path inside an extracted archive. | — |
-| `InstallLocation` | Install root from a base directory; `CanReplace` (writable, not translocated, bundled). Path logic is pure; the writability probe is separate. | — |
+| `InstallLocation` | Install root from a base directory; `CanReplace` (holds the editor executable, writable, not translocated, bundled). `FindRoot` is pure; the executable check and the writability probe are injectable. | — |
 | `UpdateChecker` | Dev-build and platform rules, version comparison, `CheckAsync` → `UpdateCheckResult` (update / up to date / dev build / unsupported platform / error). | `ReleaseFeed`, `UpdatePlatform` |
 | `IUpdateService`, `GitHubUpdateService` | The editor's seam: check, download, start the applier, reveal, clean up. `EditorWorkspaceOptions.Updates` holds it; only the editor executable sets it (not with `--hidden`), so tests, `--smoke` and `--qa-script` runs have no updates. Tests and QA pass fakes. | the units above |
 | `UpdateController` | Owned by the workspace: the start-up check (honours `CheckForUpdates`), clean-up reporting, download state, Update & restart. Polls its tasks each frame on the main thread (the Project Manager's SDK-check pattern). | `IUpdateService`, `EditorWorkspace` |
 | `UpdateDownloader` | Download with progress and cancellation, SHA-256 check, extraction, staged-executable lookup. | `HttpClient` |
-| `UpdateApplier` | `--apply-update`: wait, back up, copy, relaunch, roll back, write `result.json`; `CleanUpAfterUpdate` for the next start. Process waiting and launching are injected. | — |
+| `UpdateApplier` | `--apply-update`: wait, back up, copy, keep the user's entries, relaunch, roll back, write `result.json`; `UpdateCleanup.Run` for the next start. Process waiting, launching, copying and folder moves are injected. | — |
 | Badges, `UI/UpdateDialog` | Badge buttons in the toolbar and Project Manager (`help.update`), the dialog (`Content/Editor/update.rml`), `help.check_updates`. | `UpdateController` |
 
 Other changes: `EditorSettings.CheckForUpdates` (+ the Editor Settings checkbox); `RequestQuit(Func<bool>? beforeQuit)` (runs once quitting is confirmed; false keeps the editor open);
@@ -194,8 +221,11 @@ Unit tests in `Tests/MainframeEngine.Editor.Tests/Updates/`, no network:
 - `UpdateDownloader` with a fake handler: digest match, mismatch, missing; cancellation deletes the folder; a tar
   keeps the execute bit (Unix only); an archive entry escaping the folder is rejected;
 - `UpdateApplier` on temp folders with fake process functions: success; the old process already gone; wait timeout
-  (nothing changed); copy failing halfway (root restored from `.old`); a stale `.old` from an earlier run;
-  `CleanUpAfterUpdate` reads `result.json` and deletes `.old` and staging.
+  (nothing changed); copy failing halfway (root restored from `.old` via `.failed`); a stale `.old` or `.failed` from
+  an earlier run; a failed roll-back (injected `MoveDirectory` failure) relaunches the backup; the user's top-level
+  files and folders survive an update and a roll-back; `UpdateCleanup.Run` reads `result.json`, deletes `.old`,
+  `.failed` and staging, and keeps `.old`/`.failed` after a failed update;
+- cancelling after the download finished (while verifying or unpacking) installs nothing.
 
 Editor QA: the badge is hidden without an update, so existing goldens do not change. One QA screenshot of the update
 dialog with an injected `UpdateCheckResult` (the QA-script step `update-preview X.Y.Z` — it injects a made-up release
