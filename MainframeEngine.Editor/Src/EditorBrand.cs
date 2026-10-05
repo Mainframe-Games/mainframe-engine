@@ -21,6 +21,9 @@ public static class EditorBrand
     /// </summary>
     public static string Version => "v" + EngineInfo.Version;
 
+    /// <summary>"Mainframe Editor v1.2.3": the window title's suffix and the About box heading.</summary>
+    public static string NameWithVersion => "Mainframe Editor " + Version;
+
     /// <summary>The editor assembly's own version (build metadata stripped); equals <see cref="EngineInfo.Version"/> in any consistent build.</summary>
     public static string AssemblyVersion
     {

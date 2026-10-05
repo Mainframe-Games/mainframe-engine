@@ -123,7 +123,7 @@ public sealed class WorkspaceTests : IDisposable
 
         Assert.Single(W.Session.Scenes);
         Assert.Equal("Node3D", _editor.Scene.Root.Name);
-        Assert.Equal("Untitled — Mainframe Editor", _editor.Host.Title);
+        Assert.Equal($"Untitled — {EditorBrand.NameWithVersion}", _editor.Host.Title);
         Assert.Single(W.SceneTree.Model.Rows);
     }
 
@@ -448,6 +448,33 @@ public sealed class WorkspaceTests : IDisposable
     }
 
     [Fact]
+    public void ClosingTheWindowClosesAnOpenPickerAndAsksAboutUnsavedScenes()
+    {
+        AddChild("X");
+        W.FilePicker.Show(new FilePickerModel(FilePickerMode.Open, Path.GetTempPath(), ["*.mscene"]), "Open Scene", "Open", _ => { });
+        Assert.True(W.IsDialogOpen);
+
+        W.OnCloseRequested();
+        Assert.False(W.FilePicker.Visible);
+        Assert.Equal("Unsaved changes", W.Message.Current!.Title);
+        W.Message.Answer(1); // don't save
+        Assert.True(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
+    public void ClosingTheWindowWhileAMessageIsOpenWaitsForTheAnswer()
+    {
+        W.Message.Show(new MessageRequest { Title = "Question", Message = "?", Buttons = ["OK"] });
+        W.OnCloseRequested();
+        Assert.False(_editor.Host.QuitRequested);
+        Assert.Equal("Question", W.Message.Current?.Title);
+
+        W.Message.Answer(0);
+        W.OnCloseRequested();
+        Assert.True(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
     public void QuittingACleanSessionDoesNotAsk()
     {
         W.RequestQuit();
@@ -501,7 +528,7 @@ public sealed class WorkspaceTests : IDisposable
         var path = Path.Combine(_editor.Directory, "Saved.mscene");
         Assert.True(File.Exists(path), $"{W.Message.Current?.Message} | {W.FilePicker.Model?.Error}");
         Assert.False(_editor.Scene.IsDirty);
-        Assert.Equal("Saved.mscene — Mainframe Editor", _editor.Host.Title);
+        Assert.Equal($"Saved.mscene — {EditorBrand.NameWithVersion}", _editor.Host.Title);
 
         AddChild("More");
         W.Commands.Execute("file.close");
@@ -509,7 +536,7 @@ public sealed class WorkspaceTests : IDisposable
         W.Message.Answer(1); // don't save
         _editor.Tick();
         Assert.Empty(W.Session.Scenes);
-        Assert.Equal("Mainframe Editor", _editor.Host.Title);
+        Assert.Equal(EditorBrand.NameWithVersion, _editor.Host.Title);
     }
 
     [Fact]

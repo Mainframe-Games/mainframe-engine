@@ -46,7 +46,7 @@ public sealed class EditorSettingsDialog : EditorDocument
             .Bind("check_updates", this, static d => d._working.CheckForUpdates, static (d, v) => d._working.CheckForUpdates = v)
             .Bind("error", this, static d => d._error)
             .Event("apply", _ => Apply())
-            .Event("cancel", _ => HideAndReleaseFocus());
+            .Event("cancel", _ => Cancel());
     }
 
     protected override void OnAttach(RmlDocument document)
@@ -72,6 +72,9 @@ public sealed class EditorSettingsDialog : EditorDocument
     }
 
     /// <summary>Opens the dialog on a copy of the current settings.</summary>
+    /// <summary>Closes without applying (the Cancel button).</summary>
+    public void Cancel() => HideAndReleaseFocus();
+
     public void Open()
     {
         _working = Workspace.Settings.Clone();

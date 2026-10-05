@@ -531,12 +531,13 @@ public sealed class ProjectSettingsDialog : EditorDocument
         return true;
     }
 
-    /// <summary>Closes the dialog, asking about unsaved edits.</summary>
-    public void RequestClose()
+    /// <summary>Closes the dialog, asking about unsaved edits; then <paramref name="closed"/> (not after Cancel).</summary>
+    public void RequestClose(Action? closed = null)
     {
         if (Model is not { IsDirty: true })
         {
             Close();
+            closed?.Invoke();
             return;
         }
 
@@ -553,6 +554,9 @@ public sealed class ProjectSettingsDialog : EditorDocument
                     Close();
                 else if (button == 1)
                     Close();
+                else
+                    return;
+                closed?.Invoke();
             },
         });
     }

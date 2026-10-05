@@ -47,6 +47,19 @@
         <InternalsVisibleTo Include="MainframeEngine.Editor.Tests" />
     </ItemGroup>
 
+    <!--
+      The editor and the engine core ship in lock step (one version: docs/design/release.md). Both get $(Version) from
+      Directory.Build.props or the release's global -p:Version; this fails the build if either project overrides it.
+      EditorBrand.VersionsMatch catches what a build cannot (a hand-copied MainframeEngine.dll) at startup.
+    -->
+    <Target Name="CheckEngineVersionLockStep" BeforeTargets="CoreCompile">
+        <MSBuild Projects="..\MainframeEngine\MainframeEngine.csproj" Targets="GetMainframeVersion">
+            <Output TaskParameter="TargetOutputs" PropertyName="_MainframeEngineCoreVersion" />
+        </MSBuild>
+        <Error Condition="'$(_MainframeEngineCoreVersion)' != '$(Version)'"
+               Text="The editor ($(Version)) and the engine core ($(_MainframeEngineCoreVersion)) must have the same version. Set it only in Directory.Build.props or with -p:Version." />
+    </Target>
+
     <!-- macOS: builds bin/<cfg>/net10.0/Mainframe Engine.app and makes `dotnet run` start the editor from inside it, so
          the Dock and menu bar say "Mainframe Engine" instead of the executable name (ADR 0096). -->
     <Import Project="..\build\macos\DevAppBundle.targets" />

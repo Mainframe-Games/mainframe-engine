@@ -10,4 +10,7 @@
     <RunAnalyzers>false</RunAnalyzers>
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
   </PropertyGroup>
+
+  <!-- This project's $(Version), for build-time lock-step checks (the editor checks the engine core it references). -->
+  <Target Name="GetMainframeVersion" Returns="$(Version)" />
 </Project>

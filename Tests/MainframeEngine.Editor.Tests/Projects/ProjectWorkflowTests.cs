@@ -158,8 +158,83 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.False(w.ProjectManager.Visible);
         Assert.Equal(_project.Root, w.Session.ProjectRoot);
         Assert.Equal("Main.mscene", Path.GetFileName(Assert.Single(w.Session.Scenes).FilePath));
-        Assert.Equal($"Main.mscene — {_project.Name} — Mainframe Editor", _editor.Host.Title);
+        Assert.Equal($"Main.mscene — {_project.Name} — {EditorBrand.NameWithVersion}", _editor.Host.Title);
         Assert.Equal(_project.Root, w.RecentProjects.Items[0].Path);
+    }
+
+    [Fact]
+    public void ClosingTheWindowFromTheProjectManagerQuits()
+    {
+        _editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true, GameBuilder = _builder, GameLauncher = _launcher });
+        var w = _editor.Workspace;
+        w.ProjectManager.Open();
+        _editor.Tick(3);
+        Assert.True(w.IsDialogOpen);
+
+        w.OnCloseRequested();
+        Assert.True(_editor.Host.QuitRequested);
+        Assert.False(w.ProjectManager.Visible);
+    }
+
+    [Fact]
+    public void ClosingTheWindowAsksAboutUnsavedProjectSettingsFirst()
+    {
+        var w = Open().Workspace;
+        Assert.True(w.ProjectSettings.Open());
+        _editor!.Tick();
+        Assert.Null(w.ProjectSettings.Model!.Set("window.title", "Changed"));
+
+        w.OnCloseRequested();
+        Assert.Equal("Unsaved Project Settings", w.Message.Current?.Title);
+        w.Message.Answer(2); // cancel: the dialog and the editor stay
+        Assert.True(w.ProjectSettings.Visible);
+        Assert.False(_editor.Host.QuitRequested);
+
+        w.OnCloseRequested();
+        w.Message.Answer(1); // don't save
+        Assert.False(w.ProjectSettings.Visible);
+        Assert.True(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
+    public void OpenProjectAcceptsOnlyAProjectFileNeverAFolder()
+    {
+        _editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true, GameBuilder = _builder, GameLauncher = _launcher });
+        var w = _editor.Workspace;
+        File.WriteAllText(_project.Abs("Other.mfproj"), "{}");
+        File.WriteAllText(_project.Abs("notes.txt"), "");
+        _editor.Tick(3);
+
+        w.Commands.ChooseProjectFile(Path.GetDirectoryName(_project.Root)!);
+        var picker = Assert.IsType<FilePickerModel>(w.FilePicker.Model);
+        Assert.True(w.FilePicker.Visible);
+        Assert.Equal(FilePickerMode.Open, picker.Mode);
+
+        // A folder — even the project's own — is not a result: the picker stays open.
+        picker.FileName = _project.Root;
+        w.FilePicker.Accept();
+        Assert.True(w.FilePicker.Visible);
+        Assert.Null(w.Session.ProjectRoot);
+
+        // Inside the project only .mfproj files are listed (folders still are, to navigate).
+        Assert.True(picker.Navigate(_project.Root));
+        Assert.Equal(["Other.mfproj", ProjectSettings.FileName], picker.Entries.Where(e => !e.IsDirectory).Select(e => e.Name));
+        picker.FileName = "notes.txt";
+        w.FilePicker.Accept();
+        Assert.True(w.FilePicker.Visible);
+
+        // A .mfproj that is not project.mfproj is refused with a message.
+        picker.FileName = "Other.mfproj";
+        w.FilePicker.Accept();
+        Assert.Equal("Not a Project", w.Message.Current?.Title);
+        w.Message.Answer(0);
+        Assert.Null(w.Session.ProjectRoot);
+
+        w.Commands.ChooseProjectFile(_project.Root);
+        w.FilePicker.Model!.FileName = ProjectSettings.FileName;
+        w.FilePicker.Accept();
+        _editor.Tick(3);
+        Assert.Equal(_project.Root, w.Session.ProjectRoot);
     }
 
     // The project's window icon: the brand logo copied to Content/icon.png and named by window.icon.
