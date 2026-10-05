@@ -255,3 +255,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   `--frame-capture`; `ProjectSettings.Version` + `GameHost.Project`; `Node2D.Skew` / `Transform2D.Skew` with exact
   transform storage; shader build outputs skipped by the asset scan. Tests: SceneTreeHostTests, skew, tick delta,
   offline server, user args, version, scan skip. Gates green (unit 1203, editor 443, render 46).
+
+### 2026-10-05 — window.contentScale (port E17)
+- Project setting `window.contentScale` → `EngineOptions.ContentScale` (1 = window size in pixels, Godot's rule). With
+  it Crash Site Defense's seed-4242 frame matches Godot's within 1/255 per pixel outside the not-yet-ported crew member.

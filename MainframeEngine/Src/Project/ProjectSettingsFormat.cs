@@ -153,6 +153,8 @@ public static class ProjectSettingsFormat
             w.WriteNumber("stretchScale", s.StretchScale);
         if (s.StretchScaleMode != d.StretchScaleMode)
             w.WriteString("stretchScaleMode", s.StretchScaleMode.ToString());
+        if (s.ContentScale != d.ContentScale)
+            w.WriteNumber("contentScale", s.ContentScale);
         w.WriteEndObject();
     }
 
@@ -368,7 +370,7 @@ public static class ProjectSettingsFormat
 
         private void ReadWindow(JsonObject o, WindowSettings s)
         {
-            Known(o, "window.", "title", "width", "height", "vsync", "maxFps", "icon", "stretchMode", "stretchAspect", "stretchScale", "stretchScaleMode");
+            Known(o, "window.", "title", "width", "height", "vsync", "maxFps", "icon", "stretchMode", "stretchAspect", "stretchScale", "stretchScaleMode", "contentScale");
             s.Title = String(o, "title", "window.title");
             s.Width = Int(o, "width", "window.width", s.Width, 1, 16384);
             s.Height = Int(o, "height", "window.height", s.Height, 1, 16384);
@@ -380,6 +382,8 @@ public static class ProjectSettingsFormat
             var scale = Float(o, "stretchScale", "window.stretchScale", s.StretchScale);
             Guard("window.stretchScale", () => s.StretchScale = scale);
             s.StretchScaleMode = EnumValue(o, "stretchScaleMode", "window.stretchScaleMode", s.StretchScaleMode);
+            var contentScale = Float(o, "contentScale", "window.contentScale", s.ContentScale);
+            Guard("window.contentScale", () => s.ContentScale = contentScale);
         }
 
         // Enum names, case-insensitive; Godot's snake_case spellings ("canvas_items", "keep_width") are accepted too.

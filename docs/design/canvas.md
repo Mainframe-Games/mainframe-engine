@@ -69,7 +69,9 @@ Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when t
   or integer scale, letterbox margins. `SceneViewport.GetVisibleRect()` is the visible area in canvas units;
   `StretchTransform` multiplies every canvas (layers included). Project file: `window.stretchMode` (`canvas_items`),
   `window.stretchAspect`, `window.stretchScale`, `window.stretchScaleMode`; base size = `window.width/height`.
-  `rendering.canvasClearColor` sets `CanvasServer.ClearColor`.
+  `rendering.canvasClearColor` sets `CanvasServer.ClearColor`. `window.contentScale: 1` makes `width/height` pixels on
+  every display as in Godot (`EngineOptions.ContentScale`; a 1920×1080 window is 960×540 pt on a 2× screen), so a
+  Godot-sized canvas draws at scale 1 and frame captures match Godot's.
 
 ## Frame
 

@@ -12,7 +12,7 @@ public sealed class CanvasProjectSettingsTests
         const string json = """
             {
               "format": 1, "name": "Game", "engineVersion": "0.0.0-dev",
-              "window": { "width": 1920, "height": 1080, "stretchMode": "canvas_items", "stretchAspect": "expand", "stretchScale": 1.5, "stretchScaleMode": "integer" },
+              "window": { "width": 1920, "height": 1080, "stretchMode": "canvas_items", "stretchAspect": "expand", "stretchScale": 1.5, "stretchScaleMode": "integer", "contentScale": 1 },
               "rendering": { "canvasClearColor": [0.3, 0.3, 0.3, 1] }
             }
             """;
@@ -21,6 +21,8 @@ public sealed class CanvasProjectSettingsTests
         Assert.Equal(ContentScaleAspect.Expand, s.Window.StretchAspect);
         Assert.Equal(1.5f, s.Window.StretchScale);
         Assert.Equal(ContentScaleStretch.Integer, s.Window.StretchScaleMode);
+        Assert.Equal(1f, s.Window.ContentScale);
+        Assert.Equal(1f, s.ToEngineOptions().ContentScale); // the size is in pixels, as in Godot
         Assert.Equal(new Vector4(0.3f, 0.3f, 0.3f, 1), s.Rendering.CanvasClearColor);
 
         var back = ProjectSettings.Parse(s.ToJson());
@@ -28,10 +30,12 @@ public sealed class CanvasProjectSettingsTests
         Assert.Equal(s.Window.StretchAspect, back.Window.StretchAspect);
         Assert.Equal(s.Window.StretchScale, back.Window.StretchScale);
         Assert.Equal(s.Window.StretchScaleMode, back.Window.StretchScaleMode);
+        Assert.Equal(s.Window.ContentScale, back.Window.ContentScale);
         Assert.Equal(s.Rendering.CanvasClearColor, back.Rendering.CanvasClearColor);
 
         var defaults = ProjectSettings.Parse(new ProjectSettings { Name = "Game" }.ToJson());
         Assert.Equal(ContentScaleMode.Disabled, defaults.Window.StretchMode);
+        Assert.Equal(0f, defaults.Window.ContentScale);
         Assert.Null(defaults.Rendering.CanvasClearColor);
     }
 

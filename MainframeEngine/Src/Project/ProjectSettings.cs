@@ -120,6 +120,7 @@ public sealed class ProjectSettings
     {
         GameName = Window.Title ?? Name,
         WindowSize = new Vector2D<int>(Window.Width, Window.Height),
+        ContentScale = Window.ContentScale,
         IconPath = Window.Icon,
         VSync = Window.VSync,
         PhysicsTicksPerSecond = Physics.TicksPerSecond,
@@ -206,6 +207,22 @@ public sealed class WindowSettings
 
     /// <summary>Godot's <c>display/window/stretch/scale_mode</c>.</summary>
     public ContentScaleStretch StretchScaleMode { get; set; }
+
+    /// <summary>
+    /// Pixels per point of <see cref="Width"/> × <see cref="Height"/> (<see cref="EngineOptions.ContentScale"/>). 0 (default):
+    /// the size is in OS points (a Retina window is twice as many pixels). 1: the size is in pixels on every display, as in
+    /// Godot (a 1920×1080 window is 960×540 points on a 2× screen).
+    /// </summary>
+    public float ContentScale
+    {
+        get;
+        set
+        {
+            if (!(value >= 0) || !float.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The content scale must be 0 or positive and finite.");
+            field = value;
+        }
+    }
 }
 
 /// <summary>The <c>physics</c> section: the fixed tick and the 3D/2D server settings.</summary>
