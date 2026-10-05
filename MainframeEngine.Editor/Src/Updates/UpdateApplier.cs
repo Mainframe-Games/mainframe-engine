@@ -137,9 +137,9 @@ public sealed class UpdateApplier
         {
             CopyDirectory(StagedRoot, root);
             new UpdateResult(request.From, ToVersion, true, null).Save(ResultPath);
+            Log("Installed; starting the new version.");
             Start(launch);
-            Log("Installed and started.");
-            return 0;
+            return 0; // nothing may run after Start: a throw here would roll back under the already-running new editor
         }
         catch (Exception e) // Anything after the rename must roll back, whatever its type: a half-installed editor cannot start.
         {
@@ -160,7 +160,7 @@ public sealed class UpdateApplier
             Directory.Move(backup, root);
             return true;
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        catch (Exception e) // never let the rollback itself crash the applier: the caller still relaunches
         {
             Log($"Could not restore {root} from {backup}: {e.Message}");
             return false;
@@ -241,7 +241,7 @@ public sealed class UpdateApplier
             using var process = Process.GetProcessById(pid);
             return process.WaitForExit(timeout);
         }
-        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or Win32Exception)
         {
             return true;
         }
@@ -316,11 +316,23 @@ public static class UpdateCleanup
         TryDelete(resultPath, static p => File.Delete(p));
         if (installRoot is not null && Directory.Exists(UpdatePaths.BackupOf(installRoot)))
             TryDelete(UpdatePaths.BackupOf(installRoot), static p => Directory.Delete(p, recursive: true));
-        if (Directory.Exists(updatesDirectory))
-            foreach (var folder in Directory.EnumerateDirectories(updatesDirectory))
-                if (!ReleaseVersion.TryParse(Path.GetFileName(folder), out var version) || version <= current)
-                    TryDelete(folder, static p => Directory.Delete(p, recursive: true));
+        foreach (var folder in StagingFolders(updatesDirectory))
+            if (!ReleaseVersion.TryParse(Path.GetFileName(folder), out var version) || version <= current)
+                TryDelete(folder, static p => Directory.Delete(p, recursive: true));
         return result;
+    }
+
+    private static List<string> StagingFolders(string updatesDirectory)
+    {
+        try
+        {
+            return Directory.Exists(updatesDirectory) ? [.. Directory.EnumerateDirectories(updatesDirectory)] : [];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Info($"[Editor] Could not list {updatesDirectory} ({e.Message}); stale downloads are retried at the next start.");
+            return [];
+        }
     }
 
     private static void TryDelete(string path, Action<string> delete)

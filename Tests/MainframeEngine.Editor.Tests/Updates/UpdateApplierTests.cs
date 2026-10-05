@@ -109,6 +109,7 @@ public sealed class UpdateApplierTests : IDisposable
             Rid = applier.Rid,
             ToVersion = applier.ToVersion,
             UpdatesDirectory = applier.UpdatesDirectory,
+            WaitForExit = (_, _) => true,
             Start = info =>
             {
                 if (attempts++ == 0)
@@ -199,5 +200,36 @@ public sealed class UpdateApplierTests : IDisposable
         UpdateCleanup.Run(Root, Updates, new ReleaseVersion(1, 1, 0));
         Assert.True(Directory.Exists(Path.Combine(Updates, "1.2.0")));
         Assert.False(Directory.Exists(Path.Combine(Updates, "1.0.0")));
+    }
+
+    [Fact]
+    public void CleanUpDoesNotThrowWhenTheUpdatesFolderCannotBeListed()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Skip("Needs POSIX permissions to make a folder unlistable.");
+            return;
+        }
+
+        Directory.CreateDirectory(Path.Combine(Updates, "1.0.0"));
+        var original = File.GetUnixFileMode(Updates);
+        File.SetUnixFileMode(Updates, UnixFileMode.None);
+        try
+        {
+            try
+            {
+                _ = Directory.GetDirectories(Updates);
+                Assert.Skip("The folder is still listable (running as root?).");
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            Assert.Null(UpdateCleanup.Run(Root, Updates, new ReleaseVersion(1, 1, 0)));
+        }
+        finally
+        {
+            File.SetUnixFileMode(Updates, original);
+        }
     }
 }
