@@ -93,15 +93,14 @@ mainframe-engine/
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
 ├── MainframeEngine.Editor/      # The editor (RmlUi UI in Content/Editor)
 ├── MainframeEngine.Sandbox/     # Test game demonstrating the engine's features
-├── Examples/                    # Standalone examples; EditorShowcase is the editor screenshots' game project
+├── Examples/                    # EditorShowcase: the editor screenshots' game project
 ├── Templates/                   # `dotnet new mfgame` game template
 ├── Tools/MainframeEngine.L10n/  # mf-l10n: extract (RML, scenes), update, pseudo-locale, .po -> .mo compiler
 ├── Native/                      # Native shim sources (mfrmlui over RmlUi + FreeType, ENet), built by natives.yml
 ├── Tests/                       # Unit, editor, render (+ host) tests, benchmarks, editor QA scripts
 ├── build/                       # Scripts shared by the justfile and CI (shaders, template smoke, packaging, Linux Docker)
 ├── docs/                        # Design docs and the roadmap
-├── Plugins/Spine/               # Spine C# runtime (vendored submodule)
-└── Examples/                    # Vulkan tutorial series, Spine showcase
+└── Plugins/Spine/               # Spine C# runtime (vendored submodule)
 ```
 
 ---
@@ -434,30 +433,6 @@ the scene tree, and behaviour lives in node types. It shows:
 
 ---
 
-## Examples
-
-### Vulkan Tutorial (`SilkVulkanExamples`)
-
-An interactive Vulkan tutorial series built on Silk.NET, progressing from basic setup through advanced rendering:
-
-| Section | Topics |
-|---------|--------|
-| 1.1 Hello World | Window creation, Vulkan instance, validation layers, device selection, swapchain, render pass, graphics pipeline, command buffers, 2 frames-in-flight rendering |
-| 1.2 Hello Quad | Vertex/index buffers, quad rendering |
-| 1.3 Textures | Image loading, texture sampling |
-| 1.4 Abstractions | Renderer abstractions and utilities |
-| 1.5 Transformations | Model/view/projection matrices |
-| 2.1 Coordinate Systems | 3D coordinate spaces |
-| 2.2 Camera | Interactive camera with mouse-look |
-| 3.1–3.5 Lighting | Ambient, diffuse, specular lighting, materials, lighting maps |
-| 4.1 Model Loading | Importing and rendering 3D models via Assimp |
-
-### Spine Examples (`SpineExamples`)
-
-Demonstrates Spine skeletal animation using `SpineRenderer` with the Vulkan backend, including model loading, skinning, and animation playback.
-
----
-
 ## Plugins
 
 ### Spine C# Runtime (`Plugins/Spine/`)
@@ -551,4 +526,4 @@ SDK. See [Release & versioning](docs/design/release.md).
   [Spine Runtimes License](https://esotericsoftware.com/spine-runtimes-license), **not MIT**. A game that uses
   `SpineNode` (or anything else from the Spine Runtimes) needs its own
   [Spine Editor licence](http://esotericsoftware.com/spine-editor-license). The bundled Spine example assets
-  (SpineBoy, Raptor, Celestial Circus, Windmill) are © Esoteric Software and are not covered by the MIT licence.
+  (SpineBoy) are © Esoteric Software and are not covered by the MIT licence.

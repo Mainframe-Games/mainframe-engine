@@ -26,7 +26,7 @@ boy.SetAnimation("run");
 
 The skeleton data (atlas, JSON) loads on the CPU on first use (`Skeleton`, entering the tree, the first
 process); the GPU renderer is created through the `RenderServer` when the node enters a tree, with the
-server's `ShadowSystem`. Tree-less code (Examples/SpineExamples) uses
+server's `ShadowSystem`. Tree-less code uses
 `new SpineNode(renderer, folder)` (loads immediately, no shadows), then `Advance(gameTime)` and
 `Draw(camera, lights)` inside the main pass.
 

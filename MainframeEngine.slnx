@@ -1,8 +1,4 @@
 <Solution>
-  <Folder Name="/Examples/">
-    <Project Path="Examples/SilkVulkanExamples/SilkVulkanExamples.csproj" />
-    <Project Path="Examples/SpineExamples/SpineExamples.csproj" />
-  </Folder>
   <Folder Name="/Plugins/">
     <Project Path="Plugins/Spine/spine-csharp/spine-csharp.csproj" />
   </Folder>

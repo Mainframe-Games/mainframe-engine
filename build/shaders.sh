@@ -10,9 +10,8 @@
 #
 # Shaders: MainframeEngine/Content/Shaders/**/*.vk.{vert,frag,comp} (engine, compiled with
 # -I MainframeEngine/Content/Shaders/include exactly like the MSBuild CompileShaders target in
-# build/Shaders.targets) and Examples/SilkVulkanExamples/Content/Shaders/**/*.{vert,frag,comp}. The engine's
-# shared includes (include/*.glsl, incl. the generated limits.glsl) are locked too: editing one makes every
-# engine .spv stale until recompiled.
+# build/Shaders.targets). The engine's shared includes (include/*.glsl, incl. the generated limits.glsl) are
+# locked too: editing one makes every engine .spv stale until recompiled.
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -24,12 +23,8 @@ INCLUDE_DIR="$ENGINE_SHADERS/include"
 cd "$ROOT"
 
 list_sources() {
-    {
-        find "$ENGINE_SHADERS" -type f \
-            \( -name '*.vk.vert' -o -name '*.vk.frag' -o -name '*.vk.comp' \)
-        find Examples/SilkVulkanExamples/Content/Shaders -type f \
-            \( -name '*.vert' -o -name '*.frag' -o -name '*.comp' \)
-    } | LC_ALL=C sort
+    find "$ENGINE_SHADERS" -type f \
+        \( -name '*.vk.vert' -o -name '*.vk.frag' -o -name '*.vk.comp' \) | LC_ALL=C sort
 }
 
 list_includes() {
