@@ -7,7 +7,7 @@ namespace MainframeEngine.Editor;
 /// a pivot at a distance (Alt+LMB or MMB), pans (Shift+MMB), zooms (wheel), flies (hold RMB + WASD/QE, mouse look) and
 /// frames a selection (F). It drives a <see cref="PerspectiveCamera"/> set as the edited viewport's
 /// <see cref="SceneViewport.CameraOverride"/>. In <see cref="Is2D"/> mode (scenes whose root is a <see cref="Node2D"/>)
-/// it is an orthographic view of the z = 0 plane in pixels, y up: <see cref="Center2D"/> and <see cref="Zoom2D"/>
+/// it is an orthographic view of the z = 0 plane in pixels, y down (Godot's 2D convention): <see cref="Center2D"/> and <see cref="Zoom2D"/>
 /// (screen pixels per world unit) drive an <see cref="OrthographicCamera"/>, and the projection helpers (<see cref="Ray"/>,
 /// <see cref="Project"/>, <see cref="WorldPerPixel"/>) follow. Pure math, so it is unit-tested.
 /// </summary>
@@ -63,7 +63,7 @@ public sealed class EditorCamera
     /// <summary>The camera to render with: <see cref="OrthoCamera"/> in 2D mode, else <see cref="RenderCamera"/>.</summary>
     public ICamera ActiveCamera => Is2D ? OrthoCamera : RenderCamera;
 
-    /// <summary>2D editing: an orthographic view of the z = 0 plane (Node2D scenes; units are pixels, y up).</summary>
+    /// <summary>2D editing: an orthographic view of the z = 0 plane (Node2D scenes; units are pixels, y down).</summary>
     public bool Is2D { get; set; }
 
     /// <summary>The 2D view's centre in world units.</summary>
@@ -79,13 +79,13 @@ public sealed class EditorCamera
     /// <summary>Distance of the 2D camera from the z = 0 plane (inside the orthographic depth range).</summary>
     public const float Depth2D = 500f;
 
-    /// <summary>Unit view direction from <see cref="Yaw"/> and <see cref="Pitch"/> (-Z in 2D mode).</summary>
+    /// <summary>Unit view direction from <see cref="Yaw"/> and <see cref="Pitch"/> (+Z in 2D mode: the plane is seen from −Z so +Y is down).</summary>
     public Vector3 Forward
     {
         get
         {
             if (Is2D)
-                return -Vector3.UnitZ;
+                return Vector3.UnitZ;
             var yaw = float.DegreesToRadians(Yaw);
             var pitch = float.DegreesToRadians(Pitch);
             return Vector3.Normalize(new Vector3(-MathF.Sin(yaw) * MathF.Cos(pitch), MathF.Sin(pitch), -MathF.Cos(yaw) * MathF.Cos(pitch)));
@@ -94,10 +94,10 @@ public sealed class EditorCamera
 
     public Vector3 Right => Is2D ? Vector3.UnitX : Vector3.Normalize(Vector3.Cross(Forward, Vector3.UnitY));
 
-    public Vector3 Up => Is2D ? Vector3.UnitY : Vector3.Cross(Right, Forward);
+    public Vector3 Up => Is2D ? -Vector3.UnitY : Vector3.Cross(Right, Forward);
 
     /// <summary>World position of the camera.</summary>
-    public Vector3 Position => Is2D ? new Vector3(Center2D, Depth2D) : Pivot - Forward * Distance;
+    public Vector3 Position => Is2D ? new Vector3(Center2D, -Depth2D) : Pivot - Forward * Distance;
 
     /// <summary>Copies the whole view state (3D pose, 2D view, fly speed) from <paramref name="other"/>.</summary>
     public void CopyFrom(EditorCamera other)
@@ -194,9 +194,9 @@ public sealed class EditorCamera
         }
 
         var camera = OrthoCamera;
-        camera.Position = new Vector3(Center2D, Depth2D);
-        camera.Forward = -Vector3.UnitZ;
-        camera.Up = Vector3.UnitY;
+        camera.Position = new Vector3(Center2D, -Depth2D);
+        camera.Forward = Vector3.UnitZ;
+        camera.Up = -Vector3.UnitY;
         camera.Zoom = 1f;
         camera.Size = new Vector2(MathF.Max(1f, viewPixels.X), MathF.Max(1f, viewPixels.Y)) / Zoom2D;
     }
@@ -219,7 +219,7 @@ public sealed class EditorCamera
     public (Vector3 Origin, Vector3 Direction) Ray(float x, float y, float width, float height)
     {
         if (Is2D)
-            return (new Vector3(ScreenToWorld2D(new Vector2(x, y), new Vector2(width, height)), Depth2D), -Vector3.UnitZ);
+            return (new Vector3(ScreenToWorld2D(new Vector2(x, y), new Vector2(width, height)), -Depth2D), Vector3.UnitZ);
         var ndcX = x / MathF.Max(1f, width) * 2f - 1f;
         var ndcY = 1f - y / MathF.Max(1f, height) * 2f;
         var tan = MathF.Tan(float.DegreesToRadians(FieldOfView) * 0.5f);
@@ -265,17 +265,17 @@ public sealed class EditorCamera
 
     /// <summary>View pixel (origin top-left) → world point on the z = 0 plane (2D mode).</summary>
     public Vector2 ScreenToWorld2D(Vector2 pixel, Vector2 viewPixels) =>
-        Center2D + new Vector2(pixel.X - viewPixels.X * 0.5f, viewPixels.Y * 0.5f - pixel.Y) / Zoom2D;
+        Center2D + (pixel - viewPixels * 0.5f) / Zoom2D;
 
     /// <summary>World point → view pixel (origin top-left) in 2D mode.</summary>
     public Vector2 WorldToScreen2D(Vector2 world, Vector2 viewPixels)
     {
         var d = (world - Center2D) * Zoom2D;
-        return new Vector2(viewPixels.X * 0.5f + d.X, viewPixels.Y * 0.5f - d.Y);
+        return viewPixels * 0.5f + d;
     }
 
     /// <summary>Moves the 2D view so the scene follows the mouse (<paramref name="dx"/>, <paramref name="dy"/> in pixels, y down).</summary>
-    public void Pan2D(float dx, float dy) => Center2D += new Vector2(-dx, dy) / Zoom2D;
+    public void Pan2D(float dx, float dy) => Center2D -= new Vector2(dx, dy) / Zoom2D;
 
     /// <summary>
     /// Zooms the 2D view by <paramref name="steps"/> wheel steps (positive: closer) keeping the world point under view

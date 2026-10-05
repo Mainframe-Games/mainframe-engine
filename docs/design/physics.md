@@ -137,7 +137,7 @@ flowchart LR
   kinematic body with sensor shapes that never sleeps.
 - **Settings** (`PhysicsSettings3D`): `Gravity` (−9.81 Y), `SubstepCount` (1), `SolverIterations` (6) and
   `RelaxationIterations` (4), `AllowDeactivation`, `MultiThreaded`, `Deterministic`. (`PhysicsSettings2D`):
-  `Gravity` (−980 px/s² Y), **`PixelsPerMeter` (100)**, `SubstepCount` (4), `AllowSleep`, `EnableContinuous`.
+  `Gravity` (+980 px/s² Y: 2D is Y-down, ADR 0110), **`PixelsPerMeter` (100)**, `SubstepCount` (4), `AllowSleep`, `EnableContinuous`.
 - **Units**: 3D is metres. Box2D is tuned for 0.1–10 m objects, so 2D nodes work in pixels and the space converts
   with `PixelsPerMeter` (fixed per space) at its boundary — positions, velocities, forces (kg·px/s²), torques and
   query results.

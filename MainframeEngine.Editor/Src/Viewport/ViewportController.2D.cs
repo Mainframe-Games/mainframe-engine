@@ -5,7 +5,7 @@ namespace MainframeEngine.Editor;
 
 /// <summary>
 /// The viewport's 2D editing mode (scenes whose root is a <see cref="Node2D"/>, or View › 2D): an orthographic view of
-/// the z = 0 plane in pixels (y up), panned with the middle or right button (or Alt+left), zoomed around the mouse with
+/// the z = 0 plane in pixels (y down, as in Godot), panned with the middle or right button (or Alt+left), zoomed around the mouse with
 /// the wheel; a pixel grid; Node2D markers, collision shape outlines (physics debug draw), Camera2D frames; CPU picking
 /// (shapes, then node origins); and the <see cref="TransformGizmo2D"/> with pixel snapping.
 /// </summary>
@@ -334,9 +334,9 @@ public sealed partial class ViewportController
     private static void DrawGrid2D(DebugLines lines, EditorCamera camera, Vector2 pixels)
     {
         var step = GridStep2D(camera.Zoom2D);
-        var min = camera.ScreenToWorld2D(new Vector2(0, pixels.Y), pixels);
-        var max = camera.ScreenToWorld2D(new Vector2(pixels.X, 0), pixels);
-        const float z = -1f;
+        var min = camera.ScreenToWorld2D(Vector2.Zero, pixels); // top-left (y down)
+        var max = camera.ScreenToWorld2D(pixels, pixels);
+        const float z = 1f; // behind the z = 0 plane (the 2D view looks along +Z)
         var x0 = MathF.Floor(min.X / step);
         var x1 = MathF.Ceiling(max.X / step);
         for (var i = x0; i <= x1; i++)

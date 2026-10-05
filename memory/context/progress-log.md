@@ -190,3 +190,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   (Sandbox.mscene 856 → 570 lines).
 - Gates: build 0 warnings, Release -warnaserror, unit 1185 (+1 skip) + editor 443 (+1 skip), format-check,
   render 45/45, template-smoke OK.
+### 2026-10-05 — Crash Site Defense port: 2D is Y-down (ADR 0110)
+- Branch `mainframe-engine-port` (the game repo's `engine/` submodule; Brogan: push directly, no PRs). E1 of the port
+  (`crash-site-defense/docs/porting.md`): `PhysicsSettings2D.Gravity` +980, `CharacterBody2D.UpDirection` −Y,
+  `Camera2D`/editor 2D view look along +Z with up −Y (rotation, not mirror), editor screen↔world, grid (z = +1),
+  gizmo axes. 2D physics/editor tests mirrored (y → −y). Gates: build, Release, unit 1170 + editor 443, render 45/45,
+  format.

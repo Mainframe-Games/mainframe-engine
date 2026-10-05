@@ -299,7 +299,7 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
 
 ### 2D view
 
-Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plane** in pixels (y up); View › 2D View /
+Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plane** in pixels (y down, as in Godot; seen from −Z); View › 2D View /
 3D View switches any tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)). Middle or right drag (or Alt+left)
 pans, the wheel zooms around the mouse, F frames the selection. A pixel grid (power-of-two steps at least 16 screen
 pixels apart, every 8th brighter, coloured axes), Node2D markers, collision shape outlines and Camera2D frames are

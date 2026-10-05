@@ -5,7 +5,7 @@ namespace MainframeEngine.Editor;
 /// <summary>
 /// The 2D transform gizmo (Node2D scenes): move arrows along X and Y plus a centre square for free moves, a rotation ring
 /// around Z, and scale handles (X, Y, centre: uniform). Everything is hit-tested and dragged in view pixels through the
-/// 2D <see cref="EditorCamera"/> (z = 0 plane, units = pixels, y up). Moves snap to the grid step when
+/// 2D <see cref="EditorCamera"/> (z = 0 plane, units = pixels, y down as in Godot). Moves snap to the grid step when
 /// <see cref="GizmoSnap.Enabled"/>, else to whole pixels when <see cref="PixelSnap"/>; rotations to the angle step and
 /// scales to the scale step when snapping. Shares <see cref="GizmoMode"/>, <see cref="GizmoSnap"/> and the toolbar
 /// state with the 3D gizmo; <see cref="GizmoHandle.Z"/> is the rotation ring. Pure math (unit-tested).
@@ -55,7 +55,7 @@ public sealed class TransformGizmo2D
     private float Size => SizePoints * Shared.PixelScale;
     private float Grab => GrabPoints * Shared.PixelScale;
 
-    /// <summary>The gizmo's screen axes (y up in the world = up on screen) for a node at global rotation <paramref name="rotation"/>.</summary>
+    /// <summary>The gizmo's world axes (y down in the world = down on screen) for a node at global rotation <paramref name="rotation"/>.</summary>
     public (Vector2 X, Vector2 Y) Axes(float rotation)
     {
         if (!Shared.Local && Mode != GizmoMode.Scale)
@@ -93,8 +93,8 @@ public sealed class TransformGizmo2D
         }
     }
 
-    // World direction (y up) → screen direction (y down).
-    private static Vector2 ScreenDirection(Vector2 world) => new(world.X, -world.Y);
+    // World direction → screen direction: both are y down.
+    private static Vector2 ScreenDirection(Vector2 world) => world;
 
     private static float DistanceToSegment(Vector2 p, Vector2 a, Vector2 b)
     {

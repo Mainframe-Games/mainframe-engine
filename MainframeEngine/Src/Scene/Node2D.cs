@@ -41,7 +41,7 @@ public class Node2D : Node, ITransformNotifiable
         }
     }
 
-    /// <summary>Rotation in radians (counter-clockwise).</summary>
+    /// <summary>Rotation in radians (clockwise on screen: 2D is Y-down, as in Godot).</summary>
     public float Rotation
     {
         get => _rotation;
