@@ -41,8 +41,28 @@ public sealed class Basic2DSceneTests : IDisposable
     }
 
     [Fact]
-    public void TheSkyIsAGradient() =>
-        Assert.NotEqual(Vector4.Zero, Scene.GetNode<DemoShape2D>("Sky").ColorBottom);
+    public void TheSkyIsADuskGradientOverAFlatBackdrop()
+    {
+        var gradient = Scene.GetNode<DemoShape2D>("Sky/Gradient");
+        Assert.NotEqual(Vector4.Zero, gradient.ColorBottom);
+        Assert.Equal(Scene.GetNode<DemoShape2D>("Sky").Color, gradient.Color);
+        // The haze continues the gradient's bottom colour down to the sky's lower edge.
+        var haze = Scene.GetNode<DemoShape2D>("Sky/Haze");
+        Assert.Equal(gradient.ColorBottom, haze.Color);
+        Assert.Equal(450f, haze.Position.Y - haze.Size.Y / 2);
+        Assert.Equal(Basic2DScene.SkySize.Y / 2, haze.Position.Y + haze.Size.Y / 2);
+    }
+
+    [Fact]
+    public void TheSkyCoversTheVisibleAreaAtMinimumZoomOnAFullHdCanvas()
+    {
+        var sky = Scene.GetNode<DemoShape2D>("Sky");
+        Assert.True(sky.Size.X / 2 >= 960f / 0.5f, sky.Size.ToString());
+        Assert.True(sky.Size.Y / 2 >= 540f / 0.5f, sky.Size.ToString());
+        Assert.True(Scene.GetNode<DemoShape2D>("Sky/Gradient").Size.X / 2 >= 960f / 0.5f);
+        Assert.True(Basic2DScene.HillHalfWidth >= 960f / 0.5f);
+        Assert.True(Basic2DScene.HillBottom >= 540f / 0.5f);
+    }
 
     [Fact]
     public void HillsSpanTheScreenAndCloseAtTheBottom()
@@ -50,10 +70,10 @@ public sealed class Basic2DSceneTests : IDisposable
         foreach (var name in new[] { "FarHills", "MidHills", "NearHills" })
         {
             var points = Scene.GetNode<DemoShape2D>(name).Points;
-            Assert.Equal(-800f, points.Min(static p => p.X));
-            Assert.Equal(800f, points.Max(static p => p.X));
-            Assert.Equal(new Vector2(800, 450), points[^2]);
-            Assert.Equal(new Vector2(-800, 450), points[^1]);
+            Assert.Equal(-2000f, points.Min(static p => p.X));
+            Assert.Equal(2000f, points.Max(static p => p.X));
+            Assert.Equal(new Vector2(2000, 1200), points[^2]);
+            Assert.Equal(new Vector2(-2000, 1200), points[^1]);
         }
     }
 

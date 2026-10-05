@@ -6,12 +6,25 @@ namespace Demo;
 
 public static class Basic2DScene
 {
+    // The world is much larger than the 1280x720 base canvas so zooming out to 0.5 (or a big window) never shows the clear colour.
+    public static readonly Vector2 SkySize = new(4000, 2400);
+    public const float HillHalfWidth = 2000f;
+    public const float HillBottom = 1200f;
+
     public static Node Build()
     {
         var root = new Node2D { Name = "basic_2d" };
         Add(root, root, new Camera2D { Name = "Camera", Current = true });
-        Add(root, root, new DemoShape2D { Name = "Sky", Kind = DemoShapeKind.Rect, Size = new Vector2(1600, 900),
-            Color = new Vector4(0.09f, 0.15f, 0.36f, 1), ColorBottom = new Vector4(0.98f, 0.55f, 0.36f, 1) });
+        // The sky is a flat zenith-coloured backdrop covering the whole world; the dusk gradient is a band across the
+        // original 1280x720 canvas height and a flat horizon-coloured haze continues below it. (One gradient over the
+        // whole backdrop would stretch the ramp and wash out the default view.)
+        var zenith = new Vector4(0.09f, 0.15f, 0.36f, 1);
+        var horizon = new Vector4(0.98f, 0.55f, 0.36f, 1);
+        var sky = Add(root, root, new DemoShape2D { Name = "Sky", Kind = DemoShapeKind.Rect, Size = SkySize, Color = zenith });
+        Add(root, sky, new DemoShape2D { Name = "Gradient", Kind = DemoShapeKind.Rect, Size = new Vector2(SkySize.X, 900),
+            Color = zenith, ColorBottom = horizon });
+        Add(root, sky, new DemoShape2D { Name = "Haze", Kind = DemoShapeKind.Rect, Size = new Vector2(SkySize.X, SkySize.Y / 2 - 450),
+            Position = new Vector2(0, 450 + (SkySize.Y / 2 - 450) / 2), Color = horizon });
 
         var sun = Add(root, root, new Node2D { Name = "Sun", Position = new Vector2(260, -120) });
         Add(root, sun, new SunRays2D { Name = "Rays" });
@@ -41,19 +54,19 @@ public static class Basic2DScene
         return root;
     }
 
-    // A silhouette of rolling hills from x=-800..800 down to the bottom of the screen (y=450).
+    // A silhouette of rolling hills from x=-2000..2000 down to y=1200, well below the screen even when zoomed out.
     private static DemoShape2D Hill(string name, float baseY, float amplitude, float frequency, Vector4 color)
     {
-        const int steps = 48;
+        const int steps = 120;
         var points = new Vector2[steps + 3];
         for (var i = 0; i <= steps; i++)
         {
-            var x = -800f + 1600f * i / steps;
+            var x = -HillHalfWidth + 2f * HillHalfWidth * i / steps;
             points[i] = new Vector2(x, baseY - amplitude * (MathF.Sin(x * frequency) * 0.6f + MathF.Sin(x * frequency * 2.3f + 1.3f) * 0.4f));
         }
 
-        points[steps + 1] = new Vector2(800, 450);
-        points[steps + 2] = new Vector2(-800, 450);
+        points[steps + 1] = new Vector2(HillHalfWidth, HillBottom);
+        points[steps + 2] = new Vector2(-HillHalfWidth, HillBottom);
         return new DemoShape2D { Name = name, Kind = DemoShapeKind.Polygon, Points = points, Color = color };
     }
 }
