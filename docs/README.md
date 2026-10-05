@@ -4,8 +4,8 @@ Design documentation for Mainframe Engine. The **current-state** docs describe t
 it exists in the code today (including its known bugs). The **future** docs are design proposals for
 work that has not started yet. [`milestones.md`](milestones.md) ties the two together.
 
-> Snapshot: written against commit `fcce89d` (2026-10-05). When code changes, update the matching doc
-> and its *Known issues* section in the same commit.
+> Status: M0–M10 complete (v1.0.0 line, 2026-10-05); M11–M13 are proposals. When code changes, update the matching
+> doc and its *Known issues* section in the same commit.
 
 ## Start here
 
@@ -21,7 +21,8 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 |---|---|
 | Build & release | [Build & platforms](design/build-and-platforms.md) · [Release & versioning](design/release.md) · [Future: distribution via NuGet](design/future/distribution-nuget.md) · [Future: mobile (M12)](design/future/mobile.md) |
 | Core | [Engine lifecycle](design/engine-lifecycle.md) · [Scene graph & nodes](design/scene-graph-and-nodes.md) · [Scene serialization](design/scene-serialization.md) · [Physics](design/physics.md) · [Localization](design/localization.md) · [Sandbox](design/sandbox.md) |
-| Rendering | [Vulkan renderer](design/vulkan-renderer.md) · [Shadow system](design/shadow-system.md) · [Lighting](design/lighting.md) · [Sky](design/sky.md) · [Spine](design/spine.md) · [Scene grid](design/scene-grid.md) · [Cameras & input](design/cameras-and-input.md) · [Shaders](design/shaders.md) · [Coordinate conventions](design/coordinate-conventions.md) |
+| Games & editor | [Projects & GameHost](design/project-and-gamehost.md) (`project.mfproj`, `GameHost`, editor link, code reload, `mfgame` template) · [Editor](design/editor.md) · [Future: editor](design/future/editor.md) |
+| Rendering | [Vulkan renderer](design/vulkan-renderer.md) · [GPU resources](design/gpu-resources.md) · [Materials & meshes](design/materials-and-meshes.md) · [Asset pipeline](design/asset-pipeline.md) · [Color pipeline](design/color-pipeline.md) · [Shadow system](design/shadow-system.md) · [Lighting](design/lighting.md) · [Sky](design/sky.md) · [Spine](design/spine.md) · [Scene grid](design/scene-grid.md) · [Cameras & input](design/cameras-and-input.md) · [Shaders](design/shaders.md) · [Coordinate conventions](design/coordinate-conventions.md) |
 | UI | [Game UI (RmlUi)](design/game-ui.md) · [Native libraries](design/natives.md) |
 | Tooling | [ImGui & debug tools](design/imgui-and-debug-tools.md) · [Testing](design/testing.md) |
 | Audio | [Audio](design/audio.md) |

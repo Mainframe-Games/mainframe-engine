@@ -1,82 +1,68 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-05 (M4 Shadows v2 integrated with physics, audio, UI and localization, branch `integrate/m4`)_
+_Last updated: 2026-10-05 — M0–M10 complete on `feature/m0-m10` (local; final push + PR to `main` pending)._
 
-## Where things left off
+## What exists
 
-- Engine runs on macOS (Apple Silicon: Sandbox ~121 fps Release, 2 dir + 1 point + 2 spot shadow
-  casters, Spine, ImGui). Vulkan goes through MoltenVK; `Silk.NET.MoltenVK.Native` is bundled so no
-  SDK install is needed to run. Windowing/input are SDL2 (Silk.NET SDL backend; GLFW removed).
-- M0 and M1 are done (see `docs/milestones.md`, ADRs 0003/0004).
-- M2 is done (lane `m2`, ADRs 0010–0012): Godot-style `SceneTree` owned by `Engine` (`Engine.Tree`/`Root`),
-  servers (`RenderServer`) instead of `Node.Initialize`, light/camera/sky/grid nodes, `[Export]`/`[Signal]`
-  registered by `MainframeEngine.Generators`, `.mscene`/`.mres` JSON with UIDs + `AssetDatabase`. The Sandbox
-  loads `Content/Scenes/Sandbox.mscene` (regenerate with `--write-scene`).
-- M3 is done (m3a + m3b, ADRs 0005–0007, 0013–0019): `MeshInstance3D`/`Sprite3D` + primitive meshes,
-  `StandardMaterial3D`, `Texture2D`, Assimp import, instanced batches, object-ID picking, `SubViewport`. `Box3d`/`Quad`
-  are gone (old scenes upgrade through `RemovedNodeTypes`).
-- M4 is done (ADRs 0070–0074): cascaded sun shadows, PCF, a spot/secondary-directional atlas, per-light settings,
-  culled and cutout casters (see the shadow gotchas below).
-- M8 is done (ADRs 0050–0053): RmlUi `UiServer`/`UiLayer`/`UiDocument` (registered last, shut down first), UI renders
-  after the tonemap below ImGui; the Sandbox HUD is RmlUi and ImGui is the F12 developer overlay.
-- M6 physics is done (lane `m6`, ADRs 0020–0025): `PhysicsServer3D` (Jitter2 2.9.0) / `PhysicsServer2D`
-  (Box2D.NET 3.1.654, pixels, 100 px/m), body/area/shape nodes, interpolated node transforms, layers (Godot OR),
-  signals after the step, `DirectSpaceState` queries, engine-side `MoveAndSlide`, `DebugLines` collision-shape draw.
+- **Engine** (`MainframeEngine`, .NET 10, Vulkan 1.2; MoltenVK bundled on macOS, SDL2 windowing via Silk.NET 2.22):
+  Godot-style `SceneTree` (M2) with source-generated `[Export]`/`[Signal]`/`[Replicated]`/`[Rpc]`/`[EditorIcon]`
+  registration (`MainframeEngine.Generators`), `.mscene`/`.mres` JSON with UIDs; meshes/materials/textures, Assimp
+  import, instancing, picking, `SubViewport`, HDR + ACES, in-house GPU allocator (M3); CSM/PCF/atlas shadows (M4);
+  replication over ENet/loopback/simulated transports (M5; Steam inert — no natives); Jitter2 3D + Box2D.NET 2D physics
+  (M6); SoundFlow audio with buses and 3D voices (M7); RmlUi 6.3 game UI through the in-house `mfrmlui` shim (M8);
+  gettext localization with `mf-l10n` (M9); `project.mfproj`/`ProjectSettings`, `GameHost`, `InputMap`, `ILogSink`,
+  editor link, collectible game-assembly reload, `mfgame` template (M10 engine side).
+- **Editor** (`MainframeEngine.Editor`, M10, UI in RmlUi): Project Manager, New Project wizard, project settings,
+  FileSystem panel, scene tabs (one `SubViewport` world each), scene tree, generated inspector (multi-select, Signals
+  tab, custom inspectors), undo/redo, 3D/2D viewport + gizmos, Play (separate process over the editor link), code
+  reload, Tabler icon atlas, editor settings. macOS app name "Mainframe Engine" via a dev `.app` bundle.
+- **Version** v1.0.0 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds.
+- **Solution** `MainframeEngine.slnx` (no `.sln`). Everything local goes through `just` (see CLAUDE.md).
+- **Tests:** ~1 170 engine + ~430 editor unit tests; 43+ render tests (goldens `moltenvk` + `lavapipe`, validation
+  gate, 0-B allocation gate); benchmarks with `baseline.json`; QA scripts (`just qa`, `qa-editor`, `qa-projects`).
+  Lavapipe can be run locally in Docker: `just render-tests-linux` (x86_64 ubuntu:24.04, same packages as CI).
+- **CI:** `ci.yml` (build-test ×3 OS, format, shaders, render-tests on lavapipe, template smoke, `ci-success`),
+  `publish.yml`, `natives.yml`. GitHub Actions minutes are scarce: run things locally (Docker for Linux) first.
 
 ## Known gotchas
 
-- Physics: keep Jitter2/Box2D calls inside `Src/Physics` (pinned APIs). Box2D keeps worlds in a process-wide table —
-  2D unit tests share the `SerialBox2D` collection; Box2D.NET allocates inside `b2World_Step` (ADR 0023). Jitter2's
-  regular solver isn't reproducible even single-threaded: render tests use `PhysicsSettings3D.Deterministic`.
-
-- Scene tree: node constructors must stay cheap (the type registry instantiates every serialized type);
-  acquire GPU objects through the render server (`VisualInstance3D.InitializeRenderResources`). Projects
-  declaring node/resource types need the generator analyzer reference or they cannot be saved/loaded.
-  `MainframeEngine.Timer` shadows `System.Threading.Timer` inside `MainframeEngine.*` namespaces. The old math
-  cameras are `PerspectiveCamera`/`OrthographicCamera`; `Camera3D`/`Camera2D` are nodes.
-
-- macOS: SDL and Silk.NET must bind the SAME Vulkan library — `VulkanLoaderBootstrap` enforces this
-  (`Probe()` then `HandOffToSdl()` → `SDL_Vulkan_LoadLibrary`; Silk via `TryCreateVk`). Don't add a
-  bare `Vk.GetApi()` call anywhere; take `Vk` from `IVulkanContext`. `MAINFRAME_VULKAN_LIBRARY=<path>`
-  forces a library for QA.
-- HiDPI: SDL reports window size AND Silk's `IWindow.FramebufferSize` in points for Vulkan windows; use
-  `Engine.FramebufferSize` (pixels, `SDL_Vulkan_GetDrawableSize`).
-- Per-frame GPU resources are keyed by `IVulkanContext.FrameSlot` (2 slots), never by swapchain image.
-- `ShadowSystem.RenderShadows` once per frame — it throws on a second call (per-frame-slot light-VP ring). The
-  tree-level overload takes the camera, caster bounds and cull/draw callbacks (`ShadowPass`); the old overloads draw
-  without culling. Light matrices live in `ShadowMath`, pass indices in `Passes`.
-- M4 Shadows v2 (ADRs 0070–0074, `docs/design/shadow-system.md`): sun cascades (2D array), one atlas for spot +
-  secondary directional lights, point cubes — 6 shadow samplers, every spot casts. Comparison samplers are IMMUTABLE
-  (set-2 layout, shared with ShadowFallback; MoltenVK mutableComparisonSamplers=false). `shadeLightsBlinnPhong` takes
-  the geometric normal too (Mesh, Spine via `shadeLights`); `shadows.glsl` clamps every dynamic shadow index (Metal).
-- MoltenVK ignores render-pass external dependencies between encoders for heap-placed images: end every
-  `RenderTarget` pass with `RenderTarget.End` (explicit barrier per kept attachment); the UI uses its own (ADR 0050).
-  The limits live only in `Content/Shaders/limits.json` (generated C# + `include/limits.glsl`); shaders
-  compile in `dotnet build`, but run `just shaders` after shader/include edits to refresh the committed
-  `.spv` fallback + `shaders.lock`.
-- M3 (lane m3a): GPU memory only through `GpuAllocator`/`GpuBuffer`/`GpuImage`/`GpuTexture`, uploads
-  through `UploadQueue`, `Dispose` through `DeletionQueue` (no Queue/DeviceWaitIdle). Scene renders into
-  an HDR target, tonemapped (exposure 1.3, ACES) into a UNORM swapchain; ImGui after the tonemap.
-  Authored colours are sRGB (converted to linear by the engine). MoltenVK: mutable-format swapchain
-  UNORM views go stale — keep the default UNORM swapchain. Integrated with M2: `RenderServer.RenderMain` writes set 0 (`Frame.Begin`) per frame;
-  `WorldEnvironment.AmbientColor` defaults to `LightEnvironment.DefaultAmbientColor`; ADRs are 0005–0007
-  (m3a) and 0010–0012 (M2); unused: 0008, 0009, 0013+.
-- Validation is on by default only in Debug builds (`EngineOptions.EnableValidation`).
-- Render tests / `just qa` need the display awake (`caffeinate -u`). The unbundled `dotnet` Sandbox
-  process can't be driven by computer-use; use the `--qa-*` scripted flags instead.
-- M9 (lane m9, ADRs 0060–0066): player-facing strings go through `Tr` (`_`/`P`/`N`/`NP`, literals only — the
-  GetText.NET extractor matches by method name). `Tr` is process-wide: tests touching it join the `LocalizationState`
-  collection and restore with `Tr.ResetForTests()`. Catalogs live in `Content/locale/<locale>/LC_MESSAGES/messages.po`
-  next to their committed `.mo`; `build/Localization.targets` compiles them with `mf-l10n` (no gettext needed). After
-  string changes: `just l10n-extract`, translate, `just l10n-compile`. The `UiServer` translates RmlUi documents
-  (`UiServerOptions.TextTranslator`, default `Tr`): `.rml` sources through `PrepareDocument` (attributes, `no-tr`), text
-  nodes through `TranslateString`; a locale change reloads loaded documents at the next `UiServer.Process`. Data-view
-  templates (`{{ … }}`) are translated once and marked (U+FDD0) so substituted values are never looked up. Opt out per element with
-  `class="no-tr"` (the credits' licence notices do).
-- ENet macOS natives are x86_64-only (won't load on Apple Silicon); Steamworks.NET has
-  no osx-arm64 assets.
+- macOS: SDL and Silk.NET must bind the SAME Vulkan library — `VulkanLoaderBootstrap` enforces it; never call a bare
+  `Vk.GetApi()`, take `Vk` from `IVulkanContext`. HiDPI: use `Engine.FramebufferSize` (pixels), not window sizes
+  (points). Render tests, `just qa*` and the packaged editor need the display awake (`caffeinate -u -t 3000 &`).
+- Linux: Silk's resolver doesn't probe `runtimes/linux-x64/native` on distro RIDs — `SilkNativeResolver.Install()`
+  (Engine ctor) fixes it; call it before Silk native use without an Engine.
+- Per-frame GPU resources keyed by `IVulkanContext.FrameSlot`; GPU memory only via `GpuAllocator`/`GpuBuffer`/
+  `GpuImage`/`GpuTexture`, uploads via `UploadQueue`, frees via `DeletionQueue` (no Queue/DeviceWaitIdle).
+  End every `RenderTarget` pass with `RenderTarget.End` (MoltenVK ignores render-pass external dependencies).
+  Keep the default UNORM swapchain (MoltenVK mutable-format sRGB views go stale).
+- `ShadowSystem.RenderShadows` once per frame; comparison samplers are immutable (MoltenVK); shader limits only in
+  `Content/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`).
+- Scene tree: node constructors cheap and side-effect free; projects declaring node types need the generator analyzer.
+  `MainframeEngine.Timer` shadows `System.Threading.Timer`.
+- Physics: Jitter2/Box2D calls stay in `Src/Physics`; Box2D worlds are process-global (`SerialBox2D` test collection);
+  render tests use `PhysicsSettings3D.Deterministic`. x64 vs arm64 floats differ after contact (lavapipe vs moltenvk).
+- RmlUi and `Tr` are process-global (`SerialRmlUi`, `LocalizationState` collections). `Tr` takes literals only.
+- Editor code reload: editor code must not keep game nodes/types in fields or statics past
+  `ReleaseEditorReferences`; never keep game objects in locals of the unloading method (GC-verified unload).
+- Allocation gates: render host runs `DOTNET_TieredCompilation=0`; unit gates use `AllocationGate.SmallestWindow`;
+  in-process transports use a private packet pool (never `ArrayPool.Shared` in per-frame code that tests share).
+- CI builds (`CI=true` → `ContinuousIntegrationBuild`) map `[CallerFilePath]` to `/_/…` in engine/editor assemblies
+  (test projects opt out): features that open source files only work in local builds. Lavapipe goldens come from such
+  builds (no Output source-link icons). Per-frame formatting: never interpolate enums, and prefer `int.TryFormat` over
+  interpolated handlers in code that must not allocate in a busy process (tier-0 `AppendFormatted<T>` boxes).
+- Docker Linux tests (`just test-linux` / `just render-tests-linux`) run under Rosetta x86_64 emulation: an
+  occasional whole-process stall is retried once by `build/linux/inside.sh`; never seen on native x64.
+- Benchmarks: compare only on the machine that recorded `baseline.json` (MacBook, Apple M5), and only when it is
+  quiet (parallel builds/agents skew results by 10–15 %).
+- Steam: no `steam_api` natives (partner SDK login needed; Steamworks.NET 2024.8.0 is x64-only) → Steam never starts.
 
 ## Next steps
 
-- Record lavapipe goldens for the new render tests (multi-light, spine-no-shadows) from CI.
-- Replace/rebuild ENet natives for osx-arm64 before using networking on macOS.
+1. Final push of `feature/m0-m10`, CI green (the lavapipe goldens were recorded locally in Docker — CI should show
+   no "No golden" warnings), PR → `main` (rebase merge), then `publish.yml` for the first release tag.
+2. M11 — backend-neutral GPU API + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
+3. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
+   mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.
+4. M13 — mobile platform services (`docs/design/future/mobile-services.md`).
+5. Editor after M10 (`docs/design/future/editor.md`): remote scene tree, simulate mode, box selection, docking.
+6. User actions: Steamworks SDK natives (partner login); code signing/notarization for the macOS editor build.

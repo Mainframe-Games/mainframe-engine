@@ -2,22 +2,31 @@
 
 ## Build & Run
 
-Local commands are `just` recipes (run `just` to list them); CI calls `dotnet` directly.
+Local commands are `just` recipes (run `just` to list them); CI calls `dotnet` directly. The solution is
+`MainframeEngine.slnx` (XML format; there is no `.sln`).
 
 ```bash
 just build            # dotnet build MainframeEngine.slnx — 0 warnings, warnings are errors
-just test             # unit tests (Tests/MainframeEngine.Tests)
+just test             # unit tests: engine (Tests/MainframeEngine.Tests) + editor (Tests/MainframeEngine.Editor.Tests)
 just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
+just test-linux       # CI's Linux unit/editor tests in Docker (x86_64 ubuntu:24.04)
+just render-tests-linux  # render tests on lavapipe in Docker: checks/records the `lavapipe` goldens locally
 just sandbox          # dotnet run --project MainframeEngine.Sandbox
 just qa               # Sandbox --qa-capture → PNG screenshots in artifacts/qa
                       #   (Sandbox also takes --qa-resize WxH@frame, --qa-minimize frame, --qa-input frame)
 just golden-update    # re-record render-test goldens for this driver; inspect the PNGs before committing
 just format           # dotnet format (format-check is what CI runs)
-just bench            # benchmarks vs Tests/MainframeEngine.Benchmarks/baseline.json
+just bench            # benchmarks vs Tests/MainframeEngine.Benchmarks/baseline.json (quiet machine only)
 just editor [project|scene]  # the editor (no argument: the Project Manager)
 just qa-editor        # scripted editor QA (Tests/QA/editor-walkthrough.qa) → artifacts/qa-editor
 just qa-projects      # create a game, play it, edit its C#, reload (needs the .NET SDK) → artifacts/qa-projects
+just template-smoke   # dotnet new mfgame against this checkout, build it, run it headless (CI job "template")
+just publish-local    # package the editor like the release workflow (artifacts/release)
+just l10n-check       # committed .mo files match their .po (CI runs it)
 ```
+
+Gates before committing anything substantial: `just build`, Release `dotnet build MainframeEngine.slnx -c Release
+-warnaserror -p:CompileShaders=false`, `just test`, `just test-render`, `just format-check`, `just shaders-check`.
 
 Build settings live in `Directory.Build.props` / `Directory.Packages.props` (central package
 versions — never put `Version` on a `PackageReference`); the SDK is pinned in `global.json`.
@@ -102,8 +111,17 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Examples/` — standalone tutorial projects, not part of the engine
-- `Tests/` — unit tests (engine, editor), render tests (+ host, editor smoke), benchmarks, QA scripts (`Tests/QA`); see `docs/design/testing.md`
-- `build/` — scripts shared by `justfile` and CI (`shaders.sh`)
+- `Tests/` — unit tests (engine, editor), render tests (+ host, editor smoke; goldens per driver in
+  `Tests/MainframeEngine.RenderTests/Goldens/{moltenvk,lavapipe}`), benchmarks (`baseline.json`), QA scripts
+  (`Tests/QA`); see `docs/design/testing.md`
+- `Native/` — in-house native shims and their sources (`mfrmlui` over RmlUi + FreeType, ENet), built per platform by
+  `.github/workflows/natives.yml`; the binaries are committed under `MainframeEngine/runtimes/<rid>/native`
+  (`Native/natives.lock`, `docs/design/natives.md`)
+- `build/` — scripts shared by `justfile` and CI: `shaders.sh` (+ `Shaders.targets`), `Localization.targets`,
+  `template-smoke.sh`, `package-editor.sh` / `next-version.sh` (release), `linux/` (the Docker Linux test
+  environment), `macos/` (the editor's dev `.app` bundle), `editor-icons/`, `brand/`
+- `.github/workflows/` — `ci.yml` (build-test on 3 OSes, format, shaders, lavapipe render tests, template smoke;
+  `ci-success` is the required check), `publish.yml` (releases), `natives.yml` (native shims)
 - `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Content/Brand/`
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
 
@@ -175,16 +193,18 @@ inside its own step; engine code must not. See `docs/design/physics.md`.
 
 ### Frame Order
 
-1. `OnImGui` — build ImGui windows (called before update, inside ImGui frame)
+1. `OnImGui` — build ImGui windows (only while the F12 developer overlay is visible; inside the ImGui frame)
 2. `OnUpdate` — game logic (legacy hook)
 3. `Tree.Tick` — fixed-step `OnPhysicsProcess` + physics step (60 Hz, ≤5 steps, 0.25 s clamp), physics interpolation, `OnProcess`, deferred calls
    and `QueueFree`, transform sync (`OnTransformChanged`), frame servers (`UiServer`: RmlUi update + render
    into its command list)
-4. `OnShadowPass` (no render pass active), then `RenderServer.RenderShadows(Root)` — the tree's casters
-5. `RenderServer.RenderMain(Root)` — writes the shared set 0 (`IVulkanContext.Frame.Begin(camera, lights)`),
+4. `RenderServer.PrepareFrame(Root)` — cull/sort meshes, create/update their GPU resources; then `Renderer.BeginFrame`
+5. `OnShadowPass` (no render pass active), then `RenderServer.RenderShadows(Root)` — the tree's casters — and
+   `RenderServer.RenderOffscreen(Root)` (sub-viewports, object-ID picking)
+6. `RenderServer.RenderMain(Root)` — writes the shared set 0 (`IVulkanContext.Frame.Begin(camera, lights)`),
    then sky, then the tree's visuals; then `OnRenderMainPass` for hand-drawn geometry
    (`node.Draw(camera, lights)`). All of it renders into the HDR scene target (linear colour).
-6. `BeginOverlayPass` — UI layers render offscreen, the tonemap runs, the game UI is composited (sRGB, exact),
+7. `IVulkanContext.BeginOverlayPass` (ImGui render, or `EndFrame` with the overlay hidden) — UI layers render offscreen, the tonemap runs, the game UI is composited (sRGB, exact),
    then ImGui — the developer overlay, shown only while `DevOverlayVisible` (F12)
 
 Colours authored by people (lights, shapes, sky, clear colour) are sRGB; the engine converts them to linear.

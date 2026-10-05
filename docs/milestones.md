@@ -8,17 +8,17 @@ current-state doc, and future features link to a proposal in [`design/future/`](
 ```mermaid
 flowchart LR
     M0["M0 Foundation ✅"] --> M1["M1 Stabilization ✅"]
-    M1 --> M2["M2 Node system & scenes"]
-    M1 --> M3["M3 Materials, meshes & resources"]
+    M1 --> M2["M2 Node system & scenes ✅"]
+    M1 --> M3["M3 Materials, meshes & resources ✅"]
     M2 --> M3
-    M3 --> M4["M4 Shadows v2"]
-    M2 --> M5["M5 Multiplayer"]
-    M2 --> M6["M6 Physics"]
-    M2 --> M7["M7 Audio"]
-    M0 --> M8["M8 Game UI (RmlUi)"]
+    M3 --> M4["M4 Shadows v2 ✅"]
+    M2 --> M5["M5 Multiplayer ✅"]
+    M2 --> M6["M6 Physics ✅"]
+    M2 --> M7["M7 Audio ✅"]
+    M0 --> M8["M8 Game UI (RmlUi) ✅"]
     M3 --> M8
-    M8 --> M9["M9 Localization"]
-    M2 --> M10["M10 Editor"]
+    M8 --> M9["M9 Localization ✅"]
+    M2 --> M10["M10 Editor ✅"]
     M3 --> M10
     M8 --> M10
     M3 --> M11["M11 Backend abstraction / WebGPU"]
@@ -35,17 +35,17 @@ flowchart LR
 | [M0](#m0--foundation-) | Vulkan renderer, lighting, shadows, sky, Spine, tooling, SDL windowing | ✅ |
 | [M1](#m1--stabilization-) | Fix correctness bugs blocking everything else | ✅ |
 | [M2](#m2--node-system--scenes-) | Godot-style node tree, scene tree, scene files | ✅ |
-| [M3](#m3--materials-meshes--resources) | Materials, model loading, GPU memory, color, build pipeline | ✅ |
+| [M3](#m3--materials-meshes--resources-) | Materials, model loading, GPU memory, color, build pipeline | ✅ |
 | [M4](#m4--shadows-v2-) | Cascades, PCF, atlas | ✅ |
 | [M5](#m5--multiplayer-) | Message protocol, replication, Steam | ✅ |
 | [M6](#m6--physics-) | Jitter2 (3D) + Box2D.NET (2D) physics nodes | ✅ |
 | [M7](#m7--audio-) | SoundFlow audio nodes, buses, 3D panning | ✅ |
 | [M8](#m8--game-ui-rmlui-) | RmlUi HTML/CSS game UI (also the editor's UI) | ✅ |
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
-| [M10](#m10--editor) | `MainframeEngine.Editor`, built on the game UI | ✅ |
-| [M11](#m11--backend-abstraction--webgpu) | Backend-neutral render API, WebGPU | ⬜ |
-| [M12](#m12--mobile-core-android--ios) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
-| [M13](#m13--mobile-platform-services) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
+| [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
+| [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, WebGPU | ⬜ |
+| [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
+| [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
 
 ---
 
@@ -117,7 +117,7 @@ registration pattern M2 defines; `Box3d`/`Quad` give way to `MeshInstance3D` in 
 | `.mscene` / `.mres` files, `PackedScene`, nested instances, UIDs + `AssetDatabase` | ✅ | [Scene serialization](design/scene-serialization.md) |
 | Sandbox scene loaded from `Content/Scenes/Sandbox.mscene` | ✅ | [Sandbox](design/sandbox.md) |
 
-## M3 — Materials, meshes & resources
+## M3 — Materials, meshes & resources ✅
 
 Make the renderer scale beyond a handful of objects and support real content: shared pipelines,
 textured materials, model loading, pooled GPU memory, non-blocking uploads, a linear/HDR color
@@ -251,7 +251,7 @@ core, and its UI is built entirely with the M8 game UI stack (RmlUi).
 | E5 Polish: signals tab, multi-select editing, 2D editing mode, resource files and `[CustomInspector]` example (audio bus mixer), editor settings (accent, autosave, external code editor), resizable inspector name column | ✅ | [Editor](design/editor.md#signals) |
 | After M10: remote scene tree, simulate mode, box selection, multi-node gizmo, docking | ⬜ | [Future: editor](design/future/editor.md) |
 
-## M11 — Backend abstraction / WebGPU
+## M11 — Backend abstraction / WebGPU ⬜
 
 Hide Vulkan behind a backend-neutral GPU API, so nodes no longer record raw `Vk` commands, then add
 the WebGPU backend the README promises.
@@ -262,7 +262,7 @@ the WebGPU backend the README promises.
 | Shader cross-compilation (SPIR-V → WGSL) | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 | WebGPU backend selected by `EngineOptions.RenderingBackend` | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 
-## M12 — Mobile core (Android + iOS)
+## M12 — Mobile core (Android + iOS) ⬜
 
 Ship the same 3D + 2D feature set on phones and tablets: **Android 10+ (API 29), arm64-v8a** on native Vulkan 1.1+, and
 **iOS 16+ arm64** on MoltenVK (the existing Vulkan renderer; native Metal only later, through M11, if profiling demands
@@ -283,7 +283,7 @@ several dependencies (Silk.NET SDL on mobile, SoundFlow natives, NativeAOT) are 
 | M12.7 Editor: export presets, one-click build/install/launch, remote logs + play control, live preview, device simulation | ⬜ | [Mobile](design/future/mobile.md#editor-integration) |
 | M12.8 Pipeline + compliance: `just android-*`/`ios-*`, CI jobs, signed AAB/IPA, `mobile-publish.yml` → Play internal + TestFlight, privacy manifest, data safety | ⬜ | [Mobile](design/future/mobile.md#build-and-distribution-pipeline) |
 
-## M13 — Mobile platform services
+## M13 — Mobile platform services ⬜
 
 Store and platform services behind engine servers, through thin engine-owned native shims (Swift on iOS, Kotlin on
 Android) with a flat, versioned C ABI built in CI — the `mfrmlui` pattern. Desktop gets null/fake backends, and Steam

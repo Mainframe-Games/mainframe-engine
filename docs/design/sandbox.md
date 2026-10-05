@@ -47,7 +47,7 @@ Example: `dotnet run -c Release --project MainframeEngine.Sandbox -- --qa-captur
 ## Network demo (M5)
 
 `--server [port]` hosts (ENet, default port 7777) and spawns four `NetBox`es (`Content/Scenes/NetBox.mscene`, a
-`Box3d` with interpolated `[Replicated]` position and rotation and a replicated colour) that orbit the origin on the
+`MeshInstance3D` box with interpolated `[Replicated]` position and rotation and a replicated colour) that orbit the origin on the
 server; `--client <host> [port]` joins and shows them replicated. Every 3 s the server calls the `Ping` RPC
 (`RpcMode.Server`, `CallLocal`), which pulses the first box everywhere. Both ends log the replication state every
 2 s (`[NetDemo] …`: tick, render tick, node count, the first box's position, bytes per second) and show it in the
