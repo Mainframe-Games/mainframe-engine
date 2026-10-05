@@ -243,3 +243,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `[SerializableValue]` structs may be `[Export]` types; the generator emits `Codecs.Deferred<T>()` (resolved at use, so
   the game can register codecs in any module initializer); `Codecs.FloatArray<T>` builds array codecs. `.svg` assets get
   `tex_` UIDs. Test: Scene/SerializableValueTests. Gates green (unit 1199, editor 443; no render change).
+
+### 2026-10-05 — Sound files through ResourceLoader (port G3)
+- `AudioImporter` (`.wav/.ogg/.mp3/.flac` → `AudioStream.Load` with the `.meta` settings) registered in `AssetImporters`,
+  so `.mres` resources can reference sound files as imported assets (Crash Site Defense's SoundDefs). Test: the
+  AudioDecoderTests import case loads through `ResourceLoader`. Gates green (unit 1199, editor 443; no render change).

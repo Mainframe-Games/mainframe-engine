@@ -127,7 +127,9 @@ preload their stream when they enter it.
 `AudioStream` (resource) holds `File` (project path or `aud_` UID), `LoadMode`, `Loop`, `LoopStart`, `LoopEnd`
 (seconds; 0 = end). `AudioStream.Load(path)` applies import settings from the file's `.meta` sidecar
 (`"importer": "audio", "settings": {"loadMode", "loop", "loopStart", "loopEnd"}`); `AudioStream.FromSamples` wraps
-generated PCM (procedural audio, the QA melody, tests). Loading happens on first use or `Preload()`; a failure is
+generated PCM (procedural audio, the QA melody, tests). `AudioImporter` makes sound files loadable through
+`ResourceLoader` too (`.wav/.ogg/.mp3/.flac` → `AudioStream.Load`), so a resource's `AudioStream` property can reference
+the file directly, as an imported asset (path + `aud_` UID) like a texture. Loading happens on first use or `Preload()`; a failure is
 logged once and the stream stays silent (`LoadError`).
 
 | Load mode | What happens | Used for |
