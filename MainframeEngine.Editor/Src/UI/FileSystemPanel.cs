@@ -534,7 +534,7 @@ public sealed class FileSystemPanel : EditorDocument
                 return true;
             case "fs.reveal":
                 if (entry is not null)
-                    Reveal(entry.FullPath);
+                    OsShell.Reveal(entry.FullPath);
                 return true;
             case "fs.view_tree":
                 SetView(FileSystemView.Tree);
@@ -704,24 +704,6 @@ public sealed class FileSystemPanel : EditorDocument
         catch (Exception e) when (e is DllNotFoundException or InvalidOperationException or EntryPointNotFoundException)
         {
             Log.Info($"[Editor] {text}");
-        }
-    }
-
-    private static void Reveal(string path)
-    {
-        try
-        {
-            var start = OperatingSystem.IsMacOS()
-                ? new System.Diagnostics.ProcessStartInfo("open") { ArgumentList = { "-R", path } }
-                : OperatingSystem.IsWindows()
-                    ? new System.Diagnostics.ProcessStartInfo("explorer.exe") { ArgumentList = { "/select," + path } }
-                    : new System.Diagnostics.ProcessStartInfo("xdg-open") { ArgumentList = { Directory.Exists(path) ? path : Path.GetDirectoryName(path)! } };
-            start.UseShellExecute = false;
-            using var _ = System.Diagnostics.Process.Start(start);
-        }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            Log.Warning($"[Editor] Could not show {path}: {e.Message}");
         }
     }
 

@@ -60,6 +60,12 @@ public sealed record EditorWorkspaceOptions
 
     /// <summary>Opens source files (default: the external code editor command); tests record instead.</summary>
     public Func<System.Diagnostics.ProcessStartInfo, bool>? StartCodeEditor { get; init; }
+
+    /// <summary>
+    /// Editor updates from GitHub Releases (the editor executable passes <see cref="GitHubUpdateService"/>); null disables
+    /// update checks (tests, <c>--smoke</c>, <c>--qa-script</c>, <c>--hidden</c>).
+    /// </summary>
+    public IUpdateService? Updates { get; init; }
 }
 
 /// <summary>
@@ -531,14 +537,24 @@ public sealed partial class EditorWorkspace : Node
 
     // ── Quit and crash safety ────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The window's close button or Cmd+Q: asks about unsaved scenes first, then quits.</summary>
-    public void RequestQuit()
+    /// <summary>
+    /// The window's close button or Cmd+Q: asks about unsaved scenes first, then quits. <paramref name="beforeQuit"/> runs
+    /// once quitting is confirmed (after saving); returning false keeps the editor open (Update &amp; restart).
+    /// </summary>
+    public void RequestQuit(Func<bool>? beforeQuit = null)
     {
+        void Quit()
+        {
+            if (beforeQuit is not null && !beforeQuit())
+                return;
+            SaveLayout();
+            Host.Quit();
+        }
+
         var dirty = Session.Scenes.Where(s => s.IsDirty).ToArray();
         if (dirty.Length == 0)
         {
-            SaveLayout();
-            Host.Quit();
+            Quit();
             return;
         }
 
@@ -556,18 +572,15 @@ public sealed partial class EditorWorkspace : Node
                     return;
                 if (button == 1)
                 {
-                    SaveLayout();
-                    Host.Quit();
+                    Quit();
                     return;
                 }
 
                 // Save All: untitled scenes get a Save As dialog each; a failure or cancel keeps the editor open.
                 Commands.SaveAll(saved =>
                 {
-                    if (!saved)
-                        return;
-                    SaveLayout();
-                    Host.Quit();
+                    if (saved)
+                        Quit();
                 });
             },
         });

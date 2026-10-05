@@ -426,6 +426,38 @@ public sealed class WorkspaceTests : IDisposable
     }
 
     [Fact]
+    public void TheBeforeQuitStepRunsOnceQuittingIsConfirmed()
+    {
+        var calls = 0;
+        W.RequestQuit(() => ++calls > 0);
+        Assert.Equal(1, calls);
+        Assert.True(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
+    public void ABeforeQuitStepCanKeepTheEditorOpen()
+    {
+        W.RequestQuit(() => false);
+        Assert.False(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
+    public void CancellingTheUnsavedPromptSkipsTheBeforeQuitStep()
+    {
+        var calls = 0;
+        AddChild("X");
+        W.RequestQuit(() => ++calls > 0);
+        W.Message.Answer(2); // cancel
+        Assert.Equal(0, calls);
+        Assert.False(_editor.Host.QuitRequested);
+
+        W.RequestQuit(() => ++calls > 0);
+        W.Message.Answer(1); // don't save
+        Assert.Equal(1, calls);
+        Assert.True(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
     public void SaveAsWritesTheChosenFileAndClosingADirtySceneAsks()
     {
         AddChild("Child");
