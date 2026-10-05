@@ -97,8 +97,8 @@ public struct EngineOptions()
     /// <summary>UI server options (fonts, hot reload, source content folders); null uses the defaults.</summary>
     public UiServerOptions? Ui;
 
-    /// <summary>Shows the ImGui developer overlay at start-up; F12 toggles it at runtime (<see cref="Engine.DevOverlayVisible"/>).</summary>
-    public bool DevOverlayVisible = true;
+    /// <summary>Shows the developer overlay (RmlUi, F12) at start-up; F12 toggles it at runtime (<see cref="Engine.DevOverlayVisible"/>).</summary>
+    public bool DevOverlayVisible;
 
     /// <summary>
     /// Starting locale (<c>es</c>, <c>pt_BR</c>), typically from the player's settings. Null picks the OS UI language
@@ -133,7 +133,21 @@ public abstract class Engine : IDisposable
     /// Whether the ImGui developer overlay (<see cref="OnImGui"/>, renderer/debug windows) is drawn. F12 toggles it.
     /// The game UI is unaffected.
     /// </summary>
-    public bool DevOverlayVisible { get; set; }
+    public bool DevOverlayVisible
+    {
+        get => _devOverlayVisible;
+        set
+        {
+            _devOverlayVisible = value;
+            if (DevOverlay is not null)
+                DevOverlay.Visible = value;
+        }
+    }
+
+    private bool _devOverlayVisible;
+
+    /// <summary>The RmlUi developer overlay (F12; null when <see cref="EngineOptions.EnableUi"/> is off or before <see cref="OnLoad"/>).</summary>
+    public DevOverlay? DevOverlay { get; private set; }
 
     /// <summary>The key that toggles <see cref="DevOverlayVisible"/>.</summary>
     public Key DevOverlayKey { get; set; } = Key.F12;
@@ -366,6 +380,8 @@ public abstract class Engine : IDisposable
             var ui = new UiServer(Renderer, Window, InputContext, uiOptions);
             ui.CanRender = () => !IsMinimised();
             Servers.Register(ui);
+            DevOverlay = new DevOverlay(Tree) { Visible = DevOverlayVisible };
+            Servers.Register(DevOverlay);
         }
 
         _inputRouter = new InputRouter(InputContext, Tree);

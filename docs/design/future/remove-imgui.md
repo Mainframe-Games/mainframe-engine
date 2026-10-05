@@ -66,11 +66,13 @@ under `Root` outside `CurrentScene` like an autoload, so scene changes keep it.
 | Physics | 3D and 2D bodies / awake counts, collision-shape debug draw toggle |
 | Network | Shown only while a `MultiplayerApi` is active: tick, nodes, bytes/s in/out, clients |
 
-**Extensibility.** `DevOverlayPanel DevOverlay.AddPanel(string id, string title, string rml)` adds a collapsible
-section whose body is the `rml` fragment, and returns a handle exposing `Model` (an `RmlDataModel` named `dev_{id}`,
-bound with the usual `Bind` / `BindList` / `Event` calls from [Game UI → binding](../game-ui.md)) and `Dirty(name)`;
-`DevOverlay.RemovePanel(id)` removes it. Nodes reach the overlay through `Tree.Servers` (`DevOverlay` is registered
-like the other servers), so games and the [Demo](demo-project.md) add sections without an `Engine` subclass. This
+**Extensibility.** `DevOverlayPanel DevOverlay.AddPanel(string id, string title, string rml, Action<DevOverlayPanel>? bind = null)`
+adds a collapsible section whose body is the `rml` fragment. The panel's `RmlDataModel` (named `dev_{id}`, with an `open`
+variable the title toggles) is created when the overlay document is ready, so values are bound in the `bind` callback with
+the usual `Bind` / `BindList` / `Event` calls from [Game UI → binding](../game-ui.md); the returned handle exposes `Model`
+(set once bound) and `Dirty(name)`. `DevOverlay.RemovePanel(id)` removes it; the `Refreshed` event (4 Hz while visible) and
+the per-frame `Frame` event are where panels update values. Nodes reach the overlay through `Tree.Servers` (`DevOverlay` is
+registered like the other servers), so games and the [Demo](demo-project.md) add sections without an `Engine` subclass. This
 replaces `OnImGui`. The built-in panels use the same API.
 
 **Shadow-map images.** RmlUi shows engine textures by name (`engine://...`). Shadow maps are depth images, so

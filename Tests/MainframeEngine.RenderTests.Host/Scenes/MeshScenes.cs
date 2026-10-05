@@ -303,6 +303,11 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
 
     protected override void Build(Node3D scene)
     {
+        // The preview is shown through ImGui (until ImGui is removed), which draws only while DevOverlayVisible; keep the
+        // RmlUi developer overlay itself out of the golden.
+        DevOverlayVisible = true;
+        DevOverlay!.Visible = false;
+
         Color[] colors = [Color.FromArgb(255, 220, 80, 80), Color.FromArgb(255, 80, 200, 80), Color.FromArgb(255, 80, 120, 220)];
         for (var i = 0; i < 3; i++)
         {
