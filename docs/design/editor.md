@@ -274,7 +274,10 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
   local transform on undo; duplicate packs the scene and re-instantiates the copies (unique names Box → Box2, nested
   instances stay instances, connections inside the copy belong to the edited scene).
 - **Dirty state**: the history position against the saved one. Tab and window titles show `*`; closing a dirty tab, or
-  the window (close button, Cmd+Q — intercepted with an SDL event filter), asks Save / Don't Save / Cancel.
+  the window (close button, Cmd+Q, the Dock's Quit — intercepted with an SDL event filter), asks Save / Don't Save / Cancel.
+  Closing the window always works (`EditorWorkspace.OnCloseRequested`): open dialogs — the Project Manager, pickers,
+  wizards, settings — are closed first (Project Settings asks about its unsaved edits); only an open message box must
+  be answered first, and a load in progress finishes before the request is handled.
 - Edit › Undo History lists every entry; choosing one undoes or redoes up to it.
 
 ## Viewport
@@ -316,7 +319,7 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
 - **Start-up**: a project argument (folder or `project.mfproj`, or `--project <dir>`) opens it; a scene argument opens
   that scene and makes its project current; neither (or `--project-manager`) shows the **Project Manager**.
 - **Project Manager** (`project_manager.rml`, UI layer 40): the recent projects (`~/.mainframe/recent_projects.json`,
-  newest first; a missing folder is flagged and can be removed from the list), New Project, Open Folder, Download Demo, and the
+  newest first; a missing folder is flagged and can be removed from the list), New Project, Open Project (also File › Open Project: a file picker that lists and accepts only `.mfproj` files, never a folder, and opens the project of a `project.mfproj`), Download Demo, and the
   **.NET SDK check** (`DotnetSdk`: a .NET 10 or newer SDK is required; without one, a link to the download page).
   File › Project Manager returns to it. Each row shows the project's **icon**, `window.icon` of its `project.mfproj`
   (Godot's `application/config/icon`): `ProjectIconResolver` resolves it to an absolute PNG inside the project folder

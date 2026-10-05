@@ -130,13 +130,8 @@ public sealed class EditorApp : Engine, IEditorHost
         }
 
         _lastTimestamp = now;
-        if (_closeFilter is not null && CloseRequestFilter.TakeRequest() && Workspace is { } workspace)
-        {
-            if (workspace.IsDialogOpen)
-                Log.Info("[Editor] Close requested while a dialog is open; answer it first.");
-            else
-                workspace.RequestQuit();
-        }
+        if (_closeFilter is not null && CloseRequestFilter.TakeRequest())
+            Workspace?.OnCloseRequested();
 
         _options.Automation?.OnFrame(this, gameTime.FrameCount);
     }

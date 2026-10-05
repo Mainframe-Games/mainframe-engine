@@ -6,7 +6,7 @@ namespace MainframeEngine.Editor;
 /// <summary>
 /// The Project Manager (E4, Godot's project list): shown when the editor starts without a project, and from Project ›
 /// Project Manager. Recent projects (icon, name, folder, last opened; a missing folder is flagged), a filter, New
-/// Project (the <see cref="NewProjectDialog"/>), Open Folder, Open and Remove from the list (the files stay), and the
+/// Project (the <see cref="NewProjectDialog"/>), Open Project (a <c>project.mfproj</c>), Open and Remove from the list (the files stay), and the
 /// .NET SDK check the project tools need.
 /// </summary>
 public sealed class ProjectManager : EditorDocument
@@ -80,7 +80,7 @@ public sealed class ProjectManager : EditorDocument
             })
             .Event("open", _ => OpenSelected())
             .Event("new", _ => NewProject())
-            .Event("browse", _ => OpenFolder())
+            .Event("browse", _ => OpenProjectFile())
             .Event("download_demo", _ => Workspace.DownloadDemo.Open())
             .Event("remove", _ => RemoveSelected())
             .Event("download", _ => OpenDownloadPage());
@@ -237,28 +237,12 @@ public sealed class ProjectManager : EditorDocument
 
     private void NewProject() => Workspace.NewProject.Open();
 
-    private void OpenFolder()
+    private void OpenProjectFile()
     {
         var start = Workspace.RecentProjects.Items.Count > 0 && Path.GetDirectoryName(Workspace.RecentProjects.Items[0].Path) is { } parent && Directory.Exists(parent)
             ? parent
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var model = new FilePickerModel(FilePickerMode.Folder, start, []);
-        Workspace.FilePicker.Show(model, "Open Project Folder", "Open", folder =>
-        {
-            var directory = File.Exists(folder) ? Path.GetDirectoryName(folder)! : folder;
-            if (!File.Exists(Path.Combine(directory, ProjectSettings.FileName)))
-            {
-                Workspace.Message.Show(new MessageRequest
-                {
-                    Title = "Not a Project",
-                    Message = $"{directory} has no {ProjectSettings.FileName}. Choose the folder a project was created in, or create a new project.",
-                    Buttons = ["OK"],
-                });
-                return;
-            }
-
-            Workspace.Commands.OpenProject(directory);
-        });
+        Workspace.Commands.ChooseProjectFile(start);
     }
 
     private static void OpenDownloadPage()

@@ -129,7 +129,7 @@ public sealed class EditorCommands
             case "play.reload_scene": _workspace.Play.ReloadScene(); return true;
             case "project.build_reload": _workspace.Project.BuildAndReload(); return true;
             case "project.reload_code": _workspace.Project.ReloadGameAssembly(); return true;
-            case "project.open": ChooseProjectFolder(); return true;
+            case "project.open": ChooseProjectFile(); return true;
             case "project.new": _workspace.NewProject.Open(); return true;
             case "project.manager": ShowProjectManager(); return true;
             case "project.settings": _workspace.ProjectSettings.Open(); return true;
@@ -361,19 +361,29 @@ public sealed class EditorCommands
             Session.NewScene();
     }
 
-    private void ChooseProjectFolder()
+    private void ChooseProjectFile()
     {
         var start = Session.ProjectRoot is { } root && Path.GetDirectoryName(root) is { } parent
             ? parent
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        _workspace.FilePicker.Show(new FilePickerModel(FilePickerMode.Folder, start, []), "Open Project Folder", "Open", folder =>
+        ChooseProjectFile(start);
+    }
+
+    /// <summary>
+    /// Open Project (File menu, Project Manager): a file picker that lists and accepts only <c>.mfproj</c> files — never a
+    /// folder — and opens the project of the chosen <c>project.mfproj</c>.
+    /// </summary>
+    public void ChooseProjectFile(string startDirectory)
+    {
+        var model = new FilePickerModel(FilePickerMode.Open, startDirectory, ["*.mfproj"]);
+        _workspace.FilePicker.Show(model, "Open Project", "Open", file =>
         {
-            if (!File.Exists(Path.Combine(folder, ProjectSettings.FileName)))
+            if (EditorCommandLine.ProjectFolderOf(file) is not { } folder)
             {
                 _workspace.Message.Show(new MessageRequest
                 {
                     Title = "Not a Project",
-                    Message = $"{folder} has no {ProjectSettings.FileName}.",
+                    Message = $"{file} is not a project file. Choose a project's {ProjectSettings.FileName}.",
                     Buttons = ["OK"],
                 });
                 return;
@@ -673,7 +683,7 @@ public sealed class EditorCommands
     private void ShowAbout() => _workspace.Message.Show(new MessageRequest
     {
         Title = "About",
-        Message = $"Mainframe Editor {typeof(EditorCommands).Assembly.GetName().Version}\nMainframe Engine — Vulkan, RmlUi, .NET 10.",
+        Message = $"{EditorBrand.NameWithVersion}\nMainframe Engine — Vulkan, RmlUi, .NET 10.",
         Buttons = ["OK"],
     });
 }

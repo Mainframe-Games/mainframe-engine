@@ -26,8 +26,11 @@ next publish would create.
 
 **Engine and editor are versioned in lock step.** There is one version for the whole product: the release tag.
 `dotnet publish -p:Version=X.Y.Z` is a global MSBuild property, so it flows to every project in the build graph —
-the editor, the engine core, the generator and every referenced project get the same `X.Y.Z`. At run time
-`EngineInfo.Version` is the single source of truth: the editor shows it (`EditorBrand.Version`), checks at startup
+the editor, the engine core, the generator and every referenced project get the same `X.Y.Z`. No project sets its
+own `Version`: the editor's build fails if its version differs from the engine core's (`CheckEngineVersionLockStep` in
+the editor's csproj, via `GetMainframeVersion` in `Directory.Build.targets`). At run time
+`EngineInfo.Version` is the single source of truth: the editor shows it (`EditorBrand.Version`; the window title ends in
+`Mainframe Editor vX.Y.Z`, as does the About box), checks at startup
 that its own assembly version matches the engine core it loaded (`EditorBrand.VersionsMatch`, an error otherwise),
 new projects record it in `project.mfproj` (`engineVersion`), the editor link handshake carries it, and the planned
 NuGet packages ([distribution via NuGet](future/distribution-nuget.md)) use it as their package version.

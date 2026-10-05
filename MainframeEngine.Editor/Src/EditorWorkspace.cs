@@ -86,6 +86,7 @@ public sealed record EditorWorkspaceOptions
 public sealed partial class EditorWorkspace : Node
 {
     private string _title = "";
+    private bool _closeRequested;
     private double _statsTimer;
     private EditorModifiers _trackedModifiers;
     private readonly bool _firstLaunch;
@@ -340,6 +341,8 @@ public sealed partial class EditorWorkspace : Node
     protected override void OnProcess(in GameTime gameTime)
     {
         RunPendingLoad();
+        if (_closeRequested && _pendingLoad is null)
+            OnCloseRequested();
         Splash.Tick(gameTime.DeltaTime);
         ProcessProjects(gameTime.DeltaTime);
         if (Output.Drain())
@@ -407,7 +410,7 @@ public sealed partial class EditorWorkspace : Node
         _titleFile = active?.FilePath;
         _titleDirty = dirty;
         var projectName = Session.Project?.Name;
-        var suffix = projectName is null ? "Mainframe Editor" : $"{projectName} — Mainframe Editor";
+        var suffix = projectName is null ? EditorBrand.NameWithVersion : $"{projectName} — {EditorBrand.NameWithVersion}";
         var title = active is null ? suffix : $"{active.Title} — {suffix}";
         if (string.Equals(title, _title, StringComparison.Ordinal))
             return;
@@ -591,6 +594,53 @@ public sealed partial class EditorWorkspace : Node
                 });
             },
         });
+    }
+
+    /// <summary>
+    /// The window's close button or the Dock's Quit (intercepted by the host): always ends in <see cref="RequestQuit"/>.
+    /// Open dialogs are closed first — Project Settings asks about its unsaved edits — except a message box, which is
+    /// the question to answer (it may be the unsaved-changes one). During a load the request waits for it to finish.
+    /// </summary>
+    public void OnCloseRequested()
+    {
+        if (_pendingLoad is not null)
+        {
+            _closeRequested = true; // retried by OnProcess once the load has run
+            return;
+        }
+
+        _closeRequested = false;
+        if (Message.Visible)
+        {
+            Log.Info("[Editor] Close requested while a message is open; answer it first.");
+            return;
+        }
+
+        // Nothing in these is kept: pickers and wizards cancel (a running creation or download is cancelled too).
+        if (FilePicker.Visible)
+            FilePicker.Cancel();
+        if (ListPicker.Visible)
+            ListPicker.Cancel();
+        if (TreePicker.Visible)
+            TreePicker.Cancel();
+        if (SignalDialog.Visible)
+            SignalDialog.Cancel();
+        if (NewProject.Visible)
+            NewProject.Cancel();
+        if (DownloadDemo.Visible)
+            DownloadDemo.Cancel();
+        if (EditorSettingsDialog.Visible)
+            EditorSettingsDialog.Cancel();
+        if (UpdateDialog.Visible)
+            UpdateDialog.Close();
+        if (ProjectManager.Visible)
+            ProjectManager.Close();
+        if (Popup.Visible)
+            Popup.Close();
+        if (ProjectSettings.Visible)
+            ProjectSettings.RequestClose(() => RequestQuit());
+        else
+            RequestQuit();
     }
 
     /// <summary>
