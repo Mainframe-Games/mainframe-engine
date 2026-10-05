@@ -236,6 +236,32 @@ public sealed class UiServerTests
     }
 
     [Fact]
+    public void ReloadingAnInMemoryDocumentLogsNoWarning()
+    {
+        using var ui = new UiTestTree();
+        var doc = new UiDocument { Name = "Memory", Rml = UiTestTree.Page("<p id='v'>one</p>") };
+        ui.AddLayer(0, doc);
+        ui.Tick();
+        Assert.True(doc.IsLoaded);
+
+        var sink = new MemoryLogSink { Levels = Log.Level.Warning | Log.Level.Error };
+        Log.AddSink(sink);
+        try
+        {
+            doc.Rml = UiTestTree.Page("<p id='v'>two</p>");
+            doc.Reload();
+            ui.Tick();
+        }
+        finally
+        {
+            Log.RemoveSink(sink);
+        }
+
+        Assert.DoesNotContain(sink.Snapshot(), e => e.Category == "RmlUi");
+        Assert.Equal("two", doc.GetElementById("v")!.InnerRml);
+    }
+
+    [Fact]
     public void ModelCreatedAfterLoadingReloadsTheDocument()
     {
         using var ui = new UiTestTree();

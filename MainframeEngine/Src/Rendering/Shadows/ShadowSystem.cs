@@ -100,6 +100,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private readonly int[] _setVersion = new int[IVulkanContext.MaxFramesInFlight];
     private readonly ulong[] _uniformFrame = new ulong[IVulkanContext.MaxFramesInFlight];
     private int _mapsVersion = 1;
+    private static int s_nextInstance;
+    private readonly uint _instance = (uint)Interlocked.Increment(ref s_nextInstance);
     private ulong _renderedFrame = ulong.MaxValue;
 
     // Maps no light needed for this many frames are released (toggling a light does not re-create them each time).
@@ -318,6 +320,12 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
     /// <summary>The atlas view (debug display; default while there is no atlas).</summary>
     internal ImageView AtlasView => _atlas?.View ?? default;
+
+    /// <summary>
+    /// Changes whenever a map is created, re-created or released (and differs between shadow systems), so a UI texture
+    /// source can tell that the views it showed are gone (<see cref="UiTextureView.Generation"/>).
+    /// </summary>
+    internal ulong MapsGeneration => ((ulong)_instance << 32) | (uint)_mapsVersion;
 
     private VkSampler _debugSampler;
 

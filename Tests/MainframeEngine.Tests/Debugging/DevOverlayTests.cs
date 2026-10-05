@@ -98,6 +98,31 @@ public sealed class DevOverlayTests
     }
 
     [Fact]
+    public void LayerSurvivesSceneChangesAndFollowsVisible()
+    {
+        var (ui, overlay) = Create();
+        using var _ = ui;
+        overlay.AddPanel("t", "T", "<p id='v'>{{v}}</p>", p => p.Model!.Bind("v", () => 3));
+        overlay.Visible = true;
+        ui.Tick(3);
+        var layer = ui.Tree.Root.GetNode<UiLayer>("DevOverlay");
+        Assert.True(layer.Visible);
+
+        ui.Tree.ChangeScene(new Node { Name = "SceneA" });
+        ui.Tick(2);
+        ui.Tree.ChangeScene(new Node { Name = "SceneB" });
+        ui.Tick(2);
+        Assert.Same(layer, ui.Tree.Root.GetNode<UiLayer>("DevOverlay"));
+        Assert.True(layer.Visible);
+        Assert.Equal("3", PanelsDocument(ui).GetElementById("v")!.InnerRml);
+
+        overlay.Visible = false;
+        Assert.False(layer.Visible);
+        overlay.Visible = true;
+        Assert.True(layer.Visible);
+    }
+
+    [Fact]
     public void DuplicatePanelIdsAreRejected()
     {
         var (ui, overlay) = Create();

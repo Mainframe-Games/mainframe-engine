@@ -9,3 +9,17 @@ body.dev-overlay { width: 100%; height: 100%; pointer-events: none; font-size: 1
 .dev-row { display: flex; justify-content: space-between; }
 .dev-row span.v { color: #93c5fd; font-family: "Roboto Mono"; }
 .dev-meter { height: 6dp; background-color: #22c55e; }
+.dev-heading { margin-top: 6dp; padding-bottom: 2dp; color: #9ca3af; border-bottom: 1dp #ffffff22; }
+.dev-row { align-items: center; margin: 1dp 0; }
+.dev-row input.dev-slider { flex: 1 1 auto; width: auto; margin-right: 6dp; }
+.dev-button { padding: 2dp 10dp; border-radius: 4dp; background-color: #ffffff18; color: #e5e7eb; }
+.dev-button:hover { background-color: #ffffff30; }
+.dev-maps { margin-top: 4dp; }
+img.dev-map { display: inline-block; width: 78dp; height: 78dp; margin: 0 3dp 3dp 0; background-color: #000000; }
+img.dev-atlas { display: inline-block; width: 256dp; height: 256dp; background-color: #000000; }
+.dev-bus { display: flex; align-items: center; margin: 2dp 0; }
+.dev-bus-name { width: 56dp; }
+.dev-bus input.dev-slider { flex: 1 1 auto; width: auto; margin: 0 4dp; }
+.dev-tag { color: #9ca3af; margin: 0 4dp 0 8dp; }
+.dev-meter-track { width: 50dp; height: 6dp; margin-left: 6dp; background-color: #ffffff18; }
+.dev-wrap span.v { display: block; width: 100%; text-align: right; font-size: 11dp; }

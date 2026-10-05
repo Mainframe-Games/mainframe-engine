@@ -25,6 +25,11 @@ public sealed class DevOverlay : IServer, IFrameServer
 
     public IReadOnlyList<DevOverlayPanel> Panels => _panels;
 
+    /// <summary>The servers of the overlay's tree (the built-in panels read their numbers from them).</summary>
+    internal ServerRegistry Servers => _tree.Servers;
+
+    internal SceneTree Tree => _tree;
+
     /// <summary>Raised at the refresh interval (default 4 Hz) while visible; built-in panels update their values here.</summary>
     public event Action? Refreshed;
 

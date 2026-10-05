@@ -382,6 +382,7 @@ public abstract class Engine : IDisposable
             Servers.Register(ui);
             DevOverlay = new DevOverlay(Tree) { Visible = DevOverlayVisible };
             Servers.Register(DevOverlay);
+            DevOverlayPanels.AddBuiltIns(DevOverlay, this);
         }
 
         _inputRouter = new InputRouter(InputContext, Tree);

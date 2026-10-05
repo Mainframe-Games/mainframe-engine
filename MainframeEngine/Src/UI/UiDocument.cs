@@ -243,7 +243,8 @@ public class UiDocument : Node
             return;
         }
 
-        var reloaded = _document.Reload();
+        // An in-memory document has no file to re-read (RmlUi would log "Unable to open file memory/…"): load it again.
+        var reloaded = string.IsNullOrEmpty(Source) && !string.IsNullOrEmpty(Rml) ? default : _document.Reload();
         if (reloaded.IsNull)
         {
             // No reloadable source (in-memory document): load it again from scratch.
