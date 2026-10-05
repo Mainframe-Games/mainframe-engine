@@ -1,0 +1,6 @@
+#banner { left: 16dp; top: 60dp; width: 340dp; }
+#gallery { left: auto; right: 16dp; top: 60dp; width: 360dp; }
+#reloads { font-size: 22dp; color: #60a5fa; }
+#swatch { height: 28dp; border-radius: 6dp; margin-top: 8dp; }
+code { font-family: "Roboto Mono"; color: #fbbf24; }
+progress { width: 100%; margin-top: 4dp; }

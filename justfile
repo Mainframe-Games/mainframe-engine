@@ -83,6 +83,10 @@ readme-screenshots:
     done
     ls -la docs/images/editor*.png
 
+# The Demo game (one scene per feature; F12 dev overlay)
+demo *args:
+    dotnet run --project Examples/Demo/Demo.Launcher -- {{args}}
+
 # Run the Sandbox (extra args are passed through, e.g. just sandbox --qa-capture out)
 sandbox *args:
     dotnet run --project MainframeEngine.Sandbox -- {{args}}

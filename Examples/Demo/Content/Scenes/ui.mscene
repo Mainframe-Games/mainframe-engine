@@ -1,10 +1,122 @@
 {
   "format": 2,
   "uid": "scn_97b20d3749ed",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "StandardMaterial3D_s8kz4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.22745098, 0.26666668, 0.36078432, 1]
+      }
+    },
+    "PlaneMesh_dcv7g": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [40, 40]
+      }
+    },
+    "StandardMaterial3D_19xkr": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.14509805, 0.3882353, 0.92156863, 1]
+      }
+    },
+    "BoxMesh_232uv": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1.2, 1.2, 1.2]
+      }
+    },
+    "StandardMaterial3D_hzm7j": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.88235295, 0.11372549, 0.28235295, 1]
+      }
+    },
+    "SphereMesh_pj10j": {
+      "type": "SphereMesh",
+      "props": {
+        "Radius": 0.6,
+        "Height": 1.2
+      }
+    }
+  },
   "nodes": [
     {
       "name": "ui",
       "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0, 3.5, 9],
+        "RotationDegrees": [-18.43495, 0, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-50, 30, 0],
+        "Energy": 1.4
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_s8kz4" },
+        "Mesh": { "res": "PlaneMesh_dcv7g" }
+      }
+    },
+    {
+      "name": "Cube",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [-1.4, 0.6, 0],
+        "RotationDegrees": [0, 30, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_19xkr" },
+        "Mesh": { "res": "BoxMesh_232uv" }
+      }
+    },
+    {
+      "name": "Ball",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [1.4, 0.6, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_hzm7j" },
+        "Mesh": { "res": "SphereMesh_pj10j" }
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Showcase",
+      "parent": "Ui",
+      "type": "UiShowcase"
     }
   ]
 }

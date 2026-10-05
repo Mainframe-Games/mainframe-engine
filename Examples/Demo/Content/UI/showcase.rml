@@ -1,0 +1,30 @@
+<rml>
+<head>
+    <title>UI showcase</title>
+    <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Content/UI/demo.rcss"/>
+    <link type="text/rcss" href="showcase.rcss"/>
+</head>
+<body class="hud" data-model="showcase">
+    <div id="banner" class="demo-panel">
+        <h1>UI + hot reload</h1>
+        <p id="hot-on" class="hint" data-if="hot">Edit <code>Content/UI/showcase.rcss</code> (or <code>.rml</code>) and save — this page reloads live.</p>
+        <p id="hot-off" class="hint" data-if="!hot">Hot reload is off in this build (it runs with a Debug engine).</p>
+        <div class="demo-row"><span>Reloads</span><span id="reloads">{{reloads}}</span></div>
+        <div class="demo-row"><span>Last reload</span><span>{{last}}</span></div>
+        <button data-event-click="reset()">Reset counter</button>
+    </div>
+    <div id="gallery" class="demo-panel">
+        <h1>Data binding</h1>
+        <div class="demo-row"><span>Name</span><input type="text" data-value="name"/></div>
+        <p>Hello, <strong>{{name}}</strong>!</p>
+        <div class="demo-row"><span>Volume {{volume | format(2)}}</span><input type="range" min="0" max="1" step="0.01" data-value="volume"/></div>
+        <progress max="1" data-value="volume"/>
+        <div class="demo-row"><span>Quality</span>
+            <select data-value="quality"><option value="0">Low</option><option value="1">Medium</option><option value="2">High</option></select></div>
+        <div class="demo-row"><span>Accent</span>
+            <select data-value="accent"><option value="#2563eb">Blue</option><option value="#16a34a">Green</option><option value="#e11d48">Rose</option></select></div>
+        <div id="swatch" data-style-background-color="accent"></div>
+    </div>
+</body>
+</rml>

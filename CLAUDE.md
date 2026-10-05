@@ -12,6 +12,7 @@ just test-render      # render tests: goldens + validation gate + allocation gat
 just test-linux       # CI's Linux unit/editor tests in Docker (x86_64 ubuntu:24.04)
 just render-tests-linux  # render tests on lavapipe in Docker: checks/records the `lavapipe` goldens locally
 just sandbox          # dotnet run --project MainframeEngine.Sandbox
+just demo             # the Demo game (Examples/Demo)
 just qa               # Sandbox --qa-capture → PNG screenshots in artifacts/qa
                       #   (Sandbox also takes --qa-resize WxH@frame, --qa-minimize frame, --qa-input frame)
 just golden-update    # re-record render-test goldens for this driver; inspect the PNGs before committing
