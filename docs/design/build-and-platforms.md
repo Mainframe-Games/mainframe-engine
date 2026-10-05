@@ -105,11 +105,13 @@ editing a shader or include, run `just shaders` and commit the `.spv` files with
 
 ### CI
 
-[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs on every pull request, on pushes
-to `main`, and on demand for any branch (`workflow_dispatch`: `gh workflow run ci.yml --ref <branch>`).
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs on every pull request and on demand
+for any branch (`workflow_dispatch`: `gh workflow run ci.yml --ref <branch>`). It does not run on pushes to
+`main`: the `main-protection` ruleset only lets changes in through pull requests that already passed it, so a
+second run on `main` would only cost Actions minutes. `publish.yml` re-runs it before a release.
 There is one run per ref; newer runs cancel older ones. Checkouts include the Spine submodule. To save
 LFS bandwidth, jobs check out without LFS and fetch only the LFS files they need (`git lfs pull --exclude=…`;
-never `docs/` or `Examples/` images), with `.git/lfs` cached under a key hashed from the needed object IDs
+never the README screenshots or `Examples/` images), with `.git/lfs` cached under a key hashed from the needed object IDs
 (`.lfs-assets-id`), so a run whose LFS files did not change downloads none. `format` and `shaders` fetch no LFS
 files; `publish.yml`'s editor builds follow the same pattern, and `natives.yml`'s verify job fetches only
 `MainframeEngine/runtimes/**`.
