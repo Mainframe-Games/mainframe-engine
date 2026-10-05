@@ -17,11 +17,12 @@ public class CanvasRenderTests
         Gates.AssertValidationClean(result);
 
         var image = Png.ReadRgba8(result.Captures.Single().Path);
-        // Canvas pixels are framebuffer pixels (no stretch yet). Godot's default clear colour, 0.3 grey, written as-is
-        // (no tonemap): 77.
+        // Canvas_items stretch from 480×270: canvas units × (capture width / 480). Godot's default clear colour, 0.3
+        // grey, written as-is (no tonemap): 77.
+        var scale = image.Width / 480f;
         AssertPixel(image, image.Width - 2, image.Height - 2, 77, 77, 77);
         // The filled red rect (1, 0.2, 0.2) × the CanvasModulate tint (0.85, 0.9, 1), in gamma space.
-        AssertPixel(image, 40, 140, 217, 46, 51);
+        AssertPixel(image, (int)(40 * scale), (int)(140 * scale), 217, 46, 51);
         Gates.AssertMatchesGolden(result, 5);
     }
 

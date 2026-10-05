@@ -48,12 +48,6 @@ public sealed class CanvasServer : IFrameServer
     /// </summary>
     public Vector4? ClearColor { get; set; }
 
-    /// <summary>
-    /// The global canvas transform: target pixels from the base resolution (the stretch transform of Godot's
-    /// <c>canvas_items</c> stretch mode). Identity draws canvas pixels 1:1.
-    /// </summary>
-    public Transform2D StretchTransform { get; set; } = Transform2D.Identity;
-
     /// <summary>Godot's shader <c>TIME</c>: seconds since start, wrapping every <see cref="TimeRolloverSeconds"/>.</summary>
     public float Time => (float)_time;
 
@@ -70,7 +64,9 @@ public sealed class CanvasServer : IFrameServer
         _time = (_time + gameTime.DeltaTime) % TimeRolloverSeconds;
         LastRedraws = _tree.PendingCanvasRedraws;
         _tree.FlushCanvasRedraws();
-        BuildFrame(_tree.Root, _targetSize());
+        var size = _targetSize();
+        _tree.Root.SetSize(size);
+        BuildFrame(_tree.Root, size);
         Renderer?.PrepareTextures(Frame);
     }
 
@@ -82,7 +78,10 @@ public sealed class CanvasServer : IFrameServer
         frame.Clear();
         frame.TargetSize = targetSize;
         frame.ClearColor = ClearColor;
-        var clip = new Rect2(Vector2.Zero, targetSize);
+        // The drawn area: the whole target, or the letterboxed rect of the content scale (canvas units × stretch).
+        var scale = viewport.ContentScaleResult;
+        var clip = scale.RenderSize.X > 0 ? new Rect2(scale.Margin, scale.RenderSize) : new Rect2(Vector2.Zero, targetSize);
+        var stretch = viewport.StretchTransform;
 
         // Canvases by layer; the root canvas is layer 0 and draws before layers of equal number.
         _canvases.Clear();
@@ -102,7 +101,7 @@ public sealed class CanvasServer : IFrameServer
             var canvas = _canvases[i].Canvas;
             if (canvas.RootCount == 0)
                 continue;
-            var transform = StretchTransform * canvas.Transform;
+            var transform = stretch * canvas.Transform;
             _culled.Clear();
             _culler.Cull(canvas, transform, clip, _culled);
             if (_culled.Count == 0)

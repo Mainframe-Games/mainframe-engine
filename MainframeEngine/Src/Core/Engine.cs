@@ -425,6 +425,7 @@ public abstract class Engine : IDisposable
         if (DevOverlayVisible)
             OnImGui(_gameTime);
         OnUpdate(_gameTime);
+        Tree.Root.SetSize(new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y)); // content scale (stretch) for the 2D canvas
         Tree.Tick(_gameTime); // M2: physics steps, process, deferred calls/frees, transform sync
         _updateTicks += Stopwatch.GetTimestamp() - start;
     }

@@ -302,11 +302,11 @@ public sealed partial class ViewportController
         }
     }
 
-    // The game's view of a Camera2D: the project's window size scaled by its zoom, centred on it.
+    // The game's view of a Camera2D: the project's window size divided by its zoom (Godot's zoom), centred on it.
     private void DrawCamera2D(DebugLines lines, Camera2D camera, Vector4 color)
     {
         var window = _workspace.Session.Project?.Window;
-        var size = new Vector2(window?.Width ?? WindowSettings.DefaultWidth, window?.Height ?? WindowSettings.DefaultHeight) * camera.Zoom;
+        var size = new Vector2(window?.Width ?? WindowSettings.DefaultWidth, window?.Height ?? WindowSettings.DefaultHeight) / camera.Zoom;
         var c = camera.GlobalPosition;
         var h = size * 0.5f;
         var a = new Vector3(c.X - h.X, c.Y - h.Y, 0);

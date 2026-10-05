@@ -207,3 +207,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   render test `canvas` (+ moltenvk golden; lavapipe golden still to record). Gates: build, Release, unit 1184 + editor
   443, render 46/46, format, shaders.
 - Icons: used existing atlas names (`stack-2`, `contrast`, `brush`) — new Tabler names need `just editor-icons-fetch`.
+
+### 2026-10-05 — Camera2D + content scale (port E9)
+- `Camera2D` rewritten as a port of Godot 4.7's (anchor, Godot zoom, offset, limits, drag, smoothing incl. the zoom/offset
+  re-scroll that keeps the smoothed position); it writes `SceneViewport.CanvasTransform`. 2D cameras become active only
+  when made current (`Enabled` cameras make themselves current on entering a viewport without one).
+- `ContentScale.Compute` = `Window::_update_viewport_size`; root `SceneViewport.SetSize` each frame (engine + canvas
+  server), `GetVisibleRect`, `StretchTransform`; project `window.stretchMode/Aspect/Scale/ScaleMode` (Godot spellings
+  accepted) and `rendering.canvasClearColor` applied by `GameSession.Start`. Canvas golden re-recorded with a 480×270
+  canvas_items stretch. Tests: Camera2DTests, CanvasProjectSettingsTests. Gates green (unit 1190, editor 443, render 46).

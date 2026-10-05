@@ -143,6 +143,14 @@ public static class ProjectSettingsFormat
             w.WriteNumber("maxFps", s.MaxFps);
         if (s.Icon is not null)
             w.WriteString("icon", s.Icon);
+        if (s.StretchMode != d.StretchMode)
+            w.WriteString("stretchMode", s.StretchMode.ToString());
+        if (s.StretchAspect != d.StretchAspect)
+            w.WriteString("stretchAspect", s.StretchAspect.ToString());
+        if (s.StretchScale != d.StretchScale)
+            w.WriteNumber("stretchScale", s.StretchScale);
+        if (s.StretchScaleMode != d.StretchScaleMode)
+            w.WriteString("stretchScaleMode", s.StretchScaleMode.ToString());
         w.WriteEndObject();
     }
 
@@ -271,13 +279,15 @@ public static class ProjectSettingsFormat
     private static void WriteRendering(Utf8JsonWriter w, RenderingProjectSettings s)
     {
         var d = new RenderingProjectSettings();
-        if (s.Exposure == d.Exposure && s.Shadows == d.Shadows)
+        if (s.Exposure == d.Exposure && s.Shadows == d.Shadows && s.CanvasClearColor is null)
             return;
         w.WriteStartObject("rendering");
         if (s.Exposure != d.Exposure)
             w.WriteNumber("exposure", s.Exposure);
         if (s.Shadows != d.Shadows)
             w.WriteString("shadows", s.Shadows.ToString());
+        if (s.CanvasClearColor is { } c)
+            WriteFloats(w, "canvasClearColor", [c.X, c.Y, c.Z, c.W]);
         w.WriteEndObject();
     }
 
@@ -355,13 +365,29 @@ public static class ProjectSettingsFormat
 
         private void ReadWindow(JsonObject o, WindowSettings s)
         {
-            Known(o, "window.", "title", "width", "height", "vsync", "maxFps", "icon");
+            Known(o, "window.", "title", "width", "height", "vsync", "maxFps", "icon", "stretchMode", "stretchAspect", "stretchScale", "stretchScaleMode");
             s.Title = String(o, "title", "window.title");
             s.Width = Int(o, "width", "window.width", s.Width, 1, 16384);
             s.Height = Int(o, "height", "window.height", s.Height, 1, 16384);
             s.VSync = Bool(o, "vsync", "window.vsync", s.VSync);
             s.MaxFps = Int(o, "maxFps", "window.maxFps", s.MaxFps, 0, 10000);
             s.Icon = String(o, "icon", "window.icon");
+            s.StretchMode = EnumValue(o, "stretchMode", "window.stretchMode", s.StretchMode);
+            s.StretchAspect = EnumValue(o, "stretchAspect", "window.stretchAspect", s.StretchAspect);
+            var scale = Float(o, "stretchScale", "window.stretchScale", s.StretchScale);
+            Guard("window.stretchScale", () => s.StretchScale = scale);
+            s.StretchScaleMode = EnumValue(o, "stretchScaleMode", "window.stretchScaleMode", s.StretchScaleMode);
+        }
+
+        // Enum names, case-insensitive; Godot's snake_case spellings ("canvas_items", "keep_width") are accepted too.
+        private T EnumValue<T>(JsonObject o, string key, string where, T fallback) where T : struct, Enum
+        {
+            if (String(o, key, where) is not { } text)
+                return fallback;
+            var name = text.Replace("_", "", StringComparison.Ordinal);
+            if (!Enum.TryParse<T>(name, ignoreCase: true, out var value) || !Enum.IsDefined(value) || char.IsDigit(name[0]))
+                throw Error(where, $"'{text}' is not one of {string.Join(", ", Enum.GetNames<T>())}");
+            return value;
         }
 
         private void ReadPhysics(JsonObject o, PhysicsProjectSettings s)
@@ -440,7 +466,9 @@ public static class ProjectSettingsFormat
 
         private void ReadRendering(JsonObject o, RenderingProjectSettings s)
         {
-            Known(o, "rendering.", "exposure", "shadows");
+            Known(o, "rendering.", "exposure", "shadows", "canvasClearColor");
+            if (Floats(o, "canvasClearColor", "rendering.canvasClearColor", 4) is { } clear)
+                s.CanvasClearColor = new System.Numerics.Vector4(clear[0], clear[1], clear[2], clear[3]);
             var exposure = Float(o, "exposure", "rendering.exposure", s.Exposure);
             Guard("rendering.exposure", () => s.Exposure = exposure);
             if (String(o, "shadows", "rendering.shadows") is { } shadows)

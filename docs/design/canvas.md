@@ -39,6 +39,22 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 - **Textures** are sampled raw (UNORM, gamma space), straight alpha, with the item's resolved `TextureFilter`/
   `TextureRepeat` (default linear, no repeat); `draw_texture_rect(tile: true)` forces repeat for that rect.
 
+## Camera and stretch
+
+- **`Camera2D`** is Godot 4.7's, ported: while current it writes `SceneViewport.CanvasTransform` (anchor centre or top
+  left, Godot zoom where 2 = twice as close, offset, limits, drag margins, position/rotation smoothing). The scroll updates
+  when Godot updates it: in `OnProcess` (Godot's internal process; subclasses call `base.OnProcess` first), on transform
+  changes without smoothing, and on every `Zoom`/`Offset` set, which keeps the smoothed position (so a script that sets
+  the zoom every frame sees Godot's double smoothing step). `GetScreenCenterPosition()`; a camera entering a viewport
+  without a current camera makes itself current (when `Enabled`).
+- **Content scale** (Godot's window stretch) is computed by `ContentScale.Compute` (a port of
+  `Window::_update_viewport_size`) on the root viewport each frame (`SceneViewport.SetSize`): `canvas_items` mode draws
+  the canvas at the window's resolution from a base size, `Expand`/`Keep`/`KeepWidth`/`KeepHeight`/`Ignore`, fractional
+  or integer scale, letterbox margins. `SceneViewport.GetVisibleRect()` is the visible area in canvas units;
+  `StretchTransform` multiplies every canvas (layers included). Project file: `window.stretchMode` (`canvas_items`),
+  `window.stretchAspect`, `window.stretchScale`, `window.stretchScaleMode`; base size = `window.width/height`.
+  `rendering.canvasClearColor` sets `CanvasServer.ClearColor`.
+
 ## Frame
 
 1. `Tree.Tick` (process), then frame servers: `CanvasServer.Process` flushes redraws, builds `CanvasFrame` (vertices in
@@ -52,8 +68,8 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 
 ## Known issues
 
-- Not yet: canvas shaders (E5), 2D lights (E6), 2D `SubViewport`/`ViewportTexture` (E7), SVG import (E8), Camera2D
-  Godot semantics and `canvas_items` stretch (E9; canvas pixels are framebuffer pixels), text (E4), `ClipChildren`
+- Not yet: canvas shaders (E5), 2D lights (E6), 2D `SubViewport`/`ViewportTexture` (E7), SVG import (E8), text (E4),
+  Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `ClipChildren`
   (canvas groups), nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
 - The editor's 2D view does not draw canvas items yet (E18).
 - 1 px lines (width −1) on exact integer coordinates rasterise on whichever side the GPU picks, as in Godot.

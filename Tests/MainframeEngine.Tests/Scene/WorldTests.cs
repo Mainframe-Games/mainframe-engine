@@ -87,7 +87,7 @@ public sealed class WorldTests : IDisposable
         Assert.Same(second, viewport.ActiveCamera3D);
         first.Free();
 
-        var flat = new Camera2D { Zoom = 0.5f };
+        var flat = new Camera2D { Zoom = new Vector2(0.5f) };
         _tree.Root.AddChild(flat);
         Assert.Same(flat, viewport.ActiveCamera2D);
     }

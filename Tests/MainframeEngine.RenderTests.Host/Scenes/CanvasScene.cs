@@ -6,7 +6,8 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// The 2D canvas (ADR 0111): sprites (plain, flipped, modulated, a region), a y-sorted group whose tree order is the
 /// reverse of its draw order, z-index, every draw primitive (rects filled and outlined, circles, thin and wide lines,
 /// an antialiased line, a polyline, an arc, a triangulated polygon), additive blending, a <see cref="CanvasModulate"/>
-/// tint on the root canvas and a <see cref="CanvasLayer"/> it does not tint. Cleared to Godot's default grey.
+/// tint on the root canvas and a <see cref="CanvasLayer"/> it does not tint. Cleared to Godot's default grey; drawn with
+/// Godot's canvas_items stretch from a 480×270 base.
 /// </summary>
 public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
 {
@@ -33,6 +34,10 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
     protected override void LoadScene()
     {
         Servers.Get<CanvasServer>()!.ClearColor = CanvasServer.GodotDefaultClearColor;
+        // Godot's canvas_items stretch from a 480×270 base: the capture (480×270 × the display scale) shows it whole.
+        Root.ContentScaleMode = ContentScaleMode.CanvasItems;
+        Root.ContentScaleAspect = ContentScaleAspect.Expand;
+        Root.ContentScaleSize = new Vector2(480, 270);
         var texture = Checker();
         var root = new Node2D { Name = "Canvas" };
 

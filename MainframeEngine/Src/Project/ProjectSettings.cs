@@ -179,6 +179,30 @@ public sealed class WindowSettings
 
     /// <summary>Window icon (a <c>Content/…</c> PNG), or null.</summary>
     public string? Icon { get; set; }
+
+    /// <summary>
+    /// How 2D content scales with the window (Godot's <c>display/window/stretch/mode</c>); the base size is
+    /// <see cref="Width"/> × <see cref="Height"/>. <see cref="ContentScaleMode.Disabled"/> (default): one canvas unit per pixel.
+    /// </summary>
+    public ContentScaleMode StretchMode { get; set; }
+
+    /// <summary>Godot's <c>display/window/stretch/aspect</c> (default keep).</summary>
+    public ContentScaleAspect StretchAspect { get; set; } = ContentScaleAspect.Keep;
+
+    /// <summary>Godot's <c>display/window/stretch/scale</c>.</summary>
+    public float StretchScale
+    {
+        get;
+        set
+        {
+            if (!(value > 0) || !float.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The stretch scale must be positive and finite.");
+            field = value;
+        }
+    } = 1f;
+
+    /// <summary>Godot's <c>display/window/stretch/scale_mode</c>.</summary>
+    public ContentScaleStretch StretchScaleMode { get; set; }
 }
 
 /// <summary>The <c>physics</c> section: the fixed tick and the 3D/2D server settings.</summary>
@@ -293,6 +317,12 @@ public sealed class RenderingProjectSettings
     /// (<see cref="ShadowQualitySettings.For"/>). Default <see cref="ShadowQuality.High"/>, the engine's defaults.
     /// </summary>
     public ShadowQuality Shadows { get; set; } = ShadowQuality.High;
+
+    /// <summary>
+    /// Opaque background of the 2D canvas (<see cref="CanvasServer.ClearColor"/>; a 2D game: Godot's viewport clear colour,
+    /// gamma-space RGBA), or null (default) to draw the canvas over the 3D scene.
+    /// </summary>
+    public System.Numerics.Vector4? CanvasClearColor { get; set; }
 }
 
 /// <summary>

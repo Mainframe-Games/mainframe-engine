@@ -27,6 +27,10 @@ tessellation.
    items; only items whose shader has `vertex()` keep local vertices with MODEL/CANVAS matrices as push constants (one
    draw each), matching Godot's built-ins.
 5. **Textures upload in the frame step**, never mid-frame (uploads are recorded at frame start).
+6. **Camera2D and window stretch are Godot's, ported line by line** (E9): `Camera2D` replaces the engine's ortho-only 2D
+   camera (zoom now means Godot's zoom: 2 = closer), including when the scroll updates (zoom/offset sets keep the smoothed
+   position); `ContentScale.Compute` is `Window::_update_viewport_size`. Only the current 2D camera of a viewport is
+   active; cameras no longer become active implicitly without `Enabled`.
 
 ## Consequences
 

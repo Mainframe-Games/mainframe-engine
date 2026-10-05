@@ -93,6 +93,14 @@ public sealed class GameSession : IDisposable
 
         Tree.Input.Map = Settings.Input;
         Tree.MaxPhysicsStepsPerFrame = Settings.Physics.MaxStepsPerFrame;
+        var window = Settings.Window;
+        Tree.Root.ContentScaleMode = window.StretchMode;
+        Tree.Root.ContentScaleAspect = window.StretchAspect;
+        Tree.Root.ContentScaleSize = new System.Numerics.Vector2(window.Width, window.Height);
+        Tree.Root.ContentScaleFactor = window.StretchScale;
+        Tree.Root.ContentScaleStretch = window.StretchScaleMode;
+        if (Tree.Servers.Get<CanvasServer>() is { } canvas)
+            canvas.ClearColor = Settings.Rendering.CanvasClearColor;
         AddAutoloads();
 
         var ok = true;
