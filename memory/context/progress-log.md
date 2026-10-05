@@ -227,3 +227,14 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   in `TextureImporter`, `TextureImportSettings.SvgScale/FixAlphaBorder` (meta `svgScale`, `fixAlphaBorder`).
 - Verified: every Crash Site Defense SVG rasterised + fixed is byte-identical to Godot's imported `.ctex` (lossless WebP),
   the emblem 13 bytes off by 1. Tests: Imaging/SvgTests. Gates green (unit 1193, editor 443, render 46).
+
+### 2026-10-05 — Canvas shaders in Godot's shading language (ADR 0113, port E5)
+- `CanvasShaderCompiler` (Godot canvas_item → GLSL: std140 block + sampler bindings, defaults, hints, render modes,
+  varyings, vertex()/fragment(), built-ins), `Shader` resource (`.gdshader` importer, `Shader.Load/FromProgram`,
+  `WriteUniformBlock`), `ShaderMaterial` (parameters by name), `CanvasShaderBuild` + tool `mf-shaders`
+  (`Tools/MainframeEngine.ShaderBuild`; `just canvas-shaders[-check]`): SPIR-V + `.spvlock` committed next to the source.
+- Renderer: per-shader set/pipeline layouts and pipelines, a per-frame material UBO ring (dynamic offsets, sized up front),
+  material sets rebuilt on texture change, sampler-uniform textures uploaded in the frame step. `Texture2D.SetPixels`.
+- All seven Crash Site Defense shaders translate and compile unchanged. Render test `canvas` gained a shaded sprite
+  (Content/Shaders/wave.gdshader). Tests: CanvasShaderCompilerTests, Texture2DPixelsTests. Gates green (unit 1198,
+  editor 443, render 46, shaders, canvas shaders).

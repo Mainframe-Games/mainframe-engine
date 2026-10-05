@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    mf-shaders: builds the SPIR-V of canvas shaders written in Godot's shading language (.gdshader, ADR 0113): translates
+    each with CanvasShaderCompiler, compiles both stages with glslc and writes x.gdshader.{vert,frag}.spv + x.gdshader.spvlock
+    next to the source (committed, like the engine's own shaders). `check` fails when any is stale (CI without glslc).
+      just canvas-shaders FOLDER (build) / just canvas-shaders-check FOLDER
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>mf-shaders</AssemblyName>
+    <RootNamespace>MainframeEngine.ShaderBuild</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+  </ItemGroup>
+
+</Project>

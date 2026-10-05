@@ -39,6 +39,22 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 - **Textures** are sampled raw (UNORM, gamma space), straight alpha, with the item's resolved `TextureFilter`/
   `TextureRepeat` (default linear, no repeat); `draw_texture_rect(tile: true)` forces repeat for that rect.
 
+## Canvas shaders
+
+`.gdshader` files in Godot's shading language (`shader_type canvas_item`) load as `Shader` resources (`.gdshader` importer,
+`Shader.Load`); `CanvasShaderCompiler` translates them to GLSL ([ADR 0113](../../memory/decisions/0113-canvas-shaders-godot-language.md)).
+Supported: uniforms of scalar/vector/matrix types and arrays (std140 block, set 1 binding 0, declaration order) with
+defaults and hints (`source_color` kept raw as in Godot's non-HDR canvas, `hint_range` ignored), `sampler2D` uniforms
+(set 1 bindings 1…, `filter_*`/`repeat_*`), `render_mode blend_mix|add|sub|mul|premul_alpha|disabled, unshaded,
+light_only`, varyings (flat for integers), helper functions and constants, `vertex()` and `fragment()`, and the built-ins
+VERTEX, UV, COLOR, TEXTURE, TEXTURE_PIXEL_SIZE, TIME, FRAGCOORD, SCREEN_UV, SCREEN_PIXEL_SIZE, MODEL_MATRIX,
+CANVAS_MATRIX, SCREEN_MATRIX, PI, TAU, E. Items whose shader has `vertex()` keep local vertices (MODEL_MATRIX = the
+item's canvas-space transform, CANVAS_MATRIX = camera × stretch) and draw alone; others are batched pre-transformed.
+SPIR-V is built ahead of time and committed next to the source (`x.gdshader.vert.spv`, `.frag.spv`, `.spvlock`):
+`just canvas-shaders <folders>` / `just canvas-shaders-check`. `ShaderMaterial.SetShaderParameter(name, value)` sets
+uniforms (vectors as `System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for samplers).
+Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes.
+
 ## Camera and stretch
 
 - **`Camera2D`** is Godot 4.7's, ported: while current it writes `SceneViewport.CanvasTransform` (anchor centre or top
@@ -68,7 +84,7 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 
 ## Known issues
 
-- Not yet: canvas shaders (E5), 2D lights (E6), 2D `SubViewport`/`ViewportTexture` (E7), text (E4),
+- Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D lights (E6), 2D `SubViewport`/`ViewportTexture` (E7), text (E4),
   Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `ClipChildren`
   (canvas groups), nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
 - The editor's 2D view does not draw canvas items yet (E18).

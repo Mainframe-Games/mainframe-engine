@@ -236,6 +236,20 @@ public sealed class Texture2D : Resource
     }
 
     /// <summary>Re-reads a file-backed texture (after the file changed on disk); users re-upload it.</summary>
+    /// <summary>
+    /// Replaces the pixels of a code-created texture (Godot's <c>ImageTexture.update</c>): same size, RGBA8. Renderers
+    /// re-upload it on the next frame (the <see cref="Version"/> changes).
+    /// </summary>
+    public void SetPixels(ReadOnlySpan<byte> rgba)
+    {
+        if (_pixels is null)
+            throw new InvalidOperationException("Only textures created with FromPixels can be updated.");
+        if (rgba.Length != _pixels.Length)
+            throw new ArgumentException($"Expected {_pixels.Length} bytes of RGBA8 pixels ({_width}×{_height}), got {rgba.Length}.", nameof(rgba));
+        rgba.CopyTo(_pixels);
+        Touch();
+    }
+
     public void Reload()
     {
         if (_filePath is null)

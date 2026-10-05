@@ -196,3 +196,11 @@ l10n-stats:
 clean:
     dotnet clean {{solution}} -v q
     {{ if os_family() == "windows" { "if (Test-Path artifacts) { Remove-Item -Recurse -Force artifacts }" } else { "rm -rf artifacts" } }}
+
+# Build the SPIR-V of canvas shaders (.gdshader, ADR 0113) under the given folders (default: the render-test host's)
+canvas-shaders *folders="Tests/MainframeEngine.RenderTests.Host/Content":
+    dotnet run --project Tools/MainframeEngine.ShaderBuild -- build {{folders}}
+
+# Fail when any canvas shader's committed SPIR-V is stale
+canvas-shaders-check *folders="Tests/MainframeEngine.RenderTests.Host/Content":
+    dotnet run --project Tools/MainframeEngine.ShaderBuild -- check {{folders}}

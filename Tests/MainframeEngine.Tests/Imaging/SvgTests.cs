@@ -56,3 +56,17 @@ public sealed class SvgTests
         }
     }
 }
+
+public sealed class Texture2DPixelsTests
+{
+    [Fact]
+    public void CodeCreatedTexturesCanBeUpdatedInPlace()
+    {
+        var texture = Texture2D.FromPixels(1, 1, [1, 2, 3, 4]);
+        var version = texture.Version;
+        texture.SetPixels([5, 6, 7, 8]);
+        Assert.NotEqual(version, texture.Version);
+        Assert.Equal([5, 6, 7, 8], texture.DecodePixels().Rgba);
+        Assert.Throws<ArgumentException>(() => texture.SetPixels([1, 2]));
+    }
+}

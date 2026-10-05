@@ -60,6 +60,33 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
 
     private readonly record struct PipelineKey(CanvasBlendMode Blend, CanvasPrimitive Primitive);
 
+    // One canvas shader: its material set layout (binding 0 = dynamic UBO, 1… = samplers), pipeline layout and pipelines.
+    private sealed class ShaderEntry
+    {
+        public DescriptorSetLayout SetLayout;
+        public PipelineLayout Layout;
+        public DescriptorPool Pool;
+        public readonly Dictionary<PipelineKey, Pipeline> Pipelines = [];
+    }
+
+    // One ShaderMaterial's set: the uniform ring buffer + its sampler textures (reallocated when they change).
+    private sealed class MaterialEntry
+    {
+        public DescriptorSet Set;
+        public DescriptorPool Pool;
+        public Texture2D?[] Textures = [];
+        public GpuBuffer? Ring;
+        public ulong LastUsed;
+    }
+
+    private readonly Dictionary<Shader, ShaderEntry> _shaders = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<ShaderMaterial, MaterialEntry> _materials = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<ShaderMaterial, uint> _materialOffsets = new(ReferenceEqualityComparer.Instance);
+    private GpuBuffer? _ring;
+    private ulong _ringSlotSize;
+    private ulong _ringUsed;
+    private const ulong RingAlignment = 256;
+
     [StructLayout(LayoutKind.Sequential)]
     private struct CanvasPush
     {
@@ -110,17 +137,12 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         var batches = frame.Batches;
         for (var i = 0; i < batches.Count; i++)
         {
-            if (batches[i].Texture is not { } texture)
-                continue;
-            if (!_textures.TryGetValue(texture, out var entry) || entry.Version != texture.Version)
-            {
-                if (entry is not null)
-                    Release(entry);
-                entry = Upload(texture);
-                _textures[texture] = entry;
-            }
-
-            entry.LastUsed = now;
+            if (batches[i].Texture is { } texture)
+                Prepare(texture, now);
+            if (batches[i].Material is ShaderMaterial { Shader.Program: { } program } material)
+                foreach (var u in program.Uniforms)
+                    if (u.IsSampler && material.GetShaderParameter(u.Name) is Texture2D samplerTexture)
+                        Prepare(samplerTexture, now);
         }
 
         if (now % 120 == 0)
@@ -136,6 +158,19 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
 
             _evict.Clear();
         }
+    }
+
+    private void Prepare(Texture2D texture, ulong now)
+    {
+        if (!_textures.TryGetValue(texture, out var entry) || entry.Version != texture.Version)
+        {
+            if (entry is not null)
+                Release(entry);
+            entry = Upload(texture);
+            _textures[texture] = entry;
+        }
+
+        entry.LastUsed = now;
     }
 
     private TextureEntry Upload(Texture2D texture)
@@ -197,27 +232,58 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
 
             var screen = new Vector4(2f / extent.Width, 2f / extent.Height, -1f, -1f);
             var time = _server.Time;
+            BeginMaterialRing(slot, frame);
+            var boundLayout = _layout;
             var boundPipeline = default(Pipeline);
             var boundSet = default(DescriptorSet);
             var batches = frame.Batches;
             for (var i = 0; i < batches.Count; i++)
             {
                 var batch = batches[i];
-                var pipeline = GetPipeline(new PipelineKey(batch.Blend, batch.Primitive));
+                var shaderMaterial = batch.Material as ShaderMaterial;
+                var shader = shaderMaterial?.Shader is { Program: not null, VertexSpvPath: not null } s && File.Exists(s.VertexSpvPath) ? s : null;
+                Pipeline pipeline;
+                PipelineLayout layout;
+                if (shader is not null)
+                {
+                    var entry = GetShader(shader);
+                    layout = entry.Layout;
+                    pipeline = GetShaderPipeline(shader, entry, new PipelineKey(batch.Blend, batch.Primitive));
+                }
+                else
+                {
+                    layout = _layout;
+                    pipeline = GetPipeline(new PipelineKey(batch.Blend, batch.Primitive));
+                }
+
                 if (pipeline.Handle != boundPipeline.Handle)
                 {
                     vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
                     boundPipeline = pipeline;
                 }
 
+                if (layout.Handle != boundLayout.Handle)
+                {
+                    boundLayout = layout;
+                    boundSet = default; // set 0 must be rebound against the new layout
+                }
+
                 var set = TextureSet(batch.Texture, batch.Sampler, out var pixelSize);
                 if (set.Handle != boundSet.Handle)
                 {
-                    vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layout, 0, 1, &set, 0, null);
+                    vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, 0, 1, &set, 0, null);
                     boundSet = set;
                 }
 
-                var flags = batch.Material is CanvasItemMaterial { LightMode: CanvasLightMode.Unshaded } ? 1u : 0u;
+                if (shader is not null)
+                {
+                    var (materialSet, materialOffset) = MaterialSet(shaderMaterial!, shader);
+                    var dynamicOffset = materialOffset;
+                    vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, 1, 1, &materialSet, 1, &dynamicOffset);
+                }
+
+                var unshaded = batch.Material is CanvasItemMaterial { LightMode: CanvasLightMode.Unshaded } || shader is { Unshaded: true };
+                var flags = unshaded ? 1u : 0u;
                 var push = new CanvasPush
                 {
                     ModelAxes = new Vector4(batch.Model.X, batch.Model.Y.X, batch.Model.Y.Y),
@@ -227,7 +293,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
                     Screen = screen,
                     CanvasModulation = batch.CanvasModulate,
                 };
-                vk.CmdPushConstants(cb, _layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, PushSize, &push);
+                vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, PushSize, &push);
                 vk.CmdDrawIndexed(cb, (uint)batch.IndexCount, 1, (uint)batch.FirstIndex, 0, 0);
                 DrawCalls++;
             }
@@ -352,6 +418,153 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
     {
         if (_setPools.Remove(set.Handle, out var pool))
             _ctx.Deletions.Enqueue(GpuDeletion.Of(pool, set));
+    }
+
+    // ── Canvas shaders and materials ─────────────────────────────────────────────────────────────────────────
+
+    private ShaderEntry GetShader(Shader shader)
+    {
+        if (_shaders.TryGetValue(shader, out var entry))
+            return entry;
+        var program = shader.Program!;
+        var bindings = new List<DescriptorSetLayoutBinding>
+        {
+            new() { Binding = 0, DescriptorType = DescriptorType.UniformBufferDynamic, DescriptorCount = 1, StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit },
+        };
+        foreach (var u in program.Uniforms)
+            if (u.IsSampler)
+                bindings.Add(new DescriptorSetLayoutBinding { Binding = (uint)u.Binding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit });
+        entry = new ShaderEntry();
+        entry.SetLayout = PipelineBuilder.CreateSetLayout(_ctx, bindings.ToArray(), "canvas material");
+        entry.Layout = PipelineBuilder.CreateLayout(_ctx, [_textureSetLayout, entry.SetLayout], PushSize, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, "canvas shader");
+        var samplers = Math.Max(1, program.SamplerCount);
+        // Sets are freed one by one when a material's textures change: the pool needs FREE_DESCRIPTOR_SET.
+        var sizes = stackalloc DescriptorPoolSize[2];
+        sizes[0] = new DescriptorPoolSize { Type = DescriptorType.UniformBufferDynamic, DescriptorCount = 64 };
+        sizes[1] = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (uint)(64 * samplers) };
+        var poolInfo = new DescriptorPoolCreateInfo
+        {
+            SType = StructureType.DescriptorPoolCreateInfo,
+            Flags = DescriptorPoolCreateFlags.FreeDescriptorSetBit,
+            MaxSets = 64,
+            PoolSizeCount = 2,
+            PPoolSizes = sizes,
+        };
+        _ctx.Vk.CreateDescriptorPool(_ctx.Device, in poolInfo, null, out entry.Pool).Check("vkCreateDescriptorPool (canvas materials)");
+        _shaders[shader] = entry;
+        return entry;
+    }
+
+    private Pipeline GetShaderPipeline(Shader shader, ShaderEntry entry, PipelineKey key)
+    {
+        if (entry.Pipelines.TryGetValue(key, out var pipeline))
+            return pipeline;
+        var topology = key.Primitive == CanvasPrimitive.Lines ? PrimitiveTopology.LineList : PrimitiveTopology.TriangleList;
+        pipeline = BuildPipeline(_pass, entry.Layout, shader.VertexSpvPath!, shader.FragmentSpvPath!, geometry: true, key.Blend, topology,
+            $"canvas shader {Path.GetFileName(shader.ResourcePath ?? shader.VertexSpvPath)}");
+        entry.Pipelines[key] = pipeline;
+        return pipeline;
+    }
+
+    // Material uniforms live in one host-visible ring (every frame slot's region), written once per material per frame.
+    private void BeginMaterialRing(int slot, CanvasFrame frame)
+    {
+        _materialOffsets.Clear();
+        _ringUsed = 0;
+        _ringSlot = slot;
+        // Size the ring for every distinct material of the frame up front: it cannot grow once offsets are handed out.
+        ulong needed = 0;
+        var batches = frame.Batches;
+        for (var i = 0; i < batches.Count; i++)
+            if (batches[i].Material is ShaderMaterial { Shader.Program: { } program } material && _materialOffsets.TryAdd(material, 0))
+                needed += (ulong)Math.Max(16, program.UniformBlockSize) + RingAlignment;
+        _materialOffsets.Clear();
+        if (needed > 0)
+            EnsureRing(needed);
+    }
+
+    private int _ringSlot;
+
+    private (DescriptorSet Set, uint Offset) MaterialSet(ShaderMaterial material, Shader shader)
+    {
+        var program = shader.Program!;
+        var blockSize = (ulong)Math.Max(16, program.UniformBlockSize);
+        if (!_materialOffsets.TryGetValue(material, out var offset32))
+        {
+            var aligned = (_ringUsed + RingAlignment - 1) / RingAlignment * RingAlignment;
+            EnsureRing(aligned + blockSize);
+            var offset = (ulong)_ringSlot * _ringSlotSize + aligned;
+            Span<byte> block = stackalloc byte[(int)blockSize];
+            shader.WriteUniformBlock(material.Parameters, block);
+            _ring!.Write<byte>(block, offset);
+            _ringUsed = aligned + blockSize;
+            offset32 = (uint)offset;
+            _materialOffsets[material] = offset32;
+        }
+
+        // The set: the ring (whole slot range per dynamic offset) + the material's textures.
+        var textures = new Texture2D?[program.SamplerCount];
+        var t = 0;
+        foreach (var u in program.Uniforms)
+            if (u.IsSampler)
+                textures[t++] = material.GetShaderParameter(u.Name) as Texture2D;
+        if (!_materials.TryGetValue(material, out var entry) || !ReferenceEquals(entry.Ring, _ring) || !SameTextures(entry.Textures, textures))
+        {
+            if (entry is not null && entry.Set.Handle != 0)
+                _ctx.Deletions.Enqueue(GpuDeletion.Of(entry.Pool, entry.Set));
+            entry = new MaterialEntry { Textures = textures, Ring = _ring };
+            var shaderEntry = GetShader(shader);
+            entry.Pool = shaderEntry.Pool;
+            entry.Set = PipelineBuilder.AllocateSet(_ctx, shaderEntry.Pool, shaderEntry.SetLayout, "canvas material");
+            var bufferInfo = new DescriptorBufferInfo { Buffer = _ring!.Handle, Offset = 0, Range = blockSize };
+            var write = new WriteDescriptorSet
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = entry.Set,
+                DstBinding = 0,
+                DescriptorType = DescriptorType.UniformBufferDynamic,
+                DescriptorCount = 1,
+                PBufferInfo = &bufferInfo,
+            };
+            _ctx.Vk.UpdateDescriptorSets(_ctx.Device, 1, &write, 0, null);
+            t = 0;
+            foreach (var u in program.Uniforms)
+            {
+                if (!u.IsSampler)
+                    continue;
+                var texture = textures[t++];
+                var sampler = _samplers[(int)CanvasFrame.SamplerFor(u.Filter == CanvasTextureFilter.ParentNode ? CanvasTextureFilter.Linear : u.Filter,
+                    u.Repeat == CanvasTextureRepeat.ParentNode ? CanvasTextureRepeat.Disabled : u.Repeat)];
+                var view = texture is not null && _textures.TryGetValue(texture, out var te) ? te.Texture.View : _white.View;
+                PipelineBuilder.WriteImage(_ctx, entry.Set, (uint)u.Binding, new DescriptorImageInfo { Sampler = sampler, ImageView = view, ImageLayout = ImageLayout.ShaderReadOnlyOptimal });
+            }
+
+            _materials[material] = entry;
+        }
+
+        entry.LastUsed = _ctx.FrameNumber;
+        return (entry.Set, offset32);
+    }
+
+    private static bool SameTextures(Texture2D?[] a, Texture2D?[] b)
+    {
+        if (a.Length != b.Length)
+            return false;
+        for (var i = 0; i < a.Length; i++)
+            if (!ReferenceEquals(a[i], b[i]))
+                return false;
+        return true;
+    }
+
+    private void EnsureRing(ulong neededPerSlot)
+    {
+        if (_ring is not null && neededPerSlot <= _ringSlotSize)
+            return;
+        // Growing mid-frame would invalidate offsets already recorded this frame; size generously and grow between frames.
+        var size = Math.Max(64 * 1024UL, (ulong)BitOperations.RoundUpToPowerOf2(neededPerSlot * 2));
+        _ring?.Dispose(); // deletion queue: frames in flight keep it until they complete
+        _ringSlotSize = size;
+        _ring = GpuBuffer.Create(_ctx, size * IVulkanContext.MaxFramesInFlight, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
     }
 
     // ── Target ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -659,6 +872,19 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         }
 
         _white.Dispose();
+        _materials.Clear(); // their sets go with the shaders' pools
+        foreach (var shader in _shaders.Values)
+        {
+            foreach (var pipeline in shader.Pipelines.Values)
+                _ctx.Deletions.Enqueue(GpuDeletion.Of(pipeline));
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(shader.Pool));
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(shader.Layout));
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(shader.SetLayout));
+        }
+
+        _shaders.Clear();
+        _ring?.Dispose();
+        _ring = null;
         foreach (var pipeline in _pipelines.Values)
             _ctx.Deletions.Enqueue(GpuDeletion.Of(pipeline));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_compositePipeline));

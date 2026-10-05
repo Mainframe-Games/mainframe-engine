@@ -26,6 +26,7 @@ public static class AssetImporters
     {
         Register(new TextureImporter());
         Register(new ModelImporter());
+        Register(new ShaderImporter());
     }
 
     /// <summary>Registers (or replaces) the importer for its extensions.</summary>
