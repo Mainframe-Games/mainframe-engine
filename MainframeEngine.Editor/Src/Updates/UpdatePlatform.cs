@@ -53,4 +53,7 @@ public static class UpdatePaths
 
     /// <summary>Where the old install waits while the new one is copied in.</summary>
     public static string BackupOf(string root) => Path.TrimEndingDirectorySeparator(root) + ".old";
+
+    /// <summary>Where a roll-back moves a partial copy before deleting it.</summary>
+    public static string FailedOf(string root) => Path.TrimEndingDirectorySeparator(root) + ".failed";
 }

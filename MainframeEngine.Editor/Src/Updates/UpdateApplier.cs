@@ -103,6 +103,9 @@ public sealed class UpdateApplier
     public Func<int, TimeSpan, bool> WaitForExit { get; init; } = DefaultWaitForExit;
     public Action<ProcessStartInfo> Start { get; init; } = DefaultStart;
     public Action<string, string> CopyDirectory { get; init; } = CopyDirectoryRecursive;
+
+    /// <summary>Renames a folder (the backup and roll-back moves); tests inject failures.</summary>
+    public Action<string, string> MoveDirectory { get; init; } = Directory.Move;
     public Action<string> Log { get; init; } = static _ => { };
     public TimeSpan ExitTimeout { get; init; } = TimeSpan.FromSeconds(60);
 
@@ -144,26 +147,52 @@ public sealed class UpdateApplier
         catch (Exception e) // Anything after the rename must roll back, whatever its type: a half-installed editor cannot start.
         {
             Log($"Installing failed ({e.Message}); restoring the previous version.");
-            var restored = Restore(root, backup);
-            return Fail(request, restored
-                ? $"The update could not be installed ({e.Message}); the previous version was restored."
-                : $"The update could not be installed ({e.Message}); the previous version is in {backup}.", launch);
+            return Restore(root, backup)
+                ? Fail(request, $"The update could not be installed ({e.Message}); the previous version was restored.", launch)
+                // The partial copy may still start: relaunch the intact backup instead (on macOS a folder named .app.old
+                // is no bundle, so its executable is started directly).
+                : Fail(request, $"The update could not be installed ({e.Message}) and the previous version could not be moved back; it is in {backup}.",
+                    BackupLaunchInfo(backup, Rid, request.Project));
         }
     }
 
+    /// <summary>
+    /// Puts <paramref name="backup"/> back at <paramref name="root"/>: the partial copy is renamed aside to
+    /// <c>&lt;root&gt;.failed</c> first (a rename succeeds where deleting freshly written files may not), then deleted.
+    /// </summary>
     private bool Restore(string root, string backup)
     {
+        var failed = UpdatePaths.FailedOf(root);
         try
         {
             if (Directory.Exists(root))
-                Directory.Delete(root, recursive: true);
-            Directory.Move(backup, root);
-            return true;
+            {
+                TryDeleteDirectory(failed);
+                RenameWithRetry(root, failed);
+            }
+
+            RenameWithRetry(backup, root);
         }
         catch (Exception e) // never let the rollback itself crash the applier: the caller still relaunches
         {
             Log($"Could not restore {root} from {backup}: {e.Message}");
             return false;
+        }
+
+        TryDeleteDirectory(failed);
+        return true;
+    }
+
+    private void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log($"Could not delete {path} ({e.Message}); the next start retries.");
         }
     }
 
@@ -197,12 +226,12 @@ public sealed class UpdateApplier
         {
             try
             {
-                Directory.Move(from, to);
+                MoveDirectory(from, to);
                 return;
             }
             catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && attempt < RenameAttempts)
             {
-                Log($"Moving the old version aside failed ({e.Message}); retrying.");
+                Log($"Moving {from} to {to} failed ({e.Message}); retrying.");
                 Thread.Sleep(500);
             }
         }
@@ -230,6 +259,22 @@ public sealed class UpdateApplier
         }
 
         info.UseShellExecute = false;
+        return info;
+    }
+
+    /// <summary>How to start the editor left in <paramref name="backup"/> when it could not be moved back.</summary>
+    public static ProcessStartInfo BackupLaunchInfo(string backup, string rid, string? project)
+    {
+        if (!UpdatePlatform.IsMac(rid))
+            return LaunchInfo(backup, rid, project);
+        var executable = UpdatePlatform.ExecutablePath(backup, rid);
+        var info = new ProcessStartInfo(executable) { WorkingDirectory = Path.GetDirectoryName(executable), UseShellExecute = false };
+        if (project is not null)
+        {
+            info.ArgumentList.Add("--project");
+            info.ArgumentList.Add(project);
+        }
+
         return info;
     }
 
@@ -306,7 +351,8 @@ public sealed class UpdateApplier
 public static class UpdateCleanup
 {
     /// <summary>
-    /// Reads and deletes <c>result.json</c>, deletes <c>&lt;installRoot&gt;.old</c> and every staging folder except those of
+    /// Reads and deletes <c>result.json</c>, deletes <c>&lt;installRoot&gt;.old</c> (kept after a failed update: it may be
+    /// the only working install), a leftover <c>&lt;installRoot&gt;.failed</c> and every staging folder except those of
     /// versions newer than <paramref name="current"/> (another open editor may be about to install one).
     /// </summary>
     public static UpdateResult? Run(string? installRoot, string updatesDirectory, ReleaseVersion current)
@@ -314,8 +360,17 @@ public static class UpdateCleanup
         var resultPath = UpdatePaths.ResultFile(updatesDirectory);
         var result = UpdateResult.Load(resultPath);
         TryDelete(resultPath, static p => File.Delete(p));
-        if (installRoot is not null && Directory.Exists(UpdatePaths.BackupOf(installRoot)))
-            TryDelete(UpdatePaths.BackupOf(installRoot), static p => Directory.Delete(p, recursive: true));
+        if (installRoot is not null)
+        {
+            var backup = UpdatePaths.BackupOf(installRoot);
+            if (result is { Ok: false } && Directory.Exists(backup))
+                Log.Info($"[Editor] Keeping {backup} after the failed update.");
+            else if (Directory.Exists(backup))
+                TryDelete(backup, static p => Directory.Delete(p, recursive: true));
+            if (Directory.Exists(UpdatePaths.FailedOf(installRoot)))
+                TryDelete(UpdatePaths.FailedOf(installRoot), static p => Directory.Delete(p, recursive: true));
+        }
+
         foreach (var folder in StagingFolders(updatesDirectory))
             if (!ReleaseVersion.TryParse(Path.GetFileName(folder), out var version) || version <= current)
                 TryDelete(folder, static p => Directory.Delete(p, recursive: true));
