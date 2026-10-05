@@ -75,7 +75,10 @@ public static class Basic3DScene
         Add(root, parent, light);
         light.Position = from;
         light.LookAt(to);
-        light.RotationDegrees = light.RotationDegrees; // pin the Euler angles the saver writes
+        // Pin the Euler angles the saver writes, rounded: LookAt's trig differs in the last bit between x64 and arm64,
+        // and the committed scene file must match the builder on every platform.
+        var degrees = light.RotationDegrees;
+        light.RotationDegrees = new Vector3(MathF.Round(degrees.X, 3), MathF.Round(degrees.Y, 3), MathF.Round(degrees.Z, 3));
         return light;
     }
 }
