@@ -266,8 +266,9 @@ public class Node3D : Node, ITransformNotifiable
     private void NotifyVisibilityInTreeChanged()
     {
         OnVisibilityInTreeChanged();
-        foreach (var child in Children)
-            if (child is Node3D child3D)
+        var children = Children; // an index loop: foreach over the interface would box its enumerator
+        for (var i = 0; i < children.Count; i++)
+            if (children[i] is Node3D child3D)
                 child3D.NotifyVisibilityInTreeChanged();
     }
 

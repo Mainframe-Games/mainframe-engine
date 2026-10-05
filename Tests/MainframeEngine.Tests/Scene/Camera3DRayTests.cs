@@ -21,6 +21,19 @@ public sealed class Camera3DRayTests
         Assert.True(Vector3.Distance(-Vector3.UnitZ, direction) < 1e-4f, direction.ToString());
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(400, 0)]
+    [InlineData(0, 200)]
+    public void ZeroSizedViewportGivesTheCameraPositionAndForwardNotNaN(float width, float height)
+    {
+        var camera = LookingDownMinusZ();
+        var (origin, direction) = Camera3D.ProjectRay(camera, new Vector2(10, 10), new Vector2(width, height));
+        Assert.Equal(camera.Position, origin);
+        Assert.Equal(camera.Forward, direction);
+        Assert.False(float.IsNaN(direction.X + direction.Y + direction.Z));
+    }
+
     [Fact]
     public void TopLeftPixelPointsUpAndLeft()
     {

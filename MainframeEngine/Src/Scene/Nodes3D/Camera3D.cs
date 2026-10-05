@@ -83,6 +83,8 @@ public class Camera3D : Node3D, ICurrentCamera
     public static (Vector3 Origin, Vector3 Direction) ProjectRay(ICamera camera, Vector2 pixel, Vector2 viewportSize)
     {
         ArgumentNullException.ThrowIfNull(camera);
+        if (!(viewportSize.X > 0f && viewportSize.Y > 0f))
+            return (camera.Position, camera.Forward); // no viewport area (0x0): no pixel to look through, not NaN
         var ndc = new Vector2(pixel.X / viewportSize.X * 2f - 1f, 1f - pixel.Y / viewportSize.Y * 2f);
         if (!Matrix4x4.Invert(camera.ViewMatrix * camera.ProjectionMatrix, out var inverse))
             return (camera.Position, camera.Forward);
