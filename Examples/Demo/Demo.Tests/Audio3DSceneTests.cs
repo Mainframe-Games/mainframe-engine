@@ -25,14 +25,7 @@ public sealed class Audio3DSceneTests : IDisposable
 
     private Node Scene => _tree.CurrentScene!;
 
-    private void Tick()
-    {
-        // GameTime's setters are internal to the engine; a boxed copy lets a test game loop fill one in.
-        object time = default(GameTime);
-        typeof(GameTime).GetProperty(nameof(GameTime.DeltaTime))!.SetValue(time, 1f / 60f);
-        typeof(GameTime).GetProperty(nameof(GameTime.FrameCount))!.SetValue(time, ++_frame);
-        _tree.Tick((GameTime)time);
-    }
+    private void Tick() => TestTime.Tick(_tree, ref _frame);
 
     [Fact]
     public void TheListenerIsCurrent() => Assert.True(Scene.GetNode<AudioListener3D>("Listener").Current);

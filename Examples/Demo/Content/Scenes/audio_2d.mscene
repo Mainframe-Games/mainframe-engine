@@ -1,10 +1,98 @@
 {
   "format": 2,
   "uid": "scn_afc36075c640",
+  "resources": {
+    "AudioStream_llfrh": {
+      "type": "AudioStream",
+      "props": {
+        "File": "Content/Audio/ambient_hum.ogg",
+        "LoadMode": "Stream",
+        "Loop": true
+      }
+    }
+  },
   "nodes": [
     {
       "name": "audio_2d",
-      "type": "Node3D"
+      "type": "Node2D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera2D",
+      "props": {
+        "Current": true
+      }
+    },
+    {
+      "name": "Backdrop",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [1600, 900],
+        "Color": [0.06, 0.08, 0.14, 1],
+        "ColorBottom": [0.12, 0.06, 0.18, 1]
+      }
+    },
+    {
+      "name": "Listener",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 26,
+        "Color": [0.89, 0.91, 0.94, 1],
+        "Outline": [1, 1, 1, 0.4],
+        "OutlineWidth": 3
+      }
+    },
+    {
+      "name": "Sweeper",
+      "parent": ".",
+      "type": "Sweeper2D",
+      "props": {
+        "Position": [0, -140]
+      }
+    },
+    {
+      "name": "Marker",
+      "parent": "Sweeper",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 20,
+        "Color": [0.15, 0.39, 0.92, 1]
+      }
+    },
+    {
+      "name": "Emitter",
+      "parent": "Sweeper",
+      "type": "AudioPlayer2D",
+      "props": {
+        "Stream": { "res": "AudioStream_llfrh" },
+        "Bus": "SFX",
+        "VolumeDb": -6,
+        "Autoplay": true,
+        "MaxDistance": 900
+      }
+    },
+    {
+      "name": "Clicks",
+      "parent": ".",
+      "type": "ClickToPlay2D"
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Audio2DPanel"
     }
   ]
 }
