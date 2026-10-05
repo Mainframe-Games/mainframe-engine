@@ -33,6 +33,7 @@ public sealed class ProjectSettingsTests : IDisposable
             Name = "Space Game ✓",
             MainScene = "scn_0123456789ab",
             EngineVersion = "1.4.2",
+            Version = "2026.9.2",
             SteamAppId = 480,
             Input = new InputMap().Bind("jump", "key:Space", "pad:A").Bind("move_left", "key:A", "axis:LeftX-"),
         };
@@ -79,6 +80,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(expected.Name, actual.Name);
         Assert.Equal(expected.MainScene, actual.MainScene);
         Assert.Equal(expected.EngineVersion, actual.EngineVersion);
+        Assert.Equal(expected.Version, actual.Version);
         Assert.Equal(expected.SteamAppId, actual.SteamAppId);
         Assert.Equal(expected.Assemblies, actual.Assemblies);
         Assert.Equivalent(expected.Window, actual.Window, strict: true);

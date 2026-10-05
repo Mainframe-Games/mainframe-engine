@@ -462,6 +462,11 @@ public sealed class SerializationTests : IDisposable
     public void AssetDatabaseScansMetaSidecarsAndWritesAnIndex()
     {
         File.WriteAllBytes(ContentPath("icon.png"), [1, 2, 3]);
+        // A canvas shader's SPIR-V and lock are part of the shader, not assets: no .meta of their own.
+        File.WriteAllText(ContentPath("wave.gdshader"), "shader_type canvas_item;");
+        File.WriteAllBytes(ContentPath("wave.gdshader.vert.spv"), [1]);
+        File.WriteAllBytes(ContentPath("wave.gdshader.frag.spv"), [1]);
+        File.WriteAllText(ContentPath("wave.gdshader.spvlock"), "x");
         var sceneUid = SceneSaver.Save(new Node3D { Name = "S" }, ContentPath("S.mscene"));
 
         var db = new AssetDatabase(_project);
@@ -469,6 +474,10 @@ public sealed class SerializationTests : IDisposable
         var meta = db.ReadOrCreateMeta("Content/icon.png", create: false)!;
         Assert.StartsWith("tex_", meta.Uid, StringComparison.Ordinal);
         Assert.True(File.Exists(ContentPath("icon.png.meta")));
+        Assert.True(File.Exists(ContentPath("wave.gdshader.meta")));
+        Assert.False(File.Exists(ContentPath("wave.gdshader.vert.spv.meta")));
+        Assert.False(File.Exists(ContentPath("wave.gdshader.frag.spv.meta")));
+        Assert.False(File.Exists(ContentPath("wave.gdshader.spvlock.meta")));
         Assert.Equal("Content/icon.png", db.GetPath(meta.Uid));
         Assert.Equal("Content/S.mscene", db.GetPath(sceneUid));
         Assert.Equal(meta.Uid, db.GetUid("Content/icon.png"));

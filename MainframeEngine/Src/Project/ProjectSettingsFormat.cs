@@ -101,6 +101,8 @@ public static class ProjectSettingsFormat
             w.WriteNumber("format", Current);
             w.WriteString("name", settings.Name);
             w.WriteString("engineVersion", settings.EngineVersion);
+            if (settings.Version.Length > 0)
+                w.WriteString("version", settings.Version);
             if (settings.MainScene is { Length: > 0 } main)
                 w.WriteString("mainScene", main);
             if (settings.Assemblies.Count > 0)
@@ -337,11 +339,12 @@ public static class ProjectSettingsFormat
         public ProjectSettings Read(JsonObject root)
         {
             var s = new ProjectSettings();
-            Known(root, "", "format", "name", "engineVersion", "mainScene", "assemblies", "steamAppId", "window", "physics", "input",
+            Known(root, "", "format", "name", "engineVersion", "version", "mainScene", "assemblies", "steamAppId", "window", "physics", "input",
                 "audio", "localization", "rendering", "autoloads");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
+            s.Version = String(root, "version", "version") ?? "";
             s.MainScene = String(root, "mainScene", "mainScene");
             s.Assemblies.AddRange(Strings(root, "assemblies", "assemblies"));
             s.SteamAppId = (uint)Long(root, "steamAppId", "steamAppId", 0, 0, uint.MaxValue);

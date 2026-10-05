@@ -19,6 +19,7 @@ public class GameHost : Engine
         : base((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()))
     {
         Settings = settings;
+        Project = settings;
         HostOptions = options ?? new GameHostOptions();
         Session = new GameSession(Tree, settings, HostOptions);
         Session.QuitRequested += code => Quit(code);
@@ -33,6 +34,12 @@ public class GameHost : Engine
     /// <summary>The project session (autoloads, scene, editor link).</summary>
     public GameSession Session { get; }
 
+    /// <summary>The running game's project settings (null before <see cref="Run"/> loads them; tools and tests have none).</summary>
+    public static ProjectSettings? Project { get; private set; }
+
+    /// <summary>The game's own command-line arguments: everything after <c>++</c> (<see cref="GameHostOptions.UserArgs"/>).</summary>
+    public static IReadOnlyList<string> UserArgs { get; private set; } = [];
+
     /// <summary>
     /// Parses <paramref name="args"/>, loads the project (<c>--project</c>, else <c>project.mfproj</c> next to the app),
     /// registers <paramref name="gameAssemblies"/> and <see cref="ProjectSettings.Assemblies"/>, logs to the console and a
@@ -46,6 +53,7 @@ public class GameHost : Engine
         try
         {
             options = GameHostOptions.Parse(args);
+            UserArgs = options.UserArgs;
         }
         catch (ArgumentException e)
         {

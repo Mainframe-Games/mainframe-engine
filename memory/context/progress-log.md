@@ -248,3 +248,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `AudioImporter` (`.wav/.ogg/.mp3/.flac` → `AudioStream.Load` with the `.meta` settings) registered in `AssetImporters`,
   so `.mres` resources can reference sound files as imported assets (Crash Site Defense's SoundDefs). Test: the
   AudioDecoderTests import case loads through `ResourceLoader`. Gates green (unit 1199, editor 443; no render change).
+
+### 2026-10-05 — Godot runtime rules for the port's first world render (ADR 0114)
+- Process delta minus dropped physics time (Godot's rule; first-frame stalls no longer reach Camera2D smoothing);
+  offline `IsServer`; `++` user args (`GameHost.UserArgs`); `SceneTree.Quit` / `SceneTree.CaptureFrame` +
+  `--frame-capture`; `ProjectSettings.Version` + `GameHost.Project`; `Node2D.Skew` / `Transform2D.Skew` with exact
+  transform storage; shader build outputs skipped by the asset scan. Tests: SceneTreeHostTests, skew, tick delta,
+  offline server, user args, version, scan skip. Gates green (unit 1203, editor 443, render 46).

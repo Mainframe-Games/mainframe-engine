@@ -34,6 +34,7 @@ public sealed class ReplicationTests
         Assert.Equal(joined, net.Server.ConnectedPeers.ToArray());
         Assert.True(net.Server.IsServer);
         Assert.True(a.Api.IsClient);
+        Assert.False(a.Api.IsServer);
         Assert.Equal(MultiplayerApi.DefaultTickRate, a.Api.ServerTickRate);
         Assert.Equal(net.Server.ReplicationFingerprint, a.Api.ReplicationFingerprint);
     }

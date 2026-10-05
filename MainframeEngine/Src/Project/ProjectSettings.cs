@@ -28,6 +28,9 @@ public sealed class ProjectSettings
         }
     } = "Game";
 
+    /// <summary>The game's own version (Godot's <c>application/config/version</c>); empty when the project sets none.</summary>
+    public string Version { get; set; } = "";
+
     /// <summary>The scene <see cref="GameHost"/> starts with: a UID (<c>scn_…</c>) or a <c>Content/…</c> path.</summary>
     public string? MainScene { get; set; }
 

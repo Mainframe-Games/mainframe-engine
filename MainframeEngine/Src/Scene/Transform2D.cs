@@ -28,6 +28,16 @@ public struct Transform2D : IEquatable<Transform2D>
         return new Transform2D(new Vector2(cos, sin) * scale.X, new Vector2(-sin, cos) * scale.Y, translation);
     }
 
+    /// <summary>Scale → skew (radians, the Y axis tilted off perpendicular) → rotation → translation (Godot's constructor).</summary>
+    public static Transform2D FromTrs(Vector2 translation, float rotation, Vector2 scale, float skew)
+    {
+        if (skew == 0f)
+            return FromTrs(translation, rotation, scale);
+        var (sin, cos) = MathF.SinCos(rotation);
+        var (sinSkew, cosSkew) = MathF.SinCos(rotation + skew);
+        return new Transform2D(new Vector2(cos, sin) * scale.X, new Vector2(-sinSkew, cosSkew) * scale.Y, translation);
+    }
+
     public readonly Vector2 TransformPoint(Vector2 point) => X * point.X + Y * point.Y + Origin;
 
     public readonly Vector2 TransformDirection(Vector2 direction) => X * direction.X + Y * direction.Y;
@@ -54,6 +64,17 @@ public struct Transform2D : IEquatable<Transform2D>
     public readonly float Rotation => MathF.Atan2(X.Y, X.X);
 
     public readonly Vector2 Scale => new(X.Length(), MathF.Sign(Determinant()) * Y.Length());
+
+    /// <summary>How far (radians) the Y axis leans off perpendicular to X (Godot's <c>get_skew</c>); 0 without shear.</summary>
+    public readonly float Skew
+    {
+        get
+        {
+            var det = Determinant();
+            var dot = Vector2.Dot(Vector2.Normalize(X), MathF.Sign(det) * Vector2.Normalize(Y));
+            return MathF.Acos(Math.Clamp(dot, -1f, 1f)) - MathF.PI * 0.5f;
+        }
+    }
 
     public readonly Matrix3x2 ToMatrix3x2() => new(X.X, X.Y, Y.X, Y.Y, Origin.X, Origin.Y);
 

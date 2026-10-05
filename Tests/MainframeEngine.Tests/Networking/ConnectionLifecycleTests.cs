@@ -209,6 +209,7 @@ public sealed class ConnectionLifecycleTests
 
         Assert.Equal([DisconnectReason.Timeout], reasons);
         Assert.Equal(MultiplayerMode.Offline, api.Mode);
+        Assert.True(api.IsServer); // offline is its own authority again (Godot's rule)
         mute.Poll();
         Assert.Empty(mute.Peers.ToArray()); // the client hung up on the server
         tree.Shutdown();

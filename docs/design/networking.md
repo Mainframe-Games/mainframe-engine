@@ -84,6 +84,9 @@ client.Subscribe((in MessageContext ctx, in Chat chat) => Log.Info(chat.Text));
 Without a node, build the bus yourself: `new MessageBus(EnetTransport.Listen(port, max), registry)`, or
 `EnetTransport.Connect(host, port, registry.Fingerprint)`, then call `Poll()` and `Flush()` every frame.
 
+Offline (no transport started) the API counts as the server (`IsServer` true, `LocalPeerId` 1), as Godot's offline
+peer does, so server-stepped game logic runs in single-player and tool scenes (ADR 0114).
+
 ## Replication
 
 `MultiplayerApi` replicates one `SceneTree`. The server is authoritative for all replicated state; per-node

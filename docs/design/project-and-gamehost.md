@@ -119,8 +119,11 @@ does not load), 2 (bad command line).
 | `--no-log-file` | no log file |
 | `--locale <name>` | start in this locale (overrides `localization.defaultLocale`) |
 | `--screenshot <file.png>` | save the frame `--max-frames` ends on (frame 60 without it) as a PNG |
+| `--frame-capture` | allow `SceneTree.CaptureFrame` (a game's own screenshot harness; implied by `--screenshot`) |
+| `++ …` | everything after `++` is the game's (`GameHost.UserArgs`, Godot's `OS.get_cmdline_user_args`), never parsed by the host |
 
-Anything else is left in `GameHostOptions.Remaining` for the game.
+Anything else before `++` is left in `GameHostOptions.Remaining` for the game. Nodes ask the host to quit with
+`SceneTree.Quit(code)`; `GameHost.Project` is the running project's settings (its `version` for build stamps).
 
 Startup: `ProjectSettings.ToEngineOptions()` (window, VSync, physics settings and tick, audio, localization, Steam) +
 the flags → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects the editor link first) → `OnLoad`:

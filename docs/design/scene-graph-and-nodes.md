@@ -197,7 +197,10 @@ is stable. Decomposed angles snap within 0.0005° of a whole degree so scene fil
   `OnLocalTransformChanged()` on every local set. Physics bodies and collision shapes use them to push moves to their
   server without per-step scans.
 
-`Node2D` mirrors this in 2D (`Transform2D`, rotation in radians, `RotationDegrees` serialized, `ZIndex`).
+`Node2D` mirrors this in 2D (`Transform2D`, rotation in radians, `RotationDegrees` serialized, `ZIndex`), plus Godot's
+`Skew` (`SkewDegrees` serialized); a transform assigned to `Transform` is kept exactly and only decomposed for the getters.
+`SceneTree.Tick` gives process callbacks the frame's delta minus the physics time it dropped (the `MaxFrameDelta` clamp
+and the backlog beyond `MaxPhysicsStepsPerFrame`), as Godot does, so a stall reads as the steps physics ran (ADR 0114).
 
 ## Groups, deferred calls, timers
 

@@ -232,6 +232,9 @@ public abstract class Engine : IDisposable
         Localization.Tr.Configure(engineOptions.Localization ?? new Localization.LocalizationOptions(), engineOptions.Locale);
         Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond }; // M2
         MainframeEngine.Input.Current = Tree.Input; // M10: Input.IsActionPressed(...) reads the engine's tree
+        Tree.QuitRequested += code => Quit((ExitCode)code);
+        Tree.CanCaptureFrame = engineOptions.EnableFrameCapture;
+        Tree.CaptureRequested += CaptureFrame;
 
         // Linux: Silk.NET cannot find package natives (libSDL2) in runtimes/linux-x64/native on its own.
         SilkNativeResolver.Install();
@@ -508,7 +511,10 @@ public abstract class Engine : IDisposable
         _renderedFrames++;
 
         if (Renderer.TryTakeCapture(out var capture))
+        {
             OnFrameCaptured(capture);
+            Tree.DeliverCapture(capture);
+        }
     }
 
     /// <summary>

@@ -80,12 +80,12 @@ public sealed class Camera2DTests : IDisposable
         // Frame 1: the internal update smooths towards the last frame's position (0), then the script moves the camera
         // to 100 and sets the zoom, which updates once more (towards 100) without keeping that step.
         camera.Target = new Vector2(100, 0);
-        _tree.Tick(new GameTime { DeltaTime = 0.1f });
-        var c = 8 * 0.1f;
+        _tree.Tick(new GameTime { DeltaTime = 0.05f });
+        var c = 8 * 0.05f;
         Assert.Equal(100 * c, camera.GetScreenCenterPosition().X, 3);
         // Frame 2: the kept smoothed position is still 0 (frame 1's internal step saw 0), so the internal step goes to
-        // 0.8 × 100, then the zoom set goes from there.
-        _tree.Tick(new GameTime { DeltaTime = 0.1f });
+        // 0.4 × 100, then the zoom set goes from there.
+        _tree.Tick(new GameTime { DeltaTime = 0.05f });
         var kept = 100 * c;
         Assert.Equal(kept + (100 - kept) * c, camera.GetScreenCenterPosition().X, 3);
     }

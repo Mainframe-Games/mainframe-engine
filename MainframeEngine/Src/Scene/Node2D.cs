@@ -13,6 +13,7 @@ public class Node2D : CanvasItem, ITransformNotifiable
     private Vector2 _position;
     private float _rotation;
     private Vector2 _scale = Vector2.One;
+    private float _skew;
     private Transform2D _local = Transform2D.Identity;
     private Transform2D _global = Transform2D.Identity;
     private bool _localDirty = true;
@@ -70,6 +71,25 @@ public class Node2D : CanvasItem, ITransformNotifiable
         }
     }
 
+    /// <summary>Shear in radians: the Y axis leans this far off perpendicular (Godot's <c>skew</c>; cast shadows use it).</summary>
+    public float Skew
+    {
+        get => _skew;
+        set
+        {
+            _skew = value;
+            MarkLocalDirty();
+        }
+    }
+
+    /// <summary>Skew in degrees (the serialized form).</summary>
+    [Export]
+    public float SkewDegrees
+    {
+        get => float.RadiansToDegrees(_skew);
+        set => Skew = float.DegreesToRadians(value);
+    }
+
     public Transform2D Transform
     {
         get
@@ -82,7 +102,13 @@ public class Node2D : CanvasItem, ITransformNotifiable
             _position = value.Origin;
             _rotation = value.Rotation;
             _scale = value.Scale;
-            MarkLocalDirty();
+            _skew = value.Skew;
+            // As in Godot, the transform set is kept exactly (the values above are only its decomposition).
+            _local = value;
+            _localDirty = false;
+            if ((_track & Track.Local) != 0)
+                OnLocalTransformChanged();
+            InvalidateGlobal();
         }
     }
 
@@ -183,7 +209,7 @@ public class Node2D : CanvasItem, ITransformNotifiable
     {
         if (!_localDirty)
             return;
-        _local = Transform2D.FromTrs(_position, _rotation, _scale);
+        _local = Transform2D.FromTrs(_position, _rotation, _scale, _skew);
         _localDirty = false;
     }
 

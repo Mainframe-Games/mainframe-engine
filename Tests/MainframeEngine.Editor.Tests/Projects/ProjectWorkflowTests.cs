@@ -529,7 +529,9 @@ public sealed class ProjectWorkflowTests : IDisposable
         var scene = w.Session.Active!;
         scene.AddNode(new Node3D { Name = "Autosaved" }, scene.Root);
         Assert.True(scene.IsDirty);
-        _editor!.Tree.Tick(new GameTime { DeltaTime = 61f });
+        // 61 s of 50 ms frames (one 61 s frame would count only the physics steps it ran, as in Godot).
+        for (var i = 0; i < 1220; i++)
+            _editor!.Tree.Tick(new GameTime { DeltaTime = 0.05f });
         Assert.False(scene.IsDirty);
         Assert.Contains("Autosaved", File.ReadAllText(scene.FilePath!), StringComparison.Ordinal);
     }

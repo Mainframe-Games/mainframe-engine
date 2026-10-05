@@ -116,7 +116,7 @@ public sealed class AssetDatabase
             {
                 var name = Path.GetFileName(file);
                 if (name.StartsWith('.') || name.EndsWith(MetaExtension, StringComparison.OrdinalIgnoreCase)
-                                         || name.Equals(IndexFileName, StringComparison.OrdinalIgnoreCase))
+                                         || name.Equals(IndexFileName, StringComparison.OrdinalIgnoreCase) || IsBuildOutput(name))
                     continue;
 
                 var uid = IsSelfDescribing(file) ? ReadEmbeddedUid(file) : ReadOrCreateMeta(file, createMissingMeta)?.Uid;
@@ -125,6 +125,15 @@ public sealed class AssetDatabase
             }
         }
     }
+
+    /// <summary>
+    /// Files generated next to an asset that are part of it, not assets of their own: a canvas shader's SPIR-V and lock
+    /// (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, <c>x.gdshader.spvlock</c>, see <see cref="CanvasShaderBuild"/>).
+    /// </summary>
+    public static bool IsBuildOutput(string fileName) =>
+        fileName.EndsWith(".gdshader.vert.spv", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".gdshader.frag.spv", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".gdshader" + CanvasShaderBuild.LockExtension, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Loads an <see cref="AssetIndex"/> file.</summary>
     public void LoadIndex(string indexPath)
