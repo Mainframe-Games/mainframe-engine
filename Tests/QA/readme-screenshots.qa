@@ -13,10 +13,6 @@ capture editor-project-manager
 open-project /tmp/MainframeProjects/Demo
 wait-for project 300
 wait 40
-# A game UiLayer in an edited scene draws over the editor's panels: drop the scene's HUD for the captures (undone before the end, never saved).
-select Ui
-key Delete
-wait 5
 click #level-debug
 collapse Ring
 select Lights/WarmSpot
@@ -44,9 +40,6 @@ click 900 640 # the description pane: the search field's focus tooltip goes away
 wait 30
 capture editor-add-node
 cancel
-wait 5
-# Undo the HUD removal so the Demo scene is clean again (nothing is saved; the next step opens another project).
-key Z cmd
 wait 5
 state
 # 4. The game workflow: create MyGame, add an [Export] property to its C#, Build & Reload, play it.

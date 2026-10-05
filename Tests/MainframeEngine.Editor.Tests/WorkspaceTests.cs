@@ -128,6 +128,36 @@ public sealed class WorkspaceTests : IDisposable
     }
 
     [Fact]
+    public void AGameUiLayerInAnEditedSceneStaysInertAboveNothing()
+    {
+        var before = _editor.Server.Layers.ToArray();
+        var hud = new UiLayer { Name = "Hud", Layer = 1000 };
+        var document = new UiDocument { Name = "Panel" };
+        hud.AddChild(document);
+        _editor.Scene.AddNode(hud, _editor.Scene.Root);
+        _editor.Tick(2);
+
+        // Not registered with the server: never updated, drawn or given input, so it cannot cover or steal from the panels.
+        Assert.Equal(before, _editor.Server.Layers);
+        Assert.DoesNotContain(hud, _editor.Server.Layers);
+        // But it still has a context, so OnReady code that creates data models keeps working.
+        Assert.NotNull(hud.Context);
+        using var model = document.CreateDataModel("hud");
+
+        var tool = new ToolUiLayer { Name = "ToolHud" };
+        _editor.Scene.AddNode(tool, _editor.Scene.Root);
+        _editor.Tick();
+        Assert.Contains(tool, _editor.Server.Layers);
+
+        _editor.Scene.History.Undo();
+        _editor.Tick();
+        Assert.Null(tool.Context);
+    }
+
+    [Tool]
+    private sealed class ToolUiLayer : UiLayer;
+
+    [Fact]
     public void ThePanelsFollowTheLayoutAndTheWindowSize()
     {
         Assert.Equal(W.Layout.Inspector, W.Inspector.Rect);

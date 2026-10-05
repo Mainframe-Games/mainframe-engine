@@ -451,6 +451,14 @@ public sealed class UiServer : IFrameServer, IInputServer
         return context;
     }
 
+    /// <summary>A context for a layer the server does not manage (see <see cref="UiLayer"/>): never updated, drawn or given input.</summary>
+    internal RmlContext CreateInertContext(UiLayer layer)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        UpdateViewport();
+        return new RmlContext($"inert{++_contextCounter}:{layer.Name}", (int)ViewportSize.X, (int)ViewportSize.Y, RenderInterface);
+    }
+
     internal void RemoveLayer(UiLayer layer)
     {
         _layers.Remove(layer);
