@@ -222,6 +222,10 @@ only one); a consumed event never reaches `OnInput`/`OnUnhandledInput` ([ADR 005
   source content folder; changes are debounced (150 ms) and applied on the main thread — `.rcss` re-reads style sheets
   keeping the DOM, `.rml` reloads documents (data models are C# state and survive; `UiElement` subscriptions are
   re-attached by id), images and fonts release textures. A document that failed to load is retried.
+  `UiServer.HotReloadEnabled` reports whether the watcher is on, and `UiServer.HotReloaded` (`Action<UiReloadKind,
+  string?>`) is raised on the main thread after every reload with its kind and the last changed file (null for a manual
+  `Reload(kind)`); unlike `UiDocument.Reloaded` it also fires for style-sheet-only reloads, so a game can show a reload
+  counter.
 - **Source content folders.** Debug builds record their project's `Content` folder
   (`[AssemblyMetadata("MainframeContentSource", …)]`); `UiServerOptions.SourceDirectoriesOf(assembly)` returns those
   that exist, and `UiFileInterface` checks them before the output's `Content/`, so edits apply without a rebuild. The

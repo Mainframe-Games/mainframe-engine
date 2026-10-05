@@ -628,8 +628,20 @@ public sealed class UiServer : IFrameServer, IInputServer
 
     // ── Hot reload ───────────────────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>True when the server watches UI files and reloads them on change (Debug engine builds by default).</summary>
+    public bool HotReloadEnabled => _options.HotReload;
+
+    /// <summary>
+    /// Raised on the main thread after a hot reload (file change or <see cref="Reload(UiReloadKind)"/>): the kind and the
+    /// changed file (null for a manual reload). Unlike <see cref="UiDocument.Reloaded"/> it also fires for stylesheet-only
+    /// reloads.
+    /// </summary>
+    public event Action<UiReloadKind, string?>? HotReloaded;
+
     /// <summary>Applies a batch of file changes (hot reload; also callable by tools and tests).</summary>
-    public void Reload(UiReloadKind kind)
+    public void Reload(UiReloadKind kind) => Reload(kind, null);
+
+    private void Reload(UiReloadKind kind, string? path)
     {
         if (kind == UiReloadKind.None)
             return;
@@ -654,12 +666,13 @@ public sealed class UiServer : IFrameServer, IInputServer
         }
 
         Log.Info($"[UI] Hot reload: {kind}");
+        HotReloaded?.Invoke(kind, path);
     }
 
     private void ApplyHotReload()
     {
-        if (_hotReload is not null && _hotReload.TryTake(out var kind))
-            Reload(kind);
+        if (_hotReload is not null && _hotReload.TryTake(out var kind, out var path))
+            Reload(kind, path);
     }
 
     // ── Debugger ─────────────────────────────────────────────────────────────────────────────────────────────

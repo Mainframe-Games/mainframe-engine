@@ -424,6 +424,28 @@ public sealed class UiServerTests
     }
 
     [Fact]
+    public void HotReloadEnabledFollowsOptions()
+    {
+        using var off = new UiTestTree(new UiServerOptions { HotReload = false });
+        Assert.False(off.Server.HotReloadEnabled);
+    }
+
+    [Fact]
+    public void ReloadRaisesHotReloadedForStyleSheetsToo()
+    {
+        using var ui = new UiTestTree();
+        ui.AddLayer(0, new UiDocument { Source = ui.Write("UI/page.rml", UiTestTree.Page("<p id='x'>x</p>")) });
+        ui.Tick();
+        var events = new List<(UiReloadKind Kind, string? Path)>();
+        ui.Server.HotReloaded += (kind, path) => events.Add((kind, path));
+
+        ui.Server.Reload(UiReloadKind.StyleSheets);
+        ui.Server.Reload(UiReloadKind.Documents);
+
+        Assert.Equal([(UiReloadKind.StyleSheets, (string?)null), (UiReloadKind.Documents, (string?)null)], events);
+    }
+
+    [Fact]
     public void HotReloadRecoversADocumentThatFailedToLoad()
     {
         using var ui = new UiTestTree();

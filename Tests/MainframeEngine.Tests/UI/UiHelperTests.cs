@@ -99,6 +99,17 @@ public sealed class UiHelperTests
     }
 
     [Fact]
+    public void HotReloadBatchReportsTheLastChangedFile()
+    {
+        using var reload = new UiHotReload(TimeSpan.FromMilliseconds(10));
+        reload.Enqueue("a.rcss");
+        reload.Enqueue("b.rml");
+        Thread.Sleep(40);
+        Assert.True(reload.TryTake(out _, out var path));
+        Assert.Equal("b.rml", path);
+    }
+
+    [Fact]
     public void HotReloadWatcherSeesFileChanges()
     {
         var dir = Directory.CreateTempSubdirectory("mf-ui-watch").FullName;
