@@ -92,6 +92,22 @@ jobs:
           --results-directory TestResults
           --collect:"XPlat Code Coverage"
 
+      # The release archive step of publish.yml (build/package-editor.sh) on this OS, with a stand-in publish folder:
+      # catches packaging breakage (e.g. Windows path handling) in PRs instead of at release time.
+      - name: Packaging smoke (release archive)
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            Windows) rid=win-x64 ;;
+            macOS) rid=osx-arm64 ;;
+            *) rid=linux-x64 ;;
+          esac
+          mkdir -p artifacts/package-smoke/publish
+          echo stand-in > artifacts/package-smoke/publish/MainframeEngine.Editor
+          build/package-editor.sh "$rid" 0.0.0-smoke artifacts/package-smoke/publish artifacts/package-smoke/out
+          ls -l artifacts/package-smoke/out
+          test -s artifacts/package-smoke/out/MainframeEngine-0.0.0-smoke-"$rid".*
+
       # Committed .mo files match their .po, translations keep their placeholders (and msgfmt -c agrees where installed).
       - name: Localization catalogs
         run: dotnet run --project Tools/MainframeEngine.L10n -c Release --no-build -- check --dir MainframeEngine.Sandbox/Content/locale --msgfmt
