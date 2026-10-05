@@ -146,7 +146,7 @@ public sealed class ProjectIconResolverTests : IDisposable
     public void NullCharacterInPathDoesNotThrow()
     {
         var root = Directory.CreateDirectory(Path.Combine(_directory, Guid.NewGuid().ToString("N"))).FullName;
-        File.WriteAllText(Path.Combine(root, ProjectSettings.FileName), """{"format": 1, "name": "P", "window": {"icon": "Content\0/icon.png"}}""");
+        File.WriteAllText(Path.Combine(root, ProjectSettings.FileName), """{"format": 1, "name": "P", "window": {"icon": "Content\u0000/icon.png"}}""");
         var icon = new ProjectIconResolver().Resolve(root);
         Assert.Null(icon.Path);
     }

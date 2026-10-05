@@ -17,7 +17,6 @@ public sealed class ProjectIconResolver
         var projectFile = GameProjectLayout.ProjectFileOf(root);
         var projectWrite = File.Exists(projectFile) ? File.GetLastWriteTimeUtc(projectFile) : DateTime.MinValue;
 
-        // If project.mfproj doesn't exist, return default immediately without calling ProjectSettings.Load
         if (projectWrite == DateTime.MinValue)
         {
             _cache.Remove(root);
@@ -26,20 +25,10 @@ public sealed class ProjectIconResolver
 
         var isFirstResolution = !_cache.ContainsKey(root);
         _cache.TryGetValue(root, out var cached);
-
-        // Re-read candidate only if project.mfproj's mtime changed
         var candidate = cached.ProjectWrite == projectWrite ? cached.Candidate : ReadIcon(root, projectFile);
-
-        // Always stat the candidate (check existence and get modification time)
         var iconWrite = candidate is not null && File.Exists(candidate) ? File.GetLastWriteTimeUtc(candidate) : DateTime.MinValue;
-
-        // Path is the candidate if it exists (IconWrite != MinValue), else null
         var icon = candidate is not null && iconWrite != DateTime.MinValue ? candidate : null;
-
-        // Previous icon for change detection: reconstruct from cache
         var previousIcon = cached.Candidate is not null && cached.IconWrite != DateTime.MinValue ? cached.Candidate : null;
-
-        // Changed on first resolution, when icon path changed, or when (icon exists and mtime changed)
         var changed = isFirstResolution || previousIcon != icon || (icon is not null && cached.IconWrite != iconWrite);
 
         _cache[root] = (projectWrite, candidate, iconWrite);
