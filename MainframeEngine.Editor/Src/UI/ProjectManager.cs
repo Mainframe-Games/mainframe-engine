@@ -256,6 +256,8 @@ public sealed class ProjectManager : EditorDocument
         }
     }
 
+    private ReleaseVersion? _badgeVersion;
+
     /// <summary>True while the update badge is shown (a newer release is available).</summary>
     public bool UpdateBadgeVisible { get; private set; }
 
@@ -268,12 +270,16 @@ public sealed class ProjectManager : EditorDocument
             return;
         var badge = Document.GetElementById("pm-update");
         badge.SetClass("shown", UpdateBadgeVisible);
-        if (release is not null)
+        if (release is not null && _badgeVersion != release.Version)
+        {
+            _badgeVersion = release.Version;
             badge.SetAttribute("data-tooltip", $"Mainframe Engine v{release.Version} is available — click for the release notes and Update and restart");
+        }
     }
 
     protected override void OnAttach(RmlDocument document)
     {
+        _badgeVersion = null;
         document.AsElement().AddEventListener("keydown", e =>
         {
             if (!Visible)

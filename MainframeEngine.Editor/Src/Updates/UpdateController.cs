@@ -209,7 +209,10 @@ public sealed class UpdateController(EditorWorkspace workspace, IUpdateService? 
         Staged = download.Result;
         State = UpdateState.Ready;
         Changed?.Invoke();
-        Primary(); // one click: Update & restart (or show the files)
+        // One click: Update & restart (or show the files) — only while the dialog is open. After "Later" the staged update waits
+        // (badge stays; the dialog then offers Restart now) rather than quitting the editor unattended.
+        if (workspace.UpdateDialog.Visible)
+            Primary();
     }
 
     private void Restart(IUpdateService updates, StagedUpdate staged)

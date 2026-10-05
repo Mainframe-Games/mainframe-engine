@@ -118,6 +118,7 @@ public sealed class UpdateUiTests : IDisposable
         Start();
         _editor!.Scene.AddNode(new Node3D { Name = "X" }, _editor.Scene.Root);
         _editor.Tick();
+        W.UpdateDialog.Open();
         W.Updates.Primary();
         _service.Download.SetResult(FakeUpdateService.Staged());
         _editor.Tick();
@@ -132,6 +133,36 @@ public sealed class UpdateUiTests : IDisposable
         W.Message.Answer(1); // don't save
         Assert.Single(_service.Started);
         Assert.True(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
+    public void LaterDuringTheDownloadKeepsTheEditorOpenUntilRestartIsChosen()
+    {
+        _service.CheckResult = FakeUpdateService.Update();
+        Start();
+        W.UpdateDialog.Open();
+        W.Updates.Primary();
+        W.UpdateDialog.Close(); // Later: the download continues in the background
+        _service.Download.SetResult(FakeUpdateService.Staged());
+        _editor!.Tick();
+        Assert.Empty(_service.Started);
+        Assert.False(_editor.Host.QuitRequested);
+        Assert.Equal(UpdateState.Ready, W.Updates.State);
+        Assert.True(W.Toolbar.UpdateBadgeVisible);
+
+        W.UpdateDialog.Open();
+        Assert.Equal("Restart now", W.UpdateDialog.PrimaryLabel);
+        W.Updates.Primary();
+        Assert.Single(_service.Started);
+        Assert.True(_editor.Host.QuitRequested);
+    }
+
+    [Fact]
+    public void HelpUpdateDoesNothingWithoutAnUpdate()
+    {
+        Start();
+        W.Commands.Execute("help.update");
+        Assert.False(W.UpdateDialog.Visible);
     }
 
     [Fact]
@@ -189,6 +220,7 @@ public sealed class UpdateUiTests : IDisposable
         _service.CheckResult = FakeUpdateService.Update();
         _service.StartError = new UpdateException("The new version could not be started (denied).");
         Start();
+        W.UpdateDialog.Open();
         W.Updates.Primary();
         _service.Download.SetResult(FakeUpdateService.Staged());
         _editor!.Tick();

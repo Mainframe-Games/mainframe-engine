@@ -70,7 +70,7 @@ public sealed class UpdateDialog : EditorDocument
 
     protected override void OnAttach(RmlDocument document) => document.AsElement().AddEventListener("keydown", e =>
     {
-        if (Visible && (RmlKey)e.GetParameter("key_identifier", 0) == RmlKey.Escape && Updates.State != UpdateState.Downloading)
+        if (Visible && (RmlKey)e.GetParameter("key_identifier", 0) == RmlKey.Escape)
             Close();
     });
 }
