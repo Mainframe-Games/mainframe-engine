@@ -17,22 +17,74 @@ public sealed class SpineNodeTests
     private static GameTime Frame(float dt) => new() { DeltaTime = dt, FrameCount = 1 };
 
     [Fact]
-    public void SpineScaleSetterAppliesToTheSkeletonAndKeepsFlip()
+    public void SpineScaleLeavesTheSkeletonAtUnitScaleAndKeepsFlip()
     {
         using var node = CreateNode();
-        Assert.Equal(SpineNode.DefaultSpineScale, node.Skeleton.ScaleX);
+        Assert.Equal(1f, node.Skeleton.ScaleX);
 
         node.SpineScale = 0.5f;
-        Assert.Equal(0.5f, node.Skeleton.ScaleX);
-        Assert.Equal(0.5f, node.Skeleton.ScaleY);
+        Assert.Equal(1f, node.Skeleton.ScaleX);
+        Assert.Equal(1f, node.Skeleton.ScaleY);
 
         node.FlipX(true);
         node.SpineScale = 0.25f;
-        Assert.Equal(-0.25f, node.Skeleton.ScaleX);
-        Assert.Equal(0.25f, node.Skeleton.ScaleY);
+        Assert.Equal(-1f, node.Skeleton.ScaleX);
+        Assert.Equal(1f, node.Skeleton.ScaleY);
 
         node.FlipX(false);
-        Assert.Equal(0.25f, node.Skeleton.ScaleX);
+        Assert.Equal(1f, node.Skeleton.ScaleX);
+
+        node.SpineScale = -0.25f;
+        Assert.Equal(-1f, node.Skeleton.ScaleY);
+    }
+
+    [Fact]
+    public void SpineScaleScalesTheDrawnVertices()
+    {
+        using var half = CreateNode();
+        half.SpineScale = 0.5f;
+        using var quarter = CreateNode();
+        quarter.SpineScale = 0.25f;
+        half.Advance(Frame(1f / 60f));
+        quarter.Advance(Frame(1f / 60f));
+
+        for (var i = 0; i < half.SpineRenderer!.PreparedVertexCount; i += 17)
+        {
+            var a = half.SpineRenderer.PreparedWorldPosition(i);
+            var b = quarter.SpineRenderer!.PreparedWorldPosition(i);
+            Assert.Equal(a.X, b.X * 2f, 2);
+            Assert.Equal(a.Y, b.Y * 2f, 2);
+            Assert.Equal(a.Z, b.Z, 4); // ZSpacing is in node units, not scaled
+        }
+    }
+
+    [Theory]
+    [InlineData(0.005f)]
+    [InlineData(0.0045f)]
+    [InlineData(0.02f)]
+    public void PoseDoesNotDependOnSpineScale(float scale)
+    {
+        // Spine's IK solver has absolute epsilons: a skeleton scaled to tiny world units solved a different pose.
+        using var reference = CreateNode();
+        reference.SpineScale = 1f;
+        using var scaled = CreateNode();
+        scaled.SpineScale = scale;
+        foreach (var node in new[] { reference, scaled })
+        {
+            node.SetAnimation("walk");
+            node.Advance(Frame(0.3f));
+        }
+
+        var count = reference.SpineRenderer!.PreparedVertexCount;
+        Assert.Equal(count, scaled.SpineRenderer!.PreparedVertexCount);
+        for (var i = 0; i < count; i++)
+        {
+            var expected = reference.SpineRenderer.PreparedWorldPosition(i);
+            var actual = scaled.SpineRenderer.PreparedWorldPosition(i) / scale;
+            // SpineBoy is ~500 skeleton units tall: half a unit is far below a pixel at any sensible size.
+            Assert.True(Math.Abs(expected.X - actual.X) < 0.5f && Math.Abs(expected.Y - actual.Y) < 0.5f,
+                $"Vertex {i}: {actual.X},{actual.Y} at SpineScale {scale} vs {expected.X},{expected.Y} at 1.");
+        }
     }
 
     [Fact]

@@ -64,7 +64,11 @@ public class SpineNode : VisualInstance3D
     [Export]
     public string Animation { get; set; } = string.Empty;
 
-    /// <summary>Uniform skeleton scale (skeleton units → node units). Applied to the skeleton immediately; keeps <see cref="FlipX"/>.</summary>
+    /// <summary>
+    /// Uniform skeleton scale (skeleton units → node units); keeps <see cref="FlipX"/>. Applied to the drawn vertices,
+    /// not to the skeleton: Spine solves IK with absolute epsilons, so a skeleton scaled to tiny world units (below
+    /// ~0.01) resolves wrong poses. The skeleton only carries the flip signs.
+    /// </summary>
     [Export]
     public float SpineScale
     {
@@ -162,7 +166,9 @@ public class SpineNode : VisualInstance3D
         skeleton.UpdateWorldTransform(UpdateType);
         // Build CPU vertex arrays here so they are ready for both the shadow pass
         // and the main render pass within the same frame.
-        _spineRenderer?.BuildVertices(ZSpacing, ModelMatrix);
+        // SpineScale scales x/y only, so ZSpacing stays in node units.
+        var spineScale = Math.Abs(_spineScale);
+        _spineRenderer?.BuildVertices(ZSpacing, Matrix4x4.CreateScale(spineScale, spineScale, 1f) * ModelMatrix);
     }
 
     public override void Draw(in ICamera camera, in LightEnvironment lightEnvironment)
@@ -240,9 +246,8 @@ public class SpineNode : VisualInstance3D
     {
         if (_skeleton is null)
             return;
-        var magnitude = Math.Abs(_spineScale);
-        _skeleton.ScaleX = _flipX ? -magnitude : magnitude;
-        _skeleton.ScaleY = _spineScale;
+        _skeleton.ScaleX = _flipX ? -1f : 1f;
+        _skeleton.ScaleY = _spineScale < 0f ? -1f : 1f;
     }
 }
 

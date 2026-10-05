@@ -94,8 +94,11 @@ Vertex buffers are per-frame-slot `GpuBuffer`s that grow by doubling; `Dispose` 
   (`RenderServer.ShadowsEnabled = false`, or the tree-less constructor): without one the node binds the
   renderer's fallback at set 1 and casts no shadows (`DrawShadow*` are no-ops). `Animation` (exported) is the
   animation set when the skeleton loads; before loading, `SetAnimation` just sets it.
-- `SpineScale` (default `SpineNode.DefaultSpineScale = 0.02`) applies to the skeleton immediately and
-  keeps `FlipX`. `SetAnimation` replaces track 0 now; `QueueAnimation` appends after the current one.
+- `SpineScale` (default `SpineNode.DefaultSpineScale = 0.02`) applies immediately and keeps `FlipX`. It scales
+  the drawn vertices (x/y of the model matrix passed to `BuildVertices`; `ZSpacing` stays in node units), not the
+  skeleton: the skeleton keeps unit scale and only carries the flip signs, so bone world positions are in skeleton
+  units. Spine's IK solver uses absolute epsilons (e.g. a parent determinant ≤ 0.0001), and a skeleton scaled below
+  ~0.01 solved a crumpled pose; the `spine-small-scale` render test guards this. `SetAnimation` replaces track 0 now; `QueueAnimation` appends after the current one.
 - Atlas pixel arrays are released after the GPU upload (`SpineTextureLoader.ReleasePixelData`); only the
   page sizes stay.
 - Draw Spine after opaque geometry (tree order / `RenderPriority`). It alpha-blends but also writes depth.

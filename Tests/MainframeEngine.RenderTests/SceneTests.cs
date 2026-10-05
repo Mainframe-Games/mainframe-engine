@@ -46,6 +46,17 @@ public class SceneTests
     }
 
     [Fact]
+    public void SpineAtASmallSpineScaleRendersTheSamePose()
+    {
+        // Same world size as "spine" with a 4x smaller SpineScale (0.005): the pose must not depend on it. SpineBoy is
+        // small on screen, so the default 0.5% would accept the crumpled legs (~0.27%); identical poses differ by 0 pixels.
+        var result = HostRunner.Run("spine-small-scale", Output("spine-small-scale"), "--capture", "60", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 60, maxDifferingPercent: 0.02, goldenFile: "spine_frame0060.png");
+    }
+
+    [Fact]
     public void MultipleShadowCastingLightsEachUseTheirOwnMatrix()
     {
         // Directional + spot + point (6 cube faces): 8 shadow sub-passes in one frame.
