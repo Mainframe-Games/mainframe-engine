@@ -1,9 +1,9 @@
 name: CI
 
+# No push trigger: main only changes through pull requests that already passed this workflow
+# (main-protection ruleset), so a run on main would repeat the PR's run and burn Actions minutes.
 on:
   pull_request:
-  push:
-    branches: [main]
   workflow_dispatch: # run on any branch: gh workflow run ci.yml --ref <branch>
   workflow_call: # publish.yml re-runs the full suite before releasing
 
