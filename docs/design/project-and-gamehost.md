@@ -54,12 +54,13 @@ commas tolerated). Only values that differ from the defaults are written, except
 
 ```jsonc
 {
-  "format": 1,
+  "format": 2,
   "name": "Space Game",
   "engineVersion": "0.4.2",                    // the engine the project was created with / upgraded to
   "mainScene": "scn_0123456789ab",             // UID or Content/ path
   "assemblies": ["SpaceGame"],                 // game assemblies (types registered before scenes load)
-  "steamAppId": 480,
+  "isDemo": true,                              // this build is the game's Steam demo (see Demo builds)
+  "steam": { "appId": 480, "demoAppId": 481, "devAppIdFile": true, "restartThroughSteam": true },
   "window": { "title": "Space!", "width": 1920, "height": 1080, "vsync": false, "maxFps": 144, "icon": "Content/icon.png" },
   "physics": {
     "ticksPerSecond": 120, "maxStepsPerFrame": 8,
@@ -81,7 +82,8 @@ commas tolerated). Only values that differ from the defaults are written, except
 }
 ```
 
-- **Versioning.** `format` is `ProjectSettingsFormat.Current` (1). Older files run through `ProjectMigration` steps
+- **Versioning.** `format` is `ProjectSettingsFormat.Current` (2; format 1 had a top-level `steamAppId`, which the
+  1 → 2 migration moves to `steam.appId`). Older files run through `ProjectMigration` steps
   (`From` → `From + 1`, each editing the `JsonObject`) before they are read; newer files are rejected ("update the
   engine"). `engineVersion` is advisory: `GameHost` warns when its major/minor differs from `EngineInfo.Version`
   (development builds `0.0.0-*` never warn).
@@ -101,6 +103,29 @@ commas tolerated). Only values that differ from the defaults are written, except
   shadow maps (`ShadowsEnabled = false`); `Low`/`Medium`/`High` apply `ShadowQualitySettings.For(level)` to the shadow
   system — atlas size, PCF filter, cascade limit and per-map resolution limit
   ([shadow quality levels](shadow-system.md#quality-levels)). `High` is the shadow system's defaults.
+- **Steam** (`SteamProjectSettings`, the editor's Steamworks section; [Steamworks](steamworks.md#project-settings)):
+  `appId` (full game) and `demoAppId` (the demo's own Steam app). `ProjectSettings.SteamAppId` is the one this build
+  uses — `demoAppId` when `isDemo`, else `appId`; 0 leaves Steam off — and becomes `EngineOptions.SteamAppId`.
+  `devAppIdFile` (default true) lets development runs start Steam without being launched by it; `restartThroughSteam`
+  (default false) makes shipped builds started outside Steam relaunch through it.
+
+### Demo builds
+
+`isDemo` (Application › Demo Build) marks the game's **Steam demo** build, as opposed to the full game:
+
+- **Compile time.** Every project of the game imports the engine's
+  [`build/MainframeGame.props`](../../build/MainframeGame.props) (the template's `Directory.Build.props` does, as does
+  `Examples/Demo`'s). It reads
+  `isDemo` from the nearest `project.mfproj` and, when true, adds `DEMO` to `DefineConstants`, so game code separates
+  the builds with `#if DEMO` / `#if !DEMO` (cut content, a "buy the full game" screen). A build overrides the file with
+  `-p:MainframeDemo=true|false`: `dotnet publish MyGame.Desktop -c Release -p:MainframeDemo=true` makes the demo from
+  the same checkout as the full game.
+- **Run time.** The props also stamp every game assembly with `[AssemblyMetadata("MainframeDemo", "true|false")]`.
+  `GameHost.Run` sets `ProjectSettings.IsDemo` from it (`GameHost.BuiltAsDemo`; the entry assembly first), so the
+  running game agrees with how it was compiled even when `-p:MainframeDemo` differs from the copied project file.
+  `GameHost.IsDemo` is the runtime check; Steam starts with the demo app id; the log says `Demo build (Steam app N)`.
+- The editor builds and loads the game with the project's `isDemo`; save the setting and Play (or Build & Reload) to
+  switch. Projects created before `MainframeGame.props` add the import to their `Directory.Build.props` by hand.
 
 ## GameHost
 

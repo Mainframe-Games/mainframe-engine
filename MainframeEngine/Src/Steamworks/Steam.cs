@@ -135,6 +135,27 @@ public static class Steam
         return SteamApi.Initialize(NativeLibraryFileName);
     }
 
+    /// <summary>
+    /// Shipped builds, before anything else: true when the game was started outside the Steam client and Steam is now
+    /// launching it again through Steam (<c>SteamAPI_RestartAppIfNecessary</c>), so this process must exit at once. False
+    /// means carry on: launched by Steam, or Steam cannot be asked here (app id 0, unsupported platform, no native
+    /// library, an error). Never throws. Development runs skip it (a <c>steam_appid.txt</c> also makes it return false).
+    /// </summary>
+    public static bool RestartAppIfNecessary(uint appId)
+    {
+        if (appId == 0 || !IsPlatformSupported)
+            return false;
+        try
+        {
+            return SteamApi.RestartAppIfNecessary(appId);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"[Steam] RestartAppIfNecessary threw {e.GetType().Name}: {e.Message}");
+            return false;
+        }
+    }
+
     /// <summary>Pumps Steam callbacks. Call once per frame on the main thread; a no-op unless <see cref="Valid"/>.</summary>
     public static void RunCallbacks()
     {

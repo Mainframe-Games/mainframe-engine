@@ -184,6 +184,7 @@ antenna-bars-5
 app-window
 arrow-forward
 brightness-half
+brand-steam
 browser
 check
 circle-x

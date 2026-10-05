@@ -131,7 +131,9 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
 **Game projects (M10):** no `Engine` subclass. `dotnet new mfgame -n MyGame --engine-path <checkout>` (template in
 `Templates/`, `just template-smoke`) creates `MyGame` (node library + generator), `MyGame.Desktop`
 (`return GameHost.Run(args, typeof(SomeNode).Assembly);`) and `project.mfproj` (`ProjectSettings`: main scene, window,
-physics, input map, audio, localization, rendering, autoloads; versioned JSON with migrations). `GameHost` flags:
+physics, input map, audio, localization, rendering, Steam, autoloads; versioned JSON with migrations). Steam demo
+builds: `isDemo` in `project.mfproj` (or `-p:MainframeDemo=true`) defines `DEMO` for game code (`#if DEMO`) through
+`build/MainframeGame.props`, which the template's `Directory.Build.props` imports; `GameHost.IsDemo` at run time. `GameHost` flags:
 `--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`. Input actions: `Input.IsActionPressed("jump")`
 / `SceneTree.Input`. Logs are `LogEntry`s routed to `ILogSink`s (`Log.AddSink`; console, `FileLogSink`,
 `MemoryLogSink`); filtered `Log.X($"...")` costs nothing. Editor-facing: `EditorLinkServer`/`EditorLinkClient`,

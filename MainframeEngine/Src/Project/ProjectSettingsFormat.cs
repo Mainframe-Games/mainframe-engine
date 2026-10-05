@@ -17,10 +17,22 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 1;
+    public const int Current = 2;
 
-    /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/> (none yet: format 1 is the first).</summary>
-    public static IReadOnlyList<ProjectMigration> Migrations { get; } = [];
+    /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
+    public static IReadOnlyList<ProjectMigration> Migrations { get; } =
+    [
+        // 1 → 2: the top-level "steamAppId" moved into the "steam" section (with the demo app id and start-up options).
+        new(1, static root =>
+        {
+            if (root["steamAppId"] is not { } appId)
+                return;
+            root.Remove("steamAppId");
+            if (root["steam"] is not JsonObject steam)
+                root["steam"] = steam = new JsonObject();
+            steam["appId"] ??= appId;
+        }),
+    ];
 
     /// <summary>Parses <paramref name="json"/> with the engine's migrations.</summary>
     public static ProjectSettings Parse(ReadOnlySpan<byte> json, string source) => Parse(json, source, Current, Migrations);
@@ -107,8 +119,9 @@ public static class ProjectSettingsFormat
                 w.WriteString("mainScene", main);
             if (settings.Assemblies.Count > 0)
                 WriteStrings(w, "assemblies", settings.Assemblies);
-            if (settings.SteamAppId != 0)
-                w.WriteNumber("steamAppId", settings.SteamAppId);
+            if (settings.IsDemo)
+                w.WriteBoolean("isDemo", true);
+            WriteSteam(w, settings.Steam);
             WriteWindow(w, settings.Window);
             WritePhysics(w, settings.Physics);
             WriteInput(w, settings.Input);
@@ -126,6 +139,23 @@ public static class ProjectSettingsFormat
     // ----------------------------------------------------------------------------------------------------
     // Writing (sections are omitted when every value is the default)
     // ----------------------------------------------------------------------------------------------------
+
+    private static void WriteSteam(Utf8JsonWriter w, SteamProjectSettings s)
+    {
+        var d = new SteamProjectSettings();
+        if (s.AppId == d.AppId && s.DemoAppId == d.DemoAppId && s.DevAppIdFile == d.DevAppIdFile && s.RestartThroughSteam == d.RestartThroughSteam)
+            return;
+        w.WriteStartObject("steam");
+        if (s.AppId != d.AppId)
+            w.WriteNumber("appId", s.AppId);
+        if (s.DemoAppId != d.DemoAppId)
+            w.WriteNumber("demoAppId", s.DemoAppId);
+        if (s.DevAppIdFile != d.DevAppIdFile)
+            w.WriteBoolean("devAppIdFile", s.DevAppIdFile);
+        if (s.RestartThroughSteam != d.RestartThroughSteam)
+            w.WriteBoolean("restartThroughSteam", s.RestartThroughSteam);
+        w.WriteEndObject();
+    }
 
     private static void WriteWindow(Utf8JsonWriter w, WindowSettings s)
     {
@@ -341,7 +371,7 @@ public static class ProjectSettingsFormat
         public ProjectSettings Read(JsonObject root)
         {
             var s = new ProjectSettings();
-            Known(root, "", "format", "name", "engineVersion", "version", "mainScene", "assemblies", "steamAppId", "window", "physics", "input",
+            Known(root, "", "format", "name", "engineVersion", "version", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
                 "audio", "localization", "rendering", "autoloads");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
@@ -349,7 +379,9 @@ public static class ProjectSettingsFormat
             s.Version = String(root, "version", "version") ?? "";
             s.MainScene = String(root, "mainScene", "mainScene");
             s.Assemblies.AddRange(Strings(root, "assemblies", "assemblies"));
-            s.SteamAppId = (uint)Long(root, "steamAppId", "steamAppId", 0, 0, uint.MaxValue);
+            s.IsDemo = Bool(root, "isDemo", "isDemo", s.IsDemo);
+            if (Object(root, "steam") is { } steam)
+                ReadSteam(steam, s.Steam);
 
             if (Object(root, "window") is { } window)
                 ReadWindow(window, s.Window);
@@ -366,6 +398,15 @@ public static class ProjectSettingsFormat
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
             return s;
+        }
+
+        private void ReadSteam(JsonObject o, SteamProjectSettings s)
+        {
+            Known(o, "steam.", "appId", "demoAppId", "devAppIdFile", "restartThroughSteam");
+            s.AppId = (uint)Long(o, "appId", "steam.appId", s.AppId, 0, uint.MaxValue);
+            s.DemoAppId = (uint)Long(o, "demoAppId", "steam.demoAppId", s.DemoAppId, 0, uint.MaxValue);
+            s.DevAppIdFile = Bool(o, "devAppIdFile", "steam.devAppIdFile", s.DevAppIdFile);
+            s.RestartThroughSteam = Bool(o, "restartThroughSteam", "steam.restartThroughSteam", s.RestartThroughSteam);
         }
 
         private void ReadWindow(JsonObject o, WindowSettings s)

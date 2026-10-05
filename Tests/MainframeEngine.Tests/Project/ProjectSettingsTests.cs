@@ -34,11 +34,15 @@ public sealed class ProjectSettingsTests : IDisposable
             MainScene = "scn_0123456789ab",
             EngineVersion = "1.4.2",
             Version = "2026.9.2",
-            SteamAppId = 480,
+            IsDemo = true,
             Input = new InputMap().Bind("jump", "key:Space", "pad:A").Bind("move_left", "key:A", "axis:LeftX-"),
         };
         s.Input.GetAction("move_left")!.Deadzone = 0.25f;
         s.Assemblies.Add("SpaceGame");
+        s.Steam.AppId = 480;
+        s.Steam.DemoAppId = 481;
+        s.Steam.DevAppIdFile = false;
+        s.Steam.RestartThroughSteam = true;
         s.Window.Title = "Space!";
         s.Window.Width = 1920;
         s.Window.Height = 1080;
@@ -81,7 +85,8 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(expected.MainScene, actual.MainScene);
         Assert.Equal(expected.EngineVersion, actual.EngineVersion);
         Assert.Equal(expected.Version, actual.Version);
-        Assert.Equal(expected.SteamAppId, actual.SteamAppId);
+        Assert.Equal(expected.IsDemo, actual.IsDemo);
+        Assert.Equivalent(expected.Steam, actual.Steam, strict: true);
         Assert.Equal(expected.Assemblies, actual.Assemblies);
         Assert.Equivalent(expected.Window, actual.Window, strict: true);
         Assert.Equal(expected.Physics.TicksPerSecond, actual.Physics.TicksPerSecond);
@@ -101,7 +106,7 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         var json = Text(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" });
 
-        Assert.Equal("{\n  \"format\": 1,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
+        Assert.Equal("{\n  \"format\": 2,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
         AssertSame(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" }, Parse(json));
     }
 
@@ -174,7 +179,7 @@ public sealed class ProjectSettingsTests : IDisposable
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "A", "type": "T" }, { "name": "A", "type": "U" } ] }""", "'A' is used by another autoload")]
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "a/b", "type": "T" } ] }""", "must be a node name")]
     [InlineData("""{ "format": 1, "assemblies": [1] }""", "assemblies must contain only strings")]
-    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 1")]
+    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 2")]
     [InlineData("""{ "format": 0 }""", "invalid project format 0")]
     [InlineData("""[1, 2]""", "is not a JSON object")]
     [InlineData("""{ "format": 1, """, "is not valid JSON")]
@@ -219,6 +224,37 @@ public sealed class ProjectSettingsTests : IDisposable
         var current = ProjectSettingsFormat.Parse("""{ "format": 3, "name": "New" }"""u8, "new.mfproj", 3, migrations);
         Assert.Equal("New", current.Name);
         Assert.Equal([1, 2], order); // no step ran for a current file
+    }
+
+    [Fact]
+    public void Format1SteamAppIdMovesIntoTheSteamSection()
+    {
+        var s = Parse("""{ "format": 1, "name": "Old", "steamAppId": 480 }""");
+        Assert.Equal(480u, s.Steam.AppId);
+        Assert.Equal(0u, s.Steam.DemoAppId);
+        Assert.False(s.IsDemo);
+        Assert.Equal(480u, s.SteamAppId);
+
+        var json = JsonNode.Parse(Text(s))!;
+        Assert.Equal(2, (int)json["format"]!);
+        Assert.Null(json["steamAppId"]);
+        Assert.Equal(480u, (uint)json["steam"]!["appId"]!);
+    }
+
+    [Fact]
+    public void TheSteamAppIdFollowsTheDemoFlag()
+    {
+        var s = new ProjectSettings();
+        s.Steam.AppId = 480;
+        s.Steam.DemoAppId = 481;
+        Assert.Equal(480u, s.SteamAppId);
+        Assert.Equal(480u, s.ToEngineOptions().SteamAppId);
+        s.IsDemo = true;
+        Assert.Equal(481u, s.SteamAppId);
+        Assert.Equal(481u, s.ToEngineOptions().SteamAppId);
+
+        s.Steam.DemoAppId = 0; // no demo app: Steam stays off in the demo
+        Assert.Equal(0u, s.ToEngineOptions().SteamAppId);
     }
 
     [Fact]
@@ -273,7 +309,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(120, o.PhysicsTicksPerSecond);
         Assert.Same(s.Physics.Physics3D, o.Physics3D);
         Assert.Same(s.Physics.Physics2D, o.Physics2D);
-        Assert.Equal(480u, o.SteamAppId);
+        Assert.Equal(481u, o.SteamAppId); // a demo starts Steam with the demo app id
         Assert.False(o.Audio.Enabled);
         Assert.Equal("res_00000000beef", o.Audio.BusLayoutPath);
         Assert.Equal(44100, o.Audio.SampleRate);

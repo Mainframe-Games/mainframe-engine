@@ -52,7 +52,9 @@ Steam.Shutdown();
 - **Dev app id.** `writeDevAppIdFile: true` writes `steam_appid.txt` next to the executable, only when it is missing
   or different, and sets `SteamAppId` for the process. A build started from an IDE or with `dotnet run` then
   initializes. **Never enable it in shipped builds:** it bypasses Steam's "launched through Steam" check.
-  `SteamAPI.RestartAppIfNecessary` is not called.
+- **`Steam.RestartAppIfNecessary(uint appId)`** wraps `SteamAPI_RestartAppIfNecessary`: true when the game was
+  started outside the Steam client and Steam is relaunching it, so the process must exit at once. It never throws and
+  returns false (carry on) when Steam cannot be asked: app id 0, an unsupported platform, no native library.
 
 ### Why nothing mentions Steamworks types
 
@@ -140,8 +142,22 @@ assemblies. Upgrading the package is a dependency decision and must be discussed
 Set `EngineOptions.SteamAppId` and `Engine.OnLoad` registers a `SteamServer` (an `IFrameServer`):
 `Steam.TryInitialize` when it is registered, `Steam.RunCallbacks` from `IFrameServer.Process` — which
 `SceneTree.Tick` calls once per frame for every frame server, after process, deferred frees and transform sync — and
-`Steam.Shutdown` when the servers are disposed. It is inert (`Started` false) when Steam cannot start. Dev builds
-that need `writeDevAppIdFile` register `new SteamServer(appId, writeDevAppIdFile: true)` themselves.
+`Steam.Shutdown` when the servers are disposed. It is inert (`Started` false) when Steam cannot start.
+`EngineOptions.SteamWriteDevAppIdFile` passes `writeDevAppIdFile` through.
+
+## Project settings
+
+Games set Steam in `project.mfproj` (`steam` section; the editor's Project Settings › Steamworks), and `GameHost`
+applies it:
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `appId` (App ID) | 0 | The full game's app id. 0 leaves Steam off. |
+| `demoAppId` (Demo App ID) | 0 | The demo's own app id (a Steam demo is a separate app), used when the build is a demo (`isDemo`, [demo builds](project-and-gamehost.md#demo-builds)). 0 leaves Steam off in the demo. |
+| `devAppIdFile` (Run Outside Steam in Development) | true | Development runs — started by the editor's Play (`--editor-port`) or a Debug build (`GameHost.IsDevelopmentRun`) — set `EngineOptions.SteamWriteDevAppIdFile`, so Steam starts without the game being launched by Steam. Never in Release builds run on their own. |
+| `restartThroughSteam` (Relaunch Through Steam) | false | Shipped runs (not development) call `Steam.RestartAppIfNecessary` in `GameHost.Run` before the window opens and exit when Steam relaunches the game, so ownership checks and the overlay always apply. |
+
+`ProjectSettings.SteamAppId` (read-only) is the id the build uses: `demoAppId` for a demo, else `appId`.
 
 ## Lobby → transport handoff
 

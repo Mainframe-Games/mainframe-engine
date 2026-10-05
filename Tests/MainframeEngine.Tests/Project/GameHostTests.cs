@@ -22,3 +22,27 @@ public sealed class GameHostUiOptionsTests
         Assert.Empty(options.SourceContentDirectories);
     }
 }
+
+public sealed class GameHostDemoBuildTests
+{
+    // A game assembly as build/MainframeGame.props stamps it: [assembly: AssemblyMetadata("MainframeDemo", value)].
+    private static System.Reflection.Emit.AssemblyBuilder Built(string value) => System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly(
+        new AssemblyName("DemoBuild" + Guid.NewGuid().ToString("N")), System.Reflection.Emit.AssemblyBuilderAccess.Run,
+        [new System.Reflection.Emit.CustomAttributeBuilder(typeof(AssemblyMetadataAttribute).GetConstructor([typeof(string), typeof(string)])!,
+            [GameHost.DemoMetadataKey, value])]);
+
+    [Fact]
+    public void TheBuildsDemoFlagComesFromTheFirstStampedAssembly()
+    {
+        Assert.Null(GameHost.BuiltAsDemo([null, typeof(GameHostDemoBuildTests).Assembly])); // not built with the game props
+        Assert.True(GameHost.BuiltAsDemo([typeof(GameHostDemoBuildTests).Assembly, Built("true")]));
+        Assert.False(GameHost.BuiltAsDemo([Built("false"), Built("true")]));
+        Assert.Null(GameHost.BuiltAsDemo([Built("maybe")]));
+    }
+
+    [Fact]
+    public void TheEditorsPlayIsADevelopmentRun()
+    {
+        Assert.True(GameHost.IsDevelopmentRun(new GameHostOptions { EditorPort = 4242 }));
+    }
+}

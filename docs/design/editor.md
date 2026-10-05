@@ -359,9 +359,9 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   the new build no longer has loads as `MissingNode` with its data. If the old context survives, `ReferencePathFinder`
   logs the reference path that keeps it alive.
 - **Project Settings** (Project › Project Settings, `ProjectSettingsModel`): every section of `project.mfproj` —
-  Application (name, main scene, game assemblies, Steam app id), Window, Input Map (actions, deadzones, bindings
+  Application (name, main scene, game assemblies, Demo Build), Window, Input Map (actions, deadzones, bindings
   captured from the next key or mouse press, gamepad inputs from a list), Physics 3D/2D, Audio, Localization,
-  Rendering, Autoloads. Each edit is undoable (the dialog's own history, Ctrl+Z inside it); invalid values are refused
+  Rendering, Autoloads, Steamworks (App ID, Demo App ID, run outside Steam in development, relaunch through Steam). Each edit is undoable (the dialog's own history, Ctrl+Z inside it); invalid values are refused
   with a message; Save writes the file atomically and applies it to the session.
 
 ## Play

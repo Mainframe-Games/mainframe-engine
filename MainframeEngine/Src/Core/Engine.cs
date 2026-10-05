@@ -83,6 +83,12 @@ public struct EngineOptions()
     public uint SteamAppId;
 
     /// <summary>
+    /// Development runs: write <c>steam_appid.txt</c> next to the app so Steam starts without the game being launched by
+    /// Steam (<see cref="Steam.TryInitialize"/>). Never set it for shipped builds.
+    /// </summary>
+    public bool SteamWriteDevAppIdFile;
+
+    /// <summary>
     /// Audio (M7): the engine registers an <see cref="AudioServer"/> when <see cref="AudioOptions.Enabled"/>. Without a
     /// usable device it runs on the silent null device; startup never fails because of audio.
     /// </summary>
@@ -356,7 +362,7 @@ public abstract class Engine : IDisposable
         // M2: the render server replaces the static Node.Initialize; tree input comes from the window.
         Servers.Register(new RenderServer(Renderer));
         if (EngineOptions.SteamAppId != 0)
-            Servers.Register(new SteamServer(EngineOptions.SteamAppId));
+            Servers.Register(new SteamServer(EngineOptions.SteamAppId, EngineOptions.SteamWriteDevAppIdFile));
         // M5: replication for the engine's tree; idle (no network) until StartServer/StartClient.
         Multiplayer = Networking.MultiplayerApi.Attach(Tree);
         if (EngineOptions.Audio.Enabled)

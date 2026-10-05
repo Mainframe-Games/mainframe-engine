@@ -1,0 +1,28 @@
+<Project>
+  <!--
+    Build settings every project of a Mainframe game imports (the mfgame template's Directory.Build.props; see
+    docs/design/project-and-gamehost.md#demo-builds).
+
+    Demo builds (a Steam demo of the game): when project.mfproj has "isDemo": true, game code compiles with DEMO defined
+    (#if DEMO / #if !DEMO) and every game assembly records the flag (AssemblyMetadata "MainframeDemo"), which GameHost
+    reads at run time to pick the Steam demo app id. A build overrides the project file with -p:MainframeDemo=true|false,
+    e.g. `dotnet publish MyGame.Desktop -c Release -p:MainframeDemo=true` for the demo next to the full game.
+
+    MainframeProjectFile defaults to the nearest project.mfproj above the importing project.
+  -->
+  <PropertyGroup>
+    <MainframeProjectFile Condition="'$(MainframeProjectFile)' == ''">$([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'project.mfproj'))</MainframeProjectFile>
+    <MainframeProjectFile Condition="'$(MainframeProjectFile)' != '' and !$(MainframeProjectFile.EndsWith('.mfproj'))">$(MainframeProjectFile)/project.mfproj</MainframeProjectFile>
+    <!-- A top-level "isDemo": true (the editor writes nothing when it is false). -->
+    <MainframeDemo Condition="'$(MainframeDemo)' == '' and '$(MainframeProjectFile)' != '' and Exists('$(MainframeProjectFile)') and $([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?m)^\s*&quot;isDemo&quot;\s*:\s*true\b'))">true</MainframeDemo>
+    <MainframeDemo Condition="'$(MainframeDemo)' != 'true'">false</MainframeDemo>
+    <DefineConstants Condition="'$(MainframeDemo)' == 'true'">$(DefineConstants);DEMO</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>MainframeDemo</_Parameter1>
+      <_Parameter2>$(MainframeDemo)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>
