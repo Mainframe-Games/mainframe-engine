@@ -124,6 +124,8 @@ public sealed unsafe partial class VulkanUiRenderer
                 slot.BoundLayout = image.Layout;
                 slot.BoundGeneration = image.Generation;
             }
+
+            engine.Draws++;
         }
 
         set = slot.Set;
@@ -234,6 +236,16 @@ public sealed unsafe partial class VulkanUiRenderer
         var encode = FormatInfo.IsSrgb(format) || format is Format.R16G16B16A16Sfloat or Format.R32G32B32A32Sfloat
             or Format.B10G11R11UfloatPack32 or Format.R16G16Sfloat;
         return (uint)((encode ? UiTextureConversion.EncodeSrgb : 0) | UiTextureConversion.Premultiply);
+    }
+
+    /// <summary>Draws that resolved the engine textures whose name starts with <paramref name="namePrefix"/> to an image (test hook).</summary>
+    internal long EngineTextureDraws(string namePrefix)
+    {
+        var total = 0L;
+        foreach (var (name, texture) in _engineTextures)
+            if (name.StartsWith(namePrefix, StringComparison.Ordinal))
+                total += texture.Draws;
+        return total;
     }
 
     private ulong LoadEngineTexture(string name, out int width, out int height)
@@ -640,6 +652,9 @@ internal sealed class UiEngineTexture
     public uint Flags { get; }
 
     public bool IsRegistered { get; set; } = true;
+
+    /// <summary>Times a draw resolved this texture to an image (so tests can prove an <c>engine://</c> image was drawn).</summary>
+    public long Draws { get; set; }
 
     /// <summary>A source's image can be absent and appear later; textures and render targets always have one.</summary>
     public bool IsSource => _source is not null;

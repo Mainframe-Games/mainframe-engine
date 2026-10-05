@@ -150,8 +150,8 @@ public sealed class ShadowPcfScene(HostOptions host) : ShadowSceneBase(host)
 /// </summary>
 public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
 {
-    private const uint CheckFrame = 10;
-    private bool _checked;
+    private const uint CheckFrame = 10, OverlayCheckFrame = 19; // --count 2 resizes on frame 20
+    private bool _checked, _overlayChecked;
 
     protected override void Build(Node3D scene)
     {
@@ -187,6 +187,8 @@ public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
     protected override void OnRenderMainPass(in GameTime gameTime)
     {
         base.OnRenderMainPass(gameTime);
+        if (Host.Count == 2 && gameTime.FrameCount == OverlayCheckFrame)
+            CheckOverlayMaps();
         if (gameTime.FrameCount != CheckFrame || Shadows is not { } shadows)
             return;
         _checked = true;
@@ -228,10 +230,32 @@ public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
             Fail(string.Create(CultureInfo.InvariantCulture, $"shadow maps use {shadows.MapMemoryBytes >> 20} MiB (the M1 layout used 116 MiB whatever the lights)"));
     }
 
+    /// <summary>
+    /// --count 2: before the resize, the overlay's Shadows panel must really have drawn the depth maps (its values refresh
+    /// at 4 Hz, so the maps appear a few frames in); otherwise the validation test would not sample them at all.
+    /// </summary>
+    private void CheckOverlayMaps()
+    {
+        _overlayChecked = true;
+        var renderer = Ui?.Renderer;
+        if (renderer is null)
+        {
+            Fail("no Vulkan UI renderer: the dev overlay cannot draw the shadow maps");
+            return;
+        }
+
+        if (renderer.EngineTextureDraws("dev-shadow-cascade-") == 0)
+            Fail("the dev overlay's Shadows panel never drew a cascade image (engine://dev-shadow-cascade-*)");
+        if (renderer.EngineTextureDraws("dev-shadow-atlas") == 0)
+            Fail("the dev overlay's Shadows panel never drew the atlas image (engine://dev-shadow-atlas)");
+    }
+
     protected override void DisposeScene()
     {
         if (!_checked && Host.AllocationMeasuredFrames == 0)
             Fail($"the shadow self-check did not run on frame {CheckFrame}");
+        if (Host.Count == 2 && !_overlayChecked)
+            Fail($"the dev overlay shadow-map check did not run on frame {OverlayCheckFrame}");
         base.DisposeScene();
     }
 }
