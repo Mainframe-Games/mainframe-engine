@@ -55,6 +55,15 @@ public sealed record TextureImportSettings
     /// <summary>Maximum anisotropic filtering (1 = off); clamped to the device limit.</summary>
     public int Anisotropy { get; init; } = 8;
 
+    /// <summary>SVG only: rasterisation scale (Godot's <c>svg/scale</c>).</summary>
+    public float SvgScale { get; init; } = 1f;
+
+    /// <summary>
+    /// Godot's <c>process/fix_alpha_border</c>: nearly transparent pixels take the colour of their nearest opaque neighbour
+    /// (<see cref="ImageOps.FixAlphaEdges"/>), so filtering does not bleed dark edges.
+    /// </summary>
+    public bool FixAlphaBorder { get; init; }
+
     /// <summary>Reads the settings of <paramref name="meta"/> (defaults when null or absent).</summary>
     public static TextureImportSettings FromMeta(AssetMeta? meta, string? where = null)
     {
@@ -73,6 +82,8 @@ public sealed record TextureImportSettings
                     "filter" => settings with { Filter = ParseEnum<TextureFilter>(value) },
                     "wrap" => settings with { Wrap = ParseEnum<TextureWrap>(value) },
                     "anisotropy" => settings with { Anisotropy = Math.Clamp(value.GetInt32(), 1, 16) },
+                    "svgScale" => settings with { SvgScale = Math.Clamp(value.GetSingle(), 0.001f, 1000f) },
+                    "fixAlphaBorder" => settings with { FixAlphaBorder = value.GetBoolean() },
                     _ => Unknown(settings, key, where),
                 };
             }
@@ -93,6 +104,8 @@ public sealed record TextureImportSettings
         ["filter"] = JsonSerializer.SerializeToElement(Lower(Filter), AssetJsonContext.Default.String),
         ["wrap"] = JsonSerializer.SerializeToElement(Lower(Wrap), AssetJsonContext.Default.String),
         ["anisotropy"] = JsonSerializer.SerializeToElement(Anisotropy, AssetJsonContext.Default.Int32),
+        ["svgScale"] = JsonSerializer.SerializeToElement(SvgScale, AssetJsonContext.Default.Single),
+        ["fixAlphaBorder"] = JsonSerializer.SerializeToElement(FixAlphaBorder, AssetJsonContext.Default.Boolean),
     };
 
     /// <summary>The colour space for a usage: <paramref name="colorUsage"/> is true for albedo/emission slots.</summary>
@@ -241,12 +254,32 @@ public sealed class Texture2D : Resource
             return (_pixels, _width, _height);
 
         var bytes = _encoded ?? File.ReadAllBytes(_filePath ?? throw new InvalidOperationException("The texture has no source."));
-        var image = ImageResult.FromMemory(bytes, ColorComponents.RedGreenBlueAlpha)
-                    ?? throw new InvalidDataException($"Could not decode '{ResourcePath ?? _filePath ?? "embedded image"}'.");
-        _width = image.Width;
-        _height = image.Height;
+        byte[] data;
+        if (IsSvg)
+        {
+            (data, _width, _height) = Svg.Rasterize(bytes, _settings.SvgScale);
+        }
+        else
+        {
+            var image = ImageResult.FromMemory(bytes, ColorComponents.RedGreenBlueAlpha)
+                        ?? throw new InvalidDataException($"Could not decode '{ResourcePath ?? _filePath ?? "embedded image"}'.");
+            (data, _width, _height) = (image.Data, image.Width, image.Height);
+        }
+
+        if (_settings.FixAlphaBorder)
+            ImageOps.FixAlphaEdges(data, _width, _height);
         _sizeKnown = true;
-        return (image.Data, image.Width, image.Height);
+        return (data, _width, _height);
+    }
+
+    // SVG sources are rasterised by mfsvg (ADR 0112); everything else is decoded by StbImageSharp.
+    private bool IsSvg => _filePath is not null && _filePath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) ||
+                          _encoded is { Length: > 4 } e && LooksLikeSvg(e);
+
+    private static bool LooksLikeSvg(byte[] bytes)
+    {
+        var head = System.Text.Encoding.UTF8.GetString(bytes, 0, Math.Min(bytes.Length, 256));
+        return head.Contains("<svg", StringComparison.Ordinal);
     }
 
     private void EnsureSize()
@@ -256,7 +289,12 @@ public sealed class Texture2D : Resource
         try
         {
             ImageInfo? info;
-            if (_encoded is not null)
+            if (IsSvg)
+            {
+                (_width, _height) = Svg.PixelSize(_encoded ?? File.ReadAllBytes(_filePath!), _settings.SvgScale);
+                info = null;
+            }
+            else if (_encoded is not null)
             {
                 using var stream = new MemoryStream(_encoded, writable: false);
                 info = ImageInfo.FromStream(stream);

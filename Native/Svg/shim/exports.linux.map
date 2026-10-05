@@ -1,0 +1,8 @@
+{
+  global:
+    mfsvg_abi_version;
+    mfsvg_rasterize;
+    mfsvg_size;
+    mfsvg_free;
+  local: *;
+};

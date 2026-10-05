@@ -8,6 +8,7 @@ How the engine's own native libraries are laid out, built, tested, shipped and r
 |---|---|---|---|
 | ENet | `Native/ENet/upstream`: nxrighthere/ENet-CSharp submodule, tag `2.4.8` | `enet` (ENet-CSharp 2.4.8) | `enet.dll`, `libenet.so`, `libenet.dylib` |
 | RmlUi shim | `Native/RmlUi`: in-house C ABI over RmlUi 6.3 + FreeType 2.14.3 | `mfrmlui` | `mfrmlui.dll`, `libmfrmlui.so`, `libmfrmlui.dylib` |
+| SVG rasteriser | `Native/Svg`: in-house C ABI over ThorVG 1.0.3 (Godot 4.7.2's vendored copy, PNG loader off; ADR 0112) | `mfsvg` | `mfsvg.dll`, `libmfsvg.so`, `libmfsvg.dylib` |
 
 Decisions: [ADR 0001](../../memory/decisions/0001-enet-natives-built-in-ci.md) (ENet) and
 [ADR 0002](../../memory/decisions/0002-rmlui-native-shim.md) (RmlUi shim, ABI rules, licence finding).

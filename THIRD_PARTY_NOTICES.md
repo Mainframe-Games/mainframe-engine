@@ -14,6 +14,8 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [FreeType](https://freetype.org) | 2.14.3 | FreeType License (FTL), chosen over GPLv2 | `Native/RmlUi/external/freetype` (submodule) | `mfrmlui` native library (static) |
 | zlib (bundled in FreeType's gzip module) | 1.3.1 | zlib | inside FreeType | `mfrmlui` native library (static) |
 | [RmlUi](https://github.com/mikke89/RmlUi) | 6.3 | MIT | `Native/RmlUi/external/RmlUi` (submodule) | `mfrmlui` native library (static) |
+| [ThorVG](https://github.com/thorvg/thorvg) (the copy vendored by Godot 4.7.2, `thirdparty/thorvg`) | 1.0.3 | MIT | `Native/Svg/thorvg` | `mfsvg` native library (static) |
+| [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`) | 4.7.2 | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs` | engine |
 | robin_hood, itlib (bundled in RmlUi Core) | — | MIT | inside RmlUi | `mfrmlui` native library (static) |
 | Courier Prime Code font (embedded in the RmlUi Debugger) | — | SIL OFL 1.1 | inside RmlUi | `mfrmlui` native library (static) |
 | [Lato](http://www.latofonts.com/) (Latin subset: regular, bold, italic) | 2.0 | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
@@ -301,6 +303,56 @@ fonts, in `MainframeEngine/Content/UI/fonts/OFL-Lato.txt` and `OFL-RobotoMono.tx
 
 The OFL allows bundling and redistribution with software; the fonts may not be sold on their own, and modified
 versions may not use the reserved font names.
+
+## ThorVG
+
+The SVG rasteriser `mfsvg` statically links ThorVG 1.0.3 (the exact sources Godot 4.7.2 vendors in `thirdparty/thorvg`).
+
+```
+MIT License
+
+Copyright (c) 2020 - 2026 ThorVG Project
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Godot Engine
+
+Parts of the 2D canvas, camera, window stretch and image code are ports of Godot Engine 4.7.2 (C++ → C#).
+
+```
+Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md).
+Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
 
 ## ENet
 

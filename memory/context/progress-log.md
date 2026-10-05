@@ -216,3 +216,14 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   server), `GetVisibleRect`, `StretchTransform`; project `window.stretchMode/Aspect/Scale/ScaleMode` (Godot spellings
   accepted) and `rendering.canvasClearColor` applied by `GameSession.Start`. Canvas golden re-recorded with a 480×270
   canvas_items stretch. Tests: Camera2DTests, CanvasProjectSettingsTests. Gates green (unit 1190, editor 443, render 46).
+
+### 2026-10-05 — SVG via Godot's ThorVG: mfsvg (ADR 0112, port E8)
+- `Native/Svg`: ThorVG 1.0.3 copied from Godot 4.7.2 `thirdparty/thorvg` (PNG loader off), C ABI `mfsvg_*` mirroring
+  `ImageLoaderSVG`; smoke test. macOS universal built locally; Linux (Ubuntu 22.04 GCC) and Windows (mingw-w64, static,
+  interim until natives.yml/MSVC) built in Docker (amd64 emulation). `natives-lock.sh`/`build.sh`/`natives.yml` know mfsvg.
+- **Pending:** `natives-lock.sh verify` now fails for enet/mfrmlui (the shared `Native/CMakeLists.txt` input changed); run
+  natives.yml on the branch to rebuild every native (MSVC mfsvg.dll) and refresh the lock.
+- C#: `Svg.Rasterize/Size/PixelSize` (LibraryImport `mfsvg`), `ImageOps.FixAlphaEdges` (Godot's `fix_alpha_edges`), `.svg`
+  in `TextureImporter`, `TextureImportSettings.SvgScale/FixAlphaBorder` (meta `svgScale`, `fixAlphaBorder`).
+- Verified: every Crash Site Defense SVG rasterised + fixed is byte-identical to Godot's imported `.ctex` (lossless WebP),
+  the emblem 13 bytes off by 1. Tests: Imaging/SvgTests. Gates green (unit 1193, editor 443, render 46).

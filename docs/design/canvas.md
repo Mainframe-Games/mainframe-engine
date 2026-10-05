@@ -68,7 +68,7 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 
 ## Known issues
 
-- Not yet: canvas shaders (E5), 2D lights (E6), 2D `SubViewport`/`ViewportTexture` (E7), SVG import (E8), text (E4),
+- Not yet: canvas shaders (E5), 2D lights (E6), 2D `SubViewport`/`ViewportTexture` (E7), text (E4),
   Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `ClipChildren`
   (canvas groups), nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
 - The editor's 2D view does not draw canvas items yet (E18).

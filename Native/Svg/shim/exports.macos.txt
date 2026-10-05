@@ -1,0 +1,4 @@
+_mfsvg_abi_version
+_mfsvg_rasterize
+_mfsvg_size
+_mfsvg_free

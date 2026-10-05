@@ -56,6 +56,8 @@ Games can `AssetImporters.Register` their own importers.
 | `filter` | `linear`, `nearest` (`linear`) | sampler filter |
 | `wrap` | `repeat`, `clamp`, `mirror` (`repeat`) | sampler addressing |
 | `anisotropy` | 1–16 (`8`) | clamped to the device; 1 = off |
+| `svgScale` | > 0 (`1`) | `.svg` only: rasterisation scale (Godot's `svg/scale`); SVGs are rasterised at load by `mfsvg` (ThorVG as in Godot, ADR 0112) |
+| `fixAlphaBorder` | bool (`false`) | Godot's `process/fix_alpha_border`: nearly transparent pixels take their nearest opaque neighbour's colour |
 
 Missing keys take the defaults. Invalid values are logged and replaced by the default, and unknown keys are
 ignored with a warning. `TextureImportSettings.ToMetaSettings()` writes the object, for tools. Changing
