@@ -16,7 +16,7 @@ File: [Rendering/Vulkan/VulkanImGuiController.cs](../../MainframeEngine/Src/Rend
 | Font | `GpuTexture`, `R8G8B8A8Unorm` (coverage is data), uploaded by the upload queue, Linear/Repeat sampler, `SetTexID(1)` |
 | Visibility | The developer overlay: `Engine.DevOverlayVisible` (F12 toggles; `EngineOptions.DevOverlayVisible` sets the start state). While hidden, `OnImGui` is not called and the ImGui frame is discarded |
 | Pass | Drawn **after the tonemap** in the overlay pass, on top of the game UI (RmlUi, [Game UI](game-ui.md)) (`Render` calls `IVulkanContext.BeginOverlayPass`): colours are sRGB-authored and land in the UNORM swapchain unchanged, so ImGui looks exactly as before the HDR pipeline (verified by the `color-pipeline` render test). See [Color pipeline](color-pipeline.md#swapchain). |
-| Renderer window | `RendererDebugWindow.Draw(Renderer)`: exposure slider, swapchain encoding, GPU allocator totals and per-memory-type usage, staging ring, deletion queue, pipeline cache; allocation-free (the Sandbox shows it) |
+| Renderer window | `RendererDebugWindow.Draw(Renderer)`: exposure slider, swapchain encoding, GPU allocator totals and per-memory-type usage, staging ring, deletion queue, pipeline cache; allocation-free |
 | Descriptors | Set 0, binding 0 `CombinedImageSampler` (fragment). One pool, one set. |
 | Push constant | 16 B `{ vec2 scale; vec2 translate }` (vertex) |
 | Vertex | stride 20: `pos` RG32F, `uv` RG32F, `col` RGBA8 UNORM. Indices are `uint16`. |
@@ -81,4 +81,4 @@ File: [Debugging/Log.cs](../../MainframeEngine/Src/Debugging/Log.cs). `public st
 
 ## Related docs
 
-[Engine lifecycle](engine-lifecycle.md) · [Lighting](lighting.md) · [Sandbox](sandbox.md)
+[Engine lifecycle](engine-lifecycle.md) · [Lighting](lighting.md) · [Demo](demo.md)

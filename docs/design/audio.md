@@ -228,16 +228,14 @@ their own `ProcessMode` (default `Pausable`).
 ## Debugging and QA
 
 - `AudioImGui.DrawMixer(server)` draws the device, voice/steal/underrun counters and a fader, mute, solo and peak
-  meter per bus (allocation-free); the Sandbox shows it in its debug window.
+  meter per bus (allocation-free).
 - `AudioServer.Stats`: active/total voices, steals, rejected plays, stream underruns and errors, rendered frames and
   blocks, pending commands, fault flag.
-- The Sandbox's `--qa-audio` plays a melody through the real device next to the scene's streamed ambience and
-  checks the counters and bus peaks, exiting non-zero on failure.
 
 ## Performance
 
 - Steady-state frames allocate nothing on the game thread or the audio thread, with positional, moving, streamed,
-  paused/resumed and finishing voices (unit test `AudioAllocationTests`; the render-test `sandbox` scene gate also
+  paused/resumed and finishing voices (unit test `AudioAllocationTests`; the render-test `showcase` scene gate also
   plays a streamed and an orbiting doppler voice).
 - Benchmarks ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json), Apple M5): a 64-command batch
   enqueue + drain ≈ 0.25 µs; spatial math for 32 emitters ≈ 0.25 µs; `AudioServer` frame for 32 moving positional
@@ -261,5 +259,5 @@ their own `ProcessMode` (default `Pausable`).
 ## Related docs
 
 [Scene graph & nodes](scene-graph-and-nodes.md) · [Scene serialization](scene-serialization.md) ·
-[Engine lifecycle](engine-lifecycle.md) · [Testing](testing.md) · [Sandbox](sandbox.md) ·
+[Engine lifecycle](engine-lifecycle.md) · [Testing](testing.md) · [Demo](demo.md) ·
 [Game UI](game-ui.md) · [Editor](editor.md)

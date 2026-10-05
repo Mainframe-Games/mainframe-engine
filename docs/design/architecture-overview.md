@@ -4,7 +4,7 @@
 
 Mainframe Engine is a C# (.NET 10) game engine built on Vulkan 1.2 through Silk.NET. It is a
 learning-oriented engine with a Godot-style scene model: a game is a project (`project.mfproj`) whose node library
-`GameHost` runs (or, for the Sandbox and tests, an `Engine` subclass), with nodes in the engine-owned `SceneTree`,
+`GameHost` runs (or, for the editor and tests, an `Engine` subclass), with nodes in the engine-owned `SceneTree`,
 usually loaded from a scene file. The engine provides windowing, a Vulkan renderer, the node tree with servers behind
 it, scene/resource files, materials and model import, lighting, cascaded shadows, skies, Spine skeletal animation,
 RmlUi game UI, physics, audio, replication, localization and an ImGui developer overlay; the editor
@@ -19,7 +19,7 @@ RmlUi game UI, physics, audio, replication, localization and an ImGui developer 
 | [`MainframeEngine`](../../MainframeEngine/MainframeEngine.csproj) | class library | The engine. Ships `Content/**` (compiled `.spv` shaders, assets) to dependants' output; shaders compile during the build (`build/Shaders.targets`). |
 | [`MainframeEngine.Generators`](../../MainframeEngine.Generators/MainframeEngine.Generators.csproj) | Roslyn source generator (netstandard2.0, referenced as an analyzer) | Registers every node/resource type's `[Export]` properties and `[Signal]` events. See [Scene serialization](scene-serialization.md#source-generator). |
 | [`MainframeEngine.L10n`](../../Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj) (`mf-l10n`) | exe (build tool) | Localization tooling: RML/scene extraction, `.po` update, pseudo-locale, `.po` → `.mo` compiler run by `build/Localization.targets`. See [Localization](localization.md). |
-| [`MainframeEngine.Sandbox`](../../MainframeEngine.Sandbox/MainframeEngine.Sandbox.csproj) | exe | The test game (an `Engine` subclass). See [Sandbox](sandbox.md). |
+| [`Examples/Demo`](../../Examples/Demo/) | game project (own solution, not in `MainframeEngine.slnx`) | The Demo: a `GameHost` game with one scene per engine feature. See [Demo](demo.md). |
 | [`MainframeEngine.Editor`](../../MainframeEngine.Editor/MainframeEngine.Editor.csproj) | exe | The editor (`EditorApp : Engine`, RmlUi panels); loads game projects' assemblies into collectible contexts and plays them in separate processes. See [Editor](editor.md). |
 | [`Templates/MainframeEngine.Templates`](../../Templates/MainframeEngine.Templates/) | `dotnet new` template package (not in the solution) | `mfgame`: a game's node library + `GameHost` launcher + `project.mfproj`. See [Projects & GameHost](project-and-gamehost.md). |
 | `Tests/*` | xUnit v3 test projects, render-test host, BenchmarkDotNet | See [Testing](testing.md). |
@@ -60,12 +60,12 @@ RmlUi game UI, physics, audio, replication, localization and an ImGui developer 
 
 ```mermaid
 flowchart LR
-    Sandbox["MainframeEngine.Sandbox"] --> Engine["MainframeEngine"]
+    Demo["Examples/Demo<br/>(GameHost launcher)"] --> Engine["MainframeEngine"]
     Editor["MainframeEngine.Editor"] --> Engine
     Game["mfgame projects<br/>(GameHost launcher)"] --> Engine
     Game -. analyzer .-> Gen
-    Sandbox -. analyzer .-> Gen["MainframeEngine.Generators"]
-    Sandbox -. build tool .-> L10n["mf-l10n<br/>(Tools/MainframeEngine.L10n)"]
+    Demo -. analyzer .-> Gen["MainframeEngine.Generators"]
+    Demo -. build tool .-> L10n["mf-l10n<br/>(Tools/MainframeEngine.L10n)"]
     L10n --> Engine
     Engine -. analyzer .-> Gen
     Engine --> SpineRT["spine-csharp<br/>(submodule)"]
@@ -85,7 +85,7 @@ flowchart LR
 ## Design principles in the current code
 
 - **Games are node libraries.** A game project's code is node types; `GameHost` runs it from `project.mfproj` (no
-  `Engine` subclass). An `Engine` subclass is still supported (the Sandbox, tests, the editor); its four legacy hooks
+  `Engine` subclass). An `Engine` subclass is still supported (the editor, the render-test host); its four legacy hooks
   (`OnImGui`, `OnUpdate`, `OnShadowPass`, `OnRenderMainPass`) are optional.
 - **The engine owns the scene.** A `SceneTree` (Godot model) runs lifecycle, physics/process, deferred
   calls, transform sync and input for every node; behaviour is C# node subclasses. Scenes are data

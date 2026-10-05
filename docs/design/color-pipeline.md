@@ -56,8 +56,8 @@ IEC 61966-2-1 curves.
   render tests compare against. No bloom (ADR).
 - **Exposure:** `IVulkanContext.Exposure` multiplies the HDR colour first. Default
   `IVulkanContext.DefaultExposure = 1.3`, calibrated so a white surface lit at ~0.75 (the test scenes'
-  sun) shows about as bright as before the HDR pipeline; adjust it in the Sandbox's **Renderer** window
-  (`RendererDebugWindow`).
+  sun) shows about as bright as before the HDR pipeline; adjust it with the Demo's Basic 3D **Exposure** slider
+  (or `RendererDebugWindow`).
 - **Ambient default:** `LightEnvironment.DefaultAmbientColor` is sRGB (0.22, 0.22, 0.25) — linear
   ≈ 0.04, which after ACES' toe lights unlit surfaces like the old gamma-space (0.08, 0.08, 0.10) did.
   `WorldEnvironment.AmbientColor` defaults to the same value.

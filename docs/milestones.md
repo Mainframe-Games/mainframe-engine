@@ -43,7 +43,7 @@ flowchart LR
 | [M8](#m8--game-ui-rmlui-) | RmlUi HTML/CSS game UI (also the editor's UI) | ✅ |
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
-| [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ⬜ |
+| [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | 🚧 |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -53,7 +53,7 @@ flowchart LR
 ## M0 — Foundation ✅
 
 The engine runs on Windows, Linux and macOS (MoltenVK, including Apple Silicon at 120 fps in the
-Sandbox). It renders a lit, shadowed 3D scene with a sky, a reference grid, an animated Spine character
+test game, later replaced by the [Demo](design/demo.md)). It renders a lit, shadowed 3D scene with a sky, a reference grid, an animated Spine character
 and an ImGui debug overlay. Networking and Steam exist only as scaffolds. The last M0 item moves
 windowing and input from GLFW to SDL2 (via Silk.NET 2.22), so later input, gamepad and Steam work builds on it.
 
@@ -116,7 +116,7 @@ registration pattern M2 defines; `Box3d`/`Quad` give way to `MeshInstance3D` in 
 | Input events routed through the tree (`OnInput` / `OnUnhandledInput`) | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#input) |
 | `[Export]` + source-generated type registry (`MainframeEngine.Generators`) | ✅ | [Scene serialization](design/scene-serialization.md#property-model) |
 | `.mscene` / `.mres` files, `PackedScene`, nested instances, UIDs + `AssetDatabase` | ✅ | [Scene serialization](design/scene-serialization.md) |
-| Sandbox scene loaded from `Content/Scenes/Sandbox.mscene` | ✅ | [Sandbox](design/sandbox.md) |
+| Test-game scene loaded from a `.mscene` file (today: every Demo scene) | ✅ | [Demo](design/demo.md) |
 
 ## M3 — Materials, meshes & resources ✅
 
@@ -151,7 +151,7 @@ the sampler count.
 
 Turn the networking and Steam scaffolds into a working multiplayer stack: a typed message protocol,
 server-authoritative node replication, a transport abstraction (ENet / Steam sockets), working lobbies, and Apple
-Silicon support. The Sandbox has a `--server` / `--client <host>` demo.
+Silicon support.
 
 | Feature | Status | Design doc |
 |---|---|---|
@@ -220,7 +220,7 @@ gradients; the UI sees input before the scene tree.
 | `UiServer`, `UiLayer`, `UiDocument`, data binding, element events | ✅ | [Game UI](design/game-ui.md#uiserver-uilayer-uidocument) |
 | Input routing, IME placement, clipboard, gamepad navigation | ✅ | [Game UI](design/game-ui.md#input-routing) |
 | Hot reload, debugger (F8), shared widget library, bundled fonts | ✅ | [Game UI](design/game-ui.md#development-tools) |
-| Sandbox HUD; ImGui as the F12 developer overlay | ✅ | [Game UI](design/game-ui.md#sandbox), [Sandbox](design/sandbox.md) |
+| Demo panels as the game-UI reference; ImGui as the F12 developer overlay | ✅ | [Game UI](design/game-ui.md#demo), [Demo](design/demo.md) |
 | Inline IME composition (shim ABI 1.1 `TextInputContext`) | ⬜ | [Game UI](design/game-ui.md#known-issues) |
 
 ## M9 — Localization ✅
@@ -252,14 +252,14 @@ core, and its UI is built entirely with the M8 game UI stack (RmlUi).
 | E5 Polish: signals tab, multi-select editing, 2D editing mode, resource files and `[CustomInspector]` example (audio bus mixer), editor settings (accent, autosave, external code editor), resizable inspector name column | ✅ | [Editor](design/editor.md#signals) |
 | After M10: remote scene tree, simulate mode, box selection, multi-node gizmo, docking | ⬜ | [Future: editor](design/future/editor.md) |
 
-## Demo & polish ⬜
+## Demo & polish 🚧
 
-Replace the Sandbox with a real, downloadable game project that shows one feature per scene, retire ImGui, and polish
+Replace the old test game with a real, downloadable game project that shows one feature per scene, retire ImGui, and polish
 the Project Manager. Order: D1 → D2 → D3 → D4.
 
 | Feature | Status | Design doc |
 |---|---|---|
-| D1 `Examples/Demo` (GameHost project): nav-bar autoload, Basic 3D / Basic 2D / Audio 2D / Audio 3D / UI + hot reload / Physics 2D / Physics 3D / Spine (Camera2D ↔ Camera3D) scenes, README screenshot gallery; Sandbox and EditorShowcase removed | ⬜ | [Demo project](design/future/demo-project.md) |
+| D1 `Examples/Demo` (GameHost project): nav-bar autoload, Basic 3D / Basic 2D / Audio 2D / Audio 3D / UI + hot reload / Physics 2D / Physics 3D / Spine (Camera2D ↔ Camera3D) scenes, README screenshot gallery; the old test game and the editor-screenshot project removed | ✅ | [Demo](design/demo.md) (proposal: [Demo project](design/future/demo-project.md)) |
 | D2 Remove ImGui: RmlUi `DevOverlay` (F12, panels, `AddPanel`), Vulkan `ScreenGizmos` (light + axis gizmos) | ⬜ | [Remove ImGui](design/future/remove-imgui.md) |
 | D3 Project icons in the Project Manager (`window.icon`, template default icon, RmlUi absolute-path fix) | ⬜ | [Project icons](design/future/project-icons.md) |
 | D4 "Download Demo Project" (release zip asset, download + extract + engine-path rewrite) | ⬜ | [Demo download](design/future/demo-download.md) |

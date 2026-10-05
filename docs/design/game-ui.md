@@ -250,7 +250,7 @@ only one); a consumed event never reaches `OnInput`/`OnUnhandledInput` ([ADR 005
 | HUD helpers | `body.hud` (`pointer-events: none`, full screen), `.stat` (monospace), `.row`/`label.caption` |
 
 Interactive controls set `pointer-events: auto`, `tab-index: auto` and `nav: auto`. `demo.rml` shows them all
-(the Sandbox's "Widgets" button; the `ui-widgets` golden).
+(the Demo's UI scene; the `ui-widgets` golden).
 
 **Fonts** (OFL 1.1, [ADR 0052](../../memory/decisions/0052-bundled-ui-fonts.md)): Lato Latin regular/bold/italic
 (`font-family: LatoLatin`) and Roboto Mono (`"Roboto Mono"`), in `Content/UI/fonts/` with their licences.
@@ -265,13 +265,12 @@ fallback fonts (`FontFallbackTable`) and reloads every loaded document at the st
 inside an RmlUi callback, so a language dropdown can switch the language it lives in. Strings are extracted with
 `mf-l10n extract --rml`. See [Localization](localization.md#game-ui-rmlui).
 
-## Sandbox
+## Demo
 
-The Sandbox's HUD ([`hud.rml`](../../MainframeEngine.Sandbox/Content/UI/hud.rml),
-[`SandboxHud`](../../MainframeEngine.Sandbox/Src/Nodes/SandboxHud.cs)) shows frame stats and two-way bindings to live
-scene state (exposure, spin speed, max FPS, language, sun and coloured lights, VSync), the scene's translated welcome
-banner, and buttons for the widget demo, the ImGui developer overlay, the credits and quitting; it is translated into
-Spanish and the `qps` pseudo-locale. See [Sandbox](sandbox.md).
+Every [Demo](demo.md) scene has a small RmlUi panel (`UiDocument` + `CreateDataModel`, two-way bindings to live scene
+state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded nav bar (tabs, FPS, language picker). The
+**UI** scene is the reference: the widget gallery, a data-bound form, and a live counter of UI hot reloads
+(`UiServer.HotReloaded`).
 
 ## Testing
 
@@ -287,7 +286,7 @@ Spanish and the `qps` pseudo-locale. See [Sandbox](sandbox.md).
 - **Render** (`Tests/MainframeEngine.RenderTests/UiRenderTests.cs`, goldens): `ui-hud` (HUD over the lit scene; the
   opaque swatch is checked to be exactly `#3366cc`), `ui-effects` (clip masks, rotated clip, gradients, box-shadow,
   blur, drop-shadow, grayscale, opacity, mask-image, backdrop blur), `ui-text`, `ui-widgets`, determinism and swapchain
-  recreation. The `sandbox` allocation gate carries the HUD (bindings dirtied every frame): 0 B per frame.
+  recreation. The `showcase` allocation gate carries the HUD (bindings dirtied every frame): 0 B per frame.
 - **Localization** (`UiLocalizationTests.cs`, headless): translation at load and after a locale switch, `no-tr`,
   bound values untranslated, deferred switching from a click handler, fallback fonts, 0 B over 200 translated HUD frames.
 - **Benchmarks** (`UiBenchmarks`): update of a 500-element document idle (~9 µs) and with 500 dirtied bindings

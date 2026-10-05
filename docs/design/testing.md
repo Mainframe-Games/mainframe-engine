@@ -14,6 +14,8 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run) | lavapipe in CI and in Docker (`just render-tests-linux`), MoltenVK locally (`just test-render`) |
 | [`Tests/MainframeEngine.RenderTests.Host`](../../Tests/MainframeEngine.RenderTests.Host/) | Console app that runs one scene | launched by the render tests |
 | [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless; projects, Play (fake builder/launcher), FileSystem, code reload (Roslyn-compiled game assemblies); one `Category=Slow` test runs the real `dotnet new mfgame` + build | every OS in CI (`just test`) |
+| [`Examples/Demo/Demo.Tests`](../../Examples/Demo/Demo.Tests/) | xUnit v3 tests of the Demo game (own solution, not in `MainframeEngine.slnx`): scene files vs their builders, nav, every scene's panels; run by `build/demo-smoke.sh` and CI's `template` job, see [Demo](demo.md#tests-and-ci) | CI (`template` job), locally (`dotnet test Examples/Demo/Demo.Tests`) |
+| [`Tests/Content`](../../Tests/Content/) | Shared test assets (not a project): the showcase fixture scene, glTF test model, SpineBoy, sky, ambience, logo, a Spanish catalog; linked into the test projects' output | — |
 | [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`, `just qa-projects`), see [Editor](editor.md#testing-and-qa) |
 | [`Tests/MainframeEngine.Benchmarks`](../../Tests/MainframeEngine.Benchmarks/) | BenchmarkDotNet, `MemoryDiagnoser` | locally (`just bench`) |
 
@@ -51,7 +53,7 @@ test node and resource types in `TestNodes.cs` (registered by the source generat
 | `SignalTests` | generated signal infos, connect/disconnect by name, `[SignalHandler]`, one-shot, deferred, auto-disconnect on free |
 | `TransformTests` | Euler ↔ quaternion vs the legacy `Rx·Ry·Rz` matrices, model matrix, dirty propagation, global setters, `Reparent` keep/drop global, `LookAt`, notification batching, `Transform3D`/`Transform2D` math |
 | `WorldTests` | visual registration order, light nodes ↔ `LightEnvironment`, active camera selection, camera sync vs the legacy camera, `WorldEnvironment` ambient, render-server resource tracking (non-Vulkan renderer), server ticking |
-| `SerializationTests` | every property type round-trips, non-default-only output, LF-only files on every OS, encodings, owned-only saving, outside-the-tree instancing, groups/unique names, persisted connections and flags, nested instances (overrides, added children, sub-scene edits flowing through), self-instancing rejection, external resources and the cache, ref counting, UID stability across re-save and file moves, asset database scan/meta/index, migrations, `MissingNode`, error reporting, the Sandbox scene re-saving byte-identically |
+| `SerializationTests` | every property type round-trips, non-default-only output, LF-only files on every OS, encodings, owned-only saving, outside-the-tree instancing, groups/unique names, persisted connections and flags, nested instances (overrides, added children, sub-scene edits flowing through), self-instancing rejection, external resources and the cache, ref counting, UID stability across re-save and file moves, asset database scan/meta/index, migrations, `MissingNode`, error reporting, the showcase fixture scene re-saving byte-identically |
 | `GeneratorTests` | `CSharpGeneratorDriver` over game-like sources: emitted registration compiles, loads in a collectible context and works (properties, groups, hints, signals, migrations, abstract/tool/TypeName), every diagnostic, incremental caching; the engine's own registrations |
 | `SceneTreeAllocationTests` | **0 bytes** over 120 steady-state ticks of a 10 002-node tree (physics, process, transform propagation and notifications, input, groups) and over `GetNode` lookups |
 
@@ -86,7 +88,7 @@ and FLAC; WAV layouts are written by the tests themselves.
 | `SpscRingTests` | the lock-free ring: FIFO across wrap-around, batch publishing, slot references released, a two-thread 2-million-item ordering stress |
 | `AudioDecoderTests` | WAV 8/16/24/32-bit PCM, float 32/64, `EXTENSIBLE`, extra chunks; 5.1 downmix; OGG (NVorbis), MP3 and FLAC (miniaudio) content checks; sample-accurate decoder seeks; memory/stream/auto load modes, shared clips, error reporting; `.meta` import settings |
 | `AudioServerTests` | default layout, real-time null device, broken layout fallback, unity gain through the bus chain, voice × bus × master volumes, mute and solo (incl. nested solo), one-shot finish, click-free stop, play + stop in one batch, stealing (priority → quietest → oldest, rejection), node polyphony, `Finished` only on natural ends, autoplay/exit, pause vs `ProcessMode` (`Pausable`, `Always`, `WhenPaused`, `Disabled`, `StreamPaused`), resampling and pitch, seek/position, 3D panning/attenuation/zipper bound/listener rotation, camera as listener, distance low-pass, doppler, streamed loop continuity and finish, streamed vs memory sample equality, bus layout save/load/apply with effects, runtime layout swap, unknown bus / broken stream |
-| `AudioSerializationTests` | every audio node property and a shared inline `AudioStream` round-trip through `.mscene` byte-identically; defaults write nothing; scene audio plays in a tree; the Sandbox scene's ambience plays |
+| `AudioSerializationTests` | every audio node property and a shared inline `AudioStream` round-trip through `.mscene` byte-identically; defaults write nothing; scene audio plays in a tree; the showcase fixture scene's ambience plays |
 | `AudioRegressionTests` | review regressions: the engine reverb (tail, decay, 0 B), a bus with every effect mixing at 0 B, a seek racing a stream's natural end, stream seek position, a stream whose file vanishes (error, no `Finished`), stream generations never read into the next one, NaN pitch/velocity sanitizing, listener switches not causing doppler, whole-or-nothing command batches, unsent graph swaps disposed |
 | `AudioAllocationTests` | **0 bytes** over 300 frames of tree tick + `AudioServer.Process` + rendering on the same thread, with 8 moving 3D voices (every attenuation model, low-pass, doppler), a streamed music loop, a 2D voice, UI one-shots finishing and restarting, `PlayOneShot`, pause toggles and bus fader changes |
 
@@ -142,8 +144,8 @@ sequenceDiagram
   `lit-shapes` (procedural sky, grid, floor quad,
   two boxes, one shadow-casting directional light), `multi-light` (same geometry, directional + spot +
   point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
-  `spine` (adds SpineBoy, content linked from the Sandbox), `spine-no-shadows` (Spine and shapes with
-  no `ShadowSystem`: the fallback shadow set), `sandbox` (adds the Sandbox's ImGui windows — including
+  `spine` (adds SpineBoy, content linked from `Tests/Content`), `spine-no-shadows` (Spine and shapes with
+  no `ShadowSystem`: the fallback shadow set), `showcase` (mirrors the showcase fixture scene: the ImGui windows — including
   `RendererDebugWindow` — gizmos, the audio bus mixer and the RmlUi HUD with bindings dirtied every frame, a
   streamed ambience and an orbiting doppler voice, and self-checks that both play, plus a stack of physics crates on
   single-threaded Jitter2; not used for goldens because it shows timings), `color-pipeline` (a solid-colour sRGB
@@ -174,7 +176,7 @@ sequenceDiagram
   `SwapchainRecreationOnResizeAndVSyncToggleIsClean` (exact pixel sizes before and after the resize),
   `FixedContentScaleCapturesAtTheExactPixelSize` (`--scale 1` and `--scale 3` — 3 is no Mac or CI display's backing scale,
   so the window is always resized — at start-up and after a resize), `QuitWithErrorReturnsErrorExitCode`,
-  `SandboxSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`,
+  `ShowcaseSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`,
   `PipelineCacheIsPersistedAndReloaded` (cold run writes, warm run loads),
   `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →
   encode within ±2 at two exposures; ImGui colour exact and blended in sRGB space),
@@ -218,7 +220,7 @@ frame being built. After the main pass, `VulkanRenderer` transitions the swapcha
 `PRESENT_SRC → TRANSFER_SRC`, copies it to a host-visible buffer, transitions it back, and after present
 waits on that frame's fence and converts BGRA → RGBA with alpha forced to 255. `OnFrameCaptured`
 receives a `FrameCapture` (`SavePng`). The swapchain only gets `TRANSFER_SRC` usage when capture is
-enabled. The same API drives `--qa-capture` in the Sandbox (`just qa`).
+enabled. The same API drives the render tests' captures.
 
 PNG files are written and read by the in-house [`Png`](../../MainframeEngine/Src/Imaging/Png.cs) codec
 (`ZLibStream`, adaptive filters; reads 8-bit RGB/RGBA non-interlaced).
@@ -302,7 +304,7 @@ Lavapipe output changes with the Mesa/LLVM version in the runner image (recorded
 | Gate | Rule | Where |
 |---|---|---|
 | Validation | 0 warnings and 0 errors from `VK_LAYER_KHRONOS_validation`, including teardown (leaks, in-use destruction) | every scene |
-| Allocation | 0 managed bytes (`GC.GetAllocatedBytesForCurrentThread`) over 300 frames after 120 warm-up frames, host run with `DOTNET_TieredCompilation=0` | `sandbox` scene |
+| Allocation | 0 managed bytes (`GC.GetAllocatedBytesForCurrentThread`) over 300 frames after 120 warm-up frames, host run with `DOTNET_TieredCompilation=0` | `showcase` scene |
 
 The debug messenger listens to WARNING and ERROR only, with a static `[UnmanagedCallersOnly]` callback,
 and records into `IVulkanContext.Validation` (`VulkanValidationLog`: counters plus the first 64
@@ -330,7 +332,7 @@ lookups), `RmlLocalizationTests`, `NodeLocalizationTests` (re-translation immedi
 `GettextFormatTests` (`.po`/`.mo`, byte equality with GNU `msgfmt` when installed — CI installs gettext on Linux),
 `ExtractionTests` (runs the pinned `GetText.Extractor` local tool: `dotnet tool restore`) and `L10nCliTests`
 (end-to-end `mf-l10n`); the game UI's translation (`UI/UiLocalizationTests`, in the `SerialRmlUi` collection, restoring
-`Tr` through the fixture) includes a 0-byte gate over translated HUD frames. The render tests' `sandbox` allocation gate
+`Tr` through the fixture) includes a 0-byte gate over translated HUD frames. The render tests' `showcase` allocation gate
 runs in Spanish with the RmlUi HUD. See [Localization](localization.md#testing).
 
 ### Linux tests in Docker

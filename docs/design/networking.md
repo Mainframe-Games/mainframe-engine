@@ -5,8 +5,7 @@
 Multiplayer for Mainframe games: typed messages between a server and its clients over UDP (ENet) or in-process
 loopback, and on top of them **server-authoritative node replication** (M5): spawning scenes on clients by
 `PackedScene` UID, `[Replicated]` members sent as delta snapshots and interpolated on clients, `[Rpc]` methods with
-authority checks, and the connection lifecycle (handshake, timeouts, kicks). The Sandbox has a `--server` /
-`--client <host>` demo. Steam Networking Sockets are designed in but stubbed until Steam natives ship (see
+authority checks, and the connection lifecycle (handshake, timeouts, kicks). Its tests (`Tests/MainframeEngine.Tests/Networking`) run server and clients over loopback and ENet. Steam Networking Sockets are designed in but stubbed until Steam natives ship (see
 [Steamworks](steamworks.md)).
 
 ## Layers
@@ -286,7 +285,7 @@ Clients show interpolated members `InterpolationDelay` (default 0.1 s, about thr
 `MultiplayerApi.Stats` (`NetworkStats`): bytes sent/received, bytes per second over the last second, snapshots
 (sent or applied), discarded snapshots, last snapshot size, spawns, despawns, RPCs sent/received/rejected/failed, networked
 nodes. `GetPeerStats(peer)` (server): ready, acknowledged tick, bytes and snapshots sent to that client, last snapshot
-size, smoothed round-trip time. The Sandbox demo shows them in its ImGui window and logs.
+size, smoothed round-trip time. 
 
 ## Wire format
 
@@ -440,4 +439,4 @@ ENet natives are our own builds, not the package's. See [Native libraries](nativ
 ## Related docs
 
 [Native libraries](natives.md) · [Steamworks](steamworks.md) · [Scene graph & nodes](scene-graph-and-nodes.md) ·
-[Scene serialization](scene-serialization.md) · [Sandbox](sandbox.md) · [Testing](testing.md)
+[Scene serialization](scene-serialization.md) · [Demo](demo.md) · [Testing](testing.md)

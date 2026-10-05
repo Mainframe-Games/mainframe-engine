@@ -23,7 +23,7 @@ or updates by hand.
 
 Game projects normally do not subclass `Engine`: `GameHost : Engine` runs a `project.mfproj` (window, physics,
 input map, autoloads, main scene) — see [Projects & GameHost](project-and-gamehost.md). Subclassing `Engine` (as the
-Sandbox and render tests do) remains supported:
+editor and render tests do) remains supported:
 
 ```csharp
 public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
@@ -129,8 +129,8 @@ While the window is minimised (`WindowState.Minimized`, or `Engine.FramebufferSi
 renders nothing, closes the ImGui frame, and switches the window to `IsEventDriven` so Silk's loop
 blocks in `SDL_WaitEvent` instead of spinning; the first render after restore switches it back. The
 renderer likewise refuses to rebuild a 0×0 swapchain and keeps the request pending (no busy wait).
-`just qa --qa-minimize <frame>` (Sandbox) minimises for 1.5 s and logs how many updates and frames ran
-meanwhile (2 updates, ~0 frames on macOS).
+Minimised for 1.5 s on macOS this ran 2 updates and ~0 frames (measured with the old test game's `--qa-minimize`
+flag, which was removed with it; no automated test covers it).
 
 ### `MaxFPS` and VSync
 
@@ -172,12 +172,12 @@ dispose input → dispose renderer.
 
 - **`EngineOptions.RenderingBackend` is ignored**; `VulkanRenderer` is always created.
 - **FPS counts updates, not presents.**
-- README/CLAUDE.md show `Game(in EngineOptions options)`; the Sandbox uses a parameterless primary
-  constructor that passes options to `Engine` directly. Both work.
+- README/CLAUDE.md show `Game(in EngineOptions options)`; a parameterless primary constructor that passes options
+  to `Engine` directly works too.
 - The tree runs one fixed-step loop per update event, so physics process follows `UpdatesPerSecond`
   frames (accumulated), not a separate thread.
 
 ## Related docs
 
 [Architecture overview](architecture-overview.md) · [Vulkan renderer](vulkan-renderer.md) ·
-[Sandbox](sandbox.md) · [Build & platforms](build-and-platforms.md) · [Scene graph & nodes](scene-graph-and-nodes.md)
+[Demo](demo.md) · [Build & platforms](build-and-platforms.md) · [Scene graph & nodes](scene-graph-and-nodes.md)

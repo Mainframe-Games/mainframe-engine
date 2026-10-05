@@ -40,7 +40,7 @@ MyGame/                      ← dotnet new mfgame -n MyGame --engine-path <engi
 ```
 
 The launcher copies `project.mfproj` and `Content/**` to its output; engine content and natives come through the
-engine project reference, as for the Sandbox. The editor loads `MyGame.dll` (the library), never the launcher.
+engine project reference, as for the Demo. The editor loads `MyGame.dll` (the library), never the launcher.
 
 ## `project.mfproj`
 
@@ -130,7 +130,7 @@ the flags → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects 
 `base.OnLoad()`, frame cap, exposure, shadow quality, then `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
 `Tree.ChangeSceneToFile(--scene ?? mainScene)`. Each frame `GameSession.Update` applies editor commands and reports
-status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the Sandbox).
+status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the editor and render-test host do).
 
 ### UI hot reload
 

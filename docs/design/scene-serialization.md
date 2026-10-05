@@ -59,7 +59,7 @@ public partial class DirectionalLight3D : Light3D   // `partial` is not required
 ### Source generator
 
 `MainframeEngine.Generators` runs on every project that references it as an analyzer (the engine, the
-Sandbox, the unit tests; games will too):
+unit tests, every game such as the Demo):
 
 ```xml
 <ProjectReference Include="..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
@@ -321,6 +321,6 @@ register it in any order. Crash Site Defense uses this for its copies of Godot's
 
 ## Related docs
 
-[Scene graph & nodes](scene-graph-and-nodes.md) · [Sandbox](sandbox.md) · [Testing](testing.md) ·
+[Scene graph & nodes](scene-graph-and-nodes.md) · [Demo](demo.md) · [Testing](testing.md) ·
 [Editor](editor.md) · [Networking: replication](networking.md#replication) ·
 [Shaders](shaders.md)

@@ -11,8 +11,7 @@ just test             # unit tests: engine (Tests/MainframeEngine.Tests) + edito
 just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
 just test-linux       # CI's Linux unit/editor tests in Docker (x86_64 ubuntu:24.04)
 just render-tests-linux  # render tests on lavapipe in Docker: checks/records the `lavapipe` goldens locally
-just demo             # dotnet run --project Examples/Demo/Demo.Launcher (extra args: --scene Content/Scenes/x.mscene, ...)
-just demo             # the Demo game (Examples/Demo)
+just demo             # the Demo game: dotnet run --project Examples/Demo/Demo.Launcher (extra args: --scene Content/Scenes/x.mscene, ...)
 just demo-screenshots # one PNG per Demo scene in docs/images/demo (README Showcase); `just qa` is an alias
 just golden-update    # re-record render-test goldens for this driver; inspect the PNGs before committing
 just format           # dotnet format (format-check is what CI runs)
@@ -98,7 +97,7 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
 - `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `GameHost`/`GameSession`, `GameAssemblyLoader`
   (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol, client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template (not published; `build/template-smoke.sh`)
-- `MainframeEngine.Sandbox/` — test game; the only executable game project
+- `Examples/Demo/` — the Demo game (a `GameHost` project of its own: `Demo`, `Demo.Launcher`, `Demo.Tests`): one scene per feature, nav bar; README screenshots (`just demo-screenshots`). Standalone, not part of `MainframeEngine.slnx` (`Examples/Demo/Demo.slnx`); see `docs/design/demo.md`
 - `MainframeEngine.Editor/` — the editor exe (M10; `just editor [project|scene]`): `EditorApp : Engine` runs the tree in
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Content/Editor/`;
   `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Inspector/`, `SceneTree/`, `Viewport/` (camera,
@@ -110,8 +109,7 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
   References engine core only (no generator: editor nodes stay unregistered). See `docs/design/editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
-- `Examples/` — standalone tutorial projects, not part of the engine
-- `Tests/` — unit tests (engine, editor), render tests (+ host, editor smoke; goldens per driver in
+- `Tests/` — shared test assets (`Tests/Content`: showcase fixture scene, glTF/Spine/sky/audio, render-test catalogs), unit tests (engine, editor), render tests (+ host, editor smoke; goldens per driver in
   `Tests/MainframeEngine.RenderTests/Goldens/{moltenvk,lavapipe}`), benchmarks (`baseline.json`), QA scripts
   (`Tests/QA`); see `docs/design/testing.md`
 - `Native/` — in-house native shims and their sources (`mfrmlui` over RmlUi + FreeType, ENet), built per platform by
@@ -139,7 +137,7 @@ physics, input map, audio, localization, rendering, autoloads; versioned JSON wi
 `GameAssemblyLoader` (collectible, GC-verified unload — never keep game objects in locals of the unloading method).
 See `docs/design/project-and-gamehost.md`.
 
-**Engine subclass (Sandbox, tests):** subclass `Engine` (not an interface) and put nodes in the engine-owned `SceneTree` (Godot model);
+**Engine subclass (the editor, tests):** subclass `Engine` (not an interface) and put nodes in the engine-owned `SceneTree` (Godot model);
 the tree processes and renders them. Behaviour is node subclasses (`OnReady`, `OnProcess`,
 `OnPhysicsProcess`, `OnInput`, …), not code in the `Engine` subclass:
 
@@ -176,8 +174,8 @@ Serialized members are `[Export]` (public/internal, read-write) and signals are 
 project declaring node/resource types references `MainframeEngine.Generators` as an analyzer
 (`OutputItemType="Analyzer" ReferenceOutputAssembly="false"`). Scenes are `.mscene` JSON
 (`SceneSaver.Save`, `ResourceLoader.Load<PackedScene>`, `Instantiate()`); see
-`docs/design/scene-serialization.md`. Rebuild the Sandbox scene with
-`dotnet run --project MainframeEngine.Sandbox -- --write-scene MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene`.
+`docs/design/scene-serialization.md`. Regenerate the Demo scenes with
+`dotnet run --project Examples/Demo/Demo.Launcher -- --write-scenes Examples/Demo/Content/Scenes`.
 `MainframeEngine.Timer` (the Godot node) shadows `System.Threading.Timer` inside `MainframeEngine.*`
 namespaces — qualify the latter.
 

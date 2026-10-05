@@ -11,7 +11,7 @@ namespace MainframeEngine;
 /// </summary>
 /// <remarks>
 /// Not sealed: a game that needs the legacy hooks can subclass it (call the base methods). Subclassing
-/// <see cref="Engine"/> directly keeps working too (the Sandbox does).
+/// <see cref="Engine"/> directly keeps working too (the editor and the render-test host do).
 /// </remarks>
 public class GameHost : Engine
 {

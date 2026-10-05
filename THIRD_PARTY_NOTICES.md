@@ -7,7 +7,7 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 
 - Keep these notices with any distribution of the engine, the editor, or a game built with it.
 - Credits screens must show the FreeType credit, because the FreeType License has an advertising clause. The engine
-  ships a ready-made credits document, `Content/UI/credits.rml` (the Sandbox's **Credits** button shows it).
+  ships a ready-made credits document, `Content/UI/credits.rml` (load it from a **Credits** button in your game's UI).
 
 | Component | Version | Licence | Where | Shipped in |
 |---|---|---|---|---|
@@ -29,8 +29,8 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
 | [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
 | [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
-| Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `MainframeEngine.Sandbox/Content/Models/Spine/SpineBoy` | Sandbox only (see [below](#spine-example-assets)) |
-| [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `MainframeEngine.Sandbox/Content/Sky`, `Examples/EditorShowcase/Content/Sky` | Sandbox and EditorShowcase only |
+| Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
+| [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
 
 Managed NuGet dependencies (Silk.NET, ImGui.NET, StbImageSharp, Steamworks.NET, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
 their packages and are not repeated here.
@@ -450,12 +450,13 @@ SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 runtimes. **They are not covered by this repository's MIT licence**; using them (or the Spine Runtimes) in your own
 product requires a [Spine Editor licence](http://esotericsoftware.com/spine-editor-license). Copies in this repository:
 
-- `MainframeEngine.Sandbox/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (also linked into
-  `Tests/MainframeEngine.Tests` and `Tests/MainframeEngine.RenderTests.Host`; the `spine*` render-test goldens show it)
+- `Examples/Demo/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (the Demo's Spine scene) and
+  `Tests/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (linked into `Tests/MainframeEngine.Tests` and
+  `Tests/MainframeEngine.RenderTests.Host`; the `spine*` render-test goldens show it)
 
 ## Poly Haven sky panoramas
 
-The panoramic sky `sky_10_2k.png` (in `MainframeEngine.Sandbox/Content/Sky/` and `Examples/EditorShowcase/Content/Sky/`)
+The panoramic sky `sky_10_2k.png` (in `Examples/Demo/Content/Sky/` and `Tests/Content/Sky/`)
 is one of the Poly Haven sky panoramas (CC0), converted to an 8-bit 4096×2048 PNG. Poly Haven assets are released
 under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication; see
 https://polyhaven.com/license): no attribution is required, and it is given here as a courtesy.

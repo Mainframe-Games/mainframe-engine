@@ -195,7 +195,7 @@ until CI artifacts are committed.
 
   Exclude those package assets (e.g. `ExcludeAssets="build;native"` on the `PackageReference`) and ship ours from
   `MainframeEngine/runtimes/`, or the package's x86_64 dylib may win on Apple Silicon. Verify with
-  `NativeLibrary.TryLoad` / a Sandbox run on osx-arm64.
+  `NativeLibrary.TryLoad` / a run of any game (e.g. the Demo) on osx-arm64.
 
 ## Licences
 

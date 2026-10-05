@@ -2,7 +2,8 @@
   "format": 2,
   "uid": "scn_f64d0fd94f75",
   "resources": {
-    "Texture2D_r7w5c": {
+    "Texture2D_jhmly": {
+      "ref": "tex_9d579a80c803",
       "path": "Content/Basic2D/logo.png"
     }
   },
@@ -566,7 +567,7 @@
       "props": {
         "Position": [-150, -20],
         "Scale": [0.35, 0.35],
-        "Texture": { "res": "Texture2D_r7w5c" }
+        "Texture": { "res": "Texture2D_jhmly" }
       }
     },
     {

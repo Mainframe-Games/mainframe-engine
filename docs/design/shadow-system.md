@@ -351,7 +351,7 @@ the two timestamps:
 
 | Scene | Passes | Shadow CPU | Shadow GPU |
 |---|---|---|---|
-| Sandbox (2 directional, 2 spot, 1 point, Spine) | 13 | 0.014–0.026 ms | 0.96–1.0 ms |
+| Showcase scene (2 directional, 2 spot, 1 point, Spine) | 13 | 0.014–0.026 ms | 0.96–1.0 ms |
 | `shadow-lights` (sun, 3 spots, 2 points) | 19 | 0.02–0.05 ms | 1.1–1.4 ms |
 | `csm` (sun over 68 posts) | 4 | 0.013–0.034 ms | 1.0–1.14 ms |
 | 10 000 instances, one sun | 4 | 0.48–0.85 ms (culling 4 × 10k casters + instance writes) | 1.17 ms |
@@ -364,9 +364,9 @@ Planning alone ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.
 | `PlanEveryLightType` (2 suns, 3 spots, 2 points) | 1.37 µs |
 | `PackAtlasElevenTiles` | 0.25 µs |
 
-The Sandbox still runs at the display's 120 fps in Release.
+The showcase scene ran at the display's 120 fps in Release when this was measured.
 
-**Memory:** maps exist only for lights that need them. The Sandbox uses 86 MiB:
+**Memory:** maps exist only for lights that need them. The showcase scene used 86 MiB:
 
 | Map | Size |
 |---|---|

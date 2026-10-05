@@ -18,7 +18,7 @@
 
   <!-- Game -->
   <rect x="110" y="30" width="830" height="60" rx="8" fill="#fef3c7" stroke="#d97706"/>
-  <text x="130" y="55" class="hdr">Game : Engine  (MainframeEngine.Sandbox)</text>
+  <text x="130" y="55" class="hdr">Game  (GameHost, e.g. Examples/Demo)</text>
   <text x="130" y="75" class="sub">overrides OnLoad · OnImGui · OnUpdate · OnShadowPass · OnRenderMainPass · OnClose — owns List&lt;Node&gt;, ShadowSystem, Sky, Grid, Lights, Camera</text>
 
   <!-- Core -->

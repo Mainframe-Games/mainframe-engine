@@ -17,12 +17,15 @@ dotnet build "$repo/Examples/Demo/Demo.slnx" -c "$config" -warnaserror ${BUILD_A
 dotnet test "$repo/Examples/Demo/Demo.Tests" -c "$config" --no-build
 
 bin="$repo/Examples/Demo/Demo.Launcher/bin/$config/net10.0"
-rm -rf "$work"
 mkdir -p "$work"
 failed=0
-for scene in basic_3d basic_2d audio_2d audio_3d ui physics_2d physics_3d spine; do
-  # One user-data folder per scene: each run rotates the previous run's log away.
+# Every committed scene file is a scene to run. Only this script's own outputs under $work are cleaned (the folder is the
+# caller's): each scene's user-data folder and screenshot.
+for file in "$repo"/Examples/Demo/Content/Scenes/*.mscene; do
+  scene="$(basename "$file" .mscene)"
+  # One user-data folder per scene, so a scene's log is its own.
   userdata="$work/userdata/$scene"
+  rm -rf "$userdata" "$work/$scene.png"
   MAINFRAME_USER_DATA="$userdata" dotnet "$bin/Demo.Launcher.dll" --scene "Content/Scenes/$scene.mscene" \
     --max-frames "$frames" --hidden --fixed-fps 60 --no-vsync --screenshot "$work/$scene.png"
   if [ ! -s "$work/$scene.png" ]; then

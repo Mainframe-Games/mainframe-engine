@@ -1,135 +1,97 @@
-# Spanish translation of Mainframe Engine Sandbox.
+# Spanish translation of Mainframe Engine render tests.
 msgid ""
 msgstr ""
-"Project-Id-Version: Mainframe Engine Sandbox\n"
+"Project-Id-Version: Mainframe Engine render tests\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#. node Sandbox/Welcome (WelcomeBanner.Title)
-#: MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene:851
-msgid "Welcome to the Mainframe Engine Sandbox"
-msgstr "Bienvenido al Sandbox de Mainframe Engine"
-
-#. node Sandbox/Welcome (WelcomeBanner.Hint)
-#: MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene:852
-msgid "Hold the right mouse button to look around; move with W, A, S and D."
-msgstr "Mantén pulsado el botón derecho del ratón para mirar; muévete con W, A, S y D."
-
-#. RML <title>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:3
-msgid "Sandbox HUD"
-msgstr "HUD del Sandbox"
-
 #. RML <span>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:16
 msgid "{{ uiDraws }} draws"
 msgstr "{{ uiDraws }} llamadas"
 
 #. RML <div>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:25
 msgid "Scene"
 msgstr "Escena"
 
 #. RML <label>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:27
 msgid "Exposure"
 msgstr "Exposición"
 
 #. RML <label>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:32
 msgid "Spin speed"
 msgstr "Velocidad de giro"
 
 #. RML <label>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:37
 msgid "Max FPS"
 msgstr "FPS máximos"
 
 #. RML <option>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:39
 msgid "Unlimited"
 msgstr "Sin límite"
 
 #. RML <label>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:48
-#: MainframeEngine.Sandbox/Src/Game.cs:245
 msgid "Language"
 msgstr "Idioma"
 
 #. RML <label>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:54
 msgid "Sun"
 msgstr "Sol"
 
 #. RML <label>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:55
 msgid "Coloured lights"
 msgstr "Luces de colores"
 
 #. RML <label>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:56
 #: MainframeEngine/Content/UI/widgets/demo.rml:33
 msgid "VSync"
 msgstr "Sincr. vertical"
 
 #. RML <label>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:57
 msgid "Colliders"
 msgstr "Colisionadores"
 
 #. RML <button>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:60
 msgid "Widgets"
 msgstr "Widgets"
 
 #. RML <button>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:61
 msgid "Dev overlay"
 msgstr "Depuración"
 
 #. RML <button>
 #. RML <title>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:62
 #: MainframeEngine/Content/UI/credits.rml:3
 msgid "Credits"
 msgstr "Créditos"
 
 #. RML <button>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:63
 msgid "Quit"
 msgstr "Salir"
 
 #. RML <div>
-#: MainframeEngine.Sandbox/Content/UI/hud.rml:67
 msgid "Right-drag look · WASD move · Q/E down/up · F8 UI debugger · F12 dev overlay · Esc quit"
 msgstr "Botón derecho: mirar · WASD: mover · Q/E: bajar/subir · F8: depurador de UI · F12: depuración · Esc: salir"
 
-#: MainframeEngine.Sandbox/Src/Game.cs:242
 msgid "Developer"
 msgstr "Desarrollador"
 
-#: MainframeEngine.Sandbox/Src/Game.cs:243
 msgid "Full screen"
 msgstr "Pantalla completa"
 
-#: MainframeEngine.Sandbox/Src/Game.cs:244
 msgid "UI debugger (F8)"
 msgstr "Depurador de UI (F8)"
 
-#: MainframeEngine.Sandbox/Src/Game.cs:247
 msgctxt "overlay section"
 msgid "Camera"
 msgstr "Cámara"
 
-#: MainframeEngine.Sandbox/Src/Game.cs:248
 msgctxt "overlay section"
 msgid "Scene"
 msgstr "Escena"
 
-#: MainframeEngine.Sandbox/Src/Game.cs:258
 #, csharp-format
 msgid "{0} node in the scene tree"
 msgid_plural "{0} nodes in the scene tree"

@@ -290,7 +290,7 @@ jobs:
       CONFIGURATION: Release
       BUILD_ARGS: -p:CompileShaders=false
     steps:
-      # The smoke games need the engine's and the Demo's LFS content (not the other examples, tests or docs images).
+      # The smoke games need the engine's and the Demo's LFS content (not tests or docs images).
       # Git LFS objects are cached by object ID (.lfs-assets-id), so repeat runs use no LFS bandwidth.
       - uses: actions/checkout@v4
         with:
@@ -298,7 +298,7 @@ jobs:
 
       - name: List LFS objects
         shell: bash
-        run: git lfs ls-files -l --exclude="docs/images/**,Examples/EditorShowcase/**,Tests/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+        run: git lfs ls-files -l --exclude="docs/images/**,Tests/**" | cut -d' ' -f1 | sort > .lfs-assets-id
 
       - name: Cache LFS objects
         uses: actions/cache@v4
@@ -309,7 +309,7 @@ jobs:
 
       - name: Fetch LFS objects
         shell: bash
-        run: git lfs pull --exclude="docs/images/**,Examples/EditorShowcase/**,Tests/**"
+        run: git lfs pull --exclude="docs/images/**,Tests/**"
 
       - run: git submodule update --init --depth 1 Plugins/Spine
 
@@ -340,11 +340,11 @@ jobs:
       - name: Pack the template package
         run: dotnet pack Templates/MainframeEngine.Templates -c Release -o "$RUNNER_TEMP/templates"
 
-      - name: Upload the smoke game's log and screenshot
+      - name: Upload the smoke games' logs and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: template-smoke-log
+          name: template-and-demo-smoke
           path: |
             ${{ runner.temp }}/template-smoke/userdata/**/*.log
             ${{ runner.temp }}/template-smoke/screenshot.png

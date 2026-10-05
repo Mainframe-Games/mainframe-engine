@@ -10,12 +10,12 @@ FileSystem panel, out-of-process Play, game code loading and reload) and **E5 po
 editing, resource files and custom inspectors, editor settings). What is still open is in
 [Future: editor](future/editor.md).
 
-![The editor with the Sandbox scene](../images/editor.png)
+![The editor with the Demo's Basic 3D scene](../images/editor.png)
 
 ```sh
 just editor                                  # the Project Manager (recent projects, New Project, Open)
 just editor path/to/MyGame                   # open a project folder (or its project.mfproj)
-just editor MainframeEngine.Sandbox/Content/Scenes/Sandbox.mscene   # open one scene (its project becomes current)
+just editor Examples/Demo/Content/Scenes/basic_3d.mscene   # open one scene (its project becomes current)
 ```
 
 On macOS the app is called **Mainframe Engine** (Dock tooltip, bold app menu, Cmd+Tab) in development runs as well as in
@@ -473,7 +473,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   Tooltip timing, placement, keyboard focus and dismissal, the create dialog's tree and search, Output features, scene
   tree badges and inspector icons have their own tests ([IconPanelTests](../../Tests/MainframeEngine.Editor.Tests/IconPanelTests.cs)).
 - **Render tests** ([EditorRenderTests](../../Tests/MainframeEngine.RenderTests/EditorRenderTests.cs)): the editor's
-  `--smoke` run in a hidden window — open Sandbox.mscene, select the Column by GPU picking at its projected pixel, change
+  `--smoke` run in a hidden window — open the showcase fixture (`Tests/Content/Scenes/Showcase.mscene`), select the Column by GPU picking at its projected pixel, change
   its position through the inspector model, undo/redo, save to a temp file, reload and re-save byte-identically — plus
   the editor window golden, frame times on the scene, the allocation gate (0 B over 300 idle frames with 1 000 nodes,
   validation on), the splash golden, and the **Project Manager** and **FileSystem panel** goldens
@@ -497,14 +497,14 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   the Project Manager (`recent-project` seeds the list), the showcase scene (`open-project`, `camera`, `collapse`), the
   create dialog (`favorite`, `search`, `pick`) and a new game after a code reload while it plays, captured at 2x
   (`--scale 2`, 3200×1920 px) and downscaled to 1600×960 into `docs/images/editor*.png` with ImageMagick. The scene is
-  [Examples/EditorShowcase](../../Examples/EditorShowcase) — a project from the `mfgame` template (engine by project
-  reference, `../..`) whose game code the editor loads, so every node type resolves. Projects are opened from the
-  neutral `/tmp/MainframeProjects` (the recipe links the showcase there), so no user path is on screen; editor log
-  lines show project files relative to the project (`Saved Content/Scenes/Main.mscene`).
+  [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose
+  game code the editor loads, so every node type resolves. Projects are opened from the
+  neutral `/tmp/MainframeProjects` (the recipe links the Demo there), so no user path is on screen; editor log
+  lines show project files relative to the project (`Saved Content/Scenes/basic_3d.mscene`).
 
 ## Performance
 
-Apple M5, MoltenVK, hidden 1280×720-point window at content scale 2 (2560×1440 px), Sandbox.mscene open (sky, five
+Apple M5, MoltenVK, hidden 1280×720-point window at content scale 2 (2560×1440 px), the showcase fixture scene open (sky, five
 lights with Shadows v2 cascades and atlas, Spine, physics crates, a glTF model), Debug build with validation: **8.3 ms
 average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate nothing.
 

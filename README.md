@@ -74,7 +74,7 @@ just editor         # the editor's Project Manager
 just test           # engine + editor unit tests
 ```
 
-Or open `MainframeEngine.slnx` in Rider or Visual Studio and run `Examples/Demo/Demo.Launcher` or `MainframeEngine.Editor`.
+Or open `MainframeEngine.slnx` in Rider or Visual Studio and run `MainframeEngine.Editor` (the Demo has its own solution, `Examples/Demo/Demo.slnx`).
 `just` lists every recipe (render tests, QA screenshots, benchmarks, shaders, localization, packaging).
 
 ---
@@ -105,8 +105,7 @@ mainframe-engine/
 │   └── runtimes/                # Native libraries per RID (mfrmlui, ENet)
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
 ├── MainframeEngine.Editor/      # The editor (RmlUi UI in Content/Editor)
-├── MainframeEngine.Sandbox/     # Test game demonstrating the engine's features
-├── Examples/                    # Demo: the showcase game (one scene per feature) and the editor screenshots' project
+├── Examples/                    # Demo: the showcase game (one scene per feature; README screenshots)
 ├── Templates/                   # `dotnet new mfgame` game template
 ├── Tools/MainframeEngine.L10n/  # mf-l10n: extract (RML, scenes), update, pseudo-locale, .po -> .mo compiler
 ├── Native/                      # Native shim sources (mfrmlui over RmlUi + FreeType, ENet), built by natives.yml
@@ -277,9 +276,6 @@ mp.Connect("127.0.0.1", 7777);
 myShip.RpcThrust(Vector3.UnitZ); // generated sender
 ```
 
-Try it: `dotnet run --project MainframeEngine.Sandbox -- --server`, then `-- --client 127.0.0.1` in a second
-terminal.
-
 ### Audio (`Audio/`)
 
 `AudioServer` (registered by `Engine` at startup; a silent null device when there is no audio device) mixes Godot-style
@@ -439,8 +435,7 @@ just demo --scene Content/Scenes/physics_2d.mscene # any scene (--max-frames, --
 just editor Examples/Demo                          # open it in the editor
 ```
 
-F12 toggles the ImGui developer overlay (frame stats, GPU memory, light gizmos, audio buses, physics). See
-[Demo](docs/design/demo.md).
+See [Demo](docs/design/demo.md).
 
 ---
 

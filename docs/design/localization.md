@@ -69,7 +69,7 @@ flowchart LR
 
 ### Build step
 
-[build/Localization.targets](../../build/Localization.targets) (imported by the Sandbox; games import it the same way)
+[build/Localization.targets](../../build/Localization.targets) (imported by the Demo's launcher; every game imports it the same way)
 compiles every `Content/locale/<locale>/LC_MESSAGES/<domain>.po` to `obj/<Configuration>/locale/…/.mo` with
 `mf-l10n` (built first through a project reference with `ReferenceOutputAssembly=false`), incrementally per
 catalog, and copies the results to the output as `Content/locale/…/<domain>.mo`. A translation that breaks its
@@ -205,7 +205,7 @@ The [game UI](game-ui.md)'s `UiServer` translates every document through `UiServ
    server therefore translates a run containing `{{` once and returns it with the opt-out marker in front (a `no-tr`
    template keeps the marker `PrepareDocument` gave it): the data view copies the marker into every substituted text,
    which comes back unmarked without a lookup. So bound values are never translated (a player named "Play" stays
-   "Play"), never logged as missing, and a frame of HUD updates allocates nothing (the `sandbox` allocation gate runs
+   "Play"), never logged as missing, and a frame of HUD updates allocates nothing (the `showcase` allocation gate runs
    the HUD in Spanish). The data view replaces the marked template on the context's first update, before rendering.
 3. **Locale changes** — `ITextTranslator.LocaleChanged` only flags the server (it may fire on any thread, or inside an
    RmlUi callback such as a language dropdown's data binding). At the start of the next `UiServer.Process` — after the
@@ -253,19 +253,17 @@ over a session; fallback faces only supply missing glyphs, so they never change 
 `mf-l10n pseudo --pot … --dir …` writes `qps/LC_MESSAGES/messages.po` (and `--compile` its `.mo`): every message is
 accented (`Settings` → `[Šéţţîñĝš ~~]`), padded by about 30% (`--expansion`), and bracketed. Format items
 (`{0:N2}`), escaped braces, `{{ data }}` expressions, `%s` sequences and outer whitespace are kept. `--charset latin1`
-only uses Latin-1 accents (`[Séttîñgs ~~]`) for fonts limited to Latin-1, such as ImGui's built-in font (the Sandbox
-uses it). In `qps`, strings that bypass translation appear without brackets, and clipped brackets show truncation.
+only uses Latin-1 accents (`[Séttîñgs ~~]`) for fonts limited to Latin-1, such as ImGui's built-in font. In `qps`, strings that bypass translation appear without brackets, and clipped brackets show truncation.
 
-## Sandbox
+## Demo
 
-The Sandbox ([sandbox.md](sandbox.md)) ships `en` (source), `es` (hand-written) and `qps`. Its RmlUi HUD
-(`hud.rml`), the engine's widget demo and credits are translated by the UI server (`just l10n-extract` reads both
-`MainframeEngine.Sandbox/Content` and `MainframeEngine/Content/UI`); the HUD's **Language** dropdown (a `data-for`
-`<select>` over `Tr.GetAvailableLocales()`) switches at run time, its stat abbreviations and the credits' licence
-notices opt out with `no-tr`, and `WelcomeBanner` in `Sandbox.mscene` (translatable scene strings) is shown at the top
-of the HUD. The F12 ImGui developer overlay has its own **Language** combo; its labels go through `Tr` (rebuilt only on
-a locale change, ImGui ids pinned with `###`, so frames stay allocation-free) and the node count is a plural.
-`--locale es` starts in Spanish.
+The [Demo](demo.md) ships `en` (source), `es` (hand-written) and `qps` in `Examples/Demo/Content/locale`
+(`just l10n-extract` reads `Examples/Demo/Demo/Src`, the Demo's `Content` and the engine's `MainframeEngine/Content/UI`
+widgets; `just l10n-check` runs in CI). Its RmlUi panels are translated by the UI server; the tab titles are
+`Tr._(...)` literals in `DemoNav`, re-translated on `OnLocaleChanged`. The nav bar's **language picker** (a `data-for`
+`<select>` over `Tr.GetAvailableLocales()`) switches at run time. `--locale es` starts in Spanish.
+`Tests/Content/locale` is a separate, small Spanish catalog for the render tests' allocation gate and the editor
+tests; the `mf-l10n` recipes do not manage it.
 
 ## Testing
 
@@ -308,4 +306,4 @@ Benchmarks: `LocalizationBenchmarks` in [baseline.json](../../Tests/MainframeEng
 
 [Scene serialization](scene-serialization.md) · [Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Game UI](game-ui.md) · [Editor](editor.md) · [Shaders](shaders.md) ·
-[Sandbox](sandbox.md) · [Milestones](../milestones.md)
+[Demo](demo.md) · [Milestones](../milestones.md)

@@ -299,7 +299,7 @@ public sealed class ProjectSettingsTests : IDisposable
         var medium = ShadowQualitySettings.For(ShadowQuality.Medium);
         var high = ShadowQualitySettings.For(ShadowQuality.High);
 
-        // High is exactly what a new shadow system starts with (the Sandbox and every render test).
+        // High is exactly what a new shadow system starts with (the render tests and the Demo).
         Assert.Equal(new ShadowQualitySettings(ShadowPlanner.DefaultMaxAtlasSize, new ShadowPlanner().Filter, new ShadowPlanner().FilterRadius,
             new ShadowPlanner().CascadeLimit, new ShadowPlanner().ResolutionLimit), high);
         Assert.Equal((1024, ShadowFilter.Hard, 2, 1024), (low.MaxAtlasSize, low.Filter, low.CascadeLimit, low.ResolutionLimit));
