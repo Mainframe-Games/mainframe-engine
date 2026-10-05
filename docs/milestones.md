@@ -43,6 +43,7 @@ flowchart LR
 | [M8](#m8--game-ui-rmlui-) | RmlUi HTML/CSS game UI (also the editor's UI) | ✅ |
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
+| [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -250,6 +251,18 @@ core, and its UI is built entirely with the M8 game UI stack (RmlUi).
 | E4 editor side: Project Manager (recent projects, .NET SDK check), New Project wizard (`dotnet new mfgame`), Project Settings (every section, input map binding capture, undo), FileSystem panel (tree/list/grid, thumbnails, badges, create/rename/move with UID reference fix-ups, OS trash, drag and drop), Play (F5/F6/F7/F8, build errors and game logs in Output, several instances), code reload into a collectible context with scenes re-created | ✅ | [Editor: projects](design/editor.md#projects) · [Play](design/editor.md#play) · [FileSystem](design/editor.md#filesystem-panel) |
 | E5 Polish: signals tab, multi-select editing, 2D editing mode, resource files and `[CustomInspector]` example (audio bus mixer), editor settings (accent, autosave, external code editor), resizable inspector name column | ✅ | [Editor](design/editor.md#signals) |
 | After M10: remote scene tree, simulate mode, box selection, multi-node gizmo, docking | ⬜ | [Future: editor](design/future/editor.md) |
+
+## Demo & polish ⬜
+
+Replace the Sandbox with a real, downloadable game project that shows one feature per scene, retire ImGui, and polish
+the Project Manager. Order: D1 → D2 → D3 → D4.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| D1 `Examples/Demo` (GameHost project): nav-bar autoload, Basic 3D / Basic 2D / Audio 2D / Audio 3D / UI + hot reload / Physics 2D / Physics 3D / Spine (Camera2D ↔ Camera3D) scenes, README screenshot gallery; Sandbox and EditorShowcase removed | ⬜ | [Demo project](design/future/demo-project.md) |
+| D2 Remove ImGui: RmlUi `DevOverlay` (F12, panels, `AddPanel`), Vulkan `ScreenGizmos` (light + axis gizmos) | ⬜ | [Remove ImGui](design/future/remove-imgui.md) |
+| D3 Project icons in the Project Manager (`window.icon`, template default icon, RmlUi absolute-path fix) | ⬜ | [Project icons](design/future/project-icons.md) |
+| D4 "Download Demo Project" (release zip asset, download + extract + engine-path rewrite) | ⬜ | [Demo download](design/future/demo-download.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 
