@@ -1,14 +1,12 @@
-using System.Globalization;
 using System.Numerics;
-using ImGuiNET;
 using MainframeEngine.Localization;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
 /// <summary>
 /// Mirrors the showcase fixture's per-frame work — Spine, shadows, sky, grid, the RmlUi HUD (data bindings dirtied every frame)
-/// the light and axis screen gizmos and the ImGui debug window — for the steady-state allocation gate. Its ImGui text shows
-/// timings, so it is not used for golden images. Its labels are looked up in the Spanish test catalog (Tests/Content/locale) every frame
+/// the light and axis screen gizmos and the RmlUi dev overlay with every panel expanded — for the steady-state allocation
+/// gate. The overlay shows timings, so it is not used for golden images. Its labels are looked up in the Spanish test catalog (Tests/Content/locale) every frame
 /// (M9), so the gate also covers translation lookups.
 /// </summary>
 public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
@@ -21,6 +19,29 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
         Tr.SetLocale("es");
         Servers.Render!.ShowLightGizmos = true; // the allocation gate covers the screen-gizmo path
         Servers.Render.ShowAxisGizmo = true;
+        AddDevOverlay();
+    }
+
+    /// <summary>
+    /// The dev overlay with every panel expanded, plus a test panel with the labels the Spanish test catalog translates
+    /// (a hit, a context hit and a miss), so the gate covers the overlay's refresh path and translation lookups.
+    /// </summary>
+    private void AddDevOverlay()
+    {
+        DevOverlayVisible = true;
+        var overlay = DevOverlay!;
+        overlay.AddPanel("render-test", Tr._("Render test"), """
+            <div class="dev-row"><span>{{language}}</span><span class="v">{{locale}}</span></div>
+            <div class="dev-row"><span>{{camera}}</span><span class="v">{{x | format(2)}}, {{y | format(2)}}, {{z | format(2)}}</span></div>
+            """, p => p.Model!
+            .Bind("language", this, static s => Tr._("Language"))              // hit
+            .Bind("camera", this, static s => Tr.P("overlay section", "Camera")) // context hit
+            .Bind("locale", this, static s => Tr.CurrentLocale)
+            .Bind("x", this, static s => s.Camera.GlobalPosition.X)
+            .Bind("y", this, static s => s.Camera.GlobalPosition.Y)
+            .Bind("z", this, static s => s.Camera.GlobalPosition.Z));
+        foreach (var panel in overlay.Panels)
+            panel.Expanded = true;
     }
 
     /// <summary>
@@ -113,30 +134,5 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
             else if (audio.Stats.StreamErrors > 0 || audio.Stats.Faulted)
                 Fail("Audio stream errors or a mixer fault.");
         }
-    }
-
-    protected override void OnImGui(in GameTime gameTime)
-    {
-        ImGui.SetNextWindowPos(Vector2.Zero, ImGuiCond.Always, Vector2.Zero);
-        if (ImGui.Begin("Game Window", ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            ImGui.Value("FrameCount", gameTime.FrameCount);
-            ImGui.Value("DeltaTime", gameTime.DeltaTime);
-            ImGui.Value("FPS", gameTime.FramesPerSecond);
-            ImGui.TextUnformatted(Tr._("Language"));                 // hit
-            ImGui.TextUnformatted(Tr.P("overlay section", "Camera")); // context hit
-            ImGui.TextUnformatted(Tr._("Render test"));              // miss: the source text
-
-            Span<char> text = stackalloc char[64];
-            var p = Camera.GlobalPosition;
-            if (text.TryWrite(CultureInfo.InvariantCulture, $"Position: <{p.X:0.00}, {p.Y:0.00}, {p.Z:0.00}>", out var written))
-                ImGui.TextUnformatted(text[..written]);
-
-            if (Servers.Get<AudioServer>() is { } audio)
-                AudioImGui.DrawMixer(audio);
-        }
-        ImGui.End();
-
-        RendererDebugWindow.Draw(Renderer, Servers.Render);
     }
 }

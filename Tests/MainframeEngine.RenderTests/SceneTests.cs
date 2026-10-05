@@ -184,7 +184,7 @@ public class SceneTests
         // With tiering, some generic BCL code starts at tier 0 — notably the interpolated-string handlers' AppendFormatted<T>,
         // which boxes each formatted value (24 B) until the background JIT promotes it after ~30 calls — and when that
         // promotion lands is timing-dependent (the call-counting delay restarts on every tier-0 JIT), so ~1 run in 3
-        // measured a few dozen frames of ImGui text formatting before it. Fully optimized code from the start measures
+        // measured a few dozen frames of dev overlay formatting before it. Fully optimized code from the start measures
         // the steady state deterministically.
         var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
             "showcase", Output("showcase"), "--alloc", $"{warmup}:{measured}", "--hidden");

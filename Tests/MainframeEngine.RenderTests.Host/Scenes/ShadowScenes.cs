@@ -160,6 +160,15 @@ public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
         scene.AddChild(new Grid3D { Name = "Grid" });
         scene.AddChild(new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(14, 14) }, MaterialOverride = Plain(215, 210, 200) });
 
+        // --count 2 shows the dev overlay with only the Shadows panel open: its depth images (cascade layers, atlas) are
+        // sampled in their read-only depth layout and must be validation-clean.
+        if (Host.Count == 2)
+        {
+            DevOverlayVisible = true;
+            foreach (var panel in DevOverlay!.Panels)
+                panel.Expanded = panel.Id == "shadows";
+        }
+
         var box = new BoxMesh();
         scene.AddChild(new MeshInstance3D { Name = "BoxA", Position = new Vector3(-2.5f, 0.5f, 0.5f), RotationDegrees = new Vector3(0, 30, 0), Mesh = box, MaterialOverride = Plain(230, 120, 80) });
         scene.AddChild(new MeshInstance3D { Name = "BoxB", Position = new Vector3(2.5f, 0.5f, 1f), Mesh = box, MaterialOverride = Plain(90, 160, 230) });
@@ -173,17 +182,6 @@ public sealed class ShadowLightsScene(HostOptions host) : ShadowSceneBase(host)
         scene.AddChild(Aim(new SpotLight3D { Name = "SpotBlue", Position = new Vector3(0f, 5f, -4.5f), Color = new Vector3(0.45f, 0.6f, 1f), Energy = 1.1f, Range = 14f, InnerConeAngle = 20f, OuterConeAngle = 34f }, new Vector3(0f, -1f, 0.75f)));
         scene.AddChild(new OmniLight3D { Name = "LampWarm", Position = new Vector3(-1.2f, 1.4f, 1.6f), Color = new Vector3(1f, 0.75f, 0.4f), Energy = 1.2f, Range = 6f });
         scene.AddChild(new OmniLight3D { Name = "LampCool", Position = new Vector3(1.6f, 1.2f, -0.2f), Color = new Vector3(0.4f, 0.7f, 1f), Energy = 1.2f, Range = 6f, ShadowResolution = 256 });
-    }
-
-    // --count 2 draws the renderer window with the shadow maps open: depth images shown by ImGui in their read-only
-    // depth layout must be validation-clean.
-    protected override void OnImGui(in GameTime gameTime)
-    {
-        base.OnImGui(gameTime);
-        if (Host.Count != 2)
-            return;
-        RendererDebugWindow.ExpandShadowMaps = true;
-        RendererDebugWindow.Draw(Renderer, Servers.Render);
     }
 
     protected override void OnRenderMainPass(in GameTime gameTime)

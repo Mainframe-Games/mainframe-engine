@@ -40,6 +40,7 @@ public abstract class RenderTestGame : Engine
         MaxFrames = host.MaxFrames,
         // The silent null device: CI machines have no audio device, and render tests should not make noise.
         Audio = new AudioOptions { Device = AudioDeviceMode.Null, BusLayoutPath = null },
+        DevOverlayVisible = false, // scenes opt in (showcase, shadow-lights --count 2)
         Locale = "en", // never the machine's language: captures must not depend on it
     };
 
