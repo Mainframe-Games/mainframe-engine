@@ -53,6 +53,14 @@ public sealed class DemoArchiveTests : IDisposable
     }
 
     [Fact]
+    public void MalformedEntryNamesAreADownloadError()
+    {
+        var zip = DemoZips.Write(Path.Combine(_directory, "nul.zip"), DemoZips.ValidProject(), z =>
+            z.CreateEntry("MainframeEngine.Demo/bad\0name.txt"));
+        Assert.Throws<DemoDownloadException>(() => DemoArchive.ExtractAndValidate(zip, Work()));
+    }
+
+    [Fact]
     public void OversizedArchivesAreRefused()
     {
         var zip = DemoZips.Write(Path.Combine(_directory, "big.zip"), DemoZips.ValidProject());

@@ -25,9 +25,9 @@ public static class DemoArchive
                 var target = Path.GetFullPath(Path.Combine(work, name));
                 if (!target.StartsWith(work, StringComparison.Ordinal))
                     throw new DemoDownloadException($"The demo archive has a path outside its folder ({entry.FullName}).");
-                total += entry.Length;
-                if (total > maxBytes)
+                if (entry.Length > maxBytes - total)
                     throw new DemoDownloadException("The demo archive is larger than expected.");
+                total += entry.Length;
                 tops.Add(Path.GetRelativePath(work, target).Split(Path.DirectorySeparatorChar, 2)[0]); // from the resolved path, so "Demo/../Other/x" counts as Other
                 if (name.EndsWith('/'))
                 {
@@ -39,7 +39,7 @@ public static class DemoArchive
                 entry.ExtractToFile(target, overwrite: false);
             }
         }
-        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
+        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             throw new DemoDownloadException("The demo archive could not be unpacked: " + e.Message, e);
         }
