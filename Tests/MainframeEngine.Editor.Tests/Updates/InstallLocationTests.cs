@@ -67,11 +67,45 @@ public sealed class InstallLocationTests : IDisposable
         Assert.Equal(Path.GetFullPath(folder), InstallLocation.FindRoot(folder + Path.DirectorySeparatorChar, rid));
     }
 
+    [Theory]
+    [InlineData("linux-x64")]
+    [InlineData("win-x64")]
+    [InlineData("osx-arm64")]
+    public void AFolderWithoutTheEditorExecutableIsNotAnInstall(string rid)
+    {
+        // Any folder holding the running files is not enough: replacing it would move everything else in it aside.
+        var root = UpdatePlatform.IsMac(rid) ? Path.Combine(_directory, "Mainframe Engine.app") : Path.Combine(_directory, "Shared Tools");
+        var baseDirectory = UpdatePlatform.IsMac(rid) ? Path.Combine(root, "Contents", "MacOS") : root;
+        var checkedPaths = new List<string>();
+        var location = InstallLocation.Inspect(baseDirectory, rid, _ => true, p =>
+        {
+            checkedPaths.Add(p);
+            return false;
+        });
+        Assert.Equal(InstallKind.NotBundled, location.Kind);
+        Assert.False(location.CanReplace);
+        Assert.Equal(UpdatePlatform.ExecutablePath(Path.GetFullPath(root), rid), Assert.Single(checkedPaths));
+        Assert.DoesNotContain(".app", location.Hint, StringComparison.Ordinal); // the hint fits every platform
+        Assert.Contains("by hand", location.Hint, StringComparison.Ordinal);
+
+        Assert.True(InstallLocation.Inspect(baseDirectory, rid, _ => true, _ => true).CanReplace);
+    }
+
+    [Fact]
+    public void TheRealExecutableIsLookedForByDefault()
+    {
+        var folder = Path.Combine(_directory, "MainframeEngine-1.0.0-linux-x64");
+        Directory.CreateDirectory(folder);
+        Assert.Equal(InstallKind.NotBundled, InstallLocation.Inspect(folder, "linux-x64", _ => true).Kind);
+        File.WriteAllText(UpdatePlatform.ExecutablePath(folder, "linux-x64"), "exe");
+        Assert.Equal(InstallKind.Replaceable, InstallLocation.Inspect(folder, "linux-x64", _ => true).Kind);
+    }
+
     [Fact]
     public void TranslocatedAppsCannotBeReplaced()
     {
         var app = Path.Combine(_directory, "AppTranslocation", "1B2C", "d", "Mainframe Engine.app");
-        var location = InstallLocation.Inspect(Path.Combine(app, "Contents", "MacOS"), "osx-arm64", _ => true);
+        var location = InstallLocation.Inspect(Path.Combine(app, "Contents", "MacOS"), "osx-arm64", _ => true, _ => true);
         Assert.Equal(InstallKind.Translocated, location.Kind);
         Assert.False(location.CanReplace);
         Assert.Contains("Applications", location.Hint, StringComparison.Ordinal);
@@ -81,11 +115,11 @@ public sealed class InstallLocationTests : IDisposable
     public void ReadOnlyFoldersCannotBeReplaced()
     {
         var folder = Path.Combine(_directory, "MainframeEngine-1.0.0-linux-x64");
-        Assert.Equal(InstallKind.NotWritable, InstallLocation.Inspect(folder, "linux-x64", _ => false).Kind);
+        Assert.Equal(InstallKind.NotWritable, InstallLocation.Inspect(folder, "linux-x64", _ => false, _ => true).Kind);
         // The root's parent must be writable too (the root is renamed inside it).
         var parent = Path.GetFullPath(_directory);
-        Assert.Equal(InstallKind.NotWritable, InstallLocation.Inspect(folder, "linux-x64", d => !string.Equals(d, parent, StringComparison.Ordinal)).Kind);
-        var replaceable = InstallLocation.Inspect(folder, "linux-x64", _ => true);
+        Assert.Equal(InstallKind.NotWritable, InstallLocation.Inspect(folder, "linux-x64", d => !string.Equals(d, parent, StringComparison.Ordinal), _ => true).Kind);
+        var replaceable = InstallLocation.Inspect(folder, "linux-x64", _ => true, _ => true);
         Assert.True(replaceable.CanReplace);
         Assert.Null(replaceable.Hint);
     }

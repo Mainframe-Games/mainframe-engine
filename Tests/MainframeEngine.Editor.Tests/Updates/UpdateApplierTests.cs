@@ -10,8 +10,10 @@ public sealed class UpdateApplierTests : IDisposable
 
     public UpdateApplierTests()
     {
-        Directory.CreateDirectory(Root);
-        File.WriteAllText(Path.Combine(Root, "old.txt"), "old");
+        // A release-like old install: every top-level entry is also in the new release (others count as the user's).
+        Directory.CreateDirectory(Path.Combine(Root, "Content"));
+        File.WriteAllText(Path.Combine(Root, "MainframeEngine.Editor"), "old exe");
+        File.WriteAllText(Path.Combine(Root, "Content", "old.txt"), "old");
         Directory.CreateDirectory(Path.Combine(Staged, "Content"));
         File.WriteAllText(Path.Combine(Staged, "MainframeEngine.Editor"), "new exe");
         File.WriteAllText(Path.Combine(Staged, "Content", "new.txt"), "new");
@@ -56,8 +58,8 @@ public sealed class UpdateApplierTests : IDisposable
         Assert.Equal(0, Applier().Apply(Request(project)));
 
         Assert.Equal("new", File.ReadAllText(Path.Combine(Root, "Content", "new.txt")));
-        Assert.False(File.Exists(Path.Combine(Root, "old.txt")));
-        Assert.True(File.Exists(Path.Combine(Backup, "old.txt"))); // the next start deletes it
+        Assert.False(File.Exists(Path.Combine(Root, "Content", "old.txt")));
+        Assert.True(File.Exists(Path.Combine(Backup, "Content", "old.txt"))); // the next start deletes it
         var result = UpdateResult.Load(UpdatePaths.ResultFile(Updates))!;
         Assert.Equal(new UpdateResult("1.0.0", "1.1.0", true, null), result);
         var start = Assert.Single(_started);
@@ -67,10 +69,83 @@ public sealed class UpdateApplierTests : IDisposable
     }
 
     [Fact]
+    public void TheUsersFilesInTheInstallFolderMoveToTheNewVersion()
+    {
+        File.WriteAllText(Path.Combine(Root, "notes.txt"), "mine");
+        Directory.CreateDirectory(Path.Combine(Root, "My Game", "Content"));
+        File.WriteAllText(Path.Combine(Root, "My Game", "project.mfproj"), "{}");
+
+        Assert.Equal(0, Applier().Apply(Request()));
+
+        Assert.Equal("mine", File.ReadAllText(Path.Combine(Root, "notes.txt")));
+        Assert.Equal("{}", File.ReadAllText(Path.Combine(Root, "My Game", "project.mfproj")));
+        Assert.True(Directory.Exists(Path.Combine(Root, "My Game", "Content")));
+        Assert.False(Path.Exists(Path.Combine(Backup, "notes.txt")));
+        Assert.False(Path.Exists(Path.Combine(Backup, "My Game")));
+        // Entries the release has keep the release's version.
+        Assert.Equal("new exe", File.ReadAllText(Path.Combine(Root, "MainframeEngine.Editor")));
+        Assert.False(File.Exists(Path.Combine(Root, "Content", "old.txt")));
+        Assert.Contains(_log, l => l.Contains("notes.txt", StringComparison.Ordinal));
+        Assert.Single(_started);
+    }
+
+    [Fact]
+    public void FailingToMoveTheUsersFilesRollsBackWithThemIntact()
+    {
+        File.WriteAllText(Path.Combine(Root, "notes.txt"), "mine");
+        Directory.CreateDirectory(Path.Combine(Root, "My Game"));
+        File.WriteAllText(Path.Combine(Root, "My Game", "project.mfproj"), "{}");
+        void Move(string from, string to)
+        {
+            if (string.Equals(Path.GetFileName(from), "My Game", StringComparison.Ordinal) && to.StartsWith(Root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                throw new IOException("In use");
+            Directory.Move(from, to);
+        }
+
+        Assert.Equal(1, Applier(move: Move).Apply(Request()));
+
+        Assert.Equal("mine", File.ReadAllText(Path.Combine(Root, "notes.txt")));
+        Assert.Equal("{}", File.ReadAllText(Path.Combine(Root, "My Game", "project.mfproj")));
+        Assert.Equal("old exe", File.ReadAllText(Path.Combine(Root, "MainframeEngine.Editor")));
+        Assert.False(Directory.Exists(Backup));
+        Assert.False(Directory.Exists(Failed));
+        Assert.Contains("In use", UpdateResult.Load(UpdatePaths.ResultFile(Updates))!.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ARelaunchFailureKeepsTheUsersFilesInTheRestoredVersion()
+    {
+        File.WriteAllText(Path.Combine(Root, "notes.txt"), "mine");
+        var attempts = 0;
+        var applier = new UpdateApplier
+        {
+            StagedRoot = Staged,
+            Rid = "linux-x64",
+            ToVersion = "1.1.0",
+            UpdatesDirectory = Updates,
+            WaitForExit = (_, _) => true,
+            Start = info =>
+            {
+                if (attempts++ == 0)
+                    throw new System.ComponentModel.Win32Exception("cannot start"); // the new version, after the user's files moved in
+                _started.Add(info);
+            },
+            RenameAttempts = 1,
+            Log = _log.Add,
+        };
+
+        Assert.Equal(1, applier.Apply(Request()));
+
+        Assert.Equal("mine", File.ReadAllText(Path.Combine(Root, "notes.txt")));
+        Assert.Equal("old exe", File.ReadAllText(Path.Combine(Root, "MainframeEngine.Editor")));
+        Assert.False(Directory.Exists(Failed));
+    }
+
+    [Fact]
     public void AnOldEditorThatDoesNotExitChangesNothing()
     {
         Assert.Equal(1, Applier(wait: (_, _) => false).Apply(Request()));
-        Assert.True(File.Exists(Path.Combine(Root, "old.txt")));
+        Assert.True(File.Exists(Path.Combine(Root, "Content", "old.txt")));
         Assert.False(Directory.Exists(Backup));
         Assert.False(UpdateResult.Load(UpdatePaths.ResultFile(Updates))!.Ok);
         Assert.Equal(Path.Combine(Root, "MainframeEngine.Editor"), Assert.Single(_started).FileName); // the old editor again
@@ -81,7 +156,7 @@ public sealed class UpdateApplierTests : IDisposable
     {
         Assert.Equal(1, Applier(copy: FailHalfway).Apply(Request()));
 
-        Assert.True(File.Exists(Path.Combine(Root, "old.txt")));
+        Assert.True(File.Exists(Path.Combine(Root, "Content", "old.txt")));
         Assert.False(File.Exists(Path.Combine(Root, "partial.txt")));
         Assert.False(Directory.Exists(Backup));
         Assert.False(Directory.Exists(Failed)); // the partial copy was renamed aside, then deleted
@@ -97,7 +172,7 @@ public sealed class UpdateApplierTests : IDisposable
         Directory.CreateDirectory(Failed);
         File.WriteAllText(Path.Combine(Failed, "stale.txt"), "stale");
         Assert.Equal(1, Applier(copy: FailHalfway).Apply(Request()));
-        Assert.True(File.Exists(Path.Combine(Root, "old.txt")));
+        Assert.True(File.Exists(Path.Combine(Root, "Content", "old.txt")));
         Assert.False(Directory.Exists(Failed));
     }
 
@@ -117,7 +192,7 @@ public sealed class UpdateApplierTests : IDisposable
         var project = Path.Combine(_directory, "My Games", "Space Game");
         Assert.Equal(1, Applier(copy: FailHalfway, move: Move).Apply(Request(project)));
 
-        Assert.True(File.Exists(Path.Combine(Backup, "old.txt"))); // the only good install is untouched
+        Assert.True(File.Exists(Path.Combine(Backup, "Content", "old.txt"))); // the only good install is untouched
         var start = Assert.Single(_started);
         Assert.Equal(Path.Combine(Backup, "MainframeEngine.Editor"), start.FileName); // never the half-installed copy
         Assert.Equal(["--project", project], start.ArgumentList);
@@ -129,14 +204,63 @@ public sealed class UpdateApplierTests : IDisposable
     [Fact]
     public void CleanUpKeepsTheBackupAfterAFailedUpdate()
     {
-        Directory.CreateDirectory(Backup);
-        File.WriteAllText(Path.Combine(Backup, "old.txt"), "old");
+        Directory.CreateDirectory(Path.Combine(Backup, "Content"));
+        File.WriteAllText(Path.Combine(Backup, "Content", "old.txt"), "old");
         new UpdateResult("1.0.0", "1.1.0", false, "Access denied").Save(UpdatePaths.ResultFile(Updates));
 
         var result = UpdateCleanup.Run(Root, Updates, new ReleaseVersion(1, 1, 0));
 
         Assert.False(result!.Ok); // still reported
-        Assert.True(File.Exists(Path.Combine(Backup, "old.txt")));
+        Assert.True(File.Exists(Path.Combine(Backup, "Content", "old.txt")));
+    }
+
+    [Fact]
+    public void AUserFileThatCannotBeMovedBackIsKeptAndReported()
+    {
+        File.WriteAllText(Path.Combine(Root, "notes.txt"), "mine");
+        Directory.CreateDirectory(Path.Combine(Root, "My Game"));
+        var movedIn = false;
+        void Move(string from, string to)
+        {
+            if (string.Equals(Path.GetFileName(from), "My Game", StringComparison.Ordinal))
+            {
+                if (movedIn)
+                    throw new IOException("In use"); // moving it back out of the partial copy
+                movedIn = true;
+            }
+
+            Directory.Move(from, to);
+        }
+
+        var attempts = 0;
+        var applier = new UpdateApplier
+        {
+            StagedRoot = Staged,
+            Rid = "linux-x64",
+            ToVersion = "1.1.0",
+            UpdatesDirectory = Updates,
+            WaitForExit = (_, _) => true,
+            Start = info =>
+            {
+                if (attempts++ == 0)
+                    throw new System.ComponentModel.Win32Exception("cannot start");
+                _started.Add(info);
+            },
+            MoveDirectory = Move,
+            RenameAttempts = 1,
+            Log = _log.Add,
+        };
+
+        Assert.Equal(1, applier.Apply(Request()));
+
+        Assert.Equal("old exe", File.ReadAllText(Path.Combine(Root, "MainframeEngine.Editor"))); // restored
+        Assert.Equal("mine", File.ReadAllText(Path.Combine(Root, "notes.txt")));
+        Assert.True(Directory.Exists(Path.Combine(Failed, "My Game"))); // kept, never deleted
+        var result = UpdateResult.Load(UpdatePaths.ResultFile(Updates))!;
+        Assert.Contains(Failed, result.Error, StringComparison.Ordinal);
+
+        UpdateCleanup.Run(Root, Updates, new ReleaseVersion(1, 0, 0)); // the failed result keeps it for the user
+        Assert.True(Directory.Exists(Path.Combine(Failed, "My Game")));
     }
 
     [Fact]
@@ -155,7 +279,7 @@ public sealed class UpdateApplierTests : IDisposable
 
         Assert.Equal(1, Applier(copy: Fail).Apply(Request()));
 
-        Assert.True(File.Exists(Path.Combine(Root, "old.txt")));
+        Assert.True(File.Exists(Path.Combine(Root, "Content", "old.txt")));
         Assert.False(Directory.Exists(Backup));
         Assert.Contains("Unsupported path", UpdateResult.Load(UpdatePaths.ResultFile(Updates))!.Error, StringComparison.Ordinal);
     }
@@ -182,7 +306,7 @@ public sealed class UpdateApplierTests : IDisposable
         };
 
         Assert.Equal(1, applier.Apply(Request()));
-        Assert.True(File.Exists(Path.Combine(Root, "old.txt")));
+        Assert.True(File.Exists(Path.Combine(Root, "Content", "old.txt")));
         Assert.False(UpdateResult.Load(UpdatePaths.ResultFile(Updates))!.Ok); // the failure overwrote the success record
         Assert.Single(_started); // the old editor
     }
@@ -194,7 +318,7 @@ public sealed class UpdateApplierTests : IDisposable
         File.WriteAllText(Path.Combine(Backup, "stale.txt"), "stale");
         Assert.Equal(0, Applier().Apply(Request()));
         Assert.False(File.Exists(Path.Combine(Backup, "stale.txt")));
-        Assert.True(File.Exists(Path.Combine(Backup, "old.txt")));
+        Assert.True(File.Exists(Path.Combine(Backup, "Content", "old.txt")));
     }
 
     [Fact]

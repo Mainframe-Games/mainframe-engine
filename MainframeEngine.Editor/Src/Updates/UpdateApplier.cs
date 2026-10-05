@@ -91,8 +91,9 @@ internal sealed partial class UpdateJson : JsonSerializerContext;
 
 /// <summary>
 /// Installs the staged editor it runs from (docs/design/editor-updates.md, Applying): waits for the old editor, renames
-/// the install to <c>&lt;root&gt;.old</c>, copies <see cref="StagedRoot"/> in, records the result, relaunches. Any failure
-/// after the rename restores the old install and relaunches it. Runs before any window or engine exists.
+/// the install to <c>&lt;root&gt;.old</c>, copies <see cref="StagedRoot"/> in, moves the user's own top-level entries
+/// back in, records the result, relaunches. Any failure after the rename restores the old install and relaunches it (or
+/// the backup, when it cannot be moved back). Runs before any window or engine exists.
 /// </summary>
 public sealed class UpdateApplier
 {
@@ -136,9 +137,11 @@ public sealed class UpdateApplier
             return Fail(request, $"The editor's folder could not be moved aside ({e.Message}); nothing was changed.", launch);
         }
 
+        var kept = new List<string>(); // the user's entries moved from the backup into the new install
         try
         {
             CopyDirectory(StagedRoot, root);
+            KeepUserEntries(backup, root, kept);
             new UpdateResult(request.From, ToVersion, true, null).Save(ResultPath);
             Log("Installed; starting the new version.");
             Start(launch);
@@ -147,8 +150,11 @@ public sealed class UpdateApplier
         catch (Exception e) // Anything after the rename must roll back, whatever its type: a half-installed editor cannot start.
         {
             Log($"Installing failed ({e.Message}); restoring the previous version.");
-            return Restore(root, backup)
-                ? Fail(request, $"The update could not be installed ({e.Message}); the previous version was restored.", launch)
+            var restored = Restore(root, backup, kept, out var stranded);
+            return restored
+                ? Fail(request, stranded
+                    ? $"The update could not be installed ({e.Message}); the previous version was restored, but some of your files could not be moved back and are in {UpdatePaths.FailedOf(root)}."
+                    : $"The update could not be installed ({e.Message}); the previous version was restored.", launch)
                 // The partial copy may still start: relaunch the intact backup instead (on macOS a folder named .app.old
                 // is no bundle, so its executable is started directly).
                 : Fail(request, $"The update could not be installed ({e.Message}) and the previous version could not be moved back; it is in {backup}.",
@@ -157,12 +163,41 @@ public sealed class UpdateApplier
     }
 
     /// <summary>
-    /// Puts <paramref name="backup"/> back at <paramref name="root"/>: the partial copy is renamed aside to
-    /// <c>&lt;root&gt;.failed</c> first (a rename succeeds where deleting freshly written files may not), then deleted.
+    /// Moves every top-level entry of <paramref name="backup"/> the new release does not have (files and projects the user
+    /// keeps in the editor's folder) into <paramref name="root"/>, recording each in <paramref name="kept"/>. Throws on
+    /// failure: the caller rolls back.
     /// </summary>
-    private bool Restore(string root, string backup)
+    private void KeepUserEntries(string backup, string root, List<string> kept)
+    {
+        foreach (var entry in Directory.GetFileSystemEntries(backup))
+        {
+            var name = Path.GetFileName(entry);
+            var target = Path.Combine(root, name);
+            if (Path.Exists(target))
+                continue; // the release's version wins
+            MoveEntry(entry, target);
+            kept.Add(name);
+            Log($"Kept {name} (not part of the release) in the new version's folder.");
+        }
+    }
+
+    private void MoveEntry(string from, string to)
+    {
+        if (Directory.Exists(from))
+            MoveDirectory(from, to);
+        else
+            File.Move(from, to);
+    }
+
+    /// <summary>
+    /// Puts <paramref name="backup"/> back at <paramref name="root"/>: the partial copy is renamed aside to
+    /// <c>&lt;root&gt;.failed</c> first (a rename succeeds where deleting freshly written files may not), the user's
+    /// <paramref name="kept"/> entries move from it into the restored root, then it is deleted.
+    /// </summary>
+    private bool Restore(string root, string backup, List<string> kept, out bool stranded)
     {
         var failed = UpdatePaths.FailedOf(root);
+        stranded = false;
         try
         {
             if (Directory.Exists(root))
@@ -179,7 +214,21 @@ public sealed class UpdateApplier
             return false;
         }
 
-        TryDeleteDirectory(failed);
+        foreach (var name in kept)
+        {
+            try
+            {
+                MoveEntry(Path.Combine(failed, name), Path.Combine(root, name));
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                stranded = true;
+                Log($"Could not move {name} back into {root} ({e.Message}); it stays in {failed}.");
+            }
+        }
+
+        if (!stranded)
+            TryDeleteDirectory(failed);
         return true;
     }
 
@@ -192,7 +241,7 @@ public sealed class UpdateApplier
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            Log($"Could not delete {path} ({e.Message}); the next start retries.");
+            Log($"Could not delete {path} ({e.Message}); a later editor start deletes it.");
         }
     }
 
@@ -351,9 +400,10 @@ public sealed class UpdateApplier
 public static class UpdateCleanup
 {
     /// <summary>
-    /// Reads and deletes <c>result.json</c>, deletes <c>&lt;installRoot&gt;.old</c> (kept after a failed update: it may be
-    /// the only working install), a leftover <c>&lt;installRoot&gt;.failed</c> and every staging folder except those of
-    /// versions newer than <paramref name="current"/> (another open editor may be about to install one).
+    /// Reads and deletes <c>result.json</c>; deletes <c>&lt;installRoot&gt;.old</c> and a leftover
+    /// <c>&lt;installRoot&gt;.failed</c> unless the update failed (then the backup may be the only working install and the
+    /// partial copy may hold the user's files); deletes every staging folder except those of versions newer than
+    /// <paramref name="current"/> (another open editor may be about to install one).
     /// </summary>
     public static UpdateResult? Run(string? installRoot, string updatesDirectory, ReleaseVersion current)
     {
@@ -362,13 +412,15 @@ public static class UpdateCleanup
         TryDelete(resultPath, static p => File.Delete(p));
         if (installRoot is not null)
         {
-            var backup = UpdatePaths.BackupOf(installRoot);
-            if (result is { Ok: false } && Directory.Exists(backup))
-                Log.Info($"[Editor] Keeping {backup} after the failed update.");
-            else if (Directory.Exists(backup))
-                TryDelete(backup, static p => Directory.Delete(p, recursive: true));
-            if (Directory.Exists(UpdatePaths.FailedOf(installRoot)))
-                TryDelete(UpdatePaths.FailedOf(installRoot), static p => Directory.Delete(p, recursive: true));
+            foreach (var leftover in (string[])[UpdatePaths.BackupOf(installRoot), UpdatePaths.FailedOf(installRoot)])
+            {
+                if (!Directory.Exists(leftover))
+                    continue;
+                if (result is { Ok: false })
+                    Log.Info($"[Editor] Keeping {leftover} after the failed update.");
+                else
+                    TryDelete(leftover, static p => Directory.Delete(p, recursive: true));
+            }
         }
 
         foreach (var folder in StagingFolders(updatesDirectory))

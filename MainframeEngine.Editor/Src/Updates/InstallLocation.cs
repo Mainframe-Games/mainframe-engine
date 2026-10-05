@@ -11,7 +11,10 @@ public enum InstallKind
     /// <summary>macOS App Translocation: an unsigned app started where it was downloaded runs from a random read-only copy.</summary>
     Translocated,
 
-    /// <summary>A macOS editor that does not run from a <c>.app</c> bundle (a bare build output).</summary>
+    /// <summary>
+    /// Not a released install: a macOS editor outside a <c>.app</c> bundle, or a root without the editor executable (a
+    /// build output, or a folder that is not the editor's own).
+    /// </summary>
     NotBundled,
 }
 
@@ -25,7 +28,7 @@ public sealed record InstallLocation(string Root, InstallKind Kind)
     {
         InstallKind.Translocated => "Move Mainframe Engine to Applications to enable automatic updates.",
         InstallKind.NotWritable => $"The editor's folder ({Root}) is read-only, so the update is downloaded for you to install by hand.",
-        InstallKind.NotBundled => "This editor does not run from Mainframe Engine.app, so the update is downloaded for you to install by hand.",
+        InstallKind.NotBundled => "This editor does not run from a released Mainframe Engine install, so the update is downloaded for you to install by hand.",
         _ => null,
     };
 
@@ -50,12 +53,17 @@ public sealed record InstallLocation(string Root, InstallKind Kind)
     public static bool IsTranslocated(string path) =>
         path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Contains("AppTranslocation", StringComparer.Ordinal);
 
-    /// <summary>Finds the root and whether it can be replaced (<paramref name="canWrite"/> defaults to <see cref="CanWriteTo"/>).</summary>
-    public static InstallLocation Inspect(string baseDirectory, string rid, Func<string, bool>? canWrite = null)
+    /// <summary>
+    /// Finds the root and whether it can be replaced: the root must hold the editor executable (<paramref name="fileExists"/>,
+    /// default <see cref="File.Exists(string)"/>) and be writable (<paramref name="canWrite"/>, default <see cref="CanWriteTo"/>).
+    /// </summary>
+    public static InstallLocation Inspect(string baseDirectory, string rid, Func<string, bool>? canWrite = null, Func<string, bool>? fileExists = null)
     {
         var root = FindRoot(baseDirectory, rid);
         if (root is null)
             return new InstallLocation(Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDirectory)), InstallKind.NotBundled);
+        if (!(fileExists ?? File.Exists)(UpdatePlatform.ExecutablePath(root, rid)))
+            return new InstallLocation(root, InstallKind.NotBundled);
         if (IsTranslocated(root))
             return new InstallLocation(root, InstallKind.Translocated);
         canWrite ??= CanWriteTo;
