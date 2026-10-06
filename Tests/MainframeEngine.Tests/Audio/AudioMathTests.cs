@@ -188,16 +188,36 @@ public sealed class AudioMathTests
     [Fact]
     public void TwoDimensionalAttenuationAndPanFollowGodot()
     {
-        AudioPlayer2D.Spatialize(Vector2.Zero, 2000f, 1f, 1f, 960f, out var gain, out var pan);
+        // A 1920×1080 view whose camera looks at (100, 50): the listener is the view centre.
+        var screen = new Vector2(1920, 1080);
+        var canvas = Transform2D.FromTrs(screen * 0.5f - new Vector2(100, 50), 0, Vector2.One);
+        var listener = canvas.AffineInverse().TransformPoint(screen * 0.5f);
+        Assert.Equal(new Vector2(100, 50), listener);
+
+        AudioPlayer2D.Spatialize(listener, listener, canvas, screen, 2000f, 1f, 1f, 0.5f, out var gain, out var left, out var right);
         Assert.Equal(1f, gain);
-        Assert.Equal(0f, pan);
-        AudioPlayer2D.Spatialize(new Vector2(1000, 0), 2000f, 1f, 1f, 960f, out gain, out pan);
-        Assert.Equal(0.5f, gain, 4);
-        Assert.Equal(1f, pan); // clamped beyond the pan distance
-        AudioPlayer2D.Spatialize(new Vector2(-480, 0), 2000f, 2f, 1f, 960f, out gain, out pan);
-        Assert.Equal(MathF.Pow(1f - 480f / 2000f, 2f), gain, 4);
-        Assert.Equal(-0.5f, pan, 4);
-        AudioPlayer2D.Spatialize(new Vector2(0, 2500), 2000f, 1f, 1f, 960f, out gain, out _);
+        Assert.Equal(0.5f, left); // linear pan: half each in the centre
+        Assert.Equal(0.5f, right);
+
+        // 960 px right = half the width: pan 0.5 × 1 × 0.5 × 0.5 + 0.5 = 0.625.
+        AudioPlayer2D.Spatialize(listener + new Vector2(960, 0), listener, canvas, screen, 2000f, 1f, 1f, 0.5f, out gain, out left, out right);
+        Assert.Equal(1f - 960f / 2000f, gain, 4);
+        Assert.Equal(0.375f, left, 4);
+        Assert.Equal(0.625f, right, 4);
+
+        // Far left, attenuation 2: the pan clamps at −1 before the strengths.
+        AudioPlayer2D.Spatialize(listener - new Vector2(1980, 0), listener, canvas, screen, 3000f, 2f, 1f, 0.5f, out gain, out left, out right);
+        Assert.Equal(MathF.Pow(1f - 1980f / 3000f, 2f), gain, 4);
+        Assert.Equal(0.75f, left, 4);
+        Assert.Equal(0.25f, right, 4);
+
+        // Zoomed in ×2: the same world offset is twice as far across the screen.
+        var zoomed = Transform2D.FromTrs(screen * 0.5f - 2f * new Vector2(100, 50), 0, new Vector2(2));
+        AudioPlayer2D.Spatialize(listener + new Vector2(480, 0), listener, zoomed, screen, 2000f, 1f, 1f, 0.5f, out _, out left, out right);
+        Assert.Equal(0.625f, right, 4);
+
+        AudioPlayer2D.Spatialize(listener + new Vector2(0, 2500), listener, canvas, screen, 2000f, 1f, 1f, 0.5f, out gain, out left, out right);
         Assert.Equal(0f, gain);
+        Assert.Equal(0f, left + right);
     }
 }

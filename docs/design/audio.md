@@ -201,8 +201,12 @@ pitch    = PitchScale · doppler(listener/emitter velocities)                   
 | `Exponential` | `(d/U)^−R` |
 | `Custom` | `CustomAttenuationCurve` sampled evenly over `[0, M]` |
 
-Range-based models use `M = 100·U` when no max distance is set. `AudioPlayer2D` uses Godot's
-`(1 − d/MaxDistance)^Attenuation` and pans by the horizontal offset over `AudioServer.PanDistance2D` (960).
+Range-based models use `M = 100·U` when no max distance is set. `AudioPlayer2D` follows Godot's
+`_update_panning` (no `AudioListener2D`): the listener is the centre of the root viewport's view
+(`CanvasTransform⁻¹ · visible size / 2`), gain `(1 − d/MaxDistance)^Attenuation` (silent beyond it), pan = the screen
+x offset over the visible width, clamped to ±1, × `PanningStrength` × `AudioServer.PanningStrength2D` (Godot's
+`audio/general/2d_panning_strength`, 0.5) × 0.5 + 0.5, then **linear** gains left = 1 − pan, right = pan (0.5 each in
+the centre, as in Godot; until 2026-10-06 it was equal-power around the camera position, 6 dB louder).
 
 - The audio thread's **`SpatialSmoother`** (one per voice) ramps gain, both pan gains and the low-pass coefficient
   towards their targets with a ~10 ms one-pole per sample: no zipper noise, however fast emitters move (tested:

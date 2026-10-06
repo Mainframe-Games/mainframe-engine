@@ -5,10 +5,13 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Plays an <see cref="AudioStream"/> positioned in 2D (Godot's <c>AudioStreamPlayer2D</c>): attenuated by distance
-/// from the 2D listener (the active <see cref="Camera2D"/>, else the origin) and panned by its horizontal offset.
+/// from the 2D listener (the centre of the root viewport's view) and panned by its horizontal place on screen.
 /// </summary>
-/// <remarks>Gain is <c>(1 − d / MaxDistance)^Attenuation</c>; pan is the horizontal offset over
-/// <see cref="AudioServer.PanDistance2D"/>, scaled by <see cref="PanningStrength"/>.</remarks>
+/// <remarks>Godot's <c>_update_panning</c> without an <c>AudioListener2D</c>: gain is <c>(1 − d / MaxDistance)^Attenuation</c>
+/// (d in canvas units from the view centre, silent beyond <see cref="MaxDistance"/>); pan is the screen x offset from the
+/// centre over the visible width, clamped to ±1, times <see cref="PanningStrength"/> ×
+/// <see cref="AudioServer.PanningStrength2D"/> × 0.5, around 0.5; left = 1 − pan, right = pan (linear: 0.5 each at the
+/// centre).</remarks>
 [EditorIcon("volume", Family = EditorIconFamily.Audio)]
 public class AudioPlayer2D : Node2D, IAudioVoiceOwner
 {
@@ -82,14 +85,27 @@ public class AudioPlayer2D : Node2D, IAudioVoiceOwner
 
     public double GetPlaybackPosition() => _playback.GetPlaybackPosition();
 
-    /// <summary>Gain and pan for an emitter at <paramref name="offset"/> from the listener (exposed for tests).</summary>
-    public static void Spatialize(Vector2 offset, float maxDistance, float attenuation, float panningStrength, float panDistance,
-        out float gain, out float pan)
+    /// <summary>
+    /// Godot's 2D gain and per-channel pan gains for an emitter at <paramref name="emitter"/> (canvas units), heard from
+    /// <paramref name="listener"/> (the view centre), with the view's <paramref name="canvasTransform"/> and visible
+    /// <paramref name="screenSize"/> (exposed for tests).
+    /// </summary>
+    public static void Spatialize(Vector2 emitter, Vector2 listener, in Transform2D canvasTransform, Vector2 screenSize, float maxDistance,
+        float attenuation, float panningStrength, float globalPanningStrength, out float gain, out float left, out float right)
     {
-        var distance = offset.Length();
-        var max = Math.Max(maxDistance, 1e-3f);
-        gain = distance >= max ? 0f : MathF.Pow(1f - distance / max, Math.Max(attenuation, 0.01f));
-        pan = Math.Clamp(offset.X / Math.Max(panDistance, 1e-3f) * panningStrength, -1f, 1f);
+        var distance = Vector2.Distance(emitter, listener);
+        if (distance > maxDistance || maxDistance <= 0f)
+        {
+            gain = left = right = 0f; // Godot: this viewport cannot hear it
+            return;
+        }
+
+        gain = MathF.Pow(1f - distance / maxDistance, attenuation);
+        var relative = canvasTransform.TransformPoint(emitter) - screenSize * 0.5f;
+        var pan = Math.Clamp(screenSize.X > 0f ? relative.X / screenSize.X : 0f, -1f, 1f);
+        pan = Math.Clamp(pan * panningStrength * globalPanningStrength * 0.5f + 0.5f, 0f, 1f);
+        left = 1f - pan;
+        right = pan;
     }
 
     protected override void OnEnterTree()
@@ -116,12 +132,13 @@ public class AudioPlayer2D : Node2D, IAudioVoiceOwner
     {
         if (_cachedFrame == server.FrameIndex)
             return _cached;
-        Spatialize(GlobalPosition - server.Listener2D, MaxDistance, Attenuation, PanningStrength, server.PanDistance2D,
-            out var gain, out var pan);
+        Spatialize(GlobalPosition, server.Listener2D, server.CanvasTransform2D, server.ScreenSize2D, MaxDistance, Attenuation, PanningStrength,
+            server.PanningStrength2D, out var gain, out var left, out var right);
         var parameters = VoiceParams.Default;
         parameters.Gain = AudioMath.DbToLinear(_volumeDb) * gain;
         parameters.Pitch = _pitchScale;
-        AudioMath.PanGains(pan, out parameters.PanLeft, out parameters.PanRight);
+        parameters.PanLeft = left;
+        parameters.PanRight = right;
         _cached = parameters;
         _cachedFrame = server.FrameIndex;
         return parameters;
