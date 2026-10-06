@@ -459,3 +459,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - With `--fixed-fps` the start-up frame keeps the fixed delta (Godot's first frame steps physics too; real-time runs
   still discard it). `Timer` counts down a double and fires below zero, like Godot: a 1 s timer at 60 FPS fires on
   frame 60 (the float countdown fired on 61). Tests in GameTimeTests and SceneTreeTests.
+
+### 2026-10-06 — SubViewport readback; transparent 3D background (Driving Range port E6, ADR 0136)
+- `SubViewport.CaptureImage(Action<FrameCapture>)` copies the tonemapped image back after the view's next render;
+  `TransparentBg` now also clears a 3D view to transparent and the tonemap keeps its alpha (flag bit; other views
+  unchanged). Render test `subviewport-capture` (scene self-checks, no golden).

@@ -362,6 +362,16 @@ public class SceneTests
     }
 
     [Fact]
+    public void SubViewportCaptureReadsBackATransparentBackgroundAndALitObject()
+    {
+        // ADR 0136: CaptureImage after a render, alpha kept through the tonemap for TransparentBg (the scene checks it).
+        var result = HostRunner.Run("subviewport-capture", Output("subviewport-capture"), "--capture", "20", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void OverlaysAndOutlinesDrawOverTheirSurfacesOnlyAndMatchGolden()
     {
         // A cyan overlay + 7 px white outline (Godot's hover highlight) on a sphere and a box, a red next-pass outline on

@@ -309,6 +309,14 @@ render server renders it after the shadow pass and before the main pass. It uses
 | `ColorImage` | `R8G8B8A8_UNORM` | tonemapped (exposure, ACES) and sRGB-encoded by `SubViewportCompositor`, ready for UI; publish its render target once with `UiServer.RegisterTexture(name, viewport.ColorTarget!)` and show it as `<img src="engine://name"/>` |
 | `ObjectIdImage` | `R32_UINT` + depth | picking (`ObjectIds` or pending picks) |
 
+**Transparent background and readback (ADR 0136).**
+- `TransparentBg` clears the HDR target to transparent black, and the tonemap keeps the scene's alpha (push-constant
+  bit 1; every other view stays opaque). The result is objects over a transparent background.
+- `CaptureImage(Action<FrameCapture>)` copies `ColorImage` (sRGB-encoded RGBA8) to a readback buffer after the view's
+  next render (`SubViewportCapture`, like the object-ID picker's readback). The image arrives on the main thread once
+  the frame's fence has signalled, which takes a frame or two.
+- Godot's `get_texture().get_image()`; used for item icons. The LDR image gains `TRANSFER_SRC` usage.
+
 There is one set of shadow maps. It belongs to the main world, so offscreen worlds are lit without shadows
 (`counts.w`) — unless the main world has no visuals and a rendering `SubViewport` sets `Shadows`: the first such view
 then gets the shadow maps for its own world and camera (the editor's view). Up to

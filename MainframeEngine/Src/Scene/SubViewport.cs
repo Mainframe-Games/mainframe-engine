@@ -54,9 +54,28 @@ public class SubViewport : SceneViewport
     [Export]
     public bool Disable3D { get; set; }
 
-    /// <summary>A 2D view clears to transparent black (Godot's <c>transparent_bg</c>) instead of the canvas clear colour.</summary>
+    /// <summary>
+    /// The view clears to transparent black (Godot's <c>transparent_bg</c>) instead of its clear colour: a 2D view's
+    /// canvas, and a 3D view's scene, whose alpha the tonemap then keeps (ADR 0136) — rendered objects over a
+    /// transparent background, e.g. item icons saved with <see cref="CaptureImage"/>.
+    /// </summary>
     [Export]
     public bool TransparentBg { get; set; }
+
+    /// <summary>
+    /// Copies the view's image (tonemapped, sRGB-encoded RGBA8, the size of the view) to the CPU after it next renders
+    /// and passes it to <paramref name="onCaptured"/> on the main thread a frame or two later (Godot's
+    /// <c>get_texture().get_image()</c>; ADR 0136). The view must render: <see cref="UpdateMode"/> Always or Once.
+    /// Nothing is delivered outside a renderer (headless).
+    /// </summary>
+    public void CaptureImage(Action<FrameCapture> onCaptured)
+    {
+        ArgumentNullException.ThrowIfNull(onCaptured);
+        (PendingCaptures ??= []).Add(onCaptured);
+    }
+
+    /// <summary>Captures requested before the render server picked them up.</summary>
+    internal List<Action<FrameCapture>>? PendingCaptures { get; private set; }
 
     /// <summary>The view's colour as a texture for canvas items (Godot's <c>get_texture()</c>); one per view.</summary>
     public Texture2D GetTexture() => _texture ??= Texture2D.FromViewport(this);
@@ -170,6 +189,7 @@ internal sealed class SubViewportTargets : IDisposable
     public RenderTarget? Hdr { get; private set; }
     public RenderTarget? Ldr { get; private set; }
     public ObjectIdPicker? Picker { get; set; }
+    public SubViewportCapture? Capture { get; set; }
     public MeshViewDraws Draws { get; } = new();
     public long RenderCount { get; set; }
     public DescriptorSet TonemapSet => _tonemapSet;
@@ -206,6 +226,8 @@ internal sealed class SubViewportTargets : IDisposable
         _tonemapSet = default;
         Picker?.Dispose();
         Picker = null;
+        Capture?.Dispose();
+        Capture = null;
         Hdr?.Dispose();
         Ldr?.Dispose();
         Hdr = Ldr = null;
