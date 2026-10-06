@@ -434,6 +434,26 @@ public sealed class SceneTreeTests : IDisposable
     }
 
     [Fact]
+    public void ATimerFiresOnTheFrameGodotsDoes()
+    {
+        // Godot: time_left is a double and times out below zero. A 1 s timer at a fixed 60 FPS fires on frame 60 and
+        // then every 60 frames (a float countdown fired on frame 61; ADR 0135).
+        var timer = new Timer { WaitTime = 1f, Autostart = true };
+        var frames = new List<int>();
+        var frame = 0;
+        timer.Timeout += () => frames.Add(frame);
+        _tree.Root.AddChild(timer);
+
+        for (frame = 1; frame <= 180; frame++)
+            _tree.Tick(Frame(1f / 60f));
+
+        Assert.Equal([60, 120, 180], frames);
+        timer.Stop();
+        Assert.True(timer.IsStopped);
+        Assert.Equal(0f, timer.TimeLeft);
+    }
+
+    [Fact]
     public void ProcessFrameEventsFire()
     {
         int process = 0, physics = 0;

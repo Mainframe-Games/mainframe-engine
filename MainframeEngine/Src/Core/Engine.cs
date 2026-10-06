@@ -438,7 +438,7 @@ public abstract class Engine : IDisposable
     {
         var start = Stopwatch.GetTimestamp();
         _fps.Update();
-        _gameTime.DeltaTime = EngineOptions.FixedDeltaTime > 0f ? EngineOptions.FixedDeltaTime : (float)delta;
+        _gameTime.DeltaTime = FrameDelta(EngineOptions.FixedDeltaTime, delta, discard: false);
         _gameTime.FrameCount = _fps.TotalFrameCount;
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;
@@ -447,7 +447,7 @@ public abstract class Engine : IDisposable
         if (_discardDelta)
         {
             _discardDelta = false;
-            _gameTime.DeltaTime = 0f; // the time before this frame (start-up) does not advance the tree
+            _gameTime.DeltaTime = FrameDelta(EngineOptions.FixedDeltaTime, delta, discard: true);
         }
 
         Tree.Root.SetSize(new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y)); // content scale (stretch) for the 2D canvas
@@ -469,8 +469,16 @@ public abstract class Engine : IDisposable
     private bool _discardDelta;
 
     /// <summary>
+    /// The delta the tree ticks with: the fixed delta when there is one (every update, the first included: Godot's
+    /// <c>--fixed-fps</c>), else the measured one, or zero for a discarded frame (start-up time never reaches the game).
+    /// </summary>
+    internal static float FrameDelta(float fixedDelta, double measured, bool discard) =>
+        fixedDelta > 0f ? fixedDelta : discard ? 0f : (float)measured;
+
+    /// <summary>
     /// The tree ticks this frame with a zero delta (call from <see cref="OnUpdate(in GameTime)"/>): for the frame that
-    /// starts the game, whose delta is the start-up time (window shown after <see cref="OnLoad"/>).
+    /// starts the game, whose delta is the start-up time (window shown after <see cref="OnLoad"/>). With a fixed delta
+    /// (<c>--fixed-fps</c>) the frame keeps it, as every update does (ADR 0135).
     /// </summary>
     protected void DiscardFrameDelta() => _discardDelta = true;
 
