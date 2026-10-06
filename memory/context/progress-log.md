@@ -480,3 +480,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   with the hardened runtime, a timestamp and the .NET entitlements; `--notarize <profile>` (or `MF_NOTARY_PROFILE`):
   notarytool submit --wait, staple, re-zip. Ad-hoc stays the default (checked: the .app still signs ad-hoc and runs).
   Not run with a real identity (none on this Mac).
+
+### 2026-10-06 — `Node.InputBeforeUi`: Godot's `_input` before the GUI, opt-in (CSD port, ADR 0138)
+- The port's crew menu missed TAB once a menu element had focus (RmlUi took it as focus-next; the UI sees input first).
+  Nodes with `InputBeforeUi` get `OnInput` before the input servers; everything else unchanged. One test; real-key check.

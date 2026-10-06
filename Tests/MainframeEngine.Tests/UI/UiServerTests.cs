@@ -695,6 +695,49 @@ public sealed class UiServerTests
     }
 
     [Fact]
+    public void ANodeWithInputBeforeUiSeesTabEvenWhileAButtonHasFocus()
+    {
+        // Godot calls _input before the GUI: Crash Site Defense's crew menu reads TAB there, which a focused button would
+        // otherwise take as focus-next. InputBeforeUi gives a node that placement; other nodes keep UI-first (ADR 0051).
+        using var ui = new UiTestTree();
+        var doc = new UiDocument { Name = "Menu", Rml = UiTestTree.Page("<button id='a'>A</button><button id='b'>B</button>") };
+        var layer = ui.AddLayer(0, doc);
+        var watcher = new GameInputNode { Name = "Watcher", InputBeforeUi = true };
+        ui.Tree.Root.AddChild(watcher);
+        ui.Tick(2);
+        var a = doc.GetElementById("a")!.Element;
+        a.Focus();
+
+        // Seen first, not handled: the UI still takes Tab (focus moves on) and UI-first nodes never see it.
+        Assert.True(ui.Key(Key.Tab, true));
+        ui.Key(Key.Tab, false);
+        Assert.Contains(watcher.Seen, e => e is InputEventKey { Key: Key.Tab, Pressed: true });
+        Assert.DoesNotContain(ui.Game.Seen, e => e is InputEventKey { Key: Key.Tab });
+        Assert.NotEqual(a, layer.Context!.FocusElement);
+
+        // Handled first: the UI never gets it.
+        a.Focus();
+        var toggles = 0;
+        var toggle = new TabToggle(() => toggles++) { Name = "Toggle", InputBeforeUi = true };
+        ui.Tree.Root.AddChild(toggle);
+        Assert.True(ui.Key(Key.Tab, true));
+        ui.Key(Key.Tab, false);
+        Assert.Equal(1, toggles);
+        Assert.Equal(a, layer.Context!.FocusElement);
+    }
+
+    private sealed class TabToggle(Action toggled) : Node
+    {
+        protected override void OnInput(InputEvent inputEvent)
+        {
+            if (inputEvent is not InputEventKey { Key: Key.Tab, Pressed: true })
+                return;
+            toggled();
+            GetViewport()!.SetInputAsHandled();
+        }
+    }
+
+    [Fact]
     public void OnlyTheLastSceneChangeOfAFrameIsApplied()
     {
         var tree = new SceneTree();

@@ -127,6 +127,14 @@ public partial class Node
 
     public bool IsProcessingInput => (_enabledCallbacks & Callbacks.Input) != 0;
 
+    /// <summary>
+    /// Godot's <c>_input</c> placement: this node's <see cref="OnInput"/> runs before the game UI (the input servers)
+    /// instead of after it, so it sees keys the UI would take, such as Tab (focus next) or Return on a focused button.
+    /// Handling the event stops it there; otherwise the UI and the other nodes get it as usual. Off by default: the UI
+    /// sees input first (ADR 0051); a port of a Godot <c>_Input</c> that must win over the GUI sets it.
+    /// </summary>
+    public bool InputBeforeUi { get; set; }
+
     /// <summary>Enables or disables <see cref="OnUnhandledInput"/> (default: enabled when overridden).</summary>
     public void SetProcessUnhandledInput(bool enable) => SetCallback(Callbacks.UnhandledInput, enable);
 
