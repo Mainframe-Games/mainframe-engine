@@ -1,3 +1,4 @@
+using DrawingColor = System.Drawing.Color;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -10,6 +11,7 @@ using AiTexture = Silk.NET.Assimp.Texture;
 using AiTextureType = Silk.NET.Assimp.TextureType;
 
 namespace MainframeEngine;
+
 
 /// <summary>
 /// Import settings of a model file, stored in its <c>.meta</c> sidecar (<c>"importer": "model"</c>):

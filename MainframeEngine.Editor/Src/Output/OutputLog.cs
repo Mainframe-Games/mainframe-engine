@@ -68,9 +68,10 @@ public static class OutputCategories
     };
 
     /// <summary>
-    /// The icon classes of a category by subsystem: rendering <c>brush</c>, audio <c>volume</c>, physics <c>atom</c>,
-    /// networking <c>network</c>, UI <c>layout</c>, localization <c>language</c>, the game <c>device-gamepad-2</c>, the
-    /// editor <c>tool</c>, content and scenes <c>package</c>; any other <c>point</c>; "" for no category.
+    /// The icon classes of a category: the game's own entries (<c>game</c>, <c>game·Net</c>) <c>device-gamepad-2</c>; the
+    /// engine's by subsystem (also inside a game process, <c>engine·Vulkan</c>): rendering <c>brush</c>, audio <c>volume</c>,
+    /// physics <c>atom</c>, networking <c>network</c>, UI <c>layout</c>, localization <c>language</c>, the editor <c>tool</c>,
+    /// content and scenes <c>package</c>; any other <c>point</c>; "" for no category.
     /// </summary>
     public static string IconOf(string category)
     {
@@ -78,6 +79,10 @@ public static class OutputCategories
         if (category.Length == 0)
             return "";
         var c = category.AsSpan();
+        if (c.StartsWith("game", StringComparison.Ordinal))
+            return "icon icon-sm icon-device-gamepad-2 icon-logic"; // the game's own code (game, game·Net): always the gamepad
+        if (c.StartsWith("engine·", StringComparison.Ordinal))
+            c = c["engine·".Length..]; // the engine inside a game process: its subsystem's icon
         if (Has(c, "render") || Has(c, "vulkan") || Has(c, "shader") || Has(c, "shadow") || Has(c, "gpu") || Has(c, "sky") || Has(c, "texture") || Has(c, "mesh"))
             return "icon icon-sm icon-brush icon-3d";
         if (Has(c, "audio") || Has(c, "sound"))
@@ -178,19 +183,27 @@ public sealed class OutputLog : ILogSink, IDisposable
     }
 
     /// <summary>
-    /// Adds a running game's log entry (category <c>game</c>, or the game's own category, with the instance label when
-    /// several games run); its call site becomes the click target when the source file exists on this machine.
+    /// Adds a running game's log entry, with the instance label when several games run: category <c>game</c> (or
+    /// <c>game·Net</c>) for the game's own code and <c>engine·Vulkan</c> for the engine inside the game process
+    /// (<see cref="LogEntry.Source"/>); its call site becomes the click target when the source file exists on this machine.
     /// </summary>
     public void AddGame(in LogEntry entry, string? instanceLabel)
     {
         var text = instanceLabel is null ? entry.Message : $"{instanceLabel}: {entry.Message}";
         _incoming.Enqueue(new OutputMessage(ToOutputLevel(entry.Level), text, entry.Timestamp.ToLocalTime())
         {
-            // Marked as game output, keeping the game's own category when it has one.
-            Category = entry.Category is "" or PlayService.GameCategory ? "game" : $"game·{entry.Category}",
+            // Marked by source (the game's code or the engine running it), keeping the entry's own category when it has one.
+            Category = SourceCategory(entry),
             CallerFile = entry.CallerFile ?? "",
             CallerLine = entry.CallerLine,
         });
+    }
+
+    /// <summary>A game process entry's category: <c>game</c>, <c>game·Net</c>, <c>engine</c> or <c>engine·Vulkan</c>.</summary>
+    public static string SourceCategory(in LogEntry entry)
+    {
+        var tag = Log.SourceTag(entry.Source);
+        return entry.Category is "" or PlayService.GameCategory ? tag : $"{tag}·{entry.Category}";
     }
 
     /// <summary>

@@ -4,8 +4,9 @@ using System.Text;
 namespace MainframeEngine;
 
 /// <summary>
-/// Writes entries to <see cref="Console.Out"/> in colour: <c>[12:00:00.123] [INFO]	[Audio] message</c>, plus the call
-/// site while <see cref="Log.Level.Verbose"/> is set. Registered by default (<see cref="Log.ConsoleSink"/>).
+/// Writes entries to <see cref="Console.Out"/> in colour: <c>[12:00:00.123] [INFO] engine Audio: message</c> for the
+/// engine's own entries, <c>[12:00:00.123] [INFO] game Net: message</c> for the game's (<see cref="LogEntry.Source"/>),
+/// plus the call site while <see cref="Log.Level.Verbose"/> is set. Registered by default (<see cref="Log.ConsoleSink"/>).
 /// </summary>
 public sealed class ConsoleLogSink : ILogSink
 {
@@ -36,9 +37,8 @@ public sealed class ConsoleLogSink : ILogSink
         var local = entry.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
         var builder = new StringBuilder(entry.Message.Length + 48);
         builder.Append(Normal).Append('[').Append(local).Append(']').Append(color)
-            .Append(" [").Append(LogEntry.LevelTag(entry.Level)).Append("]\t");
-        if (entry.Category.Length > 0)
-            builder.Append('[').Append(entry.Category).Append("] ");
+            .Append(" [").Append(LogEntry.LevelTag(entry.Level)).Append("] ").Append(Normal);
+        entry.AppendSourceAndCategory(builder);
         builder.Append(entry.Message);
         if (Log.LogLevel.HasFlag(Log.Level.Verbose))
             builder.Append(' ').Append(Normal).Append('[').Append(Path.GetFileName(entry.CallerFile)).Append(':')

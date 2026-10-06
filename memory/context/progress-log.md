@@ -519,3 +519,16 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   `AppIconBG.png`, not covered); its frames take 9.7–12.4 ms in all (the UI update alone took 14–17 ms before).
 - Render test `ImagesArePreloadedWithTheirDocument` (`ui-preload`); fails three ways with preloading off (381,904 B).
 
+### 2026-10-07 — Engine or game on every log line; Godot's 2D math in core (CSD, ADRs 0141, 0142)
+- `LogEntry.Source` (engine/game, from the caller file; no registration); console and file lines `[time] [INFO] engine
+  Vulkan: …` / `game Net: …`; the editor's Output tags a game process's entries `game·Net` / `engine·Vulkan` (gamepad
+  icon for the game's).
+- Core math from GodotSharp 4.7.2 (MIT): `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors` (↔ `Vector4`), `Side`; Godot's
+  `Vector2` members as C# 14 extension members on `System.Numerics.Vector2`; built-in value types (codecs, generator,
+  inspector editors for Color/Vector2I/Rect2/Rect2I). `Transform2D(rotation, origin)`, `transform * point/rect`,
+  `Texture2D.Size`. Engine files using `System.Drawing.Color` by its simple name alias it (`DrawingColor` in the
+  `MainframeEngine` namespace itself).
+- `Label2D` (world-space text), `Bitmap` (CPU RGBA8; luminance/red expansion) + `Texture2D.FromBitmap`, `Time`
+  (`TicksMsec`, `UnixTime`), `GameHost.IsDebugBuild`, `GameHost.UserDataDirectory`/`UserDataPath`.
+- Crash Site Defense moved off its `namespace Godot` shim onto these; behaviour checked with its scenario dumps (29/29)
+  and world/UI screenshots against a pre-change baseline.

@@ -1,7 +1,9 @@
+using DrawingColor = System.Drawing.Color;
 using System.Drawing;
 using System.Numerics;
 
 namespace MainframeEngine;
+
 
 /// <summary>How a material treats alpha.</summary>
 public enum AlphaMode : byte
@@ -131,7 +133,7 @@ public sealed class StandardMaterial3D : Material
 
     [ExportGroup("Albedo")]
     [Export]
-    public Color AlbedoColor
+    public DrawingColor AlbedoColor
     {
         get;
         set
@@ -140,7 +142,7 @@ public sealed class StandardMaterial3D : Material
             field = value;
             Touch();
         }
-    } = Color.White;
+    } = DrawingColor.White;
 
     /// <summary>Multiplied with <see cref="AlbedoColor"/> (alpha too). Sampled as sRGB unless its import settings force linear.</summary>
     [Export]
@@ -210,7 +212,7 @@ public sealed class StandardMaterial3D : Material
 
     [ExportGroup("Emission")]
     [Export]
-    public Color EmissionColor
+    public DrawingColor EmissionColor
     {
         get;
         set
@@ -219,7 +221,7 @@ public sealed class StandardMaterial3D : Material
             field = value;
             Touch();
         }
-    } = Color.Black;
+    } = DrawingColor.Black;
 
     /// <summary>Multiplies <see cref="EmissionColor"/> (linear, can exceed 1: HDR).</summary>
     [Export(Range = "0,64,0.01")]
@@ -350,7 +352,7 @@ public sealed class OutlineMaterial3D : Material
 {
     /// <summary>The outline colour (sRGB; alpha below 1 blends).</summary>
     [Export]
-    public Color Color
+    public DrawingColor Color
     {
         get;
         set
@@ -359,7 +361,7 @@ public sealed class OutlineMaterial3D : Material
             field = value;
             Touch();
         }
-    } = Color.White;
+    } = DrawingColor.White;
 
     /// <summary>Outline width in pixels of the render target.</summary>
     [Export(Range = "0,64,0.1")]

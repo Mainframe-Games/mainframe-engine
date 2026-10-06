@@ -19,6 +19,15 @@ public struct Transform2D : IEquatable<Transform2D>
         Origin = origin;
     }
 
+    /// <summary>A rotation of <paramref name="rotation"/> radians at <paramref name="origin"/>, no scale (Godot's constructor).</summary>
+    public Transform2D(float rotation, Vector2 origin)
+    {
+        (var sin, var cos) = MathF.SinCos(rotation);
+        X = new Vector2(cos, sin);
+        Y = new Vector2(-sin, cos);
+        Origin = origin;
+    }
+
     public static Transform2D Identity => new(Vector2.UnitX, Vector2.UnitY, Vector2.Zero);
 
     /// <summary>Scale → rotation (radians, counter-clockwise) → translation.</summary>
@@ -46,6 +55,12 @@ public struct Transform2D : IEquatable<Transform2D>
         new(parent.TransformDirection(child.X), parent.TransformDirection(child.Y), parent.TransformPoint(child.Origin));
 
     public static Transform2D Multiply(Transform2D parent, Transform2D child) => parent * child;
+
+    /// <summary>Transforms a point (<see cref="TransformPoint"/>).</summary>
+    public static Vector2 operator *(Transform2D transform, Vector2 point) => transform.TransformPoint(point);
+
+    /// <summary>The bounding box of the transformed rectangle (<see cref="Rect2.Transformed"/>).</summary>
+    public static Rect2 operator *(Transform2D transform, Rect2 rect) => rect.Transformed(transform);
 
     public readonly float Determinant() => X.X * Y.Y - X.Y * Y.X;
 

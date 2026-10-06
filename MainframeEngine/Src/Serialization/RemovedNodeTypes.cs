@@ -3,6 +3,8 @@ using System.Text.Json;
 
 namespace MainframeEngine.Serialization;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Upgrades scene entries of node types that no longer exist into their replacements, so older <c>.mscene</c> files
 /// keep loading (the type-level counterpart of <see cref="SerializedMigrationAttribute"/>, which can only migrate

@@ -4,6 +4,8 @@ using MainframeEngine.Tests.Scene;
 
 namespace MainframeEngine.Tests.Networking;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Spawning scenes loaded from <c>.mscene</c> files by path or UID, including a scene that instances another scene
 /// whose nodes are replicated (nested scene instances).

@@ -7,6 +7,8 @@ using MainframeEngine.Tests.TestAssets;
 
 namespace MainframeEngine.Tests.Scene;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Scene/resource files, the loader cache and the asset database (process-wide state: serial). Each test runs
 /// against a fresh project folder.

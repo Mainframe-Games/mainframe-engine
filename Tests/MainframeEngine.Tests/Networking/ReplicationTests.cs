@@ -4,6 +4,8 @@ using MainframeEngine.Networking;
 
 namespace MainframeEngine.Tests.Networking;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Node replication over <see cref="LoopbackTransport"/>: handshake, spawn/despawn ordering, late join, property
 /// replication (including networked descendants), authority and connection lifecycle. RPCs, interpolation and bad

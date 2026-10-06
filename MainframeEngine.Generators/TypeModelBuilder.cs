@@ -41,7 +41,7 @@ internal static class TypeModelBuilder
     [
         "System.Numerics.Vector2", "System.Numerics.Vector3", "System.Numerics.Vector4", "System.Numerics.Quaternion",
         "System.Drawing.Color", "MainframeEngine.Transform3D", "MainframeEngine.Transform2D", "MainframeEngine.NodePath",
-        "MainframeEngine.Rect2",
+        "MainframeEngine.Rect2", "MainframeEngine.Rect2I", "MainframeEngine.Vector2I", "MainframeEngine.Color",
     ];
 
     /// <summary>

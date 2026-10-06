@@ -69,7 +69,9 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
 
 ## Project Structure
 
-- `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`
+- `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`, `Time` (ticks, Unix time)
+- `MainframeEngine/Src/Math/` — 2D value types from GodotSharp (MIT): `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, Godot's
+  `Vector2` members as extensions on `System.Numerics.Vector2` (the one 2D vector). See `docs/design/math.md`
 - `MainframeEngine/Src/Scene/` — Godot-style node tree: `Node`, `SceneTree`, `Node3D`/`Node2D`, transforms, `NodePath`,
   camera/light/sky/grid nodes (`Nodes3D/`, `Nodes2D/`), input events
 - `MainframeEngine/Src/Nodes/` — drawable/network nodes: `SpineNode`, `NetworkNode` (meshes: `Scene/Nodes3D/GeometryInstance3D.cs`)

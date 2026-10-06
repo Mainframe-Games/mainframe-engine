@@ -4,6 +4,8 @@ using System.Numerics;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
+using Color = System.Drawing.Color;
+
 /// <summary>Shared set-up for the M3 mesh scenes: camera, procedural sky, a sun and a checker-textured floor.</summary>
 public abstract class MeshSceneBase(HostOptions host) : RenderTestGame(host)
 {

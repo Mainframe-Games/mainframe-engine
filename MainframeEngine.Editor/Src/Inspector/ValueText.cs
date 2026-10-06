@@ -28,6 +28,9 @@ public static class ValueText
         Vector4 v => $"{Number(v.X)}, {Number(v.Y)}, {Number(v.Z)}, {Number(v.W)}",
         Quaternion q => $"{Number(q.X)}, {Number(q.Y)}, {Number(q.Z)}, {Number(q.W)}",
         DrawingColor c => ColorHex(c),
+        Color c => ColorHex(c),
+        Vector2I v => $"{v.X}, {v.Y}",
+        Rect2I r => $"{r.Position.X}, {r.Position.Y}, {r.Size.X}, {r.Size.Y}",
         Transform3D t => $"origin ({Format(t.Origin)})",
         Transform2D t => $"origin ({Format(t.Origin)})",
         Resource r => Resource(r),
@@ -73,6 +76,7 @@ public static class ValueText
     public static Vector4 ToRgba(object? value) => value switch
     {
         DrawingColor c => new Vector4(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f),
+        Color c => new Vector4(c.R, c.G, c.B, c.A),
         Vector3 v => new Vector4(v, 1f),
         Vector4 v => v,
         _ => new Vector4(0, 0, 0, 1),

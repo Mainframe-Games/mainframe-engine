@@ -4,6 +4,8 @@ using System.Numerics;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
+using Color = System.Drawing.Color;
+
 /// <summary>Shared set-up for the M4 shadow scenes: a camera, a procedural sky, a plain floor and helpers.</summary>
 public abstract class ShadowSceneBase(HostOptions host) : RenderTestGame(host)
 {

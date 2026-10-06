@@ -1,7 +1,9 @@
+using DrawingColor = System.Drawing.Color;
 using System.Numerics;
 using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
+
 
 /// <summary>Something holding GPU objects created through the <see cref="RenderServer"/>.</summary>
 internal interface IRenderResourceOwner

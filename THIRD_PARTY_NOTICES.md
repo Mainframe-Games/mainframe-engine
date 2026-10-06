@@ -15,7 +15,7 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | zlib (bundled in FreeType's gzip module) | 1.3.1 | zlib | inside FreeType | `mfrmlui` native library (static) |
 | [RmlUi](https://github.com/mikke89/RmlUi) | 6.3 | MIT | `Native/RmlUi/external/RmlUi` (submodule) | `mfrmlui` native library (static) |
 | [ThorVG](https://github.com/thorvg/thorvg) (the copy vendored by Godot 4.7.2, `thirdparty/thorvg`) | 1.0.3 | MIT | `Native/Svg/thorvg` | `mfsvg` native library (static) |
-| [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`) | 4.7.2 | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs` | engine |
+| [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`; GodotSharp's C# math: `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, the `Vector2` helpers) | 4.7.2 | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs`, `Math/` | engine |
 | robin_hood, itlib (bundled in RmlUi Core) | — | MIT | inside RmlUi | `mfrmlui` native library (static) |
 | Courier Prime Code font (embedded in the RmlUi Debugger) | — | SIL OFL 1.1 | inside RmlUi | `mfrmlui` native library (static) |
 | [Lato](http://www.latofonts.com/) (Latin subset: regular, bold, italic) | 2.0 | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
@@ -334,7 +334,7 @@ SOFTWARE.
 
 ## Godot Engine
 
-Parts of the 2D canvas, camera, window stretch and image code are ports of Godot Engine 4.7.2 (C++ → C#).
+Parts of the 2D canvas, camera, window stretch and image code are ports of Godot Engine 4.7.2 (C++ → C#). `MainframeEngine/Src/Math/` holds GodotSharp's C# math types from the same release (`Mathf`, `Vector2I`, `Rect2I`, `Color`, `Colors`, `Side`; the `Vector2` members as extensions on `System.Numerics.Vector2`).
 
 ```
 Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md).

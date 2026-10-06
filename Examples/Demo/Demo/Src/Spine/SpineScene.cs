@@ -1,3 +1,4 @@
+using Color = System.Drawing.Color;
 using System.Drawing;
 using System.Numerics;
 using MainframeEngine;

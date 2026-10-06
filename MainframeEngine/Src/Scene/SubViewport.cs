@@ -1,7 +1,9 @@
+using DrawingColor = System.Drawing.Color;
 using System.Drawing;
 using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
+
 
 /// <summary>When a <see cref="SubViewport"/> renders.</summary>
 public enum SubViewportUpdateMode : byte
@@ -42,7 +44,7 @@ public class SubViewport : SceneViewport
 
     /// <summary>Background where nothing is drawn (sRGB); the world's sky draws over it.</summary>
     [Export]
-    public Color ClearColor { get; set; } = Color.FromArgb(255, 46, 46, 51);
+    public DrawingColor ClearColor { get; set; } = DrawingColor.FromArgb(255, 46, 46, 51);
 
     [Export]
     public SubViewportUpdateMode UpdateMode { get; set; }

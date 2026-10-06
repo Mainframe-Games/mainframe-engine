@@ -4,6 +4,8 @@ using System.Text.Json;
 
 namespace MainframeEngine.Tests.Scene;
 
+using Color = System.Drawing.Color;
+
 /// <summary>Edge cases of the tree and the scene files (callbacks that mutate the tree, re-saves, versions).</summary>
 [Collection(nameof(SerialResources))]
 public sealed class SceneEdgeCaseTests : IDisposable

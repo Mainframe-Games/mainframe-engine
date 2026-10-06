@@ -3,6 +3,8 @@ using System.Numerics;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Godot 4.7's tonemap and glow (ADR 0124): a small emissive square (HDR, well above the glow threshold) over a dark
 /// floor, seen head-on, with Godot's ACES. <c>--count</c>: 0 glow on (Godot's defaults, normalized, strength 0.75: the
