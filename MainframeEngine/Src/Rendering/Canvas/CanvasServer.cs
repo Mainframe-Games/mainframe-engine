@@ -136,8 +136,51 @@ public sealed class CanvasServer : IFrameServer
             _culler.Cull(canvas, transform, clip, _culled);
             if (_culled.Count == 0)
                 continue;
-            frame.Append(_culled, canvas.Modulate, transform, transform.AffineInverse());
+            var lightBase = frame.Lights.Count;
+            var lights = CollectLights(frame, canvas, transform);
+            frame.Append(_culled, canvas.Modulate, transform, transform.AffineInverse(), lights, lightBase);
         }
+    }
+
+    private readonly List<PointLight2D> _canvasLights = new(CanvasFrame.MaxLights);
+    private bool _warnedLights;
+
+    // The canvas's enabled, textured, visible lights, appended to the frame's light block (Godot's light_shader_xform:
+    // canvas transform × light global transform × the texture rect, centred, scaled by texture_scale, moved by offset).
+    private List<PointLight2D>? CollectLights(CanvasFrame frame, Canvas canvas, in Transform2D canvasTransform)
+    {
+        var lights = canvas.Lights;
+        if (lights.Count == 0)
+            return null;
+        _canvasLights.Clear();
+        foreach (var light in lights)
+        {
+            if (!light.Enabled || light.Texture is not { } texture || !light.IsVisibleInTree())
+                continue;
+            if (frame.Lights.Count >= CanvasFrame.MaxLights)
+            {
+                if (!_warnedLights)
+                    Log.Warning($"[Canvas] More than {CanvasFrame.MaxLights} 2D lights in one frame; the rest are skipped.");
+                _warnedLights = true;
+                break;
+            }
+
+            var size = new Vector2(texture.Width, texture.Height) * light.TextureScale;
+            var rect = new Transform2D(new Vector2(size.X, 0), new Vector2(0, size.Y), -size / 2 + light.Offset);
+            var toTexture = (canvasTransform * light.GlobalTransform * rect).AffineInverse();
+            var c = light.Color;
+            frame.Lights.Add(new CanvasLightData
+            {
+                MatrixX = new Vector4(toTexture.X.X, toTexture.Y.X, toTexture.Origin.X, 0),
+                MatrixY = new Vector4(toTexture.X.Y, toTexture.Y.Y, toTexture.Origin.Y, 0),
+                Color = new Vector4(c.X, c.Y, c.Z, c.W * light.Energy),
+                Blend = (uint)light.BlendMode,
+                Texture = texture,
+            });
+            _canvasLights.Add(light);
+        }
+
+        return _canvasLights.Count > 0 ? _canvasLights : null;
     }
 
     // By layer, then tree order (the root canvas, order −1, first among layer 0). A singleton: no per-frame allocation.

@@ -16,7 +16,7 @@ namespace MainframeEngine;
 public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
 {
     internal const Format LayerFormat = Format.R8G8B8A8Unorm;
-    private const int PushSize = 96;
+    private const int PushSize = 112;
     private const int SetsPerPool = 256;
     private const int EvictAfterFrames = 600;
 
@@ -96,7 +96,25 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         public Vector4 CanvasOrigin;     // origin, time, flags (bits)
         public Vector4 Screen;
         public Vector4 CanvasModulation;
+        public Vector4 Lights; // x: light mask (uint bits)
     }
+
+    // canvas_lights.glsl's block: per light two matrix rows, colour, flags (std140, 64 bytes).
+    private struct LightGpuData
+    {
+        public Vector4 MatrixX;
+        public Vector4 MatrixY;
+        public Vector4 Color;
+        public uint Blend;
+#pragma warning disable CS0649 // std140 padding, never written
+        public uint Pad0, Pad1, Pad2;
+#pragma warning restore CS0649
+    }
+
+    private DescriptorSetLayout _lightSetLayout;
+    private DescriptorPool _lightPool;
+    private readonly DescriptorSet[] _lightSets = new DescriptorSet[IVulkanContext.MaxFramesInFlight];
+    private readonly GpuBuffer?[] _lightBuffers = new GpuBuffer?[IVulkanContext.MaxFramesInFlight];
 
     [StructLayout(LayoutKind.Sequential)]
     private struct CompositePush
@@ -134,6 +152,8 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         if (_disposed)
             return;
         var now = _ctx.FrameNumber;
+        foreach (var light in frame.Lights)
+            Prepare(light.Texture, now);
         var batches = frame.Batches;
         for (var i = 0; i < batches.Count; i++)
         {
@@ -221,6 +241,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         var slot = _ctx.FrameSlot;
         var (vertexBuffer, indexBuffer) = Upload(slot, frame);
         BeginMaterialRing(slot, frame);
+        UpdateLights(slot, frame);
         Barrier(cb);
 
         // 2D sub-viewports first (their targets are sampled by later passes), then the main canvas layer.
@@ -274,6 +295,8 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             var boundLayout = _layout;
             var boundPipeline = default(Pipeline);
             var boundSet = default(DescriptorSet);
+            var lightsLayout = default(PipelineLayout);
+            var lightSet = _lightSets[_ctx.FrameSlot];
             var batches = frame.Batches;
             for (var i = pass.FirstBatch; i < pass.FirstBatch + pass.BatchCount; i++)
             {
@@ -306,6 +329,13 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
                     boundSet = default; // set 0 must be rebound against the new layout
                 }
 
+                if (layout.Handle != lightsLayout.Handle)
+                {
+                    // The frame's light block: set 1 of the default layout, set 2 of a shader's (after its material set).
+                    vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, shader is null ? 1u : 2u, 1, &lightSet, 0, null);
+                    lightsLayout = layout;
+                }
+
                 var set = TextureSet(batch.Texture, batch.Sampler, out var pixelSize);
                 if (set.Handle != boundSet.Handle)
                 {
@@ -330,6 +360,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
                     CanvasOrigin = new Vector4(batch.CanvasTransform.Origin, time, BitConverter.UInt32BitsToSingle(flags)),
                     Screen = screen,
                     CanvasModulation = batch.CanvasModulate,
+                    Lights = new Vector4(BitConverter.UInt32BitsToSingle(batch.LightMask), 0, 0, 0),
                 };
                 vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, PushSize, &push);
                 vk.CmdDrawIndexed(cb, (uint)batch.IndexCount, 1, (uint)batch.FirstIndex, 0, 0);
@@ -338,6 +369,68 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         }
 
         vk.CmdEndRenderPass(cb);
+    }
+
+    // The frame-slot light block and textures (unused slots: zero colour, the white texture).
+    private void UpdateLights(int slot, CanvasFrame frame)
+    {
+        if (_lightSets[slot].Handle == 0)
+        {
+            var layout = _lightSetLayout;
+            var info = new DescriptorSetAllocateInfo
+            {
+                SType = StructureType.DescriptorSetAllocateInfo,
+                DescriptorPool = _lightPool,
+                DescriptorSetCount = 1,
+                PSetLayouts = &layout,
+            };
+            _ctx.Vk.AllocateDescriptorSets(_ctx.Device, in info, out _lightSets[slot]).Check("vkAllocateDescriptorSets (canvas lights)");
+            _lightBuffers[slot] = GpuBuffer.Create(_ctx, (ulong)(sizeof(LightGpuData) * CanvasFrame.MaxLights), BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
+            var bufferInfo = new DescriptorBufferInfo { Buffer = _lightBuffers[slot]!.Handle, Offset = 0, Range = (ulong)(sizeof(LightGpuData) * CanvasFrame.MaxLights) };
+            var write = new WriteDescriptorSet
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _lightSets[slot],
+                DstBinding = 0,
+                DescriptorType = DescriptorType.UniformBuffer,
+                DescriptorCount = 1,
+                PBufferInfo = &bufferInfo,
+            };
+            _ctx.Vk.UpdateDescriptorSets(_ctx.Device, 1, &write, 0, null);
+        }
+
+        var data = stackalloc LightGpuData[CanvasFrame.MaxLights];
+        var images = stackalloc DescriptorImageInfo[CanvasFrame.MaxLights];
+        var lights = frame.Lights;
+        for (var i = 0; i < CanvasFrame.MaxLights; i++)
+        {
+            var view = _white.View;
+            if (i < lights.Count)
+            {
+                var l = lights[i];
+                data[i] = new LightGpuData { MatrixX = l.MatrixX, MatrixY = l.MatrixY, Color = l.Color, Blend = l.Blend };
+                if (_textures.TryGetValue(l.Texture, out var entry))
+                    view = entry.Texture.View;
+            }
+            else
+            {
+                data[i] = default;
+            }
+
+            images[i] = new DescriptorImageInfo { Sampler = _samplers[(int)CanvasSampler.LinearClamp], ImageView = view, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
+        }
+
+        _lightBuffers[slot]!.Write(new ReadOnlySpan<LightGpuData>(data, CanvasFrame.MaxLights));
+        var imageWrite = new WriteDescriptorSet
+        {
+            SType = StructureType.WriteDescriptorSet,
+            DstSet = _lightSets[slot],
+            DstBinding = 1,
+            DescriptorType = DescriptorType.CombinedImageSampler,
+            DescriptorCount = CanvasFrame.MaxLights,
+            PImageInfo = images,
+        };
+        _ctx.Vk.UpdateDescriptorSets(_ctx.Device, 1, &imageWrite, 0, null);
     }
 
     // ── 2D sub-viewport targets ──────────────────────────────────────────────────────────────────────────────
@@ -539,7 +632,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
                 bindings.Add(new DescriptorSetLayoutBinding { Binding = (uint)u.Binding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit });
         entry = new ShaderEntry();
         entry.SetLayout = PipelineBuilder.CreateSetLayout(_ctx, bindings.ToArray(), "canvas material");
-        entry.Layout = PipelineBuilder.CreateLayout(_ctx, [_textureSetLayout, entry.SetLayout], PushSize, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, "canvas shader");
+        entry.Layout = PipelineBuilder.CreateLayout(_ctx, [_textureSetLayout, entry.SetLayout, _lightSetLayout], PushSize, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, "canvas shader");
         var samplers = Math.Max(1, program.SamplerCount);
         // Sets are freed one by one when a material's textures change: the pool needs FREE_DESCRIPTOR_SET.
         var sizes = stackalloc DescriptorPoolSize[2];
@@ -789,7 +882,19 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         _textureSetLayout = PipelineBuilder.CreateSetLayout(_ctx,
             [new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit }],
             "canvas texture");
-        _layout = PipelineBuilder.CreateLayout(_ctx, [_textureSetLayout], PushSize, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, "canvas");
+        _lightSetLayout = PipelineBuilder.CreateSetLayout(_ctx,
+            [
+                new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+                new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = CanvasFrame.MaxLights, StageFlags = ShaderStageFlags.FragmentBit },
+            ],
+            "canvas lights");
+        _lightPool = PipelineBuilder.CreatePool(_ctx, IVulkanContext.MaxFramesInFlight,
+            [
+                new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = IVulkanContext.MaxFramesInFlight },
+                new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = IVulkanContext.MaxFramesInFlight * CanvasFrame.MaxLights },
+            ],
+            "canvas lights");
+        _layout = PipelineBuilder.CreateLayout(_ctx, [_textureSetLayout, _lightSetLayout], PushSize, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, "canvas");
         _compositeLayout = PipelineBuilder.CreateLayout(_ctx, [_textureSetLayout], (uint)sizeof(CompositePush),
             ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, "canvas composite");
         _white = GpuTexture.Create2D(_ctx, 1, 1, [255, 255, 255, 255], TextureColorSpace.Linear, TextureSampling.NearestClamp);
@@ -1002,5 +1107,9 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_layout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_compositeLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_textureSetLayout));
+        foreach (var buffer in _lightBuffers)
+            buffer?.Dispose();
+        _ctx.Deletions.Enqueue(GpuDeletion.Of(_lightPool));
+        _ctx.Deletions.Enqueue(GpuDeletion.Of(_lightSetLayout));
     }
 }

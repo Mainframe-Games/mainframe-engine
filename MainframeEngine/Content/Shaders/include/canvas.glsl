@@ -12,6 +12,7 @@ layout(push_constant) uniform CanvasPush {
     vec4 canvasOrigin;   // CANVAS_MATRIX origin (xy), TIME (z), flags (w)
     vec4 screen;         // pixels -> NDC: scale (xy), offset (zw)
     vec4 canvasModulation;
+    vec4 lights;         // x: the frame lights affecting this item (bit mask, uint bits); see canvas_lights.glsl
 } canvas_pc;
 
 #define CANVAS_FLAG_UNSHADED 1u

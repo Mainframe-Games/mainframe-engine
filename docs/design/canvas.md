@@ -86,7 +86,7 @@ Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when t
 
 ## Known issues
 
-- Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D lights (E6), 2D `SubViewport`/`ViewportTexture` (E7), text (E4),
+- Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D light shadows/normal maps/`DirectionalLight2D`, text (E4),
   Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `ClipChildren`
   (canvas groups), nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
 - The editor's 2D view does not draw canvas items yet (E18).
@@ -106,3 +106,13 @@ backed by that target for `Sprite2D`/draw calls. `UpdateMode.Once` draws on the 
 point emission, direction ± spread, initial speed range, gravity, per-particle linear acceleration, start angle and scale
 ranges, one colour; `Amount`, `Lifetime` (even restarts, explosiveness 0), `AmountRatio`, `Preprocess`, `LocalCoords`.
 Each particle draws its texture centred on it (one canvas batch per emitter). Random streams differ from Godot's GPU ones.
+
+## Lights (ADR 0117)
+
+`PointLight2D` (Godot's names and formula): its texture, centred on the node plus `Offset` and scaled by `TextureScale`,
+adds `texture × Color × Energy × the item's colour` after the canvas modulation, so it shows through a `CanvasModulate`
+night. It lights the items of its own canvas whose `LightMask` shares a bit with `RangeItemCullMask` and whose z is in
+`RangeZMin..RangeZMax`; unshaded materials are not lit. Up to eight lights per frame (`CanvasFrame.MaxLights`) in one
+per-frame-slot block; each batch's push constants carry the bits of the lights that reach it. No shadows or normal maps.
+`Gradient` and `GradientTexture2D` (linear, radial, square, conic fills; Godot's sampling) generate light and sweep
+textures in code or in a scene.

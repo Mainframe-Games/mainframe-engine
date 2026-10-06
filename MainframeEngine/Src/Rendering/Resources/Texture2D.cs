@@ -155,7 +155,7 @@ public sealed record TextureImportSettings
 /// file-backed (external) textures persist, as references.
 /// </remarks>
 [EditorIcon("photo")]
-public sealed class Texture2D : Resource
+public class Texture2D : Resource
 {
     private string? _filePath;     // absolute path of an image file
     private byte[]? _encoded;      // PNG/JPEG/... bytes (embedded model textures)
@@ -279,6 +279,7 @@ public sealed class Texture2D : Resource
     /// </summary>
     public (byte[] Rgba, int Width, int Height) DecodePixels()
     {
+        Generate();
         if (_viewport is not null)
             throw new InvalidOperationException("A viewport texture has no CPU pixels (it is the sub-viewport's GPU target).");
         if (_pixels is not null)
@@ -315,6 +316,7 @@ public sealed class Texture2D : Resource
 
     private void EnsureSize()
     {
+        Generate();
         if (_viewport is not null)
         {
             _width = Math.Max(1, _viewport.Width);
@@ -360,6 +362,23 @@ public sealed class Texture2D : Resource
 
         _sizeKnown = true;
     }
+
+    /// <summary>Generated textures (<see cref="GradientTexture2D"/>) build their pixels here, before size or pixels are read.</summary>
+    private protected virtual void Generate()
+    {
+    }
+
+    /// <summary>Sets a generated texture's pixels (RGBA8, tightly packed); the caller has already marked the change.</summary>
+    private protected void SetGenerated(byte[] rgba, int width, int height)
+    {
+        _pixels = rgba;
+        _width = width;
+        _height = height;
+        _sizeKnown = true;
+    }
+
+    /// <summary>Bumps <see cref="Version"/> so renderers re-upload (a generated texture's settings changed).</summary>
+    private protected void MarkChanged() => Touch();
 
     private void Touch()
     {

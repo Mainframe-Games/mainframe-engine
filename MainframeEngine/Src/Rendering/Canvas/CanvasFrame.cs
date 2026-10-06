@@ -31,6 +31,19 @@ public struct CanvasBatch
     public Transform2D Model;
     public Transform2D CanvasTransform;
     public bool LocalVertices;
+
+    /// <summary>The frame lights (<see cref="CanvasFrame.Lights"/> indices, one bit each) that light this batch.</summary>
+    public uint LightMask;
+}
+
+/// <summary>One 2D light of the frame in the light block's layout (canvas_lights.glsl).</summary>
+public struct CanvasLightData
+{
+    public Vector4 MatrixX;
+    public Vector4 MatrixY;
+    public Vector4 Color;
+    public uint Blend;
+    public Texture2D Texture;
 }
 
 /// <summary>
@@ -69,6 +82,14 @@ public sealed class CanvasFrame
 
     public List<CanvasBatch> Batches => _batches;
 
+    /// <summary>Most lights one frame carries (the shader's light block).</summary>
+    public const int MaxLights = 8;
+
+    private readonly List<CanvasLightData> _lights = new(MaxLights);
+
+    /// <summary>The frame's 2D lights; batches refer to them by bit.</summary>
+    public List<CanvasLightData> Lights => _lights;
+
     /// <summary>The frame's targets in draw order: the 2D sub-viewports, then the main canvas.</summary>
     public List<CanvasPass> Passes => _passes;
 
@@ -105,10 +126,19 @@ public sealed class CanvasFrame
         _batches.Clear();
         _passes.Clear();
         _passStart = 0;
+        _lights.Clear();
     }
 
     /// <summary>Appends the commands of every culled item (in order) under one canvas's modulate and transform.</summary>
-    public void Append(List<CulledCanvasItem> items, Vector4 canvasModulate, in Transform2D canvasTransform, in Transform2D canvasInverse)
+    public void Append(List<CulledCanvasItem> items, Vector4 canvasModulate, in Transform2D canvasTransform, in Transform2D canvasInverse) =>
+        Append(items, canvasModulate, canvasTransform, canvasInverse, null, 0);
+
+    /// <summary>
+    /// As above, with the canvas's <paramref name="lights"/> (frame light indices <paramref name="lightBase"/> onwards): each
+    /// item gets the bits of the lights that affect its light mask and z.
+    /// </summary>
+    public void Append(List<CulledCanvasItem> items, Vector4 canvasModulate, in Transform2D canvasTransform, in Transform2D canvasInverse,
+        IReadOnlyList<PointLight2D>? lights, int lightBase)
     {
         for (var i = 0; i < items.Count; i++)
         {
@@ -139,6 +169,11 @@ public sealed class CanvasFrame
             VertexCount += src.Length;
 
             var blend = culled.Material is CanvasItemMaterial cim ? cim.BlendMode : culled.Material is ShaderMaterial sm ? sm.Shader?.BlendMode ?? CanvasBlendMode.Mix : CanvasBlendMode.Mix;
+            var lightMask = 0u;
+            if (lights is not null)
+                for (var l = 0; l < lights.Count && lightBase + l < MaxLights; l++)
+                    if (lights[l].Affects(culled.Item.LightMask, culled.Z))
+                        lightMask |= 1u << (lightBase + l);
             var indices = list.Indices;
             for (var c = 0; c < commands.Length; c++)
             {
@@ -155,7 +190,7 @@ public sealed class CanvasFrame
                     var last = _batches[^1];
                     if (!last.LocalVertices && ReferenceEquals(last.Texture, command.Texture) && last.Sampler == sampler &&
                         last.Primitive == command.Primitive && ReferenceEquals(last.Material, culled.Material) && last.Blend == blend &&
-                        last.CanvasModulate == canvasModulate && last.FirstIndex + last.IndexCount == firstIndex)
+                        last.CanvasModulate == canvasModulate && last.LightMask == lightMask && last.FirstIndex + last.IndexCount == firstIndex)
                     {
                         last.IndexCount += command.IndexCount;
                         _batches[^1] = last;
@@ -176,6 +211,7 @@ public sealed class CanvasFrame
                     Model = model,
                     CanvasTransform = local ? canvasTransform : Transform2D.Identity,
                     LocalVertices = local,
+                    LightMask = lightMask,
                 });
             }
         }

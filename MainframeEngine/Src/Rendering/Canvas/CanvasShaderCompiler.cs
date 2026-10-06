@@ -216,6 +216,7 @@ public static partial class CanvasShaderCompiler
         for (var i = 0; i < varyings.Count; i++)
             fs.Append(CultureInfo.InvariantCulture, $"layout(location = {2 + i}) {(varyings[i].Flat ? "flat " : "")}in {varyings[i].Type} {varyings[i].Name};\n");
         fs.Append("layout(set = 0, binding = 0) uniform sampler2D colorTexture;\n#define TEXTURE colorTexture\n");
+        fs.Append("#define CANVAS_LIGHT_SET 2\n#include \"canvas_lights.glsl\"\n");
         fs.Append("layout(location = 0) out vec4 fragColor;\n");
         fs.Append("vec4 COLOR;\nvec2 UV;\nvec2 VERTEX;\nvec4 FRAGCOORD;\nvec2 SCREEN_UV;\nvec2 SCREEN_PIXEL_SIZE;\nvec2 TEXTURE_PIXEL_SIZE;\nfloat TIME;\nvec2 POINT_COORD;\nbool AT_LIGHT_PASS;\nvec3 NORMAL;\nvec3 NORMAL_MAP;\nfloat NORMAL_MAP_DEPTH;\nvec3 LIGHT_VERTEX;\nvec2 SHADOW_VERTEX;\n");
         fs.Append(helpers);
@@ -244,8 +245,12 @@ public static partial class CanvasShaderCompiler
         if (fragmentFn is not null)
             fs.Append("    fragment();\n");
         fs.Append("""
+                vec4 baseColor = COLOR;
                 if ((canvas_flags() & CANVAS_FLAG_UNSHADED) == 0u)
+                {
                     COLOR *= canvas_pc.canvasModulation;
+                    canvas_apply_lights(COLOR, baseColor, VERTEX);
+                }
                 fragColor = COLOR;
             }
 
