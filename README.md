@@ -60,6 +60,21 @@ Every screenshot is a scene of the [Demo](Examples/Demo) (`just demo`; `just dem
 
 ## Getting Started
 
+### Installing the editor (release build)
+
+Download the editor for your platform from [GitHub Releases](https://github.com/Mainframe-Games/mainframe-engine/releases).
+Creating and playing game projects needs the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+
+**macOS:** the app is not signed or notarized yet, so macOS quarantines the download and says *"Mainframe Engine.app"
+is damaged and can't be opened*. The app is fine: choose **Cancel** (not Move to Trash), move it to Applications and
+clear the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/"Mainframe Engine.app"
+```
+
+### Building from source
+
 **Requirements:** the [.NET 10 SDK](https://dotnet.microsoft.com/download), [Git LFS](https://git-lfs.com) (images,
 audio, goldens) and [`just`](https://github.com/casey/just). The [Vulkan SDK](https://vulkan.lunarg.com) is
 recommended for development (validation layers, `glslc`); nothing needs installing to run on macOS (MoltenVK is
