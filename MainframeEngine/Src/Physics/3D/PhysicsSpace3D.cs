@@ -1053,7 +1053,16 @@ public sealed class PhysicsSpace3D : IDisposable
                 // Both queries report the normal from the body towards the other shape: back out along its negative.
                 JVector normal, pointB;
                 float push;
-                if (NarrowPhase.Distance(shape, otherShape, rotationJ, otherBody.Orientation, position.ToJ(), otherBody.Position,
+                // EPA first (ADR 0128): one signed distance for touching, separated and overlapping shapes, accurate to
+                // well under a millimetre on large shapes where GJK and MPR answer near contact are off by millimetres.
+                if (NarrowPhase.Collision(shape, otherShape, rotationJ, otherBody.Orientation, position.ToJ(), otherBody.Position,
+                        out _, out pointB, out normal, out var epaDepth))
+                {
+                    if (epaDepth <= -margin * 2)
+                        continue;
+                    push = MathF.Max(0f, epaDepth + margin);
+                }
+                else if (NarrowPhase.Distance(shape, otherShape, rotationJ, otherBody.Orientation, position.ToJ(), otherBody.Position,
                         out _, out pointB, out normal, out var distance))
                 {
                     // Within two margins counts as touching (a resting or slope-walking body hovers at about one
@@ -1085,6 +1094,38 @@ public sealed class PhysicsSpace3D : IDisposable
 
         _proxies.Clear();
         return found;
+    }
+
+    /// <summary>
+    /// Moves a character body that a cast left a little short of <paramref name="collider"/> onto the safe margin
+    /// (ADR 0128): Jitter2's sweep reports hits up to a few millimetres early on large shapes, which left bodies resting
+    /// above the band recovery treats as touching. Uses EPA's exact signed distance along its normal; gaps larger than
+    /// <paramref name="maxGap"/> beyond the margin are left alone. Returns true if the body moved.
+    /// </summary>
+    internal bool SettleBody(BodyRecord3D record, ref Vector3 position, Quaternion rotation, float margin, CollisionObject3D collider, float maxGap)
+    {
+        if (record.Body is null || collider.Record is not { Body: { } otherBody } other || other.Removed)
+            return false;
+        FlushForQuery();
+        var rotationJ = rotation.ToJ();
+        var best = float.MaxValue;
+        var bestNormal = JVector.Zero;
+        foreach (var shape in record.Shapes)
+            foreach (var otherShape in other.Shapes)
+                if (NarrowPhase.Collision(shape, otherShape, rotationJ, otherBody.Orientation, position.ToJ(), otherBody.Position,
+                        out _, out _, out var normal, out var depth) && -depth < best)
+                {
+                    best = -depth; // separation
+                    bestNormal = normal;
+                }
+
+        if (best <= margin || best > margin + maxGap)
+            return false;
+        var direction = bestNormal.ToNumerics();
+        if (direction.LengthSquared() < 1e-12f)
+            return false;
+        position += Vector3.Normalize(direction) * (best - margin); // the normal points from the body towards the other shape
+        return true;
     }
 
     // ------------------------------------------------------------------------------------------------------------

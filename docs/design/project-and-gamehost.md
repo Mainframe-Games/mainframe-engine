@@ -202,8 +202,10 @@ protected override void OnUnhandledInput(InputEvent e) { if (e.IsActionPressed("
 ```
 
 - Strength: 1 for keys/buttons; axes past the deadzone rescale 0..1; an action takes the strongest of its inputs.
-- "Just pressed/released" follow Godot: true in the process frame after the change, and in `OnPhysicsProcess` only
-  for the first physics step after it.
+- "Just pressed/released" follow Godot 4: true in the process frame after the change, and in `OnPhysicsProcess` only
+  for the first physics step after it; a change made during a physics step (`ActionPress` from `OnPhysicsProcess`)
+  counts from the next step, and a tap released again before that step still reads as just pressed
+  ([ADR 0129](../../memory/decisions/0129-godot-just-pressed-timing.md)).
 - `ActionPress`/`ActionRelease` simulate input; `ReleaseAll` clears everything (focus loss). Editing or replacing the
   map rebuilds the action table (held inputs stay pressed, without an edge). Polling and event handling do not
   allocate.

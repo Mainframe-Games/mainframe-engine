@@ -157,6 +157,57 @@ public sealed class Physics3DQueryTests : IDisposable
     }
 
     [Fact]
+    public void CharacterStartingExactlyOnALargeFloorWalksAway()
+    {
+        // A capsule whose bottom starts exactly on a big box's top face (the Driving Range player on its CSG ground):
+        // recovery must see the touch, or every cast starts overlapping and the body never moves.
+        _h.AddStaticBox(new Vector3(45, -5, -5.5f), new Vector3(125, 10, 130), name: "Ground");
+        var character = AddCharacter(new Vector3(0, 1, 0), radius: 0.5f, height: 2f);
+        character.Walk = new Vector3(0, 0, -5);
+        _h.RunSeconds(1f);
+
+        Assert.True(character.IsOnFloor(), $"at {character.Position}, velocity {character.Velocity}");
+        Assert.InRange(character.Position.Z, -5.2f, -4.8f);
+        Assert.InRange(character.Position.Y, 1f, 1f + 2 * character.SafeMargin);
+    }
+
+    [Fact]
+    public void CharacterRestingWithGodotsMarginHoldsItsHeight()
+    {
+        // Godot's default safe margin (1 mm): the body settles within the margin and stays there (no creep).
+        _h.AddStaticBox(new Vector3(45, -5, -5.5f), new Vector3(125, 10, 130), name: "Ground");
+        var character = AddCharacter(new Vector3(0, 1.05f, 0), radius: 0.5f, height: 2f);
+        character.SafeMargin = 0.001f;
+        character.Walk = new Vector3(0, 0, -5);
+        _h.RunSeconds(1f);
+        var settled = character.Position.Y;
+        _h.RunSeconds(2f);
+
+        Assert.True(character.IsOnFloor(), $"settled {settled}, at {character.Position}, velocity {character.Velocity}");
+        Assert.InRange(settled, 1f, 1.002f);
+        Assert.Equal(settled, character.Position.Y, 0.0002f);
+    }
+
+    [Fact]
+    public void CharacterJumpingOffTheFloorIsNotOnTheFloorAfterTheJumpStep()
+    {
+        // Godot sets the floor state from the motion's collisions only: a body moving away from the floor it starts on
+        // is airborne after the step (ADR 0128).
+        _h.AddFloor();
+        var character = AddCharacter(new Vector3(0, 0.95f, 0));
+        character.SafeMargin = 0.001f;
+        _h.RunSeconds(0.5f);
+        Assert.True(character.IsOnFloor());
+
+        character.Gravity = 0;
+        character.Velocity = new Vector3(0, 4.5f, 0);
+        _h.Run(1);
+
+        Assert.False(character.IsOnFloor());
+        Assert.Equal(4.5f, character.Velocity.Y, 0.001f);
+    }
+
+    [Fact]
     public void CharacterLandsAndStaysOnTheFloor()
     {
         _h.AddFloor();
@@ -165,7 +216,7 @@ public sealed class Physics3DQueryTests : IDisposable
 
         Assert.True(character.IsOnFloor());
         Assert.False(character.IsOnWall());
-        Assert.Equal(Vector3.UnitY, character.GetFloorNormal());
+        Assert.True(Vector3.Distance(Vector3.UnitY, character.GetFloorNormal()) < 1e-5f, $"floor normal {character.GetFloorNormal()}"); // EPA's, float-exact
         Assert.InRange(character.Position.Y, 0.905f, 0.93f); // half height + safe margin (1 cm)
         Assert.InRange(character.Velocity.Y, -0.2f, 0f);   // gravity of one step, removed again by the floor
         Assert.True(character.GetSlideCollisionCount() >= 1);

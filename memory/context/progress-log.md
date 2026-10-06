@@ -402,3 +402,15 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `SceneTree.EditModeScripts`; non-tool script types fall back to their engine base's enter/ready/exit in edit mode
   and skip OnDraw. The editor marks collectible (game) types and its 2D tabs now render through the canvas (sprites,
   Spine, custom draw, shaders, the editor's lines on top). Tests: EditModeCanvasTests (4).
+
+### 2026-10-06 — Character recovery and settling with EPA (Driving Range port E10, ADR 0128)
+- `RecoverBody` asks `NarrowPhase.Collision` (EPA signed distance) first, then `Distance`/`MprEpa`: a capsule starting
+  exactly on a large box no longer sticks (GJK and MPR both missed the touch). New `PhysicsSpace3D.SettleBody`:
+  after a floor hit from a sweep or the snap, the body sits exactly one margin from the floor (Jitter2 sweeps stop mm
+  short). With Godot's 1 mm margin a walking/standing body holds 1.000 mm. Tests: two new Physics3DQueryTests.
+
+### 2026-10-06 — Godot 4's just-pressed timing; jump floor state (Driving Range port E10, ADRs 0128–0129)
+- Input: a press/release made during a physics step counts from the next step; just pressed/released no longer require
+  the action to be held (Godot 4 defaults). CharacterBody3D: recovery skips contacts the body moves away from, so a
+  jump is airborne after its take-off step. The Driving Range walk (walk, sprint, jump, strafe, mouse turn) now matches
+  Godot's dumps within 1 mm. Tests: two InputMapTests, CharacterJumpingOffTheFloorIsNotOnTheFloorAfterTheJumpStep.
