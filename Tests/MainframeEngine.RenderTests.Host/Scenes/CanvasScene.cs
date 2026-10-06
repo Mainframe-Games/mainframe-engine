@@ -6,7 +6,7 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// The 2D canvas (ADR 0111): sprites (plain, flipped, modulated, a region), a y-sorted group whose tree order is the
 /// reverse of its draw order, z-index, every draw primitive (rects filled and outlined, circles, thin and wide lines,
 /// an antialiased line, a polyline, an arc, a triangulated polygon), additive blending, a <see cref="CanvasModulate"/>
-/// tint on the root canvas, a <see cref="PointLight2D"/> showing through it (ADR 0117), outlined text (ADR 0118) and a <see cref="CanvasLayer"/> neither touches. Cleared to Godot's default grey; drawn with
+/// tint on the root canvas, a <see cref="PointLight2D"/> showing through it (ADR 0117), outlined text (ADR 0118), clip children (ADR 0119) and a <see cref="CanvasLayer"/> neither touches. Cleared to Godot's default grey; drawn with
 /// Godot's canvas_items stretch from a 480×270 base.
 /// </summary>
 public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
@@ -115,6 +115,10 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
         root.AddChild(new Sprite2D { Name = "RigView", Texture = rig.GetTexture(), Centered = false, Position = new Vector2(380, 170) });
 
         root.AddChild(new Caption { Name = "Caption", Position = new Vector2(160, 100) });
+        // Clip children (ADR 0119): a red bar drawn through a blue disc only where the disc is.
+        var disc = new Disc { Name = "ClipOwner", Position = new Vector2(170, 250), ClipChildren = ClipChildrenMode.AndDraw };
+        disc.AddChild(new Swatch { Name = "Clipped", Position = new Vector2(-6, -25), Size = new Vector2(12, 50), Color = Red });
+        root.AddChild(disc);
         root.AddChild(new CanvasModulate { Name = "Tint", Color = new Vector4(0.85f, 0.9f, 1f, 1f) });
         // An orange light over the flipped sprite: added after the tint, outside its texture nothing changes.
         root.AddChild(new PointLight2D { Name = "Light", Texture = Radial(), TextureScale = 3, Position = new Vector2(110, 40), Color = new Vector4(1f, 0.6f, 0.2f, 1f), Energy = 1.5f });
@@ -145,6 +149,11 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
             DrawStringOutline(_font, Vector2.Zero, "Canvas text: AVTo", HorizontalAlignment.Center, 160, 16, 6, new Vector4(0.05f, 0.05f, 0.1f, 1));
             DrawString(_font, Vector2.Zero, "Canvas text: AVTo", HorizontalAlignment.Center, 160, 16);
         }
+    }
+
+    private sealed class Disc : Node2D
+    {
+        protected override void OnDraw() => DrawCircle(Vector2.Zero, 15, Blue);
     }
 
     private sealed class Swatch : Node2D

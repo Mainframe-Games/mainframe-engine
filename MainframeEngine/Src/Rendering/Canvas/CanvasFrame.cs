@@ -58,6 +58,9 @@ public struct CanvasLightData
 public struct CanvasPass
 {
     public SubViewport? Viewport;
+
+    /// <summary>A clip-children group's pass (its own target the canvas's size), drawn before the main canvas.</summary>
+    public CanvasItem? ClipOwner;
     public int FirstBatch;
     public int BatchCount;
     public Vector2 Size;
@@ -94,10 +97,10 @@ public sealed class CanvasFrame
     public List<CanvasPass> Passes => _passes;
 
     /// <summary>Starts a pass: batches appended until <see cref="EndPass"/> draw into it (and never merge across passes).</summary>
-    public void BeginPass(SubViewport? viewport, Vector2 size, Vector4? clearColor)
+    public void BeginPass(SubViewport? viewport, Vector2 size, Vector4? clearColor, CanvasItem? clipOwner = null)
     {
         _passStart = _batches.Count;
-        _passes.Add(new CanvasPass { Viewport = viewport, FirstBatch = _passStart, Size = size, ClearColor = clearColor });
+        _passes.Add(new CanvasPass { Viewport = viewport, ClipOwner = clipOwner, FirstBatch = _passStart, Size = size, ClearColor = clearColor });
     }
 
     /// <summary>Closes the pass started by <see cref="BeginPass"/>.</summary>
@@ -148,6 +151,11 @@ public sealed class CanvasFrame
             if (commands.IsEmpty)
                 continue;
             ItemCount++;
+            if (culled.ClipComposite)
+            {
+                AppendClipComposite(culled, list, canvasModulate);
+                continue;
+            }
             var local = culled.Material is ShaderMaterial { Shader.HasVertexFunction: true };
             var model = local ? canvasInverse * culled.Transform : Transform2D.Identity;
             var baseVertex = VertexCount;
@@ -169,6 +177,8 @@ public sealed class CanvasFrame
             VertexCount += src.Length;
 
             var blend = culled.Material is CanvasItemMaterial cim ? cim.BlendMode : culled.Material is ShaderMaterial sm ? sm.Shader?.BlendMode ?? CanvasBlendMode.Mix : CanvasBlendMode.Mix;
+            if (culled.ClipGroup is { } owner && !ReferenceEquals(owner, culled.Item))
+                blend = CanvasBlendMode.Atop;   // inside a clip-children group: only where the owner drew
             var lightMask = 0u;
             if (lights is not null)
                 for (var l = 0; l < lights.Count && lightBase + l < MaxLights; l++)
@@ -215,6 +225,47 @@ public sealed class CanvasFrame
                 });
             }
         }
+    }
+
+    // The group target is already modulated and lit; the composite only places it (Godot's clip_children material keeps the
+    // group's colours under the owner's alpha; the target holds premultiplied owner + clipped children).
+    private static readonly CanvasItemMaterial ClipCompositeMaterial = new() { BlendMode = CanvasBlendMode.PremultAlpha, LightMode = CanvasLightMode.Unshaded };
+
+    /// <summary>A clip-children owner's composite: its drawn bounds (target pixels) textured with its group target.</summary>
+    private void AppendClipComposite(in CulledCanvasItem culled, CanvasDrawList list, Vector4 canvasModulate)
+    {
+        var rect = list.Bounds.Transformed(culled.Transform);
+        var size = _passes[^1].Size;
+        if (size.X <= 0 || size.Y <= 0 || rect.Size.X <= 0 || rect.Size.Y <= 0)
+            return;
+        var texture = Texture2D.ForClipGroup(culled.Item, size);
+        EnsureVertices(VertexCount + 4);
+        EnsureIndices(IndexCount + 6);
+        var baseVertex = (uint)VertexCount;
+        var p0 = rect.Position;
+        var p1 = rect.Position + rect.Size;
+        ReadOnlySpan<Vector2> corners = [p0, new Vector2(p1.X, p0.Y), p1, new Vector2(p0.X, p1.Y)];
+        for (var v = 0; v < 4; v++)
+            _vertices[VertexCount + v] = new CanvasVertex { Position = corners[v], Uv = corners[v] / size, Color = Vector4.One };
+        VertexCount += 4;
+        ReadOnlySpan<uint> quad = [0, 1, 2, 2, 3, 0];
+        var firstIndex = IndexCount;
+        for (var k = 0; k < 6; k++)
+            _indices[IndexCount + k] = baseVertex + quad[k];
+        IndexCount += 6;
+        _batches.Add(new CanvasBatch
+        {
+            FirstIndex = firstIndex,
+            IndexCount = 6,
+            Texture = texture,
+            Sampler = CanvasSampler.LinearClamp,
+            Primitive = CanvasPrimitive.Triangles,
+            Material = ClipCompositeMaterial,
+            Blend = CanvasBlendMode.PremultAlpha,
+            CanvasModulate = canvasModulate,
+            Model = Transform2D.Identity,
+            CanvasTransform = Transform2D.Identity,
+        });
     }
 
     /// <summary>The sampler for a resolved filter and repeat (ParentNode resolves to linear / disabled).</summary>

@@ -87,8 +87,8 @@ Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when t
 ## Known issues
 
 - Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D light shadows/normal maps/`DirectionalLight2D`, font oversampling and shaping beyond kerning,
-  Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `ClipChildren`
-  (canvas groups), nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
+  Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `CanvasGroup`,
+  `ClipChildrenMode.Only` hiding the owner, nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
 - The editor's 2D view does not draw canvas items yet (E18).
 - 1 px lines (width −1) on exact integer coordinates rasterise on whichever side the GPU picks, as in Godot.
 
@@ -124,3 +124,15 @@ parameters: baseline position, `HorizontalAlignment` in a width, size, modulate;
 read and rasterised in managed code (`TrueTypeFont`, `GlyphRasterizer`: TrueType outlines, GPOS/kern pair kerning,
 exact-area coverage, outlines grown by `size / 4` px at 4× supersampling) into shared atlas pages per size and outline.
 Metrics follow FreeType's rounding. Unhinted, whole-pixel pen positions, no oversampling under a scaled canvas.
+
+## Clip children (ADR 0119)
+
+`CanvasItem.ClipChildren` (`AndDraw`; `Only` draws like `AndDraw` for now) makes the item a group with its subtree:
+the culler tags the members (`CulledCanvasItem.ClipGroup`; an inner owner joins the outer group) and adds a composite
+entry after the subtree. `CanvasServer` culls every canvas first, then emits one pass per group before the viewport's
+pass: the owner draws as usual on a transparent target the size of the pass (`EnsureGroupTarget`, keyed by owner like
+sub-viewport targets), the other members with the `Atop` blend (premultiplied output, `DST_ALPHA` × source, alpha
+kept), so they show only where the owner has drawn. The viewport's pass draws the composite in the owner's place: a
+quad over the owner's drawn bounds sampling the group target (`Texture2D.ForClipGroup`, premultiplied, unshaded,
+since the group is already modulated and lit). Members drawn behind the owner (`ShowBehindParent`) land on an empty
+target and do not show.

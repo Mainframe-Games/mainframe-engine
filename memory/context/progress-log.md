@@ -337,3 +337,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `UiServer.RegisterTexture(name, SubViewport)`: a 2D sub-viewport's canvas target as `engine://name` (the canvas-view
   element; the game's minimap). Fix: a canvas material's descriptor set now rebinds when a sampler texture re-uploads
   (`SetPixels`), not only when the texture object changes; it kept pointing at the old, deletion-queued view.
+
+### 2026-10-06 — Canvas clip children (port E2, ADR 0119)
+- `ClipChildren` (`AndDraw`): the culler tags a group (owner + subtree) and adds a composite entry; `CanvasServer`
+  culls every canvas first (pooled `CanvasEntry` lists), emits one transparent group pass per owner before the
+  viewport's pass (main or 2D sub-viewport), members other than the owner blend `Atop` (new `CanvasBlendMode.Atop`,
+  premultiplied output via `CANVAS_FLAG_PREMULTIPLY`), and the composite is a premultiplied unshaded quad over the
+  owner's bounds sampling `Texture2D.ForClipGroup`. `Only` draws like `AndDraw` (deviation). Tests: ClipChildrenTests
+  (5), canvas render scene gains a clipped disc (moltenvk golden re-recorded).

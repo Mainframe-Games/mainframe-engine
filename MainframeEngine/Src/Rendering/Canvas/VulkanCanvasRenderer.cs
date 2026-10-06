@@ -189,13 +189,24 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             }
 
             _subEvict.Clear();
+
+            foreach (var (owner, target) in _groupTargets)
+                if (!owner.IsInsideTree || now - target.LastUsed > EvictAfterFrames)
+                    _groupEvict.Add(owner);
+            foreach (var owner in _groupEvict)
+            {
+                ReleaseSubTarget(_groupTargets[owner]);
+                _groupTargets.Remove(owner);
+            }
+
+            _groupEvict.Clear();
         }
     }
 
     private void Prepare(Texture2D texture, ulong now)
     {
-        if (texture.Viewport is not null)
-            return; // drawn by the GPU each frame (EnsureSubTarget), nothing to upload
+        if (texture.Viewport is not null || texture.ClipGroup is not null)
+            return; // drawn by the GPU each frame (EnsureSubTarget / EnsureGroupTarget), nothing to upload
         if (!_textures.TryGetValue(texture, out var entry) || entry.Version != texture.Version)
         {
             if (entry is not null)
@@ -250,6 +261,15 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         for (var p = 0; p < passes.Count; p++)
         {
             var pass = passes[p];
+            if (pass.ClipOwner is { } owner)
+            {
+                // A clip-children group: the owner and its subtree on their own transparent target the canvas's size.
+                var group = EnsureGroupTarget(owner, new Extent2D((uint)pass.Size.X, (uint)pass.Size.Y), now);
+                RecordPass(cb, frame, pass, group.Framebuffer, group.Extent, Vector4.Zero, vertexBuffer, indexBuffer);
+                Barrier(cb); // the main pass samples this target
+                continue;
+            }
+
             if (pass.Viewport is { } viewport)
             {
                 var target = EnsureSubTarget(viewport, now);
@@ -352,7 +372,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
                 }
 
                 var unshaded = batch.Material is CanvasItemMaterial { LightMode: CanvasLightMode.Unshaded } || shader is { Unshaded: true };
-                var flags = unshaded ? 1u : 0u;
+                var flags = (unshaded ? 1u : 0u) | (batch.Blend == CanvasBlendMode.Atop ? 4u : 0u);   // canvas.glsl CANVAS_FLAG_*
                 var push = new CanvasPush
                 {
                     ModelAxes = new Vector4(batch.Model.X, batch.Model.Y.X, batch.Model.Y.Y),
@@ -463,6 +483,24 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
     /// <summary>2D sub-viewport targets alive (tests, diagnostics).</summary>
     public int SubViewportTargetCount => _subTargets.Count;
 
+    private readonly Dictionary<CanvasItem, SubTarget> _groupTargets = new(ReferenceEqualityComparer.Instance);
+    private readonly List<CanvasItem> _groupEvict = [];
+
+    private SubTarget EnsureGroupTarget(CanvasItem owner, Extent2D extent, ulong now)
+    {
+        if (_groupTargets.TryGetValue(owner, out var target) && target.Extent.Width == extent.Width && target.Extent.Height == extent.Height)
+        {
+            target.LastUsed = now;
+            return target;
+        }
+
+        if (target is not null)
+            ReleaseSubTarget(target);
+        target = CreateSubTarget(extent, now);
+        _groupTargets[owner] = target;
+        return target;
+    }
+
     private SubTarget EnsureSubTarget(SubViewport viewport, ulong now)
     {
         var extent = new Extent2D((uint)Math.Max(1, viewport.Width), (uint)Math.Max(1, viewport.Height));
@@ -474,7 +512,14 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
 
         if (target is not null)
             ReleaseSubTarget(target);
-        target = new SubTarget { Extent = extent, LastUsed = now, Generation = ++_subGeneration };
+        target = CreateSubTarget(extent, now);
+        _subTargets[viewport] = target;
+        return target;
+    }
+
+    private SubTarget CreateSubTarget(Extent2D extent, ulong now)
+    {
+        var target = new SubTarget { Extent = extent, LastUsed = now, Generation = ++_subGeneration };
         target.Image = GpuImage.Create(_ctx, new GpuImageDesc(extent.Width, extent.Height, LayerFormat,
             ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit));
         var view = target.Image.View;
@@ -489,7 +534,6 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             Layers = 1,
         };
         _ctx.Vk.CreateFramebuffer(_ctx.Device, in info, null, out target.Framebuffer).Check("vkCreateFramebuffer (canvas sub-viewport)");
-        _subTargets[viewport] = target;
         return target;
     }
 
@@ -549,7 +593,17 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
     private DescriptorSet TextureSet(Texture2D? texture, CanvasSampler sampler, out Vector2 pixelSize)
     {
         var s = (int)sampler;
-        if (texture?.Viewport is { } viewport)
+        if (texture?.ClipGroup is { } owner)
+        {
+            if (_groupTargets.TryGetValue(owner, out var group))
+            {
+                pixelSize = new Vector2(1f / group.Extent.Width, 1f / group.Extent.Height);
+                if (group.Sets[s].Handle == 0)
+                    group.Sets[s] = AllocateSet(group.Image.View, _samplers[s]);
+                return group.Sets[s];
+            }
+        }
+        else if (texture?.Viewport is { } viewport)
         {
             if (_subTargets.TryGetValue(viewport, out var target))
             {
@@ -1053,6 +1107,12 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
                 s.SrcAlphaBlendFactor = BlendFactor.One;
                 s.DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha;
                 break;
+            case CanvasBlendMode.Atop:
+                s.SrcColorBlendFactor = BlendFactor.DstAlpha;          // the shader outputs premultiplied colour (CANVAS_FLAG_PREMULTIPLY)
+                s.DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha;
+                s.SrcAlphaBlendFactor = BlendFactor.Zero;
+                s.DstAlphaBlendFactor = BlendFactor.One;
+                break;
             case CanvasBlendMode.Disabled:
                 s.BlendEnable = false;
                 break;
@@ -1091,6 +1151,9 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         foreach (var target in _subTargets.Values)
             ReleaseSubTarget(target);
         _subTargets.Clear();
+        foreach (var target in _groupTargets.Values)
+            ReleaseSubTarget(target);
+        _groupTargets.Clear();
         DestroyTarget();
         foreach (ref var frame in _frames.AsSpan())
         {

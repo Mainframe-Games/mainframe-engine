@@ -84,9 +84,7 @@ public sealed class CanvasServer : IFrameServer
                 continue;
             var size = new Vector2(sub.Width, sub.Height);
             sub.SetSize(size);
-            frame.BeginPass(sub, size, sub.TransparentBg ? Vector4.Zero : ClearColor ?? GodotDefaultClearColor);
-            AppendViewport(frame, sub, size);
-            frame.EndPass();
+            AppendViewport(frame, sub, size, sub, sub.TransparentBg ? Vector4.Zero : ClearColor ?? GodotDefaultClearColor);
             if (sub.UpdateMode == SubViewportUpdateMode.Once)
                 sub.UpdateMode = SubViewportUpdateMode.Disabled; // Godot's UPDATE_ONCE: draw on the next frame, then keep it
         }
@@ -101,13 +99,65 @@ public sealed class CanvasServer : IFrameServer
         frame.TargetSize = targetSize;
         frame.ClearColor = ClearColor;
         AppendSubViewports(frame);
-        frame.BeginPass(null, targetSize, ClearColor);
-        AppendViewport(frame, viewport, targetSize);
-        frame.EndPass();
+        AppendViewport(frame, viewport, targetSize, null, ClearColor);
     }
 
-    private void AppendViewport(CanvasFrame frame, SceneViewport viewport, Vector2 targetSize)
+    // One viewport's passes: its clip-children groups (each owner and its subtree on the group's own target, which the
+    // viewport's pass samples), then the viewport's pass with everything else.
+    private void AppendViewport(CanvasFrame frame, SceneViewport viewport, Vector2 targetSize, SubViewport? sub, Vector4? clear)
     {
+        CullViewport(frame, viewport, targetSize);
+        for (var c = 0; c < _canvasCount; c++)
+        {
+            var entry = _canvasEntries[c];
+            foreach (var item in entry.Items)
+            {
+                if (item.ClipGroup is not { } owner || item.ClipComposite || _groupsDone.Contains(owner))
+                    continue;
+                _groupsDone.Add(owner);
+                _groupItems.Clear();
+                foreach (var member in entry.Items)
+                    if (ReferenceEquals(member.ClipGroup, owner) && !member.ClipComposite)
+                        _groupItems.Add(member);
+                frame.BeginPass(null, targetSize, Vector4.Zero, owner);
+                frame.Append(_groupItems, entry.Modulate, entry.Transform, entry.Transform.AffineInverse(), entry.Lights.Count > 0 ? entry.Lights : null, entry.LightBase);
+                frame.EndPass();
+            }
+        }
+
+        frame.BeginPass(sub, targetSize, clear);
+        for (var c = 0; c < _canvasCount; c++)
+        {
+            var entry = _canvasEntries[c];
+            _groupItems.Clear();
+            foreach (var item in entry.Items)
+                if (item.ClipGroup is null || item.ClipComposite)
+                    _groupItems.Add(item);
+            frame.Append(_groupItems, entry.Modulate, entry.Transform, entry.Transform.AffineInverse(), entry.Lights.Count > 0 ? entry.Lights : null, entry.LightBase);
+        }
+
+        frame.EndPass();
+        _groupsDone.Clear();
+    }
+
+    // One canvas's culled items, kept until every pass of the frame is built (pooled: no per-frame allocation).
+    private sealed class CanvasEntry
+    {
+        public readonly List<CulledCanvasItem> Items = new(256);
+        public readonly List<PointLight2D> Lights = new(CanvasFrame.MaxLights);
+        public Vector4 Modulate;
+        public Transform2D Transform;
+        public int LightBase;
+    }
+
+    private readonly List<CanvasEntry> _canvasEntries = [];
+    private int _canvasCount;
+    private readonly List<CulledCanvasItem> _groupItems = new(64);
+    private readonly HashSet<CanvasItem> _groupsDone = new(ReferenceEqualityComparer.Instance);
+
+    private void CullViewport(CanvasFrame frame, SceneViewport viewport, Vector2 targetSize)
+    {
+        _canvasCount = 0;
         // The drawn area: the whole target, or the letterboxed rect of the content scale (canvas units × stretch).
         var scale = viewport.ContentScaleResult;
         var clip = scale.RenderSize.X > 0 ? new Rect2(scale.Margin, scale.RenderSize) : new Rect2(Vector2.Zero, targetSize);
@@ -138,7 +188,17 @@ public sealed class CanvasServer : IFrameServer
                 continue;
             var lightBase = frame.Lights.Count;
             var lights = CollectLights(frame, canvas, transform);
-            frame.Append(_culled, canvas.Modulate, transform, transform.AffineInverse(), lights, lightBase);
+            if (_canvasCount == _canvasEntries.Count)
+                _canvasEntries.Add(new CanvasEntry());
+            var entry = _canvasEntries[_canvasCount++];
+            entry.Items.Clear();
+            entry.Items.AddRange(_culled);
+            entry.Lights.Clear();
+            if (lights is not null)
+                entry.Lights.AddRange(lights);
+            entry.Modulate = canvas.Modulate;
+            entry.Transform = transform;
+            entry.LightBase = lightBase;
         }
     }
 

@@ -24,5 +24,7 @@ void main()
         color *= canvas_pc.canvasModulation;
         canvas_apply_lights(color, base, uvVertexInterp.zw);
     }
+    if ((canvas_flags() & CANVAS_FLAG_PREMULTIPLY) != 0u)
+        color.rgb *= color.a;
     fragColor = color;
 }

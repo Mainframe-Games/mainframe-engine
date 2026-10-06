@@ -165,6 +165,8 @@ public class Texture2D : Resource
     private TextureImportSettings _settings = TextureImportSettings.Default;
     private int _version = 1;
     private SubViewport? _viewport; // a sub-viewport's colour target (Godot's ViewportTexture)
+    private CanvasItem? _clipGroup;  // a clip-children group's target (the canvas server's)
+    private System.Numerics.Vector2 _clipSize;
 
     /// <summary>The import settings (colour space, mipmaps, sampler). Changing them re-uploads the texture.</summary>
     public TextureImportSettings ImportSettings
@@ -233,6 +235,17 @@ public class Texture2D : Resource
     /// <summary>The sub-viewport this texture shows (<see cref="FromViewport"/>), or null.</summary>
     public SubViewport? Viewport => _viewport;
 
+    /// <summary>The clip-children owner whose group target this texture shows (internal to the canvas server), or null.</summary>
+    internal CanvasItem? ClipGroup => _clipGroup;
+
+    /// <summary>The texture of <paramref name="owner"/>'s clip-children group target, sized like the canvas target.</summary>
+    internal static Texture2D ForClipGroup(CanvasItem owner, System.Numerics.Vector2 size)
+    {
+        var texture = owner.ClipGroupTexture ??= new Texture2D { _clipGroup = owner, ResourceName = owner.Name };
+        texture._clipSize = size;
+        return texture;
+    }
+
     /// <summary>A texture from tightly packed RGBA8 pixels (copied).</summary>
     public static Texture2D FromPixels(int width, int height, ReadOnlySpan<byte> rgba, TextureImportSettings? settings = null)
     {
@@ -280,7 +293,7 @@ public class Texture2D : Resource
     public (byte[] Rgba, int Width, int Height) DecodePixels()
     {
         Generate();
-        if (_viewport is not null)
+        if (_viewport is not null || _clipGroup is not null)
             throw new InvalidOperationException("A viewport texture has no CPU pixels (it is the sub-viewport's GPU target).");
         if (_pixels is not null)
             return (_pixels, _width, _height);
@@ -317,6 +330,13 @@ public class Texture2D : Resource
     private void EnsureSize()
     {
         Generate();
+        if (_clipGroup is not null)
+        {
+            _width = Math.Max(1, (int)_clipSize.X);
+            _height = Math.Max(1, (int)_clipSize.Y);
+            return;
+        }
+
         if (_viewport is not null)
         {
             _width = Math.Max(1, _viewport.Width);

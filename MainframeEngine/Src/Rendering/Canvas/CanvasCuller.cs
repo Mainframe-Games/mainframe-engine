@@ -10,7 +10,17 @@ public readonly record struct CulledCanvasItem(
     int Z,
     Material? Material,
     CanvasTextureFilter Filter,
-    CanvasTextureRepeat Repeat);
+    CanvasTextureRepeat Repeat)
+{
+    /// <summary>
+    /// The clip-children owner (<see cref="CanvasItem.ClipChildren"/>) whose group this item draws in, or null: the owner and
+    /// its subtree draw into the group's own target, then the owner's <see cref="ClipComposite"/> entry draws it on the canvas.
+    /// </summary>
+    public CanvasItem? ClipGroup { get; init; }
+
+    /// <summary>The owner's second entry, after its subtree: its shape drawn on the canvas with the group's colours (Godot's clip_children material).</summary>
+    public bool ClipComposite { get; init; }
+}
 
 /// <summary>
 /// Orders and culls canvas items exactly like Godot 4.7's <c>RendererCanvasCull</c> (<c>_cull_canvas_item</c>,
@@ -32,6 +42,7 @@ public sealed class CanvasCuller
     private readonly List<YSortEntry> _ysortScratch = [];
     private Rect2 _clip;
     private uint _cullMask;
+    private CanvasItem? _clipOwner;   // the clip-children group being collected (groups do not nest: an inner owner draws in the outer group)
 
     private struct YSortEntry
     {
@@ -154,15 +165,26 @@ public sealed class CanvasCuller
             return;
         }
 
+        // Godot's canvas group for clip children: the owner and its subtree become one group, drawn after the subtree.
+        var opensGroup = _clipOwner is null && ci.ClipChildren != ClipChildrenMode.Disabled;
+        if (opensGroup)
+            _clipOwner = ci;
         var children = ci.ChildList;
         var childCount = children?.Count ?? 0;
         for (var i = 0; i < childCount; i++)
             if (children![i] is CanvasItem { TopLevel: false, ShowBehindParent: true } child)
                 CullItem(child, finalXform, modulate, z, materialOwner, false, filter, repeat);
+        // The owner is the group's mask, so it draws in the group in both modes. Deviation (ADR 0119): Godot's Only hides the
+        // owner's colours; here Only draws like AndDraw (nothing uses it yet).
         Attach(ci, finalXform, modulate, z, ownMaterialOwner, filter, repeat);
         for (var i = 0; i < childCount; i++)
             if (children![i] is CanvasItem { TopLevel: false, ShowBehindParent: false } child)
                 CullItem(child, finalXform, modulate, z, materialOwner, false, filter, repeat);
+        if (opensGroup)
+        {
+            _clipOwner = null;
+            Attach(ci, finalXform, modulate, z, ownMaterialOwner, filter, repeat, composite: true);
+        }
     }
 
     private void CollectYSortChildren(CanvasItem parent, in Transform2D parentYSortXform, CanvasItem? materialOwner, Vector4 modulate, ref int index, int z,
@@ -198,7 +220,8 @@ public sealed class CanvasCuller
         }
     }
 
-    private void Attach(CanvasItem ci, in Transform2D xform, Vector4 modulate, int z, CanvasItem? materialOwner, CanvasTextureFilter filter, CanvasTextureRepeat repeat)
+    private void Attach(CanvasItem ci, in Transform2D xform, Vector4 modulate, int z, CanvasItem? materialOwner, CanvasTextureFilter filter, CanvasTextureRepeat repeat,
+        bool composite = false)
     {
         var drawList = ci.DrawList;
         if (drawList.IsEmpty)
@@ -217,7 +240,11 @@ public sealed class CanvasCuller
         }
 
         var material = (materialOwner ?? ci).Material;
-        list.Add(new CulledCanvasItem(ci, xform, modulate * ci.SelfModulate, z, material, filter, repeat));
+        list.Add(new CulledCanvasItem(ci, xform, modulate * ci.SelfModulate, z, material, filter, repeat)
+        {
+            ClipGroup = composite ? ci : _clipOwner,
+            ClipComposite = composite,
+        });
     }
 
     private static bool AncestorsVisible(CanvasItem item)
