@@ -386,3 +386,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   (7 level RenderTargets, raster H+V passes, `GlowBlur.vk.frag`) and `TonemapPost.vk.frag` (exposure → glow → engine or
   Godot ACES → sRGB). Tests: PostProcessSettingsTests, render `GlowTests` + golden `glow_frame0006` (moltenvk).
   SubViewports keep the engine curve (known issue). Supersedes ADR 0006's "no bloom".
+
+### 2026-10-06 — Mouse mode (Driving Range port E1, ADR 0125)
+- `MouseMode` (Godot's names/ordinals), `InputState.MouseMode`, `Input.MouseMode`; the engine applies changes through
+  `InputRouter.ApplyMouseMode` (Captured → Silk Raw = SDL relative mode, whose position accumulates xrel/yrel; Hidden →
+  Hidden) and resets the motion delta on every change. Test: InputMapTests.MouseModeIsGodotsAndNotifiesTheEngineOnChange.

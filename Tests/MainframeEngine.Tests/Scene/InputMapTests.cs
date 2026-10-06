@@ -315,6 +315,36 @@ public sealed class InputMapTests
     }
 
     [Fact]
+    public void MouseModeIsGodotsAndNotifiesTheEngineOnChange()
+    {
+        // ADR 0125: Godot's ordinals; the engine hook only sees real changes; the static facade forwards.
+        Assert.Equal([0, 1, 2, 3, 4], Enum.GetValues<MouseMode>().Select(m => (int)m));
+        var tree = Tree(Map());
+        var applied = new List<MouseMode>();
+        tree.Input.MouseModeChanged = applied.Add;
+        Assert.Equal(MouseMode.Visible, tree.Input.MouseMode);
+
+        var previous = Input.Current;
+        try
+        {
+            Input.Current = tree.Input;
+            Input.MouseMode = MouseMode.Captured;
+            Input.MouseMode = MouseMode.Captured; // no change, no notification
+            Assert.Equal(MouseMode.Captured, Input.MouseMode);
+            tree.Input.MouseMode = MouseMode.Visible;
+            Assert.Equal([MouseMode.Captured, MouseMode.Visible], applied);
+
+            Input.Current = null;
+            Assert.Equal(MouseMode.Visible, Input.MouseMode); // outside a running engine
+            Input.MouseMode = MouseMode.Captured;            // ignored
+        }
+        finally
+        {
+            Input.Current = previous;
+        }
+    }
+
+    [Fact]
     public void TheMouseMapsThroughTheStretchAndCanvasTransformsAndAxesReadRaw()
     {
         var tree = Tree(Map());

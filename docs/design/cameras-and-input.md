@@ -113,6 +113,14 @@ before the UI and nodes: `InputMap` actions (keys, mouse buttons, gamepad button
 (the host's `--input <frame>` and its `mouse-look` scene) pushes a synthetic SDL right-button drag and checks that it
 reaches a node's `OnInput` through SDL → Silk `IMouse` → `InputRouter` and turns the camera.
 
+**Mouse mode ([ADR 0125](../../memory/decisions/0125-mouse-mode.md)).** Games set `Input.MouseMode` (or
+`SceneTree.Input.MouseMode`) like Godot's `Input.mouse_mode`: `Visible` (default), `Hidden`, `Captured` (mouse look),
+`Confined`, `ConfinedHidden`. The engine applies it to every mouse through `InputRouter.ApplyMouseMode`: `Captured` →
+Silk's `CursorMode.Raw` (SDL relative mode; Silk accumulates SDL's `xrel`/`yrel` into the reported position, so
+`InputEventMouseMotion.Relative` keeps working past the window edge), `Hidden`/`ConfinedHidden` → `Hidden`, otherwise
+`Normal`. Every change resets the router's last position, so the first motion after a switch reports no jump. The game
+UI already ignores the mouse in Raw mode (`UiServer.MouseIsRaw`).
+
 ### Demo controls
 
 The [Demo](demo.md) has no free-fly camera: Basic 3D orbits automatically (`OrbitCamera`), Basic 2D zooms from its
@@ -126,6 +134,8 @@ Tree-less code (no scene tree) can use the math cameras directly; in 2D, mouse m
 
 - README says "right-click to capture, Alt to release". The code is hold-right-click to move, and Alt only toggles the cursor.
 - The dev overlay and game UI see input before the tree (`UiServer`, M8); a consumed event never reaches nodes.
+- `MouseMode.Confined` and `ConfinedHidden` do not confine the cursor yet (they act like `Visible`/`Hidden`).
+- A captured mouse is not released when the window loses focus (Godot keeps the mode too, but the OS releases it).
 
 ## Related docs
 

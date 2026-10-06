@@ -137,6 +137,24 @@ internal sealed class InputRouter : IDisposable
         _tree.PushInput(_mouseMotion);
     }
 
+    /// <summary>
+    /// Applies <paramref name="mode"/> to every mouse (ADR 0125): Captured → Silk's Raw (SDL relative mode, whose
+    /// reported position accumulates the relative motion), Hidden → Hidden, otherwise Normal. The next motion event
+    /// reports no relative motion, so switching modes never jumps the camera.
+    /// </summary>
+    public void ApplyMouseMode(MouseMode mode)
+    {
+        var cursorMode = mode switch
+        {
+            MouseMode.Captured => CursorMode.Raw,
+            MouseMode.Hidden or MouseMode.ConfinedHidden => CursorMode.Hidden,
+            _ => CursorMode.Normal,
+        };
+        foreach (var mouse in _input.Mice)
+            mouse.Cursor.CursorMode = cursorMode;
+        _lastMousePosition = null;
+    }
+
     private void OnScroll(IMouse mouse, ScrollWheel wheel)
     {
         _mouseWheel.Delta = new Vector2(wheel.X, wheel.Y);

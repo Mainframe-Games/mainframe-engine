@@ -15,6 +15,25 @@ namespace MainframeEngine;
 /// in <see cref="Node.OnPhysicsProcess"/> for the first physics step after it. Queries and event handling do not
 /// allocate (the action table is rebuilt only when the <see cref="Map"/> changes). Main thread only.
 /// </remarks>
+/// <summary>How the OS cursor behaves (Godot's <c>Input.MouseMode</c>, same ordinals; ADR 0125).</summary>
+public enum MouseMode
+{
+    /// <summary>Shown and free (the default).</summary>
+    Visible,
+
+    /// <summary>Hidden over the window, otherwise free.</summary>
+    Hidden,
+
+    /// <summary>Hidden, held in the window, reporting relative motion only: mouse look.</summary>
+    Captured,
+
+    /// <summary>Shown and kept inside the window. Not implemented yet: behaves like <see cref="Visible"/>.</summary>
+    Confined,
+
+    /// <summary>Hidden and kept inside the window. Not implemented yet: behaves like <see cref="Hidden"/>.</summary>
+    ConfinedHidden,
+}
+
 public sealed class InputState
 {
     /// <summary>Gamepads tracked by index (0..MaxGamepads-1); events from higher indices are ignored.</summary>
@@ -157,6 +176,28 @@ public sealed class InputState
 
     /// <summary>The pointer's last position in window points (from mouse motion and button events).</summary>
     public Vector2 MousePosition { get; private set; }
+
+    /// <summary>
+    /// How the OS cursor behaves (Godot's <c>Input.mouse_mode</c>, ADR 0125). <see cref="MouseMode.Captured"/> hides it,
+    /// keeps it in the window and reports unbounded relative motion (<see cref="InputEventMouseMotion.Relative"/>), for
+    /// mouse look; the game UI ignores the mouse meanwhile. The engine applies the mode to the window's mice.
+    /// </summary>
+    public MouseMode MouseMode
+    {
+        get => _mouseMode;
+        set
+        {
+            if (_mouseMode == value)
+                return;
+            _mouseMode = value;
+            MouseModeChanged?.Invoke(value);
+        }
+    }
+
+    /// <summary>Raised when <see cref="MouseMode"/> changes; the engine sets the OS cursor mode from it.</summary>
+    internal Action<MouseMode>? MouseModeChanged { get; set; }
+
+    private MouseMode _mouseMode;
 
     /// <summary>Raw axis value (sticks -1..1 with Y positive down, triggers 0..1).</summary>
     public float GetGamepadAxis(int device, GamepadAxisCode axis) =>
@@ -416,6 +457,17 @@ public static class Input
 
     /// <summary>The pointer's last position in window points.</summary>
     public static Vector2 MousePosition => Current?.MousePosition ?? Vector2.Zero;
+
+    /// <summary>The cursor mode (Godot's <c>Input.mouse_mode</c>; see <see cref="InputState.MouseMode"/>). Visible outside a running engine.</summary>
+    public static MouseMode MouseMode
+    {
+        get => Current?.MouseMode ?? MouseMode.Visible;
+        set
+        {
+            if (Current is { } state)
+                state.MouseMode = value;
+        }
+    }
 
     public static void ActionPress(string action, float strength = 1f) => Current?.ActionPress(action, strength);
 
