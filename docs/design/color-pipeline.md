@@ -19,6 +19,7 @@ white), sky textures were sRGB and came out darker, and Spine's premultiplied al
 ```mermaid
 flowchart LR
     S["Scene pass<br/>RenderTarget: R16G16B16A16_SFLOAT + depth<br/>sky, grid, shapes, Spine (linear)"] --> T["Tonemap pass<br/>texel × exposure → ACES fitted → sRGB encode"]
+    S -. "PostProcessSettings ≠ Default (ADR 0124)" .-> G["Glow chain<br/>7 levels, ½ … 1/128 res"] -.-> T2["Post tonemap pass<br/>× exposure → glow → engine or Godot ACES → sRGB encode"]
     T --> O["Overlay (same pass)<br/>canvas, screen gizmos, UI, dev overlay: sRGB-authored, unchanged"]
     O --> P["present (B8G8R8A8_UNORM)"]
 ```
@@ -53,7 +54,7 @@ IEC 61966-2-1 curves.
 - **Curve:** ACES filmic, Stephen Hill's fit of the RRT + sRGB ODT (input matrix, rational fit, output
   matrix), the usual "ACES fitted". Greys stay grey, black stays black, highlights roll off below 1
   (the procedural sky's `SunIntensity = 20` no longer clips). `ColorSpace.AcesFitted` is a C# mirror the
-  render tests compare against. No bloom (ADR).
+  render tests compare against. Bloom/glow and Godot's ACES are opt-in per world ([ADR 0124](../../memory/decisions/0124-godot-tonemap-and-glow.md); see below).
 - **Exposure:** `IVulkanContext.Exposure` multiplies the HDR colour first. Default
   `IVulkanContext.DefaultExposure = 1.3`, calibrated so a white surface lit at ~0.75 (the test scenes'
   sun) shows about as bright as before the HDR pipeline; adjust it with the Demo's Basic 3D **Exposure** slider
@@ -120,7 +121,20 @@ target will be another.
   scenes' floor is a muted earth tone. The scene grid draws before the floor and writes depth, so grid lines
   over the floor can show the sky behind it where the coplanar z-fight goes the line's way — a pre-existing
   ordering artefact.
-- No bloom, no auto-exposure, no HDR display output.
+- No auto-exposure, no HDR display output.
+- SubViewports always use the engine curve without glow (ADR 0124).
+
+## Godot tonemap and glow (ADR 0124)
+
+A `WorldEnvironment` can ask for Godot 4.7's tonemap and glow (`Tonemapper = GodotAces`, `TonemapExposure`,
+`TonemapWhite`; `GlowEnabled`, `GlowLevel1..7`, `GlowNormalized`, `GlowIntensity`, `GlowStrength`, `GlowMix`,
+`GlowBloom`, `GlowBlendMode`, `GlowHdrThreshold/Scale/LuminanceCap`, all with Godot's defaults). The render server copies
+the root world's `PostProcessSettings` to `IVulkanContext.PostProcess` each frame. With the default settings the frame is
+exactly as above. Otherwise `BeginOverlayPass` records `GlowEffect` (two raster passes per level, `GlowBlur.vk.frag`,
+Godot's 9-tap kernel, strength per level, exposure + threshold feedback + cap on the first level) between the scene pass
+and the swapchain pass, then draws `TonemapPost.vk.frag`: × exposure, glow gathered with Godot's bicubic B-spline and
+blended (Screen by default) before the curve, the engine's ACES fit or Godot's (input × 1.8, output ÷ the curve at
+1.8 · white), soft-light glow after it, sRGB encode.
 
 ## Related docs
 

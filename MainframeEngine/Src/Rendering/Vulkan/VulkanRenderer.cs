@@ -144,6 +144,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
     public ulong FrameNumber => _frameNumber;
     public float MaxSamplerAnisotropy => _maxSamplerAnisotropy;
 
+    public PostProcessSettings PostProcess { get; set; } = PostProcessSettings.Default;
+
     public float Exposure
     {
         get => _exposure;
