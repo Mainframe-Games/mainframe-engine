@@ -222,17 +222,36 @@ public sealed partial class MultiplayerApi
 
         _maxSpawnedNetId = Math.Max(_maxSpawnedNetId, netId + count - 1);
 
-        if (sceneIndex >= (uint)_scenes.Count)
+        // A bind (MultiplayerApi.Bind): the node is this peer's own, at the same path as on the server.
+        var bound = sceneIndex == unchecked((uint)BoundSceneIndex);
+        Node root;
+        if (bound)
+        {
+            var bindParent = parentNetId != 0
+                ? _entities.GetValueOrDefault(parentNetId)?.Node
+                : parentPath is { Length: > 0 } ? _tree.Root.GetNodeOrNull(parentPath) : null;
+            if (bindParent?.GetNodeOrNull(name) is not { NetworkEntity: null } existing)
+            {
+                Log.Error($"[Net] bind of #{netId}: '{parentPath}/{name}' does not exist here (or is already networked)");
+                return;
+            }
+
+            root = existing;
+        }
+        else if (sceneIndex >= (uint)_scenes.Count)
         {
             Log.Error($"[Net] spawn of #{netId}: scene index {sceneIndex} is not registered on this client");
             return;
         }
+        else
+        {
+            root = _scenes[(int)sceneIndex].Instantiate();
+        }
 
-        var root = _scenes[(int)sceneIndex].Instantiate();
         NetworkEntity? rootEntity = null;
         try
         {
-            if (name.Length > 0)
+            if (name.Length > 0 && !bound)
                 root.Name = name;
 
             _spawnBuffer.Clear();
@@ -240,7 +259,8 @@ public sealed partial class MultiplayerApi
             if (_spawnBuffer.Count != count)
             {
                 Log.Error($"[Net] spawn of #{netId}: the scene has {_spawnBuffer.Count} networked nodes here but {count} on the server");
-                root.Free();
+                if (!bound)
+                    root.Free();
                 return;
             }
 
@@ -270,13 +290,13 @@ public sealed partial class MultiplayerApi
                 }
             }
 
-            rootEntity!.SceneIndex = (int)sceneIndex;
+            rootEntity!.SceneIndex = bound ? BoundSceneIndex : (int)sceneIndex;
             rootEntity.ParentNetId = parentNetId;
             rootEntity.ParentPath = parentPath;
             rootEntity.Descendants = entities[1..];
             rootEntity.SpawnSent = true;
 
-            var parent = ResolveSpawnParent(rootEntity);
+            var parent = bound ? null : ResolveSpawnParent(rootEntity);
             foreach (var entity in entities)
             {
                 if (entity.Released)
@@ -290,13 +310,13 @@ public sealed partial class MultiplayerApi
                 AddEntity(entity);
             }
 
-            parent.AddChild(root);
+            parent?.AddChild(root);
         }
         catch
         {
             if (rootEntity is not null)
                 ReleaseSpawn(rootEntity);
-            if (!root.IsFreed)
+            if (!bound && !root.IsFreed)
                 root.Free();
             throw;
         }
