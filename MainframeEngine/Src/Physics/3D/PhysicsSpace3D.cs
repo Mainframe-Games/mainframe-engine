@@ -1210,9 +1210,13 @@ public sealed class PhysicsSpace3D : IDisposable
         {
             RayPre = Accept;
             SweepPre = Accept;
+            RayPostOutside = static result => result.Normal != JVector.Zero;
         }
 
         public DynamicTree.RayCastFilterPre RayPre { get; }
+
+        /// <summary>Rejects shapes that contain the ray's origin (Jitter2 reports them with a zero normal).</summary>
+        public DynamicTree.RayCastFilterPost RayPostOutside { get; }
         public DynamicTree.SweepCastFilterPre SweepPre { get; }
 
         public void Begin(uint mask, RigidBody? exclude)

@@ -40,9 +40,12 @@ public sealed class PhysicsDirectSpaceState3D
 
     /// <summary>
     /// Casts a ray from <paramref name="from"/> to <paramref name="to"/> against bodies whose layer is in
-    /// <paramref name="collisionMask"/>, skipping <paramref name="exclude"/>. Returns the closest hit.
+    /// <paramref name="collisionMask"/>, skipping <paramref name="exclude"/>. Returns the closest hit. A convex shape
+    /// containing <paramref name="from"/> is hit at fraction 0 with a zero normal, or skipped when
+    /// <paramref name="hitFromInside"/> is false (Godot's default for <c>intersect_ray</c> and <see cref="RayCast3D"/>).
     /// </summary>
-    public bool RayCast(Vector3 from, Vector3 to, out RayHit3D hit, uint collisionMask = CollisionLayers.All, CollisionObject3D? exclude = null)
+    public bool RayCast(Vector3 from, Vector3 to, out RayHit3D hit, uint collisionMask = CollisionLayers.All, CollisionObject3D? exclude = null,
+        bool hitFromInside = true)
     {
         hit = default;
         var direction = to - from;
@@ -53,7 +56,7 @@ public sealed class PhysicsDirectSpaceState3D
         filters.Begin(collisionMask, exclude?.Record?.Body);
         try
         {
-            if (!space.Tree.RayCast(from.ToJ(), direction.ToJ(), 1f, filters.RayPre, null, out var proxy, out var normal, out var lambda) ||
+            if (!space.Tree.RayCast(from.ToJ(), direction.ToJ(), 1f, filters.RayPre, hitFromInside ? null : filters.RayPostOutside, out var proxy, out var normal, out var lambda) ||
                 proxy is not RigidBodyShape { RigidBody.Tag: BodyRecord3D record })
                 return false;
             hit = new RayHit3D(record.Node, space.FindShapeOwner(proxy), from + direction * lambda, normal.ToNumerics(), lambda);

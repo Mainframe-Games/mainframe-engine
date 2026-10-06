@@ -206,6 +206,9 @@ a solver ([ADR 0022](../../memory/decisions/0022-physics-signal-dispatch.md)):
 - **Order**: all exits (contact exits, then area exits) before all enters (contact, then area), then sleep changes;
   within each group by the receiver's creation order, then the other body's. A body leaving one area for another in
   one step gets `exit` before `enter`.
+- **Disabled nodes** (ADR 0130): a body or area whose resolved `ProcessMode` is `Disabled` is out of the space —
+  it neither moves, collides, signals nor shows up in queries (Godot's default `DisableMode.Remove`). It joins again,
+  at its node's transform and with the velocity it had, when it is enabled; leaving counts as a removal below.
 - **Removal**: when a body leaves the tree (freed or removed), every area containing it and every monitoring body
   touching it gets `BodyExited` immediately — unless that pair's `BodyEntered` was still queued in the same dispatch,
   in which case neither is reported. Queued events of removed bodies are skipped, so `Free()`/`QueueFree()` inside a
@@ -225,13 +228,23 @@ space.IntersectPoint(point, results);
 ```
 
 - Results report the body, the `CollisionShape*` hit, the position, the surface normal (zero when the query starts
-  inside a shape) and the fraction along the motion.
+  inside a shape) and the fraction along the motion. `RayCast(..., hitFromInside: false)` skips convex shapes that
+  contain the ray's origin instead (Godot's default for `intersect_ray`; ADR 0131).
 - Queries see the bodies as of the last step plus node moves made since (pending static/dynamic moves are pushed
   first; kinematic and character moves apply at the next step). Areas are never reported. Shape queries use the shape
   at scale 1; concave shapes cannot be query shapes. Queries are main-thread only and allocation-free.
 - Jitter2 queries go through `DynamicTree.RayCast/SweepCast/Query` with cached filter delegates; Box2D queries through
   `b2World_CastRay/CastShape/OverlapShape/OverlapAABB` with static callbacks (the space is the context object).
   Box2D.NET 3.1 ray casts do hit sensors, so the callbacks skip area shapes.
+
+### `RayCast3D` node
+
+Godot's `RayCast3D` (ADR 0131): a `Node3D` casting from its origin to `TargetPosition` (local) once per physics step in
+its own `OnPhysicsProcess` (so in tree order, after the nodes before it moved; subclasses call the base), or now with
+`ForceRaycastUpdate()`. Godot's names and defaults: `Enabled`, `TargetPosition` (0, −1, 0), `CollisionMask`,
+`ExcludeParent` (true), `CollideWithBodies`, `CollideWithAreas` (stored only: areas are never reported),
+`HitFromInside` (false); results `IsColliding()`, `GetCollider()`, `GetColliderShape()`, `GetCollisionPoint()`,
+`GetCollisionNormal()`. Only the parent can be excluded (no exception list yet).
 
 ## `CharacterBody` (`MoveAndSlide`)
 
