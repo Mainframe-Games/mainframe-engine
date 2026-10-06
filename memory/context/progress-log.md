@@ -474,3 +474,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   mouse-up dispatch (segfault about one run in three; the crew member also swung at spawn). Now a pending scene is
   applied after the process callbacks + deferred calls, before timers (Godot's `_flush_scene_change`); last change wins.
   Three tests; five real mouse runs clean.
+
+### 2026-10-06 — Game packaging: Developer ID signing and notarization (CSD port E19)
+- `build/package-game.sh --sign "Developer ID Application: …"` (or `MF_SIGN_IDENTITY`): every Mach-O, then the bundle,
+  with the hardened runtime, a timestamp and the .NET entitlements; `--notarize <profile>` (or `MF_NOTARY_PROFILE`):
+  notarytool submit --wait, staple, re-zip. Ad-hoc stays the default (checked: the .app still signs ad-hoc and runs).
+  Not run with a real identity (none on this Mac).
