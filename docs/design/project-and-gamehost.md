@@ -157,7 +157,9 @@ Anything else before `++` is left in `GameHostOptions.Remaining` for the game. N
 
 Startup: `ProjectSettings.ToEngineOptions()` (window, VSync, physics settings and tick, audio, localization, Steam) +
 the flags → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects the editor link first) → `OnLoad`:
-`base.OnLoad()`, frame cap, exposure, shadow quality, then `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,
+`base.OnLoad()`, frame cap, exposure, shadow quality; then, on the **first update** (the window is up: SDL shows it
+after `OnLoad`, ~0.3 s on macOS, and Godot readies its scene with the window already there) and with that update's
+delta discarded (`Engine.DiscardFrameDelta`, so start-up time never reaches the game), `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
 `Tree.ChangeSceneToFile(--scene ?? mainScene)`. Each frame `GameSession.Update` applies editor commands and reports
 status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the editor and render-test host do).

@@ -443,6 +443,12 @@ public abstract class Engine : IDisposable
         _gameTime.FramesTimeMs = _fps.Ms;
 
         OnUpdate(_gameTime);
+        if (_discardDelta)
+        {
+            _discardDelta = false;
+            _gameTime.DeltaTime = 0f; // the time before this frame (start-up) does not advance the tree
+        }
+
         Tree.Root.SetSize(new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y)); // content scale (stretch) for the 2D canvas
         Tree.Root.PointScale = Window is { Size.X: > 0 } w ? FramebufferSize.X / (float)w.Size.X : 1f;
         Tree.Tick(_gameTime); // M2: physics steps, process, deferred calls/frees, transform sync
@@ -458,6 +464,14 @@ public abstract class Engine : IDisposable
         if (_quitRequested || (EngineOptions.MaxFrames > 0 && _renderedFrames >= EngineOptions.MaxFrames))
             Window.Close();
     }
+
+    private bool _discardDelta;
+
+    /// <summary>
+    /// The tree ticks this frame with a zero delta (call from <see cref="OnUpdate(in GameTime)"/>): for the frame that
+    /// starts the game, whose delta is the start-up time (window shown after <see cref="OnLoad"/>).
+    /// </summary>
+    protected void DiscardFrameDelta() => _discardDelta = true;
 
     private void RenderFrame()
     {
