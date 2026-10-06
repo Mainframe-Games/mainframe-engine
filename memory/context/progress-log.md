@@ -327,3 +327,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-06 — SVG images in the game UI (port G8)
 - `VulkanUiRenderer.DecodeImage`: `.svg` sources rasterised by ThorVG at their own size with the import's alpha-edge fix
   (ADR 0112), others through StbImageSharp; the game's hotbar and forecast icons are SVG. Test: SvgTests.
+
+### 2026-10-06 — GpuParticles2D matches Godot's process-material quirks
+- The angle turns a particle in the plane only with `ParticleFlagDisableZ` (Godot's default off rotates about the 3D Y
+  axis: in 2D the particle just narrows by cos(angle)); `ParticleFlagAlignY`; the colour is linearised like Godot's
+  `source_color` uniform (shown as is by the 2D canvas); the phase-0 particle emits at once. Tests: GpuParticles2DTests.
