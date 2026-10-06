@@ -209,6 +209,23 @@ public class SceneTests
     }
 
     [Fact]
+    public void GameHostSteadyStateAllocatesNothing()
+    {
+        // A real GameHost as a shipped game runs (ProjectSettings, the default audio device playing a stream, a frame cap,
+        // SDL input, the hidden dev overlay, a log file, a HUD): what GameHost adds to the engine costs 0 B per frame too.
+        const int warmup = 120, measured = 300;
+        var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "gamehost", Output("gamehost"), "--alloc", $"{warmup}:{measured}", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0,
+            $"GameHost steady-state frames allocated {result.AllocatedBytes} managed bytes over {measured} frames " +
+            $"(~{result.AllocatedBytes / (double)measured:0.#} B/frame); per-frame code must not allocate.");
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void PipelineCacheIsPersistedAndReloaded()
     {
         var cacheDir = Path.Combine(RenderTestEnvironment.ArtifactsDirectory, "pipeline-cache-roundtrip");

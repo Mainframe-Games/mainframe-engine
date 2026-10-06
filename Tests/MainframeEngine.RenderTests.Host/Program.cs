@@ -9,6 +9,12 @@ Directory.CreateDirectory(options.OutputDirectory);
 if (options.PipelineCacheDirectory is not null)
     Environment.SetEnvironmentVariable(PipelineCache.DirectoryVariable, options.PipelineCacheDirectory);
 
+if (options.Scene == "gamehost")
+{
+    var (gameHostExit, gameHostResult) = GameHostRun.Run(options);
+    return WriteResult(gameHostResult, gameHostExit);
+}
+
 RenderTestGame game = options.Scene switch
 {
     "lit-shapes" => new LitShapesScene(options),
@@ -45,20 +51,25 @@ RenderTestGame game = options.Scene switch
     _ => throw new ArgumentException(
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, showcase, color-pipeline, " +
         "physics, physics-debug, sky-grid, materials, outline, subviewport-capture, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, " +
-        "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer."),
+        "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer, gamehost."),
 };
 
 using (game)
 {
     var exit = game.Run();
-    if (game.Result is null)
+    return WriteResult(game.Result, exit);
+}
+
+int WriteResult(HostResult? result, ExitCode exit)
+{
+    if (result is null)
     {
         Console.Error.WriteLine($"Scene '{options.Scene}' did not complete (exit {exit}).");
         return 2;
     }
 
     // The result is written whatever the exit code, so tests can check Quit(ExitCode.Error) too.
-    var json = JsonSerializer.Serialize(game.Result with { ExitCode = (int)exit }, HostResult.JsonOptions);
+    var json = JsonSerializer.Serialize(result with { ExitCode = (int)exit }, HostResult.JsonOptions);
     File.WriteAllText(Path.Combine(options.OutputDirectory, HostResult.FileName), json);
     return (int)exit;
 }

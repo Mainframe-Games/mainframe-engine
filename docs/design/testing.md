@@ -179,7 +179,9 @@ sequenceDiagram
   `FixedContentScaleCapturesAtTheExactPixelSize` (`--scale 1` and `--scale 3` — 3 is no Mac or CI display's backing scale,
   so the window is always resized — at start-up and after a resize), `QuitWithErrorReturnsErrorExitCode`,
   `MinimiseAndRestoreIsCleanAndResumesRendering`, `ASyntheticRightDragLooksAroundThroughTheInputPath`,
-  `ShowcaseSteadyStateAllocatesNothing`, `CapturesAreDeterministicAcrossRuns`,
+  `ShowcaseSteadyStateAllocatesNothing`, `GameHostSteadyStateAllocatesNothing` (the `gamehost` run: a real `GameHost`
+  with `ProjectSettings`, the default audio device playing a stream, a 240 FPS cap, SDL input, the hidden dev overlay,
+  a `FileLogSink` and a HUD), `CapturesAreDeterministicAcrossRuns`,
   `PipelineCacheIsPersistedAndReloaded` (cold run writes, warm run loads),
   `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →
   encode within ±2 at two exposures; screen-gizmo colour exact and blended in sRGB space),
@@ -308,7 +310,7 @@ Lavapipe output changes with the Mesa/LLVM version in the runner image (recorded
 | Gate | Rule | Where |
 |---|---|---|
 | Validation | 0 warnings and 0 errors from `VK_LAYER_KHRONOS_validation`, including teardown (leaks, in-use destruction) | every scene |
-| Allocation | 0 managed bytes (`GC.GetAllocatedBytesForCurrentThread`) over 300 frames after 120 warm-up frames, host run with `DOTNET_TieredCompilation=0` | `showcase` scene |
+| Allocation | 0 managed bytes (`GC.GetAllocatedBytesForCurrentThread`) over 300 frames after 120 warm-up frames, host run with `DOTNET_TieredCompilation=0` | `showcase` scene; `gamehost` run (a real `GameHost`, real audio device) |
 
 The debug messenger listens to WARNING and ERROR only, with a static `[UnmanagedCallersOnly]` callback,
 and records into `IVulkanContext.Validation` (`VulkanValidationLog`: counters plus the first 64
