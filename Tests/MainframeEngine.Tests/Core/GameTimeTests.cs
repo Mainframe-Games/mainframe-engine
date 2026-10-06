@@ -14,6 +14,17 @@ public class GameTimeTests
     }
 
     [Fact]
+    public void AFixedDeltaAppliesToEveryUpdateEvenTheDiscardedStartUpFrame()
+    {
+        // --fixed-fps: every update gets 1/n s, the first included (Godot's first frame steps physics too; ADR 0135).
+        Assert.Equal(1f / 60f, Engine.FrameDelta(1f / 60f, 0.3, discard: true));
+        Assert.Equal(1f / 60f, Engine.FrameDelta(1f / 60f, 0.005, discard: false));
+        // Real time: the measured delta, and zero for the start-up frame (its delta is the start-up time).
+        Assert.Equal(0.02f, Engine.FrameDelta(0f, 0.02, discard: false));
+        Assert.Equal(0f, Engine.FrameDelta(0f, 0.3, discard: true));
+    }
+
+    [Fact]
     public void EngineOptionsDefaultsMatchDocumentation()
     {
         var options = new EngineOptions { GameName = "Test" };

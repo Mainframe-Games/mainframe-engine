@@ -454,3 +454,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   sphere's centre line. `SphereContactFilter` (chained after the triangle edge filter) registers one contact on the
   line for every overlapping sphere pair, exact against boxes. Two Physics3DTests. Known: Jitter2 lets resting bodies
   settle up to 1 cm (constant).
+
+### 2026-10-06 — Fixed-delta first frame; Godot's Timer countdown (Driving Range port E13, ADR 0135)
+- With `--fixed-fps` the start-up frame keeps the fixed delta (Godot's first frame steps physics too; real-time runs
+  still discard it). `Timer` counts down a double and fires below zero, like Godot: a 1 s timer at 60 FPS fires on
+  frame 60 (the float countdown fired on 61). Tests in GameTimeTests and SceneTreeTests.
