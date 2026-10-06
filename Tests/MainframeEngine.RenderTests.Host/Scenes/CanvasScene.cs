@@ -6,7 +6,7 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// The 2D canvas (ADR 0111): sprites (plain, flipped, modulated, a region), a y-sorted group whose tree order is the
 /// reverse of its draw order, z-index, every draw primitive (rects filled and outlined, circles, thin and wide lines,
 /// an antialiased line, a polyline, an arc, a triangulated polygon), additive blending, a <see cref="CanvasModulate"/>
-/// tint on the root canvas and a <see cref="CanvasLayer"/> it does not tint. Cleared to Godot's default grey; drawn with
+/// tint on the root canvas, a <see cref="PointLight2D"/> showing through it (ADR 0117) and a <see cref="CanvasLayer"/> neither touches. Cleared to Godot's default grey; drawn with
 /// Godot's canvas_items stretch from a 480×270 base.
 /// </summary>
 public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
@@ -30,6 +30,17 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
 
         return Texture2D.FromPixels(8, 8, pixels);
     }
+
+    /// <summary>A 32×32 radial falloff, white to transparent (a <see cref="GradientTexture2D"/>): the point light's texture.</summary>
+    public static Texture2D Radial() => new GradientTexture2D
+    {
+        Width = 32,
+        Height = 32,
+        Fill = GradientTexture2D.FillEnum.Radial,
+        FillFrom = new Vector2(0.5f, 0.5f),
+        FillTo = new Vector2(0.5f, 0f),
+        Gradient = new Gradient { Offsets = [0f, 1f], Colors = [Vector4.One, new Vector4(1, 1, 1, 0)] },
+    };
 
     protected override void LoadScene()
     {
@@ -104,6 +115,8 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
         root.AddChild(new Sprite2D { Name = "RigView", Texture = rig.GetTexture(), Centered = false, Position = new Vector2(380, 170) });
 
         root.AddChild(new CanvasModulate { Name = "Tint", Color = new Vector4(0.85f, 0.9f, 1f, 1f) });
+        // An orange light over the flipped sprite: added after the tint, outside its texture nothing changes.
+        root.AddChild(new PointLight2D { Name = "Light", Texture = Radial(), TextureScale = 3, Position = new Vector2(110, 40), Color = new Vector4(1f, 0.6f, 0.2f, 1f), Energy = 1.5f });
 
         var layer = new CanvasLayer { Name = "Hud", Layer = 1 };
         layer.AddChild(new Swatch { Name = "HudSwatch", Position = new Vector2(440, 230), Size = new Vector2(30, 30), Color = new Vector4(1, 1, 1, 1) });

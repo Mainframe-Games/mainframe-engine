@@ -300,3 +300,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-06 — GpuParticles2D (CPU) for ported weather effects
 - `GpuParticles2D` + `ParticleProcessMaterial` subset, simulated on the CPU and drawn through the canvas. Tests:
   GpuParticles2DTests.
+
+### 2026-10-06 — 2D point lights + gradient textures (port E6, ADR 0117)
+- `PointLight2D` with Godot's canvas light formula after the CanvasModulate; ≤ 8 lights per frame in a per-frame-slot
+  UBO + sampler array (set 1 default / set 2 shader layouts), a light bitmask per batch (push block 112 bytes; canvas
+  shaders rebuilt). `Gradient` + `GradientTexture2D` (Texture2D unsealed for generated textures). The canvas render
+  scene gained a light (golden re-recorded on moltenvk). Tests: PointLight2DTests, GradientTests.

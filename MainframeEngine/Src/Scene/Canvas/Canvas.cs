@@ -57,6 +57,19 @@ public sealed class Canvas
 
     internal void RemoveModulate(CanvasModulate modulate) => _modulates.Remove(modulate);
 
+    private readonly List<PointLight2D> _lights = [];
+
+    /// <summary>The <see cref="PointLight2D"/>s on this canvas, in the order they entered the tree.</summary>
+    public IReadOnlyList<PointLight2D> Lights => _lights;
+
+    internal void AddLight(PointLight2D light)
+    {
+        if (!_lights.Contains(light))
+            _lights.Add(light);
+    }
+
+    internal void RemoveLight(PointLight2D light) => _lights.Remove(light);
+
     /// <summary>
     /// The roots in draw order: by their index among their parent's children (Godot's draw index), then by the order
     /// they joined the canvas. The returned list is reused.
