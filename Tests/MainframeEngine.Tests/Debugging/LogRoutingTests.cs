@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 
 namespace MainframeEngine.Tests.Debugging;
 
@@ -471,8 +472,11 @@ public sealed class LogSinkTests : IDisposable
     [Fact]
     public void TheSourceIsTheEngineForItsOwnProjectsAndTheGameOtherwise()
     {
-        // The engine's root as the compiler saw it (this checkout), for both local and deterministic (/_/) paths.
-        var root = typeof(Log).Assembly.Location.Length > 0 ? EngineRoot() : "";
+        // The engine's root as the compiler wrote its paths: this checkout locally, "/_/" in CI (deterministic source
+        // paths). Read from Log itself: the tests keep real paths (Tests/Directory.Build.props), so this file's own root
+        // only matches the engine's in local builds.
+        var root = (string)typeof(Log).GetField("EngineRoot", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        Assert.NotEqual("", root);
         Assert.Equal(LogSource.Engine, Log.SourceOf(root + "MainframeEngine/Src/Rendering/Vulkan/VulkanRenderer.cs"));
         Assert.Equal(LogSource.Engine, Log.SourceOf(root + "MainframeEngine.Editor/Src/EditorApp.cs"));
         Assert.Equal(LogSource.Game, Log.SourceOf(root + "Tests/MainframeEngine.Tests/Debugging/LogRoutingTests.cs"));
@@ -494,9 +498,6 @@ public sealed class LogSinkTests : IDisposable
         {
             Log.RemoveSink(sink);
         }
-
-        static string EngineRoot([System.Runtime.CompilerServices.CallerFilePath] string file = "") =>
-            file[..file.LastIndexOf("Tests/MainframeEngine.Tests", StringComparison.Ordinal)];
     }
 }
 
