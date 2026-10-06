@@ -82,9 +82,14 @@ flowchart TB
 - The editor's scene tree runs with **`SceneTree.EditMode`**: only nodes whose type is marked `[Tool]` get
   `OnProcess`/`OnPhysicsProcess`/`OnInput`/`OnUnhandledInput`, and physics does not step (bodies stay where they were
   authored; collision shapes are still drawn). Enter/ready/exit callbacks run, so visuals, lights and cameras register
-  with their worlds as usual. The editor's own `EditorWorkspace` and `ViewportController` are `[Tool]` nodes.
+  with their worlds as usual, except for the game's own code (Godot's editor rule, ADR 0127): `Tree.EditModeScripts`
+  marks the collectible game assembly's types, whose `OnEnterTree`/`OnReady`/`OnExitTree` fall back to their nearest
+  engine base type's and whose `OnDraw` is skipped unless the type is `[Tool]`. The editor's own `EditorWorkspace` and
+  `ViewportController` are `[Tool]` nodes.
 - **One world per tab**: each open scene lives under its own `SubViewport` (its own `World3D`: lights, sky, physics
-  space). Only the active tab renders. Its tonemapped colour target (`SubViewport.ColorTarget`) is published to the UI as
+  space). Only the active tab renders. A 3D tab's tonemapped colour target (`SubViewport.ColorTarget`), or a 2D tab's
+  canvas target (a `Disable3D` sub-viewport drawn by the canvas renderer with the editor camera as its canvas transform
+  and the grid, markers and gizmo as debug lines on top, ADR 0126/0127), is published to the UI as
   `engine://editor-viewport` and shown by an `<img>` in the viewport panel; the view's pixel size follows the panel.
 - **The editor camera** is `SceneViewport.CameraOverride` — the scene's own `Camera3D`s and their `Current` flags are
   never touched.

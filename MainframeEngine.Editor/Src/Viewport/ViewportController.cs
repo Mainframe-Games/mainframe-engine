@@ -160,6 +160,17 @@ public sealed partial class ViewportController : Node
             viewport.Height = (int)pixels.Y;
         }
 
+        // 2D tabs render through the canvas renderer (sprites, Spine, custom draw, shaders, then the editor's lines on top),
+        // with the editor camera as the canvas transform; 3D tabs through the render server.
+        var view2D = scene.Camera.Is2D;
+        if (viewport.Disable3D != view2D)
+        {
+            viewport.Disable3D = view2D;
+            _registered = null; // publish the other target
+        }
+
+        if (view2D)
+            viewport.CanvasTransform = Transform2D.FromTrs(pixels * 0.5f - scene.Camera.Center2D * scene.Camera.Zoom2D, 0f, new Vector2(scene.Camera.Zoom2D));
         PublishTarget(viewport);
 
         if (_drag == DragKind.Fly)
@@ -253,9 +264,18 @@ public sealed partial class ViewportController : Node
     // The colour target exists after the view first rendered; publish it once per tab (it follows resizes).
     private void PublishTarget(SubViewport viewport)
     {
-        if (ReferenceEquals(_registered, viewport) || viewport.ColorTarget is not { } target || Tree?.Servers.Get<UiServer>() is not { } ui)
+        if (ReferenceEquals(_registered, viewport) || Tree?.Servers.Get<UiServer>() is not { } ui)
             return;
-        ui.RegisterTexture(ViewportPanel.TextureName, target);
+        if (viewport.Disable3D)
+        {
+            ui.RegisterTexture(ViewportPanel.TextureName, viewport); // the canvas target (a 2D tab)
+        }
+        else
+        {
+            if (viewport.ColorTarget is not { } target)
+                return;
+            ui.RegisterTexture(ViewportPanel.TextureName, target);
+        }
         _registered = viewport;
         _workspace.ViewportPanel.UpdateImage(true);
     }

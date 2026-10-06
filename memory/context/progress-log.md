@@ -397,3 +397,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   `[Tool]` `OnDraw`; a current Camera2D leaves the view alone in edit mode; `MainframeGame.props` copies game NuGet
   dependencies (the editor could not load Crash Site Defense: Newtonsoft.Json). The editor switch to canvas-rendered
   2D tabs worked but was reverted: game `OnReady` runs in edit mode (ADR 0126). Tests: EditModeCanvasTests (3).
+
+### 2026-10-06 — Godot's editor rule for game scripts (port E18, ADR 0127)
+- `SceneTree.EditModeScripts`; non-tool script types fall back to their engine base's enter/ready/exit in edit mode
+  and skip OnDraw. The editor marks collectible (game) types and its 2D tabs now render through the canvas (sprites,
+  Spine, custom draw, shaders, the editor's lines on top). Tests: EditModeCanvasTests (4).

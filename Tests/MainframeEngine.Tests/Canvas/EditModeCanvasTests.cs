@@ -64,6 +64,7 @@ public sealed class EditModeCanvasTests : IDisposable
         _tree.CurrentScene!.AddChild(game);
         _tree.CurrentScene.AddChild(tool);
         _tree.EditMode = true;
+        _tree.EditModeScripts = static t => t.Assembly == typeof(EditModeCanvasTests).Assembly;   // this assembly plays the game
         game.QueueRedraw();
         tool.QueueRedraw();
         _tree.FlushCanvasRedraws();
@@ -74,6 +75,34 @@ public sealed class EditModeCanvasTests : IDisposable
         game.QueueRedraw();
         _tree.FlushCanvasRedraws();
         Assert.Equal(1, game.Draws);
+    }
+
+    [Fact]
+    public void AScriptTypeSkipsItsOwnLifecycleButKeepsItsEngineBase()
+    {
+        _tree.EditMode = true;
+        _tree.EditModeScripts = static t => t.Assembly == typeof(EditModeCanvasTests).Assembly;
+        var sprite = new GameSprite { Name = "Sprite", Texture = Texture2D.FromPixels(4, 4, new byte[4 * 4 * 4]) };
+        var tool = new ToolSprite { Name = "Tool", Texture = Texture2D.FromPixels(4, 4, new byte[4 * 4 * 4]) };
+        _tree.CurrentScene!.AddChild(sprite);
+        _tree.CurrentScene.AddChild(tool);
+        _tree.FlushCanvasRedraws();
+
+        Assert.Equal(0, sprite.Entered);
+        Assert.Equal(0, sprite.Readied);
+        Assert.False(sprite.DrawList.IsEmpty);   // Sprite2D's own enter-tree (queue its draw) still ran
+        Assert.Equal(1, tool.Entered);
+        Assert.Equal(1, tool.Readied);
+
+        sprite.QueueFree();
+        _tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+        Assert.Equal(0, sprite.Exited);
+
+        _tree.EditMode = false;   // the same type at run time
+        var live = new GameSprite { Name = "Live" };
+        _tree.CurrentScene.AddChild(live);
+        Assert.Equal(1, live.Entered);
+        Assert.Equal(1, live.Readied);
     }
 
     [Fact]
@@ -124,3 +153,32 @@ public class EditBox : Node2D
 
 [Tool]
 public sealed class ToolBox : EditBox;
+
+/// <summary>A game Sprite2D counting its own lifecycle callbacks.</summary>
+public class GameSprite : Sprite2D
+{
+    public int Entered { get; private set; }
+    public int Readied { get; private set; }
+    public int Exited { get; private set; }
+
+    protected override void OnEnterTree()
+    {
+        base.OnEnterTree();
+        Entered++;
+    }
+
+    protected override void OnReady()
+    {
+        base.OnReady();
+        Readied++;
+    }
+
+    protected override void OnExitTree()
+    {
+        Exited++;
+        base.OnExitTree();
+    }
+}
+
+[Tool]
+public sealed class ToolSprite : GameSprite;
