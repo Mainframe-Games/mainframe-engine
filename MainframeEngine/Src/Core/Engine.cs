@@ -443,6 +443,7 @@ public abstract class Engine : IDisposable
 
         OnUpdate(_gameTime);
         Tree.Root.SetSize(new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y)); // content scale (stretch) for the 2D canvas
+        Tree.Root.PointScale = Window is { Size.X: > 0 } w ? FramebufferSize.X / (float)w.Size.X : 1f;
         Tree.Tick(_gameTime); // M2: physics steps, process, deferred calls/frees, transform sync
         _updateTicks += Stopwatch.GetTimestamp() - start;
     }

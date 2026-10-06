@@ -312,3 +312,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   composites, GPOS/kern kerning) and `GlyphRasterizer` (font-rs coverage; outlines = 4× supersampled disc growth by
   size/4 px). Glyph atlas pages per (size, outline). Canvas render scene gained an outlined caption (golden re-recorded).
   Tests: FontTests.
+
+### 2026-10-06 — Mouse position and joy axes (port E15)
+- `InputState.MousePosition` (window points), `Input.MousePosition`, `Input.GetJoyAxis`; `SceneViewport.PointScale` (set by
+  the engine) + `GetMousePosition()` through the inverse stretch; `CanvasItem.GetGlobalMousePosition/GetLocalMousePosition`.
+  Test: InputMapTests.TheMouseMapsThroughTheStretchAndCanvasTransformsAndAxesReadRaw.

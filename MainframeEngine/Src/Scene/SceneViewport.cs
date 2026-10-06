@@ -67,6 +67,15 @@ public class SceneViewport : Node
     /// <summary>The visible area in canvas units (Godot's <c>get_visible_rect</c>).</summary>
     public Rect2 GetVisibleRect() => new(Vector2.Zero, ContentScaleResult.VisibleSize);
 
+    /// <summary>Target pixels per window point (the display's backing scale; the engine sets it for the root).</summary>
+    public float PointScale { get; set; } = 1f;
+
+    /// <summary>
+    /// The pointer in this viewport's canvas units (Godot's <c>Viewport.get_mouse_position</c>): the window position in
+    /// pixels through the inverse stretch transform. Meaningful for the root viewport.
+    /// </summary>
+    public Vector2 GetMousePosition() => StretchTransform.AffineInverse().TransformPoint(Input.MousePosition * PointScale);
+
     /// <summary>Sets the target size and recomputes the content scale (the engine calls this for the root each frame).</summary>
     public void SetSize(Vector2 pixels)
     {

@@ -152,6 +152,9 @@ public sealed class InputState
     public bool IsGamepadButtonPressed(int device, ButtonName button) =>
         (uint)device < MaxGamepads && (uint)button < (uint)GamepadButtonCount && _padButtons[device * GamepadButtonCount + (int)button];
 
+    /// <summary>The pointer's last position in window points (from mouse motion and button events).</summary>
+    public Vector2 MousePosition { get; private set; }
+
     /// <summary>Raw axis value (sticks -1..1 with Y positive down, triggers 0..1).</summary>
     public float GetGamepadAxis(int device, GamepadAxisCode axis) =>
         (uint)device < MaxGamepads && (uint)axis < (uint)GamepadAxisCount ? _padAxes[device * GamepadAxisCount + (int)axis] : 0f;
@@ -172,9 +175,13 @@ public sealed class InputState
                     _keys[(int)key.Key] = key.Pressed;
                 break;
             case InputEventMouseButton mouse:
+                MousePosition = mouse.Position;
                 if ((uint)mouse.Button < (uint)MouseButtonCount)
                     _mouseButtons[(int)mouse.Button] = mouse.Pressed;
                 break;
+            case InputEventMouseMotion motion:
+                MousePosition = motion.Position;
+                return;
             case InputEventGamepadButton pad:
                 if ((uint)pad.Device < MaxGamepads && (uint)pad.Button < (uint)GamepadButtonCount)
                     _padButtons[pad.Device * GamepadButtonCount + (int)pad.Button] = pad.Pressed;
@@ -394,6 +401,12 @@ public static class Input
     public static bool IsKeyPressed(Key key) => Current?.IsKeyPressed(key) ?? false;
 
     public static bool IsMouseButtonPressed(MouseButton button) => Current?.IsMouseButtonPressed(button) ?? false;
+
+    /// <summary>A gamepad axis's raw value (Godot's <c>Input.get_joy_axis</c>; sticks −1..1 with Y down, triggers 0..1).</summary>
+    public static float GetJoyAxis(int device, GamepadAxisCode axis) => Current?.GetGamepadAxis(device, axis) ?? 0f;
+
+    /// <summary>The pointer's last position in window points.</summary>
+    public static Vector2 MousePosition => Current?.MousePosition ?? Vector2.Zero;
 
     public static void ActionPress(string action, float strength = 1f) => Current?.ActionPress(action, strength);
 
