@@ -119,6 +119,16 @@ public sealed class UiTestTree : IDisposable
 public sealed class UiServerTests
 {
     [Fact]
+    public void FontLoadingSkipsMacAppleDoubleFiles()
+    {
+        // unzip writes a packaged .app's extended attributes as ._Name.ttf files next to the fonts; RmlUi cannot load them.
+        Assert.True(UiServer.IsFontFile("/game/Content/UI/fonts/LatoLatin-Bold.ttf"));
+        Assert.True(UiServer.IsFontFile("Fonts/Exo2.OTF"));
+        Assert.False(UiServer.IsFontFile("/game/Content/UI/fonts/._LatoLatin-Bold.ttf"));
+        Assert.False(UiServer.IsFontFile("/game/Content/UI/fonts/OFL-Lato.txt"));
+    }
+
+    [Fact]
     public void ServerOwnsRmlUiAndLoadsTheBundledFonts()
     {
         using (var ui = new UiTestTree())

@@ -464,3 +464,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `SubViewport.CaptureImage(Action<FrameCapture>)` copies the tonemapped image back after the view's next render;
   `TransparentBg` now also clears a 3D view to transparent and the tonemap keeps its alpha (flag bit; other views
   unchanged). Render test `subviewport-capture` (scene self-checks, no golden).
+
+### 2026-10-06 — Packaged .app zips without AppleDouble files (Driving Range port, CSD E19 follow-up)
+- `package-game.sh` zips the `.app` with `ditto --norsrc --noextattr`: extended attributes went into the zip as
+  `._Name` entries, and `unzip` wrote them out as files. `UiServer` skips `._*.ttf` when loading fonts (it loaded
+  `._LatoLatin-Bold.ttf` and the packaged Driving Range died at start-up). Test `FontLoadingSkipsMacAppleDoubleFiles`.
