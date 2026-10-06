@@ -146,7 +146,8 @@ ENT
     ;;
   linux-*)
     mv "$publish" "$stage/$base"
-    tar -C "$stage" -czf "$out/$base.tar.gz" "$base"
+    # No macOS metadata (extended attributes, AppleDouble files): GNU tar on Linux warns about every one.
+    COPYFILE_DISABLE=1 tar --no-xattrs -C "$stage" -czf "$out/$base.tar.gz" "$base"
     echo "$out/$base.tar.gz"
     ;;
   *) echo "unsupported RID: $rid" >&2; exit 1 ;;
