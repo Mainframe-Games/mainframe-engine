@@ -229,6 +229,41 @@ public sealed class WorkspaceTests : IDisposable
     }
 
     [Fact]
+    public void AnArrayOfSubResourcesAddsCreatesEditsAndClearsElements()
+    {
+        var node = new LevelsNode { Name = "Def" };
+        _editor.Scene.AddNode(node, _editor.Scene.Root);
+        _editor.Tick(2);
+        int Row(string name) => W.Inspector.Rows.ToList().FindIndex(r => r.Name == name && ReferenceEquals(r.Target, node));
+
+        W.Inspector.RunAction(Row("Levels"), "arr-add");
+        _editor.Tick();
+        Assert.Single(node.Levels);
+        Assert.Null(node.Levels[0]);
+
+        W.Inspector.RunAction(Row("Levels"), "elem-new", 0); // one concrete type: created at once, expanded below the array
+        _editor.Tick();
+        var level = Assert.IsType<TestSettings>(node.Levels[0]);
+        var strength = W.Inspector.Rows.ToList().FindIndex(r => r.Name == "Strength" && ReferenceEquals(r.Target, level));
+        Assert.True(strength > Row("Levels"));
+        Assert.True(W.Inspector.Commit(strength, 0, "4"));
+        Assert.Equal(4f, level.Strength);
+
+        W.Inspector.RunAction(Row("Levels"), "elem-edit", 0); // fold
+        _editor.Tick();
+        Assert.DoesNotContain(W.Inspector.Rows, r => ReferenceEquals(r.Target, level));
+
+        W.Inspector.RunAction(Row("Levels"), "elem-clear", 0);
+        _editor.Tick();
+        Assert.Single(node.Levels);
+        Assert.Null(node.Levels[0]);
+
+        _editor.Scene.History.Undo(); // the clear
+        _editor.Tick();
+        Assert.Same(level, node.Levels[0]);
+    }
+
+    [Fact]
     public void EveryEditorKindRendersAndEdits()
     {
         var node = new AllHintsNode { Name = "All" };

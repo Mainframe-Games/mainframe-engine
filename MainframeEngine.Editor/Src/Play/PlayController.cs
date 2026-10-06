@@ -65,7 +65,77 @@ public sealed class PlayController : IDisposable
     public event Action? Changed;
 
     /// <summary>Main thread, every frame.</summary>
-    public void Update() => Service.Update();
+    public void Update()
+    {
+        Service.Update();
+        LaunchQueuedInstances();
+    }
+
+    // ── Play Instances (project.mfproj "playInstances", Godot's Customize Run Instances) ──
+
+    private readonly List<(PlayRequest Request, double Delay)> _queued = [];
+    private long _queueStart;
+
+    /// <summary>
+    /// Ctrl/Cmd+F5: every <see cref="ProjectSettings.PlayInstances"/> entry, built once, each started its delay after the
+    /// first (its game arguments after <c>++</c>); the main scene once when the project lists none.
+    /// </summary>
+    public void PlayInstances()
+    {
+        var instances = _workspace.Session.Project?.PlayInstances;
+        if (instances is not { Count: > 0 })
+        {
+            PlayMain();
+            return;
+        }
+
+        if (IsBuilding || _queued.Count > 0)
+        {
+            Log.Info("[Play] A build or a launch is already running.");
+            return;
+        }
+
+        var first = instances[0];
+        Play(scene: null, first.Label, ["++", .. first.Arguments]);
+        if (_lastRequest is not { } started)
+            return; // Play refused (no project, no desktop project)
+        for (var i = 1; i < instances.Count; i++)
+            _queued.Add((started with { Label = instances[i].Label, ExtraArguments = ["++", .. instances[i].Arguments], SkipBuild = true },
+                Math.Max(0, instances[i].DelaySeconds - first.DelaySeconds)));
+        _queueStart = 0;
+    }
+
+    /// <summary>Instances of the last Play Instances still waiting for their delay (tests, the toolbar).</summary>
+    public int QueuedInstances => _queued.Count;
+
+    private void LaunchQueuedInstances()
+    {
+        if (_queued.Count == 0)
+            return;
+        if (Service.IsBuilding)
+            return; // the delays count from the first instance's start, after the build
+        if (_queueStart == 0)
+        {
+            if (!Service.Instances.Any(i => i.IsAlive))
+            {
+                _queued.Clear(); // the build failed or the first instance never started
+                return;
+            }
+
+            _queueStart = System.Diagnostics.Stopwatch.GetTimestamp();
+        }
+
+        var elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(_queueStart).TotalSeconds;
+        for (var i = 0; i < _queued.Count; i++)
+        {
+            if (_queued[i].Delay > elapsed)
+                continue;
+            var request = _queued[i].Request;
+            _queued.RemoveAt(i--);
+            _ = Service.BuildAndLaunchAsync(request);
+            Changed?.Invoke();
+        }
+    }
 
     // ── Commands ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -122,9 +192,10 @@ public sealed class PlayController : IDisposable
         Changed?.Invoke();
     }
 
-    /// <summary>F8: stops every running game.</summary>
+    /// <summary>F8: stops every running game (and instances still waiting to start).</summary>
     public void Stop()
     {
+        _queued.Clear();
         Service.Stop();
         Changed?.Invoke();
     }

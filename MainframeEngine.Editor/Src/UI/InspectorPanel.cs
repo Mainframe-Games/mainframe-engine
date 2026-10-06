@@ -322,7 +322,27 @@ public sealed partial class InspectorPanel : EditorDocument
         if (property.Kind == PropertyEditorKind.Resource && value is Resource resource && !resource.IsExternal && !property.IsMulti &&
             depth + 1 < MaxResourceDepth && _expanded.Contains((property.Target, property.Name)))
             AppendSections(rml, InspectorModel.Build(resource), depth + 1);
+        // Arrays of sub-resources (a BuildingDef's levels): each expanded element's properties below the array, under its index
+        // (a header without a .prop-name: the label pass fits one .prop-name per row).
+        if (property.Kind == PropertyEditorKind.Array && IsResourceElement(property) && !property.IsMulti && depth + 1 < MaxResourceDepth &&
+            value is IList elements)
+        {
+            for (var i = 0; i < elements.Count; i++)
+            {
+                if (elements[i] is not Resource { IsExternal: false } element || !_expanded.Contains((property.Target, ElementKey(property, i))))
+                    continue;
+                rml.Append("<div class=\"prop nested element-title\"><div class=\"prop-label\"><span class=\"").Append(EditorIcons.Classes(element.GetType()))
+                    .Append(" icon-sm prop-icon\"></span><span class=\"element-name\">").Append(RmlText.Escape($"{property.Label} [{i}]"))
+                    .Append("</span></div><div class=\"prop-editor\"><span class=\"readonly\">").Append(RmlText.Escape(element.GetType().Name))
+                    .Append("</span></div></div>");
+                AppendSections(rml, InspectorModel.Build(element), depth + 1);
+            }
+        }
     }
+
+    private static bool IsResourceElement(InspectorProperty p) => p.ElementType is { } t && typeof(Resource).IsAssignableFrom(t);
+
+    private static string ElementKey(InspectorProperty p, int index) => $"{p.Name}[{index}]";
 
     private void AppendEditor(StringBuilder rml, InspectorProperty p, int row, object? value)
     {
@@ -435,8 +455,14 @@ public sealed partial class InspectorPanel : EditorDocument
         }
     }
 
-    private static void AppendArray(StringBuilder rml, InspectorProperty p, int row, IList? list)
+    private void AppendArray(StringBuilder rml, InspectorProperty p, int row, IList? list)
     {
+        if (IsResourceElement(p))
+        {
+            AppendResourceArray(rml, p, row, list);
+            return;
+        }
+
         rml.Append("<div class=\"array-box\"><div class=\"array-item\"><span class=\"readonly grow\">").Append(RmlText.Escape(p.Format(list)))
             .Append("</span>");
         AppendButton(rml, row, "arr-add", "plus", "Add Element — append a default value");
@@ -461,6 +487,48 @@ public sealed partial class InspectorPanel : EditorDocument
 
         rml.Append("</div>");
     }
+
+    // An array of sub-resources: per element its icon and name, Edit (fold), Load, New, Clear and Remove.
+    private void AppendResourceArray(StringBuilder rml, InspectorProperty p, int row, IList? list)
+    {
+        rml.Append("<div class=\"array-box\"><div class=\"array-item\"><span class=\"readonly grow\">").Append(RmlText.Escape(p.Format(list)))
+            .Append("</span>");
+        AppendButton(rml, row, "arr-add", "plus", $"Add Element — append an empty {p.ElementType!.Name} slot");
+        rml.Append("</div>");
+        if (list is not null)
+        {
+            var nestable = RowDepth(row) + 1 < MaxResourceDepth;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var element = list[i] as Resource;
+                rml.Append("<div class=\"array-item\"><span class=\"array-index\">").Append(i).Append("</span><div class=\"res-label grow\" data-tooltip=\"")
+                    .Append(RmlText.Escape(element is null ? $"{p.Label} [{i}] — empty" : $"{p.Label} [{i}] — {ValueText.Format(element)} ({element.GetType().Name})")).Append("\">");
+                if (element is not null)
+                    rml.Append("<span class=\"").Append(EditorIcons.Classes(element.GetType())).Append(" icon-sm res-icon\"></span>");
+                rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(element is null ? "(empty)" : ValueText.Format(element))).Append("</span></div>");
+                if (element is { IsExternal: false } && nestable)
+                {
+                    var expanded = _expanded.Contains((p.Target, ElementKey(p, i)));
+                    AppendElementButton(rml, row, i, "elem-edit", expanded ? "chevron-up" : "pencil",
+                        expanded ? "Fold — hide this element's properties" : "Edit — show this element's properties below", expanded);
+                }
+
+                AppendElementButton(rml, row, i, "elem-load", "folder-open", "Load — use a resource file for this element");
+                AppendElementButton(rml, row, i, "elem-new", "circle-plus", $"New — create an inline {p.ElementType!.Name} here");
+                if (element is not null)
+                    AppendElementButton(rml, row, i, "elem-clear", "x", "Clear — empty this element");
+                AppendElementButton(rml, row, i, "arr-remove", "trash", $"Remove Element — delete item {i}");
+                rml.Append("</div>");
+            }
+        }
+
+        rml.Append("</div>");
+    }
+
+    private static void AppendElementButton(StringBuilder rml, int row, int element, string action, string icon, string tooltip, bool active = false) =>
+        rml.Append("<button class=\"tool-button small").Append(active ? " active" : "").Append("\" data-row=\"").Append(row).Append("\" data-elem=\"")
+            .Append(element).Append("\" data-action=\"").Append(action).Append("\" data-tooltip=\"").Append(RmlText.Escape(tooltip))
+            .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span></button>");
 
     private static void AppendColorPicker(StringBuilder rml, InspectorProperty p, int row, object? value)
     {
@@ -815,6 +883,24 @@ public sealed partial class InspectorPanel : EditorDocument
             case "arr-add":
                 EditArray(p, list => list.Add(DefaultElement(p.ElementType)));
                 break;
+            case "elem-edit":
+                if (!_expanded.Remove((p.Target, ElementKey(p, element))))
+                    _expanded.Add((p.Target, ElementKey(p, element)));
+                Rebuild();
+                break;
+            case "elem-load":
+                LoadResourceInto(p.Label, p.ElementType, resource => SetElement(p, element, resource));
+                break;
+            case "elem-new":
+                NewResourceInto(p.Label, p.ElementType, resource =>
+                {
+                    _expanded.Add((p.Target, ElementKey(p, element)));
+                    SetElement(p, element, resource);
+                });
+                break;
+            case "elem-clear":
+                SetElement(p, element, null);
+                break;
             case "arr-remove":
                 EditArray(p, list =>
                 {
@@ -1069,24 +1155,34 @@ public sealed partial class InspectorPanel : EditorDocument
         });
     }
 
-    private void LoadResource(InspectorProperty p)
+    private void LoadResource(InspectorProperty p) => LoadResourceInto(p.Label, p.ResourceType, resource => SetValue(p, resource, null));
+
+    // Element `index` of an array of sub-resources (one undoable property change, like any array edit).
+    private void SetElement(InspectorProperty p, int index, Resource? resource) =>
+        EditArray(p, list =>
+        {
+            if ((uint)index < (uint)list.Count)
+                list[index] = resource;
+        });
+
+    private void LoadResourceInto(string label, Type? slotType, Action<Resource> assign)
     {
         var start = Workspace.Session.ProjectRoot is { } root && Directory.Exists(Path.Combine(root, "Content"))
             ? Path.Combine(root, "Content")
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var model = new FilePickerModel(FilePickerMode.Open, start, ["*.mres", "*.png", "*.jpg", "*.gltf", "*.glb", "*.ogg", "*.wav", "*.mp3", "*.flac"]);
-        Workspace.FilePicker.Show(model, $"Load {p.Label}", "Load", path =>
+        Workspace.FilePicker.Show(model, $"Load {label}", "Load", path =>
         {
             try
             {
                 var resource = ResourceLoader.Load(AssetDatabase.Current.ToProjectPath(path));
-                if (p.ResourceType is { } type && !type.IsInstanceOfType(resource))
+                if (slotType is { } type && !type.IsInstanceOfType(resource))
                 {
                     resource.Release();
                     throw new InvalidOperationException($"{Path.GetFileName(path)} is a {resource.GetType().Name}, not a {type.Name}.");
                 }
 
-                SetValue(p, resource, null);
+                assign(resource);
             }
             catch (Exception e) when (EditorCommands.IsRecoverable(e))
             {
@@ -1095,29 +1191,30 @@ public sealed partial class InspectorPanel : EditorDocument
         });
     }
 
-    private void NewResource(InspectorProperty p)
+    private void NewResource(InspectorProperty p) => NewResourceInto(p.Label, p.ResourceType, resource =>
     {
-        var entries = PickerSources.ResourceTypes(p.ResourceType ?? typeof(Resource));
+        _expanded.Add((p.Target, p.Name));
+        SetValue(p, resource, null);
+    });
+
+    // The create dialog for a slot of `slotType` (straight to the type when only one is creatable).
+    private void NewResourceInto(string label, Type? slotType, Action<Resource> assign)
+    {
+        var entries = PickerSources.ResourceTypes(slotType ?? typeof(Resource));
         var creatable = entries.Where(e => e.Selectable).ToArray();
         if (creatable.Length == 1)
         {
-            CreateResource(p, (NodeTypeInfo)creatable[0].Payload!);
+            assign((Resource)((NodeTypeInfo)creatable[0].Payload!).CreateInstance());
             return;
         }
 
         Workspace.TreePicker.Show(new TreePickerRequest
         {
             Kind = "resource",
-            Title = $"New {p.Label}",
+            Title = $"New {label}",
             OkLabel = "Create",
             Entries = entries,
-            OnAccept = entry => CreateResource(p, (NodeTypeInfo)entry.Payload!),
+            OnAccept = entry => assign((Resource)((NodeTypeInfo)entry.Payload!).CreateInstance()),
         });
-    }
-
-    private void CreateResource(InspectorProperty p, NodeTypeInfo info)
-    {
-        _expanded.Add((p.Target, p.Name));
-        SetValue(p, info.CreateInstance(), null);
     }
 }

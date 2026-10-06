@@ -270,6 +270,24 @@ public sealed class EditorQaScript : IEditorAutomation
                 workspace.Output.Clear();
                 workspace.OutputPanel.Refresh();
                 break;
+            case "inspect":
+                // A resource file in the inspector (the FileSystem panel's double-click on an .mres).
+                workspace.Inspector.InspectResourceFile(Path.GetFullPath(string.Join(' ', step[1..])));
+                break;
+            case "inspector-action":
+                {
+                    // A row button by property name: inspector-action <property> <action> [element]
+                    var rows = workspace.Inspector.Rows;
+                    var index = -1;
+                    for (var i = 0; i < rows.Count && index < 0; i++)
+                        if (rows[i].Name == step[1])
+                            index = i;
+                    if (index < 0)
+                        throw new ArgumentException($"No inspector row '{step[1]}'.");
+                    workspace.Inspector.RunAction(index, step[2], step.Length > 3 ? (int)Float(step, 3) : 0);
+                    break;
+                }
+
             case "select":
                 if (workspace.Session.Active is { } selectScene)
                     selectScene.Selection.Set(selectScene.Root.GetNode(string.Join(' ', step[1..])));

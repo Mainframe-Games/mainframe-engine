@@ -76,6 +76,11 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Rendering.Shadows = ShadowQuality.Low;
         s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Content/Autoload/Music.mscene" });
         s.Autoloads.Add(new AutoloadSettings { Name = "Stats", Type = "GameStats", Enabled = false });
+        var host = new PlayInstanceSettings { Label = "Host" };
+        host.Arguments.AddRange(["--host", "--tile", "0:2"]);
+        var joiner = new PlayInstanceSettings { Label = "Joiner", DelaySeconds = 2.5 };
+        joiner.Arguments.AddRange(["--join", "--tile", "1:2"]);
+        s.PlayInstances.AddRange([host, joiner]);
         return s;
     }
 
@@ -97,6 +102,8 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equivalent(expected.Localization, actual.Localization, strict: true);
         Assert.Equivalent(expected.Rendering, actual.Rendering, strict: true);
         Assert.Equal(expected.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)), actual.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)));
+        Assert.Equal(expected.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)),
+            actual.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)));
         Assert.Equal(expected.Input.Actions.Select(a => (a.Name, a.Deadzone, string.Join(' ', a.Bindings))),
             actual.Input.Actions.Select(a => (a.Name, a.Deadzone, string.Join(' ', a.Bindings))));
     }

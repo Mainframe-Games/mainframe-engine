@@ -423,3 +423,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-06 — RayCast3D node; rays from inside shapes (Driving Range port E3, ADR 0131)
 - `RayCast3D` (Godot's names and defaults, cast in its own physics step, `ForceRaycastUpdate`); `RayCast(...,
   hitFromInside)` skips shapes containing the origin when false (Godot's default for the node). Two Physics3DQueryTests.
+
+### 2026-10-06 — Editor: sub-resource arrays, Play Instances (port E18)
+- Inspector: array elements that are resources get per-element Edit/Load/New/Clear; expanded elements' properties
+  render below the array ("Levels [1]"); the label-fit pass's one-`.prop-name`-per-row assumption kept intact.
+  QA commands `inspect <file>` and `inspector-action <property> <action> [element]`.
+- Play Instances (Ctrl/Cmd+F5, `project.mfproj` `playInstances`: label, args, delay); Play now puts `++` arguments
+  after `--editor-port`/`--scene` (they swallowed the editor flags). `CanvasServer.ReleaseSceneReferences` before code
+  reloads (the last frame kept the 2D tabs' game nodes). Edit-mode script check cached per node (the editor suite went
+  from 15 s to 3 min without it). Tests: sub-resource array, PlayShortcutTests, Play argument order, settings round trip.

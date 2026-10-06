@@ -90,6 +90,27 @@ public sealed class CanvasServer : IFrameServer
         }
     }
 
+    /// <summary>
+    /// Forgets the last frame and every per-node cache (culled items, sub-viewport and clip-group targets), so the canvas
+    /// keeps no scene object alive: the editor calls this before a code reload unloads the game's types.
+    /// </summary>
+    public void ReleaseSceneReferences()
+    {
+        Frame.Clear();
+        _culled.Clear();
+        _groupItems.Clear();
+        _groupsDone.Clear();
+        _canvases.Clear();
+        foreach (var entry in _canvasEntries)
+        {
+            entry.Items.Clear();
+            entry.Lights.Clear();
+        }
+
+        _canvasCount = 0;
+        Renderer?.ReleaseSceneTargets();
+    }
+
     /// <summary>Culls and batches every canvas of <paramref name="viewport"/> into <see cref="Frame"/>.</summary>
     public void BuildFrame(SceneViewport viewport, Vector2 targetSize)
     {

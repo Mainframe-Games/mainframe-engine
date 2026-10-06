@@ -83,6 +83,12 @@ public sealed class ProjectSettings
     /// <summary>Singleton nodes added under the root before the main scene, in order (Godot's autoloads).</summary>
     public List<AutoloadSettings> Autoloads { get; } = [];
 
+    /// <summary>
+    /// The editor's Run › Play Instances (Godot's "Customize Run Instances"): processes launched together, each with its
+    /// own game arguments and start delay, e.g. a host and two tiled joiners. Empty: the command plays the main scene once.
+    /// </summary>
+    public List<PlayInstanceSettings> PlayInstances { get; } = [];
+
     /// <summary>The file these settings were loaded from or last saved to (null for in-memory settings).</summary>
     public string? FilePath { get; internal set; }
 
@@ -383,6 +389,19 @@ public sealed class RenderingProjectSettings
     /// gamma-space RGBA), or null (default) to draw the canvas over the 3D scene.
     /// </summary>
     public System.Numerics.Vector4? CanvasClearColor { get; set; }
+}
+
+/// <summary>One process of <see cref="ProjectSettings.PlayInstances"/>.</summary>
+public sealed class PlayInstanceSettings
+{
+    /// <summary>The instance's label in the editor (its toolbar chip and log prefix).</summary>
+    public required string Label { get; set; }
+
+    /// <summary>The game's own arguments (passed after <c>++</c>, <see cref="GameHost.UserArgs"/>), e.g. <c>--host --tile 0:2</c>.</summary>
+    public List<string> Arguments { get; } = [];
+
+    /// <summary>Seconds after the first instance starts (a joiner waits for the host to listen).</summary>
+    public double DelaySeconds { get; set; }
 }
 
 /// <summary>
