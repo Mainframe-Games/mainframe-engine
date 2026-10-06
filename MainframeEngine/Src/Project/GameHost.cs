@@ -35,6 +35,7 @@ public class GameHost : Engine
     }
 
     private int _updates;
+    private bool _startPending;
 
     /// <summary>
     /// The UI options a game runs with: with <paramref name="hotReload"/> (Debug engine builds) the UI also watches the
@@ -239,12 +240,25 @@ public class GameHost : Engine
             vk.Exposure = Settings.Rendering.Exposure;
         if (Servers.Render is { } render)
             render.ShadowQuality = Settings.Rendering.Shadows; // before any visual creates GPU resources (Off)
-        if (!Session.Start())
-            Quit(ExitCode.Error);
+        // The session (autoloads, the main scene) starts on the first update, once the window is up (Godot readies the
+        // scene after its window exists): SDL shows the window after OnLoad, which took ~0.3 s that the first scene's
+        // first frame would otherwise lose (process deltas drop what the physics steps cannot cover).
+        _startPending = true;
     }
 
     protected override void OnUpdate(in GameTime gameTime)
     {
+        if (_startPending)
+        {
+            _startPending = false;
+            DiscardFrameDelta();
+            if (!Session.Start())
+            {
+                Quit(ExitCode.Error);
+                return;
+            }
+        }
+
         Session.Update(gameTime);
         if (HostOptions.ScreenshotPath is not null && ++_updates == HostOptions.ScreenshotFrame)
             CaptureFrame();

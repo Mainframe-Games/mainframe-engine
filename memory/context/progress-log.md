@@ -356,3 +356,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `UiTooltips` per document: `title` attributes shown in the document's `#tooltip` after 0.5 s at mouse + (10, 10),
   kept inside, hidden on press/leave; hover read from `RmlContext.HoverElement`. `UiServer.TooltipDelaySeconds` /
   `TooltipOffset`, `UiDocument.ShownTooltip`. Tests: UiTooltipsTests (4).
+
+### 2026-10-06 — GameHost starts the session on the first update
+- `GameSession.Start` (autoloads, main scene) moved from `GameHost.OnLoad` to the first `OnUpdate`, whose delta is
+  discarded (`Engine.DiscardFrameDelta`): SDL shows the window ~0.3 s after `OnLoad`, and that gap reached the first
+  scene's first frame (cut to 133 ms by the dropped-physics-steps rule), so the game's intro ran its first beat ~0.35–0.8 s
+  long. Now within ~0.1 s of Godot's.
