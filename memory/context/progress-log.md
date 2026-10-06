@@ -362,3 +362,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   discarded (`Engine.DiscardFrameDelta`): SDL shows the window ~0.3 s after `OnLoad`, and that gap reached the first
   scene's first frame (cut to 133 ms by the dropped-physics-steps rule), so the game's intro ran its first beat ~0.35–0.8 s
   long. Now within ~0.1 s of Godot's.
+
+### 2026-10-06 — Godot's 2D audio panning (port E14, ADR 0122)
+- `AudioPlayer2D` hears from the view centre (`CanvasTransform⁻¹ · visible/2`) and pans linearly like Godot
+  (`2d_panning_strength` 0.5 → 0.5 per channel in the centre; was equal-power, 6 dB louder). `PanDistance2D` removed;
+  `PanningStrength2D`, `CanvasTransform2D`, `ScreenSize2D` added. Test: AudioMathTests.

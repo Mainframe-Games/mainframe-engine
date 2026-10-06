@@ -105,6 +105,8 @@ public sealed class AudioServer : IFrameServer
     private Transform3D _listener3D = Transform3D.Identity;
     private Vector3 _listenerVelocity;
     private Vector2 _listener2D;
+    private Transform2D _canvasTransform2D = Transform2D.Identity;
+    private Vector2 _screenSize2D;
     private bool _listenerInitialized;
     private Node? _listenerSource;
 
@@ -222,13 +224,19 @@ public sealed class AudioServer : IFrameServer
     /// <summary>Scales every doppler shift (0 disables doppler globally).</summary>
     public float DopplerScale { get; set; } = 1f;
 
-    /// <summary>Horizontal distance (2D units, pixels) from the 2D listener at which <see cref="AudioPlayer2D"/> pans fully.</summary>
-    public float PanDistance2D { get; set; } = 960f;
+    /// <summary>Godot's <c>audio/general/2d_panning_strength</c> (default 0.5): scales every <see cref="AudioPlayer2D"/>'s pan.</summary>
+    public float PanningStrength2D { get; set; } = 0.5f;
+
+    /// <summary>The root viewport's canvas transform this frame (the 2D view, for <see cref="AudioPlayer2D"/>'s pan).</summary>
+    public Transform2D CanvasTransform2D => _canvasTransform2D;
+
+    /// <summary>The root viewport's visible size in canvas units this frame (Godot's visible rect).</summary>
+    public Vector2 ScreenSize2D => _screenSize2D;
 
     /// <summary>The listener 3D sounds are heard from this frame (current <see cref="AudioListener3D"/>, else the active camera).</summary>
     public Transform3D Listener3D => _listener3D;
 
-    /// <summary>The 2D listener position (the active <see cref="Camera2D"/>, else the origin).</summary>
+    /// <summary>The 2D listener position: the centre of the root viewport's view in canvas units (Godot without an AudioListener2D).</summary>
     public Vector2 Listener2D => _listener2D;
 
     /// <summary>The current <see cref="AudioListener3D"/>, if any.</summary>
@@ -825,7 +833,12 @@ public sealed class AudioServer : IFrameServer
 
         _listenerVelocity = _listenerInitialized && delta > 0f ? (listener.Origin - _listener3D.Origin) / delta : Vector3.Zero;
         _listener3D = listener;
-        _listener2D = Tree?.Root.ActiveCamera2D is { } camera2D ? camera2D.GlobalPosition : Vector2.Zero;
+        if (Tree?.Root is { } root)
+        {
+            _canvasTransform2D = root.CanvasTransform;
+            _screenSize2D = root.GetVisibleRect().Size;
+            _listener2D = _canvasTransform2D.AffineInverse().TransformPoint(_screenSize2D * 0.5f);
+        }
         _listenerInitialized = true;
     }
 
