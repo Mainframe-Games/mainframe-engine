@@ -264,6 +264,34 @@ public sealed class Physics2DTests : IDisposable
     }
 
     [Fact]
+    public void FloatingCharacterSlidesAlongWallsKeepsItsVelocityAndStopsHeadOn()
+    {
+        _h.AddStaticBox(new Vector2(300, 0), new Vector2(50, 2000)); // face at x = 275
+        var character = new FloaterCharacter2D
+        {
+            Name = "Floater",
+            Position = Vector2.Zero,
+            PhysicsInterpolation = false,
+            MotionMode = CharacterMotionMode2D.Floating,
+            Walk = new Vector2(300, 100), // 18° off head-on: slides
+        };
+        character.AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = 20 } });
+        _h.Add(character);
+        _h.RunSeconds(2f);
+        Assert.True(character.IsOnWall());
+        Assert.False(character.IsOnFloor());
+        Assert.Equal(new Vector2(300, 100), character.Velocity); // floating mode never changes the velocity
+        Assert.InRange(character.Position.X, 275 - 20 - 2.5f, 275 - 20 - 0.5f);
+        var slid = character.Position.Y;
+        Assert.True(slid > 150, $"slid to {character.Position}");
+
+        character.Walk = new Vector2(300, 50); // 9.5° off head-on (< 15°): the motion stops at the wall
+        _h.RunSeconds(0.5f);
+        // Sliding would cover ~25 px; only the margin recovery's few pixels remain.
+        Assert.InRange(character.Position.Y - slid, -5f, 5f);
+    }
+
+    [Fact]
     public void CharacterClimbsSlopesStandsStillOnThemAndSlidesOffSteepOnes()
     {
         _h.AddGround();

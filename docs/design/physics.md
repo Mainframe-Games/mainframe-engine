@@ -336,3 +336,7 @@ draw; the fixed-step hooks; allocation gates (3D and 2D). Render tests: `physics
 [Milestones](../milestones.md) · [Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Scene serialization](scene-serialization.md) · [Testing](testing.md) · [Editor](editor.md) ·
 [Networking](networking.md)
+
+`CharacterBody2D.MotionMode = Floating` (Godot's `motion_mode` 1, top-down games) runs Godot's floating slide instead:
+every hit is a wall, `Velocity` is never changed by collisions, and hits within `WallMinSlideAngleDegrees` (15°) of
+head-on stop the motion instead of sliding.

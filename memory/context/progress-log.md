@@ -272,3 +272,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `SubViewport.Disable3D/TransparentBg/GetTexture()`, `Texture2D.FromViewport`; `CanvasFrame` passes; the renderer
   draws sub-viewport passes into their own targets before the main layer. Canvas render test gained SpineBoy in a 2D
   sub-viewport; canvas + Spine goldens re-recorded (moltenvk, lavapipe). Tests: SpineSpriteTests.
+
+### 2026-10-06 — CharacterBody2D floating motion mode (port E12)
+- `CharacterBody2D.MotionMode` Grounded/Floating + `WallMinSlideAngleDegrees` (15°): Godot's `_move_and_slide_floating`
+  (move_and_collide per iteration with recovery as collision, every hit a wall, first slide keeps the remaining length,
+  velocity untouched). Test: FloatingCharacterSlidesAlongWallsKeepsItsVelocityAndStopsHeadOn.
