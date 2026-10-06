@@ -129,6 +129,12 @@ public sealed partial class SceneTree
     /// <summary>Nodes currently inside the tree (including the root).</summary>
     public int NodeCount => _nodesById.Count;
 
+    /// <summary>Wall time of the last frame's process callbacks, seconds (Godot's <c>TIME_PROCESS</c> monitor).</summary>
+    public double ProcessSeconds { get; private set; }
+
+    /// <summary>Wall time of the last frame's physics steps (callbacks and simulation), seconds (<c>TIME_PHYSICS_PROCESS</c>).</summary>
+    public double PhysicsProcessSeconds { get; private set; }
+
     /// <summary>True while <see cref="Tick"/> runs.</summary>
     public bool IsTicking => _inTick;
 
@@ -289,6 +295,7 @@ public sealed partial class SceneTree
                 foreach (var server in Servers.FixedStepServers)
                     server.BeforeFixedSteps();
 
+            var physicsStart = System.Diagnostics.Stopwatch.GetTimestamp();
             while (_accumulator + tolerance >= step && steps < MaxPhysicsStepsPerFrame)
             {
                 RunPhysicsStep((float)step);
@@ -303,6 +310,7 @@ public sealed partial class SceneTree
                 dropped += backlog;
                 _accumulator = Math.Max(0, _accumulator - backlog);
             }
+            PhysicsProcessSeconds = System.Diagnostics.Stopwatch.GetElapsedTime(physicsStart).TotalSeconds;
             PhysicsInterpolationFraction = (float)Math.Clamp(_accumulator / step, 0, 1);
             if (stepServers)
                 foreach (var server in Servers.FixedStepServers)
@@ -313,7 +321,10 @@ public sealed partial class SceneTree
             var processTime = gameTime;
             processTime.DeltaTime = (float)Math.Max(0, gameTime.DeltaTime - dropped);
             ProcessDeltaTime = processTime.DeltaTime;
+            FlushDeferredCalls(); // Godot's process: the message queue flushes before the callbacks (calls queued by ready, input)
+            var processStart = System.Diagnostics.Stopwatch.GetTimestamp();
             RunProcess(processTime);
+            ProcessSeconds = System.Diagnostics.Stopwatch.GetElapsedTime(processStart).TotalSeconds;
             FlushDeferred();
             FlushTransformNotifications();
 
@@ -354,6 +365,7 @@ public sealed partial class SceneTree
                 node.InvokePhysicsProcess(delta);
         }
 
+        FlushDeferredCalls(); // Godot's physics_process: the message queue flushes after the callbacks, before timers
         UpdateTimers(delta, physics: true);
         UpdateTweens(delta, physics: true);
 
@@ -456,8 +468,36 @@ public sealed partial class SceneTree
     internal void QueueDelete(Node node) => _deleteQueue.Add(node);
 
     /// <summary>
+    /// Runs queued deferred calls only (including ones queued while flushing), as Godot's message queue flush does before
+    /// process and after each physics step's callbacks; queued frees wait for <see cref="FlushDeferred"/>.
+    /// </summary>
+    private void FlushDeferredCalls()
+    {
+        var i = 0;
+        var calls = 0;
+        try
+        {
+            for (; i < _deferred.Count; i++)
+            {
+                if (++calls > 1_000_000)
+                {
+                    i = _deferred.Count - 1;
+                    throw new InvalidOperationException("Deferred calls keep re-queueing themselves.");
+                }
+
+                _deferred[i].Invoke();
+            }
+        }
+        finally
+        {
+            _deferred.RemoveRange(0, Math.Min(i + 1, _deferred.Count));
+        }
+    }
+
+    /// <summary>
     /// Runs queued deferred calls (including ones queued while flushing), then frees queued nodes; repeats
-    /// until both queues are empty. <see cref="Tick"/> calls this after process.
+    /// until both queues are empty. <see cref="Tick"/> calls this after process; deferred calls also run before process and
+    /// after each physics step's callbacks (Godot's message queue flushes).
     /// </summary>
     public void FlushDeferred()
     {

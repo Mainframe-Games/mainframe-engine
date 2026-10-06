@@ -348,6 +348,49 @@ public sealed class InputMapTests
         }
     }
 
+    private sealed class ActionListener : Node
+    {
+        public readonly List<string> Seen = [];
+
+        protected override void OnUnhandledInput(InputEvent inputEvent)
+        {
+            if (inputEvent.IsActionPressed("jump"))
+                Seen.Add($"jump down held={Input.IsActionPressed("jump")}");
+            else if (inputEvent.IsActionReleased("jump"))
+                Seen.Add("jump up");
+        }
+    }
+
+    [Fact]
+    public void ParsedActionEventsReachUnhandledInputAtTheEndOfTheFrameAndDriveTheState()
+    {
+        var tree = Tree(Map());
+        var previous = Input.Current;
+        try
+        {
+            Input.Current = tree.Input;
+            var listener = new ActionListener { Name = "Listener" };
+            tree.ChangeScene(listener);
+            Input.ParseInputEvent(new InputEventAction { Action = "jump", Pressed = true });
+            Assert.Empty(listener.Seen); // deferred to the end of the frame
+            tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+            Assert.Equal(["jump down held=True"], listener.Seen);
+            Assert.True(Input.IsActionPressed("jump"));
+
+            Input.ParseInputEvent(new InputEventAction { Action = "jump", Pressed = false });
+            Input.ParseInputEvent(new InputEventAction { Action = "fire", Pressed = true }); // another action: ignored by the listener
+            tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+            Assert.Equal(["jump down held=True", "jump up"], listener.Seen);
+            Assert.False(Input.IsActionPressed("jump"));
+            Assert.True(Input.IsActionPressed("fire"));
+            Assert.False(new InputEventAction { Action = "fire", Pressed = true }.IsAction("jump", tree.Input.Map));
+        }
+        finally
+        {
+            Input.Current = previous;
+        }
+    }
+
     [Fact]
     public void StaticInputForwardsToTheCurrentState()
     {

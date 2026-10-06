@@ -317,3 +317,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `InputState.MousePosition` (window points), `Input.MousePosition`, `Input.GetJoyAxis`; `SceneViewport.PointScale` (set by
   the engine) + `GetMousePosition()` through the inverse stretch; `CanvasItem.GetGlobalMousePosition/GetLocalMousePosition`.
   Test: InputMapTests.TheMouseMapsThroughTheStretchAndCanvasTransformsAndAxesReadRaw.
+
+### 2026-10-06 — Godot runtime rules, part 2 (port G4/E15/E17; ADR 0114 amendment)
+- Deferred calls flush before process and after each physics step's callbacks (Godot's message queue); `InputEventAction`
+  + `Input.ParseInputEvent`; `SceneTree.Window` (`IWindowControl`: title, fullscreen, size, position, screen bounds) and
+  `CloseRequested` (user close only); `SceneTree.ProcessSeconds/PhysicsProcessSeconds`. Tests: SceneTreeTests,
+  InputMapTests.

@@ -290,6 +290,26 @@ public sealed class SceneTreeTests : IDisposable
     }
 
     [Fact]
+    public void CallsDeferredByReadyOrPhysicsRunBeforeProcessLikeGodotsMessageQueue()
+    {
+        var node = Logged("N");
+        var victim = Logged("Victim");
+        node.OnReadyAction = n =>
+        {
+            n.CallDeferred(() => _log.Add("deferred by ready"));
+            victim.QueueFree(); // frees still wait for the end of the frame
+        };
+        _tree.Root.AddChild(victim);
+        _tree.Root.AddChild(node);
+        node.OnProcessAction = _ => _log.Add($"process (victim freed={victim.IsFreed})");
+
+        _log.Clear();
+        _tree.Tick(Frame(0));
+
+        Assert.Equal(["deferred by ready", "N:process", "process (victim freed=False)", "Victim:exit"], _log);
+    }
+
+    [Fact]
     public void CallDeferredNeedsATree()
     {
         using var loose = new PlainNode();
