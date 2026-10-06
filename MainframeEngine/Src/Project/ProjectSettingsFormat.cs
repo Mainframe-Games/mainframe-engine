@@ -129,6 +129,7 @@ public static class ProjectSettingsFormat
             WriteLocalization(w, settings.Localization);
             WriteRendering(w, settings.Rendering);
             WriteAutoloads(w, settings.Autoloads);
+            WritePlayInstances(w, settings.PlayInstances);
             w.WriteEndObject();
         }
 
@@ -346,6 +347,25 @@ public static class ProjectSettingsFormat
         w.WriteEndArray();
     }
 
+    private static void WritePlayInstances(Utf8JsonWriter w, List<PlayInstanceSettings> instances)
+    {
+        if (instances.Count == 0)
+            return;
+        w.WriteStartArray("playInstances");
+        foreach (var instance in instances)
+        {
+            w.WriteStartObject();
+            w.WriteString("label", instance.Label);
+            if (instance.Arguments.Count > 0)
+                WriteStrings(w, "args", instance.Arguments);
+            if (instance.DelaySeconds > 0)
+                w.WriteNumber("delay", instance.DelaySeconds);
+            w.WriteEndObject();
+        }
+
+        w.WriteEndArray();
+    }
+
     private static void WriteStrings(Utf8JsonWriter w, string name, List<string> values)
     {
         w.WriteStartArray(name);
@@ -372,7 +392,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "autoloads");
+                "audio", "localization", "rendering", "autoloads", "playInstances");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -397,6 +417,8 @@ public static class ProjectSettingsFormat
                 ReadRendering(rendering, s.Rendering);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
+            if (Array(root, "playInstances", "playInstances") is { } instances)
+                ReadPlayInstances(instances, s.PlayInstances);
             return s;
         }
 
@@ -546,6 +568,23 @@ public static class ProjectSettingsFormat
                 if ((scene is null) == (type is null))
                     throw Error(where, "needs exactly one of \"scene\" or \"type\"");
                 autoloads.Add(new AutoloadSettings { Name = name, Scene = scene, Type = type, Enabled = Bool(o, "enabled", where + ".enabled", true) });
+            }
+        }
+
+        private void ReadPlayInstances(JsonArray array, List<PlayInstanceSettings> instances)
+        {
+            for (var i = 0; i < array.Count; i++)
+            {
+                var where = $"playInstances[{i.ToString(CultureInfo.InvariantCulture)}]";
+                if (array[i] is not JsonObject o)
+                    throw Error(where, "must be an object");
+                Known(o, where + ".", "label", "args", "delay");
+                var label = String(o, "label", where + ".label");
+                if (string.IsNullOrWhiteSpace(label))
+                    throw Error(where + ".label", "must not be empty");
+                var instance = new PlayInstanceSettings { Label = label, DelaySeconds = Math.Clamp(Float(o, "delay", where + ".delay", 0f), 0f, 600f) };
+                instance.Arguments.AddRange(Strings(o, "args", where + ".args"));
+                instances.Add(instance);
             }
         }
 

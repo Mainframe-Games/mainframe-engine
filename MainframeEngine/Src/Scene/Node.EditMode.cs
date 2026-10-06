@@ -19,8 +19,26 @@ public partial class Node
 
     private static readonly ConditionalWeakTable<Type, EngineBaseCallbacks> EngineBases = new();
 
+    // The predicate's answer for this node's type, remembered with the predicate it came from (per-draw hot path).
+    private Func<Type, bool>? _scriptPredicate;
+    private bool _isScript;
+
     /// <summary>True when this node's own lifecycle and draw callbacks are suppressed (edit mode, a non-tool script type).</summary>
-    internal bool SkipsScriptCallbacks => _tree is { EditMode: true, EditModeScripts: { } isScript } && !_isTool && isScript(GetType());
+    internal bool SkipsScriptCallbacks
+    {
+        get
+        {
+            if (_tree is not { EditMode: true, EditModeScripts: { } isScript } || _isTool)
+                return false;
+            if (!ReferenceEquals(isScript, _scriptPredicate))
+            {
+                _scriptPredicate = isScript;
+                _isScript = isScript(GetType());
+            }
+
+            return _isScript;
+        }
+    }
 
     private unsafe void InvokeEnterTree()
     {

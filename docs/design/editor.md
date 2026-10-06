@@ -241,7 +241,7 @@ comes from the value type and the `[Export]` hints:
 | Color | `System.Drawing.Color`, or a `Vector3`/`Vector4` named `…Color` (lights) | swatch + hex field; the swatch opens RGBA sliders |
 | NodePath | `NodePath` (`NodeType` hint filters) | field + pick from the scene's nodes (stored relative to the node) |
 | Resource | `Resource` subclasses | label with the resource's icon + Edit (fold), Load (file), New (the create dialog: types assignable to the slot), Clear icon buttons; inline resources expand into nested rows (up to 3 levels) |
-| Array | `T[]`, `List<T>` | count, + Add, per-element fields (scalars) and remove |
+| Array | `T[]`, `List<T>` | count, + Add, per-element fields (scalars) and remove; elements that are resources (a def's levels) get the resource buttons per element (Edit folds the element's properties in below the array under "Name [i]", Load, New, Clear) |
 | Transform, unsupported | `Transform3D/2D`, others | read-only text |
 
 - **Every row has an icon** before its name (`PropertyIcons`, [Icons](#icons)) and a **tooltip**: "Label — doc
@@ -379,11 +379,14 @@ link ([Project & game host](project-and-gamehost.md)).
 | Play | F5 | save the open scenes that have a file, `dotnet build` the solution, launch the game with `--editor-port` (its main scene) |
 | Play Scene | F6 | the same with `--scene <uid>` of the open tab (an untitled scene asks for a file first) |
 | Run Another Instance | Shift+F5 | one more instance (server + client tests); each gets a label |
+| Play Instances | Ctrl/Cmd+F5 | every `project.mfproj` `playInstances` entry (`label`, `args` = the game's own arguments after `++`, `delay` in s from the first): one build, then each instance after its delay (Godot's Customize Run Instances; e.g. a host and two tiled joiners); the main scene once when there are none |
 | Pause / Resume | F7 | over the link |
 | Stop | F8 | a stop command; the process is killed after 3 s (at once if it never connected) |
 | Reload Scene in Game | Run menu, instance menu | the game re-reads its current scene from disk |
 | Build & Reload | Ctrl/Cmd+Shift+B | build, then reload the editor's game code |
 
+- **Arguments:** host flags from a request come before `--editor-port`/`--scene`; anything from `++` on (the game's own) after them.
+- Before a code reload `ReleaseEditorReferences` also clears the canvas server's last frame and its per-node targets (`CanvasServer.ReleaseSceneReferences`), which would otherwise keep the 2D tabs' game nodes alive.
 - **Build errors** (`GameBuilder`: `-v:minimal -p:GenerateFullPaths=true`) are parsed into Output lines of category
   `build`; clicking one opens the file at its line in the code editor. A failed build does not launch.
 - **Game logs** stream into Output as category `game` (`game·Category` for the game's own categories), with the

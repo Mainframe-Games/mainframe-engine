@@ -9,7 +9,7 @@ namespace MainframeEngine.Editor;
 /// <param name="DesktopProject">The desktop project (<c>MyGame.Desktop.csproj</c>) whose output is run.</param>
 /// <param name="Scene">The <c>--scene</c> (null: the project's main scene).</param>
 /// <param name="Label">The instance's display name.</param>
-/// <param name="ExtraArguments">More game arguments (before <c>--editor-port</c>/<c>--scene</c>).</param>
+/// <param name="ExtraArguments">More arguments: host flags go before <c>--editor-port</c>/<c>--scene</c>, anything from <c>++</c> on after them (the game's own).</param>
 /// <param name="SkipBuild">Launch the existing build output.</param>
 /// <param name="Configuration">The build configuration whose output is looked up.</param>
 public sealed record PlayRequest(
@@ -133,14 +133,25 @@ public sealed class PlayService : IDisposable
     /// <c>--scene</c>. The instance starts <see cref="PlayInstanceState.Launching"/>; a process that cannot start ends up
     /// <see cref="PlayInstanceState.Crashed"/> on the next <see cref="Update"/> with the reason in <see cref="GameOutput"/>.
     /// </summary>
+    private static int IndexOf(IReadOnlyList<string> list, string value)
+    {
+        for (var i = 0; i < list.Count; i++)
+            if (list[i] == value)
+                return i;
+        return -1;
+    }
+
     public PlayInstance Launch(string programPath, string workingDirectory, string? scene, string label, IReadOnlyList<string>? extraArguments = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(programPath);
         ArgumentNullException.ThrowIfNull(workingDirectory);
+        // Host flags first, then --editor-port/--scene, then the game's own arguments: everything after "++" belongs to the
+        // game (GameHost.UserArgs), so the editor's flags must come before it.
         List<string> arguments = [];
+        var separator = extraArguments is null ? -1 : IndexOf(extraArguments, GameHostOptions.UserArgsSeparator);
         if (extraArguments is not null)
-            arguments.AddRange(extraArguments);
+            arguments.AddRange(separator < 0 ? extraArguments : extraArguments.Take(separator));
         arguments.Add("--editor-port");
         arguments.Add(Port.ToString(CultureInfo.InvariantCulture));
         if (!string.IsNullOrEmpty(scene))
@@ -148,6 +159,9 @@ public sealed class PlayService : IDisposable
             arguments.Add("--scene");
             arguments.Add(scene);
         }
+
+        if (separator >= 0)
+            arguments.AddRange(extraArguments!.Skip(separator));
 
         var instance = new PlayInstance(++_nextNumber, string.IsNullOrEmpty(label) ? "Game" : label, scene, _utcNow(), arguments)
         {

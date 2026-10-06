@@ -31,6 +31,13 @@ public class TestSettings : Resource
     public string Label { get; set; } = "";
 }
 
+/// <summary>An array of sub-resources (a def with levels).</summary>
+public class LevelsNode : Node3D
+{
+    [Export]
+    public List<TestSettings> Levels { get; set; } = [];
+}
+
 /// <summary>Every exported type and hint the inspector supports.</summary>
 public class AllHintsNode : Node3D
 {

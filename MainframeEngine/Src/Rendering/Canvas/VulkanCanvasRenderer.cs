@@ -480,6 +480,20 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
     private readonly Dictionary<SubViewport, SubTarget> _subTargets = new(ReferenceEqualityComparer.Instance);
     private readonly List<SubViewport> _subEvict = [];
 
+    /// <summary>
+    /// Drops the targets keyed by scene objects (2D sub-viewports, clip-children owners) so nothing here keeps them alive
+    /// (the editor, before it unloads game code); they are recreated on the next frame that draws them.
+    /// </summary>
+    public void ReleaseSceneTargets()
+    {
+        foreach (var target in _subTargets.Values)
+            ReleaseSubTarget(target);
+        _subTargets.Clear();
+        foreach (var target in _groupTargets.Values)
+            ReleaseSubTarget(target);
+        _groupTargets.Clear();
+    }
+
     /// <summary>2D sub-viewport targets alive (tests, diagnostics).</summary>
     public int SubViewportTargetCount => _subTargets.Count;
 

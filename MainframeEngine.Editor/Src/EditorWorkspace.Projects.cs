@@ -308,6 +308,7 @@ public sealed partial class EditorWorkspace
         Inspector.ReleaseReferences();
         SceneTree.Refresh();
         Viewport.ReleaseSceneReferences();
+        Tree?.Servers.Get<CanvasServer>()?.ReleaseSceneReferences(); // the last canvas frame holds the 2D tabs' nodes
         _titleScene = null;
         _titleFile = null;
     }
@@ -320,13 +321,15 @@ public sealed partial class EditorWorkspace
 
     // ── Shortcuts ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>F5–F8 (play, play scene, pause, stop) and Ctrl/Cmd+Shift+B (build &amp; reload); null when not one of them.</summary>
+    /// <summary>F5–F8 (play, play scene, pause, stop), Ctrl/Cmd+F5 (play instances) and Ctrl/Cmd+Shift+B (build &amp; reload); null when not one of them.</summary>
     public static string? ProjectShortcutFor(Key key, EditorModifiers modifiers)
     {
         var command = (modifiers & EditorModifiers.Command) != 0;
         var shift = (modifiers & EditorModifiers.Shift) != 0;
         if (command && shift && key == Key.B)
             return "project.build_reload";
+        if (command && !shift && key == Key.F5)
+            return "play.instances";
         if (command || (modifiers & EditorModifiers.Alt) != 0)
             return null;
         return key switch

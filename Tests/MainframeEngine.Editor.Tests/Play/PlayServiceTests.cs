@@ -347,6 +347,21 @@ public sealed class PlayServiceTests
     }
 
     [Fact]
+    public async Task GameArgumentsAfterTheSeparatorFollowTheEditorFlags()
+    {
+        using var project = new DesktopProject();
+        using var play = new PlayHarness();
+
+        var task = play.Service.BuildAndLaunchAsync(new PlayRequest("/p/MyGame.sln", project.ProjectFile, null, "Host", ["--hidden", "++", "--host", "--tile", "0:2"]),
+            TestContext.Current.CancellationToken);
+        play.Pump(() => task.IsCompleted, "build and launch");
+
+        var game = play.Game((await task)!);
+        Assert.Equal(["--hidden", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "++", "--host", "--tile", "0:2"],
+            game.Request.Arguments);
+    }
+
+    [Fact]
     public async Task SkipBuildWithoutOutputReturnsNull()
     {
         using var play = new PlayHarness();

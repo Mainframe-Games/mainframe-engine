@@ -127,6 +127,7 @@ public sealed class EditorCommands
             case "play.pause": _workspace.Play.TogglePause(); return true;
             case "play.stop": _workspace.Play.Stop(); return true;
             case "play.another": _workspace.Play.PlayAnotherInstance(); return true;
+            case "play.instances": _workspace.Play.PlayInstances(); return true;
             case "play.reload_scene": _workspace.Play.ReloadScene(); return true;
             case "project.build_reload": _workspace.Project.BuildAndReload(); return true;
             case "project.reload_code": _workspace.Project.ReloadGameAssembly(); return true;
@@ -639,6 +640,7 @@ public sealed class EditorCommands
                 new MenuItem("Play", "play.main", "F5", _workspace.Project.DesktopProject is not null, Icon: "player-play-filled"),
                 new MenuItem("Play Scene", "play.scene", "F6", _workspace.Project.DesktopProject is not null && scene is not null, Icon: "movie"),
                 new MenuItem("Run Another Instance", "play.another", "Shift+F5", _workspace.Project.DesktopProject is not null, Icon: "copy"),
+                new MenuItem("Play Instances", "play.instances", "Ctrl+F5", _workspace.Project.DesktopProject is not null && _workspace.Session.Project?.PlayInstances.Count > 0, Icon: "copy"),
                 MenuItem.Separator,
                 new MenuItem(_workspace.Play.IsPaused ? "Resume" : "Pause", "play.pause", "F7", _workspace.Play.IsPlaying, Icon: "player-pause"),
                 new MenuItem("Reload Scene in Game", "play.reload_scene", null, _workspace.Play.IsPlaying, Icon: "refresh"),
