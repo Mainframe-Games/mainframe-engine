@@ -238,8 +238,9 @@ space.IntersectPoint(point, results);
 Neither library ships a character controller, so it is the engine's. Call `MoveAndSlide()` from
 `OnPhysicsProcess` after updating `Velocity`; it uses the tree's physics step as `dt`:
 
-1. **Recover**: find everything within two `SafeMargin`s (Jitter2 `NarrowPhase.Distance`, else `MprEpa` for
-   penetrations; Box2D manifold functions, which report penetration and nearby contacts) and push the body back out
+1. **Recover**: find everything within two `SafeMargin`s (Jitter2 `NarrowPhase.Collision`, EPA's signed distance for
+   touching, separated and overlapping shapes alike, then `Distance`/`MprEpa` if EPA fails, [ADR 0128](../../memory/decisions/0128-character-recovery-epa.md);
+   Box2D manifold functions, which report penetration and nearby contacts) and push the body back out
    to one margin. Those contacts count (a body resting on the floor is a contact within the margin), so floor
    detection doesn't flicker. Up to 4 passes while anything was pushed.
 2. **Slide** (up to `MaxSlides`): sweep every shape of the body along the remaining motion extended by the margin
@@ -255,6 +256,9 @@ Neither library ships a character controller, so it is the engine's. Call `MoveA
    `FloorSnapLength` (0.1 m / 1 px) onto floor geometry — sticks to slopes and small steps down.
 6. On the floor, vertical velocity gained by sliding along it is dropped (walking up a slope and stopping doesn't
    launch the body); a jump (upward `Velocity`) is kept.
+7. **Settle (3D, ADR 0128)**: when a sweep or the snap found the floor, the body is moved onto exactly one margin from
+   it with EPA's distance (Jitter2's sweeps stop a few millimetres short on large shapes). A body resting or walking on
+   the floor then holds its height to the float (Godot's 1 mm `safe_margin` gives the same resting height as Godot).
 
 The final position is written to the node, which turns into a kinematic move of the body for this step, so dynamic
 bodies in its way are pushed (the body collides with what its layer meets, even outside its own mask).

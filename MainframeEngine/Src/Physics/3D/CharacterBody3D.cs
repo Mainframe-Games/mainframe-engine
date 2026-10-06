@@ -176,7 +176,13 @@ public class CharacterBody3D : PhysicsBody3D
         {
             var found = space.RecoverBody(record, ref position, rotation, margin, contacts, out var pushed);
             for (var i = 0; i < found; i++)
+            {
+                // A contact the body is leaving (a jump off the floor) is not touched this step, as in Godot, where
+                // only the motion's collisions set the floor/wall/ceiling state (ADR 0128).
+                if (Vector3.Dot(velocity, contacts[i].Normal) > 1e-4f)
+                    continue;
                 Classify(contacts[i].Normal, contacts[i].Point, contacts[i].Collider, up, ref velocity, report: pass == 0);
+            }
             if (!pushed)
                 break; // nothing closer than the margin is left
         }
@@ -188,6 +194,7 @@ public class CharacterBody3D : PhysicsBody3D
         var motion = velocity * delta;
         if (_onFloor && FloorStopOnSlope && standingStill && Vector3.Dot(intent, up) <= 0)
             motion = Vector3.Zero;
+        CollisionObject3D? floorHit = null;
         for (var slide = 0; slide < MaxSlides && motion.LengthSquared() > 1e-12f; slide++)
         {
             // Cast a margin further than the motion: anything within the margin counts as touched (floor while resting).
@@ -205,6 +212,8 @@ public class CharacterBody3D : PhysicsBody3D
                 break; // started overlapping (recovery could not separate): stay put
 
             var kind = Classify(hit.Normal, hit.Point, hit.Collider, up, ref velocity, report: true);
+            if (kind == SurfaceKind.Floor)
+                floorHit = hit.Collider;
             var remaining = direction * (length - travel);
             if (kind == SurfaceKind.Floor && FloorStopOnSlope && standingStill)
                 break; // standing still on a slope: don't slide down it
@@ -222,8 +231,13 @@ public class CharacterBody3D : PhysicsBody3D
             {
                 position += -up * Math.Clamp(hit.Fraction * snapLength - margin, 0f, FloorSnapLength);
                 Classify(hit.Normal, hit.Point, hit.Collider, up, ref velocity, report: false);
+                floorHit = hit.Collider;
             }
         }
+
+        // 4. A cast that found the floor stops a little short of it: settle onto the margin with EPA (ADR 0128).
+        if (floorHit is not null)
+            space.SettleBody(record, ref position, rotation, margin, floorHit, maxGap: 0.02f);
 
         // On the floor, vertical velocity picked up by sliding along it (walking up a slope) is dropped, so stopping on
         // a slope doesn't launch the body; a jump (upward intent) is kept.

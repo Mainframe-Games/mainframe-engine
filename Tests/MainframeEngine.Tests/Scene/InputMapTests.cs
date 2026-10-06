@@ -465,6 +465,51 @@ public sealed class InputMapTests
         Assert.Equal(0, AllocationGate.SmallestWindow(Window));
     }
 
+    [Fact]
+    public void ActionPressedByCodeInAPhysicsStepIsJustPressedInTheNextStepOnly()
+    {
+        // ADR 0129, Godot's Input.action_press: "the earliest we can react to it is the next physics tick". A press made
+        // in OnPhysicsProcess by a node earlier in the tree must not read as just pressed in the same step.
+        var tree = Tree(Map());
+        var seen = new List<bool>();
+        var step = 0;
+        tree.Root.AddChild(new PhysicsPresser(() => step++ == 1, "jump"));
+        tree.Root.AddChild(new PhysicsProbe(seen));
+
+        Tick(tree, 4f / 60f); // four physics steps: the press happens in the second
+
+        Assert.Equal([false, false, true, false], seen);
+    }
+
+    [Fact]
+    public void ATapReleasedBeforeTheNextStepIsStillJustPressed()
+    {
+        // Godot 4 (legacy_just_pressed_behavior off): pressed and released by code in one step, seen as just pressed
+        // (and just released) in the next one although no longer held (ADR 0129).
+        var tree = Tree(Map());
+        var seen = new List<bool>();
+        var step = 0;
+        tree.Root.AddChild(new PhysicsPresser(() => step++ == 0, "jump", releaseAtOnce: true));
+        tree.Root.AddChild(new PhysicsProbe(seen));
+
+        Tick(tree, 3f / 60f);
+
+        Assert.Equal([false, true, false], seen);
+        Assert.False(tree.Input.IsActionPressed("jump"));
+    }
+
+    private sealed class PhysicsPresser(Func<bool> now, string action, bool releaseAtOnce = false) : Node
+    {
+        protected override void OnPhysicsProcess(float delta)
+        {
+            if (!now())
+                return;
+            Tree!.Input.ActionPress(action);
+            if (releaseAtOnce)
+                Tree.Input.ActionRelease(action);
+        }
+    }
+
     private sealed class PhysicsProbe(List<bool> seen) : Node
     {
         protected override void OnPhysicsProcess(float delta) => seen.Add(Tree!.Input.IsActionJustPressed("jump"));

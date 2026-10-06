@@ -100,9 +100,11 @@ public sealed class InputState
         if (!TryGetState(action, out var index))
             return false;
         ref var state = ref _states[index];
-        return state.Pressed && (_tree.IsInPhysicsStep
+        // Godot 4 (legacy_just_pressed_behavior off): true even if the action was released again since (a tap shorter
+        // than a frame, or a code press released before the step that sees it; ADR 0129).
+        return _tree.IsInPhysicsStep
             ? state.PressedPhysicsFrame == _tree.PhysicsFrames
-            : state.PressedProcessFrame == _tree.ProcessFrames);
+            : state.PressedProcessFrame == _tree.ProcessFrames;
     }
 
     /// <summary>True in the frame (or first physics step) after <paramref name="action"/> was released.</summary>
@@ -111,9 +113,9 @@ public sealed class InputState
         if (!TryGetState(action, out var index))
             return false;
         ref var state = ref _states[index];
-        return !state.Pressed && (_tree.IsInPhysicsStep
+        return _tree.IsInPhysicsStep
             ? state.ReleasedPhysicsFrame == _tree.PhysicsFrames
-            : state.ReleasedProcessFrame == _tree.ProcessFrames);
+            : state.ReleasedProcessFrame == _tree.ProcessFrames;
     }
 
     /// <summary>0..1: 1 for a held key or button, the deadzone-rescaled value for axes, 0 when released or unknown.</summary>
@@ -334,15 +336,19 @@ public sealed class InputState
         if (pressed == state.Pressed)
             return;
         state.Pressed = pressed;
+        // Godot: "the earliest we can react to it is the next physics tick". The tree counts a step when it ends, so
+        // between steps the next one is PhysicsFrames; during one (a press made by code in OnPhysicsProcess) it is the
+        // one after (ADR 0129).
+        var nextPhysicsFrame = _tree.IsInPhysicsStep ? _tree.PhysicsFrames + 1 : _tree.PhysicsFrames;
         if (pressed)
         {
             state.PressedProcessFrame = _tree.ProcessFrames;
-            state.PressedPhysicsFrame = _tree.PhysicsFrames;
+            state.PressedPhysicsFrame = nextPhysicsFrame;
         }
         else
         {
             state.ReleasedProcessFrame = _tree.ProcessFrames;
-            state.ReleasedPhysicsFrame = _tree.PhysicsFrames;
+            state.ReleasedPhysicsFrame = nextPhysicsFrame;
         }
     }
 
