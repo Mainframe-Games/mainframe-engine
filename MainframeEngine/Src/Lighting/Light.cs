@@ -17,6 +17,7 @@ public abstract class Light
     private int _shadowResolution;
     private float _shadowBias = DefaultShadowBias;
     private float _shadowNormalBias = DefaultShadowNormalBias;
+    private float _shadowOpacity = 1f;
 
     private protected Light(int defaultShadowResolution)
     {
@@ -78,6 +79,17 @@ public abstract class Light
     {
         get => _shadowNormalBias;
         set => _shadowNormalBias = Math.Clamp(value, 0f, 16f);
+    }
+
+    /// <summary>
+    /// How dark the shadow is (Godot's <c>shadow_opacity</c>, ADR 0123): a fully shadowed point keeps
+    /// <c>1 - ShadowOpacity</c> of this light's direct light (diffuse and specular), so 1 (the default) is a full shadow and 0
+    /// none. Applied to directional and spot lights; point lights ignore it (their UBO entry has no free slot). Clamped to [0, 1].
+    /// </summary>
+    public float ShadowOpacity
+    {
+        get => _shadowOpacity;
+        set => _shadowOpacity = Math.Clamp(value, 0f, 1f);
     }
 
     /// <summary>The power of two nearest to <paramref name="value"/> (ties round up).</summary>

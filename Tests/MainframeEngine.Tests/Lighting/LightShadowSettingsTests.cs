@@ -18,6 +18,15 @@ public sealed class LightShadowSettingsTests
         Assert.Equal(4, sun.CascadeCount);
         Assert.Equal(0.75f, sun.CascadeSplitLambda);
         Assert.Equal(100f, sun.MaxShadowDistance);
+        Assert.Equal(1f, sun.ShadowOpacity); // Godot's default: a full shadow
+    }
+
+    [Fact]
+    public void ShadowOpacityIsClampedToTheUnitRange()
+    {
+        Assert.Equal(0f, new SpotLight { ShadowOpacity = -0.5f }.ShadowOpacity);
+        Assert.Equal(1f, new PointLight { ShadowOpacity = 3f }.ShadowOpacity);
+        Assert.Equal(0.45f, new DirectionalLight { ShadowOpacity = 0.45f }.ShadowOpacity);
     }
 
     [Fact]
@@ -59,6 +68,7 @@ public sealed class LightShadowSettingsTests
             ShadowSplitLambda = 0.5f,
             ShadowMaxDistance = 60f,
             ShadowCascadeBlend = 0.2f,
+            ShadowOpacity = 0.45f,
         };
         var spot = new SpotLight3D { Name = "Spot", ShadowResolution = 256 };
         var lamp = new OmniLight3D { Name = "Lamp" };
@@ -78,6 +88,7 @@ public sealed class LightShadowSettingsTests
         Assert.Equal(3, sunCopy.ShadowCascades);
         Assert.Equal(0.5f, sunCopy.ShadowSplitLambda);
         Assert.Equal(60f, sunCopy.ShadowMaxDistance);
+        Assert.Equal(0.45f, sunCopy.ShadowOpacity);
         Assert.Equal(0.2f, sunCopy.ShadowCascadeBlend);
         Assert.Equal(256, ((SpotLight3D)copy.GetChild(1)).ShadowResolution);
 

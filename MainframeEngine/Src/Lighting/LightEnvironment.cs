@@ -21,9 +21,9 @@ public class LightEnvironment
         MaxSpot        * SpotStride; // 1200 bytes
 
     private const int UboHeaderSize     = 48; // vec4 ambient, vec4 cameraPos, ivec4 counts
-    private const int DirectionalStride = 32; // vec4 direction+intensity, vec4 color
+    private const int DirectionalStride = 32; // vec4 direction+intensity, vec4 color+shadowOpacity
     private const int PointStride       = 32; // vec4 position+range, vec4 color+intensity
-    private const int SpotStride        = 64; // vec4 position+range, vec4 direction+intensity, vec4 color+cosInner, vec4 cosOuter
+    private const int SpotStride        = 64; // vec4 position+range, vec4 direction+intensity, vec4 color+cosInner, vec4 cosOuter+shadowOpacity
 
     private Vector3 _ambientColor;
     private Vector3 _ambientLinear;
@@ -90,6 +90,7 @@ public class LightEnvironment
             f[o + 0] = l.Direction.X; f[o + 1] = l.Direction.Y; f[o + 2] = l.Direction.Z;
             f[o + 3] = l.Intensity;
             f[o + 4] = l.LinearColor.X; f[o + 5] = l.LinearColor.Y; f[o + 6] = l.LinearColor.Z;
+            f[o + 7] = l.ShadowOpacity;
         }
 
         o = (UboHeaderSize + MaxDirectional * DirectionalStride) / sizeof(float);
@@ -113,6 +114,7 @@ public class LightEnvironment
             f[o + 8] = l.LinearColor.X; f[o + 9] = l.LinearColor.Y; f[o + 10] = l.LinearColor.Z;
             f[o + 11] = float.Cos(float.DegreesToRadians(l.InnerConeAngle));
             f[o + 12] = float.Cos(float.DegreesToRadians(l.OuterConeAngle));
+            f[o + 13] = l.ShadowOpacity;
         }
     }
 

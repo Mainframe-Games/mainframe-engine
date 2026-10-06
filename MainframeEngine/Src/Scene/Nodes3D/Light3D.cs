@@ -74,6 +74,14 @@ public abstract class Light3D : Node3D
         set => Light.ShadowNormalBias = value;
     }
 
+    /// <summary>How dark the shadow is, 0..1 (Godot's <c>shadow_opacity</c>; see <see cref="MainframeEngine.Light.ShadowOpacity"/>).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float ShadowOpacity
+    {
+        get => Light.ShadowOpacity;
+        set => Light.ShadowOpacity = value;
+    }
+
     protected override void OnEnterTree()
     {
         base.OnEnterTree();

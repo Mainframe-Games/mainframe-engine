@@ -75,7 +75,7 @@ public class LightEnvironmentTests
     public void LightsArePackedAtTheirStd140Offsets()
     {
         var env = new LightEnvironment();
-        env.AddLight(new DirectionalLight { Direction = new Vector3(0, -1, 0), Intensity = 0.5f, Color = new Vector3(1, 0.5f, 0.25f) });
+        env.AddLight(new DirectionalLight { Direction = new Vector3(0, -1, 0), Intensity = 0.5f, Color = new Vector3(1, 0.5f, 0.25f), ShadowOpacity = 0.45f });
         env.AddLight(new PointLight { Position = new Vector3(1, 2, 3), Range = 7, Color = new Vector3(0.1f, 0.2f, 0.3f), Intensity = 2 });
         env.AddLight(new SpotLight
         {
@@ -86,12 +86,13 @@ public class LightEnvironmentTests
             Color = Vector3.One,
             InnerConeAngle = 60,
             OuterConeAngle = 90,
+            ShadowOpacity = 0.25f,
         });
 
         var (f, _) = Pack(env);
 
         var dir = HeaderFloats;
-        Assert.Equal([0f, -1f, 0f, 0.5f, 1f, L(0.5f), L(0.25f), 0f], f[dir..(dir + DirFloats)]);
+        Assert.Equal([0f, -1f, 0f, 0.5f, 1f, L(0.5f), L(0.25f), 0.45f], f[dir..(dir + DirFloats)]); // w = shadow opacity
 
         var point = HeaderFloats + LightEnvironment.MaxDirectional * DirFloats;
         Assert.Equal([1f, 2f, 3f, 7f, L(0.1f), L(0.2f), L(0.3f), 2f], f[point..(point + PointFloats)]);
@@ -100,7 +101,7 @@ public class LightEnvironmentTests
         Assert.Equal([-1f, 4f, 2f, 15f, 0f, -1f, 0f, 3f, 1f, 1f, 1f], f[spot..(spot + 11)]);
         Assert.Equal(0.5f, f[spot + 11], 1e-6f); // cos(60°)
         Assert.Equal(0f, f[spot + 12], 1e-6f);   // cos(90°)
-        Assert.Equal([0f, 0f, 0f], f[(spot + 13)..(spot + 16)]);
+        Assert.Equal([0.25f, 0f, 0f], f[(spot + 13)..(spot + 16)]); // outerPad.y = shadow opacity
         Assert.Equal(LightEnvironment.UboSize / 4, spot + LightEnvironment.MaxSpot * SpotFloats);
     }
 

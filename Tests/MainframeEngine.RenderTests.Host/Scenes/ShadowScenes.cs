@@ -349,3 +349,31 @@ public sealed class ShadowShimmerScene(HostOptions host) : ShadowSceneBase(host)
         }
     }
 }
+
+/// <summary>
+/// Godot's <c>shadow_opacity</c> (ADR 0123): a box's shadow on a plain floor seen from above, the sun's
+/// <see cref="Light3D.ShadowOpacity"/> picked by <c>--count</c> (0 full shadow, the default; 1 0.45, the Driving Range
+/// sun; 2 no shadow).
+/// </summary>
+public sealed class ShadowOpacityScene(HostOptions host) : ShadowSceneBase(host)
+{
+    protected override bool HasSky => false;
+
+    protected override void Build(Node3D scene)
+    {
+        Camera.Position = new Vector3(1.2f, 4f, 0.01f);
+        Camera.LookAt(new Vector3(1.2f, 0f, 0f));
+
+        scene.AddChild(new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(20, 20) }, MaterialOverride = Plain(210, 210, 210, 0f) });
+        scene.AddChild(new MeshInstance3D
+        {
+            Name = "Box",
+            Position = new Vector3(0, 0.5f, 0),
+            Mesh = new BoxMesh(),
+            MaterialOverride = Plain(90, 140, 220),
+        });
+        var sun = Sun(new Vector3(1f, -1.5f, 0.15f));
+        sun.ShadowOpacity = Host.Count switch { 1 => 0.45f, 2 => 0f, _ => 1f };
+        scene.AddChild(sun);
+    }
+}
