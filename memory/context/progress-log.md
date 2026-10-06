@@ -484,3 +484,14 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-06 — `Node.InputBeforeUi`: Godot's `_input` before the GUI, opt-in (CSD port, ADR 0138)
 - The port's crew menu missed TAB once a menu element had focus (RmlUi took it as focus-next; the UI sees input first).
   Nodes with `InputBeforeUi` get `OnInput` before the input servers; everything else unchanged. One test; real-key check.
+
+### 2026-10-06 — GameHost allocation gate (Driving Range port V5 follow-up)
+- Driving Range's `--measure` read 40 B/frame under `GameHost`. Bisected with `GetAllocatedBytesForCurrentThread` probes
+  through `Engine.OnUpdate`/`RenderFrame`, `SceneTree.Tick`, the frame servers and per process node: every engine
+  section was 0 B (Silk loop and SDL events, real Core Audio device, file log, hidden dev overlay, render). The bytes
+  were the game's measuring node: a lambda in `DevHarness.OnProcess` captured a pattern variable, so its closure
+  (`path`, `this`, `frame`: 40 B) was allocated at method entry every frame. Fixed in the game; no engine change, no ADR.
+- New render test `GameHostSteadyStateAllocatesNothing`: the host's `gamehost` run is a real `GameHost` subclass
+  (`ProjectSettings`, default audio device + streamed loop, 240 FPS cap, SDL input, hidden dev overlay, `FileLogSink`,
+  HUD) measured over 300 frames after 120. 0 B on MoltenVK with Core Audio; a planted 40 B/frame in `GameHost.OnUpdate`
+  fails it (12 000 B / 300 frames). `RenderTestGame.DescribeDevice(IVulkanContext)` is now shared.

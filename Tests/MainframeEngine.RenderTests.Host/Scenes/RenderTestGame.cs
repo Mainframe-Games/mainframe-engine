@@ -301,11 +301,14 @@ public abstract class RenderTestGame : Engine
         "Release";
 #endif
 
-    private unsafe (string Name, string Driver, string Tag, string DeviceType) DescribeDevice()
+    private (string Name, string Driver, string Tag, string DeviceType) DescribeDevice() => DescribeDevice(Vulkan);
+
+    /// <summary>The device's name, driver, golden folder tag (<see cref="HostResult.PlatformTag"/>) and type.</summary>
+    internal static unsafe (string Name, string Driver, string Tag, string DeviceType) DescribeDevice(IVulkanContext vulkan)
     {
         var driverProps = new PhysicalDeviceDriverProperties { SType = StructureType.PhysicalDeviceDriverProperties };
         var props = new PhysicalDeviceProperties2 { SType = StructureType.PhysicalDeviceProperties2, PNext = &driverProps };
-        Vulkan.Vk.GetPhysicalDeviceProperties2(Vulkan.PhysicalDevice, &props);
+        vulkan.Vk.GetPhysicalDeviceProperties2(vulkan.PhysicalDevice, &props);
 
         var name = SilkMarshal.PtrToString((nint)props.Properties.DeviceName) ?? "unknown";
         // Silk's enum has DriverIDXxx aliases; normalise so ToString is stable.
