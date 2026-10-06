@@ -28,6 +28,7 @@ public static class AssetImporters
         Register(new ModelImporter());
         Register(new ShaderImporter());
         Register(new AudioImporter());
+        Register(new FontImporter());
     }
 
     /// <summary>Registers (or replaces) the importer for its extensions.</summary>

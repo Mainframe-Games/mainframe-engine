@@ -348,6 +348,28 @@ public abstract class CanvasItem : Node
         CanvasPrimitives.TextureRectRegion(_drawList, texture, rect, sourceRect, modulate ?? White, transpose);
     }
 
+    /// <summary>
+    /// One line of text with its baseline starting at <paramref name="position"/> (Godot's <c>draw_string</c>): aligned in
+    /// <paramref name="width"/> when it is positive.
+    /// </summary>
+    public void DrawString(Font font, Vector2 position, string text, HorizontalAlignment alignment = HorizontalAlignment.Left,
+        float width = -1f, int fontSize = 16, Vector4? modulate = null)
+    {
+        EnsureDrawing(nameof(DrawString));
+        ArgumentNullException.ThrowIfNull(font);
+        font.Draw(this, position, text, alignment, width, fontSize, 0, modulate ?? White);
+    }
+
+    /// <summary>The stroke around a line of text (Godot's <c>draw_string_outline</c>); draw the text over it.</summary>
+    public void DrawStringOutline(Font font, Vector2 position, string text, HorizontalAlignment alignment = HorizontalAlignment.Left,
+        float width = -1f, int fontSize = 16, int size = 1, Vector4? modulate = null)
+    {
+        EnsureDrawing(nameof(DrawStringOutline));
+        ArgumentNullException.ThrowIfNull(font);
+        if (size > 0)
+            font.Draw(this, position, text, alignment, width, fontSize, size, modulate ?? White);
+    }
+
     // ── Canvas registration ──────────────────────────────────────────────────────────────────────────────────
 
     protected override void OnEnterTree()

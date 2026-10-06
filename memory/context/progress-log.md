@@ -306,3 +306,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   UBO + sampler array (set 1 default / set 2 shader layouts), a light bitmask per batch (push block 112 bytes; canvas
   shaders rebuilt). `Gradient` + `GradientTexture2D` (Texture2D unsealed for generated textures). The canvas render
   scene gained a light (golden re-recorded on moltenvk). Tests: PointLight2DTests, GradientTests.
+
+### 2026-10-06 — Canvas text (port E4, ADR 0118)
+- `Font` (.ttf importer) + `CanvasItem.DrawString/DrawStringOutline`; managed `TrueTypeFont` (cmap, glyf incl.
+  composites, GPOS/kern kerning) and `GlyphRasterizer` (font-rs coverage; outlines = 4× supersampled disc growth by
+  size/4 px). Glyph atlas pages per (size, outline). Canvas render scene gained an outlined caption (golden re-recorded).
+  Tests: FontTests.
