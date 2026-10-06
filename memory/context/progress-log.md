@@ -373,6 +373,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   after `dirShadow`/`spotShadow` (directional `color.w`, spot `outerPad.y`; point lights ignore it). Defaults leave
   every golden unchanged. Tests: LightEnvironmentTests (packing), LightShadowSettingsTests (clamp, scene round trip),
   render `ShadowTests.ShadowOpacityLightensTheUmbraLikeGodot` + golden `shadow-opacity_frame0008` (moltenvk).
+
 ### 2026-10-06 — Game packaging (port E19)
 - `build/package-game.sh` / `just package-game`: self-contained Release publish per RID, apphost renamed, foreign
   natives pruned; macOS `.app` (Info.plist from project.mfproj, `.icns` via sips/iconutil, ad-hoc codesign) zipped;
