@@ -258,6 +258,7 @@ public static unsafe class RmlCore
     public static void ReleaseTextures(RmlRenderInterface? renderInterface = null)
     {
         RequireInitialised();
+        renderInterface?.OnReleasingTextures(); // preloaded images go too: the files may have changed (hot reload)
         RmlException.ThrowIfFailed(RmlNative.ReleaseTextures(renderInterface?.Handle ?? 0), "mfrmlui_release_textures");
     }
 

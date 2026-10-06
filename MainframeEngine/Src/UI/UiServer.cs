@@ -344,6 +344,22 @@ public sealed class UiServer : IFrameServer, IInputServer
 
     private Stream? OpenFile(string path) => Files.Open(path);
 
+    /// <summary>
+    /// Decodes the images a freshly loaded document shows (<c>&lt;img src&gt;</c>, hidden ones included) so their first
+    /// layout does not (ADR 0140): a menu or phone opened later shows at once instead of decoding megabytes on the main
+    /// thread. Sources set later by data bindings (<c>data-attr-src</c>) and RCSS image decorators still load on first use.
+    /// </summary>
+    internal void PreloadImages(RmlDocument document, string documentPath)
+    {
+        if (document.IsNull)
+            return;
+        foreach (var image in ((RmlElement)document).QuerySelectorAll("img"))
+        {
+            if (image.GetAttribute("src") is { Length: > 0 } src)
+                RenderInterface.PreloadTexture(RmlPaths.Join(documentPath, src));
+        }
+    }
+
     // ── Localization ─────────────────────────────────────────────────────────────────────────────────────────
 
     // RmlLocalization.OptOutMarker (U+FDD0) in UTF-8.

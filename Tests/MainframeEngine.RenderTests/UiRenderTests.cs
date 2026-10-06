@@ -35,6 +35,15 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void ImagesArePreloadedWithTheirDocument()
+    {
+        var result = HostRunner.Run("ui-preload", Output("ui-preload"), "--frames", "32", "--size", "320x240", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void ClipMasksTransformsFiltersAndGradientsMatchGolden()
     {
         var result = HostRunner.Run("ui-effects", Output("ui-effects"), "--capture", "10", "--size", "480x270", "--hidden");

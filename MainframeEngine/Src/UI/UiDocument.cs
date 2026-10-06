@@ -210,7 +210,7 @@ public class UiDocument : Node
         try
         {
             _document = string.IsNullOrEmpty(Source)
-                ? context.LoadDocumentFromMemory(_layer.Server?.Files.PrepareDocument(Rml!) ?? Rml!, $"memory/{Name}.rml")
+                ? context.LoadDocumentFromMemory(_layer.Server?.Files.PrepareDocument(Rml!) ?? Rml!, DocumentPath)
                 : context.LoadDocument(Source);
         }
         catch (RmlException e)
@@ -221,6 +221,7 @@ public class UiDocument : Node
         }
 
         _modelsChanged = false;
+        _layer.Server?.PreloadImages(_document, DocumentPath);
         ApplyPanelTitle();
         ApplyVisibility();
         RebindElements();
@@ -229,6 +230,9 @@ public class UiDocument : Node
         Loaded?.Invoke();
         return true;
     }
+
+    // The path RmlUi joins the document's image sources with: its file, or the name an in-memory document loads under.
+    private string DocumentPath => string.IsNullOrEmpty(Source) ? $"memory/{Name}.rml" : Source;
 
     /// <summary>Called after the document loads (before <see cref="Loaded"/>).</summary>
     protected virtual void OnLoaded()
@@ -258,6 +262,7 @@ public class UiDocument : Node
         {
             _document = reloaded;
             _modelsChanged = false;
+            _layer?.Server?.PreloadImages(_document, DocumentPath);
             ApplyPanelTitle();
             ApplyVisibility();
             RebindElements();

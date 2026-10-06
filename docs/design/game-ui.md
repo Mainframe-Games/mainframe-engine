@@ -179,7 +179,11 @@ flowchart LR
 - **Textures.** Images load through the UI file interface (StbImageSharp). An `src` that is an absolute path to an
   existing file (`<img src="/home/me/Game/Content/icon.png">`, `C:\…`) loads as written (the `JoinPath` callback keeps
   it instead of joining it onto the document's folder; the editor's Project Manager shows project icons this way).
-  Textures are cached by source: `RmlCore.ReleaseTextures()` drops them so a changed file is re-read. Images are
+  Textures are cached by source: `RmlCore.ReleaseTextures()` drops them so a changed file is re-read.
+  **Preloading ([ADR 0140](../../memory/decisions/0140-ui-image-preload.md)):** when a document loads, its `<img src>`
+  images (hidden ones included) are decoded and uploaded at once, keyed by the source RmlUi will request
+  (`RmlPaths.Join`), so a menu or phone shown later does not decode on the main thread; `data-attr-src` sources and
+  RCSS image decorators still load on first use. Images are
   **premultiplied on load** and get a mip chain; generated textures (font atlases) arrive premultiplied. Both are `GpuTexture`s (`R8G8B8A8_UNORM`) through
   the upload queue — created during `Process`, between frames, so nothing waits on the GPU. Untextured geometry binds a
   1×1 white texture. `engine://name` resolves to a registered `GpuTexture` or `RenderTarget` colour attachment

@@ -425,31 +425,91 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
     /// <summary>The URL scheme for engine textures and render targets (<see cref="RegisterTexture(string, GpuTexture, UiTextureConversion)"/>).</summary>
     public const string EngineScheme = "engine://";
 
+    // ADR 0140: images decoded when their document loads, by the source RmlUi will request; and the sources RmlUi holds.
+    private readonly Dictionary<string, (GpuTexture Texture, int Width, int Height)> _preloaded = new(StringComparer.Ordinal);
+    private readonly Dictionary<ulong, string> _imageSources = [];
+    private readonly HashSet<string> _loadedImages = new(StringComparer.Ordinal);
+
+    /// <summary>Preloaded images RmlUi has not asked for yet.</summary>
+    public int PendingPreloads => _preloaded.Count;
+
+    /// <summary>Images RmlUi took from the preload (<see cref="PreloadTexture"/>) since start-up.</summary>
+    public int ImagesFromPreload { get; private set; }
+
+    /// <summary>Images decoded when RmlUi first asked for them (not preloaded) since start-up.</summary>
+    public int ImagesDecodedOnDemand { get; private set; }
+
     protected override ulong LoadTexture(string source, out int width, out int height)
     {
         width = height = 0;
         if (source.StartsWith(EngineScheme, StringComparison.Ordinal))
             return LoadEngineTexture(source[EngineScheme.Length..], out width, out height);
 
+        if (_preloaded.Remove(source, out var preloaded))
+        {
+            (width, height) = (preloaded.Width, preloaded.Height);
+            ImagesFromPreload++;
+            return TrackImage(source, AddTexture(preloaded.Texture, width, height, 0));
+        }
+
+        if (CreateImageTexture(source, warn: true, out width, out height) is not { } texture)
+            return 0;
+        ImagesDecodedOnDemand++;
+        return TrackImage(source, AddTexture(texture, width, height, 0));
+    }
+
+    public override bool PreloadTexture(string source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source.Length == 0 || source.StartsWith(EngineScheme, StringComparison.Ordinal) || _loadedImages.Contains(source) ||
+            _preloaded.ContainsKey(source))
+            return false;
+        if (CreateImageTexture(source, warn: false, out var width, out var height) is not { } texture)
+            return false;
+        _preloaded[source] = (texture, width, height);
+        return true;
+    }
+
+    protected internal override void OnReleasingTextures() => DropPreloads();
+
+    private void DropPreloads()
+    {
+        foreach (var (texture, _, _) in _preloaded.Values)
+            texture.Dispose(); // deletion queue
+        _preloaded.Clear();
+    }
+
+    private ulong TrackImage(string source, ulong handle)
+    {
+        if (handle != 0)
+        {
+            _imageSources[handle] = source;
+            _loadedImages.Add(source);
+        }
+
+        return handle;
+    }
+
+    // Decodes an image file (premultiplied, with mips) into a texture; null when it is missing or cannot be decoded.
+    private GpuTexture? CreateImageTexture(string source, bool warn, out int width, out int height)
+    {
+        width = height = 0;
         using var stream = _openFile(source);
         if (stream is null)
         {
-            Log.Warning($"[UI] Image '{source}' not found.");
-            return 0;
+            if (warn)
+                Log.Warning($"[UI] Image '{source}' not found.");
+            return null;
         }
 
         if (DecodeImage(stream, source) is not { } decoded)
-        {
-            width = height = 0;
-            return 0;
-        }
+            return null;
 
         var (data, w, h) = decoded;
         (width, height) = (w, h);
         Premultiply(data);
-        var texture = GpuTexture.Create2D(_ctx, (uint)width, (uint)height, data, TextureColorSpace.Linear,
+        return GpuTexture.Create2D(_ctx, (uint)width, (uint)height, data, TextureColorSpace.Linear,
             TextureSampling.LinearClamp, generateMips: true);
-        return AddTexture(texture, width, height, 0);
     }
 
     /// <summary>
@@ -499,5 +559,10 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
         return AddTexture(texture, width, height, 0);
     }
 
-    protected override void ReleaseTexture(ulong texture) => FreeTexture(texture);
+    protected override void ReleaseTexture(ulong texture)
+    {
+        if (_imageSources.Remove(texture, out var source))
+            _loadedImages.Remove(source);
+        FreeTexture(texture);
+    }
 }
