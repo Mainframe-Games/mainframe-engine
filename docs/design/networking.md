@@ -161,6 +161,10 @@ mp.ConnectedToServer += () => Log.Info($"joined as {mp.LocalPeerId}");
   has replicated members or RPCs, including nodes of nested scene instances) get consecutive network ids in
   depth-first tree order, which the client recomputes from the same scene. `parent` is a networked node, or a node at
   the same absolute path on clients (e.g. the level both load).
+- **Bind** (`Bind(node)`, server only; or a `MultiplayerSynchronizer` child, Godot's name, which binds its `RootPath`
+  when the server starts): networks a node of a scene every peer loads (a level's game-state node). It is sent like a
+  spawn with scene index −1; clients bind their own node at the same parent path and name, so the scene must be loaded
+  before the server's message arrives. A synchronizer inside a spawned scene does nothing (its root is already networked).
 - **Despawn:** free the node (`QueueFree`/`Free`, or `MultiplayerApi.Despawn`). At the end of the frame the server
   sends one despawn for a root (its descendants go with it) or for a freed descendant; a node removed and re-added in
   the same frame stays networked. Clients free their copies. Spawned and freed in the same frame: nothing is sent.

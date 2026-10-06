@@ -320,7 +320,20 @@ public sealed partial class MultiplayerApi : IFrameServer
         _tick = 1;
         _tickAccumulator = 0;
         Log.Info($"[Net] multiplayer server started ({TickRate} Hz, {_sceneUids.Count} spawnable scenes)");
+        foreach (var synchronizer in _synchronizers.ToArray())
+            synchronizer.BindIfServer();
     }
+
+    private readonly List<MultiplayerSynchronizer> _synchronizers = [];
+
+    // MultiplayerSynchronizer nodes in the tree: bound when the server starts (or at once if it is running).
+    internal void AddSynchronizer(MultiplayerSynchronizer synchronizer)
+    {
+        if (!_synchronizers.Contains(synchronizer))
+            _synchronizers.Add(synchronizer);
+    }
+
+    internal void RemoveSynchronizer(MultiplayerSynchronizer synchronizer) => _synchronizers.Remove(synchronizer);
 
     /// <summary>Starts a client on <paramref name="transport"/> (a connecting transport, e.g. <see cref="EnetTransport.Connect"/> with <see cref="MessageRegistry.Fingerprint"/>). Owns it.</summary>
     public void StartClient(ITransport transport)

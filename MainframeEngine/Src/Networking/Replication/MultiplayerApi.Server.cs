@@ -98,6 +98,30 @@ public sealed partial class MultiplayerApi
         return root;
     }
 
+    /// <summary>The spawn message's scene index for a <see cref="Bind"/>: the node already exists on every peer.</summary>
+    internal const int BoundSceneIndex = -1;
+
+    /// <summary>
+    /// Server: networks a node that every peer already has at the same path (a node of the loaded scene — Godot's
+    /// <c>MultiplayerSynchronizer</c> on a scene node). It and its networked descendants get ids as a spawn would, and
+    /// clients bind their own node at that path instead of instantiating one; late joiners get it like any spawn. Freeing
+    /// it despawns it (clients free theirs). A node that is already networked is left alone.
+    /// </summary>
+    public void Bind(Node root, PeerId authority = default)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        ThrowIfDisposed();
+        if (Mode != MultiplayerMode.Server)
+            throw new InvalidOperationException("Only a running server can bind scene nodes.");
+        if (root.NetworkEntity is not null)
+            return;
+        if (!ReferenceEquals(root.Tree, _tree) || root.Parent is not { } parent)
+            throw new ArgumentException("The node must be inside this multiplayer API's tree, below the root.", nameof(root));
+        ValidateAuthority(authority);
+        RegisterSpawn(root, BoundSceneIndex, parent, authority);
+        _stats.Spawns++;
+    }
+
     /// <summary>Server: <see cref="Spawn"/> and cast the root.</summary>
     public T Spawn<T>(PackedScene scene, Node? parent = null, PeerId authority = default) where T : Node
     {

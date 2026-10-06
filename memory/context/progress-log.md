@@ -277,3 +277,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `CharacterBody2D.MotionMode` Grounded/Floating + `WallMinSlideAngleDegrees` (15°): Godot's `_move_and_slide_floating`
   (move_and_collide per iteration with recovery as collision, every hit a wall, first slide keeps the remaining length,
   velocity untouched). Test: FloatingCharacterSlidesAlongWallsKeepsItsVelocityAndStopsHeadOn.
+
+### 2026-10-06 — Scene-node replication: MultiplayerApi.Bind + MultiplayerSynchronizer (port E13)
+- `MultiplayerApi.Bind(node)` (server) networks a node every peer already has (scene index −1 in the spawn message;
+  clients resolve parent path + name instead of instantiating; late joiners and despawn as for spawns).
+  `MultiplayerSynchronizer` (Godot's name, `RootPath`) binds its root when the server starts or at once; inside a spawned
+  scene it does nothing. Tests: BindTests.
