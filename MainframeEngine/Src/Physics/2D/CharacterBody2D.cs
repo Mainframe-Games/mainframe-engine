@@ -12,6 +12,16 @@ public readonly record struct KinematicCollision2D(Vector2 Position, Vector2 Nor
     public float GetAngle(Vector2 up) => MathF.Acos(Math.Clamp(Vector2.Dot(Normal, Vector2.Normalize(up)), -1f, 1f));
 }
 
+/// <summary>How <see cref="CharacterBody2D.MoveAndSlide"/> treats surfaces (Godot's <c>motion_mode</c>).</summary>
+public enum CharacterMotionMode2D : byte
+{
+    /// <summary>Floors, walls and ceilings against <see cref="CharacterBody2D.UpDirection"/> (side-on games).</summary>
+    Grounded,
+
+    /// <summary>Every surface is a wall and velocity is kept (top-down games): Godot's <c>_move_and_slide_floating</c>.</summary>
+    Floating,
+}
+
 /// <summary>
 /// A 2D body moved by code with collision response (Godot's <c>CharacterBody2D</c>), in pixels. The same
 /// <see cref="MoveAndSlide"/> algorithm as <see cref="CharacterBody3D"/>: recover to <see cref="SafeMargin"/>, sweep and
@@ -32,6 +42,14 @@ public class CharacterBody2D : PhysicsBody2D
     private Vector2 _floorNormal, _wallNormal;
     private Vector2 _lastMotion;
     private Vector2 _realVelocity;
+
+    /// <summary>Grounded (default) or floating, as Godot's <c>motion_mode</c>.</summary>
+    [Export]
+    public CharacterMotionMode2D MotionMode { get; set; }
+
+    /// <summary>Floating mode: hits closer than this to head-on stop the motion instead of sliding (Godot's 15°).</summary>
+    [Export(Range = "0,180,0.1")]
+    public float WallMinSlideAngleDegrees { get; set; } = 15f;
 
     /// <summary>Velocity in px/s used (and updated) by <see cref="MoveAndSlide"/>.</summary>
     [Export]
@@ -137,6 +155,8 @@ public class CharacterBody2D : PhysicsBody2D
             return false;
 
         var delta = 1f / tree.PhysicsTicksPerSecond;
+        if (MotionMode == CharacterMotionMode2D.Floating)
+            return MoveAndSlideFloating(record, delta);
         var wasOnFloor = _onFloor;
         _onFloor = _onWall = _onCeiling = false;
         _floorNormal = _wallNormal = Vector2.Zero;
@@ -207,6 +227,98 @@ public class CharacterBody2D : PhysicsBody2D
             velocity -= up * Vector2.Dot(velocity, up);
 
         Velocity = velocity;
+        _lastMotion = position - start;
+        _realVelocity = _lastMotion / delta;
+        if (_lastMotion != Vector2.Zero)
+            GlobalPosition = position;
+        return _collisionCount > 0;
+    }
+
+    // Godot's _move_and_slide_floating: each iteration is a move_and_collide (recovery counts as a collision), every hit
+    // is a wall, the first slide keeps the motion's remaining length, velocity itself is never changed.
+    private bool MoveAndSlideFloating(BodyRecord2D record, float delta)
+    {
+        const float AngleThreshold = 0.01f;
+        _onFloor = _onWall = _onCeiling = false;
+        _floorNormal = _wallNormal = Vector2.Zero;
+        _collisionCount = 0;
+        var space = record.Space;
+        var global = GlobalTransform;
+        var start = global.Origin;
+        var rotation = global.Rotation;
+        var position = start;
+        var margin = SafeMargin;
+        var velocity = Velocity;
+        var motion = velocity * delta;
+        var minSlide = float.DegreesToRadians(WallMinSlideAngleDegrees);
+        var contacts = _recoveryContacts.AsSpan();
+        var firstSlide = true;
+        for (var iteration = 0; iteration < MaxSlides; iteration++)
+        {
+            var collided = false;
+            var normal = Vector2.Zero;
+            var point = position;
+            CollisionObject2D? collider = null;
+            var found = space.RecoverBody(record, ref position, rotation, margin, contacts, out _);
+            if (found > 0)
+            {
+                collided = true;
+                (normal, point, collider) = (contacts[0].Normal, contacts[0].Point, contacts[0].Collider);
+            }
+
+            var length = motion.Length();
+            var travel = Vector2.Zero;
+            if (length > 1e-8f)
+            {
+                var direction = motion / length;
+                if (space.CastBody(record, position, rotation, direction * (length + margin), out var hit) && hit.Normal != Vector2.Zero)
+                {
+                    travel = direction * Math.Clamp(hit.Fraction * (length + margin) - margin, 0f, length);
+                    collided = true;
+                    (normal, point, collider) = (hit.Normal, hit.Point, hit.Collider);
+                }
+                else
+                {
+                    travel = motion;
+                }
+            }
+
+            position += travel;
+            if (collided)
+            {
+                _onWall = true;
+                _wallNormal = normal;
+                if (collider is not null && _collisionCount < MaxReportedCollisions)
+                    _collisions[_collisionCount++] = new KinematicCollision2D(point, normal, collider);
+                var remainder = motion - travel;
+                if (remainder.LengthSquared() < 1e-10f)
+                {
+                    motion = Vector2.Zero;
+                    break;
+                }
+
+                var head = velocity.LengthSquared() > 0 ? Vector2.Normalize(-velocity) : Vector2.Zero;
+                if (minSlide != 0 && MathF.Acos(Math.Clamp(Vector2.Dot(normal, head), -1f, 1f)) < minSlide + AngleThreshold)
+                    motion = Vector2.Zero;
+                else if (firstSlide)
+                {
+                    var slide = remainder - normal * Vector2.Dot(remainder, normal);
+                    motion = slide.LengthSquared() > 0 ? Vector2.Normalize(slide) * (motion.Length() - travel.Length()) : Vector2.Zero;
+                }
+                else
+                {
+                    motion = remainder - normal * Vector2.Dot(remainder, normal);
+                }
+
+                if (Vector2.Dot(motion, velocity) <= 0)
+                    motion = Vector2.Zero;
+            }
+
+            if (!collided || motion.LengthSquared() < 1e-10f)
+                break;
+            firstSlide = false;
+        }
+
         _lastMotion = position - start;
         _realVelocity = _lastMotion / delta;
         if (_lastMotion != Vector2.Zero)

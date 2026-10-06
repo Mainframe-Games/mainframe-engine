@@ -92,3 +92,14 @@ internal sealed class WalkerCharacter2D : CharacterBody2D
         MoveAndSlide();
     }
 }
+
+internal sealed class FloaterCharacter2D : CharacterBody2D
+{
+    public Vector2 Walk { get; set; }
+
+    protected override void OnPhysicsProcess(float delta)
+    {
+        Velocity = Walk;
+        MoveAndSlide();
+    }
+}
