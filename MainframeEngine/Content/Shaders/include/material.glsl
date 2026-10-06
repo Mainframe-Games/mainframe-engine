@@ -17,7 +17,8 @@ layout(set = MATERIAL_SET, binding = 0) uniform MaterialParams {
     vec4  emission;    // linear rgb × energy
     vec4  uvTransform; // xy = scale, zw = offset
     vec4  params;      // x = specular, y = shininess, z = alpha cutoff, w = normal scale
-    uvec4 flags;       // x = texture bits (1 albedo, 2 normal, 4 emission), y = 1 unshaded, z = 1 double-sided
+    uvec4 flags;       // x = texture bits (1 albedo, 2 normal, 4 emission), y = 1 unshaded, z = 1 double-sided,
+                       // w = outline width in pixels (float bits; OutlineMaterial3D)
 } material;
 
 layout(set = MATERIAL_SET, binding = 1) uniform sampler materialSampler;

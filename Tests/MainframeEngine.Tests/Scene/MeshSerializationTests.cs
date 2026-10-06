@@ -54,6 +54,24 @@ public sealed class MeshSerializationTests : IDisposable
     }
 
     [Fact]
+    public void OverlaysNextPassesAndOutlinesRoundTrip()
+    {
+        var root = new Node3D { Name = "Root" };
+        var outline = new OutlineMaterial3D { Color = Color.FromArgb(255, 250, 10, 20), Width = 7f };
+        var highlight = new StandardMaterial3D { Transparency = AlphaMode.Blend, NextPass = outline };
+        Own(root, new MeshInstance3D { Name = "A", Mesh = new BoxMesh(), MaterialOverlay = highlight });
+        Own(root, new MeshInstance3D { Name = "B", Mesh = new BoxMesh(), MaterialOverlay = highlight });
+
+        var loaded = RoundTrip(root);
+        var a = loaded.GetNode<MeshInstance3D>("A");
+        Assert.Same(a.MaterialOverlay, loaded.GetNode<MeshInstance3D>("B").MaterialOverlay);
+        var next = Assert.IsType<OutlineMaterial3D>(a.MaterialOverlay!.NextPass);
+        Assert.Equal(7f, next.Width);
+        Assert.Equal(Color.FromArgb(255, 250, 10, 20).ToArgb(), next.Color.ToArgb());
+        Assert.Null(next.NextPass);
+    }
+
+    [Fact]
     public void MeshInstancesWithPrimitivesAndMaterialsRoundTrip()
     {
         var root = new Node3D { Name = "Root" };

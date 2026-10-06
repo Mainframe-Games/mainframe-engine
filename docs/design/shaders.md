@@ -70,6 +70,7 @@ when they take shadows) and the push range, so they are compatible. Every frame 
 | `Mesh/Mesh.vk.vert` | `MeshRenderer` (all mesh pipelines) | 0 `vec3 pos`, 1 `vec3 normal`, 2 `vec2 uv`; instance 3–6 model rows, 7 `uint objectId` | s0 frame | — |
 | `Mesh/Mesh.vk.frag` | `MeshRenderer` (`MeshLit`) | world pos, normal, uv, id | s0 frame + lights · s1 shadows · s2 material | — ; specialization 0 `kAlphaMode` |
 | `Mesh/MeshId.vk.frag` | `MeshRenderer` (`MeshObjectId`) | same | s2 material (cutout) | — ; specialization 0 `kAlphaMode`; writes `uint` |
+| `Mesh/MeshOutline.vk.vert` | `MeshRenderer` (`MeshOutline`) | same as `Mesh.vk.vert` | s0 frame · s2 b0 material (`flags.w` = outline width bits; the binding is visible to the vertex stage) | — |
 | `Shadows/Shadow2DInstanced.vk.vert`, `ShadowPointInstanced.vk.vert` | `ShadowSystem` (instanced casters) | 0 `vec3`; instance 1–4 model rows | s0 b0 `LightVP` (dynamic offset) | point: `lightPosRange` at offset 64 |
 | `Spine/SpineLit.vk.vert` | `SpineRenderer` | 0 `vec3`, 1 `vec2`, 2 `vec4` | s0 frame | `mat4 model; vec4 worldNormal` |
 | `Spine/SpineLit.vk.frag` | same | uv, tint, world pos, normal | s0 frame + lights · s1 shadows · s2 b0 `sampler2D` | — ; specialization 0 `kPremultipliedTexture` |

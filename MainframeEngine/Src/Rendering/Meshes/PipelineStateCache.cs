@@ -10,6 +10,9 @@ public enum ShaderSetId : byte
 
     /// <summary><c>Mesh/Mesh.vk.vert</c> + <c>Mesh/MeshId.vk.frag</c>: object ids into an <c>R32_UINT</c> target.</summary>
     MeshObjectId,
+
+    /// <summary><c>Mesh/MeshOutline.vk.vert</c> + <c>Mesh/Mesh.vk.frag</c>: <see cref="OutlineMaterial3D"/> (inverted hull).</summary>
+    MeshOutline,
 }
 
 /// <summary>
@@ -24,6 +27,7 @@ public enum ShaderSetId : byte
 /// <param name="Mirrored">Front faces are clockwise (instances with a negative-determinant transform).</param>
 /// <param name="DepthWrite">Depth writes (off for blended surfaces).</param>
 /// <param name="RenderPass">The render pass (or a compatible one) the pipeline is used in.</param>
+/// <param name="ExtraPass">A next pass or overlay draw: depth test less-or-equal, so it lands on the surface drawn before.</param>
 public readonly record struct PipelineKey(
     ShaderSetId Shaders,
     VertexLayoutId VertexLayout,
@@ -31,14 +35,16 @@ public readonly record struct PipelineKey(
     CullMode Cull,
     bool Mirrored,
     bool DepthWrite,
-    ulong RenderPass)
+    ulong RenderPass,
+    bool ExtraPass = false)
 {
     /// <summary>
     /// The key for drawing a material's surfaces with <paramref name="shaders"/> into <paramref name="renderPass"/>.
     /// The object-ID shaders never blend (integer target) and always write depth, so blended materials share the
     /// opaque ID pipeline.
     /// </summary>
-    public static PipelineKey ForMaterial(ShaderSetId shaders, in MaterialRenderState state, bool mirrored, RenderPass renderPass)
+    public static PipelineKey ForMaterial(ShaderSetId shaders, in MaterialRenderState state, bool mirrored, RenderPass renderPass,
+        bool extraPass = false)
     {
         var alpha = state.Alpha;
         var depthWrite = state.DepthWrite;
@@ -49,7 +55,8 @@ public readonly record struct PipelineKey(
             depthWrite = true;
         }
 
-        return new PipelineKey(shaders, VertexLayoutId.MeshInstanced, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle);
+        return new PipelineKey(shaders, VertexLayoutId.MeshInstanced, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle,
+            extraPass);
     }
 }
 

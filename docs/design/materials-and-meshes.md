@@ -101,7 +101,22 @@ Each property setter bumps `Material.Version`. On the next frame the renderer:
 - re-resolves the pipelines if `RenderState` changed.
 
 `StandardMaterial3D.Default` (white, lit, opaque) is used when a surface has no material. Other `Material`
-subclasses are not supported by the renderer yet: they draw with the default material and log a warning once.
+subclasses (apart from `OutlineMaterial3D`, below) are not supported by the renderer yet: they draw with the default
+material and log a warning once.
+
+### Next passes and OutlineMaterial3D (ADR 0132)
+
+- **`Material.NextPass`** (Godot's `next_pass`): a material drawn after this one over the same surfaces. Chains are
+  followed for up to `Material.MaxPassChain` (8) materials, so a cycle stops there. Changing any `NextPass` bumps
+  `Material.ChainGeneration`, which makes nodes re-resolve their chains.
+- **`OutlineMaterial3D`**: Godot's common inverted-hull outline shader as a built-in material.
+  - Properties: `Color` (sRGB) and `Width` (render-target pixels).
+  - Front faces are culled and it is unshaded and blended, like the Godot shader, which writes `ALPHA`. It casts no
+    shadow.
+  - `Mesh/MeshOutline.vk.vert` pushes each vertex along its clip-space normal by `Width` pixels, using Godot's
+    formula (the model-view 3×3, not the normal matrix). The surface drawn before it hides everything but the rim.
+  - Hard-edged meshes show gaps at their corners: each face's vertices move along that face's own normal. Godot's
+    shader does the same.
 
 ### Texture2D
 
@@ -124,7 +139,7 @@ persist, as references.
 
 | Node | Draws | Notes |
 |---|---|---|
-| `GeometryInstance3D` | — | Base: `MaterialOverride` (all surfaces), batched by the server (never calls `Draw`), `ObjectId` = `NodeId` |
+| `GeometryInstance3D` | — | Base: `MaterialOverride` (all surfaces), `MaterialOverlay` (drawn over every surface, with its next passes), batched by the server (never calls `Draw`), `ObjectId` = `NodeId` |
 | `MeshInstance3D` | `Mesh` | Primitives, imported models, procedural meshes |
 | `Sprite3D` | a `QuadMesh` sized `Texture` px × `PixelSize` | `Modulate`, `Shaded` (default unshaded), `DoubleSided` (default true), `AlphaCut` (`Disabled` = blend, `Discard` = cutout), `Offset`. Billboarding is not supported yet |
 
@@ -134,8 +149,18 @@ then `StandardMaterial3D.Default`.
 GPU references are resolved when the node is first drawn, and again when the following change:
 
 - its mesh object, or the mesh's upload generation;
-- its override;
+- its override or overlay;
+- any material's next pass (`Material.ChainGeneration`);
 - a subclass stamp (Sprite3D).
+
+**Extra passes** (`GeometryInstance3D.GpuExtraPasses`) are resolved with the materials:
+
+1. each surface material's next-pass chain;
+2. then the overlay and its chain, over every surface.
+
+An extra pass becomes a draw item in the opaque or transparent list, chosen by its own material's state. Its pipeline
+tests depth less-or-equal, so it lands exactly on the surface drawn before it. Extra passes cast no shadow, and the
+object-ID pass skips them.
 
 The references are released when the node is freed, or at server shutdown.
 
@@ -204,12 +229,16 @@ culling and `gl_FrontFacing` right under negative scale.
 
 `GetOrCreate` creates a pipeline on the first request through the persisted `VkPipelineCache`. Each pipeline gets
 a dense id for the sort keys, and the pipelines live until disposal. Lookups don't allocate. Each `MaterialGpu`
-caches its four entries ([lit, id] × [normal, mirrored]), so steady-state frames don't even hash.
+caches its twelve entries (the 3 shader sets × [surface, extra pass] × [normal, mirrored]), so steady-state frames
+don't even hash.
+
+`PipelineKey.ExtraPass` marks next-pass and overlay pipelines, whose depth compare is less-or-equal instead of less.
 
 | Shader set | Shaders | Render pass |
 |---|---|---|
 | `MeshLit` | `Mesh/Mesh.vk.vert` + `Mesh/Mesh.vk.frag` (alpha mode = specialization constant 0) | the scene pass; offscreen HDR targets are render-pass compatible |
 | `MeshObjectId` | `Mesh/Mesh.vk.vert` + `Mesh/MeshId.vk.frag` | a prototype of the object-ID target pass (all ID targets are compatible) |
+| `MeshOutline` | `Mesh/MeshOutline.vk.vert` + `Mesh/Mesh.vk.frag` (`OutlineMaterial3D` in colour passes) | the scene pass |
 
 ### Descriptor sets
 
@@ -335,7 +364,7 @@ Measured on an Apple M5 with MoltenVK:
 - Blended surfaces cast no shadow (cutout materials cast alpha-tested shadows since M4).
 - No PBR, skinning, morph targets, LODs or GPU-driven culling (shadow casters are culled per pass on the CPU).
 - `Sprite3D` has no billboard mode.
-- Only `StandardMaterial3D` is rendered. Custom shaders and material types come later.
+- Only `StandardMaterial3D` and `OutlineMaterial3D` are rendered. Custom shaders and other material types come later.
 - Spine, the grid and the sky do not appear in the object-ID pass.
 - Each `Sprite3D` owns its quad mesh and material, so sprites are not batched together. To batch many, share a
   `MeshInstance3D` with a `QuadMesh` and one material.

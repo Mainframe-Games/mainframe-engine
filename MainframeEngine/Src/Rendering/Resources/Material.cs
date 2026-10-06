@@ -62,6 +62,31 @@ public abstract class Material : Resource
         }
     }
 
+    /// <summary>
+    /// A material drawn after this one over the same surfaces (Godot's <c>next_pass</c>), for example an
+    /// <see cref="OutlineMaterial3D"/>. Chains are followed up to <see cref="MaxPassChain"/> materials; a cycle stops there.
+    /// </summary>
+    [Export]
+    public Material? NextPass
+    {
+        get;
+        set
+        {
+            if (ReferenceEquals(field, value)) return;
+            field = value;
+            Interlocked.Increment(ref _chainGeneration);
+            Touch();
+        }
+    }
+
+    /// <summary>The most materials one surface draws through <see cref="NextPass"/> links (a cycle stops here).</summary>
+    public const int MaxPassChain = 8;
+
+    private static int _chainGeneration;
+
+    /// <summary>Bumped whenever any material's <see cref="NextPass"/> changes (the renderer re-resolves its chains).</summary>
+    internal static int ChainGeneration => Volatile.Read(ref _chainGeneration);
+
     /// <summary>The fixed-function state the material needs (blending, culling, depth writes).</summary>
     public abstract MaterialRenderState RenderState { get; }
 
@@ -311,4 +336,43 @@ public sealed class StandardMaterial3D : Material
     }
 
     public override MaterialRenderState RenderState => new(Transparency, CullMode, DoubleSided);
+}
+
+/// <summary>
+/// An inverted-hull outline (Godot's common <c>cull_front, unshaded</c> outline shader as a built-in material): each
+/// vertex is pushed along its clip-space normal by <see cref="Width"/> pixels and only back faces are drawn, so the
+/// surface it is drawn over hides all but a rim of constant screen width. Unshaded, blended like the Godot shader
+/// (which writes <c>ALPHA</c>), no shadows. Use it as a <see cref="Material.NextPass"/> or a
+/// <see cref="GeometryInstance3D.MaterialOverlay"/>.
+/// </summary>
+[EditorIcon("palette")]
+public sealed class OutlineMaterial3D : Material
+{
+    /// <summary>The outline colour (sRGB; alpha below 1 blends).</summary>
+    [Export]
+    public Color Color
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = Color.White;
+
+    /// <summary>Outline width in pixels of the render target.</summary>
+    [Export(Range = "0,64,0.1")]
+    public float Width
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 1f;
+
+    public override MaterialRenderState RenderState => new(AlphaMode.Blend, CullMode.Front, false);
 }
