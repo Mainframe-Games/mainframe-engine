@@ -74,9 +74,12 @@ public sealed class ProjectCreationIntegrationTests(ITestOutputHelper output) : 
         Assert.Equal(Path.Combine(project, "CreatedGame", "CreatedGame.csproj"), library);
 
         // The same build Play runs; warnings are errors, as for the template smoke test, which also uses the committed
-        // SPIR-V (CompileShaders=false): without glslc (CI runners) the shader step would warn and fail the build.
+        // SPIR-V (CompileShaders=false): without glslc (CI runners) the shader step would warn and fail the build. A fresh
+        // handshake salt makes MSBuild start new worker nodes (a cold editor's first Play), which inherit the output and
+        // outlive the build.
         var stopwatch = Stopwatch.StartNew();
         var build = await ProcessRunner.RunAsync(sdk.DotnetPath!, ["build", solution!, "-warnaserror", "-nologo", "-p:CompileShaders=false"], workingDirectory: project,
+            environment: new Dictionary<string, string?> { ["MSBUILDNODEHANDSHAKESALT"] = Guid.NewGuid().ToString("N") },
             timeout: BuildTimeout, cancellationToken: ct);
         output.WriteLine($"build: {Seconds(stopwatch.Elapsed)} (exit {build.ExitCode})");
         Assert.True(build.Succeeded, string.Join('\n', build.Output.TakeLast(40)));
