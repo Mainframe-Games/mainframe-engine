@@ -323,3 +323,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   + `Input.ParseInputEvent`; `SceneTree.Window` (`IWindowControl`: title, fullscreen, size, position, screen bounds) and
   `CloseRequested` (user close only); `SceneTree.ProcessSeconds/PhysicsProcessSeconds`. Tests: SceneTreeTests,
   InputMapTests.
+
+### 2026-10-06 — SVG images in the game UI (port G8)
+- `VulkanUiRenderer.DecodeImage`: `.svg` sources rasterised by ThorVG at their own size with the import's alpha-edge fix
+  (ADR 0112), others through StbImageSharp; the game's hotbar and forecast icons are SVG. Test: SvgTests.

@@ -69,4 +69,20 @@ public sealed class Texture2DPixelsTests
         Assert.Equal([5, 6, 7, 8], texture.DecodePixels().Rgba);
         Assert.Throws<ArgumentException>(() => texture.SetPixels([1, 2]));
     }
+
+    [Fact]
+    public void UiImagesDecodeSvgThroughThorVgAndRejectGarbage()
+    {
+        var svg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="4" height="2" viewBox="0 0 4 2">
+              <rect width="4" height="2" fill="#ff0000"/>
+            </svg>
+            """u8.ToArray();
+        var decoded = VulkanUiRenderer.DecodeImage(new MemoryStream(svg), "icons/thing.svg");
+        Assert.NotNull(decoded);
+        var (rgba, width, height) = decoded.Value;
+        Assert.Equal((4, 2), (width, height));
+        Assert.Equal(new byte[] { 255, 0, 0, 255 }, rgba[..4]);
+        Assert.Null(VulkanUiRenderer.DecodeImage(new MemoryStream([1, 2, 3]), "broken.png"));
+    }
 }
