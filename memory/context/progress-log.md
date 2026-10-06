@@ -288,3 +288,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `MultiplayerApi.Spawn(scene, parent, authority, configure)` / `Spawn<T>(…, configure)`: the callback runs before the
   instance enters the tree (Godot's spawn function), so `OnReady` sees the spawn data. `SendToServer<T>` sends a game
   message from a client (the server's transport peer is private). Tests: SpawnConfigureTests, SendToServerTests.
+
+### 2026-10-06 — Tween (port E10)
+- `Tween` + Property/Interval/Callback/Method tweeners, a port of Godot 4.7's `Tween::step` and easing_equations.h;
+  `Node.CreateTween` (bound) / `SceneTree.CreateTween`, stepped after timers. Tests: TweenTests.

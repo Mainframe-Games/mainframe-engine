@@ -215,6 +215,15 @@ and the backlog beyond `MaxPhysicsStepsPerFrame`), as Godot does, so a stall rea
 - `SceneTree.ChangeScene(Node | PackedScene)` / `ChangeSceneToFile(pathOrUid)` replace `CurrentScene`
   (deferred to the end of the frame during a tick). `Shutdown()` frees everything.
 
+### Tweens
+
+`Node.CreateTween()` (bound: pauses with the node, dies when it is freed) or `SceneTree.CreateTween()` returns a
+`Tween`, a port of Godot 4.7's: `TweenProperty(target, "modulate:a", value, seconds)` (Godot property paths;
+snake_case → the C# property, `:x/:y/:z/:w`, `:r/:g/:b/:a` components), `TweenInterval`, `TweenCallback`, `TweenMethod`;
+`SetParallel`/`Parallel`/`Chain`, `SetLoops`, `SetSpeedScale`, `SetTrans`/`SetEase` (Godot's easing equations, default
+Linear / InOut), `From`, `AsRelative`, `SetDelay`, `Finished`. The tree steps tweens after timers (process or physics,
+`SetProcessMode`), leftover time carried into the next step as Godot does.
+
 ## Signals
 
 Signals are plain C# events marked `[Signal]`, so code connects with `+=` as usual. The source generator

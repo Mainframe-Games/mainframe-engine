@@ -97,6 +97,10 @@ public partial class Node
     /// <summary>True if the node would run process callbacks this frame (inside a tree, not blocked by pause).</summary>
     public bool CanProcess() => _tree is not null && CanProcess(_tree.Paused);
 
+    /// <summary>A new <see cref="Tween"/> bound to this node (Godot's <c>create_tween</c>): it pauses with the node and dies with it.</summary>
+    public Tween CreateTween() =>
+        (_tree ?? throw new InvalidOperationException($"'{Name}' must be inside the tree to create a tween.")).CreateTween().BindNode(this);
+
     internal bool CanProcess(bool paused) => (ProcessMode)_resolvedProcessMode switch
     {
         ProcessMode.Pausable => !paused,

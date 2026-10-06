@@ -355,6 +355,7 @@ public sealed partial class SceneTree
         }
 
         UpdateTimers(delta, physics: true);
+        UpdateTweens(delta, physics: true);
 
         if (!paused && !editMode)
             foreach (var server in Servers.FixedStepServers)
@@ -377,6 +378,7 @@ public sealed partial class SceneTree
         }
 
         UpdateTimers(gameTime.DeltaTime, physics: false);
+        UpdateTweens(gameTime.DeltaTime, physics: false);
     }
 
     /// <summary>
@@ -606,6 +608,37 @@ public sealed partial class SceneTree
     /// A one-shot timer owned by the tree (Godot's <c>create_timer</c>): <see cref="SceneTreeTimer.Timeout"/>
     /// fires after <paramref name="seconds"/>. Paused with the tree unless <paramref name="processAlways"/>.
     /// </summary>
+    private readonly List<Tween> _tweens = [];
+    private readonly List<Tween> _tweensStepping = [];
+
+    /// <summary>Tweens alive in this tree (tests, diagnostics).</summary>
+    public int TweenCount => _tweens.Count;
+
+    /// <summary>A new <see cref="Tween"/> stepped by this tree (Godot's <c>SceneTree.create_tween</c>; unbound).</summary>
+    public Tween CreateTween()
+    {
+        var tween = new Tween(this);
+        _tweens.Add(tween);
+        return tween;
+    }
+
+    // Godot's SceneTree::process_tweens: after timers, in creation order; finished or killed tweens leave the list.
+    private void UpdateTweens(float delta, bool physics)
+    {
+        if (_tweens.Count == 0)
+            return;
+        _tweensStepping.Clear();
+        _tweensStepping.AddRange(_tweens);
+        var mode = physics ? Tween.TweenProcessMode.Physics : Tween.TweenProcessMode.Idle;
+        foreach (var tween in _tweensStepping)
+        {
+            if (tween.ProcessMode != mode || (tween.IsValid() && !tween.CanProcess(Paused)))
+                continue;
+            if (!tween.Step(delta))
+                _tweens.Remove(tween);
+        }
+    }
+
     public SceneTreeTimer CreateTimer(float seconds, bool processAlways = true, bool processInPhysics = false)
     {
         var timer = new SceneTreeTimer(seconds, processAlways, processInPhysics);
