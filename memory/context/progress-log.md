@@ -332,3 +332,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - The angle turns a particle in the plane only with `ParticleFlagDisableZ` (Godot's default off rotates about the 3D Y
   axis: in 2D the particle just narrows by cos(angle)); `ParticleFlagAlignY`; the colour is linearised like Godot's
   `source_color` uniform (shown as is by the 2D canvas); the phase-0 particle emits at once. Tests: GpuParticles2DTests.
+
+### 2026-10-06 — 2D sub-viewports in the UI; material sets follow texture re-uploads (port E16)
+- `UiServer.RegisterTexture(name, SubViewport)`: a 2D sub-viewport's canvas target as `engine://name` (the canvas-view
+  element; the game's minimap). Fix: a canvas material's descriptor set now rebinds when a sampler texture re-uploads
+  (`SetPixels`), not only when the texture object changes; it kept pointing at the old, deletion-queued view.

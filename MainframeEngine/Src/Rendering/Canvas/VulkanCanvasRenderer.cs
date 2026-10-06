@@ -75,6 +75,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         public DescriptorSet Set;
         public DescriptorPool Pool;
         public Texture2D?[] Textures = [];
+        public GpuTexture?[] Uploads = [];   // the GPU textures the set points at (a texture whose pixels changed re-uploads)
         public GpuBuffer? Ring;
         public ulong LastUsed;
     }
@@ -442,7 +443,19 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         public Extent2D Extent;
         public readonly DescriptorSet[] Sets = new DescriptorSet[6];
         public ulong LastUsed;
+        public ulong Generation;
     }
+
+    private ulong _subGeneration;
+
+    /// <summary>
+    /// The 2D sub-viewport's colour target as the game UI samples it (<see cref="UiServer.RegisterTexture(string, SubViewport)"/>):
+    /// premultiplied gamma values in <c>SHADER_READ_ONLY_OPTIMAL</c>, drawn before the UI each frame; empty before its first pass.
+    /// </summary>
+    internal UiTextureView ViewOf(SubViewport viewport) =>
+        _subTargets.TryGetValue(viewport, out var t)
+            ? new UiTextureView(t.Image.View, _samplers[(int)CanvasSampler.LinearClamp], ImageLayout.ShaderReadOnlyOptimal, t.Extent.Width, t.Extent.Height, t.Generation)
+            : default;
 
     private readonly Dictionary<SubViewport, SubTarget> _subTargets = new(ReferenceEqualityComparer.Instance);
     private readonly List<SubViewport> _subEvict = [];
@@ -461,7 +474,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
 
         if (target is not null)
             ReleaseSubTarget(target);
-        target = new SubTarget { Extent = extent, LastUsed = now };
+        target = new SubTarget { Extent = extent, LastUsed = now, Generation = ++_subGeneration };
         target.Image = GpuImage.Create(_ctx, new GpuImageDesc(extent.Width, extent.Height, LayerFormat,
             ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit));
         var view = target.Image.View;
@@ -704,11 +717,11 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         foreach (var u in program.Uniforms)
             if (u.IsSampler)
                 textures[t++] = material.GetShaderParameter(u.Name) as Texture2D;
-        if (!_materials.TryGetValue(material, out var entry) || !ReferenceEquals(entry.Ring, _ring) || !SameTextures(entry.Textures, textures))
+        if (!_materials.TryGetValue(material, out var entry) || !ReferenceEquals(entry.Ring, _ring) || !SameTextures(entry, textures))
         {
             if (entry is not null && entry.Set.Handle != 0)
                 _ctx.Deletions.Enqueue(GpuDeletion.Of(entry.Pool, entry.Set));
-            entry = new MaterialEntry { Textures = textures, Ring = _ring };
+            entry = new MaterialEntry { Textures = textures, Ring = _ring, Uploads = textures.Select(UploadOf).ToArray() };
             var shaderEntry = GetShader(shader);
             entry.Pool = shaderEntry.Pool;
             entry.Set = PipelineBuilder.AllocateSet(_ctx, shaderEntry.Pool, shaderEntry.SetLayout, "canvas material");
@@ -742,12 +755,15 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         return (entry.Set, offset32);
     }
 
-    private static bool SameTextures(Texture2D?[] a, Texture2D?[] b)
+    private GpuTexture? UploadOf(Texture2D? texture) => texture is not null && _textures.TryGetValue(texture, out var e) ? e.Texture : null;
+
+    /// <summary>The set still points at the material's textures as uploaded now (same textures, none re-uploaded since).</summary>
+    private bool SameTextures(MaterialEntry entry, Texture2D?[] textures)
     {
-        if (a.Length != b.Length)
+        if (entry.Textures.Length != textures.Length)
             return false;
-        for (var i = 0; i < a.Length; i++)
-            if (!ReferenceEquals(a[i], b[i]))
+        for (var i = 0; i < textures.Length; i++)
+            if (!ReferenceEquals(entry.Textures[i], textures[i]) || !ReferenceEquals(entry.Uploads[i], UploadOf(textures[i])))
                 return false;
         return true;
     }

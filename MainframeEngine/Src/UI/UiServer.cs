@@ -295,6 +295,19 @@ public sealed class UiServer : IFrameServer, IInputServer
     public void RegisterTexture(string name, GpuTexture texture, UiTextureConversion conversion = UiTextureConversion.Auto) =>
         Renderer?.RegisterTexture(name, texture, conversion);
 
+    /// <summary>
+    /// Publishes a 2D sub-viewport (<see cref="SubViewport.Disable3D"/>) as <c>engine://name</c>, the canvas-view element
+    /// for minimaps, previews and other live 2D scenes inside a document: the image the canvas server drew this frame,
+    /// following resizes; nothing is drawn before its first pass. No-op without the Vulkan renderers.
+    /// </summary>
+    public void RegisterTexture(string name, SubViewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(viewport);
+        if (Renderer is not { } ui || viewport.Tree?.Servers.Get<CanvasServer>()?.Renderer is not { } canvas)
+            return;
+        ui.RegisterTexture(name, () => canvas.ViewOf(viewport), UiTextureConversion.None);   // canvas targets hold premultiplied gamma values
+    }
+
     /// <summary>Publishes a render target's colour attachment as <c>engine://name</c> (no-op without the Vulkan renderer).</summary>
     public void RegisterTexture(string name, RenderTarget target, int colorAttachment = 0, UiTextureConversion conversion = UiTextureConversion.Auto) =>
         Renderer?.RegisterTexture(name, target, colorAttachment, conversion);
