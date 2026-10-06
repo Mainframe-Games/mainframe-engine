@@ -603,6 +603,7 @@ public sealed unsafe partial class VulkanUiRenderer
     protected override void OnDisposed()
     {
         _ctx.RemoveOverlayRenderer(this);
+        DropPreloads();
         DestroyTargets();
         _arena.Dispose();
         foreach (var slot in _textures.AsSpan(0, _textureCount))

@@ -509,3 +509,13 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   Driving Range HUD, and one 136 B between-frames frame on a real mouse motion (1 run in 41 after the fix; not
   reproduced with synthetic events, nothing in the instrumented entry points).
 
+### 2026-10-07 — UI images load with their document (Driving Range port, ADR 0140)
+- The 6.7 MB frame: Driving Range's first phone open decoded its seven hidden `<img>`s on the main thread (~15 ms,
+  6.6 MB of RGBA as large-object-heap garbage). Found by injecting keys with section probes: Tab → `UiServer.Process`
+  6,717,448 B, the exact size of every earlier sighting.
+- `UiServer.PreloadImages` (on document load/reload) → `RmlRenderInterface.PreloadTexture(RmlPaths.Join(doc, src))`;
+  `VulkanUiRenderer` keeps decoded textures by source and hands them over in `LoadTexture`; unrequested ones drop in
+  `RmlCore.ReleaseTextures` and on dispose. No native change. Driving Range: first open 75 KB (the RCSS decorator
+  `AppIconBG.png`, not covered); its frames take 9.7–12.4 ms in all (the UI update alone took 14–17 ms before).
+- Render test `ImagesArePreloadedWithTheirDocument` (`ui-preload`); fails three ways with preloading off (381,904 B).
+

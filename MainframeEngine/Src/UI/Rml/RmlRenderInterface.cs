@@ -144,6 +144,19 @@ public abstract unsafe class RmlRenderInterface : IDisposable
 
     protected abstract void ReleaseTexture(ulong texture);
 
+    /// <summary>
+    /// Decodes and uploads the image RmlUi will ask for as <paramref name="source"/> (joined with the document path, as
+    /// <see cref="LoadTexture"/> receives it) ahead of time, so its first layout does not decode on the main thread
+    /// (ADR 0140). False when the interface does not preload, the source is already loaded or preloaded, or it cannot be
+    /// read (the lazy load then reports it).
+    /// </summary>
+    public virtual bool PreloadTexture(string source) => false;
+
+    /// <summary>Called by <see cref="RmlCore.ReleaseTextures"/> before RmlUi releases this interface's textures.</summary>
+    protected internal virtual void OnReleasingTextures()
+    {
+    }
+
     protected abstract void EnableScissorRegion(bool enable);
 
     /// <summary>Scissor in context pixels, regardless of any transform.</summary>
