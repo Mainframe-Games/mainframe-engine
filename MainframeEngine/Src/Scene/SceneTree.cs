@@ -191,19 +191,40 @@ public sealed partial class SceneTree
 
     /// <summary>
     /// Replaces <see cref="CurrentScene"/> with <paramref name="scene"/> (added under <see cref="Root"/>). The
-    /// old scene is freed. During a <see cref="Tick"/> the change is deferred to the end of the frame.
+    /// old scene is freed. During a <see cref="Tick"/> or an input dispatch (<see cref="PushInput"/>, which runs outside
+    /// the tick) the change waits for Godot's scene change flush: after the frame's process callbacks and its deferred
+    /// calls, before timers. So a click handler never frees the scene, or builds the next one, while the UI is still
+    /// dispatching that click, and the new scene first processes on the next frame (the click is no longer "just
+    /// pressed"). Only the last change of a frame is applied; an earlier pending scene is freed without entering the tree.
     /// </summary>
     public void ChangeScene(Node scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        if (_inTick)
-            CallDeferred(static state =>
-            {
-                var (tree, node) = ((SceneTree, Node))state!;
-                tree.ChangeSceneNow(node);
-            }, (this, scene));
-        else
+        if (!_inTick && _inputDepth == 0)
+        {
             ChangeSceneNow(scene);
+            return;
+        }
+
+        if (_pendingScene is { } replaced && !ReferenceEquals(replaced, scene))
+            replaced.Free();
+        _pendingScene = scene;
+    }
+
+    // The scene a deferred ChangeScene will make current (Godot's pending_new_scene), applied by FlushPendingScene.
+    private Node? _pendingScene;
+
+    // Godot's SceneTree::process: _process, the message queue flush, then _flush_scene_change, then timers.
+    private void FlushPendingScene()
+    {
+        if (_pendingScene is null)
+            return;
+        FlushDeferredCalls();
+        if (_pendingScene is { } scene) // (a deferred call may have changed it again)
+        {
+            _pendingScene = null;
+            ChangeSceneNow(scene);
+        }
     }
 
     /// <summary>Instantiates <paramref name="scene"/> and makes it the current scene.</summary>
@@ -261,6 +282,9 @@ public sealed partial class SceneTree
 
     private void ChangeSceneNow(Node scene)
     {
+        if (_pendingScene is { } pending && !ReferenceEquals(pending, scene))
+            pending.Free(); // an immediate change outranks one still waiting for the frame
+        _pendingScene = null;
         UnloadCurrentScene();
         Root.AddChild(scene);
         CurrentScene = scene;
@@ -396,6 +420,7 @@ public sealed partial class SceneTree
                 node.InvokeProcess(gameTime);
         }
 
+        FlushPendingScene();
         UpdateTimers(gameTime.DeltaTime, physics: false);
         UpdateTweens(gameTime.DeltaTime, physics: false);
     }
@@ -409,6 +434,22 @@ public sealed partial class SceneTree
     public bool PushInput(InputEvent inputEvent)
     {
         ArgumentNullException.ThrowIfNull(inputEvent);
+        _inputDepth++;
+        try
+        {
+            return DispatchInput(inputEvent);
+        }
+        finally
+        {
+            _inputDepth--;
+        }
+    }
+
+    // Input dispatches running (PushInput can nest: a handler may push an event); scene changes made inside wait.
+    private int _inputDepth;
+
+    private bool DispatchInput(InputEvent inputEvent)
+    {
         // Polled state sees every event, even ones the UI consumes below, so a released key never sticks.
         Input.ProcessEvent(inputEvent);
         var paused = Paused;
@@ -805,6 +846,8 @@ public sealed partial class SceneTree
             return;
 
         CurrentScene = null;
+        _pendingScene?.Free();
+        _pendingScene = null;
         while (Root.ChildCount > 0)
             Root.GetChild(Root.ChildCount - 1).Free();
         FlushDeferred();

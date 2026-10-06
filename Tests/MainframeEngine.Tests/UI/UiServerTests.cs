@@ -645,6 +645,92 @@ public sealed class UiServerTests
     }
 
     [Fact]
+    public void AClickThatChangesSceneSwapsItAtTheNextFrameNotInsideTheDispatch()
+    {
+        // The game's New Game → Start: a data-event click whose handler replaces the whole scene. Input arrives outside
+        // Tick, so the change used to apply at once, building the new scene (the whole world, its UI layers) inside
+        // RmlUi's ProcessMouseButtonUp; the game then crashed or froze. Like Godot, the swap waits for the frame.
+        using var ui = new UiTestTree();
+        var menu = MenuScene("menu", out var menuDoc, out _);
+        ui.Tree.ChangeScene(menu);
+        ui.Tick(2);
+        Node? next = null;
+        GameInputNode? nextInput = null;
+        var startedInside = false;
+        menuDoc.CreateDataModel("menu").Event("start", () =>
+        {
+            next = MenuScene("next", out _, out nextInput);
+            ui.Tree.ChangeScene(next);
+            startedInside = next.IsInsideTree;
+        });
+        ui.Tick(2);
+        var b = menuDoc.GetElementById("start")!.Bounds;
+
+        ui.Move(b.X + 5, b.Y + 5);
+        ui.Button(MouseButton.Left, true, b.X + 5, b.Y + 5);
+        ui.Button(MouseButton.Left, false, b.X + 5, b.Y + 5);
+        Assert.NotNull(next);
+        Assert.False(startedInside);
+        Assert.Same(menu, ui.Tree.CurrentScene); // still the menu until the frame runs
+        ui.Tick();
+        Assert.Same(next, ui.Tree.CurrentScene);
+        Assert.True(menu.IsFreed);
+        Assert.Empty(nextInput!.Seen); // the click that started it never reaches the new scene
+
+        static Node MenuScene(string name, out UiDocument doc, out GameInputNode input)
+        {
+            var root = new Node { Name = name };
+            var layer = new UiLayer { Name = "Ui" };
+            doc = new UiDocument
+            {
+                Name = "Doc",
+                Rml = UiTestTree.Page("<button id='start' data-event-click='start'>Start</button>", $"data-model='{name}'"),
+            };
+            layer.AddChild(doc);
+            root.AddChild(layer);
+            input = new GameInputNode { Name = "Input" };
+            root.AddChild(input);
+            return root;
+        }
+    }
+
+    [Fact]
+    public void OnlyTheLastSceneChangeOfAFrameIsApplied()
+    {
+        var tree = new SceneTree();
+        var first = new SceneChanger { Name = "First" };
+        tree.ChangeScene(first); // outside Tick and input: at once
+        Assert.Same(first, tree.CurrentScene);
+
+        tree.PushInput(new InputEventKey { Key = Key.Enter, Pressed = true }); // First changes twice from OnInput
+        Assert.Same(first, tree.CurrentScene);
+        tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+        Assert.Equal("C", tree.CurrentScene!.Name);
+        Assert.True(first.Replaced!.IsFreed && first.IsFreed); // the pending A was freed without entering the tree
+        Assert.False(first.Replaced.WasInTree);
+        tree.Shutdown();
+    }
+
+    private sealed class SceneChanger : Node
+    {
+        public Probe? Replaced { get; private set; }
+
+        protected override void OnInput(InputEvent inputEvent)
+        {
+            Replaced = new Probe { Name = "A" };
+            Tree!.ChangeScene(Replaced);
+            Tree.ChangeScene(new Node { Name = "C" });
+        }
+    }
+
+    private sealed class Probe : Node
+    {
+        public bool WasInTree { get; private set; }
+
+        protected override void OnEnterTree() => WasInTree = true;
+    }
+
+    [Fact]
     public void ReleaseOfAMousePressTheUiTookStaysWithTheUi()
     {
         using var ui = new UiTestTree();
