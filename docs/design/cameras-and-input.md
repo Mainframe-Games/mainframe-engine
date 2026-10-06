@@ -111,7 +111,9 @@ before the UI and nodes: `InputMap` actions (keys, mouse buttons, gamepad button
 
 `CursorMode.Raw` maps to SDL relative mouse mode. The render test `ASyntheticRightDragLooksAroundThroughTheInputPath`
 (the host's `--input <frame>` and its `mouse-look` scene) pushes a synthetic SDL right-button drag and checks that it
-reaches a node's `OnInput` through SDL → Silk `IMouse` → `InputRouter` and turns the camera.
+reaches a node's `OnInput` through SDL → Silk `IMouse` → `InputRouter` and turns the camera. The path allocates nothing
+per event, Silk's SDL pump included ([ADR 0139](../../memory/decisions/0139-sdl-event-pump-without-allocation.md)):
+the `gamehost` allocation gate pushes mouse motion, keys and window events every measured frame.
 
 **Mouse mode ([ADR 0125](../../memory/decisions/0125-mouse-mode.md)).** Games set `Input.MouseMode` (or
 `SceneTree.Input.MouseMode`) like Godot's `Input.mouse_mode`: `Visible` (default), `Hidden`, `Captured` (mouse look),

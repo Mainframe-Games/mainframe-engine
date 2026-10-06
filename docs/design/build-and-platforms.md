@@ -146,6 +146,10 @@ flowchart TD
 
 - The platforms are registered explicitly in the `Engine` constructor (no reflection discovery, so
   trimming/AOT keep them). GLFW is not in the dependency graph and is never loaded.
+- **Event pump without allocation ([ADR 0139](../../memory/decisions/0139-sdl-event-pump-without-allocation.md)).**
+  Silk 2.23's SDL view walks each frame's events through `IEnumerable<Event>`, boxing the list enumerator (88 B on every
+  frame with an event, so every frame of mouse look). `SdlEventBatch` re-subscribes Silk's own handler behind a reusable
+  enumerable in `Engine.OnLoad`; if Silk's internals move it logs a warning and leaves Silk alone.
 - **HiDPI.** SDL reports `IWindow.Size` in points, and Silk's `IWindow.FramebufferSize` returns the GL
   drawable, which for a Vulkan window is also in points. `Engine.FramebufferSize`
   ([`WindowPixels`](../../MainframeEngine/Src/Core/WindowPixels.cs)) returns

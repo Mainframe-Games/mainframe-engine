@@ -5,8 +5,12 @@ namespace MainframeEngine.RenderTests.Host;
 /// <summary>Synthetic SDL events for the host's <c>--input</c> and <c>--minimize</c> scripts.</summary>
 public static class QaSdl
 {
-    /// <summary>Pushes one synthetic right-button SDL mouse event for <paramref name="window"/> (button down/up or motion).</summary>
-    public static unsafe void PushMouse(Silk.NET.Windowing.IWindow window, EventType type, int x, int y, int dx, int dy)
+    /// <summary>
+    /// Pushes one synthetic right-button SDL mouse event for <paramref name="window"/> (button down/up or motion; a motion
+    /// holds <paramref name="buttons"/>, SDL's button mask: the right button by default).
+    /// </summary>
+    public static unsafe void PushMouse(Silk.NET.Windowing.IWindow window, EventType type, int x, int y, int dx, int dy,
+        uint buttons = 1u << 2)
     {
         var sdl = SdlProvider.SDL.Value;
         var windowId = sdl.GetWindowID(Silk.NET.Windowing.Sdl.SdlWindowing.GetHandle(window));
@@ -21,7 +25,7 @@ public static class QaSdl
                 Y = y,
                 Xrel = dx,
                 Yrel = dy,
-                State = 1u << 2, // SDL_BUTTON_RMASK
+                State = buttons, // default SDL_BUTTON_RMASK
             };
         }
         else
@@ -41,6 +45,28 @@ public static class QaSdl
         sdl.PushEvent(&ev);
     }
 
+    /// <summary>Pushes a key press or release of <paramref name="key"/> to <paramref name="windowId"/>.</summary>
+    public static unsafe void PushKey(uint windowId, KeyCode key, Scancode scancode, bool pressed)
+    {
+        var ev = new Event();
+        ev.Key = new KeyboardEvent
+        {
+            Type = (uint)(pressed ? EventType.Keydown : EventType.Keyup),
+            WindowID = windowId,
+            State = (byte)(pressed ? 1 : 0),
+            Keysym = new Keysym { Sym = (int)key, Scancode = scancode },
+        };
+        SdlProvider.SDL.Value.PushEvent(&ev);
+    }
+
+    /// <summary>Pushes a window event (<paramref name="id"/>: Exposed, Moved, ...) to <paramref name="windowId"/>.</summary>
+    public static unsafe void PushWindowEvent(uint windowId, WindowEventID id)
+    {
+        var ev = new Event();
+        ev.Window = new WindowEvent { Type = (uint)EventType.Windowevent, WindowID = windowId, Event = (byte)id };
+        SdlProvider.SDL.Value.PushEvent(&ev);
+    }
+
     /// <summary>
     /// Wakes the event loop from another thread (SDL_PushEvent is thread-safe). While minimised the engine blocks in
     /// SDL_WaitEvent, so the scripted restore needs an event to run.
@@ -49,9 +75,7 @@ public static class QaSdl
     {
         if (!WakeEnabled)
             return;
-        var ev = new Event();
-        ev.Window = new WindowEvent { Type = (uint)EventType.Windowevent, WindowID = windowId, Event = (byte)WindowEventID.Exposed };
-        SdlProvider.SDL.Value.PushEvent(&ev);
+        PushWindowEvent(windowId, WindowEventID.Exposed);
     }
 
     /// <summary>The SDL id of <paramref name="window"/>.</summary>
