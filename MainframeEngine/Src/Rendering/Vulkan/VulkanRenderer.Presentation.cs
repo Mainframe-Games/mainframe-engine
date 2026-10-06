@@ -76,6 +76,14 @@ internal sealed unsafe partial class VulkanRenderer
     private PipelineLayout _tonemapLayout;
     private Pipeline _tonemapPipeline;
 
+    // ADR 0124: the tonemap pass for non-default PostProcessSettings (Godot's tonemap, glow), created on first use.
+    private GlowEffect? _glow;
+    private DescriptorSetLayout _postSetLayout;
+    private DescriptorPool _postPool;
+    private DescriptorSet _postSet;
+    private PipelineLayout _postLayout;
+    private Pipeline _postPipeline;
+
     public RenderTarget SceneTarget => _sceneTarget ?? throw new InvalidOperationException("The renderer is not initialised.");
     public RenderPass OverlayRenderPass => _overlayPass;
     public bool OverlayEncodesSrgb => _encoding == SwapchainEncoding.SrgbOnly;
@@ -148,7 +156,14 @@ internal sealed unsafe partial class VulkanRenderer
         CreateSwapchainViews();
         CreatePresentFramebuffers();
         if (_sceneTarget!.Resize(_swapChainExtent))
+        {
             WriteTonemapSet();
+            if (_glow is not null)
+            {
+                _glow.Resize(_swapChainExtent, _sceneTarget.GetColor(0).View);
+                WritePostSet();
+            }
+        }
     }
 
     private void CreateSwapchainViews()
@@ -307,6 +322,61 @@ internal sealed unsafe partial class VulkanRenderer
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
         });
 
+    /// <summary>The post tonemap pass and the glow chain (ADR 0124), the first frame with non-default settings.</summary>
+    private void CreatePostTonemap()
+    {
+        _glow = new GlowEffect(this, _swapChainExtent, _sceneTarget!.GetColor(0).View);
+        _postSetLayout = PipelineBuilder.CreateSetLayout(this,
+        [
+            new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = GlowEffect.LevelCount, StageFlags = ShaderStageFlags.FragmentBit },
+        ], "post tonemap");
+        _postPool = PipelineBuilder.CreatePool(this, 1,
+            [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 + GlowEffect.LevelCount }], "post tonemap");
+        _postSet = PipelineBuilder.AllocateSet(this, _postPool, _postSetLayout, "post tonemap");
+        WritePostSet();
+        _postLayout = PipelineBuilder.CreateLayout(this, [_postSetLayout], (uint)sizeof(PostPush), ShaderStageFlags.FragmentBit, "post tonemap");
+        _postPipeline = PipelineBuilder.Create(this, new PipelineState(), _postLayout, _presentPass,
+            "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/TonemapPost.vk.frag.spv", [], [], "post tonemap");
+    }
+
+    private void WritePostSet()
+    {
+        PipelineBuilder.WriteImage(this, _postSet, 0, new DescriptorImageInfo
+        {
+            Sampler = _tonemapSampler,
+            ImageView = _sceneTarget!.GetColor(0).View,
+            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+        });
+        var levels = stackalloc DescriptorImageInfo[GlowEffect.LevelCount];
+        for (var k = 0; k < GlowEffect.LevelCount; k++)
+            levels[k] = new DescriptorImageInfo { Sampler = _glow!.Sampler, ImageView = _glow.LevelView(k), ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
+        var write = new WriteDescriptorSet
+        {
+            SType = StructureType.WriteDescriptorSet,
+            DstSet = _postSet,
+            DstBinding = 1,
+            DescriptorCount = GlowEffect.LevelCount,
+            DescriptorType = DescriptorType.CombinedImageSampler,
+            PImageInfo = levels,
+        };
+        _vk!.UpdateDescriptorSets(_device, 1, &write, 0, null);
+    }
+
+    // TonemapPost.vk.frag's push block (std430).
+    private struct PostPush
+    {
+        public float Exposure;
+        public uint EncodeSrgb;
+        public uint Tonemapper;
+        public uint GlowMode;
+        public uint GlowEnabled;
+        public float GlowIntensity;
+        public float White;
+        public float WhiteTonemapped;
+        public fixed float GlowWeights[GlowEffect.LevelCount];
+    }
+
     private struct TonemapPush
     {
         public float Exposure;
@@ -355,16 +425,52 @@ internal sealed unsafe partial class VulkanRenderer
         for (var i = 0; i < _overlayRenderers.Count; i++)
             _overlayRenderers[i].RecordOffscreen(cb);
 
-        BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
-        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _tonemapPipeline);
-        var set = _tonemapSet;
-        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _tonemapLayout, 0, 1, &set, 0, null);
-        var push = new TonemapPush
+        // ADR 0124: non-default settings (Godot's tonemap, glow) use the post pass; the glow chain is drawn first,
+        // with no render pass active. The default keeps the engine's own tonemap pass.
+        var post = PostProcess;
+        var usePost = post != PostProcessSettings.Default;
+        var exposure = post.Tonemapper == Tonemapper.GodotAces ? post.TonemapExposure : _exposure;
+        if (usePost)
         {
-            Exposure = _exposure,
-            EncodeSrgb = FormatInfo.IsSrgb(_swapChainImageFormat) ? 0u : 1u,
-        };
-        vk.CmdPushConstants(cb, _tonemapLayout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(TonemapPush), &push);
+            if (_glow is null)
+                CreatePostTonemap();
+            _glow!.Record(cb, post, exposure);
+        }
+
+        BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
+        var encode = FormatInfo.IsSrgb(_swapChainImageFormat) ? 0u : 1u;
+        if (usePost)
+        {
+            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _postPipeline);
+            var postSet = _postSet;
+            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _postLayout, 0, 1, &postSet, 0, null);
+            var postPush = new PostPush
+            {
+                Exposure = exposure,
+                EncodeSrgb = encode,
+                Tonemapper = (uint)post.Tonemapper,
+                GlowMode = (uint)post.GlowBlendMode,
+                GlowEnabled = post.GlowMaxLevel >= 0 ? 1u : 0u,
+                GlowIntensity = post.GlowBlendMode == GlowBlendMode.Mix ? post.GlowMix : post.GlowIntensity,
+                White = post.GlowWhite,
+                WhiteTonemapped = post.GodotAcesWhiteTonemapped,
+            };
+            post.GetGlowWeights(new Span<float>(postPush.GlowWeights, GlowEffect.LevelCount));
+            vk.CmdPushConstants(cb, _postLayout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(PostPush), &postPush);
+        }
+        else
+        {
+            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _tonemapPipeline);
+            var set = _tonemapSet;
+            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _tonemapLayout, 0, 1, &set, 0, null);
+            var push = new TonemapPush
+            {
+                Exposure = _exposure,
+                EncodeSrgb = encode,
+            };
+            vk.CmdPushConstants(cb, _tonemapLayout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(TonemapPush), &push);
+        }
+
         PipelineBuilder.SetViewport(vk, cb, _swapChainExtent, flipY: false);
         vk.CmdDraw(cb, 3, 1, 0, 0);
 
@@ -467,6 +573,15 @@ internal sealed unsafe partial class VulkanRenderer
         vk.DestroyDescriptorPool(_device, _tonemapPool, null);
         vk.DestroyDescriptorSetLayout(_device, _tonemapSetLayout, null);
         vk.DestroySampler(_device, _tonemapSampler, null);
+        if (_glow is not null)
+        {
+            vk.DestroyPipeline(_device, _postPipeline, null);
+            vk.DestroyPipelineLayout(_device, _postLayout, null);
+            vk.DestroyDescriptorPool(_device, _postPool, null);
+            vk.DestroyDescriptorSetLayout(_device, _postSetLayout, null);
+            _glow.Dispose();
+            _glow = null;
+        }
         if (_overlayPass.Handle != _presentPass.Handle)
             vk.DestroyRenderPass(_device, _overlayPass, null);
         vk.DestroyRenderPass(_device, _presentPass, null);

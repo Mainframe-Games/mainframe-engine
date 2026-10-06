@@ -409,6 +409,10 @@ public sealed class RenderServer : IServer
             if (Vulkan is not { FrameStarted: true } vk)
                 return;
 
+            // ADR 0124: the tonemap and glow of the tree's root world (a struct copy: no allocation).
+            if (viewport.IsTreeRoot)
+                vk.PostProcess = viewport.World3D.Environment?.PostProcess ?? PostProcessSettings.Default;
+
             var camera = GetRenderCamera(viewport, vk.SwapchainExtent);
             if (camera is null)
                 return;

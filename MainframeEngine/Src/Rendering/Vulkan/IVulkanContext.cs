@@ -133,6 +133,12 @@ public interface IVulkanContext
     /// </summary>
     float Exposure { get; set; }
 
+    /// <summary>
+    /// The tonemap and glow of the frame (ADR 0124), set each frame by the render server from the tree's root world's
+    /// <see cref="WorldEnvironment"/>. <see cref="PostProcessSettings.Default"/> keeps the engine's own tonemap pass.
+    /// </summary>
+    PostProcessSettings PostProcess { get; set; }
+
     /// <summary>Largest anisotropic filtering level samplers may use (1 when the device lacks samplerAnisotropy).</summary>
     float MaxSamplerAnisotropy { get; }
 }

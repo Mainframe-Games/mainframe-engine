@@ -78,6 +78,7 @@ Every Vulkan call that returns a `Result` in init, per-frame and recreation path
 |---|---|---|---|
 | Shadow passes | shadow maps | depth | `ShadowSystem` |
 | **Scene** (`RenderPass`) | `SceneTarget` | 0 `R16G16B16A16_SFLOAT` Clear/Store → `SHADER_READ_ONLY`; 1 depth Clear/DontCare | sky, grid, shapes, Spine, meshes |
+| Glow (ADR 0124) | 7 × 2 `RenderTarget`s (R16G16B16A16_SFLOAT, ½ … 1/128 of the scene) | colour Clear/Store → `SHADER_READ_ONLY`, explicit barrier in `End` | `GlowEffect`: only when the root world's `PostProcessSettings` enable glow, between the scene pass and the present pass |
 | Present | swapchain image | colour DontCare/Store, `UNDEFINED → PRESENT_SRC` (or `→ COLOR_ATTACHMENT` when a separate overlay pass follows) | tonemap |
 | Overlay (`OverlayRenderPass`) | same pass as Present by default; a separate Load pass on a UNORM view in the `SrgbWithUnormOverlay` mode | | canvas, screen gizmos, UI, dev overlay |
 

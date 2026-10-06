@@ -36,13 +36,14 @@ RenderTestGame game = options.Scene switch
     "csm" => new CsmScene(options),
     "shadow-pcf" => new ShadowPcfScene(options),
     "shadow-opacity" => new ShadowOpacityScene(options),
+    "glow" => new GlowScene(options),
     "shadow-lights" => new ShadowLightsScene(options),
     "shadow-cutout" => new ShadowCutoutScene(options),
     "shadow-shimmer" => new ShadowShimmerScene(options),
     _ => throw new ArgumentException(
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, showcase, color-pipeline, " +
         "physics, physics-debug, sky-grid, materials, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, " +
-        "csm, shadow-pcf, shadow-opacity, shadow-lights, shadow-cutout, shadow-shimmer."),
+        "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer."),
 };
 
 using (game)

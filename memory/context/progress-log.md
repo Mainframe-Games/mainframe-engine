@@ -379,3 +379,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   natives pruned; macOS `.app` (Info.plist from project.mfproj, `.icns` via sips/iconutil, ad-hoc codesign) zipped;
   Windows zip with the exe icon (`magick` → ApplicationIcon); Linux tar.gz (doubles as the headless server).
   Crash Site Defense: osx-arm64 109 MB, win-x64 103 MB, linux-x64 113 MB; the `.app` boots and plays seed 4242.
+
+### 2026-10-06 — Godot 4.7's tonemap and glow (Driving Range port E4, ADR 0124)
+- `PostProcessSettings` on `WorldEnvironment` (Tonemap + Glow groups, Godot 4.7 defaults) → `IVulkanContext.PostProcess`
+  each frame from the root world. Default settings keep `Tonemap.vk.frag` (goldens unchanged); otherwise `GlowEffect`
+  (7 level RenderTargets, raster H+V passes, `GlowBlur.vk.frag`) and `TonemapPost.vk.frag` (exposure → glow → engine or
+  Godot ACES → sRGB). Tests: PostProcessSettingsTests, render `GlowTests` + golden `glow_frame0006` (moltenvk).
+  SubViewports keep the engine curve (known issue). Supersedes ADR 0006's "no bloom".
