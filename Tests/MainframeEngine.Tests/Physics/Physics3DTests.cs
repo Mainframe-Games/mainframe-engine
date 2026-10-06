@@ -25,6 +25,47 @@ public sealed class Physics3DTests : IDisposable
     }
 
     [Fact]
+    public void DisabledBodiesLeaveTheSpaceAndRejoinWhereTheyAreWhenEnabled()
+    {
+        // Godot's DisableMode.Remove: a disabled body neither falls, collides nor shows up in queries.
+        _h.AddFloor();
+        var holder = _h.Add(new Node3D { Name = "Holder", Position = new Vector3(0, 5, 0) });
+        var box = new RigidBody3D { Name = "Held" };
+        box.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = Vector3.One } });
+        holder.ProcessMode = ProcessMode.Disabled;
+        holder.AddChild(box);
+        _h.Run(30);
+
+        Assert.Null(box.Space);
+        Assert.Equal(5, box.GlobalPosition.Y, 4);
+        Assert.False(_h.Query.RayCast(new Vector3(0, 10, 0), new Vector3(0, 3, 0), out _));
+
+        // Enabled again (here by its own mode, as the game does after reparenting): back in the space, at its node's
+        // transform, simulated from rest; an impulse right away is not lost.
+        holder.RemoveChild(box);
+        _h.Scene.AddChild(box);
+        Assert.NotNull(box.Space); // the scene is not disabled: it joins on entry
+        box.ProcessMode = ProcessMode.Disabled;
+        Assert.Null(box.Space);
+        box.ProcessMode = ProcessMode.Inherit;
+        Assert.NotNull(box.Space);
+        box.GlobalPosition = new Vector3(0, 5, 0);
+        box.ApplyImpulse(new Vector3(2, 0, 0));
+        Assert.Equal(2, box.LinearVelocity.X, 3);
+        Assert.True(_h.Query.RayCast(new Vector3(0, 10, 0), new Vector3(0, 3, 0), out var hit));
+        Assert.Same(box, hit.Collider);
+        _h.RunSeconds(0.5f);
+        Assert.True(box.GlobalPosition.Y < 5);
+        Assert.True(box.GlobalPosition.X > 0.5f);
+
+        // Disabling keeps the velocity for the next enable, like leaving the tree.
+        var velocity = box.LinearVelocity;
+        box.ProcessMode = ProcessMode.Disabled;
+        Assert.Null(box.Space);
+        Assert.Equal(velocity, box.LinearVelocity);
+    }
+
+    [Fact]
     public void BoxFallsAndComesToRestOnTheFloorThenSleeps()
     {
         _h.AddFloor();
