@@ -50,8 +50,21 @@ public sealed class ParticleProcessMaterial : Resource
     [Export] public float ScaleMin { get; set; } = 1f;
     [Export] public float ScaleMax { get; set; } = 1f;
 
-    /// <summary>Straight colour multiplied into every particle.</summary>
+    /// <summary>
+    /// Colour multiplied into every particle. Godot's <c>color_value</c> is a <c>source_color</c> uniform, converted to
+    /// linear before it reaches the canvas, which then shows those values as they are: (1, 0.9, 0.5) draws as about
+    /// (1, 0.79, 0.21). The particles do the same.
+    /// </summary>
     [Export] public Vector4 Color { get; set; } = Vector4.One;
+
+    /// <summary>
+    /// Godot's <c>particle_flag_disable_z</c>: the angle turns the particle in the plane. Off (Godot's default) the angle
+    /// turns it about the 3D Y axis, which in 2D only narrows it by cos(angle).
+    /// </summary>
+    [Export] public bool ParticleFlagDisableZ { get; set; }
+
+    /// <summary>Godot's <c>particle_flag_align_y</c> (with <see cref="ParticleFlagDisableZ"/>): the particle's Y follows its velocity.</summary>
+    [Export] public bool ParticleFlagAlignY { get; set; }
 }
 
 /// <summary>
@@ -158,7 +171,8 @@ public class GpuParticles2D : Node2D
     private void Step(float dt)
     {
         var material = ProcessMaterial;
-        var previous = _time;
+        // The first step starts just before 0, so the particle whose phase is 0 emits at once (Godot's first particle).
+        var previous = _time == 0 ? -1e-9 : _time;
         _time += dt;
         var active = (int)Math.Ceiling(Amount * Math.Clamp(AmountRatio, 0f, 1f));
         for (var i = 0; i < _particles.Length; i++)
@@ -238,14 +252,32 @@ public class GpuParticles2D : Node2D
             return;
         var size = new Vector2(texture.Width, texture.Height);
         var toLocal = LocalCoords ? Transform2D.Identity : GlobalTransform.AffineInverse();
+        var c = m.Color;
+        var color = new Vector4(ColorSpace.SrgbToLinear(c.X), ColorSpace.SrgbToLinear(c.Y), ColorSpace.SrgbToLinear(c.Z), c.W);
         foreach (ref readonly var p in _particles.AsSpan())
         {
             if (!p.Alive)
                 continue;
-            var (sin, cos) = MathF.SinCos(p.Angle);
-            var transform = new Transform2D(new Vector2(cos, sin) * p.Scale, new Vector2(-sin, cos) * p.Scale, p.Position);
+            // Godot's process-material transform (particle_process_material.cpp): TRANSFORM[0] is the X basis.
+            Vector2 x, y;
+            if (m.ParticleFlagDisableZ && m.ParticleFlagAlignY && p.Velocity.LengthSquared() > 0f)
+            {
+                y = Vector2.Normalize(p.Velocity);
+                x = new Vector2(y.Y, -y.X);
+            }
+            else if (m.ParticleFlagDisableZ)
+            {
+                var (sin, cos) = MathF.SinCos(p.Angle);
+                (x, y) = (new Vector2(cos, -sin), new Vector2(sin, cos));
+            }
+            else
+            {
+                (x, y) = (new Vector2(MathF.Cos(p.Angle), 0f), Vector2.UnitY);   // about the Y axis, seen from the front
+            }
+
+            var transform = new Transform2D(x * p.Scale, y * p.Scale, p.Position);
             DrawSetTransformMatrix(toLocal * transform);
-            DrawTexture(texture, -size / 2, m.Color);
+            DrawTexture(texture, -size / 2, color);
         }
 
         DrawSetTransformMatrix(Transform2D.Identity);
