@@ -92,3 +92,50 @@ public sealed class SendToServerTests
         net.StepUntil(() => got == 9);
     }
 }
+
+public sealed class MultiplayerSpawnerTests
+{
+    private static MultiplayerSpawner AddSpawner(SceneTree tree, List<string>? spawned = null)
+    {
+        var spawner = new MultiplayerSpawner { Name = "Spawner", SpawnPath = ".." };
+        spawner.SpawnFunction = data => new NetBox { Name = (string)data["name"], Position = new System.Numerics.Vector3((float)data["x"], 0, 0) };
+        if (spawned is not null)
+            spawner.Spawned += n => spawned.Add(n.Name);
+        tree.CurrentScene!.AddChild(spawner);
+        return spawner;
+    }
+
+    [Fact]
+    public void SpawnDataKeepsItsTypes()
+    {
+        var data = new SpawnData { ["owner"] = 7L, ["slot"] = 2, ["x"] = 1.5f, ["crew"] = "npc3", ["ok"] = true, ["keys"] = new[] { 1, 2 } };
+        var back = SpawnData.Deserialize(data.Serialize());
+        Assert.Equal(7L, (long)back["owner"]);
+        Assert.Equal(2, (int)back["slot"]);
+        Assert.Equal(1.5f, (float)back["x"]);
+        Assert.Equal("npc3", (string)back["crew"]);
+        Assert.True((bool)back["ok"]);
+        Assert.Equal([1, 2], (int[])back["keys"]);
+    }
+
+    [Fact]
+    public void ClientsBuildTheNodeFromTheSameDataLateJoinersToo()
+    {
+        using var net = new NetHarness();
+        var spawner = AddSpawner(net.ServerTree);
+        var seen = new List<string>();
+        var client = net.AddClient(api => AddSpawner(api.Tree, seen));
+        net.StepUntil(() => client.Api.IsConnected);
+        var box = (NetBox)spawner.Spawn(new SpawnData { ["name"] = "Crate_1", ["x"] = 4f });
+        box.Score = 3;
+        net.StepUntil(() => client.Find<NetBox>(box.NetworkEntity!.NetId) is { Score: 3 });
+        var copy = client.Find<NetBox>(box.NetworkEntity!.NetId)!;
+        Assert.Equal("Crate_1", copy.Name);
+        Assert.Equal(4f, copy.Position.X);
+        Assert.Same(client.Tree.CurrentScene, copy.Parent);
+        Assert.Equal(["Crate_1"], seen);
+
+        var late = net.AddClient(api => AddSpawner(api.Tree));
+        net.StepUntil(() => late.Api.IsConnected && late.Find<NetBox>(box.NetworkEntity!.NetId) is { Name: "Crate_1", Score: 3 });
+    }
+}

@@ -165,6 +165,11 @@ mp.ConnectedToServer += () => Log.Info($"joined as {mp.LocalPeerId}");
   when the server starts): networks a node of a scene every peer loads (a level's game-state node). It is sent like a
   spawn with scene index −1; clients bind their own node at the same parent path and name, so the scene must be loaded
   before the server's message arrives. A synchronizer inside a spawned scene does nothing (its root is already networked).
+- **MultiplayerSpawner** (Godot's spawner with a spawn function): `spawner.Spawn(new SpawnData { … })` on the server runs
+  `SpawnFunction(data)` and adds the node under `SpawnPath`; the data (typed bool/int/long/float/double/string/Vector2/
+  int[]/string[]) travels in the spawn (scene index −2 + spawner path + payload) and each client runs its own spawner's
+  function with it, then applies the replicated state. `Spawned`/`Despawned` fire on clients.
+- **RPC arrays:** RPC parameters may also be `byte[]`, `int[]`, `float[]` and `string[]` (length-prefixed).
 - **Despawn:** free the node (`QueueFree`/`Free`, or `MultiplayerApi.Despawn`). At the end of the frame the server
   sends one despawn for a root (its descendants go with it) or for a freed descendant; a node removed and re-added in
   the same frame stays networked. Clients free their copies. Spawned and freed in the same frame: nothing is sent.

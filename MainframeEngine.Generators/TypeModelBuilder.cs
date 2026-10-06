@@ -468,6 +468,14 @@ internal static class TypeModelBuilder
                 return new NetValueModel(name, display, NetCodecKind.Builtin, null);
         }
 
+        // RPC parameters may be arrays of bytes, ints, floats or strings (bulk payloads; replicated members need cheap equality).
+        if (!requireEquatable && type is IArrayTypeSymbol
+            {
+                Rank: 1, ElementType.SpecialType: SpecialType.System_Byte or SpecialType.System_Int32
+                or SpecialType.System_Single or SpecialType.System_String
+            })
+            return new NetValueModel(name, display, NetCodecKind.Builtin, null);
+
         if (type is INamedTypeSymbol named)
         {
             if (named.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum && named.EnumUnderlyingType is { } underlying)
@@ -493,7 +501,8 @@ internal static class TypeModelBuilder
         }
 
         error = $"has type '{type.ToDisplayString()}', which the network codec cannot send (bool, integers, float, double, decimal, " +
-                "char, string, enums, Vector2/3/4, Quaternion, Color, Transform3D/2D, PeerId and INetworkTransferable structs)";
+                "char, string, enums, Vector2/3/4, Quaternion, Color, Transform3D/2D, PeerId and INetworkTransferable structs; RPC parameters " +
+                "also byte[], int[], float[] and string[])";
         return null;
     }
 
