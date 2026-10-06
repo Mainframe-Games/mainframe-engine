@@ -99,3 +99,10 @@ draws it into an RGBA8 target before the main canvas (one `CanvasPass` of the fr
 cleared to transparent black with `TransparentBg` (else the canvas clear colour). `GetTexture()` returns a `Texture2D`
 backed by that target for `Sprite2D`/draw calls. `UpdateMode.Once` draws on the next frame then keeps the image;
 `Disabled` keeps it. A target unused for 600 frames, or whose view left the tree, is released.
+
+## Particles
+
+`GpuParticles2D` + `ParticleProcessMaterial` (Godot's names): a CPU simulation of the subset 2D games use — box/sphere/
+point emission, direction ± spread, initial speed range, gravity, per-particle linear acceleration, start angle and scale
+ranges, one colour; `Amount`, `Lifetime` (even restarts, explosiveness 0), `AmountRatio`, `Preprocess`, `LocalCoords`.
+Each particle draws its texture centred on it (one canvas batch per emitter). Random streams differ from Godot's GPU ones.

@@ -296,3 +296,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-06 — MultiplayerSpawner with spawn data; array RPC parameters (port E13)
 - `MultiplayerSpawner` + `SpawnData` (Godot's spawn function + data dictionary; payload in the spawn message, late joiners
   included); RPC parameters `byte[]/int[]/float[]/string[]` (generator + `NetCodec`). Tests: MultiplayerSpawnerTests.
+
+### 2026-10-06 — GpuParticles2D (CPU) for ported weather effects
+- `GpuParticles2D` + `ParticleProcessMaterial` subset, simulated on the CPU and drawn through the canvas. Tests:
+  GpuParticles2DTests.
