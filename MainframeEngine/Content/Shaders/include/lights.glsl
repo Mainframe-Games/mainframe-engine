@@ -20,7 +20,7 @@
 
 struct DirLight {
     vec4 directionIntensity; // xyz = direction, w = intensity
-    vec4 color;              // xyz = color
+    vec4 color;              // xyz = color, w = shadow opacity (Godot's shadow_opacity, ADR 0123)
 };
 
 struct PointLight {
@@ -32,7 +32,7 @@ struct SpotLight {
     vec4 positionRange;      // xyz = position,  w = range
     vec4 directionIntensity; // xyz = direction, w = intensity
     vec4 colorInner;         // xyz = color,     w = cos(innerAngle)
-    vec4 outerPad;           // x   = cos(outerAngle)
+    vec4 outerPad;           // x   = cos(outerAngle), y = shadow opacity (ADR 0123)
 };
 
 layout(set = LIGHTS_SET, binding = LIGHTS_BINDING) uniform LightsUBO {
@@ -101,6 +101,7 @@ vec3 shadeLightsBlinnPhong(vec3 base, vec3 N, vec3 Ngeo, vec3 worldPos, float sp
     {
         vec3  L      = normalize(-lights.dir[i].directionIntensity.xyz);
         float shadow = shadowsOn ? dirShadow(i, worldPos, Ngeo, L) : 1.0;
+        shadow = mix(1.0, shadow, lights.dir[i].color.w); // Godot: a full shadow keeps 1 - opacity of the light
         result += calcDir(lights.dir[i], N, V, base, shadow, specular, shininess);
     }
 
@@ -116,6 +117,7 @@ vec3 shadeLightsBlinnPhong(vec3 base, vec3 N, vec3 Ngeo, vec3 worldPos, float sp
         vec3  lightPos = lights.spot[i].positionRange.xyz;
         vec3  L        = normalize(lightPos - worldPos);
         float shadow   = shadowsOn ? spotShadow(i, worldPos, Ngeo, L, lightPos) : 1.0;
+        shadow = mix(1.0, shadow, lights.spot[i].outerPad.y);
         result += calcSpot(lights.spot[i], N, V, worldPos, base, shadow, specular, shininess);
     }
 

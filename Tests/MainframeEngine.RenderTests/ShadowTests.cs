@@ -73,6 +73,47 @@ public class ShadowTests
         Assert.True(softPenumbra > hardPenumbra * 1.3, $"PCF penumbra {softPenumbra} px is not wider than the hard edge's {hardPenumbra} px");
     }
 
+    [Fact]
+    public void ShadowOpacityLightensTheUmbraLikeGodot()
+    {
+        // ADR 0123: a fully shadowed point keeps 1 - opacity of the sun's light (Godot's shadow_opacity).
+        var full = HostRunner.Run("shadow-opacity", Output("shadow-opacity-full"), "--capture", "8", "--hidden");
+        var partial = HostRunner.Run("shadow-opacity", Output("shadow-opacity"), "--capture", "8", "--count", "1", "--hidden");
+        var none = HostRunner.Run("shadow-opacity", Output("shadow-opacity-none"), "--capture", "8", "--count", "2", "--hidden");
+
+        Gates.AssertValidationClean(full);
+        Gates.AssertValidationClean(partial);
+        Gates.AssertValidationClean(none);
+        Gates.AssertMatchesGolden(partial, 8);
+
+        var (fullUmbra, fullLit) = FloorRange(Capture(full, 8));
+        var (partialUmbra, partialLit) = FloorRange(Capture(partial, 8));
+        var (noneUmbra, noneLit) = FloorRange(Capture(none, 8));
+        TestContext.Current.SendDiagnosticMessage(
+            $"Umbra/lit floor luminance: opacity 1 {fullUmbra:F1}/{fullLit:F1}, 0.45 {partialUmbra:F1}/{partialLit:F1}, 0 {noneUmbra:F1}/{noneLit:F1}");
+        Assert.Equal(fullLit, partialLit, 1.0f);
+        Assert.True(partialUmbra > fullUmbra + 10f, $"opacity 0.45 umbra {partialUmbra} is not lighter than the full shadow {fullUmbra}");
+        Assert.True(partialUmbra < partialLit - 10f, $"opacity 0.45 umbra {partialUmbra} is not darker than the lit floor {partialLit}");
+        Assert.True(noneLit - noneUmbra < 2f, $"opacity 0 still shadows the floor ({noneUmbra} vs {noneLit})");
+    }
+
+    // The darkest and brightest floor luminance (grey pixels only: the blue box is excluded).
+    private static (float Umbra, float Lit) FloorRange(PngImage image)
+    {
+        var lo = 255f;
+        var hi = 0f;
+        for (var i = 0; i < image.Pixels.Length; i += 4)
+        {
+            if (image.Pixels[i + 2] > image.Pixels[i] + 20)
+                continue; // the box
+            var l = Luminance(image.Pixels, i);
+            lo = MathF.Min(lo, l);
+            hi = MathF.Max(hi, l);
+        }
+
+        return (lo, hi);
+    }
+
     // Floor pixels clearly between the darkest (shadow) and brightest (lit) luminance of the image.
     private static int PenumbraPixels(PngImage image)
     {

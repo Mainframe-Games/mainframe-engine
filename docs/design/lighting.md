@@ -12,7 +12,7 @@ that wrap these light objects and register them with their world's `LightEnviron
 
 | Type | File | Fields (defaults) |
 |---|---|---|
-| `Light` (abstract) | [Light.cs](../../MainframeEngine/Src/Lighting/Light.cs) | `Position`, `Color = (1,1,1)` (sRGB; `LinearColor` is converted when set), `Intensity = 1`; shadows: `CastsShadows = true`, `ShadowResolution` (per type), `ShadowBias = 0.5`, `ShadowNormalBias = 1.5` (texels) |
+| `Light` (abstract) | [Light.cs](../../MainframeEngine/Src/Lighting/Light.cs) | `Position`, `Color = (1,1,1)` (sRGB; `LinearColor` is converted when set), `Intensity = 1`; shadows: `CastsShadows = true`, `ShadowResolution` (per type), `ShadowBias = 0.5`, `ShadowNormalBias = 1.5` (texels), `ShadowOpacity = 1` (Godot's `shadow_opacity`, ADR 0123) |
 | `DirectionalLight` | [DirectionalLight.cs](../../MainframeEngine/Src/Lighting/DirectionalLight.cs) | `Direction = normalize(-0.5,-1,-0.3)`. `Position` is used only by the gizmo. `ShadowResolution = 2048` (per cascade), `CascadeCount = 4`, `CascadeSplitLambda = 0.75`, `MaxShadowDistance = 100`, `CascadeBlend = 0.1` |
 | `PointLight` | [PointLight.cs](../../MainframeEngine/Src/Lighting/PointLight.cs) | `Range = 10`, `ShadowResolution = 512` (cube face) |
 | `SpotLight` | [SpotLight.cs](../../MainframeEngine/Src/Lighting/SpotLight.cs) | `Direction = -Y`, `Range = 20`, `InnerConeAngle = 15°`, `OuterConeAngle = 30°` (half-angles), `ShadowResolution = 1024` (atlas tile) |
@@ -55,9 +55,9 @@ Shaders get the struct and the shading loop from `include/lights.glsl`.
 | 0 | `vec4 ambientColor` | rgb |
 | 16 | `vec4 cameraPosition` | xyz |
 | 32 | `ivec4 counts` | x = dir, y = point, z = spot |
-| 48 | `DirLight dir[4]` | `{dir.xyz, intensity}`, `{color.xyz, pad}` |
+| 48 | `DirLight dir[4]` | `{dir.xyz, intensity}`, `{color.xyz, shadowOpacity}` |
 | 176 | `PointLight point[16]` | `{pos.xyz, range}`, `{color.xyz, intensity}` |
-| 688 | `SpotLight spot[8]` | `{pos.xyz, range}`, `{dir.xyz, intensity}`, `{color.xyz, cos(inner)}`, `{cos(outer), pad×3}` |
+| 688 | `SpotLight spot[8]` | `{pos.xyz, range}`, `{dir.xyz, intensity}`, `{color.xyz, cos(inner)}`, `{cos(outer), shadowOpacity, pad×2}` |
 
 ## Shading model
 
@@ -88,9 +88,11 @@ Every light casts shadows unless `CastsShadows` is false. The shadow system deci
 - the first four shadowed point lights: cubes.
 
 The lights UBO is unchanged; the shadow set's codes map each light index to its map. The light nodes export the
-settings (`CastsShadows`, `ShadowResolution`, `ShadowBias`, `ShadowNormalBias`; on `DirectionalLight3D` also
+settings (`CastsShadows`, `ShadowResolution`, `ShadowBias`, `ShadowNormalBias`, `ShadowOpacity`; on `DirectionalLight3D` also
 `ShadowCascades`, `ShadowSplitLambda`, `ShadowMaxDistance`, `ShadowCascadeBlend`). Scenes save them when they differ
-from the defaults. See [Shadow system](shadow-system.md).
+from the defaults. `ShadowOpacity` (Godot's `shadow_opacity`, [ADR 0123](../../memory/decisions/0123-godot-shadow-opacity.md))
+lightens the shadow: `lights.glsl` uses `mix(1, shadow, opacity)` for directional and spot lights. See
+[Shadow system](shadow-system.md).
 
 ## Usage
 
@@ -115,6 +117,7 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no 
 ## Known issues
 
 - Lights over the limit are dropped silently, with no warning.
+- Point lights ignore `ShadowOpacity` (their UBO entry has no free slot; ADR 0123).
 - Directional gizmo arrows are not projected through the camera.
 
 ## Related docs

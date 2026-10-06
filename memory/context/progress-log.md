@@ -367,3 +367,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `AudioPlayer2D` hears from the view centre (`CanvasTransform⁻¹ · visible/2`) and pans linearly like Godot
   (`2d_panning_strength` 0.5 → 0.5 per channel in the centre; was equal-power, 6 dB louder). `PanDistance2D` removed;
   `PanningStrength2D`, `CanvasTransform2D`, `ScreenSize2D` added. Test: AudioMathTests.
+
+### 2026-10-06 — Godot's shadow opacity (Driving Range port E5, ADR 0123)
+- `Light.ShadowOpacity` / `Light3D.ShadowOpacity` (0..1, default 1): `lights.glsl` applies `mix(1, shadow, opacity)`
+  after `dirShadow`/`spotShadow` (directional `color.w`, spot `outerPad.y`; point lights ignore it). Defaults leave
+  every golden unchanged. Tests: LightEnvironmentTests (packing), LightShadowSettingsTests (clamp, scene round trip),
+  render `ShadowTests.ShadowOpacityLightensTheUmbraLikeGodot` + golden `shadow-opacity_frame0008` (moltenvk).
