@@ -36,6 +36,23 @@ public abstract class InputEvent
         (map ?? Input.Map) is { } m && m.EventMatches(this, action, out _, out var strength) ? strength : 0f;
 }
 
+/// <summary>
+/// An action pressed or released by code (Godot's <c>InputEventAction</c>): <see cref="Input.ParseInputEvent"/> routes it
+/// through the tree like a device event, so <c>OnInput</c>/<c>OnUnhandledInput</c> handlers see it, and it presses or
+/// releases the action's state like <see cref="Input.ActionPress"/>.
+/// </summary>
+public sealed class InputEventAction : InputEvent
+{
+    public string Action { get; set; } = "";
+
+    public bool Pressed { get; set; }
+
+    /// <summary>0..1 while pressed.</summary>
+    public float Strength { get; set; } = 1f;
+
+    public override string ToString() => $"Action {Action} {(Pressed ? "pressed" : "released")}";
+}
+
 /// <summary>A key went down, repeated or up.</summary>
 public sealed class InputEventKey : InputEvent
 {

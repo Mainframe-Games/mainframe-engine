@@ -30,3 +30,13 @@ cast shadows lost their skew when set as a `Node2D.Transform`; the editor wrote 
 
 Tests that advanced time with one huge frame now step in normal frames (Camera2D, editor autosave). Sandbox's NetBox
 runs its server logic offline too.
+
+## Amendment (2026-10-06)
+
+- **Deferred calls flush like Godot's message queue:** before process (calls queued by ready or input run before the
+  first `OnProcess`) and after each physics step's callbacks (before its timers), as well as after process; queued
+  frees still wait for the end of the frame.
+- **The window close request** (`SceneTree.CloseRequested`) is raised only when the user closes the window, before the
+  tree is freed, not by `Quit` (Godot's `NOTIFICATION_WM_CLOSE_REQUEST`).
+- **Code-injected actions** (`Input.ParseInputEvent` with an `InputEventAction`) travel the tree's input path at the next
+  flush and press/release the action, like Godot's `parse_input_event`.

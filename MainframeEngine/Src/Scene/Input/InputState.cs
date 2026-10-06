@@ -51,6 +51,9 @@ public sealed class InputState
         _tree = tree;
     }
 
+    /// <summary>The tree this state belongs to.</summary>
+    internal SceneTree Tree => _tree;
+
     /// <summary>The actions; replace it (or edit it) at any time. Defaults to an empty map.</summary>
     public InputMap Map
     {
@@ -181,6 +184,12 @@ public sealed class InputState
                 break;
             case InputEventMouseMotion motion:
                 MousePosition = motion.Position;
+                return;
+            case InputEventAction byCode:
+                if (byCode.Pressed)
+                    ActionPress(byCode.Action, byCode.Strength);
+                else
+                    ActionRelease(byCode.Action);
                 return;
             case InputEventGamepadButton pad:
                 if ((uint)pad.Device < MaxGamepads && (uint)pad.Button < (uint)GamepadButtonCount)
@@ -411,4 +420,20 @@ public static class Input
     public static void ActionPress(string action, float strength = 1f) => Current?.ActionPress(action, strength);
 
     public static void ActionRelease(string action) => Current?.ActionRelease(action);
+
+    /// <summary>
+    /// Feeds an event to the current tree as if a device sent it (Godot's <c>Input.parse_input_event</c>): a copy is
+    /// pushed at the end of this frame (deferred calls), in call order.
+    /// </summary>
+    public static void ParseInputEvent(InputEvent inputEvent)
+    {
+        ArgumentNullException.ThrowIfNull(inputEvent);
+        if (Current?.Tree is not { } tree)
+            return;
+        tree.CallDeferred(static state =>
+        {
+            var (t, e) = ((SceneTree, InputEvent))state!;
+            t.PushInput(e);
+        }, (tree, inputEvent.Clone()));
+    }
 }

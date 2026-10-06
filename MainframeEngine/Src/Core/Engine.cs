@@ -279,6 +279,7 @@ public abstract class Engine : IDisposable
             // Silk reports only "not applicable" — surface SDL's own reason (missing video driver, display, …).
             throw new PlatformNotSupportedException($"{e.Message} SDL: {DescribeSdlFailure()}", e);
         }
+        Tree.Window = new SilkWindowControl(Window);
         Window.Load += PlaceWindow;
         Window.Load += OnLoad;
         Window.FramebufferResize += OnFramebufferResize;
@@ -583,6 +584,8 @@ public abstract class Engine : IDisposable
     {
         // M2: free the scene (nodes release their GPU objects), then the servers and cached resources,
         // while the renderer is still alive.
+        if (!_quitRequested && !(EngineOptions.MaxFrames > 0 && _renderedFrames >= EngineOptions.MaxFrames))
+            Tree.NotifyCloseRequested(); // the user closed the window: the game's last chance to save (Godot's close request; not on Quit)
         _inputRouter?.Dispose();
         _inputRouter = null;
         if (InputContext is not null)

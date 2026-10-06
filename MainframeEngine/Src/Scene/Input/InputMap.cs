@@ -305,6 +305,15 @@ public sealed class InputMap
     {
         pressed = false;
         strength = 0f;
+        if (inputEvent is InputEventAction byCode)
+        {
+            if (byCode.Action != action.Name)
+                return false;
+            pressed = byCode.Pressed;
+            strength = byCode.Pressed ? Math.Clamp(byCode.Strength, 0f, 1f) : 0f;
+            return true;
+        }
+
         var matched = false;
         foreach (var binding in action.Bindings)
         {
