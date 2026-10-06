@@ -414,3 +414,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   the action to be held (Godot 4 defaults). CharacterBody3D: recovery skips contacts the body moves away from, so a
   jump is airborne after its take-off step. The Driving Range walk (walk, sprint, jump, strafe, mouse turn) now matches
   Godot's dumps within 1 mm. Tests: two InputMapTests, CharacterJumpingOffTheFloorIsNotOnTheFloorAfterTheJumpStep.
+
+### 2026-10-06 — Disabled bodies leave the physics space (Driving Range port E11, ADR 0130)
+- `Node.OnDisabledChanged` (Godot's NOTIFICATION_DISABLED/ENABLED); `CollisionObject3D` leaves its space while its
+  resolved `ProcessMode` is `Disabled` and joins again at its current transform (Godot's `DisableMode.Remove`);
+  `RigidBody3D` keeps its velocities across. Held items no longer fall or block rays. Test in Physics3DTests.
+
+### 2026-10-06 — RayCast3D node; rays from inside shapes (Driving Range port E3, ADR 0131)
+- `RayCast3D` (Godot's names and defaults, cast in its own physics step, `ForceRaycastUpdate`); `RayCast(...,
+  hitFromInside)` skips shapes containing the origin when false (Godot's default for the node). Two Physics3DQueryTests.

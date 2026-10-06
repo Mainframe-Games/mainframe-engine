@@ -51,6 +51,68 @@ public sealed class Physics3DQueryTests : IDisposable
     }
 
     [Fact]
+    public void RayCastFromInsideAConvexShapeHitsItAtTheOriginOrSkipsItLikeGodot()
+    {
+        var floor = _h.AddFloor();
+        var box = _h.AddStaticBox(new Vector3(0, 2, 0), new Vector3(2, 2, 2), name: "Box");
+
+        Assert.True(_h.Query.RayCast(new Vector3(0, 2, 0), new Vector3(0, -10, 0), out var hit));
+        Assert.Same(box, hit.Collider);
+        Assert.Equal(0, hit.Fraction);
+        Assert.Equal(Vector3.Zero, hit.Normal);
+
+        // hitFromInside: false (Godot's default): the box is skipped, the floor behind it is hit.
+        Assert.True(_h.Query.RayCast(new Vector3(0, 2, 0), new Vector3(0, -10, 0), out hit, hitFromInside: false));
+        Assert.Same(floor, hit.Collider);
+        Assert.Equal(0, hit.Position.Y, 3);
+    }
+
+    [Fact]
+    public void RayCastNodeUpdatesEachPhysicsStepFromItsGlobalTransform()
+    {
+        var box = _h.AddStaticBox(new Vector3(0, 0, -5), Vector3.One, name: "Target");
+        var holder = _h.Add(new StaticBody3D { Name = "Holder" });
+        holder.AddChild(new CollisionShape3D { Shape = new SphereShape3D { Radius = 0.5f } });
+        var ray = new RayCast3D { TargetPosition = new Vector3(0, 0, -10) };
+        holder.AddChild(ray);
+
+        // Nothing before the first physics step: results come from the step.
+        Assert.False(ray.IsColliding());
+        _h.Run(1);
+        Assert.True(ray.IsColliding());
+        Assert.Same(box, ray.GetCollider());
+        Assert.Equal(-4.5f, ray.GetCollisionPoint().Z, 3);
+        Assert.Equal(Vector3.UnitZ, ray.GetCollisionNormal());
+
+        // Turned away: still the old result until the next step, or now with ForceRaycastUpdate.
+        holder.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI);
+        Assert.True(ray.IsColliding());
+        ray.ForceRaycastUpdate();
+        Assert.False(ray.IsColliding());
+        Assert.Null(ray.GetCollider());
+
+        // The parent (a body the ray starts inside) is excluded by default; with ExcludeParent off it is skipped
+        // anyway because HitFromInside is off, and hit once that is on.
+        holder.Rotation = Quaternion.Identity;
+        ray.ExcludeParent = false;
+        _h.Run(1);
+        Assert.Same(box, ray.GetCollider());
+        ray.HitFromInside = true;
+        _h.Run(1);
+        Assert.Same(holder, ray.GetCollider());
+
+        // Disabled: nothing; mask without the target's layer: nothing.
+        ray.HitFromInside = false;
+        ray.Enabled = false;
+        _h.Run(1);
+        Assert.False(ray.IsColliding());
+        ray.Enabled = true;
+        ray.CollisionMask = CollisionLayers.Layer(7);
+        _h.Run(1);
+        Assert.False(ray.IsColliding());
+    }
+
+    [Fact]
     public void ShapeCastReportsTheSafeFractionAndSurfaceNormal()
     {
         var floor = _h.AddFloor();
