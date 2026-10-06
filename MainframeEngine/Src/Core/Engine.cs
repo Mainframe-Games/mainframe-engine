@@ -388,6 +388,7 @@ public abstract class Engine : IDisposable
         }
 
         _inputRouter = new InputRouter(InputContext, Tree);
+        Tree.Input.MouseModeChanged = _inputRouter.ApplyMouseMode; // ADR 0125
         foreach (var keyboard in InputContext.Keyboards)
             keyboard.KeyDown += OnEngineKeyDown;
 
@@ -600,6 +601,7 @@ public abstract class Engine : IDisposable
         // while the renderer is still alive.
         if (!_quitRequested && !(EngineOptions.MaxFrames > 0 && _renderedFrames >= EngineOptions.MaxFrames))
             Tree.NotifyCloseRequested(); // the user closed the window: the game's last chance to save (Godot's close request; not on Quit)
+        Tree.Input.MouseModeChanged = null;
         _inputRouter?.Dispose();
         _inputRouter = null;
         if (InputContext is not null)
