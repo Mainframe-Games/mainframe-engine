@@ -714,7 +714,7 @@ public partial class Node : IDisposable
         ResolveProcessMode();
 
         tree.OnNodeEntered(this);
-        OnEnterTree();
+        InvokeEnterTree();
         TreeEntered?.Invoke();
         _parent?.ChildEnteredTree?.Invoke(this);
 
@@ -767,7 +767,7 @@ public partial class Node : IDisposable
         if (_readyDone || _tree is null || _freed)
             return;
         _readyDone = true;
-        OnReady();
+        InvokeReady();
         Ready?.Invoke();
     }
 
@@ -784,7 +784,7 @@ public partial class Node : IDisposable
         }
 
         var tree = _tree!;
-        OnExitTree();
+        InvokeExitTree();
         TreeExiting?.Invoke();
         _parent?.ChildExitingTree?.Invoke(this);
         tree.OnNodeExited(this);

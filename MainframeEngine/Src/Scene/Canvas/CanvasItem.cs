@@ -241,8 +241,8 @@ public abstract class CanvasItem : Node
         try
         {
             DrawBuiltin();
-            // Edit mode (the editor): built-in drawing only, plus [Tool] nodes' own (Godot runs no script _draw there).
-            if (Tree is not { EditMode: true } || IsTool)
+            // Edit mode (the editor): a script type's own drawing does not run unless it is [Tool] (Godot's editor rule).
+            if (!SkipsScriptCallbacks)
             {
                 Draw?.Invoke();
                 OnDraw();

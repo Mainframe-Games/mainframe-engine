@@ -110,6 +110,8 @@ public sealed class EditorApp : Engine, IEditorHost
         if (!EditorBrand.VersionsMatch)
             Log.Error($"[Editor] Editor {EditorBrand.AssemblyVersion} is running engine core {EngineInfo.Version}; they ship in lock step. Reinstall the editor.");
         Tree.EditMode = true;
+        // Godot's editor rule (ADR 0127): the game's code (loaded collectible by ProjectService) runs only in [Tool] types.
+        Tree.EditModeScripts = static type => System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(type.Assembly) is { IsCollectible: true };
         Renderer.SetClearColor(0.082f, 0.09f, 0.11f);
         _keyboard = InputContext.Keyboards.Count > 0 ? InputContext.Keyboards[0] : null;
         _closeFilter = CloseRequestFilter.TryInstall();

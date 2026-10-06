@@ -83,6 +83,13 @@ public sealed partial class SceneTree
     /// </summary>
     public bool EditMode { get; set; }
 
+    /// <summary>
+    /// In <see cref="EditMode"/>: the types whose own callbacks are scripts (the editor passes the game's code), which do not
+    /// run unless the type is <see cref="ToolAttribute">[Tool]</see> (Godot's editor rule, ADR 0127): lifecycle callbacks
+    /// fall back to the nearest non-script base type's, <c>OnDraw</c> is skipped. Null (default): every callback runs.
+    /// </summary>
+    public Func<Type, bool>? EditModeScripts { get; set; }
+
     /// <summary>Fixed physics rate (default 60 Hz).</summary>
     public int PhysicsTicksPerSecond
     {
