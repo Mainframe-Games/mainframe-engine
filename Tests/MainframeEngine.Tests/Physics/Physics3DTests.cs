@@ -66,6 +66,41 @@ public sealed class Physics3DTests : IDisposable
     }
 
     [Fact]
+    public void ASmallBallDroppedOnALargeBoxComesToRestWithoutSpinningAway()
+    {
+        // A golf ball (4.46 cm) dropped 0.94 m onto a 125 m ground box, as in Driving Range. Jitter2's auxiliary contact
+        // points sit ~1 % of the radius off the sphere's centre line; the ball used to spin up and roll away (ADR 0134).
+        var ground = _h.Add(new StaticBody3D { Name = "Ground", Position = new Vector3(45f, -5f, -5.5f) });
+        ground.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(125f, 10f, 130f) } });
+        var ball = _h.Add(new RigidBody3D { Name = "Ball", Position = new Vector3(3.464f, 0.986f, -7.938f) });
+        ball.AddChild(new CollisionShape3D { Shape = new SphereShape3D { Radius = 0.0446f } });
+
+        _h.RunSeconds(4f);
+
+        Assert.True(ball.AngularVelocity.Length() < 1e-3f, $"spinning at {ball.AngularVelocity}");
+        Assert.Equal(3.464f, ball.GlobalPosition.X, 3);
+        Assert.Equal(-7.938f, ball.GlobalPosition.Z, 3);
+        Assert.InRange(ball.GlobalPosition.Y, 0.0446f - 0.0105f, 0.0446f); // Jitter2 lets bodies settle up to 1 cm in
+    }
+
+    [Fact]
+    public void ABallRollingOnABoxKeepsItsLineAndSlowsDown()
+    {
+        var ground = _h.Add(new StaticBody3D { Name = "Ground", Position = new Vector3(0, -5f, 0) });
+        ground.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(100f, 10f, 100f) } });
+        var ball = _h.Add(new RigidBody3D { Name = "Ball", Position = new Vector3(0, 0.04f, 0), LinearDamp = 0.1f, AngularDamp = 0.1f });
+        ball.AddChild(new CollisionShape3D { Shape = new SphereShape3D { Radius = 0.0446f } });
+        _h.Run(1);
+        ball.LinearVelocity = new Vector3(0, 0, -2f);
+
+        _h.RunSeconds(3f);
+
+        Assert.Equal(0f, ball.GlobalPosition.X, 3);
+        Assert.InRange(ball.LinearVelocity.Z, -2f, -0.5f);
+        Assert.True(ball.LinearVelocity.Length() < 2f);
+    }
+
+    [Fact]
     public void BoxFallsAndComesToRestOnTheFloorThenSleeps()
     {
         _h.AddFloor();

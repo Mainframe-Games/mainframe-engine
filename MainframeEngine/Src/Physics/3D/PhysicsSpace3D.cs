@@ -203,6 +203,7 @@ public sealed class PhysicsSpace3D : IDisposable
             BroadPhaseFilter = new LayerFilter(),
             SolveMode = settings.Deterministic ? SolveMode.Deterministic : SolveMode.Regular,
         };
+        _world.NarrowPhaseFilter = new SphereContactFilter(_world, _world.NarrowPhaseFilter);
         _filters = new QueryFilters();
         World3D.PhysicsSpace = this;
     }

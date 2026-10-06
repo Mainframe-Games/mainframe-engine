@@ -92,6 +92,10 @@ from `Node3D`/`Node2D`; every property above is `[Export]`ed (scene files) and t
 - **Mass**: `RigidBody*.Mass` (kg) with inertia from the shapes (Jitter2 `SetMassInertia(mass)`; Box2D mass data
   scaled to the mass).
 - **Damping** is per second (Godot): Jitter2 gets `1 − e^(−d·dt)` per step; Box2D takes it directly.
+- **Sphere contacts** (ADR 0134): every overlapping pair with a sphere gets one contact on the line through the
+  sphere's centre, registered by `SphereContactFilter` (chained after Jitter2's triangle edge filter) instead of
+  Jitter2's auxiliary-point manifold, whose points sit ~1 % of the radius off that line and made resting balls spin
+  away. Sphere against box is exact (closest point on the box); speculative contacts are Jitter2's.
 - **Gravity scale**: native in Box2D; in Jitter2 bodies with a scale other than 0/1 opt out of world gravity and get
   `mass · g · scale` as a force each step.
 
@@ -338,6 +342,8 @@ draw; the fixed-step hooks; allocation gates (3D and 2D). Render tests: `physics
 - Contacts that begin and end within one step aren't reported; `ContactMonitor` reports touching bodies, not impulses.
 - Queries ignore a query shape's scale and never report areas; 2D has no height field, and chain shapes aren't used.
 - Kinematic/character moves made outside `OnPhysicsProcess` reach queries only after the next step.
+- Resting bodies settle up to 1 cm into what they rest on (Jitter2's `ContactData.Contact.AllowedPenetration` is a
+  1 cm constant); Godot's margin is about a millimetre.
 - `MoveAndSlide` doesn't climb steps (only snaps down) and has no constant-speed-on-slopes option.
 - `HeightMapShape3D` is a triangle mesh (memory grows with the map). Jitter2's sweeps have a few-millimetre tolerance.
 - `DebugLinesRenderer` draws one batch per frame (one viewport); editor views will need per-call buffer offsets.

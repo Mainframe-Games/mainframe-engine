@@ -447,3 +447,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   keeps its last box; `data-for` keeps a hidden template element.
 - Tests: tree round trip + worst-case frame size, session answers RequestTree, snapshot order/cap, PlayService
   RequestTree, a workflow test across two instances.
+
+
+### 2026-10-06 — One exact contact for spheres (Driving Range port E12, ADR 0134)
+- Resting golf balls spun up and rolled away: Jitter2's auxiliary manifold points sit ~1 % of the radius off a
+  sphere's centre line. `SphereContactFilter` (chained after the triangle edge filter) registers one contact on the
+  line for every overlapping sphere pair, exact against boxes. Two Physics3DTests. Known: Jitter2 lets resting bodies
+  settle up to 1 cm (constant).
