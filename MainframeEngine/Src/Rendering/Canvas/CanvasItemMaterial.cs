@@ -20,6 +20,12 @@ public enum CanvasBlendMode : byte
 
     /// <summary>No blending (a shader's <c>render_mode blend_disabled</c>).</summary>
     Disabled,
+
+    /// <summary>
+    /// Inside a clip-children group (internal): premultiplied colour <c>DST_ALPHA, 1 − SRC_ALPHA</c>, alpha kept
+    /// (<c>ZERO, ONE</c>), so a child lands only where its owner drew.
+    /// </summary>
+    Atop,
 }
 
 /// <summary>How 2D lights affect an item (Godot's <c>CanvasItemMaterial.LightMode</c>).</summary>

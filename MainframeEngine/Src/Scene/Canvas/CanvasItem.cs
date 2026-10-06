@@ -120,6 +120,9 @@ public abstract class CanvasItem : Node
     [Export]
     public ClipChildrenMode ClipChildren { get; set; }
 
+    /// <summary>The canvas server's handle on this item's clip-children group target.</summary>
+    internal Texture2D? ClipGroupTexture { get; set; }
+
     /// <summary>The material this item draws with (<see cref="CanvasItemMaterial"/> or <see cref="ShaderMaterial"/>; null = default).</summary>
     [Export]
     public Material? Material { get; set; }

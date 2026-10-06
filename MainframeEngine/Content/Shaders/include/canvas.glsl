@@ -17,6 +17,7 @@ layout(push_constant) uniform CanvasPush {
 
 #define CANVAS_FLAG_UNSHADED 1u
 #define CANVAS_FLAG_LIGHT_ONLY 2u
+#define CANVAS_FLAG_PREMULTIPLY 4u   // output premultiplied colour (a clip-children group's atop blend)
 
 mat4 canvas_model_matrix()
 {

@@ -251,6 +251,8 @@ public static partial class CanvasShaderCompiler
                     COLOR *= canvas_pc.canvasModulation;
                     canvas_apply_lights(COLOR, baseColor, VERTEX);
                 }
+                if ((canvas_flags() & CANVAS_FLAG_PREMULTIPLY) != 0u)
+                    COLOR.rgb *= COLOR.a;
                 fragColor = COLOR;
             }
 
