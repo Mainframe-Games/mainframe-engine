@@ -45,6 +45,12 @@ public abstract class MeshSceneBase(HostOptions host) : RenderTestGame(host)
 
     protected override void UpdateScene(in GameTime gameTime)
     {
+        OnFrame(gameTime);
+    }
+
+    /// <summary>Per-frame hook for scenes built on this base.</summary>
+    protected virtual void OnFrame(in GameTime gameTime)
+    {
     }
 
     protected override void DisposeScene()
@@ -464,5 +470,59 @@ public sealed class OutlineScene(HostOptions host) : MeshSceneBase(host)
                 NextPass = new OutlineMaterial3D { Color = Color.FromArgb(255, 230, 40, 40), Width = 3f },
             },
         });
+    }
+}
+
+/// <summary>
+/// SubViewport.CaptureImage and a transparent 3D background (ADR 0136): a 128x128 sub-viewport with TransparentBg renders
+/// a lit sphere into its own world; frame 5 asks for its image, which must arrive with a transparent corner and an
+/// opaque, lit centre. The capture is saved next to the frames (subviewport-capture.png) for inspection.
+/// </summary>
+public sealed class SubViewportCaptureScene(HostOptions host) : MeshSceneBase(host)
+{
+    private SubViewport _view = null!;
+    private int _frames;
+    private bool _captured;
+
+    protected override void Build(Node3D scene)
+    {
+        _view = new SubViewport { Name = "Icon", Width = 128, Height = 128, TransparentBg = true, UpdateMode = SubViewportUpdateMode.Always };
+        var camera = new Camera3D { Name = "IconCamera", Position = new Vector3(0, 0, 3), Fov = 30f, Current = true };
+        _view.AddChild(camera);
+        var sun = new DirectionalLight3D { Name = "IconSun", Energy = 1.2f };
+        sun.LookAt(Vector3.Normalize(new Vector3(-0.4f, -1f, -0.6f)));
+        _view.AddChild(sun);
+        _view.AddChild(new MeshInstance3D
+        {
+            Name = "Ball",
+            Mesh = new SphereMesh { Radius = 0.5f, Height = 1f },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 220, 60, 60) },
+        });
+        scene.AddChild(_view);
+    }
+
+    protected override void OnFrame(in GameTime gameTime)
+    {
+        _frames++;
+        if (_frames == 5)
+            _view.CaptureImage(OnCaptured);
+        if (_frames == 19 && !_captured)
+            Fail("SubViewport.CaptureImage delivered nothing within 14 frames.");
+    }
+
+    private void OnCaptured(FrameCapture capture)
+    {
+        _captured = true;
+        capture.SavePng(Path.Combine(Host.OutputDirectory, "subviewport-capture.png"));
+        if (capture.Width != 128 || capture.Height != 128)
+            Fail($"capture is {capture.Width}x{capture.Height}, expected 128x128");
+        var corner = capture.Pixels.AsSpan(0, 4).ToArray();
+        var centre = capture.Pixels.AsSpan((64 * 128 + 64) * 4, 4).ToArray();
+        if (corner[3] != 0)
+            Fail($"corner alpha {corner[3]}, expected 0 (TransparentBg)");
+        if (centre[3] != 255)
+            Fail($"centre alpha {centre[3]}, expected 255");
+        if (centre[0] < 80 || centre[0] <= centre[2])
+            Fail($"centre ({centre[0]}, {centre[1]}, {centre[2]}) is not the lit red ball");
     }
 }

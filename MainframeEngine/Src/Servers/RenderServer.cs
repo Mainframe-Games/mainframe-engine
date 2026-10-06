@@ -31,6 +31,7 @@ public sealed class RenderServer : IServer
     private readonly List<SubViewport> _subViewports = [];
     private readonly HashSet<SubViewport> _subViewportsWithTargets = [];
     private readonly List<(TaskCompletionSource<PickResult> Completion, PickResult Result)> _pickCompletions = [];
+    private readonly List<(Action<FrameCapture> Callback, FrameCapture Capture)> _captureCompletions = [];
     private bool _warnedTooManyViews;
     private ShadowSystem? _shadows;
     private SubViewport? _shadowView;      // the sub-viewport that owns the shadow maps this frame (see SubViewport.Shadows)
@@ -362,7 +363,8 @@ public sealed class RenderServer : IServer
 
         if (colour)
         {
-            Span<ClearValue> clears = [new ClearValue { Color = LinearClear(sub.ClearColor) }, new ClearValue { DepthStencil = new ClearDepthStencilValue(1f, 0) }];
+            var clear = sub.TransparentBg ? default : LinearClear(sub.ClearColor); // transparent black (Godot's transparent_bg)
+            Span<ClearValue> clears = [new ClearValue { Color = clear }, new ClearValue { DepthStencil = new ClearDepthStencilValue(1f, 0) }];
             targets.Hdr!.Begin(cb, clears);
             if (camera is not null)
             {
@@ -387,7 +389,16 @@ public sealed class RenderServer : IServer
         if (!colour)
             return;
         _compositor ??= new SubViewportCompositor(vk);
-        _compositor.Tonemap(cb, targets);
+        _compositor.Tonemap(cb, targets, keepAlpha: sub.TransparentBg);
+        if (sub.PendingCaptures is { Count: > 0 } captures)
+        {
+            var capture = targets.Capture ??= new SubViewportCapture(vk);
+            foreach (var callback in captures)
+                capture.Request(callback);
+            captures.Clear();
+        }
+
+        targets.Capture?.Copy(cb, targets.Ldr!);
         targets.RenderCount++;
         if (sub.UpdateMode == SubViewportUpdateMode.Once)
             sub.UpdateMode = SubViewportUpdateMode.Disabled;
@@ -539,7 +550,19 @@ public sealed class RenderServer : IServer
     {
         _rootPicker?.Collect(_root?.Tree, _pickCompletions);
         foreach (var sub in _subViewportsWithTargets)
+        {
             sub.Targets?.Picker?.Collect(sub.Tree, _pickCompletions);
+            sub.Targets?.Capture?.Collect(_captureCompletions);
+        }
+
+        if (_captureCompletions.Count > 0)
+        {
+            var captures = _captureCompletions.ToArray();
+            _captureCompletions.Clear();
+            foreach (var (callback, capture) in captures)
+                callback(capture);
+        }
+
         if (_pickCompletions.Count == 0)
             return;
         var completions = _pickCompletions.ToArray();

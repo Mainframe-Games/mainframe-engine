@@ -13,7 +13,7 @@ layout(set = 0, binding = 0) uniform sampler2D hdrScene;
 
 layout(push_constant) uniform Tonemap {
     float exposure;
-    uint  encodeSrgb; // 1: the target stores raw values (UNORM), so encode here
+    uint  encodeSrgb; // bit 0: the target stores raw values (UNORM), so encode here; bit 1: keep the scene's alpha
 } pc;
 
 // sRGB/Rec.709 → ACES AP1 with the RRT's saturation folded in (column-major: the HLSL rows are the columns).
@@ -45,9 +45,10 @@ vec3 acesFitted(vec3 color)
 
 void main()
 {
-    vec3 hdr = texelFetch(hdrScene, ivec2(gl_FragCoord.xy), 0).rgb;
-    vec3 color = acesFitted(max(hdr, vec3(0.0)) * pc.exposure);
-    if (pc.encodeSrgb != 0u)
+    vec4 hdr = texelFetch(hdrScene, ivec2(gl_FragCoord.xy), 0);
+    vec3 color = acesFitted(max(hdr.rgb, vec3(0.0)) * pc.exposure);
+    if ((pc.encodeSrgb & 1u) != 0u)
         color = linearToSrgb(color);
-    outColor = vec4(color, 1.0);
+    // A transparent sub-viewport (SubViewport.TransparentBg) keeps what its scene wrote; every other view is opaque.
+    outColor = vec4(color, (pc.encodeSrgb & 2u) != 0u ? clamp(hdr.a, 0.0, 1.0) : 1.0);
 }

@@ -54,7 +54,8 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
 
     /// <summary>The tonemapped target: sRGB-encoded values in a UNORM image, sampled afterwards.</summary>
     public static RenderTargetDesc LdrTargetDesc(string name) =>
-        new($"{name} (LDR)", [RenderTargetAttachment.Sampled(Format.R8G8B8A8Unorm)], null);
+        new($"{name} (LDR)", [new RenderTargetAttachment(Format.R8G8B8A8Unorm, ImageLayout.ShaderReadOnlyOptimal,
+            ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit)], null); // copied back by SubViewport.CaptureImage
 
     public DescriptorSet AllocateSet(ImageView hdrView)
     {
@@ -84,7 +85,7 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
     }
 
     /// <summary>Records the tonemap of <paramref name="targets"/>' HDR image into its LDR target (no pass active).</summary>
-    public void Tonemap(CommandBuffer cb, SubViewportTargets targets)
+    public void Tonemap(CommandBuffer cb, SubViewportTargets targets, bool keepAlpha)
     {
         var ldr = targets.Ldr!;
         ldr.Begin(cb, default);
@@ -94,7 +95,7 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layout, 0, 1, &set, 0, null);
         var push = stackalloc uint[2];
         *(float*)push = _ctx.Exposure;
-        push[1] = 1; // UNORM target: encode sRGB in the shader
+        push[1] = 1u | (keepAlpha ? 2u : 0u); // UNORM target: encode sRGB in the shader; keep the scene's alpha (TransparentBg)
         vk.CmdPushConstants(cb, _layout, ShaderStageFlags.FragmentBit, 0, 8, push);
         PipelineBuilder.SetViewport(vk, cb, ldr.Extent, flipY: false);
         vk.CmdDraw(cb, 3, 1, 0, 0);
