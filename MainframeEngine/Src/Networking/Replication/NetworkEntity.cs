@@ -51,6 +51,11 @@ internal sealed class NetworkEntity
     /// <summary>Index of the spawned scene in <see cref="MultiplayerApi.SpawnableScenes"/>.</summary>
     public int SceneIndex { get; set; }
 
+    /// <summary>A <see cref="MultiplayerSpawner"/> spawn: the spawner's path and the serialized <see cref="SpawnData"/>.</summary>
+    public string? SpawnerPath { get; set; }
+
+    public byte[]? SpawnPayload { get; set; }
+
     /// <summary>The networked parent's id, or 0 when <see cref="ParentPath"/> names the parent.</summary>
     public uint ParentNetId { get; set; }
 

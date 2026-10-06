@@ -207,7 +207,37 @@ public sealed partial class MultiplayerApi
         _bus?.Disconnect(peer.Id, reason);
     }
 
-    private void RegisterSpawn(Node root, int sceneIndex, Node parent, PeerId authority)
+    /// <summary>The spawn message's scene index for a <see cref="MultiplayerSpawner"/> spawn (built from data on every peer).</summary>
+    internal const int CustomSceneIndex = -2;
+
+    internal Node SpawnCustom(MultiplayerSpawner spawner, SpawnData data)
+    {
+        ThrowIfDisposed();
+        if (Mode != MultiplayerMode.Server)
+            throw new InvalidOperationException("Only a running server can spawn.");
+        var function = spawner.SpawnFunction ?? throw new InvalidOperationException($"MultiplayerSpawner '{spawner.Name}' has no SpawnFunction.");
+        var parent = spawner.SpawnParent ?? throw new InvalidOperationException($"MultiplayerSpawner '{spawner.Name}': spawn path '{spawner.SpawnPath}' does not exist.");
+        var payload = data.Serialize();
+        var root = function(data) ?? throw new InvalidOperationException($"MultiplayerSpawner '{spawner.Name}': the spawn function returned null.");
+        try
+        {
+            var entity = RegisterSpawn(root, CustomSceneIndex, parent, default);
+            entity.SpawnerPath = spawner.GetPath().Path;
+            entity.SpawnPayload = payload;
+        }
+        catch
+        {
+            root.Free();
+            throw;
+        }
+
+        parent.AddChild(root);
+        _stats.Spawns++;
+        NodeSpawned?.Invoke(root);
+        return root;
+    }
+
+    private NetworkEntity RegisterSpawn(Node root, int sceneIndex, Node parent, PeerId authority)
     {
         _collectBuffer.Clear();
         CollectNetworked(root, _collectBuffer, isRoot: true);
@@ -236,6 +266,7 @@ public sealed partial class MultiplayerApi
         foreach (var descendant in descendants)
             AddEntity(descendant);
         _pendingSpawns.Add(rootEntity);
+        return rootEntity;
     }
 
     // Dense per-entity index into every client's acknowledgement array (reused after despawn).
@@ -467,6 +498,11 @@ public sealed partial class MultiplayerApi
     {
         writer.WriteVarUInt32(root.NetId);
         writer.WriteVarUInt32((uint)root.SceneIndex);
+        if (root.SceneIndex == CustomSceneIndex)
+        {
+            writer.Write((root.SpawnerPath ?? string.Empty).AsSpan());
+            NetCodec.Write(writer, root.SpawnPayload);
+        }
         if (root.ParentNetId != 0)
         {
             writer.Write((byte)1);

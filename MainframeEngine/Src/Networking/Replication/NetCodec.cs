@@ -63,6 +63,75 @@ public static class NetCodec
 
     /// <summary>A struct through its <see cref="INetworkTransferable.NetworkWrite"/>.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    // Arrays (RPC parameters only): a var-uint length, then the elements.
+    public static void Write(NetBufferWriter w, byte[]? v)
+    {
+        var a = v ?? [];
+        w.WriteVarUInt32((uint)a.Length);
+        foreach (var x in a)
+            w.Write(x);
+    }
+
+    public static void Write(NetBufferWriter w, int[]? v)
+    {
+        var a = v ?? [];
+        w.WriteVarUInt32((uint)a.Length);
+        foreach (var x in a)
+            w.Write(x);
+    }
+
+    public static void Write(NetBufferWriter w, float[]? v)
+    {
+        var a = v ?? [];
+        w.WriteVarUInt32((uint)a.Length);
+        foreach (var x in a)
+            w.Write(x);
+    }
+
+    public static void Write(NetBufferWriter w, string[]? v)
+    {
+        var a = v ?? [];
+        w.WriteVarUInt32((uint)a.Length);
+        foreach (var x in a)
+            Write(w, x);
+    }
+
+    public static void Read(NetBufferReader r, out byte[] v)
+    {
+        v = new byte[ArrayLength(r, 1)];
+        for (var i = 0; i < v.Length; i++)
+            v[i] = r.ReadByte();
+    }
+
+    public static void Read(NetBufferReader r, out int[] v)
+    {
+        v = new int[ArrayLength(r, 4)];
+        for (var i = 0; i < v.Length; i++)
+            v[i] = r.ReadInt32();
+    }
+
+    public static void Read(NetBufferReader r, out float[] v)
+    {
+        v = new float[ArrayLength(r, 4)];
+        for (var i = 0; i < v.Length; i++)
+            v[i] = r.ReadSingle();
+    }
+
+    public static void Read(NetBufferReader r, out string[] v)
+    {
+        v = new string[ArrayLength(r, 1)];
+        for (var i = 0; i < v.Length; i++)
+            v[i] = r.ReadString();
+    }
+
+    private static int ArrayLength(NetBufferReader r, int elementBytes)
+    {
+        var length = r.ReadVarUInt32();
+        if (length > (uint)r.Remaining / (uint)elementBytes)
+            throw new InvalidDataException($"Array length {length} exceeds the {r.Remaining} bytes left.");
+        return (int)length;
+    }
+
     public static void WriteValue<T>(NetBufferWriter w, in T v) where T : struct, INetworkTransferable => w.WriteValue(in v);
 
     public static void Read(NetBufferReader r, out bool v) => v = r.ReadBoolean();

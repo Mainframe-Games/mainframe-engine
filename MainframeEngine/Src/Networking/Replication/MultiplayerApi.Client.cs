@@ -212,6 +212,15 @@ public sealed partial class MultiplayerApi
         var reader = message.Reader!;
         var netId = reader.ReadVarUInt32();
         var sceneIndex = reader.ReadVarUInt32();
+        var custom = sceneIndex == unchecked((uint)CustomSceneIndex);
+        string? spawnerPath = null;
+        byte[]? payload = null;
+        if (custom)
+        {
+            spawnerPath = reader.ReadString();
+            NetCodec.Read(reader, out payload);
+        }
+
         var parentKind = reader.ReadByte();
         var parentNetId = parentKind == 1 ? reader.ReadVarUInt32() : 0;
         var parentPath = parentKind == 0 ? reader.ReadString() : null;
@@ -231,6 +240,7 @@ public sealed partial class MultiplayerApi
 
         // A bind (MultiplayerApi.Bind): the node is this peer's own, at the same path as on the server.
         var bound = sceneIndex == unchecked((uint)BoundSceneIndex);
+        MultiplayerSpawner? customSpawner = null;
         Node root;
         if (bound)
         {
@@ -244,6 +254,17 @@ public sealed partial class MultiplayerApi
             }
 
             root = existing;
+        }
+        else if (custom)
+        {
+            if (_tree.Root.GetNodeOrNull(spawnerPath!) is not MultiplayerSpawner { SpawnFunction: { } function } spawner)
+            {
+                Log.Error($"[Net] spawn of #{netId}: no MultiplayerSpawner with a spawn function at '{spawnerPath}' here");
+                return;
+            }
+
+            customSpawner = spawner;
+            root = function(SpawnData.Deserialize(payload!));
         }
         else if (sceneIndex >= (uint)_scenes.Count)
         {
@@ -297,13 +318,13 @@ public sealed partial class MultiplayerApi
                 }
             }
 
-            rootEntity!.SceneIndex = bound ? BoundSceneIndex : (int)sceneIndex;
+            rootEntity!.SceneIndex = bound ? BoundSceneIndex : custom ? CustomSceneIndex : (int)sceneIndex;
             rootEntity.ParentNetId = parentNetId;
             rootEntity.ParentPath = parentPath;
             rootEntity.Descendants = entities[1..];
             rootEntity.SpawnSent = true;
 
-            var parent = bound ? null : ResolveSpawnParent(rootEntity);
+            var parent = bound ? null : customSpawner?.SpawnParent ?? ResolveSpawnParent(rootEntity);
             foreach (var entity in entities)
             {
                 if (entity.Released)
@@ -334,6 +355,7 @@ public sealed partial class MultiplayerApi
 
         _stats.Spawns++;
         NodeSpawned?.Invoke(root);
+        customSpawner?.RaiseSpawned(root);
     }
 
     private Node ResolveSpawnParent(NetworkEntity root)
