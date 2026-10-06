@@ -86,7 +86,7 @@ Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when t
 
 ## Known issues
 
-- Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D light shadows/normal maps/`DirectionalLight2D`, text (E4),
+- Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D light shadows/normal maps/`DirectionalLight2D`, font oversampling and shaping beyond kerning,
   Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `ClipChildren`
   (canvas groups), nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
 - The editor's 2D view does not draw canvas items yet (E18).
@@ -116,3 +116,11 @@ night. It lights the items of its own canvas whose `LightMask` shares a bit with
 per-frame-slot block; each batch's push constants carry the bits of the lights that reach it. No shadows or normal maps.
 `Gradient` and `GradientTexture2D` (linear, radial, square, conic fills; Godot's sampling) generate light and sweep
 textures in code or in a scene.
+
+## Text (ADR 0118)
+
+`Font` (a `.ttf` resource; `Font.FromFile`/`FromData`) and `CanvasItem.DrawString` / `DrawStringOutline` (Godot's
+parameters: baseline position, `HorizontalAlignment` in a width, size, modulate; outline size as Godot's). Glyphs are
+read and rasterised in managed code (`TrueTypeFont`, `GlyphRasterizer`: TrueType outlines, GPOS/kern pair kerning,
+exact-area coverage, outlines grown by `size / 4` px at 4× supersampling) into shared atlas pages per size and outline.
+Metrics follow FreeType's rounding. Unhinted, whole-pixel pen positions, no oversampling under a scaled canvas.

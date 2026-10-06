@@ -6,7 +6,7 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// The 2D canvas (ADR 0111): sprites (plain, flipped, modulated, a region), a y-sorted group whose tree order is the
 /// reverse of its draw order, z-index, every draw primitive (rects filled and outlined, circles, thin and wide lines,
 /// an antialiased line, a polyline, an arc, a triangulated polygon), additive blending, a <see cref="CanvasModulate"/>
-/// tint on the root canvas, a <see cref="PointLight2D"/> showing through it (ADR 0117) and a <see cref="CanvasLayer"/> neither touches. Cleared to Godot's default grey; drawn with
+/// tint on the root canvas, a <see cref="PointLight2D"/> showing through it (ADR 0117), outlined text (ADR 0118) and a <see cref="CanvasLayer"/> neither touches. Cleared to Godot's default grey; drawn with
 /// Godot's canvas_items stretch from a 480×270 base.
 /// </summary>
 public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
@@ -114,6 +114,7 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
         spineBoy.UpdateSkeleton(0.25f);
         root.AddChild(new Sprite2D { Name = "RigView", Texture = rig.GetTexture(), Centered = false, Position = new Vector2(380, 170) });
 
+        root.AddChild(new Caption { Name = "Caption", Position = new Vector2(160, 100) });
         root.AddChild(new CanvasModulate { Name = "Tint", Color = new Vector4(0.85f, 0.9f, 1f, 1f) });
         // An orange light over the flipped sprite: added after the tint, outside its texture nothing changes.
         root.AddChild(new PointLight2D { Name = "Light", Texture = Radial(), TextureScale = 3, Position = new Vector2(110, 40), Color = new Vector4(1f, 0.6f, 0.2f, 1f), Energy = 1.5f });
@@ -134,6 +135,18 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
     }
 
     /// <summary>A filled rectangle with its top-left corner at the origin.</summary>
+    // Canvas text (ADR 0118): an outlined line in the engine's Lato, centred in 160 px.
+    private sealed class Caption : Node2D
+    {
+        private readonly Font _font = Font.FromFile("Content/UI/fonts/LatoLatin-Regular.ttf");
+
+        protected override void OnDraw()
+        {
+            DrawStringOutline(_font, Vector2.Zero, "Canvas text: AVTo", HorizontalAlignment.Center, 160, 16, 6, new Vector4(0.05f, 0.05f, 0.1f, 1));
+            DrawString(_font, Vector2.Zero, "Canvas text: AVTo", HorizontalAlignment.Center, 160, 16);
+        }
+    }
+
     private sealed class Swatch : Node2D
     {
         public Vector2 Size { get; set; }
