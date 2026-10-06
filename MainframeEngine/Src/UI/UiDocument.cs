@@ -29,6 +29,7 @@ public class UiDocument : Node
     private bool _modal;
     private bool _loadFailed;
     private bool _modelsChanged;
+    private UiTooltips? _tooltips;
 
     /// <summary>The document file, e.g. <c>Content/UI/hud.rml</c> (through the UI file interface).</summary>
     [Export]
@@ -223,6 +224,7 @@ public class UiDocument : Node
         ApplyPanelTitle();
         ApplyVisibility();
         RebindElements();
+        AttachTooltips();
         OnLoaded();
         Loaded?.Invoke();
         return true;
@@ -259,6 +261,7 @@ public class UiDocument : Node
             ApplyPanelTitle();
             ApplyVisibility();
             RebindElements();
+            AttachTooltips();
         }
 
         Reloaded?.Invoke();
@@ -282,6 +285,17 @@ public class UiDocument : Node
 
         if (_modelsChanged)
             Reload(); // a data model was created after loading: rebind the views
+        _tooltips?.Update();
+    }
+
+    /// <summary>The text of the tooltip shown now (ADR 0121), or null.</summary>
+    public string? ShownTooltip => _tooltips?.ShownText;
+
+    // Godot-style title tooltips when the document has a #tooltip element (UiTooltips).
+    private void AttachTooltips()
+    {
+        _tooltips ??= new UiTooltips(_layer?.Server);
+        _tooltips.Attach(_document, _layer?.Context);
     }
 
     /// <summary>After a failed load (e.g. a syntax error fixed by hot reload), allows another attempt.</summary>
@@ -324,6 +338,7 @@ public class UiDocument : Node
 
     private void Unload(bool keepModels)
     {
+        _tooltips?.Detach();
         if (IsLoaded)
         {
             var document = _document;
