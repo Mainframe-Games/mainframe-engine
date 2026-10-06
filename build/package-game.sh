@@ -101,7 +101,7 @@ case "$rid" in
 PLIST
     # Ad-hoc signature: Apple Silicon refuses unsigned native code. Notarization needs a Developer ID (not done here).
     if command -v codesign >/dev/null; then codesign --force --deep --sign - "$app" >/dev/null; fi
-    (cd "$stage" && rm -f "$out/$base.zip" && ditto -c -k --keepParent "$name.app" "$out/$base.zip" 2>/dev/null || zip -qry "$out/$base.zip" "$name.app")
+    (cd "$stage" && rm -f "$out/$base.zip" && ditto -c -k --norsrc --noextattr --keepParent "$name.app" "$out/$base.zip" 2>/dev/null || zip -qry "$out/$base.zip" "$name.app")
     echo "$out/$base.zip"
     ;;
   win-*)

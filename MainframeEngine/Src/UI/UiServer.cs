@@ -297,10 +297,22 @@ public sealed class UiServer : IFrameServer, IInputServer
 
         foreach (var file in Directory.EnumerateFiles(full).Order(StringComparer.Ordinal))
         {
-            var extension = Path.GetExtension(file);
-            if (extension.Equals(".ttf", StringComparison.OrdinalIgnoreCase) || extension.Equals(".otf", StringComparison.OrdinalIgnoreCase))
+            if (IsFontFile(file))
                 RmlCore.LoadFontFace(file);
         }
+    }
+
+    /// <summary>
+    /// A <c>.ttf</c>/<c>.otf</c> font, not a macOS AppleDouble companion (<c>._Name.ttf</c>: extended attributes that
+    /// archive tools such as <c>unzip</c> write out as files), which RmlUi cannot load.
+    /// </summary>
+    internal static bool IsFontFile(string path)
+    {
+        var name = Path.GetFileName(path);
+        if (name.StartsWith("._", StringComparison.Ordinal))
+            return false;
+        var extension = Path.GetExtension(name);
+        return extension.Equals(".ttf", StringComparison.OrdinalIgnoreCase) || extension.Equals(".otf", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Publishes an engine texture as <c>engine://name</c> (no-op without the Vulkan renderer).</summary>
