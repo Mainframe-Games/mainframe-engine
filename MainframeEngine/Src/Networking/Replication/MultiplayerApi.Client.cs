@@ -5,6 +5,13 @@ public sealed partial class MultiplayerApi
     private readonly List<NetworkEntity> _interpolated = [];
     private readonly List<Node> _spawnBuffer = [];
     private PeerId _serverPeer;
+
+    /// <summary>
+    /// Client: sends a game message (registered in <see cref="Messages"/> on both ends) to the server — the server's peer
+    /// on the client's transport is not <see cref="ServerPeerId"/>. False when not connected or the send failed.
+    /// </summary>
+    public bool SendToServer<T>(in T message, NetChannel channel = NetChannel.Reliable) where T : struct, INetworkTransferable =>
+        Mode == MultiplayerMode.Client && _bus is not null && _bus.Send(_serverPeer, in message, channel);
     private bool _transportConnected;
     private bool _welcomed;
     private int _serverTickRate = DefaultTickRate;
