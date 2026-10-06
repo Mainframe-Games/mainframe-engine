@@ -4,11 +4,15 @@
 #   win-*     <exe>.exe + its files in <exe>-<version>-<rid>.zip
 #   linux-*   <exe> + its files in <exe>-<version>-<rid>.tar.gz (also the dedicated server: run it with --headless)
 # Usage: build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v]
-#        [--bundle-id id] [--copyright text] [--icon icon.png]
+#        [--bundle-id id] [--copyright text] [--icon icon.png] [--sign "Developer ID Application: …"] [--notarize profile]
 # The icon PNG becomes the .app's .icns (macOS sips + iconutil) and the Windows exe's icon (ImageMagick `magick`).
 # Defaults: name and version from the project.mfproj next to the desktop project's folder (one level up), the exe from
 # the name without spaces, the bundle id com.mainframegames.<exe lowercased>, the icon from project.mfproj "window.icon".
 # Without those tools the package has no icon (a warning on macOS). See docs/design/release.md (Games).
+# macOS signing: ad-hoc by default. --sign (or $MF_SIGN_IDENTITY) signs every Mach-O and the bundle with that identity, the
+# hardened runtime and a secure timestamp (entitlements for .NET: JIT and unsigned executable memory). --notarize (or
+# $MF_NOTARY_PROFILE) then submits the zip with `xcrun notarytool --keychain-profile <profile> --wait`, staples the
+# ticket and re-zips. The profile comes from `xcrun notarytool store-credentials <profile>` (Apple ID, team, app password).
 set -euo pipefail
 csproj="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"; rid="$2"; mkdir -p "$3"; out="$(cd "$3" && pwd)"; shift 3
 project_dir="$(dirname "$(dirname "$csproj")")"
@@ -17,6 +21,7 @@ mfproj="$project_dir/project.mfproj"
 json() { sed -n "s/^  \"$1\": \"\(.*\)\",\{0,1\}$/\1/p" "$mfproj" | head -n 1; }
 
 name="$(json name)"; version="$(json version)"; exe=""; bundle_id=""; copyright=""
+sign_identity="${MF_SIGN_IDENTITY:-}"; notary_profile="${MF_NOTARY_PROFILE:-}"
 icon="$(sed -n 's/^    "icon": "\(.*\)",\{0,1\}$/\1/p' "$mfproj" | head -n 1)"
 [ -n "$icon" ] && icon="$project_dir/$icon"
 while [ $# -gt 0 ]; do
@@ -27,6 +32,8 @@ while [ $# -gt 0 ]; do
     --bundle-id) bundle_id="$2"; shift 2 ;;
     --copyright) copyright="$2"; shift 2 ;;
     --icon) icon="$2"; shift 2 ;;
+    --sign) sign_identity="$2"; shift 2 ;;
+    --notarize) notary_profile="$2"; shift 2 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -99,9 +106,37 @@ case "$rid" in
 </dict>
 </plist>
 PLIST
-    # Ad-hoc signature: Apple Silicon refuses unsigned native code. Notarization needs a Developer ID (not done here).
-    if command -v codesign >/dev/null; then codesign --force --deep --sign - "$app" >/dev/null; fi
-    (cd "$stage" && rm -f "$out/$base.zip" && ditto -c -k --norsrc --noextattr --keepParent "$name.app" "$out/$base.zip" 2>/dev/null || zip -qry "$out/$base.zip" "$name.app")
+    zip_app() { (cd "$stage" && rm -f "$out/$base.zip" && ditto -c -k --norsrc --noextattr --keepParent "$name.app" "$out/$base.zip" 2>/dev/null || zip -qry "$out/$base.zip" "$name.app"); }
+    if [ -n "$sign_identity" ]; then
+      # Developer ID: inside out (every Mach-O, then the bundle), hardened runtime, the .NET entitlements.
+      ent="$stage/entitlements.plist"
+      cat > "$ent" <<ENT
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+	<key>com.apple.security.cs.allow-jit</key><true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+	<key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict></plist>
+ENT
+      while IFS= read -r -d '' f; do
+        if file -b "$f" | grep -q "Mach-O"; then
+          codesign --force --timestamp --options runtime --entitlements "$ent" --sign "$sign_identity" "$f"
+        fi
+      done < <(find "$app/Contents/MacOS" -type f -print0)
+      codesign --force --timestamp --options runtime --entitlements "$ent" --sign "$sign_identity" "$app"
+      codesign --verify --deep --strict "$app"
+    elif command -v codesign >/dev/null; then
+      # Ad-hoc signature: Apple Silicon refuses unsigned native code; players see Gatekeeper's warning until notarized.
+      codesign --force --deep --sign - "$app" >/dev/null
+    fi
+    zip_app
+    if [ -n "$notary_profile" ]; then
+      [ -n "$sign_identity" ] || { echo "error: --notarize needs --sign (a Developer ID identity)" >&2; exit 1; }
+      xcrun notarytool submit "$out/$base.zip" --keychain-profile "$notary_profile" --wait
+      xcrun stapler staple "$app"
+      zip_app # the stapled bundle
+    fi
     echo "$out/$base.zip"
     ;;
   win-*)

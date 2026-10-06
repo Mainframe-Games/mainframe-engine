@@ -120,7 +120,7 @@ Then per platform:
 
 | RID | Output | Notes |
 |---|---|---|
-| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | Info.plist (name, bundle id, version, copyright, games category), `.icns` from the PNG (sips + iconutil), ad-hoc `codesign` (Apple Silicon refuses unsigned code; Developer ID signing and notarization are not done) |
+| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | Info.plist (name, bundle id, version, copyright, games category), `.icns` from the PNG (sips + iconutil), ad-hoc `codesign` by default (Apple Silicon refuses unsigned code). `--sign "Developer ID Application: …"` (or `MF_SIGN_IDENTITY`) signs each Mach-O and then the bundle, with the hardened runtime, a timestamp and the .NET entitlements (JIT, unsigned executable memory, library validation off). `--notarize <profile>` (or `MF_NOTARY_PROFILE`, from `xcrun notarytool store-credentials`) then submits, staples and re-zips |
 | `win-*` | `<exe>-<version>-<rid>.zip` | the exe icon from the PNG (`magick` → `.ico` → `ApplicationIcon`) |
 | `linux-*` | `<exe>-<version>-<rid>.tar.gz` | also the dedicated server (`<exe> --headless ++ …`, ADR 0120) |
 
