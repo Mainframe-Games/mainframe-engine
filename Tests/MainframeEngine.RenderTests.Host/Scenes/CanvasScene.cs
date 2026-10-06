@@ -82,6 +82,27 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
         wave.SetShaderParameter("mask", texture);
         root.AddChild(new Sprite2D { Name = "Shaded", Texture = texture, Position = new Vector2(60, 230), Scale = new Vector2(10, 4), Material = wave });
 
+        // A 2D sub-viewport (transparent, 2D only) drawing SpineBoy on the canvas, shown through its texture.
+        var rig = new SubViewport { Name = "Rig", Width = 96, Height = 96, Disable3D = true, TransparentBg = true };
+        root.AddChild(rig);
+        var spineBoy = new SpineSprite
+        {
+            Name = "SpineBoy",
+            Position = new Vector2(48, 92),
+            Scale = new Vector2(0.12f),
+            UpdateMode = SpineSpriteUpdateMode.Manual,
+            SkeletonDataRes = new SpineSkeletonDataResource
+            {
+                AtlasRes = ContentPaths.Resolve("Content/Models/Spine/SpineBoy/spineboy-pro.atlas"),
+                SkeletonFileRes = ContentPaths.Resolve("Content/Models/Spine/SpineBoy/spineboy-pro.json"),
+            },
+        };
+        rig.AddChild(spineBoy);
+        spineBoy.EnsureSkeleton();
+        spineBoy.AnimationState!.SetAnimation(0, "walk", true);
+        spineBoy.UpdateSkeleton(0.25f);
+        root.AddChild(new Sprite2D { Name = "RigView", Texture = rig.GetTexture(), Centered = false, Position = new Vector2(380, 170) });
+
         root.AddChild(new CanvasModulate { Name = "Tint", Color = new Vector4(0.85f, 0.9f, 1f, 1f) });
 
         var layer = new CanvasLayer { Name = "Hud", Layer = 1 };

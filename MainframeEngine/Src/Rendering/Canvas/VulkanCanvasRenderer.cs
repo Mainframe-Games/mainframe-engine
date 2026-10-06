@@ -157,11 +157,24 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             }
 
             _evict.Clear();
+
+            foreach (var (viewport, target) in _subTargets)
+                if (!viewport.IsInsideTree || now - target.LastUsed > EvictAfterFrames)
+                    _subEvict.Add(viewport);
+            foreach (var viewport in _subEvict)
+            {
+                ReleaseSubTarget(_subTargets[viewport]);
+                _subTargets.Remove(viewport);
+            }
+
+            _subEvict.Clear();
         }
     }
 
     private void Prepare(Texture2D texture, ulong now)
     {
+        if (texture.Viewport is not null)
+            return; // drawn by the GPU each frame (EnsureSubTarget), nothing to upload
         if (!_textures.TryGetValue(texture, out var entry) || entry.Version != texture.Version)
         {
             if (entry is not null)
@@ -200,22 +213,48 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         var extent = _ctx.SwapchainExtent;
         if (extent.Width == 0 || extent.Height == 0)
             return;
-        if (frame.Batches.Count == 0 && frame.ClearColor is null)
+        var passes = frame.Passes;
+        var hasSubPasses = passes.Count > 1;
+        if (frame.Batches.Count == 0 && frame.ClearColor is null && !hasSubPasses)
             return;
 
-        EnsureTarget(extent);
         var slot = _ctx.FrameSlot;
         var (vertexBuffer, indexBuffer) = Upload(slot, frame);
-
-        var vk = _ctx.Vk;
+        BeginMaterialRing(slot, frame);
         Barrier(cb);
-        var clear = frame.ClearColor ?? Vector4.Zero;
+
+        // 2D sub-viewports first (their targets are sampled by later passes), then the main canvas layer.
+        var now = _ctx.FrameNumber;
+        for (var p = 0; p < passes.Count; p++)
+        {
+            var pass = passes[p];
+            if (pass.Viewport is { } viewport)
+            {
+                var target = EnsureSubTarget(viewport, now);
+                RecordPass(cb, frame, pass, target.Framebuffer, target.Extent, pass.ClearColor ?? Vector4.Zero, vertexBuffer, indexBuffer);
+                Barrier(cb); // later passes sample this target
+                continue;
+            }
+
+            if (pass.BatchCount == 0 && frame.ClearColor is null)
+                continue;
+            EnsureTarget(extent);
+            RecordPass(cb, frame, pass, _framebuffer, extent, frame.ClearColor ?? Vector4.Zero, vertexBuffer, indexBuffer);
+            Barrier(cb); // the overlay pass samples the layer
+            _hasContent = true;
+        }
+    }
+
+    private void RecordPass(CommandBuffer cb, CanvasFrame frame, in CanvasPass pass, Framebuffer framebuffer, Extent2D extent, Vector4 clear,
+        GpuBuffer? vertexBuffer, GpuBuffer? indexBuffer)
+    {
+        var vk = _ctx.Vk;
         var clearValue = new ClearValue { Color = new ClearColorValue(clear.X, clear.Y, clear.Z, clear.W) };
         var begin = new RenderPassBeginInfo
         {
             SType = StructureType.RenderPassBeginInfo,
             RenderPass = _pass,
-            Framebuffer = _framebuffer,
+            Framebuffer = framebuffer,
             RenderArea = new Rect2D { Extent = extent },
             ClearValueCount = 1,
             PClearValues = &clearValue,
@@ -223,7 +262,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         vk.CmdBeginRenderPass(cb, &begin, SubpassContents.Inline);
         PipelineBuilder.SetViewport(vk, cb, extent, flipY: false);
 
-        if (frame.Batches.Count > 0 && vertexBuffer is not null && indexBuffer is not null)
+        if (pass.BatchCount > 0 && vertexBuffer is not null && indexBuffer is not null)
         {
             var vb = vertexBuffer.Handle;
             ulong offset = 0;
@@ -232,12 +271,11 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
 
             var screen = new Vector4(2f / extent.Width, 2f / extent.Height, -1f, -1f);
             var time = _server.Time;
-            BeginMaterialRing(slot, frame);
             var boundLayout = _layout;
             var boundPipeline = default(Pipeline);
             var boundSet = default(DescriptorSet);
             var batches = frame.Batches;
-            for (var i = 0; i < batches.Count; i++)
+            for (var i = pass.FirstBatch; i < pass.FirstBatch + pass.BatchCount; i++)
             {
                 var batch = batches[i];
                 var shaderMaterial = batch.Material as ShaderMaterial;
@@ -300,8 +338,62 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         }
 
         vk.CmdEndRenderPass(cb);
-        Barrier(cb); // the overlay pass samples the layer
-        _hasContent = true;
+    }
+
+    // ── 2D sub-viewport targets ──────────────────────────────────────────────────────────────────────────────
+
+    private sealed class SubTarget
+    {
+        public GpuImage Image = null!;
+        public Framebuffer Framebuffer;
+        public Extent2D Extent;
+        public readonly DescriptorSet[] Sets = new DescriptorSet[6];
+        public ulong LastUsed;
+    }
+
+    private readonly Dictionary<SubViewport, SubTarget> _subTargets = new(ReferenceEqualityComparer.Instance);
+    private readonly List<SubViewport> _subEvict = [];
+
+    /// <summary>2D sub-viewport targets alive (tests, diagnostics).</summary>
+    public int SubViewportTargetCount => _subTargets.Count;
+
+    private SubTarget EnsureSubTarget(SubViewport viewport, ulong now)
+    {
+        var extent = new Extent2D((uint)Math.Max(1, viewport.Width), (uint)Math.Max(1, viewport.Height));
+        if (_subTargets.TryGetValue(viewport, out var target) && target.Extent.Width == extent.Width && target.Extent.Height == extent.Height)
+        {
+            target.LastUsed = now;
+            return target;
+        }
+
+        if (target is not null)
+            ReleaseSubTarget(target);
+        target = new SubTarget { Extent = extent, LastUsed = now };
+        target.Image = GpuImage.Create(_ctx, new GpuImageDesc(extent.Width, extent.Height, LayerFormat,
+            ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit));
+        var view = target.Image.View;
+        var info = new FramebufferCreateInfo
+        {
+            SType = StructureType.FramebufferCreateInfo,
+            RenderPass = _pass,
+            AttachmentCount = 1,
+            PAttachments = &view,
+            Width = extent.Width,
+            Height = extent.Height,
+            Layers = 1,
+        };
+        _ctx.Vk.CreateFramebuffer(_ctx.Device, in info, null, out target.Framebuffer).Check("vkCreateFramebuffer (canvas sub-viewport)");
+        _subTargets[viewport] = target;
+        return target;
+    }
+
+    private void ReleaseSubTarget(SubTarget target)
+    {
+        foreach (var set in target.Sets)
+            if (set.Handle != 0)
+                FreeSet(set);
+        _ctx.Deletions.Enqueue(GpuDeletion.Of(target.Framebuffer));
+        target.Image.Dispose(); // deletion queue
     }
 
     void IOverlayRenderer.RecordOverlay(CommandBuffer cb)
@@ -351,7 +443,18 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
     private DescriptorSet TextureSet(Texture2D? texture, CanvasSampler sampler, out Vector2 pixelSize)
     {
         var s = (int)sampler;
-        if (texture is not null && _textures.TryGetValue(texture, out var entry))
+        if (texture?.Viewport is { } viewport)
+        {
+            if (_subTargets.TryGetValue(viewport, out var target))
+            {
+                target.LastUsed = _ctx.FrameNumber; // a view that stopped updating keeps its image while it is sampled
+                pixelSize = new Vector2(1f / target.Extent.Width, 1f / target.Extent.Height);
+                if (target.Sets[s].Handle == 0)
+                    target.Sets[s] = AllocateSet(target.Image.View, _samplers[s]);
+                return target.Sets[s];
+            }
+        }
+        else if (texture is not null && _textures.TryGetValue(texture, out var entry))
         {
             pixelSize = new Vector2(1f / entry.Texture.Width, 1f / entry.Texture.Height);
             if (entry.Sets[s].Handle == 0)
@@ -864,6 +967,9 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         foreach (var entry in _textures.Values)
             Release(entry);
         _textures.Clear();
+        foreach (var target in _subTargets.Values)
+            ReleaseSubTarget(target);
+        _subTargets.Clear();
         DestroyTarget();
         foreach (ref var frame in _frames.AsSpan())
         {

@@ -91,3 +91,11 @@ Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when t
   (canvas groups), nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
 - The editor's 2D view does not draw canvas items yet (E18).
 - 1 px lines (width −1) on exact integer coordinates rasterise on whichever side the GPU picks, as in Godot.
+
+## 2D sub-viewports (ADR 0116)
+
+A `SubViewport` with `Disable3D` is a 2D view: canvas items under it register with its own canvas, and the canvas server
+draws it into an RGBA8 target before the main canvas (one `CanvasPass` of the frame each; nested views first),
+cleared to transparent black with `TransparentBg` (else the canvas clear colour). `GetTexture()` returns a `Texture2D`
+backed by that target for `Sprite2D`/draw calls. `UpdateMode.Once` draws on the next frame then keeps the image;
+`Disabled` keeps it. A target unused for 600 frames, or whose view left the tree, is released.

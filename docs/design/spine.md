@@ -5,6 +5,12 @@
 Renders Spine skeletal animations as lit, shadow-casting geometry in the 3D scene. Use `SpineNode`;
 `SpineRenderer` and `SpineTextureLoader` are implementation details.
 
+Runtime: spine-csharp **4.3** (fork branch `4.3`, ADR 0116): binary `.skel` and `.json` exports. Two nodes draw it:
+`SpineNode` (3D, lit, shadow-casting; below) and **`SpineSprite`** (2D canvas, spine-godot's `SpineSprite`): set
+`SkeletonDataRes` (a `SpineSkeletonDataResource`: `AtlasRes`, `SkeletonFileRes`, `DefaultMix`, `AnimationMixes`), drive
+`AnimationState`/`Skeleton` directly, `GetGlobalBoneTransform(bone)` for attachments (Y-down, as spine-godot reports it).
+Both build triangles with `SpineGeometry` (draw order, sequences, tints, clipping).
+
 ## Key types
 
 | Type | File | Role |

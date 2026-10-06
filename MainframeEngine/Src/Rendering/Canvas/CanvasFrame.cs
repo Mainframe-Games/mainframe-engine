@@ -38,8 +38,23 @@ public struct CanvasBatch
 /// and an ordered batch list, in target pixels (origin top-left, Y down). Reused frame to frame; no allocation once
 /// warmed up.
 /// </summary>
+/// <summary>
+/// One render target's share of a <see cref="CanvasFrame"/>: a 2D <see cref="SubViewport"/>'s target (drawn first, in
+/// order) or the main canvas layer (<see cref="Viewport"/> null, always last).
+/// </summary>
+public struct CanvasPass
+{
+    public SubViewport? Viewport;
+    public int FirstBatch;
+    public int BatchCount;
+    public Vector2 Size;
+    public Vector4? ClearColor;
+}
+
 public sealed class CanvasFrame
 {
+    private readonly List<CanvasPass> _passes = new(8);
+    private int _passStart;
     private CanvasVertex[] _vertices = new CanvasVertex[4096];
     private uint[] _indices = new uint[8192];
     private readonly List<CanvasBatch> _batches = new(256);
@@ -53,6 +68,25 @@ public sealed class CanvasFrame
     public ReadOnlySpan<uint> Indices => _indices.AsSpan(0, IndexCount);
 
     public List<CanvasBatch> Batches => _batches;
+
+    /// <summary>The frame's targets in draw order: the 2D sub-viewports, then the main canvas.</summary>
+    public List<CanvasPass> Passes => _passes;
+
+    /// <summary>Starts a pass: batches appended until <see cref="EndPass"/> draw into it (and never merge across passes).</summary>
+    public void BeginPass(SubViewport? viewport, Vector2 size, Vector4? clearColor)
+    {
+        _passStart = _batches.Count;
+        _passes.Add(new CanvasPass { Viewport = viewport, FirstBatch = _passStart, Size = size, ClearColor = clearColor });
+    }
+
+    /// <summary>Closes the pass started by <see cref="BeginPass"/>.</summary>
+    public void EndPass()
+    {
+        var pass = _passes[^1];
+        pass.BatchCount = _batches.Count - pass.FirstBatch;
+        _passes[^1] = pass;
+        _passStart = _batches.Count;
+    }
 
     /// <summary>The target size in pixels this frame was built for.</summary>
     public Vector2 TargetSize { get; set; }
@@ -69,6 +103,8 @@ public sealed class CanvasFrame
         IndexCount = 0;
         ItemCount = 0;
         _batches.Clear();
+        _passes.Clear();
+        _passStart = 0;
     }
 
     /// <summary>Appends the commands of every culled item (in order) under one canvas's modulate and transform.</summary>
@@ -114,7 +150,7 @@ public sealed class CanvasFrame
                     _indices[IndexCount + k] = (uint)baseVertex + indices[command.FirstIndex + k];
                 IndexCount += command.IndexCount;
 
-                if (!local && _batches.Count > 0)
+                if (!local && _batches.Count > _passStart)
                 {
                     var last = _batches[^1];
                     if (!last.LocalVertices && ReferenceEquals(last.Texture, command.Texture) && last.Sampler == sampler &&

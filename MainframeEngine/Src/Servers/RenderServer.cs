@@ -556,7 +556,7 @@ public sealed class RenderServer : IServer
     // ── Helpers ────────────────────────────────────────────────────────────────
 
     private static bool ShouldRender(SubViewport sub) =>
-        sub.UpdateMode != SubViewportUpdateMode.Disabled && sub.Width > 0 && sub.Height > 0 && sub.IsInsideTree;
+        !sub.Disable3D && sub.UpdateMode != SubViewportUpdateMode.Disabled && sub.Width > 0 && sub.Height > 0 && sub.IsInsideTree;
 
     private static Extent2D Extent(SubViewport sub) => new((uint)Math.Max(1, sub.Width), (uint)Math.Max(1, sub.Height));
 

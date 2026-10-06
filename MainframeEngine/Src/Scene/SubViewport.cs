@@ -48,6 +48,22 @@ public class SubViewport : SceneViewport
     public SubViewportUpdateMode UpdateMode { get; set; }
 
     /// <summary>
+    /// No 3D (Godot's <c>disable_3d</c>): the view is 2D only — the canvas server draws its canvas into its own target
+    /// (<see cref="GetTexture"/>) before the main canvas, and the render server skips its 3D passes.
+    /// </summary>
+    [Export]
+    public bool Disable3D { get; set; }
+
+    /// <summary>A 2D view clears to transparent black (Godot's <c>transparent_bg</c>) instead of the canvas clear colour.</summary>
+    [Export]
+    public bool TransparentBg { get; set; }
+
+    /// <summary>The view's colour as a texture for canvas items (Godot's <c>get_texture()</c>); one per view.</summary>
+    public Texture2D GetTexture() => _texture ??= Texture2D.FromViewport(this);
+
+    private Texture2D? _texture;
+
+    /// <summary>
     /// Render shadow maps for this view's world. The engine has one set of shadow maps: the main world uses it whenever it
     /// has visuals; otherwise the first rendering sub-viewport with this set gets it (the editor's view of the edited
     /// scene). Other sub-viewports are lit without shadows.
