@@ -16,6 +16,14 @@ public abstract class GeometryInstance3D : VisualInstance3D
     [Export]
     public Material? MaterialOverride { get; set; }
 
+    /// <summary>
+    /// Drawn over every surface after its own material (Godot's <c>material_overlay</c>), with its
+    /// <see cref="Material.NextPass"/> chain: highlights, outlines. Overlay draws test depth less-or-equal, so they land
+    /// exactly on the surface; they cast no shadows and are not picked.
+    /// </summary>
+    [Export]
+    public Material? MaterialOverlay { get; set; }
+
     internal override bool IsBatched => true;
 
     /// <summary>The mesh to draw this frame (null or empty: nothing).</summary>
@@ -36,6 +44,11 @@ public abstract class GeometryInstance3D : VisualInstance3D
     internal int ResolvedStamp;
     internal MeshGpu? GpuMesh;
     internal MaterialGpu?[] GpuMaterials = [];
+    internal Material? ResolvedOverlay;
+    internal int ResolvedChainGeneration;
+
+    /// <summary>Extra passes: each surface material's next-pass chain, then the overlay chain over every surface.</summary>
+    internal MeshExtraPass[] GpuExtraPasses = [];
 
     /// <summary>Bumped by subclasses when their generated mesh or materials change.</summary>
     internal int RenderStamp;

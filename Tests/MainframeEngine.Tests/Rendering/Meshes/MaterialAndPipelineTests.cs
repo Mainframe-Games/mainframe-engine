@@ -32,6 +32,43 @@ public sealed class MaterialAndPipelineTests
     }
 
     [Fact]
+    public void OutlinesAreFrontCulledBlendedAndNextPassesBumpTheChainGeneration()
+    {
+        var outline = new OutlineMaterial3D { Color = Color.White, Width = 7f };
+        Assert.Equal(new MaterialRenderState(AlphaMode.Blend, CullMode.Front, false), outline.RenderState);
+        Assert.False(outline.RenderState.CastsShadows);
+
+        var material = new StandardMaterial3D();
+        var version = material.Version;
+        var generation = Material.ChainGeneration;
+        material.NextPass = outline;
+        Assert.Equal(version + 1, material.Version);
+        Assert.NotEqual(generation, Material.ChainGeneration);
+        generation = Material.ChainGeneration;
+        material.NextPass = outline; // unchanged
+        Assert.Equal(generation, Material.ChainGeneration);
+
+        // Extra passes (overlays, next passes) get their own pipelines: less-or-equal depth.
+        var normal = PipelineKey.ForMaterial(ShaderSetId.MeshOutline, outline.RenderState, mirrored: false, ScenePass);
+        var extra = PipelineKey.ForMaterial(ShaderSetId.MeshOutline, outline.RenderState, mirrored: false, ScenePass, extraPass: true);
+        Assert.NotEqual(normal, extra);
+        Assert.True(extra.ExtraPass);
+        Assert.Equal(CullMode.Front, extra.Cull);
+        Assert.False(extra.DepthWrite);
+        var indices = new HashSet<int>();
+        for (var shaders = 0; shaders < MaterialGpu.ShaderSetCount; shaders++)
+            for (var e = 0; e < 2; e++)
+                for (var m = 0; m < 2; m++)
+                    indices.Add(MaterialGpu.PipelineIndex((ShaderSetId)shaders, e == 1, m == 1));
+        Assert.Equal(12, indices.Count);
+        Assert.Equal(11, indices.Max());
+
+        var parameters = MaterialParams.From(outline);
+        Assert.Equal(1u, parameters.Unshaded);
+        Assert.Equal(7f, BitConverter.UInt32BitsToSingle(parameters.OutlineWidth));
+    }
+
+    [Fact]
     public void EveryPropertyChangeBumpsTheVersion()
     {
         var material = new StandardMaterial3D();

@@ -432,3 +432,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   after `--editor-port`/`--scene` (they swallowed the editor flags). `CanvasServer.ReleaseSceneReferences` before code
   reloads (the last frame kept the 2D tabs' game nodes). Edit-mode script check cached per node (the editor suite went
   from 15 s to 3 min without it). Tests: sub-resource array, PlayShortcutTests, Play argument order, settings round trip.
+
+### 2026-10-06 — Material overlays, next passes, OutlineMaterial3D (Driving Range port E2, ADR 0132)
+- `GeometryInstance3D.MaterialOverlay`, `Material.NextPass` (chains ≤ 8, `Material.ChainGeneration`), built-in
+  `OutlineMaterial3D` (Godot's inverted-hull outline: `Mesh/MeshOutline.vk.vert`, front-culled, unshaded, blended).
+  Extra passes join the opaque/transparent lists with less-or-equal depth pipelines; no shadows, not picked. Render
+  test + golden `outline_frame0020`; pipeline and serialization unit tests.

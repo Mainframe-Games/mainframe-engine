@@ -44,6 +44,9 @@ internal struct MeshDrawItem
     public PipelineEntry Pipeline;
     public int Surface;
     public bool Mirrored;
+
+    /// <summary>A next-pass or overlay draw (skipped by the object-ID pass).</summary>
+    public bool Extra;
 }
 
 /// <summary>One surface of one shadow caster.</summary>
@@ -154,7 +157,8 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
         ReadOnlySpan<DescriptorSetLayoutBinding> bindings =
         [
-            new() { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            // The parameters are read by the outline vertex shader too (its width).
+            new() { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit },
             new() { Binding = 1, DescriptorType = DescriptorType.Sampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 2, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 3, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
@@ -243,29 +247,72 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             return false;
 
         if (node.ResolvedMeshGeneration != gpuMesh.Generation || !ReferenceEquals(node.ResolvedOverride, node.MaterialOverride) ||
-            node.ResolvedStamp != node.RenderStamp || node.GpuMaterials.Length != gpuMesh.Surfaces.Length)
+            node.ResolvedStamp != node.RenderStamp || node.GpuMaterials.Length != gpuMesh.Surfaces.Length ||
+            !ReferenceEquals(node.ResolvedOverlay, node.MaterialOverlay) || node.ResolvedChainGeneration != Material.ChainGeneration)
             ResolveMaterials(node, mesh!, gpuMesh);
 
         foreach (var material in node.GpuMaterials)
             if (material is not null && material.PreparedFrame != frame)
                 PrepareMaterial(material);
+        foreach (var extra in node.GpuExtraPasses)
+            if (extra.Material.PreparedFrame != frame)
+                PrepareMaterial(extra.Material);
         return true;
     }
 
     private void ResolveMaterials(GeometryInstance3D node, Mesh mesh, MeshGpu gpuMesh)
     {
         // Acquire the new references before releasing the old ones, so shared materials are not torn down.
+        var chainGeneration = Material.ChainGeneration;
         var previous = node.GpuMaterials;
-        var resolved = new MaterialGpu?[gpuMesh.Surfaces.Length];
+        var previousExtras = node.GpuExtraPasses;
+        var surfaces = gpuMesh.Surfaces.Length;
+        var resolved = new MaterialGpu?[surfaces];
         for (var s = 0; s < resolved.Length; s++)
             resolved[s] = AcquireMaterial(node.GetRenderMaterial(mesh, s));
+
+        // Extra passes (Godot's material chains): each surface material's next passes, then the overlay and its next
+        // passes over every surface. Only on change, so the allocation is not per frame.
+        var overlay = node.MaterialOverlay;
+        var extraCount = 0;
+        for (var s = 0; s < surfaces; s++)
+            extraCount += ChainLength(node.GetRenderMaterial(mesh, s).NextPass) + ChainLength(overlay);
+        var extras = extraCount == 0 ? [] : new MeshExtraPass[extraCount];
+        var e = 0;
+        for (var s = 0; s < surfaces; s++)
+        {
+            var link = node.GetRenderMaterial(mesh, s).NextPass;
+            for (var n = 0; link is not null && n < Material.MaxPassChain; n++, link = link.NextPass)
+                extras[e++] = new MeshExtraPass(s, AcquireMaterial(link));
+        }
+
+        for (var s = 0; s < surfaces; s++)
+        {
+            var link = overlay;
+            for (var n = 0; link is not null && n < Material.MaxPassChain; n++, link = link.NextPass)
+                extras[e++] = new MeshExtraPass(s, AcquireMaterial(link));
+        }
+
         foreach (var material in previous)
             if (material is not null)
                 ReleaseMaterial(material);
+        foreach (var extra in previousExtras)
+            ReleaseMaterial(extra.Material);
         node.GpuMaterials = resolved;
+        node.GpuExtraPasses = extras;
         node.ResolvedMeshGeneration = gpuMesh.Generation;
         node.ResolvedOverride = node.MaterialOverride;
+        node.ResolvedOverlay = overlay;
+        node.ResolvedChainGeneration = chainGeneration;
         node.ResolvedStamp = node.RenderStamp;
+    }
+
+    private static int ChainLength(Material? first)
+    {
+        var n = 0;
+        for (var link = first; link is not null && n < Material.MaxPassChain; link = link.NextPass)
+            n++;
+        return n;
     }
 
     /// <summary>Drops the node's references (it was freed, or its mesh changed).</summary>
@@ -275,6 +322,10 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             if (material is not null)
                 ReleaseMaterial(material);
         node.GpuMaterials = [];
+        foreach (var extra in node.GpuExtraPasses)
+            ReleaseMaterial(extra.Material);
+        node.GpuExtraPasses = [];
+        node.ResolvedOverlay = null;
         if (node.GpuMesh is { } mesh)
             ReleaseMesh(mesh);
         node.GpuMesh = null;
@@ -364,15 +415,16 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
     {
         gpu.PreparedFrame = CurrentFrame;
         var material = gpu.Material;
+        var outline = material as OutlineMaterial3D;
+        gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : ShaderSetId.MeshLit;
         if (material is not StandardMaterial3D standard)
         {
-            if (!_warnedUnsupportedMaterial)
+            standard = StandardMaterial3D.Default;
+            if (outline is null && !_warnedUnsupportedMaterial)
             {
                 _warnedUnsupportedMaterial = true;
                 Log.Warning($"[Mesh] {material.GetType().Name} is not supported by the renderer yet; drawing with the default material.");
             }
-
-            standard = StandardMaterial3D.Default;
         }
 
         var changed = gpu.UploadedVersion != material.Version || gpu.Params is null;
@@ -392,9 +444,9 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
         // Slots follow the material's textures and their colour space (an import-settings change moves a texture
         // to another (texture, colour space) upload without touching the material).
-        rewrite |= SwapTexture(standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
-        rewrite |= SwapTexture(standard.NormalTexture, colorUsage: false, ref gpu.Normal);
-        rewrite |= SwapTexture(standard.EmissionTexture, colorUsage: true, ref gpu.Emission);
+        rewrite |= SwapTexture(outline is null ? standard.AlbedoTexture : null, colorUsage: true, ref gpu.Albedo);
+        rewrite |= SwapTexture(outline is null ? standard.NormalTexture : null, colorUsage: false, ref gpu.Normal);
+        rewrite |= SwapTexture(outline is null ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
         rewrite |= RefreshTexture(gpu.Albedo, gpu.AlbedoGeneration);
@@ -406,7 +458,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             var flags = (gpu.Albedo?.Gpu is not null ? MaterialParams.HasAlbedo : 0) |
                         (gpu.Normal?.Gpu is not null ? MaterialParams.HasNormal : 0) |
                         (gpu.Emission?.Gpu is not null ? MaterialParams.HasEmission : 0);
-            var parameters = MaterialParams.From(standard, flags);
+            var parameters = outline is not null ? MaterialParams.From(outline) : MaterialParams.From(standard, flags);
             if (gpu.Params is null)
             {
                 gpu.Params = GpuBuffer.Create(_ctx, MaterialParams.Size, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.DeviceLocal);
@@ -497,13 +549,13 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
     }
 
     /// <summary>The pipeline for drawing <paramref name="gpu"/>'s surfaces (cached on the material).</summary>
-    private PipelineEntry GetPipeline(MaterialGpu gpu, ShaderSetId shaders, bool mirrored)
+    private PipelineEntry GetPipeline(MaterialGpu gpu, ShaderSetId shaders, bool mirrored, bool extraPass = false)
     {
-        ref var entry = ref gpu.Pipelines[(int)shaders * 2 + (mirrored ? 1 : 0)];
+        ref var entry = ref gpu.Pipelines[MaterialGpu.PipelineIndex(shaders, extraPass, mirrored)];
         if (entry.Pipeline.Handle == 0)
         {
             var pass = shaders == ShaderSetId.MeshObjectId ? _idPassPrototype : _ctx.RenderPass;
-            entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass));
+            entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass));
         }
 
         return entry;
@@ -581,7 +633,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             {
                 if (surfaces[s].IndexCount == 0 || materials[s] is not { } material)
                     continue;
-                var pipeline = GetPipeline(material, ShaderSetId.MeshLit, mirrored);
+                var pipeline = GetPipeline(material, material.ColorShaders, mirrored);
                 var item = new MeshDrawItem
                 {
                     Node = node,
@@ -595,6 +647,29 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
                     view.Transparent.Add(DrawSortKey.Transparent(material.RenderPriority, depth, pipeline.Id, material.Id), item);
                 else
                     view.Opaque.Add(DrawSortKey.Opaque(pipeline.Id, material.Id, mesh.Id, s), item);
+                Stats.SurfaceInstances++;
+            }
+
+            foreach (var extra in node.GpuExtraPasses)
+            {
+                if (surfaces[extra.Surface].IndexCount == 0)
+                    continue;
+                var material = extra.Material;
+                var pipeline = GetPipeline(material, material.ColorShaders, mirrored, extraPass: true);
+                var item = new MeshDrawItem
+                {
+                    Node = node,
+                    Mesh = mesh,
+                    Material = material,
+                    Pipeline = pipeline,
+                    Surface = extra.Surface,
+                    Mirrored = mirrored,
+                    Extra = true,
+                };
+                if (material.State.IsTransparent)
+                    view.Transparent.Add(DrawSortKey.Transparent(material.RenderPriority, depth, pipeline.Id, material.Id), item);
+                else
+                    view.Opaque.Add(DrawSortKey.Opaque(pipeline.Id, material.Id, mesh.Id, extra.Surface), item);
                 Stats.SurfaceInstances++;
             }
         }
@@ -691,7 +766,13 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             while (end < count && SameDraw(ref item, ref list[end]))
                 end++;
 
-            var pipeline = shaders == ShaderSetId.MeshLit ? item.Pipeline.Pipeline : GetPipeline(item.Material, shaders, item.Mirrored).Pipeline;
+            if (shaders == ShaderSetId.MeshObjectId && item.Extra)
+            {
+                i = end; // overlays and next passes are not pickable
+                continue;
+            }
+
+            var pipeline = shaders != ShaderSetId.MeshObjectId ? item.Pipeline.Pipeline : GetPipeline(item.Material, shaders, item.Mirrored).Pipeline;
             if (pipeline.Handle != boundPipeline.Handle)
             {
                 vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
@@ -728,7 +809,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
     private static bool SameDraw(ref MeshDrawItem a, ref MeshDrawItem b) =>
         ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && ReferenceEquals(a.Material, b.Material) &&
-        a.Pipeline.Pipeline.Handle == b.Pipeline.Pipeline.Handle;
+        a.Pipeline.Pipeline.Handle == b.Pipeline.Pipeline.Handle && a.Extra == b.Extra;
 
     /// <summary>
     /// Culls the view's casters against one shadow pass (its light frustum, and the light's sphere when it has a range)
@@ -894,17 +975,18 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             FrontFace = key.Mirrored ? FrontFace.Clockwise : FrontFace.CounterClockwise,
             DepthTest = true,
             DepthWrite = key.DepthWrite,
-            DepthCompare = CompareOp.Less,
-            Blend = key.Alpha == AlphaMode.Blend && key.Shaders == ShaderSetId.MeshLit ? BlendMode.Alpha : BlendMode.Opaque,
+            DepthCompare = key.ExtraPass ? CompareOp.LessOrEqual : CompareOp.Less,
+            Blend = key.Alpha == AlphaMode.Blend && key.Shaders != ShaderSetId.MeshObjectId ? BlendMode.Alpha : BlendMode.Opaque,
         };
 
         var alphaMode = (int)key.Alpha;
         var entry = new SpecializationMapEntry { ConstantID = 0, Offset = 0, Size = sizeof(int) };
         var specialization = new SpecializationInfo { MapEntryCount = 1, PMapEntries = &entry, DataSize = sizeof(int), PData = &alphaMode };
         var fragment = key.Shaders == ShaderSetId.MeshObjectId ? "Shaders/Mesh/MeshId.vk.frag.spv" : "Shaders/Mesh/Mesh.vk.frag.spv";
+        var vertex = key.Shaders == ShaderSetId.MeshOutline ? "Shaders/Mesh/MeshOutline.vk.vert.spv" : "Shaders/Mesh/Mesh.vk.vert.spv";
         return PipelineBuilder.Create(_ctx, state, _pipelineLayout, new RenderPass(key.RenderPass),
-            "Shaders/Mesh/Mesh.vk.vert.spv", fragment, VertexLayouts.MeshInstancedBindings, VertexLayouts.MeshInstancedAttributes,
-            $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")})", &specialization);
+            vertex, fragment, VertexLayouts.MeshInstancedBindings, VertexLayouts.MeshInstancedAttributes,
+            $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(key.ExtraPass ? ", extra pass" : "")})", &specialization);
     }
 
     void IPipelineFactory.Destroy(Pipeline pipeline) => _ctx.Deletions.Enqueue(GpuDeletion.Of(pipeline));

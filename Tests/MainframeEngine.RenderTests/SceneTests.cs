@@ -362,6 +362,17 @@ public class SceneTests
     }
 
     [Fact]
+    public void OverlaysAndOutlinesDrawOverTheirSurfacesOnlyAndMatchGolden()
+    {
+        // A cyan overlay + 7 px white outline (Godot's hover highlight) on a sphere and a box, a red next-pass outline on
+        // a capsule, a box behind them that the outlines must not bleed through (ADR 0132).
+        var result = HostRunner.Run("outline", Output("outline"), "--capture", "20", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 20);
+    }
+
+    [Fact]
     public void MaterialFeaturesRenderCleanlyAndMatchGolden()
     {
         // Textured box, alpha-cutout quad, normal-mapped sphere, emissive unshaded capsule, mirrored box, blended glass.

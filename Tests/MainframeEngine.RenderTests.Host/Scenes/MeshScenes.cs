@@ -409,3 +409,60 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
             Fail($"the picking self-check did not run (frame {CheckFrame})");
     }
 }
+
+/// <summary>
+/// Overlays and next passes (ADR 0132): a sphere and a box under a Godot-style hover highlight (a blended cyan overlay
+/// whose next pass is a 7 px white <see cref="OutlineMaterial3D"/>), a capsule whose own material has a 3 px red outline
+/// as its next pass, and a plain box behind them (the outlines must not show through it).
+/// </summary>
+public sealed class OutlineScene(HostOptions host) : MeshSceneBase(host)
+{
+    protected override void Build(Node3D scene)
+    {
+        var highlight = new StandardMaterial3D
+        {
+            AlbedoColor = Color.FromArgb(34, 0, 213, 214),
+            Transparency = AlphaMode.Blend,
+            EmissionColor = Color.FromArgb(255, 94, 228, 255),
+            EmissionEnergy = 0.12f,
+            NextPass = new OutlineMaterial3D { Color = Color.White, Width = 7f },
+        };
+        var grey = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 150, 150, 160) };
+
+        scene.AddChild(new MeshInstance3D
+        {
+            Name = "Back",
+            Position = new Vector3(0, 0.75f, -2.5f),
+            Mesh = new BoxMesh { Size = new Vector3(6f, 1.5f, 0.3f) },
+            MaterialOverride = grey,
+        });
+        scene.AddChild(new MeshInstance3D
+        {
+            Name = "HighlightedSphere",
+            Position = new Vector3(-1.6f, 0.7f, 0),
+            Mesh = new SphereMesh { Radius = 0.7f, Height = 1.4f },
+            MaterialOverride = grey,
+            MaterialOverlay = highlight,
+        });
+        scene.AddChild(new MeshInstance3D
+        {
+            Name = "HighlightedBox",
+            Position = new Vector3(0.2f, 0.5f, 0.3f),
+            RotationDegrees = new Vector3(0, 30, 0),
+            Mesh = new BoxMesh(),
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 200, 120, 60) },
+            MaterialOverlay = highlight,
+        });
+        scene.AddChild(new MeshInstance3D
+        {
+            Name = "OutlinedCapsule",
+            Position = new Vector3(1.9f, 1f, 0),
+            Mesh = new CapsuleMesh { Radius = 0.4f, Height = 2f },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = Color.FromArgb(255, 90, 160, 90),
+                NextPass = new OutlineMaterial3D { Color = Color.FromArgb(255, 230, 40, 40), Width = 3f },
+            },
+        });
+    }
+}

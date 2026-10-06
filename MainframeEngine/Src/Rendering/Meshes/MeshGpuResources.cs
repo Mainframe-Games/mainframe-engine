@@ -187,7 +187,9 @@ internal struct MaterialParams
     public uint TextureFlags;
     public uint Unshaded;
     public uint DoubleSided;
-    private uint _pad;
+
+    /// <summary><see cref="OutlineMaterial3D.Width"/> as float bits (<c>flags.w</c>; read by the outline vertex shader).</summary>
+    public uint OutlineWidth;
 
     public const int Size = 80;
     public const uint HasAlbedo = 1, HasNormal = 2, HasEmission = 4;
@@ -202,6 +204,16 @@ internal struct MaterialParams
         TextureFlags = textureFlags,
         Unshaded = m.ShadingMode == ShadingMode.Unshaded ? 1u : 0u,
         DoubleSided = m.DoubleSided ? 1u : 0u,
+    };
+
+    /// <summary>Packs an outline: unshaded colour, no textures, the width in pixels.</summary>
+    public static MaterialParams From(OutlineMaterial3D m) => new()
+    {
+        Albedo = Linear(m.Color),
+        UvTransform = new Vector4(1f, 1f, 0f, 0f),
+        Params = new Vector4(0f, 1f, 0f, 1f),
+        Unshaded = 1u,
+        OutlineWidth = BitConverter.SingleToUInt32Bits(m.Width),
     };
 
     private static Vector3 Rgb(Color c) => new Vector3(c.R, c.G, c.B) / 255f;
@@ -245,8 +257,19 @@ internal sealed class MaterialGpu
     public MaterialRenderState State { get; set; }
     public int RenderPriority { get; set; }
 
-    // [shader set × mirrored] → pipeline; reset when the state changes.
-    public readonly PipelineEntry[] Pipelines = new PipelineEntry[4];
+    /// <summary>The shaders of the colour pass: <see cref="ShaderSetId.MeshOutline"/> for outlines, else lit.</summary>
+    public ShaderSetId ColorShaders { get; set; }
+
+    // [shader set × extra pass × mirrored] → pipeline; reset when the state changes.
+    public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 4];
+
+    public const int ShaderSetCount = 3;
+
+    public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored) =>
+        ((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0);
 
     public void ResetPipelines() => Array.Clear(Pipelines);
 }
+
+/// <summary>An extra draw of one surface of an instance: a next pass of its material, or the overlay chain.</summary>
+internal readonly record struct MeshExtraPass(int Surface, MaterialGpu Material);
