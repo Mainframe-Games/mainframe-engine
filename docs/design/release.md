@@ -110,6 +110,23 @@ Starting `bin/…/MainframeEngine.Editor` itself still works and shows the execu
 does not work: `NSProcessInfo.processName` (even set before `NSApplication` exists) and SDL hints leave the
 LaunchServices name alone; only private LaunchServices calls could change it.
 
+## Games
+
+`build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]`
+(`just package-game`) packages a `GameHost` game for players: a self-contained, untrimmed Release `dotnet publish`
+for one RID (`project.mfproj` and `Content/` ride along as the desktop project's copied items), the apphost renamed
+to the player-facing executable, and the engine's natives for other platforms (`enet`, `mfrmlui`, `mfsvg`) removed.
+Then per platform:
+
+| RID | Output | Notes |
+|---|---|---|
+| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | Info.plist (name, bundle id, version, copyright, games category), `.icns` from the PNG (sips + iconutil), ad-hoc `codesign` (Apple Silicon refuses unsigned code; Developer ID signing and notarization are not done) |
+| `win-*` | `<exe>-<version>-<rid>.zip` | the exe icon from the PNG (`magick` → `.ico` → `ApplicationIcon`) |
+| `linux-*` | `<exe>-<version>-<rid>.tar.gz` | also the dedicated server (`<exe> --headless ++ …`, ADR 0120) |
+
+Defaults: name and version from `project.mfproj`, the exe from the name without spaces, the icon from `window.icon`.
+Cross-publishing works from any host (self-contained); only the `.icns` needs macOS.
+
 ## Related docs
 [Editor updates](editor-updates.md) ·
 [Build & platforms](build-and-platforms.md) · [Testing](testing.md) ·
