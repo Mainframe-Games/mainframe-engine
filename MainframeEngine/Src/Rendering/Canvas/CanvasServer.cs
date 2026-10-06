@@ -70,6 +70,28 @@ public sealed class CanvasServer : IFrameServer
         Renderer?.PrepareTextures(Frame);
     }
 
+    // The 2D sub-viewports (Disable3D) that draw this frame, each into its own target. Views register on entering the
+    // tree (parents before children), so walking them backwards draws a nested view before the view that samples it.
+    private void AppendSubViewports(CanvasFrame frame)
+    {
+        if (_tree.Servers.Render is not { } render)
+            return;
+        var subs = render.SubViewports;
+        for (var i = subs.Count - 1; i >= 0; i--)
+        {
+            var sub = subs[i];
+            if (!sub.Disable3D || !sub.IsInsideTree || sub.UpdateMode == SubViewportUpdateMode.Disabled || sub.Width <= 0 || sub.Height <= 0)
+                continue;
+            var size = new Vector2(sub.Width, sub.Height);
+            sub.SetSize(size);
+            frame.BeginPass(sub, size, sub.TransparentBg ? Vector4.Zero : ClearColor ?? GodotDefaultClearColor);
+            AppendViewport(frame, sub, size);
+            frame.EndPass();
+            if (sub.UpdateMode == SubViewportUpdateMode.Once)
+                sub.UpdateMode = SubViewportUpdateMode.Disabled; // Godot's UPDATE_ONCE: draw on the next frame, then keep it
+        }
+    }
+
     /// <summary>Culls and batches every canvas of <paramref name="viewport"/> into <see cref="Frame"/>.</summary>
     public void BuildFrame(SceneViewport viewport, Vector2 targetSize)
     {
@@ -78,6 +100,14 @@ public sealed class CanvasServer : IFrameServer
         frame.Clear();
         frame.TargetSize = targetSize;
         frame.ClearColor = ClearColor;
+        AppendSubViewports(frame);
+        frame.BeginPass(null, targetSize, ClearColor);
+        AppendViewport(frame, viewport, targetSize);
+        frame.EndPass();
+    }
+
+    private void AppendViewport(CanvasFrame frame, SceneViewport viewport, Vector2 targetSize)
+    {
         // The drawn area: the whole target, or the letterboxed rect of the content scale (canvas units × stretch).
         var scale = viewport.ContentScaleResult;
         var clip = scale.RenderSize.X > 0 ? new Rect2(scale.Margin, scale.RenderSize) : new Rect2(Vector2.Zero, targetSize);

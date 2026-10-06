@@ -264,3 +264,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - RmlUi `DevOverlay` (F12, built-in panels, `AddPanel`) and Vulkan `ScreenGizmos` (light + axis gizmos) replace ImGui;
   ImGui.NET, `cimgui`, `VulkanImGuiController`, `OnImGui` and the ImGui texture registry are gone. Overlay hidden by
   default (render tests opt in); goldens re-recorded. Docs: `docs/design/dev-overlay.md` (replaces imgui-and-debug-tools).
+
+### 2026-10-06 — Spine 4.3, canvas SpineSprite, 2D sub-viewports (ADR 0116, port E11/E7)
+- `Plugins/Spine` → fork branch `4.3` (upstream spine-runtimes 4.3 @ 9e09846); SpineBoy test/Demo assets re-exported 4.3.
+- `SpineGeometry` (shared walker), `SpineSprite` + `SpineSkeletonDataResource` + `SpineAnimationMix`; `SpineRenderer`
+  on the walker (4.3 API: applied poses, sequences, `Spine.Physics`).
+- `SubViewport.Disable3D/TransparentBg/GetTexture()`, `Texture2D.FromViewport`; `CanvasFrame` passes; the renderer
+  draws sub-viewport passes into their own targets before the main layer. Canvas render test gained SpineBoy in a 2D
+  sub-viewport; canvas + Spine goldens re-recorded (moltenvk, lavapipe). Tests: SpineSpriteTests.

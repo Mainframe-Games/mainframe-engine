@@ -164,6 +164,7 @@ public sealed class Texture2D : Resource
     private bool _sizeKnown;
     private TextureImportSettings _settings = TextureImportSettings.Default;
     private int _version = 1;
+    private SubViewport? _viewport; // a sub-viewport's colour target (Godot's ViewportTexture)
 
     /// <summary>The import settings (colour space, mipmaps, sampler). Changing them re-uploads the texture.</summary>
     public TextureImportSettings ImportSettings
@@ -218,6 +219,20 @@ public sealed class Texture2D : Resource
         return new Texture2D { _encoded = encoded, _settings = settings ?? TextureImportSettings.Default };
     }
 
+    /// <summary>
+    /// A sub-viewport's rendered colour as a texture (Godot's <c>ViewportTexture</c>, <see cref="SubViewport.GetTexture"/>):
+    /// canvas items sample the target the canvas server drew this frame; its size follows the sub-viewport. It has no
+    /// CPU pixels.
+    /// </summary>
+    public static Texture2D FromViewport(SubViewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(viewport);
+        return new Texture2D { _viewport = viewport, ResourceName = viewport.Name };
+    }
+
+    /// <summary>The sub-viewport this texture shows (<see cref="FromViewport"/>), or null.</summary>
+    public SubViewport? Viewport => _viewport;
+
     /// <summary>A texture from tightly packed RGBA8 pixels (copied).</summary>
     public static Texture2D FromPixels(int width, int height, ReadOnlySpan<byte> rgba, TextureImportSettings? settings = null)
     {
@@ -264,6 +279,8 @@ public sealed class Texture2D : Resource
     /// </summary>
     public (byte[] Rgba, int Width, int Height) DecodePixels()
     {
+        if (_viewport is not null)
+            throw new InvalidOperationException("A viewport texture has no CPU pixels (it is the sub-viewport's GPU target).");
         if (_pixels is not null)
             return (_pixels, _width, _height);
 
@@ -298,6 +315,13 @@ public sealed class Texture2D : Resource
 
     private void EnsureSize()
     {
+        if (_viewport is not null)
+        {
+            _width = Math.Max(1, _viewport.Width);
+            _height = Math.Max(1, _viewport.Height);
+            return;
+        }
+
         if (_sizeKnown)
             return;
         try

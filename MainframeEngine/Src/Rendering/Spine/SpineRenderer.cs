@@ -12,7 +12,7 @@ namespace MainframeEngine;
 /// (<see cref="ShadowSystem"/> or the renderer's fallback); the atlas page is set 2 and the model matrix a push
 /// constant.
 /// </summary>
-internal sealed class SpineRenderer : IDisposable
+internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
 {
     /// <summary>Initial CPU/GPU vertex capacity; arrays and buffers grow (doubling) when a pose needs more.</summary>
     internal const int DefaultVertexCapacity = 8192;
@@ -105,60 +105,10 @@ internal sealed class SpineRenderer : IDisposable
         _vkBatches.Clear();
         _shadowUploadedSlots = 0;
 
-        var vertexIndex = 0;
-        var z = 0f;
-
-        for (int i = 0; i < _skeleton.DrawOrder.Count; i++)
-        {
-            var slot = _skeleton.DrawOrder.Items[i];
-            var attachment = slot.Attachment;
-            if (attachment is null) continue;
-
-            // Straight (non-premultiplied) sRGB tint: premultiplied alpha is handled once, in SpineLit.vk.frag.
-            var tintA = _skeleton.A * slot.A;
-            var tintR = _skeleton.R * slot.R;
-            var tintG = _skeleton.G * slot.G;
-            var tintB = _skeleton.B * slot.B;
-
-            switch (attachment)
-            {
-                case RegionAttachment region:
-                    {
-                        int texIdx = ResolveTexIdx(region.Region);
-                        EnsureVertexCapacity(vertexIndex + 6);
-                        BeginBatch(texIdx, vertexIndex);
-                        region.ComputeWorldVertices(slot, _worldVerticesPositions, 0);
-
-                        AddVertex(_worldVerticesPositions[0], _worldVerticesPositions[1], z, region.UVs[0], region.UVs[1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                        AddVertex(_worldVerticesPositions[2], _worldVerticesPositions[3], z, region.UVs[2], region.UVs[3], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                        AddVertex(_worldVerticesPositions[4], _worldVerticesPositions[5], z, region.UVs[4], region.UVs[5], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                        AddVertex(_worldVerticesPositions[4], _worldVerticesPositions[5], z, region.UVs[4], region.UVs[5], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                        AddVertex(_worldVerticesPositions[6], _worldVerticesPositions[7], z, region.UVs[6], region.UVs[7], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                        AddVertex(_worldVerticesPositions[0], _worldVerticesPositions[1], z, region.UVs[0], region.UVs[1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                        break;
-                    }
-
-                case MeshAttachment mesh:
-                    {
-                        if (mesh.WorldVerticesLength > _worldVerticesPositions.Length)
-                            Array.Resize(ref _worldVerticesPositions, GrowCapacity(_worldVerticesPositions.Length, mesh.WorldVerticesLength));
-                        EnsureVertexCapacity(vertexIndex + mesh.Triangles.Length);
-
-                        int texIdx = ResolveTexIdx(mesh.Region);
-                        BeginBatch(texIdx, vertexIndex);
-                        mesh.ComputeWorldVertices(slot, _worldVerticesPositions);
-
-                        for (int j = 0; j < mesh.Triangles.Length; j++)
-                        {
-                            var idx = mesh.Triangles[j] << 1;
-                            AddVertex(_worldVerticesPositions[idx], _worldVerticesPositions[idx + 1], z, mesh.UVs[idx], mesh.UVs[idx + 1], tintR, tintG, tintB, tintA, texIdx, ref vertexIndex);
-                        }
-                        break;
-                    }
-            }
-
-            z += zSpacing;
-        }
+        _zSpacing = zSpacing;
+        _buildVertexIndex = 0;
+        _geometry.Build(_skeleton, this);
+        var vertexIndex = _buildVertexIndex;
 
         if (_shadowPositions.Length < _vertices.Length)
             Array.Resize(ref _shadowPositions, _vertices.Length);
@@ -166,6 +116,28 @@ internal sealed class SpineRenderer : IDisposable
             _shadowPositions[j] = _vertices[j].Position;
 
         _preparedVertexCount = vertexIndex;
+    }
+
+    private readonly SpineGeometry _geometry = new();
+    private float _zSpacing;
+    private int _buildVertexIndex;
+
+    // ISpineGeometrySink: one attachment in draw order → triangle-list vertices, z pushed ZSpacing per draw-order slot.
+    void ISpineGeometrySink.Add(in SpineDrawItem item)
+    {
+        var texIdx = ResolveTexIdx(item.Region);
+        var triangles = item.Triangles;
+        EnsureVertexCapacity(_buildVertexIndex + triangles.Length);
+        BeginBatch(texIdx, _buildVertexIndex);
+        var z = _zSpacing * item.DrawIndex;
+        var c = item.Color; // straight, sRGB-authored: premultiplied alpha is handled once, in SpineLit.vk.frag
+        var vertices = item.Vertices;
+        var uvs = item.Uvs;
+        for (var j = 0; j < triangles.Length; j++)
+        {
+            var idx = triangles[j] << 1;
+            AddVertex(vertices[idx], vertices[idx + 1], z, uvs[idx], uvs[idx + 1], c.X, c.Y, c.Z, c.W, texIdx, ref _buildVertexIndex);
+        }
     }
 
     // Grows the CPU vertex array (doubling) so `required` vertices fit. Steady-state poses never

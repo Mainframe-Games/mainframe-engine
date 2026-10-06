@@ -85,12 +85,12 @@ public class SpineNode : VisualInstance3D
     public float ZSpacing { get; set; } = 0.01f;
 
     [Export]
-    public Skeleton.Physics UpdateType { get; set; } = Skeleton.Physics.None;
+    public Spine.Physics UpdateType { get; set; } = Spine.Physics.None;
 
     public ExposedList<Animation> AllAnimations => Skeleton.Data.Animations;
 
     /// <summary>The animation playing on track 0, or null.</summary>
-    public Animation? CurrentAnimation => _animation?.GetCurrent(0)?.Animation;
+    public Animation? CurrentAnimation => _animation is { Tracks.Count: > 0 } state ? state.Tracks.Items[0]?.Animation : null;
 
     internal SpineRenderer? SpineRenderer => _spineRenderer;
     internal SpineTextureLoader? TextureLoader => _textureLoader;

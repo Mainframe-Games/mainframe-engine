@@ -127,14 +127,14 @@ public sealed class SpineNodeTests
         state.Update(0.3f);
         state.Apply(reference);
         reference.Update(0.3f);
-        reference.UpdateWorldTransform(Skeleton.Physics.None);
+        reference.UpdateWorldTransform(Spine.Physics.None);
 
         foreach (var name in new[] { "front-foot", "rear-foot", "head" })
         {
             var expected = reference.FindBone(name);
             var actual = node.Skeleton.FindBone(name);
-            Assert.Equal(expected.WorldX, actual.WorldX, 3);
-            Assert.Equal(expected.WorldY, actual.WorldY, 3);
+            Assert.Equal(expected.AppliedPose.WorldX, actual.AppliedPose.WorldX, 3);
+            Assert.Equal(expected.AppliedPose.WorldY, actual.AppliedPose.WorldY, 3);
         }
     }
 
