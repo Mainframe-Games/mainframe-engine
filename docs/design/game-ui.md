@@ -137,6 +137,16 @@ reloads, size every visible layer's context to the framebuffer (or its region) a
 documents, `Update` each context, then — unless the engine will skip the frame — `Render` each context (lowest layer
 first, the debugger last) into the renderer's command list.
 
+### Tooltips (ADR 0121)
+
+Godot's `tooltip_text`: any element with a `title` attribute (static or `data-attr-title`) shows it after the mouse
+rests on it (or on a child) for `UiServer.TooltipDelaySeconds` (0.5 s, Godot's `gui/timers/tooltip_delay_sec`), at
+the mouse + `UiServer.TooltipOffset` (10, 10) px, kept inside the document. Motion before it shows restarts the
+timer; a press or leaving the element hides it. The text goes into the document's own `#tooltip` element (the
+binding cannot create elements), which the document styles (`position: absolute; display: none; pointer-events:
+none;`): the engine sets its inner RML (escaped), `left`/`top` and `display`. No `#tooltip`, no tooltips.
+`UiDocument.ShownTooltip` is the text on screen (tests).
+
 ## Rendering (`VulkanUiRenderer`)
 
 ```mermaid

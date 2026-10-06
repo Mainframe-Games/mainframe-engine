@@ -351,3 +351,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   `GameSession`, a paced loop (maxFps or the physics rate), canvas draws flushed, Ctrl+C/SIGTERM = close request.
   `GameHost.IsHeadless`. The game's `--headless ++ --server` log equals Godot's; two joiners play on it. Tests:
   HeadlessHostTests (4).
+
+### 2026-10-06 — Title tooltips (port E16, ADR 0121)
+- `UiTooltips` per document: `title` attributes shown in the document's `#tooltip` after 0.5 s at mouse + (10, 10),
+  kept inside, hidden on press/leave; hover read from `RmlContext.HoverElement`. `UiServer.TooltipDelaySeconds` /
+  `TooltipOffset`, `UiDocument.ShownTooltip`. Tests: UiTooltipsTests (4).

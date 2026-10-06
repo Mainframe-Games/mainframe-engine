@@ -131,6 +131,18 @@ public sealed class UiServer : IFrameServer, IInputServer
     private float _navRepeatIn;
     private RmlKey _stickKey;
 
+    /// <summary>Godot's <c>gui/timers/tooltip_delay_sec</c>.</summary>
+    public const double DefaultTooltipDelaySeconds = 0.5;
+
+    /// <summary>Godot's <c>display/mouse_cursor/tooltip_position_offset</c> (px).</summary>
+    public static readonly System.Numerics.Vector2 DefaultTooltipOffset = new(10, 10);
+
+    /// <summary>How long the mouse rests on a <c>title</c> element before its tooltip shows (ADR 0121).</summary>
+    public double TooltipDelaySeconds { get; set; } = DefaultTooltipDelaySeconds;
+
+    /// <summary>Where a tooltip appears relative to the mouse, in px.</summary>
+    public System.Numerics.Vector2 TooltipOffset { get; set; } = DefaultTooltipOffset;
+
     public UiServer(IRenderer? renderer = null, IWindow? window = null, IInputContext? input = null, UiServerOptions? options = null)
     {
         _options = options ?? new UiServerOptions();
