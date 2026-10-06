@@ -44,6 +44,15 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void ARegionLayerIsOffsetAndClippedWithItsEffectsIntact()
+    {
+        var result = HostRunner.Run("ui-region", Output("ui-region"), "--capture", "10", "--size", "480x270", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
     public void TextMatchesGolden()
     {
         var result = HostRunner.Run("ui-text", Output("ui-text"), "--capture", "5", "--size", "400x300", "--hidden");

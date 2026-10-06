@@ -101,6 +101,10 @@ model.Dirty("health");                                                      // v
   new end resolve to "none" while RmlUi drops their elements, without warnings.
 - The `Bind(name, owner, static getter, static setter)` overloads are what a future `[UiBindable]` source generator
   can emit without closures.
+- `BindVariable(name, kind, RmlVariableSource)` binds a variable whose structure is decided as RmlUi walks it: every
+  node is a token (0 = root) that reports its kind (`Scalar`, `Array`, `Struct`) from `Child`, its value from
+  `Read`/`Write` and its length from `Size` — for tools that do not know the data's shape in advance (the editor's
+  UI preview stand-ins).
 - Every binding holds a `GCHandle` freed by the shim's release callback, exactly once, when the model is removed, its
   context destroyed or RmlUi shut down.
 
@@ -109,7 +113,7 @@ model.Dirty("health");                                                      // v
 | Type | Role |
 |---|---|
 | `UiServer` ([UiServer.cs](../../MainframeEngine/Src/UI/UiServer.cs)) | `IFrameServer` + `IInputServer` registered by `Engine`. Owns RmlUi (init, shutdown), the render interface, fonts (every `.ttf`/`.otf` in `Content/UI/fonts`), the system and file interfaces, one context per layer, input routing, hot reload, the debugger (F8), `engine://` textures (`RegisterTexture`), the `Translator` hook ([Localization](localization.md#game-ui-rmlui)) |
-| `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer. `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Dpi` default: 1 dp = `UiServer.ContentScale` — the display's pixels per point, or the fixed `EngineOptions.ContentScale`; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis). Games typically use HUD (0), menus (10), overlay (100). In the editor (`SceneTree.EditMode`), a layer of an edited scene (below a sub-viewport, not the tree's root viewport) that is not a `[Tool]` type is inert: it has a context so `OnReady` code works, but the server never updates, draws or routes input to it, so a game HUD cannot cover the editor's panels |
+| `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer, or to its `Region` (below). `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Dpi` default: 1 dp = `UiServer.ContentScale` — the display's pixels per point, or the fixed `EngineOptions.ContentScale`; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis). Games typically use HUD (0), menus (10), overlay (100). In the editor (`SceneTree.EditMode`), a layer of an edited scene (below a sub-viewport, not the tree's root viewport) that is not a `[Tool]` type is inert: it has a context so `OnReady` code works, but the server never updates, draws or routes input to it, so a game HUD cannot cover the editor's panels |
 | `UiDocument : Node` ([UiDocument.cs](../../MainframeEngine/Src/UI/UiDocument.cs)) | `[Export] Source` (or inline `Rml`), `Visible`, `Modal`, `AutoFocus`; `[Signal] Loaded`, `Reloaded`; `CreateDataModel`, `GetElementById`, `QuerySelector`, `Show`/`Hide`, `Reload`. Must be below a `UiLayer` |
 | `UiElement` ([UiElement.cs](../../MainframeEngine/Src/UI/UiElement.cs)) | A cached element wrapper with C# events (`Click`, `DoubleClick`, `MouseDown/Up/Over/Out`, `Change`, `Submit`, `Focused`, `Blurred`, `KeyDown/Up`, `On(type, …)`); native listeners attach only for subscribed types. Every access looks the element up again by id, so a wrapper follows elements the DOM replaces (inner RML, `data-for`, `data-if`) and reports invalid — never dangling — once removed |
 
@@ -118,11 +122,20 @@ So `CreateDataModel` in `OnReady` (children are ready before parents, documents 
 the document binds `data-model`. A model created after loading reloads the document at the next frame. The document
 closes when the node leaves the tree; its models are removed.
 
+**Regions.** `UiLayer.Region` (a `System.Drawing.Rectangle?` in framebuffer pixels, not serialized; null = the whole
+window) confines a layer to a rectangle of the window: its context is laid out at the region's size (the dp ratio of
+`ReferenceResolution` layers follows it), every draw is offset to the region's origin and clipped to it, and the mouse
+reaches it only inside the region (or while it drags) in region coordinates — leaving the region sends it a
+mouse-leave. The renderer records the region with every command (an index into a per-frame region table), so
+transforms, clip masks, filters and saved layers work unchanged inside it. Uses: split-screen HUDs, the editor's UI
+preview tab ([Editor](editor.md#ui-preview)). The region may change every frame. `UiServer.Reload(document, kind)`
+applies file changes to one document only (the preview's own file watcher), where `Reload(kind)` reloads them all.
+
 **Frame.** `UiServer.Process` (after the tree's process step): release queued handles, advance UI time by the frame
 delta (deterministic with `FixedDeltaTime`), publish IME composition, repeat held gamepad navigation, apply hot
-reloads, size every visible layer's context to the framebuffer and set its dp ratio, prepare documents, `Update` each
-context, then — unless the engine will skip the frame — `Render` each context (lowest layer first, the debugger last)
-into the renderer's command list.
+reloads, size every visible layer's context to the framebuffer (or its region) and set its dp ratio, prepare
+documents, `Update` each context, then — unless the engine will skip the frame — `Render` each context (lowest layer
+first, the debugger last) into the renderer's command list.
 
 ## Rendering (`VulkanUiRenderer`)
 

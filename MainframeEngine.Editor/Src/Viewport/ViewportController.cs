@@ -10,6 +10,8 @@ namespace MainframeEngine.Editor;
 /// moves (orbit, pan, zoom, fly), clicks into GPU picking (object-ID pass) and handle drags into gizmo edits committed to
 /// the undo history. Each frame it draws the editor-only visuals — grid, selection boxes, light/camera/audio icons and
 /// the gizmo — into the view's debug and overlay lines. Steady-state frames allocate nothing.
+/// While a UI preview is active it can render a scene behind the document instead (<see cref="UiPreview.ShowBackdrop"/>):
+/// through the scene's own camera, without editor visuals or input.
 /// </summary>
 [Tool]
 public sealed partial class ViewportController : Node
@@ -26,6 +28,7 @@ public sealed partial class ViewportController : Node
     private readonly List<Node3D> _iconNodes = [];
     private readonly bool[] _flyKeys = new bool[6]; // A D Q E S W  →  -x +x -y +y -z +z
     private EditedScene? _scene;
+    private EditedScene? _backdrop;
     private int _iconsVersion = -1;
     private SubViewport? _registered;
     private Grid3D? _grid;
@@ -109,12 +112,17 @@ public sealed partial class ViewportController : Node
         _pick = default;
         _pickScene = null;
         _scene = null;
+        _backdrop = null;
     }
+
+    /// <summary>The scene rendered behind the active UI preview, or null.</summary>
+    public EditedScene? Backdrop => _backdrop;
 
     /// <summary>Called when the active tab changed.</summary>
     public void OnActiveSceneChanged()
     {
         CancelDrag();
+        StopBackdrop();
         _scene = _workspace.Session.Active;
         _iconsVersion = -1;
         // The previous tab's target may already be disposed (tab closed): stop the UI from sampling it.
@@ -139,7 +147,10 @@ public sealed partial class ViewportController : Node
         if (!ReferenceEquals(scene, _scene))
             OnActiveSceneChanged();
         if (scene is null)
+        {
+            ProcessBackdrop();
             return;
+        }
 
         var viewport = scene.Viewport;
         var pixels = ViewPixels;
@@ -169,6 +180,69 @@ public sealed partial class ViewportController : Node
             DrawEditorVisuals2D(scene, pixels);
         else
             DrawEditorVisuals(scene, pixels);
+    }
+
+    // ── UI preview backdrop ──────────────────────────────────────────────────────────────────────────────────────
+
+    // A UI preview is active: render its backdrop scene (if on) at the preview's size, through the scene's camera.
+    private void ProcessBackdrop()
+    {
+        var session = _workspace.Session;
+        var target = session.ActivePreview is { ShowBackdrop: true, BackdropScene: { } chosen } && session.Scenes.Contains(chosen) ? chosen : null;
+        if (!ReferenceEquals(target, _backdrop))
+        {
+            StopBackdrop();
+            _backdrop = target;
+            // The grid belongs to the scene view; the backdrop shows the game's picture only.
+            if (_grid is { IsFreed: false })
+                _grid.Free();
+            _grid = null;
+        }
+
+        if (target is null)
+            return;
+        var viewport = target.Viewport;
+        if (viewport.UpdateMode != SubViewportUpdateMode.Always)
+            viewport.UpdateMode = SubViewportUpdateMode.Always; // activating the preview paused every scene
+        var rect = _workspace.Layout.PreviewImage;
+        var scale = _workspace.Host.PixelScale;
+        var pixels = new Vector2(MathF.Max(1, MathF.Round(rect.Width * scale)), MathF.Max(1, MathF.Round(rect.Height * scale)));
+        if (viewport.Width != (int)pixels.X || viewport.Height != (int)pixels.Y)
+        {
+            viewport.Width = (int)pixels.X;
+            viewport.Height = (int)pixels.Y;
+        }
+
+        PublishTarget(viewport);
+        // What the player sees: the scene's current camera; a scene without one keeps the tab's editor view.
+        if (viewport.ActiveCamera3D is not null || viewport.ActiveCamera2D is not null)
+        {
+            if (viewport.CameraOverride is not null)
+                viewport.CameraOverride = null;
+        }
+        else
+        {
+            target.Camera.Apply(pixels);
+            if (!ReferenceEquals(viewport.CameraOverride, target.Camera.ActiveCamera))
+                viewport.CameraOverride = target.Camera.ActiveCamera;
+        }
+    }
+
+    // Leaves backdrop mode: the scene pauses again (unless it is the active tab) and the UI stops sampling its target.
+    private void StopBackdrop()
+    {
+        if (_backdrop is not { } backdrop)
+            return;
+        _backdrop = null;
+        if (ReferenceEquals(_registered, backdrop.Viewport))
+        {
+            Tree?.Servers.Get<UiServer>()?.UnregisterTexture(ViewportPanel.TextureName);
+            _registered = null;
+            _workspace.ViewportPanel?.UpdateImage(false);
+        }
+
+        if (!backdrop.Viewport.IsFreed && !ReferenceEquals(backdrop, _workspace.Session.Active))
+            backdrop.Viewport.UpdateMode = SubViewportUpdateMode.Disabled;
     }
 
     private const string PerspectiveInfo = "Perspective";

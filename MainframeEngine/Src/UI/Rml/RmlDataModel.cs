@@ -135,6 +135,20 @@ public sealed unsafe class RmlDataModel : IDisposable
         return BindVariable(name, RmlNative.VariableStruct, new StructBinding<T>(get, type));
     }
 
+    /// <summary>
+    /// Binds a variable whose structure is decided while RmlUi walks it (<see cref="RmlVariableSource"/>): tools that
+    /// do not know the data's shape in advance, e.g. stand-in data for the editor's UI preview. The root is
+    /// <paramref name="kind"/>; children report their own kinds.
+    /// </summary>
+    public RmlDataModel BindVariable(string name, RmlVariableKind kind, RmlVariableSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (kind is < RmlVariableKind.Scalar or > RmlVariableKind.Struct)
+            throw new ArgumentOutOfRangeException(nameof(kind));
+        NoteCode(null, null, null, source);
+        return BindVariable(name, (int)kind, new SourceBinding(source));
+    }
+
     private RmlDataModel BindVariable(string name, int rootKind, VariableBinding binding)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
@@ -489,6 +503,18 @@ public sealed unsafe class RmlDataModel : IDisposable
         }
     }
 
+    private sealed class SourceBinding(RmlVariableSource source) : VariableBinding
+    {
+        public override bool Get(ulong node, RmlVariant value) => source.Read(node, value);
+
+        public override bool Set(ulong node, RmlVariant value) => source.Write(node, value);
+
+        public override int Size(ulong node) => Math.Max(0, source.Size(node));
+
+        public override int Child(ulong node, int index, ReadOnlySpan<byte> name, out ulong child) =>
+            source.Child(node, index, name, out child) is { } kind ? (int)kind : -1;
+    }
+
     internal sealed class StructBinding<T>(Func<T> get, RmlStructType<T> type) : VariableBinding
     {
         public override int Size(ulong node) => 0;
@@ -517,6 +543,38 @@ public sealed unsafe class RmlDataModel : IDisposable
             return m >= 0 && ElementIndex(node) < 0 && type.Read(m, get(), value);
         }
     }
+}
+
+/// <summary>The kind of a node of a bound variable: a value, a list (<c>data-for</c>, <c>[i]</c>) or an object (<c>.member</c>).</summary>
+public enum RmlVariableKind
+{
+    Scalar = RmlNative.VariableScalar,
+    Array = RmlNative.VariableArray,
+    Struct = RmlNative.VariableStruct,
+}
+
+/// <summary>
+/// A variable RmlUi walks through callbacks (<see cref="RmlDataModel.BindVariable"/>): every node is a token — 0 for
+/// the root, any other value the source hands out from <see cref="Child"/> — and reports its kind when it is reached.
+/// Called on the UI thread while views and controllers update; values are valid only during the call.
+/// </summary>
+public abstract class RmlVariableSource
+{
+    /// <summary>Writes a scalar node's value into <paramref name="value"/>; false when it has none (RmlUi warns).</summary>
+    public abstract bool Read(ulong node, RmlVariant value);
+
+    /// <summary>Stores <paramref name="value"/> into a scalar node (two-way bindings, assignments); false to refuse.</summary>
+    public virtual bool Write(ulong node, RmlVariant value) => false;
+
+    /// <summary>The number of elements of an array node.</summary>
+    public virtual int Size(ulong node) => 0;
+
+    /// <summary>
+    /// The child of <paramref name="node"/>: element <paramref name="index"/> of an array (<paramref name="name"/> empty),
+    /// or member <paramref name="name"/> (UTF-8) of a struct (<paramref name="index"/> -1). Returns its kind and token,
+    /// or null when there is no such child.
+    /// </summary>
+    public abstract RmlVariableKind? Child(ulong node, int index, ReadOnlySpan<byte> name, out ulong child);
 }
 
 /// <summary>A data event: the RmlUi event and the expression's arguments, valid only during the callback.</summary>

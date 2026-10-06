@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Numerics;
 using MainframeEngine.UI.Rml;
 
@@ -20,7 +21,8 @@ public enum UiScaleMode
 }
 
 /// <summary>
-/// A screen-space UI layer (Godot's <c>CanvasLayer</c>): one RmlUi context, sized to the framebuffer, holding the
+/// A screen-space UI layer (Godot's <c>CanvasLayer</c>): one RmlUi context, sized to the framebuffer (or its
+/// <see cref="Region"/>), holding the
 /// <see cref="UiDocument"/>s below it. Layers draw and receive input by <see cref="Layer"/> — higher layers draw on top
 /// and see input first. Typical games use a HUD layer (0), a menu layer (10) and an overlay layer (100).
 /// </summary>
@@ -60,10 +62,21 @@ public class UiLayer : Node
             if (_visible == value)
                 return;
             _visible = value;
+            HasPointer = false;
             if (!value && Context is { IsDisposed: false } context)
                 context.ProcessMouseLeave();
         }
     }
+
+    /// <summary>
+    /// The window rectangle (framebuffer pixels) the layer is laid out in, drawn into and clipped to, and takes the
+    /// mouse from — a split-screen player's view, an editor preview; null (default) is the whole window. Can change every
+    /// frame.
+    /// </summary>
+    public Rectangle? Region { get; set; }
+
+    /// <summary>The layer's context has the mouse (a <see cref="Region"/> layer only gets moves inside its region, or while it drags).</summary>
+    internal bool HasPointer { get; set; }
 
     [Export]
     public UiScaleMode ScaleMode { get; set; } = UiScaleMode.Dpi;

@@ -335,17 +335,17 @@ public sealed class ShadowPlannerTests
         var bounds = new Aabb(new Vector3(-10, 0, -10), new Vector3(10, 4, 10));
         planner.Plan(lights, camera, bounds);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 100; i++)
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
         {
-            camera.Position += new Vector3(0.01f, 0, 0);
-            planner.Plan(lights, camera, bounds);
-            foreach (var pass in planner.Passes)
-                planner.SetHasCasters(pass.Index, pass.Index % 3 != 0);
-            planner.ApplyCulling();
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            for (var i = 0; i < 100; i++)
+            {
+                camera.Position += new Vector3(0.01f, 0, 0);
+                planner.Plan(lights, camera, bounds);
+                foreach (var pass in planner.Passes)
+                    planner.SetHasCasters(pass.Index, pass.Index % 3 != 0);
+                planner.ApplyCulling();
+            }
+        }));
     }
 
     [Fact]

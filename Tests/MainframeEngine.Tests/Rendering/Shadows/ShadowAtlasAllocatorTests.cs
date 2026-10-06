@@ -180,14 +180,14 @@ public sealed class ShadowAtlasAllocatorTests
         var tiles = new ShadowAtlasTile[requests.Length];
         atlas.Pack(requests, tiles);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 100; i++)
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
         {
-            atlas.Pack(requests, tiles);
-            atlas.Free(tiles[0]);
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            for (var i = 0; i < 100; i++)
+            {
+                atlas.Pack(requests, tiles);
+                atlas.Free(tiles[0]);
+            }
+        }));
     }
 
     private static void AssertDisjointAndInside(ShadowAtlasTile[] tiles, int size)

@@ -389,6 +389,44 @@ link ([Project & game host](project-and-gamehost.md)).
   instance by process id. Exit code 0 or a requested stop is *exited*, anything else *crashed* (the exit code is
   logged).
 
+## UI preview
+
+Double-clicking an `.rml` in the FileSystem panel (or its menu's **Preview UI**) opens a **UI preview tab** beside the
+scene tabs (`UiPreview`, [UiPreview.cs](../../MainframeEngine.Editor/Src/Session/UiPreview.cs)): the document rendered
+live as the game draws it, with its style sheets. Tabs are `IEditorTab`s (`EditedScene` or `UiPreview`):
+`EditorSession.Tabs`/`ActiveTab`; `Session.Active` stays the active *scene* and is null while a preview is active, so
+the scene tree, inspector and scene commands rest. Ctrl+W closes either kind; previews are never dirty.
+
+- **Rendering.** The document sits in its own `UiLayer` (layer 1: above the panels, below the project, dialog and
+  tooltip layers) under the edited-scenes host — the editor's root viewport, so it is live, not inert. The workspace
+  keeps its `UiLayer.Region` ([Game UI](game-ui.md#uiserver-uilayer-uidocument)) on the view area below the preview
+  bar (`EditorLayout.PreviewImage`); the layer is visible only while its tab is active. Hover and clicks work.
+- **Preview bar.** One chip per file the document pulls in (`RmlLinks`: `<link type="text/rcss">` and
+  `type="text/template"` resolved like the UI server — `RmlPaths.Join`, then `ContentPaths.Resolve` — plus the style
+  sheets of linked templates, "via" the template; missing files in red; an "inline <style>" chip). Clicking a chip
+  opens the file in the code editor. Then the view size (dp), the backdrop toggle and scene picker, Reload, and Open in
+  Code Editor.
+- **Live reload.** Each preview watches the project's `Content/`, the document's folder and its links' folders
+  (`UiHotReload`, 150 ms debounce) and applies changes with `UiServer.Reload(document, kind)`: `.rml` reloads the
+  document and re-reads the links, `.rcss` re-reads the style sheets (the DOM stays), images and fonts release
+  textures. The editor's own UI hot reload (Debug only) does not watch projects.
+- **Scene behind the UI** (off by default, per preview). The globe toggle renders a scene tab behind the document —
+  by default the last active scene, or one chosen from the picker. `ViewportController` then drives that scene's
+  `SubViewport` at the preview's size through the scene's own camera (`CameraOverride` cleared; a scene without a
+  camera keeps its tab's editor view), publishes it as `editor-viewport` under the preview layer, and draws no grid,
+  gizmos or icons and takes no input. Closing the scene turns it off; a code reload puts it back
+  (`UiPreview.PendingBackdrop` follows the suspended scene's snapshot).
+- **Stand-in data.** A document's data models are created by game code, so the preview binds stand-ins
+  (`UiPreviewData`, shaped by `RmlBindings`, a scan of the document's `data-model` scopes, data views and controllers,
+  `{{ }}` text, `data-for` iterators and event calls): text shows the variable's name, conditions are true, numbers 0,
+  `data-style-*` values a neutral value their property accepts, `src`/`href` empty, lists have 3 rows and events do
+  nothing. They are `RmlDataModel.BindVariable` sources ([Game UI](game-ui.md#data-binding)) that take any member a
+  view asks for, and keep values written by inputs and assignments, so the document stays interactive. Rebuilt when
+  the document changes; a "stand-in data" chip in the preview bar says which models are stood in for. A model the
+  layer already has (none today) is left alone.
+- **Limits.** The layout size is the view's size (no resolution picker yet). Scene `UiLayer`s stay inert in scene
+  tabs.
+
 ## FileSystem panel
 
 ([0099](../../memory/decisions/0099-filesystem-panel-and-reference-fixups.md)) The project folder (C# and project
@@ -398,8 +436,9 @@ background into `<project>/.mainframe/cache/thumbnails`). Every entry has its fi
 scenes tinted by their root type's family, resources by type) and badges: unsaved (an open scene with changes),
 missing dependency, import error (invalid JSON, undecodable image).
 
-- **Double click** opens scenes in a tab, resource files in the inspector, C# files in the code editor; folders open.
-- **Right-click menu**: Open, New Folder, New Scene, New Resource (the create dialog), Rename (F2), Move To, Move to
+- **Double click** opens scenes in a tab, UI documents (`.rml`) in a [UI preview](#ui-preview) tab, resource files in
+  the inspector, C# files and style sheets in the code editor; folders open.
+- **Right-click menu**: Open (Preview UI and Open in Code Editor for `.rml`), New Folder, New Scene, New Resource (the create dialog), Rename (F2), Move To, Move to
   Trash (Del), Copy Path, Copy UID, Reveal in Finder / Show in File Manager.
 - **Rename and move** keep references working: the `.meta` moves with the file, and every scene, resource and
   `project.mfproj` that refers to a moved file is rewritten (`ReferenceFixer`: `path` hints of `ref`/`instance` objects
@@ -479,6 +518,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 | `UiServer.ClipboardText` (the Output panel's Copy) | `UI/UiServer.cs` |
 | `SceneTree.ReleaseCodeOf` also clears the process lists' snapshots (they held freed game nodes and kept an unloaded game assembly alive) | `Scene/SceneTree.cs` |
 | Unregistering a UI texture releases RmlUi's texture cache entry, so a name registered again is reloaded (the viewport after switching tabs) | `UI/Rendering/VulkanUiRenderer.Tables.cs` |
+| `UiLayer.Region` (a layer confined to a window rectangle) and `UiServer.Reload(document, kind)` (the UI preview) | [Game UI](game-ui.md#uiserver-uilayer-uidocument) |
 
 ## Testing and QA
 

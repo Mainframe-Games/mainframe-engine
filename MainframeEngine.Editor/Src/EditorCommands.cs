@@ -73,7 +73,7 @@ public sealed class EditorCommands
             case "file.open": OpenScene(); return true;
             case "file.save": Save(Active, saveAs: false, then: null); return true;
             case "file.save_as": Save(Active, saveAs: true, then: null); return true;
-            case "file.close": CloseScene(Active); return true;
+            case "file.close": CloseTab(Session.ActiveTab); return true;
             case "file.quit": _workspace.RequestQuit(); return true;
             case "edit.undo": Active?.History.Undo(); return true;
             case "edit.redo": Active?.History.Redo(); return true;
@@ -275,6 +275,15 @@ public sealed class EditorCommands
             ReportError($"Could not save {scene.DisplayName}", e);
             return false;
         }
+    }
+
+    /// <summary>Closes <paramref name="tab"/>: a scene asks to save first when it has unsaved changes (<see cref="CloseScene"/>).</summary>
+    public void CloseTab(IEditorTab? tab)
+    {
+        if (tab is EditedScene scene)
+            CloseScene(scene);
+        else if (tab is not null)
+            Session.Close(tab);
     }
 
     /// <summary>Closes <paramref name="scene"/>, asking to save it first when it has unsaved changes.</summary>
@@ -586,7 +595,7 @@ public sealed class EditorCommands
                 new MenuItem("Save", "file.save", "Ctrl+S", scene is not null, Icon: "device-floppy"),
                 new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", scene is not null, Icon: "file-export"),
                 MenuItem.Separator,
-                new MenuItem("Close Scene", "file.close", "Ctrl+W", scene is not null, Icon: "x"),
+                new MenuItem("Close Tab", "file.close", "Ctrl+W", Session.ActiveTab is not null, Icon: "x"),
                 new MenuItem("Quit", "file.quit", "Ctrl+Q", Icon: "logout"),
             ],
             "edit" =>

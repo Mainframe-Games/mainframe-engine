@@ -32,6 +32,7 @@ RenderTestGame game = options.Scene switch
     "ui-effects" => new UiDocumentScene(options, "Content/UI/effects.rml"),
     "ui-widgets" => new UiDocumentScene(options, "Content/UI/widgets/demo.rml"),
     "ui-text" => new UiDocumentScene(options, "Content/UI/text.rml"),
+    "ui-region" => new UiRegionScene(options),
     "csm" => new CsmScene(options),
     "shadow-pcf" => new ShadowPcfScene(options),
     "shadow-lights" => new ShadowLightsScene(options),
@@ -39,7 +40,7 @@ RenderTestGame game = options.Scene switch
     "shadow-shimmer" => new ShadowShimmerScene(options),
     _ => throw new ArgumentException(
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, showcase, color-pipeline, " +
-        "physics, physics-debug, sky-grid, materials, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, " +
+        "physics, physics-debug, sky-grid, materials, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, " +
         "csm, shadow-pcf, shadow-lights, shadow-cutout, shadow-shimmer."),
 };
 

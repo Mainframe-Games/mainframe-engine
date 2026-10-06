@@ -169,6 +169,19 @@ public sealed class EditorLayout
     /// <summary>The 3D view inside the viewport panel (below the scene tabs), in dp.</summary>
     public LayoutRect ViewportImage => new(Viewport.X, Viewport.Y + TabsHeight, Viewport.Width, MathF.Max(1, Viewport.Height - TabsHeight));
 
+    /// <summary>Height of a UI preview's bar (linked files, backdrop controls) below the tab strip.</summary>
+    public const float PreviewBarHeight = 30;
+
+    /// <summary>The area a UI preview's document is laid out in (below the tabs and the preview bar), in dp.</summary>
+    public LayoutRect PreviewImage
+    {
+        get
+        {
+            var view = ViewportImage;
+            return new LayoutRect(view.X, view.Y + PreviewBarHeight, view.Width, MathF.Max(1, view.Height - PreviewBarHeight));
+        }
+    }
+
     /// <summary>Replaces the settings (the window size is kept) — e.g. after loading them.</summary>
     public void Apply(EditorLayoutSettings settings)
     {
