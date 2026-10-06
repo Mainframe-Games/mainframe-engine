@@ -43,6 +43,20 @@
         .tree-empty { display: flex; flex-direction: column; align-items: center; padding: 22dp 14dp; color: #8b93a5; text-align: center; }
         .tree-empty .icon { margin-bottom: 8dp; image-color: #4b5263; }
         .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
+        .tree-mode { display: flex; flex-direction: row; flex: 0 0 auto; padding: 4dp 6dp; border-bottom: 1dp #2f333d; }
+        .tree-mode .seg { flex: 1 1 0dp; height: 20dp; line-height: 20dp; text-align: center; font-size: 11dp; color: #a3abbd;
+                          background-color: #2a2e38; cursor: pointer; }
+        .tree-mode .seg:first-child { border-radius: 3dp 0dp 0dp 3dp; }
+        .tree-mode .seg:last-child { border-radius: 0dp 3dp 3dp 0dp; }
+        .tree-mode .seg:hover { background-color: #343946; color: #ffffff; }
+        .tree-mode .seg.on { background-color: #1d4ed8; color: #ffffff; }
+        .chips { display: flex; flex-direction: row; flex-wrap: wrap; flex: 0 0 auto; padding: 0dp 6dp 4dp 6dp; }
+        .chip { height: 18dp; line-height: 18dp; padding: 0dp 7dp; margin: 2dp 4dp 0dp 0dp; border-radius: 9dp; font-size: 11dp;
+                color: #a3abbd; background-color: #2a2e38; cursor: pointer; }
+        .chip:hover { color: #ffffff; }
+        .chip.on { color: #ffffff; background-color: #1e3a8a; }
+        .remote-status { padding: 4dp 10dp; color: #8b93a5; font-size: 11dp; }
+        .tree-row.remote { cursor: default; }
     </style>
 </head>
 <body class="panel-doc" data-model="scene_tree">
@@ -52,7 +66,25 @@
         <button class="tool-button small" data-command="node.add" data-tooltip="Add Child Node (Ctrl+A) — create a node under the selection"><span class="icon icon-sm icon-plus"></span></button>
         <button class="tool-button small" data-command="scene.instance" data-tooltip="Instance Child Scene (Ctrl+Shift+A) — add a saved scene under the selection"><span class="icon icon-sm icon-link"></span></button>
     </div>
-    <div class="panel-body tree" id="tree">
+    <div class="tree-mode" data-if="remote_available">
+        <div class="seg" data-class-on="!remote_mode" data-event-click="show_local()"
+             data-tooltip="Local — the scene being edited">Local</div>
+        <div class="seg" data-class-on="remote_mode" data-event-click="show_remote()"
+             data-tooltip="Remote — the running game's scene tree (read-only, refreshed every second)">Remote</div>
+    </div>
+    <div class="chips" data-if="remote_mode &amp;&amp; remote_chips.size > 0">
+        <div class="chip" data-for="chip : remote_chips" data-class-on="chip.active" data-event-click="pick_remote(chip.index)">{{chip.label}}</div>
+    </div>
+    <div class="panel-body tree" id="remote-tree" data-if="remote_mode">
+        <div class="remote-status" data-if="remote_status != ''">{{remote_status}}</div>
+        <div class="tree-row remote" data-for="row : remote" data-attr-data-tooltip="row.tooltip">
+            <span class="indent" data-style-width="row.indent"></span>
+            <span class="arrow" data-class-collapsed="!row.expanded" data-class-none="!row.has_children" data-event-mousedown="remote_toggle(row.index)"></span>
+            <span class="type-icon" data-attr-class="row.icon + ' type-icon'"></span>
+            <span class="name">{{row.name}}</span>
+        </div>
+    </div>
+    <div class="panel-body tree" id="tree" data-if="!remote_mode">
         <div class="tree-row" data-for="row : rows"
              data-class-selected="row.selected"
              data-class-dragging="row.drag"

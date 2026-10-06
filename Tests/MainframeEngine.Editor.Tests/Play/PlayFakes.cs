@@ -208,6 +208,9 @@ public sealed class FakeGame : IGameProcess
                         case EditorCommandKind.Resume:
                             _paused = false;
                             break;
+                        case EditorCommandKind.RequestTree:
+                            client.SendTree([new(0, "root", "Window"), new(1, "Main", "Node2D"), new(2, Request.Label, "Node2D"), new(3, "Deep", "Node")], false);
+                            break;
                         case EditorCommandKind.ReloadScene:
                             if (command.Argument.Length > 0)
                                 scene = command.Argument;

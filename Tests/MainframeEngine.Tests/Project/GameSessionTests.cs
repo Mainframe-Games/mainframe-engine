@@ -280,6 +280,33 @@ public sealed class GameSessionTests : IDisposable
     }
 }
 
+public sealed class GameSessionTreeSnapshotTests
+{
+    [Fact]
+    public void TheSnapshotIsDepthFirstInChildOrderAndCappedAtTheProtocolLimit()
+    {
+        var root = new Node { Name = "root" };
+        var a = new Node { Name = "A" };
+        a.AddChild(new Node2D { Name = "A1" });
+        a.AddChild(new Node { Name = "A2" });
+        root.AddChild(a);
+        root.AddChild(new Node3D { Name = "B" });
+
+        var nodes = GameSession.SnapshotTree(root, out var truncated);
+        Assert.False(truncated);
+        Assert.Equal(
+            [new(0, "root", "Node"), new(1, "A", "Node"), new(2, "A1", "Node2D"), new(2, "A2", "Node"), new EditorLinkTreeNode(1, "B", "Node3D")],
+            nodes);
+
+        for (var i = 0; i < EditorLinkProtocol.MaxTreeNodes; i++)
+            root.AddChild(new Node { Name = "N" + i });
+        nodes = GameSession.SnapshotTree(root, out truncated);
+        Assert.True(truncated);
+        Assert.Equal(EditorLinkProtocol.MaxTreeNodes, nodes.Length);
+        root.Free();
+    }
+}
+
 /// <summary>A session talking to a real <see cref="EditorLinkServer"/>. Adds a log sink, so serial with the Log tests.</summary>
 [Collection(nameof(Debugging.SerialConsole))]
 public sealed class GameSessionEditorLinkTests
@@ -313,6 +340,26 @@ public sealed class GameSessionEditorLinkTests
                 return tree.Paused;
             }));
             Assert.Equal(60f, Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Status && m.Status.State == GameRunState.Paused).Status.FramesPerSecond);
+
+            // The remote scene tree: a snapshot on request, depth-first from the root.
+            tree.Root.AddChild(new Node2D { Name = "World" });
+            Assert.Equal(1, server.SendCommand(new EditorLinkCommand(EditorCommandKind.RequestTree)));
+            EditorLinkMessage snapshot = default;
+            Assert.True(Wait.Until(() =>
+            {
+                session.Update(time);
+                while (server.TryRead(out var m))
+                {
+                    seen.Add(m);
+                    if (m.Type == EditorLinkMessageType.Tree)
+                        snapshot = m;
+                }
+
+                return snapshot.Type == EditorLinkMessageType.Tree;
+            }));
+            Assert.False(snapshot.TreeTruncated);
+            Assert.Equal(0, snapshot.Tree![0].Depth);
+            Assert.Contains(new EditorLinkTreeNode(1, "World", nameof(Node2D)), snapshot.Tree);
 
             Assert.Equal(1, server.SendCommand(new EditorLinkCommand(EditorCommandKind.Stop)));
             Assert.True(Wait.Until(() =>

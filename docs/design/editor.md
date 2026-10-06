@@ -396,6 +396,12 @@ link ([Project & game host](project-and-gamehost.md)).
   crashed — and label); clicking it opens its menu (pause/resume, reload scene, stop, clear). A hello is matched to its
   instance by process id. Exit code 0 or a requested stop is *exited*, anything else *crashed* (the exit code is
   logged).
+- **Remote scene tree** ([0133](../../memory/decisions/0133-remote-scene-tree.md), Godot's Local/Remote switch): while
+  a launched game is connected, the Scene panel shows a Local | Remote toggle. Remote replaces the edited scene's rows
+  with the game's live tree, read-only (names and type icons), asked for over the link once a second
+  (`PlayService.RequestTree` → `PlayInstance.RemoteTree`). The root and its children start expanded; expand state is kept
+  by node path across snapshots. With several instances a chip per instance picks whose tree is shown. When the last game
+  stops the panel goes back to Local. QA: `remote on|off`, `remote pick <n>`, `remote toggle <name>`.
 
 ## UI preview
 

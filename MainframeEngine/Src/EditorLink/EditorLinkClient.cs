@@ -33,6 +33,8 @@ public sealed class EditorLinkClient : IDisposable
     private int _connectAttempts;
     private EditorLinkStatus _status;
     private bool _statusPending;
+    private EditorLinkTreeNode[]? _tree;
+    private bool _treeTruncated;
     private int _queued;
     private long _droppedPending;
     private long _droppedTotal;
@@ -104,6 +106,19 @@ public sealed class EditorLinkClient : IDisposable
 
     /// <summary>The next command from the editor, if any (call from the game loop).</summary>
     public bool TryReceiveCommand(out EditorLinkCommand command) => _commands.TryDequeue(out command);
+
+    /// <summary>Queues a scene tree snapshot (the reply to <see cref="EditorCommandKind.RequestTree"/>); a newer one replaces it.</summary>
+    public void SendTree(EditorLinkTreeNode[] nodes, bool truncated)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        lock (_statusGate)
+        {
+            _tree = nodes;
+            _treeTruncated = truncated;
+        }
+
+        _signal.Set();
+    }
 
     /// <summary>
     /// Sends the queued logs and a goodbye with <paramref name="exitCode"/>, waiting at most <paramref name="timeout"/>
@@ -217,6 +232,12 @@ public sealed class EditorLinkClient : IDisposable
                 {
                     EditorLinkProtocol.WriteStatus(buffer, _status);
                     _statusPending = false;
+                }
+
+                if (_tree is { } tree)
+                {
+                    EditorLinkProtocol.WriteTree(buffer, tree, _treeTruncated);
+                    _tree = null;
                 }
             }
 

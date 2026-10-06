@@ -185,6 +185,24 @@ public sealed class PlayServiceTests
     }
 
     [Fact]
+    public void RequestTreeStoresTheGamesSnapshot()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        Assert.Null(instance.RemoteTree);
+
+        Assert.True(play.Service.RequestTree(instance));
+        play.Pump(() => instance.RemoteTree is not null, "tree snapshot");
+        Assert.Equal(1, instance.RemoteTreeVersion);
+        Assert.False(instance.RemoteTreeTruncated);
+        Assert.Equal(new EditorLinkTreeNode(2, instance.Label, "Node2D"), instance.RemoteTree![2]);
+
+        play.Service.Stop(instance);
+        play.Pump(() => !instance.IsAlive, "stop");
+        Assert.False(play.Service.RequestTree(instance)); // gone: nothing to ask
+    }
+
+    [Fact]
     public void StopSaysGoodbyeAndExitsWithZero()
     {
         using var play = new PlayHarness();

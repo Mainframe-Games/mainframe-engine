@@ -239,7 +239,8 @@ sequenceDiagram
     G->>E: Hello (protocol, pid, project, engine version)
     loop while running
         G-->>E: Log entries · Status (state, frame, fps, scene) every 0.5 s and on change
-        E-->>G: Command: Stop · Pause · Resume · ReloadScene [scene] · Ping
+        E-->>G: Command: Stop · Pause · Resume · ReloadScene [scene] · Ping · RequestTree
+        G-->>E: Tree (on RequestTree: depth-first nodes)
     end
     G->>E: Status Stopping · Goodbye (exit code)
 ```
@@ -258,7 +259,10 @@ sequenceDiagram
   counted.
 - **Commands in the game**: Stop → `Quit(Ok)`; Pause/Resume → `Tree.Paused`; ReloadScene → re-read cached scenes from
   disk (`ResourceLoader.RefreshCachedScenes`) and `ChangeSceneToFile` the given scene or the current one (autoloads
-  stay); Ping → status now.
+  stay); Ping → status now; RequestTree → `GameSession.SnapshotTree(Tree.Root)` sent as a `Tree` message (protocol
+  version 2, [0133](../../memory/decisions/0133-remote-scene-tree.md)): `u8 truncated, i32 count`, then per node `i32 depth,
+  str name, str type` depth-first from the root (depth 0); at most `MaxTreeNodes` (3000) nodes and names/types cut to 48
+  characters, so the worst case fits a frame. The latest snapshot waits next to the status (a newer one replaces it).
 
 ## Game assemblies and code reload
 

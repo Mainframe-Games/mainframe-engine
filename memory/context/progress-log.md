@@ -438,3 +438,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   `OutlineMaterial3D` (Godot's inverted-hull outline: `Mesh/MeshOutline.vk.vert`, front-culled, unshaded, blended).
   Extra passes join the opaque/transparent lists with less-or-equal depth pipelines; no shadows, not picked. Render
   test + golden `outline_frame0020`; pipeline and serialization unit tests.
+### 2026-10-06 — Editor: remote scene tree (port E18, ADR 0133)
+- Editor-link protocol 2: `RequestTree` command / `Tree` message (depth, name, type; ≤ 3000 nodes, 48-char names);
+  `GameSession.SnapshotTree`, `EditorLinkClient.SendTree`, `PlayService.RequestTree` → `PlayInstance.RemoteTree`.
+- Scene panel Local | Remote switch while a game is connected (read-only rows with type icons, expand state per path,
+  a chip per instance, back to Local on stop), refreshed once a second. QA `remote on|off|pick|toggle`. Checked on
+  Crash Site Defense: 773 live nodes. RmlUi gotchas for tests: `data-if` hides without removing and a hidden element
+  keeps its last box; `data-for` keeps a hidden template element.
+- Tests: tree round trip + worst-case frame size, session answers RequestTree, snapshot order/cap, PlayService
+  RequestTree, a workflow test across two instances.

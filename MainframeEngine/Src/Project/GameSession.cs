@@ -159,9 +159,41 @@ public sealed class GameSession : IDisposable
                 break;
             case EditorCommandKind.Ping:
                 break; // answered by the report below
+            case EditorCommandKind.RequestTree:
+                Link?.SendTree(SnapshotTree(Tree.Root, out var truncated), truncated);
+                break;
         }
 
         ReportStatus(force: true);
+    }
+
+    /// <summary>
+    /// The tree under <paramref name="root"/> depth-first (the root at depth 0), at most
+    /// <see cref="EditorLinkProtocol.MaxTreeNodes"/> nodes: what the editor's remote scene tree shows.
+    /// </summary>
+    public static EditorLinkTreeNode[] SnapshotTree(Node root, out bool truncated)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        var nodes = new List<EditorLinkTreeNode>(256);
+        var stack = new Stack<(Node Node, int Depth)>();
+        stack.Push((root, 0));
+        truncated = false;
+        while (stack.Count > 0)
+        {
+            var (node, depth) = stack.Pop();
+            if (nodes.Count == EditorLinkProtocol.MaxTreeNodes)
+            {
+                truncated = true;
+                break;
+            }
+
+            nodes.Add(new EditorLinkTreeNode(depth, node.Name, node.GetType().Name));
+            var children = node.Children;
+            for (var i = children.Count - 1; i >= 0; i--)
+                stack.Push((children[i], depth + 1));
+        }
+
+        return nodes.ToArray();
     }
 
     /// <summary>
