@@ -212,8 +212,12 @@ and the backlog beyond `MaxPhysicsStepsPerFrame`), as Godot does, so a stall rea
   tree, or on `SceneTree`) run at step 3.
 - `SceneTree.CreateTimer(seconds)` returns a one-shot `SceneTreeTimer` (`Timeout` event);
   the `Timer` node (`WaitTime`, `OneShot`, `Autostart`, `ProcessCallback`) is the saveable kind.
-- `SceneTree.ChangeScene(Node | PackedScene)` / `ChangeSceneToFile(pathOrUid)` replace `CurrentScene`
-  (deferred to the end of the frame during a tick). `Shutdown()` frees everything.
+- `SceneTree.ChangeScene(Node | PackedScene)` / `ChangeSceneToFile(pathOrUid)` replace `CurrentScene`. Outside a tick
+  and outside input dispatch (start-up, tools) the swap is immediate. During a tick or a `PushInput` (UI clicks run there,
+  outside the tick) it waits for Godot's scene change flush: after the frame's process callbacks and deferred calls,
+  before timers ([0137](../../memory/decisions/0137-scene-change-flush.md)). So a click handler never frees or builds a
+  scene inside RmlUi's dispatch, and the new scene first processes a frame later. The last change of a frame wins; an
+  earlier pending scene is freed without entering the tree. `Shutdown()` frees everything.
 
 ### Tweens
 

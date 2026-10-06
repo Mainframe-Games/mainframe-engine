@@ -245,6 +245,56 @@ public sealed class InputMapTests
     }
 
     [Fact]
+    public void ASceneStartedByAClickNeverSeesThatClickAsJustPressed()
+    {
+        // Godot's order: the click's frame runs process without the new scene, which is added after it (the scene change
+        // flush), so its first process is a frame later, when the press is no longer "just". (The port's world used to
+        // swing the starting crew member's hand on its first frame.)
+        var tree = Tree(Map());
+        var next = new ActionProbe { Name = "Next" };
+        tree.ChangeScene(new SceneStarter { Next = next });
+        tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+
+        MouseEvent.Button = MouseButton.Left;
+        MouseEvent.Pressed = true;
+        tree.PushInput(MouseEvent); // fire → SceneStarter changes the scene
+        MouseEvent.Pressed = false;
+        tree.PushInput(MouseEvent); // a quick click: released before the frame
+        tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+        Assert.Same(next, tree.CurrentScene); // added at the end of the click's frame…
+        Assert.Equal(0, next.Frames);         // …after that frame's process
+        tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+        Assert.Equal(1, next.Frames);
+        Assert.False(next.SawJustPressed);
+        tree.Shutdown();
+    }
+
+    private sealed class SceneStarter : Node
+    {
+        public required Node Next { get; init; }
+
+        protected override void OnInput(InputEvent inputEvent)
+        {
+            if (inputEvent is InputEventMouseButton { Pressed: true } && Tree!.Input.IsActionPressed("fire"))
+                Tree.ChangeScene(Next);
+        }
+    }
+
+    private sealed class ActionProbe : Node
+    {
+        public int Frames { get; private set; }
+        public bool SawJustPressed { get; private set; }
+
+        protected override void OnReady() => SetProcess(true);
+
+        protected override void OnProcess(in GameTime gameTime)
+        {
+            Frames++;
+            SawJustPressed |= Tree!.Input.IsActionJustPressed("fire");
+        }
+    }
+
+    [Fact]
     public void ActionPressAndReleaseSimulateInput()
     {
         var tree = Tree(Map());

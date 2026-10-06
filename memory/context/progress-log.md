@@ -469,3 +469,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `package-game.sh` zips the `.app` with `ditto --norsrc --noextattr`: extended attributes went into the zip as
   `._Name` entries, and `unzip` wrote them out as files. `UiServer` skips `._*.ttf` when loading fonts (it loaded
   `._LatoLatin-Bold.ttf` and the packaged Driving Range died at start-up). Test `FontLoadingSkipsMacAppleDoubleFiles`.
+### 2026-10-06 — Scene changes wait for Godot's flush, input included (CSD port, ADR 0137)
+- `ChangeScene` from input (outside Tick) was immediate: the port's New Game → Start click built the world inside RmlUi's
+  mouse-up dispatch (segfault about one run in three; the crew member also swung at spawn). Now a pending scene is
+  applied after the process callbacks + deferred calls, before timers (Godot's `_flush_scene_change`); last change wins.
+  Three tests; five real mouse runs clean.
