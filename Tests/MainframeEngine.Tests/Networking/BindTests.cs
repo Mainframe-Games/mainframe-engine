@@ -56,3 +56,39 @@ public sealed class BindTests
         tree.Shutdown();
     }
 }
+
+public sealed class SpawnConfigureTests
+{
+    [Fact]
+    public void ConfigureRunsBeforeTheNodeEntersTheTreeAndItsValuesTravelInTheSpawn()
+    {
+        using var net = new NetHarness();
+        var client = net.Join();
+        var inTreeWhenConfigured = true;
+        var box = net.Server.Spawn<NetBox>(NetHarness.BoxScene, configure: b => { inTreeWhenConfigured = b.IsInsideTree; b.Score = 42; });
+        Assert.False(inTreeWhenConfigured);
+        net.StepUntil(() => client.Find<NetBox>(box.NetworkEntity!.NetId) is { Score: 42 });
+    }
+}
+
+public sealed class SendToServerTests
+{
+    private struct Hi : INetworkTransferable
+    {
+        public int Value;
+        public readonly void NetworkWrite(NetBufferWriter w) => w.Write(Value);
+        public void NetworkRead(NetBufferReader r) => Value = r.ReadInt32();
+    }
+
+    [Fact]
+    public void AClientReachesTheServerWithAGameMessage()
+    {
+        using var net = new NetHarness(configure: api => api.Messages.Register<Hi>());
+        var got = 0;
+        net.Server.Bus!.Subscribe((in MessageContext ctx, in Hi hi) => got = hi.Value);
+        var client = net.Join();
+        Assert.False(net.Server.SendToServer(new Hi { Value = 1 })); // only clients send to the server
+        Assert.True(client.Api.SendToServer(new Hi { Value = 9 }));
+        net.StepUntil(() => got == 9);
+    }
+}

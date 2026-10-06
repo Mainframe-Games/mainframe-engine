@@ -283,3 +283,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   clients resolve parent path + name instead of instantiating; late joiners and despawn as for spawns).
   `MultiplayerSynchronizer` (Godot's name, `RootPath`) binds its root when the server starts or at once; inside a spawned
   scene it does nothing. Tests: BindTests.
+
+### 2026-10-06 — Spawn configure callback, SendToServer (port G5)
+- `MultiplayerApi.Spawn(scene, parent, authority, configure)` / `Spawn<T>(…, configure)`: the callback runs before the
+  instance enters the tree (Godot's spawn function), so `OnReady` sees the spawn data. `SendToServer<T>` sends a game
+  message from a client (the server's transport peer is private). Tests: SpawnConfigureTests, SendToServerTests.

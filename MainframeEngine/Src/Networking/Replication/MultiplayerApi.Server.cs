@@ -67,7 +67,13 @@ public sealed partial class MultiplayerApi
     /// path on clients (e.g. part of the level both load).
     /// </param>
     /// <param name="authority">The peer with authority over the new nodes: the server (default) or a connected client.</param>
-    public Node Spawn(PackedScene scene, Node? parent = null, PeerId authority = default)
+    public Node Spawn(PackedScene scene, Node? parent = null, PeerId authority = default) => Spawn(scene, parent, authority, null);
+
+    /// <summary>
+    /// Server: <see cref="Spawn(PackedScene, Node?, PeerId)"/> with <paramref name="configure"/> run on the instance before it
+    /// enters the tree (Godot's spawn function): its <c>OnReady</c> already sees the values, which travel in the spawn.
+    /// </summary>
+    public Node Spawn(PackedScene scene, Node? parent, PeerId authority, Action<Node>? configure)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ThrowIfDisposed();
@@ -84,6 +90,7 @@ public sealed partial class MultiplayerApi
         var root = scene.Instantiate();
         try
         {
+            configure?.Invoke(root);
             RegisterSpawn(root, index, parent, authority);
         }
         catch
@@ -123,9 +130,14 @@ public sealed partial class MultiplayerApi
     }
 
     /// <summary>Server: <see cref="Spawn"/> and cast the root.</summary>
-    public T Spawn<T>(PackedScene scene, Node? parent = null, PeerId authority = default) where T : Node
+    public T Spawn<T>(PackedScene scene, Node? parent = null, PeerId authority = default, Action<T>? configure = null) where T : Node
     {
-        var root = Spawn(scene, parent, authority);
+        var root = Spawn(scene, parent, authority, configure is null ? null : node =>
+        {
+            if (node is not T typed)
+                throw new InvalidCastException($"The scene's root is a {node.GetType().Name}, not a {typeof(T).Name}.");
+            configure(typed);
+        });
         if (root is T typed)
             return typed;
         root.QueueFree();
