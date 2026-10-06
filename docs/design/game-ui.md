@@ -231,6 +231,9 @@ flowchart LR
 
 `SceneTree.PushInput` offers every event to the registered `IInputServer`s first (new in M8; the UI server is the
 only one); a consumed event never reaches `OnInput`/`OnUnhandledInput` ([ADR 0051](../../memory/decisions/0051-ui-input-first.md)).
+Exception ([ADR 0138](../../memory/decisions/0138-input-before-ui.md)): nodes with `InputBeforeUi = true` get `OnInput` *before*
+the input servers, which is Godot's `_input` placement. They see keys the UI would take (Tab = focus next, Return on a
+focused button); handling the event stops it, otherwise the UI and the remaining nodes get it as usual.
 
 | Input | Behaviour |
 |---|---|

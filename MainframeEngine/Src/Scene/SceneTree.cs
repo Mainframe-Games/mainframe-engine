@@ -453,7 +453,20 @@ public sealed partial class SceneTree
         // Polled state sees every event, even ones the UI consumes below, so a released key never sticks.
         Input.ProcessEvent(inputEvent);
         var paused = Paused;
+        var editMode = EditMode;
         Root.BeginInput();
+
+        // Godot's _input stage for the nodes that ask for it (InputBeforeUi), then the UI, then everyone else.
+        var nodes = _input.Snapshot(this);
+        for (var i = nodes.Length - 1; i >= 0 && !Root.IsInputHandled; i--)
+        {
+            var node = nodes[i];
+            if (ReferenceEquals(node?.Tree, this) && node.InputBeforeUi && node.WantsInput && node.CanProcess(paused) && (!editMode || node.IsTool))
+                node.InvokeInput(inputEvent);
+        }
+
+        if (Root.IsInputHandled)
+            return true;
 
         foreach (var server in Servers.InputServers)
         {
@@ -464,12 +477,11 @@ public sealed partial class SceneTree
             }
         }
 
-        var editMode = EditMode;
-        var nodes = _input.Snapshot(this);
+        nodes = _input.Snapshot(this);
         for (var i = nodes.Length - 1; i >= 0 && !Root.IsInputHandled; i--)
         {
             var node = nodes[i];
-            if (ReferenceEquals(node?.Tree, this) && node.WantsInput && node.CanProcess(paused) && (!editMode || node.IsTool))
+            if (ReferenceEquals(node?.Tree, this) && !node.InputBeforeUi && node.WantsInput && node.CanProcess(paused) && (!editMode || node.IsTool))
                 node.InvokeInput(inputEvent);
         }
 
