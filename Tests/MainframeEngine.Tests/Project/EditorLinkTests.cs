@@ -93,6 +93,30 @@ public sealed class EditorLinkProtocolTests
     }
 
     [Fact]
+    public void TreeSnapshotsRoundTripAndAreCutToFitAFrame()
+    {
+        EditorLinkTreeNode[] nodes = [new(0, "root", "Window"), new(1, "Main ✓", "Node2D"), new(2, new string('n', 60), new string('T', 70))];
+        var tree = RoundTrip(b => EditorLinkProtocol.WriteTree(b, nodes, truncated: false));
+        Assert.Equal(EditorLinkMessageType.Tree, tree.Type);
+        Assert.False(tree.TreeTruncated);
+        Assert.Equal(nodes[..2], tree.Tree![..2]);
+        Assert.Equal((2, EditorLinkProtocol.MaxTreeNameLength, EditorLinkProtocol.MaxTreeNameLength),
+            (tree.Tree[2].Depth, tree.Tree[2].Name.Length, tree.Tree[2].Type.Length));
+        Assert.Equal(new EditorLinkCommand(EditorCommandKind.RequestTree), RoundTrip(b => EditorLinkProtocol.WriteCommand(b, new EditorLinkCommand(EditorCommandKind.RequestTree))).Command);
+
+        // Past the cap: cut and flagged. The worst case (every name and type 48 three-byte characters) still fits a frame.
+        var wide = new string('€', 80);
+        var many = Enumerable.Range(0, EditorLinkProtocol.MaxTreeNodes + 5).Select(i => new EditorLinkTreeNode(i % 7, wide, wide)).ToArray();
+        var buffer = new ArrayBufferWriter<byte>();
+        EditorLinkProtocol.WriteTree(buffer, many, truncated: false);
+        Assert.True(buffer.WrittenCount <= EditorLinkProtocol.MaxFrameLength + EditorLinkProtocol.HeaderLength);
+        Assert.True(EditorLinkProtocol.TryDecode(buffer.WrittenSpan[EditorLinkProtocol.HeaderLength..], out var cut));
+        Assert.True(cut.TreeTruncated);
+        Assert.Equal(EditorLinkProtocol.MaxTreeNodes, cut.Tree!.Length);
+        Assert.Equal(new string('€', EditorLinkProtocol.MaxTreeNameLength), cut.Tree[^1].Name);
+    }
+
+    [Fact]
     public void FramesAppendBackToBack()
     {
         var buffer = new ArrayBufferWriter<byte>();

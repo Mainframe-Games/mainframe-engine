@@ -15,9 +15,9 @@ public enum TreeDropPosition
 /// The scene tree dock: the active scene's hierarchy (<see cref="SceneTreeModel"/>, data-bound as <c>scene_tree</c>) with
 /// expand/collapse, click/Ctrl+click/Shift+click selection, drag to reparent or reorder (drop on the upper or lower edge
 /// of a row to insert before/after it, on its middle to make it the parent), double click (F2) to rename and a
-/// right-click context menu.
+/// right-click context menu. While a game runs from Play, its live tree can be shown instead (read-only, the Remote view).
 /// </summary>
-public sealed class SceneTreePanel : EditorDocument
+public sealed partial class SceneTreePanel : EditorDocument
 {
     private const float DragThreshold = 4f;
 
@@ -82,6 +82,7 @@ public sealed class SceneTreePanel : EditorDocument
                 e.Event.StopPropagation();
             })
             .Event("rename", _ => Workspace.Commands.Rename());
+        BindRemote(_model);
         Refresh();
     }
 

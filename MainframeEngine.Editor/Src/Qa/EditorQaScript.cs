@@ -404,6 +404,32 @@ public sealed class EditorQaScript : IEditorAutomation
                 }
 
                 break;
+            case "remote":
+                // remote on|off · remote pick <n> · remote toggle <node name> (the first visible row with that name)
+                switch (step[1])
+                {
+                    case "on" or "off":
+                        workspace.SceneTree.ShowRemote(step[1] == "on");
+                        break;
+                    case "pick":
+                        workspace.SceneTree.PickRemote(int.Parse(step[2], CultureInfo.InvariantCulture));
+                        break;
+                    case "toggle":
+                        var rows = workspace.SceneTree.Remote.Rows;
+                        var name = string.Join(' ', step[2..]);
+                        var index = -1;
+                        for (var i = 0; i < rows.Count && index < 0; i++)
+                            if (rows[i].Name == name)
+                                index = i;
+                        if (index < 0)
+                            Log.Warning($"[QA] No remote row '{name}'.");
+                        else
+                            workspace.SceneTree.ToggleRemote(index);
+                        break;
+                }
+
+                Log.Info($"[QA] remote {workspace.SceneTree.RemoteMode} rows {workspace.SceneTree.Remote.Rows.Count}/{workspace.SceneTree.Remote.NodeCount}");
+                break;
             case "play-args":
                 workspace.Play.PlayMain(step[1..]);
                 break;

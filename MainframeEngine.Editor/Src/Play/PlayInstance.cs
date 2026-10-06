@@ -1,3 +1,5 @@
+using MainframeEngine.EditorLink;
+
 namespace MainframeEngine.Editor;
 
 /// <summary>Where a <see cref="PlayInstance"/> is in its life.</summary>
@@ -72,6 +74,15 @@ public sealed class PlayInstance
 
     /// <summary>Launch → hello.</summary>
     public TimeSpan? ConnectTime { get; internal set; }
+
+    /// <summary>The game's scene tree from its last snapshot (<see cref="PlayService.RequestTree"/>), depth-first; null before one arrived.</summary>
+    public EditorLinkTreeNode[]? RemoteTree { get; internal set; }
+
+    /// <summary>The last snapshot stopped at <see cref="EditorLinkProtocol.MaxTreeNodes"/>.</summary>
+    public bool RemoteTreeTruncated { get; internal set; }
+
+    /// <summary>Bumped by every snapshot (the panel redraws only when it moves).</summary>
+    public int RemoteTreeVersion { get; internal set; }
 
     /// <summary>Not <see cref="PlayInstanceState.Exited"/> or <see cref="PlayInstanceState.Crashed"/>.</summary>
     public bool IsAlive => State is not (PlayInstanceState.Exited or PlayInstanceState.Crashed);

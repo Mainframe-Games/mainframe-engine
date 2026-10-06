@@ -25,6 +25,9 @@ public enum EditorLinkMessageType : byte
     /// <summary>Game → editor: the game is exiting (exit code).</summary>
     Goodbye = 5,
 
+    /// <summary>Game → editor: a snapshot of the running scene tree (<see cref="EditorLinkMessage.Tree"/>), on request.</summary>
+    Tree = 6,
+
     /// <summary>Editor → game: an <see cref="EditorLinkCommand"/>.</summary>
     Command = 16,
 
@@ -49,7 +52,13 @@ public enum EditorCommandKind : byte
 
     /// <summary>Ask for an immediate <see cref="EditorLinkMessageType.Status"/>.</summary>
     Ping = 5,
+
+    /// <summary>Ask for a <see cref="EditorLinkMessageType.Tree"/> snapshot (the editor's remote scene tree).</summary>
+    RequestTree = 6,
 }
+
+/// <summary>One node of a remote tree snapshot, depth-first: its depth below the root, name and type name.</summary>
+public readonly record struct EditorLinkTreeNode(int Depth, string Name, string Type);
 
 /// <summary>The game's run state in <see cref="EditorLinkStatus"/>.</summary>
 public enum GameRunState : byte
@@ -90,6 +99,12 @@ public readonly record struct EditorLinkMessage
     public int ExitCode { get; init; }
 
     public EditorLinkCommand Command { get; init; }
+
+    /// <summary><see cref="EditorLinkMessageType.Tree"/>: the nodes, depth-first from the root.</summary>
+    public EditorLinkTreeNode[]? Tree { get; init; }
+
+    /// <summary><see cref="EditorLinkMessageType.Tree"/>: more nodes existed than <see cref="EditorLinkProtocol.MaxTreeNodes"/>.</summary>
+    public bool TreeTruncated { get; init; }
 }
 
 /// <summary>
@@ -100,12 +115,19 @@ public readonly record struct EditorLinkMessage
 /// <item>Log: <c>u8 level, i64 utcTicks, str category, str message, str member, str file, i32 line</c></item>
 /// <item>Status: <c>u8 state, u64 frame, f32 fps, str scene</c></item>
 /// <item>LogDropped: <c>i64 count</c> · Goodbye: <c>i32 exitCode</c> · Command: <c>u8 kind, str argument</c></item>
+/// <item>Tree: <c>u8 truncated, i32 count, count × (i32 depth, str name, str type)</c></item>
 /// </list>
 /// </summary>
 public static class EditorLinkProtocol
 {
     /// <summary>Bumped on any incompatible wire change; the editor checks <see cref="EditorLinkHello.ProtocolVersion"/>.</summary>
-    public const int Version = 1;
+    public const int Version = 2;   // 2: Tree / RequestTree
+
+    /// <summary>Nodes in one tree snapshot at most (names are cut to <see cref="MaxTreeNameLength"/>), keeping a frame under the limit.</summary>
+    public const int MaxTreeNodes = 3000; // × (12 + 2 × 48 chars × 3 UTF-8 bytes) < MaxFrameLength
+
+    /// <summary>Characters kept of a node's name or type in a snapshot.</summary>
+    public const int MaxTreeNameLength = 48;
 
     /// <summary>Largest frame accepted (type byte + payload). Longer log messages are truncated when encoded.</summary>
     public const int MaxFrameLength = 1 << 20;
@@ -160,6 +182,24 @@ public static class EditorLinkProtocol
         var w = new FrameWriter(output, EditorLinkMessageType.Goodbye);
         w.Int32(exitCode);
         w.Finish();
+    }
+
+    public static void WriteTree(ArrayBufferWriter<byte> output, IReadOnlyList<EditorLinkTreeNode> nodes, bool truncated)
+    {
+        var w = new FrameWriter(output, EditorLinkMessageType.Tree);
+        var count = Math.Min(nodes.Count, MaxTreeNodes);
+        w.Byte(truncated || nodes.Count > MaxTreeNodes ? (byte)1 : (byte)0);
+        w.Int32(count);
+        for (var i = 0; i < count; i++)
+        {
+            w.Int32(nodes[i].Depth);
+            w.String(Cut(nodes[i].Name));
+            w.String(Cut(nodes[i].Type));
+        }
+
+        w.Finish();
+
+        static string Cut(string text) => text.Length <= MaxTreeNameLength ? text : text[..MaxTreeNameLength];
     }
 
     public static void WriteCommand(ArrayBufferWriter<byte> output, in EditorLinkCommand command)
@@ -233,10 +273,26 @@ public static class EditorLinkProtocol
             case EditorLinkMessageType.Command:
                 if (!r.Byte(out var kind) || !r.String(out var argument))
                     return false;
-                if (kind is < (byte)EditorCommandKind.Stop or > (byte)EditorCommandKind.Ping)
+                if (kind is < (byte)EditorCommandKind.Stop or > (byte)EditorCommandKind.RequestTree)
                     return false;
                 message = new EditorLinkMessage { Type = type, Command = new EditorLinkCommand((EditorCommandKind)kind, argument) };
                 break;
+            case EditorLinkMessageType.Tree:
+                {
+                    if (!r.Byte(out var truncated) || !r.Int32(out var count) || count < 0 || count > MaxTreeNodes)
+                        return false;
+                    var nodes = new EditorLinkTreeNode[count];
+                    for (var i = 0; i < count; i++)
+                    {
+                        if (!r.Int32(out var depth) || depth < 0 || !r.String(out var name) || !r.String(out var nodeType))
+                            return false;
+                        nodes[i] = new EditorLinkTreeNode(depth, name, nodeType);
+                    }
+
+                    message = new EditorLinkMessage { Type = type, Tree = nodes, TreeTruncated = truncated != 0 };
+                    break;
+                }
+
             default:
                 return false;
         }

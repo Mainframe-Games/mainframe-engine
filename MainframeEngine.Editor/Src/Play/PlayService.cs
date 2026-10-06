@@ -245,6 +245,13 @@ public sealed class PlayService : IDisposable
     public void ReloadScene(PlayInstance? instance = null, string? scene = null) =>
         Send(instance, new EditorLinkCommand(EditorCommandKind.ReloadScene, scene ?? string.Empty));
 
+    /// <summary>Asks <paramref name="instance"/> for a scene tree snapshot; it lands in <see cref="PlayInstance.RemoteTree"/> (false: not connected).</summary>
+    public bool RequestTree(PlayInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return !_disposed && SendTo(instance, new EditorLinkCommand(EditorCommandKind.RequestTree));
+    }
+
     /// <summary>True when <paramref name="instance"/> is paused, or a pause was sent and not yet confirmed (false after a resume was sent).</summary>
     public bool IsPaused(PlayInstance instance)
     {
@@ -377,6 +384,16 @@ public sealed class PlayService : IDisposable
                 case EditorLinkMessageType.Status:
                     if (_byGameId.TryGetValue(message.GameId, out var reporter))
                         OnStatus(reporter, message.Status);
+                    break;
+                case EditorLinkMessageType.Tree:
+                    if (_byGameId.TryGetValue(message.GameId, out var snapshotter) && message.Tree is { } nodes)
+                    {
+                        snapshotter.RemoteTree = nodes;
+                        snapshotter.RemoteTreeTruncated = message.TreeTruncated;
+                        snapshotter.RemoteTreeVersion++;
+                        _changed = true;
+                    }
+
                     break;
                 case EditorLinkMessageType.LogDropped:
                     if (_byGameId.TryGetValue(message.GameId, out var dropper))

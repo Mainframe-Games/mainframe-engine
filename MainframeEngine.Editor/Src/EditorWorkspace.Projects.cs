@@ -88,6 +88,7 @@ public sealed partial class EditorWorkspace
     {
         Project.Update();
         Play.Update();
+        SceneTree.TickRemote(deltaTime);
         Updates.Tick();
         FileSystem.Tick();
         if (ProjectManager.Visible)

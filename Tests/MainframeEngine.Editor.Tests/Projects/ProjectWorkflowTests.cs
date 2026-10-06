@@ -581,6 +581,53 @@ public sealed class ProjectWorkflowTests : IDisposable
         TickUntil(() => !w.Play.IsPlaying);
     }
 
+    [Fact]
+    public void TheSceneTreeShowsEachRunningGamesRemoteTree()
+    {
+        var w = Open().Workspace;
+        var panel = w.SceneTree;
+        // data-if hides (display: none) without removing; a hidden element keeps its last box, so only "never shown" reads as 0.
+        bool Shown(string selector) => panel.Document.AsElement().QuerySelectorAll(selector) is [var e, ..] && e.Bounds.Height > 0;
+        _editor!.Tick();
+        Assert.False(Shown("#remote-tree"));
+        Assert.False(Shown(".tree-mode"));
+
+        _editor.Key(Key.F5);
+        TickUntil(() => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running));
+        _editor.Tick();
+        Assert.True(Shown(".tree-mode")); // Local | Remote
+        panel.ShowRemote(true);
+        var first = w.Play.Service.Instances[0];
+        TickUntil(() => panel.Remote.Rows.Count > 0);
+        _editor.Tick();
+        Assert.Equal(["root", "Main", first.Label], panel.Remote.Rows.Select(r => r.Name)); // depth 2 starts collapsed
+        Assert.Contains(first.Label, panel.Document.GetElementById("remote-tree").InnerRml, StringComparison.Ordinal);
+        Assert.True(Shown("#remote-tree"));
+        string Chips() => panel.Document.AsElement().QuerySelectorAll(".chips")[0].InnerRml; // data-for keeps a hidden template
+        Assert.DoesNotContain(first.Label, Chips(), StringComparison.Ordinal); // one game: no chips
+
+        panel.ToggleRemote(2);
+        Assert.Equal(["root", "Main", first.Label, "Deep"], panel.Remote.Rows.Select(r => r.Name));
+        var version = first.RemoteTreeVersion;
+        TickUntil(() => first.RemoteTreeVersion > version); // refreshed about once a second; the toggle survives
+        Assert.Equal(4, panel.Remote.Rows.Count);
+
+        w.Play.PlayAnotherInstance();
+        TickUntil(() => w.Play.Service.Instances.Count(i => i.State == PlayInstanceState.Running) == 2);
+        _editor.Tick();
+        var second = w.Play.Service.Instances[1];
+        Assert.Contains(second.Label, Chips(), StringComparison.Ordinal);
+        panel.PickRemote(1);
+        Assert.Same(second, panel.RemoteInstance);
+        TickUntil(() => panel.Remote.Rows.Any(r => r.Name == second.Label));
+
+        w.Commands.Execute("play.stop");
+        TickUntil(() => !w.Play.IsPlaying);
+        _editor.Tick();
+        Assert.False(panel.RemoteMode); // back to the edited scene
+        Assert.Empty(_editor.RmlMessages);
+    }
+
     // ── Editor settings, resources, autosave ─────────────────────────────────────────────────────────────────────
 
     [Fact]
