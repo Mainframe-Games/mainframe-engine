@@ -136,3 +136,10 @@ kept), so they show only where the owner has drawn. The viewport's pass draws th
 quad over the owner's drawn bounds sampling the group target (`Texture2D.ForClipGroup`, premultiplied, unshaded,
 since the group is already modulated and lit). Members drawn behind the owner (`ShowBehindParent`) land on an empty
 target and do not show.
+
+## Edit mode (ADR 0126)
+
+A `Disable3D` sub-viewport draws its `DebugLines` and `OverlayLines` over its canvas (line batches, z ignored) and
+clears them. In `SceneTree.EditMode` canvas items run only their built-in drawing, plus `OnDraw`/`Draw` on `[Tool]`
+types, and a current `Camera2D` leaves its viewport's canvas transform alone. The editor's 2D view does not use these
+yet (ADR 0126, Consequences).

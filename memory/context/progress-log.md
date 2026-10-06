@@ -391,3 +391,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `MouseMode` (Godot's names/ordinals), `InputState.MouseMode`, `Input.MouseMode`; the engine applies changes through
   `InputRouter.ApplyMouseMode` (Captured → Silk Raw = SDL relative mode, whose position accumulates xrel/yrel; Hidden →
   Hidden) and resets the motion delta on every change. Test: InputMapTests.MouseModeIsGodotsAndNotifiesTheEngineOnChange.
+
+### 2026-10-06 — Canvas pieces for the editor's 2D view (port E18, ADR 0126)
+- 2D sub-viewports draw (and consume) their `DebugLines`/`OverlayLines`; edit mode runs only built-in draws and
+  `[Tool]` `OnDraw`; a current Camera2D leaves the view alone in edit mode; `MainframeGame.props` copies game NuGet
+  dependencies (the editor could not load Crash Site Defense: Newtonsoft.Json). The editor switch to canvas-rendered
+  2D tabs worked but was reverted: game `OnReady` runs in edit mode (ADR 0126). Tests: EditModeCanvasTests (3).

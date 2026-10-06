@@ -19,6 +19,13 @@
     <DefineConstants Condition="'$(MainframeDemo)' == 'true'">$(DefineConstants);DEMO</DefineConstants>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- The editor loads the game library from its build output into a collectible context, which resolves the game's own
+         NuGet dependencies from that folder (assemblies the editor already has are shared). A class library does not copy
+         them by default. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>MainframeDemo</_Parameter1>

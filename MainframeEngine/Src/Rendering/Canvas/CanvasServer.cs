@@ -136,6 +136,17 @@ public sealed class CanvasServer : IFrameServer
             frame.Append(_groupItems, entry.Modulate, entry.Transform, entry.Transform.AffineInverse(), entry.Lights.Count > 0 ? entry.Lights : null, entry.LightBase);
         }
 
+        if (sub is not null)
+        {
+            // A 2D sub-viewport's debug lines (z ignored) over its canvas, then the overlay lines; the render server only
+            // draws (and clears) the lines of 3D views.
+            var lineTransform = viewport.StretchTransform * viewport.RootCanvas.Transform;
+            frame.AppendLines(sub.DebugLines.Vertices, lineTransform);
+            frame.AppendLines(sub.OverlayLines.Vertices, lineTransform);
+            sub.DebugLines.Clear();
+            sub.OverlayLines.Clear();
+        }
+
         frame.EndPass();
         _groupsDone.Clear();
     }

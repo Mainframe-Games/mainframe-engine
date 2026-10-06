@@ -241,8 +241,12 @@ public abstract class CanvasItem : Node
         try
         {
             DrawBuiltin();
-            Draw?.Invoke();
-            OnDraw();
+            // Edit mode (the editor): built-in drawing only, plus [Tool] nodes' own (Godot runs no script _draw there).
+            if (Tree is not { EditMode: true } || IsTool)
+            {
+                Draw?.Invoke();
+                OnDraw();
+            }
         }
         finally
         {

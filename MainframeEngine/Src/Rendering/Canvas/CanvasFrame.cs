@@ -268,6 +268,44 @@ public sealed class CanvasFrame
         });
     }
 
+    /// <summary>
+    /// Debug line segments (world positions; z ignored) as one unshaded line-list batch in target pixels, through
+    /// <paramref name="transform"/> (canvas → target).
+    /// </summary>
+    internal void AppendLines(ReadOnlySpan<DebugLineVertex> vertices, in Transform2D transform)
+    {
+        if (vertices.Length < 2)
+            return;
+        var count = vertices.Length & ~1;
+        EnsureVertices(VertexCount + count);
+        EnsureIndices(IndexCount + count);
+        var baseVertex = (uint)VertexCount;
+        var firstIndex = IndexCount;
+        for (var i = 0; i < count; i++)
+        {
+            var p = vertices[i].Position;
+            _vertices[VertexCount + i] = new CanvasVertex { Position = transform.TransformPoint(new Vector2(p.X, p.Y)), Color = vertices[i].Color };
+            _indices[IndexCount + i] = baseVertex + (uint)i;
+        }
+
+        VertexCount += count;
+        IndexCount += count;
+        _batches.Add(new CanvasBatch
+        {
+            FirstIndex = firstIndex,
+            IndexCount = count,
+            Sampler = CanvasSampler.LinearClamp,
+            Primitive = CanvasPrimitive.Lines,
+            Material = LinesMaterial,
+            Blend = CanvasBlendMode.Mix,
+            CanvasModulate = Vector4.One,
+            Model = Transform2D.Identity,
+            CanvasTransform = Transform2D.Identity,
+        });
+    }
+
+    private static readonly CanvasItemMaterial LinesMaterial = new() { LightMode = CanvasLightMode.Unshaded };
+
     /// <summary>The sampler for a resolved filter and repeat (ParentNode resolves to linear / disabled).</summary>
     public static CanvasSampler SamplerFor(CanvasTextureFilter filter, CanvasTextureRepeat repeat)
     {
