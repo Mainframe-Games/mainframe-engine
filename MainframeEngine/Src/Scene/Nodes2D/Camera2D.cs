@@ -255,6 +255,8 @@ public class Camera2D : Node2D, ICurrentCamera
     {
         if (!IsInsideTree || !_current || GetViewport() is not { } viewport)
             return;
+        if (Tree is { EditMode: true })
+            return; // the editor's view drives an edited scene's canvas, as in Godot's editor
         viewport.CanvasTransform = GetCameraTransform(viewport);
     }
 
