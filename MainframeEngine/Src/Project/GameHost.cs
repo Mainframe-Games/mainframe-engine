@@ -118,7 +118,7 @@ public class GameHost : Engine
     public GameSession Session { get; }
 
     /// <summary>The running game's project settings (null before <see cref="Run"/> loads them; tools and tests have none).</summary>
-    public static ProjectSettings? Project { get; private set; }
+    public static ProjectSettings? Project { get; internal set; }
 
     /// <summary>The game's own command-line arguments: everything after <c>++</c> (<see cref="GameHostOptions.UserArgs"/>).</summary>
     public static IReadOnlyList<string> UserArgs { get; private set; } = [];
@@ -172,6 +172,9 @@ public class GameHost : Engine
         var fileLog = options.LogFile ? TryCreateFileLog(settings.Name) : null;
         if (fileLog is not null)
             Log.AddSink(fileLog);
+        if (options.Headless)
+            return RunHeadless(settings, options, gameAssemblies, fileLog);
+
         GameHost? host = null;
         try
         {
@@ -189,6 +192,36 @@ public class GameHost : Engine
             // OnClose shuts the session down on a normal exit; after a crash the editor still gets its goodbye.
             host?.Session.Shutdown(ExitCode.Error);
             host?.Dispose();
+            if (fileLog is not null)
+            {
+                Log.RemoveSink(fileLog);
+                fileLog.Dispose();
+            }
+        }
+    }
+
+    /// <summary>Whether the running game is headless (<c>--headless</c>: <see cref="HeadlessHost"/>; Godot's "headless" display server).</summary>
+    public static bool IsHeadless { get; private set; }
+
+    private static int RunHeadless(ProjectSettings settings, GameHostOptions options, Assembly[] gameAssemblies, FileLogSink? fileLog)
+    {
+        IsHeadless = true;
+        HeadlessHost? host = null;
+        try
+        {
+            GameSession.LoadGameAssemblies(settings, gameAssemblies);
+            host = new HeadlessHost(settings, options);
+            return (int)host.Run();
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            Log.Fatal(e);
+            return (int)ExitCode.Error;
+        }
+        finally
+        {
+            host?.Dispose();
+            IsHeadless = false;
             if (fileLog is not null)
             {
                 Log.RemoveSink(fileLog);

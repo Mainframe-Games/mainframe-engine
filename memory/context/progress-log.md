@@ -345,3 +345,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   premultiplied output via `CANVAS_FLAG_PREMULTIPLY`), and the composite is a premultiplied unshaded quad over the
   owner's bounds sampling `Texture2D.ForClipGroup`. `Only` draws like `AndDraw` (deviation). Tests: ClipChildrenTests
   (5), canvas render scene gains a clipped disc (moltenvk golden re-recorded).
+
+### 2026-10-06 — Headless host (port E13, ADR 0120)
+- `--headless` → `HeadlessHost`: no window/Vulkan/canvas/UI; `MultiplayerApi` + physics + null-device audio, the same
+  `GameSession`, a paced loop (maxFps or the physics rate), canvas draws flushed, Ctrl+C/SIGTERM = close request.
+  `GameHost.IsHeadless`. The game's `--headless ++ --server` log equals Godot's; two joiners play on it. Tests:
+  HeadlessHostTests (4).

@@ -135,7 +135,7 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
 physics, input map, audio, localization, rendering, Steam, autoloads; versioned JSON with migrations). Steam demo
 builds: `isDemo` in `project.mfproj` (or `-p:MainframeDemo=true`) defines `DEMO` for game code (`#if DEMO`) through
 `build/MainframeGame.props`, which the template's `Directory.Build.props` imports; `GameHost.IsDemo` at run time. `GameHost` flags:
-`--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`. Input actions: `Input.IsActionPressed("jump")`
+`--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`, `--headless` (`HeadlessHost`: dedicated servers, no window/Vulkan/audio device). Input actions: `Input.IsActionPressed("jump")`
 / `SceneTree.Input`. Logs are `LogEntry`s routed to `ILogSink`s (`Log.AddSink`; console, `FileLogSink`,
 `MemoryLogSink`); filtered `Log.X($"...")` costs nothing. Editor-facing: `EditorLinkServer`/`EditorLinkClient`,
 `GameAssemblyLoader` (collectible, GC-verified unload — never keep game objects in locals of the unloading method).

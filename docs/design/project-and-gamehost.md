@@ -144,6 +144,7 @@ does not load), 2 (bad command line).
 | `--project <path>` | project file or folder |
 | `--scene <uid\|path>` | start this scene instead of `mainScene` (editor "play current scene") |
 | `--editor-port <n>` | connect the editor link to `localhost:n` |
+| `--headless` | no window, renderer or audio device: a dedicated server (`HeadlessHost`, below) |
 | `--max-frames <n>` · `--fixed-fps <n>` · `--hidden` · `--no-vsync` · `--validation` | headless/CI runs |
 | `--no-log-file` | no log file |
 | `--locale <name>` | start in this locale (overrides `localization.defaultLocale`) |
@@ -160,6 +161,17 @@ the flags → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects 
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
 `Tree.ChangeSceneToFile(--scene ?? mainScene)`. Each frame `GameSession.Update` applies editor commands and reports
 status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the editor and render-test host do).
+
+### Headless (`--headless`, ADR 0120)
+
+`GameHost.Run` with `--headless` runs a `HeadlessHost` instead of a `GameHost` (no `Engine`: no SDL window, Vulkan,
+canvas, UI or dev overlay): its own `SceneTree` with `MultiplayerApi`, both physics servers and, when the project has
+audio, an `AudioServer` on the null device (buses and players work, nothing is heard). It runs the same
+`GameSession` (input map, autoloads, `--scene`/`mainScene`) and loops at `window.maxFps`, else the physics rate:
+`GameSession.Update`, `Tree.Tick`, then the queued canvas draws (Godot runs `_draw` headless too). `--fixed-fps`
+and `--max-frames` apply. Ctrl+C / SIGTERM raise `SceneTree.CloseRequested` (the game's chance to save), then quit.
+`GameHost.IsHeadless` tells game code (Godot's `DisplayServer.get_name() == "headless"`). `UiLayer`s warn and load
+nothing; `UiDocument.CreateDataModel` throws, so UI nodes check `IsHeadless` first.
 
 ### UI hot reload
 

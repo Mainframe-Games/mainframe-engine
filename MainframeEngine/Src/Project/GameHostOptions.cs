@@ -10,6 +10,7 @@ namespace MainframeEngine;
 /// <item><term><c>--editor-port &lt;n&gt;</c></term><description>connect to the editor on <c>localhost:n</c> (logs, status, commands)</description></item>
 /// <item><term><c>--max-frames &lt;n&gt;</c></term><description>quit after n rendered frames (CI smoke runs)</description></item>
 /// <item><term><c>--fixed-fps &lt;n&gt;</c></term><description>every update gets a 1/n s delta (deterministic runs)</description></item>
+/// <item><term><c>--headless</c></term><description>no window, Vulkan or audio device: a dedicated server (<see cref="HeadlessHost"/>)</description></item>
 /// <item><term><c>--hidden</c></term><description>create the window hidden</description></item>
 /// <item><term><c>--no-vsync</c></term><description>start with VSync off</description></item>
 /// <item><term><c>--no-log-file</c></term><description>do not write <c>{user data}/{game}/logs/{game}.log</c></description></item>
@@ -35,6 +36,9 @@ public sealed record GameHostOptions
     public int FixedFps { get; init; }
 
     public bool Hidden { get; init; }
+
+    /// <summary><c>--headless</c>: run without a window, renderer or audio device (<see cref="HeadlessHost"/>).</summary>
+    public bool Headless { get; init; }
 
     public bool NoVSync { get; init; }
 
@@ -90,6 +94,9 @@ public sealed record GameHostOptions
                     break;
                 case "--fixed-fps":
                     options = options with { FixedFps = Int(args, ref i, 1, 1000) };
+                    break;
+                case "--headless":
+                    options = options with { Headless = true };
                     break;
                 case "--hidden":
                     options = options with { Hidden = true };
