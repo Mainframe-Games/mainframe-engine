@@ -3,6 +3,8 @@ using System.Numerics;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// M6 physics: boxes dropped onto a static floor and a ramp (Jitter2), lit by one shadow-casting light. The physics
 /// server uses Jitter2's deterministic solver on one thread so the simulation (and therefore frame N) is identical run to

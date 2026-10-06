@@ -219,11 +219,11 @@ public sealed class LogRoutingTests : IDisposable
     }
 
     [Fact]
-    public void ConsoleOutputKeepsTheClassicFormat()
+    public void ConsoleOutputTagsTheSourceAndCategory()
     {
         Log.Info("[Window] routing-12");
 
-        Assert.Contains("[INFO]\t[Window] routing-12", _console.ToString(), StringComparison.Ordinal);
+        Assert.Contains("[INFO] game Window: routing-12", _console.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -350,8 +350,8 @@ public sealed class LogSinkTests : IDisposable
         }
 
         var lines = File.ReadAllText(Path.Combine(_directory, "game.log")).Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal("2026-10-05T01:02:03.456Z [INFO] [Audio] hello ✓", lines[0]);
-        Assert.Equal("2026-10-05T01:02:03.456Z [WARN] careful (File.cs:12 Member)", lines[1]);
+        Assert.Equal("2026-10-05T01:02:03.456Z [INFO] game Audio: hello ✓", lines[0]);
+        Assert.Equal("2026-10-05T01:02:03.456Z [WARN] game careful (File.cs:12 Member)", lines[1]);
         Assert.DoesNotContain('\r', File.ReadAllText(Path.Combine(_directory, "game.log")));
     }
 
@@ -417,7 +417,7 @@ public sealed class LogSinkTests : IDisposable
         }
 
         var text = File.ReadAllText(Path.Combine(_directory, "burst.log"));
-        var written = text.Split('\n').Count(l => l.Contains("] burst ", StringComparison.Ordinal));
+        var written = text.Split('\n').Count(l => l.Contains("] game burst ", StringComparison.Ordinal));
         Assert.Equal(2000, written + dropped);
         if (dropped > 0)
             Assert.Contains("log entries were dropped", text, StringComparison.Ordinal);
@@ -463,9 +463,40 @@ public sealed class LogSinkTests : IDisposable
     [Fact]
     public void LogEntryFormatsOneLine()
     {
-        Assert.Equal("2026-10-05T01:02:03.456Z [ERROR] [Net] lost (File.cs:12 Member)",
+        Assert.Equal("2026-10-05T01:02:03.456Z [ERROR] game Net: lost (File.cs:12 Member)",
             Entry("lost", Log.Level.Error, "Net").Format(includeCallSite: true));
-        Assert.Equal("2026-10-05T01:02:03.456Z [Debug] x", Entry("x", Log.Level.Debug).Format(includeCallSite: false));
+        Assert.Equal("2026-10-05T01:02:03.456Z [Debug] game x", Entry("x", Log.Level.Debug).Format(includeCallSite: false));
+    }
+
+    [Fact]
+    public void TheSourceIsTheEngineForItsOwnProjectsAndTheGameOtherwise()
+    {
+        // The engine's root as the compiler saw it (this checkout), for both local and deterministic (/_/) paths.
+        var root = typeof(Log).Assembly.Location.Length > 0 ? EngineRoot() : "";
+        Assert.Equal(LogSource.Engine, Log.SourceOf(root + "MainframeEngine/Src/Rendering/Vulkan/VulkanRenderer.cs"));
+        Assert.Equal(LogSource.Engine, Log.SourceOf(root + "MainframeEngine.Editor/Src/EditorApp.cs"));
+        Assert.Equal(LogSource.Game, Log.SourceOf(root + "Tests/MainframeEngine.Tests/Debugging/LogRoutingTests.cs"));
+        Assert.Equal(LogSource.Game, Log.SourceOf("/Users/someone/MyGame/MyGame/Scripts/Player.cs"));
+        Assert.Equal(LogSource.Game, Log.SourceOf(""));
+        Assert.Equal(LogSource.Game, Log.SourceOf(null));
+        Assert.Equal("engine", Log.SourceTag(LogSource.Engine));
+        Assert.Equal("game", Log.SourceTag(LogSource.Game));
+
+        // A real call from game-side code (this test file) is tagged game; one from the engine (GameHost) engine.
+        var sink = new MemoryLogSink();
+        Log.AddSink(sink);
+        try
+        {
+            Log.Info("[Probe] from a test");
+            Assert.Equal(LogSource.Game, sink.Snapshot().Last(e => e.Category == "Probe").Source);
+        }
+        finally
+        {
+            Log.RemoveSink(sink);
+        }
+
+        static string EngineRoot([System.Runtime.CompilerServices.CallerFilePath] string file = "") =>
+            file[..file.LastIndexOf("Tests/MainframeEngine.Tests", StringComparison.Ordinal)];
     }
 }
 

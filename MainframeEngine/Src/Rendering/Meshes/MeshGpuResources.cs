@@ -216,9 +216,9 @@ internal struct MaterialParams
         OutlineWidth = BitConverter.SingleToUInt32Bits(m.Width),
     };
 
-    private static Vector3 Rgb(Color c) => new Vector3(c.R, c.G, c.B) / 255f;
+    private static Vector3 Rgb(System.Drawing.Color c) => new Vector3(c.R, c.G, c.B) / 255f;
 
-    private static Vector4 Linear(Color c) => new(ColorSpace.SrgbToLinear(Rgb(c)), c.A / 255f);
+    private static Vector4 Linear(System.Drawing.Color c) => new(ColorSpace.SrgbToLinear(Rgb(c)), c.A / 255f);
 }
 
 /// <summary>

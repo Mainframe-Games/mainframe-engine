@@ -38,8 +38,8 @@ public sealed class LogTests : IDisposable
         Assert.DoesNotContain("debug-message", text, StringComparison.Ordinal);
         Assert.DoesNotContain("info-message", text, StringComparison.Ordinal);
         Assert.DoesNotContain("fatal-message", text, StringComparison.Ordinal);
-        Assert.Contains("[WARN]\twarning-message", text, StringComparison.Ordinal);
-        Assert.Contains("[ERROR]\terror-message", text, StringComparison.Ordinal);
+        Assert.Contains("[WARN] game warning-message", text, StringComparison.Ordinal);
+        Assert.Contains("[ERROR] game error-message", text, StringComparison.Ordinal);
     }
 
     [Fact]

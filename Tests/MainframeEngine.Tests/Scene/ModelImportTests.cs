@@ -6,6 +6,8 @@ using MainframeEngine.Tests.TestAssets;
 
 namespace MainframeEngine.Tests.Scene;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Assimp import of the generated glTF test model into a node tree with meshes, materials and textures; the
 /// import cache; model import settings; models instanced from scene files.

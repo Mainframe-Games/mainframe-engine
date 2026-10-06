@@ -4,6 +4,8 @@ using MainframeEngine.Serialization;
 
 namespace MainframeEngine.Tests.Scene;
 
+using Color = System.Drawing.Color;
+
 // Node and resource types used by the scene tests. They are internal (not private nested) so the source
 // generator registers them, exactly like a game's types.
 

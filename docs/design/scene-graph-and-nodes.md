@@ -267,6 +267,8 @@ stopping once a node calls `GetViewport().SetInputAsHandled()`. Nodes that canno
 skipped. One event instance per type is reused (allocation-free): `Clone()` an event to keep it.
 Before any node, `PushInput` offers the event to every `IInputServer` (M8: the `UiServer`); an event the
 game UI consumed stops there and is reported handled — see [Game UI → input routing](game-ui.md#input-routing).
+Nodes with `InputBeforeUi = true` get `OnInput` first, before the UI (Godot's `_input` placement, for toggles such as a
+menu on Tab that a focused button would otherwise take; [ADR 0138](../../memory/decisions/0138-input-before-ui.md)).
 The dev overlay is an RmlUi layer, so it is covered by the same server: a click on its panel never reaches nodes.
 
 ## Servers and render nodes

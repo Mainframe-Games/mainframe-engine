@@ -125,6 +125,34 @@ public class GameHost : Engine
     public static IReadOnlyList<string> UserArgs { get; private set; } = [];
 
     /// <summary>
+    /// The game was compiled in Debug (its first assembly passed to <see cref="Run"/> carries a debuggable, unoptimised
+    /// JIT setting): for developer keys and checks that must never ship. False before <see cref="Run"/>.
+    /// </summary>
+    public static bool IsDebugBuild { get; private set; }
+
+    /// <summary>
+    /// The running game's writable folder for saves and settings: <see cref="UserDataPaths.GetDirectory"/> of the
+    /// project's name (the engine's logs live there too), created on first use. <c>MAINFRAME_USER_DATA</c> moves its base
+    /// (harness and test runs point it at a scratch folder). Before a project is loaded (tests), the game name is "game".
+    /// </summary>
+    public static string UserDataDirectory
+    {
+        get
+        {
+            var directory = UserDataPaths.GetDirectory(Project?.Name is { Length: > 0 } name ? name : "game");
+            Directory.CreateDirectory(directory);
+            return directory;
+        }
+    }
+
+    /// <summary>A path inside <see cref="UserDataDirectory"/> (<c>"saves/run-1.json"</c>; forward slashes are fine).</summary>
+    public static string UserDataPath(string relativePath)
+    {
+        ArgumentNullException.ThrowIfNull(relativePath);
+        return Path.Combine(UserDataDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    /// <summary>
     /// Parses <paramref name="args"/>, loads the project (<c>--project</c>, else <c>project.mfproj</c> next to the app),
     /// registers <paramref name="gameAssemblies"/> and <see cref="ProjectSettings.Assemblies"/>, logs to the console and a
     /// rotating file in the user data folder, and runs until the window closes. Returns the process exit code (2 for a
@@ -138,6 +166,7 @@ public class GameHost : Engine
         {
             options = GameHostOptions.Parse(args);
             UserArgs = options.UserArgs;
+            IsDebugBuild = gameAssemblies.Length > 0 && gameAssemblies[0].GetCustomAttribute<System.Diagnostics.DebuggableAttribute>()?.IsJITOptimizerDisabled == true;
         }
         catch (ArgumentException e)
         {

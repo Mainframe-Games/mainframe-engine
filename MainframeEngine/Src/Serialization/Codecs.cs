@@ -76,6 +76,12 @@ public static class Codecs
         Cache<Rect2>.Value = new FloatArrayCodec<Rect2>(4,
             static (r, d) => { d[0] = r.Position.X; d[1] = r.Position.Y; d[2] = r.Size.X; d[3] = r.Size.Y; },
             static s => new Rect2(s[0], s[1], s[2], s[3]));
+        Cache<Vector2I>.Value = new FloatArrayCodec<Vector2I>(2, static (v, d) => { d[0] = v.X; d[1] = v.Y; }, static s => new Vector2I((int)s[0], (int)s[1]));
+        Cache<Rect2I>.Value = new FloatArrayCodec<Rect2I>(4,
+            static (r, d) => { d[0] = r.Position.X; d[1] = r.Position.Y; d[2] = r.Size.X; d[3] = r.Size.Y; },
+            static s => new Rect2I((int)s[0], (int)s[1], (int)s[2], (int)s[3]));
+        Cache<Color>.Value = new FloatArrayCodec<Color>(4, static (c, d) => { d[0] = c.R; d[1] = c.G; d[2] = c.B; d[3] = c.A; },
+            static s => new Color(s[0], s[1], s[2], s[3]));
         Cache<NodePath>.Value = new NodePathCodec();
     }
 

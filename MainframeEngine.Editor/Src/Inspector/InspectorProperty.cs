@@ -291,8 +291,22 @@ public sealed class InspectorProperty
         Vector4 v => [v.X, v.Y, v.Z, v.W],
         Quaternion q => [q.X, q.Y, q.Z, q.W],
         DrawingColor c => [c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f],
+        Color c => [c.R, c.G, c.B, c.A],
+        Vector2I v => [v.X, v.Y],
+        Rect2 r => [r.Position.X, r.Position.Y, r.Size.X, r.Size.Y],
+        Rect2I r => [r.Position.X, r.Position.Y, r.Size.X, r.Size.Y],
         _ => [0, 0, 0, 0],
     };
+
+    /// <summary>A vector-like value of <paramref name="type"/> from its edited components (integers round to the nearest).</summary>
+    internal static object FromComponents(Type type, float[] c) =>
+        type == typeof(Vector2) ? new Vector2(c[0], c[1])
+        : type == typeof(Vector2I) ? new Vector2I((int)MathF.Round(c[0]), (int)MathF.Round(c[1]))
+        : type == typeof(Vector3) ? new Vector3(c[0], c[1], c[2])
+        : type == typeof(Color) ? new Color(c[0], c[1], c[2], c[3])
+        : type == typeof(Rect2) ? new Rect2(c[0], c[1], c[2], c[3])
+        : type == typeof(Rect2I) ? new Rect2I((int)MathF.Round(c[0]), (int)MathF.Round(c[1]), (int)MathF.Round(c[2]), (int)MathF.Round(c[3]))
+        : new Vector4(c[0], c[1], c[2], c[3]);
 
     /// <summary>Whether <paramref name="value"/> is "on" for flag <paramref name="flag"/>.</summary>
     public static bool HasFlag(object? value, long flag) =>
@@ -328,9 +342,7 @@ public sealed class InspectorProperty
                         return false;
                     var parts = ComponentsOf(current);
                     parts[component] = f;
-                    value = ValueType == typeof(Vector2) ? new Vector2(parts[0], parts[1])
-                        : ValueType == typeof(Vector3) ? new Vector3(parts[0], parts[1], parts[2])
-                        : new Vector4(parts[0], parts[1], parts[2], parts[3]);
+                    value = FromComponents(ValueType, parts);
                     return true;
                 }
 
@@ -404,6 +416,7 @@ public sealed class InspectorProperty
                     return false;
                 value = ValueType == typeof(DrawingColor)
                     ? DrawingColor.FromArgb(ToByte(rgba.W), ToByte(rgba.X), ToByte(rgba.Y), ToByte(rgba.Z))
+                    : ValueType == typeof(Color) ? new Color(rgba.X, rgba.Y, rgba.Z, rgba.W)
                     : ValueType == typeof(Vector3) ? new Vector3(rgba.X, rgba.Y, rgba.Z) : rgba;
                 return true;
             default:
@@ -457,8 +470,12 @@ public sealed class InspectorProperty
         if (type.IsEnum)
             return hints.Flags || type.IsDefined(typeof(FlagsAttribute), inherit: false) ? PropertyEditorKind.Flags : PropertyEditorKind.Enum;
         var namedColor = info.Name.EndsWith("Color", StringComparison.Ordinal) || info.Name.EndsWith("Colour", StringComparison.Ordinal);
-        if (type == typeof(Vector2))
+        if (type == typeof(Vector2) || type == typeof(Vector2I))
             return PropertyEditorKind.Vector2;
+        if (type == typeof(Color))
+            return PropertyEditorKind.Color;
+        if (type == typeof(Rect2) || type == typeof(Rect2I))
+            return PropertyEditorKind.Vector4; // x, y, width, height
         if (type == typeof(Vector3))
             return namedColor ? PropertyEditorKind.Color : PropertyEditorKind.Vector3;
         if (type == typeof(Vector4))

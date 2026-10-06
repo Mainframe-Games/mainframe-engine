@@ -6,6 +6,8 @@ using MainframeEngine.Serialization;
 
 namespace MainframeEngine.Tests.Scene;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// M3 resources and nodes in scene/resource files: MeshInstance3D with primitive and array meshes, materials,
 /// textures (external, with import settings), removed node types (Box3d/Quad) and missing types keeping their

@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 
 namespace MainframeEngine.Networking;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Write/read overloads for every type <see cref="ReplicatedAttribute"/> members and <see cref="RpcAttribute"/>
 /// parameters may use. Generated code picks the overload at compile time (<c>NetCodec.Read(reader, out Vector3 v)</c>),

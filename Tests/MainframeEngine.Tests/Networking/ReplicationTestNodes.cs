@@ -4,6 +4,8 @@ using MainframeEngine.Networking;
 
 namespace MainframeEngine.Tests.Networking;
 
+using Color = System.Drawing.Color;
+
 // Networked node types for the replication tests. Internal (not private nested) so the source generator registers
 // them and emits their replication state and RPC senders, exactly like a game's types.
 

@@ -3,6 +3,8 @@ using System.Numerics;
 
 namespace MainframeEngine.Tests.TestAssets;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Builds the showcase fixture scene in code: every shadow-light type, primitives and materials, the glTF test
 /// model, SpineBoy, a sky, positional audio and a physics tumble. The committed copy is

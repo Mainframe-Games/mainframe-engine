@@ -152,7 +152,8 @@ does not load), 2 (bad command line).
 | `--frame-capture` | allow `SceneTree.CaptureFrame` (a game's own screenshot harness; implied by `--screenshot`) |
 | `++ …` | everything after `++` is the game's (`GameHost.UserArgs`, Godot's `OS.get_cmdline_user_args`), never parsed by the host |
 
-Anything else before `++` is left in `GameHostOptions.Remaining` for the game. Nodes ask the host to quit with
+Anything else before `++` is left in `GameHostOptions.Remaining` for the game. `GameHost.IsDebugBuild` is true when the
+game's first assembly was compiled in Debug (developer keys), `GameHost.IsHeadless` under `--headless`. Nodes ask the host to quit with
 `SceneTree.Quit(code)`; `GameHost.Project` is the running project's settings (its `version` for build stamps).
 
 Startup: `ProjectSettings.ToEngineOptions()` (window, VSync, physics settings and tick, audio, localization, Steam) +
@@ -213,20 +214,24 @@ protected override void OnUnhandledInput(InputEvent e) { if (e.IsActionPressed("
 ## Log routing
 
 `Log.Debug/Info/Warning/Error/Fatal/Write` build a `LogEntry` — level, UTC time, category (from the `"[Category] "`
-prefix, or explicit with `Write`), message, caller member/file/line — and pass it to each `ILogSink` in `Log.Sinks`
+prefix, or explicit with `Write`), message, caller member/file/line, and its **source** (`LogEntry.Source`: `engine` for
+call sites in the engine checkout's `MainframeEngine*` projects, `game` for everything else, from the caller file;
+[ADR 0141](../../memory/decisions/0141-log-source-tag.md)) — and pass it to each `ILogSink` in `Log.Sinks`
 (`AddSink`/`RemoveSink`; copy-on-write, no lock). `Log.LogLevel` filters first: a filtered `Log.Debug($"…{x}")`
 formats and allocates nothing (per-level interpolated-string handlers, invariant culture). A throwing sink is reported
 on stderr and skipped; a sink that logs does not recurse.
 
 | Sink | |
 |---|---|
-| `ConsoleLogSink` (`Log.ConsoleSink`, default) | `[12:00:00.123] [INFO]	[Audio] message`, call site while `Level.Verbose` is set |
+| `ConsoleLogSink` (`Log.ConsoleSink`, default) | `[12:00:00.123] [INFO] engine Audio: message` / `[12:00:00.130] [INFO] game Net: message` (`game message` without a category), call site while `Level.Verbose` is set |
 | `FileLogSink` | UTF-8, LF; `Write` only queues — a background thread writes, flushing within 1 s and at once after errors (`Flush()` on demand); a full queue drops entries and logs how many; previous runs kept as `.1.log`, `.2.log`… (`MaxFiles`), rotates at `MaxBytes` (a failed rotation is retried after 30 s); a second process logging to the same folder writes `{name}-{pid}.log` (the owner holds `{name}.log.lock`); I/O failures reported once on stderr; `ForUser(game)` writes to `UserDataPaths.LogDirectory(game)` |
 | `MemoryLogSink` | ring of the last N entries; `Snapshot()`, `CopySince(sequence)` for incremental panels; no allocation once full |
 | `EditorLinkLogSink` | queues entries on the editor link |
 
 `UserDataPaths`: `%APPDATA%\{game}`, `~/Library/Application Support/{game}`, `$XDG_DATA_HOME/{game}`
-(`~/.local/share`); `MAINFRAME_USER_DATA` overrides the base folder.
+(`~/.local/share`); `MAINFRAME_USER_DATA` overrides the base folder. `GameHost.UserDataDirectory` is the running game's
+folder (created on use; saves and settings go there, next to `logs/`), `GameHost.UserDataPath("saves/run-1.json")` a
+path inside it. File log lines read like the console's (`2026-10-05T12:00:00.123Z [INFO] game Net: …`).
 
 ## Editor link
 

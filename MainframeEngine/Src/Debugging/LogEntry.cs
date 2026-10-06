@@ -20,6 +20,9 @@ public readonly record struct LogEntry(
     string CallerFile,
     int CallerLine)
 {
+    /// <summary>Who logged it, from <see cref="CallerFile"/> (<see cref="Log.SourceOf"/>): the engine or the game.</summary>
+    public LogSource Source => Log.SourceOf(CallerFile);
+
     /// <summary>The fixed-width tag the console and file sinks print (<c>INFO</c>, <c>WARN</c>, …).</summary>
     public static string LevelTag(Log.Level level) => level switch
     {
@@ -32,8 +35,9 @@ public readonly record struct LogEntry(
     };
 
     /// <summary>
-    /// One line: <c>2026-10-05T12:00:00.123Z [WARN] [Audio] message</c>, plus <c>(File.cs:12 Member)</c> when
-    /// <paramref name="includeCallSite"/>. Used by the file sink and tools.
+    /// One line: <c>2026-10-05T12:00:00.123Z [WARN] engine Audio: message</c> (<c>game Net: …</c> for the game's own
+    /// entries; no <c>Name: </c> without a category), plus <c>(File.cs:12 Member)</c> when <paramref name="includeCallSite"/>.
+    /// Used by the file sink and tools.
     /// </summary>
     public string Format(bool includeCallSite)
     {
@@ -48,12 +52,23 @@ public readonly record struct LogEntry(
         ArgumentNullException.ThrowIfNull(builder);
         builder.Append(Timestamp.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture))
             .Append(" [").Append(LevelTag(Level)).Append("] ");
-        if (Category.Length > 0)
-            builder.Append('[').Append(Category).Append("] ");
+        this.AppendSourceAndCategory(builder);
         builder.Append(Message);
         if (includeCallSite && CallerFile.Length > 0)
             builder.Append(" (").Append(Path.GetFileName(CallerFile)).Append(':')
                 .Append(CallerLine.ToString(CultureInfo.InvariantCulture)).Append(' ').Append(CallerMember).Append(')');
+    }
+}
+
+/// <summary>Shared by the sinks: the <c>engine Audio: </c> / <c>game Net: </c> / <c>game </c> part of a line.</summary>
+public static class LogEntryFormat
+{
+    public static void AppendSourceAndCategory(this in LogEntry entry, StringBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        builder.Append(Log.SourceTag(entry.Source)).Append(' ');
+        if (entry.Category.Length > 0)
+            builder.Append(entry.Category).Append(": ");
     }
 }
 

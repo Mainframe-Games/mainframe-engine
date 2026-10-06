@@ -3,6 +3,8 @@ using System.Numerics;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
+using Color = System.Drawing.Color;
+
 /// <summary>
 /// Procedural sky, grid, a floor quad and two boxes lit by one shadow-casting directional light, built as a
 /// node tree that the engine's scene tree and render server process and draw. The left box spins at a fixed

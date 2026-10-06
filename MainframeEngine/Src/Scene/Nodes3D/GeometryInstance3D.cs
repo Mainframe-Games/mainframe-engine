@@ -1,7 +1,9 @@
+using DrawingColor = System.Drawing.Color;
 using System.Drawing;
 using System.Numerics;
 
 namespace MainframeEngine;
+
 
 /// <summary>
 /// Base of visuals drawn from a <see cref="Mesh"/> and <see cref="Material"/>s (Godot's <c>GeometryInstance3D</c>).
@@ -120,7 +122,7 @@ public class Sprite3D : GeometryInstance3D
 
     /// <summary>Tint (sRGB) multiplied with the texture.</summary>
     [Export]
-    public Color Modulate
+    public DrawingColor Modulate
     {
         get;
         set
@@ -128,7 +130,7 @@ public class Sprite3D : GeometryInstance3D
             field = value;
             RenderStamp++;
         }
-    } = Color.White;
+    } = DrawingColor.White;
 
     /// <summary>Lit by the scene's lights instead of unshaded.</summary>
     [Export]

@@ -185,6 +185,9 @@ public class Texture2D : Resource
     public int Version => _version;
 
     /// <summary>Width in pixels (reads the image header on first use).</summary>
+    /// <summary>(<see cref="Width"/>, <see cref="Height"/>) in pixels.</summary>
+    public System.Numerics.Vector2 Size => new(Width, Height);
+
     public int Width
     {
         get
@@ -264,6 +267,25 @@ public class Texture2D : Resource
     }
 
     /// <summary>Re-reads a file-backed texture (after the file changed on disk); users re-upload it.</summary>
+    /// <summary>
+    /// A texture from <paramref name="bitmap"/>'s pixels (copied). Defaults to a data texture: no colour conversion, no
+    /// mipmaps, clamped (code-made maps and masks); pass <paramref name="settings"/> for anything else.
+    /// </summary>
+    public static Texture2D FromBitmap(Bitmap bitmap, TextureImportSettings? settings = null)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+        return FromPixels(bitmap.Width, bitmap.Height, bitmap.Data, settings ?? DataTexture);
+    }
+
+    /// <summary>Replaces this code-created texture's pixels with <paramref name="bitmap"/>'s (same size).</summary>
+    public void SetPixels(Bitmap bitmap)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+        SetPixels(bitmap.Data);
+    }
+
+    private static readonly TextureImportSettings DataTexture = new() { ColorSpace = TextureImportColorSpace.Linear, Mipmaps = false, Wrap = TextureWrap.Clamp };
+
     /// <summary>
     /// Replaces the pixels of a code-created texture (Godot's <c>ImageTexture.update</c>): same size, RGBA8. Renderers
     /// re-upload it on the next frame (the <see cref="Version"/> changes).

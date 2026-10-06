@@ -4,6 +4,8 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine.Tests.Rendering.Meshes;
 
+using Color = System.Drawing.Color;
+
 /// <summary>Material state, pipeline keys and the state-hash pipeline cache (no GPU: a fake factory).</summary>
 public sealed class MaterialAndPipelineTests
 {
