@@ -74,7 +74,7 @@ flowchart TB
 | `PlayService`, `PlayController`, `GameBuilder`, `GameLauncher` | [Play/](../../MainframeEngine.Editor/Src/Play/) | Build, launch, track and control game instances |
 | `ProjectFileSystem`, `FileOperations`, `ReferenceFixer`, `Trash`, `ThumbnailCache` | [FileSystem/](../../MainframeEngine.Editor/Src/FileSystem/) | The FileSystem panel's model and file operations |
 | `EditorSettings`, `CodeEditorLauncher`, `EditorTheme` | [Settings/](../../MainframeEngine.Editor/Src/Settings/) | Editor preferences, the external code editor, the accent overlay |
-| `ProcessRunner` | [Tools/](../../MainframeEngine.Editor/Src/Tools/) | Child processes (`dotnet`) with line callbacks, timeout and a clean MSBuild environment |
+| `ProcessRunner` | [Tools/](../../MainframeEngine.Editor/Src/Tools/) | Child processes (`dotnet`) with line callbacks, timeout and a clean MSBuild environment; returns at exit even while MSBuild nodes it started hold the output open |
 | Panels and dialogs | [UI/](../../MainframeEngine.Editor/Src/UI/) | One `EditorDocument` (a `UiDocument`) per RML file in [Content/Editor](../../MainframeEngine.Editor/Content/Editor/) |
 
 ## Edit mode and edited worlds

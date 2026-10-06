@@ -34,8 +34,15 @@ public static class ProcessRunner
     ];
 
     /// <summary>
+    /// How long <see cref="RunAsync"/> waits for the output streams to close once the process has exited. Processes it
+    /// started can keep them open: MSBuild worker nodes (node reuse) and build servers inherit them and outlive the build.
+    /// </summary>
+    public static readonly TimeSpan OutputDrainTimeout = TimeSpan.FromSeconds(2);
+
+    /// <summary>
     /// Starts <paramref name="fileName"/> with <paramref name="arguments"/> (passed as an argument list, never through a
-    /// shell) and waits for it to exit. Never throws for process failures: a missing executable is a
+    /// shell) and waits for it to exit (not for processes it left running: see <see cref="OutputDrainTimeout"/>). Never
+    /// throws for process failures: a missing executable is a
     /// <see cref="ProcessResult.StartError"/>. <paramref name="environment"/> adds or (null value) removes variables.
     /// </summary>
     public static async Task<ProcessResult> RunAsync(
@@ -53,6 +60,8 @@ public static class ProcessRunner
         var lines = new List<string>();
         var stopwatch = Stopwatch.StartNew();
         using var process = new Process { StartInfo = start, EnableRaisingEvents = true };
+        var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        process.Exited += (_, _) => exited.TrySetResult();
 
         void OnData(object sender, DataReceivedEventArgs e)
         {
@@ -92,30 +101,34 @@ public static class ProcessRunner
         var cancelled = false;
         try
         {
-            await process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
+            // The exit itself: WaitForExitAsync would also wait for the output streams to close, which a process the
+            // child started (an MSBuild node) can delay past any timeout.
+            await exited.Task.WaitAsync(linked.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
             timedOut = timeoutSource.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
             cancelled = !timedOut;
             Kill(process);
-            // Let the readers drain what the process wrote before it died.
-            using var drain = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            try
-            {
-                await process.WaitForExitAsync(drain.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-            }
         }
 
-        // WaitForExitAsync returns after the output streams reached EOF (redirected streams), so the lines are complete.
+        var duration = stopwatch.Elapsed;
+        // Let the readers drain what the process wrote (WaitForExitAsync returns once both streams reached EOF); give up
+        // after a moment if something still holds them open. Disposing the process closes our end.
+        using var drain = new CancellationTokenSource(timedOut || cancelled ? TimeSpan.FromSeconds(5) : OutputDrainTimeout);
+        try
+        {
+            await process.WaitForExitAsync(drain.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
         string[] output;
         lock (lines)
             output = [.. lines];
         var exit = timedOut || cancelled ? -1 : process.ExitCode;
-        return new ProcessResult(exit, output, stopwatch.Elapsed, timedOut, cancelled, null);
+        return new ProcessResult(exit, output, duration, timedOut, cancelled, null);
     }
 
     /// <summary>The start info <see cref="RunAsync"/> uses (also for long-running processes the caller manages).</summary>
