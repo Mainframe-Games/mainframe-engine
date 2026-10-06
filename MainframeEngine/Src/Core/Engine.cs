@@ -125,6 +125,7 @@ public abstract class Engine : IDisposable
     private readonly FPSCounter _fps = new();
     private int _renderedFrames;
     private InputRouter? _inputRouter; // M2: routes window input into the scene tree
+    private SdlEventBatch? _sdlEvents; // ADR 0139: Silk's event pump without its per-frame enumerator box
 
     public IWindow Window { get; }
     public IInputContext InputContext { get; private set; } = null!;
@@ -345,6 +346,7 @@ public abstract class Engine : IDisposable
 
     protected virtual void OnLoad()
     {
+        _sdlEvents = SdlEventBatch.TryInstall(Window); // after Silk's RegisterCallbacks (the window is initialized)
         InputContext = Window.CreateInput();
         Log.Info($"[Window] SDL window {Window.Size.X}x{Window.Size.Y} pt, framebuffer {FramebufferSize.X}x{FramebufferSize.Y} px" +
                  (EngineOptions.ContentScale > 0f ? $" (fixed content scale {EngineOptions.ContentScale})" : ""));
@@ -621,6 +623,7 @@ public abstract class Engine : IDisposable
 
         InputContext?.Dispose();
         Renderer?.Dispose();
+        _sdlEvents?.Uninstall(); // Silk's own handler is back before the window resets
     }
 
     public ExitCode Run()
@@ -647,6 +650,7 @@ public abstract class Engine : IDisposable
     {
         if (ReferenceEquals(MainframeEngine.Input.Current, Tree.Input))
             MainframeEngine.Input.Current = null;
+        _sdlEvents?.Uninstall();
         Window.Dispose();
     }
 }

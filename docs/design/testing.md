@@ -181,7 +181,8 @@ sequenceDiagram
   `MinimiseAndRestoreIsCleanAndResumesRendering`, `ASyntheticRightDragLooksAroundThroughTheInputPath`,
   `ShowcaseSteadyStateAllocatesNothing`, `GameHostSteadyStateAllocatesNothing` (the `gamehost` run: a real `GameHost`
   with `ProjectSettings`, the default audio device playing a stream, a 240 FPS cap, SDL input, the hidden dev overlay,
-  a `FileLogSink` and a HUD), `CapturesAreDeterministicAcrossRuns`,
+  a `FileLogSink` and a HUD; real SDL events every measured frame, mouse motion, a key and a window event, each counted
+  arriving at a node), `CapturesAreDeterministicAcrossRuns`,
   `PipelineCacheIsPersistedAndReloaded` (cold run writes, warm run loads),
   `HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath` (scene pixels = sRGB decode × exposure → ACES →
   encode within ±2 at two exposures; screen-gizmo colour exact and blended in sRGB space),

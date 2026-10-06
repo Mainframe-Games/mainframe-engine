@@ -495,3 +495,17 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   (`ProjectSettings`, default audio device + streamed loop, 240 FPS cap, SDL input, hidden dev overlay, `FileLogSink`,
   HUD) measured over 300 frames after 120. 0 B on MoltenVK with Core Audio; a planted 40 B/frame in `GameHost.OnUpdate`
   fails it (12 000 B / 300 frames). `RenderTestGame.DescribeDevice(IVulkanContext)` is now shared.
+
+### 2026-10-06 — Silk's SDL event pump without allocation (Driving Range port, ADR 0139)
+- The stray 88 B frame in Driving Range's `--measure`: Silk 2.23's `SdlView.OnEventReceived(IEnumerable<Event>)` boxes
+  `List<Event>.Enumerator` on every frame with an SDL event (window event, key, every frame of mouse motion). Found with
+  between-frames probes and an SDL event watch; quiet frames were free (.NET's shared empty enumerator).
+- `SdlEventBatch` re-subscribes Silk's handler behind a reusable enumerable (reflection once in `OnLoad`; warning and
+  Silk left alone if its internals move; Silk's handler restored on close/dispose).
+- The `gamehost` gate now pushes mouse motion every frame, an unbound key and an `Exposed` window event, and counts them
+  arriving (InputBeforeUi node). Without the swap: 26,400 B / 300 frames; with events dropped: the count fails.
+- Seen while probing, not fixed here: `PushInput` allocated 1.6 KB on some key presses (`UiServer.HandleInput` once on an
+  injected key, once in two runs; real desk keys too), a 6.7 MB frame inside update/render when the cursor swept the
+  Driving Range HUD, and one 136 B between-frames frame on a real mouse motion (1 run in 41 after the fix; not
+  reproduced with synthetic events, nothing in the instrumented entry points).
+

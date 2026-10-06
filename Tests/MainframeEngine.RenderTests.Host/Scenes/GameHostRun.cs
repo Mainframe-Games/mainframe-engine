@@ -7,7 +7,8 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// the way a shipped game runs: settings from a <see cref="ProjectSettings"/>, the default audio device (the null device
 /// where there is none, as on CI), real-time deltas under a frame cap, SDL input, the dev overlay registered but hidden,
 /// a rotating log file, a game UI layer and a streamed looping sound. Measures the managed bytes the main thread allocates
-/// over <c>--alloc warmup:count</c> frames, like <see cref="RenderTestGame"/>.
+/// over <c>--alloc warmup:count</c> frames, like <see cref="RenderTestGame"/>, while real SDL events arrive every frame
+/// (mouse motion as in mouse look, key presses, window events): they take the whole path, Silk's event pump included.
 /// </summary>
 public sealed class GameHostRun : GameHost
 {
@@ -16,6 +17,7 @@ public sealed class GameHostRun : GameHost
     private long _allocationStart;
     private long? _allocatedBytes;
     private AudioPlayer? _ambience;
+    private readonly InputCounter _input = new() { Name = "InputCounter" };
 
     private GameHostRun(HostOptions host, ProjectSettings settings, GameHostOptions options) : base(settings, options)
     {
@@ -75,6 +77,7 @@ public sealed class GameHostRun : GameHost
         };
         scene.AddChild(_ambience);
         scene.AddChild(UiHudScene.CreateHudLayer());
+        scene.AddChild(_input);
         Tree.ChangeScene(scene);
     }
 
@@ -94,12 +97,72 @@ public sealed class GameHostRun : GameHost
                 Fail("No dev overlay registered.");
         }
 
+        PushInput(frame);
+
         if (frame == (uint)_host.AllocationWarmupFrames + 1)
+        {
             _allocationStart = GC.GetAllocatedBytesForCurrentThread();
+            _input.Counting = true;
+        }
         else if (frame == (uint)(_host.AllocationWarmupFrames + _host.AllocationMeasuredFrames + 1))
         {
             _allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
+            _input.Counting = false;
+            CheckInputArrived();
             Quit(ExitCode.Ok);
+        }
+    }
+
+    // From before the measured window to its end, every frame: mouse motion (hovering the HUD, no button), and in turn a
+    // press or release of an unbound key and an Exposed window event. They are polled at the next frame's start.
+    private void PushInput(uint frame)
+    {
+        if (frame < (uint)_host.AllocationWarmupFrames - 10)
+            return;
+        _windowId ??= QaSdl.WindowId(Window);
+        var id = _windowId.Value;
+        QaSdl.PushMouse(Window, Silk.NET.SDL.EventType.Mousemotion, 100 + (int)(frame % 200), 120, 1, 0, buttons: 0);
+        switch (frame % 3)
+        {
+            case 0:
+                QaSdl.PushKey(id, Silk.NET.SDL.KeyCode.KL, Silk.NET.SDL.Scancode.ScancodeL, pressed: frame % 2 == 0);
+                break;
+            case 1:
+                QaSdl.PushWindowEvent(id, Silk.NET.SDL.WindowEventID.Exposed);
+                break;
+        }
+    }
+
+    private uint? _windowId;
+
+    // Every pushed event reached the tree (a frame's events are polled at the start of the next one): the gate measured
+    // the input path, not a pump that dropped events.
+    private void CheckInputArrived()
+    {
+        var frames = _host.AllocationMeasuredFrames;
+        if (Math.Abs(_input.Motions - frames) > 1)
+            Fail($"{_input.Motions} mouse motions reached the tree over {frames} frames; expected one per frame.");
+        if (Math.Abs(_input.KeyEvents - frames / 3) > 1)
+            Fail($"{_input.KeyEvents} L key events reached the tree over {frames} frames; expected one every 3 frames.");
+    }
+
+    // Sees every event before the UI (InputBeforeUi) and counts the pushed ones while the gate measures.
+    private sealed class InputCounter : Node
+    {
+        public InputCounter() => InputBeforeUi = true;
+
+        public bool Counting { get; set; }
+        public int Motions { get; private set; }
+        public int KeyEvents { get; private set; }
+
+        protected override void OnInput(InputEvent inputEvent)
+        {
+            if (!Counting)
+                return;
+            if (inputEvent is InputEventMouseMotion)
+                Motions++;
+            else if (inputEvent is InputEventKey { Key: Silk.NET.Input.Key.L })
+                KeyEvents++;
         }
     }
 
