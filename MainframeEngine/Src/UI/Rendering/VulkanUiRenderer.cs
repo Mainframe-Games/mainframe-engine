@@ -438,23 +438,45 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
             return 0;
         }
 
-        ImageResult image;
+        if (DecodeImage(stream, source) is not { } decoded)
+        {
+            width = height = 0;
+            return 0;
+        }
+
+        var (data, w, h) = decoded;
+        (width, height) = (w, h);
+        Premultiply(data);
+        var texture = GpuTexture.Create2D(_ctx, (uint)width, (uint)height, data, TextureColorSpace.Linear,
+            TextureSampling.LinearClamp, generateMips: true);
+        return AddTexture(texture, width, height, 0);
+    }
+
+    /// <summary>
+    /// Decodes a UI image file to straight RGBA8: SVG through ThorVG at its own size with the texture import's edge fix
+    /// (ADR 0112), anything else through StbImageSharp. Null (with a warning) when it cannot be decoded.
+    /// </summary>
+    internal static (byte[] Rgba, int Width, int Height)? DecodeImage(Stream stream, string source)
+    {
         try
         {
-            image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+            if (source.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+            {
+                using var buffer = new MemoryStream();
+                stream.CopyTo(buffer);
+                var (rgba, width, height) = Svg.Rasterize(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+                ImageOps.FixAlphaEdges(rgba, width, height);
+                return (rgba, width, height);
+            }
+
+            var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha);
+            return (image.Data, image.Width, image.Height);
         }
         catch (Exception e) when (e is InvalidOperationException or InvalidDataException or NotSupportedException or ArgumentException)
         {
             Log.Warning($"[UI] Image '{source}' could not be decoded: {e.Message}");
-            return 0;
+            return null;
         }
-
-        Premultiply(image.Data);
-        width = image.Width;
-        height = image.Height;
-        var texture = GpuTexture.Create2D(_ctx, (uint)image.Width, (uint)image.Height, image.Data, TextureColorSpace.Linear,
-            TextureSampling.LinearClamp, generateMips: true);
-        return AddTexture(texture, width, height, 0);
     }
 
     /// <summary>Premultiplies straight-alpha RGBA8 in place (in sRGB space, as browsers and RmlUi's backends do).</summary>
