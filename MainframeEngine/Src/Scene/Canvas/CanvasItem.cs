@@ -196,6 +196,13 @@ public abstract class CanvasItem : Node
     /// <summary>Global transform followed by the canvas transform: canvas space → viewport pixels (before stretch).</summary>
     public Transform2D GetGlobalTransformWithCanvas() => GetCanvasTransform() * GetGlobalTransform();
 
+    /// <summary>The pointer in canvas (world) coordinates (Godot's <c>get_global_mouse_position</c>).</summary>
+    public Vector2 GetGlobalMousePosition() =>
+        GetCanvasTransform().AffineInverse().TransformPoint(GetViewport()?.GetMousePosition() ?? Input.MousePosition);
+
+    /// <summary>The pointer in this item's local coordinates (Godot's <c>get_local_mouse_position</c>).</summary>
+    public Vector2 GetLocalMousePosition() => GetGlobalTransform().AffineInverse().TransformPoint(GetGlobalMousePosition());
+
     /// <summary>The local bounds of what the last draw recorded.</summary>
     public Rect2 GetItemRect() => _drawList.Bounds;
 

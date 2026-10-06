@@ -315,6 +315,40 @@ public sealed class InputMapTests
     }
 
     [Fact]
+    public void TheMouseMapsThroughTheStretchAndCanvasTransformsAndAxesReadRaw()
+    {
+        var tree = Tree(Map());
+        var previous = Input.Current;
+        try
+        {
+            Input.Current = tree.Input;
+            var root = tree.Root;
+            root.ContentScaleMode = ContentScaleMode.CanvasItems;
+            root.ContentScaleAspect = ContentScaleAspect.Expand;
+            root.ContentScaleSize = new Vector2(480, 270);
+            root.SetSize(new Vector2(1920, 1080));   // ×4 stretch
+            root.PointScale = 2;                     // a HiDPI window: 960×540 points
+            root.CanvasTransform = Transform2D.FromTrs(new Vector2(-100, 0), 0, Vector2.One); // a camera offset
+            var item = new Node2D { Name = "Item", Position = new Vector2(10, 0) };
+            tree.ChangeScene(item);
+
+            tree.PushInput(new InputEventMouseMotion { Position = new Vector2(480, 270) }); // window centre (points)
+            Assert.Equal(new Vector2(480, 270), Input.MousePosition);
+            Assert.Equal(new Vector2(240, 135), root.GetMousePosition());
+            Assert.Equal(new Vector2(340, 135), item.GetGlobalMousePosition());
+            Assert.Equal(new Vector2(330, 135), item.GetLocalMousePosition());
+
+            tree.PushInput(new InputEventGamepadAxis { Device = 0, Axis = GamepadAxis.RightStick, Value = new Vector2(0.5f, -0.25f) });
+            Assert.Equal(0.5f, Input.GetJoyAxis(0, GamepadAxisCode.RightX));
+            Assert.Equal(-0.25f, Input.GetJoyAxis(0, GamepadAxisCode.RightY));
+        }
+        finally
+        {
+            Input.Current = previous;
+        }
+    }
+
+    [Fact]
     public void StaticInputForwardsToTheCurrentState()
     {
         var tree = Tree(Map());
