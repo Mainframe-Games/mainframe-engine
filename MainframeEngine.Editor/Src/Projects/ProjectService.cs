@@ -301,7 +301,7 @@ public sealed class ProjectService : IDisposable
             if (!GameCodeScanner.Uses(scene.Root, assembly))
                 continue;
             if (ReferenceEquals(scene, active))
-                _activeIndex = i;
+                _activeIndex = Session.IndexOf(scene); // snapshots record positions among all tabs
             snapshots.Add(Session.Suspend(scene));
         }
 

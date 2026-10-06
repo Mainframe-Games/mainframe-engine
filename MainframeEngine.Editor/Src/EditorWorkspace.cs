@@ -351,6 +351,9 @@ public sealed partial class EditorWorkspace : Node
         TreePicker.Tick();
         Tooltips?.Tick(gameTime.DeltaTime);
         SyncLayout();
+        Session.Tick();
+        PlacePreview();
+        ViewportPanel.Tick();
         UpdateTitle();
 
         _statsTimer -= gameTime.DeltaTime;
@@ -394,15 +397,50 @@ public sealed partial class EditorWorkspace : Node
         EditorLayout.Save(path, Layout.Settings);
     }
 
-    // The title only changes with the active scene, its file or its dirty state: compare those, build strings on change.
-    // The title only changes with the active scene, its file or its dirty state (and the project): compare those.
-    private EditedScene? _titleScene;
+    /// <summary>The view area a UI preview's document is laid out in (below the preview bar), in window pixels.</summary>
+    public System.Drawing.Rectangle PreviewRegion
+    {
+        get
+        {
+            var rect = Layout.PreviewImage;
+            var scale = Host.PixelScale;
+            var x = (int)MathF.Round(rect.X * scale);
+            var y = (int)MathF.Round(rect.Y * scale);
+            return new System.Drawing.Rectangle(x, y, Math.Max(1, (int)MathF.Round(rect.Right * scale) - x),
+                Math.Max(1, (int)MathF.Round(rect.Bottom * scale) - y));
+        }
+    }
+
+    // The active preview's layer follows the view area (panels resize, splitters move).
+    private void PlacePreview()
+    {
+        if (Session.ActivePreview is not { } preview)
+        {
+            _previewSize = default;
+            return;
+        }
+
+        var region = PreviewRegion;
+        if (preview.Layer.Region != region)
+            preview.Layer.Region = region;
+        var rect = Layout.PreviewImage;
+        var size = ((int)MathF.Round(rect.Width), (int)MathF.Round(rect.Height));
+        if (size == _previewSize)
+            return;
+        _previewSize = size;
+        ViewportPanel.SetPreviewSize(string.Create(CultureInfo.InvariantCulture, $"{size.Item1}×{size.Item2}"));
+    }
+
+    private (int, int) _previewSize;
+
+    // The title only changes with the active tab, its file or its dirty state (and the project): compare those.
+    private IEditorTab? _titleScene;
     private string? _titleFile;
     private bool _titleDirty;
 
     private void UpdateTitle()
     {
-        var active = Session.Active;
+        var active = Session.ActiveTab;
         var dirty = active?.IsDirty == true;
         if (_title.Length > 0 && ReferenceEquals(active, _titleScene) && ReferenceEquals(active?.FilePath, _titleFile) && dirty == _titleDirty)
             return;

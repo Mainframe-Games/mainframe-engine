@@ -1,9 +1,10 @@
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The open scenes (tabs) and the active one. Each scene lives in its own <see cref="SubViewport"/> under the host node
-/// (one edited world per tab) inside the editor's scene tree, which runs in <see cref="SceneTree.EditMode"/> so only
-/// <c>[Tool]</c> nodes process. Opening, saving and closing go through here; edits go through <see cref="EditedScene"/>.
+/// The open tabs — scenes and UI previews (<see cref="UiPreview"/>) — and the active one. Each scene lives in its own
+/// <see cref="SubViewport"/> under the host node (one edited world per tab) inside the editor's scene tree, which runs in
+/// <see cref="SceneTree.EditMode"/> so only <c>[Tool]</c> nodes process; a preview's <see cref="UiLayer"/> lives there
+/// too. Opening, saving and closing go through here; edits go through <see cref="EditedScene"/>.
 /// </summary>
 /// <remarks>
 /// Until the project UI arrives (E4 editor side), the project is found from the opened scene: the nearest ancestor
@@ -15,18 +16,38 @@ namespace MainframeEngine.Editor;
 public sealed class EditorSession : IDisposable
 {
     private readonly Node _host;
-    private readonly List<EditedScene> _scenes = [];
+    private readonly List<IEditorTab> _tabs = [];
+    private readonly List<EditedScene> _scenes = []; // the scene tabs, in tab order
     private int _untitledCounter;
     private int _viewportCounter;
+    private int _previewCounter;
+    private EditedScene? _suspending;
 
     public EditorSession(Node host)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
     }
 
+    /// <summary>Every tab, in tab-strip order.</summary>
+    public IReadOnlyList<IEditorTab> Tabs => _tabs;
+
+    /// <summary>The position of <paramref name="tab"/> in <see cref="Tabs"/>, or -1.</summary>
+    public int IndexOf(IEditorTab tab) => _tabs.IndexOf(tab);
+
+    /// <summary>The scene tabs, in tab-strip order.</summary>
     public IReadOnlyList<EditedScene> Scenes => _scenes;
 
-    public EditedScene? Active { get; private set; }
+    /// <summary>The active tab (a scene or a UI preview), or null when none is open.</summary>
+    public IEditorTab? ActiveTab { get; private set; }
+
+    /// <summary>The active scene: null when no tab is open or the active tab is not a scene (a UI preview).</summary>
+    public EditedScene? Active => ActiveTab as EditedScene;
+
+    /// <summary>The active tab when it is a UI preview.</summary>
+    public UiPreview? ActivePreview => ActiveTab as UiPreview;
+
+    /// <summary>The scene tab that was active most recently (a UI preview's default backdrop), or null.</summary>
+    public EditedScene? LastActiveScene { get; private set; }
 
     /// <summary>The project folder (contains <c>Content/</c>) resources resolve against; null until a scene is opened or saved.</summary>
     public string? ProjectRoot { get; private set; }
@@ -37,7 +58,7 @@ public sealed class EditorSession : IDisposable
     /// </summary>
     public ProjectSettings? Project { get; private set; }
 
-    /// <summary>Tabs opened, closed, renamed (saved as), or their dirty state changed.</summary>
+    /// <summary>Tabs (scenes or previews) opened, closed, renamed (saved as), or their dirty state changed.</summary>
     public event Action? ScenesChanged;
 
     /// <summary>The active tab changed.</summary>
@@ -68,7 +89,7 @@ public sealed class EditorSession : IDisposable
         var file = Path.Combine(root, ProjectSettings.FileName);
         if (!File.Exists(file))
             throw new FileNotFoundException($"'{root}' is not a Mainframe project: it has no {ProjectSettings.FileName}.", file);
-        if (ProjectRoot is not null && !PathsEqual(ProjectRoot, root) && _scenes.Count > 0)
+        if (ProjectRoot is not null && !PathsEqual(ProjectRoot, root) && _tabs.Count > 0)
             throw new InvalidOperationException($"Close the scenes of {ProjectRoot} before opening another project.");
         var settings = ProjectSettings.Load(file);
         ProjectRoot = root;
@@ -90,7 +111,7 @@ public sealed class EditorSession : IDisposable
 
     /// <summary>
     /// A file or folder moved from <paramref name="oldPath"/> to <paramref name="newPath"/> (FileSystem rename/move): open
-    /// scenes inside it follow, so saving them writes the new file.
+    /// scenes inside it follow, so saving them writes the new file; previews follow their document.
     /// </summary>
     public void FilesMoved(string oldPath, string newPath)
     {
@@ -112,15 +133,70 @@ public sealed class EditorSession : IDisposable
             changed = true;
         }
 
+        foreach (var tab in _tabs)
+        {
+            if (tab is not UiPreview preview)
+                continue;
+            var file = preview.FilePath;
+            if (PathsEqual(file, from))
+                preview.MoveTo(to);
+            else if (file.StartsWith(from + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                preview.MoveTo(to + file[from.Length..]);
+            else
+                continue;
+            changed = true;
+        }
+
         if (changed)
             ScenesChanged?.Invoke();
     }
 
-    /// <summary>Closes every scene without asking (the caller dealt with unsaved changes).</summary>
+    /// <summary>Closes every tab without asking (the caller dealt with unsaved changes).</summary>
     public void CloseAll()
     {
-        foreach (var scene in _scenes.ToArray())
-            Close(scene);
+        foreach (var tab in _tabs.ToArray())
+            Close(tab);
+    }
+
+    /// <summary>
+    /// Opens a UI preview of the <c>.rml</c> document at <paramref name="path"/> (or activates its tab when already open)
+    /// and makes it active. Throws when the file does not exist or belongs to another project while tabs of the current
+    /// one are open.
+    /// </summary>
+    public UiPreview OpenUiPreview(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var full = Path.GetFullPath(path);
+        foreach (var tab in _tabs)
+            if (tab is UiPreview open && PathsEqual(open.FilePath, full))
+            {
+                Activate(open);
+                return open;
+            }
+
+        if (!File.Exists(full))
+            throw new FileNotFoundException($"UI document not found: {full}", full);
+        UseProjectOf(full);
+        var preview = new UiPreview(full, ++_previewCounter);
+        _host.AddChild(preview.Layer);
+        if (LastActiveScene is { } backdrop)
+            preview.SetBackdrop(backdrop, show: false);
+        _tabs.Add(preview);
+        ScenesChanged?.Invoke();
+        Activate(preview);
+        return preview;
+    }
+
+    /// <summary>
+    /// Shows <paramref name="scene"/> behind <paramref name="preview"/>'s UI (<paramref name="show"/>), or the neutral
+    /// backdrop; a null scene turns it off.
+    /// </summary>
+    public void SetBackdrop(UiPreview preview, EditedScene? scene, bool show)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+        if (scene is not null && !_scenes.Contains(scene))
+            throw new ArgumentException("The scene is not open in this session.", nameof(scene));
+        preview.SetBackdrop(scene, show);
     }
 
     /// <summary>Opens a new, empty scene with a <paramref name="rootType"/> root and makes it active.</summary>
@@ -198,21 +274,32 @@ public sealed class EditorSession : IDisposable
     }
 
     /// <summary>Closes <paramref name="scene"/> without saving (the caller asks first when it is dirty).</summary>
-    public void Close(EditedScene scene)
+    public void Close(EditedScene scene) => Close((IEditorTab)scene);
+
+    /// <summary>Closes <paramref name="tab"/> without saving (the caller asks first when it is dirty).</summary>
+    public void Close(IEditorTab tab)
     {
-        ArgumentNullException.ThrowIfNull(scene);
-        var index = _scenes.IndexOf(scene);
+        ArgumentNullException.ThrowIfNull(tab);
+        var index = _tabs.IndexOf(tab);
         if (index < 0)
             return;
-        _scenes.RemoveAt(index);
-        scene.Changed -= OnSceneChanged;
-        scene.Selection.Changed -= OnSelectionChanged;
-        scene.Dispose();
-        if (ReferenceEquals(Active, scene))
+        _tabs.RemoveAt(index);
+        if (tab is EditedScene scene)
         {
-            Active = null;
-            if (_scenes.Count > 0)
-                Activate(_scenes[Math.Min(index, _scenes.Count - 1)]);
+            _scenes.Remove(scene);
+            scene.Changed -= OnSceneChanged;
+            scene.Selection.Changed -= OnSelectionChanged;
+            if (ReferenceEquals(LastActiveScene, scene))
+                LastActiveScene = null;
+            ForgetBackdrop(scene);
+        }
+
+        tab.Dispose();
+        if (ReferenceEquals(ActiveTab, tab))
+        {
+            ActiveTab = null;
+            if (_tabs.Count > 0)
+                Activate(_tabs[Math.Min(index, _tabs.Count - 1)]);
             else
                 ActiveChanged?.Invoke();
         }
@@ -220,18 +307,61 @@ public sealed class EditorSession : IDisposable
         ScenesChanged?.Invoke();
     }
 
-    /// <summary>Makes <paramref name="scene"/> the active tab (its viewport renders; the others pause).</summary>
-    public void Activate(EditedScene scene)
+    // Previews showing a closed scene behind their UI fall back to the neutral backdrop — unless it is only suspended
+    // for a code reload (Resume puts it back).
+    private void ForgetBackdrop(EditedScene scene)
     {
-        ArgumentNullException.ThrowIfNull(scene);
-        if (ReferenceEquals(Active, scene))
+        foreach (var tab in _tabs)
+        {
+            if (tab is not UiPreview preview || !ReferenceEquals(preview.BackdropScene, scene))
+                continue;
+            if (ReferenceEquals(scene, _suspending))
+            {
+                preview.PendingBackdrop = _pendingSnapshot; // ShowBackdrop is kept for Resume
+                preview.BackdropScene = null;
+            }
+            else
+            {
+                preview.SetBackdrop(null, false);
+            }
+        }
+    }
+
+    /// <summary>Makes <paramref name="scene"/> the active tab (its viewport renders; the others pause).</summary>
+    public void Activate(EditedScene scene) => Activate((IEditorTab)scene);
+
+    /// <summary>
+    /// Makes <paramref name="tab"/> the active tab: a scene's viewport renders and the others pause; a preview's layer is
+    /// shown and the others are hidden.
+    /// </summary>
+    public void Activate(IEditorTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (ReferenceEquals(ActiveTab, tab))
             return;
-        if (!_scenes.Contains(scene))
-            throw new ArgumentException("The scene is not open in this session.", nameof(scene));
-        foreach (var s in _scenes)
-            s.Viewport.UpdateMode = ReferenceEquals(s, scene) ? SubViewportUpdateMode.Always : SubViewportUpdateMode.Disabled;
-        Active = scene;
+        if (!_tabs.Contains(tab))
+            throw new ArgumentException("The tab is not open in this session.", nameof(tab));
+        foreach (var t in _tabs)
+        {
+            var active = ReferenceEquals(t, tab);
+            if (t is EditedScene s)
+                s.Viewport.UpdateMode = active ? SubViewportUpdateMode.Always : SubViewportUpdateMode.Disabled;
+            else if (t is UiPreview p)
+                p.Layer.Visible = active;
+        }
+
+        ActiveTab = tab;
+        if (tab is EditedScene scene)
+            LastActiveScene = scene;
         ActiveChanged?.Invoke();
+    }
+
+    /// <summary>Main thread, every frame: the previews apply file changes.</summary>
+    public void Tick()
+    {
+        foreach (var tab in _tabs)
+            if (tab is UiPreview preview)
+                preview.Tick();
     }
 
     /// <summary>True when any open scene has unsaved changes.</summary>
@@ -247,9 +377,9 @@ public sealed class EditorSession : IDisposable
         var root = FindProjectRoot(scenePath);
         if (ProjectRoot is not null && PathsEqual(ProjectRoot, root))
             return;
-        if (ProjectRoot is not null && !allowSwitch && _scenes.Any(s => s.FilePath is not null))
+        if (ProjectRoot is not null && !allowSwitch && _tabs.Any(t => t.FilePath is not null))
             throw new InvalidOperationException(
-                $"'{scenePath}' belongs to the project at {root}, but scenes of {ProjectRoot} are open. Close them first.");
+                $"'{scenePath}' belongs to the project at {root}, but files of {ProjectRoot} are open. Close them first.");
         ProjectRoot = root;
         Project = LoadProjectSettings(root);
         var database = new AssetDatabase(root);
@@ -310,32 +440,55 @@ public sealed class EditorSession : IDisposable
         scene.Camera.Is2D = root is Node2D;
         scene.Changed += OnSceneChanged;
         scene.Selection.Changed += OnSelectionChanged;
-        if (index >= 0 && index <= _scenes.Count)
-            _scenes.Insert(index, scene);
+        if (index >= 0 && index <= _tabs.Count)
+            _tabs.Insert(index, scene);
         else
-            _scenes.Add(scene);
+            _tabs.Add(scene);
+        RebuildScenes();
         ScenesChanged?.Invoke();
         return scene;
+    }
+
+    private void RebuildScenes()
+    {
+        _scenes.Clear();
+        foreach (var tab in _tabs)
+            if (tab is EditedScene scene)
+                _scenes.Add(scene);
     }
 
     // ── Code reload ──────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Takes <paramref name="scene"/> out of the session for a code reload: serializes it (unsaved edits included,
-    /// game types and missing types with their data), remembers its tab position, file, dirty state, selection and
-    /// view, and frees its nodes so nothing references the game assembly any more. <see cref="Resume"/> puts it back.
-    /// Its undo history cannot survive (the actions point at the freed nodes).
+    /// game types and missing types with their data), remembers its tab position (among all tabs), file, dirty state,
+    /// selection and view, and frees its nodes so nothing references the game assembly any more. <see cref="Resume"/>
+    /// puts it back — also behind the previews that showed it. Its undo history cannot survive (the actions point at
+    /// the freed nodes).
     /// </summary>
     public SceneSnapshot Suspend(EditedScene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        var index = _scenes.IndexOf(scene);
+        var index = _tabs.IndexOf(scene);
         if (index < 0)
             throw new ArgumentException("The scene is not open in this session.", nameof(scene));
         var snapshot = CaptureSnapshot(scene, index);
-        Close(scene);
+        _suspending = scene;
+        _pendingSnapshot = snapshot;
+        try
+        {
+            Close(scene);
+        }
+        finally
+        {
+            _suspending = null;
+            _pendingSnapshot = null;
+        }
+
         return snapshot;
     }
+
+    private SceneSnapshot? _pendingSnapshot;
 
     private static SceneSnapshot CaptureSnapshot(EditedScene scene, int index)
     {
@@ -386,6 +539,13 @@ public sealed class EditorSession : IDisposable
                 scene.Selection.Add(node);
         if (snapshot.Dirty)
             scene.History.MarkUnsaved();
+        foreach (var tab in _tabs)
+            if (tab is UiPreview preview && ReferenceEquals(preview.PendingBackdrop, snapshot))
+            {
+                preview.PendingBackdrop = null;
+                preview.SetBackdrop(scene, preview.ShowBackdrop);
+            }
+
         return scene;
     }
 
@@ -426,15 +586,21 @@ public sealed class EditorSession : IDisposable
 
     public void Dispose()
     {
-        foreach (var scene in _scenes.ToArray())
+        foreach (var tab in _tabs.ToArray())
         {
-            scene.Changed -= OnSceneChanged;
-            scene.Selection.Changed -= OnSelectionChanged;
-            scene.Dispose();
+            if (tab is EditedScene scene)
+            {
+                scene.Changed -= OnSceneChanged;
+                scene.Selection.Changed -= OnSelectionChanged;
+            }
+
+            tab.Dispose();
         }
 
+        _tabs.Clear();
         _scenes.Clear();
-        Active = null;
+        ActiveTab = null;
+        LastActiveScene = null;
     }
 }
 

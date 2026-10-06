@@ -18,7 +18,7 @@ namespace MainframeEngine.Editor;
 /// hold W / release W
 /// type Box2                   # text into the focused field
 /// command file.save           # any EditorCommands id
-/// open path/to/scene.mscene
+/// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab
 /// menu 2                      # choose item 2 of the open popup menu (or: menu edit.undo)
 /// pick Floor                  # tree or list picker: select the row with this label
 /// search omni                 # tree or list picker: type into the search field
@@ -191,8 +191,15 @@ public sealed class EditorQaScript : IEditorAutomation
                 workspace.Commands.Execute(step[1]);
                 break;
             case "open":
-                workspace.Session.Open(Path.GetFullPath(string.Join(' ', step[1..])));
-                break;
+                {
+                    var path = Path.GetFullPath(string.Join(' ', step[1..]));
+                    if (path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
+                        workspace.Session.OpenUiPreview(path);
+                    else
+                        workspace.Session.Open(path);
+                    break;
+                }
+
             case "menu":
                 if (int.TryParse(step[1], CultureInfo.InvariantCulture, out var item))
                     workspace.Popup.Choose(item);

@@ -17,6 +17,7 @@ public sealed unsafe partial class VulkanUiRenderer
     private DescriptorSet _boundSet0;
     private VkBuffer _boundBuffer;
     private int _pushedTransform = int.MinValue;
+    private int _pushedRegion = -1;
     private Rect2D _boundScissor;
     private byte _boundStencilRef;
     private bool _stencilRefValid;
@@ -79,6 +80,11 @@ public sealed unsafe partial class VulkanUiRenderer
         public bool IsEmpty => X1 <= X0 || Y1 <= Y0;
 
         public PixelRect Extend(int n) => new(X0 - n, Y0 - n, X1 + n, Y1 + n);
+
+        public PixelRect Offset(int x, int y) => new(X0 + x, Y0 + y, X1 + x, Y1 + y);
+
+        public PixelRect Intersect(in PixelRect other) => new(Math.Max(X0, other.X0), Math.Max(Y0, other.Y0),
+            Math.Max(Math.Max(X0, other.X0), Math.Min(X1, other.X1)), Math.Max(Math.Max(Y0, other.Y0), Math.Min(Y1, other.Y1)));
 
         public PixelRect Clamp(Extent2D extent) => new(Math.Clamp(X0, 0, (int)extent.Width), Math.Clamp(Y0, 0, (int)extent.Height),
             Math.Clamp(X1, 0, (int)extent.Width), Math.Clamp(Y1, 0, (int)extent.Height));
@@ -316,9 +322,18 @@ public sealed unsafe partial class VulkanUiRenderer
         _boundScissor = r;
     }
 
-    private PixelRect ScissorOf(in UiCommand c) => c.ScissorEnabled
-        ? new PixelRect(c.ScissorX, c.ScissorY, c.ScissorX + c.ScissorW, c.ScissorY + c.ScissorH)
-        : new PixelRect(0, 0, (int)_targetExtent.Width, (int)_targetExtent.Height);
+    /// <summary>The command's scissor in target pixels: offset into its region and clipped to it (UiLayer.Region).</summary>
+    private PixelRect ScissorOf(in UiCommand c)
+    {
+        if (c.Region < 0)
+            return c.ScissorEnabled
+                ? new PixelRect(c.ScissorX, c.ScissorY, c.ScissorX + c.ScissorW, c.ScissorY + c.ScissorH)
+                : new PixelRect(0, 0, (int)_targetExtent.Width, (int)_targetExtent.Height);
+        ref readonly var region = ref _regions[c.Region];
+        return c.ScissorEnabled
+            ? new PixelRect(c.ScissorX, c.ScissorY, c.ScissorX + c.ScissorW, c.ScissorY + c.ScissorH).Offset(region.X0, region.Y0).Intersect(region)
+            : region;
+    }
 
     private void SetStencilRef(byte value)
     {
@@ -337,9 +352,9 @@ public sealed unsafe partial class VulkanUiRenderer
 
     // ── Geometry ─────────────────────────────────────────────────────────────────────────────────────────────
 
-    private void PushTransform(int transform)
+    private void PushTransform(int transform, int region)
     {
-        if (transform == _pushedTransform)
+        if (transform == _pushedTransform && region == _pushedRegion)
             return;
 
         // Pixels → clip space (y down, no flip); z scaled into [0, 1] for 3D RCSS transforms (RmlUi's GL projection uses
@@ -351,9 +366,12 @@ public sealed unsafe partial class VulkanUiRenderer
             0, 2f / h, 0, 0,
             0, 0, 1f / 20000f, 0,
             -1f, -1f, 0.5f, 1f);
+        if (region >= 0) // RmlUi lays a region layer out from (0, 0): move it to the region's origin
+            projection = Matrix4x4.CreateTranslation(_regions[region].X0, _regions[region].Y0, 0f) * projection;
         var m = transform < 0 ? projection : _transforms[transform] * projection;
         Push(m);
         _pushedTransform = transform;
+        _pushedRegion = region;
     }
 
     private void BindGeometry(in UiCommand c)
@@ -374,7 +392,7 @@ public sealed unsafe partial class VulkanUiRenderer
         if (c.Stencil)
             SetStencilRef(c.StencilRef);
         SetScissor(ScissorOf(c));
-        PushTransform(c.Transform);
+        PushTransform(c.Transform, c.Region);
         Push(new GeometryPush { Translation = c.Translation, TextureFlags = textureFlags }, 64);
         BindSet(0, set);
         BindGeometry(c);
@@ -419,7 +437,7 @@ public sealed unsafe partial class VulkanUiRenderer
         BindPipeline(pipeline);
         SetStencilRef(c.StencilRef); // the value REPLACE writes
         SetScissor(scissor);
-        PushTransform(c.Transform);
+        PushTransform(c.Transform, c.Region);
         Push(new GeometryPush { Translation = c.Translation }, 64);
         BindSet(0, _whiteSet);
         BindGeometry(c);

@@ -7,7 +7,7 @@ namespace MainframeEngine.Editor;
 /// lives in (one edited world per tab). Every edit goes through <see cref="History"/> so it can be undone; the
 /// operations here build the right <see cref="IEditorAction"/>s.
 /// </summary>
-public sealed class EditedScene : IDisposable, IInspectorContext
+public sealed class EditedScene : IEditorTab, IInspectorContext
 {
     private readonly List<PackedScene> _heldScenes = [];
     private bool _disposed;
@@ -46,6 +46,13 @@ public sealed class EditedScene : IDisposable, IInspectorContext
 
     /// <summary>Tab title: the file name with <c>*</c> while dirty.</summary>
     public string Title => IsDirty ? DisplayName + "*" : DisplayName;
+
+    /// <summary>The root node's icon (tinted by family), like Godot's scene tabs.</summary>
+    public string IconClasses => EditorIcons.Classes(Root);
+
+    public string Tooltip => FilePath is { } path
+        ? DisplayName + (IsDirty ? " (unsaved changes)" : "") + " — " + path
+        : DisplayName + " — not saved yet";
 
     internal int UntitledNumber { get; init; }
 

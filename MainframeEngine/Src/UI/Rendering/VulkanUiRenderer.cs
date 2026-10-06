@@ -93,6 +93,7 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
         public RmlBlendMode Blend;
         public int ScissorX, ScissorY, ScissorW, ScissorH;
         public int Transform;         // index into _transforms, -1 = identity
+        public int Region;            // index into _regions, -1 = the whole target
         public Vector2 Translation;
         public VkBuffer Buffer;
         public uint FirstIndex;
@@ -108,6 +109,9 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
     private Matrix4x4[] _transforms = new Matrix4x4[16];
     private int _transformCount;
     private int _currentTransform = -1;
+    private PixelRect[] _regions = new PixelRect[4];
+    private int _regionCount;
+    private int _currentRegion = -1;
     private bool _scissorEnabled;
     private int _scissorX, _scissorY, _scissorW, _scissorH;
     private bool _clipMaskEnabled;
@@ -136,6 +140,8 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
 
         _commandCount = 0;
         _transformCount = 0;
+        _regionCount = 0;
+        _currentRegion = -1;
         _filterDataCount = 0;
         _shaderDraws = 0;
         _maxLayerDepth = 0;
@@ -171,7 +177,26 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
         c.ScissorW = _scissorW;
         c.ScissorH = _scissorH;
         c.Transform = _currentTransform;
+        c.Region = _currentRegion;
         return ref c;
+    }
+
+    /// <summary>
+    /// The window rectangle the following draws go to (<see cref="UiLayer.Region"/>): RmlUi's coordinates are offset
+    /// by its origin and every draw is clipped to it; null is the whole target. Set by the UI server per context.
+    /// </summary>
+    internal void SetRegion(System.Drawing.Rectangle? region)
+    {
+        if (region is not { } r)
+        {
+            _currentRegion = -1;
+            return;
+        }
+
+        if (_regionCount == _regions.Length)
+            Array.Resize(ref _regions, _regions.Length * 2);
+        _regions[_regionCount] = new PixelRect(r.X, r.Y, r.X + Math.Max(0, r.Width), r.Y + Math.Max(0, r.Height));
+        _currentRegion = _regionCount++;
     }
 
     // ── Geometry ─────────────────────────────────────────────────────────────────────────────────────────────

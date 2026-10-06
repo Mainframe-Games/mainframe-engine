@@ -352,7 +352,10 @@ public sealed class FileSystemPanel : EditorDocument
         DraggedFile = null;
     }
 
-    /// <summary>Double click: folders open (tree: expand), scenes open in a tab, C# files in the code editor.</summary>
+    /// <summary>
+    /// Double click: folders open (tree: expand), scenes open in a tab, UI documents (<c>.rml</c>) in a live preview tab,
+    /// C# files and style sheets in the code editor.
+    /// </summary>
     public void Activate(int index)
     {
         if (EntryAt(index) is not { } entry)
@@ -396,7 +399,18 @@ public sealed class FileSystemPanel : EditorDocument
                     }
                 });
                 break;
-            case FileKind.Script or FileKind.Shader or FileKind.Rml or FileKind.Rcss or FileKind.Translation or FileKind.Data or FileKind.Project:
+            case FileKind.Rml:
+                try
+                {
+                    Workspace.Session.OpenUiPreview(entry.FullPath);
+                }
+                catch (Exception e) when (EditorCommands.IsRecoverable(e))
+                {
+                    Workspace.Commands.ReportError($"Could not preview {entry.Name}", e);
+                }
+
+                break;
+            case FileKind.Script or FileKind.Shader or FileKind.Rcss or FileKind.Translation or FileKind.Data or FileKind.Project:
                 Workspace.CodeEditor.Open(entry.FullPath);
                 break;
             case FileKind.Resource:
@@ -465,7 +479,9 @@ public sealed class FileSystemPanel : EditorDocument
         var isRoot = entry.Depth == 0;
         Workspace.Popup.Show(
         [
-            new MenuItem("Open", "fs.open", "Double-click", !entry.IsDirectory, Icon: "external-link"),
+            new MenuItem(entry.Kind == FileKind.Rml ? "Preview UI" : "Open", "fs.open", "Double-click", !entry.IsDirectory,
+                Icon: entry.Kind == FileKind.Rml ? "layout" : "external-link"),
+            .. entry.Kind == FileKind.Rml ? [new MenuItem("Open in Code Editor", "fs.open_code", Icon: "code")] : Array.Empty<MenuItem>(),
             MenuItem.Separator,
             new MenuItem("New Folder…", "fs.new_folder", Icon: "folder-plus"),
             new MenuItem("New Scene…", "fs.new_scene", Icon: "movie"),
@@ -491,6 +507,10 @@ public sealed class FileSystemPanel : EditorDocument
             case "fs.open":
                 if (entry is not null)
                     Open(entry);
+                return true;
+            case "fs.open_code":
+                if (entry is { IsDirectory: false })
+                    Workspace.CodeEditor.Open(entry.FullPath);
                 return true;
             case "fs.new_folder":
                 PromptName("New Folder", "Folder name:", "NewFolder", name => Report(_operations?.CreateFolder(TargetFolder()!, name)));
@@ -672,9 +692,9 @@ public sealed class FileSystemPanel : EditorDocument
     private void CloseScenesUnder(string path)
     {
         var full = Path.GetFullPath(path);
-        foreach (var scene in Workspace.Session.Scenes.ToArray())
-            if (scene.FilePath is { } file && (EditorSession.PathsEqual(file, full) || file.StartsWith(full + Path.DirectorySeparatorChar, StringComparison.Ordinal)))
-                Workspace.Session.Close(scene);
+        foreach (var tab in Workspace.Session.Tabs.ToArray())
+            if (tab.FilePath is { } file && (EditorSession.PathsEqual(file, full) || file.StartsWith(full + Path.DirectorySeparatorChar, StringComparison.Ordinal)))
+                Workspace.Session.Close(tab);
     }
 
     private bool Report(FileOperationResult? result)

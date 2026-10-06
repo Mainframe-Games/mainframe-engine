@@ -444,8 +444,9 @@ public sealed class UiServer : IFrameServer, IInputServer
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         UpdateViewport();
-        var context = new RmlContext($"layer{++_contextCounter}:{layer.Name}", (int)ViewportSize.X, (int)ViewportSize.Y, RenderInterface);
-        context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(ViewportSize, ContentScale));
+        var size = LayerSize(layer);
+        var context = new RmlContext($"layer{++_contextCounter}:{layer.Name}", (int)size.X, (int)size.Y, RenderInterface);
+        context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale));
         _layers.Add(layer);
         _layersDirty = true;
         return context;
@@ -470,6 +471,11 @@ public sealed class UiServer : IFrameServer, IInputServer
     }
 
     internal void SortLayers() => _layersDirty = true;
+
+    /// <summary>The size a layer's context is laid out at: its <see cref="UiLayer.Region"/>, else the framebuffer.</summary>
+    private Vector2 LayerSize(UiLayer layer) => layer.Region is { } region
+        ? new Vector2(Math.Max(1, region.Width), Math.Max(1, region.Height))
+        : ViewportSize;
 
     private void SortLayersIfNeeded()
     {
@@ -582,8 +588,9 @@ public sealed class UiServer : IFrameServer, IInputServer
             var layer = _layers[i];
             if (!layer.Visible || layer.Context is not { } context)
                 continue;
-            context.SetDimensions((int)ViewportSize.X, (int)ViewportSize.Y);
-            context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(ViewportSize, ContentScale));
+            var size = LayerSize(layer);
+            context.SetDimensions((int)size.X, (int)size.Y);
+            context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale));
             var documents = layer.DocumentList;
             for (var d = 0; d < documents.Count; d++)
                 documents[d].PrepareFrame();
@@ -601,6 +608,7 @@ public sealed class UiServer : IFrameServer, IInputServer
         if (CanRender is { } canRender && !canRender())
             return;
 
+        var vulkanRenderer = RenderInterface as VulkanUiRenderer;
         switch (RenderInterface)
         {
             case VulkanUiRenderer vulkan:
@@ -614,10 +622,13 @@ public sealed class UiServer : IFrameServer, IInputServer
         for (var i = 0; i < _layers.Count; i++)
         {
             var layer = _layers[i];
-            if (layer.Visible && layer.Context is { } context)
-                context.Render();
+            if (!layer.Visible || layer.Context is not { } context)
+                continue;
+            vulkanRenderer?.SetRegion(layer.Region);
+            context.Render();
         }
 
+        vulkanRenderer?.SetRegion(null);
         debugger?.Render();
     }
 
@@ -653,6 +664,35 @@ public sealed class UiServer : IFrameServer, IInputServer
     /// <summary>Applies a batch of file changes (hot reload; also callable by tools and tests).</summary>
     public void Reload(UiReloadKind kind) => Reload(kind, null);
 
+    /// <summary>
+    /// Applies file changes to one document only (tools watching their own files, e.g. the editor's UI preview): clears
+    /// the style sheet and template caches (and the textures for <see cref="UiReloadKind.Textures"/>), then reloads
+    /// <paramref name="document"/> — or only re-reads its style sheets when no document or template changed.
+    /// </summary>
+    public void Reload(UiDocument document, UiReloadKind kind)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (kind == UiReloadKind.None)
+            return;
+        RmlCore.ClearStyleSheetCache();
+        RmlCore.ClearTemplateCache();
+        if ((kind & UiReloadKind.Textures) != 0)
+            RmlCore.ReleaseTextures(RenderInterface);
+        ReloadDocument(document, kind);
+    }
+
+    private static void ReloadDocument(UiDocument document, UiReloadKind kind)
+    {
+        document.ClearLoadFailure();
+        if (!document.IsLoaded)
+            document.EnsureLoaded();
+        else if ((kind & UiReloadKind.Documents) != 0)
+            document.Reload();
+        else if ((kind & UiReloadKind.StyleSheets) != 0)
+            document.ReloadStyleSheet();
+    }
+
     private void Reload(UiReloadKind kind, string? path)
     {
         if (kind == UiReloadKind.None)
@@ -662,20 +702,9 @@ public sealed class UiServer : IFrameServer, IInputServer
         if ((kind & UiReloadKind.Textures) != 0)
             RmlCore.ReleaseTextures(RenderInterface);
 
-        var full = (kind & UiReloadKind.Documents) != 0;
         foreach (var layer in _layers)
-        {
             foreach (var document in layer.DocumentList.ToArray())
-            {
-                document.ClearLoadFailure();
-                if (!document.IsLoaded)
-                    document.EnsureLoaded();
-                else if (full)
-                    document.Reload();
-                else if ((kind & UiReloadKind.StyleSheets) != 0)
-                    document.ReloadStyleSheet();
-            }
-        }
+                ReloadDocument(document, kind);
 
         Log.Info($"[UI] Hot reload: {kind}");
         HotReloaded?.Invoke(kind, path);
@@ -841,7 +870,28 @@ public sealed class UiServer : IFrameServer, IInputServer
             var layer = _layers[i];
             if (!layer.Visible || layer.Context is not { } context)
                 continue;
-            if (context.ProcessMouseMove(x, y, _modifiers) || layer.HasModalDocument)
+            var (lx, ly) = (x, y);
+            if (layer.Region is { } region)
+            {
+                // Outside its region a layer only follows a drag it started; otherwise it loses the mouse once.
+                var dragging = _uiMouseButtons != 0 && ReferenceEquals(layer, _hoverLayer);
+                if (!region.Contains(x, y) && !dragging)
+                {
+                    if (layer.HasPointer)
+                    {
+                        layer.HasPointer = false;
+                        context.ProcessMouseLeave();
+                    }
+
+                    continue;
+                }
+
+                layer.HasPointer = true;
+                lx -= region.X;
+                ly -= region.Y;
+            }
+
+            if (context.ProcessMouseMove(lx, ly, _modifiers) || layer.HasModalDocument)
             {
                 consumer = layer;
                 break;
@@ -1033,11 +1083,14 @@ public sealed class UiServer : IFrameServer, IInputServer
         if (RmlDebugger.Visible && _debuggerContext is not null && Dispatch(_debuggerContext, kind, a, b))
             return true;
         SortLayersIfNeeded();
+        var pointer = kind is InputKind.MouseDown or InputKind.Wheel;
         for (var i = _layers.Count - 1; i >= 0; i--)
         {
             var layer = _layers[i];
             if (!layer.Visible || layer.Context is not { } context)
                 continue;
+            if (pointer && layer.Region is not null && !layer.HasPointer)
+                continue; // the mouse is outside the layer's region
             if (Dispatch(context, kind, a, b) || layer.HasModalDocument)
                 return true;
         }
