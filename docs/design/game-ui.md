@@ -101,6 +101,10 @@ model.Dirty("health");                                                      // v
   new end resolve to "none" while RmlUi drops their elements, without warnings.
 - The `Bind(name, owner, static getter, static setter)` overloads are what a future `[UiBindable]` source generator
   can emit without closures.
+- `BindVariable(name, kind, RmlVariableSource)` binds a variable whose structure is decided as RmlUi walks it: every
+  node is a token (0 = root) that reports its kind (`Scalar`, `Array`, `Struct`) from `Child`, its value from
+  `Read`/`Write` and its length from `Size` — for tools that do not know the data's shape in advance (the editor's
+  UI preview stand-ins).
 - Every binding holds a `GCHandle` freed by the shim's release callback, exactly once, when the model is removed, its
   context destroyed or RmlUi shut down.
 

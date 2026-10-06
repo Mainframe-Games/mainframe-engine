@@ -211,6 +211,20 @@ public sealed class ViewportPanel : EditorDocument
                 Missing = false,
                 Inline = true,
             });
+
+        if (preview.Data.Models.Count > 0)
+            _links.Add(new Link
+            {
+                Index = _links.Count,
+                Name = "stand-in data",
+                Via = "",
+                Icon = "icon icon-braces",
+                Tooltip = $"Data models ({string.Join(", ", preview.Data.Models.Select(m => m.Name))}) are created by game code, so the preview " +
+                          $"binds stand-ins: text shows each variable's name, conditions are true, numbers 0, lists have {UiPreviewData.ListSize} " +
+                          "rows, events do nothing; inputs keep what you type",
+                Missing = false,
+                Inline = true,
+            });
     }
 
     private void OpenLink(int index)

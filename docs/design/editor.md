@@ -416,9 +416,16 @@ the scene tree, inspector and scene commands rest. Ctrl+W closes either kind; pr
   camera keeps its tab's editor view), publishes it as `editor-viewport` under the preview layer, and draws no grid,
   gizmos or icons and takes no input. Closing the scene turns it off; a code reload puts it back
   (`UiPreview.PendingBackdrop` follows the suspended scene's snapshot).
-- **Limits.** Data models are created by game code, so a document's `data-model` has none in the preview: RmlUi
-  logs "Could not locate data model" once per load, `{{ }}` text shows literally and `data-if` content always shows.
-  The layout size is the view's size (no resolution picker yet). Scene `UiLayer`s stay inert in scene tabs.
+- **Stand-in data.** A document's data models are created by game code, so the preview binds stand-ins
+  (`UiPreviewData`, shaped by `RmlBindings`, a scan of the document's `data-model` scopes, data views and controllers,
+  `{{ }}` text, `data-for` iterators and event calls): text shows the variable's name, conditions are true, numbers 0,
+  `data-style-*` values a neutral value their property accepts, `src`/`href` empty, lists have 3 rows and events do
+  nothing. They are `RmlDataModel.BindVariable` sources ([Game UI](game-ui.md#data-binding)) that take any member a
+  view asks for, and keep values written by inputs and assignments, so the document stays interactive. Rebuilt when
+  the document changes; a "stand-in data" chip in the preview bar says which models are stood in for. A model the
+  layer already has (none today) is left alone.
+- **Limits.** The layout size is the view's size (no resolution picker yet). Scene `UiLayer`s stay inert in scene
+  tabs.
 
 ## FileSystem panel
 

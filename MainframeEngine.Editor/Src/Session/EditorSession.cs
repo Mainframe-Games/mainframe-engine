@@ -179,6 +179,7 @@ public sealed class EditorSession : IDisposable
         UseProjectOf(full);
         var preview = new UiPreview(full, ++_previewCounter);
         _host.AddChild(preview.Layer);
+        preview.Attached();
         if (LastActiveScene is { } backdrop)
             preview.SetBackdrop(backdrop, show: false);
         _tabs.Add(preview);

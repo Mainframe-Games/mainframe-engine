@@ -5,8 +5,9 @@ namespace MainframeEngine.Editor;
 /// (<see cref="Links"/>). The document sits in its own <see cref="UiLayer"/> (in the editor's root viewport, so it is
 /// drawn and takes the mouse) whose <see cref="UiLayer.Region"/> the workspace keeps on the viewport area; it is
 /// visible only while its tab is active. Changes on disk to the document, its style sheets, templates, images or fonts
-/// reload it (<see cref="Tick"/>) — the editor's UI server only watches the editor's own files. Optionally a scene tab
-/// renders behind it (<see cref="ShowBackdrop"/>), to see the UI in context.
+/// reload it (<see cref="Tick"/>) — the editor's UI server only watches the editor's own files. The data models game
+/// code would create are stood in for (<see cref="Data"/>), so bindings render. Optionally a scene tab renders behind
+/// it (<see cref="ShowBackdrop"/>), to see the UI in context.
 /// </summary>
 public sealed class UiPreview : IEditorTab
 {
@@ -49,6 +50,9 @@ public sealed class UiPreview : IEditorTab
     /// <summary>The style sheets and templates the document links (re-read when the document changes).</summary>
     public RmlLinks Links { get; private set; }
 
+    /// <summary>Stand-ins for the data models the document binds (rebuilt when the document changes).</summary>
+    public UiPreviewData Data { get; } = new();
+
     /// <summary>The scene tab rendered behind the UI while <see cref="ShowBackdrop"/> is on (null: none chosen yet).</summary>
     public EditedScene? BackdropScene { get; internal set; }
 
@@ -73,13 +77,25 @@ public sealed class UiPreview : IEditorTab
     {
         if (_disposed || kind == UiReloadKind.None)
             return;
+        var documents = (kind & UiReloadKind.Documents) != 0;
+        if (documents)
+            BindData(); // before the document reloads, so its views find the new stand-ins
         if (Layer.Server is { } ui)
             ui.Reload(Document, kind);
-        if ((kind & UiReloadKind.Documents) != 0)
+        if (documents)
         {
             Links = RmlLinks.Parse(FilePath);
             Version++;
         }
+    }
+
+    /// <summary>The layer entered the editor's tree: binds the stand-in data before the document first loads.</summary>
+    internal void Attached() => BindData();
+
+    private void BindData()
+    {
+        if (Layer.Context is { IsDisposed: false } context)
+            Data.Bind(context, RmlBindings.ParseFile(FilePath));
     }
 
     /// <summary>The file moved (FileSystem rename or move): the preview follows it.</summary>
@@ -87,6 +103,7 @@ public sealed class UiPreview : IEditorTab
     {
         FilePath = Path.GetFullPath(path);
         Document.Source = FilePath;
+        BindData();
         Links = RmlLinks.Parse(FilePath);
         _watcher.Dispose();
         _watcher = CreateWatcher();
@@ -133,6 +150,7 @@ public sealed class UiPreview : IEditorTab
         _watcher.Dispose();
         BackdropScene = null;
         PendingBackdrop = null;
+        Data.Dispose();
         if (!Layer.IsFreed)
             Layer.Free(); // the document with it
     }
