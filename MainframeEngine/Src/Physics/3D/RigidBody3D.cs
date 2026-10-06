@@ -237,15 +237,20 @@ public class RigidBody3D : PhysicsBody3D
 
     protected override void OnExitTree()
     {
+        base.OnExitTree();
+        _material.Deactivate();
+    }
+
+    private protected override void LeaveSpace()
+    {
         if (Record is { } record)
         {
-            // Keep the simulated state for a later re-entry (or for code reading it while outside the tree).
+            // Keep the simulated state for a later re-entry or re-enable (or for code reading it meanwhile).
             _linearVelocity = record.GetLinearVelocity();
             _angularVelocity = record.GetAngularVelocity();
         }
 
-        base.OnExitTree();
-        _material.Deactivate();
+        base.LeaveSpace();
     }
 
     private void OnMaterialChanged() => Record?.ApplyMaterial();

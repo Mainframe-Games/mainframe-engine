@@ -211,13 +211,26 @@ public partial class Node
 
     private void PropagateProcessMode()
     {
+        var wasDisabled = _resolvedProcessMode == (byte)ProcessMode.Disabled;
         ResolveProcessMode();
+        var disabled = _resolvedProcessMode == (byte)ProcessMode.Disabled;
+        if (wasDisabled != disabled)
+            OnDisabledChanged(disabled);
         for (var i = 0; _children is not null && i < _children.Count; i++)
         {
             var child = _children[i];
             if (child._processMode == (byte)ProcessMode.Inherit)
                 child.PropagateProcessMode();
         }
+    }
+
+    /// <summary>
+    /// Called inside a tree when the resolved <see cref="ProcessMode"/> becomes or stops being
+    /// <see cref="MainframeEngine.ProcessMode.Disabled"/> (Godot's <c>NOTIFICATION_DISABLED</c> / <c>ENABLED</c>). Not
+    /// called on entering or leaving the tree: those read <see cref="ResolvedProcessMode"/> themselves.
+    /// </summary>
+    private protected virtual void OnDisabledChanged(bool disabled)
+    {
     }
 
     // Overrides (and [Tool]) are found once per type with reflection (not a hot path; cached).

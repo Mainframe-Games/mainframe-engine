@@ -6,7 +6,8 @@ namespace MainframeEngine;
 /// Base of 3D physics nodes (Godot's <c>CollisionObject3D</c>): a body or area in its viewport's physics space
 /// (<see cref="PhysicsServer3D"/>, one Jitter2 world per <see cref="World3D"/>). Shapes come from direct
 /// <see cref="CollisionShape3D"/> children. The body is created when the node enters the tree and removed when it
-/// leaves.
+/// leaves, or while its resolved <see cref="Node.ProcessMode"/> is <see cref="ProcessMode.Disabled"/> (Godot's
+/// default <c>DisableMode.Remove</c>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -109,15 +110,32 @@ public abstract class CollisionObject3D : Node3D
     {
         base.OnEnterTree();
         TrackGlobalTransformChanges(true);
-        PhysicsServer3D.For(Tree!).AddObject(this);
+        if (ResolvedProcessMode != ProcessMode.Disabled)
+            PhysicsServer3D.For(Tree!).AddObject(this);
     }
 
     protected override void OnExitTree()
     {
-        if (Record is { } record)
-            record.Space.RemoveObject(record);
+        LeaveSpace();
         TrackGlobalTransformChanges(false);
         base.OnExitTree();
+    }
+
+    // Godot's default DisableMode.Remove: a disabled object leaves the physics space (it neither moves nor collides
+    // nor shows up in queries) and joins it again, at its current transform, when enabled.
+    private protected override void OnDisabledChanged(bool disabled)
+    {
+        if (disabled)
+            LeaveSpace();
+        else if (Tree is { } tree && Record is null)
+            PhysicsServer3D.For(tree).AddObject(this);
+    }
+
+    /// <summary>Removes the object from its space (leaving the tree or disabled). Subclasses keep state they need first.</summary>
+    private protected virtual void LeaveSpace()
+    {
+        if (Record is { } record)
+            record.Space.RemoveObject(record);
     }
 
     private protected override void OnGlobalTransformInvalidated()
