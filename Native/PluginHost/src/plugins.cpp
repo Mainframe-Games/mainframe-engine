@@ -333,7 +333,7 @@ void processBlock(PayloadReader& in, Frame& reply) {
 	ProcessContext& ctx = h.context;
 	ctx = ProcessContext{};
 	ctx.state = ProcessContext::kTempoValid | ProcessContext::kProjectTimeMusicValid | ProcessContext::kTimeSigValid |
-				((flags & 1u) ? ProcessContext::kPlaying : 0u);
+				((flags & 1u) ? static_cast<uint32>(ProcessContext::kPlaying) : 0u);
 	ctx.sampleRate = h.sampleRate;
 	ctx.projectTimeSamples = static_cast<TSamples>(projectFrame);
 	ctx.tempo = tempo > 0 ? tempo : 120.0;

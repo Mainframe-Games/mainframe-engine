@@ -68,8 +68,10 @@ endif()
 
 foreach(lib mfph_vst3_base mfph_vst3_hosting)
 	if(MSVC)
-		target_compile_options(${lib} PRIVATE /w /utf-8)
-		target_compile_definitions(${lib} PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
+		# The SDK's own toolset flags: /Zc:__cplusplus so SMTG_CPP20 sees C++20 (MSVC reports 199711 without it; the
+		# hosting code then takes its pre-C++20 path and misuses std::u8string), and _UNICODE.
+		target_compile_options(${lib} PRIVATE /w /utf-8 PUBLIC /Zc:__cplusplus)
+		target_compile_definitions(${lib} PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX _UNICODE)
 	else()
 		target_compile_options(${lib} PRIVATE -w)
 	endif()

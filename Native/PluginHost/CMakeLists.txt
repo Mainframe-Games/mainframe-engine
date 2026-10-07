@@ -150,7 +150,7 @@ foreach(target mfph_core mfplughost)
 	target_compile_features(${target} PRIVATE cxx_std_20)
 	set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF)
 	if(MSVC)
-		target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8 $<$<BOOL:${MF_NATIVES_WERROR}>:/WX>)
+		target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8 /Zc:__cplusplus $<$<BOOL:${MF_NATIVES_WERROR}>:/WX>)
 	else()
 		target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion
 			$<$<BOOL:${MF_NATIVES_WERROR}>:-Werror>)
