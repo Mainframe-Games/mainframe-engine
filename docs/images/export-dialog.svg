@@ -1,0 +1,232 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Export dialog (G5)</title>
+  <desc>Planned File › Export dialog of the Mainframe Editor. Left: the project's export presets with add, duplicate and delete icon buttons, a platform glyph and a validation badge per preset. Right: the selected preset's options: name, platform and RID, output folder, configuration and version, build toggles (demo, self-contained, ReadyToRun, single file, trim, archive), Steam, icon, content include and exclude globs, and the validation list. Bottom: progress bar, export log, and the Cancel, Export and Export All actions.</desc>
+  <rect width="960" height="740" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .sec{font-weight:600;font-size:11px;fill:#9ca3af;letter-spacing:0.5px}
+    .t{fill:#d1d5db;font-size:12px}
+    .s{fill:#9ca3af;font-size:11px}
+    .doc{fill:#93c5fd;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .mono{fill:#d1d5db;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .err{fill:#fca5a5;font-size:11.5px}
+    .warn{fill:#fcd34d;font-size:11.5px}
+    .ok{fill:#86efac}
+    .cap{fill:#374151;font-size:12px}
+    .leg{fill:#374151;font-size:11.5px}
+    .num{fill:#ffffff;font-size:10px;font-weight:700}
+    .tip{fill:#e5e7eb;font-size:11px}
+  </style>
+
+  <!-- dialog window -->
+  <rect x="20" y="20" width="920" height="592" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="920" height="30" rx="8" fill="#15171c"/>
+  <text x="34" y="40" class="hdr">Export</text>
+  <text x="88" y="40" class="s">MyGame · 5 presets · .NET SDK 10.0.104</text>
+  <!-- close (icon button) -->
+  <rect x="908" y="26" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <path d="M914 31 l10 10 M924 31 l-10 10" stroke="#d1d5db" stroke-width="1.6"/>
+
+  <!-- ============ left: preset list ============ -->
+  <rect x="32" y="60" width="240" height="412" fill="#262931" stroke="#3b3f4b"/>
+  <text x="44" y="81" class="hdr">Presets</text>
+  <!-- add -->
+  <rect x="188" y="66" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <path d="M199 70 v12 M193 76 h12" stroke="#d1d5db" stroke-width="1.6"/>
+  <!-- duplicate -->
+  <rect x="214" y="66" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="219" y="70" width="8" height="8" rx="1" fill="none" stroke="#d1d5db" stroke-width="1.3"/>
+  <rect x="223" y="74" width="8" height="8" rx="1" fill="#3b3f4b" stroke="#d1d5db" stroke-width="1.3"/>
+  <!-- delete -->
+  <rect x="240" y="66" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <path d="M245 72 h12 M247 72 v10 h8 v-10 M249 70 h4" fill="none" stroke="#d1d5db" stroke-width="1.3"/>
+  <text x="44" y="106" class="s">platform · RID · status</text>
+
+  <!-- row 0 (selected): Windows (Steam) -->
+  <rect x="36" y="118" width="232" height="40" fill="#1d4ed8" opacity="0.55"/>
+  <g fill="#60a5fa"><rect x="44" y="125" width="5" height="5"/><rect x="50" y="125" width="5" height="5"/><rect x="44" y="131" width="5" height="5"/><rect x="50" y="131" width="5" height="5"/></g>
+  <text x="66" y="134" class="t">Windows (Steam)</text>
+  <text x="66" y="150" class="s">win-x64 · Release · Steam</text>
+  <circle cx="254" cy="138" r="6" fill="#dc2626"/><text x="251" y="142" class="num">!</text>
+
+  <!-- row 1: Windows (Steam demo) -->
+  <g fill="#60a5fa"><rect x="44" y="165" width="5" height="5"/><rect x="50" y="165" width="5" height="5"/><rect x="44" y="171" width="5" height="5"/><rect x="50" y="171" width="5" height="5"/></g>
+  <text x="66" y="174" class="t">Windows (Steam demo)</text>
+  <text x="66" y="190" class="s">win-x64 · Release · Demo · Steam</text>
+  <circle cx="254" cy="178" r="6" fill="#dc2626"/><text x="251" y="182" class="num">!</text>
+
+  <!-- row 2: macOS -->
+  <circle cx="49.5" cy="211" r="5" fill="#e5e7eb"/><ellipse cx="51" cy="204" rx="1.6" ry="2.6" fill="#e5e7eb" transform="rotate(30 51 204)"/>
+  <text x="66" y="214" class="t">macOS</text>
+  <text x="66" y="230" class="s">osx-arm64 · Release · .app</text>
+  <path d="M249 218 l3 3 l6 -7" fill="none" stroke="#22c55e" stroke-width="2"/>
+
+  <!-- row 3: Linux -->
+  <rect x="44" y="245" width="11" height="9" rx="1.5" fill="none" stroke="#fbbf24" stroke-width="1.3"/>
+  <path d="M46 248 l2 1.5 l-2 1.5" fill="none" stroke="#fbbf24" stroke-width="1.1"/>
+  <text x="66" y="254" class="t">Linux</text>
+  <text x="66" y="270" class="s">linux-x64 · Release · .tar.gz</text>
+  <path d="M249 258 l3 3 l6 -7" fill="none" stroke="#22c55e" stroke-width="2"/>
+
+  <!-- row 4: Linux server -->
+  <rect x="44" y="284" width="11" height="4" rx="1" fill="none" stroke="#fbbf24" stroke-width="1.2"/>
+  <rect x="44" y="290" width="11" height="4" rx="1" fill="none" stroke="#fbbf24" stroke-width="1.2"/>
+  <text x="66" y="294" class="t">Linux server (headless)</text>
+  <text x="66" y="310" class="s">linux-x64 · folder (Steam depot)</text>
+  <path d="M249 298 l3 3 l6 -7" fill="none" stroke="#22c55e" stroke-width="2"/>
+
+  <line x1="44" y1="330" x2="260" y2="330" stroke="#3b3f4b"/>
+  <text x="44" y="350" class="s">Export All runs every preset in list</text>
+  <text x="44" y="365" class="s">order, one at a time, and keeps going</text>
+  <text x="44" y="380" class="s">after a failure (summary at the end).</text>
+  <text x="44" y="462" class="doc">project.mfproj › "export"</text>
+
+  <!-- ============ right: preset options ============ -->
+  <rect x="282" y="60" width="646" height="412" fill="#262931" stroke="#3b3f4b"/>
+  <g fill="#60a5fa"><rect x="430" y="70" width="5" height="5"/><rect x="436" y="70" width="5" height="5"/><rect x="430" y="76" width="5" height="5"/><rect x="436" y="76" width="5" height="5"/></g>
+  <text x="448" y="81" class="hdr">Windows (Steam)</text>
+  <text x="566" y="81" class="s">→ export/windows/MyGame-1.2.0-win-x64.zip</text>
+
+  <!-- name -->
+  <text x="296" y="141" class="t">Name</text>
+  <rect x="400" y="129" width="250" height="18" rx="2" fill="#3b3f4b"/><text x="406" y="142" class="t">Windows (Steam)</text>
+  <!-- platform + rid -->
+  <text x="296" y="167" class="t">Platform</text>
+  <rect x="400" y="155" width="120" height="18" rx="2" fill="#3b3f4b"/>
+  <g fill="#60a5fa"><rect x="406" y="159" width="4" height="4"/><rect x="411" y="159" width="4" height="4"/><rect x="406" y="164" width="4" height="4"/><rect x="411" y="164" width="4" height="4"/></g>
+  <text x="420" y="168" class="t">Windows ▾</text>
+  <text x="536" y="167" class="t">RID</text>
+  <rect x="566" y="155" width="110" height="18" rx="2" fill="#3b3f4b"/><text x="572" y="168" class="t">win-x64 ▾</text>
+  <text x="686" y="167" class="s">RIDs with engine natives only</text>
+  <!-- output -->
+  <text x="296" y="193" class="t">Output</text>
+  <rect x="400" y="181" width="400" height="18" rx="2" fill="#3b3f4b"/><text x="406" y="194" class="t">export/windows</text>
+  <text x="600" y="194" class="s">(project-relative)</text>
+  <rect x="806" y="180" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <path d="M811 187 h5 l2 2 h6 v7 h-13 z" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+  <!-- configuration + version -->
+  <text x="296" y="219" class="t">Configuration</text>
+  <rect x="400" y="207" width="120" height="18" rx="2" fill="#3b3f4b"/><text x="406" y="220" class="t">Release ▾</text>
+  <text x="536" y="219" class="t">Version</text>
+  <rect x="590" y="207" width="110" height="18" rx="2" fill="#3b3f4b"/><text x="596" y="220" class="s">1.2.0</text>
+  <text x="708" y="219" class="s">empty: project › version</text>
+
+  <!-- build -->
+  <text x="296" y="247" class="sec">BUILD</text>
+  <line x1="340" y1="243" x2="900" y2="243" stroke="#3b3f4b"/>
+  <rect x="296" y="258" width="12" height="12" rx="2" fill="#3b3f4b"/><text x="314" y="269" class="t">Demo build</text>
+  <rect x="410" y="258" width="12" height="12" rx="2" fill="#1d4ed8"/><path d="M412 264 l3 3 l5 -6" fill="none" stroke="#fff" stroke-width="1.6"/><text x="428" y="269" class="t">Self-contained</text>
+  <rect x="540" y="258" width="12" height="12" rx="2" fill="#1d4ed8"/><path d="M542 264 l3 3 l5 -6" fill="none" stroke="#fff" stroke-width="1.6"/><text x="558" y="269" class="t">ReadyToRun</text>
+  <rect x="656" y="258" width="12" height="12" rx="2" fill="#3b3f4b"/><text x="674" y="269" class="t">Single file</text>
+  <rect x="768" y="258" width="12" height="12" rx="2" fill="#3b3f4b"/><text x="786" y="269" class="t">Trim</text><text x="816" y="269" class="s">(experimental)</text>
+  <rect x="296" y="280" width="12" height="12" rx="2" fill="#1d4ed8"/><path d="M298 286 l3 3 l5 -6" fill="none" stroke="#fff" stroke-width="1.6"/><text x="314" y="291" class="t">Archive (.zip)</text>
+  <text x="410" y="291" class="t">Executable</text>
+  <rect x="478" y="279" width="120" height="18" rx="2" fill="#3b3f4b"/><text x="484" y="292" class="s">MyGame</text>
+  <text x="608" y="291" class="s">default: name without spaces</text>
+
+  <!-- steam -->
+  <text x="296" y="317" class="sec">STEAM</text>
+  <line x1="342" y1="313" x2="900" y2="313" stroke="#3b3f4b"/>
+  <rect x="296" y="326" width="12" height="12" rx="2" fill="#1d4ed8"/><path d="M298 332 l3 3 l5 -6" fill="none" stroke="#fff" stroke-width="1.6"/><text x="314" y="337" class="t">Steam</text>
+  <text x="410" y="337" class="t">App ID 480</text><text x="480" y="337" class="s">(full) · Demo App ID 0 · from Project Settings</text>
+  <rect x="752" y="324" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <circle cx="763" cy="334" r="4" fill="none" stroke="#d1d5db" stroke-width="1.4"/><circle cx="763" cy="334" r="1.3" fill="#d1d5db"/>
+  <text x="782" y="337" class="s">Steamworks…</text>
+
+  <!-- icon -->
+  <text x="296" y="365" class="t">Icon</text>
+  <rect x="400" y="351" width="20" height="20" rx="4" fill="#1d4ed8"/><rect x="405" y="356" width="10" height="10" rx="2" fill="#93c5fd"/>
+  <text x="428" y="365" class="t">Content/icon.png</text><text x="530" y="365" class="s">(window.icon) → .ico / .icns</text>
+  <rect x="700" y="351" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="705" y="355" width="12" height="11" rx="1.5" fill="none" stroke="#d1d5db" stroke-width="1.2"/><path d="M706 364 l3 -4 l3 3 l2 -2 l2 3" fill="none" stroke="#d1d5db" stroke-width="1"/>
+  <rect x="726" y="351" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <path d="M732 356 l10 10 M742 356 l-10 10" stroke="#d1d5db" stroke-width="1.4"/>
+
+  <!-- content filters -->
+  <text x="296" y="393" class="t">Include</text>
+  <rect x="400" y="381" width="78" height="18" rx="9" fill="#374151"/><text x="410" y="394" class="mono">Content/**</text>
+  <text x="296" y="417" class="t">Exclude</text>
+  <rect x="400" y="405" width="112" height="18" rx="9" fill="#374151"/><text x="410" y="418" class="mono">Content/**/*.po</text>
+  <rect x="518" y="405" width="118" height="18" rx="9" fill="#374151"/><text x="528" y="418" class="mono">Content/**/*.pot</text>
+  <rect x="642" y="405" width="104" height="18" rx="9" fill="#374151"/><text x="652" y="418" class="mono">Content/Dev/**</text>
+  <rect x="752" y="404" width="22" height="20" rx="3" fill="#3b3f4b"/>
+  <path d="M763 408 v12 M757 414 h12" stroke="#d1d5db" stroke-width="1.6"/>
+
+  <!-- validation -->
+  <rect x="296" y="430" width="600" height="36" rx="3" fill="#2a1d22" stroke="#7f1d1d"/>
+  <text x="304" y="444" class="err">✕ Steam is on, but win-x64 has no steam_api64.dll (Steamworks SDK redistributable).</text>
+  <text x="304" y="460" class="warn">⚠ The exe icon is only embedded on a Windows host (NETSDK1074); default icon here.</text>
+
+  <!-- ============ footer: progress, log, actions ============ -->
+  <rect x="32" y="482" width="896" height="120" fill="#262931" stroke="#3b3f4b"/>
+  <text x="44" y="500" class="t">Exporting 2/5 · Windows (Steam demo) · Publish</text>
+  <rect x="44" y="507" width="620" height="6" rx="3" fill="#3b3f4b"/>
+  <rect x="44" y="507" width="248" height="6" rx="3" fill="#1d4ed8"/>
+  <text x="44" y="531" class="mono">[export] Windows (Steam): ✕ validation failed (1 error) — skipped</text>
+  <text x="44" y="547" class="mono">[export] Steam demo: dotnet publish MyGame.Desktop -r win-x64 -p:MainframeDemo=true</text>
+  <text x="44" y="563" class="mono">[export]   MyGame.Desktop -&gt; .mainframe/export/stage/publish/</text>
+  <text x="44" y="579" class="mono" fill="#9ca3af">[export] Same lines in the Output panel (category "export"; build errors open in the code editor)</text>
+  <text x="44" y="595" class="doc">editor/export.rml</text>
+
+  <!-- tooltip of Export All -->
+  <rect x="700" y="502" width="228" height="34" rx="4" fill="#111827" stroke="#4b5563"/>
+  <text x="708" y="516" class="tip" font-weight="600">Export All</text>
+  <text x="708" y="530" class="s">Every preset, in order, one at a time</text>
+  <path d="M874 536 l-5 6 h10 z" fill="#111827"/>
+
+  <!-- cancel (icon) -->
+  <rect x="700" y="562" width="28" height="26" rx="3" fill="#3b3f4b"/>
+  <rect x="709" y="570" width="10" height="10" rx="1.5" fill="#fca5a5"/>
+  <!-- export (primary) -->
+  <rect x="734" y="562" width="88" height="26" rx="3" fill="#1d4ed8"/>
+  <path d="M746 568 v10 M742 572 l4 -4 l4 4 M741 581 h10" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="758" y="580" class="t" fill="#ffffff">Export</text>
+  <!-- export all -->
+  <rect x="828" y="562" width="100" height="26" rx="3" fill="#3b3f4b"/>
+  <path d="M840 568 v10 M836 572 l4 -4 l4 4 M835 581 h10 M846 571 h4 M846 575 h4" fill="none" stroke="#d1d5db" stroke-width="1.4"/>
+  <text x="856" y="580" class="t">Export All</text>
+
+  <!-- tooltip of the add button -->
+  <path d="M199 86 l-5 6 h10 z" fill="#111827"/>
+  <rect x="150" y="92" width="290" height="34" rx="4" fill="#111827" stroke="#4b5563"/>
+  <text x="158" y="106" class="tip" font-weight="600">Add Preset</text>
+  <text x="158" y="120" class="s">Windows · macOS · Linux (this computer's RID first)</text>
+
+  <!-- ============ numbered callouts ============ -->
+  <g>
+    <circle cx="170" cy="76" r="8" fill="#1d4ed8"/><text x="167" y="80" class="num">1</text>
+    <circle cx="916" cy="164" r="8" fill="#1d4ed8"/><text x="913" y="168" class="num">2</text>
+    <circle cx="916" cy="264" r="8" fill="#1d4ed8"/><text x="913" y="268" class="num">3</text>
+    <circle cx="916" cy="332" r="8" fill="#1d4ed8"/><text x="913" y="336" class="num">4</text>
+    <circle cx="916" cy="362" r="8" fill="#1d4ed8"/><text x="913" y="366" class="num">5</text>
+    <circle cx="916" cy="404" r="8" fill="#1d4ed8"/><text x="913" y="408" class="num">6</text>
+    <circle cx="916" cy="448" r="8" fill="#1d4ed8"/><text x="913" y="452" class="num">7</text>
+    <circle cx="680" cy="510" r="8" fill="#1d4ed8"/><text x="677" y="514" class="num">8</text>
+    <circle cx="690" cy="596" r="8" fill="#1d4ed8"/><text x="687" y="600" class="num">9</text>
+  </g>
+
+  <!-- legend -->
+  <g>
+    <circle cx="32" cy="634" r="7" fill="#1d4ed8"/><text x="29" y="638" class="num">1</text>
+    <text x="46" y="638" class="leg">Presets in project.mfproj; Add / Duplicate / Delete are icon buttons with tooltips.</text>
+    <circle cx="32" cy="654" r="7" fill="#1d4ed8"/><text x="29" y="658" class="num">2</text>
+    <text x="46" y="658" class="leg">Platform + RID (only RIDs the engine ships natives for).</text>
+    <circle cx="32" cy="674" r="7" fill="#1d4ed8"/><text x="29" y="678" class="num">3</text>
+    <text x="46" y="678" class="leg">Demo flag → -p:MainframeDemo; publish options; zip or folder.</text>
+    <circle cx="32" cy="694" r="7" fill="#1d4ed8"/><text x="29" y="698" class="num">4</text>
+    <text x="46" y="698" class="leg">Steam on/off; app ids stay in Project Settings › Steamworks.</text>
+
+    <circle cx="500" cy="634" r="7" fill="#1d4ed8"/><text x="497" y="638" class="num">5</text>
+    <text x="514" y="638" class="leg">Icon PNG → .ico (Windows) / .icns (macOS), written in C#.</text>
+    <circle cx="500" cy="654" r="7" fill="#1d4ed8"/><text x="497" y="658" class="num">6</text>
+    <text x="514" y="658" class="leg">Content include / exclude globs (chips; + adds one).</text>
+    <circle cx="500" cy="674" r="7" fill="#1d4ed8"/><text x="497" y="678" class="num">7</text>
+    <text x="514" y="678" class="leg">Validation: errors block the export, warnings do not.</text>
+    <circle cx="500" cy="694" r="7" fill="#1d4ed8"/><text x="497" y="698" class="num">8</text>
+    <text x="514" y="698" class="leg">Progress + log (also in Output).</text>
+    <circle cx="704" cy="694" r="7" fill="#1d4ed8"/><text x="701" y="698" class="num">9</text>
+    <text x="718" y="698" class="leg">Cancel, Export, Export All.</text>
+  </g>
+
+  <text x="20" y="728" class="cap">File › Export (G5). The same ExportRunner backs this dialog, mf-export / just package-game and the editor's --export flag for CI.</text>
+</svg>
