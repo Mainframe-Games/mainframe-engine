@@ -31,8 +31,11 @@ public sealed class SongRenderJob : IDisposable
 
     public bool IsCancelled => _cancel.IsCancellationRequested;
 
-    /// <summary>Starts rendering <paramref name="song"/> (copied first) into the project of <paramref name="database"/>.</summary>
-    public static SongRenderJob Start(Song song, string songPath, AssetDatabase database)
+    /// <summary>
+    /// Starts rendering <paramref name="song"/> (copied first) into the project of <paramref name="database"/>;
+    /// <paramref name="encoder"/> encodes an <c>.ogg</c> output (null: written as <c>.wav</c>).
+    /// </summary>
+    public static SongRenderJob Start(Song song, string songPath, AssetDatabase database, IPluginHost? encoder = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(database);
@@ -40,7 +43,7 @@ public sealed class SongRenderJob : IDisposable
         var name = Path.GetFileNameWithoutExtension(songPath);
         var job = new SongRenderJob(Path.GetFullPath(songPath), name, System.Threading.Tasks.Task.FromResult(default(SongRenderResult)));
         var progress = new ProgressSink(job);
-        job.Task = System.Threading.Tasks.Task.Run(() => SongRenderer.Render(copy, name, database, progress: progress, cancellation: job._cancel.Token));
+        job.Task = System.Threading.Tasks.Task.Run(() => SongRenderer.Render(copy, name, database, progress: progress, cancellation: job._cancel.Token, encoder: encoder));
         return job;
     }
 

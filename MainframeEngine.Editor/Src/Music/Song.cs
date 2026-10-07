@@ -98,12 +98,12 @@ public sealed class SongLoop
 /// <summary>Where and how <see cref="SongRenderer"/> writes the song.</summary>
 public sealed class SongRenderSettings
 {
-    /// <summary>Project path of the output (null: <c>Content/Music/&lt;SongName&gt;.wav</c>).</summary>
+    /// <summary>Project path of the output, <c>.ogg</c> or <c>.wav</c> (null: <c>Content/Music/&lt;SongName&gt;.ogg</c>, or <c>.wav</c> without the plugin helper).</summary>
     public string? Output { get; set; }
 
     public int SampleRate { get; set; } = 48000;
 
-    /// <summary>Vorbis quality (0–10) for the later <c>.ogg</c> encoder; unused while renders are WAV.</summary>
+    /// <summary>Vorbis VBR quality (0–10) of an <c>.ogg</c> output.</summary>
     public int Quality { get; set; } = 6;
 
     /// <summary>Seconds rendered past the last clip (without a loop) so tails ring out.</summary>
@@ -112,7 +112,7 @@ public sealed class SongRenderSettings
     /// <summary>With a loop: render it twice and keep the second pass (tails folded into the start).</summary>
     public bool SeamlessLoop { get; set; } = true;
 
-    /// <summary>The WAV's samples: 32-bit float (exact; the default, not written) or 16-bit PCM (half the size, for shipping).</summary>
+    /// <summary>A <c>.wav</c> output's samples: 32-bit float (exact; the default, not written) or 16-bit PCM (half the size, for shipping).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public SongSampleFormat SampleFormat { get; set; }
 

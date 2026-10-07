@@ -29,26 +29,43 @@ public readonly record struct SongRenderPlan(long StartFrame, long RenderFrames,
 /// a worker for the UI). Without a loop: from 0 to the end of the last clip plus <see cref="SongRenderSettings.TailSeconds"/>.
 /// With a loop and <see cref="SongRenderSettings.SeamlessLoop"/>: the loop region twice, keeping the second pass, so
 /// tails from the loop's end are already in its start (the whole file is the loop). With a loop, not seamless: from 0 to
-/// the loop end, with the loop region as the file's loop points. Writes a WAV (32-bit float, or 16-bit PCM with
-/// <see cref="SongRenderSettings.SampleFormat"/>) to a temporary name and then
-/// replaces the output (a failed render leaves the previous file intact), then the output's <c>.meta</c> import settings
-/// (<c>loop</c>, <c>loopStart</c>, <c>loopEnd</c> in seconds, <c>loadMode: Stream</c>).
+/// the loop end, with the loop region as the file's loop points. An <c>.ogg</c> output (the default) is a temporary
+/// 32-bit float WAV encoded by the plugin helper (<see cref="IPluginHost.Encode"/>, Vorbis VBR at
+/// <see cref="SongRenderSettings.Quality"/>); a <c>.wav</c> output is written directly (32-bit float, or 16-bit PCM with
+/// <see cref="SongRenderSettings.SampleFormat"/>). Either way the output is replaced only once complete (a failed render
+/// leaves the previous file intact), then the output's <c>.meta</c> import settings are written (<c>loop</c>,
+/// <c>loopStart</c>, <c>loopEnd</c> in seconds, <c>loadMode: Stream</c>).
 /// </summary>
 /// <remarks>
-/// Encoding to <c>.ogg</c> needs the plugin helper's Vorbis encoder (a later phase): an output named <c>.ogg</c> is
-/// written as <c>.wav</c> next to it, and the log says so.
+/// Without a helper (none for this platform, or none passed) an <c>.ogg</c> output is written as <c>.wav</c> next to it,
+/// and the log says so.
 /// </remarks>
 public static class SongRenderer
 {
     public const string DefaultFolder = "Content/Music";
 
-    /// <summary>The project path the song renders to: its setting, else <c>Content/Music/&lt;name&gt;.wav</c>; always <c>.wav</c> for now.</summary>
-    public static string OutputPathFor(Song song, string songName)
+    /// <summary>
+    /// The project path the song renders to: its setting, else <c>Content/Music/&lt;name&gt;.ogg</c>; <c>.ogg</c> only
+    /// when <paramref name="canEncode"/> (a plugin helper exists), anything else as <c>.wav</c>.
+    /// </summary>
+    public static string OutputPathFor(Song song, string songName, bool canEncode)
     {
         ArgumentNullException.ThrowIfNull(song);
-        var output = string.IsNullOrWhiteSpace(song.Render.Output) ? $"{DefaultFolder}/{songName}.wav" : song.Render.Output.Replace('\\', '/');
-        return Path.ChangeExtension(output, ".wav");
+        return OutputPathFor(song.Render.Output, songName, canEncode);
     }
+
+    /// <inheritdoc cref="OutputPathFor(Song, string, bool)"/>
+    public static string OutputPathFor(string? output, string songName, bool canEncode)
+    {
+        var requested = RequestedOutput(output, songName);
+        return canEncode && IsOgg(requested) ? requested : Path.ChangeExtension(requested, ".wav");
+    }
+
+    // The output as set (or the .ogg default), before falling back to .wav.
+    private static string RequestedOutput(string? output, string songName) =>
+        string.IsNullOrWhiteSpace(output) ? $"{DefaultFolder}/{songName}.ogg" : output.Replace('\\', '/');
+
+    private static bool IsOgg(string path) => string.Equals(Path.GetExtension(path), ".ogg", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Which frames a render covers at <paramref name="snapshot"/>'s rate.</summary>
     public static SongRenderPlan Plan(Song song, SongSnapshot snapshot)
@@ -113,22 +130,31 @@ public static class SongRenderer
 
     /// <summary>
     /// Renders <paramref name="song"/> to its output in the project of <paramref name="database"/> and writes the output's
-    /// <c>.meta</c>. <paramref name="songName"/> names the default output (the song file's name).
+    /// <c>.meta</c>. <paramref name="songName"/> names the default output (the song file's name). <paramref name="encoder"/>
+    /// encodes an <c>.ogg</c> output; without one it is written as <c>.wav</c> (with a warning).
     /// </summary>
+    /// <exception cref="PluginHostException">Encoding failed (the previous output is left intact).</exception>
     public static SongRenderResult Render(Song song, string songName, AssetDatabase database,
         Func<SongTrack, int, IInstrument?>? instrumentFactory = null, Func<string, AudioStream?>? clipLoader = null,
-        IProgress<double>? progress = null, CancellationToken cancellation = default)
+        IProgress<double>? progress = null, IPluginHost? encoder = null, CancellationToken cancellation = default)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(database);
-        var requested = string.IsNullOrWhiteSpace(song.Render.Output) ? null : song.Render.Output;
-        var output = OutputPathFor(song, songName);
-        if (requested is not null && !string.Equals(Path.GetExtension(requested), ".wav", StringComparison.OrdinalIgnoreCase))
-            Log.Warning($"[Music] '{requested}': encoding to {Path.GetExtension(requested)} needs the plugin helper (not available yet); rendering '{output}' instead.");
+        var requested = RequestedOutput(song.Render.Output, songName);
+        var output = OutputPathFor(song.Render.Output, songName, encoder is not null);
+        var encode = IsOgg(output);
+        if (!string.Equals(requested, output, StringComparison.Ordinal))
+        {
+            var why = IsOgg(requested)
+                ? "encoding to .ogg needs the plugin helper (mfplughost), which is not available here"
+                : "only .ogg and .wav are supported";
+            Log.Warning($"[Music] '{requested}': {why}; rendering '{output}' instead.");
+        }
 
         var samples = RenderToBuffer(song, out var plan, instrumentFactory, clipLoader, progress, cancellation);
         var rate = Math.Clamp(song.Render.SampleRate, 8000, 192000);
-        var format = song.Render.SampleFormat == SongSampleFormat.Pcm16 ? WavSampleFormat.Pcm16 : WavSampleFormat.IeeeFloat;
+        var format = encode || song.Render.SampleFormat != SongSampleFormat.Pcm16 ? WavSampleFormat.IeeeFloat : WavSampleFormat.Pcm16;
+        var quality = Math.Clamp(song.Render.Quality, 0, 10);
         var full = database.ToAbsolutePath(output);
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         var temp = full + ".rendering.tmp";
@@ -136,17 +162,23 @@ public static class SongRenderer
         {
             WavWriter.Write(temp, samples, 2, rate, format);
             cancellation.ThrowIfCancellationRequested();
-            File.Move(temp, full, overwrite: true);
+            if (encode)
+                encoder!.Encode(temp, full, quality, cancellation); // writes <full>.encoding.tmp, then renames it over full
+            else
+                File.Move(temp, full, overwrite: true);
         }
         finally
         {
             if (File.Exists(temp))
                 File.Delete(temp);
+            if (File.Exists(full + ".encoding.tmp"))
+                File.Delete(full + ".encoding.tmp");
         }
 
         WriteMeta(database, output, plan);
         var result = new SongRenderResult(database.ToProjectPath(full), plan.OutputFrames, rate, plan.Loop, plan.LoopStart, plan.LoopEnd);
-        Log.Info($"[Music] Rendered '{songName}' to {result.OutputPath} (WAV, {(format == WavSampleFormat.Pcm16 ? "16-bit PCM" : "32-bit float")}, {result.Seconds:0.00} s{(plan.Loop ? ", loops" : "")}).");
+        var kind = encode ? $"Ogg Vorbis, quality {quality}" : $"WAV, {(format == WavSampleFormat.Pcm16 ? "16-bit PCM" : "32-bit float")}";
+        Log.Info($"[Music] Rendered '{songName}' to {result.OutputPath} ({kind}, {result.Seconds:0.00} s{(plan.Loop ? ", loops" : "")}).");
         return result;
     }
 

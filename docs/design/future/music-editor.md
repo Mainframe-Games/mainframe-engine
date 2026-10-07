@@ -3,7 +3,9 @@
 **Milestone:** unscheduled (editor tooling, after [ZzFX sounds and the sound designer](sound-designer.md)) · **Status:**
 partly built: song editor without plugins (2026-10-08) — song model, engine, render to WAV, `AudioStreamGenerator`
 ([ADR 0145](../../../memory/decisions/0145-song-engine-built-in-phase.md)) and the song tab ([Editor → Song tab](../editor.md#song-tab-music-editor));
-plugin host, Vorbis encoding and MIDI input pending · **Depends on:** [Sound designer](sound-designer.md) (editor audio, `AudioPreview`,
+helper process and Vorbis encoding built (2026-10-08): `mfplughost` (`--encode`, `--serve` socket protocol),
+`PluginHostClient`, Render to `.ogg` ([ADR 0146](../../../memory/decisions/0146-plugin-host-helper-process.md),
+[Natives](../natives.md#the-music-editor-helper-mfplughost)); VST3 hosting and MIDI input pending · **Depends on:** [Sound designer](sound-designer.md) (editor audio, `AudioPreview`,
 the ZzFX port), [Audio](../audio.md), [Editor](../editor.md), [Natives](../natives.md) · **Related:**
 [UI preview tabs](../editor.md#ui-preview), [Game UI](../game-ui.md)
 

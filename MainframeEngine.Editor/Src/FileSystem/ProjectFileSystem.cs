@@ -409,12 +409,13 @@ public sealed class ProjectFileSystem : IDisposable
         Set(entry.BadgeText, lines is null ? null : string.Join('\n', lines), v => entry.BadgeText = v);
     }
 
-    // The song's render output (as SongRenderer.OutputPathFor names it: always .wav for now).
+    // The song's render output, as SongRenderer names it (.ogg when this editor has the plugin helper, else .wav).
+    private static readonly bool s_canEncode = MainframeEngine.Editor.Music.PluginHostClient.IsAvailable;
+
     private (string Project, string Full)? RenderOutputOf(ProjectFileEntry entry, FilePeek peek)
     {
         var name = Path.GetFileNameWithoutExtension(entry.Name);
-        var output = string.IsNullOrWhiteSpace(peek.RenderOutput) ? $"Content/Music/{name}.wav" : peek.RenderOutput.Replace('\\', '/');
-        output = Path.ChangeExtension(output, ".wav");
+        var output = MainframeEngine.Editor.Music.SongRenderer.OutputPathFor(peek.RenderOutput, name, s_canEncode);
         try
         {
             return (output, Path.GetFullPath(output, ProjectRoot));

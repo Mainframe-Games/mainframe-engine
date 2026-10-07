@@ -3,7 +3,8 @@ namespace MainframeEngine.Editor.Music;
 /// <summary>
 /// <c>--render-song &lt;path.msong&gt;</c>: renders a song headless (no window, SDL or engine) into its project like the
 /// song tab's Render — the output file and its <c>.meta</c> — and exits 0, or 1 on an error (CI, batch renders,
-/// <c>just render-song</c>). The project is the nearest folder above the song holding <c>project.mfproj</c>.
+/// <c>just render-song</c>). The project is the nearest folder above the song holding <c>project.mfproj</c>. An <c>.ogg</c>
+/// output is encoded through the plugin helper when this platform has one (<see cref="PluginHostClient.Locate"/>).
 /// </summary>
 public static class SongRenderCommand
 {
@@ -41,12 +42,13 @@ public static class SongRenderCommand
             var song = SongFormat.Load(path).Song;
             var database = new AssetDatabase(root);
             AssetDatabase.Current = database; // audio clips resolve their UIDs in the song's project
-            var result = SongRenderer.Render(song, Path.GetFileNameWithoutExtension(path), database);
+            using var encoder = PluginHostClient.TryCreate();
+            var result = SongRenderer.Render(song, Path.GetFileNameWithoutExtension(path), database, encoder: encoder);
             output.WriteLine($"Rendered {result.OutputPath} ({result.Seconds:0.00} s, {result.SampleRate} Hz{(result.Loop ? ", loops" : "")}).");
             return 0;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException
-                                      or FormatException or System.Text.Json.JsonException)
+                                      or FormatException or System.Text.Json.JsonException or PluginHostException)
         {
             error.WriteLine($"Could not render '{path}': {e.Message}");
             return 1;

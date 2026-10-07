@@ -358,7 +358,7 @@ public sealed class SongPanel : EditorDocument
             _rendering = job is not null;
             _renderLabel = job is null ? "Render" : $"Cancel {render} %";
             _renderTooltip = job is null
-                ? $"Render — write {SongRenderer.OutputPathFor(tab.Document.Song, tab.Document.Name)} (32-bit float WAV) and its loop points; Ogg encoding arrives with the plugin helper"
+                ? RenderTooltip(tab)
                 : $"Rendering {tab.Document.Name}… {render} % — click to cancel (the previous output stays)";
             dirty = true;
         }
@@ -654,6 +654,17 @@ public sealed class SongPanel : EditorDocument
     }
 
     private static string Number(float value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static readonly bool s_canEncode = PluginHostClient.IsAvailable;
+
+    private static string RenderTooltip(SongTab tab)
+    {
+        var output = SongRenderer.OutputPathFor(tab.Document.Song, tab.Document.Name, s_canEncode);
+        var format = output.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)
+            ? $"Ogg Vorbis, quality {tab.Document.Song.Render.Quality}"
+            : tab.Document.Song.Render.SampleFormat == SongSampleFormat.Pcm16 ? "16-bit WAV" : "32-bit float WAV";
+        return $"Render — write {output} ({format}) and its loop points";
+    }
 
     private static string DbText(float db) => db <= -60 ? "−∞ dB" : db.ToString("0.0", CultureInfo.InvariantCulture) + " dB";
 

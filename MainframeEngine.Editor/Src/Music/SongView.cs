@@ -20,6 +20,8 @@ public sealed class SongView : Node
 
     private readonly EditorWorkspace _workspace;
     private readonly List<SongRenderJob> _renders = [];
+    private PluginHostClient? _encoder;
+    private bool _encoderLocated;
     private SongTab? _tab;
     private SubViewport? _arrangeRegistered;
     private SubViewport? _rollRegistered;
@@ -309,9 +311,34 @@ public sealed class SongView : Node
             song = SongFormat.Load(songPath).Song;
         }
 
-        var job = SongRenderJob.Start(song, songPath, AssetDatabase.Current);
+        var job = SongRenderJob.Start(song, songPath, AssetDatabase.Current, Encoder());
         _renders.Add(job);
         Log.Info($"[Music] Rendering '{job.Name}'…");
+    }
+
+    // The plugin helper that encodes renders to .ogg: started on the first render that needs it, stopped with the view.
+    // Songs' own plugin hosts (VST3 phase) will live with their tabs.
+    private PluginHostClient? Encoder()
+    {
+        if (!_encoderLocated)
+        {
+            _encoderLocated = true;
+            _encoder = PluginHostClient.TryCreate();
+            if (_encoder is null)
+                Log.Info("[Music] No plugin helper (mfplughost) for this platform: songs render to .wav.");
+        }
+
+        return _encoder;
+    }
+
+    protected override void OnExitTree()
+    {
+        foreach (var job in _renders)
+            job.Cancel();
+        _encoder?.Dispose();
+        _encoder = null;
+        _encoderLocated = false;
+        base.OnExitTree();
     }
 
     private void PollRenders()

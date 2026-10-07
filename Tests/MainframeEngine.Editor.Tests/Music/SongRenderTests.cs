@@ -72,7 +72,7 @@ public sealed class SongRenderTests : IDisposable
     {
         var db = new AssetDatabase(_root);
         var song = Melody(loop: true);
-        song.Render.Output = "Content/Music/Theme.ogg"; // no encoder yet: written as .wav
+        song.Render.Output = "Content/Music/Theme.ogg"; // no encoder passed: written as .wav
         var progress = new List<double>();
         var result = SongRenderer.Render(song, "Theme", db, progress: new SyncProgress(progress.Add), cancellation: Ct);
 
@@ -213,9 +213,10 @@ public sealed class SongRenderTests : IDisposable
         using var error = new StringWriter();
 
         Assert.Equal(0, SongRenderCommand.Run([SongRenderCommand.Flag, songPath], output, error));
-        Assert.True(File.Exists(Path.Combine(_root, "Content", "Music", "Loop.wav")), error.ToString());
-        Assert.Contains("\"loop\": true", File.ReadAllText(Path.Combine(_root, "Content", "Music", "Loop.wav.meta")), StringComparison.Ordinal);
-        Assert.Contains("Content/Music/Loop.wav", output.ToString(), StringComparison.Ordinal);
+        var file = PluginHostClient.IsAvailable ? "Loop.ogg" : "Loop.wav"; // .ogg through the plugin helper where it exists
+        Assert.True(File.Exists(Path.Combine(_root, "Content", "Music", file)), error.ToString());
+        Assert.Contains("\"loop\": true", File.ReadAllText(Path.Combine(_root, "Content", "Music", file + ".meta")), StringComparison.Ordinal);
+        Assert.Contains("Content/Music/" + file, output.ToString(), StringComparison.Ordinal);
 
         Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag, Path.Combine(_root, "missing.msong")], output, error));
         Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag], output, error));

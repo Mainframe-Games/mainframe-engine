@@ -111,7 +111,7 @@ song save
 song render
 wait-for render 60
 wait 3
-fs-select Content/Music/QaSong.wav
+fs-select Content/Music/QaSong.ogg
 command fs.play
 wait 3
 capture 13f-song-render
