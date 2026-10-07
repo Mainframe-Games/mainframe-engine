@@ -3,6 +3,7 @@
 //
 //   mfplughost_tests <path-to-mfplughost> <scratch-dir>
 #include "encode.hpp"
+#include "midi.hpp"
 #include "protocol.hpp"
 #include "server.hpp"
 #include "transport.hpp"
@@ -10,6 +11,9 @@
 #include "wav.hpp"
 
 #include <vorbis/vorbisfile.h>
+#ifdef MFPH_MIDI
+#include <RtMidi.h>
+#endif
 
 #include <chrono>
 #include <cmath>
@@ -20,6 +24,7 @@
 #include <fstream>
 #include <future>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -223,6 +228,140 @@ static void testProtocol(const fs::path& dir) {
 	CHECK(server2.wait_for(std::chrono::seconds(5)) == std::future_status::ready && server2.get() == 0);
 }
 
+
+// MIDI: the wire encodings, the Clock request and — where the platform has virtual ports (CoreMIDI, ALSA) — a virtual
+// output in this process seen as a helper input: list, open, a note arrives as a timestamped MidiEvent, closing the
+// virtual port marks the device offline (MidiDevicesChanged).
+static void testMidi() {
+	{
+		mfph::PayloadWriter w;
+		mfph::writeMidiPorts(w, {{3, "Keys", true}, {7, "Pads", false}});
+		mfph::PayloadReader r(w.data());
+		std::uint32_t n = 0, id = 0;
+		std::string name;
+		std::uint16_t online = 9;
+		CHECK(r.u32(n) && n == 2 && r.u32(id) && id == 3 && r.str(name) && name == "Keys" && r.u16(online) && online == 1);
+		const unsigned char on[] = {0x90, 60, 100};
+		const auto f = mfph::midiEventFrame(3, 123456789ull, on, 3);
+		mfph::PayloadReader e(f.payload);
+		std::uint64_t ts = 0;
+		std::uint16_t len = 0;
+		const unsigned char* bytes = nullptr;
+		CHECK(f.type == static_cast<std::uint16_t>(mfph::MessageType::MidiEvent) && f.id == 0);
+		CHECK(e.u32(id) && id == 3 && e.u64(ts) && ts == 123456789ull && e.u16(len) && len == 3 && e.bytes(3, bytes) && e.atEnd());
+		CHECK(bytes[0] == 0x90 && bytes[1] == 60 && bytes[2] == 100);
+	}
+
+	const std::string path = (fs::temp_directory_path() / ("mfph-midi-" + std::to_string(std::rand()) + ".sock")).string();
+	std::ostringstream log;
+	auto server = std::async(std::launch::async, [&] { return mfph::serve(path, log, 10000); });
+	mfph::Connection c;
+	CHECK(connectWithRetry(path, c));
+	mfph::Frame reply;
+	const std::uint64_t before = mfph::steadyNowNs();
+	CHECK(request(c, mfph::MessageType::Clock, 1, {}, reply));
+	{
+		mfph::PayloadReader r(reply.payload);
+		std::uint64_t now = 0;
+		CHECK(r.u64(now) && now >= before && now <= mfph::steadyNowNs());
+	}
+	mfph::PayloadWriter hello;
+	hello.u32(mfph::kProtocolVersion);
+	hello.str("tests");
+	CHECK(request(c, mfph::MessageType::Hello, 2, hello.data(), reply));
+	std::uint32_t caps = 0;
+	{
+		mfph::PayloadReader r(reply.payload);
+		std::uint32_t version = 0;
+		std::string helper;
+		CHECK(r.u32(version) && r.str(helper) && r.u32(caps));
+	}
+#if defined(MFPH_MIDI) && !defined(_WIN32)
+	if ((caps & mfph::CapabilityMidi) != 0) {
+		const std::string portName = "mfph-test-" + std::to_string(std::rand());
+		auto out = std::make_unique<RtMidiOut>(RtMidi::UNSPECIFIED, portName);
+		out->openVirtualPort(portName);
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		CHECK(request(c, mfph::MessageType::MidiListInputs, 3, {}, reply));
+		std::uint32_t device = 0;
+		{
+			mfph::PayloadReader r(reply.payload);
+			std::uint32_t n = 0;
+			CHECK(r.u32(n));
+			for (std::uint32_t i = 0; i < n; ++i) {
+				std::uint32_t id = 0;
+				std::string name;
+				std::uint16_t online = 0;
+				CHECK(r.u32(id) && r.str(name) && r.u16(online));
+				if (name.find(portName) != std::string::npos && online == 1)
+					device = id;
+			}
+		}
+		CHECK(device != 0);
+		mfph::PayloadWriter open;
+		open.u32(device);
+		CHECK(request(c, mfph::MessageType::MidiOpen, 4, open.data(), reply));
+		CHECK(reply.type == (static_cast<std::uint16_t>(mfph::MessageType::MidiOpen) | mfph::kReplyBit));
+
+		// Notifications arrive on the connection; a reader with a deadline (Shutdown unblocks it on failure).
+		const std::uint64_t sent = mfph::steadyNowNs();
+		const std::vector<unsigned char> note{0x90, 64, 99};
+		out->sendMessage(&note);
+		auto reader = std::async(std::launch::async, [&] {
+			int found = 0; // 1: the note, 2: then the device went offline
+			for (;;) {
+				mfph::Frame f;
+				std::string error;
+				if (c.readFrame(f, error) != mfph::ReadResult::Ok)
+					return found;
+				mfph::PayloadReader r(f.payload);
+				if (f.type == static_cast<std::uint16_t>(mfph::MessageType::MidiEvent) && found == 0) {
+					std::uint32_t id = 0;
+					std::uint64_t ts = 0;
+					std::uint16_t len = 0;
+					const unsigned char* b = nullptr;
+					if (r.u32(id) && id == device && r.u64(ts) && ts >= sent && r.u16(len) && len == 3 && r.bytes(3, b) && b[0] == 0x90 && b[1] == 64 && b[2] == 99) {
+						found = 1;
+						out.reset(); // unplug
+					}
+				} else if (f.type == static_cast<std::uint16_t>(mfph::MessageType::MidiDevicesChanged) && found == 1) {
+					std::uint32_t n = 0;
+					r.u32(n);
+					for (std::uint32_t i = 0; i < n; ++i) {
+						std::uint32_t id = 0;
+						std::string name;
+						std::uint16_t online = 0;
+						r.u32(id);
+						r.str(name);
+						r.u16(online);
+						if (id == device && online == 0)
+							return 2;
+					}
+				}
+			}
+		});
+		const bool done = reader.wait_for(std::chrono::seconds(6)) == std::future_status::ready;
+		if (!done) {
+			mfph::Frame shutdown;
+			shutdown.type = static_cast<std::uint16_t>(mfph::MessageType::Shutdown);
+			shutdown.id = 99;
+			std::string error;
+			c.writeFrame(shutdown, error);
+		}
+		const int found = reader.get();
+		CHECK(done && found == 2);
+		if (!done) {
+			server.wait_for(std::chrono::seconds(5));
+			return;
+		}
+	} else {
+		std::cout << "mfplughost_tests: no MIDI API at run time, virtual port test skipped\n";
+	}
+#endif
+	CHECK(request(c, mfph::MessageType::Shutdown, 9, {}, reply));
+	CHECK(server.wait_for(std::chrono::seconds(5)) == std::future_status::ready && server.get() == 0);
+}
+
 #ifdef MFPH_VST3
 #include "plugins.hpp"
 #include "shm.hpp"
@@ -414,6 +553,7 @@ int main(int argc, char** argv) {
 	testEncode(dir);
 	testCommandLine(argv[1], dir);
 	testProtocol(dir);
+	testMidi();
 #ifdef MFPH_VST3
 	testPlugins(dir);
 #endif

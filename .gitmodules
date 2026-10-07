@@ -20,3 +20,6 @@
 [submodule "Native/PluginHost/external/vst3sdk"]
 	path = Native/PluginHost/external/vst3sdk
 	url = https://github.com/steinbergmedia/vst3sdk.git
+[submodule "Native/PluginHost/external/rtmidi"]
+	path = Native/PluginHost/external/rtmidi
+	url = https://github.com/thestk/rtmidi.git

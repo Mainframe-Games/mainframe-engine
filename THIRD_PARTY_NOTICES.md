@@ -31,6 +31,7 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [libogg](https://github.com/xiph/ogg) | 1.3.6 | BSD-3-Clause | `Native/PluginHost/external/ogg` (submodule) | editor only: `mfplughost` helper executable (static) |
 | [libvorbis / libvorbisenc / libvorbisfile](https://github.com/xiph/vorbis) | 1.3.7 | BSD-3-Clause | `Native/PluginHost/external/vorbis` (submodule) | editor only: `mfplughost` helper executable (static) |
 | [VST 3 SDK](https://github.com/steinbergmedia/vst3sdk) (base, pluginterfaces, public.sdk hosting; no VSTGUI) | 3.8.1 | MIT | `Native/PluginHost/external/vst3sdk` (submodule) | editor only: `mfplughost` helper executable (static) |
+| [RtMidi](https://github.com/thestk/rtmidi) (Gary P. Scavone) | 6.0.0 | MIT (with a non-binding request to send modifications upstream) | `Native/PluginHost/external/rtmidi` (submodule) | editor only: `mfplughost` helper executable (static; CoreMIDI / WinMM / ALSA) |
 | [ZzFX](https://github.com/KilledByAPixel/ZzFX) (Frank Force; `buildSamples` ported to C#) | 1.4.0 | MIT | `MainframeEngine/Src/Audio/Synthesis/Zzfx.cs`; `build/zzfx-reference.mjs` (vendored JavaScript, reference vectors) | engine |
 | [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
 | Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
@@ -668,4 +669,39 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+## RtMidi
+
+The editor's music helper `mfplughost` (not shipped with games) statically links RtMidi 6.0.0 for MIDI keyboard input.
+From `Native/PluginHost/external/rtmidi/LICENSE`:
+
+```
+
+RtMidi: realtime MIDI i/o C++ classes
+Copyright (c) 2003-2023 Gary P. Scavone
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files
+(the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+Any person wishing to distribute modifications to the Software is
+asked to send the modifications to the original developer so that
+they can be incorporated into the canonical version.  This is,
+however, not a binding provision of this license.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
+ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```

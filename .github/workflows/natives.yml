@@ -58,9 +58,9 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Ninja (Linux)
+      - name: Install Ninja and ALSA headers (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ninja-build
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libasound2-dev # ALSA: mfplughost MIDI input (RtMidi)
 
       - name: Install Ninja (macOS)
         if: runner.os == 'macOS'

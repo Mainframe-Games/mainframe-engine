@@ -22,6 +22,8 @@ enum class MessageType : std::uint16_t {
 	Ping = 0x0002,     // bytes -> the same bytes
 	Shutdown = 0x0003, // -> (empty), then the helper exits
 	Sleep = 0x0004,    // u32 milliseconds -> (empty) after that long (diagnostics: timeout tests)
+	Clock = 0x0005,    // -> u64 the helper's steady clock now, in ns (MidiEvent timestamps; the editor maps them once at
+	                   //   connect and on each ping — same machine, so only the clocks' origins differ)
 	Encode = 0x0010,   // str wavPath, str oggPath, f32 quality (0..10) -> u64 frames, u32 sampleRate, u16 channels
 	// 0x0100..0x01FF: VST3 plugins (ADR 0147). Instances are u32 ids; audio and note events travel through the shared
 	// memory (shm.hpp), control calls run on the helper's main thread.
@@ -40,7 +42,13 @@ enum class MessageType : std::uint16_t {
 	                          //   count x (u32 instanceId, u32 inputSlot (0xFFFFFFFF: the slot's own input)) -> (empty)
 	                          // runs the instances in order; inputSlot copies that slot's output into the input first
 	PluginEditorClosed = 0x010B, // helper -> editor notification (request id 0, no reply): u32 instanceId
-	// 0x0200..0x02FF: MIDI devices — MIDI phase
+	// 0x0200..0x02FF: MIDI input devices (ADR 0148; midi.hpp). Device ids are stable per port name for the helper's life.
+	MidiListInputs = 0x0200, // -> u32 count, count x (u32 id, str name, u16 online)
+	MidiOpen = 0x0201,       // u32 id -> (empty); idempotent; an error when the device is offline
+	MidiClose = 0x0202,      // u32 id -> (empty)
+	MidiEvent = 0x0203,      // helper -> editor notification (request id 0): u32 deviceId, u64 timestampNs (Clock's
+	                         //   clock), u16 length, bytes (one channel message: note on/off, CC, pitch bend, ...)
+	MidiDevicesChanged = 0x0204, // helper -> editor notification: the MidiListInputs reply payload (polled ~1 s)
 	Error = 0xFFFF,    // reply only: u32 ErrorCode, str message
 };
 

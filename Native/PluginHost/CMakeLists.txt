@@ -6,8 +6,8 @@
 #   mfplughost --scan <bundle.vst3>                             one bundle's VST3 classes as JSON (one process per bundle)
 #   mfplughost --version
 # Third-party code is static: libogg 1.3.6 and libvorbis/libvorbisenc 1.3.7 (BSD-3-Clause), the VST 3 SDK 3.8.1 (MIT;
-# base, pluginterfaces, public.sdk hosting — no VSTGUI), submodules in external/. RtMidi (MF_PLUGINHOST_MIDI) slots in
-# here in a later phase. The test plugin bundle (tests/plugins, CTest fixture) is never shipped.
+# base, pluginterfaces, public.sdk hosting — no VSTGUI), RtMidi 6.0.0 (MIT; CoreMIDI / WinMM / ALSA), submodules in
+# external/. The test plugin bundle (tests/plugins, CTest fixture) is never shipped.
 cmake_minimum_required(VERSION 3.25)
 
 project(mfplughost VERSION 0.1.0 LANGUAGES C CXX)
@@ -18,11 +18,7 @@ endif()
 
 option(MF_NATIVES_WERROR "Treat warnings in our own (non third-party) native code as errors" ON)
 option(MF_PLUGINHOST_VST3 "Host VST3 plugins (VST 3 SDK 3.8, external/vst3sdk)" ON)
-option(MF_PLUGINHOST_MIDI "MIDI input devices (RtMidi; not vendored yet)" OFF)
-
-if(MF_PLUGINHOST_MIDI)
-	message(FATAL_ERROR "MF_PLUGINHOST_MIDI: RtMidi is not vendored yet (music editor delivery 4).")
-endif()
+option(MF_PLUGINHOST_MIDI "MIDI input devices (RtMidi 6, external/rtmidi)" ON)
 
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>") # static CRT (/MT)
 
@@ -73,6 +69,37 @@ if(MF_PLUGINHOST_VST3)
 	include(vst3.cmake)
 endif()
 
+# RtMidi, static, one API per OS. Linux without the ALSA headers still builds: RtMidi falls back to its dummy API and
+# `hello` leaves CapabilityMidi out (as it does when ALSA fails to initialise at run time).
+if(MF_PLUGINHOST_MIDI)
+	set(RTMIDI "${CMAKE_CURRENT_SOURCE_DIR}/external/rtmidi")
+	add_library(mfph_rtmidi STATIC ${RTMIDI}/RtMidi.cpp)
+	target_include_directories(mfph_rtmidi SYSTEM PUBLIC "${RTMIDI}")
+	target_compile_features(mfph_rtmidi PRIVATE cxx_std_11)
+	if(APPLE)
+		target_compile_definitions(mfph_rtmidi PRIVATE __MACOSX_CORE__)
+		target_link_libraries(mfph_rtmidi PUBLIC "-framework CoreMIDI" "-framework CoreAudio" "-framework CoreFoundation")
+	elseif(WIN32)
+		target_compile_definitions(mfph_rtmidi PRIVATE __WINDOWS_MM__)
+		target_link_libraries(mfph_rtmidi PUBLIC winmm)
+	else()
+		find_package(ALSA QUIET)
+		find_package(Threads REQUIRED)
+		target_link_libraries(mfph_rtmidi PUBLIC Threads::Threads)
+		if(ALSA_FOUND)
+			target_compile_definitions(mfph_rtmidi PRIVATE __LINUX_ALSA__)
+			target_link_libraries(mfph_rtmidi PUBLIC ALSA::ALSA)
+		else()
+			message(WARNING "mfplughost: ALSA headers not found (libasound2-dev); MIDI input disabled in this build")
+		endif()
+	endif()
+	if(MSVC)
+		target_compile_options(mfph_rtmidi PRIVATE /w)
+	else()
+		target_compile_options(mfph_rtmidi PRIVATE -w)
+	endif()
+endif()
+
 # Everything but main(): the executable and the tests link it.
 add_library(mfph_core STATIC
 	src/wav.hpp src/wav.cpp
@@ -82,6 +109,7 @@ add_library(mfph_core STATIC
 	src/server.hpp src/server.cpp
 	src/shm.hpp src/shm.cpp
 	src/mainthread.hpp
+	src/midi.hpp src/midi.cpp
 	src/plugins.hpp
 	src/version.hpp)
 if(MF_PLUGINHOST_VST3)
@@ -90,6 +118,10 @@ if(MF_PLUGINHOST_VST3)
 	target_compile_definitions(mfph_core PUBLIC MFPH_VST3=1)
 else()
 	target_sources(mfph_core PRIVATE src/plugins_none.cpp)
+endif()
+if(MF_PLUGINHOST_MIDI)
+	target_link_libraries(mfph_core PUBLIC mfph_rtmidi)
+	target_compile_definitions(mfph_core PUBLIC MFPH_MIDI=1)
 endif()
 if(APPLE)
 	target_sources(mfph_core PRIVATE src/mainthread_mac.mm)

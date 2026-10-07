@@ -55,7 +55,7 @@ component_submodules() {
 		enet) echo "Native/ENet/upstream" ;;
 		mfrmlui) echo "Native/RmlUi/external/RmlUi Native/RmlUi/external/freetype" ;;
 		mfsvg) echo "" ;;
-		mfplughost) echo "Native/PluginHost/external/ogg Native/PluginHost/external/vorbis Native/PluginHost/external/vst3sdk" ;;
+		mfplughost) echo "Native/PluginHost/external/ogg Native/PluginHost/external/vorbis Native/PluginHost/external/vst3sdk Native/PluginHost/external/rtmidi" ;;
 		*) return 1 ;;
 	esac
 }

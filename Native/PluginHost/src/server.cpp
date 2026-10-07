@@ -1,6 +1,7 @@
 #include "server.hpp"
 
 #include "encode.hpp"
+#include "midi.hpp"
 #include "plugins.hpp"
 #include "transport.hpp"
 #include "version.hpp"
@@ -56,12 +57,15 @@ void dispatch(const Frame& request, Frame& reply, bool& shutdown) {
 				"protocol " + std::to_string(version) + " requested; this helper speaks " + std::to_string(kProtocolVersion));
 		out.u32(kProtocolVersion);
 		out.str(kVersion);
-		out.u32(CapabilityEncode | (pluginsSupported() ? CapabilityVst3 : 0u));
+		out.u32(CapabilityEncode | (pluginsSupported() ? CapabilityVst3 : 0u) | (midiSupported() ? CapabilityMidi : 0u));
 		out.u32(processId());
 		break;
 	}
 	case MessageType::Ping:
 		out.bytes(request.payload.data(), request.payload.size());
+		break;
+	case MessageType::Clock:
+		out.u64(steadyNowNs());
 		break;
 	case MessageType::Shutdown:
 		shutdown = true;
@@ -88,7 +92,7 @@ void dispatch(const Frame& request, Frame& reply, bool& shutdown) {
 		break;
 	}
 	default:
-		if (dispatchPlugin(request, reply))
+		if (dispatchPlugin(request, reply) || dispatchMidi(request, reply))
 			return;
 		return errorReply(reply, ErrorCode::UnknownMessage, "unknown message type " + std::to_string(request.type));
 	}
@@ -116,15 +120,20 @@ int serve(const std::string& socketPath, std::ostream& log, int acceptTimeoutMs)
 	}
 	listener.close(); // one editor per helper: the socket file goes away once connected
 
-	// Replies (protocol thread) and notifications (main thread: an editor window closed) share the connection.
+	// Replies (protocol thread) and notifications (main thread: an editor window closed; MIDI threads: events, device
+	// changes) share the connection.
 	std::mutex writeMutex;
-	setPluginNotify([&](const Frame& note) {
+	auto notify = [&](const Frame& note) {
 		std::lock_guard lock(writeMutex);
 		std::string ignored;
 		connection.writeFrame(note, ignored);
-	});
+	};
+	setPluginNotify(notify);
+	setMidiNotify(notify);
 	struct Cleanup {
 		~Cleanup() {
+			setMidiNotify(nullptr);
+			shutdownMidi();
 			setPluginNotify(nullptr);
 			shutdownPlugins();
 		}

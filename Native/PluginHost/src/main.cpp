@@ -1,6 +1,7 @@
 // mfplughost: the music editor's helper process. See docs/design/natives.md and ADR 0146.
 #include "encode.hpp"
 #include "mainthread.hpp"
+#include "midi.hpp"
 #include "plugins.hpp"
 #include "server.hpp"
 #include "version.hpp"
@@ -60,6 +61,8 @@ int main(int argc, char** argv) {
 		const std::string socketPath = args[2];
 		return mfph::runWithMainLoop([socketPath] { return mfph::serve(socketPath, std::cerr); });
 	}
+	if (args.size() == 4 && args[1] == "--midi-test-source") // tests: a virtual MIDI keyboard playing C4
+		return mfph::runMidiTestSource(args[2], std::atoi(args[3].c_str()));
 	if (args.size() == 3 && args[1] == "--scan") {
 		std::string json;
 		const bool ok = mfph::scanBundle(args[2], json);
