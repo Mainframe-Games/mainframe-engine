@@ -1,8 +1,10 @@
-# Builds and tests the native libraries (ENet `enet`, RmlUi shim `mfrmlui`) for every runtime identifier, and
-# checks that the binaries committed under MainframeEngine/runtimes/ match Native/natives.lock.
+# Builds and tests the native libraries (ENet `enet`, RmlUi shim `mfrmlui`, SVG `mfsvg`) and the editor's helper
+# executable (`mfplughost`) for every runtime identifier, and checks that the binaries committed under
+# MainframeEngine/runtimes/ and MainframeEngine.Editor/runtimes/ match Native/natives.lock.
 #
 # Refreshing committed binaries: run this workflow, download the `natives-all` artifact, unzip it at the repository
-# root (it contains MainframeEngine/runtimes/** and the matching Native/natives.lock) and commit. See
+# root (it contains MainframeEngine/runtimes/**, MainframeEngine.Editor/runtimes/** and the matching Native/natives.lock)
+# and commit. See
 # docs/design/natives.md.
 name: natives
 
@@ -12,6 +14,7 @@ on:
     paths:
       - "Native/**"
       - "MainframeEngine/runtimes/**"
+      - "MainframeEngine.Editor/runtimes/**"
       - ".gitmodules"
       - ".github/workflows/natives.yml"
 
@@ -34,15 +37,18 @@ jobs:
             os: macos-14
             rids: "osx-arm64 osx-x64"
             libs: "libenet.dylib libmfrmlui.dylib libmfsvg.dylib"
+            editor_bins: "mfplughost"
           - name: win-x64
             os: windows-latest
             rids: "win-x64"
             libs: "enet.dll mfrmlui.dll mfsvg.dll"
+            editor_bins: "mfplughost.exe"
           - name: linux-x64
             # Oldest supported runner image: the binaries then only require glibc <= 2.35.
             os: ubuntu-22.04
             rids: "linux-x64"
             libs: "libenet.so libmfrmlui.so libmfsvg.so"
+            editor_bins: "mfplughost"
     defaults:
       run:
         shell: bash
@@ -81,6 +87,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build --build-config Release --output-on-failure
 
+      # Engine libraries -> MainframeEngine/runtimes; the editor-only helper -> MainframeEngine.Editor/runtimes.
       - name: Stage runtimes/<rid>/native
         run: |
           set -euo pipefail
@@ -91,6 +98,14 @@ jobs:
               found="$(find build -name "$lib" -type f -not -path '*/CMakeFiles/*' | head -n 1)"
               if [[ -z "$found" ]]; then echo "::error::$lib was not built"; exit 1; fi
               cp "$found" "$dest/$lib"
+            done
+            dest="staging/MainframeEngine.Editor/runtimes/$rid/native"
+            mkdir -p "$dest"
+            for bin in ${{ matrix.editor_bins }}; do
+              found="$(find build -name "$bin" -type f -not -path '*/CMakeFiles/*' | head -n 1)"
+              if [[ -z "$found" ]]; then echo "::error::$bin was not built"; exit 1; fi
+              cp "$found" "$dest/$bin"
+              chmod 755 "$dest/$bin"
             done
           done
           find staging -type f -print0 | xargs -0 ls -l
@@ -145,11 +160,13 @@ jobs:
           set -euo pipefail
           for dir in downloaded/*/; do
             cp -R "$dir"MainframeEngine/. MainframeEngine/
+            cp -R "$dir"MainframeEngine.Editor/. MainframeEngine.Editor/
           done
           # Every binary in this set was built from this commit's sources: stamp them all as current.
           Native/natives-lock.sh update --restamp
-          mkdir -p out/MainframeEngine out/Native
+          mkdir -p out/MainframeEngine out/MainframeEngine.Editor out/Native
           cp -R MainframeEngine/runtimes out/MainframeEngine/
+          cp -R MainframeEngine.Editor/runtimes out/MainframeEngine.Editor/
           cp Native/natives.lock out/Native/natives.lock
           find out -type f | sort
           cat Native/natives.lock
@@ -168,9 +185,9 @@ jobs:
         with:
           lfs: false
 
-      # Windows .dll files are stored in Git LFS; fetch only the committed natives.
+      # Windows .dll/.exe files are stored in Git LFS; fetch only the committed natives.
       - name: Fetch the natives from LFS
-        run: git lfs pull --include="MainframeEngine/runtimes/**"
+        run: git lfs pull --include="MainframeEngine/runtimes/**,MainframeEngine.Editor/runtimes/**"
 
       - name: Verify Native/natives.lock
         run: Native/natives-lock.sh verify

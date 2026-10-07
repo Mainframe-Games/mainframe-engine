@@ -11,3 +11,9 @@
 [submodule "Native/RmlUi/external/freetype"]
 	path = Native/RmlUi/external/freetype
 	url = https://github.com/freetype/freetype.git
+[submodule "Native/PluginHost/external/ogg"]
+	path = Native/PluginHost/external/ogg
+	url = https://github.com/xiph/ogg.git
+[submodule "Native/PluginHost/external/vorbis"]
+	path = Native/PluginHost/external/vorbis
+	url = https://github.com/xiph/vorbis.git

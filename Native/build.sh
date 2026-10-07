@@ -4,8 +4,9 @@
 #   Native/build.sh [--build-dir DIR] [--stage] [cmake args...]
 #
 #   --build-dir DIR  build tree (default: Native/build, git-ignored)
-#   --stage          copy the built libraries into MainframeEngine/runtimes/<rid>/native/ and refresh
-#                    Native/natives.lock (macOS stages the universal dylibs under osx-arm64 AND osx-x64)
+#   --stage          copy the built libraries into MainframeEngine/runtimes/<rid>/native/ (and the editor-only helper
+#                    mfplughost into MainframeEngine.Editor/runtimes/<rid>/native/) and refresh Native/natives.lock
+#                    (macOS stages the universal binaries under osx-arm64 AND osx-x64)
 #
 # macOS builds a universal (arm64 + x86_64) binary with a 11.0 deployment target.
 set -euo pipefail
@@ -34,10 +35,12 @@ case "$(uname -s)" in
 		platform_args=("-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0)
 		rids=(osx-arm64 osx-x64)
 		libs=(libenet.dylib libmfrmlui.dylib libmfsvg.dylib)
+		editor_bins=(mfplughost)
 		;;
 	Linux)
 		rids=(linux-x64)
 		libs=(libenet.so libmfrmlui.so libmfsvg.so)
+		editor_bins=(mfplughost)
 		;;
 	*)
 		echo "Unsupported host: $(uname -s). On Windows use the commands in docs/design/natives.md." >&2
@@ -64,6 +67,19 @@ if [[ $stage -eq 1 ]]; then
 			cp "$found" "$dest/$lib"
 			staged+=("$dest/$lib")
 			echo "staged $dest/$lib"
+		done
+		dest="$repo_root/MainframeEngine.Editor/runtimes/$rid/native"
+		mkdir -p "$dest"
+		for bin in "${editor_bins[@]}"; do
+			found="$(find "$build_dir" -name "$bin" -type f -perm -u+x -not -path '*/CMakeFiles/*' | head -n 1)"
+			if [[ -z "$found" ]]; then
+				echo "skip $bin (not built in $build_dir)"
+				continue
+			fi
+			cp "$found" "$dest/$bin"
+			chmod 755 "$dest/$bin"
+			staged+=("$dest/$bin")
+			echo "staged $dest/$bin"
 		done
 	done
 	"$repo_root/Native/natives-lock.sh" update --stamp ${staged[@]+"${staged[@]}"}
