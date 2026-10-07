@@ -303,6 +303,7 @@ public sealed class SongView : Node
         var open = _workspace.Session.Tabs.OfType<SongTab>().FirstOrDefault(t => EditorSession.PathsEqual(t.Document.FilePath, Path.GetFullPath(songPath)));
         if (open is not null)
         {
+            open.Player.CapturePluginStates(open.Document); // the render loads its own copies of the plugins
             song = open.Document.Song;
         }
         else

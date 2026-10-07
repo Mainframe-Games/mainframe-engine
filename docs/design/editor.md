@@ -551,9 +551,10 @@ when the tab is deactivated or closed. The scene tree and inspector rest while i
   and **Render**; track headers (colour bar, name — double-click renames —, instrument, mute, solo, colour, remove; + adds
   an instrument or audio track); a **Piano roll | Mixer** switcher with the selected clip's summary; mixer strips
   (instrument slot "Built-in ZzFX" with its menu, Edit Sound — the ZzFX line in a text field, checked by
-  `ZzfxParameters.TryParse`, auditioned on Apply — and audition; an inserts placeholder, "VST3 effects arrive with the
-  plugin host"; pan; vertical volume fader in dB; peak meter from `TakeTrackPeak`/`TakeMasterPeak` once per frame;
-  mute/solo) and the master strip. Faders and the tempo field merge into one undo entry per drag or edit. No record-arm
+  `ZzfxParameters.TryParse`, auditioned on Apply — and audition; the slot's menu also lists scanned VST3 instruments and
+  opens the plugin's editor window; an inserts button whose menu adds a scanned VST3 effect and, per insert, opens its
+  editor, bypasses, moves it up/down or removes it — all undoable `SongDocument` edits; pan; vertical volume fader in dB; peak meter from `TakeTrackPeak`/`TakeMasterPeak` once per frame;
+  mute/solo) and the master strip (with its own inserts). Faders and the tempo field merge into one undo entry per drag or edit. No record-arm
   or record buttons and no metronome yet (no MIDI input, `SongEngine` has no click).
 - **Canvases:** the arrangement (`ArrangementCanvas`) and the piano roll (`PianoRollCanvas`) are `[Tool]` `Node2D`s
   drawing with `DrawRect`/`DrawLine`/`DrawString` in two `Disable3D` `SubViewport`s per tab, sized in framebuffer pixels
@@ -587,6 +588,19 @@ when the tab is deactivated or closed. The scene tree and inspector rest while i
   renders a song into the project above it (the nearest folder with `project.mfproj`) exactly like Render — the output
   and its `.meta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
   `Content/Music/demo_loop.ogg` is rendered this way).
+- **VST3 plugins** (ADR 0147): `PluginScanner` runs `mfplughost --scan` once per bundle (30 s timeout) over the OS's
+  default VST3 folders plus Editor Settings › VST3 folders, caching results in `~/.mainframe/plugins.json` by path and
+  modification time (Editor Settings › Rescan Plugins forces a full scan; the first plugin menu without a cache scans in
+  the background). Each song tab's `SongPlayer` owns a `PluginRack` with its own helper (started on the first plugin):
+  `PluginInstrument`/`PluginEffect` instances in a file-backed shared memory; the render thread sends every track's
+  chain in one `process` round trip per block (master inserts in a second), with a deadline of 4 blocks — a miss plays
+  silence and counts an xrun (shown with the underruns) — and plugin delay compensation delays every track to the
+  slowest chain. A helper crash marks the plugins unloaded; the next frame restarts the helper and reloads each plugin
+  from its last captured state; a plugin that crashed it twice within a minute is disabled for the session and its
+  track shows why ("insert disabled: …", "missing plugin: Name (Vendor)" when a class is not installed). States
+  (base64 of the component + controller streams) are captured into the song as undoable "Plugin State" edits on save,
+  when the user closes a plugin's window and before a render; undo pushes the previous state back to the plugin. Renders
+  load their own copies in a separate helper in offline mode (10 s watchdog per block).
 - Tests: `Tests/MainframeEngine.Editor.Tests/Music/SongTabTests.cs` (tab, gestures → one entry each, grid math, keys) and
   `SongWorkspaceTests.cs` (panel, keys before shortcuts, save, close prompt); QA steps 13d–13f in the walkthrough
   (`song` QA step: `new`, `demo`, `select`, `panel`, `play`, `stop`, `save`, `render`; `wait-for render`).
@@ -603,6 +617,8 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
   and C# files.
 - **Reload code automatically** after builds.
 - **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
+- **VST3 folders** (extra folders, `;`-separated, besides the OS defaults) and **Rescan Plugins** (the music editor's
+  plugin scan; the hint shows the instrument/effect counts and failed bundles).
 
 ## Updates
 

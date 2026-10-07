@@ -86,13 +86,38 @@ public static class SongRenderer
     }
 
     /// <summary>Renders the song into memory (interleaved stereo at <see cref="SongRenderSettings.SampleRate"/>).</summary>
+    /// <remarks>
+    /// <paramref name="plugins"/> creates the render's own plugin rack (offline: its own helper, kOffline processing, a
+    /// <see cref="PluginRack.OfflineBlockTimeout"/> watchdog per block); it is disposed when the render ends.
+    /// </remarks>
+    /// <exception cref="PluginHostException">A plugin block hit the watchdog.</exception>
     public static float[] RenderToBuffer(Song song, out SongRenderPlan plan, Func<SongTrack, int, IInstrument?>? instrumentFactory = null,
-        Func<string, AudioStream?>? clipLoader = null, IProgress<double>? progress = null, CancellationToken cancellation = default)
+        Func<string, AudioStream?>? clipLoader = null, IProgress<double>? progress = null, Func<int, PluginRack?>? plugins = null,
+        CancellationToken cancellation = default)
     {
         ArgumentNullException.ThrowIfNull(song);
         var rate = Math.Clamp(song.Render.SampleRate, 8000, 192000);
-        var builder = new SongSnapshotBuilder(rate, instrumentFactory, clipLoader);
+        using var rack = plugins?.Invoke(rate);
+        var builder = new SongSnapshotBuilder(rate, instrumentFactory, clipLoader, rack);
+        try
+        {
+            return RenderWith(builder, song, rate, rack, out plan, progress, cancellation);
+        }
+        finally
+        {
+            builder.ReleasePlugins();
+        }
+    }
+
+    private static float[] RenderWith(SongSnapshotBuilder builder, Song song, int rate, PluginRack? rack, out SongRenderPlan plan,
+        IProgress<double>? progress, CancellationToken cancellation)
+    {
         var snapshot = builder.Build(song);
+        foreach (var track in snapshot.TrackList)
+        {
+            if (track.Status is { } status)
+                Log.Warning($"[Music] Render: track {song.Tracks.Find(t => t.Id == track.Id)?.Name}: {status}");
+        }
         plan = Plan(song, snapshot);
         if (plan.OutputFrames * 2 > Array.MaxLength)
             throw new InvalidOperationException("The song is too long to render.");
@@ -111,6 +136,8 @@ public static class SongRenderer
             var frames = (int)Math.Min(SongEngine.BlockFrames, plan.RenderFrames - done);
             var span = block.AsSpan(0, frames * 2);
             engine.Process(span);
+            if (rack is { Xruns: > 0 })
+                throw new PluginHostException($"A plugin did not finish a block within {PluginRack.OfflineBlockTimeout.TotalSeconds:0} s; the render stopped.");
             // Copy the part of this block that falls in the kept range.
             var keepStart = Math.Max(done, plan.KeepFrom);
             var keepEnd = done + frames;
@@ -136,7 +163,8 @@ public static class SongRenderer
     /// <exception cref="PluginHostException">Encoding failed (the previous output is left intact).</exception>
     public static SongRenderResult Render(Song song, string songName, AssetDatabase database,
         Func<SongTrack, int, IInstrument?>? instrumentFactory = null, Func<string, AudioStream?>? clipLoader = null,
-        IProgress<double>? progress = null, IPluginHost? encoder = null, CancellationToken cancellation = default)
+        IProgress<double>? progress = null, IPluginHost? encoder = null, Func<int, PluginRack?>? plugins = null,
+        CancellationToken cancellation = default)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(database);
@@ -151,7 +179,7 @@ public static class SongRenderer
             Log.Warning($"[Music] '{requested}': {why}; rendering '{output}' instead.");
         }
 
-        var samples = RenderToBuffer(song, out var plan, instrumentFactory, clipLoader, progress, cancellation);
+        var samples = RenderToBuffer(song, out var plan, instrumentFactory, clipLoader, progress, plugins, cancellation);
         var rate = Math.Clamp(song.Render.SampleRate, 8000, 192000);
         var format = encode || song.Render.SampleFormat != SongSampleFormat.Pcm16 ? WavSampleFormat.IeeeFloat : WavSampleFormat.Pcm16;
         var quality = Math.Clamp(song.Render.Quality, 0, 10);

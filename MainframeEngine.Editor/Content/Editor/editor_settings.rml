@@ -58,6 +58,12 @@
                 <label class="check" data-tooltip="Look for a newer Mainframe Engine release on GitHub when the editor starts">
                     <input type="checkbox" class="checkbox" id="es-check-updates" data-checked="check_updates"/><span>Check for updates at startup</span></label>
             </div>
+            <div class="dialog-row">
+                <span class="caption">VST3 folders</span>
+                <input type="text" class="text mono" id="es-plugin-folders" data-value="plugin_folders" placeholder="Extra folders, separated by ;"/>
+                <button class="tool-button small" id="es-rescan-plugins" data-event-click="rescan_plugins()" data-tooltip="Rescan Plugins — scan every VST3 bundle again (one helper process per bundle)"><span class="icon icon-sm icon-refresh"></span></button>
+            </div>
+            <div class="hint">{{plugin_status}}</div>
             <div class="dialog-error">{{error}}</div>
         </div>
         <div class="dialog-buttons">

@@ -57,6 +57,9 @@ public sealed class EditorSettings
     /// <summary>Look for a newer editor on GitHub Releases at start-up (Help › Check for Updates… works either way).</summary>
     public bool CheckForUpdates { get; set; } = true;
 
+    /// <summary>Extra folders scanned for VST3 plugins (besides the OS's default ones).</summary>
+    public List<string> PluginFolders { get; set; } = [];
+
     /// <summary><c>~/.mainframe/editor_settings.json</c>.</summary>
     public static string DefaultPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "editor_settings.json");
@@ -78,6 +81,7 @@ public sealed class EditorSettings
                 CodeEditorCommand = data.CodeEditor ?? "",
                 AutoReloadCode = data.AutoReloadCode ?? true,
                 CheckForUpdates = data.CheckForUpdates ?? true,
+                PluginFolders = data.PluginFolders ?? [],
             };
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
@@ -99,6 +103,7 @@ public sealed class EditorSettings
             CodeEditor = CodeEditorCommand,
             AutoReloadCode = AutoReloadCode,
             CheckForUpdates = CheckForUpdates,
+            PluginFolders = PluginFolders.Count > 0 ? PluginFolders : null,
         };
         AtomicFile.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(data, EditorSettingsJson.Default.EditorSettingsData));
     }
@@ -110,6 +115,7 @@ public sealed class EditorSettings
         CodeEditorCommand = CodeEditorCommand,
         AutoReloadCode = AutoReloadCode,
         CheckForUpdates = CheckForUpdates,
+        PluginFolders = [.. PluginFolders],
     };
 
     /// <summary>
@@ -187,6 +193,7 @@ internal sealed class EditorSettingsData
     public string? CodeEditor { get; set; }
     public bool? AutoReloadCode { get; set; }
     public bool? CheckForUpdates { get; set; }
+    public List<string>? PluginFolders { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, NewLine = "\n", PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

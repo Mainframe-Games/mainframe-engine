@@ -130,6 +130,77 @@ public sealed class SongDocument : IDisposable
     public void SetTrackInstrument(SongTrack track, InstrumentDescriptor? instrument, string? mergeKey = null) =>
         Set("Track Instrument", track.Instrument, instrument, v => track.Instrument = v, mergeKey, alwaysCommit: true);
 
+    // --- plugin inserts (track: null = the master) -------------------------------------------------
+
+    /// <summary>Adds an insert effect to a track's (or, with a null track, the master's) chain at <paramref name="index"/> (−1 = end).</summary>
+    public PluginInsert AddInsert(SongTrack? track, PluginDescriptor plugin, int index = -1)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        var list = Inserts(track);
+        var insert = new PluginInsert { Plugin = plugin };
+        var at = index < 0 || index > list.Count ? list.Count : index;
+        Commit("Add Insert", () => list.Insert(at, insert), () => list.Remove(insert));
+        return insert;
+    }
+
+    public void RemoveInsert(SongTrack? track, PluginInsert insert)
+    {
+        var list = Inserts(track);
+        var index = list.IndexOf(insert);
+        if (index < 0)
+            throw new ArgumentException("The insert is not in this chain.", nameof(insert));
+        Commit("Remove Insert", () => list.Remove(insert), () => list.Insert(index, insert));
+    }
+
+    /// <summary>Moves an insert to <paramref name="newIndex"/> in its chain (processing order).</summary>
+    public void MoveInsert(SongTrack? track, PluginInsert insert, int newIndex)
+    {
+        var list = Inserts(track);
+        var old = list.IndexOf(insert);
+        if (old < 0)
+            throw new ArgumentException("The insert is not in this chain.", nameof(insert));
+        newIndex = Math.Clamp(newIndex, 0, list.Count - 1);
+        if (old == newIndex)
+            return;
+        Commit("Move Insert", () => Move(newIndex), () => Move(old));
+
+        void Move(int to)
+        {
+            list.Remove(insert);
+            list.Insert(to, insert);
+        }
+    }
+
+    public void SetInsertBypass(PluginInsert insert, bool bypass) =>
+        Set(bypass ? "Bypass Insert" : "Enable Insert", insert.Bypass, bypass, v => insert.Bypass = v, null);
+
+    /// <summary>
+    /// Records a plugin's state (base64, captured from the plugin host) on its <see cref="InstrumentDescriptor"/> or
+    /// <see cref="PluginInsert"/>. Undo restores the previous state, which the plugin rack pushes back to the plugin.
+    /// </summary>
+    public void SetPluginState(object owner, string? state)
+    {
+        switch (owner)
+        {
+            case InstrumentDescriptor instrument:
+                Set("Plugin State", instrument.State, state, v => instrument.State = v, null);
+                break;
+            case PluginInsert insert:
+                Set("Plugin State", insert.State, state, v => insert.State = v, null);
+                break;
+            default:
+                throw new ArgumentException("Not a plugin owner.", nameof(owner));
+        }
+    }
+
+    private List<PluginInsert> Inserts(SongTrack? track)
+    {
+        if (track is null)
+            return Song.Master.Inserts;
+        IndexOf(track);
+        return track.Inserts;
+    }
+
     // --- clips ----------------------------------------------------------------------------------
 
     public MidiClip AddMidiClip(SongTrack track, long start, long length)

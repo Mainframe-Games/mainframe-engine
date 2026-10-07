@@ -50,6 +50,29 @@ public enum PluginHostMessage : ushort
     /// <summary><c>str wavPath, str oggPath, f32 quality</c> → <c>u64 frames, u32 sampleRate, u16 channels</c>.</summary>
     Encode = 0x0010,
 
+    /// <summary><c>str path, u64 size</c> → empty: maps the shared memory file (ADR 0147).</summary>
+    PluginSetupShm = 0x0100,
+
+    /// <summary><c>str bundlePath</c> → <c>str json</c> (as <c>mfplughost --scan</c>).</summary>
+    PluginScan = 0x0101,
+
+    /// <summary><c>str bundle, str classId, u32 slot, u32 rate, u32 maxBlock</c> → <c>u32 id, u32 latency, u16 in, u16 out, u32 flags, str name</c>.</summary>
+    PluginLoad = 0x0102,
+
+    PluginUnload = 0x0103,
+    PluginGetState = 0x0104,
+    PluginSetState = 0x0105,
+    PluginLatency = 0x0106,
+    PluginSetOffline = 0x0107,
+    PluginOpenEditor = 0x0108,
+    PluginCloseEditor = 0x0109,
+
+    /// <summary><c>u32 frames, u32 flags, f64 tempo, i64 frame, u32 count, count × (u32 id, u32 inputSlot)</c> → empty.</summary>
+    PluginProcess = 0x010A,
+
+    /// <summary>Helper → editor notification (request id 0): <c>u32 id</c>, the user closed that instance's editor window.</summary>
+    PluginEditorClosed = 0x010B,
+
     /// <summary>Reply only: <c>u32 code, str message</c>.</summary>
     Error = 0xFFFF,
 }
@@ -70,6 +93,13 @@ public sealed class PluginHostPayloadWriter
     {
         BinaryPrimitives.WriteUInt32LittleEndian(_buffer.GetSpan(4), value);
         _buffer.Advance(4);
+        return this;
+    }
+
+    public PluginHostPayloadWriter U64(ulong value)
+    {
+        BinaryPrimitives.WriteUInt64LittleEndian(_buffer.GetSpan(8), value);
+        _buffer.Advance(8);
         return this;
     }
 
@@ -109,6 +139,10 @@ public ref struct PluginHostPayloadReader(ReadOnlySpan<byte> data)
     public ulong U64() => BinaryPrimitives.ReadUInt64LittleEndian(Take(8));
 
     public string Str() => Encoding.UTF8.GetString(Take(checked((int)U32())));
+
+    public ReadOnlySpan<byte> Bytes(int count) => Take(count);
+
+    public readonly int Remaining => _data.Length;
 
     private ReadOnlySpan<byte> Take(int count)
     {

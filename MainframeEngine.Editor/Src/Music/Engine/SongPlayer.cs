@@ -20,6 +20,7 @@ public sealed class SongPlayer : IDisposable
     private AudioStreamGeneratorPlayback? _playback;
     private SongDocument? _document;
     private int _version = -1;
+    private int _pluginVersion = -1;
     private long _pushedEnd;    // song frame at the end of the last block pushed to the generator (render thread writes)
     private long _anchor;       // where the last Play/Seek started: the heard position never shows earlier than this
     private bool _anchorFromSeek;
@@ -28,12 +29,13 @@ public sealed class SongPlayer : IDisposable
     /// <param name="instrumentFactory">See <see cref="SongSnapshotBuilder"/>.</param>
     /// <param name="clipLoader">See <see cref="SongSnapshotBuilder"/>.</param>
     public SongPlayer(AudioServer? server, Func<SongTrack, int, IInstrument?>? instrumentFactory = null,
-        Func<string, AudioStream?>? clipLoader = null)
+        Func<string, AudioStream?>? clipLoader = null, Func<int, PluginRack?>? plugins = null)
     {
         _server = server;
         var rate = server?.SampleRate ?? 48000;
         Engine = new SongEngine(rate);
-        _builder = new SongSnapshotBuilder(rate, instrumentFactory, clipLoader);
+        Plugins = plugins?.Invoke(rate);
+        _builder = new SongSnapshotBuilder(rate, instrumentFactory, clipLoader, Plugins);
         if (server is not null)
         {
             _stream = new AudioStreamGenerator { MixRate = rate, BufferSeconds = 0.1f, ResourceName = "Song" };
@@ -45,6 +47,12 @@ public sealed class SongPlayer : IDisposable
     }
 
     public SongEngine Engine { get; }
+
+    /// <summary>The song's VST3 plugins (null: plugins are not played).</summary>
+    public PluginRack? Plugins { get; }
+
+    /// <summary>Blocks whose plugin round trip missed its deadline.</summary>
+    public int PluginXruns => Plugins?.Xruns ?? 0;
 
     public bool IsPlaying => Engine.IsPlaying;
 
@@ -92,11 +100,18 @@ public sealed class SongPlayer : IDisposable
     public void Update(SongDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
-        if (!ReferenceEquals(document, _document) || document.Version != _version)
+        if (Plugins is { } rack)
+        {
+            rack.SongName = document.Name;
+            rack.Maintain(document.IsReadOnly ? null : document.SetPluginState);
+        }
+
+        if (!ReferenceEquals(document, _document) || document.Version != _version || (Plugins is not null && Plugins.Version != _pluginVersion))
         {
             _document = document;
             _version = document.Version;
             Engine.SetSnapshot(_builder.Build(document.Song));
+            _pluginVersion = Plugins?.Version ?? 0; // after the build: loads during it are in this snapshot
         }
 
         if (_server is not null && !_server.IsPlaying(_voice))
@@ -152,10 +167,20 @@ public sealed class SongPlayer : IDisposable
 
     public float TakeMasterPeak() => Engine.TakeMasterPeak();
 
+    /// <summary>Reads every plugin's state into the song (undoable "Plugin State" edits): before saving and rendering.</summary>
+    public void CapturePluginStates(SongDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        if (Plugins is { } rack && !document.IsReadOnly)
+            rack.CaptureStates(document.SetPluginState);
+    }
+
     public void Dispose()
     {
         _running = false;
         _thread.Join();
+        _builder.ReleasePlugins();
+        Plugins?.Dispose();
         if (_server is not null && _server.IsPlaying(_voice))
             _server.Stop(_voice);
     }

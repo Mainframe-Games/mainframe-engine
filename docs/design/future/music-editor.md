@@ -5,7 +5,9 @@ partly built: song editor without plugins (2026-10-08) — song model, engine, r
 ([ADR 0145](../../../memory/decisions/0145-song-engine-built-in-phase.md)) and the song tab ([Editor → Song tab](../editor.md#song-tab-music-editor));
 helper process and Vorbis encoding built (2026-10-08): `mfplughost` (`--encode`, `--serve` socket protocol),
 `PluginHostClient`, Render to `.ogg` ([ADR 0146](../../../memory/decisions/0146-plugin-host-helper-process.md),
-[Natives](../natives.md#the-music-editor-helper-mfplughost)); VST3 hosting and MIDI input pending · **Depends on:** [Sound designer](sound-designer.md) (editor audio, `AudioPreview`,
+[Natives](../natives.md#the-music-editor-helper-mfplughost)); VST3 hosting built (2026-10-08): scan, instruments and
+inserts through one shared-memory round trip per block, PDC, crash recovery, state capture, macOS editor windows
+([ADR 0147](../../../memory/decisions/0147-vst3-hosting-shared-memory.md)); Windows/Linux editor windows and MIDI input pending · **Depends on:** [Sound designer](sound-designer.md) (editor audio, `AudioPreview`,
 the ZzFX port), [Audio](../audio.md), [Editor](../editor.md), [Natives](../natives.md) · **Related:**
 [UI preview tabs](../editor.md#ui-preview), [Game UI](../game-ui.md)
 

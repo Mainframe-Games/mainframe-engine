@@ -78,7 +78,7 @@
         .slot button.tool-button { margin-left: 2dp; }
         .inserts { display: flex; flex-direction: row; align-items: center; height: 20dp; padding: 0dp 4dp; background-color: #121418;
                    border: 1dp #2f333d; border-radius: 3dp; color: #5f6676; font-size: 10dp; }
-        .inserts span.grow { flex: 1 1 auto; }
+        .inserts span.grow { flex: 1 1 auto; overflow: hidden; white-space: nowrap; }
         input.range.pan { width: 100%; }
         .fader-row { display: flex; flex-direction: row; justify-content: center; flex: 0 0 auto; height: 132dp; margin-top: 6dp; }
         input.range.fader { display: block; width: 16dp; height: 100%; margin-right: 10dp; }
@@ -147,13 +147,13 @@
                 <div class="strip-name">{{row.name}}</div>
                 <div class="strip-label" data-if="!row.audio">Instrument</div>
                 <div class="slot" data-if="!row.audio">
-                    <button class="slot-name" data-event-click="instrument(row.index)" data-tooltip="Instrument — Built-in ZzFX (VST3 instruments arrive with the plugin host)">{{row.instrument}}</button>
+                    <button class="slot-name" data-event-click="instrument(row.index)" data-tooltip="Instrument — Built-in ZzFX or a scanned VST3 instrument (and its editor window)">{{row.instrument}}</button>
                     <button class="tool-button small" data-event-click="edit_line(row.index)" data-tooltip="Edit Sound — the built-in instrument's ZzFX line (as the sound designer copies it)"><span class="icon icon-sm icon-pencil"></span></button>
                     <button class="tool-button small" data-event-click="audition(row.index)" data-tooltip="Audition — play C4 on this instrument"><span class="icon icon-sm icon-player-play"></span></button>
                 </div>
                 <div class="strip-label" data-if="row.audio">Audio clips</div>
                 <div class="strip-label">Inserts</div>
-                <div class="inserts" data-tooltip="Insert effects — VST3 effects arrive with the plugin host"><span class="grow">none</span><span class="icon icon-sm icon-plus"></span></div>
+                <div class="inserts" data-event-click="inserts(row.index)" data-tooltip="Insert effects — add a VST3 effect; open its editor, bypass, reorder or remove"><span class="grow">{{row.inserts}}</span><span class="icon icon-sm icon-plus"></span></div>
                 <div class="strip-label">Pan <span class="mono">{{row.pan_text}}</span></div>
                 <input type="range" class="range pan" min="-1" max="1" step="0.05" data-attr-value="row.pan" data-attr-data-pan="row.index" data-tooltip="Pan — equal-power, left to right"/>
                 <div class="fader-row">
@@ -170,7 +170,7 @@
                 <div class="strip-color" style="background-color: #e8ebf2;"></div>
                 <div class="strip-name">Master</div>
                 <div class="strip-label">Inserts</div>
-                <div class="inserts" data-tooltip="Insert effects — VST3 effects arrive with the plugin host"><span class="grow">none</span><span class="icon icon-sm icon-plus"></span></div>
+                <div class="inserts" data-event-click="inserts(-1)" data-tooltip="Master inserts — add a VST3 effect; open its editor, bypass, reorder or remove"><span class="grow">{{master_inserts}}</span><span class="icon icon-sm icon-plus"></span></div>
                 <div class="fader-row">
                     <input id="song-master-fader" type="range" class="range fader" orientation="vertical" min="-6" max="60" step="0.5" data-attr-value="master_fader" data-master="1" data-tooltip="Master Volume — dB (top +6, bottom −60)"/>
                     <div class="meter" data-tooltip="Peak meter — −60 to +6 dB"><div id="meter-master" class="meter-fill"></div></div>

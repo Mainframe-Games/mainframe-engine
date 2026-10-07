@@ -242,7 +242,8 @@ public sealed class EditorSession : IDisposable
         SongPlayer player;
         try
         {
-            player = new SongPlayer(_host.Tree?.Servers.Get<AudioServer>());
+            player = new SongPlayer(_host.Tree?.Servers.Get<AudioServer>(),
+                plugins: static rate => new PluginRack(static () => PluginHostClient.TryCreate(), rate));
         }
         catch
         {
@@ -277,6 +278,7 @@ public sealed class EditorSession : IDisposable
             }
         }
 
+        song.Player.CapturePluginStates(song.Document); // plugin states go into the file
         song.Document.Save();
         song.Saved();
         ScenesChanged?.Invoke();

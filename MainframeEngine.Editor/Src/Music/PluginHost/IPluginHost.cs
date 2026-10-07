@@ -34,8 +34,57 @@ public interface IPluginHost : IDisposable
     /// </summary>
     PluginHostEncodeResult Encode(string wavPath, string oggPath, int quality, CancellationToken cancellation = default);
 
-    // VST3 phase (music editor delivery 2): Scan, LoadPlugin, UnloadPlugin, GetState/SetState, Latency, Process(block),
-    // OpenEditor/CloseEditor. MIDI phase (delivery 4): MidiDevices, OpenMidiDevice/CloseMidiDevice and input events.
+    // ── VST3 (ADR 0147). Instances are the helper's ids; audio and note events travel through the shared memory
+    // (PluginSharedMemory) mapped by SetupSharedMemory. MIDI phase (delivery 4): devices and input events.
+
+    /// <summary>Maps the editor's shared memory file in the helper (again after every restart).</summary>
+    void SetupSharedMemory(string path, long size);
+
+    /// <summary>Loads a VST3 class from a bundle into shared memory slot <paramref name="slot"/>, activated and processing.</summary>
+    PluginLoadResult LoadPlugin(string bundlePath, string classId, int slot, int sampleRate, int maxBlock);
+
+    void UnloadPlugin(uint instance);
+
+    /// <summary>The plugin's state: <c>u32 length + component state, u32 length + controller state</c> (opaque to callers).</summary>
+    byte[] GetPluginState(uint instance);
+
+    /// <summary>Restores a state returned by <see cref="GetPluginState"/>.</summary>
+    void SetPluginState(uint instance, ReadOnlySpan<byte> state);
+
+    int GetPluginLatency(uint instance);
+
+    /// <summary>Switches every instance between real-time and offline (render) processing.</summary>
+    void SetPluginsOffline(bool offline);
+
+    void OpenPluginEditor(uint instance, string title);
+
+    void ClosePluginEditor(uint instance);
+
+    /// <summary>
+    /// Render thread: one <c>PluginProcess</c> round trip (<see cref="PluginHostMessage.PluginProcess"/> payload). Never
+    /// starts the helper and never allocates. A reply later than <paramref name="deadline"/> is
+    /// <see cref="PluginProcessResult.Missed"/> (the late reply is consumed by the next call, which misses until it came).
+    /// </summary>
+    PluginProcessResult ProcessPlugins(ReadOnlySpan<byte> payload, TimeSpan deadline);
+
+    /// <summary>UI thread: an instance whose editor window the user closed (helper notification), if any.</summary>
+    bool TryTakeClosedEditor(out uint instance);
+}
+
+/// <summary>What <see cref="IPluginHost.LoadPlugin"/> loaded.</summary>
+public readonly record struct PluginLoadResult(uint Instance, int LatencyFrames, int InputChannels, int OutputChannels, bool HasEditor, string Name);
+
+/// <summary>How a block's plugin round trip went.</summary>
+public enum PluginProcessResult
+{
+    /// <summary>Processed: the outputs in shared memory are this block's.</summary>
+    Ok,
+
+    /// <summary>No reply within the deadline (or the host was busy): the block is silence, an xrun.</summary>
+    Missed,
+
+    /// <summary>The helper is not running, stopped, or answered with an error.</summary>
+    Failed,
 }
 
 /// <summary>A helper's handshake.</summary>

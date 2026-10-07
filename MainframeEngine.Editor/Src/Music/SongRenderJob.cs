@@ -43,11 +43,21 @@ public sealed class SongRenderJob : IDisposable
         var name = Path.GetFileNameWithoutExtension(songPath);
         var job = new SongRenderJob(Path.GetFullPath(songPath), name, System.Threading.Tasks.Task.FromResult(default(SongRenderResult)));
         var progress = new ProgressSink(job);
-        job.Task = System.Threading.Tasks.Task.Run(() => SongRenderer.Render(copy, name, database, progress: progress, cancellation: job._cancel.Token, encoder: encoder));
+        // Plugins render in their own helper (offline mode), separate from the tab's live one.
+        Func<int, PluginRack?>? plugins = UsesPlugins(copy)
+            ? rate => new PluginRack(() => PluginHostClient.TryCreate(), rate, offline: true) { SongName = name }
+            : null;
+        job.Task = System.Threading.Tasks.Task.Run(() =>
+            SongRenderer.Render(copy, name, database, progress: progress, cancellation: job._cancel.Token, encoder: encoder, plugins: plugins));
         return job;
     }
 
     public void Cancel() => _cancel.Cancel();
+
+    /// <summary>The song has a plugin instrument or insert.</summary>
+    public static bool UsesPlugins(Song song) =>
+        song.Master.Inserts.Exists(i => i.Plugin is not null) ||
+        song.Tracks.Exists(t => t.Instrument?.Plugin is not null || t.Inserts.Exists(i => i.Plugin is not null));
 
     /// <summary>Releases the cancellation source (after the task finished).</summary>
     public void Dispose() => _cancel.Dispose();

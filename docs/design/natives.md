@@ -9,7 +9,7 @@ How the engine's own native libraries are laid out, built, tested, shipped and r
 | ENet | `Native/ENet/upstream`: nxrighthere/ENet-CSharp submodule, tag `2.4.8` | `enet` (ENet-CSharp 2.4.8) | `enet.dll`, `libenet.so`, `libenet.dylib` |
 | RmlUi shim | `Native/RmlUi`: in-house C ABI over RmlUi 6.3 + FreeType 2.14.3 | `mfrmlui` | `mfrmlui.dll`, `libmfrmlui.so`, `libmfrmlui.dylib` |
 | SVG rasteriser | `Native/Svg`: in-house C ABI over ThorVG 1.0.3 (Godot 4.7.2's vendored copy, PNG loader off; ADR 0112) | `mfsvg` | `mfsvg.dll`, `libmfsvg.so`, `libmfsvg.dylib` |
-| Music editor helper (editor only) | `Native/PluginHost`: C++20 executable over libogg 1.3.6 + libvorbis 1.3.7 (VST3 SDK and RtMidi later; ADR 0146) | none: a process (`PluginHostClient`) | `mfplughost.exe`, `mfplughost` |
+| Music editor helper (editor only) | `Native/PluginHost`: C++20 executable over libogg 1.3.6 + libvorbis 1.3.7 + the VST 3 SDK 3.8.1 hosting classes (RtMidi later; ADR 0146, 0147) | none: a process (`PluginHostClient`) | `mfplughost.exe`, `mfplughost` |
 
 Decisions: [ADR 0001](../../memory/decisions/0001-enet-natives-built-in-ci.md) (ENet),
 [ADR 0002](../../memory/decisions/0002-rmlui-native-shim.md) (RmlUi shim, ABI rules, licence finding) and
@@ -38,9 +38,10 @@ Native/
     external/RmlUi/         submodule (mikke89/RmlUi @ 6.3)
     external/freetype/      submodule (freetype/freetype @ VER-2-14-3)
   PluginHost/
-    CMakeLists.txt          executable `mfplughost` (+ static ogg/vorbis); MF_PLUGINHOST_VST3 / _MIDI (OFF until vendored)
+    CMakeLists.txt          executable `mfplughost` (+ static ogg/vorbis); MF_PLUGINHOST_VST3 (ON) / _MIDI (OFF until vendored)
+    vst3.cmake              our source lists for the VST 3 SDK's base, pluginterfaces and hosting (external/vst3sdk)
     src/                    main, WAV reader, Vorbis encoder, protocol framing, socket transport, server
-    tests/                  mfplughost_tests
+    tests/                  mfplughost_tests; plugins/ = mf_test_plugins.vst3 (gain, sine synth, crasher; never shipped)
     external/ogg/           submodule (xiph/ogg @ v1.3.6)
     external/vorbis/        submodule (xiph/vorbis @ v1.3.7)
 MainframeEngine/runtimes/
@@ -122,7 +123,7 @@ Cross-compiling is not supported. Windows and Linux binaries come from CI.
 | `enet_smoke` | Linked version is 2.4.8; a reliable packet round trip over loopback (connect, send, receive, disconnect) |
 | `mfrmlui_exports` | Resolves every function declared in `mfrmlui.h`; the list is parsed from the header at configure time, currently 121 |
 | `mfrmlui_smoke` | A C11 client of the header (details below) |
-| `mfplughost_tests` | WAV reading (float + 16-bit), Vorbis encoding decoded back through libvorbisfile (exact length, level), a failed encode leaves the old file, the `--encode` command line, and a socket round trip: hello (and a wrong version), ping, unknown message, encode, shutdown, exit on disconnect |
+| `mfplughost_tests` | VST3 against `mf_test_plugins.vst3`: scan (and a missing bundle), load, a synth note chained into the gain, state round trip, latency, offline mode with the crasher's delay, no editor, unload; and WAV reading (float + 16-bit), Vorbis encoding decoded back through libvorbisfile (exact length, level), a failed encode leaves the old file, the `--encode` command line, and a socket round trip: hello (and a wrong version), ping, unknown message, encode, shutdown, exit on disconnect |
 
 What `mfrmlui_smoke` exercises:
 
@@ -156,13 +157,26 @@ Games never reference it.
   `AF_UNIX`; one code path instead of a named pipe). Frames are `u32 payloadLength | u16 type | u16 flags | u32 id |
   payload`, little-endian, ≤ 64 MiB; a reply is `type | 0x8000` with the request's id, or `0xFFFF` error (`u32 code,
   str message`). Core messages: `0x0001` hello (protocol version, capabilities, pid), `0x0002` ping, `0x0003` shutdown,
-  `0x0004` sleep (timeout tests), `0x0010` encode. `0x0100–0x01FF` are reserved for plugins, `0x0200–0x02FF` for MIDI.
+  `0x0004` sleep (timeout tests), `0x0010` encode; `0x0100–0x010B` VST3 (below); `0x0200–0x02FF` reserved for MIDI.
+- **VST3** (ADR 0147; `src/plugins.cpp`, `src/shm.hpp`): `--scan <bundle>` prints one bundle's audio classes as JSON
+  (the editor runs one process per bundle) and the same as the `0x0101` message; `0x0100` maps the editor's
+  file-backed shared memory (header + one slot per instance: planar stereo in/out, note events); `load` (bundle, class
+  ID, slot, rate, block → id, latency, channels, editor flag), `unload`, `getState`/`setState` (component + controller
+  streams, each `u32`-length-prefixed), `latency`, `setOffline` (kOffline for every instance), `openEditor`/
+  `closeEditor` and the `0x010B` editorClosed notification (request id 0); `0x010A` process runs a block for every
+  listed instance in order (an entry can take another slot's output as its input) — one round trip per block. The
+  helper writes the instance it is calling into to the shared memory header, so the editor can blame a crash.
+  Control calls run on the main thread — on macOS an `NSApplication` loop (accessory, no Dock icon) that also hosts
+  editor windows (`NSWindow` + the plugin's `IPlugView` NSView, titled "Plugin — Track — Song") — and `process` on the
+  protocol thread. Windows/Linux answer `openEditor` with "not supported on this platform yet".
 - **Lifetime:** the helper listens, accepts one connection (30 s limit), removes the socket file, serves requests one at
   a time, and exits on shutdown or when the connection closes (the editor quit or crashed).
 - **Build:** static libogg/libvorbis compiled from the submodules' sources by our CMake (their own build scripts are not
   used; `ogg/config_types.h` is generated from `<stdint.h>`), static CRT on Windows, static libstdc++/libgcc on Linux,
-  universal on macOS. `MF_PLUGINHOST_VST3` / `MF_PLUGINHOST_MIDI` stay OFF (and fail if turned on) until the VST3 SDK
-  and RtMidi are vendored.
+  universal on macOS. The VST 3 SDK's own CMake is not used (it pulls VSTGUI, the validator and global settings):
+  `vst3.cmake` compiles `base`, `pluginterfaces` and the hosting sources as two static libraries (warnings off). Only the
+  SDK's `base`, `pluginterfaces`, `public.sdk` and `cmake` submodules are needed (a recursive checkout also fetches
+  `vstgui4`, `doc` and `tutorials`; harmless). `MF_PLUGINHOST_MIDI` stays OFF until RtMidi is vendored.
 - **Packaging:** `build/package-editor.sh` keeps the exec bit; on macOS the helper sits in `Contents/MacOS/`. Releases
   are not signed yet; the commented `codesign` step and `build/macos/mfplughost.entitlements`
   (`com.apple.security.cs.disable-library-validation`, needed to load vendor-signed plugins under the hardened runtime)
@@ -199,7 +213,8 @@ binary <sha256> <component> <inputs hash it was built from> <path>
 - **Build inputs.**
   - ENet: `Native/CMakeLists.txt`, `Native/ENet/CMakeLists.txt` and the export lists.
   - mfrmlui: `Native/CMakeLists.txt`, `Native/RmlUi/CMakeLists.txt`, `include/` and `shim/`.
-  - mfplughost: `Native/CMakeLists.txt`, `Native/PluginHost/CMakeLists.txt`, `src/` and the ogg/vorbis submodule commits.
+  - mfplughost: `Native/CMakeLists.txt`, `Native/PluginHost/CMakeLists.txt`, `vst3.cmake`, `src/` and the ogg, vorbis
+    and vst3sdk submodule commits.
   - Tests and docs are not inputs.
 - **What `verify` fails on:**
   - A runtime binary that is not in the lock.
@@ -257,9 +272,9 @@ The RmlUi.Net attribution is in [`Native/RmlUi/shim/NOTICE.md`](../../Native/Rml
 
 | RID | enet | mfrmlui | mfsvg | mfplughost |
 |---|---|---|---|---|
-| osx-arm64 / osx-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed, built locally (universal, tests pass) |
-| win-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ⏳ TODO: from the next `natives.yml` run (the Windows `AF_UNIX` path is built there, not yet run) |
-| linux-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ⏳ TODO: from the next `natives.yml` run |
+| osx-arm64 / osx-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed with VST3, built locally (universal, tests pass) |
+| win-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ⏳ TODO: from the next `natives.yml` run (the Windows `AF_UNIX` path and VST3 hosting are built there, not yet run) |
+| linux-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ⏳ TODO: from the next `natives.yml` run (VST3 hosting included) |
 
 Adding `MF_NATIVES_PLUGINHOST` to `Native/CMakeLists.txt` changed every component's build inputs, so
 `natives-lock.sh verify` reports the committed enet/mfrmlui/mfsvg binaries as stale until that `natives.yml` run's

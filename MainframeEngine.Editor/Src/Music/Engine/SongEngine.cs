@@ -26,6 +26,9 @@ public sealed class SongEngine
 
     private const int CommandCapacity = 256;
 
+    /// <summary>The most plugin delay compensation applied to a track (about 0.34 s at 48 kHz).</summary>
+    public const int MaxCompensationFrames = 16384;
+
     private readonly TrackRuntime[] _runtimes = new TrackRuntime[SongSnapshotBuilder.MaxTracks];
     private readonly Command[] _commands = new Command[CommandCapacity];
     private readonly Lock _producerGate = new();
@@ -126,8 +129,45 @@ public sealed class SongEngine
             return;
         }
 
+        var blockStart = _position;
         if (_playing)
             Sequence(song, frames);
+
+        // Sources: built-in instruments and audio clips render here; plugin instruments in the batch below.
+        foreach (var track in song.Tracks)
+        {
+            var rt = _runtimes[track.Slot];
+            if (rt.EventCount > 1)
+                SortEvents(rt.Events.AsSpan(0, rt.EventCount));
+            if (track.Instrument is not PluginInstrument)
+                track.Instrument?.Process(track, rt.Events.AsSpan(0, rt.EventCount), rt.Buffer.AsSpan(0, frames * 2));
+        }
+
+        // Every track's plugin chain in one helper round trip; a missed or failed block plays them as silence.
+        var rack = song.Plugins;
+        if (rack is not null && song.HasTrackPlugins)
+        {
+            rack.BeginBatch();
+            foreach (var track in song.Tracks)
+            {
+                var rt = _runtimes[track.Slot];
+                rt.ChainSlot = track.HasPlugins
+                    ? rack.AddChain(track.Instrument as PluginInstrument, rt.Events.AsSpan(0, rt.EventCount), track.Effects, rt.Buffer.AsSpan(0, frames * 2), frames)
+                    : -1;
+            }
+
+            var ok = rack.RunBatch(frames, _playing, song.Tempo, blockStart) == PluginProcessResult.Ok;
+            foreach (var track in song.Tracks)
+            {
+                var rt = _runtimes[track.Slot];
+                if (rt.ChainSlot < 0)
+                    continue;
+                if (ok)
+                    rack.ReadOutput(rt.ChainSlot, rt.Buffer, frames);
+                else
+                    rt.Buffer.AsSpan(0, frames * 2).Clear();
+            }
+        }
 
         var master = song.MasterGain;
         var masterPeak = 0f;
@@ -135,9 +175,7 @@ public sealed class SongEngine
         {
             var rt = _runtimes[track.Slot];
             var buffer = rt.Buffer.AsSpan(0, frames * 2);
-            if (rt.EventCount > 1)
-                SortEvents(rt.Events.AsSpan(0, rt.EventCount));
-            track.Instrument?.Process(track, rt.Events.AsSpan(0, rt.EventCount), buffer);
+            rt.Compensate(buffer, song.MaxTrackLatency - track.LatencyFrames);
 
             var audible = track.IsAudible(song.AnySolo);
             var targetL = audible ? track.Gain * track.PanLeft : 0f;
@@ -153,13 +191,28 @@ public sealed class SongEngine
                 var gr = rt.GainR + stepR * (f + 1);
                 var l = buffer[2 * f] * gl;
                 var r = buffer[2 * f + 1] * gr;
-                peak = Math.Max(peak, Math.Max(Math.Abs(l), Math.Abs(r)));
+                peak = Math.Max(peak, Math.Abs(l));
+                peak = Math.Max(peak, Math.Abs(r));
                 output[2 * f] += l;
                 output[2 * f + 1] += r;
             }
 
             (rt.GainL, rt.GainR) = (targetL, targetR);
             AccumulatePeak(ref rt.PeakBits, peak);
+        }
+
+        // Master inserts: a second round trip on the sum (they need every track's output).
+        if (rack is not null && song.MasterEffects.Length > 0)
+        {
+            rack.BeginBatch();
+            var slot = rack.AddChain(null, default, song.MasterEffects, output, frames);
+            if (slot >= 0)
+            {
+                if (rack.RunBatch(frames, _playing, song.Tempo, blockStart) == PluginProcessResult.Ok)
+                    rack.ReadOutput(slot, output, frames);
+                else
+                    output.Clear();
+            }
         }
 
         for (var i = 0; i < output.Length; i++)
@@ -438,10 +491,41 @@ public sealed class SongEngine
         public float GainL = float.NaN;
         public float GainR = float.NaN;
         public int PeakBits;
+        public int ChainSlot = -1;
+        private float[]? _delay;
+        private int _delayFrames;
+        private int _delayPosition;
+
+        /// <summary>Plugin delay compensation: delays the block by <paramref name="frames"/> (a ring, grown on the first need).</summary>
+        public void Compensate(Span<float> stereo, int frames)
+        {
+            frames = Math.Clamp(frames, 0, MaxCompensationFrames);
+            if (frames != _delayFrames)
+            {
+                if (_delay is null || _delay.Length < frames * 2)
+                    _delay = new float[Math.Max(frames, 1024) * 2];
+                Array.Clear(_delay);
+                _delayFrames = frames;
+                _delayPosition = 0;
+            }
+
+            if (frames == 0)
+                return;
+            var ring = _delay!;
+            for (var f = 0; f < stereo.Length / 2; f++)
+            {
+                var at = 2 * _delayPosition;
+                (ring[at], stereo[2 * f]) = (stereo[2 * f], ring[at]);
+                (ring[at + 1], stereo[2 * f + 1]) = (stereo[2 * f + 1], ring[at + 1]);
+                _delayPosition = _delayPosition + 1 == frames ? 0 : _delayPosition + 1;
+            }
+        }
 
         public void Reset(int generation)
         {
             Generation = generation;
+            _delayFrames = 0;
+            ChainSlot = -1;
             EventCount = 0;
             HeldCount = 0;
             GainL = GainR = float.NaN;

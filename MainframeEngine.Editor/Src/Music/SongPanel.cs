@@ -22,6 +22,7 @@ public sealed class SongPanel : EditorDocument
         public required string Name { get; init; }
         public required string Color { get; init; }
         public required string Instrument { get; init; }
+        public required string Inserts { get; init; }
         public required bool Audio { get; init; }
         public required bool Mute { get; init; }
         public required bool Solo { get; init; }
@@ -39,6 +40,7 @@ public sealed class SongPanel : EditorDocument
         .Member("name", static r => r.Name)
         .Member("color", static r => r.Color)
         .Member("instrument", static r => r.Instrument)
+        .Member("inserts", static r => r.Inserts)
         .Member("audio", static r => r.Audio)
         .Member("mute", static r => r.Mute)
         .Member("solo", static r => r.Solo)
@@ -86,6 +88,7 @@ public sealed class SongPanel : EditorDocument
     private string _clipInfo = "";
     private string _masterFader = "0";
     private string _masterDb = "0.0 dB";
+    private string _masterInserts = "none";
 
     public SongPanel(EditorWorkspace workspace)
         : base(workspace, "song.rml")
@@ -118,6 +121,8 @@ public sealed class SongPanel : EditorDocument
             .Bind("clip_info", this, static p => p._clipInfo)
             .Bind("master_fader", this, static p => p._masterFader)
             .Bind("master_db", this, static p => p._masterDb)
+            .Bind("master_inserts", this, static p => p._masterInserts)
+            .Event("inserts", e => InsertMenu(e.GetArgument(0).GetInt32(), Below(e.Event.CurrentElement)))
             .Event("play", _ => Song(t => t.Player.Play()))
             .Event("stop", _ => Song(t => t.Player.Stop()))
             .Event("rewind", _ => Song(t => t.Controller.Key(Silk.NET.Input.Key.Home, EditorModifiers.None)))
@@ -266,6 +271,7 @@ public sealed class SongPanel : EditorDocument
                 Name = track.Name,
                 Color = track.Color ?? SongCanvas.Palette[i % SongCanvas.Palette.Length],
                 Instrument = track.Kind == SongTrackKind.Audio ? "Audio" : track.Instrument is { IsZzfx: true } ? "Built-in ZzFX" : track.Instrument?.DisplayName ?? "No instrument",
+                Inserts = InsertsText(track.Inserts),
                 Audio = track.Kind == SongTrackKind.Audio,
                 Mute = track.Mute,
                 Solo = track.Solo,
@@ -297,6 +303,7 @@ public sealed class SongPanel : EditorDocument
         _clipInfo = ClipInfo(tab);
         _masterFader = Number(-Math.Clamp(song.Master.VolumeDb, -60f, 6f));
         _masterDb = DbText(song.Master.VolumeDb);
+        _masterInserts = InsertsText(song.Master.Inserts);
         if (!_tempoFocused && Document.GetElementById("song-tempo") is { IsNull: false } tempo)
             tempo.SetValue(song.Tempo.ToString("0.##", CultureInfo.InvariantCulture));
         _model?.DirtyAll();
@@ -341,7 +348,7 @@ public sealed class SongPanel : EditorDocument
             _model?.Dirty("playing");
         }
 
-        var underruns = tab.Player.Underruns;
+        var underruns = tab.Player.Underruns + tab.Player.PluginXruns;
         if (underruns != _shownUnderruns)
         {
             _shownUnderruns = underruns;
@@ -530,14 +537,32 @@ public sealed class SongPanel : EditorDocument
         if (_tab is not { } tab || (uint)index >= (uint)tab.Document.Song.Tracks.Count)
             return;
         var track = tab.Document.Song.Tracks[index];
-        Workspace.Popup.Show(
-        [
+        var catalog = PluginCatalog.Current;
+        var current = track.Instrument?.Plugin?.ClassId;
+        var items = new List<MenuItem>
+        {
             MenuItem.Header("Instrument"),
-            new MenuItem("Built-in ZzFX", "zzfx", Css: track.Instrument?.IsZzfx == true ? "current" : null, Icon: "wave-sine"),
-            new MenuItem("Edit Sound…", "edit", Icon: "pencil"),
+            new("Built-in ZzFX", "zzfx", Css: track.Instrument?.IsZzfx == true ? "current" : null, Icon: "wave-sine"),
+            new("Edit Sound…", "edit", Enabled: track.Instrument?.IsZzfx == true, Icon: "pencil"),
             MenuItem.Separator,
-            new MenuItem("VST3 instruments arrive with the plugin host", null, Enabled: false, Icon: "plug-x"),
-        ], at.X, at.Y, command =>
+            MenuItem.Header("VST3 instruments"),
+        };
+        foreach (var plugin in catalog.Instruments)
+        {
+            items.Add(new MenuItem(plugin.DisplayName, "vst:" + plugin.ClassId,
+                Css: string.Equals(current, plugin.ClassId, StringComparison.OrdinalIgnoreCase) ? "current" : null, Icon: "plug"));
+        }
+
+        if (!catalog.Instruments.Any())
+            items.Add(new MenuItem(PluginHostClient.IsAvailable ? "None found — Editor Settings › Rescan Plugins" : "The plugin host is not available", null, Enabled: false, Icon: "plug-x"));
+        if (track.Instrument?.Plugin is not null)
+        {
+            items.Add(MenuItem.Separator);
+            items.Add(new MenuItem("Open Plugin Editor", "open", Icon: "app-window"));
+        }
+
+        EnsureScanned();
+        Workspace.Popup.Show(items, at.X, at.Y, command =>
         {
             if (!tab.Document.Song.Tracks.Contains(track))
                 return;
@@ -545,8 +570,113 @@ public sealed class SongPanel : EditorDocument
                 Guard("Could not set the instrument", () => tab.Document.SetTrackInstrument(track, InstrumentDescriptor.Zzfx(SongDocument.DefaultZzfxLine)));
             else if (command == "edit")
                 EditLine(index);
+            else if (command == "open" && track.Instrument is { } instrument)
+                OpenPluginEditor(tab, instrument);
+            else if (command?.StartsWith("vst:", StringComparison.Ordinal) == true && catalog.Find(command[4..]) is { } plugin &&
+                     !string.Equals(current, plugin.ClassId, StringComparison.OrdinalIgnoreCase))
+                Guard("Could not set the instrument", () => tab.Document.SetTrackInstrument(track, new InstrumentDescriptor { Plugin = plugin.ToDescriptor() }));
         });
     }
+
+    // A track's (index ≥ 0) or the master's (−1) insert chain: per insert open editor, bypass, move, remove; add an effect.
+    private void InsertMenu(int index, (float X, float Y) at)
+    {
+        if (_tab is not { } tab || index >= tab.Document.Song.Tracks.Count)
+            return;
+        var track = index >= 0 ? tab.Document.Song.Tracks[index] : null;
+        var inserts = track?.Inserts ?? tab.Document.Song.Master.Inserts;
+        var catalog = PluginCatalog.Current;
+        var items = new List<MenuItem>();
+        for (var i = 0; i < inserts.Count; i++)
+        {
+            var insert = inserts[i];
+            var n = i.ToString(CultureInfo.InvariantCulture);
+            items.Add(MenuItem.Header($"{i + 1}. {InsertName(insert)}{(insert.Bypass ? " (bypassed)" : "")}"));
+            items.Add(new MenuItem("Open Plugin Editor", "open:" + n, Enabled: insert.Plugin is not null, Icon: "app-window"));
+            items.Add(new MenuItem(insert.Bypass ? "Enable" : "Bypass", "bypass:" + n, Icon: insert.Bypass ? "plug-connected" : "plug-x"));
+            items.Add(new MenuItem("Move Up", "up:" + n, Enabled: i > 0, Icon: "arrow-up"));
+            items.Add(new MenuItem("Move Down", "down:" + n, Enabled: i < inserts.Count - 1, Icon: "arrow-down"));
+            items.Add(new MenuItem("Remove", "remove:" + n, Icon: "trash"));
+        }
+
+        items.Add(MenuItem.Header("Add VST3 effect"));
+        foreach (var plugin in catalog.Effects)
+            items.Add(new MenuItem(plugin.DisplayName, "add:" + plugin.ClassId, Icon: "plus"));
+        if (!catalog.Effects.Any())
+            items.Add(new MenuItem(PluginHostClient.IsAvailable ? "None found — Editor Settings › Rescan Plugins" : "The plugin host is not available", null, Enabled: false, Icon: "plug-x"));
+
+        EnsureScanned();
+        Workspace.Popup.Show(items, at.X, at.Y, command =>
+        {
+            if (command is null || (track is not null && !tab.Document.Song.Tracks.Contains(track)))
+                return;
+            var colon = command.IndexOf(':', StringComparison.Ordinal);
+            if (colon < 0)
+                return;
+            var verb = command[..colon];
+            var argument = command[(colon + 1)..];
+            if (verb == "add")
+            {
+                if (catalog.Find(argument) is { } plugin)
+                    Guard("Could not add the insert", () => tab.Document.AddInsert(track, plugin.ToDescriptor()));
+                return;
+            }
+
+            if (!int.TryParse(argument, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) || (uint)i >= (uint)inserts.Count)
+                return;
+            var insert = inserts[i];
+            switch (verb)
+            {
+                case "open":
+                    OpenPluginEditor(tab, insert);
+                    break;
+                case "bypass":
+                    Guard("Could not bypass the insert", () => tab.Document.SetInsertBypass(insert, !insert.Bypass));
+                    break;
+                case "up":
+                    Guard("Could not move the insert", () => tab.Document.MoveInsert(track, insert, i - 1));
+                    break;
+                case "down":
+                    Guard("Could not move the insert", () => tab.Document.MoveInsert(track, insert, i + 1));
+                    break;
+                case "remove":
+                    Guard("Could not remove the insert", () => tab.Document.RemoveInsert(track, insert));
+                    break;
+            }
+        });
+    }
+
+    private void OpenPluginEditor(SongTab tab, object owner)
+    {
+        if (tab.Player.Plugins?.Instances.FirstOrDefault(i => ReferenceEquals(i.Owner, owner)) is not { } instance)
+        {
+            Log.Warning("[Music] The plugin is not loaded (no plugin host, or the song is still loading it).");
+            return;
+        }
+
+        if (instance.Error is { } error)
+        {
+            Log.Warning($"[Music] {instance.DisplayName}: {error}");
+            return;
+        }
+
+        Guard($"Could not open {instance.DisplayName}'s editor", () => tab.Player.Plugins!.OpenEditor(instance));
+    }
+
+    // The first plugin menu without a scan cache scans in the background (the next menu lists the results).
+    private void EnsureScanned()
+    {
+        if (!File.Exists(PluginScanner.DefaultCachePath))
+            PluginScanner.RescanInBackground(Workspace.Settings.PluginFolders, force: false);
+    }
+
+    private static string InsertName(PluginInsert insert) => insert.Plugin is { } p
+        ? string.IsNullOrEmpty(p.Vendor) ? p.Name ?? p.ClassId ?? "plugin" : $"{p.Name} ({p.Vendor})"
+        : "unknown insert";
+
+    private static string InsertsText(List<PluginInsert> inserts) => inserts.Count == 0
+        ? "none"
+        : string.Join(", ", inserts.Select(i => (i.Plugin?.Name ?? "?") + (i.Bypass ? " (off)" : "")));
 
     /// <summary>The built-in instrument's ZzFX line in a text field; Apply checks it, stores it and auditions C4.</summary>
     public void EditLine(int index) => Track(index, (tab, track) =>
