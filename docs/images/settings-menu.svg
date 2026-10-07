@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>In-game settings menu (G4 proposal)</title>
+  <desc>The engine's drop-in SettingsMenu document over the Demo, drawn with the game UI widget library. The three tabs of one document are shown side by side: Audio with a volume slider and mute button per bus, Controls with one binding row waiting for a key press, and Display with window mode, VSync, UI scale, shadows, language and a revert countdown.</desc>
+  <rect width="960" height="640" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#ffffff}
+    .t{fill:#e6e9ef;font-size:12px}
+    .s{fill:#8a95ab;font-size:11px}
+    .dis{fill:#6b7488;font-size:12px}
+    .tab{fill:#8a95ab;font-size:12px}
+    .tabon{fill:#ffffff;font-size:12px;font-weight:600}
+    .doc{fill:#93c5fd;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+    .btn{fill:#2b3445;stroke:#44506a}
+    .pri{fill:#2f6fd6;stroke:#5aa0ff}
+    .field{fill:#0b0e14;stroke:#44506a}
+    .track{fill:#0b0e14}
+    .prog{fill:#3d8bfd}
+    .knob{fill:#e6e9ef}
+  </style>
+
+  <!-- game window -->
+  <rect x="20" y="20" width="920" height="560" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
+  <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
+  <text x="380" y="38" fill="#9ca3af" font-size="11">Mainframe Engine — Demo</text>
+
+  <!-- game scene behind the menu -->
+  <rect x="20" y="74" width="920" height="506" fill="#2b3a47"/>
+  <g stroke="#3f5566" stroke-width="1">
+    <line x1="20" y1="430" x2="940" y2="430"/><line x1="20" y1="480" x2="940" y2="480"/><line x1="20" y1="540" x2="940" y2="540"/>
+    <line x1="300" y1="400" x2="200" y2="580"/><line x1="480" y1="400" x2="480" y2="580"/><line x1="660" y1="400" x2="760" y2="580"/>
+  </g>
+  <rect x="420" y="360" width="46" height="46" fill="#c2603f"/><rect x="474" y="372" width="46" height="46" fill="#3f78c2"/><rect x="446" y="322" width="46" height="46" fill="#c9a52a"/>
+  <!-- modal dim -->
+  <rect x="20" y="74" width="920" height="506" fill="#000000" opacity="0.45"/>
+
+  <!-- Demo nav bar with the new settings button -->
+  <rect x="20" y="46" width="920" height="28" fill="#121722"/>
+  <rect x="28" y="51" width="18" height="18" rx="3" fill="#3d8bfd"/>
+  <text x="56" y="65" class="s">3D · 2D · Physics 3D · Physics 2D · Audio 3D · Audio 2D · Spine · UI</text>
+  <text x="742" y="65" class="s">60 FPS</text>
+  <rect x="790" y="51" width="50" height="18" rx="3" class="field"/><text x="796" y="64" class="s">en ▾</text>
+  <rect x="850" y="50" width="22" height="20" rx="3" class="pri"/>
+  <circle cx="861" cy="60" r="5" fill="none" stroke="#ffffff" stroke-width="2"/><circle cx="861" cy="60" r="1.6" fill="#ffffff"/>
+  <text x="882" y="65" class="s">F12</text>
+  <!-- tooltip -->
+  <rect x="760" y="77" width="146" height="19" rx="3" fill="#0b0e14" stroke="#44506a"/>
+  <text x="768" y="91" class="t" font-size="11">Settings (F10 / Start)</text>
+  <line x1="861" y1="70" x2="861" y2="77" stroke="#44506a"/>
+
+  <!-- ===================== Panel 1: Audio ===================== -->
+  <g>
+    <rect x="36" y="100" width="288" height="420" rx="6" fill="#121722" stroke="#2e3850"/>
+    <rect x="37" y="101" width="286" height="30" fill="#1c2333"/>
+    <text x="48" y="121" class="hdr">Settings</text>
+    <rect x="294" y="106" width="22" height="20" rx="3" class="btn"/><text x="300" y="121" class="t">✕</text>
+    <!-- tabs -->
+    <rect x="48" y="138" width="80" height="26" fill="#1c2333"/><text x="70" y="156" class="tabon">Audio</text>
+    <rect x="48" y="162" width="80" height="2" fill="#3d8bfd"/>
+    <text x="146" y="156" class="tab">Controls</text>
+    <text x="236" y="156" class="tab">Display</text>
+    <line x1="44" y1="165" x2="316" y2="165" stroke="#2e3850"/>
+
+    <!-- Master 100% -->
+    <text x="52" y="196" class="t">Master</text>
+    <rect x="120" y="188" width="126" height="6" rx="3" class="track"/><rect x="120" y="188" width="126" height="6" rx="3" class="prog"/>
+    <rect x="241" y="183" width="10" height="16" rx="3" class="knob"/>
+    <text x="256" y="196" class="s">100%</text>
+    <rect x="290" y="181" width="22" height="20" rx="3" class="btn"/><path d="M295 188 h4 l5 -4 v12 l-5 -4 h-4 z" fill="#e6e9ef"/>
+    <!-- Music 70% -->
+    <text x="52" y="236" class="t">Music</text>
+    <rect x="120" y="228" width="126" height="6" rx="3" class="track"/><rect x="120" y="228" width="88" height="6" rx="3" class="prog"/>
+    <rect x="203" y="223" width="10" height="16" rx="3" class="knob"/>
+    <text x="256" y="236" class="s">70%</text>
+    <rect x="290" y="221" width="22" height="20" rx="3" class="btn"/><path d="M295 228 h4 l5 -4 v12 l-5 -4 h-4 z" fill="#e6e9ef"/>
+    <!-- SFX 85% -->
+    <text x="52" y="276" class="t">Effects</text>
+    <rect x="120" y="268" width="126" height="6" rx="3" class="track"/><rect x="120" y="268" width="107" height="6" rx="3" class="prog"/>
+    <rect x="222" y="263" width="10" height="16" rx="3" class="knob"/>
+    <text x="256" y="276" class="s">85%</text>
+    <rect x="290" y="261" width="22" height="20" rx="3" class="btn"/><path d="M295 268 h4 l5 -4 v12 l-5 -4 h-4 z" fill="#e6e9ef"/>
+    <!-- UI 60% -->
+    <text x="52" y="316" class="t">Interface</text>
+    <rect x="120" y="308" width="126" height="6" rx="3" class="track"/><rect x="120" y="308" width="76" height="6" rx="3" class="prog"/>
+    <rect x="191" y="303" width="10" height="16" rx="3" class="knob"/>
+    <text x="256" y="316" class="s">60%</text>
+    <rect x="290" y="301" width="22" height="20" rx="3" class="btn"/><path d="M295 308 h4 l5 -4 v12 l-5 -4 h-4 z" fill="#e6e9ef"/>
+    <!-- Voice muted -->
+    <text x="52" y="356" class="dis">Voice</text>
+    <rect x="120" y="348" width="126" height="6" rx="3" class="track"/><rect x="120" y="348" width="101" height="6" rx="3" fill="#44506a"/>
+    <rect x="216" y="343" width="10" height="16" rx="3" fill="#6b7488"/>
+    <text x="256" y="356" class="s">80%</text>
+    <rect x="290" y="341" width="22" height="20" rx="3" fill="#3a2230" stroke="#f87171"/><path d="M295 348 h4 l5 -4 v12 l-5 -4 h-4 z" fill="#f87171"/>
+    <line x1="294" y1="358" x2="309" y2="344" stroke="#f87171" stroke-width="1.6"/>
+
+    <text x="52" y="392" class="s">Volumes scale each bus on top of the</text>
+    <text x="52" y="407" class="s">designer's mix; 0% is silent.</text>
+    <text x="52" y="452" class="doc">data-for="b : buses"</text>
+    <text x="52" y="466" class="doc">→ AudioBus.UserVolume</text>
+
+    <rect x="48" y="480" width="104" height="26" rx="4" class="btn"/><text x="60" y="497" class="t">↺  Defaults</text>
+    <rect x="232" y="480" width="80" height="26" rx="4" class="pri"/><text x="257" y="497" class="t" fill="#ffffff">Done</text>
+  </g>
+
+  <!-- ===================== Panel 2: Controls ===================== -->
+  <g>
+    <rect x="336" y="100" width="288" height="420" rx="6" fill="#121722" stroke="#2e3850"/>
+    <rect x="337" y="101" width="286" height="30" fill="#1c2333"/>
+    <text x="348" y="121" class="hdr">Settings</text>
+    <rect x="594" y="106" width="22" height="20" rx="3" class="btn"/><text x="600" y="121" class="t">✕</text>
+    <text x="370" y="156" class="tab">Audio</text>
+    <rect x="432" y="138" width="80" height="26" fill="#1c2333"/><text x="446" y="156" class="tabon">Controls</text>
+    <rect x="432" y="162" width="80" height="2" fill="#3d8bfd"/>
+    <text x="536" y="156" class="tab">Display</text>
+    <line x1="344" y1="165" x2="616" y2="165" stroke="#2e3850"/>
+
+    <text x="352" y="186" class="s">Action</text>
+    <text x="452" y="186" class="s">Keys / mouse</text>
+    <text x="550" y="186" class="s">Gamepad</text>
+
+    <text x="352" y="214" class="t">Move forward</text>
+    <rect x="448" y="200" width="92" height="22" rx="3" class="field"/><text x="456" y="215" class="t">W</text>
+    <rect x="548" y="200" width="66" height="22" rx="3" class="field"/><text x="556" y="215" class="t">LS ↑</text>
+
+    <text x="352" y="248" class="t">Move back</text>
+    <rect x="448" y="234" width="92" height="22" rx="3" class="field"/><text x="456" y="249" class="t">S</text>
+    <rect x="548" y="234" width="66" height="22" rx="3" class="field"/><text x="556" y="249" class="t">LS ↓</text>
+
+    <text x="352" y="282" class="t">Jump</text>
+    <rect x="448" y="268" width="92" height="22" rx="3" class="field"/><text x="456" y="283" class="t">Space</text>
+    <rect x="548" y="268" width="66" height="22" rx="3" class="field"/><text x="556" y="283" class="t">A</text>
+
+    <!-- capture state -->
+    <rect x="344" y="298" width="272" height="30" rx="3" fill="#2f6fd6" opacity="0.18"/>
+    <text x="352" y="317" class="t" font-weight="600">Interact</text>
+    <rect x="448" y="302" width="92" height="22" rx="3" fill="#1c2a44" stroke="#5aa0ff" stroke-width="1.6"/>
+    <text x="455" y="317" class="t" fill="#93c5fd" font-style="italic">Press a key…</text>
+    <rect x="548" y="302" width="66" height="22" rx="3" class="field"/><text x="556" y="317" class="t">X</text>
+
+    <text x="352" y="350" class="t">Drop crate</text>
+    <rect x="448" y="336" width="92" height="22" rx="3" class="field"/><text x="456" y="351" class="t">Mouse Left</text>
+    <rect x="548" y="336" width="66" height="22" rx="3" class="field"/><text x="556" y="351" class="t">RT</text>
+
+    <text x="352" y="384" class="dis">Pause</text>
+    <rect x="448" y="370" width="92" height="22" rx="3" fill="#20262f" stroke="#2b3242"/><text x="456" y="385" class="dis">Esc</text>
+    <rect x="522" y="374" width="12" height="10" rx="1" fill="#6b7488"/><path d="M524.5 374 v-3 a3.5 3.5 0 0 1 7 0 v3" fill="none" stroke="#6b7488" stroke-width="1.4"/>
+    <rect x="548" y="370" width="66" height="22" rx="3" fill="#20262f" stroke="#2b3242"/><text x="556" y="385" class="dis">Start</text>
+
+    <text x="352" y="414" class="s">Esc cancels · Backspace clears · 5 s timeout</text>
+    <text x="352" y="430" class="s">A key in use by another action is swapped.</text>
+    <text x="352" y="452" class="doc">InputRebinder (InputBeforeUi)</text>
+    <text x="352" y="466" class="doc">→ InputMap.Rebind + conflicts</text>
+
+    <rect x="348" y="480" width="132" height="26" rx="4" class="btn"/><text x="360" y="497" class="t">↺  Reset controls</text>
+    <rect x="532" y="480" width="80" height="26" rx="4" class="pri"/><text x="557" y="497" class="t" fill="#ffffff">Done</text>
+  </g>
+
+  <!-- ===================== Panel 3: Display ===================== -->
+  <g>
+    <rect x="636" y="100" width="288" height="420" rx="6" fill="#121722" stroke="#2e3850"/>
+    <rect x="637" y="101" width="286" height="30" fill="#1c2333"/>
+    <text x="648" y="121" class="hdr">Settings</text>
+    <rect x="894" y="106" width="22" height="20" rx="3" class="btn"/><text x="900" y="121" class="t">✕</text>
+    <text x="670" y="156" class="tab">Audio</text>
+    <text x="746" y="156" class="tab">Controls</text>
+    <rect x="816" y="138" width="80" height="26" fill="#1c2333"/><text x="834" y="156" class="tabon">Display</text>
+    <rect x="816" y="162" width="80" height="2" fill="#3d8bfd"/>
+    <line x1="644" y1="165" x2="916" y2="165" stroke="#2e3850"/>
+
+    <text x="652" y="196" class="t">Window mode</text>
+    <rect x="762" y="182" width="150" height="22" rx="3" class="field"/><text x="770" y="197" class="t">Fullscreen</text><text x="898" y="197" class="s">▾</text>
+
+    <text x="652" y="230" class="dis">Window size</text>
+    <rect x="762" y="216" width="150" height="22" rx="3" fill="#20262f" stroke="#2b3242"/><text x="770" y="231" class="dis">1920 × 1080</text><text x="898" y="231" class="dis">▾</text>
+
+    <text x="652" y="264" class="t">VSync</text>
+    <rect x="762" y="252" width="16" height="16" rx="3" fill="#3d8bfd" stroke="#3d8bfd"/>
+    <path d="M765.5 260 l3 3 l6 -7" fill="none" stroke="#ffffff" stroke-width="1.8"/>
+
+    <text x="652" y="298" class="dis">Max FPS</text>
+    <rect x="762" y="284" width="150" height="22" rx="3" fill="#20262f" stroke="#2b3242"/><text x="770" y="299" class="dis">Unlimited</text><text x="898" y="299" class="dis">▾</text>
+
+    <text x="652" y="332" class="t">UI scale</text>
+    <rect x="762" y="324" width="108" height="6" rx="3" class="track"/><rect x="762" y="324" width="54" height="6" rx="3" class="prog"/>
+    <rect x="811" y="319" width="10" height="16" rx="3" class="knob"/>
+    <text x="878" y="332" class="s">125%</text>
+
+    <text x="652" y="366" class="t">Shadows</text>
+    <rect x="762" y="352" width="150" height="22" rx="3" class="field"/><text x="770" y="367" class="t">High</text><text x="898" y="367" class="s">▾</text>
+
+    <text x="652" y="400" class="t">Language</text>
+    <rect x="762" y="386" width="150" height="22" rx="3" class="field"/><text x="770" y="401" class="t">English</text><text x="898" y="401" class="s">▾</text>
+
+    <!-- revert bar -->
+    <rect x="644" y="420" width="272" height="34" rx="4" fill="#1c2333" stroke="#5aa0ff"/>
+    <text x="652" y="435" class="t" font-size="11">Keep this display mode?</text>
+    <text x="652" y="448" class="s">Reverting in 12 s</text>
+    <rect x="806" y="426" width="46" height="22" rx="3" class="pri"/><text x="815" y="441" class="t" fill="#ffffff" font-size="11">Keep</text>
+    <rect x="858" y="426" width="52" height="22" rx="3" class="btn"/><text x="865" y="441" class="t" font-size="11">Revert</text>
+    <text x="652" y="470" class="doc">IWindowControl.Mode · RenderServer</text>
+
+    <rect x="648" y="480" width="104" height="26" rx="4" class="btn"/><text x="660" y="497" class="t">↺  Defaults</text>
+    <rect x="832" y="480" width="80" height="26" rx="4" class="pri"/><text x="857" y="497" class="t" fill="#ffffff">Done</text>
+  </g>
+
+  <!-- callouts -->
+  <text x="40" y="542" class="doc">Audio: one row per AudioServer bus (hidden: UserSettings.HiddenBuses)</text>
+  <text x="40" y="558" class="doc">Controls: rebindable actions; Pause is locked ("rebindable": false)</text>
+  <text x="560" y="542" class="doc">Display: unsupported rows hide (mobile: no window mode)</text>
+  <text x="560" y="558" class="doc">Saved to {user data}/settings.json on close</text>
+
+  <text x="20" y="604" class="cap">SettingsMenu: one RmlUi document (Content/UI/settings/settings.rml + the widget library) on its own UiLayer above the game.</text>
+  <text x="20" y="621" class="cap">Its three tabs are drawn side by side here. Changes apply live; the gear button in the Demo nav bar (new) opens it.</text>
+</svg>
