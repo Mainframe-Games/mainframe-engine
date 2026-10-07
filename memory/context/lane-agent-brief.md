@@ -39,3 +39,9 @@ Mobile (M12, `docs/design/future/mobile.md#mobile-ready-plumbing-checklist`, ADR
 - **Quality knobs:** every new expensive feature gets a `ProjectSettings` `rendering.*` setting (like `ShadowQuality`) so mobile tiers can bundle it.
 - **Natives:** new native code goes into `Native/` + `natives.yml` with a flat versioned C ABI, buildable static, 16 KB-aligned ELF.
 - **Platform integrations** are optional servers behind a seam with a null implementation; per-user files only via `UserDataPaths`.
+
+## Console-ready plumbing (do when touching these areas)
+Consoles (PS5 + Xbox Series, `docs/design/future/consoles.md#console-ready-plumbing-checklist`, ADR 0143) extend the mobile rules above. This repo is public: never commit, log or name anything learnt under a console NDA.
+- **Rendering:** no new raw `Vk` calls outside the renderer backend (use `IVulkanContext.Pipelines`/`Uploads`/`Deletions`, later `IGpuDevice`); pipelines come from a finite, enumerable set and are never first created mid-frame; no runtime shader compilation; shaders stay portable (≤ 4 bind groups, ≤ 128 B push data, no GLSL-only features without a fallback).
+- **Users and input:** code that needs "the player" takes a user (`IUserPlatform` once it exists); game-facing UI is fully gamepad-usable; button prompts use glyphs, never baked "A"/"X" images or text.
+- **I/O:** saves only through `ISaveStorage`; sockets only through `ITransport`; no `Process.Start`, direct URL opening or behaviour from environment variables in runtime code; caches have size limits and show up in the dev overlay.
