@@ -36,7 +36,8 @@ public class AudioListener3D : Node3D
     protected override void OnEnterTree()
     {
         base.OnEnterTree();
-        _server = Tree?.Servers.Get<AudioServer>();
+        // Edit mode (the editor) is silent: a listener in an open scene never takes over.
+        _server = Tree is { EditMode: false } tree ? tree.Servers.Get<AudioServer>() : null;
         _server?.RegisterListener(this);
     }
 
