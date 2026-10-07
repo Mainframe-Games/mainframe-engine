@@ -112,7 +112,24 @@ public sealed class SongRenderSettings
     /// <summary>With a loop: render it twice and keep the second pass (tails folded into the start).</summary>
     public bool SeamlessLoop { get; set; } = true;
 
+    /// <summary>The WAV's samples: 32-bit float (exact; the default, not written) or 16-bit PCM (half the size, for shipping).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public SongSampleFormat SampleFormat { get; set; }
+
     public SongRenderSettings Clone() => (SongRenderSettings)MemberwiseClone();
+}
+
+/// <summary>Sample format of a rendered WAV (<see cref="SongRenderSettings.SampleFormat"/>).</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<SongSampleFormat>))]
+public enum SongSampleFormat
+{
+    /// <summary>32-bit IEEE float.</summary>
+    [JsonStringEnumMemberName("float")]
+    IeeeFloat,
+
+    /// <summary>16-bit signed PCM (clamped to ±1).</summary>
+    [JsonStringEnumMemberName("pcm16")]
+    Pcm16,
 }
 
 /// <summary>The master: volume and (opaque, plugin-phase) inserts.</summary>

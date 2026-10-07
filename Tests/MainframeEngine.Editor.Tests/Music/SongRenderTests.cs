@@ -182,6 +182,55 @@ public sealed class SongRenderTests : IDisposable
         Assert.True(player.Engine.Current!.Find("lead")!.Mute);
     }
 
+    [Fact]
+    public void Pcm16RendersHalfTheSizeAndTheSettingRoundTrips()
+    {
+        var db = new AssetDatabase(_root);
+        var song = Melody(loop: true);
+        SongRenderer.Render(song, "Float", db, cancellation: Ct);
+        song.Render.SampleFormat = SongSampleFormat.Pcm16;
+        var result = SongRenderer.Render(song, "Short", db, cancellation: Ct);
+
+        var floatBytes = new FileInfo(Path.Combine(_root, "Content", "Music", "Float.wav")).Length;
+        var shortFile = Path.Combine(_root, "Content", "Music", "Short.wav");
+        Assert.Equal(44 + result.Frames * 2 * 2, new FileInfo(shortFile).Length);
+        Assert.Equal(44 + result.Frames * 2 * 4, floatBytes);
+        Assert.Equal(16, BitConverter.ToUInt16(File.ReadAllBytes(shortFile), 34));
+
+        Assert.Contains("\"sampleFormat\": \"pcm16\"", System.Text.Encoding.UTF8.GetString(SongFormat.Write(song)), StringComparison.Ordinal);
+        Assert.Equal(SongSampleFormat.Pcm16, song.Clone().Render.SampleFormat);
+        Assert.DoesNotContain("sampleFormat", System.Text.Encoding.UTF8.GetString(SongFormat.Write(Melody(loop: true))), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheRenderSongFlagRendersIntoTheSongsProject()
+    {
+        File.WriteAllText(Path.Combine(_root, ProjectSettings.FileName), "{}");
+        var songPath = Path.Combine(_root, "Content", "Music", "Loop.msong");
+        Directory.CreateDirectory(Path.GetDirectoryName(songPath)!);
+        SongFormat.Save(Melody(loop: true), songPath);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        Assert.Equal(0, SongRenderCommand.Run([SongRenderCommand.Flag, songPath], output, error));
+        Assert.True(File.Exists(Path.Combine(_root, "Content", "Music", "Loop.wav")), error.ToString());
+        Assert.Contains("\"loop\": true", File.ReadAllText(Path.Combine(_root, "Content", "Music", "Loop.wav.meta")), StringComparison.Ordinal);
+        Assert.Contains("Content/Music/Loop.wav", output.ToString(), StringComparison.Ordinal);
+
+        Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag, Path.Combine(_root, "missing.msong")], output, error));
+        Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag], output, error));
+        var outside = Directory.CreateTempSubdirectory("mf-render-noproject-").FullName;
+        try
+        {
+            File.Copy(songPath, Path.Combine(outside, "Loop.msong"));
+            Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag, Path.Combine(outside, "Loop.msong")], output, error));
+        }
+        finally
+        {
+            Directory.Delete(outside, recursive: true);
+        }
+    }
+
     private sealed class SyncProgress(Action<double> report) : IProgress<double>
     {
         public void Report(double value) => report(value);

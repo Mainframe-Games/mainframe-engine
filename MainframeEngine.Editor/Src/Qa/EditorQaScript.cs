@@ -609,7 +609,7 @@ public sealed class EditorQaScript : IEditorAutomation
     {
     }
     // song new <project path> · song demo (a one-bar clip with a few notes, one undo entry each) · song panel roll|mixer ·
-    // song select <track> · song play · song stop · song render (wait-for render) · song save
+    // song select <track> [clip] (indices; the clip opens in the piano roll) · song play · song stop · song render (wait-for render) · song save
     private static void Song(EditorWorkspace workspace, string[] step)
     {
         if (step[1] == "new")
@@ -641,6 +641,14 @@ public sealed class EditorQaScript : IEditorAutomation
                     document.SetLoop(true, 0, bar * 2);
                     tab.SelectClip(track, clip);
                     tab.SelectedNotes.AddRange(notes.GetRange(2, 3));
+                    break;
+                }
+
+            case "select":
+                {
+                    var track = document.Song.Tracks[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)];
+                    var clip = track.Clips[step.Length > 3 ? int.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture) : 0];
+                    tab.SelectClip(track, clip);
                     break;
                 }
 

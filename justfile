@@ -55,6 +55,10 @@ shaders-check:
 editor *args:
     dotnet run --project MainframeEngine.Editor -- {{args}}
 
+# Render a song (.msong) into its project headless, like the song tab's Render: the output and its .meta
+render-song path:
+    dotnet run --project MainframeEngine.Editor -c Release -- --render-song {{path}}
+
 # Scripted editor QA: input + captures into artifacts/qa-editor (opens the Demo project; default script: the walkthrough of its Basic 3D scene)
 qa-editor script="Tests/QA/editor-walkthrough.qa":
     dotnet build Examples/Demo/Demo.slnx -v q -nologo

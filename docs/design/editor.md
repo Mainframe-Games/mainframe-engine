@@ -578,10 +578,15 @@ when the tab is deactivated or closed. The scene tree and inspector rest while i
 - **Render** (transport button, FileSystem › Render on a `.msong`): `SongRenderJob` renders a copy of the song with
   `SongRenderer.Render` on a worker thread; the button shows "Cancel 63 %" and cancels on click (the splash has no cancel
   and would block the editor, so progress is shown there instead). The result goes to the Output panel. The FileSystem
-  badges a song whose output is older than the song (refresh icon, "Render out of date").
+  badges a song whose output is older than the song (refresh icon, "Render out of date"). The song's render settings
+  choose the WAV's samples (`sampleFormat`: `float`, the default, or `pcm16` — half the size, for files a game ships).
+- **Headless render:** `MainframeEngine.Editor --render-song <path.msong>` (`just render-song <path>`; `SongRenderCommand`)
+  renders a song into the project above it (the nearest folder with `project.mfproj`) exactly like Render — the output
+  and its `.meta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
+  `Content/Music/demo_loop.wav` is rendered this way).
 - Tests: `Tests/MainframeEngine.Editor.Tests/Music/SongTabTests.cs` (tab, gestures → one entry each, grid math, keys) and
   `SongWorkspaceTests.cs` (panel, keys before shortcuts, save, close prompt); QA steps 13d–13f in the walkthrough
-  (`song` QA step: `new`, `demo`, `panel`, `play`, `stop`, `save`, `render`; `wait-for render`).
+  (`song` QA step: `new`, `demo`, `select`, `panel`, `play`, `stop`, `save`, `render`; `wait-for render`).
 
 ## Editor settings
 

@@ -29,7 +29,8 @@ public readonly record struct SongRenderPlan(long StartFrame, long RenderFrames,
 /// a worker for the UI). Without a loop: from 0 to the end of the last clip plus <see cref="SongRenderSettings.TailSeconds"/>.
 /// With a loop and <see cref="SongRenderSettings.SeamlessLoop"/>: the loop region twice, keeping the second pass, so
 /// tails from the loop's end are already in its start (the whole file is the loop). With a loop, not seamless: from 0 to
-/// the loop end, with the loop region as the file's loop points. Writes 32-bit float WAV to a temporary name and then
+/// the loop end, with the loop region as the file's loop points. Writes a WAV (32-bit float, or 16-bit PCM with
+/// <see cref="SongRenderSettings.SampleFormat"/>) to a temporary name and then
 /// replaces the output (a failed render leaves the previous file intact), then the output's <c>.meta</c> import settings
 /// (<c>loop</c>, <c>loopStart</c>, <c>loopEnd</c> in seconds, <c>loadMode: Stream</c>).
 /// </summary>
@@ -127,12 +128,13 @@ public static class SongRenderer
 
         var samples = RenderToBuffer(song, out var plan, instrumentFactory, clipLoader, progress, cancellation);
         var rate = Math.Clamp(song.Render.SampleRate, 8000, 192000);
+        var format = song.Render.SampleFormat == SongSampleFormat.Pcm16 ? WavSampleFormat.Pcm16 : WavSampleFormat.IeeeFloat;
         var full = database.ToAbsolutePath(output);
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         var temp = full + ".rendering.tmp";
         try
         {
-            WavWriter.Write(temp, samples, 2, rate, WavSampleFormat.IeeeFloat);
+            WavWriter.Write(temp, samples, 2, rate, format);
             cancellation.ThrowIfCancellationRequested();
             File.Move(temp, full, overwrite: true);
         }
@@ -144,7 +146,7 @@ public static class SongRenderer
 
         WriteMeta(database, output, plan);
         var result = new SongRenderResult(database.ToProjectPath(full), plan.OutputFrames, rate, plan.Loop, plan.LoopStart, plan.LoopEnd);
-        Log.Info($"[Music] Rendered '{songName}' to {result.OutputPath} (WAV, 32-bit float, {result.Seconds:0.00} s{(plan.Loop ? ", loops" : "")}).");
+        Log.Info($"[Music] Rendered '{songName}' to {result.OutputPath} (WAV, {(format == WavSampleFormat.Pcm16 ? "16-bit PCM" : "32-bit float")}, {result.Seconds:0.00} s{(plan.Loop ? ", loops" : "")}).");
         return result;
     }
 
