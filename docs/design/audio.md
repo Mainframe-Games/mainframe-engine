@@ -206,6 +206,15 @@ defaults (warned once).
   re-synthesises (and allocates) on the next play. Over-long sounds are a `LoadError`, logged once.
 - **`ZzfxPresets`** — sfxr-style recipes taking a `System.Random`: `Pickup`/`Coin`, `Laser`, `Explosion`, `Hit`,
   `Jump`, `Blip`, `PowerUp`, `Randomize`, and `Mutate` (±10 % on non-default continuous values, shape kept).
+- **`AudioStreamGenerator : AudioStream`** (Godot's) — samples pushed while it plays (procedural audio, the editor's
+  song engine). `BufferSeconds` (0.5) and `MixRate` (44 100 Hz) are exports; frames are interleaved stereo. Each play
+  creates its own `AudioStreamGeneratorPlayback` ring (the `Play` path swaps the stream's template source for a per-play
+  `AudioGeneratorSource`); `AudioServer.GetGeneratorPlayback(handle)` returns it. The ring is lock-free SPSC (one
+  producer thread at a time, the audio thread consumes; allocation only at play): `FramesAvailable`, `FramesQueued`,
+  `PushFrames(ReadOnlySpan<float>)` (all or nothing), `PushFrame(l, r)`, `ClearBuffer()` (the consumer skips to the
+  producer's position on its next block), `FramesConsumed`. The voice resamples `MixRate` → device rate with the same
+  linear interpolation as streams (pitch applies). It never ends on its own; an empty ring after the first push plays
+  silence and counts `Underruns` (also in `AudioServerStats`).
 - **`WavWriter`** — writes interleaved floats as 16-bit PCM (× 32768, saturating, the decoder's inverse) or 32-bit float.
 - **Tests:** `build/zzfx-reference.mjs` (Node, run by hand) evaluates the vendored 1.4.0 `buildSamples` over 16 cases
   into `Tests/Content/Audio/zzfx-reference.json`; `ZzfxTests` compares the port within 1e-5.

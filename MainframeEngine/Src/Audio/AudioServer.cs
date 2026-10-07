@@ -526,6 +526,13 @@ public sealed class AudioServer : IFrameServer
         return slot.Source is { SampleRate: > 0 } source ? frames / source.SampleRate : 0;
     }
 
+    /// <summary>
+    /// The ring of a voice playing an <see cref="AudioStreamGenerator"/> (Godot's <c>get_stream_playback</c>); null when
+    /// the handle is stale or the voice plays something else. Keep it while the voice plays and push frames into it.
+    /// </summary>
+    public AudioStreamGeneratorPlayback? GetGeneratorPlayback(AudioVoiceHandle handle) =>
+        IsCurrent(handle) && _slots[handle.Index].Source is AudioGeneratorSource generator ? generator.Playback : null;
+
     /// <summary>Moves a playing voice to <paramref name="seconds"/>.</summary>
     public void Seek(AudioVoiceHandle handle, double seconds)
     {
@@ -902,6 +909,9 @@ public sealed class AudioServer : IFrameServer
             _rejected++;
             return default;
         }
+
+        if (source is AudioGeneratorTemplate generator)
+            source = generator.CreatePlay(); // each play of a generator gets its own ring
 
         ref var slot = ref _slots[index];
         if (slot.CloseStreamAtFrame != 0 && source is not AudioStreamSource)

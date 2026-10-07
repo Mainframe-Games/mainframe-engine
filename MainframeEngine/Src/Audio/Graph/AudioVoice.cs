@@ -212,6 +212,7 @@ internal sealed class VoiceSource : ISoundDataProvider
     private AudioSource? _source;
     private AudioClipData? _clip;
     private AudioStreamChannel? _channel;
+    private AudioStreamGeneratorPlayback? _generator;
     private int _streamGeneration;
     private int _streamChannels; // 0 until the stream generation is synced
     private bool _loop;
@@ -277,7 +278,8 @@ internal sealed class VoiceSource : ISoundDataProvider
     {
         _source = source;
         _clip = source as AudioClipData;
-        _channel = _clip is null ? channel : null;
+        _generator = (source as AudioGeneratorSource)?.Playback;
+        _channel = _clip is null && _generator is null ? channel : null;
         _streamGeneration = streamGeneration;
         _streamChannels = 0;
         _loop = loop;
@@ -313,6 +315,7 @@ internal sealed class VoiceSource : ISoundDataProvider
         _source = null;
         _clip = null;
         _channel = null;
+        _generator = null;
         Ended = false;
         Failed = false;
     }
@@ -337,7 +340,9 @@ internal sealed class VoiceSource : ISoundDataProvider
             _pitch = TargetPitch;
             written = _clip is not null
                 ? ReadClip(_clip, buffer, frames, startStep, endStep)
-                : ReadStream(buffer, frames, startStep, endStep);
+                : _generator is not null
+                    ? ReadGenerator(_generator, buffer, frames, startStep, endStep)
+                    : ReadStream(buffer, frames, startStep, endStep);
         }
 
         buffer[(written * 2)..].Clear();
@@ -453,6 +458,53 @@ internal sealed class VoiceSource : ISoundDataProvider
                     // Out of data: either the end, or the decoder fell behind (hold and retry next block).
                     _fraction = Math.Min(_fraction, 1.0);
                     return CheckStreamEnd(channel, f + 1, countUnderrun: true);
+                }
+
+                _fraction -= 1.0;
+                _s0L = _s1L;
+                _s0R = _s1R;
+                _s1L = l;
+                _s1R = r;
+                _streamFrames++;
+            }
+        }
+
+        return frames;
+    }
+
+    // Generator rings: linear interpolation like streams; an empty ring holds the position and plays silence.
+    private int ReadGenerator(AudioStreamGeneratorPlayback ring, Span<float> buffer, int frames, double startStep, double endStep)
+    {
+        if (!_primed)
+        {
+            if (ring.FramesQueued < 2)
+                return 0;
+            ring.TryRead(out _s0L, out _s0R);
+            ring.TryRead(out _s1L, out _s1R);
+            _primed = true;
+        }
+
+        var stepDelta = frames > 1 ? (endStep - startStep) / frames : 0;
+        var step = startStep;
+        for (var f = 0; f < frames; f++)
+        {
+            var t = (float)_fraction;
+            buffer[2 * f] = _s0L + (_s1L - _s0L) * t;
+            buffer[2 * f + 1] = _s0R + (_s1R - _s0R) * t;
+            _fraction += step;
+            step += stepDelta;
+            while (_fraction >= 1.0)
+            {
+                if (!ring.TryRead(out var l, out var r))
+                {
+                    _fraction = Math.Min(_fraction, 1.0);
+                    if (ring.Started)
+                    {
+                        ring.CountUnderrun();
+                        Underruns++;
+                    }
+
+                    return f + 1;
                 }
 
                 _fraction -= 1.0;
