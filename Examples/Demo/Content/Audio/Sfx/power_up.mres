@@ -1,0 +1,16 @@
+{
+  "format": 2,
+  "uid": "res_6c7501e982bb",
+  "type": "ZzfxStream",
+  "props": {
+    "ResourceName": "Power-up",
+    "Frequency": 619,
+    "Shape": "Square",
+    "Attack": 0.0432,
+    "Sustain": 0.24,
+    "ReleaseTime": 0.368,
+    "Slide": 1.13,
+    "RepeatTime": 0.0675,
+    "Tremolo": 0.284
+  }
+}

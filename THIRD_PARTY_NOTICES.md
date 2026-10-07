@@ -28,6 +28,11 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | 1.4.1 | MIT | NuGet package `SoundFlow` | `SoundFlow.dll`; its `miniaudio` native library (SoundFlow's C shim, MIT) |
 | [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
 | [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
+| [libogg](https://github.com/xiph/ogg) | 1.3.6 | BSD-3-Clause | `Native/PluginHost/external/ogg` (submodule) | editor only: `mfplughost` helper executable (static) |
+| [libvorbis / libvorbisenc / libvorbisfile](https://github.com/xiph/vorbis) | 1.3.7 | BSD-3-Clause | `Native/PluginHost/external/vorbis` (submodule) | editor only: `mfplughost` helper executable (static) |
+| [VST 3 SDK](https://github.com/steinbergmedia/vst3sdk) (base, pluginterfaces, public.sdk hosting; no VSTGUI) | 3.8.1 | MIT | `Native/PluginHost/external/vst3sdk` (submodule) | editor only: `mfplughost` helper executable (static) |
+| [RtMidi](https://github.com/thestk/rtmidi) (Gary P. Scavone) | 6.0.0 | MIT (with a non-binding request to send modifications upstream) | `Native/PluginHost/external/rtmidi` (submodule) | editor only: `mfplughost` helper executable (static; CoreMIDI / WinMM / ALSA) |
+| [ZzFX](https://github.com/KilledByAPixel/ZzFX) (Frank Force; `buildSamples` ported to C#) | 1.4.0 | MIT | `MainframeEngine/Src/Audio/Synthesis/Zzfx.cs`; `build/zzfx-reference.mjs` (vendored JavaScript, reference vectors) | engine |
 | [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
 | Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
 | [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
@@ -540,6 +545,72 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## libogg and libvorbis
+
+The editor's music helper `mfplughost` (not shipped with games) statically links libogg 1.3.6 and libvorbis 1.3.7
+(including libvorbisenc and libvorbisfile) for Ogg Vorbis encoding. Both use the same BSD-3-Clause licence; libogg is
+"Copyright (c) 2002, Xiph.org Foundation", libvorbis "Copyright (c) 2002-2020 Xiph.org Foundation".
+
+```
+Copyright (c) 2002-2020 Xiph.org Foundation
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+- Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+- Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+- Neither the name of the Xiph.org Foundation nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION
+OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## ZzFX
+
+`MainframeEngine/Src/Audio/Synthesis/Zzfx.cs` ports `ZZFX.buildSamples` from ZzFX 1.4.0 (`ZzFX.js`, commit
+`751f17139d689b1320f0c4173031b038959e4bf8`); `build/zzfx-reference.mjs` vendors that function to generate test vectors:
+
+```text
+ZzFX MIT License
+
+Copyright (c) 2019 - Frank Force
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Tabler Icons
 
 The editor's icons are [Tabler Icons](https://tabler.io/icons) 3.48.0 (the `@tabler/icons` npm package): the SVGs the
@@ -568,4 +639,69 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+## VST 3 SDK
+
+The editor's music helper `mfplughost` (not shipped with games) statically links the hosting parts of Steinberg's VST 3
+SDK 3.8.1 (`base`, `pluginterfaces`, `public.sdk/source/vst/hosting`; VST is a registered trademark of Steinberg Media
+Technologies GmbH). From `Native/PluginHost/external/vst3sdk/LICENSE.txt`:
+
+```
+MIT License
+
+Copyright (c) 2026, Steinberg Media Technologies GmbH
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## RtMidi
+
+The editor's music helper `mfplughost` (not shipped with games) statically links RtMidi 6.0.0 for MIDI keyboard input.
+From `Native/PluginHost/external/rtmidi/LICENSE`:
+
+```
+
+RtMidi: realtime MIDI i/o C++ classes
+Copyright (c) 2003-2023 Gary P. Scavone
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files
+(the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+Any person wishing to distribute modifications to the Software is
+asked to send the modifications to the original developer so that
+they can be incorporated into the canonical version.  This is,
+however, not a binding provision of this license.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
+ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```

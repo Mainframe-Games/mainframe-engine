@@ -42,7 +42,22 @@ capture editor-add-node
 cancel
 wait 5
 state
-# 4. The game workflow: create MyGame, add an [Export] property to its C#, Build & Reload, play it.
+# 4. Audio: the sound designer on a Demo ZzFX preset, then the Demo's song in a song tab (the Lead clip in the piano
+# roll). Paths are relative to the checkout: the project is open under its real path.
+inspect Examples/Demo/Content/Audio/Sfx/explosion.mres
+wait 10
+clear-output
+move 800 500
+wait 10
+capture editor-sound-designer
+inspector-header inspector-close
+open Examples/Demo/Content/Music/demo_loop.msong
+wait 10
+song select 1
+move 1500 700
+wait 20
+capture editor-song
+# 5. The game workflow: create MyGame, add an [Export] property to its C#, Build & Reload, play it.
 command project.new
 wait 10
 new-project /tmp/MainframeProjects MyGame

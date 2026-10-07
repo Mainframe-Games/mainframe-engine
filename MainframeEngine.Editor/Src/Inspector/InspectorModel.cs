@@ -181,6 +181,16 @@ public interface ICustomInspector
         if (context is EditedScene scene)
             OnAction(target, action, scene);
     }
+
+    /// <summary>
+    /// After a committed change to <paramref name="target"/>: once per history entry — a text commit, a checkbox or
+    /// dropdown change, the end of a merged slider drag (not every tick) — with the row's <paramref name="property"/>;
+    /// null for undo, redo and changes made by actions (<see cref="OnAction(object, string, IInspectorContext)"/>).
+    /// Default: nothing.
+    /// </summary>
+    void OnPropertyChanged(object target, ExportPropertyInfo? property, IInspectorContext context)
+    {
+    }
 }
 
 /// <summary>Registers an <see cref="ICustomInspector"/> for <see cref="TargetType"/> and its subclasses.</summary>

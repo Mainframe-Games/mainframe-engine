@@ -1,4 +1,5 @@
 using System.Text;
+using MainframeEngine.Audio;
 
 namespace MainframeEngine.Tests.Audio;
 
@@ -10,9 +11,10 @@ internal static class AudioTestUtil
     public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Content", "Audio", name);
 
     /// <summary>A server on the manual null device with the default bus layout (nothing renders until asked).</summary>
-    public static AudioServer CreateServer(SceneTree? tree = null, AudioBusLayout? layout = null)
+    public static AudioServer CreateServer(SceneTree? tree = null, AudioBusLayout? layout = null, uint randomSeed = 0)
     {
-        var server = AudioServer.Create(new AudioOptions { Device = AudioDeviceMode.NullManual, BusLayoutPath = null }, tree);
+        var server = AudioServer.Create(
+            new AudioOptions { Device = AudioDeviceMode.NullManual, BusLayoutPath = null, RandomSeed = randomSeed }, tree);
         if (layout is not null)
             server.ApplyBusLayout(layout);
         tree?.Servers.Register(server);
@@ -96,8 +98,18 @@ internal static class AudioTestUtil
     }
 
     /// <summary>Writes a WAV file (PCM 8/16/24/32 or float 32/64) for decoder tests.</summary>
+    /// <remarks>
+    /// The formats the engine writes (16-bit PCM, 32-bit float) go through <see cref="WavWriter"/>; the rest are written
+    /// here, with an unknown chunk before and after the data that the decoder must skip.
+    /// </remarks>
     public static void WriteWav(string path, float[] interleaved, int channels, int rate, int bits, bool isFloat, bool extensible = false)
     {
+        if (!extensible && (bits, isFloat) is (16, false) or (32, true))
+        {
+            WavWriter.Write(path, interleaved, channels, rate, isFloat ? WavSampleFormat.IeeeFloat : WavSampleFormat.Pcm16);
+            return;
+        }
+
         var bytesPerSample = bits / 8;
         var dataBytes = interleaved.Length * bytesPerSample;
         using var stream = File.Create(path);

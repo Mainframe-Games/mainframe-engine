@@ -1,0 +1,15 @@
+{
+  "format": 2,
+  "uid": "res_26141fa109c5",
+  "type": "ZzfxStream",
+  "props": {
+    "ResourceName": "Hit",
+    "Frequency": 449,
+    "Shape": "Noise",
+    "Sustain": 0.0432,
+    "ReleaseTime": 0.0798,
+    "Slide": -1.68,
+    "Noise": 0.181,
+    "BitCrush": 0.0751
+  }
+}

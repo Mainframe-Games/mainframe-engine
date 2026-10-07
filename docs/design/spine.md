@@ -48,7 +48,7 @@ flowchart TD
     end
     subgraph Shadow["RenderServer.RenderShadows (per light / face)"]
         V --> S1["upload positions → frame-slot VB (once per frame)"]
-        S1 --> S2["GetShadow2DPipeline(12) / GetShadowPointPipeline(12)<br/>push model (64/80 B), draw"]
+        S1 --> S2["DoubleSidedShadow2DPipeline / DoubleSidedShadowPointPipeline<br/>(no culling) push model (64/80 B), draw"]
     end
     subgraph Main["RenderServer.RenderMain"]
         V --> M1["Frame.EnsureCamera/EnsureLights (set 0, once per frame), upload vertices"]
@@ -113,7 +113,9 @@ Vertex buffers are per-frame-slot `GpuBuffer`s that grow by doubling; `Dispose` 
 
 - Clipping attachments, per-slot blend modes and two-color tint are ignored.
 - Only `atlas.Pages[0].pma` is honoured.
-- Single-sided: a sprite casts a shadow only from its front side (shadow pipelines cull back faces).
+- Shadows come from the attachment triangles, not the atlas alpha (no alpha test): a region attachment casts its
+  whole quad. Casting is double-sided (`ShadowSystem.DoubleSidedShadow2DPipeline`), so the flat skeleton casts
+  whichever side faces the light.
 
 ## Related docs
 

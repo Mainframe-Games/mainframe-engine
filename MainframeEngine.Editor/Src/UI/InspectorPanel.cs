@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using MainframeEngine.Serialization;
 using MainframeEngine.UI.Rml;
@@ -37,6 +38,10 @@ public sealed partial class InspectorPanel : EditorDocument
     private object? _target;
     private List<object> _targets = [];
     private bool _rebuildPending;
+    private bool _rowEdit;
+    private ExportPropertyInfo? _mergedEdit;
+    // Identity hashes, not references: game objects must not outlive a code reload through the inspector.
+    private (int History, int Position, int Top) _historyMark;
     // Set while the panel writes into its own elements (rebuild, value refresh): RmlUi raises change events for
     // programmatic value/attribute changes (sliders, checkboxes), which must not be taken for user edits.
     private bool _suppressEvents;
@@ -75,7 +80,7 @@ public sealed partial class InspectorPanel : EditorDocument
 
     private void OnMouseUp(RmlEvent e)
     {
-        (EditContext?.History ?? Workspace.Session.Active?.History)?.EndMerge();
+        EndDrag();
         if (Workspace.FileDrag is { } file && TryRow(e.Target, out var row))
             DropFile(row, file);
     }
@@ -124,6 +129,7 @@ public sealed partial class InspectorPanel : EditorDocument
     public void ReleaseReferences()
     {
         _expanded.Clear();
+        _mergedEdit = null;
         _rows.Clear();
         _model = null;
         _target = null;
@@ -187,9 +193,9 @@ public sealed partial class InspectorPanel : EditorDocument
 
         var rml = new StringBuilder(4096);
         AppendHeader(rml, scene, node, _targets);
-        if (_model!.CustomInspector?.GetHeaderRml(node) is { } custom)
+        if (Custom?.GetHeaderRml(node) is { } custom)
             rml.Append(custom);
-        AppendSections(rml, _model, 0);
+        AppendSections(rml, _model!, 0);
         body.SetInnerRml(rml.ToString());
         _appliedLabelWidth = -1;
         ApplyLabelWidth();
@@ -211,7 +217,7 @@ public sealed partial class InspectorPanel : EditorDocument
             return;
         var rml = new StringBuilder(4096);
         AppendResourceHeader(rml, resource);
-        if (_model.CustomInspector?.GetHeaderRml(resource.Resource) is { } custom)
+        if (Custom?.GetHeaderRml(resource.Resource) is { } custom)
             rml.Append(custom);
         AppendSections(rml, _model, 0);
         body.SetInnerRml(rml.ToString());
@@ -428,6 +434,8 @@ public sealed partial class InspectorPanel : EditorDocument
                     if (value is not null)
                         rml.Append("<span class=\"").Append(EditorIcons.Classes(resourceType)).Append(" icon-sm res-icon\"></span>");
                     rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.IsMixed ? "— (differs)" : p.Format(value))).Append("</span></div>");
+                    if (value is AudioStream sound && !p.IsMulti)
+                        AppendPreviewButton(rml, row, Workspace.AudioPreview.IsPlaying(sound));
                     var expanded = _expanded.Contains((p.Target, p.Name));
                     if (value is Resource { IsExternal: false } && !p.IsMulti && RowDepth(row) + 1 < MaxResourceDepth)
                         AppendButton(rml, row, "res-edit", expanded ? "chevron-up" : "pencil",
@@ -629,8 +637,11 @@ public sealed partial class InspectorPanel : EditorDocument
         if (_resource is not null)
             return; // a resource file is inspected; its own history refreshes it
         var scene = Workspace.Session.Active;
-        // A custom inspector's header shows values too: regenerate it with the rows.
-        if (!ReferenceEquals(scene?.Selection.Primary, _target) || _rebuildPending || _model?.CustomInspector is not null ||
+        if (scene is not null && ReferenceEquals(scene.Selection.Primary, _target))
+            NotifyHistoryChange(scene.History);
+        // A custom inspector's header shows values too: regenerate it with the rows (after a merged drag, not per tick).
+        if (!ReferenceEquals(scene?.Selection.Primary, _target) || _rebuildPending ||
+            (_model?.CustomInspector is not null && scene?.History.IsMerging != true) ||
             (scene is not null && !SameTargets(_targets, scene.Selection.Nodes)))
         {
             Rebuild();
@@ -841,14 +852,21 @@ public sealed partial class InspectorPanel : EditorDocument
         var action = actionElement.GetAttribute("data-action") ?? "";
         if (!TryRow(actionElement, out var row))
         {
-            if (HandleResourceAction(action))
-                return;
-            if (_model?.CustomInspector is { } custom && _target is not null && EditContext is { } context)
-                custom.OnAction(_target, action, context);
+            RunHeaderAction(action);
             return;
         }
 
         RunAction(row, action, IntAttribute(actionElement, "data-elem"));
+    }
+
+    /// <summary>Runs a header button: Save/Close of a resource file, else the custom inspector's <c>data-action</c> — also for QA and tests.</summary>
+    public void RunHeaderAction(string action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        if (HandleResourceAction(action))
+            return;
+        if (Custom is { } custom && _target is not null && EditContext is { } context)
+            custom.OnAction(_target, action, context);
     }
 
     /// <summary>Runs a row button (<c>browse</c>, <c>pick-node</c>, <c>color</c>, <c>res-*</c>, <c>arr-*</c>) — also for tests.</summary>
@@ -873,6 +891,10 @@ public sealed partial class InspectorPanel : EditorDocument
                 break;
             case "res-clear":
                 SetValue(p, null, null);
+                break;
+            case "res-play":
+                if (p.GetValue() is AudioStream stream)
+                    Workspace.AudioPreview.Toggle(stream);
                 break;
             case "res-load":
                 LoadResource(p);
@@ -1025,16 +1047,124 @@ public sealed partial class InspectorPanel : EditorDocument
     {
         if (EditContext is not { } context)
             return;
-        if (!p.IsMulti || context is not EditedScene scene)
+        var history = context.History;
+        var before = (history.Position, history.UndoAction);
+        var editing = _rowEdit;
+        _rowEdit = true;
+        try
         {
-            context.SetProperty(p.Target, p.Info, valueFor(p.Target), mergeKey);
-            return;
+            if (!p.IsMulti || context is not EditedScene scene)
+            {
+                context.SetProperty(p.Target, p.Info, valueFor(p.Target), mergeKey);
+            }
+            else
+            {
+                var values = new object?[p.Targets.Count];
+                for (var i = 0; i < values.Length; i++)
+                    values[i] = valueFor(p.Targets[i]);
+                scene.SetProperties(p.Targets, p.Info, values, mergeKey);
+            }
+        }
+        finally
+        {
+            _rowEdit = editing;
         }
 
-        var values = new object?[p.Targets.Count];
-        for (var i = 0; i < values.Length; i++)
-            values[i] = valueFor(p.Targets[i]);
-        scene.SetProperties(p.Targets, p.Info, values, mergeKey);
+        // One OnPropertyChanged per history entry: now, or when a merged drag ends (EndMergedEdit).
+        if (mergeKey is not null && history.IsMerging)
+            _mergedEdit = p.Info;
+        else if (before != (history.Position, history.UndoAction))
+            NotifyPropertyChanged(p.Info);
+    }
+
+    // ── ICustomInspector.OnPropertyChanged ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The mouse was released: closes the merge window of a slider drag, rebuilds a custom header skipped while it ran
+    /// and sends the drag's one <see cref="ICustomInspector.OnPropertyChanged"/>.
+    /// </summary>
+    public void EndDrag()
+    {
+        (EditContext?.History ?? Workspace.Session.Active?.History)?.EndMerge();
+        EndMergedEdit();
+    }
+
+    private void EndMergedEdit()
+    {
+        if (_mergedEdit is not { } property)
+            return;
+        _mergedEdit = null;
+        if (_model?.CustomInspector is not null)
+            Rebuild();
+        NotifyPropertyChanged(property);
+    }
+
+    /// <summary>
+    /// A history change the rows did not make (undo, redo, a custom inspector's action): notifies the custom inspector
+    /// once with no property. Changes that leave the history position alone (save, a merged drag tick) are ignored.
+    /// </summary>
+    private void NotifyHistoryChange(UndoRedo history)
+    {
+        var mark = (RuntimeHelpers.GetHashCode(history), history.Position, history.UndoAction is { } top ? RuntimeHelpers.GetHashCode(top) : 0);
+        var same = _historyMark == mark;
+        _historyMark = mark;
+        if (!same && !_rowEdit && !history.IsMerging)
+            NotifyPropertyChanged(null);
+    }
+
+    private void NotifyPropertyChanged(ExportPropertyInfo? property)
+    {
+        if (Custom is { } custom && _target is not null && EditContext is { } context)
+            custom.OnPropertyChanged(_target, property, context);
+    }
+
+    // The model's custom inspector, bound to this workspace when it needs the editor (previews, dialogs).
+    private ICustomInspector? Custom
+    {
+        get
+        {
+            var custom = _model?.CustomInspector;
+            if (custom is IWorkspaceInspector bound)
+                bound.Workspace = Workspace;
+            return custom;
+        }
+    }
+
+    // ── Audio previews ───────────────────────────────────────────────────────────────────────────────────────────
+
+    private static string PreviewButtonId(int row) => $"res-play-{row}";
+
+    private static void AppendPreviewButton(StringBuilder rml, int row, bool playing) =>
+        rml.Append("<button class=\"tool-button small").Append(playing ? " active" : "").Append("\" id=\"").Append(PreviewButtonId(row))
+            .Append("\" data-row=\"").Append(row).Append("\" data-action=\"res-play\" data-tooltip=\"")
+            .Append(playing ? PreviewStopTip : PreviewPlayTip).Append("\"><span class=\"icon icon-sm icon-")
+            .Append(playing ? "player-stop" : "player-play").Append("\"></span></button>");
+
+    private const string PreviewPlayTip = "Play — preview this sound in the editor";
+    private const string PreviewStopTip = "Stop — stop the preview";
+
+    /// <summary>The preview started or ended: the Play/Stop buttons of AudioStream rows (and the custom header's) follow, in place.</summary>
+    public void RefreshPreviewButtons()
+    {
+        if (!IsLoaded)
+            return;
+        var document = Document;
+        for (var row = 0; row < _rows.Count; row++)
+        {
+            var p = _rows[row].Property;
+            if (p.Kind != PropertyEditorKind.Resource || p.IsMulti || p.GetValue() is not AudioStream stream)
+                continue;
+            var button = document.GetElementById(PreviewButtonId(row));
+            if (button.IsNull)
+                continue;
+            var playing = Workspace.AudioPreview.IsPlaying(stream);
+            button.SetClass("active", playing);
+            button.SetAttribute("data-tooltip", playing ? PreviewStopTip : PreviewPlayTip);
+            button.SetInnerRml(playing ? "<span class=\"icon icon-sm icon-player-stop\"></span>" : "<span class=\"icon icon-sm icon-player-play\"></span>");
+        }
+
+        if (Custom is IWorkspaceInspector header && _target is not null)
+            header.RefreshPreview(_target, document);
     }
 
     // Arrays are values: edit a copy and set it (undoable as one property change).

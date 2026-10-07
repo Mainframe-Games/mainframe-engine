@@ -71,7 +71,11 @@ public sealed partial class InspectorPanel
 
     private void OnResourceChanged()
     {
-        if (_rebuildPending || _model?.CustomInspector is not null)
+        if (_resource is not { } resource)
+            return;
+        NotifyHistoryChange(resource.History);
+        // A custom header shows values: rebuild it, except per tick of a merged slider drag (EndMergedEdit does it).
+        if (_rebuildPending || (_model?.CustomInspector is not null && !resource.History.IsMerging))
             Rebuild();
         else
             RefreshValues();

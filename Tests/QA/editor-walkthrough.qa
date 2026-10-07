@@ -75,6 +75,51 @@ command file.quit
 wait 3
 capture 13-quit-prompt
 cancel
+# Sound designer: a new ZzfxStream resource, a preset, Export .wav (default name), then Play on the file from the
+# FileSystem panel (stop badge). The files are removed again.
+edit-file Content/Audio/QaSound.mres {"format":2,"type":"ZzfxStream"}
+inspect Examples/Demo/Content/Audio/QaSound.mres
+wait 3
+inspector-header zzfx-preset:pickup
+wait 3
+capture 13b-sound-designer
+inspector-header zzfx-export
+wait 3
+accept
+wait 3
+fs-select Content/Audio/QaSound.wav
+command fs.play
+wait 3
+capture 13c-sound-preview
+command fs.stop
+inspector-header inspector-close
+delete-file Content/Audio/QaSound*
+wait 3
+# Song tab (music editor): a new song, a clip with notes (piano roll), the mixer while playing, Render, then the
+# output previewed from the FileSystem panel. The files are removed again.
+song new Content/Music/QaSong.msong
+wait 3
+song demo
+wait 5
+capture 13d-song-piano-roll
+song panel mixer
+song play
+wait 30
+capture 13e-song-mixer
+song stop
+song save
+song render
+wait-for render 60
+wait 3
+fs-select Content/Music/QaSong.ogg
+command fs.play
+wait 3
+capture 13f-song-render
+command fs.stop
+command file.close
+wait 3
+delete-file Content/Music/QaSong*
+wait 3
 # The update badge and dialog (a preview: QA runs never touch the network).
 update-preview 9.9.9
 wait 3

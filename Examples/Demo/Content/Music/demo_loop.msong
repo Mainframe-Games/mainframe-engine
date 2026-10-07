@@ -1,0 +1,1105 @@
+{
+  "format": 1,
+  "uid": "sng_7ce632ceea2f",
+  "tempo": 140,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "ppq": 960,
+  "loop": {
+    "enabled": true,
+    "start": 0,
+    "end": 30720
+  },
+  "render": {
+    "output": null,
+    "sampleRate": 44100,
+    "quality": 6,
+    "tailSeconds": 2,
+    "seamlessLoop": true,
+    "sampleFormat": "pcm16"
+  },
+  "master": {
+    "volumeDb": 3,
+    "inserts": []
+  },
+  "tracks": [
+    {
+      "id": "t1",
+      "name": "Bass",
+      "kind": "instrument",
+      "color": "#3b82f6",
+      "volumeDb": -2,
+      "pan": 0,
+      "mute": false,
+      "solo": false,
+      "instrument": {
+        "builtin": "zzfx",
+        "params": "zzfx(...[.9,0,110,.005,.16,.08,1,1.6])"
+      },
+      "inserts": [],
+      "clips": [
+        {
+          "start": 0,
+          "length": 30720,
+          "notes": [
+            {
+              "pitch": 45,
+              "start": 0,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 57,
+              "start": 480,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 45,
+              "start": 960,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 57,
+              "start": 1440,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 45,
+              "start": 1920,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 57,
+              "start": 2400,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 45,
+              "start": 2880,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 57,
+              "start": 3360,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 41,
+              "start": 3840,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 53,
+              "start": 4320,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 41,
+              "start": 4800,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 53,
+              "start": 5280,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 41,
+              "start": 5760,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 53,
+              "start": 6240,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 41,
+              "start": 6720,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 53,
+              "start": 7200,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 48,
+              "start": 7680,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 60,
+              "start": 8160,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 48,
+              "start": 8640,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 60,
+              "start": 9120,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 48,
+              "start": 9600,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 60,
+              "start": 10080,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 48,
+              "start": 10560,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 60,
+              "start": 11040,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 43,
+              "start": 11520,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 55,
+              "start": 12000,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 43,
+              "start": 12480,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 55,
+              "start": 12960,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 43,
+              "start": 13440,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 55,
+              "start": 13920,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 43,
+              "start": 14400,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 55,
+              "start": 14880,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 45,
+              "start": 15360,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 57,
+              "start": 15840,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 45,
+              "start": 16320,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 57,
+              "start": 16800,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 45,
+              "start": 17280,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 57,
+              "start": 17760,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 45,
+              "start": 18240,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 57,
+              "start": 18720,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 41,
+              "start": 19200,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 53,
+              "start": 19680,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 41,
+              "start": 20160,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 53,
+              "start": 20640,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 41,
+              "start": 21120,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 53,
+              "start": 21600,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 41,
+              "start": 22080,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 53,
+              "start": 22560,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 48,
+              "start": 23040,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 60,
+              "start": 23520,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 48,
+              "start": 24000,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 60,
+              "start": 24480,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 48,
+              "start": 24960,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 60,
+              "start": 25440,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 48,
+              "start": 25920,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 60,
+              "start": 26400,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 43,
+              "start": 26880,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 55,
+              "start": 27360,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 43,
+              "start": 27840,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 55,
+              "start": 28320,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 43,
+              "start": 28800,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 55,
+              "start": 29280,
+              "length": 400,
+              "velocity": 78
+            },
+            {
+              "pitch": 43,
+              "start": 29760,
+              "length": 400,
+              "velocity": 100
+            },
+            {
+              "pitch": 55,
+              "start": 30240,
+              "length": 400,
+              "velocity": 78
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t2",
+      "name": "Lead",
+      "kind": "instrument",
+      "color": "#f59e0b",
+      "volumeDb": -6,
+      "pan": 0.15,
+      "mute": false,
+      "solo": false,
+      "instrument": {
+        "builtin": "zzfx",
+        "params": "zzfx(...[.5,0,440,.01,.12,.2,5,1,,,,,,,,,.12,.7,.05])"
+      },
+      "inserts": [],
+      "clips": [
+        {
+          "start": 0,
+          "length": 30720,
+          "notes": [
+            {
+              "pitch": 76,
+              "start": 0,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 69,
+              "start": 960,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 72,
+              "start": 1440,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 76,
+              "start": 1920,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 74,
+              "start": 2880,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 72,
+              "start": 3840,
+              "length": 1400,
+              "velocity": 96
+            },
+            {
+              "pitch": 69,
+              "start": 5280,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 72,
+              "start": 5760,
+              "length": 1880,
+              "velocity": 96
+            },
+            {
+              "pitch": 79,
+              "start": 7680,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 76,
+              "start": 8640,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 74,
+              "start": 9120,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 76,
+              "start": 9600,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 72,
+              "start": 10560,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 74,
+              "start": 11520,
+              "length": 1400,
+              "velocity": 96
+            },
+            {
+              "pitch": 71,
+              "start": 12960,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 74,
+              "start": 13440,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 79,
+              "start": 14400,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 81,
+              "start": 15360,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 79,
+              "start": 16320,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 76,
+              "start": 16800,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 79,
+              "start": 17280,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 76,
+              "start": 18240,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 77,
+              "start": 19200,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 76,
+              "start": 20160,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 72,
+              "start": 20640,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 69,
+              "start": 21120,
+              "length": 1880,
+              "velocity": 96
+            },
+            {
+              "pitch": 72,
+              "start": 23040,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 76,
+              "start": 23520,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 79,
+              "start": 24000,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 84,
+              "start": 24960,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 79,
+              "start": 25920,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 79,
+              "start": 26880,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 74,
+              "start": 27840,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 71,
+              "start": 28800,
+              "length": 920,
+              "velocity": 96
+            },
+            {
+              "pitch": 74,
+              "start": 29760,
+              "length": 440,
+              "velocity": 96
+            },
+            {
+              "pitch": 76,
+              "start": 30240,
+              "length": 440,
+              "velocity": 96
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t3",
+      "name": "Kick",
+      "kind": "instrument",
+      "color": "#ef4444",
+      "volumeDb": -1,
+      "pan": 0,
+      "mute": false,
+      "solo": false,
+      "instrument": {
+        "builtin": "zzfx",
+        "params": "zzfx(...[1.2,0,60,,.03,.18,0,2,-6])"
+      },
+      "inserts": [],
+      "clips": [
+        {
+          "start": 0,
+          "length": 30720,
+          "notes": [
+            {
+              "pitch": 40,
+              "start": 0,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 960,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 1920,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 2880,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 3840,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 4800,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 5760,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 6720,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 7680,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 8640,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 9600,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 10560,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 11520,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 12480,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 13440,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 14400,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 15360,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 16320,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 17280,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 18240,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 19200,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 20160,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 21120,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 22080,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 23040,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 24000,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 24960,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 25920,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 26880,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 27840,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 28800,
+              "length": 240,
+              "velocity": 112
+            },
+            {
+              "pitch": 40,
+              "start": 29760,
+              "length": 240,
+              "velocity": 112
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t4",
+      "name": "Hat",
+      "kind": "instrument",
+      "color": "#10b981",
+      "volumeDb": -12,
+      "pan": -0.2,
+      "mute": false,
+      "solo": false,
+      "instrument": {
+        "builtin": "zzfx",
+        "params": "zzfx(...[.6,0,900,,.01,.04,4,,,,,,,8])"
+      },
+      "inserts": [],
+      "clips": [
+        {
+          "start": 0,
+          "length": 30720,
+          "notes": [
+            {
+              "pitch": 96,
+              "start": 480,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 1440,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 2400,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 3360,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 4320,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 5280,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 6240,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 7200,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 8160,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 9120,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 10080,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 11040,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 12000,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 12960,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 13920,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 14880,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 15840,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 16800,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 17760,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 18720,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 19680,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 20640,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 21600,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 22560,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 23520,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 24480,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 25440,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 26400,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 27360,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 28320,
+              "length": 120,
+              "velocity": 58
+            },
+            {
+              "pitch": 96,
+              "start": 29280,
+              "length": 120,
+              "velocity": 70
+            },
+            {
+              "pitch": 96,
+              "start": 30240,
+              "length": 120,
+              "velocity": 58
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

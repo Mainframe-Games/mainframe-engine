@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements of the music editor's plugin helper (Contents/MacOS/mfplughost) when the editor is signed with the
+  hardened runtime: it loads third-party VST3 bundles signed by their vendors, so library validation must be off for
+  the helper (only; the editor keeps its own entitlements). See build/package-editor.sh and ADR 0146.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

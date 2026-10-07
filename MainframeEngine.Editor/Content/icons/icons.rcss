@@ -204,6 +204,13 @@
     i-trash-x: 42px 242px 16px 16px;
     i-volume-off: 62px 242px 16px 16px;
     i-download: 82px 242px 16px 16px;
+    i-coin: 102px 242px 16px 16px;
+    i-flame: 122px 242px 16px 16px;
+    i-activity: 142px 242px 16px 16px;
+    i-sparkles: 162px 242px 16px 16px;
+    i-dice-5: 182px 242px 16px 16px;
+    i-wand: 202px 242px 16px 16px;
+    i-clipboard: 222px 242px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -405,6 +412,13 @@
     l-trash-x: 63px 363px 24px 24px;
     l-volume-off: 93px 363px 24px 24px;
     l-download: 123px 363px 24px 24px;
+    l-coin: 153px 363px 24px 24px;
+    l-flame: 183px 363px 24px 24px;
+    l-activity: 213px 363px 24px 24px;
+    l-sparkles: 243px 363px 24px 24px;
+    l-dice-5: 273px 363px 24px 24px;
+    l-wand: 303px 363px 24px 24px;
+    l-clipboard: 333px 363px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -609,6 +623,13 @@
         i-trash-x: 84px 484px 32px 32px;
         i-volume-off: 124px 484px 32px 32px;
         i-download: 164px 484px 32px 32px;
+        i-coin: 204px 484px 32px 32px;
+        i-flame: 244px 484px 32px 32px;
+        i-activity: 284px 484px 32px 32px;
+        i-sparkles: 324px 484px 32px 32px;
+        i-dice-5: 364px 484px 32px 32px;
+        i-wand: 404px 484px 32px 32px;
+        i-clipboard: 444px 484px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -810,6 +831,13 @@
         l-trash-x: 126px 726px 48px 48px;
         l-volume-off: 186px 726px 48px 48px;
         l-download: 246px 726px 48px 48px;
+        l-coin: 306px 726px 48px 48px;
+        l-flame: 366px 726px 48px 48px;
+        l-activity: 426px 726px 48px 48px;
+        l-sparkles: 486px 726px 48px 48px;
+        l-dice-5: 546px 726px 48px 48px;
+        l-wand: 606px 726px 48px 48px;
+        l-clipboard: 666px 726px 48px 48px;
     }
 }
 
@@ -1010,6 +1038,13 @@
 .icon-trash-x { decorator: image(i-trash-x); }
 .icon-volume-off { decorator: image(i-volume-off); }
 .icon-download { decorator: image(i-download); }
+.icon-coin { decorator: image(i-coin); }
+.icon-flame { decorator: image(i-flame); }
+.icon-activity { decorator: image(i-activity); }
+.icon-sparkles { decorator: image(i-sparkles); }
+.icon-dice-5 { decorator: image(i-dice-5); }
+.icon-wand { decorator: image(i-wand); }
+.icon-clipboard { decorator: image(i-clipboard); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1208,3 +1243,10 @@
 .icon-lg.icon-trash-x { decorator: image(l-trash-x); }
 .icon-lg.icon-volume-off { decorator: image(l-volume-off); }
 .icon-lg.icon-download { decorator: image(l-download); }
+.icon-lg.icon-coin { decorator: image(l-coin); }
+.icon-lg.icon-flame { decorator: image(l-flame); }
+.icon-lg.icon-activity { decorator: image(l-activity); }
+.icon-lg.icon-sparkles { decorator: image(l-sparkles); }
+.icon-lg.icon-dice-5 { decorator: image(l-dice-5); }
+.icon-lg.icon-wand { decorator: image(l-wand); }
+.icon-lg.icon-clipboard { decorator: image(l-clipboard); }

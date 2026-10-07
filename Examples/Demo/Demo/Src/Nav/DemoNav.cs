@@ -21,7 +21,7 @@ public sealed class DemoNavLayer : UiLayer
     }
 }
 
-/// <summary>Tabs for every Demo scene, FPS, language picker. Number keys 1–8 switch tabs; Escape quits.</summary>
+/// <summary>Tabs for every Demo scene, FPS, language picker. Number keys 1–9 switch tabs; Escape quits.</summary>
 public sealed class DemoNav : UiDocument
 {
     private sealed class Tab
@@ -99,7 +99,7 @@ public sealed class DemoNav : UiDocument
             return;
         if (key.Key == Key.Escape)
             Tree?.Quit(0);
-        else if (key.Key is >= Key.Number1 and <= Key.Number8)
+        else if (key.Key is >= Key.Number1 and <= Key.Number9)
             Open(key.Key - Key.Number1);
     }
 
@@ -121,6 +121,7 @@ public sealed class DemoNav : UiDocument
                 "basic_2d" => Tr._("Basic 2D"),
                 "audio_2d" => Tr._("Audio 2D"),
                 "audio_3d" => Tr._("Audio 3D"),
+                "sound_fx" => Tr._("Sound FX"),
                 "ui" => Tr._("UI"),
                 "physics_2d" => Tr._("Physics 2D"),
                 "physics_3d" => Tr._("Physics 3D"),

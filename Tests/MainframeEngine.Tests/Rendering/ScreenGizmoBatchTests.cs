@@ -42,14 +42,14 @@ public sealed class ScreenGizmoBatchTests
         var batch = new ScreenGizmoBatch();
         Fill(batch);
         batch.Clear();
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 100; i++)
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
         {
-            Fill(batch);
-            batch.Clear();
-        }
-
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+            for (var i = 0; i < 100; i++)
+            {
+                Fill(batch);
+                batch.Clear();
+            }
+        }));
 
         static void Fill(ScreenGizmoBatch b)
         {

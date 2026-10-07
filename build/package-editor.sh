@@ -22,6 +22,16 @@ case "$rid" in
     sed -e "s/@VERSION@/${version}/g" -e "s/@BUNDLE_ID_SUFFIX@//g" "$(dirname "$0")/macos/Info.plist.in" > "$app/Contents/Info.plist"
     cp "$(dirname "$0")/../docs/images/brand/logo.icns" "$app/Contents/Resources/logo.icns"
     chmod +x "$app/Contents/MacOS/MainframeEngine.Editor"
+    # The music editor's plugin helper (MainframeEngine.Editor/runtimes/<rid>/native; absent before natives.yml built it).
+    if [[ -f "$app/Contents/MacOS/mfplughost" ]]; then
+      chmod +x "$app/Contents/MacOS/mfplughost"
+      # Releases are not signed yet. When they are (hardened runtime), sign the helper first, with its own entitlements:
+      #   codesign --force --options runtime --timestamp --sign "$MAC_SIGN_IDENTITY" \
+      #     --entitlements "$(dirname "$0")/macos/mfplughost.entitlements" "$app/Contents/MacOS/mfplughost"
+      # then the editor/bundle with the editor's entitlements (no --deep: it would re-sign the helper without them).
+    else
+      echo "note: no mfplughost for $rid: the packaged editor renders songs to .wav" >&2
+    fi
     tar -C "$staging" -czf "$out_dir/${name}.tar.gz" "$app_name"
     ;;
   win-*)
@@ -39,6 +49,7 @@ case "$rid" in
   linux-*)
     mkdir -p "$staging/$name" && cp -R "$publish_dir"/. "$staging/$name/"
     chmod +x "$staging/$name/MainframeEngine.Editor"
+    if [[ -f "$staging/$name/mfplughost" ]]; then chmod +x "$staging/$name/mfplughost"; fi
     tar -C "$staging" -czf "$out_dir/${name}.tar.gz" "$name"
     ;;
   *) echo "unsupported RID: $rid" >&2; exit 1 ;;

@@ -35,6 +35,29 @@
         </None>
     </ItemGroup>
 
+    <!--
+      Editor-only natives (docs/design/natives.md, ADR 0146): the music editor's helper executable mfplughost, built by
+      Native/ (natives.yml) into runtimes/<rid>/native/ and copied next to the editor. The macOS and Linux files share
+      one name, so a RID-agnostic build copies the host OS's RID only (macOS: the universal osx-arm64 file); a RID-specific
+      build (publish) copies that RID's. A RID without a binary is skipped: the editor then renders .wav, no VST3.
+      .NET's file copy keeps the Unix exec bit; PluginHostClient restores it if a copy lost it.
+    -->
+    <ItemGroup>
+        <None Update="runtimes\**" CopyToOutputDirectory="Never" />
+    </ItemGroup>
+    <PropertyGroup Condition="'$(RuntimeIdentifier)' == ''">
+        <_MainframeEditorNativeRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_MainframeEditorNativeRid>
+        <_MainframeEditorNativeRid Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux-x64</_MainframeEditorNativeRid>
+        <_MainframeEditorNativeRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</_MainframeEditorNativeRid>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+        <_MainframeEditorNativeRid>$(RuntimeIdentifier)</_MainframeEditorNativeRid>
+    </PropertyGroup>
+    <ItemGroup>
+        <None Update="runtimes\$(_MainframeEditorNativeRid)\native\*"
+              Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    </ItemGroup>
+
     <!-- Debug builds record this project's Content folder so the editor UI loads (and hot-reloads) from the sources. -->
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
         <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">

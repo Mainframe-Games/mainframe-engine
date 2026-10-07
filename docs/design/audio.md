@@ -22,7 +22,9 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 | `AudioServer`, `AudioOptions`, `AudioDeviceMode`, `AudioVoiceHandle`, `AudioServerStats` | [Audio/AudioServer.cs](../../MainframeEngine/Src/Audio/AudioServer.cs) | `IFrameServer`; voice pools, stealing, listener, command batching |
 | `AudioBus` | [Audio/AudioBus.cs](../../MainframeEngine/Src/Audio/AudioBus.cs) | live fader / mute / solo / meter |
 | `AudioBusLayout`, `AudioBusInfo`, `AudioEffect` (+ `LowPass`, `HighPass`, `Reverb` (engine Freeverb), `Compressor`) | [Audio/AudioBusLayout.cs](../../MainframeEngine/Src/Audio/AudioBusLayout.cs) | `.mres` resources |
-| `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.meta` import settings |
+| `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.meta` import settings; `PitchRandomness` |
+| `Zzfx`, `ZzfxParameters`, `ZzfxShape`, `ZzfxStream`, `ZzfxPresets` | [Audio/Synthesis/](../../MainframeEngine/Src/Audio/Synthesis/) | ZzFX 1.4.0 synthesiser, line format, the generated-sound resource, random recipes |
+| `WavWriter`, `WavSampleFormat` | [Audio/Decoding/WavWriter.cs](../../MainframeEngine/Src/Audio/Decoding/WavWriter.cs) | 16-bit PCM / 32-bit float WAV export |
 | `AudioPlayer`, `AudioPlayer2D`, `AudioPlayer3D`, `AudioListener3D` | [Audio/Nodes/](../../MainframeEngine/Src/Audio/Nodes/) | nodes |
 | `AudioMath`, `AttenuationModel` | [Audio/AudioMath.cs](../../MainframeEngine/Src/Audio/AudioMath.cs) | dB, attenuation curves, listener projection, pan law, doppler |
 | `AudioMixRoot`, `AudioGraph`, `AudioVoice`, `VoiceSource`, `SpatialSmoother`, `BusProcessor` | [Audio/Graph/](../../MainframeEngine/Src/Audio/Graph/) | audio-thread side (internal) |
@@ -124,12 +126,14 @@ preload their stream when they enter it.
 ## Streams and resources
 
 `AudioStream` (resource) holds `File` (project path or `aud_` UID), `LoadMode`, `Loop`, `LoopStart`, `LoopEnd`
-(seconds; 0 = end). `AudioStream.Load(path)` applies import settings from the file's `.meta` sidecar
+(seconds; 0 = end) and `PitchRandomness` (0–1, per-play pitch variation, see [Voices](#voices)). `AudioStream.Load(path)` applies import settings from the file's `.meta` sidecar
 (`"importer": "audio", "settings": {"loadMode", "loop", "loopStart", "loopEnd"}`); `AudioStream.FromSamples` wraps
 generated PCM (procedural audio, the QA melody, tests). `AudioImporter` makes sound files loadable through
 `ResourceLoader` too (`.wav/.ogg/.mp3/.flac` → `AudioStream.Load`), so a resource's `AudioStream` property can reference
 the file directly, as an imported asset (path + `aud_` UID) like a texture. Loading happens on first use or `Preload()`; a failure is
-logged once and the stream stays silent (`LoadError`).
+logged once and the stream stays silent (`LoadError`). Subclasses inside the engine produce their source through
+the `private protected virtual CreateSource()` hook (the file branch is the base implementation) and drop it with
+`Invalidate()`; `ZzfxStream` is the one generator.
 
 | Load mode | What happens | Used for |
 |---|---|---|
@@ -174,6 +178,48 @@ voices close their file two frames later (after the stop fade).
   (tree paused) starts paused in the same command.
 - `AudioServer.PlayOneShot(stream, bus, volumeDb, pitchScale, position, priority, processMode)` plays without a
   node; with a position it uses inverse attenuation (unit size 1) and full panning.
+- **Pitch randomness:** every voice start (players and `PlayOneShot`) multiplies the voice's pitch by
+  `1 + stream.PitchRandomness × (2u − 1)` for a uniform `u` in [0, 1) — ZzFX's `randomness` as `ZZFXSound.play` uses
+  it, and Godot's randomizer pitch for imported footsteps or impacts. The variation is kept for the voice's life:
+  each frame's pitch (`PitchScale` × doppler) is multiplied by it and clamped to 0.01–16. The random source is a
+  server-owned xorshift32 on the game thread (no allocation); `AudioOptions.RandomSeed` (internal) fixes it for tests.
+
+## Synthesis (ZzFX)
+
+`Zzfx.Generate(in ZzfxParameters)` is a line-for-line port of `ZZFX.buildSamples` from
+[ZzFX](https://github.com/KilledByAPixel/ZzFX) 1.4.0 (MIT, Frank Force; ADR 0143): 44.1 kHz mono floats, maths in
+`double` as JavaScript does, ZzFX's master volume (0.3) baked in so pasted sounds are as loud as in the browser, no
+clamping. Parameters are widened from `float` through their shortest decimal form (0.04f → 0.04), so sample counts and
+envelope edges match the browser. ZzFX's `randomness` is not synthesised (the result is deterministic); it becomes
+the stream's `PitchRandomness`. Sounds longer than `Zzfx.MaxSeconds` (10 s) throw; non-finite parameters take ZzFX's
+defaults (warned once).
+
+- **`ZzfxParameters`** — the 21 values in ZzFX order with ZzFX's defaults (`record struct`; indexer and `With(index,
+  value)` in ZzFX order). `TryParse` accepts `zzfx(...[…])`, `zzfx(…)`, `[…]` or a bare list (empty slots and missing
+  trailing values are defaults; invariant culture, `.3` or `0.3`; NaN/∞ rejected); `ToLine()` writes the designer's
+  shortest form (`zzfx(...[,,925,.04,.3,.6,1,.3,,6.27,-184,.09,.17])`).
+- **`ZzfxStream : AudioStream`** — one `[Export]` per parameter in groups Sound / Envelope / Pitch / Effects (ZzFX
+  defaults, so the `.mres` stores only what differs; `PitchRandomness` defaults to ZzFX's 0.05; ZzFX's `release` is
+  `ReleaseTime` because `Resource.Release()` exists). `Parameters` gets/sets all of them, `FromLine`/`ToLine` convert.
+  `CreateSource` synthesises on first use (players preload when they enter the tree) into an `AudioClipData`; every
+  setter invalidates it, and playing voices keep the samples they started with. Not for per-frame changes: each change
+  re-synthesises (and allocates) on the next play. Over-long sounds are a `LoadError`, logged once.
+- **`ZzfxPresets`** — sfxr-style recipes taking a `System.Random`: `Pickup`/`Coin`, `Laser`, `Explosion`, `Hit`,
+  `Jump`, `Blip`, `PowerUp`, `Randomize`, and `Mutate` (±10 % on non-default continuous values, shape kept).
+- **`AudioStreamGenerator : AudioStream`** (Godot's) — samples pushed while it plays (procedural audio, the editor's
+  song engine). `BufferSeconds` (0.5) and `MixRate` (44 100 Hz) are exports; frames are interleaved stereo. Each play
+  creates its own `AudioStreamGeneratorPlayback` ring (the `Play` path swaps the stream's template source for a per-play
+  `AudioGeneratorSource`); `AudioServer.GetGeneratorPlayback(handle)` returns it. The ring is lock-free SPSC (one
+  producer thread at a time, the audio thread consumes; allocation only at play): `FramesAvailable`, `FramesQueued`,
+  `PushFrames(ReadOnlySpan<float>)` (all or nothing), `PushFrame(l, r)`, `ClearBuffer()` (the consumer skips to the
+  producer's position on its next block), `FramesConsumed`. The voice resamples `MixRate` → device rate with the same
+  linear interpolation as streams (pitch applies). It never ends on its own; an empty ring after the first push plays
+  silence and counts `Underruns` (also in `AudioServerStats`).
+- **`AudioStream.DecodedSamples`** — the interleaved samples of a memory-loaded stream, for tools that mix sounds
+  themselves (the editor's song engine). **`AssetDatabase.WriteMeta`** writes a `.meta` (the song render's loop points).
+- **`WavWriter`** — writes interleaved floats as 16-bit PCM (× 32768, saturating, the decoder's inverse) or 32-bit float.
+- **Tests:** `build/zzfx-reference.mjs` (Node, run by hand) evaluates the vendored 1.4.0 `buildSamples` over 16 cases
+  into `Tests/Content/Audio/zzfx-reference.json`; `ZzfxTests` compares the port within 1e-5.
 
 ## Spatialization
 
@@ -257,7 +303,9 @@ their own `ProcessMode` (default `Pausable`).
   disposed under it.
 - SoundFlow 1.4.1 reports the miniaudio backend through an enum that is off by one; the engine names backends by
   native value.
-- Editor integration (inspector preview bus, range gizmos, the Audio bus panel) arrives with M10.
+- Editor integration: previews and the ZzFX sound designer are in [Editor → Audio previews](editor.md#audio-previews)
+  (edit mode is silent: audio nodes ignore `Play`/`Autoplay` and the listener while `SceneTree.EditMode`); range
+  handles are still open.
 
 ## Related docs
 

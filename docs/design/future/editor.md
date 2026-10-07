@@ -17,7 +17,7 @@ and inspector, E3 viewport, E4 projects and Play, E5 polish) has shipped and is 
 | Animation panel | Timeline for `Animation` resources. Proposal: [Keyframe animation](keyframe-animation.md) (G1). |
 | Shared widgets | Move the editor's controls (`tree-view`, `property-*` editors, `splitter`, `tabs`, `context-menu`) into core content so games' settings menus can use them. |
 | 2D content | Animated sprites (sprite sheets) and tile maps with paint tools in the 2D view. Proposal: [2D content](2d-content.md) (G2). |
-| Editor previews and handles | Audio preview, draggable range handles for lights and audio, collision shape handles, "create collision from mesh", "make unique" / "save as .mres" for inline resources. Range handles and the inline-resource actions: [Editor viewport tools](editor-viewport-tools.md) (G7). |
+| Editor previews and handles | Draggable range handles for lights and audio, collision shape handles, "create collision from mesh", "make unique" / "save as .mres" for inline resources. Range handles and the inline-resource actions: [Editor viewport tools](editor-viewport-tools.md) (G7). |
 
 ## Open questions
 

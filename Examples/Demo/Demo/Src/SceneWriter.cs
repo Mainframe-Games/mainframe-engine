@@ -2,7 +2,10 @@ using MainframeEngine;
 
 namespace Demo;
 
-/// <summary><c>--write-scenes &lt;dir&gt;</c>: regenerates every Demo scene file from its builder.</summary>
+/// <summary>
+/// <c>--write-scenes &lt;dir&gt;</c>: regenerates every Demo scene file from its builder, and the Sound FX presets
+/// (<c>&lt;dir&gt;/../Audio/Sfx/*.mres</c>).
+/// </summary>
 public static class SceneWriter
 {
     public static int WriteAll(string directory)
@@ -22,6 +25,7 @@ public static class SceneWriter
             }
         }
 
+        SoundFxScene.WriteSounds(Path.GetFullPath(Path.Combine(directory, "..", "Audio", "Sfx")));
         return 0;
     }
 }

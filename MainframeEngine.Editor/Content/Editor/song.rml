@@ -1,0 +1,189 @@
+<rml>
+<head>
+    <title>Song</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        /* The song tab (music editor): RmlUi chrome around two canvas views (arrangement, piano roll) drawn by the engine's
+           2D canvas into sub-viewports. The canvas areas let the mouse through to the SongView node. */
+        body.song-doc { background-color: #15171c; pointer-events: none; }
+        #song-transport, #song-headers, #song-switcher, #song-mixer, .notice { pointer-events: auto; }
+        #song-transport {
+            display: flex; flex-direction: row; align-items: center; flex: 0 0 auto;
+            height: 34dp; padding: 0dp 8dp; background-color: #2a2d36; border-bottom: 1dp #15171c; white-space: nowrap;
+        }
+        #song-transport button.tool-button { margin-right: 4dp; }
+        #song-transport .sep { display: inline-block; width: 10dp; }
+        .flip { transform: rotate(180deg); }
+        .field { display: inline-flex; flex-direction: row; align-items: center; height: 22dp; margin-right: 6dp; padding: 0dp 6dp 0dp 0dp;
+                 background-color: #121418; border: 1dp #3b3f4b; border-radius: 3dp; }
+        .field input.text { width: 34dp; height: 20dp; line-height: 20dp; border-width: 0dp; background-color: transparent; padding: 0dp 4dp 0dp 6dp; }
+        .unit { color: #8b93a5; font-size: 11dp; }
+        button.field-button { height: 22dp; line-height: 22dp; padding: 0dp 8dp; margin-right: 6dp; font-size: 12dp; }
+        button.field-button .icon-chevron-down { margin-left: 4dp; margin-right: 0dp; }
+        #song-pos { display: inline-block; height: 20dp; line-height: 20dp; padding: 0dp 8dp; margin-right: 10dp; background-color: #121418;
+                    border: 1dp #3b82f6; border-radius: 3dp; color: #d7dbe4; }
+        .label { color: #8b93a5; font-size: 11dp; margin-right: 6dp; }
+        #song-xruns { font-size: 10dp; margin-left: 6dp; }
+        #song-xruns.bad { color: #f59e0b; }
+        #song-render { height: 24dp; line-height: 24dp; padding: 0dp 12dp; margin-left: 8dp; }
+        #song-render.rendering { background-color: #7f1d1d; border-color: #b91c1c; }
+        .readonly { color: #f59e0b; font-size: 11dp; margin-left: 8dp; }
+        .readonly .icon { image-color: #f59e0b; }
+        .notice { flex: 0 0 auto; padding: 4dp 10dp; background-color: #3a2a0d; color: #fcd34d; font-size: 12dp; }
+
+        #song-top { display: flex; flex-direction: row; flex: 0 0 40%; min-height: 96dp; border-bottom: 1dp #15171c; }
+        #song-headers { display: flex; flex-direction: column; flex: 0 0 190dp; width: 190dp; background-color: #262931; border-right: 1dp #3b3f4b; }
+        .ruler-head { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 22dp; padding: 0dp 6dp;
+                      border-bottom: 1dp #3b3f4b; color: #8b93a5; font-size: 12dp; }
+        .ruler-head button { margin-right: 6dp; }
+        #song-header-clip { display: block; position: relative; flex: 1 1 auto; overflow: hidden; }
+        #song-header-list { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; }
+        .track { display: flex; flex-direction: row; align-items: center; height: 44dp; padding-right: 4dp; border-bottom: 1dp #3b3f4b; cursor: pointer; }
+        .track:hover { background-color: #2a2e38; }
+        .track.selected { background-color: #2f333d; }
+        .track-color { flex: 0 0 4dp; width: 4dp; height: 44dp; margin-right: 8dp; }
+        .track-text { flex: 1 1 auto; overflow: hidden; white-space: nowrap; }
+        .track-name { color: #d7dbe4; font-size: 12dp; overflow: hidden; }
+        .track-inst { color: #8b93a5; font-size: 9.5dp; margin-top: 2dp; }
+        .track button.tool-button { margin-left: 2dp; }
+        .warn { image-color: #f59e0b; margin-right: 2dp; }
+        button.tool-button.small.on-mute.active { background-color: #b45309; border-color: #f59e0b; }
+        button.tool-button.small.on-solo.active { background-color: #a16207; border-color: #facc15; }
+        button.tool-button.small.on-arm.active, button.tool-button.on-record.active { background-color: #b91c1c; border-color: #f87171; }
+        button.tool-button.on-record .icon { image-color: #f87171; }
+        button.tool-button.on-record.active .icon { image-color: #ffffff; }
+        .canvas { display: block; position: relative; flex: 1 1 auto; pointer-events: none; background-color: #1b1d23; }
+        .canvas img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
+
+        #song-switcher { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 28dp; padding: 0dp 6dp;
+                         background-color: #262931; border-bottom: 1dp #3b3f4b; white-space: nowrap; }
+        .switch { display: inline-flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 10dp; margin-right: 4dp;
+                  border-radius: 3dp; color: #a3abbd; cursor: pointer; font-size: 12dp; }
+        .switch .icon { margin-right: 6dp; image-color: #8b93a5; }
+        .switch:hover { background-color: #2f333d; color: #ffffff; }
+        .switch.active { background-color: #2f333d; color: #ffffff; border: 1dp #3b3f4b; }
+        .switch.active .icon { image-color: #ffffff; }
+        .clip-info { color: #8b93a5; font-size: 11dp; }
+
+        #song-bottom { display: flex; flex-direction: row; flex: 1 1 auto; }
+        #song-roll.hidden, #song-mixer.hidden { display: none; }
+        #song-mixer { display: flex; flex-direction: row; align-items: flex-start; flex: 1 1 auto; padding: 8dp; overflow-x: auto; overflow-y: auto; background-color: #1b1d23; }
+        .strip { display: flex; flex-direction: column; align-items: stretch; flex: 0 0 104dp; width: 104dp; margin-right: 6dp; padding: 0dp 6dp 6dp 6dp;
+                 background-color: #262931; border: 1dp #3b3f4b; border-radius: 4dp; }
+        .strip.selected { border-color: #3b82f6; }
+        .strip.master { margin-left: 10dp; background-color: #2a2d36; }
+        .strip-color { flex: 0 0 4dp; height: 4dp; margin: 0dp -6dp 6dp -6dp; border-radius: 4dp 4dp 0dp 0dp; }
+        .strip-name { height: 18dp; line-height: 18dp; color: #e8ebf2; font-weight: bold; font-size: 12dp; white-space: nowrap; overflow: hidden; margin-bottom: 2dp; }
+        .strip-label { color: #8b93a5; font-size: 10dp; margin: 4dp 0dp 3dp 0dp; white-space: nowrap; }
+        .slot { display: flex; flex-direction: row; align-items: center; }
+        .slot button.slot-name { flex: 1 1 auto; height: 20dp; line-height: 20dp; padding: 0dp 4dp; font-size: 10dp; overflow: hidden; white-space: nowrap; }
+        .slot button.tool-button { margin-left: 2dp; }
+        .inserts { display: flex; flex-direction: row; align-items: center; height: 20dp; padding: 0dp 4dp; background-color: #121418;
+                   border: 1dp #2f333d; border-radius: 3dp; color: #5f6676; font-size: 10dp; }
+        .inserts span.grow { flex: 1 1 auto; overflow: hidden; white-space: nowrap; }
+        input.range.pan { width: 100%; }
+        .fader-row { display: flex; flex-direction: row; justify-content: center; flex: 0 0 auto; height: 132dp; margin-top: 6dp; }
+        input.range.fader { display: block; width: 16dp; height: 100%; margin-right: 10dp; }
+        input.range.fader slidertrack { margin-top: 0dp; margin-left: 6dp; width: 4dp; height: 100%; }
+        input.range.fader sliderprogress { width: 0dp; height: 0dp; }
+        input.range.fader sliderbar { width: 16dp; height: 10dp; margin-top: -5dp; margin-bottom: -5dp; margin-left: 0dp; margin-right: 0dp; border-radius: 2dp; }
+        .meter { display: block; position: relative; width: 8dp; height: 100%; background-color: #121418; border: 1dp #2f333d; }
+        .meter-fill { display: block; position: absolute; left: 0dp; bottom: 0dp; width: 100%; height: 0%; background-color: #22c55e; }
+        .strip-db { text-align: center; color: #d7dbe4; font-size: 11dp; margin-top: 4dp; }
+        .strip-buttons { display: flex; flex-direction: row; justify-content: center; margin-top: 4dp; }
+        .strip-buttons button { margin: 0dp 2dp; }
+        .empty { color: #6b7488; padding: 16dp; }
+    </style>
+</head>
+<body class="panel-doc song-doc" data-model="song">
+    <div id="song-transport">
+        <button id="song-rewind" class="tool-button" data-event-click="rewind()" data-tooltip="To Start (Home) — move the playhead to bar 1"><span class="icon icon-player-track-next flip"></span></button>
+        <button id="song-play" class="tool-button" data-class-active="playing" data-event-click="play()" data-tooltip="Play (Space) — from the playhead; plays the loop region over and over while Loop is on"><span class="icon icon-player-play-filled"></span></button>
+        <button id="song-stop" class="tool-button" data-event-click="stop()" data-tooltip="Stop (Space) — the playhead stays where it is"><span class="icon icon-player-stop"></span></button>
+        <button id="song-record" class="tool-button on-record" data-class-active="recording" data-event-click="record()" data-tooltip="Record (R) — play your MIDI keyboard into a new clip on the armed track (arms the selected track if none is); with Loop on every pass adds to the same clip. Stop or R ends the take (one undo step)"><span class="icon icon-point-filled"></span></button>
+        <button id="song-loop" class="tool-button" data-class-active="loop" data-event-click="toggle_loop()" data-tooltip="Loop (L) — repeat the loop region (drag it in the ruler's top band); renders loop seamlessly"><span class="icon icon-repeat"></span></button>
+        <span class="sep"></span>
+        <div class="field" data-tooltip="Tempo — beats per minute (20–999); type a value"><input id="song-tempo" type="text" class="text mono"/><span class="unit">BPM</span></div>
+        <button id="song-sig" class="field-button mono" data-event-click="sig_menu()" data-tooltip="Time Signature — beats per bar / beat unit">{{sig}}</button>
+        <div id="song-pos" class="mono" data-tooltip="Position — bars.beats.ticks of the playhead (click the ruler to move it)">001.1.000</div>
+        <span class="label">Snap</span>
+        <button id="song-snap" class="field-button with-icon" data-event-click="snap_menu()" data-tooltip="Snap — the grid clips and notes snap to; Q quantizes the selected notes to it"><span class="icon icon-sm icon-magnet"></span><span>{{snap}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
+        <button id="song-quantize" class="field-button with-icon" data-event-click="quantize_menu()" data-tooltip="Input Quantize — snaps the starts of recorded MIDI notes (off, 1/16, 1/8)"><span class="icon icon-sm icon-keyboard"></span><span>{{quantize}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
+        <span id="song-xruns" class="mono muted" data-class-bad="xruns_bad" data-tooltip="Underruns — times the song's render thread fell behind the audio device (heard as gaps)">{{xruns}}</span>
+        <span class="grow"></span>
+        <span class="readonly" data-if="readonly" data-attr-data-tooltip="notice"><span class="icon icon-sm icon-alert-triangle"></span> Read-only</span>
+        <button id="song-render" class="with-icon primary" data-class-rendering="rendering" data-event-click="render()" data-attr-data-tooltip="render_tooltip"><span class="icon icon-sm icon-download"></span><span>{{render_label}}</span></button>
+    </div>
+    <div class="notice" data-if="readonly">{{notice}}</div>
+    <div id="song-top">
+        <div id="song-headers">
+            <div class="ruler-head">
+                <button id="song-add-track" class="tool-button small" data-event-click="add_track()" data-tooltip="Add Track — an instrument track (built-in ZzFX) or an audio track"><span class="icon icon-sm icon-plus"></span></button>
+                <span>Tracks</span>
+            </div>
+            <div id="song-header-clip">
+                <div id="song-header-list">
+                    <div class="track" data-for="row : rows" data-class-selected="row.selected" data-event-mousedown="select(row.index)" data-event-dblclick="rename(row.index)" data-attr-data-tooltip="row.tooltip">
+                        <div class="track-color" data-style-background-color="row.color"></div>
+                        <div class="track-text"><div class="track-name">{{row.name}}</div><div class="track-inst">{{row.instrument}}</div></div>
+                        <span class="icon icon-sm icon-alert-triangle warn" data-if="row.status != ''" data-attr-data-tooltip="row.status"></span>
+                        <button class="tool-button small on-arm" data-if="!row.audio" data-class-active="row.armed" data-event-click="arm(row.index)" data-tooltip="Record Arm — your MIDI keyboard plays this track and Record (R) records into it"><span class="icon icon-sm icon-circle-dot"></span></button>
+                        <button class="tool-button small on-mute" data-class-active="row.mute" data-event-click="mute(row.index)" data-tooltip="Mute — silence this track"><span class="icon icon-sm icon-volume-off"></span></button>
+                        <button class="tool-button small on-solo" data-class-active="row.solo" data-event-click="solo(row.index)" data-tooltip="Solo — hear only the soloed tracks"><span class="icon icon-sm icon-ear"></span></button>
+                        <button class="tool-button small" data-event-click="color(row.index)" data-tooltip="Track Colour — of its header, clips and notes"><span class="icon icon-sm icon-palette"></span></button>
+                        <button class="tool-button small" data-event-click="remove(row.index)" data-tooltip="Remove Track — with its clips (Ctrl/Cmd+Z brings it back)"><span class="icon icon-sm icon-trash"></span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="song-arrange" class="canvas"><img id="song-arrange-image"/></div>
+    </div>
+    <div id="song-switcher">
+        <div id="song-show-roll" class="switch" data-class-active="panel_roll" data-event-click="panel(0)" data-tooltip="Piano Roll — the notes of the selected MIDI clip"><span class="icon icon-sm icon-keyboard"></span><span>Piano roll</span></div>
+        <div id="song-show-mixer" class="switch" data-class-active="!panel_roll" data-event-click="panel(1)" data-tooltip="Mixer — instrument, inserts, pan, volume and meters of every track"><span class="icon icon-sm icon-adjustments-horizontal"></span><span>Mixer</span></div>
+        <span class="grow"></span>
+        <span class="clip-info">{{clip_info}}</span>
+    </div>
+    <div id="song-bottom">
+        <div id="song-roll" class="canvas" data-class-hidden="!panel_roll"><img id="song-roll-image"/></div>
+        <div id="song-mixer" data-class-hidden="panel_roll">
+            <div class="strip" data-for="row : rows" data-class-selected="row.selected" data-event-mousedown="select(row.index)">
+                <div class="strip-color" data-style-background-color="row.color"></div>
+                <div class="strip-name">{{row.name}}</div>
+                <div class="strip-label" data-if="!row.audio">Instrument</div>
+                <div class="slot" data-if="!row.audio">
+                    <button class="slot-name" data-event-click="instrument(row.index)" data-tooltip="Instrument — Built-in ZzFX or a scanned VST3 instrument (and its editor window)">{{row.instrument}}</button>
+                    <button class="tool-button small" data-event-click="edit_line(row.index)" data-tooltip="Edit Sound — the built-in instrument's ZzFX line (as the sound designer copies it)"><span class="icon icon-sm icon-pencil"></span></button>
+                    <button class="tool-button small" data-event-click="audition(row.index)" data-tooltip="Audition — play C4 on this instrument"><span class="icon icon-sm icon-player-play"></span></button>
+                </div>
+                <div class="strip-label" data-if="row.audio">Audio clips</div>
+                <div class="strip-label">Inserts</div>
+                <div class="inserts" data-event-click="inserts(row.index)" data-tooltip="Insert effects — add a VST3 effect; open its editor, bypass, reorder or remove"><span class="grow">{{row.inserts}}</span><span class="icon icon-sm icon-plus"></span></div>
+                <div class="strip-label">Pan <span class="mono">{{row.pan_text}}</span></div>
+                <input type="range" class="range pan" min="-1" max="1" step="0.05" data-attr-value="row.pan" data-attr-data-pan="row.index" data-tooltip="Pan — equal-power, left to right"/>
+                <div class="fader-row">
+                    <input type="range" class="range fader" orientation="vertical" min="-6" max="60" step="0.5" data-attr-value="row.fader" data-attr-data-vol="row.index" data-tooltip="Volume — dB (top +6, bottom −60)"/>
+                    <div class="meter" data-tooltip="Peak meter — −60 to +6 dB"><div class="meter-fill" data-attr-id="'meter-' + row.index"></div></div>
+                </div>
+                <div class="strip-db mono">{{row.db}}</div>
+                <div class="strip-buttons">
+                    <button class="tool-button small on-mute" data-class-active="row.mute" data-event-click="mute(row.index)" data-tooltip="Mute — silence this track"><span class="icon icon-sm icon-volume-off"></span></button>
+                    <button class="tool-button small on-solo" data-class-active="row.solo" data-event-click="solo(row.index)" data-tooltip="Solo — hear only the soloed tracks"><span class="icon icon-sm icon-ear"></span></button>
+                </div>
+            </div>
+            <div class="strip master">
+                <div class="strip-color" style="background-color: #e8ebf2;"></div>
+                <div class="strip-name">Master</div>
+                <div class="strip-label">Inserts</div>
+                <div class="inserts" data-event-click="inserts(-1)" data-tooltip="Master inserts — add a VST3 effect; open its editor, bypass, reorder or remove"><span class="grow">{{master_inserts}}</span><span class="icon icon-sm icon-plus"></span></div>
+                <div class="fader-row">
+                    <input id="song-master-fader" type="range" class="range fader" orientation="vertical" min="-6" max="60" step="0.5" data-attr-value="master_fader" data-master="1" data-tooltip="Master Volume — dB (top +6, bottom −60)"/>
+                    <div class="meter" data-tooltip="Peak meter — −60 to +6 dB"><div id="meter-master" class="meter-fill"></div></div>
+                </div>
+                <div class="strip-db mono">{{master_db}}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</rml>

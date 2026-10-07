@@ -1,0 +1,37 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Content/UI/demo.rcss"/>
+    <style>
+        .sfx-panel { width: 320dp; }
+        .sfx-grid { display: flex; flex-wrap: wrap; gap: 6dp; margin: 6dp 0 8dp 0; }
+        .sfx-grid button { box-sizing: border-box; width: 102dp; min-width: 0dp; padding-left: 4dp; padding-right: 4dp; }
+        .sfx-grid button.make { border-color: #fbbf2499; color: #fde68a; }
+        .sfx-name { font-size: 15dp; color: #fbbf24; margin-top: 8dp; }
+        .sfx-line { font-size: 12dp; color: #cbd5e1; word-break: break-word; padding: 6dp 8dp; margin: 4dp 0 4dp 0;
+                    background-color: #02040acc; border: 1dp #ffffff1a; border-radius: 6dp; }
+    </style>
+</head>
+<body class="hud" data-model="soundfx">
+    <div class="demo-panel sfx-panel">
+        <h1>Sound FX</h1>
+        <p class="hint">ZzFX sounds are synthesised at run time from a few numbers. Play a preset, or make a new sound.</p>
+        <div class="sfx-grid">
+            <button data-event-click="play_coin()">Coin</button>
+            <button data-event-click="play_laser()">Laser</button>
+            <button data-event-click="play_explosion()">Explosion</button>
+            <button data-event-click="play_hit()">Hit</button>
+            <button data-event-click="play_jump()">Jump</button>
+            <button data-event-click="play_blip()">Blip</button>
+            <button data-event-click="play_power_up()">Power-up</button>
+            <button class="make" data-event-click="randomize()">Randomize</button>
+            <button class="make" data-event-click="mutate()">Mutate</button>
+        </div>
+        <div class="demo-row"><span>Pitch randomness</span><input type="range" min="0" max="0.5" step="0.01" data-value="randomness"/></div>
+        <p class="sfx-name">{{name}}</p>
+        <p class="sfx-line">{{line}}</p>
+        <p class="hint">Paste the line into the editor's sound designer or the ZzFX web designer.</p>
+        <div class="demo-row"><span>Music (a song from the music editor)</span><input type="checkbox" data-checked="music"/></div>
+    </div>
+</body>
+</rml>
