@@ -91,6 +91,7 @@ public static class EditorIcons
         {
             _ when Is(extension, ".mscene") => "movie",
             _ when Is(extension, ".mres") => "package",
+            _ when Is(extension, ".msong") => "music",
             _ when Is(extension, ".png") || Is(extension, ".jpg") || Is(extension, ".jpeg") || Is(extension, ".tga") || Is(extension, ".bmp") ||
                    Is(extension, ".ktx2") || Is(extension, ".dds") || Is(extension, ".hdr") => "photo",
             _ when Is(extension, ".wav") || Is(extension, ".ogg") || Is(extension, ".mp3") || Is(extension, ".flac") => "file-music",
@@ -118,7 +119,7 @@ public static class EditorIcons
         return ForFile(path) switch
         {
             "movie" or "file-3d" => "icon-3d",
-            "file-music" => "icon-audio",
+            "file-music" or "music" => "icon-audio",
             "package" or "photo" or "typography" => "icon-resource",
             "file-type-html" or "file-type-css" => "icon-ui",
             _ => "",

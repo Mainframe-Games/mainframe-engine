@@ -1,7 +1,7 @@
 # Proposal: Music editor (songs, piano roll, VST3)
 
 **Milestone:** unscheduled (editor tooling, after [ZzFX sounds and the sound designer](sound-designer.md)) · **Status:**
-proposed (design only, 2026-10-08) · **Depends on:** [Sound designer](sound-designer.md) (editor audio, `AudioPreview`,
+proposed (design only, 2026-10-08); partly built: song model, engine, render to WAV, `AudioStreamGenerator` — 2026-10-08 ([ADR 0145](../../../memory/decisions/0145-song-engine-built-in-phase.md); no song tab yet) · **Depends on:** [Sound designer](sound-designer.md) (editor audio, `AudioPreview`,
 the ZzFX port), [Audio](../audio.md), [Editor](../editor.md), [Natives](../natives.md) · **Related:**
 [UI preview tabs](../editor.md#ui-preview), [Game UI](../game-ui.md)
 

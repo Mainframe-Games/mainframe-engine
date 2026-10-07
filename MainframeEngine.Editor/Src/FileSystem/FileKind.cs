@@ -8,6 +8,9 @@ public enum FileKind
     Resource,
     Texture,
     Audio,
+
+    /// <summary>An editor song (<c>.msong</c>, the music editor).</summary>
+    Song,
     Model,
     Font,
     Rml,
@@ -49,6 +52,7 @@ internal static class FileKinds
         {
             ".mscene" => FileKind.Scene,
             ".mres" => FileKind.Resource,
+            ".msong" => FileKind.Song,
             ".png" or ".jpg" or ".jpeg" or ".tga" or ".bmp" or ".hdr" or ".ktx" or ".ktx2" => FileKind.Texture,
             ".wav" or ".ogg" or ".mp3" or ".flac" => FileKind.Audio,
             ".gltf" or ".glb" or ".fbx" or ".obj" or ".dae" => FileKind.Model,
