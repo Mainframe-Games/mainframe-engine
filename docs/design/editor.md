@@ -93,7 +93,11 @@ flowchart TB
   `engine://editor-viewport` and shown by an `<img>` in the viewport panel; the view's pixel size follows the panel.
 - **The editor camera** is `SceneViewport.CameraOverride` — the scene's own `Camera3D`s and their `Current` flags are
   never touched.
-- Audio is disabled in the editor process. The edited scene is **shadowed**: its view sets `SubViewport.Shadows`, and
+- **Edit mode is silent** (ADR 0144): the editor runs an `AudioServer` (engine default bus layout; the project's layout
+  is not applied, so a muted or ducked bus cannot silence previews; no device → the null device), but audio nodes are
+  inert while `Tree.EditMode` is set — `AudioPlayback` (the three players) ignores `Play()` and `Autoplay`, and an
+  `AudioListener3D` never takes the listener. Opening a scene never makes a sound; the editor plays sounds only through
+  [Audio previews](#audio-previews). The edited scene is **shadowed**: its view sets `SubViewport.Shadows`, and
   since the editor's main world draws nothing, the shared shadow maps (Shadows v2: cascades, atlas, PCF) go to the
   active tab's view.
 - **The current project** (see [Projects](#projects)) sets `AssetDatabase.Current` and `ContentPaths.ProjectDirectory`,
@@ -482,8 +486,55 @@ merge as usual. Arrays, nested resource sub-inspectors, custom inspectors and th
 
 A `.mres` file opened from the FileSystem panel is edited in the inspector (`EditedResource`) with its own undo
 history and Save. `ICustomInspector` gets an `IInspectorContext` (a scene or a resource; the `EditedScene` overload
-still works), so a custom inspector can act on either. The shipped example is `AudioBusLayoutInspector`: a mixer strip
-for `AudioBusLayout` buses, every change undoable. Game assemblies' `[CustomInspector]`s are found when they load.
+still works), so a custom inspector can act on either. The shipped examples are `AudioBusLayoutInspector` (a mixer strip
+for `AudioBusLayout` buses, every change undoable) and the [sound designer](#sound-designer). Game assemblies'
+`[CustomInspector]`s are found when they load.
+
+**`OnPropertyChanged(target, property, context)`** (default method: nothing) tells a custom inspector about every
+committed change to its target, including edits made by the generated rows, which bypass it. It is called once per
+history entry: after a text commit, a checkbox or dropdown change, or when a merged slider drag ends (mouse released;
+not per tick), with the row's `property`; `property` is null for undo, redo and changes made by actions. While a drag
+merges, a custom header is not rebuilt per tick (only the values refresh); it is rebuilt when the drag ends.
+
+## Audio previews
+
+`AudioPreview` (`Src/Audio/AudioPreview.cs`, owned by `EditorWorkspace`) plays **one voice at a time**: `Play(stream)`
+stops the current preview and starts a non-positional `PlayOneShot` on Master with `ProcessMode.Always` (the edit
+camera and listener do not matter); `Toggle`, `Stop`, `IsPlaying(stream)`, and `PlayFile`/`ToggleFile`/`IsPlayingFile`
+for files, which load through `ResourceLoader.Load<AudioStream>` (import settings, shared cache: a long `.ogg` streams).
+The workspace polls it once per frame (`AudioServer.IsPlaying`, no events, no allocation) and refreshes the Play/Stop
+icons when a voice ends. Running the game (**Play**) stops the preview. A stream that cannot load reports its
+`LoadError` in the Output panel and the button stays "Play". Previews play at 0 dB on Master.
+
+- **FileSystem panel:** audio files (`.wav .ogg .mp3 .flac`) and `.mres` files whose root type is an `AudioStream` get
+  **Play / Stop** in the context menu; double-clicking an audio file toggles its preview; the playing file shows the
+  `player-stop` badge (teal) in all three views.
+- **Inspector `AudioStream` rows:** a Play/Stop icon button before Edit/Load/New/Clear ("Play — preview this sound in
+  the editor"): `AudioPlayer*.Stream`, exported `AudioStream` fields and inline `ZzfxStream`s.
+
+## Sound designer
+
+`ZzfxStreamInspector` (`[CustomInspector(typeof(ZzfxStream))]`) is the designer for ZzFX sounds (the engine side is in
+[Audio → Synthesis](audio.md)); it shows when a `ZzfxStream` `.mres` is the inspected target (double-click it, or Edit
+on a slot holding one). Inline sounds folded inside another inspector keep the generic rows. The header sits above the
+generated parameter sliders (`File` and `LoadMode` rows are hidden):
+
+![Sound designer: the ZzfxStream inspector and FileSystem previews](../images/sound-designer.svg)
+
+- **Play / Stop** toggles the preview; **Auto-play** (on by default, `SoundDesignerAutoPlay` in `editor_layout.json`)
+  replays the sound after every committed change — a slider release, a field commit, a preset, Randomize, Mutate,
+  Paste, undo or redo — through `OnPropertyChanged`.
+- **Info and waveform:** the length ("0.94 s · 44.1 kHz mono") or the `LoadError`/length error in the notice style;
+  96 min/max columns over the generated samples (normalised to the loudest peak) as `div` bars sized in `dp`, rebuilt
+  with the header and cached per parameter set.
+- **Presets** (icon buttons: pickup/coin, laser, explosion, hit, jump, blip, power-up; `ZzfxPresets`, a fresh
+  `Random` per click), **Randomize**, **Mutate** (±10 % on non-default continuous parameters), **Copy ZzFX** (`ToLine()`
+  to the clipboard) and **Paste ZzFX** (`ZzfxParameters.TryParse`; invalid text shows the parse error in a
+  `MessageDialog` and changes nothing). Each sets every parameter that differs as **one** undo entry
+  (`CompositeAction` of `SetPropertyAction`s); undo restores the sound exactly.
+- **Export .wav** opens the file picker in save mode at `<sound folder>/<name>.wav` and writes 16-bit PCM, 44.1 kHz
+  mono through `WavWriter`; an I/O error is reported (`Commands.ReportError`) and the partial file deleted. The new file
+  gets its `.meta`/UID from the asset database like any dropped-in file.
 
 ## Editor settings
 
@@ -566,7 +617,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   (`Category=Slow`) runs the real `dotnet new mfgame` and build.
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
   editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, drags, gizmo drags, keys,
-  text, commands, dialog answers, `window-close`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
+  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `fs-select`, `delete-file`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The

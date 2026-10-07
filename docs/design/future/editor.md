@@ -15,7 +15,7 @@ and inspector, E3 viewport, E4 projects and Play, E5 polish) has shipped and is 
 | Docking and multi-window | Tear-off panels and editor windows on other monitors, once SDL multi-window is available. Layout today: fixed regions with persisted splitters. |
 | Shared widgets | Move the editor's controls (`tree-view`, `property-*` editors, `splitter`, `tabs`, `context-menu`) into core content so games' settings menus can use them. |
 | 2D content | Sprites and tile maps in the 2D view (the engine has no sprite renderer yet). |
-| Editor previews and handles | Audio preview, draggable range handles for lights and audio, collision shape handles, "create collision from mesh", "make unique" / "save as .mres" for inline resources. |
+| Editor previews and handles | Draggable range handles for lights and audio, collision shape handles, "create collision from mesh", "make unique" / "save as .mres" for inline resources. |
 
 ## Open questions
 

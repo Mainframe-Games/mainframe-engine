@@ -202,7 +202,8 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | Positional audio: listener-space projection, attenuation curves, pan smoothing (engine panner, [ADR 0031](../memory/decisions/0031-positional-audio-engine-panner.md)) | ✅ | [Audio](design/audio.md#spatialization) |
 | Voice pool, polyphony, stealing, pause handling | ✅ | [Audio](design/audio.md#voices) |
 | Audio bus panel (the `AudioBusLayout` mixer inspector), audio range spheres in the editor viewport | ✅ (M10) | [Editor](design/editor.md#resource-files-and-custom-inspectors) |
-| Audio preview in the editor, draggable range handles | ⬜ | [Future: editor](design/future/editor.md) |
+| Audio preview in the editor (FileSystem/inspector previews, ZzFX sound designer) | ✅ | [Editor → Audio previews](design/editor.md#audio-previews), [ADR 0144](../memory/decisions/0144-editor-audio-previews-and-silent-edit-mode.md) |
+| Draggable audio range handles in the editor | ⬜ | [Future: editor](design/future/editor.md) |
 
 ## M8 — Game UI (RmlUi) ✅
 

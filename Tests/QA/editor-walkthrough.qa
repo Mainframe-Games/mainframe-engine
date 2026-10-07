@@ -75,6 +75,26 @@ command file.quit
 wait 3
 capture 13-quit-prompt
 cancel
+# Sound designer: a new ZzfxStream resource, a preset, Export .wav (default name), then Play on the file from the
+# FileSystem panel (stop badge). The files are removed again.
+edit-file Content/Audio/QaSound.mres {"format":2,"type":"ZzfxStream"}
+inspect Examples/Demo/Content/Audio/QaSound.mres
+wait 3
+inspector-header zzfx-preset:pickup
+wait 3
+capture 13b-sound-designer
+inspector-header zzfx-export
+wait 3
+accept
+wait 3
+fs-select Content/Audio/QaSound.wav
+command fs.play
+wait 3
+capture 13c-sound-preview
+command fs.stop
+inspector-header inspector-close
+delete-file Content/Audio/QaSound*
+wait 3
 # The update badge and dialog (a preview: QA runs never touch the network).
 update-preview 9.9.9
 wait 3

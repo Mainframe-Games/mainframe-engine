@@ -325,6 +325,25 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "delete-file":
+                {
+                    // delete-file <project path, the file name may end in *>: removes files a step created
+                    var pattern = Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[1..]));
+                    var directory = Path.GetDirectoryName(pattern)!;
+                    if (Directory.Exists(directory))
+                        foreach (var file in Directory.GetFiles(directory, Path.GetFileName(pattern)))
+                            File.Delete(file);
+                    workspace.FileSystem.Rescan();
+                    break;
+                }
+
+            case "fs-select":
+                workspace.FileSystem.Select(Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[1..])));
+                break;
+            case "inspector-header":
+                // A custom inspector header button by its data-action (the sound designer's presets, Export .wav …).
+                workspace.Inspector.RunHeaderAction(step[1]);
+                break;
             case "edit-file":
                 File.AppendAllText(Path.Combine(workspace.Session.ProjectRoot ?? "", step[1]), string.Join(' ', step[2..]) + "\n");
                 break;

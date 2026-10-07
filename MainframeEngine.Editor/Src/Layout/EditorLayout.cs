@@ -60,6 +60,9 @@ public sealed record EditorLayoutSettings
     /// <summary>The output panel scrolls to each new line (off: the scroll position stays).</summary>
     public bool OutputFollow { get; init; } = true;
 
+    /// <summary>The sound designer (ZzfxStream inspector) replays the sound after every committed change.</summary>
+    public bool SoundDesignerAutoPlay { get; init; } = true;
+
     /// <summary>Favourite entries per picker (<c>node</c>, <c>resource</c>, <c>scene</c>): type names or project paths.</summary>
     public Dictionary<string, string[]>? PickerFavorites { get; init; }
 
@@ -199,6 +202,8 @@ public sealed class EditorLayout
     public void SetInspectorLabelWidth(float width) => Settings = Settings with { InspectorLabelWidth = MathF.Max(0, width) };
 
     public void SetOutputOptions(bool collapse, bool follow) => Settings = Settings with { OutputCollapse = collapse, OutputFollow = follow };
+
+    public void SetSoundDesignerAutoPlay(bool autoPlay) => Settings = Settings with { SoundDesignerAutoPlay = autoPlay };
 
     /// <summary>Most entries a picker's recent list keeps.</summary>
     public const int MaxRecent = 8;

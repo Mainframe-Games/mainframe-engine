@@ -275,9 +275,27 @@ public sealed class FileSystemPanel : EditorDocument
             Indent = RmlText.Dp(4 + depth * 14),
             Thumb = thumb,
             Expanded = _expanded.Contains(entry.FullPath),
-            Badge = BadgeClass(entry.Badges),
+            Badge = Workspace.AudioPreview.IsPlayingFile(entry.FullPath) ? PlayingBadge : BadgeClass(entry.Badges),
             Selected = string.Equals(entry.FullPath, _selected, StringComparison.Ordinal),
         });
+    }
+
+    private const string PlayingBadge = "icon icon-sm icon-player-stop badge-playing";
+
+    /// <summary>The preview started or stopped: the playing file's badge follows (rows are rebuilt).</summary>
+    public void RefreshPreviewBadges()
+    {
+        _shownVersion = -1;
+        Refresh();
+    }
+
+    /// <summary>True for audio files and <c>.mres</c> files whose root type is an <see cref="AudioStream"/> (Play / Stop).</summary>
+    public static bool IsPlayable(ProjectFileEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return entry.Kind == FileKind.Audio ||
+               (entry.Kind == FileKind.Resource && entry.RootTypeName is { } type &&
+                Serialization.TypeRegistry.Get(type)?.Type is { } resourceType && typeof(AudioStream).IsAssignableFrom(resourceType));
     }
 
     private static string BadgeClass(FileBadges badges) =>
@@ -416,6 +434,9 @@ public sealed class FileSystemPanel : EditorDocument
             case FileKind.Resource:
                 Workspace.Inspector.InspectResourceFile(entry.FullPath);
                 break;
+            case FileKind.Audio:
+                Workspace.AudioPreview.ToggleFile(entry.FullPath);
+                break;
             default:
                 Log.Info($"[Editor] {entry.ProjectPath}: {entry.Kind} ({entry.Size.ToString("N0", CultureInfo.InvariantCulture)} bytes{(entry.Uid is { } uid ? ", " + uid : "")}).");
                 break;
@@ -482,6 +503,10 @@ public sealed class FileSystemPanel : EditorDocument
             new MenuItem(entry.Kind == FileKind.Rml ? "Preview UI" : "Open", "fs.open", "Double-click", !entry.IsDirectory,
                 Icon: entry.Kind == FileKind.Rml ? "layout" : "external-link"),
             .. entry.Kind == FileKind.Rml ? [new MenuItem("Open in Code Editor", "fs.open_code", Icon: "code")] : Array.Empty<MenuItem>(),
+            .. IsPlayable(entry)
+                ? [new MenuItem("Play", "fs.play", Icon: "player-play"),
+                   new MenuItem("Stop", "fs.stop", null, Workspace.AudioPreview.IsPlayingFile(entry.FullPath), Icon: "player-stop")]
+                : Array.Empty<MenuItem>(),
             MenuItem.Separator,
             new MenuItem("New Folder…", "fs.new_folder", Icon: "folder-plus"),
             new MenuItem("New Scene…", "fs.new_scene", Icon: "movie"),
@@ -507,6 +532,13 @@ public sealed class FileSystemPanel : EditorDocument
             case "fs.open":
                 if (entry is not null)
                     Open(entry);
+                return true;
+            case "fs.play":
+                if (entry is { IsDirectory: false } && IsPlayable(entry))
+                    Workspace.AudioPreview.PlayFile(entry.FullPath);
+                return true;
+            case "fs.stop":
+                Workspace.AudioPreview.Stop();
                 return true;
             case "fs.open_code":
                 if (entry is { IsDirectory: false })

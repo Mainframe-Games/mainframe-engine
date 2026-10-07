@@ -174,6 +174,17 @@
         .mixer-send { display: block; flex: 1 1 auto; color: #8b93a5; font-size: 11dp; white-space: nowrap; overflow: hidden; }
         .mixer-db { display: block; width: 56dp; text-align: center; font-size: 11dp; }
         .mixer-bus button { width: 20dp; height: 20dp; line-height: 20dp; padding: 0dp; margin-left: 2dp; }
+        .zzfx { display: block; margin: 6dp 8dp; padding: 6dp; background-color: #1b1d23; border: 1dp #2a2d36; border-radius: 4dp; }
+        .zzfx-top { display: flex; flex-direction: row; align-items: center; height: 26dp; }
+        .zzfx-top button { width: 26dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 4dp; }
+        .zzfx-top button.zzfx-play { width: 30dp; }
+        .zzfx-info { display: block; flex: 1 1 auto; margin-left: 4dp; color: #8b93a5; font-size: 11dp; white-space: nowrap; overflow: hidden; }
+        .zzfx .notice { margin: 4dp 0dp; }
+        .zzfx-wave { display: flex; flex-direction: row; height: 56dp; margin: 6dp 0dp; padding: 3dp 2dp; background-color: #121418; border: 1dp #2a2d36; border-radius: 3dp; }
+        .zzfx-col { display: block; flex: 1 1 0dp; margin-right: 1dp; background-color: #5eead4; }
+        .zzfx-row { display: flex; flex-direction: row; align-items: center; height: 26dp; }
+        .zzfx-label { display: block; width: 52dp; color: #8b93a5; font-size: 11dp; }
+        .zzfx-row button { width: 24dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 4dp; }
     </style>
 </head>
 <body class="panel-doc">

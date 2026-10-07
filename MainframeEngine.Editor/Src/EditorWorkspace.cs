@@ -109,6 +109,8 @@ public sealed partial class EditorWorkspace : Node
         var dotnet = DotnetSdk.FindDotnet() ?? "dotnet";
         Play = new PlayController(this, Options.GameBuilder ?? new DotnetGameBuilder(dotnet), Options.GameLauncher ?? new ProcessGameLauncher(dotnet));
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
+        AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
+        AudioPreview.Changed += OnAudioPreviewChanged;
         // Output source links open through the code editor of the Editor Settings.
         SourceOpener = (file, line) => CodeEditor.Open(file, line);
     }
@@ -134,6 +136,9 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>Out-of-process Play.</summary>
     public PlayController Play { get; }
+
+    /// <summary>The sound preview (one voice): FileSystem Play, inspector AudioStream rows, the sound designer.</summary>
+    public AudioPreview AudioPreview { get; }
 
     /// <summary>Opens source files in the external code editor.</summary>
     public CodeEditorLauncher CodeEditor { get; }
@@ -329,6 +334,7 @@ public sealed partial class EditorWorkspace : Node
         if (disposing)
         {
             Updates?.Dispose();
+            AudioPreview.Stop();
             Play.Dispose();
             Session.Dispose();
             Project.Dispose();
@@ -344,6 +350,7 @@ public sealed partial class EditorWorkspace : Node
         if (_closeRequested && _pendingLoad is null)
             OnCloseRequested();
         Splash.Tick(gameTime.DeltaTime);
+        AudioPreview.Tick();
         ProcessProjects(gameTime.DeltaTime);
         if (Output.Drain())
             OutputPanel.Refresh();
@@ -467,6 +474,15 @@ public sealed partial class EditorWorkspace : Node
     }
 
     private void OnActiveChanged() => RefreshAll();
+
+    // A preview started or ended: the Play/Stop icons and the FileSystem badge follow it.
+    private void OnAudioPreviewChanged()
+    {
+        if (!IsInsideTree)
+            return;
+        FileSystem.RefreshPreviewBadges();
+        Inspector.RefreshPreviewButtons();
+    }
 
     private void OnSceneEdited(EditedScene scene)
     {

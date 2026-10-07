@@ -292,7 +292,9 @@ their own `ProcessMode` (default `Pausable`).
   disposed under it.
 - SoundFlow 1.4.1 reports the miniaudio backend through an enum that is off by one; the engine names backends by
   native value.
-- Editor integration (inspector preview bus, range gizmos, the Audio bus panel) arrives with M10.
+- Editor integration: previews and the ZzFX sound designer are in [Editor → Audio previews](editor.md#audio-previews)
+  (edit mode is silent: audio nodes ignore `Play`/`Autoplay` and the listener while `SceneTree.EditMode`); range
+  handles are still open.
 
 ## Related docs
 

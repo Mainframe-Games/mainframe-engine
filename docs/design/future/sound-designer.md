@@ -1,7 +1,8 @@
 # Proposal: ZzFX sounds and the editor sound designer
 
 **Milestone:** [M7 — Audio](../../milestones.md#m7--audio-) follow-up ("Audio preview in the editor") · **Status:**
-proposed (design only, 2026-10-08) · **Depends on:** [Audio](../audio.md), [Editor → Inspector](../editor.md#inspector),
+✅ done (2026-10-08) — shipped as [Audio](../audio.md) (Synthesis) and [Editor → Audio previews](../editor.md#audio-previews) /
+[Sound designer](../editor.md#sound-designer); ADRs 0143, 0144. Kept as the record · **Depends on:** [Audio](../audio.md), [Editor → Inspector](../editor.md#inspector),
 [Resource files and custom inspectors](../editor.md#resource-files-and-custom-inspectors) · **Related:**
 [Future: editor](editor.md) ("Editor previews and handles")
 
