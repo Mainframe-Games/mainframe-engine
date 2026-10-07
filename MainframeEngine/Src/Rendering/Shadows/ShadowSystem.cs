@@ -65,6 +65,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     // Per-object pipelines (Spine and other non-batched visuals): stride 32 (MeshVertex) and 12 (positions only).
     private Pipeline _pipe2D_S32, _pipe2D_S12;
     private Pipeline _pipePoint_S32, _pipePoint_S12;
+    private Pipeline _pipe2DDoubleSided, _pipePointDoubleSided;
     private PipelineLayout _layout2D;      // push: mat4 model; set0: light VP (dynamic UBO)
     private PipelineLayout _layoutPoint;   // push: mat4 model + vec4 lightPosRange; set0: light VP (dynamic UBO)
     private PipelineLayout _layout2DCutout, _layoutPointCutout; // + set1: the mesh material (cutout casters)
@@ -1010,6 +1011,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         _pipe2D_S12 = BuildPipeline(CasterShaders.Plain2D, CullMode.Back, mirrored: false, _layout2D, ObjectBindings(12), ObjectAttributes, "shadow");
         _pipePoint_S32 = BuildPipeline(CasterShaders.PlainPoint, CullMode.Back, mirrored: false, _layoutPoint, ObjectBindings(32), ObjectAttributes, "shadow");
         _pipePoint_S12 = BuildPipeline(CasterShaders.PlainPoint, CullMode.Back, mirrored: false, _layoutPoint, ObjectBindings(12), ObjectAttributes, "shadow");
+        _pipe2DDoubleSided = BuildPipeline(CasterShaders.Plain2D, CullMode.Disabled, mirrored: false, _layout2D, ObjectBindings(12), ObjectAttributes, "shadow (double-sided)");
+        _pipePointDoubleSided = BuildPipeline(CasterShaders.PlainPoint, CullMode.Disabled, mirrored: false, _layoutPoint, ObjectBindings(12), ObjectAttributes, "shadow (double-sided)");
     }
 
     private static VertexInputBindingDescription[] ObjectBindings(uint stride) =>
@@ -1172,6 +1175,15 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     /// <summary>The per-object point-light depth pipeline for a vertex stride.</summary>
     public Pipeline GetShadowPointPipeline(uint strideBytes) => strideBytes == 12 ? _pipePoint_S12 : _pipePoint_S32;
 
+    /// <summary>
+    /// The directional/spot depth pipeline for flat casters seen from either side (Spine skeletons): stride 12, no
+    /// culling, <see cref="Shadow2DLayout"/>.
+    /// </summary>
+    public Pipeline DoubleSidedShadow2DPipeline => _pipe2DDoubleSided;
+
+    /// <summary>The point-light depth pipeline for flat casters seen from either side: stride 12, no culling, <see cref="ShadowPointLayout"/>.</summary>
+    public Pipeline DoubleSidedShadowPointPipeline => _pipePointDoubleSided;
+
     public PipelineLayout Shadow2DLayout => _layout2D;
     public PipelineLayout ShadowPointLayout => _layoutPoint;
 
@@ -1245,6 +1257,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         deletions.Enqueue(GpuDeletion.Of(_pipe2D_S12));
         deletions.Enqueue(GpuDeletion.Of(_pipePoint_S32));
         deletions.Enqueue(GpuDeletion.Of(_pipePoint_S12));
+        deletions.Enqueue(GpuDeletion.Of(_pipe2DDoubleSided));
+        deletions.Enqueue(GpuDeletion.Of(_pipePointDoubleSided));
         foreach (var pipeline in _instancedPipelines.Values)
             deletions.Enqueue(GpuDeletion.Of(pipeline));
         _instancedPipelines.Clear();

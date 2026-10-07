@@ -12,11 +12,14 @@ public sealed class SpinePanel : UiDocument
     /// <summary>Skeleton scale under the Camera2D (1 unit = 1 canvas pixel).</summary>
     public const float Scale2D = 0.7f;
 
+    /// <summary>The backdrop wall's Z: close enough behind SpineBoy that his shadow lands on it.</summary>
+    public const float BackdropZ = -1.2f;
+
     /// <summary>The sun lights the skeleton's +Z face (the 3D camera's side).</summary>
-    public static readonly Vector3 SunRotation3D = new(-40, 25, 0);
+    public static readonly Vector3 SunRotation3D = new(-35, 40, 0);
 
     /// <summary>Under the Camera2D (which looks along +Z) the turned-over skeleton shows its -Z face, so the sun turns too.</summary>
-    public static readonly Vector3 SunRotation2D = new(-40, 205, 0);
+    public static readonly Vector3 SunRotation2D = new(-35, 220, 0);
 
     private Node? _scene;
     private Camera3D? _camera3d;
@@ -24,6 +27,7 @@ public sealed class SpinePanel : UiDocument
     private Node3D? _pivot;
     private SpineNode? _spine;
     private DirectionalLight3D? _sun;
+    private MeshInstance3D? _backdrop;
     private bool _mode2d;
     private string _animation = "walk";
 
@@ -59,6 +63,7 @@ public sealed class SpinePanel : UiDocument
         _pivot = scene.GetNode<Node3D>("Pivot");
         _spine = scene.GetNode<SpineNode>("Pivot/SpineBoy");
         _sun = scene.GetNode<DirectionalLight3D>("Sun");
+        _backdrop = scene.GetNode<MeshInstance3D>("Backdrop");
         CreateDataModel("spine")
             .Bind("mode2d", this, static d => d.Mode2D, static (d, v) => d.Mode2D = v)
             .Bind("animation", this, static d => d._animation, static (d, v) => d.Animation = v);
@@ -68,7 +73,7 @@ public sealed class SpinePanel : UiDocument
     {
         _mode2d = mode2d;
         if (_scene is not { } scene || _camera3d is not { } camera3d || _camera2d is not { } camera2d || _pivot is not { } pivot || _spine is not { } spine
-            || _sun is not { } sun)
+            || _sun is not { } sun || _backdrop is not { } backdrop)
             return;
 
         // A viewport renders with its 3D camera whenever one is in the tree (even a non-current one), so the Camera3D
@@ -95,6 +100,7 @@ public sealed class SpinePanel : UiDocument
         pivot.Position = mode2d ? new Vector3(0, 230, 0) : Vector3.Zero;
         spine.SpineScale = mode2d ? Scale2D : Scale3D;
         sun.RotationDegrees = mode2d ? SunRotation2D : SunRotation3D;
+        backdrop.Visible = !mode2d; // the 3D view's shadow catcher only
     }
 
     protected override void OnExitTree()
@@ -108,6 +114,7 @@ public sealed class SpinePanel : UiDocument
         _pivot = null;
         _spine = null;
         _sun = null;
+        _backdrop = null;
         base.OnExitTree();
     }
 }

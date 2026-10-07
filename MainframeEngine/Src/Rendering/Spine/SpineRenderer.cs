@@ -201,7 +201,7 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         UploadShadowVertices(imageIdx);
 
         var vk     = _vkCtx.Vk;
-        var pipe   = _shadowSystem.GetShadow2DPipeline(12);
+        var pipe   = _shadowSystem.DoubleSidedShadow2DPipeline; // a flat skeleton casts from either side
         var layout = _shadowSystem.Shadow2DLayout;
 
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipe);
@@ -227,7 +227,7 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         UploadShadowVertices(imageIdx);
 
         var vk     = _vkCtx.Vk;
-        var pipe   = _shadowSystem.GetShadowPointPipeline(12);
+        var pipe   = _shadowSystem.DoubleSidedShadowPointPipeline;
         var layout = _shadowSystem.ShadowPointLayout;
 
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipe);

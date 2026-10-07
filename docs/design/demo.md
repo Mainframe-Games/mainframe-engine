@@ -62,7 +62,7 @@ Every scene is self-contained: its own camera, environment and lights, and a sma
 | `ui` (UI) | The RmlUi widget gallery and a data-bound form (`UiShowcase`, `Content/UI/showcase.rml`), plus a live counter of UI hot reloads | accent, name, volume, quality, reset counter |
 | `physics_2d` (Physics 2D) | Box2D: a funnel and pegboard of `StaticBody2D`s, `RigidBody2D` circles and boxes raining in (`Spawner2D`) | click to spawn, collision shapes, reset |
 | `physics_3d` (Physics 3D) | Jitter2: a crate stack, a ramp, a `CharacterBody3D` pusher that shoves crates (`Pusher3D`), click-to-drop crates by ray query (`Dropper3D`) | click the floor, rain crates, collision shapes, reset |
-| `spine` (Spine) | SpineBoy (`SpineNode`) on a lit floor, seen by a `Camera3D` or a `Camera2D` | 2D camera toggle, animation picker |
+| `spine` (Spine) | SpineBoy (`SpineNode`) on a lit floor, casting his shadow onto a backdrop wall (3D view), seen by a `Camera3D` or a `Camera2D` | 2D camera toggle, animation picker |
 
 Mouse input in the 2D scenes is mapped from window points to canvas units through the root viewport's stretch and
 camera transforms (`CanvasInput.WindowToCanvas`); Physics 3D uses `Camera3D.ProjectRayOrigin/ProjectRayNormal` and
