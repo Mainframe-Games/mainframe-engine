@@ -20,6 +20,9 @@ public sealed class SongPlayer : IDisposable
     private AudioStreamGeneratorPlayback? _playback;
     private SongDocument? _document;
     private int _version = -1;
+    private long _pushedEnd;    // song frame at the end of the last block pushed to the generator (render thread writes)
+    private long _anchor;       // where the last Play/Seek started: the heard position never shows earlier than this
+    private bool _anchorFromSeek;
 
     /// <param name="server">The editor's audio server; null renders nothing audible (no audio device).</param>
     /// <param name="instrumentFactory">See <see cref="SongSnapshotBuilder"/>.</param>
@@ -46,8 +49,10 @@ public sealed class SongPlayer : IDisposable
     public bool IsPlaying => Engine.IsPlaying;
 
     /// <summary>
-    /// The position being heard, in ticks: the engine's position minus what is still queued in the generator (the
-    /// device buffer is not subtracted). Wraps with the loop.
+    /// The position being heard, in ticks. Stopped: the engine's position (steady — the silence the render thread keeps
+    /// queueing is not part of the song). Playing: the end of the last block pushed minus what is still queued in the
+    /// generator (the device buffer is not subtracted), read as a consistent pair so a block landing between the two
+    /// reads cannot make the playhead jump; never earlier than where playback started. Wraps with the loop.
     /// </summary>
     public double PositionTicks
     {
@@ -55,9 +60,24 @@ public sealed class SongPlayer : IDisposable
         {
             if (Engine.Current is not { } song)
                 return 0;
-            var frames = Engine.PositionFrames - (Volatile.Read(ref _playback)?.FramesQueued ?? 0);
-            if (song.LoopEnabled && frames < song.LoopStartFrame && Engine.PositionFrames >= song.LoopStartFrame && IsPlaying)
+            if (!IsPlaying)
+                return song.FramesToTicks(Engine.PositionFrames);
+
+            var playback = Volatile.Read(ref _playback);
+            long end, queued;
+            do
+            {
+                end = Volatile.Read(ref _pushedEnd);
+                queued = playback?.FramesQueued ?? 0;
+            }
+            while (end != Volatile.Read(ref _pushedEnd));
+
+            var frames = end - queued;
+            if (song.LoopEnabled && frames < song.LoopStartFrame && end >= song.LoopStartFrame)
                 frames += song.LoopEndFrame - song.LoopStartFrame; // just wrapped: still hearing the loop's end
+            var anchor = Volatile.Read(ref _anchor);
+            if (end >= anchor && frames < anchor)
+                frames = anchor; // silence queued before Play (or before a seek) is still draining
             return song.FramesToTicks(Math.Max(0, frames));
         }
     }
@@ -83,7 +103,13 @@ public sealed class SongPlayer : IDisposable
             EnsureVoice();
     }
 
-    public void Play() => Engine.Play();
+    public void Play()
+    {
+        if (!_anchorFromSeek)
+            Volatile.Write(ref _anchor, Engine.PositionFrames);
+        _anchorFromSeek = false;
+        Engine.Play();
+    }
 
     public void Stop() => Engine.Stop();
 
@@ -99,7 +125,10 @@ public sealed class SongPlayer : IDisposable
     public void Seek(double tick)
     {
         var rate = Engine.Current?.FramesPerTick ?? (_document is { } d ? Engine.SampleRate * 60.0 / (d.Song.Tempo * d.Song.Ppq) : 0);
-        Engine.SeekFrames((long)Math.Round(Math.Max(0, tick) * rate));
+        var frame = (long)Math.Round(Math.Max(0, tick) * rate);
+        Volatile.Write(ref _anchor, frame);
+        _anchorFromSeek = !IsPlaying; // a seek while stopped is where the next Play starts
+        Engine.SeekFrames(frame);
     }
 
     /// <summary>Plays <paramref name="pitch"/> on a track's instrument until <see cref="ReleaseNote"/> (piano-roll keys, note clicks).</summary>
@@ -166,6 +195,7 @@ public sealed class SongPlayer : IDisposable
             }
 
             playback.PushFrames(block);
+            Volatile.Write(ref _pushedEnd, Engine.PositionFrames); // after the push: the queue now ends here
         }
     }
 }
