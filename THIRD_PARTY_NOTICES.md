@@ -28,6 +28,7 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | 1.4.1 | MIT | NuGet package `SoundFlow` | `SoundFlow.dll`; its `miniaudio` native library (SoundFlow's C shim, MIT) |
 | [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
 | [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
+| [ZzFX](https://github.com/KilledByAPixel/ZzFX) (Frank Force; `buildSamples` ported to C#) | 1.4.0 | MIT | `MainframeEngine/Src/Audio/Synthesis/Zzfx.cs`; `build/zzfx-reference.mjs` (vendored JavaScript, reference vectors) | engine |
 | [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
 | Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
 | [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
@@ -520,6 +521,35 @@ From the `NVorbis` 0.10.5 package (`LICENSE`):
 MIT License
 
 Copyright (c) 2020 Andrew Ward
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## ZzFX
+
+`MainframeEngine/Src/Audio/Synthesis/Zzfx.cs` ports `ZZFX.buildSamples` from ZzFX 1.4.0 (`ZzFX.js`, commit
+`751f17139d689b1320f0c4173031b038959e4bf8`); `build/zzfx-reference.mjs` vendors that function to generate test vectors:
+
+```text
+ZzFX MIT License
+
+Copyright (c) 2019 - Frank Force
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
