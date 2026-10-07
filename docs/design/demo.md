@@ -24,7 +24,7 @@ Examples/Demo/
 └── Content/
     ├── Scenes/{basic_3d,basic_2d,audio_2d,audio_3d,sound_fx,ui,physics_2d,physics_3d,spine}.mscene
     ├── Nav/, UI/, Basic3D/, Basic2D/, Audio/, SoundFx/, Physics/, Spine/   RmlUi panels (.rml/.rcss), one per scene
-    ├── Audio/ (Audio/Sfx/*.mres: the ZzFX presets), Music/demo_loop.{msong,wav}, Models/TestModel/, Models/Spine/SpineBoy/, Sky/, Basic2D/logo.png, icon.png
+    ├── Audio/ (Audio/Sfx/*.mres: the ZzFX presets), Music/demo_loop.{msong,ogg}, Models/TestModel/, Models/Spine/SpineBoy/, Sky/, Basic2D/logo.png, icon.png
     ├── Settings/AudioBusLayout.mres
     └── locale/messages.pot, {es,qps}/LC_MESSAGES/messages.{po,mo}
 ```
@@ -59,7 +59,7 @@ Every scene is self-contained: its own camera, environment and lights, and a sma
 | `basic_2d` (Basic 2D) | A `Camera2D` canvas (Y-down): gradient sky, layered hills, a sun with rays, orbiting circles and a `Sprite2D` (the engine logo), all `CanvasItem` draws (`DemoShape2D`, `SunRays2D`, `Orbit2D`) | zoom, pause animation |
 | `audio_2d` (Audio 2D) | An `AudioPlayer2D` emitter sweeping left and right past the `Camera2D` listener (`Sweeper2D`); click anywhere for a positional blip and a fading ring (`ClickToPlay2D`) | Master / SFX / Music bus faders, panning, max distance |
 | `audio_3d` (Audio 3D) | An `AudioPlayer3D` emitter orbiting an `AudioListener3D` (`Orbiter`), its audible range drawn with `DebugLines` (`DistanceRing`) | attenuation model, low-pass at distance, Doppler, orbit speed |
-| `sound_fx` (Sound FX) | ZzFX sounds synthesised at run time: the current sound's waveform (`SoundWave2D`), one button per preset (`ZzfxStream` `.mres` files in `Content/Audio/Sfx`, written by `--write-scenes` from fixed seeds), Randomize and Mutate (`ZzfxPresets`), the current ZzFX line to paste into the editor's sound designer or the web designer; a looping song on the Music bus (`Content/Music/demo_loop.msong`, rendered with `just render-song` to a 16-bit seamless-loop `.wav` + `.meta`) | presets, randomize, mutate, pitch randomness, music |
+| `sound_fx` (Sound FX) | ZzFX sounds synthesised at run time: the current sound's waveform (`SoundWave2D`), one button per preset (`ZzfxStream` `.mres` files in `Content/Audio/Sfx`, written by `--write-scenes` from fixed seeds), Randomize and Mutate (`ZzfxPresets`), the current ZzFX line to paste into the editor's sound designer or the web designer; a looping song on the Music bus (`Content/Music/demo_loop.msong`, rendered with `just render-song` to a seamless-loop `.ogg` + `.meta`) | presets, randomize, mutate, pitch randomness, music |
 | `ui` (UI) | The RmlUi widget gallery and a data-bound form (`UiShowcase`, `Content/UI/showcase.rml`), plus a live counter of UI hot reloads | accent, name, volume, quality, reset counter |
 | `physics_2d` (Physics 2D) | Box2D: a funnel and pegboard of `StaticBody2D`s, `RigidBody2D` circles and boxes raining in (`Spawner2D`) | click to spawn, collision shapes, reset |
 | `physics_3d` (Physics 3D) | Jitter2: a crate stack, a ramp, a `CharacterBody3D` pusher that shoves crates (`Pusher3D`), click-to-drop crates by ray query (`Dropper3D`) | click the floor, rain crates, collision shapes, reset |

@@ -17,7 +17,7 @@
     "AudioStream_efgwi": {
       "type": "AudioStream",
       "props": {
-        "File": "Content/Music/demo_loop.wav",
+        "File": "Content/Music/demo_loop.ogg",
         "LoadMode": "Stream",
         "Loop": true
       }

@@ -1,0 +1,10 @@
+{
+  "uid": "aud_860673ee26fd",
+  "importer": "audio",
+  "settings": {
+    "loadMode": "Stream",
+    "loop": true,
+    "loopStart": 0,
+    "loopEnd": 0
+  }
+}

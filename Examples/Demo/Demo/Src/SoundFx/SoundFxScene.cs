@@ -15,12 +15,12 @@ public sealed record SoundFxPreset(string Id, string Name, Func<Random, ZzfxPara
 
 /// <summary>
 /// ZzFX sounds synthesised at run time (presets, randomize, mutate) drawn as a waveform, and a looping song rendered by
-/// the editor's music editor (<c>Content/Music/demo_loop.msong</c> → <c>demo_loop.wav</c>) on the Music bus.
+/// the editor's music editor (<c>Content/Music/demo_loop.msong</c> → <c>demo_loop.ogg</c>) on the Music bus.
 /// </summary>
 public static class SoundFxScene
 {
     public const string SfxFolder = "Content/Audio/Sfx";
-    public const string MusicFile = "Content/Music/demo_loop.wav";
+    public const string MusicFile = "Content/Music/demo_loop.ogg";
 
     public static IReadOnlyList<SoundFxPreset> Presets { get; } =
     [
