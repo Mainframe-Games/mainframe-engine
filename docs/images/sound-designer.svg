@@ -1,0 +1,374 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 660" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>ZzFX sound designer (proposal)</title>
+  <desc>The inspector of a ZzfxStream resource: Play and auto-play, waveform, preset buttons, Randomize, Mutate, copy/paste ZzFX line and export .wav above the generated parameter sliders; the FileSystem panel previews audio files with Play/Stop.</desc>
+  <rect width="980" height="660" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e8ebf2}
+    .sec{font-weight:600;font-size:11.5px;fill:#e8ebf2}
+    .t{fill:#d7dbe4;font-size:12px}
+    .s{fill:#8b93a5;font-size:11px}
+    .xs{fill:#8b93a5;font-size:9.5px}
+    .m{fill:#d7dbe4;font-size:11px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .ms{fill:#8b93a5;font-size:10px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+    .note{fill:#1f2937;font-size:11.5px}
+    .noteb{fill:#111827;font-size:11.5px;font-weight:600}
+    .lead{stroke:#9ca3af;stroke-width:1;stroke-dasharray:3 3;fill:none}
+    .dot{fill:#3b82f6}
+  </style>
+
+  <rect x="20" y="20" width="700" height="600" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="700" height="26" rx="8" fill="#15171c"/>
+  <rect x="20" y="38" width="700" height="8" fill="#15171c"/>
+  <circle cx="38" cy="33" r="5" fill="#ef4444"/>
+  <circle cx="54" cy="33" r="5" fill="#f59e0b"/>
+  <circle cx="70" cy="33" r="5" fill="#22c55e"/>
+  <text x="370" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame</text>
+
+  <!-- FileSystem panel -->
+  <rect x="26" y="52" width="214" height="562" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="26" y="52" width="214" height="26" fill="#2f333d"/>
+  <text x="36" y="69" class="hdr">FileSystem</text>
+  <path d="M37.5,91 h4 l1.5,1.5 h5.5 v7.5 h-11 z" fill="none" stroke="#8b93a5" stroke-width="1.3"/>
+  <text x="56" y="99" class="t">Content</text>
+  <path d="M51.5,115 h4 l1.5,1.5 h5.5 v7.5 h-11 z" fill="none" stroke="#8b93a5" stroke-width="1.3"/>
+  <text x="70" y="123" class="t">Audio</text>
+  <rect x="28" y="132" width="210" height="22" fill="#1d4ed8"/>
+  <path d="M71,137.5 l5.5,3 v6 l-5.5,3 l-5.5,-3 v-6 z M65.5,140.5 l5.5,3 l5.5,-3 M71,143.5 v6" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+  <text x="84" y="147" class="t">Coin.mres</text>
+  <path d="M71,161.5 l5.5,3 v6 l-5.5,3 l-5.5,-3 v-6 z M65.5,164.5 l5.5,3 l5.5,-3 M71,167.5 v6" fill="none" stroke="#5eead4" stroke-width="1.2"/>
+  <text x="84" y="171" class="t">Laser.mres</text>
+  <polygon points="65.5,189 68.5,189 72,186 72,196 68.5,193 65.5,193" fill="#5eead4"/>
+  <path d="M74,188.5 a3.5,3.5 0 0 1 0,5" fill="none" stroke="#5eead4" stroke-width="1.3"/>
+  <text x="84" y="195" class="t">rain.ogg</text>
+  <rect x="210" y="182" width="20" height="18" rx="3" fill="#2f333d" stroke="#5eead4"/>
+  <rect x="215.5" y="186.5" width="9" height="9" rx="1" fill="#5eead4"/>
+  <polygon points="65.5,213 68.5,213 72,210 72,220 68.5,217 65.5,217" fill="#5eead4"/>
+  <path d="M74,212.5 a3.5,3.5 0 0 1 0,5" fill="none" stroke="#5eead4" stroke-width="1.3"/>
+  <text x="84" y="219" class="t">theme.ogg</text>
+  <path d="M51.5,235 h4 l1.5,1.5 h5.5 v7.5 h-11 z" fill="none" stroke="#8b93a5" stroke-width="1.3"/>
+  <text x="70" y="243" class="t">Scenes</text>
+  <rect x="90" y="260" width="140" height="108" rx="4" fill="#2f333d" stroke="#4b5263"/>
+  <rect x="93" y="264" width="134" height="22" rx="3" fill="#1d4ed8"/>
+  <polygon points="103,269.5 112,275 103,280.5" fill="#ffffff"/>
+  <text x="122" y="280" class="t">Play</text>
+  <rect x="102.5" y="295.5" width="9" height="9" rx="1" fill="#d7dbe4"/>
+  <text x="122" y="305" class="t">Stop</text>
+  <path d="M101.5,321 h4 l1.5,1.5 h5.5 v7.5 h-11 z" fill="none" stroke="#d7dbe4" stroke-width="1.3"/>
+  <text x="122" y="330" class="t">Show in Finder</text>
+  <rect x="104.5" y="344.5" width="8" height="9" rx="1.5" fill="none" stroke="#d7dbe4" stroke-width="1.4"/>
+  <path d="M103,347 h-1 v8.5 h7.5 v-1" fill="none" stroke="#d7dbe4" stroke-width="1.4"/>
+  <text x="122" y="355" class="t">Copy Path</text>
+  <text x="90" y="384" class="xs">right-click on theme.ogg</text>
+
+  <!-- Inspector -->
+  <rect x="246" y="52" width="468" height="562" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="246" y="52" width="468" height="26" fill="#2f333d"/>
+  <text x="256" y="69" class="hdr">Inspector</text>
+  <path d="M335,59.5 l5.5,3 v6 l-5.5,3 l-5.5,-3 v-6 z M329.5,62.5 l5.5,3 l5.5,-3 M335,65.5 v6" fill="none" stroke="#5eead4" stroke-width="1.2"/>
+  <text x="346" y="69" class="s">Coin.mres · ZzfxStream</text>
+  <rect x="682" y="54" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <rect x="688.5" y="59.5" width="11" height="11" rx="1.5" fill="none" stroke="#d7dbe4" stroke-width="1.3"/>
+  <rect x="691" y="59.5" width="6" height="4" fill="#d7dbe4"/>
+  <rect x="254" y="86" width="452" height="196" rx="4" fill="#1f2128" stroke="#3b3f4b"/>
+  <rect x="262" y="94" width="30" height="22" rx="3" fill="#2563eb" stroke="#3b82f6"/>
+  <polygon points="273.0,99.5 282.0,105.0 273.0,110.5" fill="#ffffff"/>
+  <rect x="296" y="94" width="24" height="22" rx="3" fill="#1d4ed8" stroke="#3b82f6"/>
+  <path d="M308.0,99.5 a5.5,5.5 0 1 1 -5.2,3.8" fill="none" stroke="#ffffff" stroke-width="1.6"/>
+  <polygon points="306.5,103.0 310.5,105.0 306.5,107.0" fill="#ffffff"/>
+  <text x="330" y="109" class="ms">0.94 s · 44.1 kHz mono</text>
+  <rect x="262" y="124" width="436" height="62" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <line x1="264" y1="155" x2="696" y2="155" stroke="#2f333d" stroke-width="1"/>
+  <rect x="266" y="151.9" width="3.12" height="6.2" fill="#5eead4"/>
+  <rect x="270.5" y="145.4" width="3.12" height="18.8" fill="#5eead4"/>
+  <rect x="274.9" y="139.1" width="3.12" height="31.6" fill="#5eead4"/>
+  <rect x="279.4" y="133.6" width="3.12" height="43.6" fill="#5eead4"/>
+  <rect x="283.8" y="130.1" width="3.12" height="50.6" fill="#5eead4"/>
+  <rect x="288.3" y="130.2" width="3.12" height="49.7" fill="#5eead4"/>
+  <rect x="292.8" y="129.5" width="3.12" height="51.8" fill="#5eead4"/>
+  <rect x="297.2" y="130.3" width="3.12" height="49.6" fill="#5eead4"/>
+  <rect x="301.7" y="129.4" width="3.12" height="51.9" fill="#5eead4"/>
+  <rect x="306.1" y="129.6" width="3.12" height="50.4" fill="#5eead4"/>
+  <rect x="310.6" y="128.9" width="3.12" height="50.3" fill="#5eead4"/>
+  <rect x="315" y="129.3" width="3.12" height="50.3" fill="#5eead4"/>
+  <rect x="319.5" y="130.9" width="3.12" height="48.2" fill="#5eead4"/>
+  <rect x="324" y="130.7" width="3.12" height="49.7" fill="#5eead4"/>
+  <rect x="328.4" y="131.1" width="3.12" height="48.7" fill="#5eead4"/>
+  <rect x="332.9" y="130.2" width="3.12" height="49" fill="#5eead4"/>
+  <rect x="337.3" y="130.6" width="3.12" height="47.9" fill="#5eead4"/>
+  <rect x="341.8" y="131.7" width="3.12" height="47" fill="#5eead4"/>
+  <rect x="346.2" y="130.5" width="3.12" height="48.4" fill="#5eead4"/>
+  <rect x="350.7" y="131.4" width="3.12" height="47.7" fill="#5eead4"/>
+  <rect x="355.2" y="131.3" width="3.12" height="47.2" fill="#5eead4"/>
+  <rect x="359.6" y="130.7" width="3.12" height="48.4" fill="#5eead4"/>
+  <rect x="364.1" y="131.9" width="3.12" height="46.8" fill="#5eead4"/>
+  <rect x="368.5" y="131.5" width="3.12" height="47.7" fill="#5eead4"/>
+  <rect x="373" y="131.2" width="3.12" height="46.7" fill="#5eead4"/>
+  <rect x="377.5" y="130.9" width="3.12" height="46.6" fill="#5eead4"/>
+  <rect x="381.9" y="132.1" width="3.12" height="46.5" fill="#5eead4"/>
+  <rect x="386.4" y="132.7" width="3.12" height="45.2" fill="#5eead4"/>
+  <rect x="390.8" y="133.1" width="3.12" height="45.1" fill="#5eead4"/>
+  <rect x="395.3" y="131.8" width="3.12" height="46" fill="#5eead4"/>
+  <rect x="399.8" y="131.7" width="3.12" height="45.5" fill="#5eead4"/>
+  <rect x="404.2" y="132.2" width="3.12" height="45.4" fill="#5eead4"/>
+  <rect x="408.7" y="132.5" width="3.12" height="44.7" fill="#5eead4"/>
+  <rect x="413.1" y="132.2" width="3.12" height="45.8" fill="#5eead4"/>
+  <rect x="417.6" y="133" width="3.12" height="44.4" fill="#5eead4"/>
+  <rect x="422" y="134.2" width="3.12" height="42.7" fill="#5eead4"/>
+  <rect x="426.5" y="133.7" width="3.12" height="43.2" fill="#5eead4"/>
+  <rect x="431" y="134" width="3.12" height="41.1" fill="#5eead4"/>
+  <rect x="435.4" y="135.3" width="3.12" height="39.9" fill="#5eead4"/>
+  <rect x="439.9" y="136.4" width="3.12" height="37.9" fill="#5eead4"/>
+  <rect x="444.3" y="136.7" width="3.12" height="36.5" fill="#5eead4"/>
+  <rect x="448.8" y="137.4" width="3.12" height="36.3" fill="#5eead4"/>
+  <rect x="453.2" y="137.8" width="3.12" height="34.5" fill="#5eead4"/>
+  <rect x="457.7" y="138" width="3.12" height="34.8" fill="#5eead4"/>
+  <rect x="462.2" y="138.9" width="3.12" height="32.7" fill="#5eead4"/>
+  <rect x="466.6" y="138.8" width="3.12" height="32.9" fill="#5eead4"/>
+  <rect x="471.1" y="138.9" width="3.12" height="32.2" fill="#5eead4"/>
+  <rect x="475.5" y="140.1" width="3.12" height="29.9" fill="#5eead4"/>
+  <rect x="480" y="140.5" width="3.12" height="29.6" fill="#5eead4"/>
+  <rect x="484.5" y="140.3" width="3.12" height="28.5" fill="#5eead4"/>
+  <rect x="488.9" y="141.7" width="3.12" height="26.7" fill="#5eead4"/>
+  <rect x="493.4" y="142.1" width="3.12" height="26.1" fill="#5eead4"/>
+  <rect x="497.8" y="142.2" width="3.12" height="25.3" fill="#5eead4"/>
+  <rect x="502.3" y="143.2" width="3.12" height="23.9" fill="#5eead4"/>
+  <rect x="506.8" y="143.3" width="3.12" height="23.6" fill="#5eead4"/>
+  <rect x="511.2" y="143.2" width="3.12" height="23.3" fill="#5eead4"/>
+  <rect x="515.7" y="144.1" width="3.12" height="21.9" fill="#5eead4"/>
+  <rect x="520.1" y="144.4" width="3.12" height="20.7" fill="#5eead4"/>
+  <rect x="524.6" y="144.6" width="3.12" height="20.7" fill="#5eead4"/>
+  <rect x="529" y="145.1" width="3.12" height="19.8" fill="#5eead4"/>
+  <rect x="533.5" y="145.9" width="3.12" height="18.2" fill="#5eead4"/>
+  <rect x="538" y="146.5" width="3.12" height="17.4" fill="#5eead4"/>
+  <rect x="542.4" y="146.9" width="3.12" height="16.2" fill="#5eead4"/>
+  <rect x="546.9" y="147.2" width="3.12" height="15.6" fill="#5eead4"/>
+  <rect x="551.3" y="147.5" width="3.12" height="14.8" fill="#5eead4"/>
+  <rect x="555.8" y="148.1" width="3.12" height="13.9" fill="#5eead4"/>
+  <rect x="560.2" y="148.4" width="3.12" height="13.4" fill="#5eead4"/>
+  <rect x="564.7" y="148.8" width="3.12" height="12.9" fill="#5eead4"/>
+  <rect x="569.2" y="148.8" width="3.12" height="12.1" fill="#5eead4"/>
+  <rect x="573.6" y="149.4" width="3.12" height="11.3" fill="#5eead4"/>
+  <rect x="578.1" y="149.6" width="3.12" height="10.6" fill="#5eead4"/>
+  <rect x="582.5" y="149.8" width="3.12" height="10.5" fill="#5eead4"/>
+  <rect x="587" y="150.3" width="3.12" height="9.5" fill="#5eead4"/>
+  <rect x="591.5" y="150.7" width="3.12" height="8.6" fill="#5eead4"/>
+  <rect x="595.9" y="150.9" width="3.12" height="8.1" fill="#5eead4"/>
+  <rect x="600.4" y="151.1" width="3.12" height="7.6" fill="#5eead4"/>
+  <rect x="604.8" y="151.6" width="3.12" height="7" fill="#5eead4"/>
+  <rect x="609.3" y="151.8" width="3.12" height="6.4" fill="#5eead4"/>
+  <rect x="613.8" y="152" width="3.12" height="5.8" fill="#5eead4"/>
+  <rect x="618.2" y="152.3" width="3.12" height="5.5" fill="#5eead4"/>
+  <rect x="622.7" y="152.5" width="3.12" height="5" fill="#5eead4"/>
+  <rect x="627.1" y="152.8" width="3.12" height="4.3" fill="#5eead4"/>
+  <rect x="631.6" y="153.1" width="3.12" height="3.9" fill="#5eead4"/>
+  <rect x="636" y="153.3" width="3.12" height="3.5" fill="#5eead4"/>
+  <rect x="640.5" y="153.5" width="3.12" height="3" fill="#5eead4"/>
+  <rect x="645" y="153.7" width="3.12" height="2.7" fill="#5eead4"/>
+  <rect x="649.4" y="153.9" width="3.12" height="2.3" fill="#5eead4"/>
+  <rect x="653.9" y="154" width="3.12" height="1.9" fill="#5eead4"/>
+  <rect x="658.3" y="154.3" width="3.12" height="1.5" fill="#5eead4"/>
+  <rect x="662.8" y="154.4" width="3.12" height="1.2" fill="#5eead4"/>
+  <rect x="667.2" y="154.6" width="3.12" height="0.9" fill="#5eead4"/>
+  <rect x="671.7" y="154.7" width="3.12" height="0.7" fill="#5eead4"/>
+  <rect x="676.2" y="154.8" width="3.12" height="0.5" fill="#5eead4"/>
+  <rect x="680.6" y="154.9" width="3.12" height="0.3" fill="#5eead4"/>
+  <rect x="685.1" y="154.9" width="3.12" height="0.1" fill="#5eead4"/>
+  <rect x="689.5" y="155" width="3.12" height="0.5" fill="#5eead4"/>
+  <text x="262" y="206" class="s">Presets</text>
+  <rect x="316" y="192" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <circle cx="328.0" cy="203.0" r="5.5" fill="none" stroke="#d7dbe4" stroke-width="1.4"/>
+  <line x1="328" y1="200" x2="328" y2="206" stroke="#d7dbe4" stroke-width="1.4"/>
+  <rect x="346" y="192" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <polygon points="359.0,197.0 354.0,204.0 358.0,204.0 357.0,209.0 362.0,202.0 358.0,202.0" fill="#d7dbe4"/>
+  <rect x="376" y="192" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <path d="M388.0,197.0 c3,3 5,5 5,8 a5,4.5 0 0 1 -10,0 c0,-2 1,-3 2,-4 c0,2 1,3 2,3 c0,-3 -1,-4 1,-7 z" fill="#d7dbe4"/>
+  <rect x="406" y="192" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <polygon points="418.0,196.5 419.6,201.0 424.5,200.5 420.7,203.8 423.0,208.5 418.0,206.0 413.0,208.5 415.3,203.8 411.5,200.5 416.4,201.0" fill="#d7dbe4"/>
+  <rect x="436" y="192" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <line x1="448" y1="209" x2="448" y2="199" stroke="#d7dbe4" stroke-width="1.7"/>
+  <polyline points="444.0,202.5 448.0,198.0 452.0,202.5" fill="none" stroke="#d7dbe4" stroke-width="1.7"/>
+  <rect x="466" y="192" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <polyline points="472.0,203.0 475.0,203.0 476.5,199.0 479.0,207.0 480.5,203.0 484.0,203.0" fill="none" stroke="#d7dbe4" stroke-width="1.5"/>
+  <rect x="496" y="192" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <polygon points="508.0,197.2 509.5,201.1 513.7,201.3 510.5,204.0 511.5,208.1 508.0,205.8 504.5,208.1 505.5,204.0 502.3,201.3 506.5,201.1" fill="#d7dbe4"/>
+  <rect x="370" y="218" width="236" height="22" rx="4" fill="#121418" stroke="#4b5263"/>
+  <text x="378" y="233" class="t">Explosion — replace every parameter</text>
+  <text x="262" y="264" class="s">Edit</text>
+  <rect x="316" y="250" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <rect x="322.5" y="255.5" width="11" height="11" rx="2.5" fill="none" stroke="#d7dbe4" stroke-width="1.4"/>
+  <circle cx="325.5" cy="258.5" r="1.1" fill="#d7dbe4"/>
+  <circle cx="330.5" cy="263.5" r="1.1" fill="#d7dbe4"/>
+  <circle cx="328.0" cy="261.0" r="1.1" fill="#d7dbe4"/>
+  <circle cx="330.5" cy="258.5" r="1.1" fill="#d7dbe4"/>
+  <circle cx="325.5" cy="263.5" r="1.1" fill="#d7dbe4"/>
+  <rect x="346" y="250" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <line x1="353" y1="266" x2="360" y2="259" stroke="#d7dbe4" stroke-width="1.8"/>
+  <path d="M362.0,254.5 l0.9,2.1 2.1,0.9 -2.1,0.9 -0.9,2.1 -0.9,-2.1 -2.1,-0.9 2.1,-0.9 z" fill="#d7dbe4"/>
+  <rect x="376" y="250" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <rect x="385.5" y="255.5" width="8" height="9" rx="1.5" fill="none" stroke="#d7dbe4" stroke-width="1.4"/>
+  <path d="M384.0,258.0 h-1 v8.5 h7.5 v-1" fill="none" stroke="#d7dbe4" stroke-width="1.4"/>
+  <rect x="406" y="250" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <rect x="413.0" y="256.5" width="10" height="10.5" rx="1.5" fill="none" stroke="#d7dbe4" stroke-width="1.4"/>
+  <rect x="415.5" y="255" width="5" height="3" rx="1" fill="#d7dbe4"/>
+  <rect x="436" y="250" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <line x1="448" y1="255.5" x2="448" y2="263" stroke="#d7dbe4" stroke-width="1.6"/>
+  <polygon points="444.5,260.5 448.0,264.5 451.5,260.5" fill="#d7dbe4"/>
+  <line x1="443" y1="266.5" x2="453" y2="266.5" stroke="#d7dbe4" stroke-width="1.6"/>
+  <rect x="247" y="292" width="466" height="22" fill="#2f333d"/>
+  <polyline points="255,301 259,305 263,301" fill="none" stroke="#8b93a5" stroke-width="1.5"/>
+  <text x="270" y="307" class="sec">Sound</text>
+  <line x1="260" y1="324" x2="270" y2="324" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="262" cy="324" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="328" x2="270" y2="328" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="267" cy="328" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="332" x2="270" y2="332" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="264" cy="332" r="1.6" fill="#8b93a5"/>
+  <text x="278" y="332" class="t">Volume</text>
+  <rect x="396" y="326" width="220" height="4" rx="2" fill="#121418"/>
+  <rect x="396" y="326" width="44" height="4" rx="2" fill="#3b82f6"/>
+  <circle cx="440.0" cy="328" r="6" fill="#e8ebf2" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="632" y="318" width="72" height="20" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <text x="638" y="332" class="m">1</text>
+  <line x1="260" y1="350" x2="270" y2="350" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="262" cy="350" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="354" x2="270" y2="354" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="267" cy="354" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="358" x2="270" y2="358" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="264" cy="358" r="1.6" fill="#8b93a5"/>
+  <text x="278" y="358" class="t">Pitch Randomness</text>
+  <rect x="396" y="352" width="220" height="4" rx="2" fill="#121418"/>
+  <rect x="396" y="352" width="11" height="4" rx="2" fill="#3b82f6"/>
+  <circle cx="407.0" cy="354" r="6" fill="#e8ebf2" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="632" y="344" width="72" height="20" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <text x="638" y="358" class="m">0.05</text>
+  <line x1="260" y1="376" x2="270" y2="376" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="262" cy="376" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="380" x2="270" y2="380" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="267" cy="380" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="384" x2="270" y2="384" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="264" cy="384" r="1.6" fill="#8b93a5"/>
+  <text x="278" y="384" class="t">Frequency</text>
+  <rect x="396" y="378" width="220" height="4" rx="2" fill="#121418"/>
+  <rect x="396" y="378" width="10.12" height="4" rx="2" fill="#3b82f6"/>
+  <circle cx="406.1" cy="380" r="6" fill="#e8ebf2" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="632" y="370" width="72" height="20" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <text x="638" y="384" class="m">925</text>
+  <polyline points="259,406 262,406 263.5,402 266,410 267.5,406 271,406" fill="none" stroke="#8b93a5" stroke-width="1.5"/>
+  <text x="278" y="410" class="t">Shape</text>
+  <rect x="396" y="396" width="140" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="404" y="410" class="t">Triangle</text>
+  <polyline points="521,404 525,408 529,404" fill="none" stroke="#8b93a5" stroke-width="1.5"/>
+  <line x1="260" y1="428" x2="270" y2="428" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="262" cy="428" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="432" x2="270" y2="432" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="267" cy="432" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="436" x2="270" y2="436" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="264" cy="436" r="1.6" fill="#8b93a5"/>
+  <text x="278" y="436" class="t">Shape Curve</text>
+  <rect x="396" y="430" width="220" height="4" rx="2" fill="#121418"/>
+  <rect x="396" y="430" width="44" height="4" rx="2" fill="#3b82f6"/>
+  <circle cx="440.0" cy="432" r="6" fill="#e8ebf2" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="632" y="422" width="72" height="20" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <text x="638" y="436" class="m">1</text>
+  <rect x="247" y="448" width="466" height="22" fill="#2f333d"/>
+  <polyline points="255,457 259,461 263,457" fill="none" stroke="#8b93a5" stroke-width="1.5"/>
+  <text x="270" y="463" class="sec">Envelope</text>
+  <line x1="260" y1="480" x2="270" y2="480" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="262" cy="480" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="484" x2="270" y2="484" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="267" cy="484" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="488" x2="270" y2="488" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="264" cy="488" r="1.6" fill="#8b93a5"/>
+  <text x="278" y="488" class="t">Attack</text>
+  <rect x="396" y="482" width="220" height="4" rx="2" fill="#121418"/>
+  <rect x="396" y="482" width="2.86" height="4" rx="2" fill="#3b82f6"/>
+  <circle cx="398.9" cy="484" r="6" fill="#e8ebf2" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="632" y="474" width="72" height="20" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <text x="638" y="488" class="m">0.04</text>
+  <line x1="260" y1="506" x2="270" y2="506" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="262" cy="506" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="510" x2="270" y2="510" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="267" cy="510" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="514" x2="270" y2="514" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="264" cy="514" r="1.6" fill="#8b93a5"/>
+  <text x="278" y="514" class="t">Sustain</text>
+  <rect x="396" y="508" width="220" height="4" rx="2" fill="#121418"/>
+  <rect x="396" y="508" width="22" height="4" rx="2" fill="#3b82f6"/>
+  <circle cx="418.0" cy="510" r="6" fill="#e8ebf2" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="632" y="500" width="72" height="20" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <text x="638" y="514" class="m">0.3</text>
+  <line x1="260" y1="532" x2="270" y2="532" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="262" cy="532" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="536" x2="270" y2="536" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="267" cy="536" r="1.6" fill="#8b93a5"/>
+  <line x1="260" y1="540" x2="270" y2="540" stroke="#8b93a5" stroke-width="1.2"/>
+  <circle cx="264" cy="540" r="1.6" fill="#8b93a5"/>
+  <text x="278" y="540" class="t">Release</text>
+  <rect x="396" y="534" width="220" height="4" rx="2" fill="#121418"/>
+  <rect x="396" y="534" width="44" height="4" rx="2" fill="#3b82f6"/>
+  <circle cx="440.0" cy="536" r="6" fill="#e8ebf2" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="632" y="526" width="72" height="20" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <text x="638" y="540" class="m">0.6</text>
+  <rect x="247" y="552" width="466" height="22" fill="#2f333d"/>
+  <polyline points="257,559 261,563 257,567" fill="none" stroke="#8b93a5" stroke-width="1.5"/>
+  <text x="270" y="567" class="sec">Pitch</text>
+  <rect x="247" y="578" width="466" height="22" fill="#2f333d"/>
+  <polyline points="257,585 261,589 257,593" fill="none" stroke="#8b93a5" stroke-width="1.5"/>
+  <text x="270" y="593" class="sec">Effects</text>
+
+  <!-- callouts -->
+  <circle cx="277" cy="88" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="277" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">1</text>
+  <circle cx="745" cy="88" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">1</text>
+  <text x="762" y="92" class="noteb">Play / Stop</text>
+  <text x="762" y="107" class="note">AudioPreview: one voice,</text>
+  <text x="762" y="122" class="note">Master bus, non-positional</text>
+  <circle cx="308" cy="88" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="308" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">2</text>
+  <circle cx="745" cy="148" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="152" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">2</text>
+  <text x="762" y="152" class="noteb">Auto-play</text>
+  <text x="762" y="167" class="note">replays after every committed</text>
+  <text x="762" y="182" class="note">edit, undo and redo</text>
+  <circle cx="684" cy="138" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="684" y="142" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">3</text>
+  <circle cx="745" cy="208" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="212" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">3</text>
+  <text x="762" y="212" class="noteb">Waveform</text>
+  <text x="762" y="227" class="note">96 min/max columns as div bars,</text>
+  <text x="762" y="242" class="note">rebuilt after each change</text>
+  <circle cx="538" cy="203" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="538" y="207" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">4</text>
+  <circle cx="745" cy="268" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="272" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">4</text>
+  <text x="762" y="272" class="noteb">Presets (icon buttons)</text>
+  <text x="762" y="287" class="note">coin, laser, explosion, hit,</text>
+  <text x="762" y="302" class="note">jump, blip, power-up;</text>
+  <text x="762" y="317" class="note">one undo entry each</text>
+  <circle cx="478" cy="261" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="478" y="265" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">5</text>
+  <circle cx="745" cy="344" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="348" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">5</text>
+  <text x="762" y="348" class="noteb">Randomize · Mutate</text>
+  <text x="762" y="363" class="note">Copy / Paste ZzFX line</text>
+  <text x="762" y="378" class="note">Export .wav (WavWriter)</text>
+  <circle cx="386" cy="334" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="386" y="338" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">6</text>
+  <circle cx="745" cy="414" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="418" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">6</text>
+  <text x="762" y="418" class="noteb">Generated [Export] rows</text>
+  <text x="762" y="433" class="note">sliders from Range hints,</text>
+  <text x="762" y="448" class="note">grouped by [ExportGroup];</text>
+  <text x="762" y="463" class="note">drags merge into one undo</text>
+  <circle cx="194" cy="191" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="194" y="195" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">7</text>
+  <circle cx="745" cy="494" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="745" y="498" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">7</text>
+  <text x="762" y="498" class="noteb">FileSystem previews</text>
+  <text x="762" y="513" class="note">Play / Stop in the menu,</text>
+  <text x="762" y="528" class="note">double-click toggles,</text>
+  <text x="762" y="543" class="note">badge while playing</text>
+  <text x="20" y="644" class="cap">Proposal mockup — sizes and spacing indicative. Every action is an icon button with a tooltip (editor convention).</text>
+</svg>

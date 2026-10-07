@@ -215,19 +215,9 @@ Double-clicking a `.msong` opens a **SongTab** (`IEditorTab`, like `UiPreview`).
 panel's New menu, creates one with a single built-in-instrument track. The scene tree and inspector rest while it is
 active. The layout:
 
-```
-┌ transport ─────────────────────────────────────────────────────────────────────────┐
-│ ⏮ ▶ ■ ● ⟲ 🔔  120 BPM  4/4  002.3.120  │ snap 1/16 │ ⓘ 0 xruns │ ⤓ Render          │
-├ tracks ──────┬ arrangement ─────────────────────────────────────────────────────────┤
-│ Drums  M S ● │ ▇▇▇▇▇▇▇▇▇▇ ▇▇▇▇▇▇▇▇▇▇ ▇▇▇▇▇▇▇▇▇▇                                 │
-│ Lead   M S ○ │       ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇                                         │
-│ Rain   M S   │ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                       │
-├──────────────┴──────────── [ Piano roll | Mixer ] ──────────────────────────────────┤
-│ C4 ▕▔▔│  ■■■■     ■■                ■■■■■■■■                                       │
-│    ▕▁▁│        ■■■■■■                                                              │
-│ velocity lane: ▌▌ ▌ ▌▌▌                                                            │
-└─────────────────────────────────────────────────────────────────────────────────────┘
-```
+![Song tab with the piano roll](../../images/music-editor-piano-roll.svg)
+
+![Song tab with the mixer and a plugin window](../../images/music-editor-mixer.svg)
 
 - **Chrome in RmlUi** (`Content/Editor/song.rml`): the transport, track headers, the bottom panel switcher and the
   mixer strips, with icon buttons and tooltips (editor convention).

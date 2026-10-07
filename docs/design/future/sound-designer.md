@@ -228,21 +228,9 @@ asked for that here, and it can be added by exempting tool nodes later.)
 pattern as `AudioBusLayoutInspector`. It is used when a `ZzfxStream` is the inspected target: a `.mres` opened from
 the FileSystem panel (double-click), or Edit on a slot holding a `.mres` sound. Inline sounds folded inside another
 inspector keep the generic rows (custom headers are top-level only today). The header sits above the generated
-parameter rows, which stay the slider UI:
+parameter rows, which stay the slider UI (numbers refer to the mockup):
 
-```
-┌ Inspector ─ Coin.mres ─────────────────────────────────────────┐
-│ ▶ Play   ⟳ Auto-play   │  0.94 s · 44.1 kHz mono               │
-│ ▁▂▅█▇▆▅▅▄▄▃▃▃▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁                              │ waveform
-│ [coin] [laser] [explode] [hit] [jump] [blip] [power-up]        │ presets
-│ 🎲 Randomize   ✎ Mutate   ⧉ Copy ZzFX   📋 Paste ZzFX   ⤓ .wav │
-├─ Sound ────────────────────────────────────────────────────────┤
-│ Volume            ━━━━━━━━●━━━━━━━  1                          │ generated rows
-│ Frequency         ━━━●━━━━━━━━━━━━  925                        │ (sliders, undo,
-│ …                                                              │  merged drags)
-```
-
-All buttons are icon buttons with tooltips (editor convention); the labels above are only for the sketch.
+![Sound designer: the ZzfxStream inspector and FileSystem previews](../../images/sound-designer.svg)
 
 - **Play / Stop** toggles `AudioPreview` for the inspected stream. **Auto-play** (toggle, on by default, remembered in
   `editor_layout.json`) replays the sound after every committed change: a slider release, a field commit, a preset,
