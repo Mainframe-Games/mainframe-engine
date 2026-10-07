@@ -221,21 +221,30 @@ public sealed class SongEngineTests
 
         song.Tracks[0].VolumeDb = -3; // an edit: a new snapshot swapped in at a block boundary
         var second = builder.Build(song);
-        var secondLead = second.Find("lead")!;
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        engine.SetSnapshot(second);
-        for (var i = 0; i < 1000; i++)
+
+        // Like the engine's AllocationGate: a late tier-up or type load can allocate once on this thread, so the
+        // window may run up to three times (swapping the snapshots each time) and the smallest run must be zero.
+        var allocated = long.MaxValue;
+        for (var attempt = 0; attempt < 3 && allocated != 0; attempt++)
         {
-            engine.Process(block);
-            if (i == 300)
-                engine.PreviewNote(secondLead, 80, 90);
-            if (i == 320)
-                engine.PreviewNote(secondLead, 80, 0);
-            if (i == 500)
-                engine.SeekFrames(1000);
+            var snapshot = attempt % 2 == 0 ? second : first;
+            var snapshotLead = snapshot.Find("lead")!;
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            engine.SetSnapshot(snapshot);
+            for (var i = 0; i < 1000; i++)
+            {
+                engine.Process(block);
+                if (i == 300)
+                    engine.PreviewNote(snapshotLead, 80, 90);
+                if (i == 320)
+                    engine.PreviewNote(snapshotLead, 80, 0);
+                if (i == 500)
+                    engine.SeekFrames(1000);
+            }
+
+            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(0, allocated);
         Assert.Equal(0, engine.DroppedEvents);
     }
