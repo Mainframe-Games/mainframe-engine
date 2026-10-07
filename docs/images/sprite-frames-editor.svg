@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 768" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>SpriteFrames panel and sheet slicer</title>
+  <desc>Proposed editor UI for G2a. Top: the SpriteFrames tab of the bottom panel with the animation list (idle, run, jump, attack; name, frames per second, loop, autoplay badge), the frame strip of the run animation with relative durations, playback and editing icon buttons, a tooltip on "Add frames from a sprite sheet", and a preview. Bottom: the Select Frames dialog slicing hero.png by an 8 by 4 grid with six cells selected in order, the grid controls (horizontal and vertical counts, cell size, separation, offset) and the Add 6 Frames action.</desc>
+  <rect width="960" height="768" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .t{fill:#d1d5db;font-size:12px}
+    .s{fill:#9ca3af;font-size:11px}
+    .xs{fill:#9ca3af;font-size:10px}
+    .tt{fill:#f3f4f6;font-size:11.5px;font-weight:600}
+    .doc{fill:#93c5fd;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+    .sec{fill:#111827;font-size:12.5px;font-weight:600}
+  </style>
+
+  <text x="20" y="26" class="sec">SpriteFrames tab (bottom panel, shown for a selected AnimatedSprite2D or an opened SpriteFrames .mres)</text>
+  <rect x="20" y="36" width="920" height="268" rx="6" fill="#262931" stroke="#111827"/>
+  <rect x="20" y="36" width="920" height="26" rx="6" fill="#1b1d23"/>
+  <rect x="26" y="40" width="108" height="22" rx="3" fill="#22252d"/>
+  <path d="M34,47 L46,47 M34,51 L42,51 M34,55 L40,55 M43,52 l4,4 M47,52 l-4,4" stroke="#9ca3af" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="52" y="56" class="s">Output</text>
+  <rect x="138" y="40" width="108" height="22" rx="3" fill="#2f333d"/>
+  <rect x="146" y="45" width="5" height="5" rx="1" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="153" y="45" width="5" height="5" rx="1" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="146" y="52" width="5" height="5" rx="1" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="153" y="52" width="5" height="5" rx="1" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="164" y="56" class="t">SpriteFrames</text>
+  <text x="260" y="56" class="xs">hero.mres · Hero/AnimatedSprite2D</text>
+  <text x="32" y="84" class="s">Animations</text>
+  <rect x="140" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M151.0,75.0 L151.0,85.0 M146.0,80.0 L156.0,80.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="164" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><rect x="169.0" y="74.0" width="9" height="9" rx="1.5" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="173.0" y="78.0" width="9" height="9" rx="1.5" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="188" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M193.0,85.0 L205.0,85.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M195.0,83.0 L196.0,80.0 L202.0,74.0 L204.0,76.0 L198.0,82.0 Z" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="212" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M218.0,76.0 L228.0,76.0 M221.0,76.0 L221.0,74.0 L225.0,74.0 L225.0,76.0 M219.0,76.0 L220.0,86.0 L226.0,86.0 L227.0,76.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="236" y="70" width="22" height="20" rx="3" fill="#374151"/><path d="M244.0,75.0 L252.0,80.0 L244.0,85.0 Z" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="28" y="98" width="236" height="26" rx="3" fill="#2a2d36" opacity="1"/>
+  <text x="38" y="115" class="t">idle</text>
+  <rect x="76" y="104" width="16" height="14" rx="3" fill="#166534"/><path d="M81,106 L89,111 L81,116 Z" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="168" y="115" class="s">6 FPS</text>
+  <path d="M236,112 L236,109 Q236,107 238,107 L247,107 M245,105 L247,107 L245,109 M248,110 L248,113 Q248,115 246,115 L237,115 M239,117 L237,115 L239,113" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="28" y="128" width="236" height="26" rx="3" fill="#1d4ed8" opacity="0.6"/>
+  <text x="38" y="145" class="t">run</text>
+  <text x="168" y="145" class="s">10 FPS</text>
+  <path d="M236,142 L236,139 Q236,137 238,137 L247,137 M245,135 L247,137 L245,139 M248,140 L248,143 Q248,145 246,145 L237,145 M239,147 L237,145 L239,143" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="28" y="158" width="236" height="26" rx="3" fill="#2a2d36" opacity="1"/>
+  <text x="38" y="175" class="t">jump</text>
+  <text x="168" y="175" class="s">8 FPS</text>
+  <path d="M237,171 L247,171 M243,167 L247,171 L243,175" stroke="#6b7280" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="28" y="188" width="236" height="26" rx="3" fill="#2a2d36" opacity="1"/>
+  <text x="38" y="205" class="t">attack</text>
+  <text x="168" y="205" class="s">12 FPS</text>
+  <path d="M237,201 L247,201 M243,197 L247,201 L243,205" stroke="#6b7280" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="32" y="238" class="t">Speed</text><rect x="78" y="225" width="48" height="18" rx="2" fill="#3b3f4b"/><text x="86" y="238" class="s">10</text><text x="132" y="238" class="s">FPS</text>
+  <rect x="168" y="224" width="22" height="20" rx="3" fill="#374151"/><path d="M173.0,235.0 L173.0,232.0 Q173.0,230.0 175.0,230.0 L184.0,230.0 M182.0,228.0 L184.0,230.0 L182.0,232.0 M185.0,233.0 L185.0,236.0 Q185.0,238.0 183.0,238.0 L174.0,238.0 M176.0,240.0 L174.0,238.0 L176.0,236.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="196" y="238" class="xs">Loop</text>
+  <rect x="276" y="70" width="1" height="224" fill="#3b3f4b"/>
+  <rect x="286" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M300.0,75.0 L292.0,80.0 L300.0,85.0 Z" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="310" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M318.0,75.0 L326.0,80.0 L318.0,85.0 Z" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="334" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><rect x="341.0" y="76.0" width="8" height="8" rx="1" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="360" y="72" width="1" height="16" fill="#4b5563"/>
+  <rect x="368" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M374.0,73.0 L381.0,73.0 L384.0,76.0 L384.0,87.0 L374.0,87.0 Z M379.0,78.0 L379.0,84.0 M376.0,81.0 L382.0,81.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="392" y="70" width="22" height="20" rx="3" fill="#1d4ed8" stroke="#60a5fa"/><rect x="397.0" y="74.0" width="5" height="5" rx="1" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="404.0" y="74.0" width="5" height="5" rx="1" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="397.0" y="81.0" width="5" height="5" rx="1" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="404.0" y="81.0" width="5" height="5" rx="1" stroke="#ffffff" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="418" y="72" width="1" height="16" fill="#4b5563"/>
+  <rect x="426" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><rect x="434.0" y="77.0" width="9" height="9" rx="1.5" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M431.0,83.0 L431.0,74.0 L440.0,74.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="450" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><rect x="456.0" y="75.0" width="10" height="12" rx="1.5" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="458.5" y="73.0" width="5" height="3" rx="1" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="476" y="72" width="1" height="16" fill="#4b5563"/>
+  <rect x="484" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M500.0,80.0 L490.0,80.0 M494.0,76.0 L490.0,80.0 L494.0,84.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="508" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M514.0,80.0 L524.0,80.0 M520.0,76.0 L524.0,80.0 L520.0,84.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="534" y="72" width="1" height="16" fill="#4b5563"/>
+  <rect x="542" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M548.0,76.0 L558.0,76.0 M551.0,76.0 L551.0,74.0 L555.0,74.0 L555.0,76.0 M549.0,76.0 L550.0,86.0 L556.0,86.0 L557.0,76.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="568" y="72" width="1" height="16" fill="#4b5563"/>
+  <rect x="576" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><circle cx="586.0" cy="79.0" r="4.5" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M589.5,82.5 L593.0,86.0 M584.0,79.0 L588.0,79.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="600" y="70" width="22" height="20" rx="3" fill="#3b3f4b"/><circle cx="610.0" cy="79.0" r="4.5" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M613.5,82.5 L617.0,86.0 M608.0,79.0 L612.0,79.0 M610.0,77.0 L610.0,81.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="286" y="144" width="76" height="92" rx="4" fill="#1f2128" stroke="#3b3f4b" stroke-width="1"/>
+  <rect x="296" y="152" width="56" height="56" fill="#2a2d36"/>
+  <path d="M318.25,190.65 l-3.4499999999999997,4.6 M329.75,190.65 l3.4499999999999997,4.6" stroke="#b45309" stroke-width="2.9899999999999998" stroke-linecap="round"/><ellipse cx="324" cy="178" rx="11.5" ry="14.95" fill="#f59e0b"/><circle cx="319.975" cy="174.55" r="2.3" fill="#111827"/><circle cx="328.025" cy="174.55" r="2.3" fill="#111827"/>
+  <text x="294" y="226" class="xs">0</text>
+  <rect x="326" y="214" width="30" height="16" rx="2" fill="#3b3f4b"/><text x="332" y="226" class="xs">×1</text>
+  <rect x="370" y="144" width="76" height="92" rx="4" fill="#1f2128" stroke="#3b3f4b" stroke-width="1"/>
+  <rect x="380" y="152" width="56" height="56" fill="#2a2d36"/>
+  <path d="M402.25,190.65 l-6.8999999999999995,3.4499999999999997 M413.75,190.65 l5.75,5.75" stroke="#b45309" stroke-width="2.9899999999999998" stroke-linecap="round"/><ellipse cx="408" cy="178" rx="11.5" ry="14.95" fill="#f59e0b"/><circle cx="405.125" cy="174.55" r="2.3" fill="#111827"/><circle cx="413.17499999999995" cy="174.55" r="2.3" fill="#111827"/>
+  <text x="378" y="226" class="xs">1</text>
+  <rect x="410" y="214" width="30" height="16" rx="2" fill="#3b3f4b"/><text x="416" y="226" class="xs">×1</text>
+  <rect x="454" y="144" width="76" height="92" rx="4" fill="#1f2128" stroke="#60a5fa" stroke-width="2.5"/>
+  <rect x="464" y="152" width="56" height="56" fill="#2a2d36"/>
+  <path d="M486.25,190.65 l-2.3,5.75 M497.75,190.65 l8.049999999999999,2.3" stroke="#b45309" stroke-width="2.9899999999999998" stroke-linecap="round"/><ellipse cx="492" cy="178" rx="11.5" ry="14.95" fill="#f59e0b"/><circle cx="487.975" cy="174.55" r="2.3" fill="#111827"/><circle cx="496.025" cy="174.55" r="2.3" fill="#111827"/>
+  <text x="462" y="226" class="xs">2</text>
+  <rect x="494" y="214" width="30" height="16" rx="2" fill="#3b3f4b"/><text x="500" y="226" class="xs">×1</text>
+  <rect x="538" y="144" width="76" height="92" rx="4" fill="#1f2128" stroke="#3b3f4b" stroke-width="1"/>
+  <rect x="548" y="152" width="56" height="56" fill="#2a2d36"/>
+  <path d="M570.25,190.65 l-8.049999999999999,2.3 M581.75,190.65 l2.3,5.75" stroke="#b45309" stroke-width="2.9899999999999998" stroke-linecap="round"/><ellipse cx="576" cy="178" rx="11.5" ry="14.95" fill="#f59e0b"/><circle cx="573.125" cy="174.55" r="2.3" fill="#111827"/><circle cx="581.175" cy="174.55" r="2.3" fill="#111827"/>
+  <text x="546" y="226" class="xs">3</text>
+  <rect x="578" y="214" width="30" height="16" rx="2" fill="#3b3f4b"/><text x="584" y="226" class="xs">×1</text>
+  <rect x="622" y="144" width="76" height="92" rx="4" fill="#1f2128" stroke="#3b3f4b" stroke-width="1"/>
+  <rect x="632" y="152" width="56" height="56" fill="#2a2d36"/>
+  <path d="M654.25,190.65 l-4.6,5.75 M665.75,190.65 l6.8999999999999995,3.4499999999999997" stroke="#b45309" stroke-width="2.9899999999999998" stroke-linecap="round"/><ellipse cx="660" cy="178" rx="11.5" ry="14.95" fill="#f59e0b"/><circle cx="655.975" cy="174.55" r="2.3" fill="#111827"/><circle cx="664.025" cy="174.55" r="2.3" fill="#111827"/>
+  <text x="630" y="226" class="xs">4</text>
+  <rect x="662" y="214" width="30" height="16" rx="2" fill="#3b3f4b"/><text x="668" y="226" class="xs">×1</text>
+  <rect x="706" y="144" width="76" height="92" rx="4" fill="#1f2128" stroke="#3b3f4b" stroke-width="1"/>
+  <rect x="716" y="152" width="56" height="56" fill="#2a2d36"/>
+  <path d="M738.25,190.65 l-1.15,5.75 M749.75,190.65 l4.6,4.6" stroke="#b45309" stroke-width="2.9899999999999998" stroke-linecap="round"/><ellipse cx="744" cy="178" rx="11.5" ry="14.95" fill="#f59e0b"/><circle cx="741.125" cy="174.55" r="2.3" fill="#111827"/><circle cx="749.175" cy="174.55" r="2.3" fill="#111827"/>
+  <text x="714" y="226" class="xs">5</text>
+  <rect x="746" y="214" width="30" height="16" rx="2" fill="#3b3f4b"/><text x="752" y="226" class="xs">×2</text>
+  <text x="286" y="258" class="s">run · 6 frames · 10 FPS · loop · 0.7 s · regions of Content/Sprites/hero.png</text>
+  <rect x="798" y="144" width="132" height="122" rx="4" fill="#1f2128" stroke="#3b3f4b"/>
+  <text x="806" y="160" class="xs">Preview</text>
+  <path d="M854.5,228.9 l-3.8,9.5 M873.5,228.9 l13.299999999999999,3.8" stroke="#b45309" stroke-width="4.9399999999999995" stroke-linecap="round"/><ellipse cx="864.0" cy="208" rx="19.0" ry="24.7" fill="#f59e0b"/><circle cx="857.35" cy="202.3" r="3.8" fill="#111827"/><circle cx="870.65" cy="202.3" r="3.8" fill="#111827"/>
+  <path d="M403,91 L397,100 L409,100 Z" fill="#111827" stroke="#6b7280"/><rect x="332" y="100" width="300" height="40" rx="4" fill="#111827" stroke="#6b7280"/><rect x="398" y="100" width="10" height="2" fill="#111827"/><text x="340" y="117" class="tt">Add frames from a sprite sheet</text><text x="340" y="132" class="s">Slice an image into frames (Select Frames)</text>
+  <text x="20" y="336" class="sec">Select Frames dialog (sheet_slicer.rml), opened by "Add frames from a sprite sheet"</text>
+  <rect x="84" y="352" width="800" height="316" rx="8" fill="#000000" opacity="0.18"/>
+  <rect x="80" y="346" width="800" height="316" rx="8" fill="#262931" stroke="#111827"/>
+  <rect x="80" y="346" width="800" height="30" rx="8" fill="#2f333d"/><rect x="80" y="366" width="800" height="10" fill="#2f333d"/>
+  <rect x="90" y="355" width="5" height="5" rx="1" stroke="#e2e6ee" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="97" y="355" width="5" height="5" rx="1" stroke="#e2e6ee" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="90" y="362" width="5" height="5" rx="1" stroke="#e2e6ee" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="97" y="362" width="5" height="5" rx="1" stroke="#e2e6ee" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="110" y="366" class="hdr">Select Frames — Content/Sprites/hero.png</text>
+  <rect x="850" y="351" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M857.0,357.0 L865.0,365.0 M865.0,357.0 L857.0,365.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs><pattern id="checker" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#3a3d46"/><rect width="8" height="8" fill="#30333b"/><rect x="8" y="8" width="8" height="8" fill="#30333b"/></pattern></defs>
+  <rect x="92" y="384" width="400" height="208" fill="#15171c"/>
+  <rect x="100" y="392" width="384" height="192" fill="url(#checker)"/>
+  <path d="M119.0,425.0 l-3.0,4.0 M129.0,425.0 l3.0,4.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="124" cy="414" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="120.5" cy="411.0" r="2.0" fill="#111827"/><circle cx="127.5" cy="411.0" r="2.0" fill="#111827"/>
+  <path d="M167.0,425.0 l-6.0,3.0 M177.0,425.0 l5.0,5.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="172" cy="414" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="169.5" cy="411.0" r="2.0" fill="#111827"/><circle cx="176.5" cy="411.0" r="2.0" fill="#111827"/>
+  <path d="M215.0,425.0 l-2.0,5.0 M225.0,425.0 l7.0,2.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="220" cy="414" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="216.5" cy="411.0" r="2.0" fill="#111827"/><circle cx="223.5" cy="411.0" r="2.0" fill="#111827"/>
+  <path d="M263.0,425.0 l-7.0,2.0 M273.0,425.0 l2.0,5.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="268" cy="414" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="265.5" cy="411.0" r="2.0" fill="#111827"/><circle cx="272.5" cy="411.0" r="2.0" fill="#111827"/>
+  <path d="M119.0,473.0 l-6.0,3.0 M129.0,473.0 l5.0,5.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="124" cy="462" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="121.5" cy="459.0" r="2.0" fill="#111827"/><circle cx="128.5" cy="459.0" r="2.0" fill="#111827"/>
+  <path d="M167.0,473.0 l-2.0,5.0 M177.0,473.0 l7.0,2.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="172" cy="462" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="168.5" cy="459.0" r="2.0" fill="#111827"/><circle cx="175.5" cy="459.0" r="2.0" fill="#111827"/>
+  <path d="M215.0,473.0 l-7.0,2.0 M225.0,473.0 l2.0,5.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="220" cy="462" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="217.5" cy="459.0" r="2.0" fill="#111827"/><circle cx="224.5" cy="459.0" r="2.0" fill="#111827"/>
+  <path d="M263.0,473.0 l-4.0,5.0 M273.0,473.0 l6.0,3.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="268" cy="462" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="264.5" cy="459.0" r="2.0" fill="#111827"/><circle cx="271.5" cy="459.0" r="2.0" fill="#111827"/>
+  <path d="M311.0,473.0 l-1.0,5.0 M321.0,473.0 l4.0,4.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="316" cy="462" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="313.5" cy="459.0" r="2.0" fill="#111827"/><circle cx="320.5" cy="459.0" r="2.0" fill="#111827"/>
+  <path d="M359.0,473.0 l-3.0,4.0 M369.0,473.0 l3.0,4.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="364" cy="462" rx="10.0" ry="13.0" fill="#f59e0b"/><circle cx="360.5" cy="459.0" r="2.0" fill="#111827"/><circle cx="367.5" cy="459.0" r="2.0" fill="#111827"/>
+  <path d="M119.0,521.0 l-2.0,5.0 M129.0,521.0 l7.0,2.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="124" cy="510" rx="10.0" ry="13.0" fill="#fb923c"/><circle cx="120.5" cy="507.0" r="2.0" fill="#111827"/><circle cx="127.5" cy="507.0" r="2.0" fill="#111827"/>
+  <path d="M167.0,521.0 l-7.0,2.0 M177.0,521.0 l2.0,5.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="172" cy="510" rx="10.0" ry="13.0" fill="#fb923c"/><circle cx="169.5" cy="507.0" r="2.0" fill="#111827"/><circle cx="176.5" cy="507.0" r="2.0" fill="#111827"/>
+  <path d="M215.0,521.0 l-4.0,5.0 M225.0,521.0 l6.0,3.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="220" cy="510" rx="10.0" ry="13.0" fill="#fb923c"/><circle cx="216.5" cy="507.0" r="2.0" fill="#111827"/><circle cx="223.5" cy="507.0" r="2.0" fill="#111827"/>
+  <path d="M119.0,569.0 l-7.0,2.0 M129.0,569.0 l2.0,5.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="124" cy="558" rx="10.0" ry="13.0" fill="#f97316"/><circle cx="121.5" cy="555.0" r="2.0" fill="#111827"/><circle cx="128.5" cy="555.0" r="2.0" fill="#111827"/>
+  <path d="M167.0,569.0 l-4.0,5.0 M177.0,569.0 l6.0,3.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="172" cy="558" rx="10.0" ry="13.0" fill="#f97316"/><circle cx="168.5" cy="555.0" r="2.0" fill="#111827"/><circle cx="175.5" cy="555.0" r="2.0" fill="#111827"/>
+  <path d="M215.0,569.0 l-1.0,5.0 M225.0,569.0 l4.0,4.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="220" cy="558" rx="10.0" ry="13.0" fill="#f97316"/><circle cx="217.5" cy="555.0" r="2.0" fill="#111827"/><circle cx="224.5" cy="555.0" r="2.0" fill="#111827"/>
+  <path d="M263.0,569.0 l-3.0,4.0 M273.0,569.0 l3.0,4.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="268" cy="558" rx="10.0" ry="13.0" fill="#f97316"/><circle cx="264.5" cy="555.0" r="2.0" fill="#111827"/><circle cx="271.5" cy="555.0" r="2.0" fill="#111827"/>
+  <path d="M311.0,569.0 l-6.0,3.0 M321.0,569.0 l5.0,5.0" stroke="#b45309" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="316" cy="558" rx="10.0" ry="13.0" fill="#f97316"/><circle cx="313.5" cy="555.0" r="2.0" fill="#111827"/><circle cx="320.5" cy="555.0" r="2.0" fill="#111827"/>
+  <line x1="100" y1="392" x2="100" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="148" y1="392" x2="148" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="196" y1="392" x2="196" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="244" y1="392" x2="244" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="292" y1="392" x2="292" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="340" y1="392" x2="340" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="388" y1="392" x2="388" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="436" y1="392" x2="436" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="484" y1="392" x2="484" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="100" y1="392" x2="484" y2="392" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="100" y1="440" x2="484" y2="440" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="100" y1="488" x2="484" y2="488" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="100" y1="536" x2="484" y2="536" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <line x1="100" y1="584" x2="484" y2="584" stroke="#93c5fd" stroke-opacity="0.45"/>
+  <rect x="101.5" y="441.5" width="45" height="45" fill="#60a5fa" fill-opacity="0.22" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="103" y="443" width="14" height="13" rx="2" fill="#1d4ed8"/><text x="110" y="453" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <rect x="149.5" y="441.5" width="45" height="45" fill="#60a5fa" fill-opacity="0.22" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="151" y="443" width="14" height="13" rx="2" fill="#1d4ed8"/><text x="158" y="453" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <rect x="197.5" y="441.5" width="45" height="45" fill="#60a5fa" fill-opacity="0.22" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="199" y="443" width="14" height="13" rx="2" fill="#1d4ed8"/><text x="206" y="453" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <rect x="245.5" y="441.5" width="45" height="45" fill="#60a5fa" fill-opacity="0.22" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="247" y="443" width="14" height="13" rx="2" fill="#1d4ed8"/><text x="254" y="453" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <rect x="293.5" y="441.5" width="45" height="45" fill="#60a5fa" fill-opacity="0.22" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="295" y="443" width="14" height="13" rx="2" fill="#1d4ed8"/><text x="302" y="453" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <rect x="341.5" y="441.5" width="45" height="45" fill="#60a5fa" fill-opacity="0.22" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="343" y="443" width="14" height="13" rx="2" fill="#1d4ed8"/><text x="350" y="453" font-size="9.5" font-weight="700" fill="#ffffff" text-anchor="middle">6</text>
+  <text x="100" y="610" class="xs">click or drag to select cells · order of selection = frame order · wheel: zoom</text>
+  <rect x="438" y="598" width="22" height="20" rx="3" fill="#3b3f4b"/><circle cx="448.0" cy="607.0" r="4.5" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M451.5,610.5 L455.0,614.0 M446.0,607.0 L450.0,607.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="462" y="598" width="22" height="20" rx="3" fill="#3b3f4b"/><circle cx="472.0" cy="607.0" r="4.5" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M475.5,610.5 L479.0,614.0 M470.0,607.0 L474.0,607.0 M472.0,605.0 L472.0,609.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="506" y="386" width="1" height="224" fill="#3b3f4b"/>
+  <text x="520" y="402" class="s">Grid</text>
+  <path d="M522,418 L522,430 M526,418 L526,430 M530,418 L530,430 M534,418 L534,430" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="542" y="428" class="t">Horizontal</text><rect x="612" y="415" width="40" height="18" rx="2" fill="#3b3f4b"/><text x="620" y="428" class="s">8</text>
+  <path d="M672,418 L684,418 M672,422 L684,422 M672,426 L684,426 M672,430 L684,430" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="692" y="428" class="t">Vertical</text><rect x="750" y="415" width="40" height="18" rx="2" fill="#3b3f4b"/><text x="758" y="428" class="s">4</text>
+  <rect x="524" y="450" width="10" height="10" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M521,450 L521,460 M524,447 L534,447" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="542" y="458" class="t">Size</text>
+  <rect x="612" y="445" width="56" height="18" rx="2" fill="#3b3f4b"/><text x="618" y="458" class="xs">x</text><text x="630" y="458" class="s">32</text>
+  <rect x="674" y="445" width="56" height="18" rx="2" fill="#3b3f4b"/><text x="680" y="458" class="xs">y</text><text x="692" y="458" class="s">32</text>
+  <rect x="521" y="480" width="5" height="8" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="530" y="480" width="5" height="8" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="542" y="488" class="t">Separation</text>
+  <rect x="612" y="475" width="56" height="18" rx="2" fill="#3b3f4b"/><text x="618" y="488" class="xs">x</text><text x="630" y="488" class="s">0</text>
+  <rect x="674" y="475" width="56" height="18" rx="2" fill="#3b3f4b"/><text x="680" y="488" class="xs">y</text><text x="692" y="488" class="s">0</text>
+  <rect x="521" y="507" width="14" height="14" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 2"/><rect x="525" y="511" width="8" height="8" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="542" y="518" class="t">Offset</text>
+  <rect x="612" y="505" width="56" height="18" rx="2" fill="#3b3f4b"/><text x="618" y="518" class="xs">x</text><text x="630" y="518" class="s">0</text>
+  <rect x="674" y="505" width="56" height="18" rx="2" fill="#3b3f4b"/><text x="680" y="518" class="xs">y</text><text x="692" y="518" class="s">0</text>
+  <text x="738" y="458" class="xs">px</text>
+  <rect x="520" y="546" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M525.0,552.0 l1.5,1.5 l3,-3 M525.0,559.0 l1.5,1.5 l3,-3 M531.0,553.0 L537.0,553.0 M531.0,560.0 L537.0,560.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="546" y="546" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M551.0,552.0 L563.0,552.0 M551.0,556.0 L559.0,556.0 M551.0,560.0 L557.0,560.0 M560.0,557.0 l4,4 M564.0,557.0 l-4,4" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="572" y="546" width="22" height="20" rx="3" fill="#2a2d36"/><path d="M577,562 L586,553" stroke="#6b7280" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M587,549 l0.8,2 2,0.8 -2,0.8 -0.8,2 -0.8,-2 -2,-0.8 2,-0.8 Z" fill="#6b7280"/>
+  <text x="602" y="560" class="xs">select all · clear · auto-slice (later)</text>
+  <text x="520" y="598" class="t">Into</text><rect x="554" y="585" width="120" height="18" rx="2" fill="#3b3f4b"/><text x="560" y="598" class="s">run ▾</text>
+  <rect x="668" y="622" width="72" height="26" rx="4" fill="#3b3f4b"/><text x="704" y="640" class="t" text-anchor="middle">Cancel</text>
+  <rect x="748" y="622" width="116" height="26" rx="4" fill="#1d4ed8"/><text x="806" y="640" class="t" fill="#ffffff" text-anchor="middle" font-weight="600">Add 6 Frames</text>
+  <circle cx="256" cy="98" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/><text x="256" y="101.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <circle cx="534" cy="146" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/><text x="534" y="149.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <circle cx="422" cy="68" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/><text x="422" y="71.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <circle cx="926" cy="148" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/><text x="926" y="151.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <circle cx="392" cy="444" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/><text x="392" y="447.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <circle cx="800" cy="428" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/><text x="800" y="431.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">6</text>
+  <circle cx="744" cy="622" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/><text x="744" y="625.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">7</text>
+  <circle cx="30" cy="680" r="8" fill="#2563eb"/><text x="30" y="683.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">1</text><text x="44" y="684" class="cap">Animations: name, FPS, loop; the green badge marks Autoplay.</text>
+  <circle cx="490" cy="680" r="8" fill="#2563eb"/><text x="490" y="683.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">2</text><text x="504" y="684" class="cap">Frame strip: drag to reorder; ×N is the relative duration.</text>
+  <circle cx="30" cy="698" r="8" fill="#2563eb"/><text x="30" y="701.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">3</text><text x="44" y="702" class="cap">Opens the Select Frames dialog below.</text>
+  <circle cx="490" cy="698" r="8" fill="#2563eb"/><text x="490" y="701.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">4</text><text x="504" y="702" class="cap">Preview plays in the panel; the node keeps its saved frame.</text>
+  <circle cx="30" cy="716" r="8" fill="#2563eb"/><text x="30" y="719.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">5</text><text x="44" y="720" class="cap">Selected cells, numbered in frame order.</text>
+  <circle cx="490" cy="716" r="8" fill="#2563eb"/><text x="490" y="719.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">6</text><text x="504" y="720" class="cap">Grid by count or cell size, with separation and offset (margins).</text>
+  <circle cx="30" cy="734" r="8" fill="#2563eb"/><text x="30" y="737.8" font-size="10.5" font-weight="700" fill="#ffffff" text-anchor="middle">7</text><text x="44" y="738" class="cap">Appends frames as regions of hero.png; its .meta is untouched.</text>
+  <text x="20" y="762" class="cap" font-style="italic">Animated sprites (proposal G2a). Icon buttons with tooltips throughout; numbered markers are annotations, not UI.</text>
+</svg>

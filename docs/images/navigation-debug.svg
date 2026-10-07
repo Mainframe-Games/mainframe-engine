@@ -1,0 +1,227 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Navigation debug view (proposal)</title>
+  <desc>Planned editor view of a NavigationGrid2D: the 2D viewport with Visible Navigation on shows the grid region, solid cells baked from static bodies, weighted cells, a NavigationAgent2D with its current path, next path position and target. The toolbar has a Visible Navigation toggle; the inspector shows the grid with Bake and Clear icon buttons and its settings.</desc>
+  <rect width="960" height="600" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .t{fill:#d1d5db;font-size:12px}
+    .s{fill:#9ca3af;font-size:11px}
+    .v{fill:#d1d5db;font-size:11px}
+    .call{fill:#e5e7eb;font-size:10.5px}
+    .doc{fill:#93c5fd;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+  </style>
+  <!-- window -->
+  <rect x="20" y="20" width="920" height="520" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
+  <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
+  <text x="380" y="38" class="s">Mainframe Engine — Mainframe Demo — navigation_2d.mscene</text>
+  <!-- toolbar: gizmo, view and play groups -->
+  <rect x="20" y="46" width="920" height="32" fill="#2a2d36"/>
+  <text x="32" y="66" class="t">Scene   Edit   Project   Help</text>
+  <rect x="240" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="268" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="296" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="324" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <path d="M249 56 l0 11 l3 -3 l3 5 l2 -1 l-3 -5 l4 0 z" fill="#d1d5db"/>
+  <path d="M280 62 h10 M285 57 v10" stroke="#d1d5db" stroke-width="1.5"/>
+  <circle cx="313" cy="62" r="5" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+  <rect x="336" y="57" width="10" height="10" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+  <rect x="372" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="400" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="428" y="52" width="24" height="20" rx="3" fill="#1d4ed8"/>
+  <circle cx="384" cy="62" r="3" fill="none" stroke="#d1d5db" stroke-width="1.5"/><path d="M377 57 v-0 M377 59 v-3 h3 M391 59 v-3 h-3 M377 65 v3 h3 M391 65 v3 h-3" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+  <path d="M405 57 h14 v10 h-14 z M405 60.3 h14 M405 63.6 h14 M409.7 57 v10 M414.3 57 v10" fill="none" stroke="#d1d5db" stroke-width="1"/>
+  <circle cx="434" cy="66" r="2" fill="none" stroke="#ffffff" stroke-width="1.4"/><circle cx="446" cy="57" r="2" fill="none" stroke="#ffffff" stroke-width="1.4"/><path d="M436 66 h6 a3 3 0 0 0 0 -6 h-4 a3 3 0 0 1 0 -3 h6" fill="none" stroke="#ffffff" stroke-width="1.4"/>
+  <rect x="520" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="548" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="576" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <rect x="604" y="52" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <polygon points="527,56 527,68 537,62" fill="#22c55e"/>
+  <rect x="553" y="57" width="14" height="10" fill="none" stroke="#d1d5db" stroke-width="1.3"/>
+  <rect x="583" y="57" width="3" height="10" fill="#6b7280"/><rect x="589" y="57" width="3" height="10" fill="#6b7280"/>
+  <rect x="611" y="57" width="10" height="10" fill="#6b7280"/>
+  <text x="760" y="66" class="doc">editor/toolbar.rml</text>
+  <!-- 2D viewport -->
+  <rect x="24" y="82" width="640" height="454" fill="#20232a" stroke="#3b3f4b"/>
+  <rect x="24" y="82" width="150" height="22" fill="#2f333d"/><text x="34" y="97" class="t">navigation_2d.mscene</text>
+  <rect x="28" y="108" width="632" height="424" fill="#2b3038"/>
+  <!-- debug draw (NavigationServer2D → SceneViewport.DebugLines): region outline, cell lines -->
+  <g stroke="#4b5563" stroke-width="0.6">
+    <line x1="74" y1="124" x2="74" y2="498"/>
+    <line x1="108" y1="124" x2="108" y2="498"/>
+    <line x1="142" y1="124" x2="142" y2="498"/>
+    <line x1="176" y1="124" x2="176" y2="498"/>
+    <line x1="210" y1="124" x2="210" y2="498"/>
+    <line x1="244" y1="124" x2="244" y2="498"/>
+    <line x1="278" y1="124" x2="278" y2="498"/>
+    <line x1="312" y1="124" x2="312" y2="498"/>
+    <line x1="346" y1="124" x2="346" y2="498"/>
+    <line x1="380" y1="124" x2="380" y2="498"/>
+    <line x1="414" y1="124" x2="414" y2="498"/>
+    <line x1="448" y1="124" x2="448" y2="498"/>
+    <line x1="482" y1="124" x2="482" y2="498"/>
+    <line x1="516" y1="124" x2="516" y2="498"/>
+    <line x1="550" y1="124" x2="550" y2="498"/>
+    <line x1="584" y1="124" x2="584" y2="498"/>
+    <line x1="618" y1="124" x2="618" y2="498"/>
+    <line x1="40" y1="158" x2="652" y2="158"/>
+    <line x1="40" y1="192" x2="652" y2="192"/>
+    <line x1="40" y1="226" x2="652" y2="226"/>
+    <line x1="40" y1="260" x2="652" y2="260"/>
+    <line x1="40" y1="294" x2="652" y2="294"/>
+    <line x1="40" y1="328" x2="652" y2="328"/>
+    <line x1="40" y1="362" x2="652" y2="362"/>
+    <line x1="40" y1="396" x2="652" y2="396"/>
+    <line x1="40" y1="430" x2="652" y2="430"/>
+    <line x1="40" y1="464" x2="652" y2="464"/>
+  </g>
+  <rect x="40" y="124" width="612" height="374" fill="none" stroke="#9ca3af" stroke-width="1.2"/>
+  <!-- the scene: static walls (sprites + StaticBody2D) -->
+  <rect x="214" y="126" width="26" height="268" fill="#55606e"/>
+  <rect x="348" y="264" width="234" height="26" fill="#55606e"/>
+  <rect x="417" y="365" width="62" height="96" fill="#55606e" rx="4"/>
+  <!-- weighted cells (weight scale 3) -->
+  <rect x="281" y="399" width="28" height="28" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+  <rect x="281" y="433" width="28" height="28" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+  <rect x="281" y="467" width="28" height="28" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+  <rect x="315" y="399" width="28" height="28" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+  <rect x="315" y="433" width="28" height="28" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+  <rect x="315" y="467" width="28" height="28" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+  <text x="287" y="451" class="call" fill="#fbbf24" style="fill:#fbbf24">×3</text>
+  <!-- solid cells: outline + cross -->
+  <g stroke="#ef4444" stroke-width="1" fill="none">
+    <rect x="212" y="126" width="30" height="30"/><path d="M212 126 l30 30 M242 126 l-30 30" stroke-opacity="0.55"/>
+    <rect x="212" y="160" width="30" height="30"/><path d="M212 160 l30 30 M242 160 l-30 30" stroke-opacity="0.55"/>
+    <rect x="212" y="194" width="30" height="30"/><path d="M212 194 l30 30 M242 194 l-30 30" stroke-opacity="0.55"/>
+    <rect x="212" y="228" width="30" height="30"/><path d="M212 228 l30 30 M242 228 l-30 30" stroke-opacity="0.55"/>
+    <rect x="212" y="262" width="30" height="30"/><path d="M212 262 l30 30 M242 262 l-30 30" stroke-opacity="0.55"/>
+    <rect x="212" y="296" width="30" height="30"/><path d="M212 296 l30 30 M242 296 l-30 30" stroke-opacity="0.55"/>
+    <rect x="212" y="330" width="30" height="30"/><path d="M212 330 l30 30 M242 330 l-30 30" stroke-opacity="0.55"/>
+    <rect x="212" y="364" width="30" height="30"/><path d="M212 364 l30 30 M242 364 l-30 30" stroke-opacity="0.55"/>
+    <rect x="348" y="262" width="30" height="30"/><path d="M348 262 l30 30 M378 262 l-30 30" stroke-opacity="0.55"/>
+    <rect x="382" y="262" width="30" height="30"/><path d="M382 262 l30 30 M412 262 l-30 30" stroke-opacity="0.55"/>
+    <rect x="416" y="262" width="30" height="30"/><path d="M416 262 l30 30 M446 262 l-30 30" stroke-opacity="0.55"/>
+    <rect x="416" y="364" width="30" height="30"/><path d="M416 364 l30 30 M446 364 l-30 30" stroke-opacity="0.55"/>
+    <rect x="416" y="398" width="30" height="30"/><path d="M416 398 l30 30 M446 398 l-30 30" stroke-opacity="0.55"/>
+    <rect x="416" y="432" width="30" height="30"/><path d="M416 432 l30 30 M446 432 l-30 30" stroke-opacity="0.55"/>
+    <rect x="450" y="262" width="30" height="30"/><path d="M450 262 l30 30 M480 262 l-30 30" stroke-opacity="0.55"/>
+    <rect x="450" y="364" width="30" height="30"/><path d="M450 364 l30 30 M480 364 l-30 30" stroke-opacity="0.55"/>
+    <rect x="450" y="398" width="30" height="30"/><path d="M450 398 l30 30 M480 398 l-30 30" stroke-opacity="0.55"/>
+    <rect x="450" y="432" width="30" height="30"/><path d="M450 432 l30 30 M480 432 l-30 30" stroke-opacity="0.55"/>
+    <rect x="484" y="262" width="30" height="30"/><path d="M484 262 l30 30 M514 262 l-30 30" stroke-opacity="0.55"/>
+    <rect x="518" y="262" width="30" height="30"/><path d="M518 262 l30 30 M548 262 l-30 30" stroke-opacity="0.55"/>
+    <rect x="552" y="262" width="30" height="30"/><path d="M552 262 l30 30 M582 262 l-30 30" stroke-opacity="0.55"/>
+  </g>
+  <!-- path: every cell (dots) and the corners kept by PathSimplify (line) -->
+  <circle cx="91.0" cy="447.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="125.0" cy="413.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="159.0" cy="413.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="193.0" cy="413.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="227.0" cy="413.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="261.0" cy="413.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="295.0" cy="379.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="329.0" cy="345.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="329.0" cy="311.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="329.0" cy="277.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="329.0" cy="243.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="363.0" cy="243.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="397.0" cy="243.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="431.0" cy="243.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="465.0" cy="243.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="499.0" cy="209.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="533.0" cy="209.0" r="2" fill="#86efac" opacity="0.7"/>
+  <circle cx="567.0" cy="209.0" r="2" fill="#86efac" opacity="0.7"/>
+  <polyline points="91.0,447.0 125.0,413.0 261.0,413.0 329.0,345.0 329.0,243.0 465.0,243.0 499.0,209.0 567.0,209.0" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="125.0" cy="413.0" r="3.5" fill="#22c55e"/>
+  <circle cx="261.0" cy="413.0" r="3.5" fill="#22c55e"/>
+  <circle cx="329.0" cy="345.0" r="3.5" fill="#22c55e"/>
+  <circle cx="329.0" cy="243.0" r="3.5" fill="#22c55e"/>
+  <circle cx="465.0" cy="243.0" r="3.5" fill="#22c55e"/>
+  <circle cx="499.0" cy="209.0" r="3.5" fill="#22c55e"/>
+  <!-- agent -->
+  <circle cx="91.0" cy="447.0" r="22" fill="none" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3 3"/>
+  <circle cx="91.0" cy="447.0" r="11" fill="#3b82f6" stroke="#bfdbfe" stroke-width="1.5"/>
+  <line x1="91.0" y1="447.0" x2="99.0" y2="439.0" stroke="#ffffff" stroke-width="2"/>
+  <circle cx="125.0" cy="413.0" r="7" fill="none" stroke="#ffffff" stroke-width="2"/>
+  <!-- target -->
+  <circle cx="567.0" cy="209.0" r="14" fill="none" stroke="#e879f9" stroke-width="1" stroke-dasharray="3 3"/>
+  <path d="M560.0 202.0 l14 14 M574.0 202.0 l-14 14" stroke="#e879f9" stroke-width="2.5"/>
+  <!-- callouts -->
+  <line x1="242" y1="175.0" x2="262" y2="175" stroke="#d1d5db" stroke-width="0.8"/>
+  <rect x="262" y="166" width="242" height="18" rx="3" fill="#111827" fill-opacity="0.88" stroke="#4b5563"/>
+  <text x="268" y="179" class="call">solid cell — baked from a StaticBody2D</text>
+  <line x1="91.0" y1="459.0" x2="302" y2="509" stroke="#d1d5db" stroke-width="0.8"/>
+  <rect x="60" y="500" width="242" height="18" rx="3" fill="#111827" fill-opacity="0.88" stroke="#4b5563"/>
+  <text x="66" y="513" class="call">NavigationAgent2D on a CharacterBody2D</text>
+  <line x1="130.0" y1="407.0" x2="150" y2="375" stroke="#d1d5db" stroke-width="0.8"/>
+  <rect x="150" y="366" width="122" height="18" rx="3" fill="#111827" fill-opacity="0.88" stroke="#4b5563"/>
+  <text x="156" y="379" class="call">next path position</text>
+  <line x1="322" y1="468" x2="518" y2="495" stroke="#d1d5db" stroke-width="0.8"/>
+  <rect x="300" y="486" width="218" height="18" rx="3" fill="#111827" fill-opacity="0.88" stroke="#4b5563"/>
+  <text x="306" y="499" class="call">weight scale ×3 — path goes around</text>
+  <line x1="333.0" y1="311.0" x2="380" y2="305" stroke="#d1d5db" stroke-width="0.8"/>
+  <rect x="380" y="296" width="230" height="18" rx="3" fill="#111827" fill-opacity="0.88" stroke="#4b5563"/>
+  <text x="386" y="309" class="call">path: Octile, jumping on, simplified</text>
+  <line x1="569.0" y1="195.0" x2="652" y2="137" stroke="#d1d5db" stroke-width="0.8"/>
+  <rect x="500" y="128" width="152" height="18" rx="3" fill="#111827" fill-opacity="0.88" stroke="#4b5563"/>
+  <text x="506" y="141" class="call">target + arrival radius</text>
+  <text x="470" y="527" class="doc">SceneViewport.DebugLines</text>
+  <!-- tooltip of the new toggle -->
+  <line x1="440" y1="73" x2="440" y2="86" stroke="#d1d5db" stroke-width="0.8"/>
+  <rect x="300" y="86" width="330" height="34" rx="4" fill="#111827" stroke="#4b5563"/>
+  <text x="310" y="100" class="call" style="font-weight:600">Visible Navigation</text>
+  <text x="310" y="114" class="s">draw grids, agent paths and targets in this viewport</text>
+  <!-- inspector -->
+  <rect x="668" y="82" width="268" height="454" fill="#262931" stroke="#3b3f4b"/>
+  <text x="678" y="100" class="hdr">Inspector</text>
+  <path d="M678 112 h12 v12 h-12 z M678 116 h12 M678 120 h12 M682 112 v12 M686 112 v12" fill="none" stroke="#8da5f3" stroke-width="1"/>
+  <text x="696" y="122" class="t">Grid : NavigationGrid2D</text>
+  <rect x="676" y="132" width="252" height="62" rx="4" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="684" y="149" class="t" style="font-weight:600">Navigation grid</text>
+  <rect x="868" y="137" width="24" height="20" rx="3" fill="#1d4ed8"/>
+  <path d="M873 153 l9 -9 M883 141 l1.5 -2 M886 145 l2 -1 M884.5 149 l2 1" stroke="#ffffff" stroke-width="1.5"/>
+  <rect x="896" y="137" width="24" height="20" rx="3" fill="#3b3f4b"/>
+  <path d="M902 142 h12 M906 142 v-2 h4 v2 M903 142 l1 11 h8 l1 -11" fill="none" stroke="#d1d5db" stroke-width="1.3"/>
+  <text x="684" y="167" class="s">18 × 11 · 31 solid · 6 weighted</text>
+  <text x="684" y="183" class="s">physics · 0.4 ms · up to date</text>
+  <line x1="880" y1="157" x2="880" y2="200" stroke="#d1d5db" stroke-width="0.8"/>
+  <rect x="680" y="200" width="248" height="34" rx="4" fill="#111827" stroke="#4b5563"/>
+  <text x="688" y="214" class="call" style="font-weight:600">Bake</text>
+  <text x="688" y="228" class="s">solid cells from static bodies (Bake Mask)</text>
+  <text x="678" y="252" class="s">▾ NavigationGrid2D</text>
+  <text x="686" y="278" class="t">Region</text>
+  <rect x="802" y="266" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="278" class="v">[0, 0, 18, 11]</text>
+  <text x="686" y="300" class="t">Cell Size</text>
+  <rect x="802" y="288" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="300" class="v">[32, 32]</text>
+  <text x="686" y="322" class="t">Diagonal Mode</text>
+  <rect x="802" y="310" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="322" class="v">Only If No Obstacles</text>
+  <text x="686" y="344" class="t">Heuristic</text>
+  <rect x="802" y="332" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="344" class="v">Octile ▾</text>
+  <text x="686" y="366" class="t">Jumping</text>
+  <rect x="802" y="354" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="366" class="v">on</text>
+  <text x="686" y="388" class="t">Navigation Layers</text>
+  <rect x="802" y="376" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="388" class="v">1</text>
+  <text x="686" y="410" class="t">Source</text>
+  <rect x="802" y="398" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="410" class="v">Physics ▾</text>
+  <text x="686" y="432" class="t">Bake Mask</text>
+  <rect x="802" y="420" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="432" class="v">1</text>
+  <text x="686" y="454" class="t">Agent Radius</text>
+  <rect x="802" y="442" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="454" class="v">10</text>
+  <text x="686" y="476" class="t">Data</text>
+  <rect x="802" y="464" width="124" height="16" rx="2" fill="#3b3f4b"/>
+  <text x="808" y="476" class="v">NavigationGridData ▸</text>
+  <text x="678" y="502" class="s">▸ Node2D   ▸ Node</text>
+  <text x="678" y="526" class="doc">NavigationGridInspector</text>
+  <text x="20" y="562" class="cap">Visible Navigation (toolbar, new route icon) draws every grid, path and target into the viewport's debug lines; the same</text>
+  <text x="20" y="580" class="cap">drawing runs in games (EngineOptions.DebugNavigation, dev overlay). Bake and Clear are icon buttons with tooltips in a custom inspector.</text>
+</svg>

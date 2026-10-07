@@ -89,7 +89,6 @@ Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when t
 - Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D light shadows/normal maps/`DirectionalLight2D`, font oversampling and shaping beyond kerning,
   Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `CanvasGroup`,
   `ClipChildrenMode.Only` hiding the owner, nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
-- The editor's 2D view does not draw canvas items yet (E18).
 - 1 px lines (width −1) on exact integer coordinates rasterise on whichever side the GPU picks, as in Godot.
 
 ## 2D sub-viewports (ADR 0116)

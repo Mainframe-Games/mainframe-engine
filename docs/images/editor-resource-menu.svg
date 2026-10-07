@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Inspector resource actions (proposal G7.2)</title>
+  <desc>Two inspector panels. Left: a MeshInstance3D whose inline material is shared by three slots; the new More button opens a menu with Save as .mres highlighted. Right: an AudioPlayer3D whose stream is an external Jump.mres; the menu has Open highlighted, which shows the file on its own with its custom inspector.</desc>
+  <rect width="960" height="520" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .t{fill:#d1d5db;font-size:12px}
+    .s{fill:#9ca3af;font-size:11px}
+    .d{fill:#6b7280;font-size:12px}
+    .m{font-family:ui-monospace, Menlo, Consolas, monospace;font-size:11px;fill:#d1d5db}
+    .cap{fill:#374151;font-size:12px}
+    .leg{fill:#1f2937;font-size:12px}
+    .badge{fill:#1d4ed8}
+    .bt{fill:#ffffff;font-size:11px;font-weight:700}
+    .btn{fill:#3b3f4b}
+    .g{fill:#d1d5db;font-size:11px}
+  </style>
+
+  <!-- ===== left: inline material shared by three slots ===== -->
+  <rect x="20" y="20" width="450" height="340" rx="6" fill="#262931" stroke="#3b3f4b"/>
+  <text x="34" y="42" class="hdr">Inspector</text>
+  <text x="380" y="42" class="s">Node | Signals</text>
+  <text x="34" y="68" class="t">◼ Crate : MeshInstance3D</text>
+  <text x="34" y="94" class="s">▾ GeometryInstance3D</text>
+  <!-- material row -->
+  <text x="44" y="118" class="t">Material Override</text>
+  <rect x="160" y="105" width="146" height="20" rx="3" fill="#1f2128" stroke="#3b3f4b"/>
+  <circle cx="171" cy="115" r="5" fill="#f472b6"/>
+  <text x="181" y="119" class="t">StandardMaterial3D</text>
+  <rect x="310" y="106" width="56" height="18" rx="9" fill="#374151"/>
+  <text x="317" y="119" class="s">inline ×3</text>
+  <rect x="370" y="106" width="18" height="18" rx="3" class="btn"/><text x="374" y="119" class="g">✎</text>
+  <rect x="390" y="106" width="18" height="18" rx="3" class="btn"/><text x="393" y="119" class="g">▱</text>
+  <rect x="410" y="106" width="18" height="18" rx="3" class="btn"/><text x="413" y="119" class="g">⊕</text>
+  <rect x="430" y="106" width="18" height="18" rx="3" class="btn"/><text x="435" y="119" class="g">✕</text>
+  <rect x="450" y="106" width="16" height="18" rx="3" fill="#1d4ed8"/><text x="455" y="119" class="g">⋮</text>
+  <!-- other rows -->
+  <text x="44" y="146" class="t">Cast Shadows</text><rect x="160" y="134" width="14" height="14" rx="2" fill="#1d4ed8"/>
+  <text x="34" y="176" class="s">▾ MeshInstance3D</text>
+  <text x="44" y="200" class="t">Mesh</text>
+  <rect x="160" y="187" width="146" height="20" rx="3" fill="#1f2128" stroke="#3b3f4b"/>
+  <text x="170" y="201" class="t">◇ BoxMesh</text>
+  <rect x="310" y="188" width="44" height="18" rx="9" fill="#374151"/><text x="318" y="201" class="s">inline</text>
+  <text x="34" y="232" class="s">▸ Node3D</text>
+
+  <!-- the More menu (left) -->
+  <rect x="236" y="128" width="226" height="150" rx="5" fill="#2f333d" stroke="#4b5563"/>
+  <rect x="240" y="132" width="218" height="22" rx="3" fill="#1d4ed8"/>
+  <text x="250" y="147" class="t">▤  Save as .mres…</text>
+  <text x="250" y="171" class="t">⧉  Make Unique</text>
+  <text x="250" y="195" class="t">⧉  Make Unique (Deep)</text>
+  <line x1="244" y1="206" x2="454" y2="206" stroke="#4b5563"/>
+  <text x="250" y="226" class="d">✎  Open</text>
+  <text x="250" y="250" class="d">▭  Show in FileSystem</text>
+  <text x="250" y="270" class="s">(file actions: external resources only)</text>
+  <!-- tooltip -->
+  <rect x="34" y="292" width="428" height="40" rx="5" fill="#111827" stroke="#3b3f4b"/>
+  <text x="44" y="308" class="t" font-weight="600">Save as .mres</text>
+  <text x="44" y="324" class="s">write this material to a file; the 3 slots that share it then use the file</text>
+  <text x="34" y="352" class="m">[INFO] Saved Content/Materials/Crate.mres</text>
+
+  <!-- ===== right: external sound file ===== -->
+  <rect x="490" y="20" width="450" height="340" rx="6" fill="#262931" stroke="#3b3f4b"/>
+  <text x="504" y="42" class="hdr">Inspector</text>
+  <text x="850" y="42" class="s">Node | Signals</text>
+  <text x="504" y="68" class="t">♪ Player : AudioPlayer3D</text>
+  <text x="504" y="94" class="s">▾ AudioPlayer3D</text>
+  <text x="514" y="118" class="t">Stream</text>
+  <rect x="630" y="105" width="216" height="20" rx="3" fill="#1f2128" stroke="#3b3f4b"/>
+  <!-- link glyph -->
+  <rect x="637" y="111" width="9" height="6" rx="3" fill="none" stroke="#93c5fd" stroke-width="1.4"/>
+  <rect x="643" y="114" width="9" height="6" rx="3" fill="none" stroke="#93c5fd" stroke-width="1.4"/>
+  <text x="658" y="119" class="t">Jump.mres</text>
+  <text x="726" y="119" class="s">AudioStream</text>
+  <rect x="850" y="106" width="18" height="18" rx="3" class="btn"/><text x="853" y="119" class="g">▱</text>
+  <rect x="870" y="106" width="18" height="18" rx="3" class="btn"/><text x="873" y="119" class="g">⊕</text>
+  <rect x="890" y="106" width="18" height="18" rx="3" class="btn"/><text x="895" y="119" class="g">✕</text>
+  <rect x="910" y="106" width="18" height="18" rx="3" fill="#1d4ed8"/><text x="916" y="119" class="g">⋮</text>
+  <text x="514" y="146" class="t">Bus</text><rect x="630" y="134" width="120" height="16" rx="2" fill="#3b3f4b"/><text x="636" y="146" class="s">Master ▾</text>
+  <text x="514" y="170" class="t">Volume Db</text><rect x="630" y="158" width="120" height="16" rx="2" fill="#3b3f4b"/><text x="636" y="170" class="s">0.0</text>
+  <text x="504" y="200" class="s">▸ Attenuation</text>
+  <text x="504" y="224" class="s">▸ Panning</text>
+
+  <!-- the More menu (right) -->
+  <rect x="704" y="128" width="226" height="150" rx="5" fill="#2f333d" stroke="#4b5563"/>
+  <text x="718" y="147" class="d">▤  Save as .mres…</text>
+  <text x="718" y="171" class="t">⧉  Make Unique</text>
+  <text x="718" y="195" class="d">⧉  Make Unique (Deep)</text>
+  <line x1="712" y1="206" x2="922" y2="206" stroke="#4b5563"/>
+  <rect x="708" y="212" width="218" height="22" rx="3" fill="#1d4ed8"/>
+  <text x="718" y="227" class="t">✎  Open</text>
+  <text x="718" y="251" class="t">▭  Show in FileSystem</text>
+  <text x="718" y="270" class="s">(Deep: no inline sub-resources)</text>
+  <!-- tooltip -->
+  <rect x="504" y="292" width="428" height="40" rx="5" fill="#111827" stroke="#3b3f4b"/>
+  <text x="514" y="308" class="t" font-weight="600">Open</text>
+  <text x="514" y="324" class="s">edit Jump.mres on its own, with its custom inspector, history and Save</text>
+
+  <!-- badges -->
+  <circle cx="338" cy="96" r="9" class="badge"/><text x="334.5" y="100" class="bt">1</text>
+  <circle cx="458" cy="96" r="9" class="badge"/><text x="454.5" y="100" class="bt">2</text>
+  <circle cx="650" cy="96" r="9" class="badge"/><text x="646.5" y="100" class="bt">3</text>
+  <circle cx="944" cy="223" r="9" class="badge"/><text x="940.5" y="227" class="bt">4</text>
+
+  <!-- legend -->
+  <g>
+    <circle cx="34" cy="390" r="8" class="badge"/><text x="31" y="394" class="bt">1</text>
+    <text x="50" y="394" class="leg">"inline ×3": one inline resource fills three slots. Save as .mres switches all of them to the new file in one undo step;</text>
+    <text x="50" y="410" class="leg">undo puts the inline resource back with its scene key, and the file stays on disk.</text>
+    <circle cx="34" cy="434" r="8" class="badge"/><text x="31" y="438" class="bt">2</text>
+    <text x="50" y="438" class="leg">New More icon button opens the menu; Edit, Load, New and Clear stay icon buttons. Hidden when several nodes are selected.</text>
+    <circle cx="34" cy="462" r="8" class="badge"/><text x="31" y="466" class="bt">3</text>
+    <text x="50" y="466" class="leg">An external resource shows a link icon and its file name. Make Unique gives this slot an inline copy; the file is untouched.</text>
+    <circle cx="34" cy="490" r="8" class="badge"/><text x="31" y="494" class="bt">4</text>
+    <text x="50" y="494" class="leg">Open shows the file on its own (InspectResourceFile): how a sound saved from a slot reaches the sound designer.</text>
+  </g>
+  <text x="20" y="514" class="cap">Disabled items say why in their tooltip (an imported texture or sound file cannot be made unique; a file is already a file).</text>
+</svg>

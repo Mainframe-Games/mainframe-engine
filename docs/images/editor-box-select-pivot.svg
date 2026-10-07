@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Editor box selection and multi-node gizmo (proposal G7.1, G7.4)</title>
+  <desc>Left view: a box-selection rectangle dragged over three crates, a lamp icon and a locked wall. Right view: after release the crates and the lamp are selected (the locked wall is not) and one rotate gizmo sits at their median point; each node rotates around it. The toolbar's new Pivot button shows its tooltip, and the Scene panel shows the selection and the new lock toggle.</desc>
+  <rect width="960" height="640" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .t{fill:#d1d5db;font-size:12px}
+    .s{fill:#9ca3af;font-size:11px}
+    .m{font-family:ui-monospace, Menlo, Consolas, monospace;font-size:11px;fill:#e5e7eb}
+    .cap{fill:#374151;font-size:12px}
+    .leg{fill:#1f2937;font-size:12px}
+    .badge{fill:#1d4ed8}
+    .bt{fill:#ffffff;font-size:11px;font-weight:700}
+    .cf{fill:#c7a574}
+    .ct{fill:#dcc093}
+    .cs{fill:#a7855a}
+    .sel{fill:none;stroke:#f59e0b;stroke-width:2}
+  </style>
+  <defs>
+    <g id="crate">
+      <rect x="-20" y="-20" width="40" height="40" class="cf"/>
+      <polygon points="-20,-20 -10,-30 30,-30 20,-20" class="ct"/>
+      <polygon points="20,-20 30,-30 30,10 20,20" class="cs"/>
+    </g>
+    <g id="crateSel">
+      <polygon points="-22,-22 -11,-33 33,-33 33,11 22,22 -22,22" class="sel"/>
+    </g>
+    <g id="wall">
+      <rect x="0" y="0" width="34" height="96" fill="#6b7280"/>
+      <polygon points="0,0 10,-10 44,-10 34,0" fill="#9ca3af"/>
+      <polygon points="34,0 44,-10 44,86 34,96" fill="#4b5563"/>
+    </g>
+    <g id="lamp">
+      <circle r="7" fill="none" stroke="#fde047" stroke-width="1.5"/>
+      <g stroke="#fde047" stroke-width="1.2">
+        <line x1="10" y1="0" x2="15" y2="0"/><line x1="-10" y1="0" x2="-15" y2="0"/><line x1="0" y1="-10" x2="0" y2="-15"/><line x1="0" y1="10" x2="0" y2="15"/>
+      </g>
+    </g>
+  </defs>
+
+  <!-- window -->
+  <rect x="20" y="20" width="920" height="470" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
+  <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
+  <text x="380" y="38" class="s">Mainframe Engine — MyGame — Yard.mscene*</text>
+
+  <!-- toolbar -->
+  <rect x="20" y="46" width="920" height="30" fill="#2a2d36"/>
+  <g>
+    <rect x="32" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="38" y="65" class="t">↖</text>
+    <rect x="58" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="63" y="65" class="t">✥</text>
+    <rect x="84" y="52" width="22" height="18" rx="3" fill="#1d4ed8"/><text x="89" y="65" class="t">⟳</text>
+    <rect x="110" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="115" y="65" class="t">⤢</text>
+    <rect x="144" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="149" y="65" class="t">◍</text>
+    <rect x="170" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="176" y="65" class="t">∩</text>
+    <!-- new: pivot button (hovered) -->
+    <rect x="196" y="52" width="22" height="18" rx="3" fill="#4b5563" stroke="#93c5fd"/>
+    <circle cx="207" cy="61" r="2.5" fill="#e5e7eb"/><circle cx="207" cy="61" r="6" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+  </g>
+
+  <!-- scene panel -->
+  <rect x="24" y="80" width="180" height="406" fill="#262931" stroke="#3b3f4b"/>
+  <text x="34" y="98" class="hdr">Scene</text>
+  <g class="t">
+    <text x="34" y="124">▾ ◇ Yard</text>
+    <text x="50" y="146">☀ Sun</text>
+    <text x="50" y="168">▣ Wall</text>
+    <rect x="44" y="176" width="156" height="20" fill="#1d4ed8" opacity="0.55"/>
+    <text x="50" y="190">⬡ Crate</text>
+    <rect x="44" y="198" width="156" height="20" fill="#1d4ed8" opacity="0.55"/>
+    <text x="50" y="212">⬡ Crate2</text>
+    <rect x="44" y="220" width="156" height="20" fill="#1d4ed8" opacity="0.55"/>
+    <text x="50" y="234">⬡ Crate3</text>
+    <rect x="44" y="242" width="156" height="20" fill="#1d4ed8" opacity="0.8"/>
+    <text x="50" y="256">☼ Lamp</text>
+    <text x="50" y="278">▭ Floor</text>
+  </g>
+  <!-- eye + lock columns -->
+  <g class="s">
+    <text x="164" y="146">◉</text><text x="164" y="168">◉</text><text x="164" y="190">◉</text><text x="164" y="212">◉</text><text x="164" y="234">◉</text><text x="164" y="256">◉</text><text x="164" y="278">◉</text>
+  </g>
+  <!-- lock glyph on Wall (on), dim elsewhere on hover -->
+  <g>
+    <rect x="182" y="160" width="9" height="7" rx="1" fill="#fbbf24"/>
+    <path d="M184 160 v-3 a2.5 2.5 0 0 1 5 0 v3" fill="none" stroke="#fbbf24" stroke-width="1.3"/>
+  </g>
+  <text x="34" y="306" class="s">active (primary): Lamp</text>
+
+  <!-- viewport frames -->
+  <rect x="208" y="80" width="728" height="406" fill="#20232a" stroke="#3b3f4b"/>
+  <rect x="208" y="80" width="110" height="22" fill="#2f333d"/><text x="218" y="96" class="t">Yard.mscene*</text>
+
+  <!-- A: dragging the rectangle -->
+  <rect x="212" y="104" width="358" height="378" fill="#33475a"/>
+  <text x="222" y="477" class="s">① drag on empty space</text>
+  <g stroke="#4d6577"><line x1="212" y1="420" x2="570" y2="420"/><line x1="212" y1="450" x2="570" y2="450"/><line x1="300" y1="400" x2="270" y2="482"/><line x1="420" y1="400" x2="420" y2="482"/><line x1="540" y1="400" x2="570" y2="440"/></g>
+  <use href="#wall" x="300" y="210"/>
+  <use href="#crate" x="282" y="350"/>
+  <use href="#crate" x="380" y="326"/>
+  <use href="#crate" x="470" y="360"/>
+  <use href="#lamp" x="500" y="250"/>
+  <!-- the box -->
+  <rect x="252" y="196" width="282" height="200" fill="#1d4ed8" fill-opacity="0.15" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <polygon points="532,394 532,410 536,406 539,413 542,412 539,405 545,405" fill="#ffffff" stroke="#111827" stroke-width="0.8"/>
+  <rect x="320" y="440" width="214" height="22" rx="4" fill="#111827" stroke="#3b3f4b"/>
+  <text x="330" y="455" class="m">Shift: add · Ctrl/Cmd: toggle</text>
+  <!-- lock marker on the wall -->
+  <rect x="338" y="226" width="9" height="7" rx="1" fill="#fbbf24"/>
+  <path d="M340 226 v-3 a2.5 2.5 0 0 1 5 0 v3" fill="none" stroke="#fbbf24" stroke-width="1.3"/>
+
+  <!-- B: after release, rotate around the median point -->
+  <rect x="574" y="104" width="358" height="378" fill="#33475a"/>
+  <text x="584" y="477" class="s">② release: one gizmo at the pivot</text>
+  <g stroke="#4d6577"><line x1="574" y1="420" x2="932" y2="420"/><line x1="574" y1="450" x2="932" y2="450"/><line x1="662" y1="400" x2="632" y2="482"/><line x1="782" y1="400" x2="782" y2="482"/><line x1="902" y1="400" x2="932" y2="440"/></g>
+  <use href="#wall" x="662" y="210"/>
+  <use href="#crate" x="644" y="350"/><use href="#crateSel" x="644" y="350"/>
+  <use href="#crate" x="742" y="326"/><use href="#crateSel" x="742" y="326"/>
+  <use href="#crate" x="832" y="360"/><use href="#crateSel" x="832" y="360"/>
+  <use href="#lamp" x="862" y="250"/>
+  <g stroke="#f59e0b" stroke-width="2"><line x1="850" y1="250" x2="874" y2="250"/><line x1="862" y1="238" x2="862" y2="262"/></g>
+  <!-- pivot = median of the four origins (644,350) (742,326) (832,360) (862,250) -->
+  <g stroke-dasharray="2 3" stroke="#e5e7eb" stroke-opacity="0.45">
+    <line x1="770" y1="322" x2="644" y2="350"/><line x1="770" y1="322" x2="742" y2="326"/><line x1="770" y1="322" x2="832" y2="360"/><line x1="770" y1="322" x2="862" y2="250"/>
+  </g>
+  <ellipse cx="770" cy="322" rx="62" ry="62" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+  <ellipse cx="770" cy="322" rx="62" ry="20" fill="none" stroke="#22c55e" stroke-width="2.5"/>
+  <ellipse cx="770" cy="322" rx="20" ry="62" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+  <circle cx="770" cy="322" r="4" fill="#ffffff"/>
+  <circle cx="770" cy="322" r="8" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+  <!-- rotation in progress on the green ring -->
+  <path d="M 832 322 A 62 20 0 0 1 790 341" fill="none" stroke="#fde047" stroke-width="3"/>
+  <rect x="752" y="440" width="160" height="22" rx="4" fill="#111827" stroke="#3b3f4b"/>
+  <text x="762" y="455" class="m">Rotate 4 nodes · 30°</text>
+
+  <!-- pivot tooltip -->
+  <rect x="196" y="78" width="372" height="40" rx="5" fill="#111827" stroke="#3b3f4b"/>
+  <text x="206" y="94" class="t" font-weight="600">Pivot: Median Point</text>
+  <text x="206" y="110" class="s">rotate and scale around the selection's centre (click to change)</text>
+
+  <!-- badges -->
+  <circle cx="252" cy="190" r="9" class="badge"/><text x="248.5" y="194" class="bt">1</text>
+  <circle cx="360" cy="214" r="9" class="badge"/><text x="356.5" y="218" class="bt">2</text>
+  <circle cx="230" cy="61" r="9" class="badge"/><text x="226.5" y="65" class="bt">3</text>
+  <circle cx="790" cy="296" r="9" class="badge"/><text x="786.5" y="300" class="bt">4</text>
+  <circle cx="196" cy="168" r="9" class="badge"/><text x="192.5" y="172" class="bt">5</text>
+
+  <!-- legend -->
+  <g>
+    <circle cx="34" cy="510" r="8" class="badge"/><text x="31" y="514" class="bt">1</text>
+    <text x="50" y="514" class="leg">Box: a left drag that starts on empty space. An RmlUi rectangle in the accent colour; no modifier replaces the selection.</text>
+    <circle cx="34" cy="534" r="8" class="badge"/><text x="31" y="538" class="bt">2</text>
+    <text x="50" y="538" class="leg">3D selects what is visible (object-ID region read back) plus light, camera and audio icons inside; locked and hidden nodes are skipped.</text>
+    <circle cx="34" cy="558" r="8" class="badge"/><text x="31" y="562" class="bt">3</text>
+    <text x="50" y="562" class="leg">New Pivot button cycles Median Point, Active Node (the primary, last in tree order after a box select) and Individual Origins.</text>
+    <circle cx="34" cy="582" r="8" class="badge"/><text x="31" y="586" class="bt">4</text>
+    <text x="50" y="586" class="leg">One gizmo at the pivot transforms every selected node; a child of a selected node follows its parent. Release = one undo entry.</text>
+    <circle cx="34" cy="606" r="8" class="badge"/><text x="31" y="610" class="bt">5</text>
+    <text x="50" y="610" class="leg">Lock toggle next to the eye (saved as the persistent group _editor_locked); the tree and inspector still edit a locked node.</text>
+  </g>
+  <text x="20" y="632" class="cap">2D tabs select nodes whose bounds are fully inside the rectangle (Godot's rule), computed on the CPU.</text>
+</svg>

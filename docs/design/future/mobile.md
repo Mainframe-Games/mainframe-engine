@@ -666,12 +666,13 @@ candidate below requires. The table lists the candidates, not a choice.
 
 Builds on the editor's `PlayService` and the [editor link](../project-and-gamehost.md#editor-link).
 
-- **Export presets** (`project.mfproj` `export`, editable in an Export dialog):
+- **Export presets** (`project.mfproj` `export`, editable in an Export dialog; the desktop schema, dialog and runner
+  come first in [Game export](game-export.md) (G5), and mobile adds its platform keys to the same array):
 
   ```jsonc
   "export": [
     { "name": "Android (debug)", "platform": "android", "applicationId": "com.example.spacegame",
-      "versionName": "1.2.0", "versionCode": "auto", "orientation": "landscape", "tier": "auto",
+      "version": "1.2.0", "versionCode": "auto", "orientation": "landscape", "tier": "auto",
       "packs": { "install-time": ["Content/**"], "on-demand": ["Content/Levels/Bonus/**"] },
       "signing": "debug" },
     { "name": "iOS", "platform": "ios", "bundleId": "com.example.spacegame", "team": "ABCDE12345",
