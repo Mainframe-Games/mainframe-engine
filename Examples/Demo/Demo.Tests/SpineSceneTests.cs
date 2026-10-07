@@ -33,6 +33,8 @@ public sealed class SpineSceneTests : IDisposable
 
     private SpineNode Spine => Scene.GetNode<SpineNode>("Pivot/SpineBoy");
 
+    private MeshInstance3D Backdrop => Scene.GetNode<MeshInstance3D>("Backdrop");
+
     private void Tick() => TestTime.Tick(_tree, ref _frame);
 
     [Fact]
@@ -45,6 +47,7 @@ public sealed class SpineSceneTests : IDisposable
         Assert.False(Camera2D.Current);
         Assert.Equal(Vector3.Zero, Pivot.RotationDegrees);
         Assert.Equal(SpinePanel.Scale3D, Spine.SpineScale);
+        Assert.True(Backdrop.Visible);
     }
 
     [Fact]
@@ -61,6 +64,7 @@ public sealed class SpineSceneTests : IDisposable
         Assert.Equal(new Vector3(180, 0, 0), Pivot.RotationDegrees);
         Assert.Equal(SpinePanel.Scale2D, Spine.SpineScale);
         Assert.Equal(SpinePanel.SunRotation2D, Scene.GetNode<DirectionalLight3D>("Sun").RotationDegrees);
+        Assert.False(Backdrop.Visible);
     }
 
     [Fact]
@@ -80,6 +84,7 @@ public sealed class SpineSceneTests : IDisposable
         Assert.Equal(Vector3.Zero, Pivot.RotationDegrees);
         Assert.Equal(SpinePanel.Scale3D, Spine.SpineScale);
         Assert.Equal(SpinePanel.SunRotation3D, Scene.GetNode<DirectionalLight3D>("Sun").RotationDegrees);
+        Assert.True(Backdrop.Visible);
     }
 
     [Fact]

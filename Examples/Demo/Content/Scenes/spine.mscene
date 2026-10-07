@@ -16,6 +16,18 @@
       "props": {
         "Size": [30, 30]
       }
+    },
+    "StandardMaterial3D_m5k6m": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.76862746, 0.7921569, 0.8392157, 1]
+      }
+    },
+    "BoxMesh_ukl3e": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [14, 6, 0.2]
+      }
     }
   },
   "nodes": [
@@ -54,7 +66,7 @@
       "parent": ".",
       "type": "DirectionalLight3D",
       "props": {
-        "RotationDegrees": [-40, 25, 0],
+        "RotationDegrees": [-35, 40, 0],
         "Energy": 1.2
       }
     },
@@ -65,6 +77,16 @@
       "props": {
         "MaterialOverride": { "res": "StandardMaterial3D_s8kz4" },
         "Mesh": { "res": "PlaneMesh_dcv7g" }
+      }
+    },
+    {
+      "name": "Backdrop",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, 3, -1.2],
+        "MaterialOverride": { "res": "StandardMaterial3D_m5k6m" },
+        "Mesh": { "res": "BoxMesh_ukl3e" }
       }
     },
     {
