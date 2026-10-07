@@ -385,6 +385,13 @@ public sealed class ProjectFileSystem : IDisposable
             }
         }
 
+        if (entry.Kind == FileKind.Song && entry.Peek is { Error: null } song && RenderOutputOf(entry, song) is { } output &&
+            File.Exists(output.Full) && File.GetLastWriteTimeUtc(output.Full) < entry.ModifiedUtc)
+        {
+            badges |= FileBadges.RenderOutOfDate;
+            (lines ??= []).Add($"Render out of date: {output.Project} is older than the song");
+        }
+
         if (_importErrors.TryGetValue(entry.FullPath, out var error))
         {
             if (error.Length == entry.Size && error.ModifiedUtc == entry.ModifiedUtc)
@@ -400,6 +407,22 @@ public sealed class ProjectFileSystem : IDisposable
 
         Set(entry.Badges, badges, v => entry.Badges = v);
         Set(entry.BadgeText, lines is null ? null : string.Join('\n', lines), v => entry.BadgeText = v);
+    }
+
+    // The song's render output (as SongRenderer.OutputPathFor names it: always .wav for now).
+    private (string Project, string Full)? RenderOutputOf(ProjectFileEntry entry, FilePeek peek)
+    {
+        var name = Path.GetFileNameWithoutExtension(entry.Name);
+        var output = string.IsNullOrWhiteSpace(peek.RenderOutput) ? $"Content/Music/{name}.wav" : peek.RenderOutput.Replace('\\', '/');
+        output = Path.ChangeExtension(output, ".wav");
+        try
+        {
+            return (output, Path.GetFullPath(output, ProjectRoot));
+        }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
 
     private bool Resolves(FileReference reference)

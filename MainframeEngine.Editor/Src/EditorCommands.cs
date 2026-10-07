@@ -1,3 +1,4 @@
+using MainframeEngine.Editor.Music;
 using MainframeEngine.Serialization;
 using System.Runtime.InteropServices;
 
@@ -67,9 +68,12 @@ public sealed class EditorCommands
 
     private bool Run(string id)
     {
+        if (Session.ActiveTab is SongTab song && RunSong(song, id))
+            return true;
         switch (id)
         {
             case "file.new": Session.NewScene(); return true;
+            case "file.new_song": NewSong(); return true;
             case "file.open": OpenScene(); return true;
             case "file.save": Save(Active, saveAs: false, then: null); return true;
             case "file.save_as": Save(Active, saveAs: true, then: null); return true;
@@ -142,6 +146,108 @@ public sealed class EditorCommands
         }
     }
 
+    // Commands that act on the active song tab instead of a scene (false: not a song command, run it as usual).
+    private bool RunSong(SongTab song, string id)
+    {
+        var history = song.Document.History;
+        switch (id)
+        {
+            case "file.save": SaveSong(song, saveAs: false, then: null); return true;
+            case "file.save_as": SaveSong(song, saveAs: true, then: null); return true;
+            case "edit.undo": history.Undo(); return true;
+            case "edit.redo": history.Redo(); return true;
+            case "edit.history": return true;
+            case "edit.delete": song.Controller.Delete(); return true;
+            case "edit.duplicate": song.Controller.Duplicate(); return true;
+            case "song.play": song.Player.TogglePlay(); return true;
+            case "song.stop": song.Player.Stop(); return true;
+            case "song.rewind": song.Controller.Key(Silk.NET.Input.Key.Home, EditorModifiers.None); return true;
+            case "song.loop": song.Controller.ToggleLoop(); return true;
+            case "song.render": _workspace.SongView.Render(song.Document.FilePath); return true;
+            case "song.mixer": song.SetPanel(song.Panel == SongBottomPanel.Mixer ? SongBottomPanel.PianoRoll : SongBottomPanel.Mixer); return true;
+            default: return false;
+        }
+    }
+
+    /// <summary>File › New Song: asks where to save it (default <c>Content/Music</c>), creates it and opens its tab.</summary>
+    public void NewSong()
+    {
+        var root = Session.ProjectRoot;
+        var folder = root is null ? StartDirectory(null) : Path.Combine(root, "Content", "Music");
+        if (root is not null)
+            Directory.CreateDirectory(folder);
+        var model = new FilePickerModel(FilePickerMode.Save, folder, ["*.msong"], "NewSong.msong");
+        _workspace.FilePicker.Show(model, "New Song", "Create", path => CreateSong(path));
+    }
+
+    /// <summary>Creates a song at <paramref name="path"/> (one built-in instrument track) and opens it; false on failure.</summary>
+    public bool CreateSong(string path)
+    {
+        try
+        {
+            var full = SongTab.CreateFile(path);
+            Log.Info($"[Editor] Created {Session.DisplayPath(full)}");
+            Session.OpenSong(full);
+            _workspace.FileSystem.Rescan();
+            return true;
+        }
+        catch (Exception e) when (IsRecoverable(e))
+        {
+            ReportError($"Could not create {Path.GetFileName(path)}", e);
+            return false;
+        }
+    }
+
+    /// <summary>Opens a song tab for <paramref name="path"/>, reporting failures.</summary>
+    public void OpenSong(string path)
+    {
+        try
+        {
+            Session.OpenSong(path);
+        }
+        catch (Exception e) when (IsRecoverable(e))
+        {
+            ReportError($"Could not open {Path.GetFileName(path)}", e);
+        }
+    }
+
+    /// <summary>Saves a song tab (Save As asks for a file), then runs <paramref name="then"/> with whether it was saved.</summary>
+    public void SaveSong(SongTab song, bool saveAs, Action<bool>? then)
+    {
+        if (song.Document.IsReadOnly && !saveAs)
+        {
+            ReportError($"Could not save {song.DisplayName}", new InvalidOperationException(song.Document.ReadOnlyNotice ?? "The song is read-only."));
+            then?.Invoke(false);
+            return;
+        }
+
+        if (!saveAs)
+        {
+            var saved = TrySaveSong(song, null);
+            then?.Invoke(saved);
+            return;
+        }
+
+        var model = new FilePickerModel(FilePickerMode.Save, Path.GetDirectoryName(song.Document.FilePath)!, ["*.msong"], song.DisplayName);
+        _workspace.FilePicker.Show(model, "Save Song As", "Save", path => then?.Invoke(TrySaveSong(song, path)), onCancel: () => then?.Invoke(false));
+    }
+
+    private bool TrySaveSong(SongTab song, string? path)
+    {
+        try
+        {
+            Session.SaveSong(song, path);
+            Log.Info($"[Editor] Saved {Session.DisplayPath(song.FilePath)}");
+            _workspace.FileSystem.UpdateUnsaved();
+            return true;
+        }
+        catch (Exception e) when (IsRecoverable(e))
+        {
+            ReportError($"Could not save {song.DisplayName}", e);
+            return false;
+        }
+    }
+
     private void SetMode(GizmoMode mode)
     {
         _workspace.Gizmo.Mode = mode;
@@ -210,6 +316,9 @@ public sealed class EditorCommands
     public bool SaveAll()
     {
         var ok = true;
+        foreach (var tab in Session.Tabs)
+            if (tab is SongTab { IsDirty: true, Document.IsReadOnly: false } song)
+                ok &= TrySaveSong(song, null);
         foreach (var scene in Session.Scenes)
         {
             if (!scene.IsDirty)
@@ -234,7 +343,7 @@ public sealed class EditorCommands
     public void SaveAll(Action<bool> then)
     {
         ArgumentNullException.ThrowIfNull(then);
-        if (!SaveAll() && Session.Scenes.Any(s => s.IsDirty && s.FilePath is not null))
+        if (!SaveAll() && Session.Tabs.Any(t => t.IsDirty && t is SongTab or EditedScene { FilePath: not null }))
         {
             then(false); // a file-backed save failed (already reported)
             return;
@@ -283,6 +392,8 @@ public sealed class EditorCommands
     {
         if (tab is EditedScene scene)
             CloseScene(scene);
+        else if (tab is SongTab { IsDirty: true } song)
+            CloseSong(song);
         else if (tab is not null)
             Session.Close(tab);
     }
@@ -413,6 +524,27 @@ public sealed class EditorCommands
         _workspace.ProjectManager.Open();
     });
 
+    /// <summary>Closes a song tab with unsaved changes after asking (Save, Don't Save, Cancel).</summary>
+    private void CloseSong(SongTab song) => _workspace.Message.Show(new MessageRequest
+    {
+        Title = "Unsaved changes",
+        Message = $"Save the changes to {song.DisplayName} before closing it?",
+        Buttons = ["Save", "Don't Save", "Cancel"],
+        DefaultButton = 0,
+        CancelButton = 2,
+        Callback = (button, _) =>
+        {
+            if (button == 1)
+                Session.Close(song);
+            else if (button == 0)
+                SaveSong(song, saveAs: false, then: saved =>
+                {
+                    if (saved)
+                        Session.Close(song);
+                });
+        },
+    });
+
     private void CloseProject() => AfterUnsavedScenes("Close Project", () =>
     {
         _workspace.Play.Stop();
@@ -425,8 +557,8 @@ public sealed class EditorCommands
     // Runs then once unsaved scenes were saved or discarded (Save All / Don't Save / Cancel).
     private void AfterUnsavedScenes(string title, Action then)
     {
-        var dirty = Session.Scenes.Where(s => s.IsDirty).ToArray();
-        if (dirty.Length == 0)
+        var dirty = Session.DirtyTabs;
+        if (dirty.Count == 0)
         {
             then();
             return;
@@ -580,7 +712,8 @@ public sealed class EditorCommands
     public IReadOnlyList<MenuItem> MenuItems(string menu)
     {
         var scene = Active;
-        var history = scene?.History;
+        var song = Session.ActiveSong;
+        var history = scene?.History ?? song?.Document.History;
         var hasSelection = scene?.Selection.Count > 0;
         return menu switch
         {
@@ -588,13 +721,14 @@ public sealed class EditorCommands
             [
                 new MenuItem("New Scene", "file.new", "Ctrl+N", Icon: "file-plus"),
                 new MenuItem("Open Scene…", "file.open", "Ctrl+O", Icon: "folder-open"),
+                new MenuItem("New Song…", "file.new_song", null, Session.ProjectRoot is not null, Icon: "music"),
                 MenuItem.Separator,
                 new MenuItem("New Project…", "project.new", Icon: "square-plus"),
                 new MenuItem("Open Project…", "project.open", Icon: "folder-open"),
                 new MenuItem("Project Manager…", "project.manager", Icon: "folders"),
                 MenuItem.Separator,
-                new MenuItem("Save", "file.save", "Ctrl+S", scene is not null, Icon: "device-floppy"),
-                new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", scene is not null, Icon: "file-export"),
+                new MenuItem("Save", "file.save", "Ctrl+S", scene is not null || song is not null, Icon: "device-floppy"),
+                new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", scene is not null || song is not null, Icon: "file-export"),
                 MenuItem.Separator,
                 new MenuItem("Close Tab", "file.close", "Ctrl+W", Session.ActiveTab is not null, Icon: "x"),
                 new MenuItem("Quit", "file.quit", "Ctrl+Q", Icon: "logout"),
@@ -603,13 +737,13 @@ public sealed class EditorCommands
             [
                 new MenuItem(history?.UndoAction is { } undo ? $"Undo {undo.Name}" : "Undo", "edit.undo", "Ctrl+Z", history?.CanUndo == true, Icon: "arrow-back-up"),
                 new MenuItem(history?.RedoAction is { } redo ? $"Redo {redo.Name}" : "Redo", "edit.redo", "Ctrl+Shift+Z", history?.CanRedo == true, Icon: "arrow-forward-up"),
-                new MenuItem("Undo History…", "edit.history", null, history?.Actions.Count > 0, Icon: "history"),
+                new MenuItem("Undo History…", "edit.history", null, scene is not null && history?.Actions.Count > 0, Icon: "history"),
                 MenuItem.Separator,
                 new MenuItem("Add Node…", "node.add", "Ctrl+A", scene is not null, Icon: "circle-plus"),
                 new MenuItem("Instance Scene…", "scene.instance", "Ctrl+Shift+A", scene is not null, Icon: "link"),
                 new MenuItem("Rename", "edit.rename", "F2", hasSelection, Icon: "pencil"),
-                new MenuItem("Duplicate", "edit.duplicate", "Ctrl+D", hasSelection, Icon: "copy"),
-                new MenuItem("Delete", "edit.delete", "Del", hasSelection, Icon: "trash"),
+                new MenuItem("Duplicate", "edit.duplicate", "Ctrl+D", hasSelection || song?.SelectedClip is not null, Icon: "copy"),
+                new MenuItem("Delete", "edit.delete", "Del", hasSelection || song?.SelectedClip is not null, Icon: "trash"),
             ],
             "view" =>
             [
@@ -688,6 +822,7 @@ public sealed class EditorCommands
                   "Q select · W move · E rotate · R scale · T local/global · Y snap · F frame · G grid\n" +
                   "Viewport: click select · RMB+WASD/QE fly (Shift faster) · Alt+LMB or MMB orbit · Shift+MMB pan · wheel zoom\n" +
                   "1 / 3 / 7 front, right, top view · F12 developer overlay · F9 UI debugger\n" +
+                  "Song tab: Space play/stop · L loop · Home to start · Del · Ctrl+C/V/D · arrows nudge (Shift: octave) · Q quantize · Ctrl+wheel zoom\n" +
                   "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · Ctrl+Shift+B build & reload code",
         Buttons = ["Close"],
     });

@@ -37,6 +37,9 @@ public enum FileBadges
 
     /// <summary>The file cannot be read (invalid JSON, an image that does not decode).</summary>
     ImportError = 4,
+
+    /// <summary>A song whose rendered output is older than the song.</summary>
+    RenderOutOfDate = 8,
 }
 
 /// <summary>Extension → <see cref="FileKind"/>, and which extensions count as asset references.</summary>

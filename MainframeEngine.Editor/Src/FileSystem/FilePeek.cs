@@ -22,6 +22,9 @@ internal sealed class FilePeek
     public string? RootTypeName { get; private init; }
     public string? Uid { get; private init; }
     public string? Error { get; private init; }
+
+    /// <summary>A song's <c>render.output</c> (null: the default output).</summary>
+    public string? RenderOutput { get; private init; }
     public IReadOnlyList<FileReference> References { get; private init; } = [];
 
     public bool Matches(long length, DateTime modifiedUtc) => Length == length && ModifiedUtc == modifiedUtc;
@@ -61,6 +64,9 @@ internal sealed class FilePeek
                 ModifiedUtc = modifiedUtc,
                 RootTypeName = typeName,
                 Uid = GetString(top, "uid"),
+                RenderOutput = kind == FileKind.Song && top.TryGetProperty("render", out var render) && render.ValueKind == JsonValueKind.Object
+                    ? GetString(render, "output")
+                    : null,
                 References = references,
             };
         }
@@ -135,6 +141,6 @@ internal sealed class FilePeekCache
     }
 
     /// <summary>Scenes, resources and <c>project.mfproj</c> are peeked (the latter only for JSON errors).</summary>
-    public static bool IsPeeked(string name, FileKind kind) => kind is FileKind.Scene or FileKind.Resource
+    public static bool IsPeeked(string name, FileKind kind) => kind is FileKind.Scene or FileKind.Resource or FileKind.Song
         || string.Equals(name, ProjectSettings.FileName, StringComparison.OrdinalIgnoreCase);
 }

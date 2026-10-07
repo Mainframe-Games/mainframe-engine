@@ -217,8 +217,8 @@ public sealed class FileSystemPanel : EditorDocument
         if (_fs is null)
             return;
         var dirty = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var scene in Workspace.Session.Scenes)
-            if (scene.IsDirty && scene.FilePath is { } path)
+        foreach (var tab in Workspace.Session.Tabs)
+            if (tab is EditedScene or Music.SongTab && tab.IsDirty && tab.FilePath is { } path)
                 dirty.Add(path);
         _fs.SetUnsaved(dirty);
     }
@@ -302,6 +302,7 @@ public sealed class FileSystemPanel : EditorDocument
         (badges & FileBadges.ImportError) != 0 ? "icon icon-sm icon-circle-x badge-error"
         : (badges & FileBadges.MissingDependency) != 0 ? "icon icon-sm icon-alert-triangle badge-warn"
         : (badges & FileBadges.Unsaved) != 0 ? "icon icon-sm icon-point-filled badge-unsaved"
+        : (badges & FileBadges.RenderOutOfDate) != 0 ? "icon icon-sm icon-refresh badge-warn"
         : "";
 
     private ProjectFileEntry? EntryAt(int index) => (uint)index < (uint)_rows.Count ? _rows[index].Entry : null;
@@ -417,6 +418,9 @@ public sealed class FileSystemPanel : EditorDocument
                     }
                 });
                 break;
+            case FileKind.Song:
+                Workspace.Commands.OpenSong(entry.FullPath);
+                break;
             case FileKind.Rml:
                 try
                 {
@@ -503,6 +507,9 @@ public sealed class FileSystemPanel : EditorDocument
             new MenuItem(entry.Kind == FileKind.Rml ? "Preview UI" : "Open", "fs.open", "Double-click", !entry.IsDirectory,
                 Icon: entry.Kind == FileKind.Rml ? "layout" : "external-link"),
             .. entry.Kind == FileKind.Rml ? [new MenuItem("Open in Code Editor", "fs.open_code", Icon: "code")] : Array.Empty<MenuItem>(),
+            .. entry.Kind == FileKind.Song
+                ? [new MenuItem(Workspace.SongView.RenderOf(entry.FullPath) is null ? "Render" : "Cancel Render", "fs.render", Icon: "download")]
+                : Array.Empty<MenuItem>(),
             .. IsPlayable(entry)
                 ? [new MenuItem("Play", "fs.play", Icon: "player-play"),
                    new MenuItem("Stop", "fs.stop", null, Workspace.AudioPreview.IsPlayingFile(entry.FullPath), Icon: "player-stop")]
@@ -512,6 +519,7 @@ public sealed class FileSystemPanel : EditorDocument
             new MenuItem("New Scene…", "fs.new_scene", Icon: "movie"),
             new MenuItem("New 2D Scene…", "fs.new_scene_2d", Icon: "square"),
             new MenuItem("New Resource…", "fs.new_resource", Icon: "file-plus"),
+            new MenuItem("New Song…", "fs.new_song", Icon: "music"),
             MenuItem.Separator,
             new MenuItem("Rename…", "fs.rename", "F2", !isRoot, Icon: "pencil"),
             new MenuItem("Move To…", "fs.move", null, !isRoot, Icon: "folder-open"),
@@ -559,6 +567,13 @@ public sealed class FileSystemPanel : EditorDocument
                 return true;
             case "fs.new_resource":
                 NewResource();
+                return true;
+            case "fs.new_song":
+                PromptName("New Song", "Song name:", "NewSong", name => Workspace.Commands.CreateSong(Path.Combine(TargetFolder()!, name)));
+                return true;
+            case "fs.render":
+                if (entry is { Kind: FileKind.Song })
+                    Workspace.SongView.Render(entry.FullPath);
                 return true;
             case "fs.rename":
                 if (entry is { Depth: > 0 })

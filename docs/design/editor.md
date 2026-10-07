@@ -139,7 +139,9 @@ Cmd (macOS) or Ctrl: N new · O open · S save · Shift+S save as · W close tab
 D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload. Plain keys:
 Delete/Backspace delete, F2 rename, F frame, G grid, Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5
 play (Shift+F5 another instance), F6 play the open scene, F7 pause/resume, F8 stop, F9 RmlUi debugger. Shortcuts are
-unhandled input: a focused text field keeps its keys, and closed dialogs release focus.
+unhandled input: a focused text field keeps its keys, and closed dialogs release focus. While a song tab is active its
+own keys come first ([Song tab](#song-tab-music-editor)): Space play/stop, L loop, Home to start, Del, Cmd+C/V/D, arrows,
+Q; F5–F8 and the Cmd shortcuts above stay the editor's.
 
 ## Icons
 
@@ -535,6 +537,51 @@ generated parameter sliders (`File` and `LoadMode` rows are hidden):
 - **Export .wav** opens the file picker in save mode at `<sound folder>/<name>.wav` and writes 16-bit PCM, 44.1 kHz
   mono through `WavWriter`; an I/O error is reported (`Commands.ReportError`) and the partial file deleted. The new file
   gets its `.meta`/UID from the asset database like any dropped-in file.
+
+## Song tab (music editor)
+
+Double-clicking a `.msong`, File › New Song… (a file picker in `Content/Music`) or the FileSystem panel's New Song…
+opens a **song tab** (`Music/SongTab`, an `IEditorTab`; design: [Music editor](future/music-editor.md)). A new song has
+one instrument track with the built-in ZzFX instrument. The tab owns the `SongDocument` (its own undo history: Cmd+Z,
+Cmd+S, Save As — a copy gets a new UID — and the close/quit prompts cover it like scenes) and one `SongPlayer`, stopped
+when the tab is deactivated or closed. The scene tree and inspector rest while it is active, like a UI preview.
+
+- **Chrome** (`SongPanel`, `Content/Editor/song.rml`, over the view area): transport — to start, play, stop, loop,
+  tempo field, time signature menu, position (bars.beats.ticks), snap menu (off, 1/4 … 1/32, triplets), underrun counter
+  and **Render**; track headers (colour bar, name — double-click renames —, instrument, mute, solo, colour, remove; + adds
+  an instrument or audio track); a **Piano roll | Mixer** switcher with the selected clip's summary; mixer strips
+  (instrument slot "Built-in ZzFX" with its menu, Edit Sound — the ZzFX line in a text field, checked by
+  `ZzfxParameters.TryParse`, auditioned on Apply — and audition; an inserts placeholder, "VST3 effects arrive with the
+  plugin host"; pan; vertical volume fader in dB; peak meter from `TakeTrackPeak`/`TakeMasterPeak` once per frame;
+  mute/solo) and the master strip. Faders and the tempo field merge into one undo entry per drag or edit. No record-arm
+  or record buttons and no metronome yet (no MIDI input, `SongEngine` has no click).
+- **Canvases:** the arrangement (`ArrangementCanvas`) and the piano roll (`PianoRollCanvas`) are `[Tool]` `Node2D`s
+  drawing with `DrawRect`/`DrawLine`/`DrawString` in two `Disable3D` `SubViewport`s per tab, sized in framebuffer pixels
+  (drawing in dp × scale keeps text sharp). The `SongView` node publishes the active tab's viewports as
+  `engine://song-arrange` / `engine://song-roll` (the `ViewportPanel` pattern), routes mouse input over the canvas
+  areas (pointer-events none in the RML) to the tab's `SongCanvasController`, keeps the playhead in view while playing
+  and runs renders. Drawing allocates nothing in steady state (cached bar and note labels, colour cache, no LINQ).
+- **Arrangement:** ruler with bar numbers, the loop region in its top band (drag inside to move, edges to resize, outside
+  to draw a new one, which enables looping), click/drag below to seek; one 44 dp lane per track. Clips drag with snap
+  (also to another lane of the same kind), resize from either edge (an audio clip's left trim moves its offset), Alt-drag
+  copies, Cmd+D duplicates after, Del deletes; double-click an empty instrument lane for a one-bar MIDI clip, an audio
+  lane for "Add Audio Clip" (file picker); dropping a sound from the FileSystem panel adds an audio clip (on an audio
+  lane, else on a new audio track) of the file's length. Clip gestures are previewed and committed on release; MIDI clips
+  show their notes, audio clips min/max peaks (`SongWaveforms`, decoded in the background and cached).
+- **Piano roll** of the selected MIDI clip: keyboard (click auditions through `PreviewNote`), click adds a note of the
+  last length, drag moves (snapped in song time; the moved note auditions), right edge resizes, empty-area drag is a
+  rubber band (Shift adds), velocity lane (drag a bar; selected notes together), Del, Cmd+C/V (at the playhead inside the
+  clip, else after the copy)/D, arrows nudge by the snap (Shift: an octave), Q quantizes (`SongDocument.QuantizeNotes`,
+  one entry). Notes and velocity drag live with a merge key, ended on release: **one undo entry per gesture**.
+- **Zoom and scroll:** Cmd/Ctrl+wheel zooms time around the mouse, Shift+wheel (or a horizontal wheel) scrolls time,
+  the wheel scrolls lanes / pitches.
+- **Render** (transport button, FileSystem › Render on a `.msong`): `SongRenderJob` renders a copy of the song with
+  `SongRenderer.Render` on a worker thread; the button shows "Cancel 63 %" and cancels on click (the splash has no cancel
+  and would block the editor, so progress is shown there instead). The result goes to the Output panel. The FileSystem
+  badges a song whose output is older than the song (refresh icon, "Render out of date").
+- Tests: `Tests/MainframeEngine.Editor.Tests/Music/SongTabTests.cs` (tab, gestures → one entry each, grid math, keys) and
+  `SongWorkspaceTests.cs` (panel, keys before shortcuts, save, close prompt); QA steps 13d–13f in the walkthrough
+  (`song` QA step: `new`, `demo`, `panel`, `play`, `stop`, `save`, `render`; `wait-for render`).
 
 ## Editor settings
 

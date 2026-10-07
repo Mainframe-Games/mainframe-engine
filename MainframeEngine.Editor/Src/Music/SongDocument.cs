@@ -296,6 +296,18 @@ public sealed class SongDocument : IDisposable
         SetNotes("Note Velocity", notes, n => (n.Pitch, n.Start, n.Length, velocity), mergeKey);
     }
 
+    /// <summary>
+    /// Snaps the notes' starts to multiples of <paramref name="step"/> ticks, measured in song time (the grid follows the
+    /// clip's position), as one history entry.
+    /// </summary>
+    public void QuantizeNotes(MidiClip clip, IReadOnlyList<MidiNote> notes, long step)
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+        if (step <= 1 || notes.Count == 0)
+            return;
+        SetNotes("Quantize", notes, n => (n.Pitch, Math.Max(0, SongGrid.Round(clip.Start + n.Start, step) - clip.Start), n.Length, n.Velocity), null);
+    }
+
     // --- song settings --------------------------------------------------------------------------
 
     public void SetTempo(double bpm, string? mergeKey = null) => Set("Tempo", Song.Tempo, Math.Clamp(bpm, 20, 999), v => Song.Tempo = v, mergeKey);

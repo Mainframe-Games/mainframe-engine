@@ -195,6 +195,8 @@ public sealed class EditorQaScript : IEditorAutomation
                     var path = Path.GetFullPath(string.Join(' ', step[1..]));
                     if (path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
                         workspace.Session.OpenUiPreview(path);
+                    else if (path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
+                        workspace.Session.OpenSong(path);
                     else
                         workspace.Session.Open(path);
                     break;
@@ -310,6 +312,7 @@ public sealed class EditorQaScript : IEditorAutomation
                     "idle" => static w => !w.Project.IsBuilding && !w.Play.IsBuilding,
                     "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running && i.Frame >= 90),
                     "stopped" => static w => !w.Play.IsPlaying,
+                    "render" => static w => w.SongView.Renders.Count == 0,
                     _ => throw new ArgumentException($"Unknown wait-for '{step[1]}'."),
                 };
                 _waitForDeadline = step.Length > 2 ? Float(step, 2) : 120;
@@ -464,6 +467,9 @@ public sealed class EditorQaScript : IEditorAutomation
             case "quit":
                 app.Quit(ExitCode.Ok);
                 break;
+            case "song":
+                Song(workspace, step);
+                break;
             case "update-preview":
                 workspace.Updates.ShowPreview(PreviewUpdate(step[1]));
                 break;
@@ -601,5 +607,61 @@ public sealed class EditorQaScript : IEditorAutomation
 
     public void OnClosing(EditorApp app)
     {
+    }
+    // song new <project path> · song demo (a one-bar clip with a few notes, one undo entry each) · song panel roll|mixer ·
+    // song select <track> · song play · song stop · song render (wait-for render) · song save
+    private static void Song(EditorWorkspace workspace, string[] step)
+    {
+        if (step[1] == "new")
+        {
+            workspace.Commands.CreateSong(Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[2..])));
+            return;
+        }
+
+        if (workspace.Session.ActiveSong is not { } tab)
+        {
+            Log.Warning("[QA] 'song' needs an active song tab.");
+            return;
+        }
+
+        var document = tab.Document;
+        switch (step[1])
+        {
+            case "demo":
+                {
+                    var track = document.Song.Tracks[0];
+                    var bar = document.Song.TicksPerBar;
+                    var clip = document.AddMidiClip(track, 0, bar * 2);
+                    var ppq = document.Song.Ppq;
+                    int[] pitches = [60, 64, 67, 72, 71, 67, 64, 62];
+                    var notes = new List<Music.MidiNote>();
+                    for (var i = 0; i < pitches.Length; i++)
+                        notes.Add(new Music.MidiNote { Pitch = pitches[i], Start = i * ppq, Length = ppq / 2, Velocity = 70 + i * 7 });
+                    document.AddNotes(clip, notes);
+                    document.SetLoop(true, 0, bar * 2);
+                    tab.SelectClip(track, clip);
+                    tab.SelectedNotes.AddRange(notes.GetRange(2, 3));
+                    break;
+                }
+
+            case "panel":
+                tab.SetPanel(step[2] == "mixer" ? Music.SongBottomPanel.Mixer : Music.SongBottomPanel.PianoRoll);
+                break;
+            case "play":
+                tab.Player.Play();
+                break;
+            case "stop":
+                tab.Player.Stop();
+                break;
+            case "render":
+                workspace.Commands.Execute("song.render");
+                break;
+            case "save":
+                workspace.Commands.Execute("file.save");
+                break;
+            default:
+                Log.Warning($"[QA] Unknown song step '{step[1]}'.");
+                break;
+        }
     }
 }

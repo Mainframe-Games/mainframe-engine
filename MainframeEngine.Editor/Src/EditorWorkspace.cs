@@ -158,6 +158,12 @@ public sealed partial class EditorWorkspace : Node
     public ViewportPanel ViewportPanel { get; private set; } = null!;
     public InspectorPanel Inspector { get; private set; } = null!;
     public OutputPanel OutputPanel { get; private set; } = null!;
+
+    /// <summary>The song tab's chrome (transport, track headers, mixer), shown over the view while a song tab is active.</summary>
+    public SongPanel SongPanel { get; private set; } = null!;
+
+    /// <summary>The song tab's canvases, input and renders.</summary>
+    public Music.SongView SongView { get; private set; } = null!;
     public SplittersOverlay Splitters { get; private set; } = null!;
     public PopupMenu Popup { get; private set; } = null!;
     public FilePickerDialog FilePicker { get; private set; } = null!;
@@ -201,8 +207,10 @@ public sealed partial class EditorWorkspace : Node
         ViewportPanel = new ViewportPanel(this) { Name = "Viewport" };
         Inspector = new InspectorPanel(this) { Name = "Inspector" };
         OutputPanel = new OutputPanel(this) { Name = "Output" };
+        SongPanel = new SongPanel(this) { Name = "Song" };
         Splitters = new SplittersOverlay(this) { Name = "Splitters" };
         PanelLayer.AddChild(ViewportPanel);
+        PanelLayer.AddChild(SongPanel);
         PanelLayer.AddChild(MenuBar);
         PanelLayer.AddChild(Toolbar);
         PanelLayer.AddChild(SceneTree);
@@ -239,6 +247,8 @@ public sealed partial class EditorWorkspace : Node
 
         Viewport = new ViewportController(this) { Name = "ViewportController" };
         AddChild(Viewport);
+        SongView = new Music.SongView(this) { Name = "SongView" };
+        AddChild(SongView);
         AddChild(PanelLayer);
         AddChild(ProjectLayer);
         AddChild(DialogLayer);
@@ -389,6 +399,7 @@ public sealed partial class EditorWorkspace : Node
         SceneTree.SetRect(Layout.SceneTree);
         FileSystem.SetRect(Layout.FileSystem);
         ViewportPanel.SetRect(Layout.Viewport);
+        SongPanel.SetRect(Layout.ViewportImage);
         Inspector.SetRect(Layout.Inspector);
         OutputPanel.SetRect(Layout.Output);
         Splitters.Apply(Layout);
@@ -531,6 +542,13 @@ public sealed partial class EditorWorkspace : Node
             return;
         }
 
+        // A song tab's own keys (Space, L, Home, Del, Cmd+C/V/D, arrows, Q) come first; F5–F8 and the rest stay global.
+        if (SongView.HandleKey(key.Key, Modifiers))
+        {
+            GetViewport()?.SetInputAsHandled();
+            return;
+        }
+
         var command = ProjectShortcutFor(key.Key, Modifiers) ?? ShortcutFor(key.Key, Modifiers);
         if (command is null)
             return;
@@ -615,8 +633,8 @@ public sealed partial class EditorWorkspace : Node
             Host.Quit();
         }
 
-        var dirty = Session.Scenes.Where(s => s.IsDirty).ToArray();
-        if (dirty.Length == 0)
+        var dirty = Session.DirtyTabs;
+        if (dirty.Count == 0)
         {
             Quit();
             return;
