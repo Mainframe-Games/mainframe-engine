@@ -238,6 +238,21 @@ public sealed class AssetDatabase
         return meta;
     }
 
+    /// <summary>
+    /// Writes <paramref name="meta"/> as the <c>.meta</c> sidecar of <paramref name="assetPath"/> (replacing it) and
+    /// registers its UID for the path. Tools use it to set import settings (the editor's song render: loop points).
+    /// </summary>
+    public void WriteMeta(string assetPath, AssetMeta meta)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(assetPath);
+        ArgumentNullException.ThrowIfNull(meta);
+        if (string.IsNullOrEmpty(meta.Uid))
+            meta.Uid = AssetUid.Generate(AssetUid.PrefixForExtension(Path.GetExtension(assetPath)));
+        var metaPath = ToAbsolutePath(assetPath) + MetaExtension;
+        File.WriteAllBytes(metaPath, JsonSerializer.SerializeToUtf8Bytes(meta, AssetJsonContext.Default.AssetMeta));
+        Register(meta.Uid, ToProjectPath(assetPath));
+    }
+
     /// <summary>Project-relative path with <c>/</c> separators (absolute when outside the project).</summary>
     public string ToProjectPath(string path)
     {
@@ -251,7 +266,8 @@ public sealed class AssetDatabase
     public string ToAbsolutePath(string path) => Path.GetFullPath(path, ProjectRoot);
 
     internal static bool IsSelfDescribing(string path) =>
-        path.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase);
+        path.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase) ||
+        path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Reads the top-level <c>"uid"</c> of a scene/resource file without parsing the rest.</summary>
     internal static string? ReadEmbeddedUid(string path)

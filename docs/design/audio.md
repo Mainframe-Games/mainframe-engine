@@ -215,6 +215,8 @@ defaults (warned once).
   producer's position on its next block), `FramesConsumed`. The voice resamples `MixRate` → device rate with the same
   linear interpolation as streams (pitch applies). It never ends on its own; an empty ring after the first push plays
   silence and counts `Underruns` (also in `AudioServerStats`).
+- **`AudioStream.DecodedSamples`** — the interleaved samples of a memory-loaded stream, for tools that mix sounds
+  themselves (the editor's song engine). **`AssetDatabase.WriteMeta`** writes a `.meta` (the song render's loop points).
 - **`WavWriter`** — writes interleaved floats as 16-bit PCM (× 32768, saturating, the decoder's inverse) or 32-bit float.
 - **Tests:** `build/zzfx-reference.mjs` (Node, run by hand) evaluates the vendored 1.4.0 `buildSamples` over 16 cases
   into `Tests/Content/Audio/zzfx-reference.json`; `ZzfxTests` compares the port within 1e-5.

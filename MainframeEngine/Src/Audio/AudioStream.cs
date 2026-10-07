@@ -102,6 +102,13 @@ public class AudioStream : Resource
     /// <summary>Sample rate of the file (0 until loaded).</summary>
     public int SampleRate => _source?.SampleRate ?? 0;
 
+    /// <summary>
+    /// The decoded interleaved samples (<see cref="Channels"/> per frame at <see cref="SampleRate"/>) of a stream held in
+    /// memory, once loaded; empty for streamed or unloaded streams. For tools that mix sounds themselves (the editor's
+    /// song engine); do not modify them.
+    /// </summary>
+    public ReadOnlyMemory<float> DecodedSamples => _source is AudioClipData clip ? clip.Samples : ReadOnlyMemory<float>.Empty;
+
     /// <summary>True when the stream plays from the streaming thread rather than memory.</summary>
     public bool IsStreamed => _source is AudioStreamSource;
 
