@@ -319,8 +319,8 @@ pans, the wheel zooms around the mouse, F frames the selection. A pixel grid (po
 pixels apart, every 8th brighter, coloured axes), Node2D markers, collision shape outlines and Camera2D frames are
 drawn. Picking is on the CPU (rectangle and circle shapes, then node origins; later nodes are on top).
 `TransformGizmo2D` (axis arrows and a free-move square, a rotation ring, scale handles) shares the tool, space and snap
-settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. There is no sprite
-rendering yet, so 2D scenes show shapes, markers and camera frames.
+settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. 2D tabs render through
+the canvas renderer (sprites, Spine, custom drawing, shaders) with the editor's shapes, markers and camera frames on top.
 
 ## Projects
 
@@ -729,7 +729,7 @@ average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate 
 ## Known issues
 
 - A code reload drops the undo history of the scenes it re-creates (selection, view and dirty state are kept).
-- The gizmo moves the last selected node only; there is no box selection. 2D scenes have no sprites to show yet.
+- The gizmo moves the last selected node only; there is no box selection.
 - Signal connections are real delegates in the editor: a `[Tool]` node emitting in edit mode calls its targets.
 - The accent colour recolours the shared style sheets; a few inline document styles keep the default blue.
 - A scene file rewritten by a reference fix-up loses hand-written formatting (other files are untouched).

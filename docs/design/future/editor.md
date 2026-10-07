@@ -9,13 +9,15 @@ and inspector, E3 viewport, E4 projects and Play, E5 polish) has shipped and is 
 | Item | Notes |
 |---|---|
 | Remote scene tree | Inspect the running game's tree and properties over the editor link (Godot's "Remote" tab). The link carries hello, logs, status and commands today. |
-| Simulate mode | An in-process mode that runs physics and scripts in the edited world, next to out-of-process Play. |
-| Box selection | Drag a rectangle in the viewport (3D: an ID-target region read back; 2D: shape bounds). |
-| Multi-node gizmo | Move/rotate/scale several selected nodes around a shared pivot; today the gizmo acts on the last selected node (the inspector already edits several). |
+| Simulate mode | An in-process mode that runs physics and scripts in the edited world, next to out-of-process Play. Proposal: [Editor viewport tools](editor-viewport-tools.md) (G7). |
+| Box selection | Drag a rectangle in the viewport (3D: an ID-target region read back; 2D: shape bounds). Proposal: [Editor viewport tools](editor-viewport-tools.md) (G7). |
+| Multi-node gizmo | Move/rotate/scale several selected nodes around a shared pivot; today the gizmo acts on the last selected node (the inspector already edits several). Proposal: [Editor viewport tools](editor-viewport-tools.md) (G7). |
 | Docking and multi-window | Tear-off panels and editor windows on other monitors, once SDL multi-window is available. Layout today: fixed regions with persisted splitters. |
+| Export | File › Export with per-platform presets. Proposal: [Game export](game-export.md) (G5). |
+| Animation panel | Timeline for `Animation` resources. Proposal: [Keyframe animation](keyframe-animation.md) (G1). |
 | Shared widgets | Move the editor's controls (`tree-view`, `property-*` editors, `splitter`, `tabs`, `context-menu`) into core content so games' settings menus can use them. |
-| 2D content | Sprites and tile maps in the 2D view (the engine has no sprite renderer yet). |
-| Editor previews and handles | Draggable range handles for lights and audio, collision shape handles, "create collision from mesh", "make unique" / "save as .mres" for inline resources. |
+| 2D content | Animated sprites (sprite sheets) and tile maps with paint tools in the 2D view. Proposal: [2D content](2d-content.md) (G2). |
+| Editor previews and handles | Draggable range handles for lights and audio, collision shape handles, "create collision from mesh", "make unique" / "save as .mres" for inline resources. Range handles and the inline-resource actions: [Editor viewport tools](editor-viewport-tools.md) (G7). |
 
 ## Open questions
 

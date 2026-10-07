@@ -28,6 +28,9 @@ flowchart LR
     M8 --> M12
     M11 -. "optional (native Metal later)" .-> M12
     M12 --> M13["M13 Mobile platform services"]
+    M10 --> GT["Gameplay toolkit"]
+    M3 --> GT
+    GT -. "G4 saves → cloud saves, G5 presets → mobile export" .-> M13
 ```
 
 | Milestone | Theme | Status |
@@ -44,6 +47,7 @@ flowchart LR
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
+| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -204,7 +208,7 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | Audio bus panel (the `AudioBusLayout` mixer inspector), audio range spheres in the editor viewport | ✅ (M10) | [Editor](design/editor.md#resource-files-and-custom-inspectors) |
 | Audio preview in the editor (FileSystem/inspector previews, ZzFX sound designer) | ✅ | [Editor → Audio previews](design/editor.md#audio-previews), [ADR 0144](../memory/decisions/0144-editor-audio-previews-and-silent-edit-mode.md) |
 | Music editor: song tab (arrangement, piano roll, mixer, render to WAV) with the built-in ZzFX instrument | ✅ done (2026-10-08): built-in instrument, `mfplughost` helper with Vorbis encoding, VST3 instruments/inserts, MIDI keyboard input and recording; gaps in the proposal's open questions | [Editor → Song tab](design/editor.md#song-tab-music-editor), [Future: music editor](design/future/music-editor.md) |
-| Draggable audio range handles in the editor | ⬜ | [Future: editor](design/future/editor.md) |
+| Draggable audio range handles in the editor | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) (G7) |
 
 ## M8 — Game UI (RmlUi) ✅
 
@@ -265,6 +269,26 @@ the Project Manager. Order: D1 → D2 → D3 → D4.
 | D2 Remove ImGui: RmlUi `DevOverlay` (F12, panels, `AddPanel`), Vulkan `ScreenGizmos` (light + axis gizmos) | ✅ | [Developer overlay](design/dev-overlay.md) (proposal: [Remove ImGui](design/future/remove-imgui.md), [ADR 0115](../memory/decisions/0115-remove-imgui.md)) |
 | D3 Project icons in the Project Manager (`window.icon`, template default icon, RmlUi absolute-path fix) | ✅ | [Project icons](design/future/project-icons.md) |
 | D4 "Download Demo Project" (release zip asset, download + extract + engine-path rewrite) | ✅ | [Demo download](design/future/demo-download.md) |
+
+## Gameplay toolkit ⬜
+
+The features most games need that the engine does not have yet. Not numbered: these are independent of M11–M13 and can
+be interleaved with them. Recommended order: G1a → G2 → G3a → G4 → G5, with G1b, G3b, G6 and G7 slotted in as needed.
+G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that M12.7 extends. G6 depends on the
+"Vulkan now or after M11" decision in its proposal.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| G1a Keyframe animation: `Animation` resource (property, transform, method tracks), `AnimationPlayer`, editor Animation panel (timeline) | ⬜ | [Keyframe animation](design/future/keyframe-animation.md) |
+| G1b glTF skeletons, skinning (GPU) and animation clips played through `AnimationPlayer` | ⬜ | [Keyframe animation](design/future/keyframe-animation.md) |
+| G2a Animated sprites: sprite sheet slicing, `SpriteFrames`, `AnimatedSprite2D` | ⬜ | [2D content](design/future/2d-content.md) |
+| G2b Tile maps: `TileSet`, tile map layer node (chunked rendering + physics), paint tools in the 2D view | ⬜ | [2D content](design/future/2d-content.md) |
+| G3a Navigation 2D: grid A* and point graphs, `NavigationServer2D`, `NavigationAgent2D`, editor bake + debug overlay, tile map source (G3.1–G3.6) | ⬜ | [Navigation](design/future/navigation.md) |
+| G3b Later: avoidance, 2D navmesh polygons, async queries, 3D grid + `NavigationAgent3D`, 3D navmesh baking (G3.7–G3.12) | ⬜ | [Navigation](design/future/navigation.md) |
+| G4 Save games and settings: `SaveGame` (versioned JSON + migrations), user settings, rebinding, drop-in settings menu | ⬜ | [Save games and settings](design/future/save-and-settings.md) |
+| G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner | ⬜ | [Game export](design/future/game-export.md) |
+| G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | ⬜ | [Rendering features](design/future/rendering-features.md) |
+| G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 

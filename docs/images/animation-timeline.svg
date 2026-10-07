@@ -1,0 +1,295 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 830" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Editor Animation panel (proposal)</title>
+  <desc>The editor with the Animation panel open in the bottom dock next to Output. The panel is pinned to Level/AnimationPlayer while the Lift node is selected. It has a transport toolbar, an animation menu, a track list grouped by node, a timeline canvas with ruler, keys, playhead, a method key and an audio clip, and a key editor row. The inspector shows key-insert buttons next to Lift's animatable properties, one with its tooltip.</desc>
+  <rect width="960" height="830" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:12.5px;fill:#e5e7eb}
+    .t{fill:#d1d5db;font-size:11.5px}
+    .s{fill:#9ca3af;font-size:10.5px}
+    .xs{fill:#9ca3af;font-size:9.5px}
+    .m{fill:#d1d5db;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .doc{fill:#93c5fd;font-size:10px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+    .note{fill:#1f2937;font-size:11.5px}
+    .num{fill:#ffffff;font-size:10.5px;font-weight:700}
+    .g{fill:none;stroke:#d1d5db;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+    .btn{fill:#2f333d;stroke:#3b3f4b}
+    .on{fill:#1d4ed8;stroke:#3b82f6}
+    .fld{fill:#121418;stroke:#3b3f4b}
+    .lead{stroke:#3b82f6;stroke-width:1;stroke-dasharray:3 3;fill:none}
+  </style>
+
+  <!-- window -->
+  <rect x="20" y="20" width="920" height="640" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
+  <rect x="20" y="38" width="920" height="8" fill="#15171c"/>
+  <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
+  <text x="480" y="37" class="s" text-anchor="middle">Mainframe Engine — MyGame — Level.mscene*</text>
+
+  <!-- menu + toolbar -->
+  <rect x="20" y="46" width="920" height="30" fill="#2a2d36"/>
+  <text x="32" y="65" class="t">File   Edit   View   Project   Run   Help</text>
+  <rect x="300" y="51" width="20" height="20" rx="3" class="btn"/><path d="M306,56 l8,5 -4,1 -2,4 z" class="g"/>
+  <rect x="324" y="51" width="20" height="20" rx="3" class="on"/><path d="M334,55 v12 M328,61 h12" class="g"/>
+  <rect x="348" y="51" width="20" height="20" rx="3" class="btn"/><circle cx="358" cy="61" r="5" class="g"/>
+  <rect x="520" y="51" width="20" height="20" rx="3" fill="#166534" stroke="#22c55e"/><path d="M527,56 l8,5 -8,5 z" fill="#d1d5db"/>
+  <rect x="544" y="51" width="20" height="20" rx="3" class="btn"/><path d="M551,56 v10 M557,56 v10" class="g"/>
+  <rect x="568" y="51" width="20" height="20" rx="3" class="btn"/><rect x="573" y="56" width="10" height="10" fill="#d1d5db"/>
+
+  <!-- left dock: scene tree -->
+  <rect x="24" y="80" width="160" height="576" fill="#262931" stroke="#3b3f4b"/>
+  <text x="32" y="97" class="hdr">Scene</text>
+  <text x="32" y="120" class="t">▾ ◇ Level</text>
+  <rect x="38" y="127" width="144" height="18" fill="#1d4ed8" opacity="0.55"/>
+  <text x="44" y="140" class="t">▾ ⬡ Lift</text><text x="100" y="140" class="xs">RigidBody3D</text>
+  <text x="60" y="160" class="t">◼ Mesh</text>
+  <text x="60" y="180" class="t">▣ CollisionShape3D</text>
+  <text x="60" y="200" class="t">✷ Lamp</text><text x="104" y="200" class="xs">OmniLight3D</text>
+  <text x="60" y="220" class="t">♪ Chime</text><text x="110" y="220" class="xs">AudioPlayer3D</text>
+  <text x="44" y="240" class="t">▶ AnimationPlayer</text>
+  <text x="44" y="260" class="t">☀ Sun</text>
+  <text x="44" y="280" class="t">🎥 Camera</text>
+  <text x="32" y="648" class="doc">scene_tree.rml</text>
+
+  <!-- viewport -->
+  <rect x="188" y="80" width="574" height="220" fill="#20232a" stroke="#3b3f4b"/>
+  <rect x="188" y="80" width="112" height="22" fill="#2f333d"/><text x="198" y="96" class="t">Level.mscene*</text>
+  <rect x="192" y="104" width="566" height="192" fill="#3a5160"/>
+  <g stroke="#5b7383" stroke-width="1">
+    <line x1="192" y1="250" x2="758" y2="250"/><line x1="192" y1="272" x2="758" y2="272"/>
+    <line x1="300" y1="236" x2="260" y2="296"/><line x1="420" y1="236" x2="405" y2="296"/><line x1="540" y1="236" x2="550" y2="296"/><line x1="660" y1="236" x2="695" y2="296"/>
+  </g>
+  <rect x="420" y="128" width="40" height="110" fill="none" stroke="#9fb3c2" stroke-dasharray="4 3"/>
+  <rect x="400" y="196" width="100" height="16" fill="#c7a574" stroke="#f59e0b" stroke-width="2"/>
+  <rect x="400" y="140" width="100" height="16" fill="none" stroke="#f8fafc" stroke-dasharray="3 3" opacity="0.7"/>
+  <path d="M450,192 v-30" stroke="#f8fafc" stroke-width="1.5" stroke-dasharray="3 3"/><path d="M445,166 l5,-8 5,8" fill="#f8fafc"/>
+  <text x="508" y="152" class="xs" fill="#e2e8f0">key at 2.50 s</text>
+  <text x="202" y="122" class="s">Perspective</text>
+
+  <!-- splitter -->
+  <rect x="188" y="300" width="574" height="4" fill="#4b5563"/>
+
+  <!-- bottom dock -->
+  <rect x="188" y="304" width="574" height="352" fill="#262931" stroke="#3b3f4b"/>
+  <!-- tab strip -->
+  <rect x="188" y="304" width="574" height="22" fill="#1f2128"/>
+  <rect x="190" y="306" width="66" height="20" fill="#262931"/>
+  <path d="M197,312 h10 M197,316 h10 M197,320 h6" class="g" stroke-width="1.2"/>
+  <text x="212" y="320" class="s">Output</text>
+  <rect x="258" y="306" width="82" height="20" fill="#2f333d" stroke="#3b82f6"/>
+  <path d="M265,312 h10 v9 h-10 z M265,315 h10 M268,312 v3 M272,312 v3" class="g" stroke-width="1.1"/>
+  <text x="280" y="320" class="t">Animation</text>
+  <text x="598" y="320" class="s">Level/AnimationPlayer</text>
+  <rect x="736" y="306" width="20" height="18" rx="3" class="on"/>
+  <path d="M743,310 l6,6 M741,316 l8,-6 M745,313 l-4,6" class="g" stroke-width="1.2"/>
+
+  <!-- animation toolbar -->
+  <rect x="188" y="326" width="574" height="28" fill="#2a2d36"/>
+  <rect x="192" y="330" width="20" height="20" rx="3" class="btn"/><path d="M206,335 l-8,5 8,5 z" fill="#d1d5db"/>
+  <rect x="214" y="330" width="20" height="20" rx="3" class="btn"/><path d="M219,335 v10" class="g"/><path d="M221,340 l8,-5 v10 z" fill="#d1d5db"/>
+  <rect x="236" y="330" width="20" height="20" rx="3" fill="#166534" stroke="#22c55e"/><path d="M243,335 l8,5 -8,5 z" fill="#d1d5db"/>
+  <rect x="258" y="330" width="20" height="20" rx="3" class="btn"/><path d="M265,335 v10 M271,335 v10" class="g"/>
+  <rect x="280" y="330" width="20" height="20" rx="3" class="btn"/><rect x="285" y="335" width="10" height="10" fill="#d1d5db"/>
+  <rect x="306" y="331" width="52" height="18" rx="3" class="fld" stroke="#3b82f6"/><text x="312" y="344" class="m">1.25 s</text>
+  <rect x="364" y="331" width="78" height="18" rx="3" class="btn"/>
+  <path d="M369,336 h8 v8 h-8 z M369,339 h8" class="g" stroke-width="1.1"/>
+  <text x="381" y="344" class="t">lift_up</text><text x="430" y="344" class="s">▾</text>
+  <rect x="446" y="330" width="20" height="20" rx="3" class="btn"/><path d="M456,335 v10 M451,340 h10" class="g"/>
+  <rect x="468" y="330" width="20" height="20" rx="3" class="btn"/><rect x="473" y="336" width="8" height="9" class="g"/><path d="M476,336 v-2 h8 v9 h-3" class="g"/>
+  <rect x="490" y="330" width="20" height="20" rx="3" class="btn"/><path d="M495,345 l2,-5 7,-6 3,3 -7,6 z" class="g"/>
+  <rect x="512" y="330" width="20" height="20" rx="3" class="btn"/><path d="M516,336 h12 M518,336 v9 h8 v-9 M520,334 h4" class="g"/>
+  <path d="M538,336 l-3,4 3,4 M552,336 l3,4 -3,4 M535,340 h20" class="g" stroke-width="1.1"/>
+  <rect x="558" y="331" width="40" height="18" rx="3" class="fld"/><text x="563" y="344" class="m">3.00</text>
+  <rect x="602" y="330" width="20" height="20" rx="3" class="on"/><path d="M607,342 v-4 a3,3 0 0 1 3,-3 h6 M613,332 l3,3 -3,3 M617,338 v4 a3,3 0 0 1 -3,3 h-6" class="g" stroke-width="1.2"/>
+  <rect x="626" y="330" width="20" height="20" rx="3" class="on"/><path d="M631,335 v5 a5,5 0 0 0 10,0 v-5 M631,338 h3 M638,338 h3" class="g" stroke-width="1.2"/>
+  <rect x="648" y="331" width="34" height="18" rx="3" class="fld"/><text x="652" y="344" class="m">0.05</text>
+  <rect x="686" y="330" width="20" height="20" rx="3" class="btn"/><circle cx="696" cy="340" r="6" class="g"/><path d="M696,336 v4 h3" class="g"/>
+  <rect x="708" y="330" width="20" height="20" rx="3" class="btn"/><path d="M712,346 c4,-14 8,-2 12,-12" class="g"/><circle cx="712" cy="346" r="1.5" fill="#d1d5db"/><circle cx="724" cy="334" r="1.5" fill="#d1d5db"/>
+  <rect x="730" y="330" width="28" height="20" rx="3" class="btn"/><circle cx="740" cy="339" r="4" class="g"/><path d="M743,342 l4,4 M751,339 h4 M753,337 v4" class="g" stroke-width="1.1"/>
+
+  <!-- track list header -->
+  <rect x="188" y="354" width="172" height="22" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="192" y="356" width="18" height="18" rx="3" class="btn"/><path d="M201,360 v10 M196,365 h10" class="g"/>
+  <rect x="212" y="356" width="18" height="18" rx="3" class="btn"/><path d="M216,360 h10 l-4,5 v4 l-2,1 v-5 z" class="g" stroke-width="1.1"/>
+  <text x="236" y="369" class="s">Tracks</text>
+
+  <!-- ruler -->
+  <rect x="360" y="354" width="402" height="22" fill="#262931"/>
+  <line x1="360" y1="375.5" x2="762" y2="375.5" stroke="#3b3f4b"/>
+  <g class="xs">
+    <line x1="368" y1="366" x2="368" y2="376" stroke="#3b3f4b"/><text x="371" y="369">0</text>
+    <line x1="428" y1="366" x2="428" y2="376" stroke="#3b3f4b"/><text x="431" y="369">0.5</text>
+    <line x1="488" y1="366" x2="488" y2="376" stroke="#3b3f4b"/><text x="491" y="369">1.0</text>
+    <line x1="548" y1="366" x2="548" y2="376" stroke="#3b3f4b"/><text x="551" y="369">1.5</text>
+    <line x1="608" y1="366" x2="608" y2="376" stroke="#3b3f4b"/><text x="611" y="369">2.0</text>
+    <line x1="668" y1="366" x2="668" y2="376" stroke="#3b3f4b"/><text x="671" y="369">2.5</text>
+    <line x1="728" y1="366" x2="728" y2="376" stroke="#3b3f4b"/><text x="731" y="369">3.0</text>
+  </g>
+
+  <!-- track rows background -->
+  <rect x="188" y="376" width="172" height="240" fill="#262931"/>
+  <rect x="360" y="376" width="402" height="240" fill="#1b1d23"/>
+  <rect x="188" y="376" width="574" height="24" fill="#22252c"/>
+  <rect x="188" y="448" width="574" height="24" fill="#22252c"/>
+  <rect x="188" y="520" width="574" height="24" fill="#22252c"/>
+  <rect x="188" y="568" width="574" height="24" fill="#22252c"/>
+  <rect x="728" y="376" width="34" height="240" fill="#101115" opacity="0.6"/>
+  <g stroke="#2a2d36" stroke-width="1">
+    <line x1="428" y1="376" x2="428" y2="616"/><line x1="488" y1="376" x2="488" y2="616"/><line x1="548" y1="376" x2="548" y2="616"/>
+    <line x1="608" y1="376" x2="608" y2="616"/><line x1="668" y1="376" x2="668" y2="616"/>
+  </g>
+  <line x1="728" y1="376" x2="728" y2="616" stroke="#4b5563"/>
+  <line x1="360" y1="376" x2="360" y2="616" stroke="#3b3f4b"/>
+
+  <!-- rows: text -->
+  <text x="194" y="392" class="t">▾ ⬡ Lift</text><text x="250" y="392" class="xs">RigidBody3D</text>
+  <path d="M205,406 v12 M199,412 h12 M202,409 l3,-3 3,3" class="g" stroke-width="1.1" stroke="#fc7f7f"/>
+  <text x="216" y="416" class="t">position</text>
+  <path d="M199,436 a6,6 0 1 1 6,6" class="g" stroke-width="1.1" stroke="#fc7f7f"/><path d="M203,440 l2,2 -2,2" class="g" stroke="#fc7f7f" stroke-width="1.1"/>
+  <text x="216" y="440" class="t">rotation</text>
+  <text x="194" y="464" class="t">▾ ✷ Lamp</text><text x="252" y="464" class="xs">OmniLight3D</text>
+  <path d="M199,490 l4,-8 4,6 4,-4" class="g" stroke-width="1.1"/>
+  <text x="216" y="488" class="t">LightEnergy</text>
+  <path d="M199,512 l4,-8 4,6 4,-4" class="g" stroke-width="1.1"/>
+  <text x="216" y="512" class="t">LightColor</text>
+  <text x="194" y="536" class="t">▾ ▶ AnimationPlayer</text>
+  <path d="M199,553 l3,0 M201,553 c0,6 2,8 5,8 M206,561 l4,-4" class="g" stroke-width="1.1"/>
+  <text x="216" y="560" class="t">Methods</text>
+  <text x="194" y="584" class="t">▾ ♪ Chime</text><text x="252" y="584" class="xs">AudioPlayer3D</text>
+  <path d="M199,604 h2 l3,-5 v12 l-3,-5 h-2 z M207,601 a4,4 0 0 1 0,8" class="g" stroke-width="1.1"/>
+  <text x="216" y="608" class="t">Audio</text>
+  <!-- per-track icon buttons: interpolation, wrap, enabled, remove -->
+  <g>
+    <rect x="300" y="403" width="14" height="14" rx="2" class="btn"/><path d="M302,414 c3,-9 7,-1 10,-9" class="g" stroke-width="1"/>
+    <rect x="316" y="403" width="14" height="14" rx="2" class="btn"/><path d="M319,413 v-3 a2,2 0 0 1 2,-2 h6 M325,406 l2,2 -2,2" class="g" stroke-width="1"/>
+    <rect x="332" y="403" width="14" height="14" rx="2" class="btn"/><path d="M334,410 c3,-4 7,-4 10,0 c-3,4 -7,4 -10,0" class="g" stroke-width="1"/>
+    <rect x="300" y="427" width="14" height="14" rx="2" class="btn"/><path d="M302,438 c3,-9 7,-1 10,-9" class="g" stroke-width="1"/>
+    <rect x="316" y="427" width="14" height="14" rx="2" class="btn"/><path d="M319,437 v-3 a2,2 0 0 1 2,-2 h6 M325,430 l2,2 -2,2" class="g" stroke-width="1"/>
+    <rect x="332" y="427" width="14" height="14" rx="2" class="btn"/><path d="M334,434 c3,-4 7,-4 10,0 c-3,4 -7,4 -10,0" class="g" stroke-width="1"/>
+    <rect x="300" y="475" width="14" height="14" rx="2" class="btn"/><path d="M302,486 l4,-8 4,0 2,-1" class="g" stroke-width="1"/>
+    <rect x="316" y="475" width="14" height="14" rx="2" class="btn"/><path d="M319,485 v-3 a2,2 0 0 1 2,-2 h6 M325,478 l2,2 -2,2" class="g" stroke-width="1"/>
+    <rect x="332" y="475" width="14" height="14" rx="2" class="btn"/><path d="M334,482 c3,-4 7,-4 10,0 c-3,4 -7,4 -10,0" class="g" stroke-width="1"/>
+  </g>
+
+  <!-- keys -->
+  <g fill="#e5e7eb" stroke="#111827" stroke-width="1">
+    <path d="M368,406 l6,6 -6,6 -6,-6 z"/>
+    <path d="M488,406 l6,6 -6,6 -6,-6 z"/>
+    <path d="M728,406 l6,6 -6,6 -6,-6 z"/>
+    <path d="M368,430 l6,6 -6,6 -6,-6 z"/>
+    <path d="M728,430 l6,6 -6,6 -6,-6 z"/>
+    <path d="M368,478 l6,6 -6,6 -6,-6 z"/>
+    <path d="M428,478 l6,6 -6,6 -6,-6 z"/>
+    <path d="M548,478 l6,6 -6,6 -6,-6 z"/>
+    <path d="M728,478 l6,6 -6,6 -6,-6 z"/>
+  </g>
+  <path d="M668,405 l7,7 -7,7 -7,-7 z" fill="#3b82f6" stroke="#bfdbfe" stroke-width="1.5"/>
+  <path d="M368,502 l6,6 -6,6 -6,-6 z" fill="#fde68a" stroke="#111827"/>
+  <path d="M728,502 l6,6 -6,6 -6,-6 z" fill="#fb923c" stroke="#111827"/>
+  <!-- method key -->
+  <rect x="662" y="549" width="62" height="16" rx="3" fill="#4c1d95" stroke="#a78bfa"/>
+  <path d="M668,550 v14" stroke="#a78bfa" stroke-width="2"/>
+  <text x="673" y="561" class="xs" fill="#ede9fe">Unlock()</text>
+  <!-- audio clip -->
+  <rect x="392" y="595" width="168" height="18" rx="3" fill="#134e4a" stroke="#5eead4"/>
+  <g stroke="#5eead4" stroke-width="1">
+    <line x1="398" y1="601" x2="398" y2="607"/><line x1="402" y1="599" x2="402" y2="609"/><line x1="406" y1="600" x2="406" y2="608"/>
+    <line x1="410" y1="602" x2="410" y2="606"/><line x1="414" y1="598" x2="414" y2="610"/><line x1="418" y1="600" x2="418" y2="608"/>
+    <line x1="422" y1="601" x2="422" y2="607"/><line x1="426" y1="599" x2="426" y2="609"/><line x1="430" y1="602" x2="430" y2="606"/>
+  </g>
+  <text x="438" y="608" class="xs" fill="#ccfbf1">lift_hum.ogg</text>
+  <!-- playhead -->
+  <line x1="518" y1="356" x2="518" y2="616" stroke="#f87171" stroke-width="1.5"/>
+  <path d="M512,356 h12 v6 l-6,5 -6,-5 z" fill="#f87171"/>
+
+  <!-- key editor row -->
+  <rect x="188" y="616" width="574" height="40" fill="#2a2d36" stroke="#3b3f4b"/>
+  <path d="M199,630 l6,6 -6,6 -6,-6 z" fill="#3b82f6"/>
+  <text x="210" y="640" class="s">position @</text>
+  <rect x="268" y="627" width="44" height="18" rx="3" class="fld"/><text x="273" y="640" class="m">2.50</text>
+  <text x="320" y="640" class="s">Value</text>
+  <rect x="352" y="627" width="40" height="18" rx="3" class="fld"/><text x="357" y="640" class="m" fill="#fca5a5">0.00</text>
+  <rect x="396" y="627" width="40" height="18" rx="3" class="fld"/><text x="401" y="640" class="m" fill="#86efac">4.00</text>
+  <rect x="440" y="627" width="40" height="18" rx="3" class="fld"/><text x="445" y="640" class="m" fill="#93c5fd">0.00</text>
+  <text x="490" y="640" class="s">Ease</text>
+  <rect x="518" y="627" width="70" height="18" rx="3" class="btn"/><text x="524" y="640" class="t">In-out</text><text x="576" y="640" class="s">▾</text>
+  <text x="598" y="640" class="s">Interp.</text>
+  <rect x="638" y="627" width="70" height="18" rx="3" class="btn"/><text x="644" y="640" class="t">Cubic</text><text x="696" y="640" class="s">▾</text>
+  <text x="420" y="320" class="doc">animation.rml</text>
+
+  <!-- inspector -->
+  <rect x="766" y="80" width="170" height="576" fill="#262931" stroke="#3b3f4b"/>
+  <text x="774" y="97" class="hdr">Inspector</text>
+  <text x="774" y="120" class="t">⬡ Lift</text><text x="812" y="120" class="xs">RigidBody3D</text>
+  <text x="774" y="144" class="s">▾ Node3D</text>
+  <text x="780" y="166" class="t">Position</text>
+  <rect x="906" y="155" width="18" height="16" rx="3" class="on"/><circle cx="912" cy="163" r="3" class="g" stroke-width="1.2"/><path d="M915,163 h5 M918,163 v3" class="g" stroke-width="1.2"/>
+  <rect x="780" y="174" width="44" height="16" rx="2" class="fld"/><rect x="828" y="174" width="44" height="16" rx="2" class="fld"/><rect x="876" y="174" width="44" height="16" rx="2" class="fld"/>
+  <text x="784" y="186" class="m" fill="#fca5a5">0.0</text><text x="832" y="186" class="m" fill="#86efac">1.6</text><text x="880" y="186" class="m" fill="#93c5fd">0.0</text>
+  <text x="780" y="212" class="t">Rotation°</text>
+  <rect x="906" y="201" width="18" height="16" rx="3" class="btn"/><circle cx="912" cy="209" r="3" class="g" stroke-width="1.2"/><path d="M915,209 h5 M918,209 v3" class="g" stroke-width="1.2"/>
+  <rect x="780" y="220" width="44" height="16" rx="2" class="fld"/><rect x="828" y="220" width="44" height="16" rx="2" class="fld"/><rect x="876" y="220" width="44" height="16" rx="2" class="fld"/>
+  <text x="780" y="258" class="t">Scale</text>
+  <rect x="906" y="247" width="18" height="16" rx="3" class="btn"/><circle cx="912" cy="255" r="3" class="g" stroke-width="1.2"/><path d="M915,255 h5 M918,255 v3" class="g" stroke-width="1.2"/>
+  <rect x="780" y="266" width="44" height="16" rx="2" class="fld"/><rect x="828" y="266" width="44" height="16" rx="2" class="fld"/><rect x="876" y="266" width="44" height="16" rx="2" class="fld"/>
+  <text x="780" y="304" class="t">Visible</text>
+  <rect x="860" y="293" width="14" height="14" rx="2" class="on"/><path d="M863,300 l3,3 5,-6" class="g" stroke-width="1.3"/>
+  <rect x="906" y="292" width="18" height="16" rx="3" class="btn"/><circle cx="912" cy="300" r="3" class="g" stroke-width="1.2"/><path d="M915,300 h5 M918,300 v3" class="g" stroke-width="1.2"/>
+  <text x="774" y="332" class="s">▾ RigidBody3D</text>
+  <text x="780" y="354" class="t">Mode</text>
+  <rect x="842" y="343" width="82" height="16" rx="2" class="btn"/><text x="846" y="355" class="t">Kinematic ▾</text>
+  <text x="774" y="384" class="s">▸ CollisionObject3D</text>
+  <text x="774" y="406" class="s">▸ Node</text>
+  <!-- tooltip on the Position key button -->
+  <path d="M906,151 l-6,-8" stroke="#4b5563"/>
+  <rect x="772" y="104" width="160" height="40" rx="4" fill="#111318" stroke="#4b5563" opacity="0.97"/>
+  <text x="780" y="120" class="t">Insert key (K)</text>
+  <text x="780" y="136" class="xs">Position at 1.25 s in lift_up</text>
+  <text x="774" y="648" class="doc">inspector.rml</text>
+
+  <!-- numbered callouts -->
+  <g>
+    <circle cx="352" cy="315" r="8" fill="#3b82f6"/><text x="352" y="319" class="num" text-anchor="middle">1</text>
+    <circle cx="246" cy="291" r="8" fill="#3b82f6"/><text x="246" y="295" class="num" text-anchor="middle">2</text>
+    <path d="M246,299 v31" class="lead"/>
+    <circle cx="404" cy="291" r="8" fill="#3b82f6"/><text x="404" y="295" class="num" text-anchor="middle">3</text>
+    <path d="M404,299 v32" class="lead"/>
+    <circle cx="620" cy="291" r="8" fill="#3b82f6"/><text x="620" y="295" class="num" text-anchor="middle">4</text>
+    <path d="M620,299 v31" class="lead"/>
+    <circle cx="176" cy="430" r="8" fill="#3b82f6"/><text x="176" y="434" class="num" text-anchor="middle">5</text>
+    <path d="M184,430 h10" class="lead"/>
+    <circle cx="590" cy="460" r="8" fill="#3b82f6"/><text x="590" y="464" class="num" text-anchor="middle">6</text>
+    <path d="M582,456 l-60,-90" class="lead"/>
+    <circle cx="745" cy="557" r="8" fill="#3b82f6"/><text x="745" y="561" class="num" text-anchor="middle">7</text>
+    <circle cx="176" cy="636" r="8" fill="#3b82f6"/><text x="176" y="640" class="num" text-anchor="middle">8</text>
+    <path d="M184,636 h8" class="lead"/>
+    <circle cx="930" cy="200" r="8" fill="#3b82f6"/><text x="930" y="204" class="num" text-anchor="middle">9</text>
+    <path d="M926,193 l-6,-22" class="lead"/>
+  </g>
+
+  <!-- legend -->
+  <g>
+    <circle cx="32" cy="682" r="7" fill="#3b82f6"/><text x="32" y="686" class="num" text-anchor="middle">1</text>
+    <text x="46" y="686" class="note">Animation tab in the bottom dock, next to Output; pinned to a player.</text>
+    <circle cx="32" cy="702" r="7" fill="#3b82f6"/><text x="32" y="706" class="num" text-anchor="middle">2</text>
+    <text x="46" y="706" class="note">Transport: backwards, from start, play, pause, stop; position.</text>
+    <circle cx="32" cy="722" r="7" fill="#3b82f6"/><text x="32" y="726" class="num" text-anchor="middle">3</text>
+    <text x="46" y="726" class="note">Animation menu (library/name); new, duplicate, rename, delete.</text>
+    <circle cx="32" cy="742" r="7" fill="#3b82f6"/><text x="32" y="746" class="num" text-anchor="middle">4</text>
+    <text x="46" y="746" class="note">Length, loop mode, snap step, seconds/frames, curve view, zoom.</text>
+    <circle cx="32" cy="762" r="7" fill="#3b82f6"/><text x="32" y="766" class="num" text-anchor="middle">5</text>
+    <text x="46" y="766" class="note">Track list grouped by node; interpolation, wrap, enable, remove.</text>
+    <circle cx="520" cy="682" r="7" fill="#3b82f6"/><text x="520" y="686" class="num" text-anchor="middle">6</text>
+    <text x="534" y="686" class="note">Timeline canvas (the shared timeline from the song tab): ruler,</text>
+    <text x="534" y="701" class="note">keys, playhead (drag to scrub); past the length is shaded.</text>
+    <circle cx="520" cy="722" r="7" fill="#3b82f6"/><text x="520" y="726" class="num" text-anchor="middle">7</text>
+    <text x="534" y="726" class="note">Method keys show the call; audio keys show the clip's waveform.</text>
+    <circle cx="520" cy="742" r="7" fill="#3b82f6"/><text x="520" y="746" class="num" text-anchor="middle">8</text>
+    <text x="534" y="746" class="note">Key editor: the selected key's time, value, easing, interpolation.</text>
+    <circle cx="520" cy="762" r="7" fill="#3b82f6"/><text x="520" y="766" class="num" text-anchor="middle">9</text>
+    <text x="534" y="766" class="note">Key buttons on animatable inspector rows insert a key at the playhead.</text>
+  </g>
+
+  <text x="20" y="806" class="cap">Proposal (G1a). The panel is an RmlUi document (animation.rml) around one canvas image of the timeline, like the song tab.</text>
+  <text x="20" y="822" class="cap">Every button is an icon with a tooltip. Editing in the panel previews the animation on the edited scene.</text>
+</svg>
