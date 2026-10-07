@@ -79,6 +79,14 @@ public class AudioStream : Resource
     [Export(Range = "0,3600,0.001")]
     public float LoopEnd { get; set; }
 
+    /// <summary>
+    /// Per-play pitch variation: every voice start (players and <see cref="AudioServer.PlayOneShot"/>) multiplies the
+    /// pitch by <c>1 + PitchRandomness × (2u − 1)</c> for a uniform <c>u</c> in [0, 1) (ZzFX's <c>randomness</c>, Godot's
+    /// randomizer pitch). 0 = always the same pitch.
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float PitchRandomness { get; set; }
+
     /// <summary>The error from the last failed load, or null.</summary>
     public string? LoadError { get; private set; }
 
@@ -120,25 +128,16 @@ public class AudioStream : Resource
     /// <summary>Decodes or probes the file now; returns false (and sets <see cref="LoadError"/>) on failure.</summary>
     public bool Preload() => GetSource() is not null;
 
-    /// <summary>The source to play, loading it on first use; null when the file is missing or unreadable (logged once).</summary>
+    /// <summary>The source to play, loading it on first use; null when it cannot load (logged once).</summary>
     internal AudioSource? GetSource()
     {
         if (_source is not null || _loadFailed)
             return _source;
-        if (string.IsNullOrEmpty(_file))
-        {
-            Fail("no file set");
-            return null;
-        }
-
         try
         {
-            var path = ResolvePath(_file);
-            var mode = _loadMode;
-            if (mode == AudioLoadMode.Auto)
-                mode = new FileInfo(path).Length >= StreamThresholdBytes ? AudioLoadMode.Stream : AudioLoadMode.Memory;
-            _source = mode == AudioLoadMode.Stream ? AudioStreamSource.Probe(path) : AudioClipCache.GetOrDecode(path);
-            LoadError = null;
+            _source = CreateSource();
+            if (_source is not null)
+                LoadError = null;
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
@@ -148,6 +147,26 @@ public class AudioStream : Resource
         return _source;
     }
 
+    /// <summary>
+    /// Creates the source on first use: decodes or probes <see cref="File"/>. Generators (<see cref="ZzfxStream"/>)
+    /// override it; throwing (or calling <see cref="Fail"/> and returning null) makes the stream silent with a
+    /// <see cref="LoadError"/>.
+    /// </summary>
+    private protected virtual AudioSource? CreateSource()
+    {
+        if (string.IsNullOrEmpty(_file))
+        {
+            Fail("no file set");
+            return null;
+        }
+
+        var path = ResolvePath(_file);
+        var mode = _loadMode;
+        if (mode == AudioLoadMode.Auto)
+            mode = new FileInfo(path).Length >= StreamThresholdBytes ? AudioLoadMode.Stream : AudioLoadMode.Memory;
+        return mode == AudioLoadMode.Stream ? AudioStreamSource.Probe(path) : AudioClipCache.GetOrDecode(path);
+    }
+
     /// <summary>Loop start/end in source frames for the loaded source (end = −1 for "to the end").</summary>
     internal void GetLoopFrames(AudioSource source, out long start, out long end)
     {
@@ -155,14 +174,15 @@ public class AudioStream : Resource
         end = LoopEnd > LoopStart ? (long)(LoopEnd * (double)source.SampleRate) : -1;
     }
 
-    private void Fail(string error)
+    private protected void Fail(string error)
     {
         _loadFailed = true;
         LoadError = error;
         Log.Error($"[Audio] Cannot load audio stream '{_file ?? ResourceName}': {error}");
     }
 
-    private void Invalidate()
+    /// <summary>Drops the loaded source (the next play loads again); voices playing the old one keep it.</summary>
+    private protected void Invalidate()
     {
         _source = null;
         _loadFailed = false;
