@@ -23,7 +23,23 @@ enum class MessageType : std::uint16_t {
 	Shutdown = 0x0003, // -> (empty), then the helper exits
 	Sleep = 0x0004,    // u32 milliseconds -> (empty) after that long (diagnostics: timeout tests)
 	Encode = 0x0010,   // str wavPath, str oggPath, f32 quality (0..10) -> u64 frames, u32 sampleRate, u16 channels
-	// 0x0100..0x01FF: plugins (scan, load, state, latency, process, editor windows) — VST3 phase
+	// 0x0100..0x01FF: VST3 plugins (ADR 0147). Instances are u32 ids; audio and note events travel through the shared
+	// memory (shm.hpp), control calls run on the helper's main thread.
+	PluginSetupShm = 0x0100,  // str path, u64 size -> (empty): maps the editor's shared memory file
+	PluginScan = 0x0101,      // str bundlePath -> str json (the same JSON as `mfplughost --scan`)
+	PluginLoad = 0x0102,      // str bundlePath, str classId (32 hex), u32 slot, u32 sampleRate, u32 maxBlock
+	                          //   -> u32 instanceId, u32 latency, u16 inChannels, u16 outChannels, u32 flags (1: editor), str name
+	PluginUnload = 0x0103,    // u32 instanceId -> (empty)
+	PluginGetState = 0x0104,  // u32 instanceId -> u32 componentLength, bytes, u32 controllerLength, bytes
+	PluginSetState = 0x0105,  // u32 instanceId, u32 componentLength, bytes, u32 controllerLength, bytes -> (empty)
+	PluginLatency = 0x0106,   // u32 instanceId -> u32 latency frames
+	PluginSetOffline = 0x0107, // u32 offline (0/1) -> (empty): kOffline/kRealtime process mode for every instance
+	PluginOpenEditor = 0x0108, // u32 instanceId, str title -> (empty)
+	PluginCloseEditor = 0x0109, // u32 instanceId -> (empty)
+	PluginProcess = 0x010A,   // u32 frames, u32 flags (1: playing), f64 tempo, i64 projectFrame, u32 count,
+	                          //   count x (u32 instanceId, u32 inputSlot (0xFFFFFFFF: the slot's own input)) -> (empty)
+	                          // runs the instances in order; inputSlot copies that slot's output into the input first
+	PluginEditorClosed = 0x010B, // helper -> editor notification (request id 0, no reply): u32 instanceId
 	// 0x0200..0x02FF: MIDI devices — MIDI phase
 	Error = 0xFFFF,    // reply only: u32 ErrorCode, str message
 };
@@ -76,6 +92,7 @@ public:
 	bool u64(std::uint64_t& v);
 	bool f32(float& v);
 	bool str(std::string& v);
+	bool bytes(std::size_t n, const unsigned char*& p) { return take(n, p); }
 	bool atEnd() const { return pos_ == data_.size(); }
 
 private:

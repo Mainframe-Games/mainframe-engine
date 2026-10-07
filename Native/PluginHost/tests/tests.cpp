@@ -223,6 +223,185 @@ static void testProtocol(const fs::path& dir) {
 	CHECK(server2.wait_for(std::chrono::seconds(5)) == std::future_status::ready && server2.get() == 0);
 }
 
+#ifdef MFPH_VST3
+#include "plugins.hpp"
+#include "shm.hpp"
+
+// VST3 hosting against the test bundle (tests/plugins), through dispatch() on this thread (no main loop: control calls
+// run inline): scan, load, process (synth makes sound, gain scales, a chain feeds one into the next), state round trip,
+// latency, offline mode, unload.
+namespace {
+constexpr std::uint32_t kBlock = 256, kSlots = 4, kEvents = 64;
+constexpr std::uint32_t kStride = ((16 * kBlock + 16 + 16 * kEvents) + 63) / 64 * 64;
+
+mfph::Frame call(mfph::MessageType type, const std::vector<unsigned char>& payload) {
+	mfph::Frame request, reply;
+	request.type = static_cast<std::uint16_t>(type);
+	request.id = 1;
+	request.payload = payload;
+	bool shutdown;
+	mfph::dispatch(request, reply, shutdown);
+	if (reply.type == static_cast<std::uint16_t>(mfph::MessageType::Error)) {
+		mfph::PayloadReader r(reply.payload);
+		std::uint32_t code;
+		std::string message;
+		r.u32(code);
+		r.str(message);
+		std::cerr << "  error reply: " << message << "\n";
+	}
+	return reply;
+}
+
+bool ok(const mfph::Frame& reply, mfph::MessageType type) {
+	return reply.type == (static_cast<std::uint16_t>(type) | mfph::kReplyBit);
+}
+
+std::uint32_t loadPlugin(const std::string& classId, std::uint32_t slot, std::uint32_t& latency) {
+	mfph::PayloadWriter w;
+	w.str(MFPH_TEST_PLUGINS);
+	w.str(classId);
+	w.u32(slot);
+	w.u32(48000);
+	w.u32(kBlock);
+	auto reply = call(mfph::MessageType::PluginLoad, w.data());
+	CHECK(ok(reply, mfph::MessageType::PluginLoad));
+	mfph::PayloadReader r(reply.payload);
+	std::uint32_t id = 0, flags = 0;
+	std::uint16_t ins = 0, outs = 0;
+	std::string name;
+	CHECK(r.u32(id) && r.u32(latency) && r.u16(ins) && r.u16(outs) && r.u32(flags) && r.str(name));
+	CHECK(outs == 2);
+	return id;
+}
+
+void process(std::uint32_t frames, const std::vector<std::pair<std::uint32_t, std::uint32_t>>& chain) {
+	mfph::PayloadWriter w;
+	w.u32(frames);
+	w.u32(1);
+	double tempo = 120.0;
+	std::uint64_t bits;
+	std::memcpy(&bits, &tempo, 8);
+	w.u64(bits);
+	w.u64(0);
+	w.u32(static_cast<std::uint32_t>(chain.size()));
+	for (auto [id, input] : chain) {
+		w.u32(id);
+		w.u32(input);
+	}
+	CHECK(ok(call(mfph::MessageType::PluginProcess, w.data()), mfph::MessageType::PluginProcess));
+}
+
+float peak(const float* p, std::uint32_t n) {
+	float m = 0;
+	for (std::uint32_t i = 0; i < n; ++i)
+		m = std::max(m, std::fabs(p[i]));
+	return m;
+}
+} // namespace
+
+static void testPlugins(const fs::path& dir) {
+	const std::string gainId = "4D46544741494E000000000000000001", synthId = "4D465453594E54000000000000000002",
+					  crasherId = "4D464352415348000000000000000003";
+	std::string json;
+	CHECK(mfph::scanBundle(MFPH_TEST_PLUGINS, json));
+	CHECK(json.find(synthId) != std::string::npos && json.find("\"kind\":\"instrument\"") != std::string::npos);
+	CHECK(!mfph::scanBundle((dir / "missing.vst3").string(), json) && json.find("\"error\":\"") != std::string::npos);
+
+	// The shared memory file, as the editor writes it.
+	const fs::path shmPath = dir / "plugins.shm";
+	const std::size_t size = mfph::kShmHeaderSize + kSlots * kStride;
+	{
+		std::vector<unsigned char> bytes(size, 0);
+		const std::uint32_t header[] = {mfph::kShmMagic, mfph::kShmVersion, kBlock, kSlots, kEvents, kStride};
+		std::memcpy(bytes.data(), header, sizeof(header));
+		std::ofstream(shmPath, std::ios::binary).write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(size));
+	}
+	mfph::PayloadWriter setup;
+	setup.str(shmPath.string());
+	setup.u64(size);
+	CHECK(ok(call(mfph::MessageType::PluginSetupShm, setup.data()), mfph::MessageType::PluginSetupShm));
+	mfph::SharedMemory shm;
+	std::string error;
+	CHECK(shm.open(shmPath.string(), size, error));
+	if (!shm.isOpen())
+		return;
+
+	std::uint32_t latency = 99;
+	const std::uint32_t synth = loadPlugin(synthId, 0, latency);
+	CHECK(latency == 0);
+	const std::uint32_t gain = loadPlugin(gainId, 1, latency);
+	const std::uint32_t crasher = loadPlugin(crasherId, 2, latency);
+	CHECK(latency == 128);
+	mfph::PayloadWriter lat;
+	lat.u32(crasher);
+	auto latReply = call(mfph::MessageType::PluginLatency, lat.data());
+	mfph::PayloadReader latReader(latReply.payload);
+	CHECK(ok(latReply, mfph::MessageType::PluginLatency) && latReader.u32(latency) && latency == 128);
+
+	// A note on the synth, the synth's output chained into the gain (0.5 by default).
+	*shm.eventCount(0) = 1;
+	auto* ev = const_cast<mfph::ShmEvent*>(shm.events(0));
+	ev[0] = mfph::ShmEvent{10, 1, 0, 69, 100, {0, 0}};
+	process(kBlock, {{synth, 0xFFFFFFFFu}, {gain, 0}});
+	const float synthPeak = peak(shm.channel(0, 2), kBlock);
+	CHECK(synthPeak > 0.05f && peak(shm.channel(0, 2), 10) == 0.0f);
+	CHECK(std::fabs(peak(shm.channel(1, 2), kBlock) - synthPeak * 0.5f) < 1e-4f);
+	CHECK(*shm.eventCount(0) == 0);
+
+	// Gain state round trip: set 0.25, read it back, process scales by it.
+	const float quarter = 0.25f;
+	mfph::PayloadWriter st;
+	st.u32(gain);
+	st.u32(4);
+	st.bytes(reinterpret_cast<const unsigned char*>(&quarter), 4);
+	st.u32(0);
+	CHECK(ok(call(mfph::MessageType::PluginSetState, st.data()), mfph::MessageType::PluginSetState));
+	mfph::PayloadWriter gs;
+	gs.u32(gain);
+	auto state = call(mfph::MessageType::PluginGetState, gs.data());
+	mfph::PayloadReader sr(state.payload);
+	std::uint32_t cl = 0;
+	const unsigned char* cp = nullptr;
+	float restored = 0;
+	CHECK(ok(state, mfph::MessageType::PluginGetState) && sr.u32(cl) && cl == 4 && sr.bytes(4, cp));
+	if (cp)
+		std::memcpy(&restored, cp, 4);
+	CHECK(restored == 0.25f);
+	for (std::uint32_t i = 0; i < kBlock; ++i)
+		shm.channel(1, 0)[i] = shm.channel(1, 1)[i] = 1.0f;
+	process(kBlock, {{gain, 0xFFFFFFFFu}});
+	CHECK(std::fabs(shm.channel(1, 2)[5] - 0.25f) < 1e-6f && std::fabs(shm.channel(1, 3)[200] - 0.25f) < 1e-6f);
+
+	// Offline and back; the crasher delays by its latency.
+	mfph::PayloadWriter off;
+	off.u32(1);
+	CHECK(ok(call(mfph::MessageType::PluginSetOffline, off.data()), mfph::MessageType::PluginSetOffline));
+	for (std::uint32_t i = 0; i < kBlock; ++i)
+		shm.channel(2, 0)[i] = shm.channel(2, 1)[i] = i == 0 ? 1.0f : 0.0f;
+	process(kBlock, {{crasher, 0xFFFFFFFFu}});
+	CHECK(shm.channel(2, 2)[128] == 1.0f && shm.channel(2, 2)[0] == 0.0f);
+	off.data().clear();
+	off.u32(0);
+	CHECK(ok(call(mfph::MessageType::PluginSetOffline, off.data()), mfph::MessageType::PluginSetOffline));
+
+	// Editors: the test plugins have none (single component effects without a view).
+	mfph::PayloadWriter oe;
+	oe.u32(gain);
+	oe.str("Gain - Track - Song");
+	CHECK(call(mfph::MessageType::PluginOpenEditor, oe.data()).type == static_cast<std::uint16_t>(mfph::MessageType::Error));
+
+	for (std::uint32_t id : {synth, gain, crasher}) {
+		mfph::PayloadWriter u;
+		u.u32(id);
+		CHECK(ok(call(mfph::MessageType::PluginUnload, u.data()), mfph::MessageType::PluginUnload));
+	}
+	mfph::PayloadWriter u;
+	u.u32(gain);
+	CHECK(call(mfph::MessageType::PluginUnload, u.data()).type == static_cast<std::uint16_t>(mfph::MessageType::Error));
+	mfph::shutdownPlugins();
+}
+#endif
+
 int main(int argc, char** argv) {
 	if (argc != 3) {
 		std::cerr << "usage: mfplughost_tests <mfplughost> <scratch-dir>\n";
@@ -235,6 +414,9 @@ int main(int argc, char** argv) {
 	testEncode(dir);
 	testCommandLine(argv[1], dir);
 	testProtocol(dir);
+#ifdef MFPH_VST3
+	testPlugins(dir);
+#endif
 	if (g_failures > 0) {
 		std::cerr << g_failures << " check(s) failed\n";
 		return 1;

@@ -1,5 +1,6 @@
 # Builds and tests the native libraries (ENet `enet`, RmlUi shim `mfrmlui`, SVG `mfsvg`) and the editor's helper
-# executable (`mfplughost`) for every runtime identifier, and checks that the binaries committed under
+# executable (`mfplughost`, with VST3 hosting: MF_PLUGINHOST_VST3 defaults ON; CTest builds and loads the
+# mf_test_plugins.vst3 fixture, which is never shipped) for every runtime identifier, and checks that the binaries committed under
 # MainframeEngine/runtimes/ and MainframeEngine.Editor/runtimes/ match Native/natives.lock.
 #
 # Refreshing committed binaries: run this workflow, download the `natives-all` artifact, unzip it at the repository

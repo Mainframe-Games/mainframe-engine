@@ -45,7 +45,7 @@ component_inputs() {
 		enet) echo "Native/CMakeLists.txt Native/ENet/CMakeLists.txt Native/ENet/exports.macos.txt Native/ENet/exports.linux.map" ;;
 		mfrmlui) echo "Native/CMakeLists.txt Native/RmlUi/CMakeLists.txt Native/RmlUi/include Native/RmlUi/shim" ;;
 		mfsvg) echo "Native/CMakeLists.txt Native/Svg/CMakeLists.txt Native/Svg/include Native/Svg/shim Native/Svg/thorvg" ;;
-		mfplughost) echo "Native/CMakeLists.txt Native/PluginHost/CMakeLists.txt Native/PluginHost/src" ;;
+		mfplughost) echo "Native/CMakeLists.txt Native/PluginHost/CMakeLists.txt Native/PluginHost/vst3.cmake Native/PluginHost/src" ;;
 		*) return 1 ;;
 	esac
 }
@@ -55,7 +55,7 @@ component_submodules() {
 		enet) echo "Native/ENet/upstream" ;;
 		mfrmlui) echo "Native/RmlUi/external/RmlUi Native/RmlUi/external/freetype" ;;
 		mfsvg) echo "" ;;
-		mfplughost) echo "Native/PluginHost/external/ogg Native/PluginHost/external/vorbis" ;;
+		mfplughost) echo "Native/PluginHost/external/ogg Native/PluginHost/external/vorbis Native/PluginHost/external/vst3sdk" ;;
 		*) return 1 ;;
 	esac
 }

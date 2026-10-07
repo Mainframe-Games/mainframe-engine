@@ -3,9 +3,11 @@
 # Editor-only: shipped from MainframeEngine.Editor/runtimes/<rid>/native/, never with games.
 #   mfplughost --encode <in.wav> <out.ogg> --quality <0..10>   WAV (16-bit PCM / 32-bit float) -> Ogg Vorbis
 #   mfplughost --serve <socket-path>                            the editor's helper (length-prefixed binary protocol)
+#   mfplughost --scan <bundle.vst3>                             one bundle's VST3 classes as JSON (one process per bundle)
 #   mfplughost --version
-# Third-party code is static: libogg 1.3.6 and libvorbis/libvorbisenc 1.3.7 (BSD-3-Clause, submodules in external/).
-# The VST3 SDK (MF_PLUGINHOST_VST3) and RtMidi (MF_PLUGINHOST_MIDI) slot in here in later phases.
+# Third-party code is static: libogg 1.3.6 and libvorbis/libvorbisenc 1.3.7 (BSD-3-Clause), the VST 3 SDK 3.8.1 (MIT;
+# base, pluginterfaces, public.sdk hosting — no VSTGUI), submodules in external/. RtMidi (MF_PLUGINHOST_MIDI) slots in
+# here in a later phase. The test plugin bundle (tests/plugins, CTest fixture) is never shipped.
 cmake_minimum_required(VERSION 3.25)
 
 project(mfplughost VERSION 0.1.0 LANGUAGES C CXX)
@@ -15,12 +17,9 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 option(MF_NATIVES_WERROR "Treat warnings in our own (non third-party) native code as errors" ON)
-option(MF_PLUGINHOST_VST3 "Host VST3 plugins (VST3 SDK 3.8; not vendored yet)" OFF)
+option(MF_PLUGINHOST_VST3 "Host VST3 plugins (VST 3 SDK 3.8, external/vst3sdk)" ON)
 option(MF_PLUGINHOST_MIDI "MIDI input devices (RtMidi; not vendored yet)" OFF)
 
-if(MF_PLUGINHOST_VST3)
-	message(FATAL_ERROR "MF_PLUGINHOST_VST3: the VST3 SDK is not vendored yet (music editor delivery 2).")
-endif()
 if(MF_PLUGINHOST_MIDI)
 	message(FATAL_ERROR "MF_PLUGINHOST_MIDI: RtMidi is not vendored yet (music editor delivery 4).")
 endif()
@@ -70,6 +69,10 @@ foreach(lib mfph_ogg mfph_vorbis)
 	endif()
 endforeach()
 
+if(MF_PLUGINHOST_VST3)
+	include(vst3.cmake)
+endif()
+
 # Everything but main(): the executable and the tests link it.
 add_library(mfph_core STATIC
 	src/wav.hpp src/wav.cpp
@@ -77,7 +80,24 @@ add_library(mfph_core STATIC
 	src/protocol.hpp src/protocol.cpp
 	src/transport.hpp src/transport.cpp
 	src/server.hpp src/server.cpp
+	src/shm.hpp src/shm.cpp
+	src/mainthread.hpp
+	src/plugins.hpp
 	src/version.hpp)
+if(MF_PLUGINHOST_VST3)
+	target_sources(mfph_core PRIVATE src/plugins.cpp)
+	target_link_libraries(mfph_core PUBLIC mfph_vst3_hosting)
+	target_compile_definitions(mfph_core PUBLIC MFPH_VST3=1)
+else()
+	target_sources(mfph_core PRIVATE src/plugins_none.cpp)
+endif()
+if(APPLE)
+	target_sources(mfph_core PRIVATE src/mainthread_mac.mm)
+	set_source_files_properties(src/mainthread_mac.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+	target_link_libraries(mfph_core PUBLIC "-framework Cocoa")
+else()
+	target_sources(mfph_core PRIVATE src/mainthread.cpp)
+endif()
 target_include_directories(mfph_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_definitions(mfph_core PUBLIC MFPH_VERSION="${PROJECT_VERSION}")
 target_link_libraries(mfph_core PUBLIC mfph_vorbis)
@@ -109,5 +129,10 @@ if(BUILD_TESTING)
 	add_executable(mfplughost_tests tests/tests.cpp)
 	target_link_libraries(mfplughost_tests PRIVATE mfph_core)
 	target_compile_features(mfplughost_tests PRIVATE cxx_std_20)
+	if(MF_PLUGINHOST_VST3)
+		add_subdirectory(tests/plugins)
+		add_dependencies(mfplughost_tests mf_test_plugins)
+		target_compile_definitions(mfplughost_tests PRIVATE MFPH_TEST_PLUGINS="${MF_TEST_PLUGINS_BUNDLE}")
+	endif()
 	add_test(NAME mfplughost_tests COMMAND mfplughost_tests "$<TARGET_FILE:mfplughost>" "${CMAKE_CURRENT_BINARY_DIR}/test-output")
 endif()

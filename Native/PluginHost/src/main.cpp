@@ -1,5 +1,7 @@
 // mfplughost: the music editor's helper process. See docs/design/natives.md and ADR 0146.
 #include "encode.hpp"
+#include "mainthread.hpp"
+#include "plugins.hpp"
 #include "server.hpp"
 #include "version.hpp"
 
@@ -41,6 +43,7 @@ std::vector<std::string> utf8Args(int argc, char** argv) {
 int usage() {
 	std::cerr << "usage: mfplughost --encode <in.wav> <out.ogg> [--quality <0..10>]\n"
 				 "       mfplughost --serve <socket-path>\n"
+				 "       mfplughost --scan <bundle.vst3>\n"
 				 "       mfplughost --version\n";
 	return 2;
 }
@@ -53,8 +56,16 @@ int main(int argc, char** argv) {
 		std::cout << "mfplughost " << mfph::kVersion << " (protocol " << mfph::kProtocolVersion << ")\n";
 		return 0;
 	}
-	if (args.size() == 3 && args[1] == "--serve")
-		return mfph::serve(args[2], std::cerr);
+	if (args.size() == 3 && args[1] == "--serve") {
+		const std::string socketPath = args[2];
+		return mfph::runWithMainLoop([socketPath] { return mfph::serve(socketPath, std::cerr); });
+	}
+	if (args.size() == 3 && args[1] == "--scan") {
+		std::string json;
+		const bool ok = mfph::scanBundle(args[2], json);
+		std::cout << json << std::endl;
+		return ok ? 0 : 1;
+	}
 	if ((args.size() == 4 || args.size() == 6) && args[1] == "--encode") {
 		float quality = 6.0f;
 		if (args.size() == 6) {

@@ -1,10 +1,12 @@
 #include "server.hpp"
 
 #include "encode.hpp"
+#include "plugins.hpp"
 #include "transport.hpp"
 #include "version.hpp"
 
 #include <chrono>
+#include <mutex>
 #include <thread>
 
 #ifdef _WIN32
@@ -54,7 +56,7 @@ void dispatch(const Frame& request, Frame& reply, bool& shutdown) {
 				"protocol " + std::to_string(version) + " requested; this helper speaks " + std::to_string(kProtocolVersion));
 		out.u32(kProtocolVersion);
 		out.str(kVersion);
-		out.u32(CapabilityEncode);
+		out.u32(CapabilityEncode | (pluginsSupported() ? CapabilityVst3 : 0u));
 		out.u32(processId());
 		break;
 	}
@@ -86,6 +88,8 @@ void dispatch(const Frame& request, Frame& reply, bool& shutdown) {
 		break;
 	}
 	default:
+		if (dispatchPlugin(request, reply))
+			return;
 		return errorReply(reply, ErrorCode::UnknownMessage, "unknown message type " + std::to_string(request.type));
 	}
 	reply.payload = std::move(out.data());
@@ -112,6 +116,20 @@ int serve(const std::string& socketPath, std::ostream& log, int acceptTimeoutMs)
 	}
 	listener.close(); // one editor per helper: the socket file goes away once connected
 
+	// Replies (protocol thread) and notifications (main thread: an editor window closed) share the connection.
+	std::mutex writeMutex;
+	setPluginNotify([&](const Frame& note) {
+		std::lock_guard lock(writeMutex);
+		std::string ignored;
+		connection.writeFrame(note, ignored);
+	});
+	struct Cleanup {
+		~Cleanup() {
+			setPluginNotify(nullptr);
+			shutdownPlugins();
+		}
+	} cleanup;
+
 	for (;;) {
 		Frame request;
 		switch (connection.readFrame(request, error)) {
@@ -126,6 +144,7 @@ int serve(const std::string& socketPath, std::ostream& log, int acceptTimeoutMs)
 		Frame reply;
 		bool shutdown;
 		dispatch(request, reply, shutdown);
+		std::unique_lock lock(writeMutex);
 		if (!connection.writeFrame(reply, error)) {
 			log << "mfplughost: " << error << std::endl;
 			return 1;
