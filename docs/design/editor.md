@@ -93,7 +93,11 @@ flowchart TB
   `engine://editor-viewport` and shown by an `<img>` in the viewport panel; the view's pixel size follows the panel.
 - **The editor camera** is `SceneViewport.CameraOverride` — the scene's own `Camera3D`s and their `Current` flags are
   never touched.
-- Audio is disabled in the editor process. The edited scene is **shadowed**: its view sets `SubViewport.Shadows`, and
+- **Edit mode is silent** (ADR 0144): the editor runs an `AudioServer` (engine default bus layout; the project's layout
+  is not applied, so a muted or ducked bus cannot silence previews; no device → the null device), but audio nodes are
+  inert while `Tree.EditMode` is set — `AudioPlayback` (the three players) ignores `Play()` and `Autoplay`, and an
+  `AudioListener3D` never takes the listener. Opening a scene never makes a sound; the editor plays sounds only through
+  [Audio previews](#audio-previews). The edited scene is **shadowed**: its view sets `SubViewport.Shadows`, and
   since the editor's main world draws nothing, the shared shadow maps (Shadows v2: cascades, atlas, PCF) go to the
   active tab's view.
 - **The current project** (see [Projects](#projects)) sets `AssetDatabase.Current` and `ContentPaths.ProjectDirectory`,
@@ -135,7 +139,9 @@ Cmd (macOS) or Ctrl: N new · O open · S save · Shift+S save as · W close tab
 D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload. Plain keys:
 Delete/Backspace delete, F2 rename, F frame, G grid, Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5
 play (Shift+F5 another instance), F6 play the open scene, F7 pause/resume, F8 stop, F9 RmlUi debugger. Shortcuts are
-unhandled input: a focused text field keeps its keys, and closed dialogs release focus.
+unhandled input: a focused text field keeps its keys, and closed dialogs release focus. While a song tab is active its
+own keys come first ([Song tab](#song-tab-music-editor)): Space play/stop, R record, L loop, Home to start, Del, Cmd+C/V/D, arrows,
+Q; F5–F8 and the Cmd shortcuts above stay the editor's.
 
 ## Icons
 
@@ -482,8 +488,138 @@ merge as usual. Arrays, nested resource sub-inspectors, custom inspectors and th
 
 A `.mres` file opened from the FileSystem panel is edited in the inspector (`EditedResource`) with its own undo
 history and Save. `ICustomInspector` gets an `IInspectorContext` (a scene or a resource; the `EditedScene` overload
-still works), so a custom inspector can act on either. The shipped example is `AudioBusLayoutInspector`: a mixer strip
-for `AudioBusLayout` buses, every change undoable. Game assemblies' `[CustomInspector]`s are found when they load.
+still works), so a custom inspector can act on either. The shipped examples are `AudioBusLayoutInspector` (a mixer strip
+for `AudioBusLayout` buses, every change undoable) and the [sound designer](#sound-designer). Game assemblies'
+`[CustomInspector]`s are found when they load.
+
+**`OnPropertyChanged(target, property, context)`** (default method: nothing) tells a custom inspector about every
+committed change to its target, including edits made by the generated rows, which bypass it. It is called once per
+history entry: after a text commit, a checkbox or dropdown change, or when a merged slider drag ends (mouse released;
+not per tick), with the row's `property`; `property` is null for undo, redo and changes made by actions. While a drag
+merges, a custom header is not rebuilt per tick (only the values refresh); it is rebuilt when the drag ends.
+
+## Audio previews
+
+`AudioPreview` (`Src/Audio/AudioPreview.cs`, owned by `EditorWorkspace`) plays **one voice at a time**: `Play(stream)`
+stops the current preview and starts a non-positional `PlayOneShot` on Master with `ProcessMode.Always` (the edit
+camera and listener do not matter); `Toggle`, `Stop`, `IsPlaying(stream)`, and `PlayFile`/`ToggleFile`/`IsPlayingFile`
+for files, which load through `ResourceLoader.Load<AudioStream>` (import settings, shared cache: a long `.ogg` streams).
+The workspace polls it once per frame (`AudioServer.IsPlaying`, no events, no allocation) and refreshes the Play/Stop
+icons when a voice ends. Running the game (**Play**) stops the preview. A stream that cannot load reports its
+`LoadError` in the Output panel and the button stays "Play". Previews play at 0 dB on Master.
+
+- **FileSystem panel:** audio files (`.wav .ogg .mp3 .flac`) and `.mres` files whose root type is an `AudioStream` get
+  **Play / Stop** in the context menu; double-clicking an audio file toggles its preview; the playing file shows the
+  `player-stop` badge (teal) in all three views.
+- **Inspector `AudioStream` rows:** a Play/Stop icon button before Edit/Load/New/Clear ("Play — preview this sound in
+  the editor"): `AudioPlayer*.Stream`, exported `AudioStream` fields and inline `ZzfxStream`s.
+
+## Sound designer
+
+`ZzfxStreamInspector` (`[CustomInspector(typeof(ZzfxStream))]`) is the designer for ZzFX sounds (the engine side is in
+[Audio → Synthesis](audio.md)); it shows when a `ZzfxStream` `.mres` is the inspected target (double-click it, or Edit
+on a slot holding one). Inline sounds folded inside another inspector keep the generic rows. The header sits above the
+generated parameter sliders (`File` and `LoadMode` rows are hidden):
+
+![Sound designer: the ZzfxStream inspector and FileSystem previews](../images/sound-designer.svg)
+
+- **Play / Stop** toggles the preview; **Auto-play** (on by default, `SoundDesignerAutoPlay` in `editor_layout.json`)
+  replays the sound after every committed change — a slider release, a field commit, a preset, Randomize, Mutate,
+  Paste, undo or redo — through `OnPropertyChanged`.
+- **Info and waveform:** the length ("0.94 s · 44.1 kHz mono") or the `LoadError`/length error in the notice style;
+  96 min/max columns over the generated samples (normalised to the loudest peak) as `div` bars sized in `dp`, rebuilt
+  with the header and cached per parameter set.
+- **Presets** (icon buttons: pickup/coin, laser, explosion, hit, jump, blip, power-up; `ZzfxPresets`, a fresh
+  `Random` per click), **Randomize**, **Mutate** (±10 % on non-default continuous parameters), **Copy ZzFX** (`ToLine()`
+  to the clipboard) and **Paste ZzFX** (`ZzfxParameters.TryParse`; invalid text shows the parse error in a
+  `MessageDialog` and changes nothing). Each sets every parameter that differs as **one** undo entry
+  (`CompositeAction` of `SetPropertyAction`s); undo restores the sound exactly.
+- **Export .wav** opens the file picker in save mode at `<sound folder>/<name>.wav` and writes 16-bit PCM, 44.1 kHz
+  mono through `WavWriter`; an I/O error is reported (`Commands.ReportError`) and the partial file deleted. The new file
+  gets its `.meta`/UID from the asset database like any dropped-in file.
+
+## Song tab (music editor)
+
+Double-clicking a `.msong`, File › New Song… (a file picker in `Content/Music`) or the FileSystem panel's New Song…
+opens a **song tab** (`Music/SongTab`, an `IEditorTab`; design: [Music editor](future/music-editor.md)). A new song has
+one instrument track with the built-in ZzFX instrument. The tab owns the `SongDocument` (its own undo history: Cmd+Z,
+Cmd+S, Save As — a copy gets a new UID — and the close/quit prompts cover it like scenes) and one `SongPlayer`, stopped
+when the tab is deactivated or closed. The scene tree and inspector rest while it is active, like a UI preview.
+
+- **Chrome** (`SongPanel`, `Content/Editor/song.rml`, over the view area): transport — to start, play, stop, loop,
+  tempo field, time signature menu, position (bars.beats.ticks), snap menu (off, 1/4 … 1/32, triplets), underrun counter
+  and **Render**; track headers (colour bar, name — double-click renames —, instrument, mute, solo, colour, remove; + adds
+  an instrument or audio track); a **Piano roll | Mixer** switcher with the selected clip's summary; mixer strips
+  (instrument slot "Built-in ZzFX" with its menu, Edit Sound — the ZzFX line in a text field, checked by
+  `ZzfxParameters.TryParse`, auditioned on Apply — and audition; the slot's menu also lists scanned VST3 instruments and
+  opens the plugin's editor window; an inserts button whose menu adds a scanned VST3 effect and, per insert, opens its
+  editor, bypasses, moves it up/down or removes it — all undoable `SongDocument` edits; pan; vertical volume fader in dB; peak meter from `TakeTrackPeak`/`TakeMasterPeak` once per frame;
+  mute/solo) and the master strip (with its own inserts). Faders and the tempo field merge into one undo entry per drag or edit. No record-arm
+  or record buttons and no metronome yet (no MIDI input, `SongEngine` has no click).
+- **Canvases:** the arrangement (`ArrangementCanvas`) and the piano roll (`PianoRollCanvas`) are `[Tool]` `Node2D`s
+  drawing with `DrawRect`/`DrawLine`/`DrawString` in two `Disable3D` `SubViewport`s per tab, sized in framebuffer pixels
+  (drawing in dp × scale keeps text sharp). The `SongView` node publishes the active tab's viewports as
+  `engine://song-arrange` / `engine://song-roll` (the `ViewportPanel` pattern), routes mouse input over the canvas
+  areas (pointer-events none in the RML) to the tab's `SongCanvasController`, keeps the playhead in view while playing
+  and runs renders. Drawing allocates nothing in steady state (cached bar and note labels, colour cache, no LINQ).
+- **Arrangement:** ruler with bar numbers, the loop region in its top band (drag inside to move, edges to resize, outside
+  to draw a new one, which enables looping), click/drag below to seek; one 44 dp lane per track. Clips drag with snap
+  (also to another lane of the same kind), resize from either edge (an audio clip's left trim moves its offset), Alt-drag
+  copies, Cmd+D duplicates after, Del deletes; double-click an empty instrument lane for a one-bar MIDI clip, an audio
+  lane for "Add Audio Clip" (file picker); dropping a sound from the FileSystem panel adds an audio clip (on an audio
+  lane, else on a new audio track) of the file's length. Clip gestures are previewed and committed on release; MIDI clips
+  show their notes, audio clips min/max peaks (`SongWaveforms`, decoded in the background and cached).
+- **Piano roll** of the selected MIDI clip: keyboard (click auditions through `PreviewNote`), click adds a note of the
+  last length, drag moves (snapped in song time; the moved note auditions), right edge resizes, empty-area drag is a
+  rubber band (Shift adds), velocity lane (drag a bar; selected notes together), Del, Cmd+C/V (at the playhead inside the
+  clip, else after the copy)/D, arrows nudge by the snap (Shift: an octave), Q quantizes (`SongDocument.QuantizeNotes`,
+  one entry). Notes and velocity drag live with a merge key, ended on release: **one undo entry per gesture**.
+- **Zoom and scroll:** Cmd/Ctrl+wheel zooms time around the mouse, Shift+wheel (or a horizontal wheel) scrolls time,
+  the wheel scrolls lanes / pitches.
+- **Render** (transport button, FileSystem › Render on a `.msong`): `SongRenderJob` renders a copy of the song with
+  `SongRenderer.Render` on a worker thread; the button shows "Cancel 63 %" and cancels on click (the splash has no cancel
+  and would block the editor, so progress is shown there instead). The result goes to the Output panel. The FileSystem
+  badges a song whose output is older than the song (refresh icon, "Render out of date"). The output defaults to
+  `Content/Music/<Song>.ogg`: the song is rendered to a temporary 32-bit float WAV and encoded by the plugin helper
+  (`mfplughost --serve`, `PluginHostClient`; Vorbis VBR at the song's `quality`, default 6; ADR 0146), started on the
+  first render and stopped with the editor. Without a helper binary for the platform an `.ogg` output is written as
+  `.wav` (with a warning). A `.wav` output's samples are `sampleFormat`: `float` (the default) or `pcm16`.
+- **Headless render:** `MainframeEngine.Editor --render-song <path.msong>` (`just render-song <path>`; `SongRenderCommand`)
+  renders a song into the project above it (the nearest folder with `project.mfproj`) exactly like Render — the output
+  and its `.meta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
+  `Content/Music/demo_loop.ogg` is rendered this way).
+- **VST3 plugins** (ADR 0147): `PluginScanner` runs `mfplughost --scan` once per bundle (30 s timeout) over the OS's
+  default VST3 folders plus Editor Settings › VST3 folders, caching results in `~/.mainframe/plugins.json` by path and
+  modification time (Editor Settings › Rescan Plugins forces a full scan; the first plugin menu without a cache scans in
+  the background). Each song tab's `SongPlayer` owns a `PluginRack` with its own helper (started on the first plugin):
+  `PluginInstrument`/`PluginEffect` instances in a file-backed shared memory; the render thread sends every track's
+  chain in one `process` round trip per block (master inserts in a second), with a deadline of 4 blocks — a miss plays
+  silence and counts an xrun (shown with the underruns) — and plugin delay compensation delays every track to the
+  slowest chain. A helper crash marks the plugins unloaded; the next frame restarts the helper and reloads each plugin
+  from its last captured state; a plugin that crashed it twice within a minute is disabled for the session and its
+  track shows why ("insert disabled: …", "missing plugin: Name (Vendor)" when a class is not installed). States
+  (base64 of the component + controller streams) are captured into the song as undoable "Plugin State" edits on save,
+  when the user closes a plugin's window and before a render; undo pushes the previous state back to the plugin. Renders
+  load their own copies in a separate helper in offline mode (10 s watchdog per block).
+- **MIDI keyboards and recording** (ADR 0148): `MidiInputService` (owned by the workspace) runs its own `mfplughost`
+  for RtMidi, started on first need (a device enabled in Editor Settings › MIDI inputs, or the dialog listing them).
+  Enabled devices (remembered by port name) stay open; the helper polls its port list every second, an unplugged
+  device shows offline and is opened again when it returns. Each UI frame the service hands messages to the active song
+  tab's `SongMidiInput`: notes play the **record-armed** track (the dot button on an instrument track's header; one at a
+  time), else the selected instrument track, through the engine's preview path (its command ring: lock-free for the
+  render thread, no allocation per event); the sustain pedal (CC64) holds note-offs while down; other controllers are
+  ignored (the instrument API has none). The helper stamps each message with its steady clock; the client maps that to
+  `Stopwatch` (offset measured at connect and on each ping), and recording places a note at the transport position
+  being *heard* when it was played: the player's position minus the time since, minus the device buffer (a 10 ms
+  estimate). **Record** (transport dot, R) starts playback if needed and writes the take into a new clip on the armed
+  track (arming the selected one if none is): the recorded range rounded to bars, or the loop region with Loop on, each
+  pass adding to the same clip (committed at every wrap so earlier passes play back); the pedal extends recorded
+  lengths; **input quantize** (transport, off / 1/16 / 1/8) snaps note starts. A take is one "Record" undo entry
+  (merged commits); Stop, R or leaving the tab ends it. Tests: `MidiInputTests.cs` (fake host; plus a real helper with a
+  virtual keyboard, `mfplughost --midi-test-source`, on macOS/Linux).
+- Tests: `Tests/MainframeEngine.Editor.Tests/Music/SongTabTests.cs` (tab, gestures → one entry each, grid math, keys) and
+  `SongWorkspaceTests.cs` (panel, keys before shortcuts, save, close prompt); QA steps 13d–13f in the walkthrough
+  (`song` QA step: `new`, `demo`, `select`, `panel`, `play`, `stop`, `save`, `render`; `wait-for render`).
 
 ## Editor settings
 
@@ -497,6 +633,10 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
   and C# files.
 - **Reload code automatically** after builds.
 - **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
+- **VST3 folders** (extra folders, `;`-separated, besides the OS defaults) and **Rescan Plugins** (the music editor's
+  plugin scan; the hint shows the instrument/effect counts and failed bundles).
+- **MIDI inputs**: every device the helper reports (and enabled ones it does not, as offline), each with a toggle and
+  its connected state; the refresh button lists them again. Applied devices are opened by `MidiInputService`.
 
 ## Updates
 
@@ -566,7 +706,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   (`Category=Slow`) runs the real `dotnet new mfgame` and build.
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
   editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, drags, gizmo drags, keys,
-  text, commands, dialog answers, `window-close`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
+  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `fs-select`, `delete-file`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The

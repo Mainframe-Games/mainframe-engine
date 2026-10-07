@@ -109,6 +109,10 @@ public sealed partial class EditorWorkspace : Node
         var dotnet = DotnetSdk.FindDotnet() ?? "dotnet";
         Play = new PlayController(this, Options.GameBuilder ?? new DotnetGameBuilder(dotnet), Options.GameLauncher ?? new ProcessGameLauncher(dotnet));
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
+        AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
+        AudioPreview.Changed += OnAudioPreviewChanged;
+        Midi = new Music.MidiInputService(static () => Music.PluginHostClient.TryCreate());
+        Midi.SetEnabled(Settings.MidiInputs);
         // Output source links open through the code editor of the Editor Settings.
         SourceOpener = (file, line) => CodeEditor.Open(file, line);
     }
@@ -135,6 +139,12 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>Out-of-process Play.</summary>
     public PlayController Play { get; }
 
+    /// <summary>The sound preview (one voice): FileSystem Play, inspector AudioStream rows, the sound designer.</summary>
+    public AudioPreview AudioPreview { get; }
+
+    /// <summary>MIDI keyboards (Editor Settings › MIDI): messages go to the active song tab (ADR 0148).</summary>
+    public Music.MidiInputService Midi { get; }
+
     /// <summary>Opens source files in the external code editor.</summary>
     public CodeEditorLauncher CodeEditor { get; }
 
@@ -153,6 +163,12 @@ public sealed partial class EditorWorkspace : Node
     public ViewportPanel ViewportPanel { get; private set; } = null!;
     public InspectorPanel Inspector { get; private set; } = null!;
     public OutputPanel OutputPanel { get; private set; } = null!;
+
+    /// <summary>The song tab's chrome (transport, track headers, mixer), shown over the view while a song tab is active.</summary>
+    public SongPanel SongPanel { get; private set; } = null!;
+
+    /// <summary>The song tab's canvases, input and renders.</summary>
+    public Music.SongView SongView { get; private set; } = null!;
     public SplittersOverlay Splitters { get; private set; } = null!;
     public PopupMenu Popup { get; private set; } = null!;
     public FilePickerDialog FilePicker { get; private set; } = null!;
@@ -196,8 +212,10 @@ public sealed partial class EditorWorkspace : Node
         ViewportPanel = new ViewportPanel(this) { Name = "Viewport" };
         Inspector = new InspectorPanel(this) { Name = "Inspector" };
         OutputPanel = new OutputPanel(this) { Name = "Output" };
+        SongPanel = new SongPanel(this) { Name = "Song" };
         Splitters = new SplittersOverlay(this) { Name = "Splitters" };
         PanelLayer.AddChild(ViewportPanel);
+        PanelLayer.AddChild(SongPanel);
         PanelLayer.AddChild(MenuBar);
         PanelLayer.AddChild(Toolbar);
         PanelLayer.AddChild(SceneTree);
@@ -234,6 +252,8 @@ public sealed partial class EditorWorkspace : Node
 
         Viewport = new ViewportController(this) { Name = "ViewportController" };
         AddChild(Viewport);
+        SongView = new Music.SongView(this) { Name = "SongView" };
+        AddChild(SongView);
         AddChild(PanelLayer);
         AddChild(ProjectLayer);
         AddChild(DialogLayer);
@@ -329,6 +349,8 @@ public sealed partial class EditorWorkspace : Node
         if (disposing)
         {
             Updates?.Dispose();
+            AudioPreview.Stop();
+            Midi.Dispose();
             Play.Dispose();
             Session.Dispose();
             Project.Dispose();
@@ -344,6 +366,8 @@ public sealed partial class EditorWorkspace : Node
         if (_closeRequested && _pendingLoad is null)
             OnCloseRequested();
         Splash.Tick(gameTime.DeltaTime);
+        AudioPreview.Tick();
+        Midi.Update();
         ProcessProjects(gameTime.DeltaTime);
         if (Output.Drain())
             OutputPanel.Refresh();
@@ -382,6 +406,7 @@ public sealed partial class EditorWorkspace : Node
         SceneTree.SetRect(Layout.SceneTree);
         FileSystem.SetRect(Layout.FileSystem);
         ViewportPanel.SetRect(Layout.Viewport);
+        SongPanel.SetRect(Layout.ViewportImage);
         Inspector.SetRect(Layout.Inspector);
         OutputPanel.SetRect(Layout.Output);
         Splitters.Apply(Layout);
@@ -468,6 +493,15 @@ public sealed partial class EditorWorkspace : Node
 
     private void OnActiveChanged() => RefreshAll();
 
+    // A preview started or ended: the Play/Stop icons and the FileSystem badge follow it.
+    private void OnAudioPreviewChanged()
+    {
+        if (!IsInsideTree)
+            return;
+        FileSystem.RefreshPreviewBadges();
+        Inspector.RefreshPreviewButtons();
+    }
+
     private void OnSceneEdited(EditedScene scene)
     {
         SceneTree.Refresh();
@@ -512,6 +546,13 @@ public sealed partial class EditorWorkspace : Node
         {
             if (key.Key == Key.Escape)
                 Popup.Close();
+            return;
+        }
+
+        // A song tab's own keys (Space, L, Home, Del, Cmd+C/V/D, arrows, Q) come first; F5–F8 and the rest stay global.
+        if (SongView.HandleKey(key.Key, Modifiers))
+        {
+            GetViewport()?.SetInputAsHandled();
             return;
         }
 
@@ -599,8 +640,8 @@ public sealed partial class EditorWorkspace : Node
             Host.Quit();
         }
 
-        var dirty = Session.Scenes.Where(s => s.IsDirty).ToArray();
-        if (dirty.Length == 0)
+        var dirty = Session.DirtyTabs;
+        if (dirty.Count == 0)
         {
             Quit();
             return;

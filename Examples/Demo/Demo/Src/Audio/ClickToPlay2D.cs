@@ -4,7 +4,7 @@ using Silk.NET.Input;
 
 namespace Demo;
 
-/// <summary>Click anywhere: plays a short generated tone at the click position and drops a fading ring.</summary>
+/// <summary>Click anywhere: plays a ZzFX blip at the click position and drops a fading ring.</summary>
 public sealed class ClickToPlay2D : Node2D
 {
     private static AudioStream? s_blip;
@@ -16,18 +16,12 @@ public sealed class ClickToPlay2D : Node2D
         AddChild(new FadingMarker(s_blip ??= Blip()) { Position = CanvasInput.WindowToCanvas(this, click.Position) });
     }
 
-    private static AudioStream Blip()
+    // A ZzFX blip (ZzfxPresets.Blip): synthesised on first play, a slightly different pitch every click.
+    private static ZzfxStream Blip() => new()
     {
-        const int rate = 44100;
-        var samples = new float[rate / 6];
-        for (var i = 0; i < samples.Length; i++)
-        {
-            var t = i / (float)rate;
-            samples[i] = MathF.Sin(MathF.Tau * 880f * t) * MathF.Exp(-t * 18f) * 0.6f;
-        }
-
-        return AudioStream.FromSamples(samples, channels: 1, sampleRate: rate, name: "Blip");
-    }
+        ResourceName = "Blip",
+        Parameters = ZzfxPresets.Blip(new Random(7)) with { Randomness = 0.1f },
+    };
 
     /// <summary>The ring, and the positional blip that plays from its centre (AudioServer one-shots are 3D-only).</summary>
     private sealed class FadingMarker : Node2D

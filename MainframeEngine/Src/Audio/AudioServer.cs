@@ -36,6 +36,9 @@ public struct AudioOptions()
 
     /// <summary>Commands the game thread can have in flight to the audio thread before they wait for the next flush.</summary>
     public int CommandQueueCapacity = 4096;
+
+    /// <summary>Seed of the per-play pitch randomness (<see cref="AudioStream.PitchRandomness"/>); 0 = time-based (tests set it).</summary>
+    internal uint RandomSeed = 0;
 }
 
 /// <summary>Counters for debug overlays and QA.</summary>
@@ -99,6 +102,7 @@ public sealed class AudioServer : IFrameServer
     private long _rejected;
     private bool _faultLogged;
     private bool _disposed;
+    private uint _random;
 
     // Listener state (refreshed each Process).
     private AudioListener3D? _currentListener;
@@ -114,6 +118,7 @@ public sealed class AudioServer : IFrameServer
     {
         _output = output;
         _options = options;
+        _random = options.RandomSeed != 0 ? options.RandomSeed : (uint)Environment.TickCount64 | 1u;
         Tree = tree;
         _commands = new SpscRing<AudioCommand>(Math.Max(64, options.CommandQueueCapacity));
         _root = new AudioMixRoot(output.Engine, output.Format, _commands, _events);
@@ -490,7 +495,7 @@ public sealed class AudioServer : IFrameServer
         ComputeOneShot(volume, pitch, position, ref parameters);
         stream.GetLoopFrames(source, out var loopStart, out var loopEnd);
         var handle = Play(source, busIndex, owner: null, priority, startFrame: 0, stream.Loop, loopStart, loopEnd,
-            position.HasValue, parameters, processMode);
+            position.HasValue, parameters, processMode, stream.PitchRandomness);
         if (!handle.IsValid)
             return handle;
 
@@ -520,6 +525,13 @@ public sealed class AudioServer : IFrameServer
         var frames = Volatile.Read(ref _graph.Voices[handle.Index].Position);
         return slot.Source is { SampleRate: > 0 } source ? frames / source.SampleRate : 0;
     }
+
+    /// <summary>
+    /// The ring of a voice playing an <see cref="AudioStreamGenerator"/> (Godot's <c>get_stream_playback</c>); null when
+    /// the handle is stale or the voice plays something else. Keep it while the voice plays and push frames into it.
+    /// </summary>
+    public AudioStreamGeneratorPlayback? GetGeneratorPlayback(AudioVoiceHandle handle) =>
+        IsCurrent(handle) && _slots[handle.Index].Source is AudioGeneratorSource generator ? generator.Playback : null;
 
     /// <summary>Moves a playing voice to <paramref name="seconds"/>.</summary>
     public void Seek(AudioVoiceHandle handle, double seconds)
@@ -635,7 +647,8 @@ public sealed class AudioServer : IFrameServer
         var startFrame = Math.Max(0, fromSeconds) * source.SampleRate;
         if (source.Frames > 0)
             startFrame = Math.Min(startFrame, source.Frames);
-        return Play(source, busIndex, owner, priority, startFrame, loop || stream.Loop, loopStart, loopEnd, positional, initial);
+        return Play(source, busIndex, owner, priority, startFrame, loop || stream.Loop, loopStart, loopEnd, positional, initial,
+            pitchRandomness: stream.PitchRandomness);
     }
 
     internal void RegisterListener(AudioListener3D listener)
@@ -737,6 +750,8 @@ public sealed class AudioServer : IFrameServer
                 owner.UpdateVoice(this, ref parameters);
             else
                 ComputeOneShot(ref slot, ref parameters);
+            if (slot.PitchVariation != 1f)
+                parameters.Pitch = Math.Clamp(parameters.Pitch * slot.PitchVariation, 0.01f, 16f);
             SendParams(i, ref slot, parameters, force: false);
         }
 
@@ -884,7 +899,8 @@ public sealed class AudioServer : IFrameServer
     // ---------------------------------------------------------------------------------------------
 
     private AudioVoiceHandle Play(AudioSource source, int busIndex, IAudioVoiceOwner? owner, int priority, double startFrame,
-        bool loop, long loopStart, long loopEnd, bool positional, VoiceParams initial, ProcessMode processMode = ProcessMode.Pausable)
+        bool loop, long loopStart, long loopEnd, bool positional, VoiceParams initial, ProcessMode processMode = ProcessMode.Pausable,
+        float pitchRandomness = 0f)
     {
         var bus = _buses[busIndex];
         var index = AllocateVoice(bus, priority);
@@ -893,6 +909,9 @@ public sealed class AudioServer : IFrameServer
             _rejected++;
             return default;
         }
+
+        if (source is AudioGeneratorTemplate generator)
+            source = generator.CreatePlay(); // each play of a generator gets its own ring
 
         ref var slot = ref _slots[index];
         if (slot.CloseStreamAtFrame != 0 && source is not AudioStreamSource)
@@ -915,6 +934,9 @@ public sealed class AudioServer : IFrameServer
         slot.ProcessMode = processMode;
         slot.OneShotVolume = 1f;
         slot.OneShotPitch = 1f;
+        slot.PitchVariation = NextPitchVariation(pitchRandomness);
+        if (slot.PitchVariation != 1f)
+            initial.Pitch = Math.Clamp(initial.Pitch * slot.PitchVariation, 0.01f, 16f);
         if (!bus.DirectAudible)
             initial.Gain = 0f;
         slot.Gain = initial.Gain;
@@ -924,6 +946,20 @@ public sealed class AudioServer : IFrameServer
         slot.Paused = !(owner?.VoicesActive ?? CanProcess(processMode, Tree?.Paused ?? false));
         StartVoice(index, ref slot, source, startFrame, initial, slot.Paused);
         return new AudioVoiceHandle(index, slot.Generation);
+    }
+
+    // Per-play pitch randomness: 1 + r × (2u − 1), u uniform in [0, 1) from a game-thread xorshift32 (no allocation).
+    private float NextPitchVariation(float randomness)
+    {
+        if (!(randomness > 0f))
+            return 1f;
+        var x = _random;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        _random = x;
+        var u = (x >> 8) * (1f / (1 << 24));
+        return 1f + Math.Min(randomness, 1f) * (2f * u - 1f);
     }
 
     // Streamed sources: asks the streaming thread to decode from startFrame; returns the stream generation.
@@ -1048,6 +1084,9 @@ public sealed class AudioServer : IFrameServer
         owner?.OnVoiceEnded(handle, finished);
     }
 
+    /// <summary>The pitch last sent for a voice (tests: per-play randomness); 0 when it is not playing.</summary>
+    internal float GetVoicePitch(AudioVoiceHandle handle) => IsCurrent(handle) ? _slots[handle.Index].Last.Pitch : 0f;
+
     internal bool IsCurrent(AudioVoiceHandle handle) =>
         handle.IsValid && (uint)handle.Index < (uint)_slots.Length && _slots[handle.Index].Active &&
         _slots[handle.Index].Generation == handle.Generation;
@@ -1166,6 +1205,7 @@ public sealed class AudioServer : IFrameServer
         public ProcessMode ProcessMode;
         public float OneShotVolume;
         public float OneShotPitch;
+        public float PitchVariation;
         public Vector3 OneShotPosition;
         public long CloseStreamAtFrame;
     }

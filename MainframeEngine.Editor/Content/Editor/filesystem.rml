@@ -41,6 +41,7 @@
             align-items: center;
             width: 76dp;
             height: 82dp;
+            position: relative;
             margin: 2dp;
             padding: 4dp 2dp;
             border-radius: 4dp;
@@ -55,6 +56,8 @@
         .badge-error { image-color: #f87171; color: #f87171; }
         .badge-warn { image-color: #fbbf24; color: #fbbf24; }
         .badge-unsaved { image-color: #93c5fd; color: #93c5fd; }
+        .badge-playing { image-color: #5eead4; color: #5eead4; }
+        .tile-badge { position: absolute; top: 3dp; right: 3dp; }
         .fs-empty { padding: 14dp; color: #8b93a5; line-height: 18dp; }
     </style>
 </head>
@@ -98,6 +101,7 @@
                 <span data-if="r.thumb == ''" data-attr-class="r.icon"></span>
             </div>
             <span class="fs-name">{{r.name}}</span>
+            <span class="tile-badge" data-if="r.badge != ''"><span data-attr-class="r.badge"></span></span>
         </div>
     </div>
     <div class="fs-empty" data-if="!has_project">

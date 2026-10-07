@@ -11,3 +11,15 @@
 [submodule "Native/RmlUi/external/freetype"]
 	path = Native/RmlUi/external/freetype
 	url = https://github.com/freetype/freetype.git
+[submodule "Native/PluginHost/external/ogg"]
+	path = Native/PluginHost/external/ogg
+	url = https://github.com/xiph/ogg.git
+[submodule "Native/PluginHost/external/vorbis"]
+	path = Native/PluginHost/external/vorbis
+	url = https://github.com/xiph/vorbis.git
+[submodule "Native/PluginHost/external/vst3sdk"]
+	path = Native/PluginHost/external/vst3sdk
+	url = https://github.com/steinbergmedia/vst3sdk.git
+[submodule "Native/PluginHost/external/rtmidi"]
+	path = Native/PluginHost/external/rtmidi
+	url = https://github.com/thestk/rtmidi.git

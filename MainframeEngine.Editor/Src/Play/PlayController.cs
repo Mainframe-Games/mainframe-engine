@@ -132,6 +132,7 @@ public sealed class PlayController : IDisposable
                 continue;
             var request = _queued[i].Request;
             _queued.RemoveAt(i--);
+            _workspace.AudioPreview.Stop(); // running the game stops the editor's preview
             _ = Service.BuildAndLaunchAsync(request);
             Changed?.Invoke();
         }
@@ -243,6 +244,7 @@ public sealed class PlayController : IDisposable
         _lastRequest = request with { SkipBuild = false };
         if (!request.SkipBuild)
             Log.Info($"[Play] Building {Path.GetFileName(request.BuildPath)}…");
+        _workspace.AudioPreview.Stop(); // running the game stops the editor's preview
         _ = Service.BuildAndLaunchAsync(request);
         Changed?.Invoke();
     }

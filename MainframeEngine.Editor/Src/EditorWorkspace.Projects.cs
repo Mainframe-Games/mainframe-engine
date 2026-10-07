@@ -164,6 +164,7 @@ public sealed partial class EditorWorkspace
         var accentChanged = !string.Equals(settings.Accent, Settings.Accent, StringComparison.Ordinal);
         Settings = settings;
         Project.AutoReload = settings.AutoReloadCode;
+        Midi.SetEnabled(settings.MidiInputs);
         _autosaveSeconds = 0;
         if (Options.EditorSettingsPath is { } path)
         {
@@ -307,6 +308,7 @@ public sealed partial class EditorWorkspace
         if (SignalDialog.Visible)
             SignalDialog.Cancel();
         Inspector.ReleaseReferences();
+        AudioPreview.Stop(); // the previewed stream may be a game resource
         SceneTree.Refresh();
         Viewport.ReleaseSceneReferences();
         Tree?.Servers.Get<CanvasServer>()?.ReleaseSceneReferences(); // the last canvas frame holds the 2D tabs' nodes

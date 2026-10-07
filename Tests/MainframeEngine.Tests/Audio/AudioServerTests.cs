@@ -277,6 +277,25 @@ public sealed class AudioServerTests
     }
 
     [Fact]
+    public void EditModeKeepsAudioNodesSilent()
+    {
+        var tree = new SceneTree { EditMode = true };
+        using var server = AudioTestUtil.CreateServer(tree);
+        var player = new AudioPlayer { Stream = AudioTestUtil.Constant(0.5f, 5f), Autoplay = true };
+        var player3D = new AudioPlayer3D { Stream = AudioTestUtil.Constant(0.5f, 5f), Autoplay = true };
+        var listener = new AudioListener3D { Current = true };
+        tree.Root.AddChild(player);
+        tree.Root.AddChild(player3D);
+        tree.Root.AddChild(listener);
+        player.Play();
+        Assert.False(player.Playing);
+        Assert.False(player3D.Playing);
+        Assert.False(listener.IsCurrent);
+        Assert.Equal(0, server.Stats.ActiveVoices);
+        tree.Shutdown();
+    }
+
+    [Fact]
     public void PauseFollowsTheTreeAndProcessMode()
     {
         var tree = new SceneTree();

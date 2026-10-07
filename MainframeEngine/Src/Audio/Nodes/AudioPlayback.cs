@@ -20,10 +20,14 @@ internal sealed class AudioPlayback
     /// <summary>The handles of the playing voices, oldest first.</summary>
     public IReadOnlyList<AudioVoiceHandle> Voices => _voices;
 
-    /// <summary>Called from the node's <c>OnEnterTree</c>.</summary>
+    /// <summary>
+    /// Called from the node's <c>OnEnterTree</c>. In <see cref="SceneTree.EditMode"/> (the editor) audio nodes are inert:
+    /// no server, so <c>Play()</c> and <c>Autoplay</c> do nothing and nothing is preloaded (the editor previews sounds
+    /// itself).
+    /// </summary>
     public void Attach(Node node, AudioStream? stream)
     {
-        Server = node.Tree?.Servers.Get<AudioServer>();
+        Server = node.Tree is { EditMode: false } tree ? tree.Servers.Get<AudioServer>() : null;
         if (Server is not null)
             stream?.Preload();
     }

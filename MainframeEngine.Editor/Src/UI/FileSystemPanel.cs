@@ -217,8 +217,8 @@ public sealed class FileSystemPanel : EditorDocument
         if (_fs is null)
             return;
         var dirty = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var scene in Workspace.Session.Scenes)
-            if (scene.IsDirty && scene.FilePath is { } path)
+        foreach (var tab in Workspace.Session.Tabs)
+            if (tab is EditedScene or Music.SongTab && tab.IsDirty && tab.FilePath is { } path)
                 dirty.Add(path);
         _fs.SetUnsaved(dirty);
     }
@@ -275,15 +275,34 @@ public sealed class FileSystemPanel : EditorDocument
             Indent = RmlText.Dp(4 + depth * 14),
             Thumb = thumb,
             Expanded = _expanded.Contains(entry.FullPath),
-            Badge = BadgeClass(entry.Badges),
+            Badge = Workspace.AudioPreview.IsPlayingFile(entry.FullPath) ? PlayingBadge : BadgeClass(entry.Badges),
             Selected = string.Equals(entry.FullPath, _selected, StringComparison.Ordinal),
         });
+    }
+
+    private const string PlayingBadge = "icon icon-sm icon-player-stop badge-playing";
+
+    /// <summary>The preview started or stopped: the playing file's badge follows (rows are rebuilt).</summary>
+    public void RefreshPreviewBadges()
+    {
+        _shownVersion = -1;
+        Refresh();
+    }
+
+    /// <summary>True for audio files and <c>.mres</c> files whose root type is an <see cref="AudioStream"/> (Play / Stop).</summary>
+    public static bool IsPlayable(ProjectFileEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return entry.Kind == FileKind.Audio ||
+               (entry.Kind == FileKind.Resource && entry.RootTypeName is { } type &&
+                Serialization.TypeRegistry.Get(type)?.Type is { } resourceType && typeof(AudioStream).IsAssignableFrom(resourceType));
     }
 
     private static string BadgeClass(FileBadges badges) =>
         (badges & FileBadges.ImportError) != 0 ? "icon icon-sm icon-circle-x badge-error"
         : (badges & FileBadges.MissingDependency) != 0 ? "icon icon-sm icon-alert-triangle badge-warn"
         : (badges & FileBadges.Unsaved) != 0 ? "icon icon-sm icon-point-filled badge-unsaved"
+        : (badges & FileBadges.RenderOutOfDate) != 0 ? "icon icon-sm icon-refresh badge-warn"
         : "";
 
     private ProjectFileEntry? EntryAt(int index) => (uint)index < (uint)_rows.Count ? _rows[index].Entry : null;
@@ -399,6 +418,9 @@ public sealed class FileSystemPanel : EditorDocument
                     }
                 });
                 break;
+            case FileKind.Song:
+                Workspace.Commands.OpenSong(entry.FullPath);
+                break;
             case FileKind.Rml:
                 try
                 {
@@ -415,6 +437,9 @@ public sealed class FileSystemPanel : EditorDocument
                 break;
             case FileKind.Resource:
                 Workspace.Inspector.InspectResourceFile(entry.FullPath);
+                break;
+            case FileKind.Audio:
+                Workspace.AudioPreview.ToggleFile(entry.FullPath);
                 break;
             default:
                 Log.Info($"[Editor] {entry.ProjectPath}: {entry.Kind} ({entry.Size.ToString("N0", CultureInfo.InvariantCulture)} bytes{(entry.Uid is { } uid ? ", " + uid : "")}).");
@@ -482,11 +507,19 @@ public sealed class FileSystemPanel : EditorDocument
             new MenuItem(entry.Kind == FileKind.Rml ? "Preview UI" : "Open", "fs.open", "Double-click", !entry.IsDirectory,
                 Icon: entry.Kind == FileKind.Rml ? "layout" : "external-link"),
             .. entry.Kind == FileKind.Rml ? [new MenuItem("Open in Code Editor", "fs.open_code", Icon: "code")] : Array.Empty<MenuItem>(),
+            .. entry.Kind == FileKind.Song
+                ? [new MenuItem(Workspace.SongView.RenderOf(entry.FullPath) is null ? "Render" : "Cancel Render", "fs.render", Icon: "download")]
+                : Array.Empty<MenuItem>(),
+            .. IsPlayable(entry)
+                ? [new MenuItem("Play", "fs.play", Icon: "player-play"),
+                   new MenuItem("Stop", "fs.stop", null, Workspace.AudioPreview.IsPlayingFile(entry.FullPath), Icon: "player-stop")]
+                : Array.Empty<MenuItem>(),
             MenuItem.Separator,
             new MenuItem("New Folder…", "fs.new_folder", Icon: "folder-plus"),
             new MenuItem("New Scene…", "fs.new_scene", Icon: "movie"),
             new MenuItem("New 2D Scene…", "fs.new_scene_2d", Icon: "square"),
             new MenuItem("New Resource…", "fs.new_resource", Icon: "file-plus"),
+            new MenuItem("New Song…", "fs.new_song", Icon: "music"),
             MenuItem.Separator,
             new MenuItem("Rename…", "fs.rename", "F2", !isRoot, Icon: "pencil"),
             new MenuItem("Move To…", "fs.move", null, !isRoot, Icon: "folder-open"),
@@ -508,6 +541,13 @@ public sealed class FileSystemPanel : EditorDocument
                 if (entry is not null)
                     Open(entry);
                 return true;
+            case "fs.play":
+                if (entry is { IsDirectory: false } && IsPlayable(entry))
+                    Workspace.AudioPreview.PlayFile(entry.FullPath);
+                return true;
+            case "fs.stop":
+                Workspace.AudioPreview.Stop();
+                return true;
             case "fs.open_code":
                 if (entry is { IsDirectory: false })
                     Workspace.CodeEditor.Open(entry.FullPath);
@@ -527,6 +567,13 @@ public sealed class FileSystemPanel : EditorDocument
                 return true;
             case "fs.new_resource":
                 NewResource();
+                return true;
+            case "fs.new_song":
+                PromptName("New Song", "Song name:", "NewSong", name => Workspace.Commands.CreateSong(Path.Combine(TargetFolder()!, name)));
+                return true;
+            case "fs.render":
+                if (entry is { Kind: FileKind.Song })
+                    Workspace.SongView.Render(entry.FullPath);
                 return true;
             case "fs.rename":
                 if (entry is { Depth: > 0 })

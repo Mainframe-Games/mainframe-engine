@@ -8,7 +8,7 @@ public static class EditorCommandLine
 {
     public const string Usage =
         "Usage: MainframeEngine.Editor [scene.mscene | project folder | project.mfproj] [--project <folder>] [--project-manager] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
-        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem] [--no-validation]] | --validate-demo-zip <zip> [--build [--engine <checkout>]]";
+        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem] [--no-validation]] | --validate-demo-zip <zip> [--build [--engine <checkout>]] | --render-song <path.msong>";
 
     public static EditorAppOptions Parse(IReadOnlyList<string> args)
     {

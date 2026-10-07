@@ -1,0 +1,14 @@
+{
+  "format": 2,
+  "uid": "res_f49b74cf47bc",
+  "type": "ZzfxStream",
+  "props": {
+    "ResourceName": "Jump",
+    "Frequency": 394,
+    "Shape": "Square",
+    "ShapeCurve": 1.06,
+    "Sustain": 0.136,
+    "ReleaseTime": 0.13,
+    "Slide": 1.9
+  }
+}

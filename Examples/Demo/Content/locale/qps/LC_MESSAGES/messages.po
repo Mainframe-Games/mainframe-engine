@@ -129,6 +129,48 @@ msgstr "[Jîttér2 rîgîð böðîés, å råmp åñð å çhåråçtér böð�
 msgid "Rain crates"
 msgstr "[Råîñ çråtés ~~]"
 
+msgid "Sound FX"
+msgstr "[Söûñð FX ~~]"
+
+msgid "ZzFX sounds are synthesised at run time from a few numbers. Play a preset, or make a new sound."
+msgstr "[ZzFX söûñðs åré sýñthésîséð åt rûñ tîmé fröm å féw ñûmbérs. Plåý å prését, ör måké å ñéw söûñð. ~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Coin"
+msgstr "[Çöîñ ~]"
+
+msgid "Laser"
+msgstr "[Låsér ~]"
+
+msgid "Explosion"
+msgstr "[Éxplösîöñ ~~]"
+
+msgid "Hit"
+msgstr "[Hît ~]"
+
+msgid "Jump"
+msgstr "[Jûmp ~]"
+
+msgid "Blip"
+msgstr "[Blîp ~]"
+
+msgid "Power-up"
+msgstr "[Pöwér-ûp ~~]"
+
+msgid "Randomize"
+msgstr "[Råñðömîzé ~~]"
+
+msgid "Mutate"
+msgstr "[Mûtåté ~]"
+
+msgid "Pitch randomness"
+msgstr "[Pîtçh råñðömñéss ~~~~]"
+
+msgid "Paste the line into the editor's sound designer or the ZzFX web designer."
+msgstr "[Påsté thé lîñé îñtö thé éðîtör's söûñð ðésîgñér ör thé ZzFX wéb ðésîgñér. ~~~~~~~~~~~~~~~~~]"
+
+msgid "Music (a song from the music editor)"
+msgstr "[Mûsîç (å söñg fröm thé mûsîç éðîtör) ~~~~~~~~]"
+
 msgid "Spine"
 msgstr "[Spîñé ~]"
 
@@ -146,9 +188,6 @@ msgstr "[Wålk ~]"
 
 msgid "Run"
 msgstr "[Rûñ ~]"
-
-msgid "Jump"
-msgstr "[Jûmp ~]"
 
 msgid "Idle"
 msgstr "[Îðlé ~]"
@@ -224,6 +263,12 @@ msgstr "[Rösé ~]"
 
 msgid "UI"
 msgstr "[ÛÎ ~]"
+
+msgid "Random sound"
+msgstr "[Råñðöm söûñð ~~~]"
+
+msgid "Mutation"
+msgstr "[Mûtåtîöñ ~~]"
 
 msgid "Credits"
 msgstr "[Çréðîts ~~]"

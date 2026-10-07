@@ -212,3 +212,11 @@ square-plus
 trash-x
 volume-off
 download
+# Sound designer (ZzFX presets and actions)
+coin
+flame
+activity
+sparkles
+dice-5
+wand
+clipboard

@@ -118,7 +118,7 @@ public sealed class WorkspaceTests : IDisposable
     {
         foreach (var document in W.PanelLayer.Documents)
             Assert.True(document.IsLoaded, document.Name);
-        Assert.Equal(8, W.PanelLayer.Documents.Count);
+        Assert.Equal(9, W.PanelLayer.Documents.Count); // with the song panel (hidden until a song tab is active)
         Assert.Empty(_editor.RmlMessages);
 
         Assert.Single(W.Session.Scenes);

@@ -85,8 +85,10 @@ public sealed class EditorApp : Engine, IEditorHost
             EnableFrameCapture = options.EnableFrameCapture,
             IconPath = EditorBrand.WindowIconPath,
             DevOverlayVisible = false,
-            // Edit mode is silent: audio previews come later.
-            Audio = new AudioOptions { Enabled = false },
+            // Audio previews (AudioPreview) on the engine's default bus layout: the project's layout is not applied, so a
+            // project that mutes or ducks a bus cannot silence previews. Scenes stay silent (edit mode). No device: the
+            // null device, as for games.
+            Audio = new AudioOptions { Enabled = true, BusLayoutPath = null },
             // Collision shapes are part of what the editor shows.
             DebugCollisionShapes = true,
             Ui = new UiServerOptions

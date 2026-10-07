@@ -1,0 +1,19 @@
+{
+  "format": 2,
+  "uid": "res_f93fe59916b3",
+  "type": "ZzfxStream",
+  "props": {
+    "ResourceName": "Explosion",
+    "Frequency": 153,
+    "Shape": "Noise",
+    "ShapeCurve": 2.12,
+    "Attack": 0.014,
+    "Decay": 0.076,
+    "Sustain": 0.259,
+    "ReleaseTime": 0.559,
+    "SustainVolume": 0.544,
+    "Slide": -0.181,
+    "Noise": 0.25,
+    "BitCrush": 0.758
+  }
+}

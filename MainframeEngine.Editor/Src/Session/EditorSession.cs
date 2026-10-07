@@ -1,3 +1,5 @@
+using MainframeEngine.Editor.Music;
+
 namespace MainframeEngine.Editor;
 
 /// <summary>
@@ -21,6 +23,7 @@ public sealed class EditorSession : IDisposable
     private int _untitledCounter;
     private int _viewportCounter;
     private int _previewCounter;
+    private int _songCounter;
     private EditedScene? _suspending;
 
     public EditorSession(Node host)
@@ -45,6 +48,9 @@ public sealed class EditorSession : IDisposable
 
     /// <summary>The active tab when it is a UI preview.</summary>
     public UiPreview? ActivePreview => ActiveTab as UiPreview;
+
+    /// <summary>The active tab when it is a song (<see cref="SongTab"/>).</summary>
+    public SongTab? ActiveSong => ActiveTab as SongTab;
 
     /// <summary>The scene tab that was active most recently (a UI preview's default backdrop), or null.</summary>
     public EditedScene? LastActiveScene { get; private set; }
@@ -135,6 +141,19 @@ public sealed class EditorSession : IDisposable
 
         foreach (var tab in _tabs)
         {
+            if (tab is SongTab song)
+            {
+                var songFile = song.Document.FilePath;
+                if (PathsEqual(songFile, from))
+                    song.Document.Rename(to);
+                else if (songFile.StartsWith(from + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    song.Document.Rename(to + songFile[from.Length..]);
+                else
+                    continue;
+                changed = true;
+                continue;
+            }
+
             if (tab is not UiPreview preview)
                 continue;
             var file = preview.FilePath;
@@ -199,6 +218,73 @@ public sealed class EditorSession : IDisposable
             throw new ArgumentException("The scene is not open in this session.", nameof(scene));
         preview.SetBackdrop(scene, show);
     }
+
+    /// <summary>
+    /// Opens the song (<c>.msong</c>) at <paramref name="path"/> in a song tab (or activates its tab when already open) and
+    /// makes it active. A song from a newer editor opens read-only. Throws when the file cannot be read or belongs to
+    /// another project while tabs of the current one are open.
+    /// </summary>
+    public SongTab OpenSong(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var full = Path.GetFullPath(path);
+        foreach (var tab in _tabs)
+            if (tab is SongTab open && PathsEqual(open.Document.FilePath, full))
+            {
+                Activate(open);
+                return open;
+            }
+
+        if (!File.Exists(full))
+            throw new FileNotFoundException($"Song not found: {full}", full);
+        UseProjectOf(full);
+        var document = SongDocument.Load(full);
+        SongPlayer player;
+        try
+        {
+            player = new SongPlayer(_host.Tree?.Servers.Get<AudioServer>(),
+                plugins: static rate => new PluginRack(static () => PluginHostClient.TryCreate(), rate));
+        }
+        catch
+        {
+            document.Dispose();
+            throw;
+        }
+
+        var song = new SongTab(document, player, ++_songCounter);
+        _host.AddChild(song.ArrangeViewport);
+        _host.AddChild(song.RollViewport);
+        song.DirtyChanged += OnSongDirtyChanged;
+        _tabs.Add(song);
+        ScenesChanged?.Invoke();
+        Activate(song);
+        return song;
+    }
+
+    /// <summary>Saves <paramref name="song"/> (to <paramref name="path"/> for Save As: the tab follows the new file).</summary>
+    public void SaveSong(SongTab song, string? path = null)
+    {
+        ArgumentNullException.ThrowIfNull(song);
+        if (path is not null)
+        {
+            var full = Path.GetFullPath(path);
+            if (!full.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
+                full += ".msong";
+            if (!PathsEqual(full, song.Document.FilePath))
+            {
+                song.Document.Song.Uid = AssetUid.Generate(AssetUid.SongPrefix); // a copy is a new asset
+                song.Document.Rename(full);
+                song.Document.History.MarkUnsaved();
+            }
+        }
+
+        song.Player.CapturePluginStates(song.Document); // plugin states go into the file
+        song.Document.Save();
+        song.Saved();
+        ScenesChanged?.Invoke();
+    }
+
+    private void OnSongDirtyChanged(SongTab song) => ScenesChanged?.Invoke();
 
     /// <summary>Opens a new, empty scene with a <paramref name="rootType"/> root and makes it active.</summary>
     public EditedScene NewScene(string rootType = "Node3D")
@@ -295,6 +381,8 @@ public sealed class EditorSession : IDisposable
             ForgetBackdrop(scene);
         }
 
+        if (tab is SongTab song)
+            song.DirtyChanged -= OnSongDirtyChanged;
         tab.Dispose();
         if (ReferenceEquals(ActiveTab, tab))
         {
@@ -349,6 +437,8 @@ public sealed class EditorSession : IDisposable
                 s.Viewport.UpdateMode = active ? SubViewportUpdateMode.Always : SubViewportUpdateMode.Disabled;
             else if (t is UiPreview p)
                 p.Layer.Visible = active;
+            else if (t is SongTab song && !active && ReferenceEquals(t, ActiveTab))
+                song.Deactivate();
         }
 
         ActiveTab = tab;
@@ -357,16 +447,21 @@ public sealed class EditorSession : IDisposable
         ActiveChanged?.Invoke();
     }
 
-    /// <summary>Main thread, every frame: the previews apply file changes.</summary>
+    /// <summary>Main thread, every frame: the previews apply file changes; the active song's player follows its edits.</summary>
     public void Tick()
     {
         foreach (var tab in _tabs)
             if (tab is UiPreview preview)
                 preview.Tick();
+        if (ActiveTab is SongTab song)
+            song.Player.Update(song.Document);
     }
 
-    /// <summary>True when any open scene has unsaved changes.</summary>
-    public bool HasUnsavedChanges => _scenes.Any(s => s.IsDirty);
+    /// <summary>True when any open tab (scene or song) has unsaved changes.</summary>
+    public bool HasUnsavedChanges => _tabs.Any(t => t.IsDirty);
+
+    /// <summary>The tabs with unsaved changes, in tab order.</summary>
+    public IReadOnlyList<IEditorTab> DirtyTabs => [.. _tabs.Where(t => t.IsDirty)];
 
     /// <summary>
     /// Points the asset database and content resolution at the project containing <paramref name="scenePath"/> (see
@@ -593,6 +688,10 @@ public sealed class EditorSession : IDisposable
             {
                 scene.Changed -= OnSceneChanged;
                 scene.Selection.Changed -= OnSelectionChanged;
+            }
+            else if (tab is SongTab song)
+            {
+                song.DirtyChanged -= OnSongDirtyChanged;
             }
 
             tab.Dispose();

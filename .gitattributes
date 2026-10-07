@@ -28,6 +28,8 @@
 # native libraries are binary (never EOL-normalised)
 *.dylib binary
 *.so binary
+# the editor's helper executable (macOS / Linux; mfplughost.exe is covered by *.exe above)
+mfplughost binary
 
 # 3D model data (glTF buffers, binary glTF) are binary
 *.bin binary
