@@ -1,0 +1,11 @@
+{
+  "format": 2,
+  "uid": "res_c0e349768461",
+  "type": "ZzfxStream",
+  "props": {
+    "ResourceName": "Blip",
+    "Frequency": 1167,
+    "Sustain": 0.0259,
+    "ReleaseTime": 0.0319
+  }
+}

@@ -82,7 +82,7 @@ readme-screenshots:
     dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
       --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
-    for name in editor editor-add-node editor-game-project editor-project-manager; do
+    for name in editor editor-add-node editor-game-project editor-project-manager editor-sound-designer editor-song; do
       magick "$out/$name.png" -filter Lanczos -resize 1600x960 -strip -define png:compression-level=9 \
         -define png:compression-filter=5 "docs/images/$name.png"
     done

@@ -176,7 +176,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Physics/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:125
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:126
 msgid "Physics 2D"
 msgstr ""
 
@@ -205,7 +205,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Physics/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:126
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:127
 msgid "Physics 3D"
 msgstr ""
 
@@ -220,8 +220,88 @@ msgid "Rain crates"
 msgstr ""
 
 #. RML <h1>
+#: Examples/Demo/Content/SoundFx/panel.rml:17
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:124
+msgid "Sound FX"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Content/SoundFx/panel.rml:18
+msgid "ZzFX sounds are synthesised at run time from a few numbers. Play a preset, or make a new sound."
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Content/SoundFx/panel.rml:20
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:124
+msgid "Coin"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Content/SoundFx/panel.rml:21
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:125
+msgid "Laser"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Content/SoundFx/panel.rml:22
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:126
+msgid "Explosion"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Content/SoundFx/panel.rml:23
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:127
+msgid "Hit"
+msgstr ""
+
+#. RML <button>
+#. RML <option>
+#: Examples/Demo/Content/SoundFx/panel.rml:24
+#: Examples/Demo/Content/Spine/panel.rml:15
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:128
+msgid "Jump"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Content/SoundFx/panel.rml:25
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:129
+msgid "Blip"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Content/SoundFx/panel.rml:26
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:130
+msgid "Power-up"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Content/SoundFx/panel.rml:27
+msgid "Randomize"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Content/SoundFx/panel.rml:28
+msgid "Mutate"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Content/SoundFx/panel.rml:30
+msgid "Pitch randomness"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Content/SoundFx/panel.rml:33
+msgid "Paste the line into the editor's sound designer or the ZzFX web designer."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Content/SoundFx/panel.rml:34
+msgid "Music (a song from the music editor)"
+msgstr ""
+
+#. RML <h1>
 #: Examples/Demo/Content/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:127
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:128
 msgid "Spine"
 msgstr ""
 
@@ -248,11 +328,6 @@ msgstr ""
 #. RML <option>
 #: Examples/Demo/Content/Spine/panel.rml:14
 msgid "Run"
-msgstr ""
-
-#. RML <option>
-#: Examples/Demo/Content/Spine/panel.rml:15
-msgid "Jump"
 msgstr ""
 
 #. RML <option>
@@ -380,8 +455,16 @@ msgstr ""
 msgid "Rose"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:124
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:125
 msgid "UI"
+msgstr ""
+
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:131
+msgid "Random sound"
+msgstr ""
+
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:132
+msgid "Mutation"
 msgstr ""
 
 #. RML <title>

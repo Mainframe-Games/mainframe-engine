@@ -1,0 +1,16 @@
+{
+  "format": 2,
+  "uid": "res_e9feb11e397c",
+  "type": "ZzfxStream",
+  "props": {
+    "ResourceName": "Laser",
+    "Frequency": 1137,
+    "Shape": "Saw",
+    "ShapeCurve": 0.771,
+    "Attack": 0.0259,
+    "Sustain": 0.0359,
+    "ReleaseTime": 0.212,
+    "Slide": -4,
+    "DeltaSlide": 4.74
+  }
+}

@@ -26,11 +26,11 @@ to send pull requests or feature requests in Issues 😁
 | Shadows | Cascaded sun shadows, PCF, a spot/secondary-directional atlas, point-light cubes, cutout casters, per-light settings | [Shadow system](docs/design/shadow-system.md) |
 | Game UI | [RmlUi](https://github.com/mikke89/RmlUi) 6.3 (HTML/CSS) through an engine-owned native shim and a Vulkan renderer: data binding, filters, gradients, gamepad navigation, hot reload, widget library | [Game UI](docs/design/game-ui.md) |
 | Physics | [Jitter2](https://github.com/notgiven688/jitterphysics2) 3D + [Box2D.NET](https://github.com/ikpil/Box2D.NET) 2D: bodies, areas, layers, queries, `MoveAndSlide`, interpolation, debug draw | [Physics](docs/design/physics.md) |
-| Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow): bus mixer, 2D/3D players, streaming WAV/OGG/MP3/FLAC, attenuation and doppler, null device fallback | [Audio](docs/design/audio.md) |
+| Audio | [SoundFlow](https://github.com/LSXPrime/SoundFlow): bus mixer, 2D/3D players, streaming WAV/OGG/MP3/FLAC, attenuation and doppler, null device fallback; [ZzFX](https://github.com/KilledByAPixel/ZzFX) sounds synthesised at run time (`ZzfxStream`) | [Audio](docs/design/audio.md) |
 | Multiplayer | `[Replicated]`/`[Rpc]` (generated), delta snapshots, interpolation, authority, late join; ENet, loopback and simulated transports | [Networking](docs/design/networking.md) |
 | Localization | `Tr` (gettext catalogs, plurals, contexts), runtime locale switching, RML and scene strings, pseudo-locale, `mf-l10n` tooling | [Localization](docs/design/localization.md) |
 | Games & tooling | `dotnet new mfgame` template, `project.mfproj` + `GameHost`, input actions, autoloads, structured logging, an editor link (play/stop/reload, log streaming) | [Projects & GameHost](docs/design/project-and-gamehost.md) |
-| Editor | Project Manager, New Project wizard, scene tree + generated inspector + undo, 3D/2D viewport with gizmos, FileSystem panel, Play in a separate process, C# code reload, project settings | [Editor](docs/design/editor.md) |
+| Editor | Project Manager, New Project wizard, scene tree + generated inspector + undo, 3D/2D viewport with gizmos, FileSystem panel, Play in a separate process, C# code reload, project settings, a ZzFX sound designer and a plugin-free music editor (songs rendered to looping WAV) | [Editor](docs/design/editor.md) |
 | Quality | 0 build warnings, 1 600+ unit/editor tests, render tests with golden images on MoltenVK and lavapipe, a Vulkan validation gate and a 0-bytes-per-frame allocation gate, benchmarks with a baseline | [Testing](docs/design/testing.md) |
 
 Steam integration is wrapped but inert until Steamworks natives can ship ([Steamworks](docs/design/steamworks.md)).
@@ -47,6 +47,7 @@ Every screenshot is a scene of the [Demo](Examples/Demo) (`just demo`; `just dem
 | ![Audio 2D](docs/images/demo/audio_2d.png)<br>**Audio 2D** — panning past a 2D listener, one-shots | ![Audio 3D](docs/images/demo/audio_3d.png)<br>**Audio 3D** — attenuation, low-pass, doppler |
 | ![UI](docs/images/demo/ui.png)<br>**UI** — RmlUi widgets, data binding, hot reload | ![Spine](docs/images/demo/spine.png)<br>**Spine** — under a 3D or 2D camera |
 | ![Physics 2D](docs/images/demo/physics_2d.png)<br>**Physics 2D** — Box2D | ![Physics 3D](docs/images/demo/physics_3d.png)<br>**Physics 3D** — Jitter2 |
+| ![Sound FX](docs/images/demo/sound_fx.png)<br>**Sound FX** — ZzFX presets, randomize/mutate, a looping song from the music editor | |
 
 ---
 
@@ -310,7 +311,10 @@ Servers.Get<AudioServer>()!.PlayOneShot(click, bus: "UI");  // fire and forget
 
 Positional sounds are projected into the listener's frame (`AudioListener3D`, else the active camera), attenuated with
 engine curves and smoothed on the audio thread; voices are pooled per bus with priority stealing; pause follows
-`SceneTree.Paused` and `ProcessMode`. See [Audio](docs/design/audio.md).
+`SceneTree.Paused` and `ProcessMode`. `ZzfxStream` is a sound made from a ZzFX line (`ZzfxStream.FromLine("zzfx(...[…])")`,
+`ZzfxPresets` for coins, lasers, explosions…) and synthesised on first play; the editor's sound designer edits it, and its
+music editor renders songs (built-in ZzFX instruments) to a seamlessly looping WAV with its `.meta` loop settings
+(`just render-song <path.msong>` does it headless). See [Audio](docs/design/audio.md).
 
 ### Steam Integration (`Steamworks/`)
 
@@ -416,6 +420,8 @@ picking and translate/rotate/scale gizmos with snapping. Scenes open in tabs, ea
 | Project Manager | Create New Node |
 |---|---|
 | ![The Project Manager with recent projects](docs/images/editor-project-manager.png) | ![The create dialog: favourites, recent types, a searched inheritance tree and the type's description](docs/images/editor-add-node.png) |
+| **Sound designer** | **Music editor** |
+| ![The inspector's ZzFX sound designer on the Demo's explosion: waveform, presets, randomize/mutate and the parameters](docs/images/editor-sound-designer.png) | ![The Demo's song in a song tab: four ZzFX tracks in the arrangement and the Lead clip in the piano roll](docs/images/editor-song.png) |
 
 ```sh
 just editor                                                        # Project Manager
@@ -434,7 +440,7 @@ What comes after M10 is in the [roadmap](docs/design/future/editor.md).
 ## Demo
 
 [Examples/Demo](Examples/Demo) is a standalone game project (`project.mfproj`, a node library and its desktop project) with one
-scene per feature: Basic 3D and 2D, Audio 2D and 3D, UI, Physics 2D and 3D, and Spine. A navigation bar switches scenes
+scene per feature: Basic 3D and 2D, Audio 2D and 3D, Sound FX, UI, Physics 2D and 3D, and Spine. A navigation bar switches scenes
 and every scene has a small RmlUi panel with its controls. Press F12 in the Demo (or in any game) to open the developer
 overlay: frame, renderer, shadow-map, GPU, audio, physics and network panels, plus light and axis gizmo toggles
 ([Developer overlay](docs/design/dev-overlay.md)). Its scenes, localization catalogs and tests live in the

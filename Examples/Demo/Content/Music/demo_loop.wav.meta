@@ -1,0 +1,10 @@
+{
+  "uid": "aud_dc3675ca6054",
+  "importer": "audio",
+  "settings": {
+    "loadMode": "Stream",
+    "loop": true,
+    "loopStart": 0,
+    "loopEnd": 0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "format": 2,
+  "uid": "res_a62c0ac4b98b",
+  "type": "ZzfxStream",
+  "props": {
+    "ResourceName": "Coin",
+    "Frequency": 1437,
+    "Attack": 0.0173,
+    "Sustain": 0.0458,
+    "ReleaseTime": 0.19,
+    "PitchJump": 149,
+    "PitchJumpTime": 0.0525
+  }
+}
