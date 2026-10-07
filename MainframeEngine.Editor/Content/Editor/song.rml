@@ -50,6 +50,9 @@
         .warn { image-color: #f59e0b; margin-right: 2dp; }
         button.tool-button.small.on-mute.active { background-color: #b45309; border-color: #f59e0b; }
         button.tool-button.small.on-solo.active { background-color: #a16207; border-color: #facc15; }
+        button.tool-button.small.on-arm.active, button.tool-button.on-record.active { background-color: #b91c1c; border-color: #f87171; }
+        button.tool-button.on-record .icon { image-color: #f87171; }
+        button.tool-button.on-record.active .icon { image-color: #ffffff; }
         .canvas { display: block; position: relative; flex: 1 1 auto; pointer-events: none; background-color: #1b1d23; }
         .canvas img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
 
@@ -98,6 +101,7 @@
         <button id="song-rewind" class="tool-button" data-event-click="rewind()" data-tooltip="To Start (Home) — move the playhead to bar 1"><span class="icon icon-player-track-next flip"></span></button>
         <button id="song-play" class="tool-button" data-class-active="playing" data-event-click="play()" data-tooltip="Play (Space) — from the playhead; plays the loop region over and over while Loop is on"><span class="icon icon-player-play-filled"></span></button>
         <button id="song-stop" class="tool-button" data-event-click="stop()" data-tooltip="Stop (Space) — the playhead stays where it is"><span class="icon icon-player-stop"></span></button>
+        <button id="song-record" class="tool-button on-record" data-class-active="recording" data-event-click="record()" data-tooltip="Record (R) — play your MIDI keyboard into a new clip on the armed track (arms the selected track if none is); with Loop on every pass adds to the same clip. Stop or R ends the take (one undo step)"><span class="icon icon-point-filled"></span></button>
         <button id="song-loop" class="tool-button" data-class-active="loop" data-event-click="toggle_loop()" data-tooltip="Loop (L) — repeat the loop region (drag it in the ruler's top band); renders loop seamlessly"><span class="icon icon-repeat"></span></button>
         <span class="sep"></span>
         <div class="field" data-tooltip="Tempo — beats per minute (20–999); type a value"><input id="song-tempo" type="text" class="text mono"/><span class="unit">BPM</span></div>
@@ -105,6 +109,7 @@
         <div id="song-pos" class="mono" data-tooltip="Position — bars.beats.ticks of the playhead (click the ruler to move it)">001.1.000</div>
         <span class="label">Snap</span>
         <button id="song-snap" class="field-button with-icon" data-event-click="snap_menu()" data-tooltip="Snap — the grid clips and notes snap to; Q quantizes the selected notes to it"><span class="icon icon-sm icon-magnet"></span><span>{{snap}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
+        <button id="song-quantize" class="field-button with-icon" data-event-click="quantize_menu()" data-tooltip="Input Quantize — snaps the starts of recorded MIDI notes (off, 1/16, 1/8)"><span class="icon icon-sm icon-keyboard"></span><span>{{quantize}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
         <span id="song-xruns" class="mono muted" data-class-bad="xruns_bad" data-tooltip="Underruns — times the song's render thread fell behind the audio device (heard as gaps)">{{xruns}}</span>
         <span class="grow"></span>
         <span class="readonly" data-if="readonly" data-attr-data-tooltip="notice"><span class="icon icon-sm icon-alert-triangle"></span> Read-only</span>
@@ -123,6 +128,7 @@
                         <div class="track-color" data-style-background-color="row.color"></div>
                         <div class="track-text"><div class="track-name">{{row.name}}</div><div class="track-inst">{{row.instrument}}</div></div>
                         <span class="icon icon-sm icon-alert-triangle warn" data-if="row.status != ''" data-attr-data-tooltip="row.status"></span>
+                        <button class="tool-button small on-arm" data-if="!row.audio" data-class-active="row.armed" data-event-click="arm(row.index)" data-tooltip="Record Arm — your MIDI keyboard plays this track and Record (R) records into it"><span class="icon icon-sm icon-circle-dot"></span></button>
                         <button class="tool-button small on-mute" data-class-active="row.mute" data-event-click="mute(row.index)" data-tooltip="Mute — silence this track"><span class="icon icon-sm icon-volume-off"></span></button>
                         <button class="tool-button small on-solo" data-class-active="row.solo" data-event-click="solo(row.index)" data-tooltip="Solo — hear only the soloed tracks"><span class="icon icon-sm icon-ear"></span></button>
                         <button class="tool-button small" data-event-click="color(row.index)" data-tooltip="Track Colour — of its header, clips and notes"><span class="icon icon-sm icon-palette"></span></button>

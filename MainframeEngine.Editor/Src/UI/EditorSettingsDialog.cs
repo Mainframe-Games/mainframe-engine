@@ -5,8 +5,8 @@ namespace MainframeEngine.Editor;
 
 /// <summary>
 /// Editor › Editor Settings (E5): theme accent (presets or any <c>#rrggbb</c>, applied live), autosave interval, the
-/// external code editor command (VS Code, Rider… opens <c>.cs</c> files and click-to-source lines) and automatic code
-/// reload. Apply saves to <c>~/.mainframe/editor_settings.json</c>.
+/// external code editor command (VS Code, Rider… opens <c>.cs</c> files and click-to-source lines), automatic code
+/// reload, VST3 folders and MIDI inputs (a toggle per device with its connected state; the refresh button lists them). Apply saves to <c>~/.mainframe/editor_settings.json</c>.
 /// </summary>
 public sealed class EditorSettingsDialog : EditorDocument
 {
@@ -21,6 +21,26 @@ public sealed class EditorSettingsDialog : EditorDocument
         ("Rose", "#f43f5e"),
     ];
 
+    private sealed class MidiRow
+    {
+        public required int Index { get; init; }
+        public required string Name { get; init; }
+        public required bool Enabled { get; init; }
+        public required bool Online { get; init; }
+        public required string State { get; init; }
+        public required string Tooltip { get; init; }
+    }
+
+    private static readonly RmlStructType<MidiRow> MidiRowType = new RmlStructType<MidiRow>()
+        .Member("index", static r => r.Index)
+        .Member("name", static r => r.Name)
+        .Member("enabled", static r => r.Enabled)
+        .Member("online", static r => r.Online)
+        .Member("state", static r => r.State)
+        .Member("tooltip", static r => r.Tooltip);
+
+    private readonly List<MidiRow> _midiRows = [];
+    private int _midiVersion = -1;
     private RmlDataModel? _model;
     private EditorSettings _working = new();
     private string _error = "";
@@ -56,9 +76,51 @@ public sealed class EditorSettingsDialog : EditorDocument
         _model?.Dirty("plugin_status");
     }
 
+    // MIDI rows: every device the helper reports plus enabled ones it does not (offline), each with a toggle.
+    private void RebuildMidi()
+    {
+        var midi = Workspace.Midi;
+        _midiVersion = midi.Version;
+        _midiRows.Clear();
+        var names = midi.Devices.Select(d => (d.Name, d.Online)).ToList();
+        foreach (var name in _working.MidiInputs)
+            if (!names.Exists(n => n.Name == name))
+                names.Add((name, false));
+        for (var i = 0; i < names.Count; i++)
+        {
+            var (name, online) = names[i];
+            _midiRows.Add(new MidiRow
+            {
+                Index = i,
+                Name = name,
+                Enabled = _working.MidiInputs.Contains(name),
+                Online = online,
+                State = online ? "connected" : "offline",
+                Tooltip = $"{name} — {(online ? "connected" : "not connected; opened again when it comes back")}; tick to play and record with it in songs",
+            });
+        }
+
+        _model?.Dirty("midi_devices");
+        _model?.Dirty("midi_status");
+    }
+
+    private string MidiStatus() => Workspace.Midi.Error ?? (_midiRows.Count == 0
+        ? "No MIDI inputs found. Plug in a keyboard and refresh."
+        : "Ticked inputs play the armed or selected song track; unplugged ones reopen when they return.");
+
+    /// <summary>Ticks or unticks a MIDI input (applied with Apply).</summary>
+    public void ToggleMidi(string name)
+    {
+        if (!_working.MidiInputs.Remove(name))
+            _working.MidiInputs.Add(name);
+        RebuildMidi();
+    }
+
     protected override void OnProcess(in GameTime gameTime)
     {
         base.OnProcess(gameTime);
+        if (Visible && Workspace.Midi.Version != _midiVersion)
+            RebuildMidi();
         if (_scan is { IsCompleted: true })
         {
             _scan = null;
@@ -79,6 +141,15 @@ public sealed class EditorSettingsDialog : EditorDocument
                 static (d, v) => d._working.PluginFolders = [.. (v ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)])
             .Bind("plugin_status", this, static d => d.PluginStatus())
             .Event("rescan_plugins", _ => RescanPlugins())
+            .BindList("midi_devices", _midiRows, MidiRowType)
+            .Bind("midi_status", this, static d => d.MidiStatus())
+            .Event("midi_toggle", e =>
+            {
+                var index = e.GetArgument(0).GetInt32();
+                if ((uint)index < (uint)_midiRows.Count)
+                    ToggleMidi(_midiRows[index].Name);
+            })
+            .Event("midi_refresh", _ => Workspace.Midi.Refresh())
             .Bind("error", this, static d => d._error)
             .Event("apply", _ => Apply())
             .Event("cancel", _ => Cancel());
@@ -115,6 +186,9 @@ public sealed class EditorSettingsDialog : EditorDocument
         _working = Workspace.Settings.Clone();
         _error = "";
         Visible = true;
+        if (_working.MidiInputs.Count > 0 || Workspace.Midi.Devices.Count > 0)
+            Workspace.Midi.Refresh(); // lists the devices (does not start the helper for people without MIDI)
+        RebuildMidi();
         _model?.DirtyAll();
     }
 

@@ -6,8 +6,8 @@ namespace MainframeEngine.Editor;
 
 /// <summary>
 /// The song tab's chrome (<c>Content/Editor/song.rml</c>), over the view area while a <see cref="SongTab"/> is active:
-/// the transport (rewind, play, stop, loop, tempo, time signature, position, snap, underruns, Render with progress), the
-/// track headers (rename, colour, mute, solo, instrument, add and remove), the Piano roll | Mixer switcher and the mixer
+/// the transport (rewind, play, stop, record, loop, tempo, time signature, position, snap, input quantize, underruns, Render with progress), the
+/// track headers (rename, colour, record-arm, mute, solo, instrument, add and remove), the Piano roll | Mixer switcher and the mixer
 /// strips (instrument slot, inserts placeholder, pan, volume fader, peak meter, mute/solo, master). The arrangement and
 /// the piano roll are images of the tab's canvases (<see cref="SongView"/>). Steady-state frames touch only the position,
 /// the meters and the underrun counter, and allocate nothing.
@@ -26,6 +26,7 @@ public sealed class SongPanel : EditorDocument
         public required bool Audio { get; init; }
         public required bool Mute { get; init; }
         public required bool Solo { get; init; }
+        public required bool Armed { get; init; }
         public required bool Selected { get; init; }
         public required string Status { get; init; }
         public required string Fader { get; init; }
@@ -44,6 +45,7 @@ public sealed class SongPanel : EditorDocument
         .Member("audio", static r => r.Audio)
         .Member("mute", static r => r.Mute)
         .Member("solo", static r => r.Solo)
+        .Member("armed", static r => r.Armed)
         .Member("selected", static r => r.Selected)
         .Member("status", static r => r.Status)
         .Member("fader", static r => r.Fader)
@@ -77,6 +79,9 @@ public sealed class SongPanel : EditorDocument
     private string _notice = "";
     private bool _playing;
     private bool _loop;
+    private bool _recording;
+    private string _quantize = "Off";
+    private int _midiVersion = -1;
     private string _sig = "4 / 4";
     private string _snap = "1/16";
     private string _xruns = "0 xruns";
@@ -110,6 +115,8 @@ public sealed class SongPanel : EditorDocument
             .Bind("notice", this, static p => p._notice)
             .Bind("playing", this, static p => p._playing)
             .Bind("loop", this, static p => p._loop)
+            .Bind("recording", this, static p => p._recording)
+            .Bind("quantize", this, static p => p._quantize)
             .Bind("sig", this, static p => p._sig)
             .Bind("snap", this, static p => p._snap)
             .Bind("xruns", this, static p => p._xruns)
@@ -127,6 +134,9 @@ public sealed class SongPanel : EditorDocument
             .Event("stop", _ => Song(t => t.Player.Stop()))
             .Event("rewind", _ => Song(t => t.Controller.Key(Silk.NET.Input.Key.Home, EditorModifiers.None)))
             .Event("toggle_loop", _ => Song(t => t.Controller.ToggleLoop()))
+            .Event("record", _ => Song(t => t.Controller.ToggleRecording()))
+            .Event("quantize_menu", e => QuantizeMenu(Below(e.Event.CurrentElement)))
+            .Event("arm", e => Track(e.GetArgument(0).GetInt32(), (t, track) => t.Midi.ToggleArm(track)))
             .Event("render", _ => Workspace.Commands.Execute("song.render"))
             .Event("snap_menu", e => SnapMenu(Below(e.Event.CurrentElement)))
             .Event("sig_menu", e => SignatureMenu(Below(e.Event.CurrentElement)))
@@ -237,7 +247,7 @@ public sealed class SongPanel : EditorDocument
         ArrangeRect = RectOf("song-arrange", scale);
         RollRect = tab.Panel == SongBottomPanel.PianoRoll ? RectOf("song-roll", scale) : default;
 
-        if (tab.Document.Version != _docVersion || tab.ViewVersion != _viewVersion)
+        if (tab.Document.Version != _docVersion || tab.ViewVersion != _viewVersion || tab.Midi.Version != _midiVersion)
             Rebuild(tab);
         UpdatePosition(tab);
         UpdateTransport(tab);
@@ -258,6 +268,10 @@ public sealed class SongPanel : EditorDocument
     {
         _docVersion = tab.Document.Version;
         _viewVersion = tab.ViewVersion;
+        _midiVersion = tab.Midi.Version;
+        _recording = tab.Midi.IsRecording;
+        _quantize = QuantizeLabel(tab.Midi.Quantize);
+        var armed = tab.Midi.ArmedTrackId;
         var song = tab.Document.Song;
         _rows.Clear();
         _meterIds.Clear();
@@ -275,6 +289,7 @@ public sealed class SongPanel : EditorDocument
                 Audio = track.Kind == SongTrackKind.Audio,
                 Mute = track.Mute,
                 Solo = track.Solo,
+                Armed = track.Id == armed,
                 Selected = ReferenceEquals(track, tab.SelectedTrack),
                 Status = status,
                 Fader = Number(-Math.Clamp(track.VolumeDb, -60f, 6f)),
@@ -726,6 +741,30 @@ public sealed class SongPanel : EditorDocument
             var track = tab.Document.AddTrack(kind);
             tab.SelectClip(track, null);
         }));
+    }
+
+    private static string QuantizeLabel(MidiQuantize quantize) => quantize switch
+    {
+        MidiQuantize.Sixteenth => "1/16",
+        MidiQuantize.Eighth => "1/8",
+        _ => "Off",
+    };
+
+    private void QuantizeMenu((float X, float Y) at)
+    {
+        if (_tab is not { } tab)
+            return;
+        var items = new List<MenuItem> { MenuItem.Header("Input quantize") };
+        foreach (var q in (ReadOnlySpan<MidiQuantize>)[MidiQuantize.Off, MidiQuantize.Sixteenth, MidiQuantize.Eighth])
+            items.Add(new MenuItem(QuantizeLabel(q), "quantize:" + (int)q, Css: q == tab.Midi.Quantize ? "current" : null, Icon: q == MidiQuantize.Off ? "x" : "keyboard"));
+        Workspace.Popup.Show(items, at.X, at.Y, command =>
+        {
+            if (int.TryParse(command.AsSpan(9), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+            {
+                tab.Midi.Quantize = (MidiQuantize)value;
+                _midiVersion = -1;
+            }
+        });
     }
 
     private void SnapMenu((float X, float Y) at)

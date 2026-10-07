@@ -100,6 +100,11 @@ public sealed class PluginHostClient : IPluginHost
         var reply = Request(PluginHostMessage.Ping, probe, timeout ?? DefaultTimeout, "ping", default);
         if (!reply.AsSpan().SequenceEqual(probe))
             throw new PluginHostException("The plugin host answered a ping with the wrong bytes.");
+        lock (_gate)
+        {
+            if (Info is not null)
+                MeasureClock();
+        }
     }
 
     public PluginHostEncodeResult Encode(string wavPath, string oggPath, int quality, CancellationToken cancellation = default)
@@ -222,32 +227,104 @@ public sealed class PluginHostClient : IPluginHost
     {
         if (_closedEditors.TryDequeue(out instance))
             return true;
-        // Idle: notifications wait in the socket until a request reads them.
-        if (_gate.TryEnter())
+        DrainNotifications();
+        return _closedEditors.TryDequeue(out instance);
+    }
+
+    // ── MIDI input (ADR 0148) ────────────────────────────────────────────────────────────────────────────────────
+
+    private readonly System.Collections.Concurrent.ConcurrentQueue<MidiInputEvent> _midiEvents = new();
+    private IReadOnlyList<MidiInputDevice>? _midiDevices;
+    private long _clockOffsetTicks; // editor Stopwatch ticks minus the helper's clock (in ticks)
+
+    public IReadOnlyList<MidiInputDevice> ListMidiInputs()
+    {
+        if ((Start().Capabilities & PluginHostCapabilities.Midi) == 0)
+            return [];
+        return ParseDevices(Request(PluginHostMessage.MidiListInputs, [], DefaultTimeout, "midiList", default));
+    }
+
+    public void OpenMidiInput(uint device) => Request(PluginHostMessage.MidiOpen, Id(device), DefaultTimeout, "midiOpen", default);
+
+    public void CloseMidiInput(uint device) => Request(PluginHostMessage.MidiClose, Id(device), DefaultTimeout, "midiClose", default);
+
+    public bool TryTakeMidiEvent(out MidiInputEvent midiEvent)
+    {
+        if (_midiEvents.TryDequeue(out midiEvent))
+            return true;
+        DrainNotifications();
+        return _midiEvents.TryDequeue(out midiEvent);
+    }
+
+    public bool TryTakeMidiDevices([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IReadOnlyList<MidiInputDevice>? devices)
+    {
+        devices = Interlocked.Exchange(ref _midiDevices, null);
+        if (devices is not null)
+            return true;
+        DrainNotifications();
+        devices = Interlocked.Exchange(ref _midiDevices, null);
+        return devices is not null;
+    }
+
+    internal static IReadOnlyList<MidiInputDevice> ParseDevices(ReadOnlySpan<byte> payload)
+    {
+        var reader = new PluginHostPayloadReader(payload);
+        var count = reader.U32();
+        var devices = new List<MidiInputDevice>((int)Math.Min(count, 256));
+        for (var i = 0u; i < count; i++)
+            devices.Add(new MidiInputDevice(reader.U32(), reader.Str(), reader.U16() != 0));
+        return devices;
+    }
+
+    private static long NanosecondsToTicks(ulong ns) => (long)((Int128)ns * Stopwatch.Frequency / 1_000_000_000);
+
+    // Gate held. Maps the helper's steady clock to Stopwatch (same machine: only the origins differ); the midpoint of
+    // the round trip is the estimate. A helper without the Clock message keeps the previous offset.
+    private void MeasureClock()
+    {
+        try
         {
-            try
+            var before = Stopwatch.GetTimestamp();
+            var reply = Exchange(PluginHostMessage.Clock, [], DefaultTimeout, "clock", default);
+            var after = Stopwatch.GetTimestamp();
+            var helper = NanosecondsToTicks(new PluginHostPayloadReader(reply).U64());
+            Volatile.Write(ref _clockOffsetTicks, before + (after - before) / 2 - helper);
+        }
+        catch (PluginHostException) when (Info is not null)
+        {
+        }
+    }
+
+    // Idle: notifications wait in the socket until a request (or this) reads them. Never blocks on an idle socket.
+    private void DrainNotifications()
+    {
+        if (!_gate.TryEnter())
+            return;
+        try
+        {
+            Span<byte> header = stackalloc byte[PluginHostProtocol.HeaderSize];
+            for (var frames = 0; frames < 256; frames++)
             {
-                if (Info is not null && _socket is { } socket && _lateProcessReplies == 0 && socket.Available >= PluginHostProtocol.HeaderSize)
+                if (Info is null || _socket is not { } socket || _lateProcessReplies != 0 || socket.Available < PluginHostProtocol.HeaderSize)
+                    return;
+                var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency;
+                ReceiveExact(socket, header, deadline, "notification", TimeSpan.FromSeconds(1), default);
+                var (length, type, id) = PluginHostProtocol.ReadHeader(header);
+                if (id != 0 || !ReadNotification(socket, type, length, deadline, "notification", TimeSpan.FromSeconds(1), default))
                 {
-                    var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency;
-                    Span<byte> header = stackalloc byte[PluginHostProtocol.HeaderSize];
-                    ReceiveExact(socket, header, deadline, "notification", TimeSpan.FromSeconds(1), default);
-                    var (length, type, id) = PluginHostProtocol.ReadHeader(header);
-                    if (id != 0 || !ReadNotification(socket, type, length, deadline, "notification", TimeSpan.FromSeconds(1), default))
-                        Fail($"Plugin host sent an unexpected message 0x{type:X4}", null);
+                    Fail($"Plugin host sent an unexpected message 0x{type:X4}", null);
+                    return;
                 }
             }
-            catch (Exception e) when (e is SocketException or IOException or ObjectDisposedException or PluginHostException)
-            {
-                Fail($"Plugin host connection lost ({e.Message})", null);
-            }
-            finally
-            {
-                _gate.Exit();
-            }
         }
-
-        return _closedEditors.TryDequeue(out instance);
+        catch (Exception e) when (e is SocketException or IOException or ObjectDisposedException or PluginHostException)
+        {
+            Fail($"Plugin host connection lost ({e.Message})", null);
+        }
+        finally
+        {
+            _gate.Exit();
+        }
     }
 
     private static byte[] Id(uint instance) => new PluginHostPayloadWriter().U32(instance).ToArray();
@@ -255,12 +332,39 @@ public sealed class PluginHostClient : IPluginHost
     // Reads a notification's payload (request id 0). False: not a notification type.
     private bool ReadNotification(Socket socket, ushort type, int length, long deadline, string what, TimeSpan timeout, CancellationToken cancellation)
     {
-        if (type != (ushort)PluginHostMessage.PluginEditorClosed || length != 4)
-            return false;
-        Span<byte> payload = stackalloc byte[4];
-        ReceiveExact(socket, payload, deadline, what, timeout, cancellation);
-        _closedEditors.Enqueue(System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(payload));
-        return true;
+        switch ((PluginHostMessage)type)
+        {
+            case PluginHostMessage.PluginEditorClosed when length == 4:
+                {
+                    Span<byte> payload = stackalloc byte[4];
+                    ReceiveExact(socket, payload, deadline, what, timeout, cancellation);
+                    _closedEditors.Enqueue(System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(payload));
+                    return true;
+                }
+            case PluginHostMessage.MidiEvent when length is >= 14 and <= 64:
+                {
+                    Span<byte> payload = stackalloc byte[64];
+                    payload = payload[..length];
+                    ReceiveExact(socket, payload, deadline, what, timeout, cancellation);
+                    var device = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(payload);
+                    var ns = System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(payload[4..]);
+                    var count = Math.Min(System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(payload[12..]), length - 14);
+                    var bytes = payload[14..];
+                    if (count > 0)
+                        _midiEvents.Enqueue(new MidiInputEvent(device, NanosecondsToTicks(ns) + Volatile.Read(ref _clockOffsetTicks), bytes[0],
+                            count > 1 ? bytes[1] : (byte)0, count > 2 ? bytes[2] : (byte)0));
+                    return true;
+                }
+            case PluginHostMessage.MidiDevicesChanged when length <= PluginHostProtocol.MaxPayload:
+                {
+                    var payload = new byte[length];
+                    ReceiveExact(socket, payload, deadline, what, timeout, cancellation);
+                    Volatile.Write(ref _midiDevices, ParseDevices(payload));
+                    return true;
+                }
+            default:
+                return false;
+        }
     }
 
     // One process reply: true (ok), false (error reply), null (nothing by the deadline). Notifications are queued.
@@ -466,6 +570,7 @@ public sealed class PluginHostClient : IPluginHost
         }
 
         Info = info;
+        MeasureClock();
         Log.Info($"[Music] Plugin host {info.HelperVersion} started (pid {info.ProcessId}, protocol {info.ProtocolVersion}, {info.Capabilities}).");
         if (_stoppedUnexpectedly)
         {

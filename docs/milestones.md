@@ -203,7 +203,7 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | Voice pool, polyphony, stealing, pause handling | ✅ | [Audio](design/audio.md#voices) |
 | Audio bus panel (the `AudioBusLayout` mixer inspector), audio range spheres in the editor viewport | ✅ (M10) | [Editor](design/editor.md#resource-files-and-custom-inspectors) |
 | Audio preview in the editor (FileSystem/inspector previews, ZzFX sound designer) | ✅ | [Editor → Audio previews](design/editor.md#audio-previews), [ADR 0144](../memory/decisions/0144-editor-audio-previews-and-silent-edit-mode.md) |
-| Music editor: song tab (arrangement, piano roll, mixer, render to WAV) with the built-in ZzFX instrument | ✅ partly (plugin host, Vorbis encoding, MIDI input pending) | [Editor → Song tab](design/editor.md#song-tab-music-editor), [Future: music editor](design/future/music-editor.md) |
+| Music editor: song tab (arrangement, piano roll, mixer, render to WAV) with the built-in ZzFX instrument | ✅ done (2026-10-08): built-in instrument, `mfplughost` helper with Vorbis encoding, VST3 instruments/inserts, MIDI keyboard input and recording; gaps in the proposal's open questions | [Editor → Song tab](design/editor.md#song-tab-music-editor), [Future: music editor](design/future/music-editor.md) |
 | Draggable audio range handles in the editor | ⬜ | [Future: editor](design/future/editor.md) |
 
 ## M8 — Game UI (RmlUi) ✅

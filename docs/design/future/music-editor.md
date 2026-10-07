@@ -1,13 +1,16 @@
 # Proposal: Music editor (songs, piano roll, VST3)
 
 **Milestone:** unscheduled (editor tooling, after [ZzFX sounds and the sound designer](sound-designer.md)) · **Status:**
-partly built: song editor without plugins (2026-10-08) — song model, engine, render to WAV, `AudioStreamGenerator`
+✅ done (2026-10-08): song editor without plugins — song model, engine, render to WAV, `AudioStreamGenerator`
 ([ADR 0145](../../../memory/decisions/0145-song-engine-built-in-phase.md)) and the song tab ([Editor → Song tab](../editor.md#song-tab-music-editor));
-helper process and Vorbis encoding built (2026-10-08): `mfplughost` (`--encode`, `--serve` socket protocol),
+helper process and Vorbis encoding: `mfplughost` (`--encode`, `--serve` socket protocol),
 `PluginHostClient`, Render to `.ogg` ([ADR 0146](../../../memory/decisions/0146-plugin-host-helper-process.md),
-[Natives](../natives.md#the-music-editor-helper-mfplughost)); VST3 hosting built (2026-10-08): scan, instruments and
+[Natives](../natives.md#the-music-editor-helper-mfplughost)); VST3 hosting: scan, instruments and
 inserts through one shared-memory round trip per block, PDC, crash recovery, state capture, macOS editor windows
-([ADR 0147](../../../memory/decisions/0147-vst3-hosting-shared-memory.md)); Windows/Linux editor windows and MIDI input pending · **Depends on:** [Sound designer](sound-designer.md) (editor audio, `AudioPreview`,
+([ADR 0147](../../../memory/decisions/0147-vst3-hosting-shared-memory.md)); MIDI input: RtMidi in the helper, device
+settings, record-arm, live play, latency-compensated recording with overdub and input quantize
+([ADR 0148](../../../memory/decisions/0148-midi-input-through-the-helper.md)). Remaining gaps are listed under
+[Open questions](#open-questions) · **Depends on:** [Sound designer](sound-designer.md) (editor audio, `AudioPreview`,
 the ZzFX port), [Audio](../audio.md), [Editor](../editor.md), [Natives](../natives.md) · **Related:**
 [UI preview tabs](../editor.md#ui-preview), [Game UI](../game-ui.md)
 
@@ -314,6 +317,14 @@ Docs with the PRs: a new `docs/design/music-editor.md` (this proposal, rewritten
 files; games never host plugins", and the milestone table.
 
 ## Open questions
+
+- **Gaps left after the four deliveries (2026-10-08):** plugin editor windows on Windows/Linux; the win-x64 and
+  linux-x64 `mfplughost` binaries (VST3 + MIDI) come from the next `natives.yml` run and have not run yet; live MIDI is
+  read once per editor frame (monitoring gains up to a frame of latency; recorded positions use the helper's timestamps
+  and are unaffected); the device buffer in the heard-position estimate is a 10 ms constant (the audio layer does not
+  report it); controllers other than the sustain pedal are not passed to plugin instruments (no controller path in
+  `IInstrument` or the shared-memory events) nor recorded; Windows has no virtual MIDI port, so its MIDI path is only
+  unit-tested; the as-built `docs/design/music-editor.md` rewrite of this proposal is not written yet.
 
 - **Which tempo/signature features come next?** Tempo maps are the most likely v2 request; ticks were chosen so they
   can be added without changing stored positions.

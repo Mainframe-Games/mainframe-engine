@@ -39,6 +39,7 @@ public sealed class SongTab : IEditorTab
         ArrangeViewport.AddChild(Arrangement);
         RollViewport.AddChild(PianoRoll);
         Controller = new SongCanvasController(this);
+        Midi = new SongMidiInput(document, player, () => SelectedTrack);
         SelectedTrack = document.Song.Tracks.Count > 0 ? document.Song.Tracks[0] : null;
         SelectedClip = SelectedTrack?.Clips.Count > 0 ? SelectedTrack.Clips[0] : null;
         document.Changed += OnDocumentChanged;
@@ -59,6 +60,9 @@ public sealed class SongTab : IEditorTab
     public SongPlayer Player { get; }
 
     public SongCanvasController Controller { get; }
+
+    /// <summary>MIDI keyboard input: live play, record-arm, recording (ADR 0148).</summary>
+    public SongMidiInput Midi { get; }
 
     /// <summary>Unique per session (viewport names).</summary>
     public int Number { get; }
@@ -210,6 +214,7 @@ public sealed class SongTab : IEditorTab
     /// <summary>The tab is no longer active: playback and previews stop, the views pause.</summary>
     internal void Deactivate()
     {
+        Midi.ReleaseAll();
         Player.Stop();
         Controller.CancelGesture();
         ArrangeViewport.UpdateMode = SubViewportUpdateMode.Disabled;
@@ -251,6 +256,7 @@ public sealed class SongTab : IEditorTab
             return;
         _disposed = true;
         Document.Changed -= OnDocumentChanged;
+        Midi.ReleaseAll();
         Player.Dispose();
         if (!ArrangeViewport.IsFreed)
             ArrangeViewport.Free();

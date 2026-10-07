@@ -339,6 +339,16 @@ public sealed class SongEngine
         }
     }
 
+    // A preview released in the same block it started in (a quick MIDI tap): the release goes one frame later, as
+    // events sort note-offs before note-ons at the same frame and the note would otherwise never stop.
+    private static bool StartsThisBlock(TrackRuntime rt, int pitch)
+    {
+        for (var i = 0; i < rt.EventCount; i++)
+            if (rt.Events[i] is { On: true, Offset: 0 } e && e.Pitch == pitch)
+                return true;
+        return false;
+    }
+
     private void AddEvent(TrackRuntime rt, NoteEvent e)
     {
         if (rt.EventCount < MaxEventsPerBlock)
@@ -444,7 +454,7 @@ public sealed class SongEngine
                 case CommandType.Note when song is not null && (uint)c.Slot < (uint)_runtimes.Length:
                     var rt = _runtimes[c.Slot];
                     if (rt.Generation == c.Value)
-                        AddEvent(rt, new NoteEvent(0, c.Pitch, c.Velocity, c.Velocity > 0));
+                        AddEvent(rt, new NoteEvent(c.Velocity == 0 && StartsThisBlock(rt, c.Pitch) ? 1 : 0, c.Pitch, c.Velocity, c.Velocity > 0));
                     break;
             }
         }

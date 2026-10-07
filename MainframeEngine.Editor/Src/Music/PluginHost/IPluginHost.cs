@@ -69,6 +69,48 @@ public interface IPluginHost : IDisposable
 
     /// <summary>UI thread: an instance whose editor window the user closed (helper notification), if any.</summary>
     bool TryTakeClosedEditor(out uint instance);
+
+    // ── MIDI input (ADR 0148). Device ids are the helper's, stable per port name while it runs.
+
+    /// <summary>The helper's MIDI input ports (starts the helper). Empty when it has no MIDI support.</summary>
+    IReadOnlyList<MidiInputDevice> ListMidiInputs();
+
+    /// <summary>Opens a MIDI input: its messages arrive through <see cref="TryTakeMidiEvent"/>. Idempotent.</summary>
+    void OpenMidiInput(uint device);
+
+    void CloseMidiInput(uint device);
+
+    /// <summary>
+    /// The next MIDI message from an open input, if any (reads pending notifications when the connection is idle; never
+    /// blocks, never starts the helper, no allocation per event). Timestamps are already on the editor's clock.
+    /// </summary>
+    bool TryTakeMidiEvent(out MidiInputEvent midiEvent);
+
+    /// <summary>The port list after the helper saw it change (a device was plugged in or out), if it did.</summary>
+    bool TryTakeMidiDevices([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IReadOnlyList<MidiInputDevice>? devices);
+}
+
+/// <summary>A MIDI input port as the helper sees it.</summary>
+public readonly record struct MidiInputDevice(uint Id, string Name, bool Online);
+
+/// <summary>
+/// One MIDI channel message from an input device. <paramref name="Timestamp"/> is when the helper received it, on the
+/// editor's <see cref="System.Diagnostics.Stopwatch"/> clock (<see cref="System.Diagnostics.Stopwatch.GetTimestamp"/> ticks).
+/// </summary>
+public readonly record struct MidiInputEvent(uint Device, long Timestamp, byte Status, byte Data1, byte Data2)
+{
+    /// <summary>0x80 note off, 0x90 note on, 0xB0 control change, ...</summary>
+    public int Kind => Status & 0xF0;
+
+    public int Channel => Status & 0x0F;
+
+    /// <summary>A note-on with velocity > 0.</summary>
+    public bool IsNoteOn => Kind == 0x90 && Data2 > 0;
+
+    /// <summary>A note-off, or a note-on with velocity 0.</summary>
+    public bool IsNoteOff => Kind == 0x80 || (Kind == 0x90 && Data2 == 0);
+
+    public bool IsControlChange => Kind == 0xB0;
 }
 
 /// <summary>What <see cref="IPluginHost.LoadPlugin"/> loaded.</summary>

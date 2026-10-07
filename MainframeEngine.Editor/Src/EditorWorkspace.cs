@@ -111,6 +111,8 @@ public sealed partial class EditorWorkspace : Node
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
         AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
         AudioPreview.Changed += OnAudioPreviewChanged;
+        Midi = new Music.MidiInputService(static () => Music.PluginHostClient.TryCreate());
+        Midi.SetEnabled(Settings.MidiInputs);
         // Output source links open through the code editor of the Editor Settings.
         SourceOpener = (file, line) => CodeEditor.Open(file, line);
     }
@@ -139,6 +141,9 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>The sound preview (one voice): FileSystem Play, inspector AudioStream rows, the sound designer.</summary>
     public AudioPreview AudioPreview { get; }
+
+    /// <summary>MIDI keyboards (Editor Settings › MIDI): messages go to the active song tab (ADR 0148).</summary>
+    public Music.MidiInputService Midi { get; }
 
     /// <summary>Opens source files in the external code editor.</summary>
     public CodeEditorLauncher CodeEditor { get; }
@@ -345,6 +350,7 @@ public sealed partial class EditorWorkspace : Node
         {
             Updates?.Dispose();
             AudioPreview.Stop();
+            Midi.Dispose();
             Play.Dispose();
             Session.Dispose();
             Project.Dispose();
@@ -361,6 +367,7 @@ public sealed partial class EditorWorkspace : Node
             OnCloseRequested();
         Splash.Tick(gameTime.DeltaTime);
         AudioPreview.Tick();
+        Midi.Update();
         ProcessProjects(gameTime.DeltaTime);
         if (Output.Drain())
             OutputPanel.Refresh();

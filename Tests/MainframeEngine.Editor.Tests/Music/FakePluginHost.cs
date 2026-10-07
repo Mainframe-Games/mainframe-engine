@@ -43,7 +43,7 @@ internal sealed class FakePluginHost : IPluginHost
         if (Info is not null)
             return Info;
         Starts++;
-        Info = new PluginHostInfo(PluginHostProtocol.Version, "fake", PluginHostCapabilities.Encode, ++_pid);
+        Info = new PluginHostInfo(PluginHostProtocol.Version, "fake", PluginHostCapabilities.Encode | PluginHostCapabilities.Midi, ++_pid);
         if (_crashed)
         {
             _crashed = false;
@@ -156,6 +156,78 @@ internal sealed class FakePluginHost : IPluginHost
     private readonly Queue<uint> _closed = new();
 
     public bool TryTakeClosedEditor(out uint instance) => _closed.TryDequeue(out instance);
+
+    // ── MIDI simulation: devices by id, events injected with editor-clock timestamps. ─────────────────────────────
+
+    private readonly List<MidiInputDevice> _midiDevices = [];
+    private readonly Queue<MidiInputEvent> _midiEvents = new();
+    private IReadOnlyList<MidiInputDevice>? _midiChanged;
+
+    /// <summary>The devices currently open.</summary>
+    public HashSet<uint> OpenMidi { get; } = [];
+
+    /// <summary>Adds (or replugs) a device: online, and announced like the helper's poll would.</summary>
+    public uint PlugMidi(string name)
+    {
+        var index = _midiDevices.FindIndex(d => d.Name == name);
+        if (index < 0)
+        {
+            _midiDevices.Add(new MidiInputDevice((uint)_midiDevices.Count + 1, name, true));
+            index = _midiDevices.Count - 1;
+        }
+        else
+        {
+            _midiDevices[index] = _midiDevices[index] with { Online = true };
+        }
+
+        _midiChanged = [.. _midiDevices];
+        return _midiDevices[index].Id;
+    }
+
+    /// <summary>Unplugs a device: offline and closed (as the helper does), announced.</summary>
+    public void UnplugMidi(string name)
+    {
+        var index = _midiDevices.FindIndex(d => d.Name == name);
+        _midiDevices[index] = _midiDevices[index] with { Online = false };
+        OpenMidi.Remove(_midiDevices[index].Id);
+        _midiChanged = [.. _midiDevices];
+    }
+
+    /// <summary>Queues a message from <paramref name="device"/> if it is open (as an open port would deliver it).</summary>
+    public void SendMidi(uint device, long timestamp, byte status, byte data1, byte data2)
+    {
+        if (OpenMidi.Contains(device))
+            _midiEvents.Enqueue(new MidiInputEvent(device, timestamp, status, data1, data2));
+    }
+
+    public IReadOnlyList<MidiInputDevice> ListMidiInputs()
+    {
+        Request("midiList");
+        return [.. _midiDevices];
+    }
+
+    public void OpenMidiInput(uint device)
+    {
+        Request("midiOpen");
+        if (_midiDevices.Find(d => d.Id == device) is not { Online: true })
+            throw new PluginHostException($"MIDI device {device} is offline");
+        OpenMidi.Add(device);
+    }
+
+    public void CloseMidiInput(uint device)
+    {
+        Request("midiClose");
+        OpenMidi.Remove(device);
+    }
+
+    public bool TryTakeMidiEvent(out MidiInputEvent midiEvent) => _midiEvents.TryDequeue(out midiEvent);
+
+    public bool TryTakeMidiDevices([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IReadOnlyList<MidiInputDevice>? devices)
+    {
+        devices = _midiChanged;
+        _midiChanged = null;
+        return devices is not null;
+    }
 
     public PluginProcessResult ProcessPlugins(ReadOnlySpan<byte> payload, TimeSpan deadline)
     {

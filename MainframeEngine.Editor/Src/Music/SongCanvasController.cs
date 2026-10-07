@@ -664,7 +664,7 @@ public sealed class SongCanvasController
     // ── Keyboard ─────────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// The song tab's keys: Space play/stop, L loop, Home to start; in the piano roll Del, Cmd/Ctrl+C/V/D, arrows (nudge
+    /// The song tab's keys: Space play/stop, R record, L loop, Home to start; in the piano roll Del, Cmd/Ctrl+C/V/D, arrows (nudge
     /// by the snap; Shift: an octave), Q quantize, Esc deselect; in the arrangement Del and Cmd/Ctrl+D. False when the key
     /// is not one of them (the editor's own shortcuts then apply).
     /// </summary>
@@ -698,6 +698,9 @@ public sealed class SongCanvasController
             case Silk.NET.Input.Key.L:
                 ToggleLoop();
                 return true;
+            case Silk.NET.Input.Key.R:
+                ToggleRecording();
+                return true;
             case Silk.NET.Input.Key.Home:
                 _tab.Player.Seek(0);
                 _tab.ArrangeScrollTick = 0;
@@ -723,6 +726,13 @@ public sealed class SongCanvasController
             default:
                 return false;
         }
+    }
+
+    /// <summary>Record (R): starts or ends a MIDI take on the armed track (ADR 0148).</summary>
+    public void ToggleRecording()
+    {
+        if (_tab.Midi.ToggleRecording() is { } reason)
+            Log.Warning($"[Music] Record: {reason}");
     }
 
     public void ToggleLoop()

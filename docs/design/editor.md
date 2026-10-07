@@ -140,7 +140,7 @@ D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · S
 Delete/Backspace delete, F2 rename, F frame, G grid, Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5
 play (Shift+F5 another instance), F6 play the open scene, F7 pause/resume, F8 stop, F9 RmlUi debugger. Shortcuts are
 unhandled input: a focused text field keeps its keys, and closed dialogs release focus. While a song tab is active its
-own keys come first ([Song tab](#song-tab-music-editor)): Space play/stop, L loop, Home to start, Del, Cmd+C/V/D, arrows,
+own keys come first ([Song tab](#song-tab-music-editor)): Space play/stop, R record, L loop, Home to start, Del, Cmd+C/V/D, arrows,
 Q; F5–F8 and the Cmd shortcuts above stay the editor's.
 
 ## Icons
@@ -601,6 +601,22 @@ when the tab is deactivated or closed. The scene tree and inspector rest while i
   (base64 of the component + controller streams) are captured into the song as undoable "Plugin State" edits on save,
   when the user closes a plugin's window and before a render; undo pushes the previous state back to the plugin. Renders
   load their own copies in a separate helper in offline mode (10 s watchdog per block).
+- **MIDI keyboards and recording** (ADR 0148): `MidiInputService` (owned by the workspace) runs its own `mfplughost`
+  for RtMidi, started on first need (a device enabled in Editor Settings › MIDI inputs, or the dialog listing them).
+  Enabled devices (remembered by port name) stay open; the helper polls its port list every second, an unplugged
+  device shows offline and is opened again when it returns. Each UI frame the service hands messages to the active song
+  tab's `SongMidiInput`: notes play the **record-armed** track (the dot button on an instrument track's header; one at a
+  time), else the selected instrument track, through the engine's preview path (its command ring: lock-free for the
+  render thread, no allocation per event); the sustain pedal (CC64) holds note-offs while down; other controllers are
+  ignored (the instrument API has none). The helper stamps each message with its steady clock; the client maps that to
+  `Stopwatch` (offset measured at connect and on each ping), and recording places a note at the transport position
+  being *heard* when it was played: the player's position minus the time since, minus the device buffer (a 10 ms
+  estimate). **Record** (transport dot, R) starts playback if needed and writes the take into a new clip on the armed
+  track (arming the selected one if none is): the recorded range rounded to bars, or the loop region with Loop on, each
+  pass adding to the same clip (committed at every wrap so earlier passes play back); the pedal extends recorded
+  lengths; **input quantize** (transport, off / 1/16 / 1/8) snaps note starts. A take is one "Record" undo entry
+  (merged commits); Stop, R or leaving the tab ends it. Tests: `MidiInputTests.cs` (fake host; plus a real helper with a
+  virtual keyboard, `mfplughost --midi-test-source`, on macOS/Linux).
 - Tests: `Tests/MainframeEngine.Editor.Tests/Music/SongTabTests.cs` (tab, gestures → one entry each, grid math, keys) and
   `SongWorkspaceTests.cs` (panel, keys before shortcuts, save, close prompt); QA steps 13d–13f in the walkthrough
   (`song` QA step: `new`, `demo`, `select`, `panel`, `play`, `stop`, `save`, `render`; `wait-for render`).
@@ -619,6 +635,8 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
 - **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
 - **VST3 folders** (extra folders, `;`-separated, besides the OS defaults) and **Rescan Plugins** (the music editor's
   plugin scan; the hint shows the instrument/effect counts and failed bundles).
+- **MIDI inputs**: every device the helper reports (and enabled ones it does not, as offline), each with a toggle and
+  its connected state; the refresh button lists them again. Applied devices are opened by `MidiInputService`.
 
 ## Updates
 

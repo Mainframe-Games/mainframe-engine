@@ -164,6 +164,7 @@ public sealed partial class EditorWorkspace
         var accentChanged = !string.Equals(settings.Accent, Settings.Accent, StringComparison.Ordinal);
         Settings = settings;
         Project.AutoReload = settings.AutoReloadCode;
+        Midi.SetEnabled(settings.MidiInputs);
         _autosaveSeconds = 0;
         if (Options.EditorSettingsPath is { } path)
         {

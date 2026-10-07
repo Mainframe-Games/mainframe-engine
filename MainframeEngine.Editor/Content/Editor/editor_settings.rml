@@ -5,7 +5,7 @@
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
-        #dialog { left: 50%; top: 50%; width: 560dp; height: 400dp; margin-left: -280dp; margin-top: -200dp; }
+        #dialog { left: 50%; top: 50%; width: 560dp; height: 480dp; margin-left: -280dp; margin-top: -240dp; }
         .dialog-row .caption { width: 120dp; }
         .dialog-row select { flex: 1 1 auto; width: 60dp; }
         #es-swatches { display: flex; flex-direction: row; }
@@ -18,6 +18,11 @@
         .hint { display: block; margin: 0dp 0dp 8dp 120dp; color: #8b93a5; font-size: 11dp; }
         label.check { display: flex; flex-direction: row; align-items: center; color: #b4bccc; }
         label.check input.checkbox { margin-right: 6dp; }
+        #es-midi { display: block; flex: 1 1 auto; margin: 0dp 0dp 4dp 0dp; }
+        .midi-row { display: flex; flex-direction: row; align-items: center; height: 22dp; }
+        .midi-row .midi-name { margin-left: 6dp; color: #b4bccc; }
+        .midi-row .online { color: #22c55e; margin-left: 8dp; font-size: 11dp; }
+        .midi-row .offline { color: #8b93a5; margin-left: 8dp; font-size: 11dp; }
     </style>
 </head>
 <body class="backdrop" data-model="editor_settings">
@@ -64,6 +69,18 @@
                 <button class="tool-button small" id="es-rescan-plugins" data-event-click="rescan_plugins()" data-tooltip="Rescan Plugins — scan every VST3 bundle again (one helper process per bundle)"><span class="icon icon-sm icon-refresh"></span></button>
             </div>
             <div class="hint">{{plugin_status}}</div>
+            <div class="dialog-row">
+                <span class="caption">MIDI inputs</span>
+                <div id="es-midi">
+                    <div class="midi-row" data-for="device : midi_devices">
+                        <button class="tool-button small" data-class-active="device.enabled" data-event-click="midi_toggle(device.index)" data-attr-data-tooltip="device.tooltip"><span class="icon icon-sm icon-check" data-if="device.enabled"></span></button>
+                        <span class="midi-name">{{device.name}}</span>
+                        <span data-class-online="device.online" data-class-offline="!device.online">{{device.state}}</span>
+                    </div>
+                </div>
+                <button class="tool-button small" id="es-midi-refresh" data-event-click="midi_refresh()" data-tooltip="Refresh MIDI Devices — list the connected MIDI inputs again"><span class="icon icon-sm icon-refresh"></span></button>
+            </div>
+            <div class="hint">{{midi_status}}</div>
             <div class="dialog-error">{{error}}</div>
         </div>
         <div class="dialog-buttons">

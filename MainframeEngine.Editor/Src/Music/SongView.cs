@@ -56,6 +56,8 @@ public sealed class SongView : Node
         var tab = _workspace.Session.ActiveTab as SongTab;
         if (!ReferenceEquals(tab, _tab))
             Switch(tab);
+        _workspace.Midi.Sink = tab?.Midi;
+        tab?.Midi.Update();
         _workspace.SongPanel.Tick(tab);
         if (tab is null)
             return;

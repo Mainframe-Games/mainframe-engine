@@ -47,6 +47,9 @@ public enum PluginHostMessage : ushort
     /// <summary><c>u32 milliseconds</c> → empty after that long (diagnostics: timeout tests).</summary>
     Sleep = 0x0004,
 
+    /// <summary>→ <c>u64</c> the helper's steady clock in ns (the clock <see cref="MidiEvent"/> timestamps use).</summary>
+    Clock = 0x0005,
+
     /// <summary><c>str wavPath, str oggPath, f32 quality</c> → <c>u64 frames, u32 sampleRate, u16 channels</c>.</summary>
     Encode = 0x0010,
 
@@ -72,6 +75,21 @@ public enum PluginHostMessage : ushort
 
     /// <summary>Helper → editor notification (request id 0): <c>u32 id</c>, the user closed that instance's editor window.</summary>
     PluginEditorClosed = 0x010B,
+
+    /// <summary>→ <c>u32 count, count × (u32 id, str name, u16 online)</c>: the MIDI input ports (ADR 0148).</summary>
+    MidiListInputs = 0x0200,
+
+    /// <summary><c>u32 id</c> → empty: opens a MIDI input (idempotent; an error while it is offline).</summary>
+    MidiOpen = 0x0201,
+
+    /// <summary><c>u32 id</c> → empty.</summary>
+    MidiClose = 0x0202,
+
+    /// <summary>Helper → editor notification: <c>u32 device, u64 timestampNs, u16 length, bytes</c> (one channel message).</summary>
+    MidiEvent = 0x0203,
+
+    /// <summary>Helper → editor notification: the <see cref="MidiListInputs"/> reply, sent when the port list changed.</summary>
+    MidiDevicesChanged = 0x0204,
 
     /// <summary>Reply only: <c>u32 code, str message</c>.</summary>
     Error = 0xFFFF,

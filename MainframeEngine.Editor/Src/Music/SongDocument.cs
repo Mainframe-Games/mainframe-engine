@@ -317,6 +317,31 @@ public sealed class SongDocument : IDisposable
         });
     }
 
+    /// <summary>
+    /// A MIDI recording pass: puts <paramref name="clip"/> on <paramref name="track"/> (if it is not there yet) spanning
+    /// <paramref name="start"/>..+<paramref name="length"/> with exactly <paramref name="notes"/> (clip-relative). Every
+    /// pass of a take passes the same <paramref name="mergeKey"/>, so the take is ONE history entry ("Record") whose undo
+    /// removes the clip; end the take with <c>History.EndMerge()</c>.
+    /// </summary>
+    public void CommitRecording(SongTrack track, MidiClip clip, long start, long length, IReadOnlyList<MidiNote> notes, string mergeKey)
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+        RequireKind(track, SongTrackKind.Instrument);
+        var added = notes.Select(n => n.Clone()).ToArray();
+        foreach (var note in added)
+            Sanitize(note);
+        start = Math.Max(0, start);
+        length = Math.Max(1, length);
+        Commit("Record", () =>
+        {
+            clip.Start = start;
+            clip.Length = length;
+            clip.Notes = [.. added];
+            if (!track.Clips.Contains(clip))
+                track.Clips.Add(clip);
+        }, () => track.Clips.Remove(clip), mergeKey);
+    }
+
     public MidiNote AddNote(MidiClip clip, int pitch, long start, long length, int velocity = 100)
     {
         var note = new MidiNote { Pitch = pitch, Start = start, Length = length, Velocity = velocity };

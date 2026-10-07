@@ -163,6 +163,7 @@ public sealed class EditorCommands
             case "song.stop": song.Player.Stop(); return true;
             case "song.rewind": song.Controller.Key(Silk.NET.Input.Key.Home, EditorModifiers.None); return true;
             case "song.loop": song.Controller.ToggleLoop(); return true;
+            case "song.record": song.Controller.ToggleRecording(); return true;
             case "song.render": _workspace.SongView.Render(song.Document.FilePath); return true;
             case "song.mixer": song.SetPanel(song.Panel == SongBottomPanel.Mixer ? SongBottomPanel.PianoRoll : SongBottomPanel.Mixer); return true;
             default: return false;
