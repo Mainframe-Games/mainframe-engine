@@ -47,7 +47,7 @@ flowchart LR
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
-| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools | ⬜ |
+| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -274,6 +274,7 @@ the Project Manager. Order: D1 → D2 → D3 → D4.
 
 The features most games need that the engine does not have yet. Not numbered: these are independent of M11–M13 and can
 be interleaved with them. Recommended order: G1a → G2 → G3a → G4 → G5, with G1b, G3b, G6 and G7 slotted in as needed.
+Character animation goes Claude-first: G1a core (G1.1–G1.4) → G1b → G1c + G1e → the G1a panel → G1d → G1f.
 G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that M12.7 extends. G6 depends on the
 "Vulkan now or after M11" decision in its proposal.
 
@@ -281,6 +282,10 @@ G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that
 |---|---|---|
 | G1a Keyframe animation: `Animation` resource (property, transform, method tracks), `AnimationPlayer`, editor Animation panel (timeline) | ⬜ | [Keyframe animation](design/future/keyframe-animation.md) |
 | G1b glTF skeletons, skinning (GPU) and animation clips played through `AnimationPlayer` | ⬜ | [Keyframe animation](design/future/keyframe-animation.md) |
+| G1c Animation authoring: humanoid map, pose scripts baked to keys, `mfe` CLI (`anim rig/bake/describe/check/render`), editor reload of changed resources, `animate` Claude Code skill | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
+| G1d Character animation editing: bones in the viewport, IK handles, curve view, onion skinning | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
+| G1e Root motion: `AnimationPlayer` root motion track, `CharacterBody3D.ApplyRootMotion` | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
+| G1f Non-humanoid rigs (native bone channels, rig profiles) and auto-rigging | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G2a Animated sprites: sprite sheet slicing, `SpriteFrames`, `AnimatedSprite2D` | ⬜ | [2D content](design/future/2d-content.md) |
 | G2b Tile maps: `TileSet`, tile map layer node (chunked rendering + physics), paint tools in the 2D view | ⬜ | [2D content](design/future/2d-content.md) |
 | G3a Navigation 2D: grid A* and point graphs, `NavigationServer2D`, `NavigationAgent2D`, editor bake + debug overlay, tile map source (G3.1–G3.6) | ⬜ | [Navigation](design/future/navigation.md) |
