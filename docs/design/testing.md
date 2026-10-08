@@ -352,7 +352,9 @@ SDK from `global.json` via `dotnet-install.sh`), with CI's environment (`VK_DRIV
 llvmpipe output, and physics after contact differs between x64 and arm64 (see below).
 
 - The script sends the working tree — tracked and untracked-but-not-ignored files (so new goldens count), the Spine
-  C# sources, and `.git` without LFS objects (SourceLink stamps the commit) — into a cached volume
+  C# sources, and `.git` without LFS objects (SourceLink stamps the commit; from a linked worktree, whose `.git` is a
+  file pointing at a host path, a self-contained `.git` built from the common dir plus the worktree's `HEAD`, index and
+  Spine module; the worktree needs `git submodule update --init Plugins/Spine`) — into a cached volume
   (`mainframe-linux-work`; NuGet packages in `mainframe-linux-nuget`), builds the solution Release with
   `-warnaserror -p:CompileShaders=false`, and runs the suite: `unit` (engine tests, `mf-l10n check --msgfmt`, editor
   tests), `render` (`xvfb-run … dotnet test Tests/MainframeEngine.RenderTests`, extra arguments passed through) or
