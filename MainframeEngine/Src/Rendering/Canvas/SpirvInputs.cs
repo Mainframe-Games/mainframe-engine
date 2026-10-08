@@ -13,6 +13,7 @@ internal static class SpirvInputs
     private const int OpDecorate = 71;
     private const int OpVariable = 59;
     private const uint DecorationLocation = 30;
+    private const uint DecorationBuiltIn = 11;
     private const uint StorageClassInput = 1;
 
     /// <exception cref="FormatException">Not a little-endian SPIR-V module.</exception>
@@ -22,6 +23,7 @@ internal static class SpirvInputs
             throw new FormatException("Not a SPIR-V module.");
 
         var locations = new Dictionary<uint, int>();
+        var builtIns = new HashSet<uint>();
         var inputs = new HashSet<uint>();
         for (var offset = 20; offset < spirv.Length;)
         {
@@ -31,6 +33,8 @@ internal static class SpirvInputs
                 throw new FormatException("Truncated SPIR-V instruction.");
             if (opcode == OpDecorate && count >= 4 && Operand(spirv, offset, 2) == DecorationLocation)
                 locations[Operand(spirv, offset, 1)] = (int)Operand(spirv, offset, 3);
+            else if (opcode == OpDecorate && count >= 4 && Operand(spirv, offset, 2) == DecorationBuiltIn)
+                builtIns.Add(Operand(spirv, offset, 1));
             else if (opcode == OpVariable && count >= 4 && Operand(spirv, offset, 3) == StorageClassInput)
                 inputs.Add(Operand(spirv, offset, 2));
             offset += count * 4;
@@ -41,6 +45,10 @@ internal static class SpirvInputs
         {
             if (locations.TryGetValue(id, out var location))
                 result.Add(location);
+            else if (!builtIns.Contains(id))
+                // A block-typed input carries its Locations on its members; reporting none would make the vertex stage
+                // write nothing, so refuse instead.
+                throw new FormatException($"SPIR-V input %{id} has neither a Location nor a BuiltIn decoration (block-typed stage input?).");
         }
 
         return result;

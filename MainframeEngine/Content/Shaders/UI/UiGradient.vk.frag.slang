@@ -7,7 +7,7 @@
 #define REPEATING_RADIAL 4
 #define REPEATING_CONIC 5
 #define MAX_NUM_STOPS 16
-#define PI 3.14159265
+#include "common.slang"
 
 struct Gradient
 {
@@ -61,7 +61,7 @@ float4 main([[vk::location(0)]] float2 inTexCoord, [[vk::location(1)]] float4 in
     {
         float t0 = stopPosition(0);
         float t1 = stopPosition(g.numStops - 1);
-        t = t0 + (t - t0 - (t1 - t0) * floor((t - t0) / (t1 - t0))); // GLSL mod(t - t0, t1 - t0)
+        t = t0 + glsl_mod(t - t0, t1 - t0);
     }
 
     return inColor * mixStopColors(t);

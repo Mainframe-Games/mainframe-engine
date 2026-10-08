@@ -54,7 +54,9 @@ VERTEX, UV, COLOR, TEXTURE, TEXTURE_PIXEL_SIZE, TIME, FRAGCOORD, SCREEN_UV, SCRE
 CANVAS_MATRIX, SCREEN_MATRIX, PI, TAU, E. Items whose shader has `vertex()` keep local vertices (MODEL_MATRIX = the
 item's canvas-space transform, CANVAS_MATRIX = camera × stretch) and draw alone; others are batched pre-transformed.
 SPIR-V is built ahead of time with `slangc` and committed next to the source (`x.gdshader.vert.spv`, `.frag.spv`,
-`.spvlock`). The fragment stage compiles first; the vertex stage then writes only the inputs that stage kept (Slang drops
+`.spvlock`), with `-obfuscate` so no name from the user's code reaches MoltenVK's Metal source (a local named `vertex` or
+`device` would not compile there). Projects whose canvas SPIR-V was built before the move to Slang get a stale-shader
+warning at load until it is rebuilt once with `just canvas-shaders <folder>`. The fragment stage compiles first; the vertex stage then writes only the inputs that stage kept (Slang drops
 unread fragment inputs, and an unread vertex output is a validation warning; `SpirvInputs`):
 `just canvas-shaders <folders>` / `just canvas-shaders-check`. `ShaderMaterial.SetShaderParameter(name, value)` sets
 uniforms (vectors as `System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for samplers).

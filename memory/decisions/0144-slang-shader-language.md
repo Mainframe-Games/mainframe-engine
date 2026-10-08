@@ -36,4 +36,8 @@ ships in the LunarG Vulkan SDK next to `glslc`.
   inputs it kept (`SpirvInputs`).
 - Slang keeps local names in the SPIR-V and MoltenVK passes them into Metal source: no Metal keywords (`vertex`, …) as
   names.
+- `shaders.lock` records the `slangc` version that built the committed `.spv`; `slangc` older than 2026.1 is treated like
+  a missing one. Canvas shaders also compile with `-obfuscate`, so user names never reach Metal source.
+- Game projects' canvas SPIR-V built with `glslc` is stale (the translation changed): rebuild once with
+  `just canvas-shaders <folder>`.
 - ADR 0007's build-time pipeline, committed-`.spv` fallback and lock are unchanged in shape.

@@ -12,8 +12,8 @@ namespace MainframeEngine;
 /// A canvas item shader (Godot's <c>Shader</c>, <c>shader_type canvas_item</c>) loaded from a <c>.gdshader</c> file in Godot's
 /// shading language (ADR 0113). <see cref="CanvasShaderCompiler"/> translates it to Slang (ADR 0144); the SPIR-V is built
 /// ahead of time next to the source (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, plus <c>x.gdshader.spvlock</c>
-/// with the hash of the Slang it came from) by <see cref="CanvasShaderBuild"/> — the build target and the editor run it — and committed,
-/// like the engine's own shaders.
+/// with the hash of the Slang it came from) by <see cref="CanvasShaderBuild"/> — the mf-shaders tool runs it
+/// (<c>just canvas-shaders</c>) — and committed, like the engine's own shaders.
 /// </summary>
 [EditorIcon("code")]
 public sealed class Shader : Resource
@@ -56,7 +56,7 @@ public sealed class Shader : Resource
             FragmentSpvPath = fullPath + ".frag.spv",
         };
         if (!CanvasShaderBuild.IsUpToDate(fullPath, program))
-            Log.Warning($"[Shader] '{path}': the SPIR-V is missing or older than the shader; build the project (slangc) to refresh it.");
+            Log.Warning($"[Shader] '{path}': the SPIR-V is missing or older than the shader (or was built before the engine moved to Slang); rebuild it with mf-shaders (`just canvas-shaders <folder>` in the engine checkout, needs slangc).");
         return shader;
     }
 
@@ -218,6 +218,17 @@ public static partial class CanvasShaderBuild
     [GeneratedRegex(@"(\d+)\.(\d+)")]
     private static partial Regex SlangcVersionRegex();
 
+    /// <summary>
+    /// slangc's arguments for one stage: the engine's flags (build/Shaders.targets), <c>-allow-glsl</c> for Godot's GLSL-like
+    /// user code, and <c>-obfuscate</c>, which drops every name from the SPIR-V: MoltenVK's SPIRV-Cross would otherwise carry
+    /// a local named like a Metal keyword (<c>vertex</c>, <c>device</c>, …) into the Metal source, which then fails to compile.
+    /// </summary>
+    internal static string[] SlangcArguments(string source, string stage, string includeDirectory, string output) =>
+    [
+        source, "-allow-glsl", "-obfuscate", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
+        "-entry", "main", "-stage", stage, "-I", includeDirectory, "-o", output,
+    ];
+
     /// <summary>slangc from <c>$VULKAN_SDK/bin</c> or PATH, or null.</summary>
     public static string? FindSlangc()
     {
@@ -242,9 +253,7 @@ public static partial class CanvasShaderBuild
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
             };
-            // The engine's flags (build/Shaders.targets) plus -allow-glsl for Godot's GLSL-like user code.
-            foreach (var arg in new[] { temp, "-allow-glsl", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
-                         "-entry", "main", "-stage", stage, "-I", includeDirectory, "-o", output })
+            foreach (var arg in SlangcArguments(temp, stage, includeDirectory, output))
                 start.ArgumentList.Add(arg);
             using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {slangc}.");
             var errors = process.StandardError.ReadToEnd() + process.StandardOutput.ReadToEnd();
