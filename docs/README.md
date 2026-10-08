@@ -41,6 +41,10 @@ Proposed design · Diagram · Task list · Open questions. See [milestones.md](m
 | [Mobile platform services](design/future/mobile-services.md): IAP, achievements/leaderboards/cloud saves, consent + ads, notifications, analytics/crash reporting via `mfplatform` shims | M13 |
 | [Consoles (PS5 + Xbox Series)](design/future/consoles.md): public readiness (M11 shaped for D3D12 and a console API, NativeAOT, platform seams, console-ready checklist), private ports after program access | — |
 | [Distribution via NuGet](design/future/distribution-nuget.md) | — |
+| [Terrain](design/future/terrain.md): `Terrain3D`, Faceted and Realistic profiles, Terrain dock, `MultiMesh` scatter | G8a |
+| [Procedural trees](design/future/procedural-trees.md): Ez Tree port, LowPoly and Realistic styles, wind, impostors | G8b |
+| [Water](design/future/water.md): ponds and lakes, `River3D` streams, `WaterMaterial3D` | G8c |
+| [Forest showcase](design/future/forest-showcase.md): `Examples/Forest`, a first-person forest walk, and the rendering it needs | G8d |
 
 ## Conventions
 
