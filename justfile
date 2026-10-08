@@ -31,7 +31,7 @@ test-render:
 test-linux *args:
     build/linux/run.sh unit {{args}}
 
-# Render tests on lavapipe in Docker, like CI's render-tests job; frames without a lavapipe golden land in artifacts/linux/render-tests/new-goldens/lavapipe (extra args go to dotnet test, e.g. --filter Name~Editor)
+# Render tests on lavapipe in Docker, like CI's render-tests job; frames without a lavapipe golden land in artifacts/linux/render-tests/new-goldens/lavapipe (extra args go to dotnet test, e.g. --filter FullyQualifiedName~Editor)
 render-tests-linux *args:
     build/linux/run.sh render {{args}}
 
