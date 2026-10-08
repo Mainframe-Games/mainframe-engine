@@ -30,18 +30,21 @@ Gates before committing anything substantial: `just build`, Release `dotnet buil
 Build settings live in `Directory.Build.props` / `Directory.Packages.props` (central package
 versions — never put `Version` on a `PackageReference`); the SDK is pinned in `global.json`.
 
-Shaders compile during `dotnet build` (`build/Shaders.targets`: `glslc -I Content/Shaders/include`,
-incremental; without glslc the build warns and ships the committed `.spv`). The committed `.spv` files
-are that fallback, so after any shader or `include/*.glsl` change also refresh them and commit them with
-`MainframeEngine/Content/Shaders/shaders.lock` (CI fails on stale `.spv`):
+Shaders are **Slang** (ADR 0144; rules in `docs/design/shaders.md#writing-shaders`: `mul(v, M)` with the C#
+matrices, `SV_VulkanVertexID`, `glsl_mod`). They compile during `dotnet build` (`build/Shaders.targets`: `slangc
+-target spirv -capability spirv_1_5 -matrix-layout-row-major -I Content/Shaders/include`, incremental; without slangc
+the build warns and ships the committed `.spv`). The committed `.spv` files are that fallback, so after any shader or
+`include/*.slang` change also refresh them and commit them with `MainframeEngine/Content/Shaders/shaders.lock` (CI
+fails on stale `.spv`). A vertex shader writes only what its fragment shader reads (Slang drops unread fragment inputs,
+and the leftover output is a validation warning):
 
 ```bash
-just shaders          # glslc --target-env=vulkan1.2 -I include + spirv-val on every shader, rewrites shaders.lock
+just shaders          # slangc (the build's flags) + spirv-val on every shader, rewrites shaders.lock
 just shaders-check
 ```
 
 Light/shadow limits live only in `MainframeEngine/Content/Shaders/limits.json` (the build generates
-`ShaderLimits.g.cs` and `include/limits.glsl`). Load content with `ContentPaths.Resolve`, never a
+`ShaderLimits.g.cs` and `include/limits.slang`). Load content with `ContentPaths.Resolve`, never a
 working-directory-relative path.
 
 Rendering changes must keep the render tests green; if output changes intentionally, run
@@ -52,7 +55,7 @@ must not allocate (allocation gate) and must produce no validation warnings.
 
 Vulkan runs through MoltenVK, bundled via the `Silk.NET.MoltenVK.Native` package — no install
 needed to run. The Vulkan SDK (lunarg.com) is recommended for development (validation layers,
-`glslc`). Windowing and input are SDL2 (Silk.NET SDL backend; GLFW is not referenced).
+`slangc`). Windowing and input are SDL2 (Silk.NET SDL backend; GLFW is not referenced).
 `VulkanLoaderBootstrap` (called in the `Engine` constructor after SDL is selected, before the
 window exists) probes for a Vulkan library and hands the same one to SDL (`SDL_Vulkan_LoadLibrary`)
 and to Silk.NET's `Vk` — required because modern macOS dyld no longer searches `/usr/local/lib` for

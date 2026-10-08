@@ -19,8 +19,9 @@ developer program yet and there is no date. Today the engine would need rewrites
 - **Rendering.** Every drawable records raw Vulkan through `IVulkanContext` (51 files under `MainframeEngine/Src` use
   `Silk.NET.Vulkan`). Xbox requires Direct3D 12 and PS5 has its own API. Neither runs Vulkan. M11's planned abstraction
   is modelled on WebGPU and only plans a WebGPU second backend.
-- **Shaders.** 41 GLSL shaders compile to SPIR-V with `glslc`. Nothing produces DXIL, and consoles need every shader
-  compiled ahead of time.
+- **Shaders.** The engine's shaders were GLSL compiled with `glslc`; they are Slang now
+  ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)), but only SPIR-V is produced. Nothing produces
+  DXIL yet, and consoles need every shader compiled ahead of time.
 - **Runtime.** The engine runs on the JIT. Consoles forbid JIT, and Microsoft's .NET does not list either console as a
   supported NativeAOT target.
 - **Natives and dependencies.** SDL2 comes through Silk.NET 2.x. SoundFlow/miniaudio, ENet and Steamworks have no
@@ -205,11 +206,11 @@ requirements added (recorded in the M11 doc):
 
 **Shaders.** One source language compiled offline to every target:
 
-- **Proposed: Slang** (decided by ADR in M11; [open question 1](#open-questions)). It reads HLSL-like source (and a GLSL
-  compatibility module eases the move from today's GLSL), writes SPIR-V and DXIL, and Khronos hosts it. It is a
-  **build tool only**, like `glslc` today: pinned, checksummed and never shipped.
-- **Alternative:** keep GLSL and chain `glslc` → SPIR-V → SPIRV-Cross (HLSL) → DXC (DXIL). It means no source
-  migration but two extra tools and a lossy HLSL hop.
+- **Decided: Slang** ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md), done): every engine shader is
+  Slang, compiled with `slangc` to SPIR-V today; DXIL is one more target when the D3D12 backend lands. Slang is Khronos
+  hosted and a **build tool only**: pinned, checksummed and never shipped.
+- The rejected alternative was keeping GLSL and chaining `glslc` → SPIR-V → SPIRV-Cross (HLSL) → DXC (DXIL): no
+  migration, but two extra tools and a lossy HLSL hop.
 - **Console shaders are private build steps** (as SDL does for Xbox). The public build writes SPIR-V and DXIL; the
   console repositories compile the same source (or the DXIL/HLSL output) with the vendor compilers.
 - `shaders.lock` and `just shaders-check` extend to every committed output (SPIR-V + DXIL).
@@ -323,7 +324,7 @@ Public (this repository):
 
 - [ ] ADR 0143 and this proposal (this change)
 - [ ] M11 doc: explicit-API requirements, D3D12-first, pipeline manifest, presentation behind the device (this change)
-- [ ] Shader-language ADR (Slang vs GLSL + SPIRV-Cross + DXC) and migration
+- [x] Shader-language ADR and migration: Slang ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md))
 - [ ] `IsAotCompatible` with zero warnings; desktop NativeAOT template smoke in CI (shared with M12)
 - [ ] `IGpuDevice` + `VulkanDevice` + `D3D12Device` (Windows), WARP render tests and goldens
 - [ ] Pipeline manifest: enumerate every pipeline at build; pre-warm at load; fail tests on a mid-frame pipeline creation
@@ -351,9 +352,9 @@ Cheap rules for changes **now**, so console ports stay additive. They extend the
 2. **Pipelines are enumerable.** New pipeline variants come from a finite set of descriptions (material flags, pass,
    vertex layout), never from data-driven combinations that only appear at run time. Never create a pipeline
    mid-frame on a code path a player can reach.
-3. **No runtime shader compilation.** All shaders are compiled at build time from the shader sources; no GLSL strings
+3. **No runtime shader compilation.** All shaders are compiled at build time from the shader sources; no shader source strings
    built in code.
-4. **Shaders stay portable.** No GLSL-only features without an HLSL/Slang equivalent (e.g. no `subpassInput` without a
+4. **Shaders stay portable.** No target-specific features (SPIR-V-only) without a DXIL/console equivalent (e.g. no `subpassInput` without a
    non-subpass fallback, no reliance on Vulkan-only layout qualifiers beyond set/binding/push constants), and keep
    within 4 bind groups and ≤ 128 bytes of push data.
 5. **Users are not assumed.** Code that needs "the player" (saves, settings, achievements, input) takes a user or uses
@@ -401,8 +402,8 @@ Decided by the user on 2026-10-08 and recorded in [ADR 0143](../../../memory/dec
 
 ## Open questions
 
-1. **Shader language:** Slang (new build tool, source migration) or GLSL + SPIRV-Cross + DXC (no migration, two
-   tools)? Default: Slang, decided by ADR when M11 starts. Both are build-only dependencies needing approval.
+1. ~~**Shader language**~~ — decided: Slang ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)), and the
+   engine's shaders are ported.
 2. **SDL3 bindings:** which C# binding for SDL3 (a new dependency), and does the move happen with M12 (mobile) or before
    it? Default: decide in the SDL3 ADR; prefer doing it before M12 so mobile is built on SDL3 once.
 3. **WebGPU in M11:** keep it after D3D12, or defer it to its own milestone? Default: after D3D12, same milestone.

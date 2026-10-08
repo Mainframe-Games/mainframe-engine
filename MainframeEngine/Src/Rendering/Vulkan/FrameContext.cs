@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.glsl</c>, 368 bytes).</summary>
+/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 368 bytes).</summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct FrameData
 {

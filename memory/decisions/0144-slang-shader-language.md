@@ -29,4 +29,11 @@ ships in the LunarG Vulkan SDK next to `glslc`.
 
 - Every committed `.spv` and `shaders.lock` changes once; interfaces and goldens do not.
 - Shader authors write `mul(v, M)`, `SV_VulkanVertexID`, `glsl_mod`; docs/design/shaders.md lists the rules.
+- Slang drops unread stage inputs (no option keeps them), and the validation layer warns about the vertex outputs and
+  attributes left unread. So each stage writes only what the next reads: `Post/Fullscreen.vk.vert` outputs only the
+  position, the object-ID pass got its own `Mesh/MeshId.vk.vert`, each mesh pipeline passes only the attributes its
+  vertex shader reads, and the canvas build compiles the fragment stage first and has the vertex stage write only the
+  inputs it kept (`SpirvInputs`).
+- Slang keeps local names in the SPIR-V and MoltenVK passes them into Metal source: no Metal keywords (`vertex`, …) as
+  names.
 - ADR 0007's build-time pipeline, committed-`.spv` fallback and lock are unchanged in shape.

@@ -100,7 +100,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         public Vector4 Lights; // x: light mask (uint bits)
     }
 
-    // canvas_lights.glsl's block: per light two matrix rows, colour, flags (std140, 64 bytes).
+    // canvas_lights.slang's block: per light two matrix rows, colour, flags (std140, 64 bytes).
     private struct LightGpuData
     {
         public Vector4 MatrixX;
@@ -372,7 +372,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
                 }
 
                 var unshaded = batch.Material is CanvasItemMaterial { LightMode: CanvasLightMode.Unshaded } || shader is { Unshaded: true };
-                var flags = (unshaded ? 1u : 0u) | (batch.Blend == CanvasBlendMode.Atop ? 4u : 0u);   // canvas.glsl CANVAS_FLAG_*
+                var flags = (unshaded ? 1u : 0u) | (batch.Blend == CanvasBlendMode.Atop ? 4u : 0u);   // canvas.slang CANVAS_FLAG_*
                 var push = new CanvasPush
                 {
                     ModelAxes = new Vector4(batch.Model.X, batch.Model.Y.X, batch.Model.Y.Y),

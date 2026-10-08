@@ -15,7 +15,7 @@ Most subtle rendering bugs in the engine come from a mismatch here.
 | Handedness | right-handed, +Y up, camera looks down −Z (3D) |
 | 2D | **Y-down** like Godot and screen space (ADR 0110): `Node2D` +Y is down on screen, positive rotation is clockwise on screen, 2D gravity is +Y, `CharacterBody2D.UpDirection` is −Y. `Camera2D` and the editor's 2D view look at the z = 0 plane along **+Z** from behind it (a rotation, not a mirror), so 3D visuals drawn by a 2D camera show their back faces |
 | Vector convention | **row vectors**: `world = v × Model`, `clip = v × Model × View × Proj` |
-| Matrix upload | `Matrix4x4` is written raw into UBOs/push constants; GLSL reads it column-major, which transposes it, so `proj * view * model * v` in GLSL is correct |
+| Matrix upload | `Matrix4x4` is written raw into UBOs/push constants. Shaders are Slang compiled with `-matrix-layout-row-major` (ADR 0144), so a `float4x4` holds the C# matrix as-is and shaders use the same row-vector order: `mul(mul(mul(v, model), view), proj)` |
 | Model matrix | `Scale × RotX × RotY × RotZ × Translation` (Euler degrees) |
 | Light matrices | composed as `view * proj` (row-vector order) |
 

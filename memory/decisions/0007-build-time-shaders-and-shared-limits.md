@@ -26,3 +26,9 @@ shadow limits were `#define`d in two shaders and declared again in C#. Open ques
    `MainframeEngine.Generators` project belongs to another lane.
 4. **`ContentPaths.Resolve`** is the one path API: rooted paths unchanged, `"Content/…"` relative to
    `AppContext.BaseDirectory`, anything else relative to `Content/`.
+
+## Amended by ADR 0144 (2026-10-08)
+
+Shaders are Slang, compiled by `slangc` (`$(Slangc)`, `$(VULKAN_SDK)/bin/slangc` or `PATH`) instead of `glslc`; the
+generated header is `include/limits.slang` (the `limits.json` key is `shader`). The build-time pipeline, the
+committed-`.spv` fallback (`MFSHADER001`) and `shaders.lock` are unchanged.

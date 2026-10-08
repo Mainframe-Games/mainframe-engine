@@ -67,7 +67,7 @@
   <rect x="20" y="310" width="420" height="110" rx="6" fill="#f9fafb" stroke="#9ca3af"/>
   <text x="30" y="332" class="t" font-weight="600">Matrix convention</text>
   <text x="30" y="352" class="s">C#: clip = v × Model × View × Proj (row vectors)</text>
-  <text x="30" y="370" class="s">Uploaded raw → GLSL reads column-major (transposed)</text>
-  <text x="30" y="388" class="s">GLSL: proj * view * model * v</text>
+  <text x="30" y="370" class="s">Uploaded raw → Slang row-major float4x4 (same values)</text>
+  <text x="30" y="388" class="s">Slang: mul(mul(mul(v, model), view), proj)</text>
   <text x="30" y="406" class="s">Right-handed, +Y up, camera looks down −Z</text>
 </svg>

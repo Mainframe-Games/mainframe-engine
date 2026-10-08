@@ -30,3 +30,9 @@ uniform hints and defaults, varyings and `vertex()`. The engine compiled only it
 
 - All seven game shaders translate and compile with glslc unchanged.
 - Shader authors need glslc (Vulkan SDK) only to change a shader; everyone else uses the committed SPIR-V.
+
+## Amended by ADR 0144 (2026-10-08)
+
+The translator wraps the Godot code in a Slang template compiled by `slangc` with `-allow-glsl` (the user code keeps
+GLSL syntax and meaning); `CanvasShaderProgram` exposes `VertexSource`/`FragmentSource`. The fragment stage compiles
+first and the vertex stage writes only the inputs it kept (`SpirvInputs`), because Slang drops unread fragment inputs.

@@ -302,7 +302,8 @@ Windows first (it validates the API against a second explicit API and is the pub
 | Feature | Status | Design doc |
 |---|---|---|
 | `IGpuDevice` / encoder API; port all subsystems | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
-| Shader language ADR; one source compiled to SPIR-V + DXIL (+ WGSL) | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
+| Shader language: Slang, every engine shader ported ([ADR 0144](../memory/decisions/0144-slang-shader-language.md)) | ✅ | [Shaders](design/shaders.md) |
+| DXIL (+ WGSL) targets of the Slang shaders, with their backends | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 | Pipeline manifest: every pipeline known at build, pre-warmed at load | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 | D3D12 backend (Windows), render tests on WARP | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 | WebGPU backend selected by `EngineOptions.RenderingBackend` | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |

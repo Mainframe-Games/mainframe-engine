@@ -212,7 +212,7 @@ public static class ShadowMath
 
     /// <summary>
     /// The receiver position the shaders compare against a shadow map (mirrors <c>shadowReceiver</c> in
-    /// <c>include/shadows.glsl</c>): moved towards the light by <paramref name="depthBias"/> texels and along the
+    /// <c>include/shadows.slang</c>): moved towards the light by <paramref name="depthBias"/> texels and along the
     /// normal by <paramref name="normalBias"/> texels × sin(angle to the light), where a texel measures
     /// <paramref name="texelWorldSize"/> at that point.
     /// </summary>

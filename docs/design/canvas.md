@@ -15,7 +15,7 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 | Server | `CanvasServer` (`IFrameServer`) | runs queued draws, culls every canvas of the root viewport (root canvas + visible layers, by layer) into one `CanvasFrame` |
 | Renderer | `VulkanCanvasRenderer` (`IOverlayRenderer`) | draws the frame into an RGBA8 UNORM layer (gamma space), composites it after the tonemap, below the game UI |
 | Materials | `CanvasItemMaterial`, `ShaderMaterial` + `Shader` | blend mode (mix, add, sub, mul, premultiplied, disabled) and light mode; canvas shaders (E5, in progress) |
-| Shaders | [Content/Shaders/Canvas/](../../MainframeEngine/Content/Shaders/Canvas/), `include/canvas.glsl` | default vertex/fragment stages; push constants mirror Godot's world/canvas/screen transforms and canvas modulation |
+| Shaders | [Content/Shaders/Canvas/](../../MainframeEngine/Content/Shaders/Canvas/), `include/canvas.slang` | default vertex/fragment stages; push constants mirror Godot's world/canvas/screen transforms and canvas modulation |
 
 ## Model
 
@@ -42,7 +42,9 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 ## Canvas shaders
 
 `.gdshader` files in Godot's shading language (`shader_type canvas_item`) load as `Shader` resources (`.gdshader` importer,
-`Shader.Load`); `CanvasShaderCompiler` translates them to GLSL ([ADR 0113](../../memory/decisions/0113-canvas-shaders-godot-language.md)).
+`Shader.Load`); `CanvasShaderCompiler` wraps them in a Slang template compiled with `-allow-glsl`, so the Godot code keeps
+its GLSL syntax and meaning ([ADR 0113](../../memory/decisions/0113-canvas-shaders-godot-language.md),
+[ADR 0144](../../memory/decisions/0144-slang-shader-language.md)).
 Supported: uniforms of scalar/vector/matrix types and arrays (std140 block, set 1 binding 0, declaration order) with
 defaults and hints (`source_color` kept raw as in Godot's non-HDR canvas, `hint_range` ignored), `sampler2D` uniforms
 (set 1 bindings 1…, `filter_*`/`repeat_*`), `render_mode blend_mix|add|sub|mul|premul_alpha|disabled, unshaded,
@@ -50,7 +52,9 @@ light_only`, varyings (flat for integers), helper functions and constants, `vert
 VERTEX, UV, COLOR, TEXTURE, TEXTURE_PIXEL_SIZE, TIME, FRAGCOORD, SCREEN_UV, SCREEN_PIXEL_SIZE, MODEL_MATRIX,
 CANVAS_MATRIX, SCREEN_MATRIX, PI, TAU, E. Items whose shader has `vertex()` keep local vertices (MODEL_MATRIX = the
 item's canvas-space transform, CANVAS_MATRIX = camera × stretch) and draw alone; others are batched pre-transformed.
-SPIR-V is built ahead of time and committed next to the source (`x.gdshader.vert.spv`, `.frag.spv`, `.spvlock`):
+SPIR-V is built ahead of time with `slangc` and committed next to the source (`x.gdshader.vert.spv`, `.frag.spv`,
+`.spvlock`). The fragment stage compiles first; the vertex stage then writes only the inputs that stage kept (Slang drops
+unread fragment inputs, and an unread vertex output is a validation warning; `SpirvInputs`):
 `just canvas-shaders <folders>` / `just canvas-shaders-check`. `ShaderMaterial.SetShaderParameter(name, value)` sets
 uniforms (vectors as `System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for samplers).
 Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes.

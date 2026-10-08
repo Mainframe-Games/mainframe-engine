@@ -73,9 +73,10 @@ classDiagram
     and tile-memory subpass merging (mobile) are `GpuCapabilities` that the shadow system and passes query.
   - **Presentation behind the device:** the host (`IAppPlatform`) hands the device a native window handle; the
     device owns the swapchain, so a console host can supply its own.
-- Shaders: one source compiled offline per backend. Options: Slang (SPIR-V, DXIL, WGSL from one HLSL-like source) or
-  GLSL → SPIR-V → SPIRV-Cross (HLSL) → DXC (DXIL), plus Naga/Tint for WGSL. Decide via ADR; Slang is the default
-  proposal. Console shader compilation is a private build step.
+- Shaders: one source compiled offline per backend. **Decided and done: Slang**
+  ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)); the build compiles SPIR-V today, and DXIL (D3D12)
+  and WGSL (WebGPU) are extra `slangc` targets added with their backends. Console shader compilation is a private build
+  step.
 
 ## Migration order
 
@@ -90,7 +91,8 @@ classDiagram
 
 - [ ] API interfaces + `VulkanDevice`
 - [ ] Port subsystems in the order above
-- [ ] Shader-language ADR (Slang vs GLSL + SPIRV-Cross + DXC) and the [shader build](../shaders.md) for SPIR-V + DXIL
+- [x] Shader-language ADR: Slang ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)); [shader build](../shaders.md) on `slangc`
+- [ ] DXIL (and WGSL) targets in the shader build, with their backends
 - [ ] Pipeline manifest + load-time pre-warm + mid-frame-creation test
 - [ ] `D3D12Device` (Windows) + WARP render tests (`Goldens/warp`) in CI
 - [ ] `WebGpuDevice` (dependency decision: wgpu-native binding)

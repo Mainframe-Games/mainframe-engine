@@ -258,10 +258,10 @@ allocator's pools are freeable and their live counts are exact.
 
 ## Shaders
 
-- `Mesh.vk.vert` builds the model matrix from the instance attributes (the C# rows are the GLSL columns). The
+- `Mesh.vk.vert` builds the model matrix from the instance attributes (the C# rows are the rows of the Slang matrix: row-major layout, `mul(v, M)`). The
   normal matrix is the **cofactor** of the upper 3×3, multiplied by the sign of the determinant: it handles
   non-uniform scale and mirroring without an inverse.
-- `include/material.glsl` holds the material set, the UV transform, albedo and emission lookups, and
+- `include/material.slang` holds the material set, the UV transform, albedo and emission lookups, and
   `materialNormal`. That function reconstructs a tangent frame from screen-space derivatives of position and UV,
   solving dP/du and dP/dv with the 2×2 inverse of the UV Jacobian. No vertex tangents are needed, and mirrored UVs
   and the flipped viewport keep their handedness ([ADR 0016](../../memory/decisions/0016-normal-maps-without-tangents.md)).
@@ -272,7 +272,7 @@ allocator's pools are freeable and their live counts are exact.
   4. Adds emission.
   5. Writes alpha only for blend pipelines.
 - `MeshId.vk.frag` writes the object id as `uint` and keeps the cutout discard.
-- `lights.glsl`: `shadeLights` (Spine) = `shadeLightsBlinnPhong(…, 0.3, 32)`. `counts.w = 1` disables shadow-map
+- `lights.slang`: `shadeLights` (Spine) = `shadeLightsBlinnPhong(…, 0.3, 32)`. `counts.w = 1` disables shadow-map
   sampling for a view (offscreen worlds).
 
 ## Picking (object IDs)

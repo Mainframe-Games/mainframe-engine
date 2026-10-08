@@ -87,7 +87,7 @@ flowchart TD
   the front of the union of the casters' bounds (`MeshViewDraws.CasterBounds`). It is at least 10 units, because
   Spine and other unbounded casters have no bounds, and at most 1000 units, for depth precision. It is rounded up to
   whole units.
-- **Sampling** (`sampleCascades` in `shadows.glsl`):
+- **Sampling** (`sampleCascades` in `shadows.slang`):
   - The view depth (`-(frame.view · p).z`) selects the cascade.
   - Over the last `CascadeBlend` (default 0.1) of a cascade, the result blends into the next cascade with
     `smoothstep`.
@@ -252,7 +252,7 @@ the offsets; they were checked with `spirv-reflect` on `Mesh.vk.frag`.
 
 ## Sampling and filtering
 
-`lights.glsl` asks `dirShadow`, `spotShadow` and `pointShadow` (in `shadows.glsl`) for each light's term, passing the
+`lights.slang` asks `dirShadow`, `spotShadow` and `pointShadow` (in `shadows.slang`) for each light's term, passing the
 geometric normal. Normal-mapped normals would make the offset noisy.
 
 **Receiver offset** (`shadowReceiver`, mirrored by `ShadowMath.ReceiverPosition`): before projecting, the surface
@@ -406,7 +406,7 @@ Before M4, 116 MiB was allocated whatever the lights.
 ## Invariants
 
 - `ShadowUniforms` and `ShadowUBO` must match byte for byte (`UniformLayoutMatchesTheShaderBlock`).
-- Every dynamic index into the shadow block or a sampler array is clamped in `shadows.glsl`. glslang may evaluate
+- Every dynamic index into the shadow block or a sampler array is clamped in `shadows.slang`. the compiler may evaluate
   both sides of `?:`, `&&` and `||`, and Metal does not clamp out-of-range components or array layers.
 - `RenderShadows` runs at most once per frame (it throws otherwise).
 
