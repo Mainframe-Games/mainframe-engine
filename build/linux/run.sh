@@ -26,23 +26,50 @@ tar --no-xattrs --no-mac-metadata -C "$root" -cf - global.json build/linux/Docke
 rm -rf "$out"
 mkdir -p "$out"
 
+[ -e "$root/Plugins/Spine/.git" ] || { echo "Plugins/Spine is not checked out: git submodule update --init Plugins/Spine" >&2; exit 1; }
+
 # Files to send: everything git would commit (tracked + untracked-but-not-ignored, so new goldens count), the
 # vendored Spine runtime's C# sources, and .git (SourceLink stamps the commit into the version) without LFS objects,
 # linked worktrees or the native submodules' histories.
 list="$(mktemp)"
-trap 'rm -f "$list"' EXIT
+stage="$(mktemp -d)"
+trap 'rm -rf "$list" "$stage"' EXIT
 (
   cd "$root"
   git ls-files -co --exclude-standard -z | perl -0 -ne 'chomp; print "$_\0" if -f $_ || -l $_'
   git -C Plugins/Spine ls-files -z -- spine-csharp | perl -0 -ne 'chomp; print "Plugins/Spine/$_\0"'
-  printf 'Plugins/Spine/.git\0'
 ) > "$list"
+
+# Writes the tar stream of .git and Plugins/Spine/.git. In a linked worktree (.git is a file: `gitdir:
+# <common>/worktrees/<name>`, a host path) it sends a self-contained .git instead: the common dir's objects, refs
+# and config by symlink with the worktree's HEAD and index, and the worktree's Spine module (which lives under
+# <common>/worktrees/<name>/modules) moved to .git/modules with its .git file and core.worktree pointing there.
+git_tar() {
+  if [ -d "$root/.git" ]; then
+    tar --no-xattrs --no-mac-metadata -C "$root" -cf - \
+      --exclude .git/lfs --exclude .git/worktrees --exclude .git/modules/Native .git Plugins/Spine/.git
+    return
+  fi
+  local gitdir common entry
+  gitdir="$(git -C "$root" rev-parse --absolute-git-dir)"
+  common="$(cd "$root" && cd "$(git rev-parse --git-common-dir)" && pwd)"
+  mkdir -p "$stage/.git/modules/Plugins" "$stage/Plugins/Spine"
+  for entry in "$common"/*; do
+    case "${entry##*/}" in HEAD|index|lfs|worktrees|modules) ;; *) ln -s "$entry" "$stage/.git/" ;; esac
+  done
+  cp "$gitdir/HEAD" "$gitdir/index" "$stage/.git/"
+  cp -R "$(git -C "$root/Plugins/Spine" rev-parse --absolute-git-dir)" "$stage/.git/modules/Plugins/Spine"
+  git config --file "$stage/.git/modules/Plugins/Spine/config" core.worktree ../../../../Plugins/Spine
+  printf 'gitdir: ../../.git/modules/Plugins/Spine\n' > "$stage/Plugins/Spine/.git"
+  # -H archives what the command-line symlinks point to.
+  (cd "$stage" && tar --no-xattrs --no-mac-metadata -H -cf - .git/* Plugins/Spine/.git)
+}
 
 echo "Copying the working tree into the container and running the '$suite' tests (x86_64 under emulation: slow)..."
 (
   cd "$root"
   tar --no-xattrs --no-mac-metadata --null -cf - -n -T "$list"
-  tar --no-xattrs --no-mac-metadata -cf - --exclude .git/lfs --exclude .git/worktrees --exclude .git/modules/Native .git
+  git_tar
 ) | docker run --rm -i --platform "$platform" \
       -v mainframe-linux-work:/work -v mainframe-linux-nuget:/cache/nuget -v "$out":/out \
       "$image" bash -c 'rm -rf /src && mkdir -p /src && tar -xif - -C /src && exec bash /src/build/linux/inside.sh "$@"' \
