@@ -8,9 +8,9 @@ namespace MainframeEngine;
 
 /// <summary>
 /// A canvas item shader (Godot's <c>Shader</c>, <c>shader_type canvas_item</c>) loaded from a <c>.gdshader</c> file in Godot's
-/// shading language (ADR 0113). <see cref="CanvasShaderCompiler"/> translates it to GLSL; the SPIR-V is built ahead of time
-/// next to the source (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, plus <c>x.gdshader.spvlock</c> with the hash
-/// of the GLSL it came from) by <see cref="CanvasShaderBuild"/> — the build target and the editor run it — and committed,
+/// shading language (ADR 0113). <see cref="CanvasShaderCompiler"/> translates it to Slang (ADR 0144); the SPIR-V is built
+/// ahead of time next to the source (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, plus <c>x.gdshader.spvlock</c>
+/// with the hash of the Slang it came from) by <see cref="CanvasShaderBuild"/> — the build target and the editor run it — and committed,
 /// like the engine's own shaders.
 /// </summary>
 [EditorIcon("code")]
@@ -54,7 +54,7 @@ public sealed class Shader : Resource
             FragmentSpvPath = fullPath + ".frag.spv",
         };
         if (!CanvasShaderBuild.IsUpToDate(fullPath, program))
-            Log.Warning($"[Shader] '{path}': the SPIR-V is missing or older than the shader; build the project (glslc) to refresh it.");
+            Log.Warning($"[Shader] '{path}': the SPIR-V is missing or older than the shader; build the project (slangc) to refresh it.");
         return shader;
     }
 
@@ -145,18 +145,19 @@ internal static class ShaderValues
 
 /// <summary>
 /// Builds the SPIR-V of <c>.gdshader</c> files ahead of time (the canvas-shader counterpart of build/Shaders.targets):
-/// translate, compile both stages with glslc (Vulkan 1.2, the engine's shader include directory), write
-/// <c>.vert.spv</c>/<c>.frag.spv</c> next to the source and a <c>.spvlock</c> with the hash of the GLSL they came from.
+/// translate, compile both stages with slangc (the engine's shader flags plus <c>-allow-glsl</c>, the engine's shader include
+/// directory), write <c>.vert.spv</c>/<c>.frag.spv</c> next to the source and a <c>.spvlock</c> with the hash of the Slang
+/// they came from.
 /// </summary>
 public static class CanvasShaderBuild
 {
     /// <summary>The extension of a shader's lock file.</summary>
     public const string LockExtension = ".spvlock";
 
-    /// <summary>The hash a shader's lock records: the translated GLSL of both stages.</summary>
+    /// <summary>The hash a shader's lock records: the translated Slang of both stages.</summary>
     public static string Hash(CanvasShaderProgram program)
     {
-        var bytes = Encoding.UTF8.GetBytes(program.VertexGlsl + "\n//--\n" + program.FragmentGlsl);
+        var bytes = Encoding.UTF8.GetBytes(program.VertexSource + "\n//--\n" + program.FragmentSource);
         return Convert.ToHexStringLower(SHA256.HashData(bytes));
     }
 
@@ -168,23 +169,23 @@ public static class CanvasShaderBuild
     /// <summary>
     /// Compiles one shader when its SPIR-V is stale. Returns true when it compiled, false when it was up to date.
     /// </summary>
-    /// <exception cref="InvalidOperationException">glslc failed (its output is in the message) or was not found.</exception>
-    public static bool Build(string gdshaderPath, string includeDirectory, string? glslc = null)
+    /// <exception cref="InvalidOperationException">slangc failed (its output is in the message) or was not found.</exception>
+    public static bool Build(string gdshaderPath, string includeDirectory, string? slangc = null)
     {
         var program = CanvasShaderCompiler.Translate(File.ReadAllText(gdshaderPath), Path.GetFileName(gdshaderPath));
         if (IsUpToDate(gdshaderPath, program))
             return false;
-        glslc ??= FindGlslc() ?? throw new InvalidOperationException("glslc was not found (install the Vulkan SDK or put glslc on PATH).");
-        Compile(glslc, includeDirectory, program.VertexGlsl, "vert", gdshaderPath + ".vert.spv", gdshaderPath);
-        Compile(glslc, includeDirectory, program.FragmentGlsl, "frag", gdshaderPath + ".frag.spv", gdshaderPath);
+        slangc ??= FindSlangc() ?? throw new InvalidOperationException("slangc was not found (install the Vulkan SDK or put slangc on PATH).");
+        Compile(slangc, includeDirectory, program.VertexSource, "vertex", gdshaderPath + ".vert.spv", gdshaderPath);
+        Compile(slangc, includeDirectory, program.FragmentSource, "fragment", gdshaderPath + ".frag.spv", gdshaderPath);
         File.WriteAllText(gdshaderPath + LockExtension, Hash(program) + "\n");
         return true;
     }
 
-    /// <summary>glslc from <c>$VULKAN_SDK/bin</c> or PATH, or null.</summary>
-    public static string? FindGlslc()
+    /// <summary>slangc from <c>$VULKAN_SDK/bin</c> or PATH, or null.</summary>
+    public static string? FindSlangc()
     {
-        var exe = OperatingSystem.IsWindows() ? "glslc.exe" : "glslc";
+        var exe = OperatingSystem.IsWindows() ? "slangc.exe" : "slangc";
         if (Environment.GetEnvironmentVariable("VULKAN_SDK") is { Length: > 0 } sdk && File.Exists(Path.Combine(sdk, "bin", exe)))
             return Path.Combine(sdk, "bin", exe);
         foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
@@ -193,25 +194,27 @@ public static class CanvasShaderBuild
         return null;
     }
 
-    private static void Compile(string glslc, string includeDirectory, string glsl, string stage, string output, string source)
+    private static void Compile(string slangc, string includeDirectory, string code, string stage, string output, string source)
     {
-        var temp = Path.Combine(Path.GetTempPath(), $"mf-canvas-{Guid.NewGuid():N}.{stage}");
-        File.WriteAllText(temp, glsl);
+        var temp = Path.Combine(Path.GetTempPath(), $"mf-canvas-{Guid.NewGuid():N}.{stage}.slang");
+        File.WriteAllText(temp, code);
         try
         {
-            var start = new ProcessStartInfo(glslc)
+            var start = new ProcessStartInfo(slangc)
             {
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
             };
-            foreach (var arg in new[] { "--target-env=vulkan1.2", "-I", includeDirectory, $"-fshader-stage={stage}", temp, "-o", output })
+            // The engine's flags (build/Shaders.targets) plus -allow-glsl for Godot's GLSL-like user code.
+            foreach (var arg in new[] { temp, "-allow-glsl", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
+                         "-entry", "main", "-stage", stage, "-I", includeDirectory, "-o", output })
                 start.ArgumentList.Add(arg);
-            using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {glslc}.");
+            using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {slangc}.");
             var errors = process.StandardError.ReadToEnd() + process.StandardOutput.ReadToEnd();
             process.WaitForExit();
             if (process.ExitCode != 0)
-                throw new InvalidOperationException($"glslc failed for {source} ({stage}):\n{errors.Replace(temp, source + "(" + stage + ")", StringComparison.Ordinal)}");
+                throw new InvalidOperationException($"slangc failed for {source} ({stage}):\n{errors.Replace(temp, source + "(" + stage + ")", StringComparison.Ordinal)}");
         }
         finally
         {
