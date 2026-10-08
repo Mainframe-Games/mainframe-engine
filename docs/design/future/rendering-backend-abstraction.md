@@ -1,6 +1,7 @@
-# Proposal: Rendering Backend Abstraction (WebGPU)
+# Proposal: Rendering Backend Abstraction (D3D12, WebGPU)
 
-**Milestone:** M11 · **Status:** ⬜ planned · **Depends on:** M3 (materials, resources)
+**Milestone:** M11 · **Status:** ⬜ planned · **Depends on:** M3 (materials, resources) · **Shaped by:**
+[Consoles](consoles.md) ([ADR 0143](../../../memory/decisions/0143-console-strategy.md))
 
 ## Problem
 
@@ -13,8 +14,12 @@ records raw Vulkan commands. `EngineOptions.RenderingBackend` is ignored, and `I
 - A backend-neutral **render API** (resources, pipelines, command recording) that nodes use instead of
   `Vk` calls.
 - Vulkan remains the reference backend with no performance regression.
-- A WebGPU backend (desktop via wgpu-native or Dawn; browser later) can be added without touching nodes.
-- Shaders authored once (GLSL or Slang/WGSL), cross-compiled per backend.
+- **A D3D12 backend on Windows is the first new backend**, tested in CI on WARP. It proves the API against a second
+  explicit API and is the public base for an Xbox port ([Consoles](consoles.md)).
+- A WebGPU backend (desktop via wgpu-native or Dawn; browser later) can be added without touching nodes. It follows
+  D3D12.
+- The API stays small and explicit enough that a private console backend (PS5) is a contained piece of work.
+- Shaders authored once, compiled offline to SPIR-V and DXIL (and WGSL for WebGPU). Slang is the proposed language.
 
 ## Non-goals
 
@@ -47,32 +52,51 @@ classDiagram
         +DrawIndexed(...)
     }
     IGpuDevice <|.. VulkanDevice
+    IGpuDevice <|.. D3D12Device
     IGpuDevice <|.. WebGpuDevice
     IGpuDevice --> ICommandEncoder
     ICommandEncoder --> IRenderPassEncoder
 ```
 
-- The model follows WebGPU (bind groups, explicit passes), which maps cleanly onto Vulkan.
-- Push constants become `SetPushData`. On WebGPU, emulate them with a dynamic-offset uniform buffer.
-- Immutable comparison samplers and the 16-sampler budget become backend capabilities that the shadow
-  system queries.
-- Shaders: compile GLSL → SPIR-V (Vulkan) → WGSL through Naga/Tint, or move to Slang. Decide via ADR.
+- The vocabulary follows WebGPU where it is neutral (bind groups, explicit passes), but the API is validated against
+  D3D12 first. Requirements from the [console proposal](consoles.md#rendering), which are M11 acceptance criteria:
+  - **Binding:** bind groups with layouts declared up front, at most 4 per pipeline (Vulkan descriptor sets, D3D12
+    root-signature descriptor tables). Immutable samplers map to static samplers.
+  - **Push data:** `SetPushData`, at most 128 bytes: Vulkan push constants, D3D12 root constants, and a
+    dynamic-offset uniform buffer on WebGPU.
+  - **Resource states:** a pass declares its attachments and the resources it reads and writes; the backend derives
+    barriers (Vulkan pipeline barriers, D3D12 enhanced barriers). No raw barriers in engine code, no render graph.
+  - **Pipelines are enumerable:** every pipeline description the engine can create is listed in a build-time
+    pipeline manifest (material permutations × pass × vertex layout). Desktop pre-warms them at load; consoles
+    compile them offline. Tests fail if a pipeline is first created mid-frame.
+  - **Capabilities, not versions:** immutable comparison samplers, the 16-sampler budget, MSAA, compressed formats
+    and tile-memory subpass merging (mobile) are `GpuCapabilities` that the shadow system and passes query.
+  - **Presentation behind the device:** the host (`IAppPlatform`) hands the device a native window handle; the
+    device owns the swapchain, so a console host can supply its own.
+- Shaders: one source compiled offline per backend. Options: Slang (SPIR-V, DXIL, WGSL from one HLSL-like source) or
+  GLSL → SPIR-V → SPIRV-Cross (HLSL) → DXC (DXIL), plus Naga/Tint for WGSL. Decide via ADR; Slang is the default
+  proposal. Console shader compilation is a private build step.
 
 ## Migration order
 
 1. Wrap Vulkan objects behind the interfaces (no behaviour change).
 2. Port Sky and Grid (simplest), then shapes/materials, Spine, shadows, screen gizmos.
 3. Remove `IVulkanContext` from public node APIs.
-4. Implement `WebGpuDevice`; select it from `EngineOptions.RenderingBackend`.
+4. Implement `D3D12Device` (Windows) with WARP render tests and their own goldens; select it from
+   `EngineOptions.RenderingBackend`.
+5. Implement `WebGpuDevice`.
 
 ## Task list
 
 - [ ] API interfaces + `VulkanDevice`
 - [ ] Port subsystems in the order above
-- [ ] Shader cross-compilation in the [shader build](../shaders.md)
+- [ ] Shader-language ADR (Slang vs GLSL + SPIRV-Cross + DXC) and the [shader build](../shaders.md) for SPIR-V + DXIL
+- [ ] Pipeline manifest + load-time pre-warm + mid-frame-creation test
+- [ ] `D3D12Device` (Windows) + WARP render tests (`Goldens/warp`) in CI
 - [ ] `WebGpuDevice` (dependency decision: wgpu-native binding)
 - [ ] Drop `IRenderer.Clear`/`EnableDepthTest`/`DisableDepthTest`
 
 ## Related
 
-[Milestones](../../milestones.md) · [Vulkan renderer](../vulkan-renderer.md) · [Materials & meshes](../materials-and-meshes.md)
+[Milestones](../../milestones.md) · [Vulkan renderer](../vulkan-renderer.md) · [Materials & meshes](../materials-and-meshes.md) ·
+[Consoles](consoles.md) · [Mobile core (M12)](mobile.md)
