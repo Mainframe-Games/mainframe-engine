@@ -100,7 +100,7 @@ public static class EditorIcons
             _ when Is(extension, ".rml") => "file-type-html",
             _ when Is(extension, ".rcss") => "file-type-css",
             _ when Is(extension, ".po") || Is(extension, ".pot") || Is(extension, ".mo") => "language",
-            _ when Is(extension, ".vert") || Is(extension, ".frag") || Is(extension, ".comp") || Is(extension, ".glsl") => "file-code",
+            _ when Is(extension, ".slang") || Is(extension, ".vert") || Is(extension, ".frag") || Is(extension, ".comp") || Is(extension, ".glsl") => "file-code",
             _ when Is(extension, ".spv") => "binary",
             _ when Is(extension, ".cs") => "brand-c-sharp",
             _ when Is(extension, ".csproj") || Is(extension, ".mfproj") || Is(extension, ".sln") || Is(extension, ".slnx") => "file-settings",
