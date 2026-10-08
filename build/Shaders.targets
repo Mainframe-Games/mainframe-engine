@@ -3,17 +3,17 @@
     Build-time shader pipeline for MainframeEngine (docs/design/shaders.md):
 
     1. GenerateShaderLimits: Content/Shaders/limits.json → Src/Rendering/Generated/ShaderLimits.g.cs (C#) and
-       Content/Shaders/include/limits.glsl (GLSL), so the two languages can never disagree. Files are rewritten
+       Content/Shaders/include/limits.slang (Slang), so the two languages can never disagree. Files are rewritten
        only when their content changes; both are committed so shader tools work without a build.
-    2. CompileShaders: every Content/Shaders/**/*.vk.{vert,frag,comp} → $(IntermediateOutputPath)Shaders/**.spv
-       with glslc, target environment vulkan1.2 and Content/Shaders/include on the include path (the flags
-       build/shaders.sh uses), incrementally
-       (any source, include or limits.json newer than the outputs). glslc errors show up as build errors.
-    3. The compiled .spv files are copied to Content/Shaders/ in the output (and every referencing app). When glslc
+    2. CompileShaders: every Content/Shaders/**/X.vk.{vert,frag,comp}.slang → $(IntermediateOutputPath)Shaders/**/X.vk.<stage>.spv
+       with slangc (ADR 0144: -target spirv -capability spirv_1_5 -matrix-layout-row-major -entry main, the stage from
+       the file name, Content/Shaders/include on the include path; the flags build/shaders.sh uses), incrementally
+       (any source, include or limits.json newer than the outputs). slangc errors show up as build errors.
+    3. The compiled .spv files are copied to Content/Shaders/ in the output (and every referencing app). When slangc
        is missing, the build warns and copies the committed .spv files instead (`just shaders` keeps them current;
        `just shaders-check` and CI verify them against shaders.lock). -p:CompileShaders=false forces that fallback.
 
-    glslc is looked up as $(Glslc), then $(VULKAN_SDK)/bin/glslc, then on PATH.
+    slangc is looked up as $(Slangc), then $(VULKAN_SDK)/bin/slangc, then on PATH.
   -->
 
   <PropertyGroup>
@@ -21,18 +21,30 @@
     <ShaderSourceDir>$(MSBuildProjectDirectory)/Content/Shaders/</ShaderSourceDir>
     <ShaderIncludeDir>$(ShaderSourceDir)include</ShaderIncludeDir>
     <ShaderLimitsJson>$(ShaderSourceDir)limits.json</ShaderLimitsJson>
-    <ShaderLimitsGlsl>$(ShaderIncludeDir)/limits.glsl</ShaderLimitsGlsl>
+    <ShaderLimitsSlang>$(ShaderIncludeDir)/limits.slang</ShaderLimitsSlang>
+    <!-- The oldest slangc the shaders are written for (CanvasShaderBuild.MinimumSlangcVersion matches); older ones fall
+         back to the committed .spv with warning MFSHADER001. -->
+    <SlangMinimumVersion>2026.1</SlangMinimumVersion>
     <ShaderLimitsCSharp>$(MSBuildProjectDirectory)/Src/Rendering/Generated/ShaderLimits.g.cs</ShaderLimitsCSharp>
     <!-- BaseIntermediateOutputPath (obj/) is known here; IntermediateOutputPath is only set by the SDK targets. -->
     <ShaderOutputDir>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(BaseIntermediateOutputPath), $(Configuration), Shaders))))</ShaderOutputDir>
-    <ShaderTargetEnv>vulkan1.2</ShaderTargetEnv>
   </PropertyGroup>
 
   <ItemGroup>
-    <ShaderSource Include="Content/Shaders/**/*.vk.vert;Content/Shaders/**/*.vk.frag;Content/Shaders/**/*.vk.comp">
+    <!-- %(Filename) of X.vk.frag.slang is X.vk.frag, so the output is %(Filename).spv. -->
+    <ShaderSource Include="Content/Shaders/**/*.vk.vert.slang">
       <SubDir>%(RecursiveDir)</SubDir>
+      <Stage>vertex</Stage>
     </ShaderSource>
-    <ShaderInclude Include="Content/Shaders/include/*.glsl" />
+    <ShaderSource Include="Content/Shaders/**/*.vk.frag.slang">
+      <SubDir>%(RecursiveDir)</SubDir>
+      <Stage>fragment</Stage>
+    </ShaderSource>
+    <ShaderSource Include="Content/Shaders/**/*.vk.comp.slang">
+      <SubDir>%(RecursiveDir)</SubDir>
+      <Stage>compute</Stage>
+    </ShaderSource>
+    <ShaderInclude Include="Content/Shaders/include/*.slang" />
     <!-- Shader sources, includes, the lock and the committed .spv are build inputs, not runtime content. -->
     <None Update="Content/Shaders/**" CopyToOutputDirectory="Never" />
   </ItemGroup>
@@ -42,7 +54,7 @@
     <ParameterGroup>
       <LimitsFile ParameterType="System.String" Required="true" />
       <CSharpFile ParameterType="System.String" Required="true" />
-      <GlslFile ParameterType="System.String" Required="true" />
+      <SlangFile ParameterType="System.String" Required="true" />
     </ParameterGroup>
     <Task>
       <Using Namespace="System" />
@@ -52,13 +64,13 @@
       <Code Type="Fragment" Language="cs"><![CDATA[
         var json = File.ReadAllText(LimitsFile);
         var entry = new Regex(
-            "\\{\\s*\"glsl\"\\s*:\\s*\"(?<glsl>[A-Z][A-Z0-9_]*)\"\\s*,\\s*\"csharp\"\\s*:\\s*\"(?<cs>[A-Z][A-Za-z0-9]*)\"\\s*,\\s*" +
+            "\\{\\s*\"shader\"\\s*:\\s*\"(?<shader>[A-Z][A-Z0-9_]*)\"\\s*,\\s*\"csharp\"\\s*:\\s*\"(?<cs>[A-Z][A-Za-z0-9]*)\"\\s*,\\s*" +
             "\"value\"\\s*:\\s*(?<value>-?[0-9]+)\\s*,\\s*\"summary\"\\s*:\\s*\"(?<summary>[^\"]*)\"\\s*\\}");
         var matches = entry.Matches(json);
-        var declared = Regex.Matches(json, "\"glsl\"\\s*:").Count;
+        var declared = Regex.Matches(json, "\"shader\"\\s*:").Count;
         if (matches.Count == 0 || matches.Count != declared)
         {
-            Log.LogError("{0}: expected {1} limits as {{ \"glsl\", \"csharp\", \"value\", \"summary\" }} objects, parsed {2}.",
+            Log.LogError("{0}: expected {1} limits as {{ \"shader\", \"csharp\", \"value\", \"summary\" }} objects, parsed {2}.",
                 LimitsFile, declared, matches.Count);
             return false;
         }
@@ -66,11 +78,10 @@
         var cs = new StringBuilder();
         cs.Append("// <auto-generated>\n// Generated from Content/Shaders/limits.json by build/Shaders.targets. Do not edit.\n// </auto-generated>\n\n");
         cs.Append("namespace MainframeEngine;\n\n");
-        cs.Append("/// <summary>Limits shared with the shaders (<c>include/limits.glsl</c>); generated from <c>limits.json</c>.</summary>\n");
+        cs.Append("/// <summary>Limits shared with the shaders (<c>include/limits.slang</c>); generated from <c>limits.json</c>.</summary>\n");
         cs.Append("internal static class ShaderLimits\n{\n");
-        var glsl = new StringBuilder();
-        glsl.Append("// Generated from Content/Shaders/limits.json by build/Shaders.targets. Do not edit.\n");
-        glsl.Append("#ifndef MF_LIMITS_GLSL\n#define MF_LIMITS_GLSL\n\n");
+        var slang = new StringBuilder();
+        slang.Append("// Generated from Content/Shaders/limits.json by build/Shaders.targets. Do not edit.\n#pragma once\n\n");
         var first = true;
         foreach (Match m in matches)
         {
@@ -79,13 +90,12 @@
             first = false;
             cs.Append("    /// <summary>" + summary + "</summary>\n");
             cs.Append("    public const int " + m.Groups["cs"].Value + " = " + m.Groups["value"].Value + ";\n");
-            glsl.Append("#define " + m.Groups["glsl"].Value + " " + m.Groups["value"].Value + " // " + m.Groups["summary"].Value + "\n");
+            slang.Append("#define " + m.Groups["shader"].Value + " " + m.Groups["value"].Value + " // " + m.Groups["summary"].Value + "\n");
         }
 
         cs.Append("}\n");
-        glsl.Append("\n#endif\n");
 
-        foreach (var (path, text) in new[] { (CSharpFile, cs.ToString()), (GlslFile, glsl.ToString()) })
+        foreach (var (path, text) in new[] { (CSharpFile, cs.ToString()), (SlangFile, slang.ToString()) })
         {
             if (File.Exists(path) && File.ReadAllText(path) == text)
                 continue;
@@ -99,54 +109,62 @@
 
   <!-- Before compiling C# (the constants) and before compiling shaders (the header). -->
   <Target Name="GenerateShaderLimits" BeforeTargets="BeforeBuild;CoreCompile;CompileShaders"
-          Inputs="$(ShaderLimitsJson);$(MSBuildThisFileFullPath)" Outputs="$(ShaderLimitsCSharp);$(ShaderLimitsGlsl)">
-    <GenerateShaderLimits LimitsFile="$(ShaderLimitsJson)" CSharpFile="$(ShaderLimitsCSharp)" GlslFile="$(ShaderLimitsGlsl)" />
+          Inputs="$(ShaderLimitsJson);$(MSBuildThisFileFullPath)" Outputs="$(ShaderLimitsCSharp);$(ShaderLimitsSlang)">
+    <GenerateShaderLimits LimitsFile="$(ShaderLimitsJson)" CSharpFile="$(ShaderLimitsCSharp)" SlangFile="$(ShaderLimitsSlang)" />
     <!-- Touch so the incremental check sees fresh outputs even when the content was unchanged. -->
-    <Touch Files="$(ShaderLimitsCSharp);$(ShaderLimitsGlsl)" />
+    <Touch Files="$(ShaderLimitsCSharp);$(ShaderLimitsSlang)" />
   </Target>
 
-  <Target Name="FindGlslc" Condition="'$(CompileShaders)' == 'true'">
+  <Target Name="FindSlangc" Condition="'$(CompileShaders)' == 'true'">
     <PropertyGroup>
-      <_GlslcExe Condition="'$(OS)' == 'Windows_NT'">glslc.exe</_GlslcExe>
-      <_GlslcExe Condition="'$(OS)' != 'Windows_NT'">glslc</_GlslcExe>
-      <GlslcPath Condition="'$(Glslc)' != ''">$(Glslc)</GlslcPath>
-      <GlslcPath Condition="'$(GlslcPath)' == '' and '$(VULKAN_SDK)' != '' and Exists('$(VULKAN_SDK)/bin/$(_GlslcExe)')">$(VULKAN_SDK)/bin/$(_GlslcExe)</GlslcPath>
-      <GlslcPath Condition="'$(GlslcPath)' == ''">$(_GlslcExe)</GlslcPath>
+      <_SlangcExe Condition="'$(OS)' == 'Windows_NT'">slangc.exe</_SlangcExe>
+      <_SlangcExe Condition="'$(OS)' != 'Windows_NT'">slangc</_SlangcExe>
+      <SlangcPath Condition="'$(Slangc)' != ''">$(Slangc)</SlangcPath>
+      <SlangcPath Condition="'$(SlangcPath)' == '' and '$(VULKAN_SDK)' != '' and Exists('$(VULKAN_SDK)/bin/$(_SlangcExe)')">$(VULKAN_SDK)/bin/$(_SlangcExe)</SlangcPath>
+      <SlangcPath Condition="'$(SlangcPath)' == ''">$(_SlangcExe)</SlangcPath>
     </PropertyGroup>
-    <Exec Command="&quot;$(GlslcPath)&quot; --version" IgnoreExitCode="true" EchoOff="true"
+    <!-- `slangc -v` prints its version (e.g. 2026.1-52-gc8ddf20bb) on stderr; ConsoleToMSBuild captures both streams. -->
+    <Exec Command="&quot;$(SlangcPath)&quot; -v" IgnoreExitCode="true" EchoOff="true" ConsoleToMSBuild="true"
           StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true">
-      <Output TaskParameter="ExitCode" PropertyName="_GlslcExitCode" />
+      <Output TaskParameter="ExitCode" PropertyName="_SlangcExitCode" />
+      <Output TaskParameter="ConsoleOutput" PropertyName="_SlangcVersionText" />
     </Exec>
     <PropertyGroup>
-      <GlslcAvailable Condition="'$(_GlslcExitCode)' == '0'">true</GlslcAvailable>
-      <GlslcAvailable Condition="'$(_GlslcExitCode)' != '0'">false</GlslcAvailable>
+      <_SlangcVersion Condition="'$(_SlangcExitCode)' == '0'">$([System.Text.RegularExpressions.Regex]::Match('$(_SlangcVersionText)', '\d+\.\d+').Value)</_SlangcVersion>
+      <_SlangcTooOld>false</_SlangcTooOld>
+      <_SlangcTooOld Condition="'$(_SlangcExitCode)' == '0' and ('$(_SlangcVersion)' == '' or $([MSBuild]::VersionLessThan('$(_SlangcVersion)', '$(SlangMinimumVersion)')))">true</_SlangcTooOld>
+      <SlangcAvailable Condition="'$(_SlangcExitCode)' == '0' and '$(_SlangcTooOld)' != 'true'">true</SlangcAvailable>
+      <SlangcAvailable Condition="'$(SlangcAvailable)' != 'true'">false</SlangcAvailable>
     </PropertyGroup>
-    <Warning Condition="'$(GlslcAvailable)' != 'true'" Code="MFSHADER001"
-             Text="glslc not found (install the Vulkan SDK or set -p:Glslc=path); using the committed .spv files. Shader edits will not take effect until 'just shaders' is run." />
+    <Warning Condition="'$(_SlangcExitCode)' != '0'" Code="MFSHADER001"
+             Text="slangc not found (install the Vulkan SDK or set -p:Slangc=path); using the committed .spv files. Shader edits will not take effect until 'just shaders' is run." />
+    <Warning Condition="'$(_SlangcTooOld)' == 'true'" Code="MFSHADER001"
+             Text="slangc $(_SlangcVersionText) is older than $(SlangMinimumVersion) (update the Vulkan SDK or set -p:Slangc=path); using the committed .spv files. Shader edits will not take effect until 'just shaders' is run." />
   </Target>
 
-  <Target Name="CompileShaders" DependsOnTargets="GenerateShaderLimits;FindGlslc"
+  <Target Name="CompileShaders" DependsOnTargets="GenerateShaderLimits;FindSlangc"
           Condition="'$(CompileShaders)' == 'true'"
           Inputs="@(ShaderSource);@(ShaderInclude);$(ShaderLimitsJson);$(MSBuildThisFileFullPath)"
-          Outputs="@(ShaderSource->'$(ShaderOutputDir)%(SubDir)%(Filename)%(Extension).spv')">
-    <MakeDir Condition="'$(GlslcAvailable)' == 'true'" Directories="@(ShaderSource->'$(ShaderOutputDir)%(SubDir)')" />
-    <Exec Condition="'$(GlslcAvailable)' == 'true'"
-          Command="&quot;$(GlslcPath)&quot; --target-env=$(ShaderTargetEnv) -I &quot;$(ShaderIncludeDir)&quot; &quot;%(ShaderSource.FullPath)&quot; -o &quot;$(ShaderOutputDir)%(ShaderSource.SubDir)%(ShaderSource.Filename)%(ShaderSource.Extension).spv&quot;"
-          CustomErrorRegularExpression=": error"
-          CustomWarningRegularExpression=": warning" />
+          Outputs="@(ShaderSource->'$(ShaderOutputDir)%(SubDir)%(Filename).spv')">
+    <MakeDir Condition="'$(SlangcAvailable)' == 'true'" Directories="@(ShaderSource->'$(ShaderOutputDir)%(SubDir)')" />
+    <Exec Condition="'$(SlangcAvailable)' == 'true'"
+          Command="&quot;$(SlangcPath)&quot; &quot;%(ShaderSource.FullPath)&quot; -target spirv -capability spirv_1_5 -matrix-layout-row-major -entry main -stage %(ShaderSource.Stage) -I &quot;$(ShaderIncludeDir)&quot; -o &quot;$(ShaderOutputDir)%(ShaderSource.SubDir)%(ShaderSource.Filename).spv&quot;"
+          CustomErrorRegularExpression="error \d+:"
+          CustomWarningRegularExpression="warning \d+:" />
   </Target>
 
   <!--
-    Adds the shaders to the output as Content/Shaders/<dir>/<name>.spv: compiled ones when glslc ran, the committed
+    Adds the shaders to the output as Content/Shaders/<dir>/<name>.spv: compiled ones when slangc ran, the committed
     ones otherwise. Runs before AssignTargetPaths so referencing projects (which ask for this project's
     copy-to-output items) get them too.
   -->
-  <Target Name="IncludeShadersInOutput" BeforeTargets="AssignTargetPaths" DependsOnTargets="CompileShaders;FindGlslc">
-    <ItemGroup Condition="'$(CompileShaders)' == 'true' and '$(GlslcAvailable)' == 'true'">
-      <_ShaderBinary Include="@(ShaderSource->'$(ShaderOutputDir)%(SubDir)%(Filename)%(Extension).spv')" />
+  <Target Name="IncludeShadersInOutput" BeforeTargets="AssignTargetPaths" DependsOnTargets="CompileShaders;FindSlangc">
+    <ItemGroup Condition="'$(CompileShaders)' == 'true' and '$(SlangcAvailable)' == 'true'">
+      <_ShaderBinary Include="@(ShaderSource->'$(ShaderOutputDir)%(SubDir)%(Filename).spv')" />
     </ItemGroup>
-    <ItemGroup Condition="'$(CompileShaders)' != 'true' or '$(GlslcAvailable)' != 'true'">
-      <_ShaderBinary Include="@(ShaderSource->'%(Identity).spv')" />
+    <ItemGroup Condition="'$(CompileShaders)' != 'true' or '$(SlangcAvailable)' != 'true'">
+      <!-- The committed X.vk.frag.spv next to X.vk.frag.slang. -->
+      <_ShaderBinary Include="@(ShaderSource->'%(RelativeDir)%(Filename).spv')" />
     </ItemGroup>
     <ItemGroup>
       <!-- Filename is "X.vk.frag" and Extension ".spv" for both sources of binaries. -->

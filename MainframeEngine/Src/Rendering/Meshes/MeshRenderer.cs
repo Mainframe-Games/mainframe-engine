@@ -983,9 +983,17 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         var entry = new SpecializationMapEntry { ConstantID = 0, Offset = 0, Size = sizeof(int) };
         var specialization = new SpecializationInfo { MapEntryCount = 1, PMapEntries = &entry, DataSize = sizeof(int), PData = &alphaMode };
         var fragment = key.Shaders == ShaderSetId.MeshObjectId ? "Shaders/Mesh/MeshId.vk.frag.spv" : "Shaders/Mesh/Mesh.vk.frag.spv";
-        var vertex = key.Shaders == ShaderSetId.MeshOutline ? "Shaders/Mesh/MeshOutline.vk.vert.spv" : "Shaders/Mesh/Mesh.vk.vert.spv";
+        // Each vertex shader writes only what its fragment shader reads (Slang drops unread fragment inputs, and an
+        // unread vertex output is a validation warning): the ID pass has its own.
+        var vertex = key.Shaders switch
+        {
+            ShaderSetId.MeshOutline => "Shaders/Mesh/MeshOutline.vk.vert.spv",
+            ShaderSetId.MeshObjectId => "Shaders/Mesh/MeshId.vk.vert.spv",
+            _ => "Shaders/Mesh/Mesh.vk.vert.spv",
+        };
         return PipelineBuilder.Create(_ctx, state, _pipelineLayout, new RenderPass(key.RenderPass),
-            vertex, fragment, VertexLayouts.MeshInstancedBindings, VertexLayouts.MeshInstancedAttributes,
+            vertex, fragment, VertexLayouts.MeshInstancedBindings,
+            key.Shaders == ShaderSetId.MeshObjectId ? VertexLayouts.MeshIdAttributes : VertexLayouts.MeshAttributes,
             $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(key.ExtraPass ? ", extra pass" : "")})", &specialization);
     }
 

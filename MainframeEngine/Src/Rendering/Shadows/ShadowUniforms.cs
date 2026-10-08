@@ -75,7 +75,7 @@ internal struct ShadowPointParams
 }
 
 /// <summary>
-/// The shadow UBO (set 1, binding 0; <c>ShadowUBO</c> in <c>include/shadows.glsl</c>), std140. Codes map each light
+/// The shadow UBO (set 1, binding 0; <c>ShadowUBO</c> in <c>include/shadows.slang</c>), std140. Codes map each light
 /// of the lights UBO to its shadow: 0 = none.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]

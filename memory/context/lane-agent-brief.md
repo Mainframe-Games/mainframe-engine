@@ -10,7 +10,7 @@ You are one lane of the autonomous M0→M10 build. The orchestrator integrates l
 ## Rules
 - Build is warnings-as-errors with central package management (`Directory.Packages.props`). Approved NuGet packages only (see plan); anything else → stop and report.
 - Never modify `Plugins/Spine` (vendored).
-- Use `just` recipes (`just build`, `just test`, `just test-render`, `just shaders`, `just shaders-check`, `just format`, `just qa`). After any shader edit run `just shaders` and commit the regenerated `.spv` + `shaders.lock`.
+- Use `just` recipes (`just build`, `just test`, `just test-render`, `just shaders`, `just shaders-check`, `just format`, `just qa`). Shaders are Slang (ADR 0144): `mul(v, M)` with the C# matrices, `SV_VulkanVertexID`, `glsl_mod`, and a vertex shader writes only what its fragment shader reads (`docs/design/shaders.md#writing-shaders`). After any shader edit run `just shaders` and commit the regenerated `.spv` + `shaders.lock`.
 - High performance: zero managed allocations per steady-state frame (the render-test allocation gate enforces it); no LINQ/closures/boxing in hot paths; `Span`/`stackalloc` (bounded)/pooling where appropriate; avoid `QueueWaitIdle` in frame paths.
 - Rock solid: check every Vulkan `Result`, dispose deterministically, no `!` nullable-suppression spam, guard public API args.
 - TDD: write tests alongside every feature (unit tests in `Tests/MainframeEngine.Tests`; rendering → render tests with goldens in `Tests/MainframeEngine.RenderTests`, regenerate `moltenvk` goldens with `just golden-update` and LOOK at the PNGs with the Read tool). Validation layers must stay at 0 warnings/errors.
@@ -42,6 +42,6 @@ Mobile (M12, `docs/design/future/mobile.md#mobile-ready-plumbing-checklist`, ADR
 
 ## Console-ready plumbing (do when touching these areas)
 Consoles (PS5 + Xbox Series, `docs/design/future/consoles.md#console-ready-plumbing-checklist`, ADR 0143) extend the mobile rules above. This repo is public: never commit, log or name anything learnt under a console NDA.
-- **Rendering:** no new raw `Vk` calls outside the renderer backend (use `IVulkanContext.Pipelines`/`Uploads`/`Deletions`, later `IGpuDevice`); pipelines come from a finite, enumerable set and are never first created mid-frame; no runtime shader compilation; shaders stay portable (≤ 4 bind groups, ≤ 128 B push data, no GLSL-only features without a fallback).
+- **Rendering:** no new raw `Vk` calls outside the renderer backend (use `IVulkanContext.Pipelines`/`Uploads`/`Deletions`, later `IGpuDevice`); pipelines come from a finite, enumerable set and are never first created mid-frame; no runtime shader compilation; shaders stay portable (≤ 4 bind groups, ≤ 128 B push data, no target-specific features without a fallback).
 - **Users and input:** code that needs "the player" takes a user (`IUserPlatform` once it exists); game-facing UI is fully gamepad-usable; button prompts use glyphs, never baked "A"/"X" images or text.
 - **I/O:** saves only through `ISaveStorage`; sockets only through `ITransport`; no `Process.Start`, direct URL opening or behaviour from environment variables in runtime code; caches have size limits and show up in the dev overlay.

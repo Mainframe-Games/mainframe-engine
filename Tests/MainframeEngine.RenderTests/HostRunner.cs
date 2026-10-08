@@ -98,7 +98,8 @@ public static class HostRunner
             Assert.Fail($"Render host '{scene}' exited with {process.ExitCode}{signal} (expected {expectedExitCode}" +
                         $"{(File.Exists(resultPath) ? "" : ", no result.json")}).\n" +
                         $"Command: {psi.FileName} {string.Join(' ', psi.ArgumentList)}\n" +
-                        $"SDL_VIDEODRIVER={psi.Environment["SDL_VIDEODRIVER"]} DISPLAY={psi.Environment["DISPLAY"]}\n" +
+                        $"SDL_VIDEODRIVER={(psi.Environment.TryGetValue("SDL_VIDEODRIVER", out var driver) ? driver : "")} " +
+                        $"DISPLAY={(psi.Environment.TryGetValue("DISPLAY", out var display) ? display : "")}\n" +
                         $"--- host stdout/stderr ---\n{output}");
         }
 

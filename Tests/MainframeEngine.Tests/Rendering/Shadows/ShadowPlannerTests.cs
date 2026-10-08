@@ -351,7 +351,7 @@ public sealed class ShadowPlannerTests
     [Fact]
     public void UniformLayoutMatchesTheShaderBlock()
     {
-        // std140 offsets of ShadowUBO in include/shadows.glsl (spirv-reflect of Mesh.vk.frag).
+        // std140 offsets of ShadowUBO in include/shadows.slang (spirv-reflect of Mesh.vk.frag).
         Assert.Equal(96, Unsafe.SizeOf<ShadowMapData>());
         Assert.Equal(1680, ShadowUniforms.Size);
         var u = default(ShadowUniforms);

@@ -816,7 +816,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     }
 
     /// <summary>
-    /// The shadow set layout (<c>include/shadows.glsl</c>): b0 uniforms, b1 cascade array, b2 atlas, b3 point cubes.
+    /// The shadow set layout (<c>include/shadows.slang</c>): b0 uniforms, b1 cascade array, b2 atlas, b3 point cubes.
     /// Every map uses the comparison sampler, baked in as an immutable sampler: Metal via MoltenVK reports
     /// mutableComparisonSamplers = false, which forbids writing compare-enabled samplers through vkUpdateDescriptorSets.
     /// </summary>

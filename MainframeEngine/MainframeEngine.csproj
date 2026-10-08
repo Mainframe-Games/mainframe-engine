@@ -75,7 +75,7 @@
             Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
 
-    <!-- Build-time shader compilation and the C#/GLSL limits generated from Content/Shaders/limits.json -->
+    <!-- Build-time shader compilation and the C#/Slang limits generated from Content/Shaders/limits.json -->
     <Import Project="..\build\Shaders.targets" />
 
     <!-- Debug builds record this project's Content folder so the UI can load (and hot-reload) from the sources. -->

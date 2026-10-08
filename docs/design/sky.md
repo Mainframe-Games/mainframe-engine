@@ -70,7 +70,7 @@ sequenceDiagram
     S->>S: Frame.EnsureCamera(camera) (set 0, once per frame)
     S->>GPU: Y-flipped viewport, bind set 0 (+ set 1), push SkyParams, CmdDraw(3)
     GPU->>GPU: Sky.vk.vert emits fullscreen triangle (-1,-1) (3,-1) (-1,3), z = 0
-    GPU->>GPU: frag: skyRay(ndc) = normalize(mat3(invViewRotation) · unproject(ndc)) (include/sky.glsl)
+    GPU->>GPU: frag: skyRay(ndc) = normalize(mat3(invViewRotation) · unproject(ndc)) (include/sky.slang)
 ```
 
 | Fragment shader | Technique |

@@ -80,8 +80,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends gettext
           msgfmt --version | head -1
 
-      # CompileShaders=false: the runners have no glslc, so use the committed .spv (the shaders job checks them
-      # against their sources); otherwise the "glslc not found" build warning would fail -warnaserror.
+      # CompileShaders=false: the runners have no slangc, so use the committed .spv (the shaders job checks them
+      # against their sources); otherwise the "slangc not found" build warning would fail -warnaserror.
       - name: Build (warnings are errors)
         run: dotnet build MainframeEngine.slnx -c Release --no-restore -warnaserror -p:CompileShaders=false
 
@@ -165,11 +165,21 @@ jobs:
         with:
           lfs: false # shaders need no LFS content
 
-      - name: Install glslc and SPIRV-Tools
+      - name: Install Slang and SPIRV-Tools
+        env:
+          SLANG_VERSION: "2026.1"
+          SLANG_SHA256: "db8ac338b5558aa0f183a63756cfa386751ab79690c5d9ff80e71d32864eb8d5" # GitHub's asset digest, 2026-10-08
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends glslc spirv-tools
-          glslc --version
+          sudo apt-get install -y --no-install-recommends spirv-tools
+          curl -fsSL -o slang.tar.gz "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-linux-x86_64.tar.gz"
+          echo "${SLANG_SHA256}  slang.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/slang" && tar -xzf slang.tar.gz -C "$RUNNER_TEMP/slang"
+          echo "$RUNNER_TEMP/slang/bin" >> "$GITHUB_PATH"
+
+      - name: Tool versions
+        run: |
+          slangc -v
           spirv-val --version
 
       - name: Compile and validate every shader
