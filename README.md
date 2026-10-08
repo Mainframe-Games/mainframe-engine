@@ -395,7 +395,7 @@ Versions are central in `Directory.Packages.props`; new packages are discussed b
 Slang sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`slangc`, with shared includes in `include/`; the committed `.spv` files are the fallback when the Vulkan SDK is missing) and loaded at runtime through `ContentPaths`. Light/shadow limits come from `limits.json`. See [Shaders](docs/design/shaders.md).
 
 **Engine shaders** (`MainframeEngine/Content/Shaders/`):
-- **Mesh/** — batched mesh instances (`Mesh.vk.*`: StandardMaterial3D) and the object-ID pass (`MeshId.vk.frag`)
+- **Mesh/** — batched mesh instances (`Mesh.vk.*`: StandardMaterial3D) and the object-ID pass (`MeshId.vk.*`)
 - **Spine/** — lit, shadow-receiving skeletal animation (`SpineLit.vk.*`)
 - **Sky/** — procedural gradient, panoramic equirectangular, and cubemap variants
 - **Shadows/** — depth pass shaders for 2D and omnidirectional point light shadow maps
