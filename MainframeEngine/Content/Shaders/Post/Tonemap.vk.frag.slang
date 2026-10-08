@@ -42,7 +42,7 @@ float3 acesFitted(float3 color)
 }
 
 [shader("fragment")]
-float4 main([[vk::location(0)]] float2 inNdc, float4 fragCoord : SV_Position) : SV_Target0
+float4 main(float4 fragCoord : SV_Position) : SV_Target0
 {
     float4 hdr = hdrScene.Load(int3(int2(fragCoord.xy), 0));
     float3 color = acesFitted(max(hdr.rgb, float3(0.0)) * pc.exposure);

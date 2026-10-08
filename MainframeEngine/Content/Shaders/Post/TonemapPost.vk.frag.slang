@@ -116,7 +116,7 @@ float3 applyGlow(float3 color, float3 glow, float white)
 }
 
 [shader("fragment")]
-float4 main([[vk::location(0)]] float2 inNdc, float4 fragCoord : SV_Position) : SV_Target0
+float4 main(float4 fragCoord : SV_Position) : SV_Target0
 {
     float2 size = float2(textureSize2D(hdrScene, 0));
     float2 uv = fragCoord.xy / size;

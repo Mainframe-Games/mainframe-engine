@@ -24,7 +24,7 @@ struct CanvasLight
 [[vk::binding(1, CANVAS_LIGHT_SET)]] Sampler2D canvas_light_textures[CANVAS_MAX_LIGHTS];
 
 // color: after the canvas modulation; base: the item's colour before it (Godot's base_color).
-void canvas_apply_lights(inout float4 color, float4 base, float2 vertex)
+void canvas_apply_lights(inout float4 color, float4 base, float2 pixel)
 {
     uint mask = asuint(canvas_pc.lights.x);
     for (uint i = 0u; i < uint(CANVAS_MAX_LIGHTS); i++)
@@ -32,7 +32,7 @@ void canvas_apply_lights(inout float4 color, float4 base, float2 vertex)
         if ((mask & (1u << i)) == 0u)
             continue;
         CanvasLight light = canvas_lights[i];
-        float2 uv = float2(dot(light.matrixX.xy, vertex) + light.matrixX.z, dot(light.matrixY.xy, vertex) + light.matrixY.z);
+        float2 uv = float2(dot(light.matrixX.xy, pixel) + light.matrixX.z, dot(light.matrixY.xy, pixel) + light.matrixY.z);
         if (any(uv < float2(0.0)) || any(uv >= float2(1.0)))
             continue;
         float4 light_color = canvas_light_textures[i].SampleLevel(uv, 0.0);

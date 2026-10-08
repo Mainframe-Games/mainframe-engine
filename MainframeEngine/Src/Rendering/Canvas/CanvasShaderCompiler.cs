@@ -69,8 +69,13 @@ public sealed record CanvasShaderProgram(
 public static partial class CanvasShaderCompiler
 {
     /// <summary>Translates <paramref name="source"/> (the <c>.gdshader</c> text).</summary>
+    /// <param name="fragmentInputs">
+    /// The input locations the compiled fragment stage kept (<see cref="SpirvInputs"/>), or null for all: the vertex stage
+    /// then writes only those. Slang drops unread fragment inputs, and a vertex output no fragment input reads is a
+    /// validation warning. Location 0 is UV + VERTEX, 1 the colour, 2… the varyings.
+    /// </param>
     /// <exception cref="FormatException">Not a canvas_item shader, or a construct the translator does not handle.</exception>
-    public static CanvasShaderProgram Translate(string source, string name = "shader")
+    public static CanvasShaderProgram Translate(string source, string name = "shader", IReadOnlySet<int>? fragmentInputs = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         var code = StripComments(source);
@@ -176,10 +181,19 @@ public static partial class CanvasShaderCompiler
         foreach (var v in varyings)
             common.Append("static ").Append(v.Type).Append(' ').Append(v.Name).Append(";\n");
 
-        // The varyings' fields of a stage interface struct (locations 2…).
+        // The varyings' fields of a stage interface struct (locations 2…): every one for the fragment stage, the ones its
+        // compiled code kept for the vertex stage.
+        bool Written(int location) => fragmentInputs is null || fragmentInputs.Contains(location);
         var varyingFields = new StringBuilder();
+        var writtenVaryingFields = new StringBuilder();
         for (var i = 0; i < varyings.Count; i++)
-            varyingFields.Append(CultureInfo.InvariantCulture, $"    [[vk::location({2 + i})]] {(varyings[i].Flat ? "nointerpolation " : "")}{varyings[i].Type} {varyings[i].Name};\n");
+        {
+            var field = string.Create(CultureInfo.InvariantCulture,
+                $"    [[vk::location({2 + i})]] {(varyings[i].Flat ? "nointerpolation " : "")}{varyings[i].Type} {varyings[i].Name};\n");
+            varyingFields.Append(field);
+            if (Written(2 + i))
+                writtenVaryingFields.Append(field);
+        }
 
         // ── Vertex stage ──
         var vs = new StringBuilder(common.ToString());
@@ -188,8 +202,12 @@ public static partial class CanvasShaderCompiler
         if (vertexFn is not null)
             vs.Append(vertexFn).Append('\n');
         vs.Append("struct VsIn\n{\n    [[vk::location(0)]] vec2 inPosition;\n    [[vk::location(1)]] vec2 inUv;\n    [[vk::location(2)]] vec4 inColor;\n};\n");
-        vs.Append("struct VsOut\n{\n    float4 position : SV_Position;\n    [[vk::location(0)]] vec4 uvVertexInterp;\n    [[vk::location(1)]] vec4 colorInterp;\n");
-        vs.Append(varyingFields).Append("};\n");
+        vs.Append("struct VsOut\n{\n    float4 position : SV_Position;\n");
+        if (Written(0))
+            vs.Append("    [[vk::location(0)]] vec4 uvVertexInterp;\n");
+        if (Written(1))
+            vs.Append("    [[vk::location(1)]] vec4 colorInterp;\n");
+        vs.Append(writtenVaryingFields).Append("};\n");
         vs.Append("""
             [shader("vertex")]
             VsOut main(VsIn input, uint vertexId : SV_VulkanVertexID, uint instanceId : SV_VulkanInstanceID)
@@ -211,16 +229,21 @@ public static partial class CanvasShaderCompiler
         if (vertexFn is not null)
             vs.Append("    vertex();\n");
         vs.Append("""
-                vec2 vertex = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
+                vec2 pixel = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
                 VsOut o;
-                o.colorInterp = COLOR;
-                vertex = (CANVAS_MATRIX * vec4(vertex, 0.0, 1.0)).xy;
-                o.uvVertexInterp = vec4(UV, vertex);
-                o.position = SCREEN_MATRIX * vec4(vertex, 0.0, 1.0);
 
             """);
-        foreach (var v in varyings)
-            vs.Append("    o.").Append(v.Name).Append(" = ").Append(v.Name).Append(";\n");
+        if (Written(1))
+            vs.Append("    o.colorInterp = COLOR;\n");
+        vs.Append("    pixel = (CANVAS_MATRIX * vec4(pixel, 0.0, 1.0)).xy;\n");
+        if (Written(0))
+            vs.Append("    o.uvVertexInterp = vec4(UV, pixel);\n");
+        vs.Append("    o.position = SCREEN_MATRIX * vec4(pixel, 0.0, 1.0);\n");
+        for (var i = 0; i < varyings.Count; i++)
+        {
+            if (Written(2 + i))
+                vs.Append("    o.").Append(varyings[i].Name).Append(" = ").Append(varyings[i].Name).Append(";\n");
+        }
         vs.Append("    return o;\n}\n");
 
         // ── Fragment stage ──

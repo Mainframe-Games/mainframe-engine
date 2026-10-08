@@ -11,11 +11,11 @@ struct VsOut
 [shader("vertex")]
 VsOut main([[vk::location(0)]] float2 inPosition, [[vk::location(1)]] float2 inUv, [[vk::location(2)]] float4 inColor)
 {
-    float2 vertex = mul(float4(inPosition, 0.0, 1.0), canvas_model_matrix()).xy;
+    float2 pixel = mul(float4(inPosition, 0.0, 1.0), canvas_model_matrix()).xy;
     VsOut o;
     o.colorInterp = inColor;
-    vertex = mul(float4(vertex, 0.0, 1.0), canvas_canvas_matrix()).xy;
-    o.uvVertexInterp = float4(inUv, vertex);
-    o.position = mul(float4(vertex, 0.0, 1.0), canvas_screen_matrix());
+    pixel = mul(float4(pixel, 0.0, 1.0), canvas_canvas_matrix()).xy;
+    o.uvVertexInterp = float4(inUv, pixel);
+    o.position = mul(float4(pixel, 0.0, 1.0), canvas_screen_matrix());
     return o;
 }

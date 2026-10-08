@@ -12,7 +12,6 @@ struct FsIn
     [[vk::location(0)]] float3 inWorldPos;
     [[vk::location(1)]] float3 inNormal;
     [[vk::location(2)]] float2 inUV;
-    [[vk::location(3)]] nointerpolation uint inObjectId;
 };
 
 [shader("fragment")]

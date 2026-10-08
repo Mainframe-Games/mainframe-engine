@@ -21,7 +21,6 @@ struct VsOut
     [[vk::location(0)]] float3 outWorldPos;
     [[vk::location(1)]] float3 outNormal;
     [[vk::location(2)]] float2 outUV;
-    [[vk::location(3)]] nointerpolation uint outObjectId;
 };
 
 [shader("vertex")]
@@ -40,7 +39,6 @@ VsOut main(VsIn input)
     o.outWorldPos = worldPos.xyz;
     o.outNormal = mul(input.inNormal, cofactor) * (det < 0.0 ? -1.0 : 1.0);
     o.outUV = input.inUV;
-    o.outObjectId = input.inObjectId;
     o.position = mul(worldPos, frame.viewProjection);
     return o;
 }

@@ -146,8 +146,9 @@ internal static class ShaderValues
 /// <summary>
 /// Builds the SPIR-V of <c>.gdshader</c> files ahead of time (the canvas-shader counterpart of build/Shaders.targets):
 /// translate, compile both stages with slangc (the engine's shader flags plus <c>-allow-glsl</c>, the engine's shader include
-/// directory), write <c>.vert.spv</c>/<c>.frag.spv</c> next to the source and a <c>.spvlock</c> with the hash of the Slang
-/// they came from.
+/// directory) — the fragment stage first, so the vertex stage writes only the inputs it kept (<see cref="SpirvInputs"/>) —
+/// write <c>.vert.spv</c>/<c>.frag.spv</c> next to the source and a <c>.spvlock</c> with the hash of the Slang they came
+/// from.
 /// </summary>
 public static class CanvasShaderBuild
 {
@@ -176,8 +177,11 @@ public static class CanvasShaderBuild
         if (IsUpToDate(gdshaderPath, program))
             return false;
         slangc ??= FindSlangc() ?? throw new InvalidOperationException("slangc was not found (install the Vulkan SDK or put slangc on PATH).");
-        Compile(slangc, includeDirectory, program.VertexSource, "vertex", gdshaderPath + ".vert.spv", gdshaderPath);
+        // The fragment stage first: the vertex stage then writes only the inputs its compiled code kept.
         Compile(slangc, includeDirectory, program.FragmentSource, "fragment", gdshaderPath + ".frag.spv", gdshaderPath);
+        var fragmentInputs = SpirvInputs.InputLocations(File.ReadAllBytes(gdshaderPath + ".frag.spv"));
+        var vertexSource = CanvasShaderCompiler.Translate(File.ReadAllText(gdshaderPath), Path.GetFileName(gdshaderPath), fragmentInputs).VertexSource;
+        Compile(slangc, includeDirectory, vertexSource, "vertex", gdshaderPath + ".vert.spv", gdshaderPath);
         File.WriteAllText(gdshaderPath + LockExtension, Hash(program) + "\n");
         return true;
     }

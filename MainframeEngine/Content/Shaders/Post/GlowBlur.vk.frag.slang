@@ -38,7 +38,7 @@ float4 tap(float2 px)
 }
 
 [shader("fragment")]
-float4 main([[vk::location(0)]] float2 inNdc, float4 fragCoord : SV_Position) : SV_Target0
+float4 main(float4 fragCoord : SV_Position) : SV_Target0
 {
     float2 px = floor(fragCoord.xy);
     float2 axis = horizontal() ? float2(1.0, 0.0) : float2(0.0, 1.0);

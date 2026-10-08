@@ -79,6 +79,31 @@ public sealed class CanvasShaderCompilerTests
     }
 
     [Fact]
+    public void TheVertexStageWritesOnlyTheFragmentStagesInputs()
+    {
+        const string source = """
+            shader_type canvas_item;
+            varying vec2 v_world;
+            varying flat int v_id;
+            void vertex() { v_world = VERTEX; v_id = VERTEX_ID; }
+            void fragment() { COLOR = vec4(float(v_id)); }
+            """;
+        var all = CanvasShaderCompiler.Translate(source);
+        Assert.Contains("o.colorInterp = COLOR;", all.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("o.v_world = v_world;", all.VertexSource, StringComparison.Ordinal);
+
+        // The compiled fragment stage kept locations 0 (UV/VERTEX) and 3 (v_id): colour and v_world were dropped.
+        var pruned = CanvasShaderCompiler.Translate(source, fragmentInputs: new HashSet<int> { 0, 3 });
+        Assert.DoesNotContain("colorInterp", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("[[vk::location(2)]] vec2 v_world;", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("o.v_world", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::location(0)]] vec4 uvVertexInterp;", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::location(3)]] nointerpolation int v_id;", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("o.v_id = v_id;", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.Equal(all.FragmentSource, pruned.FragmentSource);
+    }
+
+    [Fact]
     public void UnsupportedShadersAreRejected()
     {
         Assert.Throws<FormatException>(() => CanvasShaderCompiler.Translate("shader_type spatial;"));
