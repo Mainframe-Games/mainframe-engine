@@ -21,7 +21,7 @@ flowchart LR
     M2 --> M10["M10 Editor ✅"]
     M3 --> M10
     M8 --> M10
-    M3 --> M11["M11 Backend abstraction / WebGPU"]
+    M3 --> M11["M11 Backend abstraction / D3D12 / WebGPU"]
     M10 --> M12["M12 Mobile core (Android + iOS)"]
     M3 --> M12
     M4 --> M12
@@ -31,6 +31,8 @@ flowchart LR
     M10 --> GT["Gameplay toolkit"]
     M3 --> GT
     GT -. "G4 saves → cloud saves, G5 presets → mobile export" .-> M13
+    M11 -. "D3D12 base, GPU API" .-> CON["Consoles (PS5 + Xbox Series), after program access"]
+    M12 -. "seams, AOT, cook" .-> CON
 ```
 
 | Milestone | Theme | Status |
@@ -48,9 +50,10 @@ flowchart LR
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
 | [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools | ⬜ |
-| [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, WebGPU | ⬜ |
+| [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, D3D12 (Windows), WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
+| [Consoles](#consoles-) | PS5 + Xbox Series X\|S: readiness now (M11 shape, seams, plumbing), private ports after program access | ⬜ |
 
 ---
 
@@ -297,13 +300,16 @@ G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that
 
 ## M11 — Backend abstraction / WebGPU ⬜
 
-Hide Vulkan behind a backend-neutral GPU API, so nodes no longer record raw `Vk` commands, then add
-the WebGPU backend the README promises.
+Hide Vulkan behind a backend-neutral GPU API, so nodes no longer record raw `Vk` commands. Add a D3D12 backend on
+Windows first (it validates the API against a second explicit API and is the public base for an Xbox port, see
+[Consoles](#consoles-)), then the WebGPU backend the README promises.
 
 | Feature | Status | Design doc |
 |---|---|---|
 | `IGpuDevice` / encoder API; port all subsystems | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
-| Shader cross-compilation (SPIR-V → WGSL) | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
+| Shader language ADR; one source compiled to SPIR-V + DXIL (+ WGSL) | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
+| Pipeline manifest: every pipeline known at build, pre-warmed at load | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
+| D3D12 backend (Windows), render tests on WARP | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 | WebGPU backend selected by `EngineOptions.RenderingBackend` | ⬜ | [Rendering backend abstraction](design/future/rendering-backend-abstraction.md) |
 
 ## M12 — Mobile core (Android + iOS) ⬜
@@ -342,6 +348,21 @@ backs achievements, leaderboards and cloud saves where it maps.
 | M13.4 Notifications: local + push (APNs, FCM) | ⬜ | [Mobile services](design/future/mobile-services.md#notifications) |
 | M13.5 Ads (mediation, behind consent) | ⬜ | [Mobile services](design/future/mobile-services.md#ads) |
 | M13.6 Analytics + crash reporting | ⬜ | [Mobile services](design/future/mobile-services.md#analytics-and-crash-reporting) |
+
+## Consoles ⬜
+
+PlayStation 5 and Xbox Series X|S for Mainframe Games' own titles. Not numbered: nothing is scheduled until the
+developer programs grant access. Until then the work is public readiness through M11, M12 and the
+[console-ready plumbing checklist](design/future/consoles.md#console-ready-plumbing-checklist); the ports themselves live
+in private repositories ([ADR 0143](../memory/decisions/0143-console-strategy.md)).
+
+| Feature | Status | Design doc |
+|---|---|---|
+| C0 Readiness: plumbing checklist, `IsAotCompatible`, desktop NativeAOT smoke in CI | ⬜ | [Consoles](design/future/consoles.md#c0--readiness-in-the-public-engine-now-alongside-other-work) |
+| C1 M11 shaped for explicit APIs: D3D12 on Windows, shader language, pipeline manifest | ⬜ | [Consoles](design/future/consoles.md#c1--m11-with-consoles-in-mind) |
+| C2 Platform layer: SDL3, `IUserPlatform`, `IAudioOutput`, `IGlyphProvider`, controller-first UI, system text input | ⬜ | [Consoles](design/future/consoles.md#c2--platform-layer) |
+| C3 Spikes after access (private): runtimes, GPU backends, natives, requirements | ⬜ | [Consoles](design/future/consoles.md#c3--access-and-spikes-after-program-approval-private) |
+| C4 First port and certification (private) | ⬜ | [Consoles](design/future/consoles.md#c4--ports-and-certification-private) |
 
 ---
 
