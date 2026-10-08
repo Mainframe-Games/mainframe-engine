@@ -4,7 +4,7 @@
 
 namespace MainframeEngine;
 
-/// <summary>Limits shared with the shaders (<c>include/limits.glsl</c>); generated from <c>limits.json</c>.</summary>
+/// <summary>Limits shared with the shaders (<c>include/limits.slang</c>); generated from <c>limits.json</c>.</summary>
 internal static class ShaderLimits
 {
     /// <summary>Directional lights in the lights UBO.</summary>

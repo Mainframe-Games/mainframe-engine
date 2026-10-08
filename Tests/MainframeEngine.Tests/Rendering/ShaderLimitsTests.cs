@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace MainframeEngine.Tests.Rendering;
 
 /// <summary>
-/// limits.json is the single source of truth; the build generates ShaderLimits.g.cs and include/limits.glsl
+/// limits.json is the single source of truth; the build generates ShaderLimits.g.cs and include/limits.slang
 /// from it. These tests fail if either generated file is stale or edited by hand, or if a C# limit stops
 /// being derived from the generated constants.
 /// </summary>
@@ -25,11 +25,11 @@ public sealed partial class ShaderLimitsTests
         throw new InvalidOperationException("Repository root (MainframeEngine.slnx) not found above the test output.");
     }
 
-    private static List<(string Glsl, string CSharp, int Value)> ReadJson()
+    private static List<(string Shader, string CSharp, int Value)> ReadJson()
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(ShaderDir, "limits.json")));
         return doc.RootElement.GetProperty("limits").EnumerateArray()
-            .Select(e => (e.GetProperty("glsl").GetString()!, e.GetProperty("csharp").GetString()!, e.GetProperty("value").GetInt32()))
+            .Select(e => (e.GetProperty("shader").GetString()!, e.GetProperty("csharp").GetString()!, e.GetProperty("value").GetInt32()))
             .ToList();
     }
 
@@ -47,15 +47,15 @@ public sealed partial class ShaderLimitsTests
     }
 
     [Fact]
-    public void GeneratedGlslHeaderMatchesTheJson()
+    public void GeneratedSlangHeaderMatchesTheJson()
     {
-        var header = File.ReadAllText(Path.Combine(ShaderDir, "include", "limits.glsl"));
+        var header = File.ReadAllText(Path.Combine(ShaderDir, "include", "limits.slang"));
         var defines = DefineRegex().Matches(header).ToDictionary(m => m.Groups[1].Value, m => int.Parse(m.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture));
 
         var limits = ReadJson();
         Assert.Equal(limits.Count, defines.Count);
-        foreach (var (glsl, _, value) in limits)
-            Assert.Equal(value, defines[glsl]);
+        foreach (var (shader, _, value) in limits)
+            Assert.Equal(value, defines[shader]);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed partial class ShaderLimitsTests
     [Fact]
     public void ShadersUseTheSharedLimitsInsteadOfLocalDefines()
     {
-        var limitNames = ReadJson().Select(l => l.Glsl).ToHashSet();
+        var limitNames = ReadJson().Select(l => l.Shader).ToHashSet();
         var offenders = Directory.EnumerateFiles(ShaderDir, "*.vk.*", SearchOption.AllDirectories)
             .Where(p => !p.EndsWith(".spv", StringComparison.Ordinal))
             .Where(p => DefineRegex().Matches(File.ReadAllText(p)).Any(m => limitNames.Contains(m.Groups[1].Value)))

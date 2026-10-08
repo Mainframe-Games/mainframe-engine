@@ -1,13 +1,13 @@
 {
-  "comment": "Single source of truth for limits shared by C# and GLSL. The build (build/Shaders.targets) generates MainframeEngine/Src/Rendering/Generated/ShaderLimits.g.cs and Content/Shaders/include/limits.glsl from this file; edit here, never there. One limit per line, keys in this order.",
+  "comment": "Single source of truth for limits shared by C# and the shaders. The build (build/Shaders.targets) generates MainframeEngine/Src/Rendering/Generated/ShaderLimits.g.cs and Content/Shaders/include/limits.slang from this file; edit here, never there. One limit per line, keys in this order.",
   "limits": [
-    { "glsl": "MAX_DIR_LIGHTS", "csharp": "MaxDirectionalLights", "value": 4, "summary": "Directional lights in the lights UBO." },
-    { "glsl": "MAX_POINT_LIGHTS", "csharp": "MaxPointLights", "value": 16, "summary": "Point lights in the lights UBO." },
-    { "glsl": "MAX_SPOT_LIGHTS", "csharp": "MaxSpotLights", "value": 8, "summary": "Spot lights in the lights UBO." },
-    { "glsl": "MAX_SHADOW_DIR", "csharp": "MaxShadowDirectional", "value": 4, "summary": "Shadowed directional lights: the first casts cascades, the others get an atlas tile each." },
-    { "glsl": "MAX_SHADOW_SPOT", "csharp": "MaxShadowSpot", "value": 8, "summary": "Shadowed spot lights (atlas tiles): every spot light can cast (M4: the atlas cut the shadow samplers from 15 to 6)." },
-    { "glsl": "MAX_SHADOW_POINT", "csharp": "MaxShadowPoint", "value": 4, "summary": "Shadowed point lights (cube maps, six passes each)." },
-    { "glsl": "MAX_SHADOW_CASCADES", "csharp": "MaxShadowCascades", "value": 4, "summary": "Cascades of the primary directional light (layers of the cascade array)." },
-    { "glsl": "MAX_SHADOW_ATLAS_MAPS", "csharp": "MaxShadowAtlasMaps", "value": 11, "summary": "Atlas tiles: secondary directional lights (MAX_SHADOW_DIR - 1) plus spot lights (MAX_SHADOW_SPOT)." }
+    { "shader": "MAX_DIR_LIGHTS", "csharp": "MaxDirectionalLights", "value": 4, "summary": "Directional lights in the lights UBO." },
+    { "shader": "MAX_POINT_LIGHTS", "csharp": "MaxPointLights", "value": 16, "summary": "Point lights in the lights UBO." },
+    { "shader": "MAX_SPOT_LIGHTS", "csharp": "MaxSpotLights", "value": 8, "summary": "Spot lights in the lights UBO." },
+    { "shader": "MAX_SHADOW_DIR", "csharp": "MaxShadowDirectional", "value": 4, "summary": "Shadowed directional lights: the first casts cascades, the others get an atlas tile each." },
+    { "shader": "MAX_SHADOW_SPOT", "csharp": "MaxShadowSpot", "value": 8, "summary": "Shadowed spot lights (atlas tiles): every spot light can cast (M4: the atlas cut the shadow samplers from 15 to 6)." },
+    { "shader": "MAX_SHADOW_POINT", "csharp": "MaxShadowPoint", "value": 4, "summary": "Shadowed point lights (cube maps, six passes each)." },
+    { "shader": "MAX_SHADOW_CASCADES", "csharp": "MaxShadowCascades", "value": 4, "summary": "Cascades of the primary directional light (layers of the cascade array)." },
+    { "shader": "MAX_SHADOW_ATLAS_MAPS", "csharp": "MaxShadowAtlasMaps", "value": 11, "summary": "Atlas tiles: secondary directional lights (MAX_SHADOW_DIR - 1) plus spot lights (MAX_SHADOW_SPOT)." }
   ]
 }

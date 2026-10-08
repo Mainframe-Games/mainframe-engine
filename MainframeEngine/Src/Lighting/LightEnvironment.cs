@@ -5,7 +5,7 @@ namespace MainframeEngine;
 
 public class LightEnvironment
 {
-    // From Content/Shaders/limits.json (generated ShaderLimits / include/limits.glsl): C# and GLSL cannot drift.
+    // From Content/Shaders/limits.json (generated ShaderLimits / include/limits.slang): C# and the shaders cannot drift.
     public const int MaxDirectional = ShaderLimits.MaxDirectionalLights;
     public const int MaxPoint = ShaderLimits.MaxPointLights;
     public const int MaxSpot = ShaderLimits.MaxSpotLights;
