@@ -1,5 +1,5 @@
 # Mainframe Engine — local commands. `just` lists them. CI calls dotnet directly (see .github/workflows/ci.yml).
-# Shader recipes need a POSIX sh (macOS/Linux, or Git Bash on Windows) plus glslc/spirv-val from the Vulkan SDK.
+# Shader recipes need a POSIX sh (macOS/Linux, or Git Bash on Windows) plus slangc/spirv-val from the Vulkan SDK.
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 

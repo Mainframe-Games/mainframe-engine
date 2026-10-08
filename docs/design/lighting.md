@@ -46,7 +46,7 @@ Unit tests pin the layout.
 std140, **1200 bytes** = `48 + 4×32 + 16×32 + 8×64`. Colours are written **linear** (`Light.LinearColor`,
 ambient converted when set). Spine and future scene pipelines read it from the per-frame shared set 0,
 binding 1 (`FrameContext`, written once per frame); shapes still bind their own copy as set 1, binding 0.
-Shaders get the struct and the shading loop from `include/lights.glsl`.
+Shaders get the struct and the shading loop from `include/lights.slang`.
 
 ![Lights UBO layout](../images/lights-ubo-layout.svg)
 
@@ -61,7 +61,7 @@ Shaders get the struct and the shading loop from `include/lights.glsl`.
 
 ## Shading model
 
-`lights.glsl` (`shadeLightsBlinnPhong(base, N, Ngeo, worldPos, specular, shininess)`; `Ngeo` is the geometric normal the shadow lookups offset along), used by `Mesh.vk.frag` with the material's specular strength and
+`lights.slang` (`shadeLightsBlinnPhong(base, N, Ngeo, worldPos, specular, shininess)`; `Ngeo` is the geometric normal the shadow lookups offset along), used by `Mesh.vk.frag` with the material's specular strength and
 shininess and by `SpineLit.vk.frag` through `shadeLights` (strength 0.3, exponent 32):
 
 ```
@@ -91,7 +91,7 @@ The lights UBO is unchanged; the shadow set's codes map each light index to its 
 settings (`CastsShadows`, `ShadowResolution`, `ShadowBias`, `ShadowNormalBias`, `ShadowOpacity`; on `DirectionalLight3D` also
 `ShadowCascades`, `ShadowSplitLambda`, `ShadowMaxDistance`, `ShadowCascadeBlend`). Scenes save them when they differ
 from the defaults. `ShadowOpacity` (Godot's `shadow_opacity`, [ADR 0123](../../memory/decisions/0123-godot-shadow-opacity.md))
-lightens the shadow: `lights.glsl` uses `mix(1, shadow, opacity)` for directional and spot lights. See
+lightens the shadow: `lights.slang` uses `lerp(1, shadow, opacity)` for directional and spot lights. See
 [Shadow system](shadow-system.md).
 
 ## Usage
@@ -111,7 +111,7 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no 
 
 ## Invariants
 
-- The light limits come from `Content/Shaders/limits.json` (generated `ShaderLimits` / `include/limits.glsl`).
+- The light limits come from `Content/Shaders/limits.json` (generated `ShaderLimits` / `include/limits.slang`).
 - The UBO layout must match the shader `LightsUBO` struct byte for byte.
 
 ## Known issues

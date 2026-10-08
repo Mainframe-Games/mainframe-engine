@@ -63,7 +63,7 @@ internal static class FileKinds
             ".rml" => FileKind.Rml,
             ".rcss" => FileKind.Rcss,
             ".po" or ".pot" or ".mo" => FileKind.Translation,
-            ".vert" or ".frag" or ".comp" or ".glsl" or ".hlsl" or ".spv" => FileKind.Shader,
+            ".slang" or ".vert" or ".frag" or ".comp" or ".glsl" or ".hlsl" or ".spv" => FileKind.Shader,
             ".cs" => FileKind.Script,
             ".mfproj" or ".csproj" or ".sln" or ".slnx" or ".props" or ".targets" => FileKind.Project,
             ".json" or ".xml" or ".yaml" or ".yml" or ".csv" or ".txt" or ".md" or ".atlas" or ".skel" => FileKind.Data,

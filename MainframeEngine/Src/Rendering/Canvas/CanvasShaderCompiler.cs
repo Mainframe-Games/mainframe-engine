@@ -42,10 +42,10 @@ public sealed record ShaderUniform(
     public bool IsSampler => Type == ShaderUniformType.Sampler2D;
 }
 
-/// <summary>A translated canvas shader: GLSL for both stages and the material interface.</summary>
+/// <summary>A translated canvas shader: Slang for both stages and the material interface.</summary>
 public sealed record CanvasShaderProgram(
-    string VertexGlsl,
-    string FragmentGlsl,
+    string VertexSource,
+    string FragmentSource,
     IReadOnlyList<ShaderUniform> Uniforms,
     int UniformBlockSize,
     bool HasVertexFunction,
@@ -58,18 +58,24 @@ public sealed record CanvasShaderProgram(
 }
 
 /// <summary>
-/// Translates Godot 4.7 <c>shader_type canvas_item</c> shaders to Vulkan GLSL for the canvas renderer (ADR 0113): the
+/// Translates Godot 4.7 <c>shader_type canvas_item</c> shaders to Slang for the canvas renderer (ADR 0113, ADR 0144): the
 /// shader keeps Godot's language — <c>uniform</c>s with hints and defaults, <c>varying</c>s, <c>render_mode</c>,
 /// <c>vertex()</c>/<c>fragment()</c> and Godot's built-ins (VERTEX, UV, COLOR, TEXTURE, TEXTURE_PIXEL_SIZE, TIME,
 /// FRAGCOORD, SCREEN_UV, SCREEN_PIXEL_SIZE, MODEL_MATRIX, CANVAS_MATRIX, SCREEN_MATRIX, PI, TAU, E) — and the stages are
-/// wrapped in a template mirroring Godot's canvas.glsl. Non-sampler uniforms become one std140 block (set 1, binding
+/// wrapped in a Slang template mirroring Godot's canvas.glsl (compiled with -allow-glsl, so the user code keeps GLSL's
+/// syntax and meaning). Non-sampler uniforms become one std140 block (set 1, binding
 /// 0) in declaration order; samplers follow at bindings 1…n. Lights (<c>light()</c>) are not supported yet.
 /// </summary>
 public static partial class CanvasShaderCompiler
 {
     /// <summary>Translates <paramref name="source"/> (the <c>.gdshader</c> text).</summary>
+    /// <param name="fragmentInputs">
+    /// The input locations the compiled fragment stage kept (<see cref="SpirvInputs"/>), or null for all: the vertex stage
+    /// then writes only those. Slang drops unread fragment inputs, and a vertex output no fragment input reads is a
+    /// validation warning. Location 0 is UV + VERTEX, 1 the colour, 2… the varyings.
+    /// </param>
     /// <exception cref="FormatException">Not a canvas_item shader, or a construct the translator does not handle.</exception>
-    public static CanvasShaderProgram Translate(string source, string name = "shader")
+    public static CanvasShaderProgram Translate(string source, string name = "shader", IReadOnlySet<int>? fragmentInputs = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         var code = StripComments(source);
@@ -154,39 +160,61 @@ public static partial class CanvasShaderCompiler
             throw new FormatException($"{name}: only shader_type canvas_item is supported (found '{shaderType ?? "none"}').");
 
         var laidOut = Layout(uniforms, out var blockSize);
+        // Slang (ADR 0144) compiled with -allow-glsl: the user code keeps Godot's GLSL-like language (vec4, M * v,
+        // texture()) and its meaning; the template around it is Slang. Built-ins and varyings are static globals the
+        // user functions read and write; the entry points copy them to and from the stage interface.
         var common = new StringBuilder();
-        common.Append("#version 450\n#extension GL_GOOGLE_include_directive : require\n");
         common.Append("// Translated from a Godot canvas_item shader by CanvasShaderCompiler. Do not edit: edit the .gdshader.\n");
-        common.Append("#include \"canvas.glsl\"\n");
+        common.Append("#include \"canvas.slang\"\n");
         common.Append("#define PI 3.1415926535897932384626433833\n#define TAU 6.2831853071795864769252867666\n#define E 2.7182818284590452353602874714\n");
         if (laidOut.Any(u => !u.IsSampler))
         {
-            common.Append("layout(set = 1, binding = 0, std140) uniform MaterialUniforms {\n");
+            common.Append("[[vk::binding(0, 1)]] cbuffer MaterialUniforms\n{\n");
             foreach (var u in laidOut.Where(u => !u.IsSampler))
-                common.Append("    ").Append(GlslType(u.Type)).Append(' ').Append(u.Name).Append(u.ArrayLength > 0 ? string.Create(CultureInfo.InvariantCulture, $"[{u.ArrayLength}]") : "").Append(";\n");
+                common.Append("    ").Append(ShaderTypeName(u.Type)).Append(' ').Append(u.Name).Append(u.ArrayLength > 0 ? string.Create(CultureInfo.InvariantCulture, $"[{u.ArrayLength}]") : "").Append(";\n");
             common.Append("};\n");
         }
 
         foreach (var u in laidOut.Where(u => u.IsSampler))
-            common.Append(CultureInfo.InvariantCulture, $"layout(set = 1, binding = {u.Binding}) uniform sampler2D {u.Name};\n");
-        common.Append(globals);
+            common.Append(CultureInfo.InvariantCulture, $"[[vk::binding({u.Binding}, 1)]] Sampler2D {u.Name};\n");
+        common.Append(GlslMatrixConstructors(globals.ToString()));
+        foreach (var v in varyings)
+            common.Append("static ").Append(v.Type).Append(' ').Append(v.Name).Append(";\n");
+
+        // The varyings' fields of a stage interface struct (locations 2…): every one for the fragment stage, the ones its
+        // compiled code kept for the vertex stage.
+        bool Written(int location) => fragmentInputs is null || fragmentInputs.Contains(location);
+        var varyingFields = new StringBuilder();
+        var writtenVaryingFields = new StringBuilder();
+        for (var i = 0; i < varyings.Count; i++)
+        {
+            var field = string.Create(CultureInfo.InvariantCulture,
+                $"    [[vk::location({2 + i})]] {(varyings[i].Flat ? "nointerpolation " : "")}{varyings[i].Type} {varyings[i].Name};\n");
+            varyingFields.Append(field);
+            if (Written(2 + i))
+                writtenVaryingFields.Append(field);
+        }
 
         // ── Vertex stage ──
         var vs = new StringBuilder(common.ToString());
-        vs.Append("layout(location = 0) in vec2 inPosition;\nlayout(location = 1) in vec2 inUv;\nlayout(location = 2) in vec4 inColor;\n");
-        vs.Append("layout(location = 0) out vec4 uvVertexInterp;\nlayout(location = 1) out vec4 colorInterp;\n");
-        for (var i = 0; i < varyings.Count; i++)
-            vs.Append(CultureInfo.InvariantCulture, $"layout(location = {2 + i}) {(varyings[i].Flat ? "flat " : "")}out {varyings[i].Type} {varyings[i].Name};\n");
-        vs.Append("vec2 VERTEX;\nvec2 UV;\nvec4 COLOR;\nmat4 MODEL_MATRIX;\nmat4 CANVAS_MATRIX;\nmat4 SCREEN_MATRIX;\nfloat TIME;\nvec2 TEXTURE_PIXEL_SIZE;\nfloat POINT_SIZE;\nvec4 INSTANCE_CUSTOM;\nint INSTANCE_ID;\nint VERTEX_ID;\n");
-        vs.Append(helpers);
+        vs.Append("static vec2 VERTEX;\nstatic vec2 UV;\nstatic vec4 COLOR;\nstatic mat4 MODEL_MATRIX;\nstatic mat4 CANVAS_MATRIX;\nstatic mat4 SCREEN_MATRIX;\nstatic float TIME;\nstatic vec2 TEXTURE_PIXEL_SIZE;\nstatic float POINT_SIZE;\nstatic vec4 INSTANCE_CUSTOM;\nstatic int INSTANCE_ID;\nstatic int VERTEX_ID;\n");
+        vs.Append(GlslMatrixConstructors(helpers.ToString()));
         if (vertexFn is not null)
-            vs.Append(vertexFn).Append('\n');
+            vs.Append(GlslMatrixConstructors(vertexFn)).Append('\n');
+        vs.Append("struct VsIn\n{\n    [[vk::location(0)]] vec2 inPosition;\n    [[vk::location(1)]] vec2 inUv;\n    [[vk::location(2)]] vec4 inColor;\n};\n");
+        vs.Append("struct VsOut\n{\n    float4 position : SV_Position;\n");
+        if (Written(0))
+            vs.Append("    [[vk::location(0)]] vec4 uvVertexInterp;\n");
+        if (Written(1))
+            vs.Append("    [[vk::location(1)]] vec4 colorInterp;\n");
+        vs.Append(writtenVaryingFields).Append("};\n");
         vs.Append("""
-            void main()
+            [shader("vertex")]
+            VsOut main(VsIn input, uint vertexId : SV_VulkanVertexID, uint instanceId : SV_VulkanInstanceID)
             {
-                VERTEX = inPosition;
-                UV = inUv;
-                COLOR = inColor;
+                VERTEX = input.inPosition;
+                UV = input.inUv;
+                COLOR = input.inColor;
                 MODEL_MATRIX = canvas_model_matrix();
                 CANVAS_MATRIX = canvas_canvas_matrix();
                 SCREEN_MATRIX = canvas_screen_matrix();
@@ -194,42 +222,54 @@ public static partial class CanvasShaderCompiler
                 TEXTURE_PIXEL_SIZE = canvas_pc.modelOrigin.zw;
                 POINT_SIZE = 1.0;
                 INSTANCE_CUSTOM = vec4(0.0);
-                INSTANCE_ID = gl_InstanceIndex;
-                VERTEX_ID = gl_VertexIndex;
+                INSTANCE_ID = int(instanceId);
+                VERTEX_ID = int(vertexId);
 
             """);
         if (vertexFn is not null)
             vs.Append("    vertex();\n");
         vs.Append("""
-                vec2 vertex = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
-                colorInterp = COLOR;
-                vertex = (CANVAS_MATRIX * vec4(vertex, 0.0, 1.0)).xy;
-                uvVertexInterp = vec4(UV, vertex);
-                gl_Position = SCREEN_MATRIX * vec4(vertex, 0.0, 1.0);
-            }
+                vec2 pixel = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
+                VsOut o;
 
             """);
+        if (Written(1))
+            vs.Append("    o.colorInterp = COLOR;\n");
+        vs.Append("    pixel = (CANVAS_MATRIX * vec4(pixel, 0.0, 1.0)).xy;\n");
+        if (Written(0))
+            vs.Append("    o.uvVertexInterp = vec4(UV, pixel);\n");
+        vs.Append("    o.position = SCREEN_MATRIX * vec4(pixel, 0.0, 1.0);\n");
+        for (var i = 0; i < varyings.Count; i++)
+        {
+            if (Written(2 + i))
+                vs.Append("    o.").Append(varyings[i].Name).Append(" = ").Append(varyings[i].Name).Append(";\n");
+        }
+        vs.Append("    return o;\n}\n");
 
         // ── Fragment stage ──
         var fs = new StringBuilder(common.ToString());
-        fs.Append("layout(location = 0) in vec4 uvVertexInterp;\nlayout(location = 1) in vec4 colorInterp;\n");
-        for (var i = 0; i < varyings.Count; i++)
-            fs.Append(CultureInfo.InvariantCulture, $"layout(location = {2 + i}) {(varyings[i].Flat ? "flat " : "")}in {varyings[i].Type} {varyings[i].Name};\n");
-        fs.Append("layout(set = 0, binding = 0) uniform sampler2D colorTexture;\n#define TEXTURE colorTexture\n");
-        fs.Append("#define CANVAS_LIGHT_SET 2\n#include \"canvas_lights.glsl\"\n");
-        fs.Append("layout(location = 0) out vec4 fragColor;\n");
-        fs.Append("vec4 COLOR;\nvec2 UV;\nvec2 VERTEX;\nvec4 FRAGCOORD;\nvec2 SCREEN_UV;\nvec2 SCREEN_PIXEL_SIZE;\nvec2 TEXTURE_PIXEL_SIZE;\nfloat TIME;\nvec2 POINT_COORD;\nbool AT_LIGHT_PASS;\nvec3 NORMAL;\nvec3 NORMAL_MAP;\nfloat NORMAL_MAP_DEPTH;\nvec3 LIGHT_VERTEX;\nvec2 SHADOW_VERTEX;\n");
-        fs.Append(helpers);
+        fs.Append("[[vk::binding(0, 0)]] Sampler2D colorTexture;\n#define TEXTURE colorTexture\n");
+        fs.Append("#define CANVAS_LIGHT_SET 2\n#include \"canvas_lights.slang\"\n");
+        fs.Append("static vec4 COLOR;\nstatic vec2 UV;\nstatic vec2 VERTEX;\nstatic vec4 FRAGCOORD;\nstatic vec2 SCREEN_UV;\nstatic vec2 SCREEN_PIXEL_SIZE;\nstatic vec2 TEXTURE_PIXEL_SIZE;\nstatic float TIME;\nstatic vec2 POINT_COORD;\nstatic bool AT_LIGHT_PASS;\nstatic vec3 NORMAL;\nstatic vec3 NORMAL_MAP;\nstatic float NORMAL_MAP_DEPTH;\nstatic vec3 LIGHT_VERTEX;\nstatic vec2 SHADOW_VERTEX;\n");
+        fs.Append(GlslMatrixConstructors(helpers.ToString()));
         if (fragmentFn is not null)
-            fs.Append(fragmentFn).Append('\n');
+            fs.Append(GlslMatrixConstructors(fragmentFn)).Append('\n');
+        fs.Append("struct FsIn\n{\n    [[vk::location(0)]] vec4 uvVertexInterp;\n    [[vk::location(1)]] vec4 colorInterp;\n");
+        fs.Append(varyingFields).Append("};\n");
         fs.Append("""
-            void main()
+            [shader("fragment")]
+            float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
             {
-                UV = uvVertexInterp.xy;
-                VERTEX = uvVertexInterp.zw;
-                FRAGCOORD = gl_FragCoord;
+
+            """);
+        foreach (var v in varyings)
+            fs.Append("    ").Append(v.Name).Append(" = input.").Append(v.Name).Append(";\n");
+        fs.Append("""
+                UV = input.uvVertexInterp.xy;
+                VERTEX = input.uvVertexInterp.zw;
+                FRAGCOORD = fragCoord;
                 SCREEN_PIXEL_SIZE = vec2(canvas_pc.screen.x, canvas_pc.screen.y) * 0.5;
-                SCREEN_UV = gl_FragCoord.xy * SCREEN_PIXEL_SIZE;
+                SCREEN_UV = fragCoord.xy * SCREEN_PIXEL_SIZE;
                 TEXTURE_PIXEL_SIZE = canvas_pc.modelOrigin.zw;
                 TIME = canvas_pc.canvasOrigin.z;
                 POINT_COORD = vec2(0.5);
@@ -239,7 +279,7 @@ public static partial class CanvasShaderCompiler
                 NORMAL_MAP_DEPTH = 1.0;
                 LIGHT_VERTEX = vec3(VERTEX, 0.0);
                 SHADOW_VERTEX = VERTEX;
-                COLOR = colorInterp * texture(colorTexture, UV);
+                COLOR = input.colorInterp * texture(colorTexture, UV);
 
             """);
         if (fragmentFn is not null)
@@ -253,7 +293,7 @@ public static partial class CanvasShaderCompiler
                 }
                 if ((canvas_flags() & CANVAS_FLAG_PREMULTIPLY) != 0u)
                     COLOR.rgb *= COLOR.a;
-                fragColor = COLOR;
+                return COLOR;
             }
 
             """);
@@ -421,7 +461,8 @@ public static partial class CanvasShaderCompiler
         _ => throw new FormatException($"{name}: uniform type '{type}' is not supported."),
     };
 
-    private static string GlslType(ShaderUniformType type) => type switch
+    // Godot's (GLSL) type names; the translated shader is compiled with -allow-glsl, which accepts them.
+    private static string ShaderTypeName(ShaderUniformType type) => type switch
     {
         ShaderUniformType.Bool => "bool",
         ShaderUniformType.Int => "int",
@@ -520,4 +561,45 @@ public static partial class CanvasShaderCompiler
 
     [GeneratedRegex(@"^\w+\s*\((?<args>[^)]*)\)$")]
     private static partial Regex ConstructorRegex();
+
+    /// <summary>
+    /// One-argument <c>matN(x)</c> in the user's code becomes <c>glsl_matN(x)</c> (canvas.slang): Slang, even with
+    /// -allow-glsl, fills every element from a scalar and rejects resizing a matrix, where GLSL builds a diagonal and
+    /// copies the upper-left block (identity elsewhere). Constructors with several arguments mean the same in both.
+    /// </summary>
+    internal static string GlslMatrixConstructors(string code)
+    {
+        var result = new StringBuilder(code.Length + 16);
+        var last = 0;
+        foreach (Match m in MatrixConstructorRegex().Matches(code))
+        {
+            if (!HasOneArgument(code, m.Index + m.Length - 1))
+                continue;
+            result.Append(code, last, m.Index - last).Append("glsl_mat").Append(m.Groups["n"].Value).Append('(');
+            last = m.Index + m.Length;
+        }
+
+        return result.Append(code, last, code.Length - last).ToString();
+    }
+
+    // True when the call whose '(' is at `open` has no comma outside nested brackets before its ')'.
+    private static bool HasOneArgument(string code, int open)
+    {
+        var depth = 0;
+        for (var i = open + 1; i < code.Length; i++)
+        {
+            switch (code[i])
+            {
+                case '(' or '[' or '{': depth++; break;
+                case ')' when depth == 0: return true;
+                case ')' or ']' or '}': depth--; break;
+                case ',' when depth == 0: return false;
+            }
+        }
+
+        return false;
+    }
+
+    [GeneratedRegex(@"\bmat(?<n>[234])\s*\(")]
+    private static partial Regex MatrixConstructorRegex();
 }

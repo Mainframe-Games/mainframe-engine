@@ -358,7 +358,8 @@ public sealed unsafe partial class VulkanUiRenderer
             return;
 
         // Pixels → clip space (y down, no flip); z scaled into [0, 1] for 3D RCSS transforms (RmlUi's GL projection uses
-        // near/far ±10000). Numerics matrices are row-vector, so a row-major Numerics matrix is the column-major GLSL one.
+        // near/far ±10000). Numerics matrices are row-vector, and the shaders read them as-is (row-major Slang matrices,
+        // mul(v, M)).
         var w = (float)_targetExtent.Width;
         var h = (float)_targetExtent.Height;
         var projection = new Matrix4x4(

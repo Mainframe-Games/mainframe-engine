@@ -176,7 +176,7 @@ internal sealed class TextureGpu
     }
 }
 
-/// <summary>std140 parameters of <c>include/material.glsl</c> (80 bytes).</summary>
+/// <summary>std140 parameters of <c>include/material.slang</c> (80 bytes).</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct MaterialParams
 {

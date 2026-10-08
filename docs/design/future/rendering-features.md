@@ -18,9 +18,9 @@ game notices what is missing, PBR and 3D particles first.
   (`Material.cs:186-211`), with no metallic, roughness or AO. ADR 0014 deferred PBR "after Shadows v2 (M4) and with
   image-based lighting". M4 has shipped.
   - `shadeLightsBlinnPhong` multiplies the highlight by the base colour
-    (`MainframeEngine/Content/Shaders/include/lights.glsl:53-61`), so dark surfaces never get a highlight and metals
+    (`MainframeEngine/Content/Shaders/include/lights.slang`), so dark surfaces never get a highlight and metals
     cannot be expressed.
-  - Ambient light is one flat colour (`LightsUBO.ambientColor`, `lights.glsl:39`, `lights.glsl:97`), set by
+  - Ambient light is one flat colour (`LightsUBO.ambientColor`, `lights.slang`, `lights.slang`), set by
     `WorldEnvironment.AmbientColor` (`MainframeEngine/Src/Scene/Nodes3D/WorldEnvironment.cs:31-32`). The sky does not
     light or reflect anything.
   - Sky images are `R8G8B8A8Srgb` with one mip ([sky.md](../sky.md#gpu-resources)), so there is no HDR environment
@@ -90,8 +90,8 @@ and ≤ 4 descriptor sets (MoltenVK and the Android baseline profile,
 
 | Fragment stage | Today | With every G6 feature |
 |---|---|---|
-| Shadows (set 1): cascade array, atlas, 4 point cubes (`include/shadows.glsl:3-6`) | 6 images / 6 samplers | same |
-| Material (set 2): albedo, normal, emission (`include/material.glsl:24-27`) | 3 images / 1 sampler | + ORM = 4 images / 1 sampler |
+| Shadows (set 1): cascade array, atlas, 4 point cubes (`include/shadows.slang`) | 6 images / 6 samplers | same |
+| Material (set 2): albedo, normal, emission (`include/material.slang`) | 3 images / 1 sampler | + ORM = 4 images / 1 sampler |
 | Frame (set 0): radiance cube, BRDF LUT, AO, decal atlas | — | 4 images / 1 shared linear-clamp sampler |
 | **Total** | 9 images, 7 samplers, 3 sets | **14 images, 8 samplers, 3 sets** |
 
@@ -114,8 +114,8 @@ is per-pixel too.
 - **F0:** `mix(vec3(0.16 · s²), albedo, metallic)`, with `s` = `MetallicSpecular` (Godot's `metallic_specular`,
   default 0.5 → F0 0.04).
 - **Light units unchanged:** the 1/π of Lambert is folded into the light intensity. A light of energy 1 lights a white
-  diffuse surface at normal incidence to 1, the same as Blinn-Phong diffuse today (`lights.glsl:58-60`). Lights,
-  attenuation (`attenuate`, `lights.glsl:47-51`), shadows, shadow opacity and the cascade tint are reused as they are.
+  diffuse surface at normal incidence to 1, the same as Blinn-Phong diffuse today (`lights.slang`). Lights,
+  attenuation (`attenuate`, `lights.slang`), shadows, shadow opacity and the cascade tint are reused as they are.
 - **Indirect light:**
   - diffuse = `albedo · (1 − metallic) · E(N)`. `E` is the radiance cube sampled at its roughest mip along `N` (no
     separate irradiance map: one binding fewer);
@@ -125,9 +125,9 @@ is per-pixel too.
 - **Ambient source:** the colour ambient (`ambientColor`) is mixed in by `AmbientLightSkyContribution` (below). When
   the world has no sky, PBR uses the ambient colour for diffuse and nothing for specular.
 
-`include/lights.glsl` gains `shadeLightsPbr(PbrSurface s, vec3 N, vec3 Ngeo, vec3 worldPos)`, sharing the light loops
+`include/lights.slang` gains `shadeLightsPbr(PbrSurface s, vec3 N, vec3 Ngeo, vec3 worldPos)`, sharing the light loops
 with the Blinn-Phong path (the per-light BRDF is the only difference). The IBL terms live in a new
-`include/environment.glsl`. `shadeLights` (Spine) and `shadeLightsBlinnPhong` stay unchanged, so Spine and Blinn-Phong
+`include/environment.slang`. `shadeLights` (Spine) and `shadeLightsBlinnPhong` stay unchanged, so Spine and Blinn-Phong
 materials render exactly as today.
 
 `Mesh.vk.frag` picks the path from the material flags, a uniform branch like the unshaded one (`Mesh.vk.frag:35-44`).
@@ -184,7 +184,7 @@ the flat ambient and looks worse than Blinn-Phong.
 - Imported models use PBR from G6.1 (below).
 
 **ORM on the GPU.** `MaterialGpu` binds one `ormTexture` at set 2 binding 5. The material UBO
-(`MaterialParams`, `include/material.glsl:14-22`, 80 B) grows to 112 B:
+(`MaterialParams`, `include/material.slang`, 80 B) grows to 112 B:
 
 - `vec4 pbr`: metallic, roughness, metallic specular, AO light affect;
 - `uvec4 orm`: the AO, roughness and metallic channels, and the presence bits.
@@ -431,11 +431,11 @@ decal masks**:
   - transform `inWorldPos` into decal space and test the unit box;
   - fade by angle (`NormalFade`) and along the projection axis (`UpperFade`, `LowerFade`);
   - sample the atlas with `textureGrad`, using derivatives from `dpdx`/`dpdy`. The existing rule of taking derivatives
-    before any branch (`material.glsl:43-44`) holds.
+    before any branch (`material.slang`) holds.
 - **Atlas.** `DecalAtlas` (new, internal) shelf-packs every decal texture in the world into one linear RGBA8 atlas
   (set 0 b4) from the decoded CPU pixels, with mips through the upload queue.
   - It is rebuilt only when the set of decal textures changes.
-  - Albedo and emission are stored sRGB-encoded and decoded in the shader (`srgbToLinear`, `include/common.glsl`).
+  - Albedo and emission are stored sRGB-encoded and decoded in the shader (`srgbToLinear`, `include/common.slang`).
     Filtering then happens in gamma space, a small accepted error that saves a second binding.
   - Normal maps and ORM are linear.
 - When there are no decals, the mask is 0 and the loop costs one uniform test.
@@ -523,10 +523,10 @@ after **M11 step 1**, the `IGpuDevice`/encoder interfaces with the Vulkan wrappe
 Reasons:
 
 1. **Most of G6 does not touch the pass structure.**
-   - PBR and decals are GLSL in the existing scene pass, plus UBO fields and descriptor bindings.
+   - PBR and decals are Slang in the existing scene pass, plus UBO fields and descriptor bindings.
    - Particles and LOD are CPU code feeding the existing `MeshRenderer`.
-   - M11 plans GLSL → SPIR-V → WGSL cross-compilation, so this shader work carries over. If M11's ADR picks Slang
-     instead, every shader is ported anyway, and G6 adds about three includes to that pile.
+   - The shaders are Slang ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)), which M11's backends
+     compile to their own targets, so this shader work carries over.
 2. **The new GPU passes before M11 are few and small.** The IBL bake is a handful of fullscreen-triangle passes into a
    cube, written like `SkyEnvironment` and `GlowEffect`, which M11 ports first ("Port Sky and Grid (simplest)"). M11
    then has PBR goldens to verify its port against.
@@ -635,7 +635,7 @@ pulled forward when a 3D game needs PBR or particles first.
 1. **G6.1 PBR shading**
    1. `ShadingMode.Pbr`, `TextureChannel`, the PBR properties, `[SerializedVersion(2)]` with its migration. The
       default stays `BlinnPhong` in this phase.
-   2. `shadeLightsPbr` in `lights.glsl`, the material UBO at 112 B, the ORM binding, `OrmPacker`. Refresh `.spv` and
+   2. `shadeLightsPbr` in `lights.slang`, the material UBO at 112 B, the ORM binding, `OrmPacker`. Refresh `.spv` and
       `shaders.lock`.
    3. Importer: factors, Metalness/DiffuseRoughness/Occlusion textures, `"shading"` meta setting; extended
       `TestModel`.

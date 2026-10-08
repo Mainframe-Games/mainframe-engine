@@ -36,7 +36,7 @@ public struct CanvasBatch
     public uint LightMask;
 }
 
-/// <summary>One 2D light of the frame in the light block's layout (canvas_lights.glsl).</summary>
+/// <summary>One 2D light of the frame in the light block's layout (canvas_lights.slang).</summary>
 public struct CanvasLightData
 {
     public Vector4 MatrixX;

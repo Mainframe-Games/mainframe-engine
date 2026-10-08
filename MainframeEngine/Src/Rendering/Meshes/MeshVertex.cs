@@ -7,7 +7,7 @@ namespace MainframeEngine;
 /// <summary>
 /// The engine's standard vertex (32 bytes, interleaved): position, normal, UV. Position comes first so the shadow
 /// pipelines (which read only <c>location 0</c> with a 32-byte stride) draw any mesh. No tangents: normal maps
-/// use a screen-space cotangent frame (see <c>Content/Shaders/include/material.glsl</c>).
+/// use a screen-space cotangent frame (see <c>Content/Shaders/include/material.slang</c>).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct MeshVertex(Vector3 position, Vector3 normal, Vector2 uv)
@@ -22,7 +22,7 @@ public struct MeshVertex(Vector3 position, Vector3 normal, Vector2 uv)
 
 /// <summary>
 /// Per-instance data of a batched mesh draw (80 bytes, binding 1, instance rate): the model matrix (row-vector
-/// System.Numerics layout, read as four <c>vec4</c> columns in GLSL) and the object id written by the ID pass.
+/// System.Numerics layout, read as the four rows of a row-major Slang <c>float4x4</c>) and the object id written by the ID pass.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct MeshInstanceData
@@ -69,6 +69,15 @@ internal static class VertexLayouts
         new() { Location = 6, Binding = 1, Format = Format.R32G32B32A32Sfloat, Offset = 48 },
         new() { Location = 7, Binding = 1, Format = Format.R32Uint, Offset = 64 },
     ];
+
+    // Each pipeline gets exactly the attributes its vertex shader reads: Slang drops unread shader inputs, and an
+    // attribute the shader does not read is a validation warning (ADR 0144).
+
+    /// <summary>Lit and outline pipelines (<c>Mesh.vk.vert</c>, <c>MeshOutline.vk.vert</c>): all but the object id.</summary>
+    public static readonly VertexInputAttributeDescription[] MeshAttributes = MeshInstancedAttributes[..7];
+
+    /// <summary>Object-ID pipeline (<c>MeshId.vk.vert</c>): position, uv, model rows and object id (no normal).</summary>
+    public static readonly VertexInputAttributeDescription[] MeshIdAttributes = [MeshInstancedAttributes[0], .. MeshInstancedAttributes[2..]];
 
     /// <summary>Shadow casters: binding 0 positions (stride 32), binding 1 model rows at locations 1–4.</summary>
     public static readonly VertexInputBindingDescription[] ShadowInstancedBindings = MeshInstancedBindings;

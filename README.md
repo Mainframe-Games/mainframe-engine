@@ -78,7 +78,7 @@ xattr -dr com.apple.quarantine /Applications/"Mainframe Engine.app"
 
 **Requirements:** the [.NET 10 SDK](https://dotnet.microsoft.com/download), [Git LFS](https://git-lfs.com) (images,
 audio, goldens) and [`just`](https://github.com/casey/just). The [Vulkan SDK](https://vulkan.lunarg.com) is
-recommended for development (validation layers, `glslc`); nothing needs installing to run on macOS (MoltenVK is
+recommended for development (validation layers, `slangc`); nothing needs installing to run on macOS (MoltenVK is
 bundled).
 
 ```bash
@@ -117,7 +117,7 @@ mainframe-engine/
 │   │   ├── Steamworks/          # Steam API wrappers (inert without natives)
 │   │   ├── Debugging/           # Log + ILogSink sinks, the F12 dev overlay (DevOverlay)
 │   │   └── Imaging/, Utils/     # PNG codec, helpers
-│   ├── Content/                 # Shaders (GLSL + committed SPIR-V), UI widgets and fonts, brand icons
+│   ├── Content/                 # Shaders (Slang + committed SPIR-V), UI widgets and fonts, brand icons
 │   └── runtimes/                # Native libraries per RID (mfrmlui, ENet)
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
 ├── MainframeEngine.Editor/      # The editor (RmlUi UI in Content/Editor)
@@ -392,10 +392,10 @@ Versions are central in `Directory.Packages.props`; new packages are discussed b
 
 ## Shaders
 
-GLSL sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`glslc`, with shared includes in `include/`; the committed `.spv` files are the fallback when the Vulkan SDK is missing) and loaded at runtime through `ContentPaths`. Light/shadow limits come from `limits.json`. See [Shaders](docs/design/shaders.md).
+Slang sources in `Content/Shaders/` are compiled to SPIR-V by `dotnet build` (`slangc`, with shared includes in `include/`; the committed `.spv` files are the fallback when the Vulkan SDK is missing) and loaded at runtime through `ContentPaths`. Light/shadow limits come from `limits.json`. See [Shaders](docs/design/shaders.md).
 
 **Engine shaders** (`MainframeEngine/Content/Shaders/`):
-- **Mesh/** — batched mesh instances (`Mesh.vk.*`: StandardMaterial3D) and the object-ID pass (`MeshId.vk.frag`)
+- **Mesh/** — batched mesh instances (`Mesh.vk.*`: StandardMaterial3D) and the object-ID pass (`MeshId.vk.*`)
 - **Spine/** — lit, shadow-receiving skeletal animation (`SpineLit.vk.*`)
 - **Sky/** — procedural gradient, panoramic equirectangular, and cubemap variants
 - **Shadows/** — depth pass shaders for 2D and omnidirectional point light shadow maps
@@ -510,7 +510,7 @@ This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGam
 
 ![A new game project in the editor after a code reload: the Spinner's new Wobble property in the inspector](docs/images/editor-game-project.png)
 
-**macOS:** Vulkan runs through MoltenVK. A copy is bundled via `Silk.NET.MoltenVK.Native`, so nothing needs to be installed to run. Installing the [Vulkan SDK](https://vulkan.lunarg.com) is still recommended for development — it provides the validation layers and `glslc`. `VulkanLoaderBootstrap` hands the Vulkan library to SDL (`SDL_Vulkan_LoadLibrary`) and Silk.NET explicitly, because modern macOS dyld no longer finds `/usr/local/lib` when the loader is dlopened by name.
+**macOS:** Vulkan runs through MoltenVK. A copy is bundled via `Silk.NET.MoltenVK.Native`, so nothing needs to be installed to run. Installing the [Vulkan SDK](https://vulkan.lunarg.com) is still recommended for development — it provides the validation layers and `slangc`. `VulkanLoaderBootstrap` hands the Vulkan library to SDL (`SDL_Vulkan_LoadLibrary`) and Silk.NET explicitly, because modern macOS dyld no longer finds `/usr/local/lib` when the loader is dlopened by name.
 
 ---
 

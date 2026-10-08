@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace MainframeEngine.Tests.Canvas;
 
-/// <summary>Godot canvas_item shaders → GLSL (ADR 0113): uniform layout, defaults, hints, render modes, value packing.</summary>
+/// <summary>Godot canvas_item shaders → Slang (ADR 0113, ADR 0144): uniform layout, defaults, hints, render modes, value packing.</summary>
 public sealed class CanvasShaderCompilerTests
 {
     private const string Fog = """
@@ -40,8 +40,11 @@ public sealed class CanvasShaderCompilerTests
         Assert.Equal([1f, 1f], u["world_size"].Default!);
         Assert.Equal([0f, 0.9f, 1f, 0.55f], u["colour"].Default!);
         Assert.False(p.HasVertexFunction);
-        Assert.Contains("layout(set = 1, binding = 1) uniform sampler2D fog;", p.FragmentGlsl, StringComparison.Ordinal);
-        Assert.DoesNotContain("comments are dropped", p.FragmentGlsl, StringComparison.Ordinal);
+        Assert.Contains("[[vk::binding(1, 1)]] Sampler2D fog;", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::binding(0, 1)]] cbuffer MaterialUniforms", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("    vec3 seen[4];", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("#include \"canvas.slang\"", p.VertexSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("comments are dropped", p.FragmentSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -51,18 +54,74 @@ public sealed class CanvasShaderCompilerTests
             shader_type canvas_item;
             render_mode blend_add, unshaded;
             varying vec2 v_world;
+            varying flat int v_id;
             float twice(float x) { return x * 2.0; }
-            void vertex() { v_world = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy; }
-            void fragment() { COLOR.a = twice(v_world.x); }
+            void vertex() { v_world = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy; v_id = VERTEX_ID; }
+            void fragment() { COLOR.a = twice(v_world.x) + float(v_id); }
             """);
         Assert.Equal(CanvasBlendMode.Add, p.BlendMode);
         Assert.True(p.Unshaded);
         Assert.True(p.HasVertexFunction);
-        Assert.Contains("layout(location = 2) out vec2 v_world;", p.VertexGlsl, StringComparison.Ordinal);
-        Assert.Contains("layout(location = 2) in vec2 v_world;", p.FragmentGlsl, StringComparison.Ordinal);
-        Assert.DoesNotContain("void fragment()", p.VertexGlsl, StringComparison.Ordinal);
-        Assert.DoesNotContain("void vertex()", p.FragmentGlsl, StringComparison.Ordinal);
-        Assert.Contains("float twice(float x)", p.VertexGlsl, StringComparison.Ordinal);
+        // Varyings are static globals the user code writes and reads, copied through the stage interface structs.
+        Assert.Contains("static vec2 v_world;", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::location(2)]] vec2 v_world;", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("o.v_world = v_world;", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::location(3)]] nointerpolation int v_id;", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("static vec2 v_world;", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::location(2)]] vec2 v_world;", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::location(3)]] nointerpolation int v_id;", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("v_world = input.v_world;", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("[shader(\"vertex\")]", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("[shader(\"fragment\")]", p.FragmentSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("void fragment()", p.VertexSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("void vertex()", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("float twice(float x)", p.VertexSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheVertexStageWritesOnlyTheFragmentStagesInputs()
+    {
+        const string source = """
+            shader_type canvas_item;
+            varying vec2 v_world;
+            varying flat int v_id;
+            void vertex() { v_world = VERTEX; v_id = VERTEX_ID; }
+            void fragment() { COLOR = vec4(float(v_id)); }
+            """;
+        var all = CanvasShaderCompiler.Translate(source);
+        Assert.Contains("o.colorInterp = COLOR;", all.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("o.v_world = v_world;", all.VertexSource, StringComparison.Ordinal);
+
+        // The compiled fragment stage kept locations 0 (UV/VERTEX) and 3 (v_id): colour and v_world were dropped.
+        var pruned = CanvasShaderCompiler.Translate(source, fragmentInputs: new HashSet<int> { 0, 3 });
+        Assert.DoesNotContain("colorInterp", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("[[vk::location(2)]] vec2 v_world;", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("o.v_world", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::location(0)]] vec4 uvVertexInterp;", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("[[vk::location(3)]] nointerpolation int v_id;", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("o.v_id = v_id;", pruned.VertexSource, StringComparison.Ordinal);
+        Assert.Equal(all.FragmentSource, pruned.FragmentSource);
+    }
+
+    [Fact]
+    public void OneArgumentMatrixConstructorsKeepGlslMeaning()
+    {
+        // Slang (even with -allow-glsl) fills every element from mat4(k) and rejects mat3(mat2); GLSL builds a diagonal and
+        // resizes. One-argument constructors in the user's code go through canvas.slang's glsl_matN helpers.
+        var p = CanvasShaderCompiler.Translate("""
+            shader_type canvas_item;
+            uniform mat2 turn;
+            const mat4 IDENTITY = mat4(1.0);
+            mat3 grow(mat2 m) { return mat3(m); }
+            void vertex() { mat4 m = mat4 (1.0); m[3].xy = vec2(4.0); VERTEX = (m * IDENTITY * vec4(VERTEX, 0.0, 1.0)).xy; }
+            void fragment() { COLOR.rgb = mat3(mat2(2.0)) * COLOR.rgb + grow(turn)[2] + mat2(1.0, 0.0, 0.0, 1.0)[0].xxy; }
+            """);
+        Assert.Contains("const mat4 IDENTITY = glsl_mat4(1.0);", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("return glsl_mat3(m);", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("mat4 m = glsl_mat4(1.0);", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("glsl_mat3(glsl_mat2(2.0))", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("mat2(1.0, 0.0, 0.0, 1.0)", p.FragmentSource, StringComparison.Ordinal); // several arguments: unchanged
+        Assert.DoesNotContain("glsl_mat2(1.0, 0.0", p.FragmentSource, StringComparison.Ordinal);
     }
 
     [Fact]

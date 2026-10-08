@@ -4,7 +4,7 @@ namespace MainframeEngine.RenderTests;
 
 /// <summary>
 /// CPU reference for the <c>sky-grid</c> scene: the procedural sky colour of a pixel (a mirror of
-/// <c>include/sky.glsl</c> + <c>Sky.Procedural.vk.frag</c> + <c>Tonemap.vk.frag</c>) and where the grid's lines
+/// <c>include/sky.slang</c> + <c>Sky.Procedural.vk.frag</c> + <c>Tonemap.vk.frag</c>) and where the grid's lines
 /// project (so the test knows which pixels must show the sky).
 /// </summary>
 internal static class SkyGridReference
@@ -14,7 +14,7 @@ internal static class SkyGridReference
     {
         // The scene viewport is Y-flipped: NDC +y is the top row.
         var ndc = new Vector4((x + 0.5f) / width * 2f - 1f, 1f - (y + 0.5f) / height * 2f, 1f, 1f);
-        var view = Vector4.Transform(ndc, frame.InverseProjection); // GLSL M·v on the uploaded matrix = v·M here
+        var view = Vector4.Transform(ndc, frame.InverseProjection); // the shader's mul(v, M) on the uploaded matrix
         view /= view.W;
         return Vector3.Normalize(Vector3.TransformNormal(new Vector3(view.X, view.Y, view.Z), frame.InverseViewRotation));
     }

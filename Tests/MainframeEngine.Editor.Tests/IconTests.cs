@@ -253,6 +253,7 @@ public sealed partial class IconAtlasTests
     [InlineData("hud.rcss", false, "file-type-css", "icon-ui")]
     [InlineData("es.po", false, "language", "")]
     [InlineData("Mesh.vk.frag", false, "file-code", "")]
+    [InlineData("Mesh.vk.frag.slang", false, "file-code", "")]
     [InlineData("Mesh.vk.frag.spv", false, "binary", "")]
     [InlineData("Player.cs", false, "brand-c-sharp", "")]
     [InlineData("project.mfproj", false, "file-settings", "")]
@@ -266,6 +267,12 @@ public sealed partial class IconAtlasTests
         Assert.Equal(family, EditorIcons.FileFamily(path, directory));
         IconAtlas.AssertExists(icon, path);
     }
+
+    [Theory]
+    [InlineData("Mesh.vk.frag.slang")]
+    [InlineData("include/common.slang")]
+    public void SlangSourcesAreShaderFiles(string path) =>
+        Assert.Equal(FileKind.Shader, FileKinds.Of(path, isDirectory: false));
 
     [Fact]
     public void EveryResolverIconIsInTheAtlas()

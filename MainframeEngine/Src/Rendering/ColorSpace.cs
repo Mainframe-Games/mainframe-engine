@@ -3,7 +3,7 @@ using System.Numerics;
 namespace MainframeEngine;
 
 /// <summary>
-/// sRGB ↔ linear conversions (IEC 61966-2-1), matching <c>include/common.glsl</c>. The engine lights and blends in
+/// sRGB ↔ linear conversions (IEC 61966-2-1), matching <c>include/common.slang</c>. The engine lights and blends in
 /// linear space; colours authored by people (pickers, <see cref="System.Drawing.Color"/>, light and sky colours)
 /// are sRGB and are converted once, where they enter the pipeline. See docs/design/color-pipeline.md.
 /// </summary>

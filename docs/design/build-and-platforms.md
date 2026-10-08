@@ -75,27 +75,28 @@ project references. A game copies its own `Content\**` as well.
 
 ### Shaders
 
-Shaders are GLSL in `MainframeEngine/Content/Shaders/**` (`*.vk.*`, shared includes in `include/`).
+Shaders are Slang in `MainframeEngine/Content/Shaders/**` (`*.vk.<stage>.slang`, shared includes in `include/`;
+[ADR 0144](../../memory/decisions/0144-slang-shader-language.md), rules in [Shaders](shaders.md#writing-shaders)).
 **`dotnet build` compiles them** ([`build/Shaders.targets`](../../build/Shaders.targets),
 [ADR 0007](../../memory/decisions/0007-build-time-shaders-and-shared-limits.md)):
 
 | Target | What it does |
 |---|---|
-| `GenerateShaderLimits` | `Content/Shaders/limits.json` → `Src/Rendering/Generated/ShaderLimits.g.cs` + `include/limits.glsl` (rewritten only when the content changes; both committed) |
-| `CompileShaders` | Incremental (sources, includes, `limits.json`): `glslc --target-env=vulkan1.2 -I Content/Shaders/include` → `obj/<config>/Shaders/**.spv`; glslc errors are build errors. glslc = `$(Glslc)`, `$(VULKAN_SDK)/bin/glslc` or `PATH`. |
-| `IncludeShadersInOutput` | Copies the compiled `.spv` (or, without glslc, the committed ones after warning `MFSHADER001`) to `Content/Shaders/` in every output |
+| `GenerateShaderLimits` | `Content/Shaders/limits.json` → `Src/Rendering/Generated/ShaderLimits.g.cs` + `include/limits.slang` (rewritten only when the content changes; both committed) |
+| `CompileShaders` | Incremental (sources, includes, `limits.json`): `slangc -target spirv -capability spirv_1_5 -matrix-layout-row-major -entry main -stage <stage> -I Content/Shaders/include` → `obj/<config>/Shaders/**.spv`; slangc errors are build errors. slangc = `$(Slangc)`, `$(VULKAN_SDK)/bin/slangc` or `PATH`. |
+| `IncludeShadersInOutput` | Copies the compiled `.spv` (or, without slangc, the committed ones after warning `MFSHADER001`) to `Content/Shaders/` in every output |
 
-`-p:CompileShaders=false` uses the committed `.spv` files (CI does: no glslc on the runners, and the
+`-p:CompileShaders=false` uses the committed `.spv` files (CI does: no slangc on the build runners, and the
 warning would fail `-warnaserror`). The committed `.spv` files are the fallback for machines without
 the Vulkan SDK; [`build/shaders.sh`](../../build/shaders.sh) (POSIX sh, used by `just` and CI) keeps
 them current:
 
 | Command | What it does |
 |---|---|
-| `just shaders` | `glslc --target-env=vulkan1.2 -I MainframeEngine/Content/Shaders/include` on every engine `*.vk.{vert,frag,comp}` (same flags as the build), `spirv-val` each result, then rewrite `MainframeEngine/Content/Shaders/shaders.lock` |
+| `just shaders` | `slangc` with the build's flags on every engine `*.vk.{vert,frag,comp}.slang` (same flags as the build), `spirv-val` each result, then rewrite `MainframeEngine/Content/Shaders/shaders.lock` |
 | `just shaders-check` | Fails if a source, an include or a `.spv` no longer matches the lock (source edited without recompiling, or `.spv` not committed) |
 
-The lock stores the sha256 of each source and of its `.spv`, and of each `include/*.glsl`. After
+The lock stores the sha256 of each source and of its `.spv`, and of each `include/*.slang`. After
 editing a shader or include, run `just shaders` and commit the `.spv` files with the lock. See
 [Shaders](shaders.md).
 
@@ -116,7 +117,7 @@ files; `publish.yml`'s editor builds follow the same pattern, and `natives.yml`'
 |---|---|
 | `build-test` (ubuntu-24.04, windows-latest, macos-14) | `dotnet build -c Release -warnaserror -p:CompileShaders=false` (committed `.spv`), unit tests with coverage; uploads `.trx` results and (Linux) Cobertura coverage |
 | `format` | `dotnet format --verify-no-changes --exclude Plugins/Spine` |
-| `shaders` | apt `glslc` + `spirv-tools`, compiles every shader to a temp dir, `spirv-val`, `build/shaders.sh check` |
+| `shaders` | Slang v2026.1 from its GitHub release (SHA-256 pinned) + apt `spirv-tools`, compiles every shader to a temp dir, `spirv-val`, `build/shaders.sh check` |
 | `render-tests` | Ubuntu with lavapipe (`mesa-vulkan-drivers`, `VK_DRIVER_FILES` = `lvp_icd.json`), `vulkan-validationlayers`, Xvfb; compares against `Goldens/lavapipe/`; uploads `artifacts/render-tests` (frames, diffs). Re-recording: [Testing](testing.md#golden-images) |
 | `template` | Ubuntu with lavapipe + Xvfb: `build/template-smoke.sh` installs the `mfgame` template from source, builds a game against the checkout (Release, warnings as errors) and runs its desktop project (`GameHost`) for 30 hidden frames, failing on logged errors; packs `MainframeEngine.Templates`. See [Projects & GameHost](project-and-gamehost.md#template) |
 | `ci-success` | Runs always; fails unless every job above succeeded. **The required status check** in the `main` ruleset — do not rename. |
