@@ -5,19 +5,22 @@ public readonly record struct ProjectIcon(string? Path, bool Changed);
 
 /// <summary>
 /// Resolves <c>window.icon</c> of a project (its icon, as in Godot) to an existing PNG inside the project folder, caching
-/// by the modification times of <c>project.mfproj</c> and the icon. Never throws for a bad project.
+/// by the modification time and size of <c>project.mfproj</c> (two quick writes can share a timestamp) and the icon's
+/// modification time. Never throws for a bad project.
 /// </summary>
 public sealed class ProjectIconResolver
 {
-    private readonly Dictionary<string, (DateTime ProjectWrite, string? Candidate, DateTime IconWrite)> _cache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (FileStamp Project, string? Candidate, DateTime IconWrite)> _cache = new(StringComparer.Ordinal);
+
+    private readonly record struct FileStamp(DateTime Write, long Length);
 
     public ProjectIcon Resolve(string projectDirectory)
     {
         var root = Path.GetFullPath(projectDirectory);
         var projectFile = GameProjectLayout.ProjectFileOf(root);
-        var projectWrite = File.Exists(projectFile) ? File.GetLastWriteTimeUtc(projectFile) : DateTime.MinValue;
+        var projectInfo = new FileInfo(projectFile);
 
-        if (projectWrite == DateTime.MinValue)
+        if (!projectInfo.Exists)
         {
             _cache.Remove(root);
             return new ProjectIcon(null, false);
@@ -25,13 +28,14 @@ public sealed class ProjectIconResolver
 
         var isFirstResolution = !_cache.ContainsKey(root);
         _cache.TryGetValue(root, out var cached);
-        var candidate = cached.ProjectWrite == projectWrite ? cached.Candidate : ReadIcon(root, projectFile);
+        var projectStamp = new FileStamp(projectInfo.LastWriteTimeUtc, projectInfo.Length);
+        var candidate = cached.Project == projectStamp ? cached.Candidate : ReadIcon(root, projectFile);
         var iconWrite = candidate is not null && File.Exists(candidate) ? File.GetLastWriteTimeUtc(candidate) : DateTime.MinValue;
         var icon = candidate is not null && iconWrite != DateTime.MinValue ? candidate : null;
         var previousIcon = cached.Candidate is not null && cached.IconWrite != DateTime.MinValue ? cached.Candidate : null;
         var changed = isFirstResolution || previousIcon != icon || (icon is not null && cached.IconWrite != iconWrite);
 
-        _cache[root] = (projectWrite, candidate, iconWrite);
+        _cache[root] = (projectStamp, candidate, iconWrite);
         return new ProjectIcon(icon, changed);
     }
 
