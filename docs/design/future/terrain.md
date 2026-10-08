@@ -164,7 +164,7 @@ mode (ADR 0127). It has no per-frame callback of its own.
   every chunk. `CollisionMode.NearBodies` (default above) keeps chunk shapes only within `CollisionRadius` (96 m) of
   a moving body, from a pool, built on the fixed tick before the step. The moving-body bounds come from a new read call in
   `Src/Physics`, so no Jitter2 code leaves it. `Terrain3D.Raycast` stays exact everywhere; physics ray queries far from
-  bodies are an [open question](#open-questions).
+  bodies test terrains analytically ([decision 2](#decisions)).
 
 ### Queries and the runtime API
 
@@ -678,26 +678,30 @@ G8a.1–G8a.10 are the Faceted profile, on today's Blinn-Phong renderer. G8a.11�
 16. **G8a.16 Realistic grass.** `GrassMesh.Clump`, `FoliageMaterial3D` foliage (after G8b), distance shrink;
     forest-scale benchmark; docs.
 
-## Open questions
+## Decisions
 
-1. **Realistic LOD scheme.** Geomipmapping with skirts (proposed) or CDLOD with vertex morphing? **Default:**
+Decided by the user on 2026-10-08, who accepted every default, and recorded in
+[ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md). Each entry keeps the question it
+settled; **Decision:** is what to build.
+
+1. **Realistic LOD scheme.** Geomipmapping with skirts (proposed) or CDLOD with vertex morphing? **Decision:**
    geomipmapping; it reuses G6.4 and every existing pass. Revisit CDLOD if pops show in G8d.
 2. **Collision on large maps.** Per-chunk trimesh near moving bodies, or a heightfield proxy in `Src/Physics` that
    makes triangle contacts on demand? And in `NearBodies` mode `DirectSpaceState.RayCast` misses unbuilt chunks.
-   **Default:** trimesh near bodies, plus a registration in `Src/Physics` so ray queries also test terrains
+   **Decision:** trimesh near bodies, plus a registration in `Src/Physics` so ray queries also test terrains
    analytically and report the terrain's collision body.
 3. **Compact terrain vertex.** An 8-byte vertex (height + octahedral normal, XZ from the index) would cut chunk memory
-   by four but needs its own vertex shader and caster pipeline. **Default:** `MeshVertex` in v1; measure at 2 km.
+   by four but needs its own vertex shader and caster pipeline. **Decision:** `MeshVertex` in v1; measure at 2 km.
 4. **Splat layout.** Two RGBA8 weight maps (8 layers) or an index + weight map (up to 16 layers, 4 per texel)?
-   **Default:** 8 layers.
-5. **Anti-tiling method.** Hex-tiling or stochastic texturing (Heitz and Neyret)? **Default:** hex-tiling; it keeps
+   **Decision:** 8 layers.
+5. **Anti-tiling method.** Hex-tiling or stochastic texturing (Heitz and Neyret)? **Decision:** hex-tiling; it keeps
    the texture's contrast and needs no precomputed histogram.
 6. **Texture compression.** Three RGBA8 arrays of 8 layers at 1024² with mips are about 128 MB of GPU memory.
-   **Default:** RGBA8 now (`LayerTextureSize` 512 halves it twice); BC7/ASTC with the M12 KTX2 work.
-7. **Several terrains per scene** (tiles that stitch). **Default:** one per scene in v1; several `Terrain3D` nodes work
+   **Decision:** RGBA8 now (`LayerTextureSize` 512 halves it twice); BC7/ASTC with the M12 KTX2 work.
+7. **Several terrains per scene** (tiles that stitch). **Decision:** one per scene in v1; several `Terrain3D` nodes work
    but do not share edges or LOD.
 8. **Brush masks.** Regenerate TerraBrush's five masks under the same names, or copy them under MIT with a notice?
-   **Default:** regenerate; they are simple shapes.
+   **Decision:** regenerate; they are simple shapes.
 
 ## Related
 

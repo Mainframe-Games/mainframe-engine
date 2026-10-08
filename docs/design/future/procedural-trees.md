@@ -65,7 +65,7 @@ presets and save them as JSON. This proposal ports it to C# and adds what a game
 - Growth animation or seasons (leaf colour over time, bare winter trees). A game can swap materials itself.
 - Interaction with the wind (characters pushing foliage, wind zones). One global wind per world in G8b.
 - Ez Tree's web UI, GLB export and PNG export. The editor inspector replaces the UI, and Bake replaces export.
-- Ez Tree's trellis geometry (see [open question 3](#open-questions)).
+- Ez Tree's trellis geometry (see [decision 3](#decisions)).
 - A generic mesh simplifier. LowPoly blobs are built simplified rather than decimated afterwards.
 
 ## Design
@@ -567,7 +567,7 @@ directions, so it reads correctly from any angle.
 - **Atlases.** Two per tree: albedo + alpha (sRGB, cutout), and object-space normal + depth (linear; depth offsets
   the shadow lookup). They fill set 2's albedo and normal slots, so there is no binding change. They are saved as PNG
   next to the `.mres`. In memory, two 1024² RGBA8 atlases with mips take about 11 MB per baked variant
-  ([open question 6](#open-questions)).
+  ([decision 6](#decisions)).
 - **Bake** (`TreeImpostorBaker`, editor only). It renders the tree's LOD0 orthographically from each grid direction,
   with no lighting and no wind. It uses an offscreen view and the capture path of ADR 0136
   (`MainframeEngine/Src/Rendering/Meshes/SubViewportCapture.cs`), extended with an untonemapped linear target and two
@@ -722,33 +722,37 @@ G8b.1–G8b.3 ship first: the generator, LowPoly, Bake and the inspector need ne
    both `ScatterObjectType` modes and the backdrop `FoliageType`; the 10k allocation gate; hand-over to
    [Forest showcase](forest-showcase.md) (G8d).
 
-## Open questions
+## Decisions
+
+Decided by the user on 2026-10-08, who accepted every default, and recorded in
+[ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md). Each entry keeps the question it
+settled; **Decision:** is what to build.
 
 1. **Port fidelity vs C# idioms.** A literal port with three.js math in doubles keeps seeds and the presets' look
    identical, and lets artists use Ez Tree's web app as a designer. An idiomatic rewrite (System.Numerics floats,
-   recursion) would be shorter, but every seed would give a different tree. **Default:** literal port inside
+   recursion) would be shorter, but every seed would give a different tree. **Decision:** literal port inside
    `Generation/`, idiomatic C# around it (`Tree3D`, meshers for the engine's styles).
-2. **Bark UV mode.** Ez Tree's V ping-pongs 0/1 per ring, so the bark texture mirrors at every section. **Default:**
+2. **Bark UV mode.** Ez Tree's V ping-pongs 0/1 per ring, so the bark texture mirrors at every section. **Decision:**
    `Continuous` (V by arc length over the circumference) for new trees and presets. `EzTree` for parity tests and
    imported JSON that wants the exact look.
 3. **Trellis.** Ez Tree pulls branches toward a trellis grid (`trellis.js`, `calculateTrellisForce`). It is useful for
-   vines and espaliers, and not needed by forests or low-poly games. **Default:** no in G8b. Keep a slot for the force
+   vines and espaliers, and not needed by forests or low-poly games. **Decision:** no in G8b. Keep a slot for the force
    in `TreeParams`, and port it with `trellis.json` as preset 16 when a game asks. The trellis mesh itself stays a
    game asset.
 4. **Runtime generation default.** `WhenNotBaked` keeps unbaked scenes working and warns. `Never` makes the cost
-   visible. **Default:** `WhenNotBaked` in the editor and debug builds. Exported release builds log an error per
+   visible. **Decision:** `WhenNotBaked` in the editor and debug builds. Exported release builds log an error per
    unbaked tree, but still generate it.
 5. **`Scale` default.** 0.3 makes Oak Medium up to about 20 m tall. Per-preset scales would be closer to real
-   species, but the presets would no longer be pure Ez Tree values. **Default:** one engine-wide 0.3, set in every
+   species, but the presets would no longer be pure Ez Tree values. **Decision:** one engine-wide 0.3, set in every
    preset `.mres` as a separate engine-only field.
 6. **Impostor memory.** Two 2048² RGBA8 atlases with mips take about 45 MB per baked variant; at 1024² it is about
-   11 MB. The engine has no block compression yet. **Default:** 1024² (8 × 8 at 128 px), 2048² as an option. Revisit
+   11 MB. The engine has no block compression yet. **Decision:** 1024² (8 × 8 at 128 px), 2048² as an option. Revisit
    with GPU texture compression (M12 mobile).
-7. **Evergreen LowPoly shape.** Pines read better as stacked cones than as icosphere blobs. **Default:** add
+7. **Evergreen LowPoly shape.** Pines read better as stacked cones than as icosphere blobs. **Decision:** add
    `BlobShape.Cone`, chosen automatically for `TreeType.Evergreen` LowPoly. The cone is oriented along the parent
    branch.
 8. **Where the generator runs in the editor.** Synchronous regeneration once per frame is simple. Large trees (Ash
-   Large, 28 098 vertices) may make sliders stutter. **Default:** synchronous; move to a worker with a "generating…"
+   Large, 28 098 vertices) may make sliders stutter. **Decision:** synchronous; move to a worker with a "generating…"
    overlay if the benchmark exceeds 8 ms.
 
 ## Related

@@ -74,7 +74,7 @@ and an allocation-free reverb (`MainframeEngine/Src/Audio/AudioBusLayout.cs:139`
 - Volumetric clouds, weather, a day-night cycle (the sun can move and the sky follows, but the showcase is one morning).
 - Depth of field, motion blur, upscaling (FSR, TAAU), HDR display output, VR.
 - Gameplay: NPCs, animals with AI, interaction, objectives. Butterflies and birdsong are ambience.
-- A first-person controller in the engine ([open question 1](#open-questions)), and any change to the Demo.
+- A first-person controller in the engine ([decision 1](#decisions)), and any change to the Demo.
 
 ## Design
 
@@ -246,7 +246,7 @@ it, with reference shots R1–R5 on or near it.
 Forest code (`Forest/Src/Player/`), Godot-shaped and allocation-free:
 
 ```csharp
-public class FirstPersonController : CharacterBody3D             // Forest code; promotion is open question 1
+public class FirstPersonController : CharacterBody3D             // Forest code; promotion: decision 1
 {
     [Export] public float WalkSpeed { get; set; } = 2.5f;          // m/s
     [Export] public float SprintSpeed { get; set; } = 5f;
@@ -319,7 +319,7 @@ sensitivity and invert Y (`game.mouseSensitivity`, `game.invertY`), gamepad look
 | 1 | PBR (GGX), image-based lighting from the sky | metallic-roughness `StandardMaterial3D`, radiance cube | G6.1, G6.2 |
 | 2 | Physically based sky and sun (SkyAtmosphere, HDRP Physically Based Sky) | `Sky.Mode = Physical` | **G8d.1** |
 | 3 | Exponential height fog with sun in-scattering | `WorldEnvironment` fog | **G8d.2** |
-| 4 | Light shafts | screen-space `LightShafts` (froxel fog: open question 2) | **G8d.6** |
+| 4 | Light shafts | screen-space `LightShafts` (froxel fog: decision 2) | **G8d.6** |
 | 5 | Eye adaptation | `AutoExposure` histogram | **G8d.3** |
 | 6 | Filmic tonemap, bloom, LUT grading | ACES (ADR 0006), glow (ADR 0124), `ColorGradingLut` | exists, **G8d.4** |
 | 7 | Temporal AA (TAA, TSR, DLAA) | `AntiAliasing.Taa`; FXAA fallback | **G8d.8**, G8d.4 |
@@ -514,7 +514,7 @@ the GTAO pass. **M11: waits** for the depth prepass, which G6.6 builds after M11
   about 8 frames. That is TAA's main benefit in a forest. Distant canopy thinning is handled by coverage-preserving
   alpha mips (G8b); flicker of bright sky through needles by the luminance weighting and the slightly wide clip box;
   ghosting behind swaying branches by true wind velocity and velocity-difference disocclusion. G8b's dithered
-  mesh-to-impostor fade resolves to a smooth fade under TAA ([open question 10](#open-questions) covers mesh LODs).
+  mesh-to-impostor fade resolves to a smooth fade under TAA ([decision 10](#decisions) covers mesh LODs).
 - **Cost:** ≈ 0.5 ms resolve + 0.2 ms for velocity; ≈ 74 MiB at 1440p (two RGBA16F histories, one RG16F velocity).
   **MoltenVK:** ping-pong images (never read and write one image); RG16F colour attachments are core; the second
   prepass attachment fits Apple's tile memory. **M11: waits.** A second prepass attachment on every opaque pipeline,
@@ -585,7 +585,7 @@ mips); rocks 272 and logs 128; impostor atlases ≈ 150 (≈ 14 tree variants ×
 120; render targets ≈ 200 (HDR, two depths, velocity, colour copy, two TAA histories, glow, AO, shafts); shadows 64
 (4 × 2048² D32); meshes, instance buffers and terrain chunks ≈ 150; the HDRI option, radiance cube and sky LUTs ≈ 70.
 Textures are uncompressed RGBA8 today; BC7/BC5 through M12's KTX2 path would cut ≈ 1 GiB to ≈ 0.3 GiB
-([open question 3](#open-questions)).
+([decision 3](#decisions)).
 
 **Allocation:** 0 B per frame in steady state, checked over the auto-walk and the fly-through ([Testing](#testing));
 birds, footsteps, butterflies and river emitters use preallocated pools. **Load:** ≤ 10 s from launch to the first frame
@@ -697,33 +697,37 @@ are measured.
 16. **G8d.16 Release.** `build/package-example.sh`, the `forest` job in `publish.yml`, the Download dialog's example
     picker, `just forest-screenshots` and the README row, `docs/design/forest.md`, the ADR.
 
-## Open questions
+## Decisions
+
+Decided by the user on 2026-10-08, who accepted every default, and recorded in
+[ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md). Each entry keeps the question it
+settled; **Decision:** is what to build.
 
 1. **Promote `FirstPersonController` to the engine?** Unity ships one in its starter assets and Unreal in its templates;
-   Godot has none. **Default:** keep it in the Forest; when a second project needs it, make it a `dotnet new mfgame`
+   Godot has none. **Decision:** keep it in the Forest; when a second project needs it, make it a `dotnet new mfgame`
    template option rather than an engine node.
 2. **Froxel volumetric fog** (shafts that work off-screen, local lights in fog) needs a 3D froxel grid filled per frame,
-   which is compute work. **Default:** no; revisit after M11 brings compute. Screen-space shafts and analytic height fog
+   which is compute work. **Decision:** no; revisit after M11 brings compute. Screen-space shafts and analytic height fog
    cover the reference shots.
 3. **Desktop texture compression** (BC7/BC5 through M12's KTX2 reader and `mf-cook`) would cut texture memory ≈ 4×.
-   **Default:** not required for the 2 GiB budget; adopt it when the M12 cooker lands.
-4. **Upscaling for Medium** (TAAU, FSR 1). **Default:** no; Medium renders 1080p natively.
-5. **Clouds with the physical sky.** **Default:** none (a clear morning; the HDRI option has clouds). A 2D cloud layer
+   **Decision:** not required for the 2 GiB budget; adopt it when the M12 cooker lands.
+4. **Upscaling for Medium** (TAAU, FSR 1). **Decision:** no; Medium renders 1080p natively.
+5. **Clouds with the physical sky.** **Decision:** none (a clear morning; the HDRI option has clouds). A 2D cloud layer
    in the sky shader can come later.
 6. **Self-contained player builds in the release** help people without the SDK but cost release time and storage.
-   **Default:** attach osx-arm64 and win-x64 Forest player zips (`just package-game`); the source zip is always
+   **Decision:** attach osx-arm64 and win-x64 Forest player zips (`just package-game`); the source zip is always
    attached.
-7. **LFS quota.** ≈ 250 MB of new LFS content counts against the organisation's storage and bandwidth. **Default:** stay
+7. **LFS quota.** ≈ 250 MB of new LFS content counts against the organisation's storage and bandwidth. **Decision:** stay
    within the 400 MB budget, check the quota before G8d.11, and never pull Forest content in CI.
-8. **Underwater rendering.** G8c leaves underwater fog to G8d. **Default:** none; the walk never goes below 1.2 m of
+8. **Underwater rendering.** G8c leaves underwater fog to G8d. **Decision:** none; the walk never goes below 1.2 m of
    immersion, so the camera never enters the water.
-9. **Sun colour from the atmosphere.** The physical sky knows the sun's transmittance. **Default:** the light colour
+9. **Sun colour from the atmosphere.** The physical sky knows the sun's transmittance. **Decision:** the light colour
    stays authored; a `Sky` option to drive it can come with a day-night cycle.
-10. **Dithered cross-fade between mesh LODs** (G6 has none; G8b fades only mesh to impostor). **Default:** add it in
+10. **Dithered cross-fade between mesh LODs** (G6 has none; G8b fades only mesh to impostor). **Decision:** add it in
     G8d.8 only if mesh LOD pops are visible in R4.
-11. **Grass that bends around the player** (a player-position push in G8a's grass shader). **Default:** no; it is not in
+11. **Grass that bends around the player** (a player-position push in G8a's grass shader). **Decision:** no; it is not in
     the reference shots.
-12. **Post effects in the editor viewport** (root-world only, like glow). **Default:** Play only; the editor shows the
+12. **Post effects in the editor viewport** (root-world only, like glow). **Decision:** Play only; the editor shows the
     forward-shaded fog and physical sky.
 
 ## Related

@@ -50,6 +50,39 @@ G6 plans PBR, IBL, LOD, particles and SSAO, but lists impostors, TAA and volumet
   - Trees, grass and terrain shape are generated in the engine.
 - **New shaders are Slang** (ADR 0144). New 3D looks are built-in material types (the ADR 0132 pattern), not user shaders.
 
+### Open questions settled (the user accepted every default, 2026-10-08)
+
+Each proposal's "Decisions" section has the full list. The ones that shape the work:
+
+- **Terrain (G8a):**
+  - Realistic LOD is geomipmapping with skirts on G6.4 index-only LODs (not CDLOD).
+  - Collision is per-chunk trimesh near moving bodies, and physics ray queries test terrains analytically.
+  - `MeshVertex` in v1 (no compact terrain vertex).
+  - 8 splat layers in two RGBA8 weight maps, with hex-tiling anti-tiling.
+  - RGBA8 layer textures until the M12 cooker.
+  - One terrain per scene; brush masks are regenerated rather than copied from TerraBrush.
+- **Trees (G8b):**
+  - A literal port in `Generation/` with idiomatic C# around it.
+  - `Continuous` bark UVs (Ez Tree's mirrored UVs only for parity tests).
+  - No trellis yet.
+  - Runtime generation only when not baked (editor and debug builds).
+  - 1024² impostors.
+  - Synchronous generation in the editor.
+- **Water (G8c):**
+  - `SceneTextures` follows G6's rule and waits for M11 step 1. Ponds, streams and the fallback look ship before it.
+  - Uses a depth prepass shared with G6.6 (not a depth copy).
+  - Explicit Carve and Re-carve (no auto-carve).
+  - No lake flow brush, engine buoyancy node or underwater fog yet.
+  - Faceted water stays static.
+- **Forest showcase (G8d):**
+  - `FirstPersonController` stays in the Forest project.
+  - No froxel volumetric fog until M11 brings compute; no upscaling for Medium; no clouds with the physical sky.
+  - Desktop texture compression waits for the M12 cooker.
+  - The release attaches osx-arm64 and win-x64 Forest player zips.
+  - Dithered cross-fade between mesh LODs is added.
+  - No grass that bends around the player.
+  - Post effects run in Play only, not in the editor viewport.
+
 ## Consequences
 
 - The engine gains these prerequisites:

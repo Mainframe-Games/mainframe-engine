@@ -64,7 +64,7 @@ both terrain profiles, then adds flowing water and a water material.
 
 - Oceans, FFT or Gerstner waves, vertex displacement, tessellation, shallow-water simulation.
 - Interactive ripples (TerraBrush's ripple buffer), wakes, a splash system (games spawn particles).
-- Swimming, drowning, an engine buoyancy node ([open questions](#open-questions)).
+- Swimming, drowning, an engine buoyancy node ([decisions](#decisions)).
 - Underwater rendering beyond detection; planar reflections, reflection probes, refraction of transparent surfaces.
 - Compute shaders (the engine has none; everything here is raster passes).
 - Painted flow on lakes in the core steps (the layer reserves channels for it).
@@ -151,7 +151,7 @@ public sealed class Curve3D : Resource                        // new, MainframeE
   then resample at equal arc length with cumulative distances. Tilt, width and depth interpolate with smoothstep between
   anchors. Baked arrays grow only when the point count grows.
 - **Sampling** is a binary search over the distances; `GetClosestOffset` projects onto each baked segment. Neither
-  allocates. Godot's up vectors are left out ([open question 8](#open-questions)).
+  allocates. Godot's up vectors are left out ([decision 8](#decisions)).
 - **Determinism:** baking uses only `+ − × ÷` and `MathF.Sqrt`, which IEEE 754 rounds correctly and the .NET JIT never
   contracts into FMAs, so a curve bakes to the same bits on x64 and arm64. The carve relies on this.
 
@@ -474,7 +474,7 @@ public override void OnPhysicsProcess(float delta)
 ```
 
 **Underwater camera.** `IsUnderwater(camera.GlobalPosition)` is the detection; water draws back faces, so the surface
-is visible from below. Underwater fog and engine buoyancy are [open questions](#open-questions); the samples above are
+is visible from below. Underwater fog and engine buoyancy are settled in [decisions](#decisions); the samples above are
 what a game needs to float a `RigidBody3D` from `OnPhysicsProcess`.
 
 ### Audio
@@ -572,7 +572,7 @@ Ponds on Faceted first, then `River3D` geometry, then `WaterMaterial3D` after `S
 5. **G8c.5 River audio.** Stream emitter and falls loops; tests; allocation gate.
 6. **G8c.6 `SceneTextures`.** The prepass (G6.6's step), `ScenePassLoad` and the split, the `MipChainTarget` copy,
    per-view lazy creation, `rendering.sceneTextures`, the mobile tier row; validation and "no water, no change" checks.
-   Built on the M11 step 1 encoder API, like G6.6 ([open question 1](#open-questions)).
+   Built on the M11 step 1 encoder API, like G6.6 ([decision 1](#decisions)).
 7. **G8c.7 `WaterMaterial3D` core.** `ShaderSetId.Water`, the water phase and list, set 2 and set 3 layouts, flow
    normals, absorption and scattering, refraction, Fresnel, IBL reflection, sun specular, foam, soft edges, back faces,
    the fallback, `WaterTextures`; Realistic ponds and rivers switch to it; render tests `water-pond`, `water-river`,
@@ -582,26 +582,30 @@ Ponds on Faceted first, then `River3D` geometry, then `WaterMaterial3D` after `S
 9. **G8c.9 Docs and hand-off.** `docs/design/water.md`, the doc updates in Acceptance, the ADR; streams and a pond in
    G8d's `Examples/Forest`.
 
-## Open questions
+## Decisions
+
+Decided by the user on 2026-10-08, who accepted every default, and recorded in
+[ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md). Each entry keeps the question it
+settled; **Decision:** is what to build.
 
 1. **`SceneTextures` before or after M11 step 1?** It adds a prepass, a pass split and copy passes, the kind of change G6
-   parks behind M11 step 1 for SSAO. **Default:** follow G6's rule. G8c.1–G8c.5 and the fallback look need neither, so
+   parks behind M11 step 1 for SSAO. **Decision:** follow G6's rule. G8c.1–G8c.5 and the fallback look need neither, so
    ponds and streams ship on today's renderer while the split waits.
 2. **Prepass or depth copy?** With SSAO off, copying pass A's depth (one fullscreen pass) is cheaper than a second
    geometry pass. In a forest of alpha-tested foliage, a prepass followed by an equal-depth main pass (G6's prepass
-   reuse question) saves more fragment work than it costs. **Default:** the prepass, one code path shared with G6.6;
+   reuse question) saves more fragment work than it costs. **Decision:** the prepass, one code path shared with G6.6;
    revisit with G6's prepass-reuse decision.
 3. **Auto-carve on release?** It keeps the channel in sync but writes the terrain and an undo step on every drag.
-   **Default:** off; Carve and Re-carve are explicit, and the inspector shows "curve changed since the last carve".
+   **Decision:** off; Carve and Re-carve are explicit, and the inspector shows "curve changed since the last carve".
 4. **Painted lake flow.** A flow brush in the Water mode writing the layer's G and B channels (TerraBrush's flow tool).
-   **Default:** later, when a game needs moving lake water; `Custom0.yz` already carries flow.
+   **Decision:** later, when a game needs moving lake water; `Custom0.yz` already carries flow.
 5. **Buoyancy.** An engine `Buoyancy3D` node (sample points, force from immersion, drag toward the flow) or a
-   documented sample. **Default:** a sample in `docs/design/water.md`; a node once two projects need one.
-6. **Underwater fog.** **Default:** not in G8c (ponds and streams are wading depth); if the showcase needs it, G8d's fog
+   documented sample. **Decision:** a sample in `docs/design/water.md`; a node once two projects need one.
+6. **Underwater fog.** **Decision:** not in G8c (ponds and streams are wading depth); if the showcase needs it, G8d's fog
    gets an underwater override driven by `IsUnderwater`.
-7. **Animated Faceted water.** Bobbing vertices or stepped palette tints for the low-poly sheet. **Default:** static;
+7. **Animated Faceted water.** Bobbing vertices or stepped palette tints for the low-poly sheet. **Decision:** static;
    it keeps G8c.1 shader-free.
-8. **`Curve3D` up vectors.** Godot's `up_vector_enabled` matters for roads and rails, not rivers. **Default:** keep tilt
+8. **`Curve3D` up vectors.** Godot's `up_vector_enabled` matters for roads and rails, not rivers. **Decision:** keep tilt
    in the data; add up vectors when a road or path node needs them.
 
 ## Related
