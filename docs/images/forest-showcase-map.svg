@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 660" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Forest showcase valley map</title>
+  <desc>Top-down map of the 256 by 256 metre forest valley in Examples/Forest, north up, 2 pixels per metre. The rocky outcrop in the north-west holds a 4 metre waterfall where the stream starts. The stream runs south-east through three pools, under a fallen-log bridge, and into a pond in the south; a small outflow leaves the pond to the south-east and is crossed on stepping stones. The dense pine slope covers the north-east and east, the aspen stream bank follows the middle of the stream, and the oak and ash glade lies in the west centre. An orange walking loop of about 590 metres starts at the spawn in the south-west, goes north through the glade, up to the falls viewpoint, down the west bank, over the log bridge, into the edge of the pine slope, around the pond's east and south shores and back. A dashed purple benchmark spline flies low through the glade, past the fall, over the pine canopy, skims the pond and ends near the spawn. Five camera markers R1 to R5 show the reference shots. The morning sun comes from the east-south-east.</desc>
+  <rect width="960" height="660" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:15px;fill:#111827}
+    .lbl{font-weight:600;font-size:12px;fill:#111827}
+    .t{fill:#1f2937;font-size:12px}
+    .s{fill:#4b5563;font-size:11px}
+    .el{fill:#57534e;font-size:11px;font-style:italic}
+    .shot{font-weight:700;font-size:11px;fill:#ffffff}
+  </style>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b45309"/></marker>
+    <marker id="narr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#111827"/></marker>
+  </defs>
+
+  <text x="40" y="34" class="hdr">Examples/Forest: the valley from above (256 × 256 m, north up)</text>
+
+  <!-- map base: mixed woodland and meadow -->
+  <rect x="40" y="60" width="512" height="512" fill="#eef3e2" stroke="#6b7280" stroke-width="1.5"/>
+
+  <!-- ridge shading -->
+  <rect x="40" y="60" width="18" height="512" fill="#d6cfc2" opacity="0.6"/>
+  <rect x="528" y="60" width="24" height="512" fill="#d6cfc2" opacity="0.6"/>
+
+  <!-- zones -->
+  <polygon points="40,60 230,60 236,110 190,150 168,152 130,190 40,200" fill="#dedad6" stroke="#78716c" stroke-width="1.5"/>
+  <polygon points="232,60 552,60 552,410 470,420 410,340 356,268 306,160 238,108" fill="#c4dbb8" stroke="#3f6212" stroke-width="1.5"/>
+  <polygon points="190,165 226,185 262,240 300,290 350,330 372,400 350,430 318,420 286,380 246,320 214,268 184,222 172,190" fill="#f3efc6" stroke="#a16207" stroke-width="1.5"/>
+  <polygon points="56,250 170,232 214,270 246,322 236,420 200,470 120,490 52,440" fill="#e3f2c9" stroke="#4d7c0f" stroke-width="1.5"/>
+
+  <!-- stream (River3D) and outflow -->
+  <polyline points="164,156 184,180 212,216 240,256 268,300 296,340 320,376 336,420 340,452" fill="none" stroke="#2563eb" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <polyline points="430,470 470,520 500,548 552,562" fill="none" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/>
+  <!-- pools -->
+  <circle cx="184" cy="182" r="8" fill="#93c5fd" stroke="#2563eb" stroke-width="1.5"/>
+  <circle cx="240" cy="258" r="9" fill="#93c5fd" stroke="#2563eb" stroke-width="1.5"/>
+  <circle cx="322" cy="378" r="8" fill="#93c5fd" stroke="#2563eb" stroke-width="1.5"/>
+  <!-- pond (terrain water layer) -->
+  <ellipse cx="380" cy="460" rx="52" ry="36" fill="#93c5fd" stroke="#2563eb" stroke-width="1.5"/>
+  <!-- fall -->
+  <path d="M156,150 l6,6 l-6,6 l6,6" fill="none" stroke="#1e3a8a" stroke-width="2"/>
+  <!-- log bridge -->
+  <line x1="284" y1="348" x2="308" y2="332" stroke="#92400e" stroke-width="7" stroke-linecap="round"/>
+  <!-- stepping stones -->
+  <circle cx="440" cy="482" r="3" fill="#57534e"/>
+  <circle cx="445" cy="488" r="3" fill="#57534e"/>
+  <circle cx="450" cy="494" r="3" fill="#57534e"/>
+
+  <!-- walking loop -->
+  <polyline points="120,532 144,460 150,390 136,310 150,250 184,204 200,236 232,284 284,348 308,332 380,310 440,360 440,424 448,496 360,516 260,524 180,536 120,532" fill="none" stroke="#ea580c" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- benchmark spline -->
+  <path d="M100,556 C130,500 160,460 160,420 S158,300 164,280 S180,232 196,226 S260,150 300,150 S400,160 420,172 S500,250 500,300 S460,440 430,456 S360,476 300,500 S200,548 140,546" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="7 5"/>
+
+  <!-- spawn -->
+  <circle cx="120" cy="532" r="9" fill="#ea580c" stroke="#ffffff" stroke-width="2"/>
+  <text x="116" y="536" class="shot">S</text>
+  <line x1="128" y1="524" x2="146" y2="506" stroke="#ea580c" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- reference shots: position dot + view cone -->
+  <g fill="#0f172a" fill-opacity="0.18" stroke="#0f172a" stroke-width="1">
+    <polygon points="130,380 166,364 166,396"/>
+    <polygon points="196,202 188,165 164,182"/>
+    <polygon points="264,364 301,355 283,331"/>
+    <polygon points="470,250 470,288 442,276"/>
+    <polygon points="300,300 264,286 264,314"/>
+  </g>
+  <g fill="#0f172a">
+    <circle cx="130" cy="380" r="8"/><circle cx="196" cy="202" r="8"/><circle cx="264" cy="364" r="8"/>
+    <circle cx="470" cy="250" r="8"/><circle cx="300" cy="300" r="8"/>
+  </g>
+  <text x="123" y="384" class="shot">1</text>
+  <text x="189" y="206" class="shot">2</text>
+  <text x="257" y="368" class="shot">3</text>
+  <text x="463" y="254" class="shot">4</text>
+  <text x="293" y="304" class="shot">5</text>
+
+  <!-- sun and north -->
+  <circle cx="512" cy="112" r="9" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/>
+  <line x1="500" y1="109" x2="462" y2="99" stroke="#b45309" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="440" y="134" class="s">sun: az 105°, 18° up</text>
+  <line x1="534" y1="94" x2="534" y2="70" stroke="#111827" stroke-width="2" marker-end="url(#narr)"/>
+  <text x="529" y="106" class="lbl">N</text>
+
+  <!-- zone and feature labels (white backing for legibility) -->
+  <g fill="#ffffff" fill-opacity="0.85">
+    <rect x="56" y="76" width="112" height="18" rx="3"/>
+    <rect x="356" y="196" width="110" height="18" rx="3"/>
+    <rect x="160" y="432" width="58" height="34" rx="3"/>
+    <rect x="300" y="226" width="122" height="18" rx="3"/>
+    <rect x="48" y="220" width="96" height="16" rx="3"/>
+  </g>
+  <text x="62" y="89" class="lbl">Rocky outcrop</text>
+  <text x="362" y="209" class="lbl">Dense pine slope</text>
+  <text x="166" y="446" class="lbl">Oak/ash</text>
+  <text x="166" y="461" class="lbl">glade</text>
+  <text x="306" y="239" class="lbl">Aspen stream bank</text>
+  <line x1="306" y1="244" x2="282" y2="262" stroke="#a16207" stroke-width="1"/>
+  <text x="52" y="232" class="el">mixed woodland</text>
+  <text x="354" y="464" class="lbl">Pond</text>
+  <text x="96" y="146" class="t">Fall, 4 m</text>
+  <text x="314" y="356" class="t">Log bridge</text>
+  <text x="458" y="500" class="s">stepping stones</text>
+  <text x="488" y="532" class="s">outflow</text>
+
+  <!-- elevations -->
+  <text x="62" y="186" class="el">+24 m</text>
+  <text x="62" y="300" class="el">+30 m</text>
+  <text x="472" y="380" class="el">+45 m (E ridge)</text>
+  <text x="356" y="480" class="el">0 m</text>
+
+  <!-- scale bar -->
+  <line x1="300" y1="562" x2="400" y2="562" stroke="#111827" stroke-width="2"/>
+  <line x1="300" y1="556" x2="300" y2="568" stroke="#111827" stroke-width="2"/>
+  <line x1="400" y1="556" x2="400" y2="568" stroke="#111827" stroke-width="2"/>
+  <text x="336" y="555" class="s">50 m</text>
+
+  <!-- legend -->
+  <rect x="580" y="60" width="360" height="512" rx="8" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="596" y="84" class="lbl">Zones</text>
+  <rect x="596" y="96" width="18" height="14" rx="2" fill="#c4dbb8" stroke="#3f6212"/>
+  <text x="622" y="108" class="t">Dense pine slope: 1 150 pines, ferns, moss</text>
+  <rect x="596" y="120" width="18" height="14" rx="2" fill="#e3f2c9" stroke="#4d7c0f"/>
+  <text x="622" y="132" class="t">Oak/ash glade: 55 oaks, 85 ashes, bushes, grass</text>
+  <rect x="596" y="144" width="18" height="14" rx="2" fill="#f3efc6" stroke="#a16207"/>
+  <text x="622" y="156" class="t">Aspen stream bank: 320 aspens, reeds, ferns</text>
+  <rect x="596" y="168" width="18" height="14" rx="2" fill="#dedad6" stroke="#78716c"/>
+  <text x="622" y="180" class="t">Rocky outcrop: rock scans, 150 pines, the fall</text>
+  <rect x="596" y="192" width="18" height="14" rx="2" fill="#eef3e2" stroke="#6b7280"/>
+  <text x="622" y="204" class="t">Mixed woodland: 100 edge pines, 900 bushes</text>
+
+  <text x="596" y="236" class="lbl">Water</text>
+  <line x1="596" y1="252" x2="614" y2="252" stroke="#2563eb" stroke-width="5" stroke-linecap="round"/>
+  <text x="622" y="256" class="t">Stream (River3D, ≈ 230 m) from the 4 m fall</text>
+  <circle cx="605" cy="274" r="6" fill="#93c5fd" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="622" y="278" class="t">Pools (3) and the pond (≈ 52 × 36 m, 0 m)</text>
+  <line x1="596" y1="296" x2="614" y2="296" stroke="#92400e" stroke-width="6" stroke-linecap="round"/>
+  <text x="622" y="300" class="t">Fallen-log bridge · stepping stones on the outflow</text>
+
+  <text x="596" y="332" class="lbl">Routes</text>
+  <line x1="596" y1="348" x2="614" y2="348" stroke="#ea580c" stroke-width="3"/>
+  <text x="622" y="352" class="t">Walking loop ≈ 590 m, ≈ 3.9 min at 2.5 m/s</text>
+  <circle cx="605" cy="370" r="7" fill="#ea580c" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="622" y="374" class="t">Spawn, facing north-east</text>
+  <line x1="596" y1="392" x2="614" y2="392" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="6 4"/>
+  <text x="622" y="396" class="t">Benchmark spline (--benchmark, 60 s)</text>
+
+  <text x="596" y="428" class="lbl">Reference shots</text>
+  <circle cx="605" cy="444" r="7" fill="#0f172a"/>
+  <text x="622" y="448" class="t">R1 glade shafts · R2 the fall · R3 log bridge</text>
+  <text x="622" y="466" class="t">R4 valley vista · R5 forest floor (crouched)</text>
+  <text x="622" y="484" class="s">cone = view direction</text>
+
+  <text x="596" y="516" class="lbl">Light</text>
+  <circle cx="605" cy="532" r="7" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/>
+  <text x="622" y="536" class="t">Sun from the ESE through the aspen and pine</text>
+  <text x="622" y="554" class="t">edge into the glade (shafts in R1)</text>
+
+  <text x="40" y="600" class="s">2 px = 1 m. Shaded strips: the west ridge (+30 m) and east ridge (+45 m). The terrain is TerrainProfile.Realistic at 0.5 m spacing</text>
+  <text x="40" y="618" class="s">(513 × 513 samples). Counts are totals per species; the dev overlay reports draws, triangles and instances per view.</text>
+</svg>

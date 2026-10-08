@@ -31,6 +31,7 @@ flowchart LR
     M10 --> GT["Gameplay toolkit"]
     M3 --> GT
     GT -. "G4 saves → cloud saves, G5 presets → mobile export" .-> M13
+    GT --> G8["G8 World: terrain, trees, water, forest showcase"]
     M11 -. "D3D12 base, GPU API" .-> CON["Consoles (PS5 + Xbox Series), after program access"]
     M12 -. "seams, AOT, cook" .-> CON
 ```
@@ -49,7 +50,7 @@ flowchart LR
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
-| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools | ⬜ |
+| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools, terrain/trees/water and a forest showcase | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, D3D12 (Windows), WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -280,6 +281,9 @@ be interleaved with them. Recommended order: G1a → G2 → G3a → G4 → G5, w
 Character animation goes Claude-first: G1a core (G1.1–G1.4) → G1b → G1c + G1e → the G1a panel → G1d → G1f.
 G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that M12.7 extends. G6 depends on the
 "Vulkan now or after M11" decision in its proposal.
+G8 (world building) goes G8a Faceted terrain → G8b low-poly trees (both on today's Blinn-Phong renderer) → G6.1/G6.2
+→ G8a Realistic profile and G8b realistic trees → G8c water → G8d rendering phases → the forest showcase
+([ADR 0149](../memory/decisions/0149-terrain-trees-water-engine-features.md)).
 
 | Feature | Status | Design doc |
 |---|---|---|
@@ -297,6 +301,10 @@ G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that
 | G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner | ⬜ | [Game export](design/future/game-export.md) |
 | G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | ⬜ | [Rendering features](design/future/rendering-features.md) |
 | G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) |
+| G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | ⬜ | [Terrain](design/future/terrain.md) |
+| G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | ⬜ | [Procedural trees](design/future/procedural-trees.md) |
+| G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | ⬜ | [Water](design/future/water.md) |
+| G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | ⬜ | [Forest showcase](design/future/forest-showcase.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 

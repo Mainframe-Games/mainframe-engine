@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>River3D editing gizmo (proposal G8c)</title>
+  <desc>The editor's 3D viewport with a selected River3D over terrain. The stream runs from the top left, drops over a small falls with foam and spray, and ends in a pond. Control points are circles; the selected point shows its two tangent handles (diamonds), two width handles at the banks (squares, one being dragged with a "Width 3.20 m" label) and a depth handle below it. The River tool's icon buttons are in the toolbar, and the inspector on the right shows the River3D's curve, flow, carve and sound settings with icon buttons for Carve and Re-carve.</desc>
+  <rect width="960" height="640" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .grp{font-weight:600;font-size:11px;fill:#8b93a5}
+    .t{fill:#d1d5db;font-size:12px}
+    .s{fill:#9ca3af;font-size:11px}
+    .m{font-family:ui-monospace, Menlo, Consolas, monospace;font-size:11px;fill:#e5e7eb}
+    .cap{fill:#374151;font-size:12px}
+    .leg{fill:#1f2937;font-size:12px}
+    .badge{fill:#1d4ed8}
+    .bt{fill:#ffffff;font-size:11px;font-weight:700}
+  </style>
+
+  <!-- window -->
+  <rect x="20" y="20" width="920" height="460" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
+  <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
+  <text x="380" y="38" class="s">Mainframe Engine — Forest — Stream.mscene*</text>
+
+  <!-- toolbar: transform tools, then the River tool's icon buttons -->
+  <rect x="20" y="46" width="920" height="30" fill="#2a2d36"/>
+  <g>
+    <rect x="32" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="38" y="65" class="t">↖</text>
+    <rect x="58" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="63" y="65" class="t">✥</text>
+    <rect x="84" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="89" y="65" class="t">⟳</text>
+    <line x1="116" y1="54" x2="116" y2="68" stroke="#3b3f4b"/>
+    <text x="126" y="65" class="s">River</text>
+    <rect x="162" y="52" width="22" height="18" rx="3" fill="#1d4ed8"/><text x="167" y="65" class="t">◉</text>
+    <rect x="188" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="194" y="65" class="t">+</text>
+    <rect x="214" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="219" y="65" class="t">⊕</text>
+    <rect x="240" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="246" y="65" class="t">✕</text>
+    <rect x="266" y="52" width="22" height="18" rx="3" fill="#1d4ed8"/><text x="271" y="65" class="t">⛰</text>
+  </g>
+  <!-- tooltip of the snap button -->
+  <rect x="250" y="74" width="168" height="20" rx="4" fill="#111827" stroke="#3b3f4b"/>
+  <text x="258" y="88" class="s">Snap points to the terrain (S)</text>
+
+  <!-- viewport -->
+  <rect x="24" y="80" width="616" height="396" fill="#20232a" stroke="#3b3f4b"/>
+  <rect x="24" y="98" width="128" height="22" fill="#2f333d"/><text x="34" y="114" class="t">Stream.mscene*</text>
+  <rect x="28" y="122" width="608" height="350" fill="#4a5a3a"/>
+  <!-- terrain contours -->
+  <g fill="none" stroke="#5a6c48" stroke-width="1.2">
+    <path d="M28 170 C150 150, 260 190, 380 175 S560 150, 636 165"/>
+    <path d="M28 240 C140 225, 250 260, 330 262 S520 250, 636 270"/>
+    <path d="M28 330 C120 320, 230 350, 340 345 S520 330, 636 350"/>
+    <path d="M28 420 C140 410, 250 440, 360 432 S520 420, 636 440"/>
+  </g>
+  <text x="40" y="464" class="s">◰ Perspective</text>
+
+  <!-- carved banks (blended bank zone) -->
+  <path d="M70 150 C120 170, 160 195, 210 205 S290 225, 302 236" fill="none" stroke="#6f6247" stroke-width="40" stroke-linecap="round"/>
+  <path d="M332 300 C360 312, 400 322, 430 330 S510 365, 552 392" fill="none" stroke="#6f6247" stroke-width="40" stroke-linecap="round"/>
+  <!-- pond -->
+  <ellipse cx="588" cy="420" rx="62" ry="34" fill="#6f6247"/>
+  <ellipse cx="588" cy="420" rx="54" ry="28" fill="#2f6f9f"/>
+  <ellipse cx="588" cy="420" rx="54" ry="28" fill="none" stroke="#e5e7eb" stroke-opacity="0.35" stroke-dasharray="2 4"/>
+  <!-- river surface (ribbon) -->
+  <path d="M70 150 C120 170, 160 195, 210 205 S290 225, 302 236" fill="none" stroke="#3a7fb3" stroke-width="26" stroke-linecap="butt"/>
+  <path d="M332 300 C360 312, 400 322, 430 330 S510 365, 552 392" fill="none" stroke="#3a7fb3" stroke-width="26" stroke-linecap="butt"/>
+  <!-- falls: vertical ribbon section with foam -->
+  <polygon points="291,244 313,228 342,292 322,308" fill="#5b9bc9"/>
+  <g stroke="#f3f4f6" stroke-width="2" stroke-opacity="0.85">
+    <line x1="297" y1="242" x2="326" y2="302"/><line x1="304" y1="237" x2="333" y2="297"/><line x1="310" y1="232" x2="339" y2="293"/>
+  </g>
+  <!-- plunge foam and spray -->
+  <ellipse cx="334" cy="306" rx="24" ry="9" fill="#f3f4f6" fill-opacity="0.55"/>
+  <g fill="#f9fafb" fill-opacity="0.8">
+    <circle cx="318" cy="294" r="2"/><circle cx="350" cy="292" r="2.2"/><circle cx="342" cy="284" r="1.6"/><circle cx="326" cy="286" r="1.4"/><circle cx="358" cy="300" r="1.8"/><circle cx="312" cy="304" r="1.5"/>
+  </g>
+  <!-- flow chevrons along the stream -->
+  <g fill="none" stroke="#bfdbfe" stroke-width="1.5" stroke-opacity="0.8">
+    <polyline points="118,166 126,172 117,177"/><polyline points="178,192 187,197 178,203"/>
+    <polyline points="374,312 383,317 374,322"/><polyline points="486,348 495,354 486,359"/>
+  </g>
+  <!-- centreline -->
+  <path d="M70 150 C120 170, 160 195, 210 205 S290 225, 302 236 L332 300 C360 312, 400 322, 430 330 S510 365, 552 392 L580 414" fill="none" stroke="#f9fafb" stroke-opacity="0.55" stroke-width="1" stroke-dasharray="5 4"/>
+
+  <!-- control points (unselected) -->
+  <g fill="#1f2128" fill-opacity="0.4" stroke="#ffffff" stroke-width="1.5">
+    <circle cx="70" cy="150" r="5"/><circle cx="210" cy="205" r="5"/><circle cx="302" cy="236" r="5"/>
+    <circle cx="332" cy="300" r="5"/><circle cx="552" cy="392" r="5"/><circle cx="580" cy="414" r="5"/>
+  </g>
+
+  <!-- selected point P4 with tangent, width and depth handles -->
+  <g>
+    <line x1="394" y1="312" x2="466" y2="348" stroke="#93c5fd" stroke-width="1.2"/>
+    <polygon points="394,307 399,312 394,317 389,312" fill="#93c5fd" stroke="#ffffff" stroke-width="1"/>
+    <polygon points="466,343 471,348 466,353 461,348" fill="#93c5fd" stroke="#ffffff" stroke-width="1"/>
+    <line x1="420" y1="350" x2="442" y2="306" stroke="#fde68a" stroke-dasharray="3 3"/>
+    <line x1="420" y1="350" x2="417" y2="356" stroke="#fde68a" stroke-dasharray="3 3"/>
+    <rect x="415" y="345" width="10" height="10" fill="#fde047" stroke="#ffffff" stroke-width="1.5"/>
+    <rect x="437" y="301" width="10" height="10" fill="#fde047" stroke="#ffffff" stroke-width="2"/>
+    <line x1="430" y1="336" x2="430" y2="366" stroke="#fda4af" stroke-dasharray="2 3"/>
+    <polygon points="424,366 436,366 430,375" fill="#fb7185" stroke="#ffffff" stroke-width="1"/>
+    <circle cx="430" cy="330" r="6.5" fill="#3b82f6" stroke="#ffffff" stroke-width="2"/>
+    <!-- cursor on the dragged width handle -->
+    <polygon points="444,309 444,325 448,321 451,328 454,327 451,320 457,320" fill="#ffffff" stroke="#111827" stroke-width="0.8"/>
+    <!-- drag label -->
+    <rect x="456" y="282" width="100" height="20" rx="4" fill="#111827" stroke="#3b3f4b"/>
+    <text x="464" y="296" class="m">Width 3.20 m</text>
+  </g>
+
+  <!-- annotations -->
+  <rect x="352" y="244" width="104" height="18" rx="4" fill="#111827" fill-opacity="0.8"/>
+  <text x="358" y="257" class="s">falls · drop 1.4 m</text>
+  <rect x="512" y="446" width="118" height="18" rx="4" fill="#111827" fill-opacity="0.8"/>
+  <text x="518" y="459" class="s">joins pond · 12.40 m</text>
+
+  <!-- badges -->
+  <g>
+    <circle cx="70" cy="132" r="9" class="badge"/><text x="66" y="136" class="bt">1</text>
+    <circle cx="384" cy="296" r="9" class="badge"/><text x="380" y="300" class="bt">2</text>
+    <circle cx="410" cy="364" r="9" class="badge"/><text x="406" y="368" class="bt">3</text>
+    <circle cx="446" cy="376" r="9" class="badge"/><text x="442" y="380" class="bt">4</text>
+    <circle cx="280" cy="296" r="9" class="badge"/><text x="276" y="300" class="bt">5</text>
+    <circle cx="604" cy="380" r="9" class="badge"/><text x="600" y="384" class="bt">6</text>
+  </g>
+
+  <!-- inspector -->
+  <rect x="644" y="80" width="292" height="396" fill="#262931" stroke="#3b3f4b"/>
+  <text x="654" y="100" class="hdr">Inspector</text>
+  <text x="654" y="122" class="t">≈ Stream (River3D)</text>
+  <line x1="650" y1="130" x2="930" y2="130" stroke="#2f333d"/>
+
+  <text x="654" y="148" class="grp">CURVE</text>
+  <text x="654" y="166" class="t">Curve</text><rect x="760" y="155" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="167" class="m">Curve3D · 7 points</text>
+  <text x="654" y="186" class="t">Point</text><rect x="760" y="175" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="187" class="m">5 of 7</text>
+  <text x="654" y="206" class="t">Width</text><rect x="760" y="195" width="166" height="16" rx="2" fill="#121418" stroke="#3b82f6"/><text x="766" y="207" class="m">3.20 m</text>
+  <text x="654" y="226" class="t">Depth</text><rect x="760" y="215" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="227" class="m">0.60 m</text>
+
+  <text x="654" y="250" class="grp">FLOW</text>
+  <text x="654" y="268" class="t">Speed min / max</text><rect x="760" y="257" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="269" class="m">0.3 / 4.0 m/s</text>
+  <text x="654" y="288" class="t">Fall slope</text><rect x="760" y="277" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="289" class="m">1.00</text>
+  <text x="654" y="308" class="t">Downhill only</text><rect x="760" y="297" width="14" height="14" rx="2" fill="#3b82f6"/><text x="762" y="308" class="bt">✓</text>
+
+  <text x="654" y="332" class="grp">CARVE</text>
+  <text x="654" y="350" class="t">Bank width</text><rect x="760" y="339" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="351" class="m">2.0 m</text>
+  <rect x="760" y="361" width="26" height="20" rx="3" fill="#2563eb" stroke="#3b82f6"/><text x="766" y="375" class="t">⛏</text>
+  <rect x="790" y="361" width="26" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/><text x="797" y="375" class="t">↻</text>
+  <text x="824" y="375" class="s">1 undo step</text>
+
+  <text x="654" y="402" class="grp">LOOK AND SOUND</text>
+  <text x="654" y="420" class="t">Material</text><rect x="760" y="409" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="421" class="m">WaterMaterial3D</text>
+  <text x="654" y="440" class="t">Stream sound</text><rect x="760" y="429" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="441" class="m">stream_loop.ogg</text>
+  <text x="654" y="460" class="t">Falls sound</text><rect x="760" y="449" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="461" class="m">falls_loop.ogg</text>
+
+  <!-- legend -->
+  <text x="24" y="506" class="cap">The River tool is active while a River3D is selected. Point edits are property changes of the Curve3D (one undo step per drag);</text>
+  <text x="24" y="524" class="cap">Carve writes the terrain heights as one terrain edit. Handles use the G7 handle style (squares for distances, diamonds for tangents).</text>
+  <g>
+    <circle cx="34" cy="550" r="9" class="badge"/><text x="30" y="554" class="bt">1</text>
+    <text x="50" y="554" class="leg">Control point: drag on the terrain (snapped), Alt+drag moves it vertically.</text>
+    <circle cx="34" cy="574" r="9" class="badge"/><text x="30" y="578" class="bt">2</text>
+    <text x="50" y="578" class="leg">Tangent handles of the selected point (Shift breaks the symmetry).</text>
+    <circle cx="34" cy="598" r="9" class="badge"/><text x="30" y="602" class="bt">3</text>
+    <text x="50" y="602" class="leg">Width handles at both banks, symmetric about the centreline.</text>
+    <circle cx="34" cy="622" r="9" class="badge"/><text x="30" y="626" class="bt">4</text>
+    <text x="50" y="626" class="leg">Depth handle: the bed below the water surface.</text>
+    <circle cx="500" cy="550" r="9" class="badge"/><text x="496" y="554" class="bt">5</text>
+    <text x="516" y="554" class="leg">A falls where the slope passes Fall slope: foam and spray.</text>
+    <circle cx="500" cy="574" r="9" class="badge"/><text x="496" y="578" class="bt">6</text>
+    <text x="516" y="578" class="leg">The last point snaps to the pond surface; the ribbon ends there.</text>
+  </g>
+</svg>

@@ -703,4 +703,6 @@ pulled forward when a 3D game needs PBR or particles first.
 [Color pipeline](../color-pipeline.md) · [Vulkan renderer](../vulkan-renderer.md) · [2D canvas](../canvas.md#particles) ·
 [Asset pipeline](../asset-pipeline.md) · [Rendering backend abstraction (M11)](rendering-backend-abstraction.md) ·
 [Mobile core (M12)](mobile.md) · [Keyframe animation (G1)](keyframe-animation.md) ·
-[Editor viewport tools (G7)](editor-viewport-tools.md)
+[Editor viewport tools (G7)](editor-viewport-tools.md) · G8 builds on G6 and picks up some of its non-goals:
+impostors in [Procedural trees (G8b)](procedural-trees.md), SSR as an option in [Water (G8c)](water.md), and fog, light
+shafts and TAA in [Forest showcase (G8d)](forest-showcase.md)

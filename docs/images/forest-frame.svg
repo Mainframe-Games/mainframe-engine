@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Forest showcase frame</title>
+  <desc>One frame of the forest showcase. CPU: the tree tick runs the first-person controller, wind time, particles, butterflies and birds; PrepareFrame culls MultiMesh chunks, picks LODs and impostors, records the sky LUT passes when the sun moves, and adds the TAA jitter and previous matrices. GPU, first row: shadow passes with cutout casters drawn at the camera LOD, leaves swaying with the wind; the depth prepass from G6.6 and G8c with SSAO, contact shadows and the TAA velocity target, which wait for M11 step 1; the HDR scene pass with terrain, trees, grass and rocks, forward fog and soft sun shadows, then the physical sky; the SceneTextures colour copy; water and transparent surfaces. Second row: screen-space light shafts; TAA, which waits for M11 step 1; auto exposure from a gathered histogram; glow and tonemap with the exposure texel, the LUT and FXAA when TAA is off; the overlay pass with the UI, the dev overlay and its GPU timer panel.</desc>
+  <rect width="960" height="620" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .bt{font-weight:600;font-size:12.5px;fill:#111827}
+    .t{fill:#1f2937}
+    .s{fill:#4b5563;font-size:11.5px}
+    .n{fill:#15803d;font-size:11.5px}
+    .w{fill:#b45309;font-size:11.5px}
+    .p{fill:#6d28d9;font-size:11.5px}
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker>
+  </defs>
+
+  <text x="20" y="30" class="hdr">One frame of the forest showcase (G8d in green; G8d after M11 step 1 in amber; prerequisites in purple)</text>
+
+  <!-- CPU row -->
+  <rect x="20" y="42" width="920" height="110" rx="10" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="36" y="62" class="t" font-weight="600">CPU · main thread</text>
+
+  <rect x="40" y="72" width="300" height="70" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="54" y="92" class="bt">Tree.Tick</text>
+  <text x="54" y="110" class="s">FirstPersonController: look, move, footsteps</text>
+  <text x="54" y="128" class="p">wind time · GpuParticles3D (G6.3) · butterflies · birds</text>
+
+  <line x1="342" y1="107" x2="358" y2="107" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="360" y="72" width="560" height="70" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="374" y="92" class="bt">RenderServer.PrepareFrame</text>
+  <text x="560" y="92" class="p">MultiMesh chunk cull (G8a) · LOD and impostor pick (G6.4, G8b)</text>
+  <text x="374" y="110" class="n">+ sky LUT passes when the sun moves (G8d.1), recorded with the IBL rebake (G6.2)</text>
+  <text x="374" y="128" class="w">+ TAA: Halton jitter in the projection, previous view-projection and model matrices (G8d.8)</text>
+
+  <!-- GPU row -->
+  <rect x="20" y="168" width="920" height="372" rx="10" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="36" y="190" class="t" font-weight="600">GPU · command buffer of the frame slot</text>
+
+  <!-- A1 shadows -->
+  <rect x="36" y="204" width="168" height="140" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="46" y="226" class="bt">Shadow passes</text>
+  <text x="46" y="246" class="s">ShadowSystem (M4)</text>
+  <text x="46" y="262" class="s">4 cascades, 2048²</text>
+  <text x="46" y="278" class="s">cutout casters:</text>
+  <text x="46" y="294" class="s">leaves, grass (ADR 0074)</text>
+  <text x="46" y="314" class="p">casters at camera LOD</text>
+  <text x="46" y="330" class="p">leaf casters sway (G8b)</text>
+
+  <line x1="205" y1="274" x2="214" y2="274" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- A2 prepass -->
+  <rect x="216" y="204" width="168" height="140" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-dasharray="6 3"/>
+  <text x="226" y="226" class="bt">Depth prepass</text>
+  <text x="226" y="246" class="p">opaque + cutout depth</text>
+  <text x="226" y="262" class="p">(G6.6; SceneTextures, G8c)</text>
+  <text x="226" y="278" class="p">→ GTAO (SSAO) R</text>
+  <text x="226" y="294" class="w">→ contact shadows G</text>
+  <text x="226" y="310" class="w">+ velocity RG16F (TAA)</text>
+  <text x="226" y="330" class="s">after M11 step 1</text>
+
+  <line x1="385" y1="274" x2="394" y2="274" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- A3 scene pass -->
+  <rect x="396" y="204" width="168" height="140" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="406" y="226" class="bt">Scene pass (HDR)</text>
+  <text x="406" y="244" class="s">1. opaque:</text>
+  <text x="406" y="260" class="p">  terrain splat (G8a)</text>
+  <text x="406" y="276" class="p">  trees, impostors (G8b)</text>
+  <text x="406" y="292" class="p">  grass, ferns, rocks</text>
+  <text x="406" y="308" class="n">  + fog, PCSS (G8d.2, .5)</text>
+  <text x="406" y="324" class="n">2. sky: Physical (G8d.1)</text>
+  <text x="406" y="338" class="s">  at the far plane</text>
+
+  <line x1="565" y1="274" x2="574" y2="274" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- A4 copy -->
+  <rect x="576" y="204" width="168" height="140" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="586" y="226" class="bt">SceneTextures copy</text>
+  <text x="586" y="246" class="p">opaque colour → copy</text>
+  <text x="586" y="262" class="p">(the sky included)</text>
+  <text x="586" y="278" class="p">depth readable</text>
+  <text x="586" y="294" class="p">(G8c)</text>
+  <text x="586" y="318" class="s">for refraction and</text>
+  <text x="586" y="334" class="s">water depth fog</text>
+
+  <line x1="745" y1="274" x2="754" y2="274" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- A5 water -->
+  <rect x="756" y="204" width="168" height="140" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="766" y="226" class="bt">Water + transparent</text>
+  <text x="766" y="246" class="p">River3D, pond (G8c)</text>
+  <text x="766" y="262" class="p">refraction, foam</text>
+  <text x="766" y="278" class="p">spray, motes (G6.3)</text>
+  <text x="766" y="298" class="n">+ fog (G8d.2)</text>
+  <text x="766" y="314" class="w">+ reactive alpha (TAA)</text>
+  <text x="766" y="334" class="s">SSR option (G8c)</text>
+
+  <!-- wrap to row B -->
+  <path d="M840,345 L840,360 L120,360 L120,376" fill="none" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- B1 shafts -->
+  <rect x="36" y="380" width="168" height="140" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="46" y="402" class="bt">Light shafts (G8d.6)</text>
+  <text x="46" y="422" class="n">½ res, after water</text>
+  <text x="46" y="438" class="n">mask: sky depth × sun</text>
+  <text x="46" y="454" class="n">2 radial blurs (16 taps)</text>
+  <text x="46" y="470" class="n">+ added to HDR</text>
+  <text x="46" y="494" class="s">depth: stored scene</text>
+  <text x="46" y="510" class="s">depth or SceneTextures</text>
+
+  <line x1="205" y1="450" x2="214" y2="450" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- B2 TAA -->
+  <rect x="216" y="380" width="168" height="140" rx="8" fill="#fef3c7" stroke="#d97706" stroke-dasharray="6 3"/>
+  <text x="226" y="402" class="bt">TAA (G8d.8)</text>
+  <text x="226" y="422" class="w">velocity + history</text>
+  <text x="226" y="438" class="w">Catmull-Rom sample</text>
+  <text x="226" y="454" class="w">YCoCg variance clip</text>
+  <text x="226" y="470" class="w">→ resolved HDR</text>
+  <text x="226" y="494" class="s">until M11 step 1:</text>
+  <text x="226" y="510" class="s">FXAA after tonemap</text>
+
+  <line x1="385" y1="450" x2="394" y2="450" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- B3 auto exposure -->
+  <rect x="396" y="380" width="168" height="140" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="406" y="402" class="bt">Auto exposure (G8d.3)</text>
+  <text x="406" y="422" class="n">log luma 64 × 36</text>
+  <text x="406" y="438" class="n">64-bin gather histogram</text>
+  <text x="406" y="454" class="n">10–90 % mean, adapt</text>
+  <text x="406" y="470" class="n">→ 1 × 1 exposure</text>
+  <text x="406" y="494" class="s">fragment passes only,</text>
+  <text x="406" y="510" class="s">no CPU readback</text>
+
+  <line x1="565" y1="450" x2="574" y2="450" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- B4 glow + tonemap -->
+  <rect x="576" y="380" width="168" height="140" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="586" y="402" class="bt">Glow → tonemap</text>
+  <text x="586" y="422" class="s">glow chain (ADR 0124)</text>
+  <text x="586" y="438" class="s">ACES → sRGB encode</text>
+  <text x="586" y="458" class="n">+ × exposure texel</text>
+  <text x="586" y="474" class="n">+ LUT 32³ (G8d.4)</text>
+  <text x="586" y="490" class="n">+ FXAA when TAA is off</text>
+  <text x="586" y="510" class="s">→ swapchain</text>
+
+  <line x1="745" y1="450" x2="754" y2="450" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- B5 overlay -->
+  <rect x="756" y="380" width="168" height="140" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="766" y="402" class="bt">Overlay pass</text>
+  <text x="766" y="422" class="s">canvas · UI: pause</text>
+  <text x="766" y="438" class="s">menu, settings, HUD</text>
+  <text x="766" y="454" class="s">dev overlay (F12)</text>
+  <text x="766" y="474" class="n">+ Frame panel: GPU</text>
+  <text x="766" y="490" class="n">  timers (G8d.15)</text>
+
+  <!-- legend -->
+  <rect x="20" y="554" width="18" height="14" rx="3" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="46" y="566" class="s">exists today</text>
+  <rect x="140" y="554" width="18" height="14" rx="3" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="166" y="566" class="s">prerequisite (G6, G8a–c)</text>
+  <rect x="330" y="554" width="18" height="14" rx="3" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="356" y="566" class="s">new in G8d, on Vulkan now</text>
+  <rect x="530" y="554" width="18" height="14" rx="3" fill="#fef3c7" stroke="#d97706" stroke-dasharray="4 2"/>
+  <text x="556" y="566" class="s">new in G8d, after M11 step 1 (dashed: waits for M11)</text>
+
+  <text x="20" y="596" class="s">High at 2560 × 1440: ≈ 13.5 ms GPU of the 16.7 ms frame (prepass 1.3 · shadows 2.8 · SSAO + contact 1.0 · opaque 5.7 · sky + copy 0.3 ·</text>
+  <text x="20" y="612" class="s">water 0.7 · shafts, TAA, exposure, glow, tonemap, LUT and UI 1.65). Every G8d feature is off by default, so existing frames do not change.</text>
+</svg>
