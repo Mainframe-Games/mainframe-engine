@@ -127,6 +127,24 @@ public sealed class ProjectIconResolverTests : IDisposable
     }
 
     [Fact]
+    public void ProjectEditWithTheSameTimestampIsReported()
+    {
+        var root = Project("Content/icon.png");
+        var projectFile = Path.Combine(root, ProjectSettings.FileName);
+        var resolver = new ProjectIconResolver();
+        Assert.NotNull(resolver.Resolve(root).Path);
+
+        // Two quick writes can share a last-write time; the size still tells them apart.
+        var written = File.GetLastWriteTimeUtc(projectFile);
+        File.WriteAllText(projectFile, """{"format": 1, "name": "P"}""");
+        File.SetLastWriteTimeUtc(projectFile, written);
+
+        var second = resolver.Resolve(root);
+        Assert.Null(second.Path);
+        Assert.True(second.Changed);
+    }
+
+    [Fact]
     public void SiblingPathTraversalIsIgnored()
     {
         var root = Project("../icon.png");

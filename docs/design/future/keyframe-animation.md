@@ -2,8 +2,9 @@
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1: G1a animation + timeline, G1b skinning) ·
 **Status:** ⬜ planned · **Depends on:** [Scene serialization](../scene-serialization.md) (resources, generator),
-[Editor](../editor.md), the song tab's timeline on the unmerged `feature/sound-designer` branch
-([shared timeline](#shared-timeline-component)) · **Related:** [2D content](2d-content.md) (G2: `AnimatedSprite2D` uses
+[Editor](../editor.md), the song tab's timeline (merged to `main` with the music editor;
+[shared timeline](#shared-timeline-component)) · **Related:** [Animation authoring](animation-authoring.md) (G1c–G1f:
+Claude-made clips, `mfe`, posing tools, root motion), [2D content](2d-content.md) (G2: `AnimatedSprite2D` uses
 the same player ideas), [Rendering features](rendering-features.md) (G6: PBR shaders skinned meshes must still feed),
 [Editor viewport tools](editor-viewport-tools.md) (G7: Save as `.mres` / Make unique for imported libraries),
 [Mobile](mobile.md) (AOT), [Rendering backend abstraction](rendering-backend-abstraction.md) (compute in M11)
@@ -125,7 +126,7 @@ public sealed class ValueTrack : AnimationTrack
 }
 
 /// Node3D (or Skeleton3D bone) channels, Godot's TYPE_POSITION_3D / ROTATION_3D / SCALE_3D.
-public sealed class Position3DTrack : AnimationTrack { [Export] public string Bone { get; set; } = ""; [Export] public Vector3[] Values { get; set; } = []; /* + Interpolation, LoopWrap */ }
+public sealed class Position3DTrack : AnimationTrack { [Export] public string Bone { get; set; } = ""; [Export] public Vector3[] Values { get; set; } = []; /* + Transitions, Interpolation, LoopWrap */ }
 public sealed class Rotation3DTrack : AnimationTrack { [Export] public string Bone { get; set; } = ""; [Export] public Quaternion[] Values { get; set; } = []; }
 public sealed class Scale3DTrack    : AnimationTrack { [Export] public string Bone { get; set; } = ""; [Export] public Vector3[] Values { get; set; } = []; }
 
@@ -156,6 +157,10 @@ public sealed class AudioTrack : AnimationTrack                  // Path points 
   read fast, and stay compact in JSON. Tracks are inline sub-resources in a list, like `AudioBusLayout.Buses`
   (`Examples/Demo/Content/Settings/AudioBusLayout.mres`). The generator skips generic types, so tracks are concrete
   classes; `ValueTrack` flattens any value to floats instead of one class per value type.
+- **Transform tracks have `Transitions`** too (per key, as `ValueTrack`), so eases authored in
+  [Animation authoring](animation-authoring.md#baking) pose scripts and its curve view survive. `Animation` also has
+  `[Export] string BakedHash` (empty unless `mfe anim bake` wrote the clip; see
+  [Edits](animation-authoring.md#edits-keys-are-the-truth)).
 - **Deviation: path and property are separate.** Godot writes `"Lift:position:y"` in one `NodePath`. The engine's
   `NodePath` has no sub-names (`Scene/NodePath.cs:9-28`), so a track has `Path` + `Property` (or `Bone`). Property names
   are the C# `[Export]` names (as in `.mscene` files), not Godot's snake_case, so they match the inspector and the scene
@@ -551,7 +556,7 @@ glTF has no loop flag, so `clips` sets loop modes and names. Clip entries need t
 source-generated JSON context (AOT). Nothing is written to disk: imports stay in memory
 ([ADR 0011](../../../memory/decisions/0011-json-scenes-no-binary-bake.md)).
 
-**Root motion** is an [open question](#open-questions).
+**Root motion** is designed in [Animation authoring → G1e](animation-authoring.md#g1e-root-motion).
 
 ## Testing
 
@@ -597,6 +602,9 @@ source-generated JSON context (AOT). Nothing is written to disk: imports stay in
 
 ## Task list
 
+Order (with [Animation authoring](animation-authoring.md#task-list)): G1.1–G1.4, then G1b (G1.8–G1.10), then G1c and
+G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made clips come before the panel.
+
 **G1a**
 
 1. **G1.1 Bindings.** `IAnimationValueOps<T>`, `AnimationValueOps.Get<T>()`, `IFloatVectorCodec<T>` on
@@ -635,8 +643,8 @@ source-generated JSON context (AOT). Nothing is written to disk: imports stay in
    `$AssimpFbx$` pivot nodes unless its `PRESERVE_PIVOTS` option is off (the importer passes no options today), and
    morph targets and sparse accessors are uneven. A managed glTF reader would be exact for glTF. Candidate if needed:
    SharpGLTF (MIT, actively maintained). New dependency: discuss first.
-3. **Root motion.** Godot 4 has `root_motion_track` on the mixer: the player extracts a bone's motion each frame and a
-   `CharacterBody3D` applies it in `MoveAndSlide`. Needed for some character games; out of G1 unless a game needs it.
+3. ~~**Root motion.**~~ Resolved: G1e in [Animation authoring](animation-authoring.md#g1e-root-motion)
+   (`RootMotionTrack`/`RootMotionBone` on the player, `CharacterBody3D.ApplyRootMotion`).
 4. **Large clips in JSON.** Imported clips are never written, but a clip saved as `.mres` (G7) can be megabytes of JSON.
    A binary sidecar would revisit ADR 0011.
 5. **Editing external libraries.** Saving a scene could also save the dirty external `.mres` animations it edited
@@ -654,6 +662,6 @@ source-generated JSON context (AOT). Nothing is written to disk: imports stay in
 
 [Scene serialization](../scene-serialization.md) · [Asset pipeline](../asset-pipeline.md) ·
 [Materials & meshes](../materials-and-meshes.md) · [GPU resources](../gpu-resources.md) · [Physics](../physics.md) ·
-[Networking](../networking.md) · [Editor](../editor.md) · Music editor (`docs/design/future/music-editor.md` on `feature/sound-designer`) ·
+[Networking](../networking.md) · [Editor](../editor.md) · [Music editor](music-editor.md) ·
 [2D content](2d-content.md) · [Rendering features](rendering-features.md) · [Editor viewport tools](editor-viewport-tools.md) ·
-[Mobile](mobile.md)
+[Mobile](mobile.md) · [Animation authoring](animation-authoring.md)
