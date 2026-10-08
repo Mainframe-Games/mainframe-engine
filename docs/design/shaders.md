@@ -28,7 +28,8 @@ flowchart LR
 - `slangc` is `$(Slangc)`, else `$(VULKAN_SDK)/bin/slangc` (the LunarG Vulkan SDK ships it next to the validation
   layers), else `slangc` on `PATH`. Without it the build warns and copies the committed `.spv` files;
   `-p:CompileShaders=false` forces that (CI does: its build runners have no slangc and build with `-warnaserror`).
-  CI's shaders job installs Slang **v2026.1** from its GitHub release (pinned by SHA-256). Slang is a build tool
+  CI's shaders job installs Slang **v2026.1** from its GitHub release (pinned by SHA-256). An older `slangc` (below
+  `SlangMinimumVersion`, 2026.1) is treated like a missing one: warning `MFSHADER001` and the committed `.spv`. Slang is a build tool
   only: nothing of it ships.
 - Shader sources, includes and `shaders.lock` are not copied to the output; only `.spv` files are.
 - **After editing a shader** run `just shaders` (recompiles the committed `.spv` with the same flags

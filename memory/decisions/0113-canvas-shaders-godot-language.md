@@ -35,4 +35,6 @@ uniform hints and defaults, varyings and `vertex()`. The engine compiled only it
 
 The translator wraps the Godot code in a Slang template compiled by `slangc` with `-allow-glsl` (the user code keeps
 GLSL syntax and meaning); `CanvasShaderProgram` exposes `VertexSource`/`FragmentSource`. The fragment stage compiles
-first and the vertex stage writes only the inputs it kept (`SpirvInputs`), because Slang drops unread fragment inputs.
+first and the vertex stage writes only the inputs it kept (`SpirvInputs`), because Slang drops unread fragment inputs;
+the pipeline declares only the vertex attributes that stage reads (`CanvasVertexLayout`). One-argument `matN(x)` calls are
+rewritten to `glsl_matN(x)` (`canvas.slang`): Slang fills every element from a scalar and rejects resizing, unlike GLSL.

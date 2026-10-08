@@ -104,6 +104,27 @@ public sealed class CanvasShaderCompilerTests
     }
 
     [Fact]
+    public void OneArgumentMatrixConstructorsKeepGlslMeaning()
+    {
+        // Slang (even with -allow-glsl) fills every element from mat4(k) and rejects mat3(mat2); GLSL builds a diagonal and
+        // resizes. One-argument constructors in the user's code go through canvas.slang's glsl_matN helpers.
+        var p = CanvasShaderCompiler.Translate("""
+            shader_type canvas_item;
+            uniform mat2 turn;
+            const mat4 IDENTITY = mat4(1.0);
+            mat3 grow(mat2 m) { return mat3(m); }
+            void vertex() { mat4 m = mat4 (1.0); m[3].xy = vec2(4.0); VERTEX = (m * IDENTITY * vec4(VERTEX, 0.0, 1.0)).xy; }
+            void fragment() { COLOR.rgb = mat3(mat2(2.0)) * COLOR.rgb + grow(turn)[2] + mat2(1.0, 0.0, 0.0, 1.0)[0].xxy; }
+            """);
+        Assert.Contains("const mat4 IDENTITY = glsl_mat4(1.0);", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("return glsl_mat3(m);", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("mat4 m = glsl_mat4(1.0);", p.VertexSource, StringComparison.Ordinal);
+        Assert.Contains("glsl_mat3(glsl_mat2(2.0))", p.FragmentSource, StringComparison.Ordinal);
+        Assert.Contains("mat2(1.0, 0.0, 0.0, 1.0)", p.FragmentSource, StringComparison.Ordinal); // several arguments: unchanged
+        Assert.DoesNotContain("glsl_mat2(1.0, 0.0", p.FragmentSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UnsupportedShadersAreRejected()
     {
         Assert.Throws<FormatException>(() => CanvasShaderCompiler.Translate("shader_type spatial;"));

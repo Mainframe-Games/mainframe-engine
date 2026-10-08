@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MainframeEngine;
 
@@ -150,7 +152,7 @@ internal static class ShaderValues
 /// write <c>.vert.spv</c>/<c>.frag.spv</c> next to the source and a <c>.spvlock</c> with the hash of the Slang they came
 /// from.
 /// </summary>
-public static class CanvasShaderBuild
+public static partial class CanvasShaderBuild
 {
     /// <summary>The extension of a shader's lock file.</summary>
     public const string LockExtension = ".spvlock";
@@ -177,6 +179,9 @@ public static class CanvasShaderBuild
         if (IsUpToDate(gdshaderPath, program))
             return false;
         slangc ??= FindSlangc() ?? throw new InvalidOperationException("slangc was not found (install the Vulkan SDK or put slangc on PATH).");
+        var version = SlangcVersion(slangc);
+        if (!IsSupportedSlangcVersion(version))
+            throw new InvalidOperationException($"slangc {version.Trim()} is older than {MinimumSlangcVersion} (update the Vulkan SDK or Slang).");
         // The fragment stage first: the vertex stage then writes only the inputs its compiled code kept.
         Compile(slangc, includeDirectory, program.FragmentSource, "fragment", gdshaderPath + ".frag.spv", gdshaderPath);
         var fragmentInputs = SpirvInputs.InputLocations(File.ReadAllBytes(gdshaderPath + ".frag.spv"));
@@ -185,6 +190,33 @@ public static class CanvasShaderBuild
         File.WriteAllText(gdshaderPath + LockExtension, Hash(program) + "\n");
         return true;
     }
+
+    /// <summary>The oldest slangc the shaders are written for (build/Shaders.targets checks the same version).</summary>
+    public const string MinimumSlangcVersion = "2026.1";
+
+    /// <summary>True when <c>slangc -v</c> printed a version at least <see cref="MinimumSlangcVersion"/> (e.g. <c>2026.1-52-gc8ddf20bb</c>).</summary>
+    public static bool IsSupportedSlangcVersion(string versionOutput)
+    {
+        var m = SlangcVersionRegex().Match(versionOutput ?? "");
+        return m.Success
+            && new Version(int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture), int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture))
+                >= Version.Parse(MinimumSlangcVersion);
+    }
+
+    /// <summary>What <c>slangc -v</c> prints (on stderr).</summary>
+    private static string SlangcVersion(string slangc)
+    {
+        var start = new ProcessStartInfo(slangc) { RedirectStandardError = true, RedirectStandardOutput = true, UseShellExecute = false };
+        start.ArgumentList.Add("-v");
+        using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {slangc}.");
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var text = process.StandardError.ReadToEnd() + stdout.GetAwaiter().GetResult();
+        process.WaitForExit();
+        return text;
+    }
+
+    [GeneratedRegex(@"(\d+)\.(\d+)")]
+    private static partial Regex SlangcVersionRegex();
 
     /// <summary>slangc from <c>$VULKAN_SDK/bin</c> or PATH, or null.</summary>
     public static string? FindSlangc()

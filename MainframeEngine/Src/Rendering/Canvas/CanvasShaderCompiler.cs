@@ -177,7 +177,7 @@ public static partial class CanvasShaderCompiler
 
         foreach (var u in laidOut.Where(u => u.IsSampler))
             common.Append(CultureInfo.InvariantCulture, $"[[vk::binding({u.Binding}, 1)]] Sampler2D {u.Name};\n");
-        common.Append(globals);
+        common.Append(GlslMatrixConstructors(globals.ToString()));
         foreach (var v in varyings)
             common.Append("static ").Append(v.Type).Append(' ').Append(v.Name).Append(";\n");
 
@@ -198,9 +198,9 @@ public static partial class CanvasShaderCompiler
         // ── Vertex stage ──
         var vs = new StringBuilder(common.ToString());
         vs.Append("static vec2 VERTEX;\nstatic vec2 UV;\nstatic vec4 COLOR;\nstatic mat4 MODEL_MATRIX;\nstatic mat4 CANVAS_MATRIX;\nstatic mat4 SCREEN_MATRIX;\nstatic float TIME;\nstatic vec2 TEXTURE_PIXEL_SIZE;\nstatic float POINT_SIZE;\nstatic vec4 INSTANCE_CUSTOM;\nstatic int INSTANCE_ID;\nstatic int VERTEX_ID;\n");
-        vs.Append(helpers);
+        vs.Append(GlslMatrixConstructors(helpers.ToString()));
         if (vertexFn is not null)
-            vs.Append(vertexFn).Append('\n');
+            vs.Append(GlslMatrixConstructors(vertexFn)).Append('\n');
         vs.Append("struct VsIn\n{\n    [[vk::location(0)]] vec2 inPosition;\n    [[vk::location(1)]] vec2 inUv;\n    [[vk::location(2)]] vec4 inColor;\n};\n");
         vs.Append("struct VsOut\n{\n    float4 position : SV_Position;\n");
         if (Written(0))
@@ -251,9 +251,9 @@ public static partial class CanvasShaderCompiler
         fs.Append("[[vk::binding(0, 0)]] Sampler2D colorTexture;\n#define TEXTURE colorTexture\n");
         fs.Append("#define CANVAS_LIGHT_SET 2\n#include \"canvas_lights.slang\"\n");
         fs.Append("static vec4 COLOR;\nstatic vec2 UV;\nstatic vec2 VERTEX;\nstatic vec4 FRAGCOORD;\nstatic vec2 SCREEN_UV;\nstatic vec2 SCREEN_PIXEL_SIZE;\nstatic vec2 TEXTURE_PIXEL_SIZE;\nstatic float TIME;\nstatic vec2 POINT_COORD;\nstatic bool AT_LIGHT_PASS;\nstatic vec3 NORMAL;\nstatic vec3 NORMAL_MAP;\nstatic float NORMAL_MAP_DEPTH;\nstatic vec3 LIGHT_VERTEX;\nstatic vec2 SHADOW_VERTEX;\n");
-        fs.Append(helpers);
+        fs.Append(GlslMatrixConstructors(helpers.ToString()));
         if (fragmentFn is not null)
-            fs.Append(fragmentFn).Append('\n');
+            fs.Append(GlslMatrixConstructors(fragmentFn)).Append('\n');
         fs.Append("struct FsIn\n{\n    [[vk::location(0)]] vec4 uvVertexInterp;\n    [[vk::location(1)]] vec4 colorInterp;\n");
         fs.Append(varyingFields).Append("};\n");
         fs.Append("""
@@ -561,4 +561,45 @@ public static partial class CanvasShaderCompiler
 
     [GeneratedRegex(@"^\w+\s*\((?<args>[^)]*)\)$")]
     private static partial Regex ConstructorRegex();
+
+    /// <summary>
+    /// One-argument <c>matN(x)</c> in the user's code becomes <c>glsl_matN(x)</c> (canvas.slang): Slang, even with
+    /// -allow-glsl, fills every element from a scalar and rejects resizing a matrix, where GLSL builds a diagonal and
+    /// copies the upper-left block (identity elsewhere). Constructors with several arguments mean the same in both.
+    /// </summary>
+    internal static string GlslMatrixConstructors(string code)
+    {
+        var result = new StringBuilder(code.Length + 16);
+        var last = 0;
+        foreach (Match m in MatrixConstructorRegex().Matches(code))
+        {
+            if (!HasOneArgument(code, m.Index + m.Length - 1))
+                continue;
+            result.Append(code, last, m.Index - last).Append("glsl_mat").Append(m.Groups["n"].Value).Append('(');
+            last = m.Index + m.Length;
+        }
+
+        return result.Append(code, last, code.Length - last).ToString();
+    }
+
+    // True when the call whose '(' is at `open` has no comma outside nested brackets before its ')'.
+    private static bool HasOneArgument(string code, int open)
+    {
+        var depth = 0;
+        for (var i = open + 1; i < code.Length; i++)
+        {
+            switch (code[i])
+            {
+                case '(' or '[' or '{': depth++; break;
+                case ')' when depth == 0: return true;
+                case ')' or ']' or '}': depth--; break;
+                case ',' when depth == 0: return false;
+            }
+        }
+
+        return false;
+    }
+
+    [GeneratedRegex(@"\bmat(?<n>[234])\s*\(")]
+    private static partial Regex MatrixConstructorRegex();
 }

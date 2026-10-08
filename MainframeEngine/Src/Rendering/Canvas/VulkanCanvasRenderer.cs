@@ -1017,16 +1017,18 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         };
 
         var binding = new VertexInputBindingDescription(0, CanvasVertex.SizeInBytes, VertexInputRate.Vertex);
-        var attributes = stackalloc VertexInputAttributeDescription[3];
-        attributes[0] = new VertexInputAttributeDescription(0, 0, Format.R32G32Sfloat, 0);
-        attributes[1] = new VertexInputAttributeDescription(1, 0, Format.R32G32Sfloat, 8);
-        attributes[2] = new VertexInputAttributeDescription(2, 0, Format.R32G32B32A32Sfloat, 16);
+        var attributes = stackalloc VertexInputAttributeDescription[CanvasVertexLayout.AttributeCount];
+        // Only the attributes the vertex shader reads (pipeline creation, not per frame: the SPIR-V read is fine here).
+        var attributeCount = geometry
+            ? CanvasVertexLayout.Select(SpirvInputs.InputLocations(File.ReadAllBytes(ContentPaths.Resolve(vertexSpv))),
+                new Span<VertexInputAttributeDescription>(attributes, CanvasVertexLayout.AttributeCount))
+            : 0;
         var vertexInput = new PipelineVertexInputStateCreateInfo
         {
             SType = StructureType.PipelineVertexInputStateCreateInfo,
             VertexBindingDescriptionCount = geometry ? 1u : 0u,
             PVertexBindingDescriptions = geometry ? &binding : null,
-            VertexAttributeDescriptionCount = geometry ? 3u : 0u,
+            VertexAttributeDescriptionCount = (uint)attributeCount,
             PVertexAttributeDescriptions = geometry ? attributes : null,
         };
         var inputAssembly = new PipelineInputAssemblyStateCreateInfo

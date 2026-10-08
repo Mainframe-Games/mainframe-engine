@@ -22,6 +22,9 @@
     <ShaderIncludeDir>$(ShaderSourceDir)include</ShaderIncludeDir>
     <ShaderLimitsJson>$(ShaderSourceDir)limits.json</ShaderLimitsJson>
     <ShaderLimitsSlang>$(ShaderIncludeDir)/limits.slang</ShaderLimitsSlang>
+    <!-- The oldest slangc the shaders are written for (CanvasShaderBuild.MinimumSlangcVersion matches); older ones fall
+         back to the committed .spv with warning MFSHADER001. -->
+    <SlangMinimumVersion>2026.1</SlangMinimumVersion>
     <ShaderLimitsCSharp>$(MSBuildProjectDirectory)/Src/Rendering/Generated/ShaderLimits.g.cs</ShaderLimitsCSharp>
     <!-- BaseIntermediateOutputPath (obj/) is known here; IntermediateOutputPath is only set by the SDK targets. -->
     <ShaderOutputDir>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(BaseIntermediateOutputPath), $(Configuration), Shaders))))</ShaderOutputDir>
@@ -120,16 +123,23 @@
       <SlangcPath Condition="'$(SlangcPath)' == '' and '$(VULKAN_SDK)' != '' and Exists('$(VULKAN_SDK)/bin/$(_SlangcExe)')">$(VULKAN_SDK)/bin/$(_SlangcExe)</SlangcPath>
       <SlangcPath Condition="'$(SlangcPath)' == ''">$(_SlangcExe)</SlangcPath>
     </PropertyGroup>
-    <Exec Command="&quot;$(SlangcPath)&quot; -v" IgnoreExitCode="true" EchoOff="true"
+    <!-- `slangc -v` prints its version (e.g. 2026.1-52-gc8ddf20bb) on stderr; ConsoleToMSBuild captures both streams. -->
+    <Exec Command="&quot;$(SlangcPath)&quot; -v" IgnoreExitCode="true" EchoOff="true" ConsoleToMSBuild="true"
           StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true">
       <Output TaskParameter="ExitCode" PropertyName="_SlangcExitCode" />
+      <Output TaskParameter="ConsoleOutput" PropertyName="_SlangcVersionText" />
     </Exec>
     <PropertyGroup>
-      <SlangcAvailable Condition="'$(_SlangcExitCode)' == '0'">true</SlangcAvailable>
-      <SlangcAvailable Condition="'$(_SlangcExitCode)' != '0'">false</SlangcAvailable>
+      <_SlangcVersion Condition="'$(_SlangcExitCode)' == '0'">$([System.Text.RegularExpressions.Regex]::Match('$(_SlangcVersionText)', '\d+\.\d+').Value)</_SlangcVersion>
+      <_SlangcTooOld>false</_SlangcTooOld>
+      <_SlangcTooOld Condition="'$(_SlangcExitCode)' == '0' and ('$(_SlangcVersion)' == '' or $([MSBuild]::VersionLessThan('$(_SlangcVersion)', '$(SlangMinimumVersion)')))">true</_SlangcTooOld>
+      <SlangcAvailable Condition="'$(_SlangcExitCode)' == '0' and '$(_SlangcTooOld)' != 'true'">true</SlangcAvailable>
+      <SlangcAvailable Condition="'$(SlangcAvailable)' != 'true'">false</SlangcAvailable>
     </PropertyGroup>
-    <Warning Condition="'$(SlangcAvailable)' != 'true'" Code="MFSHADER001"
+    <Warning Condition="'$(_SlangcExitCode)' != '0'" Code="MFSHADER001"
              Text="slangc not found (install the Vulkan SDK or set -p:Slangc=path); using the committed .spv files. Shader edits will not take effect until 'just shaders' is run." />
+    <Warning Condition="'$(_SlangcTooOld)' == 'true'" Code="MFSHADER001"
+             Text="slangc $(_SlangcVersionText) is older than $(SlangMinimumVersion) (update the Vulkan SDK or set -p:Slangc=path); using the committed .spv files. Shader edits will not take effect until 'just shaders' is run." />
   </Target>
 
   <Target Name="CompileShaders" DependsOnTargets="GenerateShaderLimits;FindSlangc"

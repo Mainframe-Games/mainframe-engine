@@ -30,6 +30,16 @@ public sealed class SpirvInputsTests
         Assert.Equal(expected, locations.Order());
     }
 
+    [Theory]
+    [InlineData("2026.1-52-gc8ddf20bb", true)]  // the Vulkan SDK's build
+    [InlineData("v2026.19", true)]
+    [InlineData("2027.0", true)]
+    [InlineData("2025.24.3", false)]            // older than the minimum: the build keeps the committed SPIR-V
+    [InlineData("slangc: unknown option", false)]
+    [InlineData("", false)]
+    public void SlangcVersionsBelowTheMinimumAreNotUsed(string versionOutput, bool supported) =>
+        Assert.Equal(supported, CanvasShaderBuild.IsSupportedSlangcVersion(versionOutput));
+
     [Fact]
     public void NotSpirvIsRejected() =>
         Assert.Throws<FormatException>(() => SpirvInputs.InputLocations(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }));

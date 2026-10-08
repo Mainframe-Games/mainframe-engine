@@ -43,7 +43,8 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 
 `.gdshader` files in Godot's shading language (`shader_type canvas_item`) load as `Shader` resources (`.gdshader` importer,
 `Shader.Load`); `CanvasShaderCompiler` wraps them in a Slang template compiled with `-allow-glsl`, so the Godot code keeps
-its GLSL syntax and meaning ([ADR 0113](../../memory/decisions/0113-canvas-shaders-godot-language.md),
+its GLSL syntax and meaning (one-argument `matN(x)` calls are rewritten to `glsl_matN(x)` helpers, because Slang fills every
+element from a scalar where GLSL builds a diagonal; [ADR 0113](../../memory/decisions/0113-canvas-shaders-godot-language.md),
 [ADR 0144](../../memory/decisions/0144-slang-shader-language.md)).
 Supported: uniforms of scalar/vector/matrix types and arrays (std140 block, set 1 binding 0, declaration order) with
 defaults and hints (`source_color` kept raw as in Godot's non-HDR canvas, `hint_range` ignored), `sampler2D` uniforms
