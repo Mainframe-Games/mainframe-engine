@@ -13,7 +13,8 @@ namespace Forest;
 /// <see cref="Node.OnInput"/>), and the right stick (<c>look_*</c> actions, 0.15 radial deadzone, squared response) in
 /// <see cref="Node.OnProcess"/>. Yaw and pitch both live on the head, not the body: the body's transform is physics
 /// interpolated (ADR 0024), so a yaw written there between steps would be overwritten by the render pose. The mouse is
-/// captured at start (<see cref="CaptureMouse"/>); <c>pause</c> (Escape / Start) releases it and a click recaptures it.</para>
+/// captured at start (<see cref="CaptureMouse"/>); <c>pause</c> (Escape / Start) releases it and a click recaptures it
+/// (with a <see cref="PauseMenu"/>, the menu opens instead and disables the controller while it is open).</para>
 /// <para><b>Move:</b> <c>move_*</c> in the head's yaw frame, accelerating to walk, sprint (<c>sprint</c> held or
 /// <c>sprint_toggle</c>) or crouch (<c>crouch</c> held or <c>crouch_toggle</c>) speed, scaled by
 /// <see cref="WaterQueries.WadeSpeedScale"/> and pushed by the water's flow; gravity, a jump with coyote time and a jump
@@ -108,6 +109,12 @@ public class FirstPersonController : CharacterBody3D
 
     /// <summary>Capture the mouse when ready (the <c>++ --no-capture</c> game argument turns it off).</summary>
     [Export] public bool CaptureMouse { get; set; } = true;
+
+    /// <summary>
+    /// <c>pause</c> (Escape / Start) releases the captured mouse (default). Off when a pause menu owns the action
+    /// (<see cref="PauseMenu"/> opens on it and releases the mouse itself).
+    /// </summary>
+    public bool ReleaseMouseOnPause { get; set; } = true;
 
     // ---------------------------------------------------------------------------------------------
     // Head bob, footsteps, water
@@ -255,7 +262,7 @@ public class FirstPersonController : CharacterBody3D
             return;
         var input = tree.Input;
         var delta = gameTime.DeltaTime;
-        if (input.IsActionJustPressed("pause") && input.MouseMode == MouseMode.Captured)
+        if (ReleaseMouseOnPause && input.IsActionJustPressed("pause") && input.MouseMode == MouseMode.Captured)
             input.MouseMode = MouseMode.Visible;
 
         var stick = LookCurve(input.GetVector("look_left", "look_right", "look_up", "look_down"));

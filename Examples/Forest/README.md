@@ -7,18 +7,20 @@ built against this checkout's engine, and **not** part of `MainframeEngine.slnx`
 
 **Status: playable.** A generated 256 m valley: a stream from a rocky outcrop over a small fall, through three pools
 and under a fallen-log bridge into a pond; an oak and ash glade, aspen banks, a dense pine slope; a ≈ 3 minute walking
-loop from the trailhead. Physical morning sky, valley fog, light shafts, eye adaptation, TAA, procedural audio. Not yet:
-the pause menu, impostors, SSAO and the release build.
+loop from the trailhead. Physical morning sky, valley fog, light shafts, eye adaptation, TAA, procedural audio, and a
+pause menu (Esc) with live graphics, audio and control settings and cameras (a fly-over, the reference shots, a free
+camera). Not yet: the release build.
 
 ![The glade](../../docs/images/forest/r1-glade.png)
 
 ## Run
 
 ```bash
-just forest                                  # Release; Esc releases the mouse, a click recaptures it
+just forest                                  # Release; Esc opens the pause menu (settings, cameras, quit)
 just forest --fixed-fps 60 ++ --autowalk     # walk the path and check a 600-frame window allocates 0 B
 just forest --fixed-fps 60 ++ --autowalk-lap # walk the whole loop back to the trailhead
-just forest ++ --shot 3                      # a fixed camera at reference shot R3 (1–5)
+just forest ++ --shot 3                      # a fixed camera at reference shot R3 (1–7)
+just forest ++ --menu graphics               # open the pause menu on a page (graphics, audio, controls, cameras)
 just forest-test                             # Forest.Tests: controller, valley generator, project file (no GPU)
 just forest-screenshots                      # the reference shots R1–R5 into docs/images/forest (display awake)
 just forest-bench                            # fly the benchmark spline at 1920 × 1080: p50/p90/p99, JSON, baseline
@@ -26,7 +28,8 @@ just forest-bench                            # fly the benchmark spline at 1920 
 
 or `dotnet run --project Examples/Forest/Forest.Desktop -c Release`. Game flags go after `++`: `--autowalk`,
 `--autowalk-lap`, `--shot <n>`, `--view x,y,z,tx,ty,tz`, `--benchmark`, `--resolution WxH`, `--set Node.Property=value`
-(tune the look for a run), `--no-capture` (do not capture the mouse), `--no-audio` (no procedural soundscape;
+(tune the look for a run), `--menu <page>`, `--camera flyover|free|<shot>`, `--option key=value` (a menu option for
+the run), `--no-capture` (do not capture the mouse), `--no-audio` (no procedural soundscape;
 `just forest-audio` renders it to WAV files).
 
 The art (CC0, from ambientCG and Poly Haven, listed in [NOTICE.md](NOTICE.md)) is in `Content/Art`, stored with Git LFS:
@@ -42,10 +45,11 @@ run `git lfs pull` once. `just forest --scene Content/Scenes/asset_gallery.mscen
 | Sprint | Shift (held) | left stick press (toggle) |
 | Crouch | C or Ctrl (held) | B / Circle (toggle) |
 | Jump | Space | A / Cross |
-| Release the mouse | Escape (click to recapture) | Start |
+| Pause menu | Escape | Start (B closes it) |
+| Frame rate readout | F3 | |
 
-Settings (FOV, mouse sensitivity, invert Y, pad look speed, head bob) are read from `settings.json` in the game's user
-data folder when present.
+The pause menu's settings (graphics, audio, controls) apply at once and are saved to `settings.json` in the game's user
+data folder when it closes ([docs/design/forest.md#pause-menu](../../docs/design/forest.md#pause-menu)).
 
 ## Layout
 
@@ -56,7 +60,8 @@ Examples/Forest/
 ├── benchmark-baseline.json  just forest-bench's reference (this Mac)
 ├── Forest/               node library: Src/Player (FirstPersonController, footstep surfaces, settings),
 │                         Src/World (the scene, ForestValley + ValleyGenerator + ForestVegetation, ForestAssets, the
-│                         asset gallery), Src/Dev (ForestDev, PathWalker, ForestBenchmark), Src/Audio
+│                         asset gallery), Src/Dev (ForestDev, PathWalker, ForestBenchmark), Src/Audio,
+│                         Src/Menu (PauseMenu, ForestOptions, ForestWorld, ForestCameras, FreeFlyCamera)
 ├── Forest.Desktop/       GameHost.Run(args, …) + --write-scenes <dir>
 ├── Forest.Tests/         xUnit v3; no GPU (the asset tests skip without the LFS content)
 ├── Tools/                fetch_assets.py: downloads and imports Content/Art

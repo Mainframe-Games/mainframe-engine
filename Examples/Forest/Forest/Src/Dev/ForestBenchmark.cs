@@ -131,16 +131,7 @@ public sealed class ForestBenchmark
     {
         if (scene.FindChildren<ForestValley>(owned: false) is not [{ Terrain: { } terrain }, ..])
             return false;
-        var water = tree.Root.World3D.Water;
-        for (var i = 0; i < Spline.Length; i++)
-        {
-            var s = Spline[i];
-            var ground = terrain.HeightAt(s.X, s.Z);
-            var surface = water.SurfaceHeightAt(new Vector3(s.X, ground, s.Z));
-            if (float.IsFinite(surface))
-                ground = MathF.Max(ground, surface);
-            _points[i] = new Vector3(s.X, ground + s.Y, s.Z);
-        }
+        ResolveSpline(terrain.HeightAt, tree.Root.World3D.Water, _points);
 
         _camera = new Camera3D { Name = "BenchmarkCamera", Near = 0.05f, Far = 1200f, Fov = 55f };
         scene.AddChild(_camera);
@@ -274,7 +265,25 @@ public sealed class ForestBenchmark
     private Vector3 PositionAt(int i) =>
         CatmullRom(_points, Math.Clamp((float)(WarmUpFrames + i + 1) / (WarmUpFrames + Frames), 0f, 1f) * (_points.Length - 1));
 
-    private static Vector3 CatmullRom(Vector3[] points, float t)
+    /// <summary>
+    /// <see cref="Spline"/> in world space: each point's height above the ground (<paramref name="groundHeight"/>) or the
+    /// water (<paramref name="water"/>, when given), into <paramref name="points"/> (<see cref="Spline"/>'s length).
+    /// </summary>
+    public static void ResolveSpline(Func<float, float, float> groundHeight, WaterQueries? water, Vector3[] points)
+    {
+        for (var i = 0; i < Spline.Length; i++)
+        {
+            var s = Spline[i];
+            var ground = groundHeight(s.X, s.Z);
+            var surface = water?.SurfaceHeightAt(new Vector3(s.X, ground, s.Z)) ?? float.NaN;
+            if (float.IsFinite(surface))
+                ground = MathF.Max(ground, surface);
+            points[i] = new Vector3(s.X, ground + s.Y, s.Z);
+        }
+    }
+
+    /// <summary>A Catmull-Rom point on the open curve through <paramref name="points"/> at <paramref name="t"/> (0 … length − 1).</summary>
+    public static Vector3 CatmullRom(Vector3[] points, float t)
     {
         var i = Math.Clamp((int)t, 0, points.Length - 2);
         var f = t - i;

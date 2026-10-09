@@ -169,10 +169,13 @@ public sealed class ForestAudioSettings
 
     public float FoleyVolume { get; set; } = 1f;
 
+    /// <summary>Mutes everything (the master bus) without losing the volumes.</summary>
+    public bool Muted { get; set; }
+
     /// <summary>The volume of <paramref name="bus"/> (1 for buses it does not control).</summary>
     public float Volume(string bus) => Math.Clamp(bus switch
     {
-        AudioBusLayout.MasterBus => MasterVolume,
+        AudioBusLayout.MasterBus => Muted ? 0f : MasterVolume,
         ForestAudio.AmbienceBus => AmbienceVolume,
         ForestAudio.WaterBus => WaterVolume,
         ForestAudio.FoleyBus => FoleyVolume,
