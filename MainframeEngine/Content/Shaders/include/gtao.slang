@@ -1,9 +1,10 @@
 // Ground-truth ambient occlusion (ADR 0165; Jimenez et al. 2016, "Practical Real-Time Strategies for Accurate Indirect
 // Occlusion"): the push block and helpers shared by the SSAO effect's three passes (SsaoEffect in C#):
-//   Post/Gtao.vk.frag        half resolution: AO from the prepass depth → RG16F (r raw visibility, g linear depth)
+//   Post/Gtao.vk.frag        half resolution: AO from the prepass depth → RGBA16F (r raw visibility, g linear depth,
+//                             ba the view-space bent normal's x and y, ADR 0170)
 //   Post/GtaoDenoise.vk.frag half resolution, twice: 4 × 4 depth-aware bilateral blurs (remove the rotation pattern)
 //   Post/GtaoUpsample.vk.frag full resolution: joint bilateral upsample against the full depth, intensity and power →
-//                             RGBA8 (r AO; g, b, a reserved: contact shadow, bent normal), set 0 binding 5
+//                             RGBA16F (r AO, g 1 (contact shadow), b view depth, a packed bent normal), set 0 binding 5
 // Half-resolution texel h stands for full-resolution texel 2h (its depth, its view position).
 #pragma once
 
@@ -52,3 +53,21 @@ static const float kGtaoSkyDepth = 1.0;
 
 // The linear depth written for sky texels: far beyond any radius, so no occluder and no blur weight comes from the sky.
 static const float kGtaoSkyDistance = 65504.0;
+
+// A view-space unit vector facing the camera (z ≥ 0) from its x and y.
+float3 gtaoUnpackHemisphere(float2 xy)
+{
+    float2 v = xy;
+    float l = dot(v, v);
+    if (l > 1.0)
+        v *= rsqrt(l);
+    return float3(v, sqrt(saturate(1.0 - dot(v, v))));
+}
+
+// The bent normal's x and y (view space, facing the camera) packed into one exactly representable half float: 2 + 32·i + j
+// for i, j in 0..31 (ambient_occlusion.slang unpacks it; < 2 means none, as in the white fallback image).
+float gtaoPackBentNormal(float2 xy)
+{
+    float2 q = round(saturate(xy * 0.5 + 0.5) * 31.0);
+    return 2.0 + q.x * 32.0 + q.y;
+}

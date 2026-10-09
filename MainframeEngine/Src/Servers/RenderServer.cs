@@ -600,6 +600,7 @@ public sealed class RenderServer : IServer
             frame.SetView(overlayView, Extent(sub));
             frame.ResetView(overlayView);
             frame.EnvironmentMaps = null;
+            frame.Probes = null;
             frame.Begin(camera, null, shadows: false);
             used = 1;
         }
@@ -810,15 +811,34 @@ public sealed class RenderServer : IServer
         }
     }
 
-    // The world's sky lighting for the next FrameContext.Begin: the captured cubes (set 0) and the lights UBO's ambient
-    // energy and environment flags.
-    private static void BindSkyLighting(FrameContext frame, World3D world)
+    // The world's sky lighting for the next FrameContext.Begin: the captured cubes (set 0), the light probe volume
+    // (ADR 0170) and the lights UBO's ambient energy and environment flags.
+    private void BindSkyLighting(FrameContext frame, World3D world)
     {
         var environment = world.Environment;
         var maps = environment?.SkyLightingMaps;
         frame.EnvironmentMaps = maps;
+        frame.Probes = ProbeBinding(world);
         world.Lights.AmbientEnergy = environment?.AmbientEnergy ?? 1f;
         world.Lights.EnvironmentFlags = environment?.EnvironmentFlags(maps) ?? 0;
+    }
+
+    // The world's light probe volume on the GPU (uploaded the first frame it is used and whenever its data changes), or
+    // null. No allocation once uploaded.
+    private ProbeVolumeBinding? ProbeBinding(World3D world)
+    {
+        if (world.ProbeVolume is not { } volume || Vulkan is not { } vk || volume.RenderData is not { } data || data.ToTexture() is not { } texture)
+            return null;
+        if (volume.Gpu is null || !ReferenceEquals(volume.Gpu.Texture, texture))
+        {
+            volume.Gpu?.Dispose(); // deletion-queued
+            volume.Gpu = new Texture3DGpu(vk, texture);
+            volume.TrackRenderResources(this);
+        }
+
+        if (!volume.Gpu.Update() || volume.Gpu.Gpu is not { } gpu)
+            return null;
+        return ProbeVolumeBinding.For(data, gpu, volume.Gpu.Generation, volume.Energy, volume.SkyOcclusion, volume.OcclusionTintLinear);
     }
 
     // The viewport's debug lines (depth-tested), then its overlay lines (always on top).

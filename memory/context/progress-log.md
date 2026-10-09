@@ -41,6 +41,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
         - Runs alone after W5 merges, before W6, so W6 adds its settings to the profile. **Merged** (ADR 0169; gates
           green per the lane: 1902 unit, 774 editor, 137 render).
         - Follow-up: the inspector squeezes the resource name in the Post Process row to almost nothing.
+        - **2026-10-09: G8e.1 probe GI merged** (forest/gi2 fast-forward, 735dd1be; ADR 0170). Lane gates: 1969 engine,
+          776 editor, 153 Forest, 152 render, lavapipe probes golden. The bake is committed (`forest-lighting.mres` + `.probes`);
+          contact shadow → occlusion g (RGBA16F), set 0 binding 6 = probes. `forest/fo2` (G8e.5) is still running and
+          was told to merge this first. Next: merge fo2, regenerate R1–R5, then W7 (TAAU 0174, art pass 0175).
         - **Paused at the usage limit (tip 041d3544).**
           - Merged: G8e.3 volumetric fog (0171), the pipeline-cache stall fix (0176), G8e.6 water (0173), and the
             Slang 41012 warning fix. Gates are green: 1948 engine, 774 editor, 153 Forest, 147 render.

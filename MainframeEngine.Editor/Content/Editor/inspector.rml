@@ -188,6 +188,9 @@
         .zzfx-row { display: flex; flex-direction: row; align-items: center; height: 26dp; }
         .zzfx-label { display: block; width: 52dp; color: #8b93a5; font-size: 11dp; }
         .zzfx-row button { width: 24dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 4dp; }
+        .probe-bake { display: flex; flex-direction: row; align-items: center; height: 26dp; margin: 6dp 8dp; }
+        .probe-bake button { width: 26dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 6dp; }
+        .probe-bake-status { display: block; flex: 1 1 auto; color: #8b93a5; font-size: 11dp; white-space: nowrap; overflow: hidden; }
     </style>
 </head>
 <body class="panel-doc">

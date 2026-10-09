@@ -28,6 +28,8 @@
 *.fbx filter=lfs diff=lfs merge=lfs -text
 *.blend filter=lfs diff=lfs merge=lfs -text
 *.spine filter=lfs diff=lfs merge=lfs -text
+# baked light probes (ADR 0170)
+*.probes filter=lfs diff=lfs merge=lfs -text
 # colour grading LUTs (text, but large)
 *.cube filter=lfs diff=lfs merge=lfs -text
 # fonts

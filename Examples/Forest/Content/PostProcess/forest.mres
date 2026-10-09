@@ -11,6 +11,7 @@
     "AutoExposureEnabled": true,
     "AutoExposureScale": 0.16,
     "AutoExposureSpeed": 0.6,
+    "AutoExposureMinLuminance": 0.04,
     "GlowEnabled": true,
     "GlowHdrThreshold": 4,
     "GlowHdrLuminanceCap": 3,

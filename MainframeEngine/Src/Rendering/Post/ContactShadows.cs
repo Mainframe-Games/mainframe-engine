@@ -25,15 +25,16 @@ internal readonly record struct ContactShadowSettings(bool Enabled, Vector3 Towa
 /// full-resolution pass (<c>Post/ContactShadows.vk.frag</c>) marches <see cref="Steps"/> steps from every prepass pixel
 /// towards the primary light over its <see cref="DirectionalLight.ContactShadowLength"/>, against the prepass depth, with a
 /// <see cref="Thickness"/> test; with TAA the start of each ray is jittered by interleaved gradient noise every frame (TAA
-/// averages it), without TAA every ray starts half a step out. Its <c>R16G16_SFLOAT</c> output (shadow, view depth) is bound at set 0, binding 6
-/// (<see cref="FrameContext.ContactShadowBinding"/>) for the lit shaders, which multiply the primary light's cascaded
-/// shadow by it on the surface the prepass drew. A separate target from SSAO's (lane S owns binding 5): G8e.1 folds it into
-/// the AO target's G channel. Allocates nothing per frame.
+/// averages it), without TAA every ray starts half a step out. Since ADR 0170 it writes the whole screen-space occlusion
+/// image the lit shaders read at set 0 binding 5 (<see cref="FrameContext.AmbientOcclusionBinding"/>,
+/// <see cref="OutputFormat"/>): SSAO's AO and bent normal copied from its output when SSAO ran (else 1 and none), the
+/// contact shadow in g and the view depth in b, so binding 6 is free for the light probes. The lit shaders multiply the
+/// primary light's cascaded shadow by g on the surface the prepass drew. Allocates nothing per frame.
 /// </summary>
 internal sealed unsafe class ContactShadows() : PostEffect("contact shadows", PostStage.AfterPrepass, PostEffectOrder.ContactShadows)
 {
-    /// <summary>The output: r = shadow (1 = lit), g = the pixel's view depth.</summary>
-    public const Format OutputFormat = Format.R16G16Sfloat;
+    /// <summary>The output: r = AO, g = shadow (1 = lit), b = the pixel's view depth, a = the packed bent normal.</summary>
+    public const Format OutputFormat = Format.R16G16B16A16Sfloat;
 
     /// <summary>March steps per pixel.</summary>
     public const int Steps = 12;
@@ -49,7 +50,9 @@ internal sealed unsafe class ContactShadows() : PostEffect("contact shadows", Po
     private IVulkanContext _ctx = null!;
     private DescriptorSetLayout _setLayout;
     private DescriptorPool _pool;
-    private DescriptorSet _set;
+    private DescriptorSet _set;      // without SSAO: binding 1 is a placeholder the shader never reads
+    private DescriptorSet _ssaoSet;  // with SSAO: binding 1 is SSAO's output (written the first frame SSAO is on)
+    private bool _ssaoSetWritten;
     private PipelineLayout _layout;
     private Pipeline _pipeline;
     private int _targetGeneration = -1;
@@ -70,19 +73,27 @@ internal sealed unsafe class ContactShadows() : PostEffect("contact shadows", Po
         _setLayout = PipelineBuilder.CreateSetLayout(ctx,
         [
             new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ], "contact shadows");
-        _pool = PipelineBuilder.CreatePool(ctx, 1, [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 }], "contact shadows");
+        _pool = PipelineBuilder.CreatePool(ctx, 2, [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 4 }], "contact shadows");
         _set = PipelineBuilder.AllocateSet(ctx, _pool, _setLayout, "contact shadows");
-        WriteSet(context);
+        _ssaoSet = PipelineBuilder.AllocateSet(ctx, _pool, _setLayout, "contact shadows + ssao");
+        WriteSets(context);
         _layout = PipelineBuilder.CreateLayout(ctx, [_setLayout], (uint)sizeof(ContactPush), ShaderStageFlags.FragmentBit, "contact shadows");
         _pipeline = PipelineBuilder.Create(ctx, new PipelineState(), _layout, target.RenderPass,
             "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/ContactShadows.vk.frag.spv", [], [], "contact shadows");
     }
 
+    // SSAO runs this frame (it is first in the stage): its output is copied into ours.
+    private static bool SsaoRuns(PostEffectContext context) => context.Settings.World.SsaoEnabled && context.Scene.HasPrepass;
+
     // Binds this frame's output for the lit shaders before the frame set is first bound (the image is written in
-    // OnRecord, before the scene pass reads it).
+    // OnRecord, before the scene pass reads it). It replaces SSAO's binding (set earlier in the stage's OnBeginFrame),
+    // keeping SSAO's light-affect settings.
     protected override void OnBeginFrame(PostEffectContext context)
     {
+        if (!context.Scene.HasPrepass)
+            return; // no AfterPrepass stage this frame: the lit shaders keep the white image
         var target = context.Targets.Get(Target);
         if (_targetGeneration != context.Targets.Generation)
         {
@@ -90,15 +101,17 @@ internal sealed unsafe class ContactShadows() : PostEffect("contact shadows", Po
             _id++;
         }
 
-        context.Vulkan.Frame.SetContactShadows(new DescriptorImageInfo
+        var ssao = SsaoRuns(context);
+        var world = context.Settings.World;
+        context.Vulkan.Frame.SetAmbientOcclusion(new DescriptorImageInfo
         {
             Sampler = context.Scene.LinearSampler,
             ImageView = target.GetColor(0).View,
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-        }, _id);
+        }, _id, ssao ? world.SsaoLightAffect : 0f, ssao ? world.SsaoAoChannelAffect : 0f);
     }
 
-    protected override void OnResize(PostEffectContext context) => WriteSet(context);
+    protected override void OnResize(PostEffectContext context) => WriteSets(context);
 
     protected override void OnRecord(PostEffectContext context)
     {
@@ -106,13 +119,14 @@ internal sealed unsafe class ContactShadows() : PostEffect("contact shadows", Po
             return;
         var camera = context.Camera;
         var projection = camera.JitteredProjection;
-        if (projection.M34 == 0f)
-            return; // orthographic: contact shadows are a perspective feature (the binding reads 1 anyway)
-
         var settings = context.Settings.ContactShadows;
         var towards = Vector3.TransformNormal(settings.TowardsLight, camera.View);
-        if (towards.LengthSquared() < 1e-12f)
-            return;
+        // Orthographic cameras get no contact shadows (a perspective feature), but the image still carries SSAO's.
+        var march = projection.M34 != 0f && towards.LengthSquared() >= 1e-12f;
+        var ssao = SsaoRuns(context);
+        if (ssao && !_ssaoSetWritten)
+            WriteSsaoSet(context);
+
         var target = context.Targets.Get(Target);
         var extent = target.Extent;
         var temporal = camera.Jitter != Vector2.Zero; // TAA averages a per-frame noise; otherwise it stays put
@@ -120,15 +134,16 @@ internal sealed unsafe class ContactShadows() : PostEffect("contact shadows", Po
         {
             Projection = new Vector4(projection.M11, projection.M22, projection.M31, projection.M32),
             Depth = new Vector4(projection.M33, projection.M43, extent.Width, extent.Height),
-            Light = new Vector4(Vector3.Normalize(towards), settings.Length),
-            Params = new Vector4(Thickness, Steps, temporal ? context.FrameNumber % 64 : -1f, MaxDistance),
+            Light = new Vector4(march ? Vector3.Normalize(towards) : Vector3.UnitY, settings.Length),
+            Params = new Vector4(Thickness, march ? Steps : 0, temporal ? context.FrameNumber % 64 : -1f, MaxDistance),
+            Flags = new Vector4(ssao ? 1f : 0f, 0f, 0f, 0f),
         };
 
         var vk = _ctx.Vk;
         var cb = context.CommandBuffer;
         target.Begin(cb, default);
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
-        var set = _set;
+        var set = ssao ? _ssaoSet : _set;
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layout, 0, 1, &set, 0, null);
         vk.CmdPushConstants(cb, _layout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(ContactPush), &push);
         PipelineBuilder.SetViewport(vk, cb, extent, flipY: false);
@@ -137,13 +152,36 @@ internal sealed unsafe class ContactShadows() : PostEffect("contact shadows", Po
         DrawnFrame = context.FrameNumber;
     }
 
-    private void WriteSet(PostEffectContext context) =>
-        PipelineBuilder.WriteImage(_ctx, _set, 0, new DescriptorImageInfo
+    private static DescriptorImageInfo Depth(PostEffectContext context) => new()
+    {
+        Sampler = context.Scene.PointSampler,
+        ImageView = context.Scene.Depth,
+        ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal,
+    };
+
+    private void WriteSets(PostEffectContext context)
+    {
+        var depth = Depth(context);
+        PipelineBuilder.WriteImage(_ctx, _set, 0, depth);
+        PipelineBuilder.WriteImage(_ctx, _set, 1, depth); // unread: every set is complete
+        _ssaoSetWritten = false;
+        if (SsaoRuns(context))
+            WriteSsaoSet(context);
+    }
+
+    // The set with SSAO's output at binding 1: written the first frame SSAO is on (it has never been bound, so no frame in
+    // flight reads it) and after a resize (device idle). SSAO's target lives in the same pool, sized with ours.
+    private void WriteSsaoSet(PostEffectContext context)
+    {
+        PipelineBuilder.WriteImage(_ctx, _ssaoSet, 0, Depth(context));
+        PipelineBuilder.WriteImage(_ctx, _ssaoSet, 1, new DescriptorImageInfo
         {
             Sampler = context.Scene.PointSampler,
-            ImageView = context.Scene.Depth,
-            ImageLayout = ImageLayout.DepthStencilReadOnlyOptimal,
+            ImageView = context.Targets.Get(SsaoEffect.OutputTarget).GetColor(0).View,
+            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
         });
+        _ssaoSetWritten = true;
+    }
 
     protected override void OnDispose()
     {
@@ -154,12 +192,13 @@ internal sealed unsafe class ContactShadows() : PostEffect("contact shadows", Po
         vk.DestroyDescriptorSetLayout(_ctx.Device, _setLayout, null);
     }
 
-    // ContactShadows.vk.frag's push block (std430, 64 bytes).
+    // ContactShadows.vk.frag's push block (std430, 80 bytes).
     private struct ContactPush
     {
         public Vector4 Projection;
         public Vector4 Depth;
         public Vector4 Light;
         public Vector4 Params;
+        public Vector4 Flags;
     }
 }

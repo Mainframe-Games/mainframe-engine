@@ -67,6 +67,14 @@ public abstract class GeometryInstance3D : VisualInstance3D
     public ShadowCasterLod ShadowCasterLod { get; set; }
 
     /// <summary>
+    /// How the instance takes part in baked global illumination (Godot's <c>gi_mode</c>; ADR 0170): <see cref="GIMode.Static"/>
+    /// (default) instances occlude and bounce light in a <see cref="LightProbeVolume"/> bake; every lit surface, static or
+    /// not, samples the probes.
+    /// </summary>
+    [Export]
+    public GIMode GIMode { get; set; } = GIMode.Static;
+
+    /// <summary>
     /// Replaces the node's local bounds (the mesh's, or a multimesh's over all its instances) for frustum culling, shadow
     /// caster culling and the visibility range (Godot's <c>custom_aabb</c>); null: the computed bounds. Levels of detail
     /// share one so they switch at the same distance (ADR 0158). Not saved.
@@ -110,6 +118,19 @@ public abstract class GeometryInstance3D : VisualInstance3D
         RenderServer?.ReleaseGeometry(this); // also the instance buffer of a MultiMeshInstance3D
         base.ReleaseRenderResources();
     }
+}
+
+/// <summary>How a <see cref="GeometryInstance3D"/> takes part in baked lighting (Godot's <c>GIMode</c>).</summary>
+public enum GIMode : byte
+{
+    /// <summary>Not in the bake (it still receives the probes' light).</summary>
+    Disabled,
+
+    /// <summary>Occludes and bounces light in the bake.</summary>
+    Static,
+
+    /// <summary>Moves: not in the bake; receives the probes' light.</summary>
+    Dynamic,
 }
 
 /// <summary>Draws a <see cref="MainframeEngine.Mesh"/> (Godot's <c>MeshInstance3D</c>): primitives, imported models, procedural geometry.</summary>

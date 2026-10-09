@@ -17,6 +17,12 @@ public static class ForestScene
     /// <summary>The scene file, relative to the project folder.</summary>
     public const string Path = "Content/Scenes/forest.mscene";
 
+    /// <summary>
+    /// The valley's baked light probes (ADR 0170), relative to the project folder: a <see cref="LightProbeData"/> and its
+    /// <c>.probes</c> file (LFS), written by <c>--bake-lighting</c> (or the editor's Bake Lighting) next to the scene.
+    /// </summary>
+    public const string ProbesPath = "Content/Scenes/forest-lighting.mres";
+
     /// <summary>Where the player starts (feet, on the ground; the valley snaps it exactly when ready).</summary>
     public static Vector3 Spawn
     {
@@ -61,6 +67,7 @@ public static class ForestScene
         });
         Add(root, root, CreateEnvironment());
         Add(root, root, new ForestValley { Name = "Valley" });
+        Add(root, root, CreateProbes());
         BuildPlayer(root);
         Add(root, root, new ForestAudio
         {
@@ -119,6 +126,31 @@ public static class ForestScene
         // ADR 0169: the post-processing look and the lens are resource files the editor tunes (ForestLook).
         PostProcess = ForestLook.LoadProfile(),
         CameraAttributes = ForestLook.LoadLens(),
+    };
+
+    /// <summary>
+    /// The valley's probe volume (ADR 0170): terrain-following over the whole 256 m terrain, every 2 m, eight layers up to
+    /// the canopy (27 m). The valley is generated at load, so the volume checks its committed bake against what the valley
+    /// generated (the hash of everything the bake reads) and bakes in the background when they differ.
+    /// </summary>
+    public static LightProbeVolume CreateProbes() => new()
+    {
+        Name = "Lighting",
+        Position = new Vector3(ValleyLayout.SizeMeters * 0.5f, 0f, ValleyLayout.SizeMeters * 0.5f),
+        Size = new Vector3(ValleyLayout.SizeMeters, 32f, ValleyLayout.SizeMeters),
+        Layout = ProbeLayout.TerrainFollowing,
+        ProbeSpacing = new Vector3(2f),
+        RaysPerProbe = 192,
+        Bounces = 2,
+        // Tuned against R2/R3/R5 (ADR 0170): the full bake reads too dark under the dense canopy next to the sunlit glade
+        // (the leaves' sub-pixel gaps and their spectral transmission are not in the bake), so half the sky occlusion, the
+        // rest of the blocked sky light tinted the canopy's green, and a stronger bounce: the shade stays readable and takes
+        // the canopy's colour. The look's auto exposure adapts further down under the canopy (forest.mres).
+        Energy = 2.4f,
+        SkyOcclusion = 0.5f,
+        OcclusionTint = System.Drawing.Color.FromArgb(255, 200, 225, 170),
+        BakeWhenStale = true,
+        Data = ResourceLoader.Exists(ProbesPath) ? ResourceLoader.Load<LightProbeData>(ProbesPath) : null,
     };
 
     private static void BuildPlayer(Node root)

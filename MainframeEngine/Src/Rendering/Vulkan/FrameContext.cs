@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 576 bytes).</summary>
+/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 672 bytes).</summary>
 /// <remarks>
 /// With a projection jitter (TAA, ADR 0163) <see cref="Projection"/>, <see cref="ViewProjection"/> and
 /// <see cref="InverseProjection"/> are the jittered matrices the view rasterises with; <see cref="PreviousViewProjection"/>
@@ -69,8 +69,30 @@ public struct FrameData
     /// </summary>
     public Vector4 AmbientOcclusion;
 
+    /// <summary>
+    /// The light probe volume bound at set 0 binding 6 (ADR 0170): xyz = probe (0, 0, 0)'s position (terrain-following:
+    /// y unused), w = 1 + the sky occlusion strength (<see cref="LightProbeVolume.SkyOcclusion"/>) while one is bound. All five
+    /// probe vectors are zero without a volume (<see cref="ProbeVolumeBinding"/>).
+    /// </summary>
+    public Vector4 ProbeOrigin;
+
+    /// <summary>xyz = 1 / probe spacing (1/m), w = layout (0 box, 1 terrain-following).</summary>
+    public Vector4 ProbeSpacing;
+
+    /// <summary>Probes along x, y (layers) and z; w = the bounce energy.</summary>
+    public Vector4 ProbeCounts;
+
+    /// <summary>Terrain-following: the heights above the ground of layers 0–3 (m).</summary>
+    public Vector4 ProbeLayers0;
+
+    /// <summary>Layers 4–7.</summary>
+    public Vector4 ProbeLayers1;
+
+    /// <summary>xyz = the volume's <see cref="LightProbeVolume.OcclusionTint"/> (linear), w unused.</summary>
+    public Vector4 ProbeTint;
+
     /// <summary>Bytes in the std140 block.</summary>
-    public const int Size = 6 * 64 + 12 * 16;
+    public const int Size = 6 * 64 + 18 * 16;
 
     /// <summary>Fills the block from a camera's matrices.</summary>
     public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
@@ -230,10 +252,10 @@ internal struct ViewHistory
 /// bound by every scene pipeline — instead of each object writing and binding its own copies — and the sky's
 /// image-based lighting (ADR 0150, <c>include/environment.slang</c>): binding 2 the prefiltered radiance cube, binding 3
 /// the irradiance cube (the view's world's <see cref="SkyRadiance"/>, or a black 1×1 cube) and binding 4 the
-/// <see cref="BrdfLut"/>; binding 5 the screen-space ambient occlusion of the main view (ADR 0163,
-/// <c>include/ambient_occlusion.slang</c>: <see cref="SetAmbientOcclusion"/>, else a white 1×1 image); binding 6 the main
-/// view's screen-space contact shadows (ADR 0167, <c>include/contact_shadows.slang</c>: <see cref="SetContactShadows"/>, else
-/// the same white image). Set 1 is the shadow
+/// <see cref="BrdfLut"/>; binding 5 the screen-space occlusion of the main view (ADR 0163, 0170:
+/// <c>include/ambient_occlusion.slang</c>: AO, the contact shadow, GTAO's bent normal; <see cref="SetAmbientOcclusion"/>,
+/// else a white 1×1 image); binding 6 the view's world's light probe volume (ADR 0170, <c>include/probes.slang</c>:
+/// <see cref="Probes"/>, else a 1×1×1 zero volume). Set 1 is the shadow
 /// set (<see cref="ShadowSystem"/> or the renderer's fallback); per-material data is set 2 and per-instance data
 /// comes from the instance buffer (or push constants).
 /// </summary>
@@ -274,13 +296,14 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly ulong[] _lightsFrame = new ulong[Slots * MaxViews];
     private readonly long[] _environmentIds = new long[Slots * MaxViews]; // EnvironmentMaps.Id bound (0 = the fallback)
     private readonly long[] _occlusionIds = new long[Slots * MaxViews];   // ambient occlusion id bound at binding 5 (0 = white)
-    private readonly long[] _contactIds = new long[Slots * MaxViews];     // contact shadows id bound at binding 6 (0 = white)
+    private readonly long[] _probeIds = new long[Slots * MaxViews];       // probe volume id bound at binding 6 (0 = none)
     private readonly ulong[] _occlusionImages = new ulong[Slots * MaxViews]; // the image views bound there (ids are per effect)
-    private readonly ulong[] _contactImages = new ulong[Slots * MaxViews];
+    private readonly ulong[] _probeImages = new ulong[Slots * MaxViews];
     private readonly ViewHistory[] _history = new ViewHistory[MaxViews];
     private readonly GpuImage _blackCube;
     private readonly GpuImage _brdfLut;
     private readonly GpuImage _white;
+    private readonly GpuTexture _noProbes;
     private readonly Sampler _iblSampler;
     // Per view (ADR 0169: a post-processed sub-viewport has its own SSAO, contact shadows and jitter; view 0 is the main view).
     private readonly DescriptorImageInfo[] _occlusion = new DescriptorImageInfo[MaxViews];
@@ -289,10 +312,6 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly DescriptorImageInfo[] _frameOcclusion = new DescriptorImageInfo[MaxViews]; // latched at the view's first bind of the frame
     private readonly long[] _frameOcclusionId = new long[MaxViews];
     private readonly ulong[] _occlusionFrame = new ulong[MaxViews];
-    private readonly DescriptorImageInfo[] _contact = new DescriptorImageInfo[MaxViews];
-    private readonly long[] _contactId = new long[MaxViews];
-    private readonly DescriptorImageInfo[] _frameContact = new DescriptorImageInfo[MaxViews]; // latched with the ambient occlusion
-    private readonly long[] _frameContactId = new long[MaxViews];
     private readonly Vector2[] _jitter = new Vector2[MaxViews];
     private readonly int[] _jitterIndex = new int[MaxViews];
     private Extent2D _viewExtent;
@@ -314,7 +333,7 @@ public sealed unsafe class FrameContext : IDisposable
             new() { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 4, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = AmbientOcclusionBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
-            new() { Binding = ContactShadowBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = ProbeVolumeBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ];
         SetLayout = PipelineBuilder.CreateSetLayout(ctx, bindings, "frame set 0");
         _pool = PipelineBuilder.CreatePool(ctx, Slots * MaxViews,
@@ -350,6 +369,8 @@ public sealed unsafe class FrameContext : IDisposable
         _white = GpuImage.Create(ctx, new GpuImageDesc(1, 1, Format.R8G8B8A8Unorm, ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit));
         ctx.Uploads.UploadImage(_white, [255, 255, 255, 255]);
         ctx.Uploads.FlushIfRecording();
+        // Binding 6 without a probe volume: a zero volume the shaders never read (probesActive() is false).
+        _noProbes = GpuTexture.Create3D(ctx, 1, 1, 1, Format.R16G16B16A16Sfloat, new byte[8], TextureSampling.LinearClamp);
 
         for (var slot = 0; slot < Slots; slot++)
         {
@@ -365,34 +386,35 @@ public sealed unsafe class FrameContext : IDisposable
                 PipelineBuilder.WriteImage(ctx, set, 3, FallbackCubeDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, 4, BrdfLutDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, AmbientOcclusionBinding, NoOcclusionDescriptor);
-                PipelineBuilder.WriteImage(ctx, set, ContactShadowBinding, NoOcclusionDescriptor);
+                PipelineBuilder.WriteImage(ctx, set, ProbeVolumeBinding, NoProbesDescriptor);
                 _sets[slot * MaxViews + view] = set;
             }
         }
     }
 
     /// <summary>
-    /// Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting, binding 5 ambient occlusion,
-    /// binding 6 contact shadows).
+    /// Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting, binding 5 screen-space
+    /// occlusion, binding 6 the light probe volume).
     /// </summary>
     public DescriptorSetLayout SetLayout { get; }
 
     /// <summary>Image-based-lighting bindings of set 0 (radiance cube, irradiance cube, BRDF LUT).</summary>
     internal const int EnvironmentBindings = 3;
 
-    /// <summary>Image bindings of set 0: the image-based lighting, the ambient occlusion and the contact shadows.</summary>
+    /// <summary>Image bindings of set 0: the image-based lighting, the screen-space occlusion and the probe volume.</summary>
     internal const int ImageBindings = EnvironmentBindings + 2;
 
     /// <summary>Set 0's screen-space ambient occlusion binding (<c>ssaoTexture</c> in <c>include/ambient_occlusion.slang</c>).</summary>
     public const uint AmbientOcclusionBinding = 5;
 
     /// <summary>
-    /// Set 0's screen-space contact shadows binding (<c>contactShadowTexture</c> in <c>include/contact_shadows.slang</c>,
-    /// ADR 0167): r = the primary light's contact shadow, g = the view depth it was computed at.
+    /// Set 0's light probe volume binding (<c>probeVolume</c> in <c>include/probes.slang</c>, ADR 0170): the view's world's
+    /// <see cref="LightProbeVolume"/> as a 3D texture. It replaced ADR 0167's contact-shadow binding, whose shadow now
+    /// rides in the screen-space occlusion image's green channel (<see cref="AmbientOcclusionBinding"/>).
     /// </summary>
-    public const uint ContactShadowBinding = 6;
+    public const uint ProbeVolumeBinding = 6;
 
-    /// <summary>The white 1×1 image bound at <see cref="AmbientOcclusionBinding"/> without screen-space AO (and at <see cref="ContactShadowBinding"/>).</summary>
+    /// <summary>The white 1×1 image bound at <see cref="AmbientOcclusionBinding"/> without screen-space occlusion.</summary>
     internal DescriptorImageInfo NoOcclusionDescriptor => new()
     {
         Sampler = _iblSampler,
@@ -400,9 +422,18 @@ public sealed unsafe class FrameContext : IDisposable
         ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
     };
 
+    /// <summary>The 1×1×1 volume bound at <see cref="ProbeVolumeBinding"/> without a probe volume.</summary>
+    internal DescriptorImageInfo NoProbesDescriptor => _noProbes.Descriptor;
+
+    /// <summary>
+    /// The probe volume the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/> binds for the current view (null:
+    /// none). The render server sets it from the view's world before each <c>Begin</c>, like <see cref="EnvironmentMaps"/>.
+    /// </summary>
+    internal ProbeVolumeBinding? Probes { get; set; }
+
     /// <summary>
     /// The view the post effects' per-frame bindings apply to (<see cref="SetAmbientOcclusion(in DescriptorImageInfo, long)"/>,
-    /// <see cref="SetContactShadows"/>, the clears): 0, the main view, except while a post-processed sub-viewport starts its
+    /// the clears): 0, the main view, except while a post-processed sub-viewport starts its
     /// effects (ADR 0169).
     /// </summary>
     internal int PostView
@@ -451,27 +482,7 @@ public sealed unsafe class FrameContext : IDisposable
     }
 
     /// <summary>
-    /// The main view's contact shadows (ADR 0167) from the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/> on, like
-    /// <see cref="SetAmbientOcclusion"/>: <paramref name="image"/> (RG: shadow, view depth; <c>SHADER_READ_ONLY_OPTIMAL</c>
-    /// whenever a lit pass reads it) identified by <paramref name="id"/>. Cleared at the start of every frame; the contact
-    /// shadow effect sets it again in its <c>OnBeginFrame</c>. Offscreen views always bind the white image.
-    /// </summary>
-    internal void SetContactShadows(in DescriptorImageInfo image, long id)
-    {
-        ArgumentOutOfRangeException.ThrowIfZero(id);
-        _contact[PostView] = image;
-        _contactId[PostView] = id;
-    }
-
-    /// <summary>Binds the white image at <see cref="ContactShadowBinding"/> again (contact shadows off).</summary>
-    internal void ClearContactShadows()
-    {
-        _contact[PostView] = default;
-        _contactId[PostView] = 0;
-    }
-
-    /// <summary>
-    /// An offscreen view starts a frame (ADR 0169): no ambient occlusion, contact shadows or jitter until its post effects
+    /// An offscreen view starts a frame (ADR 0169): no screen-space occlusion or jitter until its post effects
     /// set them (<see cref="PostView"/>, <see cref="SetViewJitter"/>). The render server calls it for every view it renders.
     /// </summary>
     internal void ResetView(int view)
@@ -480,8 +491,6 @@ public sealed unsafe class FrameContext : IDisposable
         _occlusion[view] = default;
         _occlusionId[view] = 0;
         _occlusionParams[view] = default;
-        _contact[view] = default;
-        _contactId[view] = 0;
         _jitter[view] = default;
         _jitterIndex[view] = 0;
     }
@@ -594,8 +603,8 @@ public sealed unsafe class FrameContext : IDisposable
         BindEnvironment();
     }
 
-    // Points bindings 2 and 3 of this frame slot's and view's set at EnvironmentMaps when they changed, and binding 5 at
-    // the ambient occlusion. The slot's earlier frame has finished (FrameStarted), and a view shows one world per frame,
+    // Points bindings 2 and 3 of this frame slot's and view's set at EnvironmentMaps when they changed, binding 5 at the
+    // screen-space occlusion and binding 6 at the probe volume. The slot's earlier frame has finished (FrameStarted), and a view shows one world per frame,
     // so the set is not bound yet.
     private void BindEnvironment()
     {
@@ -609,8 +618,6 @@ public sealed unsafe class FrameContext : IDisposable
             _occlusionFrame[view] = _ctx.FrameNumber;
             _frameOcclusion[view] = _occlusion[view];
             _frameOcclusionId[view] = _occlusionId[view];
-            _frameContact[view] = _contact[view];
-            _frameContactId[view] = _contactId[view];
         }
 
         var occlusionId = _frameOcclusionId[view];
@@ -622,13 +629,15 @@ public sealed unsafe class FrameContext : IDisposable
             PipelineBuilder.WriteImage(_ctx, _sets[index], AmbientOcclusionBinding, occlusionId == 0 ? NoOcclusionDescriptor : _frameOcclusion[view]);
         }
 
-        var contactId = _frameContactId[view];
-        var contactImage = contactId == 0 ? 0 : _frameContact[view].ImageView.Handle;
-        if (_contactIds[index] != contactId || _contactImages[index] != contactImage)
+        // The probe volume: per world, like the sky maps (a view shows one world per frame, so the set is not bound yet).
+        var probes = Probes;
+        var probeId = probes?.Id ?? 0;
+        var probeImage = probes is { } p ? p.Image.ImageView.Handle : 0;
+        if (_probeIds[index] != probeId || _probeImages[index] != probeImage)
         {
-            _contactIds[index] = contactId;
-            _contactImages[index] = contactImage;
-            PipelineBuilder.WriteImage(_ctx, _sets[index], ContactShadowBinding, contactId == 0 ? NoOcclusionDescriptor : _frameContact[view]);
+            _probeIds[index] = probeId;
+            _probeImages[index] = probeImage;
+            PipelineBuilder.WriteImage(_ctx, _sets[index], ProbeVolumeBinding, probes is { } bound ? bound.Image : NoProbesDescriptor);
         }
 
         var maps = EnvironmentMaps;
@@ -671,6 +680,15 @@ public sealed unsafe class FrameContext : IDisposable
         var temporal = history.ToTemporal(_jitterIndex[current]);
         var data = FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure, Environment, temporal);
         data.AmbientOcclusion = _occlusionParams[current];
+        if (Probes is { } probes)
+        {
+            data.ProbeOrigin = probes.Origin;
+            data.ProbeSpacing = probes.Spacing;
+            data.ProbeCounts = probes.Counts;
+            data.ProbeLayers0 = probes.Layers0;
+            data.ProbeLayers1 = probes.Layers1;
+            data.ProbeTint = probes.Tint;
+        }
         _buffers[_ctx.FrameSlot].Write(data, (ulong)CurrentView * _viewStride);
         _cameraFrame[index] = _ctx.FrameNumber;
     }
@@ -743,8 +761,40 @@ public sealed unsafe class FrameContext : IDisposable
         _blackCube.Dispose();
         _brdfLut.Dispose();
         _white.Dispose();
+        _noProbes.Dispose();
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_iblSampler));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pool));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(SetLayout));
+    }
+}
+
+/// <summary>
+/// A light probe volume as set 0 sees it (ADR 0170): the 3D texture at <see cref="FrameContext.ProbeVolumeBinding"/> and
+/// <see cref="FrameData"/>'s probe fields. <see cref="Id"/> changes whenever the texture does.
+/// </summary>
+internal readonly record struct ProbeVolumeBinding(DescriptorImageInfo Image, long Id, Vector4 Origin, Vector4 Spacing, Vector4 Counts,
+    Vector4 Layers0, Vector4 Layers1, Vector4 Tint)
+{
+    /// <summary>
+    /// The binding of <paramref name="data"/>'s grid uploaded as <paramref name="texture"/>, with the bounce scaled by
+    /// <paramref name="energy"/>, the sky occlusion by <paramref name="skyOcclusion"/> (0..1) and the occluded sky light
+    /// that remains tinted by <paramref name="occlusionTint"/> (linear; null: white).
+    /// </summary>
+    public static ProbeVolumeBinding For(LightProbeData data, GpuTexture texture, long id, float energy, float skyOcclusion = 1f,
+        Vector3? occlusionTint = null)
+    {
+        var grid = data.Grid;
+        var layers = grid.LayerHeights;
+        var last = layers.Length > 0 ? layers[^1] : 0f;
+        Span<float> table = stackalloc float[8];
+        for (var i = 0; i < 8; i++)
+            table[i] = i < layers.Length ? layers[i] : last;
+        return new ProbeVolumeBinding(texture.Descriptor, id,
+            new Vector4(grid.Origin, 1f + Math.Clamp(skyOcclusion, 0f, 1f)),
+            new Vector4(1f / grid.Spacing.X, 1f / grid.Spacing.Y, 1f / grid.Spacing.Z, grid.Layout == ProbeLayout.TerrainFollowing ? 1f : 0f),
+            new Vector4(grid.CountX, grid.CountY, grid.CountZ, Math.Max(energy, 0f)),
+            new Vector4(table[0], table[1], table[2], table[3]),
+            new Vector4(table[4], table[5], table[6], table[7]),
+            new Vector4(Vector3.Max(occlusionTint ?? Vector3.One, Vector3.Zero), 0f));
     }
 }

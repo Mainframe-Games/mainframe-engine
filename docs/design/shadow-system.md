@@ -179,13 +179,15 @@ primary light has `ContactShadows` and the shadow system allows them (`ShadowSys
   behind the stored depth by more than a bias (1 cm + 0.2 % of the depth) and less than the thickness (0.2 m + 1 %).
   Contact shadows fade out from 42 m to 60 m and at the screen's edges. With TAA each ray's start is jittered by
   interleaved gradient noise per frame; without, it starts half a step out (static noise would dither the edges).
-- **Output:** `R16G16_SFLOAT` (r = shadow, g = the pixel's view depth) from the post target pool, bound at **set 0,
-  binding 6** (`FrameContext.ContactShadowBinding`, `contact_shadows.slang`) like SSAO's binding 5: latched at the frame
-  set's first bind, white 1×1 without the effect and in offscreen views.
+- **Output** (since [ADR 0170](../../memory/decisions/0170-light-probe-volume.md)): the screen-space occlusion image at
+  **set 0, binding 5** (`R16G16B16A16_SFLOAT`, [Post-processing → Ambient occlusion binding](post-processing.md#ambient-occlusion-binding)):
+  g = shadow, b = the pixel's view depth, with SSAO's AO and bent normal copied into r and a when SSAO ran. Latched at
+  the frame set's first bind; white 1×1 without the effect and in offscreen views.
 - **Shading:** `dirShadow` multiplies the cascaded term by `contactShadow(worldPos)` when the shadow UBO's `contact.x` is
   set. It projects the point with the (jittered) view-projection and uses the contact shadow only where its view depth
-  matches g, so transparent surfaces, water and whatever the prepass did not draw are not darkened by what lies behind.
-- **SSAO (lane S):** a separate target for now; G8e.1 folds it into the AO target's G channel and retires binding 6.
+  matches b, so transparent surfaces, water and whatever the prepass did not draw are not darkened by what lies behind.
+- **SSAO:** one image since ADR 0170 (binding 6 went to the light probes); the contact-shadow pass runs after SSAO and
+  writes the combined image.
 
 ### Far shadow
 

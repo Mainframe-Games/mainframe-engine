@@ -335,7 +335,6 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         if (prepass)
             _prepass ??= new ScenePrepass(this, SceneTarget);
         Frame.ClearAmbientOcclusion(); // an SSAO effect binds its output again in OnBeginFrame
-        Frame.ClearContactShadows();   // so does the contact shadow effect (ADR 0167)
         var context = PreparePostContext(_commandBuffers[_currentFrame], FrameExposure);
         context.Scene.HasPrepass = prepass; // this frame's (the prepass has not run yet)
         context.Scene.Velocity = prepass ? _prepass!.VelocityView : default;

@@ -92,7 +92,7 @@ public sealed class ForestDev : Node
             _audioChecked = true;
             if (!GameHost.UserArgs.Contains("--no-audio") && scene.FindChildren<ForestAudio>(owned: false).Count == 0)
                 ForestAudio.Attach(scene, null, null); // finds the scene's river and player when ready
-            if (ShowsFps(GameHost.UserArgs))
+            if (!GameHost.IsHeadless && ShowsFps(GameHost.UserArgs)) // headless (--bake-lighting, servers) has no UI
                 FpsHud.Attach(scene); // F3 toggles it
             if (_resolution.X > 0)
                 Resize(tree, _resolution);

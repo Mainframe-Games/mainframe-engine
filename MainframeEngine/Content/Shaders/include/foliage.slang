@@ -10,6 +10,10 @@ float foliageTranslucencyAmount() { return material.emission.x; }
 float foliageWindStrength() { return material.emission.y; }
 float foliageBranchBend() { return material.emission.z; }
 
+// How much of the vertex canopy AO (Custom0.w) applies when light probes are bound (ADR 0170): the probes already carry the
+// canopy's occlusion at probe scale, so the vertex term keeps only part of its strength (G8e's CanopyAoStrength).
+static const float kCanopyAoWithProbes = 0.4;
+
 static const uint kFoliageBackFlip = 1u;
 static const uint kFoliageBackKeep = 2u;
 static const uint kFoliageBackCull = 3u;

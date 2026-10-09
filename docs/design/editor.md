@@ -267,7 +267,8 @@ comes from the value type and the `[Export]` hints:
   existing elements; the RML is regenerated when the selection or a shape (array length, resource) changes.
 - **`[CustomInspector(typeof(T))]`** classes implementing `ICustomInspector` (public parameterless constructor) can add
   header RML (elements with `data-action` call back), hide generated rows and act through the scene's history. The
-  editor's own `MissingNodeInspector` explains missing types, `AudioBusLayoutInspector` edits bus layouts. They are
+  editor's own `MissingNodeInspector` explains missing types, `AudioBusLayoutInspector` edits bus layouts,
+  `LightProbeVolumeInspector` shows a probe volume's bake state with a Bake Lighting button (ADR 0170). They are
   found in loaded assemblies that reference the editor, game assemblies included
   ([Resource files and custom inspectors](#resource-files-and-custom-inspectors)).
 
