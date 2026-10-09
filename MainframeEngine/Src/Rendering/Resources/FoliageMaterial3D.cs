@@ -16,6 +16,18 @@ public enum FoliageBackFace : byte
 }
 
 /// <summary>
+/// Godot's <c>BaseMaterial3D.AlphaAntialiasing</c> for <see cref="FoliageMaterial3D"/> (ADR 0172). The engine renders
+/// single-sample targets, so <see cref="AlphaToCoverage"/> maps onto TAA's dithered cutout (<see cref="FoliageMaterial3D.AlphaDither"/>):
+/// the alpha edge sharpened by its screen-space derivative, dithered over <see cref="FoliageMaterial3D.AlphaAntialiasingEdge"/>,
+/// and resolved by TAA into fractional coverage. Without TAA it is the plain alpha test.
+/// </summary>
+public enum AlphaAntialiasing : byte
+{
+    Off,
+    AlphaToCoverage,
+}
+
+/// <summary>
 /// The built-in foliage material (ADR 0151): leaves, grass and bark that sway in the world's wind
 /// (<see cref="WorldEnvironment.WindStrength"/> and friends). Its vertex shader moves each vertex by the mesh's
 /// <see cref="MeshSurface.Custom0"/> stream: Ez Tree's leaf flutter (three sines with a simplex-noise phase over the
@@ -128,6 +140,39 @@ public sealed class FoliageMaterial3D : Material
         }
     }
 
+    /// <summary>
+    /// Godot's <c>alpha_antialiasing_mode</c>: <see cref="AlphaAntialiasing.AlphaToCoverage"/> dithers the cutout like
+    /// <see cref="AlphaDither"/> with an edge of <see cref="AlphaAntialiasingEdge"/> (ADR 0172; single-sample targets have no
+    /// hardware alpha to coverage).
+    /// </summary>
+    [Export]
+    public AlphaAntialiasing AlphaAntialiasingMode
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    /// <summary>
+    /// Godot's <c>alpha_antialiasing_edge</c>: the width of the dithered alpha edge (0.5 = one pixel, the width of
+    /// <see cref="AlphaDither"/>; smaller is sharper). Used with <see cref="AlphaAntialiasing.AlphaToCoverage"/>.
+    /// </summary>
+    [Export(Range = "0.05,1,0.01")]
+    public float AlphaAntialiasingEdge
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 0.3f;
+
     [ExportGroup("Lighting")]
     [Export]
     public FoliageBackFace BackFace
@@ -153,6 +198,49 @@ public sealed class FoliageMaterial3D : Material
             Touch();
         }
     } = 0.5f;
+
+    /// <summary>Tints the light shining through (sRGB; white keeps the albedo's colour).</summary>
+    [Export]
+    public DrawingColor TranslucencyColor
+    {
+        get;
+        set
+        {
+            if (field.ToArgb() == value.ToArgb()) return;
+            field = value;
+            Touch();
+        }
+    } = DrawingColor.White;
+
+    /// <summary>How tightly the back-light gathers around the direction to the light (the exponent of <c>V·−L</c>).</summary>
+    [Export(Range = "0.5,32,0.1")]
+    public float TranslucencyScatter
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 4f;
+
+    /// <summary>
+    /// Linear thickness map (R = thickness 0..1, G = ambient occlusion; a <see cref="TreeClusterAtlas"/>'s): the back-light
+    /// becomes thickness-driven wrap transmission (ADR 0172), so the dense centre of a twig stays dark and its edges glow,
+    /// and G darkens the ambient term.
+    /// </summary>
+    [Export]
+    public Texture2D? ThicknessTexture
+    {
+        get;
+        set
+        {
+            if (ReferenceEquals(field, value)) return;
+            field = value;
+            Touch();
+        }
+    }
 
     /// <summary>
     /// <see cref="ShadingMode.BlinnPhong"/> (with <see cref="Roughness"/> mapped to the highlight), <see cref="ShadingMode.Pbr"/>
@@ -225,8 +313,171 @@ public sealed class FoliageMaterial3D : Material
         }
     } = 1f;
 
+    /// <summary>
+    /// Scales the trunk's sway in the hierarchical wind (meshes with the <see cref="MeshSurface.Custom1"/> and
+    /// <see cref="MeshSurface.Custom2"/> pivot streams, ADR 0172); 0 keeps trunks still.
+    /// </summary>
+    [Export(Range = "0,4,0.01")]
+    public float WindTrunkSway
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 1f;
+
+    /// <summary>
+    /// The share of the cutout that casts into directional and spot shadow maps (ADR 0172): 1 (default) casts every kept
+    /// texel; less thins it with a stable dither the shadow filter turns into a partial shadow, for leaf cards that are
+    /// denser than the canopy they stand for (cluster cards, far levels), so light still reaches the floor between them.
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float ShadowDensity
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 1f;
+
+    /// <summary>
+    /// Moss on top (ADR 0172): how much of the bark <see cref="MossColor"/> covers — up-facing surfaces first (world normal
+    /// · up), broken into patches by a world-space noise, and climbing every side of the trunk over its first 1.6 m. 0 = none.
+    /// </summary>
+    [ExportGroup("Bark detail")]
+    [Export(Range = "0,1,0.01")]
+    public float MossCoverage
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    /// <summary>The moss albedo (sRGB).</summary>
+    [Export]
+    public DrawingColor MossColor
+    {
+        get;
+        set
+        {
+            if (field.ToArgb() == value.ToArgb()) return;
+            field = value;
+            Touch();
+        }
+    } = DrawingColor.FromArgb(255, 0x3E, 0x54, 0x26);
+
+    /// <summary>Size of the moss patches (m): the world-space noise's feature size.</summary>
+    [Export(Range = "0.05,10,0.01")]
+    public float MossPatchSize
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 0.6f;
+
+    /// <summary>
+    /// Detail normals (ADR 0172): the normal map sampled again at this many times the UV tiling and blended with UDN, so
+    /// bark stays crisp up close. 0 = off.
+    /// </summary>
+    [Export(Range = "0,32,0.1")]
+    public float DetailScale
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    [Export(Range = "0,2,0.01")]
+    public float DetailStrength
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 0.6f;
+
+    /// <summary>
+    /// Per-instance visibility range (ADR 0172), for a level of detail of instanced trees: each instance is drawn while
+    /// its origin's distance to the camera lies in [<see cref="InstanceVisibilityBegin"/>, <see cref="InstanceVisibilityEnd"/>)
+    /// (0 = unbounded), dithering across ±<see cref="InstanceVisibilityMargin"/> at each end so neighbouring levels
+    /// cross-fade (TAA smooths the dither). Shadows switch at the ends. Off: every instance draws.
+    /// </summary>
+    [ExportGroup("Instance visibility")]
+    [Export]
+    public bool InstanceVisibility
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    [Export(Range = "0,10000,0.1")]
+    public float InstanceVisibilityBegin
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    [Export(Range = "0,10000,0.1")]
+    public float InstanceVisibilityEnd
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    [Export(Range = "0,100,0.1")]
+    public float InstanceVisibilityMargin
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    /// <summary>
+    /// Cut out with <see cref="AlphaCutout"/>, and also with <see cref="InstanceVisibility"/> (its dithered bands discard; an
+    /// opaque surface's cutoff is 0, so only the bands cut).
+    /// </summary>
     public override MaterialRenderState RenderState =>
-        new(AlphaCutout ? AlphaMode.Cutout : AlphaMode.Opaque, CullMode.Back, BackFace != FoliageBackFace.Cull);
+        new(AlphaCutout || InstanceVisibility ? AlphaMode.Cutout : AlphaMode.Opaque, CullMode.Back, BackFace != FoliageBackFace.Cull);
 
     /// <summary>The Blinn-Phong highlight (strength, exponent) standing in for a roughness until PBR shading.</summary>
     internal static (float Specular, float Shininess) BlinnFromRoughness(float roughness)

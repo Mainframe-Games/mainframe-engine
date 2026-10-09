@@ -80,8 +80,10 @@ public sealed class ValleyTests
 
         // Every zone has its species.
         var species = trees.Select(t => t.Species).ToHashSet();
-        foreach (var expected in (int[])[ForestVegetation.PineLarge, ForestVegetation.AspenMedium, ForestVegetation.OakLarge, ForestVegetation.AshMedium])
+        foreach (var expected in (int[])[ForestVegetation.PineLarge, ForestVegetation.AspenMedium, ForestVegetation.OakLarge, ForestVegetation.AshMedium,
+                     ForestVegetation.BirchLarge, ForestVegetation.BeechMedium, ForestVegetation.SpruceLarge, ForestVegetation.FirMedium])
             Assert.Contains(expected, species);
+        Assert.Equal(ForestVegetation.FirMedium + 1, ForestVegetation.CreateTreeSpecies().Length);
     }
 
     [Fact]

@@ -44,7 +44,7 @@ namespace MainframeEngine.Trees;
 /// output arrays (Realistic style).
 /// </para>
 /// </remarks>
-public sealed class TreeGenerator
+public sealed partial class TreeGenerator
 {
     /// <summary>Bumped whenever the output for the same inputs changes (bake staleness).</summary>
     public const int GeneratorVersion = 1;
@@ -99,7 +99,11 @@ public sealed class TreeGenerator
         var lods = DefaultLods(parameters, style);
         var result = new TreeMeshData[lods.Length];
         for (var i = 0; i < lods.Length; i++)
-            result[i] = Mesh(grown, parameters, lods[i]);
+        {
+            var detail = parameters.LeafMode == TreeLeafMode.Cluster && i < parameters.ClusterFromLod ? lods[i] with { LeafMode = TreeLeafMode.Single } : lods[i];
+            result[i] = Mesh(grown, parameters, detail);
+        }
+
         return result;
     }
 
@@ -271,7 +275,7 @@ public sealed class TreeGenerator
             }
             else
             {
-                RecordLeaf(lastSection.Origin, lastSection.Orientation, skeletonBranch.WeightTip, phase, lastSection.Orientation);
+                RecordLeaf(lastSection.Origin, lastSection.Orientation, skeletonBranch.WeightTip, phase, lastSection.Orientation, index);
             }
         }
 
@@ -311,6 +315,8 @@ public sealed class TreeGenerator
             var childBranchOrientation = EulerXyz.FromQuaternion(Quatd.Multiply(q3, Quatd.Multiply(q2, q1)));
 
             var childBranchLength = options.Length[level] * (options.Type == TreeType.Evergreen ? 1.0 - childBranchStart : 1.0);
+            if (options.LengthProfile[level] is { Length: > 0 } profile)
+                childBranchLength *= SampleProfile(profile, childBranchStart); // ADR 0172 (no RNG)
 
             if (parentIndex == 0)
                 _skeleton.TrunkFirstChildStart = Math.Min(_skeleton.TrunkFirstChildStart, childBranchStart);
@@ -357,7 +363,7 @@ public sealed class TreeGenerator
 
             var leafOrientation = EulerXyz.FromQuaternion(Quatd.Multiply(q3, Quatd.Multiply(q2, q1)));
 
-            RecordLeaf(leafOrigin, leafOrientation, WeightAt(branch, leafStart), branch.Phase, parentOrientation);
+            RecordLeaf(leafOrigin, leafOrientation, WeightAt(branch, leafStart), branch.Phase, parentOrientation, branchIndex);
         }
     }
 
@@ -388,12 +394,12 @@ public sealed class TreeGenerator
     }
 
     /// <summary>Records a leaf; the size variance is drawn here so meshing stays RNG-free (Ez Tree's <c>#recordLeaf</c>).</summary>
-    private void RecordLeaf(Vec3d origin, EulerXyz orientation, double weight, float phase, EulerXyz branchOrientation)
+    private void RecordLeaf(Vec3d origin, EulerXyz orientation, double weight, float phase, EulerXyz branchOrientation, int branch)
     {
         var options = _options;
         var size = options.LeafSize * (1 + _rng.Next(options.LeafSizeVariance, -options.LeafSizeVariance));
         var branchDirection = UnitY.ApplyEuler(branchOrientation).Normalize();
-        _skeleton.Leaves.Add(new SkeletonLeaf(origin, orientation, size, weight / (options.Levels + 1), phase, branchDirection));
+        _skeleton.Leaves.Add(new SkeletonLeaf(origin, orientation, size, weight / (options.Levels + 1), phase, branchDirection, branch));
     }
 
     /// <summary>Fisher-Yates shuffle of [0..count-1] with the tree's RNG (Ez Tree's <c>shuffledIndices</c>), in a reused buffer.</summary>
@@ -411,6 +417,16 @@ public sealed class TreeGenerator
         }
 
         return arr;
+    }
+
+    /// <summary>A profile's value at <paramref name="t"/> (0..1): its samples evenly spaced, linear between them.</summary>
+    internal static double SampleProfile(double[] profile, double t)
+    {
+        if (profile.Length == 1)
+            return profile[0];
+        var x = Math.Clamp(t, 0, 1) * (profile.Length - 1);
+        var i = Math.Min((int)Math.Floor(x), profile.Length - 2);
+        return profile[i] + (profile[i + 1] - profile[i]) * (x - i);
     }
 
     private static double WeightAt(in SkeletonBranch branch, double t) => branch.WeightBase + (branch.WeightTip - branch.WeightBase) * t;
@@ -473,7 +489,23 @@ public sealed class TreeGenerator
         var billboard = detail.Billboard ?? parameters.LeafBillboard;
 
         var bark = MeshBark(skeleton, parameters, sectionStride, segmentFactor, out var barkError);
-        var leaves = MeshLeaves(skeleton, parameters, leafStride, leafScale, billboard, out var leafError);
+        var clusters = (detail.LeafMode ?? parameters.LeafMode) == TreeLeafMode.Cluster && parameters.ClusterCard.IsValid;
+        var cards = parameters.WindPivots ? new List<int>() : null;
+        var leaves = clusters
+            ? MeshClusters(skeleton, parameters, leafStride, leafScale, billboard, out var leafError, cards)
+            : MeshLeaves(skeleton, parameters, leafStride, leafScale, billboard, out leafError);
+        if (parameters.WindPivots)
+        {
+            // ADR 0172: the hierarchical wind's pivots, per branch (bark) and per leaf card or cluster card.
+            var pivots = BranchPivots(skeleton, parameters);
+            bark = WithBarkPivots(bark, skeleton, pivots, sectionStride, segmentFactor);
+            if (!clusters)
+                for (var i = 0; i < skeleton.Leaves.Count; i += leafStride)
+                    cards!.Add(skeleton.Leaves[i].Branch);
+            var quads = billboard == TreeBillboard.Double ? 2 : 1;
+            leaves = WithCardPivots(leaves, cards!, quads * 4, pivots);
+        }
+
         return new TreeMeshData(bark, leaves, Math.Max(barkError, leafError) * parameters.Scale, trunk);
     }
 
@@ -483,7 +515,7 @@ public sealed class TreeGenerator
         int vertexCount = 0, indexCount = 0;
         foreach (var branch in skeleton.Branches)
         {
-            var rings = SampledRingCount(branch.SectionCount + 1, sectionStride);
+            var rings = SampledRingCount(branch.SectionCount + 1, sectionStride) + ExtraRings(branch, parameters, sectionStride);
             var segments = SegmentsFor(branch.SegmentCount, segmentFactor);
             vertexCount += rings * (segments + 1);
             indexCount += (rings - 1) * segments * 6;
@@ -538,15 +570,31 @@ public sealed class TreeGenerator
             var level = branch.Level / 4f;
             var indexOffset = vertex;
             var sampledCount = SampledRingCount(sections.Length, sectionStride);
+            var extraRings = ExtraRings(branch, parameters, sectionStride);
+            var shaped = extraRings > 0 || IsFlared(branch, parameters) || IsCollared(branch, parameters);
             var previousKept = 0;
 
             // Sample every Nth ring, always keeping the first and last so branch endpoints stay put across detail levels.
-            for (var k = 0; k < sampledCount; k++)
+            // ADR 0172: a flared trunk or a collared branch gets extra rings in its first section (between ring 0 and 1).
+            for (var r = 0; r < sampledCount + extraRings; r++)
             {
+                var extra = r >= 1 && r <= extraRings;
+                var k = r == 0 ? 0 : extra ? 0 : r - extraRings;
                 var s = k == sampledCount - 1 ? sections.Length - 1 : k * sectionStride;
                 var section = sections[s];
                 var q = Quatd.FromEuler(section.Orientation);
                 var t = (double)s / branch.SectionCount;
+                if (extra)
+                {
+                    // An extra ring at a fraction of the first section: origin, radius and frame interpolated.
+                    var next = sections[Math.Min(1, sections.Length - 1)];
+                    var f = ExtraRingFraction(branch, parameters, r, extraRings);
+                    section = new SkeletonSection(Vec3d.Lerp(section.Origin, next.Origin, f), section.Orientation,
+                        section.Radius + (next.Radius - section.Radius) * f);
+                    q = Quatd.FromEuler(sections[0].Orientation).Slerp(Quatd.FromEuler(next.Orientation), f);
+                    t = f / branch.SectionCount;
+                }
+
                 var weight = (float)((branch.WeightBase + (branch.WeightTip - branch.WeightBase) * t) * weightScale);
                 var v = parameters.BarkUv == BarkUvMode.EzTree
                     ? (k % 2 == 0 ? 0.0 : 1.0) // alternates by sampled ring, so skipping keeps the 0/1 tiling
@@ -558,8 +606,18 @@ public sealed class TreeGenerator
                     var angle = 2.0 * Math.PI * j / segments;
                     var ring = new Vec3d(Math.Cos(angle), 0, Math.Sin(angle));
 
-                    var position = ring.MultiplyScalar(section.Radius).ApplyQuaternion(q).Add(section.Origin);
+                    var radius = section.Radius;
                     var normal = ring.ApplyQuaternion(q).Normalize();
+                    if (shaped)
+                    {
+                        // Root flare and branch collar (ADR 0172): the ring's radius × a profile; the normal tilts by its slope.
+                        var (factor, slope) = BarkProfile(branch, parameters, section.Origin.Y, t * branch.Length, angle, skeleton.Seed);
+                        radius *= factor;
+                        var axis = UnitY.ApplyQuaternion(q);
+                        normal = normal.Sub(axis.MultiplyScalar(section.Radius * slope)).Normalize();
+                    }
+
+                    var position = ring.MultiplyScalar(radius).ApplyQuaternion(q).Add(section.Origin);
 
                     positions[vertex] = Scaled(position, scale);
                     normals[vertex] = normal.ToFloat();
@@ -576,7 +634,7 @@ public sealed class TreeGenerator
                 vertex++;
 
                 // Geometric error: dropped ring centres against the line between the kept rings.
-                if (k > 0 && s - previousKept > 1)
+                if (!extra && k > 0 && s - previousKept > 1)
                 {
                     var a = sections[previousKept].Origin;
                     var c = section.Origin;
@@ -587,9 +645,11 @@ public sealed class TreeGenerator
                     }
                 }
 
-                previousKept = s;
+                if (!extra)
+                    previousKept = s;
             }
 
+            sampledCount += extraRings;
             if (segments != branch.SegmentCount)
             {
                 // Radius lost to fewer sides: the change of the polygon's sagitta.

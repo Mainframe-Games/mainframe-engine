@@ -39,8 +39,14 @@ public enum ShaderSetId : byte
     /// </summary>
     MeshDepth,
 
-    /// <summary>The depth prepass of <see cref="FoliageMaterial3D"/>: <c>Foliage/FoliageDepth.vk.vert</c> (wind now and a frame ago) + <c>Mesh/MeshDepth.vk.frag</c>.</summary>
+    /// <summary>The depth prepass of <see cref="FoliageMaterial3D"/>: <c>Foliage/FoliageDepth.vk.vert</c> (wind now and a frame ago) + <c>Foliage/FoliageDepth.vk.frag</c>.</summary>
     MeshDepthFoliage,
+
+    /// <summary><c>Impostor/Impostor.vk.vert</c> + <c>Impostor/Impostor.vk.frag</c>: <see cref="ImpostorMaterial3D"/> (ADR 0172).</summary>
+    MeshImpostor,
+
+    /// <summary>The depth prepass of <see cref="ImpostorMaterial3D"/>: <c>Impostor/ImpostorDepth.vk.vert</c> + <c>.frag</c>.</summary>
+    MeshDepthImpostor,
 
     /// <summary>
     /// <c>Water/Water.vk.vert</c> + <c>Water/WaterScene.vk.frag</c>: a refracting <see cref="WaterMaterial3D"/> (ADR 0173)
@@ -118,7 +124,7 @@ public readonly record struct PipelineKey(
     }
 
     /// <summary>True for the depth prepass's shader sets (ADR 0163).</summary>
-    public bool IsDepthPrepass => Shaders is ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage;
+    public bool IsDepthPrepass => Shaders is ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor;
 }
 
 /// <summary>A cached pipeline and its small dense id (used in draw sort keys).</summary>

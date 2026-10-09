@@ -44,7 +44,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
         - **2026-10-09: G8e.1 probe GI merged** (forest/gi2 fast-forward, 735dd1be; ADR 0170). Lane gates: 1969 engine,
           776 editor, 153 Forest, 152 render, lavapipe probes golden. The bake is committed (`forest-lighting.mres` + `.probes`);
           contact shadow → occlusion g (RGBA16F), set 0 binding 6 = probes. `forest/fo2` (G8e.5) is still running and
-          was told to merge this first. Next: merge fo2, regenerate R1–R5, then W7 (TAAU 0174, art pass 0175).
+          was told to merge this first.
+        - **2026-10-09: G8e.5 Ez Tree foliage merged** (forest/fo2 fast-forward, fe610cfe; ADR 0172). Lane gates: 2072 engine,
+          776 editor, 153 Forest, 159 render; probes re-baked; R1–R5 regenerated with both lanes. Forest 1080p p50 18.9 → 21.6 ms
+          (≈2 ms per-tree LOD cross-fade; GPU cull would fix); 2048² cascades rejected (+6 ms). Art-pass notes: R2's glade
+          fleck lost (`TreeClusterShadowDensity` 0.6 restores it), mid-distance cluster cards soft (256×512 atlas cells).
+        - **W7 running:** `forest/taau` (G8e.8 TAAU, ADR 0174) from 306a6183, told to merge fe610cfe. Then the art pass (0175).
         - **Paused at the usage limit (tip 041d3544).**
           - Merged: G8e.3 volumetric fog (0171), the pipeline-cache stall fix (0176), G8e.6 water (0173), and the
             Slang 41012 warning fix. Gates are green: 1948 engine, 774 editor, 153 Forest, 147 render.

@@ -64,6 +64,16 @@ public sealed record TextureImportSettings
     /// </summary>
     public bool FixAlphaBorder { get; init; }
 
+    /// <summary>
+    /// Coverage-preserving alpha mips (ADR 0172, Castaño 2010): the mip chain is built on the CPU and each level's alpha is
+    /// scaled so the share of texels passing an alpha test at <see cref="AlphaCoverageCutoff"/> matches the full-size
+    /// image's (<see cref="MipChain"/>), so cut-out leaves keep their density in the distance. Needs <see cref="Mipmaps"/>.
+    /// </summary>
+    public bool PreserveAlphaCoverage { get; init; }
+
+    /// <summary>The alpha-test cutoff (0..1) whose coverage <see cref="PreserveAlphaCoverage"/> keeps: the material's.</summary>
+    public float AlphaCoverageCutoff { get; init; } = 0.5f;
+
     /// <summary>Reads the settings of <paramref name="meta"/> (defaults when null or absent).</summary>
     public static TextureImportSettings FromMeta(AssetMeta? meta, string? where = null)
     {
@@ -84,6 +94,8 @@ public sealed record TextureImportSettings
                     "anisotropy" => settings with { Anisotropy = Math.Clamp(value.GetInt32(), 1, 16) },
                     "svgScale" => settings with { SvgScale = Math.Clamp(value.GetSingle(), 0.001f, 1000f) },
                     "fixAlphaBorder" => settings with { FixAlphaBorder = value.GetBoolean() },
+                    "preserveAlphaCoverage" => settings with { PreserveAlphaCoverage = value.GetBoolean() },
+                    "alphaCoverageCutoff" => settings with { AlphaCoverageCutoff = Math.Clamp(value.GetSingle(), 0.01f, 0.99f) },
                     _ => Unknown(settings, key, where),
                 };
             }
@@ -106,6 +118,8 @@ public sealed record TextureImportSettings
         ["anisotropy"] = JsonSerializer.SerializeToElement(Anisotropy, AssetJsonContext.Default.Int32),
         ["svgScale"] = JsonSerializer.SerializeToElement(SvgScale, AssetJsonContext.Default.Single),
         ["fixAlphaBorder"] = JsonSerializer.SerializeToElement(FixAlphaBorder, AssetJsonContext.Default.Boolean),
+        ["preserveAlphaCoverage"] = JsonSerializer.SerializeToElement(PreserveAlphaCoverage, AssetJsonContext.Default.Boolean),
+        ["alphaCoverageCutoff"] = JsonSerializer.SerializeToElement(AlphaCoverageCutoff, AssetJsonContext.Default.Single),
     };
 
     /// <summary>The colour space for a usage: <paramref name="colorUsage"/> is true for albedo/emission slots.</summary>
@@ -206,6 +220,9 @@ public class Texture2D : Resource
             return _height;
         }
     }
+
+    /// <summary>The absolute path of the image file behind the texture (null for code-created, encoded or viewport textures).</summary>
+    internal string? SourceFilePath => _filePath;
 
     /// <summary>A texture backed by an image file (path resolved by <see cref="AssetDatabase.Current"/>).</summary>
     public static Texture2D FromFile(string path, TextureImportSettings? settings = null)

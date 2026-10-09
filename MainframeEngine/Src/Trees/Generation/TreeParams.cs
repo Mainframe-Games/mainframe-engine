@@ -48,6 +48,33 @@ public enum BlobShape : byte
     Cone,
 }
 
+/// <summary>How the leaves of a Realistic tree are meshed (ADR 0172).</summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1720:Identifier contains type name", Justification = "The proposal's LeafMode names (Single, Cluster).")]
+public enum TreeLeafMode : byte
+{
+    /// <summary>Ez Tree's: one card (or two crossed) per leaf slot, textured with the leaf image.</summary>
+    Single,
+
+    /// <summary>
+    /// Leaf-cluster cards: every <see cref="TreeClusterCard.LeafSlots"/> consecutive leaf slots of a last-level branch
+    /// become one larger card pair showing a twig baked from the generator itself (<see cref="TreeClusterCard"/>): fewer,
+    /// fuller cards. Needs <see cref="TreeParams.ClusterCard"/>.
+    /// </summary>
+    Cluster,
+}
+
+/// <summary>
+/// The layout of a baked leaf-cluster atlas, as the mesher needs it (ADR 0172): <see cref="Columns"/> × <see cref="Rows"/>
+/// cells holding <see cref="Variants"/> twigs, each cell a card of <see cref="Width"/> × <see cref="Height"/> (Ez Tree
+/// units) whose twig stem starts at <see cref="BaseV"/> (0 = the cell's top, 1 = its bottom), standing in for
+/// <see cref="LeafSlots"/> leaf slots of the tree.
+/// </summary>
+public readonly record struct TreeClusterCard(int Columns, int Rows, int Variants, double Width, double Height, double BaseV, int LeafSlots)
+{
+    /// <summary>True when the layout can be meshed.</summary>
+    public bool IsValid => Columns > 0 && Rows > 0 && Variants > 0 && Variants <= Columns * Rows && Width > 0 && Height > 0 && LeafSlots > 0;
+}
+
 /// <summary>
 /// An extra growth force (the slot Ez Tree uses for its trellis, which is not ported). Called once per section after
 /// the growth force, with the section's next origin and radius (Ez Units). Return false for no force; otherwise the
@@ -97,6 +124,13 @@ public sealed class TreeParams
 
     public double[] Twist { get; set; } = [0, 0, 0, 0];
 
+    /// <summary>
+    /// Per level (ADR 0172, engine-only): child branch length × this profile sampled at where the child starts along its
+    /// parent (0..1; samples evenly spaced, linear between them; empty: 1). Conical spruces and firs, beeches' layered
+    /// crowns. Applied on top of Ez Tree's evergreen <c>1 − start</c>.
+    /// </summary>
+    public double[][] LengthProfile { get; set; } = [[], [], [], []];
+
     /// <summary><c>branch.force.direction</c> (normalized on use).</summary>
     public System.Numerics.Vector3 GrowthDirection { get; set; } = System.Numerics.Vector3.UnitY;
 
@@ -131,6 +165,45 @@ public sealed class TreeParams
 
     /// <summary>Ez Tree units to engine units; multiplies positions after meshing (never the skeleton).</summary>
     public double Scale { get; set; } = 0.3;
+
+    /// <summary>Single leaf cards (Ez Tree's) or leaf-cluster cards (ADR 0172; needs <see cref="ClusterCard"/>).</summary>
+    public TreeLeafMode LeafMode { get; set; }
+
+    /// <summary>The cluster atlas layout <see cref="TreeLeafMode.Cluster"/> meshes against (from the cluster bake).</summary>
+    public TreeClusterCard ClusterCard { get; set; }
+
+    /// <summary>
+    /// With <see cref="TreeLeafMode.Cluster"/>, the first level of detail (of <see cref="TreeGenerator.Generate"/>) meshed
+    /// with cluster cards; finer levels keep the single cards (sharper up close). 0: every level.
+    /// </summary>
+    public int ClusterFromLod { get; set; }
+
+    /// <summary>The trunk's radius at the ground × this (ADR 0172; 1 = no root flare).</summary>
+    public double RootFlare { get; set; } = 1;
+
+    /// <summary>Metres over which the root flare fades out.</summary>
+    public double RootFlareHeight { get; set; } = 0.8;
+
+    /// <summary>Buttress lobes around the flared base.</summary>
+    public int RootFlareLobes { get; set; } = 5;
+
+    /// <summary>A side branch's base radius × this, welding it into its parent (ADR 0172; 1 = no collar).</summary>
+    public double CollarScale { get; set; } = 1;
+
+    /// <summary>The collar's length in the branch's base radii.</summary>
+    public double CollarLength { get; set; } = 2;
+
+    /// <summary>
+    /// Write the hierarchical wind's pivot streams (ADR 0172, <see cref="TreeSurfaceData.Custom1"/> and
+    /// <see cref="TreeSurfaceData.Custom2"/>): branches then bend about their bases and the trunk sways (Realistic style).
+    /// </summary>
+    public bool WindPivots { get; set; }
+
+    /// <summary>
+    /// How far cluster-card normals bend towards the canopy ellipsoid's (0 = flat cards, 1 = the ellipsoid; SpeedTree's
+    /// trick for a soft canopy silhouette).
+    /// </summary>
+    public double ClusterNormalRounding { get; set; } = 0.6;
 
     public int LowPolySectionStride { get; set; } = 2;
 
@@ -170,6 +243,8 @@ public sealed class TreeParams
         Check(Start, nameof(Start));
         Check(Taper, nameof(Taper));
         Check(Twist, nameof(Twist));
+        if (LengthProfile is null || LengthProfile.Length != LevelCount)
+            throw new ArgumentException($"LengthProfile needs {LevelCount} arrays (levels 0–3).");
         for (var level = 0; level <= Levels; level++)
         {
             if (Sections[level] < 1)
@@ -223,4 +298,7 @@ public readonly record struct TreeMeshDetail
 
     /// <summary>LowPoly: most blobs (0 = <see cref="TreeParams.MaxBlobs"/>).</summary>
     public int MaxBlobs { get; init; }
+
+    /// <summary>Overrides <see cref="TreeParams.LeafMode"/> for this level (null: the parameters').</summary>
+    public TreeLeafMode? LeafMode { get; init; }
 }

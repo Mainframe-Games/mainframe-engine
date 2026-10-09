@@ -1,0 +1,83 @@
+{
+  "format": 2,
+  "uid": "res_6712185cc2a7",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 11,
+        "Gnarliness": 0.03,
+        "Length": 29.759999999999998,
+        "Radius": 0.4881884881887323,
+        "Sections": 12,
+        "Segments": 8,
+        "Taper": 0.55
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 46,
+        "Children": 4,
+        "Gnarliness": 0.12,
+        "Length": 8.68,
+        "Radius": 0.42,
+        "Sections": 8,
+        "Segments": 6,
+        "Start": 0.38,
+        "Taper": 0.55,
+        "Twist": 0.05,
+        "LengthProfile": [0.7, 1, 0.95, 0.75, 0.5]
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 48,
+        "Children": 4,
+        "Gnarliness": 0.18,
+        "Length": 6.692906692910039,
+        "Radius": 0.6,
+        "Sections": 6,
+        "Segments": 4,
+        "Start": 0.2,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 62,
+        "Gnarliness": 0.08,
+        "Length": 3.6,
+        "Radius": 0.7,
+        "Sections": 4,
+        "Segments": 3,
+        "Start": 0.1,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Birch Small",
+    "Seed": 101,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0.004,
+    "BarkTexture": "Birch",
+    "BarkTint": [0.9607843, 0.9529412, 0.9254902, 1],
+    "LeafTexture": "birch",
+    "LeafAngle": 32,
+    "LeafCount": 13,
+    "LeafStart": 0.08,
+    "LeafSize": 1.7,
+    "LeafSizeVariance": 0.35,
+    "LeafTint": [0.92156863, 0.9411765, 0.8039216, 1],
+    "LeafAlphaCutoff": 0.45
+  }
+}

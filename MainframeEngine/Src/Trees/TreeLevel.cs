@@ -53,6 +53,14 @@ public sealed class TreeLevel : Resource
     [Export(Range = "-0.5,0.5,0.01")]
     public double Twist { get; set => Set(ref field, value); }
 
+    /// <summary>
+    /// Engine-only (ADR 0172): the length of this level's branches × this profile at where each starts along its parent
+    /// (0..1; samples evenly spaced, linear between them; empty: 1). Shapes crowns: conical spruces and firs (shorter
+    /// towards the top), beeches' layered spread. Assign a new array to change it.
+    /// </summary>
+    [Export]
+    public double[] LengthProfile { get; set => Set(ref field, value ?? []); } = [];
+
     /// <summary>Ez Tree's <c>new TreeOptions()</c> branch values for levels 0–3.</summary>
     public static TreeLevel[] EzTreeDefaults() =>
     [

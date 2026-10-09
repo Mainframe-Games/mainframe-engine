@@ -142,13 +142,22 @@ walls run in the game only.
 | Splat (8 layers, `ForestAssets` order) | per cell from the final ground: needles under the pines, leaf litter on the aspen bank and forest edges, grass in the glade, patchy moss; then overrides: moss at rock bases, rock above ≈ 37° and on the outcrop's steep, convex parts, moss 2–5 m from water, mud within ≈ 1.5 m of the stream and the pond, gravel in the stream bed and the pond's deep bed, gravel path edges, dirt on the path |
 | Terrain material | `ForestAssets.CreateTerrainMaterial()` with every ORM's roughness lifted to 0.6 + 0.4 r (`RoughenOrm`: the scans' 0.45 made dry ground glare white against a low sun), grass and leaves tinted, `AntiTiling` off (3.5 ms at 1080p), detail to 45 m, far from 110 m |
 | Ground cover (`TerrainData.FoliageTypes`) | meadow grass (8/m² on grass, to 32 m), tall grass, woodland grass on leaves and moss, reeds on the pond's mud, the Poly Haven fern (merged, re-centred, with a wind stream: `FoliageMaterial3D`, cut-out) on needles, leaves and moss, `rock_07` stones on gravel and moss; densities × `GroundCoverDensity` (0.8) |
-| Trees (`ForestVegetation`) | one jittered candidate per 4 m cell, accepted by zone: pines (large, medium, small; 2 + 2 + 1 seeds) on the east slope, outcrop, north and the high west ridge; aspens (5 variants) along the stream and round the pond; ash at the glade's edge and in mixed woods; a few oaks in the glade. Clear of the path (3.2 m), water (1.6 m), the bridge (7 m), steep rock, the clearings and the R2/R4 view corridors. ≈ 1 500 trees in a `TreeScatter` (levels at 22 m and 55 m, out to 400 m; level 0 casts into the near cascades, level 1 into every cascade and the far shadow from any distance: `ShadowCoarseLod` 1, ADR 0167); ≈ 180 bushes in a second one (to 75 m, no collision, only level 0 casts) |
+| Trees (`ForestVegetation`) | one jittered candidate per 4 m cell, accepted by zone: pines (large, medium, small; 2 + 2 + 1 seeds) on the east slope, outcrop, north and the high west ridge; aspens (5 variants) along the stream and round the pond; ash at the glade's edge and in mixed woods; a few oaks in the glade; 35 % of each zone's cells take G8e.5's species instead (`TreeNewSpeciesShare`, ADR 0172): spruces and firs among the pines, birches among the aspens, beeches among the oaks and ashes. Clear of the path (3.2 m), water (1.6 m), the bridge (7 m), steep rock, the clearings and the R2/R4 view corridors. ≈ 1 500 trees in a `TreeScatter` with G8e.5's foliage (below): levels at 22 m and 55 m, impostors from 85 m to 400 m, each tree cross-fading its own levels over ±4 m; level 0 casts into the near cascades, level 1 into the near cascades where it is drawn, and the impostor (`ShadowCoarseLod` 3) into every cascade and the far shadow from any distance at half density; ≈ 180 bushes in a second one (to 75 m, no collision, only level 0 casts) |
 | Props | `ForestAssets.InstantiateProp` with shared PBR materials: the bridge (`dead_tree_trunk_02` × 1.6 along the path's crossing, its top 14 cm above the banks, a 0.9 m walkway box tagged `wood`), mossy rock sets at the source and the fall, boulders round the fall and the pools, logs, stumps and dry branches placed near the path by hashed search; a collision box per mesh part (`SurfaceBody3D`, tagged `rock` / `wood`) |
 | Edges | four 200 m high `StaticBody3D` walls just outside the map |
 | Player | `ForestValley` stands the player on the ground and sets `SurfaceResolver` to `Terrain3D.SurfaceTagAt` (needles sound as leaves); `ForestAudio` gets the pine density for the woodpecker |
 
-Trees are generated at load from the Ez Tree presets (14 variants, ≈ 60 ms), not baked: a baked `TreeMesh` `.mres` is
-≈ 3 MB of text per variant (≈ 45 MB for the forest) to save that time.
+Trees are generated at load from the presets (23 variants, ≈ 1 s with their cluster cards and wind streams), not baked:
+a baked `TreeMesh` `.mres` is ≈ 3 MB of text per variant to save that time. Their cluster atlases and impostors are baked
+on the CPU the first time and then read from the tree-bake cache (`TreeBakeCache`, ≈ 8 s once per machine).
+
+**Foliage (G8e.5, [ADR 0172](../../memory/decisions/0172-ez-tree-foliage-quality.md)).** `ForestVegetation.CreateTreeSpecies(clusters:
+true)` gives every species leaf-cluster cards (from level 1 for Ez Tree's presets, from level 0 for the leaf-heavy new
+ones), coverage mips, hierarchical wind, a root flare, collars, moss (0.25 on conifers, 0.4 elsewhere) and detail normals.
+`ForestValley`'s knobs: `TreeClusters` (on), `TreeImpostorDistance` (85 m), `TreeLodFadeMargin` (4 m, per-instance
+levels), `TreeImpostorShadowDensity` (0.5: without it the impostor casters closed every sunfleck on the floor, R5),
+`TreeClusterShadowDensity` (1: 0.6 brings back R2's glade fleck for ≈ 2 ms of shadows), `TreeNewSpeciesShare` (0.35).
+Trees change the light-probe bake: re-bake after changing any of them.
 
 **Pre-warm.** For the first frames (`PrewarmFrames`, 8, from the second frame, after the foliage built its tiles) every
 terrain level, foliage tile, tree level and prop is shown with no visibility range, every multimesh draws all its
@@ -249,6 +258,14 @@ the bright sky (R2, R3); the forest floor's shaded ferns ground themselves (R5).
 R1 (114, 108, 77) → (115, 111, 73), R2 (44, 46, 23) → (34, 39, 15), R3 (32, 41, 23) → (30, 38, 16), R4 (58, 63, 35) →
 (60, 70, 33), R5 (88, 79, 39) → (93, 84, 38).
 
+**Foliage (G8e.5).** `g8e5-r1-glade`, `g8e5-r3-bridge`, `g8e5-r4-vista` and `g8e5-r5-floor` pair the shots before
+(feature tip 306a6183, with probes) and after. The distant canopies (R4 across the pond, R1's far edge) read as full
+crowns instead of speckled single cards with sky between them; birches line the pond and the stream, spruces and firs
+stand among the pines (R4's left foreground), beeches in the mixed wood; trunk bases flare and carry moss (R5); the floor
+keeps dappled light (R5, the impostor casters at half density); R2's glade fleck is gone (the level-1 cluster casters
+are denser; `TreeClusterShadowDensity`). Mid-distance clusters (20–40 m) read full but soft: an atlas cell is 256 × 512
+px for a whole twig.
+
 **What limits the look** (engine features the slice does not have yet): static probes (one sun direction; 2 m apart, so
 nothing sharper than a probe spacing), TAA softens the image a little in motion (the sharpen restores some of it), no
 impostors or coverage-preserving alpha mips (distant canopies read
@@ -315,6 +332,24 @@ against 2.0 ms quiet):
 
 The fog's per-step probe lookups were most of the first difference; looked up every fourth step and with a branchless
 layer lookup the pair is within noise. 0 B per frame.
+
+**G8e.5 foliage** ([ADR 0172](../../memory/decisions/0172-ez-tree-foliage-quality.md)), `just forest-bench` at
+1920 × 1080, two interleaved rounds on a busy machine (other lanes' render tests), medians; before = the feature tip
+306a6183:
+
+| | p50 | p90 | p99 | Sun shadows (GPU p50) | Draws |
+|---|---|---|---|---|---|
+| Before: Ez Tree's cards, per-chunk levels, level 1 as the coarse caster | 18.86 ms | 24.66 ms | 32.50 ms | 3.61 ms | 465 |
+| **After** (the Forest's defaults) | **21.55 ms** | 29.48 ms | **32.46 ms** | 4.72 ms | 615 |
+| After without the new species | 20.77 ms | 29.65 ms | 32.59 ms | 4.07 ms | 466 |
+| After with 4 × 2048² cascades | 25.33 ms | 34.84 ms | 42.72 ms | 9.96 ms | 615 |
+
+Per-instance levels cost most of the median (≈ 2 ms: every drawn batch runs the vertex shader for all its trees and
+collapses the others; per-chunk levels measured 15.7 against 18.0 ms in one pair); the new species add 0.8 ms (more
+variants, more batches); p99 is unchanged. 2048² cascades still cost ≈ 6 ms of shadows with the impostor casters (the
+near cascades' leaf cards are the cost), so the Forest keeps 4 × 1024². Measured on the way: biased `LESS_OR_EQUAL`
+prepassed foliage +3.5 ms (replaced by invariant positions), each shadow density at 0.5–0.6 ≈ +2 ms of shadows (the
+layers it opens are drawn), level-wide prewarm misses (hitches up to 0.4 s, fixed). 0 B per frame.
 
 ## `FirstPersonController`
 

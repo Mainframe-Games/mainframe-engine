@@ -67,6 +67,35 @@ public sealed unsafe class GpuTexture : IDisposable
         Create(ctx, width, height, 1, rgba, colorSpace, sampling, generateMips, ImageViewType.Type2D, ImageCreateFlags.None);
 
     /// <summary>
+    /// A 2D texture from a full mip chain built on the CPU (<see cref="MipChain.Build"/>: level 0 first, every level tightly
+    /// packed RGBA8): uploaded as is, no GPU blits (coverage-preserving alpha mips, ADR 0172).
+    /// </summary>
+    public static GpuTexture Create2DFromMips(IVulkanContext ctx, uint width, uint height, ReadOnlySpan<byte> chain,
+        TextureColorSpace colorSpace, TextureSampling sampling)
+    {
+        ArgumentNullException.ThrowIfNull(ctx);
+        var mips = (uint)MipChain.LevelCount((int)width, (int)height);
+        var image = GpuImage.Create(ctx, new GpuImageDesc(width, height, FormatFor(colorSpace), ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit)
+        {
+            MipLevels = mips,
+        });
+        Sampler sampler;
+        try
+        {
+            ctx.Uploads.UploadImageMips(image, chain);
+            ctx.Uploads.FlushIfRecording();
+            sampler = CreateSampler(ctx, sampling, mips);
+        }
+        catch
+        {
+            image.Dispose();
+            throw;
+        }
+
+        return new GpuTexture(ctx, image, sampler, colorSpace);
+    }
+
+    /// <summary>
     /// A 2D array texture (<c>2D_ARRAY</c> view) from <paramref name="layers"/> tightly packed RGBA8 images, one after the
     /// other; mips are generated for every layer.
     /// </summary>

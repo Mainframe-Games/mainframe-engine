@@ -51,6 +51,12 @@ internal sealed class MeshGpu
     /// </summary>
     public GpuBuffer? Streams { get; private set; }
 
+    /// <summary>
+    /// The wind stream (<see cref="MeshVertexWind"/>, binding 4; ADR 0172) covering every vertex: uploaded with
+    /// <see cref="Streams"/> (zeros for surfaces without custom1/custom2: the simple wind).
+    /// </summary>
+    public GpuBuffer? WindStreams { get; private set; }
+
     private int _vertexCount;
     public SurfaceRange[] Surfaces { get; private set; } = [];
     public Aabb Bounds { get; private set; } = Aabb.Empty;
@@ -158,6 +164,22 @@ internal sealed class MeshGpu
         {
             ArrayPool<MeshVertexExt>.Shared.Return(data);
         }
+
+        var wind = ArrayPool<MeshVertexWind>.Shared.Rent(_vertexCount);
+        try
+        {
+            for (var s = 0; s < Surfaces.Length; s++)
+            {
+                var surface = Mesh.GetSurface(s);
+                surface.WriteWindStreams(wind.AsSpan(Surfaces[s].VertexOffset, surface.VertexCount));
+            }
+
+            WindStreams = GpuBuffer.CreateStatic<MeshVertexWind>(_ctx, wind.AsSpan(0, _vertexCount), BufferUsageFlags.VertexBufferBit);
+        }
+        finally
+        {
+            ArrayPool<MeshVertexWind>.Shared.Return(wind);
+        }
     }
 
     /// <summary>Releases the buffers (deferred until frames in flight finish).</summary>
@@ -166,9 +188,11 @@ internal sealed class MeshGpu
         Vertices?.Dispose();
         Indices?.Dispose();
         Streams?.Dispose();
+        WindStreams?.Dispose();
         Vertices = null;
         Indices = null;
         Streams = null;
+        WindStreams = null;
     }
 }
 
@@ -207,7 +231,11 @@ internal sealed class TextureGpu
         {
             var settings = Texture.ImportSettings;
             var (rgba, width, height) = Texture.DecodePixels();
-            Gpu = GpuTexture.Create2D(_ctx, (uint)width, (uint)height, rgba, ColorSpace, settings.ToSampling(), settings.Mipmaps);
+            Gpu = settings is { Mipmaps: true, PreserveAlphaCoverage: true }
+                ? GpuTexture.Create2DFromMips(_ctx, (uint)width, (uint)height,
+                    MipChain.Build(rgba, width, height, ColorSpace == TextureColorSpace.Srgb, settings.AlphaCoverageCutoff),
+                    ColorSpace, settings.ToSampling())
+                : GpuTexture.Create2D(_ctx, (uint)width, (uint)height, rgba, ColorSpace, settings.ToSampling(), settings.Mipmaps);
         }
         catch (Exception e) when (e is InvalidDataException or IOException or InvalidOperationException)
         {
@@ -242,12 +270,19 @@ internal struct MaterialParams
     public uint OutlineWidth;
 
     /// <summary>
-    /// x = metallic, y = roughness, z = ambient occlusion (<see cref="ShadingMode.Pbr"/>); w = 1 for a dithered cutout
-    /// (<see cref="FoliageMaterial3D.AlphaDither"/>, 0 for every other material).
+    /// x = metallic, y = roughness, z = ambient occlusion (<see cref="ShadingMode.Pbr"/>); w = the dithered cutout's edge
+    /// scale (1 for <see cref="FoliageMaterial3D.AlphaDither"/>, 2 × <see cref="FoliageMaterial3D.AlphaAntialiasingEdge"/>
+    /// for alpha to coverage, 0 for every other material).
     /// </summary>
     public Vector4 Pbr;
 
-    public const int Size = 96;
+    /// <summary>The foliage block (<c>include/foliage.slang</c>, <c>include/impostor.slang</c>; ADR 0172); zero for other materials.</summary>
+    public Vector4 Foliage0;
+    public Vector4 Foliage1;
+    public Vector4 Foliage2;
+    public Vector4 Foliage3;
+
+    public const int Size = 160;
     public const uint HasAlbedo = 1, HasNormal = 2, HasEmission = 4, HasOrm = 8;
     public const uint ShadingBlinnPhong = 0, ShadingUnshaded = 1, ShadingPbr = 2;
 
@@ -281,17 +316,22 @@ internal struct MaterialParams
 
     /// <summary>
     /// Packs a <see cref="FoliageMaterial3D"/> into the same block (<c>include/foliage.slang</c> reads it): the emission
-    /// slot holds translucency, wind strength scale and branch bend; the cutoff is 0 unless the material cuts out (the
-    /// foliage casters always run the alpha test); <c>flags.z</c> is the back-face mode + 1 (1 flip, 2 keep, 3 cull);
-    /// <c>pbr.w</c> is 1 for a dithered cutout (<see cref="FoliageMaterial3D.AlphaDither"/>, <c>include/alpha_dither.slang</c>).
+    /// slot holds translucency, wind strength scale, branch bend and trunk sway; the cutoff is 0 unless the material cuts
+    /// out (the foliage casters always run the alpha test); <c>flags.z</c> is the back-face mode + 1 (1 flip, 2 keep, 3
+    /// cull); <c>pbr.w</c> is the dithered cutout's edge scale (<see cref="FoliageMaterial3D.AlphaDither"/>,
+    /// <see cref="FoliageMaterial3D.AlphaAntialiasingMode"/>, <c>include/alpha_dither.slang</c>); the foliage block holds the
+    /// translucency colour and scatter, the per-instance visibility range, moss and detail normals (ADR 0172).
     /// </summary>
     public static MaterialParams From(FoliageMaterial3D m, uint textureFlags)
     {
         var (specular, shininess) = FoliageMaterial3D.BlinnFromRoughness(m.Roughness);
+        var dither = !m.AlphaCutout ? 0f
+            : m.AlphaAntialiasingMode == AlphaAntialiasing.AlphaToCoverage ? 2f * Math.Clamp(m.AlphaAntialiasingEdge, 0.05f, 1f)
+            : m.AlphaDither ? 1f : 0f;
         return new MaterialParams
         {
             Albedo = Linear(m.AlbedoColor),
-            Emission = new Vector4(Math.Clamp(m.Translucency, 0f, 1f), m.WindStrength, m.WindBranchBend, 0f),
+            Emission = new Vector4(Math.Clamp(m.Translucency, 0f, 1f), m.WindStrength, m.WindBranchBend, m.WindTrunkSway),
             UvTransform = new Vector4(1f, 1f, 0f, 0f),
             Params = new Vector4(specular, shininess, m.AlphaCutout ? m.AlphaCutoff : 0f, m.NormalScale),
             TextureFlags = textureFlags,
@@ -302,9 +342,41 @@ internal struct MaterialParams
                 _ => ShadingBlinnPhong,
             },
             DoubleSided = (uint)m.BackFace + 1u,
-            Pbr = new Vector4(0f, Math.Clamp(m.Roughness, 0f, 1f), 1f, m.AlphaCutout && m.AlphaDither ? 1f : 0f),
+            Pbr = new Vector4(0f, Math.Clamp(m.Roughness, 0f, 1f), 1f, dither),
+            Foliage0 = Prefix(MathF.Max(m.TranslucencyScatter, 0.01f), ColorSpace.SrgbToLinear(Rgb(m.TranslucencyColor))),
+            Foliage1 = m.InstanceVisibility
+                ? new Vector4(MathF.Max(m.InstanceVisibilityBegin, 0f), MathF.Max(m.InstanceVisibilityEnd, 0f), MathF.Max(m.InstanceVisibilityMargin, 0f), 1f)
+                : Vector4.Zero,
+            Foliage2 = new Vector4(Math.Clamp(m.MossCoverage, 0f, 1f), MathF.Max(m.DetailScale, 0f), MathF.Max(m.DetailStrength, 0f),
+                1f / MathF.Max(m.MossPatchSize, 0.01f)),
+            Foliage3 = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.MossColor)), Math.Clamp(m.ShadowDensity, 0f, 1f)),
         };
     }
+
+    /// <summary>
+    /// Packs an <see cref="ImpostorMaterial3D"/> (<c>include/impostor.slang</c>): albedo tint, translucency (emission.x),
+    /// the cutoff, leaf roughness (pbr.y) and dither edge (pbr.w), back faces kept; the foliage block holds the
+    /// translucency colour and scatter, the per-instance visibility range, the views' centre and radius, and the frame
+    /// count, hemi flag and bark roughness.
+    /// </summary>
+    public static MaterialParams From(ImpostorMaterial3D m, uint textureFlags) => new()
+    {
+        Albedo = Linear(m.AlbedoColor),
+        Emission = new Vector4(Math.Clamp(m.Translucency, 0f, 1f), Math.Clamp(m.ShadowDensity, 0f, 1f), 0f, 0f),
+        UvTransform = new Vector4(1f, 1f, 0f, 0f),
+        Params = new Vector4(0f, 1f, m.AlphaCutoff, 1f),
+        TextureFlags = textureFlags,
+        Shading = ShadingPbr,
+        DoubleSided = (uint)FoliageBackFace.Keep + 1u,
+        Pbr = new Vector4(0f, Math.Clamp(m.LeafRoughness, 0f, 1f), 1f,
+            m.AlphaAntialiasingMode == AlphaAntialiasing.AlphaToCoverage ? 2f * Math.Clamp(m.AlphaAntialiasingEdge, 0.05f, 1f) : 0f),
+        Foliage0 = Prefix(MathF.Max(m.TranslucencyScatter, 0.01f), ColorSpace.SrgbToLinear(Rgb(m.TranslucencyColor))),
+        Foliage1 = m.InstanceVisibility
+            ? new Vector4(MathF.Max(m.InstanceVisibilityBegin, 0f), MathF.Max(m.InstanceVisibilityEnd, 0f), MathF.Max(m.InstanceVisibilityMargin, 0f), 1f)
+            : Vector4.Zero,
+        Foliage2 = new Vector4(m.Center, MathF.Max(m.Radius, 1e-3f)),
+        Foliage3 = new Vector4(Math.Clamp(m.Frames, 2, 32), m.Hemi ? 1f : 0f, Math.Clamp(m.BarkRoughness, 0f, 1f), m.DitherViews ? 1f : 0f),
+    };
 
     /// <summary>
     /// Packs a <see cref="WaterMaterial3D"/> into the same block (<c>include/water.slang</c> reads it): albedo = scatter
@@ -356,6 +428,9 @@ internal struct MaterialParams
     };
 
     private static Vector3 Rgb(System.Drawing.Color c) => new Vector3(c.R, c.G, c.B) / 255f;
+
+    /// <summary>(x, v.X, v.Y, v.Z).</summary>
+    internal static Vector4 Prefix(float x, Vector3 v) => new(x, v.X, v.Y, v.Z);
 
     private static Vector4 Linear(System.Drawing.Color c) => new(ColorSpace.SrgbToLinear(Rgb(c)), c.A / 255f);
 }
@@ -420,10 +495,13 @@ internal sealed class MaterialGpu
     /// <summary>Shadow casters run the foliage wind (<see cref="FoliageMaterial3D"/>).</summary>
     public bool FoliageCaster => ColorShaders == ShaderSetId.MeshFoliage;
 
+    /// <summary>Shadow casters are impostor quads facing the light (<see cref="ImpostorMaterial3D"/>, ADR 0172).</summary>
+    public bool ImpostorCaster => ColorShaders == ShaderSetId.MeshImpostor;
+
     // [shader set × extra pass × mirrored × vertex streams × prepassed] → pipeline; reset when the state changes.
     public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 16];
 
-    public const int ShaderSetCount = 11;
+    public const int ShaderSetCount = 13;
 
     public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false, bool prepassed = false) =>
         ((((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0)) * 2 + (prepassed ? 1 : 0);
@@ -433,10 +511,15 @@ internal sealed class MaterialGpu
     /// splat materials. Outlines (an inverted hull) and water draw only in the scene pass.
     /// </summary>
     public bool Prepassable => !State.IsTransparent &&
-                               ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshFoliage or ShaderSetId.MeshTerrainSplat;
+                               ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshFoliage or ShaderSetId.MeshTerrainSplat or ShaderSetId.MeshImpostor;
 
     /// <summary>The prepass shader set of a <see cref="Prepassable"/> material.</summary>
-    public ShaderSetId DepthShaders => ColorShaders == ShaderSetId.MeshFoliage ? ShaderSetId.MeshDepthFoliage : ShaderSetId.MeshDepth;
+    public ShaderSetId DepthShaders => ColorShaders switch
+    {
+        ShaderSetId.MeshFoliage => ShaderSetId.MeshDepthFoliage,
+        ShaderSetId.MeshImpostor => ShaderSetId.MeshDepthImpostor,
+        _ => ShaderSetId.MeshDepth,
+    };
 
     public void ResetPipelines() => Array.Clear(Pipelines);
 }

@@ -17,6 +17,8 @@ public static class TreeMeshDataExtensions
         return new MeshSurface(data.Positions, data.Normals, data.UVs, data.Indices, material)
         {
             Custom0 = data.Custom0,
+            Custom1 = data.Custom1,
+            Custom2 = data.Custom2,
             Colors = data.Colors,
         };
     }

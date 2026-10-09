@@ -44,6 +44,8 @@ public sealed unsafe class ShaderModuleCache : IDisposable
 
         if (code.Length == 0 || code.Length % 4 != 0)
             throw new InvalidDataException($"Shader '{path}' is not SPIR-V ({code.Length} bytes).");
+        if (SpirvInvariance.Applies(path))
+            code = SpirvInvariance.MakePositionInvariant(code); // ADR 0172: the prepass and colour positions match exactly
 
         fixed (byte* p = code)
         {

@@ -1,0 +1,82 @@
+{
+  "format": 2,
+  "uid": "res_81981457ce08",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 104,
+        "Gnarliness": 0.03,
+        "Length": 89.10000000000001,
+        "Radius": 1.161895003862225,
+        "Sections": 14,
+        "Segments": 8,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 100,
+        "Children": 5,
+        "Gnarliness": 0.06,
+        "Length": 28.35,
+        "Radius": 0.34,
+        "Sections": 8,
+        "Segments": 5,
+        "Start": 0.1,
+        "Taper": 0.7,
+        "LengthProfile": [0.85, 1, 1, 0.9, 0.75]
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 48,
+        "Gnarliness": 0.04,
+        "Length": 7.552317525104463,
+        "Radius": 0.65,
+        "Sections": 4,
+        "Segments": 3,
+        "Start": 0.15,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 60,
+        "Gnarliness": 0.02,
+        "Length": 1,
+        "Radius": 0.7,
+        "Sections": 6,
+        "Segments": 3,
+        "Start": 0.3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Spruce Large",
+    "Seed": 316,
+    "Type": "Evergreen",
+    "Levels": 2,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": -0.006,
+    "BarkTexture": "Bark003",
+    "BarkTint": [0.78431374, 0.6901961, 0.627451, 1],
+    "LeafTexture": "spruce",
+    "LeafAngle": 34,
+    "LeafCount": 11,
+    "LeafStart": 0.05,
+    "LeafSize": 2.1,
+    "LeafSizeVariance": 0.25,
+    "LeafAlphaCutoff": 0.35
+  }
+}

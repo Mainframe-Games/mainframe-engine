@@ -114,6 +114,272 @@ public sealed class TreeScene(HostOptions host, TreeStyle style) : TreeSceneBase
 }
 
 /// <summary>
+/// ADR 0172: the same Oak Medium and Pine Medium as <see cref="TreeScene"/>, with leaf-cluster cards
+/// (<see cref="TreeLeafMode.Cluster"/>: baked twig atlases with normal and thickness maps, kept rounded normals,
+/// coverage-preserving mips), under the same wind at frame 90; <c>--count 1</c> turns the wind off. Self-checks at frame 3:
+/// the leaves draw with the cluster material and at most a quarter of the single cards.
+/// </summary>
+public sealed class TreeClusterScene(HostOptions host) : TreeSceneBase(host)
+{
+    private Tree3D _oak = null!;
+    private Tree3D _pine = null!;
+
+    protected override void LoadScene()
+    {
+        var scene = CreateWorld(nameof(TreeClusterScene), 120f, new Vector3(2f, 7.5f, 34f), new Vector3(0f, 8.5f, 0f), windy: Host.Count != 1);
+        _oak = new Tree3D { Name = "Oak", Options = Clusters("Oak Medium"), Position = new Vector3(-7f, 0f, 0f), Lod1Distance = 500f, Lod2Distance = 600f };
+        _pine = new Tree3D
+        {
+            Name = "Pine",
+            Options = Clusters("Pine Medium"),
+            Position = new Vector3(8f, 0f, -2f),
+            RotationDegrees = new Vector3(0f, 40f, 0f),
+            Lod1Distance = 500f,
+            Lod2Distance = 600f,
+        };
+        scene.AddChild(_oak);
+        scene.AddChild(_pine);
+        Tree.ChangeScene(scene);
+    }
+
+    private static TreeOptions Clusters(string preset)
+    {
+        var options = TreePresets.Load(preset);
+        options.LeafMode = TreeLeafMode.Cluster;
+        return options;
+    }
+
+    protected override void UpdateScene(in GameTime gameTime)
+    {
+        if (gameTime.FrameCount != 3)
+            return;
+        foreach (var (tree, preset) in ((Tree3D, string)[])[(_oak, "Oak Medium"), (_pine, "Pine Medium")])
+        {
+            var lod = tree.GetLodNode(0);
+            var leaves = lod.GetRenderMaterial(lod.Mesh!, 1);
+            if (leaves is not FoliageMaterial3D { ThicknessTexture: not null, BackFace: FoliageBackFace.Keep })
+                Fail($"{tree.Name}'s leaves draw with {leaves.GetType().Name}, not the cluster material");
+            var single = TreeMesh.Generate(TreePresets.Load(preset), tree.Options!.Seed, TreeStyle.Realistic).Lods[0].GetSurface(1).VertexCount;
+            var cards = lod.Mesh!.GetSurface(1).VertexCount;
+            if (cards * 4 > single)
+                Fail($"{tree.Name} has {cards / 4} cluster cards for {single / 4} single cards");
+        }
+    }
+}
+
+/// <summary>
+/// ADR 0172: the engine's species at level 0 — Birch, Beech, Spruce and Fir Medium (procedural leaves and bark,
+/// <see cref="TreeLevel.LengthProfile"/> crowns) — in a light wind at t = 1.5 s. Self-checks at frame 3: each draws with
+/// its painted leaf image and bark, and the conifers are taller than wide.
+/// </summary>
+public sealed class TreeSpeciesScene(HostOptions host) : TreeSceneBase(host)
+{
+    private static readonly string[] Names = ["Birch Medium", "Beech Medium", "Spruce Medium", "Fir Medium"];
+    private readonly Tree3D[] _trees = new Tree3D[Names.Length];
+
+    protected override void LoadScene()
+    {
+        var scene = CreateWorld(nameof(TreeSpeciesScene), 160f, new Vector3(0f, 9f, 50f), new Vector3(0f, 9f, 0f), windy: true);
+        Environment.WindStrength = 0.5f;
+        for (var i = 0; i < Names.Length; i++)
+        {
+            _trees[i] = new Tree3D
+            {
+                Name = Names[i].Replace(" ", "", StringComparison.Ordinal),
+                Preset = Names[i],
+                Position = new Vector3(-19.5f + 13f * i, 0f, i % 2 == 0 ? 0f : -3f),
+                Lod1Distance = 500f,
+                Lod2Distance = 600f,
+                Collision = false,
+            };
+            scene.AddChild(_trees[i]);
+        }
+
+        Tree.ChangeScene(scene);
+    }
+
+    protected override void UpdateScene(in GameTime gameTime)
+    {
+        if (gameTime.FrameCount != 3)
+            return;
+        foreach (var tree in _trees)
+        {
+            var lod = tree.GetLodNode(0);
+            if (lod.GetRenderMaterial(lod.Mesh!, 1) is not FoliageMaterial3D { AlbedoTexture: not null })
+                Fail($"{tree.Name}'s leaves have no image");
+            if (lod.GetRenderMaterial(lod.Mesh!, 0) is not FoliageMaterial3D { AlbedoTexture: not null, NormalTexture: not null })
+                Fail($"{tree.Name}'s bark has no maps");
+        }
+
+        foreach (var conifer in _trees[2..])
+        {
+            var bounds = conifer.GetLodNode(0).Mesh!.Bounds;
+            if (bounds.Size.Y < 1.4f * MathF.Max(bounds.Size.X, bounds.Size.Z))
+                Fail($"{conifer.Name} is not conical: {bounds.Size}");
+        }
+    }
+}
+
+/// <summary>
+/// ADR 0172: bark detail close up — an Oak Medium's lower trunk with a root flare (buttress lobes), branch collars, moss on
+/// up-facing bark and detail normals (<c>--count 1</c>: Ez Tree's plain bark, for comparison). No wind. Self-checks at
+/// frame 3: the flared trunk is wider at the ground than a metre up, and the bark material has moss and detail normals.
+/// </summary>
+public sealed class TreeBarkScene(HostOptions host) : TreeSceneBase(host)
+{
+    private Tree3D _oak = null!;
+
+    protected override void LoadScene()
+    {
+        var scene = CreateWorld(nameof(TreeBarkScene), 40f, new Vector3(2.6f, 1.7f, 4.2f), new Vector3(0f, 1.4f, 0f), windy: false);
+        var options = TreePresets.Load("Oak Medium");
+        if (Host.Count != 1)
+        {
+            options.RootFlare = 1.8;
+            options.RootFlareHeight = 1.1;
+            options.CollarScale = 1.35;
+            options.BarkMoss = 0.55f;
+            options.BarkDetailScale = 5f;
+        }
+
+        _oak = new Tree3D { Name = "Oak", Options = options, Lod1Distance = 500f, Lod2Distance = 600f, Collision = false };
+        scene.AddChild(_oak);
+        Tree.ChangeScene(scene);
+    }
+
+    protected override void UpdateScene(in GameTime gameTime)
+    {
+        if (gameTime.FrameCount != 3 || Host.Count == 1)
+            return;
+        var bark = _oak.GetLodNode(0).Mesh!.GetSurface(0);
+        float Width(float y) => bark.Positions.Where(p => MathF.Abs(p.Y - y) < 0.12f).Select(p => MathF.Sqrt(p.X * p.X + p.Z * p.Z)).DefaultIfEmpty(0f).Max();
+        if (Width(0f) < Width(1.2f) * 1.4f)
+            Fail($"the trunk is not flared: {Width(0f):0.00} m at the ground, {Width(1.2f):0.00} m at 1.2 m");
+        if (_oak.GetLodNode(0).GetRenderMaterial(_oak.GetLodNode(0).Mesh!, 0) is not FoliageMaterial3D { MossCoverage: > 0f, DetailScale: > 0f })
+            Fail("the bark has no moss or detail normals");
+    }
+}
+
+/// <summary>
+/// ADR 0172: the oak and pine of <see cref="TreeScene"/> with the hierarchical wind (<see cref="TreeOptions.HierarchicalWind"/>:
+/// pivot streams, trunk sway, branch and twig bends, leaf flutter) and leaf clusters from level 0, in a strong wind.
+/// <c>--count 1</c>: still; <c>--count 2</c>: the wind 1.25 s later (the capture frame is the test's). Self-checks at
+/// frame 3: both surfaces carry the pivot streams (rigid trunk pivots, flexible branch pivots).
+/// </summary>
+public sealed class TreeWindScene(HostOptions host) : TreeSceneBase(host)
+{
+    private Tree3D _oak = null!;
+    private Tree3D _pine = null!;
+
+    protected override void LoadScene()
+    {
+        var scene = CreateWorld(nameof(TreeWindScene), 120f, new Vector3(2f, 7.5f, 34f), new Vector3(0f, 8.5f, 0f), windy: Host.Count != 1);
+        Environment.WindStrength = Host.Count == 1 ? 0f : 2.5f;
+        _oak = new Tree3D { Name = "Oak", Options = Hierarchical("Oak Medium"), Position = new Vector3(-7f, 0f, 0f), Lod1Distance = 500f, Lod2Distance = 600f };
+        _pine = new Tree3D
+        {
+            Name = "Pine",
+            Options = Hierarchical("Pine Medium"),
+            Position = new Vector3(8f, 0f, -2f),
+            RotationDegrees = new Vector3(0f, 40f, 0f),
+            Lod1Distance = 500f,
+            Lod2Distance = 600f,
+        };
+        scene.AddChild(_oak);
+        scene.AddChild(_pine);
+        Tree.ChangeScene(scene);
+    }
+
+    private static TreeOptions Hierarchical(string preset)
+    {
+        var options = TreePresets.Load(preset);
+        options.HierarchicalWind = true;
+        options.LeafMode = TreeLeafMode.Cluster;
+        return options;
+    }
+
+    protected override void UpdateScene(in GameTime gameTime)
+    {
+        if (gameTime.FrameCount != 3)
+            return;
+        foreach (var tree in (Tree3D[])[_oak, _pine])
+        {
+            var mesh = tree.GetLodNode(0).Mesh!;
+            for (var s = 0; s < mesh.SurfaceCount; s++)
+            {
+                var surface = mesh.GetSurface(s);
+                if (surface.Custom1.Length != surface.VertexCount || surface.Custom2.Length != surface.VertexCount)
+                    Fail($"{tree.Name} surface {s} has no pivot streams");
+            }
+
+            var bark = mesh.GetSurface(0);
+            if (!bark.Custom1.Any(c => c.W >= TreeGenerator.RigidStiffness) || !bark.Custom1.Any(c => c.W is > 0f and < 100f))
+                Fail($"{tree.Name}'s bark lacks a rigid trunk or flexible branches");
+        }
+    }
+}
+
+/// <summary>
+/// ADR 0172: an oak, a pine and an aspen (a <see cref="TreeScatter"/>, one tree each) seen from 62 m, drawn as their
+/// finest mesh level, or (<c>--count 1</c>) as their octahedral impostors (<see cref="TreeScatter.ImpostorDistance"/>),
+/// sun shadows from the impostor casters in every pass, no wind. The two captures should match: the test compares them.
+/// Self-checks at frame 3: the impostor run draws only impostor batches, with impostor materials.
+/// </summary>
+public sealed class TreeImpostorScene(HostOptions host) : TreeSceneBase(host)
+{
+    private TreeScatter _scatter = null!;
+    private bool Impostors => Host.Count == 1;
+
+    protected override void LoadScene()
+    {
+        var scene = CreateWorld(nameof(TreeImpostorScene), 260f, new Vector3(0f, 9f, 62f), new Vector3(0f, 8.5f, 0f), windy: false);
+        _scatter = new TreeScatter
+        {
+            Name = "Trees",
+            Species =
+            [
+                new TreeSpecies { Preset = "Oak Medium", Seeds = [35729] },
+                new TreeSpecies { Preset = "Pine Medium", Seeds = [13977] },
+                new TreeSpecies { Preset = "Aspen Medium", Seeds = [18020] },
+            ],
+            Lod1Distance = 1000f,
+            Lod2Distance = 2000f,
+            ImpostorDistance = Impostors ? 1f : 0f,
+            ShadowMaxLod = 3,
+            Collision = false,
+        };
+        _scatter.SetPlacements(
+        [
+            new TreePlacement(new Vector3(-13f, 0f, 0f), 0f, 1f, 0),
+            new TreePlacement(new Vector3(1f, 0f, -2f), 0.7f, 1f, 1),
+            new TreePlacement(new Vector3(13f, 0f, 1f), 2.1f, 1f, 2),
+        ]);
+        scene.AddChild(_scatter);
+        Tree.ChangeScene(scene);
+    }
+
+    protected override void UpdateScene(in GameTime gameTime)
+    {
+        if (gameTime.FrameCount != 3 || !Impostors)
+            return;
+        var camera = Camera.GlobalPosition;
+        var drawn = 0;
+        foreach (var batch in _scatter.Batches)
+        {
+            var bounds = (batch.CustomAabb ?? batch.Multimesh!.GetAabb()).Transform(batch.GlobalTransform.ToMatrix4x4());
+            if (!batch.IsInVisibilityRange(camera, bounds))
+                continue;
+            drawn++;
+            if (!batch.IsImpostor || batch.GetRenderMaterial(batch.Multimesh!.Mesh!, 0) is not ImpostorMaterial3D)
+                Fail($"{batch.Name} draws instead of the impostor");
+        }
+
+        if (drawn != 3)
+            Fail($"{drawn} impostor batches draw, not 3");
+    }
+}
+
+/// <summary>
 /// ADR 0158: a <see cref="TreeScatter"/> forest of oaks, pines and aspens (two seeds each) on a jittered grid:
 /// <c>--count N</c> trees (default 160; a fly-through on a CPU device: at most 120, no sun shadows) over a square of <c>5.7 √N</c> m (2 000 trees:
 /// 256 m). Captures see the forest
@@ -121,8 +387,14 @@ public sealed class TreeScene(HostOptions host, TreeStyle style) : TreeSceneBase
 /// frames (every chunk switches level on the way). Self-checks at frame 3 (and while flying, outside an allocation window):
 /// each chunk's variant draws exactly one level for the camera, the batches hold every tree, and no level-2 batch casts
 /// into the first sun cascade; the trees each cascade draws per level are printed on stdout.
+/// <para>
+/// <c>tree-forest-g8e</c> (<paramref name="foliageQuality"/>, ADR 0172) grows the same forest with G8e.5's foliage, as the
+/// Forest does: leaf clusters from level 1 (with a shadow density), hierarchical wind, root flares, collars, moss and
+/// detail normals, coverage mips, octahedral impostors from 60 m casting into the coarse cascades, and per-instance
+/// levels cross-fading over ±4 m. Its checks are that every tree is held and that levels are chosen per instance.
+/// </para>
 /// </summary>
-public sealed class TreeForestScene(HostOptions host) : TreeSceneBase(host)
+public sealed class TreeForestScene(HostOptions host, bool foliageQuality = false) : TreeSceneBase(host)
 {
     private TreeScatter _scatter = null!;
     private float _half;
@@ -154,14 +426,40 @@ public sealed class TreeForestScene(HostOptions host) : TreeSceneBase(host)
             Name = "Forest",
             Species =
             [
-                new TreeSpecies { Preset = "Oak Medium", Seeds = [35729, 1201] },
-                new TreeSpecies { Preset = "Pine Medium", Seeds = [13977, 52] },
-                new TreeSpecies { Preset = "Aspen Medium", Seeds = [18020, 777] },
+                Species("Oak Medium", 35729, 1201),
+                Species("Pine Medium", 13977, 52),
+                Species("Aspen Medium", 18020, 777),
             ],
         };
+        if (foliageQuality)
+        {
+            _scatter.ImpostorDistance = 60f;
+            _scatter.ImpostorShadowDensity = 0.5f;
+            _scatter.LodSelection = TreeLodSelection.PerInstance;
+            _scatter.LodFadeMargin = 4f;
+            _scatter.ShadowCoarseLod = 3; // the impostor
+        }
+
         _scatter.SetPlacements(Placements(_trees, size));
         scene.AddChild(_scatter);
         Tree.ChangeScene(scene);
+    }
+
+    private TreeSpecies Species(string preset, params int[] seeds)
+    {
+        if (!foliageQuality)
+            return new TreeSpecies { Preset = preset, Seeds = seeds };
+        var options = TreePresets.Load(preset);
+        options.LeafMode = TreeLeafMode.Cluster;
+        options.ClusterFromLod = 1;
+        options.ClusterShadowDensity = 0.6f;
+        options.LeafCoverageMips = true;
+        options.HierarchicalWind = true;
+        options.RootFlare = 1.6;
+        options.CollarScale = 1.25;
+        options.BarkMoss = 0.4f;
+        options.BarkDetailScale = 6f;
+        return new TreeSpecies { Options = options, Seeds = seeds };
     }
 
     /// <summary>A jittered grid of <paramref name="count"/> trees over a <paramref name="size"/> m square centred on the origin.</summary>
@@ -182,9 +480,38 @@ public sealed class TreeForestScene(HostOptions host) : TreeSceneBase(host)
         return placements;
     }
 
+    // tree-forest-g8e: every batch shown for frames 1–3 (each per-instance level draws with its own material copy, so its
+    // GPU set and pipelines are created at load, as the Forest's prewarm does), then each gets its range back.
+    private readonly List<(TreeScatterBatch3D Batch, float Begin, float End)> _prewarm = [];
+
+    private void Prewarm(ulong frame)
+    {
+        if (frame == 1)
+        {
+            foreach (var batch in _scatter.Batches)
+            {
+                _prewarm.Add((batch, batch.VisibilityRangeBegin, batch.VisibilityRangeEnd));
+                batch.VisibilityRangeBegin = 0f;
+                batch.VisibilityRangeEnd = 0f;
+            }
+        }
+        else if (frame == 4)
+        {
+            foreach (var (batch, begin, end) in _prewarm)
+            {
+                batch.VisibilityRangeBegin = begin;
+                batch.VisibilityRangeEnd = end;
+            }
+
+            _prewarm.Clear();
+        }
+    }
+
     protected override void UpdateScene(in GameTime gameTime)
     {
         var frame = gameTime.FrameCount;
+        if (foliageQuality && frame <= 4)
+            Prewarm(frame);
         if (Flying)
         {
             // A loop at eye height through the forest, looking ahead along the path.
@@ -196,8 +523,8 @@ public sealed class TreeForestScene(HostOptions host) : TreeSceneBase(host)
             Camera.LookAt(ahead);
         }
 
-        // Checks allocate: before an allocation window (frames 3 and 50), every 100th frame of a perf run.
-        if (frame == 3 || (Host.AllocationMeasuredFrames > 0 && frame == 50) || (Host.PerfMeasuredFrames > 0 && frame % 100 == 0))
+        // Checks allocate: before an allocation window (frames 3 and 50; 5 with the prewarm), every 100th frame of a perf run.
+        if (frame == (foliageQuality ? 5u : 3u) || (Host.AllocationMeasuredFrames > 0 && frame == 50) || (Host.PerfMeasuredFrames > 0 && frame % 100 == 0))
             Check();
     }
 
@@ -224,12 +551,26 @@ public sealed class TreeForestScene(HostOptions host) : TreeSceneBase(host)
                 trees += batch.Multimesh!.InstanceCount;
         }
 
-        foreach (var (key, count) in shown)
-            if (count != 1)
-                Fail($"chunk {key.Item1} species {key.Item2} variant {key.Item3} draws {count} levels");
+        if (foliageQuality)
+        {
+            // Per instance (ADR 0172): every chunk draws at least one level, and the levels choose their trees.
+            foreach (var (key, count) in shown)
+                if (count < 1)
+                    Fail($"chunk {key.Item1} species {key.Item2} variant {key.Item3} draws no level");
+            if (!batches.Any(b => b.IsImpostor))
+                Fail("the scatter built no impostor level");
+        }
+        else
+        {
+            foreach (var (key, count) in shown)
+                if (count != 1)
+                    Fail($"chunk {key.Item1} species {key.Item2} variant {key.Item3} draws {count} levels");
+        }
+
         if (trees != _trees)
             Fail($"the batches hold {trees} trees, not {_trees}");
-        CheckCascades(camera);
+        if (!foliageQuality)
+            CheckCascades(camera);
     }
 
     // Which levels' casters each sun cascade culls in (the planner's passes of the last frame): far chunks must stay out

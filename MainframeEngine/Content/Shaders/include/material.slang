@@ -12,7 +12,7 @@
 #define MATERIAL_SET 2
 #endif
 
-// MaterialGpu.Params (std140, 96 bytes).
+// MaterialGpu.Params (std140, 160 bytes).
 struct MaterialParams
 {
     float4 albedo;      // linear rgb, a = alpha
@@ -22,7 +22,11 @@ struct MaterialParams
     uint4  flags;       // x = texture bits (1 albedo, 2 normal, 4 emission, 8 ORM), y = shading (kShading*),
                         // z = 1 double-sided, w = outline width in pixels (float bits; OutlineMaterial3D)
     float4 pbr;         // x = metallic, y = roughness, z = ambient occlusion (ShadingMode.Pbr; × the ORM texture),
-                        // w = 1 for a dithered cutout (FoliageMaterial3D.AlphaDither, alpha_dither.slang)
+                        // w > 0 for a dithered cutout: the edge width scale (1 = AlphaDither; alpha_dither.slang)
+    float4 foliage0;    // FoliageMaterial3D / ImpostorMaterial3D (ADR 0172; zero for other materials): include/foliage.slang
+    float4 foliage1;
+    float4 foliage2;
+    float4 foliage3;
 };
 
 [[vk::binding(0, MATERIAL_SET)]] ConstantBuffer<MaterialParams> material;

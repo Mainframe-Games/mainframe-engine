@@ -47,9 +47,10 @@ public abstract class GeometryInstance3D : VisualInstance3D
 
     /// <summary>
     /// Whether the instance is drawn for a camera at <paramref name="cameraPosition"/>, given its world bounds: the
-    /// distance to their centre is in [<see cref="VisibilityRangeBegin"/>, <see cref="VisibilityRangeEnd"/>).
+    /// distance to their centre is in [<see cref="VisibilityRangeBegin"/>, <see cref="VisibilityRangeEnd"/>). Instanced
+    /// tree levels that choose their trees per instance override it (ADR 0172).
     /// </summary>
-    public bool IsInVisibilityRange(Vector3 cameraPosition, in Aabb worldBounds)
+    public virtual bool IsInVisibilityRange(Vector3 cameraPosition, in Aabb worldBounds)
     {
         if (VisibilityRangeBegin <= 0f && VisibilityRangeEnd <= 0f)
             return true;

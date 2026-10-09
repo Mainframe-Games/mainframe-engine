@@ -47,6 +47,26 @@ public struct MeshVertexExt(uint color, Vector4 custom0)
 }
 
 /// <summary>
+/// The optional wind stream (16 bytes, binding 4; ADR 0172): <see cref="MeshSurface.Custom1"/> and
+/// <see cref="MeshSurface.Custom2"/> as RGBA16F, read by the foliage pipelines (hierarchical wind pivots and stiffness).
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 2)]
+public struct MeshVertexWind
+{
+    public Half X1, Y1, Z1, W1;
+    public Half X2, Y2, Z2, W2;
+
+    public MeshVertexWind(Vector4 custom1, Vector4 custom2)
+    {
+        (X1, Y1, Z1, W1) = ((Half)custom1.X, (Half)custom1.Y, (Half)custom1.Z, (Half)custom1.W);
+        (X2, Y2, Z2, W2) = ((Half)custom2.X, (Half)custom2.Y, (Half)custom2.Z, (Half)custom2.W);
+    }
+
+    /// <summary>Bytes per vertex.</summary>
+    public const int Size = 16;
+}
+
+/// <summary>
 /// Per-instance data of a batched mesh draw (80 bytes, binding 1, instance rate): the model matrix (row-vector
 /// System.Numerics layout, read as the four rows of a row-major Slang <c>float4x4</c>) and the object id written by the ID pass.
 /// </summary>
@@ -106,6 +126,22 @@ internal static class VertexLayouts
         new() { Binding = 2, Stride = MeshVertexExt.Size, InputRate = VertexInputRate.Vertex },
     ];
 
+    /// <summary>Binding 4: the wind stream (<see cref="MeshVertexWind"/>, ADR 0172); foliage pipelines always bind it.</summary>
+    public const uint WindBinding = 4;
+
+    private static readonly VertexInputBindingDescription WindStream =
+        new() { Binding = WindBinding, Stride = MeshVertexWind.Size, InputRate = VertexInputRate.Vertex };
+
+    /// <summary>Foliage colour pipelines: <see cref="MeshInstancedExtBindings"/> + the wind stream.</summary>
+    public static readonly VertexInputBindingDescription[] FoliageBindings = [.. MeshInstancedExtBindings, WindStream];
+
+    /// <summary>Locations 14 and 15: custom1 and custom2 (RGBA16F, binding 4).</summary>
+    public static readonly VertexInputAttributeDescription[] WindAttributes =
+    [
+        new() { Location = 14, Binding = WindBinding, Format = Format.R16G16B16A16Sfloat, Offset = 0 },
+        new() { Location = 15, Binding = WindBinding, Format = Format.R16G16B16A16Sfloat, Offset = 8 },
+    ];
+
     /// <summary>Location 8: the vertex colour (RGBA8 unorm); location 9: custom0.</summary>
     public static readonly VertexInputAttributeDescription ColorAttribute =
         new() { Location = 8, Binding = 2, Format = Format.R8G8B8A8Unorm, Offset = 0 };
@@ -122,8 +158,8 @@ internal static class VertexLayouts
     /// <summary>Lit pipelines of surfaces with vertex streams (<c>MeshExt.vk.vert</c>): <see cref="MeshAttributes"/> + colour.</summary>
     public static readonly VertexInputAttributeDescription[] MeshExtAttributes = [.. MeshAttributes, ColorAttribute];
 
-    /// <summary>Foliage pipelines (<c>Foliage.vk.vert</c>): <see cref="MeshAttributes"/> + colour + custom0.</summary>
-    public static readonly VertexInputAttributeDescription[] FoliageAttributes = [.. MeshAttributes, ColorAttribute, Custom0Attribute];
+    /// <summary>Foliage pipelines (<c>Foliage.vk.vert</c>): <see cref="MeshAttributes"/> + colour + custom0 + custom1 + custom2.</summary>
+    public static readonly VertexInputAttributeDescription[] FoliageAttributes = [.. MeshAttributes, ColorAttribute, Custom0Attribute, .. WindAttributes];
 
     /// <summary>Water pipelines (<c>Water.vk.vert</c>): <see cref="MeshAttributes"/> + custom0 (column depth, flow, foam).</summary>
     public static readonly VertexInputAttributeDescription[] WaterAttributes = [.. MeshAttributes, Custom0Attribute];
@@ -163,8 +199,17 @@ internal static class VertexLayouts
     /// <summary><c>Mesh/MeshDepthExt.vk.vert</c>: <see cref="DepthAttributes"/> + colour.</summary>
     public static readonly VertexInputAttributeDescription[] DepthExtAttributes = [.. DepthAttributes, ColorAttribute];
 
-    /// <summary><c>Foliage/FoliageDepth.vk.vert</c>: <see cref="DepthAttributes"/> + colour + custom0.</summary>
-    public static readonly VertexInputAttributeDescription[] DepthFoliageAttributes = [.. DepthAttributes, ColorAttribute, Custom0Attribute];
+    /// <summary><c>Foliage/FoliageDepth.vk.vert</c>: <see cref="DepthAttributes"/> + colour + custom0 + the wind stream.</summary>
+    public static readonly VertexInputAttributeDescription[] DepthFoliageAttributes = [.. DepthAttributes, ColorAttribute, Custom0Attribute, .. WindAttributes];
+
+    /// <summary>The foliage prepass: <see cref="DepthExtBindings"/> + the wind stream.</summary>
+    public static readonly VertexInputBindingDescription[] DepthFoliageBindings = [.. DepthExtBindings, WindStream];
+
+    /// <summary>Impostor pipelines (<c>Impostor.vk.vert</c>, ADR 0172): the corner UV and the model rows.</summary>
+    public static readonly VertexInputAttributeDescription[] ImpostorAttributes = [MeshInstancedAttributes[2], .. MeshInstancedAttributes[3..7]];
+
+    /// <summary><c>Impostor/ImpostorDepth.vk.vert</c>: <see cref="ImpostorAttributes"/> + the previous model rows.</summary>
+    public static readonly VertexInputAttributeDescription[] ImpostorDepthAttributes = [.. ImpostorAttributes, .. PreviousModelAttributes];
 
     /// <summary>Shadow casters: binding 0 positions (stride 32), binding 1 model rows at locations 1–4.</summary>
     public static readonly VertexInputBindingDescription[] ShadowInstancedBindings = MeshInstancedBindings;
@@ -185,12 +230,20 @@ internal static class VertexLayouts
         new() { Location = 5, Binding = 0, Format = Format.R32G32Sfloat, Offset = 24 },
     ];
 
-    /// <summary>Foliage casters (wind): <see cref="ShadowCutoutInstancedAttributes"/> plus custom0 (binding 2) at location 6.</summary>
-    public static readonly VertexInputBindingDescription[] ShadowFoliageInstancedBindings = MeshInstancedExtBindings;
+    /// <summary>Impostor casters (ADR 0172): the model rows (1–4) and the corner UV (5).</summary>
+    public static readonly VertexInputAttributeDescription[] ShadowImpostorInstancedAttributes = ShadowCutoutInstancedAttributes[1..];
+
+    /// <summary>
+    /// Foliage casters (wind): <see cref="ShadowCutoutInstancedAttributes"/> plus custom0 (binding 2) at location 6 and the
+    /// wind stream's custom1 and custom2 (binding 4) at 7 and 8.
+    /// </summary>
+    public static readonly VertexInputBindingDescription[] ShadowFoliageInstancedBindings = FoliageBindings;
 
     public static readonly VertexInputAttributeDescription[] ShadowFoliageInstancedAttributes =
     [
         .. ShadowCutoutInstancedAttributes,
         new() { Location = 6, Binding = 2, Format = Format.R32G32B32A32Sfloat, Offset = 4 },
+        new() { Location = 7, Binding = WindBinding, Format = Format.R16G16B16A16Sfloat, Offset = 0 },
+        new() { Location = 8, Binding = WindBinding, Format = Format.R16G16B16A16Sfloat, Offset = 8 },
     ];
 }

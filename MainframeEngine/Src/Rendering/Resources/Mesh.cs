@@ -88,6 +88,8 @@ public sealed class MeshSurface : Resource
     private int[] _indices = [];
     private Vector4[] _colors = [];
     private Vector4[] _custom0 = [];
+    private Vector4[] _custom1 = [];
+    private Vector4[] _custom2 = [];
     private Material? _material;
     private int _version = 1;
     private int _boundsVersion;
@@ -135,8 +137,26 @@ public sealed class MeshSurface : Resource
     [Export]
     public Vector4[] Custom0 { get => _custom0; set { _custom0 = value ?? []; Touch(); } }
 
+    /// <summary>
+    /// Optional per-vertex custom data (Godot's <c>ARRAY_CUSTOM1</c>), one per position (empty: none), stored as RGBA16F in
+    /// the wind stream. Foliage's hierarchical wind (ADR 0172) reads the object-space pivot of the vertex's level-1 branch
+    /// (xyz) and its stiffness (w; 0 = no hierarchy: the simple wind).
+    /// </summary>
+    [Export]
+    public Vector4[] Custom1 { get => _custom1; set { _custom1 = value ?? []; Touch(); } }
+
+    /// <summary>
+    /// Optional per-vertex custom data (Godot's <c>ARRAY_CUSTOM2</c>): foliage's level-2 pivot (xyz) and stiffness (w), with
+    /// <see cref="Custom1"/> (RGBA16F).
+    /// </summary>
+    [Export]
+    public Vector4[] Custom2 { get => _custom2; set { _custom2 = value ?? []; Touch(); } }
+
     /// <summary>True when the surface has <see cref="Colors"/> or <see cref="Custom0"/> (it uploads the second vertex stream).</summary>
     public bool HasVertexStreams => _colors.Length != 0 || _custom0.Length != 0;
+
+    /// <summary>True when the surface has <see cref="Custom1"/> or <see cref="Custom2"/> (it uploads the wind stream).</summary>
+    public bool HasWindStreams => _custom1.Length != 0 || _custom2.Length != 0;
 
     /// <summary>Material used when the instance has no override (null: the engine default).</summary>
     [Export]
@@ -182,6 +202,10 @@ public sealed class MeshSurface : Resource
             throw new InvalidDataException($"Surface has {_colors.Length} colours for {_positions.Length} positions.");
         if (_custom0.Length != 0 && _custom0.Length != _positions.Length)
             throw new InvalidDataException($"Surface has {_custom0.Length} custom0 values for {_positions.Length} positions.");
+        if (_custom1.Length != 0 && _custom1.Length != _positions.Length)
+            throw new InvalidDataException($"Surface has {_custom1.Length} custom1 values for {_positions.Length} positions.");
+        if (_custom2.Length != 0 && _custom2.Length != _positions.Length)
+            throw new InvalidDataException($"Surface has {_custom2.Length} custom2 values for {_positions.Length} positions.");
         foreach (var index in _indices)
             if ((uint)index >= (uint)_positions.Length)
                 throw new InvalidDataException($"Surface index {index} is out of range (vertex count {_positions.Length}).");
@@ -213,6 +237,17 @@ public sealed class MeshSurface : Resource
         for (var i = 0; i < _positions.Length; i++)
             destination[i] = new MeshVertexExt(colors is null ? MeshVertexExt.White : MeshVertexExt.PackColor(colors[i]),
                 custom is null ? default : custom[i]);
+    }
+
+    /// <summary>Writes the wind stream (<see cref="MeshVertexWind"/>): custom1 and custom2 as half floats (missing: zero).</summary>
+    public void WriteWindStreams(Span<MeshVertexWind> destination)
+    {
+        if (destination.Length < _positions.Length)
+            throw new ArgumentException("Destination is smaller than the vertex count.", nameof(destination));
+        var custom1 = _custom1.Length == _positions.Length ? _custom1 : null;
+        var custom2 = _custom2.Length == _positions.Length ? _custom2 : null;
+        for (var i = 0; i < _positions.Length; i++)
+            destination[i] = new MeshVertexWind(custom1 is null ? default : custom1[i], custom2 is null ? default : custom2[i]);
     }
 
     private void Touch()
