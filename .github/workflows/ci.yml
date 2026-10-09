@@ -190,7 +190,8 @@ jobs:
 
   render-tests:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # The suite runs ~30 min on lavapipe since the forest's scenes (G8, ADR 0163-0175): CPU rasterising is slow.
+    timeout-minutes: 50
     env:
       # Lavapipe (Mesa's CPU Vulkan driver) only: deterministic output for the 'lavapipe' goldens.
       VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.json
