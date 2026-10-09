@@ -1,0 +1,31 @@
+<rml>
+<head>
+    <title>Loading</title>
+    <link type="text/rcss" href="loading.rcss"/>
+</head>
+<!--
+  The Forest's loading screen (ADR 0183): "loading.screen" in project.mfproj. The engine's "loading" data model drives
+  it: stage (what the load is doing), progress (0-1) and percent (0-100).
+-->
+<body data-model="loading">
+    <div id="shot"/>
+    <div id="scrim"/>
+    <div id="floor"/>
+    <div id="brand">
+        <img id="icon" src="../Brand/icon.png"/>
+        <div class="brand-kicker">MAINFRAME ENGINE</div>
+        <div class="brand-title">Forest Demo</div>
+        <div class="brand-line">A morning walk through a procedural valley.</div>
+    </div>
+    <div id="progress">
+        <div id="status">
+            <span id="stage" class="no-tr">{{ stage }}<span class="dot" id="d1">.</span><span class="dot" id="d2">.</span><span class="dot" id="d3">.</span></span>
+            <span id="percent" class="no-tr">{{ percent }}%</span>
+        </div>
+        <div id="track">
+            <div id="fill" data-style-width="percent + '%'"><div id="shine"/></div>
+        </div>
+    </div>
+    <div id="foot">Esc pauses and opens the menu · F2 takes a photo</div>
+</body>
+</rml>

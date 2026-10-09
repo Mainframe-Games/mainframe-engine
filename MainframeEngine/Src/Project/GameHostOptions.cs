@@ -19,6 +19,9 @@ namespace MainframeEngine;
 /// <item><term><c>--frame-capture</c></term><description>allow <see cref="SceneTree.CaptureFrame"/> (game screenshot harnesses)</description></item>
 /// <item><term><c>--screenshot &lt;file.png&gt;</c></term><description>save the frame <c>--max-frames</c> ends on (frame 60 without it) as a PNG (smoke runs, CI)</description></item>
 /// <item><term><c>--dev-overlay</c></term><description>start with the developer overlay (F12) shown (QA screenshots)</description></item>
+/// <item><term><c>--sync-load</c></term><description>load the start scene synchronously, without the loading screen (ADR 0183; as <c>loading.async</c> false)</description></item>
+/// <item><term><c>--loading-hold &lt;seconds&gt;</c></term><description>keep the loading screen up at least this long before the scene enters (QA of its look)</description></item>
+/// <item><term><c>--loading-screenshot &lt;file.png&gt;</c></term><description>save the loading screen's first frame at or past half progress as a PNG (QA)</description></item>
 /// <item><term><c>--bake-lighting</c></term><description>bake every <see cref="LightProbeVolume"/> of the start scene once it is ready, save the data and quit (ADR 0170; works with <c>--headless</c>)</description></item>
 /// </list>
 /// Arguments the host does not know are kept in <see cref="Remaining"/> for the game. Everything after <c>++</c> is the
@@ -59,6 +62,15 @@ public sealed record GameHostOptions
 
     /// <summary><c>--dev-overlay</c>: the developer overlay starts visible.</summary>
     public bool DevOverlay { get; init; }
+
+    /// <summary><c>--sync-load</c>: load the start scene synchronously, without a loading screen (ADR 0183).</summary>
+    public bool SyncLoad { get; init; }
+
+    /// <summary><c>--loading-hold</c>: the start scene's load waits at least this many seconds before the scene enters.</summary>
+    public float LoadingHoldSeconds { get; init; }
+
+    /// <summary><c>--loading-screenshot</c>: PNG of the loading screen at half progress (enables frame capture).</summary>
+    public string? LoadingScreenshotPath { get; init; }
 
     /// <summary>PNG path for <c>--screenshot</c> (enables frame capture).</summary>
     public string? ScreenshotPath { get; init; }
@@ -133,6 +145,15 @@ public sealed record GameHostOptions
                 case "--dev-overlay":
                     options = options with { DevOverlay = true };
                     break;
+                case "--sync-load":
+                    options = options with { SyncLoad = true };
+                    break;
+                case "--loading-hold":
+                    options = options with { LoadingHoldSeconds = Seconds(args, ref i) };
+                    break;
+                case "--loading-screenshot":
+                    options = options with { LoadingScreenshotPath = Value(args, ref i) };
+                    break;
                 default:
                     remaining.Add(arg);
                     break;
@@ -157,7 +178,7 @@ public sealed record GameHostOptions
             options.EnableValidation = true;
         if (Locale is not null)
             options.Locale = Locale;
-        if (ScreenshotPath is not null || FrameCapture)
+        if (ScreenshotPath is not null || LoadingScreenshotPath is not null || FrameCapture)
             options.EnableFrameCapture = true;
         if (DevOverlay)
             options.DevOverlayVisible = true;
@@ -170,6 +191,15 @@ public sealed record GameHostOptions
         if (i + 1 >= args.Count || args[i + 1].StartsWith("--", StringComparison.Ordinal))
             throw new ArgumentException($"{name} needs a value.");
         return args[++i];
+    }
+
+    private static float Seconds(IReadOnlyList<string> args, ref int i)
+    {
+        var name = args[i];
+        var text = Value(args, ref i);
+        if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !(value >= 0f) || value > 3600f)
+            throw new ArgumentException($"{name} must be a number of seconds between 0 and 3600 (got '{text}').");
+        return value;
     }
 
     private static int Int(IReadOnlyList<string> args, ref int i, int min, int max)

@@ -38,6 +38,23 @@ public sealed class GameHostOptionsTests
     }
 
     [Fact]
+    public void LoadingFlagsParse()
+    {
+        // ADR 0183: QA of the loading screen and the old synchronous start.
+        var o = GameHostOptions.Parse(["--sync-load", "--loading-hold", "2.5", "--loading-screenshot", "out/loading.png"]);
+        Assert.True(o.SyncLoad);
+        Assert.Equal(2.5f, o.LoadingHoldSeconds);
+        Assert.Equal("out/loading.png", o.LoadingScreenshotPath);
+        Assert.True(o.Apply(new ProjectSettings { Name = "G" }.ToEngineOptions()).EnableFrameCapture);
+        Assert.Throws<ArgumentException>(() => GameHostOptions.Parse(["--loading-hold", "-1"]));
+        Assert.Throws<ArgumentException>(() => GameHostOptions.Parse(["--loading-hold", "soon"]));
+        var defaults = GameHostOptions.Parse([]);
+        Assert.False(defaults.SyncLoad);
+        Assert.Equal(0f, defaults.LoadingHoldSeconds);
+        Assert.Null(defaults.LoadingScreenshotPath);
+    }
+
+    [Fact]
     public void DefaultsChangeNothing()
     {
         var o = GameHostOptions.Parse([]);
@@ -178,6 +195,57 @@ public sealed class GameSessionTests : IDisposable
         Assert.Equal("Content/Scenes/Level2.mscene", session.StartScene);
         Assert.True(session.Start());
         Assert.Equal("Level2", tree.CurrentScene!.Name);
+        tree.Shutdown();
+    }
+
+    [Fact]
+    public void StartAsyncAddsTheAutoloadsNowAndLoadsTheSceneInTheBackground()
+    {
+        // ADR 0183: GameHost's start. The autoloads exist at once; the scene enters once loaded, after them.
+        var mainUid = SaveScene("Content/Scenes/Main.mscene", "Main", "Player");
+        var settings = Settings(mainUid);
+        settings.Autoloads.Add(new AutoloadSettings { Name = "Counter", Type = nameof(CounterNode) });
+        var tree = new SceneTree();
+        using var session = new GameSession(tree, settings);
+
+        var load = session.StartAsync();
+        Assert.NotNull(load);
+        Assert.Same(settings.Input, tree.Input.Map);
+        Assert.IsType<CounterNode>(tree.Root.GetNode("/root/Counter"));
+        Assert.True(tree.IsLoading);
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (!load.IsCompleted)
+        {
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20));
+            session.Update(new GameTime { DeltaTime = 1f / 60f });
+            tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+            Thread.Sleep(1);
+        }
+
+        Assert.Equal(SceneLoadStage.Done, load.Stage);
+        Assert.Equal(["Counter", "Main"], tree.Root.Children.Select(n => n.Name));
+        Assert.NotNull(tree.CurrentScene!.GetNodeOrNull("Player"));
+        Assert.False(tree.IsLoading);
+
+        // A missing scene fails the load (logged), never the call.
+        var missingTree = new SceneTree();
+        using var missing = new GameSession(missingTree, Settings("Content/Scenes/Nope.mscene"));
+        var failed = missing.StartAsync()!;
+        while (!failed.IsCompleted)
+        {
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(40));
+            missingTree.Tick(new GameTime { DeltaTime = 1f / 60f });
+            Thread.Sleep(1);
+        }
+
+        Assert.Equal(SceneLoadStage.Failed, failed.Stage);
+        Assert.Null(missingTree.CurrentScene);
+        var emptyTree = new SceneTree();
+        using (var empty = new GameSession(emptyTree, Settings()))
+            Assert.Null(empty.StartAsync()); // no start scene: nothing to load
+        emptyTree.Shutdown();
+        missingTree.Shutdown();
         tree.Shutdown();
     }
 

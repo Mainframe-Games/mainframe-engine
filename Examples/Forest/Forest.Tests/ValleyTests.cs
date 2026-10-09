@@ -157,6 +157,98 @@ public sealed class ValleyTests
     }
 
     [Fact]
+    public void TheValleyBuiltOnTheLoadingThreadMatchesTheSyncBuild()
+    {
+        // ADR 0183: the game loads the scene asynchronously (the valley builds in LoadInBackground, outside the tree, and
+        // the scene warms up behind the loading screen); the editor and tests load it synchronously (the valley builds in
+        // ready). Both must build the same valley: every node, mesh and instance in the same place.
+        var scene = ForestScene.Build();
+        scene.GetNode<ForestValley>("Valley").Art = false; // no LFS content in CI
+        var path = Path.Combine(Path.GetTempPath(), $"forest-async-{Guid.NewGuid():N}.mscene");
+        File.WriteAllBytes(path, SceneSaver.ToJson(scene));
+        scene.Free();
+        try
+        {
+            using var sync = new ControllerHarness(floor: false);
+            sync.Tree.ChangeSceneToFile(path);
+            sync.Run(ForestValley.PrewarmFrames + 4);
+            var syncValley = sync.Tree.CurrentScene!.GetNode<ForestValley>("Valley");
+            Assert.True(syncValley.IsBuilt);
+
+            using var async = new ControllerHarness(floor: false);
+            var load = async.Tree.ChangeSceneToFileAsync(path);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var stages = new List<string>();
+            while (!load.IsCompleted)
+            {
+                Assert.True(watch.Elapsed < TimeSpan.FromSeconds(120), $"The load is stuck in {load.Stage} ({load.StageText}).");
+                async.Run(1);
+                if (stages.Count == 0 || stages[^1] != load.StageText)
+                    stages.Add(load.StageText);
+                Thread.Sleep(1);
+            }
+
+            Assert.True(load.IsDone, $"{load.Stage}: {load.Error}");
+            async.Run(4);
+            var asyncValley = async.Tree.CurrentScene!.GetNode<ForestValley>("Valley");
+            // The valley reported its own stages to the loading screen, then the pre-warm.
+            Assert.Contains("Growing trees", stages);
+            Assert.Contains("Shaping the terrain", stages);
+            Assert.Contains("Compiling shaders", stages);
+
+            Assert.Equal(asyncValley.Forest!.PlacementCount, syncValley.Forest!.PlacementCount);
+            Assert.Equal(asyncValley.Bushes!.PlacementCount, syncValley.Bushes!.PlacementCount);
+            Assert.Equal(asyncValley.Terrain!.Foliage!.TotalInstances, syncValley.Terrain!.Foliage!.TotalInstances);
+            Assert.Equal(Hash(asyncValley.Terrain.Data!.BedHeights), Hash(syncValley.Terrain.Data!.BedHeights));
+            var expected = Signature(syncValley);
+            var actual = Signature(asyncValley);
+            Assert.Equal(expected.Count, actual.Count);
+            for (var i = 0; i < expected.Count; i++)
+                Assert.True(expected[i] == actual[i], $"Node {i} differs:\n sync:  {expected[i]}\n async: {actual[i]}");
+            Assert.InRange(expected.Count, 1000, int.MaxValue);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    // Every node under the valley (depth-first): type, name, local transform, and what it draws or collides with.
+    private static List<string> Signature(Node root)
+    {
+        var lines = new List<string>();
+        Walk(root, 0);
+        return lines;
+
+        void Walk(Node node, int depth)
+        {
+            var line = $"{depth} {node.GetType().Name} {node.Name}";
+            if (node is Node3D n)
+                line += $" {n.Transform}";
+            switch (node)
+            {
+                case MultiMeshInstance3D { Multimesh: { } multimesh } multi:
+                    var hash = 14695981039346656037ul;
+                    foreach (var t in multimesh.Transforms.AsSpan(0, multimesh.InstanceCount))
+                        foreach (var value in (ReadOnlySpan<float>)[t.Origin.X, t.Origin.Y, t.Origin.Z, t.Basis.X.X, t.Basis.Y.Y, t.Basis.Z.Z])
+                            hash = (hash ^ BitConverter.SingleToUInt32Bits(value)) * 1099511628211ul;
+                    line += $" mesh {multimesh.Mesh?.GetSurface(0).Positions.Length} x{multimesh.InstanceCount} #{hash:x} {multi.MaterialOverride?.GetType().Name}";
+                    break;
+                case MeshInstance3D { Mesh: { } mesh }:
+                    line += $" mesh {mesh.SurfaceCount}:{mesh.GetSurface(0).Positions.Length} #{Hash(mesh.GetSurface(0).Positions.SelectMany(p => new[] { p.X, p.Y, p.Z }).ToArray()):x}";
+                    break;
+                case CollisionShape3D { Shape: { } shape }:
+                    line += $" {shape.GetType().Name}";
+                    break;
+            }
+
+            lines.Add(line);
+            foreach (var child in node.Children)
+                Walk(child, depth + 1);
+        }
+    }
+
+    [Fact]
     public void FootstepsUseTheTerrainLayersTags()
     {
         Assert.Equal("leaves", ForestValley.FootstepSurface("needles"));

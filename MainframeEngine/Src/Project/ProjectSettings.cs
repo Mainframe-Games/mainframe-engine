@@ -76,6 +76,9 @@ public sealed class ProjectSettings
 
     public SteamProjectSettings Steam { get; } = new();
 
+    /// <summary>How <see cref="GameHost"/> loads the start scene: on a worker thread behind a loading screen (ADR 0183).</summary>
+    public LoadingProjectSettings Loading { get; } = new();
+
     /// <summary>
     /// The Steam app id this build starts Steam with (<see cref="EngineOptions.SteamAppId"/>):
     /// <see cref="SteamProjectSettings.DemoAppId"/> for a demo (<see cref="IsDemo"/>), else
@@ -525,6 +528,23 @@ public sealed class UiProjectSettings
         MinScale = MinScale,
         MaxScale = MaxScale,
     };
+}
+
+/// <summary>
+/// The <c>loading</c> section (ADR 0183): <see cref="GameHost"/> loads the start scene with
+/// <see cref="SceneTree.ChangeSceneToFileAsync"/> and shows a <see cref="LoadingScreen"/> while it loads, so the window
+/// answers and animates from its first frame instead of freezing until the scene is ready.
+/// </summary>
+public sealed class LoadingProjectSettings
+{
+    /// <summary>Load the start scene asynchronously with a loading screen (default); false loads it synchronously, as before.</summary>
+    public bool Async { get; set; } = true;
+
+    /// <summary>
+    /// The loading screen's document (<c>Content/…</c> <c>.rml</c> binding the <c>loading</c> data model); null (default) is
+    /// the engine's (<see cref="LoadingScreen.DefaultSource"/>), an empty string shows none.
+    /// </summary>
+    public string? Screen { get; set; }
 }
 
 /// <summary>One process of <see cref="ProjectSettings.PlayInstances"/>.</summary>

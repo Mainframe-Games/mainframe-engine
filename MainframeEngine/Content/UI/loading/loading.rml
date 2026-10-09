@@ -1,0 +1,28 @@
+<rml>
+<head>
+    <title>Loading</title>
+    <link type="text/rcss" href="loading.rcss"/>
+</head>
+<!--
+  The engine's loading screen (LoadingScreen, ADR 0183). The "loading" data model: title (the game's name), stage
+  (what the load is doing), progress (0-1) and percent (0-100). Projects replace it with "loading.screen" in project.mfproj.
+-->
+<body data-model="loading">
+    <div id="glow"/>
+    <div id="centre">
+        <img id="logo" src="/Content/Brand/logo-256.png"/>
+        <div id="title" class="no-tr">{{ title }}</div>
+        <div id="kicker">LOADING</div>
+    </div>
+    <div id="progress">
+        <div id="track">
+            <div id="fill" data-style-width="percent + '%'"><div id="shine"/></div>
+        </div>
+        <div id="status">
+            <span id="stage" class="no-tr">{{ stage }}</span>
+            <span id="percent" class="no-tr">{{ percent }}%</span>
+        </div>
+    </div>
+    <div id="footer">MADE WITH MAINFRAME ENGINE</div>
+</body>
+</rml>

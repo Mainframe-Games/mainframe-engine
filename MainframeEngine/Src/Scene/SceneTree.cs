@@ -200,6 +200,7 @@ public sealed partial class SceneTree
     public void ChangeScene(Node scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
+        CancelSceneLoad(); // ADR 0183: the newer change wins over an asynchronous load still in progress
         if (!_inTick && _inputDepth == 0)
         {
             ChangeSceneNow(scene);
@@ -256,8 +257,14 @@ public sealed partial class SceneTree
         _currentSceneResources.Add((root, scene));
     }
 
-    /// <summary>Frees the current scene.</summary>
+    /// <summary>Frees the current scene (and cancels an asynchronous scene change in progress).</summary>
     public void UnloadCurrentScene()
+    {
+        CancelSceneLoad();
+        FreeCurrentScene();
+    }
+
+    private void FreeCurrentScene()
     {
         CurrentScene?.Free();
         CurrentScene = null;
@@ -285,7 +292,7 @@ public sealed partial class SceneTree
         if (_pendingScene is { } pending && !ReferenceEquals(pending, scene))
             pending.Free(); // an immediate change outranks one still waiting for the frame
         _pendingScene = null;
-        UnloadCurrentScene();
+        FreeCurrentScene();
         Root.AddChild(scene);
         CurrentScene = scene;
     }
@@ -303,6 +310,8 @@ public sealed partial class SceneTree
 
         // M9: a locale change made on another thread is applied here, on the tree's own thread.
         _threadId = Environment.CurrentManagedThreadId;
+        if (_sceneLoad is not null || _retiredLoads.Count > 0)
+            AdvanceSceneLoads(); // ADR 0183: an asynchronous scene change enters here, before anything processes
         if (_localeChangePending)
         {
             _localeChangePending = false;
@@ -857,6 +866,7 @@ public sealed partial class SceneTree
         if (_shutDown)
             return;
 
+        ShutdownSceneLoads();
         CurrentScene = null;
         _pendingScene?.Free();
         _pendingScene = null;

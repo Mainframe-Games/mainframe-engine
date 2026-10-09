@@ -157,6 +157,9 @@ public sealed class TerrainFoliage3D : Node3D
 
     // ── Building ───────────────────────────────────────────────────────────────
 
+    /// <summary>Builds every type's tiles now (<see cref="Terrain3D.BuildNow"/>, before entering the tree); ready then finds them current.</summary>
+    internal void BuildTiles() => SyncTypes();
+
     /// <summary>Rebuilds the types whose list entry, settings or mesh changed (or all when the list changed).</summary>
     private void SyncTypes()
     {

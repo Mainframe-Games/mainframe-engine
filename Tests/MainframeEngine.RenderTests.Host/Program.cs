@@ -44,6 +44,7 @@ RenderTestGame game = options.Scene switch
     "ui-region" => new UiRegionScene(options),
     "ui-preload" => new UiPreloadScene(options),
     "ui-scaling" => new UiScalingScene(options),
+    "loading-screen" => new LoadingScreenScene(options),
     "csm" => new CsmScene(options),
     "shadow-pcf" => new ShadowPcfScene(options),
     "shadow-opacity" => new ShadowOpacityScene(options),
@@ -116,7 +117,7 @@ RenderTestGame game = options.Scene switch
     "tree-shadow-handoff" => new TreeShadowHandOffScene(options),
     _ => throw new ArgumentException(
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, showcase, color-pipeline, " +
-        "physics, physics-debug, sky-grid, materials, outline, subviewport-capture, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, ui-scaling, " +
+        "physics, physics-debug, sky-grid, materials, outline, subviewport-capture, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, ui-scaling, loading-screen, " +
         "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer, shadow-pcss, contact-shadows, shadow-staggered, far-shadow, " +
         "sky-physical, fxaa, auto-exposure, auto-exposure-histogram, auto-exposure-average, pbr, fog, vertex-colors, multimesh, " +
         "foliage-wind, terrain, water, water-refraction, water-ssr, water-fall, terrain-splat, terrain-blend, terrain-foliage, light-shafts, volumetric-fog, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, taau, fsr1, taau-foliage, ssao, " +

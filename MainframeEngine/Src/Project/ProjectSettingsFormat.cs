@@ -138,6 +138,7 @@ public static class ProjectSettingsFormat
             WriteLocalization(w, settings.Localization);
             WriteRendering(w, settings.Rendering);
             WriteUi(w, settings.Ui);
+            WriteLoading(w, settings.Loading);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
             w.WriteEndObject();
@@ -372,6 +373,19 @@ public static class ProjectSettingsFormat
         w.WriteEndObject();
     }
 
+    private static void WriteLoading(Utf8JsonWriter w, LoadingProjectSettings s)
+    {
+        var d = new LoadingProjectSettings();
+        if (s.Async == d.Async && s.Screen == d.Screen)
+            return;
+        w.WriteStartObject("loading");
+        if (s.Async != d.Async)
+            w.WriteBoolean("async", s.Async);
+        if (s.Screen is { } screen)
+            w.WriteString("screen", screen);
+        w.WriteEndObject();
+    }
+
     private static void WriteAutoloads(Utf8JsonWriter w, List<AutoloadSettings> autoloads)
     {
         if (autoloads.Count == 0)
@@ -438,7 +452,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "autoloads", "playInstances");
+                "audio", "localization", "rendering", "ui", "loading", "autoloads", "playInstances");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -463,6 +477,8 @@ public static class ProjectSettingsFormat
                 ReadRendering(rendering, s.Rendering);
             if (Object(root, "ui") is { } ui)
                 ReadUi(ui, s.Ui);
+            if (Object(root, "loading") is { } loading)
+                ReadLoading(loading, s.Loading);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
             if (Array(root, "playInstances", "playInstances") is { } instances)
@@ -624,6 +640,13 @@ public static class ProjectSettingsFormat
             Guard("ui.maxScale", () => s.MaxScale = max);
             var min = Float(o, "minScale", "ui.minScale", s.MinScale);
             Guard("ui.minScale", () => s.MinScale = min);
+        }
+
+        private void ReadLoading(JsonObject o, LoadingProjectSettings s)
+        {
+            Known(o, "loading.", "async", "screen");
+            s.Async = Bool(o, "async", "loading.async", s.Async);
+            s.Screen = String(o, "screen", "loading.screen") ?? s.Screen;
         }
 
         private void ReadAutoloads(JsonArray array, List<AutoloadSettings> autoloads)

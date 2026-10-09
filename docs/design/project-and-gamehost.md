@@ -76,6 +76,7 @@ commas tolerated). Only values that differ from the defaults are written, except
   "localization": { "defaultLocale": "es", "sourceLocale": "en", "fallbacks": ["es"], "directory": "Content/locale", "domain": "messages" },
   "rendering": { "exposure": 1.1, "shadows": "Low" },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1, "minScale": 0.5 },
+  "loading": { "async": true, "screen": "Content/UI/loading.rml" }, // ADR 0183: the start scene loads behind a loading screen
   "autoloads": [
     { "name": "Music", "scene": "Content/Autoload/Music.mscene" },
     { "name": "Stats", "type": "GameStats", "enabled": false }
@@ -105,6 +106,10 @@ commas tolerated). Only values that differ from the defaults are written, except
   width, 1 = height, default 1; between: a log-space blend, Unity's formula), `minScale`/`maxScale` (0 = no limit) clamp
   the result. `ToScaling()` → `UiServerOptions.Scaling` (`GameHost.CreateUiOptions`); change it at run time with
   `UiServer.Scaling`. The editor's Project Settings show it under UI.
+- **Loading** (`LoadingProjectSettings`, ADR 0183; [Async loading](#async-loading-and-the-loading-screen-adr-0183)): `async`
+  (default true) makes `GameHost` load the start scene on a worker thread behind a loading screen; `screen` is the
+  screen's document (`.rml` binding the `loading` data model), null (default) the engine's
+  (`LoadingScreen.DefaultSource`), `""` none. Optional keys, no migration.
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.
 - **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the
@@ -187,6 +192,9 @@ does not load), 2 (bad command line).
 | `--screenshot <file.png>` | save the frame `--max-frames` ends on (frame 60 without it) as a PNG |
 | `--frame-capture` | allow `SceneTree.CaptureFrame` (a game's own screenshot harness; implied by `--screenshot`) |
 | `--dev-overlay` | start with the developer overlay (F12) shown (QA captures) |
+| `--sync-load` | load the start scene synchronously, without the loading screen (as `loading.async: false`; before/after timings) |
+| `--loading-hold <s>` | keep the loading screen up at least this long before the scene enters (QA of its look) |
+| `--loading-screenshot <file.png>` | save the loading screen's first frame at or past half progress (QA) |
 | `++ …` | everything after `++` is the game's (`GameHost.UserArgs`, Godot's `OS.get_cmdline_user_args`), never parsed by the host |
 
 Anything else before `++` is left in `GameHostOptions.Remaining` for the game. `GameHost.IsDebugBuild` is true when the
@@ -199,8 +207,42 @@ the flags + `CreateUiOptions` (the UI scale, hot-reload folders) → `Engine` co
 after `OnLoad`, ~0.3 s on macOS, and Godot readies its scene with the window already there) and with that update's
 delta discarded (`Engine.DiscardFrameDelta`, so start-up time never reaches the game; with `--fixed-fps` the frame keeps the fixed delta like every other, as Godot's first frame does: ADR 0135), `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
-`Tree.ChangeSceneToFile(--scene ?? mainScene)`. Each frame `GameSession.Update` applies editor commands and reports
-status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the editor and render-test host do).
+`Tree.ChangeSceneToFile(--scene ?? mainScene)` — or, by default, `GameSession.StartAsync` (below). Each frame
+`GameSession.Update` applies editor commands and reports status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the editor and render-test host do).
+
+### Async loading and the loading screen (ADR 0183)
+
+The start scene loads asynchronously by default, so the window shows a loading screen from its first frame instead of
+staying black and unresponsive (macOS's beachball) until the scene is ready. On the first update `GameHost` calls
+`GameSession.StartAsync` (input map and autoloads at once, then `SceneTree.ChangeSceneToFileAsync`) and adds a
+`LoadingScreen` (`loading.screen`, else the engine's branded one) over everything:
+
+```mermaid
+flowchart LR
+    W["worker: ResourceLoader.Load + Instantiate (outside the tree)"] --> P["ISceneLoadable.LoadInBackground (worker)"]
+    P --> D["ImagePrefetch: decode images, build coverage mips (thread pool)"]
+    D --> E["main: the scene replaces the current one (OnReady)"]
+    E --> U["main: warm-up frames behind the screen (GPU resources, pipelines; PollLoaded)"]
+    U --> F["Done: the screen fades out and frees itself"]
+```
+
+Meanwhile the main loop runs normally (window events, audio, the screen's RCSS animations); only the warm-up frames,
+where the new scene creates its GPU resources behind the screen, are long. `SceneLoad` reports `Stage`, `Progress`
+(weighted stages, monotonic) and `StageText`; see [Scene serialization → Asynchronous loading](scene-serialization.md#asynchronous-loading-adr-0183)
+for the API and [Game UI → Loading screen](game-ui.md#loading-screen-adr-0183) for the document.
+
+- **Frames count once the game is on screen.** `SceneTree.IsLoading` is true while a load runs or a loading screen is
+  shown (fading out included); the engine decides per frame, when its update begins, and frames that were loading do
+  not count for `--max-frames` (`Engine.LoadedFrameCount`), `--screenshot` or `--bake-lighting`'s update. So captures
+  and timings start after the fade: with `--fixed-fps` a capture lands warm-up + fade frames (~30) later in scene time
+  than with `--sync-load`.
+- **A failed load** logs `[Project] Could not start scene …` and quits with exit code 1, like the synchronous start.
+- **Start-up times** are logged: `[GameHost] First frame presented N ms after the process started` and `Start scene on
+  screen N ms … (loaded asynchronously in S s)`. The Forest on an M5 (cached bakes, 1920×1080): the first frame at
+  ~1.3 s (was ~10.3 s: the window stayed black through the valley build and the first frame's uploads) and the game
+  playable at ~9.4 s (was ~12.8 s); the image prefetch removed ~4.5 s of main-thread decoding and mip building.
+- `--headless` (no UI) and the editor's Reload Scene keep loading synchronously; `--sync-load` or `loading.async: false`
+  restore the old start.
 
 ### Headless (`--headless`, ADR 0120)
 
@@ -388,7 +430,8 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 | `LogRoutingTests`, `LogSinkTests`, `UserDataPathsTests` | entries, categories, explicit categories, filtering, **0 B when filtered** (and to a memory sink), invariant culture, failing/recursive sinks, console format; memory ring/`CopySince`, file format, run and size rotation; per-OS folders |
 | `EditorLinkProtocolTests`, `EditorLinkConnectionTests` | every frame round-trips, back-to-back frames, bad lengths, malformed bodies, truncation; streaming in order, commands, goodbye, reconnect after the editor restarts (queued logs delivered) or drops the link, logs held until the welcome (an unanswered connection is retried), a stalled editor (never blocks, drops reported exactly), no editor at all, garbage peers, several games by id |
 | `EditorLinkInheritedSocketTests` (macOS/Linux) | a child process holding the listener: `Dispose` returns when the editor's descriptor is inheritable; a closed listener only a child holds gets no logs and no connection count, and the logs reach the next editor once |
-| `GameHostOptionsTests`, `GameSessionTests`, `GameSessionEditorLinkTests` | flags and overrides; autoloads (scene/type/disabled/broken), `--scene`, missing scene, reload from disk, commands; a session against a real `EditorLinkServer` |
+| `GameHostOptionsTests`, `GameSessionTests`, `GameSessionEditorLinkTests` | flags and overrides (the loading flags); autoloads (scene/type/disabled/broken), `--scene`, missing scene, `StartAsync` (autoloads at once, the scene once loaded, a missing scene fails the load), reload from disk, commands; a session against a real `EditorLinkServer` |
+| `SceneLoadTests`, `LoadingScreenTests`, `ImagePrefetchTests` (ADR 0183) | see [Scene serialization → Asynchronous loading](scene-serialization.md#asynchronous-loading-adr-0183); the `loading-screen` render golden (moltenvk, lavapipe) |
 | `ProjectServersTests`, `ProjectLocalizationTests` | a project file's gravity moves a body at its tick rate, `maxStepsPerFrame` reaches the tree, the referenced bus layout is the one the audio server mixes with; `defaultLocale` + fallbacks drive `Tr`, `--locale` overrides |
 | `GameUnloadLeakTests` | a game type with `[Export(Translatable)]` re-translated on a locale switch, and a game HUD (`UiDocument` data model, data event, element listener, a raw model never disposed) — with forgotten `Tr`/`SceneTree.LocaleChanged` subscriptions — unload and are **collected** with no UI frame in between |
 | `GameAssemblyLoaderTests`, `DebouncerTests` | Roslyn-compiled game assemblies: load → tick → save/load scenes with inline game resources → unload → **collected** → rebuild in place → reload with values kept; `MissingNode` round trip while unloaded; leak detection; private dependencies; build-output discovery; debounce and the real watcher |

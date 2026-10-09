@@ -67,7 +67,10 @@ public struct EngineOptions()
     /// <summary>Creates the window visible. Tests may hide it where the platform still presents.</summary>
     public bool WindowVisible = true;
 
-    /// <summary>Closes the engine after this many rendered frames; 0 runs until the window closes.</summary>
+    /// <summary>
+    /// Closes the engine after this many rendered frames; 0 runs until the window closes. Frames rendered while the tree is
+    /// loading a scene (<see cref="SceneTree.IsLoading"/>: an asynchronous scene change and its loading screen) do not count.
+    /// </summary>
     public int MaxFrames;
 
     /// <summary>
@@ -136,6 +139,8 @@ public abstract class Engine : IDisposable
     private GameTime _gameTime;
     private readonly FPSCounter _fps = new();
     private int _renderedFrames;
+    private int _loadedFrames; // rendered while the tree was not loading a scene (MaxFrames, ADR 0183)
+    private bool _loadingFrame; // the tree was loading when this frame's update began
     private InputRouter? _inputRouter; // M2: routes window input into the scene tree
     private SdlEventBatch? _sdlEvents; // ADR 0139: Silk's event pump without its per-frame enumerator box
 
@@ -193,6 +198,12 @@ public abstract class Engine : IDisposable
 
     /// <summary>Number of frames rendered and presented so far (skipped frames are not counted).</summary>
     public int RenderedFrameCount => _renderedFrames;
+
+    /// <summary>
+    /// The rendered frames that were not loading frames (<see cref="SceneTree.IsLoading"/> when their update began): what
+    /// <see cref="EngineOptions.MaxFrames"/> counts.
+    /// </summary>
+    public int LoadedFrameCount => _loadedFrames;
 
     /// <summary>
     /// CPU time of the last rendered frame, in milliseconds: its update (<see cref="OnUpdate(in GameTime)"/>,
@@ -453,6 +464,7 @@ public abstract class Engine : IDisposable
     private void OnUpdate(double delta)
     {
         var start = Stopwatch.GetTimestamp();
+        _loadingFrame = Tree.IsLoading; // decided once, before anything runs, so hosts counting updates agree with MaxFrames
         _fps.Update();
         _gameTime.DeltaTime = FrameDelta(EngineOptions.FixedDeltaTime, delta, discard: false);
         _gameTime.FrameCount = _fps.TotalFrameCount;
@@ -460,6 +472,7 @@ public abstract class Engine : IDisposable
         _gameTime.FramesTimeMs = _fps.Ms;
 
         OnUpdate(_gameTime);
+        _loadingFrame |= Tree.IsLoading; // a load started by the hook (GameHost starts the scene here) makes this a loading frame
         if (_discardDelta)
         {
             _discardDelta = false;
@@ -479,7 +492,7 @@ public abstract class Engine : IDisposable
 
         // Close only between frames: SDL raises Closing synchronously inside Close(), and OnClose
         // disposes the renderer — never while a frame is being recorded or an update is running.
-        if (_quitRequested || (EngineOptions.MaxFrames > 0 && _renderedFrames >= EngineOptions.MaxFrames))
+        if (_quitRequested || (EngineOptions.MaxFrames > 0 && _loadedFrames >= EngineOptions.MaxFrames))
             Window.Close();
     }
 
@@ -575,6 +588,8 @@ public abstract class Engine : IDisposable
         LastFrameCpuMilliseconds = Math.Max(0, Stopwatch.GetElapsedTime(0, cpuTicks).TotalMilliseconds - waitMs);
 
         _renderedFrames++;
+        if (!_loadingFrame)
+            _loadedFrames++;
 
         if (Renderer.TryTakeCapture(out var capture))
         {
@@ -635,7 +650,7 @@ public abstract class Engine : IDisposable
     {
         // M2: free the scene (nodes release their GPU objects), then the servers and cached resources,
         // while the renderer is still alive.
-        if (!_quitRequested && !(EngineOptions.MaxFrames > 0 && _renderedFrames >= EngineOptions.MaxFrames))
+        if (!_quitRequested && !(EngineOptions.MaxFrames > 0 && _loadedFrames >= EngineOptions.MaxFrames))
             Tree.NotifyCloseRequested(); // the user closed the window: the game's last chance to save (Godot's close request; not on Quit)
         Tree.Input.MouseModeChanged = null;
         _inputRouter?.Dispose();

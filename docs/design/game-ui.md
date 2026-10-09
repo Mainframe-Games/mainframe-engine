@@ -299,6 +299,26 @@ focused button); handling the event stops it, otherwise the UI and the remaining
 - **Developer overlay:** an RmlUi layer on top of every other layer: `Engine.DevOverlayVisible`, toggled with F12
   (`EngineOptions.DevOverlayVisible`); see [Developer overlay](dev-overlay.md).
 
+## Loading screen (ADR 0183)
+
+`LoadingScreen : UiLayer` (layer 10 000, `ProcessMode.Always`) shows a document over everything while a `SceneLoad`
+runs, then fades out (`FadeSeconds`, 0.45 s) and frees itself; `GameHost` shows one for the start scene
+([Async loading](project-and-gamehost.md#async-loading-and-the-loading-screen-adr-0183)), games call
+`LoadingScreen.Show(tree, load, source, title)` for their own `ChangeSceneToFileAsync`, or set `Progress`/`Stage`
+themselves and call `FadeOut()`. The document is modal while loading (the game gets no input) and not while fading.
+
+- The **`loading` data model**: `title` (string), `stage` (string), `progress` (0–1, eased towards the load's value so
+  the bar glides; it never goes back) and `percent` (0–100). For example
+  `<div id="fill" data-style-width="percent + '%'"/>` and `{{ stage }}`.
+- RCSS animations (`@keyframes`, `animation:`) run on the UI clock, so the screen moves while the load works on other
+  threads, and is deterministic under `--fixed-fps`.
+- The engine's document, [`Content/UI/loading/loading.rml`](../../MainframeEngine/Content/UI/loading/loading.rml)
+  (`LoadingScreen.DefaultSource`): the Mainframe brand (navy, sky blue, amber), the logo breathing, the game's name, a
+  bar with a sweeping highlight, the stage and the percentage. A project picks its own with `loading.screen`
+  (the Forest's matches its pause menu). Golden: `loading-screen` (UiRenderTests).
+- Engine and game `Content/` merge in the output folder: give a game's document a path the engine does not use (the
+  Forest's is `Content/UI/loading.rml`).
+
 ## Widget library
 
 [`Content/UI/widgets/`](../../MainframeEngine/Content/UI/widgets/): link `/Content/UI/widgets/widgets.rcss`.

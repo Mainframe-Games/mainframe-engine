@@ -87,6 +87,66 @@ public sealed class GameSession : IDisposable
     /// <summary>Installs the input map, adds the autoloads and starts the scene. False when the scene failed to load.</summary>
     public bool Start()
     {
+        Prepare();
+        var ok = true;
+        if (StartScene is { Length: > 0 } scene)
+        {
+            try
+            {
+                Tree.ChangeSceneToFile(scene);
+            }
+            catch (Exception e) when (IsLoadError(e))
+            {
+                Log.Error($"[Project] Could not start scene '{scene}': {e.Message}");
+                ok = false;
+            }
+        }
+        else
+        {
+            WarnNoScene();
+        }
+
+        ReportStatus(force: true);
+        return ok;
+    }
+
+    /// <summary>
+    /// <see cref="Start"/> with the scene loaded asynchronously (ADR 0183, <see cref="SceneTree.ChangeSceneToFileAsync"/>):
+    /// installs the input map and adds the autoloads now, then returns the scene's load (null when the project has no start
+    /// scene). A load that fails is logged; the host decides what to do (<see cref="GameHost"/> quits with an error).
+    /// </summary>
+    public SceneLoad? StartAsync(SceneLoadOptions? options = null)
+    {
+        Prepare();
+        SceneLoad? load = null;
+        if (StartScene is { Length: > 0 } scene)
+        {
+            load = Tree.ChangeSceneToFileAsync(scene, options);
+            load.Completed += l =>
+            {
+                if (l.Stage == SceneLoadStage.Failed)
+                    Log.Error($"[Project] Could not start scene '{scene}': {l.Error?.Message}");
+                ReportStatus(force: true);
+            };
+        }
+        else
+        {
+            WarnNoScene();
+        }
+
+        ReportStatus(force: true);
+        return load;
+    }
+
+    private static bool IsLoadError(Exception e) => e is IOException or InvalidDataException or InvalidOperationException or InvalidCastException
+        or NotSupportedException or System.Text.Json.JsonException;
+
+    private void WarnNoScene() =>
+        Log.Warning($"[Project] '{Settings.Name}' has no main scene (set \"mainScene\" in {ProjectSettings.FileName} or pass --scene).");
+
+    // What both starts do before the scene: the input map, the root's content scale, the canvas colour and the autoloads.
+    private void Prepare()
+    {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (EngineInfo.IsDifferentRelease(Settings.EngineVersion))
             Log.Warning($"[Project] '{Settings.Name}' was made with engine {Settings.EngineVersion}; this is {EngineInfo.Version}. Upgrade the project if something misbehaves.");
@@ -102,31 +162,12 @@ public sealed class GameSession : IDisposable
         if (Tree.Servers.Get<CanvasServer>() is { } canvas)
             canvas.ClearColor = Settings.Rendering.CanvasClearColor;
         AddAutoloads();
-
-        var ok = true;
-        if (StartScene is { Length: > 0 } scene)
-        {
-            try
-            {
-                Tree.ChangeSceneToFile(scene);
-            }
-            catch (Exception e) when (e is IOException or InvalidDataException or InvalidOperationException or InvalidCastException or NotSupportedException
-                                          or System.Text.Json.JsonException)
-            {
-                Log.Error($"[Project] Could not start scene '{scene}': {e.Message}");
-                ok = false;
-            }
-        }
-        else
-        {
-            Log.Warning($"[Project] '{Settings.Name}' has no main scene (set \"mainScene\" in {ProjectSettings.FileName} or pass --scene).");
-        }
-
-        ReportStatus(force: true);
-        return ok;
     }
 
-    /// <summary>The update on which <c>--bake-lighting</c> bakes: the scene and what it generates when ready are in the tree.</summary>
+    /// <summary>
+    /// The update on which <c>--bake-lighting</c> bakes: the scene and what it generates when ready are in the tree. Updates
+    /// count once the start scene has loaded (<see cref="SceneTree.IsLoading"/>).
+    /// </summary>
     public const int BakeLightingUpdate = 3;
 
     private int _updates;
@@ -134,7 +175,7 @@ public sealed class GameSession : IDisposable
     /// <summary>Applies editor commands and reports status; call once per frame from the game loop (before the tree ticks).</summary>
     public void Update(in GameTime gameTime)
     {
-        if (Options.BakeLighting && ++_updates == BakeLightingUpdate)
+        if (Options.BakeLighting && !Tree.IsLoading && ++_updates == BakeLightingUpdate)
         {
             QuitRequested?.Invoke(BakeLighting() ? ExitCode.Ok : ExitCode.Error);
             return;

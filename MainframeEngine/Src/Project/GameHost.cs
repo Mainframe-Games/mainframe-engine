@@ -36,6 +36,11 @@ public class GameHost : Engine
 
     private int _updates;
     private bool _startPending;
+    private SceneLoad? _startLoad;
+    private bool _loadingShotRequested;
+    private string? _capturePath;
+    private bool _firstFrameLogged;
+    private bool _loadedLogged;
 
     /// <summary>
     /// The UI options a game runs with: the project's UI scale (<see cref="ProjectSettings.Ui"/>), and with <paramref name="hotReload"/> (Debug engine builds) the UI also watches the
@@ -295,28 +300,111 @@ public class GameHost : Engine
         _startPending = true;
     }
 
+    /// <summary>
+    /// Whether the start scene loads asynchronously behind a loading screen (ADR 0183): the project's <c>loading.async</c>
+    /// unless <c>--sync-load</c>.
+    /// </summary>
+    public bool LoadsAsync => Settings.Loading.Async && !HostOptions.SyncLoad;
+
+    /// <summary>The start scene's asynchronous load (null when loading synchronously, before the start or without a scene).</summary>
+    public SceneLoad? StartLoad => _startLoad;
+
+    /// <summary>The loading screen shown for the start scene (null once it has faded out, or when there is none).</summary>
+    public LoadingScreen? LoadingScreen { get; private set; }
+
     protected override void OnUpdate(in GameTime gameTime)
     {
         if (_startPending)
         {
             _startPending = false;
             DiscardFrameDelta();
-            if (!Session.Start())
+            if (LoadsAsync)
+            {
+                StartAsync();
+            }
+            else if (!Session.Start())
             {
                 Quit(ExitCode.Error);
                 return;
             }
         }
 
+        LogStartTimes();
         Session.Update(gameTime);
-        if (HostOptions.ScreenshotPath is not null && ++_updates == HostOptions.ScreenshotFrame)
+        if (Tree.IsLoading)
+        {
+            // --loading-screenshot: the loading screen at half progress (or its last frame, if the load skips past it).
+            if (HostOptions.LoadingScreenshotPath is { } loadingShot && !_loadingShotRequested && _startLoad is { } load &&
+                (load.Progress >= 0.5f || load.IsCompleted))
+            {
+                _loadingShotRequested = true;
+                _capturePath = loadingShot;
+                CaptureFrame();
+            }
+
+            return; // frames count once the game is on screen
+        }
+
+        if (HostOptions.ScreenshotPath is { } screenshot && ++_updates == HostOptions.ScreenshotFrame)
+        {
+            _capturePath = screenshot;
             CaptureFrame();
+        }
+    }
+
+    private void StartAsync()
+    {
+        var load = _startLoad = Session.StartAsync(new SceneLoadOptions { HoldSeconds = HostOptions.LoadingHoldSeconds });
+        if (load is null)
+            return;
+        load.Completed += l =>
+        {
+            if (l.Stage == SceneLoadStage.Failed)
+                Quit(ExitCode.Error);
+        };
+        var source = Settings.Loading.Screen ?? MainframeEngine.LoadingScreen.DefaultSource;
+        if (Ui is not null && source.Length > 0)
+        {
+            LoadingScreen = MainframeEngine.LoadingScreen.Show(Tree, load, source, Settings.Name);
+            LoadingScreen.TreeExited += () => LoadingScreen = null;
+        }
+    }
+
+    // How long the window took to show something and the game to be playable, from the process start (ADR 0183).
+    private void LogStartTimes()
+    {
+        if (!_firstFrameLogged && RenderedFrameCount > 0)
+        {
+            _firstFrameLogged = true;
+            Log.Info($"[GameHost] First frame presented {SinceProcessStart():0} ms after the process started.");
+        }
+
+        if (!_loadedLogged && RenderedFrameCount > 0 && !Tree.IsLoading && (_startLoad is null || _startLoad.IsCompleted))
+        {
+            _loadedLogged = true;
+            Log.Info($"[GameHost] Start scene on screen {SinceProcessStart():0} ms after the process started" +
+                     (_startLoad is { } load ? $" (loaded asynchronously in {load.Elapsed.TotalSeconds:0.00} s)." : "."));
+        }
+    }
+
+    private static double SinceProcessStart()
+    {
+        try
+        {
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            return (DateTime.Now - process.StartTime).TotalMilliseconds;
+        }
+        catch (Exception e) when (e is InvalidOperationException or NotSupportedException or System.ComponentModel.Win32Exception)
+        {
+            return double.NaN;
+        }
     }
 
     protected override void OnFrameCaptured(FrameCapture capture)
     {
-        if (HostOptions.ScreenshotPath is not { } path)
+        if (_capturePath is not { } path)
             return;
+        _capturePath = null;
         try
         {
             if (Path.GetDirectoryName(Path.GetFullPath(path)) is { Length: > 0 } directory)

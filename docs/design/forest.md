@@ -680,6 +680,37 @@ fog, the lit scene) scale with the pixel count, the shadows do not. The G8e targ
 M-series Pro) is not reached on this base M5 yet; 0 B per frame (one native run of five reported 56 B once; its rerun 0 B). The baseline file is G8e.7's
 1080p TAAU 0.75 run (below).
 
+## Loading screen (ADR 0183)
+
+The game starts behind a loading screen ([async loading](project-and-gamehost.md#async-loading-and-the-loading-screen-adr-0183)):
+`project.mfproj` sets `"loading": { "screen": "Content/UI/loading.rml" }`, a document styled like the pause menu
+(`Content/UI/loading.rcss`): the R1 glade shot (`loading-glade.jpg`) drifting slowly behind the menu's dark green
+scrim, the brand block ("MAINFRAME ENGINE", **Forest Demo**), and a sunlight-gold bar with the stage and three pulsing
+dots.
+
+![The Forest's loading screen](../images/forest/loading.jpg)
+
+`ForestValley` is an `ISceneLoadable`: on the loading thread it generates the valley ("Generating the valley"), carves
+and paints ("Carving the stream"), grows the trees and bushes and bakes their impostors (`TreeScatter.Rebuild(progress)`:
+"Growing trees", "Baking tree impostors"), builds the terrain's chunks and ground-cover tiles (`Terrain3D.BuildNow`:
+"Shaping the terrain") and the props ("Placing props"), all before the scene enters the tree; ready then only connects
+the player and the audio. `PollLoaded` keeps the screen up through the pre-warm (every batch shown for
+`PrewarmFrames`: "Uploading to the GPU", "Compiling shaders"). Loaded synchronously (the editor, `--sync-load`, tests)
+it builds in ready as before; `ValleyTests` checks both builds match node for node.
+
+Start-up on an M5 (Release, 1920×1080, cached tree bakes; seconds from launch, three runs each):
+
+| | First frame on screen | Valley built | Game playable |
+|---|---|---|---|
+| Before (`--sync-load`) | 10.0–10.6 (black window until then) | 3.6–3.9 | 12.4–13.1 |
+| After (async + loading screen) | 1.29–1.32 (the loading screen) | 4.7–4.9 (worker) | 8.7–9.0 (+0.45 s fade) |
+
+The worker phase (~3.5 s) animates at the display rate; the warm-up after the scene enters (~3.5 s: entering ~0.3 s, the
+first frame ~1.4 s of GPU uploads and pipelines, the foliage's instance buffers ~0.6 s, the pre-warm frames ~0.1–0.15 s
+each) still runs at a few frames per second behind the screen. The image prefetch took the first frame from ~6 s to
+~1.4 s (PNG/JPEG decoding ~3.3 s, coverage mip chains ~1.3 s, now on worker threads). Benchmark and autowalk start once
+the screen has faded (`SceneTree.IsLoading`); `--screenshot` captures and `--max-frames` count from there too.
+
 ## `ForestDev`, `--autowalk` and the benchmark
 
 The `Dev` autoload (`ForestDev`) is idle unless started with game arguments after `++`:

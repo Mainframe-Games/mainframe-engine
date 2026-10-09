@@ -230,10 +230,12 @@ internal sealed class TextureGpu
         try
         {
             var settings = Texture.ImportSettings;
-            var (rgba, width, height) = Texture.DecodePixels();
+            // ADR 0183: an asynchronous scene load decoded the file and built the coverage mips on worker threads.
+            var (rgba, width, height) = Texture.DecodePixelsReadOnly();
+            var srgb = ColorSpace == TextureColorSpace.Srgb;
             Gpu = settings is { Mipmaps: true, PreserveAlphaCoverage: true }
                 ? GpuTexture.Create2DFromMips(_ctx, (uint)width, (uint)height,
-                    MipChain.Build(rgba, width, height, ColorSpace == TextureColorSpace.Srgb, settings.AlphaCoverageCutoff),
+                    ImagePrefetch.TryGetMips(Texture, srgb, out var chain) ? chain : MipChain.Build(rgba, width, height, srgb, settings.AlphaCoverageCutoff),
                     ColorSpace, settings.ToSampling())
                 : GpuTexture.Create2D(_ctx, (uint)width, (uint)height, rgba, ColorSpace, settings.ToSampling(), settings.Mipmaps);
         }

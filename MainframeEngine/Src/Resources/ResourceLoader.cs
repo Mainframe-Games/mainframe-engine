@@ -38,6 +38,19 @@ public static class ResourceLoader
         return AssetUid.IsUid(pathOrUid) ? LoadReference(pathOrUid, null, pathOrUid) : LoadReference(null, pathOrUid, pathOrUid);
     }
 
+    /// <summary>
+    /// Starts loading <paramref name="pathOrUid"/> on a worker thread (Godot's <c>load_threaded_request</c>); poll the
+    /// returned task's <see cref="ResourceLoadTask{T}.Status"/> and take <see cref="ResourceLoadTask{T}.Result"/> (which adds
+    /// a reference, as <see cref="Load{T}"/> does) once it is loaded. The cache is thread-safe and shared with
+    /// <see cref="Load{T}"/>.
+    /// For a whole scene with a loading screen use <see cref="SceneTree.ChangeSceneToFileAsync"/> (ADR 0183).
+    /// </summary>
+    public static ResourceLoadTask<T> LoadThreaded<T>(string pathOrUid) where T : Resource
+    {
+        ArgumentException.ThrowIfNullOrEmpty(pathOrUid);
+        return new ResourceLoadTask<T>(pathOrUid);
+    }
+
     /// <summary>True if <paramref name="pathOrUid"/> resolves to an existing file.</summary>
     public static bool Exists(string pathOrUid)
     {
