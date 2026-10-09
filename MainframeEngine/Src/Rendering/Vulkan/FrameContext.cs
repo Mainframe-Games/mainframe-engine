@@ -4,7 +4,13 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 432 bytes).</summary>
+/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 560 bytes).</summary>
+/// <remarks>
+/// With a projection jitter (TAA, ADR 0163) <see cref="Projection"/>, <see cref="ViewProjection"/> and
+/// <see cref="InverseProjection"/> are the jittered matrices the view rasterises with; <see cref="PreviousViewProjection"/>
+/// is last frame's <b>unjittered</b> one, and <see cref="Jitter"/> holds both frames' offsets, so a shader recovers the
+/// unjittered clip position as <c>clip.xy − jitter.xy · clip.w</c> (<c>unjitterClip</c> in <c>frame.slang</c>).
+/// </remarks>
 [StructLayout(LayoutKind.Sequential)]
 public struct FrameData
 {
@@ -37,18 +43,47 @@ public struct FrameData
     /// <summary>x = density, y = fog base height, z = height density, w = sun scatter.</summary>
     public Vector4 FogParams;
 
+    /// <summary>Last frame's unjittered view-projection (ADR 0163: motion vectors); this frame's when there is no history.</summary>
+    public Matrix4x4 PreviousViewProjection;
+
+    /// <summary>xy = this frame's projection jitter, zw = last frame's, in NDC (+Y up); zero without TAA.</summary>
+    public Vector4 Jitter;
+
+    /// <summary>
+    /// x = last frame's time in seconds (<see cref="Clip"/>.z a frame ago), y = 1 when the previous-frame fields hold last
+    /// frame's values (0: first frame of the view, they repeat this frame's), z = the jitter sample index, w = unused.
+    /// </summary>
+    public Vector4 Temporal;
+
+    /// <summary>Last frame's <see cref="Wind"/> (foliage motion vectors evaluate the wind at both times).</summary>
+    public Vector4 PreviousWind;
+
+    /// <summary>Last frame's <see cref="WindParams"/>.</summary>
+    public Vector4 PreviousWindParams;
+
     /// <summary>Bytes in the std140 block.</summary>
-    public const int Size = 5 * 64 + 7 * 16;
+    public const int Size = 6 * 64 + 11 * 16;
 
     /// <summary>Fills the block from a camera's matrices.</summary>
     public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
         float time, float exposure) => From(view, projection, cameraPosition, extent, time, exposure, default);
 
-    /// <summary>Fills the block from a camera's matrices and the world's wind and fog.</summary>
+    /// <summary>Fills the block from a camera's matrices and the world's wind and fog (no motion: the previous frame is this one).</summary>
     public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
-        float time, float exposure, in FrameEnvironment environment)
+        float time, float exposure, in FrameEnvironment environment) =>
+        From(view, projection, cameraPosition, extent, time, exposure, environment,
+            FrameTemporal.Still(view * projection, time, environment));
+
+    /// <summary>
+    /// Fills the block from a camera's matrices, the world's wind and fog and the view's temporal data (ADR 0163). The
+    /// projection is jittered by <paramref name="temporal"/>'s <see cref="FrameTemporal.Jitter"/>
+    /// (<see cref="TemporalJitter.Apply"/>); everything else about it is unchanged.
+    /// </summary>
+    public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
+        float time, float exposure, in FrameEnvironment environment, in FrameTemporal temporal)
     {
-        Matrix4x4.Invert(projection, out var invProj);
+        var jittered = TemporalJitter.Apply(projection, temporal.Jitter);
+        Matrix4x4.Invert(jittered, out var invProj);
         var viewRotation = view;
         viewRotation.M41 = viewRotation.M42 = viewRotation.M43 = 0f;
         Matrix4x4.Invert(viewRotation, out var invViewRotation);
@@ -57,8 +92,8 @@ public struct FrameData
         return new FrameData
         {
             View = view,
-            Projection = projection,
-            ViewProjection = view * projection,
+            Projection = jittered,
+            ViewProjection = view * jittered,
             InverseProjection = invProj,
             InverseViewRotation = invViewRotation,
             CameraPosition = new Vector4(cameraPosition, 0f),
@@ -68,6 +103,11 @@ public struct FrameData
             WindParams = environment.WindParams,
             FogColor = environment.FogColor,
             FogParams = environment.FogParams,
+            PreviousViewProjection = temporal.PreviousViewProjection,
+            Jitter = new Vector4(temporal.Jitter, temporal.PreviousJitter.X, temporal.PreviousJitter.Y),
+            Temporal = new Vector4(temporal.PreviousTime, temporal.HistoryValid ? 1f : 0f, temporal.JitterIndex, 0f),
+            PreviousWind = temporal.PreviousEnvironment.Wind,
+            PreviousWindParams = temporal.PreviousEnvironment.WindParams,
         };
     }
 
@@ -98,12 +138,92 @@ public struct FrameData
 public readonly record struct FrameEnvironment(Vector4 Wind, Vector4 WindParams, Vector4 FogColor, Vector4 FogParams);
 
 /// <summary>
+/// The temporal part of <see cref="FrameData"/> (ADR 0163): last frame's unjittered view-projection, time and wind, and
+/// both frames' projection jitter (NDC). <see cref="FrameContext"/> keeps it per view (<see cref="ViewHistory"/>).
+/// </summary>
+public readonly record struct FrameTemporal(
+    Matrix4x4 PreviousViewProjection,
+    Vector2 Jitter,
+    Vector2 PreviousJitter,
+    float PreviousTime,
+    bool HistoryValid,
+    int JitterIndex,
+    FrameEnvironment PreviousEnvironment)
+{
+    /// <summary>No history: the previous frame is this one, no jitter.</summary>
+    public static FrameTemporal Still(in Matrix4x4 viewProjection, float time, in FrameEnvironment environment) =>
+        new(viewProjection, Vector2.Zero, Vector2.Zero, time, false, 0, environment);
+}
+
+/// <summary>
+/// One view's camera history across frames (ADR 0163): what <see cref="FrameContext"/> wrote for it this frame and last
+/// frame. <see cref="Record"/> is called on every camera write; the first write of a frame moves "current" to "previous"
+/// when it came from the frame before, so writing a view twice in a frame (the picking pass, then the main pass) keeps
+/// last frame's values. A view not written the frame before has no history: "previous" follows "current" (no motion).
+/// </summary>
+internal struct ViewHistory
+{
+    /// <summary>The frame the current values were written in (0: never).</summary>
+    public ulong Frame;
+
+    public Matrix4x4 ViewProjection;
+    public Vector2 Jitter;
+    public float Time;
+    public FrameEnvironment Environment;
+
+    public Matrix4x4 PreviousViewProjection;
+    public Vector2 PreviousJitter;
+    public float PreviousTime;
+    public FrameEnvironment PreviousEnvironment;
+
+    /// <summary>True when the previous values are last frame's (false on the view's first frame or after a gap).</summary>
+    public bool HistoryValid;
+
+    /// <summary>Records this frame's unjittered <paramref name="viewProjection"/>, jitter, time and wind for frame <paramref name="frame"/>.</summary>
+    public void Record(ulong frame, in Matrix4x4 viewProjection, Vector2 jitter, float time, in FrameEnvironment environment)
+    {
+        if (Frame != frame)
+        {
+            HistoryValid = Frame != 0 && Frame + 1 == frame;
+            if (HistoryValid)
+            {
+                PreviousViewProjection = ViewProjection;
+                PreviousJitter = Jitter;
+                PreviousTime = Time;
+                PreviousEnvironment = Environment;
+            }
+
+            Frame = frame;
+        }
+
+        ViewProjection = viewProjection;
+        Jitter = jitter;
+        Time = time;
+        Environment = environment;
+        if (HistoryValid)
+            return;
+        PreviousViewProjection = viewProjection;
+        PreviousJitter = jitter;
+        PreviousTime = time;
+        PreviousEnvironment = environment;
+    }
+
+    /// <summary>Forgets the history: the next frame has no motion (camera cuts, resizes).</summary>
+    public void Reset() => this = default;
+
+    /// <summary>The temporal block for this frame (jitter sample <paramref name="jitterIndex"/>).</summary>
+    public readonly FrameTemporal ToTemporal(int jitterIndex) =>
+        new(PreviousViewProjection, Jitter, PreviousJitter, PreviousTime, HistoryValid, jitterIndex, PreviousEnvironment);
+}
+
+/// <summary>
 /// The per-frame shared descriptor set 0: camera (<see cref="FrameData"/>, binding 0) and lights (the
 /// <see cref="LightEnvironment"/> UBO, binding 1), written once per frame and view into the frame slot's buffer and
 /// bound by every scene pipeline — instead of each object writing and binding its own copies — and the sky's
 /// image-based lighting (ADR 0150, <c>include/environment.slang</c>): binding 2 the prefiltered radiance cube, binding 3
 /// the irradiance cube (the view's world's <see cref="SkyRadiance"/>, or a black 1×1 cube) and binding 4 the
-/// <see cref="BrdfLut"/>. Set 1 is the shadow
+/// <see cref="BrdfLut"/>; binding 5 the screen-space ambient occlusion of the main view (ADR 0163,
+/// <c>include/ambient_occlusion.slang</c>: <see cref="SetAmbientOcclusion"/>, else a white 1×1 image). Set 1 is the shadow
 /// set (<see cref="ShadowSystem"/> or the renderer's fallback); per-material data is set 2 and per-instance data
 /// comes from the instance buffer (or push constants).
 /// </summary>
@@ -143,9 +263,17 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly ulong[] _cameraFrame = new ulong[Slots * MaxViews];
     private readonly ulong[] _lightsFrame = new ulong[Slots * MaxViews];
     private readonly long[] _environmentIds = new long[Slots * MaxViews]; // EnvironmentMaps.Id bound (0 = the fallback)
+    private readonly long[] _occlusionIds = new long[Slots * MaxViews];   // ambient occlusion id bound at binding 5 (0 = white)
+    private readonly ViewHistory[] _history = new ViewHistory[MaxViews];
     private readonly GpuImage _blackCube;
     private readonly GpuImage _brdfLut;
+    private readonly GpuImage _white;
     private readonly Sampler _iblSampler;
+    private DescriptorImageInfo _occlusion;
+    private long _occlusionId;
+    private DescriptorImageInfo _frameOcclusion; // what view 0 binds this frame: latched at its first bind of the frame
+    private long _frameOcclusionId;
+    private ulong _occlusionFrame;
     private Extent2D _viewExtent;
     private bool _disposed;
 
@@ -164,12 +292,13 @@ public sealed unsafe class FrameContext : IDisposable
             new() { Binding = 2, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 4, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = AmbientOcclusionBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ];
         SetLayout = PipelineBuilder.CreateSetLayout(ctx, bindings, "frame set 0");
         _pool = PipelineBuilder.CreatePool(ctx, Slots * MaxViews,
         [
             new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 2 * Slots * MaxViews },
-            new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = EnvironmentBindings * Slots * MaxViews },
+            new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = ImageBindings * Slots * MaxViews },
         ], "frame set 0");
 
         // Image-based lighting: one linear, mipmapped, clamped sampler for the cubes and the LUT.
@@ -195,6 +324,9 @@ public sealed unsafe class FrameContext : IDisposable
         _brdfLut = GpuImage.Create(ctx, new GpuImageDesc(BrdfLut.Size, BrdfLut.Size, Format.R16G16Sfloat,
             ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit));
         ctx.Uploads.UploadImage(_brdfLut, BrdfLut.ToHalfPixels());
+        // Binding 5 without screen-space AO: no occlusion (every channel 1, so a shader may read any of them).
+        _white = GpuImage.Create(ctx, new GpuImageDesc(1, 1, Format.R8G8B8A8Unorm, ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit));
+        ctx.Uploads.UploadImage(_white, [255, 255, 255, 255]);
         ctx.Uploads.FlushIfRecording();
 
         for (var slot = 0; slot < Slots; slot++)
@@ -210,16 +342,70 @@ public sealed unsafe class FrameContext : IDisposable
                 PipelineBuilder.WriteImage(ctx, set, 2, FallbackCubeDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, 3, FallbackCubeDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, 4, BrdfLutDescriptor);
+                PipelineBuilder.WriteImage(ctx, set, AmbientOcclusionBinding, NoOcclusionDescriptor);
                 _sets[slot * MaxViews + view] = set;
             }
         }
     }
 
-    /// <summary>Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting).</summary>
+    /// <summary>Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting, binding 5 ambient occlusion).</summary>
     public DescriptorSetLayout SetLayout { get; }
 
-    /// <summary>Image bindings of set 0 (radiance cube, irradiance cube, BRDF LUT).</summary>
+    /// <summary>Image-based-lighting bindings of set 0 (radiance cube, irradiance cube, BRDF LUT).</summary>
     internal const int EnvironmentBindings = 3;
+
+    /// <summary>Image bindings of set 0: the image-based lighting and the ambient occlusion.</summary>
+    internal const int ImageBindings = EnvironmentBindings + 1;
+
+    /// <summary>Set 0's screen-space ambient occlusion binding (<c>ssaoTexture</c> in <c>include/ambient_occlusion.slang</c>).</summary>
+    public const uint AmbientOcclusionBinding = 5;
+
+    /// <summary>The white 1×1 image bound at <see cref="AmbientOcclusionBinding"/> without screen-space AO.</summary>
+    internal DescriptorImageInfo NoOcclusionDescriptor => new()
+    {
+        Sampler = _iblSampler,
+        ImageView = _white.View,
+        ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+    };
+
+    /// <summary>
+    /// The main view's (view 0) screen-space ambient occlusion from the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/>
+    /// on: <paramref name="image"/> (in <c>SHADER_READ_ONLY_OPTIMAL</c> whenever a lit pass reads it) identified by
+    /// <paramref name="id"/> (any non-zero value that changes when the image does, e.g. after a resize). The renderer
+    /// clears it at the start of every frame; an SSAO effect sets it again in its <c>OnBeginFrame</c>, before the frame's
+    /// first <c>Begin</c> of view 0 (a later change applies next frame: a set already bound is never rewritten).
+    /// Offscreen views always bind the white image.
+    /// </summary>
+    internal void SetAmbientOcclusion(in DescriptorImageInfo image, long id)
+    {
+        ArgumentOutOfRangeException.ThrowIfZero(id);
+        _occlusion = image;
+        _occlusionId = id;
+    }
+
+    /// <summary>Binds the white image at <see cref="AmbientOcclusionBinding"/> again (screen-space AO off).</summary>
+    internal void ClearAmbientOcclusion()
+    {
+        _occlusion = default;
+        _occlusionId = 0;
+    }
+
+    /// <summary>
+    /// Sub-pixel offset (NDC, +Y up) added to the main view's projection on every camera write (TAA, ADR 0163):
+    /// <see cref="FrameData.Projection"/> and the matrices derived from it are jittered, the camera's own matrices (culling,
+    /// shadows, UI, light shafts) are not. Zero unless a post effect asks for jitter; the render server sets it before
+    /// each frame. Offscreen views are never jittered.
+    /// </summary>
+    public Vector2 ProjectionJitter { get; set; }
+
+    /// <summary>The jitter sample index written to <see cref="FrameData.Temporal"/>.z with <see cref="ProjectionJitter"/>.</summary>
+    public int JitterIndex { get; set; }
+
+    /// <summary>The camera history of <paramref name="view"/> (written by every camera write; see <see cref="ViewHistory"/>).</summary>
+    internal ref readonly ViewHistory History(int view) => ref _history[view];
+
+    /// <summary>Forgets every view's history: the next frame has no camera motion (resize, camera cut).</summary>
+    public void ResetHistory() => Array.Clear(_history);
 
     /// <summary>
     /// The sky lighting the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/> binds for the current view (null:
@@ -288,15 +474,31 @@ public sealed unsafe class FrameContext : IDisposable
         BindEnvironment();
     }
 
-    // Points bindings 2 and 3 of this frame slot's and view's set at EnvironmentMaps when they changed. The slot's
-    // earlier frame has finished (FrameStarted), and a view shows one world per frame, so the set is not bound yet.
+    // Points bindings 2 and 3 of this frame slot's and view's set at EnvironmentMaps when they changed, and binding 5 at
+    // the ambient occlusion. The slot's earlier frame has finished (FrameStarted), and a view shows one world per frame,
+    // so the set is not bound yet.
     private void BindEnvironment()
     {
         if (!_ctx.FrameStarted)
             return;
+        var index = Index;
+        if (CurrentView == 0 && _occlusionFrame != _ctx.FrameNumber)
+        {
+            // Latched once per frame: a set bound earlier this frame is never rewritten (a change applies next frame).
+            _occlusionFrame = _ctx.FrameNumber;
+            _frameOcclusion = _occlusion;
+            _frameOcclusionId = _occlusionId;
+        }
+
+        var occlusionId = CurrentView == 0 ? _frameOcclusionId : 0;
+        if (_occlusionIds[index] != occlusionId)
+        {
+            _occlusionIds[index] = occlusionId;
+            PipelineBuilder.WriteImage(_ctx, _sets[index], AmbientOcclusionBinding, occlusionId == 0 ? NoOcclusionDescriptor : _frameOcclusion);
+        }
+
         var maps = EnvironmentMaps;
         var id = maps?.Id ?? 0;
-        var index = Index;
         if (_environmentIds[index] == id)
             return;
         _environmentIds[index] = id;
@@ -329,7 +531,11 @@ public sealed unsafe class FrameContext : IDisposable
     {
         if (!_ctx.FrameStarted) return;
         var index = Index;
-        _buffers[_ctx.FrameSlot].Write(FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure, Environment),
+        var main = CurrentView == 0;
+        ref var history = ref _history[CurrentView];
+        history.Record(_ctx.FrameNumber, view * projection, main ? ProjectionJitter : Vector2.Zero, Time, Environment);
+        var temporal = history.ToTemporal(main ? JitterIndex : 0);
+        _buffers[_ctx.FrameSlot].Write(FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure, Environment, temporal),
             (ulong)CurrentView * _viewStride);
         _cameraFrame[index] = _ctx.FrameNumber;
     }
@@ -401,6 +607,7 @@ public sealed unsafe class FrameContext : IDisposable
             buffer.Dispose();
         _blackCube.Dispose();
         _brdfLut.Dispose();
+        _white.Dispose();
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_iblSampler));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pool));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(SetLayout));

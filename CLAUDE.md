@@ -91,7 +91,8 @@ still runs but shows the executable name. The executable/assembly name stays `Ma
   `[Export]`/`[Signal]` attributes, `TypeRegistry`, JSON scene format
 - `MainframeEngine.Generators/` — Roslyn source generator registering node/resource types (referenced as an analyzer)
 - `MainframeEngine/Src/Rendering/` — Vulkan renderer, meshes/materials/textures, camera math, sky, shadows, scene grids,
-  Spine renderer, `DebugLines`, `Gizmos/` (`ScreenGizmos`: light + axis gizmos)
+  Spine renderer, `DebugLines`, `Gizmos/` (`ScreenGizmos`: light + axis gizmos), `Post/` (ADR 0163: `PostEffect` stages and
+  stack, the depth prepass and motion vectors, auto exposure, glow, light shafts, FXAA; `docs/design/post-processing.md`)
 - `MainframeEngine/Src/UI/` — game UI (M8): `Rml/` managed RmlUi binding over the `mfrmlui` C ABI, `Rendering/`
   `VulkanUiRenderer`, `UiServer`/`UiLayer`/`UiDocument`/`UiElement`; widget library and fonts in `Content/UI/`
 - `MainframeEngine/Src/Text/` — canvas text (ADR 0118): `Font` (.ttf), managed `TrueTypeFont` reader and `GlyphRasterizer`
@@ -204,15 +205,22 @@ inside its own step; engine code must not. See `docs/design/physics.md`.
 2. `Tree.Tick` — fixed-step `OnPhysicsProcess` + physics step (60 Hz, ≤5 steps, 0.25 s clamp), physics interpolation, `OnProcess`, deferred calls
    and `QueueFree`, transform sync (`OnTransformChanged`), frame servers (`UiServer`: RmlUi update + render
    into its command list)
-3. `RenderServer.PrepareFrame(Root)` — cull/sort meshes, create/update their GPU resources; then `Renderer.BeginFrame`
+3. `RenderServer.PrepareFrame(Root)` — cull/sort meshes, create/update their GPU resources, decide the post state (the
+   root world's `PostProcessSettings`, whether the depth prepass runs, the TAA projection jitter); then `Renderer.BeginFrame`
 4. `OnShadowPass` (no render pass active), then `RenderServer.RenderShadows(Root)` — the tree's casters — and
    `RenderServer.RenderOffscreen(Root)` (sub-viewports, object-ID picking)
-5. `RenderServer.RenderMain(Root)` — writes the shared set 0 (`IVulkanContext.Frame.Begin(camera, lights)`),
+5. `RenderServer.RenderPrepass(Root)` (ADR 0163) — starts the post effects (`OnBeginFrame`); when an enabled effect needs
+   it (SSAO, TAA, the velocity view) or `ForceDepthPrepass`: the depth prepass (opaque + cutout into the scene depth and an
+   RG16F velocity buffer, then the sky's velocity) and the `AfterPrepass` stage (SSAO → set 0 binding 5)
+6. `RenderServer.RenderMain(Root)` — writes the shared set 0 (`IVulkanContext.Frame.Begin(camera, lights)`),
    then sky, then the tree's visuals; then `OnRenderMainPass` for hand-drawn geometry
-   (`node.Draw(camera, lights)`). All of it renders into the HDR scene target (linear colour).
-6. `IVulkanContext.BeginOverlayPass` (or `EndFrame`) — UI layers render offscreen, the tonemap runs, then the overlay pass
-   draws in `OverlayOrder`: the 2D canvas, the screen gizmos (`RenderServer.ScreenGizmos`), the UI layers (sRGB, exact) and,
-   on top, the dev overlay (an RmlUi layer, `DevOverlayVisible`, F12; panels via `DevOverlay.AddPanel`)
+   (`node.Draw(camera, lights)`). All of it renders into the HDR scene target (linear colour); after a prepass the scene
+   pass loads its depth and prepassed surfaces test it (LESS_OR_EQUAL, cutouts EQUAL without `discard`)
+7. `IVulkanContext.BeginOverlayPass` (or `EndFrame`) — UI layers render offscreen, the `BeforeTonemap` stage (TAA, auto
+   exposure, glow, light shafts), the tonemap, the `AfterTonemap` stage (FXAA; the last effect draws into the swapchain),
+   then the overlay pass draws in `OverlayOrder`: the 2D canvas, the screen gizmos (`RenderServer.ScreenGizmos`), the UI
+   layers (sRGB, exact) and, on top, the dev overlay (an RmlUi layer, `DevOverlayVisible`, F12; panels via
+   `DevOverlay.AddPanel`). Post effects: `docs/design/post-processing.md`
 
 Colours authored by people (lights, shapes, sky, clear colour) are sRGB; the engine converts them to linear.
 Exposure: `IVulkanContext.Exposure`. See `docs/design/color-pipeline.md`.

@@ -23,6 +23,7 @@ draws by recording into `IVulkanContext.CurrentCommandBuffer` between `BeginFram
 | `VkHelpers`, `VulkanResultExtensions.Check` | [VkHelpers.cs](../../MainframeEngine/Src/Rendering/Vulkan/VkHelpers.cs), [VulkanException.cs](../../MainframeEngine/Src/Rendering/Vulkan/VulkanException.cs) | internal — depth barriers; `result.Check("what")` throws `VulkanException` |
 | `PipelineBuilder` | [PipelineBuilder.cs](../../MainframeEngine/Src/Rendering/Vulkan/PipelineBuilder.cs) | internal — pipelines, layouts, descriptor sets with the engine's conventions |
 | `ShadowFallback` | [Shadows/ShadowFallback.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowFallback.cs) | internal — "no shadows" set 2, owned by the renderer (see [Shadow system](shadow-system.md#without-a-shadowsystem)) |
+| `PostProcessStack`, `PostEffect`, `PostEffectContext`, `ScenePrepass`, `SceneColorCopy`, `IPostProcessHost` | [Rendering/Post/](../../MainframeEngine/Src/Rendering/Post/) | internal — the post effects in stages, the depth prepass and motion vectors (ADR 0163, [Post-processing](post-processing.md)); the renderer owns the main view's stack |
 
 ### `IRenderer`
 
@@ -78,13 +79,16 @@ Every Vulkan call that returns a `Result` in init, per-frame and recreation path
 | Pass | Target | Attachments | Pipelines built against it |
 |---|---|---|---|
 | Shadow passes | shadow maps | depth | `ShadowSystem` |
+| Depth prepass (ADR 0163) | `R16G16_SFLOAT` velocity + **the scene target's depth** | velocity Clear/Store → `SHADER_READ_ONLY`; depth Clear/Store → `DEPTH_STENCIL_READ_ONLY`; explicit barrier after (fragment reads, depth tests) | `MeshRenderer` (`MeshDepth`, `MeshDepthFoliage`), the sky velocity: only when a post effect needs it, after `RenderOffscreen` |
 | Sky LUTs (ADR 0154) | transmittance 256 × 64, multiple scattering 32 × 32, sky view 192 × 108 (`R16G16B16A16_SFLOAT` `RenderTarget`s) | colour Clear/Store → `SHADER_READ_ONLY`, explicit barrier in `End` | `PhysicalSkyLuts`: a physical sky's, at the start of `RenderServer.RenderOffscreen`, only when the atmosphere or the sun's elevation changed |
-| **Scene** (`RenderPass`) | `SceneTarget` | 0 `R16G16B16A16_SFLOAT` Clear/Store → `SHADER_READ_ONLY`; 1 depth Clear/Store → `DEPTH_STENCIL_READ_ONLY` (ADR 0160: light shafts sample it; ≤ 0.02 ms at 1440p on Apple M5) | sky, grid, shapes, Spine, meshes |
+| **Scene** (`RenderPass`) | `SceneTarget` | 0 `R16G16B16A16_SFLOAT` Clear/Store → `SHADER_READ_ONLY`; 1 depth Clear/Store → `DEPTH_STENCIL_READ_ONLY` (ADR 0160: light shafts sample it; ≤ 0.02 ms at 1440p on Apple M5). After a prepass the frame begins `ScenePrepass.SceneLoadPass` instead: the same attachments and dependencies (compatible), depth Load from `DEPTH_STENCIL_READ_ONLY` | sky, grid, shapes, Spine, meshes |
 | Auto exposure (ADR 0154) | 64², 16², 4², 1² `R16_SFLOAT` (log2 luminance), 2 × 1² `R32_SFLOAT` (adapted, previous) | as above | `AutoExposure`: when the root world's `PostProcessSettings` enable it, after the scene pass |
 | Glow (ADR 0124) | 7 × 2 `RenderTarget`s (R16G16B16A16_SFLOAT, ½ … 1/128 of the scene) | colour Clear/Store → `SHADER_READ_ONLY`, explicit barrier in `End` | `GlowEffect`: only when the root world's `PostProcessSettings` enable glow, between the scene pass and the present pass |
 | Light shafts (ADR 0160) | 3 × ½-res `R16G16B16A16_SFLOAT` `RenderTarget`s (mask, fine blur, coarse blur) | colour Clear/Store → `SHADER_READ_ONLY`, explicit barrier in `End` | `LightShafts`: when the root world's `PostProcessSettings` enable them and the sun is in reach, after the glow; they read the scene's colour and depth |
-| FXAA input (ADR 0154) | `R8G8B8A8_UNORM`, the swapchain's size | as above | the tonemap pipelines (a second copy of each) when `AntiAliasing = Fxaa` |
-| Present | swapchain image | colour DontCare/Store, `UNDEFINED → PRESENT_SRC` (or `→ COLOR_ATTACHMENT` when a separate overlay pass follows) | tonemap, or FXAA (`FxaaPass`) over the FXAA input |
+| Post targets (ADR 0163) | `PostTargetPool`: scene-relative `RenderTarget`s and ping-pong histories | as above | post effects (TAA's history, SSAO) |
+| Scene colour copy (ADR 0163) | the scene colour image | DontCare/Store, `SHADER_READ_ONLY` → `SHADER_READ_ONLY`, explicit barriers | `PostEffectContext.CopyToSceneColor` (a `BeforeTonemap` effect's new HDR image) |
+| LDR images (ADR 0154, 0163) | `R8G8B8A8_UNORM` ping-pong, the swapchain's size | as above | the tonemap pipelines (a second copy of each) when an `AfterTonemap` effect is on (`AntiAliasing = Fxaa`, the velocity view); the stage's effects that are not last |
+| Present | swapchain image | colour DontCare/Store, `UNDEFINED → PRESENT_SRC` (or `→ COLOR_ATTACHMENT` when a separate overlay pass follows) | tonemap, or the last `AfterTonemap` effect (`FxaaEffect`, `VelocityDebugView`) over the LDR image |
 | Overlay (`OverlayRenderPass`) | same pass as Present by default; a separate Load pass on a UNORM view in the `SrgbWithUnormOverlay` mode | | canvas, screen gizmos, UI, dev overlay |
 
 The scene pass's incoming dependency orders this frame's writes after the previous frame's tonemap read
@@ -104,6 +108,28 @@ compositor's tonemap and its LDR target before the UI samples it, and the object
 copy. The UI renderer's own passes use global barriers ([ADR 0050](../../memory/decisions/0050-ui-offscreen-layer-and-overlay-hook.md));
 they never touch the HDR image, so the two never overlap. Clear values: `SetClearColor` (sRGB, converted to linear) and depth 1.
 Order within a frame and the colour handling are described in [Color pipeline](color-pipeline.md).
+
+## Frame graph
+
+The passes of one frame, in recording order (dashed: only when enabled). The post-processing stages are described in
+[Post-processing](post-processing.md) (ADR 0163).
+
+```mermaid
+flowchart TD
+    U["Upload queue<br/>copies, transitions"] --> SH["Shadow passes<br/>cascades, atlas, cubes"]
+    SH --> OF["RenderOffscreen<br/>sky LUTs and capture · sub-viewports · root object ids"]
+    OF -.-> PP["Depth prepass<br/>scene depth + velocity · sky velocity"]
+    PP -.-> AP["AfterPrepass stage<br/>SSAO → set 0 b5"]
+    OF --> SC["Scene pass<br/>(loads the prepass depth after one)"]
+    AP -.-> SC
+    SC --> UI["UI layers offscreen"]
+    UI --> BT["BeforeTonemap stage<br/>TAA · auto exposure · glow · light shafts"]
+    BT --> TM["Tonemap<br/>→ swapchain, or → LDR image"]
+    TM -.-> AT["AfterTonemap stage<br/>FXAA · velocity view (last → swapchain)"]
+    TM --> OV["Overlay<br/>canvas · gizmos · UI · dev overlay"]
+    AT -.-> OV
+    OV --> CP["Frame capture copy (optional)"]
+```
 
 ## Frame synchronization
 

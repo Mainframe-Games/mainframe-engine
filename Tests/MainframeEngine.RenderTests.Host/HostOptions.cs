@@ -5,7 +5,8 @@ namespace MainframeEngine.RenderTests.Host;
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
 /// [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--minimize frame] [--input frame]
-/// [--pipeline-cache dir] [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]</c>.
+/// [--pipeline-cache dir] [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]
+/// [--prepass] [--jitter] [--velocity-view]</c>.
 /// </summary>
 public sealed record HostOptions
 {
@@ -76,6 +77,15 @@ public sealed record HostOptions
 
     /// <summary>Turns <c>CastsShadows</c> off on every light (measures what the shadow pass costs).</summary>
     public bool NoShadows { get; init; }
+
+    /// <summary>Runs the depth prepass every frame (<c>RenderServer.ForceDepthPrepass</c>, ADR 0163).</summary>
+    public bool Prepass { get; init; }
+
+    /// <summary>Jitters the main view's projection every frame (TAA's Halton jitter without TAA).</summary>
+    public bool Jitter { get; init; }
+
+    /// <summary>Shows the motion vectors instead of the image (<c>RenderDebugView.Velocity</c>).</summary>
+    public bool VelocityView { get; init; }
 
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
@@ -172,6 +182,15 @@ public sealed record HostOptions
                     break;
                 case "--no-shadows":
                     options = options with { NoShadows = true };
+                    break;
+                case "--prepass":
+                    options = options with { Prepass = true };
+                    break;
+                case "--jitter":
+                    options = options with { Jitter = true };
+                    break;
+                case "--velocity-view":
+                    options = options with { VelocityView = true };
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");

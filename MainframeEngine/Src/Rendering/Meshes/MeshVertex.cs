@@ -131,6 +131,41 @@ internal static class VertexLayouts
     /// <summary>Object-ID pipeline (<c>MeshId.vk.vert</c>): position, uv, model rows and object id (no normal).</summary>
     public static readonly VertexInputAttributeDescription[] MeshIdAttributes = [MeshInstancedAttributes[0], .. MeshInstancedAttributes[2..]];
 
+    /// <summary>
+    /// The depth prepass (ADR 0163): binding 3 holds last frame's <see cref="MeshInstanceData"/> (instance rate, read at the
+    /// same instance index as binding 1: the view's buffer bound at the offset of its previous-model block, or a
+    /// multimesh's own instances, which do not move).
+    /// </summary>
+    public const uint PreviousInstanceBinding = 3;
+
+    private static readonly VertexInputBindingDescription PreviousInstances =
+        new() { Binding = PreviousInstanceBinding, Stride = MeshInstanceData.Size, InputRate = VertexInputRate.Instance };
+
+    /// <summary>Prepass bindings: <see cref="MeshInstancedBindings"/> + the previous instances.</summary>
+    public static readonly VertexInputBindingDescription[] DepthBindings = [.. MeshInstancedBindings, PreviousInstances];
+
+    /// <summary>Prepass bindings with the second vertex stream: <see cref="MeshInstancedExtBindings"/> + the previous instances.</summary>
+    public static readonly VertexInputBindingDescription[] DepthExtBindings = [.. MeshInstancedExtBindings, PreviousInstances];
+
+    /// <summary>Locations 10–13: last frame's model rows (binding 3).</summary>
+    private static readonly VertexInputAttributeDescription[] PreviousModelAttributes =
+    [
+        new() { Location = 10, Binding = PreviousInstanceBinding, Format = Format.R32G32B32A32Sfloat, Offset = 0 },
+        new() { Location = 11, Binding = PreviousInstanceBinding, Format = Format.R32G32B32A32Sfloat, Offset = 16 },
+        new() { Location = 12, Binding = PreviousInstanceBinding, Format = Format.R32G32B32A32Sfloat, Offset = 32 },
+        new() { Location = 13, Binding = PreviousInstanceBinding, Format = Format.R32G32B32A32Sfloat, Offset = 48 },
+    ];
+
+    /// <summary><c>Mesh/MeshDepth.vk.vert</c>: position, uv, model rows, previous model rows.</summary>
+    public static readonly VertexInputAttributeDescription[] DepthAttributes =
+        [MeshInstancedAttributes[0], .. MeshInstancedAttributes[2..7], .. PreviousModelAttributes];
+
+    /// <summary><c>Mesh/MeshDepthExt.vk.vert</c>: <see cref="DepthAttributes"/> + colour.</summary>
+    public static readonly VertexInputAttributeDescription[] DepthExtAttributes = [.. DepthAttributes, ColorAttribute];
+
+    /// <summary><c>Foliage/FoliageDepth.vk.vert</c>: <see cref="DepthAttributes"/> + colour + custom0.</summary>
+    public static readonly VertexInputAttributeDescription[] DepthFoliageAttributes = [.. DepthAttributes, ColorAttribute, Custom0Attribute];
+
     /// <summary>Shadow casters: binding 0 positions (stride 32), binding 1 model rows at locations 1–4.</summary>
     public static readonly VertexInputBindingDescription[] ShadowInstancedBindings = MeshInstancedBindings;
 

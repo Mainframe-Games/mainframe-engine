@@ -590,7 +590,10 @@ settled; **Decision:** is what to build.
 
 1. **`SceneTextures` before or after M11 step 1?** It adds a prepass, a pass split and copy passes, the kind of change G6
    parks behind M11 step 1 for SSAO. **Decision:** follow G6's rule. G8c.1–G8c.5 and the fallback look need neither, so
-   ponds and streams ship on today's renderer while the split waits.
+   ponds and streams ship on today's renderer while the split waits. **Superseded (2026-10-09,
+   [ADR 0163](../../../memory/decisions/0163-post-processing-stages-prepass-motion-vectors.md)):** Brogan asked for SSAO
+   and TAA ahead of M11, so the shared depth prepass exists now ([Post-processing](../post-processing.md)); water's
+   `SceneTextures` (the colour copy and pass split) can build on it.
 2. **Prepass or depth copy?** With SSAO off, copying pass A's depth (one fullscreen pass) is cheaper than a second
    geometry pass. In a forest of alpha-tested foliage, a prepass followed by an equal-depth main pass (G6's prepass
    reuse question) saves more fragment work than it costs. **Decision:** the prepass, one code path shared with G6.6;

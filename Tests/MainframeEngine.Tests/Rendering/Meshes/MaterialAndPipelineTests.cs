@@ -62,10 +62,11 @@ public sealed class MaterialAndPipelineTests
             for (var e = 0; e < 2; e++)
                 for (var m = 0; m < 2; m++)
                     for (var streams = 0; streams < 2; streams++)
-                        indices.Add(MaterialGpu.PipelineIndex((ShaderSetId)shaders, e == 1, m == 1, streams == 1));
-        Assert.Equal(MaterialGpu.ShaderSetCount * 8, indices.Count);
-        Assert.Equal(MaterialGpu.ShaderSetCount * 8 - 1, indices.Max());
-        Assert.Equal(MaterialGpu.ShaderSetCount * 8, new MaterialGpu(outline, 1).Pipelines.Length);
+                        for (var prepassed = 0; prepassed < 2; prepassed++) // ADR 0163
+                            indices.Add(MaterialGpu.PipelineIndex((ShaderSetId)shaders, e == 1, m == 1, streams == 1, prepassed == 1));
+        Assert.Equal(MaterialGpu.ShaderSetCount * 16, indices.Count);
+        Assert.Equal(MaterialGpu.ShaderSetCount * 16 - 1, indices.Max());
+        Assert.Equal(MaterialGpu.ShaderSetCount * 16, new MaterialGpu(outline, 1).Pipelines.Length);
 
         var parameters = MaterialParams.From(outline);
         Assert.Equal(MaterialParams.ShadingUnshaded, parameters.Shading);

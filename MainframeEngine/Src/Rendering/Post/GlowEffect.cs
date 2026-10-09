@@ -9,33 +9,40 @@ namespace MainframeEngine;
 /// level 0 the firefly undo, exposure (× auto exposure's when it is on, ADR 0154), HDR threshold and luminance cap, into
 /// <c>level[k]</c>). Only the levels up to the
 /// highest weighted one are drawn each frame (Godot's <c>max_glow_index</c>); every level image exists and is cleared
-/// once after creation, so the tonemap pass can bind all seven. Recorded between the scene pass and the tonemap, with
-/// no render pass active; allocates nothing per frame.
+/// once after creation, so the tonemap pass can bind all seven. A <see cref="PostStage.BeforeTonemap"/> effect (ADR 0163)
+/// after auto exposure, enabled whenever the post tonemap pass runs (it binds every level either way); allocates nothing
+/// per frame.
 /// </summary>
-internal sealed unsafe class GlowEffect : IDisposable
+internal sealed unsafe class GlowEffect(AutoExposure autoExposure) : PostEffect("glow", PostStage.BeforeTonemap, PostEffectOrder.Glow)
 {
     public const int LevelCount = PostProcessSettings.GlowLevelCount;
     private const Format LevelFormat = Format.R16G16B16A16Sfloat;
 
-    private readonly IVulkanContext _ctx;
+    private IVulkanContext _ctx = null!;
     private readonly RenderTarget[] _temp = new RenderTarget[LevelCount];
     private readonly RenderTarget[] _levels = new RenderTarget[LevelCount];
     private readonly DescriptorSet[] _tempSets = new DescriptorSet[LevelCount];
     private readonly DescriptorSet[] _levelSets = new DescriptorSet[LevelCount];
-    private readonly Sampler _sampler;
-    private readonly DescriptorSetLayout _setLayout;
-    private readonly DescriptorPool _pool;
-    private readonly DescriptorSet _sceneSet;
-    private readonly PipelineLayout _layout;
-    private readonly Pipeline _pipeline;
-    private readonly DescriptorImageInfo _adaptedLuminance;
+    private Sampler _sampler;
+    private DescriptorSetLayout _setLayout;
+    private DescriptorPool _pool;
+    private DescriptorSet _sceneSet;
+    private PipelineLayout _layout;
+    private Pipeline _pipeline;
+    private DescriptorImageInfo _adaptedLuminance;
     private bool _needsClear = true;
-    private bool _disposed;
 
-    public GlowEffect(IVulkanContext ctx, Extent2D sceneExtent, ImageView sceneView, in DescriptorImageInfo adaptedLuminance)
+    /// <summary>Runs whenever the post tonemap pass does: the tonemap binds every level either way.</summary>
+    public override bool IsEnabled(in PostEffectSettings settings) => settings.PostTonemap;
+
+    protected override void OnCreate(PostEffectContext context)
     {
+        autoExposure.Create(context); // its adapted luminance is read by the first level
+        var ctx = context.Vulkan;
+        var sceneExtent = context.Scene.Extent;
+        var sceneView = context.Scene.Color;
         _ctx = ctx;
-        _adaptedLuminance = adaptedLuminance;
+        _adaptedLuminance = autoExposure.AdaptedDescriptor;
         var samplerInfo = new SamplerCreateInfo
         {
             SType = StructureType.SamplerCreateInfo,
@@ -87,8 +94,10 @@ internal sealed unsafe class GlowEffect : IDisposable
         new(Math.Max(1u, scene.Width >> (k + 1)), Math.Max(1u, scene.Height >> (k + 1)));
 
     /// <summary>After a swapchain resize (device idle): resized levels, rewritten sets; they are cleared again.</summary>
-    public void Resize(Extent2D sceneExtent, ImageView sceneView)
+    protected override void OnResize(PostEffectContext context)
     {
+        var sceneExtent = context.Scene.Extent;
+        var sceneView = context.Scene.Color;
         for (var k = 0; k < LevelCount; k++)
         {
             var size = LevelExtent(sceneExtent, k);
@@ -100,10 +109,12 @@ internal sealed unsafe class GlowEffect : IDisposable
         _needsClear = true;
     }
 
+    protected override void OnRecord(PostEffectContext context) =>
+        Record(context.CommandBuffer, context.Settings.World, context.Exposure);
+
     /// <summary>Records the blur chain for <paramref name="settings"/> (nothing when its glow is off, after the first clear).</summary>
-    public void Record(CommandBuffer cb, in PostProcessSettings settings, float exposure)
+    private void Record(CommandBuffer cb, in PostProcessSettings settings, float exposure)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_needsClear)
         {
             // Every level the tonemap binds must hold defined data in shader-read layout, drawn this frame or not.
@@ -178,11 +189,8 @@ internal sealed unsafe class GlowEffect : IDisposable
     }
 
     /// <summary>Destroys everything (the caller has waited for the device to be idle).</summary>
-    public void Dispose()
+    protected override void OnDispose()
     {
-        if (_disposed)
-            return;
-        _disposed = true;
         var vk = _ctx.Vk;
         vk.DestroyPipeline(_ctx.Device, _pipeline, null);
         vk.DestroyPipelineLayout(_ctx.Device, _layout, null);

@@ -320,7 +320,8 @@ The references are released when the node is freed, or at server shutdown.
 flowchart LR
     P["RenderServer.PrepareFrame (before BeginFrame)<br/>sync node → MeshGpu/MaterialGpu (uploads join the frame)<br/>cull vs camera frustum · build keys · sort"] --> S["RenderShadows<br/>cull casters per pass · write their instances · one instanced draw per run per pass"]
     S --> O["RenderOffscreen<br/>SubViewports (HDR pass → ID pass → tonemap)<br/>root object-ID pass when picks are pending"]
-    O --> M["RenderMain (scene pass)<br/>sky · visuals with priority &lt; 0 · opaque/cutout runs · other visuals · transparent back to front"]
+    O --> D["RenderPrepass (when a post effect needs it, ADR 0163)<br/>opaque/cutout runs → scene depth + velocity"]
+    D --> M["RenderMain (scene pass)<br/>sky · visuals with priority &lt; 0 · opaque/cutout runs · other visuals · transparent back to front"]
 ```
 
 ### Build (`MeshRenderer.Prepare`, once per view per frame)
@@ -357,6 +358,9 @@ culling and `gl_FrontFacing` right under negative scale.
   - If a frame needs more room, it switches to a buffer twice the size. The old buffer stays valid for the draws
     already recorded from it, through the deletion queue.
   - The ID pass and the colour pass share the same instances.
+  - A prepassed view (ADR 0163, [Post-processing](post-processing.md#depth-prepass)) appends a block of its opaque
+    instances' previous model matrices (`GeometryInstance3D.Motion`), bound at vertex binding 3 with the offset that
+    lines up the instance indices.
 - **Draws**:
   - Set 0 (frame) and set 1 (shadows) are bound once; set 2 (the material) whenever the material changes.
   - Each run of equal (pipeline, material, mesh, surface) becomes one `vkCmdDrawIndexed` with
@@ -364,6 +368,10 @@ culling and `gl_FrontFacing` right under negative scale.
   - Mesh vertex and index buffers (and the second stream at binding 2, when the mesh has one) are bound when the mesh
     changes, and the instance buffer once at binding 1. A multimesh item binds its own instance buffer and draws all
     its instances from 0; the view's buffer is rebound for the next run.
+- **Depth prepass** (ADR 0163): `DrawPrepass` draws the opaque list's surfaces of `MaterialGpu.Prepassable` materials
+  (lit, foliage, terrain splat; not next passes, outlines or water) with the material's `MeshDepth`/`MeshDepthFoliage`
+  pipeline into the prepass render pass; multimeshes bind their own instances at bindings 1 and 3. After it, the colour
+  pass draws those surfaces with their `Prepassed` pipeline variant.
 - **Shadows**: per shadow pass, `CullShadowCasters` keeps the casters inside the light's frustum (and range) and
   writes their instances; `DrawShadowCasters` records one draw per run of equal (cull, mirrored, cutout material,
   mesh surface). `ShadowSystem.GetInstancedCasterPipeline(point, cull, mirrored, cutout)` builds the pipelines:
@@ -372,7 +380,8 @@ culling and `gl_FrontFacing` right under negative scale.
 
 ### Pipelines (`PipelineStateCache`)
 
-`PipelineKey` = (shader set, vertex layout, alpha mode, effective cull, mirrored, depth write, render pass).
+`PipelineKey` = (shader set, vertex layout, alpha mode, effective cull, mirrored, depth write, render pass, extra pass,
+prepassed).
 `PipelineKey.ForMaterial` derives it from a material's `MaterialRenderState`:
 
 - double-sided resolves to `Disabled`;
@@ -381,10 +390,12 @@ culling and `gl_FrontFacing` right under negative scale.
 
 `GetOrCreate` creates a pipeline on the first request through the persisted `VkPipelineCache`. Each pipeline gets
 a dense id for the sort keys, and the pipelines live until disposal. Lookups don't allocate. Each `MaterialGpu`
-caches its 40 entries (the 5 shader sets × [surface, extra pass] × [normal, mirrored] × [no stream, stream]), so
-steady-state frames don't even hash.
+caches its 128 entries (the 8 shader sets × [surface, extra pass] × [normal, mirrored] × [no stream, stream] ×
+[normal, prepassed]), so steady-state frames don't even hash.
 
 `PipelineKey.ExtraPass` marks next-pass and overlay pipelines, whose depth compare is less-or-equal instead of less.
+`PipelineKey.Prepassed` (ADR 0163) marks a colour pipeline drawn after the depth prepass: no depth writes,
+less-or-equal, and cutouts compare EQUAL with specialization constant 0 = opaque (no `discard`).
 
 | Shader set | Shaders | Render pass |
 |---|---|---|
@@ -394,6 +405,8 @@ steady-state frames don't even hash.
 | `MeshFoliage` | `Foliage/Foliage.vk.vert` + `Foliage/Foliage.vk.frag` (`FoliageMaterial3D`; always `MeshInstancedExt`) | the scene pass |
 | `MeshWater` | `Water/Water.vk.vert` + `Water/Water.vk.frag` (`WaterMaterial3D`; always `MeshInstancedExt`) | the scene pass |
 | `MeshTerrainSplat` | `Mesh/Mesh.vk.vert` + `Terrain/TerrainSplat.vk.frag` (`TerrainSplatMaterial3D`; its own pipeline layout) | the scene pass |
+| `MeshDepth` | `Mesh/MeshDepth.vk.vert` (`MeshDepthExt.vk.vert` with streams) + `Mesh/MeshDepth.vk.frag` (velocity, cutout test; ADR 0163) | the depth prepass |
+| `MeshDepthFoliage` | `Foliage/FoliageDepth.vk.vert` (wind now and a frame ago) + `Mesh/MeshDepth.vk.frag` | the depth prepass |
 
 `MeshLit` with `VertexLayoutId.MeshInstancedExt` uses `Mesh/MeshExt.vk.vert` and sets specialization constant 1
 (vertex colour) of `Mesh.vk.frag`.
@@ -402,19 +415,20 @@ steady-state frames don't even hash.
 
 | Set | Contents | Owner |
 |---|---|---|
-| 0 | b0 camera (`FrameData`), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)) | `FrameContext` (per frame slot and view) |
+| 0 | b0 camera (`FrameData`, 560 B), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)), b5 screen-space ambient occlusion (white 1×1 without SSAO, [Post-processing](post-processing.md#ambient-occlusion-binding)) | `FrameContext` (per frame slot and view) |
 | 1 | shadow uniforms + maps (`ShadowSystem` or the fallback) | shadows |
 | 2 | material: b0 parameters UBO (96 B, device-local), b1 one `sampler`, b2–b5 albedo/normal/emission/ORM `texture2D` (1×1 fallbacks; the ORM one is linear white) | `MaterialGpu` |
 | 2 (terrain splat) | b0 `TerrainSplatParams` (304 B), b1–b2 layer and map `sampler`s, b3–b5 albedo/normal/ORM `texture2DArray`, b6–b7 splat maps (1×1 zero fallbacks: layer 0 everywhere) | `TerrainSplatGpu` (`MaterialGpu.Splat`) |
 | binding 1 (vertex) | per-instance model matrix + object id | `InstanceBuffer`, or a `MultiMeshGpu` |
 | binding 2 (vertex) | the second stream: RGBA8 colour + float4 custom0 | `MeshGpu.Streams` |
+| binding 3 (vertex, prepass) | last frame's `MeshInstanceData` (motion vectors) | the view's instance allocation, or a `MultiMeshGpu` |
 
 The material set uses a single `sampler` with separate `texture2D`s. Before M4 the shadow set held 15 samplers and this kept the
 fragment stage within MoltenVK's limit of 16 samplers
-([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The fragment stage now uses 13 images and 10
-samplers (shadows 6 combined, material 1 sampler + 4 images, sky lighting 3 combined), within the G6 budget of 16 and 4
-sets ([rendering-features.md](future/rendering-features.md#binding-budget)); the terrain splat set makes it 14 images and
-11 samplers (2 samplers + 5 images instead of 1 + 4). The sampler is that of the material's
+([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The fragment stage now uses 14 images and 11
+samplers (shadows 6 combined, material 1 sampler + 4 images, sky lighting 3 combined, ambient occlusion 1 combined),
+within the G6 budget of 16 and 4 sets ([rendering-features.md](future/rendering-features.md#binding-budget)); the
+terrain splat set makes it 15 images and 12 samplers (2 samplers + 5 images instead of 1 + 4). The sampler is that of the material's
 first texture. A material's set is never updated in place, because frames in flight may still bind it. Instead, a
 new set is written, and the old one is freed by `MaterialDescriptorAllocator` once its frame has completed. The
 allocator's pools are freeable and their live counts are exact.

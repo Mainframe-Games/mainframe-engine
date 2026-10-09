@@ -539,8 +539,9 @@ public abstract class Engine : IDisposable
             OnShadowPass(_gameTime);
             Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters
             Servers.Render?.RenderOffscreen(Root); // M3: sub-viewports and object-ID picking passes
+            Servers.Render?.RenderPrepass(Root); // ADR 0163: depth prepass + velocity and the AfterPrepass effects, when needed
 
-            // Begin the main render pass, then let the game draw geometry.
+            // Begin the main render pass (it loads the prepass depth when there was one), then let the game draw geometry.
             (Renderer as IVulkanContext)?.BeginRenderPass();
 
             if (Servers.Render is { } render)

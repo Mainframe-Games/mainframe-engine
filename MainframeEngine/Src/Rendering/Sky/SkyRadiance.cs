@@ -110,7 +110,7 @@ internal sealed unsafe class SkyRadiance : IDisposable
         _pool = PipelineBuilder.CreatePool(ctx, 7,
         [
             new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 12 },
-            new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 6 * FrameContext.EnvironmentBindings + 1 },
+            new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 6 * FrameContext.ImageBindings + 1 },
         ], "sky radiance");
         var frame = ctx.Frame;
         for (var face = 0; face < 6; face++)
@@ -121,6 +121,7 @@ internal sealed unsafe class SkyRadiance : IDisposable
             PipelineBuilder.WriteImage(ctx, set, 2, frame.FallbackCubeDescriptor);
             PipelineBuilder.WriteImage(ctx, set, 3, frame.FallbackCubeDescriptor);
             PipelineBuilder.WriteImage(ctx, set, 4, frame.BrdfLutDescriptor);
+            PipelineBuilder.WriteImage(ctx, set, FrameContext.AmbientOcclusionBinding, frame.NoOcclusionDescriptor);
             _faceSets[face] = set;
         }
 

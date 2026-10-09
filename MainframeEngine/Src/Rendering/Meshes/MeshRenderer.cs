@@ -39,6 +39,9 @@ public struct MeshDrawStats
 
     /// <summary><see cref="MultiMesh"/> instances in the surface draws submitted (summed over surfaces).</summary>
     public int MultiMeshInstances;
+
+    /// <summary>Instanced draws in the depth prepass (ADR 0163).</summary>
+    public int PrepassDrawCalls;
 }
 
 /// <summary>One surface of one instance in a colour/ID pass.</summary>
@@ -121,6 +124,16 @@ internal sealed class MeshViewDraws
     public ulong ShadowFrame;
     public GpuBuffer? InstanceBuffer;
     public uint FirstInstance;
+
+    /// <summary>
+    /// The depth prepass draws this view this frame (ADR 0163; the render server sets it before anything draws the view):
+    /// its instances carry a previous-model block, and the scene pass draws the prepassed surfaces against the prepass depth.
+    /// </summary>
+    public bool Prepassed;
+
+    /// <summary>Byte offset of the previous-model block in <see cref="InstanceBuffer"/> (binding 3), when <see cref="HasPreviousInstances"/>.</summary>
+    public ulong PreviousInstanceOffset;
+    public bool HasPreviousInstances;
 
     public void Clear()
     {
@@ -617,19 +630,31 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     }
 
     /// <summary>The pipeline for drawing <paramref name="gpu"/>'s surfaces (cached on the material).</summary>
-    private PipelineEntry GetPipeline(MaterialGpu gpu, ShaderSetId shaders, bool mirrored, bool extraPass = false, bool streams = false)
+    /// <param name="prepassed">A scene-pass draw of a surface the depth prepass drew (ADR 0163).</param>
+    private PipelineEntry GetPipeline(MaterialGpu gpu, ShaderSetId shaders, bool mirrored, bool extraPass = false, bool streams = false,
+        bool prepassed = false)
     {
-        // Only the lit shaders have a variant for the second stream (foliage always reads it; outlines and ids never do).
-        streams &= shaders == ShaderSetId.MeshLit;
-        ref var entry = ref gpu.Pipelines[MaterialGpu.PipelineIndex(shaders, extraPass, mirrored, streams)];
+        // Only the lit shaders (and their prepass) have a variant for the second stream (foliage always reads it; outlines
+        // and ids never do).
+        streams &= shaders is ShaderSetId.MeshLit or ShaderSetId.MeshDepth;
+        ref var entry = ref gpu.Pipelines[MaterialGpu.PipelineIndex(shaders, extraPass, mirrored, streams, prepassed)];
         if (entry.Pipeline.Handle == 0)
         {
-            var pass = shaders == ShaderSetId.MeshObjectId ? _idPassPrototype : _ctx.RenderPass;
-            entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass, streams));
+            var pass = shaders switch
+            {
+                ShaderSetId.MeshObjectId => _idPassPrototype,
+                ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage => PrepassRenderPass,
+                _ => _ctx.RenderPass,
+            };
+            entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass, streams, prepassed));
         }
 
         return entry;
     }
+
+    // The renderer's depth prepass render pass (ADR 0163; created on first use).
+    private RenderPass PrepassRenderPass => (_ctx as IPostProcessHost)?.PrepassRenderPass
+        ?? throw new InvalidOperationException("The renderer has no depth prepass.");
 
     // ── Frame: build ───────────────────────────────────────────────────────────
 
@@ -813,12 +838,17 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
     // ── Frame: record ──────────────────────────────────────────────────────────
 
-    /// <summary>Writes the view's colour-pass instances (opaque then transparent) once per frame.</summary>
+    /// <summary>
+    /// Writes the view's colour-pass instances (opaque then transparent) once per frame; for a prepassed view (ADR 0163)
+    /// followed by a block of the opaque instances' previous model matrices, read at the same instance index through
+    /// binding 3 bound <see cref="MeshViewDraws.PreviousInstanceOffset"/> bytes further in.
+    /// </summary>
     private void EnsureInstances(MeshViewDraws view)
     {
-        if (view.InstancesFrame == CurrentFrame && view.InstanceBuffer is not null)
+        if (view.InstancesFrame == CurrentFrame && view.InstanceBuffer is not null && (!view.Prepassed || view.HasPreviousInstances))
             return;
         view.InstancesFrame = CurrentFrame;
+        view.HasPreviousInstances = false;
         var count = view.Opaque.Count + view.Transparent.Count;
         if (count == 0)
         {
@@ -826,7 +856,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             return;
         }
 
-        var data = _instances.Allocate(count, out var buffer, out var first);
+        var previous = view.Prepassed ? view.Opaque.Count : 0;
+        var data = _instances.Allocate(count + previous, out var buffer, out var first);
         view.InstanceBuffer = buffer;
         view.FirstInstance = first;
         var i = 0;
@@ -841,6 +872,18 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ref var item = ref view.Transparent[k];
             data[i++] = new MeshInstanceData(item.Node.ModelMatrix, item.Node.ObjectId);
         }
+
+        if (previous == 0)
+            return;
+        var frame = _ctx.FrameNumber;
+        for (var k = 0; k < view.Opaque.Count; k++)
+        {
+            ref var item = ref view.Opaque[k];
+            data[i++] = new MeshInstanceData(item.Node.Motion.Previous(item.Node.ModelMatrix, frame), item.Node.ObjectId);
+        }
+
+        view.PreviousInstanceOffset = (ulong)count * MeshInstanceData.Size;
+        view.HasPreviousInstances = true;
     }
 
     /// <summary>Records the view's opaque and cutout draws (inside a scene pass; the frame view must be current).</summary>
@@ -855,6 +898,94 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     {
         DrawList(view, view.Opaque, 0, cb, ShaderSetId.MeshObjectId);
         DrawList(view, view.Transparent, view.Opaque.Count, cb, ShaderSetId.MeshObjectId);
+    }
+
+    /// <summary>
+    /// Records the view's depth prepass (ADR 0163; inside the prepass render pass, the frame view current, the view
+    /// <see cref="MeshViewDraws.Prepassed"/>): every opaque and cutout surface of a <see cref="MaterialGpu.Prepassable"/>
+    /// material, with this frame's and last frame's model matrices (binding 3) for the velocity. Next passes and overlays
+    /// are not prepassed.
+    /// </summary>
+    public void DrawPrepass(MeshViewDraws view, CommandBuffer cb)
+    {
+        var list = view.Opaque;
+        if (list.Count == 0 || !view.Prepassed)
+            return;
+        ResetStatsIfNewFrame();
+        EnsureInstances(view);
+        var instanceBuffer = view.InstanceBuffer!;
+        var vk = _ctx.Vk;
+        var frame = _ctx.Frame;
+        PipelineBuilder.SetViewport(vk, cb, frame.Extent, flipY: true);
+        frame.Bind(cb, _pipelineLayout, _shadowDescriptors);
+
+        var instanceHandle = instanceBuffer.Handle;
+        var zero = 0ul;
+        var previousOffset = view.PreviousInstanceOffset;
+        vk.CmdBindVertexBuffers(cb, 1, 1, &instanceHandle, &zero);
+        vk.CmdBindVertexBuffers(cb, VertexLayouts.PreviousInstanceBinding, 1, &instanceHandle, &previousOffset);
+        var boundInstances = instanceHandle;
+
+        Pipeline boundPipeline = default;
+        MaterialGpu? boundMaterial = null;
+        MeshGpu? boundMesh = null;
+        var count = list.Count;
+        var i = 0;
+        while (i < count)
+        {
+            ref var item = ref list[i];
+            var end = i + 1;
+            while (end < count && SameDraw(ref item, ref list[end]))
+                end++;
+
+            var material = item.Material;
+            if (item.Extra || !material.Prepassable)
+            {
+                i = end;
+                continue;
+            }
+
+            var range = item.Mesh.Surfaces[item.Surface];
+            var pipeline = GetPipeline(material, material.DepthShaders, item.Mirrored, streams: range.HasStreams).Pipeline;
+            if (pipeline.Handle != boundPipeline.Handle)
+            {
+                vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
+                boundPipeline = pipeline;
+                Stats.PipelineBinds++;
+            }
+
+            if (!ReferenceEquals(material, boundMaterial))
+            {
+                // The shared layout's set 2 (a terrain splat material's default set: the prepass reads no splat data).
+                var set = material.Set;
+                vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 2, 1, &set, 0, null);
+                boundMaterial = material;
+                Stats.MaterialBinds++;
+            }
+
+            if (!ReferenceEquals(item.Mesh, boundMesh))
+            {
+                BindMesh(vk, cb, item.Mesh);
+                boundMesh = item.Mesh;
+            }
+
+            // A multimesh draws its own instances, at binding 1 and (static: no previous transforms) binding 3.
+            var instances = item.Instances?.Handle ?? instanceHandle;
+            if (instances.Handle != boundInstances.Handle)
+            {
+                var previous = item.Instances is null ? previousOffset : 0ul;
+                vk.CmdBindVertexBuffers(cb, 1, 1, &instances, &zero);
+                vk.CmdBindVertexBuffers(cb, VertexLayouts.PreviousInstanceBinding, 1, &instances, &previous);
+                boundInstances = instances;
+            }
+
+            if (item.Instances is not null)
+                vk.CmdDrawIndexed(cb, range.IndexCount, item.InstanceCount, range.FirstIndex, range.VertexOffset, 0);
+            else
+                vk.CmdDrawIndexed(cb, range.IndexCount, (uint)(end - i), range.FirstIndex, range.VertexOffset, view.FirstInstance + (uint)i);
+            Stats.PrepassDrawCalls++;
+            i = end;
+        }
     }
 
     private void DrawList(MeshViewDraws view, DrawList<MeshDrawItem> list, int instanceOffset, CommandBuffer cb, ShaderSetId shaders)
@@ -892,7 +1023,11 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 continue;
             }
 
-            var pipeline = shaders != ShaderSetId.MeshObjectId ? item.Pipeline.Pipeline : GetPipeline(item.Material, shaders, item.Mirrored).Pipeline;
+            // ADR 0163: after a depth prepass its surfaces test the prepass depth and do not write it (cutouts: EQUAL, no discard).
+            var pipeline = shaders == ShaderSetId.MeshObjectId ? GetPipeline(item.Material, shaders, item.Mirrored).Pipeline
+                : view.Prepassed && !item.Extra && item.Material.Prepassable
+                    ? GetPipeline(item.Material, item.Material.ColorShaders, item.Mirrored, streams: item.Mesh.Surfaces[item.Surface].HasStreams, prepassed: true).Pipeline
+                    : item.Pipeline.Pipeline;
             if (pipeline.Handle != boundPipeline.Handle)
             {
                 vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
@@ -1136,6 +1271,9 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
     Pipeline IPipelineFactory.Create(in PipelineKey key)
     {
+        if (key.IsDepthPrepass)
+            return CreatePrepassPipeline(key);
+
         var state = new PipelineState
         {
             CullMode = key.Cull switch
@@ -1149,13 +1287,17 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             FrontFace = key.Mirrored ? FrontFace.Clockwise : FrontFace.CounterClockwise,
             DepthTest = true,
             DepthWrite = key.DepthWrite,
-            DepthCompare = key.ExtraPass ? CompareOp.LessOrEqual : CompareOp.Less,
+            // ADR 0163: a prepassed surface lands on its own prepass depth; a cutout only where the prepass kept it.
+            DepthCompare = key.Prepassed ? key.Alpha == AlphaMode.Cutout ? CompareOp.Equal : CompareOp.LessOrEqual
+                : key.ExtraPass ? CompareOp.LessOrEqual : CompareOp.Less,
             Blend = key.Alpha == AlphaMode.Blend && key.Shaders != ShaderSetId.MeshObjectId ? BlendMode.Alpha : BlendMode.Opaque,
         };
 
-        // Constant 0: the alpha mode; 1: multiply the albedo by the vertex colour (Mesh.vk.frag, second-stream surfaces).
+        // Constant 0: the alpha mode (a prepassed cutout runs as opaque: the EQUAL depth test replaces its discard, and
+        // keeps early depth testing on); 1: multiply the albedo by the vertex colour (Mesh.vk.frag, second-stream surfaces).
         var streams = key.VertexLayout == VertexLayoutId.MeshInstancedExt;
-        var constants = stackalloc int[2] { (int)key.Alpha, streams ? 1 : 0 };
+        var alphaMode = key.Prepassed && key.Alpha == AlphaMode.Cutout ? AlphaMode.Opaque : key.Alpha;
+        var constants = stackalloc int[2] { (int)alphaMode, streams ? 1 : 0 };
         var entries = stackalloc SpecializationMapEntry[2]
         {
             new() { ConstantID = 0, Offset = 0, Size = sizeof(int) },
@@ -1191,7 +1333,45 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         };
         return PipelineBuilder.Create(_ctx, state, LayoutFor(key.Shaders), new RenderPass(key.RenderPass),
             vertex, fragment, streams ? VertexLayouts.MeshInstancedExtBindings : VertexLayouts.MeshInstancedBindings, attributes,
-            $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(key.ExtraPass ? ", extra pass" : "")}{(streams ? ", streams" : "")})",
+            $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(key.ExtraPass ? ", extra pass" : "")}{(streams ? ", streams" : "")}{(key.Prepassed ? ", prepassed" : "")})",
+            &specialization);
+    }
+
+    // The depth prepass (ADR 0163): the material's culling and winding, depth LESS with writes, the velocity attachment;
+    // constants 0: the alpha mode (cutouts alpha-test), 1: the vertex colour's alpha multiplies the albedo's.
+    private Pipeline CreatePrepassPipeline(in PipelineKey key)
+    {
+        var state = new PipelineState
+        {
+            CullMode = key.Cull switch
+            {
+                CullMode.Front => CullModeFlags.FrontBit,
+                CullMode.Disabled => CullModeFlags.None,
+                _ => CullModeFlags.BackBit,
+            },
+            FrontFace = key.Mirrored ? FrontFace.Clockwise : FrontFace.CounterClockwise,
+            DepthTest = true,
+            DepthWrite = true,
+            DepthCompare = CompareOp.Less,
+            Blend = BlendMode.Opaque,
+        };
+
+        var foliage = key.Shaders == ShaderSetId.MeshDepthFoliage;
+        var streams = key.VertexLayout == VertexLayoutId.MeshInstancedExt;
+        var constants = stackalloc int[2] { (int)key.Alpha, streams ? 1 : 0 };
+        var entries = stackalloc SpecializationMapEntry[2]
+        {
+            new() { ConstantID = 0, Offset = 0, Size = sizeof(int) },
+            new() { ConstantID = 1, Offset = sizeof(int), Size = sizeof(int) },
+        };
+        var specialization = new SpecializationInfo { MapEntryCount = 2, PMapEntries = entries, DataSize = 2 * sizeof(int), PData = constants };
+        var vertex = foliage ? "Shaders/Foliage/FoliageDepth.vk.vert.spv"
+            : streams ? "Shaders/Mesh/MeshDepthExt.vk.vert.spv"
+            : "Shaders/Mesh/MeshDepth.vk.vert.spv";
+        var attributes = foliage ? VertexLayouts.DepthFoliageAttributes : streams ? VertexLayouts.DepthExtAttributes : VertexLayouts.DepthAttributes;
+        return PipelineBuilder.Create(_ctx, state, _pipelineLayout, new RenderPass(key.RenderPass), vertex, "Shaders/Mesh/MeshDepth.vk.frag.spv",
+            streams ? VertexLayouts.DepthExtBindings : VertexLayouts.DepthBindings, attributes,
+            $"mesh prepass ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(streams ? ", streams" : "")})",
             &specialization);
     }
 

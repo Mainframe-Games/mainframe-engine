@@ -92,6 +92,9 @@ public abstract class GeometryInstance3D : VisualInstance3D
     /// <summary>Bumped by subclasses when their generated mesh or materials change.</summary>
     internal int RenderStamp;
 
+    /// <summary>Last frame's model matrix for motion vectors (ADR 0163), tracked while the depth prepass draws the node.</summary>
+    internal MotionHistory Motion;
+
     protected override void ReleaseRenderResources()
     {
         RenderServer?.ReleaseGeometry(this); // also the instance buffer of a MultiMeshInstance3D

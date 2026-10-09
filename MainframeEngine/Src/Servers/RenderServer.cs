@@ -49,9 +49,42 @@ public sealed class RenderServer : IServer
     public RenderServer(IRenderer renderer)
     {
         Renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
+        ForceDepthPrepass = Environment.GetEnvironmentVariable(DepthPrepassVariable) is "1" or "on" or "true";
     }
 
     public IRenderer Renderer { get; }
+
+    /// <summary>Set to <c>1</c> to start with <see cref="ForceDepthPrepass"/> on (benchmarks, QA).</summary>
+    public const string DepthPrepassVariable = "MAINFRAME_DEPTH_PREPASS";
+
+    /// <summary>
+    /// Runs the main view's depth prepass every frame (ADR 0163), even when no post effect needs it: the scene pass then
+    /// tests the prepass depth and skips cutout discards. Off by default (the prepass runs when SSAO, TAA or a debug view
+    /// needs it); <c>MAINFRAME_DEPTH_PREPASS=1</c> turns it on at start-up.
+    /// </summary>
+    public bool ForceDepthPrepass { get; set; }
+
+    /// <summary>Jitters the main view's projection every frame even without TAA (tests: motion vectors must ignore it).</summary>
+    internal bool ForceProjectionJitter { get; set; }
+
+    /// <summary>
+    /// Replaces the main view's final image with an intermediate buffer (ADR 0163): <see cref="RenderDebugView.Velocity"/>
+    /// shows the motion vectors (and runs the depth prepass).
+    /// </summary>
+    public RenderDebugView DebugView
+    {
+        get => (Vulkan as IPostProcessHost)?.DebugView ?? RenderDebugView.None;
+        set
+        {
+            if (Vulkan is IPostProcessHost host)
+                host.DebugView = value;
+        }
+    }
+
+    /// <summary>The main view's post effects (ADR 0163), or null without a Vulkan renderer.</summary>
+    internal PostProcessStack? PostEffects => (Vulkan as IPostProcessHost)?.PostEffects;
+
+    private ulong _prepassFrame; // the frame RenderPrepass drew the main view's prepass in
 
     /// <summary>
     /// Screen-space gizmos (framebuffer pixels, sRGB), drawn after the tonemap between the 2D canvas and the UI, then
@@ -195,6 +228,7 @@ public sealed class RenderServer : IServer
         _screenGizmosRenderer ??= new ScreenGizmosRenderer(vk, ScreenGizmos);
         CollectPicks();
         _meshes?.BeginPreparation(); // rebuild even when the last frame was skipped (same predicted frame number)
+        UpdatePostState(root, vk);
         var world = root.World3D;
         EnsureResources(world);
         if (world.GeometryList.Count > 0 && GetRenderCamera(root, vk.SwapchainExtent) is { } camera)
@@ -421,6 +455,79 @@ public sealed class RenderServer : IServer
             sub.UpdateMode = SubViewportUpdateMode.Disabled;
     }
 
+    // ADR 0163: the root world's post settings, what its enabled post effects need (the depth prepass, jitter) and the
+    // projection jitter, decided before anything draws the main view this frame (PrepareFrame, again in RenderPrepass).
+    private void UpdatePostState(SceneViewport root, IVulkanContext vk)
+    {
+        if (!root.IsTreeRoot)
+            return;
+        vk.PostProcess = root.World3D.Environment?.PostProcess ?? PostProcessSettings.Default; // a struct copy
+        var needs = PostEffectNeeds.None;
+        if (vk is IPostProcessHost host)
+            needs = host.PostEffects.GetNeeds(host.PostSettings);
+        if (ForceDepthPrepass)
+            needs |= PostEffectNeeds.DepthPrepass;
+        if (ForceProjectionJitter)
+            needs |= PostEffectNeeds.Jitter;
+        _mainDraws.Prepassed = vk is IPostProcessHost && (needs & PostEffectNeeds.DepthPrepass) != 0;
+
+        var frame = vk.Frame;
+        if ((needs & PostEffectNeeds.Jitter) != 0)
+        {
+            var extent = vk.SwapchainExtent;
+            var index = TemporalJitter.SampleIndex(vk.FrameStarted ? vk.FrameNumber : vk.FrameNumber + 1);
+            frame.ProjectionJitter = TemporalJitter.NdcOffset(index, extent.Width, extent.Height);
+            frame.JitterIndex = index;
+        }
+        else
+        {
+            frame.ProjectionJitter = default;
+            frame.JitterIndex = 0;
+        }
+    }
+
+    /// <summary>
+    /// The main view's depth prepass and the post effects that run on it (ADR 0163). Call after
+    /// <see cref="RenderOffscreen"/> and before the scene pass, with no render pass active (<see cref="Engine"/> does).
+    /// When an enabled post effect needs it (SSAO, TAA, the velocity view) or <see cref="ForceDepthPrepass"/> is set,
+    /// <paramref name="root"/>'s opaque and cutout geometry is drawn into the scene depth and a velocity buffer, the sky's
+    /// velocity is filled in, and the <c>AfterPrepass</c> stage runs (SSAO); the scene pass then loads that depth.
+    /// Otherwise it only starts the frame's post effects.
+    /// </summary>
+    public void RenderPrepass(SceneViewport root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        if (Vulkan is not { FrameStarted: true } vk || vk is not IPostProcessHost host || _disposed || !root.IsTreeRoot)
+            return;
+        UpdatePostState(root, vk);
+        var camera = GetRenderCamera(root, vk.SwapchainExtent);
+        host.SetMainCamera(camera);
+        var prepass = _mainDraws.Prepassed && camera is not null;
+        host.BeginPostFrame(prepass);
+        if (!prepass)
+            return;
+
+        var world = root.World3D;
+        EnsureResources(world);
+        var frame = vk.Frame;
+        frame.SetView(0, default);
+        frame.Environment = world.Environment?.FrameEnvironment ?? default;
+        BindSkyLighting(frame, world);
+        frame.Begin(camera!, world.Lights); // the scene pass rewrites the same data
+        MeshRenderer? meshes = null;
+        if (world.GeometryList.Count > 0)
+        {
+            meshes = Meshes!;
+            meshes.Prepare(_mainDraws, world, camera!, collectCasters: ShadowsEnabled); // no-op when PrepareFrame ran
+        }
+
+        host.BeginPrepass();
+        meshes?.DrawPrepass(_mainDraws, vk.CurrentCommandBuffer);
+        host.EndPrepass();
+        _prepassFrame = vk.FrameNumber;
+        host.RecordAfterPrepass();
+    }
+
     /// <summary>
     /// Draws <paramref name="viewport"/>'s world inside the main (HDR scene) render pass: writes the frame's shared
     /// set 0 (camera + the world's lights, <see cref="FrameContext.Begin(ICamera, LightEnvironment?)"/>), then the sky
@@ -445,6 +552,14 @@ public sealed class RenderServer : IServer
             }
 
             var camera = GetRenderCamera(viewport, vk.SwapchainExtent);
+            if (viewport.IsTreeRoot)
+            {
+                (vk as IPostProcessHost)?.SetMainCamera(camera);
+                // ADR 0163: prepassed pipelines only after this frame's prepass (a caller may skip RenderPrepass).
+                if (_prepassFrame != vk.FrameNumber)
+                    _mainDraws.Prepassed = false;
+            }
+
             if (camera is null)
                 return;
 

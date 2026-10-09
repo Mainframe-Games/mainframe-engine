@@ -170,7 +170,10 @@ sequenceDiagram
   height-blended paths; self-checked, plus a 0 B orbit gate) and the tree scenes (ADR 0158) `tree-realistic`,
   `tree-lowpoly` (an oak and a pine `Tree3D`; `--count 1`: no wind) and `tree-forest` (a `TreeScatter`; `--count` trees,
   default 160; a CPU device flies through at most 120 without sun shadows; with `--perf` or `--alloc` a fly-through;
-  self-checked) ([Procedural trees → testing](procedural-trees.md#testing)). Scenes that read `frame.clip.z` see t = frame / 60 s: `Engine` sums the
+  self-checked) ([Procedural trees → testing](procedural-trees.md#testing)), and the post-processing scenes (ADR 0163)
+  `velocity` (a yawing camera and a gravity-less rigid body under the velocity view, self-checked against the camera's
+  matrices; `--count 1` still with jitter, `--count 2` the allocation run) and `post-copy` (a test `BeforeTonemap` effect
+  writing the scene colour through a pooled history; self-checked) ([Post-processing → testing](post-processing.md#testing)). Scenes that read `frame.clip.z` see t = frame / 60 s: `Engine` sums the
   fixed deltas into `FrameContext.Time`. The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
   M3 (the physics crates share one `BoxMesh` and one material per colour). Every host scene runs audio on the silent
   null device.
@@ -180,7 +183,8 @@ sequenceDiagram
   `result.json` records it), `--minimize frame` (minimise, restore after 1.5 s; the host fails if frames render while
   minimised) and `--input frame` (a synthetic SDL right-button drag, read by the `mouse-look` scene's camera), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (wall-clock
   and CPU frame times: average and p95 in `result.json`, plus the shadow pass's CPU/GPU milliseconds), `--no-validation`,
-  `--no-shadows` (every light's `CastsShadows` off). Scene self-check failures are reported in
+  `--no-shadows` (every light's `CastsShadows` off), `--prepass` (`RenderServer.ForceDepthPrepass`), `--jitter` (the TAA
+  projection jitter without TAA) and `--velocity-view` (`RenderDebugView.Velocity`). Scene self-check failures are reported in
   `SceneCheckFailures`; `result.json` also records the Vulkan device type (`DeviceType`), GPU allocator totals, shader-module count and the
   pipeline-cache bytes loaded. The runner points `MAINFRAME_PIPELINE_CACHE_DIR` at
   `artifacts/render-tests/pipeline-cache`.

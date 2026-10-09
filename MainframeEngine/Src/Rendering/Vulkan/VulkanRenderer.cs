@@ -171,6 +171,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         _vsync = options.VSync;
         _enableFrameCapture = options.EnableFrameCapture;
         AntiAliasing = options.AntiAliasing;
+        _glow = new GlowEffect(_autoExposure);
+        RegisterPostEffects();
         InitVulkan();
     }
 
