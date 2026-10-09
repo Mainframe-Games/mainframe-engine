@@ -4,7 +4,7 @@ using MainframeEngine;
 namespace Forest;
 
 /// <summary>
-/// The player's settings (FOV, mouse sensitivity, invert Y, pad look speed, head bob), stored as a small JSON file in the
+/// The player's settings (FOV, mouse sensitivity, invert Y, pad look speed, head bob, audio volumes), stored as a small JSON file in the
 /// game's user data folder until the engine's <c>UserSettings</c> (G4) exists. The pause menu's settings page edits it;
 /// <see cref="FirstPersonController.ApplySettings"/> applies it.
 /// </summary>
@@ -24,6 +24,9 @@ public sealed class ForestSettings
     public float GamepadLookSpeed { get; set; } = 140f;
 
     public bool HeadBob { get; set; } = true;
+
+    /// <summary>Bus volumes (linear 0–1 over the bus layout's levels); <see cref="ForestAudio.ApplySettings"/> applies them.</summary>
+    public ForestAudioSettings Audio { get; set; } = new();
 
     /// <summary><c>{user data}/settings.json</c> of the running game.</summary>
     public static string DefaultPath => GameHost.UserDataPath("settings.json");

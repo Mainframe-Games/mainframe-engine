@@ -18,7 +18,7 @@ just forest-screenshots                      # docs/images/forest (display awake
 ```
 
 or `dotnet run --project Examples/Forest/Forest.Desktop -c Release`. Game flags go after `++`: `--autowalk`,
-`--no-capture` (do not capture the mouse).
+`--no-capture` (do not capture the mouse), `--no-audio` (no procedural soundscape; `just forest-audio` renders it to WAV files).
 
 The art (CC0, from ambientCG and Poly Haven, listed in [NOTICE.md](NOTICE.md)) is in `Content/Art`, stored with Git LFS:
 run `git lfs pull` once. `just forest --scene Content/Scenes/asset_gallery.mscene ++ --view props` (or `terrain`,

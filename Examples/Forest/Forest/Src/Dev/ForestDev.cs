@@ -11,6 +11,8 @@ namespace Forest;
 /// 180-frame warm-up and quits (exit code 0 when it allocated nothing, 1 otherwise). With <c>--fixed-fps</c> the walk is
 /// the same on every run.</item>
 /// <item><c>--no-capture</c>: the controller does not capture the mouse (scripted runs, screenshots).</item>
+/// <item>Audio: when the current scene has no <see cref="ForestAudio"/>, one is attached to it (its first
+/// <see cref="River3D"/> and <see cref="FirstPersonController"/>) unless <c>--no-audio</c> is passed.</item>
 /// </list>
 /// </summary>
 public sealed class ForestDev : Node
@@ -25,6 +27,7 @@ public sealed class ForestDev : Node
     private int _collectionsBefore;
     private int _footstepsBefore;
     private float _time;
+    private bool _audioChecked;
 
     /// <summary>One leg of the walk: hold a move vector (x right, y back), turn, sprint, jump at its start.</summary>
     public readonly record struct Leg(float Seconds, Vector2 Move, float TurnDegreesPerSecond = 0, bool Sprint = false, bool Jump = false);
@@ -54,6 +57,13 @@ public sealed class ForestDev : Node
 
     protected override void OnProcess(in GameTime gameTime)
     {
+        if (!_audioChecked && Tree is { CurrentScene: { } scene })
+        {
+            _audioChecked = true;
+            if (!GameHost.UserArgs.Contains("--no-audio") && scene.FindChildren<ForestAudio>(owned: false).Count == 0)
+                ForestAudio.Attach(scene, null, null); // finds the scene's river and player when ready
+        }
+
         if (!_autoWalk || Tree is not { } tree)
             return;
         _controller ??= Find(tree.Root);

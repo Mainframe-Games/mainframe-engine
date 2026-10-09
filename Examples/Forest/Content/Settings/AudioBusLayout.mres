@@ -11,6 +11,41 @@
         "MaxVoices": 16
       }
     },
+    "AudioBusInfo_amb01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Ambience",
+        "VolumeDb": -7,
+        "MaxVoices": 10
+      }
+    },
+    "AudioBusInfo_wat01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Water",
+        "VolumeDb": -8,
+        "MaxVoices": 6
+      }
+    },
+    "AudioEffectReverb_fol01": {
+      "type": "AudioEffectReverb",
+      "props": {
+        "RoomSize": 0.3,
+        "Damp": 0.7,
+        "Wet": 0.08
+      }
+    },
+    "AudioBusInfo_fol01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Foley",
+        "VolumeDb": -7,
+        "MaxVoices": 6,
+        "Effects": [
+          { "res": "AudioEffectReverb_fol01" }
+        ]
+      }
+    },
     "AudioBusInfo_9fwoh": {
       "type": "AudioBusInfo",
       "props": {
@@ -22,7 +57,7 @@
       "type": "AudioBusInfo",
       "props": {
         "Name": "SFX",
-        "MaxVoices": 32
+        "MaxVoices": 16
       }
     },
     "AudioBusInfo_frsnf": {
@@ -30,22 +65,18 @@
       "props": {
         "Name": "UI"
       }
-    },
-    "AudioBusInfo_zy2q2": {
-      "type": "AudioBusInfo",
-      "props": {
-        "Name": "Voice"
-      }
     }
   },
   "props": {
     "ResourceName": "Bus layout",
     "Buses": [
       { "res": "AudioBusInfo_u5rb1" },
+      { "res": "AudioBusInfo_amb01" },
+      { "res": "AudioBusInfo_wat01" },
+      { "res": "AudioBusInfo_fol01" },
       { "res": "AudioBusInfo_9fwoh" },
       { "res": "AudioBusInfo_ixqmw" },
-      { "res": "AudioBusInfo_frsnf" },
-      { "res": "AudioBusInfo_zy2q2" }
+      { "res": "AudioBusInfo_frsnf" }
     ]
   }
 }

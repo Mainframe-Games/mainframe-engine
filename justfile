@@ -115,6 +115,10 @@ forest-bench *args:
 forest-test:
     dotnet test Examples/Forest/Forest.Tests
 
+# Render the Forest's procedural sounds to Examples/Forest/artifacts/audio/*.wav (to listen to) and check their levels
+forest-audio:
+    dotnet test Examples/Forest/Forest.Tests --filter "FullyQualifiedName~ForestAudioRenderTests"
+
 # Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
 template-smoke frames="30":
     build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}
