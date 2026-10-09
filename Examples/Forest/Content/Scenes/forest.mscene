@@ -1,0 +1,812 @@
+{
+  "format": 2,
+  "uid": "scn_5030bd74b9d6",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky",
+      "props": {
+        "SunDirection": [-0.45198438, 0.6156615, 0.6455007]
+      }
+    },
+    "BoxShape3D_ibjj1": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [144, 1, 256]
+      }
+    },
+    "StandardMaterial3D_e8e3k": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.32941177, 0.40784314, 0.22745098, 1],
+        "Shininess": 6
+      }
+    },
+    "BoxMesh_klhf0": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [144, 1, 256]
+      }
+    },
+    "BoxShape3D_46b73": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [106, 1, 256]
+      }
+    },
+    "BoxMesh_wx85e": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [106, 1, 256]
+      }
+    },
+    "BoxShape3D_3m7az": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [6, 1, 88]
+      }
+    },
+    "BoxMesh_vv0qu": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [6, 1, 88]
+      }
+    },
+    "BoxShape3D_ywsct": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [6, 1, 88]
+      }
+    },
+    "BoxMesh_l0a58": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [6, 1, 88]
+      }
+    },
+    "BoxShape3D_7emm0": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [6, 1, 80]
+      }
+    },
+    "StandardMaterial3D_dbr25": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.36078432, 0.3137255, 0.24313726, 1],
+        "Shininess": 6
+      }
+    },
+    "BoxMesh_1vqsx": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [6, 1, 80]
+      }
+    },
+    "BoxShape3D_1gi3h": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [6, 0.4, 6.1188235]
+      }
+    },
+    "BoxMesh_3qfzg": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [6, 0.4, 6.1188235]
+      }
+    },
+    "BoxShape3D_ztqqz": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [6, 0.4, 6.1188235]
+      }
+    },
+    "BoxMesh_hzygm": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [6, 0.4, 6.1188235]
+      }
+    },
+    "Curve3D_wrszw": {
+      "type": "Curve3D",
+      "props": {
+        "ResourceName": "Test stream",
+        "BakeInterval": 0.25,
+        "Points": [
+          19,
+          -0.15,
+          33,
+          0,
+          0,
+          0,
+          0,
+          -0.05,
+          -22,
+          0,
+          6,
+          1.0500001,
+          19,
+          -0.3,
+          -33,
+          -0,
+          0.05,
+          22,
+          0,
+          0,
+          0,
+          0,
+          6,
+          0.90000004
+        ]
+      }
+    },
+    "BoxShape3D_i14hm": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.8, 0.8, 0.8]
+      }
+    },
+    "StandardMaterial3D_8zseb": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.47843137, 0.3372549, 0.20392157, 1],
+        "Shininess": 10
+      }
+    },
+    "BoxMesh_7dmj3": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.8, 0.8, 0.8]
+      }
+    },
+    "BoxShape3D_ibvhj": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.8, 0.8, 0.8]
+      }
+    },
+    "BoxMesh_wge56": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.8, 0.8, 0.8]
+      }
+    },
+    "BoxShape3D_t3rwo": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.8, 0.8, 0.8]
+      }
+    },
+    "BoxMesh_p0rpd": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.8, 0.8, 0.8]
+      }
+    },
+    "BoxShape3D_kkmxv": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [4, 0.4, 6]
+      }
+    },
+    "StandardMaterial3D_r3i0a": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.5019608, 0.5019608, 0.47843137, 1],
+        "Shininess": 12
+      }
+    },
+    "BoxMesh_phmzy": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [4, 0.4, 6]
+      }
+    },
+    "BoxShape3D_rzip1": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [4, 0.4, 6]
+      }
+    },
+    "BoxMesh_voik4": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [4, 0.4, 6]
+      }
+    },
+    "BoxShape3D_niaiv": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [4, 0.4, 6]
+      }
+    },
+    "BoxMesh_td3y2": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [4, 0.4, 6]
+      }
+    },
+    "BoxShape3D_h8ahd": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.3, 1.5, 0.3]
+      }
+    },
+    "BoxMesh_bgmfs": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.3, 1.5, 0.3]
+      }
+    },
+    "BoxShape3D_csfn7": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.3, 1.5, 0.3]
+      }
+    },
+    "BoxMesh_gg41q": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.3, 1.5, 0.3]
+      }
+    },
+    "BoxShape3D_fdcs3": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [3.3, 0.2, 1.2]
+      }
+    },
+    "BoxMesh_ly6gu": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [3.3, 0.2, 1.2]
+      }
+    },
+    "BoxShape3D_4yvgr": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [2.2, 1.2, 1.8]
+      }
+    },
+    "BoxMesh_07nme": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [2.2, 1.2, 1.8]
+      }
+    },
+    "CapsuleShape3D_ak3q9": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.75
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "forest",
+      "type": "Node3D"
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-38, -35, 0],
+        "Color": [1, 0.94, 0.84],
+        "Energy": 1.7,
+        "ShadowCascades": 3
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "props": {
+        "Sky": { "res": "Sky_5kj71" },
+        "AmbientColor": [0.22, 0.26, 0.3]
+      }
+    },
+    {
+      "name": "Ground",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "West",
+      "parent": "Ground",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [-56, -0.5, 0],
+        "Surface": "moss"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground/West",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_ibjj1" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Ground/West",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_e8e3k" },
+        "Mesh": { "res": "BoxMesh_klhf0" }
+      }
+    },
+    {
+      "name": "East",
+      "parent": "Ground",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [75, -0.5, 0],
+        "Surface": "moss"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground/East",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_46b73" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Ground/East",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_e8e3k" },
+        "Mesh": { "res": "BoxMesh_wx85e" }
+      }
+    },
+    {
+      "name": "North",
+      "parent": "Ground",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [19, -0.5, -84],
+        "Surface": "moss"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground/North",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_3m7az" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Ground/North",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_e8e3k" },
+        "Mesh": { "res": "BoxMesh_vv0qu" }
+      }
+    },
+    {
+      "name": "South",
+      "parent": "Ground",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [19, -0.5, 84],
+        "Surface": "moss"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground/South",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_ywsct" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Ground/South",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_e8e3k" },
+        "Mesh": { "res": "BoxMesh_l0a58" }
+      }
+    },
+    {
+      "name": "TrenchFloor",
+      "parent": "Ground",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [19, -1.7, 0],
+        "Surface": "gravel"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground/TrenchFloor",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_7emm0" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Ground/TrenchFloor",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_dbr25" },
+        "Mesh": { "res": "BoxMesh_1vqsx" }
+      }
+    },
+    {
+      "name": "RampSouth",
+      "parent": "Ground",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [19, -0.7961162, 37.039223],
+        "RotationDegrees": [-11.309932, 0, 0],
+        "Surface": "gravel"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground/RampSouth",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_1gi3h" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Ground/RampSouth",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_dbr25" },
+        "Mesh": { "res": "BoxMesh_3qfzg" }
+      }
+    },
+    {
+      "name": "RampNorth",
+      "parent": "Ground",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [19, -0.7961162, -37.039223],
+        "RotationDegrees": [11.309932, 0, 0],
+        "Surface": "gravel"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground/RampNorth",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_ztqqz" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Ground/RampNorth",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_dbr25" },
+        "Mesh": { "res": "BoxMesh_hzygm" }
+      }
+    },
+    {
+      "name": "Stream",
+      "parent": ".",
+      "type": "River3D",
+      "props": {
+        "Curve": { "res": "Curve3D_wrszw" }
+      }
+    },
+    {
+      "name": "Course",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Crate1",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [2, 0.4, -4],
+        "Surface": "wood"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/Crate1",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_i14hm" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/Crate1",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_8zseb" },
+        "Mesh": { "res": "BoxMesh_7dmj3" }
+      }
+    },
+    {
+      "name": "Crate2",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [3.1, 0.4, -4.3],
+        "RotationDegrees": [0, 20, 0],
+        "Surface": "wood"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/Crate2",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_ibvhj" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/Crate2",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_8zseb" },
+        "Mesh": { "res": "BoxMesh_wge56" }
+      }
+    },
+    {
+      "name": "Crate3",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [2.5, 1.2, -4.1],
+        "RotationDegrees": [0, 8, 0],
+        "Surface": "wood"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/Crate3",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_t3rwo" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/Crate3",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_8zseb" },
+        "Mesh": { "res": "BoxMesh_p0rpd" }
+      }
+    },
+    {
+      "name": "Slope15",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [-4, 0.583272, -12.949541],
+        "RotationDegrees": [15, 0, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/Slope15",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_kkmxv" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/Slope15",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_r3i0a" },
+        "Mesh": { "res": "BoxMesh_phmzy" }
+      }
+    },
+    {
+      "name": "Slope35",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [0, 1.5568992, -12.572172],
+        "RotationDegrees": [35, 0, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/Slope35",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_rzip1" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/Slope35",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_r3i0a" },
+        "Mesh": { "res": "BoxMesh_voik4" }
+      }
+    },
+    {
+      "name": "Slope55",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [4, 2.3427408, -11.884561],
+        "RotationDegrees": [55, 0, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/Slope55",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_niaiv" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/Slope55",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_r3i0a" },
+        "Mesh": { "res": "BoxMesh_td3y2" }
+      }
+    },
+    {
+      "name": "BeamPostL",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [8, 0.75, -4],
+        "Surface": "wood"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/BeamPostL",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_h8ahd" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/BeamPostL",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_8zseb" },
+        "Mesh": { "res": "BoxMesh_bgmfs" }
+      }
+    },
+    {
+      "name": "BeamPostR",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [11, 0.75, -4],
+        "Surface": "wood"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/BeamPostR",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_csfn7" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/BeamPostR",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_8zseb" },
+        "Mesh": { "res": "BoxMesh_gg41q" }
+      }
+    },
+    {
+      "name": "Beam",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [9.5, 1.4, -4],
+        "Surface": "wood"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/Beam",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_fdcs3" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/Beam",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_8zseb" },
+        "Mesh": { "res": "BoxMesh_ly6gu" }
+      }
+    },
+    {
+      "name": "Boulder",
+      "parent": "Course",
+      "type": "SurfaceBody3D",
+      "props": {
+        "Position": [12.5, 0.6, 2],
+        "RotationDegrees": [0, 30, 6]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Course/Boulder",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_4yvgr" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Course/Boulder",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_r3i0a" },
+        "Mesh": { "res": "BoxMesh_07nme" }
+      }
+    },
+    {
+      "name": "Player",
+      "parent": ".",
+      "type": "FirstPersonController",
+      "props": {
+        "Position": [6, 0, 8],
+        "FloorSnapLength": 0.3
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Player",
+      "type": "CollisionShape3D",
+      "props": {
+        "Position": [0, 0.875, 0],
+        "Shape": { "res": "CapsuleShape3D_ak3q9" }
+      }
+    },
+    {
+      "name": "Head",
+      "parent": "Player",
+      "type": "Node3D",
+      "props": {
+        "Position": [0, 1.63, 0],
+        "RotationDegrees": [0, -60, 0]
+      }
+    },
+    {
+      "name": "Camera",
+      "parent": "Player/Head",
+      "type": "Camera3D",
+      "props": {
+        "Current": true,
+        "Fov": 58.71551,
+        "Near": 0.05,
+        "Far": 2000
+      }
+    }
+  ]
+}

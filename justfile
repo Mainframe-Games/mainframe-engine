@@ -99,6 +99,22 @@ demo-screenshots frames="240":
 # Capture the Demo scenes (alias of demo-screenshots)
 qa frames="240": (demo-screenshots frames)
 
+# The Forest example, a first-person walk, in Release (game flags after ++: --autowalk checks 0 B per frame, --no-capture)
+forest *args:
+    dotnet run --project Examples/Forest/Forest.Desktop -c Release -- {{args}}
+
+# Screenshots of the Forest into docs/images/forest; display awake (caffeinate -u)
+forest-screenshots frames="300":
+    build/forest-screenshots.sh {{frames}}
+
+# Forest benchmark: fly the benchmark spline and compare with this machine's baseline (quiet machine only)
+forest-bench *args:
+    @echo "forest-bench: not yet (G8d.15 brings the benchmark spline, GpuFrameTimers and the baseline)"
+
+# Forest unit tests: the controller, the project file and the scene contract (no GPU, no LFS content)
+forest-test:
+    dotnet test Examples/Forest/Forest.Tests
+
 # Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
 template-smoke frames="30":
     build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}

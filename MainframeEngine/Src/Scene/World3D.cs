@@ -25,6 +25,9 @@ public sealed class World3D
     /// <summary>The physics space simulating this world, created by the <see cref="PhysicsServer3D"/> for its first body.</summary>
     public PhysicsSpace3D? PhysicsSpace { get; internal set; }
 
+    /// <summary>Water queries over this world's water bodies (<see cref="River3D"/>, …): depth, surface height, flow.</summary>
+    public WaterQueries Water { get; } = new();
+
     /// <summary>Lights registered by light nodes, packed into the lights UBO by the renderer.</summary>
     public LightEnvironment Lights { get; } = new();
 

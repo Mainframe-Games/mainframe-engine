@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Forest/Forest.csproj" />
+  <Project Path="Forest.Desktop/Forest.Desktop.csproj" />
+  <Project Path="Forest.Tests/Forest.Tests.csproj" />
+</Solution>
