@@ -327,6 +327,10 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
   1920 × 1080 against `Examples/Forest/benchmark-baseline.json`.
 - `--shot`, `--view`, `--set`: [above](#reference-shots); `--resolution WxH` resizes the window to W × H pixels.
 - `--no-capture` leaves the mouse free; `--no-audio` skips the audio `ForestDev` would attach to a scene without one.
+- **Frame rate:** `ForestDev` adds `FpsHud` (`Src/Dev/FpsHud.cs`, `Content/UI/fps.rml`) on its own `UiLayer` (100) in normal
+  play: FPS, the average frame time and the slowest frame of the last half second, top right; F3 toggles it. Screenshot,
+  benchmark and autowalk runs leave it out (clean captures, allocation windows), and so does `--no-fps`. The values are
+  published as numbers twice a second (RmlUi formats them), so it allocates nothing per frame.
 
 The controller has two fixes for the terrain: on 0.5 m triangles it lost the floor on 46 % of frames (walking up one
 triangle's plane leaves it above the next, flatter one, and `MoveAndSlide` does not snap a body moving up), so a ray
