@@ -19,7 +19,8 @@ case "$rid" in
     app="$staging/$app_name"
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
     cp -R "$publish_dir"/. "$app/Contents/MacOS/"
-    sed -e "s/@VERSION@/${version}/g" -e "s/@BUNDLE_ID_SUFFIX@//g" "$(dirname "$0")/macos/Info.plist.in" > "$app/Contents/Info.plist"
+    sed -e "s/@NAME@/Mainframe Engine/g" -e "s/@BUNDLE_ID@/com.mainframegames.editor/g" -e "s/@EXECUTABLE@/MainframeEngine.Editor/g" \
+      -e "s/@ICON_FILE@/logo.icns/g" -e "s/@VERSION@/${version}/g" "$(dirname "$0")/macos/Info.plist.in" > "$app/Contents/Info.plist"
     cp "$(dirname "$0")/../docs/images/brand/logo.icns" "$app/Contents/Resources/logo.icns"
     chmod +x "$app/Contents/MacOS/MainframeEngine.Editor"
     # The music editor's plugin helper (MainframeEngine.Editor/runtimes/<rid>/native; absent before natives.yml built it).

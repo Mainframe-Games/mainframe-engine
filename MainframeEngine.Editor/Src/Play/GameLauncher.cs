@@ -81,7 +81,9 @@ public sealed class ProcessGameLauncher(string? dotnetPath) : IGameLauncher
     /// <summary>
     /// The launcher program a build of <paramref name="launcherProjectFile"/> (a <c>.csproj</c> or its folder) produced:
     /// the newest <c>bin/&lt;cfg&gt;/&lt;tfm&gt;/&lt;AssemblyName&gt;</c> apphost (<c>.exe</c> on Windows) when it exists, else
-    /// its <c>.dll</c>; null when there is no build output (or the project cannot be identified).
+    /// its <c>.dll</c>; null when there is no build output (or the project cannot be identified). On macOS the apphost's
+    /// development bundle (<c>&lt;name&gt;.app/Contents/MacOS/&lt;AssemblyName&gt;</c>, ADR 0182) comes first, so the
+    /// played game shows its name and icon in the Dock.
     /// </summary>
     public static string? FindLauncherProgram(string launcherProjectFile, string configuration = "Debug")
     {
@@ -102,7 +104,50 @@ public sealed class ProcessGameLauncher(string? dotnetPath) : IGameLauncher
         if (dll is null)
             return null;
         var apphost = Path.ChangeExtension(dll, OperatingSystem.IsWindows() ? ".exe" : null);
-        return File.Exists(apphost) ? apphost : dll;
+        if (!File.Exists(apphost))
+            return dll;
+        return OperatingSystem.IsMacOS() ? FindDevAppBundleProgram(apphost) ?? apphost : apphost;
+    }
+
+    /// <summary>
+    /// The folder a game launched from <paramref name="program"/> runs in: the build output, also for a program inside its
+    /// development bundle (<c>bin/…/&lt;name&gt;.app/Contents/MacOS/x</c> → <c>bin/…</c>).
+    /// </summary>
+    public static string WorkingDirectoryOf(string program)
+    {
+        var directory = Path.GetDirectoryName(program)!;
+        var contents = Path.GetDirectoryName(directory);
+        var app = contents is null ? null : Path.GetDirectoryName(contents);
+        return Path.GetFileName(directory) == "MacOS" && Path.GetFileName(contents) == "Contents"
+            && app is not null && app.EndsWith(".app", StringComparison.OrdinalIgnoreCase)
+            ? Path.GetDirectoryName(app)!
+            : directory;
+    }
+
+    // The newest <name>.app next to the apphost whose Contents/MacOS holds it (a renamed game leaves its old bundle behind).
+    private static string? FindDevAppBundleProgram(string apphost)
+    {
+        string? best = null;
+        var bestTime = DateTime.MinValue;
+        try
+        {
+            foreach (var app in Directory.EnumerateDirectories(Path.GetDirectoryName(apphost)!, "*.app"))
+            {
+                var program = Path.Combine(app, "Contents", "MacOS", Path.GetFileName(apphost));
+                var plist = Path.Combine(app, "Contents", "Info.plist");
+                if (!File.Exists(program) || !File.Exists(plist))
+                    continue;
+                var time = File.GetLastWriteTimeUtc(plist);
+                if (best is null || time > bestTime)
+                    (best, bestTime) = (program, time);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        return best;
     }
 }
 

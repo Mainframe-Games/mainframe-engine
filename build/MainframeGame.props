@@ -8,6 +8,13 @@
     reads at run time to pick the Steam demo app id. A build overrides the project file with -p:MainframeDemo=true|false,
     e.g. `dotnet publish MyGame.Desktop -c Release -p:MainframeDemo=true` for the demo next to the full game.
 
+    App name and icon (ADR 0182): project.mfproj "name" is the player-facing app name and "window.icon" its icon, here as
+    in build/package-game.sh. On macOS every game executable is launched from a development bundle named after the game
+    (bin/<cfg>/<tfm>/<name>.app, build/macos/DevAppBundle.targets), so the Dock, the app menu and Cmd+Tab show the name
+    and the icon instead of "MyGame.Desktop". The executable's AssemblyTitle (the Windows file description) and every game
+    assembly's Product are the name too. A project overrides any of it with MacAppDisplayName, MacAppIcon (an .icns or a
+    PNG), MacAppBundleId, AssemblyTitle or Product; ApplicationIcon (a Windows .ico) stays the desktop project's choice.
+
     MainframeProjectFile defaults to the nearest project.mfproj above the importing project.
   -->
   <PropertyGroup>
@@ -17,6 +24,19 @@
     <MainframeDemo Condition="'$(MainframeDemo)' == '' and '$(MainframeProjectFile)' != '' and Exists('$(MainframeProjectFile)') and $([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?m)^\s*&quot;isDemo&quot;\s*:\s*true\b'))">true</MainframeDemo>
     <MainframeDemo Condition="'$(MainframeDemo)' != 'true'">false</MainframeDemo>
     <DefineConstants Condition="'$(MainframeDemo)' == 'true'">$(DefineConstants);DEMO</DefineConstants>
+  </PropertyGroup>
+
+  <!-- The first "name", "icon" and "version" strings in the file: the top-level name and version (written before every
+       section) and window.icon (the only "icon" key). JSON escapes are not decoded. The file is read per use, like isDemo
+       above: a value in a property would need quoting in property functions, which a name with an apostrophe breaks. -->
+  <PropertyGroup Condition="'$(MainframeProjectFile)' != '' and Exists('$(MainframeProjectFile)')">
+    <MainframeAppName Condition="'$(MainframeAppName)' == '' and $([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;name&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;name&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</MainframeAppName>
+    <_MainframeAppIcon Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;icon&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;icon&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppIcon>
+    <_MainframeAppVersion Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;version&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;version&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppVersion>
+    <MacAppDisplayName Condition="'$(MacAppDisplayName)' == ''">$(MainframeAppName)</MacAppDisplayName>
+    <MacAppIcon Condition="'$(MacAppIcon)' == '' and '$(_MainframeAppIcon)' != ''">$([System.IO.Path]::GetDirectoryName('$(MainframeProjectFile)'))/$(_MainframeAppIcon)</MacAppIcon>
+    <MacAppVersion Condition="'$(MacAppVersion)' == ''">$(_MainframeAppVersion)</MacAppVersion>
+    <Product Condition="'$(Product)' == ''">$(MainframeAppName)</Product>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -32,4 +52,15 @@
       <_Parameter2>$(MainframeDemo)</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
+
+  <!-- The executable's file description (AssemblyTitle, the SDK default being the assembly name) is the app name. -->
+  <Target Name="_MainframeAppAssemblyTitle" BeforeTargets="GetAssemblyAttributes"
+          Condition="'$(MainframeAppName)' != '' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true' and '$(AssemblyTitle)' == '$(AssemblyName)'">
+    <PropertyGroup>
+      <AssemblyTitle>$(MainframeAppName)</AssemblyTitle>
+    </PropertyGroup>
+  </Target>
+
+  <!-- macOS: <name>.app around the game executable (targets and conditions evaluated when the build runs). -->
+  <Import Project="macos/DevAppBundle.targets" />
 </Project>

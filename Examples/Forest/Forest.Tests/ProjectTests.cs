@@ -13,10 +13,43 @@ public sealed class ProjectTests
     public void ProjectFileNamesTheForestScene()
     {
         var settings = Load();
-        Assert.Equal("Mainframe Forest", settings.Name);
+        Assert.Equal("Forest Demo", settings.Name);
         Assert.Equal(ForestScene.Path, settings.MainScene);
         Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, settings.MainScene!)));
         Assert.Equal((1920, 1080), (settings.Window.Width, settings.Window.Height));
+    }
+
+    /// <summary>
+    /// ADR 0182: the player-facing name is the project name (window title, macOS bundle "Forest Demo.app", Windows file
+    /// description), and the icons exist where project.mfproj and Forest.Desktop.csproj point.
+    /// </summary>
+    [Fact]
+    public void AppIsForestDemoWithItsIcons()
+    {
+        var settings = Load();
+        Assert.Null(settings.Window.Title); // the title falls back to the name
+        Assert.Equal("Forest Demo", settings.ToEngineOptions().GameName);
+        Assert.Equal("Content/Brand/icon.png", settings.Window.Icon);
+        Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, settings.Window.Icon!)));
+
+        var desktop = File.ReadAllText(Path.Combine(ForestRoot, "Forest.Desktop", "Forest.Desktop.csproj"));
+        var icns = Property(desktop, "MacAppIcon");
+        var ico = Property(desktop, "ApplicationIcon");
+        Assert.Equal("../Brand/forest.icns", icns);
+        Assert.Equal("../Brand/forest.ico", ico);
+        var icnsBytes = File.ReadAllBytes(Path.Combine(ForestRoot, "Forest.Desktop", icns));
+        Assert.Equal("icns"u8.ToArray(), icnsBytes[..4]);
+        Assert.True(File.Exists(Path.Combine(ForestRoot, "Forest.Desktop", ico)));
+        foreach (var svg in new[] { "icon.svg", "icon-small.svg", "icon-macos.svg" })
+            Assert.True(File.Exists(Path.Combine(ForestRoot, "Brand", svg)), svg);
+
+        static string Property(string csproj, string name)
+        {
+            var start = csproj.IndexOf($"<{name}>", StringComparison.Ordinal);
+            Assert.True(start >= 0, $"{name} is not set in Forest.Desktop.csproj");
+            start += name.Length + 2;
+            return csproj[start..csproj.IndexOf($"</{name}>", start, StringComparison.Ordinal)];
+        }
     }
 
     [Theory]

@@ -31,6 +31,22 @@ for required in SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Content/Scene
   fi
 done
 
+# macOS: the development app bundle named after the game, with the icon from window.icon (ADR 0182).
+if [ "$(uname -s)" = "Darwin" ]; then
+  app="$out/SmokeGame.app/Contents"
+  plist_value() { /usr/libexec/PlistBuddy -c "Print :$1" "$app/Info.plist"; }
+  if [ "$(plist_value CFBundleName)" != "SmokeGame" ] || [ "$(plist_value CFBundleExecutable)" != "SmokeGame.Desktop" ] ||
+     [ "$(plist_value CFBundleIdentifier)" != "com.mainframegames.smokegame.dev" ] || [ "$(plist_value CFBundleIconFile)" != "icon.icns" ]; then
+    echo "template-smoke: unexpected $app/Info.plist:" >&2
+    cat "$app/Info.plist" >&2
+    exit 1
+  fi
+  if [ ! -s "$app/Resources/icon.icns" ] || [ ! -x "$app/MacOS/SmokeGame.Desktop" ]; then
+    echo "template-smoke: $out/SmokeGame.app is missing its icon or executable" >&2
+    exit 1
+  fi
+fi
+
 if [ "${SKIP_RUN:-0}" = "1" ]; then
   echo "template-smoke: built (run skipped)"
   exit 0

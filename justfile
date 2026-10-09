@@ -111,7 +111,12 @@ forest-screenshots frames="300":
 forest-bench *args:
     build/forest-bench.sh {{args}}
 
-# Forest unit tests: the controller, the project file and the scene contract (no GPU, no LFS content)
+# Regenerate the Forest's app icon from Examples/Forest/Brand/*.svg: PNGs, forest.ico, forest.icns and the window icon Content/Brand/icon.png (needs inkscape; .icns needs macOS)
+forest-brand:
+    build/brand/app-icon.sh Examples/Forest/Brand forest
+    mkdir -p Examples/Forest/Content/Brand && cp Examples/Forest/Brand/png/icon-256.png Examples/Forest/Content/Brand/icon.png
+
+# Forest unit tests:the controller, the project file and the scene contract (no GPU, no LFS content)
 forest-test:
     dotnet test Examples/Forest/Forest.Tests
 

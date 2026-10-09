@@ -1,12 +1,11 @@
 {
   "format": 3,
-  "name": "Mainframe Forest",
+  "name": "Forest Demo",
   "engineVersion": "0.0.0-dev",
   "mainScene": "Content/Scenes/forest.mscene",
   "assemblies": ["Forest"],
   "window": {
-    "title": "Mainframe Engine — Forest",
-    "width": 1920, "height": 1080, "vsync": true, "contentScale": 1
+    "width": 1920, "height": 1080, "vsync": true, "contentScale": 1, "icon": "Content/Brand/icon.png"
   },
   "physics": { "ticksPerSecond": 60, "maxStepsPerFrame": 5, "3d": { "gravity": [0, -9.81, 0] } },
   "input": {

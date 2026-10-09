@@ -84,7 +84,13 @@
     </Target>
 
     <!-- macOS: builds bin/<cfg>/net10.0/Mainframe Engine.app and makes `dotnet run` start the editor from inside it, so
-         the Dock and menu bar say "Mainframe Engine" instead of the executable name (ADR 0096). -->
+         the Dock and menu bar say "Mainframe Engine" instead of the executable name (ADR 0096). build/package-editor.sh
+         writes the same values into the release bundle. -->
+    <PropertyGroup>
+        <MacAppDisplayName>Mainframe Engine</MacAppDisplayName>
+        <MacAppBundleId>com.mainframegames.editor</MacAppBundleId>
+        <MacAppIcon>../docs/images/brand/logo.icns</MacAppIcon>
+    </PropertyGroup>
     <Import Project="..\build\macos\DevAppBundle.targets" />
 
 </Project>

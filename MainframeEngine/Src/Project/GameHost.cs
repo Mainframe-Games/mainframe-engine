@@ -24,8 +24,8 @@ public class GameHost : Engine
     /// <param name="options">Command-line options.</param>
     /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Content/</c> UI (<see cref="CreateUiOptions"/>).</param>
     public GameHost(ProjectSettings settings, GameHostOptions? options, IReadOnlyList<Assembly> gameAssemblies)
-        : base(WithUi(WithSteam((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()),
-            settings, options), CreateUiOptions(settings, gameAssemblies)))
+        : base(WithUi(WithAppIcon(WithSteam((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()),
+            settings, options)), CreateUiOptions(settings, gameAssemblies)))
     {
         Settings = settings;
         Project = settings;
@@ -58,6 +58,15 @@ public class GameHost : Engine
     private static EngineOptions WithUi(EngineOptions options, UiServerOptions ui)
     {
         options.Ui ??= ui;
+        return options;
+    }
+
+    private static EngineOptions WithAppIcon(EngineOptions options)
+    {
+        // macOS has no per-window icons: SDL's window icon replaces the Dock icon, which a bundled game already has from its
+        // .icns (Apple's icon grid; window.icon is full-bleed for Windows and Linux). Unbundled runs still get window.icon.
+        if (MacAppBundle.HasIcon)
+            options.IconPath = null;
         return options;
     }
 
