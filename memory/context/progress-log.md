@@ -53,8 +53,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
           154 Forest, 165 render, lavapipe taau/fsr1 goldens. Forest ships Taau 0.75 (`++ --scale 1` = native): 1080p p50
           16.9 vs 20.9 ms native; 2560×1308 21.0 vs 28.0 ms. Below spec's 1.5 dB TAAU-vs-native (thin lines 29.9 vs 33.1 dB).
           The G8e target (p50 ≤ 14 ms at 1440p) is not met on a base M5.
-        - **Running:** `forest/art` (G8e.7 art pass, ADR 0175) and `forest/edfix` (inspector resource-name squeeze + editor
-          post-preview fps). After both: full gates, push, PR (Auto-fix on), milestones G8 → 🚧, tell Brogan to play.
+        - **2026-10-09: editor fixes merged** (forest/edfix, f2e5ba3e): resource rows wrap so the name shows (tooltip = path);
+          `EditorSettings.ViewResolution` Auto renders the 3D view one pixel per point (Forest preview 30 → 61–69 fps at 2×).
+          cba5c2c2: `.probes` files get no `.meta`. Follow-up idea: an editor depth prepass when post preview is off.
+        - **Running:** `forest/art` (G8e.7 art pass, ADR 0175). After both: full gates, push, PR (Auto-fix on), milestones G8 → 🚧, tell Brogan to play.
         - **Paused at the usage limit (tip 041d3544).**
           - Merged: G8e.3 volumetric fog (0171), the pipeline-cache stall fix (0176), G8e.6 water (0173), and the
             Slang 41012 warning fix. Gates are green: 1948 engine, 774 editor, 153 Forest, 147 render.

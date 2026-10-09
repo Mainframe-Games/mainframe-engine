@@ -128,10 +128,12 @@ public sealed class AssetDatabase
 
     /// <summary>
     /// Files generated next to an asset that are part of it, not assets of their own: a canvas shader's SPIR-V and lock
-    /// (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, <c>x.gdshader.spvlock</c>, see <see cref="CanvasShaderBuild"/>).
+    /// (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, <c>x.gdshader.spvlock</c>, see <see cref="CanvasShaderBuild"/>) and a
+    /// light-probe bake's coefficients (<c>x.probes</c>, the data file of <c>x.mres</c>, see <see cref="LightProbeData"/>).
     /// </summary>
     public static bool IsBuildOutput(string fileName) =>
-        fileName.EndsWith(".gdshader.vert.spv", StringComparison.OrdinalIgnoreCase)
+        fileName.EndsWith(".probes", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".gdshader.vert.spv", StringComparison.OrdinalIgnoreCase)
         || fileName.EndsWith(".gdshader.frag.spv", StringComparison.OrdinalIgnoreCase)
         || fileName.EndsWith(".gdshader" + CanvasShaderBuild.LockExtension, StringComparison.OrdinalIgnoreCase);
 
