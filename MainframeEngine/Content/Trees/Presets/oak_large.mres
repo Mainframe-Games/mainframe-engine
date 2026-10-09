@@ -1,0 +1,79 @@
+{
+  "format": 2,
+  "uid": "res_a3244e939290",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 9,
+        "Gnarliness": -0.04,
+        "Length": 47.7,
+        "Radius": 3,
+        "Sections": 16,
+        "Segments": 12,
+        "Taper": 0.73,
+        "Twist": -0.23
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 54,
+        "Children": 5,
+        "Gnarliness": 0.16,
+        "Length": 29.39,
+        "Radius": 0.69,
+        "Sections": 9,
+        "Segments": 5,
+        "Start": 0.35,
+        "Taper": 0.42,
+        "Twist": 0.42
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 43,
+        "Children": 3,
+        "Gnarliness": -0.06,
+        "Length": 17.62,
+        "Radius": 0.69,
+        "Sections": 8,
+        "Segments": 3,
+        "Start": 0.1,
+        "Taper": 0.69
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 32,
+        "Gnarliness": 0.09,
+        "Length": 7.16,
+        "Radius": 1.19,
+        "Sections": 3,
+        "Segments": 3,
+        "Taper": 0.75
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Oak Large",
+    "Seed": 23399,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0.02,
+    "BarkTint": [1, 0.9529412, 0.81960785, 1],
+    "BarkTextureScale": [1, 10],
+    "LeafAngle": 36,
+    "LeafCount": 10,
+    "LeafStart": 0.16,
+    "LeafSize": 4.5,
+    "LeafTint": [0.8352941, 0.8352941, 0.8039216, 1]
+  }
+}

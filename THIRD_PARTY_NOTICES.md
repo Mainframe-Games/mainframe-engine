@@ -33,6 +33,9 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [VST 3 SDK](https://github.com/steinbergmedia/vst3sdk) (base, pluginterfaces, public.sdk hosting; no VSTGUI) | 3.8.1 | MIT | `Native/PluginHost/external/vst3sdk` (submodule) | editor only: `mfplughost` helper executable (static) |
 | [RtMidi](https://github.com/thestk/rtmidi) (Gary P. Scavone) | 6.0.0 | MIT (with a non-binding request to send modifications upstream) | `Native/PluginHost/external/rtmidi` (submodule) | editor only: `mfplughost` helper executable (static; CoreMIDI / WinMM / ALSA) |
 | [ZzFX](https://github.com/KilledByAPixel/ZzFX) (Frank Force; `buildSamples` ported to C#) | 1.4.0 | MIT | `MainframeEngine/Src/Audio/Synthesis/Zzfx.cs`; `build/zzfx-reference.mjs` (vendored JavaScript, reference vectors) | engine |
+| [Ez Tree](https://github.com/dgreenheck/ez-tree) (Daniel Greenheck; the tree generator `tree.js` and `rng.js` ported to C#, the 15 tree and bush presets, the leaf textures) | 1.1.0 (`dcf309b`) | MIT | `MainframeEngine/Src/Trees/Generation/`; `MainframeEngine/Content/Trees/Presets` (converted to `.mres`), `MainframeEngine/Content/Trees/Leaves`; `build/ez-tree-reference.mjs` (runs Ez Tree for the parity fixture) | engine; engine `Content/Trees` |
+| [three.js](https://threejs.org) (the `Vector3`, `Quaternion` and `Euler` math Ez Tree calls, ported to C# in doubles) | 0.167.1 | MIT | `MainframeEngine/Src/Trees/Generation/ThreeMath.cs` | engine |
+| [ambientCG](https://ambientcg.com) bark textures `Bark001`–`Bark003` (1K JPG: colour, OpenGL normal, roughness; the sets Ez Tree's presets use) | — | CC0 1.0 | `MainframeEngine/Content/Trees/Bark` | engine `Content/Trees/Bark` |
 | [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
 | Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
 | [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
@@ -610,6 +613,76 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Ez Tree
+
+`MainframeEngine/Src/Trees/Generation/` ports Ez Tree's generator (`src/lib/tree.js`, `rng.js`) from Ez Tree 1.1.0
+(commit `dcf309bd86bd521083d9c70f01f2de45fdc7c457`). The tree and bush presets in `MainframeEngine/Content/Trees/Presets`
+are its `src/lib/presets/*.json` converted to `.mres`, and the leaf textures in `MainframeEngine/Content/Trees/Leaves`
+(`ash`, `aspen`, `oak`, `pine`) are its demo app's `src/app/public/textures/leaves`. The leaf textures are under this
+MIT licence, not CC0: keep this notice wherever they are copied (also `MainframeEngine/Content/Trees/LICENSE.md`).
+
+```text
+MIT License
+
+Copyright (c) 2024 Daniel Greenheck
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## three.js
+
+`MainframeEngine/Src/Trees/Generation/ThreeMath.cs` ports the three.js 0.167.1 math that Ez Tree's generator calls
+(`Vector3`, `Quaternion`, `Euler` and `Matrix4.compose`), so the port computes what three.js computes:
+
+```text
+The MIT License
+
+Copyright © 2010-2024 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+## ambientCG bark textures
+
+The bark texture sets in `MainframeEngine/Content/Trees/Bark` (`Bark001_1K-JPG`, `Bark002_1K-JPG`, `Bark003_1K-JPG`:
+`_Color`, `_NormalGL`, `_Roughness`) come from [ambientCG](https://ambientcg.com), by way of Ez Tree's demo app. They are
+released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication): no
+attribution is required, and it is given here as a courtesy:
+[Bark001](https://ambientcg.com/view?id=Bark001), [Bark002](https://ambientcg.com/view?id=Bark002),
+[Bark003](https://ambientcg.com/view?id=Bark003).
 
 ## Tabler Icons
 

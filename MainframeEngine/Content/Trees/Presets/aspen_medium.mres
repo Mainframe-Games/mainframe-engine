@@ -1,0 +1,77 @@
+{
+  "format": 2,
+  "uid": "res_ac1ad5a86c6c",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 10,
+        "Gnarliness": 0.05,
+        "Length": 50,
+        "Radius": 0.72,
+        "Sections": 12,
+        "Segments": 8,
+        "Taper": 0.37
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 75,
+        "Children": 3,
+        "Gnarliness": 0.12,
+        "Length": 6.07,
+        "Radius": 0.41,
+        "Sections": 10,
+        "Segments": 6,
+        "Start": 0.59,
+        "Taper": 0.13
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 32,
+        "Children": 3,
+        "Gnarliness": 0.12,
+        "Length": 11.19,
+        "Radius": 0.7,
+        "Sections": 8,
+        "Segments": 4,
+        "Start": 0.35,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 7,
+        "Gnarliness": 0.02,
+        "Length": 1,
+        "Radius": 0.7,
+        "Sections": 6,
+        "Segments": 3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Aspen Medium",
+    "Seed": 18020,
+    "Levels": 2,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0.0148,
+    "BarkTexture": "Bark002",
+    "LeafTexture": "aspen",
+    "LeafAngle": 30,
+    "LeafCount": 11,
+    "LeafStart": 0.124,
+    "LeafTint": [1, 0.98039216, 0.38431373, 1]
+  }
+}

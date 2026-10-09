@@ -1,0 +1,78 @@
+{
+  "format": 2,
+  "uid": "res_e0054447d4d0",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 100,
+        "Gnarliness": 0.05,
+        "Length": 65.25217391304348,
+        "Radius": 1.271739130434783,
+        "Sections": 12,
+        "Segments": 8,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 129.1304347826087,
+        "Children": 3,
+        "Gnarliness": 0.08,
+        "Length": 34.84782608695652,
+        "Radius": 0.366304347826087,
+        "Sections": 10,
+        "Segments": 6,
+        "Start": 0.29347826086956524,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 16,
+        "Length": 27.246739130434783,
+        "Radius": 0.7,
+        "Sections": 8,
+        "Segments": 4,
+        "Start": 0.14,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 60,
+        "Length": 1,
+        "Radius": 0.7,
+        "Sections": 6,
+        "Segments": 3,
+        "Start": 0.3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Pine Large",
+    "Seed": 44166,
+    "Type": "Evergreen",
+    "Levels": 1,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0.009000000000000001,
+    "BarkTexture": "Bark003",
+    "LeafTexture": "pine",
+    "LeafAngle": 17,
+    "LeafCount": 18,
+    "LeafStart": 0.07608695652173914,
+    "LeafSize": 2.608695652173913,
+    "LeafSizeVariance": 0.201,
+    "LeafAlphaCutoff": 0.3
+  }
+}

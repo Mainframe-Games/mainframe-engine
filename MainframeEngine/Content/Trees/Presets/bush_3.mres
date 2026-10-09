@@ -1,0 +1,81 @@
+{
+  "format": 2,
+  "uid": "res_05b6b7ae4f6b",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 13,
+        "Gnarliness": 0.05434782608695654,
+        "Length": 10.958695652173914,
+        "Radius": 0.5793478260869566,
+        "Sections": 4,
+        "Segments": 3,
+        "Taper": 0.7,
+        "Twist": 0.3
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 66.52173913043478,
+        "Children": 4,
+        "Gnarliness": 0.06521739130434778,
+        "Length": 21.81739130434783,
+        "Radius": 0.9521739130434783,
+        "Sections": 3,
+        "Segments": 3,
+        "Start": 0.14130434782608695,
+        "Taper": 0.7,
+        "Twist": -0.03260869565217389
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 52.82608695652174,
+        "Children": 4,
+        "Gnarliness": 0.05,
+        "Length": 13.130434782608695,
+        "Radius": 0.6858695652173914,
+        "Sections": 3,
+        "Segments": 3,
+        "Start": 0.29347826086956524,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Gnarliness": 0.09,
+        "Length": 5.529347826086957,
+        "Radius": 0.7391304347826086,
+        "Sections": 10,
+        "Segments": 3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Bush 3",
+    "Seed": 31343,
+    "Type": "Evergreen",
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0,
+    "BarkTint": [0.80784315, 0.8, 0.74509805, 1],
+    "BarkTextureScale": [0.5, 5],
+    "LeafTexture": "pine",
+    "LeafAngle": 54,
+    "LeafCount": 3,
+    "LeafStart": 0.15217391304347827,
+    "LeafSize": 3.0434782608695654,
+    "LeafSizeVariance": 0.45652173913043476,
+    "LeafTint": [0.6156863, 0.7647059, 1, 1]
+  }
+}

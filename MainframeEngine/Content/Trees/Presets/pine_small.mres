@@ -1,0 +1,76 @@
+{
+  "format": 2,
+  "uid": "res_28c73435f87d",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 91,
+        "Gnarliness": 0.05,
+        "Length": 39.55,
+        "Radius": 0.55,
+        "Sections": 12,
+        "Segments": 8,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 117,
+        "Children": 7,
+        "Gnarliness": 0.08,
+        "Length": 12.12,
+        "Radius": 0.41,
+        "Sections": 10,
+        "Segments": 6,
+        "Start": 0.16,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 60,
+        "Children": 5,
+        "Length": 10,
+        "Radius": 0.7,
+        "Sections": 8,
+        "Segments": 4,
+        "Start": 0.3,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 60,
+        "Length": 1,
+        "Radius": 0.7,
+        "Sections": 6,
+        "Segments": 3,
+        "Start": 0.3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Pine Small",
+    "Seed": 11744,
+    "Type": "Evergreen",
+    "Levels": 1,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0,
+    "BarkTexture": "Bark003",
+    "LeafTexture": "pine",
+    "LeafCount": 21,
+    "LeafSize": 0.965,
+    "LeafAlphaCutoff": 0.3
+  }
+}
