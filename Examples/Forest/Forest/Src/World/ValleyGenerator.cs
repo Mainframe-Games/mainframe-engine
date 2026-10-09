@@ -482,6 +482,10 @@ public sealed class ValleyGenerator
         w[Moss] = (pine * 0.35f + bank * 0.3f) * SmoothStep(0.5f, 0.75f, n3 * 0.6f + n2 * 0.4f) + 0.25f * SmoothStep(0.6f, 0.85f, n1) * (1f - glade)
                   + glade * 0.45f * SmoothStep(0.55f, 0.75f, n3 * 0.7f + n1 * 0.3f);
         w[Dirt] = 0.12f * SmoothStep(0.6f, 0.9f, n2) * (1f - glade);
+        // ADR 0178: R6's little meadow among the pines.
+        var pineGlade = SmoothStep(9f, 5f, Vector2.Distance(new Vector2(x, z), ValleyLayout.PineGlade));
+        w[Grass] += pineGlade * (1.1f - 0.3f * n1);
+        w[Needles] *= 1f - 0.85f * pineGlade;
         if (w[Needles] + w[Leaves] + w[Grass] + w[Moss] + w[Dirt] < 0.05f)
             w[Leaves] = 0.1f;
 

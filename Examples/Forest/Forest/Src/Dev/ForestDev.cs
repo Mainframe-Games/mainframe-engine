@@ -122,6 +122,7 @@ public sealed class ForestDev : Node
 
         if (_autoWalk)
             Walk(tree, gameTime.DeltaTime);
+
     }
 
     /// <summary>
@@ -247,7 +248,7 @@ public sealed class ForestDev : Node
             return null;
         var lens = ForestGrade.CreateLens();
         lens.DofQuality = DepthOfFieldQuality.High;
-        lens.DofBlurAmount = 0.1f;
+        lens.DofBlurAmount = shot.BlurAmount;
         if (shot.BlurFarFrom > 0f)
         {
             lens.DofBlurFarEnabled = true;

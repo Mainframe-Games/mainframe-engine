@@ -12,6 +12,9 @@ Forest/Src/World/ForestGradeFit.cs (generated; do not edit). Then `--write-scene
     python3 Examples/Forest/Tools/grade_from_shots.py /tmp/ungraded/*.png
     dotnet run --project Examples/Forest/Forest.Desktop -c Release -- --write-scenes Examples/Forest/Content/Scenes
 
+The targets are measured from reference images (ADR 0178: Brogan's five Unreal forest screenshots, not in the repo) with the
+same metrics; `--reference ref1.png ref2.png ... --` re-measures them and prints them (paste them below) before fitting.
+
 Measured over all shots together (each weighted equally, the vignette's corners left out):
 - the luminance percentiles p5, p50, p95: the curve maps them to TARGET_LOW / TARGET_MID / TARGET_HIGH (between the
   fixed black lift and white roll-off), so the set's shade stays readable and its highlights soft;
@@ -32,13 +35,15 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "Forest", "Src", "World", "ForestGradeFit.cs"))
 
-# Targets (display values, 0–1). Chosen against UE forest references: dark but open shade, soft highlights, greens
-# closer to olive than to emerald.
-TARGET_LOW, TARGET_MID, TARGET_HIGH = 0.045, 0.255, 0.82
-TARGET_FOLIAGE_SATURATION = 0.42
+# Targets (display values, 0–1), measured from the five Unreal forest references (ADR 0178; `--reference` prints them):
+# open, lifted shade, soft highlights, olive and sage greens, a neutral-green shade and a warm light. ADR 0175's guesses
+# were 0.045 / 0.255 / 0.82, foliage 0.42 and much cooler casts: the references never crush their blacks.
+TARGET_LOW, TARGET_MID, TARGET_HIGH = 0.147, 0.364, 0.786
+TARGET_FOLIAGE_SATURATION = 0.457
 TARGET_FOLIAGE_WARMTH = 0.5
-TARGET_SHADE_CHROMA = np.array([-0.006, 0.004, 0.004])   # rgb minus luminance: faintly cool-green shade
-TARGET_LIGHT_CHROMA = np.array([0.030, 0.012, -0.040])   # warm, low sun
+TARGET_SHADE_CHROMA = np.array([0.0037, 0.0067, -0.0769])   # rgb minus luminance
+TARGET_LIGHT_CHROMA = np.array([0.0070, 0.0149, -0.1679])
+BLACK_LIFT, WHITE_ROLL = 0.03, 0.975
 LUMA = np.array([0.2126, 0.7152, 0.0722])
 
 
@@ -55,17 +60,14 @@ def saturation(rgb):
     return np.where(mx > 1e-4, (mx - mn) / np.maximum(mx, 1e-4), 0.0)
 
 
-def main():
-    paths = sys.argv[1:]
-    if not paths:
-        sys.exit(__doc__)
-    shots = [load(p) for p in paths]
-    # Equal weight per shot: subsample each to the same count.
-    n = min(len(s) for s in shots)
+def measure(paths):
+    """The set's luminance percentiles, foliage saturation and shade / light chroma (each image weighted equally)."""
+    images = [load(p) for p in paths]
+    # Equal weight per image: subsample each to the same count.
+    n = min(len(s) for s in images)
     rng = np.random.default_rng(7)
-    pixels = np.concatenate([s[rng.choice(len(s), n, replace=False)] for s in shots])
+    pixels = np.concatenate([s[rng.choice(len(s), n, replace=False)] for s in images])
     lum = pixels @ LUMA
-
     p5, p50, p95 = np.percentile(lum, [5, 50, 95])
     green = (pixels[:, 1] > pixels[:, 0] * 1.05) & (pixels[:, 1] > pixels[:, 2] * 1.2) & (lum > 0.05)
     foliage_sat = float(saturation(pixels[green]).mean()) if green.any() else TARGET_FOLIAGE_SATURATION
@@ -73,14 +75,33 @@ def main():
     light = lum > 0.6
     shade_chroma = (pixels[shade] - lum[shade, None]).mean(axis=0) if shade.any() else TARGET_SHADE_CHROMA
     light_chroma = (pixels[light] - lum[light, None]).mean(axis=0) if light.any() else TARGET_LIGHT_CHROMA
+    return float(p5), float(p50), float(p95), foliage_sat, float(green.mean()), shade_chroma, light_chroma
 
-    foliage_scale = float(np.clip(TARGET_FOLIAGE_SATURATION / max(foliage_sat, 1e-3), 0.82, 1.1))  # subtle
+
+def main():
+    global TARGET_LOW, TARGET_MID, TARGET_HIGH, TARGET_FOLIAGE_SATURATION, TARGET_SHADE_CHROMA, TARGET_LIGHT_CHROMA
+    args = sys.argv[1:]
+    if args[:1] == ["--reference"]:
+        end = args.index("--")
+        r5, r50, r95, rsat, _, rshade, rlight = measure(args[1:end])
+        TARGET_LOW, TARGET_MID, TARGET_HIGH, TARGET_FOLIAGE_SATURATION = r5, r50, r95, rsat
+        TARGET_SHADE_CHROMA, TARGET_LIGHT_CHROMA = rshade, rlight
+        print(f"references: TARGET_LOW, TARGET_MID, TARGET_HIGH = {r5:.3f}, {r50:.3f}, {r95:.3f}; "
+              f"TARGET_FOLIAGE_SATURATION = {rsat:.3f}; shade chroma {np.round(rshade, 4).tolist()}, "
+              f"light chroma {np.round(rlight, 4).tolist()}")
+        args = args[end + 1:]
+    paths = args
+    if not paths:
+        sys.exit(__doc__)
+    p5, p50, p95, foliage_sat, green_share, shade_chroma, light_chroma = measure(paths)
+
+    foliage_scale = float(np.clip(TARGET_FOLIAGE_SATURATION / max(foliage_sat, 1e-3), 0.6, 1.1))
     shade_tint = np.clip((TARGET_SHADE_CHROMA - shade_chroma) * 0.5, -0.03, 0.03)
     light_tint = np.clip((TARGET_LIGHT_CHROMA - light_chroma) * 0.5, -0.04, 0.04)
 
     # Curve control points: fixed lift and roll-off, the measured percentiles moved to the targets (kept monotone).
     xs = [0.0, float(p5), float(p50), float(p95), 1.0]
-    ys = [0.012, TARGET_LOW, TARGET_MID, TARGET_HIGH, 0.975]
+    ys = [BLACK_LIFT, TARGET_LOW, TARGET_MID, TARGET_HIGH, WHITE_ROLL]
     for i in range(1, len(xs)):
         xs[i] = max(xs[i], xs[i - 1] + 0.02)
         ys[i] = max(ys[i], ys[i - 1] + 0.005)
@@ -88,7 +109,7 @@ def main():
     def f(v):
         return f"{v:.4f}f"
 
-    report = (f"p5 {p5:.3f}, p50 {p50:.3f}, p95 {p95:.3f}; foliage saturation {foliage_sat:.3f} ({green.mean() * 100:.0f} % of pixels); "
+    report = (f"p5 {p5:.3f}, p50 {p50:.3f}, p95 {p95:.3f}; foliage saturation {foliage_sat:.3f} ({green_share * 100:.0f} % of pixels); "
               f"shade chroma {np.round(shade_chroma, 4).tolist()}, light chroma {np.round(light_chroma, 4).tolist()}")
     code = f"""// <auto-generated>
 // Fitted by Examples/Forest/Tools/grade_from_shots.py from ungraded renders of the reference shots (ADR 0175); do not edit.

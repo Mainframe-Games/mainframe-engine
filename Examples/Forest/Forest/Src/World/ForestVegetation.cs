@@ -63,11 +63,12 @@ public static class ForestVegetation
 
     private static TreeSpecies Species(string preset, bool clusters, float clusterShadowDensity, params int[] seeds)
     {
+        var options = TreePresets.Load(preset);
+        Mute(options, preset);
         if (!clusters)
-            return new TreeSpecies { Preset = preset, Seeds = seeds };
+            return new TreeSpecies { Options = options, Seeds = seeds };
         // Level 0 keeps Ez Tree's sprigs (sharp up close), levels 1 and 2 use cluster cards (fewer, fuller), every leaf image
         // keeps its coverage in the distance (ADR 0172).
-        var options = TreePresets.Load(preset);
         options.LeafMode = TreeLeafMode.Cluster;
         // G8e.5's species carry 2–4× the leaves of Ez Tree's (spruce: 5 700 needle sprigs, pine: 1 800): they are clusters
         // from level 0, which keeps their cost near the others'.
@@ -82,13 +83,40 @@ public static class ForestVegetation
         return new TreeSpecies { Options = options, Seeds = seeds };
     }
 
-    /// <summary>The bush species.</summary>
+    /// <summary>
+    /// ADR 0178: the look-dev palette. Every leaf tint is multiplied towards a muted olive (warmer, less blue; the grade takes
+    /// the rest of the saturation), the conifers a little less (their needles are already dark blue-green), and the aspens
+    /// lose their autumn yellow: the birch leaf in a soft green, as in the references' summer morning.
+    /// </summary>
+    public static void Mute(TreeOptions options, string preset)
+    {
+        var conifer = IsConifer(preset) || preset == "Bush 3";
+        var (r, g, b) = conifer ? (0.96f, 0.9f, 0.78f) : (0.97f, 0.86f, 0.68f);
+        if (preset.StartsWith("Aspen", StringComparison.Ordinal) || options.LeafTexture == "aspen")
+        {
+            options.LeafTexture = "birch";
+            options.LeafTint = System.Drawing.Color.White;
+            (r, g, b) = (0.95f, 0.88f, 0.66f);
+        }
+
+        var tint = options.LeafTint;
+        options.LeafTint = System.Drawing.Color.FromArgb(255, (int)MathF.Round(tint.R * r), (int)MathF.Round(tint.G * g), (int)MathF.Round(tint.B * b));
+    }
+
+    /// <summary>The bush species (muted like the trees, <see cref="Mute"/>).</summary>
     public static TreeSpecies[] CreateBushSpecies() =>
     [
-        new() { Preset = "Bush 1", Seeds = [101, 202] },
-        new() { Preset = "Bush 2", Seeds = [303] },
-        new() { Preset = "Bush 3", Seeds = [404] },
+        Bush("Bush 1", 101, 202),
+        Bush("Bush 2", 303),
+        Bush("Bush 3", 404),
     ];
+
+    private static TreeSpecies Bush(string preset, params int[] seeds)
+    {
+        var options = TreePresets.Load(preset);
+        Mute(options, preset);
+        return new TreeSpecies { Options = options, Seeds = seeds };
+    }
 
     /// <summary>Grid cell of the tree placement (one candidate per cell; a second one on the pine slope).</summary>
     public const float TreeCell = 4f;
@@ -312,6 +340,15 @@ public static class ForestVegetation
         ];
         foreach (var (at, yaw, scale) in boulders)
             props.Add(new PropPlacement(ForestAssets.Boulder, at, yaw, new Vector3(scale), 0.18f * scale, "rock"));
+
+        // ADR 0178: R5's fern dell: a big mossy log lying towards the sun, a smaller one across its far end.
+        var dell = ValleyLayout.FernDell;
+        var along = new Vector2(MathF.Cos(float.DegreesToRadians(dell.YawDegrees)), -MathF.Sin(float.DegreesToRadians(dell.YawDegrees)));
+        // The scan's origin is inside the trunk (its underside 0.33 m below): raised so it lies on the ferns' floor.
+        // Turned end for end: its root plate lies at the far end, the broken top towards the camera.
+        props.Add(new PropPlacement(ForestAssets.DeadTrunk02, dell.Centre, dell.YawDegrees + 180f, new Vector3(1.4f), -0.3f, "wood"));
+        props.Add(new PropPlacement(ForestAssets.DeadTrunk, dell.Centre + along * 3.4f + new Vector2(along.Y, -along.X) * 1.2f,
+            dell.YawDegrees + 75f, new Vector3(1.2f), 0.1f, "wood"));
 
         // Fallen logs, stumps and branches near the path (seen on the walk), placed by hashed search.
         var seed = valley.Seed * 31337;

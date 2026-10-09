@@ -8,6 +8,7 @@
     }
   },
   "props": {
+    "Tonemapper": "Agx",
     "AutoExposureEnabled": true,
     "AutoExposureScale": 0.16,
     "AutoExposureSpeed": 0.6,

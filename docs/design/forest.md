@@ -12,11 +12,13 @@ its own `Examples/Forest/Forest.slnx`, and it is **not** in `MainframeEngine.sln
 procedural [audio](#audio) and [the valley](#the-valley): a generated 256 m terrain with a stream (a small fall, three
 pools, a log bridge) running into a pond, about 1 850 trees with an understorey of saplings, 180 bushes, grass, reeds,
 ferns, forest-floor clutter and props sunk into the ground ([art pass](#art-pass-g8e7), ADR 0175), under a
-physical morning sky with fog, light shafts, eye adaptation, SSAO (GTAO, [ADR 0165](../../memory/decisions/0165-ssao-gtao.md)) and TAA. Also the [reference shots](#reference-shots), the
+physical morning sky with fog, light shafts, eye adaptation, SSAO (GTAO, [ADR 0165](../../memory/decisions/0165-ssao-gtao.md)) and TAA,
+look-developed against Unreal forest references ([look-dev](#look-dev-adr-0178), ADR 0178: a low back-light, a warm
+white haze, muted greens, flowers, dust motes). Also the [reference shots](#reference-shots), the
 [benchmark](#forestdev---autowalk-and-the-benchmark) and a path-following `--autowalk`. Not yet: the pause menu and
-settings page, dust motes and butterflies, and the release job.
+settings page, butterflies, and the release job.
 
-![R1: the glade, looking into the morning sun](../images/forest/r1-glade.png)
+![R1: the meadow, looking into the morning sun](../images/forest/r1-glade.png)
 
 ## Layout
 
@@ -151,13 +153,13 @@ walls run in the game only.
 
 | Part | How |
 |---|---|
-| Layout (`ValleyLayout`) | world = terrain-local metres, north −Z. The stream's 15 points (surface, width, depth: a source in the outcrop, a 3.5 m fall, three wide deep pools between riffles, the bridge reach, the mouth), the pond (centre, radii 27 × 18 m, level 0.6 m, 1.7 m deep), outcrop, glade, the 21-point walking loop (≈ 480 m, ≈ 3 min at walk speed), spawn, sun (azimuth 105°, elevation 21°), tree clearings and view corridors, the reference shots |
+| Layout (`ValleyLayout`) | world = terrain-local metres, north −Z. The stream's 15 points (surface, width, depth: a source in the outcrop, a 3.5 m fall, three wide deep pools between riffles, the bridge reach, the mouth), the pond (centre, radii 27 × 18 m, level 0.6 m, 1.7 m deep), outcrop, glade, the 21-point walking loop (≈ 480 m, ≈ 3 min at walk speed), spawn, sun (azimuth 25°, elevation 25°; ADR 0178), the fern dell, the pine glade, the dust clouds, tree clearings and view corridors, the reference shots |
 | Heights (`ValleyGenerator`) | the floor follows the stream's downhill-clamped surface near it and a ±24 m smoothed profile away from it (the fall stays a local step), +0.4 m and 4 % per metre across; the west ridge rises to ≈ +30 m (gentler in the glade), the east to ≈ +46 m; the valley closes in the north and rises past the pond; fBm rolling ground, quieter near water and in the glade; the outcrop is a ridged plateau (+9 m); the pond basin is an ellipse with a noise-wobbled shore; the **path bed** is level across, follows the ground's smoothed profile along it and blends into the slopes over 5 m (cut and fill), sunk 6 cm; the banks rise 1.25 m above the water at the bridge, a small gorge the log spans |
 | Stream | `River3D` from the layout's points plus two jittered points per reach (wandering banks), `SectionLength` 0.75 m, 6 cross segments, carved (`Carve()`, `CarveId` "stream", `BankWidth` 2.2, `ShoreLift` 0.06); heights come from the layout, so no `FitToTerrain` |
 | Pond | after the carve, `ApplyPond` floods every basin vertex below the level (`TerrainData` water layer, `MaxWaterDepth` 2 m) |
 | Splat (8 layers, `ForestAssets` order) | per cell from the final ground: needles under the pines, leaf litter on the aspen bank and forest edges, grass in the glade, patchy moss; then overrides: moss at rock bases, rock above ≈ 37° and on the outcrop's steep, convex parts, moss 2–5 m from water, mud within ≈ 1.5 m of the stream and the pond, gravel in the stream bed and the pond's deep bed, gravel path edges, dirt on the path |
-| Terrain material | `ForestAssets.CreateTerrainMaterial()` with every ORM's roughness lifted to 0.6 + 0.4 r (`RoughenOrm`: the scans' 0.45 made dry ground glare white against a low sun), grass and leaves tinted, `AntiTiling` off (3.5 ms at 1080p), detail to 45 m, far from 110 m |
-| Ground cover (`TerrainData.FoliageTypes`) | meadow grass (8/m² on grass, to 36 m: `GrassDistance`, 32 before G8e.7), tall grass, woodland grass on leaves and moss, reeds on the pond's mud, the Poly Haven fern (merged, re-centred, with a wind stream: `FoliageMaterial3D`, cut-out) on needles, leaves and moss, `rock_07` stones on gravel and moss, and G8e.7's [clutter](#art-pass-g8e7); densities × `GroundCoverDensity` (0.8); grass and ferns vary per clump in brightness and hue (`InstanceValueJitter` 0.15 / 0.14, `InstanceHueJitter` 0.12 / 0.1) |
+| Terrain material | `ForestAssets.CreateTerrainMaterial()` with every ORM's roughness lifted to 0.8 + 0.2 r (`RoughenOrm`: the scans' 0.45 made dry ground glare white against a low sun; 0.6 + 0.4 r before ADR 0178), grass and leaves tinted, `AntiTiling` off (3.5 ms at 1080p), detail to 45 m, far from 110 m |
+| Ground cover (`TerrainData.FoliageTypes`) | meadow grass (ADR 0178: wide `ForestFlowers.MeadowTuft`s, 4.8/m² on grass, to 36 m: `GrassDistance`, 32 before G8e.7), tall grass, woodland grass on leaves and moss, reeds on the pond's mud, the Poly Haven fern (merged, re-centred, with a wind stream: `FoliageMaterial3D`, cut-out) on needles, leaves and moss, `rock_07` stones on gravel and moss, and G8e.7's [clutter](#art-pass-g8e7); densities × `GroundCoverDensity` (0.8); grass and ferns vary per clump in brightness and hue (`InstanceValueJitter` 0.15 / 0.14, `InstanceHueJitter` 0.12 / 0.1) |
 | Trees (`ForestVegetation`) | one jittered candidate per 4 m cell, accepted by zone: pines (large, medium, small; 2 + 2 + 1 seeds) on the east slope, outcrop, north and the high west ridge; aspens (5 variants) along the stream and round the pond; ash at the glade's edge and in mixed woods; a few oaks in the glade; 35 % of each zone's cells take G8e.5's species instead (`TreeNewSpeciesShare`, ADR 0172): spruces and firs among the pines, birches among the aspens, beeches among the oaks and ashes. Clear of the path (3.2 m), water (1.6 m), the bridge (7 m), steep rock, the clearings and the R2/R4 view corridors. G8e.7 ([art pass](#art-pass-g8e7)): the pine slope takes 70 % of its cells (60 % before), and 8 % of the forest's gaps take a sapling of the zone's species at 0.22–0.42 of its size (`ForestVegetation.SaplingShare`, `TreeUnderstorey`); every tree varies in brightness ±12 % and hue ±10 % (`TreeValueJitter`, `TreeHueJitter`). ≈ 1 850 trees in a `TreeScatter` with G8e.5's foliage (below): levels at 22 m and 55 m, impostors from 85 m to 400 m, each tree cross-fading its own levels over ±4 m; level 0 casts into the near cascades, level 1 into the near cascades where it is drawn, and the impostor (`ShadowCoarseLod` 3) into every cascade and the far shadow from any distance at half density; ≈ 180 bushes in a second one (to 75 m, no collision, only level 0 casts) |
 | Props | `ForestAssets.InstantiateProp` with shared PBR materials: the bridge (`dead_tree_trunk_02` × 1.6 along the path's crossing, its top 14 cm above the banks, a 0.9 m walkway box tagged `wood`), mossy rock sets at the source and the fall, boulders round the fall and the pools, logs, stumps and dry branches placed near the path by hashed search; a collision box per mesh part (`SurfaceBody3D`, tagged `rock` / `wood`); rocks, logs, stumps and debris blend into the ground below them over 0.35 m (`PropTerrainBlend` 1, `PropTerrainBlendHeight`; the terrain's macro texture, ADR 0175) |
 | Edges | four 200 m high `StaticBody3D` walls just outside the map |
@@ -198,6 +200,9 @@ cd Examples/Forest/Forest.Desktop/bin/Release/net10.0
 dotnet Forest.Desktop.dll --bake-lighting --headless --project ../../../.. ++ --no-audio
 ```
 
+Run `--write-scenes` and rebuild **before** baking (the build copies the scene into the output; ADR 0178: a bake made
+before the rebuild hashed a stale scene and the game rendered without probes), and check that a run logs "the bake is
+current".
 (`--project` points at `Examples/Forest`, so the files land in the source tree rather than the build output; the editor's
 Bake Lighting button on `Lighting` does the same.) The art controls: `Energy` 4 (the bounce), `SkyOcclusion` 0.15
 (15 % of the baked sky occlusion; 2.4 and 0.5 until Brogan's 2026-10-09 playtest) and `OcclusionTint` (200, 225, 170): the full physical occlusion read near-black next to
@@ -222,17 +227,17 @@ holds their first values. To tune it: `just editor Examples/Forest/project.mfpro
 
 | Knob | Value | Why |
 |---|---|---|
-| Sun | `DirectionalLight3D`, colour (1, 0.87, 0.7), energy 2 (2.6 before the 2026-10-09 playtest), 4 cascades × 1024² to 140 m, split λ 0.8; G8e.2 ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)): `ShadowCacheMode.Staggered`, `ShadowCoarseCascades` 2, `LightAngularDistance` 0.5°, `ContactShadows` (0.4 m), `FarShadowEnabled` | warm and low: long soft shadows across the glade and the pond, ferns and rocks grounded; the shadow budget below |
+| Sun | `DirectionalLight3D` from azimuth 25° (north-north-east), elevation 25° (ADR 0178; 105° and 21° before), colour (1, 0.93, 0.82) (ADR 0178; (1, 0.87, 0.7) before), energy 2 (2.6 before the 2026-10-09 playtest), 4 cascades × 1024² to 140 m, split λ 0.8; G8e.2 ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)): `ShadowCacheMode.Staggered`, `ShadowCoarseCascades` 2, `LightAngularDistance` 0.5°, `ContactShadows` (0.4 m), `FarShadowEnabled` | low and ahead of the walk: the trailhead, the glade, the fall and most shots look into it (back-lit leaves and grass, shadows towards the camera, the haze glowing); a warm white rather than orange; the shadow budget below |
 | Sky | `Physical`, turbidity 6, Mie 0.005, ground (0.28, 0.27, 0.2) | a clear morning; the IBL follows it |
-| Ambient / reflections | `AmbientSource.Sky` × 2 (1.6 before the 2026-10-09 playtest), `ReflectedLightSource.Sky`, occluded and joined by bounce light by the [light probes](#light-probes) (G8e.1) | the shade under the canopy darker, green and deep, the glade open; water and rock under the trees stop mirroring the bright sky |
-| Fog | density 0.003 (0.005 before G8e.7), height 6 m, height density 0.08, colour (0.42, 0.47, 0.53), sun scatter 0.05 | haze over the far slopes; the volumetric fog does the near air; 0.005 veiled R1's trees |
-| Volumetric fog ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md)) | density 0.009 (0.018 before G8e.7), anisotropy 0.75, length 64 m, sky affect 0.2, ambient inject 0.02, noise 0.7 at 8 m; temporal reprojection 0.9 | soft rays through the canopy gaps from any view (also with the sun off screen, between the trunks of R3 and R5), the shaded air clear, hazier towards the valley floor (the height fog's shape) |
+| Ambient / reflections | `AmbientSource.Sky` × 2.4 (ADR 0178; 2 after the 2026-10-09 playtest, 1.6 before), `ReflectedLightSource.Sky`, occluded and joined by bounce light by the [light probes](#light-probes) (G8e.1) | the shade under the canopy darker, green and deep, the glade open; water and rock under the trees stop mirroring the bright sky |
+| Fog | ADR 0178: density 0.004, height 8 m, height density 0.05, colour (0.78, 0.8, 0.77), sun scatter 0.12 (0.003, 6 m, 0.08, (0.42, 0.47, 0.53), 0.05 before) | strong aerial perspective: distance fades to a pale, warm, low-contrast haze that lifts the blacks (the blue-grey fog read cold and dark) |
+| Volumetric fog ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md)) | ADR 0178: density 0.01, albedo (1, 1, 0.95), anisotropy 0.65, sky affect 0.35, ambient inject 0.3 (0.009, white, 0.75, 0.2, 0.02 before); length 64 m, noise 0.7 at 8 m; temporal reprojection 0.9 | the glowing back-lit air of the references: rays through the canopy gaps, and the shaded air glows softly with the (probe-occluded) sky instead of going clear and dark |
 | Light shafts | off (intensity 2.3, decay 0.965, density 0.85 kept) | the volumetric fog draws real shafts; the screen-space ones on top made the glade milky |
-| Exposure | auto, scale 0.16, speed 0.6, min luminance 0.03 (2026-10-09 playtest: 0.02 in G8e.7 let a shaded view boost exposure 8× and blow out the sunlit slopes; 0.04 in ADR 0170, 0.05 before); **histogram** ([ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md)): centre-weighted, the 10–90 % band, highlight protection at the 98th percentile to 0.8; engine ACES (AgX compared in G8e.7: flat and washed in the shade) | adapts between the glade and the pine shade; a view that is mostly shade still exposes for it until the sunlit 2 % (slopes, treetops, the fall's white water) would pass 0.8 into the tonemap. Shade-only views (R3, R5, R6) are unchanged; at 0.04 the probe-darkened R3 sat on the clamp (mean luminance 36) |
+| Exposure | auto, scale 0.16, speed 0.6, min luminance 0.03 (2026-10-09 playtest: 0.02 in G8e.7 let a shaded view boost exposure 8× and blow out the sunlit slopes; 0.04 in ADR 0170, 0.05 before); **histogram** ([ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md)): centre-weighted, the 10–90 % band, highlight protection at the 98th percentile to 0.8; **AgX** tonemap (ADR 0178; engine ACES before: AgX read flat in G8e.7's darker scene, but with the lifted shade and haze its soft shoulder and its desaturation of bright light are the references' soft contrast; ACES turned the back-lit leaves saturated yellow) | adapts between the glade and the pine shade; a view that is mostly shade still exposes for it until the sunlit 2 % (slopes, treetops, the fall's white water) would pass 0.8 into the tonemap. Shade-only views (R3, R5, R6) are unchanged; at 0.04 the probe-darkened R3 sat on the clamp (mean luminance 36) |
 | Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
 | Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
 | Anti-aliasing | `rendering.antiAliasing: Taa` (ADR 0166), sharpness 0.25 (default); tree leaves and ferns `AlphaDither` | leaf, needle and grass edges stop shimmering in motion; the stream is a reactive pixel (keeps 0.2 of its history) so its flow does not smear |
-| Grade (ADR 0168, refitted in G8e.7) | `AdjustmentEnabled`, `AdjustmentColorCorrection` = `Content/Grading/forest-morning.cube` (33³, `ForestGrade` with the numbers `Tools/grade_from_shots.py` fitted to ungraded renders of R1–R7, `ForestGradeFit`; written by `--write-scenes`), strength 1 | a soft morning: a faint warm white balance that spares the sky, a curve through the shots' p5/p50/p95 to 0.045/0.255/0.82, the shade's yellow cast moved halfway to a cool green and the light's halfway to a warm sun, foliage 18 % less saturated and towards olive, saturation down in the highlights and the deepest shade |
+| Grade (ADR 0168, refitted in G8e.7 and ADR 0178) | `AdjustmentEnabled`, `AdjustmentColorCorrection` = `Content/Grading/forest-morning.cube` (33³, `ForestGrade` with the numbers `Tools/grade_from_shots.py` fitted to ungraded renders of R1–R7, `ForestGradeFit`; written by `--write-scenes`), strength 1 | ADR 0178: the fitter's targets are the references' own statistics (`--reference` measures them): a curve through the shots' p5/p50/p95 to 0.147/0.364/0.786 with blacks lifted to 0.03, the shade's and the light's casts moved halfway to the references' (a neutral-green shade, a warm light), foliage saturation towards theirs; a faint warm white balance that spares the sky; saturation down in the highlights and the deepest shade |
 | Lens (ADR 0168) | `CameraAttributes`: vignette 0.2, grain 0.015 (1.5 px), no aberration, no depth of field | a filmic frame without a muddy one; depth of field only in the photo shots |
 | Water (G8e.6, [ADR 0173](../../memory/decisions/0173-water-scene-copy-refraction-ssr-falls.md)) | both refract (`RefractionEnabled`) with caustics and screen-space reflections (`rendering.waterSsr` High). Stream: absorption (0.42, 0.13, 0.1), roughness 0.05, reflection 0.7, normals 1.2/5 m × 0.6, caustics 0.9 every 1.6 m to 1.2 m deep, shore foam 8 cm. Pond: peaty absorption (2.4, 1.4, 1.2), reflection 1, calm (normals × 0.3), caustics 0.6 every 2.5 m. The 3.5 m fall is a `River3D` fall: a jet (`WaterfallMaterial3D`) with spray cards at its foot | the stream shows its gravel bed bent by the ripples, with caustics; the pond's shallows show the bed, its middle goes dark and mirrors the trees and banks; the fall is a white sheet with mist |
 
@@ -244,16 +249,17 @@ holds their first values. To tune it: `just editor Examples/Forest/project.mfpro
 `++ --shot <1-7|name>` puts a fixed camera at a pose of `ValleyLayout.Shots` (heights above the ground); `--view
 x,y,z,tx,ty,tz[,fov]` at any pose (y 0: eye height above the ground, −h: h above it). `just forest-screenshots` renders
 all seven at 2560 × 1440 (the display's limit: 2560 × 1308 on this Mac; frame 300 at a fixed 60 Hz: fixed wind, water and exposure) and scales them to 1600 px wide into
-`docs/images/forest/`. R4 and R5 are photo shots (`ReferenceShot.BlurNearUntil`/`BlurFarFrom`, `ForestDev.PhotoLens`):
-their camera adds subtle 32-tap depth of field to the Forest's lens (R4: what is nearer than 6 m blurs; R5: the trees
-behind the ferns blur from 9 m); walking never has depth of field:
+`docs/images/forest/`. R4 and R5 are photo shots (`ReferenceShot.BlurNearUntil`/`BlurFarFrom`/`BlurAmount`,
+`ForestDev.PhotoLens`): their camera adds 32-tap depth of field to the Forest's lens (R4: what is nearer than 6 m blurs;
+R5, a close-up: nearer than 0.9 m and beyond 7 m at `BlurAmount` 0.3, a shallow focus on the log and the ferns); walking
+never has depth of field. ADR 0178 recomposed them after the references' compositions, most into the low sun:
 
 | | |
 |---|---|
-| ![R1](../images/forest/r1-glade.png)<br>**R1 Glade**: into the low sun through oaks and ashes; shafts, haze, back-lit leaves | ![R2](../images/forest/r2-fall.png)<br>**R2 The fall**: from the falls viewpoint, the 3.5 m drop between boulders, pool 1, dappled moss |
-| ![R3](../images/forest/r3-bridge.png)<br>**R3 Log bridge**: the west bank; the gravel bed through clear water, mud and moss banks, the log | ![R4](../images/forest/r4-vista.png)<br>**R4 Vista**: from the pine slope's lookout down to the pond |
-| ![R5](../images/forest/r5-floor.png)<br>**R5 Forest floor**: 0.5 m above leaf litter and ferns among pines and aspens | ![R6](../images/forest/r6-pines.png)<br>**R6 Under the pines** (G8e.7): deep shade among the outcrop's pines, moss and trunks; the GI shot |
-| ![R7](../images/forest/r7-fall-close.png)<br>**R7 The fall, close** (G8e.7): from pool 1's east bank, the jet and its spray, the wet rocks, the pool's reflections | |
+| ![R1](../images/forest/r1-glade.png)<br>**R1 Glade**: a back-lit meadow under the sun, the glade's trees in the haze (the meadow reference) | ![R2](../images/forest/r2-fall.png)<br>**R2 The fall**: from the falls viewpoint, the drop between rocks and birches, the haze and the sun behind (the rocks-and-haze reference) |
+| ![R3](../images/forest/r3-bridge.png)<br>**R3 Log bridge**: up the stream to the log bridge between birches (the birch-path reference) | ![R4](../images/forest/r4-vista.png)<br>**R4 Misty pond**: from the pond's south shore up the hazy valley into the sun (the misty-glade reference) |
+| ![R5](../images/forest/r5-floor.png)<br>**R5 Fern dell**: low along a mossy log among ferns, a shallow focus (the log-and-ferns reference) | ![R6](../images/forest/r6-pines.png)<br>**R6 Pines**: from a small glade on the outcrop, tall pines against the sun |
+| ![R7](../images/forest/r7-fall-close.png)<br>**R7 The fall, close**: from pool 1's south bank, the jet and its spray into the light | |
 
 **Volumetric fog (G8e.3, [ADR 0171](../../memory/decisions/0171-volumetric-fog.md)).** The shots above are with it. Against
 the screen-space shafts it replaced: R1 keeps rays through the canopy around the sun but the trees to either side are no
@@ -335,6 +341,62 @@ are the start view at 1920 × 1080, frame 240: frame mean luma 71 → 59, p95 19
 R2 66 → 56, R3 53 → 53, R4 82 → 81, R5 73 → 73, R6 36 → 36, R7 80 → 61 (R2 and R7: the fall's white water and the sunlit
 slope behind it now hold; the pools and banks are darker). The sun, sky and probe values did not change (the bake is
 current).
+
+### Look-dev (ADR 0178)
+
+[ADR 0178](../../memory/decisions/0178-forest-look-dev.md): Brogan gave five Unreal Engine forest screenshots (third-party:
+not in the repo, described in the ADR) and asked for their mood, colours and light, not a pixel match. What reads as
+"Unreal" in them: a low sun ahead of the camera behind the trees, a bright warm haze that fades the distance and lifts
+every black, muted olive and sage greens with only back-lit leaves and grass glowing, soft contrast, a dense floor
+(grass, ferns, flowers, mossy logs) and dust in the shafts. Forest content only; no engine code changed.
+
+- **Sun and light**: the sun moved to azimuth 25° / elevation 25° (north-north-east), so the first leg of the walk and most
+  shots look into it; a warmer white colour; ambient 2.4. The probes are re-baked for it.
+- **Atmosphere**: the far fog is a pale warm grey, denser with a higher height falloff (aerial perspective); the
+  volumetric fog is a little denser, warm, less forward-peaked (0.65) and lit by the sky (`AmbientInject` 0.3), so the
+  shaded air glows instead of going black. **AgX** replaces ACES.
+- **Colour**: every tree's and bush's leaf tint is multiplied towards olive (`ForestVegetation.Mute`; the aspens use the
+  birch leaf in a soft green instead of Ez Tree's autumn yellow), less per-instance hue jitter (trees 0.04, grass 0.06,
+  ferns 0.05) so no crown turns yellow, the grass layer, leaf litter, moss and rock layers tinted darker and less
+  saturated, terrain roughness 0.8 + 0.2 r (the ground glared white at grazing angles into the sun). The grade fitter's
+  targets are now the references' measured statistics (`grade_from_shots.py --reference`).
+- **Ground cover**: wide procedural meadow tufts (`ForestFlowers.MeadowTuft`: 30 blades over 0.6 m, a few straw-coloured)
+  instead of narrow clumps, so the meadow is a sward; grass translucency 0.75 in a pale yellow-green; denser woodland
+  grass (1.8) and ferns (0.28, translucency 0.7); **flowers** (`ForestFlowers`: buttercups, ox-eye daisies, heather as
+  whole procedural patches, `Valley.Flowers`); R5's **fern dell** (`ValleyLayout.FernDell`: a mossy log among 70 ferns in
+  one multimesh); R6's small meadow on the outcrop (`ValleyLayout.PineGlade`).
+- **Dust motes** (`ForestDust`, `Valley.Dust`): `SprayCards3D` (G8e.6's mist cards) shrunk to 2 cm specks, lit by the
+  shadowed sun and brighter looking into it, drifting up and fading, 64 per cloud at six places (`ValleyLayout.DustClouds`).
+  The cheap stand-in for G6.3's particles: they read as specks in the sunlit air, not as a dense shimmer.
+- **Exposure** (on ADR 0177's histogram): unchanged: scale 0.16, speed 0.6, min luminance 0.03, centre-weighted 10–90 %,
+  highlight protection at the 98th percentile to 0.8. With the haze lifting the shade, `HighlightWhite` 0.9 rendered the
+  same frames (protection does not engage) and scale 0.2 raised every shot's median by 10–15 levels past the references.
+
+Colour statistics of the frame (1600 px, sRGB 0–255; `luma` p5 / p50 / p95, mean HSL saturation, the share of pixels
+below luma 16), the references against the shots before (feature tip 0d6742c8, at their old poses) and after:
+
+| | Reference | Before | After |
+|---|---|---|---|
+| R1 Glade / ref1 meadow and pines | 38 / 84 / 175, 0.20 | 41 / 98 / 184, 0.44, 0.3 % | 42 / 106 / 201, 0.28, 0 % |
+| R2 The fall / ref2 rocks and haze | 54 / 104 / 197, 0.15 | 14 / 47 / 185, 0.40, 8 % | 35 / 74 / 182, 0.28, 0 % |
+| R3 Bridge / ref3 birch path | 31 / 70 / 146, 0.25 | 16 / 49 / 108, 0.37, 5.3 % | 35 / 78 / 188, 0.31, 0 % |
+| R4 Misty pond / ref5 glade mist | 34 / 80 / 228, 0.28 | 28 / 70 / 183, 0.48, 0.6 % | 44 / 106 / 206, 0.23, 0 % |
+| R5 Fern dell / ref4 log and ferns | 22 / 105 / 203, 0.36 | 20 / 66 / 154, 0.46, 3.7 % | 42 / 88 / 203, 0.35, 0.1 % |
+| R6 Pines | | 12 / 26 / 85, 0.40, 17 % | 38 / 102 / 191, 0.33, 0 % |
+| R7 The fall, close | | 19 / 60 / 201, 0.42, 3.1 % | 43 / 85 / 170, 0.22, 0 % |
+| The player's start view | | 14 / 42 / 169, 0.40, 9.6 % | 30 / 94 / 207, 0.31, 0 % |
+
+Pairs (`g8e-look-<shot>-before` / `-after`, and `g8e-look-start-*`) are in [`docs/images/forest/g8e/`](../images/forest/g8e/).
+The blacks no longer crush anywhere, saturation is inside the references' 0.15–0.36, the medians sit in or a little above
+their range (the haze lifts the low end more than the references' p5 in R1 and R4).
+
+**Still short of the references** (honestly): the trees are Ez Tree's generated crowns and cluster cards, not scanned
+meshes: up close (R6, R1's left edge) the needles read as flat cards and the canopies as uniform blobs; the floor's
+ferns are one Poly Haven fern repeated; the flowers are procedural strips, convincing only from a few metres; there is no
+real particle system, so the dust is sparse specks rather than a lit shimmer in the shafts; the shafts themselves are
+softer and fewer than Unreal's (one Henyey–Greenstein lobe at 64 m, 1024² cascades); bloom stays off (the threshold-4 glow
+only), the references' soft halo around the bright sky is the haze; distance has no real atmosphere scattering model,
+only the analytic fog; and the static probes are 2 m apart.
 
 ### Performance
 
@@ -438,6 +500,13 @@ clutter ≈ 0.2 ms, the longer grass ≈ 0.3 ms, the terrain blend nothing measu
 glade's low flight crosses 16.7 ms. 0 B per frame (`--autowalk` too). Load ≈ 5–6 s (4.7 s before): the trees; the
 macro texture bakes on a worker thread (1.5–2 s, 2048²). `benchmark-baseline.json` is the "After" 1080p run.
 `--frames-csv file` writes every measured frame (time, shadows, draws, camera position) to find where the slow ones are.
+
+**ADR 0178 look-dev**, `just forest-bench` at 1920 × 1080 (TAAU 0.75), interleaved with the feature tip before it
+(0d6742c8, a second worktree), two rounds: p50 17.50 / 18.70 → 18.43 / 18.44 ms, p99 23.5 / 25.2 → 24.4 / 25.0 ms, mean
+17.6 / 18.3 → 18.2 / 18.3 ms, sun shadows 4.85–5.06 → 4.39–4.41 ms, ≤ 677 → 692 draws, 0 B per frame. The meadow tufts,
+woodland grass and ferns are most of it (without ground cover the pair is 14.3 → 15.2 ms); the flowers ≈ 0.1 ms, the dust
+nothing measurable. A first version without the lookout's view corridor grew 123 trees (+1.5 ms) and was fixed; denser
+grass and ferns (+0.5–1 ms) were trimmed back.
 
 ## `FirstPersonController`
 

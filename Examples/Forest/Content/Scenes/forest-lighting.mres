@@ -8,7 +8,7 @@
     "CountY": 8,
     "CountZ": 129,
     "LayerHeights": [0.3, 1.2, 2.5, 4.5, 7.5, 12, 18, 27],
-    "BakeHash": "028777a5b0e351c071bc1718dba9b33197f7251d007c7ffa2ae4ae31b69f232e",
+    "BakeHash": "1af6e6e924aa34755aee5f2b2b3253ef3c6bfe79dbc8c1bb3d70e280e7f5e119",
     "RaysPerProbe": 192,
     "Bounces": 2,
     "DataFile": "forest-lighting.probes"

@@ -60,6 +60,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
           image without sampler), TerrainBlend, per-instance colour jitter, CC0 scans + clutter, understorey, R6/R7, ACES kept
           with a fitted `forest-morning.cube`. Full gates on the merged branch: build 0 warnings, Release OK, 2097 engine,
           786 editor, 163 Forest, 167 render, format, shaders (133).
+        - **2026-10-09/10, after Brogan's playtest:** fc93d611 tamed blown-out sunlight (sun 2, sky 2, probe fill, min lum
+          0.03); ADR 0177 histogram auto exposure (forest/histo, 0d6742c8: centre-weighted 10–90 band + highlight protection;
+          lavapipe golden for `auto-exposure-histogram` NOT recorded — the lane's sandbox refused Docker; Brogan was given the
+          command); ADR 0178 look-dev against Brogan's five Unreal references (forest/look, a301433c: back-lit NNE sun,
+          warm haze, AgX, muted olive greens, meadow/flowers/fern dell, dust specks, R1–R7 recomposed; refs never committed).
         - **Queue done → PR opened for Brogan to play.** Known: an intermittent solid-colour frame after shrinking the window
           with TAAU on (seen twice, 1 in 10 here, never under validation; native scale fine) — `ResizeTargets` /
           `ApplyRenderScale` ordering is the first suspect. Not met: G8e.8's 14 ms at 1440p on a base M5 (≈21 ms). After both: full gates, push, PR (Auto-fix on), milestones G8 → 🚧, tell Brogan to play.
