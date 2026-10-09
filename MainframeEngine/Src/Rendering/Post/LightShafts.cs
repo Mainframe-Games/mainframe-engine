@@ -164,7 +164,7 @@ internal sealed unsafe class LightShafts() : PostEffect("light shafts", PostStag
 
     protected override void OnRecord(PostEffectContext context)
     {
-        if (Record(context.CommandBuffer, context.Settings.World, context.Vulkan.LightShaftsSun))
+        if (Record(context.CommandBuffer, context.Settings.World, context.LightShaftsSun))
             DrawnFrame = context.FrameNumber;
     }
 

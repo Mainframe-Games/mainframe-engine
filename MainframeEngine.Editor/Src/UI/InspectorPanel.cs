@@ -30,6 +30,9 @@ public sealed partial class InspectorPanel : EditorDocument
 
     private readonly List<RowView> _rows = [];
     private readonly HashSet<string> _collapsedSections = new(StringComparer.Ordinal);
+    // [ExportGroup] sections of nested resources ("Type/Group") the user opened: collapsed by default (Godot's sub-resources).
+    private readonly HashSet<string> _openNestedSections = new(StringComparer.Ordinal);
+    private const string NestedSectionPrefix = "nested:";
     private readonly HashSet<(object Target, string Property)> _expanded = [];
     private RmlEventListener? _change;
     private RmlEventListener? _blur;
@@ -302,6 +305,16 @@ public sealed partial class InspectorPanel : EditorDocument
                     .Append(collapsed ? " collapsed" : "").Append("\"></span><span class=\"").Append(section.IconClasses).Append(" icon-sm section-icon\"></span><span>")
                     .Append(RmlText.Escape(section.Title)).Append("</span></div>");
             }
+            else if (section.IsGroup)
+            {
+                // A nested resource's [ExportGroup] (a post-processing profile's Glow, SSAO, ...): a collapsible title,
+                // closed until opened.
+                collapsed = !_openNestedSections.Contains(key);
+                rml.Append("<div class=\"section-title ").Append(depth == 1 ? "nested" : "nested2").Append("\" data-section=\"")
+                    .Append(RmlText.Escape(NestedSectionPrefix + key)).Append("\"><span class=\"arrow").Append(collapsed ? " collapsed" : "")
+                    .Append("\"></span><span class=\"").Append(section.IconClasses).Append(" icon-sm section-icon\"></span><span>")
+                    .Append(RmlText.Escape(section.Title)).Append("</span></div>");
+            }
 
             if (collapsed)
                 continue;
@@ -325,7 +338,7 @@ public sealed partial class InspectorPanel : EditorDocument
 
         if (property.Kind == PropertyEditorKind.Color && _expanded.Contains((property.Target, property.Name)))
             AppendColorPicker(rml, property, index, value);
-        if (property.Kind == PropertyEditorKind.Resource && value is Resource resource && !resource.IsExternal && !property.IsMulti &&
+        if (property.Kind == PropertyEditorKind.Resource && value is Resource resource && IsEditableInline(resource) && !property.IsMulti &&
             depth + 1 < MaxResourceDepth && _expanded.Contains((property.Target, property.Name)))
             AppendSections(rml, InspectorModel.Build(resource), depth + 1);
         // Arrays of sub-resources (a BuildingDef's levels): each expanded element's properties below the array, under its index
@@ -437,9 +450,13 @@ public sealed partial class InspectorPanel : EditorDocument
                     if (value is AudioStream sound && !p.IsMulti)
                         AppendPreviewButton(rml, row, Workspace.AudioPreview.IsPlaying(sound));
                     var expanded = _expanded.Contains((p.Target, p.Name));
-                    if (value is Resource { IsExternal: false } && !p.IsMulti && RowDepth(row) + 1 < MaxResourceDepth)
+                    if (value is Resource editable && IsEditableInline(editable) && !p.IsMulti && RowDepth(row) + 1 < MaxResourceDepth)
                         AppendButton(rml, row, "res-edit", expanded ? "chevron-up" : "pencil",
-                            expanded ? "Fold — hide the resource's properties" : "Edit — show the resource's properties below", expanded);
+                            expanded ? "Fold — hide the resource's properties"
+                            : editable.IsExternal ? $"Edit — show {Path.GetFileName(editable.ResourcePath)}'s properties below (saved to the file when the scene is saved)"
+                            : "Edit — show the resource's properties below", expanded);
+                    if (value is Resource { IsExternal: false } inline && inline is not PackedScene && !p.IsMulti)
+                        AppendButton(rml, row, "res-save", "device-floppy", "Save as .mres — move the resource to its own file, shared by every slot that uses it");
                     AppendButton(rml, row, "res-load", "folder-open", "Load — use a resource file (.mres, image, model, sound)");
                     AppendButton(rml, row, "res-new", "circle-plus", $"New — create an inline {(p.ResourceType ?? typeof(Resource)).Name}");
                     if (value is not null)
@@ -840,9 +857,7 @@ public sealed partial class InspectorPanel : EditorDocument
             return;
         if (FindAttribute(e.Target, "data-section") is { } section)
         {
-            if (!_collapsedSections.Remove(section))
-                _collapsedSections.Add(section);
-            Rebuild();
+            ToggleSection(section);
             return;
         }
 
@@ -901,6 +916,9 @@ public sealed partial class InspectorPanel : EditorDocument
                 break;
             case "res-new":
                 NewResource(p);
+                break;
+            case "res-save":
+                SaveResourceAs(p);
                 break;
             case "arr-add":
                 EditArray(p, list => list.Add(DefaultElement(p.ElementType)));
@@ -1319,6 +1337,77 @@ public sealed partial class InspectorPanel : EditorDocument
                 Workspace.Commands.ReportError($"Could not load {Path.GetFileName(path)}", e);
             }
         });
+    }
+
+    /// <summary>
+    /// Opens or closes a section title: <c>Type/Title</c> (top level, open by default) or <c>nested:Type/Title</c> (an
+    /// [ExportGroup] of a nested resource, closed by default) — also for tests and QA scripts.
+    /// </summary>
+    public void ToggleSection(string section)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+        if (section.StartsWith(NestedSectionPrefix, StringComparison.Ordinal))
+        {
+            var key = section[NestedSectionPrefix.Length..];
+            if (!_openNestedSections.Remove(key))
+                _openNestedSections.Add(key);
+        }
+        else if (!_collapsedSections.Remove(section))
+        {
+            _collapsedSections.Add(section);
+        }
+
+        Rebuild();
+    }
+
+    // Inline resources, and resource files (.mres) edited in place: their changes are saved with the scene (ADR 0169).
+    // Imported assets (a texture, a model, a LUT) are external but keep their data in the source file: not editable here.
+    private static bool IsEditableInline(Resource resource) =>
+        !resource.IsExternal || resource.ResourcePath!.EndsWith(".mres", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Save as .mres (editor-viewport-tools G7.2, the minimal path of ADR 0169): a deep copy of the inline resource in row
+    /// <paramref name="p"/>'s slot is saved to a file the user picks, and every slot of the edited scene that held the
+    /// inline resource gets the file's (one undo step; undo puts the inline resource back, the file stays).
+    /// </summary>
+    private void SaveResourceAs(InspectorProperty p)
+    {
+        if (p.GetValue() is not Resource { IsExternal: false } original || EditContext is not EditedScene scene)
+            return;
+        var start = Workspace.Session.ProjectRoot is { } root && Directory.Exists(Path.Combine(root, "Content"))
+            ? Path.Combine(root, "Content")
+            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var name = original.ResourceName is { Length: > 0 } named ? named : original.GetType().Name;
+        var model = new FilePickerModel(FilePickerMode.Save, start, ["*.mres"], name + ".mres");
+        Workspace.FilePicker.Show(model, $"Save {p.Label} as", "Save", path => SaveResourceAs(scene, original, path));
+    }
+
+    /// <summary>Saves <paramref name="original"/> (inline in <paramref name="scene"/>) as <paramref name="path"/> and points every slot holding it at the file.</summary>
+    public bool SaveResourceAs(EditedScene scene, Resource original, string path)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(original);
+        try
+        {
+            var projectPath = AssetDatabase.Current.ToProjectPath(path);
+            if (AssetDatabase.Current.GetUid(projectPath) is { } uid && ResourceLoader.IsCached(uid))
+                throw new InvalidOperationException($"{Path.GetFileName(path)} is in use; choose another name.");
+            var copy = original.Duplicate(deep: true);
+            ResourceSaver.Save(copy, path);
+            var slots = scene.SlotsHolding(original);
+            var actions = new IEditorAction[slots.Count];
+            for (var i = 0; i < slots.Count; i++)
+                actions[i] = new SetPropertyAction(slots[i].Target, slots[i].Property, original, copy);
+            if (actions.Length > 0)
+                scene.History.Commit(new CompositeAction($"Save {original.GetType().Name} as {Path.GetFileName(path)}", actions));
+            Log.Info($"[Editor] Saved {projectPath}");
+            return true;
+        }
+        catch (Exception e) when (EditorCommands.IsRecoverable(e))
+        {
+            Workspace.Commands.ReportError($"Could not save {Path.GetFileName(path)}", e);
+            return false;
+        }
     }
 
     private void NewResource(InspectorProperty p) => NewResourceInto(p.Label, p.ResourceType, resource =>

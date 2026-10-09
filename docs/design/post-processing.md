@@ -7,7 +7,9 @@ three **stages** in the frame, **effects** registered on a per-view stack, the i
 HDR colour, depth, velocity), a **target pool** with ping-pong histories, the **depth prepass** that writes depth and
 **motion vectors** before lighting, and the **projection jitter** TAA needs. Auto exposure, glow, light shafts, FXAA,
 TAA (ADR 0166), SSAO ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md)) and ADR 0168's depth of field and colour grade
-are effects in this system. Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
+are effects in this system. The world's settings are a `PostProcessProfile` resource ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md),
+[The profile](#the-profile)), and a `SubViewport` can run the same stack for its own world
+([Sub-viewports](#sub-viewports)): the editor previews post-processing that way. Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
 
 ## Frame
 
@@ -29,8 +31,9 @@ flowchart LR
 | `BeginRenderPass` | Engine | the scene pass; after a prepass it begins with a load-depth render pass compatible with the scene pass |
 | `BeginOverlayPass` | `EndFrame` (or the engine) | ends the scene pass, records `BeforeTonemap`, the tonemap (into the swapchain, or into the LDR image when an `AfterTonemap` effect is on), then `AfterTonemap`; the last `AfterTonemap` effect begins the swapchain pass and the overlay renderers draw after it |
 
-Only the tree's root world is post-processed (glow, auto exposure, light shafts, FXAA, the prepass); sub-viewports
-(the editor viewport) use the engine tonemap alone (forest-showcase decision 12).
+The table is the main view's: the tree's root world. A `SubViewport` with `PostProcessing` runs the same stages inside
+`RenderServer.RenderOffscreen` for its world ([Sub-viewports](#sub-viewports)); other sub-viewports use the engine
+tonemap alone.
 
 ## Key types
 
@@ -51,6 +54,9 @@ Only the tree's root world is post-processed (glow, auto exposure, light shafts,
 | `TemporalJitter` | Halton (2, 3): `Halton`, `SampleIndex`, `PixelOffset`, `NdcOffset`, `Apply(projection, jitter)` |
 | `IPostProcessHost` | the renderer's side the render server drives (`PostEffects`, `BeginPostFrame`, `BeginPrepass`/`EndPrepass`, `RecordAfterPrepass`) |
 | `TaaEffect`, `TaaSharpenEffect` | TAA's resolve and RCAS sharpen ([TAA](#taa), ADR 0166); `TaaParams` is the resolve's push block |
+| `PostProcessProfile` | public resource (ADR 0169): the world's tonemap, auto exposure, glow, light shafts, SSAO and adjustments; `Settings` is the packed struct |
+| `SubViewportPost` | a post-processed `SubViewport`'s stack, pool, prepass, LDR ping-pong and overlay pass (`IPostOutput` onto the view's image) |
+| `PostTonemapPass` | the post tonemap (`TonemapPost`) into an LDR target, for `SubViewportPost` (the main view's is in `VulkanRenderer.Presentation`) |
 
 All of these are internal for now; `RenderDebugView`, `TemporalJitter`, `FrameTemporal` and the `FrameData` fields are
 public.
@@ -292,7 +298,7 @@ moves into the AO target's g channel and binding 6 is retired.
 
 `SsaoEffect` ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md)): ground-truth ambient occlusion (GTAO, Jimenez et
 al. 2016, structured like Intel's XeGTAO) at `PostEffectOrder.Ssao` in `AfterPrepass`, `Needs = DepthPrepass`, enabled by
-`WorldEnvironment.SsaoEnabled`. Four fullscreen fragment passes, recorded between the prepass and the scene pass:
+`PostProcessProfile.SsaoEnabled`. Four fullscreen fragment passes, recorded between the prepass and the scene pass:
 
 | Pass | Shader | Target (pool) | What |
 |---|---|---|---|
@@ -324,11 +330,68 @@ decodes exactly (`VelocityDebugView.Decode`); still is 128 grey. `RenderDebugVie
 
 ## Settings
 
-Effects read their switches from `PostEffectSettings`: the world's `PostProcessSettings` (set on `WorldEnvironment`, Godot
-style: glow, auto exposure, light shafts, SSAO), the project's `AntiAliasing`
+Effects read their switches from `PostEffectSettings`: the world's `PostProcessSettings` (`WorldEnvironment.PostProcessSettings`:
+its `PostProcessProfile` with the lens, [The profile](#the-profile)), the project's `AntiAliasing`
 (`rendering.antiAliasing`: `None`, `Fxaa`, `Taa`) and `TaaSharpness` (`rendering.taaSharpness`), and the renderer's debug
 view. `RenderServer.ForceDepthPrepass` and `MAINFRAME_DEPTH_PREPASS` force the prepass. `PostEffectSettings.PostTonemap`
 ignores the SSAO settings (`PostProcessSettings.WithoutSsao`): SSAO alone does not switch to the post tonemap pass.
+
+## The profile
+
+`PostProcessProfile` ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md)) is a
+`Resource` with Godot's property names in export groups: **Tonemap** (`Tonemapper`, `TonemapExposure`, `TonemapWhite`),
+**Auto Exposure**, **Glow** (with `GlowQuality`), **Light Shafts**, **SSAO**, **Adjustments** (brightness, contrast,
+saturation, `AdjustmentColorCorrection` LUT and its strength). `WorldEnvironment.PostProcess` references it, from a
+`.mres` shared by scenes or inline; null is the engine default (its own tonemap, no effects).
+
+```csharp
+var look = new PostProcessProfile { SsaoEnabled = true, GlowEnabled = true, Tonemapper = Tonemapper.Agx };
+ResourceSaver.Save(look, "Content/PostProcess/look.mres"); // optional: share it
+root.AddChild(new WorldEnvironment { PostProcess = look, CameraAttributes = new CameraAttributesPractical { VignetteIntensity = 0.2f } });
+```
+
+- **The split (Godot's).** Sky, ambient and reflected light, fog and wind stay on `WorldEnvironment`; the lens (depth of
+  field, vignette, grain, aberration) is `CameraAttributesPractical` on `WorldEnvironment.CameraAttributes`, replaced by
+  the current camera's `Camera3D.Attributes`. `WorldEnvironment.PostProcessSettings` is profile + environment lens; the
+  render server applies the camera's lens on top. Contact shadows are the sun's (`DirectionalLight3D.ContactShadows`),
+  anti-aliasing the project's (`rendering.antiAliasing`) or the sub-viewport's.
+- **Packed and live.** Every setter updates the profile's `Settings` (`PostProcessSettings`, the internal struct the
+  effects read) and raises `Resource.Changed` when the value changed; each frame copies the struct (0 B). An edit applies
+  on the next frame. `PostProcessProfile.FromSettings(settings)` builds a profile from a struct.
+- **Old scenes.** `WorldEnvironment` is version 2: version-1 entries with post keys load them into an inline profile
+  ([Scene serialization → Versioning](scene-serialization.md#versioning)).
+
+## Sub-viewports
+
+`SubViewport.PostProcessing` (default off; ADR 0169) runs the post stack for the view's world: its environment's
+`PostProcessSettings`, the view camera's lens when the view has no `CameraOverride`, `SubViewport.AntiAliasing` (Godot's
+per-viewport `screen_space_aa` / `use_taa`) and `SubViewport.TaaSharpness`. Ignored with `TransparentBg` (the chain
+writes opaque images). The editor's scene view is the user ([Editor → Viewport](editor.md#viewport)).
+
+- **One stack per view.** `SubViewportTargets.Post` is a `SubViewportPost`: a `PostProcessStack` with its own instance of
+  every built-in effect (the list is `VulkanRenderer.RegisterPostEffects`'; the `subviewport-post` render test checks they
+  match), a `PostTargetPool`, a `ScenePrepass` on the view's HDR target, a `SceneColorCopy`, the post tonemap
+  (`PostTonemapPass`) and the `AfterTonemap` ping-pong. It is the effects' `IPostOutput`: the "present" pass is the view's
+  LDR image (`SubViewport.ColorTarget`, display values in UNORM: `OutputEncodesSrgb` is false). With nothing beyond the
+  engine tonemap enabled it records exactly the plain view's tonemap.
+- **Frame.** `RenderServer.PrepareFrame` decides the view's settings and needs (`UpdateSubPostState`) and marks its draws
+  prepassed before they are prepared. In `RenderOffscreen`, per post-processed view: `FrameContext.ResetView`, the view's
+  jitter (`SetViewJitter`, Halton like the main view's, when TAA asks), `BeginFrame` (effects' `OnBeginFrame` with
+  `FrameContext.PostView` = the view, so SSAO and contact shadows bind for it), the view's camera and lights, the prepass
+  and `AfterPrepass`, the scene pass (loading the prepass depth), the object-ID pass, then `BeforeTonemap`, the tonemap
+  and `AfterTonemap`. `PostEffectContext.JitterIndex` and `LightShaftsSun` are the view's.
+- **Debug visuals after post.** In a post-processed view `Grid3D` (`VisualInstance3D.DrawsAfterPost`), `DebugLines` and
+  `OverlayLines` are not drawn in the scene pass: an overlay pass (`SubViewportPost.OverlayRenderPass`: the LDR image
+  loaded, the scene depth read-only) draws them after the effects with pipeline variants whose fragment shaders write
+  display values (specialization constant 0 of `SceneGrid` and `DebugLines`; the alpha is raised towards its sRGB
+  encoding, which approximates the HDR pass's linear blend). Neither graded, blurred nor smeared. They use the camera
+  unjittered, written into the next view slot, so TAA does not shimmer them (the scene depth they test is jittered by
+  under a pixel). Picking uses the view's jittered set, like the main view's.
+- **Resize and lifetime.** A view's post state has a fixed size: a resized view gets a new `SubViewportPost` and the old
+  one goes to `DeletionQueue.EnqueueDispose` (disposed once the frames that used it finished; its effects destroy objects
+  directly). Turning `PostProcessing` off retires it; a view that stops rendering keeps it.
+- **Cost.** What the main view's post costs, at the view's size. Views use one extra frame-set view slot when they have
+  debug visuals.
 
 ## Game-defined effects (later)
 
@@ -367,6 +430,14 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
   against a moving camera, the push block's size, the material's dither flag.
 - **ADR 0168** (`CinematicPostTests`, render and unit): the colour grade, LUTs, tonemappers, glow High, depth of field and
   film effects, the whole chain at 0 B per frame and across a resize; see [Color pipeline → Testing](color-pipeline.md#testing).
+- **ADR 0169** (`SubViewportPostTests`; goldens `subviewport-post_frame0008` (post on) and `_frame0009` (off) on both
+  drivers): the `subviewport-post` scene shows a view full-window and checks its own image: with post-processing the
+  profile's grade makes the scene grey and the vignette darkens the corners while the red debug and green overlay line
+  patches keep their exact colours; without it the colours stay; with TAA the view's history accumulates and the line
+  patches are identical in consecutive frames; the view's effects are the main view's list; 0 B per frame with TAA, SSAO,
+  glow and the grade under an orbiting camera. Unit tests (`PostProcessProfileTests`): defaults, the struct from the
+  profile and the lens, change notification, the inline and `.mres` round trips, the version-1 migration (the Forest's
+  pre-ADR-0169 environment) and its inline-resource value.
 - **Unit tests** (`PostProcessingTests`): stage and order sorting, enable rules and needs, lazy creation and disposal,
   the built-ins' stages, the target pool and history validity, Halton and the jittered projection, the 576-byte frame
   block and its offsets, view and node motion histories. `SsaoTests`: defaults, the tonemap rule, stage and needs, the
@@ -374,7 +445,7 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 
 ## Known issues
 
-- Sub-viewports have no post effects, prepass or velocity.
+- Sub-viewports without `PostProcessing` have no post effects, prepass or velocity. Hidden editor tabs keep their post state (TAA history, pool).
 - What the prepass does not draw has no velocity of its own (see above). Water marks itself reactive for TAA; particles
   (G6.3), Spine and transparent `StandardMaterial3D`s do not yet, so they may smear under TAA when they animate.
 - TAA softens the image a little in motion (the sharpen restores some of it); the dithered alpha's noise shows for a

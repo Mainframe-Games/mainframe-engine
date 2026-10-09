@@ -7,8 +7,8 @@ namespace Forest;
 /// The Forest's main scene (<c>Content/Scenes/forest.mscene</c>, written by <c>--write-scenes</c>): the morning sun,
 /// the environment (physical sky, sky lighting, valley fog, light shafts, auto exposure, glow, wind), the
 /// <see cref="ForestValley"/> (generated when ready: terrain, stream, pond, trees, ground cover, props), the
-/// <see cref="FirstPersonController"/> at the trailhead and <see cref="ForestAudio"/>. The look's knobs live here, so
-/// the editor can tune them.
+/// <see cref="FirstPersonController"/> at the trailhead and <see cref="ForestAudio"/>. The environment's knobs live here
+/// and the post-processing look in <see cref="ForestLook"/>'s <c>.mres</c> files, so the editor can tune them.
 /// </summary>
 public static class ForestScene
 {
@@ -73,9 +73,9 @@ public static class ForestScene
     }
 
     /// <summary>
-    /// The morning look: physical sky, IBL from it, valley fog with sun scatter, shafts, eye adaptation, a little glow, a
-    /// breeze, and the cinematic grade (ADR 0168): the forest-morning LUT (<see cref="ForestGrade"/>), a subtle vignette and
-    /// a touch of film grain.
+    /// The morning environment: physical sky, IBL from it, valley fog with sun scatter and a breeze; the post-processing
+    /// look (shafts, eye adaptation, a little glow, GTAO and the forest-morning grade) and the lens (a subtle vignette and a
+    /// touch of film grain) are <see cref="ForestLook"/>'s resource files.
     /// </summary>
     public static WorldEnvironment CreateEnvironment() => new()
     {
@@ -104,35 +104,9 @@ public static class ForestScene
         FogHeightDensity = 0.08f,
         FogSunScatter = 0.3f,
 
-        GlowEnabled = true,
-        GlowIntensity = 0.3f,
-        GlowStrength = 1f,
-        GlowBloom = 0f,
-        GlowHdrThreshold = 4f, // only the sun, its glints and the brightest sky gaps bloom; sunlit leaves do not sparkle
-        GlowHdrLuminanceCap = 3f,
-
-        AutoExposureEnabled = true,
-        AutoExposureScale = 0.16f,
-        AutoExposureSpeed = 0.6f,
-
-        LightShaftsEnabled = true,
-        LightShaftsIntensity = 2.3f, // the morning haze in the canopy: strong rays through every sky gap near the sun
-        LightShaftsDecay = 0.965f,
-        LightShaftsDensity = 0.85f,
-
-        // GTAO (ADR 0165): trunks, rocks, ferns and grass sit in the ground and the shade under the canopy deepens; near
-        // the physical value (intensity and power close to 1) and a short radius, so there are no dark halos.
-        SsaoEnabled = true,
-        SsaoRadius = 0.8f,
-        SsaoIntensity = 1.1f,
-        SsaoPower = 1.2f,
-        SsaoDetail = 0.4f,
-        SsaoHorizon = 0.06f,
-        SsaoSharpness = 0.98f,
-        AdjustmentEnabled = true,
-        AdjustmentColorCorrection = ResourceLoader.Exists(ForestGrade.LutPath) ? ResourceLoader.Load<Texture3D>(ForestGrade.LutPath) : null,
-        AdjustmentColorCorrectionStrength = ForestGrade.Strength,
-        CameraAttributes = ForestGrade.CreateLens(),
+        // ADR 0169: the post-processing look and the lens are resource files the editor tunes (ForestLook).
+        PostProcess = ForestLook.LoadProfile(),
+        CameraAttributes = ForestLook.LoadLens(),
     };
 
     private static void BuildPlayer(Node root)

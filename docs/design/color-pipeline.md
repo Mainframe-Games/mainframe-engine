@@ -159,7 +159,8 @@ target will be another.
 
 ## Godot tonemap and glow (ADR 0124)
 
-A `WorldEnvironment` can ask for Godot 4.7's tonemap and glow (`Tonemapper = GodotAces`, `TonemapExposure`,
+A `WorldEnvironment`'s `PostProcessProfile` (`WorldEnvironment.PostProcess`, ADR 0169; [Post-processing → The
+profile](post-processing.md#the-profile)) can ask for Godot 4.7's tonemap and glow (`Tonemapper = GodotAces`, `TonemapExposure`,
 `TonemapWhite`; `GlowEnabled`, `GlowLevel1..7`, `GlowNormalized`, `GlowIntensity`, `GlowStrength`, `GlowMix`,
 `GlowBloom`, `GlowBlendMode`, `GlowHdrThreshold/Scale/LuminanceCap`, all with Godot's defaults). The render server copies
 the root world's `PostProcessSettings` to `IVulkanContext.PostProcess` each frame. With the default settings the frame is
@@ -171,7 +172,7 @@ blended (Screen by default) before the curve, the engine's ACES fit or Godot's (
 
 ## Auto exposure (ADR 0154)
 
-`WorldEnvironment.AutoExposureEnabled` (default off; `AutoExposureScale` 0.4 and `AutoExposureSpeed` 0.5 are Godot's,
+`PostProcessProfile.AutoExposureEnabled` (default off; `AutoExposureScale` 0.4 and `AutoExposureSpeed` 0.5 are Godot's,
 `AutoExposureMinLuminance` 0.05, `AutoExposureMaxLuminance` 2) puts the root world's frame on the post tonemap pass and
 records [`AutoExposure`](../../MainframeEngine/Src/Rendering/Post/AutoExposure.cs) after the scene pass, before the glow.
 Everything is a raster pass and nothing is read back to the CPU:
@@ -227,7 +228,7 @@ exposure metering and glow thresholds do not flicker with the jitter. The colour
 
 ## Light shafts (ADR 0160)
 
-`WorldEnvironment.LightShaftsEnabled` (default off) streaks the sky around the sun through the gaps between leaves,
+`PostProcessProfile.LightShaftsEnabled` (default off) streaks the sky around the sun through the gaps between leaves,
 trunks and anything else that wrote depth: Mitchell's radial blur from GPU Gems 3 ch. 13, as fragment passes
 ([`LightShafts`](../../MainframeEngine/Src/Rendering/Post/LightShafts.cs)). The sun is the world's **first
 `DirectionalLight3D`** (the physical sky's sun too); the render server projects its direction with the root camera
@@ -287,7 +288,7 @@ sRGB) and ignores the white. AgX takes a saturated colour to white as it brighte
 not saturated yellow) and keeps its hue in the mid-tones; middle grey 0.18 stays ≈ 0.18 display-linear. The glow's white
 (`GlowWhite`) is `max(1, white)` for ACES, Reinhard and filmic, 1 otherwise.
 
-**Adjustments and LUT** (`WorldEnvironment`, Godot's names): `AdjustmentEnabled` turns on `AdjustmentBrightness`,
+**Adjustments and LUT** (`PostProcessProfile`, Godot's names): `AdjustmentEnabled` turns on `AdjustmentBrightness`,
 `AdjustmentContrast`, `AdjustmentSaturation` (Godot 4's `apply_bcs` on the display-encoded value: × brightness, around
 0.5 by contrast, from the channel mean by saturation) and `AdjustmentColorCorrection`, a `Texture3D` looked up with
 hardware trilinear at `c · (N − 1)/N + 0.5/N` (texel centres; an identity LUT reproduces the input within ±1), mixed in by

@@ -32,6 +32,7 @@ RenderTestGame game = options.Scene switch
     "materials" => new MaterialsScene(options),
     "outline" => new OutlineScene(options),
     "subviewport-capture" => new SubViewportCaptureScene(options),
+    "subviewport-post" => new SubViewportPostScene(options),
     "gltf" => new GltfScene(options),
     "instances" => new InstancesScene(options),
     "picking" => new PickingScene(options),

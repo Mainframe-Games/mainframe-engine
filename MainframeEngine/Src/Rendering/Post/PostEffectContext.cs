@@ -161,6 +161,12 @@ internal sealed class PostEffectContext
     /// <summary>The frame's exposure (<see cref="IVulkanContext.Exposure"/>, or the Godot tonemap's).</summary>
     public float Exposure { get; internal set; }
 
+    /// <summary>The view's jitter sample index this frame (<see cref="FrameContext.JitterIndex"/> for the main view; 0 without jitter).</summary>
+    public int JitterIndex { get; internal set; }
+
+    /// <summary>The sun's screen position and fade for the light shafts (ADR 0160), from the view's camera and world.</summary>
+    public LightShaftsSun LightShaftsSun { get; internal set; }
+
     /// <summary>True for the last enabled effect of its stage (an <see cref="PostStage.AfterTonemap"/> one draws into the swapchain).</summary>
     public bool IsLastInStage { get; internal set; }
 

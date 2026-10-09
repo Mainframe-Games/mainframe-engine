@@ -111,7 +111,7 @@ flowchart TB
 | Panel | Document | What it does |
 |---|---|---|
 | Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
-| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G); the play group — Play (F5), Play Scene (F6), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B) — with a chip per running instance (status icon, label; click for its menu) and a build/reload status; fps / frame-time readout |
+| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); the play group — Play (F5), Play Scene (F6), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B) — with a chip per running instance (status icon, label; click for its menu) and a build/reload status; fps / frame-time readout |
 | Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
@@ -246,7 +246,7 @@ comes from the value type and the `[Export]` hints:
 | Quaternion | `Quaternion` | Euler degrees (X→Y→Z, like `RotationDegrees`) |
 | Color | `System.Drawing.Color`, or a `Vector3`/`Vector4` named `…Color` (lights) | swatch + hex field; the swatch opens RGBA sliders |
 | NodePath | `NodePath` (`NodeType` hint filters) | field + pick from the scene's nodes (stored relative to the node) |
-| Resource | `Resource` subclasses | label with the resource's icon + Edit (fold), Load (file), New (the create dialog: types assignable to the slot), Clear icon buttons; inline resources expand into nested rows (up to 3 levels) |
+| Resource | `Resource` subclasses | label with the resource's icon + Edit (fold), Save as .mres (inline only), Load (file), New (the create dialog: types assignable to the slot), Clear icon buttons; inline resources and `.mres` files expand into nested rows (up to 3 levels), their `[ExportGroup]`s as collapsible titles ([Resources in place](#resources-in-place)) |
 | Array | `T[]`, `List<T>` | count, + Add, per-element fields (scalars) and remove; elements that are resources (a def's levels) get the resource buttons per element (Edit folds the element's properties in below the array under "Name [i]", Load, New, Clear) |
 | Transform, unsupported | `Transform3D/2D`, others | read-only text |
 
@@ -270,6 +270,26 @@ comes from the value type and the `[Export]` hints:
   editor's own `MissingNodeInspector` explains missing types, `AudioBusLayoutInspector` edits bus layouts. They are
   found in loaded assemblies that reference the editor, game assemblies included
   ([Resource files and custom inspectors](#resource-files-and-custom-inspectors)).
+
+### Resources in place
+
+ADR 0169, for a `WorldEnvironment`'s `PostProcessProfile` (or any resource):
+
+- **Nested groups.** A nested resource's `[ExportGroup]`s are section titles (indented, `data-section="nested:Type/Group"`),
+  **closed by default** like Godot's sub-resources; a click opens one (remembered per type and group for the session).
+  Members outside a group are listed as before.
+- **Resource files edit in place.** Edit (pencil) also opens a `.mres` resource in the slot (the Forest's
+  `forest.mres`). Edits go through the scene's history like any row, apply at once (the render server reads the profile
+  every frame) and the file is written when the scene is saved (`EditedScene.EditedResourceFiles`, keeping its UID), as
+  Godot saves edited sub-resources. Imported assets (a `.cube` LUT, a texture, a model) keep their data in the source
+  file and do not open.
+- **Save as .mres** (`device-floppy`, on inline resources; the minimal G7.2 path of
+  [future/editor-viewport-tools.md](future/editor-viewport-tools.md#g72-inline-resource-actions)): a file picker under
+  `Content/`, then a deep copy is saved (`ResourceSaver.Save`, a new `res_` UID) and every slot of the scene that held the
+  inline resource (nodes the scene saves and the inline resources they reach: `EditedScene.SlotsHolding`) gets the file,
+  as one undo step ("Save PostProcessProfile as look.mres"); undo puts the inline resource back, the file stays. A path
+  whose UID is loaded is refused. Make Unique, Open and Show in FileSystem (the More menu) are not built yet.
+- **New** creates a `PostProcessProfile` at once (one concrete type for the slot), expanded below.
 
 ## Undo / redo
 
@@ -310,6 +330,13 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
 - **Editor-only visuals** (never saved): `Grid3D`, orange selection boxes (mesh bounds) or crosses, sun/omni/spot icons
   with direction, cone and (selected) range, camera frusta, audio markers and range spheres, collision shapes
   (physics debug draw).
+- **Preview Post-Processing** (toolbar `sparkles` button and View menu, `view.post`; on by default; ADR 0169): the 3D view
+  runs the edited world's post-processing (`SubViewport.PostProcessing`): its `WorldEnvironment`'s profile and lens with
+  the open project's `rendering.antiAliasing`, `taaSharpness` and `exposure`, as the game shows them (TAA, SSAO, auto
+  exposure, glow, shafts, grade, depth of field, film). The grid, gizmos, icons and selection boxes are drawn after the
+  effects (neither graded, blurred nor jittered: [Post-processing → Sub-viewports](post-processing.md#sub-viewports)); 2D
+  tabs have none. Off: the engine tonemap alone (faster on a large view). Auto exposure adapts over time in the view, as
+  in the game.
 
 ### 2D view
 
@@ -665,6 +692,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 | `SceneTree.EditMode`, `Node.IsTool` | [Scene graph & nodes](scene-graph-and-nodes.md) |
 | `SceneViewport.CameraOverride`, `SceneViewport.OverlayLines`, `SubViewport.ColorTarget` | [Scene graph & nodes](scene-graph-and-nodes.md), [Materials & meshes](materials-and-meshes.md#offscreen-views-subviewport) |
 | `SubViewport.Shadows` (a view of another world may own the shadow maps when the main world has nothing to shadow) | `Scene/SubViewport.cs`, `Servers/RenderServer.cs` |
+| `SubViewport.PostProcessing`, `AntiAliasing`, `TaaSharpness` (ADR 0169: the view's own post stack; debug visuals after it) | [Post-processing → Sub-viewports](post-processing.md#sub-viewports) |
+| `SceneSaver` save hooks skip unowned (runtime) nodes, so a `[Tool]` node's generated terrain is never written | [Scene serialization](scene-serialization.md#saving) |
 | `ContentPaths.ProjectDirectory` | `Core/ContentPaths.cs` |
 | List bindings tolerate rows past the end of a list that just shrank | [Game UI](game-ui.md#data-binding) |
 | `WindowIcon` byte order for window icons | `Core/WindowIcon.cs` |
@@ -683,6 +712,13 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   and gizmo math, the output log, and the **whole UI headless** (RmlUi with the null renderer): panels load without
   RmlUi warnings, tree clicks and drags, inspector edits for every kind, Add Node, menus, shortcuts, rename, Save As,
   the quit prompt, recovery copies, and **0 B per idle frame with 1 000 nodes** (and with a tooltip shown).
+- **Post-processing (ADR 0169)** ([PostProcessEditorTests](../../Tests/MainframeEngine.Editor.Tests/PostProcessEditorTests.cs)):
+  the profile opens inline with its six groups closed, a group opens, an edit applies live and undoes; New creates a
+  profile and Save as .mres moves it (and its second user) to a file, undoable; a `.mres` edited in place is written with
+  the scene under its UID; an imported LUT does not open; the Preview Post-Processing toggle switches the view (and 2D
+  tabs have none). The walkthrough (`just qa-editor`) ends with a new profile edited inline (`16-post-profile`) and the
+  preview off (`17-post-preview-off`); [Tests/QA/forest-post.qa](../../Tests/QA/forest-post.qa) opens the Forest, its
+  `forest.mres` and the preview.
 - **Icon gates** ([IconTests](../../Tests/MainframeEngine.Editor.Tests/IconTests.cs)): the generated atlas matches
   `icons.txt` (every sheet, sizes, vendored SVGs); every icon the editor's RML, RCSS and C# reference (class lists,
   sprite references, `[EditorIcon]`, `Export(Icon)`, `Icon:` arguments, the resolvers) exists — a missing name fails the
@@ -706,7 +742,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   (`Category=Slow`) runs the real `dotnet new mfgame` and build.
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
   editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, drags, gizmo drags, keys,
-  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `fs-select`, `delete-file`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
+  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
@@ -727,6 +763,10 @@ lights with Shadows v2 cascades and atlas, Spine, physics crates, a glTF model),
 average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate nothing.
 
 ## Known issues
+
+- Post-processing preview costs what the game's post costs at the view's size: the Forest at 2× (≈ 2500 × 1650 view
+  pixels) runs at ~20 fps with it and ~43 fps without on an Apple M5. Hidden tabs keep their post state.
+- The resource row's label is narrow next to its six buttons (the name shows in its tooltip).
 
 - A code reload drops the undo history of the scenes it re-creates (selection, view and dirty state are kept).
 - The gizmo moves the last selected node only; there is no box selection.

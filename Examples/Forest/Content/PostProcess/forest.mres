@@ -1,0 +1,29 @@
+{
+  "format": 2,
+  "uid": "res_8fa6654227d5",
+  "type": "PostProcessProfile",
+  "resources": {
+    "Texture3D_u9a3x": {
+      "path": "Content/Grading/forest-morning.cube"
+    }
+  },
+  "props": {
+    "AutoExposureEnabled": true,
+    "AutoExposureScale": 0.16,
+    "AutoExposureSpeed": 0.6,
+    "GlowEnabled": true,
+    "GlowHdrThreshold": 4,
+    "GlowHdrLuminanceCap": 3,
+    "LightShaftsEnabled": true,
+    "LightShaftsIntensity": 2.3,
+    "LightShaftsDecay": 0.965,
+    "LightShaftsDensity": 0.85,
+    "SsaoEnabled": true,
+    "SsaoRadius": 0.8,
+    "SsaoIntensity": 1.1,
+    "SsaoPower": 1.2,
+    "SsaoDetail": 0.4,
+    "AdjustmentEnabled": true,
+    "AdjustmentColorCorrection": { "res": "Texture3D_u9a3x" }
+  }
+}

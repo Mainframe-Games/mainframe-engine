@@ -262,6 +262,7 @@ public sealed class RenderServer : IServer
         {
             if (!ShouldRender(sub) && !NeedsObjectIds(sub))
                 continue;
+            UpdateSubPostState(sub, vk);
             EnsureResources(sub.World3D);
             if (sub.World3D.GeometryList.Count > 0 && GetRenderCamera(sub, Extent(sub)) is { } subCamera)
                 Meshes!.Prepare(EnsureTargets(sub).Draws, sub.World3D, subCamera, collectCasters: ReferenceEquals(sub, _shadowView));
@@ -382,7 +383,7 @@ public sealed class RenderServer : IServer
             {
                 if (view < FrameContext.MaxViews)
                 {
-                    RenderSubViewport(vk, cb, sub, view++, colour);
+                    view += RenderSubViewport(vk, cb, sub, view, colour);
                 }
                 else if (!_warnedTooManyViews)
                 {
@@ -412,17 +413,30 @@ public sealed class RenderServer : IServer
         }
     }
 
-    // colour: false renders only the object-ID pass (picks queued on a view whose colour updates are disabled).
-    private void RenderSubViewport(IVulkanContext vk, CommandBuffer cb, SubViewport sub, int view, bool colour)
+    // colour: false renders only the object-ID pass (picks queued on a view whose colour updates are disabled). Returns
+    // how many views it used: 2 for a post-processed view with debug visuals (their overlay pass has an unjittered camera).
+    private int RenderSubViewport(IVulkanContext vk, CommandBuffer cb, SubViewport sub, int view, bool colour)
     {
         var extent = Extent(sub);
         var targets = EnsureTargets(sub);
         targets.Ensure(extent);
         var world = sub.World3D;
         var camera = GetRenderCamera(sub, extent);
+        // ADR 0169: the view's own post-processing (its state was decided in PrepareFrame).
+        var post = colour && camera is not null ? targets.Post : null;
+        var prepass = post is not null && targets.Draws.Prepassed;
+        var sun = post is not null ? SunFor(world, camera!, post.Settings) : default;
 
         var frame = vk.Frame;
         frame.SetView(view, extent);
+        frame.ResetView(view);
+        if (post is not null && (post.Needs & PostEffectNeeds.Jitter) != 0)
+        {
+            var index = TemporalJitter.SampleIndex(vk.FrameNumber);
+            frame.SetViewJitter(view, TemporalJitter.NdcOffset(index, extent.Width, extent.Height), index);
+        }
+
+        post?.BeginFrame(cb, view, prepass, camera, sun); // before the view's set is bound: SSAO binds its output here
         MeshRenderer? meshes = null;
         if (camera is not null)
         {
@@ -435,21 +449,30 @@ public sealed class RenderServer : IServer
             meshes?.Prepare(targets.Draws, world, camera, collectCasters: false);
         }
 
+        if (prepass)
+        {
+            post!.BeginPrepass(cb);
+            meshes?.DrawPrepass(targets.Draws, cb);
+            post.EndPrepass(cb, view, camera!, sun);
+        }
+
         if (colour)
         {
             var clear = sub.TransparentBg ? default : LinearClear(sub.ClearColor); // transparent black (Godot's transparent_bg)
             Span<ClearValue> clears = [new ClearValue { Color = clear }, new ClearValue { DepthStencil = new ClearDepthStencilValue(1f, 0) }];
-            targets.Hdr!.Begin(cb, clears);
+            targets.Hdr!.Begin(cb, clears, post?.SceneLoadPass ?? targets.Hdr.RenderPass);
             if (camera is not null)
             {
-                DrawWorld(world, camera, meshes, targets.Draws, cb);
-                DrawLines(vk, sub, camera);
+                DrawWorld(world, camera, meshes, targets.Draws, cb, afterPost: post is not null);
+                if (post is null)
+                    DrawLines(vk, sub, camera);
             }
 
             targets.Hdr.End(cb); // explicit barrier: the compositor's tonemap samples the HDR image
         }
 
         var picker = targets.Picker;
+        var views = 1;
         if (camera is null)
         {
             picker?.MissQueued();
@@ -461,9 +484,18 @@ public sealed class RenderServer : IServer
         }
 
         if (!colour)
-            return;
+            return views;
         _compositor ??= new SubViewportCompositor(vk);
-        _compositor.Tonemap(cb, targets, keepAlpha: sub.TransparentBg);
+        if (post is not null)
+        {
+            post.Record(cb, view, camera, sun, _compositor);
+            views += DrawAfterPost(vk, cb, sub, post, camera!, view + 1);
+        }
+        else
+        {
+            _compositor.Tonemap(cb, targets, keepAlpha: sub.TransparentBg);
+        }
+
         if (sub.PendingCaptures is { Count: > 0 } captures)
         {
             var capture = targets.Capture ??= new SubViewportCapture(vk);
@@ -476,6 +508,97 @@ public sealed class RenderServer : IServer
         targets.RenderCount++;
         if (sub.UpdateMode == SubViewportUpdateMode.Once)
             sub.UpdateMode = SubViewportUpdateMode.Disabled;
+        return views;
+    }
+
+    // ADR 0169: a post-processed sub-viewport's settings (its world's profile and lens, the current camera's lens, its own
+    // anti-aliasing) and what its effects need, decided before its draws are prepared (the prepass marks them).
+    private void UpdateSubPostState(SubViewport sub, IVulkanContext vk)
+    {
+        var targets = EnsureTargets(sub);
+        if (!sub.PostProcessing || sub.TransparentBg || vk is not IPostProcessHost)
+        {
+            targets.RetirePost();
+            targets.Draws.Prepassed = false;
+            return;
+        }
+
+        if (!ShouldRender(sub))
+        {
+            targets.Draws.Prepassed = false; // an object-ID pass only: the post state (histories) is kept for later frames
+            return;
+        }
+
+        targets.Ensure(Extent(sub));
+        var post = targets.EnsurePost();
+        var world = sub.World3D.Environment?.PostProcessSettings ?? PostProcessSettings.Default;
+        if (sub.CameraOverride is null && sub.ActiveCamera3D?.Attributes is { } attributes)
+            world = attributes.ApplyTo(world);
+        var contact = ContactShadowSettings.For(PrimaryShadowLight(sub.World3D.Lights),
+            _shadows is { ContactShadows: true } && ReferenceEquals(sub, _shadowView));
+        var settings = new PostEffectSettings(world, sub.AntiAliasing, RenderDebugView.None, Math.Clamp(sub.TaaSharpness, 0f, 1f))
+        {
+            ContactShadows = contact,
+        };
+        post.Settings = settings;
+        post.Needs = post.Effects.GetNeeds(settings);
+        targets.Draws.Prepassed = (post.Needs & PostEffectNeeds.DepthPrepass) != 0;
+    }
+
+    // ADR 0160: the light shafts stream from the world's first directional light, seen by the view's camera.
+    private static LightShaftsSun SunFor(World3D world, ICamera camera, in PostEffectSettings settings) =>
+        settings.World.LightShaftsEnabled && world.Lights.DirectionalLights is [var sun, ..]
+            ? LightShaftsSun.Compute(camera.ViewMatrix, camera.ProjectionMatrix, -sun.Direction)
+            : default;
+
+    // ADR 0169: the debug visuals of a post-processed view (grid, debug and overlay lines) after its effects, into its LDR
+    // image against the scene depth, with an unjittered camera in their own view slot (when one is free). Returns the views
+    // used (0 or 1).
+    private int DrawAfterPost(IVulkanContext vk, CommandBuffer cb, SubViewport sub, SubViewportPost post, ICamera camera, int overlayView)
+    {
+        var world = sub.World3D;
+        var any = sub.DebugLines.LineCount > 0 || sub.OverlayLines.LineCount > 0;
+        if (!any)
+        {
+            foreach (var visual in world.VisualList)
+            {
+                if (visual.DrawsAfterPost && visual.IsVisibleInTree())
+                {
+                    any = true;
+                    break;
+                }
+            }
+        }
+
+        if (!any)
+            return 0;
+        var frame = vk.Frame;
+        var used = 0;
+        if (overlayView < FrameContext.MaxViews)
+        {
+            frame.SetView(overlayView, Extent(sub));
+            frame.ResetView(overlayView);
+            frame.EnvironmentMaps = null;
+            frame.Begin(camera, null, shadows: false);
+            used = 1;
+        }
+
+        var pass = post.OverlayRenderPass;
+        post.BeginOverlay(cb);
+        foreach (var visual in world.VisualList)
+            if (visual.DrawsAfterPost && visual.IsVisibleInTree())
+                visual.DrawAfterPost(camera, pass);
+        if (sub.DebugLines.LineCount > 0 || sub.OverlayLines.LineCount > 0)
+        {
+            _debugLines ??= new DebugLinesRenderer(vk);
+            if (sub.DebugLines.LineCount > 0)
+                _debugLines.DrawAfterPost(sub.DebugLines, camera, pass, overlay: false);
+            if (sub.OverlayLines.LineCount > 0)
+                _debugLines.DrawAfterPost(sub.OverlayLines, camera, pass, overlay: true);
+        }
+
+        post.EndOverlay(cb);
+        return used;
     }
 
     // ADR 0163: the root world's post settings, what its enabled post effects need (the depth prepass, jitter) and the
@@ -533,7 +656,7 @@ public sealed class RenderServer : IServer
     // Camera3D.Attributes replaces the environment's CameraAttributes). Struct copies, no allocation.
     private static PostProcessSettings RootPostProcess(SceneViewport root)
     {
-        var post = root.World3D.Environment?.PostProcess ?? PostProcessSettings.Default;
+        var post = root.World3D.Environment?.PostProcessSettings ?? PostProcessSettings.Default;
         if (root.CameraOverride is null && root.ActiveCamera3D?.Attributes is { } attributes)
             post = attributes.ApplyTo(post);
         return post;
@@ -682,13 +805,14 @@ public sealed class RenderServer : IServer
             _debugLines.Draw(viewport.OverlayLines, camera, overlay: true);
     }
 
-    private void DrawWorld(World3D world, ICamera camera, MeshRenderer? meshes, MeshViewDraws draws, CommandBuffer cb)
+    // afterPost: a post-processed sub-viewport, whose debug visuals (DrawsAfterPost) draw after its effects instead.
+    private void DrawWorld(World3D world, ICamera camera, MeshRenderer? meshes, MeshViewDraws draws, CommandBuffer cb, bool afterPost = false)
     {
         world.Environment?.DrawSky(this, camera);
         var opaqueDrawn = meshes is null;
         foreach (var visual in world.VisualList)
         {
-            if (visual.IsBatched || !visual.IsVisibleInTree())
+            if (visual.IsBatched || !visual.IsVisibleInTree() || (afterPost && visual.DrawsAfterPost))
                 continue;
             if (!opaqueDrawn && visual.RenderPriority >= 0)
             {

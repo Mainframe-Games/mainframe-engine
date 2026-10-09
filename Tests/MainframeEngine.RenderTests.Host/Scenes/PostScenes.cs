@@ -85,8 +85,7 @@ public sealed class AutoExposureScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Environment",
             AmbientColor = new Vector3(0.05f, 0.05f, 0.05f),
-            AutoExposureEnabled = true,
-            AutoExposureSpeed = 2f,
+            PostProcess = new PostProcessProfile { AutoExposureEnabled = true, AutoExposureSpeed = 2f },
         });
         Tree.ChangeScene(scene);
     }

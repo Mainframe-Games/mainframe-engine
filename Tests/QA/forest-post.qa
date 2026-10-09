@@ -1,0 +1,35 @@
+# ADR 0169: the Forest in the editor, its post-processing look (Content/PostProcess/forest.mres) open in the inspector
+# and previewed in the view. Run from the checkout after building the Forest (dotnet build Examples/Forest/Forest.slnx):
+#   dotnet run --project MainframeEngine.Editor -c Release -- Examples/Forest/project.mfproj --hidden \
+#     --qa-script Tests/QA/forest-post.qa --qa-out artifacts/qa-forest-post
+wait-for project 300
+wait 60
+# Down the trail from the trailhead, towards the morning sun.
+camera 64 18 180 14 -170 -8
+# Auto exposure adapts over a few seconds (the profile's speed 0.6/s).
+wait 300
+capture 01-forest-view
+# The environment's profile and lens, inline: Glow and SSAO open.
+select Environment
+wait 2
+inspector-action PostProcess res-edit
+wait 2
+inspector-section nested:PostProcessProfile/Glow
+inspector-section nested:PostProcessProfile/SSAO
+wait 10
+capture 02-forest-post-inspector
+# A live tweak (not saved): SSAO off, then back.
+inspector-set SsaoEnabled false
+wait 20
+capture 03-forest-ssao-off
+inspector-set SsaoEnabled true
+wait 20
+# Preview Post-Processing off: the engine tonemap alone.
+command view.post
+wait 20
+capture 04-forest-post-preview-off
+command view.post
+wait 20
+capture 05-forest-post-preview-on
+state
+quit

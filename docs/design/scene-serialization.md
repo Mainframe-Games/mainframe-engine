@@ -270,7 +270,8 @@ flowchart LR
   copy of the scene picks up the new content. Writes go through a temp file + move.
   `SceneSaver.ToJson(root, uid)` serializes without touching disk.
 - Before writing, `SceneSaver.Save` calls the internal `ISceneSaveHook.OnSceneSaving(scenePath)` on every node under
-  the root (all of them, owned or not). Nodes with data of their own write it there: a [`Terrain3D`](terrain.md) saves
+  the root that the scene or one of its instances owns (runtime children without an owner, such as a `[Tool]` node's
+  generated terrain, are skipped with their subtrees: they are not saved, ADR 0169). Nodes with data of their own write it there: a [`Terrain3D`](terrain.md) saves
   its layer images and `terrain.mres` into `<scene>_terrain/`. A throwing hook fails the save before the scene file is
   written. `ToJson` runs no hook.
 - `ResourceSaver.Save(resource, path)` writes a `.mres` (`format`, `uid`, `type`, `v`, `resources`,
@@ -297,6 +298,13 @@ flowchart LR
   step by step (rename, convert or drop properties) before it is applied; saving writes the current
   version. Example: `MigratedNode` in the unit tests renames `Velocity` → `Speed` (v1→v2) and widens a
   scalar `Size` to a vector (v2→v3).
+- **Moving properties into a new sub-resource.** `PropertyBag.SetInlineResource(name, typeName, bag)` stores
+  `{"type": …, "props": {…}}` as a value; the resource codec reads that shape as a new inline resource of the file
+  (`DeserializationContext.CreateInlineResource`, whose `{"res": …}` references resolve against the file's table). Only
+  migrations produce it: the next save writes an ordinary sub-resource. `WorldEnvironment` v1 → v2 (ADR 0169) moves its
+  tonemap, auto exposure, glow, light shafts, SSAO and adjustment keys (`PostProcessProfile.MovedPropertyNames`) into an
+  inline `PostProcessProfile` on `PostProcess`; an entry without them gets none. Instance overrides migrate the same way
+  (a v1 override of a post key replaces the instance's profile with an inline one).
 
 ## Performance
 

@@ -156,19 +156,22 @@ public sealed class SkyAndPostSettingsTests
         var env = new WorldEnvironment
         {
             Name = "Environment",
-            AutoExposureEnabled = true,
-            AutoExposureScale = 0.3f,
-            AutoExposureSpeed = 1.5f,
-            AutoExposureMinLuminance = 0.01f,
-            AutoExposureMaxLuminance = 4f,
+            PostProcess = new PostProcessProfile
+            {
+                AutoExposureEnabled = true,
+                AutoExposureScale = 0.3f,
+                AutoExposureSpeed = 1.5f,
+                AutoExposureMinLuminance = 0.01f,
+                AutoExposureMaxLuminance = 4f,
+            },
         };
         root.AddChild(env);
         env.Owner = root;
 
         var copy = (WorldEnvironment)PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate().GetChild(0);
-        Assert.Equal(env.PostProcess, copy.PostProcess);
-        Assert.True(copy.PostProcess.AutoExposureEnabled);
-        Assert.Equal(4f, copy.AutoExposureMaxLuminance);
+        Assert.Equal(env.PostProcessSettings, copy.PostProcessSettings);
+        Assert.True(copy.PostProcessSettings.AutoExposureEnabled);
+        Assert.Equal(4f, copy.PostProcess!.AutoExposureMaxLuminance);
     }
 
     [Fact]

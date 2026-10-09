@@ -76,6 +76,13 @@ public sealed partial class ViewportController : Node
         }
     } = true;
 
+    /// <summary>
+    /// Whether the 3D view previews the edited world's post-processing (ADR 0169, on by default): its
+    /// <see cref="WorldEnvironment.PostProcess"/> profile and lens, with the project's anti-aliasing, as the game shows
+    /// them. The grid, gizmos and editor markers are drawn after the effects. Off: the engine tonemap alone.
+    /// </summary>
+    public bool PostPreview { get; set; } = true;
+
     /// <summary>The view rectangle in window points (dp).</summary>
     public LayoutRect ViewRect => _workspace.Layout.ViewportImage;
 
@@ -171,6 +178,7 @@ public sealed partial class ViewportController : Node
 
         if (view2D)
             viewport.CanvasTransform = Transform2D.FromTrs(pixels * 0.5f - scene.Camera.Center2D * scene.Camera.Zoom2D, 0f, new Vector2(scene.Camera.Zoom2D));
+        ApplyPostPreview(viewport, PostPreview && !view2D);
         PublishTarget(viewport);
 
         if (_drag == DragKind.Fly)
@@ -191,6 +199,23 @@ public sealed partial class ViewportController : Node
             DrawEditorVisuals2D(scene, pixels);
         else
             DrawEditorVisuals(scene, pixels);
+    }
+
+    // ADR 0169: the view's post-processing as the game would run it (the project's anti-aliasing, TAA sharpness and
+    // exposure). Allocation-free: only changed values are written.
+    private void ApplyPostPreview(SubViewport viewport, bool on)
+    {
+        if (viewport.PostProcessing != on)
+            viewport.PostProcessing = on;
+        var rendering = _workspace.Session.Project?.Rendering;
+        var antiAliasing = rendering?.AntiAliasing ?? AntiAliasing.None;
+        if (viewport.AntiAliasing != antiAliasing)
+            viewport.AntiAliasing = antiAliasing;
+        var sharpness = rendering?.TaaSharpness ?? IVulkanContext.DefaultTaaSharpness;
+        if (viewport.TaaSharpness != sharpness)
+            viewport.TaaSharpness = sharpness;
+        if (rendering is not null && Tree?.Servers.Render?.Vulkan is { } vk && vk.Exposure != rendering.Exposure)
+            vk.Exposure = rendering.Exposure; // the engine tonemap's exposure, as rendering.exposure sets it in the game
     }
 
     // ── UI preview backdrop ──────────────────────────────────────────────────────────────────────────────────────
@@ -224,6 +249,7 @@ public sealed partial class ViewportController : Node
             viewport.Height = (int)pixels.Y;
         }
 
+        ApplyPostPreview(viewport, PostPreview && !viewport.Disable3D);
         PublishTarget(viewport);
         // What the player sees: the scene's current camera; a scene without one keeps the tab's editor view.
         if (viewport.ActiveCamera3D is not null || viewport.ActiveCamera2D is not null)

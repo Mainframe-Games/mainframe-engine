@@ -44,11 +44,14 @@ public sealed class GlowScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Environment",
             AmbientColor = Vector3.Zero,
-            Tonemapper = Tonemapper.GodotAces,
-            GlowEnabled = Host.Count != 1,
-            GlowNormalized = true,
-            GlowStrength = 0.75f,
-            GlowQuality = Host.Count >= 3 ? GlowQuality.High : GlowQuality.Standard,
+            PostProcess = new PostProcessProfile
+            {
+                Tonemapper = Tonemapper.GodotAces,
+                GlowEnabled = Host.Count != 1,
+                GlowNormalized = true,
+                GlowStrength = 0.75f,
+                GlowQuality = Host.Count >= 3 ? GlowQuality.High : GlowQuality.Standard,
+            },
         });
         Tree.ChangeScene(scene);
     }

@@ -131,5 +131,24 @@ wait 3
 capture 15-editor-settings
 click #es-cancel
 wait 3
+# Post-processing (ADR 0169): a new profile on the environment, edited inline (live in the view), then the view with
+# Preview Post-Processing off and on again.
+select Environment
+wait 2
+inspector-action PostProcess res-new
+wait 3
+inspector-section nested:PostProcessProfile/Tonemap
+inspector-section nested:PostProcessProfile/Adjustments
+wait 2
+inspector-set Tonemapper Agx
+inspector-set AdjustmentEnabled true
+inspector-set AdjustmentSaturation 0.3
+wait 10
+capture 16-post-profile
+command view.post
+wait 5
+capture 17-post-preview-off
+command view.post
+wait 3
 state
 quit

@@ -98,10 +98,13 @@ public sealed class SsaoScene(HostOptions host) : RenderTestGame(host)
             Sky = new Sky { Mode = SkyEnvironmentType.Procedural },
             AmbientSource = AmbientSource.Sky,
             AmbientEnergy = 2f,
-            SsaoEnabled = SsaoOn,
-            SsaoRadius = Radius,
-            SsaoIntensity = 1.5f,
-            SsaoPower = 1.5f,
+            PostProcess = new PostProcessProfile
+            {
+                SsaoEnabled = SsaoOn,
+                SsaoRadius = Radius,
+                SsaoIntensity = 1.5f,
+                SsaoPower = 1.5f,
+            },
         });
         Tree.ChangeScene(scene);
     }

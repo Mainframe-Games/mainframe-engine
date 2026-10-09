@@ -1,0 +1,9 @@
+{
+  "format": 2,
+  "uid": "res_d5ee91b233f5",
+  "type": "CameraAttributesPractical",
+  "props": {
+    "VignetteIntensity": 0.2,
+    "FilmGrainIntensity": 0.015
+  }
+}

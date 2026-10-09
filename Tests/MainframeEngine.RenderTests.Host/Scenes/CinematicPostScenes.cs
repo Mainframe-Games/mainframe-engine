@@ -97,14 +97,7 @@ public sealed class PostGradeScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Environment",
             AmbientColor = Vector3.Zero,
-            Tonemapper = s.Tonemapper,
-            TonemapExposure = s.TonemapExposure,
-            AdjustmentEnabled = s.AdjustmentEnabled,
-            AdjustmentBrightness = s.AdjustmentBrightness,
-            AdjustmentContrast = s.AdjustmentContrast,
-            AdjustmentSaturation = s.AdjustmentSaturation,
-            AdjustmentColorCorrection = s.AdjustmentColorCorrection,
-            AdjustmentColorCorrectionStrength = s.AdjustmentColorCorrectionStrength,
+            PostProcess = PostProcessProfile.FromSettings(s),
         });
         Tree.ChangeScene(scene);
     }
@@ -162,7 +155,8 @@ public sealed class PostDofScene(HostOptions host) : RenderTestGame(host)
             });
         }
 
-        var environment = new WorldEnvironment { Name = "Environment", AmbientColor = Vector3.Zero, AdjustmentEnabled = true };
+        var post = new PostProcessProfile { AdjustmentEnabled = true };
+        var environment = new WorldEnvironment { Name = "Environment", AmbientColor = Vector3.Zero, PostProcess = post };
         var lens = new CameraAttributesPractical { DofBlurAmount = 0.15f, DofQuality = DepthOfFieldQuality.High };
         switch (Host.Count)
         {
@@ -185,12 +179,12 @@ public sealed class PostDofScene(HostOptions host) : RenderTestGame(host)
                 lens.VignetteIntensity = 0.3f;
                 lens.FilmGrainIntensity = 0.02f;
                 lens.ChromaticAberrationIntensity = 2f;
-                environment.Tonemapper = Tonemapper.Agx;
-                environment.GlowEnabled = true;
-                environment.GlowQuality = GlowQuality.High;
-                environment.AdjustmentContrast = 1.1f;
-                environment.AdjustmentColorCorrection = CubeLut.FromFunction(17, static c => new Vector3(c.Z, c.X, c.Y)).ToTexture3D();
-                environment.AdjustmentColorCorrectionStrength = 0.3f;
+                post.Tonemapper = Tonemapper.Agx;
+                post.GlowEnabled = true;
+                post.GlowQuality = GlowQuality.High;
+                post.AdjustmentContrast = 1.1f;
+                post.AdjustmentColorCorrection = CubeLut.FromFunction(17, static c => new Vector3(c.Z, c.X, c.Y)).ToTexture3D();
+                post.AdjustmentColorCorrectionStrength = 0.3f;
                 Vulkan.AntiAliasing = AntiAliasing.Fxaa;
                 break;
         }
@@ -257,7 +251,7 @@ public sealed class PostFilmScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Environment",
             AmbientColor = Vector3.Zero,
-            Tonemapper = Tonemapper.Linear,
+            PostProcess = new PostProcessProfile { Tonemapper = Tonemapper.Linear },
             CameraAttributes = lens,
         });
         Tree.ChangeScene(scene);

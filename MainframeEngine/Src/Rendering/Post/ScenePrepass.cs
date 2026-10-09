@@ -3,7 +3,7 @@ using Silk.NET.Vulkan;
 namespace MainframeEngine;
 
 /// <summary>
-/// The depth prepass of the main view (ADR 0163): opaque and cutout geometry into the <b>scene target's depth</b> and an
+/// The depth prepass of a view (ADR 0163; the main view, or a post-processed sub-viewport, ADR 0169): opaque and cutout geometry into the <b>scene target's depth</b> and an
 /// <c>R16G16_SFLOAT</c> velocity image (screen-UV motion, <see cref="SceneTextures.Velocity"/>), then the sky's velocity
 /// (camera rotation only) where nothing was drawn. The scene pass then begins with <see cref="SceneLoadPass"/>, which
 /// loads that depth instead of clearing it: the prepassed draws test it (<c>LESS_OR_EQUAL</c>, cutouts <c>EQUAL</c>
@@ -19,6 +19,7 @@ internal sealed unsafe class ScenePrepass : IDisposable
 {
     private readonly IVulkanContext _ctx;
     private readonly Format _depthFormat;
+    private RenderTarget _scene; // whose depth the prepass writes: the main view's, or a post-processed sub-viewport's (ADR 0169)
     private GpuImage _velocity;
     private Framebuffer _framebuffer;
     private readonly PipelineLayout _skyLayout;
@@ -28,6 +29,7 @@ internal sealed unsafe class ScenePrepass : IDisposable
     public ScenePrepass(IVulkanContext ctx, RenderTarget scene)
     {
         _ctx = ctx;
+        _scene = scene;
         _depthFormat = scene.Depth!.Format;
         PrepassRenderPass = CreatePrepassRenderPass();
         SceneLoadPass = CreateSceneLoadPass();
@@ -62,6 +64,7 @@ internal sealed unsafe class ScenePrepass : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_framebuffer));
         _velocity.Dispose();
+        _scene = scene;
         _velocity = CreateVelocity(scene.Extent);
         _framebuffer = CreateFramebuffer(scene);
         Extent = scene.Extent;
@@ -133,7 +136,7 @@ internal sealed unsafe class ScenePrepass : IDisposable
             0, 0, null, 0, null, 2, barriers);
     }
 
-    private Image SceneDepthImage => _ctx.SceneTarget.Depth!.Handle;
+    private Image SceneDepthImage => _scene.Depth!.Handle;
 
     private GpuImage CreateVelocity(Extent2D extent) =>
         GpuImage.Create(_ctx, new GpuImageDesc(extent.Width, extent.Height, SceneTextures.VelocityFormat,

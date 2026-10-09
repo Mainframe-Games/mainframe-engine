@@ -10,15 +10,13 @@
         "Turbidity": 6
       }
     },
-    "Texture3D_u9a3x": {
-      "path": "Content/Grading/forest-morning.cube"
+    "PostProcessProfile_yiey8": {
+      "ref": "res_8fa6654227d5",
+      "path": "Content/PostProcess/forest.mres"
     },
-    "CameraAttributesPractical_m6y5e": {
-      "type": "CameraAttributesPractical",
-      "props": {
-        "VignetteIntensity": 0.2,
-        "FilmGrainIntensity": 0.015
-      }
+    "CameraAttributesPractical_npu9u": {
+      "ref": "res_d5ee91b233f5",
+      "path": "Content/PostProcess/forest-lens.mres"
     },
     "CapsuleShape3D_ak3q9": {
       "type": "CapsuleShape3D",
@@ -56,11 +54,14 @@
       "name": "Environment",
       "parent": ".",
       "type": "WorldEnvironment",
+      "v": 2,
       "props": {
         "Sky": { "res": "Sky_5kj71" },
         "AmbientSource": "Sky",
         "AmbientEnergy": 1.6,
         "ReflectedLightSource": "Sky",
+        "PostProcess": { "res": "PostProcessProfile_yiey8" },
+        "CameraAttributes": { "res": "CameraAttributesPractical_npu9u" },
         "WindDirection": [-1, 0, 0.25],
         "WindStrength": 0.35,
         "WindFrequency": 0.45,
@@ -69,25 +70,7 @@
         "FogDensity": 0.003,
         "FogHeight": 6,
         "FogHeightDensity": 0.08,
-        "FogSunScatter": 0.3,
-        "GlowEnabled": true,
-        "GlowHdrThreshold": 4,
-        "GlowHdrLuminanceCap": 3,
-        "AdjustmentEnabled": true,
-        "AdjustmentColorCorrection": { "res": "Texture3D_u9a3x" },
-        "CameraAttributes": { "res": "CameraAttributesPractical_m6y5e" },
-        "AutoExposureEnabled": true,
-        "AutoExposureScale": 0.16,
-        "AutoExposureSpeed": 0.6,
-        "LightShaftsEnabled": true,
-        "LightShaftsIntensity": 2.3,
-        "LightShaftsDecay": 0.965,
-        "LightShaftsDensity": 0.85,
-        "SsaoEnabled": true,
-        "SsaoRadius": 0.8,
-        "SsaoIntensity": 1.1,
-        "SsaoPower": 1.2,
-        "SsaoDetail": 0.4
+        "FogSunScatter": 0.3
       }
     },
     {

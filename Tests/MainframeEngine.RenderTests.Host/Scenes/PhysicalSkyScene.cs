@@ -64,8 +64,7 @@ public sealed class PhysicalSkyScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Environment",
             Sky = new Sky { Mode = SkyEnvironmentType.Physical },
-            AutoExposureEnabled = everything,
-            GlowEnabled = everything,
+            PostProcess = new PostProcessProfile { AutoExposureEnabled = everything, GlowEnabled = everything },
         };
         scene.AddChild(_environment);
         Tree.ChangeScene(scene);

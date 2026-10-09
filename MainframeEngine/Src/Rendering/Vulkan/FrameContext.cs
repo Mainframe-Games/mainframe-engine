@@ -275,21 +275,26 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly long[] _environmentIds = new long[Slots * MaxViews]; // EnvironmentMaps.Id bound (0 = the fallback)
     private readonly long[] _occlusionIds = new long[Slots * MaxViews];   // ambient occlusion id bound at binding 5 (0 = white)
     private readonly long[] _contactIds = new long[Slots * MaxViews];     // contact shadows id bound at binding 6 (0 = white)
+    private readonly ulong[] _occlusionImages = new ulong[Slots * MaxViews]; // the image views bound there (ids are per effect)
+    private readonly ulong[] _contactImages = new ulong[Slots * MaxViews];
     private readonly ViewHistory[] _history = new ViewHistory[MaxViews];
     private readonly GpuImage _blackCube;
     private readonly GpuImage _brdfLut;
     private readonly GpuImage _white;
     private readonly Sampler _iblSampler;
-    private DescriptorImageInfo _occlusion;
-    private long _occlusionId;
-    private Vector4 _occlusionParams; // FrameData.AmbientOcclusion of the main view
-    private DescriptorImageInfo _frameOcclusion; // what view 0 binds this frame: latched at its first bind of the frame
-    private long _frameOcclusionId;
-    private ulong _occlusionFrame;
-    private DescriptorImageInfo _contact;
-    private long _contactId;
-    private DescriptorImageInfo _frameContact; // latched with the ambient occlusion
-    private long _frameContactId;
+    // Per view (ADR 0169: a post-processed sub-viewport has its own SSAO, contact shadows and jitter; view 0 is the main view).
+    private readonly DescriptorImageInfo[] _occlusion = new DescriptorImageInfo[MaxViews];
+    private readonly long[] _occlusionId = new long[MaxViews];
+    private readonly Vector4[] _occlusionParams = new Vector4[MaxViews]; // FrameData.AmbientOcclusion
+    private readonly DescriptorImageInfo[] _frameOcclusion = new DescriptorImageInfo[MaxViews]; // latched at the view's first bind of the frame
+    private readonly long[] _frameOcclusionId = new long[MaxViews];
+    private readonly ulong[] _occlusionFrame = new ulong[MaxViews];
+    private readonly DescriptorImageInfo[] _contact = new DescriptorImageInfo[MaxViews];
+    private readonly long[] _contactId = new long[MaxViews];
+    private readonly DescriptorImageInfo[] _frameContact = new DescriptorImageInfo[MaxViews]; // latched with the ambient occlusion
+    private readonly long[] _frameContactId = new long[MaxViews];
+    private readonly Vector2[] _jitter = new Vector2[MaxViews];
+    private readonly int[] _jitterIndex = new int[MaxViews];
     private Extent2D _viewExtent;
     private bool _disposed;
 
@@ -396,12 +401,28 @@ public sealed unsafe class FrameContext : IDisposable
     };
 
     /// <summary>
-    /// The main view's (view 0) screen-space ambient occlusion from the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/>
-    /// on: <paramref name="image"/> (in <c>SHADER_READ_ONLY_OPTIMAL</c> whenever a lit pass reads it) identified by
-    /// <paramref name="id"/> (any non-zero value that changes when the image does, e.g. after a resize). The renderer
-    /// clears it at the start of every frame; an SSAO effect sets it again in its <c>OnBeginFrame</c>, before the frame's
-    /// first <c>Begin</c> of view 0 (a later change applies next frame: a set already bound is never rewritten).
-    /// Offscreen views always bind the white image.
+    /// The view the post effects' per-frame bindings apply to (<see cref="SetAmbientOcclusion(in DescriptorImageInfo, long)"/>,
+    /// <see cref="SetContactShadows"/>, the clears): 0, the main view, except while a post-processed sub-viewport starts its
+    /// effects (ADR 0169).
+    /// </summary>
+    internal int PostView
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(value, MaxViews);
+            field = value;
+        }
+    }
+
+    /// <summary>
+    /// <see cref="PostView"/>'s (the main view's) screen-space ambient occlusion from the next
+    /// <see cref="Begin(ICamera, LightEnvironment?, bool)"/> on: <paramref name="image"/> (in <c>SHADER_READ_ONLY_OPTIMAL</c>
+    /// whenever a lit pass reads it) identified by <paramref name="id"/> (any non-zero value that changes when the image
+    /// does, e.g. after a resize). The renderer clears it at the start of every frame; an SSAO effect sets it again in its
+    /// <c>OnBeginFrame</c>, before the frame's first <c>Begin</c> of the view (a later change applies next frame: a set
+    /// already bound is never rewritten). Offscreen views bind the white image unless they are post-processed.
     /// </summary>
     internal void SetAmbientOcclusion(in DescriptorImageInfo image, long id) => SetAmbientOcclusion(image, id, 0f, 0f);
 
@@ -414,17 +435,19 @@ public sealed unsafe class FrameContext : IDisposable
     internal void SetAmbientOcclusion(in DescriptorImageInfo image, long id, float lightAffect, float aoChannelAffect)
     {
         ArgumentOutOfRangeException.ThrowIfZero(id);
-        _occlusion = image;
-        _occlusionId = id;
-        _occlusionParams = new Vector4(Math.Clamp(lightAffect, 0f, 1f), Math.Clamp(aoChannelAffect, 0f, 1f), 1f, 0f);
+        var view = PostView;
+        _occlusion[view] = image;
+        _occlusionId[view] = id;
+        _occlusionParams[view] = new Vector4(Math.Clamp(lightAffect, 0f, 1f), Math.Clamp(aoChannelAffect, 0f, 1f), 1f, 0f);
     }
 
     /// <summary>Binds the white image at <see cref="AmbientOcclusionBinding"/> again (screen-space AO off).</summary>
     internal void ClearAmbientOcclusion()
     {
-        _occlusion = default;
-        _occlusionId = 0;
-        _occlusionParams = default;
+        var view = PostView;
+        _occlusion[view] = default;
+        _occlusionId[view] = 0;
+        _occlusionParams[view] = default;
     }
 
     /// <summary>
@@ -436,27 +459,64 @@ public sealed unsafe class FrameContext : IDisposable
     internal void SetContactShadows(in DescriptorImageInfo image, long id)
     {
         ArgumentOutOfRangeException.ThrowIfZero(id);
-        _contact = image;
-        _contactId = id;
+        _contact[PostView] = image;
+        _contactId[PostView] = id;
     }
 
     /// <summary>Binds the white image at <see cref="ContactShadowBinding"/> again (contact shadows off).</summary>
     internal void ClearContactShadows()
     {
-        _contact = default;
-        _contactId = 0;
+        _contact[PostView] = default;
+        _contactId[PostView] = 0;
     }
+
+    /// <summary>
+    /// An offscreen view starts a frame (ADR 0169): no ambient occlusion, contact shadows or jitter until its post effects
+    /// set them (<see cref="PostView"/>, <see cref="SetViewJitter"/>). The render server calls it for every view it renders.
+    /// </summary>
+    internal void ResetView(int view)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(view);
+        _occlusion[view] = default;
+        _occlusionId[view] = 0;
+        _occlusionParams[view] = default;
+        _contact[view] = default;
+        _contactId[view] = 0;
+        _jitter[view] = default;
+        _jitterIndex[view] = 0;
+    }
+
+    /// <summary>
+    /// The projection jitter of <paramref name="view"/> (view 0: <see cref="ProjectionJitter"/> and <see cref="JitterIndex"/>):
+    /// a post-processed sub-viewport with TAA jitters its own view (ADR 0169).
+    /// </summary>
+    internal void SetViewJitter(int view, Vector2 jitter, int index)
+    {
+        _jitter[view] = jitter;
+        _jitterIndex[view] = index;
+    }
+
+    /// <summary>The jitter sample index of <paramref name="view"/> this frame.</summary>
+    internal int ViewJitterIndex(int view) => _jitterIndex[view];
 
     /// <summary>
     /// Sub-pixel offset (NDC, +Y up) added to the main view's projection on every camera write (TAA, ADR 0163):
     /// <see cref="FrameData.Projection"/> and the matrices derived from it are jittered, the camera's own matrices (culling,
     /// shadows, UI, light shafts) are not. Zero unless a post effect asks for jitter; the render server sets it before
-    /// each frame. Offscreen views are never jittered.
+    /// each frame. Offscreen views are jittered only when post-processed with TAA (<see cref="SetViewJitter"/>, ADR 0169).
     /// </summary>
-    public Vector2 ProjectionJitter { get; set; }
+    public Vector2 ProjectionJitter
+    {
+        get => _jitter[0];
+        set => _jitter[0] = value;
+    }
 
     /// <summary>The jitter sample index written to <see cref="FrameData.Temporal"/>.z with <see cref="ProjectionJitter"/>.</summary>
-    public int JitterIndex { get; set; }
+    public int JitterIndex
+    {
+        get => _jitterIndex[0];
+        set => _jitterIndex[0] = value;
+    }
 
     /// <summary>The camera history of <paramref name="view"/> (written by every camera write; see <see cref="ViewHistory"/>).</summary>
     internal ref readonly ViewHistory History(int view) => ref _history[view];
@@ -539,28 +599,33 @@ public sealed unsafe class FrameContext : IDisposable
         if (!_ctx.FrameStarted)
             return;
         var index = Index;
-        if (CurrentView == 0 && _occlusionFrame != _ctx.FrameNumber)
+        var view = CurrentView;
+        if (_occlusionFrame[view] != _ctx.FrameNumber)
         {
             // Latched once per frame: a set bound earlier this frame is never rewritten (a change applies next frame).
-            _occlusionFrame = _ctx.FrameNumber;
-            _frameOcclusion = _occlusion;
-            _frameOcclusionId = _occlusionId;
-            _frameContact = _contact;
-            _frameContactId = _contactId;
+            _occlusionFrame[view] = _ctx.FrameNumber;
+            _frameOcclusion[view] = _occlusion[view];
+            _frameOcclusionId[view] = _occlusionId[view];
+            _frameContact[view] = _contact[view];
+            _frameContactId[view] = _contactId[view];
         }
 
-        var occlusionId = CurrentView == 0 ? _frameOcclusionId : 0;
-        if (_occlusionIds[index] != occlusionId)
+        var occlusionId = _frameOcclusionId[view];
+        var occlusionImage = occlusionId == 0 ? 0 : _frameOcclusion[view].ImageView.Handle;
+        if (_occlusionIds[index] != occlusionId || _occlusionImages[index] != occlusionImage)
         {
             _occlusionIds[index] = occlusionId;
-            PipelineBuilder.WriteImage(_ctx, _sets[index], AmbientOcclusionBinding, occlusionId == 0 ? NoOcclusionDescriptor : _frameOcclusion);
+            _occlusionImages[index] = occlusionImage;
+            PipelineBuilder.WriteImage(_ctx, _sets[index], AmbientOcclusionBinding, occlusionId == 0 ? NoOcclusionDescriptor : _frameOcclusion[view]);
         }
 
-        var contactId = CurrentView == 0 ? _frameContactId : 0;
-        if (_contactIds[index] != contactId)
+        var contactId = _frameContactId[view];
+        var contactImage = contactId == 0 ? 0 : _frameContact[view].ImageView.Handle;
+        if (_contactIds[index] != contactId || _contactImages[index] != contactImage)
         {
             _contactIds[index] = contactId;
-            PipelineBuilder.WriteImage(_ctx, _sets[index], ContactShadowBinding, contactId == 0 ? NoOcclusionDescriptor : _frameContact);
+            _contactImages[index] = contactImage;
+            PipelineBuilder.WriteImage(_ctx, _sets[index], ContactShadowBinding, contactId == 0 ? NoOcclusionDescriptor : _frameContact[view]);
         }
 
         var maps = EnvironmentMaps;
@@ -597,13 +662,12 @@ public sealed unsafe class FrameContext : IDisposable
     {
         if (!_ctx.FrameStarted) return;
         var index = Index;
-        var main = CurrentView == 0;
-        ref var history = ref _history[CurrentView];
-        history.Record(_ctx.FrameNumber, view * projection, main ? ProjectionJitter : Vector2.Zero, Time, Environment);
-        var temporal = history.ToTemporal(main ? JitterIndex : 0);
+        var current = CurrentView;
+        ref var history = ref _history[current];
+        history.Record(_ctx.FrameNumber, view * projection, _jitter[current], Time, Environment);
+        var temporal = history.ToTemporal(_jitterIndex[current]);
         var data = FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure, Environment, temporal);
-        if (main)
-            data.AmbientOcclusion = _occlusionParams;
+        data.AmbientOcclusion = _occlusionParams[current];
         _buffers[_ctx.FrameSlot].Write(data, (ulong)CurrentView * _viewStride);
         _cameraFrame[index] = _ctx.FrameNumber;
     }
