@@ -220,6 +220,56 @@ public sealed class TreeScatter : Node3D
         }
     } = 3f;
 
+    /// <summary>
+    /// Per-tree brightness variation (ADR 0175, <see cref="InstanceVariation"/>): every tree's bark, leaves and impostor
+    /// scale by 1 ± this, from a hash of its position; 0 (default): off.
+    /// </summary>
+    [ExportGroup("Variation")]
+    [Export(Range = "0,0.5,0.01")]
+    public float InstanceValueJitter
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+            field = value;
+            ApplyVariation();
+        }
+    }
+
+    /// <summary>Per-tree hue variation (ADR 0175): warmer or cooler by up to this; 0 (default): off.</summary>
+    [Export(Range = "0,0.5,0.01")]
+    public float InstanceHueJitter
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+            field = value;
+            ApplyVariation();
+        }
+    }
+
+    // The level and impostor materials are the scatter's own copies; with variation on, every material it draws is.
+    private bool HasVariation => InstanceValueJitter > 0f || InstanceHueJitter > 0f;
+
+    private void ApplyVariation()
+    {
+        if (HasVariation && _levelMaterials.Count == 0 && _impostorMaterials.Count == 0 && _batches.Count > 0)
+        {
+            MarkDirty(); // the batches still draw the species' shared materials: rebuild with copies
+            return;
+        }
+
+        foreach (var material in _levelMaterials.Values)
+            if (material is FoliageMaterial3D foliage)
+                (foliage.InstanceValueJitter, foliage.InstanceHueJitter) = (InstanceValueJitter, InstanceHueJitter);
+        foreach (var material in _impostorMaterials.Values)
+            (material.InstanceValueJitter, material.InstanceHueJitter) = (InstanceValueJitter, InstanceHueJitter);
+    }
+
     [ExportGroup("Shadows and collision")]
     [Export]
     public bool CastShadows
@@ -563,14 +613,17 @@ public sealed class TreeScatter : Node3D
     // Per instance (ADR 0172): the level's material, a copy that draws only the trees in the level's range.
     private Material? LevelMaterial(Material? material, int species, int lod, int levels, bool impostor)
     {
-        if (LodSelection != TreeLodSelection.PerInstance || material is not FoliageMaterial3D foliage)
+        var perInstance = LodSelection == TreeLodSelection.PerInstance;
+        if ((!perInstance && !HasVariation) || material is not FoliageMaterial3D foliage)
             return material;
         var key = (foliage, species, impostor ? 1 : 0, lod);
         if (!_levelMaterials.TryGetValue(key, out var copy))
         {
             var level = (FoliageMaterial3D)foliage.Duplicate();
             level.ResourceName = $"{foliage.ResourceName} (level {lod})";
-            level.InstanceVisibility = true;
+            level.InstanceVisibility = perInstance;
+            level.InstanceValueJitter = InstanceValueJitter;
+            level.InstanceHueJitter = InstanceHueJitter;
             _levelMaterials.Add(key, copy = level);
         }
 
@@ -593,6 +646,8 @@ public sealed class TreeScatter : Node3D
 
             material.InstanceVisibility = LodSelection == TreeLodSelection.PerInstance;
             material.ShadowDensity = ImpostorShadowDensity;
+            material.InstanceValueJitter = InstanceValueJitter;
+            material.InstanceHueJitter = InstanceHueJitter;
             _impostorMaterials.Add(impostor, material);
         }
 

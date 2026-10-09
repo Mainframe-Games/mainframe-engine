@@ -169,7 +169,9 @@ sequenceDiagram
   `water-refraction`, `water-ssr` and `water-fall` (ADR 0173: a bent striped bed, a pillar reflected only with SSR, also
   under TAA and in a post-processed sub-viewport, a River3D fall with spray; self-checked, goldens, 0 B gates with TAA),
   `terrain-splat` (ADR 0156: the `TerrainSplatMaterial3D` with four generated layers, a triplanar cliff and
-  height-blended paths; self-checked, plus a 0 B orbit gate) and the tree scenes (ADR 0158) `tree-realistic`,
+  height-blended paths; self-checked, plus a 0 B orbit gate), `terrain-blend` (ADR 0175: that ground with its macro texture
+  and two rows of sunk boulders, `TerrainBlend` 1 and 0; self-checks the macro's heights and colours, golden, 0 B orbit
+  gate) and the tree scenes (ADR 0158) `tree-realistic`,
   `tree-lowpoly` (an oak and a pine `Tree3D`; `--count 1`: no wind) and `tree-forest` (a `TreeScatter`; `--count` trees,
   default 160; a CPU device flies through at most 120 without sun shadows; with `--perf` or `--alloc` a fly-through;
   self-checked) ([Procedural trees → testing](procedural-trees.md#testing)), and the post-processing scenes (ADR 0163)

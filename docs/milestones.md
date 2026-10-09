@@ -302,11 +302,11 @@ phases ([ADR 0164](../memory/decisions/0164-forest-visual-quality-plan.md)).
 | G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner | ⬜ | [Game export](design/future/game-export.md) |
 | G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | ⬜ | [Rendering features](design/future/rendering-features.md) |
 | G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) |
-| G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | ⬜ | [Terrain](design/future/terrain.md) |
-| G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | ⬜ | [Procedural trees](design/future/procedural-trees.md) |
-| G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | ⬜ | [Water](design/future/water.md) |
-| G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | ⬜ | [Forest showcase](design/future/forest-showcase.md) |
-| G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | ⬜ | [Forest visual quality](design/future/forest-visual-quality.md) |
+| G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | 🚧 | [Terrain](design/future/terrain.md) |
+| G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | 🚧 | [Procedural trees](design/future/procedural-trees.md) |
+| G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | 🚧 | [Water](design/future/water.md) |
+| G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | 🚧 | [Forest showcase](design/future/forest-showcase.md) |
+| G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | 🚧 | [Forest visual quality](design/future/forest-visual-quality.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 

@@ -30,6 +30,7 @@ struct FsIn
     [[vk::location(9)]] nointerpolation float3 inRow2;
     [[vk::location(10)]] nointerpolation float4 inView;
     [[vk::location(11)]] nointerpolation float inDistance;
+    [[vk::location(12)]] nointerpolation float3 inTint; // per-instance colour variation (ADR 0175)
 };
 
 [shader("fragment")]
@@ -61,6 +62,7 @@ float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
     float3 surface = input.inWorldPos + input.inView.xyz * ((nd.a * 2.0 - 1.0) * input.inView.w);
 
     float leaf = saturate(detail.b);
+    albedo.rgb *= input.inTint; // the tree's own colour variation (ADR 0175), as its mesh levels
     PbrSurface s;
     s.albedo = albedo.rgb;
     s.metallic = 0.0;

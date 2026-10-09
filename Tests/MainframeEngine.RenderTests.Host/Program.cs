@@ -68,6 +68,7 @@ RenderTestGame game = options.Scene switch
     "water-ssr" => new WaterSsrScene(options),
     "water-fall" => new WaterFallScene(options),
     "terrain-splat" => new TerrainSplatScene(options),
+    "terrain-blend" => new TerrainBlendScene(options),
     "terrain-foliage" => new TerrainFoliageScene(options),
     "light-shafts" => new LightShaftsScene(options),
     "volumetric-fog" => new VolumetricFogScene(options),
@@ -114,7 +115,7 @@ RenderTestGame game = options.Scene switch
         "physics, physics-debug, sky-grid, materials, outline, subviewport-capture, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, " +
         "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer, shadow-pcss, contact-shadows, shadow-staggered, far-shadow, " +
         "sky-physical, fxaa, auto-exposure, pbr, fog, vertex-colors, multimesh, " +
-        "foliage-wind, terrain, water, water-refraction, water-ssr, water-fall, terrain-splat, terrain-foliage, light-shafts, volumetric-fog, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, taau, fsr1, taau-foliage, ssao, " +
+        "foliage-wind, terrain, water, water-refraction, water-ssr, water-fall, terrain-splat, terrain-blend, terrain-foliage, light-shafts, volumetric-fog, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, taau, fsr1, taau-foliage, ssao, " +
         "post-grade, post-dof, post-film, tree-realistic, tree-lowpoly, tree-forest, tree-forest-g8e, tree-clusters, tree-impostor, tree-wind, tree-bark, tree-species, gamehost."),
 };
 

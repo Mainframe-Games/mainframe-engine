@@ -12,7 +12,7 @@
 #define MATERIAL_SET 2
 #endif
 
-// MaterialGpu.Params (std140, 160 bytes).
+// MaterialGpu.Params (std140, 192 bytes).
 struct MaterialParams
 {
     float4 albedo;      // linear rgb, a = alpha
@@ -27,6 +27,8 @@ struct MaterialParams
     float4 foliage1;
     float4 foliage2;
     float4 foliage3;
+    float4 variation;   // per-instance colour variation (ADR 0175, instance_variation.slang): x = value jitter, y = hue jitter
+    float4 terrainBlend; // StandardMaterial3D.TerrainBlend (ADR 0175, terrain_macro.slang): x = strength, y = height (m)
 };
 
 [[vk::binding(0, MATERIAL_SET)]] ConstantBuffer<MaterialParams> material;

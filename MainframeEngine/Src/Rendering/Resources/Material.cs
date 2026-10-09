@@ -378,6 +378,38 @@ public sealed class StandardMaterial3D : Material
         }
     }
 
+    /// <summary>
+    /// How strongly the surface takes on the terrain below it near the ground (ADR 0175, G8e.7's RVT-lite: boulders and
+    /// logs sink into moss and dirt): within <see cref="TerrainBlendHeight"/> above the ground, albedo, normal and
+    /// roughness blend towards the world's <see cref="Terrain3D.MacroTexture"/> texel below, with a noisy edge. 0 (default):
+    /// off. <see cref="ShadingMode.Pbr"/> surfaces only; nothing happens without a terrain macro texture in the world.
+    /// </summary>
+    [ExportGroup("Terrain blend")]
+    [Export(Range = "0,1,0.01")]
+    public float TerrainBlend
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    /// <summary>Height (m) above the ground over which <see cref="TerrainBlend"/> fades out.</summary>
+    [Export(Range = "0.01,5,0.01")]
+    public float TerrainBlendHeight
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 0.3f;
+
     [ExportGroup("UV")]
     [Export]
     public Vector2 UvScale

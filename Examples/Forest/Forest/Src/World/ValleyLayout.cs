@@ -129,7 +129,10 @@ public static class ValleyLayout
     [
         (new Vector2(210f, 120f), 10f),  // R4's lookout
         (new Vector2(64f, 198f), 10f),   // the trailhead
-        (new Vector2(48f, 146f), 6f),    // R1
+        (new Vector2(48f, 146f), 6f),    // R1 (G8e.5's pose)
+        (new Vector2(58f, 150f), 4f),    // R1
+        (new Vector2(60f, 25f), 2.5f),   // R6, among the outcrop's pines
+        (new Vector2(92.5f, 51f), 3f),   // R7, the pool's east bank
         (new Vector2(84f, 63f), 6f),     // R2
         (new Vector2(112.5f, 128.5f), 4f), // R3
         (new Vector2(120f, 160f), 3f),   // R5
@@ -142,14 +145,19 @@ public static class ValleyLayout
         (new Vector2(84f, 63f), new Vector2(86f, 44f), 16f, 21f),
     ];
 
-    /// <summary>The five reference shots (forest-showcase.md → Reference shots).</summary>
+    /// <summary>
+    /// The seven reference shots (forest-showcase.md → Reference shots; G8e.7 recomposed R1 and added R6 and R7, ADR 0175):
+    /// pose, vertical FOV and, for the photo shots, depth of field.
+    /// </summary>
     public static readonly ReferenceShot[] Shots =
     [
-        new("r1-glade", new Vector2(48f, 146f), 1.7f, new Vector2(108f, 157f), 15f, 55f),
+        new("r1-glade", new Vector2(58f, 150f), 1.5f, new Vector2(100f, 160f), 14f, 55f),
         new("r2-fall", new Vector2(84f, 63f), 1.65f, new Vector2(86f, 44f), 1.6f, 55f),
         new("r3-bridge", new Vector2(112.5f, 128.5f), 1.6f, new Vector2(120f, 135.5f), 0.2f, 58f),
         new("r4-vista", new Vector2(210f, 120f), 2.2f, new Vector2(134f, 212f), PondLevel - 4f, 50f, AbsoluteTarget: true, BlurNearUntil: 6f),
         new("r5-floor", new Vector2(120f, 160f), 0.5f, new Vector2(108f, 150f), 0.2f, 60f, BlurFarFrom: 9f),
+        new("r6-pines", new Vector2(60f, 25f), 1.7f, new Vector2(80f, 50f), 2f, 60f),
+        new("r7-fall-close", new Vector2(92.5f, 51f), 1.2f, new Vector2(85.5f, 42.5f), 14f, 58f, AbsoluteTarget: true),
     ];
 
     /// <summary>A Catmull-Rom point on the closed path loop at parameter <paramref name="t"/> (0 … <see cref="PathPoints"/>.Length).</summary>

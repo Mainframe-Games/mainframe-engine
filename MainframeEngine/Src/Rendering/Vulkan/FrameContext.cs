@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 688 bytes).</summary>
+/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 720 bytes).</summary>
 /// <remarks>
 /// With a projection jitter (TAA, ADR 0163) <see cref="Projection"/>, <see cref="ViewProjection"/> and
 /// <see cref="InverseProjection"/> are the jittered matrices the view rasterises with; <see cref="PreviousViewProjection"/>
@@ -103,8 +103,17 @@ public struct FrameData
     /// <summary>Padding to the block's 16-byte size.</summary>
     public float UpscalePad0, UpscalePad1;
 
+    /// <summary>
+    /// The world's terrain macro texture at set 0 binding 7 (ADR 0175, <see cref="Terrain3D.MacroTexture"/>): xy = the
+    /// world XZ of its corner, zw = 1 / its world size. Zero without one (<see cref="TerrainMacroBinding"/>).
+    /// </summary>
+    public Vector4 TerrainMacroRect;
+
+    /// <summary>x = the height of code 0 (m), y = metres per height code step, z = texels per side, w = 1 while bound.</summary>
+    public Vector4 TerrainMacroHeight;
+
     /// <summary>Bytes in the std140 block.</summary>
-    public const int Size = 6 * 64 + 19 * 16;
+    public const int Size = 6 * 64 + 21 * 16;
 
     /// <summary>Fills the block from a camera's matrices.</summary>
     public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
@@ -312,11 +321,14 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly long[] _probeIds = new long[Slots * MaxViews];       // probe volume id bound at binding 6 (0 = none)
     private readonly ulong[] _occlusionImages = new ulong[Slots * MaxViews]; // the image views bound there (ids are per effect)
     private readonly ulong[] _probeImages = new ulong[Slots * MaxViews];
+    private readonly long[] _macroIds = new long[Slots * MaxViews];       // terrain macro id bound at binding 7 (0 = none)
+    private readonly ulong[] _macroImages = new ulong[Slots * MaxViews];
     private readonly ViewHistory[] _history = new ViewHistory[MaxViews];
     private readonly GpuImage _blackCube;
     private readonly GpuImage _brdfLut;
     private readonly GpuImage _white;
     private readonly GpuTexture _noProbes;
+    private readonly GpuTexture _noMacro;
     private readonly Sampler _iblSampler;
     // Per view (ADR 0169: a post-processed sub-viewport has its own SSAO, contact shadows and jitter; view 0 is the main view).
     private readonly DescriptorImageInfo[] _occlusion = new DescriptorImageInfo[MaxViews];
@@ -347,12 +359,14 @@ public sealed unsafe class FrameContext : IDisposable
             new() { Binding = 4, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = AmbientOcclusionBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = ProbeVolumeBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = TerrainMacroBinding, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ];
         SetLayout = PipelineBuilder.CreateSetLayout(ctx, bindings, "frame set 0");
         _pool = PipelineBuilder.CreatePool(ctx, Slots * MaxViews,
         [
             new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 2 * Slots * MaxViews },
             new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = ImageBindings * Slots * MaxViews },
+            new DescriptorPoolSize { Type = DescriptorType.SampledImage, DescriptorCount = Slots * MaxViews },
         ], "frame set 0");
 
         // Image-based lighting: one linear, mipmapped, clamped sampler for the cubes and the LUT.
@@ -384,6 +398,9 @@ public sealed unsafe class FrameContext : IDisposable
         ctx.Uploads.FlushIfRecording();
         // Binding 6 without a probe volume: a zero volume the shaders never read (probesActive() is false).
         _noProbes = GpuTexture.Create3D(ctx, 1, 1, 1, Format.R16G16B16A16Sfloat, new byte[8], TextureSampling.LinearClamp);
+        // Binding 7 without a terrain macro texture: a 1×1, two-layer array the shaders never read (terrainMacroActive() is false).
+        _noMacro = GpuTexture.Create2DArray(ctx, 1, 1, TerrainMacroTexture.Layers, new byte[4 * TerrainMacroTexture.Layers],
+            TextureColorSpace.Linear, TextureSampling.LinearClamp);
 
         for (var slot = 0; slot < Slots; slot++)
         {
@@ -400,6 +417,7 @@ public sealed unsafe class FrameContext : IDisposable
                 PipelineBuilder.WriteImage(ctx, set, 4, BrdfLutDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, AmbientOcclusionBinding, NoOcclusionDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, ProbeVolumeBinding, NoProbesDescriptor);
+                PipelineBuilder.WriteSampledImage(ctx, set, TerrainMacroBinding, NoMacroDescriptor);
                 _sets[slot * MaxViews + view] = set;
             }
         }
@@ -407,7 +425,7 @@ public sealed unsafe class FrameContext : IDisposable
 
     /// <summary>
     /// Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting, binding 5 screen-space
-    /// occlusion, binding 6 the light probe volume).
+    /// occlusion, binding 6 the light probe volume, binding 7 the terrain macro texture).
     /// </summary>
     public DescriptorSetLayout SetLayout { get; }
 
@@ -426,6 +444,23 @@ public sealed unsafe class FrameContext : IDisposable
     /// rides in the screen-space occlusion image's green channel (<see cref="AmbientOcclusionBinding"/>).
     /// </summary>
     public const uint ProbeVolumeBinding = 6;
+
+    /// <summary>
+    /// Set 0's terrain macro texture binding (<c>terrainMacro</c> in <c>include/terrain_macro.slang</c>, ADR 0175): the view's
+    /// world's <see cref="Terrain3D.MacroTexture"/>, a <see cref="DescriptorType.SampledImage"/> without a sampler of its
+    /// own (the material shaders sample it with theirs), so it costs a sampled image (MoltenVK allows 256 per stage on
+    /// Apple GPUs) but none of the 16 samplers that bound the fragment stage.
+    /// </summary>
+    public const uint TerrainMacroBinding = 7;
+
+    /// <summary>The 1×1 array bound at <see cref="TerrainMacroBinding"/> without a terrain macro texture.</summary>
+    internal DescriptorImageInfo NoMacroDescriptor => _noMacro.Descriptor;
+
+    /// <summary>
+    /// The terrain macro texture the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/> binds for the current view
+    /// (null: none). The render server sets it from the view's world before each <c>Begin</c>, like <see cref="Probes"/>.
+    /// </summary>
+    internal TerrainMacroBinding? TerrainMacro { get; set; }
 
     /// <summary>The white 1×1 image bound at <see cref="AmbientOcclusionBinding"/> without screen-space occlusion.</summary>
     internal DescriptorImageInfo NoOcclusionDescriptor => new()
@@ -656,6 +691,17 @@ public sealed unsafe class FrameContext : IDisposable
             PipelineBuilder.WriteImage(_ctx, _sets[index], ProbeVolumeBinding, probes is { } bound ? bound.Image : NoProbesDescriptor);
         }
 
+        // The terrain macro texture: per world, like the probes (ADR 0175).
+        var macro = TerrainMacro;
+        var macroId = macro?.Id ?? 0;
+        var macroImage = macro is { } m ? m.Image.ImageView.Handle : 0;
+        if (_macroIds[index] != macroId || _macroImages[index] != macroImage)
+        {
+            _macroIds[index] = macroId;
+            _macroImages[index] = macroImage;
+            PipelineBuilder.WriteSampledImage(_ctx, _sets[index], TerrainMacroBinding, macro is { } boundMacro ? boundMacro.Image : NoMacroDescriptor);
+        }
+
         var maps = EnvironmentMaps;
         var id = maps?.Id ?? 0;
         if (_environmentIds[index] == id)
@@ -714,6 +760,11 @@ public sealed unsafe class FrameContext : IDisposable
             data.ProbeLayers0 = probes.Layers0;
             data.ProbeLayers1 = probes.Layers1;
             data.ProbeTint = probes.Tint;
+        }
+        if (TerrainMacro is { } macro)
+        {
+            data.TerrainMacroRect = macro.Rect;
+            data.TerrainMacroHeight = macro.Height;
         }
         _buffers[_ctx.FrameSlot].Write(data, (ulong)CurrentView * _viewStride);
         _cameraFrame[index] = _ctx.FrameNumber;
@@ -788,6 +839,7 @@ public sealed unsafe class FrameContext : IDisposable
         _brdfLut.Dispose();
         _white.Dispose();
         _noProbes.Dispose();
+        _noMacro.Dispose();
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_iblSampler));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pool));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(SetLayout));
@@ -824,3 +876,9 @@ internal readonly record struct ProbeVolumeBinding(DescriptorImageInfo Image, lo
             new Vector4(Vector3.Max(occlusionTint ?? Vector3.One, Vector3.Zero), 0f));
     }
 }
+
+/// <summary>
+/// A terrain macro texture as set 0 sees it (ADR 0175): the array at <see cref="FrameContext.TerrainMacroBinding"/> and
+/// <see cref="FrameData"/>'s two macro rows. <see cref="Id"/> changes whenever the texture does.
+/// </summary>
+internal readonly record struct TerrainMacroBinding(DescriptorImageInfo Image, long Id, Vector4 Rect, Vector4 Height);

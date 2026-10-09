@@ -71,16 +71,16 @@
         "WindFrequency": 0.45,
         "FogEnabled": true,
         "FogLightColor": [0.42, 0.47, 0.53],
-        "FogDensity": 0.005,
+        "FogDensity": 0.003,
         "FogHeight": 6,
         "FogHeightDensity": 0.08,
-        "FogSunScatter": 0.1,
+        "FogSunScatter": 0.05,
         "VolumetricFogEnabled": true,
-        "VolumetricFogDensity": 0.018,
+        "VolumetricFogDensity": 0.009,
         "VolumetricFogAnisotropy": 0.75,
         "VolumetricFogAmbientInject": 0.02,
         "VolumetricFogSkyAffect": 0.2,
-        "VolumetricFogNoiseStrength": 0.5
+        "VolumetricFogNoiseStrength": 0.7
       }
     },
     {

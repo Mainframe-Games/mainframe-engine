@@ -46,6 +46,12 @@ public sealed class ForestBenchmark
 
     public bool WriteBaseline { get; init; }
 
+    /// <summary>
+    /// A CSV of every measured frame (<c>--frames-csv</c>: frame, ms, sun shadows' GPU ms, draws, the camera's x, y, z), to
+    /// find where on the flight the slow frames are.
+    /// </summary>
+    public string? FramesCsvPath { get; init; }
+
     /// <summary>The run's exit code: 1 when it allocated, or when p50 or p99 is more than 10 % slower than the baseline.</summary>
     public int ExitCode { get; private set; }
 
@@ -142,6 +148,19 @@ public sealed class ForestBenchmark
 
     private void Report(SceneTree tree, long allocated)
     {
+        if (FramesCsvPath is { } csv)
+        {
+            var lines = new List<string>(Frames + 1) { "frame,ms,shadow_ms,draws,x,y,z" };
+            for (var i = 0; i < Frames; i++)
+            {
+                var p = PositionAt(i);
+                lines.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"{i},{_frameMs[i]:0.00},{_shadowMs[i]:0.00},{_draws[i]},{p.X:0.0},{p.Y:0.0},{p.Z:0.0}"));
+            }
+
+            File.WriteAllLines(csv, lines);
+        }
+
         var sorted = (float[])_frameMs.Clone();
         Array.Sort(sorted);
         var shadows = (float[])_shadowMs.Clone();
@@ -244,6 +263,10 @@ public sealed class ForestBenchmark
         var rank = (int)MathF.Ceiling(q * sorted.Length) - 1;
         return sorted[Math.Clamp(rank, 0, sorted.Length - 1)];
     }
+
+    // The camera's position at measured frame i (the frame after warm-up i + 1).
+    private Vector3 PositionAt(int i) =>
+        CatmullRom(_points, Math.Clamp((float)(WarmUpFrames + i + 1) / (WarmUpFrames + Frames), 0f, 1f) * (_points.Length - 1));
 
     private static Vector3 CatmullRom(Vector3[] points, float t)
     {

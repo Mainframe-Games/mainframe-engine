@@ -366,8 +366,19 @@ lanes' GPU work was running). R5's depth of field (32 taps) did not move the `Be
 with it, 0.35 ms without) within their resolution on MoltenVK, which samples timestamps at encoder boundaries.
 
 **The Forest** applies `Content/Grading/forest-morning.cube` (`ForestGrade`, generated: warm white balance sparing the
-sky, a soft curve with lifted blacks, split toning, olive foliage, film saturation), vignette 0.2 and grain 0.015; R4 and
-R5 are photo shots with subtle depth of field ([forest.md](forest.md#the-look-forestscenecreateenvironment-the-sun)).
+sky, a fitted tone curve, split toning, olive foliage, film saturation), vignette 0.2 and grain 0.015; R4 and R5 are photo
+shots with subtle depth of field ([forest.md](forest.md#the-look-forestscenecreateenvironment-the-sun)).
+
+**The grade choice (G8e.7, [ADR 0175](../../memory/decisions/0175-forest-art-pass.md)).** ACES (the engine curve) stays
+the Forest's tonemapper. AgX, compared on R1, R3, R5 and R6 (`TonemapExposure` 1.6, a little brighter than ACES: R3's mean luminance 103
+against 66), kept the sun-lit leaves from going yellow but read flat and washed in the shade and the mid-greens, with less
+contrast at both ends; the forest's look depends on deep, saturated shade against warm light,
+which ACES' toe and shoulder give and Unreal's default film curve shares. The LUT is authored procedurally from the
+renders, since no grading application is available: `Examples/Forest/Tools/grade_from_shots.py` measures ungraded
+renders of R1–R7 (luminance p5/p50/p95, the foliage's saturation, the shade's and the light's colour casts) and writes
+the numbers that move them to its targets into `ForestGradeFit.cs`; `ForestGrade` applies them and `--write-scenes`
+writes the cube. Subtle by design: the curve moves p5 0.084 → 0.045, p50 0.249 → 0.255, p95 0.80 → 0.82; the foliage's
+saturation × 0.82; the casts halfway.
 
 ## Related docs
 

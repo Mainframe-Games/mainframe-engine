@@ -1,0 +1,176 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v4.0.44",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "single_root"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "single_root",
+   "normalTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0,
+    "metallicRoughnessTexture": {
+     "index": 2
+    }
+   },
+   "occlusionTexture": {
+    "index": 2
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "realCap_Model_7",
+   "primitives": [
+    {
+     "attributes": {
+      "COLOR_0": 0,
+      "POSITION": 1,
+      "NORMAL": 2,
+      "TEXCOORD_0": 3
+     },
+     "indices": 4,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/jpeg",
+   "name": "single_root_nor_gl",
+   "uri": "textures/single_root_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "single_root_diff",
+   "uri": "textures/single_root_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "single_root_arm",
+   "uri": "textures/single_root_arm_1k.jpg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 32202,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 32202,
+   "max": [
+    0.32745280861854553,
+    0.09654310345649719,
+    2.0888829231262207
+   ],
+   "min": [
+    -0.22770962119102478,
+    -0.08137246966362,
+    0.2529293894767761
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 32202,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5126,
+   "count": 32202,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5123,
+   "count": 183081,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteLength": 515232,
+   "byteOffset": 0,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 386424,
+   "byteOffset": 515232,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 386424,
+   "byteOffset": 901656,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 257616,
+   "byteOffset": 1288080,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 366162,
+   "byteOffset": 1545696,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 1911860,
+   "uri": "single_root.bin"
+  }
+ ]
+}

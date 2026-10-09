@@ -54,4 +54,28 @@ public class TerrainRenderTests
             $"Terrain splat frames allocated {result.AllocatedBytes} managed bytes over {measured} frames; per-frame code must not allocate.");
         Gates.AssertValidationClean(result);
     }
+
+    [Fact]
+    public void TerrainBlendRendersCleanlyAndMatchesGolden()
+    {
+        // ADR 0175: the near boulders' feet take on the ground through the terrain macro texture; the far ones keep a seam.
+        var result = HostRunner.Run("terrain-blend", Output("terrain-blend"), "--capture", "10", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
+    public void TerrainBlendFramesAllocateNothingWhileTheCameraOrbits()
+    {
+        const int warmup = 150, measured = 240;
+        var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "terrain-blend", Output("terrain-blend-alloc"), "--alloc", $"{warmup}:{measured}", "--hidden");
+
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0,
+            $"Terrain blend frames allocated {result.AllocatedBytes} managed bytes over {measured} frames; per-frame code must not allocate.");
+        Gates.AssertValidationClean(result);
+    }
 }

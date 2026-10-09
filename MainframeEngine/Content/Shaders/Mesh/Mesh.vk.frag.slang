@@ -6,6 +6,7 @@
 #include "lights.slang"
 #include "material.slang"
 #include "fog.slang"
+#include "terrain_macro.slang"
 
 // AlphaMode of the pipeline: opaque pipelines never discard (early depth test stays on).
 [vk::constant_id(0)] const int kAlphaMode = kAlphaOpaque;
@@ -56,6 +57,20 @@ float4 main(FsIn input, float4 fragCoord : SV_Position, bool frontFacing : SV_Is
         s.roughness = orm.y;
         s.metallic = orm.z;
         s.N = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
+        // ADR 0175: near the ground the surface takes on the terrain below (StandardMaterial3D.TerrainBlend; uniform test).
+        if (material.terrainBlend.x > 0.0 && terrainMacroActive())
+        {
+            float2 macroUv = terrainMacroUv(input.inWorldPos);
+            if (all(macroUv > float2(0.0)) && all(macroUv < float2(1.0)))
+            {
+                TerrainMacroTexel ground = terrainMacroSample(materialSampler, input.inWorldPos, dpdx, dpdy);
+                float t = terrainBlendFactor(input.inWorldPos, N, ground.ground, material.terrainBlend.x, material.terrainBlend.y);
+                s.albedo = lerp(s.albedo, ground.albedo, t);
+                s.roughness = lerp(s.roughness, ground.roughness, t);
+                s.metallic *= 1.0 - t;
+                s.N = normalize(lerp(s.N, ground.N, t * 0.85));
+            }
+        }
         color = shadeLightsPbr(s, N, input.inWorldPos, ssao);
     }
     else

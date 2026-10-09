@@ -112,6 +112,30 @@ public sealed class TreeScatterTests(ITestOutputHelper output) : IDisposable
     }
 
     [Fact]
+    public void ColourVariationGoesOnTheScattersOwnMaterialCopies()
+    {
+        var scatter = AddScatter(Grid(4, 3f, Vector3.Zero));
+        var aspen = scatter.Batches.First(b => b.Species == 0);
+        var shared = aspen.GetRenderMaterial(aspen.Multimesh!.Mesh!, 1);
+        Assert.Equal(0f, Assert.IsType<FoliageMaterial3D>(shared).InstanceValueJitter);
+
+        // ADR 0175: with variation on, the batches draw copies carrying it; the species' materials stay untouched.
+        scatter.InstanceValueJitter = 0.15f;
+        scatter.InstanceHueJitter = 0.1f;
+        _h.Run(1); // rebuilds with copies
+        aspen = scatter.Batches.First(b => b.Species == 0);
+        var copy = Assert.IsType<FoliageMaterial3D>(aspen.GetRenderMaterial(aspen.Multimesh!.Mesh!, 1));
+        Assert.NotSame(shared, copy);
+        Assert.Equal((0.15f, 0.1f), (copy.InstanceValueJitter, copy.InstanceHueJitter));
+        Assert.Equal(0f, ((FoliageMaterial3D)shared).InstanceValueJitter);
+        Assert.False(copy.InstanceVisibility); // per-chunk levels: only the colour differs
+
+        // A later change reaches the copies in place.
+        scatter.InstanceHueJitter = 0.05f;
+        Assert.Equal(0.05f, copy.InstanceHueJitter);
+    }
+
+    [Fact]
     public void SpeciesUseTheirStylesMaterialsAndSharedVariants()
     {
         var scatter = AddScatter(Grid(4, 3f, Vector3.Zero));

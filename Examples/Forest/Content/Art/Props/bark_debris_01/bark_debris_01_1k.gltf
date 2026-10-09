@@ -1,0 +1,414 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v4.2.57",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0,
+    1,
+    2,
+    3
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "bark_debris_01_a",
+   "translation": [
+    -0.49778616428375244,
+    -0.002197584370151162,
+    -0.0007379353046417236
+   ]
+  },
+  {
+   "mesh": 1,
+   "name": "bark_debris_01_b",
+   "translation": [
+    -0.15528124570846558,
+    -0.002197584370151162,
+    -0.00043623149394989014
+   ]
+  },
+  {
+   "mesh": 2,
+   "name": "bark_debris_01_c",
+   "translation": [
+    0.18027877807617188,
+    -0.002197584370151162,
+    -0.0007379315793514252
+   ]
+  },
+  {
+   "mesh": 3,
+   "name": "bark_debris_01_d",
+   "translation": [
+    0.5297286510467529,
+    -0.002197584370151162,
+    -0.0065628476440906525
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "bark_debris_01",
+   "normalTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0,
+    "metallicRoughnessTexture": {
+     "index": 2
+    }
+   },
+   "occlusionTexture": {
+    "index": 2
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "bark_debris_04_5m.004",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3,
+     "material": 0
+    }
+   ]
+  },
+  {
+   "name": "bark_debris_04_5m.005",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 4,
+      "NORMAL": 5,
+      "TEXCOORD_0": 6
+     },
+     "indices": 7,
+     "material": 0
+    }
+   ]
+  },
+  {
+   "name": "bark_debris_04_5m.006",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 8,
+      "NORMAL": 9,
+      "TEXCOORD_0": 10
+     },
+     "indices": 11,
+     "material": 0
+    }
+   ]
+  },
+  {
+   "name": "bark_debris_04_5m",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 12,
+      "NORMAL": 13,
+      "TEXCOORD_0": 14
+     },
+     "indices": 15,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/jpeg",
+   "name": "bark_debris_01_nor_gl",
+   "uri": "textures/bark_debris_01_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "bark_debris_01_diff",
+   "uri": "textures/bark_debris_01_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "bark_debris_01_arm",
+   "uri": "textures/bark_debris_01_arm_1k.jpg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 22878,
+   "max": [
+    0.07797157764434814,
+    0.04875275120139122,
+    0.1988758146762848
+   ],
+   "min": [
+    -0.10939037799835205,
+    -0.01692444644868374,
+    -0.19979827105998993
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 22878,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 22878,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 115464,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5126,
+   "count": 28720,
+   "max": [
+    0.13722467422485352,
+    0.051402680575847626,
+    0.189104825258255
+   ],
+   "min": [
+    -0.06701833009719849,
+    -0.03694048151373863,
+    -0.2761705219745636
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 5,
+   "componentType": 5126,
+   "count": 28720,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 6,
+   "componentType": 5126,
+   "count": 28720,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 7,
+   "componentType": 5123,
+   "count": 145866,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 8,
+   "componentType": 5126,
+   "count": 39748,
+   "max": [
+    0.07526710629463196,
+    0.0568012073636055,
+    0.1898731291294098
+   ],
+   "min": [
+    -0.071635901927948,
+    -0.04082135483622551,
+    -0.38165155053138733
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 9,
+   "componentType": 5126,
+   "count": 39748,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 10,
+   "componentType": 5126,
+   "count": 39748,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 11,
+   "componentType": 5123,
+   "count": 195186,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 12,
+   "componentType": 5126,
+   "count": 24555,
+   "max": [
+    0.07308535277843475,
+    0.053742289543151855,
+    0.298681378364563
+   ],
+   "min": [
+    -0.06463690102100372,
+    -0.055358827114105225,
+    -0.3070991039276123
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 13,
+   "componentType": 5126,
+   "count": 24555,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 14,
+   "componentType": 5126,
+   "count": 24555,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 15,
+   "componentType": 5123,
+   "count": 123702,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteLength": 274536,
+   "byteOffset": 0,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 274536,
+   "byteOffset": 274536,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 183024,
+   "byteOffset": 549072,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 230928,
+   "byteOffset": 732096,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteLength": 344640,
+   "byteOffset": 963024,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 344640,
+   "byteOffset": 1307664,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 229760,
+   "byteOffset": 1652304,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 291732,
+   "byteOffset": 1882064,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteLength": 476976,
+   "byteOffset": 2173796,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 476976,
+   "byteOffset": 2650772,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 317984,
+   "byteOffset": 3127748,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 390372,
+   "byteOffset": 3445732,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteLength": 294660,
+   "byteOffset": 3836104,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 294660,
+   "byteOffset": 4130764,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 196440,
+   "byteOffset": 4425424,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 247404,
+   "byteOffset": 4621864,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 4869268,
+   "uri": "bark_debris_01.bin"
+  }
+ ]
+}

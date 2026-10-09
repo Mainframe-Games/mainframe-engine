@@ -103,7 +103,7 @@ qa frames="240": (demo-screenshots frames)
 forest *args:
     dotnet run --project Examples/Forest/Forest.Desktop -c Release -- {{args}}
 
-# The Forest's five reference shots (R1–R5) into docs/images/forest at 2560x1440 → 1600x900; display awake (caffeinate -u)
+# The Forest's seven reference shots (R1–R7) into docs/images/forest at 2560x1440 → 1600 px wide; display awake (caffeinate -u)
 forest-screenshots frames="300":
     build/forest-screenshots.sh {{frames}}
 

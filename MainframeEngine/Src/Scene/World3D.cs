@@ -11,6 +11,7 @@ public sealed class World3D
     private readonly List<GeometryInstance3D> _geometry = [];
     private readonly List<WorldEnvironment> _environments = [];
     private readonly List<LightProbeVolume> _probeVolumes = [];
+    private readonly List<Terrain3D> _terrains = [];
 
     public World3D()
     {
@@ -68,6 +69,26 @@ public sealed class World3D
     }
 
     internal void RemoveProbeVolume(LightProbeVolume volume) => _probeVolumes.Remove(volume);
+
+    /// <summary>
+    /// The terrain whose macro texture this world's surfaces blend towards (ADR 0175,
+    /// <see cref="StandardMaterial3D.TerrainBlend"/>): the first visible <see cref="Terrain3D"/> with a
+    /// <see cref="Terrain3D.MacroTexture"/>, or null.
+    /// </summary>
+    public Terrain3D? MacroTerrain
+    {
+        get
+        {
+            foreach (var terrain in _terrains)
+                if (terrain.MacroTexture is not null && terrain.IsVisibleInTree())
+                    return terrain;
+            return null;
+        }
+    }
+
+    internal void AddTerrain(Terrain3D terrain) => _terrains.Add(terrain);
+
+    internal void RemoveTerrain(Terrain3D terrain) => _terrains.Remove(terrain);
 
     internal void AddVisual(VisualInstance3D visual)
     {

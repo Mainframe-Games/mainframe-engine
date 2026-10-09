@@ -227,13 +227,36 @@ the emission slot), a prepass set (`MeshDepthImpostor`) and a directional caster
 `LeafRoughness`, `BarkRoughness`, `ShadowDensity` (packed in `emission.y`) and the per-instance range. Cut out,
 double-sided. `TreeImpostor.CreateMaterial()` makes one per use.
 
-### Binding budget (ADR 0172)
+### Terrain blend (ADR 0175)
+
+`StandardMaterial3D.TerrainBlend` (0–1, default 0) and `TerrainBlendHeight` (0.3 m) make a PBR surface take on the terrain
+below it near the ground, the way Unreal's runtime virtual texture blends boulders and logs into the landscape: within
+the height above the world's `Terrain3D.MacroTexture` ground (its macro texture, [Terrain](terrain.md#macro-texture-adr-0175)),
+`Mesh/Mesh.vk.frag` blends albedo, roughness and (85 %) the normal towards the macro texel below and fades metallic,
+with an edge broken by two octaves of 3D value noise (±60 % of the height) and raised a third on faces that look up
+(`include/terrain_macro.slang`: `terrainMacroSample`, `terrainBlendFactor`). Off (0), outside the terrain or without a
+macro texture in the world nothing changes; the test is uniform, the macro lookups use the gradients taken first. Packed
+in `MaterialParams.TerrainBlend` (x strength, y height). Instanced `MultiMesh` props blend too (the Forest's twigs and
+pebbles).
+
+### Per-instance colour variation (ADR 0175)
+
+`FoliageMaterial3D` and `ImpostorMaterial3D` have `InstanceValueJitter` and `InstanceHueJitter` (0–0.5, default 0):
+each instance's albedo is scaled by 1 ± value and shifted warmer (towards olive and yellow) or cooler (blue-green) by up
+to hue, from a PCG hash of the instance transform's translation quantised to 1/16 m (`InstanceVariation` in C#,
+`include/instance_variation.slang`: `instanceTint`). Nothing is stored per instance: `Foliage.vk.vert` multiplies it into
+the vertex colour, `Impostor.vk.vert` passes it flat to the fragment, so a tree's mesh levels and its impostor agree.
+`TreeScatter.InstanceValueJitter` / `InstanceHueJitter` put it on the scatter's own copies of its materials. Packed in
+`MaterialParams.Variation`; the block is 192 bytes (`variation`, `terrainBlend` after the foliage block).
+
+### Binding budget (ADR 0172, 0175)
 
 Foliage, impostors and their prepasses and casters bind nothing new: the colour pipelines use the mesh pipeline layout
-(set 0's five images, set 1's six, set 2's four: 15 sampled images and 13 samplers in the fragment stage, under
-MoltenVK's 16), the wind stream is a vertex buffer, the thickness and impostor detail maps use the emission slot, and
-moss and detail normals reuse the normal map. Only the water-scene layout (16/14) and terrain splat (16/14) are at the
-limit.
+(set 0's six images, set 1's six, set 2's four: 16 sampled images and 13 samplers in the fragment stage), the wind stream
+is a vertex buffer, the thickness and impostor detail maps use the emission slot, and moss and detail normals reuse the
+normal map. The limit that binds on MoltenVK is the **sampler** count (`maxPerStageDescriptorSamplers` 16; sampled
+images are 256 per stage on Apple GPUs, `vulkaninfo`): ADR 0175's terrain macro texture (set 0 binding 7) is a sampled
+image without a sampler, so the water-scene layout and terrain splat are at 17 images and still 14 samplers.
 
 ### WaterMaterial3D (ADR 0159)
 

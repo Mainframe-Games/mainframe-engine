@@ -215,8 +215,8 @@ unjittered (UV 0,0 top-left, +y down): `previousUv = uv − velocity`. Written b
 - Not covered: what the prepass does not draw (Spine, the grid, transparent surfaces, water, particles) shows the
   velocity of what is behind it; sub-viewports have no velocity.
 
-`FrameData` (set 0, binding 0) is 688 bytes (with ADR 0165's AO parameters, ADR 0170's probe volume and ADR 0174's
-`mipBias`/`mipScale` at the end): after `fogParams` come `prevViewProjection` (last frame's unjittered),
+`FrameData` (set 0, binding 0) is 720 bytes (with ADR 0165's AO parameters, ADR 0170's probe volume, ADR 0174's
+`mipBias`/`mipScale` and ADR 0175's `terrainMacroRect`/`terrainMacroHeight` at the end): after `fogParams` come `prevViewProjection` (last frame's unjittered),
 `jitter` (xy this frame, zw last frame, NDC), `temporal` (x last frame's time, y 1 when the previous fields are last
 frame's, z the jitter sample index) and `prevWind`, `prevWindParams`. `FrameContext` keeps each view's `ViewHistory`:
 the first camera write of a frame moves "current" to "previous" when it came from the frame before; a view written twice
@@ -376,7 +376,8 @@ at the start of each frame (`BeginPostFrame`); an SSAO effect calls `FrameContex
 was bound applies next frame (a bound set is never rewritten). Offscreen views always bind white. The fragment stage
 declares 15 images and 13 samplers (terrain splat: 16 and 14) of MoltenVK's 16, counting binding 6 below and the
 separate cascade image of ADR 0167 (set 0 holds five images: the radiance, irradiance and BRDF maps, this image and the
-light probe volume at binding 6; water's set 3 then reaches 16 and 14). SSAO also sets
+light probe volume at binding 6; water's set 3 then reaches 16 and 14). ADR 0175 adds binding 7, the terrain macro
+texture, as a sampled image without a sampler: 17 images (of 256 on Apple GPUs), the samplers unchanged. SSAO also sets
 `FrameData.AmbientOcclusion` (the last 16 bytes: light affect, AO channel affect, 1 while bound) through
 `SetAmbientOcclusion(image, id, lightAffect, aoChannelAffect)`; it is 0 without SSAO and in offscreen views.
 
