@@ -107,6 +107,46 @@ public class SkyAndPostTests
         Assert.True(recovered < bright, $"auto exposure overshot ({recovered:F1} vs the lit {bright:F1})");
     }
 
+    [Fact]
+    public void HistogramHighlightProtectionKeepsABrightPatchBelowClipping()
+    {
+        // ADR 0177: a view that is mostly shade with a bright patch. Average mode exposes for the shade and clips the
+        // patch; histogram mode with highlight protection exposes the patch to the white target (0.8 → ≈ 190 of 255).
+        const uint frame = 5;
+        var histogram = HostRunner.Run("auto-exposure-histogram", Output("auto-exposure-histogram"), "--capture", $"{frame}", "--hidden");
+        var average = HostRunner.Run("auto-exposure-average", Output("auto-exposure-average"), "--capture", $"{frame}", "--hidden");
+
+        Gates.AssertValidationClean(histogram);
+        Gates.AssertValidationClean(average);
+        Gates.AssertMatchesGolden(histogram, frame);
+
+        var (min, max) = AutoExposureHistogramScene.PatchUv;
+        var centre = (min + max) * 0.5f;
+        var protectedPatch = Pixel(Capture(histogram, frame), centre.X, centre.Y);
+        var clippedPatch = Pixel(Capture(average, frame), centre.X, centre.Y);
+        var protectedShade = Pixel(Capture(histogram, frame), 0.25f, 0.5f);
+        var averageShade = Pixel(Capture(average, frame), 0.25f, 0.5f);
+        TestContext.Current.SendDiagnosticMessage(
+            $"Patch: histogram {protectedPatch}, average {clippedPatch}; shade: histogram {protectedShade}, average {averageShade}");
+
+        Assert.True(Math.Min(clippedPatch.R, Math.Min(clippedPatch.G, clippedPatch.B)) >= 248, $"average mode did not clip the patch (the ACES fit only nears 255): {clippedPatch}");
+        Assert.True(Math.Max(protectedPatch.R, Math.Max(protectedPatch.G, protectedPatch.B)) <= 235, $"the protected patch clipped: {protectedPatch}");
+        Assert.True(Luminance(protectedPatch) >= 150, $"the protected patch is too dark: {protectedPatch}");
+        Assert.True(Luminance(averageShade) > Luminance(protectedShade), $"protection did not lower the exposure ({averageShade} vs {protectedShade})");
+        Assert.True(Luminance(protectedShade) > 5, $"the shade went black: {protectedShade}");
+    }
+
+    [Fact]
+    public void HistogramAutoExposureAllocatesNothingPerFrame()
+    {
+        const int warmup = 30, measured = 120;
+        var result = HostRunner.Run("auto-exposure-histogram", Output("auto-exposure-histogram-alloc"), "--alloc", $"{warmup}:{measured}", "--hidden");
+
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0, $"Histogram auto exposure allocated {result.AllocatedBytes} managed bytes over {measured} frames.");
+        Gates.AssertValidationClean(result);
+    }
+
     private static (int R, int G, int B) Pixel(PngImage image, float u, float v) =>
         PixelAt(image, (int)(u * (image.Width - 1)), (int)(v * (image.Height - 1)));
 

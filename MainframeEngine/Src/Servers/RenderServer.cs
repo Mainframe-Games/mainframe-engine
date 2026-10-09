@@ -102,6 +102,10 @@ public sealed class RenderServer : IServer
     public double VolumetricFogGpuMilliseconds =>
         PostEffects?.Find<VolumetricFogEffect>() is { IsCreated: true } fog ? fog.LastGpuMilliseconds : 0;
 
+    /// <summary>GPU time of the main view's auto exposure (ADR 0154/0177) in a recent frame, in milliseconds (0 while it is off or untimed).</summary>
+    public double AutoExposureGpuMilliseconds =>
+        PostEffects?.Find<AutoExposure>() is { IsCreated: true } exposure ? exposure.LastGpuMilliseconds : 0;
+
     /// <summary>The main view's post effects (ADR 0163), or null without a Vulkan renderer.</summary>
     internal PostProcessStack? PostEffects => (Vulkan as IPostProcessHost)?.PostEffects;
 

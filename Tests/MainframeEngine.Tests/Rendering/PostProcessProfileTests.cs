@@ -126,7 +126,19 @@ public sealed class PostProcessProfileTests
         ResourceLoader.ClearCache();
         try
         {
-            var profile = new PostProcessProfile { AutoExposureEnabled = true, AutoExposureScale = 0.2f, LightShaftsEnabled = true, GlowHdrThreshold = 3f };
+            var profile = new PostProcessProfile
+            {
+                AutoExposureEnabled = true,
+                AutoExposureScale = 0.2f,
+                LightShaftsEnabled = true,
+                GlowHdrThreshold = 3f,
+                // ADR 0177
+                AutoExposureMode = AutoExposureMode.Histogram,
+                AutoExposureMetering = AutoExposureMetering.Uniform,
+                AutoExposureHighPercent = 95f,
+                AutoExposureHighlightProtection = true,
+                AutoExposureHighlightWhite = 0.8f,
+            };
             var uid = ResourceSaver.Save(profile, "Content/PostProcess/look.mres");
             var root = new Node3D { Name = "Root" };
             var environment = new WorldEnvironment { Name = "Environment", PostProcess = profile };

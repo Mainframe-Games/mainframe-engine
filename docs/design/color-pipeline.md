@@ -198,9 +198,39 @@ Everything is a raster pass and nothing is read back to the CPU:
 `TonemapPost` and the glow's first level multiply the scene by `exposure × AutoExposureScale / adapted`: the manual
 exposure (`IVulkanContext.Exposure`, or `TonemapExposure` for the Godot curve) is compensation on top. `dt` is
 `IVulkanContext.FrameDeltaTime`, which `Engine` sets from `GameTime.DeltaTime` (fixed under `--fixed-fps`, so adaptation is
-deterministic in render tests). Nothing blends, so no format needs blend support. Proposal G8d.3 describes a 64-bin
-histogram with percentile clipping; this first version uses the mean log luminance (the histogram can replace the reduce
-passes later without changing the tonemap side).
+deterministic in render tests). Nothing blends, so no format needs blend support.
+
+### Histogram mode (ADR 0177)
+
+`AutoExposureMode` picks what is measured: `Average` (the default, the passes above; Godot's auto exposure) or
+`Histogram` (Unreal's Auto Exposure Histogram, proposal G8d.3). The mean log luminance pins at the maximum boost in a
+view that is mostly shade (the Forest's canopy) and washes out the sunlit patches in it; the histogram skips the darkest
+and brightest pixels and can cap the exposure by the highlights. After the same 64 × 64 log luminance:
+
+| Pass | Target | Shader |
+|---|---|---|
+| Row histograms | 64 bins × 64 rows `R32_SFLOAT` | `AutoExposureHistogram`: texel (bin, row) is the metering weight of that row's texels in that bin (a gather: nothing blends) |
+| Column sums | 64 × 1 `R32_SFLOAT` | `AutoExposureHistogramSum` |
+| Adapt | 1 × 1 `R32_SFLOAT` | `AutoExposureHistogramAdapt`: the band average, clamp, highlight protection, then the same temporal step |
+| Copy | 1 × 1 | as above |
+
+Bin `i` covers `[logMin + i·w, logMin + (i + 1)·w)`, `w = (AutoExposureHistogramLogMax − AutoExposureHistogramLogMin) / 64`
+(defaults −10 and 6, a quarter stop per bin); values outside count in the end bins. `AutoExposureMetering`
+`CenterWeighted` (the default, as Unreal's histogram) weights a texel `1 + 3·e^(−4·d²)` (4 at the centre, 1.05 at the
+corners; `d²` the squared distance from the centre over a corner's), `Uniform` 1. The measured luminance is `2^` the
+weighted mean of the bin centres between `AutoExposureLowPercent` and `AutoExposureHighPercent` (10 and 90, Unreal's;
+the band's edge bins count in part), clamped to [`AutoExposureMinLuminance`, `AutoExposureMaxLuminance`]. **Highlight
+protection** (`AutoExposureHighlightProtection`, off by default) then raises it to at least
+`scale × exposure × 2^p / AutoExposureHighlightWhite`, where `p` is the log luminance at `AutoExposureHighlightPercent`
+(98; interpolated inside its bin) and `exposure` the manual exposure: that percentile reaches the tonemap at most at the
+white target (default 2; the engine's ACES fit gives about 0.8 at 1). It can darken past the min-luminance boost, never
+past the max luminance. [`AutoExposureHistogram`](../../MainframeEngine/Src/Rendering/Post/AutoExposureHistogram.cs) is the
+C# reference of `include/auto_exposure.slang` (unit-tested; the shaders run the same steps).
+`RenderServer.AutoExposureGpuMilliseconds` times either mode (timestamps around the passes).
+
+Render tests: `auto-exposure-histogram` / `auto-exposure-average` (`HistogramHighlightProtectionKeepsABrightPatchBelowClipping`):
+an unshaded wall at 0.03 with a white patch on 7.5 % of the frame; Average clips the patch (253), Histogram with
+protection (white 0.8) shows it at 186 (golden at frame 5); `HistogramAutoExposureAllocatesNothingPerFrame`.
 
 ## FXAA (ADR 0154)
 

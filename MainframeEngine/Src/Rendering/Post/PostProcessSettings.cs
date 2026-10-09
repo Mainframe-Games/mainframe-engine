@@ -29,6 +29,32 @@ public enum Tonemapper
     Agx,
 }
 
+/// <summary>What auto exposure measures (ADR 0177; Unreal's metering modes).</summary>
+public enum AutoExposureMode
+{
+    /// <summary>The mean log2 luminance of the whole image (ADR 0154; Godot's auto exposure).</summary>
+    Average,
+
+    /// <summary>
+    /// A 64-bin log2-luminance histogram (Unreal's Auto Exposure Histogram): the mean between the low and high percentiles,
+    /// optionally weighted towards the centre and capped so a highlight percentile stays below a white target.
+    /// </summary>
+    Histogram,
+}
+
+/// <summary>How <see cref="AutoExposureMode.Histogram"/> weights the image (ADR 0177).</summary>
+public enum AutoExposureMetering
+{
+    /// <summary>Every part of the image counts the same.</summary>
+    Uniform,
+
+    /// <summary>
+    /// The centre counts up to 4× the corners (<see cref="AutoExposureHistogram.MeteringWeight"/>): what the player looks
+    /// at sets the exposure, like Unreal's histogram metering.
+    /// </summary>
+    CenterWeighted,
+}
+
 /// <summary>How the glow chain is built (engine setting; ADR 0168).</summary>
 public enum GlowQuality
 {
@@ -211,6 +237,52 @@ public readonly record struct PostProcessSettings
 
     /// <summary>The brightest average luminance adapted to: brighter scenes stay brighter (the least exposure is Scale / this).</summary>
     public float AutoExposureMaxLuminance { get; init; } = 2f;
+
+    /// <summary>
+    /// What auto exposure measures (ADR 0177): <see cref="MainframeEngine.AutoExposureMode.Average"/> (the default, ADR
+    /// 0154) the mean log luminance of the whole image; <see cref="MainframeEngine.AutoExposureMode.Histogram"/> a
+    /// log-luminance histogram, averaged between <see cref="AutoExposureLowPercent"/> and
+    /// <see cref="AutoExposureHighPercent"/> (Unreal's Auto Exposure Histogram), with optional highlight protection.
+    /// </summary>
+    public AutoExposureMode AutoExposureMode { get; init; } = AutoExposureMode.Average;
+
+    /// <summary>
+    /// Histogram mode: the darkest share of the (weighted) image, in percent, left out of the average (Unreal's
+    /// <c>AutoExposureLowPercent</c>, 10): deep shadows and black sky do not brighten the exposure.
+    /// </summary>
+    public float AutoExposureLowPercent { get; init; } = 10f;
+
+    /// <summary>
+    /// Histogram mode: the average stops at this percentile (Unreal's <c>AutoExposureHighPercent</c>, 90): the brightest
+    /// <c>100 − this</c> percent (the sun, sky gaps, specular glints) do not darken the exposure.
+    /// </summary>
+    public float AutoExposureHighPercent { get; init; } = 90f;
+
+    /// <summary>Histogram mode: log2 luminance of the first bin's lower edge (Unreal's <c>HistogramLogMin</c>; −10 ≈ 0.001).</summary>
+    public float AutoExposureHistogramLogMin { get; init; } = -10f;
+
+    /// <summary>Histogram mode: log2 luminance of the last bin's upper edge (Unreal's <c>HistogramLogMax</c>; 6 = 64).</summary>
+    public float AutoExposureHistogramLogMax { get; init; } = 6f;
+
+    /// <summary>Histogram mode: how the image is weighted (centre-weighted by default, like Unreal's histogram metering).</summary>
+    public AutoExposureMetering AutoExposureMetering { get; init; } = AutoExposureMetering.CenterWeighted;
+
+    /// <summary>
+    /// Histogram mode: also cap the exposure so the luminance at <see cref="AutoExposureHighlightPercent"/> is exposed to at
+    /// most <see cref="AutoExposureHighlightWhite"/> (after the manual exposure): a view that is mostly shade keeps its
+    /// sunlit patches below the tonemap's shoulder instead of washing them out. It can darken the exposure past
+    /// <see cref="AutoExposureMinLuminance"/>'s boost, never past <see cref="AutoExposureMaxLuminance"/>.
+    /// </summary>
+    public bool AutoExposureHighlightProtection { get; init; }
+
+    /// <summary>Histogram mode: the percentile highlight protection keeps in range (98: the brightest 2 % may clip).</summary>
+    public float AutoExposureHighlightPercent { get; init; } = 98f;
+
+    /// <summary>
+    /// Histogram mode: the most the highlight percentile's luminance is exposed to, in the tonemap's input units (the
+    /// engine's ACES fit reaches 0.8 at about 1 and 0.95 at about 3; 2 keeps sunlit colour off the shoulder).
+    /// </summary>
+    public float AutoExposureHighlightWhite { get; init; } = 2f;
 
     /// <summary>
     /// Screen-space light shafts (ADR 0160): sky pixels around the sun (the world's first <see cref="DirectionalLight3D"/>),
