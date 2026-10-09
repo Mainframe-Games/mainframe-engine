@@ -22,6 +22,12 @@ internal interface IPostProcessHost
     /// <summary>The root world's primary light's contact shadows (ADR 0167), set by the render server each frame.</summary>
     ContactShadowSettings ContactShadows { get; set; }
 
+    /// <summary>The root world's volumetric fog (ADR 0171), set by the render server each frame.</summary>
+    VolumetricFogSettings VolumetricFog { get; set; }
+
+    /// <summary>The shadow set the main view's lit shaders bind (null: none), set by the render server each frame.</summary>
+    IShadowDescriptors? ShadowDescriptors { get; set; }
+
     /// <summary>The depth prepass's render pass (the prepass is created on first use): build prepass pipelines against it.</summary>
     RenderPass PrepassRenderPass { get; }
 

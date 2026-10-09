@@ -207,6 +207,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     {
         var ssao = new SsaoEffect(); // ADR 0165, AfterPrepass
         _post.Add(ssao);
+        _post.Add(new VolumetricFogEffect()); // ADR 0171
         _post.Add(_autoExposure);
         _post.Add(_glow);
         _post.Add(_lightShafts);
@@ -266,6 +267,8 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         context.Exposure = exposure;
         context.JitterIndex = Frame.JitterIndex;
         context.LightShaftsSun = LightShaftsSun;
+        context.View = 0;
+        context.Shadows = ShadowDescriptors;
         UpdateSceneTextures(context);
 
         context.HasCamera = _mainCamera is not null && _mainCameraFrame == _frameNumber;
@@ -305,9 +308,17 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown debug view.");
     }
 
-    public PostEffectSettings PostSettings => new(PostProcess, _antiAliasing, DebugView, _taaSharpness) { ContactShadows = ContactShadows };
+    public PostEffectSettings PostSettings => new(PostProcess, _antiAliasing, DebugView, _taaSharpness)
+    {
+        ContactShadows = ContactShadows,
+        VolumetricFog = VolumetricFog,
+    };
 
     public ContactShadowSettings ContactShadows { get; set; }
+
+    public VolumetricFogSettings VolumetricFog { get; set; }
+
+    public IShadowDescriptors? ShadowDescriptors { get; set; }
 
     public RenderPass PrepassRenderPass => (_prepass ??= new ScenePrepass(this, SceneTarget)).PrepassRenderPass;
 

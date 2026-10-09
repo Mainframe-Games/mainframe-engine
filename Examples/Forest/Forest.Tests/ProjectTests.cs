@@ -75,7 +75,8 @@ public sealed class ProjectTests
             Assert.Equal(AmbientSource.Sky, environment.AmbientSource);
             Assert.Equal(ReflectedLightSource.Sky, environment.ReflectedLightSource);
             var post = environment.PostProcess!;
-            Assert.True(environment.FogEnabled && post.LightShaftsEnabled && post.AutoExposureEnabled && post.GlowEnabled && post.SsaoEnabled);
+            Assert.True(environment.FogEnabled && post.AutoExposureEnabled && post.GlowEnabled && post.SsaoEnabled);
+            Assert.True(environment.VolumetricFogEnabled && !post.LightShaftsEnabled); // ADR 0171: real shafts replace the screen-space ones
             Assert.Equal(ForestLook.ProfilePath, post.ResourcePath); // ADR 0169: the look is a file the editor tunes
             Assert.Equal(ForestLook.LensPath, environment.CameraAttributes!.ResourcePath);
             Assert.NotNull(root.GetNode<ForestValley>("Valley"));

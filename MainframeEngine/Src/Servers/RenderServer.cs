@@ -96,6 +96,10 @@ public sealed class RenderServer : IServer
     /// <summary>GPU time of the SSAO passes (ADR 0165) in a recent frame, in milliseconds (0 while SSAO is off or untimed).</summary>
     public double SsaoGpuMilliseconds => PostEffects?.Find<SsaoEffect>() is { IsCreated: true } ssao ? ssao.LastGpuMilliseconds : 0;
 
+    /// <summary>GPU time of the volumetric fog's passes (ADR 0171) in a recent frame, in milliseconds (0 while it is off or untimed).</summary>
+    public double VolumetricFogGpuMilliseconds =>
+        PostEffects?.Find<VolumetricFogEffect>() is { IsCreated: true } fog ? fog.LastGpuMilliseconds : 0;
+
     /// <summary>The main view's post effects (ADR 0163), or null without a Vulkan renderer.</summary>
     internal PostProcessStack? PostEffects => (Vulkan as IPostProcessHost)?.PostEffects;
 
@@ -442,7 +446,8 @@ public sealed class RenderServer : IServer
         {
             EnsureResources(world);
             // The shadow maps belong to the main world, unless this view owns them this frame (SubViewport.Shadows).
-            frame.Environment = world.Environment?.FrameEnvironment ?? default;
+            // ADR 0171: while the view runs the volumetric fog, the analytic fog starts where it ends.
+            frame.Environment = world.Environment?.GetFrameEnvironment(post is { Settings.VolumetricFog.Active: true }) ?? default;
             BindSkyLighting(frame, world);
             frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber);
             meshes = world.GeometryList.Count > 0 ? Meshes : null;
@@ -539,8 +544,10 @@ public sealed class RenderServer : IServer
         var settings = new PostEffectSettings(world, sub.AntiAliasing, RenderDebugView.None, Math.Clamp(sub.TaaSharpness, 0f, 1f))
         {
             ContactShadows = contact,
+            VolumetricFog = sub.World3D.Environment?.VolumetricFogSettings ?? default,
         };
         post.Settings = settings;
+        post.ShadowDescriptors = _shadows;
         post.Needs = post.Effects.GetNeeds(settings);
         targets.Draws.Prepassed = (post.Needs & PostEffectNeeds.DepthPrepass) != 0;
     }
@@ -618,6 +625,8 @@ public sealed class RenderServer : IServer
             }
 
             host.ContactShadows = ContactShadowSettings.For(PrimaryShadowLight(root.World3D.Lights), _shadows is { ContactShadows: true });
+            host.VolumetricFog = root.World3D.Environment?.VolumetricFogSettings ?? default; // ADR 0171
+            host.ShadowDescriptors = _shadows;
             needs = host.PostEffects.GetNeeds(host.PostSettings);
         }
         if (ForceDepthPrepass)
@@ -640,6 +649,11 @@ public sealed class RenderServer : IServer
             frame.JitterIndex = 0;
         }
     }
+
+    // The root world's environment for the main view (ADR 0171): while the main view runs the volumetric fog, the analytic
+    // fog starts where the march ends.
+    private static FrameEnvironment MainEnvironment(World3D world, IVulkanContext vk) =>
+        world.Environment?.GetFrameEnvironment(vk is IPostProcessHost { VolumetricFog.Active: true }) ?? default;
 
     // The light the shadow planner gives the cascades: the first directional light that casts shadows.
     private static DirectionalLight? PrimaryShadowLight(LightEnvironment lights)
@@ -695,7 +709,7 @@ public sealed class RenderServer : IServer
         EnsureResources(world);
         var frame = vk.Frame;
         frame.SetView(0, default);
-        frame.Environment = world.Environment?.FrameEnvironment ?? default;
+        frame.Environment = MainEnvironment(world, vk);
         BindSkyLighting(frame, world);
         frame.Begin(camera!, world.Lights); // the scene pass rewrites the same data
         MeshRenderer? meshes = null;
@@ -753,7 +767,7 @@ public sealed class RenderServer : IServer
                 vk.LightShaftsSun = LightShaftsSun.Compute(camera.ViewMatrix, camera.ProjectionMatrix, -sun.Direction);
             EnsureResources(world);
             vk.Frame.SetView(0, default);
-            vk.Frame.Environment = world.Environment?.FrameEnvironment ?? default;
+            vk.Frame.Environment = viewport.IsTreeRoot ? MainEnvironment(world, vk) : world.Environment?.FrameEnvironment ?? default;
             BindSkyLighting(vk.Frame, world);
             vk.Frame.Begin(camera, world.Lights); // shared set 0: camera + lights, once per frame
             MeshRenderer? meshes = null;

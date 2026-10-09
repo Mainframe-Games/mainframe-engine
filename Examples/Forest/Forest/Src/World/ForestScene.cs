@@ -99,10 +99,22 @@ public static class ForestScene
 
         FogEnabled = true,
         FogLightColor = new Vector3(0.42f, 0.47f, 0.53f),
-        FogDensity = 0.003f,
+        FogDensity = 0.005f, // beyond the volumetric fog's 64 m: the valley and the far slopes haze over
         FogHeight = 6f,
         FogHeightDensity = 0.08f,
-        FogSunScatter = 0.3f,
+        FogSunScatter = 0.1f, // the volumetric fog scatters the sun now; this only tints the far fog towards it
+
+        // ADR 0171: fog lit through the sun's shadow maps within 64 m: soft rays through the canopy gaps from any view, the
+        // shaded air clear (no ambient inject: the sky would light the air under the canopy as brightly as the glade's).
+        // Its density follows the height fog's shape, so the valley floor is hazier than the glade.
+        VolumetricFogEnabled = true,
+        VolumetricFogDensity = 0.018f,
+        VolumetricFogAnisotropy = 0.75f,
+        VolumetricFogLength = 64f,
+        VolumetricFogSkyAffect = 0.2f,
+        VolumetricFogAmbientInject = 0.02f,
+        VolumetricFogNoiseScale = 8f,
+        VolumetricFogNoiseStrength = 0.5f,
 
         // ADR 0169: the post-processing look and the lens are resource files the editor tunes (ForestLook).
         PostProcess = ForestLook.LoadProfile(),

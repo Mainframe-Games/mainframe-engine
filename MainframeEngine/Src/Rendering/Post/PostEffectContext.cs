@@ -167,6 +167,15 @@ internal sealed class PostEffectContext
     /// <summary>The sun's screen position and fade for the light shafts (ADR 0160), from the view's camera and world.</summary>
     public LightShaftsSun LightShaftsSun { get; internal set; }
 
+    /// <summary>
+    /// The view's slot in the frame set (<see cref="FrameContext.SetFor"/>): 0 for the main view, the sub-viewport's
+    /// otherwise. An effect that binds the frame set (camera, lights, sky lighting) binds this view's.
+    /// </summary>
+    public int View { get; internal set; }
+
+    /// <summary>The shadow set the view's lit shaders bind (null: none; use the renderer's "no shadows" fallback).</summary>
+    public IShadowDescriptors? Shadows { get; internal set; }
+
     /// <summary>True for the last enabled effect of its stage (an <see cref="PostStage.AfterTonemap"/> one draws into the swapchain).</summary>
     public bool IsLastInStage { get; internal set; }
 

@@ -70,6 +70,9 @@ internal sealed unsafe class SubViewportPost : IPostOutput, IDisposable
     /// <summary>What the view's effects decide on this frame (set by the render server before the frame starts).</summary>
     public PostEffectSettings Settings { get; set; }
 
+    /// <summary>The shadow set the view's lit shaders bind this frame (null: none; set by the render server).</summary>
+    public IShadowDescriptors? ShadowDescriptors { get; set; }
+
     /// <summary>What the enabled effects need this frame (from <see cref="Settings"/>).</summary>
     public PostEffectNeeds Needs { get; set; }
 
@@ -84,6 +87,7 @@ internal sealed unsafe class SubViewportPost : IPostOutput, IDisposable
     {
         var ssao = new SsaoEffect();
         _stack.Add(ssao);
+        _stack.Add(new VolumetricFogEffect());
         _stack.Add(_autoExposure);
         _stack.Add(_glow);
         _stack.Add(_lightShafts);
@@ -199,6 +203,8 @@ internal sealed unsafe class SubViewportPost : IPostOutput, IDisposable
         context.Exposure = settings.World.ExposureFor(_ctx.Exposure);
         context.JitterIndex = frame.ViewJitterIndex(view);
         context.LightShaftsSun = sun;
+        context.View = view;
+        context.Shadows = ShadowDescriptors;
         var scene = context.Scene;
         scene.HasPrepass = _prepass is not null && _prepassFrame == _ctx.FrameNumber;
         scene.Velocity = scene.HasPrepass ? _prepass!.VelocityView : default;

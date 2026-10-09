@@ -143,20 +143,114 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export(Range = "0,1,0.01")]
     public float FogSunScatter { get; set; }
 
+    [ExportGroup("Volumetric Fog")]
+    /// <summary>
+    /// Fog lit by the sun through its shadow maps, so light shafts fall through gaps in any view (Godot's
+    /// <c>volumetric_fog_enabled</c>; ADR 0171): a half-resolution ray march over <see cref="VolumetricFogLength"/> as a
+    /// post effect of the main view (and of a post-processed <see cref="SubViewport"/>). Its density follows the height fog's
+    /// shape (<see cref="FogHeight"/>, <see cref="FogHeightDensity"/>); beyond the length the analytic fog takes over.
+    /// </summary>
+    [Export]
+    public bool VolumetricFogEnabled { get; set; }
+
+    /// <summary>Extinction per metre at and below <see cref="FogHeight"/> (Godot's <c>volumetric_fog_density</c>).</summary>
+    [Export(Range = "0,1,0.0001")]
+    public float VolumetricFogDensity { get; set; } = 0.05f;
+
+    /// <summary>The colour the fog scatters light with, authored in sRGB (Godot's <c>volumetric_fog_albedo</c>).</summary>
+    [Export]
+    public Vector3 VolumetricFogAlbedo { get; set; } = Vector3.One;
+
+    /// <summary>Light the fog emits itself, authored in sRGB (Godot's <c>volumetric_fog_emission</c>); black = none.</summary>
+    [Export]
+    public Vector3 VolumetricFogEmission { get; set; }
+
+    /// <summary>Scales <see cref="VolumetricFogEmission"/> (Godot's <c>volumetric_fog_emission_energy</c>).</summary>
+    [Export(Range = "0,1024,0.01")]
+    public float VolumetricFogEmissionEnergy { get; set; } = 1f;
+
+    /// <summary>
+    /// Henyey–Greenstein anisotropy (Godot's <c>volumetric_fog_anisotropy</c>): positive scatters forwards, so the fog
+    /// glows towards the sun; 0 is isotropic.
+    /// </summary>
+    [Export(Range = "-0.9,0.9,0.01")]
+    public float VolumetricFogAnisotropy { get; set; } = 0.2f;
+
+    /// <summary>How far from the camera the march reaches, in metres (Godot's <c>volumetric_fog_length</c>).</summary>
+    [Export(Range = "0,1024,0.01")]
+    public float VolumetricFogLength { get; set; } = 64f;
+
+    /// <summary>
+    /// How the march's steps crowd towards the camera (Godot's <c>volumetric_fog_detail_spread</c>): step i of n ends at
+    /// (i / n)^spread of the ray; 1 = even steps.
+    /// </summary>
+    [Export(Range = "0.5,6,0.01")]
+    public float VolumetricFogDetailSpread { get; set; } = 2f;
+
+    /// <summary>How much the sky's ambient light lights the fog (Godot's <c>volumetric_fog_ambient_inject</c>); 0 = only the sun.</summary>
+    [Export(Range = "0,16,0.01")]
+    public float VolumetricFogAmbientInject { get; set; }
+
+    /// <summary>How much the fog covers the sky (Godot's <c>volumetric_fog_sky_affect</c>): 1 fully, 0 not at all.</summary>
+    [Export(Range = "0,1,0.01")]
+    public float VolumetricFogSkyAffect { get; set; } = 1f;
+
+    /// <summary>
+    /// Blends each frame's march with the previous frames' (Godot's <c>volumetric_fog_temporal_reprojection_enabled</c>):
+    /// smooth shafts from 24 steps; off shows the march's dither.
+    /// </summary>
+    [Export]
+    public bool VolumetricFogTemporalReprojectionEnabled { get; set; } = true;
+
+    /// <summary>The history's weight (Godot's <c>volumetric_fog_temporal_reprojection_amount</c>): higher is smoother and slower.</summary>
+    [Export(Range = "0.5,0.99,0.001")]
+    public float VolumetricFogTemporalReprojectionAmount { get; set; } = 0.9f;
+
+    /// <summary>The size of the density noise's features in metres (an engine addition; the noise drifts with the wind).</summary>
+    [Export(Range = "0.5,256,0.1")]
+    public float VolumetricFogNoiseScale { get; set; } = 8f;
+
+    /// <summary>How much the noise varies the density (0 = uniform, 1 = from none to twice the density).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float VolumetricFogNoiseStrength { get; set; }
+
     /// <summary>The wind and fog packed for the per-frame shader data (linear colour, normalized direction).</summary>
-    public FrameEnvironment FrameEnvironment
+    public FrameEnvironment FrameEnvironment => GetFrameEnvironment(volumetricFog: false);
+
+    /// <summary>
+    /// <see cref="FrameEnvironment"/>; with <paramref name="volumetricFog"/> (the view runs the volumetric fog, ADR 0171)
+    /// the analytic fog starts at <see cref="VolumetricFogLength"/> (fog colour alpha = 1 + the start distance), so the
+    /// two never count the same air twice.
+    /// </summary>
+    public FrameEnvironment GetFrameEnvironment(bool volumetricFog)
     {
-        get
-        {
-            var dir = WindDirection.LengthSquared() > 1e-8f ? Vector3.Normalize(WindDirection) : Vector3.UnitX;
-            var fog = ColorSpace.SrgbToLinear(FogLightColor);
-            return new FrameEnvironment(
-                new Vector4(dir, WindStrength),
-                new Vector4(WindFrequency, WindTurbulence, 24f, 0f),
-                new Vector4(fog, FogEnabled ? 1f : 0f),
-                new Vector4(FogDensity, FogHeight, FogHeightDensity, FogSunScatter));
-        }
+        var dir = WindDirection.LengthSquared() > 1e-8f ? Vector3.Normalize(WindDirection) : Vector3.UnitX;
+        var fog = ColorSpace.SrgbToLinear(FogLightColor);
+        var start = volumetricFog && VolumetricFogSettings.Active ? VolumetricFogSettings.Length : 0f;
+        return new FrameEnvironment(
+            new Vector4(dir, WindStrength),
+            new Vector4(WindFrequency, WindTurbulence, 24f, 0f),
+            new Vector4(fog, FogEnabled ? 1f + start : 0f),
+            new Vector4(FogDensity, FogHeight, FogHeightDensity, FogSunScatter));
     }
+
+    /// <summary>The volumetric fog packed for its post effect (linear colours; ADR 0171). A struct, no allocation.</summary>
+    internal VolumetricFogSettings VolumetricFogSettings => new(
+        VolumetricFogEnabled,
+        MathF.Max(VolumetricFogDensity, 0f),
+        ColorSpace.SrgbToLinear(VolumetricFogAlbedo),
+        ColorSpace.SrgbToLinear(VolumetricFogEmission) * MathF.Max(VolumetricFogEmissionEnergy, 0f),
+        Math.Clamp(VolumetricFogAnisotropy, -0.95f, 0.95f),
+        MathF.Max(VolumetricFogLength, 0f),
+        Math.Clamp(VolumetricFogDetailSpread, 0.5f, 6f),
+        MathF.Max(VolumetricFogAmbientInject, 0f),
+        Math.Clamp(VolumetricFogSkyAffect, 0f, 1f),
+        VolumetricFogTemporalReprojectionEnabled,
+        Math.Clamp(VolumetricFogTemporalReprojectionAmount, 0f, 0.99f),
+        MathF.Max(VolumetricFogNoiseScale, 0.01f),
+        Math.Clamp(VolumetricFogNoiseStrength, 0f, 1f),
+        FogHeight,
+        MathF.Max(FogHeightDensity, 0f));
 
     /// <summary>
     /// The packed post-processing settings this environment asks the renderer for (ADR 0124, ADR 0165, ADR 0168, ADR 0169):

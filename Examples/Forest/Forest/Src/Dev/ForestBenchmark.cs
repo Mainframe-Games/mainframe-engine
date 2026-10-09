@@ -28,6 +28,7 @@ public sealed class ForestBenchmark
     private readonly float[] _frameMs;
     private readonly float[] _shadowMs;
     private readonly float[] _ssaoMs;
+    private readonly float[] _fogMs;
     private readonly int[] _draws;
     private readonly long[] _allocations;
     private long _lastAllocated;
@@ -54,6 +55,7 @@ public sealed class ForestBenchmark
         _frameMs = new float[frames];
         _shadowMs = new float[frames];
         _ssaoMs = new float[frames];
+        _fogMs = new float[frames];
         _draws = new int[frames];
         _allocations = new long[frames];
         _points = new Vector3[Spline.Length];
@@ -101,6 +103,7 @@ public sealed class ForestBenchmark
             {
                 _shadowMs[measured - 1] = (float)(render.ExistingShadows?.LastGpuMilliseconds ?? 0);
                 _ssaoMs[measured - 1] = (float)render.SsaoGpuMilliseconds;
+                _fogMs[measured - 1] = (float)render.VolumetricFogGpuMilliseconds;
                 _draws[measured - 1] = render.MeshStats.DrawCalls;
             }
         }
@@ -145,6 +148,8 @@ public sealed class ForestBenchmark
         Array.Sort(shadows);
         var ssao = (float[])_ssaoMs.Clone();
         Array.Sort(ssao);
+        var fog = (float[])_fogMs.Clone();
+        Array.Sort(fog);
         var mean = _frameMs.Average();
         var size = tree.Root.Size;
         var result = new BenchmarkResult(
@@ -166,9 +171,11 @@ public sealed class ForestBenchmark
             ShadowGpuP90Ms: Round(Percentile(shadows, 0.9f)),
             MaxDrawCalls: _draws.Max(),
             AllocatedBytes: allocated,
-            SsaoGpuP50Ms: Round(Percentile(ssao, 0.5f)));
+            SsaoGpuP50Ms: Round(Percentile(ssao, 0.5f)),
+            VolumetricFogGpuP50Ms: Round(Percentile(fog, 0.5f)));
         Log.Info($"[Forest] Benchmark {result.Width}x{result.Height}: p50 {result.P50Ms} ms, p90 {result.P90Ms} ms, p99 {result.P99Ms} ms, " +
                  $"max {result.MaxMs} ms (mean {result.MeanMs} ms, {result.Fps} fps); sun shadows GPU p50 {result.ShadowGpuP50Ms} ms; SSAO GPU p50 {result.SsaoGpuP50Ms} ms; " +
+                 $"volumetric fog GPU p50 {result.VolumetricFogGpuP50Ms} ms; " +
                  $"≤ {result.MaxDrawCalls} draws; {allocated} B allocated; load {result.LoadMs} ms.");
         var path = _outPath ?? Path.Combine("artifacts", "forest-bench", $"forest-bench-{DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.json");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
@@ -245,5 +252,5 @@ public sealed class ForestBenchmark
     /// <summary>The JSON a run writes.</summary>
     public sealed record BenchmarkResult(string Machine, string Os, string Cpu, int Width, int Height, int Frames, double LoadMs, double MeanMs,
         double Fps, double P50Ms, double P90Ms, double P99Ms, double P999Ms, double MaxMs, double ShadowGpuP50Ms, double ShadowGpuP90Ms,
-        int MaxDrawCalls, long AllocatedBytes, double SsaoGpuP50Ms = 0);
+        int MaxDrawCalls, long AllocatedBytes, double SsaoGpuP50Ms = 0, double VolumetricFogGpuP50Ms = 0);
 }

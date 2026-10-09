@@ -395,6 +395,12 @@ The raster slope-scaled bias adds a little more for 2D maps.
 Poisson taps are **not** rotated per pixel without TAA: screen-space noise would move with the camera and make edges
 crawl. Each tap's bilinear comparison already smooths the steps. With TAA, PCSS rotates them ([PCSS](#pcss)).
 
+**In the air (ADR 0171).** The volumetric fog's march ([Post-processing → Volumetric fog](post-processing.md#volumetric-fog))
+binds the view's shadow set as set 1 and reads the primary light's cascades and far shadow at points along the view ray:
+the cascade by view depth (`shadowCascadeIndex`), **one comparison tap** (bilinear 2 × 2), the point moved towards the
+light by the map's depth bias (no normal offset, no blend band, no PCSS: the march's 24 steps and its temporal filter
+smooth it). Staggered cascades work unchanged: each cached cascade keeps its matrix in the UBO.
+
 ## Without a `ShadowSystem`
 
 Shadows are optional:

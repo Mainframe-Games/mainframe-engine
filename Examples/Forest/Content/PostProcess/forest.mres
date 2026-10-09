@@ -14,7 +14,7 @@
     "GlowEnabled": true,
     "GlowHdrThreshold": 4,
     "GlowHdrLuminanceCap": 3,
-    "LightShaftsEnabled": true,
+    "LightShaftsEnabled": false,
     "LightShaftsIntensity": 2.3,
     "LightShaftsDecay": 0.965,
     "LightShaftsDensity": 0.85,
