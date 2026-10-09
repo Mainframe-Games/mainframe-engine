@@ -42,7 +42,7 @@
       "props": {
         "RotationDegrees": [-21, 75, 0],
         "Color": [1, 0.87, 0.7],
-        "Energy": 2.6,
+        "Energy": 2,
         "ShadowResolution": 1024,
         "ShadowSplitLambda": 0.8,
         "ShadowMaxDistance": 140,
@@ -62,7 +62,7 @@
       "props": {
         "Sky": { "res": "Sky_5kj71" },
         "AmbientSource": "Sky",
-        "AmbientEnergy": 1.6,
+        "AmbientEnergy": 2,
         "ReflectedLightSource": "Sky",
         "PostProcess": { "res": "PostProcessProfile_yiey8" },
         "CameraAttributes": { "res": "CameraAttributesPractical_npu9u" },
@@ -98,8 +98,8 @@
         "Layout": "TerrainFollowing",
         "RaysPerProbe": 192,
         "Bounces": 2,
-        "Energy": 2.4,
-        "SkyOcclusion": 0.5,
+        "Energy": 4,
+        "SkyOcclusion": 0.15,
         "OcclusionTint": [0.78431374, 0.88235295, 0.6666667, 1],
         "Data": { "res": "LightProbeData_i32m3" },
         "BakeWhenStale": true

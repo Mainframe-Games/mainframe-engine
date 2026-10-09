@@ -51,7 +51,9 @@ public static class ForestScene
         {
             Name = "Sun",
             Color = new Vector3(1f, 0.87f, 0.7f),
-            Energy = 2.6f,
+            // 2.6 against a 1.6 sky blew out sun-facing slopes and canopy tops in shaded views: the probe-darkened shade pins
+            // auto exposure at its maximum, so the sun / sky ratio is what keeps sunlit surfaces in range.
+            Energy = 2f,
             CastsShadows = true,
             ShadowCascades = 4,
             ShadowResolution = 1024,
@@ -97,7 +99,7 @@ public static class ForestScene
         },
         AmbientSource = AmbientSource.Sky,
         ReflectedLightSource = ReflectedLightSource.Sky,
-        AmbientEnergy = 1.6f, // the open canopy's skylight: shade stays readable next to the sun (no GI)
+        AmbientEnergy = 2f, // the open canopy's skylight: shade stays readable next to the sun
 
         WindDirection = new Vector3(-1f, 0f, 0.25f), // from the east
         WindStrength = 0.35f,
@@ -144,11 +146,12 @@ public static class ForestScene
         RaysPerProbe = 192,
         Bounces = 2,
         // Tuned against R2/R3/R5 (ADR 0170): the full bake reads too dark under the dense canopy next to the sunlit glade
-        // (the leaves' sub-pixel gaps and their spectral transmission are not in the bake), so half the sky occlusion, the
+        // (the leaves' sub-pixel gaps and their spectral transmission are not in the bake), so 15 % of the sky occlusion, the
         // rest of the blocked sky light tinted the canopy's green, and a stronger bounce: the shade stays readable and takes
-        // the canopy's colour. The look's auto exposure adapts further down under the canopy (forest.mres).
-        Energy = 2.4f,
-        SkyOcclusion = 0.5f,
+        // the canopy's colour. A darker shade pinned auto exposure at its maximum and blew out sunlit slopes (Brogan's
+        // playtest, 2026-10-09), so the fill is strong and forest.mres caps the exposure (min luminance 0.03).
+        Energy = 4f,
+        SkyOcclusion = 0.15f,
         OcclusionTint = System.Drawing.Color.FromArgb(255, 200, 225, 170),
         BakeWhenStale = true,
         Data = ResourceLoader.Exists(ProbesPath) ? ResourceLoader.Load<LightProbeData>(ProbesPath) : null,
