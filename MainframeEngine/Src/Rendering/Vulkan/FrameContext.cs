@@ -100,7 +100,10 @@ public readonly record struct FrameEnvironment(Vector4 Wind, Vector4 WindParams,
 /// <summary>
 /// The per-frame shared descriptor set 0: camera (<see cref="FrameData"/>, binding 0) and lights (the
 /// <see cref="LightEnvironment"/> UBO, binding 1), written once per frame and view into the frame slot's buffer and
-/// bound by every scene pipeline — instead of each object writing and binding its own copies. Set 1 is the shadow
+/// bound by every scene pipeline — instead of each object writing and binding its own copies — and the sky's
+/// image-based lighting (ADR 0150, <c>include/environment.slang</c>): binding 2 the prefiltered radiance cube, binding 3
+/// the irradiance cube (the view's world's <see cref="SkyRadiance"/>, or a black 1×1 cube) and binding 4 the
+/// <see cref="BrdfLut"/>. Set 1 is the shadow
 /// set (<see cref="ShadowSystem"/> or the renderer's fallback); per-material data is set 2 and per-instance data
 /// comes from the instance buffer (or push constants).
 /// </summary>
@@ -139,6 +142,10 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly DescriptorPool _pool;
     private readonly ulong[] _cameraFrame = new ulong[Slots * MaxViews];
     private readonly ulong[] _lightsFrame = new ulong[Slots * MaxViews];
+    private readonly long[] _environmentIds = new long[Slots * MaxViews]; // EnvironmentMaps.Id bound (0 = the fallback)
+    private readonly GpuImage _blackCube;
+    private readonly GpuImage _brdfLut;
+    private readonly Sampler _iblSampler;
     private Extent2D _viewExtent;
     private bool _disposed;
 
@@ -154,10 +161,41 @@ public sealed unsafe class FrameContext : IDisposable
         [
             new() { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = PushConstantStages },
             new() { Binding = 1, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = PushConstantStages },
+            new() { Binding = 2, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = 4, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ];
         SetLayout = PipelineBuilder.CreateSetLayout(ctx, bindings, "frame set 0");
         _pool = PipelineBuilder.CreatePool(ctx, Slots * MaxViews,
-            [new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 2 * Slots * MaxViews }], "frame set 0");
+        [
+            new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 2 * Slots * MaxViews },
+            new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = EnvironmentBindings * Slots * MaxViews },
+        ], "frame set 0");
+
+        // Image-based lighting: one linear, mipmapped, clamped sampler for the cubes and the LUT.
+        var samplerInfo = new SamplerCreateInfo
+        {
+            SType = StructureType.SamplerCreateInfo,
+            MagFilter = Filter.Linear,
+            MinFilter = Filter.Linear,
+            MipmapMode = SamplerMipmapMode.Linear,
+            AddressModeU = SamplerAddressMode.ClampToEdge,
+            AddressModeV = SamplerAddressMode.ClampToEdge,
+            AddressModeW = SamplerAddressMode.ClampToEdge,
+            MaxLod = 16f,
+        };
+        ctx.Vk.CreateSampler(ctx.Device, in samplerInfo, null, out _iblSampler).Check("vkCreateSampler (image-based lighting)");
+        _blackCube = GpuImage.Create(ctx, new GpuImageDesc(1, 1, Format.R16G16B16A16Sfloat, ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit)
+        {
+            ArrayLayers = 6,
+            Flags = ImageCreateFlags.CreateCubeCompatibleBit,
+            ViewType = ImageViewType.TypeCube,
+        });
+        ctx.Uploads.UploadImage(_blackCube, new byte[6 * 8]);
+        _brdfLut = GpuImage.Create(ctx, new GpuImageDesc(BrdfLut.Size, BrdfLut.Size, Format.R16G16Sfloat,
+            ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit));
+        ctx.Uploads.UploadImage(_brdfLut, BrdfLut.ToHalfPixels());
+        ctx.Uploads.FlushIfRecording();
 
         for (var slot = 0; slot < Slots; slot++)
         {
@@ -169,13 +207,41 @@ public sealed unsafe class FrameContext : IDisposable
                 var baseOffset = (ulong)view * _viewStride;
                 PipelineBuilder.WriteUniformBuffer(ctx, set, 0, _buffers[slot].Descriptor(baseOffset, FrameData.Size));
                 PipelineBuilder.WriteUniformBuffer(ctx, set, 1, _buffers[slot].Descriptor(baseOffset + _lightsOffset, LightEnvironment.UboSize));
+                PipelineBuilder.WriteImage(ctx, set, 2, FallbackCubeDescriptor);
+                PipelineBuilder.WriteImage(ctx, set, 3, FallbackCubeDescriptor);
+                PipelineBuilder.WriteImage(ctx, set, 4, BrdfLutDescriptor);
                 _sets[slot * MaxViews + view] = set;
             }
         }
     }
 
-    /// <summary>Layout of set 0 (binding 0 camera, binding 1 lights).</summary>
+    /// <summary>Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting).</summary>
     public DescriptorSetLayout SetLayout { get; }
+
+    /// <summary>Image bindings of set 0 (radiance cube, irradiance cube, BRDF LUT).</summary>
+    internal const int EnvironmentBindings = 3;
+
+    /// <summary>
+    /// The sky lighting the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/> binds for the current view (null:
+    /// the black fallback cube). The render server sets it from the view's world before each <c>Begin</c>.
+    /// </summary>
+    internal EnvironmentMaps? EnvironmentMaps { get; set; }
+
+    /// <summary>The black 1×1 cube bound when a view has no sky lighting.</summary>
+    internal DescriptorImageInfo FallbackCubeDescriptor => new()
+    {
+        Sampler = _iblSampler,
+        ImageView = _blackCube.View,
+        ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+    };
+
+    /// <summary>The split-sum BRDF table (<see cref="BrdfLut"/>, binding 4).</summary>
+    internal DescriptorImageInfo BrdfLutDescriptor => new()
+    {
+        Sampler = _iblSampler,
+        ImageView = _brdfLut.View,
+        ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+    };
 
     /// <summary>The view the frame is currently drawing (0 = main view); see <see cref="SetView"/>.</summary>
     public int CurrentView { get; private set; }
@@ -219,6 +285,43 @@ public sealed unsafe class FrameContext : IDisposable
         WriteCamera(camera.ViewMatrix, camera.ProjectionMatrix, camera.Position);
         if (lights is not null)
             WriteLights(lights, camera.Position, shadows);
+        BindEnvironment();
+    }
+
+    // Points bindings 2 and 3 of this frame slot's and view's set at EnvironmentMaps when they changed. The slot's
+    // earlier frame has finished (FrameStarted), and a view shows one world per frame, so the set is not bound yet.
+    private void BindEnvironment()
+    {
+        if (!_ctx.FrameStarted)
+            return;
+        var maps = EnvironmentMaps;
+        var id = maps?.Id ?? 0;
+        var index = Index;
+        if (_environmentIds[index] == id)
+            return;
+        _environmentIds[index] = id;
+
+        var images = stackalloc DescriptorImageInfo[2];
+        if (maps is null)
+        {
+            images[0] = images[1] = FallbackCubeDescriptor;
+        }
+        else
+        {
+            images[0] = new DescriptorImageInfo { Sampler = _iblSampler, ImageView = maps.Radiance, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
+            images[1] = new DescriptorImageInfo { Sampler = _iblSampler, ImageView = maps.Irradiance, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
+        }
+
+        var write = new WriteDescriptorSet
+        {
+            SType = StructureType.WriteDescriptorSet,
+            DstSet = _sets[index],
+            DstBinding = 2,
+            DescriptorCount = 2,
+            DescriptorType = DescriptorType.CombinedImageSampler,
+            PImageInfo = images,
+        };
+        _ctx.Vk.UpdateDescriptorSets(_ctx.Device, 1, &write, 0, null);
     }
 
     /// <summary>Writes the camera block for this frame and view (overwrites anything written earlier this frame).</summary>
@@ -296,6 +399,9 @@ public sealed unsafe class FrameContext : IDisposable
         _disposed = true;
         foreach (var buffer in _buffers)
             buffer.Dispose();
+        _blackCube.Dispose();
+        _brdfLut.Dispose();
+        _ctx.Deletions.Enqueue(GpuDeletion.Of(_iblSampler));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pool));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(SetLayout));
     }

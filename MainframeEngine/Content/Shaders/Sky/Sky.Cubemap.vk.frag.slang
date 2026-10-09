@@ -5,5 +5,7 @@
 [shader("fragment")]
 float4 main([[vk::location(0)]] float2 inUV) : SV_Target0 // inUV: NDC
 {
-    return cubemap.Sample(skyRay(inUV));
+    float3 dir = skyRay(inUV);
+    float4 color = cubemap.Sample(dir);
+    return float4(applySkyFog(color.rgb, dir), color.a);
 }

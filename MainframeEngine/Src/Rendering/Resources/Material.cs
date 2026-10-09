@@ -36,6 +36,14 @@ public enum ShadingMode : byte
 
     /// <summary>No lighting: albedo (× texture) + emission.</summary>
     Unshaded,
+
+    /// <summary>
+    /// Physically based (ADR 0150): Cook-Torrance GGX + Lambert with <see cref="StandardMaterial3D.Metallic"/>,
+    /// <see cref="StandardMaterial3D.Roughness"/> and <see cref="StandardMaterial3D.AmbientOcclusion"/>; ambient and
+    /// reflections from the sky's image-based lighting (<see cref="WorldEnvironment.AmbientSource"/>,
+    /// <see cref="WorldEnvironment.ReflectedLightSource"/>). Godot's per-pixel shading.
+    /// </summary>
+    Pbr,
 }
 
 /// <summary>
@@ -120,10 +128,11 @@ public readonly record struct MaterialRenderState(AlphaMode Alpha, CullMode Cull
 }
 
 /// <summary>
-/// The engine's standard surface material. Blinn-Phong lighting for now (ADR "Blinn-Phong now, PBR later"):
-/// albedo colour × texture, optional tangent-space normal map, specular strength and shininess, emission, alpha
-/// modes (opaque, cutout, blend), culling and double-sided lighting. Colours are authored in sRGB, like every
-/// colour in the engine, and converted to linear for the shader.
+/// The engine's standard surface material: albedo colour × texture, optional tangent-space normal map, emission, alpha
+/// modes (opaque, cutout, blend), culling and double-sided lighting, shaded Blinn-Phong (the default: specular strength
+/// and shininess), unshaded, or PBR (<see cref="ShadingMode.Pbr"/>: metallic, roughness, ambient occlusion and an ORM
+/// texture, ADR 0150). Colours are authored in sRGB, like every colour in the engine, and converted to linear for the
+/// shader.
 /// </summary>
 [EditorIcon("palette")]
 public sealed class StandardMaterial3D : Material
@@ -209,6 +218,63 @@ public sealed class StandardMaterial3D : Material
             Touch();
         }
     } = 32f;
+
+    /// <summary>How metallic the surface is (0 = dielectric, 1 = metal); <see cref="ShadingMode.Pbr"/> only (Godot's <c>metallic</c>).</summary>
+    [ExportGroup("PBR")]
+    [Export(Range = "0,1,0.01")]
+    public float Metallic
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    /// <summary>Perceptual roughness (0 = mirror, 1 = fully rough); <see cref="ShadingMode.Pbr"/> only (Godot's <c>roughness</c>).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float Roughness
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 1f;
+
+    /// <summary>How much ambient light reaches the surface (1 = all); <see cref="ShadingMode.Pbr"/> only.</summary>
+    [Export(Range = "0,1,0.01")]
+    public float AmbientOcclusion
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = 1f;
+
+    /// <summary>
+    /// Packed occlusion (R), roughness (G) and metallic (B), glTF's and Godot's ORM layout, sampled as linear data;
+    /// multiplies <see cref="AmbientOcclusion"/>, <see cref="Roughness"/> and <see cref="Metallic"/>.
+    /// <see cref="ShadingMode.Pbr"/> only.
+    /// </summary>
+    [Export]
+    public Texture2D? OrmTexture
+    {
+        get;
+        set
+        {
+            if (ReferenceEquals(field, value)) return;
+            field = value;
+            Touch();
+        }
+    }
 
     [ExportGroup("Emission")]
     [Export]

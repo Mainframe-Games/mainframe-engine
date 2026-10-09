@@ -6,6 +6,7 @@
 //   sunDirection.xyz = world direction towards the sun
 //   sunColorIntensity.rgb = the sun disc's radiance (already transmitted and scaled)
 //   sun.x            = cos of the disc's angular radius
+//   sun.z            = 1 in an image-based lighting capture (no sun disc; ADR 0150)
 // Only skyRay depends on the camera, so the pass draws into any view or cube face.
 #include "sky.slang"
 #include "atmosphere.slang"
@@ -27,7 +28,7 @@ float4 main([[vk::location(0)]] float2 inUV) : SV_Target0 // inUV: NDC
     float3 color = skyViewLut.SampleLevel(skyViewUv(viewR, bottom, dir.y, cosLightView), 0.0).rgb * sky.horizonColor.rgb;
 
     // The sun disc, hidden by the planet.
-    if (raySphere(float3(0.0, viewR, 0.0), dir, bottom) < 0.0)
+    if (sky.sun.z < 0.5 && raySphere(float3(0.0, viewR, 0.0), dir, bottom) < 0.0)
     {
         float sunSize = sky.sun.x;
         float softEdge = max(1.0 - sunSize, 0.0001);
@@ -35,5 +36,5 @@ float4 main([[vk::location(0)]] float2 inUV) : SV_Target0 // inUV: NDC
         color += sky.sunColorIntensity.rgb * sunMask;
     }
 
-    return float4(color, 1.0);
+    return float4(applySkyFog(color, dir), 1.0);
 }

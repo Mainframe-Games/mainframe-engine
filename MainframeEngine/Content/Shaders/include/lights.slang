@@ -1,7 +1,6 @@
-// Lights UBO (LightEnvironment.WriteUbo, std140, 1200 bytes with the default limits) and Blinn-Phong shading
-// with shadows. Include shadows.slang first. Define LIGHTS_SET / LIGHTS_BINDING before including to override
-// where the UBO lives (default: the per-frame set 0, binding 1, next to the camera data).
-// Colours in the UBO are linear (LightEnvironment converts the sRGB-authored values when packing).
+// Shading with the lights UBO (lights_data.slang) and shadows: Blinn-Phong (StandardMaterial3D's default, Spine) and
+// PBR (ShadingMode.Pbr, ADR 0150: Cook-Torrance GGX + Lambert, ambient from the sky's image-based lighting).
+// Include shadows.slang first. Define LIGHTS_SET / LIGHTS_BINDING before including to override where the UBO lives.
 #pragma once
 
 #include "common.slang"
@@ -10,44 +9,8 @@
 #error "Include shadows.slang before lights.slang"
 #endif
 
-#ifndef LIGHTS_SET
-#define LIGHTS_SET 0
-#endif
-#ifndef LIGHTS_BINDING
-#define LIGHTS_BINDING 1
-#endif
-
-struct DirLight
-{
-    float4 directionIntensity; // xyz = direction, w = intensity
-    float4 color;              // xyz = color, w = shadow opacity (Godot's shadow_opacity, ADR 0123)
-};
-
-struct PointLight
-{
-    float4 positionRange;  // xyz = position, w = range
-    float4 colorIntensity; // xyz = color,    w = intensity
-};
-
-struct SpotLight
-{
-    float4 positionRange;      // xyz = position,  w = range
-    float4 directionIntensity; // xyz = direction, w = intensity
-    float4 colorInner;         // xyz = color,     w = cos(innerAngle)
-    float4 outerPad;           // x   = cos(outerAngle), y = shadow opacity (ADR 0123)
-};
-
-struct LightsUBO
-{
-    float4     ambientColor;
-    float4     cameraPosition;
-    int4       counts;           // x = numDir, y = numPoint, z = numSpot, w = 1: no shadow maps for this view
-    DirLight   dir[MAX_DIR_LIGHTS];
-    PointLight point[MAX_POINT_LIGHTS];
-    SpotLight  spot[MAX_SPOT_LIGHTS];
-};
-
-[[vk::binding(LIGHTS_BINDING, LIGHTS_SET)]] ConstantBuffer<LightsUBO> lights;
+#include "lights_data.slang"
+#include "environment.slang"
 
 float attenuate(float dist, float range)
 {
@@ -77,16 +40,22 @@ float3 calcPoint(PointLight l, float3 N, float3 V, float3 pos, float3 base, floa
     return l.colorIntensity.xyz * l.colorIntensity.w * (diff + spec * specular) * atten * base * shadow;
 }
 
+// Cone factor of a spot light for the direction L towards it (1 inside the inner cone, 0 outside the outer one).
+float spotCone(SpotLight l, float3 L)
+{
+    float cosTheta = dot(-L, normalize(l.directionIntensity.xyz));
+    float inner    = l.colorInner.w;
+    float outer    = l.outerPad.x;
+    return clamp((cosTheta - outer) / max(inner - outer, 0.0001), 0.0, 1.0);
+}
+
 float3 calcSpot(SpotLight l, float3 N, float3 V, float3 pos, float3 base, float shadow, float specular, float shininess)
 {
     float3 toLight  = l.positionRange.xyz - pos;
     float  dist     = length(toLight);
     float3 L        = normalize(toLight);
     float3 H        = normalize(L + V);
-    float  cosTheta = dot(-L, normalize(l.directionIntensity.xyz));
-    float  inner    = l.colorInner.w;
-    float  outer    = l.outerPad.x;
-    float  spot     = clamp((cosTheta - outer) / max(inner - outer, 0.0001), 0.0, 1.0);
+    float  spot     = spotCone(l, L);
     float  diff     = max(dot(N, L), 0.0);
     float  spec     = pow(max(dot(N, H), 0.0), shininess);
     float  atten    = attenuate(dist, l.positionRange.w);
@@ -95,11 +64,12 @@ float3 calcSpot(SpotLight l, float3 N, float3 V, float3 pos, float3 base, float 
 
 // Ambient + every light, each shadowed by its map when it has one (ShadowSystem decides which lights cast).
 // `specular` scales the Blinn-Phong highlight of exponent `shininess` (materials: StandardMaterial3D). `Ngeo` is the
-// geometric normal, used for the shadow receivers' normal offset (a normal-mapped N would make it noisy).
+// geometric normal, used for the shadow receivers' normal offset (a normal-mapped N would make it noisy). The ambient
+// term is the sky's irradiance when the world's AmbientSource is Sky, else the ambient colour.
 float3 shadeLightsBlinnPhong(float3 base, float3 N, float3 Ngeo, float3 worldPos, float specular, float shininess)
 {
     float3 V = normalize(lights.cameraPosition.xyz - worldPos);
-    float3 result = lights.ambientColor.xyz * base;
+    float3 result = iblDiffuse(N) * base;
     bool shadowsOn = lights.counts.w == 0;
 
     for (int i = 0; i < lights.counts.x; i++)
@@ -135,4 +105,109 @@ float3 shadeLightsBlinnPhong(float3 base, float3 N, float3 Ngeo, float3 worldPos
 float3 shadeLights(float3 base, float3 N, float3 worldPos)
 {
     return shadeLightsBlinnPhong(base, N, N, worldPos, 0.3, 32.0);
+}
+
+// ── PBR (ADR 0150) ────────────────────────────────────────────────────────────────────────────────────────────────
+
+// A lit surface for shadeLightsPbr. albedo is linear; metallic, roughness (perceptual) and ao are 0..1; N is the shading
+// normal (normal-mapped, facing the viewer for double-sided back faces).
+struct PbrSurface
+{
+    float3 albedo;
+    float  metallic;
+    float  roughness;
+    float  ao;
+    float3 N;
+};
+
+// GGX / Trowbridge-Reitz normal distribution (a2 = α², α = roughness²).
+float pbrDistribution(float NdotH, float a2)
+{
+    float d = NdotH * NdotH * (a2 - 1.0) + 1.0;
+    return a2 / (PI * d * d);
+}
+
+// Smith height-correlated visibility: G / (4 N·L N·V).
+float pbrVisibility(float NdotV, float NdotL, float a2)
+{
+    float v = NdotL * sqrt(NdotV * NdotV * (1.0 - a2) + a2);
+    float l = NdotV * sqrt(NdotL * NdotL * (1.0 - a2) + a2);
+    return 0.5 / max(v + l, 1e-5);
+}
+
+float3 pbrFresnel(float3 F0, float VdotH)
+{
+    float f = pow(1.0 - VdotH, 5.0);
+    return F0 + (1.0 - F0) * f;
+}
+
+// Light leaving the surface towards V from one light arriving along L with `radiance` (colour × intensity × attenuation
+// × shadow). Light units match Blinn-Phong: Lambert's 1/π is folded into the light, so the specular lobe carries a π.
+float3 pbrLight(PbrSurface s, float3 F0, float a2, float3 V, float NdotV, float3 L, float3 radiance)
+{
+    float NdotL = dot(s.N, L);
+    if (NdotL <= 0.0)
+        return float3(0.0);
+    float3 H     = normalize(L + V);
+    float  NdotH = saturate(dot(s.N, H));
+    float  VdotH = saturate(dot(V, H));
+    float3 F     = pbrFresnel(F0, VdotH);
+    float3 diffuse  = s.albedo * (1.0 - s.metallic) * (1.0 - F);
+    float3 specular = PI * pbrDistribution(NdotH, a2) * pbrVisibility(NdotV, NdotL, a2) * F;
+    return (diffuse + specular) * radiance * NdotL;
+}
+
+// Cook-Torrance (GGX, Smith height-correlated, Schlick Fresnel with F0 = lerp(0.04, albedo, metallic)) + Lambert ×
+// (1 − F)(1 − metallic) for every light, with the Blinn-Phong path's shadows, shadow opacity and cascade tint; ambient
+// is the sky's image-based lighting (iblDiffuse, iblSpecular × the split-sum BRDF) × ao, or the ambient colour.
+float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos)
+{
+    float3 V         = normalize(lights.cameraPosition.xyz - worldPos);
+    float  roughness = clamp(s.roughness, 0.045, 1.0); // α ≥ 0.002: no sub-pixel highlights (specular aliasing)
+    float  a         = roughness * roughness;
+    float  a2        = a * a;
+    float3 F0        = lerp(float3(0.04), s.albedo, s.metallic);
+    float  NdotV     = max(dot(s.N, V), 1e-4);
+    bool   shadowsOn = lights.counts.w == 0;
+
+    float2 envBrdf = iblBrdf(NdotV, roughness);
+    float3 R = reflect(-V, s.N);
+    float3 result = (iblDiffuse(s.N) * s.albedo * (1.0 - s.metallic) +
+                     iblSpecular(R, roughness) * (F0 * envBrdf.x + envBrdf.y)) * s.ao;
+
+    for (int i = 0; i < lights.counts.x; i++)
+    {
+        DirLight l    = lights.dir[i];
+        float3   L    = normalize(-l.directionIntensity.xyz);
+        float  shadow = shadowsOn ? dirShadow(i, worldPos, Ngeo, L) : 1.0;
+        shadow = lerp(1.0, shadow, l.color.w);
+        result += pbrLight(s, F0, a2, V, NdotV, L, l.color.xyz * l.directionIntensity.w * shadow);
+    }
+
+    for (int i = 0; i < lights.counts.y; i++)
+    {
+        PointLight l   = lights.point[i];
+        float3 toLight = l.positionRange.xyz - worldPos;
+        float  dist    = length(toLight);
+        float  shadow  = shadowsOn ? pointShadow(i, worldPos, Ngeo, l.positionRange.xyz, l.positionRange.w) : 1.0;
+        float  atten   = attenuate(dist, l.positionRange.w);
+        result += pbrLight(s, F0, a2, V, NdotV, toLight / max(dist, 1e-4), l.colorIntensity.xyz * l.colorIntensity.w * atten * shadow);
+    }
+
+    for (int i = 0; i < lights.counts.z; i++)
+    {
+        SpotLight l     = lights.spot[i];
+        float3 lightPos = l.positionRange.xyz;
+        float3 toLight  = lightPos - worldPos;
+        float  dist     = length(toLight);
+        float3 L        = toLight / max(dist, 1e-4);
+        float  shadow   = shadowsOn ? spotShadow(i, worldPos, Ngeo, L, lightPos) : 1.0;
+        shadow = lerp(1.0, shadow, l.outerPad.y);
+        float  atten    = attenuate(dist, l.positionRange.w) * spotCone(l, L);
+        result += pbrLight(s, F0, a2, V, NdotV, L, l.colorInner.xyz * l.directionIntensity.w * atten * shadow);
+    }
+
+    if (shadowsOn)
+        result *= shadowCascadeTint(worldPos);
+    return result;
 }

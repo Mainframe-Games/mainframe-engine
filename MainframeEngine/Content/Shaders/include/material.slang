@@ -1,6 +1,8 @@
 // StandardMaterial3D descriptor set 2 (MaterialGpu in C#): parameters UBO, one sampler shared by the material's
-// textures (keeps the fragment stage within MoltenVK's 16 samplers next to the 15 shadow samplers), and the
-// albedo / normal / emission images (1x1 fallbacks when a slot is empty).
+// textures, and the albedo / normal / emission / ORM images (1x1 fallbacks when a slot is empty). Fragment-stage budget
+// (MoltenVK and the Android baseline: 16 samplers and sampled images per stage, rendering-features.md): shadows 6
+// combined samplers (set 1), the material 1 sampler + 4 images, the sky's image-based lighting 3 combined samplers
+// (set 0, environment.slang) = 13 images, 10 samplers.
 #pragma once
 
 #include "common.slang"
@@ -10,15 +12,16 @@
 #define MATERIAL_SET 2
 #endif
 
-// MaterialGpu.Params (std140, 80 bytes).
+// MaterialGpu.Params (std140, 96 bytes).
 struct MaterialParams
 {
     float4 albedo;      // linear rgb, a = alpha
     float4 emission;    // linear rgb × energy
     float4 uvTransform; // xy = scale, zw = offset
     float4 params;      // x = specular, y = shininess, z = alpha cutoff, w = normal scale
-    uint4  flags;       // x = texture bits (1 albedo, 2 normal, 4 emission), y = 1 unshaded, z = 1 double-sided,
-                        // w = outline width in pixels (float bits; OutlineMaterial3D)
+    uint4  flags;       // x = texture bits (1 albedo, 2 normal, 4 emission, 8 ORM), y = shading (kShading*),
+                        // z = 1 double-sided, w = outline width in pixels (float bits; OutlineMaterial3D)
+    float4 pbr;         // x = metallic, y = roughness, z = ambient occlusion (ShadingMode.Pbr; × the ORM texture)
 };
 
 [[vk::binding(0, MATERIAL_SET)]] ConstantBuffer<MaterialParams> material;
@@ -27,10 +30,17 @@ struct MaterialParams
 [[vk::binding(2, MATERIAL_SET)]] Texture2D albedoTexture;
 [[vk::binding(3, MATERIAL_SET)]] Texture2D normalTexture;
 [[vk::binding(4, MATERIAL_SET)]] Texture2D emissionTexture;
+[[vk::binding(5, MATERIAL_SET)]] Texture2D ormTexture; // linear: R = ambient occlusion, G = roughness, B = metallic
 
 static const uint kHasAlbedoTexture   = 1u;
 static const uint kHasNormalTexture   = 2u;
 static const uint kHasEmissionTexture = 4u;
+static const uint kHasOrmTexture      = 8u;
+
+// Shading modes (flags.y; ShadingMode in C#).
+static const uint kShadingBlinnPhong = 0u;
+static const uint kShadingUnshaded   = 1u;
+static const uint kShadingPbr        = 2u;
 
 // Alpha modes (AlphaMode in C#), the pipeline's specialization constant 0.
 static const int kAlphaOpaque = 0;
@@ -60,6 +70,15 @@ float3 materialEmission(float2 uv, float2 duvdx, float2 duvdy)
     if ((material.flags.x & kHasEmissionTexture) != 0u)
         emission *= emissionTexture.SampleGrad(materialSampler, uv, duvdx, duvdy).rgb;
     return emission;
+}
+
+// Ambient occlusion, roughness and metallic (x, y, z): the material's values × the ORM texture (Godot's ORM convention).
+float3 materialOrm(float2 uv, float2 duvdx, float2 duvdy)
+{
+    float3 orm = float3(material.pbr.z, material.pbr.y, material.pbr.x);
+    if ((material.flags.x & kHasOrmTexture) != 0u)
+        orm *= ormTexture.SampleGrad(materialSampler, uv, duvdx, duvdy).rgb;
+    return orm;
 }
 
 // Perturbs N with the tangent-space normal map (OpenGL/glTF convention, +Y up) using a tangent frame solved from

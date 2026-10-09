@@ -176,7 +176,7 @@ internal sealed class TextureGpu
     }
 }
 
-/// <summary>std140 parameters of <c>include/material.slang</c> (80 bytes).</summary>
+/// <summary>std140 parameters of <c>include/material.slang</c> (96 bytes).</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct MaterialParams
 {
@@ -185,14 +185,20 @@ internal struct MaterialParams
     public Vector4 UvTransform;
     public Vector4 Params;
     public uint TextureFlags;
-    public uint Unshaded;
+
+    /// <summary><c>flags.y</c>: <see cref="ShadingBlinnPhong"/>, <see cref="ShadingUnshaded"/> or <see cref="ShadingPbr"/>.</summary>
+    public uint Shading;
     public uint DoubleSided;
 
     /// <summary><see cref="OutlineMaterial3D.Width"/> as float bits (<c>flags.w</c>; read by the outline vertex shader).</summary>
     public uint OutlineWidth;
 
-    public const int Size = 80;
-    public const uint HasAlbedo = 1, HasNormal = 2, HasEmission = 4;
+    /// <summary>x = metallic, y = roughness, z = ambient occlusion (<see cref="ShadingMode.Pbr"/>).</summary>
+    public Vector4 Pbr;
+
+    public const int Size = 96;
+    public const uint HasAlbedo = 1, HasNormal = 2, HasEmission = 4, HasOrm = 8;
+    public const uint ShadingBlinnPhong = 0, ShadingUnshaded = 1, ShadingPbr = 2;
 
     /// <summary>Packs a material (colours converted from sRGB to linear).</summary>
     public static MaterialParams From(StandardMaterial3D m, uint textureFlags) => new()
@@ -202,8 +208,14 @@ internal struct MaterialParams
         UvTransform = new Vector4(m.UvScale, m.UvOffset.X, m.UvOffset.Y),
         Params = new Vector4(m.Specular, MathF.Max(m.Shininess, 1f), m.AlphaCutoff, m.NormalScale),
         TextureFlags = textureFlags,
-        Unshaded = m.ShadingMode == ShadingMode.Unshaded ? 1u : 0u,
+        Shading = m.ShadingMode switch
+        {
+            ShadingMode.Unshaded => ShadingUnshaded,
+            ShadingMode.Pbr => ShadingPbr,
+            _ => ShadingBlinnPhong,
+        },
         DoubleSided = m.DoubleSided ? 1u : 0u,
+        Pbr = new Vector4(Math.Clamp(m.Metallic, 0f, 1f), Math.Clamp(m.Roughness, 0f, 1f), Math.Clamp(m.AmbientOcclusion, 0f, 1f), 0f),
     };
 
     /// <summary>Packs an outline: unshaded colour, no textures, the width in pixels.</summary>
@@ -212,7 +224,7 @@ internal struct MaterialParams
         Albedo = Linear(m.Color),
         UvTransform = new Vector4(1f, 1f, 0f, 0f),
         Params = new Vector4(0f, 1f, 0f, 1f),
-        Unshaded = 1u,
+        Shading = ShadingUnshaded,
         OutlineWidth = BitConverter.SingleToUInt32Bits(m.Width),
     };
 
@@ -223,7 +235,7 @@ internal struct MaterialParams
 
 /// <summary>
 /// A <see cref="Material"/> on the GPU: its parameter UBO (device-local, updated through the upload queue) and
-/// descriptor set 2 (parameters, sampler, albedo/normal/emission images). Cached pipeline entries make the
+/// descriptor set 2 (parameters, sampler, albedo/normal/emission/ORM images). Cached pipeline entries make the
 /// steady-state draw-list build hash-free. Shared by every surface drawn with the material.
 /// </summary>
 internal sealed class MaterialGpu
@@ -244,9 +256,11 @@ internal sealed class MaterialGpu
     public TextureGpu? Albedo;
     public TextureGpu? Normal;
     public TextureGpu? Emission;
+    public TextureGpu? Orm;
     public int AlbedoGeneration { get; set; }
     public int NormalGeneration { get; set; }
     public int EmissionGeneration { get; set; }
+    public int OrmGeneration { get; set; }
 
     /// <summary>Material version the GPU copy reflects (0 = never uploaded).</summary>
     public int UploadedVersion { get; set; }

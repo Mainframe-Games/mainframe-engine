@@ -66,8 +66,8 @@ public class LightEnvironmentTests
         var (f, i) = Pack(env, new Vector3(4, 5, 6));
 
         // sRGB-authored colours are packed linear.
-        Assert.Equal([L(0.1f), L(0.2f), L(0.3f), 0f], f[0..4]);
-        Assert.Equal([4f, 5f, 6f, 0f], f[4..8]);
+        Assert.Equal([L(0.1f), L(0.2f), L(0.3f), 1f], f[0..4]); // w = ambient energy (ADR 0150)
+        Assert.Equal([4f, 5f, 6f, 0f], f[4..8]);                // w = environment flags
         Assert.Equal([1, 1, 2, 0], i[8..12]);
     }
 
@@ -126,7 +126,7 @@ public class LightEnvironmentTests
         var bytes = new byte[LightEnvironment.UboSize];
         bytes.AsSpan().Fill(0xFF);
 
-        new LightEnvironment { AmbientColor = Vector3.Zero }.WriteUbo(bytes, Vector3.Zero);
+        new LightEnvironment { AmbientColor = Vector3.Zero, AmbientEnergy = 0f }.WriteUbo(bytes, Vector3.Zero);
 
         Assert.All(bytes, b => Assert.Equal(0, b));
     }

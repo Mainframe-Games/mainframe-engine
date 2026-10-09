@@ -20,7 +20,7 @@ public class LightEnvironment
         MaxPoint       * PointStride +
         MaxSpot        * SpotStride; // 1200 bytes
 
-    private const int UboHeaderSize     = 48; // vec4 ambient, vec4 cameraPos, ivec4 counts
+    private const int UboHeaderSize     = 48; // vec4 ambient (w = energy), vec4 cameraPos (w = environment flags), ivec4 counts
     private const int DirectionalStride = 32; // vec4 direction+intensity, vec4 color+shadowOpacity
     private const int PointStride       = 32; // vec4 position+range, vec4 color+intensity
     private const int SpotStride        = 64; // vec4 position+range, vec4 direction+intensity, vec4 color+cosInner, vec4 cosOuter+shadowOpacity
@@ -49,6 +49,28 @@ public class LightEnvironment
     {
         AmbientColor = DefaultAmbientColor;
     }
+
+    /// <summary>
+    /// Scales the ambient light (<see cref="WorldEnvironment.AmbientEnergy"/>): the UBO carries the ambient colour × this,
+    /// and this alone in <c>ambientColor.w</c> for the sky's irradiance. Set by the render server each frame.
+    /// </summary>
+    internal float AmbientEnergy { get; set; } = 1f;
+
+    /// <summary>
+    /// Image-based lighting flags (<c>kEnv*</c> in <c>include/lights_data.slang</c>, written to <c>cameraPosition.w</c>):
+    /// <see cref="EnvironmentSkyDiffuse"/>, <see cref="EnvironmentSkySpecular"/>, <see cref="EnvironmentNoSpecular"/>. Set by
+    /// the render server each frame from the world's <see cref="WorldEnvironment"/>.
+    /// </summary>
+    internal int EnvironmentFlags { get; set; }
+
+    /// <summary>Ambient light from the sky's irradiance cube instead of the ambient colour.</summary>
+    internal const int EnvironmentSkyDiffuse = 1;
+
+    /// <summary>Reflections from the sky's prefiltered radiance cube instead of a uniform ambient-colour environment.</summary>
+    internal const int EnvironmentSkySpecular = 2;
+
+    /// <summary>No reflected light.</summary>
+    internal const int EnvironmentNoSpecular = 4;
     internal List<DirectionalLight> DirectionalLights { get; } = [];
     internal List<PointLight> PointLights { get; } = [];
     internal List<SpotLight> SpotLights { get; } = [];
@@ -79,8 +101,9 @@ public class LightEnvironment
         int numSpot  = Math.Min(SpotLights.Count,        MaxSpot);
 
         // Header
-        f[0] = _ambientLinear.X; f[1] = _ambientLinear.Y; f[2] = _ambientLinear.Z;
-        f[4] = cameraPosition.X; f[5] = cameraPosition.Y; f[6] = cameraPosition.Z;
+        var ambient = _ambientLinear * AmbientEnergy;
+        f[0] = ambient.X; f[1] = ambient.Y; f[2] = ambient.Z; f[3] = AmbientEnergy;
+        f[4] = cameraPosition.X; f[5] = cameraPosition.Y; f[6] = cameraPosition.Z; f[7] = EnvironmentFlags;
         i[8] = numDir; i[9] = numPoint; i[10] = numSpot; i[11] = shadows ? 0 : 1;
 
         var o = UboHeaderSize / sizeof(float);

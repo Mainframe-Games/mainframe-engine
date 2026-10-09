@@ -13,7 +13,9 @@ namespace MainframeEngine;
 /// Camera data comes from the per-frame shared set 0 (<see cref="FrameContext"/>); the sky parameters are push
 /// constants, and textured skies bind their image as set 1 (the physical sky its sky-view LUT). Colours are authored
 /// in sRGB like every other colour in the engine; the sun (<see cref="SunColor"/> × <see cref="SunIntensity"/>) is an
-/// HDR value.
+/// HDR value. The same shader also renders the sky into the image-based lighting cube (<see cref="SkyRadiance"/>, ADR
+/// 0150) through <see cref="DrawCapture"/>: whatever the sky's type, its lighting follows what it draws. Every input of
+/// the sky shader must be in its push constants (<see cref="CaptureParams"/>): a change re-captures the lighting.
 /// </remarks>
 public class SkyEnvironment : IDisposable
 {
@@ -58,20 +60,22 @@ public class SkyEnvironment : IDisposable
     // ─── Push constants (must match SkyParams in the sky fragment shaders, 96 bytes) ───
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct SkyParams
+    internal struct SkyParams
     {
         public Vector4 SkyColor;
         public Vector4 HorizonColor;
         public Vector4 GroundColor;
         public Vector4 SunDirection;      // xyz = direction toward the sun
         public Vector4 SunColorIntensity; // rgb = colour, a = intensity
-        public Vector4 Sun;               // x = cos(angular radius), y = horizon sharpness
+        public Vector4 Sun;               // x = cos(angular radius), y = horizon sharpness, z = 1 capture (no sun disk)
     }
 
     // ─── Vulkan state ─────────────────────────────────────────────────────────
 
     private readonly IVulkanContext? _ctx;
     private Pipeline _pipeline;
+    private Pipeline _capturePipeline;         // SkyRadiance's pass (colour only, RGBA16F)
+    private RenderPass _captureRenderPass;
     private PipelineLayout _pipelineLayout;
     private DescriptorSetLayout _texSetLayout; // Panoramic / Cubemap / Physical only
     private DescriptorPool _descPool;
@@ -185,16 +189,31 @@ public class SkyEnvironment : IDisposable
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, 1, 1, &set, 0, null);
         }
 
-        var push = Type == SkyEnvironmentType.Physical ? PhysicalParams() : new SkyParams
-        {
-            SkyColor = new Vector4(SkyColor, 1f),
-            HorizonColor = new Vector4(HorizonColor, 1f),
-            GroundColor = new Vector4(GroundColor, 1f),
-            SunDirection = new Vector4(Vector3.Normalize(SunDirection), 0f),
-            SunColorIntensity = new Vector4(SunColor, SunIntensity),
-            Sun = new Vector4(MathF.Cos(float.DegreesToRadians(SunAngularRadius)), HorizonSharpness, 0f, 0f),
-        };
+        var push = CaptureParams;
+        push.Sun.Z = 0f; // the sun disk is drawn in views, not in captures
         vk.CmdPushConstants(cb, layout, FrameContext.PushConstantStages, 0, (uint)sizeof(SkyParams), &push);
+    }
+
+    /// <summary>
+    /// The sky shader's push constants for the image-based lighting capture (<c>Sun.Z</c> = 1: no sun disk; the
+    /// directional light lights with the sun). <see cref="SkyRadiance"/> re-captures when they change.
+    /// </summary>
+    internal SkyParams CaptureParams
+    {
+        get
+        {
+            var push = Type == SkyEnvironmentType.Physical ? PhysicalParams() : new SkyParams
+            {
+                SkyColor = new Vector4(SkyColor, 1f),
+                HorizonColor = new Vector4(HorizonColor, 1f),
+                GroundColor = new Vector4(GroundColor, 1f),
+                SunDirection = new Vector4(Vector3.Normalize(SunDirection), 0f),
+                SunColorIntensity = new Vector4(SunColor, SunIntensity),
+                Sun = new Vector4(MathF.Cos(float.DegreesToRadians(SunAngularRadius)), HorizonSharpness, 0f, 0f),
+            };
+            push.Sun.Z = 1f;
+            return push;
+        }
     }
 
     /// <summary>
@@ -227,6 +246,34 @@ public class SkyEnvironment : IDisposable
 
     private static Vector3 SafeNormalize(Vector3 v) => v.LengthSquared() > 1e-12f ? Vector3.Normalize(v) : Vector3.UnitY;
 
+    /// <summary>
+    /// Records the sky into one cube face for <see cref="SkyRadiance"/>: inside <paramref name="renderPass"/> (one
+    /// <c>R16G16B16A16_SFLOAT</c> colour attachment), with <paramref name="frameSet"/> as set 0 (a 90° camera per face).
+    /// </summary>
+    internal unsafe void DrawCapture(CommandBuffer cb, RenderPass renderPass, DescriptorSet frameSet, Extent2D extent, in SkyParams push)
+    {
+        if (_ctx is null || !CanDraw) return;
+        var vk = _ctx.Vk;
+        if (_capturePipeline.Handle == 0 || _captureRenderPass.Handle != renderPass.Handle)
+        {
+            if (_capturePipeline.Handle != 0)
+                _ctx.Deletions.Enqueue(GpuDeletion.Of(_capturePipeline));
+            _capturePipeline = PipelineBuilder.Create(_ctx, new PipelineState(), _pipelineLayout, renderPass,
+                "Shaders/Sky/Sky.vk.vert.spv", FragmentShader(Type), [], [], "sky capture");
+            _captureRenderPass = renderPass;
+        }
+
+        PipelineBuilder.SetViewport(vk, cb, extent, flipY: true);
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _capturePipeline);
+        var sets = stackalloc DescriptorSet[2];
+        sets[0] = frameSet;
+        sets[1] = _texSet;
+        vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 0, HasTexture ? 2u : 1u, sets, 0, null);
+        fixed (SkyParams* p = &push)
+            vk.CmdPushConstants(cb, _pipelineLayout, FrameContext.PushConstantStages, 0, (uint)sizeof(SkyParams), p);
+        vk.CmdDraw(cb, 3, 1, 0, 0);
+    }
+
     // ─── Dispose ──────────────────────────────────────────────────────────────
 
     /// <summary>Releases the GPU objects through the deletion queue (safe while frames are in flight).</summary>
@@ -236,6 +283,8 @@ public class SkyEnvironment : IDisposable
         _disposed = true;
         var deletions = _ctx.Deletions;
         deletions.Enqueue(GpuDeletion.Of(_pipeline));
+        if (_capturePipeline.Handle != 0)
+            deletions.Enqueue(GpuDeletion.Of(_capturePipeline));
         deletions.Enqueue(GpuDeletion.Of(_pipelineLayout));
         deletions.Enqueue(GpuDeletion.Of(_descPool));
         deletions.Enqueue(GpuDeletion.Of(_texSetLayout));

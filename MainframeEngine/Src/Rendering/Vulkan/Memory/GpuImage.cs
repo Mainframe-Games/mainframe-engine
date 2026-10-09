@@ -124,6 +124,15 @@ public sealed unsafe class GpuImage : IDisposable
         return view;
     }
 
+    /// <summary>An additional view of some mips of some layers (a framebuffer attachment of one face and mip).</summary>
+    public ImageView CreateView(ImageViewType type, uint baseLayer, uint layerCount, uint baseMip, uint mipCount)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var view = CreateViewHandle(_ctx, Handle, Format, Aspect, type, baseLayer, layerCount, baseMip, mipCount);
+        _extraViews.Add(view);
+        return view;
+    }
+
     private static ImageView CreateViewHandle(IVulkanContext ctx, Image image, Format format, ImageAspectFlags aspect,
         ImageViewType type, uint baseLayer, uint layerCount, uint baseMip, uint mipCount)
     {
