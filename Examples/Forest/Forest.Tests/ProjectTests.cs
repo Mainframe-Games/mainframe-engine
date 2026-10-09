@@ -82,10 +82,10 @@ public sealed class ProjectTests
             Assert.NotNull(root.GetNode<ForestValley>("Valley"));
             Assert.Equal("Valley/Stream", root.GetNode<ForestAudio>("Audio").RiverPath.ToString());
 
-            // A morning sun: low, from the east-south-east.
+            // A morning sun: low, from the north-north-east (ADR 0178: the walk's first leg looks into it).
             var towardsSun = -sun.GlobalForward;
             Assert.InRange(float.RadiansToDegrees(MathF.Asin(towardsSun.Y)), 18f, 30f);
-            Assert.True(towardsSun.X > 0.8f);
+            Assert.True(towardsSun.Z < -0.7f && towardsSun.X > 0.2f, $"not north-north-east: {towardsSun}");
         }
         finally
         {
