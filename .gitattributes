@@ -24,6 +24,7 @@
 *.nupkg filter=lfs diff=lfs merge=lfs -text
 *.spine filter=lfs diff=lfs merge=lfs -text
 *.blend filter=lfs diff=lfs merge=lfs -text
+*.probes filter=lfs diff=lfs merge=lfs -text
 
 # native libraries are binary (never EOL-normalised)
 *.dylib binary

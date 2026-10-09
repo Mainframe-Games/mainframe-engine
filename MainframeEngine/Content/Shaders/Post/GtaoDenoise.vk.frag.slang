@@ -3,7 +3,7 @@
 // (gtao.noise.w), so the combined 7 × 7 kernel is centred and the window edges leave no blocks. Each tap's weight falls
 // with its distance from the centre's depth plane (the depth extrapolated along the local gradient, taken on the side
 // that continues the surface), relative to the centre's depth: grazing planes keep blurring, silhouettes stop it.
-// RG16F in and out.
+// RGBA16F in and out: the bent normal's x and y (b, a) are blurred with the same weights.
 #include "gtao.slang"
 
 [[vk::binding(0, 0)]] Sampler2D aoDepth;
@@ -19,6 +19,7 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     float z = centre.y;
     if (z >= kGtaoSkyDistance * 0.5)
         return float4(1.0, z, 0.0, 0.0);
+    float2 bent = float2(0.0);
 
     float zl = aoDepth.Load(int3(max(hp - int2(1, 0), int2(0)), 0)).g;
     float zr = aoDepth.Load(int3(min(hp + int2(1, 0), size - 1), 0)).g;
@@ -36,13 +37,14 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
         for (int i = first; i < first + 4; i++)
         {
             int2 tap = clamp(hp + int2(i, j), int2(0), size - 1);
-            float2 s = aoDepth.Load(int3(tap, 0)).rg;
+            float4 s = aoDepth.Load(int3(tap, 0));
             float r = (s.y - (z + dot(gradient, float2(tap - hp)))) * invTolerance;
             float weight = exp2(-r * r);
             sum += s.x * weight;
+            bent += s.zw * weight;
             weights += weight;
         }
     }
 
-    return float4(sum / weights, z, 0.0, 0.0);
+    return float4(sum / weights, z, bent / weights);
 }

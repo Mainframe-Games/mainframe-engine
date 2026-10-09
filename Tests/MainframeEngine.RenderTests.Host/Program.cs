@@ -77,6 +77,7 @@ RenderTestGame game = options.Scene switch
     "taa-ghost" => new TaaGhostScene(options),
     "taa-foliage" => new FoliageWindScene(options with { AntiAliasing = options.AntiAliasing ?? AntiAliasing.Taa }),
     "ssao" => new SsaoScene(options),
+    "probes" => new ProbesScene(options),
     "post-grade" => new PostGradeScene(options),
     "post-dof" => new PostDofScene(options),
     "post-film" => new PostFilmScene(options),

@@ -122,7 +122,7 @@ internal sealed unsafe class SkyRadiance : IDisposable
             PipelineBuilder.WriteImage(ctx, set, 3, frame.FallbackCubeDescriptor);
             PipelineBuilder.WriteImage(ctx, set, 4, frame.BrdfLutDescriptor);
             PipelineBuilder.WriteImage(ctx, set, FrameContext.AmbientOcclusionBinding, frame.NoOcclusionDescriptor);
-            PipelineBuilder.WriteImage(ctx, set, FrameContext.ContactShadowBinding, frame.NoOcclusionDescriptor);
+            PipelineBuilder.WriteImage(ctx, set, FrameContext.ProbeVolumeBinding, frame.NoProbesDescriptor);
             _faceSets[face] = set;
         }
 

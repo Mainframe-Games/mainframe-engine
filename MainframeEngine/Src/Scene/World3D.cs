@@ -10,6 +10,7 @@ public sealed class World3D
     private readonly List<VisualInstance3D> _visuals = [];
     private readonly List<GeometryInstance3D> _geometry = [];
     private readonly List<WorldEnvironment> _environments = [];
+    private readonly List<LightProbeVolume> _probeVolumes = [];
 
     public World3D()
     {
@@ -43,6 +44,30 @@ public sealed class World3D
 
     /// <summary>The first <see cref="WorldEnvironment"/> in the world (sky and ambient light), or null.</summary>
     public WorldEnvironment? Environment => _environments.Count > 0 ? _environments[0] : null;
+
+    /// <summary>
+    /// The baked light probes this world's lit surfaces sample (ADR 0170): the first visible <see cref="LightProbeVolume"/>
+    /// with data, or null.
+    /// </summary>
+    public LightProbeVolume? ProbeVolume
+    {
+        get
+        {
+            foreach (var volume in _probeVolumes)
+                if (volume.RenderData is not null && volume.IsVisibleInTree())
+                    return volume;
+            return null;
+        }
+    }
+
+    internal void AddProbeVolume(LightProbeVolume volume)
+    {
+        _probeVolumes.Add(volume);
+        if (_probeVolumes.Count == 2)
+            Log.Warning($"World has more than one LightProbeVolume; the first visible one with data ('{_probeVolumes[0].Name}') is used.");
+    }
+
+    internal void RemoveProbeVolume(LightProbeVolume volume) => _probeVolumes.Remove(volume);
 
     internal void AddVisual(VisualInstance3D visual)
     {

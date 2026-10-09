@@ -11,11 +11,12 @@ namespace MainframeEngine;
 /// <item><c>Post/Gtao</c> at half resolution: per texel the view position and a normal rebuilt from the prepass depth,
 /// <see cref="Slices"/> slice directions (rotated per texel by a 4 × 4 pattern, and per frame only while TAA jitters the
 /// projection) with <see cref="StepsPerSide"/> samples each way out to <see cref="PostProcessSettings.SsaoRadius"/> metres
-/// → visibility and linear depth (<c>R16G16_SFLOAT</c>).</item>
+/// → visibility, linear depth and the view-space bent normal's x and y (<c>R16G16B16A16_SFLOAT</c>, ADR 0170).</item>
 /// <item><c>Post/GtaoDenoise</c> twice at half resolution: 4 × 4 depth-aware bilateral blurs (windows −1..2, then −2..1)
 /// that cancel the pattern, ping-ponging through the GTAO target.</item>
 /// <item><c>Post/GtaoUpsample</c> at full resolution: a joint bilateral upsample against the full depth, then
-/// intensity and power → <c>R8G8B8A8_UNORM</c> (r AO; g, b, a reserved for the contact shadow and a bent normal).</item>
+/// intensity and power → <c>R16G16B16A16_SFLOAT</c> (r AO, g 1 for the contact shadow, b the view depth, a the packed bent
+/// normal; ADR 0170).</item>
 /// </list>
 /// The full-resolution image is bound at set 0 binding 5 for the main pass (<see cref="FrameContext.SetAmbientOcclusion(in DescriptorImageInfo, long, float, float)"/>,
 /// in <c>OnBeginFrame</c>), with the light-affect and AO-channel settings in <see cref="FrameData.AmbientOcclusion"/>.
@@ -32,14 +33,17 @@ internal sealed unsafe class SsaoEffect() : PostEffect("ssao", PostStage.AfterPr
     /// <summary>The most the radius may cover on screen, as a fraction of the image height.</summary>
     public const float MaxRadiusFraction = 0.2f;
 
-    /// <summary>The GTAO pass's output: visibility (r) and linear depth (g) at half resolution.</summary>
-    public static readonly PostTargetDesc GtaoTarget = new("ssao gtao", Format.R16G16Sfloat, PostTargetScale.Half);
+    /// <summary>The GTAO pass's output: visibility (r), linear depth (g) and the bent normal's view x, y (b, a) at half resolution.</summary>
+    public static readonly PostTargetDesc GtaoTarget = new("ssao gtao", Format.R16G16B16A16Sfloat, PostTargetScale.Half);
 
-    /// <summary>The denoised half-resolution visibility and depth.</summary>
-    public static readonly PostTargetDesc DenoiseTarget = new("ssao denoise", Format.R16G16Sfloat, PostTargetScale.Half);
+    /// <summary>The denoised half-resolution visibility, depth and bent normal.</summary>
+    public static readonly PostTargetDesc DenoiseTarget = new("ssao denoise", Format.R16G16B16A16Sfloat, PostTargetScale.Half);
 
-    /// <summary>The full-resolution AO the lit shaders read (r; g, b, a reserved and 1).</summary>
-    public static readonly PostTargetDesc OutputTarget = new("ssao", Format.R8G8B8A8Unorm);
+    /// <summary>
+    /// The full-resolution screen-space occlusion the lit shaders read (ADR 0170): r AO, g 1 (the contact shadow's slot),
+    /// b the view depth, a the packed view-space bent normal (<c>gtaoPackBentNormal</c>).
+    /// </summary>
+    public static readonly PostTargetDesc OutputTarget = new("ssao", Format.R16G16B16A16Sfloat);
 
     private IVulkanContext _ctx = null!;
     private RenderTarget _gtao = null!;

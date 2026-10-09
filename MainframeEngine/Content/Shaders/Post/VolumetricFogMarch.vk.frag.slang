@@ -8,6 +8,7 @@
 // Set 0 is the view's frame set (camera, lights, sky lighting), set 1 the shadow set: what the lit shaders read.
 #include "volumetric_fog.slang"
 #include "environment.slang"
+#include "probes.slang"
 #include "shadows.slang"
 
 [[vk::binding(0, 2)]] Sampler2D<float> sceneDepth; // point
@@ -130,6 +131,11 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     float3 scattered = float3(0.0);
     float transmittance = 1.0;
     float previous = 0.0;
+    // The light probes (ADR 0170) darken (and tint) the sky's ambient light in the air under a canopy: probeOpenSky, two
+    // fetches, looked up every fourth step (the field is smooth at the probes' 2 m spacing, and the temporal pass averages
+    // the jittered steps); 1 without a volume or ambient.
+    bool probeAmbient = probesActive() && pc.height.z > 0.0;
+    float3 openSky = float3(1.0);
     for (int s = 0; s < steps; s++)
     {
         float end = rayLength * pow(float(s + 1) / float(steps), pc.ray.y);
@@ -144,7 +150,9 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
         float visibility = 1.0;
         if (shadowed)
             visibility = lerp(1.0, sunVisibility(p, L), opacity);
-        float3 light = sunLight * (visibility * phase) + ambient;
+        if (probeAmbient && (s & 3) == 0)
+            openSky = probeOpenSky(p);
+        float3 light = sunLight * (visibility * phase) + ambient * openSky;
         float relative = extinction / pc.scattering.a;
         float3 source = pc.scattering.rgb * relative * light + pc.emission.rgb * relative;
         float stepTransmittance = exp(-extinction * ds);

@@ -5,7 +5,8 @@
 CPU-side light descriptions plus a fixed-size uniform layout consumed by lit shaders (meshes and
 Spine). The lighting model is forward Blinn-Phong with shadow attenuation, or PBR (Cook-Torrance GGX + Lambert,
 [ADR 0150](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md)) for `ShadingMode.Pbr` materials, with ambient light
-and reflections from the sky's image-based lighting, and distance + height fog. In scenes, lights are nodes
+and reflections from the sky's image-based lighting (occluded, and joined by baked bounce light, where a
+[light probe volume](#light-probes) is baked), and distance + height fog. In scenes, lights are nodes
 (`DirectionalLight3D`, `OmniLight3D`, `SpotLight3D`; see [Scene graph & nodes](scene-graph-and-nodes.md#servers-and-render-nodes))
 that wrap these light objects and register them with their world's `LightEnvironment`
 (`SceneViewport.World3D.Lights`); `WorldEnvironment.AmbientColor` sets the ambient term, `AmbientEnergy` scales it and
@@ -123,6 +124,79 @@ them is the background's and they skip it), `Foliage.vk.frag` (also its transluc
 `TerrainSplat.vk.frag`, and `Water.vk.frag` for the light scattered in the water body only (the AO under water is the
 bed's). Spine and the overloads without `ssao` are unchanged.
 
+### Light probes
+
+`LightProbeVolume` ([ADR 0170](../../memory/decisions/0170-light-probe-volume.md), G8e.1; Unreal's volumetric lightmap
+plus sky light occlusion) is baked global illumination for a region: a grid of probes, each storing how much of the sky
+it sees in every direction and the light bounced to it. Every lit surface in the world samples it, so the shade under a
+canopy loses most of the sky and takes the colour of what surrounds it, and reflections there are occluded too. Code in
+[`Src/Lighting/Probes/`](../../MainframeEngine/Src/Lighting/Probes/).
+
+| Type | What |
+|---|---|
+| `LightProbeVolume` (node, `[Tool]`) | `Size` (32 × 16 × 32 m, centred on the node, axis-aligned), `Layout` (`Box`, `TerrainFollowing`), `ProbeSpacing` (2 m; Y unused when terrain-following), `LayerHeights` (terrain-following: up to eight heights above the ground, 0.3–27 m), `Terrain` (empty: the first `Terrain3D`), `RaysPerProbe` (256), `Bounces` (3), `Energy` (1, scales the bounce), `SkyOcclusion` (1; 0 = the sky everywhere, as without a volume), `OcclusionTint` (white), `Data`, `BakeWhenStale` (false). `Bake()`, `BakeInBackground()`, `CancelBake()`, `IsBakeCurrent()`, `CurrentBakeHash()`, the `Baked` signal |
+| `LightProbeData` (resource) | the bake: the grid (`ProbeGrid`), `BakeHash`, `RaysPerProbe`, `Bounces`, and a `.probes` binary next to the `.mres` (`DataFile`; float32 ground heights, float16 coefficients, LFS). `Save(path)`, `Sample(position, coefficients)` (the shaders' trilinear lookup on the CPU), `ToTexture()` |
+| `ProbeBakeSettings`, `ProbeBakeResult` | rays, bounces, bounce rays, seed, the back-face fraction that marks a probe invalid (25 %), blur, threads; the result's data, time, probe, invalid-probe and ray counts |
+| `GeometryInstance3D.GIMode` | Godot's `gi_mode`: `Static` (default) instances occlude and bounce in the bake; `Disabled` and `Dynamic` do not. Every lit surface samples the probes whatever its mode |
+| `SphericalHarmonics`, `ShL2Rgb` | SH L1 projection and cosine convolution; the sky as SH L2 RGB for the bake |
+
+**What a probe stores.** Sixteen numbers: the sky visibility as SH L1 (the fraction of the sky seen in each direction,
+through the canopy's transmittance; kept apart from the sky's colour, so a new sky needs no re-bake), and the bounce
+radiance as SH L1 RGB (sun and sky off terrain, bark, leaves, meshes and water, multi-bounce). On the GPU the volume is
+one `RGBA16F` `Texture3D` of `CountX × (5 · CountY) × CountZ` texels: five slabs stacked along Y (sky, red, green, blue,
+and the ground height under each column), sampled with the slabs' texel centres clamped so the hardware filter never
+blends two slabs.
+
+**The bake** (`ProbeBaker`, CPU, every core, deterministic for a seed whatever the thread count): the scene becomes
+ray-traceable proxies (`ProbeBakeSceneBuilder`): the terrain's height field with a min–max pyramid, trees and
+`TreeScatter`s as branch capsules plus a 0.5 m leaf-density grid (Beer–Lambert, leaves passing their
+`FoliageMaterial3D.Translucency` of the light behind them, as the foliage shader does), `Static` meshes' triangles in a
+BVH, water as its surface (albedo 0.05). Albedos are the materials' colours × their textures' alpha-weighted mean. Per
+probe, `RaysPerProbe` Fibonacci directions with a per-probe rotation:
+
+1. **Visibility:** each ray's transmittance to the sky, projected onto SH L1. A probe whose rays hit back faces more
+   than 25 % of the time is inside geometry and takes its valid neighbours' mean (dilation), so trilinear filtering
+   needs no weights.
+2. **Bounce** passes: each ray's first solid hit, or a leaf that scatters it; its radiance is albedo × (sun × N·L × the
+   sun's transmittance + sky × the nearest probe's visibility + the nearest probe's bounce of the previous pass).
+3. **Blur:** [1 2 1] along each axis.
+
+`BakeHash` hashes everything the bake reads (proxies, materials, sun, sky, grid and settings); `CurrentBakeHash()`
+fingerprints the same inputs without building proxies (≈ 40 ms for the Forest). A missing or stale bake renders as if
+there were no volume; with `BakeWhenStale` the volume bakes in the background once its siblings are ready and logs a
+warning. **Baking:** the editor's Bake Lighting button on the volume's inspector (background, cancellable; saves
+`<scene>-lighting.mres` next to the scene, or over the existing data, as one undoable change of `Data`), `Bake()` in
+code, or `--bake-lighting` on a game (`GameSession.BakeLighting`: bakes every volume of the start scene, saves under
+`--project`'s folder, quits; works with `--headless`).
+
+**Shading** (`include/probes.slang`, `include/indirect.slang`). Set 0 binding 6 holds the volume
+(`FrameContext.ProbeVolumeBinding`), `FrameData.probe*` the grid (origin, 1/spacing, layout, counts, energy, layer
+table, occlusion strength and tint). With a volume bound (`probesActive()`), `shadeLightsPbr` and `shadeLightsBlinnPhong`
+replace the sky ambient term:
+
+| Term | With probes |
+|---|---|
+| Where | `worldPos + Ngeo · 0.3 · spacing + V · 0.1`: off the surface and towards the eye, so a probe behind a wall or under the ground is never the nearest |
+| Sky visibility | the SH L1 sky convolved with the cosine lobe at N, 0..1 |
+| Sky light | `probeSkyLight(v)` = v + (1 − v) · (1 − `SkyOcclusion`) · `OcclusionTint`: the visible sky, plus the share of the blocked sky the strength leaves, tinted (under a canopy, light its leaves scatter in place of the sky) |
+| Bent normal | N leaned towards GTAO's bent normal where SSAO ran (small scale), then towards the probe's open-sky direction × 0.5 (large scale) |
+| Diffuse | `(iblDiffuse(bent) · skyLight + bounce(N) · Energy) · multiBounceAo(ao, albedo)`, Jimenez et al. 2016's multi-bounce fit on the material/SSAO AO, so bright leaves and moss do not go grey |
+| Specular | the sky reflection × the specular occlusion (the visibility along R, widened towards the diffuse one with roughness, with `SkyOcclusion` applied) + the bounce seen along R where the sky is blocked |
+| Foliage | the leaf's back side passes `Translucency` × the probes' light around −N (a canopy out of the sun still glows from below); the vertex canopy AO (`Custom0.w`) keeps 40 % of its strength (`kCanopyAoWithProbes`), the probes carry the canopy's occlusion |
+| Volumetric fog | the march's sky ambient × `probeOpenSky(p)` (the mean visibility, strength and tint), looked up every fourth step |
+
+Without a volume the binding is a 1×1×1 zero texture, `probeOrigin.w` is 0, and every path is the one before ADR 0170
+(bit-identical goldens). Only the world's first visible volume with data is bound (a second logs a warning); the render
+server uploads it when it first draws the world and again when its data changes (`Texture3DGpu`), and binds it per view
+like the sky maps, so sub-viewports and editor tabs show their own world's probes. Per-frame cost: no allocation; four
+(box) or five (terrain-following) fetches per lit pixel.
+
+**The Forest** commits its bake (`Content/Scenes/forest-lighting.mres` + `.probes`, 4.3 MB in LFS): terrain-following
+over the 256 m valley at 2 m, eight layers to 27 m (129 × 8 × 129 = 133 128 probes, a 5.3 MB texture), 192 rays, two
+bounces, `Energy` 2.4, `SkyOcclusion` 0.5, a pale green `OcclusionTint`, and `BakeWhenStale` (the valley is generated at
+load, so a generator change re-bakes in the background, about a minute, until the bake is committed again with
+`--bake-lighting --project Examples/Forest`). See [Forest → Light probes](forest.md#light-probes).
+
 ### Image-based lighting fallbacks
 
 The ambient helpers (`include/environment.slang`) fall back without a captured sky: `iblDiffuse` returns the ambient
@@ -186,8 +260,12 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no 
 - Lights over the limit are dropped silently, with no warning.
 - Point lights ignore `ShadowOpacity` (their UBO entry has no free slot; ADR 0123).
 - Directional gizmo arrows are not projected through the camera.
-- PBR has no `MetallicSpecular`, per-material `AoLightAffect` or multi-scattering energy compensation yet; specular
-  occlusion comes only from SSAO (not from the material's AO), and there are no bent normals yet (G8e.1).
+- PBR has no `MetallicSpecular`, per-material `AoLightAffect` or multi-scattering energy compensation yet; without a
+  probe volume specular occlusion comes only from SSAO (not from the material's AO) and there is no bent normal.
+- Light probes (ADR 0170) are static: one sun direction per bake; a moved boulder or a sun far from the baked one makes
+  the bake stale (it then renders without probes, or re-bakes with `BakeWhenStale`). No probe debug view or "indirect
+  only" view mode yet; the volume is axis-aligned (rotation ignored); the sky irradiance stays a cube (the SH L2 move is
+  not needed while set 0 has five images); dynamic objects sample the probes but do not occlude them.
 - Fog has no aerial perspective or volumetric part (froxels wait for compute, ADR 0149).
 
 ## Related docs

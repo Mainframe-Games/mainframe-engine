@@ -1,6 +1,7 @@
-// Per-frame shared set 0, binding 0: the camera (FrameContext / FrameData in C#, std140, 576 bytes).
+// Per-frame shared set 0, binding 0: the camera (FrameContext / FrameData in C#, std140, 672 bytes).
 // Binding 1 of the same set is the lights UBO (lights.slang, default LIGHTS_SET 0 / LIGHTS_BINDING 1), bindings 2-4 the
-// sky lighting (environment.slang), binding 5 the screen-space ambient occlusion (ambient_occlusion.slang).
+// sky lighting (environment.slang), binding 5 the screen-space occlusion (ambient_occlusion.slang: AO, contact shadow,
+// bent normal), binding 6 the light probe volume (probes.slang, ADR 0170).
 // With TAA (ADR 0163) projection, viewProjection and invProjection are jittered; prevViewProjection is last frame's
 // unjittered matrix and jitter holds both frames' offsets (unjitterClip, velocityFromClip below).
 // Matrices are the C# System.Numerics values (row-major layout): transform with mul(v, M).
@@ -28,6 +29,13 @@ struct FrameData
     float4 prevWind;          // last frame's wind (foliage motion vectors)
     float4 prevWindParams;    // last frame's windParams
     float4 ambientOcclusion;  // SSAO (ADR 0165): x = light affect, y = AO channel affect, z = 1 when bound; 0 without
+    // The light probe volume at binding 6 (ADR 0170; all 0 without one: probesActive() is false).
+    float4 probeOrigin;       // xyz = probe (0, 0, 0) (terrain-following: y unused), w = 1 + sky occlusion strength while bound
+    float4 probeSpacing;      // xyz = 1 / spacing (1/m), w = layout (0 box, 1 terrain-following)
+    float4 probeCounts;       // x, y (layers), z = probes per axis, w = bounce energy
+    float4 probeLayers0;      // terrain-following: layer heights above the ground (m), layers 0-3
+    float4 probeLayers1;      // layers 4-7
+    float4 probeTint;         // rgb = the occlusion tint (linear; LightProbeVolume.OcclusionTint, probeSkyLight), w unused
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<FrameData> frame;

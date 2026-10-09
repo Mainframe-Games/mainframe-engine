@@ -126,9 +126,20 @@ public sealed class GameSession : IDisposable
         return ok;
     }
 
+    /// <summary>The update on which <c>--bake-lighting</c> bakes: the scene and what it generates when ready are in the tree.</summary>
+    public const int BakeLightingUpdate = 3;
+
+    private int _updates;
+
     /// <summary>Applies editor commands and reports status; call once per frame from the game loop (before the tree ticks).</summary>
     public void Update(in GameTime gameTime)
     {
+        if (Options.BakeLighting && ++_updates == BakeLightingUpdate)
+        {
+            QuitRequested?.Invoke(BakeLighting() ? ExitCode.Ok : ExitCode.Error);
+            return;
+        }
+
         if (Link is not { } link)
             return;
         _framesPerSecond = gameTime.FramesPerSecond;
@@ -136,6 +147,63 @@ public sealed class GameSession : IDisposable
             Apply(command);
         _sinceStatus += gameTime.DeltaTime;
         ReportStatus(force: false);
+    }
+
+    /// <summary>
+    /// <c>--bake-lighting</c> (ADR 0170): bakes every <see cref="LightProbeVolume"/> in the tree and saves each one's data
+    /// where its <see cref="LightProbeVolume.Data"/> already lives, else next to the scene as <c>&lt;scene&gt;-lighting.mres</c>
+    /// (plus its <c>.probes</c> file), under <see cref="ProjectSettings.ProjectDirectory"/> (pass <c>--project</c> with the
+    /// source folder to write the files to commit). False when there was nothing to bake or a save failed.
+    /// </summary>
+    public bool BakeLighting()
+    {
+        var volumes = new List<LightProbeVolume>();
+        Collect(Tree.Root, volumes);
+        if (volumes.Count == 0)
+        {
+            Log.Error("[Bake] --bake-lighting: the scene has no LightProbeVolume.");
+            return false;
+        }
+
+        var scene = CurrentScenePath();
+        var ok = true;
+        for (var i = 0; i < volumes.Count; i++)
+        {
+            var volume = volumes[i];
+            var target = volume.Data?.ResourcePath;
+            if (string.IsNullOrEmpty(target))
+            {
+                var stem = string.IsNullOrEmpty(scene) ? "scene" : Path.ChangeExtension(scene, null);
+                target = (i == 0 ? stem : $"{stem}-{i}") + "-lighting.mres";
+            }
+
+            // Into the project's folder (--project: the source tree, so the bake can be committed); a project-relative path
+            // otherwise resolves against the application's folder, a build output copy.
+            if (!Path.IsPathRooted(target) && Settings.ProjectDirectory is { } projectDirectory)
+                target = Path.GetFullPath(target, projectDirectory);
+            var result = volume.Bake();
+            try
+            {
+                result.Data.Save(target);
+                Log.Info($"[Bake] '{volume.Name}': {result.Probes} probes in {result.Elapsed.TotalSeconds:0.00} s, saved to {target} " +
+                         $"(hash {result.Data.BakeHash[..12]}).");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Log.Error($"[Bake] '{volume.Name}': could not save {target}: {e.Message}");
+                ok = false;
+            }
+        }
+
+        return ok;
+
+        static void Collect(Node node, List<LightProbeVolume> into)
+        {
+            if (node is LightProbeVolume volume)
+                into.Add(volume);
+            foreach (var child in node.Children)
+                Collect(child, into);
+        }
     }
 
     /// <summary>Executes one editor command (public so tools and tests can drive a session without a socket).</summary>

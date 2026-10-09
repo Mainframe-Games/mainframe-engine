@@ -18,6 +18,10 @@
       "ref": "res_d5ee91b233f5",
       "path": "Content/PostProcess/forest-lens.mres"
     },
+    "LightProbeData_i32m3": {
+      "ref": "res_48aa0ff804cd",
+      "path": "Content/Scenes/forest-lighting.mres"
+    },
     "CapsuleShape3D_ak3q9": {
       "type": "CapsuleShape3D",
       "props": {
@@ -83,6 +87,23 @@
       "name": "Valley",
       "parent": ".",
       "type": "ForestValley"
+    },
+    {
+      "name": "Lighting",
+      "parent": ".",
+      "type": "LightProbeVolume",
+      "props": {
+        "Position": [128, 0, 128],
+        "Size": [256, 32, 256],
+        "Layout": "TerrainFollowing",
+        "RaysPerProbe": 192,
+        "Bounces": 2,
+        "Energy": 2.4,
+        "SkyOcclusion": 0.5,
+        "OcclusionTint": [0.78431374, 0.88235295, 0.6666667, 1],
+        "Data": { "res": "LightProbeData_i32m3" },
+        "BakeWhenStale": true
+      }
     },
     {
       "name": "Player",

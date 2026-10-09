@@ -4,6 +4,9 @@
 // Screen-space ambient occlusion (ADR 0165): the overloads taking `ssao` (ambientOcclusionAt) apply it to the ambient and
 // reflected light (and, by the world's light affect, to direct light); without SSAO it is exactly 1 and they shade
 // bit-exactly as the overloads without it.
+// Light probes (ADR 0170): with a LightProbeVolume bound (probesActive()), the ambient term is the sky around the bent
+// normal × the probes' sky visibility + their bounce light, and reflections are occluded by the visibility
+// (include/indirect.slang); without one, every path below is the one before ADR 0170.
 #pragma once
 
 #include "common.slang"
@@ -15,6 +18,7 @@
 #include "lights_data.slang"
 #include "environment.slang"
 #include "ambient_occlusion.slang"
+#include "indirect.slang"
 
 float attenuate(float dist, float range)
 {
@@ -75,7 +79,16 @@ float3 shadeLightsBlinnPhong(float3 base, float3 N, float3 Ngeo, float3 worldPos
                              float ambientAo, float directAo)
 {
     float3 V = normalize(lights.cameraPosition.xyz - worldPos);
-    float3 result = iblDiffuse(N) * base * ambientAo;
+    float3 result;
+    if (probesActive())
+    {
+        ProbeLighting probes = probeLighting(worldPos, N, Ngeo, V, reflect(-V, N), 1.0);
+        result = (probes.skyDiffuse + probes.bounceDiffuse) * base * multiBounceAo(ambientAo, base);
+    }
+    else
+    {
+        result = iblDiffuse(N) * base * ambientAo;
+    }
     bool shadowsOn = lights.counts.w == 0;
 
     for (int i = 0; i < lights.counts.x; i++)
@@ -191,8 +204,22 @@ float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos, float diffuseA
 
     float2 envBrdf = iblBrdf(NdotV, roughness);
     float3 R = reflect(-V, s.N);
-    float3 result = (iblDiffuse(s.N) * s.albedo * (1.0 - s.metallic) +
-                     iblSpecular(R, roughness) * (F0 * envBrdf.x + envBrdf.y) * specularRatio) * diffuseAo;
+    float3 result;
+    if (probesActive())
+    {
+        // ADR 0170: sky × visibility around the bent normal + bounce; reflections occluded by the sky visibility along R
+        // (the bounce shows where the sky is blocked); the AO with Jimenez's multi-bounce fit.
+        ProbeLighting probes = probeLighting(worldPos, s.N, Ngeo, V, R, roughness);
+        float3 diffuseAlbedo = s.albedo * (1.0 - s.metallic);
+        float3 reflection = iblSpecular(R, roughness) * probes.specularOcclusion + probes.occludedSpecular * (1.0 - probes.specularOcclusion);
+        result = (probes.skyDiffuse + probes.bounceDiffuse) * diffuseAlbedo * multiBounceAo(diffuseAo, diffuseAlbedo) +
+                 reflection * (F0 * envBrdf.x + envBrdf.y) * specularRatio * diffuseAo;
+    }
+    else
+    {
+        result = (iblDiffuse(s.N) * s.albedo * (1.0 - s.metallic) +
+                  iblSpecular(R, roughness) * (F0 * envBrdf.x + envBrdf.y) * specularRatio) * diffuseAo;
+    }
 
     for (int i = 0; i < lights.counts.x; i++)
     {

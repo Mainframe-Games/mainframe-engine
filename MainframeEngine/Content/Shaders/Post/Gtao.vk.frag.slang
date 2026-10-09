@@ -5,7 +5,10 @@
 // horizon on each side faded out between 38 % and 100 % of the radius, then the cosine-weighted visible arc between the
 // two horizons (eq. 10) × the projected normal's length, divided by the same integral without occluders, so an open
 // surface is exactly 1 whatever the slice count. A near-field term from the first half of the steps adds the detail.
-// Output RG16F: r = visibility (not clamped: the denoise averages it), g = linear depth (metres; sky: kGtaoSkyDistance).
+// The bent normal (ADR 0170; XeGTAO's): per slice, the cosine-weighted mean direction of the visible arc (along the slice
+// and towards the camera), summed over the slices and normalised.
+// Output RGBA16F: r = visibility (not clamped: the denoise averages it), g = linear depth (metres; sky: kGtaoSkyDistance),
+// b, a = the view-space bent normal's x and y (its z faces the camera).
 #include "gtao.slang"
 
 [[vk::binding(0, 0)]] Sampler2D<float> sceneDepth;
@@ -66,7 +69,7 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     float radius = gtao.shape.x;
     float radiusPx = min(radius * gtao.proj.x * 0.5 * gtao.proj3.z / max(w, 1e-6), gtao.shape.y);
     if (!(radiusPx >= 1.0))
-        return float4(1.0, -P.z, 0.0, 0.0);
+        return float4(1.0, -P.z, N.x, N.y);
 
     float falloffRange = 0.615 * radius;
     float falloffMul = -1.0 / falloffRange;
@@ -84,6 +87,7 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     float bias = gtao.shape.z;
     float2 centre = float2(p) + 0.5;
     float visible = 0.0, visibleNear = 0.0, open = 0.0;
+    float3 bent = float3(0.0);
 
     for (int s = 0; s < slices; s++)
     {
@@ -141,10 +145,20 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
         visible += projectedLength * visibleArc(h0, h1, n, cosN, sinN);
         visibleNear += projectedLength * visibleArc(n0, n1, n, cosN, sinN);
         open += projectedLength * (cosN + n * sinN); // visibleArc(n − π/2, n + π/2)
+
+        // The visible arc's cosine-weighted mean direction: t0 along the slice, t1 towards the camera (XeGTAO).
+        float t0 = (6.0 * sin(h0 - n) - sin(3.0 * h0 - n) + 6.0 * sin(h1 - n) - sin(3.0 * h1 - n) + 16.0 * sin(n) -
+                    3.0 * (sin(h0 + n) + sin(h1 + n))) / 12.0;
+        float t1 = (-cos(3.0 * h0 - n) - cos(3.0 * h1 - n) + 8.0 * cos(n) - 3.0 * (cos(h0 + n) + cos(h1 + n))) / 12.0;
+        float orthoLength = length(orthoDirection);
+        float3 slice = orthoLength > 1e-6 ? orthoDirection / orthoLength : float3(0.0);
+        bent += projectedLength * (slice * t0 + V * t1);
     }
 
     float inv = 1.0 / max(open, 1e-4);
     float visibility = visible * inv;
     float detail = saturate(1.0 + (visibleNear * inv - 1.0) * gtao.shape.w);
-    return float4(visibility * detail, -P.z, 0.0, 0.0);
+    float bentLength = length(bent);
+    bent = bentLength > 1e-6 ? bent / bentLength : N;
+    return float4(visibility * detail, -P.z, bent.x, bent.y);
 }

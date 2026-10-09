@@ -114,7 +114,7 @@ of each prop against the 7 m bands.
 `ForestScene.Build()` writes `Content/Scenes/forest.mscene` (`dotnet run --project Examples/Forest/Forest.Desktop --
 --write-scenes Examples/Forest/Content/Scenes`; `ProjectTests.CommittedSceneMatchesTheBuilder` checks it byte for byte).
 The scene holds only what an editor would tune: the `Sun`, the `Environment` (the look), the `Valley` node with its
-knobs, the `Player` and the `Audio`. **The valley is generated when the `ForestValley` node is ready**, deterministically
+knobs, the `Lighting` probe volume ([below](#light-probes)), the `Player` and the `Audio`. **The valley is generated when the `ForestValley` node is ready**, deterministically
 from `ValleyLayout` and a seed, in about 1.2 s (Release, M5: heights 0.4 s, carve, pond and paint 0.4 s, trees 0.3 s,
 props 0.1 s), plus Jitter2's ≈ 2 s first step over the terrain's 524k collision triangles. Generating beats committing
 the layers as PNGs: nothing to re-commit to LFS on every tweak, nothing the tests need from LFS. Everything it builds is
@@ -156,6 +156,31 @@ instances and the foliage's thinning is paused; then each gets back what LOD, di
 buffer, material set and pipeline exists before play: without it the walk allocated (and hitched) the first time
 something came into view.
 
+### Light probes
+
+The scene's `Lighting` node is a `LightProbeVolume` ([ADR 0170](../../memory/decisions/0170-light-probe-volume.md),
+G8e.1; [Lighting → Light probes](lighting.md#light-probes)), `ForestScene.CreateProbes`: terrain-following over the
+whole 256 m terrain every 2 m, eight layers from 0.3 to 27 m above the ground (129 × 8 × 129 = 133 128 probes, a 5.3 MB
+texture), 192 rays, two bounces. **The bake is committed**: `Content/Scenes/forest-lighting.mres` and its `.probes`
+file (4.3 MB, LFS). The valley is generated at load, so the volume checks the bake's hash against what the valley
+generated (≈ 40 ms) and, with `BakeWhenStale`, bakes in the background when they differ (about a minute on every
+core; the valley renders without probes until then and logs a warning). After changing the valley's generator, its
+trees or the sun, re-bake and commit:
+
+```bash
+dotnet build Examples/Forest/Forest.slnx -c Release
+cd Examples/Forest/Forest.Desktop/bin/Release/net10.0
+dotnet Forest.Desktop.dll --bake-lighting --headless --project ../../../.. ++ --no-audio
+```
+
+(`--project` points at `Examples/Forest`, so the files land in the source tree rather than the build output; the editor's
+Bake Lighting button on `Lighting` does the same.) The art controls: `Energy` 2.4 (the bounce), `SkyOcclusion` 0.5
+(half the baked sky occlusion) and `OcclusionTint` (200, 225, 170): the full physical occlusion read near-black next to
+the sunlit glade (the bake does not see the light the canopy scatters through its leaves' gaps and green transmission),
+so half of it applies and the blocked sky light that remains takes the canopy's pale green. The look's auto exposure
+adapts a little further into the shade (`AutoExposureMinLuminance` 0.04). `++ --set Lighting.Visible=false` renders
+without the probes (the before shots below).
+
 ### The look (`ForestScene.CreateEnvironment`, the `Sun`, `Content/PostProcess/*.mres`)
 
 The post-processing look is a resource file the editor tunes ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md)):
@@ -172,11 +197,11 @@ holds their first values. To tune it: `just editor Examples/Forest/project.mfpro
 |---|---|---|
 | Sun | `DirectionalLight3D`, colour (1, 0.87, 0.7), energy 2.6, 4 cascades × 1024² to 140 m, split λ 0.8; G8e.2 ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)): `ShadowCacheMode.Staggered`, `ShadowCoarseCascades` 2, `LightAngularDistance` 0.5°, `ContactShadows` (0.4 m), `FarShadowEnabled` | warm and low: long soft shadows across the glade and the pond, ferns and rocks grounded; the shadow budget below |
 | Sky | `Physical`, turbidity 6, Mie 0.005, ground (0.28, 0.27, 0.2) | a clear morning; the IBL follows it |
-| Ambient / reflections | `AmbientSource.Sky` × 1.6, `ReflectedLightSource.Sky` | no GI: the sky fills the shade so it stays readable next to the sun |
+| Ambient / reflections | `AmbientSource.Sky` × 1.6, `ReflectedLightSource.Sky`, occluded and joined by bounce light by the [light probes](#light-probes) (G8e.1) | the shade under the canopy darker, green and deep, the glade open; water and rock under the trees stop mirroring the bright sky |
 | Fog | density 0.005, height 6 m, height density 0.08, colour (0.42, 0.47, 0.53), sun scatter 0.1 | haze in the valley beyond 64 m; the volumetric fog does the near air |
 | Volumetric fog ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md)) | density 0.018, anisotropy 0.75, length 64 m, sky affect 0.2, ambient inject 0.02, noise 0.5 at 8 m; temporal reprojection 0.9 | soft rays through the canopy gaps from any view (also with the sun off screen, between the trunks of R3 and R5), the shaded air clear, hazier towards the valley floor (the height fog's shape) |
 | Light shafts | off (intensity 2.3, decay 0.965, density 0.85 kept) | the volumetric fog draws real shafts; the screen-space ones on top made the glade milky |
-| Exposure | auto, scale 0.4, speed 0.6; engine ACES | adapts between the glade and the pine shade |
+| Exposure | auto, scale 0.4, speed 0.6, min luminance 0.04 (ADR 0170; 0.05 before); engine ACES | adapts between the glade and the pine shade |
 | Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
 | Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
 | Anti-aliasing | `rendering.antiAliasing: Taa` (ADR 0166), sharpness 0.25 (default); tree leaves and ferns `AlphaDither` | leaf, needle and grass edges stop shimmering in motion; the stream is a reactive pixel (keeps 0.2 of its history) so its flow does not smear |
@@ -215,11 +240,19 @@ Before/after pairs of the G8e phases are in [`docs/images/forest/g8e/`](../image
 `g8e6-r2-fall`, `g8e6-r3-bridge`, `g8e6-r4-vista`, each `-before` and `-after`; the after shots and R2–R4 above were
 rendered at 2304 × 1296, the display's limit at the time, and scaled to 1600 × 900 like the rest).
 
-**What limits the look** (engine features the slice does not have yet): no GI (the sky's IBL fills the shade, so
-interiors of the canopy read flat), TAA softens the image a little in motion (the sharpen restores some of it), no
+**Light probes (G8e.1, [ADR 0170](../../memory/decisions/0170-light-probe-volume.md)).** The shots above are with them;
+`g8e1-r1-glade`, `g8e1-r2-fall`, `g8e1-r3-bridge` and `g8e1-r5-floor` in [`docs/images/forest/g8e/`](../images/forest/g8e/)
+pair them with the same build without the volume (`--set Lighting.Visible=false`, the old exposure clamp). The
+understory and the canopy's undersides take a green tint and depth while the glade keeps its light (R1); the leaves
+glow from below; under the trees the shade sits deeper and greener and the stream and the fall's rocks stop reflecting
+the bright sky (R2, R3); the forest floor's shaded ferns ground themselves (R5). Mean sRGB of the frame, before → after:
+R1 (114, 108, 77) → (115, 111, 73), R2 (44, 46, 23) → (34, 39, 15), R3 (32, 41, 23) → (30, 38, 16), R4 (58, 63, 35) →
+(60, 70, 33), R5 (88, 79, 39) → (93, 84, 38).
+
+**What limits the look** (engine features the slice does not have yet): static probes (one sun direction; 2 m apart, so
+nothing sharper than a probe spacing), TAA softens the image a little in motion (the sharpen restores some of it), no
 impostors or coverage-preserving alpha mips (distant canopies read
-as speckled cards), reflections only of what is on screen (water elsewhere reflects the sky, too bright under the
-canopy until G8e.1's probes dim it), spray as a few soft cards (particles are G6.3), and 1024² rather than 2048² shadow
+as speckled cards), reflections only of what is on screen (water elsewhere reflects the sky, dimmed under the canopy by the probes), spray as a few soft cards (particles are G6.3), and 1024² rather than 2048² shadow
 cascades (2048² costs 4–6 ms more under the leaf cards until G8e.5's impostors).
 
 ### Performance
@@ -269,6 +302,19 @@ quiet), the old look (screen-space shafts, sun scatter 0.3, no volumetrics) agai
 The quieter pair (the second) is equal at the median and 1 ms apart at p99: the fog's passes replace the shafts' three,
 and the difference stays inside this machine's run-to-run noise (the first pair's spread is larger than either change).
 A quiet-machine baseline is still to be recorded (`--write-baseline`). 0 B per frame.
+
+**G8e.1 light probes** ([ADR 0170](../../memory/decisions/0170-light-probe-volume.md)), `just forest-bench` at 1920 × 1080,
+interleaved runs with the volume hidden (`--set Lighting.Visible=false`) on a busy machine (sun shadows 3.5–4.9 ms
+against 2.0 ms quiet):
+
+| | p50 | p99 | Volumetric fog (GPU p50) |
+|---|---|---|---|
+| Without probes | 17.30 / 18.24 / 18.21 ms | 31.9 / 35.8 / 62.7 ms | 1.31–1.34 ms |
+| With probes (first shaders) | 17.99 / 19.58 / 19.44 ms | 32.2 / 33.1 / 56.1 ms | 1.54–1.65 ms |
+| Without / with (final shaders, busier) | 20.92 / 20.86 ms | 54.5 / 51.3 ms | 1.41 / 1.49 ms |
+
+The fog's per-step probe lookups were most of the first difference; looked up every fourth step and with a branchless
+layer lookup the pair is within noise. 0 B per frame.
 
 ## `FirstPersonController`
 

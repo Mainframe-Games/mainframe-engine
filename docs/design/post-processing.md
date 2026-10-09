@@ -16,7 +16,7 @@ are effects in this system. The world's settings are a `PostProcessProfile` reso
 ```mermaid
 flowchart LR
     SH["Shadows, offscreen views<br/>(sub-viewports, picking)"] --> PP["Depth prepass (when needed)<br/>opaque + cutout → scene depth<br/>+ RG16F velocity, sky velocity"]
-    PP --> AP["AfterPrepass stage<br/>(SSAO → set 0 binding 5,<br/>contact shadows → binding 6)"]
+    PP --> AP["AfterPrepass stage<br/>(SSAO, then contact shadows<br/>→ set 0 binding 5)"]
     AP --> SC["Scene pass<br/>loads the prepass depth;<br/>prepassed surfaces: LEQUAL / EQUAL, no writes<br/>(split around the water scene copy<br/>when refracting water draws)"]
     SC --> BT["BeforeTonemap stage (HDR)<br/>volumetric fog · TAA · depth of field · auto exposure · glow · light shafts"]
     BT --> TM["Tonemap<br/>engine or post (composites exposure, glow, shafts; ACES, linear, Reinhard, filmic, AgX)"]
@@ -66,8 +66,8 @@ public.
 
 **AfterPrepass.** After the depth prepass, before the lit scene pass. `SceneTextures.Depth` holds the opaque and
 cutout depth, `Velocity` the motion vectors; nothing is lit (`Color` is not rendered yet). SSAO runs here and binds its
-output for the lit shaders (below); so do the sun's contact shadows (`ContactShadows`, ADR 0167: set 0 binding 6,
-[shadow-system.md → Contact shadows](shadow-system.md#contact-shadows)). The stage only runs on frames with a prepass, and any effect in it should declare
+output for the lit shaders (below); so do the sun's contact shadows (`ContactShadows`, ADR 0167, which since ADR 0170
+write the same image with the shadow in its green channel; [shadow-system.md → Contact shadows](shadow-system.md#contact-shadows)). The stage only runs on frames with a prepass, and any effect in it should declare
 `PostEffectNeeds.DepthPrepass`.
 
 **BeforeTonemap.** After the scene pass, on linear HDR colour. Built in: the volumetric fog (first, ADR 0171: it fogs
@@ -297,21 +297,33 @@ saves. Memory: two full-size `RGBA16F` history targets (33 MB at 1920 × 1080) a
 ## Ambient occlusion binding
 
 Set 0 binding 5 (`FrameContext.AmbientOcclusionBinding`) is `ssaoTexture` (`include/ambient_occlusion.slang`), a
-combined image sampler with the frame set's linear clamp sampler; `ambientOcclusion(screenUv)` returns its red channel
-(1 = unoccluded). Without SSAO it is a white 1×1 `R8G8B8A8_UNORM` image, in every view. The renderer clears the binding
+combined image sampler with the frame set's linear clamp sampler: the **screen-space occlusion** image, one
+`R16G16B16A16_SFLOAT` target for everything screen-space the lit shaders read ([ADR 0170](../../memory/decisions/0170-light-probe-volume.md)):
+
+| Channel | What | Without it |
+|---|---|---|
+| r | SSAO's ambient occlusion (`ambientOcclusion(screenUv)`, 1 = unoccluded) | 1 |
+| g | the primary sun's contact shadow (`contactShadow(worldPos)`, ADR 0167) | 1 |
+| b | the view depth of the prepass surface at the pixel (contact shadows and the bent normal apply only where it matches the shaded point's) | — |
+| a | GTAO's view-space bent normal, its x and y quantised to 32 steps and packed as one exactly representable half float, 2 + 32 i + j (`gtaoPackBentNormal`; `screenBentNormal(worldPos)` unpacks it, read unfiltered) | < 2: none |
+
+Without SSAO or contact shadows it is a white 1×1 `R8G8B8A8_UNORM` image, in every view (a = 1: no bent normal). SSAO's
+upsample writes r, b and a with g = 1; the contact-shadow effect, when it runs, writes the whole image: SSAO's r and a
+copied from SSAO's output (or 1 and none), its shadow in g and the depth in b, and binds it in SSAO's place keeping
+SSAO's light-affect settings. The renderer clears the binding
 at the start of each frame (`BeginPostFrame`); an SSAO effect calls `FrameContext.SetAmbientOcclusion(image, id)` in its
 `OnBeginFrame`, before the frame's first bind of view 0's set. The binding is latched per frame: a change after the set
 was bound applies next frame (a bound set is never rewritten). Offscreen views always bind white. The fragment stage
 declares 15 images and 13 samplers (terrain splat: 16 and 14) of MoltenVK's 16, counting binding 6 below and the
-separate cascade image of ADR 0167. SSAO also sets
+separate cascade image of ADR 0167 (set 0 holds five images: the radiance, irradiance and BRDF maps, this image and the
+light probe volume at binding 6; water's set 3 then reaches 16 and 14). SSAO also sets
 `FrameData.AmbientOcclusion` (the last 16 bytes: light affect, AO channel affect, 1 while bound) through
 `SetAmbientOcclusion(image, id, lightAffect, aoChannelAffect)`; it is 0 without SSAO and in offscreen views.
 
 
-Set 0 binding 6 (`FrameContext.ContactShadowBinding`, `contactShadowTexture` in `include/contact_shadows.slang`) works the
-same way for the contact shadows (`FrameContext.SetContactShadows`, cleared by `BeginPostFrame`), an `R16G16_SFLOAT`
-image (shadow, view depth) the shadow lookup of the primary sun multiplies in. When G8e.1 lands, the contact shadow
-moves into the AO target's g channel and binding 6 is retired.
+Set 0 binding 6 was the contact shadows' own image (ADR 0167) until ADR 0170 folded them into binding 5's green channel;
+it is now the light probe volume (`FrameContext.ProbeVolumeBinding`, a 3D texture bound per world, not per post frame:
+[Lighting → Light probes](lighting.md#light-probes)).
 
 ## SSAO
 
@@ -321,17 +333,17 @@ al. 2016, structured like Intel's XeGTAO) at `PostEffectOrder.Ssao` in `AfterPre
 
 | Pass | Shader | Target (pool) | What |
 |---|---|---|---|
-| GTAO | `Post/Gtao` | `ssao gtao`, ½, `R16G16_SFLOAT` | per texel (standing for full texel 2h): view position from the prepass depth, a normal from the neighbour depths (the side that continues the surface), 2 slice directions × 4 steps each way out to `SsaoRadius` (quadratic spacing, falloff from 38 % to 100 % of the radius, `SsaoHorizon` lowers the horizons), the cosine-weighted visible arc × the projected normal's length divided by the same without occluders (open surfaces are exactly 1); a near-field term from the first two steps × `SsaoDetail`. r = visibility, g = linear depth |
+| GTAO | `Post/Gtao` | `ssao gtao`, ½, `R16G16B16A16_SFLOAT` | per texel (standing for full texel 2h): view position from the prepass depth, a normal from the neighbour depths (the side that continues the surface), 2 slice directions × 4 steps each way out to `SsaoRadius` (quadratic spacing, falloff from 38 % to 100 % of the radius, `SsaoHorizon` lowers the horizons), the cosine-weighted visible arc × the projected normal's length divided by the same without occluders (open surfaces are exactly 1); a near-field term from the first two steps × `SsaoDetail`; the bent normal (XeGTAO's: each slice's cosine-weighted mean direction of its visible arc, summed and normalised). r = visibility, g = linear depth, b/a = the bent normal's view x and y |
 | Denoise ×2 | `Post/GtaoDenoise` | `ssao denoise`, then back into `ssao gtao` | 4 × 4 bilateral (windows −1..2, then −2..1: centred 7 × 7): weights from the distance to the centre's depth plane (gradient on the side that continues the surface), relative tolerance from `SsaoSharpness` |
-| Upsample | `Post/GtaoUpsample` | `ssao`, full, `R8G8B8A8_UNORM` | joint bilateral against the full depth (closest-depth fallback), then `(1 − SsaoIntensity · (1 − v))^SsaoPower`; r = AO, g/b/a = 1 |
+| Upsample | `Post/GtaoUpsample` | `ssao`, full, `R16G16B16A16_SFLOAT` | joint bilateral against the full depth (closest-depth fallback), then `(1 − SsaoIntensity · (1 − v))^SsaoPower`; r = AO, g = 1 (the contact shadow's), b = view depth, a = the packed bent normal (upsampled with the same weights) |
 
 - **Noise.** Slice rotation and step offset come from a 4 × 4 Bayer pattern (the denoise window holds each once); they
   change per frame only while the projection jitters (TAA: `FrameContext.JitterIndex`), so without TAA the image is stable.
 - **Projection.** The push block (`include/gtao.slang`, 96 bytes) carries the coefficients of the projection the prepass
   rasterised with (`PostCamera.JitteredProjection`), so perspective, orthographic and jittered cameras unproject exactly.
-- **Output layout for later phases.** r = AO; g is reserved for G8e.2's contact shadow and b/a for G8e.1's view-space bent
-  normal (octahedral), all 1 today like the white fallback. Widening means writing those channels in the upsample (and
-  carrying them through the half-resolution targets), not new bindings.
+- **Output layout** ([ADR 0170](../../memory/decisions/0170-light-probe-volume.md)): see
+  [Ambient occlusion binding](#ambient-occlusion-binding). The bent normal is used only with light probes (it leans the
+  probes' shading normal); the denoise passes blur it with the AO.
 - **Debug view.** `RenderDebugView.AmbientOcclusion` (or `MAINFRAME_DEBUG_VIEW=ao`) shows the AO image as grey.
 - **Cost (the Forest, 1920 × 1080, Apple M-series, MoltenVK).** About 1 ms of GPU time for the four passes measured
   under contention from other GPU work (≈ 0.8 ms quiet), timed by `SsaoEffect.LastGpuMilliseconds`
@@ -350,7 +362,7 @@ packed into `PostEffectSettings.VolumetricFog` by the render server. A `BeforeTo
 
 | Pass | Shader | Target (pool) | What |
 |---|---|---|---|
-| March | `Post/VolumetricFogMarch` | `volumetric fog march`, ½, `RGBA16F` | per texel (standing for the full pixel at twice its coordinates): 24 steps (`VolumetricFogEffect.Steps`) from the camera to the surface or the length, ends at `(i/n)^spread`, offset by interleaved gradient noise; extinction = density × the height fog's profile × the 32³ wind-drifted noise; in-scatter = albedo × extinction × (sun × one cascade comparison tap × Henyey–Greenstein + sky ambient × ambient inject) + emission × extinction, Hillaire's per-step integral. rgb = in-scatter, a = transmittance |
+| March | `Post/VolumetricFogMarch` | `volumetric fog march`, ½, `RGBA16F` | per texel (standing for the full pixel at twice its coordinates): 24 steps (`VolumetricFogEffect.Steps`) from the camera to the surface or the length, ends at `(i/n)^spread`, offset by interleaved gradient noise; extinction = density × the height fog's profile × the 32³ wind-drifted noise; in-scatter = albedo × extinction × (sun × one cascade comparison tap × Henyey–Greenstein + sky ambient × ambient inject × the light probes' open sky, ADR 0170) + emission × extinction, Hillaire's per-step integral. rgb = in-scatter, a = transmittance |
 | Temporal | `Post/VolumetricFogTemporal` | `volumetric fog` history pair, ½, `RGBA16F` | the texel's surface point through last frame's view-projection; the history clipped to the 3 × 3 variance box (γ 1.5) and blended by `VolumetricFogTemporalReprojectionAmount`. Only with temporal reprojection |
 | Composite | `Post/VolumetricFogComposite` | `volumetric fog composite`, full, `RGBA16F` | 4-tap depth-aware upsample, `colour · T + in-scatter` (sky pixels × `SkyAffect`), the scene alpha kept; then `CopyToSceneColor` |
 
@@ -511,8 +523,8 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 - SSAO: thin geometry (grass blades, leaf cards) counts as infinitely thick, so a fern darkens the ground behind it within
   the radius; what the prepass does not draw (water, blended surfaces, Spine, the grid) neither occludes nor receives it
   (water and blended meshes skip it, but next passes and no-depth-test overlays drawn with the mesh shader read the AO
-  of what is behind them); no bent normals or contact shadow yet (G8e.1, G8e.2); quality is fixed (2 slices × 4 steps,
-  no `rendering.ssaoQuality` yet).
+  of what is behind them); the bent normal is quantised to 32 × 32 directions (it only leans a low-frequency lookup);
+  quality is fixed (2 slices × 4 steps, no `rendering.ssaoQuality` yet).
 
 ## Related docs
 

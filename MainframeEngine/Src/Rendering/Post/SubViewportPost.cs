@@ -121,7 +121,6 @@ internal sealed unsafe class SubViewportPost : IPostOutput, IDisposable
         try
         {
             frame.ClearAmbientOcclusion();
-            frame.ClearContactShadows();
             var context = Prepare(cb, view, camera, sun);
             context.Scene.HasPrepass = prepass; // this frame's (the prepass has not run yet)
             context.Scene.Velocity = prepass ? _prepass!.VelocityView : default;
