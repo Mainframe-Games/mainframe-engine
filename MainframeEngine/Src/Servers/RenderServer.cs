@@ -296,8 +296,9 @@ public sealed class RenderServer : IServer
     private readonly record struct ShadowState(List<VisualInstance3D> Visuals, MeshRenderer? Meshes, MeshViewDraws Draws, bool Unbounded);
 
     /// <summary>
-    /// Records the offscreen views (every <see cref="SubViewport"/> in the tree) and the root view's object-ID
-    /// pass when picks are pending. Call after the shadow pass, with no render pass active (<see cref="Engine"/> does).
+    /// Records the skies' offscreen work (<see cref="SkyEnvironment.Prepare"/>: the physical sky's LUTs), the offscreen
+    /// views (every <see cref="SubViewport"/> in the tree) and the root view's object-ID pass when picks are pending.
+    /// Call after the shadow pass, with no render pass active (<see cref="Engine"/> does).
     /// </summary>
     public void RenderOffscreen(SceneViewport root)
     {
@@ -305,6 +306,7 @@ public sealed class RenderServer : IServer
         if (Vulkan is not { FrameStarted: true } vk)
             return;
         var cb = vk.CurrentCommandBuffer;
+        root.World3D.Environment?.PrepareSky(this, cb); // ADR 0154: the physical sky's LUTs, before any pass draws a sky
 
         var view = 1;
         foreach (var sub in _subViewports)
@@ -314,6 +316,8 @@ public sealed class RenderServer : IServer
             {
                 if (view < FrameContext.MaxViews)
                 {
+                    if (colour)
+                        sub.World3D.Environment?.PrepareSky(this, cb);
                     RenderSubViewport(vk, cb, sub, view++, colour);
                 }
                 else if (!_warnedTooManyViews)

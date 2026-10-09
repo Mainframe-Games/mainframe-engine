@@ -266,7 +266,10 @@ public class GameHost : Engine
         if (Settings.Window.MaxFps > 0)
             MaxFPS = Settings.Window.MaxFps;
         if (Renderer is IVulkanContext vk)
+        {
             vk.Exposure = Settings.Rendering.Exposure;
+            vk.AntiAliasing = Settings.Rendering.AntiAliasing;
+        }
         if (Servers.Render is { } render)
             render.ShadowQuality = Settings.Rendering.Shadows; // before any visual creates GPU resources (Off)
         // The session (autoloads, the main scene) starts on the first update, once the window is up (Godot readies the

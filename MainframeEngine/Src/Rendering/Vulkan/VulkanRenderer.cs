@@ -146,6 +146,14 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
 
     public PostProcessSettings PostProcess { get; set; } = PostProcessSettings.Default;
 
+    public AntiAliasing AntiAliasing
+    {
+        get => _antiAliasing;
+        set => _antiAliasing = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown anti-aliasing mode.");
+    }
+
+    public float FrameDeltaTime { get; set; }
+
     public float Exposure
     {
         get => _exposure;
@@ -160,6 +168,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         _enableValidationLayers = options.EnableValidation;
         _vsync = options.VSync;
         _enableFrameCapture = options.EnableFrameCapture;
+        AntiAliasing = options.AntiAliasing;
         InitVulkan();
     }
 

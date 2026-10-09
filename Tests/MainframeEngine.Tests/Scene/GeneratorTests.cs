@@ -418,7 +418,7 @@ public sealed class GeneratorTests
         Assert.Equal(["TreeEntered", "Ready", "TreeExiting", "TreeExited", "Renamed", "ChildEnteredTree", "ChildExitingTree"],
             TypeRegistry.Get(typeof(Node))!.DeclaredSignals.Select(s => s.Name));
         Assert.Equal("0,16,0.01", TypeRegistry.Get("DirectionalLight3D")!.FindProperty("Energy")!.Hints.Range);
-        Assert.Equal(["Procedural", "Sun"], TypeRegistry.Get("Sky")!.DeclaredProperties.Select(p => p.Group).OfType<string>().Distinct());
+        Assert.Equal(["Procedural", "Sun", "Physical"], TypeRegistry.Get("Sky")!.DeclaredProperties.Select(p => p.Group).OfType<string>().Distinct());
         Assert.IsType<Camera3D>(TypeRegistry.CreateNode("Camera3D"));
         Assert.Throws<InvalidOperationException>(() => TypeRegistry.CreateNode("Sky"));
 

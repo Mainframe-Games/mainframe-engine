@@ -6,7 +6,8 @@ namespace MainframeEngine;
 /// Godot 4.7's glow blur chain (ADR 0124; <c>copy_effects.cpp</c> <c>gaussian_glow</c> + <c>copy.glsl</c>) as raster
 /// passes: level k (k = 0..6) is the scene at <c>1 / 2^(k+1)</c> resolution, each built from the level before it by a
 /// horizontal pass (downsample + 9-tap blur, into <c>temp[k]</c>) and a vertical pass (9-tap blur + strength, and on
-/// level 0 the firefly undo, exposure, HDR threshold and luminance cap, into <c>level[k]</c>). Only the levels up to the
+/// level 0 the firefly undo, exposure (× auto exposure's when it is on, ADR 0154), HDR threshold and luminance cap, into
+/// <c>level[k]</c>). Only the levels up to the
 /// highest weighted one are drawn each frame (Godot's <c>max_glow_index</c>); every level image exists and is cleared
 /// once after creation, so the tonemap pass can bind all seven. Recorded between the scene pass and the tonemap, with
 /// no render pass active; allocates nothing per frame.
@@ -27,12 +28,14 @@ internal sealed unsafe class GlowEffect : IDisposable
     private readonly DescriptorSet _sceneSet;
     private readonly PipelineLayout _layout;
     private readonly Pipeline _pipeline;
+    private readonly DescriptorImageInfo _adaptedLuminance;
     private bool _needsClear = true;
     private bool _disposed;
 
-    public GlowEffect(IVulkanContext ctx, Extent2D sceneExtent, ImageView sceneView)
+    public GlowEffect(IVulkanContext ctx, Extent2D sceneExtent, ImageView sceneView, in DescriptorImageInfo adaptedLuminance)
     {
         _ctx = ctx;
+        _adaptedLuminance = adaptedLuminance;
         var samplerInfo = new SamplerCreateInfo
         {
             SType = StructureType.SamplerCreateInfo,
@@ -52,11 +55,14 @@ internal sealed unsafe class GlowEffect : IDisposable
             _levels[k] = new RenderTarget(ctx, new RenderTargetDesc($"glow level {k}", [RenderTargetAttachment.Sampled(LevelFormat)], null), size);
         }
 
+        // Binding 1: auto exposure's adapted luminance (ADR 0154), read by the first level's vertical pass.
         _setLayout = PipelineBuilder.CreateSetLayout(ctx,
-            [new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit }],
-            "glow");
+        [
+            new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+        ], "glow");
         const uint sets = 1 + 2 * LevelCount;
-        _pool = PipelineBuilder.CreatePool(ctx, sets, [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = sets }], "glow");
+        _pool = PipelineBuilder.CreatePool(ctx, sets, [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 2 * sets }], "glow");
         _sceneSet = PipelineBuilder.AllocateSet(ctx, _pool, _setLayout, "glow scene");
         for (var k = 0; k < LevelCount; k++)
         {
@@ -124,10 +130,12 @@ internal sealed unsafe class GlowEffect : IDisposable
                 Scale = settings.GlowHdrScale,
                 Bloom = settings.GlowBloom,
                 LuminanceCap = settings.GlowHdrLuminanceCap,
+                AutoExposureScale = settings.AutoExposureScale,
             };
+            var autoExposure = settings.AutoExposureEnabled ? 4u : 0u;
             push.Flags = 1u | (first ? 2u : 0u);
             Pass(cb, _temp[k], first ? _sceneSet : _levelSets[k - 1], ref push);
-            push.Flags = first ? 2u : 0u;
+            push.Flags = (first ? 2u : 0u) | autoExposure;
             Pass(cb, _levels[k], _tempSets[k], ref push);
         }
     }
@@ -158,13 +166,16 @@ internal sealed unsafe class GlowEffect : IDisposable
         }
     }
 
-    private void Write(DescriptorSet set, ImageView view) =>
+    private void Write(DescriptorSet set, ImageView view)
+    {
         PipelineBuilder.WriteImage(_ctx, set, 0, new DescriptorImageInfo
         {
             Sampler = _sampler,
             ImageView = view,
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
         });
+        PipelineBuilder.WriteImage(_ctx, set, 1, _adaptedLuminance);
+    }
 
     /// <summary>Destroys everything (the caller has waited for the device to be idle).</summary>
     public void Dispose()
@@ -197,5 +208,6 @@ internal sealed unsafe class GlowEffect : IDisposable
         public float Scale;
         public float Bloom;
         public float LuminanceCap;
+        public float AutoExposureScale;
     }
 }

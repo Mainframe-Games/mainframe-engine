@@ -385,6 +385,12 @@ public sealed class RenderingProjectSettings
     public ShadowQuality Shadows { get; set; } = ShadowQuality.High;
 
     /// <summary>
+    /// Screen-space anti-aliasing of the main view (<see cref="IVulkanContext.AntiAliasing"/>, ADR 0154): none (default)
+    /// or FXAA on the tonemapped image, under the UI.
+    /// </summary>
+    public AntiAliasing AntiAliasing { get; set; } = AntiAliasing.None;
+
+    /// <summary>
     /// Opaque background of the 2D canvas (<see cref="CanvasServer.ClearColor"/>; a 2D game: Godot's viewport clear colour,
     /// gamma-space RGBA), or null (default) to draw the canvas over the 3D scene.
     /// </summary>
