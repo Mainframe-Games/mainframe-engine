@@ -22,6 +22,7 @@ public sealed class SongPlayer : IDisposable
     private int _version = -1;
     private int _pluginVersion = -1;
     private long _pushedEnd;    // song frame at the end of the last block pushed to the generator (render thread writes)
+    private int _pushSequence;  // odd while a push is in flight: the generator's queue and _pushedEnd disagree
     private long _anchor;       // where the last Play/Seek started: the heard position never shows earlier than this
     private bool _anchorFromSeek;
 
@@ -59,8 +60,9 @@ public sealed class SongPlayer : IDisposable
     /// <summary>
     /// The position being heard, in ticks. Stopped: the engine's position (steady — the silence the render thread keeps
     /// queueing is not part of the song). Playing: the end of the last block pushed minus what is still queued in the
-    /// generator (the device buffer is not subtracted), read as a consistent pair so a block landing between the two
-    /// reads cannot make the playhead jump; never earlier than where playback started. Wraps with the loop.
+    /// generator (the device buffer is not subtracted), read as a consistent pair (never while a block is being pushed,
+    /// when the queue already holds it but the end does not yet) so the playhead cannot jump a block; never earlier than
+    /// where playback started. Wraps with the loop.
     /// </summary>
     public double PositionTicks
     {
@@ -73,12 +75,17 @@ public sealed class SongPlayer : IDisposable
 
             var playback = Volatile.Read(ref _playback);
             long end, queued;
-            do
+            int sequence;
+            var spin = new SpinWait();
+            while (true)
             {
+                sequence = Volatile.Read(ref _pushSequence);
                 end = Volatile.Read(ref _pushedEnd);
                 queued = playback?.FramesQueued ?? 0;
+                if ((sequence & 1) == 0 && sequence == Volatile.Read(ref _pushSequence))
+                    break;
+                spin.SpinOnce();
             }
-            while (end != Volatile.Read(ref _pushedEnd));
 
             var frames = end - queued;
             if (song.LoopEnabled && frames < song.LoopStartFrame && end >= song.LoopStartFrame)
@@ -219,8 +226,10 @@ public sealed class SongPlayer : IDisposable
                 Array.Clear(block);
             }
 
+            Volatile.Write(ref _pushSequence, _pushSequence + 1); // odd: PositionTicks waits out the push
             playback.PushFrames(block);
             Volatile.Write(ref _pushedEnd, Engine.PositionFrames); // after the push: the queue now ends here
+            Volatile.Write(ref _pushSequence, _pushSequence + 1);
         }
     }
 }

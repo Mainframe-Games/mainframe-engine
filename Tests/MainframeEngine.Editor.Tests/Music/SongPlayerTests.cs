@@ -46,6 +46,45 @@ public sealed class SongPlayerTests : IDisposable
         }
     }
 
+    [Fact]
+    public void ThePlayheadNeverStepsBackWhileARenderedBlockIsBeingQueued()
+    {
+        using var server = AudioServer.Create(new AudioOptions { Device = AudioDeviceMode.NullManual, BusLayoutPath = null });
+        var song = NewSong();
+        var lead = AddInstrumentTrack(song, "lead", InstrumentDescriptor.Zzfx("zzfx(...[,0,220,,1,.1])"));
+        AddClip(lead, 0, 960 * 16, (69, 0, 960 * 16));
+        using var doc = new SongDocument(song, Path.Combine(_root, "Player.msong"));
+        using var player = new SongPlayer(server);
+        player.Update(doc);
+        var chunk = new float[SongEngine.BlockFrames * 2];
+        player.Seek(960);
+        WaitFor(server, chunk, () => player.Engine.PositionFrames > 0);
+        player.Play();
+        WaitFor(server, chunk, () => player.IsPlaying);
+
+        // A reader spinning on the playhead lands inside the render thread's push often enough to catch a torn read.
+        string? failure = null;
+        var done = false;
+        var reader = new Thread(() =>
+        {
+            var previous = player.PositionTicks;
+            while (!Volatile.Read(ref done) && failure is null)
+            {
+                var now = player.PositionTicks;
+                if (now < previous)
+                    failure = $"{now} after {previous}";
+                previous = now;
+            }
+        });
+        reader.Start();
+        var deadline = DateTime.UtcNow.AddSeconds(1);
+        while (DateTime.UtcNow < deadline && player.PositionTicks < 960 * 12 && Volatile.Read(ref failure) is null)
+            server.RenderNullDevice(SongEngine.BlockFrames / 2, chunk);
+        Volatile.Write(ref done, true);
+        reader.Join();
+        Assert.Null(failure);
+    }
+
     // The manual null device only drains when rendered, and the render thread only processes (commands included) when
     // the generator has room, so keep the device pulling while waiting.
     private static void WaitFor(AudioServer server, float[] chunk, Func<bool> condition)
