@@ -67,6 +67,7 @@ RenderTestGame game = options.Scene switch
     "taa-edges" => new TaaEdgesScene(options),
     "taa-ghost" => new TaaGhostScene(options),
     "taa-foliage" => new FoliageWindScene(options with { AntiAliasing = options.AntiAliasing ?? AntiAliasing.Taa }),
+    "ssao" => new SsaoScene(options),
     "tree-realistic" => new TreeScene(options, MainframeEngine.Trees.TreeStyle.Realistic),
     "tree-lowpoly" => new TreeScene(options, MainframeEngine.Trees.TreeStyle.LowPoly),
     "tree-forest" => new TreeForestScene(options),
@@ -74,7 +75,7 @@ RenderTestGame game = options.Scene switch
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, showcase, color-pipeline, " +
         "physics, physics-debug, sky-grid, materials, outline, subviewport-capture, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, " +
         "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer, sky-physical, fxaa, auto-exposure, pbr, fog, vertex-colors, multimesh, " +
-        "foliage-wind, terrain, water, terrain-splat, terrain-foliage, light-shafts, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, " +
+        "foliage-wind, terrain, water, terrain-splat, terrain-foliage, light-shafts, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, ssao, " +
         "tree-realistic, tree-lowpoly, tree-forest, gamehost."),
 };
 

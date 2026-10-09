@@ -205,13 +205,15 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     // The built-in post effects (ADR 0163), registered once; each is created the first frame it is enabled.
     private void RegisterPostEffects()
     {
+        var ssao = new SsaoEffect(); // ADR 0165, AfterPrepass
+        _post.Add(ssao);
         _post.Add(_autoExposure);
         _post.Add(_glow);
         _post.Add(_lightShafts);
         _post.Add(new TaaEffect());
         _post.Add(new TaaSharpenEffect());
         _post.Add(new FxaaEffect());
-        _post.Add(new VelocityDebugView());
+        _post.Add(new VelocityDebugView(ssao));
     }
 
     private void CreatePostContext()

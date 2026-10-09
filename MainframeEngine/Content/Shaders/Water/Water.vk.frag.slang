@@ -141,10 +141,10 @@ float3 waterLights(float3 N, float3 Ngeo, float3 V, float3 worldPos, float rough
     return result;
 }
 
-// Light arriving at a horizontal-ish surface with normal N: the sky's diffuse light plus the sun, shadowed.
-float3 waterDiffuseLight(float3 N, float sunShadow)
+// Light arriving at a horizontal-ish surface with normal N: the sky's diffuse light × `ao` plus the sun, shadowed.
+float3 waterDiffuseLight(float3 N, float sunShadow, float ao)
 {
-    float3 light = iblDiffuse(N);
+    float3 light = iblDiffuse(N) * ao;
     if (lights.counts.x > 0)
     {
         DirLight l = lights.dir[0];
@@ -155,7 +155,7 @@ float3 waterDiffuseLight(float3 N, float sunShadow)
 }
 
 [shader("fragment")]
-float4 main(FsIn input) : SV_Target0
+float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
 {
     float3 P = input.inWorldPos;
     float2 xz = P.xz;
@@ -194,10 +194,13 @@ float4 main(FsIn input) : SV_Target0
     float sunShadow;
     float3 glints = waterLights(N, Ng, V, P, roughness, sunShadow);
 
-    // The water body: Beer–Lambert over the column along the view ray, light scattered in where light is absorbed.
+    // The water body: Beer–Lambert over the column along the view ray, light scattered in where light is absorbed. The
+    // screen-space AO here (ADR 0165) is the bed's (water is not in the depth prepass): it darkens only the sky light
+    // scattered in the water body, not the surface's reflections and glints.
+    float scatterAo = ambientOcclusionAt(fragCoord);
     float cosView = max(dot(Ng, V), 0.1);
     float3 transmittance = exp(-waterAbsorption() * (column / cosView));
-    float3 scatter = waterScatterColor() * waterScatterStrength() * waterDiffuseLight(float3(0.0, 1.0, 0.0), sunShadow) *
+    float3 scatter = waterScatterColor() * waterScatterStrength() * waterDiffuseLight(float3(0.0, 1.0, 0.0), sunShadow, scatterAo) *
                      (1.0 - transmittance);
     float through = (transmittance.r + transmittance.g + transmittance.b) / 3.0;
 
@@ -217,7 +220,7 @@ float4 main(FsIn input) : SV_Target0
     float rapids = saturate((length(input.inWater.yz) - 1.5) / 2.5) * 0.5;
     float mask = saturate(max(max(shore, input.inWater.w), rapids) * waterFoamStrength());
     float foam = smoothstep(1.0 - mask, 1.35 - mask, foamTexture) * saturate(mask * 2.0);
-    float3 foamColor = 0.85 * waterDiffuseLight(Ng, sunShadow);
+    float3 foamColor = 0.85 * waterDiffuseLight(Ng, sunShadow, 1.0);
     added = lerp(added, foamColor, foam);
     keep *= 1.0 - foam;
 

@@ -470,6 +470,11 @@ public class Decal : VisualInstance3D                       // new (Godot's Deca
 
 ### SSAO
 
+> **Built (2026-10-09, [ADR 0165](../../../memory/decisions/0165-ssao-gtao.md))** on ADR 0163's prepass and stages, ahead
+> of M11: see [Post-processing → SSAO](../post-processing.md#ssao). Differences from this design: the AO is set 0
+> binding 5 (`RGBA8`, r = AO), not b6; the blur is two 4 × 4 bilateral passes then the upsample; Godot's `ssao_detail`
+> and `ssao_horizon` are kept (`SsaoDetail`, `SsaoHorizon`); `rendering.ssaoQuality` is not built yet.
+
 #### Passes
 
 SSAO needs depth before the scene pass. A new step, `RenderServer.RenderPrepass(Root)`, runs after `RenderOffscreen`

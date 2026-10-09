@@ -26,7 +26,7 @@ public enum ReflectedLightSource : byte
 }
 
 /// <summary>
-/// Sky, ambient light, wind, fog, tonemap, glow, auto exposure and light shafts for its viewport's world (Godot's
+/// Sky, ambient light, wind, fog, tonemap, glow, auto exposure, light shafts and SSAO for its viewport's world (Godot's
 /// <c>WorldEnvironment</c>). The sky is described by a <see cref="MainframeEngine.Sky"/> resource; the render server builds
 /// the matching <see cref="SkyEnvironment"/> on first use and rebuilds it when the sky's mode or images change. A
 /// physical sky's sun is the world's first <see cref="DirectionalLight3D"/> (ADR 0154). Only the first environment in a
@@ -84,7 +84,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export]
     public ReflectedLightSource ReflectedLightSource { get; set; }
 
-    /// <summary>The tonemap, glow, auto exposure and light shafts this environment asks the renderer for (ADR 0124); the tree's root world's is used.</summary>
+    /// <summary>The tonemap, glow, auto exposure, light shafts and SSAO this environment asks the renderer for (ADR 0124); the tree's root world's is used.</summary>
     public PostProcessSettings PostProcess => _post;
 
     [ExportGroup("Wind")]
@@ -389,6 +389,82 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     {
         get => _post.LightShaftsSamples;
         set => _post = _post with { LightShaftsSamples = value };
+    }
+
+    [ExportGroup("SSAO")]
+    /// <summary>
+    /// Screen-space ambient occlusion (ADR 0165; GTAO from the depth prepass): creases, contacts and the ground under
+    /// objects lose ambient and reflected light. Only the tree's root world gets it; it turns the depth prepass on.
+    /// </summary>
+    [Export]
+    public bool SsaoEnabled
+    {
+        get => _post.SsaoEnabled;
+        set => _post = _post with { SsaoEnabled = value };
+    }
+
+    /// <summary>How far occluders reach, in metres (Godot's <c>ssao_radius</c>).</summary>
+    [Export(Range = "0.01,16,0.01")]
+    public float SsaoRadius
+    {
+        get => _post.SsaoRadius;
+        set => _post = _post with { SsaoRadius = value };
+    }
+
+    /// <summary>Multiplies the occlusion (Godot's <c>ssao_intensity</c>; 1 with power 1 is the physical value).</summary>
+    [Export(Range = "0,16,0.01")]
+    public float SsaoIntensity
+    {
+        get => _post.SsaoIntensity;
+        set => _post = _post with { SsaoIntensity = value };
+    }
+
+    /// <summary>Exponent of the occlusion: darker, with a sharper falloff (Godot's <c>ssao_power</c>).</summary>
+    [Export(Range = "0,16,0.01")]
+    public float SsaoPower
+    {
+        get => _post.SsaoPower;
+        set => _post = _post with { SsaoPower = value };
+    }
+
+    /// <summary>Strength of the near-field detail term: small creases darken more (Godot's <c>ssao_detail</c>).</summary>
+    [Export(Range = "0,5,0.01")]
+    public float SsaoDetail
+    {
+        get => _post.SsaoDetail;
+        set => _post = _post with { SsaoDetail = value };
+    }
+
+    /// <summary>Occluders lower than this fraction of 90° above the surface do not count (Godot's <c>ssao_horizon</c>).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float SsaoHorizon
+    {
+        get => _post.SsaoHorizon;
+        set => _post = _post with { SsaoHorizon = value };
+    }
+
+    /// <summary>How strictly the blur stops at depth edges (Godot's <c>ssao_sharpness</c>).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float SsaoSharpness
+    {
+        get => _post.SsaoSharpness;
+        set => _post = _post with { SsaoSharpness = value };
+    }
+
+    /// <summary>How much the occlusion also darkens direct light (Godot's <c>ssao_light_affect</c>; 0 = only ambient).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float SsaoLightAffect
+    {
+        get => _post.SsaoLightAffect;
+        set => _post = _post with { SsaoLightAffect = value };
+    }
+
+    /// <summary>0: the darker of SSAO and the material's AO; 1: their product (Godot's <c>ssao_ao_channel_affect</c>).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float SsaoAoChannelAffect
+    {
+        get => _post.SsaoAoChannelAffect;
+        set => _post = _post with { SsaoAoChannelAffect = value };
     }
 
     protected override void OnEnterTree()

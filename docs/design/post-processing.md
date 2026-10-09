@@ -6,7 +6,7 @@ How the main view's screen-space effects are organised ([ADR 0163](../../memory/
 three **stages** in the frame, **effects** registered on a per-view stack, the images they share (**scene textures**:
 HDR colour, depth, velocity), a **target pool** with ping-pong histories, the **depth prepass** that writes depth and
 **motion vectors** before lighting, and the **projection jitter** TAA needs. Auto exposure, glow, light shafts and
-FXAA are effects in this system, and so are TAA (ADR 0166) and SSAO. Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
+FXAA are effects in this system, and so are TAA (ADR 0166) and SSAO ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md)). Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
 
 ## Frame
 
@@ -185,7 +185,7 @@ unjittered (UV 0,0 top-left, +y down): `previousUv = uv − velocity`. Written b
 - Not covered: what the prepass does not draw (Spine, the grid, transparent surfaces, water, particles) shows the
   velocity of what is behind it; sub-viewports have no velocity.
 
-`FrameData` (set 0, binding 0) is 560 bytes: after `fogParams` come `prevViewProjection` (last frame's unjittered),
+`FrameData` (set 0, binding 0) is 576 bytes: after `fogParams` come `prevViewProjection` (last frame's unjittered),
 `jitter` (xy this frame, zw last frame, NDC), `temporal` (x last frame's time, y 1 when the previous fields are last
 frame's, z the jitter sample index) and `prevWind`, `prevWindParams`. `FrameContext` keeps each view's `ViewHistory`:
 the first camera write of a frame moves "current" to "previous" when it came from the frame before; a view written twice
@@ -273,21 +273,51 @@ combined image sampler with the frame set's linear clamp sampler; `ambientOcclus
 at the start of each frame (`BeginPostFrame`); an SSAO effect calls `FrameContext.SetAmbientOcclusion(image, id)` in its
 `OnBeginFrame`, before the frame's first bind of view 0's set. The binding is latched per frame: a change after the set
 was bound applies next frame (a bound set is never rewritten). Offscreen views always bind white. The fragment stage
-uses 14 images and 11 samplers (terrain splat: 15 and 12) of MoltenVK's 16.
+uses 14 images and 11 samplers (terrain splat: 15 and 12) of MoltenVK's 16. SSAO also sets
+`FrameData.AmbientOcclusion` (the last 16 bytes: light affect, AO channel affect, 1 while bound) through
+`SetAmbientOcclusion(image, id, lightAffect, aoChannelAffect)`; it is 0 without SSAO and in offscreen views.
+
+## SSAO
+
+`SsaoEffect` ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md)): ground-truth ambient occlusion (GTAO, Jimenez et
+al. 2016, structured like Intel's XeGTAO) at `PostEffectOrder.Ssao` in `AfterPrepass`, `Needs = DepthPrepass`, enabled by
+`WorldEnvironment.SsaoEnabled`. Four fullscreen fragment passes, recorded between the prepass and the scene pass:
+
+| Pass | Shader | Target (pool) | What |
+|---|---|---|---|
+| GTAO | `Post/Gtao` | `ssao gtao`, ½, `R16G16_SFLOAT` | per texel (standing for full texel 2h): view position from the prepass depth, a normal from the neighbour depths (the side that continues the surface), 2 slice directions × 4 steps each way out to `SsaoRadius` (quadratic spacing, falloff from 38 % to 100 % of the radius, `SsaoHorizon` lowers the horizons), the cosine-weighted visible arc × the projected normal's length divided by the same without occluders (open surfaces are exactly 1); a near-field term from the first two steps × `SsaoDetail`. r = visibility, g = linear depth |
+| Denoise ×2 | `Post/GtaoDenoise` | `ssao denoise`, then back into `ssao gtao` | 4 × 4 bilateral (windows −1..2, then −2..1: centred 7 × 7): weights from the distance to the centre's depth plane (gradient on the side that continues the surface), relative tolerance from `SsaoSharpness` |
+| Upsample | `Post/GtaoUpsample` | `ssao`, full, `R8G8B8A8_UNORM` | joint bilateral against the full depth (closest-depth fallback), then `(1 − SsaoIntensity · (1 − v))^SsaoPower`; r = AO, g/b/a = 1 |
+
+- **Noise.** Slice rotation and step offset come from a 4 × 4 Bayer pattern (the denoise window holds each once); they
+  change per frame only while the projection jitters (TAA: `FrameContext.JitterIndex`), so without TAA the image is stable.
+- **Projection.** The push block (`include/gtao.slang`, 96 bytes) carries the coefficients of the projection the prepass
+  rasterised with (`PostCamera.JitteredProjection`), so perspective, orthographic and jittered cameras unproject exactly.
+- **Output layout for later phases.** r = AO; g is reserved for G8e.2's contact shadow and b/a for G8e.1's view-space bent
+  normal (octahedral), all 1 today like the white fallback. Widening means writing those channels in the upsample (and
+  carrying them through the half-resolution targets), not new bindings.
+- **Debug view.** `RenderDebugView.AmbientOcclusion` (or `MAINFRAME_DEBUG_VIEW=ao`) shows the AO image as grey.
+- **Cost (the Forest, 1920 × 1080, Apple M-series, MoltenVK).** About 1 ms of GPU time for the four passes measured
+  under contention from other GPU work (≈ 0.8 ms quiet), timed by `SsaoEffect.LastGpuMilliseconds`
+  (`RenderServer.SsaoGpuMilliseconds`, reported by the Forest benchmark); the prepass it turns on saves about as much in
+  the Forest. Details in [ADR 0165](../../memory/decisions/0165-ssao-gtao.md#cost).
+- **Shading.** How the lit shaders apply it (`ssaoCombine`, the specular-occlusion ratio, `ssaoDirect`):
+  [Lighting → Screen-space ambient occlusion](lighting.md#screen-space-ambient-occlusion).
 
 ## Debug view
 
 `RenderServer.DebugView = RenderDebugView.Velocity` replaces the final image with the motion vectors (it turns the
 prepass on): red = 128/255 + velocity.x × 16, green the same for y, blue 128/255, written as display values so a capture
-decodes exactly (`VelocityDebugView.Decode`); still is 128 grey.
+decodes exactly (`VelocityDebugView.Decode`); still is 128 grey. `RenderDebugView.AmbientOcclusion` shows the SSAO image
+(red as grey) on frames SSAO drew. `MAINFRAME_DEBUG_VIEW=velocity|ao` sets the view at start-up.
 
 ## Settings
 
 Effects read their switches from `PostEffectSettings`: the world's `PostProcessSettings` (set on `WorldEnvironment`, Godot
-style: glow, auto exposure, light shafts; SSAO's will go there too), the project's `AntiAliasing`
+style: glow, auto exposure, light shafts, SSAO), the project's `AntiAliasing`
 (`rendering.antiAliasing`: `None`, `Fxaa`, `Taa`) and `TaaSharpness` (`rendering.taaSharpness`), and the renderer's debug
-view. `RenderServer.ForceDepthPrepass`
-and `MAINFRAME_DEPTH_PREPASS` force the prepass.
+view. `RenderServer.ForceDepthPrepass` and `MAINFRAME_DEPTH_PREPASS` force the prepass. `PostEffectSettings.PostTonemap`
+ignores the SSAO settings (`PostProcessSettings.WithoutSsao`): SSAO alone does not switch to the post tonemap pass.
 
 ## Game-defined effects (later)
 
@@ -299,13 +329,7 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 
 ## Adding SSAO and TAA
 
-- **SSAO (GTAO):** an `AfterPrepass` effect at `PostEffectOrder.Ssao` with `Needs = DepthPrepass`, enabled by the
-  world's SSAO settings. Read `Scene.Depth` (`DEPTH_STENCIL_READ_ONLY_OPTIMAL`, point sampler) and the camera's
-  `Projection`/`Near`/`Far` (unjittered) or `FrameData` in a frame-set layout; half-resolution targets from
-  `Targets.Get(..., PostTargetScale.Half)`; the full-resolution result's view goes to
-  `context.Vulkan.Frame.SetAmbientOcclusion(...)` in `OnBeginFrame` (id: a counter bumped on create/resize). In the lit
-  shaders, include `ambient_occlusion.slang` and multiply the ambient/indirect term by
-  `ambientOcclusion(SV_Position.xy * frame.viewport.zw)` (`shadeLightsPbr`'s IBL terms, the Blinn-Phong ambient).
+- **SSAO (GTAO):** built; see [SSAO](#ssao).
 - **TAA:** built ([TAA](#taa), ADR 0166).
 
 ## Testing
@@ -315,7 +339,9 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
   matrices, the body's centre pixel against its own motion); the jitter leaving still pixels still; foliage moving in the
   wind and not without it; `post-copy` (a `BeforeTonemap` test effect writes the scene colour through a pooled history);
   0 B per frame with the prepass, velocity view and jitter (allocation gate). Host flags `--prepass`, `--jitter`,
-  `--velocity-view`, `--aa none|fxaa|taa`, `--taa-sharpness`.
+  `--velocity-view`, `--aa none|fxaa|taa`, `--taa-sharpness`. `SsaoTests`: the self-checked `ssao` scene (a box and a PBR
+  sphere on a floor in a wall corner: creases darker than open floor and wall with SSAO, alike without it, no halo beyond
+  the radius; golden), and 0 B per frame with an orbiting camera and jitter.
 - **TAA render tests** (`TaaTests`, ADR 0166; goldens `taa-edges`, `taa-ghost`, `taa-foliage` on both drivers):
   - `taa-edges` (thin bars at shallow angles, sub-pixel spokes): TAA's frame 40 is at most 0.6 × as far from a 4×
     supersampled frame (box-filtered in linear light) as the aliased frame is (measured 0.35 on MoltenVK);
@@ -329,18 +355,23 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
   (it replaces FXAA; the sharpen only with a sharpness), the Halton sequence seen in pixels at any size, the depth rows
   against a moving camera, the push block's size, the material's dither flag.
 - **Unit tests** (`PostProcessingTests`): stage and order sorting, enable rules and needs, lazy creation and disposal,
-  the built-ins' stages, the target pool and history validity, Halton and the jittered projection, the 560-byte frame
-  block and its offsets, view and node motion histories.
+  the built-ins' stages, the target pool and history validity, Halton and the jittered projection, the 576-byte frame
+  block and its offsets, view and node motion histories. `SsaoTests`: defaults, the tonemap rule, stage and needs, the
+  push block and the shader's unprojection, scene round trip.
 
 ## Known issues
 
 - Sub-viewports have no post effects, prepass or velocity.
 - What the prepass does not draw has no velocity of its own (see above). Water marks itself reactive for TAA; particles
   (G6.3), Spine and transparent `StandardMaterial3D`s do not yet, so they may smear under TAA when they animate.
-- SSAO itself is not built yet (lane S).
 - TAA softens the image a little in motion (the sharpen restores some of it); the dithered alpha's noise shows for a
   frame or two where a branch uncovers leaves (the softer no-history reconstruction hides most of it); the Karis
   weighting uses the project exposure, not auto exposure's.
+- SSAO: thin geometry (grass blades, leaf cards) counts as infinitely thick, so a fern darkens the ground behind it within
+  the radius; what the prepass does not draw (water, blended surfaces, Spine, the grid) neither occludes nor receives it
+  (water and blended meshes skip it, but next passes and no-depth-test overlays drawn with the mesh shader read the AO
+  of what is behind them); no bent normals or contact shadow yet (G8e.1, G8e.2); quality is fixed (2 slices × 4 steps,
+  no `rendering.ssaoQuality` yet).
 
 ## Related docs
 

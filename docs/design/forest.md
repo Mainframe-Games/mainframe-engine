@@ -11,7 +11,7 @@ its own `Examples/Forest/Forest.slnx`, and it is **not** in `MainframeEngine.sln
 **Current state: the playable valley.** The project, the first-person controller, the CC0 art ([Assets](#assets)), the
 procedural [audio](#audio) and [the valley](#the-valley): a generated 256 m terrain with a stream (a small fall, three
 pools, a log bridge) running into a pond, about 1 500 trees, 180 bushes, grass, reeds, ferns, stones and props, under a
-physical morning sky with fog, light shafts, eye adaptation and TAA. Also the [reference shots](#reference-shots), the
+physical morning sky with fog, light shafts, eye adaptation, SSAO (GTAO, [ADR 0165](../../memory/decisions/0165-ssao-gtao.md)) and TAA. Also the [reference shots](#reference-shots), the
 [benchmark](#forestdev---autowalk-and-the-benchmark) and a path-following `--autowalk`. Not yet: the pause menu and
 settings page, impostors, PCSS and contact shadows, LUT grading, dust motes and butterflies, and the release job.
 
@@ -202,7 +202,9 @@ running at times):
 | **1920 × 1080** | **13.0 ms** | **16.0 ms** | **20.2 ms** | 2.0 ms |
 | 2560 × 1440 | 18.4 ms | 23.4 ms | 27.3 ms | 2.1 ms |
 
-≤ 465 draws, 0 B per frame, ≈ 4 s from launch to the first measured frame. 1080p holds 60 fps at the median and through
+Measured before SSAO (ADR 0165), which turns the depth prepass on: at 1920 × 1080 the passes take ≈ 1 ms of GPU time
+and the prepass saves about as much, so the frame stays near these numbers (ADR 0165 has the runs). ≤ 465 draws, 0 B per
+frame, ≈ 4 s from launch to the first measured frame. 1080p holds 60 fps at the median and through
 most of the flight; the p99 frames are the vista over the whole valley. Measured at 1080p against these defaults: the
 engine's default sun shadows (4 × 2048² to 100 m) +12 ms, 3 × 2048² to 90 m +8 ms, 3 × 1024² to 110 m +1.2 ms;
 hex-tiling +3.5 ms; the trees +10 ms; the ground cover +5 ms (p50). The GPU, not the CPU, bounds every case.
@@ -322,7 +324,7 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
 - `--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]]`: `ForestBenchmark` waits 240
   frames, then a camera flies the 15-point `ForestBenchmark.Spline` (low through the glade, past the fall, over the pine
   canopy, down to the pond and back to the trailhead) for n frames (default 1 800); it prints p50/p90/p99/p99.9/max of
-  the wall-clock frame intervals, the sun shadows' GPU time and the most draws, writes JSON and compares p50 and p99 with
+  the wall-clock frame intervals, the sun shadows' and SSAO's GPU time and the most draws, writes JSON and compares p50 and p99 with
   the baseline (exit 1 when more than 10 % slower or when a frame allocated). `just forest-bench` runs it at
   1920 × 1080 against `Examples/Forest/benchmark-baseline.json`.
 - `--shot`, `--view`, `--set`: [above](#reference-shots); `--resolution WxH` resizes the window to W × H pixels.

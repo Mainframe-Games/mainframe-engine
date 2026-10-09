@@ -64,7 +64,12 @@
         "LightShaftsEnabled": true,
         "LightShaftsIntensity": 2.3,
         "LightShaftsDecay": 0.965,
-        "LightShaftsDensity": 0.85
+        "LightShaftsDensity": 0.85,
+        "SsaoEnabled": true,
+        "SsaoRadius": 0.8,
+        "SsaoIntensity": 1.1,
+        "SsaoPower": 1.2,
+        "SsaoDetail": 0.4
       }
     },
     {

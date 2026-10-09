@@ -80,8 +80,11 @@ internal readonly record struct PostEffectSettings(PostProcessSettings World, An
     /// <summary>The engine's defaults: its own tonemap, no anti-aliasing, no debug view (no post effect runs).</summary>
     public static PostEffectSettings Default => new(PostProcessSettings.Default, AntiAliasing.None, RenderDebugView.None);
 
-    /// <summary>The world asks for something beyond the engine's own tonemap (ADR 0124): the post tonemap pass runs.</summary>
-    public bool PostTonemap => World != PostProcessSettings.Default;
+    /// <summary>
+    /// The world asks for something beyond the engine's own tonemap (ADR 0124): the post tonemap pass runs. SSAO
+    /// (ADR 0165) acts before the scene is lit, so its settings do not count.
+    /// </summary>
+    public bool PostTonemap => World.WithoutSsao() != PostProcessSettings.Default;
 }
 
 /// <summary>

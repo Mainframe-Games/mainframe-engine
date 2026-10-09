@@ -311,7 +311,7 @@ LayerSample shadeBand(float w[kMaxLayers], int count, float3 P, float3 dPdx, flo
 }
 
 [shader("fragment")]
-float4 main(FsIn input) : SV_Target0
+float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
 {
     float3 P = input.inWorldPos;
     float3 dPdx = ddx(P);
@@ -364,6 +364,6 @@ float4 main(FsIn input) : SV_Target0
     s.roughness = saturate(surface.orm.y);
     s.metallic = saturate(surface.orm.z);
     s.N = N;
-    float3 color = shadeLightsPbr(s, Ngeo, P);
+    float3 color = shadeLightsPbr(s, Ngeo, P, ambientOcclusionAt(fragCoord)); // × the screen-space AO (ADR 0165)
     return float4(applyFog(color, P), 1.0);
 }

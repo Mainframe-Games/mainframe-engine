@@ -1,5 +1,6 @@
 // StandardMaterial3D (Blinn-Phong, unshaded or PBR): set 0 frame + lights + sky lighting, set 1 shadows, set 2 material.
-// Linear HDR output, fogged (fog.slang).
+// Linear HDR output, fogged (fog.slang). Opaque and cutout surfaces take the screen-space AO (ADR 0165; exactly 1
+// without SSAO); blended ones are not in the depth prepass, so the AO under them belongs to what is behind.
 #include "frame.slang"
 #include "shadows.slang"
 #include "lights.slang"
@@ -22,7 +23,7 @@ struct FsIn
 };
 
 [shader("fragment")]
-float4 main(FsIn input, bool frontFacing : SV_IsFrontFace) : SV_Target0
+float4 main(FsIn input, float4 fragCoord : SV_Position, bool frontFacing : SV_IsFrontFace) : SV_Target0
 {
     float2 uv = materialUv(input.inUV);
     float2 duvdx = ddx(uv);
@@ -40,6 +41,7 @@ float4 main(FsIn input, bool frontFacing : SV_IsFrontFace) : SV_Target0
         N = -N; // double-sided: light the back face with its own normal
 
     float3 color;
+    float ssao = kAlphaMode == kAlphaBlend ? 1.0 : ambientOcclusionAt(fragCoord);
     uint shading = material.flags.y; // uniform: the branches keep derivatives defined
     if (shading == kShadingUnshaded)
     {
@@ -54,12 +56,12 @@ float4 main(FsIn input, bool frontFacing : SV_IsFrontFace) : SV_Target0
         s.roughness = orm.y;
         s.metallic = orm.z;
         s.N = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
-        color = shadeLightsPbr(s, N, input.inWorldPos);
+        color = shadeLightsPbr(s, N, input.inWorldPos, ssao);
     }
     else
     {
         float3 Nmap = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
-        color = shadeLightsBlinnPhong(albedo.rgb, Nmap, N, input.inWorldPos, material.params.x, material.params.y);
+        color = shadeLightsBlinnPhong(albedo.rgb, Nmap, N, input.inWorldPos, material.params.x, material.params.y, ssao);
     }
 
     color += materialEmission(uv, duvdx, duvdy);
