@@ -8,10 +8,11 @@ small forest with a stream, meant to look like a UE or Unity scene (proposal
 Like the [Demo](demo.md) it is a real game project built against this checkout (`MainframeEnginePath = ../..`) through
 its own `Examples/Forest/Forest.slnx`, and it is **not** in `MainframeEngine.slnx`.
 
-**Current state: the scaffold and the art.** The project, the first-person controller, a flat test scene with a
-`River3D` stream, and the CC0 art ([Assets](#assets): terrain layers, props, a sky panorama, the `ForestAssets` manifest
-and an asset gallery scene) exist. The valley (terrain), trees, grass, scattered props, audio, the pause menu, the
-reference shots, the benchmark and the release job come with the later waves of the forest slice.
+**Current state: the scaffold, the art and the audio.** The project, the first-person controller, a flat test scene
+with a `River3D` stream, the CC0 art ([Assets](#assets): terrain layers, props, a sky panorama, the `ForestAssets`
+manifest and an asset gallery scene) and the procedural [audio](#audio) (attached at run time by `ForestDev`) exist.
+The valley (terrain), trees, grass, scattered props, the pause menu, the reference shots, the benchmark and the release
+job come with the later waves of the forest slice.
 
 ## Layout
 
@@ -21,12 +22,13 @@ Examples/Forest/
 │   NOTICE.md (every third-party asset), README.md
 ├── project.mfproj        "Mainframe Forest": main scene forest, 1600 × 900, shadows High, the input map, autoload Dev
 ├── Forest/               Src/Player (FirstPersonController, IFootstepSurface + SurfaceBody3D, ForestSettings),
-│                         Src/World (ForestScene, SceneWriter, ForestAssets, ForestAssetGallery), Src/Dev (ForestDev)
+│                         Src/World (ForestScene, SceneWriter, ForestAssets, ForestAssetGallery), Src/Dev (ForestDev),
+│                         Src/Audio (ForestAudio, …)
 ├── Forest.Desktop/       GameHost.Run(args, typeof(Forest.FirstPersonController).Assembly) + --write-scenes <dir>
 ├── Forest.Tests/         xUnit v3, no GPU; the asset tests skip without the LFS content
 ├── Tools/fetch_assets.py downloads and imports Content/Art (python3 + Pillow, curl)
 └── Content/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres
-                          (the template's), Art/ (CC0, in LFS: Terrain/<Layer>/, Props/<id>/, Sky/)
+                          (the Forest's buses), Art/ (CC0, in LFS: Terrain/<Layer>/, Props/<id>/, Sky/)
 ```
 
 ## Assets
@@ -149,8 +151,8 @@ does not have are created unowned when it is ready.
 - **Footsteps.** `[Signal] Footstep(string surface)` once per `StrideLength` (0.75 m) on the floor and on landing. The
   surface is `"water"` when `WaterDepthAt(feet) ≥ 0.05 m`, else the floor collider's `IFootstepSurface` (a ray down from
   the feet; `SurfaceBody3D` has an exported `Surface`), else `SurfaceResolver` (a `Func<Vector3, string?>`; the content
-  wave sets it to `Terrain3D.SurfaceAt`'s layer name), else `DefaultSurface` ("default"). Sound sets come with the audio
-  step.
+  wave sets it to `Terrain3D.SurfaceAt`'s layer name), else `DefaultSurface` ("default"). `FootstepAudio` plays them
+  ([Audio](#audio)).
 - **Wading.** `World3D.Water` ([Water](water.md#water-queries)): speed × `WadeSpeedScale(ImmersionAt(feet))`, plus the
   flow × `FlowPush` 0.3; more than `MaxWadeImmersion` 1.2 m ahead is a soft wall (no swimming).
 - **Settings.** `ForestSettings` (FOV, sensitivity, invert Y, pad look speed, head bob) is read from `settings.json` in
@@ -164,6 +166,61 @@ does not have are created unowned when it is ready.
 press), `crouch` (C, Ctrl), `crouch_toggle` (B), `jump` (Space, A), `pause` (Escape, Start), `photo` (F2, Back; for the
 HUD later).
 
+## Audio
+
+`Forest/Src/Audio/`: the whole soundscape is **procedural** (no recorded or downloaded audio, so nothing to list in
+`NOTICE.md`): seeded noise, filters and ZzFX, synthesised once into in-memory `AudioStream`s (`AudioStream.FromSamples`;
+[ADR 0162](../../memory/decisions/0162-procedural-forest-audio.md)).
+
+### Wiring
+
+```csharp
+var audio = ForestAudio.Attach(sceneRoot, river, player, fallPositions: [new Vector3(…)]);   // or a ForestAudio node in the scene
+audio.PineDensity = p => PineDensityAt(p);   // optional (0–1): quieter songbirds, more woodpecker in the pines
+```
+
+`ForestAudio` (a `Node`; exports `RiverPath`, `PlayerPath`, `FallPositions`) creates its parts when ready, unowned
+(never saved): `Ambience`, `Stream`, `Birds` under itself and `FootstepAudio` under the player. With empty paths it finds
+the first `River3D` and `FirstPersonController` in its scene (its `Owner`, else its parent). It applies the volumes in
+`ForestSettings.Audio` (`settings.json`) when the game runs under `GameHost`.
+
+### Parts
+
+| Part | What | Bus |
+|---|---|---|
+| `AmbienceAudio` | two non-positional stereo loops: **wind roar** (24 s, 32 kHz: decorrelated noise per channel through a band-pass whose centre rises with the gusts, 180 → 700 Hz, plus a low rumble; the right channel lags 0.35 s so gusts sweep across) and **leaf rustle** (17 s: 2–8 kHz noise with a fast flutter under its own gusts squared). The gust envelopes are sums of sines at whole multiples of the loop frequency, so they repeat with the loop; the noise is folded into a seamless loop by an equal-power crossfade of a 1 s tail. `WorldEnvironment.WindStrength` (the trees' wind) sets the levels (calm: roar −6 dB, rustle −12 dB) and the roar's pitch (0.9–1.08), eased over 2 s | Ambience |
+| `StreamAudio` | the **brook** (14 s mono: band-passed noise at 800 Hz and 2.5 kHz that undulates, a low rumble, ≈ 38 Minnaert bubbles per second — sines at 350 Hz – 2.4 kHz whose pitch rises 1.3–2.4× as they decay — and bursts of babble) on two `AudioPlayer3D`s: the near one at the river point closest to the listener (`Curve3D.GetClosestOffset`), pushed toward the listener by up to half the width; the far one 12 m further along, −5 dB, half a loop apart. Both move at most 30 m/s. Level `StreamVolumeDb + clamp(20·log10(flow / 1 m/s), −6, +6)` from `River3D.FlowSpeedAt`; `UnitSize` 3 m, `MaxDistance` 30 m, low-pass to 2.5 kHz at range. The **falls** loop (10 s: the brook's recipe, brighter and denser) plays at each of `FallPositions` (`MaxDistance` 80 m); `River3D` has no falls yet, so the positions are parameters, and `StreamAudio.FindSteepPoints(river, minSlope 0.25, spacing 15 m)` finds candidates | Water |
+| `BirdSongs` | a pool of 6 `AudioPlayer3D`s (`UnitSize` 8 m, low-pass at range); Poisson-timed (mean 4 s, at least 0.8 s apart), 10–40 m away and 6–16 m above the listener; a species never twice in a row, nor a variant. Five ZzFX species (`BirdSynth`): Warbler (sliding whistles), Chickadee ("fee-bee"), Finch (a trill from ZzFX's repeat + tremolo, then a flourish), Thrush (flute phrases with pitch jumps, a soft trill), Woodpecker (a drum roll of `tan` knocks, slowing). Four songs and two calls each; pitch randomness 0.04. With `PineDensity`, songbirds are up to 8 dB quieter in dense pines and the woodpecker is likelier (weight 0.35 → 2) | Ambience |
+| `FootstepAudio` | `FirstPersonController.Footstep` → one of 6 variations of the surface's step, never the same twice in a row, `PitchRandomness` 0.08, ±1.5 dB, crouch −6 dB, sprint +2 dB; two alternating players at the feet. Each step is a heel and a softer toe impact 50–90 ms apart built from thumps, filtered noise bursts, grains (crunch), resonant modes and sweeps: `grass`, `leaves` (also `leaf_litter`), `moss`, `rock`, `dirt` (also `path`), `gravel`, `mud`, `water` (a splash with droplets), `wood` (the log bridge) and `default` | Foley |
+
+`ForestSoundBank.Shared` builds each group on first use (≈ 0.5 s in Debug for all of it, at scene load; about 17 MB of
+samples, mostly the stereo beds); `Preload()` builds everything now. All synthesis is deterministic for its seed
+(`ForestRandom`, SplitMix64).
+
+### Mix
+
+`Content/Settings/AudioBusLayout.mres` (`project.mfproj` → `audio.busLayout`): Master (16 voices) → **Ambience** −7 dB
+(10), **Water** −8 dB (6), **Foley** −7 dB (6, a light Freeverb: room 0.3, damp 0.7, wet 0.08), Music, SFX, UI. Measured
+through the offline path (`ForestAudioRenderTests`, master mix):
+
+| Scene | RMS | Peak |
+|---|---|---|
+| bed, calm / full wind | −42 / −35 dBFS | −25 / −19 dBFS |
+| brook 4 m from the bank / 25 m | −32 / −47 dBFS | −13 / −29 dBFS |
+| falls at 8 m | −30 dBFS | −14 dBFS |
+| birds (a song every 2 s) | −40 dBFS | −20 dBFS |
+| footsteps at a walk | −36 … −28 dBFS | −16 (moss) … −10 (wood) dBFS |
+| everything, walking by the stream | −26 dBFS | −9 dBFS |
+
+`ForestAudioSettings` (`MasterVolume`, `AmbienceVolume`, `WaterVolume`, `FoleyVolume`, linear 0–1, default 1) scale the
+buses over the layout's levels (`ForestAudio.ApplySettings`; 0 mutes).
+
+### Per frame
+
+Struct maths and property sets on existing players: the stream's closest-point search over the baked curve, the bird
+schedule and footsteps allocate nothing (`ForestAudioTests.FramesAllocateNothing`: 600 frames of walking with birds,
+footsteps on every surface and the server rendering, 0 B).
+
 ## `ForestDev` and `--autowalk`
 
 The `Dev` autoload (`ForestDev`) is idle unless started with game arguments after `++`:
@@ -174,6 +231,9 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
   rendering, UI) and quits with exit code 0 when it allocated nothing, 1 otherwise (an `[ERROR]` line). With
   `--fixed-fps 60` the walk is the same on every run. Measured: 0 B, 21 footsteps, 0 gen-0 collections.
 - `--no-capture` leaves the mouse free.
+- When the current scene has no `ForestAudio`, `ForestDev` attaches one on its first frame (the scene's river and
+  player), so the test scene has sound; `--no-audio` skips it. Measured: `--autowalk` with the audio still allocates
+  0 B (headless, null device).
 
 ## Recipes
 
@@ -181,6 +241,7 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
 |---|---|
 | `just forest *args` | `dotnet run --project Examples/Forest/Forest.Desktop -c Release -- {{args}}` |
 | `just forest-test` | `dotnet test Examples/Forest/Forest.Tests` |
+| `just forest-audio` | the offline audio renders: `Examples/Forest/artifacts/audio/*.wav` (ambience calm and windy, brook near and far, falls, birds, footsteps per surface, the whole mix walking) |
 | `just forest-screenshots [frames]` | `build/forest-screenshots.sh`: one Release shot of the main scene into `docs/images/forest/forest.png` (the five reference shots come later) |
 | `just forest-bench` | prints "not yet" (G8d.15) |
 
@@ -203,10 +264,17 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
   maps have no metal; every prop imports through Assimp with one shared PBR override whose ORM is the ARM map (the
   fern's albedo has alpha) at its documented size; the sky is a 4096 × 2048 JPG under 10 MB; the gallery scene matches
   its builder and paints one layer per band. The LFS-dependent tests skip when the art is only pointers.
+- audio (`ForestSynthTests`, `ForestAudioTests`, `ForestAudioRenderTests` over `AudioHarness`: the controller harness
+  plus an `AudioServer` on the manual null device with the Forest's bus layout): every sound is deterministic per seed,
+  loops are seamless, levels and frequency bands are where they should be, birds sing in their register; the wiring, the
+  wind following the environment, the brook's emitters (nearest point, half-width push, 30 m/s glide, louder with
+  flow), steep-point detection, the Poisson bird schedule (count, spacing, no repeats, determinism, pines), footsteps
+  per surface without repeats and from the controller's signal, settings on the buses, 0 B per frame; and the offline
+  renders above, which must not clip and must stay within their RMS and peak windows.
 
 Not in CI yet (the G8d.9 CI step and `build/forest-smoke.sh` come with the release work).
 
 ## Related
 
-[Water](water.md) · [Demo](demo.md) · [Cameras & input](cameras-and-input.md) · [Physics](physics.md) ·
+[Water](water.md) · [Audio](audio.md) · [Demo](demo.md) · [Cameras & input](cameras-and-input.md) · [Physics](physics.md) ·
 [Projects & GameHost](project-and-gamehost.md) · [future/forest-showcase.md](future/forest-showcase.md)
