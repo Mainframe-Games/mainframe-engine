@@ -66,7 +66,7 @@ public sealed class MaterialAndPipelineTests
         Assert.Equal(11, indices.Max());
 
         var parameters = MaterialParams.From(outline);
-        Assert.Equal(1u, parameters.Unshaded);
+        Assert.Equal(MaterialParams.ShadingUnshaded, parameters.Shading);
         Assert.Equal(7f, BitConverter.UInt32BitsToSingle(parameters.OutlineWidth));
     }
 
@@ -210,8 +210,62 @@ public sealed class MaterialAndPipelineTests
         Assert.Equal(new Vector4(2, 3, 0.5f, 0.25f), p.UvTransform);
         Assert.Equal(new Vector4(0.7f, 64f, 0.3f, 1.5f), p.Params);
         Assert.Equal(3u, p.TextureFlags);
-        Assert.Equal(1u, p.Unshaded);
+        Assert.Equal(MaterialParams.ShadingUnshaded, p.Shading);
         Assert.Equal(1u, p.DoubleSided);
+    }
+
+    [Fact]
+    public void PbrMaterialDefaultsFollowGodot()
+    {
+        var material = new StandardMaterial3D();
+        Assert.Equal(ShadingMode.BlinnPhong, material.ShadingMode); // the default keeps today's look (ADR 0150)
+        Assert.Equal(0f, material.Metallic);
+        Assert.Equal(1f, material.Roughness);
+        Assert.Equal(1f, material.AmbientOcclusion);
+        Assert.Null(material.OrmTexture);
+
+        var p = MaterialParams.From(material, 0);
+        Assert.Equal(MaterialParams.ShadingBlinnPhong, p.Shading);
+        Assert.Equal(new Vector4(0f, 1f, 1f, 0f), p.Pbr);
+    }
+
+    [Fact]
+    public void PbrPropertiesBumpTheVersionAndPack()
+    {
+        var material = new StandardMaterial3D();
+        var version = material.Version;
+        var orm = Texture2D.FromPixels(1, 1, [255, 128, 0, 255]);
+        material.ShadingMode = ShadingMode.Pbr;
+        material.Metallic = 0.8f;
+        material.Roughness = 0.25f;
+        material.AmbientOcclusion = 0.5f;
+        material.OrmTexture = orm;
+        Assert.Equal(version + 5, material.Version);
+        material.OrmTexture = orm; // unchanged
+        material.Metallic = 0.8f;
+        Assert.Equal(version + 5, material.Version);
+
+        var p = MaterialParams.From(material, MaterialParams.HasOrm);
+        Assert.Equal(MaterialParams.ShadingPbr, p.Shading);
+        Assert.Equal(new Vector4(0.8f, 0.25f, 0.5f, 0f), p.Pbr);
+        Assert.Equal(8u, p.TextureFlags);
+        Assert.Equal(96, MaterialParams.Size);
+        Assert.Equal(MaterialParams.Size, System.Runtime.InteropServices.Marshal.SizeOf<MaterialParams>());
+
+        // Out-of-range values are clamped for the shader.
+        material.Metallic = 2f;
+        material.Roughness = -1f;
+        Assert.Equal(new Vector4(1f, 0f, 0.5f, 0f), MaterialParams.From(material, 0).Pbr);
+    }
+
+    [Fact]
+    public void ShadingModesMapToTheShaderConstants()
+    {
+        // material.slang: kShadingBlinnPhong 0, kShadingUnshaded 1, kShadingPbr 2.
+        Assert.Equal(0u, MaterialParams.From(new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong }, 0).Shading);
+        Assert.Equal(1u, MaterialParams.From(new StandardMaterial3D { ShadingMode = ShadingMode.Unshaded }, 0).Shading);
+        Assert.Equal(2u, MaterialParams.From(new StandardMaterial3D { ShadingMode = ShadingMode.Pbr }, 0).Shading);
+        Assert.Equal(8u, MaterialParams.HasOrm); // material.slang: kHasOrmTexture
     }
 
     private sealed class FakeFactory : IPipelineFactory

@@ -13,5 +13,6 @@ float4 main([[vk::location(0)]] float2 inUV) : SV_Target0 // inUV: NDC
     float u = atan2(dir.z, dir.x) / (2.0 * PI) + 0.5;
     float v = 0.5 - asin(clamp(dir.y, -1.0, 1.0)) / PI;
 
-    return panoramic.Sample(float2(u, v));
+    float4 color = panoramic.Sample(float2(u, v));
+    return float4(applySkyFog(color.rgb, dir), color.a);
 }

@@ -79,7 +79,7 @@ internal sealed class InstanceBuffer : IDisposable
 }
 
 /// <summary>
-/// Descriptor sets of one layout (material set 2): fixed-size pools created with FREE_DESCRIPTOR_SET and a new
+/// Descriptor sets of one layout (material set 2: a UBO, a sampler and four images): fixed-size pools created with FREE_DESCRIPTOR_SET and a new
 /// pool when every pool is full. A freed set is returned to its pool once the frames that may still bind it have
 /// finished (tracked like the <see cref="DeletionQueue"/>, by frame number), so each pool's live count is exact
 /// and allocation never has to probe a full pool.
@@ -183,7 +183,7 @@ internal sealed unsafe class MaterialDescriptorAllocator : IDisposable
         var sizes = stackalloc DescriptorPoolSize[3];
         sizes[0] = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = SetsPerPool };
         sizes[1] = new DescriptorPoolSize { Type = DescriptorType.Sampler, DescriptorCount = SetsPerPool };
-        sizes[2] = new DescriptorPoolSize { Type = DescriptorType.SampledImage, DescriptorCount = SetsPerPool * 3 };
+        sizes[2] = new DescriptorPoolSize { Type = DescriptorType.SampledImage, DescriptorCount = SetsPerPool * 4 }; // albedo, normal, emission, ORM
         var info = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,

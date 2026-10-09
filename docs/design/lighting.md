@@ -2,11 +2,14 @@
 
 ## Purpose
 
-CPU-side light descriptions plus a fixed-size uniform layout consumed by lit shaders (shapes and
-Spine). The lighting model is forward Blinn-Phong with shadow attenuation. In scenes, lights are nodes
+CPU-side light descriptions plus a fixed-size uniform layout consumed by lit shaders (meshes and
+Spine). The lighting model is forward Blinn-Phong with shadow attenuation, or PBR (Cook-Torrance GGX + Lambert,
+[ADR 0150](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md)) for `ShadingMode.Pbr` materials, with ambient light
+and reflections from the sky's image-based lighting, and distance + height fog. In scenes, lights are nodes
 (`DirectionalLight3D`, `OmniLight3D`, `SpotLight3D`; see [Scene graph & nodes](scene-graph-and-nodes.md#servers-and-render-nodes))
 that wrap these light objects and register them with their world's `LightEnvironment`
-(`SceneViewport.World3D.Lights`); `WorldEnvironment.AmbientColor` sets the ambient term.
+(`SceneViewport.World3D.Lights`); `WorldEnvironment.AmbientColor` sets the ambient term, `AmbientEnergy` scales it and
+`AmbientSource` (`Color` by default, or `Sky`) picks where it comes from.
 
 ## Key types
 
@@ -46,14 +49,16 @@ Unit tests pin the layout.
 std140, **1200 bytes** = `48 + 4×32 + 16×32 + 8×64`. Colours are written **linear** (`Light.LinearColor`,
 ambient converted when set). Spine and future scene pipelines read it from the per-frame shared set 0,
 binding 1 (`FrameContext`, written once per frame); shapes still bind their own copy as set 1, binding 0.
-Shaders get the struct and the shading loop from `include/lights.slang`.
+Shaders get the struct from `include/lights_data.slang` (no shadow set needed: the fog and the sky shaders read it) and
+the shading loops from `include/lights.slang`. The render server sets `LightEnvironment.AmbientEnergy` and
+`EnvironmentFlags` from the world's `WorldEnvironment` before each view writes the block.
 
 ![Lights UBO layout](../images/lights-ubo-layout.svg)
 
 | Offset | Field | Packing |
 |---|---|---|
-| 0 | `vec4 ambientColor` | rgb |
-| 16 | `vec4 cameraPosition` | xyz |
+| 0 | `vec4 ambientColor` | rgb = ambient colour × `AmbientEnergy`, w = `AmbientEnergy` (scales the sky's irradiance) |
+| 16 | `vec4 cameraPosition` | xyz, w = environment flags as a float (`kEnv*` in `lights_data.slang`: 1 sky diffuse, 2 sky reflections, 4 no reflections) |
 | 32 | `ivec4 counts` | x = dir, y = point, z = spot |
 | 48 | `DirLight dir[4]` | `{dir.xyz, intensity}`, `{color.xyz, shadowOpacity}` |
 | 176 | `PointLight point[16]` | `{pos.xyz, range}`, `{color.xyz, intensity}` |
@@ -69,14 +74,52 @@ result = ambient · base
        + Σ_lights  color · intensity · (diffuse + 0.3 · pow(max(N·H, 0), 32)) · base · atten · spot · shadow
 ```
 
+`ambient` is `iblDiffuse(N)` (`include/environment.slang`): the ambient colour, or the sky's irradiance when the world's
+`AmbientSource` is `Sky` and the sky has been captured.
+
 | Term | Formula |
 |---|---|
 | Attenuation (point/spot) | `clamp(1 − d / range, 0, 1)²` |
 | Spot cone | `clamp((cosθ − cosOuter) / max(cosInner − cosOuter, 1e-4), 0, 1)` |
 | Shadow | the light's shadow code picks its map; see [Shadow system](shadow-system.md#sampling-and-filtering) |
 
-All lighting runs in linear space into the HDR scene target; the tonemap pass (exposure + ACES) maps it
-to the display, so overlapping lights no longer clip (see [Color pipeline](color-pipeline.md)).
+### PBR
+
+`shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos)` (`lights.slang`), with `PbrSurface { albedo, metallic,
+roughness, ao, N }`. Every lit 3D shader of the later G8 lanes (foliage, terrain, water) calls it.
+
+| Term | Formula |
+|---|---|
+| Roughness | perceptual `r` clamped to ≥ 0.045; α = r², a2 = α² |
+| D (GGX) | `a2 / (π · ((N·H)² (a2 − 1) + 1)²)` |
+| Visibility (Smith height-correlated) | `0.5 / (N·L √((N·V)² (1 − a2) + a2) + N·V √((N·L)² (1 − a2) + a2))` |
+| F (Schlick) | `F0 + (1 − F0)(1 − V·H)⁵`, `F0 = lerp(0.04, albedo, metallic)` |
+| Direct light | `(albedo (1 − metallic)(1 − F) + π · D · Vis · F) · radiance · N·L` |
+| Ambient | `(iblDiffuse(N) · albedo (1 − metallic) + iblSpecular(R, r) · (F0 · A + B)) · ao`, (A, B) = `iblBrdf(N·V, r)` |
+
+Light units are the Blinn-Phong ones: Lambert's 1/π is folded into the light (a light of energy 1 lights a white diffuse
+surface at normal incidence to 1), so the specular lobe carries the π. `radiance` is colour × intensity × attenuation ×
+spot cone × shadow, with the same shadow lookups, shadow opacity and cascade tint as Blinn-Phong.
+
+The ambient helpers (`include/environment.slang`) fall back without a captured sky: `iblDiffuse` returns the ambient
+colour, `iblSpecular` a uniform environment of the ambient colour (or nothing when `ReflectedLightSource` is
+`Disabled`). See [Sky → Image-based lighting](sky.md#image-based-lighting) and `BrdfLut` for the split-sum table.
+
+### Fog
+
+`include/fog.slang`: `applyFog(color, worldPos)` for surfaces and `applySkyFog(color, dir)` for the sky, from
+`FrameData.fogColor` / `fogParams` (`WorldEnvironment.Fog*`). Both return the colour unchanged while fog is off
+(`fogColor.a == 0`, the default).
+
+- Density at height y is `FogDensity · exp(−FogHeightDensity · max(y − FogHeight, 0))`: uniform below the fog height,
+  thinning above it. The optical depth along the camera ray is integrated exactly (the antiderivative of the density),
+  so the fog is right with the camera inside or above it. `amount = 1 − exp(−depth)`.
+- Sun scatter (Godot's `fog_sun_scatter`) adds `dir[0].color · intensity · max(V · toSun, 0)⁸ · FogSunScatter` to the fog
+  colour.
+- **The sky** gets only height fog: the ray to infinite height through the thinning fog, so the horizon fades into the
+  fog and the zenith keeps most of its colour. Uniform fog (height density 0) leaves the sky clear (it would otherwise
+  turn the whole sky to fog). The sky lighting capture is unfogged.
+- `Mesh.vk.frag` fogs opaque and blended surfaces after emission.
 
 ## Shadows
 
@@ -119,6 +162,8 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no 
 - Lights over the limit are dropped silently, with no warning.
 - Point lights ignore `ShadowOpacity` (their UBO entry has no free slot; ADR 0123).
 - Directional gizmo arrows are not projected through the camera.
+- PBR has no `MetallicSpecular`, `AoLightAffect`, multi-scattering energy compensation or specular occlusion yet.
+- Fog has no aerial perspective or volumetric part (froxels wait for compute, ADR 0149).
 
 ## Related docs
 

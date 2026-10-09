@@ -3,7 +3,7 @@
 //   b1 cascade array of the primary directional light (Sampler2DArrayShadow, immutable comparison sampler)
 //   b2 shadow atlas: spot lights and secondary directional lights (Sampler2DShadow, immutable comparison sampler)
 //   b3 point-light cubes holding linear distance / range (SamplerCubeShadow[MAX_SHADOW_POINT], immutable comparison)
-// Six samplers in all (the material adds one), well inside MoltenVK's 16 per stage.
+// Six samplers in all (the material adds one, the sky lighting in set 0 three): 10 of MoltenVK's 16 per stage.
 // Define SHADOW_SET before including to override the set (default 1: the shared sets are 0 = frame, 1 = shadows).
 // Needs frame.slang (the camera's view matrix selects the cascade).
 #pragma once

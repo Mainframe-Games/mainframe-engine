@@ -2,12 +2,36 @@ using System.Numerics;
 
 namespace MainframeEngine;
 
+/// <summary>Where ambient light comes from (Godot's <c>Environment.AmbientSource</c>, the two sources the engine has).</summary>
+public enum AmbientSource : byte
+{
+    /// <summary><see cref="WorldEnvironment.AmbientColor"/> everywhere.</summary>
+    Color,
+
+    /// <summary>The sky's irradiance (image-based lighting, ADR 0150); the colour while there is no sky.</summary>
+    Sky,
+}
+
+/// <summary>Where reflections come from (Godot's <c>Environment.ReflectionSource</c>).</summary>
+public enum ReflectedLightSource : byte
+{
+    /// <summary>The sky when the world has one, else a uniform environment of the ambient colour.</summary>
+    Background,
+
+    /// <summary>No reflected light.</summary>
+    Disabled,
+
+    /// <summary>The sky (the ambient colour while there is no sky).</summary>
+    Sky,
+}
+
 /// <summary>
 /// Sky, ambient light, wind, fog, tonemap, glow and auto exposure for its viewport's world (Godot's
 /// <c>WorldEnvironment</c>). The sky is described by a <see cref="MainframeEngine.Sky"/> resource; the render server builds
 /// the matching <see cref="SkyEnvironment"/> on first use and rebuilds it when the sky's mode or images change. A
 /// physical sky's sun is the world's first <see cref="DirectionalLight3D"/> (ADR 0154). Only the first environment in a
-/// world is used.
+/// world is used. With a sky, PBR materials reflect it and <see cref="AmbientSource"/> can light the world with it: the
+/// render server captures it into image-based lighting cubes (<see cref="SkyRadiance"/>, ADR 0150) when it changes.
 /// </summary>
 [EditorIcon("world", Family = EditorIconFamily.Space3D)]
 public class WorldEnvironment : Node, IRenderResourceOwner
@@ -20,6 +44,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     private string? _builtPanorama;
     private string[]? _builtFaces;
     private PostProcessSettings _post = PostProcessSettings.Default;
+    private SkyRadiance? _radiance;
 
     /// <summary>The sky drawn behind everything; null draws no sky (the clear color shows).</summary>
     [Export]
@@ -40,6 +65,24 @@ public class WorldEnvironment : Node, IRenderResourceOwner
                 _world.Lights.AmbientColor = value;
         }
     }
+
+    /// <summary>
+    /// Where ambient light comes from (Godot's <c>ambient_light_source</c>): <see cref="AmbientColor"/> (the default) or
+    /// the sky's irradiance. Applies to Blinn-Phong and PBR materials alike.
+    /// </summary>
+    [Export]
+    public AmbientSource AmbientSource { get; set; }
+
+    /// <summary>Scales the ambient light, colour or sky (Godot's <c>ambient_light_energy</c>).</summary>
+    [Export(Range = "0,16,0.01")]
+    public float AmbientEnergy { get; set; } = 1f;
+
+    /// <summary>
+    /// Where PBR reflections come from (Godot's <c>reflected_light_source</c>): by default the sky, captured into a
+    /// prefiltered cube; without a sky, a uniform environment of the ambient colour.
+    /// </summary>
+    [Export]
+    public ReflectedLightSource ReflectedLightSource { get; set; }
 
     /// <summary>The tonemap and glow this environment asks the renderer for (ADR 0124); the tree's root world's is used.</summary>
     public PostProcessSettings PostProcess => _post;
@@ -331,13 +374,48 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     /// <summary>The sky environment built for <see cref="Sky"/> (null before the first frame draws it; tests).</summary>
     internal SkyEnvironment? SkyEnvironment => _skyEnvironment;
 
-    internal void DrawSky(RenderServer server, ICamera camera)
-    {
-        if (Sky is not { } sky)
-            return;
+    internal void DrawSky(RenderServer server, ICamera camera) => SyncSky(server)?.Draw(camera);
 
-        SyncSky(server, sky).Draw(camera);
+    /// <summary>Whether the sky lights the world: there is one, and ambient or reflected light comes from it.</summary>
+    private bool UsesSkyLighting => Sky is not null &&
+                                    (AmbientSource == AmbientSource.Sky || ReflectedLightSource != ReflectedLightSource.Disabled);
+
+    /// <summary>
+    /// Captures the sky into the image-based lighting cubes when it changed (<see cref="SkyRadiance.Update"/>). Called by
+    /// the render server with the frame's command buffer and no render pass active, before the world's views draw.
+    /// </summary>
+    internal void UpdateSkyLighting(RenderServer server, Silk.NET.Vulkan.CommandBuffer cb)
+    {
+        if (!UsesSkyLighting || server.Vulkan is not { } vk || SyncSky(server) is not { CanDraw: true } env)
+            return;
+        _radiance ??= new SkyRadiance(vk);
+        _radiance.Update(cb, env);
     }
+
+    /// <summary>The captured sky to bind for this world's views, or null (no sky lighting yet, or none wanted).</summary>
+    internal EnvironmentMaps? SkyLightingMaps => UsesSkyLighting && _radiance is { IsBaked: true } radiance ? radiance.Maps : null;
+
+    /// <summary>The image-based lighting cubes (null until the sky lights the world).</summary>
+    internal SkyRadiance? Radiance => _radiance;
+
+    /// <summary>
+    /// The light-UBO environment flags for this world (<c>kEnv*</c> in <c>lights_data.slang</c>):
+    /// <paramref name="maps"/> is what <see cref="SkyLightingMaps"/> returned.
+    /// </summary>
+    internal int EnvironmentFlags(EnvironmentMaps? maps)
+    {
+        var flags = 0;
+        if (ReflectedLightSource == ReflectedLightSource.Disabled)
+            flags |= LightEnvironment.EnvironmentNoSpecular;
+        else if (maps is not null)
+            flags |= LightEnvironment.EnvironmentSkySpecular;
+        if (maps is not null && AmbientSource == AmbientSource.Sky)
+            flags |= LightEnvironment.EnvironmentSkyDiffuse;
+        return flags;
+    }
+
+    // Builds or rebuilds the sky's GPU objects and copies the resource's parameters into them; null without a sky.
+    private SkyEnvironment? SyncSky(RenderServer server) => Sky is { } sky ? SyncSky(server, sky) : null;
 
     // Builds the sky environment when the mode or images changed and copies the parameters into it.
     private SkyEnvironment SyncSky(RenderServer server, Sky sky)
@@ -399,6 +477,8 @@ public class WorldEnvironment : Node, IRenderResourceOwner
 
     private void ReleaseSky()
     {
+        _radiance?.Dispose();
+        _radiance = null;
         _skyEnvironment?.Dispose();
         _skyEnvironment = null;
         _server?.Untrack(this);

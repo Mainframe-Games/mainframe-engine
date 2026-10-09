@@ -9,6 +9,9 @@ procedural/sun/physical parameters below); the render server builds the matching
 rebuilds it when the mode or images change, records its offscreen work (`Prepare`: the physical sky's LUTs) at the start
 of `RenderOffscreen`, and draws it first in the main pass. See
 [Scene graph & nodes](scene-graph-and-nodes.md#servers-and-render-nodes).
+The sky also lights the world: it is captured into image-based lighting cubes ([below](#image-based-lighting),
+[ADR 0150](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md)) for PBR reflections and, optionally, ambient light.
+Every sky type, the physical one included, is captured through its own fragment shader (without the sun disc).
 
 ## Key types
 
@@ -22,6 +25,8 @@ of `RenderOffscreen`, and draws it first in the main pass. See
 | `SkyEnvironmentType` | [Sky/SkyEnvironmentType.cs](../../MainframeEngine/Src/Rendering/Sky/SkyEnvironmentType.cs) | `Procedural`, `Panoramic`, `Cubemap`, `Physical` |
 | `PhysicalSkySettings` | [Sky/PhysicalSkySettings.cs](../../MainframeEngine/Src/Rendering/Sky/PhysicalSkySettings.cs) | record struct; `SkyEnvironment.Physical`, `Sky.PhysicalSettings` |
 | `PhysicalSkyLuts`, `AtmosphereModel` | [Sky/](../../MainframeEngine/Src/Rendering/Sky/) | internal: the LUT passes; the CPU model (sun-disc colour, tests) |
+| `SkyRadiance` (internal) | [Sky/SkyRadiance.cs](../../MainframeEngine/Src/Rendering/Sky/SkyRadiance.cs) | `(IVulkanContext)`; owned by the `WorldEnvironment` |
+| `BrdfLut` (internal) | [Sky/BrdfLut.cs](../../MainframeEngine/Src/Rendering/Sky/BrdfLut.cs) | static: the split-sum table, computed on the CPU |
 
 ### Procedural parameters
 
@@ -53,7 +58,7 @@ of `RenderOffscreen`, and draws it first in the main pass. See
 | 32 | `vec4 groundColor` |
 | 48 | `vec4 sunDirection` |
 | 64 | `vec4 sunColorIntensity` (rgb colour, a intensity) |
-| 80 | `vec4 sun` (x = cos of angular radius, y = horizon sharpness) |
+| 80 | `vec4 sun` (x = cos of angular radius, y = horizon sharpness, z = 1 in the lighting capture: no sun disk) |
 
 Colours are authored in sRGB and decoded to linear in the shader; the sun (`SunColor × SunIntensity`,
 20 by default) is an HDR value that the tonemap rolls off instead of clipping
@@ -149,6 +154,44 @@ range; call `Prepare` first in the frame. `SkyParams` for the physical sky: `sky
 (km), `horizonColor.rgb` = the sky scale (π × the sun's illuminance × `EnergyMultiplier`), `sunDirection.xyz`,
 `sunColorIntensity.rgb` = the disc's radiance, `sun.x` = cos of the disc's radius.
 
+Every sky shader ends with `applySkyFog(color, dir)` (`include/fog.slang`, included by `include/sky.slang`): with height
+fog on, the horizon fades into the fog colour and the zenith keeps most of its colour; uniform fog leaves the sky clear
+([Lighting → Fog](lighting.md#fog)).
+
+## Image-based lighting
+
+`SkyRadiance` turns the world's sky into lighting (G6.2-lite, [ADR 0150](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md)).
+The render server updates it in `RenderOffscreen`, before any view draws (`WorldEnvironment.UpdateSkyLighting`, root
+world and every rendering sub-viewport world), when the world has a sky and `AmbientSource` is `Sky` or
+`ReflectedLightSource` is not `Disabled` (the default `Background` reflects the sky).
+
+| Step | Detail |
+|---|---|
+| Capture | The sky's own fragment shader renders into a 128² `R16G16B16A16_SFLOAT` cube, one face per pass, through a 90° camera per face: six set-0-compatible sets holding a `FrameData` each (`SkyRadiance.FaceView`, a unit test checks them against Vulkan's cube addressing), an empty lights block, and the sky's push constants with `sun.z = 1` (`SkyEnvironment.DrawCapture`). Any sky type works, including later ones, as long as its inputs are its push constants and set 1. No fog, no sun disk (the directional light lights with the sun; a sub-texel disk would flicker as it moves). |
+| Mips | `vkCmdBlitImage` builds the captured cube's mip chain (one mip when the format cannot be blitted linearly). |
+| Radiance | 6 mips (128 … 4): mip m = perceptual roughness m / 5, GGX importance sampling with 128 samples per texel, reading the source mip whose texel matches each sample's solid angle (filtered importance sampling). Mip 0 copies the sky. `Sky/SkyPrefilter.vk.frag`. |
+| Irradiance | 32² cube: 256 cosine-weighted samples, divided by π (an ambient colour per normal). `Sky/SkyIrradiance.vk.frag`. |
+| BRDF LUT | `BrdfLut`: 64² `R16G16_SFLOAT` split-sum scale and bias, 256 GGX samples per texel, computed on the CPU once per process and uploaded by `FrameContext`. Unit-tested against a numerical integral. |
+
+Every pass is a fullscreen triangle (`Post/Fullscreen.vk.vert`) in one colour-only render pass; explicit barriers do
+every layout change, and the first waits for earlier frames' sampling, so the cubes are rewritten in place.
+
+**When.** A bake runs when the sky changes: another `SkyEnvironment` (mode or images), or other push constants
+(`SkyEnvironment.CaptureParams`: colours, sun direction, …). Parameter changes re-bake at most every
+`SkyRadiance.MinFramesBetweenBakes` (4) frames, so a moving sun costs a bake every few frames. A still sky bakes once.
+
+**Binding.** Set 0 (`FrameContext`), per frame slot and view: b2 radiance cube, b3 irradiance cube, b4 BRDF LUT, one
+linear mipmapped clamp sampler. Before each view's `Begin` the render server sets `FrameContext.EnvironmentMaps` to its
+world's captured cubes (or null: a black 1×1 cube); the set is rewritten only when that changes. The lights UBO tells
+the shaders what to use (`ambientColor.w` = `AmbientEnergy`, `cameraPosition.w` = flags; [Lighting](lighting.md#lights-ubo)).
+Shader helpers (`include/environment.slang`): `iblDiffuse(N)`, `iblSpecular(R, roughness)`, `iblBrdf(N·V, roughness)`.
+
+| `WorldEnvironment` export | Default | Effect |
+|---|---|---|
+| `AmbientSource` | `Color` | `Color`: `AmbientColor`; `Sky`: the sky's irradiance (Blinn-Phong and PBR) |
+| `AmbientEnergy` | 1 | Scales the ambient light, colour or sky |
+| `ReflectedLightSource` | `Background` | `Background`/`Sky`: PBR reflections from the sky (a uniform ambient-colour environment without one); `Disabled`: none |
+
 ## Invariants
 
 - Draw the sky **first** in the main pass. It does not write depth.
@@ -157,6 +200,9 @@ range; call `Prepare` first in the frame. `SkyParams` for the physical sky: `sky
   do nothing.
 
 ## Testing
+
+The `pbr` render scene (golden) checks that the sky was captured and how often it re-bakes with a still and a turning
+sun; the turning-sun run is an allocation gate. `fog` (golden) covers the sky's horizon fog.
 
 The `sky-grid` render scene draws only the procedural sky and the grid; the test recomputes every pixel's sky
 colour on the CPU (`SkyGridReference`: `skyRay`, gradient, sun, exposure, ACES, sRGB encode) and requires all
@@ -174,6 +220,9 @@ transmittance, a blue single-scattered zenith and an orange sunset glow, normali
 exports' round trip.
 
 ## Known issues
+
+- One capture per `WorldEnvironment` (a `Sky` shared by two worlds is baked twice). The bake runs whole in one frame.
+- The radiance cube is 128²: mirror-like metals show a soft sky. Panoramas are LDR (no `.hdr` decoding yet).
 
 - Cubemap faces must be square and equal-sized (checked); a Panoramic or Cubemap sky without paths throws.
 - The panorama is sampled without mips (the longitude seam would select the smallest mip).

@@ -308,6 +308,15 @@ public sealed class RenderServer : IServer
         var cb = vk.CurrentCommandBuffer;
         root.World3D.Environment?.PrepareSky(this, cb); // ADR 0154: the physical sky's LUTs, before any pass draws a sky
 
+        // Sky lighting first (ADR 0150): every view of a world binds its captured sky.
+        root.World3D.Environment?.UpdateSkyLighting(this, cb);
+        foreach (var sub in _subViewports)
+        {
+            if (!ShouldRender(sub)) continue;
+            sub.World3D.Environment?.PrepareSky(this, cb); // the physical sky's LUTs before its capture and its view
+            sub.World3D.Environment?.UpdateSkyLighting(this, cb);
+        }
+
         var view = 1;
         foreach (var sub in _subViewports)
         {
@@ -316,8 +325,6 @@ public sealed class RenderServer : IServer
             {
                 if (view < FrameContext.MaxViews)
                 {
-                    if (colour)
-                        sub.World3D.Environment?.PrepareSky(this, cb);
                     RenderSubViewport(vk, cb, sub, view++, colour);
                 }
                 else if (!_warnedTooManyViews)
@@ -340,6 +347,7 @@ public sealed class RenderServer : IServer
         {
             var world = root.World3D;
             vk.Frame.Environment = world.Environment?.FrameEnvironment ?? default;
+            BindSkyLighting(vk.Frame, world);
             vk.Frame.Begin(camera, world.Lights); // the main pass rewrites the same data
             var meshes = Meshes!;
             meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
@@ -364,6 +372,7 @@ public sealed class RenderServer : IServer
             EnsureResources(world);
             // The shadow maps belong to the main world, unless this view owns them this frame (SubViewport.Shadows).
             frame.Environment = world.Environment?.FrameEnvironment ?? default;
+            BindSkyLighting(frame, world);
             frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber);
             meshes = world.GeometryList.Count > 0 ? Meshes : null;
             meshes?.Prepare(targets.Draws, world, camera, collectCasters: false);
@@ -440,6 +449,7 @@ public sealed class RenderServer : IServer
             EnsureResources(world);
             vk.Frame.SetView(0, default);
             vk.Frame.Environment = world.Environment?.FrameEnvironment ?? default;
+            BindSkyLighting(vk.Frame, world);
             vk.Frame.Begin(camera, world.Lights); // shared set 0: camera + lights, once per frame
             MeshRenderer? meshes = null;
             if (world.GeometryList.Count > 0)
@@ -465,6 +475,17 @@ public sealed class RenderServer : IServer
             viewport.DebugLines.Clear();
             viewport.OverlayLines.Clear();
         }
+    }
+
+    // The world's sky lighting for the next FrameContext.Begin: the captured cubes (set 0) and the lights UBO's ambient
+    // energy and environment flags.
+    private static void BindSkyLighting(FrameContext frame, World3D world)
+    {
+        var environment = world.Environment;
+        var maps = environment?.SkyLightingMaps;
+        frame.EnvironmentMaps = maps;
+        world.Lights.AmbientEnergy = environment?.AmbientEnergy ?? 1f;
+        world.Lights.EnvironmentFlags = environment?.EnvironmentFlags(maps) ?? 0;
     }
 
     // The viewport's debug lines (depth-tested), then its overlay lines (always on top).

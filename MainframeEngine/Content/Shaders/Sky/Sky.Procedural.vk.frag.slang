@@ -23,8 +23,8 @@ float4 main([[vk::location(0)]] float2 inUV) : SV_Target0 // inUV: NDC
     float  sunSize = sky.sun.x;
     // Soft edge: transition over a tiny cosine band just inside the sun boundary.
     float softEdge = max(1.0 - sunSize, 0.0001);
-    float sunMask  = smoothstep(sunSize - softEdge * 0.05, sunSize, sunDot);
+    float sunMask  = smoothstep(sunSize - softEdge * 0.05, sunSize, sunDot) * (1.0 - sky.sun.z); // none in a capture
     color += srgbToLinear(sky.sunColorIntensity.rgb) * sky.sunColorIntensity.a * sunMask; // HDR: tonemapped later
 
-    return float4(color, 1.0);
+    return float4(applySkyFog(color, worldDir), 1.0);
 }

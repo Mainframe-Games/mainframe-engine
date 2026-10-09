@@ -139,6 +139,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
     private readonly MaterialDescriptorAllocator _materialSets;
     private readonly GpuTexture _whiteSrgb;
     private readonly GpuTexture _flatNormal;
+    private readonly GpuTexture _whiteLinear;
     private readonly InstanceBuffer _instances;
     private readonly Dictionary<Mesh, MeshGpu> _meshes = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Material, MaterialGpu> _materials = new(ReferenceEqualityComparer.Instance);
@@ -163,6 +164,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             new() { Binding = 2, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 3, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 4, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = 5, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ];
         _materialLayout = PipelineBuilder.CreateSetLayout(ctx, bindings, "material set 2");
         _pipelineLayout = ctx.Frame.CreatePipelineLayout(_shadowDescriptors, [_materialLayout], "mesh");
@@ -178,6 +180,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         ReadOnlySpan<byte> flat = [128, 128, 255, 255];
         _whiteSrgb = GpuTexture.Create2D(ctx, 1, 1, white, TextureColorSpace.Srgb, TextureSampling.LinearRepeat);
         _flatNormal = GpuTexture.Create2D(ctx, 1, 1, flat, TextureColorSpace.Linear, TextureSampling.LinearRepeat);
+        _whiteLinear = GpuTexture.Create2D(ctx, 1, 1, white, TextureColorSpace.Linear, TextureSampling.LinearRepeat); // ORM: × 1
     }
 
     /// <summary>The state-hash pipeline cache (stats for tools and tests).</summary>
@@ -383,7 +386,8 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         ReleaseTexture(gpu.Albedo);
         ReleaseTexture(gpu.Normal);
         ReleaseTexture(gpu.Emission);
-        gpu.Albedo = gpu.Normal = gpu.Emission = null;
+        ReleaseTexture(gpu.Orm);
+        gpu.Albedo = gpu.Normal = gpu.Emission = gpu.Orm = null;
     }
 
     private TextureGpu? AcquireTexture(Texture2D? texture, bool colorUsage)
@@ -447,17 +451,20 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         rewrite |= SwapTexture(outline is null ? standard.AlbedoTexture : null, colorUsage: true, ref gpu.Albedo);
         rewrite |= SwapTexture(outline is null ? standard.NormalTexture : null, colorUsage: false, ref gpu.Normal);
         rewrite |= SwapTexture(outline is null ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
+        rewrite |= SwapTexture(outline is null ? standard.OrmTexture : null, colorUsage: false, ref gpu.Orm);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
         rewrite |= RefreshTexture(gpu.Albedo, gpu.AlbedoGeneration);
         rewrite |= RefreshTexture(gpu.Normal, gpu.NormalGeneration);
         rewrite |= RefreshTexture(gpu.Emission, gpu.EmissionGeneration);
+        rewrite |= RefreshTexture(gpu.Orm, gpu.OrmGeneration);
 
         if (changed || rewrite)
         {
             var flags = (gpu.Albedo?.Gpu is not null ? MaterialParams.HasAlbedo : 0) |
                         (gpu.Normal?.Gpu is not null ? MaterialParams.HasNormal : 0) |
-                        (gpu.Emission?.Gpu is not null ? MaterialParams.HasEmission : 0);
+                        (gpu.Emission?.Gpu is not null ? MaterialParams.HasEmission : 0) |
+                        (gpu.Orm?.Gpu is not null ? MaterialParams.HasOrm : 0);
             var parameters = outline is not null ? MaterialParams.From(outline) : MaterialParams.From(standard, flags);
             if (gpu.Params is null)
             {
@@ -504,18 +511,21 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         var albedo = gpu.Albedo?.Gpu ?? _whiteSrgb;
         var normal = gpu.Normal?.Gpu ?? _flatNormal;
         var emission = gpu.Emission?.Gpu ?? _whiteSrgb;
+        var orm = gpu.Orm?.Gpu ?? _whiteLinear;
         gpu.AlbedoGeneration = gpu.Albedo?.Generation ?? 0;
         gpu.NormalGeneration = gpu.Normal?.Generation ?? 0;
         gpu.EmissionGeneration = gpu.Emission?.Generation ?? 0;
+        gpu.OrmGeneration = gpu.Orm?.Generation ?? 0;
         // One sampler for every texture of the material (MoltenVK's sampler budget): the first texture's.
-        var sampler = (gpu.Albedo?.Gpu ?? gpu.Normal?.Gpu ?? gpu.Emission?.Gpu ?? _whiteSrgb).Sampler;
+        var sampler = (gpu.Albedo?.Gpu ?? gpu.Normal?.Gpu ?? gpu.Emission?.Gpu ?? gpu.Orm?.Gpu ?? _whiteSrgb).Sampler;
 
         var buffer = gpu.Params!.Descriptor(0, MaterialParams.Size);
-        var images = stackalloc DescriptorImageInfo[4];
+        var images = stackalloc DescriptorImageInfo[5];
         images[0] = new DescriptorImageInfo { Sampler = sampler };
         images[1] = new DescriptorImageInfo { ImageView = albedo.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
         images[2] = new DescriptorImageInfo { ImageView = normal.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
         images[3] = new DescriptorImageInfo { ImageView = emission.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
+        images[4] = new DescriptorImageInfo { ImageView = orm.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
 
         var writes = stackalloc WriteDescriptorSet[3];
         writes[0] = new WriteDescriptorSet
@@ -541,7 +551,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             SType = StructureType.WriteDescriptorSet,
             DstSet = gpu.Set,
             DstBinding = 2,
-            DescriptorCount = 3,
+            DescriptorCount = 4,
             DescriptorType = DescriptorType.SampledImage,
             PImageInfo = images + 1,
         };
@@ -1022,6 +1032,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         Pipelines.Dispose();
         _whiteSrgb.Dispose();
         _flatNormal.Dispose();
+        _whiteLinear.Dispose();
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pipelineLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_materialLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_idPassPrototype));

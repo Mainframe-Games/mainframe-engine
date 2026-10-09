@@ -19,7 +19,8 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 [0016 normal maps without tangents](../../memory/decisions/0016-normal-maps-without-tangents.md),
 [0017 on-demand object-ID pass](../../memory/decisions/0017-on-demand-object-id-pass.md),
 [0018 removed node types](../../memory/decisions/0018-removed-node-types-upgrade.md),
-[0019 one sampler per material](../../memory/decisions/0019-one-sampler-per-material.md).
+[0019 one sampler per material](../../memory/decisions/0019-one-sampler-per-material.md),
+[0150 PBR shading and sky image-based lighting](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md).
 
 ## Key types
 
@@ -81,17 +82,21 @@ The unit tests check the winding, outward normals, counts and bounds of every pr
 
 ### StandardMaterial3D
 
-The shading is Blinn-Phong for now (see [ADR 0014](../../memory/decisions/0014-blinn-phong-now-pbr-later.md)). Like
-every colour in the engine, colours are authored in sRGB and converted to linear when packed.
+The shading is Blinn-Phong by default ([ADR 0014](../../memory/decisions/0014-blinn-phong-now-pbr-later.md)), unshaded,
+or PBR (`ShadingMode.Pbr`, [ADR 0150](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md): Cook-Torrance GGX + Lambert,
+ambient and reflections from the sky, see [Lighting](lighting.md#pbr)). Blinn-Phong stays the default so existing scenes
+look the same; Godot's default (PBR) waits for the G6.2 serialization migration. Like every colour in the engine,
+colours are authored in sRGB and converted to linear when packed.
 
 | Group | Properties |
 |---|---|
 | Albedo | `AlbedoColor` (alpha too), `AlbedoTexture` (× colour) |
 | Normal map | `NormalTexture` (tangent space, OpenGL/glTF convention: +Y up), `NormalScale` |
-| Specular | `Specular` (strength, default 0.3), `Shininess` (exponent, default 32): the old shape shader's values |
+| Specular | `Specular` (strength, default 0.3), `Shininess` (exponent, default 32): the old shape shader's values; Blinn-Phong only |
+| PBR | `Metallic` (0), `Roughness` (perceptual, 1), `AmbientOcclusion` (1), `OrmTexture` (linear: R occlusion, G roughness, B metallic, glTF's and Godot's ORM packing; multiplies the three values); `ShadingMode.Pbr` only |
 | Emission | `EmissionColor`, `EmissionEnergy` (can exceed 1: HDR), `EmissionTexture` |
 | Transparency | `Transparency`: `Opaque`, `Cutout` (discard below `AlphaCutoff`), `Blend` (straight alpha, back to front, no depth write, casts no shadow) |
-| Rendering | `ShadingMode` (`BlinnPhong`, `Unshaded`), `CullMode` (`Back`, `Front`, `Disabled`), `DoubleSided` (cull nothing, back faces lit with the flipped normal), `RenderPriority` (transparent order) |
+| Rendering | `ShadingMode` (`BlinnPhong`, `Unshaded`, `Pbr`), `CullMode` (`Back`, `Front`, `Disabled`), `DoubleSided` (cull nothing, back faces lit with the flipped normal), `RenderPriority` (transparent order) |
 | UV | `UvScale`, `UvOffset` |
 
 Each property setter bumps `Material.Version`. On the next frame the renderer:
@@ -244,14 +249,16 @@ don't even hash.
 
 | Set | Contents | Owner |
 |---|---|---|
-| 0 | camera (`FrameData`), lights UBO | `FrameContext` (per frame slot and view) |
+| 0 | b0 camera (`FrameData`), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)) | `FrameContext` (per frame slot and view) |
 | 1 | shadow uniforms + maps (`ShadowSystem` or the fallback) | shadows |
-| 2 | material: b0 parameters UBO (80 B, device-local), b1 one `sampler`, b2–b4 albedo/normal/emission `texture2D` (1×1 fallbacks) | `MaterialGpu` |
+| 2 | material: b0 parameters UBO (96 B, device-local), b1 one `sampler`, b2–b5 albedo/normal/emission/ORM `texture2D` (1×1 fallbacks; the ORM one is linear white) | `MaterialGpu` |
 | binding 1 (vertex) | per-instance model matrix + object id | `InstanceBuffer` |
 
 The material set uses a single `sampler` with separate `texture2D`s. Before M4 the shadow set held 15 samplers and this kept the
 fragment stage within MoltenVK's limit of 16 samplers
-([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The sampler is that of the material's
+([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The fragment stage now uses 13 images and 10
+samplers (shadows 6 combined, material 1 sampler + 4 images, sky lighting 3 combined), within the G6 budget of 16 and 4
+sets ([rendering-features.md](future/rendering-features.md#binding-budget)). The sampler is that of the material's
 first texture. A material's set is never updated in place, because frames in flight may still bind it. Instead, a
 new set is written, and the old one is freed by `MaterialDescriptorAllocator` once its frame has completed. The
 allocator's pools are freeable and their live counts are exact.
@@ -268,9 +275,12 @@ allocator's pools are freeable and their live counts are exact.
 - `Mesh.vk.frag` takes these steps in order:
   1. Cutout `discard` (only in cutout pipelines).
   2. Flips the normal on back faces of double-sided materials.
-  3. Lights: `shadeLightsBlinnPhong` with the material's specular and shininess, or unshaded.
+  3. Lights, by `flags.y`: `shadeLightsBlinnPhong` with the material's specular and shininess; `shadeLightsPbr` with
+     a `PbrSurface` from the albedo, `materialOrm` (values × the ORM texture, `SampleGrad` like the other maps) and the
+     mapped normal; or unshaded.
   4. Adds emission.
-  5. Writes alpha only for blend pipelines.
+  5. Fog: `applyFog(color, worldPos)` (`include/fog.slang`; a no-op while the world's fog is off), opaque and blended.
+  6. Writes alpha only for blend pipelines.
 - `MeshId.vk.frag` writes the object id as `uint` and keeps the cutout discard.
 - `lights.slang`: `shadeLights` (Spine) = `shadeLightsBlinnPhong(…, 0.3, 32)`. `counts.w = 1` disables shadow-map
   sampling for a view (offscreen worlds).
@@ -363,6 +373,9 @@ Measured on an Apple M5 with MoltenVK:
   - `materials`: textured, cutout, normal map, emissive, mirrored, blend;
   - `gltf`: the imported model, also mirrored;
   - `instances`: 1 000 boxes in 2 draws, self-checked;
+  - `pbr`: a grid of PBR spheres (metallic 1 / 0.5 / 0 × roughness 0 … 1) under the procedural sky with sky lighting,
+    self-checked (the sky was captured; bakes per frame); the same scene with a turning sun is an allocation gate;
+  - `fog`: distance + height fog with sun scatter, and the sky fading into it;
   - `picking`: picks in the main view and a `SubViewport`, self-checked, with the view shown through a `UiDocument` `<img src="engine://picking-preview"/>`;
   - the 10k allocation gate and the 10k frame-time test (< 16.7 ms enforced in Release).
   - The pre-M3 `lit-shapes`, `multi-light` and `spine` goldens still match after the port to `MeshInstance3D`.
@@ -370,7 +383,9 @@ Measured on an Apple M5 with MoltenVK:
 ## Known issues
 
 - Blended surfaces cast no shadow (cutout materials cast alpha-tested shadows since M4).
-- No PBR, skinning, morph targets, LODs or GPU-driven culling (shadow casters are culled per pass on the CPU).
+- No skinning, morph targets, LODs or GPU-driven culling (shadow casters are culled per pass on the CPU).
+- PBR is opt-in (`ShadingMode.Pbr`); imported glTF materials stay Blinn-Phong (their metallic/roughness/occlusion are not
+  imported yet). No `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
 - `Sprite3D` has no billboard mode.
 - Only `StandardMaterial3D` and `OutlineMaterial3D` are rendered. Custom shaders and other material types come later.
 - Spine, the grid and the sky do not appear in the object-ID pass.

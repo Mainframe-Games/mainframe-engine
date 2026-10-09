@@ -74,6 +74,40 @@ public sealed class MeshSerializationTests : IDisposable
     }
 
     [Fact]
+    public void PbrMaterialsAndSkyLightingSettingsRoundTrip()
+    {
+        var root = new Node3D { Name = "Root" };
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = ShadingMode.Pbr,
+            Metallic = 0.75f,
+            Roughness = 0.3f,
+            AmbientOcclusion = 0.6f,
+        };
+        Own(root, new MeshInstance3D { Name = "A", Mesh = new SphereMesh(), MaterialOverride = material });
+        Own(root, new WorldEnvironment
+        {
+            Name = "Environment",
+            Sky = new Sky(),
+            AmbientSource = AmbientSource.Sky,
+            AmbientEnergy = 0.5f,
+            ReflectedLightSource = ReflectedLightSource.Disabled,
+        });
+
+        var loaded = RoundTrip(root);
+        var m = (StandardMaterial3D)loaded.GetNode<MeshInstance3D>("A").MaterialOverride!;
+        Assert.Equal(ShadingMode.Pbr, m.ShadingMode);
+        Assert.Equal(0.75f, m.Metallic);
+        Assert.Equal(0.3f, m.Roughness);
+        Assert.Equal(0.6f, m.AmbientOcclusion);
+        var environment = loaded.GetNode<WorldEnvironment>("Environment");
+        Assert.Equal(AmbientSource.Sky, environment.AmbientSource);
+        Assert.Equal(0.5f, environment.AmbientEnergy);
+        Assert.Equal(ReflectedLightSource.Disabled, environment.ReflectedLightSource);
+        loaded.Free();
+    }
+
+    [Fact]
     public void MeshInstancesWithPrimitivesAndMaterialsRoundTrip()
     {
         var root = new Node3D { Name = "Root" };
