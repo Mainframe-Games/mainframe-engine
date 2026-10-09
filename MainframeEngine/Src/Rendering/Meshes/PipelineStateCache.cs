@@ -13,6 +13,12 @@ public enum ShaderSetId : byte
 
     /// <summary><c>Mesh/MeshOutline.vk.vert</c> + <c>Mesh/Mesh.vk.frag</c>: <see cref="OutlineMaterial3D"/> (inverted hull).</summary>
     MeshOutline,
+
+    /// <summary>
+    /// <c>Foliage/Foliage.vk.vert</c> + <c>Foliage/Foliage.vk.frag</c>: <see cref="FoliageMaterial3D"/> (vertex wind,
+    /// translucency); always <see cref="VertexLayoutId.MeshInstancedExt"/>.
+    /// </summary>
+    MeshFoliage,
 }
 
 /// <summary>
@@ -43,8 +49,12 @@ public readonly record struct PipelineKey(
     /// The object-ID shaders never blend (integer target) and always write depth, so blended materials share the
     /// opaque ID pipeline.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="streams"/>: the surface draws with the second vertex stream
+    /// (<see cref="VertexLayoutId.MeshInstancedExt"/>); foliage always does, the object-ID shaders never read it.
+    /// </remarks>
     public static PipelineKey ForMaterial(ShaderSetId shaders, in MaterialRenderState state, bool mirrored, RenderPass renderPass,
-        bool extraPass = false)
+        bool extraPass = false, bool streams = false)
     {
         var alpha = state.Alpha;
         var depthWrite = state.DepthWrite;
@@ -55,8 +65,13 @@ public readonly record struct PipelineKey(
             depthWrite = true;
         }
 
-        return new PipelineKey(shaders, VertexLayoutId.MeshInstanced, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle,
-            extraPass);
+        var layout = shaders switch
+        {
+            ShaderSetId.MeshFoliage => VertexLayoutId.MeshInstancedExt,
+            ShaderSetId.MeshLit when streams => VertexLayoutId.MeshInstancedExt,
+            _ => VertexLayoutId.MeshInstanced,
+        };
+        return new PipelineKey(shaders, layout, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle, extraPass);
     }
 }
 

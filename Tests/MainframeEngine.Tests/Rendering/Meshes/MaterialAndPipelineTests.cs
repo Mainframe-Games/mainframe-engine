@@ -61,9 +61,11 @@ public sealed class MaterialAndPipelineTests
         for (var shaders = 0; shaders < MaterialGpu.ShaderSetCount; shaders++)
             for (var e = 0; e < 2; e++)
                 for (var m = 0; m < 2; m++)
-                    indices.Add(MaterialGpu.PipelineIndex((ShaderSetId)shaders, e == 1, m == 1));
-        Assert.Equal(12, indices.Count);
-        Assert.Equal(11, indices.Max());
+                    for (var streams = 0; streams < 2; streams++)
+                        indices.Add(MaterialGpu.PipelineIndex((ShaderSetId)shaders, e == 1, m == 1, streams == 1));
+        Assert.Equal(MaterialGpu.ShaderSetCount * 8, indices.Count);
+        Assert.Equal(MaterialGpu.ShaderSetCount * 8 - 1, indices.Max());
+        Assert.Equal(MaterialGpu.ShaderSetCount * 8, new MaterialGpu(outline, 1).Pipelines.Length);
 
         var parameters = MaterialParams.From(outline);
         Assert.Equal(MaterialParams.ShadingUnshaded, parameters.Shading);

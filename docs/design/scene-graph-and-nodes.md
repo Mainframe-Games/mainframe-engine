@@ -313,6 +313,7 @@ them in reverse order after the tree is freed.
 |---|---|---|
 | `VisualInstance3D` | — | registers with `World3D` while in a tree; creates GPU objects through the server on first enter (or lazily at the first draw); releases them on `Free` or server shutdown; `CastShadows`, `RenderPriority` |
 | `MeshInstance3D`, `Sprite3D` (`GeometryInstance3D`) | `MeshRenderer` | `Mesh`, `MaterialOverride`; never drawn one by one: culled, sorted and batched into instanced draws (M3, [Materials & meshes](materials-and-meshes.md)) |
+| `MultiMeshInstance3D` (`GeometryInstance3D`) | `MeshRenderer`, `MultiMeshGpu` | `Multimesh`: every instance of a `MultiMesh` as one render item, from a persistent instance buffer (ADR 0151, [MultiMesh](materials-and-meshes.md#multimesh-adr-0151)) |
 | `SubViewport` | its own `World3D`, offscreen targets | rendered before the main pass; picking; shown in the UI as an `engine://` image |
 | `SpineNode` | `SpineRenderer` | `Folder`, `Animation` (played on load), `SpineScale`; skeleton data loads on the CPU on first use |
 | `Grid3D` | `SceneGrid3d` | debug/editor grid: no shadows, `RenderPriority` -100 |
@@ -323,6 +324,14 @@ them in reverse order after the tree is freed.
 
 The pre-M2 math cameras are now `PerspectiveCamera` / `OrthographicCamera` (`ICamera`), still usable
 without a tree.
+
+**Visibility ranges** (ADR 0151, Godot's HLOD distances): every `GeometryInstance3D` has `VisibilityRangeBegin` and
+`VisibilityRangeEnd` (metres, 0 = unbounded). The render server measures the distance from the view's camera to the
+centre of the instance's world AABB (for a `MultiMeshInstance3D`, the AABB of all its instances) and draws the
+instance only while it is in [begin, end): outside, it is skipped in that view's colour and ID passes and, for the
+main view, in every shadow pass. The test is `GeometryInstance3D.IsInVisibilityRange`. Godot's margins (hysteresis)
+and fade modes are not implemented; a near/far pair of nodes (a detailed mesh ending where its impostor begins) is
+the intended use.
 
 ## Invariants
 

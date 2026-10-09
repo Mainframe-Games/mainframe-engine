@@ -462,6 +462,7 @@ public abstract class Engine : IDisposable
         Tree.Root.SetSize(new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y)); // content scale (stretch) for the 2D canvas
         Tree.Root.PointScale = Window is { Size.X: > 0 } w ? FramebufferSize.X / (float)w.Size.X : 1f;
         Tree.Tick(_gameTime); // M2: physics steps, process, deferred calls/frees, transform sync
+        _shaderTime = (_shaderTime + _gameTime.DeltaTime) % ShaderTimeRolloverSeconds;
         _updateTicks += Stopwatch.GetTimestamp() - start;
     }
 
@@ -476,6 +477,11 @@ public abstract class Engine : IDisposable
     }
 
     private bool _discardDelta;
+
+    // Seconds of game time since start (the sum of the tree's deltas, so --fixed-fps runs are deterministic), wrapped like
+    // Godot's TIME: FrameData.clip.z, which the foliage wind reads.
+    private double _shaderTime;
+    private const double ShaderTimeRolloverSeconds = 3600.0;
 
     /// <summary>
     /// The delta the tree ticks with: the fixed delta when there is one (every update, the first included: Godot's
@@ -514,7 +520,10 @@ public abstract class Engine : IDisposable
 
         var renderStart = Stopwatch.GetTimestamp();
         if (Renderer is IVulkanContext vulkan)
+        {
             vulkan.FrameDeltaTime = _gameTime.DeltaTime; // auto exposure adapts over this frame's delta (ADR 0154)
+            vulkan.Frame.Time = (float)_shaderTime;
+        }
 
         // M3: cull and sort the scene's meshes, create/update their GPU resources (uploads join this frame).
         Servers.Render?.PrepareFrame(Root);

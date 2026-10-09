@@ -66,6 +66,14 @@ public sealed unsafe class GpuTexture : IDisposable
         TextureColorSpace colorSpace, TextureSampling sampling, bool generateMips = false) =>
         Create(ctx, width, height, 1, rgba, colorSpace, sampling, generateMips, ImageViewType.Type2D, ImageCreateFlags.None);
 
+    /// <summary>
+    /// A 2D array texture (<c>2D_ARRAY</c> view) from <paramref name="layers"/> tightly packed RGBA8 images, one after the
+    /// other; mips are generated for every layer.
+    /// </summary>
+    public static GpuTexture Create2DArray(IVulkanContext ctx, uint width, uint height, uint layers, ReadOnlySpan<byte> rgba,
+        TextureColorSpace colorSpace, TextureSampling sampling, bool generateMips = false) =>
+        Create(ctx, width, height, layers, rgba, colorSpace, sampling, generateMips, ImageViewType.Type2DArray, ImageCreateFlags.None);
+
     /// <summary>A cube texture from six tightly packed RGBA8 faces in Vulkan order (+X, -X, +Y, -Y, +Z, -Z).</summary>
     public static GpuTexture CreateCube(IVulkanContext ctx, uint faceSize, ReadOnlySpan<byte> sixFacesRgba,
         TextureColorSpace colorSpace, TextureSampling sampling) =>

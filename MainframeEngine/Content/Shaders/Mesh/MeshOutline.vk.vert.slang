@@ -23,6 +23,7 @@ struct VsOut
     [[vk::location(0)]] float3 outWorldPos;
     [[vk::location(1)]] float3 outNormal;
     [[vk::location(2)]] float2 outUV;
+    [[vk::location(3)]] float4 outColor; // unused: the outline is unshaded
 };
 
 [shader("vertex")]
@@ -43,6 +44,7 @@ VsOut main(VsIn input)
     o.outWorldPos = worldPos.xyz;
     o.outNormal = mul(input.inNormal, (float3x3)model); // unused: the outline is unshaded
     o.outUV = input.inUV;
+    o.outColor = float4(1.0);
     o.position = clipPosition;
     return o;
 }

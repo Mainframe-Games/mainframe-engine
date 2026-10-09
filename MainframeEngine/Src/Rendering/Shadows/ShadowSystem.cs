@@ -1029,6 +1029,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         InstancedPoint,
         Cutout2D,
         CutoutPoint,
+        Foliage2D,
+        FoliagePoint,
     }
 
     private static (string Vertex, string Fragment) ShaderPaths(CasterShaders shaders) => shaders switch
@@ -1038,6 +1040,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         CasterShaders.Instanced2D => ("Shaders/Shadows/Shadow2DInstanced.vk.vert.spv", "Shaders/Shadows/Shadow2D.vk.frag.spv"),
         CasterShaders.InstancedPoint => ("Shaders/Shadows/ShadowPointInstanced.vk.vert.spv", "Shaders/Shadows/ShadowPoint.vk.frag.spv"),
         CasterShaders.Cutout2D => ("Shaders/Shadows/Shadow2DCutoutInstanced.vk.vert.spv", "Shaders/Shadows/ShadowCutout.vk.frag.spv"),
+        CasterShaders.Foliage2D => ("Shaders/Shadows/Shadow2DFoliageInstanced.vk.vert.spv", "Shaders/Shadows/ShadowCutout.vk.frag.spv"),
+        CasterShaders.FoliagePoint => ("Shaders/Shadows/ShadowPointFoliageInstanced.vk.vert.spv", "Shaders/Shadows/ShadowPointCutout.vk.frag.spv"),
         _ => ("Shaders/Shadows/ShadowPointCutoutInstanced.vk.vert.spv", "Shaders/Shadows/ShadowPointCutout.vk.frag.spv"),
     };
 
@@ -1210,17 +1214,22 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     /// nothing), front faces flipped for mirrored instances, and for cutout materials an alpha test against the
     /// material (set 1 of <see cref="CutoutLayout"/>). Plain casters use the <see cref="Shadow2DLayout"/>/
     /// <see cref="ShadowPointLayout"/> layouts; point batches push the light position and range at offset 64. Built on
-    /// first use.
+    /// first use. <paramref name="foliage"/> casters (always <paramref name="cutout"/>) sway in the wind
+    /// (<see cref="FoliageMaterial3D"/>): they read the second vertex stream and the wind pushed at offset 0.
     /// </summary>
-    internal Pipeline GetInstancedCasterPipeline(bool point, CullMode cull, bool mirrored, bool cutout = false)
+    internal Pipeline GetInstancedCasterPipeline(bool point, CullMode cull, bool mirrored, bool cutout = false, bool foliage = false)
     {
-        var key = (point ? 1 : 0) | ((int)cull << 1) | (mirrored ? 8 : 0) | (cutout ? 16 : 0);
+        cutout |= foliage;
+        var key = (point ? 1 : 0) | ((int)cull << 1) | (mirrored ? 8 : 0) | (cutout ? 16 : 0) | (foliage ? 32 : 0);
         if (_instancedPipelines.TryGetValue(key, out var pipeline))
             return pipeline;
         if (cutout && _materialLayout.Handle == 0)
             throw new InvalidOperationException("Cutout casters need the material set layout (SetMaterialSetLayout).");
 
-        pipeline = cutout
+        pipeline = foliage
+            ? BuildPipeline(point ? CasterShaders.FoliagePoint : CasterShaders.Foliage2D, cull, mirrored, CutoutLayout(point),
+                VertexLayouts.ShadowFoliageInstancedBindings, VertexLayouts.ShadowFoliageInstancedAttributes, "shadow (instanced, foliage)")
+            : cutout
             ? BuildPipeline(point ? CasterShaders.CutoutPoint : CasterShaders.Cutout2D, cull, mirrored, CutoutLayout(point),
                 VertexLayouts.ShadowInstancedBindings, VertexLayouts.ShadowCutoutInstancedAttributes, "shadow (instanced, cutout)")
             : BuildPipeline(point ? CasterShaders.InstancedPoint : CasterShaders.Instanced2D, cull, mirrored, point ? _layoutPoint : _layout2D,

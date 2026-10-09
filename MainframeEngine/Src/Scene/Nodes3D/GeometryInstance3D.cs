@@ -26,6 +26,36 @@ public abstract class GeometryInstance3D : VisualInstance3D
     [Export]
     public Material? MaterialOverlay { get; set; }
 
+    /// <summary>
+    /// Distance from the camera (to the centre of the world bounds) below which the instance is not drawn, in the main
+    /// pass or the shadow maps (Godot's <c>visibility_range_begin</c>, an HLOD distance); 0 = no lower bound.
+    /// </summary>
+    [ExportGroup("Visibility range")]
+    [Export(Range = "0,100000,0.01")]
+    public float VisibilityRangeBegin { get; set; }
+
+    /// <summary>Distance from which the instance is no longer drawn (Godot's <c>visibility_range_end</c>); 0 = no upper bound.</summary>
+    [Export(Range = "0,100000,0.01")]
+    public float VisibilityRangeEnd { get; set; }
+
+    /// <summary>
+    /// True when <paramref name="distance"/> lies in [<paramref name="begin"/>, <paramref name="end"/>), a bound of 0
+    /// (or less) being open.
+    /// </summary>
+    public static bool IsInVisibilityRange(float distance, float begin, float end) =>
+        (begin <= 0f || distance >= begin) && (end <= 0f || distance < end);
+
+    /// <summary>
+    /// Whether the instance is drawn for a camera at <paramref name="cameraPosition"/>, given its world bounds: the
+    /// distance to their centre is in [<see cref="VisibilityRangeBegin"/>, <see cref="VisibilityRangeEnd"/>).
+    /// </summary>
+    public bool IsInVisibilityRange(Vector3 cameraPosition, in Aabb worldBounds)
+    {
+        if (VisibilityRangeBegin <= 0f && VisibilityRangeEnd <= 0f)
+            return true;
+        return IsInVisibilityRange(Vector3.Distance(cameraPosition, worldBounds.Center), VisibilityRangeBegin, VisibilityRangeEnd);
+    }
+
     internal override bool IsBatched => true;
 
     /// <summary>The mesh to draw this frame (null or empty: nothing).</summary>
@@ -57,7 +87,7 @@ public abstract class GeometryInstance3D : VisualInstance3D
 
     protected override void ReleaseRenderResources()
     {
-        RenderServer?.ReleaseGeometry(this);
+        RenderServer?.ReleaseGeometry(this); // also the instance buffer of a MultiMeshInstance3D
         base.ReleaseRenderResources();
     }
 }
