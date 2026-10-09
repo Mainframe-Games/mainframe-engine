@@ -102,6 +102,10 @@ internal sealed class RiverBuilder
 
     public ReadOnlySpan<Vector2> SectionTangents => _tangents.AsSpan(0, SectionCount);
 
+    public ReadOnlySpan<float> SectionHalfWidths => _halfWidths.AsSpan(0, SectionCount);
+
+    public ReadOnlySpan<float> SectionDepths => _depths.AsSpan(0, SectionCount);
+
     /// <summary>Builds everything from <paramref name="curve"/> (null or fewer than two points: an empty river).</summary>
     public void Build(Curve3D? curve, in RiverSettings settings)
     {

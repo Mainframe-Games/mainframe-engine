@@ -463,11 +463,13 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         var material = gpu.Material;
         var outline = material as OutlineMaterial3D;
         var foliage = material as FoliageMaterial3D;
-        gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : foliage is not null ? ShaderSetId.MeshFoliage : ShaderSetId.MeshLit;
+        var water = material as WaterMaterial3D;
+        gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : foliage is not null ? ShaderSetId.MeshFoliage
+            : water is not null ? ShaderSetId.MeshWater : ShaderSetId.MeshLit;
         if (material is not StandardMaterial3D standard)
         {
             standard = StandardMaterial3D.Default;
-            if (outline is null && foliage is null && !_warnedUnsupportedMaterial)
+            if (outline is null && foliage is null && water is null && !_warnedUnsupportedMaterial)
             {
                 _warnedUnsupportedMaterial = true;
                 Log.Warning($"[Mesh] {material.GetType().Name} is not supported by the renderer yet; drawing with the default material.");
@@ -491,10 +493,14 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
         // Slots follow the material's textures and their colour space (an import-settings change moves a texture
         // to another (texture, colour space) upload without touching the material).
-        rewrite |= SwapTexture(outline is not null ? null : foliage is not null ? foliage.AlbedoTexture : standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
-        rewrite |= SwapTexture(outline is not null ? null : foliage is not null ? foliage.NormalTexture : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
-        rewrite |= SwapTexture(outline is null && foliage is null ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
-        rewrite |= SwapTexture(outline is null && foliage is null ? standard.OrmTexture : null, colorUsage: false, ref gpu.Orm);
+        // Water: the albedo slot holds the foam mask (linear), the normal slot the ripple normals (built-in when null).
+        rewrite |= water is not null
+            ? SwapTexture(water.FoamTexture ?? WaterTextures.Foam, colorUsage: false, ref gpu.Albedo)
+            : SwapTexture(outline is not null ? null : foliage is not null ? foliage.AlbedoTexture : standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
+        rewrite |= SwapTexture(water is not null ? water.NormalMap ?? WaterTextures.Normal
+            : outline is not null ? null : foliage is not null ? foliage.NormalTexture : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
+        rewrite |= SwapTexture(outline is null && foliage is null && water is null ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
+        rewrite |= SwapTexture(outline is null && foliage is null && water is null ? standard.OrmTexture : null, colorUsage: false, ref gpu.Orm);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
         rewrite |= RefreshTexture(gpu.Albedo, gpu.AlbedoGeneration);
@@ -510,6 +516,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
                         (gpu.Orm?.Gpu is not null ? MaterialParams.HasOrm : 0);
             var parameters = outline is not null ? MaterialParams.From(outline)
                 : foliage is not null ? MaterialParams.From(foliage, flags)
+                : water is not null ? MaterialParams.From(water, flags)
                 : MaterialParams.From(standard, flags);
             if (gpu.Params is null)
             {
@@ -1148,6 +1155,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         {
             ShaderSetId.MeshObjectId => "Shaders/Mesh/MeshId.vk.frag.spv",
             ShaderSetId.MeshFoliage => "Shaders/Foliage/Foliage.vk.frag.spv",
+            ShaderSetId.MeshWater => "Shaders/Water/Water.vk.frag.spv",
             _ => "Shaders/Mesh/Mesh.vk.frag.spv",
         };
         // Each vertex shader writes only what its fragment shader reads (Slang drops unread fragment inputs, and an
@@ -1157,6 +1165,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             ShaderSetId.MeshOutline => "Shaders/Mesh/MeshOutline.vk.vert.spv",
             ShaderSetId.MeshObjectId => "Shaders/Mesh/MeshId.vk.vert.spv",
             ShaderSetId.MeshFoliage => "Shaders/Foliage/Foliage.vk.vert.spv",
+            ShaderSetId.MeshWater => "Shaders/Water/Water.vk.vert.spv",
             _ when streams => "Shaders/Mesh/MeshExt.vk.vert.spv",
             _ => "Shaders/Mesh/Mesh.vk.vert.spv",
         };
@@ -1164,6 +1173,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         {
             ShaderSetId.MeshObjectId => VertexLayouts.MeshIdAttributes,
             ShaderSetId.MeshFoliage => VertexLayouts.FoliageAttributes,
+            ShaderSetId.MeshWater => VertexLayouts.WaterAttributes,
             _ when streams => VertexLayouts.MeshExtAttributes,
             _ => VertexLayouts.MeshAttributes,
         };

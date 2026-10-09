@@ -19,6 +19,12 @@ public enum ShaderSetId : byte
     /// translucency); always <see cref="VertexLayoutId.MeshInstancedExt"/>.
     /// </summary>
     MeshFoliage,
+
+    /// <summary>
+    /// <c>Water/Water.vk.vert</c> + <c>Water/Water.vk.frag</c>: <see cref="WaterMaterial3D"/> (flow normals, reflection,
+    /// absorption, foam; ADR 0159); always <see cref="VertexLayoutId.MeshInstancedExt"/>.
+    /// </summary>
+    MeshWater,
 }
 
 /// <summary>
@@ -67,7 +73,7 @@ public readonly record struct PipelineKey(
 
         var layout = shaders switch
         {
-            ShaderSetId.MeshFoliage => VertexLayoutId.MeshInstancedExt,
+            ShaderSetId.MeshFoliage or ShaderSetId.MeshWater => VertexLayoutId.MeshInstancedExt,
             ShaderSetId.MeshLit when streams => VertexLayoutId.MeshInstancedExt,
             _ => VertexLayoutId.MeshInstanced,
         };

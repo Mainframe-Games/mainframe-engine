@@ -366,6 +366,7 @@ public sealed class TerrainData : Resource
             SaveRgba(folder, SurfaceFile, _surface, cells, 0u);
         if ((write & LayerFiles.User) != 0)
             SaveRgba(folder, UserFile, _user!, cells, 0u);
+        SaveCarveRecords(folder, everything: write == LayerFiles.All);
 
         _dirty = LayerFiles.None;
         _savedFolder = folder;
@@ -924,6 +925,73 @@ public sealed class TerrainData : Resource
                 _chunkMin[cz * chunks + cx] = min;
                 _chunkMax[cz * chunks + cx] = max;
             }
+    }
+
+    // ── Carve records (River3D) ────────────────────────────────────────────────
+
+    private readonly Dictionary<string, TerrainCarveRecord?> _carves = new(StringComparer.Ordinal); // null: removed (or no file)
+    private readonly HashSet<string> _dirtyCarves = new(StringComparer.Ordinal);
+
+    /// <summary>The original heights carve <paramref name="id"/> replaced (in memory, else read from the layer folder), or null.</summary>
+    internal TerrainCarveRecord? GetCarveRecord(string id)
+    {
+        if (!TerrainCarveRecord.IsValidId(id))
+            return null;
+        if (_carves.TryGetValue(id, out var record))
+            return record;
+        var path = LayerFolder is { } folder ? Path.Combine(folder, TerrainCarveRecord.FileName(id)) : null;
+        if (path is not null && File.Exists(path))
+        {
+            using var stream = File.OpenRead(path);
+            record = TerrainCarveRecord.Read(stream, this);
+        }
+
+        _carves[id] = record;
+        return record;
+    }
+
+    /// <summary>Stores (or with null removes) carve <paramref name="id"/>'s record; written or deleted by the next <see cref="SaveLayers"/>.</summary>
+    internal void SetCarveRecord(string id, TerrainCarveRecord? record)
+    {
+        if (!TerrainCarveRecord.IsValidId(id))
+            throw new ArgumentException($"'{id}' is not a valid carve id.", nameof(id));
+        _carves[id] = record;
+        _dirtyCarves.Add(id);
+    }
+
+    private void SaveCarveRecords(string folder, bool everything)
+    {
+        // Moving to a new folder: carry over the records that were never read from the old one.
+        if (everything && _savedFolder is { } previous && Directory.Exists(previous) &&
+            !string.Equals(Path.GetFullPath(previous), folder, StringComparison.Ordinal))
+        {
+            foreach (var path in Directory.EnumerateFiles(previous, "carve_*.json"))
+            {
+                var id = Path.GetFileNameWithoutExtension(path)["carve_".Length..];
+                if (TerrainCarveRecord.IsValidId(id) && !_carves.ContainsKey(id))
+                    File.Copy(path, Path.Combine(folder, TerrainCarveRecord.FileName(id)), overwrite: true);
+            }
+        }
+
+        foreach (var (id, record) in _carves)
+        {
+            if (!everything && !_dirtyCarves.Contains(id))
+                continue;
+            var path = Path.Combine(folder, TerrainCarveRecord.FileName(id));
+            if (record is null)
+            {
+                DeleteIfExists(path);
+                continue;
+            }
+
+            Atomically(path, temp =>
+            {
+                using var stream = File.Create(temp);
+                record.Write(stream, this);
+            });
+        }
+
+        _dirtyCarves.Clear();
     }
 
     private static void CheckRect(Rect2I rect, int size, int length)

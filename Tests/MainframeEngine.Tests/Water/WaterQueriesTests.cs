@@ -40,7 +40,8 @@ public sealed class WaterQueriesTests : IDisposable
         Assert.Same(river, ribbon.Parent);
         Assert.Null(ribbon.Owner);
         Assert.Equal(river.MeshData.VertexCount, ribbon.Mesh!.VertexCount);
-        Assert.Equal(AlphaMode.Blend, Assert.IsType<StandardMaterial3D>(ribbon.MaterialOverride).Transparency);
+        Assert.Equal(AlphaMode.Blend, Assert.IsType<WaterMaterial3D>(ribbon.MaterialOverride).RenderState.Alpha);
+        Assert.Same(river.MeshData.Custom0, ribbon.Mesh!.GetSurface(0).Custom0); // column depth, flow, foam for the shader
         Assert.Equal(1, regenerated);
 
         // A curve change regenerates at once.

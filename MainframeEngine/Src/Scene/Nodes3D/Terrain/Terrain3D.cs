@@ -21,7 +21,7 @@ namespace MainframeEngine;
 /// </remarks>
 [Tool]
 [EditorIcon("mountain")]
-public sealed class Terrain3D : Node3D, ISceneSaveHook
+public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
 {
     /// <summary>What <see cref="SurfaceAt"/> returns where there is water.</summary>
     public const int WaterSurface = 255;
@@ -58,6 +58,9 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
     private StaticBody3D?[] _bodies = [];
     private ConcavePolygonShape3D?[] _shapes = [];
     private bool[] _pendingCollision = [];
+    private MeshInstance3D?[] _waterNodes = [];   // per chunk, null when dry
+    private Aabb _wetBounds = Aabb.Empty;         // terrain-local, wet vertices
+    private World3D? _world;
 
     public Terrain3D()
     {
@@ -96,6 +99,27 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
         }
     }
 
+    /// <summary>
+    /// What the pond and lake surfaces (from the water layer) draw with: null is <see cref="DefaultWaterMaterial"/>.
+    /// </summary>
+    [Export]
+    public Material? WaterMaterial
+    {
+        get;
+        set
+        {
+            if (ReferenceEquals(field, value))
+                return;
+            field = value;
+            foreach (var node in _waterNodes)
+                if (node is not null)
+                    node.MaterialOverride = value ?? DefaultWaterMaterial;
+        }
+    }
+
+    /// <summary>The pond material when <see cref="WaterMaterial"/> is null: a default <see cref="WaterMaterial3D"/>.</summary>
+    public static WaterMaterial3D DefaultWaterMaterial { get; } = new() { ResourceName = "Terrain water (default)" };
+
     /// <summary>Realistic chunk LOD: above 1 keeps finer levels further away, below 1 drops them sooner.</summary>
     [Export(Range = "0.25,4,0.05")]
     public float LodBias { get; set; } = 1f;
@@ -127,11 +151,16 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
     /// <summary>The collision body of chunk (<paramref name="cx"/>, <paramref name="cz"/>), or null without collision.</summary>
     public StaticBody3D? GetChunkBody(int cx, int cz) => _bodies.Length == 0 ? null : _bodies[cz * _chunks + cx];
 
+    /// <summary>The water surface of chunk (<paramref name="cx"/>, <paramref name="cz"/>) (ponds, lakes), or null where it is dry.</summary>
+    public MeshInstance3D? GetChunkWater(int cx, int cz) => _waterNodes.Length == 0 ? null : _waterNodes[cz * _chunks + cx];
+
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     protected override void OnEnterTree()
     {
         base.OnEnterTree();
+        _world = GetWorld3D();
+        _world?.Water.Register(this);
         if (_built && _data is { } data)
         {
             Subscribe();
@@ -150,6 +179,8 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
     protected override void OnExitTree()
     {
         Unsubscribe();
+        _world?.Water.Unregister(this);
+        _world = null;
         base.OnExitTree();
     }
 
@@ -283,6 +314,12 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
                 AddChild(body);
             }
 
+        _waterNodes = new MeshInstance3D?[count];
+        for (var cz = 0; cz < _chunks; cz++)
+            for (var cx = 0; cx < _chunks; cx++)
+                RebuildWater(cx, cz);
+        UpdateWetBounds();
+
         _built = true;
         _builtVersion = data.Version;
         Subscribe();
@@ -304,6 +341,10 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
             node.Free();
         foreach (var body in _bodies)
             body?.Free();
+        foreach (var water in _waterNodes)
+            water?.Free();
+        _waterNodes = [];
+        _wetBounds = Aabb.Empty;
         _lodNodes = [];
         _bodies = [];
         _shapes = [];
@@ -465,6 +506,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
     private void RebuildChunk(int cx, int cz, bool collision)
     {
         var c = cz * _chunks + cx;
+        RebuildWater(cx, cz);
         ComputeErrors(cx, cz);
         for (var level = 0; level < _levels; level++)
         {
@@ -501,6 +543,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
         for (var cz = 0; cz < _chunks; cz++)
             for (var cx = 0; cx < _chunks; cx++)
                 RebuildChunk(cx, cz, collision: true);
+        UpdateWetBounds();
         _builtVersion = _data!.Version;
     }
 
@@ -553,6 +596,8 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
                 for (var cz = cz0; cz <= cz1; cz++)
                     for (var cx = cx0; cx <= cx1; cx++)
                         RebuildChunk(cx, cz, collision);
+                if (layers == TerrainLayers.Water || _wetBounds is { IsEmpty: false })
+                    UpdateWetBounds();
                 _builtVersion = data.Version;
             }
         }
@@ -571,6 +616,90 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook
         }
 
         Changed?.Invoke(new TerrainChange(layers, cells, chunks, fromUndo));
+    }
+
+    // ── Water (ponds and lakes from the water layer) ───────────────────────────
+
+    /// <summary>Creates, updates or frees chunk (<paramref name="cx"/>, <paramref name="cz"/>)'s water surface.</summary>
+    private void RebuildWater(int cx, int cz)
+    {
+        var c = cz * _chunks + cx;
+        var surface = TerrainWaterMesh.Build(_data!, cx, cz);
+        var node = _waterNodes[c];
+        if (surface is null)
+        {
+            node?.Free();
+            _waterNodes[c] = null;
+            return;
+        }
+
+        var mesh = new ArrayMesh();
+        mesh.AddSurface(surface);
+        if (node is null)
+        {
+            var chunkSize = _chunkQuads * _data!.VertexSpacing;
+            node = new MeshInstance3D
+            {
+                Name = string.Create(CultureInfo.InvariantCulture, $"Water{cx}_{cz}"),
+                Position = new Vector3(cx * chunkSize, 0f, cz * chunkSize),
+                MaterialOverride = WaterMaterial ?? DefaultWaterMaterial,
+                CastShadows = false,
+            };
+            _waterNodes[c] = node;
+            AddChild(node); // unowned: generated, never saved
+        }
+
+        node.Mesh = mesh;
+    }
+
+    /// <summary>The terrain-local box of every wet vertex, bed to surface (empty when the map is dry).</summary>
+    private void UpdateWetBounds()
+    {
+        var data = _data!;
+        var water = data.WaterPixels;
+        var heights = data.Heights;
+        var bed = data.BedHeights;
+        var stride = data.VerticesPerSide;
+        var spacing = data.VertexSpacing;
+        var bounds = Aabb.Empty;
+        for (var j = 0; j < stride; j++)
+            for (var i = 0; i < stride; i++)
+            {
+                var k = j * stride + i;
+                if (water[k * 4] == 0)
+                    continue;
+                bounds = bounds.Encapsulate(new Vector3(i * spacing, heights[k], j * spacing));
+                bounds = bounds.Encapsulate(new Vector3(i * spacing, bed[k], j * spacing));
+            }
+
+        // Wet triangles reach one quad beyond their wet vertices.
+        _wetBounds = bounds.IsEmpty ? bounds : new Aabb(bounds.Min - new Vector3(spacing, 0f, spacing), bounds.Max + new Vector3(spacing, 0f, spacing));
+    }
+
+    /// <inheritdoc />
+    public Aabb WaterBounds
+    {
+        get
+        {
+            if (_wetBounds.IsEmpty)
+                return _wetBounds;
+            var o = GlobalPosition;
+            return new Aabb(_wetBounds.Min + o, _wetBounds.Max + o);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Over a wet point of the map: the surface is <see cref="HeightAt"/> + <see cref="WaterDepthAt"/>; still water.</remarks>
+    public bool TrySample(Vector3 position, out WaterSample sample)
+    {
+        sample = default;
+        if (_data is null || !Contains(position.X, position.Z))
+            return false;
+        var depth = WaterDepthAt(position.X, position.Z);
+        if (!(depth > 0f))
+            return false;
+        sample = new WaterSample(HeightAt(position.X, position.Z) + depth, depth, Vector3.Zero);
+        return true;
     }
 
     void ISceneSaveHook.OnSceneSaving(string scenePath)

@@ -32,6 +32,7 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `MeshGeometry`, `MeshBuilder` | [MeshGeometry.cs](../../MainframeEngine/Src/Rendering/Resources/MeshGeometry.cs) | Smooth normals; consistent triangle winding for the generators |
 | `Material`, `StandardMaterial3D`, `MaterialRenderState`, `AlphaMode`, `CullMode`, `ShadingMode` | [Material.cs](../../MainframeEngine/Src/Rendering/Resources/Material.cs) | Surface shading; the state that selects a pipeline |
 | `FoliageMaterial3D`, `FoliageBackFace` | [FoliageMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/FoliageMaterial3D.cs) | Leaves, grass, bark: vertex wind, cutout, translucency (ADR 0151) |
+| `WaterMaterial3D`, `WaterTextures` | [WaterMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs) | Rivers and ponds: flow ripples, reflection, absorption, foam (ADR 0159, [water.md](water.md#watermaterial3d)) |
 | `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.meta` (see [Asset pipeline](asset-pipeline.md)) |
 | `Texture2DArray`, `Texture2DArrayGpu` (internal) | [Texture2DArray.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2DArray.cs) | Layers of one size on a `2D_ARRAY` image (ADR 0151) |
 | `MultiMesh` | [MultiMesh.cs](../../MainframeEngine/Src/Rendering/Resources/MultiMesh.cs) | Many transforms of one mesh (ADR 0151) |
@@ -133,7 +134,7 @@ Each property setter bumps `Material.Version`. On the next frame the renderer:
 - re-resolves the pipelines if `RenderState` changed.
 
 `StandardMaterial3D.Default` (white, lit, opaque) is used when a surface has no material. Other `Material`
-subclasses (apart from `OutlineMaterial3D` and `FoliageMaterial3D`, below) are not supported by the renderer yet:
+subclasses (apart from `OutlineMaterial3D`, `FoliageMaterial3D` and `WaterMaterial3D`, below) are not supported by the renderer yet:
 they draw with the default material and log a warning once.
 
 ### Next passes and OutlineMaterial3D (ADR 0132)
@@ -185,6 +186,14 @@ A built-in material for leaves, grass and bark, following the `OutlineMaterial3D
   layouts cannot see `frame`, so the renderer pushes the wind, wind parameters and time (48 bytes) at push-constant
   offset 0 before the first foliage run of a pass (the instanced casters never read that range; point casters keep
   the light at offset 64). Opaque foliage (bark) has a cutoff of 0, so the shared alpha test never discards.
+
+### WaterMaterial3D (ADR 0159)
+
+The built-in water material (`ShaderSetId.MeshWater`: `Water/Water.vk.vert` + `.frag`, always `MeshInstancedExt`; it
+reads `Custom0` = column depth, flow, foam). Blended: it goes to the transparent list, writes no depth and casts no
+shadow. It reuses the `StandardMaterial3D` set-2 layout (`MaterialParams.From(WaterMaterial3D)`; the albedo slot holds
+the foam mask, the normal slot the ripple normals, both built in when null: `WaterTextures`). The shading, exports and
+packing are in [water.md](water.md#watermaterial3d).
 
 ### Texture2D
 
@@ -351,6 +360,7 @@ steady-state frames don't even hash.
 | `MeshObjectId` | `Mesh/Mesh.vk.vert` + `Mesh/MeshId.vk.frag` | a prototype of the object-ID target pass (all ID targets are compatible) |
 | `MeshOutline` | `Mesh/MeshOutline.vk.vert` + `Mesh/Mesh.vk.frag` (`OutlineMaterial3D` in colour passes) | the scene pass |
 | `MeshFoliage` | `Foliage/Foliage.vk.vert` + `Foliage/Foliage.vk.frag` (`FoliageMaterial3D`; always `MeshInstancedExt`) | the scene pass |
+| `MeshWater` | `Water/Water.vk.vert` + `Water/Water.vk.frag` (`WaterMaterial3D`; always `MeshInstancedExt`) | the scene pass |
 
 `MeshLit` with `VertexLayoutId.MeshInstancedExt` uses `Mesh/MeshExt.vk.vert` and sets specialization constant 1
 (vertex colour) of `Mesh.vk.frag`.
@@ -508,7 +518,7 @@ Measured on an Apple M5 with MoltenVK:
 - PBR is opt-in (`ShadingMode.Pbr`); imported glTF materials stay Blinn-Phong (their metallic/roughness/occlusion are not
   imported yet). No `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
 - `Sprite3D` has no billboard mode.
-- Only `StandardMaterial3D`, `OutlineMaterial3D` and `FoliageMaterial3D` are rendered. Custom shaders and other
+- Only `StandardMaterial3D`, `OutlineMaterial3D`, `FoliageMaterial3D` and `WaterMaterial3D` are rendered. Custom shaders and other
   material types come later.
 - Foliage wind does not bend normals, and the object-ID pass draws foliage unswayed.
 - Visibility ranges have no margins or fade.
