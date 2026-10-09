@@ -10,4 +10,7 @@ public enum SkyEnvironmentType
 
     /// <summary>Six-faced cubemap texture (faces: +X, -X, +Y, -Y, +Z, -Z).</summary>
     Cubemap,
+
+    /// <summary>A physically based atmosphere lit by the sun (Hillaire 2020; ADR 0154).</summary>
+    Physical,
 }

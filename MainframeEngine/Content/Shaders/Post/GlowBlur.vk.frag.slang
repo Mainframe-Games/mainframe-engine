@@ -6,17 +6,19 @@
 //              glow strength (every level), and on the first level apply exposure, the HDR threshold feedback and the
 //              luminance cap.
 [[vk::binding(0, 0)]] Sampler2D source;
+[[vk::binding(1, 0)]] Sampler2D adaptedLuminance; // ADR 0154: 1 × 1 R32F, read when flags & 4 (auto exposure)
 
 struct Glow
 {
     float2 dstSize;   // destination size in pixels
-    uint   flags;     // 1: horizontal pass, 2: first level
+    uint   flags;     // 1: horizontal pass, 2: first level, 4: auto exposure
     float  strength;
     float  exposure;
     float  threshold;
     float  scale;
     float  bloom;
     float  luminanceCap;
+    float  autoExposureScale;
 };
 
 [[vk::push_constant]] ConstantBuffer<Glow> pc;
@@ -53,7 +55,10 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
         color *= pc.strength;
         if (first())
         {
-            color *= pc.exposure;
+            float exposure = pc.exposure;
+            if ((pc.flags & 4u) != 0u)
+                exposure *= pc.autoExposureScale / max(adaptedLuminance.Load(int3(0, 0, 0)).r, 1e-6);
+            color *= exposure;
             float luminance = max(color.r, max(color.g, color.b));
             float feedback = max(smoothstep(pc.threshold, pc.threshold + pc.scale, luminance), pc.bloom);
             color = min(color * feedback, float4(pc.luminanceCap));

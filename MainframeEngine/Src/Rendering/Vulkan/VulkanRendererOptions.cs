@@ -8,4 +8,7 @@ internal readonly record struct VulkanRendererOptions
 
     /// <summary>Adds transfer-source usage to the swapchain so frames can be read back.</summary>
     public bool EnableFrameCapture { get; init; }
+
+    /// <summary>The initial <see cref="IVulkanContext.AntiAliasing"/>.</summary>
+    public AntiAliasing AntiAliasing { get; init; }
 }

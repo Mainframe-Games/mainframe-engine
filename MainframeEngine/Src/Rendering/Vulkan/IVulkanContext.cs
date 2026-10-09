@@ -139,6 +139,18 @@ public interface IVulkanContext
     /// </summary>
     PostProcessSettings PostProcess { get; set; }
 
+    /// <summary>
+    /// Screen-space anti-aliasing of the main view (ADR 0154): FXAA runs on the tonemapped image, before the 2D canvas,
+    /// gizmos and UI. Starts at <see cref="EngineOptions.AntiAliasing"/>; may change between frames.
+    /// </summary>
+    AntiAliasing AntiAliasing { get; set; }
+
+    /// <summary>
+    /// Seconds since the previous frame (<see cref="Engine"/> sets it from <see cref="GameTime.DeltaTime"/> before each
+    /// frame): how far auto exposure adapts (ADR 0154).
+    /// </summary>
+    float FrameDeltaTime { get; set; }
+
     /// <summary>Largest anisotropic filtering level samplers may use (1 when the device lacks samplerAnisotropy).</summary>
     float MaxSamplerAnisotropy { get; }
 }

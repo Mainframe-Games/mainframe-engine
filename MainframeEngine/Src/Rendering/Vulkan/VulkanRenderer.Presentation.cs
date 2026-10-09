@@ -83,6 +83,13 @@ internal sealed unsafe partial class VulkanRenderer
     private DescriptorSet _postSet;
     private PipelineLayout _postLayout;
     private Pipeline _postPipeline;
+    private AutoExposure? _autoExposure; // ADR 0154: created with the post pass
+
+    // ADR 0154: FXAA. The tonemap pipelines above draw into the swapchain; these into FxaaPass's intermediate.
+    private AntiAliasing _antiAliasing;
+    private FxaaPass? _fxaa;
+    private Pipeline _tonemapLdrPipeline;
+    private Pipeline _postLdrPipeline;
 
     public RenderTarget SceneTarget => _sceneTarget ?? throw new InvalidOperationException("The renderer is not initialised.");
     public RenderPass OverlayRenderPass => _overlayPass;
@@ -161,9 +168,12 @@ internal sealed unsafe partial class VulkanRenderer
             if (_glow is not null)
             {
                 _glow.Resize(_swapChainExtent, _sceneTarget.GetColor(0).View);
+                _autoExposure!.Resize(_sceneTarget.GetColor(0).View);
                 WritePostSet();
             }
         }
+
+        _fxaa?.Resize(_swapChainExtent);
     }
 
     private void CreateSwapchainViews()
@@ -322,17 +332,23 @@ internal sealed unsafe partial class VulkanRenderer
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
         });
 
-    /// <summary>The post tonemap pass and the glow chain (ADR 0124), the first frame with non-default settings.</summary>
+    /// <summary>
+    /// The post tonemap pass, the glow chain (ADR 0124) and auto exposure (ADR 0154), the first frame with non-default
+    /// settings.
+    /// </summary>
     private void CreatePostTonemap()
     {
-        _glow = new GlowEffect(this, _swapChainExtent, _sceneTarget!.GetColor(0).View);
+        var sceneView = _sceneTarget!.GetColor(0).View;
+        _autoExposure = new AutoExposure(this, sceneView);
+        _glow = new GlowEffect(this, _swapChainExtent, sceneView, _autoExposure.AdaptedDescriptor);
         _postSetLayout = PipelineBuilder.CreateSetLayout(this,
         [
             new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = GlowEffect.LevelCount, StageFlags = ShaderStageFlags.FragmentBit },
+            new DescriptorSetLayoutBinding { Binding = 2, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ], "post tonemap");
         _postPool = PipelineBuilder.CreatePool(this, 1,
-            [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 + GlowEffect.LevelCount }], "post tonemap");
+            [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 2 + GlowEffect.LevelCount }], "post tonemap");
         _postSet = PipelineBuilder.AllocateSet(this, _postPool, _postSetLayout, "post tonemap");
         WritePostSet();
         _postLayout = PipelineBuilder.CreateLayout(this, [_postSetLayout], (uint)sizeof(PostPush), ShaderStageFlags.FragmentBit, "post tonemap");
@@ -361,6 +377,22 @@ internal sealed unsafe partial class VulkanRenderer
             PImageInfo = levels,
         };
         _vk!.UpdateDescriptorSets(_device, 1, &write, 0, null);
+        PipelineBuilder.WriteImage(this, _postSet, 2, _autoExposure!.AdaptedDescriptor);
+    }
+
+    /// <summary>FXAA's intermediate and filter, and the tonemap pipelines that draw into it (ADR 0154), on first use.</summary>
+    private void EnsureFxaa(bool post)
+    {
+        if (_fxaa is null)
+        {
+            _fxaa = new FxaaPass(this, _swapChainExtent, _presentPass);
+            _tonemapLdrPipeline = PipelineBuilder.Create(this, new PipelineState(), _tonemapLayout, _fxaa.LdrRenderPass,
+                "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/Tonemap.vk.frag.spv", [], [], "tonemap (fxaa)");
+        }
+
+        if (post && _postLdrPipeline.Handle == 0)
+            _postLdrPipeline = PipelineBuilder.Create(this, new PipelineState(), _postLayout, _fxaa.LdrRenderPass,
+                "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/TonemapPost.vk.frag.spv", [], [], "post tonemap (fxaa)");
     }
 
     // TonemapPost.vk.frag's push block (std430).
@@ -375,6 +407,8 @@ internal sealed unsafe partial class VulkanRenderer
         public float White;
         public float WhiteTonemapped;
         public fixed float GlowWeights[GlowEffect.LevelCount];
+        public uint AutoExposure;
+        public float AutoExposureScale;
     }
 
     private struct TonemapPush
@@ -434,14 +468,28 @@ internal sealed unsafe partial class VulkanRenderer
         {
             if (_glow is null)
                 CreatePostTonemap();
+            _autoExposure!.Record(cb, post, FrameDeltaTime); // ADR 0154: before the glow, whose first level reads it
             _glow!.Record(cb, post, exposure);
         }
 
-        BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
-        var encode = FormatInfo.IsSrgb(_swapChainImageFormat) ? 0u : 1u;
+        // ADR 0154: with FXAA the tonemap writes the LDR intermediate (always shader-encoded sRGB), which FXAA then filters
+        // into the swapchain pass; the overlay renderers draw after it, unfiltered.
+        var fxaa = _antiAliasing == AntiAliasing.Fxaa;
+        if (fxaa)
+        {
+            EnsureFxaa(usePost);
+            _fxaa!.BeginLdr(cb);
+        }
+        else
+        {
+            BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
+        }
+
+        var swapchainEncodes = FormatInfo.IsSrgb(_swapChainImageFormat);
+        var encode = fxaa || !swapchainEncodes ? 1u : 0u;
         if (usePost)
         {
-            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _postPipeline);
+            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, fxaa ? _postLdrPipeline : _postPipeline);
             var postSet = _postSet;
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _postLayout, 0, 1, &postSet, 0, null);
             var postPush = new PostPush
@@ -454,13 +502,15 @@ internal sealed unsafe partial class VulkanRenderer
                 GlowIntensity = post.GlowBlendMode == GlowBlendMode.Mix ? post.GlowMix : post.GlowIntensity,
                 White = post.GlowWhite,
                 WhiteTonemapped = post.GodotAcesWhiteTonemapped,
+                AutoExposure = post.AutoExposureEnabled ? 1u : 0u,
+                AutoExposureScale = post.AutoExposureScale,
             };
             post.GetGlowWeights(new Span<float>(postPush.GlowWeights, GlowEffect.LevelCount));
             vk.CmdPushConstants(cb, _postLayout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(PostPush), &postPush);
         }
         else
         {
-            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _tonemapPipeline);
+            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, fxaa ? _tonemapLdrPipeline : _tonemapPipeline);
             var set = _tonemapSet;
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _tonemapLayout, 0, 1, &set, 0, null);
             var push = new TonemapPush
@@ -473,6 +523,13 @@ internal sealed unsafe partial class VulkanRenderer
 
         PipelineBuilder.SetViewport(vk, cb, _swapChainExtent, flipY: false);
         vk.CmdDraw(cb, 3, 1, 0, 0);
+
+        if (fxaa)
+        {
+            _fxaa!.EndLdr(cb);
+            BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
+            _fxaa.Draw(cb, decodeSrgb: swapchainEncodes);
+        }
 
         if (_overlayPass.Handle != _presentPass.Handle)
         {
@@ -581,6 +638,17 @@ internal sealed unsafe partial class VulkanRenderer
             vk.DestroyDescriptorSetLayout(_device, _postSetLayout, null);
             _glow.Dispose();
             _glow = null;
+            _autoExposure?.Dispose();
+            _autoExposure = null;
+        }
+
+        if (_fxaa is not null)
+        {
+            vk.DestroyPipeline(_device, _tonemapLdrPipeline, null);
+            vk.DestroyPipeline(_device, _postLdrPipeline, null);
+            _tonemapLdrPipeline = _postLdrPipeline = default;
+            _fxaa.Dispose();
+            _fxaa = null;
         }
         if (_overlayPass.Handle != _presentPass.Handle)
             vk.DestroyRenderPass(_device, _overlayPass, null);

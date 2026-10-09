@@ -4,16 +4,22 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Active (2026-10-08):** forest showcase vertical slice on `feature/forest-slice` (worktree
-  `.claude/worktrees/forest-slice`). Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
-  - Wave 1 is running in lane worktrees `.claude/worktrees/forest-{a1,a2,b,c,d,e}`, on branches `forest/<lane>`.
-  - Lanes: A1 PBR + IBL + fog (ADR 0150); A2 vertex streams, MultiMesh, visibility ranges, Texture2DArray,
-    FoliageMaterial3D (0151); B Ez Tree port (0152); C Terrain3D core (0153); D physical sky, FXAA, auto exposure
-    (0154); E Curve3D/River3D, the `Examples/Forest` scaffold, FirstPersonController (0155).
-  - Next: merge the lanes into `feature/forest-slice` (A1 first), then wave 2 (splat material, Tree3D, grass,
-    water material, shafts), then wave 3 (content, performance, docs, gates).
-  - Commits stay local; one push and a PR at the end.
-  - Stop launching lanes at 50% weekly usage.
+- **Active (2026-10-08, paused at the usage limit):** forest showcase vertical slice on `feature/forest-slice`
+  (worktree `.claude/worktrees/forest-slice`). Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
+  - Merged into `feature/forest-slice`: lanes B (Ez Tree port, ADR 0152), E (Curve3D/River3D, `Examples/Forest`,
+    FirstPersonController, 0155) and D (physical sky, FXAA, auto exposure, 0154).
+  - Not merged yet:
+    - `forest/a1` (PBR + IBL + fog, 0150; finished, all gates green). Merging it conflicts with D in `shaders.lock`,
+      `SkyEnvironment.cs`, `WorldEnvironment.cs`, `RenderTests.Host/Program.cs` and `sky.md`. To resolve: add the
+      physical sky to `SkyEnvironment.FragmentShader`, honour `sky.sun.z == 1` (no sun disc in the capture), end
+      `Sky.Physical` with `applySkyFog`, then run `just shaders`.
+    - `forest/a2` (streams, MultiMesh, visibility ranges, Texture2DArray, FoliageMaterial3D, 0151) and `forest/c`
+      (Terrain3D core, 0153). Both had committed their docs and ADRs, then were stopped during final gates. Re-run the
+      gates on their branches before merging.
+  - Lane worktrees: `.claude/worktrees/agent-*`.
+  - Then: wave 2 (splat material, Tree3D, grass, water material, light shafts), then wave 3 (content, performance,
+    gates).
+  - Note: `build/linux/run.sh` shares one Docker volume, so run lavapipe one lane at a time.
 - **Status before this:** M0–M10 merged to `main` (fast-forward to `ec6bd70`, 2026-10-05); later work landed through
   PRs #5–#32.
 - **Open blockers:** none. User actions: Steamworks natives (partner login); macOS code signing/notarization.

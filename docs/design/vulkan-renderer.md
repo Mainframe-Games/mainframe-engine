@@ -39,7 +39,8 @@ state is baked into each pipeline.
 (`default` outside a frame), `SwapchainExtent` (pixels; the scene target has the same size),
 `SwapchainImageCount`, `CurrentImageIndex`, `CurrentFramebuffer` (the scene target's), `BeginRenderPass()`,
 `Validation`, and since M3: `SceneTarget`, `OverlayRenderPass`, `OverlayEncodesSrgb`, `BeginOverlayPass()`,
-`Exposure` (+ `const DefaultExposure = 1.3`), `Frame` (`FrameContext`, with per-view copies and `Extent` of the
+`Exposure` (+ `const DefaultExposure = 1.3`), since ADR 0154 `AntiAliasing` (`None`/`Fxaa`, from
+`EngineOptions.AntiAliasing`) and `FrameDeltaTime` (set by the engine; auto exposure adapts over it), `Frame` (`FrameContext`, with per-view copies and `Extent` of the
 view being drawn), `Allocator`, `Uploads`, `Deletions`, `Pipelines`, `Shaders`, `MaxSamplerAnisotropy` (the
 `samplerAnisotropy` feature is enabled when available). Images for the UI (a `SubViewport`, shadow maps) go through
 `UiServer.RegisterTexture` (`engine://name`).
@@ -77,9 +78,12 @@ Every Vulkan call that returns a `Result` in init, per-frame and recreation path
 | Pass | Target | Attachments | Pipelines built against it |
 |---|---|---|---|
 | Shadow passes | shadow maps | depth | `ShadowSystem` |
+| Sky LUTs (ADR 0154) | transmittance 256 × 64, multiple scattering 32 × 32, sky view 192 × 108 (`R16G16B16A16_SFLOAT` `RenderTarget`s) | colour Clear/Store → `SHADER_READ_ONLY`, explicit barrier in `End` | `PhysicalSkyLuts`: a physical sky's, at the start of `RenderServer.RenderOffscreen`, only when the atmosphere or the sun's elevation changed |
 | **Scene** (`RenderPass`) | `SceneTarget` | 0 `R16G16B16A16_SFLOAT` Clear/Store → `SHADER_READ_ONLY`; 1 depth Clear/DontCare | sky, grid, shapes, Spine, meshes |
+| Auto exposure (ADR 0154) | 64², 16², 4², 1² `R16_SFLOAT` (log2 luminance), 2 × 1² `R32_SFLOAT` (adapted, previous) | as above | `AutoExposure`: when the root world's `PostProcessSettings` enable it, after the scene pass |
 | Glow (ADR 0124) | 7 × 2 `RenderTarget`s (R16G16B16A16_SFLOAT, ½ … 1/128 of the scene) | colour Clear/Store → `SHADER_READ_ONLY`, explicit barrier in `End` | `GlowEffect`: only when the root world's `PostProcessSettings` enable glow, between the scene pass and the present pass |
-| Present | swapchain image | colour DontCare/Store, `UNDEFINED → PRESENT_SRC` (or `→ COLOR_ATTACHMENT` when a separate overlay pass follows) | tonemap |
+| FXAA input (ADR 0154) | `R8G8B8A8_UNORM`, the swapchain's size | as above | the tonemap pipelines (a second copy of each) when `AntiAliasing = Fxaa` |
+| Present | swapchain image | colour DontCare/Store, `UNDEFINED → PRESENT_SRC` (or `→ COLOR_ATTACHMENT` when a separate overlay pass follows) | tonemap, or FXAA (`FxaaPass`) over the FXAA input |
 | Overlay (`OverlayRenderPass`) | same pass as Present by default; a separate Load pass on a UNORM view in the `SrgbWithUnormOverlay` mode | | canvas, screen gizmos, UI, dev overlay |
 
 The scene pass's incoming dependency orders this frame's writes after the previous frame's tonemap read

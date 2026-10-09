@@ -7,12 +7,13 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Full-screen sky backdrop rendered before all other geometry.
-/// Supports procedural gradient, equirectangular panoramic, and cubemap sky types.
+/// Supports procedural gradient, equirectangular panoramic, cubemap and physical (atmosphere) sky types.
 /// </summary>
 /// <remarks>
 /// Camera data comes from the per-frame shared set 0 (<see cref="FrameContext"/>); the sky parameters are push
-/// constants, and textured skies bind their image as set 1. Colours are authored in sRGB like every other
-/// colour in the engine; the sun (<see cref="SunColor"/> × <see cref="SunIntensity"/>) is an HDR value.
+/// constants, and textured skies bind their image as set 1 (the physical sky its sky-view LUT). Colours are authored
+/// in sRGB like every other colour in the engine; the sun (<see cref="SunColor"/> × <see cref="SunIntensity"/>) is an
+/// HDR value.
 /// </remarks>
 public class SkyEnvironment : IDisposable
 {
@@ -31,16 +32,26 @@ public class SkyEnvironment : IDisposable
 
     /// <summary>Color of the ground / nadir hemisphere (procedural only).</summary>
     public Vector3 GroundColor { get; set; } = DefaultGroundColor;
-    /// <summary>World-space direction toward the sun (procedural only).</summary>
+    /// <summary>World-space direction toward the sun (procedural and physical).</summary>
     public Vector3 SunDirection { get; set; } = Vector3.Normalize(new(0.3f, 1f, 0.5f));
-    /// <summary>Sun disk color (procedural only).</summary>
+    /// <summary>Sun disk color (procedural); the sun's colour (physical), sRGB.</summary>
     public Vector3 SunColor { get; set; } = new(1.00f, 0.95f, 0.85f);
-    /// <summary>Sun brightness multiplier (procedural only).</summary>
+    /// <summary>Sun brightness multiplier (procedural); the sun's illuminance, a light's <c>Energy</c> (physical).</summary>
     public float SunIntensity { get; set; } = 20f;
     /// <summary>Angular radius of the sun disk in degrees. Default ≈ real sun (0.53°).</summary>
     public float SunAngularRadius { get; set; } = 0.53f;
     /// <summary>How sharply sky blends into horizon / ground. Higher = tighter band.</summary>
     public float HorizonSharpness { get; set; } = 6f;
+
+    // ─── Physical parameters (ADR 0154) ──────────────────────────────────────
+
+    /// <summary>
+    /// The atmosphere of a <see cref="SkyEnvironmentType.Physical"/> sky. Its sun is <see cref="SunDirection"/>, with
+    /// <see cref="SunColor"/> (sRGB) × <see cref="SunIntensity"/> as the sun's illuminance (a
+    /// <see cref="DirectionalLight3D"/>'s colour and energy; <see cref="WorldEnvironment"/> copies them from the world's
+    /// first one).
+    /// </summary>
+    public PhysicalSkySettings Physical { get; set; } = new();
 
     public SkyEnvironmentType Type { get; }
 
@@ -62,13 +73,15 @@ public class SkyEnvironment : IDisposable
     private readonly IVulkanContext? _ctx;
     private Pipeline _pipeline;
     private PipelineLayout _pipelineLayout;
-    private DescriptorSetLayout _texSetLayout; // Panoramic / Cubemap only
+    private DescriptorSetLayout _texSetLayout; // Panoramic / Cubemap / Physical only
     private DescriptorPool _descPool;
     private DescriptorSet _texSet;             // static: shared by every frame slot
     private GpuTexture? _texture;
+    private PhysicalSkyLuts? _luts;            // Physical only
     private bool _disposed;
 
-    private bool HasTexture => Type is SkyEnvironmentType.Panoramic or SkyEnvironmentType.Cubemap;
+    // Set 1 binding 0: the image (Panoramic, Cubemap) or the sky-view LUT (Physical).
+    private bool HasTexture => Type is SkyEnvironmentType.Panoramic or SkyEnvironmentType.Cubemap or SkyEnvironmentType.Physical;
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
@@ -93,21 +106,39 @@ public class SkyEnvironment : IDisposable
                 break;
             case SkyEnvironmentType.Panoramic or SkyEnvironmentType.Cubemap:
                 throw new ArgumentException($"A {type} sky needs its image path(s).");
+            case SkyEnvironmentType.Physical:
+                _luts = new PhysicalSkyLuts(ctx);
+                break;
         }
 
         CreatePipeline(ctx);
     }
 
-    // ─── Public draw method ───────────────────────────────────────────────────
+    // ─── Public draw methods ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Records the sky's offscreen work: for a <see cref="SkyEnvironmentType.Physical"/> sky, the atmosphere LUTs that
+    /// its parameters or the sun's elevation invalidated (nothing when unchanged). Call once per frame with no render
+    /// pass active, before <see cref="Draw"/> (the render server does, at the start of its offscreen work); the other
+    /// sky types have nothing to do.
+    /// </summary>
+    public void Prepare(CommandBuffer cb)
+    {
+        if (_luts is null || _ctx is null || !_ctx.FrameStarted) return;
+        var physical = Physical;
+        var atmosphere = physical.ToAtmosphere();
+        _luts.Update(cb, atmosphere, ViewRadius(atmosphere, physical), SafeNormalize(SunDirection).Y);
+    }
 
     /// <summary>
     /// Records sky draw commands into the current command buffer.
-    /// Call this <em>first</em> in OnRender, before any other geometry.
+    /// Call this <em>first</em> in OnRender, before any other geometry. A physical sky draws nothing until
+    /// <see cref="Prepare"/> has rendered its LUTs.
     /// </summary>
-    public unsafe void Draw(ICamera camera)
+    public void Draw(ICamera camera)
     {
         ArgumentNullException.ThrowIfNull(camera);
-        if (_ctx is null || !_ctx.FrameStarted) return;
+        if (_ctx is null || !_ctx.FrameStarted || !CanDraw) return;
 
         var vk = _ctx.Vk;
         var cb = _ctx.CurrentCommandBuffer;
@@ -117,13 +148,44 @@ public class SkyEnvironment : IDisposable
         PipelineBuilder.SetViewport(vk, cb, frame.Extent, flipY: true); // same Y-flip as the scene; the current view's size
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
         frame.Bind(cb, _pipelineLayout);
+        BindResources(cb, _pipelineLayout);
+
+        // Three vertices expand into the fullscreen triangle in the vertex shader.
+        vk.CmdDraw(cb, 3, 1, 0, 0);
+    }
+
+    // ─── Drawing the sky into another pass (sky captures) ─────────────────────
+
+    /// <summary>This sky type's fragment shader (its vertex shader is <c>Shaders/Sky/Sky.vk.vert.spv</c>).</summary>
+    internal string FragmentShaderPath => FragmentShader(Type);
+
+    /// <summary>
+    /// Set 1 of the sky's pipeline layout (after the frame's set 0, with the frame's push range), or a null handle when
+    /// the type binds nothing. A pipeline that draws this sky into another pass builds its layout with it.
+    /// </summary>
+    internal DescriptorSetLayout ResourceSetLayout => _texSetLayout;
+
+    /// <summary>False while a physical sky's LUTs have not been rendered yet (<see cref="Prepare"/>).</summary>
+    internal bool CanDraw => _luts is null || _luts.Ready;
+
+    /// <summary>The physical sky's LUTs (tests); null for the other types.</summary>
+    internal PhysicalSkyLuts? Luts => _luts;
+
+    /// <summary>
+    /// Binds set 1 (when the type has one) and pushes <c>SkyParams</c> for a pipeline whose layout is set 0 (frame) +
+    /// <see cref="ResourceSetLayout"/> with the frame's push range. The caller binds the pipeline and set 0 (per view or
+    /// cube face), sets the viewport and draws three vertices; nothing here depends on the target's size.
+    /// </summary>
+    internal unsafe void BindResources(CommandBuffer cb, PipelineLayout layout)
+    {
+        var vk = _ctx!.Vk;
         if (HasTexture)
         {
             var set = _texSet;
-            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 1, 1, &set, 0, null);
+            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, 1, 1, &set, 0, null);
         }
 
-        var push = new SkyParams
+        var push = Type == SkyEnvironmentType.Physical ? PhysicalParams() : new SkyParams
         {
             SkyColor = new Vector4(SkyColor, 1f),
             HorizonColor = new Vector4(HorizonColor, 1f),
@@ -132,11 +194,38 @@ public class SkyEnvironment : IDisposable
             SunColorIntensity = new Vector4(SunColor, SunIntensity),
             Sun = new Vector4(MathF.Cos(float.DegreesToRadians(SunAngularRadius)), HorizonSharpness, 0f, 0f),
         };
-        vk.CmdPushConstants(cb, _pipelineLayout, FrameContext.PushConstantStages, 0, (uint)sizeof(SkyParams), &push);
-
-        // Three vertices expand into the fullscreen triangle in the vertex shader.
-        vk.CmdDraw(cb, 3, 1, 0, 0);
+        vk.CmdPushConstants(cb, layout, FrameContext.PushConstantStages, 0, (uint)sizeof(SkyParams), &push);
     }
+
+    /// <summary>
+    /// The physical sun's illuminance in the engine's units: its linear colour × <see cref="SunIntensity"/> ×
+    /// <see cref="PhysicalSkySettings.EnergyMultiplier"/>. The sky is the sky-view LUT (per unit illuminance) × π × this.
+    /// </summary>
+    internal Vector3 PhysicalSunIlluminance => ColorSpace.SrgbToLinear(SunColor) * (SunIntensity * Physical.EnergyMultiplier);
+
+    // SkyParams for Sky.Physical.vk.frag (the field meanings are listed there).
+    private SkyParams PhysicalParams()
+    {
+        var physical = Physical;
+        var atmosphere = physical.ToAtmosphere();
+        var sun = SafeNormalize(SunDirection);
+        var illuminance = PhysicalSunIlluminance;
+        var transmittance = AtmosphereModel.SunTransmittance(atmosphere, physical.AltitudeMeters, sun);
+        var radius = float.DegreesToRadians(SunAngularRadius * MathF.Max(physical.SunDiskScale, 0f));
+        return new SkyParams
+        {
+            SkyColor = new Vector4(ViewRadius(atmosphere, physical), atmosphere.BottomRadius, atmosphere.TopRadius, 0f),
+            HorizonColor = new Vector4(illuminance * AtmosphereModel.RadianceScale, 0f),
+            SunDirection = new Vector4(sun, 0f),
+            SunColorIntensity = new Vector4(illuminance * transmittance * AtmosphereModel.SunDiscRadiance, 1f),
+            Sun = new Vector4(MathF.Cos(radius), 0f, 0f, 0f),
+        };
+    }
+
+    private static float ViewRadius(in AtmosphereParameters atmosphere, in PhysicalSkySettings physical) =>
+        AtmosphereModel.ViewRadius(atmosphere, physical.AltitudeMeters);
+
+    private static Vector3 SafeNormalize(Vector3 v) => v.LengthSquared() > 1e-12f ? Vector3.Normalize(v) : Vector3.UnitY;
 
     // ─── Dispose ──────────────────────────────────────────────────────────────
 
@@ -151,6 +240,7 @@ public class SkyEnvironment : IDisposable
         deletions.Enqueue(GpuDeletion.Of(_descPool));
         deletions.Enqueue(GpuDeletion.Of(_texSetLayout));
         _texture?.Dispose();
+        _luts?.Dispose();
     }
 
     // ─── Image loading ────────────────────────────────────────────────────────
@@ -188,7 +278,7 @@ public class SkyEnvironment : IDisposable
             _descPool = PipelineBuilder.CreatePool(ctx, 1,
                 [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 1 }], "sky texture");
             _texSet = PipelineBuilder.AllocateSet(ctx, _descPool, _texSetLayout, "sky texture");
-            PipelineBuilder.WriteImage(ctx, _texSet, 0, _texture!.Descriptor);
+            PipelineBuilder.WriteImage(ctx, _texSet, 0, _luts?.SkyViewDescriptor ?? _texture!.Descriptor);
             _pipelineLayout = ctx.Frame.CreatePipelineLayout(null, [_texSetLayout], "sky");
         }
         else
@@ -196,16 +286,17 @@ public class SkyEnvironment : IDisposable
             _pipelineLayout = ctx.Frame.CreatePipelineLayout(null, [], "sky");
         }
 
-        var fragment = Type switch
-        {
-            SkyEnvironmentType.Procedural => "Shaders/Sky/Sky.Procedural.vk.frag.spv",
-            SkyEnvironmentType.Panoramic => "Shaders/Sky/Sky.Panoramic.vk.frag.spv",
-            SkyEnvironmentType.Cubemap => "Shaders/Sky/Sky.Cubemap.vk.frag.spv",
-            _ => throw new InvalidOperationException($"Unknown sky type {Type}."),
-        };
-
         // No vertex input (fullscreen triangle), no culling, no depth test or write: drawn first, behind everything.
         _pipeline = PipelineBuilder.Create(ctx, new PipelineState(), _pipelineLayout, ctx.RenderPass,
-            "Shaders/Sky/Sky.vk.vert.spv", fragment, [], [], "sky");
+            "Shaders/Sky/Sky.vk.vert.spv", FragmentShader(Type), [], [], "sky");
     }
+
+    private static string FragmentShader(SkyEnvironmentType type) => type switch
+    {
+        SkyEnvironmentType.Procedural => "Shaders/Sky/Sky.Procedural.vk.frag.spv",
+        SkyEnvironmentType.Panoramic => "Shaders/Sky/Sky.Panoramic.vk.frag.spv",
+        SkyEnvironmentType.Cubemap => "Shaders/Sky/Sky.Cubemap.vk.frag.spv",
+        SkyEnvironmentType.Physical => "Shaders/Sky/Sky.Physical.vk.frag.spv",
+        _ => throw new InvalidOperationException($"Unknown sky type {type}."),
+    };
 }

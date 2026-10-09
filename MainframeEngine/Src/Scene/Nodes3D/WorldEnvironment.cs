@@ -3,10 +3,11 @@ using System.Numerics;
 namespace MainframeEngine;
 
 /// <summary>
-/// Sky, ambient light, tonemap and glow for its viewport's world (Godot's <c>WorldEnvironment</c>). The sky is described by a
-/// <see cref="MainframeEngine.Sky"/> resource; the render server builds the matching <see cref="SkyEnvironment"/>
-/// on first draw and rebuilds it when the sky's mode or images change. Only the first environment in a world is
-/// used.
+/// Sky, ambient light, wind, fog, tonemap, glow and auto exposure for its viewport's world (Godot's
+/// <c>WorldEnvironment</c>). The sky is described by a <see cref="MainframeEngine.Sky"/> resource; the render server builds
+/// the matching <see cref="SkyEnvironment"/> on first use and rebuilds it when the sky's mode or images change. A
+/// physical sky's sun is the world's first <see cref="DirectionalLight3D"/> (ADR 0154). Only the first environment in a
+/// world is used.
 /// </summary>
 [EditorIcon("world", Family = EditorIconFamily.Space3D)]
 public class WorldEnvironment : Node, IRenderResourceOwner
@@ -262,6 +263,47 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         set => _post = _post with { GlowHdrLuminanceCap = value };
     }
 
+    [ExportGroup("Auto Exposure")]
+    /// <summary>Eye adaptation (ADR 0154): the exposure follows the scene's average luminance over time.</summary>
+    [Export]
+    public bool AutoExposureEnabled
+    {
+        get => _post.AutoExposureEnabled;
+        set => _post = _post with { AutoExposureEnabled = value };
+    }
+
+    /// <summary>The luminance an average scene is exposed to (middle grey; Godot's <c>auto_exposure_scale</c>).</summary>
+    [Export(Range = "0.01,16,0.01")]
+    public float AutoExposureScale
+    {
+        get => _post.AutoExposureScale;
+        set => _post = _post with { AutoExposureScale = value };
+    }
+
+    /// <summary>How fast the exposure adapts, per second (Godot's <c>auto_exposure_speed</c>).</summary>
+    [Export(Range = "0.01,64,0.01")]
+    public float AutoExposureSpeed
+    {
+        get => _post.AutoExposureSpeed;
+        set => _post = _post with { AutoExposureSpeed = value };
+    }
+
+    /// <summary>The darkest average luminance adapted to (caps how much a dark scene is brightened).</summary>
+    [Export(Range = "0.0001,64,0.0001")]
+    public float AutoExposureMinLuminance
+    {
+        get => _post.AutoExposureMinLuminance;
+        set => _post = _post with { AutoExposureMinLuminance = value };
+    }
+
+    /// <summary>The brightest average luminance adapted to (caps how much a bright scene is darkened).</summary>
+    [Export(Range = "0.0001,1024,0.01")]
+    public float AutoExposureMaxLuminance
+    {
+        get => _post.AutoExposureMaxLuminance;
+        set => _post = _post with { AutoExposureMaxLuminance = value };
+    }
+
     protected override void OnEnterTree()
     {
         base.OnEnterTree();
@@ -276,11 +318,30 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         base.OnExitTree();
     }
 
+    /// <summary>
+    /// The sky's offscreen work for this frame (the physical sky's LUTs; ADR 0154), recorded by the render server with no
+    /// render pass active before anything draws the sky.
+    /// </summary>
+    internal void PrepareSky(RenderServer server, Silk.NET.Vulkan.CommandBuffer cb)
+    {
+        if (Sky is { } sky)
+            SyncSky(server, sky).Prepare(cb);
+    }
+
+    /// <summary>The sky environment built for <see cref="Sky"/> (null before the first frame draws it; tests).</summary>
+    internal SkyEnvironment? SkyEnvironment => _skyEnvironment;
+
     internal void DrawSky(RenderServer server, ICamera camera)
     {
         if (Sky is not { } sky)
             return;
 
+        SyncSky(server, sky).Draw(camera);
+    }
+
+    // Builds the sky environment when the mode or images changed and copies the parameters into it.
+    private SkyEnvironment SyncSky(RenderServer server, Sky sky)
+    {
         if (_skyEnvironment is null
             || _builtMode != sky.Mode
             || !string.Equals(_builtPanorama, sky.Panorama, StringComparison.Ordinal)
@@ -296,7 +357,26 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         env.SunIntensity = sky.SunIntensity;
         env.SunAngularRadius = sky.SunAngularRadius;
         env.HorizonSharpness = sky.HorizonSharpness;
-        env.Draw(camera);
+        if (sky.Mode == SkyEnvironmentType.Physical)
+            SyncPhysicalSun(env, sky);
+        return env;
+    }
+
+    // The physical sky's sun is the world's first DirectionalLight3D (Godot's rule for sky shaders): towards its +Z axis,
+    // with its colour and energy as the sun's illuminance. Without one, Sky.SunDirection and Sky.SunColor at energy 1.
+    private void SyncPhysicalSun(SkyEnvironment env, Sky sky)
+    {
+        env.Physical = sky.PhysicalSettings;
+        if (_world?.Lights.DirectionalLights is [var light, ..])
+        {
+            env.SunDirection = -light.Direction;
+            env.SunColor = light.Color;
+            env.SunIntensity = light.Intensity;
+        }
+        else
+        {
+            env.SunIntensity = 1f;
+        }
     }
 
     private void BuildSky(RenderServer server, Sky sky)
@@ -307,6 +387,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
             SkyEnvironmentType.Panoramic => new SkyPanoramic(server.Renderer, sky.Panorama),
             SkyEnvironmentType.Cubemap => new SkyCubemap(server.Renderer,
                 sky.CubemapFaces ?? throw new InvalidOperationException("A cubemap sky needs 6 CubemapFaces.")),
+            SkyEnvironmentType.Physical => new SkyPhysical(server.Renderer),
             _ => new SkyProcedural(server.Renderer),
         };
         _builtMode = sky.Mode;
@@ -378,4 +459,58 @@ public class Sky : Resource
     /// <summary>Angular radius of the sun disk in degrees.</summary>
     [Export(Range = "0,10,0.01")]
     public float SunAngularRadius { get; set; } = 0.53f;
+
+    // Physical (ADR 0154): Godot's PhysicalSkyMaterial names; GroundColor (above) is the ground albedo.
+
+    /// <summary>Rayleigh scattering strength (Godot's <c>rayleigh_coefficient</c>; 2 = Earth).</summary>
+    [ExportGroup("Physical")]
+    [Export(Range = "0,64,0.01")]
+    public float RayleighCoefficient { get; set; } = PhysicalSkySettings.DefaultRayleighCoefficient;
+
+    /// <summary>Tint of Rayleigh scattering (Godot's <c>rayleigh_color</c>).</summary>
+    [Export]
+    public Vector3 RayleighColor { get; set; } = PhysicalSkySettings.DefaultRayleighColor;
+
+    /// <summary>Mie (haze) scattering strength (Godot's <c>mie_coefficient</c>; 0.005 = Earth).</summary>
+    [Export(Range = "0,1,0.0001")]
+    public float MieCoefficient { get; set; } = PhysicalSkySettings.DefaultMieCoefficient;
+
+    /// <summary>How tightly haze glows around the sun, −1..1 (Godot's <c>mie_eccentricity</c>).</summary>
+    [Export(Range = "-1,1,0.01")]
+    public float MieEccentricity { get; set; } = 0.8f;
+
+    /// <summary>Tint of Mie scattering (Godot's <c>mie_color</c>).</summary>
+    [Export]
+    public Vector3 MieColor { get; set; } = PhysicalSkySettings.DefaultMieColor;
+
+    /// <summary>Haze density multiplier (Godot's <c>turbidity</c>; 10 = Earth).</summary>
+    [Export(Range = "0,1000,0.01")]
+    public float Turbidity { get; set; } = PhysicalSkySettings.DefaultTurbidity;
+
+    /// <summary>Multiplies the sun disc's size (Godot's <c>sun_disk_scale</c>).</summary>
+    [Export(Range = "0,360,0.01")]
+    public float SunDiskScale { get; set; } = 1f;
+
+    /// <summary>Multiplies the sky's and the sun disc's brightness (Godot's <c>energy_multiplier</c>).</summary>
+    [Export(Range = "0,128,0.01")]
+    public float EnergyMultiplier { get; set; } = 1f;
+
+    /// <summary>The camera's height above sea level, in metres.</summary>
+    [Export(Range = "0,20000,1")]
+    public float AltitudeMeters { get; set; } = 300f;
+
+    /// <summary>The physical-mode properties as the renderer's settings.</summary>
+    public PhysicalSkySettings PhysicalSettings => new()
+    {
+        RayleighCoefficient = RayleighCoefficient,
+        RayleighColor = RayleighColor,
+        MieCoefficient = MieCoefficient,
+        MieEccentricity = MieEccentricity,
+        MieColor = MieColor,
+        Turbidity = Turbidity,
+        SunDiskScale = SunDiskScale,
+        GroundColor = GroundColor,
+        EnergyMultiplier = EnergyMultiplier,
+        AltitudeMeters = AltitudeMeters,
+    };
 }

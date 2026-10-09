@@ -6,6 +6,7 @@
 
 [[vk::binding(0, 0)]] Sampler2D hdrScene;
 [[vk::binding(1, 0)]] Sampler2D glowLevels[7];
+[[vk::binding(2, 0)]] Sampler2D adaptedLuminance; // ADR 0154: 1 × 1 R32F, AutoExposureAdapt
 
 struct Post
 {
@@ -18,6 +19,8 @@ struct Post
     float white;           // Godot's environment white (≥ 1 for ACES)
     float whiteTonemapped; // Godot ACES: the curve at 1.8·white
     float glowWeights[7];  // normalised level weights
+    uint  autoExposure;    // 1: multiply by autoExposureScale / the adapted luminance (ADR 0154)
+    float autoExposureScale;
 };
 
 [[vk::push_constant]] ConstantBuffer<Post> pc;
@@ -120,7 +123,10 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
 {
     float2 size = float2(textureSize2D(hdrScene, 0));
     float2 uv = fragCoord.xy / size;
-    float3 color = hdrScene.Load(int3(int2(fragCoord.xy), 0)).rgb * pc.exposure;
+    float exposure = pc.exposure;
+    if (pc.autoExposure != 0u)
+        exposure *= pc.autoExposureScale / max(adaptedLuminance.Load(int3(0, 0, 0)).r, 1e-6);
+    float3 color = hdrScene.Load(int3(int2(fragCoord.xy), 0)).rgb * exposure;
 
     bool glow = pc.glowEnabled != 0u;
     if (glow && pc.glowMode != kSoftLight)

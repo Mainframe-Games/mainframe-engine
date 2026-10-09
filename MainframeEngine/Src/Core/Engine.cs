@@ -52,6 +52,12 @@ public struct EngineOptions()
     /// </summary>
     public bool EnableFrameCapture;
 
+    /// <summary>
+    /// Screen-space anti-aliasing the renderer starts with (default <see cref="MainframeEngine.AntiAliasing.None"/>);
+    /// change it at runtime with <see cref="IVulkanContext.AntiAliasing"/>. Games set <c>rendering.antiAliasing</c>.
+    /// </summary>
+    public AntiAliasing AntiAliasing = AntiAliasing.None;
+
     /// <summary>Creates the window visible. Tests may hide it where the platform still presents.</summary>
     public bool WindowVisible = true;
 
@@ -356,6 +362,7 @@ public abstract class Engine : IDisposable
             EnableValidation = EngineOptions.EnableValidation,
             VSync = EngineOptions.VSync,
             EnableFrameCapture = EngineOptions.EnableFrameCapture,
+            AntiAliasing = EngineOptions.AntiAliasing,
         });
 
         // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,
@@ -506,6 +513,8 @@ public abstract class Engine : IDisposable
         }
 
         var renderStart = Stopwatch.GetTimestamp();
+        if (Renderer is IVulkanContext vulkan)
+            vulkan.FrameDeltaTime = _gameTime.DeltaTime; // auto exposure adapts over this frame's delta (ADR 0154)
 
         // M3: cull and sort the scene's meshes, create/update their GPU resources (uploads join this frame).
         Servers.Render?.PrepareFrame(Root);

@@ -77,6 +77,33 @@ public readonly record struct PostProcessSettings
     public float GlowHdrScale { get; init; } = 2f;
     public float GlowHdrLuminanceCap { get; init; } = 12f;
 
+    /// <summary>
+    /// Eye adaptation (ADR 0154): the scene's average log luminance, measured on the GPU each frame, adapts over time and
+    /// sets the exposure to <see cref="AutoExposureScale"/> / luminance. The manual exposure (<c>rendering.exposure</c> or
+    /// <see cref="TonemapExposure"/>) still multiplies it, as compensation.
+    /// </summary>
+    public bool AutoExposureEnabled { get; init; }
+
+    /// <summary>The luminance an average scene is exposed to (middle grey; Godot's <c>auto_exposure_scale</c>, 0.4).</summary>
+    public float AutoExposureScale { get; init; } = 0.4f;
+
+    /// <summary>Adaptation rate per second (Godot's <c>auto_exposure_speed</c>, 0.5): each frame closes <c>1 − e^(−dt·speed)</c> of the gap.</summary>
+    public float AutoExposureSpeed { get; init; } = 0.5f;
+
+    /// <summary>The darkest average luminance adapted to: darker scenes stay darker (the most exposure is Scale / this).</summary>
+    public float AutoExposureMinLuminance { get; init; } = 0.05f;
+
+    /// <summary>The brightest average luminance adapted to: brighter scenes stay brighter (the least exposure is Scale / this).</summary>
+    public float AutoExposureMaxLuminance { get; init; } = 2f;
+
+    /// <summary>The fraction of the gap to the measured luminance that auto exposure closes over <paramref name="deltaTime"/> seconds.</summary>
+    public float AutoExposureBlend(float deltaTime) =>
+        Math.Clamp(1f - MathF.Exp(-MathF.Max(deltaTime, 0f) * MathF.Max(AutoExposureSpeed, 0f)), 0f, 1f);
+
+    /// <summary>The exposure auto exposure applies for an adapted average <paramref name="luminance"/> (before compensation).</summary>
+    public float AutoExposureFor(float luminance) =>
+        AutoExposureScale / Math.Clamp(luminance, MathF.Max(AutoExposureMinLuminance, 1e-6f), MathF.Max(AutoExposureMaxLuminance, AutoExposureMinLuminance));
+
     /// <summary>The level weights the tonemap uses: as set, or divided by their sum when <see cref="GlowNormalized"/> (Godot's <c>_update_glow</c>).</summary>
     public void GetGlowWeights(Span<float> weights)
     {
