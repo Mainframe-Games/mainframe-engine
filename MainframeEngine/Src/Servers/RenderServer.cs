@@ -427,7 +427,9 @@ public sealed class RenderServer : IServer
             vk.Frame.Begin(camera, world.Lights); // the main pass rewrites the same data
             var meshes = Meshes!;
             meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
-            picker.Render(cb, vk.SwapchainExtent, (meshes, _mainDraws), static (s, c) => s.meshes.DrawObjectIds(s._mainDraws, c));
+            // ADR 0174: the main view's frame set and viewport are at its render size; picks are in window pixels.
+            picker.Render(cb, vk.RenderExtent, (meshes, _mainDraws), static (s, c) => s.meshes.DrawObjectIds(s._mainDraws, c),
+                RenderScaling.ScaleOf(vk.RenderExtent, vk.SwapchainExtent));
         }
     }
 
@@ -653,8 +655,10 @@ public sealed class RenderServer : IServer
         var frame = vk.Frame;
         if ((needs & PostEffectNeeds.Jitter) != 0)
         {
-            var extent = vk.SwapchainExtent;
-            var index = TemporalJitter.SampleIndex(vk.FrameStarted ? vk.FrameNumber : vk.FrameNumber + 1);
+            // ADR 0174: in render pixels, with a cycle long enough for an upscaled view (16 samples at 0.75).
+            var extent = vk.RenderExtent;
+            var samples = RenderScaling.JitterSampleCount(RenderScaling.ScaleOf(extent, vk.SwapchainExtent));
+            var index = TemporalJitter.SampleIndex(vk.FrameStarted ? vk.FrameNumber : vk.FrameNumber + 1, samples);
             frame.ProjectionJitter = TemporalJitter.NdcOffset(index, extent.Width, extent.Height);
             frame.JitterIndex = index;
         }

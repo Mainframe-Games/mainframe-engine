@@ -319,7 +319,7 @@ public sealed class PostProcessingTests
     [Fact]
     public void TheFrameBlockGrewByTheTemporalFields()
     {
-        Assert.Equal(672, FrameData.Size); // + AmbientOcclusion (ADR 0165), the probe volume (ADR 0170)
+        Assert.Equal(688, FrameData.Size); // + AmbientOcclusion (ADR 0165), the probe volume (ADR 0170), the mip bias (ADR 0174)
         Assert.Equal(FrameData.Size, System.Runtime.InteropServices.Marshal.SizeOf<FrameData>());
         Assert.Equal(432, (int)System.Runtime.InteropServices.Marshal.OffsetOf<FrameData>(nameof(FrameData.PreviousViewProjection)));
         Assert.Equal(496, (int)System.Runtime.InteropServices.Marshal.OffsetOf<FrameData>(nameof(FrameData.Jitter)));

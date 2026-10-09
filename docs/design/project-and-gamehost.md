@@ -90,7 +90,10 @@ commas tolerated). Only values that differ from the defaults are written, except
 - **Rendering**: `exposure` → `IVulkanContext.Exposure`, `shadows` → `RenderServer.ShadowQuality`, `antiAliasing`
   (`None` default, `Fxaa` or `Taa`; ADR 0154, ADR 0166) → `IVulkanContext.AntiAliasing`, `taaSharpness` (0–1, default
   0.25, written only when it differs; the sharpen after TAA) → `IVulkanContext.TaaSharpness`, `waterSsr` (`Off`,
-  `Low` default, `High`: refracting water's screen-space reflections, ADR 0173) → `RenderServer.WaterSsr`, all applied
+  `Low` default, `High`: refracting water's screen-space reflections, ADR 0173) → `RenderServer.WaterSsr`, and ADR 0174's
+  render scaling under Godot's names: `scaling3DMode` (`Bilinear` default, `Fsr`, `Taau`) → `IVulkanContext.Scaling3DMode`,
+  `scaling3DScale` (0.25–1, default 1: native) → `IVulkanContext.Scaling3DScale`, `fsrSharpness` (0–2 stops, default 0.2)
+  → `IVulkanContext.FsrSharpness` (optional keys: no migration; [Post-processing → Render and output resolution](post-processing.md#render-and-output-resolution)), all applied
   by `GameHost.OnLoad`. The editor's Project Settings show them under Rendering.
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.

@@ -412,6 +412,42 @@ public sealed class RenderingProjectSettings
     public WaterSsrQuality WaterSsr { get; set; } = WaterSsrQuality.Low;
 
     /// <summary>
+    /// How the 3D view upscales from its render resolution (Godot's <c>scaling_3d_mode</c>; <see cref="IVulkanContext.Scaling3DMode"/>,
+    /// ADR 0174): bilinear (default), FSR 1 or TAAU (which turns TAA on). Only with a <see cref="Scaling3DScale"/> below 1.
+    /// </summary>
+    public Scaling3DMode Scaling3DMode { get; set; } = Scaling3DMode.Bilinear;
+
+    /// <summary>
+    /// The 3D view's render scale, 0.25–1 (Godot's <c>scaling_3d_scale</c>; <see cref="IVulkanContext.Scaling3DScale"/>,
+    /// ADR 0174; default 1, native). The 2D canvas and UI always render at the window's resolution.
+    /// </summary>
+    public float Scaling3DScale
+    {
+        get;
+        set
+        {
+            if (!(value >= RenderScaling.MinScale && value <= RenderScaling.MaxScale))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The 3D scale must be between 0.25 and 1.");
+            field = value;
+        }
+    } = RenderScaling.MaxScale;
+
+    /// <summary>
+    /// RCAS's attenuation after an FSR 1 upscale, in stops: 0 is the sharpest, 2 the softest (Godot's <c>fsr_sharpness</c>;
+    /// <see cref="IVulkanContext.FsrSharpness"/>; default <see cref="RenderScaling.DefaultFsrSharpness"/>).
+    /// </summary>
+    public float FsrSharpness
+    {
+        get;
+        set
+        {
+            if (!(value >= 0f && value <= RenderScaling.MaxFsrSharpness))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "FSR sharpness must be between 0 and 2.");
+            field = value;
+        }
+    } = RenderScaling.DefaultFsrSharpness;
+
+    /// <summary>
     /// Opaque background of the 2D canvas (<see cref="CanvasServer.ClearColor"/>; a 2D game: Godot's viewport clear colour,
     /// gamma-space RGBA), or null (default) to draw the canvas over the 3D scene.
     /// </summary>

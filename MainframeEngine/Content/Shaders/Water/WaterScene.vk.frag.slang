@@ -58,8 +58,8 @@ float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
 {
     float3 P = input.inWorldPos;
     float2 xz = P.xz;
-    float2 dx = ddx(xz);
-    float2 dy = ddy(xz);
+    float2 dx = materialGrad(ddx(xz)); // texture gradients (ADR 0174: mip bias under upscaling)
+    float2 dy = materialGrad(ddy(xz));
 
     WaterFlow f = waterFlow(input.inWater.yz, xz);
     float3 Ng = normalize(input.inNormal);

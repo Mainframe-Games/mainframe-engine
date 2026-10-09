@@ -24,7 +24,7 @@ Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes (the Demo's + *.hdr, *.exr, *.cube),
 │   NOTICE.md (every third-party asset), README.md
 ├── project.mfproj        "Mainframe Forest": main scene forest, 1920 × 1080 px (contentScale 1), shadows High, TAA,
-│                         the input map, autoload Dev
+│                         3D at 0.75 with TAAU (ADR 0174), the input map, autoload Dev
 ├── benchmark-baseline.json  this Mac's forest-bench result (1920 × 1080)
 ├── Forest/               Src/Player (FirstPersonController, IFootstepSurface + SurfaceBody3D, ForestSettings),
 │                         Src/World (ForestScene, ForestValley, ValleyLayout, ValleyGenerator, ValleyNoise,
@@ -416,6 +416,24 @@ Struct maths and property sets on existing players: the stream's closest-point s
 schedule and footsteps allocate nothing (`ForestAudioTests.FramesAllocateNothing`: 600 frames of walking with birds,
 footsteps on every surface and the server rendering, 0 B).
 
+**G8e.8 TAA upscaling** ([ADR 0174](../../memory/decisions/0174-taa-upscaling.md)): the project renders the 3D scene at
+0.75 (`rendering.scaling3DScale`) and TAAU upscales it (`rendering.scaling3DMode: Taau`); `++ --scale 1` is native
+resolution, and the benchmark reports both resolutions (`RenderWidth`, `RenderHeight`, `Scaling` in the JSON). Apple M5
+(MoltenVK), `just forest-bench`, no other GPU process running, two runs where given (the laptop's display caps the
+window at 2560 × 1308, so the "1440p" rows are that):
+
+| Output | 3D | p50 | p90 | p99 | Sun shadows / SSAO / fog (GPU p50) |
+|---|---|---|---|---|---|
+| 2560 × 1308 | **1920 × 981 (0.75, TAAU)** | **19.89 / 19.34 ms** | 27.1 / 25.9 ms | **32.6 / 32.6 ms** | 3.9 / 1.05 / 1.4 ms |
+| 2560 × 1308 | 2560 × 1308 (native TAA) | 26.29 / 26.49 ms | 32.5 / 33.0 ms | 41.6 / 41.5 ms | 3.6 / 1.5 / 2.3 ms |
+| 1920 × 1080 | **1440 × 810 (0.75, TAAU)** | **15.25 ms** | 20.4 ms | **23.9 ms** | 3.5 / 0.49 / 0.86 ms |
+| 1920 × 1080 | 1920 × 1080 (native TAA) | 18.21 ms | 25.4 ms | 32.5 ms | 3.5 / 0.92 / 1.44 ms |
+
+0.75 is ≈ 26 % faster at the larger window and 16 % faster at 1080p (p99 −22 % and −26 %); the per-pixel passes (SSAO,
+fog, the lit scene) scale with the pixel count, the shadows do not. The G8e target (p50 ≤ 14 ms at 2560 × 1440 on an
+M-series Pro) is not reached on this base M5 yet; 0 B per frame. The baseline file is still the pre-G8e 1080p native
+run; record a new one on a quiet machine with `--write-baseline` once the wave is merged.
+
 ## `ForestDev`, `--autowalk` and the benchmark
 
 The `Dev` autoload (`ForestDev`) is idle unless started with game arguments after `++`:
@@ -434,7 +452,9 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
   the wall-clock frame intervals, the sun shadows', SSAO's and the volumetric fog's GPU time and the most draws, writes JSON and compares p50 and p99 with
   the baseline (exit 1 when more than 10 % slower or when a frame allocated). `just forest-bench` runs it at
   1920 × 1080 against `Examples/Forest/benchmark-baseline.json`.
-- `--shot`, `--view`, `--set`: [above](#reference-shots); `--resolution WxH` resizes the window to W × H pixels.
+- `--shot`, `--view`, `--set`: [above](#reference-shots); `--resolution WxH` resizes the window to W × H pixels;
+  `--scale s` sets the 3D render scale (ADR 0174; the project's is 0.75, `--scale 1` is native). A flag given twice
+  takes its last value, so `just forest-bench --resolution 2560x1440 --scale 1` overrides the script's defaults.
 - `--no-capture` leaves the mouse free; `--no-audio` skips the audio `ForestDev` would attach to a scene without one.
 - **Frame rate:** `ForestDev` adds `FpsHud` (`Src/Dev/FpsHud.cs`, `Content/UI/fps.rml`) on its own `UiLayer` (100) in normal
   play: FPS, the average frame time and the slowest frame of the last half second, top right; F3 toggles it. Screenshot,
@@ -455,7 +475,7 @@ string Jitter2 allocates, is muted for those queries (`JitterLogMute`, [Physics]
 | `just forest-test` | `dotnet test Examples/Forest/Forest.Tests` |
 | `just forest-audio` | the offline audio renders: `Examples/Forest/artifacts/audio/*.wav` (ambience calm and windy, brook near and far, falls, birds, footsteps per surface, the whole mix walking) |
 | `just forest-screenshots [frames]` | `build/forest-screenshots.sh`: R1–R5 at 2560 × 1440 → 1600 × 900 into `docs/images/forest/` (display awake, LFS art) |
-| `just forest-bench [args]` | `build/forest-bench.sh`: the benchmark at 1920 × 1080 against `benchmark-baseline.json` (`--write-baseline` re-records; quiet machine) |
+| `just forest-bench [args]` | `build/forest-bench.sh`: the benchmark at 1920 × 1080 (3D at 0.75, TAAU) against `benchmark-baseline.json` (`--resolution 2560x1440`, `--scale 1`; `--write-baseline` re-records; quiet machine) |
 
 ## Tests
 

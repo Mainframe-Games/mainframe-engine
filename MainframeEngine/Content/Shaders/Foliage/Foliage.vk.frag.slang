@@ -72,8 +72,8 @@ float3 foliageTranslucency(float3 albedo, float3 N, float3 Ngeo, float3 worldPos
 float4 main(FsIn input, bool frontFacing : SV_IsFrontFace, float4 fragCoord : SV_Position) : SV_Target0
 {
     float2 uv = materialUv(input.inUV);
-    float2 duvdx = ddx(uv);
-    float2 duvdy = ddy(uv);
+    float2 duvdx = materialGrad(ddx(uv)); // ADR 0174: the output resolution's mip under upscaling
+    float2 duvdy = materialGrad(ddy(uv));
     float3 dpdx = ddx(input.inWorldPos);
     float3 dpdy = ddy(input.inWorldPos);
     float4 albedo = materialAlbedo(uv, duvdx, duvdy) * input.inColor;

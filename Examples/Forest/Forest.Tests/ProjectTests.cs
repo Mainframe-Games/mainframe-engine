@@ -99,6 +99,17 @@ public sealed class ProjectTests
         var settings = Load();
         Assert.Equal(AntiAliasing.Taa, settings.Rendering.AntiAliasing); // ADR 0166: leaves and grass stop shimmering
         Assert.Equal(1f, settings.Window.ContentScale);
+        // ADR 0174: High renders at 0.75 and TAAU upscales (1440p from 1080p); `++ --scale 1` is native.
+        Assert.Equal((Scaling3DMode.Taau, 0.75f), (settings.Rendering.Scaling3DMode, settings.Rendering.Scaling3DScale));
+    }
+
+    [Fact]
+    public void TheScaleFlagParses()
+    {
+        Assert.Equal(1f, ForestDev.ParseScale("1"));
+        Assert.Equal(0.5f, ForestDev.ParseScale("0.5"));
+        Assert.Null(ForestDev.ParseScale("2"));
+        Assert.Null(ForestDev.ParseScale("native"));
     }
 
     [Fact]

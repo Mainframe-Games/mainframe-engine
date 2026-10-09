@@ -1,4 +1,4 @@
-// Per-frame shared set 0, binding 0: the camera (FrameContext / FrameData in C#, std140, 672 bytes).
+// Per-frame shared set 0, binding 0: the camera (FrameContext / FrameData in C#, std140, 688 bytes).
 // Binding 1 of the same set is the lights UBO (lights.slang, default LIGHTS_SET 0 / LIGHTS_BINDING 1), bindings 2-4 the
 // sky lighting (environment.slang), binding 5 the screen-space occlusion (ambient_occlusion.slang: AO, contact shadow,
 // bent normal), binding 6 the light probe volume (probes.slang, ADR 0170).
@@ -36,9 +36,28 @@ struct FrameData
     float4 probeLayers0;      // terrain-following: layer heights above the ground (m), layers 0-3
     float4 probeLayers1;      // layers 4-7
     float4 probeTint;         // rgb = the occlusion tint (linear; LightProbeVolume.OcclusionTint, probeSkyLight), w unused
+    // ADR 0174: an upscaled main view samples material textures at the output resolution's level of detail.
+    float mipBias;            // log2(render scale): -0.42 at 0.75; 0 at native and in every other view
+    float mipScale;           // exp2(mipBias): the factor on UV gradients (materialGrad)
+    float upscalePad0;
+    float upscalePad1;
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<FrameData> frame;
+
+// ADR 0174: a screen-space UV gradient for a material texture's SampleGrad, scaled by the render scale's mip bias so an
+// upscaled view keeps the output resolution's texture sharpness (exactly the gradient at native resolution).
+float2 materialGrad(float2 d)
+{
+    // A select, not a plain multiply: at native resolution the gradient is passed through untouched, so the prepass and
+    // the colour shaders keep exactly their old (and each other's) alpha-test coverage under fast-math compilers.
+    return frame.mipBias != 0.0 ? d * frame.mipScale : d;
+}
+
+float3 materialGrad3(float3 d)
+{
+    return frame.mipBias != 0.0 ? d * frame.mipScale : d;
+}
 
 // Linear view depth from a [0, 1] depth-buffer value (perspective projection).
 float linearizeDepth(float depth)

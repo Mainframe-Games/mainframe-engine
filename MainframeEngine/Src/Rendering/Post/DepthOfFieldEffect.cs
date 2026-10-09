@@ -5,7 +5,8 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Bokeh depth of field (ADR 0168; Godot's <c>CameraAttributesPractical</c> DoF): a <see cref="PostStage.BeforeTonemap"/>
-/// effect after TAA (<see cref="PostEffectOrder.DepthOfField"/>), enabled by <see cref="PostProcessSettings.DofEnabled"/>.
+/// effect before TAA (<see cref="PostEffectOrder.DepthOfField"/>; ADR 0174: at render resolution, before the upscale), enabled
+/// by <see cref="PostProcessSettings.DofEnabled"/>.
 /// Three raster passes from the scene's own colour and depth (no prepass needed):
 /// <list type="number">
 /// <item><c>DofPrefilter</c>, half resolution: 2 × 2 colour mean + the signed circle of confusion of the nearest depth.</item>

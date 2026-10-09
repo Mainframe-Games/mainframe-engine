@@ -75,6 +75,12 @@ public abstract class RenderTestGame : Engine
             Vulkan.AntiAliasing = antiAliasing;
         if (_host.TaaSharpness is { } sharpness)
             Vulkan.TaaSharpness = sharpness;
+        if (_host.Scaling is { } scaling)
+            Vulkan.Scaling3DMode = scaling;
+        if (_host.RenderScale is { } scale)
+            Vulkan.Scaling3DScale = scale;
+        if (_host.FsrSharpness is { } fsrSharpness)
+            Vulkan.FsrSharpness = fsrSharpness;
 
         if (_host.UpdateRate > 0)
         {
@@ -133,6 +139,8 @@ public abstract class RenderTestGame : Engine
             ResizeWindow(new Vector2D<int>(_host.ResizeTo.Width, _host.ResizeTo.Height));
         if (frame == _host.ToggleVSyncAtFrame)
             Renderer.VSync = !Renderer.VSync;
+        if (frame == _host.RenderScaleChangeFrame)
+            Vulkan.Scaling3DScale = _host.RenderScaleChange; // ADR 0174: applied at the next frame's start
         if (frame == _host.QuitWithErrorAtFrame)
             Quit(ExitCode.Error);
         RunInputScript(frame);

@@ -107,7 +107,7 @@ forest *args:
 forest-screenshots frames="300":
     build/forest-screenshots.sh {{frames}}
 
-# Forest benchmark: fly the spline at 1920x1080, print p50/p90/p99, write JSON, compare with the baseline (--write-baseline; quiet machine)
+# Forest benchmark: fly the spline at 1920x1080 (3D at 0.75, TAAU; --resolution 2560x1440, --scale 1), print p50/p90/p99, write JSON, compare with the baseline (--write-baseline; quiet machine)
 forest-bench *args:
     build/forest-bench.sh {{args}}
 

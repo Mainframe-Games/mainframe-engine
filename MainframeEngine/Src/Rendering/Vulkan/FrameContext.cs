@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 672 bytes).</summary>
+/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 688 bytes).</summary>
 /// <remarks>
 /// With a projection jitter (TAA, ADR 0163) <see cref="Projection"/>, <see cref="ViewProjection"/> and
 /// <see cref="InverseProjection"/> are the jittered matrices the view rasterises with; <see cref="PreviousViewProjection"/>
@@ -91,8 +91,20 @@ public struct FrameData
     /// <summary>xyz = the volume's <see cref="LightProbeVolume.OcclusionTint"/> (linear), w unused.</summary>
     public Vector4 ProbeTint;
 
+    /// <summary>
+    /// ADR 0174: the material textures' LOD bias, log2 of the render scale (<see cref="RenderScaling.MipBias"/>; −0.42 at
+    /// 0.75, 0 at native and in every view but an upscaled main view), so textures keep the output resolution's sharpness.
+    /// </summary>
+    public float MipBias;
+
+    /// <summary>exp2(<see cref="MipBias"/>): the factor the material shaders apply to their UV gradients (<c>SampleGrad</c>).</summary>
+    public float MipScale;
+
+    /// <summary>Padding to the block's 16-byte size.</summary>
+    public float UpscalePad0, UpscalePad1;
+
     /// <summary>Bytes in the std140 block.</summary>
-    public const int Size = 6 * 64 + 18 * 16;
+    public const int Size = 6 * 64 + 19 * 16;
 
     /// <summary>Fills the block from a camera's matrices.</summary>
     public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
@@ -138,6 +150,7 @@ public struct FrameData
             Temporal = new Vector4(temporal.PreviousTime, temporal.HistoryValid ? 1f : 0f, temporal.JitterIndex, 0f),
             PreviousWind = temporal.PreviousEnvironment.Wind,
             PreviousWindParams = temporal.PreviousEnvironment.WindParams,
+            MipScale = 1f,
         };
     }
 
@@ -558,8 +571,11 @@ public sealed unsafe class FrameContext : IDisposable
     /// <summary>The view the frame is currently drawing (0 = main view); see <see cref="SetView"/>.</summary>
     public int CurrentView { get; private set; }
 
-    /// <summary>Pixel size of the current view's target (the swapchain extent for the main view).</summary>
-    public Extent2D Extent => CurrentView == 0 ? _ctx.SwapchainExtent : _viewExtent;
+    /// <summary>
+    /// Pixel size of the current view's target: the main view's render size (<see cref="IVulkanContext.RenderExtent"/>,
+    /// ADR 0174: the swapchain's at native resolution) or the offscreen view's.
+    /// </summary>
+    public Extent2D Extent => CurrentView == 0 ? _ctx.RenderExtent : _viewExtent;
 
     /// <summary>Set 0 for the frame and view being recorded.</summary>
     public DescriptorSet CurrentSet => _sets[Index];
@@ -680,6 +696,16 @@ public sealed unsafe class FrameContext : IDisposable
         var temporal = history.ToTemporal(_jitterIndex[current]);
         var data = FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure, Environment, temporal);
         data.AmbientOcclusion = _occlusionParams[current];
+        if (current == 0)
+        {
+            // ADR 0174: an upscaled main view samples textures at the output resolution's level of detail.
+            var scale = RenderScaling.ScaleOf(_ctx.RenderExtent, _ctx.SwapchainExtent);
+            if (scale < 1f)
+            {
+                data.MipBias = RenderScaling.MipBias(scale);
+                data.MipScale = scale;
+            }
+        }
         if (Probes is { } probes)
         {
             data.ProbeOrigin = probes.Origin;

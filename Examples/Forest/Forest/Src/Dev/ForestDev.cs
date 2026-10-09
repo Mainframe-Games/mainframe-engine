@@ -18,6 +18,8 @@ namespace Forest;
 /// <item><c>--set Node.Property=value</c>: tunes the look from the command line (<see cref="ApplyOverrides"/>);
 /// <c>--warmup n</c>: the autowalk's warm-up frames.</item>
 /// <item><c>--resolution WxH</c>: resizes the window so the frame is W × H pixels (screenshots, benchmarks).</item>
+/// <item><c>--scale s</c>: the 3D render scale (ADR 0174; 0.25–1): the project renders at 0.75 and TAAU upscales,
+/// <c>--scale 1</c> is native resolution.</item>
 /// <item><c>--no-capture</c>: the controller does not capture the mouse (scripted runs, screenshots).</item>
 /// <item>Audio: when the current scene has no <see cref="ForestAudio"/>, one is attached to it (its first
 /// <see cref="River3D"/> and <see cref="FirstPersonController"/>) unless <c>--no-audio</c> is passed.</item>
@@ -67,6 +69,18 @@ public sealed class ForestDev : Node
         _view = Argument(args, "--view");
         if (Argument(args, "--resolution") is { } resolution && ParseResolution(resolution) is { } size)
             _resolution = size;
+        if (Argument(args, "--scale") is { } scaleText)
+        {
+            if (ParseScale(scaleText) is { } scale && Tree?.Servers.Render?.Vulkan is { } vk)
+            {
+                vk.Scaling3DScale = scale;
+                Log.Info($"[Forest] --scale {scale}: 3D render scale (the next frame).");
+            }
+            else
+            {
+                Log.Error($"[Forest] --scale {scaleText}: expected a number from 0.25 to 1.");
+            }
+        }
         if (args.Contains("--benchmark"))
         {
             var frames = int.TryParse(Argument(args, "--frames"), CultureInfo.InvariantCulture, out var f) ? f : 1800;
@@ -334,6 +348,13 @@ public sealed class ForestDev : Node
         Log.Info($"[Forest] Window resized to {pixels.X}x{pixels.Y} px ({window.Size.X}x{window.Size.Y} pt).");
     }
 
+    /// <summary>A <c>--scale</c> value: a render scale from 0.25 to 1, or null.</summary>
+    public static float? ParseScale(string text) =>
+        float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale) &&
+        scale >= RenderScaling.MinScale && scale <= RenderScaling.MaxScale
+            ? scale
+            : null;
+
     public static Vector2I? ParseResolution(string text)
     {
         var parts = text.Split('x', 'X');
@@ -342,9 +363,10 @@ public sealed class ForestDev : Node
             : null;
     }
 
+    // The last occurrence wins, so `just forest-bench --resolution 2560x1440` overrides the script's default.
     private static string? Argument(IReadOnlyList<string> args, string name)
     {
-        for (var i = 0; i < args.Count - 1; i++)
+        for (var i = args.Count - 2; i >= 0; i--)
             if (args[i] == name)
                 return args[i + 1];
         return null;

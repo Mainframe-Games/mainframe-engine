@@ -8,10 +8,31 @@ using Color = System.Drawing.Color;
 /// TAA's edges (ADR 0166): thin unshaded white bars at shallow angles (long staircases without anti-aliasing) and a fan
 /// of sub-pixel-wide spokes (they break up into dashes without it) over the dark clear colour, a still camera. Run with
 /// <c>--aa none</c>, <c>--aa taa</c>, or at a higher <c>--scale</c> without anti-aliasing as the supersampled reference
-/// the test box-filters down: TAA's converged frame must be much closer to it than the aliased one.
+/// the test box-filters down: TAA's converged frame must be much closer to it than the aliased one. ADR 0174: as
+/// <c>taau</c> (TAAU at a render scale of 0.75) and <c>fsr1</c> (FSR 1 at 0.75, TAA off) it checks at every capture that
+/// the main view renders at the scaled size and that the expected upscale ran.
 /// </summary>
 public sealed class TaaEdgesScene(HostOptions host) : RenderTestGame(host)
 {
+    protected override void OnFrameCaptured(FrameCapture capture)
+    {
+        base.OnFrameCaptured(capture);
+        if (Host.RenderScale is not { } scale || Servers.Render?.PostEffects is not { } effects)
+            return;
+        var expected = RenderScaling.RenderExtent(Vulkan.SwapchainExtent, scale);
+        var render = Vulkan.RenderExtent;
+        if (render.Width != expected.Width || render.Height != expected.Height)
+            Fail($"The main view renders at {render.Width}x{render.Height}, expected {expected.Width}x{expected.Height}.");
+        if (capture.Width != Vulkan.SwapchainExtent.Width)
+            Fail($"The capture is {capture.Width} wide, the window {Vulkan.SwapchainExtent.Width}.");
+        var taa = effects.Find<TaaEffect>()!;
+        var upscale = effects.Find<SpatialUpscaleEffect>()!;
+        if (Host.Scaling == Scaling3DMode.Taau && (taa.AccumulatedFrames == 0 || upscale.UpscaledFrames > 1))
+            Fail($"TAAU: {taa.AccumulatedFrames} resolved frames, {upscale.UpscaledFrames} spatial upscales (at most the first frame).");
+        if (Host.Scaling == Scaling3DMode.Fsr && (upscale.EasuFrames == 0 || taa.IsCreated))
+            Fail($"FSR 1: {upscale.EasuFrames} EASU frames, TAA {(taa.IsCreated ? "created" : "off")}.");
+    }
+
     protected override void LoadScene()
     {
         var scene = new Node3D { Name = nameof(TaaEdgesScene) };

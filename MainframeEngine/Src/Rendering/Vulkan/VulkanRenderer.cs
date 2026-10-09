@@ -160,6 +160,37 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         set => _taaSharpness = float.IsFinite(value) ? Math.Clamp(value, 0f, 1f) : throw new ArgumentOutOfRangeException(nameof(value), value, "TAA sharpness must be finite.");
     }
 
+    public Scaling3DMode Scaling3DMode
+    {
+        get => _scaling3DMode;
+        set => _scaling3DMode = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown scaling mode.");
+    }
+
+    public float Scaling3DScale
+    {
+        get => _scaling3DScale;
+        set
+        {
+            if (!float.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The 3D scale must be finite.");
+            var scale = RenderScaling.ClampScale(value);
+            if (scale == _scaling3DScale)
+                return;
+            _scaling3DScale = scale;
+            _renderSizeDirty = true; // applied at the start of the next frame (device idle)
+        }
+    }
+
+    public float FsrSharpness
+    {
+        get => _fsrSharpness;
+        set => _fsrSharpness = float.IsFinite(value)
+            ? Math.Clamp(value, 0f, RenderScaling.MaxFsrSharpness)
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "FSR sharpness must be finite.");
+    }
+
+    public Extent2D RenderExtent => _renderExtent;
+
     public float FrameDeltaTime { get; set; }
 
     public float Exposure
@@ -195,6 +226,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         // swapchain can be rebuilt with a real extent.
         if (_framebufferResized && !RecreateSwapchain())
             return;
+
+        // ADR 0174: a new render scale resizes the render-resolution targets (the device idle, like a resize).
+        if (_renderSizeDirty)
+            ApplyRenderScale();
 
         // The slot's previous submission must be done before its command buffer and per-frame
         // resources (UBOs, vertex buffers keyed by FrameSlot) are reused.
