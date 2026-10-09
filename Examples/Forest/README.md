@@ -7,11 +7,11 @@ built against this checkout's engine, and **not** part of `MainframeEngine.slnx`
 
 **Status: playable.** A generated 256 m valley: a stream from a rocky outcrop over a small fall, through three pools
 and under a fallen-log bridge into a pond; an oak and ash glade, aspen banks, a dense pine slope; a ≈ 3 minute walking
-loop from the trailhead. Physical morning sky, valley fog, light shafts, eye adaptation, TAA, procedural audio, and a
-pause menu (Esc) with live graphics, audio and control settings and cameras (a fly-over, the reference shots, a free
-camera). Not yet: the release build.
+loop from the trailhead. Physical morning sky, volumetric fog, baked light probes, histogram auto exposure, TAA
+upscaling, procedural audio, and a pause menu (Esc) with live graphics, audio and control settings and cameras (a
+fly-over, the reference shots, a free camera). Not yet: the release build.
 
-![The glade](../../docs/images/forest/r1-glade.png)
+![The glade](../../docs/images/forest/readme-glade.jpg)
 
 ## Run
 
@@ -19,14 +19,17 @@ camera). Not yet: the release build.
 just forest                                  # Release; Esc opens the pause menu (settings, cameras, quit)
 just forest --fixed-fps 60 ++ --autowalk     # walk the path and check a 600-frame window allocates 0 B
 just forest --fixed-fps 60 ++ --autowalk-lap # walk the whole loop back to the trailhead
-just forest ++ --shot 3                      # a fixed camera at reference shot R3 (1–7)
+just forest ++ --shot 3                      # a fixed camera at reference shot R3 (1–8)
 just forest ++ --menu graphics               # open the pause menu on a page (graphics, audio, controls, cameras)
 just forest-test                             # Forest.Tests: controller, valley generator, project file (no GPU)
-just forest-screenshots                      # the reference shots R1–R5 into docs/images/forest (display awake)
+just forest-screenshots                      # the reference shots R1–R8 into docs/images/forest (display awake)
 just forest-bench                            # fly the benchmark spline at 1920 × 1080: p50/p90/p99, JSON, baseline
 ```
 
-or `dotnet run --project Examples/Forest/Forest.Desktop -c Release`. Game flags go after `++`: `--autowalk`,
+The reference shots (`--shot <n>`, the pause menu's Cameras page, [docs/design/forest.md#reference-shots](../../docs/design/forest.md#reference-shots)):
+R1 Glade, R2 Fall, R3 Bridge, R4 Vista (the misty pond), R5 Floor (the fern dell), R6 Pines, R7 Fall close, R8 Woodland.
+
+Run it with `dotnet run --project Examples/Forest/Forest.Desktop -c Release`. Game flags go after `++`: `--autowalk`,
 `--autowalk-lap`, `--shot <n>`, `--view x,y,z,tx,ty,tz`, `--benchmark`, `--resolution WxH`, `--set Node.Property=value`
 (tune the look for a run), `--menu <page>`, `--camera flyover|free|<shot>`, `--option key=value` (a menu option for
 the run), `--no-capture` (do not capture the mouse), `--no-audio` (no procedural soundscape;
