@@ -13,6 +13,9 @@ public enum ShadowPassKind : byte
 
     /// <summary>One face of a point light's cube map.</summary>
     CubeFace,
+
+    /// <summary>The primary directional light's far shadow (ADR 0167): the layer after the cascades, rendered rarely.</summary>
+    FarShadow,
 }
 
 /// <summary>
@@ -54,6 +57,13 @@ public readonly struct ShadowPass
 
     /// <summary>Range of a point or spot light.</summary>
     public float LightRange { get; init; }
+
+    /// <summary>
+    /// A coarse pass (ADR 0167): one of the primary light's last <see cref="DirectionalLight.CoarseCascades"/> cascades, or
+    /// its far shadow. Instances whose <see cref="GeometryInstance3D.ShadowCasterLod"/> is <see cref="ShadowCasterLod.Fine"/>
+    /// skip it; <see cref="ShadowCasterLod.Coarse"/> ones cast only into such passes.
+    /// </summary>
+    public bool Coarse { get; init; }
 
     /// <summary>Point-light passes write linear distance and use the point pipelines.</summary>
     public bool IsPoint => Kind == ShadowPassKind.CubeFace;

@@ -47,6 +47,13 @@ public sealed class ForestValley : Node3D
     /// <summary>The finest-to-coarsest tree level that still casts sun shadows (<see cref="TreeScatter.ShadowMaxLod"/>).</summary>
     [Export(Range = "0,2,1")] public int TreeShadowMaxLod { get; set; } = 1;
 
+    /// <summary>
+    /// The tree level the sun's coarse cascades and far shadow draw for every tree, from any distance
+    /// (<see cref="TreeScatter.ShadowCoarseLod"/>, ADR 0167); −1: none. Level 1, not 2: Ez Tree's level 2 casts nearly
+    /// opaque canopy shadows (the forest floor goes black under a low sun), level 1 keeps the sunflecks.
+    /// </summary>
+    [Export(Range = "-1,2,1")] public int TreeShadowCoarseLod { get; set; } = 1;
+
     private readonly List<(GeometryInstance3D Node, bool Visible, float Begin, float End, int Count)> _prewarm = [];
     private int _frames;
 
@@ -136,6 +143,7 @@ public sealed class ForestValley : Node3D
                 Lod2Distance = TreeLod2Distance,
                 MaxDistance = TreeMaxDistance,
                 ShadowMaxLod = TreeShadowMaxLod,
+                ShadowCoarseLod = TreeShadowCoarseLod,
             };
             Forest.SetPlacements(ForestVegetation.PlaceTrees(valley, Height, Slope));
             AddChild(Forest);

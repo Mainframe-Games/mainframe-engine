@@ -118,7 +118,7 @@ public sealed class TreeScatter : Node3D
         {
             field = value;
             foreach (var batch in _batches)
-                batch.CastShadows = value && batch.Lod <= ShadowMaxLod;
+                ApplyShadows(batch);
         }
     } = true;
 
@@ -135,9 +135,49 @@ public sealed class TreeScatter : Node3D
         {
             field = value;
             foreach (var batch in _batches)
-                batch.CastShadows = CastShadows && batch.Lod <= value;
+                ApplyShadows(batch);
         }
     } = 1;
+
+    /// <summary>
+    /// The level that casts into the sun's coarse shadow passes (ADR 0167; default −1: none, every level up to
+    /// <see cref="ShadowMaxLod"/> casts everywhere). From 0 up, that level casts into the coarse passes (the light's last
+    /// <see cref="DirectionalLight.CoarseCascades"/> cascades and its far shadow) from any distance whatever its visibility
+    /// range, and into the fine passes where it is drawn; the finer levels up to <see cref="ShadowMaxLod"/> cast only into
+    /// the fine passes. Far cascades draw every tree at that cheap level, near cascades still get the far trees' long
+    /// shadows. G8e.5's impostor casters will take its place.
+    /// </summary>
+    [Export(Range = "-1,8,1")]
+    public int ShadowCoarseLod
+    {
+        get;
+        set
+        {
+            field = value;
+            foreach (var batch in _batches)
+                ApplyShadows(batch);
+        }
+    } = -1;
+
+    // Which passes a batch casts into (CastShadows, ShadowMaxLod, ShadowCoarseLod).
+    private void ApplyShadows(TreeScatterBatch3D batch)
+    {
+        if (ShadowCoarseLod < 0)
+        {
+            batch.CastShadows = CastShadows && batch.Lod <= ShadowMaxLod;
+            batch.ShadowCasterLod = ShadowCasterLod.All;
+        }
+        else if (batch.Lod == ShadowCoarseLod)
+        {
+            batch.CastShadows = CastShadows;
+            batch.ShadowCasterLod = ShadowCasterLod.Coarse;
+        }
+        else
+        {
+            batch.CastShadows = CastShadows && batch.Lod < ShadowCoarseLod && batch.Lod <= ShadowMaxLod;
+            batch.ShadowCasterLod = ShadowCasterLod.Fine;
+        }
+    }
 
     /// <summary>Static trunk capsules for every tree.</summary>
     [Export]
@@ -313,9 +353,9 @@ public sealed class TreeScatter : Node3D
                     LodCount = mesh.Lods.Length,
                     BarkMaterial = bark,
                     LeafMaterial = leaves,
-                    CastShadows = CastShadows && lod <= ShadowMaxLod,
                     CustomAabb = bounds, // one distance for every level of the batch: they switch together
                 };
+                ApplyShadows(batch);
                 _batches.Add(batch);
                 AddChild(batch);
             }

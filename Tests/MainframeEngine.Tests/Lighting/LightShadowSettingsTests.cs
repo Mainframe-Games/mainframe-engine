@@ -92,9 +92,52 @@ public sealed class LightShadowSettingsTests
         Assert.Equal(0.2f, sunCopy.ShadowCascadeBlend);
         Assert.Equal(256, ((SpotLight3D)copy.GetChild(1)).ShadowResolution);
 
-        // Defaults are not written: the point light saves no shadow properties.
+        // Defaults are not written: the G8e.2 settings (ADR 0167) stay out of the sun's entry, the point light saves no
+        // shadow properties.
+        var sunProps = SceneJson.Node(SceneJson.Parse(json), "Sun").GetProperty("props");
+        foreach (var name in new[] { "ShadowCacheMode", "ShadowCoarseCascades", "LightAngularDistance", "ContactShadows", "ContactShadowLength", "FarShadowEnabled", "FarShadowDistance" })
+            Assert.False(sunProps.TryGetProperty(name, out _), $"{name} was saved at its default");
         var lampEntry = SceneJson.Node(SceneJson.Parse(json), "Lamp");
         Assert.False(lampEntry.TryGetProperty("props", out _));
+
+        copy.Free();
+        root.Free();
+    }
+
+    [Fact]
+    public void ShadowQualitySettingsRoundTripThroughScenes()
+    {
+        // ADR 0167: staggered cascades, coarse cascades, PCSS, contact shadows and the far shadow on DirectionalLight3D, and
+        // a geometry instance's caster LOD.
+        var root = new Node3D { Name = "Root" };
+        var sun = new DirectionalLight3D
+        {
+            Name = "Sun",
+            ShadowCacheMode = ShadowCacheMode.Staggered,
+            ShadowCoarseCascades = 2,
+            LightAngularDistance = 0.5f,
+            ContactShadows = true,
+            ContactShadowLength = 0.4f,
+            FarShadowEnabled = true,
+            FarShadowDistance = 300f,
+        };
+        var mesh = new MeshInstance3D { Name = "Impostor", ShadowCasterLod = ShadowCasterLod.Coarse };
+        foreach (var child in new Node[] { sun, mesh })
+        {
+            root.AddChild(child);
+            child.Owner = root;
+        }
+
+        var copy = PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate();
+        var sunCopy = (DirectionalLight3D)copy.GetChild(0);
+        Assert.Equal(ShadowCacheMode.Staggered, sunCopy.ShadowCacheMode);
+        Assert.Equal(2, sunCopy.ShadowCoarseCascades);
+        Assert.Equal(0.5f, sunCopy.LightAngularDistance);
+        Assert.True(sunCopy.ContactShadows);
+        Assert.Equal(0.4f, sunCopy.ContactShadowLength);
+        Assert.True(sunCopy.FarShadowEnabled);
+        Assert.Equal(300f, sunCopy.FarShadowDistance);
+        Assert.Equal(ShadowCasterLod.Coarse, ((MeshInstance3D)copy.GetChild(1)).ShadowCasterLod);
 
         copy.Free();
         root.Free();

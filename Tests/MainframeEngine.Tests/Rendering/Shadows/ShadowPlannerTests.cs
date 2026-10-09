@@ -353,7 +353,7 @@ public sealed class ShadowPlannerTests
     {
         // std140 offsets of ShadowUBO in include/shadows.slang (spirv-reflect of Mesh.vk.frag).
         Assert.Equal(96, Unsafe.SizeOf<ShadowMapData>());
-        Assert.Equal(1680, ShadowUniforms.Size);
+        Assert.Equal(1840, ShadowUniforms.Size);
         var u = default(ShadowUniforms);
         Assert.Equal(0, Offset(ref u, ref Unsafe.As<ShadowCascadeArray, byte>(ref u.Cascades)));
         Assert.Equal(384, Offset(ref u, ref Unsafe.As<ShadowAtlasMapArray, byte>(ref u.AtlasMaps)));
@@ -365,6 +365,12 @@ public sealed class ShadowPlannerTests
         Assert.Equal(1520, Offset(ref u, ref Unsafe.As<ShadowSpotCodes, byte>(ref u.SpotCodes)));
         Assert.Equal(1552, Offset(ref u, ref Unsafe.As<ShadowPointCodes, byte>(ref u.PointCodes)));
         Assert.Equal(1616, Offset(ref u, ref Unsafe.As<ShadowPointParams, byte>(ref u.PointParams)));
+        // ADR 0167, appended: the far shadow, PCSS and contact shadows.
+        Assert.Equal(1680, Offset(ref u, ref Unsafe.As<ShadowMapData, byte>(ref u.FarMap)));
+        Assert.Equal(1776, Offset(ref u, ref Unsafe.As<Vector4, byte>(ref u.FarParams)));
+        Assert.Equal(1792, Offset(ref u, ref Unsafe.As<Vector4, byte>(ref u.CascadeDepthRange)));
+        Assert.Equal(1808, Offset(ref u, ref Unsafe.As<Vector4, byte>(ref u.Pcss)));
+        Assert.Equal(1824, Offset(ref u, ref Unsafe.As<Vector4, byte>(ref u.Contact)));
     }
 
     private static int Offset(ref ShadowUniforms u, ref byte field) =>

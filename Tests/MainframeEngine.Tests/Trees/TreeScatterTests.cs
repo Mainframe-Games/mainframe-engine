@@ -138,6 +138,18 @@ public sealed class TreeScatterTests(ITestOutputHelper output) : IDisposable
         Assert.All(scatter.Batches, b => Assert.Equal(b.Lod == 0, b.CastShadows));
         scatter.CastShadows = false;
         Assert.All(scatter.Batches, b => Assert.False(b.CastShadows));
+        scatter.CastShadows = true;
+
+        // ADR 0167: the coarse level casts into the sun's coarse passes from any distance, the finer ones only into the
+        // fine passes (up to ShadowMaxLod), the coarser ones not at all.
+        scatter.ShadowMaxLod = 1;
+        scatter.ShadowCoarseLod = 1;
+        Assert.All(scatter.Batches, b => Assert.Equal(b.Lod <= 1, b.CastShadows));
+        Assert.All(scatter.Batches.Where(b => b.Lod == 0), b => Assert.Equal(ShadowCasterLod.Fine, b.ShadowCasterLod));
+        Assert.All(scatter.Batches.Where(b => b.Lod == 1), b => Assert.Equal(ShadowCasterLod.Coarse, b.ShadowCasterLod));
+        scatter.ShadowCoarseLod = -1;
+        Assert.All(scatter.Batches, b => Assert.Equal(ShadowCasterLod.All, b.ShadowCasterLod));
+        Assert.All(scatter.Batches, b => Assert.Equal(b.Lod <= 1, b.CastShadows));
 
         scatter.Lod1Distance = 12f;
         scatter.MaxDistance = 400f;

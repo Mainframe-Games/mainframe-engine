@@ -344,7 +344,10 @@ public sealed class ProjectSettingsTests : IDisposable
 
         // High is exactly what a new shadow system starts with (the render tests and the Demo).
         Assert.Equal(new ShadowQualitySettings(ShadowPlanner.DefaultMaxAtlasSize, new ShadowPlanner().Filter, new ShadowPlanner().FilterRadius,
-            new ShadowPlanner().CascadeLimit, new ShadowPlanner().ResolutionLimit), high);
+            new ShadowPlanner().CascadeLimit, new ShadowPlanner().ResolutionLimit, new ShadowPlanner().ContactShadows), high);
+        // ADR 0167: PCSS (soft for a sun with an angular size, else Poisson 16) and contact shadows only on High.
+        Assert.Equal((ShadowFilter.Pcss, true), (high.Filter, high.ContactShadows));
+        Assert.False(medium.ContactShadows || low.ContactShadows);
         Assert.Equal((1024, ShadowFilter.Hard, 2, 1024), (low.MaxAtlasSize, low.Filter, low.CascadeLimit, low.ResolutionLimit));
         Assert.Equal((2048, ShadowFilter.Pcf3x3, 3, 2048), (medium.MaxAtlasSize, medium.Filter, medium.CascadeLimit, medium.ResolutionLimit));
         Assert.True(low.MaxAtlasSize < medium.MaxAtlasSize && medium.MaxAtlasSize < high.MaxAtlasSize);

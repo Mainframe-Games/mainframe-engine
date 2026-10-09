@@ -172,6 +172,67 @@ public class DirectionalLight3D : Light3D
         set => _light.CascadeBlend = value;
     }
 
+    /// <summary>Staggered cascade updates (see <see cref="DirectionalLight.CacheMode"/>; default off).</summary>
+    [Export]
+    public ShadowCacheMode ShadowCacheMode
+    {
+        get => _light.CacheMode;
+        set => _light.CacheMode = value;
+    }
+
+    /// <summary>The last cascades that draw coarse casters (see <see cref="DirectionalLight.CoarseCascades"/>; default 0).</summary>
+    [Export(Range = "0,3,1")]
+    public int ShadowCoarseCascades
+    {
+        get => _light.CoarseCascades;
+        set => _light.CoarseCascades = value;
+    }
+
+    /// <summary>
+    /// Angular diameter of the light in degrees (Godot's <c>light_angular_distance</c>; the sun is about 0.5): soft shadows
+    /// whose penumbra grows with the distance to the caster (see <see cref="DirectionalLight.AngularDistance"/>).
+    /// </summary>
+    [ExportGroup("Soft and Contact Shadows")]
+    [Export(Range = "0,10,0.01")]
+    public float LightAngularDistance
+    {
+        get => _light.AngularDistance;
+        set => _light.AngularDistance = value;
+    }
+
+    /// <summary>Screen-space contact shadows (see <see cref="DirectionalLight.ContactShadows"/>; default false).</summary>
+    [Export]
+    public bool ContactShadows
+    {
+        get => _light.ContactShadows;
+        set => _light.ContactShadows = value;
+    }
+
+    /// <summary>How far contact shadows reach towards the light, in metres (default 0.5).</summary>
+    [Export(Range = "0.01,10,0.01")]
+    public float ContactShadowLength
+    {
+        get => _light.ContactShadowLength;
+        set => _light.ContactShadowLength = value;
+    }
+
+    /// <summary>A static shadow map past the cascades (see <see cref="DirectionalLight.FarShadowEnabled"/>; default false).</summary>
+    [ExportGroup("Far Shadow")]
+    [Export]
+    public bool FarShadowEnabled
+    {
+        get => _light.FarShadowEnabled;
+        set => _light.FarShadowEnabled = value;
+    }
+
+    /// <summary>Half-size of the box the far shadow covers around the camera; 0 = every caster's bounds (the default).</summary>
+    [Export(Range = "0,8192,1")]
+    public float FarShadowDistance
+    {
+        get => _light.FarShadowDistance;
+        set => _light.FarShadowDistance = value;
+    }
+
     private protected override void SyncTransform()
     {
         _light.Position = GlobalPosition;

@@ -494,6 +494,7 @@ public sealed class RenderServer : IServer
                 _startDebugView = RenderDebugView.None;
             }
 
+            host.ContactShadows = ContactShadowSettings.For(PrimaryShadowLight(root.World3D.Lights), _shadows is { ContactShadows: true });
             needs = host.PostEffects.GetNeeds(host.PostSettings);
         }
         if (ForceDepthPrepass)
@@ -515,6 +516,17 @@ public sealed class RenderServer : IServer
             frame.ProjectionJitter = default;
             frame.JitterIndex = 0;
         }
+    }
+
+    // The light the shadow planner gives the cascades: the first directional light that casts shadows.
+    private static DirectionalLight? PrimaryShadowLight(LightEnvironment lights)
+    {
+        var dirs = lights.DirectionalLights;
+        var count = Math.Min(dirs.Count, ShaderLimits.MaxDirectionalLights);
+        for (var i = 0; i < count; i++)
+            if (dirs[i].CastsShadows)
+                return dirs[i];
+        return null;
     }
 
     /// <summary>

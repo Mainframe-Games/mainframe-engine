@@ -1,16 +1,19 @@
 // Shadow sampling (ShadowSystem, or the renderer's "no shadows" fallback set). Layout of the shadow set:
 //   b0 ShadowUBO (ShadowUniforms in C#, std140)
-//   b1 cascade array of the primary directional light (Sampler2DArrayShadow, immutable comparison sampler)
+//   b1 cascade array of the primary directional light (Texture2DArray: its layers are the cascades, then the far shadow)
 //   b2 shadow atlas: spot lights and secondary directional lights (Sampler2DShadow, immutable comparison sampler)
 //   b3 point-light cubes holding linear distance / range (SamplerCubeShadow[MAX_SHADOW_POINT], immutable comparison)
-// Six samplers in all (the material adds one, the sky lighting in set 0 three): 10 of MoltenVK's 16 per stage.
+//   b4 the cascade array's comparison sampler, b5 its point sampler (PCSS's blocker search; both immutable; ADR 0167)
+// Six images and seven samplers in all (the material adds one sampler, set 0 four or five images): see
+// docs/design/shadow-system.md#descriptor-set for the fragment-stage budget.
 // Define SHADOW_SET before including to override the set (default 1: the shared sets are 0 = frame, 1 = shadows).
-// Needs frame.slang (the camera's view matrix selects the cascade).
+// Needs frame.slang (the camera's view matrix selects the cascade); brings in contact_shadows.slang (set 0, binding 6).
 #pragma once
 #define MF_SHADOWS_SLANG
 
 #include "common.slang"
 #include "frame.slang"
+#include "contact_shadows.slang"
 
 #ifndef SHADOW_SET
 #define SHADOW_SET 1
@@ -36,17 +39,36 @@ struct ShadowUBO
     int4   spotCodes[(MAX_SPOT_LIGHTS + 3) / 4];   // 0 none, k + 1 atlas map k
     int4   pointCodes[(MAX_POINT_LIGHTS + 3) / 4]; // 0 none, c + 1 cube c
     float4 pointParams[MAX_SHADOW_POINT];          // x = texel per unit of distance (2 / size), y = depth bias, z = normal bias
+    // ADR 0167 (G8e.2):
+    ShadowMap2D farMap;        // the primary light's far shadow: layer kFarShadowLayer of the cascade array
+    float4 farParams;          // x = 1 far shadow on, y = its filter radius (texels), z = 1 / its size, w = 0
+    float4 cascadeDepthRange;  // world units per unit of light-space depth, per cascade (PCSS)
+    float4 pcss;               // x = tan(angular radius) of the primary light (0 = off), y = largest penumbra radius
+                               // (texels), z = blocker search radius (texels)
+    float4 contact;            // x = 1: the primary light's shadow takes the main view's contact shadows
 };
 
 [[vk::binding(0, SHADOW_SET)]] ConstantBuffer<ShadowUBO> shadow;
 
-[[vk::binding(1, SHADOW_SET)]] Sampler2DArrayShadow cascadeShadowMap;
+[[vk::binding(1, SHADOW_SET)]] Texture2DArray<float> cascadeShadowTexture;
 [[vk::binding(2, SHADOW_SET)]] Sampler2DShadow      atlasShadowMap;
 [[vk::binding(3, SHADOW_SET)]] SamplerCubeShadow    pointShadowMaps[MAX_SHADOW_POINT];
+[[vk::binding(4, SHADOW_SET)]] SamplerComparisonState cascadeCompareSampler;
+[[vk::binding(5, SHADOW_SET)]] SamplerState         cascadePointSampler;
 
 static const int kShadowFilterHard      = 0;
 static const int kShadowFilter3x3       = 1;
 static const int kShadowFilterPoisson16 = 2;
+static const int kShadowFilterPcss      = 3; // Poisson 16 + PCSS on the cascades when pcss.x > 0
+
+// The far shadow's layer in the cascade array (after the cascades).
+static const float kFarShadowLayer = float(MAX_SHADOW_CASCADES);
+
+// One hardware comparison tap (2×2 bilinear PCF where the format filters) in a layer of the cascade array.
+float cascadeCmp(float2 uv, float layer, float depth)
+{
+    return cascadeShadowTexture.SampleCmp(cascadeCompareSampler, float3(uv, layer), depth);
+}
 
 // Fixed (unrotated) taps: the filtered result is a function of the world position alone, so shadows do not crawl
 // when the camera moves (rotation noise is screen-anchored).
@@ -79,7 +101,7 @@ float filterCascade(float2 uv, float layer, float depth)
     int   mode  = int(shadow.filterParams.x);
     float texel = shadow.filterParams.z;
     if (mode == kShadowFilterHard)
-        return cascadeShadowMap.SampleCmp(float3(uv, layer), depth);
+        return cascadeCmp(uv, layer, depth);
 
     float sum = 0.0;
     if (mode == kShadowFilter3x3)
@@ -87,14 +109,79 @@ float filterCascade(float2 uv, float layer, float depth)
         float stepSize = texel * max(shadow.filterParams.y / 1.5, 0.5);
         for (int y = -1; y <= 1; y++)
             for (int x = -1; x <= 1; x++)
-                sum += cascadeShadowMap.SampleCmp(float3(uv + float2(x, y) * stepSize, layer), depth);
+                sum += cascadeCmp(uv + float2(x, y) * stepSize, layer, depth);
         return sum / 9.0;
     }
 
     float radius = texel * shadow.filterParams.y;
     for (int i = 0; i < 16; i++)
-        sum += cascadeShadowMap.SampleCmp(float3(uv + kPoisson16[i] * radius, layer), depth);
+        sum += cascadeCmp(uv + kPoisson16[i] * radius, layer, depth);
     return sum / 16.0;
+}
+
+// Interleaved gradient noise (Jimenez 2014) of a pixel: 0..1.
+float interleavedGradientNoise(float2 pixel)
+{
+    return frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
+}
+
+// The Poisson pattern's rotation at worldPos: fixed (identity) without TAA, so shadows do not crawl (ADR 0072); with TAA
+// (a jittered main view, frame.jitter != 0) a per-pixel, per-frame angle (interleaved gradient noise over the jitter
+// index), which TAA averages: fewer taps converge like more. xy = (cos, sin); z = 1 when rotated.
+float3 shadowRotation(float3 worldPos)
+{
+    if (all(frame.jitter.xy == float2(0.0)))
+        return float3(1.0, 0.0, 0.0);
+    float4 clip  = mul(float4(worldPos, 1.0), frame.viewProjection);
+    float2 pixel = floor(ndcToScreenUv(clip.xy / max(clip.w, 1e-6)) * frame.viewport.xy);
+    float  angle = 6.2831853 * interleavedGradientNoise(pixel + 5.588238 * frame.temporal.z);
+    return float3(cos(angle), sin(angle), 1.0);
+}
+
+float2 rotateTap(float3 rotation, float2 tap)
+{
+    return float2(tap.x * rotation.x - tap.y * rotation.y, tap.x * rotation.y + tap.y * rotation.x);
+}
+
+// Where PCSS's blocker search gathers (2 × 2 texels each), in units of the search radius: the centre and four points
+// near the rim, so the search covers the largest filter disc.
+static const float2 kBlockerGather5[5] = {
+    float2(0.0, 0.0), float2(-0.85, -0.35), float2(0.35, -0.85), float2(0.85, 0.35), float2(-0.35, 0.85) };
+
+// Percentage-closer soft shadows (ADR 0167) in cascade c: a blocker search with the point sampler over the largest
+// penumbra (pcss.z texels: five 2 × 2 gathers, 20 depths), the penumbra (d_receiver - d_blocker) · tan(angular radius)
+// in texels, then the Poisson disc at that radius, clamped to [filter radius, pcss.y]: 16 comparison taps, or 12 rotated
+// per pixel with TAA. No blocker: lit; every depth a blocker: the whole disc is in front, the umbra (no filtering).
+float filterCascadePcss(float2 uv, int c, float depth, float3 rotation)
+{
+    float texelUv = shadow.filterParams.z;
+    float layer   = float(c);
+
+    float searchUv   = shadow.pcss.z * texelUv;
+    float blockerSum = 0.0;
+    float blockers   = 0.0;
+    for (int i = 0; i < 5; i++)
+    {
+        float2 tap = uv + rotateTap(rotation, kBlockerGather5[i]) * searchUv;
+        float4 d   = cascadeShadowTexture.Gather(cascadePointSampler, float3(tap, layer));
+        float4 b   = float4(d < float4(depth));
+        blockers   += dot(b, float4(1.0));
+        blockerSum += dot(b, d);
+    }
+    if (blockers == 0.0)
+        return 1.0;
+    if (blockers == 20.0)
+        return 0.0;
+
+    float blocker   = blockerSum / blockers;
+    float texel     = shadow.cascades[c].params.x;
+    float penumbra  = (depth - blocker) * shadow.cascadeDepthRange[c] * shadow.pcss.x / max(texel, 1e-6);
+    float radiusUv  = clamp(penumbra, shadow.filterParams.y, shadow.pcss.y) * texelUv;
+    int   taps      = rotation.z > 0.0 ? 12 : 16;
+    float sum       = 0.0;
+    for (int i = 0; i < taps; i++)
+        sum += cascadeCmp(uv + rotateTap(rotation, kPoisson16[i]) * radiusUv, layer, depth);
+    return sum / float(taps);
 }
 
 // Kernel over one atlas tile; taps are clamped half a texel inside the tile so they never read a neighbour.
@@ -152,7 +239,24 @@ float cascadeTerm(int c, float3 worldPos, float3 N, float3 L)
     float3 coord;
     if (!shadowProject(shadow.cascades[c], worldPos, N, L, float3(0.0), coord))
         return -1.0;
+    if (int(shadow.filterParams.x) == kShadowFilterPcss && shadow.pcss.x > 0.0)
+        return filterCascadePcss(coord.xy, c, coord.z, shadowRotation(worldPos));
     return filterCascade(coord.xy, float(c), coord.z);
+}
+
+// The far shadow at worldPos (1 when there is none or worldPos lies outside it): a wide Poisson disc in its layer.
+float farShadowTerm(float3 worldPos, float3 N, float3 L)
+{
+    if (shadow.farParams.x == 0.0)
+        return 1.0;
+    float3 coord;
+    if (!shadowProject(shadow.farMap, worldPos, N, L, float3(0.0), coord))
+        return 1.0;
+    float radius = shadow.farParams.y * shadow.farParams.z;
+    float sum = 0.0;
+    for (int i = 0; i < 16; i++)
+        sum += cascadeCmp(coord.xy + kPoisson16[i] * radius, kFarShadowLayer, coord.z);
+    return sum / 16.0;
 }
 
 float shadowViewDepth(float3 worldPos)
@@ -173,14 +277,14 @@ int shadowCascadeIndex(float viewDepth)
 }
 
 // Primary directional light: pick the cascade by view depth, blend into the next one over the last `csm.y` of the
-// cascade, and fade out over the last band before the shadow distance.
+// cascade, and fade out over the last band before the shadow distance (into the far shadow when there is one).
 float sampleCascades(float3 worldPos, float3 N, float3 L)
 {
     int   count = int(shadow.csm.x);
     float depth = shadowViewDepth(worldPos);
     int   c     = shadowCascadeIndex(depth);
     if (c >= count)
-        return 1.0;
+        return farShadowTerm(worldPos, N, L);
 
     float s     = cascadeTerm(c, worldPos, N, L);
     if (s < 0.0)
@@ -191,11 +295,14 @@ float sampleCascades(float3 worldPos, float3 N, float3 L)
     if (band > 0.0 && depth > end - band)
     {
         float t = smoothstep(end - band, end, depth);
-        // Past the last cascade: fade to lit. The blend band lies before the next cascade's slice, so its sphere may
-        // not reach the frustum's edge there: keep this cascade's term when the point is outside the next map.
-        float next = 1.0;
+        // Past the last cascade: fade to lit (or to the far shadow). The blend band lies before the next cascade's
+        // slice, so its sphere may not reach the frustum's edge there: keep this cascade's term when the point is
+        // outside the next map.
+        float next;
         if (c + 1 < count)
             next = cascadeTerm(c + 1, worldPos, N, L);
+        else
+            next = farShadowTerm(worldPos, N, L);
         if (next >= 0.0)
             s = lerp(s, next, t);
     }
@@ -227,7 +334,12 @@ float dirShadow(int i, float3 worldPos, float3 N, float3 L)
     if (code == 0)
         return 1.0;
     if (code == 1)
-        return sampleCascades(worldPos, N, L);
+    {
+        float s = sampleCascades(worldPos, N, L);
+        if (shadow.contact.x != 0.0)
+            s *= contactShadow(worldPos);
+        return s;
+    }
     return sampleAtlasMap(code - 2, worldPos, N, L, float3(0.0));
 }
 

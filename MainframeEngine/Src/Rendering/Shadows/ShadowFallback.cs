@@ -13,6 +13,7 @@ internal sealed unsafe class ShadowFallback : IShadowDescriptors, IDisposable
 {
     private readonly IVulkanContext _ctx;
     private readonly VkSampler _comparisonSampler;
+    private readonly VkSampler _pointSampler;
     private readonly ShadowPlaceholderMaps _maps;
     private readonly GpuBuffer _uniforms;
     private readonly DescriptorPool _pool;
@@ -34,7 +35,8 @@ internal sealed unsafe class ShadowFallback : IShadowDescriptors, IDisposable
         _ctx = ctx;
         var (format, linear) = ShadowSystem.ChooseDepthFormat(ctx);
         _comparisonSampler = ShadowSystem.CreateComparisonSampler(ctx, linear);
-        MainDescSetLayout = ShadowSystem.CreateMainSetLayout(ctx, _comparisonSampler);
+        _pointSampler = ShadowSystem.CreatePointSampler(ctx);
+        MainDescSetLayout = ShadowSystem.CreateMainSetLayout(ctx, _comparisonSampler, _pointSampler);
         _maps = new ShadowPlaceholderMaps(ctx, format);
 
         _uniforms = GpuBuffer.Create(ctx, (ulong)ShadowUniforms.Size, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
@@ -68,5 +70,6 @@ internal sealed unsafe class ShadowFallback : IShadowDescriptors, IDisposable
         _uniforms.Dispose();
         _maps.Dispose();
         deletions.Enqueue(GpuDeletion.Of(_comparisonSampler));
+        deletions.Enqueue(GpuDeletion.Of(_pointSampler));
     }
 }

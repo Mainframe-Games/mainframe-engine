@@ -45,11 +45,26 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     /// <summary>Cascades of the primary directional light.</summary>
     public const int MaxCascades = ShaderLimits.MaxShadowCascades;
 
-    /// <summary>Shadow sub-passes per frame: 4 cascades + 11 atlas tiles + 4 × 6 cube faces (39).</summary>
+    /// <summary>Shadow sub-passes per frame: 4 cascades + the far shadow + 11 atlas tiles + 4 × 6 cube faces (40).</summary>
     public const int MaxShadowPasses = ShadowPlanner.MaxPasses;
 
-    /// <summary>Samplers the shadow set adds to the fragment stage: cascade array, atlas, cubes.</summary>
-    public const int SamplerCount = 2 + MaxShadowPoint;
+    /// <summary>The far shadow's layer of the cascade array, after the cascades (ADR 0167).</summary>
+    public const int FarShadowLayer = ShadowPlanner.FarShadowLayer;
+
+    /// <summary>Largest PCSS penumbra radius in texels (<see cref="ShadowFilter.Pcss"/>).</summary>
+    public const float MaxPenumbraTexels = ShadowPlanner.MaxPenumbraTexels;
+
+    /// <summary>
+    /// Samplers the shadow set adds to the fragment stage: the cascade array's comparison and point samplers, the atlas,
+    /// the cubes (ADR 0167: the cascade array is a separate image, so PCSS's point sampler costs no image binding).
+    /// </summary>
+    public const int SamplerCount = 3 + MaxShadowPoint;
+
+    /// <summary>Images the shadow set adds to the fragment stage: cascade array, atlas, cubes.</summary>
+    public const int ImageCount = 2 + MaxShadowPoint;
+
+    // Layers of the cascade array at most: the cascades and the far shadow.
+    private const int MaxCascadeLayers = MaxCascades + 1;
 
     // ── Fields ────────────────────────────────────────────────────────────────
 
@@ -81,9 +96,9 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     // Maps (shared by both frame slots: the barriers in RenderShadows order a frame's writes after the previous
     // frame's sampling on the same queue). Null until a light needs them.
     private GpuImage? _cascades;
-    private readonly Framebuffer[] _cascadeFramebuffers = new Framebuffer[MaxCascades];
-    private readonly ImageView[] _cascadeLayerViews = new ImageView[MaxCascades];
-    private bool _cascadesNeedInit;
+    private readonly Framebuffer[] _cascadeFramebuffers = new Framebuffer[MaxCascadeLayers];
+    private readonly ImageView[] _cascadeLayerViews = new ImageView[MaxCascadeLayers];
+    private int _cascadeLayersNeedInit; // bit per layer: created, never rendered or initialised
     private GpuImage? _atlas;
     private Framebuffer _atlasFramebuffer;
     private bool _atlasNeedsInit;
@@ -93,6 +108,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private readonly ShadowPlaceholderMaps _placeholders;
 
     private readonly VkSampler _comparisonSampler;
+    private readonly VkSampler _pointSampler;
 
     // Main-pass descriptor set, one per frame slot (rewritten when a map is re-created).
     private DescriptorPool _mainPool;
@@ -137,6 +153,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         CreateShadowPipelines();
         _placeholders = new ShadowPlaceholderMaps(ctx, _depthFormat);
         _comparisonSampler = CreateComparisonSampler(ctx, _linearDepthFiltering);
+        _pointSampler = CreatePointSampler(ctx);
         CreateMainDescriptorResources();
         (_timestamps, _timestampPeriodNs, _timestampMask) = CreateTimestampPool(ctx, props);
     }
@@ -196,7 +213,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
     // ── Settings & stats ──────────────────────────────────────────────────────
 
-    /// <summary>Filtering of every shadow map (default <see cref="ShadowFilter.Poisson16"/>).</summary>
+    /// <summary>Filtering of every shadow map (default <see cref="ShadowFilter.Pcss"/>: Poisson 16, soft for a sun with an angular size).</summary>
     public ShadowFilter Filter
     {
         get => _planner.Filter;
@@ -259,7 +276,53 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         FilterRadius = settings.FilterRadius;
         CascadeLimit = settings.CascadeLimit;
         ResolutionLimit = settings.ResolutionLimit;
+        ContactShadows = settings.ContactShadows;
     }
+
+    /// <summary>
+    /// Whether lights may use screen-space contact shadows (default true; <see cref="ShadowQualitySettings.ContactShadows"/>,
+    /// off below <see cref="ShadowQuality.High"/>). A light opts in with <see cref="DirectionalLight.ContactShadows"/>.
+    /// </summary>
+    public bool ContactShadows
+    {
+        get => _planner.ContactShadows;
+        set => _planner.ContactShadows = value;
+    }
+
+    /// <summary>
+    /// The camera speed (units per second, default 10) a staggered cascade allows for between its renders
+    /// (<see cref="ShadowCacheMode.Staggered"/>); a faster camera makes cascades re-render early.
+    /// </summary>
+    public float CacheMaxSpeed
+    {
+        get => _planner.CacheMaxSpeed;
+        set => _planner.CacheMaxSpeed = Math.Max(0f, value);
+    }
+
+    /// <summary>
+    /// The camera turn rate (degrees per second, default 60) a staggered cascade allows for between its renders: turning
+    /// swings the far cascades' spheres by their distance ahead of the camera.
+    /// </summary>
+    public float CacheMaxTurnRate
+    {
+        get => _planner.CacheMaxTurnRate;
+        set => _planner.CacheMaxTurnRate = Math.Max(0f, value);
+    }
+
+    /// <summary>
+    /// Re-renders every cached cascade and the far shadow next frame (ADR 0167): call it after a camera cut, a teleport or
+    /// an edit to static casters the far shadow should see.
+    /// </summary>
+    public void InvalidateShadowCache() => _planner.InvalidateCache();
+
+    /// <summary>Cascades rendered in the last frame (with a staggered cache, at most two plus early re-renders).</summary>
+    public int RenderedCascades => _planner.RenderedCascadeCount;
+
+    /// <summary>Cascades reused from an earlier frame in the last frame.</summary>
+    public int CachedCascades => _planner.CachedCascadeCount;
+
+    /// <summary>Whether the last frame re-rendered the far shadow.</summary>
+    public bool FarShadowRendered => _planner.FarShadowRenders;
 
     /// <summary>Constant depth bias of the caster rasterisation (default 1.25; the hardware's minimum resolvable units).</summary>
     public float DepthBiasConstant { get; set; } = 1.25f;
@@ -414,7 +477,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         EnsureMaps();
 
         // Which maps render this frame.
-        var renderCascades = false;
+        var renderCascades = 0; // bit per cascade-array layer
         var renderAtlas = false;
         var rendered = 0;
         foreach (ref readonly var pass in passes)
@@ -422,7 +485,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             if (!_planner.HasCasters(pass.Index))
                 continue;
             rendered++;
-            renderCascades |= pass.Kind == ShadowPassKind.Cascade;
+            if (pass.Kind is ShadowPassKind.Cascade or ShadowPassKind.FarShadow)
+                renderCascades |= 1 << pass.Slot;
             renderAtlas |= pass.Kind == ShadowPassKind.AtlasTile;
         }
 
@@ -438,7 +502,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
                 continue;
             switch (pass.Kind)
             {
-                case ShadowPassKind.Cascade:
+                case ShadowPassKind.Cascade or ShadowPassKind.FarShadow:
                     BeginShadowPass(cb, _cascadeFramebuffers[pass.Slot], (uint)pass.Size);
                     RecordPass(cb, frameSlot, pass, state, draw);
                     _ctx.Vk.CmdEndRenderPass(cb);
@@ -571,21 +635,23 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             _mapsVersion++;
         }
 
-        if (cascadeSize > 0 && (_cascades is null || _cascades.Width != cascadeSize))
+        // The far shadow adds a layer (only while a light has one, so other scenes keep four layers).
+        var cascadeLayers = (uint)Math.Max(_planner.CascadeLayers, MaxCascades);
+        if (cascadeSize > 0 && (_cascades is null || _cascades.Width != cascadeSize || _cascades.ArrayLayers != cascadeLayers))
         {
             DestroyCascades();
             _cascades = GpuImage.Create(_ctx, new GpuImageDesc((uint)cascadeSize, (uint)cascadeSize, _depthFormat,
                 ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit)
             {
-                ArrayLayers = MaxCascades,
+                ArrayLayers = cascadeLayers,
                 ViewType = ImageViewType.Type2DArray,
             });
-            for (var c = 0; c < MaxCascades; c++)
+            for (var c = 0; c < cascadeLayers; c++)
             {
                 _cascadeLayerViews[c] = _cascades.CreateView(ImageViewType.Type2D, (uint)c, 1);
                 _cascadeFramebuffers[c] = CreateDepthFramebuffer(_cascadeLayerViews[c], (uint)cascadeSize);
             }
-            _cascadesNeedInit = true;
+            _cascadeLayersNeedInit = (1 << (int)cascadeLayers) - 1;
             _mapsVersion++;
         }
 
@@ -646,9 +712,9 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     /// are cleared) to attachment, after the previous frame's sampling. To read: they return to read-only, and maps
     /// created this frame that did not render are initialised to read-only, so every map the set points at is valid.
     /// </summary>
-    private void TransitionMaps(CommandBuffer cb, bool cascades, bool atlas, ReadOnlySpan<bool> cubes, bool toWrite)
+    private void TransitionMaps(CommandBuffer cb, int cascades, bool atlas, ReadOnlySpan<bool> cubes, bool toWrite)
     {
-        var barriers = stackalloc ImageMemoryBarrier[2 + MaxShadowPoint];
+        var barriers = stackalloc ImageMemoryBarrier[MaxCascadeLayers + 1 + MaxShadowPoint];
         var count = 0;
         var aspect = VkHelpers.DepthBarrierAspects(_depthFormat);
 
@@ -670,8 +736,31 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             }
         }
 
+        // Cascade layers one by one: a staggered cache keeps the layers that do not render this frame (ADR 0167), so only
+        // the rendering ones are discarded (Undefined) and written.
         if (_cascades is not null)
-            Add(barriers, ref count, _cascades.Handle, MaxCascades, cascades, ref _cascadesNeedInit, toWrite, aspect);
+        {
+            for (var layer = 0; layer < (int)_cascades.ArrayLayers; layer++)
+            {
+                var renders = (cascades & (1 << layer)) != 0;
+                var needsInit = (_cascadeLayersNeedInit & (1 << layer)) != 0;
+                if (renders)
+                {
+                    barriers[count++] = LayerBarrier(_cascades.Handle, (uint)layer, aspect,
+                        toWrite ? ImageLayout.Undefined : ImageLayout.DepthStencilAttachmentOptimal,
+                        toWrite ? ImageLayout.DepthStencilAttachmentOptimal : ImageLayout.DepthStencilReadOnlyOptimal,
+                        toWrite ? AccessFlags.ShaderReadBit : AccessFlags.DepthStencilAttachmentWriteBit,
+                        toWrite ? AccessFlags.DepthStencilAttachmentWriteBit | AccessFlags.DepthStencilAttachmentReadBit : AccessFlags.ShaderReadBit);
+                    _cascadeLayersNeedInit &= ~(1 << layer);
+                }
+                else if (!toWrite && needsInit)
+                {
+                    barriers[count++] = LayerBarrier(_cascades.Handle, (uint)layer, aspect, ImageLayout.Undefined,
+                        ImageLayout.DepthStencilReadOnlyOptimal, 0, AccessFlags.ShaderReadBit);
+                    _cascadeLayersNeedInit &= ~(1 << layer);
+                }
+            }
+        }
         if (_atlas is not null)
             Add(barriers, ref count, _atlas.Handle, 1, atlas, ref _atlasNeedsInit, toWrite, aspect);
         for (var c = 0; c < MaxShadowPoint; c++)
@@ -687,6 +776,14 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             ? PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit
             : PipelineStageFlags.FragmentShaderBit;
         _ctx.Vk.CmdPipelineBarrier(cb, srcStage, dstStage, 0, 0, null, 0, null, (uint)count, barriers);
+    }
+
+    private static ImageMemoryBarrier LayerBarrier(Image image, uint layer, ImageAspectFlags aspect, ImageLayout oldLayout,
+        ImageLayout newLayout, AccessFlags srcAccess, AccessFlags dstAccess)
+    {
+        var barrier = Barrier(image, 1, aspect, oldLayout, newLayout, srcAccess, dstAccess);
+        barrier.SubresourceRange.BaseArrayLayer = layer;
+        return barrier;
     }
 
     private static ImageMemoryBarrier Barrier(Image image, uint layers, ImageAspectFlags aspect, ImageLayout oldLayout,
@@ -707,7 +804,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     {
         if (_cascades is null)
             return;
-        for (var c = 0; c < MaxCascades; c++)
+        for (var c = 0; c < (int)_cascades.ArrayLayers; c++)
         {
             _ctx.Deletions.Enqueue(GpuDeletion.Of(_cascadeFramebuffers[c]));
             _cascadeFramebuffers[c] = default;
@@ -716,7 +813,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
         _cascades.Dispose();
         _cascades = null;
-        _cascadesNeedInit = false;
+        _cascadeLayersNeedInit = 0;
+        _planner.InvalidateCache(); // whatever the layers held is gone
     }
 
     private void DestroyAtlas()
@@ -815,35 +913,56 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         return sampler;
     }
 
+    /// <summary>A nearest, clamp-to-edge sampler without comparison: PCSS's blocker search reads raw cascade depths.</summary>
+    internal static VkSampler CreatePointSampler(IVulkanContext ctx)
+    {
+        var info = new SamplerCreateInfo
+        {
+            SType = StructureType.SamplerCreateInfo,
+            MagFilter = Silk.NET.Vulkan.Filter.Nearest,
+            MinFilter = Silk.NET.Vulkan.Filter.Nearest,
+            AddressModeU = SamplerAddressMode.ClampToEdge,
+            AddressModeV = SamplerAddressMode.ClampToEdge,
+            AddressModeW = SamplerAddressMode.ClampToEdge,
+            MipmapMode = SamplerMipmapMode.Nearest,
+        };
+        ctx.Vk.CreateSampler(ctx.Device, in info, null, out var sampler).Check("vkCreateSampler (shadow point)");
+        return sampler;
+    }
+
     /// <summary>
-    /// The shadow set layout (<c>include/shadows.slang</c>): b0 uniforms, b1 cascade array, b2 atlas, b3 point cubes.
-    /// Every map uses the comparison sampler, baked in as an immutable sampler: Metal via MoltenVK reports
-    /// mutableComparisonSamplers = false, which forbids writing compare-enabled samplers through vkUpdateDescriptorSets.
+    /// The shadow set layout (<c>include/shadows.slang</c>): b0 uniforms, b1 the cascade array (a sampled image), b2 atlas,
+    /// b3 point cubes, b4 the cascade array's comparison sampler, b5 its point sampler (PCSS, ADR 0167). The comparison
+    /// sampler is baked in as an immutable sampler (b2, b3, b4): Metal via MoltenVK reports mutableComparisonSamplers =
+    /// false, which forbids writing compare-enabled samplers through vkUpdateDescriptorSets; b5 is immutable too.
     /// </summary>
-    internal static DescriptorSetLayout CreateMainSetLayout(IVulkanContext ctx, VkSampler comparisonSampler)
+    internal static DescriptorSetLayout CreateMainSetLayout(IVulkanContext ctx, VkSampler comparisonSampler, VkSampler pointSampler)
     {
         var samplers = stackalloc VkSampler[MaxShadowPoint];
         for (var i = 0; i < MaxShadowPoint; i++)
             samplers[i] = comparisonSampler;
+        var point = pointSampler;
 
         var bindings = stackalloc DescriptorSetLayoutBinding[]
         {
             new() { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
-            new() { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit, PImmutableSamplers = samplers },
+            new() { Binding = 1, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 2, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit, PImmutableSamplers = samplers },
             new() { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = MaxShadowPoint, StageFlags = ShaderStageFlags.FragmentBit, PImmutableSamplers = samplers },
+            new() { Binding = 4, DescriptorType = DescriptorType.Sampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit, PImmutableSamplers = samplers },
+            new() { Binding = 5, DescriptorType = DescriptorType.Sampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit, PImmutableSamplers = &point },
         };
         var info = new DescriptorSetLayoutCreateInfo
         {
             SType = StructureType.DescriptorSetLayoutCreateInfo,
-            BindingCount = 4,
+            BindingCount = 6,
             PBindings = bindings,
         };
         ctx.Vk.CreateDescriptorSetLayout(ctx.Device, in info, null, out var layout).Check("vkCreateDescriptorSetLayout (shadow set)");
         return layout;
     }
 
-    /// <summary>Writes the four bindings of a shadow set: uniforms, cascade array view, atlas view, cube views.</summary>
+    /// <summary>Writes the shadow set's uniforms, cascade array view, atlas view and cube views (the samplers are immutable).</summary>
     internal static void WriteMainSet(IVulkanContext ctx, DescriptorSet set, Silk.NET.Vulkan.Buffer uniforms,
         ImageView cascades, ImageView atlas, ReadOnlySpan<ImageView> cubes)
     {
@@ -857,7 +976,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
         var writes = stackalloc WriteDescriptorSet[4];
         writes[0] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, PBufferInfo = &bufferInfo };
-        writes[1] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = images };
+        writes[1] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 1, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, PImageInfo = images };
         writes[2] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 2, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, PImageInfo = images + 1 };
         writes[3] = new() { SType = StructureType.WriteDescriptorSet, DstSet = set, DstBinding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = MaxShadowPoint, PImageInfo = images + 2 };
         ctx.Vk.UpdateDescriptorSets(ctx.Device, 4, writes, 0, null);
@@ -869,13 +988,15 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         var poolSizes = stackalloc DescriptorPoolSize[]
         {
             new() { Type = DescriptorType.UniformBuffer, DescriptorCount = setCount },
-            new() { Type = DescriptorType.CombinedImageSampler, DescriptorCount = SamplerCount * setCount },
+            new() { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (1 + MaxShadowPoint) * setCount },
+            new() { Type = DescriptorType.SampledImage, DescriptorCount = setCount },
+            new() { Type = DescriptorType.Sampler, DescriptorCount = 2 * setCount },
         };
         var info = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
             MaxSets = setCount,
-            PoolSizeCount = 2,
+            PoolSizeCount = 4,
             PPoolSizes = poolSizes,
         };
         ctx.Vk.CreateDescriptorPool(ctx.Device, in info, null, out var pool).Check("vkCreateDescriptorPool (shadow set)");
@@ -1151,7 +1272,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             _uniformBuffers[i].MappedSpan.Clear();
         }
 
-        MainDescSetLayout = CreateMainSetLayout(_ctx, _comparisonSampler);
+        MainDescSetLayout = CreateMainSetLayout(_ctx, _comparisonSampler, _pointSampler);
         _mainPool = CreateMainPool(_ctx, slots);
         var layouts = stackalloc DescriptorSetLayout[slots];
         for (var i = 0; i < slots; i++)
@@ -1259,6 +1380,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         foreach (var buffer in _uniformBuffers)
             buffer.Dispose();
         deletions.Enqueue(GpuDeletion.Of(_comparisonSampler));
+        deletions.Enqueue(GpuDeletion.Of(_pointSampler));
         if (_debugSampler.Handle != 0)
             deletions.Enqueue(GpuDeletion.Of(_debugSampler));
 

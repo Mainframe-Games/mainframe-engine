@@ -82,21 +82,24 @@ public sealed class ImageBasedLightingTests
     public void FragmentStageStaysWithinTheBindingBudget()
     {
         // MoltenVK / Android baseline: ≤ 16 samplers and ≤ 16 sampled images per stage (rendering-features.md). Set 0:
-        // the sky lighting (3) and the ambient occlusion (ADR 0163), all combined image samplers.
+        // the sky lighting (3), the ambient occlusion (ADR 0163) and the contact shadows (ADR 0167), all combined image
+        // samplers. Set 1 (ADR 0167): the cascade array is a separate image with a comparison and a point sampler.
         const int materialImages = 4, materialSamplers = 1;
-        Assert.Equal(4, FrameContext.ImageBindings);
-        var images = ShadowSystem.SamplerCount + materialImages + FrameContext.ImageBindings;
+        Assert.Equal(5, FrameContext.ImageBindings);
+        Assert.Equal(6, ShadowSystem.ImageCount);
+        Assert.Equal(7, ShadowSystem.SamplerCount);
+        var images = ShadowSystem.ImageCount + materialImages + FrameContext.ImageBindings;
         var samplers = ShadowSystem.SamplerCount + materialSamplers + FrameContext.ImageBindings;
-        Assert.Equal(14, images);
-        Assert.Equal(11, samplers);
+        Assert.Equal(15, images);
+        Assert.Equal(13, samplers);
         Assert.True(images <= 16 && samplers <= 16);
         Assert.Equal(6u, SkyRadiance.RadianceMips); // environment.slang: kRadianceMaxMip = 5
 
         // TerrainSplatMaterial3D's own set 2 (ADR 0156): three layer arrays + two weight maps, two samplers; 3 sets.
-        var terrainImages = ShadowSystem.SamplerCount + MeshRenderer.SplatSetImages + FrameContext.ImageBindings;
+        var terrainImages = ShadowSystem.ImageCount + MeshRenderer.SplatSetImages + FrameContext.ImageBindings;
         var terrainSamplers = ShadowSystem.SamplerCount + MeshRenderer.SplatSetSamplers + FrameContext.ImageBindings;
-        Assert.Equal(15, terrainImages);
-        Assert.Equal(12, terrainSamplers);
+        Assert.Equal(16, terrainImages);
+        Assert.Equal(14, terrainSamplers);
         Assert.True(terrainImages <= 16 && terrainSamplers <= 16);
     }
 

@@ -146,6 +146,43 @@ public static class ShadowMath
         return view * projection;
     }
 
+    /// <summary>
+    /// The orthographic light view-projection covering a world-space box along a light (the far shadow, ADR 0167): a
+    /// square window around the box's light-space extent with a one-texel margin, its depth range the box's (plus one unit
+    /// each side) and pulled back towards the light by <paramref name="pullback"/> for casters in front of the box.
+    /// </summary>
+    /// <param name="texelWorldSize">World size of one texel.</param>
+    /// <param name="depthRange">World distance between the near (depth 0) and far (depth 1) planes.</param>
+    public static Matrix4x4 BoxLightMatrix(in Matrix4x4 lightRotation, in Aabb box, int resolution, float pullback,
+        out float texelWorldSize, out float depthRange)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(resolution, 4);
+        if (box.IsEmpty)
+            throw new ArgumentException("The box is empty.", nameof(box));
+        var lightSpace = box.Transform(lightRotation);
+        var half = MathF.Max(MathF.Max(lightSpace.Size.X, lightSpace.Size.Y) * 0.5f, 0.5f) * resolution / (resolution - 2f);
+        texelWorldSize = 2f * half / resolution;
+        var center = lightSpace.Center;
+        // Light space looks down -Z: points nearer the light have larger z. View z = -zNear maps to depth 0.
+        var zNear = -lightSpace.Max.Z - 1f - Math.Max(0f, pullback);
+        var zFar = -lightSpace.Min.Z + 1f;
+        depthRange = zFar - zNear;
+        return lightRotation * Matrix4x4.CreateOrthographicOffCenter(center.X - half, center.X + half, center.Y - half, center.Y + half, zNear, zFar);
+    }
+
+    /// <summary>
+    /// The PCSS penumbra radius in texels (ADR 0167; mirrors <c>filterCascadePcss</c> in <c>include/shadows.slang</c>): the
+    /// light-space depth between the receiver and the mean blocker, times the cascade's world depth range, times the tangent
+    /// of the light's angular radius, in texels of <paramref name="texelWorldSize"/>, clamped to
+    /// [<paramref name="minTexels"/>, <paramref name="maxTexels"/>].
+    /// </summary>
+    public static float PcssPenumbraTexels(float receiverDepth, float blockerDepth, float depthRange, float tanHalfAngle,
+        float texelWorldSize, float minTexels, float maxTexels)
+    {
+        var penumbra = (receiverDepth - blockerDepth) * depthRange * tanHalfAngle / MathF.Max(texelWorldSize, 1e-6f);
+        return Math.Clamp(penumbra, minTexels, maxTexels);
+    }
+
     /// <summary>Rounds each component down to a multiple of <paramref name="texel"/>.</summary>
     public static Vector3 SnapToTexel(Vector3 lightSpace, float texel) => new(
         MathF.Floor(lightSpace.X / texel) * texel,

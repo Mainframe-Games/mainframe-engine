@@ -19,6 +19,9 @@ internal interface IPostProcessHost
     /// <summary>What the effects decide on this frame: <see cref="IVulkanContext.PostProcess"/>, anti-aliasing, debug view.</summary>
     PostEffectSettings PostSettings { get; }
 
+    /// <summary>The root world's primary light's contact shadows (ADR 0167), set by the render server each frame.</summary>
+    ContactShadowSettings ContactShadows { get; set; }
+
     /// <summary>The depth prepass's render pass (the prepass is created on first use): build prepass pipelines against it.</summary>
     RenderPass PrepassRenderPass { get; }
 
@@ -27,7 +30,7 @@ internal interface IPostProcessHost
 
     /// <summary>
     /// Starts the frame's post-processing, before any pass that binds the main view's frame set: clears the ambient
-    /// occlusion binding, then every enabled effect's <c>OnBeginFrame</c> (creating it first). <paramref name="prepass"/>:
+    /// occlusion and contact shadow bindings, then every enabled effect's <c>OnBeginFrame</c> (creating it first). <paramref name="prepass"/>:
     /// this frame runs the depth prepass (it is created now, so effects see its images).
     /// </summary>
     void BeginPostFrame(bool prepass);

@@ -12,6 +12,10 @@ descriptor set (set 1 of every lit scene pipeline: meshes, Spine) that the main 
 - **PCF** everywhere (hard, 3×3 or Poisson 16; a 20-tap disc for cubes), with receiver depth and normal-offset bias.
 - **Per-light settings** (`CastsShadows`, `ShadowResolution`, biases, cascade settings), exported on the light nodes.
 - **Per-pass caster culling**; passes nothing casts into are skipped. Cutout materials cast alpha-tested shadows.
+- **Shadow quality (G8e.2, [ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md))**, opt-in
+  per sun: **staggered cascades** (cascade 0 every frame, the others every 2 or 4 frames), **coarse casters** in the far
+  cascades, **PCSS** from the light's angular size, **screen-space contact shadows** and a **far shadow** past the
+  cascades, rendered once. See [Shadow quality](#shadow-quality-g8e2).
 
 The frame's CPU work (which light gets which map, cascade fitting, atlas packing, the shader uniforms) is
 `ShadowPlanner`, which holds no GPU state. It is unit-tested and benchmarked on its own, and it does not allocate.
@@ -22,7 +26,8 @@ Decisions: [ADR 0070 cascades](../../memory/decisions/0070-cascaded-shadow-maps-
 [0071 atlas](../../memory/decisions/0071-shadow-atlas-and-six-shadow-samplers.md),
 [0072 filtering and bias](../../memory/decisions/0072-pcf-and-receiver-bias.md),
 [0073 culling](../../memory/decisions/0073-per-pass-caster-culling.md),
-[0074 cutout casters](../../memory/decisions/0074-alpha-tested-shadow-casters.md).
+[0074 cutout casters](../../memory/decisions/0074-alpha-tested-shadow-casters.md),
+[0167 shadow quality](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md).
 
 ## Key types
 
@@ -35,6 +40,8 @@ Decisions: [ADR 0070 cascades](../../memory/decisions/0070-cascaded-shadow-maps-
 | `ShadowPass`, `ShadowPassKind`, `ShadowCasterCull`, `ShadowCasterDraw` | [ShadowPass.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowPass.cs) | One sub-pass (matrix, frustum, viewport) and the caster callbacks |
 | `ShadowUniforms` (internal), `ShadowFilter` | [ShadowUniforms.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowUniforms.cs) | The std140 shadow UBO; the filter modes |
 | `ShadowFallback` (internal) | [ShadowFallback.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowFallback.cs) | The "no shadows" set when there is no `ShadowSystem` |
+| `ShadowCacheMode`, `ShadowCasterLod`, `ShadowCacheSchedule` | [ShadowCaching.cs](../../MainframeEngine/Src/Rendering/Shadows/ShadowCaching.cs) | Staggered cascades, the caster LOD of an instance, the schedule (pure functions) |
+| `ContactShadows` (internal), `ContactShadowSettings` | [ContactShadows.cs](../../MainframeEngine/Src/Rendering/Post/ContactShadows.cs) | The `AfterPrepass` contact-shadow effect and what it reads from the sun |
 
 ## Which light gets which map
 
@@ -58,7 +65,7 @@ fourth light without shadows.
 | `MaxShadowPoint` (`MAX_SHADOW_POINT`) | 4 |
 | `MaxCascades` (`MAX_SHADOW_CASCADES`) | 4 |
 | `MAX_SHADOW_ATLAS_MAPS` | 11 = 3 + 8 |
-| `MaxShadowPasses` | 39 = 4 cascades + 11 tiles + 4 × 6 faces |
+| `MaxShadowPasses` | 40 = 4 cascades + the far shadow + 11 tiles + 4 × 6 faces |
 
 ## Cascades
 
@@ -94,6 +101,103 @@ flowchart TD
   - The last cascade fades to lit over its band, which ends at the shadow distance.
   - A cascade without casters is disabled (`cascadeEnabled`) and samples as lit.
 - **Debug view:** `ShadowSystem.DebugCascades` tints the main view red, green, blue and yellow by cascade.
+
+## Shadow quality (G8e.2)
+
+Five features of the primary directional light ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)),
+all off by default, so existing scenes and goldens do not change. The Forest turns them all on.
+
+| `DirectionalLight3D` | Default | Forest | What it does |
+|---|---|---|---|
+| `ShadowCacheMode` | `Off` | `Staggered` | [Staggered cascades](#staggered-cascades) |
+| `ShadowCoarseCascades` | 0 | 2 | the last N cascades draw [coarse casters](#coarse-casters) |
+| `LightAngularDistance` | 0 | 0.5° | Godot's `light_angular_distance`: [PCSS](#pcss) on `High` |
+| `ContactShadows`, `ContactShadowLength` | false, 0.5 m | true, 0.4 m | [contact shadows](#contact-shadows) on `High` |
+| `FarShadowEnabled`, `FarShadowDistance` | false, 0 (every caster's bounds) | true, 0 | the [far shadow](#far-shadow) |
+
+### Staggered cascades
+
+`ShadowCacheMode.Staggered`: cascade 0 renders every frame, cascade 1 on even frames, and with four cascades cascades 2
+and 3 on alternate odd frames (60 / 30 / 15 / 15 Hz at 60 fps; with three, cascade 2 on odd frames), so at most two
+cascade passes render per frame (`ShadowCacheSchedule.IsDue`). Between its renders a cascade keeps its layer, its
+matrix, its depth range and whether it had casters (`ShadowPlanner`'s cache), and the shaders sample it with that matrix.
+
+- **Growth.** A cached cascade's sphere is grown by the camera's travel and turn over its interval at 60 Hz
+  (`ShadowCacheSchedule.Margin`): `ShadowSystem.CacheMaxSpeed` (10 m/s: 0.33 m for cascade 1, 0.67 m for 2 and 3) plus
+  `CacheMaxTurnRate` (60°/s) × the sphere centre's distance ahead of the camera (turning swings a far slice's sphere:
+  5.6 m for a sphere 80 m ahead over 4 frames); never cascade 0. The margin is a constant per cascade, so the texel grid
+  stays put between renders (no shimmer).
+- **Early re-render.** A cascade renders before it is due when the current slice's sphere leaves the one it rendered
+  (a faster camera, a cut, a teleport), and every cascade re-renders when the light turns, the resolution, cascade count,
+  splits or layers change, or after `ShadowSystem.InvalidateShadowCache()`.
+- **GPU.** Cascade layers get one barrier each: only the layers that render are discarded (`Undefined`) and written; the
+  others stay in `DEPTH_STENCIL_READ_ONLY_OPTIMAL`.
+- **Stale casters.** A moving caster lags in a cached cascade by up to its interval (67 ms for cascades 2–3: wind sway
+  at 30 m and more is not visible).
+
+### Coarse casters
+
+`GeometryInstance3D.ShadowCasterLod` says which passes an instance casts into: `All` (default), `Fine` (only the fine
+passes: the nearer cascades, atlas tiles, cubes) or `Coarse` (the coarse passes **from any distance**, its visibility
+range ignored for them, and the fine passes while in range, so near cascades still get far trees' long shadows and no
+tree is drawn twice). The coarse passes are the light's last `ShadowCoarseCascades` cascades and the
+far shadow (`ShadowPass.Coarse`). `MeshRenderer.Prepare` collects out-of-range `Coarse` instances as casters too, and
+`CullShadowCasters` skips the items whose pass mask does not match the pass.
+
+`TreeScatter.ShadowCoarseLod` (default −1, off) maps it onto the tree levels: that level is `Coarse`, the finer ones
+`Fine` (up to `ShadowMaxLod`), the coarser ones cast nothing. The Forest uses level 1: its far cascades and far shadow
+draw every tree at level 1 and none at level 0. (Ez Tree's level 2 casts nearly opaque canopy shadows: with it the
+floor of R5 went black under the 21° sun.) This is the hook G8e.5's impostor casters will use: an
+impostor caster is a `Coarse` instance.
+
+### PCSS
+
+`ShadowFilter.Pcss` (the default and `High`'s filter) is `Poisson16` plus percentage-closer soft shadows on the primary
+light's cascades when its `LightAngularDistance` is above 0 (`filterCascadePcss` in `shadows.slang`):
+
+1. **Blocker search:** five 2 × 2 gathers (20 depths: the centre and four points near the rim of `MaxPenumbraTexels`, 8
+   texels) through the cascade array's point sampler (binding 5): the mean depth of the texels nearer the light than the
+   receiver. None: lit; all 20: the umbra. Both skip the filter (most of a forest floor is one or the other). A first
+   version with 16 point taps and no umbra exit cost about 3 ms more in the Forest.
+2. **Penumbra:** `(d_receiver − d_blocker) · depthRange · tan(angle / 2)` in texels of the cascade
+   (`ShadowMath.PcssPenumbraTexels` mirrors it; `cascadeDepthRange` holds each cascade's world depth span).
+3. **Filter:** the 16-tap Poisson comparison disc at that radius, clamped to [`FilterRadius`, 8 texels].
+
+Leaf shadows 20 m below the canopy blur into dapples while trunk bases stay sharp (`shadow-pcss`: a plank 6.5 m up casts
+a penumbra about 3 times as wide as a 1 m wall's). **TAA:** when the main view is jittered (`frame.jitter` ≠ 0, which only
+TAA asks for), the pattern rotates per pixel and frame by interleaved gradient noise (`shadowRotation`) and the filter
+drops to 12 taps, which TAA converges; otherwise the pattern stays fixed (no crawl, ADR 0072), and a wide penumbra shows the
+16 taps as soft steps. Atlas maps (spots, secondary suns) and cubes keep the Poisson filter.
+
+### Contact shadows
+
+An `AfterPrepass` post effect (`ContactShadows`, `PostEffectOrder.ContactShadows`, after SSAO) when the root world's
+primary light has `ContactShadows` and the shadow system allows them (`ShadowSystem.ContactShadows`, true on `High`):
+
+- **March:** one full-resolution pass (`Post/ContactShadows.vk.frag`) rebuilds each prepass pixel's view position and
+  steps 12 times towards the light over `ContactShadowLength`, against the prepass depth: occluded when a step lies
+  behind the stored depth by more than a bias (1 cm + 0.2 % of the depth) and less than the thickness (0.2 m + 1 %).
+  Contact shadows fade out from 42 m to 60 m and at the screen's edges. With TAA each ray's start is jittered by
+  interleaved gradient noise per frame; without, it starts half a step out (static noise would dither the edges).
+- **Output:** `R16G16_SFLOAT` (r = shadow, g = the pixel's view depth) from the post target pool, bound at **set 0,
+  binding 6** (`FrameContext.ContactShadowBinding`, `contact_shadows.slang`) like SSAO's binding 5: latched at the frame
+  set's first bind, white 1×1 without the effect and in offscreen views.
+- **Shading:** `dirShadow` multiplies the cascaded term by `contactShadow(worldPos)` when the shadow UBO's `contact.x` is
+  set. It projects the point with the (jittered) view-projection and uses the contact shadow only where its view depth
+  matches g, so transparent surfaces, water and whatever the prepass did not draw are not darkened by what lies behind.
+- **SSAO (lane S):** a separate target for now; G8e.1 folds it into the AO target's G channel and retires binding 6.
+
+### Far shadow
+
+`FarShadowEnabled` adds a layer to the cascade array (layer 4, `ShadowSystem.FarShadowLayer`, at the cascade resolution;
+only while a light has one, so other scenes keep four layers) holding an orthographic map along the light over every
+caster's bounds (`FarShadowDistance` 0) or a box of ±`FarShadowDistance` around the camera on a quarter-distance grid
+(`ShadowMath.BoxLightMatrix`). It is a coarse pass (`ShadowPassKind.FarShadow`), so it draws the terrain, `All` casters
+and the `Coarse` ones (the trees' level 2), and it renders **once**: again only when the light turns by more than 0.1°,
+the covered box outgrows the one rendered (it is grown by 2 %), the resolution changes or the cache is invalidated.
+`sampleCascades` uses it past the last cascade and blends into it over the last cascade's band instead of fading to lit,
+with a 2.5-texel Poisson disc. A far shadow without casters is off (and not re-rendered). It costs no binding: it is a
+layer of the cascade array, so it also renders in its own render pass, which keeps the atlas's single pass intact.
 
 ## Atlas
 
@@ -214,13 +318,19 @@ Rasterisation details:
 
 | Binding | Type | Contents |
 |---|---|---|
-| 0 | UniformBuffer | `ShadowUBO` (`ShadowUniforms`, std140, 1680 B; one buffer per frame slot) |
-| 1 | CombinedImageSampler, immutable comparison sampler | cascade array (`sampler2DArrayShadow`) |
+| 0 | UniformBuffer | `ShadowUBO` (`ShadowUniforms`, std140, 1840 B; one buffer per frame slot) |
+| 1 | SampledImage | cascade array (`Texture2DArray<float>`: the cascades, then the far shadow) |
 | 2 | CombinedImageSampler, immutable comparison sampler | atlas (`sampler2DShadow`) |
 | 3 | CombinedImageSampler × 4, immutable comparison sampler | point cubes (`samplerCubeShadow`) |
+| 4 | Sampler, immutable comparison sampler | the cascade array's comparison taps |
+| 5 | Sampler, immutable nearest sampler | the cascade array's raw depth (PCSS's blocker search) |
 
-**Six samplers instead of fifteen.** With the material's one sampler, the fragment stage uses 7 of MoltenVK's 16. The
-`MaxShadowSpot = 7` hack is gone, and every spot light casts. The comparison sampler is linear, so each tap is a
+**Six images, seven samplers.** The cascade array is a separate image since ADR 0167, so PCSS's point sampler costs a
+sampler, not an image. The `MaxShadowSpot = 7` hack (M4) is long gone, and every spot light casts. The fragment stage of
+the lit pipelines declares 15 sampled images and 13 samplers (terrain splat: 16 and 14) of MoltenVK's 16: set 0 five
+(sky radiance, irradiance, BRDF LUT, SSAO, contact shadows), set 1 six, the material four (terrain five).
+`ImageBasedLightingTests.FragmentStageStaysWithinTheBindingBudget` pins it. The next set-0 image (G8e.1's probes) needs
+the irradiance cube moved to SH L2 in the lights UBO, or the contact shadows folded into the AO target. The comparison sampler is linear, so each tap is a
 2×2 hardware PCF where the depth format filters, with `CompareOp.Less` and clamp-to-edge. It is baked into the
 layout because MoltenVK reports `mutableComparisonSamplers = false`.
 
@@ -245,6 +355,11 @@ Each frame slot has its own set:
 | 1520 | `ivec4 spotCodes[2]` | per spot light: 0 none, k + 1 atlas map k |
 | 1552 | `ivec4 pointCodes[4]` | per point light: 0 none, c + 1 cube c |
 | 1616 | `vec4 pointParams[4]` | per cube: 2 / size, depth bias, normal bias |
+| 1680 | `ShadowMap2D farMap` | the far shadow's matrix, rect, params (ADR 0167) |
+| 1776 | `vec4 farParams` | 1 when the far shadow is on, its filter radius (texels), 1 / size |
+| 1792 | `vec4 cascadeDepthRange` | world depth span of each cascade (PCSS) |
+| 1808 | `vec4 pcss` | tan(angular radius) (0 = off), largest penumbra and search radius (texels) |
+| 1824 | `vec4 contact` | x = 1: the primary light takes the contact shadows (set 0, binding 6) |
 
 The codes index the shadow arrays by light index (the lights UBO order). An all-zero UBO, as in the fallback or a
 frame without shadows, means no light has a shadow. `ShadowPlannerTests.UniformLayoutMatchesTheShaderBlock` pins
@@ -274,10 +389,11 @@ The raster slope-scaled bias adds a little more for 2D maps.
 |---|---|---|
 | `Hard` | 1 comparison tap (bilinear 2×2) | 1 tap |
 | `Pcf3x3` | 3 × 3 taps, `FilterRadius / 1.5` texels apart | 20-tap disc |
-| `Poisson16` (default) | 16-tap Poisson disc, radius `FilterRadius` (default 1.5) texels | 20-tap disc, radius `FilterRadius` texels at that distance |
+| `Poisson16` | 16-tap Poisson disc, radius `FilterRadius` (default 1.5) texels | 20-tap disc, radius `FilterRadius` texels at that distance |
+| `Pcss` (default) | `Poisson16`; on the primary light's cascades with an angular size, [PCSS](#pcss) | 20-tap disc |
 
-Poisson taps are **not** rotated per pixel: screen-space noise would move with the camera and make edges crawl.
-Each tap's bilinear comparison already smooths the steps.
+Poisson taps are **not** rotated per pixel without TAA: screen-space noise would move with the camera and make edges
+crawl. Each tap's bilinear comparison already smooths the steps. With TAA, PCSS rotates them ([PCSS](#pcss)).
 
 ## Without a `ShadowSystem`
 
@@ -299,6 +415,10 @@ Shadows are optional:
 | `DebugCascades` | false | cascade tint |
 | `StableCascades` | true | texel snapping |
 | `MaxAtlasSize` | 4096 | power of two, ≥ 512 |
+| `ContactShadows` | true | lights may use contact shadows (`High`) |
+| `CacheMaxSpeed`, `CacheMaxTurnRate` | 10, 60 | camera speed (m/s) and turn rate (°/s) a staggered cascade's margin allows for |
+| `InvalidateShadowCache()` | — | re-render the cached cascades and the far shadow (camera cuts, static edits) |
+| `RenderedCascades`, `CachedCascades`, `FarShadowRendered` | — | the last frame's staggered schedule |
 | `CascadeLimit` | 4 | caps each directional light's `CascadeCount` (1–4) |
 | `ResolutionLimit` | 8192 | caps every map side (cascade layer, atlas tile, cube face); power of two |
 | `DepthBiasConstant`, `DepthBiasSlope` | 1.25, 1.75 | raster bias of 2D maps |
@@ -319,11 +439,11 @@ The dev overlay's **Shadows** panel ([Developer overlay](dev-overlay.md)) shows:
 budget with `ShadowQualitySettings.For(level)` → `ShadowSystem.Apply` ([ADR 0095](../../memory/decisions/0095-shadow-quality-levels.md)).
 The limits cap the per-light settings below; they never raise them.
 
-| Level | `MaxAtlasSize` | `Filter` (`FilterRadius`) | `CascadeLimit` | `ResolutionLimit` |
-|---|---|---|---|---|
-| `High` (default) | 4096 | `Poisson16` (1.5) | 4 | 8192 (none) |
-| `Medium` | 2048 | `Pcf3x3` (1.5) | 3 | 2048 |
-| `Low` | 1024 | `Hard` (1) | 2 | 1024 |
+| Level | `MaxAtlasSize` | `Filter` (`FilterRadius`) | `CascadeLimit` | `ResolutionLimit` | `ContactShadows` |
+|---|---|---|---|---|---|
+| `High` (default) | 4096 | `Pcss` (1.5) | 4 | 8192 (none) | yes |
+| `Medium` | 2048 | `Pcf3x3` (1.5) | 3 | 2048 | no |
+| `Low` | 1024 | `Hard` (1) | 2 | 1024 | no |
 | `Off` | — no `ShadowSystem`: `ShadowsEnabled = false`, lit pipelines bind the fallback set | | | |
 
 `High` is exactly a new shadow system's defaults, so it changes nothing. The levels other than `Off` can change at
@@ -342,6 +462,11 @@ Per-light settings live on `Light`, exported on `Light3D` and saved in scenes wh
 | `ShadowSplitLambda` (`CascadeSplitLambda`) | directional | 0.75 | 0–1 |
 | `ShadowMaxDistance` (`MaxShadowDistance`) | directional | 100 | |
 | `ShadowCascadeBlend` (`CascadeBlend`) | directional | 0.1 | 0–0.5 |
+| `ShadowCacheMode` (`CacheMode`) | directional | `Off` | `Off`, `Staggered` |
+| `ShadowCoarseCascades` (`CoarseCascades`) | directional | 0 | 0–3 |
+| `LightAngularDistance` (`AngularDistance`) | directional | 0° | 0–90 (the editor offers 0–10) |
+| `ContactShadows`, `ContactShadowLength` | directional | false, 0.5 m | 0.01–10 m |
+| `FarShadowEnabled`, `FarShadowDistance` | directional | false, 0 | ≥ 0 |
 
 ## Performance
 
@@ -367,6 +492,12 @@ Planning alone ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.
 
 The showcase scene ran at the display's 120 fps in Release when this was measured.
 
+**G8e.2 in the Forest** (`just forest-bench`, 1920 × 1080, busy machine; [forest.md → Performance](forest.md#performance)):
+4 × 1024² to 140 m staggered with coarse level-1 trees, PCSS, contact shadows and the far shadow: shadow pass 3.7–4.0 ms
+GPU p50 against 2.1 ms for the old 2 × 1024² to 60 m, frame p50 14.1–15.4 ms against 15.4 ms (the prepass the contact
+shadows turn on pays for PCSS). Every cascade every frame: 15 ms; 2048² staggered: +4–6 ms. The far shadow renders once
+(one hitch at load).
+
 **Memory:** maps exist only for lights that need them. The showcase scene used 86 MiB:
 
 | Map | Size |
@@ -389,6 +520,12 @@ Before M4, 116 MiB was allocated whatever the lights.
   - the uniform layout;
   - allocation-free planning and packing.
   - Light settings round-trip through scenes in [LightShadowSettingsTests](../../Tests/MainframeEngine.Tests/Lighting/LightShadowSettingsTests.cs).
+  - G8e.2 ([ShadowQualityTests](../../Tests/MainframeEngine.Tests/Rendering/Shadows/ShadowQualityTests.cs)): the schedule
+    (never more than two cascades a frame, intervals 1/2/4/4), travel and turn margins, the cache (reuse, early re-render
+    on a teleport, light turns, invalidation, disabled cascades stay disabled, turning within the rate keeps the
+    schedule), coarse passes, the far shadow (renders once, re-renders on a 0.1° turn or larger bounds, covers the valley,
+    off without casters, `FarShadowDistance`), PCSS and contact uniforms per quality, the penumbra math, the contact
+    effect's stage and enable rule, settings defaults and clamping, 0 B planning; `TreeScatter.ShadowCoarseLod`.
 - **Render tests** ([ShadowTests.cs](../../Tests/MainframeEngine.RenderTests/ShadowTests.cs), MoltenVK goldens):
 
   | Test | What it checks |
@@ -399,6 +536,10 @@ Before M4, 116 MiB was allocated whatever the lights.
   | `shadow-lights` allocation gate | 0 B over 240 frames. |
   | `shadow-cutout` | The fence's holes let light through, compared with an opaque fence. It also exercises the point cutout pipeline. |
   | `shadow-shimmer` | A one-pixel, sub-texel camera move must give the same frame shifted by one pixel (snapped: max Δ ≤ 3). The unsnapped run must change > 1 % of the pixels, which proves the test detects shimmering. |
+  | `shadow-pcss` | ([ShadowQualityTests.cs](../../Tests/MainframeEngine.RenderTests/ShadowQualityTests.cs)) A plank 6.5 m up and a 1 m wall: with a 1.5° sun the plank's penumbra is > 2× the wall's (measured 3.3× on MoltenVK, 2.75× on lavapipe) and > 2× its own without PCSS; without, the two match. |
+  | `contact-shadows` | Pebbles that cast no shadow-map shadow get contact shadows next to them (> 300 darker pixels); nothing gets lighter. |
+  | `shadow-staggered` | Self-checks the schedule every frame (≤ 2 cascades rendered, the rest reused). A still camera: four consecutive staggered frames are identical and within 0.5 % of every-frame cascades; walking at 8 m/s: within 1 %. `--count 4` (every G8e.2 feature, TAA rotation via `--jitter`): 0 B over 240 frames. |
+  | `far-shadow` | A ridge 225 m away shadows the plain past the 40 m cascades through an invisible `Coarse` stand-in; the far shadow renders exactly once. |
 
   The existing `multi-light` test checks the ring per pass; `instances` checks ≤ 2 shadow draws per pass.
 - `--no-shadows` (host option) turns every light's shadows off; perf runs report `ShadowCpuMs`/`ShadowGpuMs`.
@@ -422,8 +563,15 @@ Before M4, 116 MiB was allocated whatever the lights.
   world and camera instead.
 - Point lights past the fourth shadowed one, and atlas tiles that do not fit at the minimum size, light without a
   shadow (no warning).
-- No contact-hardening (PCSS), EVSM or screen-space contact shadows; PCF only ([ADR 0072](../../memory/decisions/0072-pcf-and-receiver-bias.md)).
-- Lavapipe goldens for the new scenes are recorded by CI.
+- PCSS reads the stored depth with the raster slope bias: at a caster's steep side faces the blockers look nearer the
+  receiver, so that edge's penumbra is narrower (the plank in `shadow-pcss`: 9 px on one side, 17 on the other). Without
+  TAA a wide penumbra shows its 16 taps as soft steps. Secondary directional lights (atlas) have no PCSS.
+- Contact shadows use a separate set-0 binding until G8e.1 merges them into the AO target; they need the depth prepass
+  (the effect turns it on) and a perspective camera.
+- The far shadow has the cascades' resolution (no `FarShadowResolution` yet) and sees the casters as they were when it
+  rendered: moving casters and terrain edits need `InvalidateShadowCache()`.
+- A cached cascade draws moving casters where they were up to 4 frames ago.
+- Lavapipe goldens for the new scenes are recorded by CI (G8e.2's were recorded in Docker, ADR 0167).
 
 ## Related docs
 
