@@ -262,8 +262,17 @@ public sealed class EditorLinkConnectionTests
         var again = new List<EditorLinkMessage>();
         Wait.For(second, again, m => m.Type == EditorLinkMessageType.Hello);
         Wait.For(second, again, m => m.Type == EditorLinkMessageType.Log && m.Log.Message == "while down 9");
-        Assert.Equal(10, again.Count(m => m.Type == EditorLinkMessageType.Log));
-        Assert.Equal(2, client.ConnectionCount);
+        Assert.Equal(Enumerable.Range(0, 10).Select(i => "while down " + i),
+            again.Where(m => m.Type == EditorLinkMessageType.Log).Select(m => m.Log.Message)); // each once, in order
+        Assert.DoesNotContain(again, m => m.Type == EditorLinkMessageType.LogDropped);
+        Assert.Equal(0, client.DroppedLogCount);
+        Assert.Equal(0, second.DroppedMessageCount);
+        // At least 2, not exactly: the first listener can outlive first.Dispose. On macOS, .NET marks a new socket
+        // FD_CLOEXEC with a separate fcntl after socket(), and Process.Start forks; a test spawning a process in parallel
+        // (the l10n CLI tests) can fork in between, and the child then holds the listening socket open until it exits.
+        // The client's immediate reconnect completes into that socket's backlog (a connection nobody reads), is reset
+        // when the child exits, and the client connects again, to `second`: 3 connections, nothing lost.
+        Assert.True(client.ConnectionCount >= 2, $"connections: {client.ConnectionCount}");
     }
 
     private static EditorLinkClient CreateClientWithServer(out EditorLinkServer server, out int port)
