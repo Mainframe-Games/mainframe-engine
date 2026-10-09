@@ -216,6 +216,9 @@ public sealed partial class ViewportController : Node
             viewport.TaaSharpness = sharpness;
         if (rendering is not null && Tree?.Servers.Render?.Vulkan is { } vk && vk.Exposure != rendering.Exposure)
             vk.Exposure = rendering.Exposure; // the engine tonemap's exposure, as rendering.exposure sets it in the game
+        var waterSsr = rendering?.WaterSsr ?? WaterSsrQuality.Low; // ADR 0173
+        if (Tree?.Servers.Render is { } render && render.WaterSsr != waterSsr)
+            render.WaterSsr = waterSsr;
     }
 
     // ── UI preview backdrop ──────────────────────────────────────────────────────────────────────────────────────

@@ -41,7 +41,17 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
         - Runs alone after W5 merges, before W6, so W6 adds its settings to the profile. **Merged** (ADR 0169; gates
           green per the lane: 1902 unit, 774 editor, 137 render).
         - Follow-up: the inspector squeezes the resource name in the Post Process row to almost nothing.
-        - **W6 running** (from 3f6f0bcf): G8e.1 probe GI (0170), G8e.3 volumetric light (0171), G8e.5 Ez Tree foliage
+        - **Paused at the usage limit (tip 041d3544).**
+          - Merged: G8e.3 volumetric fog (0171), the pipeline-cache stall fix (0176), G8e.6 water (0173), and the
+            Slang 41012 warning fix. Gates are green: 1948 engine, 774 editor, 153 Forest, 147 render.
+          - Stopped mid-lane, with partial work committed on their branches:
+            - `forest/gi` (G8e.1 probe GI, ADR 0170): rendering tests exist; docs and ADR may be missing. Its
+              budget: set 0 must stay at 5 or fewer images, because water's set 3 takes the layout to 16/14.
+            - `forest/fo` (G8e.5 Ez Tree foliage, ADR 0172): only leaf-cluster cards are done. Still to do: impostors,
+              hierarchical wind, bark, mips, species.
+          - Resume: relaunch both lanes from their branches with "continue from your branch's commits" (base 041d3544),
+            then regenerate all R1–R5 shots, then W7 (TAAU 0174, art pass 0175).
+        - (was) **W6 running** (from 3f6f0bcf): G8e.1 probe GI (0170), G8e.3 volumetric light (0171), G8e.5 Ez Tree foliage
           (0172), G8e.6 water SSR/refraction/falls (0173). Next: merge them, then W7 (G8e.8 TAAU 0174, G8e.7 art pass 0175).
         - ADRs for the following waves: G8e.1 0170, G8e.3 0171, G8e.5 0172, G8e.6 0173, G8e.8 0174, G8e.7 0175.
         - Art-pass note: R1 is now too hazy (the shafts and fog wash it out).

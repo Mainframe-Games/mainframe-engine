@@ -5,8 +5,9 @@ namespace MainframeEngine;
 
 /// <summary>
 /// The built-in water material (G8c, ADR 0159): flowing ripples, sky reflection, sun glints, depth colour and foam for
-/// <see cref="River3D"/> ribbons and terrain ponds. It is the low-tier look of docs/design/future/water.md (no
-/// <c>SceneTextures</c> yet): the surface is alpha-blended over what lies behind it and drawn after the opaques.
+/// <see cref="River3D"/> ribbons and terrain ponds. By default it is the low-tier look of docs/design/future/water.md: the
+/// surface is alpha-blended over what lies behind it and drawn after the opaques. With <see cref="RefractionEnabled"/>
+/// (ADR 0173) it reads the view's scene copy instead: refraction, the true column, caustics and screen-space reflections.
 /// </summary>
 /// <remarks>
 /// <para>Per vertex it reads <see cref="MeshSurface.Custom0"/>: x = water column depth in metres (bed to surface),
@@ -80,10 +81,59 @@ public sealed class WaterMaterial3D : Material
     [Export(Range = "0,4,0.01")]
     public float ScatterStrength { get; set { if (field == value) return; field = value; Touch(); } } = 0.6f;
 
-    /// <summary>Scales the sky reflection.</summary>
+    /// <summary>
+    /// Reads the view's scene copy (ADR 0173): the bed refracted through the ripples, the true water column from the
+    /// scene depth, caustics on the bed and screen-space reflections. Off: the alpha-blended look of ADR 0159.
+    /// </summary>
+    [ExportGroup("Refraction")]
+    [Export]
+    public bool RefractionEnabled { get; set { if (field == value) return; field = value; Touch(); } }
+
+    /// <summary>How much the ripples and the surface bend the view of the bed: 1 is water's (IOR 1.33), 0 none.</summary>
+    [Export(Range = "0,4,0.01")]
+    public float RefractionStrength { get; set { if (field == value) return; field = value; Touch(); } } = 1f;
+
+    /// <summary>Blur of the bed through deep water: the fraction of the copy's levels used at 2 m of path.</summary>
+    [Export(Range = "0,1,0.01")]
+    public float RefractionRoughness { get; set { if (field == value) return; field = value; Touch(); } } = 0.15f;
+
+    /// <summary>Scales the reflection (the sky's, and the scene's where screen-space reflections find it).</summary>
     [ExportGroup("Reflection")]
     [Export(Range = "0,2,0.01")]
     public float ReflectionStrength { get; set { if (field == value) return; field = value; Touch(); } } = 1f;
+
+    /// <summary>
+    /// Reflects the scene where a screen-space ray finds it (with <see cref="RefractionEnabled"/>; quality from
+    /// <see cref="RenderServer.WaterSsr"/>), falling back to the sky elsewhere.
+    /// </summary>
+    [Export]
+    public bool ScreenSpaceReflections { get; set { if (field == value) return; field = value; Touch(); } } = true;
+
+    /// <summary>The caustic pattern (R, tileable), projected along the sun onto the bed; null: the built-in one.</summary>
+    [ExportGroup("Caustics")]
+    [Export]
+    public Texture2D? CausticsTexture
+    {
+        get;
+        set
+        {
+            if (ReferenceEquals(field, value)) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    /// <summary>Metres per repeat of the caustic pattern.</summary>
+    [Export(Range = "0.1,32,0.1")]
+    public float CausticsScale { get; set { if (field == value) return; field = value; Touch(); } } = 3f;
+
+    /// <summary>Brightness of the caustics on the sunlit bed (0 = none; with <see cref="RefractionEnabled"/>).</summary>
+    [Export(Range = "0,4,0.01")]
+    public float CausticsStrength { get; set { if (field == value) return; field = value; Touch(); } } = 0.5f;
+
+    /// <summary>Depth below the surface (metres) by which the caustics have faded out.</summary>
+    [Export(Range = "0.1,20,0.1")]
+    public float CausticsMaxDepth { get; set { if (field == value) return; field = value; Touch(); } } = 3f;
 
     /// <summary>Foam mask texture (R), sampled in world XZ; null: the built-in cells.</summary>
     [ExportGroup("Foam")]

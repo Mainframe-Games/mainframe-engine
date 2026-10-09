@@ -324,6 +324,37 @@ internal struct MaterialParams
         Pbr = new Vector4(1f / MathF.Max(m.FoamScale, 1e-3f), MathF.Max(m.SoftEdgeDistance, 0f), m.WindDrift, 0f),
     };
 
+    /// <summary>
+    /// Packs a <see cref="WaterfallMaterial3D"/> (<c>Water/Waterfall.vk.frag</c>, ADR 0173): albedo = foam colour (linear)
+    /// and opacity, emission = water colour (linear) and aeration, uvTransform = streak scale, streak length, flow scale,
+    /// roughness. The albedo slot holds the streak texture, the normal slot the built-in ripple normals.
+    /// </summary>
+    public static MaterialParams From(WaterfallMaterial3D m, uint textureFlags) => new()
+    {
+        Albedo = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.FoamColor)), Math.Clamp(m.Opacity, 0f, 1f)),
+        Emission = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.WaterColor)), MathF.Max(m.Aeration, 0f)),
+        UvTransform = new Vector4(MathF.Max(m.StreakScale, 0.01f), MathF.Max(m.StreakLength, 0.01f), MathF.Max(m.FlowScale, 0f),
+            Math.Clamp(m.Roughness, 0f, 1f)),
+        Params = new Vector4(0f, 1f, 0f, 1f),
+        TextureFlags = textureFlags,
+        Shading = ShadingPbr,
+        DoubleSided = 1,
+    };
+
+    /// <summary>
+    /// Packs a <see cref="SprayMaterial3D"/> (<c>Water/Spray.vk.*</c>, ADR 0173): albedo = colour (linear) and opacity,
+    /// uvTransform = cycle (s), rise (m), growth, soft distance (m). The albedo slot holds the noise texture.
+    /// </summary>
+    public static MaterialParams From(SprayMaterial3D m, uint textureFlags) => new()
+    {
+        Albedo = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.Color)), Math.Clamp(m.Opacity, 0f, 1f)),
+        UvTransform = new Vector4(MathF.Max(m.Cycle, 0.05f), MathF.Max(m.Rise, 0f), MathF.Max(m.Growth, 1f), MathF.Max(m.SoftDistance, 0f)),
+        Params = new Vector4(0f, 1f, 0f, 1f),
+        TextureFlags = textureFlags,
+        Shading = ShadingPbr,
+        DoubleSided = 1,
+    };
+
     private static Vector3 Rgb(System.Drawing.Color c) => new Vector3(c.R, c.G, c.B) / 255f;
 
     private static Vector4 Linear(System.Drawing.Color c) => new(ColorSpace.SrgbToLinear(Rgb(c)), c.A / 255f);
@@ -377,8 +408,14 @@ internal sealed class MaterialGpu
     /// <summary>A <see cref="TerrainSplatMaterial3D"/>'s own set and textures (its colour pass binds them, not <see cref="Set"/>).</summary>
     public TerrainSplatGpu? Splat;
 
-    /// <summary>The material's vertex shaders read the second vertex stream whatever the surface (foliage).</summary>
-    public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater;
+    /// <summary>
+    /// A <see cref="WaterMaterial3D"/> with <see cref="WaterMaterial3D.RefractionEnabled"/> (ADR 0173): views that draw it
+    /// split their scene pass for a scene copy, and draw it with <see cref="ShaderSetId.MeshWaterScene"/>.
+    /// </summary>
+    public bool RefractsScene;
+
+    /// <summary>The material's vertex shaders read the second vertex stream whatever the surface (foliage, water).</summary>
+    public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray;
 
     /// <summary>Shadow casters run the foliage wind (<see cref="FoliageMaterial3D"/>).</summary>
     public bool FoliageCaster => ColorShaders == ShaderSetId.MeshFoliage;
@@ -386,7 +423,7 @@ internal sealed class MaterialGpu
     // [shader set × extra pass × mirrored × vertex streams × prepassed] → pipeline; reset when the state changes.
     public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 16];
 
-    public const int ShaderSetCount = 8;
+    public const int ShaderSetCount = 11;
 
     public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false, bool prepassed = false) =>
         ((((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0)) * 2 + (prepassed ? 1 : 0);

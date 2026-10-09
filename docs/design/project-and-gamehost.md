@@ -89,8 +89,9 @@ commas tolerated). Only values that differ from the defaults are written, except
   (development builds `0.0.0-*` never warn).
 - **Rendering**: `exposure` → `IVulkanContext.Exposure`, `shadows` → `RenderServer.ShadowQuality`, `antiAliasing`
   (`None` default, `Fxaa` or `Taa`; ADR 0154, ADR 0166) → `IVulkanContext.AntiAliasing`, `taaSharpness` (0–1, default
-  0.25, written only when it differs; the sharpen after TAA) → `IVulkanContext.TaaSharpness`, all applied by
-  `GameHost.OnLoad`. The editor's Project Settings show both under Rendering.
+  0.25, written only when it differs; the sharpen after TAA) → `IVulkanContext.TaaSharpness`, `waterSsr` (`Off`,
+  `Low` default, `High`: refracting water's screen-space reflections, ADR 0173) → `RenderServer.WaterSsr`, all applied
+  by `GameHost.OnLoad`. The editor's Project Settings show them under Rendering.
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.
 - **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the

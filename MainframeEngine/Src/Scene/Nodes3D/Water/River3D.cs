@@ -13,8 +13,12 @@ namespace MainframeEngine;
 /// unowned (so unsaved) <see cref="MeshInstance3D"/> child named <c>Ribbon</c>, created when the river is ready.</para>
 /// <para>The ribbon renders with <see cref="Material"/>, by default a <see cref="WaterMaterial3D"/>; its
 /// <see cref="MeshSurface.Custom0"/> stream carries the column depth, flow and foam. <see cref="Carve"/> cuts the channel
-/// into a <see cref="Terrain3D"/> (ADR 0159). Falls, pond joins and audio come later (docs/design/water.md). Rivers are
-/// meant to be translated and turned about Y; queries and carving assume no tilt or scale.</para>
+/// into a <see cref="Terrain3D"/> (ADR 0159). Where the profile drops steeply (<see cref="FallSlope"/>,
+/// <see cref="FallMinHeight"/>) the ribbon stops at the lip and a fall takes over (ADR 0173): a ballistic jet to the foot
+/// drawn with <see cref="FallMaterial"/> (an unowned child <c>Falls</c>), plunge foam on the ribbon below it and, with
+/// <see cref="Spray"/>, <see cref="SprayCards3D"/> at its foot (unowned children <c>Spray</c>, <c>Spray2</c>, …). Pond
+/// joins and audio come later (docs/design/water.md). Rivers are meant to be translated and turned about Y; queries and
+/// carving assume no tilt or scale.</para>
 /// </remarks>
 [EditorIcon("ripple", Family = EditorIconFamily.Space3D)]
 public class River3D : Node3D, IWaterBody3D
@@ -28,6 +32,13 @@ public class River3D : Node3D, IWaterBody3D
     private ArrayMesh? _mesh;
     private MeshSurface? _surface;
     private Material? _defaultMaterial;
+    private MeshInstance3D? _fallsNode;
+    private ArrayMesh? _fallMesh;
+    private MeshSurface? _fallSurface;
+    private Material? _fallMaterial;
+    private Material? _defaultFallMaterial;
+    private SprayMaterial3D? _sprayMaterial;
+    private readonly List<SprayCards3D> _sprays = [];
     private World3D? _world;
     private bool _dirty = true;
 
@@ -121,6 +132,58 @@ public class River3D : Node3D, IWaterBody3D
     public float SlopeWindow { get => _settings.SlopeWindow; set => SetSetting(ref _settings.SlopeWindow, MathF.Max(value, 0.01f)); }
 
     /// <summary>
+    /// Drop per horizontal metre from which the profile is a fall (Falls; ADR 0173): the ribbon stops at the lip and a jet
+    /// falls to the foot. 0 turns falls off.
+    /// </summary>
+    [ExportGroup("Falls")]
+    [Export(Range = "0,10,0.05")]
+    public float FallSlope { get => _settings.FallSlope; set => SetSetting(ref _settings.FallSlope, MathF.Max(value, 0f)); }
+
+    /// <summary>The smallest drop in metres a steep run needs to be a fall (Falls).</summary>
+    [Export(Range = "0,50,0.05")]
+    public float FallMinHeight { get => _settings.FallMinHeight; set => SetSetting(ref _settings.FallMinHeight, MathF.Max(value, 0f)); }
+
+    /// <summary>The falls' material (null: a default <see cref="WaterfallMaterial3D"/>).</summary>
+    [Export]
+    public Material? FallMaterial
+    {
+        get => _fallMaterial;
+        set
+        {
+            _fallMaterial = value;
+            if (_fallsNode is not null)
+                _fallsNode.MaterialOverride = _fallMaterial ?? DefaultFallMaterial;
+        }
+    }
+
+    /// <summary>Mist and spray cards (<see cref="SprayCards3D"/>) at the foot of every fall (Falls).</summary>
+    [Export]
+    public bool Spray
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+            field = value;
+            UpdateSpray();
+        }
+    } = true;
+
+    /// <summary>The spray cards' material (null: the default <see cref="SprayMaterial3D"/>).</summary>
+    [Export]
+    public SprayMaterial3D? SprayMaterial
+    {
+        get => _sprayMaterial;
+        set
+        {
+            _sprayMaterial = value;
+            foreach (var spray in _sprays)
+                spray.Material = value;
+        }
+    }
+
+    /// <summary>
     /// The terrain <see cref="Carve"/> writes into (Carve). Empty: <see cref="Terrain"/> if set, else the first
     /// <see cref="Terrain3D"/> in the tree under the river's start.
     /// </summary>
@@ -178,6 +241,22 @@ public class River3D : Node3D, IWaterBody3D
 
     /// <summary>The ribbon node (null until the river is ready in a tree).</summary>
     public MeshInstance3D? Ribbon => _ribbon;
+
+    /// <summary>The falls' jets (null until the river is ready in a tree; no mesh without falls).</summary>
+    public MeshInstance3D? FallsNode => _fallsNode;
+
+    /// <summary>The falls of the generated river (river-local; ADR 0173).</summary>
+    public IReadOnlyList<RiverFall> Falls
+    {
+        get
+        {
+            EnsureGenerated();
+            return _builder.Falls;
+        }
+    }
+
+    /// <summary>The spray cards at the falls' feet (while <see cref="Spray"/> and ready in a tree).</summary>
+    public IReadOnlyList<SprayCards3D> SprayNodes => _sprays;
 
     internal RiverBuilder Builder
     {
@@ -255,6 +334,12 @@ public class River3D : Node3D, IWaterBody3D
         {
             _ribbon = new MeshInstance3D { Name = "Ribbon", MaterialOverride = _material ?? DefaultMaterial };
             AddChild(_ribbon); // unowned: generated, never saved
+        }
+
+        if (_fallsNode is null)
+        {
+            _fallsNode = new MeshInstance3D { Name = "Falls", MaterialOverride = _fallMaterial ?? DefaultFallMaterial };
+            AddChild(_fallsNode); // unowned too
         }
 
         if (_dirty)
@@ -421,6 +506,8 @@ public class River3D : Node3D, IWaterBody3D
 
     private Material DefaultMaterial => _defaultMaterial ??= new WaterMaterial3D { ResourceName = "River (default)" };
 
+    private Material DefaultFallMaterial => _defaultFallMaterial ??= new WaterfallMaterial3D { ResourceName = "Fall (default)" };
+
     private void EnsureGenerated()
     {
         if (_dirty)
@@ -476,5 +563,78 @@ public class River3D : Node3D, IWaterBody3D
 
         if (!ReferenceEquals(_ribbon.Mesh, _mesh))
             _ribbon.Mesh = _mesh;
+        UpdateFalls();
+    }
+
+    // The falls' jets (one surface for every fall) and their spray.
+    private void UpdateFalls()
+    {
+        if (_fallsNode is null)
+            return;
+        var data = _builder.FallMesh;
+        if (data.VertexCount == 0 || data.IndexCount == 0)
+        {
+            _fallsNode.Mesh = null;
+        }
+        else
+        {
+            if (_fallSurface is null || _fallMesh is null)
+            {
+                _fallSurface = new MeshSurface();
+                _fallMesh = new ArrayMesh();
+                _fallMesh.AddSurface(_fallSurface);
+            }
+
+            if (ReferenceEquals(_fallSurface.Positions, data.Positions) && ReferenceEquals(_fallSurface.Indices, data.Indices))
+            {
+                _fallSurface.NotifyChanged();
+            }
+            else
+            {
+                _fallSurface.Positions = data.Positions;
+                _fallSurface.Normals = data.Normals;
+                _fallSurface.UVs = data.UVs;
+                _fallSurface.Indices = data.Indices;
+                _fallSurface.Custom0 = data.Custom0; // how far down, speed, aeration: WaterfallMaterial3D reads it
+            }
+
+            if (!ReferenceEquals(_fallsNode.Mesh, _fallMesh))
+                _fallsNode.Mesh = _fallMesh;
+        }
+
+        UpdateSpray();
+    }
+
+    // One SprayCards3D per fall, at its foot, turned to the flow and sized by the river's width and the drop.
+    private void UpdateSpray()
+    {
+        if (_ribbon is null)
+            return;
+        var falls = Spray ? _builder.Falls : [];
+        while (_sprays.Count > falls.Count)
+        {
+            var last = _sprays[^1];
+            _sprays.RemoveAt(_sprays.Count - 1);
+            last.QueueFree();
+        }
+
+        while (_sprays.Count < falls.Count)
+        {
+            var spray = new SprayCards3D { Name = _sprays.Count == 0 ? "Spray" : $"Spray{_sprays.Count + 1}", Material = _sprayMaterial };
+            _sprays.Add(spray);
+            AddChild(spray); // unowned: generated, never saved
+        }
+
+        for (var i = 0; i < falls.Count; i++)
+        {
+            var fall = falls[i];
+            var spray = _sprays[i];
+            var yaw = MathF.Atan2(-fall.Downstream.X, -fall.Downstream.Y); // −Z (forward) along the flow
+            spray.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw);
+            spray.Position = fall.Foot + new Vector3(fall.Downstream.X, 0f, fall.Downstream.Y) * (fall.Width * 0.25f) + new Vector3(0f, 0.35f, 0f);
+            spray.Extents = new Vector3(fall.Width * 0.45f, 0.35f, MathF.Max(fall.Width * 0.4f, 0.6f));
+            spray.CardSize = Math.Clamp(0.6f + fall.Drop * 0.35f, 0.8f, 3f);
+            spray.Count = Math.Clamp((int)MathF.Round(3f * fall.Drop * fall.Width / 2f) + 4, 6, 16);
+        }
     }
 }

@@ -17,7 +17,7 @@ are effects in this system. The world's settings are a `PostProcessProfile` reso
 flowchart LR
     SH["Shadows, offscreen views<br/>(sub-viewports, picking)"] --> PP["Depth prepass (when needed)<br/>opaque + cutout → scene depth<br/>+ RG16F velocity, sky velocity"]
     PP --> AP["AfterPrepass stage<br/>(SSAO → set 0 binding 5,<br/>contact shadows → binding 6)"]
-    AP --> SC["Scene pass<br/>loads the prepass depth;<br/>prepassed surfaces: LEQUAL / EQUAL, no writes"]
+    AP --> SC["Scene pass<br/>loads the prepass depth;<br/>prepassed surfaces: LEQUAL / EQUAL, no writes<br/>(split around the water scene copy<br/>when refracting water draws)"]
     SC --> BT["BeforeTonemap stage (HDR)<br/>volumetric fog · TAA · depth of field · auto exposure · glow · light shafts"]
     BT --> TM["Tonemap<br/>engine or post (composites exposure, glow, shafts; ACES, linear, Reinhard, filmic, AgX)"]
     TM --> AT["AfterTonemap stage (LDR)<br/>TAA sharpen · FXAA · colour grade + film effects · velocity view<br/>last one → swapchain"]
@@ -126,6 +126,19 @@ internal sealed class MyEffect() : PostEffect("my effect", PostStage.BeforeTonem
 There is no normal buffer: GTAO rebuilds normals from depth. A normals attachment would be a second prepass output
 (every prepass pipeline would change). Views change on resize (`Generation` moves).
 
+### Water scene copy
+
+Inside the scene pass, not a post stage ([ADR 0173](../../memory/decisions/0173-water-scene-copy-refraction-ssr-falls.md),
+[Water → Scene textures](water.md#scene-textures)): a view that draws refracting water (`WaterMaterial3D.RefractionEnabled`)
+ends its scene pass after the opaque half, copies the colour and the **linear view depth of the scene pass's own depth**
+(prepass or not) into a `R16G16B16A16_SFLOAT` chain of up to 6 levels (`WaterSceneTextures`: level 0 exact, then colour
+box-filtered and depth minimum), and resumes the pass (`ResumePass`: colour and depth `LOAD`, compatible with the scene
+pass) for the blended draws. Water reads the chain through set 3 of its own pipeline layout: refraction from level 0 and
+blurrier levels, screen-space reflections against level 1. The main view and post-processed sub-viewports each have one;
+it does not touch `SceneTextures` (the post effects' images) and needs no prepass. Cost and memory: one full-screen copy
+and five downsamples (≈ 22 MB at 1920 × 1080), the pass split (≈ 0 on desktop GPUs; a store and reload of colour and
+depth on tile-based ones), and the water shader's taps (up to ≈ 35 per water pixel with High SSR).
+
 ## Target pool and histories
 
 `context.Targets.Get(new PostTargetDesc(name, format, PostTargetScale.Half))` returns a `RenderTarget` (one sampled
@@ -138,7 +151,7 @@ after `Reset()` (camera cuts).
 ## Depth prepass
 
 **When.** The prepass runs when an enabled effect needs it (`PostEffectNeeds.DepthPrepass` or `Velocity`: SSAO, TAA,
-the velocity view; water's `SceneTextures` later), or when `RenderServer.ForceDepthPrepass` is set (start-up:
+the velocity view; refracting water does not: its copy reads the scene pass's depth), or when `RenderServer.ForceDepthPrepass` is set (start-up:
 `MAINFRAME_DEPTH_PREPASS=1`). Off by default, so existing frames do not change.
 
 **What.** One render pass (`ScenePrepass.PrepassRenderPass`): colour 0 is the velocity image, the depth attachment is
@@ -253,7 +266,11 @@ pass blends with `BlendMode.AlphaReactive` (`a = dst · (1 − src.a)`): opaque 
 resolve reads `1 − scene alpha` as reactivity and lowers the feedback towards 0.2 there; ripples stay as crisp as with
 FXAA (and alias a little more than the rest of the image). Drawing water after TAA was the alternative: water lives in
 the scene pass (fog, refraction of what is behind it), so moving it would have needed its own pass over the resolved
-image and depth. Sub-viewports keep the plain alpha blend.
+image and depth. Sub-viewports keep the plain alpha blend. Refracting water (ADR 0173) composes the bed itself and
+replaces the pixel (`BlendMode.ColorOnlyReactive`: `rgb = src`, `a = dst · (1 − src.a)`) with `src.a` = 0.85 × its soft
+edge, so the resolve keeps ≈ 0.31 of the history there: the ripples and the refracted bed do not smear, and the
+screen-space reflection's jittered march (interleaved gradient noise shifted per jitter sample) still averages over a few
+frames (`water-ssr --count 1` checks the reflection survives). Waterfalls and spray cards blend with `AlphaReactive`.
 
 **Dithered cutouts.** `FoliageMaterial3D.AlphaDither` (tree leaves from `TreeMaterials`, the Forest's ferns): with
 TAA on (the frame is jittered), the cutout keeps a fragment when its coverage, `(alpha − cutoff) / fwidth(alpha) + 0.5`,
@@ -485,8 +502,9 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
   step, transparent surfaces fogged as the air behind them, unoccluded sky ambient, no quality setting).
 
 - Sub-viewports without `PostProcessing` have no post effects, prepass or velocity. Hidden editor tabs keep their post state (TAA history, pool).
-- What the prepass does not draw has no velocity of its own (see above). Water marks itself reactive for TAA; particles
-  (G6.3), Spine and transparent `StandardMaterial3D`s do not yet, so they may smear under TAA when they animate.
+- What the prepass does not draw has no velocity of its own (see above). Water, falls and spray mark themselves reactive
+  for TAA; particles (G6.3), Spine and transparent `StandardMaterial3D`s do not yet, so they may smear under TAA when
+  they animate.
 - TAA softens the image a little in motion (the sharpen restores some of it); the dithered alpha's noise shows for a
   frame or two where a branch uncovers leaves (the softer no-history reconstruction hides most of it); the Karis
   weighting uses the project exposure, not auto exposure's.

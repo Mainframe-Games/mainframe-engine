@@ -138,8 +138,15 @@ internal sealed class MeshViewDraws
     public ulong PreviousInstanceOffset;
     public bool HasPreviousInstances;
 
+    /// <summary>Blended draws of refracting water this frame (ADR 0173): the view splits its scene pass for a scene copy.</summary>
+    public int SceneReaders;
+
+    /// <summary>The view's scene copy while its blended draws record after the split (ADR 0173), else null.</summary>
+    public WaterSceneTextures? Scene;
+
     public void Clear()
     {
+        SceneReaders = 0;
         Opaque.Clear();
         Transparent.Clear();
         Casters.Clear();
@@ -220,6 +227,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         _flatNormal = GpuTexture.Create2D(ctx, 1, 1, flat, TextureColorSpace.Linear, TextureSampling.LinearRepeat);
         _whiteLinear = GpuTexture.Create2D(ctx, 1, 1, white, TextureColorSpace.Linear, TextureSampling.LinearRepeat); // ORM: × 1
         CreateSplatResources();
+        CreateWaterSceneResources();
     }
 
     /// <summary>The state-hash pipeline cache (stats for tools and tests).</summary>
@@ -483,13 +491,18 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         var foliage = material as FoliageMaterial3D;
         var water = material as WaterMaterial3D;
         var splat = material as TerrainSplatMaterial3D;
+        var fall = material as WaterfallMaterial3D;   // ADR 0173
+        var spray = material as SprayMaterial3D;
         gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : foliage is not null ? ShaderSetId.MeshFoliage
-            : water is not null ? ShaderSetId.MeshWater : splat is not null ? ShaderSetId.MeshTerrainSplat : ShaderSetId.MeshLit;
+            : water is not null ? ShaderSetId.MeshWater : splat is not null ? ShaderSetId.MeshTerrainSplat
+            : fall is not null ? ShaderSetId.MeshWaterfall : spray is not null ? ShaderSetId.MeshSpray : ShaderSetId.MeshLit;
+        gpu.RefractsScene = water is { RefractionEnabled: true };
+        var waterFamily = water is not null || fall is not null || spray is not null;
         if (material is not StandardMaterial3D standard)
         {
             // Splat materials keep this default set too: the object-ID pass binds it with the shared layout.
             standard = StandardMaterial3D.Default;
-            if (outline is null && foliage is null && water is null && splat is null && !_warnedUnsupportedMaterial)
+            if (outline is null && foliage is null && !waterFamily && splat is null && !_warnedUnsupportedMaterial)
             {
                 _warnedUnsupportedMaterial = true;
                 Log.Warning($"[Mesh] {material.GetType().Name} is not supported by the renderer yet; drawing with the default material.");
@@ -513,14 +526,18 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
         // Slots follow the material's textures and their colour space (an import-settings change moves a texture
         // to another (texture, colour space) upload without touching the material).
-        // Water: the albedo slot holds the foam mask (linear), the normal slot the ripple normals (built-in when null).
-        rewrite |= water is not null
-            ? SwapTexture(water.FoamTexture ?? WaterTextures.Foam, colorUsage: false, ref gpu.Albedo)
+        // Water: the albedo slot holds the foam mask (linear), the normal slot the ripple normals (built-in when null), the
+        // emission slot a refracting surface's caustic pattern (ADR 0173). Falls: streaks and ripples; spray: its noise.
+        rewrite |= water is not null ? SwapTexture(water.FoamTexture ?? WaterTextures.Foam, colorUsage: false, ref gpu.Albedo)
+            : fall is not null ? SwapTexture(fall.FoamTexture ?? WaterTextures.Foam, colorUsage: false, ref gpu.Albedo)
+            : spray is not null ? SwapTexture(spray.NoiseTexture ?? WaterTextures.Mist, colorUsage: false, ref gpu.Albedo)
             : SwapTexture(outline is not null ? null : foliage is not null ? foliage.AlbedoTexture : standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
-        rewrite |= SwapTexture(water is not null ? water.NormalMap ?? WaterTextures.Normal
-            : outline is not null ? null : foliage is not null ? foliage.NormalTexture : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
-        rewrite |= SwapTexture(outline is null && foliage is null && water is null ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
-        rewrite |= SwapTexture(outline is not null || water is not null ? null : foliage is not null ? foliage.OrmTexture : standard.OrmTexture, colorUsage: false, ref gpu.Orm);
+        rewrite |= SwapTexture(water is not null ? water.NormalMap ?? WaterTextures.Normal : fall is not null ? WaterTextures.Normal
+            : outline is not null || spray is not null ? null : foliage is not null ? foliage.NormalTexture : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
+        rewrite |= water is not null
+            ? SwapTexture(water.RefractionEnabled ? water.CausticsTexture ?? WaterTextures.Caustics : null, colorUsage: false, ref gpu.Emission)
+            : SwapTexture(outline is null && foliage is null && !waterFamily ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
+        rewrite |= SwapTexture(outline is not null || waterFamily ? null : foliage is not null ? foliage.OrmTexture : standard.OrmTexture, colorUsage: false, ref gpu.Orm);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
         rewrite |= RefreshTexture(gpu.Albedo, gpu.AlbedoGeneration);
@@ -537,6 +554,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             var parameters = outline is not null ? MaterialParams.From(outline)
                 : foliage is not null ? MaterialParams.From(foliage, flags)
                 : water is not null ? MaterialParams.From(water, flags)
+                : fall is not null ? MaterialParams.From(fall, flags)
+                : spray is not null ? MaterialParams.From(spray, flags)
                 : MaterialParams.From(standard, flags);
             if (gpu.Params is null)
             {
@@ -765,9 +784,16 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                     InstanceCount = multiCount,
                 };
                 if (material.State.IsTransparent)
+                {
                     view.Transparent.Add(DrawSortKey.Transparent(material.RenderPriority, depth, pipeline.Id, material.Id), item);
+                    if (material.RefractsScene)
+                        view.SceneReaders++;
+                }
                 else
+                {
                     view.Opaque.Add(DrawSortKey.Opaque(pipeline.Id, material.Id, mesh.Id, s), item);
+                }
+
                 Stats.SurfaceInstances++;
                 Stats.MultiMeshInstances += (int)multiCount;
             }
@@ -1049,8 +1075,13 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 continue;
             }
 
+            // ADR 0173: refracting water reads the view's scene copy when the view made one (else its alpha-blended look).
+            var sceneShaders = shaders == ShaderSetId.MeshObjectId ? shaders
+                : item.Material.RefractsScene && view.Scene is not null ? ShaderSetId.MeshWaterScene : item.Material.ColorShaders;
+
             // ADR 0163: after a depth prepass its surfaces test the prepass depth and do not write it (cutouts: EQUAL, no discard).
             var pipeline = shaders == ShaderSetId.MeshObjectId ? GetPipeline(item.Material, shaders, item.Mirrored).Pipeline
+                : sceneShaders == ShaderSetId.MeshWaterScene ? GetPipeline(item.Material, sceneShaders, item.Mirrored, extraPass: item.Extra).Pipeline
                 : view.Prepassed && !item.Extra && item.Material.Prepassable
                     ? GetPipeline(item.Material, item.Material.ColorShaders, item.Mirrored, streams: item.Mesh.Surfaces[item.Surface].HasStreams, prepassed: true).Pipeline
                     : item.Pipeline.Pipeline;
@@ -1069,6 +1100,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, splat ? _splatPipelineLayout : _pipelineLayout, 2, 1, &set, 0, null);
                 boundMaterial = item.Material;
                 Stats.MaterialBinds++;
+                if (UsesSceneLayout(sceneShaders))
+                    BindWaterScene(cb, view, item.Material); // ADR 0173: set 3 and the push block
             }
 
             if (!ReferenceEquals(item.Mesh, boundMesh))
@@ -1320,8 +1353,12 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             DepthCompare = key.Prepassed ? key.Alpha == AlphaMode.Cutout ? CompareOp.Equal : CompareOp.LessOrEqual
                 : key.ExtraPass ? CompareOp.LessOrEqual : CompareOp.Less,
             Blend = key.Alpha != AlphaMode.Blend || key.Shaders == ShaderSetId.MeshObjectId ? BlendMode.Opaque
+                // ADR 0173: refracting water composes the scene behind it itself; its alpha marks TAA's reactivity.
+                : key.Shaders == ShaderSetId.MeshWaterScene
+                    ? key.RenderPass == _ctx.RenderPass.Handle ? BlendMode.ColorOnlyReactive : BlendMode.ColorOnly
                 // ADR 0166: water in the main scene pass marks the scene alpha (TAA's reactive mask); sub-viewports keep theirs.
-                : key.Shaders == ShaderSetId.MeshWater && key.RenderPass == _ctx.RenderPass.Handle ? BlendMode.AlphaReactive
+                : key.Shaders is ShaderSetId.MeshWater or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray &&
+                  key.RenderPass == _ctx.RenderPass.Handle ? BlendMode.AlphaReactive
                 : BlendMode.Alpha,
         };
 
@@ -1341,6 +1378,9 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ShaderSetId.MeshObjectId => "Shaders/Mesh/MeshId.vk.frag.spv",
             ShaderSetId.MeshFoliage => "Shaders/Foliage/Foliage.vk.frag.spv",
             ShaderSetId.MeshWater => "Shaders/Water/Water.vk.frag.spv",
+            ShaderSetId.MeshWaterScene => "Shaders/Water/WaterScene.vk.frag.spv",
+            ShaderSetId.MeshWaterfall => "Shaders/Water/Waterfall.vk.frag.spv",
+            ShaderSetId.MeshSpray => "Shaders/Water/Spray.vk.frag.spv",
             ShaderSetId.MeshTerrainSplat => "Shaders/Terrain/TerrainSplat.vk.frag.spv",
             _ => "Shaders/Mesh/Mesh.vk.frag.spv",
         };
@@ -1351,7 +1391,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ShaderSetId.MeshOutline => "Shaders/Mesh/MeshOutline.vk.vert.spv",
             ShaderSetId.MeshObjectId => "Shaders/Mesh/MeshId.vk.vert.spv",
             ShaderSetId.MeshFoliage => "Shaders/Foliage/Foliage.vk.vert.spv",
-            ShaderSetId.MeshWater => "Shaders/Water/Water.vk.vert.spv",
+            ShaderSetId.MeshWater or ShaderSetId.MeshWaterScene or ShaderSetId.MeshWaterfall => "Shaders/Water/Water.vk.vert.spv",
+            ShaderSetId.MeshSpray => "Shaders/Water/Spray.vk.vert.spv",
             _ when streams => "Shaders/Mesh/MeshExt.vk.vert.spv",
             _ => "Shaders/Mesh/Mesh.vk.vert.spv",
         };
@@ -1359,7 +1400,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         {
             ShaderSetId.MeshObjectId => VertexLayouts.MeshIdAttributes,
             ShaderSetId.MeshFoliage => VertexLayouts.FoliageAttributes,
-            ShaderSetId.MeshWater => VertexLayouts.WaterAttributes,
+            ShaderSetId.MeshWater or ShaderSetId.MeshWaterScene or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray => VertexLayouts.WaterAttributes,
             _ when streams => VertexLayouts.MeshExtAttributes,
             _ => VertexLayouts.MeshAttributes,
         };
@@ -1451,6 +1492,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         _flatNormal.Dispose();
         _whiteLinear.Dispose();
         DisposeSplatResources();
+        DisposeWaterSceneResources();
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pipelineLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_materialLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_idPassPrototype));

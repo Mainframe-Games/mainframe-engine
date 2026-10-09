@@ -43,6 +43,7 @@ public sealed class RenderServer : IServer
     private MeshRenderer? _meshes;
     private SubViewportCompositor? _compositor;
     private ObjectIdPicker? _rootPicker;
+    private WaterSceneTextures? _mainWater; // ADR 0173: the main view's scene copy for refracting water
     private SceneViewport? _root;
     private bool _disposed;
 
@@ -188,6 +189,19 @@ public sealed class RenderServer : IServer
                 _shadows?.Apply(ShadowQualitySettings.For(value));
         }
     } = ShadowQuality.High;
+
+    /// <summary>
+    /// Screen-space reflections of refracting water (ADR 0173, <c>rendering.waterSsr</c>; default
+    /// <see cref="WaterSsrQuality.Low"/>): Off reflects only the sky. Applies from the next frame.
+    /// </summary>
+    public WaterSsrQuality WaterSsr
+    {
+        get;
+        set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown water SSR quality.");
+    } = WaterSsrQuality.Low;
+
+    /// <summary>The main view's scene copy for refracting water (ADR 0173; null until a frame drew some).</summary>
+    internal WaterSceneTextures? MainWaterScene => _mainWater;
 
     /// <summary>The shadow system if it already exists (never creates one).</summary>
     public ShadowSystem? ExistingShadows => _shadows;
@@ -468,7 +482,7 @@ public sealed class RenderServer : IServer
             targets.Hdr!.Begin(cb, clears, post?.SceneLoadPass ?? targets.Hdr.RenderPass);
             if (camera is not null)
             {
-                DrawWorld(world, camera, meshes, targets.Draws, cb, afterPost: post is not null);
+                DrawWorld(world, camera, meshes, targets.Draws, cb, targets.Hdr!, ref targets.WaterScene, afterPost: post is not null);
                 if (post is null)
                     DrawLines(vk, sub, camera);
             }
@@ -777,7 +791,7 @@ public sealed class RenderServer : IServer
                 meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled); // no-op when PrepareFrame ran
             }
 
-            DrawWorld(world, camera, meshes, _mainDraws, vk.CurrentCommandBuffer);
+            DrawWorld(world, camera, meshes, _mainDraws, vk.CurrentCommandBuffer, vk.SceneTarget, ref _mainWater);
             DrawLines(vk, viewport, camera);
             if (viewport.IsTreeRoot && (ShowLightGizmos || ShowAxisGizmo))
             {
@@ -820,7 +834,9 @@ public sealed class RenderServer : IServer
     }
 
     // afterPost: a post-processed sub-viewport, whose debug visuals (DrawsAfterPost) draw after its effects instead.
-    private void DrawWorld(World3D world, ICamera camera, MeshRenderer? meshes, MeshViewDraws draws, CommandBuffer cb, bool afterPost = false)
+    // target / scene: the view's HDR target, inside its scene pass, and its scene copy for refracting water (ADR 0173).
+    private void DrawWorld(World3D world, ICamera camera, MeshRenderer? meshes, MeshViewDraws draws, CommandBuffer cb,
+        RenderTarget target, ref WaterSceneTextures? scene, bool afterPost = false)
     {
         world.Environment?.DrawSky(this, camera);
         var opaqueDrawn = meshes is null;
@@ -841,7 +857,18 @@ public sealed class RenderServer : IServer
         {
             if (!opaqueDrawn)
                 meshes.DrawOpaque(draws, cb);
+
+            // ADR 0173: refracting water reads what the opaque half drew: split the scene pass around a scene copy.
+            if (draws.SceneReaders > 0 && target.Depth is { } depth)
+            {
+                scene ??= new WaterSceneTextures(Vulkan!, meshes.SceneSetLayout, depth.Format, target.Description.Name);
+                scene.SplitScenePass(cb, target);
+                draws.Scene = scene;
+            }
+
+            meshes.WaterSsr = WaterSsr;
             meshes.DrawTransparent(draws, cb);
+            draws.Scene = null;
         }
     }
 
@@ -1012,6 +1039,8 @@ public sealed class RenderServer : IServer
         _subViewports.Clear();
         _rootPicker?.Dispose();
         _rootPicker = null;
+        _mainWater?.Dispose();
+        _mainWater = null;
         _mainDraws.Clear();
         _compositor?.Dispose();
         _compositor = null;

@@ -221,6 +221,9 @@ internal sealed class SubViewportTargets : IDisposable
     /// <summary>The view's post-processing at its current size (null while <see cref="SubViewport.PostProcessing"/> is off).</summary>
     public SubViewportPost? Post { get; private set; }
 
+    /// <summary>The view's scene copy for refracting water (ADR 0173), created the first frame it draws some.</summary>
+    public WaterSceneTextures? WaterScene;
+
     /// <summary>The view's post-processing for its current size: a new one after a resize (the old one is retired).</summary>
     public SubViewportPost EnsurePost()
     {
@@ -270,6 +273,8 @@ internal sealed class SubViewportTargets : IDisposable
         if (_disposed) return;
         _disposed = true;
         RetirePost();
+        WaterScene?.Dispose();
+        WaterScene = null;
         _compositor.FreeSet(_tonemapSet);
         _tonemapSet = default;
         Picker?.Dispose();

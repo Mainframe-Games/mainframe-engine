@@ -2,7 +2,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// <see cref="WaterMaterial3D"/>'s built-in textures, generated in C# on first use (256², tileable, deterministic,
-/// cached per process): no texture files and no licences to track (ADR 0149: CC0 or procedural). Both are linear,
+/// cached per process): no texture files and no licences to track (ADR 0149: CC0 or procedural). All are linear,
 /// mipmapped, bilinear and repeating.
 /// </summary>
 public static class WaterTextures
@@ -16,6 +16,8 @@ public static class WaterTextures
     private static readonly Lock Gate = new();
     private static Texture2D? _normal;
     private static Texture2D? _foam;
+    private static Texture2D? _caustics;
+    private static Texture2D? _mist;
 
     private static readonly TextureImportSettings Settings = new()
     {
@@ -43,6 +45,103 @@ public static class WaterTextures
             lock (Gate)
                 return _foam ??= Create(GenerateFoamPixels(), "Water foam (built-in)");
         }
+    }
+
+    /// <summary>
+    /// The caustic pattern (R = G = B = A, ADR 0173): bright, thin, curved lines around tileable Worley cells whose
+    /// domain is warped by whole-period sines, the web light focused by a rippled surface casts on a bed.
+    /// </summary>
+    public static Texture2D Caustics
+    {
+        get
+        {
+            lock (Gate)
+                return _caustics ??= Create(GenerateCausticsPixels(), "Water caustics (built-in)");
+        }
+    }
+
+    /// <summary>Soft billows for spray and mist (R = G = B = A, ADR 0173): four octaves of tileable value noise.</summary>
+    public static Texture2D Mist
+    {
+        get
+        {
+            lock (Gate)
+                return _mist ??= Create(GenerateMistPixels(), "Water mist (built-in)");
+        }
+    }
+
+    /// <summary>The mist noise's RGBA8 pixels.</summary>
+    public static byte[] GenerateMistPixels()
+    {
+        ReadOnlySpan<int> periods = [4, 8, 16, 32];
+        ReadOnlySpan<float> weights = [0.5f, 0.27f, 0.15f, 0.08f];
+        var lattice = new float[32 * 32];
+        var random = new Lcg(0x5EED_0A15);
+        for (var i = 0; i < lattice.Length; i++)
+            lattice[i] = random.NextFloat();
+        var pixels = new byte[Size * Size * 4];
+        for (var v = 0; v < Size; v++)
+            for (var u = 0; u < Size; u++)
+            {
+                var value = 0f;
+                for (var o = 0; o < periods.Length; o++)
+                {
+                    var n = periods[o];
+                    var x = (u + 0.5f) / Size * n;
+                    var y = (v + 0.5f) / Size * n;
+                    var x0 = (int)MathF.Floor(x);
+                    var y0 = (int)MathF.Floor(y);
+                    var fx = Smooth(x - x0);
+                    var fy = Smooth(y - y0);
+                    var v00 = Lattice(lattice, x0, y0, n, o);
+                    var v10 = Lattice(lattice, x0 + 1, y0, n, o);
+                    var v01 = Lattice(lattice, x0, y0 + 1, n, o);
+                    var v11 = Lattice(lattice, x0 + 1, y0 + 1, n, o);
+                    var a = v00 + (v10 - v00) * fx;
+                    var b = v01 + (v11 - v01) * fx;
+                    value += (a + (b - a) * fy) * weights[o];
+                }
+
+                var c = (byte)Math.Clamp((int)MathF.Round(Smooth((value - 0.2f) / 0.6f) * 255f), 0, 255);
+                var p = (v * Size + u) * 4;
+                pixels[p] = pixels[p + 1] = pixels[p + 2] = pixels[p + 3] = c;
+            }
+
+        return pixels;
+    }
+
+    // A lattice value wrapping at the octave's period (an offset per octave decorrelates the octaves).
+    private static float Lattice(float[] lattice, int x, int y, int period, int octave)
+    {
+        var wx = ((x % period) + period) % period;
+        var wy = ((y % period) + period) % period;
+        return lattice[(wy + octave * 7) % 32 * 32 + (wx + octave * 13) % 32];
+    }
+
+    /// <summary>The caustic pattern's RGBA8 pixels.</summary>
+    public static byte[] GenerateCausticsPixels()
+    {
+        var cells = new CellNoise(6, 0xCA05);
+        var pixels = new byte[Size * Size * 4];
+        for (var v = 0; v < Size; v++)
+            for (var u = 0; u < Size; u++)
+            {
+                var fu = (u + 0.5f) / Size;
+                var fv = (v + 0.5f) / Size;
+                // Whole periods per tile keep the warp tileable.
+                var wu = fu + 0.035f * MathF.Sin(MathF.Tau * (2f * fv + 0.3f)) + 0.02f * MathF.Sin(MathF.Tau * (3f * fu + 5f * fv));
+                var wv = fv + 0.035f * MathF.Sin(MathF.Tau * (2f * fu + 0.7f)) + 0.02f * MathF.Sin(MathF.Tau * (4f * fu - 3f * fv));
+                wu -= MathF.Floor(wu);
+                wv -= MathF.Floor(wv);
+                var edge = cells.Edge(wu, wv); // 0 on the boundary between two cells
+                var line = Smooth(1f - edge / 0.22f);
+                var value = line * line * (0.75f + 0.25f * Smooth(1f - cells.Distance(wu, wv)));
+                var b = (byte)Math.Clamp((int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f), 0, 255);
+                var o = (v * Size + u) * 4;
+                pixels[o] = pixels[o + 1] = pixels[o + 2] = pixels[o + 3] = b;
+            }
+
+        return pixels;
     }
 
     /// <summary>The normal map's RGBA8 pixels (row by row, v down).</summary>
