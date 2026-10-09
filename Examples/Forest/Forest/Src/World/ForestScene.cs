@@ -113,21 +113,21 @@ public static class ForestScene
         // blacks, and it takes the sun's colour looking into the low sun.
         FogEnabled = true,
         FogLightColor = new Vector3(0.78f, 0.8f, 0.77f),
-        FogDensity = 0.004f,
+        FogDensity = 0.0015f, // 0.004 in ADR 0178 read too hazy in play (Brogan, 2026-10-10)
         FogHeight = 8f,
-        FogHeightDensity = 0.05f,
-        FogSunScatter = 0.12f,
+        FogHeightDensity = 0.03f,
+        FogSunScatter = 0.06f,
 
         // ADR 0171: fog lit through the sun's shadow maps within 64 m: rays through the canopy gaps from any view. Its density
         // follows the height fog's shape, so the valley floor is hazier than the slopes. ADR 0178: denser, warm, less
         // forward-peaked, and lit by the (probe-occluded) sky too, so the shaded air glows softly instead of darkening.
         VolumetricFogEnabled = true,
-        VolumetricFogDensity = 0.01f,
+        VolumetricFogDensity = 0.004f,
         VolumetricFogAlbedo = new Vector3(1f, 1f, 0.95f),
         VolumetricFogAnisotropy = 0.65f,
         VolumetricFogLength = 64f,
-        VolumetricFogSkyAffect = 0.35f,
-        VolumetricFogAmbientInject = 0.3f,
+        VolumetricFogSkyAffect = 0.15f,
+        VolumetricFogAmbientInject = 0.08f,
         VolumetricFogNoiseScale = 8f,
         VolumetricFogNoiseStrength = 0.7f,
 
