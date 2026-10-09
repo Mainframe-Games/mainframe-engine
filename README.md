@@ -49,14 +49,17 @@ Every screenshot is a scene of the [Demo](Examples/Demo) (`just demo`; `just dem
 | ![Physics 2D](docs/images/demo/physics_2d.png)<br>**Physics 2D** — Box2D | ![Physics 3D](docs/images/demo/physics_3d.png)<br>**Physics 3D** — Jitter2 |
 | ![Sound FX](docs/images/demo/sound_fx.png)<br>**Sound FX** — ZzFX presets, randomize/mutate, a looping song from the music editor | |
 
-The [Forest](Examples/Forest) is a first-person walk through a generated valley (`just forest`; `just forest-screenshots`
-re-captures these):
+The [Forest](Examples/Forest) is a first-person walk through a generated 256 m valley: a stream over a fall, through
+three pools and under a log bridge into a pond, 1 846 Ez Tree trees and dense ground cover, all generated at load
+(`just forest`; Esc opens a pause menu with live graphics, audio and control settings and its cameras: a fly-over, the
+reference shots R1–R8 and a free camera). Each frame is the game at 2560 × 1440 (3D at 75 %, TAA upscaling): PBR
+materials lit by a physical sky and its image-based light, baked light probes, volumetric fog, histogram auto exposure,
+AgX and a colour-grading LUT (`just forest-screenshots` re-captures the reference shots):
 
-| | |
-|---|---|
-| ![Forest glade](docs/images/forest/r1-glade.png)<br>**Glade** — physical sky, height fog, light shafts, eye adaptation | ![Forest fall](docs/images/forest/r2-fall.png)<br>**The fall** — carved stream, Poly Haven rocks, ambientCG terrain |
-| ![Forest bridge](docs/images/forest/r3-bridge.png)<br>**Log bridge** — water, mud and gravel banks, Ez Tree trees | ![Forest vista](docs/images/forest/r4-vista.png)<br>**Vista** — 1 500 trees, the pond from the terrain's water layer |
-| ![Forest floor](docs/images/forest/r5-floor.png)<br>**Forest floor** — scanned ferns, leaf litter, grass in the wind | |
+| | | |
+|---|---|---|
+| ![Forest glade](docs/images/forest/readme-glade.jpg)<br>**Glade** (R1) — the low sun through the glade's trees: volumetric fog shafts, back-lit translucent meadow grass | ![Forest woodland](docs/images/forest/readme-woodland.jpg)<br>**Woodland** (R8) — sunflecks on the path: PCSS soft shadows, contact shadows, GTAO, light probes in the shade | ![Forest misty pond](docs/images/forest/readme-pond.jpg)<br>**Misty pond** (R4) — the terrain's water layer with screen-space reflections, the haze over impostor canopies |
+| ![Forest fall](docs/images/forest/readme-fall.jpg)<br>**The fall** (R7) — a waterfall jet and spray over a clear pool: refraction and caustics on the gravel bed | ![Forest stream](docs/images/forest/readme-upstream.jpg)<br>**Upstream** — from the log bridge: the carved stream between birches, its bed seen through the ripples | ![Forest fern floor](docs/images/forest/readme-ferns.jpg)<br>**Fern floor** (R5) — a photo lens: 32-tap depth of field, near and far, over a mossy log and ferns |
 
 ---
 
