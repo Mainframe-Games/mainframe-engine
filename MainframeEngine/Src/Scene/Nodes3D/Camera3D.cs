@@ -54,6 +54,13 @@ public class Camera3D : Node3D, ICurrentCamera
         set => _camera.Far = value;
     }
 
+    /// <summary>
+    /// This camera's lens (Godot's <c>Camera3D.attributes</c>, ADR 0168): depth of field and film effects, replacing the
+    /// world's <see cref="WorldEnvironment.CameraAttributes"/> while this is the root view's current camera.
+    /// </summary>
+    [Export]
+    public CameraAttributesPractical? Attributes { get; set; }
+
     /// <summary>True while this is the viewport's active camera.</summary>
     public bool IsActive => ReferenceEquals(GetViewport()?.ActiveCamera3D, this);
 

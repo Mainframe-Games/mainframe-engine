@@ -80,6 +80,36 @@ public sealed unsafe class GpuTexture : IDisposable
         Create(ctx, faceSize, faceSize, 6, sixFacesRgba, colorSpace, sampling, false, ImageViewType.TypeCube,
             ImageCreateFlags.CreateCubeCompatibleBit);
 
+    /// <summary>
+    /// A 3D texture (<c>3D</c> view, no mips) from tightly packed texels of <paramref name="format"/> (an uncompressed
+    /// colour format: <c>R8G8B8A8_UNORM</c>, <c>R16G16B16A16_SFLOAT</c>, ...), row after row, slice after slice: colour
+    /// lookup tables, light probes. Sampled as stored (<see cref="TextureColorSpace.Linear"/>).
+    /// </summary>
+    public static GpuTexture Create3D(IVulkanContext ctx, uint width, uint height, uint depth, Format format, ReadOnlySpan<byte> texels,
+        TextureSampling sampling)
+    {
+        ArgumentNullException.ThrowIfNull(ctx);
+        var image = GpuImage.Create(ctx, new GpuImageDesc(width, height, format, ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit)
+        {
+            Depth = depth,
+            ViewType = ImageViewType.Type3D,
+        });
+        Sampler sampler;
+        try
+        {
+            ctx.Uploads.UploadImage(image, texels);
+            ctx.Uploads.FlushIfRecording();
+            sampler = CreateSampler(ctx, sampling, 1);
+        }
+        catch
+        {
+            image.Dispose();
+            throw;
+        }
+
+        return new GpuTexture(ctx, image, sampler, TextureColorSpace.Linear);
+    }
+
     /// <summary>Decodes an image file (PNG, JPEG, TGA, BMP; path via <see cref="ContentPaths.Resolve(string)"/>) into a 2D texture.</summary>
     public static GpuTexture Load(IVulkanContext ctx, string path, TextureColorSpace colorSpace, TextureSampling sampling,
         bool generateMips = false)

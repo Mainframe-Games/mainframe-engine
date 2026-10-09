@@ -173,7 +173,11 @@ sequenceDiagram
   self-checked) ([Procedural trees → testing](procedural-trees.md#testing)), and the post-processing scenes (ADR 0163)
   `velocity` (a yawing camera and a gravity-less rigid body under the velocity view, self-checked against the camera's
   matrices; `--count 1` still with jitter, `--count 2` the allocation run) and `post-copy` (a test `BeforeTonemap` effect
-  writing the scene colour through a pooled history; self-checked) ([Post-processing → testing](post-processing.md#testing)). Scenes that read `frame.clip.z` see t = frame / 60 s: `Engine` sums the
+  writing the scene colour through a pooled history; self-checked) ([Post-processing → testing](post-processing.md#testing)),
+  and the cinematic scenes (ADR 0168) `post-grade` (a colour chart of unshaded patches tiling the view; `--count` picks
+  the baseline, an identity or a channel-rotation LUT, adjustments, or a tonemapper), `post-dof` (a box before a striped
+  wall; far, near or no depth of field, `--count 3` everything at once with the camera turning) and `post-film` (flat grey
+  and black bars: vignette, grain, aberration) ([Color pipeline → testing](color-pipeline.md#testing)). Scenes that read `frame.clip.z` see t = frame / 60 s: `Engine` sums the
   fixed deltas into `FrameContext.Time`. The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
   M3 (the physics crates share one `BoxMesh` and one material per colour). Every host scene runs audio on the silent
   null device.

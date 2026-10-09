@@ -1,8 +1,8 @@
 // The tonemap pass with a world's PostProcessSettings (ADR 0124): light shafts added to the scene (ADR 0160), exposure,
 // then Godot 4.7's glow (every blend mode but
-// soft light before the curve), the tonemap curve (the engine's ACES fit, or Godot's ACES), soft-light glow after it,
-// then sRGB encoding. Ported from Godot 4.7's tonemap.glsl (MIT). Tonemap.vk.frag stays the pass for the default
-// settings and for SubViewports.
+// soft light before the curve), the tonemap curve (the engine's ACES fit, Godot 4.7's ACES, or Godot 4.4's linear,
+// Reinhard, filmic and AgX: ADR 0168), soft-light glow after it, then sRGB encoding. Ported from Godot 4.7's and 4.4's
+// tonemap.glsl (MIT). Tonemap.vk.frag stays the pass for the default settings and for SubViewports.
 #include "common.slang"
 
 [[vk::binding(0, 0)]] Sampler2D hdrScene;
@@ -14,12 +14,12 @@ struct Post
 {
     float exposure;
     uint  encodeSrgb;      // 1: the target stores raw values (UNORM), so encode here
-    uint  tonemapper;      // 0: engine ACES fit, 1: Godot ACES
+    uint  tonemapper;      // Tonemapper: 0 engine ACES fit, 1 Godot ACES, 2 linear, 3 Reinhard, 4 filmic, 5 AgX
     uint  glowMode;        // GlowBlendMode; only read when glowEnabled
     uint  glowEnabled;
     float glowIntensity;   // glow_intensity, or glow_mix in Mix mode
-    float white;           // Godot's environment white (≥ 1 for ACES)
-    float whiteTonemapped; // Godot ACES: the curve at 1.8·white
+    float white;           // Godot's environment white (≥ 1 for ACES, Reinhard, filmic; 1 otherwise)
+    float whiteTonemapped; // Godot ACES: the curve at 1.8·white; filmic: the filmic curve at white
     float glowWeights[7];  // normalised level weights
     uint  autoExposure;    // 1: multiply by autoExposureScale / the adapted luminance (ADR 0154)
     float autoExposureScale;
@@ -52,11 +52,68 @@ float3 rrtAndOdtFit(float3 v)
     return a / b;
 }
 
+// Godot 4.4 tonemap_reinhard: Reinhard's extended formula, c (1 + c / white²) / (1 + c).
+float3 reinhard(float3 color, float white)
+{
+    float white2 = white * white;
+    float3 white2Color = white2 * color;
+    return (white2Color + color * color) / (white2Color + white2);
+}
+
+// Godot 4.4 tonemap_filmic (Hable's curve with a 2× exposure bias baked into the constants), before ÷ the curve at white.
+float3 filmic(float3 color)
+{
+    const float A = 0.22 * 4.0, B = 0.30 * 2.0, C = 0.10, D = 0.20, E = 0.01, F = 0.30;
+    return ((color * (A * color + C * B) + D * E) / (color * (A * color + B) + D * F)) - E / F;
+}
+
+// Godot 4.4 agx_contrast_approx: a 6th-order polynomial fit of EaryChow's AgX sigmoid, for x in [0, 1].
+float3 agxContrast(float3 x)
+{
+    float3 x2 = x * x;
+    float3 x4 = x2 * x2;
+    return 0.021 * x + 4.0111 * x2 - 25.682 * x2 * x + 70.359 * x4 - 74.778 * x4 * x + 27.069 * x4 * x2;
+}
+
+// Linear sRGB → linear Rec.2020 combined with Blender's AgX inset (GLSL column order, transform with mul(v, M)).
+static const float3x3 kAgxInset = float3x3(
+    0.54490813676363087053, 0.14044005884001287035, 0.088827411851915368603,
+    0.37377945959812267119, 0.75410959864013760045, 0.17887712465043811023,
+    0.081384976686407536266, 0.10543358536857773485, 0.73224999956948382528);
+
+// The inverse AgX outset combined with linear Rec.2020 → linear sRGB.
+static const float3x3 kAgxOutset = float3x3(
+    1.9645509602733325934, -0.29932243390911083839, -0.16436833806080403409,
+    -0.85585845117807513559, 1.3264510741502356555, -0.23822464068860595117,
+    -0.10886710826831608324, -0.027084020983874825605, 1.402665347143271889);
+
+// Godot 4.4 tonemap_agx (Blender's AgX base, EaryChow's AgXBasesRGB.py): log2 between −12.47 and +4.03 EV around
+// middle grey, the sigmoid, back to linear (^2.4), the outset. May return negative components (clamped before encoding).
+float3 agx(float3 color)
+{
+    const float minEv = -12.4739311883324; // log2(2^-10 · 0.18)
+    const float maxEv = 4.02606881166759;  // log2(2^6.5 · 0.18)
+    color = mul(max(color, float3(2e-10)), kAgxInset);
+    color = clamp(log2(color), minEv, maxEv);
+    color = (color - minEv) / (maxEv - minEv);
+    color = agxContrast(color);
+    color = pow(max(color, float3(0.0)), float3(2.4));
+    return mul(color, kAgxOutset);
+}
+
 float3 tonemap(float3 color)
 {
+    if (pc.tonemapper == 5u)
+        return agx(color);
     color = max(color, float3(0.0));
     if (pc.tonemapper == 1u) // Godot 4.7 tonemap_aces: input × 1.8, output ÷ white_tonemapped
         return mul(rrtAndOdtFit(mul(color * 1.8, kAcesInput)), kAcesOutput) / pc.whiteTonemapped;
+    if (pc.tonemapper == 2u) // linear: clipped by the encode
+        return color;
+    if (pc.tonemapper == 3u)
+        return reinhard(color, pc.white);
+    if (pc.tonemapper == 4u)
+        return filmic(color) / pc.whiteTonemapped;
     return clamp(mul(rrtAndOdtFit(mul(color, kAcesInput)), kAcesOutput), 0.0, 1.0); // Tonemap.vk.frag's acesFitted
 }
 

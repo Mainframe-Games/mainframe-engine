@@ -167,6 +167,8 @@ something came into view.
 | Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
 | Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
 | Anti-aliasing | `rendering.antiAliasing: Taa` (ADR 0166), sharpness 0.25 (default); tree leaves and ferns `AlphaDither` | leaf, needle and grass edges stop shimmering in motion; the stream is a reactive pixel (keeps 0.2 of its history) so its flow does not smear |
+| Grade (ADR 0168) | `AdjustmentEnabled`, `AdjustmentColorCorrection` = `Content/Grading/forest-morning.cube` (33³, `ForestGrade`, written by `--write-scenes`), strength 1 | a warm, soft morning: warm white balance that spares the sky, a soft curve with lifted blacks and a gentle shoulder, cool shade and golden light, olive-yellow foliage, saturation up in the mid-tones and down in the highlights |
+| Lens (ADR 0168) | `CameraAttributes`: vignette 0.2, grain 0.015 (1.5 px), no aberration, no depth of field | a filmic frame without a muddy one; depth of field only in the photo shots |
 | Water | stream: absorption (0.5, 0.16, 0.12), roughness 0.05, reflection 0.35, normals 1.2/5 m × 0.6; pond: peaty absorption (1.6, 0.75, 0.7), reflection 0.8, calm | the stream shows its gravel bed; the pond darkens in the middle |
 
 `++ --set Node/Path.Property=value` overrides any of these for a run (`Valley.*` before the valley generates), e.g.
@@ -177,7 +179,9 @@ something came into view.
 `++ --shot <1-5|name>` puts a fixed camera at a pose of `ValleyLayout.Shots` (heights above the ground); `--view
 x,y,z,tx,ty,tz[,fov]` at any pose (y 0: eye height above the ground, −h: h above it). `just forest-screenshots` renders
 all five at 2560 × 1440 (frame 300 at a fixed 60 Hz: fixed wind, water and exposure) and scales them to 1600 × 900 into
-`docs/images/forest/`:
+`docs/images/forest/`. R4 and R5 are photo shots (`ReferenceShot.BlurNearUntil`/`BlurFarFrom`, `ForestDev.PhotoLens`):
+their camera adds subtle 32-tap depth of field to the Forest's lens (R4: what is nearer than 6 m blurs; R5: the trees
+behind the ferns blur from 9 m); walking never has depth of field:
 
 | | |
 |---|---|
@@ -204,8 +208,9 @@ running at times):
 | 2560 × 1440 | 18.4 ms | 23.4 ms | 27.3 ms | 2.1 ms |
 
 Measured before SSAO (ADR 0165), which turns the depth prepass on: at 1920 × 1080 the passes take ≈ 1 ms of GPU time
-and the prepass saves about as much, so the frame stays near these numbers (ADR 0165 has the runs). ≤ 465 draws, 0 B per
-frame, ≈ 4 s from launch to the first measured frame. 1080p holds 60 fps at the median and through
+and the prepass saves about as much, so the frame stays near these numbers (ADR 0165 has the runs). The cinematic grade
+(ADR 0168: LUT, vignette, grain, one `AfterTonemap` pass) costs ≈ 0.16 ms GPU at 1080p. ≤ 465 draws, 0 B per frame,
+≈ 4 s from launch to the first measured frame. 1080p holds 60 fps at the median and through
 most of the flight; the p99 frames are the vista over the whole valley. Measured at 1080p against these defaults: the
 engine's default sun shadows (4 × 2048² to 100 m) +12 ms, 3 × 2048² to 90 m +8 ms, 3 × 1024² to 110 m +1.2 ms;
 hex-tiling +3.5 ms; the trees +10 ms; the ground cover +5 ms (p50). The GPU, not the CPU, bounds every case.

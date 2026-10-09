@@ -8,7 +8,8 @@ using Color = System.Drawing.Color;
 /// <summary>
 /// Godot 4.7's tonemap and glow (ADR 0124): a small emissive square (HDR, well above the glow threshold) over a dark
 /// floor, seen head-on, with Godot's ACES. <c>--count</c>: 0 glow on (Godot's defaults, normalized, strength 0.75: the
-/// Driving Range environment); 1 glow off; 2 glow on but the square at an emission the threshold never passes.
+/// Driving Range environment); 1 glow off; 2 glow on but the square at an emission the threshold never passes; 3 as 0 with
+/// <see cref="GlowQuality.High"/> (ADR 0168); 4 as 2 with <see cref="GlowQuality.High"/>.
 /// </summary>
 public sealed class GlowScene(HostOptions host) : RenderTestGame(host)
 {
@@ -18,7 +19,7 @@ public sealed class GlowScene(HostOptions host) : RenderTestGame(host)
         var camera = new Camera3D { Name = "Camera", Position = new Vector3(0, 0, 3) };
         scene.AddChild(camera);
 
-        var bright = Host.Count != 2;
+        var bright = Host.Count is not (2 or 4);
         scene.AddChild(new MeshInstance3D
         {
             Name = "Floor",
@@ -47,6 +48,7 @@ public sealed class GlowScene(HostOptions host) : RenderTestGame(host)
             GlowEnabled = Host.Count != 1,
             GlowNormalized = true,
             GlowStrength = 0.75f,
+            GlowQuality = Host.Count >= 3 ? GlowQuality.High : GlowQuality.Standard,
         });
         Tree.ChangeScene(scene);
     }

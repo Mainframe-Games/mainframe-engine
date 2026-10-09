@@ -10,7 +10,14 @@ namespace Forest;
 /// <param name="TargetHeight">Height of the look-at point above the ground at <paramref name="Target"/> (or above 0 when <paramref name="AbsoluteTarget"/>).</param>
 /// <param name="Fov">Vertical field of view in degrees.</param>
 /// <param name="AbsoluteTarget">The target height is a world Y, not a height above the ground.</param>
-public readonly record struct ReferenceShot(string Name, Vector2 Eye, float EyeHeight, Vector2 Target, float TargetHeight, float Fov = 55f, bool AbsoluteTarget = false);
+/// <param name="BlurFarFrom">A photo shot's far depth of field (ADR 0168): blur starts this many metres away (0: none).</param>
+/// <param name="BlurNearUntil">A photo shot's near depth of field: what is nearer than this many metres blurs (0: none).</param>
+public readonly record struct ReferenceShot(string Name, Vector2 Eye, float EyeHeight, Vector2 Target, float TargetHeight, float Fov = 55f,
+    bool AbsoluteTarget = false, float BlurFarFrom = 0f, float BlurNearUntil = 0f)
+{
+    /// <summary>True for the photo shots with depth of field (R4, R5): never used while walking.</summary>
+    public bool HasDepthOfField => BlurFarFrom > 0f || BlurNearUntil > 0f;
+}
 
 /// <summary>
 /// Where things are in the Forest's valley (docs/design/future/forest-showcase.md → The scene): world = terrain-local
@@ -141,8 +148,8 @@ public static class ValleyLayout
         new("r1-glade", new Vector2(48f, 146f), 1.7f, new Vector2(108f, 157f), 15f, 55f),
         new("r2-fall", new Vector2(84f, 63f), 1.65f, new Vector2(86f, 44f), 1.6f, 55f),
         new("r3-bridge", new Vector2(112.5f, 128.5f), 1.6f, new Vector2(120f, 135.5f), 0.2f, 58f),
-        new("r4-vista", new Vector2(210f, 120f), 2.2f, new Vector2(134f, 212f), PondLevel - 4f, 50f, AbsoluteTarget: true),
-        new("r5-floor", new Vector2(120f, 160f), 0.5f, new Vector2(108f, 150f), 0.2f, 60f),
+        new("r4-vista", new Vector2(210f, 120f), 2.2f, new Vector2(134f, 212f), PondLevel - 4f, 50f, AbsoluteTarget: true, BlurNearUntil: 6f),
+        new("r5-floor", new Vector2(120f, 160f), 0.5f, new Vector2(108f, 150f), 0.2f, 60f, BlurFarFrom: 9f),
     ];
 
     /// <summary>A Catmull-Rom point on the closed path loop at parameter <paramref name="t"/> (0 … <see cref="PathPoints"/>.Length).</summary>
