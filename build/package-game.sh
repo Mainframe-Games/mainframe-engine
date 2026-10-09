@@ -5,7 +5,8 @@
 #   linux-*   <exe> + its files in <exe>-<version>-<rid>.tar.gz (also the dedicated server: run it with --headless)
 # Usage: build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v]
 #        [--bundle-id id] [--copyright text] [--icon icon.png] [--sign "Developer ID Application: …"] [--notarize profile]
-# The icon PNG becomes the .app's .icns (macOS sips + iconutil) and the Windows exe's icon (ImageMagick `magick`).
+# The icon PNG becomes the .app's .icns (macOS sips + iconutil) and the Windows exe's icon (ImageMagick `magick`), unless
+# the desktop project names its own: <MacAppIcon> ending in .icns (ADR 0182) and <ApplicationIcon> (.ico) win over the PNG.
 # Defaults: name and version from the project.mfproj next to the desktop project's folder (one level up), the exe from
 # the name without spaces, the bundle id com.mainframegames.<exe lowercased>, the icon from project.mfproj "window.icon".
 # Without those tools the package has no icon (a warning on macOS). See docs/design/release.md (Games).
@@ -22,7 +23,7 @@ json() { sed -n "s/^  \"$1\": \"\(.*\)\",\{0,1\}$/\1/p" "$mfproj" | head -n 1; }
 
 name="$(json name)"; version="$(json version)"; exe=""; bundle_id=""; copyright=""
 sign_identity="${MF_SIGN_IDENTITY:-}"; notary_profile="${MF_NOTARY_PROFILE:-}"
-icon="$(sed -n 's/^    "icon": "\(.*\)",\{0,1\}$/\1/p' "$mfproj" | head -n 1)"
+icon="$(grep -o '"icon"[[:space:]]*:[[:space:]]*"[^"]*"' "$mfproj" | head -n 1 | sed 's/.*"\([^"]*\)"$/\1/')"
 [ -n "$icon" ] && icon="$project_dir/$icon"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -43,12 +44,15 @@ exe="${exe:-${name// /}}"
 bundle_id="${bundle_id:-com.mainframegames.$(printf '%s' "$exe" | tr '[:upper:]' '[:lower:]')}"
 assembly="$(sed -n 's:.*<AssemblyName>\(.*\)</AssemblyName>.*:\1:p' "$csproj" | head -n 1)"
 assembly="${assembly:-$(basename "$csproj" .csproj)}"
+csproj_value() { sed -n "s:.*<$1>\(.*\)</$1>.*:\1:p" "$csproj" | head -n 1; }
+mac_icns="$(csproj_value MacAppIcon)"
+case "$mac_icns" in *.icns) mac_icns="$(dirname "$csproj")/$mac_icns" ;; *) mac_icns="" ;; esac
 
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
 publish="$stage/publish"
 echo "Publishing $name $version for $rid…"
 extra=()
-if [[ "$rid" == win-* ]] && [ -n "$icon" ] && [ -f "$icon" ] && command -v magick >/dev/null; then
+if [[ "$rid" == win-* ]] && [ -z "$(csproj_value ApplicationIcon)" ] && [ -n "$icon" ] && [ -f "$icon" ] && command -v magick >/dev/null; then
   # The exe's icon is a build input on Windows (ApplicationIcon); multi-size .ico from the PNG.
   magick "$icon" -define icon:auto-resize=256,128,64,48,32,16 "$stage/icon.ico"
   extra+=("-p:ApplicationIcon=$stage/icon.ico")
@@ -75,13 +79,11 @@ case "$rid" in
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
     cp -R "$publish"/. "$app/Contents/MacOS/"
     icon_key=""
-    if [ -n "$icon" ] && [ -f "$icon" ] && command -v iconutil >/dev/null && command -v sips >/dev/null; then
-      set_dir="$stage/icon.iconset"; mkdir -p "$set_dir"
-      for s in 16 32 128 256 512; do
-        sips -z "$s" "$s" "$icon" --out "$set_dir/icon_${s}x${s}.png" >/dev/null
-        sips -z $((s * 2)) $((s * 2)) "$icon" --out "$set_dir/icon_${s}x${s}@2x.png" >/dev/null
-      done
-      iconutil -c icns "$set_dir" -o "$app/Contents/Resources/icon.icns"
+    if [ -n "$mac_icns" ] && [ -f "$mac_icns" ]; then
+      cp "$mac_icns" "$app/Contents/Resources/icon.icns"
+      icon_key="<key>CFBundleIconFile</key><string>icon.icns</string>"
+    elif [ -n "$icon" ] && [ -f "$icon" ] && command -v iconutil >/dev/null && command -v sips >/dev/null; then
+      "$(dirname "$0")/macos/png-to-icns.sh" "$icon" "$app/Contents/Resources/icon.icns"
       icon_key="<key>CFBundleIconFile</key><string>icon.icns</string>"
     else
       echo "warning: no app icon (needs a PNG and macOS sips/iconutil)" >&2

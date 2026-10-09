@@ -1,4 +1,4 @@
-# Mainframe Forest
+# Forest Demo
 
 A first-person walk through a small forest with a stream: the engine's showcase scene
 ([docs/design/forest.md](../../docs/design/forest.md), proposal
@@ -56,7 +56,7 @@ data folder when it closes ([docs/design/forest.md#pause-menu](../../docs/design
 ```
 Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes, NOTICE.md
-├── project.mfproj        "Mainframe Forest": main scene, 1920 × 1080 px window, TAA, input map, autoload Dev
+├── project.mfproj        "Forest Demo": main scene, 1920 × 1080 px window, TAA, input map, autoload Dev
 ├── benchmark-baseline.json  just forest-bench's reference (this Mac)
 ├── Forest/               node library: Src/Player (FirstPersonController, footstep surfaces, settings),
 │                         Src/World (the scene, ForestValley + ValleyGenerator + ForestVegetation, ForestAssets, the

@@ -361,7 +361,7 @@ public sealed class PlayService : IDisposable
             return null;
         }
 
-        return Launch(program, Path.GetDirectoryName(program)!, request.Scene, request.Label, request.ExtraArguments);
+        return Launch(program, ProcessGameLauncher.WorkingDirectoryOf(program), request.Scene, request.Label, request.ExtraArguments);
     }
 
     private void DrainLink(EditorLinkServer server)

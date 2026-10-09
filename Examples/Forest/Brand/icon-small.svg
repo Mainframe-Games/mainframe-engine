@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<title>Forest Demo</title>
+<!-- Simplified artwork (48 px and below): the spruce, its glow and the valley floor only. -->
+<defs>
+<clipPath id="tile"><rect width="100" height="100" rx="22"/></clipPath>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBF0C8"/><stop offset="0.42" stop-color="#EBCB6E"/><stop offset="0.8" stop-color="#8E9A50"/></linearGradient>
+<radialGradient id="glow" cx="50" cy="27" r="48" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFFDF2"/><stop offset="0.22" stop-color="#FFF1BF"/><stop offset="0.5" stop-color="#F8B940" stop-opacity="0.45"/><stop offset="1" stop-color="#F59E0B" stop-opacity="0"/></radialGradient>
+<linearGradient id="mist" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF6D8" stop-opacity="0"/><stop offset="0.55" stop-color="#FFF6D8" stop-opacity="0.45"/><stop offset="1" stop-color="#FFF6D8" stop-opacity="0"/></linearGradient>
+<linearGradient id="ray" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFBEA" stop-opacity="0.55"/><stop offset="1" stop-color="#FFFBEA" stop-opacity="0"/></linearGradient>
+</defs>
+<g clip-path="url(#tile)">
+<rect width="100" height="100" fill="url(#sky)"/>
+<rect width="100" height="100" fill="url(#glow)"/>
+<path fill="#22361A" d="M0,84 Q25,78 50,80 T100,82 V100 H0Z"/>
+<path d="M47.75,78 h4.5 v8 h-4.5Z M50,11.0 Q56.90,24.53 66.43,34.33 Q50,30.60 33.57,34.33 Q43.10,24.53 50,11.0Z M50,29.2 Q59.33,45.71 72.21000000000001,57.67 Q50,53.11 27.79,57.67 Q40.67,45.71 50,29.2Z M50,47.4 Q61.76,66.89 78.0,81.0 Q50,75.62 22.0,81.0 Q38.24,66.89 50,47.4Z" fill="#1C2E16"/>
+</g>
+</svg>

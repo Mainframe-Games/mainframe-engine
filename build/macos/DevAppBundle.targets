@@ -1,50 +1,87 @@
 <Project>
   <!--
-    macOS development app bundle for the editor (docs/design/release.md#macos-app-name, ADR 0096).
+    macOS development app bundle (docs/design/release.md#macos-app-name, ADR 0096, ADR 0182): the editor and every game
+    executable (through build/MainframeGame.props).
 
     macOS names a running app (Dock tooltip, bold app menu next to the Apple menu, Cmd+Tab, Activity Monitor) from the
     Info.plist of the bundle its executable lives in, read once when the process registers with LaunchServices. An
-    unbundled executable gets its file name ("MainframeEngine.Editor") and nothing in-process can change that later:
-    -[NSProcessInfo setProcessName:] (even before NSApplication exists) and SDL hints do not touch the LaunchServices
-    name; only private LaunchServices calls do. So development runs launch the editor from inside a bundle, the same
-    way the release archive does:
+    unbundled executable gets its file name ("MainframeEngine.Editor", "Forest.Desktop") and a generic icon, and nothing
+    in-process can change the name later: -[NSProcessInfo setProcessName:] (even before NSApplication exists) and SDL hints
+    do not touch the LaunchServices name; only private LaunchServices calls do. So development runs launch the executable
+    from inside a bundle, the same way a release archive does:
 
-      bin/<cfg>/<tfm>/Mainframe Engine.app/
-        Contents/Info.plist                       build/macos/Info.plist.in (version $(Version), id ….editor.dev)
-        Contents/Resources/logo.icns
-        Contents/MacOS/MainframeEngine.Editor  →  ../../../MainframeEngine.Editor   (symlink to the apphost)
+      bin/<cfg>/<tfm>/$(MacAppDisplayName).app/
+        Contents/Info.plist                 build/macos/Info.plist.in (name, id $(MacAppBundleId).dev, version, icon)
+        Contents/Resources/<icon>.icns      $(MacAppIcon): an .icns as is, or a PNG converted by png-to-icns.sh
+        Contents/MacOS/$(AssemblyName)  →  ../../../$(AssemblyName)   (symlink to the apphost)
 
     The symlink keeps a single build output: the .NET apphost resolves its own path with realpath, so the app base
     directory (managed assemblies, Content/) stays bin/<cfg>/<tfm>/, while CoreFoundation's main bundle comes from the
-    unresolved exec path, i.e. the .app. `dotnet run` (and `just editor`) start that path; stdout/stderr, the exit
-    code and Ctrl+C behave exactly as before because it is still a direct child process, not `open`.
+    unresolved exec path, i.e. the .app. `dotnet run` (`just editor`, `just forest`) starts that path; stdout/stderr, the
+    exit code and Ctrl+C behave exactly as before because it is still a direct child process, not `open`.
 
-    Skipped off macOS, for RID-specific builds/publishes (build/package-editor.sh assembles the release bundle) and
-    with -p:MacDevAppBundle=false.
+    Inputs, read only when the targets run (so importing this file from a .props, before the project body, is fine):
+      MacAppDisplayName       the app name; required (no name, no bundle). Games: project.mfproj "name".
+      MacAppBundleId          reverse-DNS id; default com.mainframegames.<name without spaces/punctuation, lower case>.
+      MacAppBundleIdSuffix    appended in development; default ".dev", which keeps development bundles apart from an
+                              installed release (LaunchServices, preferences, permissions).
+      MacAppIcon              .icns or .png, absolute or relative to the project; optional. Games: "window.icon".
+      MacAppVersion           default $(Version).
+    Built for executables only (not test projects). Skipped off macOS, for RID-specific builds/publishes (release packaging
+    assembles its own bundle) and with -p:MacDevAppBundle=false. Every target repeats the same condition because MSBuild
+    evaluates a target's condition before its dependencies run.
   -->
 
   <PropertyGroup>
-    <MacDevAppBundle Condition="'$(MacDevAppBundle)' == '' and $([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' == ''">true</MacDevAppBundle>
-    <MacDevAppBundleName>Mainframe Engine.app</MacDevAppBundleName>
-    <MacInfoPlistTemplate>$(MSBuildThisFileDirectory)Info.plist.in</MacInfoPlistTemplate>
-    <MacAppIcon>$(MSBuildThisFileDirectory)../../docs/images/brand/logo.icns</MacAppIcon>
+    <MacInfoPlistTemplate Condition="'$(MacInfoPlistTemplate)' == ''">$(MSBuildThisFileDirectory)Info.plist.in</MacInfoPlistTemplate>
+    <_MacPngToIcns>$(MSBuildThisFileDirectory)png-to-icns.sh</_MacPngToIcns>
   </PropertyGroup>
 
-  <Target Name="CreateMacDevAppBundle" AfterTargets="Build" Condition="'$(MacDevAppBundle)' == 'true' and '$(UseAppHost)' == 'true'">
+  <Target Name="_ComputeMacDevAppBundle">
     <PropertyGroup>
-      <_MacDevBundleDir>$(TargetDir)$(MacDevAppBundleName)/Contents/</_MacDevBundleDir>
-      <_MacDevInfoPlist>$([System.IO.File]::ReadAllText('$(MacInfoPlistTemplate)').Replace('@VERSION@', '$(Version)').Replace('@BUNDLE_ID_SUFFIX@', '.dev'))</_MacDevInfoPlist>
+      <_MacDevBundleDir>$(TargetDir)$(MacAppDisplayName).app/Contents/</_MacDevBundleDir>
+      <_MacDevBundleId>$(MacAppBundleId)</_MacDevBundleId>
+      <_MacDevBundleId Condition="'$(_MacDevBundleId)' == ''">com.mainframegames.$([System.Text.RegularExpressions.Regex]::Replace(`$(MacAppDisplayName)`, '[^A-Za-z0-9-]', '').ToLowerInvariant())</_MacDevBundleId>
+      <_MacDevBundleId Condition="'$(_MacDevBundleId)' == 'com.mainframegames.'">com.mainframegames.$([System.Text.RegularExpressions.Regex]::Replace(`$(AssemblyName)`, '[^A-Za-z0-9-]', '').ToLowerInvariant())</_MacDevBundleId>
+      <_MacDevBundleIdSuffix>$(MacAppBundleIdSuffix)</_MacDevBundleIdSuffix>
+      <_MacDevBundleIdSuffix Condition="'$(_MacDevBundleIdSuffix)' == ''">.dev</_MacDevBundleIdSuffix>
+      <_MacDevBundleId>$(_MacDevBundleId)$(_MacDevBundleIdSuffix)</_MacDevBundleId>
+      <_MacDevIconSource Condition="'$(MacAppIcon)' != ''">$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(MacAppIcon)'))</_MacDevIconSource>
+      <_MacDevIconFile Condition="'$(_MacDevIconSource)' != ''">$([System.IO.Path]::GetFileNameWithoutExtension('$(_MacDevIconSource)')).icns</_MacDevIconFile>
+      <_MacDevIcns Condition="'$(_MacDevIconSource)' != ''">$(_MacDevIconSource)</_MacDevIcns>
+      <_MacDevIcns Condition="'$(_MacDevIconSource)' != '' and $(_MacDevIconSource.ToLowerInvariant().EndsWith('.png'))">$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'MacAppIcon', '$(_MacDevIconFile)'))</_MacDevIcns>
+      <_MacDevVersion>$(MacAppVersion)</_MacDevVersion>
+      <_MacDevVersion Condition="'$(_MacDevVersion)' == ''">$(Version)</_MacDevVersion>
     </PropertyGroup>
+  </Target>
+
+  <!-- A PNG icon (a game's window.icon) becomes an .icns when it changes. -->
+  <Target Name="_MacDevAppIconFromPng" DependsOnTargets="_ComputeMacDevAppBundle"
+          Condition="'$(MacDevAppBundle)' != 'false' and $([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' == '' and '$(UseAppHost)' == 'true' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true' and '$(MacAppDisplayName)' != '' and '$(MacAppIcon)' != '' and $(MacAppIcon.ToLowerInvariant().EndsWith('.png'))"
+          Inputs="$(_MacDevIconSource)" Outputs="$(_MacDevIcns)">
+    <Warning Condition="!Exists('$(_MacDevIconSource)')" Text="MacAppIcon '$(_MacDevIconSource)' does not exist: $(MacAppDisplayName).app has no icon." />
+    <Exec Condition="Exists('$(_MacDevIconSource)')" Command="bash &quot;$(_MacPngToIcns)&quot; &quot;$(_MacDevIconSource)&quot; &quot;$(_MacDevIcns)&quot;" />
+  </Target>
+
+  <Target Name="CreateMacDevAppBundle" AfterTargets="Build" DependsOnTargets="_ComputeMacDevAppBundle;_MacDevAppIconFromPng"
+          Condition="'$(MacDevAppBundle)' != 'false' and $([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' == '' and '$(UseAppHost)' == 'true' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true' and '$(MacAppDisplayName)' != ''">
+    <PropertyGroup>
+      <!-- The name is user text: XML-escape it. -->
+      <_MacDevPlistName>$(MacAppDisplayName.Replace('&amp;', '&amp;amp;').Replace('&lt;', '&amp;lt;').Replace('&gt;', '&amp;gt;'))</_MacDevPlistName>
+      <_MacDevInfoPlist>$([System.IO.File]::ReadAllText('$(MacInfoPlistTemplate)').Replace('@NAME@', `$(_MacDevPlistName)`).Replace('@BUNDLE_ID@', '$(_MacDevBundleId)').Replace('@EXECUTABLE@', '$(AssemblyName)').Replace('@ICON_FILE@', '$(_MacDevIconFile)').Replace('@VERSION@', '$(_MacDevVersion)'))</_MacDevInfoPlist>
+    </PropertyGroup>
+    <Warning Condition="'$(_MacDevIcns)' != '' and !Exists('$(_MacDevIcns)')" Text="MacAppIcon '$(_MacDevIcns)' does not exist: $(MacAppDisplayName).app has no icon." />
     <MakeDir Directories="$(_MacDevBundleDir)MacOS;$(_MacDevBundleDir)Resources" />
     <WriteLinesToFile File="$(_MacDevBundleDir)Info.plist" Lines="$(_MacDevInfoPlist)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-    <Copy SourceFiles="$(MacAppIcon)" DestinationFolder="$(_MacDevBundleDir)Resources" SkipUnchangedFiles="true" />
+    <Copy Condition="'$(_MacDevIcns)' != '' and Exists('$(_MacDevIcns)')" SourceFiles="$(_MacDevIcns)" DestinationFiles="$(_MacDevBundleDir)Resources/$(_MacDevIconFile)" SkipUnchangedFiles="true" />
     <Exec Command="ln -sfn &quot;../../../$(AssemblyName)&quot; &quot;$(_MacDevBundleDir)MacOS/$(AssemblyName)&quot;" />
   </Target>
 
   <!-- dotnet run reads RunCommand after this target (the SDK's run protocol), so the bundle path wins over the apphost. -->
-  <Target Name="UseMacDevAppBundleForRun" BeforeTargets="ComputeRunArguments" Condition="'$(MacDevAppBundle)' == 'true' and '$(UseAppHost)' == 'true'">
+  <Target Name="UseMacDevAppBundleForRun" BeforeTargets="ComputeRunArguments"
+          Condition="'$(MacDevAppBundle)' != 'false' and $([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' == '' and '$(UseAppHost)' == 'true' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true' and '$(MacAppDisplayName)' != ''">
     <PropertyGroup>
-      <RunCommand>$(TargetDir)$(MacDevAppBundleName)/Contents/MacOS/$(AssemblyName)</RunCommand>
+      <RunCommand>$(TargetDir)$(MacAppDisplayName).app/Contents/MacOS/$(AssemblyName)</RunCommand>
     </PropertyGroup>
   </Target>
 </Project>

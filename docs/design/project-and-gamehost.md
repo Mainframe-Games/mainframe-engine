@@ -127,6 +127,24 @@ commas tolerated). Only values that differ from the defaults are written, except
   `devAppIdFile` (default true) lets development runs start Steam without being launched by it; `restartThroughSteam`
   (default false) makes shipped builds started outside Steam relaunch through it.
 
+### App name and icon (ADR 0182)
+
+`name` is the game's player-facing name and `window.icon` (a PNG, `Content/…`) its icon, everywhere:
+
+- **Run time.** The window title when `window.title` is unset, the user data folder (`GameHost.UserDataDirectory`), and
+  `window.icon` → `EngineOptions.IconPath` (the SDL window/taskbar icon on Windows and Linux; on macOS the Dock icon of
+  an unbundled run — a bundled one keeps its `.icns`, see [Release → Game executables](release.md#game-executables-adr-0182)).
+- **Build time.** [`build/MainframeGame.props`](../../build/MainframeGame.props) reads `name`, `window.icon` and
+  `version` (the first such strings in the file; JSON escapes are not decoded) into `MainframeAppName`,
+  `MacAppDisplayName`, `MacAppIcon` and `MacAppVersion`: the macOS development bundle `bin/<cfg>/net10.0/<name>.app`,
+  `Product` and the executable's `AssemblyTitle` (Windows file description). Desktop projects override them (an `.icns`
+  on Apple's icon grid in `MacAppIcon`, an `.ico` in `ApplicationIcon`).
+- **Packaging.** `build/package-game.sh` names the `.app` and the executable from `name` and takes the icon from
+  `window.icon` ([Release → Games](release.md#games)).
+
+Renaming a game moves its user data folder (settings, saves, logs) with it. No new keys: the editor's Project Settings
+already edit `name` and `window.icon`.
+
 ### Demo builds
 
 `isDemo` (Application › Demo Build) marks the game's **Steam demo** build, as opposed to the full game:

@@ -446,6 +446,25 @@ public sealed class PlayServiceTests
     }
 
     [Fact]
+    public void FindLauncherProgramPrefersTheMacDevAppBundle()
+    {
+        using var project = new DesktopProject();
+        var bin = Path.GetDirectoryName(project.AppHost)!;
+        var macOs = System.IO.Directory.CreateDirectory(Path.Combine(bin, "My Game.app", "Contents", "MacOS")).FullName;
+        File.WriteAllText(Path.Combine(bin, "My Game.app", "Contents", "Info.plist"), "<plist/>");
+        var inBundle = Path.Combine(macOs, Path.GetFileName(project.AppHost));
+        if (OperatingSystem.IsWindows())
+            File.WriteAllText(inBundle, "");
+        else
+            File.CreateSymbolicLink(inBundle, Path.Combine("..", "..", "..", Path.GetFileName(project.AppHost)));
+
+        var program = ProcessGameLauncher.FindLauncherProgram(project.ProjectFile);
+        Assert.Equal(OperatingSystem.IsMacOS() ? inBundle : project.AppHost, program);
+        Assert.Equal(bin, ProcessGameLauncher.WorkingDirectoryOf(inBundle));
+        Assert.Equal(bin, ProcessGameLauncher.WorkingDirectoryOf(project.AppHost));
+    }
+
+    [Fact]
     public void IdleUpdateDoesNotAllocate()
     {
         using var play = new PlayHarness();

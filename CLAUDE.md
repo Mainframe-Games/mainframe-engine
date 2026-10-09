@@ -68,7 +68,9 @@ awake (`caffeinate -u -t 600 &`).
 The editor's macOS app name (Dock tooltip, menu bar) is "Mainframe Engine", which only a bundle's Info.plist can set:
 every macOS editor build assembles `bin/<cfg>/net10.0/Mainframe Engine.app` (a symlink to the apphost) and `dotnet run`
 / `just editor` start it from there (`build/macos/DevAppBundle.targets`, ADR 0096). The bare `bin/…/MainframeEngine.Editor`
-still runs but shows the executable name. The executable/assembly name stays `MainframeEngine.Editor`.
+still runs but shows the executable name. The executable/assembly name stays `MainframeEngine.Editor`. Games get the same
+bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `build/MainframeGame.props` (ADR 0182:
+`just forest` runs `Forest Demo.app`).
 
 ## Project Structure
 

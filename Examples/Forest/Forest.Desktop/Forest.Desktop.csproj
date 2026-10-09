@@ -1,8 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The executable: runs the project with GameHost (project.mfproj next to the app). -->
+  <!--
+    The executable: runs the project with GameHost (project.mfproj next to the app). Its player-facing name is
+    project.mfproj "name" ("Forest Demo", ADR 0182): build/MainframeGame.props makes it the macOS dev bundle
+    (bin/<cfg>/net10.0/Forest Demo.app, which `dotnet run` / `just forest` launch) and the Windows file description and
+    product name. The assembly stays Forest.Desktop (scripts, tests and docs run Forest.Desktop.dll).
+    Icons: Examples/Forest/Brand (`just forest-brand`); the .icns is the macOS one, on Apple's icon grid.
+  -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <ApplicationIcon>../Brand/forest.ico</ApplicationIcon>
+    <MacAppIcon>../Brand/forest.icns</MacAppIcon>
   </PropertyGroup>
 
   <ItemGroup>

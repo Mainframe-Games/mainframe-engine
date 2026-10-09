@@ -92,11 +92,12 @@ The product name macOS shows — Dock tooltip, the bold app menu next to the App
 **Mainframe Engine**, never the executable name. macOS takes it from the `CFBundleName`/`CFBundleDisplayName` of the
 bundle the executable runs from, once, when the process registers with LaunchServices
 ([ADR 0096](../../memory/decisions/0096-macos-app-name.md)). One template,
-[`build/macos/Info.plist.in`](../../build/macos/Info.plist.in) (`@VERSION@`, `@BUNDLE_ID_SUFFIX@`), feeds both bundles:
+[`build/macos/Info.plist.in`](../../build/macos/Info.plist.in) (`@NAME@`, `@BUNDLE_ID@`, `@EXECUTABLE@`, `@ICON_FILE@`,
+`@VERSION@`), feeds both bundles:
 
 | | Release | Development (`just editor`, `dotnet run`) |
 |---|---|---|
-| Built by | [`build/package-editor.sh`](../../build/package-editor.sh) | [`build/macos/DevAppBundle.targets`](../../build/macos/DevAppBundle.targets) (after every macOS build of the editor) |
+| Built by | [`build/package-editor.sh`](../../build/package-editor.sh) | [`build/macos/DevAppBundle.targets`](../../build/macos/DevAppBundle.targets) (after every macOS build of the editor; the editor's csproj sets `MacAppDisplayName`, `MacAppBundleId`, `MacAppIcon`) |
 | Bundle | `Mainframe Engine.app` in the archive | `MainframeEngine.Editor/bin/<cfg>/net10.0/Mainframe Engine.app` |
 | `Contents/MacOS/MainframeEngine.Editor` | the published files | a symlink to `../../../MainframeEngine.Editor` (the apphost) |
 | Identifier / version | `com.mainframegames.editor`, `X.Y.Z` | `com.mainframegames.editor.dev`, `$(Version)` (`0.0.0-dev`) |
@@ -110,6 +111,30 @@ Starting `bin/…/MainframeEngine.Editor` itself still works and shows the execu
 does not work: `NSProcessInfo.processName` (even set before `NSApplication` exists) and SDL hints leave the
 LaunchServices name alone; only private LaunchServices calls could change it.
 
+### Game executables (ADR 0182)
+
+The same targets wrap every game's desktop executable, so `dotnet run` / `just forest` show the game's name and icon
+instead of `MyGame.Desktop` and a blank icon. [`build/MainframeGame.props`](../../build/MainframeGame.props) (imported
+by every game project) reads `project.mfproj` and imports the targets:
+
+| MSBuild property | Default (game) | Use |
+|---|---|---|
+| `MacAppDisplayName` | `"name"` (`MainframeAppName`) | `bin/<cfg>/net10.0/<name>.app`, `CFBundleName`/`CFBundleDisplayName` |
+| `MacAppBundleId` | `com.mainframegames.<name, letters/digits/hyphens, lower case>` | `CFBundleIdentifier` (+ `MacAppBundleIdSuffix`, default `.dev`) |
+| `MacAppIcon` | `"window.icon"` (a PNG, converted by [`build/macos/png-to-icns.sh`](../../build/macos/png-to-icns.sh) into `obj/`, once per change) | an `.icns` is copied as is: set it for an icon on Apple's grid |
+| `MacAppVersion` | `"version"`, else `$(Version)` | `CFBundleShortVersionString`/`CFBundleVersion` |
+
+The props also set `Product` (every game assembly) and the executable's `AssemblyTitle` (the Windows file description)
+to the name; the Windows exe icon is the desktop project's `ApplicationIcon` (an `.ico`). On Windows the SDK writes
+the icon and version strings into the apphost only when building on Windows. Bundles are built for executables only
+(not `IsTestProject`), skipped for RID-specific builds and with `-p:MacDevAppBundle=false`. The editor's Play launches
+the game through `<name>.app/Contents/MacOS/<assembly>` when it exists (`ProcessGameLauncher.FindLauncherProgram`).
+
+On macOS an SDL window icon only replaces the Dock icon, so `GameHost` skips `window.icon` when the process runs from a
+bundle that names an icon (`MacAppBundle.HasIcon`, CoreFoundation's main bundle `CFBundleIconFile`): the Dock keeps the
+`.icns`. Unbundled runs (`dotnet Game.Desktop.dll`, the scripts) still get `window.icon`, which is full-bleed for
+Windows and Linux. The template smoke test (`just template-smoke`) checks `SmokeGame.app`'s Info.plist and icon.
+
 ## Games
 
 `build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]`
@@ -120,8 +145,8 @@ Then per platform:
 
 | RID | Output | Notes |
 |---|---|---|
-| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | Info.plist (name, bundle id, version, copyright, games category), `.icns` from the PNG (sips + iconutil), ad-hoc `codesign` by default (Apple Silicon refuses unsigned code). `--sign "Developer ID Application: …"` (or `MF_SIGN_IDENTITY`) signs each Mach-O and then the bundle, with the hardened runtime, a timestamp and the .NET entitlements (JIT, unsigned executable memory, library validation off). `--notarize <profile>` (or `MF_NOTARY_PROFILE`, from `xcrun notarytool store-credentials`) then submits, staples and re-zips |
-| `win-*` | `<exe>-<version>-<rid>.zip` | the exe icon from the PNG (`magick` → `.ico` → `ApplicationIcon`) |
+| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | Info.plist (name, bundle id, version, copyright, games category), the desktop project's `MacAppIcon` when it is an `.icns`, else `.icns` from the PNG (`build/macos/png-to-icns.sh`), ad-hoc `codesign` by default (Apple Silicon refuses unsigned code). `--sign "Developer ID Application: …"` (or `MF_SIGN_IDENTITY`) signs each Mach-O and then the bundle, with the hardened runtime, a timestamp and the .NET entitlements (JIT, unsigned executable memory, library validation off). `--notarize <profile>` (or `MF_NOTARY_PROFILE`, from `xcrun notarytool store-credentials`) then submits, staples and re-zips |
+| `win-*` | `<exe>-<version>-<rid>.zip` | the desktop project's `ApplicationIcon`, else the exe icon from the PNG (`magick` → `.ico` → `ApplicationIcon`) |
 | `linux-*` | `<exe>-<version>-<rid>.tar.gz` | also the dedicated server (`<exe> --headless ++ …`, ADR 0120) |
 
 Defaults: name and version from `project.mfproj`, the exe from the name without spaces, the icon from `window.icon`.
