@@ -379,13 +379,23 @@ internal sealed class MaterialGpu
     /// <summary>Shadow casters run the foliage wind (<see cref="FoliageMaterial3D"/>).</summary>
     public bool FoliageCaster => ColorShaders == ShaderSetId.MeshFoliage;
 
-    // [shader set × extra pass × mirrored × vertex streams] → pipeline; reset when the state changes.
-    public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 8];
+    // [shader set × extra pass × mirrored × vertex streams × prepassed] → pipeline; reset when the state changes.
+    public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 16];
 
-    public const int ShaderSetCount = 6;
+    public const int ShaderSetCount = 8;
 
-    public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false) =>
-        (((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0);
+    public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false, bool prepassed = false) =>
+        ((((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0)) * 2 + (prepassed ? 1 : 0);
+
+    /// <summary>
+    /// The depth prepass draws this material's opaque and cutout surfaces (ADR 0163): lit, unshaded, foliage and terrain
+    /// splat materials. Outlines (an inverted hull) and water draw only in the scene pass.
+    /// </summary>
+    public bool Prepassable => !State.IsTransparent &&
+                               ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshFoliage or ShaderSetId.MeshTerrainSplat;
+
+    /// <summary>The prepass shader set of a <see cref="Prepassable"/> material.</summary>
+    public ShaderSetId DepthShaders => ColorShaders == ShaderSetId.MeshFoliage ? ShaderSetId.MeshDepthFoliage : ShaderSetId.MeshDepth;
 
     public void ResetPipelines() => Array.Clear(Pipelines);
 }

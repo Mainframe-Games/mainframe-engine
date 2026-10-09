@@ -55,9 +55,10 @@ public readonly record struct LightShaftsSun(Vector2 ScreenUv, float Fade)
 /// </list>
 /// The post tonemap pass samples <see cref="OutputView"/> (bilinear) and adds it, × intensity × fade, to the scene before
 /// exposure, alongside glow. Every image is cleared once after creation, so the tonemap can bind the output on frames
-/// that draw no shafts. Allocates nothing per frame.
+/// that draw no shafts. A <see cref="PostStage.BeforeTonemap"/> effect (ADR 0163) after glow, enabled with the post tonemap
+/// pass and <see cref="PostProcessSettings.LightShaftsEnabled"/>. Allocates nothing per frame.
 /// </summary>
-internal sealed unsafe class LightShafts : IDisposable
+internal sealed unsafe class LightShafts() : PostEffect("light shafts", PostStage.BeforeTonemap, PostEffectOrder.LightShafts)
 {
     private const Format ShaftFormat = Format.R16G16B16A16Sfloat;
 
@@ -67,25 +68,33 @@ internal sealed unsafe class LightShafts : IDisposable
     /// <summary>Brightest luminance a sky texel contributes (scene radiance): the sun disc would otherwise dominate.</summary>
     public const float LuminanceCap = 8f;
 
-    private readonly IVulkanContext _ctx;
-    private readonly RenderTarget _mask;
-    private readonly RenderTarget _fine;
-    private readonly RenderTarget _coarse;
-    private readonly Sampler _pointSampler;
-    private readonly Sampler _blurSampler;
-    private readonly DescriptorSetLayout _setLayout;
-    private readonly DescriptorPool _pool;
-    private readonly DescriptorSet _maskSet;   // 0: scene colour, 1: scene depth
-    private readonly DescriptorSet _fineSet;   // 0: mask
-    private readonly DescriptorSet _coarseSet; // 0: fine
-    private readonly PipelineLayout _layout;
-    private readonly Pipeline _maskPipeline;
-    private readonly Pipeline _blurPipeline;
+    private IVulkanContext _ctx = null!;
+    private RenderTarget _mask = null!;
+    private RenderTarget _fine = null!;
+    private RenderTarget _coarse = null!;
+    private Sampler _pointSampler;
+    private Sampler _blurSampler;
+    private DescriptorSetLayout _setLayout;
+    private DescriptorPool _pool;
+    private DescriptorSet _maskSet;   // 0: scene colour, 1: scene depth
+    private DescriptorSet _fineSet;   // 0: mask
+    private DescriptorSet _coarseSet; // 0: fine
+    private PipelineLayout _layout;
+    private Pipeline _maskPipeline;
+    private Pipeline _blurPipeline;
     private bool _needsClear = true;
-    private bool _disposed;
 
-    public LightShafts(IVulkanContext ctx, Extent2D sceneExtent, ImageView sceneView, ImageView depthView)
+    public override bool IsEnabled(in PostEffectSettings settings) => settings.PostTonemap && settings.World.LightShaftsEnabled;
+
+    /// <summary>The frame whose shafts <see cref="OutputView"/> holds (the tonemap adds them only then; 0: never drawn).</summary>
+    public ulong DrawnFrame { get; private set; }
+
+    protected override void OnCreate(PostEffectContext context)
     {
+        var ctx = context.Vulkan;
+        var sceneExtent = context.Scene.Extent;
+        var sceneView = context.Scene.Color;
+        var depthView = context.Scene.Depth;
         _ctx = ctx;
         var size = TargetExtent(sceneExtent);
         _mask = new RenderTarget(ctx, new RenderTargetDesc("light shafts mask", [RenderTargetAttachment.Sampled(ShaftFormat)], null), size);
@@ -143,23 +152,28 @@ internal sealed unsafe class LightShafts : IDisposable
     public static Extent2D TargetExtent(Extent2D scene) => new(Math.Max(1u, scene.Width / 2), Math.Max(1u, scene.Height / 2));
 
     /// <summary>After a swapchain resize (device idle): resized targets, rewritten sets; they are cleared again.</summary>
-    public void Resize(Extent2D sceneExtent, ImageView sceneView, ImageView depthView)
+    protected override void OnResize(PostEffectContext context)
     {
-        var size = TargetExtent(sceneExtent);
+        var size = TargetExtent(context.Scene.Extent);
         _mask.Resize(size);
         _fine.Resize(size);
         _coarse.Resize(size);
-        WriteSets(sceneView, depthView);
+        WriteSets(context.Scene.Color, context.Scene.Depth);
         _needsClear = true;
+    }
+
+    protected override void OnRecord(PostEffectContext context)
+    {
+        if (Record(context.CommandBuffer, context.Settings.World, context.Vulkan.LightShaftsSun))
+            DrawnFrame = context.FrameNumber;
     }
 
     /// <summary>
     /// Records the mask and the two blur passes for <paramref name="settings"/> and <paramref name="sun"/>. Returns false
     /// when nothing was drawn this frame (shafts off, or the sun out of reach): the tonemap must then add nothing.
     /// </summary>
-    public bool Record(CommandBuffer cb, in PostProcessSettings settings, in LightShaftsSun sun)
+    private bool Record(CommandBuffer cb, in PostProcessSettings settings, in LightShaftsSun sun)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_needsClear)
         {
             // The tonemap binds the output every frame: it must hold defined data in shader-read layout.
@@ -222,11 +236,8 @@ internal sealed unsafe class LightShafts : IDisposable
         new() { Sampler = sampler, ImageView = view, ImageLayout = layout };
 
     /// <summary>Destroys everything (the caller has waited for the device to be idle).</summary>
-    public void Dispose()
+    protected override void OnDispose()
     {
-        if (_disposed)
-            return;
-        _disposed = true;
         var vk = _ctx.Vk;
         vk.DestroyPipeline(_ctx.Device, _maskPipeline, null);
         vk.DestroyPipeline(_ctx.Device, _blurPipeline, null);

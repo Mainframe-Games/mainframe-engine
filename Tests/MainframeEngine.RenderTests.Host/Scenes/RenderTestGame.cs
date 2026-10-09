@@ -63,6 +63,14 @@ public abstract class RenderTestGame : Engine
     {
         base.OnLoad();
         Renderer.SetClearColor(0.1f, 0.1f, 0.1f);
+        if (Servers.Render is { } render)
+        {
+            render.ForceDepthPrepass |= _host.Prepass;
+            render.ForceProjectionJitter = _host.Jitter;
+            if (_host.VelocityView)
+                render.DebugView = RenderDebugView.Velocity;
+        }
+
         if (_host.UpdateRate > 0)
         {
             // Renders run unthrottled, updates at UpdateRate: the UI renderer sees renders without a new update.

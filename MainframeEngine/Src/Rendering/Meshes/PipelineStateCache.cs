@@ -31,6 +31,16 @@ public enum ShaderSetId : byte
     /// set 2 layout and pipeline layout (ADR 0156).
     /// </summary>
     MeshTerrainSplat,
+
+    /// <summary>
+    /// The depth prepass (ADR 0163) of lit, unshaded and terrain surfaces: <c>Mesh/MeshDepth.vk.vert</c> (or
+    /// <c>MeshDepthExt.vk.vert</c> with vertex streams) + <c>Mesh/MeshDepth.vk.frag</c> (velocity, cutout alpha test)
+    /// into the prepass render pass; previous model matrices at binding 3.
+    /// </summary>
+    MeshDepth,
+
+    /// <summary>The depth prepass of <see cref="FoliageMaterial3D"/>: <c>Foliage/FoliageDepth.vk.vert</c> (wind now and a frame ago) + <c>Mesh/MeshDepth.vk.frag</c>.</summary>
+    MeshDepthFoliage,
 }
 
 /// <summary>
@@ -46,6 +56,10 @@ public enum ShaderSetId : byte
 /// <param name="DepthWrite">Depth writes (off for blended surfaces).</param>
 /// <param name="RenderPass">The render pass (or a compatible one) the pipeline is used in.</param>
 /// <param name="ExtraPass">A next pass or overlay draw: depth test less-or-equal, so it lands on the surface drawn before.</param>
+/// <param name="Prepassed">
+/// A colour draw of a surface the depth prepass already drew (ADR 0163): no depth writes, depth test less-or-equal, and
+/// cutouts test EQUAL without their <c>discard</c> (the prepass kept only what passed the alpha test).
+/// </param>
 public readonly record struct PipelineKey(
     ShaderSetId Shaders,
     VertexLayoutId VertexLayout,
@@ -54,7 +68,8 @@ public readonly record struct PipelineKey(
     bool Mirrored,
     bool DepthWrite,
     ulong RenderPass,
-    bool ExtraPass = false)
+    bool ExtraPass = false,
+    bool Prepassed = false)
 {
     /// <summary>
     /// The key for drawing a material's surfaces with <paramref name="shaders"/> into <paramref name="renderPass"/>.
@@ -66,10 +81,10 @@ public readonly record struct PipelineKey(
     /// (<see cref="VertexLayoutId.MeshInstancedExt"/>); foliage always does, the object-ID shaders never read it.
     /// </remarks>
     public static PipelineKey ForMaterial(ShaderSetId shaders, in MaterialRenderState state, bool mirrored, RenderPass renderPass,
-        bool extraPass = false, bool streams = false)
+        bool extraPass = false, bool streams = false, bool prepassed = false)
     {
         var alpha = state.Alpha;
-        var depthWrite = state.DepthWrite;
+        var depthWrite = state.DepthWrite && !prepassed;
         if (shaders == ShaderSetId.MeshObjectId)
         {
             if (alpha == AlphaMode.Blend)
@@ -79,12 +94,15 @@ public readonly record struct PipelineKey(
 
         var layout = shaders switch
         {
-            ShaderSetId.MeshFoliage or ShaderSetId.MeshWater => VertexLayoutId.MeshInstancedExt,
-            ShaderSetId.MeshLit when streams => VertexLayoutId.MeshInstancedExt,
+            ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshDepthFoliage => VertexLayoutId.MeshInstancedExt,
+            ShaderSetId.MeshLit or ShaderSetId.MeshDepth when streams => VertexLayoutId.MeshInstancedExt,
             _ => VertexLayoutId.MeshInstanced,
         };
-        return new PipelineKey(shaders, layout, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle, extraPass);
+        return new PipelineKey(shaders, layout, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle, extraPass, prepassed);
     }
+
+    /// <summary>True for the depth prepass's shader sets (ADR 0163).</summary>
+    public bool IsDepthPrepass => Shaders is ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage;
 }
 
 /// <summary>A cached pipeline and its small dense id (used in draw sort keys).</summary>

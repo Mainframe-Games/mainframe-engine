@@ -42,7 +42,7 @@ public sealed record RenderTargetDesc(
 /// or copy can read <see cref="GetColor"/> directly. The renderer's HDR scene target is one of these
 /// (<see cref="IVulkanContext.SceneTarget"/>).
 /// </remarks>
-public sealed unsafe class RenderTarget : IDisposable
+public sealed unsafe class RenderTarget : IDisposable, IPostTarget
 {
     private readonly IVulkanContext _ctx;
     private readonly GpuImage[] _colors;
@@ -97,7 +97,14 @@ public sealed unsafe class RenderTarget : IDisposable
     /// Begins the render pass. <paramref name="clearValues"/> holds one value per colour attachment then one for
     /// depth (missing entries clear to zero / depth 1).
     /// </summary>
-    public void Begin(CommandBuffer cb, ReadOnlySpan<ClearValue> clearValues)
+    public void Begin(CommandBuffer cb, ReadOnlySpan<ClearValue> clearValues) => Begin(cb, clearValues, RenderPass);
+
+    /// <summary>
+    /// <see cref="Begin(CommandBuffer, ReadOnlySpan{ClearValue})"/> with <paramref name="compatiblePass"/>, a render pass
+    /// compatible with <see cref="RenderPass"/> (same attachments; other load ops or layouts): the scene pass after a depth
+    /// prepass loads the depth instead of clearing it (ADR 0163).
+    /// </summary>
+    internal void Begin(CommandBuffer cb, ReadOnlySpan<ClearValue> clearValues, RenderPass compatiblePass)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var count = _colors.Length + (_depth is null ? 0 : 1);
@@ -112,7 +119,7 @@ public sealed unsafe class RenderTarget : IDisposable
         var info = new RenderPassBeginInfo
         {
             SType = StructureType.RenderPassBeginInfo,
-            RenderPass = RenderPass,
+            RenderPass = compatiblePass,
             Framebuffer = _framebuffer,
             RenderArea = new Rect2D { Extent = Extent },
             ClearValueCount = (uint)count,

@@ -526,6 +526,12 @@ wet rock and mud use roughness and IBL, and reflection probes stay a non-goal.
 
 #### What waits on M11
 
+> **Superseded for TAA (2026-10-09, [ADR 0163](../../../memory/decisions/0163-post-processing-stages-prepass-motion-vectors.md)).**
+> Brogan asked for SSAO and TAA now, ahead of M11 step 1; the engine stays Vulkan-only for now. The foundation is
+> built: the depth prepass with an `R16G16_SFLOAT` velocity attachment (camera, per-node previous model matrices,
+> foliage wind at both times, the sky), the Halton (2, 3) jitter, ping-pong histories and the post stages
+> ([Post-processing](../post-processing.md)). The table below is the plan as it was; G8d.7 and G8d.8 no longer wait.
+
 | Phase | Vulkan now | After M11 step 1 | Why |
 |---|---|---|---|
 | G8d.1 sky, G8d.2 fog, G8d.3 auto exposure, G8d.4 LUT + FXAA | ✓ | | fullscreen passes in the `GlowEffect` pattern, or shader code in existing passes |

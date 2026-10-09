@@ -7,37 +7,42 @@ namespace MainframeEngine;
 /// (<c>AutoExposureLuminance</c>, 16 taps per texel), reduced by 4 × 4 means to 16², 4² and 1 × 1
 /// (<c>AutoExposureReduce</c>), then the adapted luminance (<c>AutoExposureAdapt</c>: clamped, approached from last
 /// frame's value) into a 1 × 1 <c>R32_SFLOAT</c> image that the tonemap and the glow's first level read; a last pass
-/// copies it into the "previous" image for the next frame. Recorded between the scene pass and the tonemap, with no render
-/// pass active; allocates nothing per frame. Nothing is blended, so no format needs blending support.
+/// copies it into the "previous" image for the next frame. A <see cref="PostStage.BeforeTonemap"/> effect (ADR 0163),
+/// enabled whenever the post tonemap pass runs (it binds the adapted luminance even with auto exposure off); allocates
+/// nothing per frame. Nothing is blended, so no format needs blending support.
 /// </summary>
-internal sealed unsafe class AutoExposure : IDisposable
+internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostStage.BeforeTonemap, PostEffectOrder.AutoExposure)
 {
     public const int LuminanceSize = 64;
     private const int ReduceLevels = 3; // 16, 4, 1
     private const Format LogFormat = Format.R16Sfloat;
     private const Format AdaptedFormat = Format.R32Sfloat;
 
-    private readonly IVulkanContext _ctx;
+    private IVulkanContext _ctx = null!;
     private readonly RenderTarget[] _levels = new RenderTarget[1 + ReduceLevels]; // 64², 16², 4², 1² (log2 luminance)
-    private readonly RenderTarget _adapted;  // what the tonemap reads
-    private readonly RenderTarget _previous; // last frame's _adapted
-    private readonly Sampler _sampler;
-    private readonly DescriptorSetLayout _setLayout;
-    private readonly DescriptorPool _pool;
+    private RenderTarget _adapted = null!;  // what the tonemap reads
+    private RenderTarget _previous = null!; // last frame's _adapted
+    private Sampler _sampler;
+    private DescriptorSetLayout _setLayout;
+    private DescriptorPool _pool;
     private readonly DescriptorSet[] _levelSets = new DescriptorSet[1 + ReduceLevels]; // source of level k (0: the scene)
-    private readonly DescriptorSet _adaptSet; // 0: the 1 × 1 mean, 1: previous
-    private readonly DescriptorSet _copySet;  // 0: adapted
-    private readonly PipelineLayout _layout;
-    private readonly Pipeline _luminancePipeline;
-    private readonly Pipeline _reducePipeline;
-    private readonly Pipeline _adaptPipeline;
-    private readonly Pipeline _copyPipeline;
+    private DescriptorSet _adaptSet; // 0: the 1 × 1 mean, 1: previous
+    private DescriptorSet _copySet;  // 0: adapted
+    private PipelineLayout _layout;
+    private Pipeline _luminancePipeline;
+    private Pipeline _reducePipeline;
+    private Pipeline _adaptPipeline;
+    private Pipeline _copyPipeline;
     private bool _needsClear = true;
     private bool _wasEnabled;
-    private bool _disposed;
 
-    public AutoExposure(IVulkanContext ctx, ImageView sceneView)
+    /// <summary>Runs whenever the post tonemap pass does: the tonemap and glow bind its adapted luminance either way.</summary>
+    public override bool IsEnabled(in PostEffectSettings settings) => settings.PostTonemap;
+
+    protected override void OnCreate(PostEffectContext context)
     {
+        var ctx = context.Vulkan;
+        var sceneView = context.Scene.Color;
         _ctx = ctx;
         var size = (uint)LuminanceSize;
         for (var k = 0; k < _levels.Length; k++, size /= 4)
@@ -97,15 +102,17 @@ internal sealed unsafe class AutoExposure : IDisposable
     };
 
     /// <summary>After a swapchain resize (device idle): the first pass reads the new scene image.</summary>
-    public void Resize(ImageView sceneView) => WriteSceneSet(sceneView);
+    protected override void OnResize(PostEffectContext context) => WriteSceneSet(context.Scene.Color);
+
+    protected override void OnRecord(PostEffectContext context) =>
+        Record(context.CommandBuffer, context.Settings.World, context.DeltaTime);
 
     /// <summary>
     /// Measures and adapts when <paramref name="settings"/> enable auto exposure; the first frame after it is enabled
     /// snaps to the measured value. The first call also clears every image so the tonemap can always bind them.
     /// </summary>
-    public void Record(CommandBuffer cb, in PostProcessSettings settings, float deltaTime)
+    private void Record(CommandBuffer cb, in PostProcessSettings settings, float deltaTime)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_needsClear)
         {
             foreach (var level in _levels)
@@ -167,11 +174,8 @@ internal sealed unsafe class AutoExposure : IDisposable
     }
 
     /// <summary>Destroys everything (the caller has waited for the device to be idle).</summary>
-    public void Dispose()
+    protected override void OnDispose()
     {
-        if (_disposed)
-            return;
-        _disposed = true;
         var vk = _ctx.Vk;
         vk.DestroyPipeline(_ctx.Device, _luminancePipeline, null);
         vk.DestroyPipeline(_ctx.Device, _reducePipeline, null);

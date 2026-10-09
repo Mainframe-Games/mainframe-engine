@@ -297,6 +297,9 @@ them in reverse order after the tree is freed.
   (`ShadowSystem.RenderShadows<TState>` with static lambdas): batched mesh casters as instanced draws, other
   visuals through `DrawShadow2D`/`DrawShadowPoint`.
 - `RenderOffscreen(root)` (M3) — `SubViewport`s and object-ID picking passes, before the main pass.
+- `RenderPrepass(root)` (ADR 0163) — the main view's depth prepass and motion vectors, and the post effects that run
+  on them (SSAO), when an enabled effect needs them or `ForceDepthPrepass` is set
+  ([Post-processing](post-processing.md)); `DebugView` shows the motion vectors.
 - `RenderMain(viewport)` — writes the frame's shared set 0 (`IVulkanContext.Frame.Begin(camera, World3D.Lights)`:
   camera + lights, once per frame), then the `WorldEnvironment`'s sky, visuals with a negative `RenderPriority`,
   the opaque mesh batches, the other visuals by `RenderPriority` then tree-entry order, and the transparent mesh

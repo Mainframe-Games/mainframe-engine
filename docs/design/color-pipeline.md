@@ -14,6 +14,11 @@ tonemapping so it looks exactly as authored. Implemented in
 Before M3 the swapchain was UNORM, lighting ran on gamma-encoded values (overlapping lights clipped to
 white), sky textures were sRGB and came out darker, and Spine's premultiplied alpha was applied twice.
 
+Since ADR 0163 the effects around the tonemap are `PostEffect`s in stages (`BeforeTonemap`: auto exposure, glow, light
+shafts, later TAA; `AfterTonemap`: FXAA), recorded by the main view's `PostProcessStack`, and a depth prepass with motion
+vectors can run before the scene pass: see [Post-processing](post-processing.md). The colour handling below is
+unchanged by it.
+
 ## Frame
 
 ```mermaid
@@ -27,9 +32,9 @@ flowchart LR
 
 | Step | Who | Detail |
 |---|---|---|
-| `BeginRenderPass()` | Engine, after the shadow pass | Begins the scene target pass; clears colour to `SetClearColor` **converted to linear**, depth to 1 (the depth is stored for light shafts, ADR 0160) |
+| `BeginRenderPass()` | Engine, after the shadow pass (and the depth prepass, when one ran) | Begins the scene target pass; clears colour to `SetClearColor` **converted to linear**, depth to 1 (the depth is stored for light shafts, ADR 0160), or, after a prepass (ADR 0163), loads the prepass depth |
 | scene draws | `RenderServer.RenderMain` (the scene tree), then game `OnRenderMainPass` | Pipelines built against `IVulkanContext.RenderPass` (the scene pass) write linear HDR colour |
-| `BeginOverlayPass()` | `EndFrame` | Ends the scene pass; begins the swapchain pass; draws the fullscreen tonemap triangle; leaves the pass open for the overlay |
+| `BeginOverlayPass()` | `EndFrame` | Ends the scene pass; records the `BeforeTonemap` effects; begins the swapchain pass (or the `AfterTonemap` stage's LDR image); draws the fullscreen tonemap triangle; records the `AfterTonemap` effects, the last of which draws into the swapchain pass; leaves the pass open for the overlay |
 | overlay draws | canvas, `ScreenGizmos`, UI layers, dev overlay (`OverlayOrder`) | Pipelines built against `IVulkanContext.OverlayRenderPass` |
 | `EndFrame()` | Engine | Runs whatever step is missing (a frame always ends tonemapped and presentable), ends the pass, optional frame capture |
 
@@ -136,8 +141,8 @@ target will be another.
   over the floor can show the sky behind it where the coplanar z-fight goes the line's way — a pre-existing
   ordering artefact.
 - No HDR display output.
-- SubViewports always use the engine curve without glow, auto exposure, light shafts or FXAA (ADR 0124, ADR 0154,
-  ADR 0160).
+- SubViewports always use the engine curve without glow, auto exposure, light shafts, FXAA or any other post effect
+  (ADR 0124, ADR 0154, ADR 0160, ADR 0163).
 
 ## Godot tonemap and glow (ADR 0124)
 
@@ -175,12 +180,14 @@ passes later without changing the tonemap side).
 ## FXAA (ADR 0154)
 
 `AntiAliasing { None, Fxaa }` — `rendering.antiAliasing` in `project.mfproj` (`GameHost` applies it),
-`EngineOptions.AntiAliasing`, or `IVulkanContext.AntiAliasing` at runtime; default `None`. With `Fxaa` the tonemap pass
-(either pipeline, a copy built against the FXAA input's render pass) writes sRGB-encoded values into an
-`R8G8B8A8_UNORM` image of the swapchain's size ([`FxaaPass`](../../MainframeEngine/Src/Rendering/Post/FxaaPass.cs)); the
+`EngineOptions.AntiAliasing`, or `IVulkanContext.AntiAliasing` at runtime; default `None`. FXAA is an `AfterTonemap`
+effect ([`FxaaEffect`](../../MainframeEngine/Src/Rendering/Post/FxaaEffect.cs), ADR 0163): with it the tonemap pass
+(either pipeline, a copy built against the LDR image's render pass) writes sRGB-encoded values into an
+`R8G8B8A8_UNORM` image of the swapchain's size (the stage's first LDR image, owned by the renderer); the
 present pass then draws `Post/Fxaa.vk.frag` (FXAA 3.11, PC quality preset 12, luma computed from the encoded colour) and
 the overlay renderers follow in the same pass, so the 2D canvas, gizmos, UI and dev overlay are never filtered. On an
-sRGB swapchain view the FXAA shader decodes before writing (the view encodes again). TAA (G8d.8) is not built.
+sRGB swapchain view the FXAA shader decodes before writing (the view encodes again). TAA (G8d.8) is not built yet; its
+foundation (the prepass, motion vectors, jitter, histories) is ADR 0163.
 
 ## Light shafts (ADR 0160)
 
@@ -212,8 +219,9 @@ the shafts off, no shaft pass is recorded and the tonemap adds nothing.
 **Depth:** the scene pass stores its depth (`RenderTargetDesc.SampleDepth`, final layout
 `DEPTH_STENCIL_READ_ONLY_OPTIMAL`; `RenderTarget.End` adds the depth to its barrier) every frame. Storing measured
 ≤ 0.02 ms of the scene pass at 2560 × 1440 on an Apple M5 (MoltenVK; timestamps around the pass, three scenes,
-600-frame averages), so it is not switched with the setting. No depth prepass is needed. Transparent surfaces that do
-not write depth count as sky.
+600-frame averages), so it is not switched with the setting. No depth prepass is needed (with one, ADR 0163, the
+scene pass loads and keeps the prepass depth in the same image). Transparent surfaces that do not write depth count as
+sky.
 
 Created the first frame that enables them (three ½-res `R16G16B16A16_SFLOAT` targets, ≈ 21 MiB at 1440p); the post set
 binds the glow's smallest level as a placeholder until then, and a second post set binds the shafts, so no descriptor
@@ -221,6 +229,6 @@ set in flight is rewritten. Colour grading (`ColorGradingLut`, G8d.4's other hal
 
 ## Related docs
 
-[Vulkan renderer](vulkan-renderer.md) · [GPU resources](gpu-resources.md) · [Shaders](shaders.md) ·
+[Post-processing](post-processing.md) · [Vulkan renderer](vulkan-renderer.md) · [GPU resources](gpu-resources.md) · [Shaders](shaders.md) ·
 [Coordinate conventions](coordinate-conventions.md#color-space) · [Spine](spine.md) · [Sky](sky.md) ·
 [Lighting](lighting.md)

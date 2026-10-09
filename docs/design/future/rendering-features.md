@@ -516,6 +516,12 @@ question.
 
 ### Vulkan now or after M11
 
+> **Superseded for SSAO (2026-10-09, [ADR 0163](../../../memory/decisions/0163-post-processing-stages-prepass-motion-vectors.md)).**
+> Brogan asked for SSAO and TAA now, ahead of M11; the engine stays Vulkan-only for now. The depth prepass (shared with
+> TAA and water), the post-processing stages SSAO plugs into (`AfterPrepass`), and its set 0 binding 5 (`ssaoTexture`,
+> a white 1×1 fallback) are built: see [Post-processing](../post-processing.md). The prepass reuse this section left
+> open is decided too: the scene pass loads the prepass depth (LESS_OR_EQUAL; cutouts EQUAL without `discard`).
+
 **Recommendation:** build PBR, IBL, 3D particles, LOD and decals (G6.1–G6.5) on Vulkan now. Build SSAO (G6.6) only
 after **M11 step 1**, the `IGpuDevice`/encoder interfaces with the Vulkan wrapper
 ([migration order](rendering-backend-abstraction.md#migration-order)). The WebGPU backend does not need to exist.

@@ -19,12 +19,12 @@ namespace MainframeEngine;
 /// tonemap, begin overlay) → <see cref="EndFrame"/>, which runs whatever is missing so a frame always ends
 /// presentable.</para>
 /// </remarks>
-internal sealed unsafe partial class VulkanRenderer
+internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOutput
 {
     /// <summary>Format of the HDR scene colour target.</summary>
     public const Format SceneColorFormat = Format.R16G16B16A16Sfloat;
 
-    private enum PassState : byte { None, Scene, Overlay }
+    private enum PassState : byte { None, Prepass, Scene, Overlay }
 
     /// <summary>How the swapchain gets sRGB-encoded pixels; see the type remarks.</summary>
     internal enum SwapchainEncoding : byte
@@ -76,20 +76,36 @@ internal sealed unsafe partial class VulkanRenderer
     private PipelineLayout _tonemapLayout;
     private Pipeline _tonemapPipeline;
 
+    // ADR 0163: the main view's post effects, in stages. The built-ins: auto exposure (ADR 0154), glow (ADR 0124) and
+    // light shafts (ADR 0160) before the tonemap, which composites them; FXAA (ADR 0154) and the velocity view after it.
+    private readonly PostProcessStack _post = new();
+    private readonly AutoExposure _autoExposure = new();
+    private readonly GlowEffect _glow;
+    private readonly LightShafts _lightShafts = new();
+    private PostTargetPool<RenderTarget>? _postTargets;
+    private PostEffectContext? _postContext;
+    private Sampler _postLinearSampler;
+    private ICamera? _mainCamera;
+    private ulong _mainCameraFrame;
+
+    // ADR 0163: the depth prepass (created when an effect first needs it) and the HDR write-back.
+    private ScenePrepass? _prepass;
+    private ulong _prepassFrame; // the frame whose scene pass loads the prepass depth
+    private SceneColorCopy? _colorCopy;
+
     // ADR 0124: the tonemap pass for non-default PostProcessSettings (Godot's tonemap, glow), created on first use.
-    private GlowEffect? _glow;
     private DescriptorSetLayout _postSetLayout;
     private DescriptorPool _postPool;
     private DescriptorSet _postSet;
     private PipelineLayout _postLayout;
     private Pipeline _postPipeline;
-    private AutoExposure? _autoExposure; // ADR 0154: created with the post pass
-    private LightShafts? _lightShafts;   // ADR 0160: created the first frame that enables them
     private DescriptorSet _postShaftsSet; // _postSet with binding 3 = the shafts (_postSet binds a placeholder there)
 
-    // ADR 0154: FXAA. The tonemap pipelines above draw into the swapchain; these into FxaaPass's intermediate.
+    // The AfterTonemap stage (ADR 0154 FXAA, ADR 0163): the tonemap pipelines above draw into the swapchain; these into
+    // the LDR ping-pong the stage's effects read, the last of which draws into the swapchain.
     private AntiAliasing _antiAliasing;
-    private FxaaPass? _fxaa;
+    private readonly RenderTarget?[] _ldr = new RenderTarget?[2];
+    private int _ldrWrite; // the LDR target an AfterTonemap effect that is not the last writes
     private Pipeline _tonemapLdrPipeline;
     private Pipeline _postLdrPipeline;
 
@@ -158,6 +174,7 @@ internal sealed unsafe partial class VulkanRenderer
         _sceneTarget = new RenderTarget(this,
             new RenderTargetDesc("scene", [RenderTargetAttachment.Sampled(SceneColorFormat)], _depthFormat, SampleDepth: true), _swapChainExtent);
         CreateTonemap();
+        CreatePostContext();
         Log.Info($"[Vulkan] Colour pipeline: HDR {SceneColorFormat} -> tonemap -> {_swapChainImageFormat} ({_encoding}).");
     }
 
@@ -169,17 +186,193 @@ internal sealed unsafe partial class VulkanRenderer
         if (_sceneTarget!.Resize(_swapChainExtent))
         {
             WriteTonemapSet();
-            if (_glow is not null)
-            {
-                _glow.Resize(_swapChainExtent, _sceneTarget.GetColor(0).View);
-                _autoExposure!.Resize(_sceneTarget.GetColor(0).View);
-                _lightShafts?.Resize(_swapChainExtent, _sceneTarget.GetColor(0).View, _sceneTarget.Depth!.View);
+            _prepass?.Resize(_sceneTarget);
+            _colorCopy?.Resize(_sceneTarget);
+            _postTargets!.Resize(_swapChainExtent);
+            foreach (var ldr in _ldr)
+                ldr?.Resize(_swapChainExtent);
+            var context = _postContext!;
+            context.Scene.Generation++;
+            UpdateSceneTextures(context);
+            Frame.ResetHistory(); // a resized view has no motion history
+            _post.Resize(context);
+            if (_postSetLayout.Handle != 0)
                 WritePostSet();
-            }
+        }
+    }
+
+    // The built-in post effects (ADR 0163), registered once; each is created the first frame it is enabled.
+    private void RegisterPostEffects()
+    {
+        _post.Add(_autoExposure);
+        _post.Add(_glow);
+        _post.Add(_lightShafts);
+        _post.Add(new FxaaEffect());
+        _post.Add(new VelocityDebugView());
+    }
+
+    private void CreatePostContext()
+    {
+        var samplerInfo = new SamplerCreateInfo
+        {
+            SType = StructureType.SamplerCreateInfo,
+            MagFilter = Filter.Linear,
+            MinFilter = Filter.Linear,
+            MipmapMode = SamplerMipmapMode.Nearest,
+            AddressModeU = SamplerAddressMode.ClampToEdge,
+            AddressModeV = SamplerAddressMode.ClampToEdge,
+            AddressModeW = SamplerAddressMode.ClampToEdge,
+        };
+        _vk!.CreateSampler(_device, in samplerInfo, null, out _postLinearSampler).Check("vkCreateSampler (post linear)");
+        _postTargets = new PostTargetPool<RenderTarget>(CreatePostTarget, _swapChainExtent);
+        _postContext = new PostEffectContext(this, _postTargets, this);
+        UpdateSceneTextures(_postContext);
+    }
+
+    private RenderTarget CreatePostTarget(PostTargetDesc desc, Extent2D extent) =>
+        new(this, new RenderTargetDesc(desc.Name, [RenderTargetAttachment.Sampled(desc.Format)], null), extent);
+
+    // The scene images the effects see (views change on resize; velocity exists only on frames with a prepass).
+    private void UpdateSceneTextures(PostEffectContext context)
+    {
+        var scene = context.Scene;
+        scene.Extent = _swapChainExtent;
+        scene.Color = _sceneTarget!.GetColor(0).View;
+        scene.Depth = _sceneTarget.Depth!.View;
+        scene.DepthFormat = _sceneTarget.Depth.Format;
+        scene.PointSampler = _tonemapSampler;
+        scene.LinearSampler = _postLinearSampler;
+        scene.HasPrepass = _prepass is not null && _prepassFrame == _frameNumber && _frameNumber != 0;
+        scene.Velocity = scene.HasPrepass ? _prepass!.VelocityView : default;
+    }
+
+    // Fills the context for a stage of this frame (no allocation).
+    private PostEffectContext PreparePostContext(CommandBuffer cb, float exposure)
+    {
+        var context = _postContext!;
+        context.CommandBuffer = cb;
+        context.Settings = PostSettings;
+        context.FrameNumber = _frameNumber;
+        context.DeltaTime = FrameDeltaTime;
+        context.Time = Frame.Time;
+        context.Exposure = exposure;
+        UpdateSceneTextures(context);
+
+        context.HasCamera = _mainCamera is not null && _mainCameraFrame == _frameNumber;
+        if (!context.HasCamera)
+        {
+            context.Camera = default;
+            return context;
         }
 
-        _fxaa?.Resize(_swapChainExtent);
+        var camera = _mainCamera!;
+        var view = camera.ViewMatrix;
+        var projection = camera.ProjectionMatrix;
+        ref readonly var history = ref Frame.History(0);
+        var current = history.Frame == _frameNumber;
+        var (near, far) = FrameData.ClipPlanes(projection);
+        context.Camera = new PostCamera(view, projection,
+            TemporalJitter.Apply(projection, current ? history.Jitter : default),
+            view * projection,
+            current ? history.PreviousViewProjection : view * projection,
+            current ? history.Jitter : default,
+            current ? history.PreviousJitter : default,
+            current && history.HistoryValid,
+            camera.Position, near, far);
+        return context;
     }
+
+    // The frame's exposure: the project's, or the Godot tonemap's.
+    private float FrameExposure => PostProcess.Tonemapper == Tonemapper.GodotAces ? PostProcess.TonemapExposure : _exposure;
+
+    // ── IPostProcessHost (ADR 0163) ───────────────────────────────────────────
+
+    public PostProcessStack PostEffects => _post;
+
+    public RenderDebugView DebugView
+    {
+        get;
+        set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown debug view.");
+    }
+
+    public PostEffectSettings PostSettings => new(PostProcess, _antiAliasing, DebugView);
+
+    public RenderPass PrepassRenderPass => (_prepass ??= new ScenePrepass(this, SceneTarget)).PrepassRenderPass;
+
+    public void SetMainCamera(ICamera? camera)
+    {
+        _mainCamera = camera;
+        _mainCameraFrame = _frameNumber;
+    }
+
+    public void BeginPostFrame(bool prepass)
+    {
+        if (!_frameStarted)
+            return;
+        if (prepass)
+            _prepass ??= new ScenePrepass(this, SceneTarget);
+        Frame.ClearAmbientOcclusion(); // an SSAO effect binds its output again in OnBeginFrame
+        var context = PreparePostContext(_commandBuffers[_currentFrame], FrameExposure);
+        context.Scene.HasPrepass = prepass; // this frame's (the prepass has not run yet)
+        context.Scene.Velocity = prepass ? _prepass!.VelocityView : default;
+        _post.BeginFrame(context);
+    }
+
+    public void BeginPrepass()
+    {
+        if (!_frameStarted || _passState != PassState.None)
+            throw new InvalidOperationException("The depth prepass begins before the scene pass, with no render pass active.");
+        _prepass ??= new ScenePrepass(this, SceneTarget);
+        _prepass.Begin(_commandBuffers[_currentFrame]);
+        _passState = PassState.Prepass;
+    }
+
+    public void EndPrepass()
+    {
+        if (_passState != PassState.Prepass)
+            throw new InvalidOperationException("No depth prepass is open.");
+        _prepass!.End(_commandBuffers[_currentFrame]);
+        _prepassFrame = _frameNumber;
+        _passState = PassState.None;
+    }
+
+    public void RecordAfterPrepass()
+    {
+        if (!_frameStarted || _passState != PassState.None)
+            return;
+        _post.Record(PostStage.AfterPrepass, PreparePostContext(_commandBuffers[_currentFrame], FrameExposure));
+    }
+
+    // ── IPostOutput (ADR 0163) ────────────────────────────────────────────────
+
+    RenderPass IPostOutput.PresentPass => _presentPass;
+
+    bool IPostOutput.PresentEncodesSrgb => FormatInfo.IsSrgb(_swapChainImageFormat);
+
+    void IPostOutput.BeginPresentPass(CommandBuffer cb) => BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
+
+    RenderPass IPostOutput.LdrPass => EnsureLdr(0).RenderPass;
+
+    void IPostOutput.BeginLdrPass(CommandBuffer cb) => EnsureLdr(_ldrWrite).Begin(cb, default);
+
+    void IPostOutput.EndLdrPass(CommandBuffer cb)
+    {
+        var target = _ldr[_ldrWrite]!;
+        target.End(cb);
+        _postContext!.Scene.Ldr = target.GetColor(0).View;
+        _ldrWrite = 1 - _ldrWrite;
+    }
+
+    void IPostOutput.CopyToSceneColor(CommandBuffer cb, ImageView source)
+    {
+        _colorCopy ??= new SceneColorCopy(this, SceneTarget);
+        _colorCopy.Record(cb, SceneTarget, source);
+    }
+
+    // The AfterTonemap stage's LDR target <paramref name="index"/> (0: the tonemap's output), created on first use.
+    private RenderTarget EnsureLdr(int index) =>
+        _ldr[index] ??= new RenderTarget(this,
+            new RenderTargetDesc($"post ldr {index}", [RenderTargetAttachment.Sampled(SceneTextures.LdrFormat)], null), _swapChainExtent);
 
     private void CreateSwapchainViews()
     {
@@ -338,14 +531,11 @@ internal sealed unsafe partial class VulkanRenderer
         });
 
     /// <summary>
-    /// The post tonemap pass, the glow chain (ADR 0124) and auto exposure (ADR 0154), the first frame with non-default
-    /// settings.
+    /// The post tonemap pass (ADR 0124), the first frame with non-default settings, after the BeforeTonemap stage has
+    /// created auto exposure (ADR 0154) and the glow chain, whose images it binds.
     /// </summary>
     private void CreatePostTonemap()
     {
-        var sceneView = _sceneTarget!.GetColor(0).View;
-        _autoExposure = new AutoExposure(this, sceneView);
-        _glow = new GlowEffect(this, _swapChainExtent, sceneView, _autoExposure.AdaptedDescriptor);
         _postSetLayout = PipelineBuilder.CreateSetLayout(this,
         [
             new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
@@ -370,17 +560,17 @@ internal sealed unsafe partial class VulkanRenderer
         // glow's smallest level, which exists with the post pass.
         WritePostSet(_postSet, new DescriptorImageInfo
         {
-            Sampler = _glow!.Sampler,
+            Sampler = _glow.Sampler,
             ImageView = _glow.LevelView(GlowEffect.LevelCount - 1),
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
         });
-        if (_lightShafts is not null)
+        if (_postShaftsSet.Handle != 0)
             WritePostSet(_postShaftsSet, LightShaftsDescriptor);
     }
 
     private DescriptorImageInfo LightShaftsDescriptor => new()
     {
-        Sampler = _lightShafts!.Sampler,
+        Sampler = _lightShafts.Sampler,
         ImageView = _lightShafts.OutputView,
         ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
     };
@@ -395,7 +585,7 @@ internal sealed unsafe partial class VulkanRenderer
         });
         var levels = stackalloc DescriptorImageInfo[GlowEffect.LevelCount];
         for (var k = 0; k < GlowEffect.LevelCount; k++)
-            levels[k] = new DescriptorImageInfo { Sampler = _glow!.Sampler, ImageView = _glow.LevelView(k), ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
+            levels[k] = new DescriptorImageInfo { Sampler = _glow.Sampler, ImageView = _glow.LevelView(k), ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
         var write = new WriteDescriptorSet
         {
             SType = StructureType.WriteDescriptorSet,
@@ -406,31 +596,30 @@ internal sealed unsafe partial class VulkanRenderer
             PImageInfo = levels,
         };
         _vk!.UpdateDescriptorSets(_device, 1, &write, 0, null);
-        PipelineBuilder.WriteImage(this, set, 2, _autoExposure!.AdaptedDescriptor);
+        PipelineBuilder.WriteImage(this, set, 2, _autoExposure.AdaptedDescriptor);
         PipelineBuilder.WriteImage(this, set, 3, shafts);
     }
 
-    /// <summary>Light shafts (ADR 0160) and the post set that binds them, the first frame that enables them.</summary>
-    private void CreateLightShafts()
+    /// <summary>The post set that binds the light shafts (ADR 0160), the first frame the effect exists.</summary>
+    private void CreateLightShaftsSet()
     {
-        _lightShafts = new LightShafts(this, _swapChainExtent, _sceneTarget!.GetColor(0).View, _sceneTarget.Depth!.View);
         _postShaftsSet = PipelineBuilder.AllocateSet(this, _postPool, _postSetLayout, "post tonemap (light shafts)");
         WritePostSet(_postShaftsSet, LightShaftsDescriptor);
     }
 
-    /// <summary>FXAA's intermediate and filter, and the tonemap pipelines that draw into it (ADR 0154), on first use.</summary>
-    private void EnsureFxaa(bool post)
+    /// <summary>
+    /// The AfterTonemap stage's first LDR target and the tonemap pipelines that draw into it (ADR 0154, ADR 0163), on first
+    /// use.
+    /// </summary>
+    private void EnsureLdrTonemap(bool post)
     {
-        if (_fxaa is null)
-        {
-            _fxaa = new FxaaPass(this, _swapChainExtent, _presentPass);
-            _tonemapLdrPipeline = PipelineBuilder.Create(this, new PipelineState(), _tonemapLayout, _fxaa.LdrRenderPass,
-                "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/Tonemap.vk.frag.spv", [], [], "tonemap (fxaa)");
-        }
-
+        var ldrPass = EnsureLdr(0).RenderPass;
+        if (_tonemapLdrPipeline.Handle == 0)
+            _tonemapLdrPipeline = PipelineBuilder.Create(this, new PipelineState(), _tonemapLayout, ldrPass,
+                "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/Tonemap.vk.frag.spv", [], [], "tonemap (ldr)");
         if (post && _postLdrPipeline.Handle == 0)
-            _postLdrPipeline = PipelineBuilder.Create(this, new PipelineState(), _postLayout, _fxaa.LdrRenderPass,
-                "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/TonemapPost.vk.frag.spv", [], [], "post tonemap (fxaa)");
+            _postLdrPipeline = PipelineBuilder.Create(this, new PipelineState(), _postLayout, ldrPass,
+                "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/TonemapPost.vk.frag.spv", [], [], "post tonemap (ldr)");
     }
 
     // TonemapPost.vk.frag's push block (std430).
@@ -458,7 +647,10 @@ internal sealed unsafe partial class VulkanRenderer
 
     // ── Per-frame passes ──────────────────────────────────────────────────────
 
-    /// <summary>Begins the HDR scene pass (cleared to the clear colour, converted to linear).</summary>
+    /// <summary>
+    /// Begins the HDR scene pass (cleared to the clear colour, converted to linear). After a depth prepass this frame
+    /// (ADR 0163) it loads the prepass depth instead of clearing it.
+    /// </summary>
     public void BeginRenderPass()
     {
         if (!_frameStarted || _passState != PassState.None) return;
@@ -470,17 +662,24 @@ internal sealed unsafe partial class VulkanRenderer
                 ColorSpace.SrgbToLinear(_clearB), _clearA),
         };
         clears[1] = new ClearValue { DepthStencil = new ClearDepthStencilValue(1f, 0) };
-        _sceneTarget!.Begin(_commandBuffers[_currentFrame], new ReadOnlySpan<ClearValue>(clears, 2));
+        var cb = _commandBuffers[_currentFrame];
+        if (_prepass is not null && _prepassFrame == _frameNumber)
+            _sceneTarget!.Begin(cb, new ReadOnlySpan<ClearValue>(clears, 2), _prepass.SceneLoadPass);
+        else
+            _sceneTarget!.Begin(cb, new ReadOnlySpan<ClearValue>(clears, 2));
         _passState = PassState.Scene;
     }
 
     /// <summary>
-    /// Ends the scene pass, tonemaps it into the swapchain image and begins the overlay pass (UI drawn after
-    /// tonemapping, in the swapchain's encoding). Idempotent within a frame.
+    /// Ends the scene pass, runs the post effects before the tonemap (ADR 0163), tonemaps into the swapchain image (or the
+    /// LDR image the effects after the tonemap read, the last of which draws into the swapchain) and begins the overlay
+    /// pass (UI drawn after tonemapping, in the swapchain's encoding). Idempotent within a frame.
     /// </summary>
     public void BeginOverlayPass()
     {
         if (!_frameStarted || _passState == PassState.Overlay) return;
+        if (_passState == PassState.Prepass)
+            EndPrepass(); // a prepass nobody ended: its depth is still valid for the scene pass
         if (_passState == PassState.None)
             BeginRenderPass(); // nothing was drawn: still clear, so the frame shows the clear colour
 
@@ -498,33 +697,33 @@ internal sealed unsafe partial class VulkanRenderer
         for (var i = 0; i < _overlayRenderers.Count; i++)
             _overlayRenderers[i].RecordOffscreen(cb);
 
-        // ADR 0124: non-default settings (Godot's tonemap, glow) use the post pass; the glow chain is drawn first,
-        // with no render pass active. The default keeps the engine's own tonemap pass.
+        // ADR 0163: the BeforeTonemap stage, with no render pass active: TAA, then (ADR 0124) with non-default settings
+        // auto exposure (ADR 0154; the glow's first level reads it), the glow chain and light shafts (ADR 0160: they read
+        // the scene's colour and depth), which the post tonemap pass composites. The default keeps the engine's tonemap.
         var post = PostProcess;
-        var usePost = post != PostProcessSettings.Default;
-        var exposure = post.Tonemapper == Tonemapper.GodotAces ? post.TonemapExposure : _exposure;
+        var settings = PostSettings;
+        var usePost = settings.PostTonemap;
+        var exposure = FrameExposure;
+        var context = PreparePostContext(cb, exposure);
+        _post.Record(PostStage.BeforeTonemap, context);
         var shafts = 0f;
         if (usePost)
         {
-            if (_glow is null)
+            if (_postPipeline.Handle == 0)
                 CreatePostTonemap();
-            _autoExposure!.Record(cb, post, FrameDeltaTime); // ADR 0154: before the glow, whose first level reads it
-            _glow!.Record(cb, post, exposure);
-            // ADR 0160: the shafts read the scene's colour and depth; the tonemap adds them alongside the glow.
-            if (post.LightShaftsEnabled && _lightShafts is null)
-                CreateLightShafts();
-            shafts = _lightShafts is not null && _lightShafts.Record(cb, post, LightShaftsSun)
-                ? post.LightShaftsIntensity * LightShaftsSun.Fade
-                : 0f;
+            if (_lightShafts.IsCreated && _postShaftsSet.Handle == 0)
+                CreateLightShaftsSet();
+            shafts = _lightShafts.DrawnFrame == _frameNumber ? post.LightShaftsIntensity * LightShaftsSun.Fade : 0f;
         }
 
-        // ADR 0154: with FXAA the tonemap writes the LDR intermediate (always shader-encoded sRGB), which FXAA then filters
-        // into the swapchain pass; the overlay renderers draw after it, unfiltered.
-        var fxaa = _antiAliasing == AntiAliasing.Fxaa;
-        if (fxaa)
+        // ADR 0154/0163: with AfterTonemap effects (FXAA) the tonemap writes the stage's first LDR image (always
+        // shader-encoded sRGB); the effects filter it in turn, the last one into the swapchain pass, and the overlay
+        // renderers draw after it, unfiltered.
+        var afterTonemap = _post.CountEnabled(PostStage.AfterTonemap, settings) > 0;
+        if (afterTonemap)
         {
-            EnsureFxaa(usePost);
-            _fxaa!.BeginLdr(cb);
+            EnsureLdrTonemap(usePost);
+            _ldr[0]!.Begin(cb, default);
         }
         else
         {
@@ -532,10 +731,10 @@ internal sealed unsafe partial class VulkanRenderer
         }
 
         var swapchainEncodes = FormatInfo.IsSrgb(_swapChainImageFormat);
-        var encode = fxaa || !swapchainEncodes ? 1u : 0u;
+        var encode = afterTonemap || !swapchainEncodes ? 1u : 0u;
         if (usePost)
         {
-            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, fxaa ? _postLdrPipeline : _postPipeline);
+            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, afterTonemap ? _postLdrPipeline : _postPipeline);
             var postSet = shafts > 0f ? _postShaftsSet : _postSet;
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _postLayout, 0, 1, &postSet, 0, null);
             var postPush = new PostPush
@@ -557,7 +756,7 @@ internal sealed unsafe partial class VulkanRenderer
         }
         else
         {
-            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, fxaa ? _tonemapLdrPipeline : _tonemapPipeline);
+            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, afterTonemap ? _tonemapLdrPipeline : _tonemapPipeline);
             var set = _tonemapSet;
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _tonemapLayout, 0, 1, &set, 0, null);
             var push = new TonemapPush
@@ -571,11 +770,12 @@ internal sealed unsafe partial class VulkanRenderer
         PipelineBuilder.SetViewport(vk, cb, _swapChainExtent, flipY: false);
         vk.CmdDraw(cb, 3, 1, 0, 0);
 
-        if (fxaa)
+        if (afterTonemap)
         {
-            _fxaa!.EndLdr(cb);
-            BeginSwapchainPass(cb, _presentPass, _presentFramebuffers![_currentImageIndex]);
-            _fxaa.Draw(cb, decodeSrgb: swapchainEncodes);
+            _ldr[0]!.End(cb);
+            context.Scene.Ldr = _ldr[0]!.GetColor(0).View;
+            _ldrWrite = 1;
+            _post.Record(PostStage.AfterTonemap, context); // the last effect begins the swapchain pass
         }
 
         if (_overlayPass.Handle != _presentPass.Handle)
@@ -668,6 +868,22 @@ internal sealed unsafe partial class VulkanRenderer
     private void DestroyPresentation()
     {
         DestroySwapchainViews();
+
+        // ADR 0163: the post effects (each destroys what it created), their targets, the prepass and the write-back,
+        // before the scene target they read.
+        _post.Dispose();
+        _postTargets?.Dispose();
+        _postTargets = null;
+        _prepass?.Dispose();
+        _prepass = null;
+        _colorCopy?.Dispose();
+        _colorCopy = null;
+        for (var i = 0; i < _ldr.Length; i++)
+        {
+            _ldr[i]?.Dispose();
+            _ldr[i] = null;
+        }
+
         _sceneTarget?.Dispose();
         _sceneTarget = null;
 
@@ -677,29 +893,20 @@ internal sealed unsafe partial class VulkanRenderer
         vk.DestroyDescriptorPool(_device, _tonemapPool, null);
         vk.DestroyDescriptorSetLayout(_device, _tonemapSetLayout, null);
         vk.DestroySampler(_device, _tonemapSampler, null);
-        if (_glow is not null)
+        vk.DestroySampler(_device, _postLinearSampler, null);
+        if (_postPipeline.Handle != 0)
         {
             vk.DestroyPipeline(_device, _postPipeline, null);
             vk.DestroyPipelineLayout(_device, _postLayout, null);
             vk.DestroyDescriptorPool(_device, _postPool, null);
             vk.DestroyDescriptorSetLayout(_device, _postSetLayout, null);
-            _glow.Dispose();
-            _glow = null;
-            _autoExposure?.Dispose();
-            _autoExposure = null;
-            _lightShafts?.Dispose();
-            _lightShafts = null;
+            _postPipeline = default;
             _postShaftsSet = default;
         }
 
-        if (_fxaa is not null)
-        {
-            vk.DestroyPipeline(_device, _tonemapLdrPipeline, null);
-            vk.DestroyPipeline(_device, _postLdrPipeline, null);
-            _tonemapLdrPipeline = _postLdrPipeline = default;
-            _fxaa.Dispose();
-            _fxaa = null;
-        }
+        vk.DestroyPipeline(_device, _tonemapLdrPipeline, null);
+        vk.DestroyPipeline(_device, _postLdrPipeline, null);
+        _tonemapLdrPipeline = _postLdrPipeline = default;
         if (_overlayPass.Handle != _presentPass.Handle)
             vk.DestroyRenderPass(_device, _overlayPass, null);
         vk.DestroyRenderPass(_device, _presentPass, null);
