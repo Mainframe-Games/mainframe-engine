@@ -344,6 +344,18 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
   effects (neither graded, blurred nor jittered: [Post-processing → Sub-viewports](post-processing.md#sub-viewports)); 2D
   tabs have none. Off: the engine tonemap alone (faster on a large view). Auto exposure adapts over time in the view, as
   in the game.
+- **View resolution** (Editor Settings › 3D view, `EditorSettings.ViewResolution`; Auto by default): the 3D view
+  renders `ViewportController.ViewScale` pixels per point — the window's pixel scale ×
+  `EditorSettings.ViewResolutionScale` — and the UI stretches its image over the view (bilinear). **Auto** renders one
+  pixel per point: every pixel on a 1× display, a quarter of them on a 2× one (Unreal's DPI-based viewport scaling does
+  the same); **Full** every display pixel; **75 %** and **50 %** of them on each side. Every effect of the post preview,
+  the depth prepass and the scene pass scale with the view's pixels, so this is what keeps a heavy scene interactive
+  (the Forest: [Performance](#performance)). `ViewPixels`, `LocalPixel`, picking, the gizmo (`TransformGizmo.PixelScale`
+  = `ViewScale`) and hit radii work in view pixels, so handles keep their size in points; light/camera/audio icons and
+  selection crosses are sized in display pixels. 2D tabs and a UI preview's backdrop always render every pixel. The
+  look is the game's at the view's resolution: below Full the image is softer, and screen-space radii capped in pixels
+  (GTAO's) reach as far as they would on a 1× display. A change applies on the next frame (the view's targets and post
+  state are re-created, like a resize).
 
 ### 2D view
 
@@ -667,6 +679,8 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
   and C# files.
 - **Reload code automatically** after builds.
 - **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
+- **3D view** resolution: Auto (one pixel per point, the default), Full, 75 % or 50 % of the display's pixels
+  (`viewResolution`: absent or null is Auto) — see [Viewport](#viewport).
 - **VST3 folders** (extra folders, `;`-separated, besides the OS defaults) and **Rescan Plugins** (the music editor's
   plugin scan; the hint shows the instrument/effect counts and failed bundles).
 - **MIDI inputs**: every device the helper reports (and enabled ones it does not, as offline), each with a toggle and
@@ -750,7 +764,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   (`Category=Slow`) runs the real `dotnet new mfgame` and build.
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
   editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, drags, gizmo drags, keys,
-  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
+  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`, `view-resolution auto|full|threeQuarters|half`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
@@ -770,10 +784,27 @@ Apple M5, MoltenVK, hidden 1280×720-point window at content scale 2 (2560×1440
 lights with Shadows v2 cascades and atlas, Spine, physics crates, a glTF model), Debug build with validation: **8.3 ms
 average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate nothing.
 
+**The Forest** (Release, hidden 1800 × 1100-point window at scale 2 without vsync, the view ≈ 2400 × 1630 px at Full;
+the trail camera of [forest-post.qa](../../Tests/QA/forest-post.qa); 300-frame runs; GPU timestamps per pass):
+
+| 3D view | Post preview on | Post preview off |
+|---|---|---|
+| Full (before: every pixel) | 29–30 fps (31.6 ms GPU) | 21 fps (44 ms GPU) |
+| 75 % | 42 fps | — |
+| Auto / 50 % (one pixel per point) | 61–69 fps (14.3 ms GPU) | 52 fps (18 ms GPU) |
+
+At Full the post-processed frame was: the view's shadows 3.9 ms, depth prepass 5.8, GTAO 3.2, contact shadows 1.4, the
+scene pass 10.2, volumetric fog 2.9, TAA 1.6, glow 0.5, tonemap + RCAS 0.8, grade 0.3, the editor UI 0.9. Every pass
+but the shadows scales with the view's pixels — 3.4 times the game's at 1920 × 1080 with TAAU 0.75, and per pixel no
+more expensive than the game's frame — and nothing ran twice: one view renders (hidden tabs do not), no target is
+re-created per frame, the prepass is the view's own. Without the preview the view has no depth prepass, so in dense
+foliage the scene pass shades every hidden leaf (39 ms alone at Full): the preview *on* is the faster view there. From
+above (fewer leaves, more sky) the preview costs about 6 ms at Full (9.3 → 15.3 ms GPU).
+
 ## Known issues
 
-- Post-processing preview costs what the game's post costs at the view's size: the Forest at 2× (≈ 2500 × 1650 view
-  pixels) runs at ~20 fps with it and ~43 fps without on an Apple M5. Hidden tabs keep their post state.
+- Hidden tabs keep their post state (TAA history, pooled targets) while hidden: memory, not time.
+- Without Preview Post-Processing a 3D view has no depth prepass: in dense foliage it is slower than with it.
 
 - A code reload drops the undo history of the scenes it re-creates (selection, view and dirty state are kept).
 - The gizmo moves the last selected node only; there is no box selection.

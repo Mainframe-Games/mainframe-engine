@@ -5,7 +5,7 @@
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
-        #dialog { left: 50%; top: 50%; width: 560dp; height: 480dp; margin-left: -280dp; margin-top: -240dp; }
+        #dialog { left: 50%; top: 50%; width: 560dp; height: 540dp; margin-left: -280dp; margin-top: -270dp; }
         .dialog-row .caption { width: 120dp; }
         .dialog-row select { flex: 1 1 auto; width: 60dp; }
         #es-swatches { display: flex; flex-direction: row; }
@@ -47,6 +47,16 @@
                 </select>
             </div>
             <div class="hint">Saves open scenes that have a file (untitled ones are never written).</div>
+            <div class="dialog-row">
+                <span class="caption">3D view</span>
+                <select id="es-view-resolution" data-value="view_resolution" data-tooltip="3D View Resolution — the pixels the scene view renders, scaled to fill the view">
+                    <option value="Auto">Auto · one pixel per point</option>
+                    <option value="Full">Full · every display pixel</option>
+                    <option value="ThreeQuarters">75 % of the display's pixels</option>
+                    <option value="Half">50 % of the display's pixels</option>
+                </select>
+            </div>
+            <div class="hint">Fewer pixels keep heavy scenes and the post preview fast. The game is unaffected.</div>
             <div class="dialog-row">
                 <span class="caption">Code editor</span>
                 <input type="text" class="text mono" id="es-command" data-value="command" placeholder="System default"/>

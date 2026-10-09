@@ -86,13 +86,29 @@ public sealed partial class ViewportController : Node
     /// <summary>The view rectangle in window points (dp).</summary>
     public LayoutRect ViewRect => _workspace.Layout.ViewportImage;
 
-    /// <summary>View size in framebuffer pixels (the sub-viewport's target size).</summary>
+    /// <summary>
+    /// View pixels per window point: the window's pixel scale × the 3D view's resolution (Editor Settings ›
+    /// <see cref="EditorSettings.ViewResolution"/>; Auto renders one pixel per point). 2D tabs render every pixel. The UI
+    /// scales the view's image to its rectangle; picking, gizmos and icons work in view pixels.
+    /// </summary>
+    public float ViewScale
+    {
+        get
+        {
+            var pixelScale = _workspace.Host.PixelScale;
+            if (_workspace.Session.Active?.Camera.Is2D == true)
+                return pixelScale;
+            return pixelScale * EditorSettings.ViewResolutionScale(_workspace.Settings.ViewResolution, pixelScale);
+        }
+    }
+
+    /// <summary>View size in view pixels (the sub-viewport's target size: the view rectangle × <see cref="ViewScale"/>).</summary>
     public Vector2 ViewPixels
     {
         get
         {
             var rect = ViewRect;
-            var scale = _workspace.Host.PixelScale;
+            var scale = ViewScale;
             return new Vector2(MathF.Max(1, MathF.Round(rect.Width * scale)), MathF.Max(1, MathF.Round(rect.Height * scale)));
         }
     }
@@ -191,7 +207,7 @@ public sealed partial class ViewportController : Node
         scene.Camera.Apply(pixels);
         if (!ReferenceEquals(viewport.CameraOverride, scene.Camera.ActiveCamera))
             viewport.CameraOverride = scene.Camera.ActiveCamera;
-        _workspace.Gizmo.PixelScale = _workspace.Host.PixelScale;
+        _workspace.Gizmo.PixelScale = ViewScale;
         _workspace.ViewportPanel.SetInfo(scene.Camera.Is2D ? Info2D : _drag == DragKind.Fly ? FlyInfo : PerspectiveInfo,
             scene.Camera.Is2D ? "square" : _drag == DragKind.Fly ? "plane" : "perspective");
         PollPick(scene);
@@ -417,7 +433,7 @@ public sealed partial class ViewportController : Node
 
     private bool Move(EditedScene scene, Vector2 delta)
     {
-        var scale = _workspace.Host.PixelScale;
+        var scale = ViewScale;
         switch (_drag)
         {
             case DragKind.Orbit:
@@ -502,7 +518,7 @@ public sealed partial class ViewportController : Node
     public Vector2 LocalPixel(Vector2 windowPoint)
     {
         var rect = ViewRect;
-        return (windowPoint - new Vector2(rect.X, rect.Y)) * _workspace.Host.PixelScale;
+        return (windowPoint - new Vector2(rect.X, rect.Y)) * ViewScale;
     }
 
     // ── Picking ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -579,7 +595,7 @@ public sealed partial class ViewportController : Node
         RefreshIcons(scene);
         var size = ViewPixels;
         Node? best = null;
-        var bestDistance = IconPixels * _workspace.Host.PixelScale;
+        var bestDistance = IconPixels * ViewScale;
         foreach (var node in _iconNodes)
         {
             if (!scene.Camera.Project(node.GlobalPosition, size.X, size.Y, out var at))
@@ -749,19 +765,21 @@ public sealed partial class ViewportController : Node
         var lines = scene.Viewport.DebugLines;
         var overlay = scene.Viewport.OverlayLines;
         var camera = scene.Camera;
+        // Icons and selection crosses are sized in display pixels, whatever the view's resolution (ViewScale).
+        var displayHeight = pixels.Y * _workspace.Host.PixelScale / ViewScale;
 
         for (var i = 0; i < _iconNodes.Count; i++)
         {
             var node = _iconNodes[i];
             if (!node.IsInsideTree)
                 continue;
-            DrawIcon(lines, camera, pixels.Y, node, scene.Selection.Contains(node));
+            DrawIcon(lines, camera, displayHeight, node, scene.Selection.Contains(node));
         }
 
         var selected = scene.Selection.Nodes;
         for (var i = 0; i < selected.Count; i++)
             if (selected[i] is Node3D { IsInsideTree: true } node)
-                DrawSelection(overlay, camera, pixels.Y, node);
+                DrawSelection(overlay, camera, displayHeight, node);
 
         if (GizmoTarget(scene) is { } target)
             _workspace.Gizmo.Draw(overlay, camera, pixels, target.GlobalPosition, target.GlobalRotation);

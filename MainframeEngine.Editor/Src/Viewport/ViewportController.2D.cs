@@ -166,7 +166,7 @@ public sealed partial class ViewportController
                 return scene.SelectableFor(collision);
 
         Node? best = null;
-        var bestDistance = PickPoints * _workspace.Host.PixelScale;
+        var bestDistance = PickPoints * ViewScale;
         for (var i = _nodes2D.Count - 1; i >= 0; i--)
         {
             var node = _nodes2D[i];
@@ -252,7 +252,7 @@ public sealed partial class ViewportController
             DrawGrid2D(lines, camera, pixels);
 
         var unit = 1f / camera.Zoom2D;
-        var marker = MarkerPoints * _workspace.Host.PixelScale * unit;
+        var marker = MarkerPoints * ViewScale * unit;
         for (var i = 0; i < _nodes2D.Count; i++)
         {
             var node = _nodes2D[i];

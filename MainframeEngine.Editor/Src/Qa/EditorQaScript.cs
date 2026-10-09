@@ -40,6 +40,7 @@ namespace MainframeEngine.Editor;
 /// camera x y z distance yaw pitch      # the active scene's editor camera: orbit pivot, distance, degrees
 /// collapse Node/Path / expand Node/Path  # a scene tree row
 /// update-preview X.Y.Z       # the update dialog for a made-up release (no network)
+/// view-resolution full        # the 3D view's resolution for this run (auto, full, threeQuarters, half; not saved)
 /// quit
 /// </code>
 /// </summary>
@@ -482,6 +483,9 @@ public sealed class EditorQaScript : IEditorAutomation
                 Log.Info($"[QA] timing {string.Join(' ', step[1..])}: {System.Diagnostics.Stopwatch.GetElapsedTime(_timingMark, now).TotalSeconds:0.00} s");
                 _timingMark = now;
                 break;
+            case "view-resolution":
+                workspace.Settings.ViewResolution = Enum.Parse<ViewResolution>(step[1], ignoreCase: true); // this run only (not saved)
+                break;
             case "quit":
                 app.Quit(ExitCode.Ok);
                 break;
@@ -600,7 +604,7 @@ public sealed class EditorQaScript : IEditorAutomation
 
         scene.Camera.Project(target, view.X, view.Y, out var pixel);
         var rect = workspace.Viewport.ViewRect;
-        return new Vector2(rect.X, rect.Y) + pixel / workspace.Host.PixelScale;
+        return new Vector2(rect.X, rect.Y) + pixel / workspace.Viewport.ViewScale;
     }
 
     private static MouseButton ButtonOf(string name) => name switch
