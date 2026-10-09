@@ -599,3 +599,87 @@ public sealed class TreeForestScene(HostOptions host, bool foliageQuality = fals
                           $"c1 {trees[3]}/{trees[4]}/{trees[5]}, c2 {trees[6]}/{trees[7]}/{trees[8]}, c3 {trees[9]}/{trees[10]}/{trees[11]}");
     }
 }
+
+/// <summary>
+/// ADR 0179, the coarse shadow level's hand-off: a stand of aspens and pines 26–52 m from the camera, a low sun behind them
+/// throwing their shadows towards it over the ground. Levels switch at 10 and 20 m, impostors are drawn from 60 m and
+/// only levels 0–1 cast (<see cref="TreeScatter.ShadowMaxLod"/> 1), so every tree is drawn at level 2 and casts only
+/// through its impostor (<see cref="TreeScatter.ShadowCoarseLod"/> 3), which takes over at 20 m, where level 1 stops,
+/// not at 60 m: before ADR 0179 these trees cast nothing into the cascades. <c>--count 1</c>: the reference, every level
+/// casting where it is drawn (level 2's meshes); <c>--count 2</c>: the trees cast no shadow. Self-checks at frame 3: the
+/// impostor batches hand off at 20 m and are in their shadow range, the level-2 batches cast nothing.
+/// </summary>
+public sealed class TreeShadowHandOffScene(HostOptions host) : TreeSceneBase(host)
+{
+    public const float HandOff = 20f;
+    private TreeScatter _scatter = null!;
+
+    protected override void LoadScene()
+    {
+        // Looking down at the ground the shadows fall on, the stand at the top of the frame.
+        var scene = CreateWorld(nameof(TreeShadowHandOffScene), 200f, new Vector3(0f, 14f, 30f), new Vector3(0f, 0f, -8f), windy: false);
+        var sun = scene.GetNode<DirectionalLight3D>("Sun");
+        sun.LookAt(new Vector3(-0.15f, -0.45f, 1f)); // 24° up, from behind the stand towards the camera
+        sun.ShadowMaxDistance = 80f;
+        _scatter = new TreeScatter
+        {
+            Name = "Trees",
+            Species =
+            [
+                new TreeSpecies { Preset = "Aspen Medium", Seeds = [18020] },
+                new TreeSpecies { Preset = "Pine Medium", Seeds = [13977] },
+            ],
+            Lod1Distance = 10f,
+            Lod2Distance = HandOff,
+            ImpostorDistance = 60f,
+            ImpostorFrames = 6,
+            ImpostorResolution = 96,
+            LodSelection = TreeLodSelection.PerInstance,
+            LodFadeMargin = 0f,
+            ShadowMaxLod = Host.Count == 1 ? 8 : 1,
+            ShadowCoarseLod = Host.Count == 1 ? -1 : 3,
+            CastShadows = Host.Count != 2,
+            Collision = false,
+        };
+        var placements = new List<TreePlacement>();
+        for (var row = 0; row < 3; row++)
+        {
+            for (var i = 0; i < 7; i++)
+            {
+                var x = (i - 3) * 6f + (row % 2) * 3f;
+                placements.Add(new TreePlacement(new Vector3(x, 0f, -row * 7f), i * 1.3f + row, 0.9f + 0.05f * ((i + row) % 3), (i + row) % 2));
+            }
+        }
+
+        _scatter.SetPlacements([.. placements]);
+        scene.AddChild(_scatter);
+        Tree.ChangeScene(scene);
+    }
+
+    protected override void UpdateScene(in GameTime gameTime)
+    {
+        if (gameTime.FrameCount != 3 || Host.Count != 0)
+            return;
+        var camera = Camera.GlobalPosition;
+        var impostors = 0;
+        foreach (var batch in _scatter.Batches)
+        {
+            var bounds = (batch.CustomAabb ?? batch.Multimesh!.GetAabb()).Transform(batch.GlobalTransform.ToMatrix4x4());
+            if (batch.IsImpostor)
+            {
+                impostors++;
+                if (!batch.HasShadowRange || batch.ShadowBegin != HandOff)
+                    Fail($"{batch.Name} hands off at {batch.ShadowBegin} m, not {HandOff} m");
+                if (batch.IsInVisibilityRange(camera, bounds) || !batch.IsInShadowRange(camera, bounds))
+                    Fail($"{batch.Name}: the impostor should cast here without being drawn");
+            }
+            else if (batch.Lod == 2 && batch.CastShadows)
+            {
+                Fail($"{batch.Name}: level 2 casts (ShadowMaxLod 1)");
+            }
+        }
+
+        if (impostors == 0)
+            Fail("no impostor batches");
+    }
+}

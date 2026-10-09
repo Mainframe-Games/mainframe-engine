@@ -65,6 +65,13 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
           lavapipe golden for `auto-exposure-histogram` NOT recorded — the lane's sandbox refused Docker; Brogan was given the
           command); ADR 0178 look-dev against Brogan's five Unreal references (forest/look, a301433c: back-lit NNE sun,
           warm haze, AgX, muted olive greens, meadow/flowers/fern dell, dust specks, R1–R7 recomposed; refs never committed).
+        - **2026-10-10 playtest round 2:** less haze (5c5f2183); ADR 0179 consistent shadow casters across cascades (the
+          "shadow line cut off": coarse cascades from 16 m drew only half-density impostors; Forest `ShadowCoarseCascades` 0,
+          impostor shadow hand-off from 55 m); ADR 0180 Forest ESC pause/settings menu (graphics, audio, controls, cameras:
+          fly-over, free cam, R1–R7; settings.json); F12 overlay ×1.4; ADR 0181 UI reference-resolution scaling (1920×1080,
+          match height; Demo 1280×720; old projects migrate to ConstantPixelSize; editor stays DPI). Gates on the combined
+          branch: 2140 engine, 787 editor, 192 Forest, 171 render, Release, format, shaders (137). Open look call: R2/R7 glade
+          lost its glow (canopy now shadows the fog); `Valley.TreeClusterShadowDensity` 0.7 restores it for ~2 ms.
         - **Queue done → PR opened for Brogan to play.** Known: an intermittent solid-colour frame after shrinking the window
           with TAAU on (seen twice, 1 in 10 here, never under validation; native scale fine) — `ResizeTargets` /
           `ApplyRenderScale` ordering is the first suspect. Not met: G8e.8's 14 ms at 1440p on a base M5 (≈21 ms). After both: full gates, push, PR (Auto-fix on), milestones G8 → 🚧, tell Brogan to play.

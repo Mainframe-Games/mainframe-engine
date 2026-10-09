@@ -43,10 +43,12 @@ public static class ForestScene
         var root = new Node3D { Name = Id };
 
         // Sun first: the physical sky, fog scatter and shafts follow the first directional light. G8e.2 shadows (ADR 0167):
-        // 4 × 1024² cascades to 140 m on a staggered schedule (at most two cascade passes a frame), the last two drawing
-        // the trees' level 1 from any distance; soft PCSS penumbrae from the sun's 0.5°; contact shadows; and the far
-        // shadow, rendered once over the valley, so the ridges shade the slopes past the cascades. 2048² cascades cost
-        // ~4 ms more (leaf cards: every cascade texel under the canopy runs the cut-out shader): they wait for G8e.5.
+        // 4 × 1024² cascades to 140 m on a staggered schedule (at most two cascade passes a frame); soft PCSS penumbrae
+        // from the sun's 0.5°; contact shadows; and the far shadow, rendered once over the valley, so the ridges shade the
+        // slopes past the cascades. ADR 0179: no coarse cascades. Every cascade draws the same casters (each tree's mesh
+        // levels to 55 m, then its impostor), so a cascade split is not a line where the canopy's shadow thins out; only
+        // the far shadow draws every tree as its impostor. 2048² cascades cost ~4 ms more (leaf cards: every cascade texel
+        // under the canopy runs the cut-out shader).
         Add(root, root, new DirectionalLight3D
         {
             Name = "Sun",
@@ -60,7 +62,6 @@ public static class ForestScene
             ShadowMaxDistance = 140f,
             ShadowSplitLambda = 0.8f,
             ShadowCacheMode = ShadowCacheMode.Staggered,
-            ShadowCoarseCascades = 2,
             LightAngularDistance = 0.5f,
             ContactShadows = true,
             ContactShadowLength = 0.4f,

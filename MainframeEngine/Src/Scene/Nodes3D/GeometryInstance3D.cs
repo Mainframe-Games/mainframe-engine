@@ -58,11 +58,23 @@ public abstract class GeometryInstance3D : VisualInstance3D
     }
 
     /// <summary>
+    /// True when the node casts into the fine shadow passes over a range of its own rather than where it is drawn
+    /// (ADR 0179: a <see cref="TreeScatter"/>'s coarse shadow level casts from where its finer casting levels end).
+    /// </summary>
+    internal virtual bool HasShadowRange => false;
+
+    /// <summary>
+    /// Whether the node casts into the fine shadow passes for a camera at <paramref name="cameraPosition"/>: its
+    /// <see cref="IsInVisibilityRange(Vector3, in Aabb)"/> unless it <see cref="HasShadowRange"/>.
+    /// </summary>
+    internal virtual bool IsInShadowRange(Vector3 cameraPosition, in Aabb worldBounds) => IsInVisibilityRange(cameraPosition, worldBounds);
+
+    /// <summary>
     /// Which shadow passes the instance casts into (ADR 0167; default <see cref="MainframeEngine.ShadowCasterLod.All"/>):
     /// <see cref="MainframeEngine.ShadowCasterLod.Fine"/> skips the primary light's coarse passes (its last
     /// <see cref="DirectionalLight.CoarseCascades"/> cascades and its far shadow), <see cref="MainframeEngine.ShadowCasterLod.Coarse"/>
-    /// casts into them from any distance (and into the fine ones while in range). Levels of detail use it so far cascades
-    /// draw cheap casters.
+    /// casts into them from any distance (and into the fine ones while in range, or its shadow range: ADR 0179). Levels of
+    /// detail use it so far cascades and the far shadow draw cheap casters.
     /// </summary>
     [Export]
     public ShadowCasterLod ShadowCasterLod { get; set; }

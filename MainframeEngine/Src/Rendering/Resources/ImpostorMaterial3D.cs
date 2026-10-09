@@ -303,6 +303,38 @@ public sealed class ImpostorMaterial3D : Material
     }
 
     /// <summary>
+    /// Where an instance casts into the fine shadow passes when that differs from where it is drawn (ADR 0179): camera
+    /// distances in [<see cref="InstanceShadowBegin"/>, <see cref="InstanceShadowEnd"/>) (m; an end of 0 is unbounded).
+    /// −1 (default) follows <see cref="InstanceVisibilityBegin"/> and <see cref="InstanceVisibilityEnd"/>. A
+    /// <see cref="TreeScatter"/> sets it on its coarse shadow level, which casts from where its finer casting levels end:
+    /// every tree casts one level at every distance, in every cascade. The coarse passes (the far shadow) ignore it.
+    /// </summary>
+    [Export(Range = "-1,10000,0.1")]
+    public float InstanceShadowBegin
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = -1f;
+
+    /// <summary>The end of the fine shadow passes' per-instance range (see <see cref="InstanceShadowBegin"/>; 0: unbounded, −1: <see cref="InstanceVisibilityEnd"/>).</summary>
+    [Export(Range = "-1,10000,0.1")]
+    public float InstanceShadowEnd
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    } = -1f;
+
+    /// <summary>
     /// Per-instance brightness variation (ADR 0175): each instance's albedo is scaled by 1 ± this, from a hash of its
     /// origin (<see cref="InstanceVariation"/>; no instance data), so a stand of one species does not read as copies.
     /// 0 (default): off. Instanced draws only.

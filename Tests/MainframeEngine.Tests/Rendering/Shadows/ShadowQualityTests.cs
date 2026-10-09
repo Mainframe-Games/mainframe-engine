@@ -243,6 +243,27 @@ public sealed class ShadowQualityTests
     }
 
     [Fact]
+    public void CastersGoIntoThePassesTheirLevelAndRangeAllow()
+    {
+        // ADR 0167 / 0179: in range (visibility or shadow range) every caster but a coarse-only one casts into the fine
+        // passes; a coarse caster casts into the coarse passes from any distance; a fine one never does.
+        const byte fine = MeshRenderer.FinePasses, coarse = MeshRenderer.CoarsePasses, both = fine | coarse;
+        Assert.Equal(both, MeshRenderer.CasterPasses(ShadowCasterLod.All, castsFine: true));
+        Assert.Equal(0, MeshRenderer.CasterPasses(ShadowCasterLod.All, castsFine: false));
+        Assert.Equal(fine, MeshRenderer.CasterPasses(ShadowCasterLod.Fine, castsFine: true));
+        Assert.Equal(0, MeshRenderer.CasterPasses(ShadowCasterLod.Fine, castsFine: false));
+        Assert.Equal(both, MeshRenderer.CasterPasses(ShadowCasterLod.Coarse, castsFine: true));
+        Assert.Equal(coarse, MeshRenderer.CasterPasses(ShadowCasterLod.Coarse, castsFine: false));
+
+        // A node without a shadow range casts where it is drawn.
+        var node = new MeshInstance3D { VisibilityRangeBegin = 10f, VisibilityRangeEnd = 20f };
+        var bounds = new Aabb(new Vector3(-1f), new Vector3(1f));
+        Assert.False(node.HasShadowRange);
+        Assert.Equal(node.IsInVisibilityRange(new Vector3(0f, 0f, 15f), bounds), node.IsInShadowRange(new Vector3(0f, 0f, 15f), bounds));
+        Assert.Equal(node.IsInVisibilityRange(new Vector3(0f, 0f, 25f), bounds), node.IsInShadowRange(new Vector3(0f, 0f, 25f), bounds));
+    }
+
+    [Fact]
     public void TheFarShadowRendersOnceAndAgainOnlyWhenTheSunTurnsOrTheBoundsGrow()
     {
         var planner = new ShadowPlanner();

@@ -27,7 +27,8 @@ struct MaterialParams
     float4 foliage1;
     float4 foliage2;
     float4 foliage3;
-    float4 variation;   // per-instance colour variation (ADR 0175, instance_variation.slang): x = value jitter, y = hue jitter
+    float4 variation;   // per-instance colour variation (ADR 0175, instance_variation.slang): x = value jitter, y = hue jitter;
+                        // zw = the casters' per-instance shadow range (ADR 0179, foliage_caster.slang)
     float4 terrainBlend; // StandardMaterial3D.TerrainBlend (ADR 0175, terrain_macro.slang): x = strength, y = height (m)
 };
 

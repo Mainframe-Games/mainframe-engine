@@ -285,6 +285,8 @@ internal struct MaterialParams
     /// <summary>
     /// Per-instance colour variation (ADR 0175, <see cref="InstanceVariation"/>): x = value jitter, y = hue jitter
     /// (<see cref="FoliageMaterial3D.InstanceValueJitter"/>, <see cref="FoliageMaterial3D.InstanceHueJitter"/>); zero: off.
+    /// zw: the fine shadow passes' per-instance range (ADR 0179, <see cref="ShadowRange"/>), 0 where it follows the
+    /// visibility range.
     /// </summary>
     public Vector4 Variation;
 
@@ -362,7 +364,7 @@ internal struct MaterialParams
             Foliage2 = new Vector4(Math.Clamp(m.MossCoverage, 0f, 1f), MathF.Max(m.DetailScale, 0f), MathF.Max(m.DetailStrength, 0f),
                 1f / MathF.Max(m.MossPatchSize, 0.01f)),
             Foliage3 = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.MossColor)), Math.Clamp(m.ShadowDensity, 0f, 1f)),
-            Variation = InstanceVariation.Pack(m.InstanceValueJitter, m.InstanceHueJitter),
+            Variation = WithShadowRange(InstanceVariation.Pack(m.InstanceValueJitter, m.InstanceHueJitter), m.InstanceShadowBegin, m.InstanceShadowEnd),
         };
     }
 
@@ -389,8 +391,18 @@ internal struct MaterialParams
             : Vector4.Zero,
         Foliage2 = new Vector4(m.Center, MathF.Max(m.Radius, 1e-3f)),
         Foliage3 = new Vector4(Math.Clamp(m.Frames, 2, 32), m.Hemi ? 1f : 0f, Math.Clamp(m.BarkRoughness, 0f, 1f), m.DitherViews ? 1f : 0f),
-        Variation = InstanceVariation.Pack(m.InstanceValueJitter, m.InstanceHueJitter),
+        Variation = WithShadowRange(InstanceVariation.Pack(m.InstanceValueJitter, m.InstanceHueJitter), m.InstanceShadowBegin, m.InstanceShadowEnd),
     };
+
+    /// <summary>
+    /// One end of the fine shadow passes' per-instance range as <c>variation.z</c> / <c>.w</c> carry it (ADR 0179;
+    /// <c>casterInstanceVisible</c> in <c>include/foliage_caster.slang</c>): the distance + 1, or 0 when it follows the
+    /// visibility range (a negative <paramref name="distance"/>).
+    /// </summary>
+    public static float ShadowRange(float distance) => distance < 0f ? 0f : distance + 1f;
+
+    private static Vector4 WithShadowRange(Vector4 variation, float begin, float end) =>
+        new(variation.X, variation.Y, ShadowRange(begin), ShadowRange(end));
 
     /// <summary>
     /// Packs a <see cref="WaterMaterial3D"/> into the same block (<c>include/water.slang</c> reads it): albedo = scatter

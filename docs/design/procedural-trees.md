@@ -29,7 +29,7 @@ built yet; the [proposal](future/procedural-trees.md) has its design.
 | [`Content/Trees/Leaves/`](../../MainframeEngine/Content/Trees/Leaves/), [`Content/Trees/Bark/`](../../MainframeEngine/Content/Trees/Bark/) | Ez Tree's leaf PNGs (MIT), the three ambientCG bark sets the presets use (CC0), and the painted birch, beech, spruce and fir leaves and Birch and Beech bark (ADR 0172, the engine's own); [`LICENSE.md`](../../MainframeEngine/Content/Trees/LICENSE.md) |
 | [`build/ez-tree-reference.mjs`](../../build/ez-tree-reference.mjs) | Runs Ez Tree itself to write the parity fixture (by hand, never in CI) |
 | [`Tests/MainframeEngine.Tests/Trees/`](../../Tests/MainframeEngine.Tests/Trees/) | Parity, RNG, determinism, allocation, LowPoly, options and preset tests; fixture in `Tests/Content/Trees/`; `Tree3DTests`, `TreeScatterTests` |
-| [`Tests/MainframeEngine.RenderTests/TreeTests.cs`](../../Tests/MainframeEngine.RenderTests/TreeTests.cs) | `tree-realistic`, `tree-lowpoly`, `tree-forest`; ADR 0172: `tree-clusters`, `tree-impostor`, `tree-wind`, `tree-bark`, `tree-species`, `tree-forest-g8e` (scenes in the host's `TreeScenes.cs`) |
+| [`Tests/MainframeEngine.RenderTests/TreeTests.cs`](../../Tests/MainframeEngine.RenderTests/TreeTests.cs) | `tree-realistic`, `tree-lowpoly`, `tree-forest`; ADR 0172: `tree-clusters`, `tree-impostor`, `tree-wind`, `tree-bark`, `tree-species`, `tree-forest-g8e`; ADR 0179: `tree-shadow-handoff` (scenes in the host's `TreeScenes.cs`) |
 
 ## Using it
 
@@ -350,8 +350,10 @@ express). A `LESS_OR_EQUAL` test with a depth bias and the colour pass's own dis
   emission slot): 15 sampled images, like every mesh pipeline.
 - **`TreeScatter.ImpostorDistance`** (0 = none) adds the impostor as the level after the meshes (level 3), from that
   distance to `MaxDistance`; `ShadowCoarseLod = 3` makes it the coarse caster (the far cascades and the far shadow draw
-  every tree as one quad). `ImpostorShadowDensity` (1) thins those shadows: one view of a whole tree is far denser than
-  the sun's view through its canopy (the Forest uses 0.5).
+  every tree as one quad); in the other passes it casts from where the finer casting levels end
+  (`TreeScatter.ShadowHandOff`, ADR 0179: the end of level `ShadowMaxLod`, through `InstanceShadowBegin`/`End` on its
+  material), not from `ImpostorDistance`, so no tree is without a shadow between them. `ImpostorShadowDensity` (1) thins
+  those shadows: one view of a whole tree is far denser than the sun's view through its canopy (the Forest uses 0.5).
 - **`LodSelection = PerInstance`**: every tree picks its level by its own distance in the vertex shader
   (`FoliageMaterial3D.InstanceVisibility*`, `ImpostorMaterial3D.InstanceVisibility*`, a copy of the level's material per
   level) and cross-fades over ±`LodFadeMargin` m with complementary dither thresholds (IGN under TAA, Bayer without);

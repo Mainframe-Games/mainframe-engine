@@ -65,6 +65,28 @@ public sealed class FoliageMaterialBlockTests
     }
 
     [Fact]
+    public void ShadowRangePacksIntoVariationZwAndFollowsTheVisibilityRangeByDefault()
+    {
+        // ADR 0179: each end + 1; 0 = the visibility range's (casterInstanceVisible in include/foliage_caster.slang).
+        Assert.Equal(new Vector4(0.1f, 0.2f, 0f, 0f), MaterialParams.From(new FoliageMaterial3D { InstanceValueJitter = 0.1f, InstanceHueJitter = 0.2f }, 0).Variation);
+        Assert.Equal(Vector2.Zero, ZW(MaterialParams.From(new ImpostorMaterial3D(), 0).Variation));
+
+        var leaves = new FoliageMaterial3D { InstanceVisibility = true, InstanceShadowBegin = 55f, InstanceShadowEnd = 0f, InstanceValueJitter = 0.1f };
+        var p = MaterialParams.From(leaves, 0);
+        Assert.Equal(new Vector2(56f, 1f), ZW(p.Variation)); // from 55 m, unbounded
+        Assert.Equal(0.1f, p.Variation.X);                    // the colour jitter is untouched
+        Assert.Equal(new Vector2(21f, 0f), ZW(MaterialParams.From(new ImpostorMaterial3D { InstanceShadowBegin = 20f }, 0).Variation));
+        Assert.Equal(0f, MaterialParams.ShadowRange(-1f));
+        Assert.Equal(1f, MaterialParams.ShadowRange(0f));
+
+        var version = leaves.Version;
+        leaves.InstanceShadowBegin = 40f;
+        Assert.Equal(version + 1, leaves.Version);
+
+        static Vector2 ZW(Vector4 v) => new(v.Z, v.W);
+    }
+
+    [Fact]
     public void ShadowDensityPacksForTheLeafCasters()
     {
         Assert.Equal(1f, MaterialParams.From(new FoliageMaterial3D(), 0).Foliage3.W); // casts everything by default

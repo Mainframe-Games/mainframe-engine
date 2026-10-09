@@ -68,6 +68,34 @@ public sealed class TreeScatterBatch3D : MultiMeshInstance3D
     internal Vector3[]? InstanceOrigins;
     internal float InstanceBegin, InstanceEnd, InstanceMargin;
 
+    // ADR 0179: the coarse shadow level casts into the fine passes from here (camera distance, m), not from where it is
+    // drawn: where the scatter's finer casting levels end. Negative: where it is drawn.
+    internal float ShadowBegin = -1f;
+
+    internal override bool HasShadowRange => ShadowBegin >= 0f;
+
+    /// <summary>
+    /// With a shadow range (the coarse shadow level, ADR 0179): true when one of the batch's trees (per instance) or the
+    /// chunk's bounds centre (per chunk) lies at least <see cref="ShadowBegin"/> from the camera, where the finer levels
+    /// stop casting; the vertex shader switches each tree at that distance exactly.
+    /// </summary>
+    internal override bool IsInShadowRange(Vector3 cameraPosition, in Aabb worldBounds)
+    {
+        if (ShadowBegin < 0f)
+            return base.IsInShadowRange(cameraPosition, worldBounds);
+        if (InstanceOrigins is not { } origins)
+            return Vector3.Distance(cameraPosition, worldBounds.Center) >= ShadowBegin;
+        var begin2 = ShadowBegin * ShadowBegin;
+        var model = ModelMatrix;
+        foreach (var origin in origins)
+        {
+            if (Vector3.DistanceSquared(cameraPosition, Vector3.Transform(origin, model)) >= begin2)
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Per instance: true when one of the batch's trees lies within the level's range ± its fade margin (exact, so a chunk
     /// draws only the levels its trees use); per chunk: the bounds centre's distance against the visibility range. With

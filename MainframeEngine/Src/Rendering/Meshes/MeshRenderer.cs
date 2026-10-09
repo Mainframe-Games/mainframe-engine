@@ -758,25 +758,25 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             if (node.CustomAabb is { } custom)
                 bounds = custom.Transform(model);
 
-            if (!node.IsInVisibilityRange(cameraPosition, bounds))
+            var inRange = node.IsInVisibilityRange(cameraPosition, bounds);
+            if (collectCasters && node.CastShadows)
+            {
+                // Casters cast where they are drawn, or over their own shadow range (ADR 0179); a coarse caster (a tree's
+                // coarse shadow level, an impostor) also casts into the coarse passes from any distance.
+                var passes = CasterPasses(node.ShadowCasterLod, node.HasShadowRange ? node.IsInShadowRange(cameraPosition, bounds) : inRange);
+                if (passes != 0)
+                    AddCasters(view, node, mesh, mirrored, bounds, multiInstances, multiCount, passes);
+            }
+
+            if (!inRange)
             {
                 Stats.OutOfRange++;
-                // A coarse caster (a tree's coarsest level, an impostor) casts into the coarse passes from any distance.
-                if (collectCasters && node.CastShadows && node.ShadowCasterLod == ShadowCasterLod.Coarse)
-                    AddCasters(view, node, mesh, mirrored, bounds, multiInstances, multiCount, CoarsePasses);
                 continue;
             }
 
             for (var s = 0; s < surfaces.Length; s++)
                 if (materials[s] is { NeedsStreams: true })
                     mesh.EnsureStreams();
-
-            if (collectCasters && node.CastShadows)
-            {
-                // In range, a coarse caster casts everywhere; out of range (above), only into the coarse passes.
-                var passes = node.ShadowCasterLod == ShadowCasterLod.Fine ? FinePasses : (byte)(FinePasses | CoarsePasses);
-                AddCasters(view, node, mesh, mirrored, bounds, multiInstances, multiCount, passes);
-            }
 
             if (!frustum.Intersects(bounds))
             {
@@ -894,6 +894,19 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         if (casts)
             view.CasterBounds = view.CasterBounds.Merge(bounds);
     }
+
+    /// <summary>
+    /// The shadow passes a caster draws into (ADR 0167, 0179): <paramref name="castsFine"/> (in its visibility range, or
+    /// its shadow range) puts it into the fine passes, and an <see cref="ShadowCasterLod.All"/> caster into the coarse ones
+    /// too; a <see cref="ShadowCasterLod.Coarse"/> caster is in the coarse passes from any distance, a
+    /// <see cref="ShadowCasterLod.Fine"/> one never.
+    /// </summary>
+    internal static byte CasterPasses(ShadowCasterLod lod, bool castsFine) => lod switch
+    {
+        ShadowCasterLod.Fine => castsFine ? FinePasses : (byte)0,
+        ShadowCasterLod.Coarse => castsFine ? (byte)(FinePasses | CoarsePasses) : CoarsePasses,
+        _ => castsFine ? (byte)(FinePasses | CoarsePasses) : (byte)0,
+    };
 
     /// <summary>
     /// Caster sort key: <c>[cull 2][mirrored 1][cutout material 20][mesh 20][surface 12]</c>: opaque casters (material

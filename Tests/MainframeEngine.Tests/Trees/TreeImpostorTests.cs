@@ -229,6 +229,34 @@ public sealed class TreeImpostorTests
             Assert.True(lod0.IsInVisibilityRange(new Vector3(0f, 0f, -30f), box));
             (lod0.VisibilityRangeBegin, lod0.VisibilityRangeEnd) = (begin, end);
             Assert.False(lod0.IsInVisibilityRange(new Vector3(0f, 0f, -30f), box));
+
+            // ADR 0179: without a coarse shadow level every level casts where it is drawn.
+            Assert.All(scatter.Batches, b => Assert.False(b.HasShadowRange));
+            Assert.Equal((-1f, -1f), (material.InstanceShadowBegin, material.InstanceShadowEnd));
+
+            // The impostor as the coarse shadow level takes over in the fine passes where level 1 (ShadowMaxLod) stops
+            // casting, 40 m, not where it is drawn (70 m): the trees between them keep a shadow.
+            scatter.ShadowCoarseLod = 3;
+            Assert.Equal(40f, scatter.ShadowHandOff(4, impostor: true));
+            Assert.Equal((40f, 0f), (material.InstanceShadowBegin, material.InstanceShadowEnd)); // from 40 m, unbounded
+            Assert.Equal((-1f, -1f), (leaves.InstanceShadowBegin, leaves.InstanceShadowEnd));
+            Assert.True(impostor.HasShadowRange);
+            Assert.False(lod1.HasShadowRange);
+            Assert.True(impostor.IsInShadowRange(new Vector3(0f, 0f, -45f), box));  // both trees ≥ 40 m away
+            Assert.False(impostor.IsInShadowRange(new Vector3(0f, 0f, -30f), box)); // both nearer: level 0/1 casts
+            Assert.True(impostor.IsInShadowRange(new Vector3(0f, 0f, -500f), box)); // past its visibility range too
+            Assert.Equal(MeshRenderer.FinePasses | MeshRenderer.CoarsePasses, MeshRenderer.CasterPasses(impostor.ShadowCasterLod, true));
+
+            // It follows ShadowMaxLod: level 2 casting hands off at the impostor's own begin, level 0 only at 20 m.
+            scatter.ShadowMaxLod = 2;
+            Assert.Equal(70f, material.InstanceShadowBegin);
+            scatter.ShadowMaxLod = 0;
+            Assert.Equal(20f, material.InstanceShadowBegin);
+            Assert.Equal(20f, scatter.ShadowHandOff(4, impostor: true));
+
+            scatter.ShadowCoarseLod = -1;
+            Assert.Equal(-1f, material.InstanceShadowBegin);
+            Assert.False(impostor.HasShadowRange);
         }
         finally
         {
