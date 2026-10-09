@@ -21,6 +21,30 @@ public sealed class GameHostUiOptionsTests
         Assert.False(options.HotReload);
         Assert.Empty(options.SourceContentDirectories);
     }
+
+    [Fact]
+    public void TheProjectsUiScaleReachesTheUiServer()
+    {
+        // ADR 0181: every Project-mode layer, the dev overlay and the debugger scale by project.mfproj's "ui" section.
+        var settings = new ProjectSettings { Name = "T" };
+        settings.Ui.ReferenceResolution = new Vector2I(1280, 720);
+        settings.Ui.MinScale = 0.5f;
+        var options = GameHost.CreateUiOptions(settings, [], hotReload: false);
+        Assert.Equal(UiScalingMode.ScaleWithScreenSize, options.Scaling.Mode);
+        Assert.Equal(new System.Numerics.Vector2(1280, 720), options.Scaling.ReferenceResolution);
+        Assert.Equal(0.5f, options.Scaling.MinScale);
+
+        Assert.Equal(UiScaling.ConstantPixelSize, new UiServerOptions().Scaling); // engine subclasses (the editor, tests)
+    }
+
+    [Fact]
+    public void TheDevOverlayFlagShowsTheOverlay()
+    {
+        var options = GameHostOptions.Parse(["--dev-overlay", "--hidden"]);
+        Assert.True(options.DevOverlay);
+        Assert.True(options.Apply(new ProjectSettings { Name = "T" }.ToEngineOptions()).DevOverlayVisible);
+        Assert.False(GameHostOptions.Parse([]).Apply(new ProjectSettings { Name = "T" }.ToEngineOptions()).DevOverlayVisible);
+    }
 }
 
 public sealed class GameHostDemoBuildTests

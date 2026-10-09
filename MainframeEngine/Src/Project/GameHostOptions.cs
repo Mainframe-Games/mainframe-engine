@@ -18,6 +18,7 @@ namespace MainframeEngine;
 /// <item><term><c>--locale &lt;name&gt;</c></term><description>start in this locale (the player's choice) instead of the project's <c>defaultLocale</c></description></item>
 /// <item><term><c>--frame-capture</c></term><description>allow <see cref="SceneTree.CaptureFrame"/> (game screenshot harnesses)</description></item>
 /// <item><term><c>--screenshot &lt;file.png&gt;</c></term><description>save the frame <c>--max-frames</c> ends on (frame 60 without it) as a PNG (smoke runs, CI)</description></item>
+/// <item><term><c>--dev-overlay</c></term><description>start with the developer overlay (F12) shown (QA screenshots)</description></item>
 /// <item><term><c>--bake-lighting</c></term><description>bake every <see cref="LightProbeVolume"/> of the start scene once it is ready, save the data and quit (ADR 0170; works with <c>--headless</c>)</description></item>
 /// </list>
 /// Arguments the host does not know are kept in <see cref="Remaining"/> for the game. Everything after <c>++</c> is the
@@ -55,6 +56,9 @@ public sealed record GameHostOptions
 
     /// <summary><c>--bake-lighting</c>: bake the start scene's light probe volumes, save them and quit (<see cref="GameSession"/>).</summary>
     public bool BakeLighting { get; init; }
+
+    /// <summary><c>--dev-overlay</c>: the developer overlay starts visible.</summary>
+    public bool DevOverlay { get; init; }
 
     /// <summary>PNG path for <c>--screenshot</c> (enables frame capture).</summary>
     public string? ScreenshotPath { get; init; }
@@ -126,6 +130,9 @@ public sealed record GameHostOptions
                 case "--bake-lighting":
                     options = options with { BakeLighting = true };
                     break;
+                case "--dev-overlay":
+                    options = options with { DevOverlay = true };
+                    break;
                 default:
                     remaining.Add(arg);
                     break;
@@ -152,6 +159,8 @@ public sealed record GameHostOptions
             options.Locale = Locale;
         if (ScreenshotPath is not null || FrameCapture)
             options.EnableFrameCapture = true;
+        if (DevOverlay)
+            options.DevOverlayVisible = true;
         return options;
     }
 

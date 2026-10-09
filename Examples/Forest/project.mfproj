@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "Mainframe Forest",
   "engineVersion": "0.0.0-dev",
   "mainScene": "Content/Scenes/forest.mscene",
@@ -28,5 +28,6 @@
   },
   "audio": { "busLayout": "Content/Settings/AudioBusLayout.mres" },
   "rendering": { "shadows": "High", "antiAliasing": "Taa", "waterSsr": "High", "scaling3DMode": "Taau", "scaling3DScale": 0.75 },
+  "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1 },
   "autoloads": [ { "name": "Dev", "type": "ForestDev" } ]
 }

@@ -17,7 +17,7 @@ user project (engine by project reference, `MainframeEnginePath` in `Directory.B
 Examples/Demo/
 ├── Demo.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes   (template copies)
 ├── project.mfproj            "Mainframe Demo", main scene basic_3d, window.icon, canvas_items stretch,
-│                             autoload Nav (DemoNavLayer), locales
+│                             UI scaled with the screen from its 1280 × 720 base (ADR 0181), autoload Nav (DemoNavLayer), locales
 ├── Demo/                     the node library: Src/{Nav,Basic3D,Basic2D,Audio,SoundFx,Ui,Physics,Spine,Shared}
 ├── Demo.Desktop/            `GameHost.Run(args, typeof(Demo.DemoScenes).Assembly)` + `--write-scenes <dir>`
 ├── Demo.Tests/               xUnit v3 tests of the Demo (see Tests and CI)

@@ -204,7 +204,8 @@ public sealed partial class EditorWorkspace : Node
         Output.Add(OutputLevel.Info, "Mainframe Editor started.");
         AddChild(ScenesHost);
 
-        PanelLayer = new UiLayer { Name = "EditorPanels", Layer = 0 };
+        // The editor is a desktop tool: its layers stay at the display's DPI scale, never a game's UI scale (ADR 0181).
+        PanelLayer = new UiLayer { Name = "EditorPanels", Layer = 0, ScaleMode = UiScaleMode.Dpi };
         MenuBar = new MenuBarPanel(this) { Name = "MenuBar" };
         Toolbar = new ToolbarPanel(this) { Name = "Toolbar" };
         SceneTree = new SceneTreePanel(this) { Name = "SceneTree" };
@@ -224,7 +225,7 @@ public sealed partial class EditorWorkspace : Node
         PanelLayer.AddChild(OutputPanel);
         PanelLayer.AddChild(Splitters);
 
-        DialogLayer = new UiLayer { Name = "EditorDialogs", Layer = 50 };
+        DialogLayer = new UiLayer { Name = "EditorDialogs", Layer = 50, ScaleMode = UiScaleMode.Dpi };
         Popup = new PopupMenu(this) { Name = "Popup" };
         FilePicker = new FilePickerDialog(this) { Name = "FilePicker" };
         ListPicker = new ListPickerDialog(this) { Name = "ListPicker" };
@@ -240,13 +241,13 @@ public sealed partial class EditorWorkspace : Node
         CreateProjectUi();
 
         // Tooltips: above the dialogs, below the splash; the overlay never takes the mouse.
-        TooltipLayer = new UiLayer { Name = "EditorTooltips", Layer = 90 };
+        TooltipLayer = new UiLayer { Name = "EditorTooltips", Layer = 90, ScaleMode = UiScaleMode.Dpi };
         Tooltips = new TooltipOverlay(this) { Name = "Tooltips" };
         TooltipLayer.AddChild(Tooltips);
         Tooltips.Watch(DialogLayer);
         Tooltips.Watch(PanelLayer);
 
-        SplashLayer = new UiLayer { Name = "EditorSplash", Layer = 100 };
+        SplashLayer = new UiLayer { Name = "EditorSplash", Layer = 100, ScaleMode = UiScaleMode.Dpi };
         Splash = new SplashScreen(this) { Name = "Splash" };
         SplashLayer.AddChild(Splash);
 
@@ -448,6 +449,10 @@ public sealed partial class EditorWorkspace : Node
         var region = PreviewRegion;
         if (preview.Layer.Region != region)
             preview.Layer.Region = region;
+        // The game's UI scale at the preview's size (ADR 0181): the document looks as it would in a window that size.
+        var scaling = PreviewScaling;
+        if (!ReferenceEquals(preview.Layer.Scaling, scaling))
+            preview.Layer.Scaling = scaling;
         var rect = Layout.PreviewImage;
         var size = ((int)MathF.Round(rect.Width), (int)MathF.Round(rect.Height));
         if (size == _previewSize)
@@ -457,6 +462,25 @@ public sealed partial class EditorWorkspace : Node
     }
 
     private (int, int) _previewSize;
+
+    private MainframeEngine.ProjectSettings? _scalingProject;
+    private UiScaling? _previewScaling;
+
+    /// <summary>The open project's UI scale (<see cref="MainframeEngine.ProjectSettings.Ui"/>), for UI previews; null without a project (the editor's DPI scale).</summary>
+    internal UiScaling? PreviewScaling
+    {
+        get
+        {
+            // Session.Project is replaced (not mutated) when the settings are saved: rebuild only then.
+            if (!ReferenceEquals(_scalingProject, Session.Project))
+            {
+                _scalingProject = Session.Project;
+                _previewScaling = Session.Project?.Ui.ToScaling();
+            }
+
+            return _previewScaling;
+        }
+    }
 
     // The title only changes with the active tab, its file or its dirty state (and the project): compare those.
     private IEditorTab? _titleScene;

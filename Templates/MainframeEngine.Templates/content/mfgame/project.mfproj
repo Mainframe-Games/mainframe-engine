@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "name": "MyGame",
   "engineVersion": "MAINFRAME_ENGINE_VERSION",
   "mainScene": "Content/Scenes/Main.mscene",
@@ -49,5 +49,13 @@
   },
   "rendering": {
     "shadows": "High"
+  },
+  "ui": {
+    "scaleMode": "ScaleWithScreenSize",
+    "referenceResolution": [
+      1920,
+      1080
+    ],
+    "matchWidthOrHeight": 1
   }
 }

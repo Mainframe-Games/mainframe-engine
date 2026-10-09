@@ -125,7 +125,10 @@ flowchart TB
 | Splash | `splash.rml` | Logo, "Mainframe Engine", "Editor vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts and while a scene loads, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch |
 
 - **Theme**: `theme.rcss` + `dialogs.rcss`, a dark palette (base `#15171c`, panels `#1f2128`, accent `#3b82f6`) over
-  the shared widget library's controls; all sizes in dp (the panel layer uses `UiScaleMode.Dpi`).
+  the shared widget library's controls; all sizes in dp. The editor is a desktop tool: its UI server keeps
+  `UiScaling.ConstantPixelSize` and every editor layer (panels, dialogs, project manager, tooltips, splash) is pinned to
+  `UiScaleMode.Dpi`, so panels follow the display's scale, never the window size or a game project's `ui` setting
+  ([Game UI → Scaling](game-ui.md#scaling), ADR 0181).
 - **Layout**: `EditorLayout` computes every panel rectangle from the window size and the persisted sizes (left/right
   dock widths, output height, scene tree share), clamped to minimums; each document body is positioned in dp. Sizes,
   the window size and the output filter persist in **`~/.mainframe/editor_layout.json`** (user profile on every OS,
@@ -418,7 +421,7 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
 - **Project Settings** (Project › Project Settings, `ProjectSettingsModel`): every section of `project.mfproj` —
   Application (name, main scene, game assemblies, Demo Build), Window, Input Map (actions, deadzones, bindings
   captured from the next key or mouse press, gamepad inputs from a list), Physics 3D/2D, Audio, Localization,
-  Rendering, Autoloads, Steamworks (App ID, Demo App ID, run outside Steam in development, relaunch through Steam). Each edit is undoable (the dialog's own history, Ctrl+Z inside it); invalid values are refused
+  Rendering, UI (scale mode, reference resolution, match width or height, min/max scale; ADR 0181), Autoloads, Steamworks (App ID, Demo App ID, run outside Steam in development, relaunch through Steam). Each edit is undoable (the dialog's own history, Ctrl+Z inside it); invalid values are refused
   with a message; Save writes the file atomically and applies it to the session.
 
 ## Play
@@ -466,7 +469,9 @@ the scene tree, inspector and scene commands rest. Ctrl+W closes either kind; pr
 - **Rendering.** The document sits in its own `UiLayer` (layer 1: above the panels, below the project, dialog and
   tooltip layers) under the edited-scenes host — the editor's root viewport, so it is live, not inert. The workspace
   keeps its `UiLayer.Region` ([Game UI](game-ui.md#uiserver-uilayer-uidocument)) on the view area below the preview
-  bar (`EditorLayout.PreviewImage`); the layer is visible only while its tab is active. Hover and clicks work.
+  bar (`EditorLayout.PreviewImage`); the layer is visible only while its tab is active. Hover and clicks work. The
+  layer's `UiLayer.Scaling` is the open project's UI scale (`ProjectSettings.Ui`, refreshed when the settings are
+  saved), so the document is laid out as the game would lay it out in a window the preview's size (ADR 0181).
 - **Preview bar.** One chip per file the document pulls in (`RmlLinks`: `<link type="text/rcss">` and
   `type="text/template"` resolved like the UI server — `RmlPaths.Join`, then `ContentPaths.Resolve` — plus the style
   sheets of linked templates, "via" the template; missing files in red; an "inline <style>" chip). Clicking a chip

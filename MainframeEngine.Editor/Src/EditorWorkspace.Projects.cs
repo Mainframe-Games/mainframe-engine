@@ -30,7 +30,7 @@ public sealed partial class EditorWorkspace
 
     private void CreateProjectUi()
     {
-        ProjectLayer = new UiLayer { Name = "EditorProjects", Layer = 40 };
+        ProjectLayer = new UiLayer { Name = "EditorProjects", Layer = 40, ScaleMode = UiScaleMode.Dpi };
         ProjectManager = new ProjectManager(this) { Name = "ProjectManager" };
         ProjectLayer.AddChild(ProjectManager);
         NewProject = new NewProjectDialog(this) { Name = "NewProject" };

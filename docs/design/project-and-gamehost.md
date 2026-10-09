@@ -54,7 +54,7 @@ commas tolerated). Only values that differ from the defaults are written, except
 
 ```jsonc
 {
-  "format": 2,
+  "format": 3,
   "name": "Space Game",
   "engineVersion": "0.4.2",                    // the engine the project was created with / upgraded to
   "mainScene": "scn_0123456789ab",             // UID or Content/ path
@@ -75,6 +75,7 @@ commas tolerated). Only values that differ from the defaults are written, except
   "audio": { "enabled": true, "busLayout": "Content/Settings/AudioBusLayout.mres", "sampleRate": 44100, "bufferMs": 20 },
   "localization": { "defaultLocale": "es", "sourceLocale": "en", "fallbacks": ["es"], "directory": "Content/locale", "domain": "messages" },
   "rendering": { "exposure": 1.1, "shadows": "Low" },
+  "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1, "minScale": 0.5 },
   "autoloads": [
     { "name": "Music", "scene": "Content/Autoload/Music.mscene" },
     { "name": "Stats", "type": "GameStats", "enabled": false }
@@ -82,8 +83,9 @@ commas tolerated). Only values that differ from the defaults are written, except
 }
 ```
 
-- **Versioning.** `format` is `ProjectSettingsFormat.Current` (2; format 1 had a top-level `steamAppId`, which the
-  1 → 2 migration moves to `steam.appId`). Older files run through `ProjectMigration` steps
+- **Versioning.** `format` is `ProjectSettingsFormat.Current` (3; format 1 had a top-level `steamAppId`, which the
+  1 → 2 migration moves to `steam.appId`; the 2 → 3 migration writes `ui.scaleMode: "ConstantPixelSize"` into projects
+  that have none, so their UI keeps its size). Older files run through `ProjectMigration` steps
   (`From` → `From + 1`, each editing the `JsonObject`) before they are read; newer files are rejected ("update the
   engine"). `engineVersion` is advisory: `GameHost` warns when its major/minor differs from `EngineInfo.Version`
   (development builds `0.0.0-*` never warn).
@@ -95,6 +97,14 @@ commas tolerated). Only values that differ from the defaults are written, except
   `scaling3DScale` (0.25–1, default 1: native) → `IVulkanContext.Scaling3DScale`, `fsrSharpness` (0–2 stops, default 0.2)
   → `IVulkanContext.FsrSharpness` (optional keys: no migration; [Post-processing → Render and output resolution](post-processing.md#render-and-output-resolution)), all applied
   by `GameHost.OnLoad`. The editor's Project Settings show them under Rendering.
+- **UI** (`UiProjectSettings`, ADR 0181; [Game UI → Scaling](game-ui.md#scaling)): how every game UI follows the window
+  — each `UiLayer` in its default `UiScaleMode.Project`, the developer overlay (F12) and the RmlUi debugger. `scaleMode`
+  is `ScaleWithScreenSize` (the default for new projects: the UI is authored for `referenceResolution`, default
+  `[1920, 1080]` pixels, and 1 dp = framebuffer ÷ reference, so 2560×1440 draws it at 1.333 and 4K at 2) or
+  `ConstantPixelSize` (1 dp = the content scale, the engine's behaviour before format 3). `matchWidthOrHeight` (0 =
+  width, 1 = height, default 1; between: a log-space blend, Unity's formula), `minScale`/`maxScale` (0 = no limit) clamp
+  the result. `ToScaling()` → `UiServerOptions.Scaling` (`GameHost.CreateUiOptions`); change it at run time with
+  `UiServer.Scaling`. The editor's Project Settings show it under UI.
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.
 - **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the
@@ -158,6 +168,7 @@ does not load), 2 (bad command line).
 | `--locale <name>` | start in this locale (overrides `localization.defaultLocale`) |
 | `--screenshot <file.png>` | save the frame `--max-frames` ends on (frame 60 without it) as a PNG |
 | `--frame-capture` | allow `SceneTree.CaptureFrame` (a game's own screenshot harness; implied by `--screenshot`) |
+| `--dev-overlay` | start with the developer overlay (F12) shown (QA captures) |
 | `++ …` | everything after `++` is the game's (`GameHost.UserArgs`, Godot's `OS.get_cmdline_user_args`), never parsed by the host |
 
 Anything else before `++` is left in `GameHostOptions.Remaining` for the game. `GameHost.IsDebugBuild` is true when the
@@ -165,7 +176,7 @@ game's first assembly was compiled in Debug (developer keys), `GameHost.IsHeadle
 `SceneTree.Quit(code)`; `GameHost.Project` is the running project's settings (its `version` for build stamps).
 
 Startup: `ProjectSettings.ToEngineOptions()` (window, VSync, physics settings and tick, audio, localization, Steam) +
-the flags → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects the editor link first) → `OnLoad`:
+the flags + `CreateUiOptions` (the UI scale, hot-reload folders) → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects the editor link first) → `OnLoad`:
 `base.OnLoad()`, frame cap, exposure, shadow quality; then, on the **first update** (the window is up: SDL shows it
 after `OnLoad`, ~0.3 s on macOS, and Godot readies its scene with the window already there) and with that update's
 delta discarded (`Engine.DiscardFrameDelta`, so start-up time never reaches the game; with `--fixed-fps` the frame keeps the fixed delta like every other, as Godot's first frame does: ADR 0135), `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,

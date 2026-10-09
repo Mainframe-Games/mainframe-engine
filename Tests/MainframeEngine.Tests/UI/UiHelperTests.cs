@@ -214,7 +214,7 @@ public sealed class UiHelperTests
     public void LayerDpRatioFollowsTheScaleMode()
     {
         var layer = new UiLayer();
-        Assert.Equal(2f, layer.ComputeDpRatio(new Vector2(2560, 1440), 2f)); // Dpi (default): pixels per point
+        Assert.Equal(2f, layer.ComputeDpRatio(new Vector2(2560, 1440), 2f)); // Project (default) outside a tree: constant pixel size
         layer.ScaleMode = UiScaleMode.Pixels;
         Assert.Equal(1f, layer.ComputeDpRatio(new Vector2(2560, 1440), 2f));
         layer.ScaleMode = UiScaleMode.ReferenceResolution;

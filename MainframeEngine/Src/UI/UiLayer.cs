@@ -7,6 +7,13 @@ namespace MainframeEngine;
 /// <summary>How a <see cref="UiLayer"/> maps RCSS <c>dp</c> units to framebuffer pixels.</summary>
 public enum UiScaleMode
 {
+    /// <summary>
+    /// The game's UI scale (default): <see cref="UiServer.Scaling"/>, from project.mfproj's <c>ui</c> section — a 1080p
+    /// reference that grows with the window in game projects, <see cref="Dpi"/> in the editor and engine subclasses
+    /// (ADR 0181).
+    /// </summary>
+    Project,
+
     /// <summary>1 dp = the display's pixels per point (2 on Retina): documents look the same size on every display.</summary>
     Dpi,
 
@@ -15,7 +22,8 @@ public enum UiScaleMode
 
     /// <summary>
     /// 1 dp = framebuffer size / <see cref="UiLayer.ReferenceResolution"/> (the smaller axis ratio): a layout authored
-    /// for the reference resolution scales with the window, like a game HUD.
+    /// for the reference resolution scales with the window and always fits it. <see cref="Project"/> with the project's
+    /// <c>ui</c> settings does this for every layer at once.
     /// </summary>
     ReferenceResolution,
 }
@@ -78,12 +86,22 @@ public class UiLayer : Node
     /// <summary>The layer's context has the mouse (a <see cref="Region"/> layer only gets moves inside its region, or while it drags).</summary>
     internal bool HasPointer { get; set; }
 
+    /// <summary>
+    /// How <c>dp</c> maps to pixels: <see cref="UiScaleMode.Project"/> (default) follows the game's UI scale
+    /// (<see cref="UiServer.Scaling"/>); the others override it for this layer.
+    /// </summary>
     [Export]
-    public UiScaleMode ScaleMode { get; set; } = UiScaleMode.Dpi;
+    public UiScaleMode ScaleMode { get; set; } = UiScaleMode.Project;
 
     /// <summary>The resolution a <see cref="UiScaleMode.ReferenceResolution"/> layer is authored for (dp).</summary>
     [Export]
     public Vector2 ReferenceResolution { get; set; } = new(1920, 1080);
+
+    /// <summary>
+    /// Replaces <see cref="UiServer.Scaling"/> for this <see cref="UiScaleMode.Project"/> layer (not serialized): the
+    /// editor's UI preview shows a game document at the game project's scale. Null (default) uses the server's.
+    /// </summary>
+    public UiScaling? Scaling { get; set; }
 
     /// <summary>The layer's RmlUi context while it is in a tree with a UI server.</summary>
     public RmlContext? Context { get; private set; }
@@ -158,9 +176,18 @@ public class UiLayer : Node
         base.OnExitTree();
     }
 
-    /// <summary>The dp ratio for this layer at <paramref name="framebuffer"/> pixels and <paramref name="pixelScale"/> pixels per point.</summary>
-    public float ComputeDpRatio(Vector2 framebuffer, float pixelScale) => ScaleMode switch
+    /// <summary>
+    /// The dp ratio for this layer laid out at <paramref name="framebuffer"/> pixels (the framebuffer, or its region) with
+    /// <paramref name="pixelScale"/> pixels per point, using its server's <see cref="UiServer.Scaling"/> (constant pixel
+    /// size outside a tree).
+    /// </summary>
+    public float ComputeDpRatio(Vector2 framebuffer, float pixelScale) =>
+        ComputeDpRatio(framebuffer, pixelScale, Server?.Scaling ?? UiScaling.ConstantPixelSize);
+
+    /// <summary>The dp ratio with <paramref name="projectScaling"/> as the game's UI scale (<see cref="UiScaleMode.Project"/>).</summary>
+    public float ComputeDpRatio(Vector2 framebuffer, float pixelScale, UiScaling projectScaling) => ScaleMode switch
     {
+        UiScaleMode.Project => (Scaling ?? projectScaling).ComputeDpRatio(framebuffer, pixelScale),
         UiScaleMode.Pixels => 1f,
         UiScaleMode.ReferenceResolution when ReferenceResolution.X > 0 && ReferenceResolution.Y > 0 =>
             MathF.Max(0.01f, MathF.Min(framebuffer.X / ReferenceResolution.X, framebuffer.Y / ReferenceResolution.Y)),

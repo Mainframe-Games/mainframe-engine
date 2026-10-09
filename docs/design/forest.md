@@ -28,7 +28,7 @@ Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes (the Demo's + *.hdr, *.exr, *.cube),
 │   NOTICE.md (every third-party asset), README.md
 ├── project.mfproj        "Mainframe Forest": main scene forest, 1920 × 1080 px (contentScale 1), shadows High, TAA,
-│                         3D at 0.75 with TAAU (ADR 0174), the input map, autoload Dev
+│                         3D at 0.75 with TAAU (ADR 0174), UI scaled from 1920 × 1080 (ADR 0181), the input map, autoload Dev
 ├── benchmark-baseline.json  this Mac's forest-bench result (1920 × 1080)
 ├── Forest/               Src/Player (FirstPersonController, IFootstepSurface + SurfaceBody3D, ForestSettings),
 │                         Src/World (ForestScene, ForestValley, ValleyLayout, ValleyGenerator, ValleyNoise,

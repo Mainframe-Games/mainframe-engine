@@ -60,7 +60,8 @@ Root.AddChild(layer);
 ```
 
 The engine registers the `UiServer` when `EngineOptions.EnableUi` is on (default). Author sizes in **`dp`** (they follow
-the layer's scale mode); `px` are framebuffer pixels.
+the game's UI scale — [Scaling](#scaling): new projects author for 1920×1080 and the UI grows with the window); `px`
+are framebuffer pixels.
 
 ## Managed binding (`MainframeEngine.UI.Rml`)
 
@@ -113,7 +114,7 @@ model.Dirty("health");                                                      // v
 | Type | Role |
 |---|---|
 | `UiServer` ([UiServer.cs](../../MainframeEngine/Src/UI/UiServer.cs)) | `IFrameServer` + `IInputServer` registered by `Engine`. Owns RmlUi (init, shutdown), the render interface, fonts (every `.ttf`/`.otf` in `Content/UI/fonts`), the system and file interfaces, one context per layer, input routing, hot reload, the debugger (F8), `engine://` textures (`RegisterTexture`), the `Translator` hook ([Localization](localization.md#game-ui-rmlui)) |
-| `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer, or to its `Region` (below). `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Dpi` default: 1 dp = `UiServer.ContentScale` — the display's pixels per point, or the fixed `EngineOptions.ContentScale`; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis). Games typically use HUD (0), menus (10), overlay (100). In the editor (`SceneTree.EditMode`), a layer of an edited scene (below a sub-viewport, not the tree's root viewport) that is not a `[Tool]` type is inert: it has a context so `OnReady` code works, but the server never updates, draws or routes input to it, so a game HUD cannot cover the editor's panels |
+| `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer, or to its `Region` (below). `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Project` default: the game's UI scale, `UiServer.Scaling` — [Scaling](#scaling); `Dpi`: 1 dp = `UiServer.ContentScale` — the display's pixels per point, or the fixed `EngineOptions.ContentScale`; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis), `Scaling` (a per-layer replacement for the server's, not serialized). Games typically use HUD (0), menus (10), overlay (100). In the editor (`SceneTree.EditMode`), a layer of an edited scene (below a sub-viewport, not the tree's root viewport) that is not a `[Tool]` type is inert: it has a context so `OnReady` code works, but the server never updates, draws or routes input to it, so a game HUD cannot cover the editor's panels |
 | `UiDocument : Node` ([UiDocument.cs](../../MainframeEngine/Src/UI/UiDocument.cs)) | `[Export] Source` (or inline `Rml`), `Visible`, `Modal`, `AutoFocus`; `[Signal] Loaded`, `Reloaded`; `CreateDataModel`, `GetElementById`, `QuerySelector`, `Show`/`Hide`, `Reload`. Must be below a `UiLayer` |
 | `UiElement` ([UiElement.cs](../../MainframeEngine/Src/UI/UiElement.cs)) | A cached element wrapper with C# events (`Click`, `DoubleClick`, `MouseDown/Up/Over/Out`, `Change`, `Submit`, `Focused`, `Blurred`, `KeyDown/Up`, `On(type, …)`); native listeners attach only for subscribed types. Every access looks the element up again by id, so a wrapper follows elements the DOM replaces (inner RML, `data-for`, `data-if`) and reports invalid — never dangling — once removed |
 
@@ -124,12 +125,42 @@ closes when the node leaves the tree; its models are removed.
 
 **Regions.** `UiLayer.Region` (a `System.Drawing.Rectangle?` in framebuffer pixels, not serialized; null = the whole
 window) confines a layer to a rectangle of the window: its context is laid out at the region's size (the dp ratio of
-`ReferenceResolution` layers follows it), every draw is offset to the region's origin and clipped to it, and the mouse
+`ReferenceResolution` layers, and of `Project` layers scaling with the screen, follows it), every draw is offset to the region's origin and clipped to it, and the mouse
 reaches it only inside the region (or while it drags) in region coordinates — leaving the region sends it a
 mouse-leave. The renderer records the region with every command (an index into a per-frame region table), so
 transforms, clip masks, filters and saved layers work unchanged inside it. Uses: split-screen HUDs, the editor's UI
 preview tab ([Editor](editor.md#ui-preview)). The region may change every frame. `UiServer.Reload(document, kind)`
 applies file changes to one document only (the preview's own file watcher), where `Reload(kind)` reloads them all.
+
+### Scaling
+
+ADR 0181 ([decision](../../memory/decisions/0181-ui-reference-resolution-scaling.md)): Unity's `CanvasScaler` for every
+game UI at once. `UiServer.Scaling` (a `UiScaling` record; initially `UiServerOptions.Scaling`, which `GameHost` fills
+from project.mfproj's `ui` section — [Projects](project-and-gamehost.md#projectmfproj)) sets the dp ratio of every
+`UiScaleMode.Project` layer (the default), the developer overlay (an ordinary `Project` layer) and the RmlUi debugger.
+
+| `Mode` | 1 dp = |
+|---|---|
+| `ConstantPixelSize` (`UiScaling.ConstantPixelSize`: the engine default, the editor, tests, projects older than format 3) | `UiServer.ContentScale` (2 on Retina, or the fixed `EngineOptions.ContentScale`) — the UI keeps its size whatever the window |
+| `ScaleWithScreenSize` (`UiScaling.ScaleWithScreenSize`: new projects, the Forest, the template) | `2^lerp(log2(w / refW), log2(h / refH), MatchWidthOrHeight)` of the layer's **pixel** size, clamped by `MinScale`/`MaxScale` (0 = none) |
+
+- With the 1920×1080 reference and `MatchWidthOrHeight` 1 (height, the default): 1280×720 → 0.667, 1920×1080 → 1,
+  2560×1440 → 1.333, 3840×2160 → 2, ultrawide 3440×1440 → 1.333 (the layout is always 1080 dp tall and 2580 dp wide).
+  Height is the default because games are landscape and authored for a design height: vertical stacks (menus, HUD
+  columns) always fit and wider screens give more room at the sides, as Unreal's default "shortest side" DPI rule does.
+  0 matches the width; 0.5 is the geometric mean (Unity's suggestion for mixed aspects).
+- **HiDPI.** The scale comes from framebuffer pixels, not window points: a 1920×1080-point window on a 2× display is
+  3840×2160 pixels and draws the UI at 2×, the same physical size as 1080p on a 1× display. A project with
+  `window.contentScale` 1 (the Forest) sizes its window in pixels, so a Retina display changes nothing.
+- **Resize.** The ratio is recomputed from the layer's size (the framebuffer, or its `Region`) every frame; RmlUi
+  re-lays out when it changes, on the frame after a resize or a new `Scaling`. No allocation.
+- **Input** needs nothing: contexts are laid out in pixels and the mouse arrives in pixels, so elements are hit where
+  they are drawn at any scale.
+- **Authoring.** Write sizes in `dp` for the reference resolution; `px` stay framebuffer pixels. Use `%`, `right`/
+  `bottom` anchoring and `max-width` for anything that must adapt to other aspects.
+- The **editor** is a desktop tool: its server keeps `ConstantPixelSize` and its layers are pinned to `Dpi`, so panels
+  never scale with the window. Its UI preview tab lays the previewed document out with the open project's scale at the
+  preview's size (`UiLayer.Scaling`). Games started with Play are their own processes and use their project's setting.
 
 **Frame.** `UiServer.Process` (after the tree's process step): release queued handles, advance UI time by the frame
 delta (deterministic with `FixedDeltaTime`), publish IME composition, repeat held gamepad navigation, apply hot
@@ -317,7 +348,11 @@ state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded
   text fields, gamepad), F8, hot reload (documents, style sheets, recovery), the widget template, **0 B over 200 HUD
   frames**; `UiHelperTests.cs`: key/gamepad/stick maps, reload batching and the watcher, premultiplication, blur
   parameters, source-folder overrides, dp ratios, cursors.
-- **Render** (`Tests/MainframeEngine.RenderTests/UiRenderTests.cs`, goldens): `ui-hud` (HUD over the lit scene; the
+- **Scaling** (`UiScalingTests.cs`): the scale math (width/height/blend, clamps, HiDPI, validation), `Project` layers
+  and overrides, re-layout on a new scale or size, the dev overlay's layer, mouse hits on scaled elements, 0 B per
+  scaled frame; project settings round trip and the 2 → 3 migration in `ProjectSettingsTests`.
+- **Render** (`Tests/MainframeEngine.RenderTests/UiRenderTests.cs`, goldens): `ui-scaling` (a 640×360-reference
+  document before and after a resize to twice the size: the same fractions of the frame, checked on the pixels), `ui-hud` (HUD over the lit scene; the
   opaque swatch is checked to be exactly `#3366cc`), `ui-effects` (clip masks, rotated clip, gradients, box-shadow,
   blur, drop-shadow, grayscale, opacity, mask-image, backdrop blur), `ui-text`, `ui-widgets`, determinism and swapchain
   recreation. The `showcase` allocation gate carries the HUD (bindings dirtied every frame): 0 B per frame.
