@@ -335,6 +335,7 @@ public sealed class RenderServer : IServer
         if (_rootPicker is { HasQueued: true } picker && GetRenderCamera(root, vk.SwapchainExtent) is { } camera)
         {
             var world = root.World3D;
+            vk.Frame.Environment = world.Environment?.FrameEnvironment ?? default;
             vk.Frame.Begin(camera, world.Lights); // the main pass rewrites the same data
             var meshes = Meshes!;
             meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
@@ -358,6 +359,7 @@ public sealed class RenderServer : IServer
         {
             EnsureResources(world);
             // The shadow maps belong to the main world, unless this view owns them this frame (SubViewport.Shadows).
+            frame.Environment = world.Environment?.FrameEnvironment ?? default;
             frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber);
             meshes = world.GeometryList.Count > 0 ? Meshes : null;
             meshes?.Prepare(targets.Draws, world, camera, collectCasters: false);
@@ -433,6 +435,7 @@ public sealed class RenderServer : IServer
             var world = viewport.World3D;
             EnsureResources(world);
             vk.Frame.SetView(0, default);
+            vk.Frame.Environment = world.Environment?.FrameEnvironment ?? default;
             vk.Frame.Begin(camera, world.Lights); // shared set 0: camera + lights, once per frame
             MeshRenderer? meshes = null;
             if (world.GeometryList.Count > 0)

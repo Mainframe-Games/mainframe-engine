@@ -43,6 +43,63 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     /// <summary>The tonemap and glow this environment asks the renderer for (ADR 0124); the tree's root world's is used.</summary>
     public PostProcessSettings PostProcess => _post;
 
+    [ExportGroup("Wind")]
+    /// <summary>World direction the wind blows towards (normalized when packed). Foliage, grass and water read it.</summary>
+    [Export]
+    public Vector3 WindDirection { get; set; } = new(1f, 0f, 0.3f);
+
+    /// <summary>Wind strength (0 = calm, 1 = a steady breeze).</summary>
+    [Export(Range = "0,4,0.01")]
+    public float WindStrength { get; set; }
+
+    /// <summary>Main sway frequency in Hz.</summary>
+    [Export(Range = "0,4,0.01")]
+    public float WindFrequency { get; set; } = 0.5f;
+
+    /// <summary>How much gusts vary across space and time (0..1).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float WindTurbulence { get; set; } = 0.4f;
+
+    [ExportGroup("Fog")]
+    /// <summary>Distance and height fog over every lit surface (Godot's <c>fog_enabled</c>).</summary>
+    [Export]
+    public bool FogEnabled { get; set; }
+
+    /// <summary>Fog colour where it is not lit by the sun, authored in sRGB (Godot's <c>fog_light_color</c>).</summary>
+    [Export]
+    public Vector3 FogLightColor { get; set; } = new(0.52f, 0.60f, 0.68f);
+
+    /// <summary>Fog density per metre (Godot's <c>fog_density</c>).</summary>
+    [Export(Range = "0,1,0.0001")]
+    public float FogDensity { get; set; } = 0.01f;
+
+    /// <summary>World height where height fog starts thinning (Godot's <c>fog_height</c>).</summary>
+    [Export(Range = "-1024,1024,0.1")]
+    public float FogHeight { get; set; }
+
+    /// <summary>How fast fog thins above <see cref="FogHeight"/>, per metre (Godot's <c>fog_height_density</c>); 0 = uniform fog.</summary>
+    [Export(Range = "0,4,0.001")]
+    public float FogHeightDensity { get; set; }
+
+    /// <summary>How much the sun colours fog looking towards it (Godot's <c>fog_sun_scatter</c>).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float FogSunScatter { get; set; }
+
+    /// <summary>The wind and fog packed for the per-frame shader data (linear colour, normalized direction).</summary>
+    public FrameEnvironment FrameEnvironment
+    {
+        get
+        {
+            var dir = WindDirection.LengthSquared() > 1e-8f ? Vector3.Normalize(WindDirection) : Vector3.UnitX;
+            var fog = ColorSpace.SrgbToLinear(FogLightColor);
+            return new FrameEnvironment(
+                new Vector4(dir, WindStrength),
+                new Vector4(WindFrequency, WindTurbulence, 24f, 0f),
+                new Vector4(fog, FogEnabled ? 1f : 0f),
+                new Vector4(FogDensity, FogHeight, FogHeightDensity, FogSunScatter));
+        }
+    }
+
     [ExportGroup("Tonemap")]
     /// <summary>The tonemap curve (ADR 0124): the engine's ACES fit by default, or Godot 4.7's ACES.</summary>
     [Export]

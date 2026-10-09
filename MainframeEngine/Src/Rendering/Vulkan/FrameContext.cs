@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 368 bytes).</summary>
+/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 432 bytes).</summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct FrameData
 {
@@ -25,12 +25,28 @@ public struct FrameData
     /// <summary>x = near plane, y = far plane (recovered from the projection), z = time in seconds, w = exposure.</summary>
     public Vector4 Clip;
 
+    /// <summary>xyz = world direction the wind blows towards (normalized), w = strength (see <see cref="FrameEnvironment"/>).</summary>
+    public Vector4 Wind;
+
+    /// <summary>x = frequency (Hz), y = turbulence, z = noise scale (m).</summary>
+    public Vector4 WindParams;
+
+    /// <summary>rgb = linear fog light colour, a = 1 when fog is enabled.</summary>
+    public Vector4 FogColor;
+
+    /// <summary>x = density, y = fog base height, z = height density, w = sun scatter.</summary>
+    public Vector4 FogParams;
+
     /// <summary>Bytes in the std140 block.</summary>
-    public const int Size = 5 * 64 + 3 * 16;
+    public const int Size = 5 * 64 + 7 * 16;
 
     /// <summary>Fills the block from a camera's matrices.</summary>
     public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
-        float time, float exposure)
+        float time, float exposure) => From(view, projection, cameraPosition, extent, time, exposure, default);
+
+    /// <summary>Fills the block from a camera's matrices and the world's wind and fog.</summary>
+    public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
+        float time, float exposure, in FrameEnvironment environment)
     {
         Matrix4x4.Invert(projection, out var invProj);
         var viewRotation = view;
@@ -48,6 +64,10 @@ public struct FrameData
             CameraPosition = new Vector4(cameraPosition, 0f),
             Viewport = new Vector4(w, h, 1f / w, 1f / h),
             Clip = new Vector4(near, far, time, exposure),
+            Wind = environment.Wind,
+            WindParams = environment.WindParams,
+            FogColor = environment.FogColor,
+            FogParams = environment.FogParams,
         };
     }
 
@@ -70,6 +90,12 @@ public struct FrameData
         return (n, n - 1f / projection.M33);
     }
 }
+
+/// <summary>
+/// The wind and fog parts of <see cref="FrameData"/>, packed for the shaders (see <c>include/frame.slang</c>). Default:
+/// no wind, no fog.
+/// </summary>
+public readonly record struct FrameEnvironment(Vector4 Wind, Vector4 WindParams, Vector4 FogColor, Vector4 FogParams);
 
 /// <summary>
 /// The per-frame shared descriptor set 0: camera (<see cref="FrameData"/>, binding 0) and lights (the
@@ -165,6 +191,9 @@ public sealed unsafe class FrameContext : IDisposable
     /// <summary>Time in seconds written to <see cref="FrameData.Clip"/>.z by <see cref="Begin"/>.</summary>
     public float Time { get; set; }
 
+    /// <summary>Wind and fog written into <see cref="FrameData"/> by later camera writes (the render server sets the world's).</summary>
+    public FrameEnvironment Environment { get; set; }
+
     /// <summary>
     /// Switches the view later calls refer to: 0 is the main view; 1 .. <see cref="MaxViews"/> - 1 are offscreen
     /// views of <paramref name="extent"/> pixels (ignored for view 0).
@@ -197,7 +226,7 @@ public sealed unsafe class FrameContext : IDisposable
     {
         if (!_ctx.FrameStarted) return;
         var index = Index;
-        _buffers[_ctx.FrameSlot].Write(FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure),
+        _buffers[_ctx.FrameSlot].Write(FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure, Environment),
             (ulong)CurrentView * _viewStride);
         _cameraFrame[index] = _ctx.FrameNumber;
     }
