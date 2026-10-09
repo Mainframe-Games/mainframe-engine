@@ -18,8 +18,8 @@ white), sky textures were sRGB and came out darker, and Spine's premultiplied al
 
 ```mermaid
 flowchart LR
-    S["Scene pass<br/>RenderTarget: R16G16B16A16_SFLOAT + depth<br/>sky, grid, shapes, Spine (linear)"] --> T["Tonemap pass<br/>texel × exposure → ACES fitted → sRGB encode"]
-    S -. "PostProcessSettings ≠ Default (ADR 0124)" .-> AE["Auto exposure (ADR 0154)<br/>log2 luminance 64² → 1², adapted 1×1"] -.-> G["Glow chain<br/>7 levels, ½ … 1/128 res"] -.-> T2["Post tonemap pass<br/>× exposure (× auto) → glow → engine or Godot ACES → sRGB encode"]
+    S["Scene pass<br/>RenderTarget: R16G16B16A16_SFLOAT + stored depth<br/>sky, grid, shapes, Spine (linear)"] --> T["Tonemap pass<br/>texel × exposure → ACES fitted → sRGB encode"]
+    S -. "PostProcessSettings ≠ Default (ADR 0124)" .-> AE["Auto exposure (ADR 0154)<br/>log2 luminance 64² → 1², adapted 1×1"] -.-> G["Glow chain<br/>7 levels, ½ … 1/128 res"] -.-> LS["Light shafts (ADR 0160)<br/>½ res: sky mask → fine + coarse radial blur"] -.-> T2["Post tonemap pass<br/>+ shafts → × exposure (× auto) → glow → engine or Godot ACES → sRGB encode"]
     T -. "AntiAliasing.Fxaa (ADR 0154)" .-> F["FXAA input (R8G8B8A8_UNORM, sRGB-encoded)<br/>→ FXAA 3.11 into the swapchain"] -.-> O
     T --> O["Overlay (same pass)<br/>canvas, screen gizmos, UI, dev overlay: sRGB-authored, unchanged"]
     O --> P["present (B8G8R8A8_UNORM)"]
@@ -27,7 +27,7 @@ flowchart LR
 
 | Step | Who | Detail |
 |---|---|---|
-| `BeginRenderPass()` | Engine, after the shadow pass | Begins the scene target pass; clears colour to `SetClearColor` **converted to linear**, depth to 1 |
+| `BeginRenderPass()` | Engine, after the shadow pass | Begins the scene target pass; clears colour to `SetClearColor` **converted to linear**, depth to 1 (the depth is stored for light shafts, ADR 0160) |
 | scene draws | `RenderServer.RenderMain` (the scene tree), then game `OnRenderMainPass` | Pipelines built against `IVulkanContext.RenderPass` (the scene pass) write linear HDR colour |
 | `BeginOverlayPass()` | `EndFrame` | Ends the scene pass; begins the swapchain pass; draws the fullscreen tonemap triangle; leaves the pass open for the overlay |
 | overlay draws | canvas, `ScreenGizmos`, UI layers, dev overlay (`OverlayOrder`) | Pipelines built against `IVulkanContext.OverlayRenderPass` |
@@ -116,8 +116,15 @@ target will be another.
 - `auto-exposure` render scene (`AutoExposureBrightensADarkSceneOverTime`, golden at frame 80): the light dims on frame
   20; the frame after is dark and 60 fixed frames later the mean luminance has risen ≥ 1.6× without overshooting.
 - `sky-physical --count 2`: 0 B per frame with a moving sun, auto exposure, glow and FXAA (allocation gate).
+- `light-shafts` render scene (`ShaftsStreamThroughTheGapsBetweenPosts`, golden at frame 6): a physical-sky sun 10° up
+  behind a row of tall posts, the camera looking straight at it (the scene checks that `LightShaftsSun` puts it at the
+  centre, fade 1). Against the same frame without shafts, the mean luminance rises by more than 10 and, on a circle
+  below the sun, what the shafts add varies by more than 40 (streaks through the gaps, not a uniform glow).
+  `--count 2` swings the sun ±90° through the screen and out past its edges: 0 B per frame (allocation gate).
 - Unit tests: transfer curves, ACES properties, default-exposure and sky-ground calibration, swapchain choice;
-  auto-exposure blend and clamps, the anti-aliasing setting's defaults and `project.mfproj` round trip.
+  auto-exposure blend and clamps, the anti-aliasing setting's defaults and `project.mfproj` round trip; light-shaft
+  defaults, sample clamp and per-pass step/decay, the sun's screen position and fade (behind, at 90°, the off-screen
+  sweep, orthographic cameras) and the `WorldEnvironment` round trip (`LightShaftsTests`).
 - Goldens (`moltenvk`) re-recorded for M3 and reviewed: no clipping where lights overlap, coloured
   lights stay saturated, shadows keep the ambient tint.
 
@@ -129,7 +136,8 @@ target will be another.
   over the floor can show the sky behind it where the coplanar z-fight goes the line's way — a pre-existing
   ordering artefact.
 - No HDR display output.
-- SubViewports always use the engine curve without glow, auto exposure or FXAA (ADR 0124, ADR 0154).
+- SubViewports always use the engine curve without glow, auto exposure, light shafts or FXAA (ADR 0124, ADR 0154,
+  ADR 0160).
 
 ## Godot tonemap and glow (ADR 0124)
 
@@ -173,6 +181,43 @@ passes later without changing the tonemap side).
 present pass then draws `Post/Fxaa.vk.frag` (FXAA 3.11, PC quality preset 12, luma computed from the encoded colour) and
 the overlay renderers follow in the same pass, so the 2D canvas, gizmos, UI and dev overlay are never filtered. On an
 sRGB swapchain view the FXAA shader decodes before writing (the view encodes again). TAA (G8d.8) is not built.
+
+## Light shafts (ADR 0160)
+
+`WorldEnvironment.LightShaftsEnabled` (default off) streaks the sky around the sun through the gaps between leaves,
+trunks and anything else that wrote depth: Mitchell's radial blur from GPU Gems 3 ch. 13, as fragment passes
+([`LightShafts`](../../MainframeEngine/Src/Rendering/Post/LightShafts.cs)). The sun is the world's **first
+`DirectionalLight3D`** (the physical sky's sun too); the render server projects its direction with the root camera
+each frame into `IVulkanContext.LightShaftsSun` (`LightShaftsSun.Compute`: scene-image UV, 0,0 top-left, and a fade).
+
+| Pass | Target | Shader |
+|---|---|---|
+| Mask | ½ res `R16G16B16A16_SFLOAT` | `LightShaftsMask`: the mean of each texel's 2 × 2 scene texels whose depth is still the cleared 1 (sky), each capped at luminance 8 (`LightShafts.LuminanceCap`; the sun disc would swamp the rest), × `(1 − smoothstep(0, 0.6, d))²` with `d` the aspect-corrected screen distance to the sun in screen heights |
+| Fine blur | ½ res | `LightShaftsBlur`: `n` taps (`LightShaftsTapsPerPass`, `LightShaftsSamples` clamped to 4–64) towards the sun, step `density / n²` × (texel − sun), the i-th weighted `decay^(16 i / n²)`, averaged; bilinear, black past the image edges |
+| Coarse blur | ½ res | the same shader with step `density / n` and `decay^(16 i / n)`: together `n²` effective taps over `LightShaftsDensity` (0.8) of the way to the sun, tap `k` weighing `LightShaftsDecay^(16 k / n²)` |
+
+`LightShaftsDecay` (0.96) is the weight left after each sixteenth of a ray, so the look does not depend on the sample
+count; the two-pass split keeps 2 × 16 taps per texel instead of 256 (and two encoders on Apple's tile-based GPUs).
+
+**Composite:** the post tonemap pass (binding 3) samples the result bilinearly and adds it × `LightShaftsIntensity`
+(1) × fade to the HDR scene **before exposure, alongside glow**: the shafts are scene radiance like the sky they come
+from, but neither glow nor auto exposure sees them (both read the scene target, before the shafts exist). That saves a
+full-resolution blend pass into the scene, keeps auto exposure from chasing the shafts, and puts a bright sky gap's
+bloom and its shaft side by side rather than blooming the shaft.
+
+**Fade:** 1 while the sun is on screen, `1 − smoothstep(0, 0.3, outside)` as it moves `outside` (in UV) past an edge
+(`LightShaftsSun.OffscreenMargin`), 0 behind the camera, at 90° to it or with an orthographic camera. With fade 0 or
+the shafts off, no shaft pass is recorded and the tonemap adds nothing.
+
+**Depth:** the scene pass stores its depth (`RenderTargetDesc.SampleDepth`, final layout
+`DEPTH_STENCIL_READ_ONLY_OPTIMAL`; `RenderTarget.End` adds the depth to its barrier) every frame. Storing measured
+≤ 0.02 ms of the scene pass at 2560 × 1440 on an Apple M5 (MoltenVK; timestamps around the pass, three scenes,
+600-frame averages), so it is not switched with the setting. No depth prepass is needed. Transparent surfaces that do
+not write depth count as sky.
+
+Created the first frame that enables them (three ½-res `R16G16B16A16_SFLOAT` targets, ≈ 21 MiB at 1440p); the post set
+binds the glow's smallest level as a placeholder until then, and a second post set binds the shafts, so no descriptor
+set in flight is rewritten. Colour grading (`ColorGradingLut`, G8d.4's other half) is not built.
 
 ## Related docs
 

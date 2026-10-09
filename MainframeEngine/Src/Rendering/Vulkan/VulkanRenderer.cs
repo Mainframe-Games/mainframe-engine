@@ -146,6 +146,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
 
     public PostProcessSettings PostProcess { get; set; } = PostProcessSettings.Default;
 
+    public LightShaftsSun LightShaftsSun { get; set; }
+
     public AntiAliasing AntiAliasing
     {
         get => _antiAliasing;
