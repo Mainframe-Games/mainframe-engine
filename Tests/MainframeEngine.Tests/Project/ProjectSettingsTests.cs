@@ -78,6 +78,8 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Ui.MatchWidthOrHeight = 0.5f;
         s.Ui.MaxScale = 2f;
         s.Ui.MinScale = 0.75f;
+        s.Loading.Async = false;
+        s.Loading.Screen = "Content/UI/loading.rml";
         s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Content/Autoload/Music.mscene" });
         s.Autoloads.Add(new AutoloadSettings { Name = "Stats", Type = "GameStats", Enabled = false });
         var host = new PlayInstanceSettings { Label = "Host" };
@@ -106,6 +108,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equivalent(expected.Localization, actual.Localization, strict: true);
         Assert.Equivalent(expected.Rendering, actual.Rendering, strict: true);
         Assert.Equivalent(expected.Ui, actual.Ui, strict: true);
+        Assert.Equivalent(expected.Loading, actual.Loading, strict: true);
         Assert.Equal(expected.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)), actual.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)));
         Assert.Equal(expected.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)),
             actual.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)));
@@ -315,6 +318,26 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         var e = Assert.Throws<InvalidDataException>(() => Parse(json));
         Assert.Contains(expected, e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheLoadingSectionDefaultsToAnAsyncStartWithTheEngineScreen()
+    {
+        // ADR 0183: every project loads its start scene asynchronously behind the engine's loading screen by default.
+        var defaults = new ProjectSettings();
+        Assert.True(defaults.Loading.Async);
+        Assert.Null(defaults.Loading.Screen);
+        Assert.DoesNotContain("\"loading\"", Text(defaults), StringComparison.Ordinal);
+
+        var none = Parse("""{ "format": 3, "name": "G", "loading": { "screen": "" } }""");
+        Assert.Equal("", none.Loading.Screen); // no loading screen, still async
+        Assert.True(none.Loading.Async);
+        Assert.Contains("\"screen\": \"\"", Text(none), StringComparison.Ordinal);
+
+        var sync = Parse("""{ "format": 3, "name": "G", "loading": { "async": false } }""");
+        Assert.False(sync.Loading.Async);
+        var error = Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "loading": { "async": "yes" } }"""));
+        Assert.Contains("loading.async", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

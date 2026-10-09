@@ -1,0 +1,127 @@
+/*
+ * The Forest's loading screen (ADR 0183; LoadingScreen, the project's "loading.screen"), styled like the pause menu
+ * (menu.rcss, ADR 0180): the glade shot (R1) behind a dark green glass scrim, the brand block and a sunlight-gold
+ * progress bar. Binds the engine's "loading" model: stage, progress (0-1), percent. Sizes in dp; colours sRGB.
+ */
+
+body {
+    font-family: LatoLatin;
+    font-size: 15dp;
+    color: #eef1e8;
+    width: 100%;
+    height: 100%;
+    background-color: #060a07;
+    overflow: hidden;
+}
+
+div, p { display: block; }
+
+/* ── Backdrop ─────────────────────────────────────────────────────────────── */
+
+/* The shot drifts in slowly (a Ken Burns zoom): the screen visibly lives while the valley is built. */
+#shot {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    decorator: image(loading-glade.jpg cover);
+    transform-origin: 62% 40%;
+    animation: 26s sine-in-out infinite alternate drift;
+}
+
+@keyframes drift {
+    from { transform: scale(1.0); }
+    to   { transform: scale(1.09); }
+}
+
+#scrim {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    decorator: linear-gradient(90deg, #060a07f2 0%, #060a07c8 30%, #060a0760 64%, #060a0730 100%);
+}
+
+#floor {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 46%;
+    decorator: linear-gradient(180deg, #060a0700 0%, #060a07b0 70%, #060a07e6 100%);
+}
+
+/* ── Brand (the menu's block, larger) ─────────────────────────────────────── */
+
+#brand {
+    position: absolute;
+    left: 96dp;
+    bottom: 200dp;
+    width: 720dp;
+}
+
+#icon { display: block; width: 96dp; height: 96dp; margin-bottom: 20dp; }
+.brand-kicker { font-size: 14dp; font-weight: bold; letter-spacing: 4dp; color: #f0c76e; }
+.brand-title { font-size: 84dp; font-weight: bold; color: #ffffff; line-height: 96dp; margin-top: 4dp; }
+.brand-line { font-size: 17dp; color: #c4ccbd; margin-top: 8dp; }
+
+/* ── Progress ─────────────────────────────────────────────────────────────── */
+
+#progress {
+    position: absolute;
+    left: 96dp;
+    bottom: 104dp;
+    width: 560dp;
+}
+
+#status {
+    height: 22dp;
+    font-size: 15dp;
+    margin-bottom: 12dp;
+}
+
+#stage { position: absolute; left: 0dp; color: #dfe5d8; }
+
+/* Three dots after the stage, pulsing in turn. */
+.dot { color: #f0c76e; opacity: 0.25; }
+#d1 { animation: 1.2s 0.0s sine-in-out infinite alternate pulse; }
+#d2 { animation: 1.2s 0.2s sine-in-out infinite alternate pulse; }
+#d3 { animation: 1.2s 0.4s sine-in-out infinite alternate pulse; }
+
+@keyframes pulse {
+    from { opacity: 0.2; }
+    to   { opacity: 1; }
+}
+
+#percent { position: absolute; right: 0dp; font-weight: bold; color: #f6d58a; }
+
+#track {
+    height: 4dp;
+    border-radius: 2dp;
+    background-color: #ffffff21;
+    overflow: hidden;
+}
+
+#fill {
+    position: relative;
+    height: 4dp;
+    border-radius: 2dp;
+    decorator: linear-gradient(90deg, #a9c98f 0%, #e9bf63 70%, #f6d58a 100%);
+    overflow: hidden;
+}
+
+#shine {
+    position: absolute;
+    top: 0dp;
+    width: 140dp;
+    height: 4dp;
+    decorator: linear-gradient(90deg, #ffffff00 0%, #fff4d6a0 50%, #ffffff00 100%);
+    animation: 2.2s linear infinite sweep;
+}
+
+@keyframes sweep {
+    from { left: -140dp; }
+    to   { left: 560dp; }
+}
+
+#foot {
+    position: absolute;
+    left: 96dp;
+    bottom: 40dp;
+    font-size: 13dp;
+    color: #8f9a8a;
+}

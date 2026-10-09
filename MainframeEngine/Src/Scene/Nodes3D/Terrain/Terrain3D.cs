@@ -326,6 +326,19 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
             Build();
     }
 
+    /// <summary>
+    /// Builds the chunks (meshes, collision, water) and the foliage tiles now instead of when the terrain is ready: on a
+    /// loading thread while the terrain is still outside the tree (<see cref="ISceneLoadable.LoadInBackground"/>,
+    /// ADR 0183), so entering the tree only creates their GPU resources and bodies. No-op when built or without data.
+    /// </summary>
+    public void BuildNow()
+    {
+        if (_built || _data is null)
+            return;
+        Build();
+        _foliage?.BuildTiles();
+    }
+
     protected override void OnExitTree()
     {
         Unsubscribe();

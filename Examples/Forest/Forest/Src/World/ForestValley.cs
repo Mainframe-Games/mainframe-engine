@@ -16,9 +16,14 @@ namespace Forest;
 /// It is a <c>[Tool]</c> (ADR 0169): in the editor it builds the same visuals, so the post-processing look
 /// (<see cref="ForestLook"/>) is tuned on the real valley; the gameplay parts (the player's ground snap, audio, the map's
 /// walls) run in the game only.
+/// ADR 0183: it is an <see cref="ISceneLoadable"/>. When the game loads its scene asynchronously (the loading screen),
+/// everything above is built on the loading thread before the scene enters the tree
+/// (<see cref="ISceneLoadable.LoadInBackground"/>: the terrain's chunks and foliage tiles and the trees' variants and
+/// impostors included), and the loading screen stays up through the pre-warm frames
+/// (<see cref="ISceneLoadable.PollLoaded"/>). Loaded synchronously (the editor, tests) it builds in ready, as before.
 /// </summary>
 [Tool]
-public sealed class ForestValley : Node3D
+public sealed class ForestValley : Node3D, ISceneLoadable
 {
     /// <summary>Seed of the noise, trees and props (the layout is fixed).</summary>
     [Export] public int Seed { get; set; } = 1;
@@ -167,14 +172,58 @@ public sealed class ForestValley : Node3D
         }
     }
 
+    private bool _built;
+    private string? _buildLog;
+
+    /// <summary>True once the valley's children exist (built in ready, or on the loading thread).</summary>
+    public bool IsBuilt => _built;
+
     protected override void OnReady()
     {
         var editing = Tree?.EditMode == true; // the editor: visuals only, nothing that changes saved nodes
+        if (!_built)
+            Build(editing, null);
+        if (!editing)
+        {
+            ConnectPlayer(Terrain!);
+            ConnectAudio(Generator!);
+        }
+
+        Log.Info(_buildLog!);
+    }
+
+    // ── Loading (ADR 0183) ──────────────────────────────────────────────────
+
+    /// <summary>The share of the stages in the loading bar: measured times of a cached run (trees dominate; the first run bakes).</summary>
+    private const float GeneratedAt = 0.08f, CarvedAt = 0.18f, TreesAt = 0.72f, TerrainAt = 0.92f;
+
+    void ISceneLoadable.LoadInBackground(SceneLoadProgress progress) => Build(editing: false, progress);
+
+    bool ISceneLoadable.PollLoaded(SceneLoadProgress progress)
+    {
+        // The pre-warm (every batch shown, so their GPU resources and pipelines are made behind the loading screen).
+        const int warm = 2 + PrewarmFrames;
+        progress.Report(Math.Min(1f, _frames / (float)warm), _frames < 2 ? "Uploading to the GPU" : "Compiling shaders");
+        return _frames >= warm;
+    }
+
+    /// <summary>
+    /// Builds the valley's children. In ready (<paramref name="progress"/> null), or on the loading thread while the scene
+    /// is outside the tree: then the terrain and the scatters build their chunks, tiles and batches here too, so entering
+    /// the tree only creates GPU resources and bodies.
+    /// </summary>
+    private void Build(bool editing, SceneLoadProgress? progress)
+    {
+        _built = true;
+        var background = progress is not null;
         if (Parent is { } scene && GameHost.UserArgs.Count > 0 && !editing)
             ForestDev.ApplyOverrides(scene, GameHost.UserArgs, valley: true);
         var watch = Stopwatch.StartNew();
+        progress?.Report(0f, "Generating the valley");
         var valley = Generator = ValleyGenerator.Generate(Seed);
         var generated = watch.Elapsed.TotalMilliseconds;
+        progress?.Report(GeneratedAt, "Carving the stream");
+        progress?.ThrowIfCancellationRequested();
 
         var data = valley.CreateTerrainData();
         var terrain = Terrain = new Terrain3D
@@ -211,6 +260,8 @@ public sealed class ForestValley : Node3D
             data.FoliageTypes = CreateGroundCover();
         AddChild(terrain);
         AddChild(stream);
+        progress?.Report(CarvedAt, "Growing trees");
+        progress?.ThrowIfCancellationRequested();
 
         if (Trees)
         {
@@ -232,6 +283,8 @@ public sealed class ForestValley : Node3D
                 ShadowCoarseLod = TreeImpostorDistance > 0f || TreeShadowCoarseLod < 3 ? TreeShadowCoarseLod : 1,
             };
             Forest.SetPlacements(ForestVegetation.PlaceTrees(valley, Height, Slope, TreeNewSpeciesShare, TreeUnderstorey));
+            if (background)
+                Forest.Rebuild(f => progress!.Report(CarvedAt + (TreesAt - CarvedAt) * 0.9f * f, f < 0.5f ? "Growing trees" : "Baking tree impostors"));
             AddChild(Forest);
 
             Bushes = new TreeScatter
@@ -248,10 +301,21 @@ public sealed class ForestValley : Node3D
                 InstanceHueJitter = TreeHueJitter,
             };
             Bushes.SetPlacements(ForestVegetation.PlaceBushes(valley, Height, Slope));
+            if (background)
+                Bushes.Rebuild(f => progress!.Report(CarvedAt + (TreesAt - CarvedAt) * (0.9f + 0.1f * f), "Growing bushes"));
             AddChild(Bushes);
         }
 
         var trees = watch.Elapsed.TotalMilliseconds;
+        progress?.ThrowIfCancellationRequested();
+        if (background)
+        {
+            progress!.Report(TreesAt, "Shaping the terrain");
+            terrain.BuildNow(); // chunks, collision, water and the ground cover's tiles
+            progress.Report(TerrainAt, "Placing props");
+            progress.ThrowIfCancellationRequested();
+        }
+
         Props = new Node3D { Name = "Props" };
         AddChild(Props);
         BuildProps(valley, Height, Slope);
@@ -261,15 +325,11 @@ public sealed class ForestValley : Node3D
         if (!editing)
             BuildWalls();
         var props = watch.Elapsed.TotalMilliseconds;
+        progress?.Report(1f);
 
-        if (!editing)
-        {
-            ConnectPlayer(terrain);
-            ConnectAudio(valley);
-        }
-
-        Log.Info($"[Forest] Valley: generated {generated:0} ms, carved and painted {carved - generated:0} ms, trees {trees - carved:0} ms " +
-                 $"({Forest?.PlacementCount ?? 0} trees, {Bushes?.PlacementCount ?? 0} bushes), props {props - trees:0} ms.");
+        _buildLog = $"[Forest] Valley{(background ? " (loading thread)" : "")}: generated {generated:0} ms, carved and painted {carved - generated:0} ms, " +
+                    $"trees {trees - carved:0} ms ({Forest?.PlacementCount ?? 0} trees, {Bushes?.PlacementCount ?? 0} bushes), " +
+                    $"{(background ? "terrain and " : "")}props {props - trees:0} ms.";
     }
 
     protected override void OnProcess(in GameTime gameTime)
@@ -333,6 +393,7 @@ public sealed class ForestValley : Node3D
         _prewarm.Capacity = 0;
         if (Terrain?.Foliage is { } foliage)
             foliage.ProcessMode = ProcessMode.Inherit;
+        Log.Debug("[Forest] Pre-warm done: every batch has its GPU resources and pipelines.");
     }
 
     // ── Materials ───────────────────────────────────────────────────────────

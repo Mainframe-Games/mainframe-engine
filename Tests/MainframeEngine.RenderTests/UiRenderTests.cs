@@ -117,6 +117,17 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void TheDefaultLoadingScreenMatchesGolden()
+    {
+        // ADR 0183: the engine's loading screen (Mainframe brand) at 62 %, laid out from a 1080p reference.
+        var result = HostRunner.Run("loading-screen", Output("loading-screen"), "--capture", "30", "--size", "640x360", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 30);
+    }
+
+    [Fact]
     public void UiCapturesAreDeterministicAcrossRuns()
     {
         var first = HostRunner.Run("ui-effects", Output("ui-determinism-a"), "--capture", "12", "--size", "480x270", "--hidden");

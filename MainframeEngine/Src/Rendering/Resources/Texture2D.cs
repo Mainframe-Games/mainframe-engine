@@ -224,6 +224,9 @@ public class Texture2D : Resource
     /// <summary>The absolute path of the image file behind the texture (null for code-created, encoded or viewport textures).</summary>
     internal string? SourceFilePath => _filePath;
 
+    /// <summary>A code-created texture's pixels (<see cref="FromPixels"/>; not generated ones), or null.</summary>
+    internal (byte[] Rgba, int Width, int Height)? CodePixels => _pixels is { } pixels && GetType() == typeof(Texture2D) ? (pixels, _width, _height) : null;
+
     /// <summary>A texture backed by an image file (path resolved by <see cref="AssetDatabase.Current"/>).</summary>
     public static Texture2D FromFile(string path, TextureImportSettings? settings = null)
     {
@@ -231,7 +234,9 @@ public class Texture2D : Resource
         var fullPath = AssetDatabase.Current.ToAbsolutePath(path);
         if (!File.Exists(fullPath))
             throw new FileNotFoundException($"Image not found: '{path}'.", fullPath);
-        return new Texture2D { _filePath = fullPath, _settings = settings ?? TextureImportSettings.Default };
+        var texture = new Texture2D { _filePath = fullPath, _settings = settings ?? TextureImportSettings.Default };
+        ImagePrefetch.OnTextureCreated(texture); // ADR 0183: during an async scene load, decode ahead on a worker
+        return texture;
     }
 
     /// <summary>A texture from encoded image bytes (PNG, JPEG, ...), e.g. embedded in a model file.</summary>
@@ -273,7 +278,7 @@ public class Texture2D : Resource
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
         if (rgba.Length != width * height * 4)
             throw new ArgumentException($"Expected {width * height * 4} bytes of RGBA8 pixels, got {rgba.Length}.", nameof(rgba));
-        return new Texture2D
+        var texture = new Texture2D
         {
             _pixels = rgba.ToArray(),
             _width = width,
@@ -281,6 +286,8 @@ public class Texture2D : Resource
             _sizeKnown = true,
             _settings = settings ?? TextureImportSettings.Default,
         };
+        ImagePrefetch.OnTextureCreated(texture); // ADR 0183: during an async scene load, build coverage mips ahead
+        return texture;
     }
 
     /// <summary>Re-reads a file-backed texture (after the file changed on disk); users re-upload it.</summary>
@@ -329,7 +336,15 @@ public class Texture2D : Resource
     /// Decodes the RGBA8 pixels. File-backed and encoded textures decode on every call (the CPU copy is not
     /// kept once uploaded); code-created ones return their pixels.
     /// </summary>
-    public (byte[] Rgba, int Width, int Height) DecodePixels()
+    public (byte[] Rgba, int Width, int Height) DecodePixels() => DecodePixels(shared: false);
+
+    /// <summary>
+    /// <see cref="DecodePixels()"/> for callers that only read the pixels (GPU uploads, resampling): an image an
+    /// asynchronous scene load already decoded (<see cref="ImagePrefetch"/>, ADR 0183) comes back without a copy.
+    /// </summary>
+    internal (byte[] Rgba, int Width, int Height) DecodePixelsReadOnly() => DecodePixels(shared: true);
+
+    private (byte[] Rgba, int Width, int Height) DecodePixels(bool shared)
     {
         Generate();
         if (_viewport is not null || _clipGroup is not null)
@@ -337,23 +352,40 @@ public class Texture2D : Resource
         if (_pixels is not null)
             return (_pixels, _width, _height);
 
+        if (_encoded is null && _filePath is not null && !IsSvg && ImagePrefetch.TryGet(_filePath, _settings.FixAlphaBorder, out var prefetched))
+        {
+            (_width, _height, _sizeKnown) = (prefetched.Width, prefetched.Height, true);
+            return (shared ? prefetched.Rgba : (byte[])prefetched.Rgba.Clone(), _width, _height);
+        }
+
         var bytes = _encoded ?? File.ReadAllBytes(_filePath ?? throw new InvalidOperationException("The texture has no source."));
         byte[] data;
         if (IsSvg)
         {
             (data, _width, _height) = Svg.Rasterize(bytes, _settings.SvgScale);
+            if (_settings.FixAlphaBorder)
+                ImageOps.FixAlphaEdges(data, _width, _height);
         }
         else
         {
-            var image = ImageResult.FromMemory(bytes, ColorComponents.RedGreenBlueAlpha)
-                        ?? throw new InvalidDataException($"Could not decode '{ResourcePath ?? _filePath ?? "embedded image"}'.");
-            (data, _width, _height) = (image.Data, image.Width, image.Height);
+            (data, _width, _height) = DecodeImage(bytes, _settings.FixAlphaBorder, ResourcePath ?? _filePath);
         }
 
-        if (_settings.FixAlphaBorder)
-            ImageOps.FixAlphaEdges(data, _width, _height);
         _sizeKnown = true;
         return (data, _width, _height);
+    }
+
+    /// <summary>Decodes an image file (PNG, JPEG, TGA, BMP) to RGBA8 as a file-backed texture does. Thread-safe.</summary>
+    internal static (byte[] Rgba, int Width, int Height) DecodeImageFile(string fullPath, bool fixAlphaBorder) =>
+        DecodeImage(File.ReadAllBytes(fullPath), fixAlphaBorder, fullPath);
+
+    private static (byte[] Rgba, int Width, int Height) DecodeImage(byte[] bytes, bool fixAlphaBorder, string? name)
+    {
+        var image = ImageResult.FromMemory(bytes, ColorComponents.RedGreenBlueAlpha)
+                    ?? throw new InvalidDataException($"Could not decode '{name ?? "embedded image"}'.");
+        if (fixAlphaBorder)
+            ImageOps.FixAlphaEdges(image.Data, image.Width, image.Height);
+        return (image.Data, image.Width, image.Height);
     }
 
     // SVG sources are rasterised by mfsvg (ADR 0112); everything else is decoded by StbImageSharp.

@@ -465,8 +465,18 @@ public sealed class TreeScatter : Node3D
         return (int)(h % (uint)count);
     }
 
-    /// <summary>Generates the variants and rebuilds every batch and collision body now.</summary>
-    public void Rebuild()
+    /// <summary>
+    /// Generates the variants and rebuilds every batch and collision body now. Also callable before the scatter enters the
+    /// tree — on a loading thread (<see cref="ISceneLoadable.LoadInBackground"/>, ADR 0183) — and then ready does not
+    /// build again.
+    /// </summary>
+    public void Rebuild() => Rebuild(null);
+
+    /// <summary>
+    /// <see cref="Rebuild()"/> reporting its progress, 0–1, to <paramref name="progress"/> (a loading screen: generating
+    /// the variants and baking their impostors is most of a forest's load).
+    /// </summary>
+    public void Rebuild(Action<float>? progress)
     {
         _dirty = false;
         Clear();
@@ -475,15 +485,23 @@ public sealed class TreeScatter : Node3D
         if (count == 0 || Species.Length == 0)
             return;
 
-        // Resolve every variant once (generation happens here).
+        // Resolve every variant once (generation happens here). Progress: half for the variants, half for the batches
+        // (whose first use of a variant bakes its impostor).
         var generator = new Trees.TreeGenerator();
         var variants = new TreeMesh?[Species.Length][];
+        var variantTotal = 0;
+        foreach (var species in Species)
+            variantTotal += species?.VariantCount ?? 0;
+        var variantDone = 0;
         for (var s = 0; s < Species.Length; s++)
         {
             var species = Species[s];
             variants[s] = species is null ? [] : new TreeMesh?[species.VariantCount];
             for (var v = 0; v < variants[s].Length; v++)
+            {
                 variants[s][v] = species!.GetVariant(v, generator);
+                progress?.Invoke(0.5f * ++variantDone / Math.Max(1, variantTotal));
+            }
         }
 
         // Bucket: (chunk, species, variant) → placements.
@@ -510,8 +528,10 @@ public sealed class TreeScatter : Node3D
         var shapes = new Dictionary<(int, int), CapsuleShape3D>();
         var impostors = ImpostorDistance > 0f;
         var impostorOptions = new TreeImpostorOptions { Frames = Math.Clamp(ImpostorFrames, 2, 16), CellSize = Math.Clamp(ImpostorResolution, 16, 512) };
+        var bucketDone = 0;
         foreach (var ((cz, cx, s, v), indices) in buckets)
         {
+            progress?.Invoke(0.5f + 0.5f * bucketDone++ / buckets.Count);
             var mesh = variants[s][v]!;
             var species = Species[s];
             var bark = species.ResolveBarkMaterial(mesh);
@@ -607,7 +627,8 @@ public sealed class TreeScatter : Node3D
     protected override void OnReady()
     {
         base.OnReady();
-        Rebuild();
+        if (_dirty) // not already built (before entering the tree, ADR 0183)
+            Rebuild();
         SetProcess(false);
     }
 

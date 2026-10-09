@@ -118,7 +118,7 @@ internal static class TerrainLayerPacker
             return null;
         try
         {
-            var (rgba, width, height) = texture.DecodePixels();
+            var (rgba, width, height) = texture.DecodePixelsReadOnly();
             return Resample(rgba, width, height, size);
         }
         catch (Exception e) when (e is InvalidDataException or IOException or InvalidOperationException)

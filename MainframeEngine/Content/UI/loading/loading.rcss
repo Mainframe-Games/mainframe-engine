@@ -1,0 +1,128 @@
+/*
+ * The engine's loading screen (LoadingScreen, ADR 0183): the Mainframe brand — navy, sky blue and amber — with the
+ * game's name, a progress bar and the load's stage. Sizes in dp; colours sRGB. A game themes its own with the
+ * project's "loading.screen" (any document binding the "loading" data model: title, stage, progress, percent).
+ */
+
+body {
+    font-family: LatoLatin;
+    font-size: 15dp;
+    color: #e6ecf7;
+    width: 100%;
+    height: 100%;
+    decorator: linear-gradient(180deg, #0a1230 0%, #142150 58%, #172554 100%);
+}
+
+div, p { display: block; }
+
+/* A soft glow behind the logo. */
+#glow {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    decorator: radial-gradient(circle farthest-side at 50% 44%, #2563eb40 0%, #2563eb14 45%, #2563eb00 100%);
+}
+
+#centre {
+    position: absolute;
+    left: 0; right: 0;
+    top: 50%;
+    margin-top: -150dp;
+    text-align: center;
+}
+
+#logo {
+    width: 112dp;
+    height: 112dp;
+    margin: 0dp auto;
+    animation: 1.6s sine-in-out infinite alternate breathe;
+}
+
+@keyframes breathe {
+    from { opacity: 0.82; transform: scale(0.965); }
+    to   { opacity: 1;    transform: scale(1.02); }
+}
+
+#title {
+    margin-top: 30dp;
+    font-size: 40dp;
+    font-weight: bold;
+    color: #ffffff;
+    letter-spacing: 1dp;
+}
+
+#kicker {
+    margin-top: 10dp;
+    font-size: 12dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: #7dd3fc;
+}
+
+/* ── Progress ─────────────────────────────────────────────────────────────── */
+
+#progress {
+    position: absolute;
+    left: 50%;
+    width: 520dp;
+    margin-left: -260dp;
+    bottom: 96dp;
+}
+
+#track {
+    height: 6dp;
+    border-radius: 3dp;
+    background-color: #ffffff17;
+    overflow: hidden;
+}
+
+#fill {
+    position: relative;
+    height: 6dp;
+    border-radius: 3dp;
+    decorator: linear-gradient(90deg, #38bdf8 0%, #7dd3fc 70%, #f59e0b 100%);
+    overflow: hidden;
+}
+
+/* A highlight sweeping along the fill: the bar moves even while a stage takes its time. */
+#shine {
+    position: absolute;
+    top: 0dp;
+    width: 120dp;
+    height: 6dp;
+    decorator: linear-gradient(90deg, #ffffff00 0%, #ffffff8c 50%, #ffffff00 100%);
+    animation: 1.8s linear infinite sweep;
+}
+
+@keyframes sweep {
+    from { left: -120dp; }
+    to   { left: 520dp; }
+}
+
+#status {
+    margin-top: 14dp;
+    height: 20dp;
+    font-size: 14dp;
+}
+
+#stage {
+    position: absolute;
+    left: 0dp;
+    color: #b6c4e0;
+}
+
+#percent {
+    position: absolute;
+    right: 0dp;
+    font-weight: bold;
+    color: #f59e0b;
+}
+
+#footer {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 30dp;
+    text-align: center;
+    font-size: 11dp;
+    letter-spacing: 2dp;
+    color: #5f73a3;
+}

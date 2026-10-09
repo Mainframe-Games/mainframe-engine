@@ -127,6 +127,9 @@ public sealed class ForestDev : Node
         if (!_cameraPlaced && (_shot ?? _view) is not null && tree.CurrentScene is { } shotScene)
             _cameraPlaced = PlaceCamera(shotScene);
 
+        // Measurements and the scripted walk start once the scene is on screen (ADR 0183: not behind the loading screen).
+        if (tree.IsLoading)
+            return;
         if (_benchmark is { Done: false } benchmark && tree.CurrentScene is { } benchScene && benchmark.Update(tree, benchScene))
             tree.Quit(benchmark.ExitCode);
 

@@ -258,6 +258,49 @@ flowchart LR
   `PackedScene` holds one reference on each external resource and sub-scene it uses — including those of
   content it had before a re-save, which live instances may still use — until it unloads.
   `SceneTree.ChangeSceneToFile` holds the scene's reference while the scene is current.
+- `ResourceLoader.LoadThreaded<T>(pathOrUid)` (Godot's `load_threaded_request`) loads on the thread pool and returns a
+  `ResourceLoadTask<T>`: poll `Status` (`InProgress`, `Loaded`, `Failed`), take `Result` (the reference is the caller's;
+  `Dispose` releases one nobody took). The cache is thread-safe and shared with `Load`.
+
+### Asynchronous loading (ADR 0183)
+
+`SceneTree.ChangeSceneToFileAsync(pathOrUid, SceneLoadOptions?)` changes the scene without blocking the main loop and
+returns a `SceneLoad`. Nodes are cheap and side-effect free and `Instantiate` builds outside the tree, so most of the
+work runs on a worker thread:
+
+| Stage | Thread | Work |
+|---|---|---|
+| `Loading` | worker | `ResourceLoader.Load<PackedScene>` (and its external resources) |
+| `Instantiating` | worker | `Instantiate()`, outside the tree |
+| `Preparing` | worker | each `ISceneLoadable` in the scene (depth-first): `LoadInBackground(SceneLoadProgress)` |
+| `Decoding` | thread pool | `ImagePrefetch`: the images of the textures created so far, and their coverage mip chains |
+| `Entering` | main | the scene replaces the current one at the start of a tick (its `OnReady` run; the tree holds the loader reference) |
+| `WarmingUp` | main | `WarmUpFrames` (default 2) frames rendered behind the loading screen, until every loadable's `PollLoaded` is true |
+| `Done` / `Failed` / `Canceled` | — | `Completed` is raised; `Error` holds a failure |
+
+- **`ISceneLoadable`** (both members optional): `LoadInBackground` builds what `OnReady` would — child nodes,
+  meshes, CPU data — while the node is outside the tree; never touch the tree, servers, Vulkan, RmlUi, physics or audio
+  there. `PollLoaded` runs once per frame after the scene entered, for work that needs frames (GPU warm-up). The
+  synchronous path never calls either, so `OnReady` must still do the work when `LoadInBackground` did not run.
+  `LoadWeight` sets the node's share of the bar. Engine helpers for loadables: `Terrain3D.BuildNow()` (chunks,
+  collision, water, foliage tiles) and `TreeScatter.Rebuild(progress)` (variants, impostors, batches) build before the
+  node enters the tree, and their ready then skips the build.
+- **Progress** (`Progress`, 0–1, never back) weights the stages: loading 6 %, instantiating 4 %, preparing 55 % (split
+  by `LoadWeight`, each loadable reporting through its `SceneLoadProgress.Report(fraction, stage)`), decoding 12 %,
+  entering 5 %, warming up 18 %. `StageText` is the newest label of a loadable still at work, else the stage's own.
+- **`ImagePrefetch`** (internal): while a load runs, textures created on its flow (`Texture2D.FromFile`, and
+  `FromPixels` with `PreserveAlphaCoverage`) queue their decode / mip chain on the thread pool; `Texture2D.DecodePixels`
+  (a copy), the GPU upload and terrain layer packing (shared, read-only) find them ready. Held until the load
+  completes, then dropped.
+- **Cancellation**: `SceneLoad.Cancel()`, a newer `ChangeScene*`/`UnloadCurrentScene` or `Shutdown` cancel a load in
+  progress; the worker stops at its next check (`SceneLoadProgress.CancellationToken`) and what it built is freed on the
+  main thread. **Errors** (a missing file, a loadable that throws, an `OnReady` that throws while entering) end in
+  `Failed` with the current scene untouched (or the half-entered one).
+- `SceneTree.CurrentLoad` is the load in progress; `SceneTree.IsLoading` is true while one runs or a `LoadingScreen` is
+  shown. Tests: `SceneLoadTests` (stages and monotonic progress, a worker-built loadable, the loop ticking while a
+  loadable blocks, sync/async equivalence of the saved and live trees, failures, cancellation, replacement, hold,
+  `LoadThreaded`), `ImagePrefetchTests`, `LoadingScreenTests`; the Forest's `ValleyTests` compare its valley built both
+  ways node for node.
 - References from files resolve by UID first; the path is only a hint, so a moved file still loads (with a
   warning when the UID is unknown but the hint exists).
 
