@@ -86,6 +86,8 @@ public sealed class MeshSurface : Resource
     private Vector3[] _normals = [];
     private Vector2[] _uvs = [];
     private int[] _indices = [];
+    private Vector4[] _colors = [];
+    private Vector4[] _custom0 = [];
     private Material? _material;
     private int _version = 1;
     private int _boundsVersion;
@@ -118,6 +120,23 @@ public sealed class MeshSurface : Resource
     /// <summary>Triangle list, counter-clockwise front faces (three indices per triangle).</summary>
     [Export]
     public int[] Indices { get => _indices; set { _indices = value ?? []; Touch(); } }
+
+    /// <summary>
+    /// Optional per-vertex colours (Godot's <c>ARRAY_COLOR</c>): RGBA 0..1, sRGB-authored, one per position (empty:
+    /// none). Stored as RGBA8 in the second vertex stream; lit materials multiply their albedo by it.
+    /// </summary>
+    [Export]
+    public Vector4[] Colors { get => _colors; set { _colors = value ?? []; Touch(); } }
+
+    /// <summary>
+    /// Optional per-vertex custom data (Godot's <c>ARRAY_CUSTOM0</c>), one per position (empty: none). Foliage reads
+    /// x = wind weight, y = branch level / 4 (1 = leaf), z = wind phase 0..1, w = ambient occlusion.
+    /// </summary>
+    [Export]
+    public Vector4[] Custom0 { get => _custom0; set { _custom0 = value ?? []; Touch(); } }
+
+    /// <summary>True when the surface has <see cref="Colors"/> or <see cref="Custom0"/> (it uploads the second vertex stream).</summary>
+    public bool HasVertexStreams => _colors.Length != 0 || _custom0.Length != 0;
 
     /// <summary>Material used when the instance has no override (null: the engine default).</summary>
     [Export]
@@ -159,6 +178,10 @@ public sealed class MeshSurface : Resource
             throw new InvalidDataException($"Surface has {_normals.Length} normals for {_positions.Length} positions.");
         if (_uvs.Length != 0 && _uvs.Length != _positions.Length)
             throw new InvalidDataException($"Surface has {_uvs.Length} UVs for {_positions.Length} positions.");
+        if (_colors.Length != 0 && _colors.Length != _positions.Length)
+            throw new InvalidDataException($"Surface has {_colors.Length} colours for {_positions.Length} positions.");
+        if (_custom0.Length != 0 && _custom0.Length != _positions.Length)
+            throw new InvalidDataException($"Surface has {_custom0.Length} custom0 values for {_positions.Length} positions.");
         foreach (var index in _indices)
             if ((uint)index >= (uint)_positions.Length)
                 throw new InvalidDataException($"Surface index {index} is out of range (vertex count {_positions.Length}).");
@@ -175,6 +198,21 @@ public sealed class MeshSurface : Resource
             normals = MeshGeometry.ComputeSmoothNormals(_positions, _indices);
         for (var i = 0; i < _positions.Length; i++)
             destination[i] = new MeshVertex(_positions[i], normals[i], _uvs.Length == _positions.Length ? _uvs[i] : default);
+    }
+
+    /// <summary>
+    /// Writes the second vertex stream (<see cref="MeshVertexExt"/>): colours as RGBA8 (missing: opaque white) and
+    /// custom0 (missing: zero).
+    /// </summary>
+    public void WriteVertexStreams(Span<MeshVertexExt> destination)
+    {
+        if (destination.Length < _positions.Length)
+            throw new ArgumentException("Destination is smaller than the vertex count.", nameof(destination));
+        var colors = _colors.Length == _positions.Length ? _colors : null;
+        var custom = _custom0.Length == _positions.Length ? _custom0 : null;
+        for (var i = 0; i < _positions.Length; i++)
+            destination[i] = new MeshVertexExt(colors is null ? MeshVertexExt.White : MeshVertexExt.PackColor(colors[i]),
+                custom is null ? default : custom[i]);
     }
 
     private void Touch()

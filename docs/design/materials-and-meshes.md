@@ -20,7 +20,8 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 [0017 on-demand object-ID pass](../../memory/decisions/0017-on-demand-object-id-pass.md),
 [0018 removed node types](../../memory/decisions/0018-removed-node-types-upgrade.md),
 [0019 one sampler per material](../../memory/decisions/0019-one-sampler-per-material.md),
-[0150 PBR shading and sky image-based lighting](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md).
+[0150 PBR shading and sky image-based lighting](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md),
+[0151 vertex streams, MultiMesh, visibility ranges and foliage wind](../../memory/decisions/0151-vertex-streams-multimesh-visibility-foliage-wind.md).
 
 ## Key types
 
@@ -30,9 +31,13 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `PrimitiveMesh`, `BoxMesh`, `PlaneMesh`, `QuadMesh`, `SphereMesh`, `CylinderMesh`, `CapsuleMesh` | [PrimitiveMeshes.cs](../../MainframeEngine/Src/Rendering/Resources/PrimitiveMeshes.cs) | Generated on first use from a few exported parameters (Godot names and defaults); `FlipFaces`, `Material` |
 | `MeshGeometry`, `MeshBuilder` | [MeshGeometry.cs](../../MainframeEngine/Src/Rendering/Resources/MeshGeometry.cs) | Smooth normals; consistent triangle winding for the generators |
 | `Material`, `StandardMaterial3D`, `MaterialRenderState`, `AlphaMode`, `CullMode`, `ShadingMode` | [Material.cs](../../MainframeEngine/Src/Rendering/Resources/Material.cs) | Surface shading; the state that selects a pipeline |
+| `FoliageMaterial3D`, `FoliageBackFace` | [FoliageMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/FoliageMaterial3D.cs) | Leaves, grass, bark: vertex wind, cutout, translucency (ADR 0151) |
 | `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.meta` (see [Asset pipeline](asset-pipeline.md)) |
-| `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | Nodes; `MaterialOverride`, `CastShadows`, `ObjectId` |
-| `MeshVertex`, `MeshInstanceData`, `VertexLayouts` | [Rendering/Meshes/MeshVertex.cs](../../MainframeEngine/Src/Rendering/Meshes/MeshVertex.cs) | 32-byte vertex; 80-byte instance; vertex input layouts |
+| `Texture2DArray`, `Texture2DArrayGpu` (internal) | [Texture2DArray.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2DArray.cs) | Layers of one size on a `2D_ARRAY` image (ADR 0151) |
+| `MultiMesh` | [MultiMesh.cs](../../MainframeEngine/Src/Rendering/Resources/MultiMesh.cs) | Many transforms of one mesh (ADR 0151) |
+| `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | Nodes; `MaterialOverride`, `CastShadows`, `ObjectId`, `VisibilityRangeBegin/End` |
+| `MultiMeshInstance3D`, `MultiMeshGpu` (internal) | [MultiMeshInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/MultiMeshInstance3D.cs), [MultiMeshGpu.cs](../../MainframeEngine/Src/Rendering/Meshes/MultiMeshGpu.cs) | Draws a `MultiMesh` from a persistent instance buffer |
+| `MeshVertex`, `MeshVertexExt`, `MeshInstanceData`, `VertexLayouts` | [Rendering/Meshes/MeshVertex.cs](../../MainframeEngine/Src/Rendering/Meshes/MeshVertex.cs) | 32-byte vertex; 20-byte second stream; 80-byte instance; vertex input layouts |
 | `Aabb`, `Frustum` | [Aabb.cs](../../MainframeEngine/Src/Rendering/Meshes/Aabb.cs) | Bounds, transformed bounds, frustum culling |
 | `PipelineKey`, `PipelineStateCache`, `ShaderSetId` | [PipelineStateCache.cs](../../MainframeEngine/Src/Rendering/Meshes/PipelineStateCache.cs) | State-hash cache of mesh pipelines |
 | `DrawSortKey`, `DrawList<T>` | [DrawList.cs](../../MainframeEngine/Src/Rendering/Meshes/DrawList.cs) | 64-bit sort keys; reusable sorted lists |
@@ -80,6 +85,28 @@ these conventions:
 The generators add triangles through `MeshBuilder`, which orients each triangle to agree with its vertex normals.
 The unit tests check the winding, outward normals, counts and bounds of every primitive.
 
+### Vertex streams (ADR 0151)
+
+A surface can carry two optional per-vertex arrays (Godot's `ARRAY_COLOR` and `ARRAY_CUSTOM0`). Both serialize like
+the other arrays (JSON float arrays in `.mscene`/`.mres`) and must be empty or one per position (`Validate`).
+
+| Array | Meaning | Missing |
+|---|---|---|
+| `Colors` (`Vector4[]`, RGBA 0..1, authored in sRGB) | Lit materials multiply their albedo by it (alpha too) | opaque white |
+| `Custom0` (`Vector4[]`) | Free data. Foliage reads x = wind weight (0 at the trunk base, 1 at the tips), y = branch level / 4 (1 = leaf), z = wind phase 0..1, w = ambient occlusion | zero |
+
+- A mesh with a stream on any surface uploads a **second vertex buffer** covering all its vertices:
+  `MeshVertexExt`, 20 bytes per vertex (RGBA8 unorm colour, then float4 custom0), bound at **binding 2**. Surfaces
+  without streams get the defaults in it. A mesh drawn with a material that always reads it (`FoliageMaterial3D`)
+  gets the buffer on demand (`MeshGpu.EnsureStreams`), filled with defaults.
+- `MeshVertex` stays 32 bytes and `PrimitiveMesh`es never have streams. Shadow casters read binding 0 only, except
+  the foliage casters.
+- Lit surfaces with a stream draw with `VertexLayoutId.MeshInstancedExt` (part of `PipelineKey`):
+  `Mesh/MeshExt.vk.vert` passes the colour (sRGB → linear) at location 3, and `Mesh.vk.frag` multiplies the albedo by
+  it when **specialization constant 1** (`kVertexColor`) is set. Every other pipeline sets it to 0, and
+  `Mesh.vk.vert`/`MeshOutline.vk.vert` write a constant white that is never read, so surfaces without streams shade
+  bit-exactly as before. Outlines and the ID pass never read the stream.
+
 ### StandardMaterial3D
 
 The shading is Blinn-Phong by default ([ADR 0014](../../memory/decisions/0014-blinn-phong-now-pbr-later.md)), unshaded,
@@ -106,8 +133,8 @@ Each property setter bumps `Material.Version`. On the next frame the renderer:
 - re-resolves the pipelines if `RenderState` changed.
 
 `StandardMaterial3D.Default` (white, lit, opaque) is used when a surface has no material. Other `Material`
-subclasses (apart from `OutlineMaterial3D`, below) are not supported by the renderer yet: they draw with the default
-material and log a warning once.
+subclasses (apart from `OutlineMaterial3D` and `FoliageMaterial3D`, below) are not supported by the renderer yet:
+they draw with the default material and log a warning once.
 
 ### Next passes and OutlineMaterial3D (ADR 0132)
 
@@ -122,6 +149,42 @@ material and log a warning once.
     formula (the model-view 3×3, not the normal matrix). The surface drawn before it hides everything but the rim.
   - Hard-edged meshes show gaps at their corners: each face's vertices move along that face's own normal. Godot's
     shader does the same.
+
+### FoliageMaterial3D (ADR 0151)
+
+A built-in material for leaves, grass and bark, following the `OutlineMaterial3D` pattern: its own shader set
+(`ShaderSetId.MeshFoliage`: `Foliage/Foliage.vk.vert` + `.frag`), the `StandardMaterial3D` set-2 layout, and always the
+`MeshInstancedExt` vertex layout.
+
+| Group | Properties |
+|---|---|
+| Albedo | `AlbedoColor`, `AlbedoTexture` (× colour × vertex colour) |
+| Normal map | `NormalTexture`, `NormalScale` |
+| Alpha | `AlphaCutout` (default on; off for bark), `AlphaCutoff` (0.5) |
+| Lighting | `BackFace` (`Flip` the normal, `Keep` it for custom canopy normals, `Cull`), `Translucency` (0..1, default 0.5), `ShadingMode` (`BlinnPhong`, `Unshaded`; PBR follows lane A1), `Roughness` (0.8) |
+| Wind | `WindStrength` (scales the world's wind, 1), `WindBranchBend` (1) |
+
+- **Wind** (`include/wind.slang`, `windOffset`): the world's wind from `WorldEnvironment` (`frame.wind`,
+  `frame.windParams`) and the time `frame.clip.z`. `Engine` sets `FrameContext.Time` to the summed tree deltas,
+  wrapped every hour, so `--fixed-fps` runs are deterministic (frame N is N / 60 s in the render tests).
+  - **Flutter**, a port of Ez Tree's leaf shader: `0.5 sin(ωt + o) + 0.3 sin(2ωt + 1.3o) + 0.2 sin(5ωt + 1.5o)`, with
+    `o = 2π · simplex3(worldPos / noise scale)` (ashima webgl-noise) and ω = 2π · `WindFrequency`. It moves leaves
+    only (`Custom0.y` ≥ 0.999), more towards the tip (`1 − uv.v`), along the wind plus a turbulence share sideways:
+    up to `kLeafFlutter` = 0.12 m per unit of strength.
+  - **Branch bend** (not in Ez Tree): a lean downwind of up to `kBranchBend` = 0.35 m × `Custom0.x²`, oscillating
+    slowly (0.37 ω) with the phase `Custom0.z`.
+  - The noise is sampled in world space, so instances of one mesh sway out of step. Normals are not bent.
+- **Fragment**: cutout against `AlphaCutoff`, the back-face mode, then `foliageLight(...)` (`shadeLightsBlinnPhong`
+  with a highlight derived from `Roughness`, the ambient term darkened by `Custom0.w`; a w of 0 means no AO data)
+  plus `foliageTranslucency(...)`: the first directional light shining through the leaf where it hits the other side,
+  brighter towards the light, shadowed like the light. `foliageLight` is the one place to switch to PBR.
+- **Parameters** share the 80-byte block (`include/foliage.slang`): `emission` = (translucency, wind strength, branch
+  bend, 0), `params` = (specular, shininess, cutoff — 0 when not cut out, normal scale), `flags.z` = back-face mode + 1.
+- **Shadows**: foliage casters always bind the material (set 1 of the cutout layouts) and run
+  `Shadows/Shadow2DFoliageInstanced` / `ShadowPointFoliageInstanced`, which call the same `windOffset`. The caster
+  layouts cannot see `frame`, so the renderer pushes the wind, wind parameters and time (48 bytes) at push-constant
+  offset 0 before the first foliage run of a pass (the instanced casters never read that range; point casters keep
+  the light at offset 64). Opaque foliage (bark) has a cutoff of 0, so the shared alpha test never discards.
 
 ### Texture2D
 
@@ -140,6 +203,20 @@ device has it.
 Textures created in code (`FromPixels`, `FromEncoded`) are not saved with scenes. Only file-backed textures
 persist, as references.
 
+### Texture2DArray (ADR 0151)
+
+Layers of RGBA8 images of one size, sampled as one texture (Godot's `Texture2DArray`), for the terrain's splat
+layers (wave 2):
+
+- built with `Texture2DArray.FromImages(IReadOnlyList<Texture2D>)` (decoded; every image must be the size of the
+  first), `FromImages(width, height, IReadOnlyList<byte[]>)` or `new Texture2DArray(width, height, layers, rgba)`;
+- `GetLayerPixels`, `SetLayerPixels` (bumps `Version`: the whole array re-uploads), `ImportSettings` (colour space
+  with `Auto` = sRGB for colour use, mipmaps, filter, wrap, anisotropy);
+- on the GPU: `GpuTexture.Create2DArray` (one image, `ArrayLayers` = layers, a `2D_ARRAY` view, mips blitted for every
+  layer). `Texture2DArrayGpu` is the `TextureGpu`-shaped helper (`Update()` uploads on a version change) that the
+  material binding it owns. No material binds one yet;
+- runtime-only: the pixels are not saved with scenes.
+
 ## Nodes
 
 | Node | Draws | Notes |
@@ -147,6 +224,33 @@ persist, as references.
 | `GeometryInstance3D` | — | Base: `MaterialOverride` (all surfaces), `MaterialOverlay` (drawn over every surface, with its next passes), batched by the server (never calls `Draw`), `ObjectId` = `NodeId` |
 | `MeshInstance3D` | `Mesh` | Primitives, imported models, procedural meshes |
 | `Sprite3D` | a `QuadMesh` sized `Texture` px × `PixelSize` | `Modulate`, `Shaded` (default unshaded), `DoubleSided` (default true), `AlphaCut` (`Disabled` = blend, `Discard` = cutout), `Offset`. Billboarding is not supported yet |
+| `MultiMeshInstance3D` | every instance of its `Multimesh` | One render item; see [MultiMesh](#multimesh-adr-0151) |
+
+Every `GeometryInstance3D` has Godot's **visibility range** (`VisibilityRangeBegin`, `VisibilityRangeEnd`, 0 =
+unbounded): the instance draws, in the main pass and the shadow passes, only while the distance from the view's
+camera to the centre of its world AABB is in [begin, end). Margins and fading are not implemented. The counter
+`MeshDrawStats.OutOfRange` counts the skipped instances.
+
+### MultiMesh (ADR 0151)
+
+`MultiMesh` (a resource) holds one `Mesh` and many transforms; `MultiMeshInstance3D.Multimesh` draws it:
+
+- `InstanceCount` (resizing resets every transform to identity), `VisibleInstanceCount` (-1 = all; draws the first
+  n), `SetInstanceTransform`/`GetInstanceTransform`, the bulk `SetTransforms(ReadOnlySpan<Transform3D>, start)`, and
+  `Transforms` (serialized). `GetAabb()` is the mesh's bounds under every drawn transform, cached per version.
+- A `MultiMeshInstance3D` is **one render item**: frustum-culled by the world AABB of all its instances, one draw
+  item per surface (never merged with other items), one instanced draw per surface with `instanceCount` = the drawn
+  instances, materials resolved as for `MeshInstance3D`.
+- Its instances live in a **persistent device-local buffer** (`MultiMeshGpu`) in the 80-byte `MeshInstanceData`
+  layout, in world space (instance transform × node transform) with the node's object id. It is rebuilt only when
+  the multimesh's version, the node's transform or the mesh's bounds change: a new buffer replaces the old one,
+  which the deletion queue frees after frames in flight. A static multimesh costs one comparison per frame. A
+  moving node re-uploads every frame it moves. The buffer belongs to the node: two nodes sharing a `MultiMesh` have
+  one each.
+- Shadow casters draw the same buffer instanced (one run per surface per pass); the object-ID pass writes the node's
+  id for every instance, so picking selects the node.
+- Instances with a negative-determinant transform are not drawn mirrored (only the node's transform picks the
+  winding). No per-instance colour or custom data yet.
 
 A node's material for surface *i* is resolved in this order: `MaterialOverride`, then the mesh surface's material,
 then `StandardMaterial3D.Default`.
@@ -216,7 +320,9 @@ culling and `gl_FrontFacing` right under negative scale.
   - Set 0 (frame) and set 1 (shadows) are bound once; set 2 (the material) whenever the material changes.
   - Each run of equal (pipeline, material, mesh, surface) becomes one `vkCmdDrawIndexed` with
     `instanceCount = run length` and `firstInstance = base + index`.
-  - Mesh vertex and index buffers are bound when the mesh changes, and the instance buffer once at binding 1.
+  - Mesh vertex and index buffers (and the second stream at binding 2, when the mesh has one) are bound when the mesh
+    changes, and the instance buffer once at binding 1. A multimesh item binds its own instance buffer and draws all
+    its instances from 0; the view's buffer is rebound for the next run.
 - **Shadows**: per shadow pass, `CullShadowCasters` keeps the casters inside the light's frustum (and range) and
   writes their instances; `DrawShadowCasters` records one draw per run of equal (cull, mirrored, cutout material,
   mesh surface). `ShadowSystem.GetInstancedCasterPipeline(point, cull, mirrored, cutout)` builds the pipelines:
@@ -234,8 +340,8 @@ culling and `gl_FrontFacing` right under negative scale.
 
 `GetOrCreate` creates a pipeline on the first request through the persisted `VkPipelineCache`. Each pipeline gets
 a dense id for the sort keys, and the pipelines live until disposal. Lookups don't allocate. Each `MaterialGpu`
-caches its twelve entries (the 3 shader sets × [surface, extra pass] × [normal, mirrored]), so steady-state frames
-don't even hash.
+caches its 32 entries (the 4 shader sets × [surface, extra pass] × [normal, mirrored] × [no stream, stream]), so
+steady-state frames don't even hash.
 
 `PipelineKey.ExtraPass` marks next-pass and overlay pipelines, whose depth compare is less-or-equal instead of less.
 
@@ -244,6 +350,10 @@ don't even hash.
 | `MeshLit` | `Mesh/Mesh.vk.vert` + `Mesh/Mesh.vk.frag` (alpha mode = specialization constant 0) | the scene pass; offscreen HDR targets are render-pass compatible |
 | `MeshObjectId` | `Mesh/Mesh.vk.vert` + `Mesh/MeshId.vk.frag` | a prototype of the object-ID target pass (all ID targets are compatible) |
 | `MeshOutline` | `Mesh/MeshOutline.vk.vert` + `Mesh/Mesh.vk.frag` (`OutlineMaterial3D` in colour passes) | the scene pass |
+| `MeshFoliage` | `Foliage/Foliage.vk.vert` + `Foliage/Foliage.vk.frag` (`FoliageMaterial3D`; always `MeshInstancedExt`) | the scene pass |
+
+`MeshLit` with `VertexLayoutId.MeshInstancedExt` uses `Mesh/MeshExt.vk.vert` and sets specialization constant 1
+(vertex colour) of `Mesh.vk.frag`.
 
 ### Descriptor sets
 
@@ -252,7 +362,8 @@ don't even hash.
 | 0 | b0 camera (`FrameData`), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)) | `FrameContext` (per frame slot and view) |
 | 1 | shadow uniforms + maps (`ShadowSystem` or the fallback) | shadows |
 | 2 | material: b0 parameters UBO (96 B, device-local), b1 one `sampler`, b2–b5 albedo/normal/emission/ORM `texture2D` (1×1 fallbacks; the ORM one is linear white) | `MaterialGpu` |
-| binding 1 (vertex) | per-instance model matrix + object id | `InstanceBuffer` |
+| binding 1 (vertex) | per-instance model matrix + object id | `InstanceBuffer`, or a `MultiMeshGpu` |
+| binding 2 (vertex) | the second stream: RGBA8 colour + float4 custom0 | `MeshGpu.Streams` |
 
 The material set uses a single `sampler` with separate `texture2D`s. Before M4 the shadow set held 15 samplers and this kept the
 fragment stage within MoltenVK's limit of 16 samplers
@@ -366,7 +477,10 @@ Measured on an Apple M5 with MoltenVK:
   - material state, keys and hashing;
   - pipeline-cache hits (with a fake factory) and allocation-free lookups;
   - sort order and allocation-free sorting;
-  - `.mscene`/`.mres` round trips of meshes, materials and textures (with `.meta` settings);
+  - `.mscene`/`.mres` round trips of meshes, materials and textures (with `.meta` settings), vertex streams,
+    `FoliageMaterial3D`, multimeshes and visibility ranges;
+  - vertex-stream packing and defaults, foliage state and parameters, `MultiMesh` (`MultiMeshTests`), visibility
+    ranges, `Texture2DArray` (CPU side);
   - removed-type upgrades, and missing types keeping their resources;
   - the glTF import.
 - **Render tests** (MoltenVK goldens):
@@ -377,7 +491,14 @@ Measured on an Apple M5 with MoltenVK:
     self-checked (the sky was captured; bakes per frame); the same scene with a turning sun is an allocation gate;
   - `fog`: distance + height fog with sun scatter, and the sky fading into it;
   - `picking`: picks in the main view and a `SubViewport`, self-checked, with the view shown through a `UiDocument` `<img src="engine://picking-preview"/>`;
-  - the 10k allocation gate and the 10k frame-time test (< 16.7 ms enforced in Release).
+  - the 10k allocation gate and the 10k frame-time test (< 16.7 ms enforced in Release);
+  - ADR 0151 ([ForestFeatureTests.cs](../../Tests/MainframeEngine.RenderTests/ForestFeatureTests.cs)):
+    `vertex-colors` (a hue panel, a corner-coloured box, a custom0-only panel matching a plain one, vertex alpha cut
+    out); `multimesh` (1 000 boxes in one draw, a partial multimesh, a hidden and a shown visibility range, a pick of
+    an instance, a mipmapped `Texture2DArray` upload; self-checked); `foliage-wind` (cut-out leaf cards in one
+    multimesh and a stream-less bark column at t = 1.5 s, a sun and a point light with swaying shadows; the still
+    run must differ); allocation gates for 50 000 multimesh instances and the foliage scene; 50 000 instances cost
+    the CPU no more than one (within 1 ms, Release).
   - The pre-M3 `lit-shapes`, `multi-light` and `spine` goldens still match after the port to `MeshInstance3D`.
 
 ## Known issues
@@ -387,7 +508,10 @@ Measured on an Apple M5 with MoltenVK:
 - PBR is opt-in (`ShadingMode.Pbr`); imported glTF materials stay Blinn-Phong (their metallic/roughness/occlusion are not
   imported yet). No `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
 - `Sprite3D` has no billboard mode.
-- Only `StandardMaterial3D` and `OutlineMaterial3D` are rendered. Custom shaders and other material types come later.
+- Only `StandardMaterial3D`, `OutlineMaterial3D` and `FoliageMaterial3D` are rendered. Custom shaders and other
+  material types come later.
+- Foliage wind does not bend normals, and the object-ID pass draws foliage unswayed.
+- Visibility ranges have no margins or fade.
 - Spine, the grid and the sky do not appear in the object-ID pass.
 - Each `Sprite3D` owns its quad mesh and material, so sprites are not batched together. To batch many, share a
   `MeshInstance3D` with a `QuadMesh` and one material.

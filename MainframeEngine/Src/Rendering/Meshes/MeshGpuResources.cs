@@ -6,8 +6,11 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>Index range of one surface inside a <see cref="MeshGpu"/>'s shared buffers.</summary>
-internal readonly record struct SurfaceRange(uint FirstIndex, uint IndexCount, int VertexOffset);
+/// <summary>
+/// Index range of one surface inside a <see cref="MeshGpu"/>'s shared buffers; <paramref name="HasStreams"/> when the
+/// surface has its own colours or custom0 (it draws with <see cref="VertexLayoutId.MeshInstancedExt"/>).
+/// </summary>
+internal readonly record struct SurfaceRange(uint FirstIndex, uint IndexCount, int VertexOffset, bool HasStreams = false);
 
 /// <summary>
 /// A <see cref="Mesh"/> on the GPU: every surface's vertices in one device-local vertex buffer and indices in one
@@ -41,6 +44,14 @@ internal sealed class MeshGpu
 
     public GpuBuffer? Vertices { get; private set; }
     public GpuBuffer? Indices { get; private set; }
+
+    /// <summary>
+    /// The second vertex stream (<see cref="MeshVertexExt"/>, binding 2) covering every vertex of the mesh: uploaded
+    /// when a surface has colours or custom0, or on demand (<see cref="EnsureStreams"/>) for a material that reads it.
+    /// </summary>
+    public GpuBuffer? Streams { get; private set; }
+
+    private int _vertexCount;
     public SurfaceRange[] Surfaces { get; private set; } = [];
     public Aabb Bounds { get; private set; } = Aabb.Empty;
 
@@ -75,17 +86,20 @@ internal sealed class MeshGpu
         var surfaceCount = Mesh.SurfaceCount;
         var ranges = new SurfaceRange[surfaceCount];
         int vertexCount = 0, indexCount = 0;
+        var streams = false;
         for (var s = 0; s < surfaceCount; s++)
         {
             var surface = Mesh.GetSurface(s);
             surface.Validate();
-            ranges[s] = new SurfaceRange((uint)indexCount, (uint)surface.IndexCount, vertexCount);
+            ranges[s] = new SurfaceRange((uint)indexCount, (uint)surface.IndexCount, vertexCount, surface.HasVertexStreams);
+            streams |= surface.HasVertexStreams;
             vertexCount += surface.VertexCount;
             indexCount += surface.IndexCount;
         }
 
         Surfaces = ranges;
         Bounds = Mesh.Bounds;
+        _vertexCount = vertexCount;
         if (vertexCount == 0 || indexCount == 0)
             return;
 
@@ -112,6 +126,38 @@ internal sealed class MeshGpu
             ArrayPool<MeshVertex>.Shared.Return(vertices);
             ArrayPool<uint>.Shared.Return(indices);
         }
+
+        if (streams)
+            UploadStreams();
+    }
+
+    /// <summary>
+    /// Makes sure <see cref="Streams"/> exists (defaults for surfaces without streams), for materials that always read
+    /// it (<see cref="FoliageMaterial3D"/>). Uploads once per mesh version.
+    /// </summary>
+    public void EnsureStreams()
+    {
+        if (Streams is null && Vertices is not null)
+            UploadStreams();
+    }
+
+    private void UploadStreams()
+    {
+        var data = ArrayPool<MeshVertexExt>.Shared.Rent(_vertexCount);
+        try
+        {
+            for (var s = 0; s < Surfaces.Length; s++)
+            {
+                var surface = Mesh.GetSurface(s);
+                surface.WriteVertexStreams(data.AsSpan(Surfaces[s].VertexOffset, surface.VertexCount));
+            }
+
+            Streams = GpuBuffer.CreateStatic<MeshVertexExt>(_ctx, data.AsSpan(0, _vertexCount), BufferUsageFlags.VertexBufferBit);
+        }
+        finally
+        {
+            ArrayPool<MeshVertexExt>.Shared.Return(data);
+        }
     }
 
     /// <summary>Releases the buffers (deferred until frames in flight finish).</summary>
@@ -119,8 +165,10 @@ internal sealed class MeshGpu
     {
         Vertices?.Dispose();
         Indices?.Dispose();
+        Streams?.Dispose();
         Vertices = null;
         Indices = null;
+        Streams = null;
     }
 }
 
@@ -228,6 +276,32 @@ internal struct MaterialParams
         OutlineWidth = BitConverter.SingleToUInt32Bits(m.Width),
     };
 
+    /// <summary>
+    /// Packs a <see cref="FoliageMaterial3D"/> into the same block (<c>include/foliage.slang</c> reads it): the emission
+    /// slot holds translucency, wind strength scale and branch bend; the cutoff is 0 unless the material cuts out (the
+    /// foliage casters always run the alpha test); <c>flags.z</c> is the back-face mode + 1 (1 flip, 2 keep, 3 cull).
+    /// </summary>
+    public static MaterialParams From(FoliageMaterial3D m, uint textureFlags)
+    {
+        var (specular, shininess) = FoliageMaterial3D.BlinnFromRoughness(m.Roughness);
+        return new MaterialParams
+        {
+            Albedo = Linear(m.AlbedoColor),
+            Emission = new Vector4(Math.Clamp(m.Translucency, 0f, 1f), m.WindStrength, m.WindBranchBend, 0f),
+            UvTransform = new Vector4(1f, 1f, 0f, 0f),
+            Params = new Vector4(specular, shininess, m.AlphaCutout ? m.AlphaCutoff : 0f, m.NormalScale),
+            TextureFlags = textureFlags,
+            Shading = m.ShadingMode switch
+            {
+                ShadingMode.Unshaded => ShadingUnshaded,
+                ShadingMode.Pbr => ShadingPbr,
+                _ => ShadingBlinnPhong,
+            },
+            DoubleSided = (uint)m.BackFace + 1u,
+            Pbr = new Vector4(0f, Math.Clamp(m.Roughness, 0f, 1f), 1f, 0f),
+        };
+    }
+
     private static Vector3 Rgb(System.Drawing.Color c) => new Vector3(c.R, c.G, c.B) / 255f;
 
     private static Vector4 Linear(System.Drawing.Color c) => new(ColorSpace.SrgbToLinear(Rgb(c)), c.A / 255f);
@@ -271,16 +345,25 @@ internal sealed class MaterialGpu
     public MaterialRenderState State { get; set; }
     public int RenderPriority { get; set; }
 
-    /// <summary>The shaders of the colour pass: <see cref="ShaderSetId.MeshOutline"/> for outlines, else lit.</summary>
+    /// <summary>
+    /// The shaders of the colour pass: <see cref="ShaderSetId.MeshOutline"/> for outlines,
+    /// <see cref="ShaderSetId.MeshFoliage"/> for foliage, else lit.
+    /// </summary>
     public ShaderSetId ColorShaders { get; set; }
 
-    // [shader set × extra pass × mirrored] → pipeline; reset when the state changes.
-    public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 4];
+    /// <summary>The material's vertex shaders read the second vertex stream whatever the surface (foliage).</summary>
+    public bool NeedsStreams => ColorShaders == ShaderSetId.MeshFoliage;
 
-    public const int ShaderSetCount = 3;
+    /// <summary>Shadow casters run the foliage wind (<see cref="FoliageMaterial3D"/>).</summary>
+    public bool FoliageCaster => ColorShaders == ShaderSetId.MeshFoliage;
 
-    public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored) =>
-        ((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0);
+    // [shader set × extra pass × mirrored × vertex streams] → pipeline; reset when the state changes.
+    public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 8];
+
+    public const int ShaderSetCount = 4;
+
+    public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false) =>
+        (((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0);
 
     public void ResetPipelines() => Array.Clear(Pipelines);
 }

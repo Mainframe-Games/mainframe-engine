@@ -193,6 +193,53 @@ public sealed class MeshSerializationTests : IDisposable
     }
 
     [Fact]
+    public void VertexColoursAndCustom0RoundTripInline()
+    {
+        var mesh = new ArrayMesh();
+        var surface = new MeshSurface([Vector3.Zero, Vector3.UnitX, Vector3.UnitY], [], [], [0, 1, 2])
+        {
+            Colors = [new Vector4(1, 0, 0, 1), new Vector4(0, 0.5f, 0, 1), new Vector4(0, 0, 1, 0.25f)],
+            Custom0 = [new Vector4(0, 0.25f, 0.1f, 1), new Vector4(0.5f, 1, 0.2f, 0.8f), new Vector4(1, 1, 0.3f, 0.6f)],
+        };
+        mesh.AddSurface(surface);
+        mesh.AddSurface([Vector3.Zero, Vector3.UnitZ, Vector3.UnitY], [], [], [0, 1, 2]);
+
+        var root = new Node3D { Name = "Root" };
+        Own(root, new MeshInstance3D { Name = "M", Mesh = mesh, MaterialOverride = new FoliageMaterial3D { WindBranchBend = 0.5f } });
+        var loaded = RoundTrip(root);
+
+        var node = loaded.GetNode<MeshInstance3D>("M");
+        var copy = (ArrayMesh)node.Mesh!;
+        Assert.Equal(surface.Colors, copy.GetSurface(0).Colors);
+        Assert.Equal(surface.Custom0, copy.GetSurface(0).Custom0);
+        Assert.True(copy.GetSurface(0).HasVertexStreams);
+        Assert.Empty(copy.GetSurface(1).Colors);
+        Assert.Empty(copy.GetSurface(1).Custom0);
+        Assert.False(copy.GetSurface(1).HasVertexStreams);
+        Assert.Equal(0.5f, Assert.IsType<FoliageMaterial3D>(node.MaterialOverride).WindBranchBend);
+        loaded.Free();
+    }
+
+    [Fact]
+    public void MultiMeshesAndVisibilityRangesRoundTrip()
+    {
+        var multimesh = new MultiMesh { Mesh = new BoxMesh(), InstanceCount = 3, VisibleInstanceCount = 2 };
+        multimesh.SetInstanceTransform(1, new Transform3D(Basis.FromRotationScale(Quaternion.Identity, new Vector3(2)), new Vector3(1, 2, 3)));
+        var root = new Node3D { Name = "Root" };
+        Own(root, new MultiMeshInstance3D { Name = "Grass", Multimesh = multimesh, VisibilityRangeBegin = 5f, VisibilityRangeEnd = 80f });
+        var loaded = RoundTrip(root);
+
+        var node = loaded.GetNode<MultiMeshInstance3D>("Grass");
+        var copy = node.Multimesh!;
+        Assert.IsType<BoxMesh>(copy.Mesh);
+        Assert.Equal(3, copy.InstanceCount);
+        Assert.Equal(2, copy.VisibleInstanceCount);
+        Assert.Equal(multimesh.Transforms, copy.Transforms);
+        Assert.Equal((5f, 80f), (node.VisibilityRangeBegin, node.VisibilityRangeEnd));
+        loaded.Free();
+    }
+
+    [Fact]
     public void MaterialsSaveAsResourceFilesAndTexturesAsReferences()
     {
         WritePng(ContentPath("Textures/brick.png"), 4, 2);

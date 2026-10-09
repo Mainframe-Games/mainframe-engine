@@ -33,6 +33,12 @@ public struct MeshDrawStats
 
     /// <summary>Draws in object-ID passes.</summary>
     public int ObjectIdDrawCalls;
+
+    /// <summary>Instances outside their visibility range (<see cref="GeometryInstance3D.VisibilityRangeBegin"/>/End).</summary>
+    public int OutOfRange;
+
+    /// <summary><see cref="MultiMesh"/> instances in the surface draws submitted (summed over surfaces).</summary>
+    public int MultiMeshInstances;
 }
 
 /// <summary>One surface of one instance in a colour/ID pass.</summary>
@@ -47,6 +53,10 @@ internal struct MeshDrawItem
 
     /// <summary>A next-pass or overlay draw (skipped by the object-ID pass).</summary>
     public bool Extra;
+
+    /// <summary>A <see cref="MultiMeshInstance3D"/>'s own instance buffer (drawn alone, never merged), else null.</summary>
+    public GpuBuffer? Instances;
+    public uint InstanceCount;
 }
 
 /// <summary>One surface of one shadow caster.</summary>
@@ -58,11 +68,18 @@ internal struct ShadowCasterItem
     public CullMode Cull;
     public bool Mirrored;
 
-    /// <summary>The material of a cutout caster (alpha-tested in the shadow pass); null for opaque casters.</summary>
+    /// <summary>The material of a cutout or foliage caster (bound as set 1 in the shadow pass); null for opaque casters.</summary>
     public MaterialGpu? Cutout;
+
+    /// <summary>A foliage caster: the wind vertex shader, the second vertex stream (<see cref="Cutout"/> is its material).</summary>
+    public bool Foliage;
 
     /// <summary>World bounds of the instance (culled per shadow pass).</summary>
     public Aabb Bounds;
+
+    /// <summary>A <see cref="MultiMeshInstance3D"/>'s own instance buffer (drawn alone), else null.</summary>
+    public GpuBuffer? Instances;
+    public uint InstanceCount;
 }
 
 /// <summary>A run of caster instances drawn with one instanced draw in one shadow pass.</summary>
@@ -70,6 +87,7 @@ internal struct ShadowCasterRun
 {
     public MeshGpu Mesh;
     public MaterialGpu? Cutout;
+    public bool Foliage;
     public GpuBuffer Instances;
     public int Surface;
     public CullMode Cull;
@@ -87,6 +105,9 @@ internal sealed class MeshViewDraws
 
     /// <summary>Union of the casters' world bounds (cascades pull their near plane back to it).</summary>
     public Aabb CasterBounds = Aabb.Empty;
+
+    /// <summary>The world's wind (and fog) when the view was prepared: foliage casters read the wind as push constants.</summary>
+    public FrameEnvironment Environment;
 
     /// <summary>This frame's shadow draws: runs of culled casters per pass (<see cref="PassRuns"/>).</summary>
     public ShadowCasterRun[] ShadowRuns = new ShadowCasterRun[64];
@@ -144,6 +165,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
     private readonly Dictionary<Mesh, MeshGpu> _meshes = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Material, MaterialGpu> _materials = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<(Texture2D, TextureColorSpace), TextureGpu> _textures = [];
+    private readonly HashSet<MultiMeshGpu> _multiMeshes = [];
     private int _nextMeshId = 1, _nextMaterialId = 1;
     private ulong _statsFrame;
     private int[] _visibleCasters = new int[256];
@@ -335,6 +357,26 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         node.ResolvedMesh = null;
         node.ResolvedMeshGeneration = -1;
         node.ResolvedOverride = null;
+        if (node is MultiMeshInstance3D { GpuMultiMesh: { } multi } instance)
+        {
+            multi.Release();
+            _multiMeshes.Remove(multi);
+            instance.GpuMultiMesh = null;
+        }
+    }
+
+    // The node's instance buffer, rebuilt when its multimesh, transform or mesh bounds changed; null when nothing is drawn.
+    private MultiMeshGpu? SyncMultiMesh(MultiMeshInstance3D node, MeshGpu mesh, in Matrix4x4 model)
+    {
+        if (node.Multimesh is not { } multimesh)
+            return null;
+        if (node.GpuMultiMesh is not { } gpu)
+        {
+            gpu = node.GpuMultiMesh = new MultiMeshGpu(_ctx);
+            _multiMeshes.Add(gpu);
+        }
+
+        return gpu.Update(multimesh, model, mesh.Bounds, node.ObjectId) ? gpu : null;
     }
 
     private MeshGpu AcquireMesh(Mesh mesh)
@@ -420,11 +462,12 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         gpu.PreparedFrame = CurrentFrame;
         var material = gpu.Material;
         var outline = material as OutlineMaterial3D;
-        gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : ShaderSetId.MeshLit;
+        var foliage = material as FoliageMaterial3D;
+        gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : foliage is not null ? ShaderSetId.MeshFoliage : ShaderSetId.MeshLit;
         if (material is not StandardMaterial3D standard)
         {
             standard = StandardMaterial3D.Default;
-            if (outline is null && !_warnedUnsupportedMaterial)
+            if (outline is null && foliage is null && !_warnedUnsupportedMaterial)
             {
                 _warnedUnsupportedMaterial = true;
                 Log.Warning($"[Mesh] {material.GetType().Name} is not supported by the renderer yet; drawing with the default material.");
@@ -448,10 +491,10 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
         // Slots follow the material's textures and their colour space (an import-settings change moves a texture
         // to another (texture, colour space) upload without touching the material).
-        rewrite |= SwapTexture(outline is null ? standard.AlbedoTexture : null, colorUsage: true, ref gpu.Albedo);
-        rewrite |= SwapTexture(outline is null ? standard.NormalTexture : null, colorUsage: false, ref gpu.Normal);
-        rewrite |= SwapTexture(outline is null ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
-        rewrite |= SwapTexture(outline is null ? standard.OrmTexture : null, colorUsage: false, ref gpu.Orm);
+        rewrite |= SwapTexture(outline is not null ? null : foliage is not null ? foliage.AlbedoTexture : standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
+        rewrite |= SwapTexture(outline is not null ? null : foliage is not null ? foliage.NormalTexture : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
+        rewrite |= SwapTexture(outline is null && foliage is null ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
+        rewrite |= SwapTexture(outline is null && foliage is null ? standard.OrmTexture : null, colorUsage: false, ref gpu.Orm);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
         rewrite |= RefreshTexture(gpu.Albedo, gpu.AlbedoGeneration);
@@ -465,7 +508,9 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
                         (gpu.Normal?.Gpu is not null ? MaterialParams.HasNormal : 0) |
                         (gpu.Emission?.Gpu is not null ? MaterialParams.HasEmission : 0) |
                         (gpu.Orm?.Gpu is not null ? MaterialParams.HasOrm : 0);
-            var parameters = outline is not null ? MaterialParams.From(outline) : MaterialParams.From(standard, flags);
+            var parameters = outline is not null ? MaterialParams.From(outline)
+                : foliage is not null ? MaterialParams.From(foliage, flags)
+                : MaterialParams.From(standard, flags);
             if (gpu.Params is null)
             {
                 gpu.Params = GpuBuffer.Create(_ctx, MaterialParams.Size, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.DeviceLocal);
@@ -559,13 +604,15 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
     }
 
     /// <summary>The pipeline for drawing <paramref name="gpu"/>'s surfaces (cached on the material).</summary>
-    private PipelineEntry GetPipeline(MaterialGpu gpu, ShaderSetId shaders, bool mirrored, bool extraPass = false)
+    private PipelineEntry GetPipeline(MaterialGpu gpu, ShaderSetId shaders, bool mirrored, bool extraPass = false, bool streams = false)
     {
-        ref var entry = ref gpu.Pipelines[MaterialGpu.PipelineIndex(shaders, extraPass, mirrored)];
+        // Only the lit shaders have a variant for the second stream (foliage always reads it; outlines and ids never do).
+        streams &= shaders == ShaderSetId.MeshLit;
+        ref var entry = ref gpu.Pipelines[MaterialGpu.PipelineIndex(shaders, extraPass, mirrored, streams)];
         if (entry.Pipeline.Handle == 0)
         {
             var pass = shaders == ShaderSetId.MeshObjectId ? _idPassPrototype : _ctx.RenderPass;
-            entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass));
+            entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass, streams));
         }
 
         return entry;
@@ -592,6 +639,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         ResetStatsIfNewFrame();
         view.PreparedFrame = CurrentFrame;
         view.Clear();
+        view.Environment = world.Environment?.FrameEnvironment ?? default;
 
         var viewMatrix = camera.ViewMatrix;
         var frustum = new Frustum(viewMatrix * camera.ProjectionMatrix);
@@ -613,7 +661,32 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             var materials = node.GpuMaterials;
             var surfaces = mesh.Surfaces;
 
-            var bounds = mesh.Bounds.Transform(model);
+            Aabb bounds;
+            GpuBuffer? multiInstances = null;
+            uint multiCount = 0;
+            if (node is MultiMeshInstance3D multiNode)
+            {
+                if (SyncMultiMesh(multiNode, mesh, model) is not { } multi)
+                    continue;
+                bounds = multi.WorldBounds;
+                multiInstances = multi.Instances;
+                multiCount = multi.Count;
+            }
+            else
+            {
+                bounds = mesh.Bounds.Transform(model);
+            }
+
+            if (!node.IsInVisibilityRange(cameraPosition, bounds))
+            {
+                Stats.OutOfRange++;
+                continue;
+            }
+
+            for (var s = 0; s < surfaces.Length; s++)
+                if (materials[s] is { NeedsStreams: true })
+                    mesh.EnsureStreams();
+
             if (collectCasters && node.CastShadows)
             {
                 var casts = false;
@@ -622,9 +695,22 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
                     if (surfaces[s].IndexCount == 0 || materials[s] is not { } m || !m.State.CastsShadows)
                         continue;
                     var cull = m.State.EffectiveCull;
-                    var cutout = m.State.Alpha == AlphaMode.Cutout ? m : null;
+                    var foliage = m.FoliageCaster;
+                    var cutout = m.State.Alpha == AlphaMode.Cutout || foliage ? m : null;
                     view.Casters.Add(CasterKey(cull, mirrored, cutout?.Id ?? 0, mesh.Id, s),
-                        new ShadowCasterItem { Node = node, Mesh = mesh, Surface = s, Cull = cull, Mirrored = mirrored, Cutout = cutout, Bounds = bounds });
+                        new ShadowCasterItem
+                        {
+                            Node = node,
+                            Mesh = mesh,
+                            Surface = s,
+                            Cull = cull,
+                            Mirrored = mirrored,
+                            Cutout = cutout,
+                            Foliage = foliage,
+                            Bounds = bounds,
+                            Instances = multiInstances,
+                            InstanceCount = multiCount,
+                        });
                     casts = true;
                 }
 
@@ -643,7 +729,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             {
                 if (surfaces[s].IndexCount == 0 || materials[s] is not { } material)
                     continue;
-                var pipeline = GetPipeline(material, material.ColorShaders, mirrored);
+                var pipeline = GetPipeline(material, material.ColorShaders, mirrored, streams: surfaces[s].HasStreams);
                 var item = new MeshDrawItem
                 {
                     Node = node,
@@ -652,12 +738,15 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
                     Pipeline = pipeline,
                     Surface = s,
                     Mirrored = mirrored,
+                    Instances = multiInstances,
+                    InstanceCount = multiCount,
                 };
                 if (material.State.IsTransparent)
                     view.Transparent.Add(DrawSortKey.Transparent(material.RenderPriority, depth, pipeline.Id, material.Id), item);
                 else
                     view.Opaque.Add(DrawSortKey.Opaque(pipeline.Id, material.Id, mesh.Id, s), item);
                 Stats.SurfaceInstances++;
+                Stats.MultiMeshInstances += (int)multiCount;
             }
 
             foreach (var extra in node.GpuExtraPasses)
@@ -665,7 +754,9 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
                 if (surfaces[extra.Surface].IndexCount == 0)
                     continue;
                 var material = extra.Material;
-                var pipeline = GetPipeline(material, material.ColorShaders, mirrored, extraPass: true);
+                if (material.NeedsStreams)
+                    mesh.EnsureStreams();
+                var pipeline = GetPipeline(material, material.ColorShaders, mirrored, extraPass: true, streams: surfaces[extra.Surface].HasStreams);
                 var item = new MeshDrawItem
                 {
                     Node = node,
@@ -675,6 +766,8 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
                     Surface = extra.Surface,
                     Mirrored = mirrored,
                     Extra = true,
+                    Instances = multiInstances,
+                    InstanceCount = multiCount,
                 };
                 if (material.State.IsTransparent)
                     view.Transparent.Add(DrawSortKey.Transparent(material.RenderPriority, depth, pipeline.Id, material.Id), item);
@@ -763,6 +856,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         var instanceHandle = instanceBuffer.Handle;
         var zero = 0ul;
         vk.CmdBindVertexBuffers(cb, 1, 1, &instanceHandle, &zero);
+        var boundInstances = instanceHandle;
 
         Pipeline boundPipeline = default;
         MaterialGpu? boundMaterial = null;
@@ -800,15 +894,24 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
             if (!ReferenceEquals(item.Mesh, boundMesh))
             {
-                var vertices = item.Mesh.Vertices!.Handle;
-                vk.CmdBindVertexBuffers(cb, 0, 1, &vertices, &zero);
-                vk.CmdBindIndexBuffer(cb, item.Mesh.Indices!.Handle, 0, IndexType.Uint32);
+                BindMesh(vk, cb, item.Mesh);
                 boundMesh = item.Mesh;
             }
 
+            // A multimesh draws its own instances; the view's buffer comes back for the next run.
+            var instances = item.Instances?.Handle ?? instanceHandle;
+            if (instances.Handle != boundInstances.Handle)
+            {
+                vk.CmdBindVertexBuffers(cb, 1, 1, &instances, &zero);
+                boundInstances = instances;
+            }
+
             var range = item.Mesh.Surfaces[item.Surface];
-            vk.CmdDrawIndexed(cb, range.IndexCount, (uint)(end - i), range.FirstIndex, range.VertexOffset,
-                view.FirstInstance + (uint)(instanceOffset + i));
+            if (item.Instances is not null)
+                vk.CmdDrawIndexed(cb, range.IndexCount, item.InstanceCount, range.FirstIndex, range.VertexOffset, 0);
+            else
+                vk.CmdDrawIndexed(cb, range.IndexCount, (uint)(end - i), range.FirstIndex, range.VertexOffset,
+                    view.FirstInstance + (uint)(instanceOffset + i));
             if (shaders == ShaderSetId.MeshObjectId)
                 Stats.ObjectIdDrawCalls++;
             else
@@ -817,8 +920,23 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         }
     }
 
+    // Binds a mesh's vertices (binding 0), its second stream when it has one (binding 2) and its indices.
+    private static void BindMesh(Vk vk, CommandBuffer cb, MeshGpu mesh)
+    {
+        var zero = 0ul;
+        var vertices = mesh.Vertices!.Handle;
+        vk.CmdBindVertexBuffers(cb, 0, 1, &vertices, &zero);
+        if (mesh.Streams is { } streams)
+        {
+            var handle = streams.Handle;
+            vk.CmdBindVertexBuffers(cb, 2, 1, &handle, &zero);
+        }
+
+        vk.CmdBindIndexBuffer(cb, mesh.Indices!.Handle, 0, IndexType.Uint32);
+    }
+
     private static bool SameDraw(ref MeshDrawItem a, ref MeshDrawItem b) =>
-        ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && ReferenceEquals(a.Material, b.Material) &&
+        a.Instances is null && b.Instances is null && ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && ReferenceEquals(a.Material, b.Material) &&
         a.Pipeline.Pipeline.Handle == b.Pipeline.Pipeline.Handle && a.Extra == b.Extra;
 
     /// <summary>
@@ -863,35 +981,53 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         if (visible == 0)
             return false;
 
-        var data = _instances.Allocate(visible, out var buffer, out var first);
+        // Multimesh casters draw their own buffer; the others get this pass's instances.
+        var plain = 0;
+        for (var v = 0; v < visible; v++)
+            if (casters[_visibleCasters[v]].Instances is null)
+                plain++;
+        GpuBuffer? buffer = null;
+        uint first = 0;
+        var data = plain > 0 ? _instances.Allocate(plain, out buffer, out first) : default;
+
         var firstRun = view.ShadowRunCount;
+        var written = 0;
         for (var v = 0; v < visible; v++)
         {
             ref var item = ref casters[_visibleCasters[v]];
-            data[v] = new MeshInstanceData(item.Node.ModelMatrix, item.Node.ObjectId);
-            if (v > 0 && SameCaster(ref casters[_visibleCasters[v - 1]], ref item))
+            if (item.Instances is null)
             {
-                view.ShadowRuns[view.ShadowRunCount - 1].InstanceCount++;
-                continue;
+                data[written] = new MeshInstanceData(item.Node.ModelMatrix, item.Node.ObjectId);
+                if (v > 0 && SameCaster(ref casters[_visibleCasters[v - 1]], ref item))
+                {
+                    view.ShadowRuns[view.ShadowRunCount - 1].InstanceCount++;
+                    written++;
+                    Stats.ShadowInstances++;
+                    continue;
+                }
             }
 
             if (view.ShadowRunCount == view.ShadowRuns.Length)
                 Array.Resize(ref view.ShadowRuns, view.ShadowRuns.Length * 2);
+            var own = item.Instances is not null;
             view.ShadowRuns[view.ShadowRunCount++] = new ShadowCasterRun
             {
                 Mesh = item.Mesh,
                 Cutout = item.Cutout,
-                Instances = buffer,
+                Foliage = item.Foliage,
+                Instances = own ? item.Instances! : buffer!,
                 Surface = item.Surface,
                 Cull = item.Cull,
                 Mirrored = item.Mirrored,
-                FirstInstance = first + (uint)v,
-                InstanceCount = 1,
+                FirstInstance = own ? 0 : first + (uint)written,
+                InstanceCount = own ? item.InstanceCount : 1,
             };
+            Stats.ShadowInstances += own ? (int)item.InstanceCount : 1;
+            if (!own)
+                written++;
         }
 
         view.PassRuns[pass.Index] = (firstRun, view.ShadowRunCount - firstRun);
-        Stats.ShadowInstances += visible;
         return true;
     }
 
@@ -924,10 +1060,22 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         MeshGpu? boundMesh = null;
         MaterialGpu? boundMaterial = null;
         GpuBuffer? boundInstances = null;
+        var windPushed = false;
         for (var r = firstRun; r < firstRun + runCount; r++)
         {
             ref var run = ref view.ShadowRuns[r];
-            var pipeline = _shadows.GetInstancedCasterPipeline(point, run.Cull, run.Mirrored, run.Cutout is not null);
+            if (run.Foliage && !windPushed)
+            {
+                // The casters' set 0 is the light matrix: the wind and time come as push constants (offset 0, unused by
+                // the instanced casters, whose model matrices are per instance).
+                var wind = new FoliageCasterWind(view.Environment, _ctx.Frame.Time);
+                vk.CmdPushConstants(cb, point ? _shadows.ShadowPointLayout : _shadows.Shadow2DLayout,
+                    point ? ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit : ShaderStageFlags.VertexBit, 0,
+                    (uint)sizeof(FoliageCasterWind), &wind);
+                windPushed = true;
+            }
+
+            var pipeline = _shadows.GetInstancedCasterPipeline(point, run.Cull, run.Mirrored, run.Cutout is not null, run.Foliage);
             if (pipeline.Handle != bound.Handle)
             {
                 vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
@@ -952,9 +1100,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
             if (!ReferenceEquals(run.Mesh, boundMesh))
             {
-                var vertices = run.Mesh.Vertices!.Handle;
-                vk.CmdBindVertexBuffers(cb, 0, 1, &vertices, &zero);
-                vk.CmdBindIndexBuffer(cb, run.Mesh.Indices!.Handle, 0, IndexType.Uint32);
+                BindMesh(vk, cb, run.Mesh);
                 boundMesh = run.Mesh;
             }
 
@@ -965,7 +1111,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
     }
 
     private static bool SameCaster(ref ShadowCasterItem a, ref ShadowCasterItem b) =>
-        ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && a.Cull == b.Cull && a.Mirrored == b.Mirrored &&
+        a.Instances is null && b.Instances is null && ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && a.Cull == b.Cull && a.Mirrored == b.Mirrored &&
         ReferenceEquals(a.Cutout, b.Cutout);
 
     // ── IPipelineFactory ───────────────────────────────────────────────────────
@@ -989,25 +1135,57 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             Blend = key.Alpha == AlphaMode.Blend && key.Shaders != ShaderSetId.MeshObjectId ? BlendMode.Alpha : BlendMode.Opaque,
         };
 
-        var alphaMode = (int)key.Alpha;
-        var entry = new SpecializationMapEntry { ConstantID = 0, Offset = 0, Size = sizeof(int) };
-        var specialization = new SpecializationInfo { MapEntryCount = 1, PMapEntries = &entry, DataSize = sizeof(int), PData = &alphaMode };
-        var fragment = key.Shaders == ShaderSetId.MeshObjectId ? "Shaders/Mesh/MeshId.vk.frag.spv" : "Shaders/Mesh/Mesh.vk.frag.spv";
+        // Constant 0: the alpha mode; 1: multiply the albedo by the vertex colour (Mesh.vk.frag, second-stream surfaces).
+        var streams = key.VertexLayout == VertexLayoutId.MeshInstancedExt;
+        var constants = stackalloc int[2] { (int)key.Alpha, streams ? 1 : 0 };
+        var entries = stackalloc SpecializationMapEntry[2]
+        {
+            new() { ConstantID = 0, Offset = 0, Size = sizeof(int) },
+            new() { ConstantID = 1, Offset = sizeof(int), Size = sizeof(int) },
+        };
+        var specialization = new SpecializationInfo { MapEntryCount = 2, PMapEntries = entries, DataSize = 2 * sizeof(int), PData = constants };
+        var fragment = key.Shaders switch
+        {
+            ShaderSetId.MeshObjectId => "Shaders/Mesh/MeshId.vk.frag.spv",
+            ShaderSetId.MeshFoliage => "Shaders/Foliage/Foliage.vk.frag.spv",
+            _ => "Shaders/Mesh/Mesh.vk.frag.spv",
+        };
         // Each vertex shader writes only what its fragment shader reads (Slang drops unread fragment inputs, and an
         // unread vertex output is a validation warning): the ID pass has its own.
         var vertex = key.Shaders switch
         {
             ShaderSetId.MeshOutline => "Shaders/Mesh/MeshOutline.vk.vert.spv",
             ShaderSetId.MeshObjectId => "Shaders/Mesh/MeshId.vk.vert.spv",
+            ShaderSetId.MeshFoliage => "Shaders/Foliage/Foliage.vk.vert.spv",
+            _ when streams => "Shaders/Mesh/MeshExt.vk.vert.spv",
             _ => "Shaders/Mesh/Mesh.vk.vert.spv",
         };
+        var attributes = key.Shaders switch
+        {
+            ShaderSetId.MeshObjectId => VertexLayouts.MeshIdAttributes,
+            ShaderSetId.MeshFoliage => VertexLayouts.FoliageAttributes,
+            _ when streams => VertexLayouts.MeshExtAttributes,
+            _ => VertexLayouts.MeshAttributes,
+        };
         return PipelineBuilder.Create(_ctx, state, _pipelineLayout, new RenderPass(key.RenderPass),
-            vertex, fragment, VertexLayouts.MeshInstancedBindings,
-            key.Shaders == ShaderSetId.MeshObjectId ? VertexLayouts.MeshIdAttributes : VertexLayouts.MeshAttributes,
-            $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(key.ExtraPass ? ", extra pass" : "")})", &specialization);
+            vertex, fragment, streams ? VertexLayouts.MeshInstancedExtBindings : VertexLayouts.MeshInstancedBindings, attributes,
+            $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(key.ExtraPass ? ", extra pass" : "")}{(streams ? ", streams" : "")})",
+            &specialization);
     }
 
     void IPipelineFactory.Destroy(Pipeline pipeline) => _ctx.Deletions.Enqueue(GpuDeletion.Of(pipeline));
+
+    /// <summary>
+    /// Push constants of the foliage shadow casters (offset 0, 48 bytes; <c>Shadows/Shadow*FoliageInstanced.vk.vert</c>):
+    /// the frame's wind and time, which the caster layouts cannot read from set 0.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FoliageCasterWind(in FrameEnvironment environment, float time)
+    {
+        public Vector4 Wind = environment.Wind;
+        public Vector4 WindParams = environment.WindParams;
+        public Vector4 Time = new(time, 0f, 0f, 0f);
+    }
 
     /// <summary>Releases every GPU object (nodes still holding references are reset by the render server).</summary>
     public void Dispose()
@@ -1017,6 +1195,9 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         foreach (var mesh in _meshes.Values)
             mesh.Release();
         _meshes.Clear();
+        foreach (var multi in _multiMeshes)
+            multi.Invalidate();
+        _multiMeshes.Clear();
         foreach (var material in _materials.Values)
         {
             material.Params?.Dispose();
