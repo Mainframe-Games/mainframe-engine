@@ -4,9 +4,18 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Status:** M0–M10 merged to `main` (fast-forward to `ec6bd70`, 2026-10-05).
-- **Next action:** publish v1.0.0 (`publish.yml`); public-release prep on `chore/public-readiness` (licence notices,
-  README License section, CI LFS caching). Then M11 (backend abstraction), M12/M13 (mobile).
+- **Active (2026-10-08):** forest showcase vertical slice on `feature/forest-slice` (worktree
+  `.claude/worktrees/forest-slice`). Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
+  - Wave 1 is running in lane worktrees `.claude/worktrees/forest-{a1,a2,b,c,d,e}`, on branches `forest/<lane>`.
+  - Lanes: A1 PBR + IBL + fog (ADR 0150); A2 vertex streams, MultiMesh, visibility ranges, Texture2DArray,
+    FoliageMaterial3D (0151); B Ez Tree port (0152); C Terrain3D core (0153); D physical sky, FXAA, auto exposure
+    (0154); E Curve3D/River3D, the `Examples/Forest` scaffold, FirstPersonController (0155).
+  - Next: merge the lanes into `feature/forest-slice` (A1 first), then wave 2 (splat material, Tree3D, grass,
+    water material, shafts), then wave 3 (content, performance, docs, gates).
+  - Commits stay local; one push and a PR at the end.
+  - Stop launching lanes at 50% weekly usage.
+- **Status before this:** M0–M10 merged to `main` (fast-forward to `ec6bd70`, 2026-10-05); later work landed through
+  PRs #5–#32.
 - **Open blockers:** none. User actions: Steamworks natives (partner login); macOS code signing/notarization.
 
 ## Log
