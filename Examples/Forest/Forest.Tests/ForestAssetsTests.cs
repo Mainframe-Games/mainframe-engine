@@ -63,7 +63,8 @@ public sealed class ForestAssetsTests
     public void NoticeListsEveryAsset()
     {
         var notice = File.ReadAllText(Path.Combine(ForestRoot, "NOTICE.md"));
-        foreach (var id in ForestAssets.TerrainLayers.Select(l => l.AssetId).Concat(ForestAssets.Props.Select(p => p.AssetId)).Append("lilienstein"))
+        foreach (var id in ForestAssets.TerrainLayers.Select(l => l.AssetId).Concat(ForestAssets.Props.Select(p => p.AssetId))
+                     .Concat(ForestAssets.Debris.Select(d => d.AssetId)).Append("lilienstein"))
             Assert.Contains($"`{id}`", notice);
         Assert.DoesNotContain("no third-party assets yet", notice);
     }

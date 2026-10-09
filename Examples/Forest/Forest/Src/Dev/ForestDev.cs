@@ -11,9 +11,9 @@ namespace Forest;
 /// sprinting, a jump), then measures what a 600-frame window allocates on the main thread after a 180-frame warm-up and
 /// quits (exit code 0 when it allocated nothing, 1 otherwise). <c>--autowalk-lap</c> walks the whole loop instead and
 /// quits when it is back (exit 1 if it got stuck). With <c>--fixed-fps</c> the walk is the same on every run.</item>
-/// <item><c>--shot &lt;1-5|name&gt;</c>: a fixed camera at a reference shot (<see cref="ValleyLayout.Shots"/>);
+/// <item><c>--shot &lt;1-7|name&gt;</c>: a fixed camera at a reference shot (<see cref="ValleyLayout.Shots"/>);
 /// <c>--view x,y,z,tx,ty,tz[,fov]</c>: a camera at a world position looking at a point (a y of 0: eye height above the ground; −h: h above it).</item>
-/// <item><c>--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]]</c>: <see cref="ForestBenchmark"/>
+/// <item><c>--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]] [--frames-csv file.csv]</c>: <see cref="ForestBenchmark"/>
 /// (exit code 1 when it allocated or is more than 10 % slower than the baseline).</item>
 /// <item><c>--set Node.Property=value</c>: tunes the look from the command line (<see cref="ApplyOverrides"/>);
 /// <c>--warmup n</c>: the autowalk's warm-up frames.</item>
@@ -88,6 +88,7 @@ public sealed class ForestDev : Node
             {
                 BaselinePath = Argument(args, "--baseline"),
                 WriteBaseline = args.Contains("--write-baseline"),
+                FramesCsvPath = Argument(args, "--frames-csv"),
             };
         }
 

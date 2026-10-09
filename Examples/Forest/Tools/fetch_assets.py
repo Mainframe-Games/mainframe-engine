@@ -14,7 +14,13 @@ Needs curl and Pillow. Downloads are cached (default: a temp folder), so re-runn
   8-bit Height PNG from Displacement.
 - Props (Poly Haven glTF): the glTF, its .bin and textures; the grey roughness image is replaced by Poly Haven's ARM
   map (R = AO, G = roughness, B = metallic: glTF's occlusion + metallicRoughness packing), wired as both textures.
+- Debris (ambientCG 1K JPG sets of scattered leaves, ADR 0175): Color and Opacity merged into an RGBA PNG, NormalGL,
+  and an ORM PNG (R = 255, G = Roughness, B = 0), for the ground-hugging leaf-litter cards.
 - Sky (Poly Haven HDRI): the tonemapped JPG, resized to 4096 × 2048 (the engine's panorama path is LDR).
+
+    python3 Examples/Forest/Tools/fetch_assets.py --only props,debris --assets stone_01,ScatteredLeaves004
+
+fetches only some kinds (terrain, props, debris, sky) or assets; the NOTICE rows are printed for what it fetched.
 """
 
 import argparse
@@ -59,6 +65,21 @@ PROPS = [
     ("tree_stump_02", "1k"),
     ("dry_branches_medium_01", "1k"),
     ("fern_02", "2k"),
+    # G8e.7 (ADR 0175): forest-floor scans for the clutter, the understorey and the props near the shots.
+    ("root_cluster_02", "1k"),
+    ("root_cluster_01", "1k"),
+    ("single_root", "1k"),
+    ("bark_debris_01", "1k"),
+    ("moss_01", "1k"),
+    ("stone_01", "1k"),
+    ("grass_medium_01", "1k"),
+    ("dead_quiver_branch_01", "1k"),
+    ("nettle_plant", "1k"),
+]
+
+# (ambientCG id, size): scattered-leaf debris with opacity, laid on the ground as cards (ADR 0175).
+DEBRIS = [
+    ("ScatteredLeaves004", 1024),
 ]
 
 HDRI = "lilienstein"
@@ -136,8 +157,38 @@ def terrain(cache, rows):
         print(f"terrain {tag:8} {asset}", file=sys.stderr)
 
 
-def props(cache, rows):
+def debris(cache, rows, wanted=None):
+    for asset, size in DEBRIS:
+        if wanted and asset not in wanted:
+            continue
+        meta = get_json(f"https://ambientcg.com/api/v2/full_json?id={asset}&include=downloadData,displayData")
+        found = meta["foundAssets"][0]
+        name = f"{asset}_1K-JPG.zip"
+        url = f"https://ambientcg.com/get?file={name}"
+        path = cached(cache, os.path.join("ambientcg", name), url)
+        with zipfile.ZipFile(path) as zf:
+            def read(suffix, mode):
+                entry = next((n for n in zf.namelist() if n.endswith(f"_{suffix}.jpg")), None)
+                if entry is None:
+                    return None
+                img = Image.open(io.BytesIO(zf.read(entry))).convert(mode)
+                return img.resize((size, size), Image.LANCZOS) if img.size != (size, size) else img
+
+            out = os.path.join(ART, "Debris", asset)
+            color = read("Color", "RGB")
+            alpha = read("Opacity", "L")
+            save_png(Image.merge("RGBA", (*color.split(), alpha)), os.path.join(out, f"{asset}_Color.png"))
+            save_jpg(read("NormalGL", "RGB"), os.path.join(out, f"{asset}_NormalGL.jpg"), 95, subsampling=0)
+            rough = read("Roughness", "L")
+            save_png(Image.merge("RGB", (Image.new("L", (size, size), 255), rough, Image.new("L", (size, size), 0))), os.path.join(out, f"{asset}_ORM.png"))
+        rows.append((found["displayName"], asset, f"Content/Art/Debris/{asset}/", found["shortLink"], url, "ambientCG (no author listed)"))
+        print(f"debris {asset}", file=sys.stderr)
+
+
+def props(cache, rows, wanted=None):
     for asset, res in PROPS:
+        if wanted and asset not in wanted:
+            continue
         info = get_json(f"https://api.polyhaven.com/info/{asset}")
         files = get_json(f"https://api.polyhaven.com/files/{asset}")
         entry = files["gltf"][res]["gltf"]
@@ -221,11 +272,20 @@ def write_metas():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache", default=os.path.join(tempfile.gettempdir(), "mainframe-forest-assets"))
+    parser.add_argument("--only", default="terrain,props,debris,sky", help="comma-separated kinds: terrain, props, debris, sky")
+    parser.add_argument("--assets", default="", help="comma-separated asset ids (props and debris); default: all")
     args = parser.parse_args()
+    kinds = set(args.only.split(","))
+    wanted = set(a for a in args.assets.split(",") if a) or None
     rows = []
-    terrain(args.cache, rows)
-    props(args.cache, rows)
-    sky(args.cache, rows)
+    if "terrain" in kinds:
+        terrain(args.cache, rows)
+    if "props" in kinds:
+        props(args.cache, rows, wanted)
+    if "debris" in kinds:
+        debris(args.cache, rows, wanted)
+    if "sky" in kinds:
+        sky(args.cache, rows)
     write_metas()
     for name, asset, where, page, url, author in rows:
         print(f"| {name} | `{asset}` | `{where}` | [{page.split('//')[1]}]({page}) · [download]({url}) | {author} | CC0 1.0 |")

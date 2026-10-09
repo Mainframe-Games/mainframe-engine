@@ -5,6 +5,7 @@
 #include "material.slang"
 #include "foliage.slang"
 #include "impostor.slang"
+#include "instance_variation.slang"
 
 struct VsIn
 {
@@ -31,6 +32,7 @@ struct VsOut
     [[vk::location(9)]] nointerpolation float3 outRow2;
     [[vk::location(10)]] nointerpolation float4 outView; // xyz towards the camera, w = the radius in world units
     [[vk::location(11)]] nointerpolation float outDistance;
+    [[vk::location(12)]] nointerpolation float3 outTint; // per-instance colour variation (ADR 0175)
 };
 
 [shader("vertex")]
@@ -52,6 +54,7 @@ VsOut main(VsIn input)
     o.outRow2 = normalize(input.inModel2.xyz);
     o.outView = float4(v.viewWorld, v.radiusWorld);
     o.outDistance = v.distance;
+    o.outTint = instanceTint(input.inModel3.xyz);
     o.position = distanceFadeVisible(material.foliage1, v.distance) ? mul(v.worldPos, frame.viewProjection) : kCollapsedPosition;
     return o;
 }

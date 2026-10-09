@@ -252,7 +252,7 @@ public sealed class MaterialAndPipelineTests
         Assert.Equal(MaterialParams.ShadingPbr, p.Shading);
         Assert.Equal(new Vector4(0.8f, 0.25f, 0.5f, 0f), p.Pbr);
         Assert.Equal(8u, p.TextureFlags);
-        Assert.Equal(160, MaterialParams.Size);
+        Assert.Equal(192, MaterialParams.Size);
         Assert.Equal(MaterialParams.Size, System.Runtime.InteropServices.Marshal.SizeOf<MaterialParams>());
 
         // Out-of-range values are clamped for the shader.

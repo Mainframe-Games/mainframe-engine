@@ -38,8 +38,14 @@ public sealed class ForestValley : Node3D
     /// <summary>Multiplies every ground-cover density (a quality knob).</summary>
     [Export(Range = "0,2,0.05")] public float GroundCoverDensity { get; set; } = 0.8f;
 
+    /// <summary>
+    /// The near forest-floor clutter (ADR 0175, <see cref="ForestClutter"/>): leaf-litter cards, twigs, pine cones,
+    /// pebbles, moss tufts, nettles and the glade's scanned grass clumps (art only).
+    /// </summary>
+    [Export] public bool Clutter { get; set; } = true;
+
     /// <summary>Distance at which grass is gone (it thins over the last 12 m).</summary>
-    [Export(Range = "10,80,1")] public float GrassDistance { get; set; } = 32f;
+    [Export(Range = "10,80,1")] public float GrassDistance { get; set; } = 36f;
 
     /// <summary>Tree levels: level 1 from, level 2 from, and the distance at which trees end.</summary>
     [Export] public float TreeLod1Distance { get; set; } = 22f;
@@ -86,12 +92,39 @@ public sealed class ForestValley : Node3D
     [Export(Range = "0,1,0.01")] public float TreeNewSpeciesShare { get; set; } = ForestVegetation.NewSpeciesShare;
 
     /// <summary>
+    /// Per-tree brightness and hue variation (ADR 0175, <see cref="TreeScatter.InstanceValueJitter"/>): no two trees of a
+    /// species share their exact colour.
+    /// </summary>
+    [Export(Range = "0,0.5,0.01")] public float TreeValueJitter { get; set; } = 0.12f;
+
+    [Export(Range = "0,0.5,0.01")] public float TreeHueJitter { get; set; } = 0.1f;
+
+    /// <summary>
+    /// G8e.7's understorey (ADR 0175, <see cref="ForestVegetation.SaplingShare"/>): saplings in the forest's gaps and a denser
+    /// pine slope; off: G8e.5's stands.
+    /// </summary>
+    [Export] public bool TreeUnderstorey { get; set; } = true;
+
+    /// <summary>
     /// Each tree picks its own level and cross-fades over ±this many metres (ADR 0172, <see cref="TreeLodSelection.PerInstance"/>);
     /// 0: whole chunks switch level.
     /// </summary>
     [Export] public float TreeLodFadeMargin { get; set; } = 4f;
 
-    private readonly List<(GeometryInstance3D Node, bool Visible, float Begin, float End, int Count)> _prewarm = [];
+    /// <summary>
+    /// The terrain's macro texture (ADR 0175, <see cref="Terrain3D.MacroTextureEnabled"/>) and how strongly rocks, logs
+    /// and stumps take on the ground below them (<see cref="StandardMaterial3D.TerrainBlend"/>; 0: off): they sink into
+    /// moss and dirt instead of standing on it.
+    /// </summary>
+    [Export(Range = "0,1,0.01")] public float PropTerrainBlend { get; set; } = 1f;
+
+    /// <summary>The height (m) above the ground over which <see cref="PropTerrainBlend"/> fades out.</summary>
+    [Export(Range = "0.05,2,0.01")] public float PropTerrainBlendHeight { get; set; } = 0.35f;
+
+    private readonly List<(GeometryInstance3D Node, bool Visible, float Begin, float End, int Count, Aabb? Bounds)> _prewarm = [];
+
+    // Pre-warm bounds: everything passes the frustum test, so the batches behind the camera create their pipelines too.
+    private static readonly Aabb Everywhere = new(new Vector3(-1e5f), new Vector3(1e5f));
     private int _frames;
 
     /// <summary>
@@ -143,6 +176,7 @@ public sealed class ForestValley : Node3D
             Data = data,
             Material = Art ? CreateTerrainMaterial() : new StandardMaterial3D { ShadingMode = ShadingMode.Pbr, AlbedoColor = DrawingColor.FromArgb(255, 92, 96, 62), Roughness = 0.95f },
             WaterMaterial = CreatePondMaterial(),
+            MacroTextureEnabled = Art && PropTerrainBlend > 0f,
         };
         var stream = Stream = new River3D
         {
@@ -185,10 +219,12 @@ public sealed class ForestValley : Node3D
                 LodSelection = TreeLodFadeMargin > 0f ? TreeLodSelection.PerInstance : TreeLodSelection.PerChunk,
                 LodFadeMargin = TreeLodFadeMargin,
                 ShadowMaxLod = TreeShadowMaxLod,
+                InstanceValueJitter = TreeValueJitter,
+                InstanceHueJitter = TreeHueJitter,
                 // The impostor level is 3: without impostors, fall back to level 1.
                 ShadowCoarseLod = TreeImpostorDistance > 0f || TreeShadowCoarseLod < 3 ? TreeShadowCoarseLod : 1,
             };
-            Forest.SetPlacements(ForestVegetation.PlaceTrees(valley, Height, Slope, TreeNewSpeciesShare));
+            Forest.SetPlacements(ForestVegetation.PlaceTrees(valley, Height, Slope, TreeNewSpeciesShare, TreeUnderstorey));
             AddChild(Forest);
 
             Bushes = new TreeScatter
@@ -201,6 +237,8 @@ public sealed class ForestValley : Node3D
                 MaxDistance = 75f,
                 ShadowMaxLod = 0,
                 Collision = false,
+                InstanceValueJitter = TreeValueJitter,
+                InstanceHueJitter = TreeHueJitter,
             };
             Bushes.SetPlacements(ForestVegetation.PlaceBushes(valley, Height, Slope));
             AddChild(Bushes);
@@ -236,8 +274,9 @@ public sealed class ForestValley : Node3D
     }
 
     /// <summary>
-    /// Shows every terrain LOD level, foliage tile, tree and bush batch and prop for the first frames, so the renderer
-    /// creates all their GPU resources and pipelines while loading instead of the first time each comes into view
+    /// Shows every terrain LOD level, foliage tile, tree and bush batch and prop for the first frames, wherever they are
+    /// (no visibility range, bounds that pass every frustum test), so the renderer creates all their GPU resources and
+    /// pipelines while loading instead of the first time each comes into view
     /// (a hitch and an allocation in play). Then each gets back what it had.
     /// </summary>
     private void BeginPrewarm()
@@ -247,9 +286,10 @@ public sealed class ForestValley : Node3D
         // The foliage thins and hides its tiles every frame: it waits while everything is shown.
         if (Terrain?.Foliage is { } foliage)
             foliage.ProcessMode = ProcessMode.Disabled;
-        foreach (var (node, _, _, _, _) in _prewarm)
+        foreach (var (node, _, _, _, _, _) in _prewarm)
         {
             node.Visible = true;
+            node.CustomAabb = Everywhere;
             node.VisibilityRangeBegin = 0f;
             node.VisibilityRangeEnd = 0f;
             if (node is MultiMeshInstance3D { Multimesh: { } multimesh })
@@ -260,7 +300,7 @@ public sealed class ForestValley : Node3D
         {
             if (node is GeometryInstance3D geometry)
                 _prewarm.Add((geometry, geometry.Visible, geometry.VisibilityRangeBegin, geometry.VisibilityRangeEnd,
-                    (geometry as MultiMeshInstance3D)?.Multimesh?.VisibleInstanceCount ?? -1));
+                    (geometry as MultiMeshInstance3D)?.Multimesh?.VisibleInstanceCount ?? -1, geometry.CustomAabb));
             var children = node.Children;
             for (var i = 0; i < children.Count; i++)
                 Collect(children[i]);
@@ -269,9 +309,10 @@ public sealed class ForestValley : Node3D
 
     private void EndPrewarm()
     {
-        foreach (var (node, visible, begin, end, count) in _prewarm)
+        foreach (var (node, visible, begin, end, count, bounds) in _prewarm)
         {
             node.Visible = visible;
+            node.CustomAabb = bounds;
             node.VisibilityRangeBegin = begin;
             node.VisibilityRangeEnd = end;
             if (node is MultiMeshInstance3D { Multimesh: { } multimesh })
@@ -301,7 +342,8 @@ public sealed class ForestValley : Node3D
         material.AntiTiling = false; // hex-tiling costs ≈ 3.5 ms at 1080p on an M5; the macro variation breaks the repeats instead
         material.MacroStrength = 0.22f;
         // The meadow photo is bright yellow-green: deeper and cooler under the morning sun.
-        material.Layers[ValleyGenerator.Grass].Tint = DrawingColor.FromArgb(255, 150, 168, 118);
+        // ADR 0175: darker and greener again, so the meadow between the grass clumps reads as turf, not a pale tan floor.
+        material.Layers[ValleyGenerator.Grass].Tint = DrawingColor.FromArgb(255, 118, 140, 88);
         // Pale, dry leaf litter: browner and darker, so sunlit patches do not read white.
         material.Layers[ValleyGenerator.Leaves].Tint = DrawingColor.FromArgb(255, 168, 150, 128);
         return material;
@@ -368,6 +410,8 @@ public sealed class ForestValley : Node3D
     {
         var grassMaterial = GrassMesh.CreateMaterial();
         grassMaterial.WindStrength = 0.45f;
+        grassMaterial.InstanceValueJitter = 0.15f; // ADR 0175: no two clumps alike
+        grassMaterial.InstanceHueJitter = 0.12f;
         var density = GroundCoverDensity;
         const uint grass = 1u << ValleyGenerator.Grass, leaves = 1u << ValleyGenerator.Leaves, moss = 1u << ValleyGenerator.Moss,
             needles = 1u << ValleyGenerator.Needles, mud = 1u << ValleyGenerator.Mud, gravel = 1u << ValleyGenerator.Gravel;
@@ -465,6 +509,12 @@ public sealed class ForestValley : Node3D
             ThinBand = 15f,
             Seed = 7,
         });
+        if (Art && Clutter)
+        {
+            types.AddRange(ForestClutter.ScannedGrass(density, GrassDistance * 0.85f));
+            types.AddRange(ForestClutter.Create(density));
+        }
+
         return [.. types];
     }
 
@@ -487,6 +537,8 @@ public sealed class ForestValley : Node3D
             Roughness = 1f,
             WindStrength = 0.5f,
             WindBranchBend = 0.3f,
+            InstanceValueJitter = 0.14f,
+            InstanceHueJitter = 0.1f,
         };
         return new FoliageType
         {
@@ -510,9 +562,9 @@ public sealed class ForestValley : Node3D
     /// A prop's meshes merged into one surface standing on the origin (base at y = 0, centred in XZ), with the foliage
     /// stream (<c>Custom0</c>: wind weight by height, flutter, phase by position, AO) when <paramref name="withWind"/>.
     /// </summary>
-    internal static ArrayMesh Recentre(ForestPropAsset prop, bool withWind)
+    internal static ArrayMesh Recentre(ForestPropAsset prop, bool withWind, string? node = null)
     {
-        var parts = ForestAssets.LoadPropMeshes(prop);
+        var parts = ForestAssets.LoadPropMeshes(prop, node);
         var positions = new List<Vector3>();
         var normals = new List<Vector3>();
         var uvs = new List<Vector2>();
@@ -546,7 +598,7 @@ public sealed class ForestValley : Node3D
             custom[i] = new Vector4(MathF.Pow(h, 1.4f), 1f, phase, 0.55f + 0.45f * h);
         }
 
-        var result = new ArrayMesh { ResourceName = prop.AssetId };
+        var result = new ArrayMesh { ResourceName = node ?? prop.AssetId };
         var merged = new MeshSurface([.. positions], [.. normals], [.. uvs], [.. indices]);
         if (withWind)
             merged.Custom0 = custom;
@@ -577,6 +629,7 @@ public sealed class ForestValley : Node3D
             if (!materials.TryGetValue(prop, out var material))
             {
                 materials[prop] = material = ForestAssets.CreatePropMaterial(prop);
+                ApplyTerrainBlend(material, prop);
                 bounds[prop] = PartBounds(prop);
             }
 
@@ -614,6 +667,15 @@ public sealed class ForestValley : Node3D
                 Props.AddChild(Collider(placement, node.Position, yaw, parts));
             }
         }
+    }
+
+    /// <summary>Rocks, logs, stumps and debris blend into the terrain below them (ADR 0175); plants do not.</summary>
+    private void ApplyTerrainBlend(StandardMaterial3D material, ForestPropAsset prop)
+    {
+        if (PropTerrainBlend <= 0f || prop.Kind == ForestPropKind.Plant)
+            return;
+        material.TerrainBlend = PropTerrainBlend;
+        material.TerrainBlendHeight = PropTerrainBlendHeight * (prop.Kind == ForestPropKind.Rock ? 1.2f : 1f);
     }
 
     private static List<Aabb> PartBounds(ForestPropAsset prop)

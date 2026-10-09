@@ -302,6 +302,40 @@ public sealed class ImpostorMaterial3D : Material
         }
     }
 
+    /// <summary>
+    /// Per-instance brightness variation (ADR 0175): each instance's albedo is scaled by 1 ± this, from a hash of its
+    /// origin (<see cref="InstanceVariation"/>; no instance data), so a stand of one species does not read as copies.
+    /// 0 (default): off. Instanced draws only.
+    /// </summary>
+    [ExportGroup("Instance variation")]
+    [Export(Range = "0,0.5,0.01")]
+    public float InstanceValueJitter
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    /// <summary>
+    /// Per-instance hue variation (ADR 0175): each instance's albedo shifts warmer (towards olive and yellow) or cooler
+    /// (towards blue-green) by up to this, from the same hash as <see cref="InstanceValueJitter"/>. 0 (default): off.
+    /// </summary>
+    [Export(Range = "0,0.5,0.01")]
+    public float InstanceHueJitter
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
     /// <summary>Cut out, both sides (the quad always faces the camera).</summary>
     public override MaterialRenderState RenderState => new(AlphaMode.Cutout, CullMode.Back, DoubleSided: true);
 }

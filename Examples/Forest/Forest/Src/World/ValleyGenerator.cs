@@ -478,7 +478,9 @@ public sealed class ValleyGenerator
         w[Needles] = pine * (0.75f + 0.5f * n1);
         w[Leaves] = bank * (0.7f + 0.6f * n2) + (1f - pine) * (1f - glade) * 0.55f + glade * 0.18f * SmoothStep(0.55f, 0.8f, n2);
         w[Grass] = glade * (1.1f - 0.3f * n1) * (1f - pine) + (1f - pine) * (1f - bank) * 0.25f * SmoothStep(0.4f, 0.7f, n2);
-        w[Moss] = (pine * 0.35f + bank * 0.3f) * SmoothStep(0.5f, 0.75f, n3 * 0.6f + n2 * 0.4f) + 0.25f * SmoothStep(0.6f, 0.85f, n1) * (1f - glade);
+        // ADR 0175: the glade's turf is broken by moss in its hollows and damp patches (n3), not one even meadow.
+        w[Moss] = (pine * 0.35f + bank * 0.3f) * SmoothStep(0.5f, 0.75f, n3 * 0.6f + n2 * 0.4f) + 0.25f * SmoothStep(0.6f, 0.85f, n1) * (1f - glade)
+                  + glade * 0.45f * SmoothStep(0.55f, 0.75f, n3 * 0.7f + n1 * 0.3f);
         w[Dirt] = 0.12f * SmoothStep(0.6f, 0.9f, n2) * (1f - glade);
         if (w[Needles] + w[Leaves] + w[Grass] + w[Moss] + w[Dirt] < 0.05f)
             w[Leaves] = 0.1f;

@@ -7,6 +7,7 @@
 #include "material.slang"
 #include "foliage.slang"
 #include "wind.slang"
+#include "instance_variation.slang"
 
 struct VsIn
 {
@@ -59,7 +60,7 @@ VsOut main(VsIn input)
     o.outWorldPos = worldPos.xyz;
     o.outNormal = mul(input.inNormal, cofactor) * (det < 0.0 ? -1.0 : 1.0);
     o.outUV = input.inUV;
-    o.outColor = float4(srgbToLinear(input.inColor.rgb), input.inColor.a);
+    o.outColor = float4(srgbToLinear(input.inColor.rgb) * instanceTint(input.inModel3.xyz), input.inColor.a); // ADR 0175
     o.outAo = input.inCustom0.w > 0.0 ? saturate(input.inCustom0.w) : 1.0; // 0: no AO data (missing stream)
     o.outInstance = float2(distance, worldPos.y - input.inModel3.y);
     o.position = mul(worldPos, frame.viewProjection);

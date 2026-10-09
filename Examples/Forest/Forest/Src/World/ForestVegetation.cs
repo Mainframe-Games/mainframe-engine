@@ -90,8 +90,17 @@ public static class ForestVegetation
         new() { Preset = "Bush 3", Seeds = [404] },
     ];
 
-    /// <summary>Grid cell of the tree placement (one candidate per cell).</summary>
+    /// <summary>Grid cell of the tree placement (one candidate per cell; a second one on the pine slope).</summary>
     public const float TreeCell = 4f;
+
+    /// <summary>
+    /// The pine slope's density (ADR 0175): the share of its cells that take a tree (0.6 before G8e.7), and of those that
+    /// take a second, smaller one, so the slope reads as a dense stand rather than spaced trees.
+    /// </summary>
+    public const float PineCellShare = 0.7f, PineSecondShare = 0f;
+
+    /// <summary>The share of forest cells with an understorey sapling (a young tree of the zone's species, 2–5 m tall).</summary>
+    public const float SaplingShare = 0.08f;
 
     public const float BushCell = 3f;
 
@@ -103,7 +112,7 @@ public static class ForestVegetation
     /// one jittered candidate per <see cref="TreeCell"/> cell, accepted by the zones' densities.
     /// </summary>
     public static TreePlacement[] PlaceTrees(ValleyGenerator valley, Func<float, float, float> height, Func<float, float, float> slopeDegrees,
-        float newSpeciesShare = NewSpeciesShare)
+        float newSpeciesShare = NewSpeciesShare, bool understorey = true)
     {
         var seed = valley.Seed * 7919;
         var cells = (int)(ValleyLayout.SizeMeters / TreeCell);
@@ -122,7 +131,7 @@ public static class ForestVegetation
                 var gladeEdge = SmoothStep(0.1f, 0.4f, glade) * SmoothStep(0.85f, 0.55f, glade);
                 var mixed = (1f - pine) * (1f - glade) * (1f - bank);
 
-                var pPine = pine * 0.6f + mixed * 0.1f;
+                var pPine = pine * (understorey ? PineCellShare : 0.6f) + mixed * 0.1f;
                 var shore = SmoothStep(16f, 4f, ValleyGenerator.PondEdgeDistance(x, z)) * (1f - pine);
                 var pAspen = (bank * 0.62f + shore * 0.35f) * (1f - 0.6f * pine);
                 var pAsh = gladeEdge * 0.09f + mixed * 0.15f;
@@ -160,7 +169,54 @@ public static class ForestVegetation
                 placements.Add(new TreePlacement(new Vector3(x, height(x, z) - 0.15f, z), yaw, scale, species));
             }
 
+        if (understorey)
+            AddUnderstorey(valley, height, slopeDegrees, placements, seed);
         return [.. placements];
+    }
+
+    /// <summary>
+    /// ADR 0175: a second, smaller pine in some of the pine slope's cells (a denser stand), and understorey saplings: young
+    /// trees of the zone's species at a quarter to under half their size, in the gaps between the big ones (2–5 m tall),
+    /// so the forest has layers instead of trunks standing in an empty floor.
+    /// </summary>
+    private static void AddUnderstorey(ValleyGenerator valley, Func<float, float, float> height, Func<float, float, float> slopeDegrees,
+        List<TreePlacement> placements, int seed)
+    {
+        var cells = (int)(ValleyLayout.SizeMeters / TreeCell);
+        for (var cj = 0; cj < cells; cj++)
+            for (var ci = 0; ci < cells; ci++)
+            {
+                // The point opposite the cell's first candidate (in the cell's other half), so the two never stand together.
+                var first = new Vector2(0.1f + 0.8f * Hash01(ci, cj, seed + 1), 0.1f + 0.8f * Hash01(ci, cj, seed + 2));
+                var x = (ci + Wrap(first.X + 0.35f + 0.3f * Hash01(ci, cj, seed + 11))) * TreeCell;
+                var z = (cj + Wrap(first.Y + 0.35f + 0.3f * Hash01(ci, cj, seed + 12))) * TreeCell;
+                if (!IsClear(valley, x, z, PathClearance, 1.6f, slopeDegrees))
+                    continue;
+                var pine = valley.PineMask(x, z);
+                var glade = valley.GladeMask(x, z);
+                var bank = valley.BankMask(x, z);
+                var roll = Hash01(ci, cj, seed + 13);
+                var pick = Hash01(ci, cj, seed + 14);
+                var yaw = Hash01(ci, cj, seed + 15) * MathF.Tau;
+                var ground = new Vector3(x, height(x, z) - 0.1f, z);
+                if (roll < pine * PineSecondShare)
+                {
+                    var species = pick < 0.5f ? PineSmall : pick < 0.75f ? SpruceMedium : FirMedium;
+                    placements.Add(new TreePlacement(ground, yaw, 0.6f + 0.25f * Hash01(ci, cj, seed + 16), species));
+                    continue;
+                }
+
+                var forest = (1f - glade) * (1f - 0.5f * bank);
+                if (Hash01(ci, cj, seed + 17) >= SaplingShare * forest)
+                    continue;
+                var sapling = pine > 0.4f
+                    ? pick < 0.4f ? PineSmall : pick < 0.7f ? SpruceMedium : FirMedium
+                    : bank > 0.4f ? pick < 0.5f ? AspenSmall : BirchMedium
+                    : pick < 0.4f ? BeechMedium : pick < 0.7f ? AshMedium : OakMedium;
+                placements.Add(new TreePlacement(ground, yaw, 0.22f + 0.2f * Hash01(ci, cj, seed + 18), sapling));
+            }
+
+        static float Wrap(float v) => v >= 0.9f ? v - 0.8f : v;
     }
 
     /// <summary>Places the bushes: glade edges, path sides, the stream bank and forest edges.</summary>

@@ -347,6 +347,23 @@ internal static unsafe class PipelineBuilder
         }
     }
 
+    /// <summary>Points a sampled-image binding (no sampler) at an image; <paramref name="info"/>'s sampler is ignored.</summary>
+    public static void WriteSampledImage(IVulkanContext ctx, DescriptorSet set, uint binding, in DescriptorImageInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(ctx);
+        var image = new DescriptorImageInfo { ImageView = info.ImageView, ImageLayout = info.ImageLayout };
+        var write = new WriteDescriptorSet
+        {
+            SType = StructureType.WriteDescriptorSet,
+            DstSet = set,
+            DstBinding = binding,
+            DescriptorType = DescriptorType.SampledImage,
+            DescriptorCount = 1,
+            PImageInfo = &image,
+        };
+        ctx.Vk.UpdateDescriptorSets(ctx.Device, 1, &write, 0, null);
+    }
+
     /// <summary>Viewport + scissor covering <paramref name="extent"/>; <paramref name="flipY"/> gives the main pass's +Y-up convention.</summary>
     public static void SetViewport(Vk vk, CommandBuffer cb, Extent2D extent, bool flipY)
     {

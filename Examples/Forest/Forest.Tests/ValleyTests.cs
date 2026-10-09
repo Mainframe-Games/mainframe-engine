@@ -66,7 +66,7 @@ public sealed class ValleyTests
     {
         var data = Valley.CreateTerrainData();
         var trees = Trees(Valley, data);
-        Assert.InRange(trees.Length, 1200, 2600);
+        Assert.InRange(trees.Length, 1500, 3000); // with G8e.7's understorey and denser pines (ADR 0175)
         foreach (var tree in trees)
         {
             var p = new Vector2(tree.Position.X, tree.Position.Z);
@@ -132,7 +132,7 @@ public sealed class ValleyTests
         var centre = new Vector3(valley.Generator!.BridgeCentre.X, 0f, valley.Generator.BridgeCentre.Y);
         Assert.True(bridge.GlobalPosition.Y > h.Water.SurfaceHeightAt(centre) + 0.5f);
 
-        Assert.InRange(valley.Forest!.PlacementCount, 1200, 2600);
+        Assert.InRange(valley.Forest!.PlacementCount, 1500, 3000);
         Assert.True(valley.Bushes!.PlacementCount > 100);
     }
 

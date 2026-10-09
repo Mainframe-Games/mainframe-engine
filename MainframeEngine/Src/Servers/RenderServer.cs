@@ -1,5 +1,6 @@
 using DrawingColor = System.Drawing.Color;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
@@ -823,6 +824,7 @@ public sealed class RenderServer : IServer
         var maps = environment?.SkyLightingMaps;
         frame.EnvironmentMaps = maps;
         frame.Probes = ProbeBinding(world);
+        frame.TerrainMacro = MacroBinding(world);
         world.Lights.AmbientEnergy = environment?.AmbientEnergy ?? 1f;
         world.Lights.EnvironmentFlags = environment?.EnvironmentFlags(maps) ?? 0;
     }
@@ -843,6 +845,28 @@ public sealed class RenderServer : IServer
         if (!volume.Gpu.Update() || volume.Gpu.Gpu is not { } gpu)
             return null;
         return ProbeVolumeBinding.For(data, gpu, volume.Gpu.Generation, volume.Energy, volume.SkyOcclusion, volume.OcclusionTintLinear);
+    }
+
+    // The world's terrain macro texture on the GPU (ADR 0175; uploaded the first frame it is used and after every re-bake),
+    // or null. No allocation once uploaded. The terrain is translated, never rotated or scaled.
+    private TerrainMacroBinding? MacroBinding(World3D world)
+    {
+        if (world.MacroTerrain is not { MacroTexture: { } macro } terrain || Vulkan is not { } vk)
+            return null;
+        if (terrain.MacroGpu is null || !ReferenceEquals(terrain.MacroGpu.Texture, macro.Texture))
+        {
+            terrain.MacroGpu?.Dispose(); // deletion-queued
+            terrain.MacroGpu = new Texture2DArrayGpu(vk, macro.Texture, TextureColorSpace.Linear);
+            terrain.TrackRenderResources(this);
+        }
+
+        if (!terrain.MacroGpu.Update() || terrain.MacroGpu.Gpu is not { } gpu)
+            return null;
+        var origin = terrain.GlobalPosition;
+        var inverse = 1f / macro.SizeMeters;
+        return new TerrainMacroBinding(gpu.Descriptor, terrain.MacroGpu.Generation + ((long)RuntimeHelpers.GetHashCode(terrain) << 32),
+            new Vector4(origin.X, origin.Z, inverse, inverse),
+            new Vector4(origin.Y + macro.HeightMin, macro.HeightStep, macro.Resolution, 1f));
     }
 
     // The viewport's debug lines (depth-tested), then its overlay lines (always on top).

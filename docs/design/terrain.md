@@ -169,6 +169,30 @@ chunks draw it with the terrain's splat maps; no other wiring. Another mesh, or 
   batching, picking and shadows (opaque casters, no material). Painting re-uploads the splat map through
   `GetSplatTexture`'s version, and the set follows.
 
+## Macro texture (ADR 0175)
+
+An "RVT-lite" (G8e.7): `Terrain3D.MacroTextureEnabled` (off by default) bakes the terrain's surface from above into a
+`TerrainMacroTexture`: a two-layer `Texture2DArray` of `MacroTextureResolution`² (2048: 12.5 cm over 256 m; 32 MB RGBA8,
+43 MB with mips) covering the terrain. Layer 0: albedo stored as its square root (precision in the shade) and roughness;
+layer 1: the world normal's x and z, and the ground height as a 16-bit code in blue and alpha (`HeightMin` +
+code × `HeightStep`, sub-millimetre). Surfaces with `StandardMaterial3D.TerrainBlend` blend towards it near the ground
+([Materials & meshes](materials-and-meshes.md#terrain-blend-adr-0175)).
+
+- **Bake** (`TerrainMacroTexture.Bake(data, material, resolution)`, CPU, every core): per texel the splat weights
+  bilinear between cell centres, the four strongest, each layer's albedo and height at a 32² level of the packed layer
+  images (`TerrainLayerPacker`), the splat shader's height blending, tints and macro noise (the same PCG value noise),
+  each layer's mean roughness, and the terrain's smooth normal and bed height. A non-splat material bakes its albedo
+  colour. ≈ 1.5–2 s at 2048² over eight 1024² layers (most of it decoding the layer images).
+- **When**: on a worker thread when the terrain is built (the world blends from the frame it lands, a second or two
+  later), and again half a second after the last edit (`OnDataEdited`; a stroke edits every frame) or a material change;
+  `RebakeMacroTexture()` bakes now. `IsBakingMacroTexture` while the build's bake runs.
+- **Binding**: the world's first visible terrain with a macro texture (`World3D.MacroTerrain`) is bound at set 0 binding
+  7 (`FrameContext.TerrainMacroBinding`, a sampled image: shaders sample it with their own sampler and clamp the UV) with
+  `FrameData.terrainMacroRect` (the corner's world XZ, 1 / size) and `terrainMacroHeight` (code 0's world height, metres
+  per code, texels per side, 1 while bound). The render server uploads it the first frame it binds it and after each
+  re-bake (`Texture2DArrayGpu`, deletion-queued). The terrain is translated, never rotated or scaled.
+- **Not yet**: the proposal's distant-terrain shading from the macro and the probe baker's albedo from it.
+
 ## Foliage
 
 `TerrainData.FoliageTypes` lists `FoliageType`s (append new ones at the end: the index is part of the placement hash).

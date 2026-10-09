@@ -56,7 +56,13 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
         - **2026-10-09: editor fixes merged** (forest/edfix, f2e5ba3e): resource rows wrap so the name shows (tooltip = path);
           `EditorSettings.ViewResolution` Auto renders the 3D view one pixel per point (Forest preview 30 → 61–69 fps at 2×).
           cba5c2c2: `.probes` files get no `.meta`. Follow-up idea: an editor depth prepass when post preview is off.
-        - **Running:** `forest/art` (G8e.7 art pass, ADR 0175). After both: full gates, push, PR (Auto-fix on), milestones G8 → 🚧, tell Brogan to play.
+        - **2026-10-09: G8e.7 art pass merged** (forest/art, merge ce12b748; ADR 0175): terrain macro texture (set 0 binding 7,
+          image without sampler), TerrainBlend, per-instance colour jitter, CC0 scans + clutter, understorey, R6/R7, ACES kept
+          with a fitted `forest-morning.cube`. Full gates on the merged branch: build 0 warnings, Release OK, 2097 engine,
+          786 editor, 163 Forest, 167 render, format, shaders (133).
+        - **Queue done → PR opened for Brogan to play.** Known: an intermittent solid-colour frame after shrinking the window
+          with TAAU on (seen twice, 1 in 10 here, never under validation; native scale fine) — `ResizeTargets` /
+          `ApplyRenderScale` ordering is the first suspect. Not met: G8e.8's 14 ms at 1440p on a base M5 (≈21 ms). After both: full gates, push, PR (Auto-fix on), milestones G8 → 🚧, tell Brogan to play.
         - **Paused at the usage limit (tip 041d3544).**
           - Merged: G8e.3 volumetric fog (0171), the pipeline-cache stall fix (0176), G8e.6 water (0173), and the
             Slang 41012 warning fix. Gates are green: 1948 engine, 774 editor, 153 Forest, 147 render.

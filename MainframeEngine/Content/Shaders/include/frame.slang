@@ -1,7 +1,8 @@
-// Per-frame shared set 0, binding 0: the camera (FrameContext / FrameData in C#, std140, 688 bytes).
+// Per-frame shared set 0, binding 0: the camera (FrameContext / FrameData in C#, std140, 720 bytes).
 // Binding 1 of the same set is the lights UBO (lights.slang, default LIGHTS_SET 0 / LIGHTS_BINDING 1), bindings 2-4 the
 // sky lighting (environment.slang), binding 5 the screen-space occlusion (ambient_occlusion.slang: AO, contact shadow,
-// bent normal), binding 6 the light probe volume (probes.slang, ADR 0170).
+// bent normal), binding 6 the light probe volume (probes.slang, ADR 0170), binding 7 the terrain macro texture
+// (terrain_macro.slang, ADR 0175: a sampled image without a sampler of its own).
 // With TAA (ADR 0163) projection, viewProjection and invProjection are jittered; prevViewProjection is last frame's
 // unjittered matrix and jitter holds both frames' offsets (unjitterClip, velocityFromClip below).
 // Matrices are the C# System.Numerics values (row-major layout): transform with mul(v, M).
@@ -41,6 +42,9 @@ struct FrameData
     float mipScale;           // exp2(mipBias): the factor on UV gradients (materialGrad)
     float upscalePad0;
     float upscalePad1;
+    // The world's terrain macro texture at binding 7 (ADR 0175, terrain_macro.slang; all 0 without one).
+    float4 terrainMacroRect;   // xy = world XZ of the texture's corner (texel 0's edge), zw = 1 / its world size (1/m)
+    float4 terrainMacroHeight; // x = the height of code 0 (m), y = metres per height code step, z = texels per side, w = 1 when bound
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<FrameData> frame;

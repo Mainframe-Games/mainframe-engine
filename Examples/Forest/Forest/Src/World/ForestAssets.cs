@@ -31,6 +31,30 @@ public sealed record ForestLayerAsset(string Name, string Tag, string AssetId, f
     public string[] Files => [AlbedoPath, NormalPath, OrmPath, HeightPath];
 }
 
+/// <summary>
+/// One ambientCG debris set under <c>Content/Art/Debris/&lt;AssetId&gt;/</c> (ADR 0175): scattered leaves with opacity, laid
+/// on the ground as cards (the leaf-litter clutter).
+/// </summary>
+/// <param name="AssetId">The ambientCG asset id and folder (<c>ScatteredLeaves004</c>).</param>
+/// <param name="SizeMeters">The patch the image covers on the ground.</param>
+public sealed record ForestDebrisAsset(string AssetId, float SizeMeters)
+{
+    /// <summary>The set's folder, project-relative.</summary>
+    public string Folder => $"{ForestAssets.DebrisFolder}/{AssetId}";
+
+    /// <summary>Colour (sRGB) with the opacity in alpha, PNG, 1024².</summary>
+    public string AlbedoPath => $"{Folder}/{AssetId}_Color.png";
+
+    /// <summary>OpenGL (+Y up) normal map, JPG, 1024².</summary>
+    public string NormalPath => $"{Folder}/{AssetId}_NormalGL.jpg";
+
+    /// <summary>Occlusion 1 (R), roughness (G), metallic 0 (B), PNG, 1024².</summary>
+    public string OrmPath => $"{Folder}/{AssetId}_ORM.png";
+
+    /// <summary>Every file of the set.</summary>
+    public string[] Files => [AlbedoPath, NormalPath, OrmPath];
+}
+
 /// <summary>What a prop is, for scattering and footsteps.</summary>
 public enum ForestPropKind
 {
@@ -73,8 +97,8 @@ public sealed record ForestPropAsset(string AssetId, string Resolution, ForestPr
 
 /// <summary>
 /// The Forest's third-party art (all CC0; <c>Examples/Forest/NOTICE.md</c>), imported by
-/// <c>Examples/Forest/Tools/fetch_assets.py</c> into <c>Content/Art</c>: eight ambientCG terrain layers, eleven Poly Haven
-/// props and a Poly Haven sky panorama. Paths are project-relative (<c>Content/…</c>, what <see cref="ResourceLoader"/>
+/// <c>Examples/Forest/Tools/fetch_assets.py</c> into <c>Content/Art</c>: eight ambientCG terrain layers, twenty Poly Haven
+/// props, an ambientCG leaf-litter set and a Poly Haven sky panorama. Paths are project-relative (<c>Content/…</c>, what <see cref="ResourceLoader"/>
 /// and scenes use); <see cref="Resolve"/> gives the file on disk. The factories create new resources on every call (the
 /// textures themselves are shared through the resource cache), so a caller that builds many instances keeps the result.
 /// </summary>
@@ -83,6 +107,7 @@ public static class ForestAssets
     public const string ArtFolder = "Content/Art";
     public const string TerrainFolder = ArtFolder + "/Terrain";
     public const string PropsFolder = ArtFolder + "/Props";
+    public const string DebrisFolder = ArtFolder + "/Debris";
 
     /// <summary>
     /// Poly Haven's "Lilienstein" (a sunlit meadow and forest edge, low sun, partly cloudy), its tonemapped JPG at
@@ -117,16 +142,36 @@ public static class ForestAssets
     public static readonly ForestPropAsset DryBranches = new("dry_branches_medium_01", "1k", ForestPropKind.Debris, new(1.06f, 0.34f, 1.3f));
     public static readonly ForestPropAsset Fern = new("fern_02", "2k", ForestPropKind.Plant, new(1.97f, 0.43f, 1.72f), Cutout: true);
 
+    // G8e.7 (ADR 0175): forest-floor scans. Several are rows of variants (one mesh node each): ForestClutter takes one node.
+    public static readonly ForestPropAsset RootCluster01 = new("root_cluster_01", "1k", ForestPropKind.Stump, new(4.12f, 1.51f, 2.68f));
+    public static readonly ForestPropAsset RootCluster02 = new("root_cluster_02", "1k", ForestPropKind.Stump, new(2.38f, 0.2f, 2.71f));
+    public static readonly ForestPropAsset SingleRoot = new("single_root", "1k", ForestPropKind.Debris, new(0.56f, 0.18f, 1.84f));
+    public static readonly ForestPropAsset BarkDebris = new("bark_debris_01", "1k", ForestPropKind.Debris, new(1.21f, 0.11f, 0.67f));
+    public static readonly ForestPropAsset MossClumps = new("moss_01", "1k", ForestPropKind.Plant, new(0.22f, 0.04f, 0.03f), Cutout: true);
+    public static readonly ForestPropAsset Stone01 = new("stone_01", "1k", ForestPropKind.Rock, new(0.15f, 0.07f, 0.09f));
+    public static readonly ForestPropAsset GrassClumps = new("grass_medium_01", "1k", ForestPropKind.Plant, new(5.6f, 0.34f, 0.33f), Cutout: true);
+    public static readonly ForestPropAsset DeadBranch = new("dead_quiver_branch_01", "1k", ForestPropKind.Debris, new(0.25f, 0.44f, 0.23f));
+    public static readonly ForestPropAsset Nettles = new("nettle_plant", "1k", ForestPropKind.Plant, new(1.08f, 0.22f, 0.09f), Cutout: true);
+
     /// <summary>Every prop.</summary>
     public static IReadOnlyList<ForestPropAsset> Props { get; } =
-        [MossyRocks01, MossyRocks02, Boulder, Rock07, Rock09, DeadTrunk, DeadTrunk02, Stump01, Stump02, DryBranches, Fern];
+    [
+        MossyRocks01, MossyRocks02, Boulder, Rock07, Rock09, DeadTrunk, DeadTrunk02, Stump01, Stump02, DryBranches, Fern,
+        RootCluster01, RootCluster02, SingleRoot, BarkDebris, MossClumps, Stone01, GrassClumps, DeadBranch, Nettles,
+    ];
+
+    /// <summary>ambientCG's scattered leaves: a 1.6 m patch fading out at its edges, the leaf-litter cards (ADR 0175).</summary>
+    public static readonly ForestDebrisAsset LeafLitter = new("ScatteredLeaves004", 1.6f);
+
+    /// <summary>Every debris set.</summary>
+    public static IReadOnlyList<ForestDebrisAsset> Debris { get; } = [LeafLitter];
 
     /// <summary>The file on disk for a project-relative path (<see cref="ContentPaths.Resolve(string)"/>).</summary>
     public static string Resolve(string path) => ContentPaths.Resolve(path);
 
     /// <summary>Every committed art file, project-relative (terrain, props, sky).</summary>
     public static IEnumerable<string> AllFiles =>
-        TerrainLayers.SelectMany(l => l.Files).Concat(Props.SelectMany(p => p.Files)).Append(SkyPanorama);
+        TerrainLayers.SelectMany(l => l.Files).Concat(Props.SelectMany(p => p.Files)).Concat(Debris.SelectMany(d => d.Files)).Append(SkyPanorama);
 
     /// <summary>The splat channel of the layer with <paramref name="tag"/>, or -1.</summary>
     public static int LayerIndex(string tag)
@@ -200,14 +245,19 @@ public static class ForestAssets
         }
     }
 
-    /// <summary>The meshes of a prop (for <see cref="MultiMesh"/> scattering): each with its transform relative to the model's root.</summary>
-    public static List<(ArrayMesh Mesh, Transform3D Transform)> LoadPropMeshes(ForestPropAsset prop)
+    /// <summary>
+    /// The meshes of a prop (for <see cref="MultiMesh"/> scattering): each with its transform relative to the model's root;
+    /// with <paramref name="node"/>, only the meshes at or under the glTF node of that name (one variant of a row).
+    /// </summary>
+    public static List<(ArrayMesh Mesh, Transform3D Transform)> LoadPropMeshes(ForestPropAsset prop, string? node = null)
     {
         var meshes = new List<(ArrayMesh, Transform3D)>();
         var root = InstantiateProp(prop);
         try
         {
-            Collect(root, Transform3D.Identity, meshes);
+            Collect(root, Transform3D.Identity, meshes, node, node is null);
+            if (meshes.Count == 0)
+                throw new ArgumentException($"{prop.AssetId} has no mesh node '{node}'.", nameof(node));
         }
         finally
         {
@@ -228,14 +278,15 @@ public static class ForestAssets
             ApplyMaterial(child, material);
     }
 
-    private static void Collect(Node node, Transform3D parent, List<(ArrayMesh, Transform3D)> meshes)
+    private static void Collect(Node node, Transform3D parent, List<(ArrayMesh, Transform3D)> meshes, string? only, bool inside)
     {
         var transform = parent;
         if (node is Node3D node3D)
             transform = parent * node3D.Transform;
-        if (node is MeshInstance3D { Mesh: ArrayMesh mesh })
+        inside |= node.Name == only;
+        if (inside && node is MeshInstance3D { Mesh: ArrayMesh mesh })
             meshes.Add((mesh, transform));
         foreach (var child in node.Children)
-            Collect(child, transform, meshes);
+            Collect(child, transform, meshes, only, inside);
     }
 }

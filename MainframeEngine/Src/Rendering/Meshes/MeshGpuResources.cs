@@ -252,7 +252,7 @@ internal sealed class TextureGpu
     }
 }
 
-/// <summary>std140 parameters of <c>include/material.slang</c> (96 bytes).</summary>
+/// <summary>std140 parameters of <c>include/material.slang</c> (192 bytes).</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct MaterialParams
 {
@@ -282,7 +282,18 @@ internal struct MaterialParams
     public Vector4 Foliage2;
     public Vector4 Foliage3;
 
-    public const int Size = 160;
+    /// <summary>
+    /// Per-instance colour variation (ADR 0175, <see cref="InstanceVariation"/>): x = value jitter, y = hue jitter
+    /// (<see cref="FoliageMaterial3D.InstanceValueJitter"/>, <see cref="FoliageMaterial3D.InstanceHueJitter"/>); zero: off.
+    /// </summary>
+    public Vector4 Variation;
+
+    /// <summary>
+    /// <see cref="StandardMaterial3D.TerrainBlend"/> (ADR 0175): x = strength, y = height (m); zero for other materials.
+    /// </summary>
+    public Vector4 TerrainBlend;
+
+    public const int Size = 192;
     public const uint HasAlbedo = 1, HasNormal = 2, HasEmission = 4, HasOrm = 8;
     public const uint ShadingBlinnPhong = 0, ShadingUnshaded = 1, ShadingPbr = 2;
 
@@ -302,6 +313,7 @@ internal struct MaterialParams
         },
         DoubleSided = m.DoubleSided ? 1u : 0u,
         Pbr = new Vector4(Math.Clamp(m.Metallic, 0f, 1f), Math.Clamp(m.Roughness, 0f, 1f), Math.Clamp(m.AmbientOcclusion, 0f, 1f), 0f),
+        TerrainBlend = m.TerrainBlend > 0f ? new Vector4(Math.Clamp(m.TerrainBlend, 0f, 1f), MathF.Max(m.TerrainBlendHeight, 0.01f), 0f, 0f) : Vector4.Zero,
     };
 
     /// <summary>Packs an outline: unshaded colour, no textures, the width in pixels.</summary>
@@ -350,6 +362,7 @@ internal struct MaterialParams
             Foliage2 = new Vector4(Math.Clamp(m.MossCoverage, 0f, 1f), MathF.Max(m.DetailScale, 0f), MathF.Max(m.DetailStrength, 0f),
                 1f / MathF.Max(m.MossPatchSize, 0.01f)),
             Foliage3 = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.MossColor)), Math.Clamp(m.ShadowDensity, 0f, 1f)),
+            Variation = InstanceVariation.Pack(m.InstanceValueJitter, m.InstanceHueJitter),
         };
     }
 
@@ -376,6 +389,7 @@ internal struct MaterialParams
             : Vector4.Zero,
         Foliage2 = new Vector4(m.Center, MathF.Max(m.Radius, 1e-3f)),
         Foliage3 = new Vector4(Math.Clamp(m.Frames, 2, 32), m.Hemi ? 1f : 0f, Math.Clamp(m.BarkRoughness, 0f, 1f), m.DitherViews ? 1f : 0f),
+        Variation = InstanceVariation.Pack(m.InstanceValueJitter, m.InstanceHueJitter),
     };
 
     /// <summary>

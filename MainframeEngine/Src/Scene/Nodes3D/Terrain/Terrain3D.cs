@@ -21,7 +21,7 @@ namespace MainframeEngine;
 /// </remarks>
 [Tool]
 [EditorIcon("mountain")]
-public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
+public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderResourceOwner
 {
     /// <summary>What <see cref="SurfaceAt"/> returns where there is water.</summary>
     public const int WaterSurface = 255;
@@ -62,6 +62,14 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
     private Aabb _wetBounds = Aabb.Empty;         // terrain-local, wet vertices
     private World3D? _world;
     private TerrainFoliage3D? _foliage;
+    private TerrainMacroTexture? _macro;
+    private Task<TerrainMacroTexture>? _macroBake; // the build's bake, on a worker thread
+    private bool _macroDirty;
+    private float _macroQuiet;
+    private RenderServer? _server;
+
+    /// <summary>The macro texture on the GPU (ADR 0175; the render server uploads it the first frame it binds it).</summary>
+    internal Texture2DArrayGpu? MacroGpu;
 
     public Terrain3D()
     {
@@ -104,6 +112,8 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
                 splat.Terrain = this;
             foreach (var node in _lodNodes)
                 node.RenderStamp++;
+            if (MacroTextureEnabled && _built)
+                _macroDirty = true;
         }
     }
 
@@ -127,6 +137,112 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
 
     /// <summary>The pond material when <see cref="WaterMaterial"/> is null: a default <see cref="WaterMaterial3D"/>.</summary>
     public static WaterMaterial3D DefaultWaterMaterial { get; } = new() { ResourceName = "Terrain water (default)" };
+
+    /// <summary>
+    /// Bake the terrain's <see cref="MacroTexture"/> (ADR 0175, RVT-lite): its surface from above in a two-layer array the
+    /// world's surfaces with <see cref="StandardMaterial3D.TerrainBlend"/> blend towards near the ground. Baked on a worker
+    /// thread when the terrain is built (available a few frames later, about a second at 2048² over eight layers) and again
+    /// half a second after the last edit; off by default.
+    /// </summary>
+    [ExportGroup("Macro texture")]
+    [Export]
+    public bool MacroTextureEnabled
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+            field = value;
+            if (!value)
+                ReleaseMacro();
+            else if (_built)
+                RebakeMacroTexture();
+        }
+    }
+
+    /// <summary>Texels per side of <see cref="MacroTexture"/> (2048: 12.5 cm over 256 m).</summary>
+    [Export(Range = "64,4096,1")]
+    public int MacroTextureResolution
+    {
+        get;
+        set
+        {
+            value = Math.Clamp(value, 64, 4096);
+            if (field == value)
+                return;
+            field = value;
+            if (MacroTextureEnabled && _built)
+                _macroDirty = true;
+        }
+    } = TerrainMacroTexture.DefaultResolution;
+
+    /// <summary>The baked macro texture (ADR 0175), or null (<see cref="MacroTextureEnabled"/> off, or not built yet).</summary>
+    public TerrainMacroTexture? MacroTexture => _macro;
+
+    /// <summary>Bakes <see cref="MacroTexture"/> now from the data and material (needs a built terrain); returns it.</summary>
+    public TerrainMacroTexture? RebakeMacroTexture()
+    {
+        _macroDirty = false;
+        _macroBake = null; // a running build-time bake is superseded
+        if (_data is null || !_data.IsLoaded)
+            return _macro;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        _macro = TerrainMacroTexture.Bake(_data, Material, MacroTextureResolution);
+        Log.Info($"[Terrain] '{Name}': macro texture {_macro.Resolution}² baked in {watch.Elapsed.TotalMilliseconds:0} ms.");
+        return _macro;
+    }
+
+    /// <summary>True while the build's macro bake runs on its worker thread.</summary>
+    public bool IsBakingMacroTexture => _macroBake is not null;
+
+    private void StartMacroBake()
+    {
+        var data = _data!;
+        var material = Material;
+        var resolution = MacroTextureResolution;
+        var name = Name;
+        _macroBake = Task.Run(() =>
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var macro = TerrainMacroTexture.Bake(data, material, resolution);
+            Log.Info($"[Terrain] '{name}': macro texture {macro.Resolution}² baked in {watch.Elapsed.TotalMilliseconds:0} ms (worker thread).");
+            return macro;
+        });
+    }
+
+    private void ReleaseMacro()
+    {
+        _macroBake = null;
+        _macro = null;
+        _macroDirty = false;
+        ReleaseMacroGpu();
+    }
+
+    private void ReleaseMacroGpu()
+    {
+        MacroGpu?.Dispose(); // deletion-queued: frames in flight keep it
+        MacroGpu = null;
+        _server?.Untrack(this);
+        _server = null;
+    }
+
+    /// <summary>Called by the render server when it uploads the macro texture, so a shutdown with the node alive frees it.</summary>
+    internal void TrackRenderResources(RenderServer server)
+    {
+        if (ReferenceEquals(_server, server))
+            return;
+        _server?.Untrack(this);
+        _server = server;
+        server.Track(this);
+    }
+
+    void IRenderResourceOwner.ReleaseRenderResourcesForShutdown()
+    {
+        MacroGpu?.Dispose();
+        MacroGpu = null;
+        _server = null;
+    }
 
     /// <summary>Realistic chunk LOD: above 1 keeps finer levels further away, below 1 drops them sooner.</summary>
     [Export(Range = "0.25,4,0.05")]
@@ -172,6 +288,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
         base.OnEnterTree();
         _world = GetWorld3D();
         _world?.Water.Register(this);
+        _world?.AddTerrain(this);
         if (_built && _data is { } data)
         {
             Subscribe();
@@ -191,12 +308,26 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
     {
         Unsubscribe();
         _world?.Water.Unregister(this);
+        _world?.RemoveTerrain(this);
         _world = null;
+        ReleaseMacroGpu();
         base.OnExitTree();
     }
 
     protected override void OnProcess(in GameTime gameTime)
     {
+        if (_macroBake is { IsCompleted: true } bake)
+        {
+            _macroBake = null;
+            if (bake.IsCompletedSuccessfully && MacroTextureEnabled)
+                _macro = bake.Result;
+            else if (bake.Exception is { } e)
+                Log.Error($"[Terrain] '{Name}': the macro texture bake failed: {e.InnerException?.Message ?? e.Message}");
+        }
+
+        // The macro texture follows edits once they pause (a stroke edits every frame).
+        if (_macroDirty && (_macroQuiet += gameTime.DeltaTime) >= 0.5f)
+            RebakeMacroTexture();
         if (!_built || _levels <= 1 || GetViewport() is not { } viewport)
             return;
         Vector3 camera;
@@ -336,6 +467,8 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
         Subscribe();
         _foliage = new TerrainFoliage3D { Name = "Foliage", Terrain = this };
         AddChild(_foliage);
+        if (MacroTextureEnabled && _macro is null) // not already baked by a RebakeMacroTexture before the build
+            StartMacroBake();
     }
 
     private static int LevelCount(int chunkQuads)
@@ -628,6 +761,12 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
             chunks = new Rect2I(cx0, cz0, cx1 - cx0 + 1, cz1 - cz0 + 1);
             if (_built)
                 _builtVersion = data.Version;
+        }
+
+        if (MacroTextureEnabled && _built)
+        {
+            _macroDirty = true;
+            _macroQuiet = 0f;
         }
 
         Changed?.Invoke(new TerrainChange(layers, cells, chunks, fromUndo));
