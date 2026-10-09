@@ -6,19 +6,17 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 - **Active (2026-10-08):** forest showcase vertical slice on `feature/forest-slice` (worktree
   `.claude/worktrees/forest-slice`). Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
-  - **Wave 1 is merged** (tip bccfd37; all gates green: 1732 engine, 769 editor and 72 render tests). It covers
-    PBR/IBL/fog (ADR 0150), streams/MultiMesh/foliage wind (0151), the Ez Tree port (0152), Terrain3D (0153), physical
-    sky/FXAA/auto exposure (0154) and Curve3D/River3D/Forest/FirstPersonController (0155).
-  - Lavapipe goldens are missing for the A2 scenes (vertex-colors, multimesh, foliage-wind) and the C scene (terrain).
-    Record them in one Docker run at the end.
-  - **Wave 2 is running** in agent worktrees (`.claude/worktrees/agent-*`, branches `forest/f1`, `f2`, `g`, `h`, `i`):
-    - F1: TerrainSplatMaterial3D (ADR 0156)
-    - F2: foliage scatter + GrassMesh (0157)
-    - G: Tree3D, materials, TreeScatter, River3D Custom0 (0158)
-    - H: WaterMaterial3D + carving (0159)
-    - I: light shafts (0160)
-  - Next: merge wave 2, then wave 3: the forest content (valley, stream, scatter, ambientCG/Poly Haven assets,
-    audio), a performance pass, lavapipe goldens, docs and gates, then hand over to Brogan to play.
+  - **Waves 1 and 2 are merged** (tip 736e259; all gates green: 1803 engine, 769 editor, 86 render tests).
+    - ADRs 0150–0155 (wave 1).
+    - 0156 TerrainSplatMaterial3D, 0157 foliage scatter, 0158 Tree3D/TreeScatter, 0159 WaterMaterial3D + carving,
+      0160 light shafts.
+  - **Wave 3 is running** (agent worktrees):
+    - J: CC0 assets + `ForestAssets`.
+    - K: procedural audio + `ForestAudio.Attach`.
+    - L: the forest valley scene, benchmark and screenshots. When J and K merge into `feature/forest-slice`, message
+      lane L to merge them and switch from placeholders.
+  - Then: a lavapipe golden for `terrain` (lane C never recorded it); a final full gate; push and PR; tell Brogan to
+    play `just forest`.
   - Stop launching lanes at 50% weekly usage.
 - **Status before this:** M0–M10 merged to `main` (fast-forward to `ec6bd70`, 2026-10-05); later work landed through
   PRs #5–#32.

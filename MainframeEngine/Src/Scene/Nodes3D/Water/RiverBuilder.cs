@@ -11,7 +11,7 @@ namespace MainframeEngine;
 /// <param name="UVs">u = 0 … 1 across (left bank to right bank, facing downstream); v = arc length / <c>UvLength</c>.</param>
 /// <param name="Custom0">
 /// x = water column depth (depth × (1 − x²), x = −1 … 1 across), yz = surface flow in m/s along local X and Z (slower at
-/// the banks), w = foam (rapids above 2 m/s). Meant for <c>MeshSurface.Custom0</c> once that stream exists.
+/// the banks), w = foam (rapids above 2 m/s). <c>River3D</c> puts it in <c>MeshSurface.Custom0</c>.
 /// </param>
 /// <param name="Indices">Triangle list.</param>
 public readonly record struct RiverMeshData(Vector3[] Positions, Vector3[] Normals, Vector2[] UVs, Vector4[] Custom0, int[] Indices)

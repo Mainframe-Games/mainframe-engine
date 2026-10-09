@@ -65,9 +65,8 @@ in a tree, else on entering it, or lazily on the first query); never per frame. 
    `UvLength`.**
 5. **`RiverMeshData`** (`Positions`, `Normals`, `UVs`, `Custom0`, `Indices`): `Custom0` is x = column depth
    `depth × (1 − x²)`, yz = flow along local X/Z (`tangent × speed × (1 − 0.6x²)`, slower at the banks), w = foam
-   (`0.6 × saturate((speed − 2) / 2)`, rapids). The `ArrayMesh` gets positions, normals, UVs and indices; `Custom0` is
-   is `MeshSurface.Custom0` (the second vertex stream), which `WaterMaterial3D` reads. Arrays are reused while the
-   section count holds.
+   (`0.6 × saturate((speed − 2) / 2)`, rapids). The `ArrayMesh` gets positions, normals, UVs, indices and `Custom0`
+   (`MeshSurface.Custom0`, the second vertex stream). Arrays are reused while the section count holds.
 6. **Grid:** a uniform 4 m grid (river-local XZ) maps cells to the section segments whose quads overlap them.
 
 The ribbon is an internal `MeshInstance3D` child named `Ribbon`, created in `OnReady` and **unowned**, so scenes never
