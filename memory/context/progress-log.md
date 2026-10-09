@@ -4,22 +4,22 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Active (2026-10-08, paused at the usage limit):** forest showcase vertical slice on `feature/forest-slice`
-  (worktree `.claude/worktrees/forest-slice`). Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
-  - Merged into `feature/forest-slice`: lanes B (Ez Tree port, ADR 0152), E (Curve3D/River3D, `Examples/Forest`,
-    FirstPersonController, 0155) and D (physical sky, FXAA, auto exposure, 0154).
-  - Not merged yet:
-    - `forest/a1` (PBR + IBL + fog, 0150; finished, all gates green). Merging it conflicts with D in `shaders.lock`,
-      `SkyEnvironment.cs`, `WorldEnvironment.cs`, `RenderTests.Host/Program.cs` and `sky.md`. To resolve: add the
-      physical sky to `SkyEnvironment.FragmentShader`, honour `sky.sun.z == 1` (no sun disc in the capture), end
-      `Sky.Physical` with `applySkyFog`, then run `just shaders`.
-    - `forest/a2` (streams, MultiMesh, visibility ranges, Texture2DArray, FoliageMaterial3D, 0151) and `forest/c`
-      (Terrain3D core, 0153). Both had committed their docs and ADRs, then were stopped during final gates. Re-run the
-      gates on their branches before merging.
-  - Lane worktrees: `.claude/worktrees/agent-*`.
-  - Then: wave 2 (splat material, Tree3D, grass, water material, light shafts), then wave 3 (content, performance,
-    gates).
-  - Note: `build/linux/run.sh` shares one Docker volume, so run lavapipe one lane at a time.
+- **Active (2026-10-08):** forest showcase vertical slice on `feature/forest-slice` (worktree
+  `.claude/worktrees/forest-slice`). Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
+  - **Wave 1 is merged** (tip bccfd37; all gates green: 1732 engine, 769 editor and 72 render tests). It covers
+    PBR/IBL/fog (ADR 0150), streams/MultiMesh/foliage wind (0151), the Ez Tree port (0152), Terrain3D (0153), physical
+    sky/FXAA/auto exposure (0154) and Curve3D/River3D/Forest/FirstPersonController (0155).
+  - Lavapipe goldens are missing for the A2 scenes (vertex-colors, multimesh, foliage-wind) and the C scene (terrain).
+    Record them in one Docker run at the end.
+  - **Wave 2 is running** in agent worktrees (`.claude/worktrees/agent-*`, branches `forest/f1`, `f2`, `g`, `h`, `i`):
+    - F1: TerrainSplatMaterial3D (ADR 0156)
+    - F2: foliage scatter + GrassMesh (0157)
+    - G: Tree3D, materials, TreeScatter, River3D Custom0 (0158)
+    - H: WaterMaterial3D + carving (0159)
+    - I: light shafts (0160)
+  - Next: merge wave 2, then wave 3: the forest content (valley, stream, scatter, ambientCG/Poly Haven assets,
+    audio), a performance pass, lavapipe goldens, docs and gates, then hand over to Brogan to play.
+  - Stop launching lanes at 50% weekly usage.
 - **Status before this:** M0–M10 merged to `main` (fast-forward to `ec6bd70`, 2026-10-05); later work landed through
   PRs #5–#32.
 - **Open blockers:** none. User actions: Steamworks natives (partner login); macOS code signing/notarization.

@@ -19,6 +19,8 @@ public static class SceneSaver
         var projectPath = assets.ToProjectPath(fullPath);
         var uid = ResourceSaver.ExistingUid(fullPath, projectPath) ?? AssetUid.Generate(AssetUid.ScenePrefix);
 
+        // Nodes with data of their own (terrain layers) write it first: a failure leaves the scene file untouched.
+        RunSaveHooks(root, projectPath);
         var json = new SceneWriter().WriteScene(root, uid);
         ResourceSaver.WriteAtomically(fullPath, json);
         assets.Register(uid, projectPath);
@@ -30,12 +32,31 @@ public static class SceneSaver
         return uid;
     }
 
+    private static void RunSaveHooks(Node node, string scenePath)
+    {
+        if (node is ISceneSaveHook hook)
+            hook.OnSceneSaving(scenePath);
+        var children = node.Children;
+        for (var i = 0; i < children.Count; i++)
+            RunSaveHooks(children[i], scenePath);
+    }
+
     /// <summary>Serializes the scene rooted at <paramref name="root"/> to JSON without touching disk.</summary>
     public static byte[] ToJson(Node root, string? uid = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         return new SceneWriter().WriteScene(root, uid);
     }
+}
+
+/// <summary>
+/// A node that writes data of its own beside its scene when <see cref="SceneSaver.Save"/> writes the scene (terrain
+/// layer images): called for every node under the root, before the scene file is written.
+/// </summary>
+internal interface ISceneSaveHook
+{
+    /// <summary>The scene is being saved to <paramref name="scenePath"/> (project path).</summary>
+    void OnSceneSaving(string scenePath);
 }
 
 /// <summary>

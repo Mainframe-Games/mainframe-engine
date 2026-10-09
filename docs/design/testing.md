@@ -160,10 +160,12 @@ sequenceDiagram
   `SubViewport` shown through a `UiDocument` `<img src="engine://picking-preview"/>`; self-checked), and the game-UI scenes (M8) `ui-hud` (HUD over lit-shapes),
   `ui-effects`, `ui-text`, `ui-widgets` (documents in the host's `Content/UI/` and the engine's widget demo;
   `--size` gives them larger windows), and the shadow scenes (M4) `csm`, `shadow-pcf`, `shadow-lights`,
-  `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)), and the forest-slice
+  `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)), the forest-slice
   scenes (ADR 0151) `vertex-colors`, `multimesh` (`--count` instances, default 1 000; self-checked) and `foliage-wind`
-  (`--count 1`: no wind) ([Materials & meshes → testing](materials-and-meshes.md#testing)). Scenes that read
-  `frame.clip.z` see t = frame / 60 s: `Engine` sums the fixed deltas into `FrameContext.Time`. The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
+  (`--count 1`: no wind) ([Materials & meshes → testing](materials-and-meshes.md#testing)), and `terrain` (G8a: a
+  Realistic `Terrain3D` noise hill with LOD levels under a low sun; self-checked, plus a 0 B gate while the camera orbits;
+  [Terrain → testing](terrain.md#testing)). Scenes that read `frame.clip.z` see t = frame / 60 s: `Engine` sums the
+  fixed deltas into `FrameContext.Time`. The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
   M3 (the physics crates share one `BoxMesh` and one material per colour). Every host scene runs audio on the silent
   null device.
 - **Host hooks** (command line): `--size WxH` (layout points), `--scale S` (fixed content scale, see *Window* below),
