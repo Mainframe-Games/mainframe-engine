@@ -84,6 +84,8 @@ internal sealed unsafe partial class VulkanRenderer
     private PipelineLayout _postLayout;
     private Pipeline _postPipeline;
     private AutoExposure? _autoExposure; // ADR 0154: created with the post pass
+    private LightShafts? _lightShafts;   // ADR 0160: created the first frame that enables them
+    private DescriptorSet _postShaftsSet; // _postSet with binding 3 = the shafts (_postSet binds a placeholder there)
 
     // ADR 0154: FXAA. The tonemap pipelines above draw into the swapchain; these into FxaaPass's intermediate.
     private AntiAliasing _antiAliasing;
@@ -151,8 +153,10 @@ internal sealed unsafe partial class VulkanRenderer
         CreateSwapchainViews();
         CreatePresentPasses();
         CreatePresentFramebuffers();
+        // The depth is stored and sampleable (ADR 0160): light shafts read it after the pass; storing measured ≤ 0.02 ms
+        // at 1440p on Apple M5 (MoltenVK), so it is kept every frame rather than only while shafts are on.
         _sceneTarget = new RenderTarget(this,
-            new RenderTargetDesc("scene", [RenderTargetAttachment.Sampled(SceneColorFormat)], _depthFormat), _swapChainExtent);
+            new RenderTargetDesc("scene", [RenderTargetAttachment.Sampled(SceneColorFormat)], _depthFormat, SampleDepth: true), _swapChainExtent);
         CreateTonemap();
         Log.Info($"[Vulkan] Colour pipeline: HDR {SceneColorFormat} -> tonemap -> {_swapChainImageFormat} ({_encoding}).");
     }
@@ -169,6 +173,7 @@ internal sealed unsafe partial class VulkanRenderer
             {
                 _glow.Resize(_swapChainExtent, _sceneTarget.GetColor(0).View);
                 _autoExposure!.Resize(_sceneTarget.GetColor(0).View);
+                _lightShafts?.Resize(_swapChainExtent, _sceneTarget.GetColor(0).View, _sceneTarget.Depth!.View);
                 WritePostSet();
             }
         }
@@ -346,9 +351,12 @@ internal sealed unsafe partial class VulkanRenderer
             new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = GlowEffect.LevelCount, StageFlags = ShaderStageFlags.FragmentBit },
             new DescriptorSetLayoutBinding { Binding = 2, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new DescriptorSetLayoutBinding { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ], "post tonemap");
-        _postPool = PipelineBuilder.CreatePool(this, 1,
-            [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 2 + GlowEffect.LevelCount }], "post tonemap");
+        // Two sets: the one in use until light shafts exist (a placeholder at binding 3) and _postShaftsSet, written when
+        // they are created, so no set in flight is ever rewritten.
+        _postPool = PipelineBuilder.CreatePool(this, 2,
+            [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 2 * (3 + GlowEffect.LevelCount) }], "post tonemap");
         _postSet = PipelineBuilder.AllocateSet(this, _postPool, _postSetLayout, "post tonemap");
         WritePostSet();
         _postLayout = PipelineBuilder.CreateLayout(this, [_postSetLayout], (uint)sizeof(PostPush), ShaderStageFlags.FragmentBit, "post tonemap");
@@ -358,7 +366,28 @@ internal sealed unsafe partial class VulkanRenderer
 
     private void WritePostSet()
     {
-        PipelineBuilder.WriteImage(this, _postSet, 0, new DescriptorImageInfo
+        // Binding 3 needs an image in shader-read layout even when no shafts are drawn (the shader skips it then): the
+        // glow's smallest level, which exists with the post pass.
+        WritePostSet(_postSet, new DescriptorImageInfo
+        {
+            Sampler = _glow!.Sampler,
+            ImageView = _glow.LevelView(GlowEffect.LevelCount - 1),
+            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+        });
+        if (_lightShafts is not null)
+            WritePostSet(_postShaftsSet, LightShaftsDescriptor);
+    }
+
+    private DescriptorImageInfo LightShaftsDescriptor => new()
+    {
+        Sampler = _lightShafts!.Sampler,
+        ImageView = _lightShafts.OutputView,
+        ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+    };
+
+    private void WritePostSet(DescriptorSet set, in DescriptorImageInfo shafts)
+    {
+        PipelineBuilder.WriteImage(this, set, 0, new DescriptorImageInfo
         {
             Sampler = _tonemapSampler,
             ImageView = _sceneTarget!.GetColor(0).View,
@@ -370,14 +399,23 @@ internal sealed unsafe partial class VulkanRenderer
         var write = new WriteDescriptorSet
         {
             SType = StructureType.WriteDescriptorSet,
-            DstSet = _postSet,
+            DstSet = set,
             DstBinding = 1,
             DescriptorCount = GlowEffect.LevelCount,
             DescriptorType = DescriptorType.CombinedImageSampler,
             PImageInfo = levels,
         };
         _vk!.UpdateDescriptorSets(_device, 1, &write, 0, null);
-        PipelineBuilder.WriteImage(this, _postSet, 2, _autoExposure!.AdaptedDescriptor);
+        PipelineBuilder.WriteImage(this, set, 2, _autoExposure!.AdaptedDescriptor);
+        PipelineBuilder.WriteImage(this, set, 3, shafts);
+    }
+
+    /// <summary>Light shafts (ADR 0160) and the post set that binds them, the first frame that enables them.</summary>
+    private void CreateLightShafts()
+    {
+        _lightShafts = new LightShafts(this, _swapChainExtent, _sceneTarget!.GetColor(0).View, _sceneTarget.Depth!.View);
+        _postShaftsSet = PipelineBuilder.AllocateSet(this, _postPool, _postSetLayout, "post tonemap (light shafts)");
+        WritePostSet(_postShaftsSet, LightShaftsDescriptor);
     }
 
     /// <summary>FXAA's intermediate and filter, and the tonemap pipelines that draw into it (ADR 0154), on first use.</summary>
@@ -409,6 +447,7 @@ internal sealed unsafe partial class VulkanRenderer
         public fixed float GlowWeights[GlowEffect.LevelCount];
         public uint AutoExposure;
         public float AutoExposureScale;
+        public float Shafts;
     }
 
     private struct TonemapPush
@@ -464,12 +503,19 @@ internal sealed unsafe partial class VulkanRenderer
         var post = PostProcess;
         var usePost = post != PostProcessSettings.Default;
         var exposure = post.Tonemapper == Tonemapper.GodotAces ? post.TonemapExposure : _exposure;
+        var shafts = 0f;
         if (usePost)
         {
             if (_glow is null)
                 CreatePostTonemap();
             _autoExposure!.Record(cb, post, FrameDeltaTime); // ADR 0154: before the glow, whose first level reads it
             _glow!.Record(cb, post, exposure);
+            // ADR 0160: the shafts read the scene's colour and depth; the tonemap adds them alongside the glow.
+            if (post.LightShaftsEnabled && _lightShafts is null)
+                CreateLightShafts();
+            shafts = _lightShafts is not null && _lightShafts.Record(cb, post, LightShaftsSun)
+                ? post.LightShaftsIntensity * LightShaftsSun.Fade
+                : 0f;
         }
 
         // ADR 0154: with FXAA the tonemap writes the LDR intermediate (always shader-encoded sRGB), which FXAA then filters
@@ -490,7 +536,7 @@ internal sealed unsafe partial class VulkanRenderer
         if (usePost)
         {
             vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, fxaa ? _postLdrPipeline : _postPipeline);
-            var postSet = _postSet;
+            var postSet = shafts > 0f ? _postShaftsSet : _postSet;
             vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _postLayout, 0, 1, &postSet, 0, null);
             var postPush = new PostPush
             {
@@ -504,6 +550,7 @@ internal sealed unsafe partial class VulkanRenderer
                 WhiteTonemapped = post.GodotAcesWhiteTonemapped,
                 AutoExposure = post.AutoExposureEnabled ? 1u : 0u,
                 AutoExposureScale = post.AutoExposureScale,
+                Shafts = shafts,
             };
             post.GetGlowWeights(new Span<float>(postPush.GlowWeights, GlowEffect.LevelCount));
             vk.CmdPushConstants(cb, _postLayout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(PostPush), &postPush);
@@ -640,6 +687,9 @@ internal sealed unsafe partial class VulkanRenderer
             _glow = null;
             _autoExposure?.Dispose();
             _autoExposure = null;
+            _lightShafts?.Dispose();
+            _lightShafts = null;
+            _postShaftsSet = default;
         }
 
         if (_fxaa is not null)

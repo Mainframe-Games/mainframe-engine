@@ -439,13 +439,19 @@ public sealed class RenderServer : IServer
 
             // ADR 0124: the tonemap and glow of the tree's root world (a struct copy: no allocation).
             if (viewport.IsTreeRoot)
+            {
                 vk.PostProcess = viewport.World3D.Environment?.PostProcess ?? PostProcessSettings.Default;
+                vk.LightShaftsSun = default;
+            }
 
             var camera = GetRenderCamera(viewport, vk.SwapchainExtent);
             if (camera is null)
                 return;
 
             var world = viewport.World3D;
+            // ADR 0160: light shafts stream from the world's first directional light, the same sun as the physical sky's.
+            if (viewport.IsTreeRoot && vk.PostProcess.LightShaftsEnabled && world.Lights.DirectionalLights is [var sun, ..])
+                vk.LightShaftsSun = LightShaftsSun.Compute(camera.ViewMatrix, camera.ProjectionMatrix, -sun.Direction);
             EnsureResources(world);
             vk.Frame.SetView(0, default);
             vk.Frame.Environment = world.Environment?.FrameEnvironment ?? default;

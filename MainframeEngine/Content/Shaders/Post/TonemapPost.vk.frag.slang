@@ -1,4 +1,5 @@
-// The tonemap pass with a world's PostProcessSettings (ADR 0124): exposure, then Godot 4.7's glow (every blend mode but
+// The tonemap pass with a world's PostProcessSettings (ADR 0124): light shafts added to the scene (ADR 0160), exposure,
+// then Godot 4.7's glow (every blend mode but
 // soft light before the curve), the tonemap curve (the engine's ACES fit, or Godot's ACES), soft-light glow after it,
 // then sRGB encoding. Ported from Godot 4.7's tonemap.glsl (MIT). Tonemap.vk.frag stays the pass for the default
 // settings and for SubViewports.
@@ -7,6 +8,7 @@
 [[vk::binding(0, 0)]] Sampler2D hdrScene;
 [[vk::binding(1, 0)]] Sampler2D glowLevels[7];
 [[vk::binding(2, 0)]] Sampler2D adaptedLuminance; // ADR 0154: 1 × 1 R32F, AutoExposureAdapt
+[[vk::binding(3, 0)]] Sampler2D lightShafts;      // ADR 0160: half resolution, bilinear; read when shafts > 0
 
 struct Post
 {
@@ -21,6 +23,7 @@ struct Post
     float glowWeights[7];  // normalised level weights
     uint  autoExposure;    // 1: multiply by autoExposureScale / the adapted luminance (ADR 0154)
     float autoExposureScale;
+    float shafts;          // ADR 0160: intensity × fade, 0 when no shafts were drawn
 };
 
 [[vk::push_constant]] ConstantBuffer<Post> pc;
@@ -126,7 +129,10 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     float exposure = pc.exposure;
     if (pc.autoExposure != 0u)
         exposure *= pc.autoExposureScale / max(adaptedLuminance.Load(int3(0, 0, 0)).r, 1e-6);
-    float3 color = hdrScene.Load(int3(int2(fragCoord.xy), 0)).rgb * exposure;
+    float3 hdr = hdrScene.Load(int3(int2(fragCoord.xy), 0)).rgb;
+    if (pc.shafts > 0.0)
+        hdr += lightShafts.SampleLevel(uv, 0.0).rgb * pc.shafts; // scene radiance, before exposure, alongside glow
+    float3 color = hdr * exposure;
 
     bool glow = pc.glowEnabled != 0u;
     if (glow && pc.glowMode != kSoftLight)

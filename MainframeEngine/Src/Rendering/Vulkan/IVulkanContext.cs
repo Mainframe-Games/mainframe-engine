@@ -140,6 +140,12 @@ public interface IVulkanContext
     PostProcessSettings PostProcess { get; set; }
 
     /// <summary>
+    /// The sun's screen position for light shafts (ADR 0160), set each frame by the render server from the tree's root
+    /// camera and world while <see cref="PostProcessSettings.LightShaftsEnabled"/>; default (fade 0) draws none.
+    /// </summary>
+    LightShaftsSun LightShaftsSun { get; set; }
+
+    /// <summary>
     /// Screen-space anti-aliasing of the main view (ADR 0154): FXAA runs on the tonemapped image, before the 2D canvas,
     /// gizmos and UI. Starts at <see cref="EngineOptions.AntiAliasing"/>; may change between frames.
     /// </summary>

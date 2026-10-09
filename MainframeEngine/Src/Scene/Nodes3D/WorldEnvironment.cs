@@ -26,7 +26,7 @@ public enum ReflectedLightSource : byte
 }
 
 /// <summary>
-/// Sky, ambient light, wind, fog, tonemap, glow and auto exposure for its viewport's world (Godot's
+/// Sky, ambient light, wind, fog, tonemap, glow, auto exposure and light shafts for its viewport's world (Godot's
 /// <c>WorldEnvironment</c>). The sky is described by a <see cref="MainframeEngine.Sky"/> resource; the render server builds
 /// the matching <see cref="SkyEnvironment"/> on first use and rebuilds it when the sky's mode or images change. A
 /// physical sky's sun is the world's first <see cref="DirectionalLight3D"/> (ADR 0154). Only the first environment in a
@@ -84,7 +84,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export]
     public ReflectedLightSource ReflectedLightSource { get; set; }
 
-    /// <summary>The tonemap and glow this environment asks the renderer for (ADR 0124); the tree's root world's is used.</summary>
+    /// <summary>The tonemap, glow, auto exposure and light shafts this environment asks the renderer for (ADR 0124); the tree's root world's is used.</summary>
     public PostProcessSettings PostProcess => _post;
 
     [ExportGroup("Wind")]
@@ -345,6 +345,50 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     {
         get => _post.AutoExposureMaxLuminance;
         set => _post = _post with { AutoExposureMaxLuminance = value };
+    }
+
+    [ExportGroup("Light Shafts")]
+    /// <summary>
+    /// Screen-space light shafts (ADR 0160): the sky around the sun, the world's first <see cref="DirectionalLight3D"/>,
+    /// streaked towards it where leaves, trunks and buildings leave gaps.
+    /// </summary>
+    [Export]
+    public bool LightShaftsEnabled
+    {
+        get => _post.LightShaftsEnabled;
+        set => _post = _post with { LightShaftsEnabled = value };
+    }
+
+    /// <summary>How much of the shafts is added to the scene.</summary>
+    [Export(Range = "0,16,0.01")]
+    public float LightShaftsIntensity
+    {
+        get => _post.LightShaftsIntensity;
+        set => _post = _post with { LightShaftsIntensity = value };
+    }
+
+    /// <summary>The weight left after each sixteenth of a shaft (lower is shorter).</summary>
+    [Export(Range = "0,1,0.001")]
+    public float LightShaftsDecay
+    {
+        get => _post.LightShaftsDecay;
+        set => _post = _post with { LightShaftsDecay = value };
+    }
+
+    /// <summary>The fraction of the way to the sun each shaft reaches.</summary>
+    [Export(Range = "0,1,0.01")]
+    public float LightShaftsDensity
+    {
+        get => _post.LightShaftsDensity;
+        set => _post = _post with { LightShaftsDensity = value };
+    }
+
+    /// <summary>Taps per blur pass (4–64; two passes, so samples² per shaft).</summary>
+    [Export(Range = "4,64,1")]
+    public int LightShaftsSamples
+    {
+        get => _post.LightShaftsSamples;
+        set => _post = _post with { LightShaftsSamples = value };
     }
 
     protected override void OnEnterTree()
