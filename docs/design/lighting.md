@@ -75,7 +75,8 @@ result = ambient · base
 ```
 
 `ambient` is `iblDiffuse(N)` (`include/environment.slang`): the ambient colour, or the sky's irradiance when the world's
-`AmbientSource` is `Sky` and the sky has been captured.
+`AmbientSource` is `Sky` and the sky has been captured. With screen-space ambient occlusion (below) `Mesh.vk.frag` uses
+the overload with the AO: `ambient · base · ssao`, and every light × `ssaoDirect(ssao)`.
 
 | Term | Formula |
 |---|---|
@@ -95,11 +96,34 @@ roughness, ao, N }`. Every lit 3D shader of the later G8 lanes (foliage, terrain
 | Visibility (Smith height-correlated) | `0.5 / (N·L √((N·V)² (1 − a2) + a2) + N·V √((N·L)² (1 − a2) + a2))` |
 | F (Schlick) | `F0 + (1 − F0)(1 − V·H)⁵`, `F0 = lerp(0.04, albedo, metallic)` |
 | Direct light | `(albedo (1 − metallic)(1 − F) + π · D · Vis · F) · radiance · N·L` |
-| Ambient | `(iblDiffuse(N) · albedo (1 − metallic) + iblSpecular(R, r) · (F0 · A + B)) · ao`, (A, B) = `iblBrdf(N·V, r)` |
+| Ambient | `(iblDiffuse(N) · albedo (1 − metallic) + iblSpecular(R, r) · (F0 · A + B) · so) · ao`, (A, B) = `iblBrdf(N·V, r)`; without SSAO `ao` = `s.ao`, `so` = 1 |
 
 Light units are the Blinn-Phong ones: Lambert's 1/π is folded into the light (a light of energy 1 lights a white diffuse
 surface at normal incidence to 1), so the specular lobe carries the π. `radiance` is colour × intensity × attenuation ×
 spot cone × shadow, with the same shadow lookups, shadow opacity and cascade tint as Blinn-Phong.
+
+### Screen-space ambient occlusion
+
+`WorldEnvironment.SsaoEnabled` ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md); GTAO, see
+[Post-processing → SSAO](post-processing.md#ssao)) puts a per-pixel AO image at set 0 binding 5; without it the binding
+is a white 1×1 image. The lit shaders read it at their fragment (`ambientOcclusionAt(SV_Position)`,
+`include/ambient_occlusion.slang`) and pass it to the overloads that take `ssao`:
+`shadeLightsBlinnPhong(…, ssao)`, `shadeLightsPbr(s, Ngeo, worldPos, ssao)`.
+
+| Term | Formula | Setting (Godot name) |
+|---|---|---|
+| Ambient (`ao` above) | `ssaoCombine(m, ssao)` = `lerp(min(m, ssao), m · ssao, t)`, `m` the material's AO (ORM red, foliage vertex AO) | `SsaoAoChannelAffect` = t (0: the darker of the two) |
+| Reflections (`so` above) | `min(1, Lagarde(N·V, ssao, α) / ssao)`, Lagarde and de Rousiers 2014: smooth surfaces seen face-on lose more | — |
+| Direct light | × `ssaoDirect(ssao)` = `1 + (ssao − 1) · k` on every light's shadow term | `SsaoLightAffect` = k (default 0) |
+
+`FrameData.AmbientOcclusion` carries k and t for the main view (0 otherwise). Without SSAO the image is 1 and k, t are 0,
+so every factor is exactly 1 (or `m`) and the shaders produce the frames they produced before (bit-identical goldens).
+Which shaders use it: `Mesh.vk.frag` (opaque and cutout; blended surfaces are not in the depth prepass, so the AO under
+them is the background's and they skip it), `Foliage.vk.frag` (also its translucency, × `ssaoDirect`),
+`TerrainSplat.vk.frag`, and `Water.vk.frag` for the light scattered in the water body only (the AO under water is the
+bed's). Spine and the overloads without `ssao` are unchanged.
+
+### Image-based lighting fallbacks
 
 The ambient helpers (`include/environment.slang`) fall back without a captured sky: `iblDiffuse` returns the ambient
 colour, `iblSpecular` a uniform environment of the ambient colour (or nothing when `ReflectedLightSource` is
@@ -162,7 +186,8 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no 
 - Lights over the limit are dropped silently, with no warning.
 - Point lights ignore `ShadowOpacity` (their UBO entry has no free slot; ADR 0123).
 - Directional gizmo arrows are not projected through the camera.
-- PBR has no `MetallicSpecular`, `AoLightAffect`, multi-scattering energy compensation or specular occlusion yet.
+- PBR has no `MetallicSpecular`, per-material `AoLightAffect` or multi-scattering energy compensation yet; specular
+  occlusion comes only from SSAO (not from the material's AO), and there are no bent normals yet (G8e.1).
 - Fog has no aerial perspective or volumetric part (froxels wait for compute, ADR 0149).
 
 ## Related docs

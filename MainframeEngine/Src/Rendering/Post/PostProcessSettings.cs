@@ -24,7 +24,7 @@ public enum GlowBlendMode
 }
 
 /// <summary>
-/// The tonemap, glow, auto exposure and light shafts of a world (Godot 4.7's <c>Environment</c> tonemap and glow properties, ADR 0124), set on its
+/// The tonemap, glow, auto exposure, light shafts and screen-space ambient occlusion of a world (Godot 4.7's <c>Environment</c> tonemap and glow properties, ADR 0124), set on its
 /// <see cref="WorldEnvironment"/> and applied by the renderer's tonemap pass. <see cref="Default"/> is the engine's
 /// behaviour before ADR 0124: its own curve and no glow.
 /// </summary>
@@ -117,6 +117,70 @@ public readonly record struct PostProcessSettings
 
     /// <summary>Taps per blur pass (clamped to 4–64); the two passes give <c>samples²</c> effective taps per ray.</summary>
     public int LightShaftsSamples { get; init; } = 16;
+
+    /// <summary>
+    /// Screen-space ambient occlusion (ADR 0165): ground-truth ambient occlusion (GTAO, Jimenez 2016) at half resolution
+    /// from the depth prepass, denoised and upsampled to full resolution, darkening the ambient and reflected light of
+    /// lit surfaces in creases and contacts (Godot's <c>ssao_enabled</c>). Turns the depth prepass on. Does not change
+    /// the tonemap (<see cref="PostEffectSettings.PostTonemap"/> ignores the SSAO settings).
+    /// </summary>
+    public bool SsaoEnabled { get; init; }
+
+    /// <summary>How far (in metres) occluders reach (Godot's <c>ssao_radius</c>); on screen at most a fifth of the image height.</summary>
+    public float SsaoRadius { get; init; } = 1f;
+
+    /// <summary>
+    /// Multiplies the occlusion (Godot's <c>ssao_intensity</c>): <c>ao = (1 − intensity · (1 − visibility))^power</c>,
+    /// where visibility is GTAO's cosine-weighted visible fraction. 1 (with power 1) is the physical value.
+    /// </summary>
+    public float SsaoIntensity { get; init; } = 2f;
+
+    /// <summary>Exponent of the AO after the intensity (Godot's <c>ssao_power</c>): higher is darker with a sharper falloff.</summary>
+    public float SsaoPower { get; init; } = 1.5f;
+
+    /// <summary>
+    /// How much a second, near-field term (occluders within a quarter of the radius, the same samples) adds (Godot's
+    /// <c>ssao_detail</c>, 0–5): small creases and contacts darken more. 0 turns it off.
+    /// </summary>
+    public float SsaoDetail { get; init; } = 0.5f;
+
+    /// <summary>
+    /// The horizon threshold (Godot's <c>ssao_horizon</c>, 0–1): occluders rising less than this fraction of 90° above a
+    /// surface's tangent plane do not occlude it (1: nothing does). Hides the self-occlusion of slightly bumpy surfaces.
+    /// </summary>
+    public float SsaoHorizon { get; init; } = 0.06f;
+
+    /// <summary>
+    /// How strictly the denoise and upsample stop at depth edges (Godot's <c>ssao_sharpness</c>, 0–1): lower blurs the AO
+    /// across object edges, higher keeps it to its own surface.
+    /// </summary>
+    public float SsaoSharpness { get; init; } = 0.98f;
+
+    /// <summary>
+    /// How much the AO also darkens direct light (Godot's <c>ssao_light_affect</c>, 0–1). Ambient occlusion is physically an
+    /// indirect-light effect: 0 keeps sunlit surfaces as they are.
+    /// </summary>
+    public float SsaoLightAffect { get; init; }
+
+    /// <summary>
+    /// How SSAO combines with a material's own AO (ORM red, foliage vertex AO; Godot's <c>ssao_ao_channel_affect</c>, 0–1):
+    /// 0 takes the darker of the two (SSAO adds nothing where the material is already darker), 1 multiplies them.
+    /// </summary>
+    public float SsaoAoChannelAffect { get; init; }
+
+    /// <summary>These settings with every SSAO setting at its default (what the tonemap decision compares).</summary>
+    public PostProcessSettings WithoutSsao() => this with
+    {
+        SsaoEnabled = false,
+        SsaoRadius = Default.SsaoRadius,
+        SsaoIntensity = Default.SsaoIntensity,
+        SsaoPower = Default.SsaoPower,
+        SsaoDetail = Default.SsaoDetail,
+        SsaoHorizon = Default.SsaoHorizon,
+        SsaoSharpness = Default.SsaoSharpness,
+        SsaoLightAffect = Default.SsaoLightAffect,
+        SsaoAoChannelAffect = Default.SsaoAoChannelAffect,
+    };
 
     /// <summary>Taps per light-shaft blur pass: <see cref="LightShaftsSamples"/> clamped to [4, 64].</summary>
     public int LightShaftsTapsPerPass => Math.Clamp(LightShaftsSamples, 4, 64);

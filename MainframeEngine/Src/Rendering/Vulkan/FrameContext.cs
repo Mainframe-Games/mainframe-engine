@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 560 bytes).</summary>
+/// <summary>std140 camera block at set 0, binding 0 (<c>include/frame.slang</c>, 576 bytes).</summary>
 /// <remarks>
 /// With a projection jitter (TAA, ADR 0163) <see cref="Projection"/>, <see cref="ViewProjection"/> and
 /// <see cref="InverseProjection"/> are the jittered matrices the view rasterises with; <see cref="PreviousViewProjection"/>
@@ -61,8 +61,16 @@ public struct FrameData
     /// <summary>Last frame's <see cref="WindParams"/>.</summary>
     public Vector4 PreviousWindParams;
 
+    /// <summary>
+    /// How the lit shaders apply the screen-space ambient occlusion at set 0 binding 5 (ADR 0165): x =
+    /// <see cref="PostProcessSettings.SsaoLightAffect"/>, y = <see cref="PostProcessSettings.SsaoAoChannelAffect"/>, z = 1
+    /// while an SSAO image is bound, w unused. Zero without SSAO (and in offscreen views), which with the white image makes
+    /// <c>ambient_occlusion.slang</c>'s terms exactly 1. Set by <see cref="FrameContext.SetAmbientOcclusion"/>.
+    /// </summary>
+    public Vector4 AmbientOcclusion;
+
     /// <summary>Bytes in the std140 block.</summary>
-    public const int Size = 6 * 64 + 11 * 16;
+    public const int Size = 6 * 64 + 12 * 16;
 
     /// <summary>Fills the block from a camera's matrices.</summary>
     public static FrameData From(in Matrix4x4 view, in Matrix4x4 projection, Vector3 cameraPosition, Extent2D extent,
@@ -271,6 +279,7 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly Sampler _iblSampler;
     private DescriptorImageInfo _occlusion;
     private long _occlusionId;
+    private Vector4 _occlusionParams; // FrameData.AmbientOcclusion of the main view
     private DescriptorImageInfo _frameOcclusion; // what view 0 binds this frame: latched at its first bind of the frame
     private long _frameOcclusionId;
     private ulong _occlusionFrame;
@@ -376,11 +385,20 @@ public sealed unsafe class FrameContext : IDisposable
     /// first <c>Begin</c> of view 0 (a later change applies next frame: a set already bound is never rewritten).
     /// Offscreen views always bind the white image.
     /// </summary>
-    internal void SetAmbientOcclusion(in DescriptorImageInfo image, long id)
+    internal void SetAmbientOcclusion(in DescriptorImageInfo image, long id) => SetAmbientOcclusion(image, id, 0f, 0f);
+
+    /// <summary>
+    /// <see cref="SetAmbientOcclusion(in DescriptorImageInfo, long)"/>, with how the lit shaders apply it (ADR 0165,
+    /// <see cref="FrameData.AmbientOcclusion"/>, written by the main view's camera writes from now on):
+    /// <paramref name="lightAffect"/> darkens direct light too, <paramref name="aoChannelAffect"/> multiplies with a
+    /// material's own AO instead of taking the darker of the two.
+    /// </summary>
+    internal void SetAmbientOcclusion(in DescriptorImageInfo image, long id, float lightAffect, float aoChannelAffect)
     {
         ArgumentOutOfRangeException.ThrowIfZero(id);
         _occlusion = image;
         _occlusionId = id;
+        _occlusionParams = new Vector4(Math.Clamp(lightAffect, 0f, 1f), Math.Clamp(aoChannelAffect, 0f, 1f), 1f, 0f);
     }
 
     /// <summary>Binds the white image at <see cref="AmbientOcclusionBinding"/> again (screen-space AO off).</summary>
@@ -388,6 +406,7 @@ public sealed unsafe class FrameContext : IDisposable
     {
         _occlusion = default;
         _occlusionId = 0;
+        _occlusionParams = default;
     }
 
     /// <summary>
@@ -535,8 +554,10 @@ public sealed unsafe class FrameContext : IDisposable
         ref var history = ref _history[CurrentView];
         history.Record(_ctx.FrameNumber, view * projection, main ? ProjectionJitter : Vector2.Zero, Time, Environment);
         var temporal = history.ToTemporal(main ? JitterIndex : 0);
-        _buffers[_ctx.FrameSlot].Write(FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure, Environment, temporal),
-            (ulong)CurrentView * _viewStride);
+        var data = FrameData.From(view, projection, position, Extent, Time, _ctx.Exposure, Environment, temporal);
+        if (main)
+            data.AmbientOcclusion = _occlusionParams;
+        _buffers[_ctx.FrameSlot].Write(data, (ulong)CurrentView * _viewStride);
         _cameraFrame[index] = _ctx.FrameNumber;
     }
 

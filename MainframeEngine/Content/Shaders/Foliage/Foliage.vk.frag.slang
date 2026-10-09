@@ -1,6 +1,7 @@
 // FoliageMaterial3D (ADR 0151): set 0 frame + lights, set 1 shadows, set 2 material (the StandardMaterial3D layout,
 // foliage parameters per include/foliage.slang). Cutout, back faces lit with a flipped (or kept) normal, translucency
-// from the first directional light, AO from Custom0.w on the ambient term. Linear HDR output.
+// from the first directional light, AO from Custom0.w on the ambient term, combined with the screen-space AO (ADR 0165).
+// Linear HDR output.
 #include "frame.slang"
 #include "shadows.slang"
 #include "lights.slang"
@@ -23,8 +24,8 @@ struct FsIn
 
 // The lit colour of a foliage surface: the one place the shading model is chosen. PBR: the material's roughness and
 // metallic (0) × its ORM map (`orm` = materialOrm: AO, roughness, metallic); Blinn-Phong: the roughness-derived
-// highlight. `ao` (the vertex AO, × the map's in PBR) darkens only the ambient term.
-float3 foliageLight(float3 albedo, float3 N, float3 Ngeo, float3 worldPos, float ao, float3 orm)
+// highlight. `ao` (the vertex AO, × the map's in PBR) darkens only the ambient term; `ssao` is the screen-space AO.
+float3 foliageLight(float3 albedo, float3 N, float3 Ngeo, float3 worldPos, float ao, float3 orm, float ssao)
 {
     if (material.flags.y == kShadingPbr)
     {
@@ -34,15 +35,15 @@ float3 foliageLight(float3 albedo, float3 N, float3 Ngeo, float3 worldPos, float
         s.roughness = orm.y;
         s.ao = ao * orm.x;
         s.N = N;
-        return shadeLightsPbr(s, Ngeo, worldPos);
+        return shadeLightsPbr(s, Ngeo, worldPos, ssao);
     }
-    float3 color = shadeLightsBlinnPhong(albedo, N, Ngeo, worldPos, material.params.x, material.params.y);
-    return color - lights.ambientColor.xyz * albedo * (1.0 - ao);
+    float3 color = shadeLightsBlinnPhong(albedo, N, Ngeo, worldPos, material.params.x, material.params.y, ssao);
+    return color - lights.ambientColor.xyz * albedo * (1.0 - ao) * ssao;
 }
 
 // Light from the first directional light shining through the leaf: back-lighting where the light hits the other side,
-// brighter when looking towards the light, shadowed like the light itself.
-float3 foliageTranslucency(float3 albedo, float3 N, float3 Ngeo, float3 worldPos)
+// brighter when looking towards the light, shadowed like the light itself (and by the SSAO's light affect).
+float3 foliageTranslucency(float3 albedo, float3 N, float3 Ngeo, float3 worldPos, float directAo)
 {
     float amount = foliageTranslucencyAmount();
     if (amount <= 0.0 || lights.counts.x == 0)
@@ -57,7 +58,7 @@ float3 foliageTranslucency(float3 albedo, float3 N, float3 Ngeo, float3 worldPos
     float view = pow(saturate(dot(V, -L)), 4.0);
     float3 Nl = dot(Ngeo, L) < 0.0 ? -Ngeo : Ngeo; // the side facing the light, for the receiver offset
     float shadow = lights.counts.w == 0 ? dirShadow(0, worldPos, Nl, L) : 1.0;
-    shadow = lerp(1.0, shadow, l.color.w);
+    shadow = lerp(1.0, shadow, l.color.w) * directAo;
     return albedo * amount * l.color.xyz * l.directionIntensity.w * back * (0.4 + 0.6 * view) * shadow;
 }
 
@@ -86,8 +87,9 @@ float4 main(FsIn input, bool frontFacing : SV_IsFrontFace, float4 fragCoord : SV
     {
         float3 Nmap = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
         float3 orm = materialOrm(uv, duvdx, duvdy);
-        color = foliageLight(albedo.rgb, Nmap, N, input.inWorldPos, input.inAo, orm) +
-                foliageTranslucency(albedo.rgb, Nmap, N, input.inWorldPos);
+        float ssao = ambientOcclusionAt(fragCoord);
+        color = foliageLight(albedo.rgb, Nmap, N, input.inWorldPos, input.inAo, orm, ssao) +
+                foliageTranslucency(albedo.rgb, Nmap, N, input.inWorldPos, ssaoDirect(ssao));
     }
 
     return float4(applyFog(color, input.inWorldPos), 1.0);

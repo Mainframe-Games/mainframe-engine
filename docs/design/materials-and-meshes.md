@@ -415,7 +415,7 @@ less-or-equal, and cutouts compare EQUAL with specialization constant 0 = opaque
 
 | Set | Contents | Owner |
 |---|---|---|
-| 0 | b0 camera (`FrameData`, 560 B), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)), b5 screen-space ambient occlusion (white 1×1 without SSAO, [Post-processing](post-processing.md#ambient-occlusion-binding)) | `FrameContext` (per frame slot and view) |
+| 0 | b0 camera (`FrameData`, 576 B), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)), b5 screen-space ambient occlusion (white 1×1 without SSAO, [Post-processing](post-processing.md#ambient-occlusion-binding)) | `FrameContext` (per frame slot and view) |
 | 1 | shadow uniforms + maps (`ShadowSystem` or the fallback) | shadows |
 | 2 | material: b0 parameters UBO (96 B, device-local), b1 one `sampler`, b2–b5 albedo/normal/emission/ORM `texture2D` (1×1 fallbacks; the ORM one is linear white) | `MaterialGpu` |
 | 2 (terrain splat) | b0 `TerrainSplatParams` (304 B), b1–b2 layer and map `sampler`s, b3–b5 albedo/normal/ORM `texture2DArray`, b6–b7 splat maps (1×1 zero fallbacks: layer 0 everywhere) | `TerrainSplatGpu` (`MaterialGpu.Splat`) |

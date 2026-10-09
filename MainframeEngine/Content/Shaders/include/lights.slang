@@ -1,6 +1,9 @@
 // Shading with the lights UBO (lights_data.slang) and shadows: Blinn-Phong (StandardMaterial3D's default, Spine) and
 // PBR (ShadingMode.Pbr, ADR 0150: Cook-Torrance GGX + Lambert, ambient from the sky's image-based lighting).
 // Include shadows.slang first. Define LIGHTS_SET / LIGHTS_BINDING before including to override where the UBO lives.
+// Screen-space ambient occlusion (ADR 0165): the overloads taking `ssao` (ambientOcclusionAt) apply it to the ambient and
+// reflected light (and, by the world's light affect, to direct light); without SSAO it is exactly 1 and they shade
+// bit-exactly as the overloads without it.
 #pragma once
 
 #include "common.slang"
@@ -11,6 +14,7 @@
 
 #include "lights_data.slang"
 #include "environment.slang"
+#include "ambient_occlusion.slang"
 
 float attenuate(float dist, float range)
 {
@@ -65,25 +69,27 @@ float3 calcSpot(SpotLight l, float3 N, float3 V, float3 pos, float3 base, float 
 // Ambient + every light, each shadowed by its map when it has one (ShadowSystem decides which lights cast).
 // `specular` scales the Blinn-Phong highlight of exponent `shininess` (materials: StandardMaterial3D). `Ngeo` is the
 // geometric normal, used for the shadow receivers' normal offset (a normal-mapped N would make it noisy). The ambient
-// term is the sky's irradiance when the world's AmbientSource is Sky, else the ambient colour.
-float3 shadeLightsBlinnPhong(float3 base, float3 N, float3 Ngeo, float3 worldPos, float specular, float shininess)
+// term is the sky's irradiance when the world's AmbientSource is Sky, else the ambient colour. `ambientAo` scales the
+// ambient term, `directAo` every light (both 1 in the overload without them).
+float3 shadeLightsBlinnPhong(float3 base, float3 N, float3 Ngeo, float3 worldPos, float specular, float shininess,
+                             float ambientAo, float directAo)
 {
     float3 V = normalize(lights.cameraPosition.xyz - worldPos);
-    float3 result = iblDiffuse(N) * base;
+    float3 result = iblDiffuse(N) * base * ambientAo;
     bool shadowsOn = lights.counts.w == 0;
 
     for (int i = 0; i < lights.counts.x; i++)
     {
         float3 L      = normalize(-lights.dir[i].directionIntensity.xyz);
         float  shadow = shadowsOn ? dirShadow(i, worldPos, Ngeo, L) : 1.0;
-        shadow = lerp(1.0, shadow, lights.dir[i].color.w); // Godot: a full shadow keeps 1 - opacity of the light
+        shadow = lerp(1.0, shadow, lights.dir[i].color.w) * directAo; // Godot: a full shadow keeps 1 - opacity of the light
         result += calcDir(lights.dir[i], N, V, base, shadow, specular, shininess);
     }
 
     for (int i = 0; i < lights.counts.y; i++)
     {
         float4 pr     = lights.point[i].positionRange;
-        float  shadow = shadowsOn ? pointShadow(i, worldPos, Ngeo, pr.xyz, pr.w) : 1.0;
+        float  shadow = (shadowsOn ? pointShadow(i, worldPos, Ngeo, pr.xyz, pr.w) : 1.0) * directAo;
         result += calcPoint(lights.point[i], N, V, worldPos, base, shadow, specular, shininess);
     }
 
@@ -92,13 +98,24 @@ float3 shadeLightsBlinnPhong(float3 base, float3 N, float3 Ngeo, float3 worldPos
         float3 lightPos = lights.spot[i].positionRange.xyz;
         float3 L        = normalize(lightPos - worldPos);
         float  shadow   = shadowsOn ? spotShadow(i, worldPos, Ngeo, L, lightPos) : 1.0;
-        shadow = lerp(1.0, shadow, lights.spot[i].outerPad.y);
+        shadow = lerp(1.0, shadow, lights.spot[i].outerPad.y) * directAo;
         result += calcSpot(lights.spot[i], N, V, worldPos, base, shadow, specular, shininess);
     }
 
     if (shadowsOn)
         result *= shadowCascadeTint(worldPos);
     return result;
+}
+
+float3 shadeLightsBlinnPhong(float3 base, float3 N, float3 Ngeo, float3 worldPos, float specular, float shininess)
+{
+    return shadeLightsBlinnPhong(base, N, Ngeo, worldPos, specular, shininess, 1.0, 1.0);
+}
+
+// With the screen-space AO at this fragment (ambientOcclusionAt): the ambient term × ssao, the lights × ssaoDirect.
+float3 shadeLightsBlinnPhong(float3 base, float3 N, float3 Ngeo, float3 worldPos, float specular, float shininess, float ssao)
+{
+    return shadeLightsBlinnPhong(base, N, Ngeo, worldPos, specular, shininess, ssao, ssaoDirect(ssao));
 }
 
 // The default highlight (strength 0.3, exponent 32): Spine and anything without a material.
@@ -160,7 +177,9 @@ float3 pbrLight(PbrSurface s, float3 F0, float a2, float3 V, float NdotV, float3
 // Cook-Torrance (GGX, Smith height-correlated, Schlick Fresnel with F0 = lerp(0.04, albedo, metallic)) + Lambert ×
 // (1 − F)(1 − metallic) for every light, with the Blinn-Phong path's shadows, shadow opacity and cascade tint; ambient
 // is the sky's image-based lighting (iblDiffuse, iblSpecular × the split-sum BRDF) × ao, or the ambient colour.
-float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos)
+// `diffuseAo` replaces s.ao on the ambient term, `specularRatio` scales the reflections further and `directAo` every
+// light (the overloads below fill them in).
+float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos, float diffuseAo, float specularRatio, float directAo)
 {
     float3 V         = normalize(lights.cameraPosition.xyz - worldPos);
     float  roughness = clamp(s.roughness, 0.045, 1.0); // α ≥ 0.002: no sub-pixel highlights (specular aliasing)
@@ -173,14 +192,14 @@ float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos)
     float2 envBrdf = iblBrdf(NdotV, roughness);
     float3 R = reflect(-V, s.N);
     float3 result = (iblDiffuse(s.N) * s.albedo * (1.0 - s.metallic) +
-                     iblSpecular(R, roughness) * (F0 * envBrdf.x + envBrdf.y)) * s.ao;
+                     iblSpecular(R, roughness) * (F0 * envBrdf.x + envBrdf.y) * specularRatio) * diffuseAo;
 
     for (int i = 0; i < lights.counts.x; i++)
     {
         DirLight l    = lights.dir[i];
         float3   L    = normalize(-l.directionIntensity.xyz);
         float  shadow = shadowsOn ? dirShadow(i, worldPos, Ngeo, L) : 1.0;
-        shadow = lerp(1.0, shadow, l.color.w);
+        shadow = lerp(1.0, shadow, l.color.w) * directAo;
         result += pbrLight(s, F0, a2, V, NdotV, L, l.color.xyz * l.directionIntensity.w * shadow);
     }
 
@@ -189,7 +208,7 @@ float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos)
         PointLight l   = lights.point[i];
         float3 toLight = l.positionRange.xyz - worldPos;
         float  dist    = length(toLight);
-        float  shadow  = shadowsOn ? pointShadow(i, worldPos, Ngeo, l.positionRange.xyz, l.positionRange.w) : 1.0;
+        float  shadow  = (shadowsOn ? pointShadow(i, worldPos, Ngeo, l.positionRange.xyz, l.positionRange.w) : 1.0) * directAo;
         float  atten   = attenuate(dist, l.positionRange.w);
         result += pbrLight(s, F0, a2, V, NdotV, toLight / max(dist, 1e-4), l.colorIntensity.xyz * l.colorIntensity.w * atten * shadow);
     }
@@ -202,7 +221,7 @@ float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos)
         float  dist     = length(toLight);
         float3 L        = toLight / max(dist, 1e-4);
         float  shadow   = shadowsOn ? spotShadow(i, worldPos, Ngeo, L, lightPos) : 1.0;
-        shadow = lerp(1.0, shadow, l.outerPad.y);
+        shadow = lerp(1.0, shadow, l.outerPad.y) * directAo;
         float  atten    = attenuate(dist, l.positionRange.w) * spotCone(l, L);
         result += pbrLight(s, F0, a2, V, NdotV, L, l.colorInner.xyz * l.directionIntensity.w * atten * shadow);
     }
@@ -210,4 +229,20 @@ float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos)
     if (shadowsOn)
         result *= shadowCascadeTint(worldPos);
     return result;
+}
+
+float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos)
+{
+    return shadeLightsPbr(s, Ngeo, worldPos, s.ao, 1.0, 1.0);
+}
+
+// With the screen-space AO at this fragment (ambientOcclusionAt, ADR 0165): the ambient term × ssaoCombine(s.ao, ssao),
+// the reflections also × the specular-occlusion ratio, the lights × ssaoDirect.
+float3 shadeLightsPbr(PbrSurface s, float3 Ngeo, float3 worldPos, float ssao)
+{
+    float3 V         = normalize(lights.cameraPosition.xyz - worldPos);
+    float  roughness = clamp(s.roughness, 0.045, 1.0);
+    float  NdotV     = max(dot(s.N, V), 1e-4);
+    return shadeLightsPbr(s, Ngeo, worldPos, ssaoCombine(s.ao, ssao), ssaoSpecularRatio(NdotV, ssao, roughness * roughness),
+                          ssaoDirect(ssao));
 }

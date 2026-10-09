@@ -1,4 +1,4 @@
-// Per-frame shared set 0, binding 0: the camera (FrameContext / FrameData in C#, std140, 560 bytes).
+// Per-frame shared set 0, binding 0: the camera (FrameContext / FrameData in C#, std140, 576 bytes).
 // Binding 1 of the same set is the lights UBO (lights.slang, default LIGHTS_SET 0 / LIGHTS_BINDING 1), bindings 2-4 the
 // sky lighting (environment.slang), binding 5 the screen-space ambient occlusion (ambient_occlusion.slang).
 // With TAA (ADR 0163) projection, viewProjection and invProjection are jittered; prevViewProjection is last frame's
@@ -27,6 +27,7 @@ struct FrameData
     float4 temporal;          // x = last frame's time (s), y = 1 when the prev* fields are last frame's, z = jitter sample index
     float4 prevWind;          // last frame's wind (foliage motion vectors)
     float4 prevWindParams;    // last frame's windParams
+    float4 ambientOcclusion;  // SSAO (ADR 0165): x = light affect, y = AO channel affect, z = 1 when bound; 0 without
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<FrameData> frame;

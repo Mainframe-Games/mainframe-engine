@@ -50,7 +50,18 @@ public sealed class RenderServer : IServer
     {
         Renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         ForceDepthPrepass = Environment.GetEnvironmentVariable(DepthPrepassVariable) is "1" or "on" or "true";
+        _startDebugView = Environment.GetEnvironmentVariable(DebugViewVariable) switch
+        {
+            "velocity" => RenderDebugView.Velocity,
+            "ao" or "ssao" => RenderDebugView.AmbientOcclusion,
+            _ => RenderDebugView.None,
+        };
     }
+
+    /// <summary>Set to <c>velocity</c> or <c>ao</c> to start with that <see cref="DebugView"/> (tuning, QA).</summary>
+    public const string DebugViewVariable = "MAINFRAME_DEBUG_VIEW";
+
+    private RenderDebugView _startDebugView; // applied once the Vulkan renderer exists
 
     public IRenderer Renderer { get; }
 
@@ -69,7 +80,8 @@ public sealed class RenderServer : IServer
 
     /// <summary>
     /// Replaces the main view's final image with an intermediate buffer (ADR 0163): <see cref="RenderDebugView.Velocity"/>
-    /// shows the motion vectors (and runs the depth prepass).
+    /// shows the motion vectors (and runs the depth prepass), <see cref="RenderDebugView.AmbientOcclusion"/> the SSAO
+    /// (ADR 0165). <c>MAINFRAME_DEBUG_VIEW</c> (<see cref="DebugViewVariable"/>) sets it at start-up.
     /// </summary>
     public RenderDebugView DebugView
     {
@@ -80,6 +92,9 @@ public sealed class RenderServer : IServer
                 host.DebugView = value;
         }
     }
+
+    /// <summary>GPU time of the SSAO passes (ADR 0165) in a recent frame, in milliseconds (0 while SSAO is off or untimed).</summary>
+    public double SsaoGpuMilliseconds => PostEffects?.Find<SsaoEffect>() is { IsCreated: true } ssao ? ssao.LastGpuMilliseconds : 0;
 
     /// <summary>The main view's post effects (ADR 0163), or null without a Vulkan renderer.</summary>
     internal PostProcessStack? PostEffects => (Vulkan as IPostProcessHost)?.PostEffects;
@@ -472,7 +487,15 @@ public sealed class RenderServer : IServer
         vk.PostProcess = root.World3D.Environment?.PostProcess ?? PostProcessSettings.Default; // a struct copy
         var needs = PostEffectNeeds.None;
         if (vk is IPostProcessHost host)
+        {
+            if (_startDebugView != RenderDebugView.None)
+            {
+                host.DebugView = _startDebugView;
+                _startDebugView = RenderDebugView.None;
+            }
+
             needs = host.PostEffects.GetNeeds(host.PostSettings);
+        }
         if (ForceDepthPrepass)
             needs |= PostEffectNeeds.DepthPrepass;
         if (ForceProjectionJitter)

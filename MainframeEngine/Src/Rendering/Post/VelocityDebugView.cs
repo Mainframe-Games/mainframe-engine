@@ -14,14 +14,21 @@ public enum RenderDebugView
     /// Written as display values, so captures decode to the nearest 1/255 (<see cref="VelocityDebugView.Decode"/>).
     /// </summary>
     Velocity,
+
+    /// <summary>
+    /// The screen-space ambient occlusion the lit shaders read this frame (ADR 0165) as grey, display value = AO
+    /// (white = unoccluded). Shows the scene as it is while the world's SSAO is off.
+    /// </summary>
+    AmbientOcclusion,
 }
 
 /// <summary>
 /// <see cref="RenderDebugView.Velocity"/> as the last <see cref="PostStage.AfterTonemap"/> effect (ADR 0163): draws the
 /// velocity image into the swapchain, encoded as <c>0.5 + v × </c><see cref="Scale"/> (<c>Post/VelocityView.vk.frag</c>).
-/// It needs velocity, so it turns the prepass on. Allocates nothing per frame.
+/// It needs velocity, so it turns the prepass on. <see cref="RenderDebugView.AmbientOcclusion"/> (ADR 0165) draws
+/// <paramref name="ssao"/>'s output instead, on frames it drew. Allocates nothing per frame.
 /// </summary>
-internal sealed unsafe class VelocityDebugView() : PostEffect("velocity view", PostStage.AfterTonemap, PostEffectOrder.DebugView)
+internal sealed unsafe class VelocityDebugView(SsaoEffect? ssao = null) : PostEffect("velocity view", PostStage.AfterTonemap, PostEffectOrder.DebugView)
 {
     /// <summary>Display units per screen-UV unit of motion: ±0.5 / 16 = ±1/32 of the screen per frame is the visible range.</summary>
     public const float Scale = 16f;
@@ -43,7 +50,8 @@ internal sealed unsafe class VelocityDebugView() : PostEffect("velocity view", P
 
     public override PostEffectNeeds Needs => PostEffectNeeds.Velocity;
 
-    public override bool IsEnabled(in PostEffectSettings settings) => settings.DebugView == RenderDebugView.Velocity;
+    public override bool IsEnabled(in PostEffectSettings settings) =>
+        settings.DebugView == RenderDebugView.Velocity || (settings.DebugView == RenderDebugView.AmbientOcclusion && ssao is not null);
 
     protected override void OnCreate(PostEffectContext context)
     {
@@ -84,8 +92,11 @@ internal sealed unsafe class VelocityDebugView() : PostEffect("velocity view", P
         var vk = _ctx.Vk;
         var cb = context.CommandBuffer;
         var scene = context.Scene;
-        var hasVelocity = scene.HasPrepass && scene.Velocity.Handle != 0;
-        var velocity = hasVelocity ? scene.Velocity : scene.Ldr; // a placeholder in the right layout when there is none
+        var showAo = context.Settings.DebugView == RenderDebugView.AmbientOcclusion;
+        var hasVelocity = showAo
+            ? ssao is { IsCreated: true } && ssao.DrawnFrame == context.FrameNumber
+            : scene.HasPrepass && scene.Velocity.Handle != 0;
+        var velocity = !hasVelocity ? scene.Ldr : showAo ? ssao!.OutputView : scene.Velocity; // Ldr: a placeholder in the right layout
         var set = GetSet(scene.Ldr, velocity);
 
         var pass = context.OutputRenderPass;
@@ -99,7 +110,7 @@ internal sealed unsafe class VelocityDebugView() : PostEffect("velocity view", P
         var push = new ViewPush
         {
             Scale = Scale,
-            Flags = (hasVelocity ? 1u : 0u) | (context.OutputEncodesSrgb ? 2u : 0u),
+            Flags = (hasVelocity ? 1u : 0u) | (context.OutputEncodesSrgb ? 2u : 0u) | (showAo ? 4u : 0u),
         };
         vk.CmdPushConstants(cb, _layout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(ViewPush), &push);
         PipelineBuilder.SetViewport(vk, cb, scene.Extent, flipY: false);

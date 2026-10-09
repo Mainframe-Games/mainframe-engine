@@ -105,6 +105,16 @@ public static class ForestScene
         LightShaftsIntensity = 2.3f, // the morning haze in the canopy: strong rays through every sky gap near the sun
         LightShaftsDecay = 0.965f,
         LightShaftsDensity = 0.85f,
+
+        // GTAO (ADR 0165): trunks, rocks, ferns and grass sit in the ground and the shade under the canopy deepens; near
+        // the physical value (intensity and power close to 1) and a short radius, so there are no dark halos.
+        SsaoEnabled = true,
+        SsaoRadius = 0.8f,
+        SsaoIntensity = 1.1f,
+        SsaoPower = 1.2f,
+        SsaoDetail = 0.4f,
+        SsaoHorizon = 0.06f,
+        SsaoSharpness = 0.98f,
     };
 
     private static void BuildPlayer(Node root)
