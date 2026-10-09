@@ -50,6 +50,9 @@ public sealed record HostResult
     /// <summary>Pipeline-cache bytes the renderer accepted from disk at startup (0 = cold cache).</summary>
     public int PipelineCacheLoadedBytes { get; init; }
 
+    /// <summary>Whether the pipeline cache loaded its file on a background thread (MoltenVK, ADR 0176).</summary>
+    public bool PipelineCacheLoadsInBackground { get; init; }
+
     /// <summary>GPU allocator totals at the end of the run (before teardown).</summary>
     public int GpuDeviceMemoryCount { get; init; }
     public int GpuAllocationCount { get; init; }

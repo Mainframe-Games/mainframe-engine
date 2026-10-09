@@ -193,7 +193,7 @@ mid-run (`SwapchainRecreationOnResizeAndVSyncToggleIsClean`) with the validation
 `Dispose()` is idempotent and tolerates partially initialised state: `DeviceWaitIdle` → shadow
 fallback, capture buffer, frame context → presentation (scene target, tonemap, passes, views) →
 swapchain → flush the deletion queue → upload queue → allocator (frees every block) → shader modules →
-pipeline cache (**saves the file**) → semaphores and fences → command pool → device → debug messenger
+pipeline cache (**saves the file**; first waits for a MoltenVK background load still running, ADR 0176) → semaphores and fences → command pool → device → debug messenger
 (only if it was created) → surface → instance → `Vk.Dispose()` → validation handle. The game must
 dispose its own GPU objects (shadow system, sky, grid, nodes) **before** `base.OnClose()` disposes the
 renderer; renderer-owned objects defer to the deletion queue, so their `Dispose` never waits.

@@ -253,6 +253,7 @@ public abstract class RenderTestGame : Engine
         var validation = Vulkan.Validation;
         var gpu = Vulkan.Allocator.Totals;
         var pipelineCacheBytes = Vulkan.Pipelines.LoadedBytes;
+        var pipelineCacheInBackground = Vulkan.Pipelines.LoadsInBackground;
         var shaderModules = Vulkan.Shaders.Count;
         Vulkan.Vk.GetPhysicalDeviceProperties(Vulkan.PhysicalDevice, out var props);
         var meshStats = Servers.Render?.MeshStats ?? default;
@@ -282,6 +283,7 @@ public abstract class RenderTestGame : Engine
             ContentScale = _host.Scale,
             SceneCheckFailures = _checkFailures,
             PipelineCacheLoadedBytes = pipelineCacheBytes,
+            PipelineCacheLoadsInBackground = pipelineCacheInBackground,
             GpuDeviceMemoryCount = gpu.DeviceMemoryCount,
             GpuAllocationCount = gpu.AllocationCount,
             GpuReservedBytes = (long)gpu.ReservedBytes,
