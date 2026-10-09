@@ -79,7 +79,8 @@ internal sealed class InstanceBuffer : IDisposable
 }
 
 /// <summary>
-/// Descriptor sets of one layout (material set 2: a UBO, a sampler and four images): fixed-size pools created with FREE_DESCRIPTOR_SET and a new
+/// Descriptor sets of one layout (material set 2: a UBO, a sampler and four images; the terrain splat set: a UBO, two
+/// samplers and five images): fixed-size pools created with FREE_DESCRIPTOR_SET and a new
 /// pool when every pool is full. A freed set is returned to its pool once the frames that may still bind it have
 /// finished (tracked like the <see cref="DeletionQueue"/>, by frame number), so each pool's live count is exact
 /// and allocation never has to probe a full pool.
@@ -96,14 +97,20 @@ internal sealed unsafe class MaterialDescriptorAllocator : IDisposable
 
     private readonly IVulkanContext _ctx;
     private readonly DescriptorSetLayout _layout;
+    private readonly int _samplers;
+    private readonly int _images;
     private readonly List<PoolEntry> _pools = [];
     private readonly Queue<(ulong Frame, PoolEntry Pool, DescriptorSet Set)> _pendingFrees = new();
     private bool _disposed;
 
-    public MaterialDescriptorAllocator(IVulkanContext ctx, DescriptorSetLayout layout)
+    /// <param name="samplers">Sampler descriptors per set.</param>
+    /// <param name="images">Sampled-image descriptors per set.</param>
+    public MaterialDescriptorAllocator(IVulkanContext ctx, DescriptorSetLayout layout, int samplers = 1, int images = 4)
     {
         _ctx = ctx;
         _layout = layout;
+        _samplers = samplers;
+        _images = images;
     }
 
     public int PoolCount => _pools.Count;
@@ -182,8 +189,8 @@ internal sealed unsafe class MaterialDescriptorAllocator : IDisposable
     {
         var sizes = stackalloc DescriptorPoolSize[3];
         sizes[0] = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = SetsPerPool };
-        sizes[1] = new DescriptorPoolSize { Type = DescriptorType.Sampler, DescriptorCount = SetsPerPool };
-        sizes[2] = new DescriptorPoolSize { Type = DescriptorType.SampledImage, DescriptorCount = SetsPerPool * 4 }; // albedo, normal, emission, ORM
+        sizes[1] = new DescriptorPoolSize { Type = DescriptorType.Sampler, DescriptorCount = (uint)(SetsPerPool * _samplers) };
+        sizes[2] = new DescriptorPoolSize { Type = DescriptorType.SampledImage, DescriptorCount = (uint)(SetsPerPool * _images) };
         var info = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,

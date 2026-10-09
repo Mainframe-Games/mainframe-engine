@@ -33,6 +33,7 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `Material`, `StandardMaterial3D`, `MaterialRenderState`, `AlphaMode`, `CullMode`, `ShadingMode` | [Material.cs](../../MainframeEngine/Src/Rendering/Resources/Material.cs) | Surface shading; the state that selects a pipeline |
 | `FoliageMaterial3D`, `FoliageBackFace` | [FoliageMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/FoliageMaterial3D.cs) | Leaves, grass, bark: vertex wind, cutout, translucency (ADR 0151) |
 | `WaterMaterial3D`, `WaterTextures` | [WaterMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs) | Rivers and ponds: flow ripples, reflection, absorption, foam (ADR 0159, [water.md](water.md#watermaterial3d)) |
+| `TerrainSplatMaterial3D`, `TerrainLayer` | [TerrainSplatMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainSplatMaterial3D.cs), [TerrainLayer.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainLayer.cs) | The Realistic terrain's look: up to 8 splat-weighted PBR layers in texture arrays, its own set 2 and pipeline layout (ADR 0156, [Terrain](terrain.md#terrainsplatmaterial3d)) |
 | `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.meta` (see [Asset pipeline](asset-pipeline.md)) |
 | `Texture2DArray`, `Texture2DArrayGpu` (internal) | [Texture2DArray.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2DArray.cs) | Layers of one size on a `2D_ARRAY` image (ADR 0151) |
 | `MultiMesh` | [MultiMesh.cs](../../MainframeEngine/Src/Rendering/Resources/MultiMesh.cs) | Many transforms of one mesh (ADR 0151) |
@@ -134,7 +135,7 @@ Each property setter bumps `Material.Version`. On the next frame the renderer:
 - re-resolves the pipelines if `RenderState` changed.
 
 `StandardMaterial3D.Default` (white, lit, opaque) is used when a surface has no material. Other `Material`
-subclasses (apart from `OutlineMaterial3D`, `FoliageMaterial3D` and `WaterMaterial3D`, below) are not supported by the renderer yet:
+subclasses (apart from `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D` and `TerrainSplatMaterial3D`, below) are not supported by the renderer yet:
 they draw with the default material and log a warning once.
 
 ### Next passes and OutlineMaterial3D (ADR 0132)
@@ -195,6 +196,25 @@ shadow. It reuses the `StandardMaterial3D` set-2 layout (`MaterialParams.From(Wa
 the foam mask, the normal slot the ripple normals, both built in when null: `WaterTextures`). The shading, exports and
 packing are in [water.md](water.md#watermaterial3d).
 
+### TerrainSplatMaterial3D (ADR 0156)
+
+The Realistic terrain's material; the shading and properties are in [Terrain](terrain.md#terrainsplatmaterial3d). In
+the mesh renderer it is the one material with **its own set 2**, kept to two contained changes:
+
+- `MeshRenderer.TerrainSplat.cs` (a partial of `MeshRenderer`) owns a second set layout (b0 `TerrainSplatParams` UBO,
+  304 B; b1 layer sampler: linear, repeat, anisotropic, mipmapped; b2 map sampler: linear, clamp; b3–b5 the albedo,
+  normal and ORM `Texture2DArray`s; b6–b7 the terrain's two splat maps), a second pipeline layout
+  (`Frame.CreatePipelineLayout(shadows, [splat layout])`, so sets 0 and 1 and the push range are identical to the mesh
+  layout's and stay bound) and its own `MaterialDescriptorAllocator` (pools sized per layout). `PrepareMaterial`
+  calls `PrepareSplat` for splat materials: re-pack the arrays when `TerrainLayerPacker.ContentStamp` (layer
+  textures and their versions, the size) changes, follow the terrain's weight maps through the shared texture cache,
+  upload the parameters on a material version change, rewrite the set when an image moved.
+- `ShaderSetId.MeshTerrainSplat` (`Mesh/Mesh.vk.vert` + `Terrain/TerrainSplat.vk.frag`, `MeshInstanced` layout): the
+  pipeline factory picks the splat pipeline layout for it, and `DrawList` binds `MaterialGpu.Splat.Set` with that
+  layout for its colour draws. The material also keeps an ordinary default set 2, which the object-ID pass binds with
+  the shared layout; shadow casters are opaque and bind no material. Draws sort by pipeline first, so the layout
+  switch happens once per list.
+
 ### Texture2D
 
 Images load through `ResourceLoader` with their `.meta` import settings (see
@@ -223,7 +243,7 @@ layers (wave 2):
   with `Auto` = sRGB for colour use, mipmaps, filter, wrap, anisotropy);
 - on the GPU: `GpuTexture.Create2DArray` (one image, `ArrayLayers` = layers, a `2D_ARRAY` view, mips blitted for every
   layer). `Texture2DArrayGpu` is the `TextureGpu`-shaped helper (`Update()` uploads on a version change) that the
-  material binding it owns. No material binds one yet;
+  material binding it owns: `TerrainSplatMaterial3D`'s three layer arrays;
 - runtime-only: the pixels are not saved with scenes.
 
 ## Nodes
@@ -349,7 +369,7 @@ culling and `gl_FrontFacing` right under negative scale.
 
 `GetOrCreate` creates a pipeline on the first request through the persisted `VkPipelineCache`. Each pipeline gets
 a dense id for the sort keys, and the pipelines live until disposal. Lookups don't allocate. Each `MaterialGpu`
-caches its 32 entries (the 4 shader sets × [surface, extra pass] × [normal, mirrored] × [no stream, stream]), so
+caches its 40 entries (the 5 shader sets × [surface, extra pass] × [normal, mirrored] × [no stream, stream]), so
 steady-state frames don't even hash.
 
 `PipelineKey.ExtraPass` marks next-pass and overlay pipelines, whose depth compare is less-or-equal instead of less.
@@ -361,6 +381,7 @@ steady-state frames don't even hash.
 | `MeshOutline` | `Mesh/MeshOutline.vk.vert` + `Mesh/Mesh.vk.frag` (`OutlineMaterial3D` in colour passes) | the scene pass |
 | `MeshFoliage` | `Foliage/Foliage.vk.vert` + `Foliage/Foliage.vk.frag` (`FoliageMaterial3D`; always `MeshInstancedExt`) | the scene pass |
 | `MeshWater` | `Water/Water.vk.vert` + `Water/Water.vk.frag` (`WaterMaterial3D`; always `MeshInstancedExt`) | the scene pass |
+| `MeshTerrainSplat` | `Mesh/Mesh.vk.vert` + `Terrain/TerrainSplat.vk.frag` (`TerrainSplatMaterial3D`; its own pipeline layout) | the scene pass |
 
 `MeshLit` with `VertexLayoutId.MeshInstancedExt` uses `Mesh/MeshExt.vk.vert` and sets specialization constant 1
 (vertex colour) of `Mesh.vk.frag`.
@@ -372,6 +393,7 @@ steady-state frames don't even hash.
 | 0 | b0 camera (`FrameData`), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)) | `FrameContext` (per frame slot and view) |
 | 1 | shadow uniforms + maps (`ShadowSystem` or the fallback) | shadows |
 | 2 | material: b0 parameters UBO (96 B, device-local), b1 one `sampler`, b2–b5 albedo/normal/emission/ORM `texture2D` (1×1 fallbacks; the ORM one is linear white) | `MaterialGpu` |
+| 2 (terrain splat) | b0 `TerrainSplatParams` (304 B), b1–b2 layer and map `sampler`s, b3–b5 albedo/normal/ORM `texture2DArray`, b6–b7 splat maps (1×1 zero fallbacks: layer 0 everywhere) | `TerrainSplatGpu` (`MaterialGpu.Splat`) |
 | binding 1 (vertex) | per-instance model matrix + object id | `InstanceBuffer`, or a `MultiMeshGpu` |
 | binding 2 (vertex) | the second stream: RGBA8 colour + float4 custom0 | `MeshGpu.Streams` |
 
@@ -379,7 +401,8 @@ The material set uses a single `sampler` with separate `texture2D`s. Before M4 t
 fragment stage within MoltenVK's limit of 16 samplers
 ([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The fragment stage now uses 13 images and 10
 samplers (shadows 6 combined, material 1 sampler + 4 images, sky lighting 3 combined), within the G6 budget of 16 and 4
-sets ([rendering-features.md](future/rendering-features.md#binding-budget)). The sampler is that of the material's
+sets ([rendering-features.md](future/rendering-features.md#binding-budget)); the terrain splat set makes it 14 images and
+11 samplers (2 samplers + 5 images instead of 1 + 4). The sampler is that of the material's
 first texture. A material's set is never updated in place, because frames in flight may still bind it. Instead, a
 new set is written, and the old one is freed by `MaterialDescriptorAllocator` once its frame has completed. The
 allocator's pools are freeable and their live counts are exact.
@@ -518,7 +541,7 @@ Measured on an Apple M5 with MoltenVK:
 - PBR is opt-in (`ShadingMode.Pbr`); imported glTF materials stay Blinn-Phong (their metallic/roughness/occlusion are not
   imported yet). No `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
 - `Sprite3D` has no billboard mode.
-- Only `StandardMaterial3D`, `OutlineMaterial3D`, `FoliageMaterial3D` and `WaterMaterial3D` are rendered. Custom shaders and other
+- Only `StandardMaterial3D`, `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D` and `TerrainSplatMaterial3D` are rendered. Custom shaders and other
   material types come later.
 - Foliage wind does not bend normals, and the object-ID pass draws foliage unswayed.
 - Visibility ranges have no margins or fade.

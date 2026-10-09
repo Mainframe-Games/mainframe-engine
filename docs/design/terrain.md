@@ -6,12 +6,12 @@
 per-chunk trimesh collision built from the exact render triangles, exact height/normal/surface/water queries and an
 analytic raycast. Layers live as PNG images next to the scene. This is the core of G8a ([proposal](future/terrain.md),
 [ADR 0149](../../memory/decisions/0149-terrain-trees-water-engine-features.md),
-[ADR 0153](../../memory/decisions/0153-terrain3d-core.md)); the design is modelled on
+[ADR 0153](../../memory/decisions/0153-terrain3d-core.md), [ADR 0156](../../memory/decisions/0156-terrain-splat-material.md)); the design is modelled on
 [TerraBrush](https://github.com/spimort/TerraBrush) (MIT, © 2023 spimort) — no TerraBrush code or art is used.
 
 Built so far: the data and its files, both profiles' knobs, the Realistic profile's geometry (smooth normals,
 geomipmapped chunk LOD with skirts), collision (`CollisionMode.All`), queries, the edit API with undo tiles, and the
-scene-save hook. Not yet: the splat material (`TerrainSplatMaterial3D`, wave 2), the Faceted material
+scene-save hook, and the Realistic look (`TerrainSplatMaterial3D` with `TerrainLayer`s). Not yet: the Faceted material
 (`TerrainMaterial3D`), foliage/object scatter, the editor dock and brushes, `CollisionMode.NearBodies` (a stub that
 builds every chunk) and sub-rectangle texture uploads.
 
@@ -28,6 +28,8 @@ All in [`Src/Scene/Nodes3D/Terrain/`](../../MainframeEngine/Src/Scene/Nodes3D/Te
 | `TerrainEdit`, `TerrainEditRecord`, `TerrainEditTile` | `Begin(layers)` / `End()`: before/after chunk tiles, `Undo()` / `Redo()` |
 | `TerrainProfile`, `TerrainDiagonal`, `TerrainLayers`, `TerrainCollisionMode` | enums |
 | `TerrainHit`, `TerrainChange` | `(Position, Normal, Distance)`; `(Layers, Cells, Chunks, FromUndo)` |
+| `TerrainLayer : Resource`, `TerrainSplatMaterial3D : Material` | the Realistic look ([below](#terrainsplatmaterial3d); in `Src/Rendering/Resources/`) |
+| `TerrainLayerPacker`, `TerrainSplatGpu`, `TerrainSplatParams` (internal) | layer arrays, GPU state, parameter block (`Src/Rendering/Terrain/`) |
 
 ## Coordinates and grid
 
@@ -115,6 +117,53 @@ keeps them (an edit made meanwhile refreshes every chunk on re-entry).
   level the camera sees. Allocation-free.
 - **Faceted** builds one level and no skirts.
 
+## TerrainSplatMaterial3D
+
+The Realistic look (ADR 0156): `Terrain3D.Material = new TerrainSplatMaterial3D { Layers = [...] }`. Assigning it links
+the material to the terrain (`TerrainSplatMaterial3D.Terrain`, runtime only; a scene load links it again), and the
+chunks draw it with the terrain's splat maps; no other wiring. Another mesh, or a Faceted terrain, draws layer 0.
+
+| `TerrainLayer` | Default | What |
+|---|---|---|
+| `Name`, `Tag` | "" | display name; game key (`Terrain3D.SurfaceTagAt(x, z)` returns the strongest layer's tag: footsteps) |
+| `Albedo`, `Normal`, `Orm`, `Height` | null | sRGB colour; OpenGL normal map; occlusion/roughness/metallic; optional height (R) |
+| `TilingMeters` | 4 | world metres per repeat (layer UV = world XZ ÷ tiling) |
+| `HeightBlendContrast` | 0.2 | 0 = the higher layer wins outright; 1 = a soft weight blend |
+| `Tint`, `NormalScale` | white, 1 | multiplies the albedo; scales the normal map's slopes |
+
+| `TerrainSplatMaterial3D` | Default | What |
+|---|---|---|
+| `Layers` | [] | up to `MaxLayers` (8); index = splat channel (0–3 in `splat-0.png`, 4–7 in `splat-1.png`) |
+| `LayerTextureSize` | 1024 | packed size of every layer image (3 × 8 × 1024² RGBA8 with mips ≈ 128 MB; 512 is a quarter) |
+| `TriplanarStartDegrees` / `EndDegrees` | 35° / 45° | slope range over which every layer fades from planar to triplanar |
+| `AntiTiling` | true | hex-tiling in the near band |
+| `DetailDistance` / `FarDistance` / `FarTilingScale` | 60 m / 150 m / 4 | the near band to `DetailDistance`, the far band past `FarDistance`, both blended between |
+| `MacroStrength` / `MacroScaleMeters` | 0.15 / 48 m | low-frequency brightness and warmth variation |
+
+- **Packing** (`TerrainLayerPacker`, on the render thread when the layers' textures change): three `Texture2DArray`s of
+  `LayerTextureSize`² with full GPU mips — albedo (sRGB), normal and ORM (linear) — one layer per `TerrainLayer`.
+  Images of another size are box-filtered down or bilinearly resampled up with wrapping (the layers tile). Missing
+  textures pack as white albedo, a flat normal and ORM (1, 0.9, 0).
+- **Height** (the albedo array's alpha) comes from `Height` when set; else the albedo's own alpha when it has one (any
+  texel below 255: the common "albedo + height" packing, also Godot Terrain3D's); else the ORM's occlusion (crevices are
+  low); else 0.5.
+- **Per fragment** (`Terrain/TerrainSplat.vk.frag`): both splat maps bilinear at the chunk UV → the four strongest
+  weights (two in the far band; nothing painted = layer 0) → each layer sampled: planar on world XZ with an analytic
+  frame (+X, +Z), hex-tiled in the near band, and/or triplanar (three plain lookups weighted by |N|⁴) on slopes →
+  height blending `wᵢ' = max(hᵢ + wᵢ − (maxⱼ(hⱼ + wⱼ) − contrastᵢ), 0)`, normalised → albedo × tint, ORM, normals
+  blended in world space after a whiteout blend per projection (Golus) → macro noise → `shadeLightsPbr` →
+  `applyFog`. Every lookup is `SampleGrad` with gradients taken first, so skipped layers and the band and slope
+  branches keep mip selection defined.
+- **Hex-tiling** is written from Mikkelsen 2022 (JCGT 11(2)): a triangle grid over the UV plane, a random rotation and
+  offset per vertex (a PCG hash), three lookups blended by barycentrics^7 weighted towards the brighter sample, normals
+  rotated back. 9 fetches per layer instead of 3; off in the far band.
+- **Cost** in texture fetches: 2 for the weights; per layer with a non-zero weight (at most 4 near, 2 far) 9 near
+  (hex), 3 far, plus 9 on slopes (triplanar); the transition band between the distances pays both bands.
+- **Rendering** is the mesh renderer's, with the material's own set 2 and pipeline layout
+  ([Materials & meshes](materials-and-meshes.md#terrainsplatmaterial3d-adr-0156)): chunks keep LOD, skirts, culling,
+  batching, picking and shadows (opaque casters, no material). Painting re-uploads the splat map through
+  `GetSplatTexture`'s version, and the set follows.
+
 ## Collision
 
 One `StaticBody3D` per chunk (at the chunk origin) whose `ConcavePolygonShape3D.Faces` are copied from the chunk's
@@ -188,14 +237,25 @@ bodies) is the planned fix for larger maps.
   1 cm (its safe margin) above the surface, a sphere resting on it, physics rays agree); `TerrainSaveTests` (scene
   save writes `<scene>_terrain/`, reload); `TerrainAllocationTests` (0 B queries and frames).
 - PNG: [`PngGray16Tests`](../../Tests/MainframeEngine.Tests/Imaging/PngGray16Tests.cs).
+- Splat material ([`TerrainSplatMaterialTests`](../../Tests/MainframeEngine.Tests/Terrain/TerrainSplatMaterialTests.cs)):
+  packing (sizes, colour spaces, resampling both ways, defaults, the height sources in order, the content stamp),
+  the parameter block, layer subscription and the 8-layer cap, the shader set, the terrain link and `SurfaceTagAt`,
+  and a scene round trip; the fragment-stage budget with the terrain set is in `ImageBasedLightingTests`.
 - Render ([`TerrainRenderTests`](../../Tests/MainframeEngine.RenderTests/TerrainRenderTests.cs), scene `terrain`): a
   64 m noise hill at 0.5 m lit and shadowed by a low sun, golden at frame 10 (moltenvk, lavapipe), self-checks (one
   level per chunk, coarser far chunks, ray = `HeightAt`), and a 0 B allocation gate while the camera orbits.
+- Render, scene `terrain-splat` (`TerrainSplatScene`): rolling ground, a mound and a plateau behind a steep cliff,
+  four layers generated in code (grass, dirt with pebbles, layered rock, moss; height in the albedo alpha): a
+  triplanar rock face, a dirt path and moss patches height-blended into the grass, the far band behind. Golden at
+  frame 10 (moltenvk, lavapipe), self-checks (`SurfaceTagAt` on the cliff, the path and the meadow; every chunk drawn), and a
+  0 B allocation gate while the camera orbits.
 
 ## Known gaps (next waves)
 
-- `TerrainSplatMaterial3D` (wave 2) reads `GetSplatTexture`; it will want `Texture2D.SetPixelsRect` + in-place region
-  uploads so painting does not re-upload whole maps.
+- Painting re-uploads whole splat maps; `Texture2D.SetPixelsRect` + region uploads are the fix (G8a.15).
+- The splat material has no `MacroColor` map, no per-layer triplanar/anti-tiling flags (every layer goes triplanar on
+  slopes, every layer hex-tiles near) and no Blinn-Phong fallback; packing (decoding and resampling every layer image)
+  runs synchronously on the render thread when a layer texture changes.
 - `CollisionMode.NearBodies`, the analytic physics-ray registration (decision 2 of the proposal), foliage and objects,
   the Faceted `TerrainMaterial3D`, the editor dock, brushes and `TerrainEditAction`.
 - Inspector edits of a loaded `TerrainData`'s layout knobs throw (the dock's "Create terrain data" will own them).

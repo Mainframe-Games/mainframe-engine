@@ -89,6 +89,13 @@ public sealed class ImageBasedLightingTests
         Assert.Equal(10, samplers);
         Assert.True(images <= 16 && samplers <= 16);
         Assert.Equal(6u, SkyRadiance.RadianceMips); // environment.slang: kRadianceMaxMip = 5
+
+        // TerrainSplatMaterial3D's own set 2 (ADR 0156): three layer arrays + two weight maps, two samplers; 3 sets.
+        var terrainImages = ShadowSystem.SamplerCount + MeshRenderer.SplatSetImages + FrameContext.EnvironmentBindings;
+        var terrainSamplers = ShadowSystem.SamplerCount + MeshRenderer.SplatSetSamplers + FrameContext.EnvironmentBindings;
+        Assert.Equal(14, terrainImages);
+        Assert.Equal(11, terrainSamplers);
+        Assert.True(terrainImages <= 16 && terrainSamplers <= 16);
     }
 
     [Fact]
