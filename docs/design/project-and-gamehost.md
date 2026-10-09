@@ -241,6 +241,7 @@ sequenceDiagram
     participant G as Game (GameHost + EditorLinkClient)
     E->>E: listen on localhost:0 → Port
     E->>G: launch MyGame.Desktop --scene <uid> --editor-port <Port>
+    E->>G: Welcome (protocol), on accept
     G->>E: Hello (protocol, pid, project, engine version)
     loop while running
         G-->>E: Log entries · Status (state, frame, fps, scene) every 0.5 s and on change
@@ -252,13 +253,16 @@ sequenceDiagram
 
 - **Wire format** (`EditorLinkProtocol`): `u32 length` (type byte + payload, ≤ 1 MiB) · `u8 type` · payload,
   little-endian; strings `u32` byte count + UTF-8 (strict). Oversized log text is truncated to fit. A malformed frame
-  closes the connection. `EditorLinkProtocol.Version` is checked from the hello.
+  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome).
 - **Game side** (`EditorLinkClient`): a background thread connects (and reconnects with back-off when the editor goes
-  away), sends a hello per connection, then drains queued logs (batched up to 64 KB), the latest status and the
-  goodbye; a reader thread queues commands, which `GameSession.Update` applies on the game loop. Nothing on the game
-  loop blocks: when more than `QueueCapacity` (4096) entries wait, new ones are dropped, counted and reported as
+  away), sends a hello per connection and waits for the editor's welcome; only then does the connection count
+  (`IsConnected`, `ConnectionCount`) and drain queued logs (batched up to 64 KB), the latest status and the goodbye.
+  A connection with no welcome within `WelcomeTimeoutMilliseconds` (2 s) is closed and retried with the back-off,
+  with the logs still queued. A reader thread queues commands, which `GameSession.Update` applies on the game loop.
+  Nothing on the game loop blocks: when more than `QueueCapacity` (4096) entries wait, new ones are dropped, counted and reported as
   `LogDropped`.
-- **Editor side** (`EditorLinkServer`): several games at once (each message carries a `GameId`; local `Connected`/
+- **Editor side** (`EditorLinkServer`): an async accept loop (cancelled on `Dispose`) writes the welcome to each new
+  connection before listing it; several games at once (each message carries a `GameId`; local `Connected`/
   `Disconnected` markers); `TryRead` from the editor's main thread; `SendCommand(command)` to all or
   `SendCommand(gameId, command)`; `Disconnect(gameId?)`. Each game has its own send lock and a 2 s send timeout, so a game that stops reading is dropped without stalling the others. Received logs beyond 100 000 unread messages are dropped and
   counted.
@@ -268,6 +272,16 @@ sequenceDiagram
   version 2, [0133](../../memory/decisions/0133-remote-scene-tree.md)): `u8 truncated, i32 count`, then per node `i32 depth,
   str name, str type` depth-first from the root (depth 0); at most `MaxTreeNodes` (3000) nodes and names/types cut to 48
   characters, so the worst case fits a frame. The latest snapshot waits next to the status (a newer one replaces it).
+- **Sockets inherited by child processes.** macOS has no `SOCK_CLOEXEC`/`accept4`: .NET calls `socket()`/`accept()`
+  and then sets `FD_CLOEXEC` separately, and `Process.Start` forks, so a child started in between (the editor runs
+  `dotnet build`, whose build servers outlive it, and games) holds the socket for its whole life. Two consequences
+  are handled:
+  - A listener the editor closed keeps completing handshakes into its backlog while such a child lives. Nobody reads
+    them, so a game that counted the handshake as a connection would write its logs into the void. Hence the welcome.
+  - .NET unblocks a blocking call before closing a socket only when the descriptor has `FD_CLOEXEC` (one without may
+    be shared). A blocking accept on a descriptor without it makes `TcpListener.Stop()` spin forever. The async
+    accept is cancelled instead. A fork-race leak sets the flag on the editor's copy, so this only guards
+    descriptors that something made inheritable.
 
 ## Game assemblies and code reload
 
@@ -335,7 +349,8 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 | `ProjectSettingsTests` | defaults write only the identity, every setting round-trips and re-writes identically, LF, hand edits, unknown keys, every error message, migration chains/gaps, save/load by file or folder, `ToEngineOptions`, version comparison |
 | `InputMapTests` | binding text forms, map edits, edges in process and physics, multiple inputs, deadzones/rescale, `GetVector`, per-pad bindings, UI-consumed events, simulation, `ReleaseAll`, live map changes, event helpers, the static facade, 0 B |
 | `LogRoutingTests`, `LogSinkTests`, `UserDataPathsTests` | entries, categories, explicit categories, filtering, **0 B when filtered** (and to a memory sink), invariant culture, failing/recursive sinks, console format; memory ring/`CopySince`, file format, run and size rotation; per-OS folders |
-| `EditorLinkProtocolTests`, `EditorLinkConnectionTests` | every frame round-trips, back-to-back frames, bad lengths, malformed bodies, truncation; streaming in order, commands, goodbye, reconnect after the editor restarts (queued logs delivered) or drops the link, a stalled editor (never blocks, drops reported exactly), no editor at all, garbage peers, several games by id |
+| `EditorLinkProtocolTests`, `EditorLinkConnectionTests` | every frame round-trips, back-to-back frames, bad lengths, malformed bodies, truncation; streaming in order, commands, goodbye, reconnect after the editor restarts (queued logs delivered) or drops the link, logs held until the welcome (an unanswered connection is retried), a stalled editor (never blocks, drops reported exactly), no editor at all, garbage peers, several games by id |
+| `EditorLinkInheritedSocketTests` (macOS/Linux) | a child process holding the listener: `Dispose` returns when the editor's descriptor is inheritable; a closed listener only a child holds gets no logs and no connection count, and the logs reach the next editor once |
 | `GameHostOptionsTests`, `GameSessionTests`, `GameSessionEditorLinkTests` | flags and overrides; autoloads (scene/type/disabled/broken), `--scene`, missing scene, reload from disk, commands; a session against a real `EditorLinkServer` |
 | `ProjectServersTests`, `ProjectLocalizationTests` | a project file's gravity moves a body at its tick rate, `maxStepsPerFrame` reaches the tree, the referenced bus layout is the one the audio server mixes with; `defaultLocale` + fallbacks drive `Tr`, `--locale` overrides |
 | `GameUnloadLeakTests` | a game type with `[Export(Translatable)]` re-translated on a locale switch, and a game HUD (`UiDocument` data model, data event, element listener, a raw model never disposed) — with forgotten `Tr`/`SceneTree.LocaleChanged` subscriptions — unload and are **collected** with no UI frame in between |

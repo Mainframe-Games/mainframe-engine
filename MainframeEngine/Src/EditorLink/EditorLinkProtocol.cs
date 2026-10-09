@@ -28,6 +28,12 @@ public enum EditorLinkMessageType : byte
     /// <summary>Game → editor: a snapshot of the running scene tree (<see cref="EditorLinkMessage.Tree"/>), on request.</summary>
     Tree = 6,
 
+    /// <summary>
+    /// Editor → game, first frame of every connection: the editor's protocol version. The game sends logs only after it,
+    /// because a completed TCP handshake does not prove an editor is reading (see <see cref="EditorLinkClient"/>).
+    /// </summary>
+    Welcome = 7,
+
     /// <summary>Editor → game: an <see cref="EditorLinkCommand"/>.</summary>
     Command = 16,
 
@@ -88,6 +94,9 @@ public readonly record struct EditorLinkMessage
 
     public EditorLinkHello Hello { get; init; }
 
+    /// <summary><see cref="EditorLinkMessageType.Welcome"/>: the editor's protocol version.</summary>
+    public int EditorProtocolVersion { get; init; }
+
     public LogEntry Log { get; init; }
 
     public EditorLinkStatus Status { get; init; }
@@ -116,12 +125,13 @@ public readonly record struct EditorLinkMessage
 /// <item>Status: <c>u8 state, u64 frame, f32 fps, str scene</c></item>
 /// <item>LogDropped: <c>i64 count</c> · Goodbye: <c>i32 exitCode</c> · Command: <c>u8 kind, str argument</c></item>
 /// <item>Tree: <c>u8 truncated, i32 count, count × (i32 depth, str name, str type)</c></item>
+/// <item>Welcome: <c>i32 protocol</c></item>
 /// </list>
 /// </summary>
 public static class EditorLinkProtocol
 {
     /// <summary>Bumped on any incompatible wire change; the editor checks <see cref="EditorLinkHello.ProtocolVersion"/>.</summary>
-    public const int Version = 2;   // 2: Tree / RequestTree
+    public const int Version = 3;   // 2: Tree / RequestTree · 3: Welcome
 
     /// <summary>Nodes in one tree snapshot at most (names are cut to <see cref="MaxTreeNameLength"/>), keeping a frame under the limit.</summary>
     public const int MaxTreeNodes = 3000; // × (12 + 2 × 48 chars × 3 UTF-8 bytes) < MaxFrameLength
@@ -144,6 +154,13 @@ public static class EditorLinkProtocol
         w.Int32(hello.ProcessId);
         w.String(hello.ProjectName);
         w.String(hello.EngineVersion);
+        w.Finish();
+    }
+
+    public static void WriteWelcome(ArrayBufferWriter<byte> output, int protocolVersion)
+    {
+        var w = new FrameWriter(output, EditorLinkMessageType.Welcome);
+        w.Int32(protocolVersion);
         w.Finish();
     }
 
@@ -240,6 +257,11 @@ public static class EditorLinkProtocol
                 if (!r.Int32(out var protocol) || !r.Int32(out var pid) || !r.String(out var project) || !r.String(out var version))
                     return false;
                 message = new EditorLinkMessage { Type = type, Hello = new EditorLinkHello(protocol, pid, project, version) };
+                break;
+            case EditorLinkMessageType.Welcome:
+                if (!r.Int32(out var editorProtocol))
+                    return false;
+                message = new EditorLinkMessage { Type = type, EditorProtocolVersion = editorProtocol };
                 break;
             case EditorLinkMessageType.Log:
                 if (!r.Byte(out var level) || !r.Int64(out var ticks) || !r.String(out var category) || !r.String(out var text)
