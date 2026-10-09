@@ -237,7 +237,10 @@ public class SceneTests
 
         Assert.Equal(0, cold.PipelineCacheLoadedBytes);
         Assert.True(warm.PipelineCacheLoadedBytes > 0, "The second run did not load the pipeline cache written by the first.");
-        Assert.Single(Directory.GetFiles(cacheDir, "pipelines-*.bin"));
+        var file = Path.GetFileName(Assert.Single(Directory.GetFiles(cacheDir, "pipelines-*.bin")));
+        Assert.StartsWith("pipelines-MainframeEngine.RenderTests.Host-", file, StringComparison.Ordinal); // one file per application
+        // MoltenVK compiles every cached shader inside vkCreatePipelineCache, so it loads in the background (ADR 0176).
+        Assert.Equal(warm.PlatformTag == "moltenvk", warm.PipelineCacheLoadsInBackground);
         Gates.AssertValidationClean(warm);
     }
 
