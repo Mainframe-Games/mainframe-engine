@@ -78,7 +78,11 @@ The layout knobs throw once the layers are loaded (`EnsureLoaded`); change them 
 - `SaveLayers(folder)` writes only dirty layers (all non-default ones when the folder changes), each to `x.tmp` then
   renamed; a layer back at its default deletes its file. No `.png.meta` sidecars are written yet.
 - **Water and the bed.** The stored height is the water surface; the **bed** (`BedHeights` = height − depth) is what is
-  drawn, collided and queried. `HeightAt + WaterDepthAt` is the water surface.
+  drawn, collided and queried. `HeightAt + WaterDepthAt` is the water surface. Wet chunks draw a water surface
+  (`GetChunkWater`, `WaterMaterial`, default a `WaterMaterial3D`) and the terrain is an `IWaterBody3D` in
+  `World3D.Water` ([water.md → ponds](water.md#ponds), ADR 0159).
+- **Carve records.** `River3D.Carve` keeps the heights it replaced in the data, saved by `SaveLayers` as
+  `carve_<id>.json` ([water.md → carving](water.md#carving)).
 - **Scene save.** `SceneSaver.Save` first calls the internal `ISceneSaveHook` on every node under the root. A
   `Terrain3D` with inline data saves it as `<scene>_terrain/terrain.mres` (it becomes external, so the scene references
   it by UID) and writes the layers there; external data rewrites its `.mres` and dirty layers in its own folder. A

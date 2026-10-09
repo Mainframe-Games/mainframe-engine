@@ -302,6 +302,24 @@ internal struct MaterialParams
         };
     }
 
+    /// <summary>
+    /// Packs a <see cref="WaterMaterial3D"/> into the same block (<c>include/water.slang</c> reads it): albedo = scatter
+    /// colour (linear) and strength, emission = absorption and reflection strength, uvTransform = 1 / near and far normal
+    /// scale, normal strength, roughness; params = flow cycle, flow scale, shore foam distance, foam strength; pbr =
+    /// 1 / foam scale, soft edge distance, wind drift. The albedo slot holds the foam texture, the normal slot the normal map.
+    /// </summary>
+    public static MaterialParams From(WaterMaterial3D m, uint textureFlags) => new()
+    {
+        Albedo = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.ScatterColor)), MathF.Max(m.ScatterStrength, 0f)),
+        Emission = new Vector4(Vector3.Max(m.Absorption, Vector3.Zero), MathF.Max(m.ReflectionStrength, 0f)),
+        UvTransform = new Vector4(1f / MathF.Max(m.NormalScaleNear, 1e-3f), 1f / MathF.Max(m.NormalScaleFar, 1e-3f),
+            MathF.Max(m.NormalStrength, 0f), Math.Clamp(m.Roughness, 0f, 1f)),
+        Params = new Vector4(MathF.Max(m.FlowCycle, 0.05f), m.FlowScale, MathF.Max(m.ShoreFoamDistance, 0f), MathF.Max(m.FoamStrength, 0f)),
+        TextureFlags = textureFlags,
+        Shading = ShadingPbr,
+        Pbr = new Vector4(1f / MathF.Max(m.FoamScale, 1e-3f), MathF.Max(m.SoftEdgeDistance, 0f), m.WindDrift, 0f),
+    };
+
     private static Vector3 Rgb(System.Drawing.Color c) => new Vector3(c.R, c.G, c.B) / 255f;
 
     private static Vector4 Linear(System.Drawing.Color c) => new(ColorSpace.SrgbToLinear(Rgb(c)), c.A / 255f);
@@ -347,12 +365,12 @@ internal sealed class MaterialGpu
 
     /// <summary>
     /// The shaders of the colour pass: <see cref="ShaderSetId.MeshOutline"/> for outlines,
-    /// <see cref="ShaderSetId.MeshFoliage"/> for foliage, else lit.
+    /// <see cref="ShaderSetId.MeshFoliage"/> for foliage, <see cref="ShaderSetId.MeshWater"/> for water, else lit.
     /// </summary>
     public ShaderSetId ColorShaders { get; set; }
 
     /// <summary>The material's vertex shaders read the second vertex stream whatever the surface (foliage).</summary>
-    public bool NeedsStreams => ColorShaders == ShaderSetId.MeshFoliage;
+    public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater;
 
     /// <summary>Shadow casters run the foliage wind (<see cref="FoliageMaterial3D"/>).</summary>
     public bool FoliageCaster => ColorShaders == ShaderSetId.MeshFoliage;
@@ -360,7 +378,7 @@ internal sealed class MaterialGpu
     // [shader set × extra pass × mirrored × vertex streams] → pipeline; reset when the state changes.
     public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 8];
 
-    public const int ShaderSetCount = 4;
+    public const int ShaderSetCount = 5;
 
     public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false) =>
         (((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0);

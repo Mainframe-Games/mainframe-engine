@@ -58,11 +58,12 @@ RenderTestGame game = options.Scene switch
     "multimesh" => new MultiMeshScene(options),
     "foliage-wind" => new FoliageWindScene(options),
     "terrain" => new TerrainScene(options),
+    "water" => new WaterScene(options),
     _ => throw new ArgumentException(
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, showcase, color-pipeline, " +
         "physics, physics-debug, sky-grid, materials, outline, subviewport-capture, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, " +
         "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer, sky-physical, fxaa, auto-exposure, pbr, fog, vertex-colors, multimesh, " +
-        "foliage-wind, terrain, gamehost."),
+        "foliage-wind, terrain, water, gamehost."),
 };
 
 using (game)

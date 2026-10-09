@@ -125,6 +125,9 @@ internal static class VertexLayouts
     /// <summary>Foliage pipelines (<c>Foliage.vk.vert</c>): <see cref="MeshAttributes"/> + colour + custom0.</summary>
     public static readonly VertexInputAttributeDescription[] FoliageAttributes = [.. MeshAttributes, ColorAttribute, Custom0Attribute];
 
+    /// <summary>Water pipelines (<c>Water.vk.vert</c>): <see cref="MeshAttributes"/> + custom0 (column depth, flow, foam).</summary>
+    public static readonly VertexInputAttributeDescription[] WaterAttributes = [.. MeshAttributes, Custom0Attribute];
+
     /// <summary>Object-ID pipeline (<c>MeshId.vk.vert</c>): position, uv, model rows and object id (no normal).</summary>
     public static readonly VertexInputAttributeDescription[] MeshIdAttributes = [MeshInstancedAttributes[0], .. MeshInstancedAttributes[2..]];
 

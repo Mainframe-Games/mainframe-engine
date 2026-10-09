@@ -1,5 +1,4 @@
 using System.Numerics;
-using DrawingColor = System.Drawing.Color;
 
 namespace MainframeEngine;
 
@@ -12,9 +11,10 @@ namespace MainframeEngine;
 /// <para>The river regenerates when the curve raises <see cref="Resource.Changed"/> or a Shape or Flow export changes;
 /// nothing is generated per frame. Generation is <see cref="RiverBuilder"/> (plain C#). The ribbon is an internal,
 /// unowned (so unsaved) <see cref="MeshInstance3D"/> child named <c>Ribbon</c>, created when the river is ready.</para>
-/// <para>Until <c>WaterMaterial3D</c> exists the ribbon renders with <see cref="Material"/>, or by default a blended
-/// blue <see cref="StandardMaterial3D"/>. Carving, falls, pond joins and audio come later (docs/design/water.md).
-/// Rivers are meant to be translated and turned about Y; queries assume no tilt or scale.</para>
+/// <para>The ribbon renders with <see cref="Material"/>, by default a <see cref="WaterMaterial3D"/>; its
+/// <see cref="MeshSurface.Custom0"/> stream carries the column depth, flow and foam. <see cref="Carve"/> cuts the channel
+/// into a <see cref="Terrain3D"/> (ADR 0159). Falls, pond joins and audio come later (docs/design/water.md). Rivers are
+/// meant to be translated and turned about Y; queries and carving assume no tilt or scale.</para>
 /// </remarks>
 [EditorIcon("ripple", Family = EditorIconFamily.Space3D)]
 public class River3D : Node3D, IWaterBody3D
@@ -27,7 +27,7 @@ public class River3D : Node3D, IWaterBody3D
     private MeshInstance3D? _ribbon;
     private ArrayMesh? _mesh;
     private MeshSurface? _surface;
-    private StandardMaterial3D? _defaultMaterial;
+    private Material? _defaultMaterial;
     private World3D? _world;
     private bool _dirty = true;
 
@@ -54,7 +54,7 @@ public class River3D : Node3D, IWaterBody3D
         }
     }
 
-    /// <summary>The ribbon's material (null: a blended blue <see cref="StandardMaterial3D"/> until WaterMaterial3D exists).</summary>
+    /// <summary>The ribbon's material (null: a default <see cref="WaterMaterial3D"/>).</summary>
     [Export]
     public Material? Material
     {
@@ -119,6 +119,38 @@ public class River3D : Node3D, IWaterBody3D
     /// <summary>Arc length in metres over which the slope is measured (Flow).</summary>
     [Export(Range = "0.1,100,0.1")]
     public float SlopeWindow { get => _settings.SlopeWindow; set => SetSetting(ref _settings.SlopeWindow, MathF.Max(value, 0.01f)); }
+
+    /// <summary>
+    /// The terrain <see cref="Carve"/> writes into (Carve). Empty: <see cref="Terrain"/> if set, else the first
+    /// <see cref="Terrain3D"/> in the tree under the river's start.
+    /// </summary>
+    [ExportGroup("Carve")]
+    [Export]
+    public NodePath TerrainPath { get; set; } = "";
+
+    /// <summary>Width in metres of the bank that blends from the channel's lip back to the original ground (Carve).</summary>
+    [Export(Range = "0,20,0.1")]
+    public float BankWidth { get; set; } = 2f;
+
+    /// <summary>
+    /// How far the carved banks stand above the water surface, in metres (Carve): the ribbon's freeboard, so the
+    /// shoreline is a clean cut with no z-fighting.
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float ShoreLift { get; set; } = 0.05f;
+
+    /// <summary>
+    /// Names the carve record (set by the first <see cref="Carve"/>, cleared by <see cref="Uncarve"/>): the terrain keeps
+    /// the original heights under this id (<c>carve_&lt;id&gt;.json</c> beside its layers once it saves).
+    /// </summary>
+    [Export]
+    public string CarveId { get; set; } = "";
+
+    /// <summary>The terrain to carve, set from code (wins over <see cref="TerrainPath"/>; not saved).</summary>
+    public Terrain3D? Terrain { get; set; }
+
+    /// <summary>The terrain edit the last carve, re-carve or uncarve recorded (undo with <see cref="TerrainEditRecord.Undo"/>), or null.</summary>
+    public TerrainEditRecord? LastCarveEdit { get; private set; }
 
     /// <summary>Raised after the ribbon and the query data were rebuilt.</summary>
     [Signal]
@@ -238,14 +270,156 @@ public class River3D : Node3D, IWaterBody3D
         base.OnExitTree();
     }
 
-    private StandardMaterial3D DefaultMaterial => _defaultMaterial ??= new StandardMaterial3D
+    // ── Carving ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Carves the river's channel into the terrain as one height edit (<see cref="LastCarveEdit"/>): a parabolic bed
+    /// <c>Depth</c> below the surface, banks <see cref="ShoreLift"/> above it blending back to the ground over
+    /// <see cref="BankWidth"/> (docs/design/water.md). The original heights are kept under <see cref="CarveId"/>, so
+    /// carving again first restores them (as <see cref="Recarve"/>). False when there is no terrain under the river.
+    /// </summary>
+    public bool Carve() => CarveInto(ResolveTerrain());
+
+    /// <summary>Restores the last carve's heights, then carves the current curve; false when there was no carve.</summary>
+    public bool Recarve()
     {
-        ResourceName = "River (default)",
-        AlbedoColor = DrawingColor.FromArgb(153, 46, 112, 168),
-        Transparency = AlphaMode.Blend,
-        Specular = 1.5f,
-        Shininess = 160f,
-    };
+        var terrain = ResolveTerrain();
+        if (terrain?.Data is not { } data || data.GetCarveRecord(CarveId) is null)
+            return false;
+        return CarveInto(terrain);
+    }
+
+    /// <summary>Restores the heights the last carve replaced (one edit) and forgets the carve; false when there was none.</summary>
+    public bool Uncarve()
+    {
+        var terrain = ResolveTerrain();
+        if (terrain?.Data is not { } data || data.GetCarveRecord(CarveId) is not { } record)
+            return false;
+        RecordEdit(terrain, () =>
+        {
+            data.SetHeights(record.Rect, record.Heights);
+            data.SetCarveRecord(CarveId, null);
+        });
+        CarveId = "";
+        return true;
+    }
+
+    /// <summary>
+    /// Moves every curve point's height to the terrain under it minus <paramref name="depthBelow"/> metres (the water
+    /// surface sits in the ground, so a carve makes a channel), in one curve change. For code-made streams: call it
+    /// before <see cref="Carve"/> (it samples the current, possibly carved, ground). False without a terrain or curve.
+    /// </summary>
+    public bool FitToTerrain(float depthBelow = 0.3f)
+    {
+        if (ResolveTerrain() is not { Data: not null } terrain || _curve is not { PointCount: > 0 } curve)
+            return false;
+        var global = GlobalTransform;
+        var inverse = global.AffineInverse();
+        var points = (float[])curve.Points.Clone();
+        for (var i = 0; i < curve.PointCount; i++)
+        {
+            var world = global.TransformPoint(curve.GetPointPosition(i));
+            var ground = terrain.HeightAt(world.X, world.Z) - depthBelow;
+            var local = inverse.TransformPoint(new Vector3(world.X, ground, world.Z));
+            var o = i * Curve3D.FloatsPerPoint;
+            points[o] = local.X;
+            points[o + 1] = local.Y;
+            points[o + 2] = local.Z;
+        }
+
+        curve.Points = points;
+        return true;
+    }
+
+    private bool CarveInto(Terrain3D? terrain)
+    {
+        if (terrain?.Data is not { } data)
+            return false;
+        EnsureGenerated();
+        var count = _builder.SectionCount;
+        if (count < 2)
+            return false;
+
+        // The sections in terrain-local space: the river's transform (translation, yaw) then the terrain's origin.
+        var global = GlobalTransform;
+        var origin = terrain.GlobalPosition;
+        var centres = new Vector3[count];
+        var source = _builder.SectionCentres;
+        for (var k = 0; k < count; k++)
+            centres[k] = global.TransformPoint(source[k]) - origin;
+        var halfWidths = _builder.SectionHalfWidths;
+        var depths = _builder.SectionDepths;
+        if (!RiverCarver.ComputeRect(data, centres, halfWidths, BankWidth, out var rect))
+            return false;
+
+        var halfWidthArray = halfWidths.ToArray();
+        var depthArray = depths.ToArray();
+        var id = TerrainCarveRecord.IsValidId(CarveId) ? CarveId : NewCarveId();
+        var previous = data.GetCarveRecord(id);
+        RecordEdit(terrain, () =>
+        {
+            if (previous is not null)
+                data.SetHeights(previous.Rect, previous.Heights); // back to the uncarved ground first
+            var original = new float[rect.Area];
+            data.GetHeights(rect, original);
+            var carved = new float[rect.Area];
+            RiverCarver.Carve(data.VertexSpacing, rect, original, carved, centres, halfWidthArray, depthArray, BankWidth, ShoreLift);
+            data.SetHeights(rect, carved);
+            data.SetCarveRecord(id, new TerrainCarveRecord(rect, original));
+        });
+        CarveId = id;
+        return true;
+    }
+
+    // One undoable height edit (or part of the caller's, when one is already recording).
+    private void RecordEdit(Terrain3D terrain, Action write)
+    {
+        var edit = terrain.Edit;
+        if (edit.IsActive)
+        {
+            write();
+            LastCarveEdit = null;
+            return;
+        }
+
+        edit.Begin(TerrainLayers.Height);
+        try
+        {
+            write();
+        }
+        finally
+        {
+            LastCarveEdit = edit.End();
+        }
+    }
+
+    private static string NewCarveId() => Guid.NewGuid().ToString("N")[..12];
+
+    /// <summary><see cref="Terrain"/>, else <see cref="TerrainPath"/>, else the first terrain in the tree under the river's start.</summary>
+    private Terrain3D? ResolveTerrain()
+    {
+        if (Terrain is { } explicitTerrain)
+            return explicitTerrain;
+        if (!TerrainPath.IsEmpty)
+            return GetNodeOrNull<Terrain3D>(TerrainPath);
+        Node root = this;
+        while (root.Parent is { } parent)
+            root = parent;
+        var start = _curve is { PointCount: > 0 } curve ? GlobalTransform.TransformPoint(curve.GetPointPosition(0)) : GlobalPosition;
+        return FindTerrain(root, start.X, start.Z);
+
+        static Terrain3D? FindTerrain(Node node, float x, float z)
+        {
+            if (node is Terrain3D { Data: not null } terrain && terrain.Contains(x, z))
+                return terrain;
+            foreach (var child in node.Children)
+                if (FindTerrain(child, x, z) is { } found)
+                    return found;
+            return null;
+        }
+    }
+
+    private Material DefaultMaterial => _defaultMaterial ??= new WaterMaterial3D { ResourceName = "River (default)" };
 
     private void EnsureGenerated()
     {
@@ -297,9 +471,9 @@ public class River3D : Node3D, IWaterBody3D
             _surface.Normals = data.Normals;
             _surface.UVs = data.UVs;
             _surface.Indices = data.Indices;
+            _surface.Custom0 = data.Custom0; // column depth, flow, foam: WaterMaterial3D reads it
         }
 
-        // Custom0 (column depth, flow, foam) is wired to MeshSurface.Custom0 once that stream exists (G8a/A2).
         if (!ReferenceEquals(_ribbon.Mesh, _mesh))
             _ribbon.Mesh = _mesh;
     }
