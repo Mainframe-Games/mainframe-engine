@@ -146,9 +146,12 @@
           Condition="'$(CompileShaders)' == 'true'"
           Inputs="@(ShaderSource);@(ShaderInclude);$(ShaderLimitsJson);$(MSBuildThisFileFullPath)"
           Outputs="@(ShaderSource->'$(ShaderOutputDir)%(SubDir)%(Filename).spv')">
+    <!-- -warnings-disable 41012: Slang's capability checker tags Texture2DArray.Gather (the PCSS blocker search, ADR 0167)
+         as needing spvImageGatherExtended and "widens the profile"; a gather without offsets needs only Shader, and the
+         SPIR-V declares nothing more (build/shaders.sh passes the same flag). -->
     <MakeDir Condition="'$(SlangcAvailable)' == 'true'" Directories="@(ShaderSource->'$(ShaderOutputDir)%(SubDir)')" />
     <Exec Condition="'$(SlangcAvailable)' == 'true'"
-          Command="&quot;$(SlangcPath)&quot; &quot;%(ShaderSource.FullPath)&quot; -target spirv -capability spirv_1_5 -matrix-layout-row-major -entry main -stage %(ShaderSource.Stage) -I &quot;$(ShaderIncludeDir)&quot; -o &quot;$(ShaderOutputDir)%(ShaderSource.SubDir)%(ShaderSource.Filename).spv&quot;"
+          Command="&quot;$(SlangcPath)&quot; &quot;%(ShaderSource.FullPath)&quot; -target spirv -capability spirv_1_5 -matrix-layout-row-major -warnings-disable 41012 -entry main -stage %(ShaderSource.Stage) -I &quot;$(ShaderIncludeDir)&quot; -o &quot;$(ShaderOutputDir)%(ShaderSource.SubDir)%(ShaderSource.Filename).spv&quot;"
           CustomErrorRegularExpression="error \d+:"
           CustomWarningRegularExpression="warning \d+:" />
   </Target>

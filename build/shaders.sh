@@ -92,7 +92,8 @@ compile() {
         else
             spv=$(spv_of "$src")
         fi
-        slangc "$src" -target spirv -capability spirv_1_5 -matrix-layout-row-major \
+        # -warnings-disable 41012: see build/Shaders.targets (Texture2DArray.Gather needs no extra capability).
+        slangc "$src" -target spirv -capability spirv_1_5 -matrix-layout-row-major -warnings-disable 41012 \
             -entry main -stage "$(stage_of "$src")" -I "$INCLUDE_DIR" -o "$spv"
         spirv-val --target-env "$TARGET_ENV" "$spv"
         count=$((count + 1))
