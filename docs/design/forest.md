@@ -463,10 +463,15 @@ window at 2560 × 1308, so the "1440p" rows are that):
 | 2560 × 1308 | 2560 × 1308 (native TAA) | 26.29 / 26.49 ms | 32.5 / 33.0 ms | 41.6 / 41.5 ms | 3.6 / 1.5 / 2.3 ms |
 | 1920 × 1080 | **1440 × 810 (0.75, TAAU)** | **15.25 ms** | 20.4 ms | **23.9 ms** | 3.5 / 0.49 / 0.86 ms |
 | 1920 × 1080 | 1920 × 1080 (native TAA) | 18.21 ms | 25.4 ms | 32.5 ms | 3.5 / 0.92 / 1.44 ms |
+| *With G8e.5's foliage (ADR 0172) merged:* | | | | | |
+| 2560 × 1308 | **1920 × 981 (0.75, TAAU)** | **20.99 ms** | 30.5 ms | **32.5 ms** | 4.6 / 0.95 / 1.36 ms |
+| 2560 × 1308 | 2560 × 1308 (native TAA) | 27.95 ms | 32.6 ms | 40.9 ms | 4.4 / 1.7 / 2.3 ms |
+| 1920 × 1080 | **1440 × 810 (0.75, TAAU)** | **16.86 / 16.74 ms** | 19.9 / 18.7 ms | **31.7 / 21.4 ms** | 4.5 / 0.57 / 0.88 ms |
+| 1920 × 1080 | 1920 × 1080 (native TAA) | 20.93 / 20.60 ms | 28.5 / 25.2 ms | 32.5 / 32.5 ms | 4.5 / 1.0 / 1.5 ms |
 
-0.75 is ≈ 26 % faster at the larger window and 16 % faster at 1080p (p99 −22 % and −26 %); the per-pixel passes (SSAO,
+0.75 is ≈ 25 % faster at the larger window and 16–19 % faster at 1080p (p99 −20 to −26 % in most runs); the per-pixel passes (SSAO,
 fog, the lit scene) scale with the pixel count, the shadows do not. The G8e target (p50 ≤ 14 ms at 2560 × 1440 on an
-M-series Pro) is not reached on this base M5 yet; 0 B per frame. The baseline file is still the pre-G8e 1080p native
+M-series Pro) is not reached on this base M5 yet; 0 B per frame (one native run of five reported 56 B once; its rerun 0 B). The baseline file is still the pre-G8e 1080p native
 run; record a new one on a quiet machine with `--write-baseline` once the wave is merged.
 
 ## `ForestDev`, `--autowalk` and the benchmark

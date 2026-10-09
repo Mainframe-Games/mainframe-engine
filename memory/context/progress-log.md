@@ -49,7 +49,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
           776 editor, 153 Forest, 159 render; probes re-baked; R1–R5 regenerated with both lanes. Forest 1080p p50 18.9 → 21.6 ms
           (≈2 ms per-tree LOD cross-fade; GPU cull would fix); 2048² cascades rejected (+6 ms). Art-pass notes: R2's glade
           fleck lost (`TreeClusterShadowDensity` 0.6 restores it), mid-distance cluster cards soft (256×512 atlas cells).
-        - **W7 running:** `forest/taau` (G8e.8 TAAU, ADR 0174) from 306a6183, told to merge fe610cfe. Then the art pass (0175).
+        - **2026-10-09: G8e.8 TAAU merged** (forest/taau fast-forward, b1f26cd7; ADR 0174). Lane gates: 2086 engine, 776 editor,
+          154 Forest, 165 render, lavapipe taau/fsr1 goldens. Forest ships Taau 0.75 (`++ --scale 1` = native): 1080p p50
+          16.9 vs 20.9 ms native; 2560×1308 21.0 vs 28.0 ms. Below spec's 1.5 dB TAAU-vs-native (thin lines 29.9 vs 33.1 dB).
+          The G8e target (p50 ≤ 14 ms at 1440p) is not met on a base M5.
+        - **Running:** `forest/art` (G8e.7 art pass, ADR 0175) and `forest/edfix` (inspector resource-name squeeze + editor
+          post-preview fps). After both: full gates, push, PR (Auto-fix on), milestones G8 → 🚧, tell Brogan to play.
         - **Paused at the usage limit (tip 041d3544).**
           - Merged: G8e.3 volumetric fog (0171), the pipeline-cache stall fix (0176), G8e.6 water (0173), and the
             Slang 41012 warning fix. Gates are green: 1948 engine, 774 editor, 153 Forest, 147 render.
