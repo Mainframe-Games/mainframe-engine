@@ -348,6 +348,7 @@ public sealed class ForestOptionsTests
         Assert.Contains("@media (max-width: 1599dp)", rcss, StringComparison.Ordinal);
         foreach (var shot in ValleyLayout.Shots)
             Assert.True(File.Exists(Path.Combine(content, "shots", shot.Name + ".jpg")), shot.Name);
+        Assert.Equal(0, ValleyLayout.Shots.Length % 4); // the Cameras page's rows of four cards have no empty slot
         var rml = PauseMenu.BuildRml();
         Assert.DoesNotContain("data-visible", rml, StringComparison.Ordinal); // RmlUi's keeps the space: data-class-hidden
     }
@@ -402,7 +403,7 @@ public sealed class ForestCamerasTests
         Assert.Equal(1, cameras.ShotIndex);
         cameras.ShowShot(-1);
         Assert.Equal(ValleyLayout.Shots.Length - 1, cameras.ShotIndex);
-        Assert.Null(cameras.CinematicCamera.Attributes); // R7 keeps the world's lens…
+        Assert.Null(cameras.CinematicCamera.Attributes); // R8 keeps the world's lens…
         cameras.ShowShot(4);
         Assert.True(cameras.CinematicCamera.Attributes!.DofBlurNearEnabled); // …R5 is a photo shot
 

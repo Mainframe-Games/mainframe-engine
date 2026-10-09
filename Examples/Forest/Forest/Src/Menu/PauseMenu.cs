@@ -10,7 +10,7 @@ namespace Forest;
 /// The Forest's pause menu (ADR 0180): <c>pause</c> (Escape, gamepad Start) opens it over the running world and closes
 /// it again. Pages: <b>Graphics</b>, <b>Audio</b> and <b>Controls</b> (every <see cref="ForestOptions"/> row, applied
 /// live, saved to the player's <c>settings.json</c> when the menu closes) and <b>Cameras</b> (the fly-over, the reference
-/// shots R1–R7, a free camera, back to the player: <see cref="ForestCameras"/>), plus Resume and Quit.
+/// shots R1–R8, a free camera, back to the player: <see cref="ForestCameras"/>), plus Resume and Quit.
 /// </summary>
 /// <remarks>
 /// The document is generated from <see cref="ForestOptions.All"/> (<see cref="BuildRml"/>) and styled by

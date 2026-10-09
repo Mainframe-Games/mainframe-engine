@@ -15,7 +15,7 @@ public enum ForestCameraMode
 /// <summary>
 /// The Forest's cameras (ADR 0180), switched from the pause menu's Cameras page: the player's own, a cinematic
 /// <see cref="FlyOver"/> along <see cref="ForestBenchmark.Spline"/> at a steady speed (looping, or back to the player at
-/// the end), the reference shots R1–R7 (<see cref="ValleyLayout.Shots"/>, with their photo lenses) and a
+/// the end), the reference shots R1–R8 (<see cref="ValleyLayout.Shots"/>, with their photo lenses) and a
 /// <see cref="FreeFlyCamera"/>. Outside <see cref="ForestCameraMode.Player"/> the player is disabled (it stands still),
 /// and so is everything while <see cref="MenuOpen"/>. In a shot, left and right (move left/right) cycle the shots.
 /// Per frame it only moves the fly-over camera: nothing allocates.

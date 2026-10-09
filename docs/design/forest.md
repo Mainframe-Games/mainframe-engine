@@ -45,7 +45,7 @@ Examples/Forest/
 ├── Tools/                fetch_assets.py downloads and imports Content/Art (python3 + Pillow, curl);
 │                         grade_from_shots.py fits the grade to ungraded renders of R1–R7 (ADR 0175)
 └── Content/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres
-                          (the Forest's buses), UI/ (fps.rml, menu.rcss, shots/: R1–R7 thumbnails), Art/ (CC0, in LFS:
+                          (the Forest's buses), UI/ (fps.rml, menu.rcss, shots/: R1–R8 thumbnails), Art/ (CC0, in LFS:
                           Terrain/<Layer>/, Props/<id>/, Debris/<id>/, Sky/)
 ```
 
@@ -270,9 +270,9 @@ holds their first values. To tune it: `just editor Examples/Forest/project.mfpro
 
 ### Reference shots
 
-`++ --shot <1-7|name>` puts a fixed camera at a pose of `ValleyLayout.Shots` (heights above the ground); `--view
+`++ --shot <1-8|name>` puts a fixed camera at a pose of `ValleyLayout.Shots` (heights above the ground); `--view
 x,y,z,tx,ty,tz[,fov]` at any pose (y 0: eye height above the ground, −h: h above it). `just forest-screenshots` renders
-all seven at 2560 × 1440 (the display's limit: 2560 × 1308 on this Mac; frame 300 at a fixed 60 Hz: fixed wind, water and exposure) and scales them to 1600 px wide into
+all eight at 2560 × 1440 (the display's limit: 2560 × 1308 on this Mac; frame 300 at a fixed 60 Hz: fixed wind, water and exposure) and scales them to 1600 px wide into
 `docs/images/forest/`. R4 and R5 are photo shots (`ReferenceShot.BlurNearUntil`/`BlurFarFrom`/`BlurAmount`,
 `ForestDev.PhotoLens`): their camera adds 32-tap depth of field to the Forest's lens (R4: what is nearer than 6 m blurs;
 R5, a close-up: nearer than 0.9 m and beyond 7 m at `BlurAmount` 0.3, a shallow focus on the log and the ferns); walking
@@ -283,7 +283,25 @@ never has depth of field. ADR 0178 recomposed them after the references' composi
 | ![R1](../images/forest/r1-glade.png)<br>**R1 Glade**: a back-lit meadow under the sun, the glade's trees in the haze (the meadow reference) | ![R2](../images/forest/r2-fall.png)<br>**R2 The fall**: from the falls viewpoint, the drop between rocks and birches, the haze and the sun behind (the rocks-and-haze reference) |
 | ![R3](../images/forest/r3-bridge.png)<br>**R3 Log bridge**: up the stream to the log bridge between birches (the birch-path reference) | ![R4](../images/forest/r4-vista.png)<br>**R4 Misty pond**: from the pond's south shore up the hazy valley into the sun (the misty-glade reference) |
 | ![R5](../images/forest/r5-floor.png)<br>**R5 Fern dell**: low along a mossy log among ferns, a shallow focus (the log-and-ferns reference) | ![R6](../images/forest/r6-pines.png)<br>**R6 Pines**: from a small glade on the outcrop, tall pines against the sun |
-| ![R7](../images/forest/r7-fall-close.png)<br>**R7 The fall, close**: from pool 1's south bank, the jet and its spray into the light | |
+| ![R7](../images/forest/r7-fall-close.png)<br>**R7 The fall, close**: from pool 1's south bank, the jet and its spray into the light | ![R8](../images/forest/r8-woodland.png)<br>**R8 Woodland**: the path through the mixed wood south of the fall, straight into the sun: sunflecks, spruce and fir boughs, an ash trunk framing the haze |
+
+R8 *Woodland* (72.5, 94 → 84, 72, 5 m above the ground; 60°, almost straight into the sun) fills the Cameras page's
+4 × 2 grid. It stands on the path inside R5's fern-dell clearing and looks along the path (trees keep 3.2 m clear of
+it), so it needed no clearing or view corridor of its own and the probe bake is unchanged (`ValleyTests` keeps every
+shot's camera 2.5 m from a trunk: the ash at its right edge is 3.2 m away). Candidates that lost: the lookout and the
+outcrop looking south down the valley (front-lit, flat; pines now fill the lookout's foreground), the pine slope's path
+(the slope crosses the frame at an angle), the pond's birch bank (too close to R4) and the bridge looking upstream
+(close to R3; kept for the README).
+
+**README images.** The root README's Forest showcase is six JPEGs, `docs/images/forest/readme-*.jpg` (1600 px wide,
+quality 88, ≈ 3.8 MB together): R1, R8, R4, R7 and R5 converted from the `just forest-screenshots` PNGs, and
+`readme-upstream`, a pose that is not a reference shot: from the log bridge up the stream between its birches,
+
+```bash
+just forest --fixed-fps 60 --max-frames 300 --no-log-file --screenshot /tmp/upstream.png ++ --no-capture --no-audio \
+  --resolution 2560x1440 --view 119.5,10,134,105,11,88,55
+sips -s format jpeg -s formatOptions 88 --resampleWidth 1600 /tmp/upstream.png --out docs/images/forest/readme-upstream.jpg
+```
 
 **Volumetric fog (G8e.3, [ADR 0171](../../memory/decisions/0171-volumetric-fog.md)).** The shots above are with it. Against
 the screen-space shafts it replaced: R1 keeps rays through the canopy around the sun but the trees to either side are no
@@ -758,7 +776,7 @@ setting's effect shows at once. Resume (or Escape) recaptures the mouse and save
 | **Graphics** | *Display*: upscaling (TAAU / FSR 1 / native), render scale (50–100 %), anti-aliasing (TAA / FXAA / off), VSync, field of view, the frame-rate readout. *Shadows and light*: shadow resolution (512–4096), distance (40–300 m), cascades (1–4), soft shadows (PCSS: the sun's 0.5° disc or 0), contact shadows, ambient occlusion and its strength. *Atmosphere*: haze (the distance fog, 0–400 % of the look), volumetric fog and its density (0–400 %), screen-space light shafts, wind (0–400 %; the trees, the grass and the wind sound). *Sun (lighting bake approximate)*: height (2–85°) and direction (0–355°). *Camera and post-processing*: tonemapper (AgX / ACES / Filmic / Reinhard), exposure (±2 EV), auto exposure, glow (0–400 %), the colour grade, depth of field and its focus distance, film grain, vignette, chromatic aberration. *Vegetation*: ground cover density (10–100 %) and distance (25–100 %) |
 | **Audio** | master, ambience (wind, leaves, birds), water (the brook, the falls), footsteps (the Foley bus), mute |
 | **Controls** | mouse sensitivity, invert look, gamepad look speed, head bob; the keys for reference |
-| **Cameras** | Return to player; **Fly-over**: a cinematic camera along the benchmark spline at 7 m/s (`ForestCameras.FlyOverSpeed`), looking 14 m ahead with an eased turn, closed into a ≈ 70 s loop; **Free camera**: WASD, Space up, C down, Shift faster, mouse or right stick (`FreeFlyCamera`, no collision); the reference shots **R1–R7** (Glade, Fall, Bridge, Vista, Floor, Pines, Fall close) as cards with thumbnails, with their photo lenses. In a shot, A / D (or left / right) step through the shots. A camera closes the menu; Escape then opens it again on the Cameras page |
+| **Cameras** | Return to player; **Fly-over**: a cinematic camera along the benchmark spline at 7 m/s (`ForestCameras.FlyOverSpeed`), looking 14 m ahead with an eased turn, closed into a ≈ 70 s loop; **Free camera**: WASD, Space up, C down, Shift faster, mouse or right stick (`FreeFlyCamera`, no collision); the reference shots **R1–R8** (Glade, Fall, Bridge, Vista, Floor, Pines, Fall close, Woodland) as cards with thumbnails (a full 4 × 2 grid), with their photo lenses. In a shot, A / D (or left / right) step through the shots. A camera closes the menu; Escape then opens it again on the Cameras page |
 
 ![The pause menu's Cameras page](../images/forest/menu-cameras.jpg)
 
@@ -798,7 +816,7 @@ setting's effect shows at once. Resume (or Escape) recaptures the mouse and save
   `box-shadow` larger than the window is clipped and stretched, so the panel's shadow is small.
 
 Game arguments for QA: `++ --menu graphics|audio|controls|cameras` opens the menu on a page, `--camera
-flyover|free|<1-7|name>` starts a camera, `--option key=value` sets an option for the run, e.g.
+flyover|free|<1-8|name>` starts a camera, `--option key=value` sets an option for the run, e.g.
 `just forest --resolution 1920x1080 --screenshot menu.png --max-frames 200 ++ --no-capture --menu graphics`.
 
 ## Recipes
@@ -808,7 +826,7 @@ flyover|free|<1-7|name>` starts a camera, `--option key=value` sets an option fo
 | `just forest *args` | `dotnet run --project Examples/Forest/Forest.Desktop -c Release -- {{args}}` |
 | `just forest-test` | `dotnet test Examples/Forest/Forest.Tests` |
 | `just forest-audio` | the offline audio renders: `Examples/Forest/artifacts/audio/*.wav` (ambience calm and windy, brook near and far, falls, birds, footsteps per surface, the whole mix walking) |
-| `just forest-screenshots [frames]` | `build/forest-screenshots.sh`: R1–R7 at 2560 × 1440 → 1600 px wide into `docs/images/forest/` (display awake, LFS art; `FOREST_SHOTS="1 6"` some, `FOREST_SHOTS_OUT=dir` elsewhere) |
+| `just forest-screenshots [frames]` | `build/forest-screenshots.sh`: R1–R8 at 2560 × 1440 → 1600 px wide into `docs/images/forest/` (display awake, LFS art; `FOREST_SHOTS="1 6"` some, `FOREST_SHOTS_OUT=dir` elsewhere) |
 | `just forest-bench [args]` | `build/forest-bench.sh`: the benchmark at 1920 × 1080 (3D at 0.75, TAAU) against `benchmark-baseline.json` (`--resolution 2560x1440`, `--scale 1`; `--write-baseline` re-records; quiet machine) |
 
 ## Tests
