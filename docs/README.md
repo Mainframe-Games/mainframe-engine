@@ -45,6 +45,7 @@ Proposed design · Diagram · Task list · Open questions. See [milestones.md](m
 | [Procedural trees](design/future/procedural-trees.md): Ez Tree port, LowPoly and Realistic styles, wind, impostors | G8b |
 | [Water](design/future/water.md): ponds and lakes, `River3D` streams, `WaterMaterial3D` | G8c |
 | [Forest showcase](design/future/forest-showcase.md): `Examples/Forest`, a first-person forest walk, and the rendering it needs | G8d |
+| [Forest visual quality](design/future/forest-visual-quality.md): the Unreal look in eight phases (probe GI, shadows, volumetrics, post, Ez Tree foliage, water, art, upscaling) | G8e |
 
 ## Conventions
 

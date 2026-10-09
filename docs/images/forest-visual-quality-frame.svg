@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 716" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Where the G8e forest visual-quality passes join the frame</title>
+  <desc>One forest frame with the G8e phases. Bakes run offline or only on change: the CPU probe bake into a 3D texture, twig cluster atlases and tree impostors through sub-viewport capture, the terrain macro texture after edits, the far shadow tile when the sun turns, and the sky IBL with SH irradiance when the sky changes. On the CPU the tree tick advances wind and gusts and PrepareFrame picks LODs with fade bands, the staggered cascade schedule and the TAAU jitter. On the GPU at render resolution: staggered shadow cascades, the depth prepass with motion vectors, GTAO with bent normals and contact shadows, the volumetric ray march with temporal accumulation, scene pass A with probe GI, PCSS, cluster foliage, hierarchical wind and terrain-blended props, the colour copy, and scene pass B with water refraction, SSR, caustics and the waterfall. Post: the volumetric composite and depth of field, TAA upscaling to output resolution, auto exposure and high-quality glow, the tonemap with AgX or ACES, the LUT and film effects, then RCAS or FXAA and the overlay.</desc>
+  <rect width="1100" height="716" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:14px;fill:#111827}
+    .bt{font-weight:600;font-size:12.5px;fill:#111827}
+    .t{fill:#1f2937}
+    .s{fill:#4b5563;font-size:11.5px}
+    .n{fill:#15803d;font-size:11.5px}
+    .w{fill:#b45309;font-size:11.5px}
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker>
+  </defs>
+
+  <text x="20" y="28" class="hdr">One forest frame with G8e (new parts in green; ADR 0163 and lanes S/T in amber)</text>
+
+  <!-- Bakes row -->
+  <rect x="20" y="40" width="1060" height="112" rx="10" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="36" y="60" class="t" font-weight="600">Bakes · editor or --bake-*, or only when their inputs change (never per frame)</text>
+
+  <rect x="36" y="70" width="160" height="72" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="46" y="88" class="bt">Probe bake (G8e.1)</text>
+  <text x="46" y="105" class="n">CPU rays, all cores</text>
+  <text x="46" y="120" class="n">SH L1 sky vis + bounce</text>
+  <text x="46" y="135" class="n">→ Texture3D, 5 MB</text>
+
+  <rect x="206" y="70" width="160" height="72" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="216" y="88" class="bt">Twig clusters (G8e.5)</text>
+  <text x="216" y="105" class="n">Ez Tree twigs →</text>
+  <text x="216" y="120" class="n">albedo, normal, thick</text>
+  <text x="216" y="135" class="n">SubViewportCapture</text>
+
+  <rect x="376" y="70" width="160" height="72" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="386" y="88" class="bt">TreeImpostor (G8e.5)</text>
+  <text x="386" y="105" class="n">8 × 8 hemi-octahedral</text>
+  <text x="386" y="120" class="n">views, 1024² atlases</text>
+  <text x="386" y="135" class="s">(G8b design)</text>
+
+  <rect x="546" y="70" width="160" height="72" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="556" y="88" class="bt">Terrain RVT (G8e.7)</text>
+  <text x="556" y="105" class="n">splat → 2048² array</text>
+  <text x="556" y="120" class="n">after terrain edits</text>
+  <text x="556" y="135" class="n">macro texture, props</text>
+
+  <rect x="716" y="70" width="160" height="72" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="726" y="88" class="bt">Far shadow (G8e.2)</text>
+  <text x="726" y="105" class="n">terrain + impostor</text>
+  <text x="726" y="120" class="n">casters → atlas tile</text>
+  <text x="726" y="135" class="n">when the sun turns</text>
+
+  <rect x="886" y="70" width="180" height="72" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="896" y="88" class="bt">Sky LUTs + IBL bake</text>
+  <text x="896" y="105" class="s">when the sky changes</text>
+  <text x="896" y="120" class="n">+ irradiance as SH L2</text>
+  <text x="896" y="135" class="n">  in the lights UBO</text>
+
+  <!-- CPU row -->
+  <rect x="20" y="162" width="1060" height="84" rx="10" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="36" y="182" class="t" font-weight="600">CPU · main thread</text>
+
+  <rect x="36" y="190" width="330" height="48" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="46" y="208" class="bt">Tree.Tick</text>
+  <text x="46" y="226" class="n">+ wind time, gust texture scroll, film-grain seed</text>
+
+  <line x1="368" y1="214" x2="384" y2="214" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="386" y="190" width="680" height="48" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="396" y="208" class="bt">RenderServer.PrepareFrame → MeshRenderer.Prepare</text>
+  <text x="396" y="226" class="n">+ LOD fade bands (both levels in the margin) · staggered cascade schedule · TAAU jitter (Halton 16 at 0.75)</text>
+
+  <!-- GPU row A -->
+  <rect x="20" y="256" width="1060" height="196" rx="10" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="36" y="276" class="t" font-weight="600">GPU · render resolution (0.75 × 2560 × 1440 = 1920 × 1080 on High)</text>
+
+  <rect x="36" y="288" width="156" height="152" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="46" y="308" class="bt">Shadow passes</text>
+  <text x="46" y="326" class="n">C0 every frame</text>
+  <text x="46" y="342" class="n">C1 even frames</text>
+  <text x="46" y="358" class="n">C2 / C3 odd, in turn</text>
+  <text x="46" y="374" class="n">far: LOD2/impostors</text>
+  <text x="46" y="396" class="s">4 × 2048² to 140 m</text>
+  <text x="46" y="412" class="s">≤ 2 cascades per frame</text>
+
+  <line x1="193" y1="364" x2="205" y2="364" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="206" y="288" width="156" height="152" rx="8" fill="#fef3c7" stroke="#d97706" stroke-dasharray="6 3"/>
+  <text x="216" y="308" class="bt">Depth prepass</text>
+  <text x="216" y="326" class="w">ADR 0163 (lane P)</text>
+  <text x="216" y="342" class="w">opaque + cutout</text>
+  <text x="216" y="358" class="w">motion vectors</text>
+  <text x="216" y="374" class="w">jittered projection</text>
+  <text x="216" y="396" class="n">+ hierarchical wind</text>
+  <text x="216" y="412" class="n">  at time, prevTime</text>
+
+  <line x1="363" y1="364" x2="375" y2="364" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="376" y="288" width="156" height="152" rx="8" fill="#fef3c7" stroke="#d97706" stroke-dasharray="6 3"/>
+  <text x="386" y="308" class="bt">AfterPrepass</text>
+  <text x="386" y="326" class="w">GTAO ½ res (lane S)</text>
+  <text x="386" y="344" class="n">+ bent normals</text>
+  <text x="386" y="360" class="n">+ contact shadows</text>
+  <text x="386" y="376" class="n">→ AO target RGBA8</text>
+  <text x="386" y="398" class="n">+ volumetric march</text>
+  <text x="386" y="414" class="n">  ½ res, 24 steps,</text>
+  <text x="386" y="430" class="n">  temporal (G8e.3)</text>
+
+  <line x1="533" y1="364" x2="545" y2="364" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="546" y="288" width="156" height="152" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="556" y="308" class="bt">Scene pass A</text>
+  <text x="556" y="324" class="s">sky, opaque, cutout</text>
+  <text x="556" y="342" class="n">+ probe GI × GTAO</text>
+  <text x="556" y="358" class="n">+ PCSS, far tile</text>
+  <text x="556" y="374" class="n">+ cluster cards,</text>
+  <text x="556" y="390" class="n">  thickness, pivots</text>
+  <text x="556" y="406" class="n">+ terrain-blended</text>
+  <text x="556" y="422" class="n">  props, wet banks</text>
+
+  <line x1="703" y1="364" x2="715" y2="364" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="716" y="288" width="156" height="152" rx="8" fill="#fef3c7" stroke="#d97706" stroke-dasharray="6 3"/>
+  <text x="726" y="308" class="bt">SceneTextures</text>
+  <text x="726" y="326" class="w">colour copy, 6 mips</text>
+  <text x="726" y="342" class="w">(ADR 0163, G8c)</text>
+  <text x="726" y="364" class="n">+ min-depth mips</text>
+  <text x="726" y="380" class="n">  for SSR</text>
+
+  <line x1="873" y1="364" x2="885" y2="364" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="886" y="288" width="180" height="152" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="896" y="308" class="bt">Scene pass B (G8e.6)</text>
+  <text x="896" y="326" class="n">water: refraction,</text>
+  <text x="896" y="342" class="n">SSR ½ res, caustics</text>
+  <text x="896" y="358" class="n">falls: jet + foam</text>
+  <text x="896" y="374" class="n">spray cards</text>
+  <text x="896" y="396" class="s">transparents, debug</text>
+  <text x="896" y="412" class="s">lines (unchanged)</text>
+
+  <!-- GPU row B -->
+  <rect x="20" y="462" width="1060" height="166" rx="10" fill="#f9fafb" stroke="#9ca3af"/>
+  <text x="36" y="482" class="t" font-weight="600">GPU · post (ADR 0163 stages) → output resolution 2560 × 1440</text>
+
+  <rect x="36" y="494" width="190" height="122" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="46" y="514" class="bt">BeforeTonemap</text>
+  <text x="46" y="534" class="n">1. volumetric composite</text>
+  <text x="46" y="550" class="n">   bilateral, × T + in-scatter</text>
+  <text x="46" y="566" class="n">2. bokeh DoF (off by default)</text>
+  <text x="46" y="582" class="s">   CameraAttributesPractical</text>
+
+  <line x1="227" y1="555" x2="243" y2="555" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="244" y="494" width="190" height="122" rx="8" fill="#fef3c7" stroke="#d97706" stroke-dasharray="6 3"/>
+  <text x="254" y="514" class="bt">TAA → TAAU (G8e.8)</text>
+  <text x="254" y="532" class="w">lane T resolve, history</text>
+  <text x="254" y="550" class="n">+ 3 × 3 jittered samples</text>
+  <text x="254" y="566" class="n">  → output resolution</text>
+  <text x="254" y="582" class="n">+ mip bias, RCAS</text>
+  <text x="254" y="600" class="s">FSR 1 when TAA is off</text>
+
+  <line x1="435" y1="555" x2="451" y2="555" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="452" y="494" width="190" height="122" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="462" y="514" class="bt">Exposure + glow</text>
+  <text x="462" y="532" class="s">auto exposure (ADR 0154)</text>
+  <text x="462" y="548" class="s">Godot glow (ADR 0124)</text>
+  <text x="462" y="566" class="n">+ GlowQuality.High:</text>
+  <text x="462" y="582" class="n">  13-tap, Karis, tent</text>
+  <text x="462" y="598" class="n">+ GlowMap (lens dirt)</text>
+
+  <line x1="643" y1="555" x2="659" y2="555" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="660" y="494" width="190" height="122" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="670" y="514" class="bt">Tonemap pass</text>
+  <text x="670" y="532" class="s">× exposure → curve</text>
+  <text x="670" y="550" class="n">+ AgX, Filmic, Reinhard</text>
+  <text x="670" y="566" class="n">+ Adjustment* + .cube</text>
+  <text x="670" y="582" class="n">  LUT (Texture3D)</text>
+  <text x="670" y="598" class="n">+ vignette, grain, CA</text>
+
+  <line x1="851" y1="555" x2="867" y2="555" stroke="#374151" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <rect x="868" y="494" width="198" height="122" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="878" y="514" class="bt">AfterTonemap + overlay</text>
+  <text x="878" y="532" class="s">FXAA (if no TAA)</text>
+  <text x="878" y="550" class="s">canvas, gizmos, UI,</text>
+  <text x="878" y="566" class="s">dev overlay: native</text>
+  <text x="878" y="582" class="s">resolution, unscaled</text>
+  <text x="878" y="600" class="s">→ present</text>
+
+  <!-- legend -->
+  <rect x="20" y="644" width="18" height="14" rx="3" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="46" y="656" class="s">exists today (green lines: G8e additions)</text>
+  <rect x="320" y="644" width="18" height="14" rx="3" fill="#fef3c7" stroke="#d97706" stroke-dasharray="4 2"/>
+  <text x="346" y="656" class="s">in flight: ADR 0163 post system (lane P), GTAO (S), TAA (T)</text>
+  <rect x="740" y="644" width="18" height="14" rx="3" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="766" y="656" class="s">new in G8e</text>
+
+  <text x="20" y="684" class="s">Mesh fragment stage after G8e: ≤ 16 sampled images (terrain and foliage bark 16, meshes 15) — the irradiance cube becomes SH L2 in the</text>
+  <text x="20" y="700" class="s">lights UBO to make room for the probe Texture3D; the far shadow is an atlas tile; GTAO, contact shadows and bent normals share one RGBA8 target.</text>
+</svg>
