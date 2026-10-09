@@ -6,13 +6,15 @@
 per-chunk trimesh collision built from the exact render triangles, exact height/normal/surface/water queries and an
 analytic raycast. Layers live as PNG images next to the scene. This is the core of G8a ([proposal](future/terrain.md),
 [ADR 0149](../../memory/decisions/0149-terrain-trees-water-engine-features.md),
-[ADR 0153](../../memory/decisions/0153-terrain3d-core.md), [ADR 0156](../../memory/decisions/0156-terrain-splat-material.md)); the design is modelled on
+[ADR 0153](../../memory/decisions/0153-terrain3d-core.md), [ADR 0156](../../memory/decisions/0156-terrain-splat-material.md), foliage:
+[ADR 0157](../../memory/decisions/0157-terrain-foliage-scatter.md)); the design is modelled on
 [TerraBrush](https://github.com/spimort/TerraBrush) (MIT, © 2023 spimort) — no TerraBrush code or art is used.
 
 Built so far: the data and its files, both profiles' knobs, the Realistic profile's geometry (smooth normals,
-geomipmapped chunk LOD with skirts), collision (`CollisionMode.All`), queries, the edit API with undo tiles, and the
-scene-save hook, and the Realistic look (`TerrainSplatMaterial3D` with `TerrainLayer`s). Not yet: the Faceted material
-(`TerrainMaterial3D`), foliage/object scatter, the editor dock and brushes, `CollisionMode.NearBodies` (a stub that
+geomipmapped chunk LOD with skirts), collision (`CollisionMode.All`), queries, the edit API with undo tiles, the
+scene-save hook, the Realistic look (`TerrainSplatMaterial3D` with `TerrainLayer`s) and [foliage scatter](#foliage)
+(grass, ferns, pebbles). Not yet: the Faceted material (`TerrainMaterial3D`), object scatter, the foliage build
+radius and painted density layers, the editor dock and brushes, `CollisionMode.NearBodies` (a stub that
 builds every chunk) and sub-rectangle texture uploads.
 
 ## Key types
@@ -30,6 +32,9 @@ All in [`Src/Scene/Nodes3D/Terrain/`](../../MainframeEngine/Src/Scene/Nodes3D/Te
 | `TerrainHit`, `TerrainChange` | `(Position, Normal, Distance)`; `(Layers, Cells, Chunks, FromUndo)` |
 | `TerrainLayer : Resource`, `TerrainSplatMaterial3D : Material` | the Realistic look ([below](#terrainsplatmaterial3d); in `Src/Rendering/Resources/`) |
 | `TerrainLayerPacker`, `TerrainSplatGpu`, `TerrainSplatParams` (internal) | layer arrays, GPU state, parameter block (`Src/Rendering/Terrain/`) |
+| `FoliageType : Resource` | one kind of foliage in `TerrainData.FoliageTypes` ([Foliage](#foliage), in `Terrain/Foliage/`) |
+| `TerrainFoliage3D : Node3D` | `[Tool]` internal child (`Terrain3D.Foliage`): one `MultiMeshInstance3D` per (tile, type), thinning in `OnProcess` |
+| `GrassMesh` | procedural `Clump`, `Fern`, `Rock` meshes with the foliage streams, and `CreateMaterial()` |
 
 ## Coordinates and grid
 
@@ -164,6 +169,48 @@ chunks draw it with the terrain's splat maps; no other wiring. Another mesh, or 
   batching, picking and shadows (opaque casters, no material). Painting re-uploads the splat map through
   `GetSplatTexture`'s version, and the set follows.
 
+## Foliage
+
+`TerrainData.FoliageTypes` lists `FoliageType`s (append new ones at the end: the index is part of the placement hash).
+The terrain's `TerrainFoliage3D` child (internal, unowned, unsaved, created with the chunks) draws each type as one
+`MultiMeshInstance3D` per **tile** (a chunk, or a chunk ÷ `Subdivisions` per side), with `MaterialOverride` = the
+type's `Material`, `CastShadows` = the type's and `VisibilityRangeEnd` = its `CullDistance`.
+
+| `FoliageType` | Default | |
+|---|---|---|
+| `Mesh`, `Material` | — | e.g. `GrassMesh.Clump(...)` + `GrassMesh.CreateMaterial()` |
+| `Density` | 1 | instances per m² at full weight (grid spacing 1/√density) |
+| `Jitter`, `RandomYaw`, `ScaleMin`/`ScaleMax` | 1, on, 0.8/1.2 | offset in the grid cell, rotation about up, uniform scale |
+| `AlignToNormal`, `SinkMeters` | 0.3, 0.03 | tilt towards `SmoothNormalAt`; base pushed down (× scale) |
+| `Seed` | 0 | another arrangement |
+| `LayerMask` | 0 | splat layers (bits) whose summed weight is the growth probability (Faceted: surface ids); 0 = everywhere |
+| `SlopeMaxDegrees`, `HeightMin`/`HeightMax` | 40°, ±100 km | limits (the slope fades over its last 5°; heights terrain-local) |
+| `CullDistance`, `ThinBand` | 60, 25 m | full density to cull − band, none at cull |
+| `Subdivisions` | 1 | tiles per chunk side: smaller tiles follow the thinning more closely, more draws |
+| `CastShadows` | off | |
+
+- **Placement** is deterministic: one jittered grid per type over the whole map; each grid point's values (accept,
+  jitter, tile fuzz, yaw, scale, thinning key) are SplitMix64 hashes of (seed, type index, grid x, grid z). A point
+  grows when its accept hash is below the layer weight × slope fade, it is dry (no water on its triangle) and inside the
+  height limits. Same data, same instances; tiling and neighbour rebuilds never move them.
+- **Fuzzy tiles, smooth thinning.** A point belongs to the tile under its position moved by a hashed offset of up to
+  half a tile on each axis. Each tile's instances are sorted by a uniform hash key, and every frame it draws the first
+  `f · n` (`MultiMesh.VisibleInstanceCount`), `f` = clamp((`CullDistance` − d) / `ThinBand`, 0, 1) with d the camera's
+  distance to the tile centre; at 0 the tile hides (`Visible`). As membership near an edge is shared at random, the
+  drawn density between tile centres blends their factors linearly — no line at tile edges or at the cull distance;
+  single instances pop. 0 B and no upload: a `VisibleInstanceCount` change only moves the draw count (see
+  [MultiMesh](materials-and-meshes.md#multimesh-adr-0151)), and tiles set `MultiMesh.CustomAabb`.
+- **Rebuilds.** A `Changed` with heights, splat weights or water rebuilds the tiles within half a tile (+ a vertex) of
+  the touched cells; user channels rebuild nothing. A changed type (or its mesh) rebuilds that type; a new list
+  rebuilds all. Every tile of the map is placed at load (no build radius yet).
+- **Meshes** (`GrassMesh`, vertex colours, no textures): `Clump(blades, height, width, bend, seed)` — tapered blades
+  of four segments crossing at random yaws on a small disc, curving outward; `Fern(fronds, length, width, leaflets,
+  seed)` — fronds arching up and drooping with a leaflet triangle each side per step; `Rock(radius, roughness, seed)`
+  — a flattened, lobed icosphere sunk into the ground (draw it with `StandardMaterial3D`). Plants carry `Custom0` =
+  (wind weight 0 at the root → 1 at the tip, 1 = leaf flutter, per-blade phase, AO darker at the root), UV v = 0 at the
+  tip, colours root → tip, and normals leaning halfway to up; `CreateMaterial()` is a `FoliageMaterial3D` with no
+  cut-out, `BackFace = Keep`, translucency 0.45, PBR, wind strength 0.6 and bend 0.5.
+
 ## Collision
 
 One `StaticBody3D` per chunk (at the chunk origin) whose `ConcavePolygonShape3D.Faces` are copied from the chunk's
@@ -220,6 +267,10 @@ Apple M5, Release, the forest's 256 m at 0.5 m (513² vertices, 8 × 8 chunks of
 | `Raycast` across the map | ≈ 1 µs, 0 B |
 | A 20 × 20 vertex `SetHeights` | ≈ 3 ms (+ ≈ 0.2 s for the next step's Jitter2 rebuild of the touched chunks) |
 | Steady-state frame | 0 B (unit gate with a walking character; render gate with an orbiting camera through LOD switches) |
+| Foliage: place 472k instances (grass 7/m² in 16 m tiles, ferns, pebbles; 384 tiles) | ≈ 0.2–0.3 s at load |
+| Foliage: per-frame thinning over 384 tiles | ≈ 8 µs, 0 B |
+| Foliage: a 20 × 20 vertex `SetHeights` (terrain + foliage tiles) | ≈ 7–11 ms |
+| Foliage drawn around a walker (grass to 45 m) | ≈ 27k clumps, 46 draws; GPU-bound ≈ 8.7 ms per frame at 1920 × 1080, ≈ 10.2 ms at 2560 × 1440 (≈ 8.3 ms display-capped without foliage) |
 
 The collision load cost is Jitter2's per-triangle shapes; `CollisionMode.NearBodies` (building only chunks near moving
 bodies) is the planned fix for larger maps.
@@ -236,11 +287,20 @@ bodies) is the planned fix for larger maps.
   and selection, skirts, undo/redo bit-exact, data replacement, Faceted, water, a `CharacterBody3D` capsule standing
   1 cm (its safe margin) above the surface, a sphere resting on it, physics rays agree); `TerrainSaveTests` (scene
   save writes `<scene>_terrain/`, reload); `TerrainAllocationTests` (0 B queries and frames).
+- Foliage: `TerrainFoliageTests` (bit-identical placement wherever the terrain is and whatever the tiling, instances
+  on `HeightAt`, density = the masked weights ± 6 %, water/slope/height exclusions, edits rebuild only nearby tiles,
+  distance thinning monotonic within ± 8 % of the factor and hidden past the cull distance, unsaved, list changes);
+  `TerrainFoliageAllocationTests` (0 B frames and updates with a moving camera); `GrassMeshTests` (streams, winding,
+  determinism, closed outward rocks).
 - PNG: [`PngGray16Tests`](../../Tests/MainframeEngine.Tests/Imaging/PngGray16Tests.cs).
 - Splat material ([`TerrainSplatMaterialTests`](../../Tests/MainframeEngine.Tests/Terrain/TerrainSplatMaterialTests.cs)):
   packing (sizes, colour spaces, resampling both ways, defaults, the height sources in order, the content stamp),
   the parameter block, layer subscription and the 8-layer cap, the shader set, the terrain link and `SurfaceTagAt`,
   and a scene round trip; the fragment-stage budget with the terrain set is in `ImageBasedLightingTests`.
+- Render ([`TerrainFoliageRenderTests`](../../Tests/MainframeEngine.RenderTests/TerrainFoliageRenderTests.cs), scene
+  `terrain-foliage`): grass, ferns and pebbles on the hill in the wind, golden at frame 30 (t = 0.5 s); a 0 B gate
+  while the camera walks (tiles thin, hide, return); and a report of the cost on a 256 m map (`--count 1`, against
+  `--count 2` without foliage).
 - Render ([`TerrainRenderTests`](../../Tests/MainframeEngine.RenderTests/TerrainRenderTests.cs), scene `terrain`): a
   64 m noise hill at 0.5 m lit and shadowed by a low sun, golden at frame 10 (moltenvk, lavapipe), self-checks (one
   level per chunk, coarser far chunks, ray = `HeightAt`), and a 0 B allocation gate while the camera orbits.
@@ -256,7 +316,10 @@ bodies) is the planned fix for larger maps.
 - The splat material has no `MacroColor` map, no per-layer triplanar/anti-tiling flags (every layer goes triplanar on
   slopes, every layer hex-tiles near) and no Blinn-Phong fallback; packing (decoding and resampling every layer image)
   runs synchronously on the render thread when a layer texture changes.
-- `CollisionMode.NearBodies`, the analytic physics-ray registration (decision 2 of the proposal), foliage and objects,
+- Foliage: the build radius (place only chunks near the camera, from a buffer pool), painted `foliage-*.png` density
+  layers, `ChannelCutoff`, the editor Foliage mode, and `FoliageMaterial3D.FadeMode.Shrink` (G8b) so thinning
+  instances shrink instead of popping.
+- `CollisionMode.NearBodies`, the analytic physics-ray registration (decision 2 of the proposal), objects,
   the Faceted `TerrainMaterial3D`, the editor dock, brushes and `TerrainEditAction`.
 - Inspector edits of a loaded `TerrainData`'s layout knobs throw (the dock's "Create terrain data" will own them).
 - Inline (never saved) terrain data does not survive an editor code reload (snapshots carry knobs, not pixels).

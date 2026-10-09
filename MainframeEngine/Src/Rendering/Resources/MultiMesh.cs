@@ -9,12 +9,15 @@ namespace MainframeEngine;
 /// Transforms are in the instance node's space. <see cref="InstanceCount"/> sizes the buffer (resizing resets every
 /// transform to identity); <see cref="VisibleInstanceCount"/> draws only the first instances. Set many transforms with
 /// <see cref="SetTransforms"/>: each setter bumps <see cref="Version"/>, which the renderer checks once per frame.
+/// Changing only <see cref="VisibleInstanceCount"/> (or <see cref="CustomAabb"/>) re-uploads nothing: the instance
+/// buffer holds every instance and the draw takes the first ones, so per-frame thinning (terrain foliage) costs 0 B.
 /// </remarks>
 [EditorIcon("stack-2")]
 public sealed class MultiMesh : Resource
 {
     private Transform3D[] _transforms = [];
     private int _version = 1;
+    private int _contentVersion = 1;
     private int _boundsVersion;
     private int _boundsMeshVersion;
     private Mesh? _boundsMesh;
@@ -58,9 +61,25 @@ public sealed class MultiMesh : Resource
             value = Math.Max(-1, value);
             if (field == value) return;
             field = value;
-            Touch();
+            TouchDrawn();
         }
     } = -1;
+
+    /// <summary>
+    /// Bounds to use instead of computing them from the instances (<see cref="GetAabb"/>), in the instance node's space;
+    /// <see cref="Aabb.Empty"/> (the default) computes them. Set it when <see cref="VisibleInstanceCount"/> changes often
+    /// (each change otherwise walks the drawn instances once). Runtime only: not saved.
+    /// </summary>
+    public Aabb CustomAabb
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            TouchDrawn();
+        }
+    } = Aabb.Empty;
 
     /// <summary>
     /// Every instance's transform (Godot's <c>buffer</c>, as transforms). Assigning sets <see cref="InstanceCount"/> to
@@ -80,8 +99,11 @@ public sealed class MultiMesh : Resource
     /// <summary>The instances drawn: <see cref="VisibleInstanceCount"/>, or all.</summary>
     public int DrawnInstanceCount => VisibleInstanceCount < 0 ? _transforms.Length : Math.Min(VisibleInstanceCount, _transforms.Length);
 
-    /// <summary>Changes whenever the mesh reference, the count or a transform changes.</summary>
+    /// <summary>Changes whenever the mesh reference, the count, a transform, <see cref="VisibleInstanceCount"/> or <see cref="CustomAabb"/> changes.</summary>
     public int Version => _version;
+
+    /// <summary>Changes with the mesh reference, the count or a transform: what the instance buffer holds.</summary>
+    internal int ContentVersion => _contentVersion;
 
     public void SetInstanceTransform(int index, in Transform3D transform)
     {
@@ -112,10 +134,13 @@ public sealed class MultiMesh : Resource
 
     /// <summary>
     /// The bounds of the drawn instances in the instance node's space: the mesh's bounds under each transform
-    /// (<see cref="Aabb.Empty"/> without a mesh or instances). Cached until the transforms or the mesh change.
+    /// (<see cref="Aabb.Empty"/> without a mesh or instances), or <see cref="CustomAabb"/> when set. Cached until the
+    /// transforms or the mesh change.
     /// </summary>
     public Aabb GetAabb()
     {
+        if (!CustomAabb.IsEmpty)
+            return CustomAabb;
         var mesh = Mesh;
         var meshVersion = mesh?.Version ?? 0;
         if (_boundsVersion == _version && ReferenceEquals(_boundsMesh, mesh) && _boundsMeshVersion == meshVersion)
@@ -138,6 +163,12 @@ public sealed class MultiMesh : Resource
     }
 
     private void Touch()
+    {
+        _contentVersion++;
+        TouchDrawn();
+    }
+
+    private void TouchDrawn()
     {
         _version++;
         EmitChanged();

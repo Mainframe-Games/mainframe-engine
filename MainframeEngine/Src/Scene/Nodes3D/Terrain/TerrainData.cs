@@ -136,6 +136,13 @@ public sealed class TerrainData : Resource
     [Export]
     public bool CastShadows { get; set; } = true;
 
+    /// <summary>
+    /// The foliage scattered over the terrain (grass, ferns, pebbles; ADR 0157), drawn by the terrain's
+    /// <see cref="TerrainFoliage3D"/>. Indices are part of each type's placement hash: append new types at the end.
+    /// </summary>
+    [Export]
+    public FoliageType[] FoliageTypes { get; set => field = value ?? []; } = [];
+
     // ── Derived sizes ──────────────────────────────────────────────────────────
 
     /// <summary>Quads per side (N).</summary>
