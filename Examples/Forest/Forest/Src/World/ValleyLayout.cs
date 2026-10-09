@@ -181,9 +181,11 @@ public static class ValleyLayout
     ];
 
     /// <summary>
-    /// The seven reference shots (forest-showcase.md → Reference shots; G8e.7 recomposed R1 and added R6 and R7, ADR 0175;
-    /// ADR 0178 recomposed them after the Unreal references, most of them into the low sun): pose, vertical FOV and, for
-    /// the photo shots, depth of field.
+    /// The eight reference shots (forest-showcase.md → Reference shots; G8e.7 recomposed R1 and added R6 and R7, ADR 0175;
+    /// ADR 0178 recomposed them after the Unreal references, most of them into the low sun; R8 fills the pause menu's
+    /// 4 × 2 grid): pose, vertical FOV and, for the photo shots, depth of field. R8 stands on the path inside R5's fern
+    /// dell clearing and looks along the path, which trees keep 3.2 m clear of, so it needs no clearing or corridor of its
+    /// own (the nearest trunk is 3.2 m away) and the probe bake stays current.
     /// </summary>
     public static readonly ReferenceShot[] Shots =
     [
@@ -201,6 +203,9 @@ public static class ValleyLayout
         new("r6-pines", new Vector2(45f, 37f), 1.6f, new Vector2(52f, 14f), 7f, 60f),
         // The fall from pool 1's south bank, into the light.
         new("r7-fall-close", new Vector2(88f, 55f), 1.2f, new Vector2(86f, 43.5f), 13.5f, 58f, AbsoluteTarget: true),
+        // The path through the mixed wood south of the fall, straight into the sun: sunflecks on the path, spruce and fir
+        // boughs and an ash's trunk framing the light in the haze.
+        new("r8-woodland", new Vector2(72.5f, 94f), 1.5f, new Vector2(84f, 72f), 5f, 60f),
     ];
 
     /// <summary>A Catmull-Rom point on the closed path loop at parameter <paramref name="t"/> (0 … <see cref="PathPoints"/>.Length).</summary>
