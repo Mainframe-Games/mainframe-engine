@@ -57,6 +57,16 @@ public abstract class GeometryInstance3D : VisualInstance3D
     }
 
     /// <summary>
+    /// Which shadow passes the instance casts into (ADR 0167; default <see cref="MainframeEngine.ShadowCasterLod.All"/>):
+    /// <see cref="MainframeEngine.ShadowCasterLod.Fine"/> skips the primary light's coarse passes (its last
+    /// <see cref="DirectionalLight.CoarseCascades"/> cascades and its far shadow), <see cref="MainframeEngine.ShadowCasterLod.Coarse"/>
+    /// casts into them from any distance (and into the fine ones while in range). Levels of detail use it so far cascades
+    /// draw cheap casters.
+    /// </summary>
+    [Export]
+    public ShadowCasterLod ShadowCasterLod { get; set; }
+
+    /// <summary>
     /// Replaces the node's local bounds (the mesh's, or a multimesh's over all its instances) for frustum culling, shadow
     /// caster culling and the visibility range (Godot's <c>custom_aabb</c>); null: the computed bounds. Levels of detail
     /// share one so they switch at the same distance (ADR 0158). Not saved.

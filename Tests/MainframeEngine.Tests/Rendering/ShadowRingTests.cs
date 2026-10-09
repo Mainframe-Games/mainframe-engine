@@ -68,9 +68,9 @@ public sealed class ShadowRingTests
     [Fact]
     public void RingHasASlotForEveryPassOfAFullFrame()
     {
-        // 4 cascades + 11 atlas tiles (3 secondary directional + 8 spot) + 4 cubes x 6 faces.
-        Assert.Equal(39, ShadowSystem.MaxShadowPasses);
-        Assert.Equal(ShaderLimits.MaxShadowCascades + ShaderLimits.MaxShadowAtlasMaps + ShaderLimits.MaxShadowPoint * 6, ShadowSystem.MaxShadowPasses);
+        // 4 cascades + the far shadow (ADR 0167) + 11 atlas tiles (3 secondary directional + 8 spot) + 4 cubes x 6 faces.
+        Assert.Equal(40, ShadowSystem.MaxShadowPasses);
+        Assert.Equal(ShaderLimits.MaxShadowCascades + 1 + ShaderLimits.MaxShadowAtlasMaps + ShaderLimits.MaxShadowPoint * 6, ShadowSystem.MaxShadowPasses);
         Assert.Equal(ShaderLimits.MaxShadowDirectional - 1 + ShaderLimits.MaxShadowSpot, ShaderLimits.MaxShadowAtlasMaps);
     }
 }

@@ -83,6 +83,9 @@ internal struct ShadowCasterItem
     /// <summary>A <see cref="MultiMeshInstance3D"/>'s own instance buffer (drawn alone), else null.</summary>
     public GpuBuffer? Instances;
     public uint InstanceCount;
+
+    /// <summary>The passes it casts into (ADR 0167): <see cref="MeshRenderer.FinePasses"/>, <see cref="MeshRenderer.CoarsePasses"/> or both.</summary>
+    public byte Passes;
 }
 
 /// <summary>A run of caster instances drawn with one instanced draw in one shadow pass.</summary>
@@ -721,6 +724,9 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             if (!node.IsInVisibilityRange(cameraPosition, bounds))
             {
                 Stats.OutOfRange++;
+                // A coarse caster (a tree's coarsest level, an impostor) casts into the coarse passes from any distance.
+                if (collectCasters && node.CastShadows && node.ShadowCasterLod == ShadowCasterLod.Coarse)
+                    AddCasters(view, node, mesh, mirrored, bounds, multiInstances, multiCount, CoarsePasses);
                 continue;
             }
 
@@ -730,33 +736,9 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
             if (collectCasters && node.CastShadows)
             {
-                var casts = false;
-                for (var s = 0; s < surfaces.Length; s++)
-                {
-                    if (surfaces[s].IndexCount == 0 || materials[s] is not { } m || !m.State.CastsShadows)
-                        continue;
-                    var cull = m.State.EffectiveCull;
-                    var foliage = m.FoliageCaster;
-                    var cutout = m.State.Alpha == AlphaMode.Cutout || foliage ? m : null;
-                    view.Casters.Add(CasterKey(cull, mirrored, cutout?.Id ?? 0, mesh.Id, s),
-                        new ShadowCasterItem
-                        {
-                            Node = node,
-                            Mesh = mesh,
-                            Surface = s,
-                            Cull = cull,
-                            Mirrored = mirrored,
-                            Cutout = cutout,
-                            Foliage = foliage,
-                            Bounds = bounds,
-                            Instances = multiInstances,
-                            InstanceCount = multiCount,
-                        });
-                    casts = true;
-                }
-
-                if (casts)
-                    view.CasterBounds = view.CasterBounds.Merge(bounds);
+                // In range, a coarse caster casts everywhere; out of range (above), only into the coarse passes.
+                var passes = node.ShadowCasterLod == ShadowCasterLod.Fine ? FinePasses : (byte)(FinePasses | CoarsePasses);
+                AddCasters(view, node, mesh, mirrored, bounds, multiInstances, multiCount, passes);
             }
 
             if (!frustum.Intersects(bounds))
@@ -821,6 +803,50 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         view.Opaque.Sort();
         view.Transparent.Sort();
         view.Casters.Sort();
+    }
+
+    /// <summary>Caster pass mask: the fine shadow passes (nearer cascades, atlas tiles, cubes).</summary>
+    internal const byte FinePasses = 1;
+
+    /// <summary>Caster pass mask: the coarse shadow passes (<see cref="ShadowPass.Coarse"/>: far cascades, the far shadow).</summary>
+    internal const byte CoarsePasses = 2;
+
+    // One caster item per shadow-casting surface of node.
+    private static void AddCasters(MeshViewDraws view, GeometryInstance3D node, MeshGpu mesh, bool mirrored, in Aabb bounds,
+        GpuBuffer? multiInstances, uint multiCount, byte passes)
+    {
+        var materials = node.GpuMaterials;
+        var surfaces = mesh.Surfaces;
+        var casts = false;
+        for (var s = 0; s < surfaces.Length; s++)
+        {
+            if (surfaces[s].IndexCount == 0 || materials[s] is not { } m || !m.State.CastsShadows)
+                continue;
+            if (m.NeedsStreams)
+                mesh.EnsureStreams();
+            var cull = m.State.EffectiveCull;
+            var foliage = m.FoliageCaster;
+            var cutout = m.State.Alpha == AlphaMode.Cutout || foliage ? m : null;
+            view.Casters.Add(CasterKey(cull, mirrored, cutout?.Id ?? 0, mesh.Id, s),
+                new ShadowCasterItem
+                {
+                    Node = node,
+                    Mesh = mesh,
+                    Surface = s,
+                    Cull = cull,
+                    Mirrored = mirrored,
+                    Cutout = cutout,
+                    Foliage = foliage,
+                    Bounds = bounds,
+                    Instances = multiInstances,
+                    InstanceCount = multiCount,
+                    Passes = passes,
+                });
+            casts = true;
+        }
+
+        if (casts)
+            view.CasterBounds = view.CasterBounds.Merge(bounds);
     }
 
     /// <summary>
@@ -1121,9 +1147,12 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         var sphere = pass.LightRange > 0f;
         var center = pass.LightPosition;
         var radius = pass.LightRange;
+        var mask = pass.Coarse ? CoarsePasses : FinePasses;
         for (var k = 0; k < count; k++)
         {
             ref var item = ref casters[k];
+            if ((item.Passes & mask) == 0)
+                continue;
             if (sphere && !SphereIntersects(item.Bounds, center, radius))
                 continue;
             if (frustum.Intersects(item.Bounds))

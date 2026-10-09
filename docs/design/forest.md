@@ -13,7 +13,7 @@ procedural [audio](#audio) and [the valley](#the-valley): a generated 256 m terr
 pools, a log bridge) running into a pond, about 1 500 trees, 180 bushes, grass, reeds, ferns, stones and props, under a
 physical morning sky with fog, light shafts, eye adaptation, SSAO (GTAO, [ADR 0165](../../memory/decisions/0165-ssao-gtao.md)) and TAA. Also the [reference shots](#reference-shots), the
 [benchmark](#forestdev---autowalk-and-the-benchmark) and a path-following `--autowalk`. Not yet: the pause menu and
-settings page, impostors, PCSS and contact shadows, LUT grading, dust motes and butterflies, and the release job.
+settings page, impostors, LUT grading, dust motes and butterflies, and the release job.
 
 ![R1: the glade, looking into the morning sun](../images/forest/r1-glade.png)
 
@@ -140,7 +140,7 @@ an unowned child, never saved.
 | Splat (8 layers, `ForestAssets` order) | per cell from the final ground: needles under the pines, leaf litter on the aspen bank and forest edges, grass in the glade, patchy moss; then overrides: moss at rock bases, rock above ≈ 37° and on the outcrop's steep, convex parts, moss 2–5 m from water, mud within ≈ 1.5 m of the stream and the pond, gravel in the stream bed and the pond's deep bed, gravel path edges, dirt on the path |
 | Terrain material | `ForestAssets.CreateTerrainMaterial()` with every ORM's roughness lifted to 0.6 + 0.4 r (`RoughenOrm`: the scans' 0.45 made dry ground glare white against a low sun), grass and leaves tinted, `AntiTiling` off (3.5 ms at 1080p), detail to 45 m, far from 110 m |
 | Ground cover (`TerrainData.FoliageTypes`) | meadow grass (8/m² on grass, to 32 m), tall grass, woodland grass on leaves and moss, reeds on the pond's mud, the Poly Haven fern (merged, re-centred, with a wind stream: `FoliageMaterial3D`, cut-out) on needles, leaves and moss, `rock_07` stones on gravel and moss; densities × `GroundCoverDensity` (0.8) |
-| Trees (`ForestVegetation`) | one jittered candidate per 4 m cell, accepted by zone: pines (large, medium, small; 2 + 2 + 1 seeds) on the east slope, outcrop, north and the high west ridge; aspens (5 variants) along the stream and round the pond; ash at the glade's edge and in mixed woods; a few oaks in the glade. Clear of the path (3.2 m), water (1.6 m), the bridge (7 m), steep rock, the clearings and the R2/R4 view corridors. ≈ 1 500 trees in a `TreeScatter` (levels at 22 m and 55 m, out to 400 m, levels 0–1 cast shadows); ≈ 180 bushes in a second one (to 75 m, no collision, only level 0 casts) |
+| Trees (`ForestVegetation`) | one jittered candidate per 4 m cell, accepted by zone: pines (large, medium, small; 2 + 2 + 1 seeds) on the east slope, outcrop, north and the high west ridge; aspens (5 variants) along the stream and round the pond; ash at the glade's edge and in mixed woods; a few oaks in the glade. Clear of the path (3.2 m), water (1.6 m), the bridge (7 m), steep rock, the clearings and the R2/R4 view corridors. ≈ 1 500 trees in a `TreeScatter` (levels at 22 m and 55 m, out to 400 m; level 0 casts into the near cascades, level 1 into every cascade and the far shadow from any distance: `ShadowCoarseLod` 1, ADR 0167); ≈ 180 bushes in a second one (to 75 m, no collision, only level 0 casts) |
 | Props | `ForestAssets.InstantiateProp` with shared PBR materials: the bridge (`dead_tree_trunk_02` × 1.6 along the path's crossing, its top 14 cm above the banks, a 0.9 m walkway box tagged `wood`), mossy rock sets at the source and the fall, boulders round the fall and the pools, logs, stumps and dry branches placed near the path by hashed search; a collision box per mesh part (`SurfaceBody3D`, tagged `rock` / `wood`) |
 | Edges | four 200 m high `StaticBody3D` walls just outside the map |
 | Player | `ForestValley` stands the player on the ground and sets `SurfaceResolver` to `Terrain3D.SurfaceTagAt` (needles sound as leaves); `ForestAudio` gets the pine density for the woodpecker |
@@ -158,7 +158,7 @@ something came into view.
 
 | Knob | Value | Why |
 |---|---|---|
-| Sun | `DirectionalLight3D`, colour (1, 0.87, 0.7), energy 2.6, 2 cascades × 1024² to 60 m, split λ 0.8 | warm and low; the shadow budget below |
+| Sun | `DirectionalLight3D`, colour (1, 0.87, 0.7), energy 2.6, 4 cascades × 1024² to 140 m, split λ 0.8; G8e.2 ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)): `ShadowCacheMode.Staggered`, `ShadowCoarseCascades` 2, `LightAngularDistance` 0.5°, `ContactShadows` (0.4 m), `FarShadowEnabled` | warm and low: long soft shadows across the glade and the pond, ferns and rocks grounded; the shadow budget below |
 | Sky | `Physical`, turbidity 6, Mie 0.005, ground (0.28, 0.27, 0.2) | a clear morning; the IBL follows it |
 | Ambient / reflections | `AmbientSource.Sky` × 1.6, `ReflectedLightSource.Sky` | no GI: the sky fills the shade so it stays readable next to the sun |
 | Fog | density 0.003, height 6 m, height density 0.08, colour (0.42, 0.47, 0.53), sun scatter 0.3 | haze in the valley, brighter towards the sun |
@@ -186,10 +186,11 @@ all five at 2560 × 1440 (frame 300 at a fixed 60 Hz: fixed wind, water and expo
 | ![R5](../images/forest/r5-floor.png)<br>**R5 Forest floor**: 0.5 m above leaf litter and ferns among pines and aspens | |
 
 **What limits the look** (engine features the slice does not have yet): no GI (the sky's IBL fills the shade, so
-interiors of the canopy read flat), no SSAO or contact shadows (trunks and props do not ground themselves), TAA softens the
-image a little in motion (the sharpen restores some of it), no impostors or coverage-preserving alpha mips (distant canopies read
+interiors of the canopy read flat), TAA softens the image a little in motion (the sharpen restores some of it), no
+impostors or coverage-preserving alpha mips (distant canopies read
 as speckled cards), no SSR or refraction (the stream shows its bed, not the trees; the pond reflects only the sky), no
-real falls (the fall is a steep ribbon), and only 2 × 1024² shadow cascades to 60 m within the budget.
+real falls (the fall is a steep ribbon), and 1024² rather than 2048² shadow cascades (2048² costs 4–6 ms more under the
+leaf cards until G8e.5's impostors).
 
 ### Performance
 
@@ -208,6 +209,22 @@ frame, ≈ 4 s from launch to the first measured frame. 1080p holds 60 fps at th
 most of the flight; the p99 frames are the vista over the whole valley. Measured at 1080p against these defaults: the
 engine's default sun shadows (4 × 2048² to 100 m) +12 ms, 3 × 2048² to 90 m +8 ms, 3 × 1024² to 110 m +1.2 ms;
 hex-tiling +3.5 ms; the trees +10 ms; the ground cover +5 ms (p50). The GPU, not the CPU, bounds every case.
+
+**G8e.2 shadows** ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)), `just forest-bench`
+at 1920 × 1080, interleaved runs on a busy machine (other lanes' GPU and Docker work), the old sun (2 × 1024² to 60 m)
+against the new one with the same build:
+
+| Sun | p50 | p90 | p99 | Sun shadows (GPU p50) |
+|---|---|---|---|---|
+| Before: 2 × 1024² to 60 m, every frame | 15.37 / 15.46 / 15.44 ms | 19.3–20.7 ms | 24.2 / 25.7 / 25.3 ms | 2.1 ms |
+| **After:** 4 × 1024² to 140 m staggered, coarse level 1, PCSS 0.5°, contact shadows, far shadow | **14.11 / 14.20 / 15.40 ms** | 19.5–21.6 ms | **25.0 / 23.9 / 28.8 ms** | 3.7–4.0 ms |
+
+The frame stays within noise of before: the contact shadows turn the depth prepass on, which pays for itself (ADR 0163),
+and that offsets PCSS in the lit pass and the larger shadow pass (still two 1024² cascade passes a frame, but
+over 140 m and with the far trees). Measured along the way: the same setup every frame 15 ms of shadows; 4 × 2048²
+staggered +4–6 ms of shadows; the first PCSS (16 point taps, no early-outs) +3 ms; Ez Tree's level 2 as the coarse level
++2–3 ms and a black forest floor; translation-only cascade margins 2.7 cascade passes a frame (turning). At the start of
+the lane, on a quieter machine, the old setup measured p50 13.0 ms, p99 20.25 ms, shadows 2.0 ms.
 
 ## `FirstPersonController`
 

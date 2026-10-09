@@ -13,7 +13,7 @@ FXAA are effects in this system, and so are TAA (ADR 0166) and SSAO ([ADR 0165](
 ```mermaid
 flowchart LR
     SH["Shadows, offscreen views<br/>(sub-viewports, picking)"] --> PP["Depth prepass (when needed)<br/>opaque + cutout → scene depth<br/>+ RG16F velocity, sky velocity"]
-    PP --> AP["AfterPrepass stage<br/>(SSAO → set 0 binding 5)"]
+    PP --> AP["AfterPrepass stage<br/>(SSAO → set 0 binding 5,<br/>contact shadows → binding 6)"]
     AP --> SC["Scene pass<br/>loads the prepass depth;<br/>prepassed surfaces: LEQUAL / EQUAL, no writes"]
     SC --> BT["BeforeTonemap stage (HDR)<br/>TAA · auto exposure · glow · light shafts"]
     BT --> TM["Tonemap<br/>engine or post (composites exposure, glow, shafts)"]
@@ -39,7 +39,7 @@ Only the tree's root world is post-processed (glow, auto exposure, light shafts,
 | `PostEffect` | an effect: `Name`, `Stage`, `Order`, `Needs`, `IsEnabled(settings)`, and `OnCreate`, `OnBeginFrame`, `OnResize`, `OnRecord`, `OnDispose` |
 | `PostEffectOrder` | the built-in orders: `Ssao` 100, `ContactShadows` 200; `Taa` 100, `DepthOfField` 150, `AutoExposure` 200, `Glow` 300, `LightShafts` 400; `Sharpen` 50, `Fxaa` 100, `DebugView` 1000 |
 | `PostEffectNeeds` | `DepthPrepass`, `Velocity` (implies the prepass), `Jitter` |
-| `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`, `TaaSharpness`; `PostTonemap` = the world asks for more than the engine tonemap |
+| `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`, `TaaSharpness`, the primary sun's `ContactShadows` (ADR 0167); `PostTonemap` = the world asks for more than the engine tonemap |
 | `PostProcessStack` | the view's effects, sorted by stage, order, registration; `GetNeeds`, `CountEnabled`, `BeginFrame`, `Record(stage)`, `Resize` |
 | `PostEffectContext` | per stage: `CommandBuffer`, `Stage`, `Settings`, `Scene` (`SceneTextures`), `Targets` (pool), `Camera` (`PostCamera`), `FrameNumber`, `DeltaTime`, `Time`, `Exposure`, `IsLastInStage`, `BeginOutput`/`EndOutput`, `CopyToSceneColor` |
 | `SceneTextures` | `Color` (HDR), `Depth`, `Velocity`, `Ldr`, `Extent`, `Generation`, `HasPrepass`, point and linear samplers |
@@ -58,7 +58,8 @@ public.
 
 **AfterPrepass.** After the depth prepass, before the lit scene pass. `SceneTextures.Depth` holds the opaque and
 cutout depth, `Velocity` the motion vectors; nothing is lit (`Color` is not rendered yet). SSAO runs here and binds its
-output for the lit shaders (below). The stage only runs on frames with a prepass, and any effect in it should declare
+output for the lit shaders (below); so do the sun's contact shadows (`ContactShadows`, ADR 0167: set 0 binding 6,
+[shadow-system.md → Contact shadows](shadow-system.md#contact-shadows)). The stage only runs on frames with a prepass, and any effect in it should declare
 `PostEffectNeeds.DepthPrepass`.
 
 **BeforeTonemap.** After the scene pass, on linear HDR colour. Built in: TAA (first: everything after it reads the
@@ -273,9 +274,16 @@ combined image sampler with the frame set's linear clamp sampler; `ambientOcclus
 at the start of each frame (`BeginPostFrame`); an SSAO effect calls `FrameContext.SetAmbientOcclusion(image, id)` in its
 `OnBeginFrame`, before the frame's first bind of view 0's set. The binding is latched per frame: a change after the set
 was bound applies next frame (a bound set is never rewritten). Offscreen views always bind white. The fragment stage
-uses 14 images and 11 samplers (terrain splat: 15 and 12) of MoltenVK's 16. SSAO also sets
+declares 15 images and 13 samplers (terrain splat: 16 and 14) of MoltenVK's 16, counting binding 6 below and the
+separate cascade image of ADR 0167. SSAO also sets
 `FrameData.AmbientOcclusion` (the last 16 bytes: light affect, AO channel affect, 1 while bound) through
 `SetAmbientOcclusion(image, id, lightAffect, aoChannelAffect)`; it is 0 without SSAO and in offscreen views.
+
+
+Set 0 binding 6 (`FrameContext.ContactShadowBinding`, `contactShadowTexture` in `include/contact_shadows.slang`) works the
+same way for the contact shadows (`FrameContext.SetContactShadows`, cleared by `BeginPostFrame`), an `R16G16_SFLOAT`
+image (shadow, view depth) the shadow lookup of the primary sun multiplies in. When G8e.1 lands, the contact shadow
+moves into the AO target's g channel and binding 6 is retired.
 
 ## SSAO
 

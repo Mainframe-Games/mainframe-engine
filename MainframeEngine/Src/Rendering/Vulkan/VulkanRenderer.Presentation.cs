@@ -212,6 +212,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         _post.Add(_lightShafts);
         _post.Add(new TaaEffect());
         _post.Add(new TaaSharpenEffect());
+        _post.Add(new ContactShadows());
         _post.Add(new FxaaEffect());
         _post.Add(new VelocityDebugView(ssao));
     }
@@ -300,7 +301,9 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown debug view.");
     }
 
-    public PostEffectSettings PostSettings => new(PostProcess, _antiAliasing, DebugView, _taaSharpness);
+    public PostEffectSettings PostSettings => new(PostProcess, _antiAliasing, DebugView, _taaSharpness) { ContactShadows = ContactShadows };
+
+    public ContactShadowSettings ContactShadows { get; set; }
 
     public RenderPass PrepassRenderPass => (_prepass ??= new ScenePrepass(this, SceneTarget)).PrepassRenderPass;
 
@@ -317,6 +320,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         if (prepass)
             _prepass ??= new ScenePrepass(this, SceneTarget);
         Frame.ClearAmbientOcclusion(); // an SSAO effect binds its output again in OnBeginFrame
+        Frame.ClearContactShadows();   // so does the contact shadow effect (ADR 0167)
         var context = PreparePostContext(_commandBuffers[_currentFrame], FrameExposure);
         context.Scene.HasPrepass = prepass; // this frame's (the prepass has not run yet)
         context.Scene.Velocity = prepass ? _prepass!.VelocityView : default;

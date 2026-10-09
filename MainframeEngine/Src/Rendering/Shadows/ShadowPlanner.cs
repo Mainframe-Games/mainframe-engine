@@ -10,8 +10,20 @@ namespace MainframeEngine;
 /// </summary>
 internal sealed class ShadowPlanner
 {
-    /// <summary>Shadow sub-passes per frame: 4 cascades + 11 atlas tiles + 4 cubes × 6 faces (39).</summary>
-    public const int MaxPasses = ShaderLimits.MaxShadowCascades + ShaderLimits.MaxShadowAtlasMaps + ShaderLimits.MaxShadowPoint * 6;
+    /// <summary>Shadow sub-passes per frame: 4 cascades + the far shadow + 11 atlas tiles + 4 cubes × 6 faces (40).</summary>
+    public const int MaxPasses = ShaderLimits.MaxShadowCascades + 1 + ShaderLimits.MaxShadowAtlasMaps + ShaderLimits.MaxShadowPoint * 6;
+
+    /// <summary>The far shadow's layer of the cascade array: after the cascades (ADR 0167).</summary>
+    public const int FarShadowLayer = ShaderLimits.MaxShadowCascades;
+
+    /// <summary>Largest PCSS penumbra radius in texels (<see cref="ShadowFilter.Pcss"/>; also the blocker search radius).</summary>
+    public const float MaxPenumbraTexels = 8f;
+
+    /// <summary>Filter radius of the far shadow, in its texels: wide, it is only seen far away.</summary>
+    public const float FarShadowFilterRadius = 2.5f;
+
+    /// <summary>The far shadow re-renders when the light turns by more than this (degrees).</summary>
+    public const float FarShadowTurnDegrees = 0.1f;
 
     public const int MinCascadeResolution = 128;
     public const int MaxCascadeResolution = 4096;
@@ -43,7 +55,34 @@ internal sealed class ShadowPlanner
     private readonly int[] _cubeLightIndex = new int[ShaderLimits.MaxShadowPoint];
     private int _primaryIndex = -1;
 
-    public ShadowFilter Filter { get; set; } = ShadowFilter.Poisson16;
+    // Staggered cascades (ADR 0167): what each cascade layer holds, and the settings it was rendered with.
+    private struct CachedCascade
+    {
+        public bool Valid;
+        public bool Enabled;
+        public ShadowMapData Data;
+        public Vector3 Center;
+        public float Radius;
+        public float DepthRange;
+    }
+
+    private readonly CachedCascade[] _cache = new CachedCascade[ShaderLimits.MaxShadowCascades];
+    private readonly float[] _cacheSplits = new float[ShaderLimits.MaxShadowCascades];
+    private DirectionalLight? _cacheLight;
+    private Vector3 _cacheDirection;
+    private int _cacheResolution, _cacheCount, _cacheLayers;
+    private bool _cacheStable;
+    private ulong _frame;
+
+    // The far shadow: the box and light direction it was rendered for.
+    private bool _farValid, _farHasCasters;
+    private ShadowMapData _farData;
+    private Aabb _farBox;
+    private Vector3 _farDirection;
+    private int _farResolution;
+    private DirectionalLight? _farLight;
+
+    public ShadowFilter Filter { get; set; } = ShadowFilter.Pcss;
 
     /// <summary>Filter kernel radius in texels (Poisson disc and cube disc; the 3×3 grid uses texel spacing × radius / 1.5).</summary>
     public float FilterRadius { get; set; } = 1.5f;
@@ -79,6 +118,45 @@ internal sealed class ShadowPlanner
 
     /// <summary>Most pull-back of the cascade near plane (depth precision).</summary>
     public float MaxCasterPullback { get; set; } = 1000f;
+
+    /// <summary>
+    /// The camera speed (units per second) a staggered cascade's sphere allows for over its interval at
+    /// <see cref="ShadowCacheSchedule.AssumedFrameRate"/> (default 10): a faster camera re-renders the cascade early.
+    /// </summary>
+    public float CacheMaxSpeed { get; set; } = 10f;
+
+    /// <summary>
+    /// The camera turn rate (degrees per second, default 60) a staggered cascade's sphere allows for: turning swings a
+    /// slice's sphere by its distance ahead of the camera, so far cascades need more room than translation alone.
+    /// </summary>
+    public float CacheMaxTurnRate { get; set; } = 60f;
+
+    /// <summary>Whether contact shadows may be used (<see cref="ShadowSystem.ContactShadows"/>).</summary>
+    public bool ContactShadows { get; set; } = true;
+
+    /// <summary>Cascades that re-render this frame (all of them unless the primary light's cache is staggered).</summary>
+    public int RenderedCascadeCount { get; private set; }
+
+    /// <summary>Cascades whose layer and matrix are reused from an earlier frame this frame.</summary>
+    public int CachedCascadeCount { get; private set; }
+
+    /// <summary>True when this frame plans the far shadow (it re-renders); false while its layer is reused or there is none.</summary>
+    public bool FarShadowRenders { get; private set; }
+
+    /// <summary>True while the primary light has a far shadow (rendered this frame or reused).</summary>
+    public bool HasFarShadow => _farValid;
+
+    /// <summary>Layers the cascade array needs this frame: the cascades, plus the far shadow's when there is one.</summary>
+    public int CascadeLayers { get; private set; }
+
+    /// <summary>Forgets every cached cascade and the far shadow: they all re-render next frame (camera cuts, edits).</summary>
+    public void InvalidateCache()
+    {
+        Array.Clear(_cache);
+        _cacheLight = null;
+        _farValid = false;
+        _farLight = null;
+    }
 
     /// <summary>This frame's shader data.</summary>
     public ShadowUniforms Uniforms;
@@ -124,6 +202,11 @@ internal sealed class ShadowPlanner
         PassCount = 0;
         CascadeCount = 0;
         CascadeResolution = 0;
+        CascadeLayers = 0;
+        RenderedCascadeCount = 0;
+        CachedCascadeCount = 0;
+        FarShadowRenders = false;
+        _frame++;
         _primaryIndex = -1;
         Array.Clear(CubeResolutions);
         Array.Clear(_passHasCasters);
@@ -163,6 +246,8 @@ internal sealed class ShadowPlanner
 
         if (_primaryIndex >= 0)
             PlanCascades(dirs[_primaryIndex], haveCamera, projection, inverseView, near, far, casterBounds);
+        if (CascadeCount == 0)
+            InvalidateCache(); // no cascade layers this frame: the array may be released, nothing is kept
 
         for (var k = 0; k < _atlasCount; k++)
             PlanAtlasMap(k, lights, haveCamera, projection, inverseView, near, far, casterBounds);
@@ -295,22 +380,51 @@ internal sealed class ShadowPlanner
             count = 1;
             distance = float.MaxValue;
             splits[0] = float.MaxValue;
+            splits = splits[..1];
         }
 
         CascadeCount = count;
         CascadeResolution = resolution;
+        var farShadow = haveCamera && light.FarShadowEnabled;
+        CascadeLayers = farShadow ? FarShadowLayer + 1 : ShaderLimits.MaxShadowCascades;
         Uniforms.DirCodes[_primaryIndex] = 1;
         Uniforms.Csm = new Vector4(count, light.CascadeBlend, distance, DebugCascades ? 1f : 0f);
+        if (Filter == ShadowFilter.Pcss && light.AngularDistance > 0f)
+            Uniforms.Pcss = new Vector4(MathF.Tan(float.DegreesToRadians(light.AngularDistance) * 0.5f), MaxPenumbraTexels, MaxPenumbraTexels, 0f);
+        if (ContactShadows && light.ContactShadows)
+            Uniforms.Contact = new Vector4(1f, 0f, 0f, 0f);
+
+        // Staggered caching: reuse a cascade's layer while its settings hold, it is not due and the camera stays inside
+        // the (grown) sphere it was rendered for.
+        var staggered = haveCamera && light.CacheMode == ShadowCacheMode.Staggered;
+        if (staggered && !CacheMatches(light, resolution, count, CascadeLayers, splits))
+        {
+            Array.Clear(_cache);
+            _cacheLight = light;
+            _cacheDirection = light.Direction;
+            _cacheResolution = resolution;
+            _cacheCount = count;
+            _cacheLayers = CascadeLayers;
+            _cacheStable = StableCascades;
+            splits.CopyTo(_cacheSplits);
+        }
+        else if (!staggered && _cacheLight is not null)
+        {
+            Array.Clear(_cache);
+            _cacheLight = null;
+        }
 
         for (var c = 0; c < count; c++)
         {
             Vector3 center;
             float radius;
+            var centerDistance = 0f;
             if (haveCamera)
             {
                 var (viewCenter, r) = ShadowMath.SliceSphere(projection, c == 0 ? near : splits[c - 1], splits[c]);
                 center = Vector3.Transform(viewCenter, inverseView);
                 radius = r;
+                centerDistance = viewCenter.Length();
             }
             else
             {
@@ -318,16 +432,44 @@ internal sealed class ShadowPlanner
                 radius = NoCameraRadius;
             }
 
+            Uniforms.CascadeSplits[c] = splits[c];
+            ref var cached = ref _cache[c];
+            if (staggered)
+            {
+                // Reused while the slice's sphere stays inside the one rendered (which was grown by the camera's travel
+                // and turn over the cascade's interval: a constant, so the texel grid stays put between renders).
+                var inside = Vector3.Distance(center, cached.Center) + radius <= cached.Radius;
+                if (cached.Valid && inside && !ShadowCacheSchedule.IsDue(c, count, _frame))
+                {
+                    var data = cached.Data;
+                    data.Params = new Vector4(data.Params.X, 0f, light.ShadowBias, light.ShadowNormalBias);
+                    Uniforms.Cascades[c] = data;
+                    Uniforms.CascadeEnabled[c] = cached.Enabled ? 1f : 0f;
+                    Uniforms.CascadeDepthRange[c] = cached.DepthRange;
+                    CachedCascadeCount++;
+                    continue;
+                }
+
+                var margin = ShadowCacheSchedule.Margin(c, count, CacheMaxSpeed, CacheMaxTurnRate, centerDistance);
+                radius = MathF.Ceiling((radius + margin) / ShadowMath.RadiusQuantum) * ShadowMath.RadiusQuantum;
+            }
+
             var pullback = ShadowMath.CasterPullback(rotation, casterBounds, center, radius, MinCasterPullback, MaxCasterPullback);
             var viewProjection = ShadowMath.SphereLightMatrix(rotation, center, radius, resolution, pullback, StableCascades, out var texel);
-            Uniforms.Cascades[c] = new ShadowMapData
+            var mapData = new ShadowMapData
             {
                 ViewProjection = viewProjection,
                 Rect = new Vector4(0f, 0f, 1f, 1f),
                 Params = new Vector4(texel, 0f, light.ShadowBias, light.ShadowNormalBias),
             };
-            Uniforms.CascadeSplits[c] = splits[c];
+            Uniforms.Cascades[c] = mapData;
             Uniforms.CascadeEnabled[c] = 1f;
+            // An orthographic window of half-size h = texel · resolution / 2 spans depth from −(h + pullback) to h.
+            var depthRange = texel * resolution + pullback;
+            Uniforms.CascadeDepthRange[c] = depthRange;
+            if (staggered)
+                cached = new CachedCascade { Valid = true, Enabled = true, Data = mapData, Center = center, Radius = radius, DepthRange = depthRange };
+            RenderedCascadeCount++;
             AddPass(new ShadowPass
             {
                 Kind = ShadowPassKind.Cascade,
@@ -335,8 +477,98 @@ internal sealed class ShadowPlanner
                 Slot = c,
                 ViewProjection = viewProjection,
                 Size = resolution,
+                Coarse = c >= count - light.CoarseCascades,
             });
         }
+
+        if (farShadow)
+        {
+            PlanFarShadow(light, rotation, resolution, inverseView.Translation, casterBounds);
+        }
+        else
+        {
+            _farValid = false;
+            _farLight = null;
+        }
+    }
+
+    private bool CacheMatches(DirectionalLight light, int resolution, int count, int layers, ReadOnlySpan<float> splits)
+    {
+        if (!ReferenceEquals(_cacheLight, light) || _cacheDirection != light.Direction || _cacheResolution != resolution ||
+            _cacheCount != count || _cacheLayers != layers || _cacheStable != StableCascades)
+            return false;
+        for (var c = 0; c < count; c++)
+            if (_cacheSplits[c] != splits[c])
+                return false;
+        return true;
+    }
+
+    // The far shadow: a box (every caster's bounds, or FarShadowDistance around the camera on a coarse grid) rendered
+    // once along the light into the layer after the cascades; again only when the light turns, the box outgrows the one
+    // rendered, the resolution changes or the cache is invalidated.
+    private void PlanFarShadow(DirectionalLight light, in Matrix4x4 rotation, int resolution, Vector3 cameraPosition, in Aabb casterBounds)
+    {
+        Aabb box;
+        if (light.FarShadowDistance > 0f)
+        {
+            var d = light.FarShadowDistance;
+            var step = d * 0.25f; // re-centred when the camera moves a quarter of the distance
+            var c = new Vector3(MathF.Round(cameraPosition.X / step) * step, MathF.Round(cameraPosition.Y / step) * step, MathF.Round(cameraPosition.Z / step) * step);
+            box = new Aabb(c - new Vector3(d), c + new Vector3(d));
+            if (!casterBounds.IsEmpty)
+                box = new Aabb(Vector3.Max(box.Min, casterBounds.Min), Vector3.Min(box.Max, casterBounds.Max));
+        }
+        else
+        {
+            box = casterBounds;
+        }
+
+        if (box.IsEmpty)
+        {
+            _farValid = false;
+            return;
+        }
+
+        var cosTurn = MathF.Cos(float.DegreesToRadians(FarShadowTurnDegrees));
+        var turned = !(Vector3.Dot(Vector3.Normalize(_farDirection), Vector3.Normalize(light.Direction)) >= cosTurn);
+        var contained = _farBox.Contains(box.Min) && _farBox.Contains(box.Max);
+        var renders = !_farValid || !ReferenceEquals(_farLight, light) || turned || !contained || _farResolution != resolution;
+        if (renders)
+        {
+            // Grown a little so casters that move inside the box (or slowly growing bounds) do not re-render it.
+            var margin = Vector3.Max(box.Size * 0.02f, Vector3.One);
+            _farBox = new Aabb(box.Min - margin, box.Max + margin);
+            _farDirection = light.Direction;
+            _farResolution = resolution;
+            _farLight = light;
+            var pullback = casterBounds.IsEmpty
+                ? MinCasterPullback
+                : Math.Clamp(casterBounds.Transform(rotation).Max.Z - _farBox.Transform(rotation).Max.Z, MinCasterPullback, MaxCasterPullback);
+            var viewProjection = ShadowMath.BoxLightMatrix(rotation, _farBox, resolution, pullback, out var texel, out _);
+            _farData = new ShadowMapData
+            {
+                ViewProjection = viewProjection,
+                Rect = new Vector4(0f, 0f, 1f, 1f),
+                Params = new Vector4(texel, 0f, light.ShadowBias, light.ShadowNormalBias),
+            };
+            _farValid = true;
+            _farHasCasters = true; // until culling says otherwise
+            FarShadowRenders = true;
+            AddPass(new ShadowPass
+            {
+                Kind = ShadowPassKind.FarShadow,
+                LightIndex = _primaryIndex,
+                Slot = FarShadowLayer,
+                ViewProjection = viewProjection,
+                Size = resolution,
+                Coarse = true,
+            });
+        }
+
+        var farData = _farData;
+        farData.Params = new Vector4(_farData.Params.X, 0f, light.ShadowBias, light.ShadowNormalBias);
+        Uniforms.FarMap = farData;
+        Uniforms.FarParams = _farHasCasters ? new Vector4(1f, FarShadowFilterRadius, 1f / resolution, 0f) : Vector4.Zero;
     }
 
     private void PlanAtlasMap(int map, LightEnvironment lights, bool haveCamera, in Matrix4x4 projection, in Matrix4x4 inverseView,
@@ -441,6 +673,12 @@ internal sealed class ShadowPlanner
             {
                 case ShadowPassKind.Cascade:
                     Uniforms.CascadeEnabled[pass.Slot] = has ? 1f : 0f;
+                    _cache[pass.Slot].Enabled = has;
+                    break;
+                case ShadowPassKind.FarShadow:
+                    _farHasCasters = has;
+                    if (!has)
+                        Uniforms.FarParams = Vector4.Zero;
                     break;
                 case ShadowPassKind.AtlasTile when !has:
                     if (_atlasIsDirectional[pass.Slot])
@@ -466,7 +704,7 @@ internal sealed class ShadowPlanner
                         _passHasCasters[p] = true; // the cube is sampled in every direction: render (clear) every face
         }
 
-        var anyCascade = false;
+        var anyCascade = Uniforms.FarParams.X != 0f;
         for (var c = 0; c < CascadeCount; c++)
             anyCascade |= Uniforms.CascadeEnabled[c] != 0f;
         if (!anyCascade && _primaryIndex >= 0)

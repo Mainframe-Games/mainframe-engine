@@ -15,6 +15,15 @@ public enum ShadowFilter
 
     /// <summary>16-tap Poisson disc of bilinear comparison taps (softest). Cube maps: the 20-tap disc.</summary>
     Poisson16 = 2,
+
+    /// <summary>
+    /// <see cref="Poisson16"/>, plus percentage-closer soft shadows (ADR 0167) on the primary directional light's cascades
+    /// when it has an angular size (<see cref="DirectionalLight.AngularDistance"/> &gt; 0): a blocker search estimates the
+    /// penumbra <c>(d_receiver − d_blocker) · tan(angle / 2)</c>, and the Poisson disc runs at that radius, clamped to
+    /// [<see cref="ShadowSystem.FilterRadius"/>, <see cref="ShadowSystem.MaxPenumbraTexels"/>]. The default
+    /// (<see cref="ShadowQuality.High"/>).
+    /// </summary>
+    Pcss = 3,
 }
 
 /// <summary>One 2D shadow map (a cascade or an atlas tile) as the shaders see it: std140, 96 bytes (<c>ShadowMap2D</c>).</summary>
@@ -107,6 +116,24 @@ internal struct ShadowUniforms
 
     /// <summary>Per cube: x = texel size per unit of distance (2 / resolution), y = depth bias, z = normal bias (texels).</summary>
     public ShadowPointParams PointParams;
+
+    /// <summary>The primary light's far shadow (layer <see cref="ShadowSystem.FarShadowLayer"/> of the cascade array; ADR 0167).</summary>
+    public ShadowMapData FarMap;
+
+    /// <summary>x = 1 when <see cref="FarMap"/> holds a far shadow, y = its filter radius (texels), z = 1 / its resolution, w = 0.</summary>
+    public Vector4 FarParams;
+
+    /// <summary>World units per unit of light-space depth of each cascade (PCSS turns depth differences into metres).</summary>
+    public Vector4 CascadeDepthRange;
+
+    /// <summary>
+    /// PCSS: x = tan(angular radius) of the primary light (0: off), y = largest penumbra radius (texels), z = blocker
+    /// search radius (texels), w = 0.
+    /// </summary>
+    public Vector4 Pcss;
+
+    /// <summary>x = 1 when the primary light's shadow is multiplied by the main view's contact shadows (set 0, binding 6).</summary>
+    public Vector4 Contact;
 
     /// <summary>Bytes in the std140 block.</summary>
     public static int Size => Unsafe.SizeOf<ShadowUniforms>();

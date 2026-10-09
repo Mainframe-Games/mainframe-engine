@@ -15,7 +15,10 @@ public enum ShadowQuality
     /// <summary>Atlas ≤ 2048, 3×3 PCF, 3 cascades, maps ≤ 2048.</summary>
     Medium,
 
-    /// <summary>The shadow system's defaults: atlas ≤ 4096, 16-tap Poisson PCF, 4 cascades, maps at the lights' resolution.</summary>
+    /// <summary>
+    /// The shadow system's defaults: atlas ≤ 4096, 16-tap Poisson PCF (PCSS for a sun with an angular size), 4 cascades,
+    /// maps at the lights' resolution, contact shadows allowed.
+    /// </summary>
     High,
 }
 
@@ -25,7 +28,9 @@ public enum ShadowQuality
 /// <param name="FilterRadius">Kernel radius in texels (<see cref="ShadowSystem.FilterRadius"/>).</param>
 /// <param name="CascadeLimit">Most sun cascades (<see cref="ShadowSystem.CascadeLimit"/>).</param>
 /// <param name="ResolutionLimit">Largest side of one map: cascade layer, atlas tile, cube face (<see cref="ShadowSystem.ResolutionLimit"/>).</param>
-public readonly record struct ShadowQualitySettings(int MaxAtlasSize, ShadowFilter Filter, float FilterRadius, int CascadeLimit, int ResolutionLimit)
+/// <param name="ContactShadows">Whether lights may use screen-space contact shadows (<see cref="ShadowSystem.ContactShadows"/>).</param>
+public readonly record struct ShadowQualitySettings(int MaxAtlasSize, ShadowFilter Filter, float FilterRadius, int CascadeLimit, int ResolutionLimit,
+    bool ContactShadows = false)
 {
     /// <summary>
     /// The settings of <paramref name="quality"/>. <see cref="ShadowQuality.High"/> equals a new <see cref="ShadowSystem"/>'s
@@ -33,7 +38,7 @@ public readonly record struct ShadowQualitySettings(int MaxAtlasSize, ShadowFilt
     /// </summary>
     public static ShadowQualitySettings For(ShadowQuality quality) => quality switch
     {
-        ShadowQuality.High => new(4096, ShadowFilter.Poisson16, 1.5f, 4, Light.MaxShadowResolution),
+        ShadowQuality.High => new(4096, ShadowFilter.Pcss, 1.5f, 4, Light.MaxShadowResolution, ContactShadows: true),
         ShadowQuality.Medium => new(2048, ShadowFilter.Pcf3x3, 1.5f, 3, 2048),
         ShadowQuality.Low or ShadowQuality.Off => new(1024, ShadowFilter.Hard, 1f, 2, 1024),
         _ => throw new ArgumentOutOfRangeException(nameof(quality), quality, "Unknown shadow quality."),

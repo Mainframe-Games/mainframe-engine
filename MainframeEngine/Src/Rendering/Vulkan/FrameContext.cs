@@ -231,7 +231,9 @@ internal struct ViewHistory
 /// image-based lighting (ADR 0150, <c>include/environment.slang</c>): binding 2 the prefiltered radiance cube, binding 3
 /// the irradiance cube (the view's world's <see cref="SkyRadiance"/>, or a black 1×1 cube) and binding 4 the
 /// <see cref="BrdfLut"/>; binding 5 the screen-space ambient occlusion of the main view (ADR 0163,
-/// <c>include/ambient_occlusion.slang</c>: <see cref="SetAmbientOcclusion"/>, else a white 1×1 image). Set 1 is the shadow
+/// <c>include/ambient_occlusion.slang</c>: <see cref="SetAmbientOcclusion"/>, else a white 1×1 image); binding 6 the main
+/// view's screen-space contact shadows (ADR 0167, <c>include/contact_shadows.slang</c>: <see cref="SetContactShadows"/>, else
+/// the same white image). Set 1 is the shadow
 /// set (<see cref="ShadowSystem"/> or the renderer's fallback); per-material data is set 2 and per-instance data
 /// comes from the instance buffer (or push constants).
 /// </summary>
@@ -272,6 +274,7 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly ulong[] _lightsFrame = new ulong[Slots * MaxViews];
     private readonly long[] _environmentIds = new long[Slots * MaxViews]; // EnvironmentMaps.Id bound (0 = the fallback)
     private readonly long[] _occlusionIds = new long[Slots * MaxViews];   // ambient occlusion id bound at binding 5 (0 = white)
+    private readonly long[] _contactIds = new long[Slots * MaxViews];     // contact shadows id bound at binding 6 (0 = white)
     private readonly ViewHistory[] _history = new ViewHistory[MaxViews];
     private readonly GpuImage _blackCube;
     private readonly GpuImage _brdfLut;
@@ -283,6 +286,10 @@ public sealed unsafe class FrameContext : IDisposable
     private DescriptorImageInfo _frameOcclusion; // what view 0 binds this frame: latched at its first bind of the frame
     private long _frameOcclusionId;
     private ulong _occlusionFrame;
+    private DescriptorImageInfo _contact;
+    private long _contactId;
+    private DescriptorImageInfo _frameContact; // latched with the ambient occlusion
+    private long _frameContactId;
     private Extent2D _viewExtent;
     private bool _disposed;
 
@@ -302,6 +309,7 @@ public sealed unsafe class FrameContext : IDisposable
             new() { Binding = 3, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 4, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = AmbientOcclusionBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = ContactShadowBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ];
         SetLayout = PipelineBuilder.CreateSetLayout(ctx, bindings, "frame set 0");
         _pool = PipelineBuilder.CreatePool(ctx, Slots * MaxViews,
@@ -352,24 +360,34 @@ public sealed unsafe class FrameContext : IDisposable
                 PipelineBuilder.WriteImage(ctx, set, 3, FallbackCubeDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, 4, BrdfLutDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, AmbientOcclusionBinding, NoOcclusionDescriptor);
+                PipelineBuilder.WriteImage(ctx, set, ContactShadowBinding, NoOcclusionDescriptor);
                 _sets[slot * MaxViews + view] = set;
             }
         }
     }
 
-    /// <summary>Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting, binding 5 ambient occlusion).</summary>
+    /// <summary>
+    /// Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting, binding 5 ambient occlusion,
+    /// binding 6 contact shadows).
+    /// </summary>
     public DescriptorSetLayout SetLayout { get; }
 
     /// <summary>Image-based-lighting bindings of set 0 (radiance cube, irradiance cube, BRDF LUT).</summary>
     internal const int EnvironmentBindings = 3;
 
-    /// <summary>Image bindings of set 0: the image-based lighting and the ambient occlusion.</summary>
-    internal const int ImageBindings = EnvironmentBindings + 1;
+    /// <summary>Image bindings of set 0: the image-based lighting, the ambient occlusion and the contact shadows.</summary>
+    internal const int ImageBindings = EnvironmentBindings + 2;
 
     /// <summary>Set 0's screen-space ambient occlusion binding (<c>ssaoTexture</c> in <c>include/ambient_occlusion.slang</c>).</summary>
     public const uint AmbientOcclusionBinding = 5;
 
-    /// <summary>The white 1×1 image bound at <see cref="AmbientOcclusionBinding"/> without screen-space AO.</summary>
+    /// <summary>
+    /// Set 0's screen-space contact shadows binding (<c>contactShadowTexture</c> in <c>include/contact_shadows.slang</c>,
+    /// ADR 0167): r = the primary light's contact shadow, g = the view depth it was computed at.
+    /// </summary>
+    public const uint ContactShadowBinding = 6;
+
+    /// <summary>The white 1×1 image bound at <see cref="AmbientOcclusionBinding"/> without screen-space AO (and at <see cref="ContactShadowBinding"/>).</summary>
     internal DescriptorImageInfo NoOcclusionDescriptor => new()
     {
         Sampler = _iblSampler,
@@ -407,6 +425,26 @@ public sealed unsafe class FrameContext : IDisposable
         _occlusion = default;
         _occlusionId = 0;
         _occlusionParams = default;
+    }
+
+    /// <summary>
+    /// The main view's contact shadows (ADR 0167) from the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/> on, like
+    /// <see cref="SetAmbientOcclusion"/>: <paramref name="image"/> (RG: shadow, view depth; <c>SHADER_READ_ONLY_OPTIMAL</c>
+    /// whenever a lit pass reads it) identified by <paramref name="id"/>. Cleared at the start of every frame; the contact
+    /// shadow effect sets it again in its <c>OnBeginFrame</c>. Offscreen views always bind the white image.
+    /// </summary>
+    internal void SetContactShadows(in DescriptorImageInfo image, long id)
+    {
+        ArgumentOutOfRangeException.ThrowIfZero(id);
+        _contact = image;
+        _contactId = id;
+    }
+
+    /// <summary>Binds the white image at <see cref="ContactShadowBinding"/> again (contact shadows off).</summary>
+    internal void ClearContactShadows()
+    {
+        _contact = default;
+        _contactId = 0;
     }
 
     /// <summary>
@@ -507,6 +545,8 @@ public sealed unsafe class FrameContext : IDisposable
             _occlusionFrame = _ctx.FrameNumber;
             _frameOcclusion = _occlusion;
             _frameOcclusionId = _occlusionId;
+            _frameContact = _contact;
+            _frameContactId = _contactId;
         }
 
         var occlusionId = CurrentView == 0 ? _frameOcclusionId : 0;
@@ -514,6 +554,13 @@ public sealed unsafe class FrameContext : IDisposable
         {
             _occlusionIds[index] = occlusionId;
             PipelineBuilder.WriteImage(_ctx, _sets[index], AmbientOcclusionBinding, occlusionId == 0 ? NoOcclusionDescriptor : _frameOcclusion);
+        }
+
+        var contactId = CurrentView == 0 ? _frameContactId : 0;
+        if (_contactIds[index] != contactId)
+        {
+            _contactIds[index] = contactId;
+            PipelineBuilder.WriteImage(_ctx, _sets[index], ContactShadowBinding, contactId == 0 ? NoOcclusionDescriptor : _frameContact);
         }
 
         var maps = EnvironmentMaps;

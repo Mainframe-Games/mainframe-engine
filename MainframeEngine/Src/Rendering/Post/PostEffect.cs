@@ -77,6 +77,9 @@ internal static class PostEffectOrder
 internal readonly record struct PostEffectSettings(PostProcessSettings World, AntiAliasing AntiAliasing, RenderDebugView DebugView,
     float TaaSharpness = 0f)
 {
+    /// <summary>The primary light's contact shadows (ADR 0167; off by default).</summary>
+    public ContactShadowSettings ContactShadows { get; init; }
+
     /// <summary>The engine's defaults: its own tonemap, no anti-aliasing, no debug view (no post effect runs).</summary>
     public static PostEffectSettings Default => new(PostProcessSettings.Default, AntiAliasing.None, RenderDebugView.None);
 
