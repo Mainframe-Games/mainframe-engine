@@ -84,7 +84,10 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
         }
     }
 
-    /// <summary>What the chunks draw with (any material; null: <see cref="DefaultMaterial"/>).</summary>
+    /// <summary>
+    /// What the chunks draw with (any material; null: <see cref="DefaultMaterial"/>). A <see cref="TerrainSplatMaterial3D"/>
+    /// is linked to this terrain (<see cref="TerrainSplatMaterial3D.Terrain"/>) so it reads the splat maps.
+    /// </summary>
     [Export]
     public Material? Material
     {
@@ -93,7 +96,11 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
         {
             if (ReferenceEquals(field, value))
                 return;
+            if (field is TerrainSplatMaterial3D old && ReferenceEquals(old.Terrain, this))
+                old.Terrain = null;
             field = value;
+            if (value is TerrainSplatMaterial3D splat)
+                splat.Terrain = this;
             foreach (var node in _lodNodes)
                 node.RenderStamp++;
         }
@@ -770,6 +777,19 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
             return WaterSurface;
         Cell(data, x, z, out var u, out var v);
         return data.GetSurface(u, v);
+    }
+
+    /// <summary>
+    /// The <see cref="TerrainLayer.Tag"/> of the strongest layer under world (<paramref name="x"/>, <paramref name="z"/>)
+    /// when <see cref="Material"/> is a <see cref="TerrainSplatMaterial3D"/> (footsteps, friction); null where there is
+    /// water (unless <paramref name="ignoreWater"/>), without a splat material, or past its layers.
+    /// </summary>
+    public string? SurfaceTagAt(float x, float z, bool ignoreWater = false)
+    {
+        if (Material is not TerrainSplatMaterial3D splat || RequireData().Profile != TerrainProfile.Realistic)
+            return null;
+        var surface = SurfaceAt(x, z, ignoreWater);
+        return surface < splat.LayerCount ? splat.Layers[surface]?.Tag : null;
     }
 
     /// <summary>The weight (0..1) of splat layer <paramref name="layer"/> in the cell under world (<paramref name="x"/>, <paramref name="z"/>).</summary>

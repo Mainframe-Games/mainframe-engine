@@ -149,7 +149,7 @@ internal sealed class MeshViewDraws
 /// (pipeline, material, mesh surface). Shadow casters are batched by (cull mode, mesh surface) the same way.
 /// </summary>
 /// <remarks>Render thread only. Building and drawing are allocation-free once the lists and buffers have grown.</remarks>
-internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
+internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactory
 {
     private readonly IVulkanContext _ctx;
     private readonly ShadowSystem? _shadows;
@@ -203,6 +203,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         _whiteSrgb = GpuTexture.Create2D(ctx, 1, 1, white, TextureColorSpace.Srgb, TextureSampling.LinearRepeat);
         _flatNormal = GpuTexture.Create2D(ctx, 1, 1, flat, TextureColorSpace.Linear, TextureSampling.LinearRepeat);
         _whiteLinear = GpuTexture.Create2D(ctx, 1, 1, white, TextureColorSpace.Linear, TextureSampling.LinearRepeat); // ORM: × 1
+        CreateSplatResources();
     }
 
     /// <summary>The state-hash pipeline cache (stats for tools and tests).</summary>
@@ -430,6 +431,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         ReleaseTexture(gpu.Emission);
         ReleaseTexture(gpu.Orm);
         gpu.Albedo = gpu.Normal = gpu.Emission = gpu.Orm = null;
+        DestroySplat(gpu);
     }
 
     private TextureGpu? AcquireTexture(Texture2D? texture, bool colorUsage)
@@ -464,12 +466,14 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         var outline = material as OutlineMaterial3D;
         var foliage = material as FoliageMaterial3D;
         var water = material as WaterMaterial3D;
+        var splat = material as TerrainSplatMaterial3D;
         gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : foliage is not null ? ShaderSetId.MeshFoliage
-            : water is not null ? ShaderSetId.MeshWater : ShaderSetId.MeshLit;
+            : water is not null ? ShaderSetId.MeshWater : splat is not null ? ShaderSetId.MeshTerrainSplat : ShaderSetId.MeshLit;
         if (material is not StandardMaterial3D standard)
         {
+            // Splat materials keep this default set too: the object-ID pass binds it with the shared layout.
             standard = StandardMaterial3D.Default;
-            if (outline is null && foliage is null && water is null && !_warnedUnsupportedMaterial)
+            if (outline is null && foliage is null && water is null && splat is null && !_warnedUnsupportedMaterial)
             {
                 _warnedUnsupportedMaterial = true;
                 Log.Warning($"[Mesh] {material.GetType().Name} is not supported by the renderer yet; drawing with the default material.");
@@ -530,6 +534,8 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
         if (rewrite || gpu.Set.Handle == 0)
             WriteMaterialSet(gpu);
+        if (splat is not null)
+            PrepareSplat(gpu, splat);
     }
 
     // Points a texture slot at a texture (acquiring the new reference, releasing the old); true when it changed.
@@ -893,8 +899,10 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
 
             if (!ReferenceEquals(item.Material, boundMaterial))
             {
-                var set = item.Material.Set;
-                vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 2, 1, &set, 0, null);
+                // Terrain splat colour draws bind their own set 2 with their layout (sets 0 and 1 stay valid: same layouts).
+                var splat = shaders != ShaderSetId.MeshObjectId && item.Material.ColorShaders == ShaderSetId.MeshTerrainSplat;
+                var set = splat ? item.Material.Splat!.Set : item.Material.Set;
+                vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, splat ? _splatPipelineLayout : _pipelineLayout, 2, 1, &set, 0, null);
                 boundMaterial = item.Material;
                 Stats.MaterialBinds++;
             }
@@ -1156,6 +1164,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             ShaderSetId.MeshObjectId => "Shaders/Mesh/MeshId.vk.frag.spv",
             ShaderSetId.MeshFoliage => "Shaders/Foliage/Foliage.vk.frag.spv",
             ShaderSetId.MeshWater => "Shaders/Water/Water.vk.frag.spv",
+            ShaderSetId.MeshTerrainSplat => "Shaders/Terrain/TerrainSplat.vk.frag.spv",
             _ => "Shaders/Mesh/Mesh.vk.frag.spv",
         };
         // Each vertex shader writes only what its fragment shader reads (Slang drops unread fragment inputs, and an
@@ -1177,7 +1186,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
             _ when streams => VertexLayouts.MeshExtAttributes,
             _ => VertexLayouts.MeshAttributes,
         };
-        return PipelineBuilder.Create(_ctx, state, _pipelineLayout, new RenderPass(key.RenderPass),
+        return PipelineBuilder.Create(_ctx, state, LayoutFor(key.Shaders), new RenderPass(key.RenderPass),
             vertex, fragment, streams ? VertexLayouts.MeshInstancedExtBindings : VertexLayouts.MeshInstancedBindings, attributes,
             $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(key.ExtraPass ? ", extra pass" : "")}{(streams ? ", streams" : "")})",
             &specialization);
@@ -1212,6 +1221,8 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         {
             material.Params?.Dispose();
             material.Params = null;
+            material.Splat?.Params?.Dispose();
+            material.Splat?.DisposeArrays();
         }
 
         _materials.Clear();
@@ -1224,6 +1235,7 @@ internal sealed unsafe class MeshRenderer : IDisposable, IPipelineFactory
         _whiteSrgb.Dispose();
         _flatNormal.Dispose();
         _whiteLinear.Dispose();
+        DisposeSplatResources();
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pipelineLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_materialLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_idPassPrototype));

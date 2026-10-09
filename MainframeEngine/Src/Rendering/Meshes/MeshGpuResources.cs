@@ -365,9 +365,13 @@ internal sealed class MaterialGpu
 
     /// <summary>
     /// The shaders of the colour pass: <see cref="ShaderSetId.MeshOutline"/> for outlines,
-    /// <see cref="ShaderSetId.MeshFoliage"/> for foliage, <see cref="ShaderSetId.MeshWater"/> for water, else lit.
+    /// <see cref="ShaderSetId.MeshFoliage"/> for foliage, <see cref="ShaderSetId.MeshWater"/> for water,
+    /// <see cref="ShaderSetId.MeshTerrainSplat"/> for terrain splat materials, else lit.
     /// </summary>
     public ShaderSetId ColorShaders { get; set; }
+
+    /// <summary>A <see cref="TerrainSplatMaterial3D"/>'s own set and textures (its colour pass binds them, not <see cref="Set"/>).</summary>
+    public TerrainSplatGpu? Splat;
 
     /// <summary>The material's vertex shaders read the second vertex stream whatever the surface (foliage).</summary>
     public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater;
@@ -378,7 +382,7 @@ internal sealed class MaterialGpu
     // [shader set × extra pass × mirrored × vertex streams] → pipeline; reset when the state changes.
     public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 8];
 
-    public const int ShaderSetCount = 5;
+    public const int ShaderSetCount = 6;
 
     public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false) =>
         (((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0);

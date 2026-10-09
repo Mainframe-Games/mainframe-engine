@@ -25,6 +25,12 @@ public enum ShaderSetId : byte
     /// absorption, foam; ADR 0159); always <see cref="VertexLayoutId.MeshInstancedExt"/>.
     /// </summary>
     MeshWater,
+
+    /// <summary>
+    /// <c>Mesh/Mesh.vk.vert</c> + <c>Terrain/TerrainSplat.vk.frag</c>: <see cref="TerrainSplatMaterial3D"/>, with its own
+    /// set 2 layout and pipeline layout (ADR 0156).
+    /// </summary>
+    MeshTerrainSplat,
 }
 
 /// <summary>
