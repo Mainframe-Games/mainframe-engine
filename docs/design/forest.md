@@ -199,11 +199,12 @@ dotnet Forest.Desktop.dll --bake-lighting --headless --project ../../../.. ++ --
 ```
 
 (`--project` points at `Examples/Forest`, so the files land in the source tree rather than the build output; the editor's
-Bake Lighting button on `Lighting` does the same.) The art controls: `Energy` 2.4 (the bounce), `SkyOcclusion` 0.5
-(half the baked sky occlusion) and `OcclusionTint` (200, 225, 170): the full physical occlusion read near-black next to
+Bake Lighting button on `Lighting` does the same.) The art controls: `Energy` 4 (the bounce), `SkyOcclusion` 0.15
+(15 % of the baked sky occlusion; 2.4 and 0.5 until Brogan's 2026-10-09 playtest) and `OcclusionTint` (200, 225, 170): the full physical occlusion read near-black next to
 the sunlit glade (the bake does not see the light the canopy scatters through its leaves' gaps and green transmission),
-so half of it applies and the blocked sky light that remains takes the canopy's pale green. The look's auto exposure
-adapts a little further into the shade (`AutoExposureMinLuminance` 0.04). `++ --set Lighting.Visible=false` renders
+so a fraction of it applies and the blocked sky light that remains takes the canopy's pale green. A darker shade pinned
+auto exposure at its maximum boost and blew out sun-facing slopes and canopy tops, so the shade is filled and the boost is
+capped (`AutoExposureMinLuminance` 0.03). `++ --set Lighting.Visible=false` renders
 without the probes (the before shots below).
 
 ### The look (`ForestScene.CreateEnvironment`, the `Sun`, `Content/PostProcess/*.mres`)
@@ -220,13 +221,13 @@ holds their first values. To tune it: `just editor Examples/Forest/project.mfpro
 
 | Knob | Value | Why |
 |---|---|---|
-| Sun | `DirectionalLight3D`, colour (1, 0.87, 0.7), energy 2.6, 4 cascades × 1024² to 140 m, split λ 0.8; G8e.2 ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)): `ShadowCacheMode.Staggered`, `ShadowCoarseCascades` 2, `LightAngularDistance` 0.5°, `ContactShadows` (0.4 m), `FarShadowEnabled` | warm and low: long soft shadows across the glade and the pond, ferns and rocks grounded; the shadow budget below |
+| Sun | `DirectionalLight3D`, colour (1, 0.87, 0.7), energy 2 (2.6 before the 2026-10-09 playtest), 4 cascades × 1024² to 140 m, split λ 0.8; G8e.2 ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)): `ShadowCacheMode.Staggered`, `ShadowCoarseCascades` 2, `LightAngularDistance` 0.5°, `ContactShadows` (0.4 m), `FarShadowEnabled` | warm and low: long soft shadows across the glade and the pond, ferns and rocks grounded; the shadow budget below |
 | Sky | `Physical`, turbidity 6, Mie 0.005, ground (0.28, 0.27, 0.2) | a clear morning; the IBL follows it |
-| Ambient / reflections | `AmbientSource.Sky` × 1.6, `ReflectedLightSource.Sky`, occluded and joined by bounce light by the [light probes](#light-probes) (G8e.1) | the shade under the canopy darker, green and deep, the glade open; water and rock under the trees stop mirroring the bright sky |
+| Ambient / reflections | `AmbientSource.Sky` × 2 (1.6 before the 2026-10-09 playtest), `ReflectedLightSource.Sky`, occluded and joined by bounce light by the [light probes](#light-probes) (G8e.1) | the shade under the canopy darker, green and deep, the glade open; water and rock under the trees stop mirroring the bright sky |
 | Fog | density 0.003 (0.005 before G8e.7), height 6 m, height density 0.08, colour (0.42, 0.47, 0.53), sun scatter 0.05 | haze over the far slopes; the volumetric fog does the near air; 0.005 veiled R1's trees |
 | Volumetric fog ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md)) | density 0.009 (0.018 before G8e.7), anisotropy 0.75, length 64 m, sky affect 0.2, ambient inject 0.02, noise 0.7 at 8 m; temporal reprojection 0.9 | soft rays through the canopy gaps from any view (also with the sun off screen, between the trunks of R3 and R5), the shaded air clear, hazier towards the valley floor (the height fog's shape) |
 | Light shafts | off (intensity 2.3, decay 0.965, density 0.85 kept) | the volumetric fog draws real shafts; the screen-space ones on top made the glade milky |
-| Exposure | auto, scale 0.4, speed 0.6, min luminance 0.02 (G8e.7; 0.04 in ADR 0170, 0.05 before); engine ACES (AgX compared in G8e.7: flat and washed in the shade) | adapts between the glade and the pine shade; at 0.04 the probe-darkened R3 sat on the clamp (mean luminance 36) |
+| Exposure | auto, scale 0.4, speed 0.6, min luminance 0.03 (2026-10-09 playtest: 0.02 in G8e.7 let a shaded view boost exposure 8× and blow out the sunlit slopes; 0.04 in ADR 0170, 0.05 before); engine ACES (AgX compared in G8e.7: flat and washed in the shade) | adapts between the glade and the pine shade; at 0.04 the probe-darkened R3 sat on the clamp (mean luminance 36) |
 | Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
 | Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
 | Anti-aliasing | `rendering.antiAliasing: Taa` (ADR 0166), sharpness 0.25 (default); tree leaves and ferns `AlphaDither` | leaf, needle and grass edges stop shimmering in motion; the stream is a reactive pixel (keeps 0.2 of its history) so its flow does not smear |
