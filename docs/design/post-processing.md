@@ -441,6 +441,25 @@ packed into `PostEffectSettings.VolumetricFog` by the render server. A `BeforeTo
 - **Cost** and the Forest's values: [ADR 0171](../../memory/decisions/0171-volumetric-fog.md#consequences),
   [Forest](forest.md). `RenderServer.VolumetricFogGpuMilliseconds` times the three passes (the Forest benchmark reports it).
 
+## Auto exposure
+
+`AutoExposure` (a `BeforeTonemap` effect, order 200) measures the scene and writes the 1 × 1 adapted luminance that the
+tonemap and the glow's first level divide by: [color-pipeline.md → Auto exposure](color-pipeline.md#auto-exposure-adr-0154).
+Two modes, `PostProcessProfile.AutoExposureMode`:
+
+- **`Average`** (default, ADR 0154): the mean log2 luminance of a 64 × 64 image of the scene, reduced to 1 × 1.
+- **`Histogram`** ([ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md)): a 64-bin log2-luminance histogram
+  of the same 64 × 64 image (fragment passes: per-row histograms, column sums), optionally centre-weighted
+  (`AutoExposureMetering`); the mean between `AutoExposureLowPercent` and `AutoExposureHighPercent` (10/90) over
+  `AutoExposureHistogramLogMin`…`LogMax` (−10…6), clamped by the min/max luminance; with
+  `AutoExposureHighlightProtection` the exposure is also capped so the `AutoExposureHighlightPercent` (98) luminance
+  reaches the tonemap at most at `AutoExposureHighlightWhite` (2). A view that is mostly shade then keeps its sunlit
+  patches off the tonemap's shoulder instead of exposing for the shade alone.
+
+Same targets and sets in both modes (the histogram adds a 64 × 64 and a 64 × 1 `R32_SFLOAT` image), no read-back, no
+allocation. Cost (`RenderServer.AutoExposureGpuMilliseconds`, the Forest benchmark's GPU p50 at 1920 × 1080 on an Apple
+M5, two runs each): `Average` 0.13 ms, `Histogram` 0.15–0.16 ms. No debug view of the histogram yet.
+
 ## Debug view
 
 `RenderServer.DebugView = RenderDebugView.Velocity` replaces the final image with the motion vectors (it turns the

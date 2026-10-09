@@ -204,7 +204,8 @@ Bake Lighting button on `Lighting` does the same.) The art controls: `Energy` 4 
 the sunlit glade (the bake does not see the light the canopy scatters through its leaves' gaps and green transmission),
 so a fraction of it applies and the blocked sky light that remains takes the canopy's pale green. A darker shade pinned
 auto exposure at its maximum boost and blew out sun-facing slopes and canopy tops, so the shade is filled and the boost is
-capped (`AutoExposureMinLuminance` 0.03). `++ --set Lighting.Visible=false` renders
+capped (`AutoExposureMinLuminance` 0.03); histogram auto exposure's highlight protection
+([ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md)) now keeps the sunlit slopes in range in shaded views. `++ --set Lighting.Visible=false` renders
 without the probes (the before shots below).
 
 ### The look (`ForestScene.CreateEnvironment`, the `Sun`, `Content/PostProcess/*.mres`)
@@ -227,7 +228,7 @@ holds their first values. To tune it: `just editor Examples/Forest/project.mfpro
 | Fog | density 0.003 (0.005 before G8e.7), height 6 m, height density 0.08, colour (0.42, 0.47, 0.53), sun scatter 0.05 | haze over the far slopes; the volumetric fog does the near air; 0.005 veiled R1's trees |
 | Volumetric fog ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md)) | density 0.009 (0.018 before G8e.7), anisotropy 0.75, length 64 m, sky affect 0.2, ambient inject 0.02, noise 0.7 at 8 m; temporal reprojection 0.9 | soft rays through the canopy gaps from any view (also with the sun off screen, between the trunks of R3 and R5), the shaded air clear, hazier towards the valley floor (the height fog's shape) |
 | Light shafts | off (intensity 2.3, decay 0.965, density 0.85 kept) | the volumetric fog draws real shafts; the screen-space ones on top made the glade milky |
-| Exposure | auto, scale 0.4, speed 0.6, min luminance 0.03 (2026-10-09 playtest: 0.02 in G8e.7 let a shaded view boost exposure 8× and blow out the sunlit slopes; 0.04 in ADR 0170, 0.05 before); engine ACES (AgX compared in G8e.7: flat and washed in the shade) | adapts between the glade and the pine shade; at 0.04 the probe-darkened R3 sat on the clamp (mean luminance 36) |
+| Exposure | auto, scale 0.16, speed 0.6, min luminance 0.03 (2026-10-09 playtest: 0.02 in G8e.7 let a shaded view boost exposure 8× and blow out the sunlit slopes; 0.04 in ADR 0170, 0.05 before); **histogram** ([ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md)): centre-weighted, the 10–90 % band, highlight protection at the 98th percentile to 0.8; engine ACES (AgX compared in G8e.7: flat and washed in the shade) | adapts between the glade and the pine shade; a view that is mostly shade still exposes for it until the sunlit 2 % (slopes, treetops, the fall's white water) would pass 0.8 into the tonemap. Shade-only views (R3, R5, R6) are unchanged; at 0.04 the probe-darkened R3 sat on the clamp (mean luminance 36) |
 | Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
 | Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
 | Anti-aliasing | `rendering.antiAliasing: Taa` (ADR 0166), sharpness 0.25 (default); tree leaves and ferns `AlphaDither` | leaf, needle and grass edges stop shimmering in motion; the stream is a reactive pixel (keeps 0.2 of its history) so its flow does not smear |
@@ -322,6 +323,18 @@ nothing sharper than a probe spacing), TAA softens the image a little in motion 
 impostors or coverage-preserving alpha mips (distant canopies read
 as speckled cards), reflections only of what is on screen (water elsewhere reflects the sky, dimmed under the canopy by the probes), spray as a few soft cards (particles are G6.3), and 1024² rather than 2048² shadow
 cascades (2048² costs 4–6 ms more under the leaf cards until G8e.5's impostors).
+
+### Histogram auto exposure (ADR 0177)
+
+[ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md), after Brogan's 2026-10-09 playtest: from the start
+position, looking up the path (mostly canopy shade, a sun-facing slope and treetops in sun), the mean-luminance exposure
+pinned at its maximum boost and washed the sunlit slope to cream. `forest.mres` now uses `AutoExposureMode.Histogram` with
+highlight protection (above). `g8e-histo-start-before` / `-after` in [`docs/images/forest/g8e/`](../images/forest/g8e/)
+are the start view at 1920 × 1080, frame 240: frame mean luma 71 → 59, p95 191 → 177; the slope (x 520–900, y 330–520)
+183 → 170, saturation 0.39 → 0.46; the shaded path 51 → 38. Reference shots, mean luma before → after: R1 105 → 101,
+R2 66 → 56, R3 53 → 53, R4 82 → 81, R5 73 → 73, R6 36 → 36, R7 80 → 61 (R2 and R7: the fall's white water and the sunlit
+slope behind it now hold; the pools and banks are darker). The sun, sky and probe values did not change (the bake is
+current).
 
 ### Performance
 

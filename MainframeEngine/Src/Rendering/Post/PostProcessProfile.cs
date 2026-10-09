@@ -116,6 +116,84 @@ public class PostProcessProfile : Resource
         set => Set(_settings with { AutoExposureMaxLuminance = value });
     }
 
+    /// <summary>
+    /// What is measured (ADR 0177): the image's mean log luminance (Average, the default) or a log-luminance histogram
+    /// averaged between two percentiles (Histogram, Unreal's Auto Exposure Histogram).
+    /// </summary>
+    [Export]
+    public AutoExposureMode AutoExposureMode
+    {
+        get => _settings.AutoExposureMode;
+        set => Set(_settings with { AutoExposureMode = value });
+    }
+
+    /// <summary>Histogram: the darkest percent of the image left out of the average (Unreal's <c>AutoExposureLowPercent</c>).</summary>
+    [Export(Range = "0,100,0.1")]
+    public float AutoExposureLowPercent
+    {
+        get => _settings.AutoExposureLowPercent;
+        set => Set(_settings with { AutoExposureLowPercent = value });
+    }
+
+    /// <summary>Histogram: the percentile where the average stops; brighter pixels are left out (Unreal's <c>AutoExposureHighPercent</c>).</summary>
+    [Export(Range = "0,100,0.1")]
+    public float AutoExposureHighPercent
+    {
+        get => _settings.AutoExposureHighPercent;
+        set => Set(_settings with { AutoExposureHighPercent = value });
+    }
+
+    /// <summary>Histogram: log2 luminance of the darkest bin (Unreal's <c>HistogramLogMin</c>).</summary>
+    [Export(Range = "-16,16,0.1")]
+    public float AutoExposureHistogramLogMin
+    {
+        get => _settings.AutoExposureHistogramLogMin;
+        set => Set(_settings with { AutoExposureHistogramLogMin = value });
+    }
+
+    /// <summary>Histogram: log2 luminance of the brightest bin (Unreal's <c>HistogramLogMax</c>).</summary>
+    [Export(Range = "-16,16,0.1")]
+    public float AutoExposureHistogramLogMax
+    {
+        get => _settings.AutoExposureHistogramLogMax;
+        set => Set(_settings with { AutoExposureHistogramLogMax = value });
+    }
+
+    /// <summary>Histogram: how the image is weighted (uniformly, or towards the centre).</summary>
+    [Export]
+    public AutoExposureMetering AutoExposureMetering
+    {
+        get => _settings.AutoExposureMetering;
+        set => Set(_settings with { AutoExposureMetering = value });
+    }
+
+    /// <summary>
+    /// Histogram: cap the exposure so the highlight percentile stays at or below the white target (sunlit patches in a
+    /// shaded view keep their colour).
+    /// </summary>
+    [Export]
+    public bool AutoExposureHighlightProtection
+    {
+        get => _settings.AutoExposureHighlightProtection;
+        set => Set(_settings with { AutoExposureHighlightProtection = value });
+    }
+
+    /// <summary>Histogram: the percentile highlight protection keeps in range.</summary>
+    [Export(Range = "50,100,0.1")]
+    public float AutoExposureHighlightPercent
+    {
+        get => _settings.AutoExposureHighlightPercent;
+        set => Set(_settings with { AutoExposureHighlightPercent = value });
+    }
+
+    /// <summary>Histogram: the most the highlight percentile is exposed to (tonemap input; the engine curve's shoulder starts near 1).</summary>
+    [Export(Range = "0.1,16,0.01")]
+    public float AutoExposureHighlightWhite
+    {
+        get => _settings.AutoExposureHighlightWhite;
+        set => Set(_settings with { AutoExposureHighlightWhite = value });
+    }
+
     // ── Glow ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Godot 4.7's glow (ADR 0124): blurred bright areas added back before the tonemap (Godot's <c>glow_enabled</c>).</summary>
@@ -447,6 +525,10 @@ public class PostProcessProfile : Resource
         nameof(Tonemapper), nameof(TonemapExposure), nameof(TonemapWhite),
         nameof(AutoExposureEnabled), nameof(AutoExposureScale), nameof(AutoExposureSpeed), nameof(AutoExposureMinLuminance),
         nameof(AutoExposureMaxLuminance),
+        // ADR 0177: no version-1 scene has these, but the list stays exactly the exported members.
+        nameof(AutoExposureMode), nameof(AutoExposureLowPercent), nameof(AutoExposureHighPercent), nameof(AutoExposureHistogramLogMin),
+        nameof(AutoExposureHistogramLogMax), nameof(AutoExposureMetering), nameof(AutoExposureHighlightProtection),
+        nameof(AutoExposureHighlightPercent), nameof(AutoExposureHighlightWhite),
         nameof(GlowEnabled), nameof(GlowQuality), nameof(GlowLevel1), nameof(GlowLevel2), nameof(GlowLevel3), nameof(GlowLevel4),
         nameof(GlowLevel5), nameof(GlowLevel6), nameof(GlowLevel7), nameof(GlowNormalized), nameof(GlowIntensity), nameof(GlowStrength),
         nameof(GlowMix), nameof(GlowBloom), nameof(GlowBlendMode), nameof(GlowHdrThreshold), nameof(GlowHdrScale), nameof(GlowHdrLuminanceCap),

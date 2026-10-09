@@ -42,6 +42,70 @@ public sealed class FxaaScene(HostOptions host) : RenderTestGame(host)
 }
 
 /// <summary>
+/// Histogram auto exposure (ADR 0177): a view that is mostly shade — an unshaded dark wall, linear radiance
+/// <see cref="ShadeRadiance"/> — with a bright patch (radiance 1, 7.5 % of the frame, right of centre). With
+/// <paramref name="histogram"/> the world uses <see cref="AutoExposureMode.Histogram"/> with highlight protection
+/// (98th percentile to <see cref="HighlightWhite"/>); otherwise <see cref="AutoExposureMode.Average"/>, which exposes for
+/// the shade and clips the patch. Auto exposure snaps on the first frame, so frame 5 is adapted.
+/// </summary>
+public sealed class AutoExposureHistogramScene(HostOptions host, bool histogram) : RenderTestGame(host)
+{
+    public const float ShadeRadiance = 0.03f;
+    public const float HighlightWhite = 0.8f;
+
+    /// <summary>The patch's rectangle in UV (0–1 over the frame).</summary>
+    public static readonly (Vector2 Min, Vector2 Max) PatchUv = (new Vector2(0.55f, 0.35f), new Vector2(0.80f, 0.65f));
+
+    protected override void LoadScene()
+    {
+        var scene = new Node3D { Name = nameof(AutoExposureHistogramScene) };
+        // The camera faces the wall square on, 5 m away with a 60° vertical field of view: the frame spans `height` metres.
+        const float distance = 5f, fov = 60f;
+        var height = 2f * distance * MathF.Tan(fov * MathF.PI / 360f);
+        var aspect = (float)Host.Width / Host.Height;
+        scene.AddChild(new Camera3D { Name = "Camera", Position = new Vector3(0f, 0f, distance), Fov = fov });
+        scene.AddChild(new MeshInstance3D
+        {
+            Name = "Wall",
+            Mesh = new QuadMesh { Size = new Vector2(height * aspect * 2f, height * 2f) },
+            // sRGB 49 is linear 0.0307 (ShadeRadiance).
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 49, 49, 49), ShadingMode = ShadingMode.Unshaded },
+        });
+        var (min, max) = PatchUv;
+        var size = (max - min) * new Vector2(height * aspect, height);
+        var centre = ((min + max) * 0.5f - new Vector2(0.5f)) * new Vector2(height * aspect, -height);
+        scene.AddChild(new MeshInstance3D
+        {
+            Name = "Patch",
+            Position = new Vector3(centre, 0.01f),
+            Mesh = new QuadMesh { Size = size },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.White, ShadingMode = ShadingMode.Unshaded },
+        });
+        scene.AddChild(new WorldEnvironment
+        {
+            Name = "Environment",
+            PostProcess = new PostProcessProfile
+            {
+                AutoExposureEnabled = true,
+                AutoExposureMinLuminance = 0.01f,
+                AutoExposureMode = histogram ? AutoExposureMode.Histogram : AutoExposureMode.Average,
+                AutoExposureHighlightProtection = histogram,
+                AutoExposureHighlightWhite = HighlightWhite,
+            },
+        });
+        Tree.ChangeScene(scene);
+    }
+
+    protected override void UpdateScene(in GameTime gameTime)
+    {
+    }
+
+    protected override void DisposeScene()
+    {
+    }
+}
+
+/// <summary>
 /// Auto exposure (ADR 0154): a lit floor and boxes, a <see cref="WorldEnvironment"/> with auto exposure (speed 2/s) and
 /// no ambient light. The sun has energy 3 until <see cref="DimFrame"/>, then 0.2: the frame after the drop is dark, and
 /// the exposure then rises over the following frames (1/60 s each).

@@ -35,6 +35,12 @@ public static class ForestLook
         AutoExposureEnabled = true,
         AutoExposureScale = 0.16f,
         AutoExposureSpeed = 0.6f,
+        AutoExposureMinLuminance = 0.03f,
+        // ADR 0177: a view that is mostly canopy shade exposes for the shade; highlight protection keeps the sunlit slopes
+        // and treetops (the brightest 2 % of the centre-weighted histogram) at or below 0.8 instead of washing them out.
+        AutoExposureMode = AutoExposureMode.Histogram,
+        AutoExposureHighlightProtection = true,
+        AutoExposureHighlightWhite = 0.8f,
 
         // ADR 0171: the volumetric fog draws the rays from the real shadows; the screen-space shafts on top doubled the
         // streaks around the sun and made the glade milky. Off, with their values kept for a look without volumetrics.
