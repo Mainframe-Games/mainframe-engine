@@ -88,5 +88,8 @@ Three problems for tuning the Forest's look:
 - A post-processed view costs what the main view's post costs, at its own size: the Forest in the editor at 2× (about
   2500 × 1650 view pixels) runs at ~20 fps with the preview on and ~43 fps with it off on an Apple M5; the toggle is
   there for that. Every open tab with post keeps its state (TAA history, pool) while hidden.
+  *Update (2026-10-09):* profiled per pass, nothing in the view's post ran twice; every pass scales with the view's
+  pixels. The 3D view now renders one pixel per point by default (Editor Settings › 3D view: Auto, Full, 75 %, 50 %),
+  which takes the Forest from 30 to 61–69 fps with the preview at 2× ([Editor → Performance](../../docs/design/editor.md#performance)).
 - Open: the main view could move onto `SubViewportPost`; Make Unique, Open and Show in FileSystem from G7.2's More menu;
   hidden tabs could drop their post state.

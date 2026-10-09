@@ -6,7 +6,7 @@ namespace MainframeEngine.Editor;
 /// <summary>
 /// Editor › Editor Settings (E5): theme accent (presets or any <c>#rrggbb</c>, applied live), autosave interval, the
 /// external code editor command (VS Code, Rider… opens <c>.cs</c> files and click-to-source lines), automatic code
-/// reload, VST3 folders and MIDI inputs (a toggle per device with its connected state; the refresh button lists them). Apply saves to <c>~/.mainframe/editor_settings.json</c>.
+/// reload, the 3D view's resolution, VST3 folders and MIDI inputs (a toggle per device with its connected state; the refresh button lists them). Apply saves to <c>~/.mainframe/editor_settings.json</c>.
 /// </summary>
 public sealed class EditorSettingsDialog : EditorDocument
 {
@@ -134,6 +134,8 @@ public sealed class EditorSettingsDialog : EditorDocument
             .Bind("accent", this, static d => d._working.Accent, static (d, v) => d._working.Accent = v ?? EditorSettings.DefaultAccent)
             .Bind("autosave", this, static d => d._working.AutosaveMinutes.ToString(CultureInfo.InvariantCulture),
                 static (d, v) => d._working.AutosaveMinutes = int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var m) ? m : 0)
+            .Bind("view_resolution", this, static d => d._working.ViewResolution.ToString(),
+                static (d, v) => d._working.ViewResolution = Enum.TryParse<ViewResolution>(v, out var r) && Enum.IsDefined(r) ? r : ViewResolution.Auto)
             .Bind("command", this, static d => d._working.CodeEditorCommand, static (d, v) => d._working.CodeEditorCommand = v ?? "")
             .Bind("auto_reload", this, static d => d._working.AutoReloadCode, static (d, v) => d._working.AutoReloadCode = v)
             .Bind("check_updates", this, static d => d._working.CheckForUpdates, static (d, v) => d._working.CheckForUpdates = v)

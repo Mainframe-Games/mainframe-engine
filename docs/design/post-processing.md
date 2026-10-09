@@ -509,8 +509,10 @@ writes opaque images). The editor's scene view is the user ([Editor → Viewport
 - **Resize and lifetime.** A view's post state has a fixed size: a resized view gets a new `SubViewportPost` and the old
   one goes to `DeletionQueue.EnqueueDispose` (disposed once the frames that used it finished; its effects destroy objects
   directly). Turning `PostProcessing` off retires it; a view that stops rendering keeps it.
-- **Cost.** What the main view's post costs, at the view's size. Views use one extra frame-set view slot when they have
-  debug visuals.
+- **Cost.** What the main view's post costs, at the view's size (never upscaled): every pass scales with the view's
+  pixels. The editor's view renders one pixel per point by default (Editor Settings › 3D view, Auto: a quarter of a 2×
+  display's pixels), which took the Forest from 30 to 61–69 fps with the preview ([Editor →
+  Performance](editor.md#performance)). Views use one extra frame-set view slot when they have debug visuals.
 
 ## Game-defined effects (later)
 

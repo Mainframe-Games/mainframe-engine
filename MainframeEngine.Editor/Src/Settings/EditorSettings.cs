@@ -8,7 +8,8 @@ namespace MainframeEngine.Editor;
 /// <summary>
 /// The editor's own preferences (Editor › Editor Settings), per user in <c>~/.mainframe/editor_settings.json</c>: the
 /// theme accent colour, the autosave interval, the external code editor command (opens <c>.cs</c> files and
-/// click-to-source lines), whether code reloads automatically after a build and whether the editor checks for updates.
+/// click-to-source lines), whether code reloads automatically after a build, whether the editor checks for updates and
+/// the 3D view's resolution.
 /// </summary>
 public sealed class EditorSettings
 {
@@ -63,6 +64,24 @@ public sealed class EditorSettings
     /// <summary>MIDI input devices (port names) the song editor listens to (Editor Settings › MIDI).</summary>
     public List<string> MidiInputs { get; set; } = [];
 
+    /// <summary>
+    /// How many pixels the 3D view renders (<see cref="ViewResolutionScale"/>); the UI scales the image to the view. Auto by
+    /// default: one pixel per point, so a 2× display renders a quarter of its pixels.
+    /// </summary>
+    public ViewResolution ViewResolution { get; set; } = ViewResolution.Auto;
+
+    /// <summary>
+    /// The 3D view's pixels per display pixel for <paramref name="resolution"/> on a display of <paramref name="pixelScale"/>
+    /// pixels per point: Auto renders one pixel per point (1 on a 1× display, 0.5 on a 2× one), Full every display pixel.
+    /// </summary>
+    public static float ViewResolutionScale(ViewResolution resolution, float pixelScale) => resolution switch
+    {
+        ViewResolution.Full => 1f,
+        ViewResolution.ThreeQuarters => 0.75f,
+        ViewResolution.Half => 0.5f,
+        _ => pixelScale > 1f ? 1f / pixelScale : 1f,
+    };
+
     /// <summary><c>~/.mainframe/editor_settings.json</c>.</summary>
     public static string DefaultPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "editor_settings.json");
@@ -86,6 +105,8 @@ public sealed class EditorSettings
                 CheckForUpdates = data.CheckForUpdates ?? true,
                 PluginFolders = data.PluginFolders ?? [],
                 MidiInputs = data.MidiInputs ?? [],
+                ViewResolution = Enum.TryParse<ViewResolution>(data.ViewResolution, ignoreCase: true, out var resolution) &&
+                                 Enum.IsDefined(resolution) ? resolution : ViewResolution.Auto,
             };
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
@@ -109,6 +130,7 @@ public sealed class EditorSettings
             CheckForUpdates = CheckForUpdates,
             PluginFolders = PluginFolders.Count > 0 ? PluginFolders : null,
             MidiInputs = MidiInputs.Count > 0 ? MidiInputs : null,
+            ViewResolution = ViewResolution == ViewResolution.Auto ? null : JsonNamingPolicy.CamelCase.ConvertName(ViewResolution.ToString()),
         };
         AtomicFile.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(data, EditorSettingsJson.Default.EditorSettingsData));
     }
@@ -122,6 +144,7 @@ public sealed class EditorSettings
         CheckForUpdates = CheckForUpdates,
         PluginFolders = [.. PluginFolders],
         MidiInputs = [.. MidiInputs],
+        ViewResolution = ViewResolution,
     };
 
     /// <summary>
@@ -201,6 +224,23 @@ internal sealed class EditorSettingsData
     public bool? CheckForUpdates { get; set; }
     public List<string>? PluginFolders { get; set; }
     public List<string>? MidiInputs { get; set; }
+    public string? ViewResolution { get; set; }
+}
+
+/// <summary>The 3D view's resolution (Editor Settings): see <see cref="EditorSettings.ViewResolutionScale"/>.</summary>
+public enum ViewResolution
+{
+    /// <summary>One pixel per point: every display pixel on a 1× display, a quarter of them on a 2× one.</summary>
+    Auto,
+
+    /// <summary>Every display pixel.</summary>
+    Full,
+
+    /// <summary>Three quarters of the display's pixels on each side.</summary>
+    ThreeQuarters,
+
+    /// <summary>Half of the display's pixels on each side.</summary>
+    Half,
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, NewLine = "\n", PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
