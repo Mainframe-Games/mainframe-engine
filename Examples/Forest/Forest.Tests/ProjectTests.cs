@@ -16,7 +16,7 @@ public sealed class ProjectTests
         Assert.Equal("Mainframe Forest", settings.Name);
         Assert.Equal(ForestScene.Path, settings.MainScene);
         Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, settings.MainScene!)));
-        Assert.Equal((1600, 900), (settings.Window.Width, settings.Window.Height));
+        Assert.Equal((1920, 1080), (settings.Window.Width, settings.Window.Height));
     }
 
     [Theory]
@@ -60,18 +60,28 @@ public sealed class ProjectTests
     }
 
     [Fact]
-    public void SceneHasThePlayerTheStreamAndASun()
+    public void SceneHasTheSunTheLookTheValleyThePlayerAndAudio()
     {
         var root = ForestScene.Build();
         try
         {
             var player = root.GetNode<FirstPersonController>("Player");
             Assert.NotNull(player.GetNode<Camera3D>("Head/Camera"));
-            Assert.True(root.GetNode<DirectionalLight3D>("Sun").CastsShadows);
-            Assert.Equal(SkyEnvironmentType.Procedural, root.GetNode<WorldEnvironment>("Environment").Sky!.Mode);
-            var stream = root.GetNode<River3D>("Stream");
-            Assert.True(stream.Length > 60f);
-            Assert.True(stream.MeshData.VertexCount > 0);
+            var sun = root.GetNode<DirectionalLight3D>("Sun");
+            Assert.True(sun.CastsShadows);
+            Assert.Same(sun, root.Children[0]); // the first directional light is the sky's sun
+            var environment = root.GetNode<WorldEnvironment>("Environment");
+            Assert.Equal(SkyEnvironmentType.Physical, environment.Sky!.Mode);
+            Assert.Equal(AmbientSource.Sky, environment.AmbientSource);
+            Assert.Equal(ReflectedLightSource.Sky, environment.ReflectedLightSource);
+            Assert.True(environment.FogEnabled && environment.LightShaftsEnabled && environment.AutoExposureEnabled && environment.GlowEnabled);
+            Assert.NotNull(root.GetNode<ForestValley>("Valley"));
+            Assert.Equal("Valley/Stream", root.GetNode<ForestAudio>("Audio").RiverPath.ToString());
+
+            // A morning sun: low, from the east-south-east.
+            var towardsSun = -sun.GlobalForward;
+            Assert.InRange(float.RadiansToDegrees(MathF.Asin(towardsSun.Y)), 18f, 30f);
+            Assert.True(towardsSun.X > 0.8f);
         }
         finally
         {
@@ -80,29 +90,27 @@ public sealed class ProjectTests
     }
 
     [Fact]
-    public void TheStreamIsWadeableInTheTrench()
+    public void ProjectUsesFxaaAndAFixedPixelSize()
     {
-        using var h = new ControllerHarness(floor: false);
-        var scene = ForestScene.Build();
-        h.Tree.ChangeScene(scene);
-        var x = (ForestScene.TrenchMinX + ForestScene.TrenchMaxX) / 2;
-        var bed = new System.Numerics.Vector3(x, -ForestScene.TrenchDepth, 0);
-        var water = h.Tree.Root.World3D.Water;
-        Assert.InRange(water.ImmersionAt(bed), 0.9f, ForestScene.TrenchDepth);
-        Assert.True(WaterQueries.WadeSpeedScale(water.ImmersionAt(bed)) < 0.6f);
-        Assert.Equal(0f, water.WaterDepthAt(ForestScene.Spawn));
+        var settings = Load();
+        Assert.Equal(AntiAliasing.Fxaa, settings.Rendering.AntiAliasing);
+        Assert.Equal(1f, settings.Window.ContentScale);
     }
 
     [Fact]
-    public void AutoWalkDrivesTheMoveActions()
+    public void PathWalkerDrivesTheMoveActionsAlongTheLoop()
     {
         using var h = new ControllerHarness();
         var player = h.AddPlayer();
-        ForestDev.Drive(h.Input, player, 0.5f, ControllerHarness.Step);
+        var walker = new PathWalker([new(0, 0), new(0, -20), new(0, -40), new(0, 0)], new System.Numerics.Vector2(0, 0));
+        for (var i = 0; i < 120; i++)
+        {
+            walker.Drive(h.Input, player, ControllerHarness.Step);
+            h.Run(1);
+        }
+
         Assert.True(h.Input.IsActionPressed("move_forward"));
-        Assert.False(h.Input.IsActionPressed("move_back"));
-        h.RunSeconds(1f);
-        Assert.True(player.GlobalPosition.Z < -0.5f);
-        Assert.True(ForestDev.AutoWalkPath.Sum(l => l.Seconds) > 15f);
+        Assert.True(player.GlobalPosition.Z < -3f, $"walked to {player.GlobalPosition}");
+        Assert.True(walker.Progress > 0);
     }
 }

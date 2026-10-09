@@ -962,6 +962,7 @@ public sealed class PhysicsSpace3D : IDisposable
         if (record.Body is not { } self || motion.LengthSquared() < 1e-14f)
             return false;
         FlushForQuery();
+        using var mute = new JitterLogMute();
         _filters.Begin(record.Mask, self);
         var best = float.MaxValue;
         var positionJ = position.ToJ();
@@ -1024,6 +1025,7 @@ public sealed class PhysicsSpace3D : IDisposable
     internal int RecoverBody(BodyRecord3D record, ref Vector3 position, Quaternion rotation, float margin, Span<CharacterContact3D> contacts,
         out bool pushed)
     {
+        using var mute = new JitterLogMute();
         pushed = false;
         if (record.Body is not { } self)
             return 0;
@@ -1108,6 +1110,7 @@ public sealed class PhysicsSpace3D : IDisposable
         if (record.Body is null || collider.Record is not { Body: { } otherBody } other || other.Removed)
             return false;
         FlushForQuery();
+        using var mute = new JitterLogMute();
         var rotationJ = rotation.ToJ();
         var best = float.MaxValue;
         var bestNormal = JVector.Zero;
@@ -1242,4 +1245,23 @@ public sealed class PhysicsSpace3D : IDisposable
     {
         public void Add(in IDynamicTreeProxy item) => list.Add(item);
     }
+}
+
+/// <summary>
+/// Detaches Jitter2's log listener for the scope of a character query (cast, recovery, settle). Jitter2 formats a warning
+/// string for every EPA that does not converge (<c>string.Format</c>, only while a listener is set); character queries
+/// expect that on dense terrain (ADR 0128: the next query takes over), so warning about it would allocate on the main
+/// thread every few seconds of walking and break the 0 B frame. Queries run on the main thread outside the world step.
+/// </summary>
+internal readonly ref struct JitterLogMute
+{
+    private readonly Action<Jitter2.Logger.LogLevel, string>? _listener;
+
+    public JitterLogMute()
+    {
+        _listener = Jitter2.Logger.Listener;
+        Jitter2.Logger.Listener = null;
+    }
+
+    public void Dispose() => Jitter2.Logger.Listener = _listener;
 }

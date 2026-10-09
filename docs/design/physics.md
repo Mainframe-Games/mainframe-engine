@@ -280,6 +280,11 @@ Neither library ships a character controller, so it is the engine's. Call `MoveA
 The final position is written to the node, which turns into a kinematic move of the body for this step, so dynamic
 bodies in its way are pushed (the body collides with what its layer meets, even outside its own mask).
 
+**EPA warnings.** The casts, the recovery and the settle run with Jitter2's log listener detached (`JitterLogMute`):
+EPA not converging is expected there (the next query takes over), and Jitter2 formats its warning string whenever a
+listener is set. On dense trimeshes (the Forest's 524k-triangle terrain) a walking character hit it every few seconds,
+which broke the 0 B frame. These queries run on the main thread outside the world step, so nothing else is muted.
+
 **Margins** ([ADR 0025](../../memory/decisions/0025-character-controller-margins.md)): Jitter2's sweeps resolve contacts
 to a few millimetres (closer reports "overlapping"), so `CharacterBody3D.SafeMargin` defaults to **1 cm**;
 `CharacterBody2D.SafeMargin` is 1 px (Box2D casts are exact; 1 px = 1 cm at 100 px/m).

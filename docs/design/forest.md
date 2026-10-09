@@ -8,11 +8,14 @@ small forest with a stream, meant to look like a UE or Unity scene (proposal
 Like the [Demo](demo.md) it is a real game project built against this checkout (`MainframeEnginePath = ../..`) through
 its own `Examples/Forest/Forest.slnx`, and it is **not** in `MainframeEngine.slnx`.
 
-**Current state: the scaffold, the art and the audio.** The project, the first-person controller, a flat test scene
-with a `River3D` stream, the CC0 art ([Assets](#assets): terrain layers, props, a sky panorama, the `ForestAssets`
-manifest and an asset gallery scene) and the procedural [audio](#audio) (attached at run time by `ForestDev`) exist.
-The valley (terrain), trees, grass, scattered props, the pause menu, the reference shots, the benchmark and the release
-job come with the later waves of the forest slice.
+**Current state: the playable valley.** The project, the first-person controller, the CC0 art ([Assets](#assets)), the
+procedural [audio](#audio) and [the valley](#the-valley): a generated 256 m terrain with a stream (a small fall, three
+pools, a log bridge) running into a pond, about 1 500 trees, 180 bushes, grass, reeds, ferns, stones and props, under a
+physical morning sky with fog, light shafts, eye adaptation and FXAA. Also the [reference shots](#reference-shots), the
+[benchmark](#forestdev---autowalk-and-the-benchmark) and a path-following `--autowalk`. Not yet: the pause menu and
+settings page, impostors, TAA, PCSS and contact shadows, LUT grading, dust motes and butterflies, and the release job.
+
+![R1: the glade, looking into the morning sun](../images/forest/r1-glade.png)
 
 ## Layout
 
@@ -20,10 +23,13 @@ job come with the later waves of the forest slice.
 Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes (the Demo's + *.hdr, *.exr, *.cube),
 │   NOTICE.md (every third-party asset), README.md
-├── project.mfproj        "Mainframe Forest": main scene forest, 1600 × 900, shadows High, the input map, autoload Dev
+├── project.mfproj        "Mainframe Forest": main scene forest, 1920 × 1080 px (contentScale 1), shadows High, FXAA,
+│                         the input map, autoload Dev
+├── benchmark-baseline.json  this Mac's forest-bench result (1920 × 1080)
 ├── Forest/               Src/Player (FirstPersonController, IFootstepSurface + SurfaceBody3D, ForestSettings),
-│                         Src/World (ForestScene, SceneWriter, ForestAssets, ForestAssetGallery), Src/Dev (ForestDev),
-│                         Src/Audio (ForestAudio, …)
+│                         Src/World (ForestScene, ForestValley, ValleyLayout, ValleyGenerator, ValleyNoise,
+│                         PolylineField, ForestVegetation, SceneWriter, ForestAssets, ForestAssetGallery),
+│                         Src/Dev (ForestDev, PathWalker, ForestBenchmark), Src/Audio (ForestAudio, …)
 ├── Forest.Desktop/       GameHost.Run(args, typeof(Forest.FirstPersonController).Assembly) + --write-scenes <dir>
 ├── Forest.Tests/         xUnit v3, no GPU; the asset tests skip without the LFS content
 ├── Tools/fetch_assets.py downloads and imports Content/Art (python3 + Pillow, curl)
@@ -103,23 +109,103 @@ Checked in the gallery: albedo in sRGB (the props and bands match their photos),
 side, ORM roughness (gravel and mud read rough, a few rock faces glossy as scanned), the fern's alpha test and the scale
 of each prop against the 7 m bands.
 
-## The test scene
+## The valley
 
 `ForestScene.Build()` writes `Content/Scenes/forest.mscene` (`dotnet run --project Examples/Forest/Forest.Desktop --
---write-scenes Examples/Forest/Content/Scenes`); `ProjectTests.CommittedSceneMatchesTheBuilder` checks the committed
-file byte for byte, as the Demo does. It holds:
+--write-scenes Examples/Forest/Content/Scenes`; `ProjectTests.CommittedSceneMatchesTheBuilder` checks it byte for byte).
+The scene holds only what an editor would tune: the `Sun`, the `Environment` (the look), the `Valley` node with its
+knobs, the `Player` and the `Audio`. **The valley is generated when the `ForestValley` node is ready**, deterministically
+from `ValleyLayout` and a seed, in about 1.2 s (Release, M5: heights 0.4 s, carve, pond and paint 0.4 s, trees 0.3 s,
+props 0.1 s), plus Jitter2's ≈ 2 s first step over the terrain's 524k collision triangles. Generating beats committing
+the layers as PNGs: nothing to re-commit to LFS on every tweak, nothing the tests need from LFS. Everything it builds is
+an unowned child, never saved.
 
-- a 256 m `SurfaceBody3D` ground (top at y = 0, surface `moss`) with a 6 m wide, 1.2 m deep trench along Z at
-  x = 16 … 22 (floor `gravel`) and 6 m ramps out at both ends;
-- the test stream: a `River3D` along the trench (66 m, surface −0.15 → −0.3 m, width 6 m, depth 1.05 → 0.9 m), so
-  wading the trench slows the walk to ≈ 0.45 × and the flow pushes north;
-- crates (`wood`, one stack to jump onto), 15°, 35° and 55° rock slopes (the last too steep), a 1.3 m beam to crouch
-  under and a boulder;
-- a shadowed `DirectionalLight3D` (3 cascades) and a `WorldEnvironment` with the procedural sky, its sun along the
-  light;
-- the player at (6, 0, 8) facing north-east towards the stream.
+```
+                 N (z = 0)
+      outcrop ▲ source ─ fall (3.5 m)
+              pool 1 · falls viewpoint (R2)
+   glade (R1)    pool 2            dense pine slope
+   oak, ash        pool 3 ═ log bridge (R3)    lookout (R4)
+                       │ aspen banks (R5)
+   trailhead ●        pond (terrain water layer)
+                 S (z = 256)
+```
 
-The content wave replaces it with the valley (`ValleyGenerator`, `--write-terrain`), authored in the editor.
+| Part | How |
+|---|---|
+| Layout (`ValleyLayout`) | world = terrain-local metres, north −Z. The stream's 15 points (surface, width, depth: a source in the outcrop, a 3.5 m fall, three wide deep pools between riffles, the bridge reach, the mouth), the pond (centre, radii 27 × 18 m, level 0.6 m, 1.7 m deep), outcrop, glade, the 21-point walking loop (≈ 480 m, ≈ 3 min at walk speed), spawn, sun (azimuth 105°, elevation 21°), tree clearings and view corridors, the reference shots |
+| Heights (`ValleyGenerator`) | the floor follows the stream's downhill-clamped surface near it and a ±24 m smoothed profile away from it (the fall stays a local step), +0.4 m and 4 % per metre across; the west ridge rises to ≈ +30 m (gentler in the glade), the east to ≈ +46 m; the valley closes in the north and rises past the pond; fBm rolling ground, quieter near water and in the glade; the outcrop is a ridged plateau (+9 m); the pond basin is an ellipse with a noise-wobbled shore; the **path bed** is level across, follows the ground's smoothed profile along it and blends into the slopes over 5 m (cut and fill), sunk 6 cm; the banks rise 1.25 m above the water at the bridge, a small gorge the log spans |
+| Stream | `River3D` from the layout's points plus two jittered points per reach (wandering banks), `SectionLength` 0.75 m, 6 cross segments, carved (`Carve()`, `CarveId` "stream", `BankWidth` 2.2, `ShoreLift` 0.06); heights come from the layout, so no `FitToTerrain` |
+| Pond | after the carve, `ApplyPond` floods every basin vertex below the level (`TerrainData` water layer, `MaxWaterDepth` 2 m) |
+| Splat (8 layers, `ForestAssets` order) | per cell from the final ground: needles under the pines, leaf litter on the aspen bank and forest edges, grass in the glade, patchy moss; then overrides: moss at rock bases, rock above ≈ 37° and on the outcrop's steep, convex parts, moss 2–5 m from water, mud within ≈ 1.5 m of the stream and the pond, gravel in the stream bed and the pond's deep bed, gravel path edges, dirt on the path |
+| Terrain material | `ForestAssets.CreateTerrainMaterial()` with every ORM's roughness lifted to 0.6 + 0.4 r (`RoughenOrm`: the scans' 0.45 made dry ground glare white against a low sun), grass and leaves tinted, `AntiTiling` off (3.5 ms at 1080p), detail to 45 m, far from 110 m |
+| Ground cover (`TerrainData.FoliageTypes`) | meadow grass (8/m² on grass, to 32 m), tall grass, woodland grass on leaves and moss, reeds on the pond's mud, the Poly Haven fern (merged, re-centred, with a wind stream: `FoliageMaterial3D`, cut-out) on needles, leaves and moss, `rock_07` stones on gravel and moss; densities × `GroundCoverDensity` (0.8) |
+| Trees (`ForestVegetation`) | one jittered candidate per 4 m cell, accepted by zone: pines (large, medium, small; 2 + 2 + 1 seeds) on the east slope, outcrop, north and the high west ridge; aspens (5 variants) along the stream and round the pond; ash at the glade's edge and in mixed woods; a few oaks in the glade. Clear of the path (3.2 m), water (1.6 m), the bridge (7 m), steep rock, the clearings and the R2/R4 view corridors. ≈ 1 500 trees in a `TreeScatter` (levels at 22 m and 55 m, out to 400 m, levels 0–1 cast shadows); ≈ 180 bushes in a second one (to 75 m, no collision, only level 0 casts) |
+| Props | `ForestAssets.InstantiateProp` with shared PBR materials: the bridge (`dead_tree_trunk_02` × 1.6 along the path's crossing, its top 14 cm above the banks, a 0.9 m walkway box tagged `wood`), mossy rock sets at the source and the fall, boulders round the fall and the pools, logs, stumps and dry branches placed near the path by hashed search; a collision box per mesh part (`SurfaceBody3D`, tagged `rock` / `wood`) |
+| Edges | four 200 m high `StaticBody3D` walls just outside the map |
+| Player | `ForestValley` stands the player on the ground and sets `SurfaceResolver` to `Terrain3D.SurfaceTagAt` (needles sound as leaves); `ForestAudio` gets the pine density for the woodpecker |
+
+Trees are generated at load from the Ez Tree presets (14 variants, ≈ 60 ms), not baked: a baked `TreeMesh` `.mres` is
+≈ 3 MB of text per variant (≈ 45 MB for the forest) to save that time.
+
+**Pre-warm.** For the first frames (`PrewarmFrames`, 8, from the second frame, after the foliage built its tiles) every
+terrain level, foliage tile, tree level and prop is shown with no visibility range, every multimesh draws all its
+instances and the foliage's thinning is paused; then each gets back what LOD, distance and thinning chose. So every GPU
+buffer, material set and pipeline exists before play: without it the walk allocated (and hitched) the first time
+something came into view.
+
+### The look (`ForestScene.CreateEnvironment`, the `Sun`)
+
+| Knob | Value | Why |
+|---|---|---|
+| Sun | `DirectionalLight3D`, colour (1, 0.87, 0.7), energy 2.6, 2 cascades × 1024² to 60 m, split λ 0.8 | warm and low; the shadow budget below |
+| Sky | `Physical`, turbidity 6, Mie 0.005, ground (0.28, 0.27, 0.2) | a clear morning; the IBL follows it |
+| Ambient / reflections | `AmbientSource.Sky` × 1.6, `ReflectedLightSource.Sky` | no GI: the sky fills the shade so it stays readable next to the sun |
+| Fog | density 0.003, height 6 m, height density 0.08, colour (0.42, 0.47, 0.53), sun scatter 0.3 | haze in the valley, brighter towards the sun |
+| Light shafts | intensity 2.3, decay 0.965, density 0.85 | rays through every canopy gap near the sun |
+| Exposure | auto, scale 0.4, speed 0.6; engine ACES | adapts between the glade and the pine shade |
+| Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
+| Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
+| Anti-aliasing | `rendering.antiAliasing: Fxaa` | |
+| Water | stream: absorption (0.5, 0.16, 0.12), roughness 0.05, reflection 0.35, normals 1.2/5 m × 0.6; pond: peaty absorption (1.6, 0.75, 0.7), reflection 0.8, calm | the stream shows its gravel bed; the pond darkens in the middle |
+
+`++ --set Node/Path.Property=value` overrides any of these for a run (`Valley.*` before the valley generates), e.g.
+`--set Sun.ShadowCascades=3 --set Environment.Sky.Turbidity=10 --set Valley.GroundCoverDensity=1.2`.
+
+### Reference shots
+
+`++ --shot <1-5|name>` puts a fixed camera at a pose of `ValleyLayout.Shots` (heights above the ground); `--view
+x,y,z,tx,ty,tz[,fov]` at any pose (y 0: eye height above the ground, −h: h above it). `just forest-screenshots` renders
+all five at 2560 × 1440 (frame 300 at a fixed 60 Hz: fixed wind, water and exposure) and scales them to 1600 × 900 into
+`docs/images/forest/`:
+
+| | |
+|---|---|
+| ![R1](../images/forest/r1-glade.png)<br>**R1 Glade**: into the low sun through oaks and ashes; shafts, haze, back-lit leaves | ![R2](../images/forest/r2-fall.png)<br>**R2 The fall**: from the falls viewpoint, the 3.5 m drop between boulders, pool 1, dappled moss |
+| ![R3](../images/forest/r3-bridge.png)<br>**R3 Log bridge**: the west bank; the gravel bed through clear water, mud and moss banks, the log | ![R4](../images/forest/r4-vista.png)<br>**R4 Vista**: from the pine slope's lookout down to the pond |
+| ![R5](../images/forest/r5-floor.png)<br>**R5 Forest floor**: 0.5 m above leaf litter and ferns among pines and aspens | |
+
+**What limits the look** (engine features the slice does not have yet): no GI (the sky's IBL fills the shade, so
+interiors of the canopy read flat), no SSAO or contact shadows (trunks and props do not ground themselves), no TAA (FXAA
+cannot fix leaf-card and grass shimmer in motion), no impostors or coverage-preserving alpha mips (distant canopies read
+as speckled cards), no SSR or refraction (the stream shows its bed, not the trees; the pond reflects only the sky), no
+real falls (the fall is a steep ribbon), and only 2 × 1024² shadow cascades to 60 m within the budget.
+
+### Performance
+
+Apple M5 (MoltenVK), Release, `just forest-bench` (1 800 frames along the spline, VSync off; other lanes' GPU work was
+running at times):
+
+| Resolution | p50 | p90 | p99 | Sun shadows (GPU p50) |
+|---|---|---|---|---|
+| 1600 × 900 | 11.0 ms | 13.7 ms | 16.2 ms | 2.0 ms |
+| **1920 × 1080** | **13.0 ms** | **16.0 ms** | **20.2 ms** | 2.0 ms |
+| 2560 × 1440 | 18.4 ms | 23.4 ms | 27.3 ms | 2.1 ms |
+
+≤ 465 draws, 0 B per frame, ≈ 4 s from launch to the first measured frame. 1080p holds 60 fps at the median and through
+most of the flight; the p99 frames are the vista over the whole valley. Measured at 1080p against these defaults: the
+engine's default sun shadows (4 × 2048² to 100 m) +12 ms, 3 × 2048² to 90 m +8 ms, 3 × 1024² to 110 m +1.2 ms;
+hex-tiling +3.5 ms; the trees +10 ms; the ground cover +5 ms (p50). The GPU, not the CPU, bounds every case.
 
 ## `FirstPersonController`
 
@@ -221,19 +307,32 @@ Struct maths and property sets on existing players: the stream's closest-point s
 schedule and footsteps allocate nothing (`ForestAudioTests.FramesAllocateNothing`: 600 frames of walking with birds,
 footsteps on every surface and the server rendering, 0 B).
 
-## `ForestDev` and `--autowalk`
+## `ForestDev`, `--autowalk` and the benchmark
 
 The `Dev` autoload (`ForestDev`) is idle unless started with game arguments after `++`:
 
-- `--autowalk` presses the move actions along `ForestDev.AutoWalkPath` (walking, turning, sprinting, a jump, wading up the
-  stream and out over the ramp; no crouch, which rebuilds the capsule), then measures a 600-frame window after 180
-  warm-up frames with `GC.GetAllocatedBytesForCurrentThread` on the main thread (the whole frame: tree, physics,
-  rendering, UI) and quits with exit code 0 when it allocated nothing, 1 otherwise (an `[ERROR]` line). With
-  `--fixed-fps 60` the walk is the same on every run. Measured: 0 B, 21 footsteps, 0 gen-0 collections.
-- `--no-capture` leaves the mouse free.
-- When the current scene has no `ForestAudio`, `ForestDev` attaches one on its first frame (the scene's river and
-  player), so the test scene has sound; `--no-audio` skips it. Measured: `--autowalk` with the audio still allocates
-  0 B (headless, null device).
+- `--autowalk`: `PathWalker` walks the loop from the trailhead (it presses `move_forward` and turns towards a point 4 m
+  ahead on the path, sprints 10 s of every 40 and jumps once), then measures a 600-frame window after `--warmup` frames
+  (default 1 500: past the first jump, landing and sprint, so the physics' working lists have grown) with
+  `GC.GetAllocatedBytesForCurrentThread` on the main thread (the whole frame: tree, physics, rendering, UI, audio) and
+  quits with exit code 0 when it allocated nothing, 1 otherwise, listing the frames that did. Measured: **0 B**, 50
+  footsteps, 0 gen-0 collections.
+- `--autowalk-lap`: walks the whole loop and quits when back at the trailhead (exit 1 if stuck after 12 minutes).
+  Measured: 150 s, 469 m, 98 % of frames on the floor, 618 footsteps; the bridge and every slope walkable.
+- `--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]]`: `ForestBenchmark` waits 240
+  frames, then a camera flies the 15-point `ForestBenchmark.Spline` (low through the glade, past the fall, over the pine
+  canopy, down to the pond and back to the trailhead) for n frames (default 1 800); it prints p50/p90/p99/p99.9/max of
+  the wall-clock frame intervals, the sun shadows' GPU time and the most draws, writes JSON and compares p50 and p99 with
+  the baseline (exit 1 when more than 10 % slower or when a frame allocated). `just forest-bench` runs it at
+  1920 × 1080 against `Examples/Forest/benchmark-baseline.json`.
+- `--shot`, `--view`, `--set`: [above](#reference-shots); `--resolution WxH` resizes the window to W × H pixels.
+- `--no-capture` leaves the mouse free; `--no-audio` skips the audio `ForestDev` would attach to a scene without one.
+
+The controller has two fixes for the terrain: on 0.5 m triangles it lost the floor on 46 % of frames (walking up one
+triangle's plane leaves it above the next, flatter one, and `MoveAndSlide` does not snap a body moving up), so a ray
+within `FloorSnapLength` now snaps it back; and touching down is a footstep only after `LandingAirTime` (0.2 s) in the
+air. Jitter2's "EPA could not converge" warning, which character queries on the terrain hit every few seconds and whose
+string Jitter2 allocates, is muted for those queries (`JitterLogMute`, [Physics](physics.md)).
 
 ## Recipes
 
@@ -242,8 +341,8 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
 | `just forest *args` | `dotnet run --project Examples/Forest/Forest.Desktop -c Release -- {{args}}` |
 | `just forest-test` | `dotnet test Examples/Forest/Forest.Tests` |
 | `just forest-audio` | the offline audio renders: `Examples/Forest/artifacts/audio/*.wav` (ambience calm and windy, brook near and far, falls, birds, footsteps per surface, the whole mix walking) |
-| `just forest-screenshots [frames]` | `build/forest-screenshots.sh`: one Release shot of the main scene into `docs/images/forest/forest.png` (the five reference shots come later) |
-| `just forest-bench` | prints "not yet" (G8d.15) |
+| `just forest-screenshots [frames]` | `build/forest-screenshots.sh`: R1–R5 at 2560 × 1440 → 1600 × 900 into `docs/images/forest/` (display awake, LFS art) |
+| `just forest-bench [args]` | `build/forest-bench.sh`: the benchmark at 1920 × 1080 against `benchmark-baseline.json` (`--write-baseline` re-records; quiet machine) |
 
 ## Tests
 
@@ -257,8 +356,15 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
   recaptures it; the gamepad deadzone and curve; the FOV conversion;
 - head bob amplitude and switch; one footstep per stride with the floor's surface; the resolver and default fallbacks;
 - 600 physics ticks of walking, sprinting, jumping and turning in water allocate 0 B;
-- settings round trip; the project file (main scene, keyboard and pad bindings); the scene contract; the stream is
-  wadeable in the trench; `--autowalk` drives the actions;
+- settings round trip; the project file (main scene, keyboard and pad bindings, FXAA, pixel size); the scene contract
+  (sun first, the look's switches, the valley, the audio wiring, a low east-south-east sun); `PathWalker` drives the walk;
+- the valley (`ValleyTests`): the same seed gives bit-identical heights, splat weights and tree placements and another
+  seed different ones; the stream falls from the outcrop over the fall to the pond and the ridges stand above the floor;
+  the path crosses the stream exactly once, at the bridge, above the water; the loop is a 2.5–5 minute walk and no point
+  of the path is steeper than 35°; trees keep clear of the path, the water, the bridge and the clearings, and every zone
+  has its species; a headless build (no art) stands the player on the ground at the trailhead, on the floor after a
+  second, with water in pool 1, the pond at its level, the bridge's walkway above the stream and 1 200–2 600 trees;
+  footstep tags; the shots and the benchmark spline on the map;
 - `ForestAssetsTests`: the layer tags and order; every manifest file exists, and every file under `Content/Art` is in
   the manifest with a `.meta`; NOTICE.md names every asset; the layers load 1024² textures with resource paths; the ORM
   maps have no metal; every prop imports through Assimp with one shared PBR override whose ORM is the ARM map (the

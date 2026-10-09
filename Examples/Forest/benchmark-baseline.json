@@ -1,0 +1,20 @@
+{
+  "Machine": "Brogans-MacBook-Pro",
+  "Os": "macOS 27.0.1",
+  "Cpu": "Arm64",
+  "Width": 1920,
+  "Height": 1080,
+  "Frames": 1800,
+  "LoadMs": 4028,
+  "MeanMs": 12.83,
+  "Fps": 77.93,
+  "P50Ms": 13.05,
+  "P90Ms": 16.01,
+  "P99Ms": 20.24,
+  "P999Ms": 22.79,
+  "MaxMs": 25.6,
+  "ShadowGpuP50Ms": 2.02,
+  "ShadowGpuP90Ms": 2.87,
+  "MaxDrawCalls": 465,
+  "AllocatedBytes": 0
+}

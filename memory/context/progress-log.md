@@ -4,20 +4,36 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Active (2026-10-08):** forest showcase vertical slice on `feature/forest-slice` (worktree
-  `.claude/worktrees/forest-slice`). Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
-  - **Waves 1 and 2 are merged** (tip 736e259; all gates green: 1803 engine, 769 editor, 86 render tests).
-    - ADRs 0150–0155 (wave 1).
-    - 0156 TerrainSplatMaterial3D, 0157 foliage scatter, 0158 Tree3D/TreeScatter, 0159 WaterMaterial3D + carving,
-      0160 light shafts.
-  - **Wave 3 is running** (agent worktrees):
-    - J: CC0 assets + `ForestAssets`.
-    - K: procedural audio + `ForestAudio.Attach`.
-    - L: the forest valley scene, benchmark and screenshots. When J and K merge into `feature/forest-slice`, message
-      lane L to merge them and switch from placeholders.
-  - Then: a lavapipe golden for `terrain` (lane C never recorded it); a final full gate; push and PR; tell Brogan to
-    play `just forest`.
-  - Stop launching lanes at 50% weekly usage.
+- **Forest showcase slice: playable, waiting for Brogan's notes (2026-10-08).** Branch `feature/forest-slice`, pushed,
+  no PR yet. Worktree `.claude/worktrees/forest-slice`. Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
+  - Every lane is merged:
+    - wave 1: ADRs 0150–0155;
+    - wave 2: 0156–0160;
+    - wave 3: CC0 art (lane J), procedural audio (0162), the valley (lane L).
+  - Gates are green:
+    - engine 1803, editor 769, Forest 141, render 86;
+    - Release `-warnaserror`, format, shaders.
+  - `just forest` plays. Measured with `just forest-bench`:
+    - 1080p: p50 13 ms, p99 20 ms;
+    - 1440p: p50 18 ms.
+  - Screenshots: `docs/images/forest/r1–r5`.
+  - Known gaps, from lane L:
+    - no SSAO/GI: flat shade under the canopy;
+    - FXAA only: leaves and grass shimmer;
+    - no impostors or coverage-preserving mips: speckled far canopies;
+    - no SSR or refraction: the pond looks like a dark crater;
+    - the fall is a ribbon;
+    - shadows are 2 × 1024² to 60 m;
+    - the R1 shafts are a little milky.
+  - **Queued by Brogan, 2026-10-08:** SSAO and TAA, then the "Unreal look" phases 1–8 (G8e proposal:
+    `docs/design/future/forest-visual-quality.md`, ADR 0164, written by lane Q).
+    - Waves:
+      - W4: lane P, the post-processing system + depth prepass + motion vectors + jitter (ADR 0163). Running.
+      - W5: S (SSAO/GTAO), T (TAA), G8e.2 (shadows), G8e.4 (cinematic post).
+      - W6: G8e.1 (probe GI), G8e.3 (volumetric light), G8e.5 (Ez Tree foliage: cluster cards, hierarchical wind,
+        impostors, presets), G8e.6 (water SSR, refraction, falls).
+      - W7: G8e.8 (TAA upscaling), G8e.7 (art pass).
+    - Stop launching at 90% weekly usage (Brogan raised it for this work). When the queue is done, open the PR (Auto-fix on).
 - **Status before this:** M0–M10 merged to `main` (fast-forward to `ec6bd70`, 2026-10-05); later work landed through
   PRs #5–#32.
 - **Open blockers:** none. User actions: Steamworks natives (partner login); macOS code signing/notarization.
