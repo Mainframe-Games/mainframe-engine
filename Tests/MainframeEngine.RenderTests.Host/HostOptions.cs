@@ -93,6 +93,21 @@ public sealed record HostOptions
     /// <summary>The sharpen after TAA (<c>IVulkanContext.TaaSharpness</c>); null = the default.</summary>
     public float? TaaSharpness { get; init; }
 
+    /// <summary>ADR 0174: the main view's render scale (<c>IVulkanContext.Scaling3DScale</c>); null = native.</summary>
+    public float? RenderScale { get; init; }
+
+    /// <summary>ADR 0174: the upscale (<c>IVulkanContext.Scaling3DMode</c>); null = the default (bilinear).</summary>
+    public Scaling3DMode? Scaling { get; init; }
+
+    /// <summary>ADR 0174: RCAS's stops after FSR 1 (<c>IVulkanContext.FsrSharpness</c>); null = the default.</summary>
+    public float? FsrSharpness { get; init; }
+
+    /// <summary>ADR 0174: a frame at which the render scale changes (with <see cref="RenderScaleChange"/>); 0 = never.</summary>
+    public uint RenderScaleChangeFrame { get; init; }
+
+    /// <summary>The render scale <see cref="RenderScaleChangeFrame"/> switches to.</summary>
+    public float RenderScaleChange { get; init; } = 1f;
+
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
         if (args.Count == 0)
@@ -203,6 +218,23 @@ public sealed record HostOptions
                     break;
                 case "--taa-sharpness":
                     options = options with { TaaSharpness = float.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--render-scale":
+                    options = options with { RenderScale = float.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--scaling":
+                    options = options with { Scaling = Enum.Parse<Scaling3DMode>(Next(), ignoreCase: true) };
+                    break;
+                case "--fsr-sharpness":
+                    options = options with { FsrSharpness = float.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--render-scale-at":
+                    var change = Next().Split('@');
+                    options = options with
+                    {
+                        RenderScaleChange = float.Parse(change[0], CultureInfo.InvariantCulture),
+                        RenderScaleChangeFrame = uint.Parse(change[1], CultureInfo.InvariantCulture),
+                    };
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");

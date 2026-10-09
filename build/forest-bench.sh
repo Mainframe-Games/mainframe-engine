@@ -2,6 +2,8 @@
 # The Forest benchmark (docs/design/forest.md#benchmark): builds Release, flies the benchmark spline at 1920 × 1080 with a
 # fixed 60 Hz step and VSync off, prints frame-time percentiles, writes artifacts/forest-bench/<time>.json and compares
 # p50/p99 with Examples/Forest/benchmark-baseline.json (fails when more than 10 % slower, or when a frame allocated).
+# The 3D view renders at the project's scale (0.75, TAAU; ADR 0174) and the report gives both resolutions; later game
+# args win: `--resolution 2560x1440` (the G8e target), `--scale 1` (native).
 # Quiet machine only; the display must be awake. Usage: build/forest-bench.sh [--write-baseline] [game args...]
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"

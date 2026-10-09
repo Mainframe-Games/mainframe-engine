@@ -82,6 +82,7 @@ internal sealed class PostProcessStack : IDisposable
             if (!effect.IsEnabled(settings))
                 continue;
             context.Stage = effect.Stage;
+            context.Enter(effect);
             effect.BeginFrame(context);
         }
     }
@@ -104,6 +105,7 @@ internal sealed class PostProcessStack : IDisposable
             if (effect.Stage != stage || !effect.IsEnabled(settings))
                 continue;
             context.IsLastInStage = ++ran == enabled;
+            context.Enter(effect);
             effect.Record(context);
             if (context.OutputOpen)
                 throw new InvalidOperationException($"{effect} began an output pass and did not end it.");
@@ -117,7 +119,10 @@ internal sealed class PostProcessStack : IDisposable
     public void Resize(PostEffectContext context)
     {
         foreach (var effect in _effects)
+        {
+            context.Enter(effect);
             effect.Resize(context);
+        }
     }
 
     /// <summary>Disposes every effect (device idle).</summary>

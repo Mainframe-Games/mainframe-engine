@@ -85,9 +85,13 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
     /// <summary>
     /// Records the ID pass into <see cref="Target"/> (resized to <paramref name="extent"/>) with
     /// <paramref name="drawIds"/>, then copies the queued pixels for readback. No render pass may be active.
+    /// <paramref name="coordinateScale"/> maps request coordinates to the target's (ADR 0174: the main view's ID pass runs
+    /// at its render size while requests are in window pixels).
     /// </summary>
-    public void Render<TState>(CommandBuffer cb, Extent2D extent, TState state, Action<TState, CommandBuffer> drawIds)
+    public void Render<TState>(CommandBuffer cb, Extent2D extent, TState state, Action<TState, CommandBuffer> drawIds,
+        float coordinateScale = 1f)
     {
+        _coordinateScale = coordinateScale;
         ArgumentNullException.ThrowIfNull(drawIds);
         if (Target is null)
             Target = new RenderTarget(_ctx, MeshRenderer.ObjectIdTargetDesc(MeshRenderer.FindDepthFormat(_ctx)), extent);
@@ -99,6 +103,8 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
         Target.End(cb); // explicit barrier: the copies below read the ids the pass wrote
         CopyQueued(cb);
     }
+
+    private float _coordinateScale = 1f;
 
     private void CopyQueued(CommandBuffer cb)
     {
@@ -117,13 +123,20 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
         {
             var request = _queued[i];
             batch.Add(request);
-            if ((uint)request.X >= extent.Width || (uint)request.Y >= extent.Height)
+            int x = request.X, y = request.Y;
+            if (_coordinateScale != 1f)
+            {
+                x = (int)MathF.Floor((x + 0.5f) * _coordinateScale);
+                y = (int)MathF.Floor((y + 0.5f) * _coordinateScale);
+            }
+
+            if ((uint)x >= extent.Width || (uint)y >= extent.Height)
                 continue; // outside the view: reads back as a miss (the buffer slot is cleared below)
             var region = new BufferImageCopy
             {
                 BufferOffset = (ulong)i * sizeof(uint),
                 ImageSubresource = new ImageSubresourceLayers(ImageAspectFlags.ColorBit, 0, 0, 1),
-                ImageOffset = new Offset3D(request.X, request.Y, 0),
+                ImageOffset = new Offset3D(x, y, 0),
                 ImageExtent = new Extent3D(1, 1, 1),
             };
             _ctx.Vk.CmdCopyImageToBuffer(cb, image, ImageLayout.TransferSrcOptimal, _readback[slot].Handle, 1, &region);

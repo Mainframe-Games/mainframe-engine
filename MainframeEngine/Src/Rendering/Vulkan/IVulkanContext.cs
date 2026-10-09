@@ -71,8 +71,19 @@ public interface IVulkanContext
     /// <summary>Begins the main (HDR scene) render pass. Called by Engine after shadow passes complete.</summary>
     void BeginRenderPass();
 
-    /// <summary>The offscreen HDR scene target (colour + depth), sized to the swapchain.</summary>
+    /// <summary>
+    /// The offscreen HDR scene target (colour + depth) of the main view, at <see cref="RenderExtent"/>: the swapchain's
+    /// size, or less with a <see cref="Scaling3DScale"/> below 1 (ADR 0174).
+    /// </summary>
     RenderTarget SceneTarget { get; }
+
+    /// <summary>
+    /// The main view's render size in pixels (ADR 0174): the scene pass, the depth prepass, SSAO, contact shadows,
+    /// volumetric fog, the water scene copy and depth of field run at it. <see cref="SwapchainExtent"/> × the applied
+    /// <see cref="Scaling3DScale"/> (the swapchain's size at 1); the upscale, glow, exposure, tonemap and the overlay run
+    /// at the swapchain's.
+    /// </summary>
+    Extent2D RenderExtent { get; }
 
     /// <summary>
     /// The pass UI is drawn in after tonemapping (canvas, UI, dev overlay): it targets the swapchain image in the encoding the UI was
@@ -161,6 +172,25 @@ public interface IVulkanContext
     /// <see cref="AntiAliasing.Taa"/>. Starts at <see cref="EngineOptions.TaaSharpness"/> (<see cref="DefaultTaaSharpness"/>).
     /// </summary>
     float TaaSharpness { get; set; }
+
+    /// <summary>
+    /// How the main view upscales from <see cref="RenderExtent"/> to the swapchain (<c>rendering.scaling3DMode</c>,
+    /// ADR 0174): bilinear, FSR 1 or TAAU. Only below a <see cref="Scaling3DScale"/> of 1; may change between frames.
+    /// </summary>
+    Scaling3DMode Scaling3DMode { get; set; }
+
+    /// <summary>
+    /// The main view's render scale, <see cref="RenderScaling.MinScale"/> to 1 (<c>rendering.scaling3DScale</c>, ADR 0174;
+    /// default 1, native). Sub-viewports and the editor's views always render at 1, the 2D canvas and UI at the window's
+    /// size. A change applies at the start of the next frame (the render targets are resized, histories restart).
+    /// </summary>
+    float Scaling3DScale { get; set; }
+
+    /// <summary>
+    /// RCAS's attenuation in stops after an FSR 1 upscale (<c>rendering.fsrSharpness</c>, Godot's; 0 is the sharpest, 2 the
+    /// softest; default <see cref="RenderScaling.DefaultFsrSharpness"/>).
+    /// </summary>
+    float FsrSharpness { get; set; }
 
     /// <summary>
     /// Seconds since the previous frame (<see cref="Engine"/> sets it from <see cref="GameTime.DeltaTime"/> before each

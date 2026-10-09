@@ -29,8 +29,8 @@ float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
     float along = scale / fallStreakLength();
     float2 s0 = float2(uv.x * scale, (uv.y - time * speed) * along);
     float2 s1 = float2(uv.x * scale * 1.7 + 0.37, (uv.y - time * speed * 1.35) * along * 1.7);
-    float a = albedoTexture.Sample(materialSampler, s0).r;
-    float b = albedoTexture.Sample(materialSampler, s1).r;
+    float a = albedoTexture.SampleBias(materialSampler, s0, frame.mipBias).r; // ADR 0174: mip bias under upscaling
+    float b = albedoTexture.SampleBias(materialSampler, s1, frame.mipBias).r;
     float streak = saturate(a * 0.7 + b * 0.5);
 
     // The sheet whitens as it falls (more where the streaks are), thins out and breaks up at its edges.

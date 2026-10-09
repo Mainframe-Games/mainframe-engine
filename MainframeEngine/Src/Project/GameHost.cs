@@ -270,6 +270,9 @@ public class GameHost : Engine
             vk.Exposure = Settings.Rendering.Exposure;
             vk.AntiAliasing = Settings.Rendering.AntiAliasing;
             vk.TaaSharpness = Settings.Rendering.TaaSharpness;
+            vk.Scaling3DMode = Settings.Rendering.Scaling3DMode; // ADR 0174
+            vk.Scaling3DScale = Settings.Rendering.Scaling3DScale;
+            vk.FsrSharpness = Settings.Rendering.FsrSharpness;
         }
         if (Servers.Render is { } render)
         {

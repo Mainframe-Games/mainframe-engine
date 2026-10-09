@@ -26,6 +26,9 @@ float2 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
     if (kAlphaMode == kAlphaCutout)
     {
         float2 uv = materialUv(input.inUV);
+        // Unbiased gradients (ADR 0174): with the frame block read here, MoltenVK's compile of this alpha test drifted from
+        // the colour shaders' at native resolution (0.6 % of tree-forest's leaf-edge pixels); upscaled, the prepass tests
+        // coverage at the render resolution's mip while the colour pass samples the biased one.
         float alpha = materialAlbedo(uv, ddx(uv), ddy(uv)).a;
         if (kVertexColor)
             alpha *= input.inAlpha;

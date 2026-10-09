@@ -5,8 +5,9 @@
 How the main view's screen-space effects are organised ([ADR 0163](../../memory/decisions/0163-post-processing-stages-prepass-motion-vectors.md)):
 three **stages** in the frame, **effects** registered on a per-view stack, the images they share (**scene textures**:
 HDR colour, depth, velocity), a **target pool** with ping-pong histories, the **depth prepass** that writes depth and
-**motion vectors** before lighting, and the **projection jitter** TAA needs. Auto exposure, glow, light shafts, FXAA,
-TAA (ADR 0166), SSAO ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md)) and ADR 0168's depth of field and colour grade
+**motion vectors** before lighting, the **projection jitter** TAA needs, and the **render and output resolutions** of an
+upscaled main view ([ADR 0174](../../memory/decisions/0174-taa-upscaling.md), [Render and output resolution](#render-and-output-resolution)).
+Auto exposure, glow, light shafts, FXAA, TAA (ADR 0166) and its upscaling TAAU, FSR 1, SSAO ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md)) and ADR 0168's depth of field and colour grade
 are effects in this system. The world's settings are a `PostProcessProfile` resource ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md),
 [The profile](#the-profile)), and a `SubViewport` can run the same stack for its own world
 ([Sub-viewports](#sub-viewports)): the editor previews post-processing that way. Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
@@ -18,7 +19,7 @@ flowchart LR
     SH["Shadows, offscreen views<br/>(sub-viewports, picking)"] --> PP["Depth prepass (when needed)<br/>opaque + cutout → scene depth<br/>+ RG16F velocity, sky velocity"]
     PP --> AP["AfterPrepass stage<br/>(SSAO, then contact shadows<br/>→ set 0 binding 5)"]
     AP --> SC["Scene pass<br/>loads the prepass depth;<br/>prepassed surfaces: LEQUAL / EQUAL, no writes<br/>(split around the water scene copy<br/>when refracting water draws)"]
-    SC --> BT["BeforeTonemap stage (HDR)<br/>volumetric fog · TAA · depth of field · auto exposure · glow · light shafts"]
+    SC --> BT["BeforeTonemap stage (HDR)<br/>volumetric fog · depth of field · TAA/TAAU · spatial upscale<br/>· auto exposure · glow · light shafts"]
     BT --> TM["Tonemap<br/>engine or post (composites exposure, glow, shafts; ACES, linear, Reinhard, filmic, AgX)"]
     TM --> AT["AfterTonemap stage (LDR)<br/>TAA sharpen · FXAA · colour grade + film effects · velocity view<br/>last one → swapchain"]
     AT --> OV["Overlay<br/>canvas, gizmos, UI, dev overlay"]
@@ -41,12 +42,12 @@ tonemap alone.
 |---|---|
 | `PostStage` | `AfterPrepass`, `BeforeTonemap`, `AfterTonemap` |
 | `PostEffect` | an effect: `Name`, `Stage`, `Order`, `Needs`, `IsEnabled(settings)`, and `OnCreate`, `OnBeginFrame`, `OnResize`, `OnRecord`, `OnDispose` |
-| `PostEffectOrder` | the built-in orders: `Ssao` 100, `ContactShadows` 200; `VolumetricFog` 50, `Taa` 100, `DepthOfField` 150, `AutoExposure` 200, `Glow` 300, `LightShafts` 400; `Sharpen` 50, `Fxaa` 100, `ColorGrade` 150, `DebugView` 1000 |
+| `PostEffectOrder` | the built-in orders: `Ssao` 100, `ContactShadows` 200; `VolumetricFog` 50, `DepthOfField` 75, `Taa` 100, `Upscale` 110, `AutoExposure` 200, `Glow` 300, `LightShafts` 400; `Sharpen` 50, `Fxaa` 100, `ColorGrade` 150, `DebugView` 1000. `BeforeTonemap` effects after `Taa` and every `AfterTonemap` one run at the output resolution (ADR 0174) |
 | `PostEffectNeeds` | `DepthPrepass`, `Velocity` (implies the prepass), `Jitter` |
-| `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`, `TaaSharpness`, the primary sun's `ContactShadows` (ADR 0167), the world's `VolumetricFog` (ADR 0171); `PostTonemap` = the world asks for more than the engine tonemap |
+| `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`, `TaaSharpness`, the primary sun's `ContactShadows` (ADR 0167), the world's `VolumetricFog` (ADR 0171), `Upscaling`, `Scaling3DMode` and `FsrSharpness` (ADR 0174); `PostTonemap` = the world asks for more than the engine tonemap |
 | `PostProcessStack` | the view's effects, sorted by stage, order, registration; `GetNeeds`, `CountEnabled`, `BeginFrame`, `Record(stage)`, `Resize` |
-| `PostEffectContext` | per stage: `CommandBuffer`, `Stage`, `Settings`, `Scene` (`SceneTextures`), `Targets` (pool), `Camera` (`PostCamera`), `FrameNumber`, `DeltaTime`, `Time`, `Exposure`, `View` (the frame-set slot: `FrameContext.SetFor`), `Shadows` (the view's shadow set), `IsLastInStage`, `BeginOutput`/`EndOutput`, `CopyToSceneColor` |
-| `SceneTextures` | `Color` (HDR), `Depth`, `Velocity`, `Ldr`, `Extent`, `Generation`, `HasPrepass`, point and linear samplers |
+| `PostEffectContext` | per stage: `CommandBuffer`, `Stage`, `Settings`, `Scene` (`SceneTextures`), `Targets` (the pool of the effect's resolution; `RenderTargets`, `OutputTargets`), `IsOutputResolution`, `Camera` (`PostCamera`), `FrameNumber`, `DeltaTime`, `Time`, `Exposure`, `View` (the frame-set slot: `FrameContext.SetFor`), `Shadows` (the view's shadow set), `IsLastInStage`, `BeginOutput`/`EndOutput`, `CopyToSceneColor`, `CopyToOutputColor`, `OutputColorWritten` |
+| `SceneTextures` | `Color` (HDR) and `Extent` of the effect's resolution, `RenderColor`/`RenderExtent`, `OutputColor`/`OutputExtent`, `Upscaled`, `Depth`, `Velocity`, `Ldr`, `Generation`, `HasPrepass`, point and linear samplers |
 | `PostCamera` | `View`, unjittered `Projection` and `ViewProjection`, `JitteredProjection`, `PreviousViewProjection`, `Jitter`, `PreviousJitter`, `HistoryValid`, `Position`, `Near`, `Far` |
 | `PostTargetPool<RenderTarget>` | named scene-relative targets (`Get`) and ping-pong pairs (`GetHistory` → `PostHistory`) |
 | `ScenePrepass` | the prepass render pass, the velocity image, the load-depth scene pass, the sky velocity draw |
@@ -54,7 +55,9 @@ tonemap alone.
 | `TemporalJitter` | Halton (2, 3): `Halton`, `SampleIndex`, `PixelOffset`, `NdcOffset`, `Apply(projection, jitter)` |
 | `IPostProcessHost` | the renderer's side the render server drives (`PostEffects`, `BeginPostFrame`, `BeginPrepass`/`EndPrepass`, `RecordAfterPrepass`) |
 | `VolumetricFogEffect` | volumetric fog (ADR 0171): half-resolution march through the sun's cascades, temporal reprojection, depth-aware composite ([Volumetric fog](#volumetric-fog)); `VolumetricFogSettings` is its packed `WorldEnvironment` settings |
-| `TaaEffect`, `TaaSharpenEffect` | TAA's resolve and RCAS sharpen ([TAA](#taa), ADR 0166); `TaaParams` is the resolve's push block |
+| `TaaEffect`, `TaaSharpenEffect` | TAA's resolve (TAAU while upscaling) and RCAS sharpen (also FSR 1's second half) ([TAA](#taa), ADR 0166, ADR 0174); `TaaParams` is the resolve's push block |
+| `SpatialUpscaleEffect` | ADR 0174: the bilinear or FSR 1 (EASU) upscale to the output resolution while upscaling without TAA, and the fallback on a frame TAAU skipped |
+| `RenderScaling`, `Scaling3DMode` | public (ADR 0174): the render size for a scale, the Halton cycle length, the mip bias; `Bilinear`, `Fsr`, `Taau` |
 | `PostProcessProfile` | public resource (ADR 0169): the world's tonemap, auto exposure, glow, light shafts, SSAO and adjustments; `Settings` is the packed struct |
 | `SubViewportPost` | a post-processed `SubViewport`'s stack, pool, prepass, LDR ping-pong and overlay pass (`IPostOutput` onto the view's image) |
 | `PostTonemapPass` | the post tonemap (`TonemapPost`) into an LDR target, for `SubViewportPost` (the main view's is in `VulkanRenderer.Presentation`) |
@@ -75,8 +78,10 @@ the scene colour from the scene depth, so TAA then smooths it with the rest of t
 the resolved image), then auto exposure, glow and light shafts, which
 the post tonemap pass composites (their outputs are bound in its set); they run whenever the world's settings are not
 the default (`PostEffectSettings.PostTonemap`), exactly as before ADR 0163. Depth of field (`DepthOfFieldEffect`,
-ADR 0168) runs before them when the lens asks for it, from the scene pass's own colour and depth (no prepass), and writes
-the scene colour back. An effect that produces a new HDR image
+ADR 0168) runs after the fog and before TAA (ADR 0174: at render resolution) when the lens asks for it, from the scene
+pass's own colour and depth (no prepass), and writes the scene colour back. While the view upscales, the upscale (TAAU,
+or `SpatialUpscaleEffect`) comes right after TAA's slot and everything after it runs at the output resolution
+([Render and output resolution](#render-and-output-resolution)). An effect that produces a new HDR image
 (TAA, depth of field) writes it back with `PostEffectContext.CopyToSceneColor(view)`: one fullscreen pass over the scene
 colour, after which every later effect and the tonemap read the new image (their sets bind the scene colour).
 
@@ -210,7 +215,8 @@ unjittered (UV 0,0 top-left, +y down): `previousUv = uv − velocity`. Written b
 - Not covered: what the prepass does not draw (Spine, the grid, transparent surfaces, water, particles) shows the
   velocity of what is behind it; sub-viewports have no velocity.
 
-`FrameData` (set 0, binding 0) is 576 bytes: after `fogParams` come `prevViewProjection` (last frame's unjittered),
+`FrameData` (set 0, binding 0) is 688 bytes (with ADR 0165's AO parameters, ADR 0170's probe volume and ADR 0174's
+`mipBias`/`mipScale` at the end): after `fogParams` come `prevViewProjection` (last frame's unjittered),
 `jitter` (xy this frame, zw last frame, NDC), `temporal` (x last frame's time, y 1 when the previous fields are last
 frame's, z the jitter sample index) and `prevWind`, `prevWindParams`. `FrameContext` keeps each view's `ViewHistory`:
 the first camera write of a frame moves "current" to "previous" when it came from the frame before; a view written twice
@@ -220,8 +226,9 @@ history (previous = current). `FrameContext.ResetHistory()` runs on resize.
 ## Projection jitter
 
 When an enabled effect declares `PostEffectNeeds.Jitter` (TAA), the render server sets
-`FrameContext.ProjectionJitter` every frame to Halton (2, 3) sample `frameNumber mod 8` (`TemporalJitter.NdcOffset`,
-from index 1, in [−0.5, 0.5) pixel) and `JitterIndex`. Only the main view's (view 0) set-0 matrices are jittered
+`FrameContext.ProjectionJitter` every frame to Halton (2, 3) sample `frameNumber mod n` (`TemporalJitter.NdcOffset`,
+from index 1, in [−0.5, 0.5) of a render pixel) and `JitterIndex`; n is 8 at native resolution and 8 / scale² rounded up
+to a power of two while upscaling (`RenderScaling.JitterSampleCount`: 16 at 0.75, 32 at 0.5; ADR 0174). Only the main view's (view 0) set-0 matrices are jittered
 (`projection`, `viewProjection`, `invProjection`): culling, shadows, light shafts and the UI use the camera's own
 matrices (the root object-ID pass shares view 0's set, so picks are jittered by under a pixel). `TemporalJitter.Apply` adds `jitter · clip.w` to clip x and y, for perspective and
 orthographic projections. Motion vectors are unjittered, so a still scene with jitter has zero velocity
@@ -246,14 +253,25 @@ orthographic projections. Motion vectors are unjittered, so a still scene with j
 | Blend | Karis: everything above runs on `c / (1 + exposure · luma)`, unweighted at the end; feedback `FeedbackStill` 0.94 (≈ 17 frames), down to `FeedbackMoving` 0.88 at 8 px/frame, and to `FeedbackReactive` 0.2 where the scene alpha marks water |
 | No history | first frame, resize, cut, disocclusion: a softer 3 × 3 reconstruction (`exp(−2.29 d²)`), which hides the single sample's aliasing and the dithered alpha's noise until the history builds up |
 
+**TAAU** (ADR 0174, `TaaParams` flag 4, while upscaling): the inputs (colour, depth, velocity) are at render resolution,
+the history and the result at output resolution. Each output pixel's 3 × 3 is the render texels around its position, the
+jitter is in render pixels and the Halton cycle 8 / scale² long, and two things change: the reconstruction is narrower
+(`TaaEffect.UpscaleFilterFalloff`: 0.75 / ratio² output pixels, at least 0.4; its weights relative to the nearest
+sample's, so they never underflow), and the clip box is the 3 × 3's min/max instead of the variance box (a sparser frame
+misses a thin line more often, and the variance box clipped it out of the history). The reactive water mask works as
+before (the scene alpha at the pixel's render texel). Measured against a 4× supersampled frame at 0.75: thin bars and
+sub-pixel spokes 29.9 dB (native TAA 33.1, no AA 22.6), swaying leaves 27.1 dB (native TAA 28.8); tried and dropped: a
+confidence weight on the current frame (−1 to −3 dB), a wider filter (−1 dB), trusting still pixels' history (+0.15 dB,
+not worth the ghosting risk).
+
 The filter width, feedback and depth test were measured against a 4× supersampled frame (linear light) on the
 `taa-edges` and `taa-foliage` scenes and on autowalk frame grabs: the wide Blackman–Harris fit Unreal uses
 (`exp(−2.29 d²)`) blurred the converged image (mean error 1.51 against the supersampled frame, 1.18 at width 0.75, 3.44
 without AA); a lower feedback (0.9) tracked swaying leaves slightly better but flickered more on still thin lines (0.3 vs
 0.17 mean frame-to-frame change); turning the depth test off left ghosts of near branches.
 
-**History and cuts.** `Targets.GetHistory(new("taa", R16G16B16A16_SFLOAT))` (two full-size RGBA16F targets: 33 MB at
-1920 × 1080), `Advance` in `OnBeginFrame`. It starts again (`TaaEffect.ResetFrames`) on the first frame, after a resize
+**History and cuts.** `OutputTargets.GetHistory(new("taa", R16G16B16A16_SFLOAT))` (two output-size RGBA16F targets:
+33 MB at 1920 × 1080, 59 MB at 2560 × 1440), `Advance` in `OnBeginFrame`. It starts again (`TaaEffect.ResetFrames`) on the first frame, after a resize
 (the pool resets it), after a frame without a resolve (no prepass or no camera), when the view has no motion history
 (`PostCamera.HistoryValid`), and on camera cuts: `RenderServer.ResetTemporalHistory()` (call it after teleporting the
 camera; it forgets every view's motion history, `FrameContext.ResetHistory`) and a switch of the root world's camera
@@ -293,6 +311,46 @@ depth prepass on, which alone saved ≈ 1.4 ms in the Forest (above), and adds t
 + 9 depth + 5 history + 9 history-depth taps), the scene-colour copy and the LDR sharpen: in total about what the prepass
 saves. Memory: two full-size `RGBA16F` history targets (33 MB at 1920 × 1080) and one LDR image for the sharpen.
 0 B per frame (the Forest's benchmark and `TaaAllocatesNothingPerFrame`).
+
+## Render and output resolution
+
+[ADR 0174](../../memory/decisions/0174-taa-upscaling.md) (G8e.8): with `rendering.scaling3DScale` below 1
+(`IVulkanContext.Scaling3DScale`, 0.25–1, default 1) the main view renders its 3D scene below the window's size and an
+upscale brings it to the output resolution before glow and the tonemap. At 1 nothing changes: every image and pass is as
+before.
+
+| Resolution | What runs there |
+|---|---|
+| **Render** (`IVulkanContext.RenderExtent` = swapchain × scale, each side rounded; `SceneTextures.RenderExtent`) | the scene target and pass, the depth prepass and velocity, SSAO/GTAO and contact shadows (`AfterPrepass`), the water scene copy and SSR, volumetric fog and depth of field (`BeforeTonemap` before `Taa`); `FrameContext.Extent` and `frame.viewport` of view 0 |
+| **Output** (the swapchain's; `SceneTextures.OutputExtent`) | TAA's history (TAAU), the upscale's result (`SceneTextures.OutputColor`), auto exposure, glow, light shafts, the tonemap and LUT, every `AfterTonemap` effect (RCAS, FXAA, the grade and film effects); the canvas, gizmos, UI and dev overlay are never scaled |
+
+- **Two pools.** `PostEffectContext.RenderTargets` follows the render size, `OutputTargets` the output size; the stack
+  points `Targets`, `Scene.Color` and `Scene.Extent` at the effect's resolution before each call
+  (`PostEffectContext.RunsAtOutputResolution`: `BeforeTonemap` after `PostEffectOrder.Taa`, all of `AfterTonemap`). Depth
+  and velocity stay at render resolution; an output effect that reads them maps its texel (light shafts' mask, the
+  velocity view do).
+- **The upscale.** TAA (`AntiAliasing.Taa`, or `Scaling3DMode.Taau`, which turns TAA on while upscaling) resolves into its
+  output-resolution history and writes the output colour (`CopyToOutputColor`): **TAAU** ([TAA](#taa)). Without TAA,
+  `SpatialUpscaleEffect` at `PostEffectOrder.Upscale` draws `Post/Upscale` into a pooled output target and copies it:
+  `Fsr` runs FSR 1's EASU (12 taps, edge direction from the luma of the four nearest quads, a stretched Lanczos 2,
+  deringed to the nearest 2 × 2's min/max; on the reversible tonemap `c / (1 + max c)` and back), then `TaaSharpenEffect`
+  runs RCAS with `rendering.fsrSharpness`'s stops (`exp2(−s)`; Godot's 0.2 is 0.87); `Bilinear` is one bilinear tap. It is
+  also the fallback on a TAAU frame the resolve skipped (no prepass or camera: `OutputColorWritten` is false).
+- **The output colour** (`VulkanRenderer`'s `scene output`, `R16G16B16A16_SFLOAT`) exists only while upscaling; the
+  tonemap and post tonemap sets bind it instead of the scene colour. A scale change is applied at the start of the next
+  frame (`ApplyRenderScale`: device idle, the scene target, prepass, pools, output colour and LDR images resized, old
+  images through the deletion queue, every effect's `OnResize`, motion histories reset), exactly like a window resize.
+- **Mip bias.** View 0's `FrameData.MipBias` is log2 of the scale (−0.42 at 0.75) and `MipScale` its exp2; the material
+  shaders multiply their UV gradients by it (`materialGrad` in `frame.slang`, a select that passes the gradient through
+  untouched at native resolution: `Mesh`, `Foliage`, `TerrainSplat`'s position gradients, `Water`, `WaterScene`;
+  `Waterfall` and `Spray` use `SampleBias`), so textures keep the output resolution's sharpness. 0 and 1 in every other
+  view and at native resolution. The prepass's alpha test (`MeshDepth`) stays unbiased: reading the frame block there
+  moved 0.6 % of `tree-forest`'s leaf-edge pixels at native resolution on MoltenVK (the prepass parity test), so under
+  upscaling cutout coverage comes from the render resolution's mip.
+- **Not scaled:** sub-viewports (the editor's views, `SubViewport` with post-processing) and the object-ID picking pass.
+- **Cost** (the Forest, `just forest-bench`, Apple M5, MoltenVK): 0.75 renders a 2560-wide window about 26 % faster
+  than native (p50 19.3–19.9 vs 26.3–26.5 ms) and a 1920 × 1080 one 16 % faster (15.3 vs 18.2 ms);
+  [Forest → Performance](forest.md#performance).
 
 ## Ambient occlusion binding
 
@@ -487,6 +545,14 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 - **TAA unit tests** (`Rendering/TaaTests`): the settings and their round trip, TAA's stage order, needs and enable rules
   (it replaces FXAA; the sharpen only with a sharpness), the Halton sequence seen in pixels at any size, the depth rows
   against a moving camera, the push block's size, the material's dither flag.
+- **ADR 0174** (`TaauTests`, render; goldens `taau_frame0040` and `fsr1_frame0005` on both drivers): `taau` (the
+  `taa-edges` scene at 0.75 with TAAU) recovers over 35 % of native TAA's gain over no AA (MoltenVK 70 %, lavapipe
+  44 %) and stays within 4 dB of native TAA against the 4× supersampled frame, `taau-foliage` within 2 dB of native TAA, `fsr1` (EASU + RCAS, TAA off) closer than bilinear; the
+  scenes check their render size and which upscale ran. Scale changes (0.75 → 0.5, 0.75 → 1, 1 → 0.75 with TAAU) and
+  resizes validation-clean with the ghost's trail still the wall; 0 B per frame with TAAU and with FSR. Unit
+  (`Rendering/TaauTests`): the render size, the Halton length and its coverage, the mip bias and the frame block, the
+  settings and their round trip (no migration: the keys are optional), which effects run at which resolution and the
+  new order, the spatial upscale's and RCAS's enable rules and strengths, TAAU's push block.
 - **ADR 0168** (`CinematicPostTests`, render and unit): the colour grade, LUTs, tonemappers, glow High, depth of field and
   film effects, the whole chain at 0 B per frame and across a resize; see [Color pipeline → Testing](color-pipeline.md#testing).
 - **ADR 0169** (`SubViewportPostTests`; goldens `subviewport-post_frame0008` (post on) and `_frame0009` (off) on both

@@ -54,11 +54,20 @@ internal static class PostEffectOrder
     public const int Ssao = 100;
     public const int ContactShadows = 200;
 
-    // BeforeTonemap: the volumetric fog first (ADR 0171: TAA then smooths it with the scene), then TAA (everything after
-    // it reads the resolved, jitter-free image), then exposure, which glow reads.
+    // BeforeTonemap: the volumetric fog first (ADR 0171: TAA then smooths it with the scene), depth of field (ADR 0174:
+    // at render resolution, before the upscale), then TAA (everything after it reads the resolved, jitter-free image; with
+    // TAAU it also upscales), the spatial upscale, then exposure, which glow reads.
     public const int VolumetricFog = 50;
+    public const int DepthOfField = 75;
     public const int Taa = 100;
-    public const int DepthOfField = 150;
+
+    /// <summary>
+    /// ADR 0174: the spatial upscale (bilinear, FSR 1's EASU) from the render to the output resolution. Every
+    /// <see cref="PostStage.BeforeTonemap"/> effect ordered after <see cref="Taa"/> runs at the output resolution
+    /// (<see cref="PostEffectContext.IsOutputResolution"/>), as does every <see cref="PostStage.AfterTonemap"/> one.
+    /// </summary>
+    public const int Upscale = 110;
+
     public const int AutoExposure = 200;
     public const int Glow = 300;
     public const int LightShafts = 400;
@@ -87,6 +96,18 @@ internal readonly record struct PostEffectSettings(PostProcessSettings World, An
 
     /// <summary>The view's world's volumetric fog (ADR 0171; off by default).</summary>
     public VolumetricFogSettings VolumetricFog { get; init; }
+
+    /// <summary>
+    /// ADR 0174: the view renders below its output size (<see cref="IVulkanContext.Scaling3DScale"/> under 1), so an
+    /// upscale runs at <see cref="PostEffectOrder.Upscale"/> (or TAA's resolve upscales). Sub-viewports never do.
+    /// </summary>
+    public bool Upscaling { get; init; }
+
+    /// <summary>The upscale's mode (<see cref="IVulkanContext.Scaling3DMode"/>) while <see cref="Upscaling"/>.</summary>
+    public Scaling3DMode Scaling3DMode { get; init; }
+
+    /// <summary>RCAS's attenuation in stops after an FSR 1 upscale (<see cref="IVulkanContext.FsrSharpness"/>).</summary>
+    public float FsrSharpness { get; init; }
 
     /// <summary>The engine's defaults: its own tonemap, no anti-aliasing, no debug view (no post effect runs).</summary>
     public static PostEffectSettings Default => new(PostProcessSettings.Default, AntiAliasing.None, RenderDebugView.None);

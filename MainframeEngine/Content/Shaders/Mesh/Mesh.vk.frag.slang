@@ -26,8 +26,8 @@ struct FsIn
 float4 main(FsIn input, float4 fragCoord : SV_Position, bool frontFacing : SV_IsFrontFace) : SV_Target0
 {
     float2 uv = materialUv(input.inUV);
-    float2 duvdx = ddx(uv);
-    float2 duvdy = ddy(uv);
+    float2 duvdx = materialGrad(ddx(uv)); // ADR 0174: the output resolution's mip under upscaling
+    float2 duvdy = materialGrad(ddy(uv));
     float3 dpdx = ddx(input.inWorldPos);
     float3 dpdy = ddy(input.inWorldPos);
     float4 albedo = materialAlbedo(uv, duvdx, duvdy);

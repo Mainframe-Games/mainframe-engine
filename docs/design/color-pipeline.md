@@ -15,7 +15,7 @@ Before M3 the swapchain was UNORM, lighting ran on gamma-encoded values (overlap
 white), sky textures were sRGB and came out darker, and Spine's premultiplied alpha was applied twice.
 
 Since ADR 0163 the effects around the tonemap are `PostEffect`s in stages (`BeforeTonemap`: volumetric fog (ADR 0171),
-TAA, depth of field, auto exposure, glow, light shafts; `AfterTonemap`: TAA's sharpen, FXAA, the colour grade and film effects of ADR 0168),
+depth of field, TAA (TAAU while upscaling, ADR 0174), the spatial upscale, auto exposure, glow, light shafts; `AfterTonemap`: TAA's sharpen, FXAA, the colour grade and film effects of ADR 0168),
 recorded by the main view's `PostProcessStack`, and a depth prepass with motion
 vectors can run before the scene pass: see [Post-processing](post-processing.md). The colour handling below is
 unchanged by it.
@@ -312,7 +312,7 @@ The film look, all of it off by default ([ADR 0168](../../memory/decisions/0168-
 
 ```mermaid
 flowchart LR
-    S["Scene pass (HDR)"] --> D["DoF (BeforeTonemap 150)<br/>½ prefilter → ½ golden-angle gather → full composite<br/>→ CopyToSceneColor"]
+    S["Scene pass (HDR)"] --> D["DoF (BeforeTonemap 75, before TAA; ADR 0174)<br/>½ prefilter → ½ golden-angle gather → full composite<br/>→ CopyToSceneColor"]
     D --> G["auto exposure · glow (Standard / High) · shafts"]
     G --> T["Post tonemap<br/>engine ACES · Godot ACES · linear · Reinhard · filmic · AgX"]
     T --> F["FXAA (AfterTonemap 100)"] --> C["Colour grade (AfterTonemap 150)<br/>aberration → adjustments → 3D LUT → vignette → grain"]

@@ -8,7 +8,9 @@ namespace MainframeEngine;
 /// <see cref="PostEffectOrder.Sharpen"/>, enabled by <see cref="AntiAliasing.Taa"/> with a
 /// <see cref="IVulkanContext.TaaSharpness"/> above 0. It restores the detail the resolve's reconstruction filter softens,
 /// after the history (sharpening inside the history would compound frame over frame) and before the canvas, gizmos and UI,
-/// which stay unfiltered. Allocates nothing per frame.
+/// which stay unfiltered. ADR 0174: also FSR 1's second half, after an EASU upscale (<see cref="Scaling3DMode.Fsr"/> with
+/// TAA off), with <see cref="IVulkanContext.FsrSharpness"/>'s stops (<see cref="SharpnessFor"/>). Allocates nothing per
+/// frame.
 /// </summary>
 internal sealed unsafe class TaaSharpenEffect() : PostEffect("taa sharpen", PostStage.AfterTonemap, PostEffectOrder.Sharpen)
 {
@@ -21,7 +23,21 @@ internal sealed unsafe class TaaSharpenEffect() : PostEffect("taa sharpen", Post
     private readonly PassPipelines _pipelines = new();
 
     public override bool IsEnabled(in PostEffectSettings settings) =>
-        settings.AntiAliasing == AntiAliasing.Taa && settings.TaaSharpness > 0f;
+        settings.AntiAliasing == AntiAliasing.Taa ? settings.TaaSharpness > 0f : FsrRcas(settings);
+
+    // ADR 0174: FSR 1's RCAS after its EASU upscale.
+    private static bool FsrRcas(in PostEffectSettings settings) =>
+        settings.Upscaling && settings.Scaling3DMode == Scaling3DMode.Fsr;
+
+    /// <summary>
+    /// RCAS's strength (0–1, the scale on its lobe) for <paramref name="settings"/>: <see cref="PostEffectSettings.TaaSharpness"/>
+    /// after TAA, else FSR's exp2(−<see cref="PostEffectSettings.FsrSharpness"/>) (RCAS's <c>FsrRcasCon</c>: 0.87 at
+    /// Godot's default 0.2).
+    /// </summary>
+    internal static float SharpnessFor(in PostEffectSettings settings) =>
+        settings.AntiAliasing == AntiAliasing.Taa
+            ? Math.Clamp(settings.TaaSharpness, 0f, 1f)
+            : MathF.Pow(2f, -Math.Clamp(settings.FsrSharpness, 0f, RenderScaling.MaxFsrSharpness));
 
     protected override void OnCreate(PostEffectContext context)
     {
@@ -65,7 +81,7 @@ internal sealed unsafe class TaaSharpenEffect() : PostEffect("taa sharpen", Post
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layout, 0, 1, &set, 0, null);
         var push = new SharpenPush
         {
-            Sharpness = Math.Clamp(context.Settings.TaaSharpness, 0f, 1f),
+            Sharpness = SharpnessFor(context.Settings),
             DecodeSrgb = context.OutputEncodesSrgb ? 1u : 0u,
         };
         vk.CmdPushConstants(cb, _layout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(SharpenPush), &push);

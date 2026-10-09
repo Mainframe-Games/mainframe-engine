@@ -152,12 +152,16 @@ public sealed class ForestBenchmark
         Array.Sort(fog);
         var mean = _frameMs.Average();
         var size = tree.Root.Size;
+        // ADR 0174: the output (window) and the 3D render resolution.
+        var vk = tree.Servers.Render?.Vulkan;
+        var output = vk?.SwapchainExtent ?? new Silk.NET.Vulkan.Extent2D((uint)size.X, (uint)size.Y);
+        var render = vk?.RenderExtent ?? output;
         var result = new BenchmarkResult(
             Machine: Environment.MachineName,
             Os: RuntimeInformation.OSDescription,
             Cpu: RuntimeInformation.ProcessArchitecture.ToString(),
-            Width: (int)size.X,
-            Height: (int)size.Y,
+            Width: (int)output.Width,
+            Height: (int)output.Height,
             Frames: Frames,
             LoadMs: Math.Round(_loadMs),
             MeanMs: Round(mean),
@@ -172,8 +176,11 @@ public sealed class ForestBenchmark
             MaxDrawCalls: _draws.Max(),
             AllocatedBytes: allocated,
             SsaoGpuP50Ms: Round(Percentile(ssao, 0.5f)),
-            VolumetricFogGpuP50Ms: Round(Percentile(fog, 0.5f)));
-        Log.Info($"[Forest] Benchmark {result.Width}x{result.Height}: p50 {result.P50Ms} ms, p90 {result.P90Ms} ms, p99 {result.P99Ms} ms, " +
+            VolumetricFogGpuP50Ms: Round(Percentile(fog, 0.5f)),
+            RenderWidth: (int)render.Width,
+            RenderHeight: (int)render.Height,
+            Scaling: vk is null ? null : $"{vk.Scaling3DMode} {vk.Scaling3DScale:0.##}");
+        Log.Info($"[Forest] Benchmark {result.Width}x{result.Height} (3D at {result.RenderWidth}x{result.RenderHeight}, {result.Scaling}): p50 {result.P50Ms} ms, p90 {result.P90Ms} ms, p99 {result.P99Ms} ms, " +
                  $"max {result.MaxMs} ms (mean {result.MeanMs} ms, {result.Fps} fps); sun shadows GPU p50 {result.ShadowGpuP50Ms} ms; SSAO GPU p50 {result.SsaoGpuP50Ms} ms; " +
                  $"volumetric fog GPU p50 {result.VolumetricFogGpuP50Ms} ms; " +
                  $"≤ {result.MaxDrawCalls} draws; {allocated} B allocated; load {result.LoadMs} ms.");
@@ -210,6 +217,8 @@ public sealed class ForestBenchmark
         var reference = JsonSerializer.Deserialize<BenchmarkResult>(File.ReadAllText(baseline))!;
         if (reference.Width != result.Width || reference.Height != result.Height)
             Log.Warning($"[Forest] The baseline is {reference.Width}x{reference.Height}, this run {result.Width}x{result.Height}.");
+        if (reference.RenderWidth != 0 && (reference.RenderWidth != result.RenderWidth || reference.RenderHeight != result.RenderHeight))
+            Log.Warning($"[Forest] The baseline renders 3D at {reference.RenderWidth}x{reference.RenderHeight}, this run at {result.RenderWidth}x{result.RenderHeight}.");
         foreach (var (name, now, then) in (ReadOnlySpan<(string, double, double)>)[("p50", result.P50Ms, reference.P50Ms), ("p99", result.P99Ms, reference.P99Ms)])
         {
             var change = (now - then) / then;
@@ -252,5 +261,6 @@ public sealed class ForestBenchmark
     /// <summary>The JSON a run writes.</summary>
     public sealed record BenchmarkResult(string Machine, string Os, string Cpu, int Width, int Height, int Frames, double LoadMs, double MeanMs,
         double Fps, double P50Ms, double P90Ms, double P99Ms, double P999Ms, double MaxMs, double ShadowGpuP50Ms, double ShadowGpuP90Ms,
-        int MaxDrawCalls, long AllocatedBytes, double SsaoGpuP50Ms = 0, double VolumetricFogGpuP50Ms = 0);
+        int MaxDrawCalls, long AllocatedBytes, double SsaoGpuP50Ms = 0, double VolumetricFogGpuP50Ms = 0, int RenderWidth = 0,
+        int RenderHeight = 0, string? Scaling = null);
 }

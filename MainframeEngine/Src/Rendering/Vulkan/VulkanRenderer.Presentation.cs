@@ -110,7 +110,26 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     private Pipeline _tonemapLdrPipeline;
     private Pipeline _postLdrPipeline;
 
+    // ADR 0174: render-resolution scaling. The scene target and the render pool follow _renderExtent; while it is below the
+    // swapchain's size the upscale writes _outputColor (output size), which the effects after it and the tonemap read.
+    private Scaling3DMode _scaling3DMode;
+    private float _scaling3DScale = RenderScaling.MaxScale;
+    private float _fsrSharpness = RenderScaling.DefaultFsrSharpness;
+    private bool _renderSizeDirty;
+    private Extent2D _renderExtent;
+    private RenderTarget? _outputColor;
+    private SceneColorCopy? _outputCopy;
+    private bool _outputColorFresh;   // never written since it was created or resized (UNDEFINED layout)
+    private ulong _outputWrittenFrame;
+    private PostTargetPool<RenderTarget>? _outputTargets;
+
     public RenderTarget SceneTarget => _sceneTarget ?? throw new InvalidOperationException("The renderer is not initialised.");
+
+    /// <summary>ADR 0174: true while the main view renders below the swapchain's size.</summary>
+    internal bool Upscaling => _outputColor is not null;
+
+    // The HDR image the tonemap reads: the upscaled output, or the scene colour itself at native resolution.
+    private ImageView FinalColorView => (_outputColor ?? _sceneTarget!).GetColor(0).View;
     public RenderPass OverlayRenderPass => _overlayPass;
     public bool OverlayEncodesSrgb => _encoding == SwapchainEncoding.SrgbOnly;
     internal SwapchainEncoding Encoding => _encoding;
@@ -172,8 +191,11 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         CreatePresentFramebuffers();
         // The depth is stored and sampleable (ADR 0160): light shafts read it after the pass; storing measured ≤ 0.02 ms
         // at 1440p on Apple M5 (MoltenVK), so it is kept every frame rather than only while shafts are on.
+        _renderExtent = RenderScaling.RenderExtent(_swapChainExtent, _scaling3DScale);
         _sceneTarget = new RenderTarget(this,
-            new RenderTargetDesc("scene", [RenderTargetAttachment.Sampled(SceneColorFormat)], _depthFormat, SampleDepth: true), _swapChainExtent);
+            new RenderTargetDesc("scene", [RenderTargetAttachment.Sampled(SceneColorFormat)], _depthFormat, SampleDepth: true), _renderExtent);
+        UpdateOutputColor();
+        _renderSizeDirty = false;
         CreateTonemap();
         CreatePostContext();
         Log.Info($"[Vulkan] Colour pipeline: HDR {SceneColorFormat} -> tonemap -> {_swapChainImageFormat} ({_encoding}).");
@@ -184,22 +206,93 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     {
         CreateSwapchainViews();
         CreatePresentFramebuffers();
-        if (_sceneTarget!.Resize(_swapChainExtent))
+        ResizeTargets();
+    }
+
+    /// <summary>
+    /// ADR 0174: applies a new <see cref="Scaling3DScale"/> at the start of a frame: waits for the device (the descriptor
+    /// sets that sample the old images are rewritten), resizes like a window resize and releases what the old images held.
+    /// </summary>
+    private void ApplyRenderScale()
+    {
+        _renderSizeDirty = false;
+        if (RenderScaling.RenderExtent(_swapChainExtent, _scaling3DScale) is var render &&
+            render.Width == _renderExtent.Width && render.Height == _renderExtent.Height)
+            return;
+        _vk!.DeviceWaitIdle(_device).Check("vkDeviceWaitIdle (render scale)");
+        ResizeTargets();
+        _deletions!.Collect(_frameNumber);
+        _uploads!.Release(_frameNumber);
+        Log.Info($"[Vulkan] 3D render scale {_scaling3DScale:0.###}: {_renderExtent.Width}x{_renderExtent.Height} -> {_swapChainExtent.Width}x{_swapChainExtent.Height} ({_scaling3DMode}).");
+    }
+
+    /// <summary>
+    /// After a resize or a render-scale change (device idle): the scene target at the render size, the output colour at the
+    /// swapchain's (only while upscaling), both pools, the LDR images, and every set that samples them.
+    /// </summary>
+    private void ResizeTargets()
+    {
+        var render = RenderScaling.RenderExtent(_swapChainExtent, _scaling3DScale);
+        var upscaling = Upscaling;
+        var sceneResized = _sceneTarget!.Resize(render);
+        _renderExtent = render;
+        var outputResized = UpdateOutputColor();
+        var outputChanged = _outputTargets!.SceneExtent.Width != _swapChainExtent.Width ||
+                            _outputTargets.SceneExtent.Height != _swapChainExtent.Height;
+        if (!sceneResized && !outputResized && !outputChanged && upscaling == Upscaling)
+            return;
+
+        WriteTonemapSet();
+        if (sceneResized)
         {
-            WriteTonemapSet();
             _prepass?.Resize(_sceneTarget);
             _colorCopy?.Resize(_sceneTarget);
-            _postTargets!.Resize(_swapChainExtent);
-            foreach (var ldr in _ldr)
-                ldr?.Resize(_swapChainExtent);
-            var context = _postContext!;
-            context.Scene.Generation++;
-            UpdateSceneTextures(context);
-            Frame.ResetHistory(); // a resized view has no motion history
-            _post.Resize(context);
-            if (_postSetLayout.Handle != 0)
-                WritePostSet();
         }
+
+        _postTargets!.Resize(render);
+        _outputTargets.Resize(_swapChainExtent);
+        foreach (var ldr in _ldr)
+            ldr?.Resize(_swapChainExtent);
+        var context = _postContext!;
+        context.Scene.Generation++;
+        UpdateSceneTextures(context);
+        Frame.ResetHistory(); // a resized view has no motion history
+        _post.Resize(context);
+        if (_postSetLayout.Handle != 0)
+            WritePostSet();
+    }
+
+    /// <summary>
+    /// ADR 0174: creates, resizes or retires the output-resolution colour (and its copy pass) for the current render size;
+    /// true when its image changed. Old images go through the deletion queue.
+    /// </summary>
+    private bool UpdateOutputColor()
+    {
+        var upscaling = _renderExtent.Width != _swapChainExtent.Width || _renderExtent.Height != _swapChainExtent.Height;
+        if (!upscaling)
+        {
+            if (_outputColor is null)
+                return false;
+            _outputCopy?.Dispose();
+            _outputCopy = null;
+            _outputColor.Dispose();
+            _outputColor = null;
+            return true;
+        }
+
+        if (_outputColor is null)
+        {
+            _outputColor = new RenderTarget(this,
+                new RenderTargetDesc("scene output", [RenderTargetAttachment.Sampled(SceneColorFormat)], null), _swapChainExtent);
+        }
+        else if (!_outputColor.Resize(_swapChainExtent))
+        {
+            return false;
+        }
+
+        _outputCopy?.Resize(_outputColor);
+        _outputColorFresh = true;
+        return true;
     }
 
     // The built-in post effects (ADR 0163), registered once; each is created the first frame it is enabled.
@@ -212,6 +305,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         _post.Add(_glow);
         _post.Add(_lightShafts);
         _post.Add(new TaaEffect());
+        _post.Add(new SpatialUpscaleEffect()); // ADR 0174
         _post.Add(new TaaSharpenEffect());
         _post.Add(new ContactShadows());
         _post.Add(new DepthOfFieldEffect()); // ADR 0168
@@ -233,8 +327,9 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
             AddressModeW = SamplerAddressMode.ClampToEdge,
         };
         _vk!.CreateSampler(_device, in samplerInfo, null, out _postLinearSampler).Check("vkCreateSampler (post linear)");
-        _postTargets = new PostTargetPool<RenderTarget>(CreatePostTarget, _swapChainExtent);
-        _postContext = new PostEffectContext(this, _postTargets, this);
+        _postTargets = new PostTargetPool<RenderTarget>(CreatePostTarget, _renderExtent);
+        _outputTargets = new PostTargetPool<RenderTarget>(CreatePostTarget, _swapChainExtent); // ADR 0174
+        _postContext = new PostEffectContext(this, _postTargets, _outputTargets, this);
         UpdateSceneTextures(_postContext);
     }
 
@@ -245,8 +340,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     private void UpdateSceneTextures(PostEffectContext context)
     {
         var scene = context.Scene;
-        scene.Extent = _swapChainExtent;
-        scene.Color = _sceneTarget!.GetColor(0).View;
+        scene.SetResolutions(_renderExtent, _sceneTarget!.GetColor(0).View, _swapChainExtent, FinalColorView);
         scene.Depth = _sceneTarget.Depth!.View;
         scene.DepthFormat = _sceneTarget.Depth.Format;
         scene.PointSampler = _tonemapSampler;
@@ -308,11 +402,18 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown debug view.");
     }
 
-    public PostEffectSettings PostSettings => new(PostProcess, _antiAliasing, DebugView, _taaSharpness)
+    public PostEffectSettings PostSettings => new(PostProcess, EffectiveAntiAliasing, DebugView, _taaSharpness)
     {
         ContactShadows = ContactShadows,
         VolumetricFog = VolumetricFog,
+        Upscaling = Upscaling,
+        Scaling3DMode = _scaling3DMode,
+        FsrSharpness = _fsrSharpness,
     };
+
+    // ADR 0174: TAAU is TAA's resolve upscaling, so it turns TAA on while the main view renders below its output size.
+    private AntiAliasing EffectiveAntiAliasing =>
+        Upscaling && _scaling3DMode == Scaling3DMode.Taau ? AntiAliasing.Taa : _antiAliasing;
 
     public ContactShadowSettings ContactShadows { get; set; }
 
@@ -390,7 +491,24 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     {
         _colorCopy ??= new SceneColorCopy(this, SceneTarget);
         _colorCopy.Record(cb, SceneTarget, source);
+        if (_outputColor is null)
+            _outputWrittenFrame = _frameNumber;
     }
+
+    void IPostOutput.CopyToOutputColor(CommandBuffer cb, ImageView source)
+    {
+        if (_outputColor is null)
+        {
+            ((IPostOutput)this).CopyToSceneColor(cb, source);
+            return;
+        }
+
+        _outputCopy ??= new SceneColorCopy(this, _outputColor);
+        _outputCopy.Record(cb, _outputColor, source);
+        _outputWrittenFrame = _frameNumber;
+    }
+
+    bool IPostOutput.OutputColorWritten => _outputWrittenFrame == _frameNumber && _frameNumber != 0;
 
     // The AfterTonemap stage's LDR target <paramref name="index"/> (0: the tonemap's output), created on first use.
     private RenderTarget EnsureLdr(int index) =>
@@ -549,7 +667,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         PipelineBuilder.WriteImage(this, _tonemapSet, 0, new DescriptorImageInfo
         {
             Sampler = _tonemapSampler,
-            ImageView = _sceneTarget!.GetColor(0).View,
+            ImageView = FinalColorView, // ADR 0174: the upscaled image while upscaling
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
         });
 
@@ -603,7 +721,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         PipelineBuilder.WriteImage(this, set, 0, new DescriptorImageInfo
         {
             Sampler = _tonemapSampler,
-            ImageView = _sceneTarget!.GetColor(0).View,
+            ImageView = FinalColorView,
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
         });
         var levels = stackalloc DescriptorImageInfo[GlowEffect.LevelCount];
@@ -719,6 +837,14 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         // the HDR image; the UI renderer orders its own passes with explicit barriers (ADR 0050).
         for (var i = 0; i < _overlayRenderers.Count; i++)
             _overlayRenderers[i].RecordOffscreen(cb);
+
+        // ADR 0174: a new output colour has no layout yet; the upscale's copy pass expects shader-read.
+        if (_outputColorFresh && _outputColor is not null)
+        {
+            _outputColor.Begin(cb, default);
+            _outputColor.End(cb);
+            _outputColorFresh = false;
+        }
 
         // ADR 0163: the BeforeTonemap stage, with no render pass active: TAA, then (ADR 0124) with non-default settings
         // auto exposure (ADR 0154; the glow's first level reads it), the glow chain and light shafts (ADR 0160: they read
@@ -903,6 +1029,12 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         _prepass = null;
         _colorCopy?.Dispose();
         _colorCopy = null;
+        _outputTargets?.Dispose();
+        _outputTargets = null;
+        _outputCopy?.Dispose();
+        _outputCopy = null;
+        _outputColor?.Dispose();
+        _outputColor = null;
         for (var i = 0; i < _ldr.Length; i++)
         {
             _ldr[i]?.Dispose();

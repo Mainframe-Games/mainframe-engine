@@ -53,8 +53,7 @@ internal sealed unsafe class SubViewportPost : IPostOutput, IDisposable
         _pool = new PostTargetPool<RenderTarget>(CreateTarget, Extent);
         _context = new PostEffectContext(ctx, _pool, this);
         var scene = _context.Scene;
-        scene.Extent = Extent;
-        scene.Color = Scene.GetColor(0).View;
+        scene.SetResolutions(Extent, Scene.GetColor(0).View, Extent, Scene.GetColor(0).View); // never upscaled (ADR 0174)
         scene.Depth = Scene.Depth!.View;
         scene.DepthFormat = Scene.Depth.Format;
         scene.PointSampler = _pointSampler;
@@ -92,6 +91,7 @@ internal sealed unsafe class SubViewportPost : IPostOutput, IDisposable
         _stack.Add(_glow);
         _stack.Add(_lightShafts);
         _stack.Add(new TaaEffect());
+        _stack.Add(new SpatialUpscaleEffect()); // ADR 0174: never enabled here (a view renders at its own size)
         _stack.Add(new TaaSharpenEffect());
         _stack.Add(new ContactShadows());
         _stack.Add(new DepthOfFieldEffect());
@@ -386,6 +386,11 @@ internal sealed unsafe class SubViewportPost : IPostOutput, IDisposable
         _colorCopy ??= new SceneColorCopy(_ctx, Scene);
         _colorCopy.Record(cb, Scene, source);
     }
+
+    // ADR 0174: a sub-viewport renders at its own size, so its output colour is its scene colour.
+    void IPostOutput.CopyToOutputColor(CommandBuffer cb, ImageView source) => ((IPostOutput)this).CopyToSceneColor(cb, source);
+
+    bool IPostOutput.OutputColorWritten => false;
 
     private RenderTarget EnsureLdr(int index) =>
         _ldr[index] ??= new RenderTarget(_ctx,

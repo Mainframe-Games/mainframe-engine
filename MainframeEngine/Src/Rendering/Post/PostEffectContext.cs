@@ -20,7 +20,57 @@ internal sealed class SceneTextures
     /// <summary>The LDR (tonemapped, display-encoded) format of the <see cref="PostStage.AfterTonemap"/> stage.</summary>
     public const Format LdrFormat = Format.R8G8B8A8Unorm;
 
+    /// <summary>
+    /// The size of <see cref="Color"/>: <see cref="RenderExtent"/> for an effect at render resolution,
+    /// <see cref="OutputExtent"/> for one at output resolution (ADR 0174; <see cref="PostEffectContext.IsOutputResolution"/>).
+    /// </summary>
     public Extent2D Extent { get; internal set; }
+
+    /// <summary>
+    /// ADR 0174: the view's render size: <see cref="Depth"/>, <see cref="Velocity"/> and <see cref="RenderColor"/>. The
+    /// output size unless the main view renders below it (<see cref="IVulkanContext.Scaling3DScale"/>).
+    /// </summary>
+    public Extent2D RenderExtent { get; private set; }
+
+    /// <summary>ADR 0174: the view's output size: <see cref="OutputColor"/>, the <see cref="Ldr"/> images.</summary>
+    public Extent2D OutputExtent { get; private set; }
+
+    /// <summary>ADR 0174: the HDR scene colour at render resolution (what the scene pass drew).</summary>
+    public ImageView RenderColor { get; private set; }
+
+    /// <summary>
+    /// ADR 0174: the HDR colour at output resolution, which the upscale writes and the effects after it and the tonemap
+    /// read; the same image as <see cref="RenderColor"/> without upscaling.
+    /// </summary>
+    public ImageView OutputColor { get; private set; }
+
+    /// <summary>True when the view renders below its output size (<see cref="RenderExtent"/> ≠ <see cref="OutputExtent"/>).</summary>
+    public bool Upscaled => _sized && (RenderExtent.Width != OutputExtent.Width || RenderExtent.Height != OutputExtent.Height);
+
+    private bool _sized;
+
+    /// <summary>
+    /// Sets both resolutions' sizes and colours; <see cref="Extent"/> and <see cref="Color"/> become the render
+    /// resolution's until <see cref="SelectResolution"/>.
+    /// </summary>
+    internal void SetResolutions(Extent2D render, ImageView renderColor, Extent2D output, ImageView outputColor)
+    {
+        RenderExtent = render;
+        RenderColor = renderColor;
+        OutputExtent = output;
+        OutputColor = outputColor;
+        _sized = true;
+        SelectResolution(false);
+    }
+
+    /// <summary>Points <see cref="Extent"/> and <see cref="Color"/> at the output or the render resolution's.</summary>
+    internal void SelectResolution(bool output)
+    {
+        if (!_sized)
+            return; // tests without images
+        Extent = output ? OutputExtent : RenderExtent;
+        Color = output ? OutputColor : RenderColor;
+    }
 
     /// <summary>Bumped when the views below were recreated (resize).</summary>
     public int Generation { get; internal set; }
@@ -109,6 +159,15 @@ internal interface IPostOutput
 
     /// <summary>Records a fullscreen copy of <paramref name="source"/> (scene-sized, HDR) into the scene colour.</summary>
     void CopyToSceneColor(CommandBuffer cb, ImageView source);
+
+    /// <summary>
+    /// ADR 0174: records a fullscreen copy of <paramref name="source"/> (output-sized, HDR) into the output-resolution
+    /// colour (<see cref="SceneTextures.OutputColor"/>; the scene colour itself without upscaling).
+    /// </summary>
+    void CopyToOutputColor(CommandBuffer cb, ImageView source);
+
+    /// <summary>ADR 0174: true once something wrote the output-resolution colour this frame (<see cref="CopyToOutputColor"/>).</summary>
+    bool OutputColorWritten { get; }
 }
 
 /// <summary>
@@ -123,9 +182,21 @@ internal sealed class PostEffectContext
     private bool _outputOpen;
 
     internal PostEffectContext(IVulkanContext vulkan, PostTargetPool<RenderTarget> targets, IPostOutput? output)
+        : this(vulkan, targets, targets, output)
+    {
+    }
+
+    /// <summary>
+    /// ADR 0174: a view that may render below its output size: <paramref name="renderTargets"/> follow the render size,
+    /// <paramref name="outputTargets"/> the output size (the same pool for a view that never upscales).
+    /// </summary>
+    internal PostEffectContext(IVulkanContext vulkan, PostTargetPool<RenderTarget> renderTargets,
+        PostTargetPool<RenderTarget> outputTargets, IPostOutput? output)
     {
         Vulkan = vulkan;
-        Targets = targets;
+        RenderTargets = renderTargets;
+        OutputTargets = outputTargets;
+        Targets = renderTargets;
         _output = output;
     }
 
@@ -134,6 +205,8 @@ internal sealed class PostEffectContext
     {
         Vulkan = null!;
         Targets = null!;
+        RenderTargets = null!;
+        OutputTargets = null!;
     }
 
     public IVulkanContext Vulkan { get; }
@@ -142,8 +215,42 @@ internal sealed class PostEffectContext
     public PostEffectSettings Settings { get; internal set; }
     public SceneTextures Scene { get; } = new();
 
-    /// <summary>Named targets and ping-pong histories that follow the scene's size.</summary>
-    public PostTargetPool<RenderTarget> Targets { get; }
+    /// <summary>
+    /// Named targets and ping-pong histories that follow the scene's size: the render size's pool for an effect at render
+    /// resolution, the output size's for one at output resolution (ADR 0174, <see cref="IsOutputResolution"/>).
+    /// </summary>
+    public PostTargetPool<RenderTarget> Targets { get; private set; }
+
+    /// <summary>ADR 0174: the pool that follows the render size (<see cref="SceneTextures.RenderExtent"/>).</summary>
+    public PostTargetPool<RenderTarget> RenderTargets { get; }
+
+    /// <summary>
+    /// ADR 0174: the pool that follows the output size (<see cref="SceneTextures.OutputExtent"/>): TAA's history lives
+    /// here. The same pool as <see cref="RenderTargets"/> for a view that never upscales.
+    /// </summary>
+    public PostTargetPool<RenderTarget> OutputTargets { get; }
+
+    /// <summary>
+    /// ADR 0174: true while the effect being called runs at the output resolution: every
+    /// <see cref="PostStage.BeforeTonemap"/> effect ordered after <see cref="PostEffectOrder.Taa"/> and every
+    /// <see cref="PostStage.AfterTonemap"/> one. <see cref="Targets"/>, <see cref="SceneTextures.Color"/> and
+    /// <see cref="SceneTextures.Extent"/> are that resolution's; depth and velocity stay at render resolution.
+    /// </summary>
+    public bool IsOutputResolution { get; private set; }
+
+    /// <summary>Whether <paramref name="effect"/> runs at the output resolution (see <see cref="IsOutputResolution"/>).</summary>
+    public static bool RunsAtOutputResolution(PostEffect effect) =>
+        effect.Stage == PostStage.AfterTonemap || (effect.Stage == PostStage.BeforeTonemap && effect.Order > PostEffectOrder.Taa);
+
+    /// <summary>Selects the resolution <paramref name="effect"/> runs at, before the stack calls it.</summary>
+    internal void Enter(PostEffect effect)
+    {
+        var output = RunsAtOutputResolution(effect);
+        IsOutputResolution = output;
+        if (RenderTargets is not null)
+            Targets = output ? OutputTargets : RenderTargets;
+        Scene.SelectResolution(output);
+    }
 
     public PostCamera Camera { get; internal set; }
 
@@ -227,6 +334,25 @@ internal sealed class PostEffectContext
     {
         if (Stage != PostStage.BeforeTonemap || _output is null)
             throw new InvalidOperationException("Only BeforeTonemap effects write the scene colour.");
-        _output.CopyToSceneColor(CommandBuffer, source);
+        if (IsOutputResolution)
+            _output.CopyToOutputColor(CommandBuffer, source);
+        else
+            _output.CopyToSceneColor(CommandBuffer, source);
     }
+
+    /// <summary>
+    /// ADR 0174: <see cref="PostStage.BeforeTonemap"/>: replaces the output-resolution colour
+    /// (<see cref="SceneTextures.OutputColor"/>) with <paramref name="source"/>, an output-sized image in
+    /// <c>SHADER_READ_ONLY_OPTIMAL</c> (TAAU's resolved history, the spatial upscale's result). Without upscaling it is the
+    /// scene colour, as <see cref="CopyToSceneColor"/>.
+    /// </summary>
+    public void CopyToOutputColor(ImageView source)
+    {
+        if (Stage != PostStage.BeforeTonemap || _output is null)
+            throw new InvalidOperationException("Only BeforeTonemap effects write the scene colour.");
+        _output.CopyToOutputColor(CommandBuffer, source);
+    }
+
+    /// <summary>ADR 0174: true once an effect wrote the output-resolution colour this frame.</summary>
+    public bool OutputColorWritten => _output is { OutputColorWritten: true };
 }

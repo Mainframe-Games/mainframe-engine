@@ -74,6 +74,25 @@ RenderTestGame game = options.Scene switch
     "velocity" => new VelocityScene(options),
     "post-copy" => new PostCopyScene(options),
     "taa-edges" => new TaaEdgesScene(options),
+    // ADR 0174: the edges at a render scale of 0.75, upscaled by TAAU or by FSR 1 (EASU + RCAS) with TAA off.
+    "taau" => new TaaEdgesScene(options with
+    {
+        AntiAliasing = AntiAliasing.Taa,
+        Scaling = Scaling3DMode.Taau,
+        RenderScale = options.RenderScale ?? 0.75f,
+    }),
+    "fsr1" => new TaaEdgesScene(options with
+    {
+        AntiAliasing = options.AntiAliasing ?? AntiAliasing.None,
+        Scaling = options.Scaling ?? Scaling3DMode.Fsr,
+        RenderScale = options.RenderScale ?? 0.75f,
+    }),
+    "taau-foliage" => new FoliageWindScene(options with
+    {
+        AntiAliasing = AntiAliasing.Taa,
+        Scaling = Scaling3DMode.Taau,
+        RenderScale = options.RenderScale ?? 0.75f,
+    }),
     "taa-ghost" => new TaaGhostScene(options),
     "taa-foliage" => new FoliageWindScene(options with { AntiAliasing = options.AntiAliasing ?? AntiAliasing.Taa }),
     "ssao" => new SsaoScene(options),
@@ -89,7 +108,7 @@ RenderTestGame game = options.Scene switch
         "physics, physics-debug, sky-grid, materials, outline, subviewport-capture, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, " +
         "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer, shadow-pcss, contact-shadows, shadow-staggered, far-shadow, " +
         "sky-physical, fxaa, auto-exposure, pbr, fog, vertex-colors, multimesh, " +
-        "foliage-wind, terrain, water, water-refraction, water-ssr, water-fall, terrain-splat, terrain-foliage, light-shafts, volumetric-fog, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, ssao, " +
+        "foliage-wind, terrain, water, water-refraction, water-ssr, water-fall, terrain-splat, terrain-foliage, light-shafts, volumetric-fog, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, taau, fsr1, taau-foliage, ssao, " +
         "post-grade, post-dof, post-film, tree-realistic, tree-lowpoly, tree-forest, gamehost."),
 };
 

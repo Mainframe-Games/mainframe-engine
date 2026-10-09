@@ -314,8 +314,8 @@ LayerSample shadeBand(float w[kMaxLayers], int count, float3 P, float3 dPdx, flo
 float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
 {
     float3 P = input.inWorldPos;
-    float3 dPdx = ddx(P);
-    float3 dPdy = ddy(P);
+    float3 dPdx = materialGrad3(ddx(P)); // texture gradients only; ADR 0174: the output resolution's mip under upscaling
+    float3 dPdy = materialGrad3(ddy(P));
     float3 Ngeo = normalize(input.inNormal);
 
     // Splat weights: bilinear between cell centres (unmipmapped maps).

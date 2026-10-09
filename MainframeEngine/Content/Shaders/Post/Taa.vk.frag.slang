@@ -3,8 +3,11 @@
 // Fullscreen.vk.vert; one output pixel per fragment.
 //
 // 1. Reconstruct the current colour at the output pixel's centre from the 3 x 3 input samples around it, each weighted
-//    by a Blackman-Harris fit of its distance (the sample of texel t was taken at t + 0.5 - jitter). Input and output
-//    have the same size today; the arithmetic is written in input pixels so TAAU can render below the output size.
+//    by a Blackman-Harris fit of its distance in output pixels (the sample of texel t was taken at t + 0.5 - jitter).
+//    With TAAU (ADR 0174, flag 4) the input is the render resolution, below the output's, and the history is at output
+//    resolution; the filter is narrower (TaaEffect.UpscaleFilterFalloff) and the clip box is the neighbourhood's
+//    min/max: a sparser frame's 3 x 3 misses thin detail more often, and the variance box would clip it out of the
+//    history.
 // 2. Reproject: the velocity of the closest depth in the 3 x 3 (silhouettes carry their motion one pixel out).
 // 3. Read the history with a 5-tap Catmull-Rom filter (sharp under sub-pixel motion).
 // 4. Drop it where it saw something else (its stored view depth is not where this pixel was last frame), clip it to the
@@ -35,7 +38,7 @@ struct TaaParams
     float movingPixels;
     float exposure;       // scales the luminance weighting to what the tonemap will show
     float depthTolerance; // relative view-depth difference that counts as disoccluded
-    uint flags;           // bit 0: the history is last frame's; bit 1: depth rejection
+    uint flags;           // bit 0: the history is last frame's; bit 1: depth rejection; bit 2: TAAU (input below output)
     float filterFalloff;  // the reconstruction's weight is exp(filterFalloff * d^2), d in output pixels
     float feedbackReactive; // history weight where the scene alpha marks the pixel reactive (water: alpha 0)
 };
@@ -111,6 +114,14 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
     float2 position = uv * float2(inputSize);          // in input pixels
     int2 centre = int2(floor(position));
     float2 toOutputPixels = pc.outputSize / float2(inputSize);
+    // TAAU: weights relative to the nearest sample's (the texel under the jittered position), so a narrow filter over
+    // sparse samples never underflows to 0 / 0. At native resolution the weights are absolute, as they always were.
+    float nearestD2 = 0.0;
+    if ((pc.flags & 4u) != 0u)
+    {
+        float2 nearest = (floor(position + pc.jitterPixels) + 0.5 - pc.jitterPixels - position) * toOutputPixels;
+        nearestD2 = dot(nearest, nearest);
+    }
 
     float3 current = float3(0.0);
     float currentWeight = 0.0;
@@ -132,7 +143,7 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
             int2 texel = clamp(centre + int2(x, y), int2(0), last);
             float3 c = toWeighted(min(max(sceneColor.Load(int3(texel, 0)).rgb, float3(0.0)), float3(kMaxInput)));
             float2 d = (float2(centre + int2(x, y)) + 0.5 - pc.jitterPixels - position) * toOutputPixels;
-            float w = exp(pc.filterFalloff * dot(d, d));
+            float w = exp(pc.filterFalloff * (dot(d, d) - nearestD2));
             current += c * w;
             currentWeight += w;
             float wideW = exp(kWideFalloff * dot(d, d));
@@ -199,6 +210,12 @@ float4 main(float4 fragCoord : SV_Position) : SV_Target0
         float3 sigma = sqrt(max(m2 / 9.0 - mean * mean, float3(0.0)));
         float3 boxMin = max(lo, mean - kGamma * sigma);
         float3 boxMax = min(hi, mean + kGamma * sigma);
+        if ((pc.flags & 4u) != 0u)
+        {
+            // TAAU: the min/max box (a thin line one frame's samples missed must not be clipped out of the history).
+            boxMin = lo;
+            boxMax = hi;
+        }
         float3 previous = toWeighted(min(historyCatmullRom(previousUv), float3(kMaxInput)));
         previous = yCoCgToRgb(clipToBox(boxMin, boxMax, rgbToYCoCg(previous)));
 
