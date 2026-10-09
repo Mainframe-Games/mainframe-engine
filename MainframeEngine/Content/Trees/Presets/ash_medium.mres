@@ -1,0 +1,78 @@
+{
+  "format": 2,
+  "uid": "res_e4aa21c06e0e",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 7,
+        "Gnarliness": 0.03,
+        "Length": 43.47,
+        "Radius": 2,
+        "Sections": 12,
+        "Segments": 12,
+        "Taper": 0.7,
+        "Twist": 0.09
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 48,
+        "Children": 4,
+        "Gnarliness": 0.25,
+        "Length": 27.14,
+        "Radius": 0.63,
+        "Sections": 8,
+        "Segments": 6,
+        "Start": 0.23,
+        "Taper": 0.7,
+        "Twist": -0.07
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 75,
+        "Children": 3,
+        "Gnarliness": 0.2,
+        "Length": 9.51,
+        "Radius": 0.76,
+        "Sections": 6,
+        "Segments": 4,
+        "Start": 0.33,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 60,
+        "Gnarliness": 0.09,
+        "Length": 4.6,
+        "Radius": 0.7,
+        "Sections": 4,
+        "Segments": 3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Ash Medium",
+    "Seed": 36330,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "BarkTint": [0.80784315, 0.8, 0.74509805, 1],
+    "BarkTextureScale": [0.5, 5],
+    "LeafTexture": "ash",
+    "LeafAngle": 55,
+    "LeafCount": 16,
+    "LeafSize": 2.67,
+    "LeafSizeVariance": 0.72
+  }
+}

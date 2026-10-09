@@ -1,0 +1,77 @@
+{
+  "format": 2,
+  "uid": "res_96caee58b88c",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 4,
+        "Gnarliness": 0.04,
+        "Length": 23.99,
+        "Radius": 0.36999999999999994,
+        "Sections": 12,
+        "Segments": 8,
+        "Taper": 0.37
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 70,
+        "Children": 3,
+        "Gnarliness": -0.010000000000000007,
+        "Length": 3.36,
+        "Radius": 0.41,
+        "Sections": 10,
+        "Segments": 6,
+        "Start": 0.44999999999999996,
+        "Taper": 0.13
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 35,
+        "Children": 3,
+        "Gnarliness": 0.12,
+        "Length": 7.699999999999999,
+        "Radius": 0.7,
+        "Sections": 8,
+        "Segments": 4,
+        "Start": 0.32999999999999996,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 7,
+        "Gnarliness": 0.02,
+        "Length": 1,
+        "Radius": 0.7,
+        "Sections": 6,
+        "Segments": 3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Aspen Small",
+    "Seed": 36330,
+    "Levels": 2,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0.010869565217391311,
+    "BarkTexture": "Bark002",
+    "LeafTexture": "aspen",
+    "LeafAngle": 30,
+    "LeafCount": 13,
+    "LeafStart": 0.2,
+    "LeafTint": [1, 0.98039216, 0.38431373, 1]
+  }
+}

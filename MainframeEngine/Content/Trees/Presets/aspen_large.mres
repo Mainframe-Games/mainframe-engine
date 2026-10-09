@@ -1,0 +1,77 @@
+{
+  "format": 2,
+  "uid": "res_9cc3fde71b7f",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 10,
+        "Gnarliness": 0.05,
+        "Length": 69.60000000000001,
+        "Radius": 1.11,
+        "Sections": 12,
+        "Segments": 8,
+        "Taper": 0.7000000000000001
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 47,
+        "Children": 6,
+        "Gnarliness": -0.030000000000000006,
+        "Length": 18.56,
+        "Radius": 0.5800000000000001,
+        "Sections": 10,
+        "Segments": 6,
+        "Start": 0.62,
+        "Taper": 0.13
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 63,
+        "Gnarliness": 0.12,
+        "Length": 11.19,
+        "Radius": 0.7,
+        "Sections": 8,
+        "Segments": 4,
+        "Start": 0.049999999999999975,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 7,
+        "Gnarliness": 0.02,
+        "Length": 1,
+        "Radius": 0.7,
+        "Sections": 6,
+        "Segments": 3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Aspen Large",
+    "Seed": 30631,
+    "Levels": 2,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0.021739130434782622,
+    "BarkTexture": "Bark002",
+    "LeafTexture": "aspen",
+    "LeafAngle": 36,
+    "LeafCount": 20,
+    "LeafStart": 0.15217391304347827,
+    "LeafSize": 3.4782608695652173,
+    "LeafTint": [0.9882353, 1, 0.14901961, 1]
+  }
+}

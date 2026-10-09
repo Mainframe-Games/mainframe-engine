@@ -1,0 +1,79 @@
+{
+  "format": 2,
+  "uid": "res_b74ab329f881",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 4,
+        "Gnarliness": 0.07,
+        "Length": 28.08,
+        "Radius": 1,
+        "Sections": 16,
+        "Segments": 7,
+        "Taper": 0.73,
+        "Twist": -0.23
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 54,
+        "Children": 2,
+        "Gnarliness": -0.08,
+        "Length": 4.55,
+        "Radius": 1.02,
+        "Sections": 9,
+        "Segments": 5,
+        "Start": 0.49,
+        "Taper": 0.42,
+        "Twist": 0.42
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 58,
+        "Children": 3,
+        "Gnarliness": 0.11,
+        "Length": 9.78,
+        "Radius": 0.69,
+        "Sections": 8,
+        "Segments": 3,
+        "Start": 0.06,
+        "Taper": 0.69
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 32,
+        "Gnarliness": 0.09,
+        "Length": 7.16,
+        "Radius": 1.19,
+        "Sections": 1,
+        "Segments": 3,
+        "Start": 0.12,
+        "Taper": 0.75
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Oak Small",
+    "Seed": 30895,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "BarkTint": [1, 0.9529412, 0.81960785, 1],
+    "BarkTextureScale": [1, 10],
+    "LeafAngle": 42,
+    "LeafCount": 14,
+    "LeafStart": 0.16,
+    "LeafSize": 1.38,
+    "LeafTint": [0.8352941, 0.8352941, 0.8039216, 1]
+  }
+}
