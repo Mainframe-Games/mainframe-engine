@@ -2,7 +2,9 @@
 // frame.fogParams). Density at height y is fogParams.x × exp(−fogParams.z × max(y − fogParams.y, 0)): uniform below the
 // fog height, thinning above it (height density 0 = uniform everywhere). The optical depth along the view ray is
 // integrated exactly, so it holds wherever the camera is. Sun scatter adds the first directional light's colour to the
-// fog when looking towards it (Godot's fog_sun_scatter).
+// fog when looking towards it (Godot's fog_sun_scatter). fogColor.a is 0 while fog is off, otherwise 1 + the distance from
+// the camera where the analytic fog starts: 0 normally; the volumetric fog's length while that view runs it (ADR 0171),
+// so the march covers the air before it and this integral the rest, and nothing is counted twice.
 #pragma once
 
 #include "frame.slang"
@@ -31,6 +33,12 @@ float3 fogLight(float3 viewDir)
     return color;
 }
 
+// Distance from the camera where the analytic fog starts (ADR 0171; 0 without volumetric fog).
+float fogStartDistance()
+{
+    return max(frame.fogColor.a - 1.0, 0.0);
+}
+
 // Fogs a surface colour at worldPos as seen from the camera. Unchanged while fog is off (fogColor.a == 0).
 float3 applyFog(float3 color, float3 worldPos)
 {
@@ -38,20 +46,23 @@ float3 applyFog(float3 color, float3 worldPos)
         return color;
     float3 toPoint = worldPos - frame.cameraPosition.xyz;
     float dist = length(toPoint);
-    if (dist < 1e-4)
+    float start = fogStartDistance();
+    if (dist < 1e-4 || dist <= start)
         return color;
 
+    // The segment from the start distance to the point (the whole ray without volumetric fog).
     float density = frame.fogParams.x;
     float height = frame.fogParams.y;
     float heightDensity = frame.fogParams.z;
-    float y0 = frame.cameraPosition.y;
+    float y0 = frame.cameraPosition.y + toPoint.y * (start / dist);
+    float segment = dist - start;
     float dy = worldPos.y - y0;
     float depth;
     if (abs(dy) > 1e-3)
-        depth = dist * (fogHeightIntegral(worldPos.y, density, height, heightDensity) -
-                        fogHeightIntegral(y0, density, height, heightDensity)) / dy;
+        depth = segment * (fogHeightIntegral(worldPos.y, density, height, heightDensity) -
+                           fogHeightIntegral(y0, density, height, heightDensity)) / dy;
     else
-        depth = dist * density * exp(-heightDensity * max(y0 - height, 0.0));
+        depth = segment * density * exp(-heightDensity * max(y0 - height, 0.0));
     float amount = 1.0 - exp(-max(depth, 0.0));
     return lerp(color, fogLight(toPoint / dist), amount);
 }
@@ -69,7 +80,8 @@ float3 applySkyFog(float3 color, float3 dir)
     if (dir.y > 1e-4)
     {
         float total = density / heightDensity; // the integral to infinite height
-        float depth = (total - fogHeightIntegral(frame.cameraPosition.y, density, height, heightDensity)) / dir.y;
+        float y0 = frame.cameraPosition.y + dir.y * fogStartDistance(); // ADR 0171: after the volumetric fog
+        float depth = (total - fogHeightIntegral(y0, density, height, heightDensity)) / dir.y;
         amount = 1.0 - exp(-max(depth, 0.0));
     }
     return lerp(color, fogLight(dir), amount);

@@ -173,8 +173,9 @@ holds their first values. To tune it: `just editor Examples/Forest/project.mfpro
 | Sun | `DirectionalLight3D`, colour (1, 0.87, 0.7), energy 2.6, 4 cascades × 1024² to 140 m, split λ 0.8; G8e.2 ([ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md)): `ShadowCacheMode.Staggered`, `ShadowCoarseCascades` 2, `LightAngularDistance` 0.5°, `ContactShadows` (0.4 m), `FarShadowEnabled` | warm and low: long soft shadows across the glade and the pond, ferns and rocks grounded; the shadow budget below |
 | Sky | `Physical`, turbidity 6, Mie 0.005, ground (0.28, 0.27, 0.2) | a clear morning; the IBL follows it |
 | Ambient / reflections | `AmbientSource.Sky` × 1.6, `ReflectedLightSource.Sky` | no GI: the sky fills the shade so it stays readable next to the sun |
-| Fog | density 0.003, height 6 m, height density 0.08, colour (0.42, 0.47, 0.53), sun scatter 0.3 | haze in the valley, brighter towards the sun |
-| Light shafts | intensity 2.3, decay 0.965, density 0.85 | rays through every canopy gap near the sun |
+| Fog | density 0.005, height 6 m, height density 0.08, colour (0.42, 0.47, 0.53), sun scatter 0.1 | haze in the valley beyond 64 m; the volumetric fog does the near air |
+| Volumetric fog ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md)) | density 0.018, anisotropy 0.75, length 64 m, sky affect 0.2, ambient inject 0.02, noise 0.5 at 8 m; temporal reprojection 0.9 | soft rays through the canopy gaps from any view (also with the sun off screen, between the trunks of R3 and R5), the shaded air clear, hazier towards the valley floor (the height fog's shape) |
+| Light shafts | off (intensity 2.3, decay 0.965, density 0.85 kept) | the volumetric fog draws real shafts; the screen-space ones on top made the glade milky |
 | Exposure | auto, scale 0.4, speed 0.6; engine ACES | adapts between the glade and the pine shade |
 | Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
 | Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
@@ -200,6 +201,15 @@ behind the ferns blur from 9 m); walking never has depth of field:
 | ![R1](../images/forest/r1-glade.png)<br>**R1 Glade**: into the low sun through oaks and ashes; shafts, haze, back-lit leaves | ![R2](../images/forest/r2-fall.png)<br>**R2 The fall**: from the falls viewpoint, the 3.5 m drop between boulders, pool 1, dappled moss |
 | ![R3](../images/forest/r3-bridge.png)<br>**R3 Log bridge**: the west bank; the gravel bed through clear water, mud and moss banks, the log | ![R4](../images/forest/r4-vista.png)<br>**R4 Vista**: from the pine slope's lookout down to the pond |
 | ![R5](../images/forest/r5-floor.png)<br>**R5 Forest floor**: 0.5 m above leaf litter and ferns among pines and aspens | |
+
+**Volumetric fog (G8e.3, [ADR 0171](../../memory/decisions/0171-volumetric-fog.md)).** The shots above are with it. Against
+the screen-space shafts it replaced: R1 keeps rays through the canopy around the sun but the trees to either side are no
+longer veiled (the old milky haze was the shafts' radial blur and bloom plus the height fog's sun scatter; with the
+shafts simply off the glade was already clear); R3 and R5 show shafts between the trunks with the sun off screen, and
+the shade under the canopy got darker (mean luminance R3 59 → 39, R1 122 → 109) because nothing brightens the shaded
+air any more; R4's valley hazes over from the far fog (0.005). Looking 60° away from the sun (`--view
+48,-1.7,146,87.5,-15,99.5`) the forward-scattering fog shows a warm glow and faint rays at the frame's edge: with one
+Henyey–Greenstein lobe (g 0.75) off-axis shafts stay subtle unless the fog is denser, which made R1 milky again.
 
 **What limits the look** (engine features the slice does not have yet): no GI (the sky's IBL fills the shade, so
 interiors of the canopy read flat), TAA softens the image a little in motion (the sharpen restores some of it), no
@@ -242,6 +252,19 @@ over 140 m and with the far trees). Measured along the way: the same setup every
 staggered +4–6 ms of shadows; the first PCSS (16 point taps, no early-outs) +3 ms; Ez Tree's level 2 as the coarse level
 +2–3 ms and a black forest floor; translation-only cascade margins 2.7 cascade passes a frame (turning). At the start of
 the lane, on a quieter machine, the old setup measured p50 13.0 ms, p99 20.25 ms, shadows 2.0 ms.
+
+**G8e.3 volumetric fog** ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md)), `just forest-bench` at 1920 × 1080,
+interleaved runs on a busy machine (other lanes' GPU and Docker work: the sun shadows read 3.6–5.0 ms here against 2.0 ms
+quiet), the old look (screen-space shafts, sun scatter 0.3, no volumetrics) against the new with the same build:
+
+| Look | p50 | p90 | p99 | Volumetric fog (GPU p50) |
+|---|---|---|---|---|
+| Before: screen-space shafts | 19.35 / 16.70 ms | 30.2 / 21.3 ms | 36.3 / 30.3 ms | — |
+| **After:** volumetric fog, shafts off | **18.26 / 16.72 ms** | 37.2 / 21.3 ms | 46.5 / 31.4 ms | **1.41 / 1.27 ms** |
+
+The quieter pair (the second) is equal at the median and 1 ms apart at p99: the fog's passes replace the shafts' three,
+and the difference stays inside this machine's run-to-run noise (the first pair's spread is larger than either change).
+A quiet-machine baseline is still to be recorded (`--write-baseline`). 0 B per frame.
 
 ## `FirstPersonController`
 
@@ -358,7 +381,7 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
 - `--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]]`: `ForestBenchmark` waits 240
   frames, then a camera flies the 15-point `ForestBenchmark.Spline` (low through the glade, past the fall, over the pine
   canopy, down to the pond and back to the trailhead) for n frames (default 1 800); it prints p50/p90/p99/p99.9/max of
-  the wall-clock frame intervals, the sun shadows' and SSAO's GPU time and the most draws, writes JSON and compares p50 and p99 with
+  the wall-clock frame intervals, the sun shadows', SSAO's and the volumetric fog's GPU time and the most draws, writes JSON and compares p50 and p99 with
   the baseline (exit 1 when more than 10 % slower or when a frame allocated). `just forest-bench` runs it at
   1920 × 1080 against `Examples/Forest/benchmark-baseline.json`.
 - `--shot`, `--view`, `--set`: [above](#reference-shots); `--resolution WxH` resizes the window to W × H pixels.

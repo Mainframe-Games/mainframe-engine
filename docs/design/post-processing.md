@@ -18,7 +18,7 @@ flowchart LR
     SH["Shadows, offscreen views<br/>(sub-viewports, picking)"] --> PP["Depth prepass (when needed)<br/>opaque + cutout → scene depth<br/>+ RG16F velocity, sky velocity"]
     PP --> AP["AfterPrepass stage<br/>(SSAO → set 0 binding 5,<br/>contact shadows → binding 6)"]
     AP --> SC["Scene pass<br/>loads the prepass depth;<br/>prepassed surfaces: LEQUAL / EQUAL, no writes"]
-    SC --> BT["BeforeTonemap stage (HDR)<br/>TAA · depth of field · auto exposure · glow · light shafts"]
+    SC --> BT["BeforeTonemap stage (HDR)<br/>volumetric fog · TAA · depth of field · auto exposure · glow · light shafts"]
     BT --> TM["Tonemap<br/>engine or post (composites exposure, glow, shafts; ACES, linear, Reinhard, filmic, AgX)"]
     TM --> AT["AfterTonemap stage (LDR)<br/>TAA sharpen · FXAA · colour grade + film effects · velocity view<br/>last one → swapchain"]
     AT --> OV["Overlay<br/>canvas, gizmos, UI, dev overlay"]
@@ -41,11 +41,11 @@ tonemap alone.
 |---|---|
 | `PostStage` | `AfterPrepass`, `BeforeTonemap`, `AfterTonemap` |
 | `PostEffect` | an effect: `Name`, `Stage`, `Order`, `Needs`, `IsEnabled(settings)`, and `OnCreate`, `OnBeginFrame`, `OnResize`, `OnRecord`, `OnDispose` |
-| `PostEffectOrder` | the built-in orders: `Ssao` 100, `ContactShadows` 200; `Taa` 100, `DepthOfField` 150, `AutoExposure` 200, `Glow` 300, `LightShafts` 400; `Sharpen` 50, `Fxaa` 100, `ColorGrade` 150, `DebugView` 1000 |
+| `PostEffectOrder` | the built-in orders: `Ssao` 100, `ContactShadows` 200; `VolumetricFog` 50, `Taa` 100, `DepthOfField` 150, `AutoExposure` 200, `Glow` 300, `LightShafts` 400; `Sharpen` 50, `Fxaa` 100, `ColorGrade` 150, `DebugView` 1000 |
 | `PostEffectNeeds` | `DepthPrepass`, `Velocity` (implies the prepass), `Jitter` |
-| `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`, `TaaSharpness`, the primary sun's `ContactShadows` (ADR 0167); `PostTonemap` = the world asks for more than the engine tonemap |
+| `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`, `TaaSharpness`, the primary sun's `ContactShadows` (ADR 0167), the world's `VolumetricFog` (ADR 0171); `PostTonemap` = the world asks for more than the engine tonemap |
 | `PostProcessStack` | the view's effects, sorted by stage, order, registration; `GetNeeds`, `CountEnabled`, `BeginFrame`, `Record(stage)`, `Resize` |
-| `PostEffectContext` | per stage: `CommandBuffer`, `Stage`, `Settings`, `Scene` (`SceneTextures`), `Targets` (pool), `Camera` (`PostCamera`), `FrameNumber`, `DeltaTime`, `Time`, `Exposure`, `IsLastInStage`, `BeginOutput`/`EndOutput`, `CopyToSceneColor` |
+| `PostEffectContext` | per stage: `CommandBuffer`, `Stage`, `Settings`, `Scene` (`SceneTextures`), `Targets` (pool), `Camera` (`PostCamera`), `FrameNumber`, `DeltaTime`, `Time`, `Exposure`, `View` (the frame-set slot: `FrameContext.SetFor`), `Shadows` (the view's shadow set), `IsLastInStage`, `BeginOutput`/`EndOutput`, `CopyToSceneColor` |
 | `SceneTextures` | `Color` (HDR), `Depth`, `Velocity`, `Ldr`, `Extent`, `Generation`, `HasPrepass`, point and linear samplers |
 | `PostCamera` | `View`, unjittered `Projection` and `ViewProjection`, `JitteredProjection`, `PreviousViewProjection`, `Jitter`, `PreviousJitter`, `HistoryValid`, `Position`, `Near`, `Far` |
 | `PostTargetPool<RenderTarget>` | named scene-relative targets (`Get`) and ping-pong pairs (`GetHistory` → `PostHistory`) |
@@ -53,6 +53,7 @@ tonemap alone.
 | `SceneColorCopy` | `CopyToSceneColor`'s fullscreen copy into the HDR scene colour |
 | `TemporalJitter` | Halton (2, 3): `Halton`, `SampleIndex`, `PixelOffset`, `NdcOffset`, `Apply(projection, jitter)` |
 | `IPostProcessHost` | the renderer's side the render server drives (`PostEffects`, `BeginPostFrame`, `BeginPrepass`/`EndPrepass`, `RecordAfterPrepass`) |
+| `VolumetricFogEffect` | volumetric fog (ADR 0171): half-resolution march through the sun's cascades, temporal reprojection, depth-aware composite ([Volumetric fog](#volumetric-fog)); `VolumetricFogSettings` is its packed `WorldEnvironment` settings |
 | `TaaEffect`, `TaaSharpenEffect` | TAA's resolve and RCAS sharpen ([TAA](#taa), ADR 0166); `TaaParams` is the resolve's push block |
 | `PostProcessProfile` | public resource (ADR 0169): the world's tonemap, auto exposure, glow, light shafts, SSAO and adjustments; `Settings` is the packed struct |
 | `SubViewportPost` | a post-processed `SubViewport`'s stack, pool, prepass, LDR ping-pong and overlay pass (`IPostOutput` onto the view's image) |
@@ -69,8 +70,9 @@ output for the lit shaders (below); so do the sun's contact shadows (`ContactSha
 [shadow-system.md → Contact shadows](shadow-system.md#contact-shadows)). The stage only runs on frames with a prepass, and any effect in it should declare
 `PostEffectNeeds.DepthPrepass`.
 
-**BeforeTonemap.** After the scene pass, on linear HDR colour. Built in: TAA (first: everything after it reads the
-resolved image), then auto exposure, glow and light shafts, which
+**BeforeTonemap.** After the scene pass, on linear HDR colour. Built in: the volumetric fog (first, ADR 0171: it fogs
+the scene colour from the scene depth, so TAA then smooths it with the rest of the image), TAA (everything after it reads
+the resolved image), then auto exposure, glow and light shafts, which
 the post tonemap pass composites (their outputs are bound in its set); they run whenever the world's settings are not
 the default (`PostEffectSettings.PostTonemap`), exactly as before ADR 0163. Depth of field (`DepthOfFieldEffect`,
 ADR 0168) runs before them when the lens asks for it, from the scene pass's own colour and depth (no prepass), and writes
@@ -321,6 +323,34 @@ al. 2016, structured like Intel's XeGTAO) at `PostEffectOrder.Ssao` in `AfterPre
 - **Shading.** How the lit shaders apply it (`ssaoCombine`, the specular-occlusion ratio, `ssaoDirect`):
   [Lighting → Screen-space ambient occlusion](lighting.md#screen-space-ambient-occlusion).
 
+## Volumetric fog
+
+`VolumetricFogEffect` ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md), G8e.3): fog lit by the sun through its
+shadow maps, so shafts fall through gaps in the canopy whether or not the sun is on screen. Its settings are the world's
+(`WorldEnvironment.VolumetricFog*`, Godot's names, with the fog; [Color pipeline → Volumetric fog](color-pipeline.md#volumetric-fog-adr-0171)),
+packed into `PostEffectSettings.VolumetricFog` by the render server. A `BeforeTonemap` effect at
+`PostEffectOrder.VolumetricFog` (50, before TAA), `Needs = None`: it reads the scene pass's depth, so no prepass.
+
+| Pass | Shader | Target (pool) | What |
+|---|---|---|---|
+| March | `Post/VolumetricFogMarch` | `volumetric fog march`, ½, `RGBA16F` | per texel (standing for the full pixel at twice its coordinates): 24 steps (`VolumetricFogEffect.Steps`) from the camera to the surface or the length, ends at `(i/n)^spread`, offset by interleaved gradient noise; extinction = density × the height fog's profile × the 32³ wind-drifted noise; in-scatter = albedo × extinction × (sun × one cascade comparison tap × Henyey–Greenstein + sky ambient × ambient inject) + emission × extinction, Hillaire's per-step integral. rgb = in-scatter, a = transmittance |
+| Temporal | `Post/VolumetricFogTemporal` | `volumetric fog` history pair, ½, `RGBA16F` | the texel's surface point through last frame's view-projection; the history clipped to the 3 × 3 variance box (γ 1.5) and blended by `VolumetricFogTemporalReprojectionAmount`. Only with temporal reprojection |
+| Composite | `Post/VolumetricFogComposite` | `volumetric fog composite`, full, `RGBA16F` | 4-tap depth-aware upsample, `colour · T + in-scatter` (sky pixels × `SkyAffect`), the scene alpha kept; then `CopyToSceneColor` |
+
+- **Sets.** The march's pipeline layout is the lit shaders' (`FrameContext.CreatePipelineLayout`): set 0 is the view's
+  frame set (`FrameContext.SetFor(context.View)`: camera, lights, sky irradiance), set 1 the view's shadow set
+  (`PostEffectContext.Shadows`: the render server's `ShadowSystem`, else the renderer's fallback; the layout is rebuilt
+  if it changes, the old one through the deletion queue), set 2 the scene depth and the noise volume. The temporal pass
+  binds set 0 too (`prevViewProjection`). Sets are written on creation and resize only.
+- **The sun** is the directional light with the cascades (`dirCodes` = 1), else the first, unshadowed; a view without
+  shadow maps (`lights.counts.w`) is lit everywhere. Beyond the last cascade the far shadow (ADR 0167) shadows it.
+- **The analytic fog** starts at the length in a view that runs the march (`fogColor.a` = 1 + start;
+  `WorldEnvironment.GetFrameEnvironment`), so the air is counted once.
+- **Noise.** With temporal reprojection the step offset rotates every frame and the history averages it; without, it is
+  fixed per pixel (a still image shows a fine dither instead of banding).
+- **Cost** and the Forest's values: [ADR 0171](../../memory/decisions/0171-volumetric-fog.md#consequences),
+  [Forest](forest.md). `RenderServer.VolumetricFogGpuMilliseconds` times the three passes (the Forest benchmark reports it).
+
 ## Debug view
 
 `RenderServer.DebugView = RenderDebugView.Velocity` replaces the final image with the motion vectors (it turns the
@@ -438,12 +468,21 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
   glow and the grade under an orbiting camera. Unit tests (`PostProcessProfileTests`): defaults, the struct from the
   profile and the lens, change notification, the inline and `.mres` round trips, the version-1 migration (the Forest's
   pre-ADR-0169 environment) and its inline-resource value.
+- **ADR 0171** (`VolumetricFogTests`; golden `volumetric-fog_frame0030` on both drivers): a beam of sunlight through a hole
+  in a roof stands > 3× above the shadowed fog beside it (which the sky ambient still lights; flat without volumetric
+  fog), still frames are stable once converged (< 0.25 mean code change frame to frame), 0 B per frame with a swinging
+  camera. Unit tests: Godot's defaults, the packing and clamps, the analytic fog's start distance, the stage and enable
+  rule, Henyey–Greenstein's normalisation, the step spacing, the noise volume (full range, tiling), the push blocks, the
+  scene round trip.
 - **Unit tests** (`PostProcessingTests`): stage and order sorting, enable rules and needs, lazy creation and disposal,
   the built-ins' stages, the target pool and history validity, Halton and the jittered projection, the 576-byte frame
   block and its offsets, view and node motion histories. `SsaoTests`: defaults, the tonemap rule, stage and needs, the
   push block and the shader's unprojection, scene round trip.
 
 ## Known issues
+
+- Volumetric fog: see [Color pipeline → Known issues](color-pipeline.md#known-issues) (sun only, one shadow tap per
+  step, transparent surfaces fogged as the air behind them, unoccluded sky ambient, no quality setting).
 
 - Sub-viewports without `PostProcessing` have no post effects, prepass or velocity. Hidden editor tabs keep their post state (TAA history, pool).
 - What the prepass does not draw has no velocity of its own (see above). Water marks itself reactive for TAA; particles

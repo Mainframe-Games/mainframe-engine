@@ -14,8 +14,8 @@ tonemapping so it looks exactly as authored. Implemented in
 Before M3 the swapchain was UNORM, lighting ran on gamma-encoded values (overlapping lights clipped to
 white), sky textures were sRGB and came out darker, and Spine's premultiplied alpha was applied twice.
 
-Since ADR 0163 the effects around the tonemap are `PostEffect`s in stages (`BeforeTonemap`: TAA, depth of field, auto
-exposure, glow, light shafts; `AfterTonemap`: TAA's sharpen, FXAA, the colour grade and film effects of ADR 0168),
+Since ADR 0163 the effects around the tonemap are `PostEffect`s in stages (`BeforeTonemap`: volumetric fog (ADR 0171),
+TAA, depth of field, auto exposure, glow, light shafts; `AfterTonemap`: TAA's sharpen, FXAA, the colour grade and film effects of ADR 0168),
 recorded by the main view's `PostProcessStack`, and a depth prepass with motion
 vectors can run before the scene pass: see [Post-processing](post-processing.md). The colour handling below is
 unchanged by it.
@@ -26,6 +26,7 @@ unchanged by it.
 flowchart LR
     S["Scene pass<br/>RenderTarget: R16G16B16A16_SFLOAT + stored depth<br/>sky, grid, shapes, Spine (linear)"] --> T["Tonemap pass<br/>texel × exposure → ACES fitted → sRGB encode"]
     S -. "PostProcessSettings ≠ Default (ADR 0124)" .-> AE["Auto exposure (ADR 0154)<br/>log2 luminance 64² → 1², adapted 1×1"] -.-> G["Glow chain<br/>7 levels, ½ … 1/128 res"] -.-> LS["Light shafts (ADR 0160)<br/>½ res: sky mask → fine + coarse radial blur"] -.-> T2["Post tonemap pass<br/>+ shafts → × exposure (× auto) → glow → engine or Godot ACES → sRGB encode"]
+    S -. "VolumetricFogEnabled (ADR 0171)" .-> VF["Volumetric fog (HDR, first)<br/>½ res march through the cascades → temporal → composite<br/>→ scene colour"] -.-> T
     S -. "AntiAliasing.Taa (ADR 0166)" .-> TA["TAA resolve (HDR, before auto exposure)<br/>→ history → scene colour"] -.-> T
     T -. "AntiAliasing.Fxaa (ADR 0154)" .-> F["FXAA input (R8G8B8A8_UNORM, sRGB-encoded)<br/>→ FXAA 3.11 into the swapchain"] -.-> O
     T -. "Taa + TaaSharpness > 0" .-> SH["RCAS sharpen (LDR)<br/>into the swapchain"] -.-> O
@@ -129,6 +130,12 @@ target will be another.
   centre, fade 1). Against the same frame without shafts, the mean luminance rises by more than 10 and, on a circle
   below the sun, what the shafts add varies by more than 40 (streaks through the gaps, not a uniform glow).
   `--count 2` swings the sun ±90° through the screen and out past its edges: 0 B per frame (allocation gate).
+- `volumetric-fog` render scene (ADR 0171, `VolumetricFogTests`, golden at frame 30 on both drivers): uniform fog under a
+  wide roof with a 3 × 3 m hole, a high sun, an unshaded black wall beyond the fog's length. Across a row through the
+  beam, the brightest pixels are > 3× (and > 15 codes above) the shadowed fog at the image's edges, which is still above
+  the frame without volumetric fog (sky ambient); without it the row is flat. Still frames 60–62 differ by < 0.25 codes on
+  average (≤ 16 anywhere) and frame 60 is within 0.5 of frame 30 (converged). `--count 2` swings the camera ±12°: 0 B
+  per frame (allocation gate).
 - `post-grade`, `post-dof`, `post-film` and `glow --count 3|4` (ADR 0168, `CinematicPostTests`): an identity LUT leaves the
   colour chart within ±1, a channel-rotation LUT gives the rotated colours (±2; at strength 0.5 their mix), the
   adjustments follow Godot's formula, every tonemapper matches `TonemapCurves` (±2; AgX golden), far DoF blurs the far wall
@@ -154,6 +161,10 @@ target will be another.
 - SubViewports always use the engine curve without glow, auto exposure, light shafts, FXAA, TAA or any other post
   effect (ADR 0124, ADR 0154, ADR 0160, ADR 0163, ADR 0166), so the editor viewport shows no grade, DoF or film effects
   either.
+- Volumetric fog (ADR 0171): sun only (no local lights; froxels wait for M11's compute); one shadow tap per step (no
+  PCSS, no cascade blend: a faint step at a cascade boundary in thin fog); transparent surfaces and water get the fog of
+  the air behind them (they write no depth); the sky ambient it scatters is not occluded under the canopy until G8e.1's
+  probes; no quality setting yet (always ½ res × 24 steps).
 - Depth of field has one layer: a near-field blur over a high-frequency background shows half-resolution sparkle along
   its silhouette (separate near/far layers and TAA would fix it; ADR 0168). No lens dirt (`GlowMap`) yet.
 
@@ -263,6 +274,36 @@ sky.
 Created the first frame that enables them (three ½-res `R16G16B16A16_SFLOAT` targets, ≈ 21 MiB at 1440p); the post set
 binds the glow's smallest level as a placeholder until then, and a second post set binds the shafts, so no descriptor
 set in flight is rewritten. Colour grading is ADR 0168's (below).
+
+## Volumetric fog (ADR 0171)
+
+`WorldEnvironment.VolumetricFogEnabled` (default off) fills the air within `VolumetricFogLength` (64 m) of the camera
+with fog lit by the sun **through its shadow maps** ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md), G8e.3):
+shafts fall through every gap in the canopy whether the sun is on screen or not, and the shaded air stays clear. The
+effect and its passes: [Post-processing → Volumetric fog](post-processing.md#volumetric-fog).
+
+| Setting (Godot's name) | Default | What |
+|---|---|---|
+| `VolumetricFogDensity` | 0.05 | extinction per metre at and below `FogHeight`; above it thins like the height fog (`FogHeightDensity`) |
+| `VolumetricFogAlbedo` | white (sRGB) | the colour the fog scatters light with |
+| `VolumetricFogEmission` × `EmissionEnergy` | black × 1 | light the fog emits (an infinitely deep fog shows this colour) |
+| `VolumetricFogAnisotropy` | 0.2 | Henyey–Greenstein g (−0.9..0.9): positive glows towards the sun |
+| `VolumetricFogLength` | 64 m | how far the march reaches; the analytic fog takes over from there |
+| `VolumetricFogDetailSpread` | 2 | step i of n ends at (i/n)^spread of the ray: finer steps near the camera |
+| `VolumetricFogAmbientInject` | 0 | how much the sky's ambient light (the irradiance up and down) lights the fog |
+| `VolumetricFogSkyAffect` | 1 | how much of the fog covers the sky |
+| `VolumetricFogTemporalReprojectionEnabled` / `Amount` | on / 0.9 | blend each frame's march with the reprojected history |
+| `VolumetricFogNoiseScale` / `NoiseStrength` (engine) | 8 m / 0 | a tiling 3D noise varies the density (0..2×); it drifts with the wind |
+
+**Where it sits.** First in `BeforeTonemap`, on linear HDR scene radiance: `colour · T + in-scatter`, before TAA (which
+smooths it with the image), auto exposure (which adapts to the fogged scene), glow and the tonemap. **The analytic fog**
+(`applyFog`, `applySkyFog`) starts its integral at the length in a view that runs the march (`FogColor.a` = 1 + the
+start), so distant hills keep their aerial perspective and nothing is counted twice; other views (sub-viewports without
+post-processing) keep the whole integral.
+
+**Light shafts with volumetric fog.** The screen-space shafts (ADR 0160) stay a separate `PostProcessProfile` effect;
+they still work with volumetric fog on, but add a second, radial set of streaks and their bloom on top of the real
+ones. The Forest turns them off (its R1 glade was milky with both).
 
 ## Cinematic post (ADR 0168)
 

@@ -557,6 +557,9 @@ public sealed unsafe class FrameContext : IDisposable
 
     private int Index => _ctx.FrameSlot * MaxViews + CurrentView;
 
+    /// <summary>Set 0 of <paramref name="view"/> for the frame being recorded (post effects that read the camera and lights).</summary>
+    internal DescriptorSet SetFor(int view) => _sets[_ctx.FrameSlot * MaxViews + Math.Clamp(view, 0, MaxViews - 1)];
+
     /// <summary>Time in seconds written to <see cref="FrameData.Clip"/>.z by <see cref="Begin"/>.</summary>
     public float Time { get; set; }
 

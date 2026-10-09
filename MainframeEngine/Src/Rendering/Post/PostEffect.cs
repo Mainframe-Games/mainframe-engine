@@ -54,7 +54,9 @@ internal static class PostEffectOrder
     public const int Ssao = 100;
     public const int ContactShadows = 200;
 
-    // BeforeTonemap: TAA first (everything after it reads the resolved, jitter-free image), then exposure, which glow reads.
+    // BeforeTonemap: the volumetric fog first (ADR 0171: TAA then smooths it with the scene), then TAA (everything after
+    // it reads the resolved, jitter-free image), then exposure, which glow reads.
+    public const int VolumetricFog = 50;
     public const int Taa = 100;
     public const int DepthOfField = 150;
     public const int AutoExposure = 200;
@@ -82,6 +84,9 @@ internal readonly record struct PostEffectSettings(PostProcessSettings World, An
 {
     /// <summary>The primary light's contact shadows (ADR 0167; off by default).</summary>
     public ContactShadowSettings ContactShadows { get; init; }
+
+    /// <summary>The view's world's volumetric fog (ADR 0171; off by default).</summary>
+    public VolumetricFogSettings VolumetricFog { get; init; }
 
     /// <summary>The engine's defaults: its own tonemap, no anti-aliasing, no debug view (no post effect runs).</summary>
     public static PostEffectSettings Default => new(PostProcessSettings.Default, AntiAliasing.None, RenderDebugView.None);

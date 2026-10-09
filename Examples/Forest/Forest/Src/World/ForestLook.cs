@@ -36,8 +36,10 @@ public static class ForestLook
         AutoExposureScale = 0.16f,
         AutoExposureSpeed = 0.6f,
 
-        LightShaftsEnabled = true,
-        LightShaftsIntensity = 2.3f, // the morning haze in the canopy: strong rays through every sky gap near the sun
+        // ADR 0171: the volumetric fog draws the rays from the real shadows; the screen-space shafts on top doubled the
+        // streaks around the sun and made the glade milky. Off, with their values kept for a look without volumetrics.
+        LightShaftsEnabled = false,
+        LightShaftsIntensity = 2.3f,
         LightShaftsDecay = 0.965f,
         LightShaftsDensity = 0.85f,
 
