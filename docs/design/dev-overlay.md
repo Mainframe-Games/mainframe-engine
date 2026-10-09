@@ -16,8 +16,8 @@ Files: [Debugging/DevOverlay/](../../MainframeEngine/Src/Debugging/DevOverlay/) 
 |---|---|
 | Toggle | F12 (`Engine.DevOverlayKey`). `EngineOptions.DevOverlayVisible` sets the start state (default hidden); `Engine.DevOverlayVisible` reads and sets it at runtime. The editor keeps it off. |
 | Access | `Engine.DevOverlay`, or `Tree.Servers.Get<DevOverlay>()` from a node (null when `EngineOptions.EnableUi` is off). Works for `GameHost` games and `Engine` subclasses alike: no hook to override. |
-| Layer | One `UiLayer` named `DevOverlay` at `DevOverlay.LayerOrder` (`int.MaxValue`, above every game layer) holding one `UiDocument` composed from the panels. The layer is created the first time the overlay is shown; hidden, it does no work. |
-| Layout | A 360 dp column at the top right, at most 45 % of the viewport wide, scrolling when taller than the window. Each panel is a collapsible section: its title toggles the body. Only the column takes the mouse; the rest of the overlay passes input through to the game. |
+| Layer | One `UiLayer` named `DevOverlay` at `DevOverlay.LayerOrder` (`int.MaxValue`, above every game layer) holding one `UiDocument` composed from the panels. The layer is created the first time the overlay is shown; hidden, it does no work. It is a `UiScaleMode.Project` layer: it scales with the game's UI ([Game UI → Scaling](game-ui.md#scaling), ADR 0181) — 1:1 at 1920×1080 in a game scaling from 1080p, 2× at 4K. |
+| Layout | A 504 dp column at the top right (17 dp text), at most 50 % of the viewport wide, scrolling when taller than the window. Each panel is a collapsible section: its title toggles the body. Only the column takes the mouse; the rest of the overlay passes input through to the game. |
 | Server | `DevOverlay` is an `IServer` and `IFrameServer`, registered by `Engine.OnLoad` next to `UiServer`. |
 
 ### Built-in panels

@@ -355,6 +355,11 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["rendering.scaling3DMode"] = "Taau",
             ["rendering.scaling3DScale"] = "0.75",
             ["rendering.fsrSharpness"] = "0.5",
+            ["ui.scaleMode"] = "ConstantPixelSize",
+            ["ui.referenceResolution"] = "2560, 1440",
+            ["ui.matchWidthOrHeight"] = "0.5",
+            ["ui.minScale"] = "0.75",
+            ["ui.maxScale"] = "2",
         };
         foreach (var setting in ProjectSettingsModel.Settings)
             if (setting.Set is not null)
@@ -388,6 +393,12 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.NotNull(model.Set("physics.3d.gravity", "1, 2"));
         Assert.NotNull(model.Set("name", "  "));
         Assert.NotNull(model.Set("engineVersion", "9"));
+        Assert.NotNull(model.Set("ui.scaleMode", "Huge"));
+        Assert.NotNull(model.Set("ui.referenceResolution", "1920"));
+        Assert.NotNull(model.Set("ui.referenceResolution", "1920.5, 1080"));
+        Assert.NotNull(model.Set("ui.referenceResolution", "0, 1080"));
+        Assert.NotNull(model.Set("ui.matchWidthOrHeight", "1.5"));
+        Assert.NotNull(model.Set("ui.minScale", "-1"));
         Assert.Empty(model.History.Actions);
         Assert.Null(model.Set("window.width", "1280")); // unchanged: no entry
         Assert.Empty(model.History.Actions);

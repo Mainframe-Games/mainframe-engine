@@ -82,6 +82,7 @@ public sealed class ProjectSettingsModel
         ("Audio", "volume"),
         ("Localization", "language"),
         ("Rendering", "brightness-half"),
+        ("UI", "layout"),
         ("Autoloads", "stack-2"),
         ("Steamworks", "brand-steam"),
     ];
@@ -182,6 +183,22 @@ public sealed class ProjectSettingsModel
             static (s, v) => s.Rendering.Scaling3DScale = ParseFloat(v), "0.25 to 1: the 3D view's render resolution (0.75 renders 1440p as 1080p)."),
         new("rendering.fsrSharpness", "Rendering", "FSR Sharpness", SettingKind.Number, static s => Num(s.Rendering.FsrSharpness),
             static (s, v) => s.Rendering.FsrSharpness = ParseFloat(v), "0 (sharpest) to 2: the sharpen after an FSR 1 upscale."),
+
+        new("ui.scaleMode", "UI", "Scale Mode", SettingKind.Choice, static s => s.Ui.ScaleMode.ToString(),
+            static (s, v) => s.Ui.ScaleMode = Enum.Parse<UiScalingMode>(v, ignoreCase: true),
+            "ScaleWithScreenSize: the UI is authored for the reference resolution and grows with the window (a 4K window draws it 2×). " +
+            "ConstantPixelSize: 1 dp is one point of the display, whatever the window size. Applies to every UI layer, the dev overlay (F12) " +
+            "and the RmlUi debugger; the editor itself always uses the display's scale.",
+            Choices: Enum.GetNames<UiScalingMode>()),
+        new("ui.referenceResolution", "UI", "Reference Resolution", SettingKind.Vector, static s => Vec(s.Ui.ReferenceResolution),
+            static (s, v) => s.Ui.ReferenceResolution = ParseVector2I(v), "The window size in pixels the UI is authored for: 1 dp = 1 pixel there."),
+        new("ui.matchWidthOrHeight", "UI", "Match Width Or Height", SettingKind.Number, static s => Num(s.Ui.MatchWidthOrHeight),
+            static (s, v) => s.Ui.MatchWidthOrHeight = ParseFloat(v),
+            "0: scale with the window's width, 1: with its height (keeps the layout as tall as the reference on any aspect), between: a blend."),
+        new("ui.minScale", "UI", "Min Scale", SettingKind.Number, static s => Num(s.Ui.MinScale),
+            static (s, v) => s.Ui.MinScale = ParseFloat(v), "The smallest UI scale (pixels per dp) in small windows; 0: no limit."),
+        new("ui.maxScale", "UI", "Max Scale", SettingKind.Number, static s => Num(s.Ui.MaxScale),
+            static (s, v) => s.Ui.MaxScale = ParseFloat(v), "The largest UI scale (pixels per dp) in large windows; 0: no limit."),
 
         new("steam.appId", "Steamworks", "App ID", SettingKind.WholeNumber, static s => s.Steam.AppId.ToString(CultureInfo.InvariantCulture),
             static (s, v) => s.Steam.AppId = ParseUInt(v), "The full game's Steam app id (480: Spacewar, Valve's test app). 0 leaves Steam alone."),
@@ -418,6 +435,16 @@ public sealed class ProjectSettingsModel
     {
         var parts = SplitNumbers(text, 2);
         return new Vector2(parts[0], parts[1]);
+    }
+
+    private static string Vec(Vector2I v) => string.Create(CultureInfo.InvariantCulture, $"{v.X}, {v.Y}");
+
+    private static Vector2I ParseVector2I(string text)
+    {
+        var parts = SplitNumbers(text, 2);
+        if (parts[0] != MathF.Round(parts[0]) || parts[1] != MathF.Round(parts[1]) || parts[0] > int.MaxValue || parts[1] > int.MaxValue)
+            throw new FormatException("Enter two whole numbers separated by a comma.");
+        return new Vector2I((int)parts[0], (int)parts[1]);
     }
 
     private static Vector3 ParseVector3(string text)

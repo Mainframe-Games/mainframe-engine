@@ -157,6 +157,31 @@ public sealed class UiPreviewTests : IDisposable
     }
 
     [Fact]
+    public void ThePreviewUsesTheGamesUiScaleAndThePanelsTheDisplays()
+    {
+        // ADR 0181: the previewed document scales like the game would in a window the preview's size; the editor's own
+        // layers stay at the display's scale (the editor's UI server has no game scale).
+        var preview = OpenPreview();
+        var region = preview.Layer.Region!.Value;
+        Assert.Equal(UiScaling.ScaleWithScreenSize, preview.Layer.Scaling); // the new project's default
+        Assert.Equal(region.Height / 1080f, preview.Layer.Context!.DensityIndependentPixelRatio, 4);
+        Assert.Equal(UiScaling.ConstantPixelSize, _editor.Server.Scaling);
+        foreach (var layer in (UiLayer[])[W.PanelLayer, W.DialogLayer, W.TooltipLayer, W.ProjectLayer])
+        {
+            Assert.Equal(UiScaleMode.Dpi, layer.ScaleMode);
+            Assert.Equal(_editor.Server.ContentScale, layer.Context!.DensityIndependentPixelRatio);
+        }
+
+        // Saving the project settings applies at once.
+        var settings = ProjectSettings.Load(_project.Root);
+        settings.Ui.ScaleMode = UiScalingMode.ConstantPixelSize;
+        W.Session.SetProjectSettings(settings);
+        _editor.Tick();
+        Assert.Equal(UiScalingMode.ConstantPixelSize, preview.Layer.Scaling!.Mode);
+        Assert.Equal(_editor.Server.ContentScale, preview.Layer.Context.DensityIndependentPixelRatio);
+    }
+
+    [Fact]
     public void OpeningAnRmlFromTheFileSystemPreviewsItAndAgainActivatesTheTab()
     {
         var entry = W.FileSystem.Files!.Find("Content/UI/hud.rml")!;

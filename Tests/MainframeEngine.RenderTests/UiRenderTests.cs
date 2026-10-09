@@ -35,6 +35,43 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void ScaleWithScreenSizeKeepsTheUiProportionalAcrossWindowSizes()
+    {
+        // ADR 0181: a document authored for 640×360, captured at 320×180 points and again after a resize to 640×360
+        // (× the canonical scale in pixels: 0.5× then 1× on lavapipe, 1× then 2× on moltenvk). The UI covers the same
+        // fraction of the frame at both sizes: the box's edges land at the same relative positions.
+        var result = HostRunner.Run("ui-scaling", Output("ui-scaling"), "--size", "320x180", "--resize", "640x360@12", "--capture", "10,24", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        var small = Png.ReadRgba8(result.Captures.Single(c => c.Frame == 10).Path);
+        var large = Png.ReadRgba8(result.Captures.Single(c => c.Frame == 24).Path);
+        Assert.Equal((small.Width * 2, small.Height * 2), (large.Width, large.Height));
+
+        foreach (var image in (PngImage[])[small, large])
+        {
+            var scale = image.Height / UiScalingScene.ReferenceHeight;
+            bool IsBox(float dpX, float dpY)
+            {
+                var x = (int)(dpX * scale);
+                var y = (int)(dpY * scale);
+                var i = ((y * image.Width) + x) * 4;
+                var c = UiScalingScene.BoxColor;
+                return Math.Abs(image.Pixels[i] - c[0]) <= 2 && Math.Abs(image.Pixels[i + 1] - c[1]) <= 2 && Math.Abs(image.Pixels[i + 2] - c[2]) <= 2;
+            }
+
+            const float x0 = UiScalingScene.BoxX, y0 = UiScalingScene.BoxY;
+            const float x1 = x0 + UiScalingScene.BoxWidth, y1 = y0 + UiScalingScene.BoxHeight;
+            Assert.True(IsBox(x0 + 3, y0 + 3) && IsBox(x1 - 3, y1 - 3), $"{image.Width}x{image.Height}: the box is not inside its scaled rectangle.");
+            Assert.False(IsBox(x0 - 3, y0 + 10) || IsBox(x1 + 3, y0 + 10) || IsBox(x0 + 10, y1 + 3),
+                $"{image.Width}x{image.Height}: the box spills outside its scaled rectangle.");
+        }
+
+        Gates.AssertMatchesGolden(result, 10);
+        Gates.AssertMatchesGolden(result, 24);
+    }
+
+    [Fact]
     public void ImagesArePreloadedWithTheirDocument()
     {
         var result = HostRunner.Run("ui-preload", Output("ui-preload"), "--frames", "32", "--size", "320x240", "--hidden");

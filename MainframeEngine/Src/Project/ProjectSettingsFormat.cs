@@ -17,7 +17,7 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 2;
+    public const int Current = 3;
 
     /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
     public static IReadOnlyList<ProjectMigration> Migrations { get; } =
@@ -31,6 +31,15 @@ public static class ProjectSettingsFormat
             if (root["steam"] is not JsonObject steam)
                 root["steam"] = steam = new JsonObject();
             steam["appId"] ??= appId;
+        }),
+
+        // 2 → 3: the "ui" section (ADR 0181). New projects scale the UI with the screen from a 1080p reference; older
+        // projects keep the size they were made with: dp = the content scale.
+        new(2, static root =>
+        {
+            if (root["ui"] is not JsonObject ui)
+                root["ui"] = ui = new JsonObject();
+            ui["scaleMode"] ??= nameof(UiScalingMode.ConstantPixelSize);
         }),
     ];
 
@@ -128,6 +137,7 @@ public static class ProjectSettingsFormat
             WriteAudio(w, settings.Audio);
             WriteLocalization(w, settings.Localization);
             WriteRendering(w, settings.Rendering);
+            WriteUi(w, settings.Ui);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
             w.WriteEndObject();
@@ -161,7 +171,9 @@ public static class ProjectSettingsFormat
     private static void WriteWindow(Utf8JsonWriter w, WindowSettings s)
     {
         var d = new WindowSettings();
-        if (s.Title == d.Title && s.Width == d.Width && s.Height == d.Height && s.VSync == d.VSync && s.MaxFps == d.MaxFps && s.Icon == d.Icon)
+        if (s.Title == d.Title && s.Width == d.Width && s.Height == d.Height && s.VSync == d.VSync && s.MaxFps == d.MaxFps && s.Icon == d.Icon
+            && s.StretchMode == d.StretchMode && s.StretchAspect == d.StretchAspect && s.StretchScale == d.StretchScale
+            && s.StretchScaleMode == d.StretchScaleMode && s.ContentScale == d.ContentScale)
             return;
         w.WriteStartObject("window");
         if (s.Title is not null)
@@ -340,6 +352,26 @@ public static class ProjectSettingsFormat
         w.WriteEndObject();
     }
 
+    private static void WriteUi(Utf8JsonWriter w, UiProjectSettings s)
+    {
+        var d = new UiProjectSettings();
+        if (s.ScaleMode == d.ScaleMode && s.ReferenceResolution == d.ReferenceResolution && s.MatchWidthOrHeight == d.MatchWidthOrHeight
+            && s.MinScale == d.MinScale && s.MaxScale == d.MaxScale)
+            return;
+        w.WriteStartObject("ui");
+        if (s.ScaleMode != d.ScaleMode)
+            w.WriteString("scaleMode", s.ScaleMode.ToString());
+        if (s.ReferenceResolution != d.ReferenceResolution)
+            WriteFloats(w, "referenceResolution", [s.ReferenceResolution.X, s.ReferenceResolution.Y]);
+        if (s.MatchWidthOrHeight != d.MatchWidthOrHeight)
+            w.WriteNumber("matchWidthOrHeight", s.MatchWidthOrHeight);
+        if (s.MinScale != d.MinScale)
+            w.WriteNumber("minScale", s.MinScale);
+        if (s.MaxScale != d.MaxScale)
+            w.WriteNumber("maxScale", s.MaxScale);
+        w.WriteEndObject();
+    }
+
     private static void WriteAutoloads(Utf8JsonWriter w, List<AutoloadSettings> autoloads)
     {
         if (autoloads.Count == 0)
@@ -406,7 +438,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "autoloads", "playInstances");
+                "audio", "localization", "rendering", "ui", "autoloads", "playInstances");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -429,6 +461,8 @@ public static class ProjectSettingsFormat
                 ReadLocalization(localization, s.Localization);
             if (Object(root, "rendering") is { } rendering)
                 ReadRendering(rendering, s.Rendering);
+            if (Object(root, "ui") is { } ui)
+                ReadUi(ui, s.Ui);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
             if (Array(root, "playInstances", "playInstances") is { } instances)
@@ -571,6 +605,25 @@ public static class ProjectSettingsFormat
                     throw Error("rendering.shadows", $"'{shadows}' is not one of {string.Join(", ", Enum.GetNames<ShadowQuality>())}");
                 s.Shadows = quality;
             }
+        }
+
+        private void ReadUi(JsonObject o, UiProjectSettings s)
+        {
+            Known(o, "ui.", "scaleMode", "referenceResolution", "matchWidthOrHeight", "minScale", "maxScale");
+            s.ScaleMode = EnumValue(o, "scaleMode", "ui.scaleMode", s.ScaleMode);
+            if (Floats(o, "referenceResolution", "ui.referenceResolution", 2) is { } reference)
+            {
+                if (reference[0] != MathF.Round(reference[0]) || reference[1] != MathF.Round(reference[1]))
+                    throw Error("ui.referenceResolution", "must be whole pixels");
+                Guard("ui.referenceResolution", () => s.ReferenceResolution = new Vector2I((int)reference[0], (int)reference[1]));
+            }
+
+            var match = Float(o, "matchWidthOrHeight", "ui.matchWidthOrHeight", s.MatchWidthOrHeight);
+            Guard("ui.matchWidthOrHeight", () => s.MatchWidthOrHeight = match);
+            var max = Float(o, "maxScale", "ui.maxScale", s.MaxScale);
+            Guard("ui.maxScale", () => s.MaxScale = max);
+            var min = Float(o, "minScale", "ui.minScale", s.MinScale);
+            Guard("ui.minScale", () => s.MinScale = min);
         }
 
         private void ReadAutoloads(JsonArray array, List<AutoloadSettings> autoloads)

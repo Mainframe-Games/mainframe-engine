@@ -74,6 +74,10 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Localization.Domain = "game";
         s.Rendering.Exposure = 1.1f;
         s.Rendering.Shadows = ShadowQuality.Low;
+        s.Ui.ReferenceResolution = new Vector2I(2560, 1440);
+        s.Ui.MatchWidthOrHeight = 0.5f;
+        s.Ui.MaxScale = 2f;
+        s.Ui.MinScale = 0.75f;
         s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Content/Autoload/Music.mscene" });
         s.Autoloads.Add(new AutoloadSettings { Name = "Stats", Type = "GameStats", Enabled = false });
         var host = new PlayInstanceSettings { Label = "Host" };
@@ -101,6 +105,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equivalent(expected.Audio, actual.Audio, strict: true);
         Assert.Equivalent(expected.Localization, actual.Localization, strict: true);
         Assert.Equivalent(expected.Rendering, actual.Rendering, strict: true);
+        Assert.Equivalent(expected.Ui, actual.Ui, strict: true);
         Assert.Equal(expected.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)), actual.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)));
         Assert.Equal(expected.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)),
             actual.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)));
@@ -113,7 +118,7 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         var json = Text(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" });
 
-        Assert.Equal("{\n  \"format\": 2,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
+        Assert.Equal("{\n  \"format\": 3,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
         AssertSame(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" }, Parse(json));
     }
 
@@ -186,7 +191,7 @@ public sealed class ProjectSettingsTests : IDisposable
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "A", "type": "T" }, { "name": "A", "type": "U" } ] }""", "'A' is used by another autoload")]
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "a/b", "type": "T" } ] }""", "must be a node name")]
     [InlineData("""{ "format": 1, "assemblies": [1] }""", "assemblies must contain only strings")]
-    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 2")]
+    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 3")]
     [InlineData("""{ "format": 0 }""", "invalid project format 0")]
     [InlineData("""[1, 2]""", "is not a JSON object")]
     [InlineData("""{ "format": 1, """, "is not valid JSON")]
@@ -243,9 +248,85 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(480u, s.SteamAppId);
 
         var json = JsonNode.Parse(Text(s))!;
-        Assert.Equal(2, (int)json["format"]!);
+        Assert.Equal(3, (int)json["format"]!);
         Assert.Null(json["steamAppId"]);
         Assert.Equal(480u, (uint)json["steam"]!["appId"]!);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void OlderProjectsKeepAConstantPixelSizeUi(int format)
+    {
+        // ADR 0181: format 3 added the "ui" section and new projects scale with the screen; a project made before keeps
+        // the UI size it was made with, and says so in its file once saved.
+        var s = Parse($$"""{ "format": {{format}}, "name": "Old" }""");
+        Assert.Equal(UiScalingMode.ConstantPixelSize, s.Ui.ScaleMode);
+        Assert.Equal(UiScalingMode.ConstantPixelSize, s.Ui.ToScaling().Mode);
+
+        var json = JsonNode.Parse(Text(s))!;
+        Assert.Equal(3, (int)json["format"]!);
+        Assert.Equal("ConstantPixelSize", (string?)json["ui"]!["scaleMode"]);
+        Assert.Equal(UiScalingMode.ConstantPixelSize, Parse(Text(s)).Ui.ScaleMode);
+
+        // A format-2 file that already chose a mode keeps its choice; the rest of the section is untouched.
+        var chosen = Parse("""{ "format": 2, "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1280, 720] } }""");
+        Assert.Equal(UiScalingMode.ScaleWithScreenSize, chosen.Ui.ScaleMode);
+        Assert.Equal(new Vector2I(1280, 720), chosen.Ui.ReferenceResolution);
+    }
+
+    [Fact]
+    public void NewProjectsScaleTheUiWithTheScreenFrom1080p()
+    {
+        var defaults = new ProjectSettings();
+        Assert.Equal(UiScalingMode.ScaleWithScreenSize, defaults.Ui.ScaleMode);
+        Assert.Equal(new Vector2I(1920, 1080), defaults.Ui.ReferenceResolution);
+        Assert.Equal(1f, defaults.Ui.MatchWidthOrHeight);
+        Assert.Equal((0f, 0f), (defaults.Ui.MinScale, defaults.Ui.MaxScale));
+        Assert.Equal(UiScaling.ScaleWithScreenSize, defaults.Ui.ToScaling()); // record equality
+        Assert.Equal(UiScalingMode.ScaleWithScreenSize, Parse("""{ "format": 3, "name": "New" }""").Ui.ScaleMode);
+        Assert.Null(JsonNode.Parse(Text(defaults))!["ui"]); // defaults are not written
+
+        var s = Everything();
+        var scaling = s.Ui.ToScaling();
+        Assert.Equal(new UiScaling
+        {
+            Mode = UiScalingMode.ScaleWithScreenSize,
+            ReferenceResolution = new Vector2(2560, 1440),
+            MatchWidthOrHeight = 0.5f,
+            MinScale = 0.75f,
+            MaxScale = 2f,
+        }, scaling);
+        var ui = JsonNode.Parse(Text(s))!["ui"]!;
+        Assert.Equal([2560, 1440], ui["referenceResolution"]!.AsArray().Select(n => (int)n!));
+        Assert.Null(ui["scaleMode"]);
+    }
+
+    [Theory]
+    [InlineData("""{ "format": 3, "ui": { "scaleMode": "Huge" } }""", "ui.scaleMode 'Huge' is not one of")]
+    [InlineData("""{ "format": 3, "ui": { "referenceResolution": [0, 1080] } }""", "ui.referenceResolution is invalid")]
+    [InlineData("""{ "format": 3, "ui": { "referenceResolution": [1920.5, 1080] } }""", "ui.referenceResolution must be whole pixels")]
+    [InlineData("""{ "format": 3, "ui": { "referenceResolution": [1920] } }""", "ui.referenceResolution must have 2 numbers")]
+    [InlineData("""{ "format": 3, "ui": { "matchWidthOrHeight": 2 } }""", "ui.matchWidthOrHeight is invalid")]
+    [InlineData("""{ "format": 3, "ui": { "minScale": -1 } }""", "ui.minScale is invalid")]
+    [InlineData("""{ "format": 3, "ui": { "minScale": 2, "maxScale": 1 } }""", "is invalid")]
+    [InlineData("""{ "format": 3, "ui": 1 }""", "ui must be an object")]
+    public void InvalidUiSettingsNameTheProblem(string json, string expected)
+    {
+        var e = Assert.Throws<InvalidDataException>(() => Parse(json));
+        Assert.Contains(expected, e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AWindowWithOnlyStretchSettingsIsWritten()
+    {
+        // The window section used to be skipped unless one of its first six values changed, dropping stretch-only edits.
+        var s = new ProjectSettings();
+        s.Window.StretchMode = ContentScaleMode.CanvasItems;
+        Assert.Equal(ContentScaleMode.CanvasItems, Parse(Text(s)).Window.StretchMode);
+        s = new ProjectSettings();
+        s.Window.ContentScale = 1f;
+        Assert.Equal(1f, Parse(Text(s)).Window.ContentScale);
     }
 
     [Fact]

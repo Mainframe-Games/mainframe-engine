@@ -107,6 +107,14 @@ public sealed class ProjectTests
     }
 
     [Fact]
+    public void TheUiScalesWithTheScreenFrom1080p()
+    {
+        // ADR 0181: the FPS HUD, the menus and the dev overlay are authored at 1920×1080 and grow with the window
+        // (2× at 4K); the window is in pixels (contentScale 1), so a Retina display does not change the scale.
+        Assert.Equal(UiScaling.ScaleWithScreenSize, Load().Ui.ToScaling());
+    }
+
+    [Fact]
     public void TheScaleFlagParses()
     {
         Assert.Equal(1f, ForestDev.ParseScale("1"));

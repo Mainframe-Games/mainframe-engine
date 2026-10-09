@@ -38,7 +38,7 @@ public class GameHost : Engine
     private bool _startPending;
 
     /// <summary>
-    /// The UI options a game runs with: with <paramref name="hotReload"/> (Debug engine builds) the UI also watches the
+    /// The UI options a game runs with: the project's UI scale (<see cref="ProjectSettings.Ui"/>), and with <paramref name="hotReload"/> (Debug engine builds) the UI also watches the
     /// game assemblies' <c>MainframeContentSource</c> folders (their source <c>Content/</c>), so editing an <c>.rml</c> or
     /// <c>.rcss</c> in the project reloads the running game.
     /// </summary>
@@ -51,6 +51,7 @@ public class GameHost : Engine
         {
             HotReload = hotReload,
             SourceContentDirectories = hotReload ? UiServerOptions.SourceDirectoriesOf([.. gameAssemblies]) : [],
+            Scaling = settings.Ui.ToScaling(),
         };
     }
 

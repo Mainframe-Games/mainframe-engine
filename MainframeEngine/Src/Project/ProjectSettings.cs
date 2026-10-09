@@ -71,6 +71,9 @@ public sealed class ProjectSettings
 
     public RenderingProjectSettings Rendering { get; } = new();
 
+    /// <summary>The game UI's scale (<see cref="UiServer.Scaling"/>, ADR 0181); <see cref="GameHost"/> applies it.</summary>
+    public UiProjectSettings Ui { get; } = new();
+
     public SteamProjectSettings Steam { get; } = new();
 
     /// <summary>
@@ -452,6 +455,76 @@ public sealed class RenderingProjectSettings
     /// gamma-space RGBA), or null (default) to draw the canvas over the 3D scene.
     /// </summary>
     public System.Numerics.Vector4? CanvasClearColor { get; set; }
+}
+
+/// <summary>
+/// The <c>ui</c> section: how every game UI (each <see cref="UiLayer"/> in <see cref="UiScaleMode.Project"/> mode, the
+/// developer overlay, the RmlUi debugger) scales with the window — Unity's <c>CanvasScaler</c> (ADR 0181). New projects
+/// scale with the screen from a 1920×1080 reference; projects from before format 3 keep
+/// <see cref="UiScalingMode.ConstantPixelSize"/> (the migration writes it).
+/// </summary>
+public sealed class UiProjectSettings
+{
+    /// <summary><see cref="UiScalingMode.ScaleWithScreenSize"/> (default) or <see cref="UiScalingMode.ConstantPixelSize"/> (dp = the display's pixels per point).</summary>
+    public UiScalingMode ScaleMode { get; set; } = UiScalingMode.ScaleWithScreenSize;
+
+    /// <summary>The resolution (pixels) the UI is authored for: 1 dp = 1 pixel there. Default 1920×1080.</summary>
+    public Vector2I ReferenceResolution
+    {
+        get;
+        set
+        {
+            if (value.X < 1 || value.Y < 1 || value.X > 16384 || value.Y > 16384)
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The reference resolution must be between 1×1 and 16384×16384.");
+            field = value;
+        }
+    } = new(1920, 1080);
+
+    /// <summary>0 = scale with the width, 1 = with the height (default), between: a log-space blend (<see cref="UiScaling.MatchWidthOrHeight"/>).</summary>
+    public float MatchWidthOrHeight
+    {
+        get;
+        set
+        {
+            if (!(value >= 0f && value <= 1f))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Match width or height must be between 0 and 1.");
+            field = value;
+        }
+    } = 1f;
+
+    /// <summary>Smallest UI scale (pixels per dp) when scaling with the screen; 0 (default) = no limit.</summary>
+    public float MinScale
+    {
+        get;
+        set
+        {
+            if (!(value >= 0f) || !float.IsFinite(value) || (MaxScale > 0f && value > MaxScale))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The minimum scale must be 0 (none) or positive, and not above the maximum.");
+            field = value;
+        }
+    }
+
+    /// <summary>Largest UI scale (pixels per dp) when scaling with the screen; 0 (default) = no limit.</summary>
+    public float MaxScale
+    {
+        get;
+        set
+        {
+            if (!(value >= 0f) || !float.IsFinite(value) || (value > 0f && value < MinScale))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The maximum scale must be 0 (none) or positive, and not below the minimum.");
+            field = value;
+        }
+    }
+
+    /// <summary>The <see cref="UiServer.Scaling"/> these settings describe.</summary>
+    public UiScaling ToScaling() => new()
+    {
+        Mode = ScaleMode,
+        ReferenceResolution = new System.Numerics.Vector2(ReferenceResolution.X, ReferenceResolution.Y),
+        MatchWidthOrHeight = MatchWidthOrHeight,
+        MinScale = MinScale,
+        MaxScale = MaxScale,
+    };
 }
 
 /// <summary>One process of <see cref="ProjectSettings.PlayInstances"/>.</summary>

@@ -31,11 +31,24 @@ public sealed record UiServerOptions
     public Vector2 HeadlessViewport { get; init; } = new(1280, 720);
 
     /// <summary>
-    /// Fixed content scale: the dp ratio of <see cref="UiScaleMode.Dpi"/> layers (and the visual debugger) whatever the
+    /// Fixed content scale: the dp ratio of <see cref="UiScaleMode.Dpi"/> layers (and of every UI under
+    /// <see cref="UiScalingMode.ConstantPixelSize"/>) whatever the
     /// display's backing scale. 0 (default) follows the display (<see cref="UiServer.PixelScale"/>). The engine sets it
     /// from <see cref="EngineOptions.ContentScale"/>.
     /// </summary>
     public float ContentScale { get; init; }
+
+    /// <summary>
+    /// The game's UI scale (<see cref="UiServer.Scaling"/>, ADR 0181): the dp ratio of <see cref="UiScaleMode.Project"/>
+    /// layers (the default), the developer overlay and the visual debugger. Default
+    /// <see cref="UiScaling.ConstantPixelSize"/> (dp = <see cref="ContentScale"/>, the editor's and tests'); game projects
+    /// set it from project.mfproj's <c>ui</c> section (<see cref="GameHost.CreateUiOptions"/>).
+    /// </summary>
+    public UiScaling Scaling
+    {
+        get;
+        init => field = value ?? throw new ArgumentNullException(nameof(value));
+    } = UiScaling.ConstantPixelSize;
 
     /// <summary>
     /// Localization (M9): document sources go through its <see cref="ITextTranslator.PrepareDocument"/>, text nodes
@@ -146,6 +159,7 @@ public sealed class UiServer : IFrameServer, IInputServer
     public UiServer(IRenderer? renderer = null, IWindow? window = null, IInputContext? input = null, UiServerOptions? options = null)
     {
         _options = options ?? new UiServerOptions();
+        Scaling = _options.Scaling;
         _window = window;
         _input = input;
         if (RmlCore.IsInitialised)
@@ -234,6 +248,17 @@ public sealed class UiServer : IFrameServer, IInputServer
     /// when set, otherwise <see cref="PixelScale"/>.
     /// </summary>
     public float ContentScale => _options.ContentScale > 0f ? _options.ContentScale : PixelScale;
+
+    /// <summary>
+    /// The game's UI scale (ADR 0181; initially <see cref="UiServerOptions.Scaling"/>): the dp ratio of
+    /// <see cref="UiScaleMode.Project"/> layers, the developer overlay and the visual debugger, recomputed from the
+    /// framebuffer (or region) size every frame — a resize or a new value re-lays out the documents on the next frame.
+    /// </summary>
+    public UiScaling Scaling
+    {
+        get;
+        set => field = value ?? throw new ArgumentNullException(nameof(value));
+    }
 
     /// <summary>
     /// Localization hook: RmlUi's <c>TranslateString</c>, called for every text node RmlUi creates (and for data-bound
@@ -499,7 +524,7 @@ public sealed class UiServer : IFrameServer, IInputServer
         UpdateViewport();
         var size = LayerSize(layer);
         var context = new RmlContext($"layer{++_contextCounter}:{layer.Name}", (int)size.X, (int)size.Y, RenderInterface);
-        context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale));
+        context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale, Scaling));
         _layers.Add(layer);
         _layersDirty = true;
         return context;
@@ -643,7 +668,7 @@ public sealed class UiServer : IFrameServer, IInputServer
                 continue;
             var size = LayerSize(layer);
             context.SetDimensions((int)size.X, (int)size.Y);
-            context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale));
+            context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale, Scaling));
             var documents = layer.DocumentList;
             for (var d = 0; d < documents.Count; d++)
                 documents[d].PrepareFrame();
@@ -654,7 +679,7 @@ public sealed class UiServer : IFrameServer, IInputServer
         if (debugger is not null)
         {
             debugger.SetDimensions((int)ViewportSize.X, (int)ViewportSize.Y);
-            debugger.SetDensityIndependentPixelRatio(ContentScale);
+            debugger.SetDensityIndependentPixelRatio(Scaling.ComputeDpRatio(ViewportSize, ContentScale));
             debugger.Update();
         }
 
