@@ -164,7 +164,7 @@ A built-in material for leaves, grass and bark, following the `OutlineMaterial3D
 |---|---|
 | Albedo | `AlbedoColor`, `AlbedoTexture` (× colour × vertex colour) |
 | Normal map | `NormalTexture`, `NormalScale` |
-| Alpha | `AlphaCutout` (default on; off for bark), `AlphaCutoff` (0.5) |
+| Alpha | `AlphaCutout` (default on; off for bark), `AlphaCutoff` (0.5), `AlphaDither` (default off; on for `TreeMaterials`' leaves): under TAA the cutout is dithered across a derivative-wide edge and TAA resolves it to smooth coverage (ADR 0166, `include/alpha_dither.slang`, `pbr.w`); without TAA the plain test |
 | Lighting | `BackFace` (`Flip` the normal, `Keep` it for custom canopy normals, `Cull`), `Translucency` (0..1, default 0.5), `ShadingMode` (`BlinnPhong`, `Unshaded`, `Pbr`), `Roughness` (0.8), `OrmTexture` (PBR only: multiplies the roughness, metallic 0 and the vertex AO; tree bark, ADR 0158) |
 | Wind | `WindStrength` (scales the world's wind, 1), `WindBranchBend` (1) |
 

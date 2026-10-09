@@ -349,7 +349,8 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["localization.domain"] = "game",
             ["rendering.exposure"] = "1.25",
             ["rendering.shadows"] = "Low",
-            ["rendering.antiAliasing"] = "Fxaa",
+            ["rendering.antiAliasing"] = "Taa",
+            ["rendering.taaSharpness"] = "0.5",
         };
         foreach (var setting in ProjectSettingsModel.Settings)
             if (setting.Set is not null)

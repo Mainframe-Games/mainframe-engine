@@ -106,7 +106,9 @@ a carved channel is lost on re-carve.
 `MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs`, shaders `Water/Water.vk.vert` and `Water/Water.vk.frag`
 (`ShaderSetId.MeshWater`, always the `MeshInstancedExt` layout). The proposal's look **without `SceneTextures`**: no
 refraction; the surface is alpha-blended over the bed. Blended (drawn back to front after the opaques), back faces culled,
-no depth writes, casts no shadow.
+no depth writes, casts no shadow. In the main view it blends with `BlendMode.AlphaReactive` (ADR 0166): the colour as
+before, the scene alpha × (1 − its alpha), which TAA reads as a reactive mask (the flow animates under the bed's static
+motion vectors; TAA keeps less history there instead of smearing the ripples).
 
 | Group | Exports (defaults) |
 |---|---|

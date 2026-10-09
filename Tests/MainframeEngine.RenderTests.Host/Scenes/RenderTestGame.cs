@@ -71,6 +71,11 @@ public abstract class RenderTestGame : Engine
                 render.DebugView = RenderDebugView.Velocity;
         }
 
+        if (_host.AntiAliasing is { } antiAliasing)
+            Vulkan.AntiAliasing = antiAliasing;
+        if (_host.TaaSharpness is { } sharpness)
+            Vulkan.TaaSharpness = sharpness;
+
         if (_host.UpdateRate > 0)
         {
             // Renders run unthrottled, updates at UpdateRate: the UI renderer sees renders without a new update.

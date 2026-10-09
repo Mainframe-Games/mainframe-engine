@@ -324,6 +324,7 @@ public sealed class FoliageWindScene(HostOptions host) : MeshSceneBase(host)
                 AlbedoTexture = leafTexture,
                 Translucency = 0.6f,
                 Roughness = 0.6f,
+                AlphaDither = Host.AntiAliasing == AntiAliasing.Taa, // taa-foliage (ADR 0166); no effect without TAA
             },
         });
 

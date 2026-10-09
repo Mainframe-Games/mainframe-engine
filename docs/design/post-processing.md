@@ -6,7 +6,7 @@ How the main view's screen-space effects are organised ([ADR 0163](../../memory/
 three **stages** in the frame, **effects** registered on a per-view stack, the images they share (**scene textures**:
 HDR colour, depth, velocity), a **target pool** with ping-pong histories, the **depth prepass** that writes depth and
 **motion vectors** before lighting, and the **projection jitter** TAA needs. Auto exposure, glow, light shafts and
-FXAA are effects in this system; SSAO and TAA plug into it. Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
+FXAA are effects in this system, and so are TAA (ADR 0166) and SSAO. Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
 
 ## Frame
 
@@ -17,7 +17,7 @@ flowchart LR
     AP --> SC["Scene pass<br/>loads the prepass depth;<br/>prepassed surfaces: LEQUAL / EQUAL, no writes"]
     SC --> BT["BeforeTonemap stage (HDR)<br/>TAA · auto exposure · glow · light shafts"]
     BT --> TM["Tonemap<br/>engine or post (composites exposure, glow, shafts)"]
-    TM --> AT["AfterTonemap stage (LDR)<br/>FXAA · velocity view<br/>last one → swapchain"]
+    TM --> AT["AfterTonemap stage (LDR)<br/>TAA sharpen · FXAA · velocity view<br/>last one → swapchain"]
     AT --> OV["Overlay<br/>canvas, gizmos, UI, dev overlay"]
 ```
 
@@ -39,7 +39,7 @@ Only the tree's root world is post-processed (glow, auto exposure, light shafts,
 | `PostEffect` | an effect: `Name`, `Stage`, `Order`, `Needs`, `IsEnabled(settings)`, and `OnCreate`, `OnBeginFrame`, `OnResize`, `OnRecord`, `OnDispose` |
 | `PostEffectOrder` | the built-in orders: `Ssao` 100, `ContactShadows` 200; `Taa` 100, `DepthOfField` 150, `AutoExposure` 200, `Glow` 300, `LightShafts` 400; `Sharpen` 50, `Fxaa` 100, `DebugView` 1000 |
 | `PostEffectNeeds` | `DepthPrepass`, `Velocity` (implies the prepass), `Jitter` |
-| `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`; `PostTonemap` = the world asks for more than the engine tonemap |
+| `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`, `TaaSharpness`; `PostTonemap` = the world asks for more than the engine tonemap |
 | `PostProcessStack` | the view's effects, sorted by stage, order, registration; `GetNeeds`, `CountEnabled`, `BeginFrame`, `Record(stage)`, `Resize` |
 | `PostEffectContext` | per stage: `CommandBuffer`, `Stage`, `Settings`, `Scene` (`SceneTextures`), `Targets` (pool), `Camera` (`PostCamera`), `FrameNumber`, `DeltaTime`, `Time`, `Exposure`, `IsLastInStage`, `BeginOutput`/`EndOutput`, `CopyToSceneColor` |
 | `SceneTextures` | `Color` (HDR), `Depth`, `Velocity`, `Ldr`, `Extent`, `Generation`, `HasPrepass`, point and linear samplers |
@@ -49,6 +49,7 @@ Only the tree's root world is post-processed (glow, auto exposure, light shafts,
 | `SceneColorCopy` | `CopyToSceneColor`'s fullscreen copy into the HDR scene colour |
 | `TemporalJitter` | Halton (2, 3): `Halton`, `SampleIndex`, `PixelOffset`, `NdcOffset`, `Apply(projection, jitter)` |
 | `IPostProcessHost` | the renderer's side the render server drives (`PostEffects`, `BeginPostFrame`, `BeginPrepass`/`EndPrepass`, `RecordAfterPrepass`) |
+| `TaaEffect`, `TaaSharpenEffect` | TAA's resolve and RCAS sharpen ([TAA](#taa), ADR 0166); `TaaParams` is the resolve's push block |
 
 All of these are internal for now; `RenderDebugView`, `TemporalJitter`, `FrameTemporal` and the `FrameData` fields are
 public.
@@ -60,7 +61,8 @@ cutout depth, `Velocity` the motion vectors; nothing is lit (`Color` is not rend
 output for the lit shaders (below). The stage only runs on frames with a prepass, and any effect in it should declare
 `PostEffectNeeds.DepthPrepass`.
 
-**BeforeTonemap.** After the scene pass, on linear HDR colour. Built in: auto exposure, glow and light shafts, which
+**BeforeTonemap.** After the scene pass, on linear HDR colour. Built in: TAA (first: everything after it reads the
+resolved image), then auto exposure, glow and light shafts, which
 the post tonemap pass composites (their outputs are bound in its set); they run whenever the world's settings are not
 the default (`PostEffectSettings.PostTonemap`), exactly as before ADR 0163. An effect that produces a new HDR image
 (TAA, depth of field) writes it back with `PostEffectContext.CopyToSceneColor(view)`: one fullscreen pass over the scene
@@ -71,7 +73,8 @@ the canvas, gizmos, UI and dev overlay. When any effect of the stage is on, the 
 image; each effect draws one fullscreen pass from `Scene.Ldr` into `context.BeginOutput()`, which is the next LDR
 image of a ping-pong pair, or, for the last effect (`IsLastInStage`), the swapchain pass, which stays open for the
 overlay renderers. An effect builds a pipeline per `OutputRenderPass` it is handed (`PassPipelines`), and decodes sRGB
-when `OutputEncodesSrgb` (a swapchain view that encodes). Built in: FXAA, and the velocity debug view (last).
+when `OutputEncodesSrgb` (a swapchain view that encodes). Built in: TAA's sharpen, FXAA, and the velocity debug view
+(last).
 
 ## Writing an effect
 
@@ -199,6 +202,69 @@ matrices (the root object-ID pass shares view 0's set, so picks are jittered by 
 orthographic projections. Motion vectors are unjittered, so a still scene with jitter has zero velocity
 (`TheProjectionJitterLeavesStillPixelsStill`). Under `--fixed-fps` the sequence is deterministic.
 
+## TAA
+
+`AntiAliasing.Taa` ([ADR 0166](../../memory/decisions/0166-taa.md)): [`TaaEffect`](../../MainframeEngine/Src/Rendering/Post/TaaEffect.cs)
+(`BeforeTonemap`, `PostEffectOrder.Taa`, first in the stage; `Needs = Velocity | Jitter`) and
+[`TaaSharpenEffect`](../../MainframeEngine/Src/Rendering/Post/TaaSharpenEffect.cs) (`AfterTonemap`,
+`PostEffectOrder.Sharpen`). TAA replaces FXAA (one enum); like every post effect it runs for the root world only.
+
+**The resolve** (`Post/Taa.vk.frag`, one fullscreen pass into the history's `Current`, then `CopyToSceneColor`):
+
+| Step | What |
+|---|---|
+| Reconstruct | the current colour at the output pixel's centre from the 3 × 3 jittered samples around it (sample `t` was taken at `t + 0.5 − jitterPixels`), weights `exp(−2.29 d² / 0.75²)` (`FilterFalloff`); written in input pixels with an output/input ratio, so TAAU (G8e.8) can render below the output size |
+| Reproject | the velocity of the **closest depth** in the 3 × 3 (silhouettes carry their motion a pixel out); `previousUv = uv − velocity`; off-screen → no history |
+| Disocclusion | the history's alpha is the view depth of its closest sample; the history is dropped when **no** texel of the 3 × 3 around `previousUv` stored the depth this pixel's closest sample had last frame (`DepthPrevious` row of inverse VP × last VP), within 15 % (`DepthTolerance`). The 3 × 3 keeps thin needles (in some texels one frame, not the next) from counting as disocclusions; without the test a swaying branch leaves a translucent copy of itself |
+| History | a 5-tap Catmull–Rom (bilinear sampler) |
+| Clip | towards the 3 × 3's variance box in YCoCg (Salvi: mean ± 1.25 σ, inside min/max), Playdead's clip towards the centre |
+| Blend | Karis: everything above runs on `c / (1 + exposure · luma)`, unweighted at the end; feedback `FeedbackStill` 0.94 (≈ 17 frames), down to `FeedbackMoving` 0.88 at 8 px/frame, and to `FeedbackReactive` 0.2 where the scene alpha marks water |
+| No history | first frame, resize, cut, disocclusion: a softer 3 × 3 reconstruction (`exp(−2.29 d²)`), which hides the single sample's aliasing and the dithered alpha's noise until the history builds up |
+
+The filter width, feedback and depth test were measured against a 4× supersampled frame (linear light) on the
+`taa-edges` and `taa-foliage` scenes and on autowalk frame grabs: the wide Blackman–Harris fit Unreal uses
+(`exp(−2.29 d²)`) blurred the converged image (mean error 1.51 against the supersampled frame, 1.18 at width 0.75, 3.44
+without AA); a lower feedback (0.9) tracked swaying leaves slightly better but flickered more on still thin lines (0.3 vs
+0.17 mean frame-to-frame change); turning the depth test off left ghosts of near branches.
+
+**History and cuts.** `Targets.GetHistory(new("taa", R16G16B16A16_SFLOAT))` (two full-size RGBA16F targets: 33 MB at
+1920 × 1080), `Advance` in `OnBeginFrame`. It starts again (`TaaEffect.ResetFrames`) on the first frame, after a resize
+(the pool resets it), after a frame without a resolve (no prepass or no camera), when the view has no motion history
+(`PostCamera.HistoryValid`), and on camera cuts: `RenderServer.ResetTemporalHistory()` (call it after teleporting the
+camera; it forgets every view's motion history, `FrameContext.ResetHistory`) and a switch of the root world's camera
+(the render server compares the camera each frame). Sets are written on creation and after a resize only (one per
+history target), never while a frame in flight binds them.
+
+**Water (the reactive mask).** Water has no motion vectors of its own (it is blended, not prepassed) and its flow
+animates under the bed's static ones, so a full history smeared its ripples along the flow. Water in the main scene
+pass blends with `BlendMode.AlphaReactive` (`a = dst · (1 − src.a)`): opaque surfaces and the sky write alpha 1, so the
+resolve reads `1 − scene alpha` as reactivity and lowers the feedback towards 0.2 there; ripples stay as crisp as with
+FXAA (and alias a little more than the rest of the image). Drawing water after TAA was the alternative: water lives in
+the scene pass (fog, refraction of what is behind it), so moving it would have needed its own pass over the resolved
+image and depth. Sub-viewports keep the plain alpha blend.
+
+**Dithered cutouts.** `FoliageMaterial3D.AlphaDither` (tree leaves from `TreeMaterials`, the Forest's ferns): with
+TAA on (the frame is jittered), the cutout keeps a fragment when its coverage, `(alpha − cutoff) / fwidth(alpha) + 0.5`,
+beats a per-frame interleaved-gradient-noise threshold (`include/alpha_dither.slang`, `cutoutKeeps`; `material.pbr.w`
+= 1). The history averages it into fractional coverage, so leaf edges resolve smoothly instead of crawling. The prepass
+(`MeshDepth.vk.frag`) and `Foliage.vk.frag` share the function, so the scene pass's EQUAL test keeps exactly the
+prepass's fragments. Without TAA, or without the flag, the test is `alpha ≥ cutoff` as before; shadow casters never
+dither. G8e.5's `AlphaAntialiasingMode.AlphaToCoverage` can map onto it.
+
+**The sharpen.** `rendering.taaSharpness` (0–1, default 0.25, `IVulkanContext.TaaSharpness`): RCAS (FSR 1's robust
+contrast-adaptive sharpening, ported) on the tonemapped LDR image: a 5-tap cross, the largest negative lobe that keeps
+each channel inside the cross's min/max, capped at RCAS's 0.1875 and scaled by the sharpness. After the history
+(sharpening inside it would compound frame over frame), before the canvas, gizmos and UI. 0 disables the effect, and
+the tonemap draws straight into the swapchain again.
+
+**Cost** (the Forest, `just forest-bench`, 1920 × 1080, Apple M5, MoltenVK, measured while other lanes' GPU jobs ran,
+so only the quietest runs mean much): FXAA p50 14.03 ms / p99 23.29 ms (no other GPU process), TAA p50 13.12 ms /
+p99 21.64 ms; eight interleaved runs spread from 13 to 28 ms either way, with no consistent difference. TAA turns the
+depth prepass on, which alone saved ≈ 1.4 ms in the Forest (above), and adds the resolve (one fullscreen pass, 9 colour
++ 9 depth + 5 history + 9 history-depth taps), the scene-colour copy and the LDR sharpen: in total about what the prepass
+saves. Memory: two full-size `RGBA16F` history targets (33 MB at 1920 × 1080) and one LDR image for the sharpen.
+0 B per frame (the Forest's benchmark and `TaaAllocatesNothingPerFrame`).
+
 ## Ambient occlusion binding
 
 Set 0 binding 5 (`FrameContext.AmbientOcclusionBinding`) is `ssaoTexture` (`include/ambient_occlusion.slang`), a
@@ -219,7 +285,8 @@ decodes exactly (`VelocityDebugView.Decode`); still is 128 grey.
 
 Effects read their switches from `PostEffectSettings`: the world's `PostProcessSettings` (set on `WorldEnvironment`, Godot
 style: glow, auto exposure, light shafts; SSAO's will go there too), the project's `AntiAliasing`
-(`rendering.antiAliasing`; TAA will be `AntiAliasing.Taa`) and the renderer's debug view. `RenderServer.ForceDepthPrepass`
+(`rendering.antiAliasing`: `None`, `Fxaa`, `Taa`) and `TaaSharpness` (`rendering.taaSharpness`), and the renderer's debug
+view. `RenderServer.ForceDepthPrepass`
 and `MAINFRAME_DEPTH_PREPASS` force the prepass.
 
 ## Game-defined effects (later)
@@ -239,12 +306,7 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
   `context.Vulkan.Frame.SetAmbientOcclusion(...)` in `OnBeginFrame` (id: a counter bumped on create/resize). In the lit
   shaders, include `ambient_occlusion.slang` and multiply the ambient/indirect term by
   `ambientOcclusion(SV_Position.xy * frame.viewport.zw)` (`shadeLightsPbr`'s IBL terms, the Blinn-Phong ambient).
-- **TAA:** a `BeforeTonemap` effect at `PostEffectOrder.Taa` with `Needs = Velocity | Jitter`, enabled by
-  `settings.AntiAliasing == AntiAliasing.Taa` (add the value). History: `Targets.GetHistory(new("taa", R16G16B16A16_SFLOAT))`,
-  `Advance` in `OnBeginFrame` (or `OnRecord`), reset on cuts. Resolve `Scene.Color` with `Previous` and `Scene.Velocity`
-  (closest-depth from `Scene.Depth`) into `Current`, `MarkWritten()`, then `CopyToSceneColor(Current's view)`. The
-  camera's `Jitter`/`PreviousJitter` give the sample offsets in NDC (pixels: `jitter.x · width / 2`,
-  `−jitter.y · height / 2`).
+- **TAA:** built ([TAA](#taa), ADR 0166).
 
 ## Testing
 
@@ -253,7 +315,19 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
   matrices, the body's centre pixel against its own motion); the jitter leaving still pixels still; foliage moving in the
   wind and not without it; `post-copy` (a `BeforeTonemap` test effect writes the scene colour through a pooled history);
   0 B per frame with the prepass, velocity view and jitter (allocation gate). Host flags `--prepass`, `--jitter`,
-  `--velocity-view`.
+  `--velocity-view`, `--aa none|fxaa|taa`, `--taa-sharpness`.
+- **TAA render tests** (`TaaTests`, ADR 0166; goldens `taa-edges`, `taa-ghost`, `taa-foliage` on both drivers):
+  - `taa-edges` (thin bars at shallow angles, sub-pixel spokes): TAA's frame 40 is at most 0.6 × as far from a 4×
+    supersampled frame (box-filtered in linear light) as the aliased frame is (measured 0.35 on MoltenVK);
+  - `taa-ghost`: a red box crossing a flat wall; its trail must be the wall (self-checked at frames 30 and 60);
+    `--count 1` adds `ResetTemporalHistory`, a camera switch and a resize: exactly four new histories;
+  - `taa-foliage` (`foliage-wind` with TAA and dithered leaves): closer to the supersampled frame than without AA
+    (at most 0.9 ×; measured 0.78), so the swaying leaves are not dragged;
+  - the `fxaa` scene with `--aa taa`: edges blended, the overlay gizmo exact;
+  - 0 B per frame with TAA (allocation gate).
+- **TAA unit tests** (`Rendering/TaaTests`): the settings and their round trip, TAA's stage order, needs and enable rules
+  (it replaces FXAA; the sharpen only with a sharpness), the Halton sequence seen in pixels at any size, the depth rows
+  against a moving camera, the push block's size, the material's dither flag.
 - **Unit tests** (`PostProcessingTests`): stage and order sorting, enable rules and needs, lazy creation and disposal,
   the built-ins' stages, the target pool and history validity, Halton and the jittered projection, the 560-byte frame
   block and its offsets, view and node motion histories.
@@ -261,8 +335,12 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 ## Known issues
 
 - Sub-viewports have no post effects, prepass or velocity.
-- What the prepass does not draw has no velocity of its own (see above); a reactive mask for TAA is not built.
-- SSAO and TAA themselves are not built yet (lanes S and T).
+- What the prepass does not draw has no velocity of its own (see above). Water marks itself reactive for TAA; particles
+  (G6.3), Spine and transparent `StandardMaterial3D`s do not yet, so they may smear under TAA when they animate.
+- SSAO itself is not built yet (lane S).
+- TAA softens the image a little in motion (the sharpen restores some of it); the dithered alpha's noise shows for a
+  frame or two where a branch uncovers leaves (the softer no-history reconstruction hides most of it); the Karis
+  weighting uses the project exposure, not auto exposure's.
 
 ## Related docs
 

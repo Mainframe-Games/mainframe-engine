@@ -167,7 +167,10 @@ public sealed class ProjectSettingsModel
             "Off, or the Low/Medium/High atlas size, filter and cascades.", Choices: Enum.GetNames<ShadowQuality>()),
         new("rendering.antiAliasing", "Rendering", "Anti-Aliasing", SettingKind.Choice, static s => s.Rendering.AntiAliasing.ToString(),
             static (s, v) => s.Rendering.AntiAliasing = Enum.Parse<AntiAliasing>(v, ignoreCase: true),
-            "None, or FXAA on the tonemapped image (the UI stays sharp).", Choices: Enum.GetNames<AntiAliasing>()),
+            "None, FXAA on the tonemapped image, or TAA (temporal: smooths leaves and thin detail). The UI stays sharp.",
+            Choices: Enum.GetNames<AntiAliasing>()),
+        new("rendering.taaSharpness", "Rendering", "TAA Sharpness", SettingKind.Number, static s => Num(s.Rendering.TaaSharpness),
+            static (s, v) => s.Rendering.TaaSharpness = ParseFloat(v), "0 (off) to 1: sharpens the image after TAA."),
 
         new("steam.appId", "Steamworks", "App ID", SettingKind.WholeNumber, static s => s.Steam.AppId.ToString(CultureInfo.InvariantCulture),
             static (s, v) => s.Steam.AppId = ParseUInt(v), "The full game's Steam app id (480: Spacewar, Valve's test app). 0 leaves Steam alone."),

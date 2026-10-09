@@ -17,6 +17,13 @@ internal enum BlendMode : byte
 
     /// <summary>Premultiplied alpha: <c>rgb = src + dst·(1−a)</c> (Spine, anything whose colour is already × alpha).</summary>
     Premultiplied,
+
+    /// <summary>
+    /// Straight alpha that marks itself in the destination alpha: <c>rgb = src·a + dst·(1−a)</c>, <c>a = dst·(1−a)</c>.
+    /// Water in the main view (ADR 0166): opaque surfaces leave the scene alpha at 1, so 1 − alpha is how much of the pixel
+    /// is animated water with no motion vectors of its own, TAA's reactive mask.
+    /// </summary>
+    AlphaReactive,
 }
 
 /// <summary>Fixed-function state for <see cref="PipelineBuilder"/>; viewport and scissor are always dynamic.</summary>
@@ -167,6 +174,17 @@ internal static unsafe class PipelineBuilder
                 ColorBlendOp = BlendOp.Add,
                 SrcAlphaBlendFactor = BlendFactor.One,
                 DstAlphaBlendFactor = BlendFactor.Zero,
+                AlphaBlendOp = BlendOp.Add,
+                ColorWriteMask = all,
+            },
+            BlendMode.AlphaReactive => new()
+            {
+                BlendEnable = true,
+                SrcColorBlendFactor = BlendFactor.SrcAlpha,
+                DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha,
+                ColorBlendOp = BlendOp.Add,
+                SrcAlphaBlendFactor = BlendFactor.Zero,
+                DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,
                 AlphaBlendOp = BlendOp.Add,
                 ColorWriteMask = all,
             },

@@ -1290,7 +1290,10 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             // ADR 0163: a prepassed surface lands on its own prepass depth; a cutout only where the prepass kept it.
             DepthCompare = key.Prepassed ? key.Alpha == AlphaMode.Cutout ? CompareOp.Equal : CompareOp.LessOrEqual
                 : key.ExtraPass ? CompareOp.LessOrEqual : CompareOp.Less,
-            Blend = key.Alpha == AlphaMode.Blend && key.Shaders != ShaderSetId.MeshObjectId ? BlendMode.Alpha : BlendMode.Opaque,
+            Blend = key.Alpha != AlphaMode.Blend || key.Shaders == ShaderSetId.MeshObjectId ? BlendMode.Opaque
+                // ADR 0166: water in the main scene pass marks the scene alpha (TAA's reactive mask); sub-viewports keep theirs.
+                : key.Shaders == ShaderSetId.MeshWater && key.RenderPass == _ctx.RenderPass.Handle ? BlendMode.AlphaReactive
+                : BlendMode.Alpha,
         };
 
         // Constant 0: the alpha mode (a prepassed cutout runs as opaque: the EQUAL depth test replaces its discard, and

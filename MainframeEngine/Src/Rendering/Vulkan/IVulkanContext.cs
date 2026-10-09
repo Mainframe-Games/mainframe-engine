@@ -23,6 +23,9 @@ public interface IVulkanContext
     /// </summary>
     const float DefaultExposure = 1.3f;
 
+    /// <summary>The sharpen after TAA the renderer starts with (<see cref="TaaSharpness"/>, ADR 0166).</summary>
+    const float DefaultTaaSharpness = 0.25f;
+
     Vk Vk { get; }
     Device Device { get; }
     PhysicalDevice PhysicalDevice { get; }
@@ -146,10 +149,18 @@ public interface IVulkanContext
     LightShaftsSun LightShaftsSun { get; set; }
 
     /// <summary>
-    /// Screen-space anti-aliasing of the main view (ADR 0154): FXAA runs on the tonemapped image, before the 2D canvas,
-    /// gizmos and UI. Starts at <see cref="EngineOptions.AntiAliasing"/>; may change between frames.
+    /// Anti-aliasing of the main view (ADR 0154, ADR 0166): FXAA runs on the tonemapped image, TAA on the HDR image before
+    /// auto exposure and glow; both before the 2D canvas, gizmos and UI. Starts at <see cref="EngineOptions.AntiAliasing"/>;
+    /// may change between frames (switching to TAA starts a new history).
     /// </summary>
     AntiAliasing AntiAliasing { get; set; }
+
+    /// <summary>
+    /// How much the image is sharpened after TAA (ADR 0166), 0 (off) to 1: a contrast-adaptive sharpen (RCAS, from AMD
+    /// FSR 1) on the tonemapped image, under the UI, that restores the detail the resolve's filtering softens. Only with
+    /// <see cref="AntiAliasing.Taa"/>. Starts at <see cref="EngineOptions.TaaSharpness"/> (<see cref="DefaultTaaSharpness"/>).
+    /// </summary>
+    float TaaSharpness { get; set; }
 
     /// <summary>
     /// Seconds since the previous frame (<see cref="Engine"/> sets it from <see cref="GameTime.DeltaTime"/> before each

@@ -6,7 +6,7 @@ using Color = System.Drawing.Color;
 
 /// <summary>
 /// FXAA (ADR 0154): an unshaded white box turned so its silhouette edges are oblique, over the dark clear colour, and an
-/// opaque red screen-gizmo square (overlay pass) on the background beside it. <c>--count</c>: 0 FXAA, 1 no
+/// opaque red screen-gizmo square (overlay pass) on the background beside it. <c>--aa</c> picks the mode (TAA, ADR 0166); else <c>--count</c>: 0 FXAA, 1 no
 /// anti-aliasing. FXAA must soften the box's edges and leave the gizmo (drawn after it) exact.
 /// </summary>
 public sealed class FxaaScene(HostOptions host) : RenderTestGame(host)
@@ -17,7 +17,7 @@ public sealed class FxaaScene(HostOptions host) : RenderTestGame(host)
 
     protected override void LoadScene()
     {
-        Vulkan.AntiAliasing = Host.Count == 1 ? AntiAliasing.None : AntiAliasing.Fxaa;
+        Vulkan.AntiAliasing = Host.AntiAliasing ?? (Host.Count == 1 ? AntiAliasing.None : AntiAliasing.Fxaa);
         var scene = new Node3D { Name = nameof(FxaaScene) };
         scene.AddChild(new Camera3D { Name = "Camera", Position = new Vector3(0f, 0f, 3f) });
         scene.AddChild(new MeshInstance3D

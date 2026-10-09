@@ -110,6 +110,24 @@ public sealed class FoliageMaterial3D : Material
         }
     } = 0.5f;
 
+    /// <summary>
+    /// With <see cref="AntiAliasing.Taa"/>, dithers the alpha test (ADR 0166): each frame keeps a fragment when its coverage
+    /// — the alpha edge sharpened by its screen-space derivative, about a pixel wide — beats a per-frame noise threshold,
+    /// and TAA averages that into smooth partial coverage, so leaf and needle edges stop crawling. No effect without TAA
+    /// (the plain test against <see cref="AlphaCutoff"/>) or without <see cref="AlphaCutout"/>; shadows never dither.
+    /// </summary>
+    [Export]
+    public bool AlphaDither
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
     [ExportGroup("Lighting")]
     [Export]
     public FoliageBackFace BackFace

@@ -14,8 +14,8 @@ tonemapping so it looks exactly as authored. Implemented in
 Before M3 the swapchain was UNORM, lighting ran on gamma-encoded values (overlapping lights clipped to
 white), sky textures were sRGB and came out darker, and Spine's premultiplied alpha was applied twice.
 
-Since ADR 0163 the effects around the tonemap are `PostEffect`s in stages (`BeforeTonemap`: auto exposure, glow, light
-shafts, later TAA; `AfterTonemap`: FXAA), recorded by the main view's `PostProcessStack`, and a depth prepass with motion
+Since ADR 0163 the effects around the tonemap are `PostEffect`s in stages (`BeforeTonemap`: TAA, auto exposure, glow,
+light shafts; `AfterTonemap`: TAA's sharpen, FXAA), recorded by the main view's `PostProcessStack`, and a depth prepass with motion
 vectors can run before the scene pass: see [Post-processing](post-processing.md). The colour handling below is
 unchanged by it.
 
@@ -25,7 +25,9 @@ unchanged by it.
 flowchart LR
     S["Scene pass<br/>RenderTarget: R16G16B16A16_SFLOAT + stored depth<br/>sky, grid, shapes, Spine (linear)"] --> T["Tonemap pass<br/>texel × exposure → ACES fitted → sRGB encode"]
     S -. "PostProcessSettings ≠ Default (ADR 0124)" .-> AE["Auto exposure (ADR 0154)<br/>log2 luminance 64² → 1², adapted 1×1"] -.-> G["Glow chain<br/>7 levels, ½ … 1/128 res"] -.-> LS["Light shafts (ADR 0160)<br/>½ res: sky mask → fine + coarse radial blur"] -.-> T2["Post tonemap pass<br/>+ shafts → × exposure (× auto) → glow → engine or Godot ACES → sRGB encode"]
+    S -. "AntiAliasing.Taa (ADR 0166)" .-> TA["TAA resolve (HDR, before auto exposure)<br/>→ history → scene colour"] -.-> T
     T -. "AntiAliasing.Fxaa (ADR 0154)" .-> F["FXAA input (R8G8B8A8_UNORM, sRGB-encoded)<br/>→ FXAA 3.11 into the swapchain"] -.-> O
+    T -. "Taa + TaaSharpness > 0" .-> SH["RCAS sharpen (LDR)<br/>into the swapchain"] -.-> O
     T --> O["Overlay (same pass)<br/>canvas, screen gizmos, UI, dev overlay: sRGB-authored, unchanged"]
     O --> P["present (B8G8R8A8_UNORM)"]
 ```
@@ -141,8 +143,8 @@ target will be another.
   over the floor can show the sky behind it where the coplanar z-fight goes the line's way — a pre-existing
   ordering artefact.
 - No HDR display output.
-- SubViewports always use the engine curve without glow, auto exposure, light shafts, FXAA or any other post effect
-  (ADR 0124, ADR 0154, ADR 0160, ADR 0163).
+- SubViewports always use the engine curve without glow, auto exposure, light shafts, FXAA, TAA or any other post
+  effect (ADR 0124, ADR 0154, ADR 0160, ADR 0163, ADR 0166).
 
 ## Godot tonemap and glow (ADR 0124)
 
@@ -186,8 +188,31 @@ effect ([`FxaaEffect`](../../MainframeEngine/Src/Rendering/Post/FxaaEffect.cs), 
 `R8G8B8A8_UNORM` image of the swapchain's size (the stage's first LDR image, owned by the renderer); the
 present pass then draws `Post/Fxaa.vk.frag` (FXAA 3.11, PC quality preset 12, luma computed from the encoded colour) and
 the overlay renderers follow in the same pass, so the 2D canvas, gizmos, UI and dev overlay are never filtered. On an
-sRGB swapchain view the FXAA shader decodes before writing (the view encodes again). TAA (G8d.8) is not built yet; its
-foundation (the prepass, motion vectors, jitter, histories) is ADR 0163.
+sRGB swapchain view the FXAA shader decodes before writing (the view encodes again). `AntiAliasing.Taa` replaces it
+(below): one mode at a time.
+
+## TAA (ADR 0166)
+
+`AntiAliasing.Taa` resolves the jittered HDR scene colour against a history **before** auto exposure, glow, light shafts
+and the tonemap ([`TaaEffect`](../../MainframeEngine/Src/Rendering/Post/TaaEffect.cs), `Post/Taa.vk.frag`; the
+algorithm is in [Post-processing → TAA](post-processing.md#taa)), so every later step reads a stable, jitter-free image:
+exposure metering and glow thresholds do not flicker with the jitter. The colour handling around it:
+
+- **Linear HDR in, linear HDR out.** The history is `R16G16B16A16_SFLOAT` like the scene colour and is copied back into
+  it (`CopyToSceneColor`); the tonemap is unchanged.
+- **Karis luminance weighting.** The resolve blends `c / (1 + exposure · luma(c))` and unweights the result: a
+  partially covered pixel averages roughly what the tonemap will show (a white needle on bright sky does not dominate
+  its pixel), and bright texels through the canopy do not flicker. The weight uses the project exposure
+  (`IVulkanContext.Exposure`), not auto exposure's adapted value (a few stops off only changes how strongly highlights
+  are weighted).
+- **The sharpen is LDR.** `rendering.taaSharpness` (0–1, default 0.25; `IVulkanContext.TaaSharpness`) runs RCAS on the
+  tonemapped, display-encoded image as an `AfterTonemap` effect, like FXAA: the tonemap writes the stage's LDR image and
+  the sharpen draws into the swapchain pass, under the canvas, gizmos and UI. 0 turns it off (the tonemap then draws
+  straight into the swapchain again).
+- **Water is reactive.** Water in the main view blends with `BlendMode.AlphaReactive`: colour as before, but the scene
+  alpha becomes `dst · (1 − water alpha)`. Every opaque shader and the sky write alpha 1, so `1 − scene alpha` marks
+  animated water that has no motion vectors of its own, and the resolve keeps less of its history there. Sub-viewports
+  keep the plain `Alpha` blend (their alpha is the transparent background's).
 
 ## Light shafts (ADR 0160)
 

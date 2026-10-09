@@ -7,6 +7,7 @@
 #include "material.slang"
 #include "foliage.slang"
 #include "fog.slang"
+#include "alpha_dither.slang"
 
 // AlphaMode of the pipeline: opaque pipelines never discard (early depth test stays on). Foliage never blends.
 [vk::constant_id(0)] const int kAlphaMode = kAlphaOpaque;
@@ -61,7 +62,7 @@ float3 foliageTranslucency(float3 albedo, float3 N, float3 Ngeo, float3 worldPos
 }
 
 [shader("fragment")]
-float4 main(FsIn input, bool frontFacing : SV_IsFrontFace) : SV_Target0
+float4 main(FsIn input, bool frontFacing : SV_IsFrontFace, float4 fragCoord : SV_Position) : SV_Target0
 {
     float2 uv = materialUv(input.inUV);
     float2 duvdx = ddx(uv);
@@ -69,8 +70,8 @@ float4 main(FsIn input, bool frontFacing : SV_IsFrontFace) : SV_Target0
     float3 dpdx = ddx(input.inWorldPos);
     float3 dpdy = ddy(input.inWorldPos);
     float4 albedo = materialAlbedo(uv, duvdx, duvdy) * input.inColor;
-    if (kAlphaMode == kAlphaCutout && albedo.a < material.params.z)
-        discard;
+    if (kAlphaMode == kAlphaCutout && !cutoutKeeps(albedo.a, material.params.z, fragCoord.xy))
+        discard; // dithered with TAA when the material asks (AlphaDither), as the prepass does
 
     float3 N = normalize(input.inNormal);
     if (material.flags.z == kFoliageBackFlip && !frontFacing)

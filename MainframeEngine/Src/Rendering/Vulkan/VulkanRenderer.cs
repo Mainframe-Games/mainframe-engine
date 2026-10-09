@@ -154,6 +154,12 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         set => _antiAliasing = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown anti-aliasing mode.");
     }
 
+    public float TaaSharpness
+    {
+        get => _taaSharpness;
+        set => _taaSharpness = float.IsFinite(value) ? Math.Clamp(value, 0f, 1f) : throw new ArgumentOutOfRangeException(nameof(value), value, "TAA sharpness must be finite.");
+    }
+
     public float FrameDeltaTime { get; set; }
 
     public float Exposure
@@ -171,6 +177,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         _vsync = options.VSync;
         _enableFrameCapture = options.EnableFrameCapture;
         AntiAliasing = options.AntiAliasing;
+        TaaSharpness = options.TaaSharpness;
         _glow = new GlowEffect(_autoExposure);
         RegisterPostEffects();
         InitVulkan();

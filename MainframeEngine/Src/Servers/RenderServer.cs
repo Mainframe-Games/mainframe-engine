@@ -85,6 +85,14 @@ public sealed class RenderServer : IServer
     internal PostProcessStack? PostEffects => (Vulkan as IPostProcessHost)?.PostEffects;
 
     private ulong _prepassFrame; // the frame RenderPrepass drew the main view's prepass in
+    private int _mainCameraId;   // the main view's camera last frame (an identity hash: no reference is kept)
+
+    /// <summary>
+    /// A camera cut (ADR 0166): forgets every view's motion history, so the next frame has no camera motion vectors and
+    /// TAA starts a new history instead of blending in what the camera saw before. Call it after teleporting the camera,
+    /// before the frame renders (e.g. from <c>OnProcess</c>). Switching the tree's current camera does this by itself.
+    /// </summary>
+    public void ResetTemporalHistory() => Vulkan?.Frame.ResetHistory();
 
     /// <summary>
     /// Screen-space gizmos (framebuffer pixels, sRGB), drawn after the tonemap between the 2D canvas and the UI, then
@@ -501,6 +509,14 @@ public sealed class RenderServer : IServer
             return;
         UpdatePostState(root, vk);
         var camera = GetRenderCamera(root, vk.SwapchainExtent);
+        var cameraId = camera is null ? 0 : System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(camera);
+        if (cameraId != _mainCameraId)
+        {
+            if (_mainCameraId != 0 && cameraId != 0)
+                vk.Frame.ResetHistory(); // another camera: a cut (no motion vectors from the old one, a new TAA history)
+            _mainCameraId = cameraId;
+        }
+
         host.SetMainCamera(camera);
         var prepass = _mainDraws.Prepassed && camera is not null;
         host.BeginPostFrame(prepass);
