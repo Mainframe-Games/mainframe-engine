@@ -470,6 +470,8 @@ public sealed class SerializationTests : IDisposable
         File.WriteAllBytes(ContentPath("wave.gdshader.vert.spv"), [1]);
         File.WriteAllBytes(ContentPath("wave.gdshader.frag.spv"), [1]);
         File.WriteAllText(ContentPath("wave.gdshader.spvlock"), "x");
+        // Nor is a light-probe bake's coefficients file, which belongs to its .mres.
+        File.WriteAllBytes(ContentPath("lighting.probes"), [1]);
         var sceneUid = SceneSaver.Save(new Node3D { Name = "S" }, ContentPath("S.mscene"));
 
         var db = new AssetDatabase(_project);
@@ -481,6 +483,7 @@ public sealed class SerializationTests : IDisposable
         Assert.False(File.Exists(ContentPath("wave.gdshader.vert.spv.meta")));
         Assert.False(File.Exists(ContentPath("wave.gdshader.frag.spv.meta")));
         Assert.False(File.Exists(ContentPath("wave.gdshader.spvlock.meta")));
+        Assert.False(File.Exists(ContentPath("lighting.probes.meta")));
         Assert.Equal("Content/icon.png", db.GetPath(meta.Uid));
         Assert.Equal("Content/S.mscene", db.GetPath(sceneUid));
         Assert.Equal(meta.Uid, db.GetUid("Content/icon.png"));
