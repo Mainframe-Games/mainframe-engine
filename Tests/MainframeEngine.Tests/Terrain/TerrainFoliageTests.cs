@@ -236,6 +236,42 @@ public sealed class TerrainFoliageTests : IDisposable
     }
 
     [Fact]
+    public void TheTerrainsDensityAndDistanceScalesThinAndShortenTheFoliageAtRunTime()
+    {
+        var data = Data(size: 64, chunk: 16);
+        data.FoliageTypes = [Grass()]; // full density to 20 m, none from 40 m
+        var terrain = AddTerrain(data);
+        var foliage = terrain.Foliage!;
+        var node = foliage.GetTileNode(0, 0, 0)!;
+        var count = foliage.GetTileInstanceCount(0, 0, 0);
+        var multimesh = node.Multimesh!;
+        var transforms = multimesh.Transforms;
+
+        terrain.FoliageDensityScale = 0.5f;
+        foliage.UpdateDistances(new Vector3(8, 0, 8));
+        Assert.InRange(multimesh.DrawnInstanceCount, 0.5f * count - 1, 0.5f * count + 1);
+
+        // Half the distance: full density to 10 m, none from 20 m (here at 15 m: half of the half).
+        terrain.FoliageDensityScale = 1f;
+        terrain.FoliageDistanceScale = 0.5f;
+        foliage.UpdateDistances(new Vector3(8 + 15f, 0, 8));
+        Assert.InRange(multimesh.DrawnInstanceCount, 0.4f * count, 0.6f * count);
+        foliage.UpdateDistances(new Vector3(8 + 21f, 0, 8));
+        Assert.False(node.Visible);
+
+        // Back to 1: as before, and nothing was rebuilt.
+        terrain.FoliageDistanceScale = 1f;
+        foliage.UpdateDistances(new Vector3(8 + 21f, 0, 8));
+        Assert.True(node.Visible);
+        Assert.Same(transforms, multimesh.Transforms);
+
+        terrain.FoliageDensityScale = 3f;
+        terrain.FoliageDistanceScale = 0f;
+        Assert.Equal(1f, terrain.FoliageDensityScale);
+        Assert.Equal(0.1f, terrain.FoliageDistanceScale);
+    }
+
+    [Fact]
     public void FoliageIsNotSavedWithTheScene()
     {
         var data = Data();

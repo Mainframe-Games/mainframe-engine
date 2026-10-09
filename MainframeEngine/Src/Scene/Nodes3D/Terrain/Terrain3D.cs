@@ -248,6 +248,28 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
     [Export(Range = "0.25,4,0.05")]
     public float LodBias { get; set; } = 1f;
 
+    /// <summary>
+    /// A runtime quality knob (a settings menu's "ground cover density"): the share of each foliage tile's instances that
+    /// draw, 0–1 (default 1). The instances are sorted by a uniform hash, so a lower value thins every tile evenly; nothing
+    /// is rebuilt or uploaded. Not saved.
+    /// </summary>
+    public float FoliageDensityScale
+    {
+        get;
+        set => field = Math.Clamp(value, 0f, 1f);
+    } = 1f;
+
+    /// <summary>
+    /// A runtime quality knob (a settings menu's "ground cover distance"): scales every foliage type's
+    /// <see cref="FoliageType.CullDistance"/> and <see cref="FoliageType.ThinBand"/>, 0.1–1 (default 1). Nothing is rebuilt. Not
+    /// saved.
+    /// </summary>
+    public float FoliageDistanceScale
+    {
+        get;
+        set => field = Math.Clamp(value, 0.1f, 1f);
+    } = 1f;
+
     /// <summary>Records edits for undo (<see cref="TerrainEdit.Begin"/> / <see cref="TerrainEdit.End"/>).</summary>
     public TerrainEdit Edit => _edit ??= new TerrainEdit(this);
 

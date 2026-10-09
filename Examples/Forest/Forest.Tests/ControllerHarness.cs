@@ -13,10 +13,15 @@ internal sealed class ControllerHarness : IDisposable
 
     private uint _frame;
 
-    public ControllerHarness(bool floor = true)
+    /// <param name="floor">A 200 m floor box.</param>
+    /// <param name="uiViewport">Also a headless <see cref="UiServer"/> of this size (RmlUi is process-global: such tests
+    /// run in <see cref="MenuCollection"/>).</param>
+    public ControllerHarness(bool floor = true, Vector2? uiViewport = null)
     {
         var servers = new ServerRegistry();
         servers.Register(new PhysicsServer3D(new PhysicsSettings3D { MultiThreaded = false }));
+        if (uiViewport is { } viewport)
+            servers.Register(Ui = new UiServer(options: new UiServerOptions { HotReload = false, HeadlessViewport = viewport, ContentScale = 1f }));
         Tree = new SceneTree(servers);
         Tree.Input.Map = ProjectSettings.Load(Path.Combine(AppContext.BaseDirectory, "project.mfproj")).Input;
         Scene = new Node3D { Name = "Scene" };
@@ -26,6 +31,8 @@ internal sealed class ControllerHarness : IDisposable
     }
 
     public SceneTree Tree { get; }
+
+    public UiServer? Ui { get; }
 
     public Node3D Scene { get; }
 

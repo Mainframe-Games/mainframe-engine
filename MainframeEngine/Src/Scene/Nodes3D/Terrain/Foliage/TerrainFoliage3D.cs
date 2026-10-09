@@ -14,7 +14,8 @@ namespace MainframeEngine;
 /// type rebuilds that type.</para>
 /// <para>Every frame (<c>OnProcess</c>, also in the editor) each tile draws the first factor × count of its
 /// instances, which are sorted by a uniform per-instance hash key, with the distance factor 1 up to <see cref="FoliageType.CullDistance"/> −
-/// <see cref="FoliageType.ThinBand"/>, falling linearly to 0 at the cull distance, where the tile hides. Only
+/// <see cref="FoliageType.ThinBand"/>, falling linearly to 0 at the cull distance, where the tile hides; the terrain's
+/// <see cref="Terrain3D.FoliageDensityScale"/> and <see cref="Terrain3D.FoliageDistanceScale"/> scale both at run time. Only
 /// <see cref="MultiMesh.VisibleInstanceCount"/> and <see cref="Node3D.Visible"/> change, so it allocates nothing and
 /// uploads nothing.</para>
 /// </remarks>
@@ -124,18 +125,22 @@ public sealed class TerrainFoliage3D : Node3D
     /// </summary>
     public void UpdateDistances(Vector3 localCamera)
     {
+        // Runtime quality knobs (Terrain3D.FoliageDensityScale / FoliageDistanceScale): fewer of the same sorted
+        // instances and a shorter cull distance, with no rebuild.
+        var density = Terrain?.FoliageDensityScale ?? 1f;
+        var reach = Terrain?.FoliageDistanceScale ?? 1f;
         foreach (var state in _types)
         {
             if (state.Type is not { } type)
                 continue;
-            var cull = type.CullDistance;
-            var band = MathF.Max(type.ThinBand, 1e-3f);
+            var cull = type.CullDistance * reach;
+            var band = MathF.Max(type.ThinBand * reach, 1e-3f);
             foreach (var tile in state.Tiles)
             {
                 if (tile.Node is not { } node)
                     continue;
                 var distance = Vector3.Distance(localCamera, tile.Center);
-                var factor = Math.Clamp((cull - distance) / band, 0f, 1f);
+                var factor = Math.Clamp((cull - distance) / band, 0f, 1f) * density;
                 var drawn = (int)(factor * tile.Data.Count + 0.5f); // the keys are uniform: ≈ the instances keyed below the factor
                 tile.Drawn = drawn;
                 if (drawn == 0)

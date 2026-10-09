@@ -21,6 +21,10 @@ namespace Forest;
 /// <item><c>--scale s</c>: the 3D render scale (ADR 0174; 0.25–1): the project renders at 0.75 and TAAU upscales,
 /// <c>--scale 1</c> is native resolution.</item>
 /// <item><c>--no-capture</c>: the controller does not capture the mouse (scripted runs, screenshots).</item>
+/// <item><c>--menu graphics|audio|controls|cameras</c>: opens the pause menu on a page (screenshots of the menu);
+/// <c>--camera flyover|free|&lt;shot&gt;</c>: starts a camera of its Cameras page; <c>--option key=value</c> sets a menu option
+/// (<see cref="ForestOptions"/>; switches 0/1, choices by index) for the run. <c>--menu</c> and <c>--camera</c>, like the
+/// capture and measurement flags, leave the player's saved settings out (<see cref="UsesPlayerSettings"/>).</item>
 /// <item>Audio: when the current scene has no <see cref="ForestAudio"/>, one is attached to it (its first
 /// <see cref="River3D"/> and <see cref="FirstPersonController"/>) unless <c>--no-audio</c> is passed.</item>
 /// </list>
@@ -111,7 +115,13 @@ public sealed class ForestDev : Node
                 FpsHud.Attach(scene); // F3 toggles it
             if (_resolution.X > 0)
                 Resize(tree, _resolution);
+            if (!GameHost.IsHeadless)
+                AttachMenu(tree, scene, GameHost.UserArgs);
             ApplyOverrides(scene, GameHost.UserArgs);
+            if (Menu is { } menu && Argument(GameHost.UserArgs, "--menu") is { } page)
+                menu.Open(page);
+            if (Menu?.Cameras is { } cameras && Argument(GameHost.UserArgs, "--camera") is { } view)
+                StartCamera(cameras, view);
         }
 
         if (!_cameraPlaced && (_shot ?? _view) is not null && tree.CurrentScene is { } shotScene)
@@ -124,6 +134,70 @@ public sealed class ForestDev : Node
             Walk(tree, gameTime.DeltaTime);
 
     }
+
+    /// <summary>The pause menu (Escape), once the scene is loaded; null in headless runs and scenes without a player.</summary>
+    public PauseMenu? Menu { get; private set; }
+
+    /// <summary>
+    /// Adds the cameras and the pause menu (ADR 0180). In normal play the player's saved graphics settings are applied
+    /// and changes are saved; capture, measurement and QA runs (<see cref="UsesPlayerSettings"/>) keep the project's look.
+    /// </summary>
+    private void AttachMenu(SceneTree tree, Node scene, IReadOnlyList<string> args)
+    {
+        var play = UsesPlayerSettings(args) && GameHost.Project is not null;
+        var settings = play ? ForestSettings.LoadOrDefault(ForestSettings.DefaultPath) : new ForestSettings();
+        var world = ForestWorld.Capture(scene, RendererDisplay.Of(tree), settings);
+        if (world.Player is null)
+            return;
+        if (play)
+            world.ApplySaved();
+        var valley = scene.FindChildren<ForestValley>(owned: false) is [var v, ..] ? v : null;
+        var cameras = new ForestCameras
+        {
+            Name = "Cameras",
+            Player = world.Player,
+            CaptureMouse = !args.Contains("--no-capture"),
+            GroundHeight = (x, z) => valley?.Terrain?.HeightAt(x, z) ?? 0f,
+        };
+        scene.AddChild(cameras);
+        Menu = PauseMenu.Attach(scene, world, cameras, play ? ForestSettings.DefaultPath : null);
+        for (var i = 0; i < args.Count - 1; i++) // --option key=value: a menu option for this run (QA; not saved)
+        {
+            if (args[i] != "--option")
+                continue;
+            var eq = args[i + 1].IndexOf('=');
+            if (eq > 0 && ForestOptions.Find(args[i + 1][..eq]) is { } option &&
+                float.TryParse(args[i + 1][(eq + 1)..], NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                Log.Info($"[Forest] --option {option.Key} = {world.Apply(option, value)}");
+            else
+                Log.Error($"[Forest] --option {args[i + 1]}: expected an option key (ForestOptions) = a number.");
+        }
+
+        if (play && world.Settings.Graphics.Count > 0)
+            Log.Info($"[Forest] Applied {world.Settings.Graphics.Count} saved graphics settings ({ForestSettings.DefaultPath}).");
+    }
+
+    /// <summary><c>--camera flyover|free|&lt;1-7|shot name&gt;</c>: starts a camera of the Cameras page (QA).</summary>
+    private static void StartCamera(ForestCameras cameras, string view)
+    {
+        if (view == "flyover")
+            cameras.StartFlyOver();
+        else if (view == "free")
+            cameras.StartFreeFly();
+        else if (FindShot(view) is { } shot)
+            cameras.ShowShot(Array.IndexOf(ValleyLayout.Shots, shot));
+        else
+            Log.Error($"[Forest] --camera {view}: expected flyover, free or a shot.");
+    }
+
+    /// <summary>
+    /// Whether the player's saved settings apply: in normal play, not in screenshot, benchmark, autowalk or menu QA runs
+    /// (<c>--shot</c>, <c>--view</c>, <c>--benchmark</c>, <c>--autowalk</c>, <c>--menu</c>, <c>--camera</c>), which must render the
+    /// project's own look on every machine.
+    /// </summary>
+    public static bool UsesPlayerSettings(IReadOnlyCollection<string> args) =>
+        !args.Contains("--shot") && !args.Contains("--view") && !args.Contains("--benchmark") && !args.Contains("--autowalk") &&
+        !args.Contains("--autowalk-lap") && !args.Contains("--menu") && !args.Contains("--camera");
 
     /// <summary>
     /// Whether the frame-rate readout is shown: in normal play, not in screenshot, benchmark or autowalk runs (clean
@@ -207,9 +281,7 @@ public sealed class ForestDev : Node
                 return true;
             }
 
-            eye = new Vector3(shot.Eye.X, terrain.HeightAt(shot.Eye.X, shot.Eye.Y) + shot.EyeHeight, shot.Eye.Y);
-            var targetY = shot.AbsoluteTarget ? shot.TargetHeight : terrain.HeightAt(shot.Target.X, shot.Target.Y) + shot.TargetHeight;
-            target = new Vector3(shot.Target.X, targetY, shot.Target.Y);
+            (eye, target) = ShotPose(shot, terrain.HeightAt);
             fov = shot.Fov;
             lens = PhotoLens(shot);
             Log.Info($"[Forest] Shot {shot.Name}: eye {eye}, target {target}.");
@@ -235,6 +307,14 @@ public sealed class ForestDev : Node
         camera.LookAt(target);
         camera.Current = true;
         return true;
+    }
+
+    /// <summary>A reference shot's camera position and look-at point over the ground (<paramref name="groundHeight"/>).</summary>
+    public static (Vector3 Eye, Vector3 Target) ShotPose(in ReferenceShot shot, Func<float, float, float> groundHeight)
+    {
+        var eye = new Vector3(shot.Eye.X, groundHeight(shot.Eye.X, shot.Eye.Y) + shot.EyeHeight, shot.Eye.Y);
+        var targetY = shot.AbsoluteTarget ? shot.TargetHeight : groundHeight(shot.Target.X, shot.Target.Y) + shot.TargetHeight;
+        return (eye, new Vector3(shot.Target.X, targetY, shot.Target.Y));
     }
 
     /// <summary>

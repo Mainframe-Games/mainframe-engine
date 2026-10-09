@@ -1,0 +1,318 @@
+/*
+ * The Forest's pause menu (PauseMenu.cs, ADR 0180). The document's rows are generated from ForestOptions; this sheet
+ * styles them. Sizes in dp. Colours are sRGB: a dark green glass over the forest, warm sunlight as the accent.
+ */
+
+body {
+    font-family: LatoLatin;
+    font-size: 15dp;
+    color: #eef1e8;
+    width: 100%;
+    height: 100%;
+}
+
+div, p, h1, h2, section { display: block; }
+
+/* The pages, headings and buttons of other pages (data-class-hidden: data-visible only hides, keeping the space). */
+#panel .hidden, #panel button.hidden { display: none; }
+
+/* ── Backdrop ─────────────────────────────────────────────────────────────── */
+
+#scrim {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    decorator: linear-gradient(90deg, #060a07f5 0%, #060a07c0 28%, #060a0770 62%, #060a0748 100%);
+}
+
+/* ── Navigation (left) ────────────────────────────────────────────────────── */
+
+#nav {
+    position: absolute;
+    left: 48dp;
+    top: 0;
+    bottom: 0;
+    width: 250dp;
+    padding-top: 72dp;
+}
+
+.brand { margin-bottom: 36dp; padding-left: 19dp; }
+.brand-kicker { font-size: 12dp; font-weight: bold; letter-spacing: 3dp; color: #f0c76e; }
+.brand-title { font-size: 46dp; font-weight: bold; color: #ffffff; line-height: 54dp; }
+.brand-state { font-size: 14dp; color: #a3ad9c; margin-top: 2dp; }
+
+#nav button.nav-item {
+    display: block;
+    width: 100%;
+    height: 44dp;
+    line-height: 44dp;
+    padding: 0dp 16dp;
+    margin-bottom: 2dp;
+    text-align: left;
+    font-size: 19dp;
+    color: #c4ccbd;
+    background-color: transparent;
+    border-width: 0dp 0dp 0dp 3dp;
+    border-color: transparent;
+    border-radius: 0dp 8dp 8dp 0dp;
+}
+
+#nav button.nav-item:hover { color: #ffffff; background-color: #ffffff0f; }
+#nav button.nav-item:focus-visible { color: #ffffff; background-color: #ffffff14; border-color: #f0c76e80; }
+#nav button.nav-item.active {
+    color: #f6d58a;
+    border-color: #f0c76e;
+    decorator: linear-gradient(90deg, #f0c76e2e, #f0c76e00);
+}
+#nav button.nav-item.resume { color: #ffffff; font-weight: bold; }
+#nav button.nav-item.quit { color: #d8a593; }
+#nav button.nav-item.quit:hover { color: #ffcbb8; }
+.nav-gap { height: 22dp; }
+
+#nav-foot {
+    position: absolute;
+    left: 19dp;
+    bottom: 40dp;
+    width: 240dp;
+    font-size: 13dp;
+    color: #8f9a8a;
+    line-height: 24dp;
+}
+
+.key {
+    padding: 1dp 6dp;
+    margin-right: 6dp;
+    border: 1dp #ffffff33;
+    border-radius: 4dp;
+    color: #dfe5d8;
+    font-size: 12dp;
+}
+
+/* ── Panel (right) ────────────────────────────────────────────────────────── */
+
+#panel {
+    position: absolute;
+    left: 340dp;
+    right: 48dp;
+    top: 72dp;
+    bottom: 48dp;
+    max-width: 1400dp;
+    background-color: #0c120fc8;
+    border: 1dp #ffffff17;
+    border-radius: 16dp;
+    backdrop-filter: blur(18dp);
+    /* Small: a box-shadow texture larger than the window is clipped and stretched (RmlUi), which pulled the panel down. */
+    box-shadow: #00000080 0dp 4dp 16dp 0dp;
+}
+
+.panel-head {
+    position: absolute;
+    left: 0; top: 0; right: 0;
+    height: 84dp;
+    padding: 0dp 36dp;
+    border-bottom: 1dp #ffffff12;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.panel-head h1 { font-size: 28dp; font-weight: bold; color: #ffffff; margin: 0dp; flex: 0 0 auto; }
+.head-note { flex: 1 1 auto; margin-left: 18dp; font-size: 13dp; color: #8f9a8a; }
+
+.panel-head button.reset {
+    flex: 0 0 auto;
+    height: 34dp;
+    line-height: 34dp;
+    padding: 0dp 16dp;
+    font-size: 14dp;
+    color: #dfe5d8;
+    background-color: #ffffff0d;
+    border: 1dp #ffffff26;
+    border-radius: 8dp;
+}
+.panel-head button.reset:hover { background-color: #ffffff1a; color: #ffffff; }
+
+.panel-body {
+    position: absolute;
+    left: 0; top: 85dp; right: 0; bottom: 0;
+    padding: 18dp 36dp 28dp 36dp;
+    overflow-y: auto;
+}
+
+.columns { display: flex; flex-direction: row; align-items: flex-start; }
+.col { flex: 1 1 0dp; }
+.col-gap { flex: 0 0 48dp; }
+
+.group { margin-bottom: 20dp; }
+.group-title {
+    font-size: 12dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+    color: #a9c98f;
+    padding-bottom: 7dp;
+    margin-bottom: 4dp;
+    border-bottom: 1dp #ffffff12;
+}
+
+/* ── Option rows ──────────────────────────────────────────────────────────── */
+
+.opt {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 40dp;
+    padding: 0dp 10dp;
+    margin: 0dp -10dp;
+    border-radius: 8dp;
+}
+.opt:hover { background-color: #ffffff08; }
+.opt.dim { opacity: 0.38; }
+
+.opt-label { flex: 1 1 auto; color: #dfe5d8; white-space: nowrap; }
+.opt-ctl {
+    flex: 0 0 auto;
+    width: 300dp;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.opt-ctl input.range { flex: 1 1 auto; width: 200dp; }
+.opt-val {
+    flex: 0 0 auto;
+    width: 64dp;
+    text-align: right;
+    font-size: 14dp;
+    color: #f6d58a;
+    white-space: nowrap;
+}
+
+input.range slidertrack {
+    margin-top: 7dp;
+    height: 4dp;
+    background-color: #ffffff21;
+    border-radius: 2dp;
+}
+input.range sliderprogress { height: 4dp; background-color: #e9bf63; border-radius: 2dp; }
+input.range sliderbar {
+    width: 16dp;
+    height: 16dp;
+    margin-top: 1dp;
+    margin-left: -8dp;
+    margin-right: -8dp;
+    background-color: #f7f3e6;
+    border-radius: 8dp;
+}
+input.range:hover sliderbar, input.range sliderbar:hover { background-color: #ffffff; }
+input.range:focus-visible sliderbar { background-color: #f0c76e; }
+
+/* Segmented choices and Off/On switches. */
+.seg {
+    display: flex;
+    flex-direction: row;
+    padding: 3dp;
+    background-color: #00000047;
+    border: 1dp #ffffff14;
+    border-radius: 9dp;
+}
+.seg button {
+    flex: 0 0 auto;
+    height: 28dp;
+    line-height: 28dp;
+    min-width: 46dp;
+    padding: 0dp 11dp;
+    font-size: 13dp;
+    color: #aab3a4;
+    background-color: transparent;
+    border-width: 0dp;
+    border-radius: 6dp;
+}
+.seg button:hover { color: #ffffff; background-color: #ffffff12; }
+.seg button.on { color: #20190a; background-color: #f0c76e; font-weight: bold; }
+.seg button:focus-visible { color: #ffffff; background-color: #ffffff24; }
+.seg button.on:focus-visible { color: #20190a; background-color: #ffd987; }
+
+/* ── Cameras ──────────────────────────────────────────────────────────────── */
+
+.heroes { display: flex; flex-direction: row; margin-bottom: 26dp; }
+.heroes button.hero {
+    display: block;
+    flex: 1 1 0dp;
+    height: 92dp;
+    margin-right: 16dp;
+    padding: 16dp 20dp;
+    text-align: left;
+    line-height: 22dp;
+    background-color: #ffffff0a;
+    border: 1dp #ffffff1a;
+    border-radius: 12dp;
+    color: #eef1e8;
+}
+.heroes button.hero.last { margin-right: 0dp; }
+.heroes button.hero:hover { background-color: #ffffff14; border-color: #ffffff38; }
+.heroes button.hero:focus-visible { border-color: #f0c76e99; }
+.heroes button.hero.on { background-color: #f0c76e1f; border-color: #f0c76e; }
+.hero-title { font-size: 19dp; font-weight: bold; color: #ffffff; }
+.hero-sub { font-size: 13dp; color: #a3ad9c; margin-top: 4dp; white-space: normal; }
+
+.shots { display: flex; flex-direction: row; flex-wrap: wrap; }
+.shots button.shot {
+    display: block;
+    flex: 0 0 auto;
+    width: 300dp;
+    height: 213dp;
+    margin: 0dp 18dp 18dp 0dp;
+    padding: 0dp;
+    text-align: left;
+    background-color: #0000003a;
+    border: 1dp #ffffff1a;
+    border-radius: 12dp;
+    overflow: hidden;
+}
+.shots button.shot:hover { border-color: #ffffff4d; }
+.shots button.shot:focus-visible { border-color: #f0c76e99; }
+.shots button.shot.on { border: 2dp #f0c76e; }
+.shot img { display: block; width: 300dp; height: 169dp; }
+.shot-caption { height: 44dp; line-height: 44dp; padding: 0dp 14dp; white-space: nowrap; }
+.shot-tag { font-size: 12dp; font-weight: bold; color: #f0c76e; margin-right: 8dp; }
+.shot-name { font-size: 15dp; color: #eef1e8; }
+
+.opt-val.keys { width: auto; color: #dfe5d8; font-weight: bold; font-size: 13dp; }
+
+.note { font-size: 13dp; color: #8f9a8a; line-height: 20dp; margin-top: 6dp; }
+
+/* The panel's own scrollbar, in the menu's colours. */
+.panel-body scrollbarvertical { width: 6dp; margin-left: 0dp; }
+.panel-body scrollbarvertical slidertrack { background-color: transparent; }
+.panel-body scrollbarvertical sliderbar { background-color: #ffffff2e; border-radius: 3dp; }
+.panel-body scrollbarvertical sliderbar:hover { background-color: #ffffff52; }
+
+/* ── Narrow layouts (below 1600 dp): one column of options, three shots a row. In dp, so it follows the layer's scale:
+ * with reference-resolution scaling (1 dp = 1 px at 1920 × 1080) every 16:9 window keeps the 1080p layout. ── */
+
+@media (max-width: 1599dp) {
+    .columns { display: block; }
+    .col-gap { display: none; }
+    .col { max-width: 820dp; }
+    .shots button.shot { width: 250dp; height: 185dp; }
+    .shot img { width: 250dp; height: 141dp; }
+    #nav { left: 32dp; width: 230dp; }
+    #panel { left: 300dp; right: 32dp; }
+}
+
+/* ── Tooltips (the engine fills #tooltip from title attributes) ───────────── */
+
+#tooltip {
+    position: absolute;
+    display: none;
+    max-width: 340dp;
+    padding: 7dp 11dp;
+    font-size: 13dp;
+    line-height: 18dp;
+    color: #eef1e8;
+    background-color: #0a0f0cf2;
+    border: 1dp #ffffff26;
+    border-radius: 7dp;
+    pointer-events: none;
+}
