@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "uid": "scn_531c01a6a659",
+  "nodes": [
+    {
+      "name": "asset_gallery",
+      "type": "ForestAssetGallery"
+    }
+  ]
+}

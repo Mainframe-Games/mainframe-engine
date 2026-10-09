@@ -8,23 +8,98 @@ small forest with a stream, meant to look like a UE or Unity scene (proposal
 Like the [Demo](demo.md) it is a real game project built against this checkout (`MainframeEnginePath = ../..`) through
 its own `Examples/Forest/Forest.slnx`, and it is **not** in `MainframeEngine.slnx`.
 
-**Current state: the scaffold.** The project, the first-person controller and a flat test scene with a `River3D` stream
-exist. The valley (terrain), trees, grass, props, audio, the pause menu, the reference shots, the benchmark and the
-release job come with the later waves of the forest slice.
+**Current state: the scaffold and the art.** The project, the first-person controller, a flat test scene with a
+`River3D` stream, and the CC0 art ([Assets](#assets): terrain layers, props, a sky panorama, the `ForestAssets` manifest
+and an asset gallery scene) exist. The valley (terrain), trees, grass, scattered props, audio, the pause menu, the
+reference shots, the benchmark and the release job come with the later waves of the forest slice.
 
 ## Layout
 
 ```
 Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes (the Demo's + *.hdr, *.exr, *.cube),
-│   NOTICE.md (no third-party assets yet), README.md
+│   NOTICE.md (every third-party asset), README.md
 ├── project.mfproj        "Mainframe Forest": main scene forest, 1600 × 900, shadows High, the input map, autoload Dev
 ├── Forest/               Src/Player (FirstPersonController, IFootstepSurface + SurfaceBody3D, ForestSettings),
-│                         Src/World (ForestScene, SceneWriter), Src/Dev (ForestDev)
+│                         Src/World (ForestScene, SceneWriter, ForestAssets, ForestAssetGallery), Src/Dev (ForestDev)
 ├── Forest.Desktop/       GameHost.Run(args, typeof(Forest.FirstPersonController).Assembly) + --write-scenes <dir>
-├── Forest.Tests/         xUnit v3, no GPU, no LFS content
-└── Content/              Scenes/forest.mscene (generated), Settings/AudioBusLayout.mres (the template's)
+├── Forest.Tests/         xUnit v3, no GPU; the asset tests skip without the LFS content
+├── Tools/fetch_assets.py downloads and imports Content/Art (python3 + Pillow, curl)
+└── Content/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres
+                          (the template's), Art/ (CC0, in LFS: Terrain/<Layer>/, Props/<id>/, Sky/)
 ```
+
+## Assets
+
+Brogan's choice for the art is "CC0 + procedural": trees, grass and the terrain's shape are generated (Ez Tree's bark and
+leaf textures are already in the engine), and only surfaces and props are photographed assets, from
+[ambientCG](https://ambientcg.com) and [Poly Haven](https://polyhaven.com) and nowhere else. Both sites are CC0 1.0
+site-wide (their licence pages; neither API has a per-asset licence field). [NOTICE.md](../../Examples/Forest/NOTICE.md)
+lists every asset (name, ID, source page and download URL, author, licence); THIRD_PARTY_NOTICES.md has a summary row.
+
+**Import.** `python3 Examples/Forest/Tools/fetch_assets.py [--cache DIR]` (curl + Pillow) downloads over HTTPS from
+`ambientcg.com/api/v2/full_json` + `ambientcg.com/get?file=…` and `api.polyhaven.com` + `dl.polyhaven.org` (Poly Haven
+files checked against the API's MD5), converts, and writes `.meta` sidecars (UIDs) for new files; re-running keeps the
+UIDs. Everything under `Content/Art` is in LFS except the `.gltf` JSON and the sidecars: **107 MB** in 77 LFS files
+(terrain 31.5 MB, props 73.6 MB, sky 2.4 MB).
+
+| Kind | Source → committed |
+|---|---|
+| Terrain layers | ambientCG 2K JPG sets → 1024² (the splat material packs every layer at `LayerTextureSize` 1024): `<Id>_Color.jpg`, `<Id>_NormalGL.jpg`, `<Id>_ORM.png` (R = AmbientOcclusion, G = Roughness, B = 0), `<Id>_Height.png` (8-bit, from Displacement) |
+| Props | Poly Haven glTF + `.bin` + textures at 1K/2K; the grey roughness image replaced by the asset's ARM map (R = AO, G = roughness, B = metallic: glTF's packing) and wired as occlusion + metallic-roughness; the fern's diffuse JPG and Alpha map merged into an RGBA PNG |
+| Sky | Poly Haven `lilienstein` (a sunlit meadow at a forest edge, low sun) tonemapped JPG → 4096 × 2048, 2.4 MB (the panorama path is LDR) |
+
+| Layer (splat channel) | Tag | ambientCG | Tiling | Contrast |
+|---|---|---|---|---|
+| 0 Grass | `grass` | Ground037 (mossy forest grass; tinted (196, 212, 170): the photo is a bright yellow-green) | 2.5 m | 0.25 |
+| 1 Leaves | `leaves` | Ground023 (leaf litter, sticks, dark soil) | 2.5 m | 0.25 |
+| 2 Moss | `moss` | Moss002 | 2 m | 0.3 |
+| 3 Rock | `rock` | Rock063 (mossy layered cliff) | 6 m | 0.2 |
+| 4 Dirt | `dirt` | Ground067 (brown forest dirt) | 2.5 m | 0.15 |
+| 5 Gravel | `gravel` | Ground108 (riverbed) | 1.5 m | 0.1 |
+| 6 Mud | `mud` | Ground051 (dark wet mud, pebbles) | 2 m | 0.15 |
+| 7 Needles | `needles` | Ground082S (soil under needles and twigs) | 2 m | 0.25 |
+
+| Prop | Poly Haven | Size (m, y up) | Notes |
+|---|---|---|---|
+| `MossyRocks01`, `MossyRocks02` | rock_moss_set_01/02 (2K) | 8.0 × 1.8 × 7.0, 8.3 × 1.4 × 3.4 | six / seven mossy rocks each (one mesh node per rock) |
+| `Boulder` | boulder_01 (2K) | 1.3 × 1.0 × 1.8 | 66 k triangles |
+| `Rock07`, `Rock09` | rock_07, rock_09 (1K) | 0.17 × 0.14 × 0.32, 0.07 × 0.03 × 0.14 | stones: scale up (× 4, × 8 in the gallery) |
+| `DeadTrunk`, `DeadTrunk02` | dead_tree_trunk, dead_tree_trunk_02 (2K) | 3.1 × 0.3 × 0.3, 4.1 × 1.1 × 1.1 | logs; 102 k and 83 k triangles |
+| `Stump01`, `Stump02` | tree_stump_01 (2K), tree_stump_02 (1K) | 1.4 × 0.6 × 1.6, 1.5 × 0.5 × 1.4 | with roots |
+| `DryBranches` | dry_branches_medium_01 (1K) | 1.1 × 0.3 × 1.3 | three branches |
+| `Fern` | fern_02 (2K) | 2.0 × 0.4 × 1.7 | four clumps, alpha-tested (scale 1.2–1.5 reads as forest ferns) |
+
+**`ForestAssets`** (`Forest/Src/World/ForestAssets.cs`): project-relative paths (`Content/Art/…`; `Resolve` =
+`ContentPaths.Resolve`), descriptors and factories. Textures load through `ResourceLoader`, so they are shared and a
+saved scene references them by UID; every factory call returns new resources, so keep what you build many times.
+
+- `ForestLayerAsset` (`Name`, `Tag`, `AssetId`, `TilingMeters`, `HeightBlendContrast`, `Tint`, the four paths) for
+  `Grass` … `Needles`, `TerrainLayers` in splat order, `LayerIndex(tag)`; `CreateTerrainLayer(layer)`,
+  `CreateTerrainLayers()`, `CreateTerrainMaterial()` (a `TerrainSplatMaterial3D` with all eight).
+- `ForestPropAsset` (`AssetId`, `Resolution`, `Kind`: Rock/Log/Stump/Debris/Plant, `Size`, `Cutout`, paths) for the
+  eleven props, `Props`; `CreatePropMaterial(prop)`: PBR, metallic 0, roughness and occlusion from the ARM map, back
+  faces culled for closed meshes (the glTFs ask for double-sided), cut-out and double-sided for the fern;
+  `InstantiateProp(prop, material?)`: the glTF's nodes (a nested instance when saved) with the material as each mesh's
+  `MaterialOverride` — the importer reads only Blinn-Phong colour and normal maps, so the override is what makes them
+  PBR; `LoadPropMeshes(prop)`: each `ArrayMesh` with its transform, for `MultiMesh` scattering.
+- `SkyPanorama`, `CreatePanoramaSky()`: an optional `Panoramic` sky (the physical sky stays the default).
+
+**Asset gallery** (`ForestAssetGallery`, `Content/Scenes/asset_gallery.mscene`, written by `--write-scenes`): a 64 m
+terrain with one 7 m band per layer west to east (the rock band is a steep ridge: triplanar), a leaves / needles / moss
+mix in front, every prop on it, a shadowed sun and the panorama sky. Game arguments: `++ --view overview|terrain|props`,
+`--sky panorama|physical`:
+
+```
+dotnet Examples/Forest/Forest.Desktop/bin/Release/net10.0/Forest.Desktop.dll --scene Content/Scenes/asset_gallery.mscene \
+  --fixed-fps 60 --max-frames 120 --screenshot gallery.png ++ --view props
+```
+
+![The asset gallery, props view](../images/forest/asset-gallery.jpg)
+
+Checked in the gallery: albedo in sRGB (the props and bands match their photos), OpenGL normals lit from the sun's
+side, ORM roughness (gravel and mud read rough, a few rock faces glossy as scanned), the fern's alpha test and the scale
+of each prop against the 7 m bands.
 
 ## The test scene
 
@@ -122,7 +197,12 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
 - head bob amplitude and switch; one footstep per stride with the floor's surface; the resolver and default fallbacks;
 - 600 physics ticks of walking, sprinting, jumping and turning in water allocate 0 B;
 - settings round trip; the project file (main scene, keyboard and pad bindings); the scene contract; the stream is
-  wadeable in the trench; `--autowalk` drives the actions.
+  wadeable in the trench; `--autowalk` drives the actions;
+- `ForestAssetsTests`: the layer tags and order; every manifest file exists, and every file under `Content/Art` is in
+  the manifest with a `.meta`; NOTICE.md names every asset; the layers load 1024² textures with resource paths; the ORM
+  maps have no metal; every prop imports through Assimp with one shared PBR override whose ORM is the ARM map (the
+  fern's albedo has alpha) at its documented size; the sky is a 4096 × 2048 JPG under 10 MB; the gallery scene matches
+  its builder and paints one layer per band. The LFS-dependent tests skip when the art is only pointers.
 
 Not in CI yet (the G8d.9 CI step and `build/forest-smoke.sh` come with the release work).
 

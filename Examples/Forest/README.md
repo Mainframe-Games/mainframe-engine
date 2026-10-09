@@ -20,6 +20,10 @@ just forest-screenshots                      # docs/images/forest (display awake
 or `dotnet run --project Examples/Forest/Forest.Desktop -c Release`. Game flags go after `++`: `--autowalk`,
 `--no-capture` (do not capture the mouse).
 
+The art (CC0, from ambientCG and Poly Haven, listed in [NOTICE.md](NOTICE.md)) is in `Content/Art`, stored with Git LFS:
+run `git lfs pull` once. `just forest --scene Content/Scenes/asset_gallery.mscene ++ --view props` (or `terrain`,
+`overview`) shows every terrain layer and prop; `python3 Tools/fetch_assets.py` re-imports them.
+
 ## Controls
 
 | Action | Keyboard and mouse | Gamepad |
@@ -41,10 +45,12 @@ Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes, NOTICE.md
 ├── project.mfproj        "Mainframe Forest": main scene, 1600 × 900 window, input map, autoload Dev
 ├── Forest/               node library: Src/Player (FirstPersonController, footstep surfaces, settings),
-│                         Src/World (the scene builder), Src/Dev (ForestDev: --autowalk)
+│                         Src/World (the scene builder, ForestAssets, the asset gallery), Src/Dev (ForestDev: --autowalk)
 ├── Forest.Desktop/       GameHost.Run(args, …) + --write-scenes <dir>
-├── Forest.Tests/         xUnit v3; no GPU and no LFS content
-└── Content/              Scenes/forest.mscene (generated), Settings/AudioBusLayout.mres
+├── Forest.Tests/         xUnit v3; no GPU (the asset tests skip without the LFS content)
+├── Tools/                fetch_assets.py: downloads and imports Content/Art
+└── Content/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres,
+                          Art/ (CC0 terrain layers, props, sky)
 ```
 
 Regenerate the scene after changing `ForestScene`:
