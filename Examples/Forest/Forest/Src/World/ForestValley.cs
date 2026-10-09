@@ -411,6 +411,7 @@ public sealed class ForestValley : Node3D
             OrmTexture = source.OrmTexture,
             AlphaCutout = true,
             AlphaCutoff = 0.45f,
+            AlphaDither = true, // fronds resolve smoothly under TAA (ADR 0166)
             BackFace = FoliageBackFace.Flip,
             Translucency = 0.5f,
             ShadingMode = ShadingMode.Pbr,

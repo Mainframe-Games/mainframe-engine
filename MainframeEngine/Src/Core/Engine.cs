@@ -58,6 +58,12 @@ public struct EngineOptions()
     /// </summary>
     public AntiAliasing AntiAliasing = AntiAliasing.None;
 
+    /// <summary>
+    /// The sharpen after TAA the renderer starts with, 0–1 (<see cref="IVulkanContext.TaaSharpness"/>, ADR 0166). Games set
+    /// <c>rendering.taaSharpness</c>.
+    /// </summary>
+    public float TaaSharpness = IVulkanContext.DefaultTaaSharpness;
+
     /// <summary>Creates the window visible. Tests may hide it where the platform still presents.</summary>
     public bool WindowVisible = true;
 
@@ -363,6 +369,7 @@ public abstract class Engine : IDisposable
             VSync = EngineOptions.VSync,
             EnableFrameCapture = EngineOptions.EnableFrameCapture,
             AntiAliasing = EngineOptions.AntiAliasing,
+            TaaSharpness = EngineOptions.TaaSharpness,
         });
 
         // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,

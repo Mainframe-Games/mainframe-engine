@@ -122,6 +122,7 @@ public static class TreeMaterials
             : Load(LeafPath(options.LeafTexture), new TextureImportSettings { FixAlphaBorder = true, Wrap = TextureWrap.Clamp }),
         AlphaCutout = true,
         AlphaCutoff = options.LeafAlphaCutoff,
+        AlphaDither = true, // smooth leaf edges under TAA (ADR 0166); the plain alpha test without it
         BackFace = FoliageBackFace.Flip,
         Translucency = LeafTranslucency,
         Roughness = LeafRoughness,

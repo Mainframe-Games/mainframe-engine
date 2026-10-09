@@ -11,9 +11,9 @@ its own `Examples/Forest/Forest.slnx`, and it is **not** in `MainframeEngine.sln
 **Current state: the playable valley.** The project, the first-person controller, the CC0 art ([Assets](#assets)), the
 procedural [audio](#audio) and [the valley](#the-valley): a generated 256 m terrain with a stream (a small fall, three
 pools, a log bridge) running into a pond, about 1 500 trees, 180 bushes, grass, reeds, ferns, stones and props, under a
-physical morning sky with fog, light shafts, eye adaptation and FXAA. Also the [reference shots](#reference-shots), the
+physical morning sky with fog, light shafts, eye adaptation and TAA. Also the [reference shots](#reference-shots), the
 [benchmark](#forestdev---autowalk-and-the-benchmark) and a path-following `--autowalk`. Not yet: the pause menu and
-settings page, impostors, TAA, PCSS and contact shadows, LUT grading, dust motes and butterflies, and the release job.
+settings page, impostors, PCSS and contact shadows, LUT grading, dust motes and butterflies, and the release job.
 
 ![R1: the glade, looking into the morning sun](../images/forest/r1-glade.png)
 
@@ -23,7 +23,7 @@ settings page, impostors, TAA, PCSS and contact shadows, LUT grading, dust motes
 Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes (the Demo's + *.hdr, *.exr, *.cube),
 │   NOTICE.md (every third-party asset), README.md
-├── project.mfproj        "Mainframe Forest": main scene forest, 1920 × 1080 px (contentScale 1), shadows High, FXAA,
+├── project.mfproj        "Mainframe Forest": main scene forest, 1920 × 1080 px (contentScale 1), shadows High, TAA,
 │                         the input map, autoload Dev
 ├── benchmark-baseline.json  this Mac's forest-bench result (1920 × 1080)
 ├── Forest/               Src/Player (FirstPersonController, IFootstepSurface + SurfaceBody3D, ForestSettings),
@@ -166,7 +166,7 @@ something came into view.
 | Exposure | auto, scale 0.4, speed 0.6; engine ACES | adapts between the glade and the pine shade |
 | Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
 | Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
-| Anti-aliasing | `rendering.antiAliasing: Fxaa` | |
+| Anti-aliasing | `rendering.antiAliasing: Taa` (ADR 0166), sharpness 0.25 (default); tree leaves and ferns `AlphaDither` | leaf, needle and grass edges stop shimmering in motion; the stream is a reactive pixel (keeps 0.2 of its history) so its flow does not smear |
 | Water | stream: absorption (0.5, 0.16, 0.12), roughness 0.05, reflection 0.35, normals 1.2/5 m × 0.6; pond: peaty absorption (1.6, 0.75, 0.7), reflection 0.8, calm | the stream shows its gravel bed; the pond darkens in the middle |
 
 `++ --set Node/Path.Property=value` overrides any of these for a run (`Valley.*` before the valley generates), e.g.
@@ -186,8 +186,8 @@ all five at 2560 × 1440 (frame 300 at a fixed 60 Hz: fixed wind, water and expo
 | ![R5](../images/forest/r5-floor.png)<br>**R5 Forest floor**: 0.5 m above leaf litter and ferns among pines and aspens | |
 
 **What limits the look** (engine features the slice does not have yet): no GI (the sky's IBL fills the shade, so
-interiors of the canopy read flat), no SSAO or contact shadows (trunks and props do not ground themselves), no TAA (FXAA
-cannot fix leaf-card and grass shimmer in motion), no impostors or coverage-preserving alpha mips (distant canopies read
+interiors of the canopy read flat), no SSAO or contact shadows (trunks and props do not ground themselves), TAA softens the
+image a little in motion (the sharpen restores some of it), no impostors or coverage-preserving alpha mips (distant canopies read
 as speckled cards), no SSR or refraction (the stream shows its bed, not the trees; the pond reflects only the sky), no
 real falls (the fall is a steep ribbon), and only 2 × 1024² shadow cascades to 60 m within the budget.
 
@@ -360,7 +360,7 @@ string Jitter2 allocates, is muted for those queries (`JitterLogMute`, [Physics]
   recaptures it; the gamepad deadzone and curve; the FOV conversion;
 - head bob amplitude and switch; one footstep per stride with the floor's surface; the resolver and default fallbacks;
 - 600 physics ticks of walking, sprinting, jumping and turning in water allocate 0 B;
-- settings round trip; the project file (main scene, keyboard and pad bindings, FXAA, pixel size); the scene contract
+- settings round trip; the project file (main scene, keyboard and pad bindings, TAA, pixel size); the scene contract
   (sun first, the look's switches, the valley, the audio wiring, a low east-south-east sun); `PathWalker` drives the walk;
 - the valley (`ValleyTests`): the same seed gives bit-identical heights, splat weights and tree placements and another
   seed different ones; the stream falls from the outcrop over the fall to the pond and the ridges stand above the floor;

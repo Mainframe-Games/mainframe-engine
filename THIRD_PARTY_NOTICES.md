@@ -34,6 +34,7 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [RtMidi](https://github.com/thestk/rtmidi) (Gary P. Scavone) | 6.0.0 | MIT (with a non-binding request to send modifications upstream) | `Native/PluginHost/external/rtmidi` (submodule) | editor only: `mfplughost` helper executable (static; CoreMIDI / WinMM / ALSA) |
 | [ZzFX](https://github.com/KilledByAPixel/ZzFX) (Frank Force; `buildSamples` ported to C#) | 1.4.0 | MIT | `MainframeEngine/Src/Audio/Synthesis/Zzfx.cs`; `build/zzfx-reference.mjs` (vendored JavaScript, reference vectors) | engine |
 | [Ez Tree](https://github.com/dgreenheck/ez-tree) (Daniel Greenheck; the tree generator `tree.js` and `rng.js` ported to C#, the 15 tree and bush presets, the leaf textures) | 1.1.0 (`dcf309b`) | MIT | `MainframeEngine/Src/Trees/Generation/`; `MainframeEngine/Content/Trees/Presets` (converted to `.mres`), `MainframeEngine/Content/Trees/Leaves`; `build/ez-tree-reference.mjs` (runs Ez Tree for the parity fixture) | engine; engine `Content/Trees` |
+| [AMD FidelityFX FSR 1](https://github.com/GPUOpen-Effects/FidelityFX-FSR) (the RCAS sharpening algorithm, re-implemented in Slang) | 1.0 | MIT | `MainframeEngine/Content/Shaders/Post/TaaSharpen.vk.frag.slang` | engine shaders |
 | [three.js](https://threejs.org) (the `Vector3`, `Quaternion` and `Euler` math Ez Tree calls, ported to C# in doubles) | 0.167.1 | MIT | `MainframeEngine/Src/Trees/Generation/ThreeMath.cs` | engine |
 | [ambientCG](https://ambientcg.com) bark textures `Bark001`–`Bark003` (1K JPG: colour, OpenGL normal, roughness; the sets Ez Tree's presets use) | — | CC0 1.0 | `MainframeEngine/Content/Trees/Bark` | engine `Content/Trees/Bark` |
 | [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
@@ -656,6 +657,33 @@ SOFTWARE.
 The MIT License
 
 Copyright © 2010-2024 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+## AMD FidelityFX FSR 1 (RCAS)
+
+`MainframeEngine/Content/Shaders/Post/TaaSharpen.vk.frag.slang` (the sharpen after TAA, ADR 0166) re-implements the
+robust contrast-adaptive sharpening (RCAS) of AMD FidelityFX Super Resolution 1.0 in Slang:
+
+```text
+Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

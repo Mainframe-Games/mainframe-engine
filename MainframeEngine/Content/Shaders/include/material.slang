@@ -21,7 +21,8 @@ struct MaterialParams
     float4 params;      // x = specular, y = shininess, z = alpha cutoff, w = normal scale
     uint4  flags;       // x = texture bits (1 albedo, 2 normal, 4 emission, 8 ORM), y = shading (kShading*),
                         // z = 1 double-sided, w = outline width in pixels (float bits; OutlineMaterial3D)
-    float4 pbr;         // x = metallic, y = roughness, z = ambient occlusion (ShadingMode.Pbr; × the ORM texture)
+    float4 pbr;         // x = metallic, y = roughness, z = ambient occlusion (ShadingMode.Pbr; × the ORM texture),
+                        // w = 1 for a dithered cutout (FoliageMaterial3D.AlphaDither, alpha_dither.slang)
 };
 
 [[vk::binding(0, MATERIAL_SET)]] ConstantBuffer<MaterialParams> material;

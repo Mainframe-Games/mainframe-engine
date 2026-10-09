@@ -385,10 +385,25 @@ public sealed class RenderingProjectSettings
     public ShadowQuality Shadows { get; set; } = ShadowQuality.High;
 
     /// <summary>
-    /// Screen-space anti-aliasing of the main view (<see cref="IVulkanContext.AntiAliasing"/>, ADR 0154): none (default)
-    /// or FXAA on the tonemapped image, under the UI.
+    /// Anti-aliasing of the main view (<see cref="IVulkanContext.AntiAliasing"/>, ADR 0154, ADR 0166): none (default),
+    /// FXAA on the tonemapped image, or TAA on the HDR image; both under the UI.
     /// </summary>
     public AntiAliasing AntiAliasing { get; set; } = AntiAliasing.None;
+
+    /// <summary>
+    /// The sharpen after TAA, 0 (off) to 1 (<see cref="IVulkanContext.TaaSharpness"/>, ADR 0166; default
+    /// <see cref="IVulkanContext.DefaultTaaSharpness"/>). Only with <see cref="AntiAliasing.Taa"/>.
+    /// </summary>
+    public float TaaSharpness
+    {
+        get;
+        set
+        {
+            if (!(value >= 0f && value <= 1f))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "TAA sharpness must be between 0 and 1.");
+            field = value;
+        }
+    } = IVulkanContext.DefaultTaaSharpness;
 
     /// <summary>
     /// Opaque background of the 2D canvas (<see cref="CanvasServer.ClearColor"/>; a 2D game: Godot's viewport clear colour,

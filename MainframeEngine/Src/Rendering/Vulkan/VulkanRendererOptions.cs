@@ -11,4 +11,7 @@ internal readonly record struct VulkanRendererOptions
 
     /// <summary>The initial <see cref="IVulkanContext.AntiAliasing"/>.</summary>
     public AntiAliasing AntiAliasing { get; init; }
+
+    /// <summary>The initial <see cref="IVulkanContext.TaaSharpness"/>.</summary>
+    public float TaaSharpness { get; init; }
 }

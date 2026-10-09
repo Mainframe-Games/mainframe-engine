@@ -1,9 +1,11 @@
 // Depth prepass (ADR 0163): writes the velocity (R16G16_SFLOAT, screen-UV motion: previousUv = uv - velocity) of
 // opaque and cutout surfaces; the depth is the pass's. Cutout materials alpha-test exactly as their colour shaders do
 // (Mesh.vk.frag, Foliage.vk.frag: the albedo × the vertex colour's alpha against the cutoff), so the scene pass can
-// skip its own discard and keep only what the prepass kept (an EQUAL depth test). Set 2 is the material.
+// skip its own discard and keep only what the prepass kept (an EQUAL depth test). Dithered foliage (AlphaDither, with
+// TAA's jitter) dithers here exactly as Foliage.vk.frag does (include/alpha_dither.slang). Set 2 is the material.
 #include "frame.slang"
 #include "material.slang"
+#include "alpha_dither.slang"
 
 [vk::constant_id(0)] const int kAlphaMode = kAlphaOpaque;
 
@@ -19,7 +21,7 @@ struct FsIn
 };
 
 [shader("fragment")]
-float2 main(FsIn input) : SV_Target0
+float2 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
 {
     if (kAlphaMode == kAlphaCutout)
     {
@@ -27,7 +29,7 @@ float2 main(FsIn input) : SV_Target0
         float alpha = materialAlbedo(uv, ddx(uv), ddy(uv)).a;
         if (kVertexColor)
             alpha *= input.inAlpha;
-        if (alpha < material.params.z)
+        if (!cutoutKeeps(alpha, material.params.z, fragCoord.xy))
             discard;
     }
 

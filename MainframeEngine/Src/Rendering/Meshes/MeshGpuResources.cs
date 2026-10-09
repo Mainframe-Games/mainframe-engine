@@ -241,7 +241,10 @@ internal struct MaterialParams
     /// <summary><see cref="OutlineMaterial3D.Width"/> as float bits (<c>flags.w</c>; read by the outline vertex shader).</summary>
     public uint OutlineWidth;
 
-    /// <summary>x = metallic, y = roughness, z = ambient occlusion (<see cref="ShadingMode.Pbr"/>).</summary>
+    /// <summary>
+    /// x = metallic, y = roughness, z = ambient occlusion (<see cref="ShadingMode.Pbr"/>); w = 1 for a dithered cutout
+    /// (<see cref="FoliageMaterial3D.AlphaDither"/>, 0 for every other material).
+    /// </summary>
     public Vector4 Pbr;
 
     public const int Size = 96;
@@ -279,7 +282,8 @@ internal struct MaterialParams
     /// <summary>
     /// Packs a <see cref="FoliageMaterial3D"/> into the same block (<c>include/foliage.slang</c> reads it): the emission
     /// slot holds translucency, wind strength scale and branch bend; the cutoff is 0 unless the material cuts out (the
-    /// foliage casters always run the alpha test); <c>flags.z</c> is the back-face mode + 1 (1 flip, 2 keep, 3 cull).
+    /// foliage casters always run the alpha test); <c>flags.z</c> is the back-face mode + 1 (1 flip, 2 keep, 3 cull);
+    /// <c>pbr.w</c> is 1 for a dithered cutout (<see cref="FoliageMaterial3D.AlphaDither"/>, <c>include/alpha_dither.slang</c>).
     /// </summary>
     public static MaterialParams From(FoliageMaterial3D m, uint textureFlags)
     {
@@ -298,7 +302,7 @@ internal struct MaterialParams
                 _ => ShadingBlinnPhong,
             },
             DoubleSided = (uint)m.BackFace + 1u,
-            Pbr = new Vector4(0f, Math.Clamp(m.Roughness, 0f, 1f), 1f, 0f),
+            Pbr = new Vector4(0f, Math.Clamp(m.Roughness, 0f, 1f), 1f, m.AlphaCutout && m.AlphaDither ? 1f : 0f),
         };
     }
 

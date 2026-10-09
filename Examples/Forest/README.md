@@ -7,8 +7,8 @@ built against this checkout's engine, and **not** part of `MainframeEngine.slnx`
 
 **Status: playable.** A generated 256 m valley: a stream from a rocky outcrop over a small fall, through three pools
 and under a fallen-log bridge into a pond; an oak and ash glade, aspen banks, a dense pine slope; a ≈ 3 minute walking
-loop from the trailhead. Physical morning sky, valley fog, light shafts, eye adaptation, FXAA, procedural audio. Not yet:
-the pause menu, impostors, TAA, SSAO and the release build.
+loop from the trailhead. Physical morning sky, valley fog, light shafts, eye adaptation, TAA, procedural audio. Not yet:
+the pause menu, impostors, SSAO and the release build.
 
 ![The glade](../../docs/images/forest/r1-glade.png)
 
@@ -52,7 +52,7 @@ data folder when present.
 ```
 Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes, NOTICE.md
-├── project.mfproj        "Mainframe Forest": main scene, 1920 × 1080 px window, FXAA, input map, autoload Dev
+├── project.mfproj        "Mainframe Forest": main scene, 1920 × 1080 px window, TAA, input map, autoload Dev
 ├── benchmark-baseline.json  just forest-bench's reference (this Mac)
 ├── Forest/               node library: Src/Player (FirstPersonController, footstep surfaces, settings),
 │                         Src/World (the scene, ForestValley + ValleyGenerator + ForestVegetation, ForestAssets, the

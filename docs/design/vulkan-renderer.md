@@ -40,8 +40,8 @@ state is baked into each pipeline.
 (`default` outside a frame), `SwapchainExtent` (pixels; the scene target has the same size),
 `SwapchainImageCount`, `CurrentImageIndex`, `CurrentFramebuffer` (the scene target's), `BeginRenderPass()`,
 `Validation`, and since M3: `SceneTarget`, `OverlayRenderPass`, `OverlayEncodesSrgb`, `BeginOverlayPass()`,
-`Exposure` (+ `const DefaultExposure = 1.3`), since ADR 0154 `AntiAliasing` (`None`/`Fxaa`, from
-`EngineOptions.AntiAliasing`) and `FrameDeltaTime` (set by the engine; auto exposure adapts over it), `Frame` (`FrameContext`, with per-view copies and `Extent` of the
+`Exposure` (+ `const DefaultExposure = 1.3`), since ADR 0154 `AntiAliasing` (`None`/`Fxaa`/`Taa`, from
+`EngineOptions.AntiAliasing`), since ADR 0166 `TaaSharpness` (+ `const DefaultTaaSharpness = 0.25`) and `FrameDeltaTime` (set by the engine; auto exposure adapts over it), `Frame` (`FrameContext`, with per-view copies and `Extent` of the
 view being drawn), `Allocator`, `Uploads`, `Deletions`, `Pipelines`, `Shaders`, `MaxSamplerAnisotropy` (the
 `samplerAnisotropy` feature is enabled when available). Images for the UI (a `SubViewport`, shadow maps) go through
 `UiServer.RegisterTexture` (`engine://name`).
@@ -87,8 +87,8 @@ Every Vulkan call that returns a `Result` in init, per-frame and recreation path
 | Light shafts (ADR 0160) | 3 × ½-res `R16G16B16A16_SFLOAT` `RenderTarget`s (mask, fine blur, coarse blur) | colour Clear/Store → `SHADER_READ_ONLY`, explicit barrier in `End` | `LightShafts`: when the root world's `PostProcessSettings` enable them and the sun is in reach, after the glow; they read the scene's colour and depth |
 | Post targets (ADR 0163) | `PostTargetPool`: scene-relative `RenderTarget`s and ping-pong histories | as above | post effects (TAA's history, SSAO) |
 | Scene colour copy (ADR 0163) | the scene colour image | DontCare/Store, `SHADER_READ_ONLY` → `SHADER_READ_ONLY`, explicit barriers | `PostEffectContext.CopyToSceneColor` (a `BeforeTonemap` effect's new HDR image) |
-| LDR images (ADR 0154, 0163) | `R8G8B8A8_UNORM` ping-pong, the swapchain's size | as above | the tonemap pipelines (a second copy of each) when an `AfterTonemap` effect is on (`AntiAliasing = Fxaa`, the velocity view); the stage's effects that are not last |
-| Present | swapchain image | colour DontCare/Store, `UNDEFINED → PRESENT_SRC` (or `→ COLOR_ATTACHMENT` when a separate overlay pass follows) | tonemap, or the last `AfterTonemap` effect (`FxaaEffect`, `VelocityDebugView`) over the LDR image |
+| LDR images (ADR 0154, 0163) | `R8G8B8A8_UNORM` ping-pong, the swapchain's size | as above | the tonemap pipelines (a second copy of each) when an `AfterTonemap` effect is on (`AntiAliasing = Fxaa`, TAA's sharpen, the velocity view); the stage's effects that are not last |
+| Present | swapchain image | colour DontCare/Store, `UNDEFINED → PRESENT_SRC` (or `→ COLOR_ATTACHMENT` when a separate overlay pass follows) | tonemap, or the last `AfterTonemap` effect (`TaaSharpenEffect`, `FxaaEffect`, `VelocityDebugView`) over the LDR image |
 | Overlay (`OverlayRenderPass`) | same pass as Present by default; a separate Load pass on a UNORM view in the `SrgbWithUnormOverlay` mode | | canvas, screen gizmos, UI, dev overlay |
 
 The scene pass's incoming dependency orders this frame's writes after the previous frame's tonemap read
@@ -125,7 +125,7 @@ flowchart TD
     SC --> UI["UI layers offscreen"]
     UI --> BT["BeforeTonemap stage<br/>TAA · auto exposure · glow · light shafts"]
     BT --> TM["Tonemap<br/>→ swapchain, or → LDR image"]
-    TM -.-> AT["AfterTonemap stage<br/>FXAA · velocity view (last → swapchain)"]
+    TM -.-> AT["AfterTonemap stage<br/>TAA sharpen · FXAA · velocity view (last → swapchain)"]
     TM --> OV["Overlay<br/>canvas · gizmos · UI · dev overlay"]
     AT -.-> OV
     OV --> CP["Frame capture copy (optional)"]

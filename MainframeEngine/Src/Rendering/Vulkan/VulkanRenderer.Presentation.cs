@@ -104,6 +104,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     // The AfterTonemap stage (ADR 0154 FXAA, ADR 0163): the tonemap pipelines above draw into the swapchain; these into
     // the LDR ping-pong the stage's effects read, the last of which draws into the swapchain.
     private AntiAliasing _antiAliasing;
+    private float _taaSharpness;
     private readonly RenderTarget?[] _ldr = new RenderTarget?[2];
     private int _ldrWrite; // the LDR target an AfterTonemap effect that is not the last writes
     private Pipeline _tonemapLdrPipeline;
@@ -207,6 +208,8 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         _post.Add(_autoExposure);
         _post.Add(_glow);
         _post.Add(_lightShafts);
+        _post.Add(new TaaEffect());
+        _post.Add(new TaaSharpenEffect());
         _post.Add(new FxaaEffect());
         _post.Add(new VelocityDebugView());
     }
@@ -295,7 +298,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown debug view.");
     }
 
-    public PostEffectSettings PostSettings => new(PostProcess, _antiAliasing, DebugView);
+    public PostEffectSettings PostSettings => new(PostProcess, _antiAliasing, DebugView, _taaSharpness);
 
     public RenderPass PrepassRenderPass => (_prepass ??= new ScenePrepass(this, SceneTarget)).PrepassRenderPass;
 

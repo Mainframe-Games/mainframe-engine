@@ -6,7 +6,7 @@ namespace MainframeEngine.RenderTests.Host;
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
 /// [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--minimize frame] [--input frame]
 /// [--pipeline-cache dir] [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]
-/// [--prepass] [--jitter] [--velocity-view]</c>.
+/// [--prepass] [--jitter] [--velocity-view] [--aa none|fxaa|taa] [--taa-sharpness S]</c>.
 /// </summary>
 public sealed record HostOptions
 {
@@ -86,6 +86,12 @@ public sealed record HostOptions
 
     /// <summary>Shows the motion vectors instead of the image (<c>RenderDebugView.Velocity</c>).</summary>
     public bool VelocityView { get; init; }
+
+    /// <summary>The renderer's anti-aliasing (<c>IVulkanContext.AntiAliasing</c>), set before the scene loads; null = the scene's.</summary>
+    public AntiAliasing? AntiAliasing { get; init; }
+
+    /// <summary>The sharpen after TAA (<c>IVulkanContext.TaaSharpness</c>); null = the default.</summary>
+    public float? TaaSharpness { get; init; }
 
     public static HostOptions Parse(IReadOnlyList<string> args)
     {
@@ -191,6 +197,12 @@ public sealed record HostOptions
                     break;
                 case "--velocity-view":
                     options = options with { VelocityView = true };
+                    break;
+                case "--aa":
+                    options = options with { AntiAliasing = Enum.Parse<AntiAliasing>(Next(), ignoreCase: true) };
+                    break;
+                case "--taa-sharpness":
+                    options = options with { TaaSharpness = float.Parse(Next(), CultureInfo.InvariantCulture) };
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");

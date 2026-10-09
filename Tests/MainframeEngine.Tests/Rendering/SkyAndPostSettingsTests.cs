@@ -177,7 +177,7 @@ public sealed class SkyAndPostSettingsTests
         Assert.Equal(AntiAliasing.None, new EngineOptions { GameName = "t" }.AntiAliasing);
         Assert.Equal(AntiAliasing.None, new VulkanRendererOptions().AntiAliasing);
         Assert.Equal(AntiAliasing.None, new ProjectSettings().Rendering.AntiAliasing);
-        Assert.Equal(["None", "Fxaa"], Enum.GetNames<AntiAliasing>());
+        Assert.Equal(["None", "Fxaa", "Taa"], Enum.GetNames<AntiAliasing>());
     }
 
     [Fact]
@@ -191,9 +191,9 @@ public sealed class SkyAndPostSettingsTests
         Assert.Equal(AntiAliasing.Fxaa, Parse("""{ "format": 1, "rendering": { "antiAliasing": "fxaa" } }""").Rendering.AntiAliasing);
         Assert.DoesNotContain("antiAliasing", Encoding.UTF8.GetString(new ProjectSettings().ToJson()), StringComparison.Ordinal);
 
-        var error = Assert.ThrowsAny<Exception>(() => Parse("""{ "format": 1, "rendering": { "antiAliasing": "Taa" } }"""));
+        var error = Assert.ThrowsAny<Exception>(() => Parse("""{ "format": 1, "rendering": { "antiAliasing": "Msaa" } }"""));
         Assert.Contains("rendering.antiAliasing", error.Message, StringComparison.Ordinal);
-        Assert.Contains("'Taa' is not one of None, Fxaa", error.Message, StringComparison.Ordinal);
+        Assert.Contains("'Msaa' is not one of None, Fxaa, Taa", error.Message, StringComparison.Ordinal);
     }
 
     private static ProjectSettings Parse(string json) => ProjectSettings.Parse(Encoding.UTF8.GetBytes(json), "test.mfproj");

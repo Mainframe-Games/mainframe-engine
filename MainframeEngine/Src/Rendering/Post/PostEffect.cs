@@ -73,7 +73,9 @@ internal static class PostEffectOrder
 /// <param name="World">The tree's root <see cref="WorldEnvironment"/>'s settings (<see cref="IVulkanContext.PostProcess"/>).</param>
 /// <param name="AntiAliasing">The project's anti-aliasing (<see cref="IVulkanContext.AntiAliasing"/>).</param>
 /// <param name="DebugView">A renderer debug view (<see cref="RenderServer.DebugView"/>).</param>
-internal readonly record struct PostEffectSettings(PostProcessSettings World, AntiAliasing AntiAliasing, RenderDebugView DebugView)
+/// <param name="TaaSharpness">The sharpen after TAA (<see cref="IVulkanContext.TaaSharpness"/>; 0 = none).</param>
+internal readonly record struct PostEffectSettings(PostProcessSettings World, AntiAliasing AntiAliasing, RenderDebugView DebugView,
+    float TaaSharpness = 0f)
 {
     /// <summary>The engine's defaults: its own tonemap, no anti-aliasing, no debug view (no post effect runs).</summary>
     public static PostEffectSettings Default => new(PostProcessSettings.Default, AntiAliasing.None, RenderDebugView.None);

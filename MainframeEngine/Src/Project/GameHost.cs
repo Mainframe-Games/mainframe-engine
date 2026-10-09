@@ -269,6 +269,7 @@ public class GameHost : Engine
         {
             vk.Exposure = Settings.Rendering.Exposure;
             vk.AntiAliasing = Settings.Rendering.AntiAliasing;
+            vk.TaaSharpness = Settings.Rendering.TaaSharpness;
         }
         if (Servers.Render is { } render)
             render.ShadowQuality = Settings.Rendering.Shadows; // before any visual creates GPU resources (Off)

@@ -90,10 +90,10 @@ public sealed class ProjectTests
     }
 
     [Fact]
-    public void ProjectUsesFxaaAndAFixedPixelSize()
+    public void ProjectUsesTaaAndAFixedPixelSize()
     {
         var settings = Load();
-        Assert.Equal(AntiAliasing.Fxaa, settings.Rendering.AntiAliasing);
+        Assert.Equal(AntiAliasing.Taa, settings.Rendering.AntiAliasing); // ADR 0166: leaves and grass stop shimmering
         Assert.Equal(1f, settings.Window.ContentScale);
     }
 
