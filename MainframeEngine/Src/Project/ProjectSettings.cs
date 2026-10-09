@@ -406,6 +406,12 @@ public sealed class RenderingProjectSettings
     } = IVulkanContext.DefaultTaaSharpness;
 
     /// <summary>
+    /// Screen-space reflections of refracting water (<see cref="RenderServer.WaterSsr"/>, ADR 0173): Off (sky only), Low
+    /// (default) or High.
+    /// </summary>
+    public WaterSsrQuality WaterSsr { get; set; } = WaterSsrQuality.Low;
+
+    /// <summary>
     /// Opaque background of the 2D canvas (<see cref="CanvasServer.ClearColor"/>; a 2D game: Godot's viewport clear colour,
     /// gamma-space RGBA), or null (default) to draw the canvas over the 3D scene.
     /// </summary>

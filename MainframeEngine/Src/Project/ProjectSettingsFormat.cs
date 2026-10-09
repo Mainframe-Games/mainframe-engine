@@ -315,7 +315,7 @@ public static class ProjectSettingsFormat
     {
         var d = new RenderingProjectSettings();
         if (s.Exposure == d.Exposure && s.Shadows == d.Shadows && s.CanvasClearColor is null && s.AntiAliasing == d.AntiAliasing
-            && s.TaaSharpness == d.TaaSharpness)
+            && s.TaaSharpness == d.TaaSharpness && s.WaterSsr == d.WaterSsr)
             return;
         w.WriteStartObject("rendering");
         if (s.Exposure != d.Exposure)
@@ -326,6 +326,8 @@ public static class ProjectSettingsFormat
             w.WriteString("antiAliasing", s.AntiAliasing.ToString());
         if (s.TaaSharpness != d.TaaSharpness)
             w.WriteNumber("taaSharpness", s.TaaSharpness);
+        if (s.WaterSsr != d.WaterSsr)
+            w.WriteString("waterSsr", s.WaterSsr.ToString());
         if (s.CanvasClearColor is { } c)
             WriteFloats(w, "canvasClearColor", [c.X, c.Y, c.Z, c.W]);
         w.WriteEndObject();
@@ -541,8 +543,9 @@ public static class ProjectSettingsFormat
 
         private void ReadRendering(JsonObject o, RenderingProjectSettings s)
         {
-            Known(o, "rendering.", "exposure", "shadows", "canvasClearColor", "antiAliasing", "taaSharpness");
+            Known(o, "rendering.", "exposure", "shadows", "canvasClearColor", "antiAliasing", "taaSharpness", "waterSsr");
             s.AntiAliasing = EnumValue(o, "antiAliasing", "rendering.antiAliasing", s.AntiAliasing);
+            s.WaterSsr = EnumValue(o, "waterSsr", "rendering.waterSsr", s.WaterSsr);
             var taaSharpness = Float(o, "taaSharpness", "rendering.taaSharpness", s.TaaSharpness);
             Guard("rendering.taaSharpness", () => s.TaaSharpness = taaSharpness);
             if (Floats(o, "canvasClearColor", "rendering.canvasClearColor", 4) is { } clear)

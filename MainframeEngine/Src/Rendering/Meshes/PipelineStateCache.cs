@@ -41,6 +41,21 @@ public enum ShaderSetId : byte
 
     /// <summary>The depth prepass of <see cref="FoliageMaterial3D"/>: <c>Foliage/FoliageDepth.vk.vert</c> (wind now and a frame ago) + <c>Mesh/MeshDepth.vk.frag</c>.</summary>
     MeshDepthFoliage,
+
+    /// <summary>
+    /// <c>Water/Water.vk.vert</c> + <c>Water/WaterScene.vk.frag</c>: a refracting <see cref="WaterMaterial3D"/> (ADR 0173)
+    /// in a view with a scene copy, with the water-scene pipeline layout (set 3: the copy).
+    /// </summary>
+    MeshWaterScene,
+
+    /// <summary><c>Water/Water.vk.vert</c> + <c>Water/Waterfall.vk.frag</c>: <see cref="WaterfallMaterial3D"/> (ADR 0173).</summary>
+    MeshWaterfall,
+
+    /// <summary>
+    /// <c>Water/Spray.vk.vert</c> + <c>Water/Spray.vk.frag</c>: <see cref="SprayMaterial3D"/> cards (ADR 0173), with the
+    /// water-scene pipeline layout (soft against the scene copy).
+    /// </summary>
+    MeshSpray,
 }
 
 /// <summary>
@@ -94,7 +109,8 @@ public readonly record struct PipelineKey(
 
         var layout = shaders switch
         {
-            ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshDepthFoliage => VertexLayoutId.MeshInstancedExt,
+            ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshWaterScene
+                or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray => VertexLayoutId.MeshInstancedExt,
             ShaderSetId.MeshLit or ShaderSetId.MeshDepth when streams => VertexLayoutId.MeshInstancedExt,
             _ => VertexLayoutId.MeshInstanced,
         };

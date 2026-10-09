@@ -27,6 +27,6 @@
     "photo": { "bindings": ["key:F2", "pad:Back"] }
   },
   "audio": { "busLayout": "Content/Settings/AudioBusLayout.mres" },
-  "rendering": { "shadows": "High", "antiAliasing": "Taa" },
+  "rendering": { "shadows": "High", "antiAliasing": "Taa", "waterSsr": "High" },
   "autoloads": [ { "name": "Dev", "type": "ForestDev" } ]
 }

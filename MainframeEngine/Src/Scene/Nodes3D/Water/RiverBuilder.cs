@@ -21,6 +21,17 @@ public readonly record struct RiverMeshData(Vector3[] Positions, Vector3[] Norma
     public int IndexCount => Indices?.Length ?? 0;
 }
 
+/// <summary>
+/// A fall of a river (ADR 0173): where its downhill-clamped profile drops at least <c>FallSlope</c> per horizontal metre
+/// over at least <c>FallMinHeight</c>. River-local positions on the centreline at the surface.
+/// </summary>
+/// <param name="Lip">The top of the drop (the last section of the ribbon above it).</param>
+/// <param name="Foot">The bottom (the first section of the ribbon below it).</param>
+/// <param name="Width">The full width at the foot, metres.</param>
+/// <param name="Drop">Lip height − foot height, metres.</param>
+/// <param name="Downstream">Unit XZ direction from the lip to the foot.</param>
+public readonly record struct RiverFall(Vector3 Lip, Vector3 Foot, float Width, float Drop, Vector2 Downstream);
+
 /// <summary>Shape and flow settings for <see cref="RiverBuilder"/> (River3D's exports).</summary>
 internal struct RiverSettings
 {
@@ -32,6 +43,8 @@ internal struct RiverSettings
     public float MaxSpeed;
     public float SpeedPerSqrtSlope;
     public float SlopeWindow;
+    public float FallSlope;
+    public float FallMinHeight;
 
     public static RiverSettings Default => new()
     {
@@ -43,6 +56,8 @@ internal struct RiverSettings
         MaxSpeed = 4f,
         SpeedPerSqrtSlope = 6f,
         SlopeWindow = 6f,
+        FallSlope = 0.7f,
+        FallMinHeight = 1f,
     };
 }
 
@@ -59,6 +74,20 @@ internal sealed class RiverBuilder
 
     /// <summary>Speed above which foam ramps in (rapids), m/s.</summary>
     public const float RapidsSpeed = 2f;
+
+    /// <summary>Arc length between the cross-sections of a fall's jet, metres.</summary>
+    public const float JetSectionLength = 0.25f;
+
+    private const float Gravity = 9.81f;
+
+    // Falls: the section ranges [lip, foot] the ribbon leaves out, and the jets' geometry.
+    private readonly List<(int Lip, int Foot)> _fallRuns = [];
+    private readonly List<RiverFall> _falls = [];
+    private Vector3[] _fallPositions = [];
+    private Vector3[] _fallNormals = [];
+    private Vector2[] _fallUvs = [];
+    private Vector4[] _fallCustom0 = [];
+    private int[] _fallIndices = [];
 
     private float[] _clampedHeights = [];
     private int _bakedCount;
@@ -94,6 +123,17 @@ internal sealed class RiverBuilder
 
     public RiverMeshData Mesh { get; private set; } = new([], [], [], [], []);
 
+    /// <summary>
+    /// The falls' jets (ADR 0173): a sheet per fall from the lip to the foot along a ballistic arc (horizontal launch,
+    /// landing at the foot), sections every <see cref="JetSectionLength"/>. Normals face downstream; UV.u across, UV.v the
+    /// ribbon's arc length / UvLength continued; Custom0 x = how far down (0 … 1), y = the speed in UV units per second,
+    /// z = 0, w = aeration. Empty without falls.
+    /// </summary>
+    public RiverMeshData FallMesh { get; private set; } = new([], [], [], [], []);
+
+    /// <summary>The falls found in the last build (river-local).</summary>
+    public IReadOnlyList<RiverFall> Falls => _falls;
+
     public ReadOnlySpan<Vector3> SectionCentres => _centres.AsSpan(0, SectionCount);
 
     public ReadOnlySpan<float> SectionOffsets => _offsets.AsSpan(0, SectionCount);
@@ -113,6 +153,9 @@ internal sealed class RiverBuilder
         Bounds = Aabb.Empty;
         _bakedCount = 0;
         _bakedLength = 0;
+        _fallRuns.Clear();
+        _falls.Clear();
+        FallMesh = new RiverMeshData([], [], [], [], []);
         if (curve is null || curve.PointCount < 2 || !(curve.GetBakedLength() > 0))
         {
             Mesh = new RiverMeshData([], [], [], [], []);
@@ -122,7 +165,9 @@ internal sealed class RiverBuilder
 
         ClampHeights(curve, settings.EnforceDownhill);
         BuildSections(curve, settings);
+        FindFalls(settings);
         BuildRibbon(settings);
+        BuildFalls(settings);
         BuildGrid();
     }
 
@@ -215,7 +260,10 @@ internal sealed class RiverBuilder
     {
         var columns = Math.Max(1, settings.CrossSegments) + 1;
         var vertexCount = SectionCount * columns;
-        var indexCount = (SectionCount - 1) * (columns - 1) * 6;
+        var skipped = 0;
+        foreach (var (lip, foot) in _fallRuns)
+            skipped += foot - lip;
+        var indexCount = (SectionCount - 1 - skipped) * (columns - 1) * 6;
         if (_positions.Length != vertexCount)
         {
             _positions = new Vector3[vertexCount];
@@ -235,7 +283,7 @@ internal sealed class RiverBuilder
             var right = Right(_tangents[k]);
             var hw = _halfWidths[k];
             var speed = _speeds[k];
-            var foam = 0.6f * Math.Clamp((speed - RapidsSpeed) / 2f, 0f, 1f);
+            var foam = MathF.Max(0.6f * Math.Clamp((speed - RapidsSpeed) / 2f, 0f, 1f), PlungeFoam(k));
             for (var j = 0; j < columns; j++)
             {
                 var u = (float)j / (columns - 1);
@@ -256,6 +304,8 @@ internal sealed class RiverBuilder
         var i = 0;
         for (var k = 0; k < SectionCount - 1; k++)
         {
+            if (InFall(k))
+                continue; // the fall's jet replaces the ribbon from its lip to its foot
             for (var j = 0; j < columns - 1; j++)
             {
                 var a = k * columns + j;
@@ -274,6 +324,184 @@ internal sealed class RiverBuilder
 
         Bounds = bounds;
         Mesh = new RiverMeshData(_positions, _normals, _uvs, _custom0, _indices);
+    }
+
+    // True when segment k (sections k, k + 1) lies inside a fall.
+    private bool InFall(int k)
+    {
+        foreach (var (lip, foot) in _fallRuns)
+            if (k >= lip && k < foot)
+                return true;
+        return false;
+    }
+
+    // Foam where a fall plunges: 1 at its foot, fading over 1.5 widths downstream.
+    private float PlungeFoam(int k)
+    {
+        var foam = 0f;
+        foreach (var (_, foot) in _fallRuns)
+        {
+            if (k < foot)
+                continue;
+            var reach = MathF.Max(_halfWidths[foot] * 3f, 1f);
+            var d = _offsets[k] - _offsets[foot];
+            foam = MathF.Max(foam, 0.8f * (1f - Math.Clamp(d / reach, 0f, 1f)));
+        }
+
+        return foam;
+    }
+
+    // Runs of section segments steeper than FallSlope (drop per horizontal metre) whose total drop reaches FallMinHeight.
+    private void FindFalls(in RiverSettings settings)
+    {
+        if (!(settings.FallSlope > 0f) || SectionCount < 2)
+            return;
+        var k = 0;
+        while (k < SectionCount - 1)
+        {
+            if (SegmentSlope(k) < settings.FallSlope)
+            {
+                k++;
+                continue;
+            }
+
+            var lip = k;
+            while (k < SectionCount - 1 && SegmentSlope(k) >= settings.FallSlope)
+                k++;
+            var foot = k;
+            var drop = _centres[lip].Y - _centres[foot].Y;
+            if (drop < MathF.Max(settings.FallMinHeight, 0f))
+                continue;
+            _fallRuns.Add((lip, foot));
+            var d = new Vector2(_centres[foot].X - _centres[lip].X, _centres[foot].Z - _centres[lip].Z);
+            var dl = d.Length();
+            _falls.Add(new RiverFall(_centres[lip], _centres[foot], _halfWidths[foot] * 2f, drop, dl > 1e-5f ? d / dl : _tangents[lip]));
+        }
+    }
+
+    private float SegmentSlope(int k)
+    {
+        var a = _centres[k];
+        var b = _centres[k + 1];
+        var dx = b.X - a.X;
+        var dz = b.Z - a.Z;
+        var horizontal = MathF.Sqrt(dx * dx + dz * dz);
+        return (a.Y - b.Y) / MathF.Max(horizontal, 1e-4f);
+    }
+
+    // The jets: per fall, a ballistic sheet from the lip section to the foot section.
+    private void BuildFalls(in RiverSettings settings)
+    {
+        if (_fallRuns.Count == 0)
+            return;
+        var columns = Math.Max(1, settings.CrossSegments) + 1;
+        var uvLength = MathF.Max(settings.UvLength, 1e-3f);
+        Span<int> sections = stackalloc int[_fallRuns.Count];
+        var vertexCount = 0;
+        var indexCount = 0;
+        for (var f = 0; f < _fallRuns.Count; f++)
+        {
+            var (lip, foot) = _fallRuns[f];
+            var length = JetLength(_centres[lip], _centres[foot]);
+            sections[f] = Math.Max(2, (int)MathF.Ceiling(length / JetSectionLength) + 1);
+            vertexCount += sections[f] * columns;
+            indexCount += (sections[f] - 1) * (columns - 1) * 6;
+        }
+
+        if (_fallPositions.Length != vertexCount)
+        {
+            _fallPositions = new Vector3[vertexCount];
+            _fallNormals = new Vector3[vertexCount];
+            _fallUvs = new Vector2[vertexCount];
+            _fallCustom0 = new Vector4[vertexCount];
+        }
+
+        if (_fallIndices.Length != indexCount)
+            _fallIndices = new int[indexCount];
+
+        var v = 0;
+        var i = 0;
+        var bounds = Bounds;
+        for (var f = 0; f < _fallRuns.Count; f++)
+        {
+            var (lip, foot) = _fallRuns[f];
+            var top = _centres[lip];
+            var bottom = _centres[foot];
+            var run = new Vector2(bottom.X - top.X, bottom.Z - top.Z);
+            var drop = top.Y - bottom.Y;
+            var lipSpeed = _speeds[lip];
+            var first = v;
+            var arc = 0f;
+            var previous = top;
+            var count = sections[f];
+            for (var n = 0; n < count; n++)
+            {
+                var s = (float)n / (count - 1);
+                var centre = new Vector3(top.X + run.X * s, top.Y - drop * s * s, top.Z + run.Y * s);
+                arc += Vector3.Distance(centre, previous);
+                previous = centre;
+                var tangent = Vector3.Normalize(new Vector3(run.X, -2f * drop * s, run.Y) + new Vector3(0f, -1e-4f, 0f));
+                var r = Right(_tangents[lip]) * (1f - s) + Right(_tangents[foot]) * s;
+                var right = r.LengthSquared() > 1e-8f ? Vector3.Normalize(r) : Right(_tangents[lip]);
+                var normal = Vector3.Normalize(Vector3.Cross(right, tangent));
+                var hw = (_halfWidths[lip] * (1f - s) + _halfWidths[foot] * s) * (1f - 0.12f * MathF.Sin(MathF.PI * s));
+                var speed = MathF.Sqrt(lipSpeed * lipSpeed + 2f * Gravity * drop * s * s) / uvLength;
+                var aeration = 0.15f + 0.85f * Smoothstep(0f, 0.55f, s);
+                for (var j = 0; j < columns; j++)
+                {
+                    var u = (float)j / (columns - 1);
+                    var position = centre + right * ((u * 2f - 1f) * hw);
+                    _fallPositions[v] = position;
+                    _fallNormals[v] = normal;
+                    _fallUvs[v] = new Vector2(u, (_offsets[lip] + arc) / uvLength);
+                    _fallCustom0[v] = new Vector4(s, speed, 0f, aeration);
+                    bounds = bounds.Encapsulate(position);
+                    v++;
+                }
+            }
+
+            for (var n = 0; n < count - 1; n++)
+            {
+                for (var j = 0; j < columns - 1; j++)
+                {
+                    var a = first + n * columns + j;
+                    var b = a + 1;
+                    var c = a + columns;
+                    var d = c + 1;
+                    _fallIndices[i++] = a;
+                    _fallIndices[i++] = b;
+                    _fallIndices[i++] = c;
+                    _fallIndices[i++] = b;
+                    _fallIndices[i++] = d;
+                    _fallIndices[i++] = c;
+                }
+            }
+        }
+
+        Bounds = bounds;
+        FallMesh = new RiverMeshData(_fallPositions, _fallNormals, _fallUvs, _fallCustom0, _fallIndices);
+    }
+
+    // Arc length of a jet (64 chords of its parabola).
+    private static float JetLength(Vector3 top, Vector3 bottom)
+    {
+        var length = 0f;
+        var previous = top;
+        for (var n = 1; n <= 64; n++)
+        {
+            var s = n / 64f;
+            var p = new Vector3(top.X + (bottom.X - top.X) * s, top.Y - (top.Y - bottom.Y) * s * s, top.Z + (bottom.Z - top.Z) * s);
+            length += Vector3.Distance(p, previous);
+            previous = p;
+        }
+
+        return length;
+    }
+
+    private static float Smoothstep(float a, float b, float x)
+    {
+        var t = Math.Clamp((x - a) / (b - a), 0f, 1f);
+        return t * t * (3f - 2f * t);
     }
 
     /// <summary>The horizontal right vector (facing downstream) of an XZ tangent.</summary>

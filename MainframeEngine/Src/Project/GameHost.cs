@@ -272,7 +272,10 @@ public class GameHost : Engine
             vk.TaaSharpness = Settings.Rendering.TaaSharpness;
         }
         if (Servers.Render is { } render)
+        {
             render.ShadowQuality = Settings.Rendering.Shadows; // before any visual creates GPU resources (Off)
+            render.WaterSsr = Settings.Rendering.WaterSsr;
+        }
         // The session (autoloads, the main scene) starts on the first update, once the window is up (Godot readies the
         // scene after its window exists): SDL shows the window after OnLoad, which took ~0.3 s that the first scene's
         // first frame would otherwise lose (process deltas drop what the physics steps cannot cover).

@@ -351,6 +351,7 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["rendering.shadows"] = "Low",
             ["rendering.antiAliasing"] = "Taa",
             ["rendering.taaSharpness"] = "0.5",
+            ["rendering.waterSsr"] = "High",
         };
         foreach (var setting in ProjectSettingsModel.Settings)
             if (setting.Set is not null)

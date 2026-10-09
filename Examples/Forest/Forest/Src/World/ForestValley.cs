@@ -282,31 +282,44 @@ public sealed class ForestValley : Node3D
         return Texture2D.FromPixels(width, height, rgba, orm.ImportSettings with { ColorSpace = TextureImportColorSpace.Linear });
     }
 
+    // G8e.6 (ADR 0173): both refract the scene behind them (the bed, with caustics) and reflect the banks and trees
+    // through screen-space reflections; where a reflected ray leaves the screen they fall back to the sky.
     private static WaterMaterial3D CreateStreamMaterial() => new()
     {
         ResourceName = "Stream water",
-        Absorption = new Vector3(0.5f, 0.16f, 0.12f),
+        RefractionEnabled = true,
+        RefractionRoughness = 0.1f,
+        Absorption = new Vector3(0.42f, 0.13f, 0.1f), // clear: the gravel bed shows, browning with depth
         ScatterColor = DrawingColor.FromArgb(255, 30, 52, 40),
-        ScatterStrength = 0.45f,
+        ScatterStrength = 0.35f,
         NormalScaleNear = 1.2f,
         NormalScaleFar = 5f,
         NormalStrength = 0.6f,
         Roughness = 0.05f, // a narrow glitter path towards the low sun rather than a broad glare
-        ReflectionStrength = 0.35f, // the sky's reflection, as if the canopy hid most of it (no SSR yet)
+        ReflectionStrength = 0.7f, // the off-screen sky stays dimmer than the canopy hides it
+        CausticsStrength = 0.9f,
+        CausticsScale = 1.6f,
+        CausticsMaxDepth = 1.2f,
+        ShoreFoamDistance = 0.08f,
         FoamStrength = 1f,
     };
 
     private static WaterMaterial3D CreatePondMaterial() => new()
     {
         ResourceName = "Pond water",
-        Absorption = new Vector3(1.6f, 0.75f, 0.7f), // peaty: the deep middle goes dark
+        RefractionEnabled = true,
+        RefractionRoughness = 0.2f,
+        Absorption = new Vector3(2.4f, 1.4f, 1.2f), // peaty: the shallows show the bed, the deep middle goes dark and mirrors the trees
         ScatterColor = DrawingColor.FromArgb(255, 20, 38, 28),
-        ScatterStrength = 0.4f,
+        ScatterStrength = 0.35f,
         NormalScaleNear = 3f,
         NormalScaleFar = 12f,
-        NormalStrength = 0.35f,
+        NormalStrength = 0.3f,
         Roughness = 0.04f,
-        ReflectionStrength = 0.8f,
+        ReflectionStrength = 1f, // still water: the trees and banks mirror in it
+        CausticsStrength = 0.6f,
+        CausticsScale = 2.5f,
+        CausticsMaxDepth = 1.5f,
         WindDrift = 0.08f,
         FoamStrength = 0.4f,
     };

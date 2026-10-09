@@ -166,6 +166,8 @@ sequenceDiagram
   Realistic `Terrain3D` noise hill with LOD levels under a low sun; self-checked, plus a 0 B gate while the camera orbits;
   [Terrain → testing](terrain.md#testing)), `water` (ADR 0159: a carved stream and a pond with `WaterMaterial3D`
   under the procedural sky; self-checked, plus a 0 B gate while the camera orbits; [Water → tests](water.md#tests)),
+  `water-refraction`, `water-ssr` and `water-fall` (ADR 0173: a bent striped bed, a pillar reflected only with SSR, also
+  under TAA and in a post-processed sub-viewport, a River3D fall with spray; self-checked, goldens, 0 B gates with TAA),
   `terrain-splat` (ADR 0156: the `TerrainSplatMaterial3D` with four generated layers, a triplanar cliff and
   height-blended paths; self-checked, plus a 0 B orbit gate) and the tree scenes (ADR 0158) `tree-realistic`,
   `tree-lowpoly` (an oak and a pine `Tree3D`; `--count 1`: no wind) and `tree-forest` (a `TreeScatter`; `--count` trees,

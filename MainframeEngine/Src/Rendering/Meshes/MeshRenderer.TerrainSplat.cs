@@ -43,9 +43,9 @@ internal sealed unsafe partial class MeshRenderer
         _splatNoWeights = GpuTexture.Create2D(_ctx, 1, 1, none, TextureColorSpace.Linear, TextureSampling.LinearClamp);
     }
 
-    /// <summary>The pipeline layout of a shader set: the terrain splat layout, or the shared mesh layout.</summary>
+    /// <summary>The pipeline layout of a shader set: the terrain splat layout, the water-scene layout (ADR 0173), or the shared mesh layout.</summary>
     private PipelineLayout LayoutFor(ShaderSetId shaders) =>
-        shaders == ShaderSetId.MeshTerrainSplat ? _splatPipelineLayout : _pipelineLayout;
+        shaders == ShaderSetId.MeshTerrainSplat ? _splatPipelineLayout : UsesSceneLayout(shaders) ? _waterScenePipelineLayout : _pipelineLayout;
 
     /// <summary>
     /// Brings a splat material's own GPU state up to date: re-packs the layer arrays when their textures changed, follows

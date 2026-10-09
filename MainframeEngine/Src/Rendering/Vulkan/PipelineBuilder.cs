@@ -24,6 +24,16 @@ internal enum BlendMode : byte
     /// is animated water with no motion vectors of its own, TAA's reactive mask.
     /// </summary>
     AlphaReactive,
+
+    /// <summary>
+    /// The colour replaces the destination, the source alpha marks reactivity: <c>rgb = src</c>, <c>a = dst·(1−src.a)</c>.
+    /// Refracting water in the main view (ADR 0173): it composes what lies behind it from the scene copy itself, and its
+    /// alpha says how much TAA's history to drop there.
+    /// </summary>
+    ColorOnlyReactive,
+
+    /// <summary>The colour replaces the destination, the destination alpha stays: <c>rgb = src</c>, <c>a = dst</c> (ADR 0173).</summary>
+    ColorOnly,
 }
 
 /// <summary>Fixed-function state for <see cref="PipelineBuilder"/>; viewport and scissor are always dynamic.</summary>
@@ -185,6 +195,28 @@ internal static unsafe class PipelineBuilder
                 ColorBlendOp = BlendOp.Add,
                 SrcAlphaBlendFactor = BlendFactor.Zero,
                 DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,
+                AlphaBlendOp = BlendOp.Add,
+                ColorWriteMask = all,
+            },
+            BlendMode.ColorOnlyReactive => new()
+            {
+                BlendEnable = true,
+                SrcColorBlendFactor = BlendFactor.One,
+                DstColorBlendFactor = BlendFactor.Zero,
+                ColorBlendOp = BlendOp.Add,
+                SrcAlphaBlendFactor = BlendFactor.Zero,
+                DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,
+                AlphaBlendOp = BlendOp.Add,
+                ColorWriteMask = all,
+            },
+            BlendMode.ColorOnly => new()
+            {
+                BlendEnable = true,
+                SrcColorBlendFactor = BlendFactor.One,
+                DstColorBlendFactor = BlendFactor.Zero,
+                ColorBlendOp = BlendOp.Add,
+                SrcAlphaBlendFactor = BlendFactor.Zero,
+                DstAlphaBlendFactor = BlendFactor.One,
                 AlphaBlendOp = BlendOp.Add,
                 ColorWriteMask = all,
             },

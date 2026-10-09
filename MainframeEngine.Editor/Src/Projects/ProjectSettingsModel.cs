@@ -171,6 +171,9 @@ public sealed class ProjectSettingsModel
             Choices: Enum.GetNames<AntiAliasing>()),
         new("rendering.taaSharpness", "Rendering", "TAA Sharpness", SettingKind.Number, static s => Num(s.Rendering.TaaSharpness),
             static (s, v) => s.Rendering.TaaSharpness = ParseFloat(v), "0 (off) to 1: sharpens the image after TAA."),
+        new("rendering.waterSsr", "Rendering", "Water Reflections", SettingKind.Choice, static s => s.Rendering.WaterSsr.ToString(),
+            static (s, v) => s.Rendering.WaterSsr = Enum.Parse<WaterSsrQuality>(v, ignoreCase: true),
+            "Screen-space reflections on refracting water: Off (sky only), Low or High.", Choices: Enum.GetNames<WaterSsrQuality>()),
 
         new("steam.appId", "Steamworks", "App ID", SettingKind.WholeNumber, static s => s.Steam.AppId.ToString(CultureInfo.InvariantCulture),
             static (s, v) => s.Steam.AppId = ParseUInt(v), "The full game's Steam app id (480: Spacewar, Valve's test app). 0 leaves Steam alone."),
