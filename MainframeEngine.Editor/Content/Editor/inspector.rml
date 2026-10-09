@@ -118,7 +118,12 @@
             overflow: hidden;
         }
         .res-icon { margin-right: 4dp; }
-        .res-name { display: block; flex: 1 1 auto; overflow: hidden; }
+        .res-name { display: block; flex: 1 1 auto; min-width: 0dp; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        /* A resource slot: the name takes its whole width; the buttons stay beside it while both fit, else they wrap onto
+           a line of their own below it (right-aligned), and only a name longer than the row is cut with an ellipsis. */
+        .prop-editor.res { flex-wrap: wrap; justify-content: flex-end; row-gap: 3dp; }
+        .prop-editor.res .res-label { min-width: 0dp; }
+        .res-actions { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; min-height: 22dp; }
         .array-item { display: flex; flex-direction: row; align-items: center; margin-top: 2dp; }
         .array-index { width: 20dp; color: #6b7488; font-size: 10dp; }
         .array-box { display: block; flex: 1 1 auto; }

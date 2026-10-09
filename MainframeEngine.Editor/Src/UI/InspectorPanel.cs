@@ -332,7 +332,7 @@ public sealed partial class InspectorPanel : EditorDocument
         rml.Append("<div class=\"prop").Append(nested).Append("\"><div class=\"prop-label\" data-tooltip=\"")
             .Append(RmlText.Escape(property.Tooltip)).Append("\"><span class=\"").Append(PropertyIcons.Classes(property, value))
             .Append(" icon-sm prop-icon\"></span><span class=\"prop-name\">").Append(RmlText.Escape(property.Label))
-            .Append("</span></div><div class=\"prop-editor\">");
+            .Append("</span></div><div class=\"prop-editor").Append(property.Kind == PropertyEditorKind.Resource ? " res" : "").Append("\">");
         AppendEditor(rml, property, index, value);
         rml.Append("</div></div>");
 
@@ -443,10 +443,12 @@ public sealed partial class InspectorPanel : EditorDocument
             case PropertyEditorKind.Resource:
                 {
                     var resourceType = value?.GetType() ?? p.ResourceType ?? typeof(Resource);
-                    rml.Append("<div class=\"res-label\" id=\"").Append(FieldId(row, 0)).Append("\">");
+                    rml.Append("<div class=\"res-label\" id=\"").Append(FieldId(row, 0)).Append("\" data-tooltip=\"")
+                        .Append(RmlText.Escape(ResourceTooltip(p, value))).Append("\">");
                     if (value is not null)
                         rml.Append("<span class=\"").Append(EditorIcons.Classes(resourceType)).Append(" icon-sm res-icon\"></span>");
                     rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.IsMixed ? "— (differs)" : p.Format(value))).Append("</span></div>");
+                    rml.Append("<div class=\"res-actions\">");
                     if (value is AudioStream sound && !p.IsMulti)
                         AppendPreviewButton(rml, row, Workspace.AudioPreview.IsPlaying(sound));
                     var expanded = _expanded.Contains((p.Target, p.Name));
@@ -461,6 +463,7 @@ public sealed partial class InspectorPanel : EditorDocument
                     AppendButton(rml, row, "res-new", "circle-plus", $"New — create an inline {(p.ResourceType ?? typeof(Resource)).Name}");
                     if (value is not null)
                         AppendButton(rml, row, "res-clear", "x", "Clear — empty the slot");
+                    rml.Append("</div>");
                     break;
                 }
 
@@ -548,6 +551,26 @@ public sealed partial class InspectorPanel : EditorDocument
         }
 
         rml.Append("</div>");
+    }
+
+    /// <summary>
+    /// The tooltip of a resource slot's name: where the value lives (the file's full path, inline in the scene, or empty)
+    /// and its type, so a name cut by the row's width can still be read.
+    /// </summary>
+    internal static string ResourceTooltip(InspectorProperty p, object? value)
+    {
+        ArgumentNullException.ThrowIfNull(p);
+        var slotType = (p.ResourceType ?? typeof(Resource)).Name;
+        if (p.IsMixed)
+            return $"{p.Label} — differs between the selected nodes ({slotType})";
+        return value switch
+        {
+            null => $"{p.Label} — empty ({slotType})",
+            Resource { ResourcePath: { } path } resource => $"{p.Label} — {path} ({resource.GetType().Name})",
+            MissingResource missing => $"{p.Label} — {missing.OriginalType} (missing type)",
+            Resource resource => $"{p.Label} — {resource.GetType().Name}, inline (saved in the scene)",
+            _ => $"{p.Label} — {p.Format(value)}",
+        };
     }
 
     private static void AppendElementButton(StringBuilder rml, int row, int element, string action, string icon, string tooltip, bool active = false) =>
