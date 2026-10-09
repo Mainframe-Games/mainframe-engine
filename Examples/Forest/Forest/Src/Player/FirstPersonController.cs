@@ -34,6 +34,9 @@ public class FirstPersonController : CharacterBody3D
 
     private const float CrouchTransitionSeconds = 0.15f;
 
+    /// <summary>Seconds off the floor before touching down again counts as a landing footstep.</summary>
+    public const float LandingAirTime = 0.2f;
+
     private readonly List<CollisionObject3D> _overlaps = new(8);
     private CapsuleShape3D? _standProbe;
     private Node3D? _head;
@@ -49,6 +52,7 @@ public class FirstPersonController : CharacterBody3D
     private bool _crouchToggled;
     private bool _sprintToggled;
     private bool _wasOnFloor;
+    private float _airTime = 1f;
     private float _distance;
     private Vector3 _horizontal;
     private float _bobAmplitude;
@@ -335,8 +339,10 @@ public class FirstPersonController : CharacterBody3D
         _jumpBuffer = input.IsActionJustPressed("jump") ? CoyoteTime : _jumpBuffer - delta;
         var motion = _horizontal;
         var vertical = Velocity.Y;
+        var jumped = false;
         if (_jumpBuffer > 0 && _coyote > 0 && !_crouching)
         {
+            jumped = true;
             vertical = JumpVelocity;
             _jumpBuffer = 0;
             _coyote = 0;
@@ -363,6 +369,12 @@ public class FirstPersonController : CharacterBody3D
 
         Velocity = new Vector3(motion.X, vertical, motion.Z);
         MoveAndSlide();
+        var moved = GetPositionDelta();
+
+        // Uneven ground: walking up one triangle's plane leaves the body just above the next, flatter one, and
+        // MoveAndSlide does not snap a body moving up. Stay on the floor when it is within the snap length below.
+        if (onFloor && !jumped && !IsOnFloor() && FloorSnapLength > 0f)
+            SnapToFloor(delta);
 
         // Walls stop the intent going into them.
         if (IsOnWall())
@@ -383,15 +395,36 @@ public class FirstPersonController : CharacterBody3D
         var nowOnFloor = IsOnFloor();
         if (nowOnFloor)
         {
-            var moved = GetPositionDelta();
             var step = MathF.Sqrt(moved.X * moved.X + moved.Z * moved.Z);
             var before = (int)(_distance / StrideLength);
             _distance += step;
-            if ((int)(_distance / StrideLength) != before || !_wasOnFloor)
+            // A landing is a step only after a real fall or jump: bumpy ground loses the floor for a frame or two.
+            if ((int)(_distance / StrideLength) != before || (!_wasOnFloor && _airTime > LandingAirTime))
                 RaiseFootstep();
+            _airTime = 0f;
+        }
+        else
+        {
+            _airTime += delta;
         }
 
         _wasOnFloor = nowOnFloor;
+    }
+
+    // A second, downward move of up to FloorSnapLength when a ray finds walkable floor that close below the feet.
+    private void SnapToFloor(float delta)
+    {
+        if (GetWorld3D() is not { } world)
+            return;
+        var feet = GlobalPosition;
+        var up = new Vector3(0f, 0.05f, 0f);
+        if (!world.DirectSpaceState.RayCast(feet + up, feet - new Vector3(0f, FloorSnapLength, 0f), out var hit, CollisionMask, this) ||
+            hit.Normal.Y < MathF.Cos(FloorMaxAngle))
+            return;
+        var keep = Velocity;
+        Velocity = new Vector3(0f, -(feet.Y - hit.Position.Y + 0.02f) / delta, 0f);
+        MoveAndSlide();
+        Velocity = new Vector3(keep.X, 0f, keep.Z);
     }
 
     /// <summary>The surface name under the feet (see the type remarks for the order).</summary>

@@ -6,7 +6,7 @@
   "assemblies": ["Forest"],
   "window": {
     "title": "Mainframe Engine — Forest",
-    "width": 1600, "height": 900, "vsync": true
+    "width": 1920, "height": 1080, "vsync": true, "contentScale": 1
   },
   "physics": { "ticksPerSecond": 60, "maxStepsPerFrame": 5, "3d": { "gravity": [0, -9.81, 0] } },
   "input": {
@@ -27,6 +27,6 @@
     "photo": { "bindings": ["key:F2", "pad:Back"] }
   },
   "audio": { "busLayout": "Content/Settings/AudioBusLayout.mres" },
-  "rendering": { "shadows": "High" },
+  "rendering": { "shadows": "High", "antiAliasing": "Fxaa" },
   "autoloads": [ { "name": "Dev", "type": "ForestDev" } ]
 }

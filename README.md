@@ -49,6 +49,15 @@ Every screenshot is a scene of the [Demo](Examples/Demo) (`just demo`; `just dem
 | ![Physics 2D](docs/images/demo/physics_2d.png)<br>**Physics 2D** — Box2D | ![Physics 3D](docs/images/demo/physics_3d.png)<br>**Physics 3D** — Jitter2 |
 | ![Sound FX](docs/images/demo/sound_fx.png)<br>**Sound FX** — ZzFX presets, randomize/mutate, a looping song from the music editor | |
 
+The [Forest](Examples/Forest) is a first-person walk through a generated valley (`just forest`; `just forest-screenshots`
+re-captures these):
+
+| | |
+|---|---|
+| ![Forest glade](docs/images/forest/r1-glade.png)<br>**Glade** — physical sky, height fog, light shafts, eye adaptation | ![Forest fall](docs/images/forest/r2-fall.png)<br>**The fall** — carved stream, Poly Haven rocks, ambientCG terrain |
+| ![Forest bridge](docs/images/forest/r3-bridge.png)<br>**Log bridge** — water, mud and gravel banks, Ez Tree trees | ![Forest vista](docs/images/forest/r4-vista.png)<br>**Vista** — 1 500 trees, the pond from the terrain's water layer |
+| ![Forest floor](docs/images/forest/r5-floor.png)<br>**Forest floor** — scanned ferns, leaf litter, grass in the wind | |
+
 ---
 
 ## Documentation & Roadmap

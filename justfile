@@ -103,13 +103,13 @@ qa frames="240": (demo-screenshots frames)
 forest *args:
     dotnet run --project Examples/Forest/Forest.Desktop -c Release -- {{args}}
 
-# Screenshots of the Forest into docs/images/forest; display awake (caffeinate -u)
+# The Forest's five reference shots (R1–R5) into docs/images/forest at 2560x1440 → 1600x900; display awake (caffeinate -u)
 forest-screenshots frames="300":
     build/forest-screenshots.sh {{frames}}
 
-# Forest benchmark: fly the benchmark spline and compare with this machine's baseline (quiet machine only)
+# Forest benchmark: fly the spline at 1920x1080, print p50/p90/p99, write JSON, compare with the baseline (--write-baseline; quiet machine)
 forest-bench *args:
-    @echo "forest-bench: not yet (G8d.15 brings the benchmark spline, GpuFrameTimers and the baseline)"
+    build/forest-bench.sh {{args}}
 
 # Forest unit tests: the controller, the project file and the scene contract (no GPU, no LFS content)
 forest-test:
