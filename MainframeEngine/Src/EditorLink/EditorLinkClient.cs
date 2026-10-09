@@ -13,12 +13,19 @@ namespace MainframeEngine.EditorLink;
 /// </summary>
 /// <remarks>
 /// Robust to the editor going away: the client reconnects with back-off (100 ms → 2 s) and sends a fresh hello on every
-/// connection. Logs queue while disconnected; when more than <see cref="QueueCapacity"/> are waiting (the editor is not
+/// connection. It counts a connection, and sends logs on it, only once the editor's
+/// <see cref="EditorLinkMessageType.Welcome"/> arrives (within <see cref="WelcomeTimeoutMilliseconds"/>, else it reconnects):
+/// a listener the editor closed still completes handshakes while a child process that inherited it lives (macOS sets
+/// FD_CLOEXEC after creating a socket, so a concurrent fork can leak it), and logs written there would be lost.
+/// Logs queue while disconnected; when more than <see cref="QueueCapacity"/> are waiting (the editor is not
 /// reading, or is gone) new entries are dropped and counted, and the count is reported
 /// (<see cref="EditorLinkMessageType.LogDropped"/>) once the link catches up.
 /// </remarks>
 public sealed class EditorLinkClient : IDisposable
 {
+    /// <summary>A connection the editor has not welcomed within this long is dropped and retried.</summary>
+    public const int WelcomeTimeoutMilliseconds = 2000;
+
     private const int MaxBatchBytes = 64 * 1024;
 
     private readonly int _port;
@@ -62,10 +69,10 @@ public sealed class EditorLinkClient : IDisposable
     /// <summary>Most log entries held while the link is slow or down.</summary>
     public int QueueCapacity { get; }
 
-    /// <summary>True while connected to the editor.</summary>
+    /// <summary>True while connected to the editor (welcomed).</summary>
     public bool IsConnected => _connected;
 
-    /// <summary>Connections made so far (reconnects included).</summary>
+    /// <summary>Connections the editor welcomed so far (reconnects included).</summary>
     public int ConnectionCount => Volatile.Read(ref _connectionCount);
 
     /// <summary>Connection attempts so far, successful or not (back-off: 100 ms doubling to 2 s while the editor is away).</summary>
@@ -157,42 +164,64 @@ public sealed class EditorLinkClient : IDisposable
         var buffer = new ArrayBufferWriter<byte>(16 * 1024);
         while (!_stopping)
         {
-            var connection = TryConnect();
-            if (connection is null)
+            if (TryConnect() is { } connection && Serve(connection, buffer))
             {
-                // Its own event: queued logs and status reports signal _signal and must not cut the back-off short
-                // (that would attempt a connection per log line while the editor is away).
-                _stopped.Wait(backoff);
-                backoff = Math.Min(backoff * 2, 2000);
+                backoff = 100; // the editor dropped a working link: reconnect at once
                 continue;
             }
 
-            backoff = 100;
-            Volatile.Write(ref _connection, connection);
-            var reader = new Thread(() => ReadCommands(connection)) { IsBackground = true, Name = "EditorLink client reader" };
-            try
-            {
-                buffer.Clear();
-                EditorLinkProtocol.WriteHello(buffer, _hello);
-                connection.Write(buffer.WrittenSpan);
-                Interlocked.Increment(ref _connectionCount);
-                _connected = true;
-                reader.Start();
-                Pump(connection, buffer);
-            }
-            catch (Exception e) when (e is IOException or SocketException or ObjectDisposedException)
-            {
-                // The editor went away: reconnect (logs keep queueing meanwhile).
-            }
-            finally
-            {
-                _connected = false;
-                Volatile.Write(ref _connection, null);
-                connection.Dispose();
-                if (reader.IsAlive)
-                    reader.Join(TimeSpan.FromSeconds(1));
-            }
+            // Its own event: queued logs and status reports signal _signal and must not cut the back-off short
+            // (that would attempt a connection per log line while the editor is away).
+            _stopped.Wait(backoff);
+            backoff = Math.Min(backoff * 2, 2000);
         }
+    }
+
+    // Says hello, waits for the welcome, then sends until the connection breaks or the client stops; false when the
+    // editor never welcomed it.
+    private bool Serve(FramedConnection connection, ArrayBufferWriter<byte> buffer)
+    {
+        Volatile.Write(ref _connection, connection);
+        var welcomed = false;
+        var reader = new Thread(() => ReadCommands(connection)) { IsBackground = true, Name = "EditorLink client reader" };
+        try
+        {
+            buffer.Clear();
+            EditorLinkProtocol.WriteHello(buffer, _hello);
+            connection.Write(buffer.WrittenSpan);
+            if (!ReadWelcome(connection))
+                return false;
+            welcomed = true;
+            Interlocked.Increment(ref _connectionCount);
+            _connected = true;
+            reader.Start();
+            Pump(connection, buffer);
+        }
+        catch (Exception e) when (e is IOException or SocketException or ObjectDisposedException)
+        {
+            // The editor went away (or never answered): reconnect (logs keep queueing meanwhile).
+        }
+        finally
+        {
+            _connected = false;
+            Volatile.Write(ref _connection, null);
+            connection.Dispose();
+            if (reader.IsAlive)
+                reader.Join(TimeSpan.FromSeconds(1));
+        }
+
+        return welcomed;
+    }
+
+    // Throws IOException when nothing arrives within the timeout.
+    private static bool ReadWelcome(FramedConnection connection)
+    {
+        connection.ReceiveTimeout = WelcomeTimeoutMilliseconds;
+        if (!connection.ReadFrame(out var body) || !EditorLinkProtocol.TryDecode(body.Span, out var message)
+            || message.Type != EditorLinkMessageType.Welcome)
+            return false;
+        connection.ReceiveTimeout = 0;
+        return true;
     }
 
     private FramedConnection? TryConnect()

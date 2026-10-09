@@ -6,7 +6,7 @@ namespace MainframeEngine.EditorLink;
 
 /// <summary>
 /// The editor side of the editor link: listens on <c>localhost</c> (<see cref="Port"/>; pass it to games as
-/// <c>--editor-port</c>), receives each game's hello, logs and status, and sends commands. Several games may be
+/// <c>--editor-port</c>), welcomes each game, receives its hello, logs and status, and sends commands. Several games may be
 /// connected at once (e.g. a server and a client instance); every message carries the <see cref="EditorLinkMessage.GameId"/>
 /// of its connection.
 /// </summary>
@@ -28,8 +28,11 @@ public sealed class EditorLinkServer : IDisposable
     /// <summary>A command write to a game that stopped reading fails (and drops that game) after this long.</summary>
     public const int SendTimeoutMilliseconds = 2000;
 
+    private static readonly byte[] WelcomeFrame = CreateWelcomeFrame();
+
     private readonly TcpListener _listener;
-    private readonly Thread _acceptThread;
+    private readonly CancellationTokenSource _stopAccepting = new();
+    private readonly Task _acceptLoop;
     private readonly ConcurrentQueue<EditorLinkMessage> _incoming = new();
     private readonly ConcurrentDictionary<int, FramedConnection> _games = new();
     private int _nextGameId;
@@ -47,8 +50,7 @@ public sealed class EditorLinkServer : IDisposable
             _listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true); // quick restarts
         _listener.Start();
         Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
-        _acceptThread = new Thread(Accept) { IsBackground = true, Name = "EditorLink server" };
-        _acceptThread.Start();
+        _acceptLoop = Task.Run(AcceptAsync);
     }
 
     /// <summary>The port games connect to.</summary>
@@ -59,6 +61,9 @@ public sealed class EditorLinkServer : IDisposable
 
     /// <summary>Ids of the connected games.</summary>
     public IReadOnlyCollection<int> ConnectedGames => [.. _games.Keys];
+
+    /// <summary>The listening socket (tests share it with a child process).</summary>
+    internal Socket ListenerSocket => _listener.Server;
 
     /// <summary>Received messages dropped because <see cref="TryRead"/> was not keeping up.</summary>
     public long DroppedMessageCount => Interlocked.Read(ref _dropped);
@@ -119,19 +124,27 @@ public sealed class EditorLinkServer : IDisposable
         if (_disposed)
             return;
         _disposed = true;
+        // Cancel the pending accept before closing: a blocking accept on a listener whose descriptor a child process also
+        // holds without FD_CLOEXEC is never unblocked by the close, which then waits for it forever.
+        _stopAccepting.Cancel();
         _listener.Stop();
         Disconnect();
-        _acceptThread.Join(TimeSpan.FromSeconds(2));
+        if (_acceptLoop.Wait(TimeSpan.FromSeconds(2)))
+            _stopAccepting.Dispose();
     }
 
-    private void Accept()
+    private async Task AcceptAsync()
     {
         while (!_disposed)
         {
             Socket socket;
             try
             {
-                socket = _listener.AcceptSocket();
+                socket = await _listener.AcceptSocketAsync(_stopAccepting.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
             }
             catch (Exception e) when (e is SocketException or ObjectDisposedException or InvalidOperationException)
             {
@@ -146,8 +159,23 @@ public sealed class EditorLinkServer : IDisposable
                 continue;
             }
 
+            FramedConnection? connection = null;
+            try
+            {
+                connection = new FramedConnection(socket, SendTimeoutMilliseconds);
+                connection.Write(WelcomeFrame); // before the game is listed: no command can be written ahead of it
+            }
+            catch (Exception e) when (e is IOException or SocketException or ObjectDisposedException)
+            {
+                // Reset before it was served.
+                if (connection is null)
+                    socket.Dispose();
+                else
+                    connection.Dispose();
+                continue;
+            }
+
             var id = Interlocked.Increment(ref _nextGameId);
-            var connection = new FramedConnection(socket, SendTimeoutMilliseconds);
             _games[id] = connection;
             if (_disposed)
             {
@@ -168,7 +196,8 @@ public sealed class EditorLinkServer : IDisposable
         {
             while (connection.ReadFrame(out var body))
             {
-                if (!EditorLinkProtocol.TryDecode(body.Span, out var message) || message.Type == EditorLinkMessageType.Command)
+                if (!EditorLinkProtocol.TryDecode(body.Span, out var message)
+                    || message.Type is EditorLinkMessageType.Command or EditorLinkMessageType.Welcome)
                     break; // malformed, or a peer that is not a game: drop it
                 Enqueue(message with { GameId = id }, force: message.Type != EditorLinkMessageType.Log);
             }
@@ -180,6 +209,13 @@ public sealed class EditorLinkServer : IDisposable
         connection.Dispose();
         _games.TryRemove(id, out _);
         Enqueue(new EditorLinkMessage { Type = EditorLinkMessageType.Disconnected, GameId = id }, force: true);
+    }
+
+    private static byte[] CreateWelcomeFrame()
+    {
+        var buffer = new System.Buffers.ArrayBufferWriter<byte>(16);
+        EditorLinkProtocol.WriteWelcome(buffer, EditorLinkProtocol.Version);
+        return buffer.WrittenSpan.ToArray();
     }
 
     private void Enqueue(in EditorLinkMessage message, bool force)

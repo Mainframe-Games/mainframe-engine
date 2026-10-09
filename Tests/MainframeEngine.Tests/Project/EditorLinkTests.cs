@@ -76,6 +76,8 @@ public sealed class EditorLinkProtocolTests
     {
         var hello = new EditorLinkHello(EditorLinkProtocol.Version, 4242, "Space Game ✓", "1.2.3");
         Assert.Equal(hello, RoundTrip(b => EditorLinkProtocol.WriteHello(b, hello)).Hello);
+        var welcome = RoundTrip(b => EditorLinkProtocol.WriteWelcome(b, EditorLinkProtocol.Version));
+        Assert.Equal((EditorLinkMessageType.Welcome, EditorLinkProtocol.Version), (welcome.Type, welcome.EditorProtocolVersion));
 
         var entry = new LogEntry(Log.Level.Warning, new DateTime(2026, 10, 5, 1, 2, 3, DateTimeKind.Utc), "Audio", "naïve ✓ message", "OnReady", "/src/Player.cs", 77);
         var log = RoundTrip(b => EditorLinkProtocol.WriteLog(b, entry));
@@ -157,6 +159,7 @@ public sealed class EditorLinkProtocolTests
         Assert.False(EditorLinkProtocol.TryDecode([.. body, 0], out _)); // trailing bytes
         Assert.False(EditorLinkProtocol.TryDecode([200, .. body[1..]], out _)); // unknown type
         Assert.False(EditorLinkProtocol.TryDecode([(byte)EditorLinkMessageType.Connected], out _)); // local-only types
+        Assert.False(EditorLinkProtocol.TryDecode([(byte)EditorLinkMessageType.Welcome, 3, 0], out _)); // truncated welcome
         Assert.False(EditorLinkProtocol.TryDecode([(byte)EditorLinkMessageType.Command, 99, 0, 0, 0, 0], out _)); // unknown command
         Assert.False(EditorLinkProtocol.TryDecode([(byte)EditorLinkMessageType.Command, 1, 2, 0, 0, 0, 0xC3, 0x28], out _)); // invalid UTF-8
         Assert.False(EditorLinkProtocol.TryDecode([(byte)EditorLinkMessageType.Command, 1, 255, 255, 255, 255], out _)); // string past the end
@@ -298,6 +301,9 @@ public sealed class EditorLinkConnectionTests
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         using var client = new EditorLinkClient(port, Hello, queueCapacity: 64);
         using var socket = listener.AcceptSocket();
+        var welcome = new ArrayBufferWriter<byte>();
+        EditorLinkProtocol.WriteWelcome(welcome, EditorLinkProtocol.Version);
+        socket.Send(welcome.WrittenSpan);
         Assert.True(Wait.Until(() => client.IsConnected));
 
         var message = new string('x', 4096);
@@ -333,6 +339,46 @@ public sealed class EditorLinkConnectionTests
 
         Assert.Equal(client.DroppedLogCount, reported);
         Assert.Equal(accepted, logs);
+    }
+
+    [Fact]
+    public void LogsWaitForTheWelcomeAndAnUnansweredConnectionIsRetried()
+    {
+        // A listener nobody serves (a closed editor's, kept alive by a child process that inherited it) completes handshakes
+        // but never welcomes.
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        using var client = new EditorLinkClient(((IPEndPoint)listener.LocalEndpoint).Port, Hello);
+        Assert.True(client.TryEnqueueLog(Entry("held")));
+
+        using (var unanswered = new NetworkStream(listener.AcceptSocket(), ownsSocket: true))
+        {
+            Assert.Equal(EditorLinkMessageType.Hello, ReadFrame(unanswered).Type);
+            Assert.True(Wait.Until(listener.Pending, seconds: EditorLinkClient.WelcomeTimeoutMilliseconds / 1000.0 + 10)); // retried
+            Assert.Equal(0, unanswered.Read(new byte[1])); // closed, with nothing but the hello sent
+        }
+
+        Assert.False(client.IsConnected);
+        Assert.Equal(0, client.ConnectionCount);
+        using var answered = new NetworkStream(listener.AcceptSocket(), ownsSocket: true);
+        var welcome = new ArrayBufferWriter<byte>();
+        EditorLinkProtocol.WriteWelcome(welcome, EditorLinkProtocol.Version);
+        answered.Write(welcome.WrittenSpan);
+        Assert.Equal(EditorLinkMessageType.Hello, ReadFrame(answered).Type);
+        Assert.Equal("held", ReadFrame(answered).Log.Message);
+        Assert.True(client.IsConnected);
+        Assert.Equal(1, client.ConnectionCount);
+    }
+
+    private static EditorLinkMessage ReadFrame(NetworkStream stream)
+    {
+        var header = new byte[EditorLinkProtocol.HeaderLength];
+        stream.ReadExactly(header);
+        Assert.True(EditorLinkProtocol.TryReadHeader(header, out var length));
+        var body = new byte[length];
+        stream.ReadExactly(body);
+        Assert.True(EditorLinkProtocol.TryDecode(body, out var message));
+        return message;
     }
 
     [Fact]

@@ -33,6 +33,12 @@ internal sealed class FramedConnection : IDisposable
     /// <summary>A scratch buffer for frames written under <see cref="SendGate"/>.</summary>
     public System.Buffers.ArrayBufferWriter<byte> SendBuffer { get; } = new(256);
 
+    /// <summary>Fails a <see cref="ReadFrame"/> that waits longer than this (0 = wait forever).</summary>
+    public int ReceiveTimeout
+    {
+        set => _socket.ReceiveTimeout = value;
+    }
+
     /// <summary>Writes whole frames (any number, back to back).</summary>
     public void Write(ReadOnlySpan<byte> frames) => _stream.Write(frames);
 
