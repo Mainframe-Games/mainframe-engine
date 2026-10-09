@@ -283,7 +283,8 @@ G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that
 "Vulkan now or after M11" decision in its proposal.
 G8 (world building) goes G8a Faceted terrain → G8b low-poly trees (both on today's Blinn-Phong renderer) → G6.1/G6.2
 → G8a Realistic profile and G8b realistic trees → G8c water → G8d rendering phases → the forest showcase
-([ADR 0149](../memory/decisions/0149-terrain-trees-water-engine-features.md)).
+([ADR 0149](../memory/decisions/0149-terrain-trees-water-engine-features.md)) → G8e, the forest's "Unreal look" in eight
+phases ([ADR 0164](../memory/decisions/0164-forest-visual-quality-plan.md)).
 
 | Feature | Status | Design doc |
 |---|---|---|
@@ -305,6 +306,7 @@ G8 (world building) goes G8a Faceted terrain → G8b low-poly trees (both on tod
 | G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | ⬜ | [Procedural trees](design/future/procedural-trees.md) |
 | G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | ⬜ | [Water](design/future/water.md) |
 | G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | ⬜ | [Forest showcase](design/future/forest-showcase.md) |
+| G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | ⬜ | [Forest visual quality](design/future/forest-visual-quality.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 
