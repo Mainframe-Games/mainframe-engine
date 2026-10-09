@@ -85,7 +85,19 @@ float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
     // 2. Refraction.
     float3 bent = refract(-V, N, kWaterEta);
     float3 direction = normalize(lerp(-V, bent, waterScene.refraction.x));
-    float2 bentUv = saturate(sceneUv(mul(float4(P + direction * min(straightPath, 8.0), 1.0), frame.view).xyz));
+    // The bent lookup stays on screen: clamped to the edge, lookups past it all read the edge row and smeared into
+    // vertical streaks along the bottom of the screen. The offset is shortened to end inside the screen, and fades out
+    // over the last 8 % towards each edge (the straight bed there). Near the camera a ripple's bend covers a large part
+    // of the screen and stretched the bed into bands: the offset is capped at 2.5 % of the screen height.
+    float2 offset = sceneUv(mul(float4(P + direction * min(straightPath, 8.0), 1.0), frame.view).xyz) - uv;
+    float2 aspect = float2(frame.viewport.x * frame.viewport.w, 1.0);
+    float reach = length(offset * aspect);
+    offset *= min(1.0, 0.025 / max(reach, 1e-5));
+    float2 room = select(offset > 0.0, 1.0 - uv, uv);
+    float2 fit = saturate(room / max(abs(offset), 1e-5));
+    float2 edgeDistance = min(uv, 1.0 - uv);
+    offset *= min(fit.x, fit.y) * saturate(min(edgeDistance.x, edgeDistance.y) / 0.08);
+    float2 bentUv = saturate(uv + offset);
     int2 size = int2(frame.viewport.xy);
     int2 bentPixel = clamp(int2(bentUv * float2(size)), int2(0), size - 1);
     float bentZ = sceneDepthAt(bentPixel, 0);
