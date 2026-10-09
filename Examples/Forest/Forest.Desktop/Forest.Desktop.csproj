@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The executable: runs the project with GameHost (project.mfproj next to the app). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Forest/Forest.csproj" />
+  </ItemGroup>
+
+  <!-- The project file and the game's content are copied next to the app. -->
+  <ItemGroup>
+    <None Include="../project.mfproj" Link="project.mfproj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Content/**" LinkBase="Content" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

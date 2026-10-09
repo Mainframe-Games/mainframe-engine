@@ -1,0 +1,32 @@
+{
+  "format": 2,
+  "name": "Mainframe Forest",
+  "engineVersion": "0.0.0-dev",
+  "mainScene": "Content/Scenes/forest.mscene",
+  "assemblies": ["Forest"],
+  "window": {
+    "title": "Mainframe Engine — Forest",
+    "width": 1600, "height": 900, "vsync": true
+  },
+  "physics": { "ticksPerSecond": 60, "maxStepsPerFrame": 5, "3d": { "gravity": [0, -9.81, 0] } },
+  "input": {
+    "move_forward": { "deadzone": 0.2, "bindings": ["key:W", "key:Up", "axis:LeftY-"] },
+    "move_back": { "deadzone": 0.2, "bindings": ["key:S", "key:Down", "axis:LeftY+"] },
+    "move_left": { "deadzone": 0.2, "bindings": ["key:A", "key:Left", "axis:LeftX-"] },
+    "move_right": { "deadzone": 0.2, "bindings": ["key:D", "key:Right", "axis:LeftX+"] },
+    "look_left": { "deadzone": 0, "bindings": ["axis:RightX-"] },
+    "look_right": { "deadzone": 0, "bindings": ["axis:RightX+"] },
+    "look_up": { "deadzone": 0, "bindings": ["axis:RightY-"] },
+    "look_down": { "deadzone": 0, "bindings": ["axis:RightY+"] },
+    "sprint": { "bindings": ["key:ShiftLeft", "key:ShiftRight"] },
+    "sprint_toggle": { "bindings": ["pad:LeftStick"] },
+    "crouch": { "bindings": ["key:C", "key:ControlLeft", "key:ControlRight"] },
+    "crouch_toggle": { "bindings": ["pad:B"] },
+    "jump": { "bindings": ["key:Space", "pad:A"] },
+    "pause": { "bindings": ["key:Escape", "pad:Start"] },
+    "photo": { "bindings": ["key:F2", "pad:Back"] }
+  },
+  "audio": { "busLayout": "Content/Settings/AudioBusLayout.mres" },
+  "rendering": { "shadows": "High" },
+  "autoloads": [ { "name": "Dev", "type": "ForestDev" } ]
+}
