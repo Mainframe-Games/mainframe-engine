@@ -355,6 +355,8 @@ public sealed class EditorSession : IDisposable
         }
 
         SceneSaver.Save(scene.Root, target);
+        foreach (var file in scene.SaveEditedResourceFiles())
+            Log.Info($"[Editor] Saved {file}");
         scene.FilePath = target;
         scene.History.MarkSaved();
         ScenesChanged?.Invoke();

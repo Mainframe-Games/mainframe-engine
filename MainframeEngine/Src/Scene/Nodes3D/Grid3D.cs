@@ -30,4 +30,8 @@ public sealed class Grid3D : VisualInstance3D
     }
 
     public override void Draw(in ICamera camera, in LightEnvironment lightEnvironment) => _grid?.Draw(camera);
+
+    internal override bool DrawsAfterPost => true;
+
+    internal override void DrawAfterPost(ICamera camera, Silk.NET.Vulkan.RenderPass renderPass) => _grid?.DrawAfterPost(camera, renderPass);
 }

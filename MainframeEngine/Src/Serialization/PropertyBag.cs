@@ -74,6 +74,35 @@ public sealed class PropertyBag
         }));
     }
 
+    /// <summary>
+    /// Sets an inline resource of type <paramref name="typeName"/> holding <paramref name="properties"/> (a migration that
+    /// moves properties into a new sub-resource, e.g. <see cref="WorldEnvironment"/>'s post-processing into a
+    /// <see cref="PostProcessProfile"/>). Stored as <c>{"type": …, "props": {…}}</c>, which the resource codec reads as a
+    /// new inline resource of the file (its <c>{"res": …}</c> references resolve against the file's table); the next save
+    /// writes it into the resources table like any other.
+    /// </summary>
+    public void SetInlineResource(string name, string typeName, PropertyBag properties)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(typeName);
+        ArgumentNullException.ThrowIfNull(properties);
+        var entries = properties._values.ToArray();
+        Set(name, Build(w =>
+        {
+            w.WriteStartObject();
+            w.WriteString("type", typeName);
+            w.WritePropertyName("props");
+            w.WriteStartObject();
+            foreach (var (key, value) in entries)
+            {
+                w.WritePropertyName(key);
+                value.WriteTo(w);
+            }
+
+            w.WriteEndObject();
+            w.WriteEndObject();
+        }));
+    }
+
     public float GetSingle(string name) => _values[name].GetSingle();
 
     public string? GetString(string name) => _values[name].GetString();

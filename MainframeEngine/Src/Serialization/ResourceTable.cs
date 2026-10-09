@@ -59,6 +59,16 @@ internal sealed class ResourceTable(Dictionary<string, JsonElement> entries, str
         return resource;
     }
 
+    public override Resource CreateInlineResource(string typeName, JsonElement props, int version)
+    {
+        var info = TypeRegistry.Get(typeName);
+        if (info is not { IsResource: true, IsAbstract: false })
+            throw new InvalidDataException($"'{source}': unknown resource type '{typeName}' in a migrated value.");
+        var resource = (Resource)info.CreateInstance();
+        PropertyApplier.Apply(resource, info, props, version, this, $"{source} (inline {typeName})");
+        return resource;
+    }
+
     /// <summary>True when a resource this table created or loaded has a type from <paramref name="assembly"/>.</summary>
     public bool References(System.Reflection.Assembly assembly)
     {

@@ -314,11 +314,11 @@ public sealed class CinematicPostTests
     public void TheCamerasLensReplacesTheEnvironments()
     {
         var environment = new WorldEnvironment { CameraAttributes = new CameraAttributesPractical { VignetteIntensity = 0.1f } };
-        Assert.Equal(0.1f, environment.PostProcess.VignetteIntensity);
+        Assert.Equal(0.1f, environment.PostProcessSettings.VignetteIntensity);
         var lens = new CameraAttributesPractical { DofBlurFarEnabled = true, FilmGrainIntensity = 0.02f };
-        Assert.True(lens.ApplyTo(environment.PostProcess).DofEnabled);
-        Assert.Equal(0f, lens.ApplyTo(environment.PostProcess).VignetteIntensity); // the whole lens, not a merge
-        Assert.Equal(0.02f, lens.ApplyTo(environment.PostProcess).FilmGrainIntensity);
+        Assert.True(lens.ApplyTo(environment.PostProcessSettings).DofEnabled);
+        Assert.Equal(0f, lens.ApplyTo(environment.PostProcessSettings).VignetteIntensity); // the whole lens, not a merge
+        Assert.Equal(0.02f, lens.ApplyTo(environment.PostProcessSettings).FilmGrainIntensity);
     }
 
     [Fact]
@@ -328,13 +328,16 @@ public sealed class CinematicPostTests
         var environment = new WorldEnvironment
         {
             Name = "Env",
-            Tonemapper = Tonemapper.Agx,
-            GlowQuality = GlowQuality.High,
-            AdjustmentEnabled = true,
-            AdjustmentBrightness = 1.05f,
-            AdjustmentContrast = 1.1f,
-            AdjustmentSaturation = 0.9f,
-            AdjustmentColorCorrectionStrength = 0.7f,
+            PostProcess = new PostProcessProfile
+            {
+                Tonemapper = Tonemapper.Agx,
+                GlowQuality = GlowQuality.High,
+                AdjustmentEnabled = true,
+                AdjustmentBrightness = 1.05f,
+                AdjustmentContrast = 1.1f,
+                AdjustmentSaturation = 0.9f,
+                AdjustmentColorCorrectionStrength = 0.7f,
+            },
             CameraAttributes = new CameraAttributesPractical { DofBlurFarEnabled = true, DofBlurFarDistance = 30f, DofQuality = DepthOfFieldQuality.High, VignetteIntensity = 0.2f, FilmGrainIntensity = 0.015f },
         };
         root.AddChild(environment);
@@ -345,7 +348,7 @@ public sealed class CinematicPostTests
 
         var copy = PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate();
         var env = (WorldEnvironment)copy.GetChild(0);
-        Assert.Equal(environment.PostProcess, env.PostProcess);
+        Assert.Equal(environment.PostProcessSettings, env.PostProcessSettings);
         Assert.Equal(30f, env.CameraAttributes!.DofBlurFarDistance);
         Assert.Equal(1.5f, ((Camera3D)copy.GetChild(1)).Attributes!.ChromaticAberrationIntensity);
     }

@@ -10,6 +10,7 @@ namespace MainframeEngine.Editor;
 public sealed class EditedScene : IEditorTab, IInspectorContext
 {
     private readonly List<PackedScene> _heldScenes = [];
+    private readonly HashSet<Resource> _editedResourceFiles = [];
     private bool _disposed;
 
     internal EditedScene(Node root, string? filePath, SubViewport viewport, PackedScene? source)
@@ -100,7 +101,67 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
         var old = property.GetValue(target);
         if (Equals(old, value))
             return; // nothing changed (also mid-drag: no entry, no redo branch cut, no dirty flag)
+        if (target is Resource { IsExternal: true } file)
+            _editedResourceFiles.Add(file); // a .mres edited in place (ADR 0169): written when the scene is saved
         History.Commit(new SetPropertyAction(target, property, old, value), mergeKey: mergeKey);
+    }
+
+    /// <summary>
+    /// Resource files (<c>.mres</c>, such as a shared <see cref="PostProcessProfile"/>) edited in place through this scene's
+    /// inspector: <see cref="EditorSession.Save"/> writes them with the scene (Godot saves edited sub-resources the same way).
+    /// </summary>
+    public IReadOnlyCollection<Resource> EditedResourceFiles => _editedResourceFiles;
+
+    /// <summary>Writes every resource file edited in place (keeping their UIDs); returns their project paths.</summary>
+    internal IReadOnlyList<string> SaveEditedResourceFiles()
+    {
+        var saved = new List<string>(_editedResourceFiles.Count);
+        foreach (var resource in _editedResourceFiles)
+        {
+            if (resource.ResourcePath is not { } path)
+                continue;
+            ResourceSaver.Save(resource, path);
+            saved.Add(path);
+        }
+
+        _editedResourceFiles.Clear();
+        return saved;
+    }
+
+    /// <summary>
+    /// Every slot of the scene that holds <paramref name="resource"/>: exported properties of the nodes the scene saves and
+    /// of the inline resources they reach (what <see cref="SceneSaver"/> writes). Save as .mres points them all at the file.
+    /// </summary>
+    public IReadOnlyList<(object Target, ExportPropertyInfo Property)> SlotsHolding(Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        var slots = new List<(object, ExportPropertyInfo)>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        Visit(Root);
+        return slots;
+
+        void Visit(Node node)
+        {
+            if (IsEditable(node))
+                Scan(node);
+            foreach (var child in node.Children)
+                Visit(child);
+        }
+
+        void Scan(object target)
+        {
+            if (!visited.Add(target) || TypeRegistry.GetNearest(target.GetType()) is not { } info)
+                return;
+            foreach (var property in info.Properties)
+            {
+                if (property.GetValue(target) is not Resource value)
+                    continue;
+                if (ReferenceEquals(value, resource))
+                    slots.Add((target, property));
+                else if (!value.IsExternal)
+                    Scan(value);
+            }
+        }
     }
 
     /// <summary>

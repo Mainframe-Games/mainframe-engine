@@ -62,6 +62,7 @@
       "name": "Environment",
       "parent": ".",
       "type": "WorldEnvironment",
+      "v": 2,
       "props": {
         "Sky": { "res": "Sky_5kj71" }
       }

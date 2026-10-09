@@ -96,6 +96,28 @@ public class SubViewport : SceneViewport
     [Export]
     public bool ObjectIds { get; set; }
 
+    /// <summary>
+    /// Run the post-processing of the view's world (ADR 0169): its <see cref="WorldEnvironment.PostProcess"/> profile and
+    /// lens — SSAO, auto exposure, glow, light shafts, depth of field, the tonemap curve, the colour grade, film effects —
+    /// and <see cref="AntiAliasing"/>, with the view's own effect instances and histories. Debug visuals (the
+    /// <see cref="Grid3D"/>, <see cref="SceneViewport.DebugLines"/>, <see cref="SceneViewport.OverlayLines"/>) are drawn
+    /// after the effects, neither graded nor blurred. Off by default: the view gets the engine tonemap alone. Ignored with
+    /// <see cref="TransparentBg"/> (the post chain writes opaque images). The editor's scene view turns it on.
+    /// </summary>
+    [Export]
+    public bool PostProcessing { get; set; }
+
+    /// <summary>
+    /// The view's anti-aliasing when <see cref="PostProcessing"/> is on (Godot's <c>screen_space_aa</c> / <c>use_taa</c>
+    /// per viewport; the main view uses <c>rendering.antiAliasing</c>). TAA jitters only this view.
+    /// </summary>
+    [Export]
+    public AntiAliasing AntiAliasing { get; set; }
+
+    /// <summary>The sharpen after TAA (0–1; 0 = none), like <c>rendering.taaSharpness</c> for the main view.</summary>
+    [Export(Range = "0,1,0.01")]
+    public float TaaSharpness { get; set; } = IVulkanContext.DefaultTaaSharpness;
+
     /// <summary>The render server's state for this view (targets, draw lists).</summary>
     internal SubViewportTargets? Targets { get; set; }
 
@@ -171,7 +193,8 @@ public class SubViewport : SceneViewport
 
 /// <summary>
 /// GPU state of a <see cref="SubViewport"/>: HDR scene target (compatible with the main scene pass, so every scene
-/// pipeline draws into it), the LDR tonemapped target, an optional object-ID picker and the tonemap descriptor set.
+/// pipeline draws into it), the LDR tonemapped target, an optional object-ID picker, the tonemap descriptor set and, with
+/// <see cref="SubViewport.PostProcessing"/>, the view's post-processing (<see cref="Post"/>, ADR 0169).
 /// </summary>
 internal sealed class SubViewportTargets : IDisposable
 {
@@ -194,6 +217,28 @@ internal sealed class SubViewportTargets : IDisposable
     public SubViewportCapture? Capture { get; set; }
     public MeshViewDraws Draws { get; } = new();
     public long RenderCount { get; set; }
+
+    /// <summary>The view's post-processing at its current size (null while <see cref="SubViewport.PostProcessing"/> is off).</summary>
+    public SubViewportPost? Post { get; private set; }
+
+    /// <summary>The view's post-processing for its current size: a new one after a resize (the old one is retired).</summary>
+    public SubViewportPost EnsurePost()
+    {
+        var extent = Hdr!.Extent;
+        if (Post is { } post && post.Extent.Width == extent.Width && post.Extent.Height == extent.Height)
+            return post;
+        RetirePost();
+        return Post = new SubViewportPost(_ctx, this);
+    }
+
+    /// <summary>Drops the post-processing; it is disposed once the frames that used it have finished.</summary>
+    public void RetirePost()
+    {
+        if (Post is null)
+            return;
+        _ctx.Deletions.EnqueueDispose(Post);
+        Post = null;
+    }
     public DescriptorSet TonemapSet => _tonemapSet;
 
     /// <summary>Creates or resizes the targets; rewrites the tonemap set when images change.</summary>
@@ -224,6 +269,7 @@ internal sealed class SubViewportTargets : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        RetirePost();
         _compositor.FreeSet(_tonemapSet);
         _tonemapSet = default;
         Picker?.Dispose();

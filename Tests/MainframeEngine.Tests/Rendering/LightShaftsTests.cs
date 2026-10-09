@@ -29,8 +29,9 @@ public sealed class LightShaftsTests
         Assert.NotEqual(PostProcessSettings.Default, s with { LightShaftsEnabled = true }); // turns the post pass on
 
         var env = new WorldEnvironment();
-        Assert.False(env.LightShaftsEnabled);
-        Assert.Equal(PostProcessSettings.Default, env.PostProcess);
+        Assert.Null(env.PostProcess);
+        Assert.False(new PostProcessProfile().LightShaftsEnabled);
+        Assert.Equal(PostProcessSettings.Default, env.PostProcessSettings);
     }
 
     [Fact]
@@ -138,21 +139,24 @@ public sealed class LightShaftsTests
         var env = new WorldEnvironment
         {
             Name = "Environment",
-            LightShaftsEnabled = true,
-            LightShaftsIntensity = 2.5f,
-            LightShaftsDecay = 0.9f,
-            LightShaftsDensity = 0.6f,
-            LightShaftsSamples = 24,
+            PostProcess = new PostProcessProfile
+            {
+                LightShaftsEnabled = true,
+                LightShaftsIntensity = 2.5f,
+                LightShaftsDecay = 0.9f,
+                LightShaftsDensity = 0.6f,
+                LightShaftsSamples = 24,
+            },
         };
         root.AddChild(env);
         env.Owner = root;
 
         var copy = (WorldEnvironment)PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate().GetChild(0);
-        Assert.Equal(env.PostProcess, copy.PostProcess);
-        Assert.True(copy.PostProcess.LightShaftsEnabled);
-        Assert.Equal(2.5f, copy.LightShaftsIntensity);
-        Assert.Equal(0.9f, copy.LightShaftsDecay);
-        Assert.Equal(0.6f, copy.LightShaftsDensity);
-        Assert.Equal(24, copy.LightShaftsSamples);
+        Assert.Equal(env.PostProcessSettings, copy.PostProcessSettings);
+        Assert.True(copy.PostProcessSettings.LightShaftsEnabled);
+        Assert.Equal(2.5f, copy.PostProcess!.LightShaftsIntensity);
+        Assert.Equal(0.9f, copy.PostProcess!.LightShaftsDecay);
+        Assert.Equal(0.6f, copy.PostProcess!.LightShaftsDensity);
+        Assert.Equal(24, copy.PostProcess!.LightShaftsSamples);
     }
 }

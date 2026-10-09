@@ -57,7 +57,7 @@ public sealed class LightShaftsScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Environment",
             Sky = new Sky { Mode = SkyEnvironmentType.Physical },
-            LightShaftsEnabled = Host.Count != 1,
+            PostProcess = new PostProcessProfile { LightShaftsEnabled = Host.Count != 1 },
         });
         Tree.ChangeScene(scene);
     }

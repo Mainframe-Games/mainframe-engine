@@ -141,6 +141,7 @@ public sealed class ToolbarPanel : EditorDocument
         }
         document.GetElementById("tool-snap").SetClass("active", gizmo.Snap.Enabled);
         document.GetElementById("tool-grid").SetClass("active", Workspace.Viewport?.GridVisible ?? true);
+        document.GetElementById("tool-post").SetClass("active", Workspace.Viewport?.PostPreview ?? true);
         RefreshPlay();
     }
 

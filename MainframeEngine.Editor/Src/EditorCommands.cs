@@ -106,6 +106,10 @@ public sealed class EditorCommands
                 _workspace.Viewport.GridVisible = !_workspace.Viewport.GridVisible;
                 _workspace.Toolbar.Refresh();
                 return true;
+            case "view.post":
+                _workspace.Viewport.PostPreview = !_workspace.Viewport.PostPreview;
+                _workspace.Toolbar.Refresh();
+                return true;
             case "view.front": Active?.Camera.SetView(EditorView.Front); return true;
             case "view.right": Active?.Camera.SetView(EditorView.Right); return true;
             case "view.top": Active?.Camera.SetView(EditorView.Top); return true;
@@ -757,6 +761,7 @@ public sealed class EditorCommands
                     Icon: scene?.Camera.Is2D == true ? "box" : "square"),
                 MenuItem.Separator,
                 new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G", Icon: "grid-3x3"),
+                new MenuItem(_workspace.Viewport.PostPreview ? "Hide Post-Processing" : "Preview Post-Processing", "view.post", null, Icon: "sparkles"),
             ],
             "project" =>
             [

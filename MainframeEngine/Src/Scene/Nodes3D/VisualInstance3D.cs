@@ -46,6 +46,20 @@ public abstract class VisualInstance3D : Node3D, IRenderResourceOwner
     /// </summary>
     internal virtual bool IsBatched => false;
 
+    /// <summary>
+    /// True for debug visuals (the <see cref="Grid3D"/>) that a post-processed <see cref="SubViewport"/> draws after its
+    /// post effects, ungraded and unblurred, with <see cref="DrawAfterPost"/> instead of <see cref="Draw"/> (ADR 0169).
+    /// </summary>
+    internal virtual bool DrawsAfterPost => false;
+
+    /// <summary>
+    /// Draws the node into a post-processed sub-viewport's overlay pass (<paramref name="renderPass"/>: the display-encoded
+    /// view image and the scene depth, read-only), when <see cref="DrawsAfterPost"/>.
+    /// </summary>
+    internal virtual void DrawAfterPost(ICamera camera, RenderPass renderPass)
+    {
+    }
+
     /// <summary>The server that owns this node's GPU objects, once created.</summary>
     protected RenderServer? RenderServer => _renderServer;
 

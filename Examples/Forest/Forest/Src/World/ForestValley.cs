@@ -13,7 +13,11 @@ namespace Forest;
 /// (<see cref="TreeScatter"/>), the Poly Haven props with their collision (the log bridge among them) and invisible walls
 /// at the map's edge. Everything it builds is an unowned child, never saved. It also stands the player on the ground,
 /// resolves footsteps from the terrain's layers and hands the pine density to the audio.
+/// It is a <c>[Tool]</c> (ADR 0169): in the editor it builds the same visuals, so the post-processing look
+/// (<see cref="ForestLook"/>) is tuned on the real valley; the gameplay parts (the player's ground snap, audio, the map's
+/// walls) run in the game only.
 /// </summary>
+[Tool]
 public sealed class ForestValley : Node3D
 {
     /// <summary>Seed of the noise, trees and props (the layout is fixed).</summary>
@@ -92,7 +96,8 @@ public sealed class ForestValley : Node3D
 
     protected override void OnReady()
     {
-        if (Parent is { } scene && GameHost.UserArgs.Count > 0)
+        var editing = Tree?.EditMode == true; // the editor: visuals only, nothing that changes saved nodes
+        if (Parent is { } scene && GameHost.UserArgs.Count > 0 && !editing)
             ForestDev.ApplyOverrides(scene, GameHost.UserArgs, valley: true);
         var watch = Stopwatch.StartNew();
         var valley = Generator = ValleyGenerator.Generate(Seed);
@@ -167,11 +172,16 @@ public sealed class ForestValley : Node3D
         Props = new Node3D { Name = "Props" };
         AddChild(Props);
         BuildProps(valley, Height, Slope);
-        BuildWalls();
+        if (!editing)
+            BuildWalls();
         var props = watch.Elapsed.TotalMilliseconds;
 
-        ConnectPlayer(terrain);
-        ConnectAudio(valley);
+        if (!editing)
+        {
+            ConnectPlayer(terrain);
+            ConnectAudio(valley);
+        }
+
         Log.Info($"[Forest] Valley: generated {generated:0} ms, carved and painted {carved - generated:0} ms, trees {trees - carved:0} ms " +
                  $"({Forest?.PlacementCount ?? 0} trees, {Bushes?.PlacementCount ?? 0} bushes), props {props - trees:0} ms.");
     }

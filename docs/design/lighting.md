@@ -104,7 +104,7 @@ spot cone × shadow, with the same shadow lookups, shadow opacity and cascade ti
 
 ### Screen-space ambient occlusion
 
-`WorldEnvironment.SsaoEnabled` ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md); GTAO, see
+`PostProcessProfile.SsaoEnabled` (on `WorldEnvironment.PostProcess`; [ADR 0165](../../memory/decisions/0165-ssao-gtao.md); GTAO, see
 [Post-processing → SSAO](post-processing.md#ssao)) puts a per-pixel AO image at set 0 binding 5; without it the binding
 is a white 1×1 image. The lit shaders read it at their fragment (`ambientOcclusionAt(SV_Position)`,
 `include/ambient_occlusion.slang`) and pass it to the overloads that take `ssao`:

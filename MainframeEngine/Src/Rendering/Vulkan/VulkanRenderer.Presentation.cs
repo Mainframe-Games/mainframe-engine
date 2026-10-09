@@ -264,6 +264,8 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         context.DeltaTime = FrameDeltaTime;
         context.Time = Frame.Time;
         context.Exposure = exposure;
+        context.JitterIndex = Frame.JitterIndex;
+        context.LightShaftsSun = LightShaftsSun;
         UpdateSceneTextures(context);
 
         context.HasCamera = _mainCamera is not null && _mainCameraFrame == _frameNumber;

@@ -17,6 +17,13 @@ public abstract class DeserializationContext
 {
     /// <summary>The resource stored under <paramref name="key"/> in the file's resource table.</summary>
     public abstract Resource GetResource(string key);
+
+    /// <summary>
+    /// A new inline resource from a value written as <c>{"type": …, "props": {…}}</c> (only migrations produce these:
+    /// <see cref="PropertyBag.SetInlineResource"/>); its references resolve against this file's table.
+    /// </summary>
+    public virtual Resource CreateInlineResource(string typeName, JsonElement props, int version) =>
+        throw new NotSupportedException($"An inline {typeName} cannot be read here.");
 }
 
 /// <summary>
@@ -284,6 +291,16 @@ public static class Codecs
         {
             if (element.ValueKind == JsonValueKind.Null)
                 return null;
+            if (element.ValueKind == JsonValueKind.Object && !element.TryGetProperty("res", out _) &&
+                element.TryGetProperty("type", out var type) && type.GetString() is { Length: > 0 } typeName)
+            {
+                // A sub-resource created by a migration (PropertyBag.SetInlineResource).
+                var inline = context.CreateInlineResource(typeName, element.TryGetProperty("props", out var props) ? props : default,
+                    element.TryGetProperty("v", out var v) ? v.GetInt32() : 1);
+                return inline as TResource
+                       ?? throw new JsonException($"An inline {typeName} is not a {typeof(TResource).Name}.");
+            }
+
             if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty("res", out var key))
                 throw new JsonException($"Expected a resource reference {{\"res\": \"key\"}} for {typeof(TResource).Name}.");
             var resource = context.GetResource(key.GetString()!);

@@ -26,14 +26,17 @@ public enum ReflectedLightSource : byte
 }
 
 /// <summary>
-/// Sky, ambient light, wind, fog, tonemap, glow, auto exposure, light shafts and SSAO for its viewport's world (Godot's
-/// <c>WorldEnvironment</c>). The sky is described by a <see cref="MainframeEngine.Sky"/> resource; the render server builds
-/// the matching <see cref="SkyEnvironment"/> on first use and rebuilds it when the sky's mode or images change. A
-/// physical sky's sun is the world's first <see cref="DirectionalLight3D"/> (ADR 0154). Only the first environment in a
-/// world is used. With a sky, PBR materials reflect it and <see cref="AmbientSource"/> can light the world with it: the
-/// render server captures it into image-based lighting cubes (<see cref="SkyRadiance"/>, ADR 0150) when it changes.
+/// Sky, ambient and reflected light, wind and fog for its viewport's world, and the post-processing look it asks the
+/// renderer for (Godot's <c>WorldEnvironment</c>). The sky is described by a <see cref="MainframeEngine.Sky"/> resource;
+/// the render server builds the matching <see cref="SkyEnvironment"/> on first use and rebuilds it when the sky's mode or
+/// images change. A physical sky's sun is the world's first <see cref="DirectionalLight3D"/> (ADR 0154). Only the first
+/// environment in a world is used. With a sky, PBR materials reflect it and <see cref="AmbientSource"/> can light the world
+/// with it: the render server captures it into image-based lighting cubes (<see cref="SkyRadiance"/>, ADR 0150) when it
+/// changes. Tonemap, auto exposure, glow, light shafts, SSAO and the colour adjustments live in a
+/// <see cref="PostProcessProfile"/> (<see cref="PostProcess"/>, ADR 0169), the lens in <see cref="CameraAttributes"/>.
 /// </summary>
 [EditorIcon("world", Family = EditorIconFamily.Space3D)]
+[SerializedVersion(2)]
 public class WorldEnvironment : Node, IRenderResourceOwner
 {
     private World3D? _world;
@@ -43,7 +46,6 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     private SkyEnvironmentType _builtMode;
     private string? _builtPanorama;
     private string[]? _builtFaces;
-    private PostProcessSettings _post = PostProcessSettings.Default;
     private SkyRadiance? _radiance;
 
     /// <summary>The sky drawn behind everything; null draws no sky (the clear color shows).</summary>
@@ -85,11 +87,19 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     public ReflectedLightSource ReflectedLightSource { get; set; }
 
     /// <summary>
-    /// The tonemap, glow, auto exposure, light shafts, SSAO, adjustments and (from <see cref="CameraAttributes"/>) depth of
-    /// field and film effects this environment asks the renderer for (ADR 0124, ADR 0165, ADR 0168); the tree's root
-    /// world's is used.
+    /// The post-processing look (ADR 0169): tonemap, auto exposure, glow, light shafts, SSAO and the colour adjustments —
+    /// a <c>.mres</c> shared between scenes, or inline. Null: the engine's own tonemap and no effects.
     /// </summary>
-    public PostProcessSettings PostProcess => CameraAttributes is { } attributes ? attributes.ApplyTo(_post) : _post;
+    [ExportGroup("Post-Processing")]
+    [Export]
+    public PostProcessProfile? PostProcess { get; set; }
+
+    /// <summary>
+    /// The world's lens (Godot's <c>camera_attributes</c>, ADR 0168): depth of field and film effects. A
+    /// <see cref="Camera3D.Attributes"/> on the current camera replaces it.
+    /// </summary>
+    [Export]
+    public CameraAttributesPractical? CameraAttributes { get; set; }
 
     [ExportGroup("Wind")]
     /// <summary>World direction the wind blows towards (normalized when packed). Foliage, grass and water read it.</summary>
@@ -148,395 +158,40 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         }
     }
 
-    [ExportGroup("Tonemap")]
     /// <summary>
-    /// The tonemap curve (ADR 0124, ADR 0168): the engine's ACES fit by default, Godot 4.7's ACES, or Godot 4.4's linear,
-    /// Reinhard, filmic and AgX.
+    /// The packed post-processing settings this environment asks the renderer for (ADR 0124, ADR 0165, ADR 0168, ADR 0169):
+    /// <see cref="PostProcess"/>'s, or the engine defaults without a profile, with <see cref="CameraAttributes"/>' depth of
+    /// field and film effects. A struct copy (no allocation); the tree's root world's is used by the main view, a
+    /// post-processed <see cref="SubViewport"/>'s world's by that view.
     /// </summary>
-    [Export]
-    public Tonemapper Tonemapper
+    public PostProcessSettings PostProcessSettings
     {
-        get => _post.Tonemapper;
-        set => _post = _post with { Tonemapper = value };
+        get
+        {
+            var settings = PostProcess?.Settings ?? PostProcessSettings.Default;
+            return CameraAttributes is { } attributes ? attributes.ApplyTo(settings) : settings;
+        }
     }
 
-    /// <summary>Exposure for the Godot curves (Godot's <c>tonemap_exposure</c>); the engine curve uses the project exposure.</summary>
-    [Export(Range = "0,16,0.01")]
-    public float TonemapExposure
-    {
-        get => _post.TonemapExposure;
-        set => _post = _post with { TonemapExposure = value };
-    }
-
-    /// <summary>White point for the Godot curves (Godot's <c>tonemap_white</c>; ACES, Reinhard and filmic use at least 1; AgX ignores it).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float TonemapWhite
-    {
-        get => _post.TonemapWhite;
-        set => _post = _post with { TonemapWhite = value };
-    }
-
-    [ExportGroup("Glow")]
-    /// <summary>Godot 4.7's glow (ADR 0124): blurred bright areas added back before the tonemap.</summary>
-    [Export]
-    public bool GlowEnabled
-    {
-        get => _post.GlowEnabled;
-        set => _post = _post with { GlowEnabled = value };
-    }
-
-    /// <summary>Weight of the half-resolution blur level (Godot's <c>glow_levels/1</c>).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float GlowLevel1
-    {
-        get => _post.GlowLevel1;
-        set => _post = _post with { GlowLevel1 = value };
-    }
-
-    /// <summary>Weight of the 1/4-resolution level (<c>glow_levels/2</c>).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float GlowLevel2
-    {
-        get => _post.GlowLevel2;
-        set => _post = _post with { GlowLevel2 = value };
-    }
-
-    /// <summary>Weight of the 1/8-resolution level (<c>glow_levels/3</c>).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float GlowLevel3
-    {
-        get => _post.GlowLevel3;
-        set => _post = _post with { GlowLevel3 = value };
-    }
-
-    /// <summary>Weight of the 1/16-resolution level (<c>glow_levels/4</c>).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float GlowLevel4
-    {
-        get => _post.GlowLevel4;
-        set => _post = _post with { GlowLevel4 = value };
-    }
-
-    /// <summary>Weight of the 1/32-resolution level (<c>glow_levels/5</c>).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float GlowLevel5
-    {
-        get => _post.GlowLevel5;
-        set => _post = _post with { GlowLevel5 = value };
-    }
-
-    /// <summary>Weight of the 1/64-resolution level (<c>glow_levels/6</c>).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float GlowLevel6
-    {
-        get => _post.GlowLevel6;
-        set => _post = _post with { GlowLevel6 = value };
-    }
-
-    /// <summary>Weight of the 1/128-resolution level (<c>glow_levels/7</c>).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float GlowLevel7
-    {
-        get => _post.GlowLevel7;
-        set => _post = _post with { GlowLevel7 = value };
-    }
-
-    /// <summary>Divide the level weights by their sum (Godot's <c>glow_normalized</c>).</summary>
-    [Export]
-    public bool GlowNormalized
-    {
-        get => _post.GlowNormalized;
-        set => _post = _post with { GlowNormalized = value };
-    }
-
-    /// <summary>Godot's <c>glow_intensity</c>.</summary>
-    [Export(Range = "0,8,0.01")]
-    public float GlowIntensity
-    {
-        get => _post.GlowIntensity;
-        set => _post = _post with { GlowIntensity = value };
-    }
-
-    /// <summary>Multiplies every blur level (Godot's <c>glow_strength</c>).</summary>
-    [Export(Range = "0,2,0.01")]
-    public float GlowStrength
-    {
-        get => _post.GlowStrength;
-        set => _post = _post with { GlowStrength = value };
-    }
-
-    /// <summary>The glow share in Mix mode (Godot's <c>glow_mix</c>).</summary>
-    [Export(Range = "0,1,0.001")]
-    public float GlowMix
-    {
-        get => _post.GlowMix;
-        set => _post = _post with { GlowMix = value };
-    }
-
-    /// <summary>Minimum glow below the threshold (Godot's <c>glow_bloom</c>).</summary>
-    [Export(Range = "0,1,0.01")]
-    public float GlowBloom
-    {
-        get => _post.GlowBloom;
-        set => _post = _post with { GlowBloom = value };
-    }
-
-    /// <summary>How glow combines with the scene (Godot's <c>glow_blend_mode</c>, default Screen).</summary>
-    [Export]
-    public GlowBlendMode GlowBlendMode
-    {
-        get => _post.GlowBlendMode;
-        set => _post = _post with { GlowBlendMode = value };
-    }
-
-    /// <summary>Brightness where glow starts (Godot's <c>glow_hdr_threshold</c>).</summary>
-    [Export(Range = "0,4,0.01")]
-    public float GlowHdrThreshold
-    {
-        get => _post.GlowHdrThreshold;
-        set => _post = _post with { GlowHdrThreshold = value };
-    }
-
-    /// <summary>Range over which glow fades in above the threshold (Godot's <c>glow_hdr_scale</c>).</summary>
-    [Export(Range = "0,4,0.01")]
-    public float GlowHdrScale
-    {
-        get => _post.GlowHdrScale;
-        set => _post = _post with { GlowHdrScale = value };
-    }
-
-    /// <summary>Brightest a glow sample can be (Godot's <c>glow_hdr_luminance_cap</c>).</summary>
-    [Export(Range = "0,256,0.01")]
-    public float GlowHdrLuminanceCap
-    {
-        get => _post.GlowHdrLuminanceCap;
-        set => _post = _post with { GlowHdrLuminanceCap = value };
-    }
-
-    /// <summary>How glow is built (ADR 0168): Godot's chain, or the 13-tap / tent chain with an anti-firefly first level.</summary>
-    [Export]
-    public GlowQuality GlowQuality
-    {
-        get => _post.GlowQuality;
-        set => _post = _post with { GlowQuality = value };
-    }
-
-    [ExportGroup("Adjustments")]
-    /// <summary>Colour adjustments after the tonemap (Godot's <c>adjustment_enabled</c>, ADR 0168).</summary>
-    [Export]
-    public bool AdjustmentEnabled
-    {
-        get => _post.AdjustmentEnabled;
-        set => _post = _post with { AdjustmentEnabled = value };
-    }
-
-    /// <summary>Godot's <c>adjustment_brightness</c> (1 = unchanged).</summary>
-    [Export(Range = "0.01,8,0.01")]
-    public float AdjustmentBrightness
-    {
-        get => _post.AdjustmentBrightness;
-        set => _post = _post with { AdjustmentBrightness = value };
-    }
-
-    /// <summary>Godot's <c>adjustment_contrast</c> (1 = unchanged).</summary>
-    [Export(Range = "0.01,8,0.01")]
-    public float AdjustmentContrast
-    {
-        get => _post.AdjustmentContrast;
-        set => _post = _post with { AdjustmentContrast = value };
-    }
-
-    /// <summary>Godot's <c>adjustment_saturation</c> (1 = unchanged).</summary>
-    [Export(Range = "0.01,8,0.01")]
-    public float AdjustmentSaturation
-    {
-        get => _post.AdjustmentSaturation;
-        set => _post = _post with { AdjustmentSaturation = value };
-    }
-
-    /// <summary>Godot's <c>adjustment_color_correction</c>: a 3D LUT (a <c>.cube</c> file) the display colour is looked up in.</summary>
-    [Export]
-    public Texture3D? AdjustmentColorCorrection
-    {
-        get => _post.AdjustmentColorCorrection;
-        set => _post = _post with { AdjustmentColorCorrection = value };
-    }
-
-    /// <summary>How much of the LUT's result is used (engine; 1 = all of it).</summary>
-    [Export(Range = "0,1,0.01")]
-    public float AdjustmentColorCorrectionStrength
-    {
-        get => _post.AdjustmentColorCorrectionStrength;
-        set => _post = _post with { AdjustmentColorCorrectionStrength = value };
-    }
-
-    [ExportGroup("Camera")]
     /// <summary>
-    /// The world's lens (Godot's <c>camera_attributes</c>, ADR 0168): depth of field and film effects. A
-    /// <see cref="Camera3D.Attributes"/> on the current camera replaces it.
+    /// Scenes written before ADR 0169 (version 1) kept the post-processing settings on the environment itself: they load
+    /// into an inline <see cref="PostProcessProfile"/> on <see cref="PostProcess"/>, which the next save writes as a
+    /// sub-resource.
     /// </summary>
-    [Export]
-    public CameraAttributesPractical? CameraAttributes { get; set; }
-
-    [ExportGroup("Auto Exposure")]
-    /// <summary>Eye adaptation (ADR 0154): the exposure follows the scene's average luminance over time.</summary>
-    [Export]
-    public bool AutoExposureEnabled
+    [SerializedMigration(1)]
+    internal static void MovePostProcessIntoProfile(Serialization.PropertyBag properties)
     {
-        get => _post.AutoExposureEnabled;
-        set => _post = _post with { AutoExposureEnabled = value };
-    }
+        Serialization.PropertyBag? moved = null;
+        foreach (var name in PostProcessProfile.MovedPropertyNames)
+        {
+            if (!properties.TryGet(name, out var value))
+                continue;
+            (moved ??= new Serialization.PropertyBag()).Set(name, value);
+            properties.Remove(name);
+        }
 
-    /// <summary>The luminance an average scene is exposed to (middle grey; Godot's <c>auto_exposure_scale</c>).</summary>
-    [Export(Range = "0.01,16,0.01")]
-    public float AutoExposureScale
-    {
-        get => _post.AutoExposureScale;
-        set => _post = _post with { AutoExposureScale = value };
-    }
-
-    /// <summary>How fast the exposure adapts, per second (Godot's <c>auto_exposure_speed</c>).</summary>
-    [Export(Range = "0.01,64,0.01")]
-    public float AutoExposureSpeed
-    {
-        get => _post.AutoExposureSpeed;
-        set => _post = _post with { AutoExposureSpeed = value };
-    }
-
-    /// <summary>The darkest average luminance adapted to (caps how much a dark scene is brightened).</summary>
-    [Export(Range = "0.0001,64,0.0001")]
-    public float AutoExposureMinLuminance
-    {
-        get => _post.AutoExposureMinLuminance;
-        set => _post = _post with { AutoExposureMinLuminance = value };
-    }
-
-    /// <summary>The brightest average luminance adapted to (caps how much a bright scene is darkened).</summary>
-    [Export(Range = "0.0001,1024,0.01")]
-    public float AutoExposureMaxLuminance
-    {
-        get => _post.AutoExposureMaxLuminance;
-        set => _post = _post with { AutoExposureMaxLuminance = value };
-    }
-
-    [ExportGroup("Light Shafts")]
-    /// <summary>
-    /// Screen-space light shafts (ADR 0160): the sky around the sun, the world's first <see cref="DirectionalLight3D"/>,
-    /// streaked towards it where leaves, trunks and buildings leave gaps.
-    /// </summary>
-    [Export]
-    public bool LightShaftsEnabled
-    {
-        get => _post.LightShaftsEnabled;
-        set => _post = _post with { LightShaftsEnabled = value };
-    }
-
-    /// <summary>How much of the shafts is added to the scene.</summary>
-    [Export(Range = "0,16,0.01")]
-    public float LightShaftsIntensity
-    {
-        get => _post.LightShaftsIntensity;
-        set => _post = _post with { LightShaftsIntensity = value };
-    }
-
-    /// <summary>The weight left after each sixteenth of a shaft (lower is shorter).</summary>
-    [Export(Range = "0,1,0.001")]
-    public float LightShaftsDecay
-    {
-        get => _post.LightShaftsDecay;
-        set => _post = _post with { LightShaftsDecay = value };
-    }
-
-    /// <summary>The fraction of the way to the sun each shaft reaches.</summary>
-    [Export(Range = "0,1,0.01")]
-    public float LightShaftsDensity
-    {
-        get => _post.LightShaftsDensity;
-        set => _post = _post with { LightShaftsDensity = value };
-    }
-
-    /// <summary>Taps per blur pass (4–64; two passes, so samples² per shaft).</summary>
-    [Export(Range = "4,64,1")]
-    public int LightShaftsSamples
-    {
-        get => _post.LightShaftsSamples;
-        set => _post = _post with { LightShaftsSamples = value };
-    }
-
-    [ExportGroup("SSAO")]
-    /// <summary>
-    /// Screen-space ambient occlusion (ADR 0165; GTAO from the depth prepass): creases, contacts and the ground under
-    /// objects lose ambient and reflected light. Only the tree's root world gets it; it turns the depth prepass on.
-    /// </summary>
-    [Export]
-    public bool SsaoEnabled
-    {
-        get => _post.SsaoEnabled;
-        set => _post = _post with { SsaoEnabled = value };
-    }
-
-    /// <summary>How far occluders reach, in metres (Godot's <c>ssao_radius</c>).</summary>
-    [Export(Range = "0.01,16,0.01")]
-    public float SsaoRadius
-    {
-        get => _post.SsaoRadius;
-        set => _post = _post with { SsaoRadius = value };
-    }
-
-    /// <summary>Multiplies the occlusion (Godot's <c>ssao_intensity</c>; 1 with power 1 is the physical value).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float SsaoIntensity
-    {
-        get => _post.SsaoIntensity;
-        set => _post = _post with { SsaoIntensity = value };
-    }
-
-    /// <summary>Exponent of the occlusion: darker, with a sharper falloff (Godot's <c>ssao_power</c>).</summary>
-    [Export(Range = "0,16,0.01")]
-    public float SsaoPower
-    {
-        get => _post.SsaoPower;
-        set => _post = _post with { SsaoPower = value };
-    }
-
-    /// <summary>Strength of the near-field detail term: small creases darken more (Godot's <c>ssao_detail</c>).</summary>
-    [Export(Range = "0,5,0.01")]
-    public float SsaoDetail
-    {
-        get => _post.SsaoDetail;
-        set => _post = _post with { SsaoDetail = value };
-    }
-
-    /// <summary>Occluders lower than this fraction of 90° above the surface do not count (Godot's <c>ssao_horizon</c>).</summary>
-    [Export(Range = "0,1,0.01")]
-    public float SsaoHorizon
-    {
-        get => _post.SsaoHorizon;
-        set => _post = _post with { SsaoHorizon = value };
-    }
-
-    /// <summary>How strictly the blur stops at depth edges (Godot's <c>ssao_sharpness</c>).</summary>
-    [Export(Range = "0,1,0.01")]
-    public float SsaoSharpness
-    {
-        get => _post.SsaoSharpness;
-        set => _post = _post with { SsaoSharpness = value };
-    }
-
-    /// <summary>How much the occlusion also darkens direct light (Godot's <c>ssao_light_affect</c>; 0 = only ambient).</summary>
-    [Export(Range = "0,1,0.01")]
-    public float SsaoLightAffect
-    {
-        get => _post.SsaoLightAffect;
-        set => _post = _post with { SsaoLightAffect = value };
-    }
-
-    /// <summary>0: the darker of SSAO and the material's AO; 1: their product (Godot's <c>ssao_ao_channel_affect</c>).</summary>
-    [Export(Range = "0,1,0.01")]
-    public float SsaoAoChannelAffect
-    {
-        get => _post.SsaoAoChannelAffect;
-        set => _post = _post with { SsaoAoChannelAffect = value };
+        if (moved is not null && !properties.Contains(nameof(PostProcess)))
+            properties.SetInlineResource(nameof(PostProcess), nameof(PostProcessProfile), moved);
     }
 
     protected override void OnEnterTree()

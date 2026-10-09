@@ -89,6 +89,16 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
     {
         var ldr = targets.Ldr!;
         ldr.Begin(cb, default);
+        DrawTonemap(cb, targets, ldr.Extent, keepAlpha);
+        ldr.End(cb); // explicit barrier: the UI and materials sample the result later in the frame
+    }
+
+    /// <summary>
+    /// Draws the tonemap of <paramref name="targets"/>' HDR image into the open pass of an <paramref name="extent"/>-sized
+    /// <c>R8G8B8A8_UNORM</c> target (a post-processed view's first LDR image, ADR 0169).
+    /// </summary>
+    public void DrawTonemap(CommandBuffer cb, SubViewportTargets targets, Extent2D extent, bool keepAlpha)
+    {
         var vk = _ctx.Vk;
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
         var set = targets.TonemapSet;
@@ -97,9 +107,8 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
         *(float*)push = _ctx.Exposure;
         push[1] = 1u | (keepAlpha ? 2u : 0u); // UNORM target: encode sRGB in the shader; keep the scene's alpha (TransparentBg)
         vk.CmdPushConstants(cb, _layout, ShaderStageFlags.FragmentBit, 0, 8, push);
-        PipelineBuilder.SetViewport(vk, cb, ldr.Extent, flipY: false);
+        PipelineBuilder.SetViewport(vk, cb, extent, flipY: false);
         vk.CmdDraw(cb, 3, 1, 0, 0);
-        ldr.End(cb); // explicit barrier: the UI and materials sample the result later in the frame
     }
 
     public void Dispose()

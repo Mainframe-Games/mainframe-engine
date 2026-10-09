@@ -150,6 +150,7 @@
       "name": "Environment",
       "parent": ".",
       "type": "WorldEnvironment",
+      "v": 2,
       "props": {
         "Sky": { "res": "Sky_5kj71" },
         "AmbientColor": [0.2, 0.24, 0.33]

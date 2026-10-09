@@ -72,6 +72,7 @@ public sealed class DeletionQueue
 {
     private readonly IGpuDestroyer _destroyer;
     private readonly Queue<(ulong Frame, GpuDeletion Item)> _pending = new(64);
+    private readonly Queue<(ulong Frame, IDisposable Owner)> _owners = new();
 
     internal DeletionQueue(IGpuDestroyer destroyer)
     {
@@ -98,6 +99,21 @@ public sealed class DeletionQueue
         _pending.Enqueue((IsRecording ? CurrentFrame : CurrentFrame + 1, item));
     }
 
+    /// <summary>
+    /// Disposes <paramref name="owner"/> once every frame that may use its GPU objects has finished: for objects whose
+    /// <c>Dispose</c> destroys handles directly (it expects the device idle for them), such as a retired post-processing
+    /// view of a sub-viewport (ADR 0169). Disposed before the frame's GPU deletions are collected; what it enqueues itself
+    /// waits for the frames after it.
+    /// </summary>
+    public void EnqueueDispose(IDisposable owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        _owners.Enqueue((IsRecording ? CurrentFrame : CurrentFrame + 1, owner));
+    }
+
+    /// <summary>Owners waiting for <see cref="EnqueueDispose"/>.</summary>
+    public int PendingOwnerCount => _owners.Count;
+
     /// <summary>Renderer: frame <paramref name="frame"/> starts recording.</summary>
     internal void BeginFrame(ulong frame)
     {
@@ -116,6 +132,12 @@ public sealed class DeletionQueue
         if (completedFrame > CompletedFrame)
             CompletedFrame = completedFrame;
 
+        while (_owners.TryPeek(out var owner) && owner.Frame <= CompletedFrame)
+        {
+            _owners.Dequeue();
+            owner.Owner.Dispose();
+        }
+
         while (_pending.TryPeek(out var head) && head.Frame <= CompletedFrame)
         {
             _pending.Dequeue();
@@ -128,6 +150,8 @@ public sealed class DeletionQueue
     {
         IsRecording = false;
         CompletedFrame = CurrentFrame;
+        while (_owners.TryDequeue(out var owner))
+            owner.Owner.Dispose();
         while (_pending.TryDequeue(out var entry))
             _destroyer.Destroy(entry.Item);
     }

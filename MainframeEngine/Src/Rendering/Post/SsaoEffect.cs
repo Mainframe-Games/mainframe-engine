@@ -129,7 +129,7 @@ internal sealed unsafe class SsaoEffect() : PostEffect("ssao", PostStage.AfterPr
     {
         if (!context.HasCamera || !context.Scene.HasPrepass)
             return;
-        var push = Parameters(context.Settings.World, context.Camera.JitteredProjection, context.Scene.Extent, context.Vulkan.Frame.JitterIndex);
+        var push = Parameters(context.Settings.World, context.Camera.JitteredProjection, context.Scene.Extent, context.JitterIndex);
         var cb = context.CommandBuffer;
         var slot = _ctx.FrameSlot;
         BeginGpuTiming(cb, slot);

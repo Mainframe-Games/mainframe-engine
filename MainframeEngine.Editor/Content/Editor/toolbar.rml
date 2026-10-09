@@ -68,6 +68,7 @@
     <div class="group">
         <button id="tool-frame" class="tool-button" data-command="view.frame" data-tooltip="Frame Selection (F) — move the camera to the selected nodes"><span class="icon icon-focus-centered"></span></button>
         <button id="tool-grid" class="tool-button active" data-command="view.grid" data-tooltip="Grid (G) — show or hide the ground grid"><span class="icon icon-grid-3x3"></span></button>
+        <button id="tool-post" class="tool-button active" data-command="view.post" data-tooltip="Preview Post-Processing — show the world's post effects in the view (tonemap, auto exposure, glow, SSAO, TAA, grade, depth of field, film); off: the plain tonemap"><span class="icon icon-sparkles"></span></button>
     </div>
     <div class="spacer"></div>
     <div class="group play">

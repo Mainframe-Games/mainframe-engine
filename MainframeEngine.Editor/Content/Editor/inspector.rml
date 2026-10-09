@@ -43,6 +43,9 @@
             cursor: pointer;
         }
         .section-title:hover { background-color: #2f333d; }
+        .section-title.nested { margin: 0dp 0dp 0dp 16dp; height: 22dp; font-size: 11dp; background-color: #1f2128; color: #c9cfdb; }
+        .section-title.nested2 { margin: 0dp 0dp 0dp 28dp; height: 22dp; font-size: 11dp; background-color: #1c1e24; color: #c9cfdb; }
+        .section-title.nested:hover, .section-title.nested2:hover { background-color: #2a2d36; }
         .section-icon { margin: 0dp 6dp 0dp 1dp; }
         .prop {
             display: flex;

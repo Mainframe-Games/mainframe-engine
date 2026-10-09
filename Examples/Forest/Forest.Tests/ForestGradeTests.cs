@@ -45,11 +45,13 @@ public sealed class ForestGradeTests
     public void TheEnvironmentGradesAndOnlyThePhotoShotsHaveDepthOfField()
     {
         var environment = ForestScene.CreateEnvironment();
-        Assert.True(environment.AdjustmentEnabled);
-        Assert.Equal(ForestGrade.VignetteIntensity, environment.PostProcess.VignetteIntensity);
-        Assert.Equal(ForestGrade.FilmGrainIntensity, environment.PostProcess.FilmGrainIntensity);
-        Assert.False(environment.PostProcess.DofEnabled); // never while walking
-        Assert.Equal(0f, environment.PostProcess.ChromaticAberrationIntensity);
+        Assert.True(environment.PostProcess!.AdjustmentEnabled);
+        Assert.NotNull(environment.PostProcess.AdjustmentColorCorrection); // the forest-morning LUT
+        var look = environment.PostProcessSettings;
+        Assert.InRange(look.VignetteIntensity, 0.01f, 0.5f); // a subtle vignette (tuned in forest-lens.mres)
+        Assert.InRange(look.FilmGrainIntensity, 0.001f, 0.05f); // and a touch of grain
+        Assert.False(look.DofEnabled); // never while walking
+        Assert.Equal(0f, look.ChromaticAberrationIntensity);
 
         foreach (var shot in ValleyLayout.Shots)
         {

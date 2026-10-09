@@ -30,6 +30,27 @@ public sealed class TerrainSaveTests : IDisposable
     }
 
     [Fact]
+    public void ARuntimeTerrainIsNotSavedWithTheScene()
+    {
+        // A [Tool] node's generated terrain (no owner, like the Forest's valley in the editor) is not part of the scene:
+        // saving writes neither the node nor its layers (ADR 0169).
+        var root = new Node3D { Name = "World" };
+        var generator = new Node3D { Name = "Valley" };
+        root.AddChild(generator);
+        generator.Owner = root;
+        var data = TerrainData.Create(TerrainProfile.Realistic, 32, 1f, 16);
+        data.SetHeightsFrom(TerrainDataTests.Hills);
+        generator.AddChild(new Terrain3D { Name = "Terrain", Data = data });
+
+        SceneSaver.Save(root, "Content/Scenes/world.mscene");
+
+        Assert.False(Directory.Exists(Path.Combine(_project, "Content", "Scenes", "world_terrain")));
+        Assert.False(data.IsExternal);
+        Assert.DoesNotContain("Terrain3D", File.ReadAllText(Path.Combine(_project, "Content", "Scenes", "world.mscene")), StringComparison.Ordinal);
+        root.Free();
+    }
+
+    [Fact]
     public void SavingTheSceneWritesTheLayersBesideItAndLoadingReadsThemBack()
     {
         var root = new Node3D { Name = "World" };

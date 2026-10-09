@@ -74,7 +74,10 @@ public sealed class ProjectTests
             Assert.Equal(SkyEnvironmentType.Physical, environment.Sky!.Mode);
             Assert.Equal(AmbientSource.Sky, environment.AmbientSource);
             Assert.Equal(ReflectedLightSource.Sky, environment.ReflectedLightSource);
-            Assert.True(environment.FogEnabled && environment.LightShaftsEnabled && environment.AutoExposureEnabled && environment.GlowEnabled);
+            var post = environment.PostProcess!;
+            Assert.True(environment.FogEnabled && post.LightShaftsEnabled && post.AutoExposureEnabled && post.GlowEnabled && post.SsaoEnabled);
+            Assert.Equal(ForestLook.ProfilePath, post.ResourcePath); // ADR 0169: the look is a file the editor tunes
+            Assert.Equal(ForestLook.LensPath, environment.CameraAttributes!.ResourcePath);
             Assert.NotNull(root.GetNode<ForestValley>("Valley"));
             Assert.Equal("Valley/Stream", root.GetNode<ForestAudio>("Audio").RiverPath.ToString());
 

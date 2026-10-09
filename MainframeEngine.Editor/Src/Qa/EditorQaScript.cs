@@ -347,6 +347,24 @@ public sealed class EditorQaScript : IEditorAutomation
                 // A custom inspector header button by its data-action (the sound designer's presets, Export .wav …).
                 workspace.Inspector.RunHeaderAction(step[1]);
                 break;
+            case "inspector-section":
+                // Opens or closes a section title: "Type/Title", or "nested:Type/Title" for a nested resource's group.
+                workspace.Inspector.ToggleSection(string.Join(' ', step[1..]));
+                break;
+            case "inspector-set":
+                {
+                    // Commits a value to a row by property name, the last row with that name (a nested resource's):
+                    // inspector-set <property> <value> (as typed in its field; bools, enum names, numbers).
+                    var rows = workspace.Inspector.Rows;
+                    var index = -1;
+                    for (var i = rows.Count - 1; i >= 0 && index < 0; i--)
+                        if (rows[i].Name == step[1])
+                            index = i;
+                    if (index < 0)
+                        throw new ArgumentException($"No inspector row '{step[1]}'.");
+                    workspace.Inspector.Commit(index, 9, string.Join(' ', step[2..]));
+                    break;
+                }
             case "edit-file":
                 File.AppendAllText(Path.Combine(workspace.Session.ProjectRoot ?? "", step[1]), string.Join(' ', step[2..]) + "\n");
                 break;

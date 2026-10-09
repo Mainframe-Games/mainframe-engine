@@ -84,20 +84,23 @@ public sealed class PostProcessSettingsTests
         var env = new WorldEnvironment
         {
             Name = "Environment",
-            Tonemapper = Tonemapper.GodotAces,
-            TonemapExposure = 1.2f,
-            GlowEnabled = true,
-            GlowNormalized = true,
-            GlowStrength = 0.75f,
-            GlowBlendMode = GlowBlendMode.Additive,
-            GlowLevel5 = 0.25f,
+            PostProcess = new PostProcessProfile
+            {
+                Tonemapper = Tonemapper.GodotAces,
+                TonemapExposure = 1.2f,
+                GlowEnabled = true,
+                GlowNormalized = true,
+                GlowStrength = 0.75f,
+                GlowBlendMode = GlowBlendMode.Additive,
+                GlowLevel5 = 0.25f,
+            },
         };
         root.AddChild(env);
         env.Owner = root;
 
         var copy = (WorldEnvironment)PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate().GetChild(0);
-        Assert.Equal(env.PostProcess, copy.PostProcess);
-        Assert.Equal(Tonemapper.GodotAces, copy.PostProcess.Tonemapper);
-        Assert.Equal(0.25f, copy.GlowLevel5);
+        Assert.Equal(env.PostProcessSettings, copy.PostProcessSettings);
+        Assert.Equal(Tonemapper.GodotAces, copy.PostProcessSettings.Tonemapper);
+        Assert.Equal(0.25f, copy.PostProcess!.GlowLevel5);
     }
 }

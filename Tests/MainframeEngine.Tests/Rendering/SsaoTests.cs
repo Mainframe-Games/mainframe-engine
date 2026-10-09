@@ -22,8 +22,9 @@ public sealed class SsaoTests
         Assert.Equal(0f, s.SsaoAoChannelAffect);
 
         var env = new WorldEnvironment();
-        Assert.False(env.SsaoEnabled);
-        Assert.Equal(PostProcessSettings.Default, env.PostProcess);
+        Assert.Null(env.PostProcess);
+        Assert.False(new PostProcessProfile().SsaoEnabled);
+        Assert.Equal(PostProcessSettings.Default, env.PostProcessSettings);
     }
 
     [Fact]
@@ -131,29 +132,32 @@ public sealed class SsaoTests
         var env = new WorldEnvironment
         {
             Name = "Environment",
-            SsaoEnabled = true,
-            SsaoRadius = 0.6f,
-            SsaoIntensity = 1.2f,
-            SsaoPower = 1.1f,
-            SsaoDetail = 0.3f,
-            SsaoHorizon = 0.1f,
-            SsaoSharpness = 0.9f,
-            SsaoLightAffect = 0.2f,
-            SsaoAoChannelAffect = 0.5f,
+            PostProcess = new PostProcessProfile
+            {
+                SsaoEnabled = true,
+                SsaoRadius = 0.6f,
+                SsaoIntensity = 1.2f,
+                SsaoPower = 1.1f,
+                SsaoDetail = 0.3f,
+                SsaoHorizon = 0.1f,
+                SsaoSharpness = 0.9f,
+                SsaoLightAffect = 0.2f,
+                SsaoAoChannelAffect = 0.5f,
+            },
         };
         root.AddChild(env);
         env.Owner = root;
 
         var copy = (WorldEnvironment)PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate().GetChild(0);
-        Assert.Equal(env.PostProcess, copy.PostProcess);
-        Assert.True(copy.SsaoEnabled);
-        Assert.Equal(0.6f, copy.SsaoRadius);
-        Assert.Equal(1.2f, copy.SsaoIntensity);
-        Assert.Equal(1.1f, copy.SsaoPower);
-        Assert.Equal(0.3f, copy.SsaoDetail);
-        Assert.Equal(0.1f, copy.SsaoHorizon);
-        Assert.Equal(0.9f, copy.SsaoSharpness);
-        Assert.Equal(0.2f, copy.SsaoLightAffect);
-        Assert.Equal(0.5f, copy.SsaoAoChannelAffect);
+        Assert.Equal(env.PostProcessSettings, copy.PostProcessSettings);
+        Assert.True(copy.PostProcess!.SsaoEnabled);
+        Assert.Equal(0.6f, copy.PostProcess!.SsaoRadius);
+        Assert.Equal(1.2f, copy.PostProcess!.SsaoIntensity);
+        Assert.Equal(1.1f, copy.PostProcess!.SsaoPower);
+        Assert.Equal(0.3f, copy.PostProcess!.SsaoDetail);
+        Assert.Equal(0.1f, copy.PostProcess!.SsaoHorizon);
+        Assert.Equal(0.9f, copy.PostProcess!.SsaoSharpness);
+        Assert.Equal(0.2f, copy.PostProcess!.SsaoLightAffect);
+        Assert.Equal(0.5f, copy.PostProcess!.SsaoAoChannelAffect);
     }
 }

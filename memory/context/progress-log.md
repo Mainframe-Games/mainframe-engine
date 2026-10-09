@@ -38,7 +38,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
           WorldEnvironment exports. `WorldEnvironment.PostProcess` references it.
         - The editor viewport renders post effects live, with a toolbar toggle.
         - Profiles can be created and saved from the editor. The Forest uses `Content/PostProcess/forest.mres`.
-        - Runs alone after W5 merges, before W6, so W6 adds its settings to the profile. **Running** (ADR 0169).
+        - Runs alone after W5 merges, before W6, so W6 adds its settings to the profile. **Merged** (ADR 0169; gates
+          green per the lane: 1902 unit, 774 editor, 137 render).
+        - Follow-up: the inspector squeezes the resource name in the Post Process row to almost nothing.
+        - **W6 running** (from 3f6f0bcf): G8e.1 probe GI (0170), G8e.3 volumetric light (0171), G8e.5 Ez Tree foliage
+          (0172), G8e.6 water SSR/refraction/falls (0173). Next: merge them, then W7 (G8e.8 TAAU 0174, G8e.7 art pass 0175).
         - ADRs for the following waves: G8e.1 0170, G8e.3 0171, G8e.5 0172, G8e.6 0173, G8e.8 0174, G8e.7 0175.
         - Art-pass note: R1 is now too hazy (the shafts and fog wash it out).
       - W6: G8e.1 (probe GI), G8e.3 (volumetric light), G8e.5 (Ez Tree foliage: cluster cards, hierarchical wind,

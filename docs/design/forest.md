@@ -118,7 +118,9 @@ knobs, the `Player` and the `Audio`. **The valley is generated when the `ForestV
 from `ValleyLayout` and a seed, in about 1.2 s (Release, M5: heights 0.4 s, carve, pond and paint 0.4 s, trees 0.3 s,
 props 0.1 s), plus Jitter2's ≈ 2 s first step over the terrain's 524k collision triangles. Generating beats committing
 the layers as PNGs: nothing to re-commit to LFS on every tweak, nothing the tests need from LFS. Everything it builds is
-an unowned child, never saved.
+an unowned child, never saved (not even its terrain's layers: `SceneSaver`'s save hooks skip unowned nodes). The node is
+a `[Tool]` (ADR 0169): the editor generates the same visuals; the player's ground snap, the audio wiring and the map's
+walls run in the game only.
 
 ```
                  N (z = 0)
@@ -154,7 +156,17 @@ instances and the foliage's thinning is paused; then each gets back what LOD, di
 buffer, material set and pipeline exists before play: without it the walk allocated (and hitched) the first time
 something came into view.
 
-### The look (`ForestScene.CreateEnvironment`, the `Sun`)
+### The look (`ForestScene.CreateEnvironment`, the `Sun`, `Content/PostProcess/*.mres`)
+
+The post-processing look is a resource file the editor tunes ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md)):
+`Content/PostProcess/forest.mres` (a `PostProcessProfile`: exposure, glow, shafts, SSAO, the grade) and
+`Content/PostProcess/forest-lens.mres` (the `CameraAttributesPractical`), referenced by the scene's `Environment`
+(`ForestLook`). **The files are the source of truth**: `--write-scenes` writes them from `ForestLook.CreateProfile` and
+`ForestGrade.CreateLens` only when they are missing, so values tweaked in the editor survive a scene rebuild; the table
+holds their first values. To tune it: `just editor Examples/Forest/project.mfproj` opens the forest scene with
+**Preview Post-Processing** on (the valley is generated in the editor too: `ForestValley` is a `[Tool]`); select
+`Environment`, Edit (pencil) on `Post Process`, open a group, change a value: the view follows at once, and Save writes
+`forest.mres` with the scene. `Tests/QA/forest-post.qa` drives that and captures it.
 
 | Knob | Value | Why |
 |---|---|---|
