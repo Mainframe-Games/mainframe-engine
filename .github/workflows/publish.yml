@@ -1,10 +1,17 @@
 name: publish
 
 # Manual release of the editor. Only brogan89 can run it, and only from main.
-# Version = latest vX.Y.Z tag with the patch bumped (first release: v1.0.0). Nothing is committed to
-# main: the version lives in the tag, and builds get it via -p:Version. See docs/design/release.md.
+# Version = latest vX.Y.Z tag with the chosen part bumped (input "bump": patch by default, minor or major; first
+# release: v1.0.0). Nothing is committed to main: the version lives in the tag, and builds get it via -p:Version.
+# See docs/design/release.md.
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the latest vX.Y.Z tag to bump
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 concurrency:
   group: publish
@@ -35,8 +42,10 @@ jobs:
 
       - name: Compute next version
         id: version
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
         run: |
-          version="$(build/next-version.sh)"
+          version="$(build/next-version.sh "${BUMP}")"
           if git rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
             echo "::error::Tag v${version} already exists."
             exit 1

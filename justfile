@@ -156,8 +156,8 @@ publish-local rid="" version="0.0.0-local":
     build/package-demo.sh "{{version}}" "{{artifacts}}/release"
 
 # Next release version the publish workflow would create (patch bump of the latest vX.Y.Z tag)
-next-version:
-    git fetch -q --tags origin && build/next-version.sh
+next-version bump="patch":
+    git fetch -q --tags origin && build/next-version.sh {{bump}}
 
 # Regenerate the logo PNGs, .ico and .icns from docs/images/brand/*.svg (needs inkscape; .icns needs macOS iconutil)
 brand:

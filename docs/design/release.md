@@ -19,10 +19,10 @@ Release tags (`v*`) are immutable (`release-tags-immutable` ruleset: no update, 
 [SemVer](https://semver.org). The version lives **only in git tags** `vX.Y.Z`; nothing in the repo is
 bumped. Local builds are `0.0.0-dev` (`Directory.Build.props`); releases pass `-p:Version=X.Y.Z`.
 
-Each publish bumps the **patch** of the latest `vX.Y.Z` tag ([`build/next-version.sh`](../../build/next-version.sh);
-first release `v1.0.0`). A minor/major bump is done by pushing a tag by hand on the commit to release
-from (e.g. `v1.1.0`); the next publish continues from it (`v1.1.1`). `just next-version` prints what the
-next publish would create.
+Each publish bumps the latest `vX.Y.Z` tag ([`build/next-version.sh`](../../build/next-version.sh); first release
+`v1.0.0`) by its `bump` input: **patch** by default, **minor** (`v1.0.1` → `v1.1.0`) or **major** (→ `v2.0.0`), e.g.
+`gh workflow run publish.yml --ref main -f bump=minor`. `just next-version [patch|minor|major]` prints what the next
+publish would create.
 
 **Engine and editor are versioned in lock step.** There is one version for the whole product: the release tag.
 `dotnet publish -p:Version=X.Y.Z` is a global MSBuild property, so it flows to every project in the build graph —
