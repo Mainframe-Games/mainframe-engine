@@ -62,7 +62,9 @@ unreachable through MoltenVK; FSR 2/3 are compute (after M11); FSR 1 is MIT and 
   the current frame (−1 to −3 dB), a filter grown with the input spacing (−1 dB), trusting still pixels' history
   (+0.15 dB; ghosting risk).
 - `just forest-bench` (no other GPU process): window 2560 × 1308 (the display's limit for "1440p"), p50 19.9 / 19.3 ms at
-  0.75 vs 26.3 / 26.5 ms native, p99 32.6 vs 41.5 ms; 1920 × 1080, p50 15.3 vs 18.2 ms, p99 23.9 vs 32.5 ms. 0 B per frame.
+  0.75 vs 26.3 / 26.5 ms native, p99 32.6 vs 41.5 ms; 1920 × 1080, p50 15.3 vs 18.2 ms, p99 23.9 vs 32.5 ms. With G8e.5's
+  foliage merged: 2560 × 1308 p50 21.0 vs 28.0 ms, p99 32.5 vs 40.9 ms; 1920 × 1080 p50 16.9 / 16.7 vs 20.9 / 20.6 ms.
+  0 B per frame.
 
 ## Consequences
 

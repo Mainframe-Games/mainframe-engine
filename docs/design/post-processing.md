@@ -342,9 +342,11 @@ before.
   images through the deletion queue, every effect's `OnResize`, motion histories reset), exactly like a window resize.
 - **Mip bias.** View 0's `FrameData.MipBias` is log2 of the scale (−0.42 at 0.75) and `MipScale` its exp2; the material
   shaders multiply their UV gradients by it (`materialGrad` in `frame.slang`, a select that passes the gradient through
-  untouched at native resolution: `Mesh`, `Foliage`, `TerrainSplat`'s position gradients, `Water`, `WaterScene`;
+  untouched at native resolution: `Mesh`, `Foliage`, `TerrainSplat`'s position gradients, `Water`, `WaterScene`, the
+  impostors' normal and detail maps (`Impostor`, after its alpha test);
   `Waterfall` and `Spray` use `SampleBias`), so textures keep the output resolution's sharpness. 0 and 1 in every other
-  view and at native resolution. The prepass's alpha test (`MeshDepth`) stays unbiased: reading the frame block there
+  view and at native resolution. The prepass alpha tests (`MeshDepth`, `FoliageDepth`, `ImpostorDepth`, and the impostors'
+  albedo, which feeds the same test) stay unbiased: reading the frame block there
   moved 0.6 % of `tree-forest`'s leaf-edge pixels at native resolution on MoltenVK (the prepass parity test), so under
   upscaling cutout coverage comes from the render resolution's mip.
 - **Not scaled:** sub-viewports (the editor's views, `SubViewport` with post-processing) and the object-ID picking pass.
