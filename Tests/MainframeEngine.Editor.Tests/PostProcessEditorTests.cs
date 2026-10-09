@@ -21,9 +21,9 @@ public sealed class PostProcessEditorTests : IDisposable
 
     private RmlElement Find(string selector) => W.Inspector.Document.GetElementById("inspector-body").QuerySelector(selector);
 
-    private WorldEnvironment AddEnvironment(PostProcessProfile? profile)
+    private WorldEnvironment AddEnvironment(PostProcessProfile? profile, CameraAttributesPractical? lens = null)
     {
-        var environment = new WorldEnvironment { Name = "Environment", PostProcess = profile };
+        var environment = new WorldEnvironment { Name = "Environment", PostProcess = profile, CameraAttributes = lens };
         _editor.Scene.AddNode(environment, _editor.Scene.Root);
         _editor.Tick();
         _editor.Scene.Selection.Set(environment);
@@ -129,6 +129,49 @@ public sealed class PostProcessEditorTests : IDisposable
         Assert.DoesNotContain("AutoExposureScale", File.ReadAllText(scene), StringComparison.Ordinal);
         Assert.Empty(_editor.Scene.EditedResourceFiles);
         profile.Release();
+    }
+
+    [Fact]
+    public void AResourceSlotsNameTakesTheRowsWidthAndItsPathIsInTheTooltip()
+    {
+        // The Forest's look in the inspector's default width: the name used to be squeezed to "fo" beside its buttons.
+        AssetDatabase.Current = new AssetDatabase(_editor.Directory);
+        var file = Path.Combine(_editor.Directory, "Content", "PostProcess", "forest.mres");
+        var profile = ResourceLoader.Load<PostProcessProfile>(ResourceSaver.Save(new PostProcessProfile(), file));
+        var lensFile = Path.Combine(_editor.Directory, "Content", "PostProcess", "a-lens-with-a-name-far-longer-than-the-inspector-is-wide.mres");
+        var lens = ResourceLoader.Load<CameraAttributesPractical>(ResourceSaver.Save(new CameraAttributesPractical(), lensFile));
+        AddEnvironment(profile, lens);
+
+        foreach (var name in (string[])["PostProcess", "CameraAttributes"])
+        {
+            var row = Row(name);
+            var label = Find($"#p{row}c0");
+            var editor = label.Parent;
+            var actions = Find($"[data-row=\"{row}\"][data-action=\"res-load\"]").Parent;
+            Assert.True(editor.IsClassSet("res"), name);
+            Assert.Equal("res-actions", actions.GetAttribute("class"));
+            // The name spans the editor column; the buttons wrap onto their own line below it, right-aligned.
+            Assert.InRange(label.Bounds.X, editor.Bounds.X - 0.5f, editor.Bounds.X + 0.5f);
+            Assert.InRange(label.Bounds.Width, editor.Bounds.Width - 0.5f, editor.Bounds.Width + 0.5f);
+            Assert.True(actions.Bounds.Y >= label.Bounds.Y + label.Bounds.Height, $"{name}: the buttons are below the name");
+            Assert.InRange(actions.Bounds.X + actions.Bounds.Width, editor.Bounds.X + editor.Bounds.Width - 0.5f, editor.Bounds.X + editor.Bounds.Width + 0.5f);
+        }
+
+        // An empty slot's name and its two buttons fit on one line: they stay side by side.
+        var sky = Row("Sky");
+        var skyLabel = Find($"#p{sky}c0");
+        var skyActions = Find($"[data-row=\"{sky}\"][data-action=\"res-load\"]").Parent;
+        Assert.True(skyActions.Bounds.X >= skyLabel.Bounds.X + skyLabel.Bounds.Width - 0.5f);
+        Assert.True(skyActions.Bounds.Y < skyLabel.Bounds.Y + skyLabel.Bounds.Height);
+
+        // The full path in the tooltip (a long name is cut with an ellipsis, never spilling out of the row).
+        Assert.Contains("Content/PostProcess/forest.mres", Find($"#p{Row("PostProcess")}c0").GetAttribute("data-tooltip"), StringComparison.Ordinal);
+        Assert.Contains("PostProcessProfile", Find($"#p{Row("PostProcess")}c0").GetAttribute("data-tooltip"), StringComparison.Ordinal);
+        Assert.Contains("a-lens-with-a-name-far-longer-than-the-inspector-is-wide.mres",
+            Find($"#p{Row("CameraAttributes")}c0").GetAttribute("data-tooltip"), StringComparison.Ordinal);
+        Assert.Empty(_editor.RmlMessages);
+        profile.Release();
+        lens.Release();
     }
 
     [Fact]

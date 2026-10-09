@@ -291,6 +291,12 @@ ADR 0169, for a `WorldEnvironment`'s `PostProcessProfile` (or any resource):
   as one undo step ("Save PostProcessProfile as look.mres"); undo puts the inline resource back, the file stays. A path
   whose UID is loaded is refused. Make Unique, Open and Show in FileSystem (the More menu) are not built yet.
 - **New** creates a `PostProcessProfile` at once (one concrete type for the slot), expanded below.
+- **The slot's row.** The resource's icon and name take the editor column's whole width; the icon buttons (Play, Edit,
+  Save as .mres, Load, New, Clear) sit beside the name while both fit and otherwise wrap onto a line of their own below
+  it, right-aligned (`.prop-editor.res`: `flex-wrap`, the buttons in one `.res-actions` group). Only a name longer than
+  the column is cut, with an ellipsis (`text-overflow`). The name's tooltip holds where the value lives — the file's
+  full path (`Content/PostProcess/forest.mres`), "inline (saved in the scene)" or empty — and its type
+  (`InspectorPanel.ResourceTooltip`).
 
 ## Undo / redo
 
@@ -716,7 +722,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 - **Post-processing (ADR 0169)** ([PostProcessEditorTests](../../Tests/MainframeEngine.Editor.Tests/PostProcessEditorTests.cs)):
   the profile opens inline with its six groups closed, a group opens, an edit applies live and undoes; New creates a
   profile and Save as .mres moves it (and its second user) to a file, undoable; a `.mres` edited in place is written with
-  the scene under its UID; an imported LUT does not open; the Preview Post-Processing toggle switches the view (and 2D
+  the scene under its UID; an imported LUT does not open; a slot's name spans the editor column (the buttons wrap below
+  it; an empty slot's stay beside it) with the file's path in its tooltip; the Preview Post-Processing toggle switches the view (and 2D
   tabs have none). The walkthrough (`just qa-editor`) ends with a new profile edited inline (`16-post-profile`) and the
   preview off (`17-post-preview-off`); [Tests/QA/forest-post.qa](../../Tests/QA/forest-post.qa) opens the Forest, its
   `forest.mres` and the preview.
@@ -767,7 +774,6 @@ average, 9.0 ms p95** per frame (the 120 Hz display rate). Idle frames allocate 
 
 - Post-processing preview costs what the game's post costs at the view's size: the Forest at 2× (≈ 2500 × 1650 view
   pixels) runs at ~20 fps with it and ~43 fps without on an Apple M5. Hidden tabs keep their post state.
-- The resource row's label is narrow next to its six buttons (the name shows in its tooltip).
 
 - A code reload drops the undo history of the scenes it re-creates (selection, view and dirty state are kept).
 - The gizmo moves the last selected node only; there is no box selection.
