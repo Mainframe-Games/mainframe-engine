@@ -11,6 +11,46 @@ public enum Tonemapper
     /// the curve at <see cref="PostProcessSettings.TonemapWhite"/>, scaled by <see cref="PostProcessSettings.TonemapExposure"/>.
     /// </summary>
     GodotAces,
+
+    /// <summary>Godot's <c>TONE_MAPPER_LINEAR</c>: exposure only, clipped at 1 (<see cref="PostProcessSettings.TonemapExposure"/>).</summary>
+    Linear,
+
+    /// <summary>Godot 4.4's extended Reinhard (<c>TONE_MAPPER_REINHARDT</c>): <c>c (1 + c / white²) / (1 + c)</c>.</summary>
+    Reinhard,
+
+    /// <summary>Godot 4.4's filmic curve (<c>TONE_MAPPER_FILMIC</c>: Hable's, with a 2× exposure bias), divided by the curve at white.</summary>
+    Filmic,
+
+    /// <summary>
+    /// Godot 4.4's AgX (<c>TONE_MAPPER_AGX</c>, Blender's look from EaryChow's AgX base): a log2 encoding in an inset Rec.2020
+    /// space, a sigmoid and an outset back to sRGB. Bright, saturated light desaturates towards white the way film does
+    /// (the sun through leaves goes white, not ACES' saturated yellow). Ignores <see cref="PostProcessSettings.TonemapWhite"/>.
+    /// </summary>
+    Agx,
+}
+
+/// <summary>How the glow chain is built (engine setting; ADR 0168).</summary>
+public enum GlowQuality
+{
+    /// <summary>Godot 4.7's glow (ADR 0124): per level, a 2 × 2 downsample and a separable 9-tap Gaussian; levels gathered bicubically.</summary>
+    Standard,
+
+    /// <summary>
+    /// Jimenez 2014 (Call of Duty: Advanced Warfare): a 13-tap downsample per level with a Karis average on the first (no
+    /// fireflies from sun glints), then a 3 × 3 tent upsample chain that adds each weighted level on the way up. Energy
+    /// conserving, wider and smoother; one combined half-resolution image is composited.
+    /// </summary>
+    High,
+}
+
+/// <summary>Bokeh depth of field gather taps (engine setting; ADR 0168).</summary>
+public enum DepthOfFieldQuality
+{
+    /// <summary>16 golden-angle taps (gameplay).</summary>
+    Standard,
+
+    /// <summary>32 taps (screenshots, photo mode).</summary>
+    High,
 }
 
 /// <summary>How glow is combined with the scene (Godot's <c>Environment.GlowBlendMode</c>, same ordinals).</summary>
@@ -76,6 +116,82 @@ public readonly record struct PostProcessSettings
     public float GlowHdrThreshold { get; init; } = 1f;
     public float GlowHdrScale { get; init; } = 2f;
     public float GlowHdrLuminanceCap { get; init; } = 12f;
+
+    /// <summary>
+    /// How glow is built (engine, ADR 0168): <see cref="MainframeEngine.GlowQuality.Standard"/> is Godot's chain, unchanged;
+    /// <see cref="MainframeEngine.GlowQuality.High"/> the 13-tap / tent chain with an anti-firefly first level.
+    /// </summary>
+    public GlowQuality GlowQuality { get; init; } = GlowQuality.Standard;
+
+    /// <summary>
+    /// Colour adjustments after the tonemap (Godot's <c>adjustment_enabled</c>): brightness, contrast, saturation and the
+    /// colour-correction LUT, applied to the display-encoded image (ADR 0168).
+    /// </summary>
+    public bool AdjustmentEnabled { get; init; }
+
+    /// <summary>Godot's <c>adjustment_brightness</c>: multiplies the display value (1 = unchanged).</summary>
+    public float AdjustmentBrightness { get; init; } = 1f;
+
+    /// <summary>Godot's <c>adjustment_contrast</c>: scales the display value around 0.5 (1 = unchanged).</summary>
+    public float AdjustmentContrast { get; init; } = 1f;
+
+    /// <summary>Godot's <c>adjustment_saturation</c>: scales the distance from the channel mean (1 = unchanged, 0 = grey).</summary>
+    public float AdjustmentSaturation { get; init; } = 1f;
+
+    /// <summary>
+    /// Godot's <c>adjustment_color_correction</c> as a 3D LUT (a <see cref="Texture3D"/>, usually a <c>.cube</c> file through
+    /// <see cref="CubeLutImporter"/>): the display value is looked up with trilinear filtering after brightness, contrast
+    /// and saturation. Null: no lookup.
+    /// </summary>
+    public Texture3D? AdjustmentColorCorrection { get; init; }
+
+    /// <summary>How much of the LUT's result replaces the input (engine; 0–1, 1 = the LUT alone).</summary>
+    public float AdjustmentColorCorrectionStrength { get; init; } = 1f;
+
+    /// <summary>Blur what lies beyond <see cref="DofBlurFarDistance"/> (Godot's <c>CameraAttributesPractical.dof_blur_far_enabled</c>).</summary>
+    public bool DofBlurFarEnabled { get; init; }
+
+    /// <summary>Where the far blur starts, in metres from the camera (Godot's <c>dof_blur_far_distance</c>, 10).</summary>
+    public float DofBlurFarDistance { get; init; } = 10f;
+
+    /// <summary>Over how many metres past <see cref="DofBlurFarDistance"/> the far blur reaches its full size (5).</summary>
+    public float DofBlurFarTransition { get; init; } = 5f;
+
+    /// <summary>Blur what is nearer than <see cref="DofBlurNearDistance"/> (Godot's <c>dof_blur_near_enabled</c>).</summary>
+    public bool DofBlurNearEnabled { get; init; }
+
+    /// <summary>Where the near blur starts, in metres (Godot's <c>dof_blur_near_distance</c>, 2): sharp from here on out.</summary>
+    public float DofBlurNearDistance { get; init; } = 2f;
+
+    /// <summary>Over how many metres in front of <see cref="DofBlurNearDistance"/> the near blur reaches its full size (1).</summary>
+    public float DofBlurNearTransition { get; init; } = 1f;
+
+    /// <summary>
+    /// The full blur's size (Godot's <c>dof_blur_amount</c>, 0.1; 0–1): the bokeh radius is <c>amount × 64</c> pixels at
+    /// 1080 lines, scaled with the image height (<see cref="DofMaxRadius"/>).
+    /// </summary>
+    public float DofBlurAmount { get; init; } = 0.1f;
+
+    /// <summary>Gather taps (engine): 16, or 32 for screenshots.</summary>
+    public DepthOfFieldQuality DofQuality { get; init; } = DepthOfFieldQuality.Standard;
+
+    /// <summary>Darkens the image towards its corners (engine; 0 = off; at 1 the corners are black).</summary>
+    public float VignetteIntensity { get; init; }
+
+    /// <summary>The vignette's shape: 1 a circle, 0 an ellipse that follows the screen's aspect.</summary>
+    public float VignetteRoundness { get; init; } = 1f;
+
+    /// <summary>Film grain's strength in display values (engine; 0 = off; 0.015 is about ±4 of 255 in the mid-tones).</summary>
+    public float FilmGrainIntensity { get; init; }
+
+    /// <summary>Grain size in pixels (engine, 1.5).</summary>
+    public float FilmGrainSize { get; init; } = 1.5f;
+
+    /// <summary>
+    /// Lateral chromatic aberration (engine; 0 = off): red and blue are sampled this many pixels apart, radially, at the
+    /// corners (less towards the centre).
+    /// </summary>
+    public float ChromaticAberrationIntensity { get; init; }
 
     /// <summary>
     /// Eye adaptation (ADR 0154): the scene's average log luminance, measured on the GPU each frame, adapts over time and
@@ -201,6 +317,32 @@ public readonly record struct PostProcessSettings
         return (density / taps, MathF.Pow(decay, 16f / taps));
     }
 
+    /// <summary>True when depth of field blurs anything (a plane enabled and a non-zero amount).</summary>
+    public bool DofEnabled => (DofBlurFarEnabled || DofBlurNearEnabled) && DofBlurAmount > 0f;
+
+    /// <summary>The full bokeh radius in pixels for an image <paramref name="height"/> pixels tall (<c>amount × 64</c> at 1080).</summary>
+    public float DofMaxRadius(float height) => Math.Clamp(DofBlurAmount, 0f, 1f) * 64f * height / 1080f;
+
+    /// <summary>
+    /// The blur at <paramref name="distance"/> metres from the camera, 0 (sharp) to 1 (the full radius): linear over each
+    /// plane's transition (a transition of 0 is a hard edge), the larger of the near and far terms.
+    /// </summary>
+    public float DofBlur(float distance)
+    {
+        var far = DofBlurFarEnabled ? Ramp(distance - DofBlurFarDistance, DofBlurFarTransition) : 0f;
+        var near = DofBlurNearEnabled ? Ramp(DofBlurNearDistance - distance, DofBlurNearTransition) : 0f;
+        return MathF.Max(far, near);
+
+        static float Ramp(float beyond, float transition) =>
+            transition > 0f ? Math.Clamp(beyond / transition, 0f, 1f) : beyond > 0f ? 1f : 0f;
+    }
+
+    /// <summary>True when the colour-grade pass has something to do: adjustments, a LUT, vignette, grain or aberration.</summary>
+    public bool ColorGradeEnabled =>
+        (AdjustmentEnabled && (AdjustmentBrightness != 1f || AdjustmentContrast != 1f || AdjustmentSaturation != 1f ||
+                               (AdjustmentColorCorrection is { IsEmpty: false } && AdjustmentColorCorrectionStrength > 0f))) ||
+        VignetteIntensity > 0f || FilmGrainIntensity > 0f || ChromaticAberrationIntensity > 0f;
+
     /// <summary>The fraction of the gap to the measured luminance that auto exposure closes over <paramref name="deltaTime"/> seconds.</summary>
     public float AutoExposureBlend(float deltaTime) =>
         Math.Clamp(1f - MathF.Exp(-MathF.Max(deltaTime, 0f) * MathF.Max(AutoExposureSpeed, 0f)), 0f, 1f);
@@ -257,6 +399,23 @@ public readonly record struct PostProcessSettings
         }
     }
 
-    /// <summary>The white point the glow blend uses (Godot's <c>environment_get_white</c> for ACES; 1 for the engine curve).</summary>
-    public float GlowWhite => Tonemapper == Tonemapper.GodotAces ? MathF.Max(1f, TonemapWhite) : 1f;
+    /// <summary>
+    /// The white point the glow blend uses (Godot's <c>environment_get_white</c>: at least 1 for ACES, Reinhard and filmic; 1
+    /// for the engine curve, linear and AgX), which is also the white Reinhard and filmic divide by.
+    /// </summary>
+    public float GlowWhite => Tonemapper is Tonemapper.GodotAces or Tonemapper.Reinhard or Tonemapper.Filmic ? MathF.Max(1f, TonemapWhite) : 1f;
+
+    /// <summary>Godot 4.4's filmic <c>white_tonemapped</c>: the curve at <see cref="GlowWhite"/>, which output is divided by.</summary>
+    public float FilmicWhiteTonemapped
+    {
+        get
+        {
+            const float bias = 2f, a = 0.22f * bias * bias, b = 0.30f * bias, c = 0.10f, d = 0.20f, e = 0.01f, f = 0.30f;
+            var w = GlowWhite;
+            return (w * (a * w + c * b) + d * e) / (w * (a * w + b) + d * f) - e / f;
+        }
+    }
+
+    /// <summary>The exposure the tonemap uses: the project's (<c>rendering.exposure</c>) for the engine curve, else <see cref="TonemapExposure"/>.</summary>
+    public float ExposureFor(float projectExposure) => Tonemapper == Tonemapper.Engine ? projectExposure : TonemapExposure;
 }

@@ -7,9 +7,13 @@ public readonly record struct GpuImageDesc(uint Width, uint Height, Format Forma
 {
     public uint ArrayLayers { get; init; } = 1;
     public uint MipLevels { get; init; } = 1;
+
+    /// <summary>Depth in texels: more than 1 only for a 3D image (<see cref="ViewType"/> <c>3D</c>, one layer).</summary>
+    public uint Depth { get; init; } = 1;
+
     public ImageCreateFlags Flags { get; init; }
 
-    /// <summary>View type of <see cref="GpuImage.View"/> (2D, 2D array, cube).</summary>
+    /// <summary>View type of <see cref="GpuImage.View"/> (2D, 2D array, cube, 3D: a <c>VK_IMAGE_TYPE_3D</c> image).</summary>
     public ImageViewType ViewType { get; init; } = ImageViewType.Type2D;
 
     /// <summary>
@@ -58,6 +62,9 @@ public sealed unsafe class GpuImage : IDisposable
     public uint Height => Description.Height;
     public uint ArrayLayers => Description.ArrayLayers;
     public uint MipLevels => Description.MipLevels;
+
+    /// <summary>Depth in texels (1 unless a 3D image).</summary>
+    public uint Depth => Description.Depth;
     public Extent2D Extent => new(Width, Height);
 
     /// <summary>Aspect of the default view (depth for depth formats, colour otherwise).</summary>
@@ -71,6 +78,12 @@ public sealed unsafe class GpuImage : IDisposable
         ArgumentOutOfRangeException.ThrowIfZero(desc.Height);
         ArgumentOutOfRangeException.ThrowIfZero(desc.ArrayLayers);
         ArgumentOutOfRangeException.ThrowIfZero(desc.MipLevels);
+        ArgumentOutOfRangeException.ThrowIfZero(desc.Depth);
+        var volume = desc.ViewType == ImageViewType.Type3D;
+        if (volume && desc.ArrayLayers != 1)
+            throw new ArgumentException("A 3D image has one layer.", nameof(desc));
+        if (!volume && desc.Depth != 1)
+            throw new ArgumentException("Only a 3D image has a depth.", nameof(desc));
 
         var flags = desc.Flags;
         if (desc.ViewFormat is { } viewFormat && viewFormat != desc.Format)
@@ -80,9 +93,9 @@ public sealed unsafe class GpuImage : IDisposable
         {
             SType = StructureType.ImageCreateInfo,
             Flags = flags,
-            ImageType = ImageType.Type2D,
+            ImageType = volume ? ImageType.Type3D : ImageType.Type2D,
             Format = desc.Format,
-            Extent = new Extent3D(desc.Width, desc.Height, 1),
+            Extent = new Extent3D(desc.Width, desc.Height, desc.Depth),
             MipLevels = desc.MipLevels,
             ArrayLayers = desc.ArrayLayers,
             Samples = SampleCountFlags.Count1Bit,

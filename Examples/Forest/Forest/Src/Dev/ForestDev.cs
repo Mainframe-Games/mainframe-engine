@@ -182,6 +182,7 @@ public sealed class ForestDev : Node
             return false;
         Vector3 eye, target;
         float fov = 55f;
+        CameraAttributesPractical? lens = null;
         if (_shot is not null)
         {
             if (FindShot(_shot) is not { } shot)
@@ -194,6 +195,7 @@ public sealed class ForestDev : Node
             var targetY = shot.AbsoluteTarget ? shot.TargetHeight : terrain.HeightAt(shot.Target.X, shot.Target.Y) + shot.TargetHeight;
             target = new Vector3(shot.Target.X, targetY, shot.Target.Y);
             fov = shot.Fov;
+            lens = PhotoLens(shot);
             Log.Info($"[Forest] Shot {shot.Name}: eye {eye}, target {target}.");
         }
         else
@@ -212,11 +214,40 @@ public sealed class ForestDev : Node
                 fov = v[6];
         }
 
-        var camera = new Camera3D { Name = "ShotCamera", Near = 0.05f, Far = 1200f, Fov = fov, Position = eye };
+        var camera = new Camera3D { Name = "ShotCamera", Near = 0.05f, Far = 1200f, Fov = fov, Position = eye, Attributes = lens };
         scene.AddChild(camera);
         camera.LookAt(target);
         camera.Current = true;
         return true;
+    }
+
+    /// <summary>
+    /// A photo shot's lens (ADR 0168): the Forest's film lens plus subtle, 32-tap depth of field (far blur from
+    /// <see cref="ReferenceShot.BlurFarFrom"/>, or near blur up to <see cref="ReferenceShot.BlurNearUntil"/>); null for the
+    /// other shots, which keep the environment's lens. Gameplay never has depth of field.
+    /// </summary>
+    public static CameraAttributesPractical? PhotoLens(in ReferenceShot shot)
+    {
+        if (!shot.HasDepthOfField)
+            return null;
+        var lens = ForestGrade.CreateLens();
+        lens.DofQuality = DepthOfFieldQuality.High;
+        lens.DofBlurAmount = 0.1f;
+        if (shot.BlurFarFrom > 0f)
+        {
+            lens.DofBlurFarEnabled = true;
+            lens.DofBlurFarDistance = shot.BlurFarFrom;
+            lens.DofBlurFarTransition = shot.BlurFarFrom * 1.5f;
+        }
+
+        if (shot.BlurNearUntil > 0f)
+        {
+            lens.DofBlurNearEnabled = true;
+            lens.DofBlurNearDistance = shot.BlurNearUntil;
+            lens.DofBlurNearTransition = shot.BlurNearUntil * 0.5f;
+        }
+
+        return lens;
     }
 
     /// <summary>

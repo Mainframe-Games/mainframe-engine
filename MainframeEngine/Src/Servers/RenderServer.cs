@@ -484,7 +484,7 @@ public sealed class RenderServer : IServer
     {
         if (!root.IsTreeRoot)
             return;
-        vk.PostProcess = root.World3D.Environment?.PostProcess ?? PostProcessSettings.Default; // a struct copy
+        vk.PostProcess = RootPostProcess(root); // a struct copy
         var needs = PostEffectNeeds.None;
         if (vk is IPostProcessHost host)
         {
@@ -527,6 +527,16 @@ public sealed class RenderServer : IServer
             if (dirs[i].CastsShadows)
                 return dirs[i];
         return null;
+    }
+
+    // The root world's post settings (ADR 0124): its environment's, with the current camera's lens (ADR 0168:
+    // Camera3D.Attributes replaces the environment's CameraAttributes). Struct copies, no allocation.
+    private static PostProcessSettings RootPostProcess(SceneViewport root)
+    {
+        var post = root.World3D.Environment?.PostProcess ?? PostProcessSettings.Default;
+        if (root.CameraOverride is null && root.ActiveCamera3D?.Attributes is { } attributes)
+            post = attributes.ApplyTo(post);
+        return post;
     }
 
     /// <summary>
@@ -598,7 +608,7 @@ public sealed class RenderServer : IServer
             // ADR 0124: the tonemap and glow of the tree's root world (a struct copy: no allocation).
             if (viewport.IsTreeRoot)
             {
-                vk.PostProcess = viewport.World3D.Environment?.PostProcess ?? PostProcessSettings.Default;
+                vk.PostProcess = RootPostProcess(viewport);
                 vk.LightShaftsSun = default;
             }
 

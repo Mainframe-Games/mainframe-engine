@@ -36,7 +36,7 @@ public sealed unsafe class UploadQueue : IDisposable
         public ulong DstOffset;
         public Image Image;
         public ImageAspectFlags Aspect;
-        public uint Width, Height, Layers, Mips;
+        public uint Width, Height, Layers, Mips, Depth;
         public ImageLayout OldLayout, NewLayout;
         public PipelineStageFlags DstStage;
         public AccessFlags DstAccess;
@@ -97,9 +97,11 @@ public sealed unsafe class UploadQueue : IDisposable
     {
         ArgumentNullException.ThrowIfNull(image);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var expected = (ulong)image.Width * image.Height * image.ArrayLayers * FormatInfo.BytesPerPixel(image.Format);
+        var expected = (ulong)image.Width * image.Height * image.Depth * image.ArrayLayers * FormatInfo.BytesPerPixel(image.Format);
         if ((ulong)pixels.Length != expected)
-            throw new ArgumentException($"Expected {expected} bytes of pixels for {image.Width}x{image.Height}x{image.ArrayLayers} {image.Format}, got {pixels.Length}.", nameof(pixels));
+            throw new ArgumentException($"Expected {expected} bytes of pixels for {image.Width}x{image.Height}x{image.Depth * image.ArrayLayers} {image.Format}, got {pixels.Length}.", nameof(pixels));
+        if (image.Depth > 1 && image.MipLevels > 1)
+            throw new NotSupportedException("Mip chains of 3D images are not generated.");
 
         var (src, srcOffset) = Stage(pixels, 16);
         _ops.Add(new Op
@@ -112,6 +114,7 @@ public sealed unsafe class UploadQueue : IDisposable
             Aspect = ImageAspectFlags.ColorBit,
             Width = image.Width,
             Height = image.Height,
+            Depth = image.Depth,
             Layers = image.ArrayLayers,
             Mips = image.MipLevels,
             NewLayout = ImageLayout.ShaderReadOnlyOptimal,
@@ -247,7 +250,7 @@ public sealed unsafe class UploadQueue : IDisposable
                             {
                                 BufferOffset = op.SrcOffset + layer * layerBytes,
                                 ImageSubresource = new ImageSubresourceLayers(op.Aspect, 0, layer, 1),
-                                ImageExtent = new Extent3D(op.Width, op.Height, 1),
+                                ImageExtent = new Extent3D(op.Width, op.Height, Math.Max(op.Depth, 1u)), // 3D: one layer, every slice
                             };
                             _vk.CmdCopyBufferToImage(cb, op.Src, op.Image, ImageLayout.TransferDstOptimal, 1, &region);
                         }

@@ -65,6 +65,9 @@ internal static class PostEffectOrder
     public const int Sharpen = 50;
     public const int Fxaa = 100;
 
+    /// <summary>ADR 0168: the colour grade and film effects, after anti-aliasing (grain is not smoothed away).</summary>
+    public const int ColorGrade = 150;
+
     /// <summary>Debug views replace the final image, so they run last.</summary>
     public const int DebugView = 1000;
 }

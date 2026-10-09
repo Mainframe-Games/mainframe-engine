@@ -12,6 +12,11 @@ namespace MainframeEngine;
 /// once after creation, so the tonemap pass can bind all seven. A <see cref="PostStage.BeforeTonemap"/> effect (ADR 0163)
 /// after auto exposure, enabled whenever the post tonemap pass runs (it binds every level either way); allocates nothing
 /// per frame.
+/// <para><see cref="GlowQuality.High"/> (ADR 0168) builds the same images differently: <c>temp[k]</c> holds Jimenez's
+/// 13-tap downsample of the level above (<c>GlowDownsample</c>, Karis-averaged with exposure and threshold on level 0)
+/// and <c>level[k]</c> the tent-filtered chain coming back up (<c>GlowUpsample</c>: <c>level[k] = tent(level[k+1]) +
+/// weight_k · temp[k]</c>), so <c>level[0]</c> holds the whole weighted glow and the tonemap reads it alone
+/// (<see cref="CombinedWeights"/>).</para>
 /// </summary>
 internal sealed unsafe class GlowEffect(AutoExposure autoExposure) : PostEffect("glow", PostStage.BeforeTonemap, PostEffectOrder.Glow)
 {
@@ -31,6 +36,12 @@ internal sealed unsafe class GlowEffect(AutoExposure autoExposure) : PostEffect(
     private Pipeline _pipeline;
     private DescriptorImageInfo _adaptedLuminance;
     private bool _needsClear = true;
+
+    // GlowQuality.High (ADR 0168), created the first frame it is used: the downsample reads one set (the existing scene
+    // and temp sets), the upsample two (set 0: the level below's result, set 1: this level's downsample).
+    private Pipeline _downPipeline;
+    private PipelineLayout _upLayout;
+    private Pipeline _upPipeline;
 
     /// <summary>Runs whenever the post tonemap pass does: the tonemap binds every level either way.</summary>
     public override bool IsEnabled(in PostEffectSettings settings) => settings.PostTonemap;
@@ -130,6 +141,12 @@ internal sealed unsafe class GlowEffect(AutoExposure autoExposure) : PostEffect(
         }
 
         var max = settings.GlowMaxLevel;
+        if (settings.GlowQuality == GlowQuality.High)
+        {
+            RecordHigh(cb, settings, exposure, max);
+            return;
+        }
+
         for (var k = 0; k <= max; k++)
         {
             var first = k == 0;
@@ -151,14 +168,89 @@ internal sealed unsafe class GlowEffect(AutoExposure autoExposure) : PostEffect(
         }
     }
 
-    private void Pass(CommandBuffer cb, RenderTarget target, DescriptorSet source, ref GlowPush push)
+    /// <summary>
+    /// The tent's tap spacing in texels of the lower level on the way up (<see cref="GlowQuality.High"/>): 2 spreads each
+    /// level about as wide as Godot's 9-tap Gaussian does, so the level weights keep their meaning.
+    /// </summary>
+    public const float UpsampleRadius = 2f;
+
+    /// <summary>
+    /// The tonemap's level weights for <see cref="GlowQuality.High"/>: level 0 already holds the weighted sum of every
+    /// level, so it is read alone at weight 1.
+    /// </summary>
+    public static void CombinedWeights(Span<float> weights)
+    {
+        weights.Clear();
+        weights[0] = 1f;
+    }
+
+    // GlowQuality.High: 13-tap downsamples into temp[0..max], then the tent chain up into level[max..0].
+    private void RecordHigh(CommandBuffer cb, in PostProcessSettings settings, float exposure, int max)
+    {
+        if (max < 0)
+            return;
+        EnsureHigh();
+        var vk = _ctx.Vk;
+        for (var k = 0; k <= max; k++)
+        {
+            var first = k == 0;
+            var push = new GlowPush
+            {
+                Strength = settings.GlowStrength,
+                Exposure = exposure,
+                Threshold = settings.GlowHdrThreshold,
+                Scale = settings.GlowHdrScale,
+                Bloom = settings.GlowBloom,
+                LuminanceCap = settings.GlowHdrLuminanceCap,
+                AutoExposureScale = settings.AutoExposureScale,
+                Flags = (first ? 2u : 0u) | (settings.AutoExposureEnabled ? 4u : 0u),
+            };
+            Pass(cb, _temp[k], first ? _sceneSet : _tempSets[k - 1], ref push, _downPipeline);
+        }
+
+        Span<float> weights = stackalloc float[LevelCount];
+        settings.GetGlowWeights(weights);
+        var sets = stackalloc DescriptorSet[2];
+        for (var k = max; k >= 0; k--)
+        {
+            var target = _levels[k];
+            var extent = target.Extent;
+            var top = k == max;
+            var push = new UpPush { DstWidth = extent.Width, DstHeight = extent.Height, Flags = top ? 1u : 0u, Weight = weights[k], Radius = UpsampleRadius };
+            sets[0] = top ? _tempSets[k] : _levelSets[k + 1]; // the top level reads no lower level (any valid set)
+            sets[1] = _tempSets[k];
+            target.Begin(cb, default);
+            vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _upPipeline);
+            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _upLayout, 0, 2, sets, 0, null);
+            vk.CmdPushConstants(cb, _upLayout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(UpPush), &push);
+            PipelineBuilder.SetViewport(vk, cb, extent, flipY: false);
+            vk.CmdDraw(cb, 3, 1, 0, 0);
+            target.End(cb);
+        }
+    }
+
+    private void EnsureHigh()
+    {
+        if (_upPipeline.Handle != 0)
+            return;
+        _downPipeline = PipelineBuilder.Create(_ctx, new PipelineState(), _layout, _temp[0].RenderPass,
+            "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/GlowDownsample.vk.frag.spv", [], [], "glow downsample");
+        _upLayout = PipelineBuilder.CreateLayout(_ctx, [_setLayout, _setLayout], (uint)sizeof(UpPush), ShaderStageFlags.FragmentBit, "glow upsample");
+        _upPipeline = PipelineBuilder.Create(_ctx, new PipelineState(), _upLayout, _levels[0].RenderPass,
+            "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/GlowUpsample.vk.frag.spv", [], [], "glow upsample");
+    }
+
+    private void Pass(CommandBuffer cb, RenderTarget target, DescriptorSet source, ref GlowPush push) =>
+        Pass(cb, target, source, ref push, _pipeline);
+
+    private void Pass(CommandBuffer cb, RenderTarget target, DescriptorSet source, ref GlowPush push, Pipeline pipeline)
     {
         var vk = _ctx.Vk;
         var extent = target.Extent;
         push.DstWidth = extent.Width;
         push.DstHeight = extent.Height;
         target.Begin(cb, default);
-        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _layout, 0, 1, &source, 0, null);
         fixed (GlowPush* p = &push)
             vk.CmdPushConstants(cb, _layout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(GlowPush), p);
@@ -194,6 +286,12 @@ internal sealed unsafe class GlowEffect(AutoExposure autoExposure) : PostEffect(
         var vk = _ctx.Vk;
         vk.DestroyPipeline(_ctx.Device, _pipeline, null);
         vk.DestroyPipelineLayout(_ctx.Device, _layout, null);
+        if (_upPipeline.Handle != 0)
+        {
+            vk.DestroyPipeline(_ctx.Device, _downPipeline, null);
+            vk.DestroyPipeline(_ctx.Device, _upPipeline, null);
+            vk.DestroyPipelineLayout(_ctx.Device, _upLayout, null);
+        }
         vk.DestroyDescriptorPool(_ctx.Device, _pool, null);
         vk.DestroyDescriptorSetLayout(_ctx.Device, _setLayout, null);
         vk.DestroySampler(_ctx.Device, _sampler, null);
@@ -204,7 +302,17 @@ internal sealed unsafe class GlowEffect(AutoExposure autoExposure) : PostEffect(
         }
     }
 
-    // GlowBlur.vk.frag's push block (std430).
+    // GlowUpsample.vk.frag's push block (std430).
+    private struct UpPush
+    {
+        public float DstWidth;
+        public float DstHeight;
+        public uint Flags;
+        public float Weight;
+        public float Radius;
+    }
+
+    // GlowBlur.vk.frag's (and GlowDownsample.vk.frag's) push block (std430).
     private struct GlowPush
     {
         public float DstWidth;

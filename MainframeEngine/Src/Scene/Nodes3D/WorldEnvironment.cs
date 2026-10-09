@@ -84,8 +84,12 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export]
     public ReflectedLightSource ReflectedLightSource { get; set; }
 
-    /// <summary>The tonemap, glow, auto exposure, light shafts and SSAO this environment asks the renderer for (ADR 0124); the tree's root world's is used.</summary>
-    public PostProcessSettings PostProcess => _post;
+    /// <summary>
+    /// The tonemap, glow, auto exposure, light shafts, SSAO, adjustments and (from <see cref="CameraAttributes"/>) depth of
+    /// field and film effects this environment asks the renderer for (ADR 0124, ADR 0165, ADR 0168); the tree's root
+    /// world's is used.
+    /// </summary>
+    public PostProcessSettings PostProcess => CameraAttributes is { } attributes ? attributes.ApplyTo(_post) : _post;
 
     [ExportGroup("Wind")]
     /// <summary>World direction the wind blows towards (normalized when packed). Foliage, grass and water read it.</summary>
@@ -145,7 +149,10 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     }
 
     [ExportGroup("Tonemap")]
-    /// <summary>The tonemap curve (ADR 0124): the engine's ACES fit by default, or Godot 4.7's ACES.</summary>
+    /// <summary>
+    /// The tonemap curve (ADR 0124, ADR 0168): the engine's ACES fit by default, Godot 4.7's ACES, or Godot 4.4's linear,
+    /// Reinhard, filmic and AgX.
+    /// </summary>
     [Export]
     public Tonemapper Tonemapper
     {
@@ -153,7 +160,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         set => _post = _post with { Tonemapper = value };
     }
 
-    /// <summary>Exposure for the Godot curve (Godot's <c>tonemap_exposure</c>); the engine curve uses the project exposure.</summary>
+    /// <summary>Exposure for the Godot curves (Godot's <c>tonemap_exposure</c>); the engine curve uses the project exposure.</summary>
     [Export(Range = "0,16,0.01")]
     public float TonemapExposure
     {
@@ -161,7 +168,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         set => _post = _post with { TonemapExposure = value };
     }
 
-    /// <summary>White point for the Godot curve (Godot's <c>tonemap_white</c>; ACES uses at least 1).</summary>
+    /// <summary>White point for the Godot curves (Godot's <c>tonemap_white</c>; ACES, Reinhard and filmic use at least 1; AgX ignores it).</summary>
     [Export(Range = "0,16,0.01")]
     public float TonemapWhite
     {
@@ -305,6 +312,71 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         get => _post.GlowHdrLuminanceCap;
         set => _post = _post with { GlowHdrLuminanceCap = value };
     }
+
+    /// <summary>How glow is built (ADR 0168): Godot's chain, or the 13-tap / tent chain with an anti-firefly first level.</summary>
+    [Export]
+    public GlowQuality GlowQuality
+    {
+        get => _post.GlowQuality;
+        set => _post = _post with { GlowQuality = value };
+    }
+
+    [ExportGroup("Adjustments")]
+    /// <summary>Colour adjustments after the tonemap (Godot's <c>adjustment_enabled</c>, ADR 0168).</summary>
+    [Export]
+    public bool AdjustmentEnabled
+    {
+        get => _post.AdjustmentEnabled;
+        set => _post = _post with { AdjustmentEnabled = value };
+    }
+
+    /// <summary>Godot's <c>adjustment_brightness</c> (1 = unchanged).</summary>
+    [Export(Range = "0.01,8,0.01")]
+    public float AdjustmentBrightness
+    {
+        get => _post.AdjustmentBrightness;
+        set => _post = _post with { AdjustmentBrightness = value };
+    }
+
+    /// <summary>Godot's <c>adjustment_contrast</c> (1 = unchanged).</summary>
+    [Export(Range = "0.01,8,0.01")]
+    public float AdjustmentContrast
+    {
+        get => _post.AdjustmentContrast;
+        set => _post = _post with { AdjustmentContrast = value };
+    }
+
+    /// <summary>Godot's <c>adjustment_saturation</c> (1 = unchanged).</summary>
+    [Export(Range = "0.01,8,0.01")]
+    public float AdjustmentSaturation
+    {
+        get => _post.AdjustmentSaturation;
+        set => _post = _post with { AdjustmentSaturation = value };
+    }
+
+    /// <summary>Godot's <c>adjustment_color_correction</c>: a 3D LUT (a <c>.cube</c> file) the display colour is looked up in.</summary>
+    [Export]
+    public Texture3D? AdjustmentColorCorrection
+    {
+        get => _post.AdjustmentColorCorrection;
+        set => _post = _post with { AdjustmentColorCorrection = value };
+    }
+
+    /// <summary>How much of the LUT's result is used (engine; 1 = all of it).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float AdjustmentColorCorrectionStrength
+    {
+        get => _post.AdjustmentColorCorrectionStrength;
+        set => _post = _post with { AdjustmentColorCorrectionStrength = value };
+    }
+
+    [ExportGroup("Camera")]
+    /// <summary>
+    /// The world's lens (Godot's <c>camera_attributes</c>, ADR 0168): depth of field and film effects. A
+    /// <see cref="Camera3D.Attributes"/> on the current camera replaces it.
+    /// </summary>
+    [Export]
+    public CameraAttributesPractical? CameraAttributes { get; set; }
 
     [ExportGroup("Auto Exposure")]
     /// <summary>Eye adaptation (ADR 0154): the exposure follows the scene's average luminance over time.</summary>

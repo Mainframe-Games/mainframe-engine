@@ -5,8 +5,9 @@
 How the main view's screen-space effects are organised ([ADR 0163](../../memory/decisions/0163-post-processing-stages-prepass-motion-vectors.md)):
 three **stages** in the frame, **effects** registered on a per-view stack, the images they share (**scene textures**:
 HDR colour, depth, velocity), a **target pool** with ping-pong histories, the **depth prepass** that writes depth and
-**motion vectors** before lighting, and the **projection jitter** TAA needs. Auto exposure, glow, light shafts and
-FXAA are effects in this system, and so are TAA (ADR 0166) and SSAO ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md)). Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
+**motion vectors** before lighting, and the **projection jitter** TAA needs. Auto exposure, glow, light shafts, FXAA,
+TAA (ADR 0166), SSAO ([ADR 0165](../../memory/decisions/0165-ssao-gtao.md)) and ADR 0168's depth of field and colour grade
+are effects in this system. Code: [`Src/Rendering/Post/`](../../MainframeEngine/Src/Rendering/Post/).
 
 ## Frame
 
@@ -15,9 +16,9 @@ flowchart LR
     SH["Shadows, offscreen views<br/>(sub-viewports, picking)"] --> PP["Depth prepass (when needed)<br/>opaque + cutout → scene depth<br/>+ RG16F velocity, sky velocity"]
     PP --> AP["AfterPrepass stage<br/>(SSAO → set 0 binding 5,<br/>contact shadows → binding 6)"]
     AP --> SC["Scene pass<br/>loads the prepass depth;<br/>prepassed surfaces: LEQUAL / EQUAL, no writes"]
-    SC --> BT["BeforeTonemap stage (HDR)<br/>TAA · auto exposure · glow · light shafts"]
-    BT --> TM["Tonemap<br/>engine or post (composites exposure, glow, shafts)"]
-    TM --> AT["AfterTonemap stage (LDR)<br/>TAA sharpen · FXAA · velocity view<br/>last one → swapchain"]
+    SC --> BT["BeforeTonemap stage (HDR)<br/>TAA · depth of field · auto exposure · glow · light shafts"]
+    BT --> TM["Tonemap<br/>engine or post (composites exposure, glow, shafts; ACES, linear, Reinhard, filmic, AgX)"]
+    TM --> AT["AfterTonemap stage (LDR)<br/>TAA sharpen · FXAA · colour grade + film effects · velocity view<br/>last one → swapchain"]
     AT --> OV["Overlay<br/>canvas, gizmos, UI, dev overlay"]
 ```
 
@@ -37,7 +38,7 @@ Only the tree's root world is post-processed (glow, auto exposure, light shafts,
 |---|---|
 | `PostStage` | `AfterPrepass`, `BeforeTonemap`, `AfterTonemap` |
 | `PostEffect` | an effect: `Name`, `Stage`, `Order`, `Needs`, `IsEnabled(settings)`, and `OnCreate`, `OnBeginFrame`, `OnResize`, `OnRecord`, `OnDispose` |
-| `PostEffectOrder` | the built-in orders: `Ssao` 100, `ContactShadows` 200; `Taa` 100, `DepthOfField` 150, `AutoExposure` 200, `Glow` 300, `LightShafts` 400; `Sharpen` 50, `Fxaa` 100, `DebugView` 1000 |
+| `PostEffectOrder` | the built-in orders: `Ssao` 100, `ContactShadows` 200; `Taa` 100, `DepthOfField` 150, `AutoExposure` 200, `Glow` 300, `LightShafts` 400; `Sharpen` 50, `Fxaa` 100, `ColorGrade` 150, `DebugView` 1000 |
 | `PostEffectNeeds` | `DepthPrepass`, `Velocity` (implies the prepass), `Jitter` |
 | `PostEffectSettings` | what effects decide on: the root world's `PostProcessSettings` (`World`), `AntiAliasing`, `RenderDebugView`, `TaaSharpness`, the primary sun's `ContactShadows` (ADR 0167); `PostTonemap` = the world asks for more than the engine tonemap |
 | `PostProcessStack` | the view's effects, sorted by stage, order, registration; `GetNeeds`, `CountEnabled`, `BeginFrame`, `Record(stage)`, `Resize` |
@@ -65,7 +66,9 @@ output for the lit shaders (below); so do the sun's contact shadows (`ContactSha
 **BeforeTonemap.** After the scene pass, on linear HDR colour. Built in: TAA (first: everything after it reads the
 resolved image), then auto exposure, glow and light shafts, which
 the post tonemap pass composites (their outputs are bound in its set); they run whenever the world's settings are not
-the default (`PostEffectSettings.PostTonemap`), exactly as before ADR 0163. An effect that produces a new HDR image
+the default (`PostEffectSettings.PostTonemap`), exactly as before ADR 0163. Depth of field (`DepthOfFieldEffect`,
+ADR 0168) runs before them when the lens asks for it, from the scene pass's own colour and depth (no prepass), and writes
+the scene colour back. An effect that produces a new HDR image
 (TAA, depth of field) writes it back with `PostEffectContext.CopyToSceneColor(view)`: one fullscreen pass over the scene
 colour, after which every later effect and the tonemap read the new image (their sets bind the scene colour).
 
@@ -74,8 +77,8 @@ the canvas, gizmos, UI and dev overlay. When any effect of the stage is on, the 
 image; each effect draws one fullscreen pass from `Scene.Ldr` into `context.BeginOutput()`, which is the next LDR
 image of a ping-pong pair, or, for the last effect (`IsLastInStage`), the swapchain pass, which stays open for the
 overlay renderers. An effect builds a pipeline per `OutputRenderPass` it is handed (`PassPipelines`), and decodes sRGB
-when `OutputEncodesSrgb` (a swapchain view that encodes). Built in: TAA's sharpen, FXAA, and the velocity debug view
-(last).
+when `OutputEncodesSrgb` (a swapchain view that encodes). Built in: TAA's sharpen, FXAA, the colour grade and film
+effects (`ColorGradeEffect`, ADR 0168: after FXAA, so grain is not smoothed), and the velocity debug view (last).
 
 ## Writing an effect
 
@@ -362,6 +365,8 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 - **TAA unit tests** (`Rendering/TaaTests`): the settings and their round trip, TAA's stage order, needs and enable rules
   (it replaces FXAA; the sharpen only with a sharpness), the Halton sequence seen in pixels at any size, the depth rows
   against a moving camera, the push block's size, the material's dither flag.
+- **ADR 0168** (`CinematicPostTests`, render and unit): the colour grade, LUTs, tonemappers, glow High, depth of field and
+  film effects, the whole chain at 0 B per frame and across a resize; see [Color pipeline → Testing](color-pipeline.md#testing).
 - **Unit tests** (`PostProcessingTests`): stage and order sorting, enable rules and needs, lazy creation and disposal,
   the built-ins' stages, the target pool and history validity, Halton and the jittered projection, the 576-byte frame
   block and its offsets, view and node motion histories. `SsaoTests`: defaults, the tonemap rule, stage and needs, the

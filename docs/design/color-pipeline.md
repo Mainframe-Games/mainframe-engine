@@ -14,8 +14,9 @@ tonemapping so it looks exactly as authored. Implemented in
 Before M3 the swapchain was UNORM, lighting ran on gamma-encoded values (overlapping lights clipped to
 white), sky textures were sRGB and came out darker, and Spine's premultiplied alpha was applied twice.
 
-Since ADR 0163 the effects around the tonemap are `PostEffect`s in stages (`BeforeTonemap`: TAA, auto exposure, glow,
-light shafts; `AfterTonemap`: TAA's sharpen, FXAA), recorded by the main view's `PostProcessStack`, and a depth prepass with motion
+Since ADR 0163 the effects around the tonemap are `PostEffect`s in stages (`BeforeTonemap`: TAA, depth of field, auto
+exposure, glow, light shafts; `AfterTonemap`: TAA's sharpen, FXAA, the colour grade and film effects of ADR 0168),
+recorded by the main view's `PostProcessStack`, and a depth prepass with motion
 vectors can run before the scene pass: see [Post-processing](post-processing.md). The colour handling below is
 unchanged by it.
 
@@ -128,6 +129,13 @@ target will be another.
   centre, fade 1). Against the same frame without shafts, the mean luminance rises by more than 10 and, on a circle
   below the sun, what the shafts add varies by more than 40 (streaks through the gaps, not a uniform glow).
   `--count 2` swings the sun ±90° through the screen and out past its edges: 0 B per frame (allocation gate).
+- `post-grade`, `post-dof`, `post-film` and `glow --count 3|4` (ADR 0168, `CinematicPostTests`): an identity LUT leaves the
+  colour chart within ±1, a channel-rotation LUT gives the rotated colours (±2; at strength 0.5 their mix), the
+  adjustments follow Godot's formula, every tonemapper matches `TonemapCurves` (±2; AgX golden), far DoF blurs the far wall
+  (contrast < 0.6×) and leaves the subject (≤ 1 mean difference; golden), near DoF blurs the box's edge and leaves the
+  wall, the vignette follows its formula and darkens outwards, grain keeps the mean (±1), varies frame to frame and is
+  the same on every run, aberration fringes the bars and leaves flat grey grey (golden), glow High bleeds only above the
+  threshold (golden); 0 B per frame with the whole chain on, and a resize.
 - Unit tests: transfer curves, ACES properties, default-exposure and sky-ground calibration, swapchain choice;
   auto-exposure blend and clamps, the anti-aliasing setting's defaults and `project.mfproj` round trip; light-shaft
   defaults, sample clamp and per-pass step/decay, the sun's screen position and fade (behind, at 90°, the off-screen
@@ -144,7 +152,10 @@ target will be another.
   ordering artefact.
 - No HDR display output.
 - SubViewports always use the engine curve without glow, auto exposure, light shafts, FXAA, TAA or any other post
-  effect (ADR 0124, ADR 0154, ADR 0160, ADR 0163, ADR 0166).
+  effect (ADR 0124, ADR 0154, ADR 0160, ADR 0163, ADR 0166), so the editor viewport shows no grade, DoF or film effects
+  either.
+- Depth of field has one layer: a near-field blur over a high-frequency background shows half-resolution sparkle along
+  its silhouette (separate near/far layers and TAA would fix it; ADR 0168). No lens dirt (`GlowMap`) yet.
 
 ## Godot tonemap and glow (ADR 0124)
 
@@ -250,7 +261,71 @@ sky.
 
 Created the first frame that enables them (three ½-res `R16G16B16A16_SFLOAT` targets, ≈ 21 MiB at 1440p); the post set
 binds the glow's smallest level as a placeholder until then, and a second post set binds the shafts, so no descriptor
-set in flight is rewritten. Colour grading (`ColorGradingLut`, G8d.4's other half) is not built.
+set in flight is rewritten. Colour grading is ADR 0168's (below).
+
+## Cinematic post (ADR 0168)
+
+The film look, all of it off by default ([ADR 0168](../../memory/decisions/0168-cinematic-post-chain.md); G8e.4 of the
+[visual-quality proposal](future/forest-visual-quality.md#g8e4-cinematic-post-chain)). In frame order:
+
+```mermaid
+flowchart LR
+    S["Scene pass (HDR)"] --> D["DoF (BeforeTonemap 150)<br/>½ prefilter → ½ golden-angle gather → full composite<br/>→ CopyToSceneColor"]
+    D --> G["auto exposure · glow (Standard / High) · shafts"]
+    G --> T["Post tonemap<br/>engine ACES · Godot ACES · linear · Reinhard · filmic · AgX"]
+    T --> F["FXAA (AfterTonemap 100)"] --> C["Colour grade (AfterTonemap 150)<br/>aberration → adjustments → 3D LUT → vignette → grain"]
+    C --> O["Overlay"]
+```
+
+**Tonemappers.** `Tonemapper.Linear`, `Reinhard`, `Filmic` and `Agx` (ordinals 2–5 after `Engine` and `GodotAces`) are
+Godot 4.4's `tonemap.glsl` curves in `TonemapPost` (MIT, credited in THIRD_PARTY_NOTICES); `TonemapCurves` mirrors them
+in C# (unit and render tests compare). Every Godot curve uses `TonemapExposure` (`PostProcessSettings.ExposureFor`: the
+engine curve keeps `rendering.exposure`). Reinhard is the extended formula, 1 at `max(1, TonemapWhite)`; filmic is Hable's
+with Godot's 2× bias, divided by its value at that white (`FilmicWhiteTonemapped`); AgX is Blender's look (EaryChow's AgX
+base: a log2 encoding from −12.47 to +4.03 EV in an inset Rec.2020, a 6th-order sigmoid fit, ^2.4, the outset back to
+sRGB) and ignores the white. AgX takes a saturated colour to white as it brightens (the sun through leaves goes white,
+not saturated yellow) and keeps its hue in the mid-tones; middle grey 0.18 stays ≈ 0.18 display-linear. The glow's white
+(`GlowWhite`) is `max(1, white)` for ACES, Reinhard and filmic, 1 otherwise.
+
+**Adjustments and LUT** (`WorldEnvironment`, Godot's names): `AdjustmentEnabled` turns on `AdjustmentBrightness`,
+`AdjustmentContrast`, `AdjustmentSaturation` (Godot 4's `apply_bcs` on the display-encoded value: × brightness, around
+0.5 by contrast, from the channel mean by saturation) and `AdjustmentColorCorrection`, a `Texture3D` looked up with
+hardware trilinear at `c · (N − 1)/N + 0.5/N` (texel centres; an identity LUT reproduces the input within ±1), mixed in by
+the engine's `AdjustmentColorCorrectionStrength` (1). LUTs are `.cube` files (`CubeLut`, `CubeLutImporter`: any 3D size
+2–256, 1D tables and other domains resampled to 33³), stored as `R16G16B16A16_SFLOAT` 3D images
+(`GpuTexture.Create3D`). The grade reads the stage's LDR image after FXAA (so the grain is not smoothed away) and writes
+the swapchain (decoding first on an sRGB view).
+
+**Glow quality.** `GlowQuality.Standard` is Godot's chain, bit for bit. `High` (Jimenez 2014) fills the same images
+differently: `temp[k]` = the 13-tap downsample of the level above (bilinear taps at 0, ±1, ±2 source texels; on level 0
+the five 2 × 2 boxes are Karis-weighted by `1 / (1 + luma)`, so one sun glint cannot flare a block, then exposure ×
+auto exposure, the HDR threshold and the cap as Godot's level 0; × `GlowStrength` per level), then up the chain
+`level[k] = tent3×3(level[k+1]) + weight_k · temp[k]` (tent taps `GlowEffect.UpsampleRadius` = 2 lower-level texels apart,
+normalised: energy conserving). The tonemap composites `level[0]` alone (`GlowEffect.CombinedWeights`), with the blend
+mode and intensity as before.
+
+**Lens: `CameraAttributesPractical`** on `WorldEnvironment.CameraAttributes` or `Camera3D.Attributes` (the root view's
+current camera's replaces the environment's, as a whole). Depth of field with Godot's names and defaults
+(`DofBlurFarEnabled`, `DofBlurFarDistance` 10, `DofBlurFarTransition` 5, `DofBlurNearEnabled`, `DofBlurNearDistance` 2,
+`DofBlurNearTransition` 1, `DofBlurAmount` 0.1) and engine film effects (`DofQuality` 16/32 taps, `VignetteIntensity`,
+`VignetteRoundness`, `FilmGrainIntensity`, `FilmGrainSize`, `ChromaticAberrationIntensity`).
+
+| Effect | How |
+|---|---|
+| **Depth of field** (`DepthOfFieldEffect`) | Blur 0–1 per pixel: linear over each plane's transition (`PostProcessSettings.DofBlur`), the larger of near and far; radius `amount × 64 × height / 1080` px (`DofMaxRadius`). View distance from the scene depth and the unjittered projection's M33/M34/M43/M44 (perspective or orthographic). **Prefilter** (½): per texel the signed CoC of its nearest depth when that is in the near field (the near blur dilates), else of its farthest (a sharp foreground edge never darkens the background's blur), and the mean colour of the 2 × 2 texels whose CoC is within a pixel of it. **Gather** (½): a golden-angle (Vogel) disc of 16 or 32 taps out to the radius, Gustafsson's single-pass bokeh: a tap counts where its own circle reaches this texel, a tap behind this texel is limited to twice this texel's circle (no background over a sharp subject), the others keep the running mean; alpha carries how far a foreground blur spread here. **Composite** (full): `lerp(sharp, bokeh, smoothstep(0.5, 1.5, max(|CoC|, spread)))`, then `CopyToSceneColor`. Targets from the pool: `dof prefilter`, `dof bokeh` (½), `dof composite` (full), RGBA16F |
+| **Vignette** | In linear light: × `1 − intensity · r³` with `r²` 0 at the centre and 1 in the corners (aspect-corrected towards a circle by `VignetteRoundness`) |
+| **Film grain** | Value noise on a `FilmGrainSize`-pixel lattice hashed (pcg3d) with the frame number, ±`intensity` display values × a response of 0.25 in black and white, 1 in the mid-tones; deterministic under `--fixed-fps` |
+| **Chromatic aberration** | Red and blue read radially apart, `intensity` pixels at the corners |
+
+**Cost** (the Forest at 1920 × 1080, Apple M5 (MoltenVK), GPU timestamps around the stages, p50 over 1 740 frames,
+two runs each): the `AfterTonemap` stage takes 0.37–0.39 ms with the grade and 0.21–0.22 ms with FXAA alone, so the grade,
+vignette and grain cost ≈ 0.16 ms; `just forest-bench` p50 13.85 ms with the grade, 13.84 / 14.39 ms without (noise; other
+lanes' GPU work was running). R5's depth of field (32 taps) did not move the `BeforeTonemap` timestamps (0.33–0.34 ms
+with it, 0.35 ms without) within their resolution on MoltenVK, which samples timestamps at encoder boundaries.
+
+**The Forest** applies `Content/Grading/forest-morning.cube` (`ForestGrade`, generated: warm white balance sparing the
+sky, a soft curve with lifted blacks, split toning, olive foliage, film saturation), vignette 0.2 and grain 0.015; R4 and
+R5 are photo shots with subtle depth of field ([forest.md](forest.md#the-look-forestscenecreateenvironment-the-sun)).
 
 ## Related docs
 

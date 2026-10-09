@@ -72,6 +72,9 @@ RenderTestGame game = options.Scene switch
     "taa-ghost" => new TaaGhostScene(options),
     "taa-foliage" => new FoliageWindScene(options with { AntiAliasing = options.AntiAliasing ?? AntiAliasing.Taa }),
     "ssao" => new SsaoScene(options),
+    "post-grade" => new PostGradeScene(options),
+    "post-dof" => new PostDofScene(options),
+    "post-film" => new PostFilmScene(options),
     "tree-realistic" => new TreeScene(options, MainframeEngine.Trees.TreeStyle.Realistic),
     "tree-lowpoly" => new TreeScene(options, MainframeEngine.Trees.TreeStyle.LowPoly),
     "tree-forest" => new TreeForestScene(options),
@@ -81,7 +84,7 @@ RenderTestGame game = options.Scene switch
         "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer, shadow-pcss, contact-shadows, shadow-staggered, far-shadow, " +
         "sky-physical, fxaa, auto-exposure, pbr, fog, vertex-colors, multimesh, " +
         "foliage-wind, terrain, water, terrain-splat, terrain-foliage, light-shafts, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, ssao, " +
-        "tree-realistic, tree-lowpoly, tree-forest, gamehost."),
+        "post-grade, post-dof, post-film, tree-realistic, tree-lowpoly, tree-forest, gamehost."),
 };
 
 using (game)

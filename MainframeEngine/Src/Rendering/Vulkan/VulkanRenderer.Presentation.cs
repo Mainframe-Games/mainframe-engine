@@ -213,7 +213,9 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         _post.Add(new TaaEffect());
         _post.Add(new TaaSharpenEffect());
         _post.Add(new ContactShadows());
+        _post.Add(new DepthOfFieldEffect()); // ADR 0168
         _post.Add(new FxaaEffect());
+        _post.Add(new ColorGradeEffect()); // ADR 0168
         _post.Add(new VelocityDebugView(ssao));
     }
 
@@ -288,8 +290,8 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         return context;
     }
 
-    // The frame's exposure: the project's, or the Godot tonemap's.
-    private float FrameExposure => PostProcess.Tonemapper == Tonemapper.GodotAces ? PostProcess.TonemapExposure : _exposure;
+    // The frame's exposure: the project's, or the Godot tonemaps' (ADR 0124, ADR 0168).
+    private float FrameExposure => PostProcess.ExposureFor(_exposure);
 
     // ── IPostProcessHost (ADR 0163) ───────────────────────────────────────────
 
@@ -755,12 +757,14 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
                 GlowEnabled = post.GlowMaxLevel >= 0 ? 1u : 0u,
                 GlowIntensity = post.GlowBlendMode == GlowBlendMode.Mix ? post.GlowMix : post.GlowIntensity,
                 White = post.GlowWhite,
-                WhiteTonemapped = post.GodotAcesWhiteTonemapped,
+                WhiteTonemapped = post.Tonemapper == Tonemapper.Filmic ? post.FilmicWhiteTonemapped : post.GodotAcesWhiteTonemapped,
                 AutoExposure = post.AutoExposureEnabled ? 1u : 0u,
                 AutoExposureScale = post.AutoExposureScale,
                 Shafts = shafts,
             };
             post.GetGlowWeights(new Span<float>(postPush.GlowWeights, GlowEffect.LevelCount));
+            if (post.GlowQuality == GlowQuality.High)
+                GlowEffect.CombinedWeights(new Span<float>(postPush.GlowWeights, GlowEffect.LevelCount)); // ADR 0168: level 0 holds the sum
             vk.CmdPushConstants(cb, _postLayout, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(PostPush), &postPush);
         }
         else

@@ -29,6 +29,7 @@ public static class AssetImporters
         Register(new ShaderImporter());
         Register(new AudioImporter());
         Register(new FontImporter());
+        Register(new CubeLutImporter());
     }
 
     /// <summary>Registers (or replaces) the importer for its extensions.</summary>

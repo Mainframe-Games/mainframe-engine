@@ -72,7 +72,11 @@ public static class ForestScene
         return root;
     }
 
-    /// <summary>The morning look: physical sky, IBL from it, valley fog with sun scatter, shafts, eye adaptation, a little glow, a breeze.</summary>
+    /// <summary>
+    /// The morning look: physical sky, IBL from it, valley fog with sun scatter, shafts, eye adaptation, a little glow, a
+    /// breeze, and the cinematic grade (ADR 0168): the forest-morning LUT (<see cref="ForestGrade"/>), a subtle vignette and
+    /// a touch of film grain.
+    /// </summary>
     public static WorldEnvironment CreateEnvironment() => new()
     {
         Name = "Environment",
@@ -125,6 +129,10 @@ public static class ForestScene
         SsaoDetail = 0.4f,
         SsaoHorizon = 0.06f,
         SsaoSharpness = 0.98f,
+        AdjustmentEnabled = true,
+        AdjustmentColorCorrection = ResourceLoader.Exists(ForestGrade.LutPath) ? ResourceLoader.Load<Texture3D>(ForestGrade.LutPath) : null,
+        AdjustmentColorCorrectionStrength = ForestGrade.Strength,
+        CameraAttributes = ForestGrade.CreateLens(),
     };
 
     private static void BuildPlayer(Node root)

@@ -10,6 +10,16 @@
         "Turbidity": 6
       }
     },
+    "Texture3D_u9a3x": {
+      "path": "Content/Grading/forest-morning.cube"
+    },
+    "CameraAttributesPractical_m6y5e": {
+      "type": "CameraAttributesPractical",
+      "props": {
+        "VignetteIntensity": 0.2,
+        "FilmGrainIntensity": 0.015
+      }
+    },
     "CapsuleShape3D_ak3q9": {
       "type": "CapsuleShape3D",
       "props": {
@@ -63,6 +73,9 @@
         "GlowEnabled": true,
         "GlowHdrThreshold": 4,
         "GlowHdrLuminanceCap": 3,
+        "AdjustmentEnabled": true,
+        "AdjustmentColorCorrection": { "res": "Texture3D_u9a3x" },
+        "CameraAttributes": { "res": "CameraAttributesPractical_m6y5e" },
         "AutoExposureEnabled": true,
         "AutoExposureScale": 0.16,
         "AutoExposureSpeed": 0.6,
