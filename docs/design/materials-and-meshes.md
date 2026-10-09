@@ -266,7 +266,8 @@ camera to the centre of its world AABB is in [begin, end). Margins and fading ar
 
 - `InstanceCount` (resizing resets every transform to identity), `VisibleInstanceCount` (-1 = all; draws the first
   n), `SetInstanceTransform`/`GetInstanceTransform`, the bulk `SetTransforms(ReadOnlySpan<Transform3D>, start)`, and
-  `Transforms` (serialized). `GetAabb()` is the mesh's bounds under every drawn transform, cached per version.
+  `Transforms` (serialized). `GetAabb()` is the mesh's bounds under every drawn transform, cached per version, or
+  `CustomAabb` when set.
 - A `MultiMeshInstance3D` is **one render item**: frustum-culled by the world AABB of all its instances, one draw
   item per surface (never merged with other items), one instanced draw per surface with `instanceCount` = the drawn
   instances, materials resolved as for `MeshInstance3D`.
@@ -278,6 +279,10 @@ camera to the centre of its world AABB is in [begin, end). Margins and fading ar
   one each.
 - Shadow casters draw the same buffer instanced (one run per surface per pass); the object-ID pass writes the node's
   id for every instance, so picking selects the node.
+- **Changing only `VisibleInstanceCount` uploads nothing** (ADR 0157): the buffer holds every instance, and
+  `MultiMesh` keeps an internal content version (mesh, count, transforms) apart from `Version`, so the renderer only
+  moves its draw count and bounds — per-frame thinning (terrain foliage) is 0 B. `CustomAabb` (runtime only, empty by
+  default) replaces the computed bounds, so such changes do not walk the instances either.
 - Instances with a negative-determinant transform are not drawn mirrored (only the node's transform picks the
   winding). No per-instance colour or custom data yet.
 

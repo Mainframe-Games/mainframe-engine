@@ -61,6 +61,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
     private MeshInstance3D?[] _waterNodes = [];   // per chunk, null when dry
     private Aabb _wetBounds = Aabb.Empty;         // terrain-local, wet vertices
     private World3D? _world;
+    private TerrainFoliage3D? _foliage;
 
     public Terrain3D()
     {
@@ -154,6 +155,9 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
 
     /// <summary>The collision shape of chunk (<paramref name="cx"/>, <paramref name="cz"/>), or null without collision.</summary>
     public ConcavePolygonShape3D? GetChunkShape(int cx, int cz) => _shapes.Length == 0 ? null : _shapes[cz * _chunks + cx];
+
+    /// <summary>The node drawing <see cref="TerrainData.FoliageTypes"/> (null before the chunks are built).</summary>
+    public TerrainFoliage3D? Foliage => _foliage;
 
     /// <summary>The collision body of chunk (<paramref name="cx"/>, <paramref name="cz"/>), or null without collision.</summary>
     public StaticBody3D? GetChunkBody(int cx, int cz) => _bodies.Length == 0 ? null : _bodies[cz * _chunks + cx];
@@ -330,6 +334,8 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
         _built = true;
         _builtVersion = data.Version;
         Subscribe();
+        _foliage = new TerrainFoliage3D { Name = "Foliage", Terrain = this };
+        AddChild(_foliage);
     }
 
     private static int LevelCount(int chunkQuads)
@@ -352,6 +358,8 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D
             water?.Free();
         _waterNodes = [];
         _wetBounds = Aabb.Empty;
+        _foliage?.Free();
+        _foliage = null;
         _lodNodes = [];
         _bodies = [];
         _shapes = [];
