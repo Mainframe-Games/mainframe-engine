@@ -6,14 +6,19 @@ namespace MainframeEngine;
 public static class TreeMeshDataExtensions
 {
     /// <summary>
-    /// A <see cref="MeshSurface"/> from the surface's positions, normals, UVs and indices (the arrays are shared, not
-    /// copied). <see cref="TreeSurfaceData.Custom0"/> and <see cref="TreeSurfaceData.Colors"/> are not carried over:
-    /// they belong in the surface's optional vertex streams.
+    /// A <see cref="MeshSurface"/> from the surface's positions, normals, UVs, indices and its optional vertex streams:
+    /// <see cref="TreeSurfaceData.Custom0"/> (wind weight, branch level, phase, AO) becomes <see cref="MeshSurface.Custom0"/>
+    /// and <see cref="TreeSurfaceData.Colors"/> (LowPoly blob shades) <see cref="MeshSurface.Colors"/>. The arrays are
+    /// shared, not copied.
     /// </summary>
     public static MeshSurface ToSurface(this TreeSurfaceData data, Material? material = null)
     {
         ArgumentNullException.ThrowIfNull(data);
-        return new MeshSurface(data.Positions, data.Normals, data.UVs, data.Indices, material);
+        return new MeshSurface(data.Positions, data.Normals, data.UVs, data.Indices, material)
+        {
+            Custom0 = data.Custom0,
+            Colors = data.Colors,
+        };
     }
 
     /// <summary>

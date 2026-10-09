@@ -20,17 +20,18 @@ struct FsIn
     [[vk::location(4)]] float inAo;
 };
 
-// The lit colour of a foliage surface: the one place the shading model is chosen. PBR: a dielectric with the material's
-// roughness (material.pbr.y); Blinn-Phong: the roughness-derived highlight. `ao` darkens only the ambient term.
-float3 foliageLight(float3 albedo, float3 N, float3 Ngeo, float3 worldPos, float ao)
+// The lit colour of a foliage surface: the one place the shading model is chosen. PBR: the material's roughness and
+// metallic (0) × its ORM map (`orm` = materialOrm: AO, roughness, metallic); Blinn-Phong: the roughness-derived
+// highlight. `ao` (the vertex AO, × the map's in PBR) darkens only the ambient term.
+float3 foliageLight(float3 albedo, float3 N, float3 Ngeo, float3 worldPos, float ao, float3 orm)
 {
     if (material.flags.y == kShadingPbr)
     {
         PbrSurface s;
         s.albedo = albedo;
-        s.metallic = 0.0;
-        s.roughness = material.pbr.y;
-        s.ao = ao;
+        s.metallic = orm.z;
+        s.roughness = orm.y;
+        s.ao = ao * orm.x;
         s.N = N;
         return shadeLightsPbr(s, Ngeo, worldPos);
     }
@@ -83,7 +84,8 @@ float4 main(FsIn input, bool frontFacing : SV_IsFrontFace) : SV_Target0
     else
     {
         float3 Nmap = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
-        color = foliageLight(albedo.rgb, Nmap, N, input.inWorldPos, input.inAo) +
+        float3 orm = materialOrm(uv, duvdx, duvdy);
+        color = foliageLight(albedo.rgb, Nmap, N, input.inWorldPos, input.inAo, orm) +
                 foliageTranslucency(albedo.rgb, Nmap, N, input.inWorldPos);
     }
 

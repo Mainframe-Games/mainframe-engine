@@ -21,7 +21,8 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 [0018 removed node types](../../memory/decisions/0018-removed-node-types-upgrade.md),
 [0019 one sampler per material](../../memory/decisions/0019-one-sampler-per-material.md),
 [0150 PBR shading and sky image-based lighting](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md),
-[0151 vertex streams, MultiMesh, visibility ranges and foliage wind](../../memory/decisions/0151-vertex-streams-multimesh-visibility-foliage-wind.md).
+[0151 vertex streams, MultiMesh, visibility ranges and foliage wind](../../memory/decisions/0151-vertex-streams-multimesh-visibility-foliage-wind.md),
+[0158 Tree3D, tree materials and TreeScatter](../../memory/decisions/0158-tree3d-tree-materials-treescatter.md).
 
 ## Key types
 
@@ -35,9 +36,10 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `WaterMaterial3D`, `WaterTextures` | [WaterMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs) | Rivers and ponds: flow ripples, reflection, absorption, foam (ADR 0159, [water.md](water.md#watermaterial3d)) |
 | `TerrainSplatMaterial3D`, `TerrainLayer` | [TerrainSplatMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainSplatMaterial3D.cs), [TerrainLayer.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainLayer.cs) | The Realistic terrain's look: up to 8 splat-weighted PBR layers in texture arrays, its own set 2 and pipeline layout (ADR 0156, [Terrain](terrain.md#terrainsplatmaterial3d)) |
 | `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.meta` (see [Asset pipeline](asset-pipeline.md)) |
+| `OrmPacker` | [OrmPacker.cs](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Separate occlusion/roughness/metallic maps → one linear ORM texture (ADR 0158) |
 | `Texture2DArray`, `Texture2DArrayGpu` (internal) | [Texture2DArray.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2DArray.cs) | Layers of one size on a `2D_ARRAY` image (ADR 0151) |
 | `MultiMesh` | [MultiMesh.cs](../../MainframeEngine/Src/Rendering/Resources/MultiMesh.cs) | Many transforms of one mesh (ADR 0151) |
-| `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | Nodes; `MaterialOverride`, `CastShadows`, `ObjectId`, `VisibilityRangeBegin/End` |
+| `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | Nodes; `MaterialOverride`, `CastShadows`, `ObjectId`, `VisibilityRangeBegin/End`, `CustomAabb` |
 | `MultiMeshInstance3D`, `MultiMeshGpu` (internal) | [MultiMeshInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/MultiMeshInstance3D.cs), [MultiMeshGpu.cs](../../MainframeEngine/Src/Rendering/Meshes/MultiMeshGpu.cs) | Draws a `MultiMesh` from a persistent instance buffer |
 | `MeshVertex`, `MeshVertexExt`, `MeshInstanceData`, `VertexLayouts` | [Rendering/Meshes/MeshVertex.cs](../../MainframeEngine/Src/Rendering/Meshes/MeshVertex.cs) | 32-byte vertex; 20-byte second stream; 80-byte instance; vertex input layouts |
 | `Aabb`, `Frustum` | [Aabb.cs](../../MainframeEngine/Src/Rendering/Meshes/Aabb.cs) | Bounds, transformed bounds, frustum culling |
@@ -163,7 +165,7 @@ A built-in material for leaves, grass and bark, following the `OutlineMaterial3D
 | Albedo | `AlbedoColor`, `AlbedoTexture` (× colour × vertex colour) |
 | Normal map | `NormalTexture`, `NormalScale` |
 | Alpha | `AlphaCutout` (default on; off for bark), `AlphaCutoff` (0.5) |
-| Lighting | `BackFace` (`Flip` the normal, `Keep` it for custom canopy normals, `Cull`), `Translucency` (0..1, default 0.5), `ShadingMode` (`BlinnPhong`, `Unshaded`; PBR follows lane A1), `Roughness` (0.8) |
+| Lighting | `BackFace` (`Flip` the normal, `Keep` it for custom canopy normals, `Cull`), `Translucency` (0..1, default 0.5), `ShadingMode` (`BlinnPhong`, `Unshaded`, `Pbr`), `Roughness` (0.8), `OrmTexture` (PBR only: multiplies the roughness, metallic 0 and the vertex AO; tree bark, ADR 0158) |
 | Wind | `WindStrength` (scales the world's wind, 1), `WindBranchBend` (1) |
 
 - **Wind** (`include/wind.slang`, `windOffset`): the world's wind from `WorldEnvironment` (`frame.wind`,
@@ -259,6 +261,11 @@ Every `GeometryInstance3D` has Godot's **visibility range** (`VisibilityRangeBeg
 unbounded): the instance draws, in the main pass and the shadow passes, only while the distance from the view's
 camera to the centre of its world AABB is in [begin, end). Margins and fading are not implemented. The counter
 `MeshDrawStats.OutOfRange` counts the skipped instances.
+
+`GeometryInstance3D.CustomAabb` (Godot's `custom_aabb`, runtime only) replaces the node's local bounds — the mesh's, or a
+multimesh's over all its instances — for frustum culling, shadow-caster culling and the visibility range. Levels of
+detail of one object have different bounds, so their range distances would differ and, near a switch, two levels (or
+none) would draw; `Tree3D` and `TreeScatter` give every level the union of their bounds (ADR 0158).
 
 ### MultiMesh (ADR 0151)
 

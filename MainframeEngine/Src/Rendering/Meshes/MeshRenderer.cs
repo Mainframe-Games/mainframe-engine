@@ -504,7 +504,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         rewrite |= SwapTexture(water is not null ? water.NormalMap ?? WaterTextures.Normal
             : outline is not null ? null : foliage is not null ? foliage.NormalTexture : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
         rewrite |= SwapTexture(outline is null && foliage is null && water is null ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
-        rewrite |= SwapTexture(outline is null && foliage is null && water is null ? standard.OrmTexture : null, colorUsage: false, ref gpu.Orm);
+        rewrite |= SwapTexture(outline is not null || water is not null ? null : foliage is not null ? foliage.OrmTexture : standard.OrmTexture, colorUsage: false, ref gpu.Orm);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
         rewrite |= RefreshTexture(gpu.Albedo, gpu.AlbedoGeneration);
@@ -689,6 +689,9 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             {
                 bounds = mesh.Bounds.Transform(model);
             }
+
+            if (node.CustomAabb is { } custom)
+                bounds = custom.Transform(model);
 
             if (!node.IsInVisibilityRange(cameraPosition, bounds))
             {

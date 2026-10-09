@@ -165,9 +165,12 @@ sequenceDiagram
   (`--count 1`: no wind) ([Materials & meshes → testing](materials-and-meshes.md#testing)), and `terrain` (G8a: a
   Realistic `Terrain3D` noise hill with LOD levels under a low sun; self-checked, plus a 0 B gate while the camera orbits;
   [Terrain → testing](terrain.md#testing)), `water` (ADR 0159: a carved stream and a pond with `WaterMaterial3D`
-  under the procedural sky; self-checked, plus a 0 B gate while the camera orbits; [Water → tests](water.md#tests)) and
+  under the procedural sky; self-checked, plus a 0 B gate while the camera orbits; [Water → tests](water.md#tests)),
   `terrain-splat` (ADR 0156: the `TerrainSplatMaterial3D` with four generated layers, a triplanar cliff and
-  height-blended paths; self-checked, plus a 0 B orbit gate). Scenes that read `frame.clip.z` see t = frame / 60 s: `Engine` sums the
+  height-blended paths; self-checked, plus a 0 B orbit gate) and the tree scenes (ADR 0158) `tree-realistic`,
+  `tree-lowpoly` (an oak and a pine `Tree3D`; `--count 1`: no wind) and `tree-forest` (a `TreeScatter`; `--count` trees,
+  default 160; a CPU device flies through at most 120 without sun shadows; with `--perf` or `--alloc` a fly-through;
+  self-checked) ([Procedural trees → testing](procedural-trees.md#testing)). Scenes that read `frame.clip.z` see t = frame / 60 s: `Engine` sums the
   fixed deltas into `FrameContext.Time`. The lit and physics scenes use `MeshInstance3D`s with primitive meshes since
   M3 (the physics crates share one `BoxMesh` and one material per colour). Every host scene runs audio on the silent
   null device.

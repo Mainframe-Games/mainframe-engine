@@ -164,6 +164,22 @@ public sealed class FoliageMaterial3D : Material
         }
     } = 0.8f;
 
+    /// <summary>
+    /// Linear ORM map (R occlusion, G roughness, B metallic; <see cref="OrmPacker"/> builds one from separate maps):
+    /// multiplies <see cref="Roughness"/> and the vertex AO in <see cref="ShadingMode.Pbr"/> (bark; ADR 0158).
+    /// </summary>
+    [Export]
+    public Texture2D? OrmTexture
+    {
+        get;
+        set
+        {
+            if (ReferenceEquals(field, value)) return;
+            field = value;
+            Touch();
+        }
+    }
+
     /// <summary>Scales the world's wind for this material (0 = still).</summary>
     [ExportGroup("Wind")]
     [Export(Range = "0,4,0.01")]

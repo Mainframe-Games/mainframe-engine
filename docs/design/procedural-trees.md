@@ -7,22 +7,48 @@ The engine generates trees from a seed and a set of options: a C# port of
 presets give the same tree as in Ez Tree, and artists can tune trees in Ez Tree's web app and import the JSON. Around
 the literal port sit the engine's additions: a LowPoly style, per-vertex wind data, LOD errors and a trunk capsule.
 
-This page covers the CPU side (G8b.1–G8b.2 of the [proposal](future/procedural-trees.md),
-[ADR 0152](../../memory/decisions/0152-ez-tree-port.md)). `Tree3D`, `FoliageMaterial3D`, wind rendering, impostors and
-the tree inspector are not built yet; the proposal has their design.
+This page covers the generator ([ADR 0152](../../memory/decisions/0152-ez-tree-port.md)) and the nodes that draw its
+trees ([ADR 0158](../../memory/decisions/0158-tree3d-tree-materials-treescatter.md)): `Tree3D` (one tree, three levels
+of detail, bake), the tree materials (PBR bark and leaves on `FoliageMaterial3D`, wind from
+[`WorldEnvironment`](materials-and-meshes.md#foliagematerial3d-adr-0151)) and `TreeScatter` (forests as chunked
+`MultiMesh` batches). Impostors and the tree inspector are not built yet; the [proposal](future/procedural-trees.md) has
+their design.
 
 ## Layout
 
 | Where | What |
 |---|---|
 | [`Src/Trees/Generation/`](../../MainframeEngine/Src/Trees/Generation/) | The port, namespace `MainframeEngine.Trees`, no engine types: `TreeGenerator`, `TreeParams`, `TreeMeshDetail`, `TreeSkeleton`, `TreeMeshData`/`TreeSurfaceData`/`TreeTrunkCapsule`, the enums (`TreeType`, `TreeBillboard`, `TreeStyle`, `BarkUvMode`, `BlobShape`), `ITreeGrowthForce`; internal `EzRng`, `ThreeMath` (`Vec3d`, `Quatd`, `EulerXyz`), `LowPolyMesher` |
-| [`Src/Trees/`](../../MainframeEngine/Src/Trees/) | Engine side: `TreeOptions` and `TreeLevel` (resources), `TreePresets`, `EzTreeJson`, `TreeMeshDataExtensions` (`ToSurface`, `ToArrayMesh`) |
+| [`Src/Trees/`](../../MainframeEngine/Src/Trees/) | Engine side: `TreeOptions` and `TreeLevel` (resources), `TreePresets`, `EzTreeJson`, `TreeMeshDataExtensions` (`ToSurface`, `ToArrayMesh`); `Tree3D`, `TreeLod3D`, `TreeMesh` (the bake), `TreeMaterials`; `TreeScatter`, `TreeSpecies`, `TreePlacement`, `TreeScatterBatch3D` |
+| [`Rendering/Resources/OrmPacker.cs`](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Packs separate occlusion/roughness/metallic maps into one ORM texture (the bark's `_Roughness.jpg`) |
 | [`Content/Trees/Presets/`](../../MainframeEngine/Content/Trees/Presets/) | The 15 presets as `TreeOptions` `.mres` files |
 | [`Content/Trees/Leaves/`](../../MainframeEngine/Content/Trees/Leaves/), [`Content/Trees/Bark/`](../../MainframeEngine/Content/Trees/Bark/) | Ez Tree's leaf PNGs (MIT) and the three ambientCG bark sets the presets use (CC0); [`LICENSE.md`](../../MainframeEngine/Content/Trees/LICENSE.md) |
 | [`build/ez-tree-reference.mjs`](../../build/ez-tree-reference.mjs) | Runs Ez Tree itself to write the parity fixture (by hand, never in CI) |
-| [`Tests/MainframeEngine.Tests/Trees/`](../../Tests/MainframeEngine.Tests/Trees/) | Parity, RNG, determinism, allocation, LowPoly, options and preset tests; fixture in `Tests/Content/Trees/` |
+| [`Tests/MainframeEngine.Tests/Trees/`](../../Tests/MainframeEngine.Tests/Trees/) | Parity, RNG, determinism, allocation, LowPoly, options and preset tests; fixture in `Tests/Content/Trees/`; `Tree3DTests`, `TreeScatterTests` |
+| [`Tests/MainframeEngine.RenderTests/TreeTests.cs`](../../Tests/MainframeEngine.RenderTests/TreeTests.cs) | `tree-realistic`, `tree-lowpoly`, `tree-forest` (scenes in the host's `TreeScenes.cs`) |
 
 ## Using it
+
+In a scene, a tree is a node and a forest is a scatter:
+
+```csharp
+// One tree: three levels of detail and a trunk capsule, generated when it becomes ready (or Bake it, below).
+root.AddChild(new Tree3D { Preset = "Oak Medium", Seed = 1234, Style = TreeStyle.Realistic, Position = spot });
+
+// Many trees: species (preset or options, the seeds of its variants) and placements, bucketed into 32 m chunks.
+var forest = new TreeScatter
+{
+    Species =
+    [
+        new TreeSpecies { Preset = "Oak Medium", Seeds = [35729, 1201] },
+        new TreeSpecies { Preset = "Pine Medium", Seeds = [13977, 52] },
+    ],
+};
+forest.SetPlacements([new TreePlacement(position, yaw, scale, species: 1), ...]);
+root.AddChild(forest);
+```
+
+The generator underneath, for tools and custom meshes:
 
 ```csharp
 using MainframeEngine.Trees;
@@ -48,8 +74,8 @@ a tree come from one skeleton.
   `Clone()`: `Resource.Duplicate` would share the `Level` array.
 - **`EzTreeJson.Read(json)`** imports Ez Tree's preset JSON and the files its web app saves (keys missing from the JSON
   keep Ez Tree's defaults; the trellis is ignored with a warning).
-- **`ToSurface()`** builds a `MeshSurface` from positions, normals, UVs and indices, sharing the arrays. `Custom0` and
-  `Colors` stay in `TreeSurfaceData` until the surface's optional vertex streams carry them.
+- **`ToSurface()`** builds a `MeshSurface` from positions, normals, UVs, indices and the optional vertex streams
+  (`Custom0`, and `Colors` for LowPoly blobs), sharing the arrays.
 
 ## The port
 
@@ -142,6 +168,83 @@ var leaves = Texture2D.FromFile(path, new TextureImportSettings { FixAlphaBorder
 
 Bark normal maps are `_NormalGL` (+Y up, the engine's convention); `_Roughness` is single-channel.
 
+## Tree3D
+
+`Tree3D` (`[Tool]`, a `Node3D`) draws one generated tree:
+
+| Property | Meaning |
+|---|---|
+| `Options` / `Preset` | The generator's inputs; with `Options` null, the preset of that name (trees naming a preset share one read-only copy: assign `Options = TreePresets.Load(name)` to edit) |
+| `Seed` | −1 (default): the options' own seed |
+| `Style` | `Realistic` or `LowPoly` |
+| `BakedMesh` | A `TreeMesh` to draw as is: the generator never runs, and its style and options pick the materials |
+| `BarkMaterial`, `LeafMaterial` | Replace the built-in materials (null: `TreeMaterials`) |
+| `CastShadows`, `Collision` | Shadows of every level; the trunk capsule (default on) |
+| `Lod1Distance`, `Lod2Distance`, `MaxDistance` | 30 m, 75 m (Ez Tree's 100 and 250 units × 0.3), 0 = drawn at any distance |
+
+- **Levels of detail.** The tree generates its three `TreeMesh.Lods` when it becomes ready, in the editor and at run time,
+  and again after a property or its `Options` change (`Changed`, also a level's edits), at most once per frame;
+  `Regenerate()` does it now. Each level is an internal, unsaved `TreeLod3D` child (a `MeshInstance3D`: no owner, so the
+  scene writer skips it) whose visibility range is `TreeMesh.LodRange(lod, …)`: [0, `Lod1Distance`),
+  [`Lod1Distance`, `Lod2Distance`), [`Lod2Distance`, `MaxDistance`). The renderer measures the distance from the camera
+  to the centre of an instance's bounds; the levels' meshes differ in bounds (fewer, larger leaves), so every level gets
+  their union as `GeometryInstance3D.CustomAabb` and exactly one level draws at any distance — in the shadow maps too.
+- **Sharing.** Trees with the same preset, seed and style share one generated `TreeMesh` (a weak cache), and every tree
+  shares the `TreeMaterials` of its look, so equal trees batch into one instanced draw per surface.
+- **Trunk.** An internal `StaticBody3D` with a `CapsuleShape3D` from `TreeMeshData.Trunk` (`TrunkShape`, `TrunkBody`),
+  standing on the tree's origin.
+- **Bake.** `Bake(path)` generates the tree from its options (ignoring a previous bake), makes the result its
+  `BakedMesh` and saves it as `.mres`: a `TreeMesh` holds the three `ArrayMesh`es (bark surface 0, leaves surface 1, with
+  `Custom0` and LowPoly `Colors`; no materials), the trunk capsule, the options (inline), seed, style and
+  `TreeGenerator.GeneratorVersion`. A baked tree costs what any mesh costs: read and upload. There is no inspector UI
+  yet and no staleness check (the version is stored for one).
+
+## Materials
+
+`TreeMaterials.Bark(options, style)` / `Leaves(options, style)` return shared materials, cached by what they read
+(bark set, tint, textured; leaf texture, tint, cutoff; palette colours):
+
+| Surface | Realistic | LowPoly |
+|---|---|---|
+| Bark | `FoliageMaterial3D`, `ShadingMode.Pbr`, opaque, `BackFace.Cull`, translucency 0: `_Color` (sRGB), `_NormalGL`, and `_Roughness` packed by `OrmPacker` into the new `FoliageMaterial3D.OrmTexture` (R = AO 1, G = roughness, B = metallic 0); `AlbedoColor` = `BarkTint` | `StandardMaterial3D`, PBR, `BarkPaletteColor`, roughness 0.9 |
+| Leaves | `FoliageMaterial3D`, PBR, cut out at `LeafAlphaCutoff`, `BackFace.Flip`, translucency 0.5, roughness 0.65: the leaf PNG (`FixAlphaBorder`, clamped); `AlbedoColor` = `LeafTint` | `StandardMaterial3D`, PBR, `LeafPaletteColor` × the blobs' vertex colours (±8 % per blob), roughness 0.8 |
+
+- **Bark sways.** Realistic bark uses the foliage wind with the same branch bend as the leaves. The bend is a lean
+  downwind by `Custom0.x²`, and a leaf's `Custom0.x` and phase are its twig's, so leaves stay on their twigs while
+  branches move; the trunk (weight 0 at the base, about 0.25 at the top of a three-level tree) barely moves. A static
+  bark would leave the leaves bending off the twigs (up to 0.35 m per unit of wind strength), or need the leaves' bend
+  turned off (Ez Tree's look: leaves flutter, nothing else moves). Bark shadows sway the same way (foliage casters).
+- **ORM.** ambientCG ships roughness as a greyscale JPG; `OrmPacker.Pack(occlusion, roughness, metallic)` reads each
+  map's red channel (a missing one is a constant: AO 1, metallic 0) into a linear, mipmapped RGBA texture, once per
+  bark set at load. In PBR, `Foliage.vk.frag` multiplies the material's roughness and metallic and the vertex AO by
+  `materialOrm` (a 1×1 white fallback without the map).
+- `BarkTextureScale.y` is not applied (`FoliageMaterial3D` has no UV scale; continuous bark V already has square
+  texels). LowPoly has no wind (`StandardMaterial3D`).
+
+## TreeScatter
+
+`TreeScatter` (`[Tool]`) draws forests: `Species` (`TreeSpecies` resources: `Options` or `Preset`, the `Seeds` of its
+variants or `Baked` `TreeMesh` variants, `Style`, material overrides) and placements (`TreePlacement`: position, yaw,
+uniform scale, species index; `SetPlacements`, saved with the scene as `PlacementData`, 6 floats each).
+
+- **Bucketing.** Each placement goes to the chunk `ChunkOf(position, ChunkSize)` (scatter-local XZ ÷ 32 m by default,
+  floored) and to a variant of its species by a hash of its position bits (`VariantOf`). Every non-empty (chunk, species,
+  variant) gets one internal `TreeScatterBatch3D` (a `MultiMeshInstance3D`) per level of detail, all sharing the union of
+  their bounds as `CustomAabb`, with the level's visibility range: a chunk draws one level, chosen by the camera's
+  distance to the chunk's centre. Variants generate once per species (a few ms each) and are shared by every chunk.
+- **Shadows.** Batches cast up to `ShadowMaxLod` (default 1): far chunks (level 2, from 75 m) do not cast. They sit at
+  the end of the sun's default 100 m shadow range, where their leaf cards filled most of the last cascade (about 500 of
+  the 2 000 trees) for shadows the distance and fog hide. The renderer culls casters per cascade by the batch's bounds:
+  level-2 batches never reach cascade 0 (a self-check of the fly-through), but a 32 m chunk is all or nothing, so the
+  near cascades draw every tree of the chunks they touch (about 180 trees in cascade 0 of the 2 000-tree fly-through;
+  16 m chunks halve that for 3× the batches and no measurable gain). Leaf shadows sway (the foliage casters).
+- **Collision.** One internal `StaticBody3D` per chunk with a `CollisionShape3D` per tree: the variant's trunk capsule
+  (shared), scaled by the placement. Static shapes cost the physics step nothing while nothing moves near them, so every
+  tree gets one (measured below).
+- **Rebuild.** On ready, after a change (at most once per frame) or `Rebuild()`. Nothing runs per frame afterwards: the
+  batches are static multimeshes (one comparison per frame each).
+- No impostors yet: the far level is Ez Tree's LOD2 (Oak Medium 3 782 triangles), and `MaxDistance` ends the forest.
+
 ## Cost
 
 - **Time** (Release, Apple Silicon, busy machine): skeleton plus three LODs takes about 3–5 ms for Oak Medium, Ash
@@ -150,6 +253,29 @@ Bark normal maps are `_NormalGL` (+Y up, the engine's convention); `_Roughness` 
 - **Allocations.** A reused `TreeGenerator` and `TreeSkeleton` allocate only the output arrays: Oak Medium with three
   Realistic LODs allocates its 2.36 MB of arrays plus 576 B (the test's budget is + 16 KB). Arrays are counted first and
   allocated once at their exact size. LowPoly builds through reused lists and copies them out.
+- **A 2 000-tree forest** (`tree-forest --count 2000`: 256 m square, oaks, pines and aspens with two seeds each, 32 m
+  chunks: 64 chunks, 1 144 batches; Release, Apple M5, MoltenVK, 640×480, a fly-through at eye height, other GPU work
+  running at times):
+
+  | Sun shadows | Frame (wall clock, VSync off) | Shadow pass (GPU) |
+  |---|---|---|
+  | High (4 cascades × 2048², 100 m), far chunks not casting (default) | 26–27 ms | 23–24 ms |
+  | High, every level casting (`ShadowMaxLod = 2`) | 29–30 ms | 26–27 ms |
+  | 3 cascades × 2048², 100 m | 21 ms | 18 ms |
+  | 2 cascades × 2048², 60 m | 15.6 ms | 13 ms |
+  | 4 cascades × 1024², 100 m | 12.8–13.4 ms | 10.2–10.7 ms |
+  | None | 8.4 ms (the display's 120 Hz) | — |
+
+  At 1920×1080 the main pass grows by a few ms: 30 ms with the default shadows, 17.8 ms with 4 × 1024² (shadow pass
+  10.9 ms), still display-capped without shadows.
+
+  The CPU costs 0.75–0.9 ms per frame (p95 1.1–1.3 ms; 223 draws, 396 shadow draws) and allocates nothing. The GPU
+  time is the shadow pass: alpha-tested leaf cards defeat the tile GPU's hidden-surface removal, so every leaf texel of
+  every cascade runs the cut-out shader, and the cost follows cascades × resolution² × canopy overdraw (halving the
+  resolution cuts it 2.5×; the wind's vertex work is about 10 %). A forest scene should use 2–3 cascades or 1024²
+  maps; impostor or coarser-level shadow casters are the next step.
+- **Collision** (Debug, `TreeScatterTests.ReportsCollisionCost`): the trunks of 2 000 trees (64 bodies) add about 15 ms
+  to a scatter's build and 0.01 ms to a physics frame with a character walking among them.
 
 ## Testing
 
@@ -159,9 +285,24 @@ written for a bundler. It writes `Tests/Content/Trees/ez-tree-reference.json` (a
 million draws, each preset's skeleton tips, and per preset and LOD the counts, hashes and every 97th position and normal.
 Re-run it only when the pin moves, and review the diff. The C# tests use `BarkUv = EzTree` and `Scale = 1`.
 
+The nodes (ADR 0158):
+
+- **Unit:** `Tree3DTests` (streams on the surfaces, `LodRange`, unsaved levels with one shared `CustomAabb` and one
+  level per distance, the trunk capsule hit by a ray and removed with `Collision`, the materials per style and their
+  sharing, regeneration after seed and options edits, the bake round trip and a tree drawn from a bake alone);
+  `TreeScatterTests` (chunk flooring, the variant hash, bucketing per chunk/variant/level with every tree in its
+  chunk, materials and shared variants, `ShadowMaxLod`, a capsule per tree, saving the placements, the collision cost
+  report); `OrmPackerTests`.
+- **Render** (MoltenVK and lavapipe goldens): `tree-realistic` (an Oak Medium and a Pine Medium at level 0 at t = 1.5 s in a fixed
+  wind; the still run must differ), `tree-lowpoly`, `tree-forest` (160 trees seen from the forest's edge; every chunk
+  draws one level); `tree-forest --count 2000` as an allocation gate (0 B over 120 frames of the fly-through) and a CPU
+  bar (< 4 ms in Release), with the per-cascade caster counts printed by the host. On a CPU device (lavapipe) the
+  fly-through places at most 120 trees without sun shadows: the software rasterizer would need minutes for 2 000.
+
 ## Not yet
 
-`Tree3D` (edit-mode regeneration, bake, `RuntimeGeneration`), `FoliageMaterial3D` and the wind shaders, wiring
-`Custom0`/`Colors` into `MeshSurface`'s vertex streams, impostors, the tree inspector and its icons (`tree`, `trees`,
-`leaf` are not in the editor's icon atlas yet, so the resources show the default resource icon), and the coverage-
-preserving alpha mips for leaves.
+Impostors (G8b.6), `RuntimeGeneration` modes and bake staleness, `ForceLod`, the tree inspector (Bake and variants
+buttons, LOD table) and its icons (`tree`, `trees`, `leaf` are not in the editor's icon atlas yet: `Tree3D` and
+`TreeSpecies` use `feather`, `TreeScatter` `stack-2`, `TreeMesh` `package`), screen-space LOD selection from
+`GeometricError` (G6.4), visibility-range fades, coarser shadow casters per level, LowPoly wind, `BarkTextureScale.y`,
+generation on worker threads, and the coverage-preserving alpha mips for leaves.

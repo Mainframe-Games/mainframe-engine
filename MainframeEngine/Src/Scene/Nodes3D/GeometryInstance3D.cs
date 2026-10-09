@@ -56,6 +56,13 @@ public abstract class GeometryInstance3D : VisualInstance3D
         return IsInVisibilityRange(Vector3.Distance(cameraPosition, worldBounds.Center), VisibilityRangeBegin, VisibilityRangeEnd);
     }
 
+    /// <summary>
+    /// Replaces the node's local bounds (the mesh's, or a multimesh's over all its instances) for frustum culling, shadow
+    /// caster culling and the visibility range (Godot's <c>custom_aabb</c>); null: the computed bounds. Levels of detail
+    /// share one so they switch at the same distance (ADR 0158). Not saved.
+    /// </summary>
+    public Aabb? CustomAabb { get; set; }
+
     internal override bool IsBatched => true;
 
     /// <summary>The mesh to draw this frame (null or empty: nothing).</summary>
