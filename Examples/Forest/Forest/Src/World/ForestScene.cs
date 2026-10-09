@@ -65,7 +65,8 @@ public static class ForestScene
             ContactShadows = true,
             ContactShadowLength = 0.4f,
             FarShadowEnabled = true,
-            Rotation = Transform3D.BasisLookingAlong(-ValleyLayout.TowardsSun, Vector3.UnitY).GetRotation(),
+            // Pitch down by the elevation, then turn from north (−Z) to the azimuth: shines along −TowardsSun.
+            RotationDegrees = new Vector3(-ValleyLayout.SunElevationDegrees, 180f - ValleyLayout.SunAzimuthDegrees, 0f),
         });
         Add(root, root, CreateEnvironment());
         Add(root, root, new ForestValley { Name = "Valley" });

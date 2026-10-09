@@ -108,10 +108,14 @@ public static class ValleyLayout
     /// <summary>Spawn yaw in degrees (0 looks north along −Z, positive turns left/west): up the path, north into the glade.</summary>
     public const float SpawnYawDegrees = 8f;
 
-    /// <summary>The morning sun: azimuth from north towards east, and elevation, in degrees.</summary>
-    public const float SunAzimuthDegrees = 105f;
+    /// <summary>
+    /// The morning sun: azimuth from north towards east, and elevation, in degrees. ADR 0178: north-north-east and low, so
+    /// the walk's first leg (north from the trailhead, up through the glade to the fall) and most shots look into it:
+    /// back-lit leaves and grass, shadows towards the camera, the haze glowing (105° and 21° before, side-lit).
+    /// </summary>
+    public const float SunAzimuthDegrees = 25f;
 
-    public const float SunElevationDegrees = 21f;
+    public const float SunElevationDegrees = 25f;
 
     /// <summary>World direction towards the sun.</summary>
     public static Vector3 TowardsSun

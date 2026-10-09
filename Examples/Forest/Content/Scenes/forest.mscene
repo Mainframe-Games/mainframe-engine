@@ -40,7 +40,7 @@
       "parent": ".",
       "type": "DirectionalLight3D",
       "props": {
-        "RotationDegrees": [-21, 75, 0],
+        "RotationDegrees": [-25, 155, 0],
         "Color": [1, 0.87, 0.7],
         "Energy": 2,
         "ShadowResolution": 1024,
