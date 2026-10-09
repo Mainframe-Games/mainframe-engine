@@ -43,3 +43,10 @@ as a courtesy:
 | `Bark001_1K-JPG/` | https://ambientcg.com/view?id=Bark001 |
 | `Bark002_1K-JPG/` | https://ambientcg.com/view?id=Bark002 |
 | `Bark003_1K-JPG/` | https://ambientcg.com/view?id=Bark003 |
+
+## Procedural leaves and bark (ADR 0172): this repository's licence
+
+`Leaves/birch.png`, `Leaves/beech.png`, `Leaves/spruce.png`, `Leaves/fir.png` and the `Bark/Birch/` and `Bark/Beech/`
+sets were drawn by the engine itself (`TreeTexturePainter.WriteContent`, `MainframeEngine/Src/Trees/TreeTexturePainter.cs`),
+from no third-party image. They are under the engine's own licence; regenerate them with the painter rather than
+editing them. The birch, spruce, fir and beech presets in `Presets/` are the engine's (ADR 0172), not Ez Tree's.

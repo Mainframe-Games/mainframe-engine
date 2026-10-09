@@ -53,10 +53,43 @@ public sealed class ForestValley : Node3D
 
     /// <summary>
     /// The tree level the sun's coarse cascades and far shadow draw for every tree, from any distance
-    /// (<see cref="TreeScatter.ShadowCoarseLod"/>, ADR 0167); −1: none. Level 1, not 2: Ez Tree's level 2 casts nearly
-    /// opaque canopy shadows (the forest floor goes black under a low sun), level 1 keeps the sunflecks.
+    /// (<see cref="TreeScatter.ShadowCoarseLod"/>, ADR 0167); −1: none. 3 (default) is the impostor (ADR 0172): one quad per
+    /// tree facing the sun; without impostors, level 1 (Ez Tree's level 2 casts nearly opaque canopy shadows, the forest
+    /// floor goes black under a low sun; level 1 keeps the sunflecks).
     /// </summary>
-    [Export(Range = "-1,2,1")] public int TreeShadowCoarseLod { get; set; } = 1;
+    [Export(Range = "-1,3,1")] public int TreeShadowCoarseLod { get; set; } = 3;
+
+    /// <summary>Leaf-cluster cards (ADR 0172): twig atlases baked from each species instead of Ez Tree's single leaf cards.</summary>
+    [Export] public bool TreeClusters { get; set; } = true;
+
+    /// <summary>Distance from which trees are octahedral impostors (ADR 0172); 0: none (level 2 runs to <see cref="TreeMaxDistance"/>).</summary>
+    [Export] public float TreeImpostorDistance { get; set; } = 85f;
+
+    /// <summary>
+    /// The share of the cluster cards' cutout that casts into the sun's shadow maps (<see cref="TreeOptions.ClusterShadowDensity"/>,
+    /// ADR 0172). 1 (default): all of it. Less reopens the canopy's sunflecks (0.6 brings back the fall's glade in R2), but
+    /// every layer it opens is drawn: about 2 ms of the sun's shadow pass at 1080p on an M5.
+    /// </summary>
+    [Export(Range = "0,1,0.01")] public float TreeClusterShadowDensity { get; set; } = 1f;
+
+    /// <summary>
+    /// The share of a far tree's impostor silhouette that casts into the coarse cascades and the far shadow
+    /// (<see cref="TreeScatter.ImpostorShadowDensity"/>, ADR 0172): a whole tree in one view casts far denser than its
+    /// canopy does, and a low sun crosses many of them, so the glades and the floor keep their sunflecks.
+    /// </summary>
+    [Export(Range = "0,1,0.01")] public float TreeImpostorShadowDensity { get; set; } = 0.5f;
+
+    /// <summary>
+    /// The share of each zone's trees that are G8e.5's species (<see cref="ForestVegetation.NewSpeciesShare"/>, ADR 0172):
+    /// spruces and firs among the pines, birches among the aspens, beeches among the oaks and ashes; 0: Ez Tree's only.
+    /// </summary>
+    [Export(Range = "0,1,0.01")] public float TreeNewSpeciesShare { get; set; } = ForestVegetation.NewSpeciesShare;
+
+    /// <summary>
+    /// Each tree picks its own level and cross-fades over ±this many metres (ADR 0172, <see cref="TreeLodSelection.PerInstance"/>);
+    /// 0: whole chunks switch level.
+    /// </summary>
+    [Export] public float TreeLodFadeMargin { get; set; } = 4f;
 
     private readonly List<(GeometryInstance3D Node, bool Visible, float Begin, float End, int Count)> _prewarm = [];
     private int _frames;
@@ -143,14 +176,19 @@ public sealed class ForestValley : Node3D
             Forest = new TreeScatter
             {
                 Name = "Trees",
-                Species = ForestVegetation.CreateTreeSpecies(),
+                Species = ForestVegetation.CreateTreeSpecies(TreeClusters, TreeClusterShadowDensity),
                 Lod1Distance = TreeLod1Distance,
                 Lod2Distance = TreeLod2Distance,
                 MaxDistance = TreeMaxDistance,
+                ImpostorDistance = TreeImpostorDistance,
+                ImpostorShadowDensity = TreeImpostorShadowDensity,
+                LodSelection = TreeLodFadeMargin > 0f ? TreeLodSelection.PerInstance : TreeLodSelection.PerChunk,
+                LodFadeMargin = TreeLodFadeMargin,
                 ShadowMaxLod = TreeShadowMaxLod,
-                ShadowCoarseLod = TreeShadowCoarseLod,
+                // The impostor level is 3: without impostors, fall back to level 1.
+                ShadowCoarseLod = TreeImpostorDistance > 0f || TreeShadowCoarseLod < 3 ? TreeShadowCoarseLod : 1,
             };
-            Forest.SetPlacements(ForestVegetation.PlaceTrees(valley, Height, Slope));
+            Forest.SetPlacements(ForestVegetation.PlaceTrees(valley, Height, Slope, TreeNewSpeciesShare));
             AddChild(Forest);
 
             Bushes = new TreeScatter

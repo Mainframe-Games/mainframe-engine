@@ -2,8 +2,9 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Ez Tree's 15 tree and bush presets, as <see cref="TreeOptions"/> <c>.mres</c> files in the engine's
-/// <c>Content/Trees/Presets/</c> (values copied from Ez Tree's JSON unchanged, plus the engine's <c>Scale</c> 0.3).
-/// Listed under Ez Tree's display names, in its order (<c>src/lib/presets/index.js</c>).
+/// <c>Content/Trees/Presets/</c> (values copied from Ez Tree's JSON unchanged, plus the engine's <c>Scale</c> 0.3), listed
+/// under Ez Tree's display names in its order (<c>src/lib/presets/index.js</c>), then the engine's own species (ADR 0172):
+/// birch, beech, spruce and fir, small, medium and large, with procedural leaves and bark.
 /// </summary>
 public static class TreePresets
 {
@@ -27,7 +28,24 @@ public static class TreePresets
         ("Pine Small", "pine_small"),
         ("Pine Medium", "pine_medium"),
         ("Pine Large", "pine_large"),
+
+        // The engine's species (ADR 0172): procedural leaves and bark, LengthProfile crowns.
+        ("Birch Small", "birch_small"),
+        ("Birch Medium", "birch_medium"),
+        ("Birch Large", "birch_large"),
+        ("Beech Small", "beech_small"),
+        ("Beech Medium", "beech_medium"),
+        ("Beech Large", "beech_large"),
+        ("Spruce Small", "spruce_small"),
+        ("Spruce Medium", "spruce_medium"),
+        ("Spruce Large", "spruce_large"),
+        ("Fir Small", "fir_small"),
+        ("Fir Medium", "fir_medium"),
+        ("Fir Large", "fir_large"),
     ];
+
+    /// <summary>The number of Ez Tree's own presets (the first <see cref="Names"/>); the rest are the engine's.</summary>
+    public const int EzTreeCount = 15;
 
     /// <summary>The display names, in Ez Tree's order.</summary>
     public static IReadOnlyList<string> Names { get; } = Array.ConvertAll(Entries, static e => e.Name);

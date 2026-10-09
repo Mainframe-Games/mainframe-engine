@@ -97,7 +97,7 @@ public sealed class TreeSpecies : Resource
     public Material? ResolveBarkMaterial(TreeMesh variant) =>
         BarkMaterial ?? ((ResolveOptions() ?? variant.Options) is { } options ? TreeMaterials.Bark(options, variant.Style) : null);
 
-    /// <summary>The leaf material of this species' variants.</summary>
-    public Material? ResolveLeafMaterial(TreeMesh variant) =>
-        LeafMaterial ?? ((ResolveOptions() ?? variant.Options) is { } options ? TreeMaterials.Leaves(options, variant.Style) : null);
+    /// <summary>The leaf material of this species' variants at level of detail <paramref name="lod"/>.</summary>
+    public Material? ResolveLeafMaterial(TreeMesh variant, int lod = 0) =>
+        LeafMaterial ?? ((ResolveOptions() ?? variant.Options) is { } options ? TreeMaterials.Leaves(options, variant.Style, lod) : null);
 }

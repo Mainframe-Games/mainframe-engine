@@ -151,7 +151,7 @@ public sealed class VertexStreamAndFoliageTests
         };
         var p = MaterialParams.From(material, MaterialParams.HasAlbedo);
         Assert.Equal(ColorSpace.SrgbToLinear(128 / 255f), p.Albedo.Y, 5);
-        Assert.Equal(new Vector4(0.7f, 1.5f, 0.25f, 0f), p.Emission);
+        Assert.Equal(new Vector4(0.7f, 1.5f, 0.25f, 1f), p.Emission); // w: WindTrunkSway (ADR 0172), used only with pivot streams
         Assert.Equal(0.4f, p.Params.Z);
         Assert.Equal(2f, p.Params.W);
         Assert.Equal(MaterialParams.HasAlbedo, p.TextureFlags);

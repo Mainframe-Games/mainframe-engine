@@ -21,10 +21,10 @@ public sealed class SpirvInputsTests
 
     [Theory]
     [InlineData("Mesh/Mesh.vk.frag.spv", new[] { 0, 1, 2, 3 })] // 3: the vertex colour (ADR 0151)
-    [InlineData("Foliage/Foliage.vk.frag.spv", new[] { 0, 1, 2, 3, 4 })]
+    [InlineData("Foliage/Foliage.vk.frag.spv", new[] { 0, 1, 2, 3, 4, 5 })] // 5: instance distance and height (ADR 0172)
     [InlineData("Mesh/MeshExt.vk.vert.spv", new[] { 0, 1, 2, 3, 4, 5, 6, 8 })]
-    [InlineData("Foliage/Foliage.vk.vert.spv", new[] { 0, 1, 2, 3, 4, 5, 6, 8, 9 })]
-    [InlineData("Shadows/Shadow2DFoliageInstanced.vk.vert.spv", new[] { 0, 1, 2, 3, 4, 5, 6 })]
+    [InlineData("Foliage/Foliage.vk.vert.spv", new[] { 0, 1, 2, 3, 4, 5, 6, 8, 9, 14, 15 })] // 14–15: the wind pivots (ADR 0172)
+    [InlineData("Shadows/Shadow2DFoliageInstanced.vk.vert.spv", new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 })]
     [InlineData("Mesh/MeshId.vk.frag.spv", new[] { 2, 3 })]
     [InlineData("Canvas/Canvas.vk.frag.spv", new[] { 0, 1 })]
     [InlineData("Mesh/Mesh.vk.vert.spv", new[] { 0, 1, 2, 3, 4, 5, 6 })] // vertex attributes; built-ins have no location

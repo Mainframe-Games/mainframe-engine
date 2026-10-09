@@ -42,9 +42,22 @@ public sealed class TreeSurfaceData
     /// <summary>Triangle list, counter-clockwise front faces.</summary>
     public int[] Indices { get; }
 
+    /// <summary>
+    /// The hierarchical wind's pivot streams (ADR 0172; <see cref="TreeParams.WindPivots"/>), empty otherwise:
+    /// <c>MeshSurface.Custom1</c> (the level-1 branch's base, object space, and its stiffness) and <c>Custom2</c> (level 2).
+    /// </summary>
+    public Vector4[] Custom1 { get; private init; } = [];
+
+    /// <inheritdoc cref="Custom1"/>
+    public Vector4[] Custom2 { get; private init; } = [];
+
     public int VertexCount => Positions.Length;
 
     public int TriangleCount => Indices.Length / 3;
+
+    /// <summary>This surface with pivot streams (the other arrays shared).</summary>
+    internal TreeSurfaceData WithWind(Vector4[] custom1, Vector4[] custom2) =>
+        new(Positions, Normals, UVs, Custom0, Colors, Indices) { Custom1 = custom1, Custom2 = custom2 };
 }
 
 /// <summary>The bark and leaf surfaces of one level of detail.</summary>

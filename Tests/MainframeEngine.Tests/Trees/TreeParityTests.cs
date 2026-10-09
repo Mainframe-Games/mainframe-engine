@@ -15,7 +15,7 @@ public sealed class TreeParityTests
 {
     private const double Tolerance = 1e-4;
 
-    public static TheoryData<string> Presets() => [.. TreePresets.Names];
+    public static TheoryData<string> Presets() => [.. TreePresets.Names.Take(TreePresets.EzTreeCount)]; // Ez Tree's own (the fixture)
 
     [Fact]
     public void FixtureCoversEveryPresetAtThePin()
@@ -23,7 +23,7 @@ public sealed class TreeParityTests
         Assert.Equal("dcf309bd86bd521083d9c70f01f2de45fdc7c457", TreeFixture.Root.GetProperty("ezTree").GetString());
         Assert.Equal("0.167.1", TreeFixture.Root.GetProperty("three").GetString());
         var names = TreeFixture.Root.GetProperty("presets").EnumerateArray().Select(p => p.GetProperty("name").GetString()!).ToArray();
-        Assert.Equal(TreePresets.Names, names);
+        Assert.Equal(TreePresets.Names.Take(TreePresets.EzTreeCount), names);
     }
 
     [Theory]

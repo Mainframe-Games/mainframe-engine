@@ -11,21 +11,25 @@ This page covers the generator ([ADR 0152](../../memory/decisions/0152-ez-tree-p
 trees ([ADR 0158](../../memory/decisions/0158-tree3d-tree-materials-treescatter.md)): `Tree3D` (one tree, three levels
 of detail, bake), the tree materials (PBR bark and leaves on `FoliageMaterial3D`, wind from
 [`WorldEnvironment`](materials-and-meshes.md#foliagematerial3d-adr-0151)) and `TreeScatter` (forests as chunked
-`MultiMesh` batches). Impostors and the tree inspector are not built yet; the [proposal](future/procedural-trees.md) has
-their design.
+`MultiMesh` batches). G8e.5 ([ADR 0172](../../memory/decisions/0172-ez-tree-foliage-quality.md)) adds the production
+foliage on top: leaf-cluster cards, hierarchical wind, bark detail, coverage-preserving mips, octahedral impostors with
+per-instance cross-fades, and four new species ([Foliage quality](#foliage-quality-adr-0172)). The tree inspector is not
+built yet; the [proposal](future/procedural-trees.md) has its design.
 
 ## Layout
 
 | Where | What |
 |---|---|
 | [`Src/Trees/Generation/`](../../MainframeEngine/Src/Trees/Generation/) | The port, namespace `MainframeEngine.Trees`, no engine types: `TreeGenerator`, `TreeParams`, `TreeMeshDetail`, `TreeSkeleton`, `TreeMeshData`/`TreeSurfaceData`/`TreeTrunkCapsule`, the enums (`TreeType`, `TreeBillboard`, `TreeStyle`, `BarkUvMode`, `BlobShape`), `ITreeGrowthForce`; internal `EzRng`, `ThreeMath` (`Vec3d`, `Quatd`, `EulerXyz`), `LowPolyMesher` |
-| [`Src/Trees/`](../../MainframeEngine/Src/Trees/) | Engine side: `TreeOptions` and `TreeLevel` (resources), `TreePresets`, `EzTreeJson`, `TreeMeshDataExtensions` (`ToSurface`, `ToArrayMesh`); `Tree3D`, `TreeLod3D`, `TreeMesh` (the bake), `TreeMaterials`; `TreeScatter`, `TreeSpecies`, `TreePlacement`, `TreeScatterBatch3D` |
+| [`Src/Trees/`](../../MainframeEngine/Src/Trees/) | Engine side: `TreeOptions` and `TreeLevel` (resources), `TreePresets`, `EzTreeJson`, `TreeMeshDataExtensions` (`ToSurface`, `ToArrayMesh`); `Tree3D`, `TreeLod3D`, `TreeMesh` (the bake), `TreeMaterials`; `TreeScatter`, `TreeSpecies`, `TreePlacement`, `TreeScatterBatch3D`; ADR 0172: `TwigOptions`, `TreeClusterBaker`/`TreeClusterAtlas`, `TreeTexturePainter` |
+| [`Src/Trees/Generation/TreeGenerator.{Clusters,Wind,Bark}.cs`](../../MainframeEngine/Src/Trees/Generation/) | ADR 0172's generator extensions (RNG-free): cluster cards and `TwigParams`, wind pivots, root flare and collars |
+| [`Src/Trees/Impostors/`](../../MainframeEngine/Src/Trees/Impostors/), [`Src/Trees/Baking/`](../../MainframeEngine/Src/Trees/Baking/) | `TreeImpostor`, `TreeImpostorBaker`, `ImpostorOctahedron`; the CPU bake rasterizer and `TreeBakeCache` |
 | [`Rendering/Resources/OrmPacker.cs`](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Packs separate occlusion/roughness/metallic maps into one ORM texture (the bark's `_Roughness.jpg`) |
 | [`Content/Trees/Presets/`](../../MainframeEngine/Content/Trees/Presets/) | The 15 presets as `TreeOptions` `.mres` files |
-| [`Content/Trees/Leaves/`](../../MainframeEngine/Content/Trees/Leaves/), [`Content/Trees/Bark/`](../../MainframeEngine/Content/Trees/Bark/) | Ez Tree's leaf PNGs (MIT) and the three ambientCG bark sets the presets use (CC0); [`LICENSE.md`](../../MainframeEngine/Content/Trees/LICENSE.md) |
+| [`Content/Trees/Leaves/`](../../MainframeEngine/Content/Trees/Leaves/), [`Content/Trees/Bark/`](../../MainframeEngine/Content/Trees/Bark/) | Ez Tree's leaf PNGs (MIT), the three ambientCG bark sets the presets use (CC0), and the painted birch, beech, spruce and fir leaves and Birch and Beech bark (ADR 0172, the engine's own); [`LICENSE.md`](../../MainframeEngine/Content/Trees/LICENSE.md) |
 | [`build/ez-tree-reference.mjs`](../../build/ez-tree-reference.mjs) | Runs Ez Tree itself to write the parity fixture (by hand, never in CI) |
 | [`Tests/MainframeEngine.Tests/Trees/`](../../Tests/MainframeEngine.Tests/Trees/) | Parity, RNG, determinism, allocation, LowPoly, options and preset tests; fixture in `Tests/Content/Trees/`; `Tree3DTests`, `TreeScatterTests` |
-| [`Tests/MainframeEngine.RenderTests/TreeTests.cs`](../../Tests/MainframeEngine.RenderTests/TreeTests.cs) | `tree-realistic`, `tree-lowpoly`, `tree-forest` (scenes in the host's `TreeScenes.cs`) |
+| [`Tests/MainframeEngine.RenderTests/TreeTests.cs`](../../Tests/MainframeEngine.RenderTests/TreeTests.cs) | `tree-realistic`, `tree-lowpoly`, `tree-forest`; ADR 0172: `tree-clusters`, `tree-impostor`, `tree-wind`, `tree-bark`, `tree-species`, `tree-forest-g8e` (scenes in the host's `TreeScenes.cs`) |
 
 ## Using it
 
@@ -243,7 +247,134 @@ uniform scale, species index; `SetPlacements`, saved with the scene as `Placemen
   tree gets one (measured below).
 - **Rebuild.** On ready, after a change (at most once per frame) or `Rebuild()`. Nothing runs per frame afterwards: the
   batches are static multimeshes (one comparison per frame each).
-- No impostors yet: the far level is Ez Tree's LOD2 (Oak Medium 3 782 triangles), and `MaxDistance` ends the forest.
+- **Impostors and per-instance levels** (ADR 0172): `ImpostorDistance`, `LodSelection`, `LodFadeMargin`,
+  `ImpostorShadowDensity`; see [Impostors and per-instance levels](#impostors-and-per-instance-levels). Without them
+  (the defaults) the far level is Ez Tree's LOD2 and `MaxDistance` ends the forest.
+
+## Foliage quality (ADR 0172)
+
+Every extension is opt-in: the defaults generate Ez Tree's trees and draw them exactly as before (every older golden
+is unchanged). The Forest turns them all on (`ForestVegetation.CreateTreeSpecies(clusters: true)`,
+`ForestValley.TreeClusters`, `TreeImpostorDistance`, `TreeLodFadeMargin`).
+
+```csharp
+var options = TreePresets.Load("Oak Medium");
+options.LeafMode = TreeLeafMode.Cluster;   // twig cards baked from the tree's own last level
+options.ClusterFromLod = 1;                // level 0 keeps Ez Tree's sharp single cards
+options.LeafCoverageMips = true;           // single-card leaves keep their density in the distance
+options.HierarchicalWind = true;           // pivot streams: trunk sway, branch and twig bends
+options.RootFlare = 1.6; options.CollarScale = 1.25; options.BarkMoss = 0.4f; options.BarkDetailScale = 6f;
+var forest = new TreeScatter
+{
+    Species = [new TreeSpecies { Options = options, Seeds = [35729, 1201] }],
+    ImpostorDistance = 85f,                // octahedral impostors from 85 m
+    LodSelection = TreeLodSelection.PerInstance, LodFadeMargin = 4f,   // each tree cross-fades its own levels
+    ShadowCoarseLod = 3,                   // the impostor (level 3) casts the far cascades and the far shadow
+};
+```
+
+### Leaf-cluster cards
+
+- **`TreeOptions.LeafMode = Cluster`**: every `TwigOptions.LeafSlots` (8) consecutive leaf slots of a last-level branch
+  become one crossed card pair, anchored at the group's first slot, along the branch, turned by a hash and textured with
+  a hashed atlas cell. Oak Medium: 840 cards instead of 5 320. Normals blend `ClusterNormalRounding` (0.6) towards the
+  canopy ellipsoid's for a soft silhouette; `Custom0.y` carries a tip factor (0.75..1) so cards flutter at their tips.
+- **The twig** is grown by `TreeGenerator` itself: `TreeGenerator.TwigParams(tree, leafSlots, leafDensity, seed, variant)`
+  is one branch as long as the slots it replaces, carrying `leafSlots × LeafDensity` (1.5) of the tree's leaves (same
+  image, size, angle and billboard), curled like the last level.
+- **`TreeClusterBaker`** bakes `TwigOptions.Variants` (8) twigs on the CPU (`BakeRasterizer`: orthographic, face on,
+  supersampled 2×, deterministic, headless, variants in parallel) into a `TreeClusterAtlas` (1024², the grid chosen
+  from the twigs' aspect): albedo with coverage alpha (sRGB, coverage-preserving mips at the leaves' cutoff), the
+  card-space normal (the twig's real leaf normals) and thickness (R: `1 − 0.5^(layers − 1)` of the leaf layers a pixel
+  passes) with AO (G: depth-based self-occlusion). Uncovered texels are dilated.
+- **`ClusterFromLod`** (0): the first level with clusters. Level 0 of the Forest keeps the single cards (their images
+  hold far more texels per metre than an atlas cell); levels 1 and 2 are clusters.
+- **Material** (`TreeMaterials.Leaves` → `ClusterLeaves`): `FoliageMaterial3D` with the atlas, its normal and
+  thickness maps (`ThicknessTexture`, in the emission slot), PBR, `BackFace.Keep`, translucency 0.8 (thickness-driven
+  wrap transmission: the dense centre of a twig stays dark, its edges glow), `AlphaToCoverage`.
+- **`ClusterShadowDensity`** (1): the share of the cards' cutout that casts into the sun's shadow maps
+  (`FoliageMaterial3D.ShadowDensity`): a crossed pair holding a whole twig casts fuller than the twig's leaves, and with
+  every level-1 tree casting, the Forest's glades lost their sunflecks. Each layer it opens is drawn, so it costs: 0.6
+  brought back R2's glade for about 2 ms of the Forest's shadow pass, and the Forest leaves it at 1
+  (`ForestValley.TreeClusterShadowDensity`).
+
+### Hierarchical wind
+
+`TreeOptions.HierarchicalWind` writes two vertex streams, `MeshSurface.Custom1` and `Custom2` (RGBA16F each, the wind
+stream at binding 4, `MeshVertexWind`): the object-space base of the vertex's level-1 branch and its stiffness, then
+its level-2 branch's. Terminal continuations belong to their parent's level; trunk vertices are rigid (stiffness
+≥ 1 000). `windHierarchy` (`include/wind.slang`) applies, as rotations (branches keep their length): the twig bend
+about pivot 2, the branch bend about pivot 1 (axis `cross(branch, wind)`, a lean plus an oscillation phased per
+branch), the trunk sway about the instance origin (∝ height, `FoliageMaterial3D.WindTrunkSway`), a gust noise rolling
+along the wind in world XZ (simplex noise, no texture), then Ez Tree's leaf flutter. Without the streams
+(`Custom1.w = 0`) the old wind runs. The colour pass, the prepass (also at last frame's wind for motion vectors) and both
+foliage casters run it. Instances outside their level's range skip it (they collapse first).
+
+The prepass and the colour pass meet under the `EQUAL` test only if both vertex shaders produce bit-identical positions,
+which the long wind does not guarantee across two shader modules (MoltenVK compiles each with fast math): whole cards
+vanished, showing the clear colour. `ShaderModuleCache` therefore marks the foliage and impostor colour and prepass
+vertex positions `Invariant` when it loads them (`SpirvInvariance`: GLSL's `invariant gl_Position`, which Slang cannot
+express). A `LESS_OR_EQUAL` test with a depth bias and the colour pass's own discards also worked, but cost 3.5 ms at
+1080p.
+
+### Bark detail
+
+- **Root flare** (`RootFlare` 1 = none; `RootFlareHeight` 0.8 m, `RootFlareLobes`): the trunk's base radius × the
+  flare, in buttress lobes, over extra rings in its first section, normals tilted by the slope.
+- **Branch collars** (`CollarScale` 1 = none, `CollarLength` base radii): side branches thicken into their parents.
+- **Moss** (`BarkMoss` → `FoliageMaterial3D.MossCoverage`, `MossColor`, `MossPatchSize`): up-facing bark first, broken
+  into patches by world-space noise, climbing every side of the trunk over its first 1.6 m, the bark's relief through it.
+- **Detail normals** (`BarkDetailScale` → `FoliageMaterial3D.DetailScale`/`DetailStrength`): the bark normal map again
+  at a finer tiling, blended with UDN. The proposal's `DetailLayers` array at set 2 binding 6 was not needed, so the
+  binding budget is unchanged.
+
+### Coverage and alpha antialiasing
+
+- **Coverage-preserving alpha mips** (Castaño 2010): `TextureImportSettings.PreserveAlphaCoverage` and
+  `AlphaCoverageCutoff` build the mip chain on the CPU (`MipChain`: box filter, colour in linear light for sRGB) and
+  scale each level's alpha until the share of texels passing the cutoff matches level 0's; the upload queue takes the
+  provided mips. `TreeOptions.LeafCoverageMips` imports single-card leaves that way; atlases and impostors always have them.
+- **`FoliageMaterial3D.AlphaAntialiasingMode`** (Godot's): `AlphaToCoverage` maps onto the TAA-era dither (no MSAA in
+  the engine): the cutoff sharpened by `fwidth`, dithered across `AlphaAntialiasingEdge` (0.3) with the frame's IGN.
+
+### Impostors and per-instance levels
+
+- **`TreeImpostor`** (`TreeImpostorBaker.Bake`/`BakeCached`): the finest level seen from 8 × 8 hemi-octahedral views
+  (`ImpostorOctahedron`), 128 px each (a 1024² atlas), baked on the CPU unlit and without wind: albedo with coverage
+  alpha (coverage mips), object-space normal with the depth from the bounding sphere's centre in alpha, and detail at
+  half size (R thickness, G AO, B leaf mask). `TreeMesh.GetImpostor` caches one per variant and materials.
+- **`ImpostorMaterial3D`**: one camera-facing quad per tree that blends its three nearest views with cubed weights (the
+  nearest dominates; `DitherViews` picks one per pixel instead), lit live with the foliage model (leaves and bark by
+  the mask), with its own prepass (`ImpostorDepth`, depth from the atlas) and a directional caster facing the light
+  (`Shadow2DImpostorInstanced` + `ShadowImpostorCutout`). Set 2 is the standard layout (albedo, normal, detail in the
+  emission slot): 15 sampled images, like every mesh pipeline.
+- **`TreeScatter.ImpostorDistance`** (0 = none) adds the impostor as the level after the meshes (level 3), from that
+  distance to `MaxDistance`; `ShadowCoarseLod = 3` makes it the coarse caster (the far cascades and the far shadow draw
+  every tree as one quad). `ImpostorShadowDensity` (1) thins those shadows: one view of a whole tree is far denser than
+  the sun's view through its canopy (the Forest uses 0.5).
+- **`LodSelection = PerInstance`**: every tree picks its level by its own distance in the vertex shader
+  (`FoliageMaterial3D.InstanceVisibility*`, `ImpostorMaterial3D.InstanceVisibility*`, a copy of the level's material per
+  level) and cross-fades over ±`LodFadeMargin` m with complementary dither thresholds (IGN under TAA, Bayer without);
+  instances outside the band collapse before any wind math. A level batch draws only while one of its trees is in range
+  (`TreeScatterBatch3D.IsInVisibilityRange`, exact per instance). Shadows switch hard at the range ends. The per-level
+  materials prepare on their first draw, like any material: the Forest prewarms them.
+
+### Species
+
+`Birch`, `Beech`, `Spruce` and `Fir` (Small, Medium, Large) are the engine's presets: `TreeLevel.LengthProfile` (child
+length over the position along the parent, linear between evenly spaced samples; RNG-free) gives the conical spruce and
+fir crowns and beech's layered spread; spruce and fir carry needle sprigs. Their leaves (`birch`, `beech`, `spruce`,
+`fir.png`) and the Birch and Beech bark sets (colour, NormalGL, roughness) are painted by `TreeTexturePainter` from no
+third-party image (`TreeMaterials.BarkMapPath` finds an ambientCG set first, then a painted one). The Forest places them
+by swapping 35 % of each zone's trees in the same cells: spruces and firs among the pines, birches among the aspens,
+beeches among the oaks and ashes.
+
+### Bake cache
+
+The bakes are deterministic, so `TreeBakeCache` keeps them on disk by the SHA-256 of every input (generator output,
+materials, texture files or pixels, options, a version), next to the pipeline cache (`~/Library/Caches/MainframeEngine/
+tree-bakes` on macOS; `MAINFRAME_TREE_BAKE_CACHE_DIR` overrides it, `off` disables it), zlib-compressed; a bad file is a
+miss. The Forest's 18 species bake their atlases and impostors once per machine (about 8 s), then load them.
 
 ## Cost
 
@@ -293,6 +424,14 @@ The nodes (ADR 0158):
   `TreeScatterTests` (chunk flooring, the variant hash, bucketing per chunk/variant/level with every tree in its
   chunk, materials and shared variants, `ShadowMaxLod`, a capsule per tree, saving the placements, the collision cost
   report); `OrmPackerTests`.
+- **ADR 0172 unit:** `TreeClusterTests` (fewer, larger cards inside atlas cells, the twig parameters, atlas determinism, normals, thickness and dilation),
+  `TreeImpostorTests` (octahedral round trips, the three-view blend, bake determinism, the scatter's impostor level and per-instance ranges), `TreeWindTests`
+  (pivots on the branch chain, twigs bending more than branches, cluster cards carrying their branches' pivots, root flare and collars, determinism), `TreeSpeciesTests` (`LengthProfile`,
+  painted content, presets), `MipChainTests` (coverage within 2 % per level), `FoliageMaterialBlockTests` (the foliage
+  block, alpha to coverage, impostor packing, shadow density).
+- **ADR 0172 render:** `tree-clusters`, `tree-impostor` (the impostors within 8 % of the mesh at 62 m), `tree-wind` (a
+  later frame and the still run both differ), `tree-bark`, `tree-species`, and `tree-forest-g8e` (the tree-forest with
+  every extension under the prepass and TAA) as a golden and a 0 B fly-through over 120 frames (the scene prewarms every batch for its first frames, as the Forest does).
 - **Render** (MoltenVK and lavapipe goldens): `tree-realistic` (an Oak Medium and a Pine Medium at level 0 at t = 1.5 s in a fixed
   wind; the still run must differ), `tree-lowpoly`, `tree-forest` (160 trees seen from the forest's edge; every chunk
   draws one level); `tree-forest --count 2000` as an allocation gate (0 B over 120 frames of the fly-through) and a CPU
@@ -301,8 +440,10 @@ The nodes (ADR 0158):
 
 ## Not yet
 
-Impostors (G8b.6), `RuntimeGeneration` modes and bake staleness, `ForceLod`, the tree inspector (Bake and variants
-buttons, LOD table) and its icons (`tree`, `trees`, `leaf` are not in the editor's icon atlas yet: `Tree3D` and
-`TreeSpecies` use `feather`, `TreeScatter` `stack-2`, `TreeMesh` `package`), screen-space LOD selection from
-`GeometricError` (G6.4), visibility-range fades, coarser shadow casters per level, LowPoly wind, `BarkTextureScale.y`,
-generation on worker threads, and the coverage-preserving alpha mips for leaves.
+`RuntimeGeneration` modes and bake staleness, `ForceLod`, the tree inspector (Bake and variants buttons, LOD table)
+and its icons (`tree`, `trees`, `leaf` are not in the editor's icon atlas yet: `Tree3D` and `TreeSpecies` use
+`feather`, `TreeScatter` `stack-2`, `TreeMesh` `package`), screen-space LOD selection from `GeometricError` (G6.4),
+Godot's per-node visibility-range fade margins (`Tree3D` levels still switch hard; only `TreeScatter`'s per-instance
+levels fade), impostors on `Tree3D`, probe sampling at the impostor's reconstructed position (G8e.1), LowPoly wind,
+`BarkTextureScale.y`, generation and bakes on worker threads at run time, and a GPU-driven per-instance cull (the
+per-instance levels still run the vertex shader for every instance of a drawn batch).

@@ -77,6 +77,9 @@ internal struct ShadowCasterItem
     /// <summary>A foliage caster: the wind vertex shader, the second vertex stream (<see cref="Cutout"/> is its material).</summary>
     public bool Foliage;
 
+    /// <summary>An impostor caster (ADR 0172): a quad facing the light (<see cref="Cutout"/> is its material); directional only.</summary>
+    public bool Impostor;
+
     /// <summary>World bounds of the instance (culled per shadow pass).</summary>
     public Aabb Bounds;
 
@@ -94,6 +97,7 @@ internal struct ShadowCasterRun
     public MeshGpu Mesh;
     public MaterialGpu? Cutout;
     public bool Foliage;
+    public bool Impostor;
     public GpuBuffer Instances;
     public int Surface;
     public CullMode Cull;
@@ -114,6 +118,9 @@ internal sealed class MeshViewDraws
 
     /// <summary>The world's wind (and fog) when the view was prepared: foliage casters read the wind as push constants.</summary>
     public FrameEnvironment Environment;
+
+    /// <summary>The view's camera when it was prepared: foliage casters test per-instance visibility ranges against it (ADR 0172).</summary>
+    public Vector3 CameraPosition;
 
     /// <summary>This frame's shadow draws: runs of culled casters per pass (<see cref="PassRuns"/>).</summary>
     public ShadowCasterRun[] ShadowRuns = new ShadowCasterRun[64];
@@ -491,18 +498,20 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         var foliage = material as FoliageMaterial3D;
         var water = material as WaterMaterial3D;
         var splat = material as TerrainSplatMaterial3D;
+        var impostor = material as ImpostorMaterial3D;   // ADR 0172
         var fall = material as WaterfallMaterial3D;   // ADR 0173
         var spray = material as SprayMaterial3D;
         gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : foliage is not null ? ShaderSetId.MeshFoliage
             : water is not null ? ShaderSetId.MeshWater : splat is not null ? ShaderSetId.MeshTerrainSplat
-            : fall is not null ? ShaderSetId.MeshWaterfall : spray is not null ? ShaderSetId.MeshSpray : ShaderSetId.MeshLit;
+            : fall is not null ? ShaderSetId.MeshWaterfall : spray is not null ? ShaderSetId.MeshSpray
+            : impostor is not null ? ShaderSetId.MeshImpostor : ShaderSetId.MeshLit;
         gpu.RefractsScene = water is { RefractionEnabled: true };
         var waterFamily = water is not null || fall is not null || spray is not null;
         if (material is not StandardMaterial3D standard)
         {
             // Splat materials keep this default set too: the object-ID pass binds it with the shared layout.
             standard = StandardMaterial3D.Default;
-            if (outline is null && foliage is null && !waterFamily && splat is null && !_warnedUnsupportedMaterial)
+            if (outline is null && foliage is null && !waterFamily && splat is null && impostor is null && !_warnedUnsupportedMaterial)
             {
                 _warnedUnsupportedMaterial = true;
                 Log.Warning($"[Mesh] {material.GetType().Name} is not supported by the renderer yet; drawing with the default material.");
@@ -528,16 +537,23 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         // to another (texture, colour space) upload without touching the material).
         // Water: the albedo slot holds the foam mask (linear), the normal slot the ripple normals (built-in when null), the
         // emission slot a refracting surface's caustic pattern (ADR 0173). Falls: streaks and ripples; spray: its noise.
+        // Impostors (ADR 0172): albedo, object-space normal + depth, and the detail map in the emission slot.
         rewrite |= water is not null ? SwapTexture(water.FoamTexture ?? WaterTextures.Foam, colorUsage: false, ref gpu.Albedo)
             : fall is not null ? SwapTexture(fall.FoamTexture ?? WaterTextures.Foam, colorUsage: false, ref gpu.Albedo)
             : spray is not null ? SwapTexture(spray.NoiseTexture ?? WaterTextures.Mist, colorUsage: false, ref gpu.Albedo)
-            : SwapTexture(outline is not null ? null : foliage is not null ? foliage.AlbedoTexture : standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
+            : SwapTexture(outline is not null ? null : foliage is not null ? foliage.AlbedoTexture : impostor is not null ? impostor.AlbedoTexture
+                : standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
         rewrite |= SwapTexture(water is not null ? water.NormalMap ?? WaterTextures.Normal : fall is not null ? WaterTextures.Normal
-            : outline is not null || spray is not null ? null : foliage is not null ? foliage.NormalTexture : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
+            : outline is not null || spray is not null ? null : foliage is not null ? foliage.NormalTexture : impostor is not null ? impostor.NormalTexture
+            : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
+        // Foliage: the emission slot holds its linear thickness map (ADR 0172).
         rewrite |= water is not null
             ? SwapTexture(water.RefractionEnabled ? water.CausticsTexture ?? WaterTextures.Caustics : null, colorUsage: false, ref gpu.Emission)
-            : SwapTexture(outline is null && foliage is null && !waterFamily ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
-        rewrite |= SwapTexture(outline is not null || waterFamily ? null : foliage is not null ? foliage.OrmTexture : standard.OrmTexture, colorUsage: false, ref gpu.Orm);
+            : foliage is not null || impostor is not null
+                ? SwapTexture(foliage is not null ? foliage.ThicknessTexture : impostor!.DetailTexture, colorUsage: false, ref gpu.Emission)
+                : SwapTexture(outline is null && !waterFamily ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
+        rewrite |= SwapTexture(outline is not null || waterFamily || impostor is not null ? null
+            : foliage is not null ? foliage.OrmTexture : standard.OrmTexture, colorUsage: false, ref gpu.Orm);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
         rewrite |= RefreshTexture(gpu.Albedo, gpu.AlbedoGeneration);
@@ -556,6 +572,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 : water is not null ? MaterialParams.From(water, flags)
                 : fall is not null ? MaterialParams.From(fall, flags)
                 : spray is not null ? MaterialParams.From(spray, flags)
+                : impostor is not null ? MaterialParams.From(impostor, flags)
                 : MaterialParams.From(standard, flags);
             if (gpu.Params is null)
             {
@@ -665,7 +682,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             var pass = shaders switch
             {
                 ShaderSetId.MeshObjectId => _idPassPrototype,
-                ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage => PrepassRenderPass,
+                ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor => PrepassRenderPass,
                 _ => _ctx.RenderPass,
             };
             entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass, streams, prepassed));
@@ -704,6 +721,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         var viewMatrix = camera.ViewMatrix;
         var frustum = new Frustum(viewMatrix * camera.ProjectionMatrix);
         var cameraPosition = camera.Position;
+        view.CameraPosition = cameraPosition;
         // Camera forward in world space: -Z of the view matrix's rotation (row-vector convention: its third column).
         var forward = -new Vector3(viewMatrix.M13, viewMatrix.M23, viewMatrix.M33);
 
@@ -852,7 +870,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 mesh.EnsureStreams();
             var cull = m.State.EffectiveCull;
             var foliage = m.FoliageCaster;
-            var cutout = m.State.Alpha == AlphaMode.Cutout || foliage ? m : null;
+            var impostor = m.ImpostorCaster;
+            var cutout = m.State.Alpha == AlphaMode.Cutout || foliage || impostor ? m : null;
             view.Casters.Add(CasterKey(cull, mirrored, cutout?.Id ?? 0, mesh.Id, s),
                 new ShadowCasterItem
                 {
@@ -863,6 +882,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                     Mirrored = mirrored,
                     Cutout = cutout,
                     Foliage = foliage,
+                    Impostor = impostor,
                     Bounds = bounds,
                     Instances = multiInstances,
                     InstanceCount = multiCount,
@@ -1144,6 +1164,12 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             vk.CmdBindVertexBuffers(cb, 2, 1, &handle, &zero);
         }
 
+        if (mesh.WindStreams is { } wind)
+        {
+            var handle = wind.Handle;
+            vk.CmdBindVertexBuffers(cb, VertexLayouts.WindBinding, 1, &handle, &zero);
+        }
+
         vk.CmdBindIndexBuffer(cb, mesh.Indices!.Handle, 0, IndexType.Uint32);
     }
 
@@ -1230,6 +1256,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 Mesh = item.Mesh,
                 Cutout = item.Cutout,
                 Foliage = item.Foliage,
+                Impostor = item.Impostor,
                 Instances = own ? item.Instances! : buffer!,
                 Surface = item.Surface,
                 Cull = item.Cull,
@@ -1279,18 +1306,20 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         for (var r = firstRun; r < firstRun + runCount; r++)
         {
             ref var run = ref view.ShadowRuns[r];
-            if (run.Foliage && !windPushed)
+            if (run.Impostor && point)
+                continue; // impostors face directional lights only
+            if ((run.Foliage || run.Impostor) && !windPushed)
             {
                 // The casters' set 0 is the light matrix: the wind and time come as push constants (offset 0, unused by
                 // the instanced casters, whose model matrices are per instance).
-                var wind = new FoliageCasterWind(view.Environment, _ctx.Frame.Time);
+                var wind = new FoliageCasterWind(view.Environment, _ctx.Frame.Time, view.CameraPosition, pass);
                 vk.CmdPushConstants(cb, point ? _shadows.ShadowPointLayout : _shadows.Shadow2DLayout,
                     point ? ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit : ShaderStageFlags.VertexBit, 0,
                     (uint)sizeof(FoliageCasterWind), &wind);
                 windPushed = true;
             }
 
-            var pipeline = _shadows.GetInstancedCasterPipeline(point, run.Cull, run.Mirrored, run.Cutout is not null, run.Foliage);
+            var pipeline = _shadows.GetInstancedCasterPipeline(point, run.Cull, run.Mirrored, run.Cutout is not null, run.Foliage, run.Impostor);
             if (pipeline.Handle != bound.Handle)
             {
                 vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
@@ -1382,6 +1411,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ShaderSetId.MeshWaterfall => "Shaders/Water/Waterfall.vk.frag.spv",
             ShaderSetId.MeshSpray => "Shaders/Water/Spray.vk.frag.spv",
             ShaderSetId.MeshTerrainSplat => "Shaders/Terrain/TerrainSplat.vk.frag.spv",
+            ShaderSetId.MeshImpostor => "Shaders/Impostor/Impostor.vk.frag.spv",
             _ => "Shaders/Mesh/Mesh.vk.frag.spv",
         };
         // Each vertex shader writes only what its fragment shader reads (Slang drops unread fragment inputs, and an
@@ -1393,6 +1423,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ShaderSetId.MeshFoliage => "Shaders/Foliage/Foliage.vk.vert.spv",
             ShaderSetId.MeshWater or ShaderSetId.MeshWaterScene or ShaderSetId.MeshWaterfall => "Shaders/Water/Water.vk.vert.spv",
             ShaderSetId.MeshSpray => "Shaders/Water/Spray.vk.vert.spv",
+            ShaderSetId.MeshImpostor => "Shaders/Impostor/Impostor.vk.vert.spv",
             _ when streams => "Shaders/Mesh/MeshExt.vk.vert.spv",
             _ => "Shaders/Mesh/Mesh.vk.vert.spv",
         };
@@ -1401,11 +1432,14 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ShaderSetId.MeshObjectId => VertexLayouts.MeshIdAttributes,
             ShaderSetId.MeshFoliage => VertexLayouts.FoliageAttributes,
             ShaderSetId.MeshWater or ShaderSetId.MeshWaterScene or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray => VertexLayouts.WaterAttributes,
+            ShaderSetId.MeshImpostor => VertexLayouts.ImpostorAttributes,
             _ when streams => VertexLayouts.MeshExtAttributes,
             _ => VertexLayouts.MeshAttributes,
         };
+        var bindings = key.Shaders == ShaderSetId.MeshFoliage ? VertexLayouts.FoliageBindings
+            : streams ? VertexLayouts.MeshInstancedExtBindings : VertexLayouts.MeshInstancedBindings;
         return PipelineBuilder.Create(_ctx, state, LayoutFor(key.Shaders), new RenderPass(key.RenderPass),
-            vertex, fragment, streams ? VertexLayouts.MeshInstancedExtBindings : VertexLayouts.MeshInstancedBindings, attributes,
+            vertex, fragment, bindings, attributes,
             $"mesh ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(key.ExtraPass ? ", extra pass" : "")}{(streams ? ", streams" : "")}{(key.Prepassed ? ", prepassed" : "")})",
             &specialization);
     }
@@ -1430,6 +1464,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         };
 
         var foliage = key.Shaders == ShaderSetId.MeshDepthFoliage;
+        var impostor = key.Shaders == ShaderSetId.MeshDepthImpostor;
         var streams = key.VertexLayout == VertexLayoutId.MeshInstancedExt;
         var constants = stackalloc int[2] { (int)key.Alpha, streams ? 1 : 0 };
         var entries = stackalloc SpecializationMapEntry[2]
@@ -1439,11 +1474,16 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         };
         var specialization = new SpecializationInfo { MapEntryCount = 2, PMapEntries = entries, DataSize = 2 * sizeof(int), PData = constants };
         var vertex = foliage ? "Shaders/Foliage/FoliageDepth.vk.vert.spv"
+            : impostor ? "Shaders/Impostor/ImpostorDepth.vk.vert.spv"
             : streams ? "Shaders/Mesh/MeshDepthExt.vk.vert.spv"
             : "Shaders/Mesh/MeshDepth.vk.vert.spv";
-        var attributes = foliage ? VertexLayouts.DepthFoliageAttributes : streams ? VertexLayouts.DepthExtAttributes : VertexLayouts.DepthAttributes;
-        return PipelineBuilder.Create(_ctx, state, _pipelineLayout, new RenderPass(key.RenderPass), vertex, "Shaders/Mesh/MeshDepth.vk.frag.spv",
-            streams ? VertexLayouts.DepthExtBindings : VertexLayouts.DepthBindings, attributes,
+        var attributes = foliage ? VertexLayouts.DepthFoliageAttributes : impostor ? VertexLayouts.ImpostorDepthAttributes
+            : streams ? VertexLayouts.DepthExtAttributes : VertexLayouts.DepthAttributes;
+        var fragment = foliage ? "Shaders/Foliage/FoliageDepth.vk.frag.spv"
+            : impostor ? "Shaders/Impostor/ImpostorDepth.vk.frag.spv"
+            : "Shaders/Mesh/MeshDepth.vk.frag.spv";
+        return PipelineBuilder.Create(_ctx, state, _pipelineLayout, new RenderPass(key.RenderPass), vertex, fragment,
+            foliage ? VertexLayouts.DepthFoliageBindings : streams ? VertexLayouts.DepthExtBindings : VertexLayouts.DepthBindings, attributes,
             $"mesh prepass ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(streams ? ", streams" : "")})",
             &specialization);
     }
@@ -1451,15 +1491,25 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     void IPipelineFactory.Destroy(Pipeline pipeline) => _ctx.Deletions.Enqueue(GpuDeletion.Of(pipeline));
 
     /// <summary>
-    /// Push constants of the foliage shadow casters (offset 0, 48 bytes; <c>Shadows/Shadow*FoliageInstanced.vk.vert</c>):
-    /// the frame's wind and time, which the caster layouts cannot read from set 0.
+    /// Push constants of the foliage and impostor shadow casters (offset 0, 64 bytes; <c>include/foliage_caster.slang</c>):
+    /// the frame's wind and time, the view's camera (per-instance visibility ranges, ADR 0172), whether the pass is coarse
+    /// and the direction towards a directional light (impostor casters face it), which the caster layouts cannot read
+    /// from set 0.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    private struct FoliageCasterWind(in FrameEnvironment environment, float time)
+    private struct FoliageCasterWind(in FrameEnvironment environment, float time, Vector3 camera, in ShadowPass pass)
     {
         public Vector4 Wind = environment.Wind;
         public Vector4 WindParams = environment.WindParams;
-        public Vector4 Time = new(time, 0f, 0f, 0f);
+        public Vector4 Time = new(time, camera.X, camera.Y, camera.Z);
+        public Vector4 Pass = MaterialParams.Prefix(pass.Coarse ? 1f : 0f, TowardsLight(pass.ViewProjection));
+
+        // The light's forward axis of an orthographic light matrix (row vectors: clip z grows along its third column), negated.
+        private static Vector3 TowardsLight(in Matrix4x4 viewProjection)
+        {
+            var forward = new Vector3(viewProjection.M13, viewProjection.M23, viewProjection.M33);
+            return forward.LengthSquared() > 1e-20f ? -Vector3.Normalize(forward) : Vector3.UnitY;
+        }
     }
 
     /// <summary>Releases every GPU object (nodes still holding references are reset by the render server).</summary>

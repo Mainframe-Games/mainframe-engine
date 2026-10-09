@@ -98,11 +98,15 @@ the other arrays (JSON float arrays in `.mscene`/`.mres`) and must be empty or o
 |---|---|---|
 | `Colors` (`Vector4[]`, RGBA 0..1, authored in sRGB) | Lit materials multiply their albedo by it (alpha too) | opaque white |
 | `Custom0` (`Vector4[]`) | Free data. Foliage reads x = wind weight (0 at the trunk base, 1 at the tips), y = branch level / 4 (1 = leaf), z = wind phase 0..1, w = ambient occlusion | zero |
+| `Custom1`, `Custom2` (`Vector4[]`, ADR 0172) | The hierarchical wind's pivots: xyz = the object-space base of the vertex's level-1 (`Custom1`) and level-2 (`Custom2`) branch, w = its stiffness (0 = no pivot data, the simple wind; ≥ 1 000 rigid) | zero |
 
 - A mesh with a stream on any surface uploads a **second vertex buffer** covering all its vertices:
   `MeshVertexExt`, 20 bytes per vertex (RGBA8 unorm colour, then float4 custom0), bound at **binding 2**. Surfaces
   without streams get the defaults in it. A mesh drawn with a material that always reads it (`FoliageMaterial3D`)
   gets the buffer on demand (`MeshGpu.EnsureStreams`), filled with defaults.
+- **The wind stream** (ADR 0172): `Custom1` and `Custom2` upload as a third vertex buffer, `MeshVertexWind` (two RGBA16F,
+  16 bytes per vertex), at **binding 4**, locations 14 and 15. Only the foliage pipelines (colour, prepass and both
+  casters) declare it, and they always bind it: a mesh without the arrays gets zeros on demand, which keep the old wind.
 - `MeshVertex` stays 32 bytes and `PrimitiveMesh`es never have streams. Shadow casters read binding 0 only, except
   the foliage casters.
 - Lit surfaces with a stream draw with `VertexLayoutId.MeshInstancedExt` (part of `PipelineKey`):
@@ -166,7 +170,11 @@ A built-in material for leaves, grass and bark, following the `OutlineMaterial3D
 | Normal map | `NormalTexture`, `NormalScale` |
 | Alpha | `AlphaCutout` (default on; off for bark), `AlphaCutoff` (0.5), `AlphaDither` (default off; on for `TreeMaterials`' leaves): under TAA the cutout is dithered across a derivative-wide edge and TAA resolves it to smooth coverage (ADR 0166, `include/alpha_dither.slang`, `pbr.w`); without TAA the plain test |
 | Lighting | `BackFace` (`Flip` the normal, `Keep` it for custom canopy normals, `Cull`), `Translucency` (0..1, default 0.5), `ShadingMode` (`BlinnPhong`, `Unshaded`, `Pbr`), `Roughness` (0.8), `OrmTexture` (PBR only: multiplies the roughness, metallic 0 and the vertex AO; tree bark, ADR 0158) |
-| Wind | `WindStrength` (scales the world's wind, 1), `WindBranchBend` (1) |
+| Wind | `WindStrength` (scales the world's wind, 1), `WindBranchBend` (1), `WindTrunkSway` (1; the hierarchical wind only, ADR 0172) |
+| ADR 0172: translucency | `TranslucencyColor` (white), `TranslucencyScatter` (4), `ThicknessTexture` (linear, in the emission slot: R thickness, G AO; a cluster atlas's): with it the back-light is thickness-driven wrap transmission |
+| ADR 0172: alpha | `AlphaAntialiasingMode` (Godot's: `Off`, `AlphaToCoverage` = the dither above with an edge of `AlphaAntialiasingEdge`, 0.3), `ShadowDensity` (1: the share of the cutout cast into directional and spot shadow maps) |
+| ADR 0172: bark | `MossCoverage` (0), `MossColor`, `MossPatchSize`; `DetailScale` (0 = off), `DetailStrength`: the normal map again at a finer tiling (UDN) |
+| ADR 0172: levels | `InstanceVisibility`, `InstanceVisibilityBegin`/`End`/`Margin`: a per-instance visibility range (instanced tree levels) |
 
 - **Wind** (`include/wind.slang`, `windOffset`): the world's wind from `WorldEnvironment` (`frame.wind`,
   `frame.windParams`) and the time `frame.clip.z`. `Engine` sets `FrameContext.Time` to the summed tree deltas,
@@ -182,13 +190,50 @@ A built-in material for leaves, grass and bark, following the `OutlineMaterial3D
   with a highlight derived from `Roughness`, the ambient term darkened by `Custom0.w`; a w of 0 means no AO data)
   plus `foliageTranslucency(...)`: the first directional light shining through the leaf where it hits the other side,
   brighter towards the light, shadowed like the light. `foliageLight` is the one place to switch to PBR.
-- **Parameters** share the 80-byte block (`include/foliage.slang`): `emission` = (translucency, wind strength, branch
-  bend, 0), `params` = (specular, shininess, cutoff — 0 when not cut out, normal scale), `flags.z` = back-face mode + 1.
+- **Parameters** share the material block (`include/foliage.slang`), 160 bytes since ADR 0172: `emission` =
+  (translucency, wind strength, branch bend, trunk sway), `params` = (specular, shininess, cutoff — 0 when not cut out,
+  normal scale), `flags.z` = back-face mode + 1, `pbr.w` = the dither edge (0 off, 1 `AlphaDither`, 2 × edge
+  `AlphaToCoverage`), and four foliage vectors: `foliage0` = (scatter, translucency colour), `foliage1` = the
+  per-instance range (begin, end, margin, on), `foliage2` = (moss coverage, detail tiling, detail strength, 1 / moss
+  patch size), `foliage3` = (moss colour, shadow density). Every default packs to the old look.
+- **Per-instance visibility range** (ADR 0172): the vertex stages measure the instance origin's distance to the camera
+  and collapse instances outside [begin − margin, end + margin) before any wind math; inside the margins the colour pass
+  and the prepass discard against complementary dither thresholds (`distanceFadeKeeps`: IGN under TAA, Bayer without),
+  so two levels cross-fade; casters switch hard at the range ends (outside coarse passes). The material then counts as a
+  cutout.
+- **Prepass** (ADR 0163/0172): `Foliage/FoliageDepth.vk.vert` + `.frag` (wind now and a frame ago, the same cutout and
+  bands); prepassed foliage then draws under `EQUAL` without discards, like every prepassed cutout. The foliage and
+  impostor colour and prepass vertex shaders get an invariant position (`SpirvInvariance`, applied by
+  `ShaderModuleCache` at load: `OpDecorate Position Invariant`), since the long wind otherwise rounds differently in the
+  two modules and `EQUAL` dropped whole cards.
 - **Shadows**: foliage casters always bind the material (set 1 of the cutout layouts) and run
   `Shadows/Shadow2DFoliageInstanced` / `ShadowPointFoliageInstanced`, which call the same `windOffset`. The caster
   layouts cannot see `frame`, so the renderer pushes the wind, wind parameters and time (48 bytes) at push-constant
   offset 0 before the first foliage run of a pass (the instanced casters never read that range; point casters keep
-  the light at offset 64). Opaque foliage (bark) has a cutoff of 0, so the shared alpha test never discards.
+  the light at offset 64). Opaque foliage (bark) has a cutoff of 0, so the alpha test never discards. Directional and
+  spot casters use `Shadows/ShadowFoliageCutout.vk.frag` (ADR 0172): the cutout, then `ShadowDensity` below 1 keeps that
+  share of the texels by a stable 4 × 4 Bayer pattern on the shadow map (`include/shadow_density.slang`), which the
+  PCF/PCSS kernel reads as a partial shadow. Since ADR 0172 the push block is 64 bytes: the camera position (per-instance
+  ranges) and, for directional passes, whether the pass is coarse and the direction towards the light.
+
+### ImpostorMaterial3D (ADR 0172)
+
+Draws a `TreeImpostor` ([procedural-trees.md](procedural-trees.md#impostors-and-per-instance-levels)): its own shader
+set (`ShaderSetId.MeshImpostor`: `Impostor/Impostor.vk.vert` + `.frag`, `VertexLayouts.ImpostorAttributes`: the corner
+UV and the model rows), the `StandardMaterial3D` set-2 layout (albedo atlas, normal + depth atlas, the detail atlas in
+the emission slot), a prepass set (`MeshDepthImpostor`) and a directional caster (`Shadow2DImpostorInstanced` +
+`ShadowImpostorCutout`, facing the baked view nearest the light). Exports: the atlases, `Frames`, `Hemi`, `Center`,
+`Radius`, `DitherViews`, `AlbedoColor`, `AlphaCutoff`, `AlphaAntialiasingMode`/`Edge`, `Translucency` (colour, scatter),
+`LeafRoughness`, `BarkRoughness`, `ShadowDensity` (packed in `emission.y`) and the per-instance range. Cut out,
+double-sided. `TreeImpostor.CreateMaterial()` makes one per use.
+
+### Binding budget (ADR 0172)
+
+Foliage, impostors and their prepasses and casters bind nothing new: the colour pipelines use the mesh pipeline layout
+(set 0's five images, set 1's six, set 2's four: 15 sampled images and 13 samplers in the fragment stage, under
+MoltenVK's 16), the wind stream is a vertex buffer, the thickness and impostor detail maps use the emission slot, and
+moss and detail normals reuse the normal map. Only the water-scene layout (16/14) and terrain splat (16/14) are at the
+limit.
 
 ### WaterMaterial3D (ADR 0159)
 
@@ -227,7 +272,10 @@ Images load through `ResourceLoader` with their `.meta` import settings (see
 - `R8G8B8A8_UNORM` for normal maps.
 
 `ImportSettings` set `Srgb` or `Linear` force one space. Uploads go through the upload queue, and when
-`Mipmaps` is set the mip chain is generated on the GPU by blits. Each upload gets its own sampler: filter, wrap,
+`Mipmaps` is set the mip chain is generated on the GPU by blits. With `PreserveAlphaCoverage` (ADR 0172, `.meta`
+`preserveAlphaCoverage`, `alphaCoverageCutoff`) the chain is built on the CPU instead (`MipChain`: box filter, colour
+in linear light for sRGB, each level's alpha scaled so the share of texels passing the cutoff matches level 0's; Castaño
+2010) and uploaded with the image (`GpuTexture` provided mips), so cut-out leaves keep their density in the distance. Each upload gets its own sampler: filter, wrap,
 and anisotropy, clamped to `IVulkanContext.MaxSamplerAnisotropy`. The renderer enables `samplerAnisotropy` when the
 device has it.
 

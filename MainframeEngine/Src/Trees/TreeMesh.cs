@@ -40,6 +40,29 @@ public sealed class TreeMesh : Resource
 
     public TreeTrunkCapsule Trunk => new(TrunkHeight, TrunkRadius);
 
+    private readonly Dictionary<(Material?, Material?), TreeImpostor> _impostors = [];
+    private readonly Lock _impostorGate = new();
+
+    /// <summary>
+    /// The octahedral impostor of the finest level drawn with <paramref name="bark"/> and <paramref name="leaves"/>
+    /// (ADR 0172; <see cref="TreeImpostorBaker"/>), baked on first use and kept with this mesh (not saved).
+    /// </summary>
+    public TreeImpostor GetImpostor(Material? bark, Material? leaves, TreeImpostorOptions? options = null)
+    {
+        if (Lods.Length == 0)
+            throw new InvalidOperationException("The tree has no levels to bake an impostor from.");
+        lock (_impostorGate)
+        {
+            if (_impostors.TryGetValue((bark, leaves), out var impostor))
+                return impostor;
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            impostor = TreeImpostorBaker.BakeCached(Lods[0], bark, leaves, options);
+            Log.Debug($"[Trees] Baked the impostor of '{Options?.ResourceName}' seed {Seed} in {watch.Elapsed.TotalMilliseconds:0} ms.");
+            _impostors.Add((bark, leaves), impostor);
+            return impostor;
+        }
+    }
+
     /// <summary>
     /// Generates every default level of detail of <paramref name="options"/> for <paramref name="seed"/> in
     /// <paramref name="style"/> (<see cref="TreeGenerator.Generate"/>; Oak Medium Realistic takes about 3–5 ms).
@@ -50,6 +73,8 @@ public sealed class TreeMesh : Resource
         ArgumentNullException.ThrowIfNull(options);
         var parameters = options.ToParams();
         parameters.Seed = seed;
+        if (style == TreeStyle.Realistic && options.LeafMode == TreeLeafMode.Cluster)
+            parameters.ClusterCard = TreeClusterBaker.GetOrBake(options).Card; // ADR 0172: the cards fit the baked atlas
         var lods = (generator ?? new TreeGenerator()).Generate(parameters, style);
         var meshes = new ArrayMesh[lods.Length];
         for (var i = 0; i < lods.Length; i++)

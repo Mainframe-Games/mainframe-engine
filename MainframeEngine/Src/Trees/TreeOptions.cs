@@ -103,6 +103,38 @@ public sealed class TreeOptions : Resource
     [Export]
     public BarkUvMode BarkUv { get; set => Set(ref field, value); }
 
+    /// <summary>
+    /// Root flare (ADR 0172): the trunk's radius at the ground × this, fading out over <see cref="RootFlareHeight"/> in
+    /// <see cref="RootFlareLobes"/> buttress lobes (extra rings in the trunk's first section). 1 = none (Ez Tree's).
+    /// </summary>
+    [Export(Range = "1,3,0.01")]
+    public double RootFlare { get; set => Set(ref field, value); } = 1;
+
+    /// <summary>Metres over which the root flare fades out.</summary>
+    [Export(Range = "0.1,4,0.01")]
+    public double RootFlareHeight { get; set => Set(ref field, value); } = 0.8;
+
+    [Export(Range = "1,12,1")]
+    public int RootFlareLobes { get; set => Set(ref field, value); } = 5;
+
+    /// <summary>
+    /// Branch collars (ADR 0172): a side branch's base radius × this, easing back over <see cref="CollarLength"/> base radii,
+    /// so joints weld instead of a thin tube entering a thick one. 1 = none (Ez Tree's).
+    /// </summary>
+    [Export(Range = "1,2,0.01")]
+    public double CollarScale { get; set => Set(ref field, value); } = 1;
+
+    [Export(Range = "0.5,8,0.1")]
+    public double CollarLength { get; set => Set(ref field, value); } = 2;
+
+    /// <summary>Moss on the bark's up-facing surfaces (<see cref="FoliageMaterial3D.MossCoverage"/>, 0..1).</summary>
+    [Export(Range = "0,1,0.01")]
+    public float BarkMoss { get; set => Set(ref field, value); }
+
+    /// <summary>Detail normals: the bark normal map again at this many times its tiling (<see cref="FoliageMaterial3D.DetailScale"/>; 0 = off).</summary>
+    [Export(Range = "0,16,0.1")]
+    public float BarkDetailScale { get; set => Set(ref field, value); }
+
     /// <summary>LowPoly bark colour (untextured).</summary>
     [Export]
     public DrawingColor BarkPaletteColor { get; set => SetColor(ref field, value); } = DrawingColor.FromArgb(255, 0x6B, 0x4A, 0x32);
@@ -146,6 +178,14 @@ public sealed class TreeOptions : Resource
     [Export(Range = "0,1,0.01")]
     public float LeafAlphaCutoff { get; set => Set(ref field, value); } = 0.5f;
 
+    /// <summary>
+    /// Import the leaf image with coverage-preserving alpha mips (ADR 0172, <see cref="TextureImportSettings.PreserveAlphaCoverage"/>
+    /// at <see cref="LeafAlphaCutoff"/>): distant single cards keep their density instead of thinning out. Cluster atlases
+    /// always have them.
+    /// </summary>
+    [Export]
+    public bool LeafCoverageMips { get; set => Set(ref field, value); }
+
     /// <summary>Rounded canopy normals (<c>leaves.roundedNormals</c>).</summary>
     [Export]
     public bool LeafRoundedNormals { get; set => Set(ref field, value); } = true;
@@ -153,6 +193,62 @@ public sealed class TreeOptions : Resource
     /// <summary>LowPoly blob colour (varied ±8 % per blob through the surface's colours).</summary>
     [Export]
     public DrawingColor LeafPaletteColor { get; set => SetColor(ref field, value); } = DrawingColor.FromArgb(255, 0x4E, 0x7A, 0x34);
+
+    /// <summary>
+    /// Realistic leaves as Ez Tree's single cards (default) or leaf-cluster cards (ADR 0172): every
+    /// <see cref="TwigOptions.LeafSlots"/> slots become one card pair showing a twig baked from the tree's own last level
+    /// (<see cref="Twig"/>, <see cref="TreeClusterBaker"/>), with a normal and a thickness map: fewer, fuller cards.
+    /// </summary>
+    [ExportGroup("Leaf clusters")]
+    [Export]
+    public TreeLeafMode LeafMode { get; set => Set(ref field, value); }
+
+    /// <summary>The twig the cluster cards show (null: <see cref="TwigOptions"/>' defaults).</summary>
+    [Export]
+    public TwigOptions? Twig
+    {
+        get;
+        set
+        {
+            if (ReferenceEquals(field, value))
+                return;
+            if (field is not null)
+                field.Changed -= OnLevelChanged;
+            field = value;
+            if (field is not null)
+                field.Changed += OnLevelChanged;
+            Touch();
+        }
+    }
+
+    /// <summary>
+    /// The first level of detail with cluster cards (0: every level). The finer levels keep Ez Tree's single cards: their
+    /// leaf images hold many more texels per metre, so trees stay sharp up close while the farther levels get fewer,
+    /// fuller cards.
+    /// </summary>
+    [Export(Range = "0,2,1")]
+    public int ClusterFromLod { get; set => Set(ref field, value); }
+
+    /// <summary>
+    /// The share of the cluster cards' cutout that casts into the sun's shadow maps (<see cref="FoliageMaterial3D.ShadowDensity"/>):
+    /// 1 (default) casts all of it. A crossed card pair holding a whole twig casts a fuller shadow than the twig's leaves,
+    /// so a forest of them can close the canopy's sunflecks; less lets that light through.
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float ClusterShadowDensity { get; set => Set(ref field, value); } = 1f;
+
+    /// <summary>
+    /// Hierarchical wind (ADR 0172, Realistic style): the meshes carry each vertex's level-1 and level-2 branch pivots
+    /// (<see cref="MeshSurface.Custom1"/>, <see cref="MeshSurface.Custom2"/>), so the trunk sways, branches bend about
+    /// their bases and twigs about theirs, as rotations, before the leaves flutter. Off: Ez Tree's flutter plus a lean.
+    /// </summary>
+    [ExportGroup("Wind")]
+    [Export]
+    public bool HierarchicalWind { get; set => Set(ref field, value); }
+
+    /// <summary>How far cluster-card normals bend towards the canopy ellipsoid's (a soft canopy silhouette).</summary>
+    [Export(Range = "0,1,0.01")]
+    public double ClusterNormalRounding { get; set => Set(ref field, value); } = 0.6;
 
     // ---------------------------------------------------------------------------------------------------------------
 
@@ -212,6 +308,7 @@ public sealed class TreeOptions : Resource
             Start = new double[TreeParams.LevelCount],
             Taper = new double[TreeParams.LevelCount],
             Twist = new double[TreeParams.LevelCount],
+            LengthProfile = new double[TreeParams.LevelCount][],
             GrowthDirection = GrowthDirection,
             GrowthForce = GrowthForce,
             BarkTextureScaleX = BarkTextureScale.X,
@@ -232,6 +329,15 @@ public sealed class TreeOptions : Resource
             BlobSize = BlobSize,
             MaxBlobs = MaxBlobs,
             BlobJitter = BlobJitter,
+            LeafMode = LeafMode,
+            ClusterFromLod = ClusterFromLod,
+            RootFlare = RootFlare,
+            RootFlareHeight = RootFlareHeight,
+            RootFlareLobes = RootFlareLobes,
+            CollarScale = CollarScale,
+            CollarLength = CollarLength,
+            WindPivots = HierarchicalWind,
+            ClusterNormalRounding = ClusterNormalRounding,
         };
 
         for (var i = 0; i < TreeParams.LevelCount; i++)
@@ -247,6 +353,7 @@ public sealed class TreeOptions : Resource
             p.Start[i] = level.Start;
             p.Taper[i] = level.Taper;
             p.Twist[i] = level.Twist;
+            p.LengthProfile[i] = level.LengthProfile;
         }
 
         return p;
@@ -260,6 +367,8 @@ public sealed class TreeOptions : Resource
         for (var i = 0; i < levels.Length; i++)
             levels[i] = _level[i] is { } level ? (TreeLevel)level.Duplicate() : new TreeLevel();
         copy.Level = levels;
+        if (Twig is { } twig)
+            copy.Twig = (TwigOptions)twig.Duplicate();
         return copy;
     }
 

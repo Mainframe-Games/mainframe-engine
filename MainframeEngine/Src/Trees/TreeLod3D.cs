@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace MainframeEngine;
 
 /// <summary>
@@ -52,8 +54,46 @@ public sealed class TreeScatterBatch3D : MultiMeshInstance3D
     /// <summary>Levels of the variant (the last one runs to <see cref="TreeScatter.MaxDistance"/>).</summary>
     public int LodCount { get; internal set; }
 
+    /// <summary>This level is the variant's octahedral impostor (ADR 0172; the last level).</summary>
+    public bool IsImpostor { get; internal set; }
+
+    /// <summary>The variant's last level is an impostor (<see cref="TreeScatter.ImpostorDistance"/>).</summary>
+    public bool HasImpostorLevel { get; internal set; }
+
     internal Material? BarkMaterial;
     internal Material? LeafMaterial;
+
+    // Per instance (TreeLodSelection.PerInstance, ADR 0172): the trees' origins (scatter-local) and the level's own range;
+    // the batch draws while any of its trees is in the range widened by the margin (the vertex shader drops the others).
+    internal Vector3[]? InstanceOrigins;
+    internal float InstanceBegin, InstanceEnd, InstanceMargin;
+
+    /// <summary>
+    /// Per instance: true when one of the batch's trees lies within the level's range ± its fade margin (exact, so a chunk
+    /// draws only the levels its trees use); per chunk: the bounds centre's distance against the visibility range. With
+    /// the node's own range cleared (both 0: a prewarm showing everything, so its material and pipelines get created at
+    /// load), it is drawn, as any node is (its material still drops the trees out of the level's range).
+    /// </summary>
+    public override bool IsInVisibilityRange(Vector3 cameraPosition, in Aabb worldBounds)
+    {
+        if (InstanceOrigins is not { } origins || (VisibilityRangeBegin <= 0f && VisibilityRangeEnd <= 0f))
+            return base.IsInVisibilityRange(cameraPosition, worldBounds);
+        if (InstanceBegin >= float.MaxValue)
+            return false;
+        var model = ModelMatrix;
+        var near = InstanceBegin > 0f ? InstanceBegin - InstanceMargin : float.NegativeInfinity;
+        var far = InstanceEnd > 0f ? InstanceEnd + InstanceMargin : float.PositiveInfinity;
+        var near2 = near > 0f ? near * near : 0f;
+        var far2 = far < float.PositiveInfinity ? far * far : float.PositiveInfinity;
+        foreach (var origin in origins)
+        {
+            var d2 = Vector3.DistanceSquared(cameraPosition, Vector3.Transform(origin, model));
+            if (d2 >= near2 && d2 < far2)
+                return true;
+        }
+
+        return false;
+    }
 
     internal override Material GetRenderMaterial(Mesh mesh, int surface) =>
         TreeLod3D.TreeSurfaceMaterial(MaterialOverride, mesh, surface, BarkMaterial, LeafMaterial);

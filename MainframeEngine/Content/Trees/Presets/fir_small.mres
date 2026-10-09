@@ -1,0 +1,81 @@
+{
+  "format": 2,
+  "uid": "res_fea923f60750",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 74,
+        "Gnarliness": 0.02,
+        "Length": 38.44,
+        "Radius": 0.8267708267712403,
+        "Sections": 14,
+        "Segments": 8,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 86,
+        "Children": 5,
+        "Gnarliness": 0.04,
+        "Length": 13.02,
+        "Radius": 0.36,
+        "Sections": 8,
+        "Segments": 5,
+        "Start": 0.1,
+        "Taper": 0.7,
+        "LengthProfile": [1, 0.98, 0.9, 0.72, 0.5]
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 52,
+        "Gnarliness": 0.03,
+        "Length": 5.118105118107677,
+        "Radius": 0.65,
+        "Sections": 4,
+        "Segments": 3,
+        "Start": 0.15,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 60,
+        "Gnarliness": 0.02,
+        "Length": 1,
+        "Radius": 0.7,
+        "Sections": 6,
+        "Segments": 3,
+        "Start": 0.3,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Fir Small",
+    "Seed": 120,
+    "Type": "Evergreen",
+    "Levels": 2,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0.003,
+    "BarkTint": [0.74509805, 0.74509805, 0.7254902, 1],
+    "LeafTexture": "fir",
+    "LeafAngle": 40,
+    "LeafCount": 11,
+    "LeafStart": 0.05,
+    "LeafSize": 2.2,
+    "LeafSizeVariance": 0.25,
+    "LeafAlphaCutoff": 0.35
+  }
+}

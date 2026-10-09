@@ -255,7 +255,6 @@ public sealed class Tree3D : Node3D
         var options = Options ?? (string.IsNullOrEmpty(Preset) ? null : SharedPreset(Preset)) ?? _mesh.Options;
         var style = BakedMesh?.Style ?? Style;
         var bark = BarkMaterial ?? (options is null ? null : TreeMaterials.Bark(options, style));
-        var leaves = LeafMaterial ?? (options is null ? null : TreeMaterials.Leaves(options, style));
 
         var count = _mesh.Lods.Length;
         if (_lods.Length != count)
@@ -280,7 +279,7 @@ public sealed class Tree3D : Node3D
             node.Mesh = _mesh.Lods[i];
             node.CustomAabb = bounds;
             node.BarkMaterial = bark;
-            node.LeafMaterial = leaves;
+            node.LeafMaterial = LeafMaterial ?? (options is null ? null : TreeMaterials.Leaves(options, style, i));
             node.CastShadows = CastShadows;
             node.RenderStamp++;
         }

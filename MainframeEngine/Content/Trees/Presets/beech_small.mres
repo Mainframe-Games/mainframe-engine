@@ -1,0 +1,81 @@
+{
+  "format": 2,
+  "uid": "res_4f1897dd2d1f",
+  "type": "TreeOptions",
+  "resources": {
+    "TreeLevel_dco6t": {
+      "type": "TreeLevel",
+      "props": {
+        "Children": 10,
+        "Gnarliness": 0.04,
+        "Length": 24.8,
+        "Radius": 1.1811011811017718,
+        "Sections": 10,
+        "Segments": 10,
+        "Taper": 0.62
+      }
+    },
+    "TreeLevel_yvoll": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 58,
+        "Children": 4,
+        "Gnarliness": 0.12,
+        "Length": 12.4,
+        "Radius": 0.66,
+        "Sections": 8,
+        "Segments": 7,
+        "Start": 0.36,
+        "Taper": 0.6,
+        "Twist": 0.03,
+        "LengthProfile": [0.55, 0.92, 1, 0.82, 0.5]
+      }
+    },
+    "TreeLevel_8dik0": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 52,
+        "Children": 3,
+        "Gnarliness": 0.16,
+        "Length": 7.874007874011811,
+        "Radius": 0.62,
+        "Sections": 6,
+        "Segments": 4,
+        "Start": 0.22,
+        "Taper": 0.7
+      }
+    },
+    "TreeLevel_57kkj": {
+      "type": "TreeLevel",
+      "props": {
+        "Angle": 44,
+        "Gnarliness": 0.08,
+        "Length": 4.4,
+        "Radius": 0.7,
+        "Sections": 4,
+        "Segments": 3,
+        "Start": 0.12,
+        "Taper": 0.7
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Beech Small",
+    "Seed": 108,
+    "Level": [
+      { "res": "TreeLevel_dco6t" },
+      { "res": "TreeLevel_yvoll" },
+      { "res": "TreeLevel_8dik0" },
+      { "res": "TreeLevel_57kkj" }
+    ],
+    "GrowthForce": 0.006,
+    "BarkTexture": "Beech",
+    "LeafTexture": "beech",
+    "LeafAngle": 38,
+    "LeafCount": 15,
+    "LeafStart": 0.1,
+    "LeafSize": 2.2,
+    "LeafSizeVariance": 0.4,
+    "LeafAlphaCutoff": 0.45
+  }
+}

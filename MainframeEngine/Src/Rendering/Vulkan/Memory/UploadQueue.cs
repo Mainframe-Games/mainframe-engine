@@ -40,6 +40,9 @@ public sealed unsafe class UploadQueue : IDisposable
         public ImageLayout OldLayout, NewLayout;
         public PipelineStageFlags DstStage;
         public AccessFlags DstAccess;
+
+        /// <summary>A CopyImage whose staging data holds every mip level (one layer), copied as is (no blits).</summary>
+        public bool ProvidedMips;
     }
 
     private readonly Vk _vk;
@@ -120,6 +123,44 @@ public sealed unsafe class UploadQueue : IDisposable
             NewLayout = ImageLayout.ShaderReadOnlyOptimal,
             DstStage = PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.VertexShaderBit,
             DstAccess = AccessFlags.ShaderReadBit,
+        });
+    }
+
+    /// <summary>
+    /// Uploads a full mip chain built on the CPU (<see cref="MipChain.Build"/>: RGBA8 level 0 first, every level tightly
+    /// packed) into a one-layer, 8-bit RGBA <paramref name="image"/> with <see cref="MipChain.LevelCount"/> levels, and
+    /// leaves it in <c>SHADER_READ_ONLY_OPTIMAL</c>; no blits (ADR 0172's coverage-preserving alpha mips).
+    /// </summary>
+    public void UploadImageMips(GpuImage image, ReadOnlySpan<byte> chain)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (image.ArrayLayers != 1 || image.Depth > 1 || FormatInfo.BytesPerPixel(image.Format) != 4)
+            throw new NotSupportedException("Provided mip chains need a one-layer 2D RGBA8 image.");
+        if (image.MipLevels != MipChain.LevelCount((int)image.Width, (int)image.Height))
+            throw new ArgumentException("The image needs a full mip chain.", nameof(image));
+        var expected = MipChain.ChainBytes((int)image.Width, (int)image.Height);
+        if (chain.Length != expected)
+            throw new ArgumentException($"Expected {expected} bytes of mip chain for {image.Width}x{image.Height}, got {chain.Length}.", nameof(chain));
+
+        var (src, srcOffset) = Stage(chain, 16);
+        _ops.Add(new Op
+        {
+            Kind = OpKind.CopyImage,
+            Src = src,
+            SrcOffset = srcOffset,
+            Size = (ulong)chain.Length,
+            Image = image.Handle,
+            Aspect = ImageAspectFlags.ColorBit,
+            Width = image.Width,
+            Height = image.Height,
+            Depth = 1,
+            Layers = 1,
+            Mips = image.MipLevels,
+            NewLayout = ImageLayout.ShaderReadOnlyOptimal,
+            DstStage = PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.VertexShaderBit,
+            DstAccess = AccessFlags.ShaderReadBit,
+            ProvidedMips = true,
         });
     }
 
@@ -241,6 +282,24 @@ public sealed unsafe class UploadQueue : IDisposable
                         buffersWritten = true;
                         break;
                     }
+                case OpKind.CopyImage when op.ProvidedMips:
+                    {
+                        var offset = op.SrcOffset;
+                        for (uint level = 0; level < op.Mips; level++)
+                        {
+                            var (w, h) = MipChain.LevelSize((int)op.Width, (int)op.Height, (int)level);
+                            var region = new BufferImageCopy
+                            {
+                                BufferOffset = offset,
+                                ImageSubresource = new ImageSubresourceLayers(op.Aspect, level, 0, 1),
+                                ImageExtent = new Extent3D((uint)w, (uint)h, 1),
+                            };
+                            _vk.CmdCopyBufferToImage(cb, op.Src, op.Image, ImageLayout.TransferDstOptimal, 1, &region);
+                            offset += (ulong)(w * h * 4);
+                        }
+
+                        break;
+                    }
                 case OpKind.CopyImage:
                     {
                         var layerBytes = op.Size / op.Layers;
@@ -270,7 +329,7 @@ public sealed unsafe class UploadQueue : IDisposable
         // 3. Mip chains (each level blitted from the previous one), then final layouts in one batch.
         foreach (ref readonly var op in ops)
         {
-            if (op.Kind == OpKind.CopyImage && op.Mips > 1)
+            if (op.Kind == OpKind.CopyImage && op.Mips > 1 && !op.ProvidedMips)
                 GenerateMips(cb, op);
         }
 
@@ -280,9 +339,10 @@ public sealed unsafe class UploadQueue : IDisposable
         {
             if (op.Kind is OpKind.CopyImage or OpKind.ClearDepth)
             {
-                // Mipped images: every level but the last is already final (GenerateMips).
-                var baseMip = op.Mips > 1 ? op.Mips - 1 : 0;
-                var count = op.Mips > 1 ? 1 : op.Mips;
+                // Mipped images: every level but the last is already final (GenerateMips); provided chains: all levels.
+                var blitted = op.Mips > 1 && !op.ProvidedMips;
+                var baseMip = blitted ? op.Mips - 1 : 0;
+                var count = blitted ? 1 : op.Mips;
                 AddBarrier(op.Image, op.Aspect, baseMip, count, op.Layers, ImageLayout.TransferDstOptimal, op.NewLayout,
                     AccessFlags.TransferWriteBit, op.DstAccess);
                 finalStages |= op.DstStage;

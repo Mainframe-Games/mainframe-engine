@@ -93,14 +93,16 @@ public sealed class TreeOptionsTests
     [Fact]
     public void EveryPresetLoadsWithItsEzTreeSeedAndTextures()
     {
-        foreach (var name in TreePresets.Names)
+        foreach (var (name, index) in TreePresets.Names.Select((n, i) => (n, i)))
         {
             var options = TreePresets.Load(name);
-            Assert.Equal(TreeFixture.Preset(name).GetProperty("seed").GetInt32(), options.Seed);
+            if (index < TreePresets.EzTreeCount)
+                Assert.Equal(TreeFixture.Preset(name).GetProperty("seed").GetInt32(), options.Seed);
             Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "Content", "Trees", "Leaves", options.LeafTexture + ".png")), $"{name}: leaf texture {options.LeafTexture}");
-            var bark = Path.Combine(AppContext.BaseDirectory, "Content", "Trees", "Bark", $"{options.BarkTexture}_1K-JPG");
+            // ambientCG sets (JPG) or the engine's painted ones (PNG, ADR 0172): TreeMaterials.BarkMapPath finds either.
             foreach (var map in new[] { "Color", "NormalGL", "Roughness" })
-                Assert.True(File.Exists(Path.Combine(bark, $"{options.BarkTexture}_1K-JPG_{map}.jpg")), $"{name}: bark {options.BarkTexture} {map}");
+                Assert.True(File.Exists(ContentPaths.Resolve(TreeMaterials.BarkMapPath(options.BarkTexture, map), ContentPaths.BaseDirectory)),
+                    $"{name}: bark {options.BarkTexture} {map}");
         }
 
         Assert.Throws<ArgumentException>(() => TreePresets.FileName("Trellis"));

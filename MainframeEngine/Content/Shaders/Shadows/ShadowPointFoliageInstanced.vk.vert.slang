@@ -1,9 +1,10 @@
 // FoliageMaterial3D point-light shadow casters (ADR 0151): ShadowPointCutoutInstanced plus the foliage wind (see
-// Shadow2DFoliageInstanced.vk.vert). The wind push constants sit at offset 0, below ShadowPointCutout.vk.frag's light
-// position and range (offset 64). Pairs with ShadowPointCutout.vk.frag.
+// Shadow2DFoliageInstanced.vk.vert). The push constants (include/foliage_caster.slang) sit at offset 0, below
+// ShadowPointCutout.vk.frag's light position and range (offset 64). Pairs with ShadowPointCutout.vk.frag.
 #define MATERIAL_SET 1
 #include "material.slang"
 #include "foliage.slang"
+#include "foliage_caster.slang"
 #include "wind.slang"
 
 struct LightVP
@@ -12,16 +13,6 @@ struct LightVP
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<LightVP> lvp;
-
-// MeshRenderer's FoliageCasterWind (offset 0, 48 bytes).
-struct CasterWind
-{
-    float4 wind;       // FrameData.wind
-    float4 windParams; // FrameData.windParams
-    float4 time;       // x = seconds
-};
-
-[[vk::push_constant]] ConstantBuffer<CasterWind> pc;
 
 struct VsIn
 {
@@ -32,6 +23,8 @@ struct VsIn
     [[vk::location(4)]] float4 inModel3;
     [[vk::location(5)]] float2 inUV;
     [[vk::location(6)]] float4 inCustom0;
+    [[vk::location(7)]] float4 inCustom1; // hierarchical wind pivots (binding 4, ADR 0172)
+    [[vk::location(8)]] float4 inCustom2;
 };
 
 struct VsOut
@@ -44,11 +37,17 @@ struct VsOut
 [shader("vertex")]
 VsOut main(VsIn input)
 {
+    VsOut o = (VsOut)0;
+    if (!casterInstanceVisible(input.inModel3.xyz))
+    {
+        o.position = kCollapsedPosition; // before the wind (ADR 0172)
+        return o;
+    }
+
     float4x4 model = float4x4(input.inModel0, input.inModel1, input.inModel2, input.inModel3);
     float4 worldPos = mul(float4(input.inPosition, 1.0), model);
-    worldPos.xyz += windOffset(worldPos.xyz, input.inCustom0, input.inUV, pc.wind, pc.windParams, pc.time.x,
-                               foliageWindStrength(), foliageBranchBend());
-    VsOut o;
+    worldPos.xyz = windPosition(worldPos.xyz, model, input.inCustom0, input.inCustom1, input.inCustom2, input.inUV, pc.wind,
+                                pc.windParams, pc.time.x, foliageWindStrength(), foliageBranchBend(), foliageTrunkSway());
     o.outFragWorldPos = worldPos.xyz;
     o.outUV = input.inUV;
     o.position = mul(worldPos, lvp.lightViewProj);

@@ -87,6 +87,24 @@ float simplex3(float3 v)
 static const float kLeafFlutter = 0.12;
 static const float kBranchBend = 0.35;
 
+// Leaf flutter at `worldPos` for the effective strength `s` (wind × material): Ez Tree's three sines, phased by noise
+// over the position; turbulence adds a sideways share. Leaves (y = 1) flutter more towards their tip (v = 0); leaf-cluster
+// cards (ADR 0172) carry their tip factor in y = 0.75..1 (0 at the twig's base), since an atlas cell's v does not span
+// 0..1; bark (y <= 0.75) does not flutter.
+float3 windFlutter(float3 worldPos, float4 custom0, float2 uv, float4 wind, float4 windParams, float time, float s)
+{
+    float3 dir = wind.xyz;
+    float3 side = cross(float3(0.0, 1.0, 0.0), dir);
+    side = dot(side, side) > 1e-6 ? normalize(side) : float3(1.0, 0.0, 0.0);
+    float w = 2.0 * PI * windParams.x; // rad/s
+    float t = time;
+    float o = 2.0 * 3.14 * simplex3(worldPos / max(windParams.z, 1e-3));
+    float sway = 0.5 * sin(t * w + o) + 0.3 * sin(2.0 * t * w + 1.3 * o) + 0.2 * sin(5.0 * t * w + 1.5 * o);
+    float leaf = step(0.999, custom0.y);
+    float tip = leaf * saturate(1.0 - uv.y) + (1.0 - leaf) * saturate((custom0.y - 0.75) * 4.0);
+    return tip * kLeafFlutter * s * sway * (dir + windParams.y * side * sin(1.7 * t * w + 0.7 * o));
+}
+
 // The world-space offset of a foliage vertex at `worldPos` (before the sway).
 //   custom0:   x = wind weight (0 at the trunk base, 1 at the tips), y = branch level / 4 (1 = leaf), z = phase 0..1
 //   uv:        the vertex UV, v = 0 at the leaf tip (Ez Tree's uv.y, flipped for the top-left origin)
@@ -100,22 +118,97 @@ float3 windOffset(float3 worldPos, float4 custom0, float2 uv, float4 wind, float
     if (s <= 0.0)
         return float3(0.0);
 
-    float3 dir = wind.xyz;
-    float3 side = cross(float3(0.0, 1.0, 0.0), dir);
-    side = dot(side, side) > 1e-6 ? normalize(side) : float3(1.0, 0.0, 0.0);
-    float w = 2.0 * PI * windParams.x; // rad/s
-    float t = time;
-
-    // Leaf flutter: Ez Tree's three sines, phased by noise over the position; turbulence adds a sideways share.
-    float o = 2.0 * 3.14 * simplex3(worldPos / max(windParams.z, 1e-3));
-    float sway = 0.5 * sin(t * w + o) + 0.3 * sin(2.0 * t * w + 1.3 * o) + 0.2 * sin(5.0 * t * w + 1.5 * o);
-    float leaf = step(0.999, custom0.y);
-    float3 flutter = leaf * saturate(1.0 - uv.y) * kLeafFlutter * s * sway *
-                     (dir + windParams.y * side * sin(1.7 * t * w + 0.7 * o));
+    float3 flutter = windFlutter(worldPos, custom0, uv, wind, windParams, time, s);
 
     // Branch bend: a lean downwind with a slow oscillation, weighted by the squared wind weight, phased per branch.
+    float w = 2.0 * PI * windParams.x; // rad/s
     float weight = saturate(custom0.x);
     float3 lean = bend * weight * weight * kBranchBend * s *
-                  (0.6 + 0.4 * sin(0.37 * t * w + 2.0 * PI * custom0.z)) * dir;
+                  (0.6 + 0.4 * sin(0.37 * time * w + 2.0 * PI * custom0.z)) * wind.xyz;
     return flutter + lean;
+}
+
+// ── Hierarchical wind (ADR 0172, Pivot Painter-like) ──────────────────────────────────────────────────────────────
+
+// Radians of bend per unit of wind strength / stiffness: a level-1 branch around its pivot, a level-2 twig around its own;
+// the trunk's sway per unit of strength and per 10 m of height (it bends: the angle grows with height).
+static const float kBranchAngle = 0.22;
+static const float kTwigAngle = 0.32;
+static const float kTrunkSway = 0.010;
+
+// Stiffness at or above which a pivot does not bend (trunk vertices carry it).
+static const float kRigid = 1000.0;
+
+float windHash(float3 p) { return frac(sin(dot(p, float3(12.9898, 78.233, 37.719))) * 43758.5453); }
+
+// `p` turned by `angle` (radians, right-handed) about the unit `axis` through `pivot` (Rodrigues).
+float3 windRotate(float3 p, float3 pivot, float3 axis, float angle)
+{
+    float3 v = p - pivot;
+    float c = cos(angle);
+    float s = sin(angle);
+    return pivot + v * c + cross(axis, v) * s + axis * dot(axis, v) * (1.0 - c);
+}
+
+// The axis that leans `along` (a branch direction) towards the wind; zero when they are parallel.
+float3 windLeanAxis(float3 along, float3 dir)
+{
+    float3 axis = cross(along, dir);
+    float len = length(axis);
+    return len > 1e-4 ? axis / len : float3(0.0);
+}
+
+// The world position of a foliage vertex under the hierarchical wind (rest pose → swayed), from the root down as
+// rotations, so branches keep their length: the twig bends about its level-2 pivot (custom2), the branch about its
+// level-1 pivot (custom1; both object space, w = stiffness), the trunk sways about the instance origin (more with
+// height), then leaves flutter. A slow gust noise rolls along the wind over the instance origins, so neighbouring trees
+// move together. Every vertex of one branch turns the same way, so leaves stay on their twigs.
+//   model: the instance's model matrix (pivots and origin), trunk: the material's trunk sway scale.
+float3 windHierarchy(float3 worldPos, float4x4 model, float4 custom0, float4 custom1, float4 custom2, float2 uv, float4 wind,
+                     float4 windParams, float time, float strength, float bend, float trunk)
+{
+    float s = wind.w * strength;
+    if (s <= 0.0)
+        return worldPos;
+
+    float3 dir = wind.xyz;
+    float3 origin = model[3].xyz;
+    float w = 2.0 * PI * windParams.x;
+    float t = time;
+    float gust = 1.0 + 0.4 * simplex3(float3(origin.xz * 0.015 - dir.xz * t * 0.08, t * 0.05));
+    float sg = s * gust;
+
+    float3 p = worldPos;
+    float3 pivot1 = mul(float4(custom1.xyz, 1.0), model).xyz;
+    float3 pivot2 = mul(float4(custom2.xyz, 1.0), model).xyz;
+    if (custom2.w > 0.0 && custom2.w < kRigid)
+    {
+        float3 axis = windLeanAxis(normalize(p - pivot2 + float3(0.0, 1e-3, 0.0)), dir);
+        float angle = bend * sg * kTwigAngle / custom2.w * (0.6 + 0.4 * sin(2.1 * t * w + 2.0 * PI * windHash(pivot2)));
+        p = windRotate(p, pivot2, axis, angle);
+    }
+
+    if (custom1.w < kRigid)
+    {
+        float3 along = pivot2 - pivot1;
+        along = dot(along, along) > 1e-6 ? normalize(along) : normalize(worldPos - pivot1 + float3(0.0, 1e-3, 0.0));
+        float3 axis = windLeanAxis(along, dir);
+        float angle = bend * sg * kBranchAngle / custom1.w * (0.6 + 0.4 * sin(1.3 * t * w + 2.0 * PI * windHash(pivot1)));
+        p = windRotate(p, pivot1, axis, angle);
+    }
+
+    float height = max(worldPos.y - origin.y, 0.0);
+    float sway = trunk * sg * kTrunkSway * (height / 10.0) * (0.7 + 0.3 * sin(0.6 * t * w + 2.0 * PI * windHash(origin)));
+    p = windRotate(p, origin, windLeanAxis(float3(0.0, 1.0, 0.0), dir), sway);
+
+    return p + windFlutter(worldPos, custom0, uv, wind, windParams, time, s);
+}
+
+// The swayed world position of a foliage vertex: the hierarchical wind with pivots (custom1.w > 0), else the simple wind.
+float3 windPosition(float3 worldPos, float4x4 model, float4 custom0, float4 custom1, float4 custom2, float2 uv, float4 wind,
+                    float4 windParams, float time, float strength, float bend, float trunk)
+{
+    if (custom1.w > 0.0)
+        return windHierarchy(worldPos, model, custom0, custom1, custom2, uv, wind, windParams, time, strength, bend, trunk);
+    return worldPos + windOffset(worldPos, custom0, uv, wind, windParams, time, strength, bend);
 }

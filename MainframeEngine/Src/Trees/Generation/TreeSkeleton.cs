@@ -70,5 +70,5 @@ internal readonly record struct SkeletonBranch(
     double ParentStart,
     bool Terminal);
 
-/// <summary>One leaf: Ez Tree's <c>{ origin, orientation, size }</c> plus its wind weight, phase and parent direction.</summary>
-internal readonly record struct SkeletonLeaf(Vec3d Origin, EulerXyz Orientation, double Size, double Weight, float Phase, Vec3d BranchDirection);
+/// <summary>One leaf: Ez Tree's <c>{ origin, orientation, size }</c> plus its wind weight, phase, parent direction and branch index.</summary>
+internal readonly record struct SkeletonLeaf(Vec3d Origin, EulerXyz Orientation, double Size, double Weight, float Phase, Vec3d BranchDirection, int Branch);

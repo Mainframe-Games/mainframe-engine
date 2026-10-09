@@ -10,29 +10,77 @@ public readonly record struct PropPlacement(ForestPropAsset Prop, Vector2 Positi
 
 /// <summary>
 /// The Forest's trees, bushes and props, placed deterministically from the <see cref="ValleyGenerator"/>'s zones: pines
-/// on the east slope, the outcrop and the high ground, oaks and ashes in and around the glade, aspens along the stream,
-/// bushes at the edges. Everything keeps clear of the path, the water, the bridge, steep rock and the view clearings.
+/// with spruces and firs on the east slope, the outcrop and the high ground, oaks, ashes and beeches in and around the
+/// glade, aspens and birches along the stream, bushes at the edges. Everything keeps clear of the path, the water, the bridge, steep rock and the view clearings.
 /// </summary>
 public static class ForestVegetation
 {
     // Tree species (TreeScatter.Species indices).
     public const int PineLarge = 0, PineMedium = 1, PineSmall = 2, OakLarge = 3, OakMedium = 4, AshLarge = 5, AshMedium = 6,
-        AspenLarge = 7, AspenMedium = 8, AspenSmall = 9;
+        AspenLarge = 7, AspenMedium = 8, AspenSmall = 9, BirchLarge = 10, BirchMedium = 11, BeechLarge = 12, BeechMedium = 13,
+        SpruceLarge = 14, SpruceMedium = 15, FirLarge = 16, FirMedium = 17;
 
-    /// <summary>The tree species: Ez Tree presets in the Realistic style, with their seeds (one variant per seed).</summary>
-    public static TreeSpecies[] CreateTreeSpecies() =>
+    /// <summary>
+    /// The share of each zone's trees that are G8e.5's species (ADR 0172): spruces and firs among the pines, birches among
+    /// the aspens, beeches among the oaks and ashes. The same cells keep their trees; only the species changes.
+    /// </summary>
+    public const float NewSpeciesShare = 0.35f;
+
+    /// <summary>
+    /// The tree species: Ez Tree presets in the Realistic style, with their seeds (one variant per seed); with
+    /// <paramref name="clusters"/>, their leaves as leaf-cluster cards (ADR 0172) casting <paramref name="clusterShadowDensity"/>
+    /// of their cutout into the sun's shadow maps (<see cref="TreeOptions.ClusterShadowDensity"/>).
+    /// </summary>
+    public static TreeSpecies[] CreateTreeSpecies(bool clusters = false, float clusterShadowDensity = 1f) =>
     [
-        new() { Preset = "Pine Large", Seeds = [13977, 4410] },
-        new() { Preset = "Pine Medium", Seeds = [52, 8812] },
-        new() { Preset = "Pine Small", Seeds = [3071] },
-        new() { Preset = "Oak Large", Seeds = [35729] },
-        new() { Preset = "Oak Medium", Seeds = [1201] },
-        new() { Preset = "Ash Large", Seeds = [2290] },
-        new() { Preset = "Ash Medium", Seeds = [6113] },
-        new() { Preset = "Aspen Large", Seeds = [18020, 777] },
-        new() { Preset = "Aspen Medium", Seeds = [9123, 4417] },
-        new() { Preset = "Aspen Small", Seeds = [271] },
+        Species("Pine Large", clusters, clusterShadowDensity, 13977, 4410),
+        Species("Pine Medium", clusters, clusterShadowDensity, 52, 8812),
+        Species("Pine Small", clusters, clusterShadowDensity, 3071),
+        Species("Oak Large", clusters, clusterShadowDensity, 35729),
+        Species("Oak Medium", clusters, clusterShadowDensity, 1201),
+        Species("Ash Large", clusters, clusterShadowDensity, 2290),
+        Species("Ash Medium", clusters, clusterShadowDensity, 6113),
+        Species("Aspen Large", clusters, clusterShadowDensity, 18020, 777),
+        Species("Aspen Medium", clusters, clusterShadowDensity, 9123, 4417),
+        Species("Aspen Small", clusters, clusterShadowDensity, 271),
+        Species("Birch Large", clusters, clusterShadowDensity, 6421),
+        Species("Birch Medium", clusters, clusterShadowDensity, 3307),
+        Species("Beech Large", clusters, clusterShadowDensity, 7741),
+        Species("Beech Medium", clusters, clusterShadowDensity, 2203),
+        Species("Spruce Large", clusters, clusterShadowDensity, 4099),
+        Species("Spruce Medium", clusters, clusterShadowDensity, 6007),
+        Species("Fir Large", clusters, clusterShadowDensity, 5153),
+        Species("Fir Medium", clusters, clusterShadowDensity, 8191),
     ];
+
+    private static bool IsEzTreePreset(string preset) =>
+        !(preset.StartsWith("Birch", StringComparison.Ordinal) || preset.StartsWith("Beech", StringComparison.Ordinal) ||
+          preset.StartsWith("Spruce", StringComparison.Ordinal) || preset.StartsWith("Fir", StringComparison.Ordinal));
+
+    private static bool IsConifer(string preset) =>
+        preset.StartsWith("Pine", StringComparison.Ordinal) || preset.StartsWith("Spruce", StringComparison.Ordinal) ||
+        preset.StartsWith("Fir", StringComparison.Ordinal);
+
+    private static TreeSpecies Species(string preset, bool clusters, float clusterShadowDensity, params int[] seeds)
+    {
+        if (!clusters)
+            return new TreeSpecies { Preset = preset, Seeds = seeds };
+        // Level 0 keeps Ez Tree's sprigs (sharp up close), levels 1 and 2 use cluster cards (fewer, fuller), every leaf image
+        // keeps its coverage in the distance (ADR 0172).
+        var options = TreePresets.Load(preset);
+        options.LeafMode = TreeLeafMode.Cluster;
+        // G8e.5's species carry 2–4× the leaves of Ez Tree's (spruce: 5 700 needle sprigs, pine: 1 800): they are clusters
+        // from level 0, which keeps their cost near the others'.
+        options.ClusterFromLod = IsEzTreePreset(preset) ? 1 : 0;
+        options.ClusterShadowDensity = clusterShadowDensity;
+        options.LeafCoverageMips = true;
+        options.HierarchicalWind = true;
+        options.RootFlare = 1.6;
+        options.CollarScale = 1.25;
+        options.BarkMoss = IsConifer(preset) ? 0.25f : 0.4f;
+        options.BarkDetailScale = 6f;
+        return new TreeSpecies { Options = options, Seeds = seeds };
+    }
 
     /// <summary>The bush species.</summary>
     public static TreeSpecies[] CreateBushSpecies() =>
@@ -54,7 +102,8 @@ public static class ForestVegetation
     /// Places the trees on the ground <paramref name="height"/>(x, z) with slope <paramref name="slopeDegrees"/>(x, z):
     /// one jittered candidate per <see cref="TreeCell"/> cell, accepted by the zones' densities.
     /// </summary>
-    public static TreePlacement[] PlaceTrees(ValleyGenerator valley, Func<float, float, float> height, Func<float, float, float> slopeDegrees)
+    public static TreePlacement[] PlaceTrees(ValleyGenerator valley, Func<float, float, float> height, Func<float, float, float> slopeDegrees,
+        float newSpeciesShare = NewSpeciesShare)
     {
         var seed = valley.Seed * 7919;
         var cells = (int)(ValleyLayout.SizeMeters / TreeCell);
@@ -91,6 +140,20 @@ public static class ForestVegetation
                     species = pick < 0.5f ? OakLarge : OakMedium;
                 else
                     continue;
+
+                // G8e.5's species replace a share of each zone's trees in the same cells (ADR 0172).
+                var swap = Hash01(ci, cj, seed + 7);
+                if (swap < newSpeciesShare)
+                {
+                    var large = pick < 0.4f;
+                    species = species switch
+                    {
+                        PineLarge or PineMedium or PineSmall => swap < newSpeciesShare * 0.55f ? large ? SpruceLarge : SpruceMedium
+                            : large ? FirLarge : FirMedium,
+                        AspenLarge or AspenMedium or AspenSmall => large ? BirchLarge : BirchMedium,
+                        _ => large ? BeechLarge : BeechMedium,
+                    };
+                }
 
                 var scale = 0.82f + 0.36f * Hash01(ci, cj, seed + 5);
                 var yaw = Hash01(ci, cj, seed + 6) * MathF.Tau;
