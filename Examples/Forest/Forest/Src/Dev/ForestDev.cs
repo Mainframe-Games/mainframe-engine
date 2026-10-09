@@ -92,6 +92,8 @@ public sealed class ForestDev : Node
             _audioChecked = true;
             if (!GameHost.UserArgs.Contains("--no-audio") && scene.FindChildren<ForestAudio>(owned: false).Count == 0)
                 ForestAudio.Attach(scene, null, null); // finds the scene's river and player when ready
+            if (ShowsFps(GameHost.UserArgs))
+                FpsHud.Attach(scene); // F3 toggles it
             if (_resolution.X > 0)
                 Resize(tree, _resolution);
             ApplyOverrides(scene, GameHost.UserArgs);
@@ -106,6 +108,14 @@ public sealed class ForestDev : Node
         if (_autoWalk)
             Walk(tree, gameTime.DeltaTime);
     }
+
+    /// <summary>
+    /// Whether the frame-rate readout is shown: in normal play, not in screenshot, benchmark or autowalk runs (clean
+    /// captures and allocation windows) or with <c>++ --no-fps</c>.
+    /// </summary>
+    public static bool ShowsFps(IReadOnlyCollection<string> args) =>
+        !args.Contains("--no-fps") && !args.Contains("--shot") && !args.Contains("--view") && !args.Contains("--benchmark") &&
+        !args.Contains("--autowalk") && !args.Contains("--autowalk-lap");
 
     private void Walk(SceneTree tree, float delta)
     {

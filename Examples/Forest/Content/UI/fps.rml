@@ -1,0 +1,30 @@
+<rml>
+<head>
+    <style>
+        /* A HUD: clicks pass through to the game (as widgets.rcss's body.hud), so a click recaptures the mouse. */
+        body { font-family: LatoLatin; width: 100%; height: 100%; pointer-events: none; }
+        div { display: block; }
+        #fps {
+            position: absolute;
+            top: 12dp;
+            right: 12dp;
+            width: 210dp;
+            padding: 6dp 10dp;
+            border-radius: 6dp;
+            background-color: rgba(0, 0, 0, 140);
+            color: #e8f0e0;
+            font-size: 16dp;
+            text-align: right;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        #fps .ms { color: #b8c4b0; font-size: 12dp; }
+    </style>
+</head>
+<body class="hud" data-model="fps">
+    <div id="fps">
+        <div>{{fps | format(0)}} FPS</div>
+        <div class="ms">{{ms | format(1)}} ms · max {{max | format(1)}} ms</div>
+    </div>
+</body>
+</rml>
