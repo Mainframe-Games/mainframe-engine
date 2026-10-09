@@ -34,6 +34,51 @@ public class TreeTests
     }
 
     [Fact]
+    public void TreesBetweenTheirLastCastingLevelAndTheImpostorStillCastShadows()
+    {
+        // ADR 0179: a stand drawn at level 2, which does not cast; the impostor casts from 20 m (where level 1 stops), not
+        // from 60 m (where it is drawn). The ground in front of the stand must be about as shadowed as with level 2's
+        // meshes casting (--count 1), and clearly more than with no tree shadows (--count 2: what it was before).
+        var handOff = HostRunner.Run("tree-shadow-handoff", Output("tree-shadow-handoff"), "--capture", "30", "--hidden");
+        var meshes = HostRunner.Run("tree-shadow-handoff", Output("tree-shadow-handoff-meshes"), "--capture", "30", "--count", "1", "--hidden");
+        var none = HostRunner.Run("tree-shadow-handoff", Output("tree-shadow-handoff-none"), "--capture", "30", "--count", "2", "--hidden");
+
+        Assert.True(handOff.SceneCheckFailures.Count == 0, string.Join("\n", handOff.SceneCheckFailures));
+        Gates.AssertValidationClean(handOff);
+        Gates.AssertValidationClean(meshes);
+        Gates.AssertValidationClean(none);
+        Gates.AssertMatchesGolden(handOff, 30);
+
+        var lit = GroundLuminance(none);
+        var withHandOff = GroundLuminance(handOff);
+        var withMeshes = GroundLuminance(meshes);
+        TestContext.Current.SendDiagnosticMessage(
+            $"tree-shadow-handoff: ground luminance {withHandOff:F1} (impostor casters), {withMeshes:F1} (level-2 meshes), {lit:F1} (no tree shadows)");
+        Assert.True(lit - withMeshes > 8f, $"the reference's tree shadows darken the ground only by {lit - withMeshes:F1}");
+        Assert.True(lit - withHandOff > 0.5f * (lit - withMeshes),
+            $"the impostors cast {lit - withHandOff:F1} of darkening where the meshes cast {lit - withMeshes:F1}: the hand-off is missing");
+    }
+
+    // Mean luminance of the lower third of the frame: the ground between the camera and the stand, where its shadows fall.
+    private static float GroundLuminance(Host.HostResult result)
+    {
+        var image = Png.ReadRgba8(result.Captures.Single().Path);
+        double sum = 0;
+        var count = 0;
+        for (var y = image.Height * 2 / 3; y < image.Height; y++)
+        {
+            for (var x = 0; x < image.Width; x++)
+            {
+                var i = (y * image.Width + x) * 4;
+                sum += 0.2126 * image.Pixels[i] + 0.7152 * image.Pixels[i + 1] + 0.0722 * image.Pixels[i + 2];
+                count++;
+            }
+        }
+
+        return (float)(sum / count);
+    }
+
+    [Fact]
     public void ImpostorsMatchTheMeshAtTheSwitchDistance()
     {
         // ADR 0172: three trees at 62 m as their finest mesh level, then as octahedral impostors (impostor shadow casters);

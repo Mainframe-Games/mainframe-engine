@@ -110,7 +110,7 @@ all off by default, so existing scenes and goldens do not change. The Forest tur
 | `DirectionalLight3D` | Default | Forest | What it does |
 |---|---|---|---|
 | `ShadowCacheMode` | `Off` | `Staggered` | [Staggered cascades](#staggered-cascades) |
-| `ShadowCoarseCascades` | 0 | 2 | the last N cascades draw [coarse casters](#coarse-casters) |
+| `ShadowCoarseCascades` | 0 | 0 (2 before ADR 0179) | the last N cascades draw [coarse casters](#coarse-casters) |
 | `LightAngularDistance` | 0 | 0.5° | Godot's `light_angular_distance`: [PCSS](#pcss) on `High` |
 | `ContactShadows`, `ContactShadowLength` | false, 0.5 m | true, 0.4 m | [contact shadows](#contact-shadows) on `High` |
 | `FarShadowEnabled`, `FarShadowDistance` | false, 0 (every caster's bounds) | true, 0 | the [far shadow](#far-shadow) |
@@ -145,10 +145,26 @@ far shadow (`ShadowPass.Coarse`). `MeshRenderer.Prepare` collects out-of-range `
 `CullShadowCasters` skips the items whose pass mask does not match the pass.
 
 `TreeScatter.ShadowCoarseLod` (default −1, off) maps it onto the tree levels: that level is `Coarse`, the finer ones
-`Fine` (up to `ShadowMaxLod`), the coarser ones cast nothing. The Forest uses level 1: its far cascades and far shadow
-draw every tree at level 1 and none at level 0. (Ez Tree's level 2 casts nearly opaque canopy shadows: with it the
-floor of R5 went black under the 21° sun.) This is the hook G8e.5's impostor casters will use: an
-impostor caster is a `Coarse` instance.
+`Fine` (up to `ShadowMaxLod`), the coarser ones cast nothing. (Ez Tree's level 2 casts nearly opaque canopy shadows:
+with it the floor of R5 went black under the 21° sun.) G8e.5's impostor caster (ADR 0172) is the Forest's coarse level.
+
+**The hand-off** ([ADR 0179](../../memory/decisions/0179-consistent-shadow-casters-across-cascades.md)). In the fine passes
+the coarse level casts from where the finer casting levels end (`TreeScatter.ShadowHandOff`: the end of level
+`ShadowMaxLod`'s range), not from where it is drawn, so each tree casts exactly one level at every distance. With the
+Forest's levels the impostor (drawn from 85 m) casts from 55 m, where level 1 stops: before, the trees 55–85 m away
+cast nothing into the fine passes. Per instance, the range is the material's `InstanceShadowBegin` / `InstanceShadowEnd`
+(`FoliageMaterial3D`, `ImpostorMaterial3D`; −1 follows the visibility range; packed + 1 into `variation.zw`, read by
+`casterInstanceVisible` in `include/foliage_caster.slang`); per batch, `GeometryInstance3D.IsInShadowRange` (a
+`TreeScatterBatch3D` with a `ShadowBegin`), which `MeshRenderer.Prepare` asks instead of the visibility range
+(`MeshRenderer.CasterPasses`). The coarse passes still draw the coarse level for every tree.
+
+**Coarse cascades draw different casters from fine ones.** A coarse cascade has no level 0 or 1, so a near tree casts
+only through its coarse level there (the Forest's: a half-density impostor), and the canopy's shadow thins out at the
+split: a line across the forest floor that moves with the camera and with `ShadowMaxDistance`. The Forest's split at
+16 m (4 cascades to 140 m, λ 0.8) put that line a few steps ahead of the player, so ADR 0179 sets its
+`ShadowCoarseCascades` to 0: every cascade draws the same casters (the mesh levels to 55 m, then impostors), and only
+the far shadow, sampled past 140 m, draws every tree as its impostor. Keep coarse cascades for scenes whose coarse level
+matches the fine levels' shadow closely, or whose split lies where the difference is lost in fog.
 
 ### PCSS
 
@@ -195,7 +211,7 @@ primary light has `ContactShadows` and the shadow system allows them (`ShadowSys
 only while a light has one, so other scenes keep four layers) holding an orthographic map along the light over every
 caster's bounds (`FarShadowDistance` 0) or a box of ±`FarShadowDistance` around the camera on a quarter-distance grid
 (`ShadowMath.BoxLightMatrix`). It is a coarse pass (`ShadowPassKind.FarShadow`), so it draws the terrain, `All` casters
-and the `Coarse` ones (the trees' level 2), and it renders **once**: again only when the light turns by more than 0.1°,
+and the `Coarse` ones (every tree's impostor in the Forest), and it renders **once**: again only when the light turns by more than 0.1°,
 the covered box outgrows the one rendered (it is grown by 2 %), the resolution changes or the cache is invalidated.
 `sampleCascades` uses it past the last cascade and blends into it over the last cascade's band instead of fading to lit,
 with a 2.5-texel Poisson disc. A far shadow without casters is off (and not re-rendered). It costs no binding: it is a
@@ -548,6 +564,7 @@ Before M4, 116 MiB was allocated whatever the lights.
   | `contact-shadows` | Pebbles that cast no shadow-map shadow get contact shadows next to them (> 300 darker pixels); nothing gets lighter. |
   | `shadow-staggered` | Self-checks the schedule every frame (≤ 2 cascades rendered, the rest reused). A still camera: four consecutive staggered frames are identical and within 0.5 % of every-frame cascades; walking at 8 m/s: within 1 %. `--count 4` (every G8e.2 feature, TAA rotation via `--jitter`): 0 B over 240 frames. |
   | `far-shadow` | A ridge 225 m away shadows the plain past the 40 m cascades through an invisible `Coarse` stand-in; the far shadow renders exactly once. |
+  | `tree-shadow-handoff` | ADR 0179: a stand drawn at level 2 (which does not cast) shadows the ground through its impostors from the 20 m hand-off: at least half the darkening of level 2's meshes casting (`--count 1`) against no tree shadows (`--count 2`). |
 
   The existing `multi-light` test checks the ring per pass; `instances` checks ≤ 2 shadow draws per pass.
 - `--no-shadows` (host option) turns every light's shadows off; perf runs report `ShadowCpuMs`/`ShadowGpuMs`.

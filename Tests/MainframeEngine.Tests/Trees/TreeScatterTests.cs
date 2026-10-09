@@ -171,9 +171,24 @@ public sealed class TreeScatterTests(ITestOutputHelper output) : IDisposable
         Assert.All(scatter.Batches, b => Assert.Equal(b.Lod <= 1, b.CastShadows));
         Assert.All(scatter.Batches.Where(b => b.Lod == 0), b => Assert.Equal(ShadowCasterLod.Fine, b.ShadowCasterLod));
         Assert.All(scatter.Batches.Where(b => b.Lod == 1), b => Assert.Equal(ShadowCasterLod.Coarse, b.ShadowCasterLod));
+        // ADR 0179: per chunk, the coarse level casts into the fine passes from where level 0 stops (Lod1Distance, by the
+        // chunk's centre), not only where it is drawn, so no chunk is without a casting level.
+        Assert.Equal(scatter.Lod1Distance, scatter.ShadowHandOff(3, impostor: false));
+        foreach (var batch in scatter.Batches.Where(b => b.Lod == 1))
+        {
+            Assert.True(batch.HasShadowRange);
+            var centre = batch.CustomAabb!.Value.Transform(batch.ModelMatrix);
+            var far = centre.Center + new Vector3(0f, 0f, scatter.Lod2Distance + 10f); // past level 1's visibility range
+            Assert.Equal(batch.LodCount > 2, !batch.IsInVisibilityRange(far, centre)); // a 2-level bush draws level 1 on
+            Assert.True(batch.IsInShadowRange(far, centre));
+            Assert.False(batch.IsInShadowRange(centre.Center + new Vector3(0f, 0f, scatter.Lod1Distance - 1f), centre));
+        }
+
+        Assert.All(scatter.Batches.Where(b => b.Lod != 1), b => Assert.False(b.HasShadowRange));
         scatter.ShadowCoarseLod = -1;
         Assert.All(scatter.Batches, b => Assert.Equal(ShadowCasterLod.All, b.ShadowCasterLod));
         Assert.All(scatter.Batches, b => Assert.Equal(b.Lod <= 1, b.CastShadows));
+        Assert.All(scatter.Batches, b => Assert.False(b.HasShadowRange));
 
         scatter.Lod1Distance = 12f;
         scatter.MaxDistance = 400f;

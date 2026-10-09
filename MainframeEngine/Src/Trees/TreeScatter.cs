@@ -297,6 +297,7 @@ public sealed class TreeScatter : Node3D
             field = value;
             foreach (var batch in _batches)
                 ApplyShadows(batch);
+            ApplyRanges(); // the coarse level's hand-off (ADR 0179)
         }
     } = 1;
 
@@ -304,10 +305,13 @@ public sealed class TreeScatter : Node3D
     /// The level that casts into the sun's coarse shadow passes (ADR 0167; default −1: none, every level up to
     /// <see cref="ShadowMaxLod"/> casts everywhere). From 0 up, that level casts into the coarse passes (the light's last
     /// <see cref="DirectionalLight.CoarseCascades"/> cascades and its far shadow) from any distance whatever its visibility
-    /// range, and into the fine passes where it is drawn; the finer levels up to <see cref="ShadowMaxLod"/> cast only into
-    /// the fine passes. Far cascades draw every tree at that cheap level, near cascades still get the far trees' long
-    /// shadows. With <see cref="ImpostorDistance"/>, the impostor level (the mesh level count, 3) casts as one quad per
-    /// tree facing the sun (ADR 0172): the cheapest coarse caster.
+    /// range, and into the fine passes from where the finer casting levels end (<see cref="ShadowHandOff"/>, ADR 0179: not
+    /// from where it is drawn, so no tree loses its shadow between its last casting mesh level and the impostor); the finer
+    /// levels up to <see cref="ShadowMaxLod"/> cast only into the fine passes. Far cascades draw every tree at that cheap
+    /// level, near cascades still get the far trees' long shadows. With <see cref="ImpostorDistance"/>, the impostor level
+    /// (the mesh level count, 3) casts as one quad per tree facing the sun (ADR 0172): the cheapest coarse caster. A light
+    /// with no coarse cascades (<see cref="DirectionalLight.CoarseCascades"/> 0) then draws the same casters in every
+    /// cascade, and only its far shadow draws every tree at the coarse level.
     /// </summary>
     [Export(Range = "-1,8,1")]
     public int ShadowCoarseLod
@@ -318,8 +322,34 @@ public sealed class TreeScatter : Node3D
             field = value;
             foreach (var batch in _batches)
                 ApplyShadows(batch);
+            ApplyRanges(); // the coarse level's hand-off (ADR 0179)
         }
     } = -1;
+
+    /// <summary>
+    /// Where the coarse shadow level (<see cref="ShadowCoarseLod"/>) takes over in the fine shadow passes for a variant of
+    /// <paramref name="levels"/> levels (the last an impostor or not): the end of the coarsest finer level that casts (up
+    /// to <see cref="ShadowMaxLod"/>), so each tree casts one level at every distance (ADR 0179); 0 when no finer level
+    /// casts. With the default levels the impostor takes over at <see cref="Lod2Distance"/>, not at <see cref="ImpostorDistance"/>.
+    /// </summary>
+    public float ShadowHandOff(int levels, bool impostor)
+    {
+        var last = Math.Min(Math.Min(ShadowMaxLod, ShadowCoarseLod - 1), levels - 1);
+        var handOff = 0f;
+        for (var lod = 0; lod <= last; lod++)
+        {
+            var (begin, end) = LevelRange(lod, levels, impostor);
+            if (begin == float.MaxValue)
+                continue; // an empty level (its switches coincide)
+            if (end <= 0f)
+                return float.MaxValue; // a finer level casts at every distance: the coarse level never takes over
+            handOff = MathF.Max(handOff, end);
+        }
+
+        return handOff;
+    }
+
+    private bool IsCoarseShadowLevel(int lod) => ShadowCoarseLod >= 0 && lod == ShadowCoarseLod;
 
     // Which passes a batch casts into (CastShadows, ShadowMaxLod, ShadowCoarseLod).
     private void ApplyShadows(TreeScatterBatch3D batch)
@@ -667,6 +697,8 @@ public sealed class TreeScatter : Node3D
             batch.InstanceBegin = begin;
             batch.InstanceEnd = end;
             batch.InstanceMargin = margin;
+            // ADR 0179: the coarse shadow level casts into the fine passes from the hand-off, wherever it is drawn.
+            batch.ShadowBegin = IsCoarseShadowLevel(batch.Lod) ? ShadowHandOff(batch.LodCount, batch.HasImpostorLevel) : -1f;
         }
 
         foreach (var (material, (lod, levels, impostor)) in _levelCounts)
@@ -674,17 +706,23 @@ public sealed class TreeScatter : Node3D
             var (begin, end) = LevelRange(lod, levels, impostor);
             begin = begin == float.MaxValue ? 0f : begin;
             end = end == float.MaxValue ? 0f : end;
+            // The coarse shadow level's per-instance shadow range: from the hand-off, unbounded (−1: its visibility range).
+            var (shadowBegin, shadowEnd) = IsCoarseShadowLevel(lod) ? (ShadowHandOff(levels, impostor), 0f) : (-1f, -1f);
             switch (material)
             {
                 case FoliageMaterial3D foliage:
                     foliage.InstanceVisibilityBegin = begin;
                     foliage.InstanceVisibilityEnd = end;
                     foliage.InstanceVisibilityMargin = margin;
+                    foliage.InstanceShadowBegin = shadowBegin;
+                    foliage.InstanceShadowEnd = shadowEnd;
                     break;
                 case ImpostorMaterial3D impostorMaterial:
                     impostorMaterial.InstanceVisibilityBegin = begin;
                     impostorMaterial.InstanceVisibilityEnd = end;
                     impostorMaterial.InstanceVisibilityMargin = margin;
+                    impostorMaterial.InstanceShadowBegin = shadowBegin;
+                    impostorMaterial.InstanceShadowEnd = shadowEnd;
                     break;
             }
         }

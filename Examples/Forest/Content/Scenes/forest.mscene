@@ -47,7 +47,6 @@
         "ShadowSplitLambda": 0.8,
         "ShadowMaxDistance": 140,
         "ShadowCacheMode": "Staggered",
-        "ShadowCoarseCascades": 2,
         "LightAngularDistance": 0.5,
         "ContactShadows": true,
         "ContactShadowLength": 0.4,
