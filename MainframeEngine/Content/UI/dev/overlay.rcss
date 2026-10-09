@@ -1,25 +1,26 @@
-body.dev-overlay { width: 100%; height: 100%; pointer-events: none; font-size: 12dp; color: #e5e7eb; }
+/* Sizes ×1.4 (2026-10-10): 12dp text read too small on a 1080p window (Brogan). */
+body.dev-overlay { width: 100%; height: 100%; pointer-events: none; font-size: 17dp; color: #e5e7eb; }
 #dev-panel {
-    pointer-events: auto; position: absolute; top: 8dp; right: 8dp; bottom: 8dp; width: 360dp; max-width: 45%;
-    overflow-y: auto; padding: 6dp; border-radius: 8dp; background-color: #0b1020e0; border: 1dp #ffffff22;
+    pointer-events: auto; position: absolute; top: 11dp; right: 11dp; bottom: 11dp; width: 504dp; max-width: 50%;
+    overflow-y: auto; padding: 8dp; border-radius: 11dp; background-color: #0b1020e0; border: 1dp #ffffff22;
 }
-.dev-title { padding: 4dp 6dp; font-weight: bold; background-color: #ffffff12; border-radius: 4dp; margin-top: 6dp; }
+.dev-title { padding: 6dp 8dp; font-weight: bold; background-color: #ffffff12; border-radius: 6dp; margin-top: 8dp; }
 .dev-title:hover { background-color: #ffffff22; }
-.dev-body { padding: 4dp 6dp; }
+.dev-body { padding: 6dp 8dp; }
 .dev-row { display: flex; justify-content: space-between; }
 .dev-row span.v { color: #93c5fd; font-family: "Roboto Mono"; }
-.dev-meter { height: 6dp; background-color: #22c55e; }
-.dev-heading { margin-top: 6dp; padding-bottom: 2dp; color: #9ca3af; border-bottom: 1dp #ffffff22; }
+.dev-meter { height: 8dp; background-color: #22c55e; }
+.dev-heading { margin-top: 8dp; padding-bottom: 3dp; color: #9ca3af; border-bottom: 1dp #ffffff22; }
 .dev-row { align-items: center; margin: 1dp 0; }
-.dev-row input.dev-slider { flex: 1 1 auto; width: auto; margin-right: 6dp; }
-.dev-button { padding: 2dp 10dp; border-radius: 4dp; background-color: #ffffff18; color: #e5e7eb; }
+.dev-row input.dev-slider { flex: 1 1 auto; width: auto; margin-right: 8dp; }
+.dev-button { padding: 3dp 14dp; border-radius: 6dp; background-color: #ffffff18; color: #e5e7eb; }
 .dev-button:hover { background-color: #ffffff30; }
-.dev-maps { margin-top: 4dp; }
-img.dev-map { display: inline-block; width: 78dp; height: 78dp; margin: 0 3dp 3dp 0; background-color: #000000; }
-img.dev-atlas { display: inline-block; width: 256dp; height: 256dp; background-color: #000000; }
-.dev-bus { display: flex; align-items: center; margin: 2dp 0; }
-.dev-bus-name { width: 56dp; }
-.dev-bus input.dev-slider { flex: 1 1 auto; width: auto; margin: 0 4dp; }
-.dev-tag { color: #9ca3af; margin: 0 4dp 0 8dp; }
-.dev-meter-track { width: 50dp; height: 6dp; margin-left: 6dp; background-color: #ffffff18; }
-.dev-wrap span.v { display: block; width: 100%; text-align: right; font-size: 11dp; }
+.dev-maps { margin-top: 6dp; }
+img.dev-map { display: inline-block; width: 109dp; height: 109dp; margin: 0 4dp 4dp 0; background-color: #000000; }
+img.dev-atlas { display: inline-block; width: 358dp; height: 358dp; background-color: #000000; }
+.dev-bus { display: flex; align-items: center; margin: 3dp 0; }
+.dev-bus-name { width: 78dp; }
+.dev-bus input.dev-slider { flex: 1 1 auto; width: auto; margin: 0 6dp; }
+.dev-tag { color: #9ca3af; margin: 0 6dp 0 11dp; }
+.dev-meter-track { width: 70dp; height: 8dp; margin-left: 8dp; background-color: #ffffff18; }
+.dev-wrap span.v { display: block; width: 100%; text-align: right; font-size: 15dp; }
