@@ -12,8 +12,9 @@ namespace Forest;
 /// <param name="AbsoluteTarget">The target height is a world Y, not a height above the ground.</param>
 /// <param name="BlurFarFrom">A photo shot's far depth of field (ADR 0168): blur starts this many metres away (0: none).</param>
 /// <param name="BlurNearUntil">A photo shot's near depth of field: what is nearer than this many metres blurs (0: none).</param>
+/// <param name="BlurAmount">A photo shot's blur strength (<see cref="MainframeEngine.CameraAttributesPractical.DofBlurAmount"/>; ADR 0178).</param>
 public readonly record struct ReferenceShot(string Name, Vector2 Eye, float EyeHeight, Vector2 Target, float TargetHeight, float Fov = 55f,
-    bool AbsoluteTarget = false, float BlurFarFrom = 0f, float BlurNearUntil = 0f)
+    bool AbsoluteTarget = false, float BlurFarFrom = 0f, float BlurNearUntil = 0f, float BlurAmount = 0.1f)
 {
     /// <summary>True for the photo shots with depth of field (R4, R5): never used while walking.</summary>
     public bool HasDepthOfField => BlurFarFrom > 0f || BlurNearUntil > 0f;
@@ -128,40 +129,78 @@ public static class ValleyLayout
         }
     }
 
+    /// <summary>ADR 0178: a small grassy glade among the outcrop's pines (R6, on its flat top), kept clear of trees and painted as meadow. Declared before
+    /// <see cref="Clearings"/>, which uses it (static fields initialise in order).</summary>
+    public static readonly Vector2 PineGlade = new(48f, 30f);
+
     /// <summary>Places kept clear of trees (view corridors of the reference shots and the vista), centre and radius.</summary>
     public static readonly (Vector2 Centre, float Radius)[] Clearings =
     [
-        (new Vector2(210f, 120f), 10f),  // R4's lookout
+        (new Vector2(210f, 120f), 10f),  // the lookout (R4 before ADR 0178)
         (new Vector2(64f, 198f), 10f),   // the trailhead
         (new Vector2(48f, 146f), 6f),    // R1 (G8e.5's pose)
-        (new Vector2(58f, 150f), 4f),    // R1
-        (new Vector2(60f, 25f), 2.5f),   // R6, among the outcrop's pines
-        (new Vector2(92.5f, 51f), 3f),   // R7, the pool's east bank
+        (new Vector2(52f, 149f), 4f),    // R1
         (new Vector2(84f, 63f), 6f),     // R2
-        (new Vector2(112.5f, 128.5f), 4f), // R3
-        (new Vector2(120f, 160f), 3f),   // R5
-    ];
-
-    /// <summary>View corridors kept clear of trees: from a point towards another, within a half angle, out to a distance (R4's vista over the pond, R2's view of the fall).</summary>
-    public static readonly (Vector2 From, Vector2 Towards, float HalfAngleDegrees, float Distance)[] ViewCorridors =
-    [
-        (new Vector2(210f, 120f), new Vector2(134f, 212f), 21f, 112f),
-        (new Vector2(84f, 63f), new Vector2(86f, 44f), 16f, 21f),
+        (new Vector2(123f, 147f), 3f),   // R3 (ADR 0178: downstream of the bridge)
+        (new Vector2(120f, 236f), 4f),   // R4 (ADR 0178: the pond's south shore)
+        (PineGlade, 8f),                 // R6: a small glade among the outcrop's pines (ADR 0178)
+        (new Vector2(88f, 55f), 3f),     // R7 (ADR 0178: pool 1's south bank)
+        (new Vector2(70f, 98f), 6f),     // R5's fern dell (ADR 0178)
     ];
 
     /// <summary>
-    /// The seven reference shots (forest-showcase.md → Reference shots; G8e.7 recomposed R1 and added R6 and R7, ADR 0175):
-    /// pose, vertical FOV and, for the photo shots, depth of field.
+    /// ADR 0178: where dust motes hang in the sunlit air (<see cref="ForestDust"/>): centre, height above the ground and
+    /// half-size of each cloud: the first view up the path, the glade, the fall, the bridge, the fern dell, the pine glade.
+    /// </summary>
+    public static readonly (Vector2 Centre, float Above, Vector3 Extents)[] DustClouds =
+    [
+        (new Vector2(64f, 185f), 2.2f, new Vector3(5f, 1.8f, 7f)),
+        (new Vector2(60f, 135f), 2.5f, new Vector3(9f, 2.2f, 9f)),
+        (new Vector2(85f, 52f), 2.5f, new Vector3(5f, 2f, 5f)),
+        (new Vector2(120f, 141f), 2.5f, new Vector3(4f, 2f, 6f)),
+        (new Vector2(70.5f, 97f), 1.2f, new Vector3(3f, 1f, 4f)),
+        (new Vector2(48f, 30f), 2.5f, new Vector3(6f, 2f, 6f)),
+    ];
+
+    /// <summary>
+    /// ADR 0178: the fern dell of R5 (the references' mossy log among ferns): a fallen, mossy trunk lying away from the
+    /// camera towards the sun (centre, yaw in degrees), ferns crowding round it within the radius.
+    /// </summary>
+    public static readonly (Vector2 Centre, float YawDegrees, float FernRadius, int Ferns) FernDell = (new Vector2(70f, 98f), 62f, 6.5f, 70);
+
+    /// <summary>View corridors kept clear of trees: from a point towards another, within a half angle, out to a distance (R4's view over the pond, R2's view of the fall, the player's first view).</summary>
+    public static readonly (Vector2 From, Vector2 Towards, float HalfAngleDegrees, float Distance)[] ViewCorridors =
+    [
+        // The lookout's vista over the pond (R4 before ADR 0178; kept: the pine slope's density and the frame time
+        // were tuned with this wedge open).
+        (new Vector2(210f, 120f), new Vector2(134f, 212f), 21f, 112f),
+        (new Vector2(120f, 236f), new Vector2(120f, 110f), 26f, 40f), // ADR 0178: R4 over the pond, up the valley
+        (new Vector2(84f, 63f), new Vector2(86f, 44f), 16f, 21f),
+        // ADR 0178: the player's first view, up the path into the glade and the low sun.
+        (new Vector2(64f, 198f), new Vector2(64f, 160f), 24f, 30f),
+    ];
+
+    /// <summary>
+    /// The seven reference shots (forest-showcase.md → Reference shots; G8e.7 recomposed R1 and added R6 and R7, ADR 0175;
+    /// ADR 0178 recomposed them after the Unreal references, most of them into the low sun): pose, vertical FOV and, for
+    /// the photo shots, depth of field.
     /// </summary>
     public static readonly ReferenceShot[] Shots =
     [
-        new("r1-glade", new Vector2(58f, 150f), 1.5f, new Vector2(100f, 160f), 14f, 55f),
+        // A back-lit meadow under the sun, the glade's trees in the haze (the meadow-and-pines reference).
+        new("r1-glade", new Vector2(50f, 150f), 1.4f, new Vector2(68f, 118f), 6f, 55f),
+        // The fall between its rocks and birches, the haze behind (the rocks-and-haze reference).
         new("r2-fall", new Vector2(84f, 63f), 1.65f, new Vector2(86f, 44f), 1.6f, 55f),
-        new("r3-bridge", new Vector2(112.5f, 128.5f), 1.6f, new Vector2(120f, 135.5f), 0.2f, 58f),
-        new("r4-vista", new Vector2(210f, 120f), 2.2f, new Vector2(134f, 212f), PondLevel - 4f, 50f, AbsoluteTarget: true, BlurNearUntil: 6f),
-        new("r5-floor", new Vector2(120f, 160f), 0.5f, new Vector2(108f, 150f), 0.2f, 60f, BlurFarFrom: 9f),
-        new("r6-pines", new Vector2(60f, 25f), 1.7f, new Vector2(80f, 50f), 2f, 60f),
-        new("r7-fall-close", new Vector2(92.5f, 51f), 1.2f, new Vector2(85.5f, 42.5f), 14f, 58f, AbsoluteTarget: true),
+        // Up the stream to the log bridge between birches (the birch-path reference).
+        new("r3-bridge", new Vector2(123f, 147f), 2.5f, new Vector2(118f, 133f), 0.5f, 60f),
+        // From the pond's south shore up the misty valley into the sun (the misty-glade reference).
+        new("r4-vista", new Vector2(120f, 236f), 3f, new Vector2(120f, 110f), 14f, 50f, AbsoluteTarget: true, BlurNearUntil: 6f),
+        // Low in the fern dell along the mossy log, near fronds and the far trees soft (the log-and-ferns reference).
+        new("r5-floor", new Vector2(69.6f, 102.7f), 0.7f, new Vector2(71.3f, 95.5f), 0.4f, 50f, BlurFarFrom: 7f, BlurNearUntil: 0.9f, BlurAmount: 0.3f),
+        // Across a small glade in the pine slope to the pines standing against the sun (the meadow-and-pines reference).
+        new("r6-pines", new Vector2(45f, 37f), 1.6f, new Vector2(52f, 14f), 7f, 60f),
+        // The fall from pool 1's south bank, into the light.
+        new("r7-fall-close", new Vector2(88f, 55f), 1.2f, new Vector2(86f, 43.5f), 13.5f, 58f, AbsoluteTarget: true),
     ];
 
     /// <summary>A Catmull-Rom point on the closed path loop at parameter <paramref name="t"/> (0 … <see cref="PathPoints"/>.Length).</summary>

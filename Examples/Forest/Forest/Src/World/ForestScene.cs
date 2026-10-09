@@ -50,7 +50,7 @@ public static class ForestScene
         Add(root, root, new DirectionalLight3D
         {
             Name = "Sun",
-            Color = new Vector3(1f, 0.87f, 0.7f),
+            Color = new Vector3(1f, 0.93f, 0.82f), // ADR 0178: a warm white morning sun (0.87, 0.7 before: the haze went orange)
             // 2.6 against a 1.6 sky blew out sun-facing slopes and canopy tops in shaded views: the probe-darkened shade pins
             // auto exposure at its maximum, so the sun / sky ratio is what keeps sunlit surfaces in range.
             Energy = 2f,
@@ -100,30 +100,34 @@ public static class ForestScene
         },
         AmbientSource = AmbientSource.Sky,
         ReflectedLightSource = ReflectedLightSource.Sky,
-        AmbientEnergy = 2f, // the open canopy's skylight: shade stays readable next to the sun
+        // The open canopy's skylight: shade stays readable next to the sun. ADR 0178: 2 → 2.4, the references' lifted shade.
+        AmbientEnergy = 2.4f,
 
         WindDirection = new Vector3(-1f, 0f, 0.25f), // from the east
         WindStrength = 0.35f,
         WindFrequency = 0.45f,
         WindTurbulence = 0.4f,
 
+        // ADR 0178 (look-dev against the Unreal references): a bright, warm white haze, strong aerial perspective. The far
+        // fog is a pale warm grey (blue-grey before) and denser, so distance fades to a low-contrast glow that lifts the
+        // blacks, and it takes the sun's colour looking into the low sun.
         FogEnabled = true,
-        FogLightColor = new Vector3(0.42f, 0.47f, 0.53f),
-        FogDensity = 0.003f, // beyond the volumetric fog's 64 m: the far slopes haze over (0.005 veiled the glade's trees, ADR 0175)
-        FogHeight = 6f,
-        FogHeightDensity = 0.08f,
-        FogSunScatter = 0.05f, // the volumetric fog scatters the sun now; this only tints the far fog towards it
+        FogLightColor = new Vector3(0.78f, 0.8f, 0.77f),
+        FogDensity = 0.004f,
+        FogHeight = 8f,
+        FogHeightDensity = 0.05f,
+        FogSunScatter = 0.12f,
 
-        // ADR 0171: fog lit through the sun's shadow maps within 64 m: soft rays through the canopy gaps from any view, the
-        // shaded air clear (no ambient inject: the sky would light the air under the canopy as brightly as the glade's).
-        // Its density follows the height fog's shape, so the valley floor is hazier than the glade.
+        // ADR 0171: fog lit through the sun's shadow maps within 64 m: rays through the canopy gaps from any view. Its density
+        // follows the height fog's shape, so the valley floor is hazier than the slopes. ADR 0178: denser, warm, less
+        // forward-peaked, and lit by the (probe-occluded) sky too, so the shaded air glows softly instead of darkening.
         VolumetricFogEnabled = true,
-        // ADR 0175: half G8e.3's 0.018, noisier: shafts that read as shafts instead of a milky glade looking into the sun.
-        VolumetricFogDensity = 0.009f,
-        VolumetricFogAnisotropy = 0.75f,
+        VolumetricFogDensity = 0.01f,
+        VolumetricFogAlbedo = new Vector3(1f, 1f, 0.95f),
+        VolumetricFogAnisotropy = 0.65f,
         VolumetricFogLength = 64f,
-        VolumetricFogSkyAffect = 0.2f,
-        VolumetricFogAmbientInject = 0.02f,
+        VolumetricFogSkyAffect = 0.35f,
+        VolumetricFogAmbientInject = 0.3f,
         VolumetricFogNoiseScale = 8f,
         VolumetricFogNoiseStrength = 0.7f,
 

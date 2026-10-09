@@ -44,6 +44,12 @@ public sealed class ForestValley : Node3D
     /// </summary>
     [Export] public bool Clutter { get; set; } = true;
 
+    /// <summary>Wild flowers (ADR 0178, <see cref="ForestFlowers"/>): buttercups, daisies and heather in drifts.</summary>
+    [Export] public bool Flowers { get; set; } = true;
+
+    /// <summary>Dust motes in the sunlit air at the walk's and the shots' places (ADR 0178, <see cref="ForestDust"/>).</summary>
+    [Export] public bool Dust { get; set; } = true;
+
     /// <summary>Distance at which grass is gone (it thins over the last 12 m).</summary>
     [Export(Range = "10,80,1")] public float GrassDistance { get; set; } = 36f;
 
@@ -97,7 +103,8 @@ public sealed class ForestValley : Node3D
     /// </summary>
     [Export(Range = "0,0.5,0.01")] public float TreeValueJitter { get; set; } = 0.12f;
 
-    [Export(Range = "0,0.5,0.01")] public float TreeHueJitter { get; set; } = 0.1f;
+    /// <summary>Per-tree hue variation; ADR 0178: 0.1 → 0.04 (a tenth of the hue circle turned some crowns autumn yellow).</summary>
+    [Export(Range = "0,0.5,0.01")] public float TreeHueJitter { get; set; } = 0.04f;
 
     /// <summary>
     /// G8e.7's understorey (ADR 0175, <see cref="ForestVegetation.SaplingShare"/>): saplings in the forest's gaps and a denser
@@ -248,6 +255,9 @@ public sealed class ForestValley : Node3D
         Props = new Node3D { Name = "Props" };
         AddChild(Props);
         BuildProps(valley, Height, Slope);
+        BuildFernDell(Height);
+        if (Dust)
+            AddChild(ForestDust.Create(Height));
         if (!editing)
             BuildWalls();
         var props = watch.Elapsed.TotalMilliseconds;
@@ -343,22 +353,27 @@ public sealed class ForestValley : Node3D
         material.MacroStrength = 0.22f;
         // The meadow photo is bright yellow-green: deeper and cooler under the morning sun.
         // ADR 0175: darker and greener again, so the meadow between the grass clumps reads as turf, not a pale tan floor.
-        material.Layers[ValleyGenerator.Grass].Tint = DrawingColor.FromArgb(255, 118, 140, 88);
+        material.Layers[ValleyGenerator.Grass].Tint = DrawingColor.FromArgb(255, 78, 88, 52);
         // Pale, dry leaf litter: browner and darker, so sunlit patches do not read white.
-        material.Layers[ValleyGenerator.Leaves].Tint = DrawingColor.FromArgb(255, 168, 150, 128);
+        material.Layers[ValleyGenerator.Leaves].Tint = DrawingColor.FromArgb(255, 124, 112, 92);
+        // ADR 0178: the moss scan is a vivid emerald: towards the references' olive and sage.
+        material.Layers[ValleyGenerator.Moss].Tint = DrawingColor.FromArgb(255, 190, 172, 120);
+        // The cliff scan is a pale sandstone: the path's cut banks and steep slopes read as bare sand facing the sun.
+        material.Layers[ValleyGenerator.Rock].Tint = DrawingColor.FromArgb(255, 132, 130, 116);
         return material;
     }
 
     /// <summary>
-    /// A copy of an ORM map with roughness r → 0.6 + 0.4 r: ambientCG's ground scans measure 0.45–0.6, which under a low
+    /// A copy of an ORM map with roughness r → 0.8 + 0.2 r: ambientCG's ground scans measure 0.45–0.6, which under a low
     /// back-light gives dry soil and grass a wet sheen (a white glare where the ground faces the sun). Forest floor,
-    /// grass and bark scatter far more; mid-tone detail stays.
+    /// grass and bark scatter far more; mid-tone detail stays. ADR 0178: 0.6 + 0.4 r before; with the sun ahead of most
+    /// views the far ground still glared white at grazing angles.
     /// </summary>
     public static Texture2D RoughenOrm(Texture2D orm)
     {
         var (rgba, width, height) = orm.DecodePixels();
         for (var i = 1; i < rgba.Length; i += 4)
-            rgba[i] = (byte)Math.Min(255, 153 + rgba[i] * 102 / 255);
+            rgba[i] = (byte)Math.Min(255, 204 + rgba[i] * 51 / 255);
         return Texture2D.FromPixels(width, height, rgba, orm.ImportSettings with { ColorSpace = TextureImportColorSpace.Linear });
     }
 
@@ -411,7 +426,10 @@ public sealed class ForestValley : Node3D
         var grassMaterial = GrassMesh.CreateMaterial();
         grassMaterial.WindStrength = 0.45f;
         grassMaterial.InstanceValueJitter = 0.15f; // ADR 0175: no two clumps alike
-        grassMaterial.InstanceHueJitter = 0.12f;
+        grassMaterial.InstanceHueJitter = 0.06f; // ADR 0178: 0.12 turned some tufts yellow
+        // ADR 0178: blades lit from behind glow yellow-green (the references' back-lit meadow).
+        grassMaterial.Translucency = 0.75f;
+        grassMaterial.TranslucencyColor = DrawingColor.FromArgb(255, 235, 240, 165);
         var density = GroundCoverDensity;
         const uint grass = 1u << ValleyGenerator.Grass, leaves = 1u << ValleyGenerator.Leaves, moss = 1u << ValleyGenerator.Moss,
             needles = 1u << ValleyGenerator.Needles, mud = 1u << ValleyGenerator.Mud, gravel = 1u << ValleyGenerator.Gravel;
@@ -421,10 +439,11 @@ public sealed class ForestValley : Node3D
             new()
             {
                 ResourceName = "Meadow grass",
-                Mesh = GrassMesh.Clump(blades: 16, height: 0.48f, width: 0.04f, bend: 0.45f, seed: 1,
-                    rootColor: new Vector4(0.09f, 0.14f, 0.04f, 1f), tipColor: new Vector4(0.42f, 0.5f, 0.2f, 1f)),
+                // ADR 0178: wide tufts (the same blades over more ground: a sward, not tufts on bare soil), olive green
+                // with a few straw blades, glowing yellow-green against the sun.
+                Mesh = ForestFlowers.MeadowTuft(30, 0.3f, (0.22f, 0.6f), new Vector4(0.06f, 0.09f, 0.035f, 1f), new Vector4(0.44f, 0.5f, 0.21f, 1f), seed: 1),
                 Material = grassMaterial,
-                Density = 8f * density,
+                Density = 4.8f * density,
                 LayerMask = grass,
                 ScaleMin = 0.7f,
                 ScaleMax = 1.35f,
@@ -436,10 +455,9 @@ public sealed class ForestValley : Node3D
             new()
             {
                 ResourceName = "Tall grass",
-                Mesh = GrassMesh.Clump(blades: 10, height: 0.85f, width: 0.03f, bend: 0.5f, seed: 7,
-                    rootColor: new Vector4(0.1f, 0.13f, 0.05f, 1f), tipColor: new Vector4(0.55f, 0.55f, 0.3f, 1f)),
+                Mesh = ForestFlowers.MeadowTuft(16, 0.22f, (0.55f, 1f), new Vector4(0.07f, 0.09f, 0.04f, 1f), new Vector4(0.52f, 0.54f, 0.25f, 1f), seed: 7),
                 Material = grassMaterial,
-                Density = 0.9f * density,
+                Density = 1.2f * density,
                 LayerMask = grass,
                 ScaleMin = 0.8f,
                 ScaleMax = 1.3f,
@@ -453,9 +471,9 @@ public sealed class ForestValley : Node3D
             {
                 ResourceName = "Woodland grass",
                 Mesh = GrassMesh.Clump(blades: 9, height: 0.32f, width: 0.03f, bend: 0.45f, seed: 2,
-                    rootColor: new Vector4(0.07f, 0.1f, 0.03f, 1f), tipColor: new Vector4(0.3f, 0.38f, 0.14f, 1f)),
+                    rootColor: new Vector4(0.08f, 0.09f, 0.04f, 1f), tipColor: new Vector4(0.35f, 0.37f, 0.2f, 1f)),
                 Material = grassMaterial,
-                Density = 1.4f * density,
+                Density = 1.8f * density,
                 LayerMask = leaves | moss,
                 ScaleMin = 0.7f,
                 ScaleMax = 1.2f,
@@ -515,14 +533,54 @@ public sealed class ForestValley : Node3D
             types.AddRange(ForestClutter.Create(density));
         }
 
+        if (Flowers)
+            types.AddRange(CreateFlowers(grassMaterial, density));
         return [.. types];
     }
 
-    private static FoliageType FernFromArt(float density, uint mask)
+    /// <summary>
+    /// ADR 0178: drifts of wild flowers (<see cref="ForestFlowers"/>): buttercups and daisies through the meadow, heather on
+    /// the moss and the forest edges. Each instance is a whole patch, so they come in drifts.
+    /// </summary>
+    private static IEnumerable<FoliageType> CreateFlowers(FoliageMaterial3D material, float density)
     {
-        var prop = ForestAssets.Fern;
-        var source = ForestAssets.CreatePropMaterial(prop);
-        var material = new FoliageMaterial3D
+        const uint grass = 1u << ValleyGenerator.Grass, leaves = 1u << ValleyGenerator.Leaves, moss = 1u << ValleyGenerator.Moss;
+        (string Name, ArrayMesh Mesh, float Density, uint Mask, float Distance, int Seed)[] kinds =
+        [
+            ("Buttercups", ForestFlowers.Buttercups(), 0.05f, grass, 34f, 41),
+            ("Daisies", ForestFlowers.Daisies(), 0.035f, grass | leaves, 30f, 42),
+            ("Heather", ForestFlowers.Heather(), 0.03f, moss | leaves, 38f, 43),
+        ];
+        foreach (var (name, mesh, d, mask, distance, seed) in kinds)
+            yield return new FoliageType
+            {
+                ResourceName = name,
+                Mesh = mesh,
+                Material = material,
+                Density = d * density,
+                LayerMask = mask,
+                ScaleMin = 0.75f,
+                ScaleMax = 1.4f,
+                AlignToNormal = 0.3f,
+                SinkMeters = 0.02f,
+                SlopeMaxDegrees = 32f,
+                CullDistance = distance,
+                ThinBand = 10f,
+                Subdivisions = 2,
+                Seed = seed,
+            };
+    }
+
+    private FoliageMaterial3D? _fernMaterial;
+    private ArrayMesh? _fernMesh;
+
+    /// <summary>The Poly Haven fern as foliage: cut-out, dithered, translucent (ADR 0178: 0.5 → 0.7, the back-lit fronds glow).</summary>
+    private FoliageMaterial3D FernMaterial()
+    {
+        if (_fernMaterial is not null)
+            return _fernMaterial;
+        var source = ForestAssets.CreatePropMaterial(ForestAssets.Fern);
+        return _fernMaterial = new FoliageMaterial3D
         {
             ResourceName = "Fern",
             AlbedoTexture = source.AlbedoTexture,
@@ -532,20 +590,60 @@ public sealed class ForestValley : Node3D
             AlphaCutoff = 0.45f,
             AlphaDither = true, // fronds resolve smoothly under TAA (ADR 0166)
             BackFace = FoliageBackFace.Flip,
-            Translucency = 0.5f,
+            Translucency = 0.7f,
             ShadingMode = ShadingMode.Pbr,
             Roughness = 1f,
             WindStrength = 0.5f,
             WindBranchBend = 0.3f,
             InstanceValueJitter = 0.14f,
-            InstanceHueJitter = 0.1f,
+            InstanceHueJitter = 0.05f,
         };
+    }
+
+    private ArrayMesh FernMesh() => _fernMesh ??= Recentre(ForestAssets.Fern, withWind: true);
+
+    /// <summary>
+    /// ADR 0178: R5's fern dell (<see cref="ValleyLayout.FernDell"/>): ferns crowding round the mossy log, larger than the
+    /// ground cover's, in one multimesh (the ground cover's density would never make a dell).
+    /// </summary>
+    private void BuildFernDell(Func<float, float, float> height)
+    {
+        if (!Art || !GroundCover)
+            return;
+        var dell = ValleyLayout.FernDell;
+        var random = new Random(178);
+        var yaw = float.DegreesToRadians(dell.YawDegrees);
+        var along = new Vector2(MathF.Cos(yaw), -MathF.Sin(yaw));
+        var transforms = new List<Transform3D>(dell.Ferns);
+        while (transforms.Count < dell.Ferns)
+        {
+            var angle = (float)random.NextDouble() * MathF.Tau;
+            var r = dell.FernRadius * MathF.Sqrt(0.08f + 0.92f * (float)random.NextDouble());
+            var x = dell.Centre.X + MathF.Cos(angle) * r;
+            var z = dell.Centre.Y + MathF.Sin(angle) * r;
+            // Not on the log: keep a band along its axis clear (the fronds still lean over it).
+            var offset = new Vector2(x, z) - dell.Centre;
+            var t = Vector2.Dot(offset, along);
+            if (MathF.Abs(t) < 3.2f && (offset - along * t).Length() < 0.75f)
+                continue;
+            var scale = 0.8f + 0.6f * (float)random.NextDouble();
+            transforms.Add(Transform3D.FromTrs(new Vector3(x, height(x, z) - 0.05f, z),
+                Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)random.NextDouble() * MathF.Tau), new Vector3(scale)));
+        }
+
+        var multimesh = new MultiMesh { Mesh = FernMesh(), InstanceCount = transforms.Count };
+        multimesh.SetTransforms(transforms.ToArray());
+        AddChild(new MultiMeshInstance3D { Name = "FernDell", Multimesh = multimesh, MaterialOverride = FernMaterial(), CastShadows = true });
+    }
+
+    private FoliageType FernFromArt(float density, uint mask)
+    {
         return new FoliageType
         {
             ResourceName = "Ferns",
-            Mesh = Recentre(prop, withWind: true),
-            Material = material,
-            Density = 0.24f * density,
+            Mesh = FernMesh(),
+            Material = FernMaterial(),
+            Density = 0.28f * density,
             LayerMask = mask,
             ScaleMin = 0.55f,
             ScaleMax = 0.95f,

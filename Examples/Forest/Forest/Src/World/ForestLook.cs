@@ -25,6 +25,10 @@ public static class ForestLook
     /// </summary>
     public static PostProcessProfile CreateProfile() => new()
     {
+        // ADR 0178: AgX's soft shoulder and its desaturation of bright light (back-lit leaves and the haze go towards warm
+        // white, not ACES' saturated yellow) are the references' softer contrast; the grade lifts its shade.
+        Tonemapper = Tonemapper.Agx,
+
         GlowEnabled = true,
         GlowIntensity = 0.3f,
         GlowStrength = 1f,

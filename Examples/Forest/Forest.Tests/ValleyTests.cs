@@ -87,6 +87,26 @@ public sealed class ValleyTests
     }
 
     [Fact]
+    public void ShotCamerasAndViewCorridorsStayClearOfTrees()
+    {
+        // ADR 0178: the recomposed shots look into the sun past no trunk at the lens, and the corridors hold.
+        var data = Valley.CreateTerrainData();
+        var trees = Trees(Valley, data);
+        foreach (var shot in ValleyLayout.Shots)
+            foreach (var tree in trees)
+                Assert.True(Vector2.Distance(new Vector2(tree.Position.X, tree.Position.Z), shot.Eye) >= 2.5f,
+                    $"a tree at {tree.Position} stands at {shot.Name}'s camera");
+        foreach (var (from, towards, halfAngle, reach) in ValleyLayout.ViewCorridors)
+            foreach (var tree in trees)
+            {
+                var offset = new Vector2(tree.Position.X, tree.Position.Z) - from;
+                var inside = offset.Length() < reach && offset.Length() > 0.1f &&
+                             Vector2.Dot(Vector2.Normalize(offset), Vector2.Normalize(towards - from)) > MathF.Cos(float.DegreesToRadians(halfAngle));
+                Assert.False(inside, $"a tree at {tree.Position} stands in the view corridor from {from}");
+            }
+    }
+
+    [Fact]
     public void ThePathIsWalkable()
     {
         var data = Valley.CreateTerrainData();
