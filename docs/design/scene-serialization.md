@@ -269,6 +269,10 @@ flowchart LR
   existing file or the asset database; a new `scn_` UID otherwise), the database is updated and a cached
   copy of the scene picks up the new content. Writes go through a temp file + move.
   `SceneSaver.ToJson(root, uid)` serializes without touching disk.
+- Before writing, `SceneSaver.Save` calls the internal `ISceneSaveHook.OnSceneSaving(scenePath)` on every node under
+  the root (all of them, owned or not). Nodes with data of their own write it there: a [`Terrain3D`](terrain.md) saves
+  its layer images and `terrain.mres` into `<scene>_terrain/`. A throwing hook fails the save before the scene file is
+  written. `ToJson` runs no hook.
 - `ResourceSaver.Save(resource, path)` writes a `.mres` (`format`, `uid`, `type`, `v`, `resources`,
   `props`) and makes the resource external (`ResourcePath`, `Uid`), so scenes reference it from then on.
 

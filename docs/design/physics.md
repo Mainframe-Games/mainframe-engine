@@ -301,6 +301,18 @@ to a few millimetres (closer reports "overlapping"), so `CharacterBody3D.SafeMar
   frame has more lines (the old one goes to the deletion queue). The pipeline and buffers are released through the
   deletion queue when the render server is disposed.
 
+## Terrain collision
+
+A [`Terrain3D`](terrain.md) collides through ordinary nodes, so no Jitter2 code leaves `Src/Physics`: one internal,
+unsaved `StaticBody3D` per chunk (at the chunk origin, `CollisionLayer`/`CollisionMask` from the `TerrainData`) with a
+`CollisionShape3D` holding a `ConcavePolygonShape3D` whose `Faces` are the chunk's LOD 0 render triangles, copied from
+its mesh (bit-for-bit the drawn surface; `HeightMapShape3D` is not used — its origin and diagonal differ). A height or
+water edit rewrites the faces in place and reassigns them; the body rebuilds at the next step (inside a `TerrainEdit`,
+at `End()`). `CollisionMode.All` builds every chunk; `NearBodies` is still a stub that does the same; `None` builds no
+bodies. Physics rays and `Terrain3D.Raycast` agree; a `CharacterBody3D` rests its safe margin (1 cm) above the
+surface. Jitter2 makes one `TriangleShape` per triangle: the forest's 256 m at 0.5 m (524k triangles) costs ≈ 2.1 s in
+the first step after the terrain enters (and ≈ 0.65 s more over the next second), ≈ 0.03 ms per step afterwards.
+
 ## Performance
 
 - **3D: zero managed allocations** in steady-state physics frames (≈ 500 bodies, contact monitors, areas,
