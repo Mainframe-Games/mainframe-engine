@@ -50,7 +50,7 @@ flowchart LR
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
-| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools, terrain/trees/water and a forest showcase | ⬜ |
+| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D skeletal animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools, terrain/trees/water and a forest showcase | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, D3D12 (Windows), WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -279,6 +279,9 @@ the Project Manager. Order: D1 → D2 → D3 → D4.
 The features most games need that the engine does not have yet. Not numbered: these are independent of M11–M13 and can
 be interleaved with them. Recommended order: G1a → G2 → G3a → G4 → G5, with G1b, G3b, G6 and G7 slotted in as needed.
 Character animation goes Claude-first: G1a core (G1.1–G1.4) → G1b → G1c + G1e → the G1a panel → G1d → G1f.
+2D skeletal animation (G17, [ADR 0184](../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)) goes runtime
+first: G17a → G17b → G17c → G17d, with G17e alongside G17c/G17d, then G17f and G17g; G17b builds the shared timeline
+G1a reuses.
 G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that M12.7 extends. G6 depends on the
 "Vulkan now or after M11" decision in its proposal.
 G8 (world building) goes G8a Faceted terrain → G8b low-poly trees (both on today's Blinn-Phong renderer) → G6.1/G6.2
@@ -307,6 +310,13 @@ phases ([ADR 0164](../memory/decisions/0164-forest-visual-quality-plan.md)).
 | G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | 🚧 | [Water](design/future/water.md) |
 | G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | 🚧 | [Forest showcase](design/future/forest-showcase.md) |
 | G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | 🚧 | [Forest visual quality](design/future/forest-visual-quality.md) |
+| G17a 2D skeletal runtime: `.mskel`/`.manim` data, bake cache, SoA pose, weighted meshes, skins, `AnimationTracks` mixing, events, `Skeleton2D`, compute skinning, canvas skinned commands and blend modes, Spine 4.x JSON importer | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
+| G17b Skeleton tab, Setup mode: `IDocumentTab`, shared `Timeline/` (song tab moved onto it), hierarchy, bones, slots, skins, PNG import | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
+| G17c Skeleton tab, Animate mode: dopesheet, graph editor, auto-key, IK posing, pose mirror, onion skin, mix preview, audio | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
+| G17d Meshes and weights (auto mesh, vertex edit, heat weights, brush), PSD import and re-import, canvas normal maps | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
+| G17e IK, transform, path and physics constraints; clipping and path attachments | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
+| G17f Animation graph: state machines, 1D/2D blend spaces, masked layers (shared with 3D), graph tab | ⬜ | [Animation graph](design/future/animation-graph.md) |
+| G17g `SkeletonSprite3D`, bone attachments, hitboxes, network sync, `AnimationPlayer` bridge, `mfe skel` + Claude skill, Demo scene | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 

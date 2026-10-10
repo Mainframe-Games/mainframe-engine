@@ -1,5 +1,9 @@
 # Spine Integration
 
+> The engine-owned replacement for new work is planned in [2D skeletal animation](future/skeleton-2d.md) (G17,
+> [ADR 0184](../../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)). Spine stays for teams with Spine
+> licences; its rigs import into the new format with the Spine JSON importer.
+
 ## Purpose
 
 Renders Spine skeletal animations as lit, shadow-casting geometry in the 3D scene. Use `SpineNode`;
@@ -111,7 +115,9 @@ Vertex buffers are per-frame-slot `GpuBuffer`s that grow by doubling; `Dispose` 
 
 ## Known issues
 
-- Clipping attachments, per-slot blend modes and two-color tint are ignored.
+- Per-slot blend modes and two-color tint are ignored (clipping attachments are applied by `SpineGeometry`). Per-command
+  canvas blend modes, planned in [2D skeletal animation](future/skeleton-2d.md#canvas), would let `SpineSprite` honour
+  slot blend modes.
 - Only `atlas.Pages[0].pma` is honoured.
 - Shadows come from the attachment triangles, not the atlas alpha (no alpha test): a region attachment casts its
   whole quad. Casting is double-sided (`ShadowSystem.DoubleSidedShadow2DPipeline`), so the flat skeleton casts

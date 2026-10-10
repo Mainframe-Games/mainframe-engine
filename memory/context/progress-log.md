@@ -620,3 +620,14 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   (`TicksMsec`, `UnixTime`), `GameHost.IsDebugBuild`, `GameHost.UserDataDirectory`/`UserDataPath`.
 - Crash Site Defense moved off its `namespace Godot` shim onto these; behaviour checked with its scenario dumps (29/29)
   and world/UI screenshots against a pre-change baseline.
+
+### 2026-10-11 — 2D skeletal animation design (G17, docs only)
+- Brogan asked for an engine-owned 2D skeletal system inspired by Spine, authored in the editor; design docs only.
+- Branch `design/skeleton-2d` (local commit, not pushed). Proposals: `docs/design/future/skeleton-2d.md` (runtime,
+  format, rendering, import, integrations, `mfe skel`), `skeleton-2d-editor.md` (Skeleton tab), `animation-graph.md`
+  (state machine shared with 3D); mockups `docs/images/skeleton-editor-{setup,animate,mesh}.svg`,
+  `animation-graph-editor.svg`; ADR 0184; milestones G17a–G17g (G9–G16 were taken by a parallel session's
+  proposals); keyframe-animation/spine/animation-authoring updated.
+- Key calls: Spine stays alongside; clean-room (no spine-csharp code); `.mskel` + one `.manim` per clip; Y-down; bake
+  cache like tree bakes; compute skinning (first compute user); G17b extracts the shared timeline.
+- Next: Brogan reviews the docs; then an implementation plan for G17a.
