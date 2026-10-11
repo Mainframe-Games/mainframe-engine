@@ -4,6 +4,18 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **G4 Save games and settings: implemented, local only (2026-10-11).** Branch `claude/save-games-settings-35b203`
+  (worktree `.claude/worktrees/save-games-settings-35b203`), not pushed, no PR. Proposal
+  `docs/design/future/save-and-settings.md` is marked shipped with an "As built" section listing the deviations.
+  - G4.1 (shared migrations, `DurableFile`, `userDataName`) was done in the main session. G4.2+G4.7 (`SaveServer`,
+    cloud seam), G4.3 (`ConfigFile`, `UserSettings`, `UserVolume`, window modes, `UserScale`) and G4.4 (rebinding,
+    `InputRebinder`) each ran as their own lane. G4.5 (`SettingsMenu`, `.tabs`, `settings.pot`, golden) was done in the
+    main session; for G4.6 the editor Saves page, Open User Data Folder and the template `SaveGame` ran as a lane, and
+    the Demo, QA and docs were done in the main session.
+  - Gates green: engine 2345, editor 792, Demo 71, render 173 (moltenvk); Release `-warnaserror`, format, shaders;
+    `just qa-settings` passes. Lavapipe golden `ui-settings-menu` recorded in Docker (`just render-tests-linux`).
+  - Next: one push and a PR when Brogan says so (Actions minutes).
+
 - **Forest showcase slice: playable, waiting for Brogan's notes (2026-10-08).** Branch `feature/forest-slice`, pushed,
   no PR yet. Worktree `.claude/worktrees/forest-slice`. Plan: `docs/superpowers/plans/2026-10-08-forest-vertical-slice.md`.
   - Every lane is merged:
