@@ -180,6 +180,7 @@ public sealed class SaveServerTests : SaveTestBase
         File.Copy(PathOf("older.msave"), PathOf("sneaky.msave")); // behind the server's back: not seen until a write
         Assert.Same(first, server.ListSlots());
 
+        Thread.Sleep(5); // savedUtc has millisecond precision: a tie would sort "newer" first (by name)
         Pump(server, server.SaveAsync("newest", Data("3"), Schema));
         var second = server.ListSlots();
         Assert.NotSame(first, second);
