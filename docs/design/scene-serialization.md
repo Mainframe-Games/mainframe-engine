@@ -24,6 +24,7 @@ and saving use no reflection. Decisions: [JSON scenes, no binary bake](../../mem
 | `ValueCodec<T>`, `Codecs`, `PropertyBag` | [Serialization/Codecs.cs](../../MainframeEngine/Src/Serialization/Codecs.cs), [PropertyBag.cs](../../MainframeEngine/Src/Serialization/PropertyBag.cs) | JSON value encodings; migration input |
 | `SceneWriter`, `SceneDocument`, `ResourceTable`, `PropertyApplier` | [Serialization/](../../MainframeEngine/Src/Serialization/) | internal reader/writer |
 | `Resource`, `PackedScene`, `ResourceLoader`, `SceneSaver`, `ResourceSaver` | [Resources/](../../MainframeEngine/Src/Resources/) | |
+| `JsonMigration`, `JsonMigrations`, `DurableFile` | [Serialization/JsonMigration.cs](../../MainframeEngine/Src/Serialization/JsonMigration.cs), [DurableFile.cs](../../MainframeEngine/Src/Serialization/DurableFile.cs) | the version upgrade loop of JSON documents (`project.mfproj`, save games, settings); crash-safe file replacement |
 | `AssetDatabase`, `AssetMeta`, `AssetIndex`, `AssetUid` | [Resources/](../../MainframeEngine/Src/Resources/) | UIDs ↔ paths |
 | `NodeRegistrationGenerator` | [MainframeEngine.Generators/](../../MainframeEngine.Generators/) | Roslyn incremental generator (netstandard2.0) |
 | `ConfigFile` | [Serialization/ConfigFile.cs](../../MainframeEngine/Src/Serialization/ConfigFile.cs) | Godot's `ConfigFile` over JSON: player settings and other key/value files ([below](#config-files-configfile)) |
@@ -311,7 +312,7 @@ work runs on a worker thread:
   nested instances as references + overrides (diffed against a freshly instantiated pristine copy), the
   resources they use and the persisted connections. The file's UID is kept across saves (read from the
   existing file or the asset database; a new `scn_` UID otherwise), the database is updated and a cached
-  copy of the scene picks up the new content. Writes go through a temp file + move.
+  copy of the scene picks up the new content. Writes go through `DurableFile` (below).
   `SceneSaver.ToJson(root, uid)` serializes without touching disk.
 - Before writing, `SceneSaver.Save` calls the internal `ISceneSaveHook.OnSceneSaving(scenePath)` on every node under
   the root that the scene or one of its instances owns (runtime children without an owner, such as a `[Tool]` node's
@@ -320,6 +321,23 @@ work runs on a worker thread:
   written. `ToJson` runs no hook.
 - `ResourceSaver.Save(resource, path)` writes a `.mres` (`format`, `uid`, `type`, `v`, `resources`,
   `props`) and makes the resource external (`ResourcePath`, `Uid`), so scenes reference it from then on.
+
+### Durable writes (`DurableFile`)
+
+`DurableFile.Write(path, bytes, backups)` replaces a file so that a crash or power loss at any point leaves a complete
+copy. `ResourceSaver.WriteAtomically` uses it with no backups for `.mscene`, `.mres` and `project.mfproj`; save games
+use it with rolling backups ([Project and GameHost → Save games](project-and-gamehost.md#save-games)).
+
+1. Write `path.tmp` with a `FileStream` and `Flush(flushToDisk: true)` (`fsync` / `FlushFileBuffers`).
+2. First write (no target yet), or no backups: move the temp file over the target.
+3. Otherwise rotate `.bak{N-1}` → `.bak{N}` … (the oldest falls off), then `File.Replace(tmp, path, path.bak1)`.
+
+On Windows the replace is `ReplaceFileW` (atomic); on Unix it is a hard link plus a rename. At every moment the target,
+`.bak1` or a fully flushed `.tmp` is complete, so a reader that validates its data tries `RecoveryCandidates(path,
+backups)` in that order (target, `.tmp`, `.bak1` … `.bakN`), puts the first good one back with `Restore`, and moves a
+damaged target aside with `QuarantineCorrupt` (`path.corrupt-{utc}`, never deleted). .NET cannot `fsync` a directory,
+so a rename can still be lost on power failure on some file systems; the same recovery order covers it. The steps run
+through an internal `IDurableFileOps` shim, which the tests use to simulate a crash between any two of them.
 
 ## UIDs and the asset database
 
@@ -337,6 +355,14 @@ work runs on a worker thread:
 
 - **File format**: `format` (currently 2). Newer formats are rejected; older ones load (format 1 differs in layout
   only: `SceneDocument.Parse` reads both).
+- **Other JSON documents** (`project.mfproj`, save games, settings) share one upgrade loop: `JsonMigrations.ReadVersion`
+  reads the version key (missing means 1; newer than the build or below 1 throws `InvalidDataException`), then
+  `JsonMigrations.Upgrade(root, version, current, migrations, source, what)` runs `JsonMigration(From, Action<JsonObject>)`
+  steps one at a time on the JSON tree, and only then is the tree read into the typed object; a missing step throws
+  naming the file and `what` ("save version"). Saving always writes the current version. Steps are static lambdas over
+  `JsonObject`: no reflection, trim- and AOT-safe. `ProjectSettingsFormat.Upgrade` and its `ProjectMigration` are a thin
+  wrapper over it. Save games carry two numbers: `format` (the engine's container, engine migrations) and `version` (the
+  game's payload, the game's `SaveSchema` migrations).
 - **Types**: `[SerializedVersion(n)]` sets a type's layout version (default 1); entries store `v` when it is
   not 1. On load, `[SerializedMigration(from)]` methods (`static void M(PropertyBag)`) upgrade older data
   step by step (rename, convert or drop properties) before it is applied; saving writes the current

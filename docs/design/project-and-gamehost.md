@@ -17,13 +17,15 @@ Decisions: [project file + GameHost](../../memory/decisions/0090-project-file-an
 
 | Type | File | Notes |
 |---|---|---|
-| `ProjectSettings` (+ `WindowSettings`, `PhysicsProjectSettings`, `AudioProjectSettings`, `LocalizationProjectSettings`, `RenderingProjectSettings`, `AutoloadSettings`) | [Project/ProjectSettings.cs](../../MainframeEngine/Src/Project/ProjectSettings.cs) | the contents of `project.mfproj`; `Load`, `Parse`, `Save`, `ToJson`, `ToEngineOptions` |
+| `ProjectSettings` (+ `WindowSettings`, `PhysicsProjectSettings`, `AudioProjectSettings`, `LocalizationProjectSettings`, `RenderingProjectSettings`, `SavesProjectSettings`, `AutoloadSettings`) | [Project/ProjectSettings.cs](../../MainframeEngine/Src/Project/ProjectSettings.cs) | the contents of `project.mfproj`; `Load`, `Parse`, `Save`, `ToJson`, `ToEngineOptions` |
 | `ProjectSettingsFormat`, `ProjectMigration` | [Project/ProjectSettingsFormat.cs](../../MainframeEngine/Src/Project/ProjectSettingsFormat.cs) | reader/writer, `format` migrations |
 | `GameHost : Engine`, `GameHostOptions`, `GameSession` | [Project/](../../MainframeEngine/Src/Project/) | runs a project; command line; the testable session logic |
 | `UserSettings`, `UserSettingsSection` | [Project/UserSettings.cs](../../MainframeEngine/Src/Project/UserSettings.cs) | the player's `settings.json`: audio, input, display, language ([below](#user-settings)) |
 | `InputMap`, `InputAction`, `InputBinding`, `InputState`, `Input` | [Scene/Input/](../../MainframeEngine/Src/Scene/Input/) | actions; per-tree polled state (`SceneTree.Input`); static facade |
 | `Log`, `LogEntry`, `ILogSink`, `ConsoleLogSink`, `FileLogSink`, `MemoryLogSink` | [Debugging/](../../MainframeEngine/Src/Debugging/) | structured log routing |
 | `UserDataPaths`, `EngineInfo` | [Core/](../../MainframeEngine/Src/Core/) | per-user folders; engine version |
+| `SaveServer`, `SaveSchema<T>`, `SaveInfo`, `SaveSlotInfo`, `SaveResult`, `SaveLoad<T>`, `SaveOptions` | [Saves/](../../MainframeEngine/Src/Saves/) | save games: slots, `.msave` files, async writes, recovery |
+| `ISaveStorage`, `LocalSaveStorage`, `ICloudSaveBackend`, `CloudSaveMeta`, `CloudSaveFile`, `SaveConflictPolicy` | [Saves/](../../MainframeEngine/Src/Saves/) | storage seam; local files; the cloud hook (M13 backends) |
 | `EditorLinkProtocol`, `EditorLinkClient`, `EditorLinkServer`, `EditorLinkLogSink` | [EditorLink/](../../MainframeEngine/Src/EditorLink/) | game ↔ editor channel |
 | `GameAssemblyLoader`, `Debouncer`, `DebouncedFileWatcher` | [Project/](../../MainframeEngine/Src/Project/) | code reload support |
 | `mfgame` template | [Templates/MainframeEngine.Templates](../../Templates/MainframeEngine.Templates/) | `dotnet new` project template |
@@ -58,6 +60,7 @@ commas tolerated). Only values that differ from the defaults are written, except
   "format": 3,
   "name": "Space Game",
   "engineVersion": "0.4.2",                    // the engine the project was created with / upgraded to
+  "userDataName": "SpaceGame",                 // the user data folder's name (default: name); keep it stable
   "mainScene": "scn_0123456789ab",             // UID or Content/ path
   "assemblies": ["SpaceGame"],                 // game assemblies (types registered before scenes load)
   "isDemo": true,                              // this build is the game's Steam demo (see Demo builds)
@@ -78,6 +81,8 @@ commas tolerated). Only values that differ from the defaults are written, except
   "rendering": { "exposure": 1.1, "shadows": "Low" },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1, "minScale": 0.5 },
   "loading": { "async": true, "screen": "Content/UI/loading.rml" }, // ADR 0183: the start scene loads behind a loading screen
+  "saves": { "maxBytes": 16777216, "backups": 2, "compression": "none", "thumbnails": true,
+             "thumbnail": { "width": 320, "height": 180 } },
   "autoloads": [
     { "name": "Music", "scene": "Content/Autoload/Music.mscene" },
     { "name": "Stats", "type": "GameStats", "enabled": false }
@@ -111,6 +116,15 @@ commas tolerated). Only values that differ from the defaults are written, except
   (default true) makes `GameHost` load the start scene on a worker thread behind a loading screen; `screen` is the
   screen's document (`.rml` binding the `loading` data model), null (default) the engine's
   (`LoadingScreen.DefaultSource`), `""` none. Optional keys, no migration.
+- **User data** (`userDataName`, Godot's `config/custom_user_dir_name`): the name of the game's per-user folder
+  (`GameHost.UserDataDirectory`: logs, saves, settings); when unset, `name` is used (`ProjectSettings.UserDataFolderName`).
+  Set it once and keep it, so renaming the project or its window title never orphans player data; the template sets it
+  to the project name at creation, and the Demo has one. An optional key: no format bump (older engines warn and ignore it).
+- **Saves** (`SavesProjectSettings`, [Save games](#save-games)): `maxBytes` (the largest payload, uncompressed, default
+  16 MiB), `backups` (previous versions kept per slot, 0–16, default 2), `compression` (`"none"` default or `"gzip"`),
+  `thumbnails` (default false; true makes `ToEngineOptions` turn on `EngineOptions.EnableFrameCapture`, which slows some
+  drivers, so it is opt-in) and `thumbnail.width`/`height` (default 320×180). `SaveOptions.FromProject` reads them.
+  Optional keys, no migration.
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.
 - **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the
@@ -148,8 +162,8 @@ commas tolerated). Only values that differ from the defaults are written, except
 - **Packaging.** `build/package-game.sh` names the `.app` and the executable from `name` and takes the icon from
   `window.icon` ([Release → Games](release.md#games)).
 
-Renaming a game moves its user data folder (settings, saves, logs) with it. No new keys: the editor's Project Settings
-already edit `name` and `window.icon`.
+Renaming a game moves its user data folder (settings, saves, logs) with it unless `userDataName` pins the folder's
+name (new projects set it). The editor's Project Settings already edit `name` and `window.icon`.
 
 ### Demo builds
 
@@ -204,7 +218,8 @@ game's first assembly was compiled in Debug (developer keys), `GameHost.IsHeadle
 
 Startup: `ProjectSettings.ToEngineOptions()` (window, VSync, physics settings and tick, audio, localization, Steam) +
 the flags + `CreateUiOptions` (the UI scale, hot-reload folders) → `Engine` constructor (`Tr.Configure`) → `GameSession` (connects the editor link first) → `OnLoad`:
-`base.OnLoad()`, frame cap, exposure, shadow quality; then, on the **first update** (the window is up: SDL shows it
+`base.OnLoad()`, the `SaveServer` (`GameHost.CreateSaveServer`: `LocalSaveStorage` in `{user data}/saves`, registered last
+so it is disposed — and flushed — first on close), frame cap, exposure, shadow quality; then, on the **first update** (the window is up: SDL shows it
 after `OnLoad`, ~0.3 s on macOS, and Godot readies its scene with the window already there) and with that update's
 delta discarded (`Engine.DiscardFrameDelta`, so start-up time never reaches the game; with `--fixed-fps` the frame keeps the fixed delta like every other, as Godot's first frame does: ADR 0135), `GameSession.Start`: input map → `Tree.Input.Map`, `MaxStepsPerFrame`,
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
@@ -248,8 +263,9 @@ for the API and [Game UI → Loading screen](game-ui.md#loading-screen-adr-0183)
 ### Headless (`--headless`, ADR 0120)
 
 `GameHost.Run` with `--headless` runs a `HeadlessHost` instead of a `GameHost` (no `Engine`: no SDL window, Vulkan,
-canvas, UI or dev overlay): its own `SceneTree` with `MultiplayerApi`, both physics servers and, when the project has
-audio, an `AudioServer` on the null device (buses and players work, nothing is heard). It runs the same
+canvas, UI or dev overlay): its own `SceneTree` with `MultiplayerApi`, both physics servers, a `SaveServer` (no
+thumbnails) and, when the project has audio, an `AudioServer` on the null device (buses and players work, nothing is
+heard). It runs the same
 `GameSession` (input map, autoloads, `--scene`/`mainScene`) and loops at `window.maxFps`, else the physics rate:
 `GameSession.Update`, `Tree.Tick`, then the queued canvas draws (Godot runs `_draw` headless too). `--fixed-fps`
 and `--max-frames` apply. Ctrl+C / SIGTERM raise `SceneTree.CloseRequested` (the game's chance to save), then quit.
@@ -370,10 +386,124 @@ on stderr and skipped; a sink that logs does not recurse.
 | `MemoryLogSink` | ring of the last N entries; `Snapshot()`, `CopySince(sequence)` for incremental panels; no allocation once full |
 | `EditorLinkLogSink` | queues entries on the editor link |
 
+File log lines read like the console's (`2026-10-05T12:00:00.123Z [INFO] game Net: …`). The log folder is
+`{user data}/logs` ([User data](#user-data)).
+
+## User data
+
 `UserDataPaths`: `%APPDATA%\{game}`, `~/Library/Application Support/{game}`, `$XDG_DATA_HOME/{game}`
-(`~/.local/share`); `MAINFRAME_USER_DATA` overrides the base folder. `GameHost.UserDataDirectory` is the running game's
-folder (created on use; saves and settings go there, next to `logs/`), `GameHost.UserDataPath("saves/run-1.json")` a
-path inside it. File log lines read like the console's (`2026-10-05T12:00:00.123Z [INFO] game Net: …`).
+(`~/.local/share`); `MAINFRAME_USER_DATA` overrides the base folder (tests, CI, portable installs).
+`GameHost.UserDataDirectory` is the running game's folder, named by `userDataName`, else `name` (created on use), and
+`GameHost.UserDataPath("saves/x")` a path inside it. Nothing the game writes goes next to the app, which may be
+read-only.
+
+```text
+{user data}/                 GameHost.UserDataDirectory
+├── saves/                   SaveServer (LocalSaveStorage)
+│   ├── slot1.msave          header line + payload
+│   ├── slot1.msave.bak1     previous save (rolling, saves.backups copies)
+│   ├── slot1.png            optional thumbnail
+│   ├── slot1.msave.corrupt-20261008T101500123Z   a damaged copy, kept for support
+│   └── .sync.json           the last synced hash per slot (with a cloud backend)
+└── logs/                    FileLogSink
+```
+
+## Save games
+
+`SaveServer` (`Tree.Servers.Get<SaveServer>()`, registered by `GameHost` and `HeadlessHost`) saves the game's own data
+type in named slots. There is no automatic scene serialization (Godot has none either): a save is a game record,
+serialized through the game's source-generated `JsonTypeInfo<T>` — no reflection, so it works trimmed and under iOS AOT.
+
+```csharp
+public sealed record CrateSave(List<CrateState> Crates, int Spawned);
+
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, IncludeFields = true)]
+[JsonSerializable(typeof(CrateSave))]
+internal sealed partial class GameSaveJson : JsonSerializerContext;
+
+static readonly SaveSchema<CrateSave> Schema = new(GameSaveJson.Default.CrateSave, version: 2,
+    new JsonMigration(1, static root => root["spawned"] ??= root["crates"]!.AsArray().Count)); // v1 had no counter
+
+var saves = Tree!.Servers.GetRequired<SaveServer>();
+var result = await saves.SaveAsync("slot1", snapshot, Schema, new SaveInfo("Level 2 — 14 crates", Progress: 0.4, Thumbnail: true));
+var load = saves.Load("slot1", Schema);  // LoadStatus.Ok / RecoveredFromBackup → load.Data
+foreach (var slot in saves.ListSlots()) { /* slot.Description, slot.PlayTime, slot.ThumbnailPath, … */ }
+```
+
+- **API.** `SaveAsync`/`Save` (blocking, for quit and pause paths), `Load` (blocking, behind a loading screen)/`LoadAsync`,
+  `ListSlots` (headers only, newest first, cached until the next write), `Exists`, `Delete` (the slot, its temp file,
+  backups and thumbnail; damaged and conflict copies are kept), `CaptureThumbnail`, `Flush(timeout)`, `PlayTime`, the
+  `Saved` event. Slot names are `[a-z0-9_-]{1,64}` (`SaveServer.IsValidSlotName`); anything else throws
+  `ArgumentException`, and games show their own labels from `SaveInfo.Description` (at most 1 024 characters).
+  `SaveResult` is the slot, `SaveStatus` (`Ok`, `TooLarge`, `IoError`, `Cancelled`), the error, the written header
+  (`SaveSlotInfo`) and `CloudTooLarge`; `SaveLoad<T>` is `LoadStatus` (`Ok`, `RecoveredFromBackup`, `NotFound`,
+  `Corrupt`, `TooNew`, `IoError`), the data, the header of the copy that loaded and the error.
+- **File format.** A `.msave` is UTF-8 in two parts: line 1 is a compact JSON header (at most 64 KiB, ending with `\n`),
+  the rest the payload JSON, optionally gzip. Both are readable in any editor:
+
+  ```json
+  {"kind":"mainframe-save","format":1,"slot":"slot1","version":2,"savedUtc":"2026-10-08T10:15:00.000Z","playTimeSeconds":5423.5,"description":"Physics 3D — 14 crates","progress":0.4,"device":"brogan-mbp","game":"Mainframe Demo","gameVersion":"1.2.0","engine":"0.9.3","compression":"none","payloadBytes":18234,"sha256":"9f2c…","thumbnail":"slot1.png"}
+  ```
+
+  `format` is the engine's container (`TooNew` when newer), `version` the game's payload (`SaveSchema.Version`; older
+  payloads run the schema's `JsonMigration`s, newer are `TooNew`). `payloadBytes` and `sha256` describe the stored
+  (possibly compressed) bytes. A listing reads the header line with one small buffered read and `Utf8JsonReader`, never
+  touching the payload: a slot with a 50 MB payload lists in well under 5 ms. The header fields are a superset of M13's
+  `SaveMeta` (slot, description, play time, modified time, device, progress), so cloud backends map them one to one.
+- **Write path.** `SaveAsync` serializes on the calling (main) thread at once — the bytes are the snapshot, so the game
+  may change its state on the next line — and checks `saves.maxBytes` (`TooLarge`, nothing written). One worker per
+  server (a single-reader `Channel`) hashes (SHA-256), optionally gzips, builds the header and writes: the thumbnail
+  first (`slot1.png`; a lost one is cosmetic), then `ISaveStorage.WriteDurable` (`DurableFile`: temp file, flush to
+  disk, `saves.backups` rolling backups, replace; [Scene serialization → Durable writes](scene-serialization.md#durable-writes-durablefile)).
+  Queued saves of the same slot that have not started are coalesced: the newest wins, every caller gets that result and
+  `Saved` is raised once per write.
+- **Completion.** Results go into a `ConcurrentQueue`; `SaveServer.Process` (a frame server, main thread) drains it,
+  completes the task and raises `Saved`. The engine has no `SynchronizationContext`, so completing from `Process` makes
+  an `await` in game code continue on the main thread.
+- **Load and recovery.** The header is checked (`kind`, `format`, `version`), then `payloadBytes` and `sha256`; the
+  payload is decompressed (the size limit includes the decompressed size), migrated and deserialized. On any failure
+  (truncated, bad checksum, bad JSON, a failed migration) the file is renamed `slot1.msave.corrupt-{utc}` (never
+  deleted, so a player can send it to support), then the `.tmp` of an interrupted write and `.bak1` … `.bakN` are tried
+  in order: the first valid copy is restored as the slot and returned as `RecoveredFromBackup` with its own header
+  ("Restored the save from 10:02"). No valid copy: `Corrupt`. A `TooNew` file is left untouched. A successful load sets
+  `PlayTime`.
+- **Threading and allocation.** Saving and loading allocate freely. `Process` advances `PlayTime` while the tree is not
+  paused and checks a pending count: **0 B** when idle (allocation gate). Storage is touched by one thread at a time (a
+  lock around every call: the worker, the cloud worker, or the caller of a blocking method). Call the methods from the
+  main thread. `Dispose` (engine close, after `SceneTree.CloseRequested`) calls `Flush(5 s)`, so a quit right after
+  `SaveAsync` still writes the save; mobile's `OnApplicationPause` will call `Flush` too.
+- **Thumbnails.** `SaveInfo.Thumbnail`, or an earlier `CaptureThumbnail()` (e.g. as the pause menu opens, before it
+  covers the game), captures the frame with `SceneTree.CaptureFrame`; the save waits for it (at most 2 s, or until a
+  `Flush`), and the worker crops it to the thumbnail's aspect, box-filters it to `saves.thumbnail` (320×180) and encodes
+  it with `Png.EncodeRgba8`. A blocking `Save` uses an already captured frame only. Without frame capture
+  (`saves.thumbnails` false) requests are ignored with a one-time warning.
+- **Storage seam.** `ISaveStorage` (`List`, `OpenRead`, `WriteDurable`, `Delete`, `GetModifiedUtc`, and `Move` with a
+  copy-and-delete default) is what consoles or tests replace; `LocalSaveStorage(root)` is the desktop one and creates its
+  folder on the first write. Paths are relative to the root, `/`-separated.
+- **AOT safety.** The engine csproj enables the trim and AOT analyzers (`EnableTrimAnalyzer`, `EnableAotAnalyzer`), and
+  `MainframeEngine/.editorconfig` makes their diagnostics (IL2026, IL3050, …) errors in `Src/Saves/` and silences them
+  elsewhere, since the rest of the engine still reflects over game types. A reflection-based `JsonSerializer` call in the
+  save code fails the build.
+
+### Cloud saves (the M13 seam)
+
+`SaveServer.Cloud` takes an `ICloudSaveBackend` (`Name`, `MaxBytes` per slot, `ListAsync`, `UploadAsync(slot, file,
+thumbnail)`, `DownloadAsync`); the Steam Cloud, iCloud and Play Saved Games backends are [M13](future/mobile-services.md).
+Backends store whole `.msave` files, so the file format needs no change; `CloudSaveMeta.FromFile` reads a file's header
+for their listings.
+
+- **Local first.** Local storage is the source of truth. After every local write the same bytes are uploaded, best
+  effort, retried `SaveOptions.CloudRetries` times with a doubling `CloudRetryDelay`; uploads run one at a time on a
+  cloud worker and coalesce per slot. A file over the backend's `MaxBytes` stays local and `SaveResult.CloudTooLarge`
+  says so.
+- **Sync.** `SyncAsync()` (at start-up, on resume, from a "cloud" button) compares the remote headers with the local ones
+  against `saves/.sync.json`, the payload hash of each slot at its last sync. A slot changed on one side is copied to the
+  other (a slot deleted locally since the last sync is not brought back); a slot changed on both is a conflict that
+  `ConflictPolicy` settles: `MostRecent` (`savedUtc`), `HighestProgress` (`progress`, ties by time) or `Manual`, which
+  raises `ConflictDetected(local, remote)` on the main thread and waits for `ResolveConflict(slot, keepLocal)`. The losing
+  copy is kept as `slot1.msave.conflict-{utc}`. Downloaded files are checked (header and checksum) before they replace
+  anything, and a slot that changes locally while a download is in flight is left for the next sync.
+- **Steam Auto-Cloud** needs no code: configured on the Steamworks partner site, it syncs `{user data}/saves/*.msave`.
 
 ## Editor link
 
@@ -488,6 +618,8 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 
 | Suite | Covers |
 |---|---|
+| `SaveServerTests`, `SaveThumbnailTests`, `SaveCloudTests` ([Saves/](../../Tests/MainframeEngine.Tests/Saves/)) | round trip, the header line, gzip, slot-name validation, header-only listing of a 50 MB payload (< 5 ms, ≤ 4 KiB read), listing order and cache; truncated, flipped byte, bad JSON and failed migration → `RecoveredFromBackup` with `.corrupt-*` kept, recovery from `.tmp`, `TooNew` (format and version) untouched, `TooLarge`, migration, same-slot coalescing, `Flush` and flush on dispose, completion on the thread that calls `Process`, play time only while unpaused, `Delete`, **0 B idle `Process`**; thumbnail capture, scaling and PNG, `CaptureThumbnail`, no capture; uploads (same bytes, retries, too large), sync both ways, local deletes, every conflict policy against `FakeCloudSaveBackend` |
+| `JsonMigrationsTests`, `DurableFileTests` | the shared upgrade loop; durable writes, backup rotation, a crash between any two steps then recovery |
 | `ProjectSettingsTests` | defaults write only the identity, every setting round-trips and re-writes identically, LF, hand edits, unknown keys, every error message, migration chains/gaps, save/load by file or folder, `ToEngineOptions`, version comparison |
 | `InputMapTests` | binding text forms, map edits, edges in process and physics, multiple inputs, deadzones/rescale, `GetVector`, per-pad bindings, UI-consumed events, simulation, `ReleaseAll`, live map changes, event helpers, the static facade, 0 B |
 | `InputRebindingTests`, `InputRebinderTests`, `InputBindingNameTests` | slots per device class, every conflict policy, groups, locked actions, any-pad overlap, resets, `Version`; capture (next frame, opening click, repeats, reserved inputs, axis threshold, timeout, handled events, 0 B); display names, translation, extraction |
