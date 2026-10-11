@@ -6,8 +6,8 @@ namespace MainframeEngine;
 /// <summary>
 /// <see cref="GameHost"/>'s <c>--headless</c> run (Godot's <c>--headless</c>): the project's scene tree with no window,
 /// renderer, canvas, UI or audio device, for dedicated servers. Registers networking (<see cref="Networking.MultiplayerApi"/>),
-/// the physics servers and an audio server on the null device (buses and players still work, nothing is heard), runs
-/// <see cref="GameSession"/> (input map, autoloads, the main scene) and ticks the tree at the project's
+/// the physics servers, an audio server on the null device (buses and players still work, nothing is heard) and a
+/// <see cref="SaveServer"/> (no thumbnails), runs <see cref="GameSession"/> (input map, autoloads, the main scene) and ticks the tree at the project's
 /// <c>maxFps</c>, else the physics rate. Canvas items still run their draws (Godot calls <c>_draw</c> headless too);
 /// nothing renders them. Ctrl+C or SIGTERM is a close request (the game may save), then a quit.
 /// </summary>
@@ -52,6 +52,7 @@ public sealed class HeadlessHost : IDisposable
 
         Tree.Servers.Register(new PhysicsServer3D(_options.Physics3D));
         Tree.Servers.Register(new PhysicsServer2D(_options.Physics2D));
+        Tree.Servers.Register(GameHost.CreateSaveServer(settings, Tree)); // last: disposed (flushed) first
 
         Session = new GameSession(Tree, settings, options);
         Session.QuitRequested += Quit;

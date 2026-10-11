@@ -127,6 +127,7 @@ public static class ProjectSettingsFormat
             WriteRendering(w, settings.Rendering);
             WriteUi(w, settings.Ui);
             WriteLoading(w, settings.Loading);
+            WriteSaves(w, settings.Saves);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
             w.WriteEndObject();
@@ -380,6 +381,34 @@ public static class ProjectSettingsFormat
         w.WriteEndObject();
     }
 
+    private static void WriteSaves(Utf8JsonWriter w, SavesProjectSettings s)
+    {
+        var d = new SavesProjectSettings();
+        var thumbnailSize = s.ThumbnailWidth != d.ThumbnailWidth || s.ThumbnailHeight != d.ThumbnailHeight;
+        if (s.MaxBytes == d.MaxBytes && s.Backups == d.Backups && s.Compression == d.Compression && s.Thumbnails == d.Thumbnails && !thumbnailSize)
+            return;
+        w.WriteStartObject("saves");
+        if (s.MaxBytes != d.MaxBytes)
+            w.WriteNumber("maxBytes", s.MaxBytes);
+        if (s.Backups != d.Backups)
+            w.WriteNumber("backups", s.Backups);
+        if (s.Compression != d.Compression)
+            w.WriteString("compression", s.Compression.ToString().ToLowerInvariant());
+        if (s.Thumbnails != d.Thumbnails)
+            w.WriteBoolean("thumbnails", s.Thumbnails);
+        if (thumbnailSize)
+        {
+            w.WriteStartObject("thumbnail");
+            if (s.ThumbnailWidth != d.ThumbnailWidth)
+                w.WriteNumber("width", s.ThumbnailWidth);
+            if (s.ThumbnailHeight != d.ThumbnailHeight)
+                w.WriteNumber("height", s.ThumbnailHeight);
+            w.WriteEndObject();
+        }
+
+        w.WriteEndObject();
+    }
+
     private static void WriteAutoloads(Utf8JsonWriter w, List<AutoloadSettings> autoloads)
     {
         if (autoloads.Count == 0)
@@ -446,7 +475,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "loading", "autoloads", "playInstances");
+                "audio", "localization", "rendering", "ui", "loading", "saves", "autoloads", "playInstances");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -474,6 +503,8 @@ public static class ProjectSettingsFormat
                 ReadUi(ui, s.Ui);
             if (Object(root, "loading") is { } loading)
                 ReadLoading(loading, s.Loading);
+            if (Object(root, "saves") is { } saves)
+                ReadSaves(saves, s.Saves);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
             if (Array(root, "playInstances", "playInstances") is { } instances)
@@ -645,6 +676,34 @@ public static class ProjectSettingsFormat
             Known(o, "loading.", "async", "screen");
             s.Async = Bool(o, "async", "loading.async", s.Async);
             s.Screen = String(o, "screen", "loading.screen") ?? s.Screen;
+        }
+
+        private void ReadSaves(JsonObject o, SavesProjectSettings s)
+        {
+            Known(o, "saves.", "maxBytes", "backups", "compression", "thumbnails", "thumbnail");
+            var maxBytes = Long(o, "maxBytes", "saves.maxBytes", s.MaxBytes, 1, long.MaxValue);
+            Guard("saves.maxBytes", () => s.MaxBytes = maxBytes);
+            var backups = Int(o, "backups", "saves.backups", s.Backups, 0, DurableFile.MaxBackups);
+            Guard("saves.backups", () => s.Backups = backups);
+            if (String(o, "compression", "saves.compression") is { } compression)
+            {
+                s.Compression = compression switch
+                {
+                    "none" => SaveCompression.None,
+                    "gzip" => SaveCompression.Gzip,
+                    _ => throw Error("saves.compression", $"'{compression}' is not \"none\" or \"gzip\""),
+                };
+            }
+
+            s.Thumbnails = Bool(o, "thumbnails", "saves.thumbnails", s.Thumbnails);
+            if (Object(o, "thumbnail") is { } thumbnail)
+            {
+                Known(thumbnail, "saves.thumbnail.", "width", "height");
+                var width = Int(thumbnail, "width", "saves.thumbnail.width", s.ThumbnailWidth, 1, 4096);
+                Guard("saves.thumbnail.width", () => s.ThumbnailWidth = width);
+                var height = Int(thumbnail, "height", "saves.thumbnail.height", s.ThumbnailHeight, 1, 4096);
+                Guard("saves.thumbnail.height", () => s.ThumbnailHeight = height);
+            }
         }
 
         private void ReadAutoloads(JsonArray array, List<AutoloadSettings> autoloads)

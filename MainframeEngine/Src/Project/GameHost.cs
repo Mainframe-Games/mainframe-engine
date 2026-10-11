@@ -300,9 +300,22 @@ public class GameHost : Engine
         }
     }
 
+    /// <summary>
+    /// The save server a project runs with: <see cref="LocalSaveStorage"/> in <c>{user data}/saves</c> (created by the first
+    /// save, not here) and the project's <c>saves</c> section. <see cref="GameHost"/> and <see cref="HeadlessHost"/> register it.
+    /// </summary>
+    public static SaveServer CreateSaveServer(ProjectSettings settings, SceneTree? tree)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        var folder = Path.Combine(UserDataPaths.GetDirectory(settings.UserDataFolderName), "saves");
+        return new SaveServer(new LocalSaveStorage(folder), SaveOptions.FromProject(settings), tree);
+    }
+
     protected override void OnLoad()
     {
         base.OnLoad();
+        // Registered last, so it is disposed first on close: queued saves are flushed while everything else still runs.
+        Servers.Register(CreateSaveServer(Settings, Tree));
         if (Settings.Window.MaxFps > 0)
             MaxFPS = Settings.Window.MaxFps;
         if (Renderer is IVulkanContext vk)

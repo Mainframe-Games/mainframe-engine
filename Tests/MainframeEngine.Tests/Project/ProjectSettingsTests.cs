@@ -84,6 +84,12 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Ui.MinScale = 0.75f;
         s.Loading.Async = false;
         s.Loading.Screen = "Content/UI/loading.rml";
+        s.Saves.MaxBytes = 1 << 20;
+        s.Saves.Backups = 4;
+        s.Saves.Compression = SaveCompression.Gzip;
+        s.Saves.Thumbnails = true;
+        s.Saves.ThumbnailWidth = 256;
+        s.Saves.ThumbnailHeight = 144;
         s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Content/Autoload/Music.mscene" });
         s.Autoloads.Add(new AutoloadSettings { Name = "Stats", Type = "GameStats", Enabled = false });
         var host = new PlayInstanceSettings { Label = "Host" };
@@ -114,6 +120,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equivalent(expected.Rendering, actual.Rendering, strict: true);
         Assert.Equivalent(expected.Ui, actual.Ui, strict: true);
         Assert.Equivalent(expected.Loading, actual.Loading, strict: true);
+        Assert.Equivalent(expected.Saves, actual.Saves, strict: true);
         Assert.Equal(expected.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)), actual.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)));
         Assert.Equal(expected.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)),
             actual.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)));
@@ -329,6 +336,35 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         var e = Assert.Throws<InvalidDataException>(() => Parse(json));
         Assert.Contains(expected, e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheSavesSectionIsOptionalAndValidated()
+    {
+        var defaults = new ProjectSettings();
+        Assert.Equal(16L * 1024 * 1024, defaults.Saves.MaxBytes);
+        Assert.Equal(2, defaults.Saves.Backups);
+        Assert.Equal(SaveCompression.None, defaults.Saves.Compression);
+        Assert.False(defaults.Saves.Thumbnails);
+        Assert.Equal((320, 180), (defaults.Saves.ThumbnailWidth, defaults.Saves.ThumbnailHeight));
+        Assert.DoesNotContain("\"saves\"", Text(defaults), StringComparison.Ordinal);
+        Assert.False(defaults.ToEngineOptions().EnableFrameCapture); // frame capture is opt-in
+
+        var s = Parse("""{ "format": 3, "name": "G", "saves": { "compression": "gzip", "thumbnails": true, "thumbnail": { "height": 90 } } }""");
+        Assert.Equal(SaveCompression.Gzip, s.Saves.Compression);
+        Assert.True(s.Saves.Thumbnails);
+        Assert.Equal((320, 90), (s.Saves.ThumbnailWidth, s.Saves.ThumbnailHeight));
+        Assert.True(s.ToEngineOptions().EnableFrameCapture); // thumbnails need it
+        var json = JsonNode.Parse(Text(s))!["saves"]!;
+        Assert.Equal("gzip", (string?)json["compression"]);
+        Assert.Null(json["maxBytes"]); // defaults are not written
+        Assert.Equal(90, (int)json["thumbnail"]!["height"]!);
+        Assert.Null(json["thumbnail"]!["width"]);
+
+        Assert.Contains("saves.compression", Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "saves": { "compression": "zip" } }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("saves.backups", Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "saves": { "backups": 99 } }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("saves.maxBytes", Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "saves": { "maxBytes": 0 } }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("saves.thumbnail.width", Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "saves": { "thumbnail": { "width": -1 } } }""")).Message, StringComparison.Ordinal);
     }
 
     [Fact]
