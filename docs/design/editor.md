@@ -420,7 +420,8 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   logs the reference path that keeps it alive.
 - **Project Settings** (Project › Project Settings, `ProjectSettingsModel`): every section of `project.mfproj` —
   Application (name, main scene, game assemblies, Demo Build), Window, Input Map (actions, deadzones, bindings
-  captured from the next key or mouse press, gamepad inputs from a list), Physics 3D/2D, Audio, Localization,
+  captured from the next key or mouse press, gamepad inputs from a list; each action's settings-menu label, rebinding
+  group and a lock icon toggle for actions players cannot rebind), Physics 3D/2D, Audio, Localization,
   Rendering, UI (scale mode, reference resolution, match width or height, min/max scale; ADR 0181), Autoloads, Steamworks (App ID, Demo App ID, run outside Steam in development, relaunch through Steam). Each edit is undoable (the dialog's own history, Ctrl+Z inside it); invalid values are refused
   with a message; Save writes the file atomically and applies it to the session.
 

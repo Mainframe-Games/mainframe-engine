@@ -266,7 +266,9 @@ installed games load from the output folder. An explicit `EngineOptions.Ui` (tes
 
 ## Input actions
 
-`InputMap` holds named actions (`InputAction`: deadzone, bindings). `InputBinding` is a key, a mouse button, a
+`InputMap` holds named actions (`InputAction`: deadzone, bindings, and for settings menus an optional `label`, a
+conflict `group` and `rebindable: false` for a locked action; see
+[Cameras & input → Rebinding](cameras-and-input.md#rebinding-g44)). `InputBinding` is a key, a mouse button, a
 gamepad button or one direction of a gamepad axis, on any pad or one pad index; its text form is used in the project
 file: `key:Space`, `mouse:Left`, `pad:A`, `pad1:Start`, `axis:LeftX-`, `axis:RightTrigger+` (stick Y is SDL's: positive
 down).
@@ -427,6 +429,7 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 |---|---|
 | `ProjectSettingsTests` | defaults write only the identity, every setting round-trips and re-writes identically, LF, hand edits, unknown keys, every error message, migration chains/gaps, save/load by file or folder, `ToEngineOptions`, version comparison |
 | `InputMapTests` | binding text forms, map edits, edges in process and physics, multiple inputs, deadzones/rescale, `GetVector`, per-pad bindings, UI-consumed events, simulation, `ReleaseAll`, live map changes, event helpers, the static facade, 0 B |
+| `InputRebindingTests`, `InputRebinderTests`, `InputBindingNameTests` | slots per device class, every conflict policy, groups, locked actions, any-pad overlap, resets, `Version`; capture (next frame, opening click, repeats, reserved inputs, axis threshold, timeout, handled events, 0 B); display names, translation, extraction |
 | `LogRoutingTests`, `LogSinkTests`, `UserDataPathsTests` | entries, categories, explicit categories, filtering, **0 B when filtered** (and to a memory sink), invariant culture, failing/recursive sinks, console format; memory ring/`CopySince`, file format, run and size rotation; per-OS folders |
 | `EditorLinkProtocolTests`, `EditorLinkConnectionTests` | every frame round-trips, back-to-back frames, bad lengths, malformed bodies, truncation; streaming in order, commands, goodbye, reconnect after the editor restarts (queued logs delivered) or drops the link, logs held until the welcome (an unanswered connection is retried), a stalled editor (never blocks, drops reported exactly), no editor at all, garbage peers, several games by id |
 | `EditorLinkInheritedSocketTests` (macOS/Linux) | a child process holding the listener: `Dispose` returns when the editor's descriptor is inheritable; a closed listener only a child holds gets no logs and no connection count, and the logs reach the next editor once |
