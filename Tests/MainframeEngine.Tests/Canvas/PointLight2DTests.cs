@@ -27,13 +27,15 @@ public sealed class PointLight2DTests : IDisposable
         protected override void OnDraw() => DrawRect(new Rect2(0, 0, 10, 10), Vector4.One);
     }
 
-    private PointLight2D AddLight(Vector2 position, float scale = 1f)
+    private static readonly Texture2D SharedTexture = Texture2D.FromPixels(64, 32, new byte[64 * 32 * 4]);
+
+    private PointLight2D AddLight(Vector2 position, float scale = 1f, Texture2D? texture = null)
     {
         var light = new PointLight2D
         {
             Name = "Light",
             Position = position,
-            Texture = Texture2D.FromPixels(64, 32, new byte[64 * 32 * 4]),
+            Texture = texture ?? SharedTexture,
             TextureScale = scale,
             Color = new Vector4(1, 0.5f, 0.25f, 0.5f),
             Energy = 2,
@@ -104,14 +106,55 @@ public sealed class PointLight2DTests : IDisposable
     }
 
     [Fact]
-    public void AFrameCarriesAtMostEightLights()
+    public void AFrameCarriesAtMostMaxLights()
     {
         for (var i = 0; i < CanvasFrame.MaxLights + 2; i++)
             AddLight(new Vector2(i, 0));
         _root.AddChild(new Box { Name = "Box" });
 
         var frame = Frame();
+        Assert.Equal(32, CanvasFrame.MaxLights);
         Assert.Equal(CanvasFrame.MaxLights, frame.Lights.Count);
-        Assert.Equal(0xFFu, Assert.Single(frame.Batches).LightMask);
+        Assert.Equal(uint.MaxValue, Assert.Single(frame.Batches).LightMask); // bits above 8 reach the item too (ADR 0186)
+    }
+
+    [Fact]
+    public void LightsShareOneTextureSlotPerDistinctTexture()
+    {
+        var other = Texture2D.FromPixels(8, 8, new byte[8 * 8 * 4]);
+        AddLight(Vector2.Zero);
+        AddLight(new Vector2(5, 0), texture: other);
+        AddLight(new Vector2(10, 0));
+        _root.AddChild(new Box { Name = "Box" });
+
+        var frame = Frame();
+        Assert.Equal([SharedTexture, other], frame.LightTextures);
+        Assert.Equal([0, 1, 0], frame.Lights.Select(l => l.TextureSlot));
+    }
+
+    [Fact]
+    public void LightsBeyondTheTextureSlotsAreSkipped()
+    {
+        for (var i = 0; i < CanvasFrame.MaxLightTextures + 2; i++)
+            AddLight(new Vector2(i, 0), texture: Texture2D.FromPixels(4, 4, new byte[4 * 4 * 4]));
+        AddLight(Vector2.Zero); // a slot is already full of distinct textures: skipped too
+        _root.AddChild(new Box { Name = "Box" });
+
+        var frame = Frame();
+        Assert.Equal(CanvasFrame.MaxLightTextures, frame.Lights.Count);
+        Assert.Equal(CanvasFrame.MaxLightTextures, frame.LightTextures.Count);
+    }
+
+    [Fact]
+    public void LightsOffScreenAreCulledAndLeaveTheirSlotFree()
+    {
+        AddLight(new Vector2(-500, 0));       // 64 × 32 texture: ends at x −468, left of the target
+        AddLight(new Vector2(500, 2000));     // below the 1000 × 1000 target
+        var edge = AddLight(new Vector2(-20, 500)); // reaches x 12: on screen
+        _root.AddChild(new Box { Name = "Box" });
+
+        var frame = Frame();
+        var data = Assert.Single(frame.Lights);
+        Assert.Equal(new Vector2(0.5f, 0.5f), Uv(data, edge.Position));
     }
 }
