@@ -2,7 +2,7 @@
   "name": "mainframe-engine-docs",
   "private": true,
   "type": "module",
-  "description": "The Mainframe Engine documentation site (Astro Starlight) built from docs/ and memory/decisions/",
+  "description": "The Mainframe Engine documentation site (Astro Starlight) built from docs/",
   "engines": {
     "node": ">=22.12.0"
   },

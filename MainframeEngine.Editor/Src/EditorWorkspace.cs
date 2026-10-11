@@ -634,6 +634,7 @@ public sealed partial class EditorWorkspace : Node
             return null;
         return key switch
         {
+            Key.F1 => "help.docs",
             Key.Delete or Key.Backspace => "edit.delete",
             Key.F2 => "edit.rename",
             Key.F => "view.frame",

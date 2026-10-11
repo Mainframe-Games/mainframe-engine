@@ -123,6 +123,7 @@ public sealed class EditorCommands
                 _workspace.Viewport.Toggle2D();
                 _workspace.Toolbar.Refresh();
                 return true;
+            case "help.docs": OsShell.OpenUrl(EditorBrand.DocsUrl); return true;
             case "help.shortcuts": ShowShortcuts(); return true;
             case "help.about": ShowAbout(); return true;
             case "help.check_updates": _workspace.Updates.CheckNow(); return true;
@@ -790,6 +791,7 @@ public sealed class EditorCommands
             ],
             "help" =>
             [
+                new MenuItem("Documentation", "help.docs", "F1", Icon: "book"),
                 new MenuItem("Keyboard Shortcuts", "help.shortcuts", Icon: "keyboard"),
                 new MenuItem("Check for Updates…", "help.check_updates", null, _workspace.Updates.IsEnabled, Icon: "refresh"),
                 new MenuItem("About Mainframe Editor", "help.about", Icon: "info-circle"),
@@ -829,7 +831,7 @@ public sealed class EditorCommands
                   "Ctrl+A add node · Ctrl+Shift+A instance scene · Ctrl+Up/Down move in tree\n" +
                   "Q select · W move · E rotate · R scale · T local/global · Y snap · F frame · G grid\n" +
                   "Viewport: click select · RMB+WASD/QE fly (Shift faster) · Alt+LMB or MMB orbit · Shift+MMB pan · wheel zoom\n" +
-                  "1 / 3 / 7 front, right, top view · F12 developer overlay · F9 UI debugger\n" +
+                  "1 / 3 / 7 front, right, top view · F1 documentation · F12 developer overlay · F9 UI debugger\n" +
                   "Song tab: Space play/stop · L loop · Home to start · Del · Ctrl+C/V/D · arrows nudge (Shift: octave) · Q quantize · Ctrl+wheel zoom\n" +
                   "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · Ctrl+Shift+B build & reload code",
         Buttons = ["Close"],

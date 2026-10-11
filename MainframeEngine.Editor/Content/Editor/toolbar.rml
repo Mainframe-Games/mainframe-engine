@@ -82,6 +82,7 @@
         <span id="play-status" class="muted"></span>
     </div>
     <div class="spacer"></div>
+    <button id="docs" class="tool-button" data-command="help.docs" data-tooltip="Documentation (F1) — open the engine docs in your browser"><span class="icon icon-book"></span></button>
     <button id="update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>
     <span id="stats" class="mono" data-tooltip="Frame Rate — editor frames per second and frame time"></span>
 </body>

@@ -139,9 +139,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `ci-success` is the required check), `publish.yml` (releases), `natives.yml` (native shims), `docs.yml` (docs site → Pages)
 - `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Content/Brand/`
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
-- `docs-site/` — the docs website (Astro Starlight, editor theme): `scripts/sync-docs.mjs` generates its pages from `docs/` and
-  `memory/decisions/` (never edit `src/content/docs`); `.github/workflows/docs.yml` deploys it to GitHub Pages from `main`
-  (`docs/design/docs-site.md`)
+- `docs-site/` — the docs website (Astro Starlight, editor theme): `scripts/sync-docs.mjs` generates its pages from `docs/`
+  (never edit `src/content/docs`; title = latest release tag); `.github/workflows/docs.yml` deploys it to GitHub Pages from
+  `main` (`docs/design/docs-site.md`)
 
 ## Key Patterns
 

@@ -96,6 +96,7 @@ square-letter-t
 refresh
 keyboard
 info-circle
+book
 plus
 perspective
 plane

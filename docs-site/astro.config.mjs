@@ -4,7 +4,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
 import remarkMermaid from './src/plugins/remark-mermaid.mjs';
-import { base, repoUrl } from './scripts/sync-docs.mjs';
+import { base, repoUrl, version } from './scripts/sync-docs.mjs';
 
 export default defineConfig({
   site: process.env.DOCS_SITE ?? 'https://mainframe-games.github.io',
@@ -15,7 +15,7 @@ export default defineConfig({
   vite: { build: { chunkSizeWarningLimit: 4096 } },
   integrations: [
     starlight({
-      title: 'Mainframe Engine',
+      title: `Mainframe Engine ${version}`,
       description: 'Design documentation for Mainframe Engine: a C# game engine on Vulkan with a Godot-style node tree.',
       logo: { src: './src/assets/logo.svg', alt: 'Mainframe Engine' },
       favicon: '/favicon.svg',
@@ -50,8 +50,6 @@ export default defineConfig({
         },
         { label: 'Design', items: [{ autogenerate: { directory: 'design' } }] },
         { label: 'Proposals', collapsed: true, items: [{ autogenerate: { directory: 'proposals' } }] },
-        { label: 'Decisions (ADRs)', collapsed: true, items: [{ autogenerate: { directory: 'decisions' } }] },
-        { label: 'Plans', collapsed: true, items: [{ autogenerate: { directory: 'plans' } }] },
       ],
     }),
   ],
