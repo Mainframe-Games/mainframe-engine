@@ -46,6 +46,13 @@ public sealed class GameSession : IDisposable
     /// <summary>The autoload nodes, in project order.</summary>
     public IReadOnlyList<Node> Autoloads => _autoloads;
 
+    /// <summary>
+    /// The player's settings, applied when the session starts (<see cref="MainframeEngine.UserSettings.Apply"/>: after the
+    /// input map is installed, before the autoloads, so they already see the player's values). Null (headless, tools,
+    /// tests): the project's values only.
+    /// </summary>
+    public UserSettings? UserSettings { get; set; }
+
     /// <summary>The editor link (null without <c>--editor-port</c>).</summary>
     public EditorLinkClient? Link { get; private set; }
 
@@ -161,6 +168,7 @@ public sealed class GameSession : IDisposable
         Tree.Root.ContentScaleStretch = window.StretchScaleMode;
         if (Tree.Servers.Get<CanvasServer>() is { } canvas)
             canvas.ClearColor = Settings.Rendering.CanvasClearColor;
+        UserSettings?.Apply(Tree); // input overrides, volumes, window mode, frame cap, UI scale, shadows (Off still works: no visuals yet)
         AddAutoloads();
     }
 

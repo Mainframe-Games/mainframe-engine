@@ -31,6 +31,8 @@ public sealed class HeadlessHost : IDisposable
         Input.Current = Tree.Input;
         Tree.QuitRequested += code => Quit((ExitCode)code);
         GameHost.Project = settings;
+        // The player's settings.json for the game's own sections (Config) only: there is no window, audio device or input to apply them to.
+        UserSettings = UserSettings.Current = UserSettings.Load(settings);
 
         // Disposed in reverse order after the tree is freed, like Engine.OnLoad's servers.
         Networking.MultiplayerApi.Attach(Tree);
@@ -61,6 +63,9 @@ public sealed class HeadlessHost : IDisposable
 
     /// <summary>The project session (autoloads, scene, editor link).</summary>
     public GameSession Session { get; }
+
+    /// <summary>The player's settings file, loaded for <see cref="MainframeEngine.UserSettings.Config"/> (never applied headless).</summary>
+    public UserSettings UserSettings { get; }
 
     /// <summary>Updates per second the loop is held to.</summary>
     public int FrameRate { get; }

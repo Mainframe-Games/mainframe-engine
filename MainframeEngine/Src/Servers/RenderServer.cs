@@ -149,11 +149,17 @@ public sealed class RenderServer : IServer
         {
             if (value == field)
                 return;
-            if (_owners.Count > 0 || _meshes is not null)
+            if (!CanToggleShadows)
                 throw new InvalidOperationException("ShadowsEnabled must be set before visuals create GPU resources.");
             field = value;
         }
     } = true;
+
+    /// <summary>
+    /// Whether <see cref="ShadowsEnabled"/> (and a <see cref="ShadowQuality"/> switch to or from Off) can still change: no
+    /// visual has created GPU resources yet.
+    /// </summary>
+    internal bool CanToggleShadows => _owners.Count == 0 && _meshes is null;
 
     /// <summary>
     /// The shared shadow system, created on first use; null without a Vulkan renderer or when

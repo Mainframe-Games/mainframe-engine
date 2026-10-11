@@ -199,7 +199,10 @@ public sealed class UiScalingServerTests
         Assert.Equal(1f, ui.Server.UserScale);
         Assert.Equal(1f, project.Context!.DensityIndependentPixelRatio);
 
-        ui.Server.UserScale = 1.25f; // the settings menu's slider: re-laid out on the next frame
+        var settings = new UserSettings(new ConfigFile());
+        settings.Apply(ui.Tree);
+        settings.UiScale = 1.25f; // the settings menu's slider: live, re-laid out on the next frame
+        Assert.Equal(1.25f, ui.Server.UserScale);
         ui.Tick();
 
         Assert.Equal(1.25f, project.Context.DensityIndependentPixelRatio);

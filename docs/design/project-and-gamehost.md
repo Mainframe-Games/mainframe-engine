@@ -20,6 +20,7 @@ Decisions: [project file + GameHost](../../memory/decisions/0090-project-file-an
 | `ProjectSettings` (+ `WindowSettings`, `PhysicsProjectSettings`, `AudioProjectSettings`, `LocalizationProjectSettings`, `RenderingProjectSettings`, `AutoloadSettings`) | [Project/ProjectSettings.cs](../../MainframeEngine/Src/Project/ProjectSettings.cs) | the contents of `project.mfproj`; `Load`, `Parse`, `Save`, `ToJson`, `ToEngineOptions` |
 | `ProjectSettingsFormat`, `ProjectMigration` | [Project/ProjectSettingsFormat.cs](../../MainframeEngine/Src/Project/ProjectSettingsFormat.cs) | reader/writer, `format` migrations |
 | `GameHost : Engine`, `GameHostOptions`, `GameSession` | [Project/](../../MainframeEngine/Src/Project/) | runs a project; command line; the testable session logic |
+| `UserSettings`, `UserSettingsSection` | [Project/UserSettings.cs](../../MainframeEngine/Src/Project/UserSettings.cs) | the player's `settings.json`: audio, input, display, language ([below](#user-settings)) |
 | `InputMap`, `InputAction`, `InputBinding`, `InputState`, `Input` | [Scene/Input/](../../MainframeEngine/Src/Scene/Input/) | actions; per-tree polled state (`SceneTree.Input`); static facade |
 | `Log`, `LogEntry`, `ILogSink`, `ConsoleLogSink`, `FileLogSink`, `MemoryLogSink` | [Debugging/](../../MainframeEngine/Src/Debugging/) | structured log routing |
 | `UserDataPaths`, `EngineInfo` | [Core/](../../MainframeEngine/Src/Core/) | per-user folders; engine version |
@@ -263,6 +264,66 @@ their `[AssemblyMetadata("MainframeContentSource", …)]` folders (`UiServerOpti
 source directories, so saving a document in the project's `Content/` reloads it in the running game. The `mfgame`
 template's `MyGame.csproj` records its sibling `Content/` folder under that key in Debug builds only; Release builds and
 installed games load from the output folder. An explicit `EngineOptions.Ui` (tests, engine subclasses) is left alone.
+
+## User settings
+
+The player's options live in `{user data}/settings.json` (`UserSettings.FileName`, in
+`UserDataPaths.GetDirectory(ProjectSettings.UserDataFolderName)`): one [`ConfigFile`](scene-serialization.md#config-files-configfile)
+holding the typed sections the engine applies itself and the game's own sections (`UserSettings.Config`).
+
+```json
+{
+  "format": 1,
+  "audio":   { "volume": { "Master": 1.0, "Music": 0.7, "SFX": 0.85 }, "mute": ["Voice"] },
+  "input":   { "interact": ["key:F", "pad:X"] },
+  "display": { "mode": "fullscreen", "size": [1600, 900], "vsync": true, "maxFps": 0, "uiScale": 1.25, "shadows": "High" },
+  "locale":  { "language": "es" },
+  "game":    { "subtitles": true, "fov": 80 }
+}
+```
+
+- **Every key is optional** and means "the project's default" when missing, so the file never pins a value the player
+  did not change: setting a value equal to the project's (`window.vsync`, `window.maxFps`, `rendering.shadows`; volume
+  1, UI scale 1, windowed) erases its key, and emptied sections go. `WindowSize` is null for the project's size.
+- **Input** holds the full binding list (the [text form](#input-actions)) of only the actions whose bindings differ from
+  `project.mfproj`, order included (slots). `UserSettings.DefaultInput` is a clone of the project's map taken before the
+  overrides; `StoreInput(map)` records the live map after a rebind, `ApplyInput(map)` applies the overrides. An action
+  added in a game update keeps its defaults; actions that no longer exist, unknown buses and non-list values are dropped
+  from the file with a warning, unparseable bindings are skipped.
+- **Values:** `GetBusVolume`/`SetBusVolume` (0..1, [`AudioBus.UserVolume`](audio.md#buses)), `IsBusMuted`/`SetBusMuted`
+  (`AudioBus.Mute`), `WindowMode` (`Windowed`, `Maximized`, `Fullscreen` = borderless, `ExclusiveFullscreen`),
+  `WindowSize` (windowed, points), `VSync`, `MaxFps`, `UiScale` (0.75–2, [`UiServer.UserScale`](game-ui.md#scaling)),
+  `Shadows` (`RenderServer.ShadowQuality`) and `Language` (`Tr.SetLocale`). Hand-edited garbage reads as the default
+  with one warning per key; a damaged file is quarantined and the backup restored (`ConfigFile.Load`).
+
+**When values are applied:**
+
+1. **Before the window exists.** `GameHost.Run` loads the file right after the project (and after the log file is set
+   up, so a damaged file is reported there) into `UserSettings.Current` and passes it to the `GameHost` constructor,
+   which runs `UserSettings.PatchEngineOptions` on `ToEngineOptions()`: `VSync`, `WindowSize` and `Locale`, before the
+   command-line flags (which win). The window opens at the player's size and the first frame is in their language.
+2. **In `GameSession.Start`/`StartAsync`, before the autoloads** (`GameSession.UserSettings`; `UserSettings.Apply(tree)`
+   after the input map is installed), so autoloads see the player's values: input overrides, bus volumes and mutes,
+   window mode, VSync and frame cap (when set), UI scale and shadows. Shadows Off works here: no visual has created GPU
+   resources yet.
+3. **Live.** `Apply` attached the tree, so every setter (and `Reset(section)`) applies at once and raises
+   `Changed(UserSettingsSection)` when something changed. Saving is explicit: `Save()` writes durably
+   (`DurableFile`, one backup) and logs, rather than throws, on a full disk.
+
+`ShadowQuality` switches live between Low, Medium and High; a switch to or from Off once visuals exist is saved and
+`UserSettings.ShadowsNeedRestart` turns true until the next start (a settings menu shows "applies after restart").
+`HeadlessHost` loads the file for `Config` only (`HeadlessHost.UserSettings`, `UserSettings.Current`) and applies nothing:
+it has no window, audio device or input. Games read their own sections through `Config` (cache the values: it is a JSON
+tree, not a per-frame store); `GameHost` loads it without game migrations, so a game that versions its sections reads
+`Config.Version` itself.
+
+**Window modes on SDL.** `IWindowControl.Mode` calls SDL directly (`WindowModeFlags`): `Fullscreen` is
+`SDL_SetWindowFullscreen(SDL_WINDOW_FULLSCREEN_DESKTOP)` (borderless at the desktop's resolution, Godot's
+`WINDOW_MODE_FULLSCREEN`), `ExclusiveFullscreen` is `SDL_WINDOW_FULLSCREEN` after `SDL_SetWindowDisplayMode(NULL)` (the
+display mode closest to the window's size; there is no mode list yet), `Maximized`/`Windowed` leave fullscreen and
+maximize or restore. Silk.NET 2.23's own `WindowState.Fullscreen` is exclusive (`SDL_WINDOW_FULLSCREEN`), and its
+`WindowState.Normal` only restores, which does not leave fullscreen. The `Fullscreen` shortcut means borderless.
+`IWindowControl.VSync` forwards to `IRenderer.VSync` and `IWindowControl.MaxFps` to `Engine.MaxFPS`.
 
 ## Input actions
 
