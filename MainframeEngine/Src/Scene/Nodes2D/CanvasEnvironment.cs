@@ -10,7 +10,7 @@ namespace MainframeEngine;
 /// runs on the HDR scene), so a 2D scene gets this node with the same groups. Only the root viewport's first
 /// <see cref="CanvasEnvironment"/> is used; its properties are read every frame, so they can be animated.
 /// </summary>
-[EditorIcon("adjustments", Family = EditorIconFamily.Space2D)]
+[EditorIcon("brightness-half", Family = EditorIconFamily.Space2D)]
 public class CanvasEnvironment : Node
 {
     private SceneViewport? _viewport;

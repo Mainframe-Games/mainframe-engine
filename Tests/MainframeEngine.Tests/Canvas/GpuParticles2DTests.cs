@@ -114,4 +114,50 @@ public sealed class GpuParticles2DTests
         var bottom = corners.OrderBy(c => c.Y).Last();
         Assert.True(bottom.X > top.X, $"the bottom end leans right ({top} → {bottom})");
     }
+
+    [Fact]
+    public void AnExplosiveOneShotEmitsEverythingAtOnceThenFinishes()
+    {
+        var tree = new SceneTree();
+        var p = Make(tree);
+        p.OneShot = true;
+        p.Explosiveness = 1f;
+        var finished = 0;
+        p.Finished += () => finished++;
+        p.Emitting = true;
+        Run(tree, 0.1f);
+        Assert.Equal(100, p.LiveCount);
+        Run(tree, 1.1f);
+        Assert.Equal(0, p.LiveCount);   // no second cycle
+        Assert.False(p.Emitting);
+        Assert.Equal(1, finished);
+
+        p.Restart();                     // fires again, reusing its buffers
+        Run(tree, 0.1f);
+        Assert.Equal(100, p.LiveCount);
+    }
+
+    [Fact]
+    public void LifetimeRandomnessShortensLivesAndDampingStopsParticles()
+    {
+        var tree = new SceneTree();
+        var p = Make(tree);
+        p.Explosiveness = 1f;
+        p.OneShot = true;
+        p.ProcessMaterial!.LifetimeRandomness = 0.8f;
+        p.ProcessMaterial.DampingMin = p.ProcessMaterial.DampingMax = 1000f;   // 100 px/s gone in 0.1 s
+        p.Emitting = true;
+        Run(tree, 0.6f);
+        Assert.InRange(p.LiveCount, 20, 80);   // lives spread over 0.2–1 s
+    }
+
+    [Fact]
+    public void CurvesSampleLinearlyAndClamp()
+    {
+        var curve = new Curve { Offsets = [0f, 0.5f, 1f], Values = [0f, 2f, 1f] };
+        Assert.Equal(0f, curve.Sample(-1f));
+        Assert.Equal(1f, curve.Sample(0.25f), 5);
+        Assert.Equal(1.5f, curve.Sample(0.75f), 5);
+        Assert.Equal(1f, curve.Sample(2f));
+    }
 }

@@ -5,7 +5,8 @@ namespace MainframeEngine;
 /// <summary>
 /// How <see cref="GpuParticles2D"/> particles start and move (the subset of Godot's <c>ParticleProcessMaterial</c> games use
 /// in 2D): emission point or box, direction with a spread, an initial speed range, gravity, a linear acceleration range along
-/// the velocity, a start angle and scale range, and one colour.
+/// the velocity, damping, a start angle, spin and scale range, a scale curve, one colour and a colour ramp over the
+/// particle's life, and lifetime randomness (ADR 0187).
 /// </summary>
 [EditorIcon("droplet")]
 public sealed class ParticleProcessMaterial : Resource
@@ -50,6 +51,29 @@ public sealed class ParticleProcessMaterial : Resource
     [Export] public float ScaleMin { get; set; } = 1f;
     [Export] public float ScaleMax { get; set; } = 1f;
 
+    /// <summary>Speed lost per second (pixels/s²), chosen per particle between these (Godot's <c>damping</c>; ADR 0187).</summary>
+    [Export] public float DampingMin { get; set; }
+    [Export] public float DampingMax { get; set; }
+
+    /// <summary>Spin in degrees per second, chosen per particle between these (Godot's <c>angular_velocity</c>).</summary>
+    [Export] public float AngularVelocityMin { get; set; }
+    [Export] public float AngularVelocityMax { get; set; }
+
+    /// <summary>
+    /// Multiplies the scale over the particle's life (Godot's <c>scale_curve</c>, a <see cref="Curve"/> here rather than a
+    /// CurveTexture).
+    /// </summary>
+    [Export] public Curve? ScaleCurve { get; set; }
+
+    /// <summary>
+    /// Multiplies <see cref="Color"/> over the particle's life (Godot's <c>color_ramp</c>, a <see cref="Gradient"/> here
+    /// rather than a GradientTexture1D): sampled at age / lifetime, converted like <see cref="Color"/>.
+    /// </summary>
+    [Export] public Gradient? ColorRamp { get; set; }
+
+    /// <summary>Each particle lives between (1 − this) × lifetime and the full lifetime (Godot's <c>lifetime_randomness</c>).</summary>
+    [Export(Range = "0,1,0.01")] public float LifetimeRandomness { get; set; }
+
     /// <summary>
     /// Colour multiplied into every particle. Godot's <c>color_value</c> is a <c>source_color</c> uniform, converted to
     /// linear before it reaches the canvas, which then shows those values as they are: (1, 0.9, 0.5) draws as about
@@ -69,9 +93,10 @@ public sealed class ParticleProcessMaterial : Resource
 
 /// <summary>
 /// A 2D particle emitter (Godot's <c>GPUParticles2D</c> with a <see cref="ParticleProcessMaterial"/>, simulated on the CPU):
-/// <see cref="Amount"/> particles, each restarting every <see cref="Lifetime"/> seconds at an even phase (explosiveness 0),
-/// only the first <see cref="AmountRatio"/> of them emitting; <see cref="Preprocess"/> seconds are simulated when emission
-/// starts. With <see cref="LocalCoords"/> off particles stay where they were emitted in the world. Each particle is the
+/// <see cref="Amount"/> particles, each restarting every <see cref="Lifetime"/> seconds at an even phase squeezed by
+/// <see cref="Explosiveness"/> (1: all at once), only the first <see cref="AmountRatio"/> of them emitting; <see cref="Preprocess"/>
+/// seconds are simulated when emission starts. <see cref="OneShot"/> emits each particle once, then stops emitting and
+/// raises <see cref="Finished"/> (ADR 0187). With <see cref="LocalCoords"/> off particles stay where they were emitted in the world. Each particle is the
 /// <see cref="Texture"/> centred on it, rotated, scaled and tinted. Random streams differ from Godot's GPU ones.
 /// </summary>
 [EditorIcon("star", Family = EditorIconFamily.Space2D)]
@@ -86,6 +111,9 @@ public class GpuParticles2D : Node2D
         public float Accel;
         public float Angle;
         public float Scale;
+        public float Damping;
+        public float Spin;
+        public float Life;
     }
 
     private Particle[] _particles = [];
@@ -93,6 +121,8 @@ public class GpuParticles2D : Node2D
     private Random _random = new(1);
     private bool _emitting = true;
     private double _time;
+    private float _phaseLifetime = -1f;
+    private float _phaseExplosiveness;
 
     [Export] public Texture2D? Texture { get; set; }
 
@@ -110,11 +140,30 @@ public class GpuParticles2D : Node2D
 
     [Export] public bool LocalCoords { get; set; }
 
+    /// <summary>Emit each particle once, then stop (Godot's <c>one_shot</c>); <see cref="Restart"/> or setting <see cref="Emitting"/> fires again.</summary>
+    [Export] public bool OneShot { get; set; }
+
+    /// <summary>0 spreads emission over the lifetime, 1 emits every particle at once (Godot's <c>explosiveness</c>).</summary>
+    [Export(Range = "0,1,0.01")] public float Explosiveness { get; set; }
+
+    /// <summary>Raised when a <see cref="OneShot"/> emitter's last particle has died (Godot's <c>finished</c>).</summary>
+    [Signal] public event Action? Finished;
+
     /// <summary>Godot's culling rectangle (kept for reference; particles are not culled).</summary>
     [Export] public Rect2 VisibilityRect { get; set; } = new(new Vector2(-100, -100), new Vector2(200, 200));
 
     /// <summary>Particles alive now (tests, diagnostics).</summary>
-    public int LiveCount => _particles.Count(p => p.Alive);
+    public int LiveCount
+    {
+        get
+        {
+            var count = 0;
+            foreach (ref readonly var p in _particles.AsSpan())
+                if (p.Alive)
+                    count++;
+            return count;
+        }
+    }
 
     [Export]
     public bool Emitting
@@ -125,17 +174,24 @@ public class GpuParticles2D : Node2D
             if (value == _emitting)
                 return;
             _emitting = value;
+            if (value && OneShot)
+            {
+                _time = 0;   // a one-shot fires again from the start
+                return;
+            }
+
             if (value && LiveCount == 0 && Preprocess > 0)
                 Simulate(Preprocess);
         }
     }
 
-    /// <summary>Restarts every particle (Godot's <c>restart</c>).</summary>
+    /// <summary>Kills every particle and starts emitting from the start (Godot's <c>restart</c>); no allocation once sized.</summary>
     public void Restart()
     {
-        _particles = [];
+        Array.Clear(_particles);
         _time = 0;
-        if (_emitting && Preprocess > 0)
+        _emitting = true;
+        if (Preprocess > 0)
             Simulate(Preprocess);
     }
 
@@ -150,12 +206,17 @@ public class GpuParticles2D : Node2D
     {
         if (Amount <= 0 || Lifetime <= 0)
             return;
-        if (_particles.Length != Amount)
+        if (_particles.Length != Amount || _phaseLifetime != Lifetime || _phaseExplosiveness != Explosiveness)
         {
-            _particles = new Particle[Amount];
-            _phase = new float[Amount];
+            if (_particles.Length != Amount)
+                _particles = new Particle[Amount];
+            if (_phase.Length != Amount)
+                _phase = new float[Amount];
+            var spread = 1f - Math.Clamp(Explosiveness, 0f, 1f);
             for (var i = 0; i < Amount; i++)
-                _phase[i] = Lifetime * i / Amount;
+                _phase[i] = Lifetime * i / Amount * spread;
+            _phaseLifetime = Lifetime;
+            _phaseExplosiveness = Explosiveness;
             _random = new Random(Amount * 7919 + 1);
         }
 
@@ -183,7 +244,7 @@ public class GpuParticles2D : Node2D
             var restarted = cycles >= 0 && Math.Floor((previous - _phase[i]) / Lifetime) < cycles;
             if (restarted)
             {
-                if (_emitting && i < active && material is not null)
+                if (_emitting && i < active && material is not null && (!OneShot || cycles == 0))
                     Emit(ref p, material, (float)(_time - _phase[i] - cycles * Lifetime));
                 else
                     p.Alive = false;
@@ -193,6 +254,13 @@ public class GpuParticles2D : Node2D
             if (!p.Alive)
                 continue;
             Advance(ref p, material, dt);
+        }
+
+        // A one-shot is done once its last particle (phase + lifetime) is over.
+        if (OneShot && _emitting && Amount > 0 && previous < _phase[^1] + Lifetime && _time >= _phase[^1] + Lifetime)
+        {
+            _emitting = false;
+            Finished?.Invoke();
         }
     }
 
@@ -225,6 +293,9 @@ public class GpuParticles2D : Node2D
             Accel = m.LinearAccelMin + (m.LinearAccelMax - m.LinearAccelMin) * Rand(),
             Angle = float.DegreesToRadians(m.AngleMin + (m.AngleMax - m.AngleMin) * Rand()),
             Scale = m.ScaleMin + (m.ScaleMax - m.ScaleMin) * Rand(),
+            Damping = m.DampingMin + (m.DampingMax - m.DampingMin) * Rand(),
+            Spin = float.DegreesToRadians(m.AngularVelocityMin + (m.AngularVelocityMax - m.AngularVelocityMin) * Rand()),
+            Life = m.LifetimeRandomness > 0f ? Lifetime * (1f - Math.Clamp(m.LifetimeRandomness, 0f, 1f) * Rand()) : 0f,   // 0: until its restart
         };
         if (age > 0)
             Advance(ref p, m, age);
@@ -233,14 +304,27 @@ public class GpuParticles2D : Node2D
     private static void Advance(ref Particle p, ParticleProcessMaterial? m, float dt)
     {
         p.Age += dt;
+        if (p.Life > 0f && p.Age >= p.Life)
+        {
+            p.Alive = false;   // lifetime randomness: dies before its next restart
+            return;
+        }
+
         if (m is not null)
         {
             var accel = new Vector2(m.Gravity.X, m.Gravity.Y);
             if (p.Accel != 0 && p.Velocity.LengthSquared() > 1e-8f)
                 accel += Vector2.Normalize(p.Velocity) * p.Accel;
             p.Velocity += accel * dt;
+            if (p.Damping > 0f)
+            {
+                var speed = p.Velocity.Length();
+                if (speed > 1e-6f)
+                    p.Velocity *= Math.Max(0f, speed - p.Damping * dt) / speed;
+            }
         }
 
+        p.Angle += p.Spin * dt;
         p.Position += p.Velocity * dt;
     }
 
@@ -275,9 +359,18 @@ public class GpuParticles2D : Node2D
                 (x, y) = (new Vector2(MathF.Cos(p.Angle), 0f), Vector2.UnitY);   // about the Y axis, seen from the front
             }
 
-            var transform = new Transform2D(x * p.Scale, y * p.Scale, p.Position);
+            var life = Math.Clamp(p.Age / (p.Life > 0f ? p.Life : Lifetime), 0f, 1f);
+            var scale = p.Scale * (m.ScaleCurve?.Sample(life) ?? 1f);
+            var tint = color;
+            if (m.ColorRamp is { } ramp)
+            {
+                var r = ramp.Sample(life);
+                tint *= new Vector4(ColorSpace.SrgbToLinear(r.X), ColorSpace.SrgbToLinear(r.Y), ColorSpace.SrgbToLinear(r.Z), r.W);
+            }
+
+            var transform = new Transform2D(x * scale, y * scale, p.Position);
             DrawSetTransformMatrix(toLocal * transform);
-            DrawTexture(texture, -size / 2, color);
+            DrawTexture(texture, -size / 2, tint);
         }
 
         DrawSetTransformMatrix(Transform2D.Identity);

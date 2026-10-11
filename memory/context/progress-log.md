@@ -657,3 +657,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   include changes make compiled canvas shaders stale.
 - Tests: `CanvasPostTests`, `PointLight2DTests` (cap, slots, culling); render tests `canvas-post`,
   `canvas-many-lights` (moltenvk + lavapipe goldens). Gates: build, Release, format, 2356 unit, 175 render tests green.
+
+### 2026-10-12 — GpuParticles2D life features (ADR 0187)
+- `OneShot` + `Finished`, `Explosiveness`, allocation-free `Restart`; material damping, spin, lifetime randomness,
+  `ScaleCurve` (new `Curve` resource) and `ColorRamp` (`Gradient`). Default emitters unchanged (goldens identical).
+- `CanvasEnvironment` icon → `brightness-half` (the A commit reused `adjustments`, failing `IconAtlasTests`); `Curve` →
+  `math-function`. Gates: build, Release, format, 2359 unit + 792 editor + 175 render tests green.

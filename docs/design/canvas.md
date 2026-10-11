@@ -110,7 +110,9 @@ backed by that target for `Sprite2D`/draw calls. `UpdateMode.Once` draws on the 
 
 `GpuParticles2D` + `ParticleProcessMaterial` (Godot's names): a CPU simulation of the subset 2D games use — box/sphere/
 point emission, direction ± spread, initial speed range, gravity, per-particle linear acceleration, start angle and scale
-ranges, one colour; `Amount`, `Lifetime` (even restarts, explosiveness 0), `AmountRatio`, `Preprocess`, `LocalCoords`.
+ranges, one colour; `Amount`, `Lifetime` (even restarts), `AmountRatio`, `Preprocess`, `LocalCoords`. ADR 0187 adds
+`OneShot` (+ `Finished`), `Explosiveness`, a buffer-reusing `Restart`, and per material damping, spin, lifetime
+randomness, a `ScaleCurve` (`Curve`) and a `ColorRamp` (`Gradient`) over each particle's life.
 Each particle draws its texture centred on it (one canvas batch per emitter). Random streams differ from Godot's GPU ones.
 
 ## Lights (ADR 0117)
