@@ -26,6 +26,7 @@ and saving use no reflection. Decisions: [JSON scenes, no binary bake](../../mem
 | `Resource`, `PackedScene`, `ResourceLoader`, `SceneSaver`, `ResourceSaver` | [Resources/](../../MainframeEngine/Src/Resources/) | |
 | `AssetDatabase`, `AssetMeta`, `AssetIndex`, `AssetUid` | [Resources/](../../MainframeEngine/Src/Resources/) | UIDs ↔ paths |
 | `NodeRegistrationGenerator` | [MainframeEngine.Generators/](../../MainframeEngine.Generators/) | Roslyn incremental generator (netstandard2.0) |
+| `ConfigFile` | [Serialization/ConfigFile.cs](../../MainframeEngine/Src/Serialization/ConfigFile.cs) | Godot's `ConfigFile` over JSON: player settings and other key/value files ([below](#config-files-configfile)) |
 
 ## Property model
 
@@ -348,6 +349,42 @@ work runs on a worker thread:
   tonemap, auto exposure, glow, light shafts, SSAO and adjustment keys (`PostProcessProfile.MovedPropertyNames`) into an
   inline `PostProcessProfile` on `PostProcess`; an entry without them gets none. Instance overrides migrate the same way
   (a v1 override of a post key replaces the instance's profile with an inline one).
+
+## Config files (`ConfigFile`)
+
+`ConfigFile` is Godot's `ConfigFile` (sections holding keys) for options and other small key/value data; the player's
+`settings.json` ([`UserSettings`](project-and-gamehost.md#user-settings)) is one. Two deviations from Godot: the file is
+JSON (one parser, the same `JsonMigrations`, readable by every tool) and values are typed through overloads
+(`GetBool`/`GetInt`/`GetDouble`/`GetString`/`GetStrings`, `SetValue(…)`) instead of a Variant, so reading a number
+never boxes. Structured values go through the game's source-generated `JsonTypeInfo<T>` (`Get<T>`/`Set<T>`): no
+reflection, trim- and AOT-safe.
+
+```json
+{
+  "format": 1,
+  "version": 1,
+  "game": { "subtitles": true, "fov": 80 }
+}
+```
+
+- Each section is a top-level object; `format` (the engine's container layout, `ConfigFile.CurrentFormat`) and
+  `version` (the game's own, `ConfigFile.Version`; 0 = not versioned, not written) are reserved. Comments and trailing
+  commas are tolerated (`SceneFormat.ReadOptions`); a top-level value that is not an object is dropped with a warning.
+  Writing is UTF-8, LF, indented.
+- **Never crashes on player edits.** A value of the wrong type returns the caller's default and logs one warning per
+  key (writing the key forgets it). Erasing a section's last key erases the section, as in Godot; a null string or
+  structured value erases the key.
+- **Load** (`ConfigFile.Load(path, currentVersion, migrations)`): a missing file is an empty config. An unparseable
+  file is moved aside as `path.corrupt-{utc}` (`DurableFile.QuarantineCorrupt`), then `DurableFile.RecoveryCandidates`
+  (a flushed `.tmp`, then `.bak1`) are tried and the first valid one is restored as the file; failing that the config
+  starts empty. A newer `format` or game `version` is never moved or rewritten: the config starts empty with an error
+  logged, and the newer content survives as the backup of the next save. `ConfigFile.Parse` is the strict variant and
+  throws `InvalidDataException`.
+- **Versions.** With `currentVersion` > 0, an older `version` (missing = 1) runs through the game's `JsonMigration`
+  steps (`JsonMigrations.Upgrade`) before any value is read, and `Version` becomes `currentVersion`; with 0 the file's
+  own `version` is kept as is. Engine `format` steps work the same way (none yet).
+- **Save** writes through `DurableFile.Write` with one backup (`.bak1`): temp file, flush to disk, replace.
+- The values live in a `JsonObject` tree: meant for options, not per-frame reads (callers cache values).
 
 ## Performance
 
