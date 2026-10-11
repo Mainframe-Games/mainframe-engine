@@ -36,9 +36,12 @@ public sealed class ProjectSettingsTests : IDisposable
             Version = "2026.9.2",
             UserDataName = "SpaceGame",
             IsDemo = true,
-            Input = new InputMap().Bind("jump", "key:Space", "pad:A").Bind("move_left", "key:A", "axis:LeftX-"),
+            Input = new InputMap().Bind("jump", "key:Space", "pad:A").Bind("move_left", "key:A", "axis:LeftX-").Bind("pause", "key:Escape", "pad:Start"),
         };
         s.Input.GetAction("move_left")!.Deadzone = 0.25f;
+        s.Input.GetAction("jump")!.Label = "Jump ✓";
+        s.Input.GetAction("jump")!.Group = "gameplay";
+        s.Input.GetAction("pause")!.Rebindable = false;
         s.Assemblies.Add("SpaceGame");
         s.Steam.AppId = 480;
         s.Steam.DemoAppId = 481;
@@ -114,8 +117,8 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(expected.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)), actual.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)));
         Assert.Equal(expected.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)),
             actual.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)));
-        Assert.Equal(expected.Input.Actions.Select(a => (a.Name, a.Deadzone, string.Join(' ', a.Bindings))),
-            actual.Input.Actions.Select(a => (a.Name, a.Deadzone, string.Join(' ', a.Bindings))));
+        Assert.Equal(expected.Input.Actions.Select(a => (a.Name, a.Deadzone, a.Label, a.Group, a.Rebindable, string.Join(' ', a.Bindings))),
+            actual.Input.Actions.Select(a => (a.Name, a.Deadzone, a.Label, a.Group, a.Rebindable, string.Join(' ', a.Bindings))));
     }
 
     [Fact]
@@ -150,6 +153,12 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal("axis:LeftX-", (string?)json["input"]!["move_left"]!["bindings"]![1]);
         Assert.Equal(0.25, (double)json["input"]!["move_left"]!["deadzone"]!, 3);
         Assert.Null(json["input"]!["jump"]!["deadzone"]); // the default is not written
+        Assert.Equal("Jump ✓", (string?)json["input"]!["jump"]!["label"]);
+        Assert.Equal("gameplay", (string?)json["input"]!["jump"]!["group"]);
+        Assert.False((bool)json["input"]!["pause"]!["rebindable"]!);
+        Assert.Null(json["input"]!["move_left"]!["label"]);      // defaults (no label, no group, rebindable) are not written
+        Assert.Null(json["input"]!["move_left"]!["group"]);
+        Assert.Null(json["input"]!["jump"]!["rebindable"]);
         Assert.Equal("Low", (string?)json["rendering"]!["shadows"]);
     }
 

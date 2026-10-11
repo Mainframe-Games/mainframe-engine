@@ -259,6 +259,12 @@ public static class ProjectSettingsFormat
             w.WriteStartObject(action.Name);
             if (action.Deadzone != InputAction.DefaultDeadzone)
                 w.WriteNumber("deadzone", action.Deadzone);
+            if (action.Label is { } label)
+                w.WriteString("label", label);
+            if (action.Group.Length > 0)
+                w.WriteString("group", action.Group);
+            if (!action.Rebindable)
+                w.WriteBoolean("rebindable", false);
             w.WriteStartArray("bindings");
             foreach (var binding in action.Bindings)
                 w.WriteStringValue(binding.ToString());
@@ -556,8 +562,11 @@ public static class ProjectSettingsFormat
                     throw Error("input", "action names must not be empty");
                 if (node is not JsonObject action)
                     throw Error(where, "must be an object with \"bindings\"");
-                Known(action, where + ".", "deadzone", "bindings");
+                Known(action, where + ".", "deadzone", "label", "group", "rebindable", "bindings");
                 var created = map.AddAction(name, Float(action, "deadzone", where + ".deadzone", InputAction.DefaultDeadzone));
+                created.Label = String(action, "label", where + ".label");
+                created.Group = String(action, "group", where + ".group") ?? "";
+                created.Rebindable = Bool(action, "rebindable", where + ".rebindable", true);
                 foreach (var text in Strings(action, "bindings", where + ".bindings"))
                 {
                     if (!InputBinding.TryParse(text, out var binding))
