@@ -1,6 +1,7 @@
 # Proposal: Save games and settings
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G4) · **Status:** ⬜ planned ·
+**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G4) · **Status:** ✅ shipped (see
+[As built](#as-built)) ·
 **Depends on:** [M10 projects](../project-and-gamehost.md) (`GameHost`, `project.mfproj`), [M8 game UI](../game-ui.md)
 (widget library, data binding), [M7 audio](../audio.md) (buses), [M9 localization](../localization.md) ·
 **Related:** [M13 mobile services](mobile-services.md#achievements-leaderboards-and-cloud-saves) (cloud saves build on
@@ -803,6 +804,38 @@ All keys are optional and have defaults, so no format bump is needed. The editor
    **Open User Data Folder**.
 7. **G4.7 Cloud seam:** `ISaveStorage`/`ICloudSaveBackend`, `SyncAsync`, conflict policies, `.sync.json`, fake backend
    + tests. The real backends are M13.3.
+
+## As built
+
+G4.1–G4.7 shipped as proposed. The subsystem docs are the reference now:
+[Projects](../project-and-gamehost.md) (user data, `userDataName`, `saves`, `SaveServer`, cloud seam, `UserSettings`),
+[Scene serialization](../scene-serialization.md) (`JsonMigrations`, `DurableFile`, `ConfigFile`),
+[Cameras and input](../cameras-and-input.md) (rebinding, `InputRebinder`), [Audio](../audio.md) (`UserVolume`),
+[Game UI](../game-ui.md#settings-menu-g4) (`SettingsMenu`, `.tabs`, `UserScale`), [Localization](../localization.md#engine-strings)
+(`settings.pot`), [Editor](../editor.md) (Saves page, Open User Data Folder) and [Demo](../demo.md). Where the build
+differs from the text above:
+
+- **`SaveServer(storage, options, tree?)`** takes the tree (pause check, `CaptureFrame`); its storage root is
+  `{user data}/saves`, so paths are slot file names. `ISaveStorage` gained `Move` (quarantine). `SaveResult` is
+  `(Slot, Status, Error, Info, CloudTooLarge)`; `SaveOptions` adds cloud retry settings. `Load`, `Save` and `Delete` wait
+  for queued async saves. The 64 KiB header cap is enforced through a 1 024-character description limit.
+- **Trimming check:** the engine is not trim-clean as a whole, so `MainframeEngine/.editorconfig` makes the trim and AOT
+  analyzers errors for `Src/Saves/**` only (no separate `PublishTrimmed` project).
+- **Window modes** call SDL directly: Silk.NET's `WindowState.Fullscreen` is exclusive and `Normal` does not leave
+  fullscreen. `Fullscreen` = `SDL_WINDOW_FULLSCREEN_DESKTOP`; `ExclusiveFullscreen` uses the display mode closest to the
+  window (no mode list yet, open question 1). The existing `IWindowControl.Fullscreen` shortcut is now borderless.
+- **`UserSettings`** adds `StoreInput`/`ApplyInput`, `PatchEngineOptions`, `ShadowsNeedRestart`; command-line flags
+  (`--no-vsync`, `--locale`) still win over the player's file. Settings load just after the log file is set up.
+  `UiServer.UserScale` also scales `Project` layers (they resolve to `Dpi`/`ReferenceResolution` in games);
+  `UiLayer.IgnoreUserScale` opts out (the dev overlay).
+- **Rebinding:** an empty binding clears a slot; `InputRebinder` also sets `ProcessMode.Always` (it works under a paused
+  menu) and exposes `ReservedInputs`. Stick directions are words (`LS Up`): the bundled UI fonts have no arrow glyphs.
+- **Engine strings** merge through the existing `mf-l10n extract --include` (no `update --template`); `--mfproj` was
+  added to extract input action labels.
+- **QA:** games have no QA-script runner, so `Tests/QA/demo-settings.qa` became `just qa-settings`: the Demo's own
+  `++ --qa settings|check|saves` mode. The crash is simulated by truncating the newest save (`DurableFile`'s unit tests
+  interrupt every file-system step); fullscreen is not toggled because the QA window is hidden.
+- **Lavapipe** golden `ui-settings-menu` is recorded with `just render-tests-linux`.
 
 ## Open questions
 

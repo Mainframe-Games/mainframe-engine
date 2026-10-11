@@ -18,10 +18,12 @@ just format           # dotnet format (format-check is what CI runs)
 just bench            # benchmarks vs Tests/MainframeEngine.Benchmarks/baseline.json (quiet machine only)
 just editor [project|scene]  # the editor (no argument: the Project Manager)
 just qa-editor        # scripted editor QA (Tests/QA/editor-walkthrough.qa) → artifacts/qa-editor
+just qa-settings      # saves + settings QA on the real Demo (rebind, restart, recover a damaged save) → artifacts/qa-settings
 just qa-projects      # create a game, play it, edit its C#, reload (needs the .NET SDK) → artifacts/qa-projects
 just template-smoke   # dotnet new mfgame against this checkout, build it, run it headless (CI job "template")
 just publish-local    # package the editor like the release workflow (artifacts/release)
 just l10n-check       # committed .mo files match their .po (CI runs it)
+just l10n-engine      # the engine's own strings (settings menu, input names) → Content/UI/settings/settings.pot
 just docs             # the docs site (Astro Starlight, docs-site/) with live reload; just docs-build = the Pages build
 ```
 
@@ -105,7 +107,11 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `MainframeEngine/Src/Debugging/` — `Log` + `ILogSink` sinks (console, rotating file, memory ring); `DevOverlay/` — the F12 developer
   overlay (RmlUi panels; games add panels with `DevOverlay.AddPanel`; see `docs/design/dev-overlay.md`)
 - `MainframeEngine/Src/Localization/` — `Tr` (gettext catalogs, locale switching), RML text contract, font fallback
-- `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `GameHost`/`GameSession`, `GameAssemblyLoader`
+- `MainframeEngine/Src/Saves/` — G4 save games: `SaveServer` (slots, `.msave` header + payload, worker, durable writes with
+  backups, recovery, thumbnails), `SaveSchema<T>` (game `JsonTypeInfo` + `JsonMigration`s; trim/AOT analyzers are errors
+  here), `ISaveStorage`/`ICloudSaveBackend` (M13 seam). `Src/Serialization/` also holds `JsonMigrations`, `DurableFile`,
+  `ConfigFile`; `Src/UI/Settings/` the drop-in `SettingsMenu`
+- `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `UserSettings` (`settings.json`), `GameHost`/`GameSession`, `GameAssemblyLoader`
   (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol, client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template (not published; `build/template-smoke.sh`)
 - `Examples/Demo/` — the Demo game (a `GameHost` project of its own: `Demo`, `Demo.Desktop`, `Demo.Tests`): one scene per feature, nav bar; README screenshots (`just demo-screenshots`). Standalone, not part of `MainframeEngine.slnx` (`Examples/Demo/Demo.slnx`); see `docs/design/demo.md`

@@ -325,6 +325,48 @@ themselves and call `FadeOut()`. The document is modal while loading (the game g
 - Engine and game `Content/` merge in the output folder: give a game's document a path the engine does not use (the
   Forest's is `Content/UI/loading.rml`).
 
+## Settings menu (G4)
+
+`SettingsMenu : UiDocument` ([`Src/UI/Settings/`](../../MainframeEngine/Src/UI/Settings/SettingsMenu.cs)) is the engine's
+drop-in options screen over [`UserSettings`](project-and-gamehost.md#user-settings), laid out by
+[`Content/UI/settings/settings.rml`](../../MainframeEngine/Content/UI/settings/settings.rml) with the widget library only
+(`.panel`, `.tabs`, sliders, checkboxes, dropdowns, buttons).
+
+```csharp
+SettingsMenu.Open(Tree, new SettingsMenuOptions
+{
+    PauseTree = true,                    // Tree.Paused while open (the menu's layer is ProcessMode.Always)
+    Tabs = SettingsTabs.All,             // or Audio | Controls
+    HiddenBuses = ["Voice"],
+    BusLabels = { ["SFX"] = "Effects" }, // shown through Atr (the game's catalog)
+}).Closed += () => { /* resume */ };
+```
+
+- `Open` adds a `UiLayer` named `SettingsMenu` (layer 90, under the developer overlay) below the root, or returns the
+  open one (`SettingsMenu.Find`). The document is modal and `InputBeforeUi`: LB/RB switch tabs, Escape or gamepad B
+  closes it (or reverts a pending display change).
+- **Audio:** one row per `AudioServer` bus (Master always): a slider for `AudioBus.UserVolume` and a mute button.
+- **Controls:** every action of the tree's `InputMap`, two keyboard/mouse slots and one gamepad slot
+  (`InputMap.GetBinding`), labelled with `InputAction.Label` (through `Atr`) and `InputBinding.DisplayName()`. A click
+  starts an `InputRebinder` child (Esc cancels, Backspace clears); the binding goes through `InputMap.Rebind` (`Swap`),
+  conflicts are reported ("F was swapped with Jump", "Esc is used by Pause"), locked actions cannot be changed, and
+  `UserSettings.StoreInput` records the overrides. "Reset controls" restores `UserSettings.DefaultInput`.
+- **Display:** window mode and size (desktop only; common 16:9/16:10 sizes that fit the screen), VSync, max FPS
+  (disabled while VSync is on), UI scale (`UiServer.UserScale`), shadows ("applies after a restart" for a switch to or
+  from Off: `UserSettings.ShadowsNeedRestart`) and the language (each in its own name). A mode or size change starts a
+  15 s **revert prompt** ("Keep this display mode?"): Keep confirms, Revert, Escape or the timeout restores the old one.
+- Every change applies at once; closing saves `settings.json` only if something changed. Without loaded settings
+  (tests, tools) the menu edits in-memory defaults and saves nothing.
+- **Restyling:** copy `settings.rml` into the game's `Content/` and pass `Source`. The `settings` data model (documented
+  at the top of the file) is the contract: `tab`, `buses`, `actions`, the display scalars, `locales`, and the events
+  `tab`, `toggleMute`, `rebind(action, class, slot)`, `reset(section)`, `keep`, `revert`, `close`.
+- **Selects write back:** RmlUi sets a `<select>`'s bound value to its first option when the current value is not one of
+  its options, so the menu keeps every current value (language, window size) among the options; opening it never
+  changes a setting.
+- **Strings** are text nodes (the game's catalog) and `Tr.P("settings", …)` in C#; the engine's
+  [`settings.pot`](localization.md#engine-strings) carries both. Golden: `ui-settings-menu` (the Controls tab capturing
+  a key); unit tests: `SettingsMenuTests` (`SerialRmlUi`).
+
 ## Widget library
 
 [`Content/UI/widgets/`](../../MainframeEngine/Content/UI/widgets/): link `/Content/UI/widgets/widgets.rcss`.
@@ -337,6 +379,7 @@ themselves and call `FadeOut()`. The document is modal while loading (the game g
 | Dropdown | `<select><option>…</select>` |
 | Text field | `<input type="text">`, `type="password"`, `<textarea>` |
 | Progress bar | `<progress value="0..1">`, `.health` |
+| Tabs | `<div class="tabs">` of buttons; the open one carries `.active` (pair with `data-if` pages; the settings menu) |
 | Panel | `.panel`, `.panel-title`; window template `mf-panel` (`<link type="text/template" href="/Content/UI/widgets/panel.rml"/>`, `<body template="mf-panel">`; the document `<title>` fills the draggable title bar) |
 | HUD helpers | `body.hud` (`pointer-events: none`, full screen), `.stat` (monospace), `.row`/`label.caption` |
 
@@ -359,7 +402,7 @@ inside an RmlUi callback, so a language dropdown can switch the language it live
 ## Demo
 
 Every [Demo](demo.md) scene has a small RmlUi panel (`UiDocument` + `CreateDataModel`, two-way bindings to live scene
-state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded nav bar (tabs, FPS, language picker). The
+state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded nav bar (tabs, FPS, language picker, the settings menu's gear). The
 **UI** scene is the reference: the widget gallery, a data-bound form, and a live counter of UI hot reloads
 (`UiServer.HotReloaded`).
 
