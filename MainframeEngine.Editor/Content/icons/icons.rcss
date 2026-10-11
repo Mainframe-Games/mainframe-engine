@@ -213,6 +213,7 @@
     i-clipboard: 222px 242px 16px 16px;
     i-lock: 242px 242px 16px 16px;
     i-lock-open: 262px 242px 16px 16px;
+    i-folder-user: 282px 242px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -423,6 +424,7 @@
     l-clipboard: 333px 363px 24px 24px;
     l-lock: 363px 363px 24px 24px;
     l-lock-open: 393px 363px 24px 24px;
+    l-folder-user: 423px 363px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -636,6 +638,7 @@
         i-clipboard: 444px 484px 32px 32px;
         i-lock: 484px 484px 32px 32px;
         i-lock-open: 524px 484px 32px 32px;
+        i-folder-user: 564px 484px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -846,6 +849,7 @@
         l-clipboard: 666px 726px 48px 48px;
         l-lock: 726px 726px 48px 48px;
         l-lock-open: 786px 726px 48px 48px;
+        l-folder-user: 846px 726px 48px 48px;
     }
 }
 
@@ -1055,6 +1059,7 @@
 .icon-clipboard { decorator: image(i-clipboard); }
 .icon-lock { decorator: image(i-lock); }
 .icon-lock-open { decorator: image(i-lock-open); }
+.icon-folder-user { decorator: image(i-folder-user); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1262,3 +1267,4 @@
 .icon-lg.icon-clipboard { decorator: image(l-clipboard); }
 .icon-lg.icon-lock { decorator: image(l-lock); }
 .icon-lg.icon-lock-open { decorator: image(l-lock-open); }
+.icon-lg.icon-folder-user { decorator: image(l-folder-user); }

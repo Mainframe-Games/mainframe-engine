@@ -360,6 +360,13 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["ui.matchWidthOrHeight"] = "0.5",
             ["ui.minScale"] = "0.75",
             ["ui.maxScale"] = "2",
+            ["userDataName"] = "WorkflowData",
+            ["saves.maxBytes"] = "32",
+            ["saves.backups"] = "4",
+            ["saves.compression"] = "Gzip",
+            ["saves.thumbnails"] = "true",
+            ["saves.thumbnail.width"] = "480",
+            ["saves.thumbnail.height"] = "270",
         };
         foreach (var setting in ProjectSettingsModel.Settings)
             if (setting.Set is not null)
@@ -399,6 +406,15 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.NotNull(model.Set("ui.referenceResolution", "0, 1080"));
         Assert.NotNull(model.Set("ui.matchWidthOrHeight", "1.5"));
         Assert.NotNull(model.Set("ui.minScale", "-1"));
+        Assert.NotNull(model.Set("saves.maxBytes", "0"));
+        Assert.NotNull(model.Set("saves.maxBytes", "4096"));
+        Assert.NotNull(model.Set("saves.maxBytes", "big"));
+        Assert.NotNull(model.Set("saves.backups", "17"));
+        Assert.NotNull(model.Set("saves.backups", "-1"));
+        Assert.NotNull(model.Set("saves.compression", "Zip"));
+        Assert.NotNull(model.Set("saves.thumbnail.width", "0"));
+        Assert.NotNull(model.Set("saves.thumbnail.height", "5000"));
+        Assert.NotNull(model.Set("userDataPath", "/tmp"));
         Assert.Empty(model.History.Actions);
         Assert.Null(model.Set("window.width", "1280")); // unchanged: no entry
         Assert.Empty(model.History.Actions);
@@ -509,6 +525,109 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.Null(model.Current.Input.GetAction("pause")!.Label);
         w.ProjectSettings.RequestClose();
         w.Message.Answer(1); // Don't Save
+    }
+
+    [Fact]
+    public void TheSavesPageEditsSaveSettingsWithUndoAndOpensTheUserDataFolder()
+    {
+        var userData = Directory.CreateTempSubdirectory("mf-user-data").FullName;
+        var previous = Environment.GetEnvironmentVariable(UserDataPaths.OverrideVariable);
+        Environment.SetEnvironmentVariable(UserDataPaths.OverrideVariable, userData);
+        try
+        {
+            var opened = new List<string>();
+            var w = Open(o => o with
+            {
+                OpenFolder = path =>
+                {
+                    opened.Add(path);
+                    return true;
+                },
+            }).Workspace;
+            Assert.True(w.ProjectSettings.Open());
+            _editor!.Tick();
+            var model = w.ProjectSettings.Model!;
+            w.ProjectSettings.SelectSection("Saves");
+            _editor.Tick();
+            Assert.Empty(_editor.RmlMessages);
+            var body = w.ProjectSettings.Document.GetElementById("ps-body");
+            Assert.Equal("16", body.QuerySelector("input[data-key=saves.maxBytes]").Value);
+            Assert.Equal("2", body.QuerySelector("input[data-key=saves.backups]").Value);
+            Assert.False(body.QuerySelector("select[data-key=saves.compression]").IsNull);
+            Assert.False(body.QuerySelector("input[data-key=saves.thumbnails]").IsNull);
+            Assert.Contains(Path.Combine(userData, "Workflow"), body.InnerRml, StringComparison.Ordinal);
+
+            // Edits are undoable; the folder follows the user data name, else the project name.
+            Assert.Null(model.Set("saves.maxBytes", "0.5"));
+            Assert.Equal(512 * 1024, model.Current.Saves.MaxBytes);
+            Assert.Null(model.Set("saves.compression", "Gzip"));
+            Assert.Null(model.Set("userDataName", "  WorkflowData "));
+            Assert.Equal("WorkflowData", model.Current.UserDataName);
+            Assert.Equal(Path.Combine(userData, "WorkflowData"), model.Get("userDataPath"));
+            model.History.Undo();
+            Assert.Null(model.Current.UserDataName);
+            Assert.Equal(Path.Combine(userData, "Workflow"), model.Get("userDataPath"));
+            model.History.Undo();
+            Assert.Equal(SaveCompression.None, model.Current.Saves.Compression);
+            model.History.Redo();
+            model.History.Redo();
+            Assert.Equal("WorkflowData", model.Current.UserDataName);
+            _editor.Tick();
+            Assert.Equal("0.5", body.QuerySelector("input[data-key=saves.maxBytes]").Value);
+
+            // The page's icon button opens the folder being edited, creating it.
+            var button = body.QuerySelector("button[data-op=open-user-data]");
+            Assert.StartsWith("Open User Data Folder — ", button.GetAttribute("data-tooltip"), StringComparison.Ordinal);
+            Assert.False(button.QuerySelector(".icon-folder-user").IsNull);
+            button.Click();
+            _editor.Tick();
+            Assert.Equal([Path.Combine(userData, "WorkflowData")], opened);
+            Assert.True(Directory.Exists(opened[0]));
+
+            Assert.True(w.ProjectSettings.Save());
+            var saved = ProjectSettings.Load(_project.Root);
+            Assert.Equal(("WorkflowData", 512L * 1024, SaveCompression.Gzip), (saved.UserDataName, saved.Saves.MaxBytes, saved.Saves.Compression));
+            w.ProjectSettings.RequestClose();
+            Assert.False(w.ProjectSettings.Visible);
+
+            // Project › Open User Data Folder and the toolbar button open the saved project's folder.
+            Assert.Contains(w.Commands.MenuItems("project"), item => item.Command == "project.user_data" && item.Enabled && item.Icon == "folder-user");
+            var toolbarButton = w.Toolbar.Document.GetElementById("user-data");
+            Assert.False(toolbarButton.IsClassSet("disabled"));
+            Assert.StartsWith("Open User Data Folder — ", toolbarButton.GetAttribute("data-tooltip"), StringComparison.Ordinal);
+            Assert.True(w.Commands.Execute("project.user_data"));
+            Assert.Equal(Path.Combine(userData, "WorkflowData"), opened[^1]);
+            Assert.Equal(opened[^1], w.Project.UserDataDirectory);
+            Assert.Empty(_editor.RmlMessages);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(UserDataPaths.OverrideVariable, previous);
+            Directory.Delete(userData, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TheUserDataFolderIsTheGamesUserDataNameElseItsName()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mf-user-data-base");
+        var previous = Environment.GetEnvironmentVariable(UserDataPaths.OverrideVariable);
+        Environment.SetEnvironmentVariable(UserDataPaths.OverrideVariable, root);
+        try
+        {
+            var settings = new ProjectSettings { Name = "Space Game" };
+            Assert.Equal(Path.Combine(root, "Space Game"), ProjectService.UserDataDirectoryOf(settings));
+            settings.UserDataName = "space-game";
+            settings.Name = "Space Game 2: Renamed"; // a rename keeps the folder
+            Assert.Equal(Path.Combine(root, "space-game"), ProjectService.UserDataDirectoryOf(settings));
+            settings.UserDataName = "Bad/Name:";
+            Assert.Equal(Path.Combine(root, UserDataPaths.SafeName("Bad/Name:")), ProjectService.UserDataDirectoryOf(settings));
+            Assert.False(Directory.Exists(root)); // resolving never creates it
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(UserDataPaths.OverrideVariable, previous);
+        }
     }
 
     // ── FileSystem ───────────────────────────────────────────────────────────────────────────────────────────────

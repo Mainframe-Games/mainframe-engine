@@ -224,3 +224,6 @@ clipboard
 # Input map: the rebinding lock (players cannot rebind a locked action)
 lock
 lock-open
+
+# Saves: Project › Open User Data Folder
+folder-user

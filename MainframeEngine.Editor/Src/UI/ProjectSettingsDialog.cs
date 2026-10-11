@@ -9,11 +9,15 @@ namespace MainframeEngine.Editor;
 /// Project › Project Settings (E4): edits the open project's <c>project.mfproj</c> through a
 /// <see cref="ProjectSettingsModel"/> — application (name, main scene picker, game assemblies, Steam), window, the input
 /// map (actions, deadzones, bindings captured from a key or mouse press, gamepad inputs from a list), physics 2D/3D,
-/// audio (bus layout reference), localization, rendering quality (exposure, shadow quality) and autoloads — with undo/
+/// audio (bus layout reference), localization, rendering quality (exposure, shadow quality), saves (user data name, size
+/// limit, backups, compression, thumbnails; opens the user data folder) and autoloads — with undo/
 /// redo (its own history, Cmd/Ctrl+Z inside the dialog) and Save. Closing with unsaved edits asks first.
 /// </summary>
 public sealed class ProjectSettingsDialog : EditorDocument
 {
+    private const string OpenUserDataTooltip =
+        "Open User Data Folder — show the folder this game keeps its saves, settings and logs in (created if missing)";
+
     private static readonly Dictionary<RmlKey, Key> KeysByRml = BuildKeyMap();
 
     private RmlEventListener? _change;
@@ -141,6 +145,9 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 break;
             case SettingKind.ReadOnly:
                 rml.Append("<span class=\"readonly\">").Append(RmlText.Escape(value)).Append("</span>");
+                if (setting.Key == "userDataPath")
+                    rml.Append("<button class=\"tool-button small\" data-op=\"open-user-data\" data-tooltip=\"").Append(RmlText.Escape(OpenUserDataTooltip))
+                        .Append("\"><span class=\"icon icon-sm icon-folder-user\"></span></button>");
                 break;
             default:
                 rml.Append("<input type=\"text\" class=\"text\" data-key=\"").Append(key).Append("\" value=\"").Append(RmlText.Escape(value)).Append("\"/>");
@@ -388,6 +395,9 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 break;
             case "autoload-browse":
                 PickScene(path => Document.GetElementById("ps-autoload-what").SetValue(path));
+                break;
+            case "open-user-data":
+                Workspace.Project.OpenUserDataFolder(Model.Current);
                 break;
             case "autoload-add":
                 Apply(Model.AddAutoload(Document.GetElementById("ps-autoload-name").Value ?? "", Document.GetElementById("ps-autoload-what").Value ?? ""));

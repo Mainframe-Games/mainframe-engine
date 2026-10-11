@@ -143,6 +143,7 @@ public sealed class EditorCommands
             case "project.new": _workspace.NewProject.Open(); return true;
             case "project.manager": ShowProjectManager(); return true;
             case "project.settings": _workspace.ProjectSettings.Open(); return true;
+            case "project.user_data": _workspace.Project.OpenUserDataFolder(); return true;
             case "project.close": CloseProject(); return true;
             case "editor.settings": _workspace.EditorSettingsDialog.Open(); return true;
             default:
@@ -766,6 +767,7 @@ public sealed class EditorCommands
             "project" =>
             [
                 new MenuItem("Project Settings…", "project.settings", null, Session.Project is not null, Icon: "settings"),
+                new MenuItem("Open User Data Folder", "project.user_data", null, Session.Project is not null, Icon: "folder-user"),
                 MenuItem.Separator,
                 new MenuItem("Build & Reload Code", "project.build_reload", "Ctrl+Shift+B",
                     _workspace.Project.GameLibraryProject is not null && !_workspace.Project.IsBuilding, Icon: "hammer"),

@@ -83,6 +83,7 @@ public sealed class ProjectSettingsModel
         ("Localization", "language"),
         ("Rendering", "brightness-half"),
         ("UI", "layout"),
+        ("Saves", "device-floppy"),
         ("Autoloads", "stack-2"),
         ("Steamworks", "brand-steam"),
     ];
@@ -91,7 +92,7 @@ public sealed class ProjectSettingsModel
     public static readonly IReadOnlyList<ProjectSetting> Settings =
     [
         new("name", "Application", "Name", SettingKind.Text, static s => s.Name, static (s, v) => s.Name = v.Trim(),
-            "The game's name: the default window title and its user-data folder."),
+            "The game's name: the default window title, and its user-data folder unless Saves › User Data Name is set."),
         new("mainScene", "Application", "Main Scene", SettingKind.Scene, static s => s.MainScene ?? "",
             static (s, v) => s.MainScene = string.IsNullOrWhiteSpace(v) ? null : v.Trim(), "The scene the game starts with (Play ▶ runs it)."),
         new("assemblies", "Application", "Game Assemblies", SettingKind.List, static s => string.Join(", ", s.Assemblies),
@@ -199,6 +200,30 @@ public sealed class ProjectSettingsModel
             static (s, v) => s.Ui.MinScale = ParseFloat(v), "The smallest UI scale (pixels per dp) in small windows; 0: no limit."),
         new("ui.maxScale", "UI", "Max Scale", SettingKind.Number, static s => Num(s.Ui.MaxScale),
             static (s, v) => s.Ui.MaxScale = ParseFloat(v), "The largest UI scale (pixels per dp) in large windows; 0: no limit."),
+
+        new("userDataName", "Saves", "User Data Name", SettingKind.Text, static s => s.UserDataName ?? "",
+            static (s, v) => s.UserDataName = v.Trim(),
+            "The name of the folder the game keeps player data in (saves, settings.json, logs). Set it once and keep it: renaming the " +
+            "project or its window title then keeps every player's saves and settings. Empty: the project name."),
+        new("userDataPath", "Saves", "User Data Folder", SettingKind.ReadOnly, static s => UserDataPaths.GetDirectory(s.UserDataFolderName), null,
+            "Where the game keeps player data on this computer (MAINFRAME_USER_DATA moves the base folder)."),
+        new("saves.maxBytes", "Saves", "Max Save Size (MiB)", SettingKind.Number, static s => ValueText.Number(s.Saves.MaxBytes / (double)BytesPerMiB),
+            static (s, v) => s.Saves.MaxBytes = ParseMiB(v),
+            "The largest save payload, uncompressed. A bigger save fails with TooLarge instead of filling the disk."),
+        new("saves.backups", "Saves", "Backups", SettingKind.WholeNumber, static s => Int(s.Saves.Backups),
+            static (s, v) => s.Saves.Backups = ParseInt(v, 0, DurableFile.MaxBackups, "Backups"),
+            "Previous versions kept per slot (slot.msave.bak1, …), 0 to 16: a damaged save loads from the newest good copy."),
+        new("saves.compression", "Saves", "Compression", SettingKind.Choice, static s => s.Saves.Compression.ToString(),
+            static (s, v) => s.Saves.Compression = Enum.Parse<SaveCompression>(v, ignoreCase: true),
+            "None: the payload is plain JSON, readable in any text editor. Gzip: smaller files; the header line stays plain JSON.",
+            Choices: Enum.GetNames<SaveCompression>()),
+        new("saves.thumbnails", "Saves", "Thumbnails", SettingKind.Bool, static s => Bool(s.Saves.Thumbnails),
+            static (s, v) => s.Saves.Thumbnails = ParseBool(v),
+            "Saves may store a screenshot (slot.png) for a load menu. Turns on frame capture, which slows some drivers."),
+        new("saves.thumbnail.width", "Saves", "Thumbnail Width", SettingKind.WholeNumber, static s => Int(s.Saves.ThumbnailWidth),
+            static (s, v) => s.Saves.ThumbnailWidth = ParseInt(v, 1, 4096, "Thumbnail Width"), "Pixels, 1 to 4096."),
+        new("saves.thumbnail.height", "Saves", "Thumbnail Height", SettingKind.WholeNumber, static s => Int(s.Saves.ThumbnailHeight),
+            static (s, v) => s.Saves.ThumbnailHeight = ParseInt(v, 1, 4096, "Thumbnail Height"), "Pixels, 1 to 4096."),
 
         new("steam.appId", "Steamworks", "App ID", SettingKind.WholeNumber, static s => s.Steam.AppId.ToString(CultureInfo.InvariantCulture),
             static (s, v) => s.Steam.AppId = ParseUInt(v), "The full game's Steam app id (480: Spacewar, Valve's test app). 0 leaves Steam alone."),
@@ -454,6 +479,23 @@ public sealed class ProjectSettingsModel
         int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
             ? value
             : throw new FormatException($"'{text}' is not a whole number.");
+
+    private static int ParseInt(string text, int min, int max, string what)
+    {
+        var value = ParseInt(text);
+        return value >= min && value <= max ? value : throw new FormatException($"{what} must be from {min} to {max}.");
+    }
+
+    private const long BytesPerMiB = 1024 * 1024;
+
+    // A size in MiB ("16", "0.5") as bytes; at most 2047 MiB (the payload is one .NET array).
+    private static long ParseMiB(string text)
+    {
+        if (!double.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var mib) || !double.IsFinite(mib))
+            throw new FormatException($"'{text}' is not a number.");
+        var bytes = (long)Math.Round(mib * BytesPerMiB);
+        return bytes >= 1 && mib <= 2047 ? bytes : throw new FormatException("Max Save Size must be above 0 and at most 2047 MiB.");
+    }
 
     private static uint ParseUInt(string text) =>
         uint.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
