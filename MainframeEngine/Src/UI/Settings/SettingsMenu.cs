@@ -194,7 +194,7 @@ public sealed class SettingsMenu : UiDocument
         if (_revertPending)
             Revert();
         _rebinder?.Cancel();
-        if (_changed && _settings is not null)
+        if (_changed && _settings?.FilePath is not null)
         {
             try
             {
@@ -231,7 +231,10 @@ public sealed class SettingsMenu : UiDocument
     {
         _settings = _options.Settings ?? UserSettings.Current;
         if (_settings is null)
-            Log.Warning("[Settings] No UserSettings loaded: the settings menu shows defaults and saves nothing.");
+        {
+            Log.Warning("[Settings] No UserSettings loaded: the settings menu edits in-memory defaults and saves nothing.");
+            _settings = new UserSettings(new ConfigFile(), GameHost.Project);
+        }
         if (_options.PauseTree && Tree is { } tree)
         {
             _wasPaused = tree.Paused;

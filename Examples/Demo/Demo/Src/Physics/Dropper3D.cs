@@ -36,19 +36,78 @@ public sealed class Dropper3D : Node3D
                 Drop(new Vector3(-1.8f + i * 0.85f + layer * 0.42f, 0.4f + layer * 0.82f, 0));
     }
 
-    public RigidBody3D Drop(Vector3 at)
+    public RigidBody3D Drop(Vector3 at) => Spawn(at, Quaternion.Identity, Vector3.Zero, _spawned % s_materials.Length);
+
+    /// <summary>The crates' state for a save game.</summary>
+    public CrateSave Snapshot()
     {
-        var body = new RigidBody3D { Name = $"Crate{_spawned}", Mass = 2f, Position = at, CollisionLayer = CrateLayer, CollisionMask = CollisionLayers.All };
+        var crates = new List<CrateState>(ChildCount);
+        foreach (var child in Children)
+        {
+            if (child is RigidBody3D body && body.GetNodeOrNull<MeshInstance3D>("Visual") is { } visual)
+                crates.Add(new CrateState(body.Position, body.Rotation, body.LinearVelocity, Array.IndexOf(s_materials, visual.MaterialOverride)));
+        }
+
+        return new CrateSave(crates, _spawned);
+    }
+
+    /// <summary>Replaces the crates with a loaded save's.</summary>
+    public void Restore(CrateSave save)
+    {
+        ArgumentNullException.ThrowIfNull(save);
+        foreach (var child in Children.ToArray())
+            child.Free();
+        _spawned = 0;
+        foreach (var crate in save.Crates)
+            Spawn(crate.Position, crate.Rotation, crate.Velocity, crate.Color);
+        _spawned = Math.Max(_spawned, save.Spawned);
+    }
+
+    private RigidBody3D Spawn(Vector3 at, Quaternion rotation, Vector3 velocity, int color)
+    {
+        var body = new RigidBody3D
+        {
+            Name = $"Crate{_spawned}",
+            Mass = 2f,
+            Position = at,
+            Rotation = rotation,
+            LinearVelocity = velocity,
+            CollisionLayer = CrateLayer,
+            CollisionMask = CollisionLayers.All,
+        };
         body.AddChild(new CollisionShape3D { Name = "Shape", Shape = s_shape });
-        body.AddChild(new MeshInstance3D { Name = "Visual", Mesh = s_mesh, MaterialOverride = s_materials[_spawned % s_materials.Length] });
+        body.AddChild(new MeshInstance3D { Name = "Visual", Mesh = s_mesh, MaterialOverride = s_materials[Math.Clamp(color, 0, s_materials.Length - 1)] });
         _spawned++;
         AddChild(body);
         return body;
     }
 
+    /// <summary>Ten crates over the stack (the "rain" action and button).</summary>
+    public void Rain()
+    {
+        for (var i = 0; i < 10; i++)
+            Drop(new Vector3(Random.Shared.NextSingle() * 6 - 3, 8 + i, Random.Shared.NextSingle() * 4 - 2));
+    }
+
     protected override void OnUnhandledInput(InputEvent inputEvent)
     {
-        if (inputEvent is not InputEventMouseButton { Button: MouseButton.Left, Pressed: true } click
+        var map = Tree?.Input.Map;
+        if (inputEvent.IsActionPressed("rain", map))
+        {
+            Rain();
+            return;
+        }
+
+        // "drop" from a gamepad (RT) drops over the middle of the floor; a click drops where it points.
+        if (inputEvent.IsActionPressed("drop", map) && inputEvent is not InputEventMouseButton)
+        {
+            Drop(new Vector3(Random.Shared.NextSingle() * 4 - 2, 6f, Random.Shared.NextSingle() * 2 - 1));
+            return;
+        }
+
+        // Without a project input map (tests, tools) the left button drops.
+        if (inputEvent is not InputEventMouseButton { Pressed: true } click
+            || !(map?.HasAction("drop") == true ? click.IsActionPressed("drop", map) : click.Button == MouseButton.Left)
             || GetViewport()?.ActiveCamera3D is not { } camera || GetWorld3D() is not { } world)
             return;
         var pixel = click.Position * (Tree!.Servers.Get<UiServer>()?.PixelScale ?? 1f);

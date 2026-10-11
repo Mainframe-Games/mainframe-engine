@@ -14,3 +14,9 @@ body.hud { pointer-events: none; }
 #nav-fps { margin-right: 12dp; color: #94a3b8; font-size: 13dp; }
 #nav-locale { width: 72dp; margin-right: 12dp; }
 #nav-hint { color: #64748b; font-size: 12dp; }
+#nav-settings { width: 30dp; height: 28dp; padding: 0; margin-right: 12dp; display: flex; align-items: center; justify-content: center; }
+#nav-settings img { width: 18dp; height: 18dp; }
+#tooltip {
+    position: absolute; display: none; pointer-events: none; padding: 3dp 8dp; font-size: 12dp;
+    background-color: #0b0e14; border: 1dp #44506a; border-radius: 3dp; color: #e6e9ef;
+}

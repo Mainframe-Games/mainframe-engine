@@ -102,6 +102,9 @@ msgstr "[Ðémö ñåvîgåtîöñ ~~~~]"
 msgid "{{fps}} FPS"
 msgstr "[{{fps}} FPS ~]"
 
+msgid "Settings (F10 / Start)"
+msgstr "[Séttîñgs (F10 / Stårt) ~~~~]"
+
 msgid "F12"
 msgstr "[F12 ~]"
 
@@ -128,6 +131,15 @@ msgstr "[Jîttér2 rîgîð böðîés, å råmp åñð å çhåråçtér böð�
 
 msgid "Rain crates"
 msgstr "[Råîñ çråtés ~~]"
+
+msgid "Save games"
+msgstr "[Såvé gåmés ~~]"
+
+msgid "Load"
+msgstr "[Löåð ~]"
+
+msgid "Save"
+msgstr "[Såvé ~]"
 
 msgid "Sound FX"
 msgstr "[Söûñð FX ~~]"
@@ -261,14 +273,76 @@ msgstr "[Grééñ ~]"
 msgid "Rose"
 msgstr "[Rösé ~]"
 
+msgid "Effects"
+msgstr "[Éfféçts ~~]"
+
+msgid "Interface"
+msgstr "[Îñtérfåçé ~~]"
+
 msgid "UI"
 msgstr "[ÛÎ ~]"
+
+#, csharp-format
+msgid "{0} crate"
+msgid_plural "{0} crates"
+msgstr[0] "[{0} çråté ~]"
+msgstr[1] "[{0} çråtés ~]"
+
+msgid "Saving…"
+msgstr "[Såvîñg… ~]"
+
+msgid "Loaded."
+msgstr "[Löåðéð. ~]"
+
+#, csharp-format
+msgid "The save was damaged: restored the copy from {0}."
+msgstr "[Thé såvé wås ðåmågéð: réstöréð thé çöpý fröm {0}. ~~~~~~~~~~]"
+
+msgid "This slot is empty."
+msgstr "[Thîs slöt îs émptý. ~~~~]"
+
+msgid "This save comes from a newer version of the game."
+msgstr "[Thîs såvé çömés fröm å ñéwér vérsîöñ öf thé gåmé. ~~~~~~~~~~~]"
+
+msgid "The save could not be loaded."
+msgstr "[Thé såvé çöûlð ñöt bé löåðéð. ~~~~~~]"
+
+msgid "Saved."
+msgstr "[Såvéð. ~]"
+
+msgid "The game could not be saved."
+msgstr "[Thé gåmé çöûlð ñöt bé såvéð. ~~~~~~]"
+
+#, csharp-format
+msgid "Slot {0}"
+msgstr "[Slöt {0} ~]"
+
+msgid "Empty"
+msgstr "[Émptý ~]"
+
+msgid "Unreadable"
+msgstr "[Ûñréåðåblé ~~]"
 
 msgid "Random sound"
 msgstr "[Råñðöm söûñð ~~~]"
 
 msgid "Mutation"
 msgstr "[Mûtåtîöñ ~~]"
+
+msgid "Drop crate"
+msgstr "[Ðröp çråté ~~]"
+
+msgid "Next scene"
+msgstr "[Ñéxt sçéñé ~~]"
+
+msgid "Previous scene"
+msgstr "[Prévîöûs sçéñé ~~~]"
+
+msgid "Quit"
+msgstr "[Qûît ~]"
+
+msgid "Settings"
+msgstr "[Séttîñgs ~~]"
 
 msgid "Credits"
 msgstr "[Çréðîts ~~]"
@@ -281,6 +355,96 @@ msgstr "[Ûsér îñtérfåçé ~~~]"
 
 msgid "Other"
 msgstr "[Öthér ~]"
+
+msgid "Loading"
+msgstr "[Löåðîñg ~~]"
+
+msgid "LOADING"
+msgstr "[LÖÅÐÎÑG ~~]"
+
+msgid "MADE WITH MAINFRAME ENGINE"
+msgstr "[MÅÐÉ WÎTH MÅÎÑFRÅMÉ ÉÑGÎÑÉ ~~~~~~]"
+
+msgid "Close"
+msgstr "[Çlösé ~]"
+
+msgid "Audio"
+msgstr "[Åûðîö ~]"
+
+msgid "Controls"
+msgstr "[Çöñtröls ~~]"
+
+msgid "Display"
+msgstr "[Ðîsplåý ~~]"
+
+msgid "Mute"
+msgstr "[Mûté ~]"
+
+msgid "Volumes scale each bus on top of the game's mix; 0% is silent."
+msgstr "[Völûmés sçålé éåçh bûs öñ töp öf thé gåmé's mîx; 0% îs sîléñt. ~~~~~~~~~~~~~]"
+
+msgid "Defaults"
+msgstr "[Ðéfåûlts ~~]"
+
+msgid "Done"
+msgstr "[Ðöñé ~]"
+
+msgid "Action"
+msgstr "[Åçtîöñ ~]"
+
+msgid "Keys / mouse"
+msgstr "[Kéýs / möûsé ~~]"
+
+msgid "Gamepad"
+msgstr "[Gåmépåð ~~]"
+
+msgid "Reset controls"
+msgstr "[Rését çöñtröls ~~~]"
+
+msgid "Window mode"
+msgstr "[Wîñðöw möðé ~~]"
+
+msgid "Windowed"
+msgstr "[Wîñðöwéð ~~]"
+
+msgid "Maximized"
+msgstr "[Måxîmîzéð ~~]"
+
+msgid "Fullscreen"
+msgstr "[Fûllsçrééñ ~~]"
+
+msgid "Window size"
+msgstr "[Wîñðöw sîzé ~~]"
+
+msgid "VSync"
+msgstr "[VSýñç ~]"
+
+msgid "Max FPS"
+msgstr "[Måx FPS ~]"
+
+msgid "UI scale"
+msgstr "[ÛÎ sçålé ~~]"
+
+msgid "Shadows"
+msgstr "[Shåðöws ~~]"
+
+msgid "Off"
+msgstr "[Öff ~]"
+
+msgid "Turning shadows on or off applies after a restart."
+msgstr "[Tûrñîñg shåðöws öñ ör öff åpplîés åftér å réstårt. ~~~~~~~~~~~~]"
+
+msgid "Language"
+msgstr "[Låñgûågé ~~]"
+
+msgid "Keep this display mode?"
+msgstr "[Kéép thîs ðîsplåý möðé? ~~~~~]"
+
+msgid "Keep"
+msgstr "[Kéép ~]"
+
+msgid "Revert"
+msgstr "[Révért ~]"
 
 msgid "Widget library"
 msgstr "[Wîðgét lîbrårý ~~~]"
@@ -303,20 +467,291 @@ msgstr "[Völûmé ~]"
 msgid "Player name"
 msgstr "[Plåýér ñåmé ~~]"
 
-msgid "VSync"
-msgstr "[VSýñç ~]"
-
 msgid "Hints"
 msgstr "[Hîñts ~]"
-
-msgid "Windowed"
-msgstr "[Wîñðöwéð ~~]"
-
-msgid "Fullscreen"
-msgstr "[Fûllsçrééñ ~~]"
 
 msgid "Progress"
 msgstr "[Prögréss ~~]"
 
 msgid "Notes"
 msgstr "[Ñötés ~]"
+
+#, csharp-format
+msgctxt "input"
+msgid "{0} (Pad {1})"
+msgstr "[{0} (Påð {1}) ~]"
+
+#, csharp-format
+msgctxt "input"
+msgid "Numpad {0}"
+msgstr "[Ñûmpåð {0} ~]"
+
+msgctxt "input"
+msgid "Space"
+msgstr "[Spåçé ~]"
+
+msgctxt "input"
+msgid "Esc"
+msgstr "[Ésç ~]"
+
+msgctxt "input"
+msgid "Enter"
+msgstr "[Éñtér ~]"
+
+msgctxt "input"
+msgid "Tab"
+msgstr "[Tåb ~]"
+
+msgctxt "input"
+msgid "Backspace"
+msgstr "[Båçkspåçé ~~]"
+
+msgctxt "input"
+msgid "Insert"
+msgstr "[Îñsért ~]"
+
+msgctxt "input"
+msgid "Delete"
+msgstr "[Ðélété ~]"
+
+msgctxt "input"
+msgid "Right Arrow"
+msgstr "[Rîght Årröw ~~]"
+
+msgctxt "input"
+msgid "Left Arrow"
+msgstr "[Léft Årröw ~~]"
+
+msgctxt "input"
+msgid "Down Arrow"
+msgstr "[Ðöwñ Årröw ~~]"
+
+msgctxt "input"
+msgid "Up Arrow"
+msgstr "[Ûp Årröw ~~]"
+
+msgctxt "input"
+msgid "Page Up"
+msgstr "[Pågé Ûp ~]"
+
+msgctxt "input"
+msgid "Page Down"
+msgstr "[Pågé Ðöwñ ~~]"
+
+msgctxt "input"
+msgid "Home"
+msgstr "[Hömé ~]"
+
+msgctxt "input"
+msgid "End"
+msgstr "[Éñð ~]"
+
+msgctxt "input"
+msgid "Caps Lock"
+msgstr "[Çåps Löçk ~~]"
+
+msgctxt "input"
+msgid "Scroll Lock"
+msgstr "[Sçröll Löçk ~~]"
+
+msgctxt "input"
+msgid "Num Lock"
+msgstr "[Ñûm Löçk ~~]"
+
+msgctxt "input"
+msgid "Print Screen"
+msgstr "[Prîñt Sçrééñ ~~~]"
+
+msgctxt "input"
+msgid "Pause"
+msgstr "[Påûsé ~]"
+
+msgctxt "input"
+msgid "Numpad ."
+msgstr "[Ñûmpåð . ~]"
+
+msgctxt "input"
+msgid "Numpad /"
+msgstr "[Ñûmpåð / ~]"
+
+msgctxt "input"
+msgid "Numpad *"
+msgstr "[Ñûmpåð * ~]"
+
+msgctxt "input"
+msgid "Numpad -"
+msgstr "[Ñûmpåð - ~]"
+
+msgctxt "input"
+msgid "Numpad +"
+msgstr "[Ñûmpåð + ~]"
+
+msgctxt "input"
+msgid "Numpad Enter"
+msgstr "[Ñûmpåð Éñtér ~~~]"
+
+msgctxt "input"
+msgid "Numpad ="
+msgstr "[Ñûmpåð = ~]"
+
+msgctxt "input"
+msgid "Left Shift"
+msgstr "[Léft Shîft ~~]"
+
+msgctxt "input"
+msgid "Right Shift"
+msgstr "[Rîght Shîft ~~]"
+
+msgctxt "input"
+msgid "Left Ctrl"
+msgstr "[Léft Çtrl ~~]"
+
+msgctxt "input"
+msgid "Right Ctrl"
+msgstr "[Rîght Çtrl ~~]"
+
+msgctxt "input"
+msgid "Left Alt"
+msgstr "[Léft Ålt ~~]"
+
+msgctxt "input"
+msgid "Left Option"
+msgstr "[Léft Öptîöñ ~~]"
+
+msgctxt "input"
+msgid "Right Alt"
+msgstr "[Rîght Ålt ~~]"
+
+msgctxt "input"
+msgid "Right Option"
+msgstr "[Rîght Öptîöñ ~~~]"
+
+msgctxt "input"
+msgid "Left Cmd"
+msgstr "[Léft Çmð ~~]"
+
+msgctxt "input"
+msgid "Left Super"
+msgstr "[Léft Sûpér ~~]"
+
+msgctxt "input"
+msgid "Left Win"
+msgstr "[Léft Wîñ ~~]"
+
+msgctxt "input"
+msgid "Right Cmd"
+msgstr "[Rîght Çmð ~~]"
+
+msgctxt "input"
+msgid "Right Super"
+msgstr "[Rîght Sûpér ~~]"
+
+msgctxt "input"
+msgid "Right Win"
+msgstr "[Rîght Wîñ ~~]"
+
+msgctxt "input"
+msgid "Menu"
+msgstr "[Méñû ~]"
+
+msgctxt "input"
+msgid "Mouse Left"
+msgstr "[Möûsé Léft ~~]"
+
+msgctxt "input"
+msgid "Mouse Right"
+msgstr "[Möûsé Rîght ~~]"
+
+msgctxt "input"
+msgid "Mouse Middle"
+msgstr "[Möûsé Mîððlé ~~~]"
+
+#, csharp-format
+msgctxt "input"
+msgid "Mouse {0}"
+msgstr "[Möûsé {0} ~]"
+
+msgctxt "input"
+msgid "Back"
+msgstr "[Båçk ~]"
+
+msgctxt "input"
+msgid "Start"
+msgstr "[Stårt ~]"
+
+msgctxt "input"
+msgid "Guide"
+msgstr "[Gûîðé ~]"
+
+msgctxt "input"
+msgid "D-Pad Up"
+msgstr "[Ð-Påð Ûp ~]"
+
+msgctxt "input"
+msgid "D-Pad Down"
+msgstr "[Ð-Påð Ðöwñ ~~]"
+
+msgctxt "input"
+msgid "D-Pad Left"
+msgstr "[Ð-Påð Léft ~~]"
+
+msgctxt "input"
+msgid "D-Pad Right"
+msgstr "[Ð-Påð Rîght ~~]"
+
+#, csharp-format
+msgid "Reverting in {0} second"
+msgid_plural "Reverting in {0} seconds"
+msgstr[0] "[Révértîñg îñ {0} séçöñð ~~~~~]"
+msgstr[1] "[Révértîñg îñ {0} séçöñðs ~~~~~]"
+
+#, csharp-format
+msgctxt "settings"
+msgid "{0} cannot be changed."
+msgstr "[{0} çåññöt bé çhåñgéð. ~~~~]"
+
+msgctxt "settings"
+msgid "Press a gamepad button. Back cancels."
+msgstr "[Préss å gåmépåð bûttöñ. Båçk çåñçéls. ~~~~~~~~]"
+
+msgctxt "settings"
+msgid "Press a key or mouse button. Esc cancels, Backspace clears."
+msgstr "[Préss å kéý ör möûsé bûttöñ. Ésç çåñçéls, Båçkspåçé çléårs. ~~~~~~~~~~~~~~]"
+
+#, csharp-format
+msgctxt "settings"
+msgid "{0} is used by {1}."
+msgstr "[{0} îs ûséð bý {1}. ~~]"
+
+#, csharp-format
+msgctxt "settings"
+msgid "{0} was swapped with {1}."
+msgstr "[{0} wås swåppéð wîth {1}. ~~~~]"
+
+msgctxt "settings"
+msgid "Unlimited"
+msgstr "[Ûñlîmîtéð ~~]"
+
+msgctxt "settings"
+msgid "Master"
+msgstr "[Måstér ~]"
+
+msgctxt "settings"
+msgid "Music"
+msgstr "[Mûsîç ~]"
+
+msgctxt "settings"
+msgid "Effects"
+msgstr "[Éfféçts ~~]"
+
+msgctxt "settings"
+msgid "Interface"
+msgstr "[Îñtérfåçé ~~]"
+
+msgctxt "settings"
+msgid "Voice"
+msgstr "[Vöîçé ~]"
+
+msgctxt "settings"
+msgid "Ambience"
+msgstr "[Åmbîéñçé ~~]"

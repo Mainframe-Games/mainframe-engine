@@ -8,3 +8,14 @@ body.hud { pointer-events: none; }
 .demo-panel h1 { font-size: 18dp; margin-bottom: 4dp; }
 .demo-panel p.hint { font-size: 13dp; color: #94a3b8; margin-bottom: 10dp; }
 .demo-row { display: flex; align-items: center; justify-content: space-between; margin: 6dp 0; }
+.demo-panel h2 { font-size: 15dp; margin: 12dp 0 6dp 0; }
+.save-slot {
+    display: flex; align-items: center; margin-bottom: 4dp; padding: 4dp;
+    border-radius: 6dp; border: 1dp #ffffff14; cursor: pointer; pointer-events: auto;
+}
+.save-slot:hover { background-color: #ffffff0f; }
+.save-slot.selected { border-color: #3d8bfd; background-color: #2563eb33; }
+.save-thumb { width: 64dp; height: 36dp; margin-right: 8dp; border-radius: 3dp; }
+.save-thumb.empty { opacity: 0.25; }
+.save-text { flex: 1; }
+.save-detail { font-size: 12dp; color: #94a3b8; }

@@ -21,10 +21,22 @@ public static class Basic2DScene
         var zenith = new Vector4(0.09f, 0.15f, 0.36f, 1);
         var horizon = new Vector4(0.98f, 0.55f, 0.36f, 1);
         var sky = Add(root, root, new DemoShape2D { Name = "Sky", Kind = DemoShapeKind.Rect, Size = SkySize, Color = zenith });
-        Add(root, sky, new DemoShape2D { Name = "Gradient", Kind = DemoShapeKind.Rect, Size = new Vector2(SkySize.X, 900),
-            Color = zenith, ColorBottom = horizon });
-        Add(root, sky, new DemoShape2D { Name = "Haze", Kind = DemoShapeKind.Rect, Size = new Vector2(SkySize.X, SkySize.Y / 2 - 450),
-            Position = new Vector2(0, 450 + (SkySize.Y / 2 - 450) / 2), Color = horizon });
+        Add(root, sky, new DemoShape2D
+        {
+            Name = "Gradient",
+            Kind = DemoShapeKind.Rect,
+            Size = new Vector2(SkySize.X, 900),
+            Color = zenith,
+            ColorBottom = horizon
+        });
+        Add(root, sky, new DemoShape2D
+        {
+            Name = "Haze",
+            Kind = DemoShapeKind.Rect,
+            Size = new Vector2(SkySize.X, SkySize.Y / 2 - 450),
+            Position = new Vector2(0, 450 + (SkySize.Y / 2 - 450) / 2),
+            Color = horizon
+        });
 
         var sun = Add(root, root, new Node2D { Name = "Sun", Position = new Vector2(260, -120) });
         Add(root, sun, new SunRays2D { Name = "Rays" });
@@ -40,14 +52,23 @@ public static class Basic2DScene
             var angle = i * MathF.Tau / 6;
             Add(root, orbit, new DemoShape2D
             {
-                Name = $"Moon{i}", Kind = DemoShapeKind.Circle, Radius = 14f + i * 3,
+                Name = $"Moon{i}",
+                Kind = DemoShapeKind.Circle,
+                Radius = 14f + i * 3,
                 Position = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 110f,
-                Color = new Vector4(0.6f + i * 0.06f, 0.75f, 1f, 0.95f), Outline = new Vector4(1, 1, 1, 0.5f), OutlineWidth = 2f,
+                Color = new Vector4(0.6f + i * 0.06f, 0.75f, 1f, 0.95f),
+                Outline = new Vector4(1, 1, 1, 0.5f),
+                OutlineWidth = 2f,
             });
         }
 
-        Add(root, root, new Sprite2D { Name = "Logo", Texture = ResourceLoader.Load<Texture2D>("Content/Basic2D/logo.png"),
-            Position = new Vector2(-150, -20), Scale = new Vector2(0.35f) });
+        Add(root, root, new Sprite2D
+        {
+            Name = "Logo",
+            Texture = ResourceLoader.Load<Texture2D>("Content/Basic2D/logo.png"),
+            Position = new Vector2(-150, -20),
+            Scale = new Vector2(0.35f)
+        });
 
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new Basic2DPanel { Name = "Panel" });

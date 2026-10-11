@@ -22,8 +22,12 @@ public static class Audio2DScene
         for (var i = 1; i <= 4; i++)
             Add(root, root, new DemoShape2D
             {
-                Name = $"Ripple{i}", Kind = DemoShapeKind.Circle, Radius = i * 150f,
-                Color = new Vector4(0.3f, 0.5f, 1f, 0.025f), Outline = new Vector4(0.45f, 0.62f, 1f, 0.22f - i * 0.04f), OutlineWidth = 2f,
+                Name = $"Ripple{i}",
+                Kind = DemoShapeKind.Circle,
+                Radius = i * 150f,
+                Color = new Vector4(0.3f, 0.5f, 1f, 0.025f),
+                Outline = new Vector4(0.45f, 0.62f, 1f, 0.22f - i * 0.04f),
+                OutlineWidth = 2f,
             });
         Add(root, root, new DemoShape2D
         {

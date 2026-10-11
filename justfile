@@ -225,7 +225,7 @@ l10n-extract:
     dotnet tool restore
     dotnet build Examples/Demo/Demo/Demo.csproj -p:CompileLocales=false
     dotnet tool run GetText.Extractor -s Examples/Demo/Demo/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Content/UI/settings/settings.pot --rml Examples/Demo/Content --rml MainframeEngine/Content/UI --scenes Examples/Demo/Content --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Content/UI/settings/settings.pot --rml Examples/Demo/Content --rml MainframeEngine/Content/UI --scenes Examples/Demo/Content --mfproj Examples/Demo/project.mfproj --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
     {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
     {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
 

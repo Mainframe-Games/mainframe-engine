@@ -20,18 +20,30 @@ public static class Physics3DScene
 
         var floor = Add(root, root, new StaticBody3D { Name = "Floor", Position = new Vector3(0, -0.5f, 0) });
         Add(root, floor, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(30, 1, 16) } });
-        Add(root, floor, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = new Vector3(30, 1, 16) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(78, 90, 112) } });
+        Add(root, floor, new MeshInstance3D
+        {
+            Name = "Visual",
+            Mesh = new BoxMesh { Size = new Vector3(30, 1, 16) },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(78, 90, 112) }
+        });
 
         var ramp = Add(root, root, new StaticBody3D { Name = "Ramp", Position = new Vector3(5.5f, 1f, 0), RotationDegrees = new Vector3(0, 0, 18) });
         Add(root, ramp, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(6, 0.3f, 4) } });
-        Add(root, ramp, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = new Vector3(6, 0.3f, 4) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(100, 116, 139) } });
+        Add(root, ramp, new MeshInstance3D
+        {
+            Name = "Visual",
+            Mesh = new BoxMesh { Size = new Vector3(6, 0.3f, 4) },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(100, 116, 139) }
+        });
 
         var pusher = Add(root, root, new Pusher3D { Name = "Pusher", Position = new Vector3(-6, 1.05f, 0), CollisionMask = CollisionLayers.Default });
         Add(root, pusher, new CollisionShape3D { Name = "Shape", Shape = new CapsuleShape3D { Radius = 0.5f, Height = 2f } });
-        Add(root, pusher, new MeshInstance3D { Name = "Visual", Mesh = new CapsuleMesh { Radius = 0.5f, Height = 2f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(226, 232, 240) } });
+        Add(root, pusher, new MeshInstance3D
+        {
+            Name = "Visual",
+            Mesh = new CapsuleMesh { Radius = 0.5f, Height = 2f },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(226, 232, 240) }
+        });
 
         Add(root, root, new Dropper3D { Name = "Crates" });
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
