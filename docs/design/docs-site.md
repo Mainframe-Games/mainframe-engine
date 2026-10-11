@@ -2,8 +2,8 @@
 
 ## Purpose
 
-The repository's Markdown (`docs/` and the ADRs in `memory/decisions/`) is published as a searchable website built
-with [Astro Starlight](https://starlight.astro.build/). It is themed like the editor: the same palette, fonts and logo.
+The repository's Markdown in `docs/` is published as a searchable website built with
+[Astro Starlight](https://starlight.astro.build/). It is themed like the editor: the same palette, fonts and logo.
 `just docs` serves it locally with live reload. `.github/workflows/docs.yml` deploys it to GitHub Pages from `main`, at
 `https://mainframe-games.github.io/mainframe-engine/`.
 
@@ -21,7 +21,7 @@ That serves `http://localhost:4321/mainframe-engine/`.
 - **Requirements:** Node 22.12 or later.
 - **First run:** it runs `npm ci` in `docs-site/`. It does the same again after `package-lock.json` changes, for
   example after a pull.
-- **Live reload:** changes to `docs/**` or `memory/decisions/*.md` re-sync that page and the browser reloads.
+- **Live reload:** changes to `docs/**` re-sync that page and the browser reloads.
 - **Arguments** pass through to `astro dev`, for example `just docs --open` or `just docs --host`.
 
 ```bash
@@ -64,10 +64,8 @@ Never edit the generated pages: edit the Markdown in `docs/`.
 | `docs/images/brand/README.md` | `/brand/` | Start › Brand |
 | `docs/design/*.md` | `/design/<name>/` | Design |
 | `docs/design/future/*.md` | `/proposals/<name>/` | Proposals (collapsed; "Proposal:" dropped from labels) |
-| `memory/decisions/*.md` | `/decisions/<name>/` | Decisions (ADRs, collapsed) |
-| `docs/superpowers/<kind>/*.md` | `/<kind>/<name>/` | Plans (collapsed) |
-
-`memory/context/` (working notes) is not published.
+Not published: the ADRs (`memory/decisions/`), the plans (`docs/superpowers/`) and the working notes
+(`memory/context/`). Links to them go to GitHub.
 
 The sync script does four things to each page:
 
@@ -82,6 +80,12 @@ The sync script does four things to each page:
    Inline links, reference definitions and HTML `src`/`href` are all handled.
 4. **Missing targets.** A link to a file that does not exist prints `warning: … link to missing …`. The build does not
    fail, but the warning means the doc has a stale link.
+
+### Version
+
+The site title is "Mainframe Engine" plus the engine version the docs describe: the latest release tag (`vX.Y.Z`, see
+[Release](release.md)) reachable from the built commit, found with `git describe`. Without a tag it is `dev`;
+`DOCS_VERSION` overrides it. Docs on `main` can describe changes made after that release.
 
 `DOCS_BASE` (default `/mainframe-engine/`) and `DOCS_SITE` (default `https://mainframe-games.github.io`) override the
 base path and origin, for example for a custom domain.
@@ -123,12 +127,14 @@ for a literal semicolon in message text.
 
 ## Deployment
 
-`docs.yml` runs when `docs/**`, `memory/decisions/**`, `docs-site/**`, the editor fonts or the workflow change:
+`docs.yml` runs when `docs/**`, `docs-site/**`, the editor fonts or the workflow change, and after a successful
+release (`publish.yml`, through `workflow_run`), so the title picks up the new tag:
 
 - **On pull requests** it builds the site and does not deploy it. It is not part of `ci-success`, and a docs-only
   change does not wait on it.
 - **On `main`** (and `workflow_dispatch`) it builds, uploads the Pages artifact and deploys with `actions/deploy-pages`
   to the `github-pages` environment.
+- **History.** The checkout fetches full history and tags (`fetch-depth: 0`) for the version.
 - **LFS.** Only `docs/images/**` is fetched from Git LFS (the PNG screenshots), cached by object ID like `ci.yml`.
 
 **One-time setup:** in the repository's Settings › Pages, set the source to **GitHub Actions**. Until then the deploy job

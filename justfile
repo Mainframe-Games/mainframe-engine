@@ -200,7 +200,7 @@ editor-icons-fetch version="3.48.0":
     (cd "$work" && npm pack "@tabler/icons@{{version}}" >/dev/null && tar xzf tabler-icons-*.tgz)
     python3 build/editor-icons/make_atlas.py --tabler "$work/package"
 
-# Docs site (docs-site/, Astro Starlight): docs/ and memory/decisions/ with live reload at
+# Docs site (docs-site/, Astro Starlight): docs/ with live reload at
 # http://localhost:4321/mainframe-engine/ (needs Node 22.12+; installs its npm packages on first run; e.g. just docs --open)
 docs *args:
     npm --prefix docs-site run dev -- {{args}}

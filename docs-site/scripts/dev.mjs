@@ -1,5 +1,5 @@
 // `just docs` / `npm run dev`: syncs the docs, starts `astro dev` and re-syncs a page whenever its source changes, so
-// edits to docs/ or memory/decisions/ show up in the browser without restarting.
+// edits to docs/ show up in the browser without restarting.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
