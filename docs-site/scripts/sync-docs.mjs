@@ -3,15 +3,15 @@
 //   docs/milestones.md           → /milestones/
 //   docs/design/*.md             → /design/<name>/
 //   docs/design/future/*.md      → /proposals/<name>/
-//   docs/superpowers/plans/*.md  → /plans/<name>/
 //   docs/images/brand/README.md  → /brand/
-//   memory/decisions/*.md        → /decisions/<name>/
+// Plans (docs/superpowers/) and ADRs (memory/decisions/) are not published; links to them go to GitHub.
 // Each page gets frontmatter (title from its first "# " heading, sidebar label, edit link). Links are rewritten: to
 // another synced page → its route; into docs/images → the copied image; to any other repository file → GitHub.
 // Generated output (src/content/docs, src/assets, public/images, public/favicon.svg, public/logo-512.png) is ignored by
 // git. `node scripts/sync-docs.mjs` runs once; dev.mjs imports `syncAll`/`syncFile` and re-runs them on changes.
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export const siteRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -21,11 +21,29 @@ export const branch = 'main';
 /** The site's base path (GitHub Pages project site); DOCS_BASE overrides it, e.g. "/" for a custom domain. */
 export const base = normaliseBase(process.env.DOCS_BASE ?? '/mainframe-engine/');
 
+/**
+ * The engine version the docs describe: the latest release tag (vX.Y.Z, docs/design/release.md) reachable from the
+ * checked-out commit, or 'dev' without one. DOCS_VERSION overrides it. Needs the tags and the history back to them.
+ */
+export const version = process.env.DOCS_VERSION ?? releaseVersion();
+
+function releaseVersion() {
+  try {
+    return execFileSync('git', ['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*.[0-9]*.[0-9]*'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return 'dev';
+  }
+}
+
 const contentDir = path.join(siteRoot, 'src', 'content', 'docs');
 const publicDir = path.join(siteRoot, 'public');
 
 /** Source folders watched by dev.mjs (relative to the repository). */
-export const watchRoots = ['docs', 'memory/decisions'];
+export const watchRoots = ['docs'];
 
 function normaliseBase(b) {
   if (!b.startsWith('/')) b = '/' + b;
@@ -43,8 +61,6 @@ export function routeOf(rel) {
   let m;
   if ((m = /^docs\/design\/future\/([^/]+)\.md$/.exec(rel))) return 'proposals/' + slug(m[1]);
   if ((m = /^docs\/design\/([^/]+)\.md$/.exec(rel))) return 'design/' + slug(m[1]);
-  if ((m = /^docs\/superpowers\/([^/]+)\/([^/]+)\.md$/.exec(rel))) return slug(m[1]) + '/' + slug(m[2]);
-  if ((m = /^memory\/decisions\/([^/]+)\.md$/.exec(rel))) return 'decisions/' + slug(m[1]);
   return null;
 }
 
@@ -81,8 +97,6 @@ function plain(s) {
 
 function sidebarLabel(route, title) {
   if (route.startsWith('proposals/')) return title.replace(/^Proposal:\s*/i, '');
-  if (route.startsWith('decisions/')) return title.replace(/^ADR\s+/i, '');
-  if (route.startsWith('plans/')) return title.replace(/^(Plan|Implementation plan):\s*/i, '');
   return title;
 }
 

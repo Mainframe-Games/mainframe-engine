@@ -1,24 +1,26 @@
 name: Docs
 
-# The documentation site (docs/design/docs-site.md): Astro Starlight over docs/ and memory/decisions/, deployed to
-# GitHub Pages from main. Pull requests that touch the docs only build it (no deploy), so a page that breaks the build
+# The documentation site (docs/design/docs-site.md): Astro Starlight over docs/, deployed to GitHub Pages from main.
+# A release (publish.yml) redeploys it, so the version in the site title follows the latest tag. Pull requests that touch the docs only build it (no deploy), so a page that breaks the build
 # fails before it merges. Path filters keep it off every other change (Actions minutes).
 on:
   push:
     branches: [main]
     paths:
       - "docs/**"
-      - "memory/decisions/**"
       - "docs-site/**"
       - "MainframeEngine/Content/UI/fonts/**"
       - ".github/workflows/docs.yml"
   pull_request:
     paths:
       - "docs/**"
-      - "memory/decisions/**"
       - "docs-site/**"
       - "MainframeEngine/Content/UI/fonts/**"
       - ".github/workflows/docs.yml"
+  workflow_run: # after a release: the new tag is the version in the title
+    workflows: [publish]
+    types: [completed]
+    branches: [main]
   workflow_dispatch: # rebuild and redeploy from main: gh workflow run docs.yml
 
 concurrency:
@@ -31,13 +33,16 @@ permissions:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      # The docs' PNG screenshots are Git LFS objects; fetch only docs/images, cached by object ID.
+      # The docs' PNG screenshots are Git LFS objects; fetch only docs/images, cached by object ID. Full history and
+      # tags: the site title shows the latest release tag reachable from this commit (git describe).
       - uses: actions/checkout@v4
         with:
           lfs: false
+          fetch-depth: 0
 
       - name: List LFS objects
         run: git lfs ls-files -l --include="docs/images/**" --exclude="*.ico" | cut -d' ' -f1 | sort > .lfs-assets-id

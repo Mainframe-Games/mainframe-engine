@@ -1,5 +1,5 @@
-// `just docs` / `npm run dev`: syncs the docs, starts `astro dev` and re-syncs a page whenever its source changes, so
-// edits to docs/ or memory/decisions/ show up in the browser without restarting.
+// `just docs` / `npm run dev`: syncs the docs, starts `astro dev` (opening the site in the browser; `--no-open` skips that)
+// and re-syncs a page whenever its source changes, so edits to docs/ show up in the browser without restarting.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -18,7 +18,13 @@ if (!fs.existsSync(installed) || fs.statSync(lock).mtimeMs > fs.statSync(install
 const { count, warnings } = syncAll();
 console.log(`docs-site: synced ${count} pages` + (warnings.length ? ` (${warnings.length} link warnings)` : ''));
 
-const astro = spawn(process.execPath, [path.join(siteRoot, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'dev', ...process.argv.slice(2)], {
+// Open the browser at the site (astro's --open uses the base path) unless asked not to.
+const args = process.argv.slice(2);
+const open = !args.includes('--no-open');
+const astroArgs = args.filter((a) => a !== '--no-open');
+if (open && !astroArgs.includes('--open')) astroArgs.push('--open');
+
+const astro = spawn(process.execPath, [path.join(siteRoot, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'dev', ...astroArgs], {
   cwd: siteRoot,
   stdio: 'inherit',
 });
