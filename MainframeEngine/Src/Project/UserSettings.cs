@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using MainframeEngine.Localization;
 using Silk.NET.Maths;
@@ -199,7 +200,7 @@ public sealed class UserSettings
         {
             if (map.GetAction(defaults.Name) is not { } current)
                 continue;
-            if (SameBindings(defaults.Bindings, current.Bindings))
+            if (!map.DiffersFrom(defaults.Name, DefaultInput))
             {
                 changed |= Config.EraseSectionKey(InputSection, defaults.Name);
                 continue;
@@ -251,7 +252,7 @@ public sealed class UserSettings
                     Log.Warning($"[Settings] '{Config.Source}': '{text}' (input.{action}) is not a binding; skipped.");
             }
 
-            SetBindings(map, action, bindings);
+            map.SetBindings(action, CollectionsMarshal.AsSpan(bindings));
         }
     }
 
@@ -547,7 +548,7 @@ public sealed class UserSettings
                     foreach (var defaults in DefaultInput.Actions)
                     {
                         if (map.HasAction(defaults.Name))
-                            SetBindings(map, defaults.Name, defaults.Bindings);
+                            map.ResetAction(defaults.Name, DefaultInput);
                     }
                 }
 
@@ -679,31 +680,5 @@ public sealed class UserSettings
         var locale = language ?? Tr.ResolveStartupLocale(_project.Localization.DefaultLocale);
         if (LocaleId.Normalize(locale) != Tr.CurrentLocale)
             Tr.SetLocale(locale);
-    }
-
-    private static bool SameBindings(List<InputBinding> a, List<InputBinding> b)
-    {
-        if (a.Count != b.Count)
-            return false;
-        for (var i = 0; i < a.Count; i++)
-        {
-            if (a[i] != b[i])
-                return false;
-        }
-
-        return true;
-    }
-
-    // Replaces an action's bindings through Unbind/Bind, so the map's Version bumps and input states refresh.
-    private static void SetBindings(InputMap map, string action, List<InputBinding> bindings)
-    {
-        var target = map.GetAction(action)!;
-        if (SameBindings(target.Bindings, bindings))
-            return;
-        var copy = bindings.ToArray(); // bindings may be another map's list
-        for (var i = target.Bindings.Count - 1; i >= 0; i--)
-            map.Unbind(action, target.Bindings[i]);
-        foreach (var binding in copy)
-            map.Bind(action, binding);
     }
 }
