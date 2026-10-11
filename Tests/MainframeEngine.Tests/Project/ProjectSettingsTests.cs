@@ -34,6 +34,7 @@ public sealed class ProjectSettingsTests : IDisposable
             MainScene = "scn_0123456789ab",
             EngineVersion = "1.4.2",
             Version = "2026.9.2",
+            UserDataName = "SpaceGame",
             IsDemo = true,
             Input = new InputMap().Bind("jump", "key:Space", "pad:A").Bind("move_left", "key:A", "axis:LeftX-"),
         };
@@ -96,6 +97,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(expected.MainScene, actual.MainScene);
         Assert.Equal(expected.EngineVersion, actual.EngineVersion);
         Assert.Equal(expected.Version, actual.Version);
+        Assert.Equal(expected.UserDataName, actual.UserDataName);
         Assert.Equal(expected.IsDemo, actual.IsDemo);
         Assert.Equivalent(expected.Steam, actual.Steam, strict: true);
         Assert.Equal(expected.Assemblies, actual.Assemblies);
@@ -366,6 +368,22 @@ public sealed class ProjectSettingsTests : IDisposable
 
         s.Steam.DemoAppId = 0; // no demo app: Steam stays off in the demo
         Assert.Equal(0u, s.ToEngineOptions().SteamAppId);
+    }
+
+    [Fact]
+    public void TheUserDataFolderFollowsUserDataNameNotTheProjectName()
+    {
+        var s = Parse("""{ "name": "Space Game", "userDataName": "SpaceGame" }""");
+        Assert.Equal("SpaceGame", s.UserDataFolderName);
+
+        s.Name = "Space Game 2"; // a rename keeps the players' folder
+        Assert.Equal("SpaceGame", s.UserDataFolderName);
+        Assert.Contains("\"userDataName\": \"SpaceGame\"", Text(s), StringComparison.Ordinal);
+
+        s.UserDataName = " ";
+        Assert.Null(s.UserDataName);
+        Assert.Equal("Space Game 2", s.UserDataFolderName);
+        Assert.DoesNotContain("userDataName", Text(s), StringComparison.Ordinal);
     }
 
     [Fact]

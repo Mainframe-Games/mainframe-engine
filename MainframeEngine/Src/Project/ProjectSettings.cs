@@ -31,6 +31,20 @@ public sealed class ProjectSettings
     /// <summary>The game's own version (Godot's <c>application/config/version</c>); empty when the project sets none.</summary>
     public string Version { get; set; } = "";
 
+    /// <summary>
+    /// The user-data folder's name (Godot's <c>config/custom_user_dir_name</c>); null uses <see cref="Name"/>. Set it once
+    /// and keep it, so renaming the project or its window title never orphans player saves and settings. New projects get
+    /// their name.
+    /// </summary>
+    public string? UserDataName
+    {
+        get;
+        set => field = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    /// <summary>The folder name <see cref="GameHost.UserDataDirectory"/> uses: <see cref="UserDataName"/>, else <see cref="Name"/>.</summary>
+    public string UserDataFolderName => UserDataName ?? Name;
+
     /// <summary>The scene <see cref="GameHost"/> starts with: a UID (<c>scn_…</c>) or a <c>Content/…</c> path.</summary>
     public string? MainScene { get; set; }
 

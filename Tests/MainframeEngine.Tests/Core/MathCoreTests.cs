@@ -95,7 +95,7 @@ public sealed class GameHostUserDataTests
         try
         {
             Environment.SetEnvironmentVariable(UserDataPaths.OverrideVariable, root);
-            var expected = UserDataPaths.GetDirectory(GameHost.Project?.Name is { Length: > 0 } name ? name : "game");
+            var expected = UserDataPaths.GetDirectory(GameHost.Project?.UserDataFolderName is { Length: > 0 } name ? name : "game");
             Assert.Equal(expected, GameHost.UserDataDirectory);
             Assert.True(Directory.Exists(expected));
             Assert.Equal(Path.Combine(expected, "saves", "run-1.json"), GameHost.UserDataPath("saves/run-1.json"));

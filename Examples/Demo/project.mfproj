@@ -1,6 +1,7 @@
 {
   "format": 3,
   "name": "Mainframe Demo",
+  "userDataName": "MainframeDemo",
   "engineVersion": "0.0.0-dev",
   "mainScene": "Content/Scenes/basic_3d.mscene",
   "assemblies": ["Demo"],

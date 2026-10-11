@@ -147,14 +147,14 @@ public class GameHost : Engine
 
     /// <summary>
     /// The running game's writable folder for saves and settings: <see cref="UserDataPaths.GetDirectory"/> of the
-    /// project's name (the engine's logs live there too), created on first use. <c>MAINFRAME_USER_DATA</c> moves its base
+    /// project's <see cref="ProjectSettings.UserDataFolderName"/> (the engine's logs live there too), created on first use. <c>MAINFRAME_USER_DATA</c> moves its base
     /// (harness and test runs point it at a scratch folder). Before a project is loaded (tests), the game name is "game".
     /// </summary>
     public static string UserDataDirectory
     {
         get
         {
-            var directory = UserDataPaths.GetDirectory(Project?.Name is { Length: > 0 } name ? name : "game");
+            var directory = UserDataPaths.GetDirectory(Project?.UserDataFolderName is { Length: > 0 } name ? name : "game");
             Directory.CreateDirectory(directory);
             return directory;
         }
@@ -214,7 +214,7 @@ public class GameHost : Engine
             return (int)ExitCode.Ok;
         }
 
-        var fileLog = options.LogFile ? TryCreateFileLog(settings.Name) : null;
+        var fileLog = options.LogFile ? TryCreateFileLog(settings.UserDataFolderName) : null;
         if (fileLog is not null)
             Log.AddSink(fileLog);
         if (options.Headless)

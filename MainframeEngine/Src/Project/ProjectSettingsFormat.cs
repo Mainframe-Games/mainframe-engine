@@ -90,24 +90,10 @@ public static class ProjectSettingsFormat
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(migrations);
-        while (format < currentFormat)
-        {
-            var step = -1;
-            for (var i = 0; i < migrations.Count; i++)
-            {
-                if (migrations[i].From == format)
-                {
-                    step = i;
-                    break;
-                }
-            }
-
-            if (step < 0)
-                throw new InvalidDataException($"'{source}': no migration from project format {format} to {format + 1}.");
-            migrations[step].Upgrade(root);
-            format++;
-        }
-
+        var steps = new JsonMigration[migrations.Count];
+        for (var i = 0; i < steps.Length; i++)
+            steps[i] = new JsonMigration(migrations[i].From, migrations[i].Upgrade);
+        JsonMigrations.Upgrade(root, format, currentFormat, steps, source, "project format");
         root["format"] = currentFormat;
     }
 
@@ -124,6 +110,8 @@ public static class ProjectSettingsFormat
             w.WriteString("engineVersion", settings.EngineVersion);
             if (settings.Version.Length > 0)
                 w.WriteString("version", settings.Version);
+            if (settings.UserDataName is { Length: > 0 } userDataName)
+                w.WriteString("userDataName", userDataName);
             if (settings.MainScene is { Length: > 0 } main)
                 w.WriteString("mainScene", main);
             if (settings.Assemblies.Count > 0)
@@ -451,12 +439,13 @@ public static class ProjectSettingsFormat
         public ProjectSettings Read(JsonObject root)
         {
             var s = new ProjectSettings();
-            Known(root, "", "format", "name", "engineVersion", "version", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
+            Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
                 "audio", "localization", "rendering", "ui", "loading", "autoloads", "playInstances");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
             s.Version = String(root, "version", "version") ?? "";
+            s.UserDataName = String(root, "userDataName", "userDataName");
             s.MainScene = String(root, "mainScene", "mainScene");
             s.Assemblies.AddRange(Strings(root, "assemblies", "assemblies"));
             s.IsDemo = Bool(root, "isDemo", "isDemo", s.IsDemo);

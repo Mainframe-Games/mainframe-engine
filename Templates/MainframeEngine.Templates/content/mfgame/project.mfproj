@@ -1,6 +1,7 @@
 {
   "format": 3,
   "name": "MyGame",
+  "userDataName": "MyGame",
   "engineVersion": "MAINFRAME_ENGINE_VERSION",
   "mainScene": "Content/Scenes/Main.mscene",
   "assemblies": [
