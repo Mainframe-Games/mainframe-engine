@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Path3D editing (proposal G13)</title>
+  <desc>The editor's 3D viewport with a selected Path3D used as a closed camera rail around a glade on terrain. Control points are circles; the selected point shows its two tangent handles (diamonds) and a tilt ring with a handle being dragged ("Tilt 12°"). A dashed ghost point on a segment shows where Insert will add a point, a dotted drop line shows a point snapped to the terrain, the closing segment runs from the last point back to the first, and a PathFollow3D child (a camera) sits on the rail with its axes. The Path tool's icon buttons are in the toolbar with a tooltip, and the inspector shows the Path3D's curve and the selected point.</desc>
+  <rect width="960" height="640" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#d7dbe4}
+    .grp{font-weight:600;font-size:11px;fill:#8b93a5}
+    .t{fill:#d7dbe4;font-size:12px}
+    .s{fill:#8b93a5;font-size:11px}
+    .m{font-family:ui-monospace, Menlo, Consolas, monospace;font-size:11px;fill:#d7dbe4}
+    .cap{fill:#374151;font-size:12px}
+    .leg{fill:#1f2937;font-size:12px}
+    .badge{fill:#1d4ed8}
+    .bt{fill:#ffffff;font-size:11px;font-weight:700}
+  </style>
+
+  <!-- window -->
+  <rect x="20" y="20" width="920" height="460" rx="8" fill="#1f2128" stroke="#121418"/>
+  <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
+  <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
+  <text x="380" y="38" class="s">Mainframe Engine — Forest — Glade.mscene*</text>
+
+  <!-- toolbar: transform tools, then the Path tool's icon buttons -->
+  <rect x="20" y="46" width="920" height="30" fill="#262931"/>
+  <g>
+    <rect x="32" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="38" y="65" class="t">↖</text>
+    <rect x="58" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="63" y="65" class="t">✥</text>
+    <rect x="84" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="89" y="65" class="t">⟳</text>
+    <line x1="116" y1="54" x2="116" y2="68" stroke="#3b3f4b"/>
+    <text x="126" y="65" class="s">Path</text>
+    <rect x="158" y="52" width="22" height="18" rx="3" fill="#1d4ed8"/><text x="164" y="65" class="t">◉</text>
+    <rect x="184" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="189" y="65" class="t">⊕</text>
+    <rect x="210" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="216" y="65" class="t">+</text>
+    <rect x="236" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="242" y="65" class="t">✕</text>
+    <rect x="262" y="52" width="22" height="18" rx="3" fill="#1d4ed8"/><text x="267" y="65" class="t">↻</text>
+    <rect x="288" y="52" width="22" height="18" rx="3" fill="#1d4ed8"/><text x="293" y="65" class="t">⛰</text>
+    <rect x="314" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="319" y="65" class="t">⤾</text>
+  </g>
+  <!-- tooltip of the snap button -->
+  <rect x="272" y="74" width="204" height="20" rx="4" fill="#121418" stroke="#3b3f4b"/>
+  <text x="280" y="88" class="s">Snap points to the ground (S): terrain</text>
+
+  <!-- viewport -->
+  <rect x="24" y="80" width="616" height="396" fill="#1f2128" stroke="#3b3f4b"/>
+  <rect x="24" y="98" width="128" height="22" fill="#2f333d"/><text x="34" y="114" class="t">Glade.mscene*</text>
+  <rect x="28" y="122" width="608" height="350" fill="#4a5a3a"/>
+  <g fill="none" stroke="#5a6c48" stroke-width="1.2">
+    <path d="M28 180 C150 160, 260 200, 380 185 S560 160, 636 175"/>
+    <path d="M28 270 C140 255, 250 290, 330 292 S520 280, 636 300"/>
+    <path d="M28 380 C120 370, 230 400, 340 395 S520 380, 636 400"/>
+  </g>
+  <!-- trees of the glade -->
+  <g fill="#2f4a2a">
+    <circle cx="300" cy="280" r="16"/><circle cx="328" cy="300" r="12"/><circle cx="276" cy="306" r="11"/><circle cx="352" cy="270" r="10"/>
+  </g>
+  <text x="40" y="464" class="s">◰ Perspective</text>
+
+  <!-- the rail: closed Bézier loop -->
+  <path d="M110 300 C110 210, 200 160, 300 165 C400 170, 520 190, 540 270 C560 350, 470 420, 330 420 C210 420, 110 390, 110 300 Z" fill="none" stroke="#3b82f6" stroke-width="2.2"/>
+  <!-- closing segment emphasised (last point back to the first) -->
+  <path d="M330 420 C210 420, 110 390, 110 300" fill="none" stroke="#93c5fd" stroke-width="2.2" stroke-dasharray="6 4"/>
+  <!-- baked direction ticks -->
+  <g fill="none" stroke="#bfdbfe" stroke-width="1.4" stroke-opacity="0.8">
+    <polyline points="196,182 205,177 199,170"/><polyline points="420,174 429,178 421,184"/><polyline points="514,368 506,375 515,379"/>
+  </g>
+
+  <!-- control points (unselected) -->
+  <g fill="#1f2128" fill-opacity="0.4" stroke="#ffffff" stroke-width="1.5">
+    <circle cx="110" cy="300" r="5"/><circle cx="300" cy="165" r="5"/><circle cx="330" cy="420" r="5"/>
+  </g>
+  <!-- point snapped to the terrain: drop line to the ground hit -->
+  <line x1="110" y1="300" x2="110" y2="336" stroke="#fde68a" stroke-dasharray="2 3"/>
+  <g stroke="#fde68a" stroke-width="1.5"><line x1="104" y1="336" x2="116" y2="336"/><line x1="110" y1="330" x2="110" y2="342"/></g>
+
+  <!-- insert ghost on a segment -->
+  <circle cx="225" cy="412" r="6" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-dasharray="2 2"/>
+  <text x="221" y="416" class="bt">+</text>
+
+  <!-- selected point P3 with tangents and tilt ring -->
+  <g>
+    <line x1="520" y1="190" x2="560" y2="350" stroke="#93c5fd" stroke-width="1.2"/>
+    <polygon points="520,185 525,190 520,195 515,190" fill="#93c5fd" stroke="#ffffff" stroke-width="1"/>
+    <polygon points="560,345 565,350 560,355 555,350" fill="#93c5fd" stroke="#ffffff" stroke-width="1"/>
+    <ellipse cx="540" cy="270" rx="34" ry="14" fill="none" stroke="#fbbf24" stroke-width="1.4" transform="rotate(-14 540 270)"/>
+    <line x1="540" y1="270" x2="512" y2="262" stroke="#fbbf24" stroke-width="1.4"/>
+    <line x1="540" y1="270" x2="506" y2="273" stroke="#fbbf24" stroke-opacity="0.45" stroke-dasharray="2 3"/>
+    <circle cx="509" cy="262" r="5" fill="#fbbf24" stroke="#ffffff" stroke-width="1.5"/>
+    <circle cx="540" cy="270" r="6.5" fill="#3b82f6" stroke="#ffffff" stroke-width="2"/>
+    <polygon points="505,266 505,282 509,278 512,285 515,284 512,277 518,277" fill="#ffffff" stroke="#121418" stroke-width="0.8"/>
+    <rect x="446" y="226" width="78" height="20" rx="4" fill="#121418" stroke="#3b3f4b"/>
+    <text x="454" y="240" class="m">Tilt 12°</text>
+  </g>
+
+  <!-- PathFollow3D child: a camera on the rail with its axes -->
+  <g>
+    <polygon points="404,172 432,160 432,188" fill="#d7dbe4" fill-opacity="0.85" stroke="#ffffff" stroke-width="1"/>
+    <rect x="392" y="166" width="14" height="12" rx="2" fill="#8b93a5" stroke="#ffffff" stroke-width="1"/>
+    <line x1="399" y1="172" x2="399" y2="150" stroke="#22c55e" stroke-width="1.6"/>
+    <line x1="399" y1="172" x2="384" y2="186" stroke="#ef4444" stroke-width="1.6"/>
+    <line x1="399" y1="172" x2="444" y2="174" stroke="#3b82f6" stroke-width="1.6"/>
+    <rect x="356" y="128" width="98" height="18" rx="4" fill="#121418" fill-opacity="0.85"/>
+    <text x="362" y="141" class="s">RailCamera · 38 %</text>
+  </g>
+
+  <!-- badges -->
+  <g>
+    <circle cx="92" cy="292" r="9" class="badge"/><text x="88" y="296" class="bt">1</text>
+    <circle cx="578" cy="352" r="9" class="badge"/><text x="574" y="356" class="bt">2</text>
+    <circle cx="582" cy="262" r="9" class="badge"/><text x="578" y="266" class="bt">3</text>
+    <circle cx="225" cy="436" r="9" class="badge"/><text x="221" y="440" class="bt">4</text>
+    <circle cx="160" cy="390" r="9" class="badge"/><text x="156" y="394" class="bt">5</text>
+    <circle cx="372" cy="196" r="9" class="badge"/><text x="368" y="200" class="bt">6</text>
+  </g>
+
+  <!-- inspector -->
+  <rect x="644" y="80" width="292" height="396" fill="#262931" stroke="#3b3f4b"/>
+  <text x="654" y="100" class="hdr">Inspector</text>
+  <text x="654" y="122" class="t">⌇ CameraRail (Path3D)</text>
+  <line x1="650" y1="130" x2="930" y2="130" stroke="#2f333d"/>
+
+  <text x="654" y="148" class="grp">CURVE</text>
+  <text x="654" y="166" class="t">Curve</text><rect x="760" y="155" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="167" class="m">Curve3D · 6 points</text>
+  <text x="654" y="186" class="t">Closed</text><rect x="760" y="175" width="14" height="14" rx="2" fill="#3b82f6"/><text x="762" y="186" class="bt">✓</text>
+  <text x="654" y="206" class="t">Up vectors</text><rect x="760" y="195" width="14" height="14" rx="2" fill="#3b82f6"/><text x="762" y="206" class="bt">✓</text>
+  <text x="654" y="226" class="t">Bake interval</text><rect x="760" y="215" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="227" class="m">0.20 m</text>
+  <text x="654" y="246" class="t">Length</text><text x="766" y="247" class="m">118.40 m</text>
+
+  <text x="654" y="272" class="grp">SELECTED POINT</text>
+  <text x="654" y="290" class="t">Point</text><rect x="760" y="279" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="291" class="m">3 of 6</text>
+  <text x="654" y="310" class="t">Position</text><rect x="760" y="299" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="311" class="m">24.0, 6.5, -8.0</text>
+  <text x="654" y="330" class="t">In</text><rect x="760" y="319" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="331" class="m">-1.8, 0.0, -6.4</text>
+  <text x="654" y="350" class="t">Out</text><rect x="760" y="339" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="351" class="m">1.8, 0.0, 6.4</text>
+  <text x="654" y="370" class="t">Tilt</text><rect x="760" y="359" width="166" height="16" rx="2" fill="#121418" stroke="#3b82f6"/><text x="766" y="371" class="m">12.0°</text>
+
+  <text x="654" y="396" class="grp">TOOLS</text>
+  <rect x="760" y="384" width="26" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/><text x="767" y="398" class="t">⛰</text>
+  <rect x="790" y="384" width="26" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/><text x="796" y="398" class="t">⇄</text>
+  <text x="824" y="398" class="s">fit · reverse</text>
+  <text x="654" y="426" class="t">Height above</text><rect x="760" y="415" width="166" height="16" rx="2" fill="#121418" stroke="#2f333d"/><text x="766" y="427" class="m">4.00 m</text>
+
+  <!-- legend -->
+  <text x="24" y="506" class="cap">The Path tool is active while one Path3D is selected (Path2D gets the same tool in 2D views). Every drag is one undo step that</text>
+  <text x="24" y="524" class="cap">swaps the Curve3D's points; handles use the G7 handle style (circles for points, diamonds for tangents, a ring for tilt).</text>
+  <g>
+    <circle cx="34" cy="550" r="9" class="badge"/><text x="30" y="554" class="bt">1</text>
+    <text x="50" y="554" class="leg">Point snapped to the terrain plus Height above (dotted drop line).</text>
+    <circle cx="34" cy="574" r="9" class="badge"/><text x="30" y="578" class="bt">2</text>
+    <text x="50" y="578" class="leg">Tangent handles of the selected point (Shift breaks the symmetry).</text>
+    <circle cx="34" cy="598" r="9" class="badge"/><text x="30" y="602" class="bt">3</text>
+    <text x="50" y="602" class="leg">Tilt ring: drag the handle to roll the rail; snaps to the rotate step.</text>
+    <circle cx="34" cy="622" r="9" class="badge"/><text x="30" y="626" class="bt">4</text>
+    <text x="50" y="626" class="leg">Insert: a click on a segment splits it without changing its shape.</text>
+    <circle cx="500" cy="550" r="9" class="badge"/><text x="496" y="554" class="bt">5</text>
+    <text x="516" y="554" class="leg">Closing segment (Closed on): last point back to the first.</text>
+    <circle cx="500" cy="574" r="9" class="badge"/><text x="496" y="578" class="bt">6</text>
+    <text x="516" y="578" class="leg">A PathFollow3D child with its axes (Oriented mode).</text>
+  </g>
+</svg>

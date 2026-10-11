@@ -50,7 +50,7 @@ flowchart LR
 | [M9](#m9--localization-) | GetText.NET translations for code, UI and scenes | ✅ |
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
-| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D skeletal animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools, terrain/trees/water and a forest showcase | ⬜ |
+| [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D skeletal animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools, terrain/trees/water and a forest showcase, joints and ragdolls, a frame profiler, world-space UI, haptics and input glyphs, paths, accessibility, crash reports, video | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, D3D12 (Windows), WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -288,6 +288,9 @@ G8 (world building) goes G8a Faceted terrain → G8b low-poly trees (both on tod
 → G8a Realistic profile and G8b realistic trees → G8c water → G8d rendering phases → the forest showcase
 ([ADR 0149](../memory/decisions/0149-terrain-trees-water-engine-features.md)) → G8e, the forest's "Unreal look" in eight
 phases ([ADR 0164](../memory/decisions/0164-forest-visual-quality-plan.md)).
+G9–G16 are smaller, independent additions. G10 (profiler) and G15 (crash reports) help every other item and can go first;
+G9's ragdolls and G13 wait on G1b skeletons only for the parts that need bones; G12's rebinding glyphs and G14's
+settings plug into G4; G16 needs its codec dependency approved before any work starts.
 
 | Feature | Status | Design doc |
 |---|---|---|
@@ -310,6 +313,14 @@ phases ([ADR 0164](../memory/decisions/0164-forest-visual-quality-plan.md)).
 | G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | 🚧 | [Water](design/future/water.md) |
 | G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | 🚧 | [Forest showcase](design/future/forest-showcase.md) |
 | G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | 🚧 | [Forest visual quality](design/future/forest-visual-quality.md) |
+| G9 Physics joints and ragdolls: 3D/2D joint nodes over Jitter2 and Box2D (limits, motors, springs, breaking), anchor gizmos, ragdolls on G1b skeletons | ⬜ | [Physics joints](design/future/physics-joints.md) |
+| G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ⬜ | [Profiler](design/future/profiler.md) |
+| G11 World-space UI: `Label3D`, UI anchored to 3D points (nameplates, markers), RmlUi panels rendered onto meshes with ray-picked input | ⬜ | [World-space UI](design/future/world-space-ui.md) |
+| G12 Gamepad haptics and input glyphs: rumble, controller type and last-used device, action → glyph for RmlUi and canvas text | ⬜ | [Haptics and input glyphs](design/future/input-haptics-and-glyphs.md) |
+| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | ⬜ | [Paths](design/future/paths.md) |
+| G14 Accessibility: UI scale, colour-vision filters, subtitles and captions, motion comfort options, input assists | ⬜ | [Accessibility](design/future/accessibility.md) |
+| G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ⬜ | [Crash reporting](design/future/crash-reporting.md) |
+| G16 Video playback: `VideoStream`, `VideoPlayer`, `VideoTexture`, GPU YUV conversion, audio through `AudioServer` (codec choice pending) | ⬜ | [Video playback](design/future/video-playback.md) |
 | G17a 2D skeletal runtime: `.mskel`/`.manim` data, bake cache, SoA pose, weighted meshes, skins, `AnimationTracks` mixing, events, `Skeleton2D`, compute skinning, canvas skinned commands and blend modes, Spine 4.x JSON importer | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 | G17b Skeleton tab, Setup mode: `IDocumentTab`, shared `Timeline/` (song tab moved onto it), hierarchy, bones, slots, skins, PNG import | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
 | G17c Skeleton tab, Animate mode: dopesheet, graph editor, auto-key, IK posing, pose mirror, onion skin, mix preview, audio | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
