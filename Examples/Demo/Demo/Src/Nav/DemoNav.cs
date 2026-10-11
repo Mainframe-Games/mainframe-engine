@@ -12,12 +12,15 @@ public sealed class DemoNavLayer : UiLayer
     {
         Name = "Nav";
         Layer = 100;
+        ProcessMode = ProcessMode.Always; // FPS and the active tab keep updating while the settings menu pauses the game
     }
 
     protected override void OnReady()
     {
         base.OnReady();
         AddChild(new DemoNav { Name = "NavBar" });
+        if (DemoQa.ModeFromArgs() is { } qa)
+            AddChild(new DemoQa(qa) { Name = "Qa" }); // `++ --qa …` (just qa-settings)
     }
 }
 
@@ -48,6 +51,7 @@ public sealed class DemoNav : UiDocument
     private Node? _lastScene;
     private float _fpsTimer;
     private int _fps;
+    private bool _settingsArgHandled;
 
     public DemoNav()
     {
@@ -80,6 +84,14 @@ public sealed class DemoNav : UiDocument
 
     protected override void OnProcess(in GameTime gameTime)
     {
+        // `++ --settings` (build/demo-screenshots.sh): open the settings menu on the first frame.
+        if (!_settingsArgHandled)
+        {
+            _settingsArgHandled = true;
+            if (GameHost.UserArgs.Contains("--settings"))
+                OpenSettings();
+        }
+
         if (!ReferenceEquals(Tree?.CurrentScene, _lastScene))
         {
             _lastScene = Tree?.CurrentScene;

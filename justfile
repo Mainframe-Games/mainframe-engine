@@ -96,6 +96,10 @@ demo *args:
 demo-screenshots frames="240":
     build/demo-screenshots.sh {{frames}}
 
+# Saves and settings QA (G4) on the real Demo: rebind + change settings, restart and check, recover a damaged save (artifacts/qa-settings)
+qa-settings:
+    build/qa-demo-settings.sh
+
 # Capture the Demo scenes (alias of demo-screenshots)
 qa frames="240": (demo-screenshots frames)
 
