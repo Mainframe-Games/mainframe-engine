@@ -58,5 +58,11 @@
       1080
     ],
     "matchWidthOrHeight": 1
-  }
+  },
+  "autoloads": [
+    {
+      "name": "SaveGame",
+      "type": "SaveGame"
+    }
+  ]
 }

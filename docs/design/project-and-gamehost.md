@@ -607,6 +607,13 @@ A new game's `project.mfproj` spells out the defaults it starts from: a 1280×72
 `en` as the source locale with catalogs in `Content/locale` (the desktop project imports `build/Localization.targets` with
 `LocaleContentRoot=../Content`, so a `.po` added there is compiled and shipped) and `High` shadows.
 
+The game library has a `SaveGame` autoload (`MyGame/Src/SaveGame.cs`, registered in `autoloads`) showing the
+[save API](#save-games) in about 60 lines: a `SaveData` record with a source-generated `JsonSerializerContext` (no
+reflection: trimming- and AOT-safe) and a `SaveSchema`, `Save()` (`SaveAsync`) and `Load()` over
+`Tree.Servers.GetRequired<SaveServer>()` into its `Data`, a load in `OnReady`, a blocking `Save` of the `autosave` slot
+on `SceneTree.CloseRequested`, and `Flush` when it leaves the tree. M12's `OnApplicationPause` is where it will also
+save on mobile.
+
 `just template-smoke` (`build/template-smoke.sh`) installs the template into a private hive, creates `SmokeGame`
 against the checkout, builds it warnings-as-errors and runs it for 30 hidden frames with `--screenshot`, failing on any
 `[ERROR]` in its log or a missing screenshot; CI's `template` job does the same on lavapipe and packs the template (`just template-pack`).
