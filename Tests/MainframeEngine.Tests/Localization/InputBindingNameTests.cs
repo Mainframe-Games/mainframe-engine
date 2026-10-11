@@ -33,9 +33,9 @@ public sealed class InputBindingNameTests : IDisposable
     [InlineData("pad:Start", "Start")]
     [InlineData("pad:DPadUp", "D-Pad Up")]
     [InlineData("pad1:A", "A (Pad 2)")]
-    [InlineData("axis:LeftY-", "LS ↑")]
-    [InlineData("axis:LeftX+", "LS →")]
-    [InlineData("axis:RightY+", "RS ↓")]
+    [InlineData("axis:LeftY-", "LS Up")]
+    [InlineData("axis:LeftX+", "LS Right")]
+    [InlineData("axis:RightY+", "RS Down")]
     [InlineData("axis:LeftTrigger+", "LT")]
     [InlineData("axis:RightTrigger+", "RT")]
     public void BindingsHavePlayerFacingNames(string binding, string name)

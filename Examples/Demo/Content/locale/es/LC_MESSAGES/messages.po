@@ -1086,73 +1086,113 @@ msgctxt "input"
 msgid "D-Pad Right"
 msgstr "Cruceta derecha"
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:317
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:605
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:126
+msgctxt "input"
+msgid "LS Left"
+msgstr "LS izquierda"
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:127
+msgctxt "input"
+msgid "LS Right"
+msgstr "LS derecha"
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:128
+msgctxt "input"
+msgid "LS Up"
+msgstr "LS arriba"
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:129
+msgctxt "input"
+msgid "LS Down"
+msgstr "LS abajo"
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:130
+msgctxt "input"
+msgid "RS Left"
+msgstr "RS izquierda"
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:131
+msgctxt "input"
+msgid "RS Right"
+msgstr "RS derecha"
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:132
+msgctxt "input"
+msgid "RS Up"
+msgstr "RS arriba"
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:133
+msgctxt "input"
+msgid "RS Down"
+msgstr "RS abajo"
+
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:320
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:608
 #, csharp-format
 msgid "Reverting in {0} second"
 msgid_plural "Reverting in {0} seconds"
 msgstr[0] "Se revierte en {0} segundo"
 msgstr[1] "Se revierte en {0} segundos"
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:417
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:420
 #, csharp-format
 msgctxt "settings"
 msgid "{0} cannot be changed."
 msgstr "{0} no se puede cambiar."
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:425
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:428
 msgctxt "settings"
 msgid "Press a gamepad button. Back cancels."
 msgstr "Pulsa un botón del mando. Back cancela."
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:426
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:429
 msgctxt "settings"
 msgid "Press a key or mouse button. Esc cancels, Backspace clears."
 msgstr "Pulsa una tecla o un botón del ratón. Esc cancela, Retroceso borra."
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:441
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:444
 #, csharp-format
 msgctxt "settings"
 msgid "{0} is used by {1}."
 msgstr "{0} ya lo usa {1}."
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:442
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:445
 #, csharp-format
 msgctxt "settings"
 msgid "{0} was swapped with {1}."
 msgstr "{0} se intercambió con {1}."
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:716
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:719
 msgctxt "settings"
 msgid "Unlimited"
 msgstr "Sin límite"
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:722
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:725
 msgctxt "settings"
 msgid "Master"
 msgstr "General"
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:723
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:726
 msgctxt "settings"
 msgid "Music"
 msgstr "Música"
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:724
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:727
 msgctxt "settings"
 msgid "Effects"
 msgstr "Efectos"
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:725
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:728
 msgctxt "settings"
 msgid "Interface"
 msgstr "Interfaz"
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:726
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:729
 msgctxt "settings"
 msgid "Voice"
 msgstr "Voz"
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:727
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:730
 msgctxt "settings"
 msgid "Ambience"
 msgstr "Ambiente"

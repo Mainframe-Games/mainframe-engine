@@ -58,7 +58,7 @@ button.mute.on { background-color: #3a2230; border-color: #f87171; color: #f8717
 /* Controls */
 .setting.header { height: 22dp; line-height: 22dp; color: #8a95ab; }
 .setting.header .label { color: #8a95ab; }
-.setting.header .keys { display: inline-block; width: 196dp; }
+.setting.header .keys { display: inline-block; width: 204dp; }
 #actions { display: block; height: 280dp; overflow-y: auto; }
 .setting.capturing { background-color: #2f6fd62e; }
 .setting.locked .label { color: #6b7488; }

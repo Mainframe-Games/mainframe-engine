@@ -448,73 +448,113 @@ msgctxt "input"
 msgid "D-Pad Right"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:317
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:605
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:126
+msgctxt "input"
+msgid "LS Left"
+msgstr ""
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:127
+msgctxt "input"
+msgid "LS Right"
+msgstr ""
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:128
+msgctxt "input"
+msgid "LS Up"
+msgstr ""
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:129
+msgctxt "input"
+msgid "LS Down"
+msgstr ""
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:130
+msgctxt "input"
+msgid "RS Left"
+msgstr ""
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:131
+msgctxt "input"
+msgid "RS Right"
+msgstr ""
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:132
+msgctxt "input"
+msgid "RS Up"
+msgstr ""
+
+#: MainframeEngine/Src/Scene/Input/InputBindingNames.cs:133
+msgctxt "input"
+msgid "RS Down"
+msgstr ""
+
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:320
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:608
 #, csharp-format
 msgid "Reverting in {0} second"
 msgid_plural "Reverting in {0} seconds"
 msgstr[0] ""
 msgstr[1] ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:417
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:420
 #, csharp-format
 msgctxt "settings"
 msgid "{0} cannot be changed."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:425
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:428
 msgctxt "settings"
 msgid "Press a gamepad button. Back cancels."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:426
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:429
 msgctxt "settings"
 msgid "Press a key or mouse button. Esc cancels, Backspace clears."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:441
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:444
 #, csharp-format
 msgctxt "settings"
 msgid "{0} is used by {1}."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:442
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:445
 #, csharp-format
 msgctxt "settings"
 msgid "{0} was swapped with {1}."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:716
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:719
 msgctxt "settings"
 msgid "Unlimited"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:722
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:725
 msgctxt "settings"
 msgid "Master"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:723
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:726
 msgctxt "settings"
 msgid "Music"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:724
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:727
 msgctxt "settings"
 msgid "Effects"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:725
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:728
 msgctxt "settings"
 msgid "Interface"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:726
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:729
 msgctxt "settings"
 msgid "Voice"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:727
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:730
 msgctxt "settings"
 msgid "Ambience"
 msgstr ""

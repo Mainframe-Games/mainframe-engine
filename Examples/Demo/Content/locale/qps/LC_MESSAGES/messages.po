@@ -699,6 +699,38 @@ msgctxt "input"
 msgid "D-Pad Right"
 msgstr "[Ð-Påð Rîght ~~]"
 
+msgctxt "input"
+msgid "LS Left"
+msgstr "[LS Léft ~]"
+
+msgctxt "input"
+msgid "LS Right"
+msgstr "[LS Rîght ~~]"
+
+msgctxt "input"
+msgid "LS Up"
+msgstr "[LS Ûp ~]"
+
+msgctxt "input"
+msgid "LS Down"
+msgstr "[LS Ðöwñ ~]"
+
+msgctxt "input"
+msgid "RS Left"
+msgstr "[RS Léft ~]"
+
+msgctxt "input"
+msgid "RS Right"
+msgstr "[RS Rîght ~~]"
+
+msgctxt "input"
+msgid "RS Up"
+msgstr "[RS Ûp ~]"
+
+msgctxt "input"
+msgid "RS Down"
+msgstr "[RS Ðöwñ ~]"
+
 #, csharp-format
 msgid "Reverting in {0} second"
 msgid_plural "Reverting in {0} seconds"

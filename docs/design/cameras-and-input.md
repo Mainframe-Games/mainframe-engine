@@ -154,9 +154,10 @@ rebinding](future/save-and-settings.md#key-rebinding).
 - **Display names.** `InputBinding.DisplayName()` turns a binding into player text through a small table translated with
   `Tr.P("input", "…")` (literals, so the extractor sees them): `Space`, `Left Shift`, `Esc`, `Mouse Left`, `Numpad 5`;
   modifiers follow the platform (`Left Option`/`Left Cmd` on macOS). Gamepads use the Xbox layout and printed labels stay
-  untranslated: `A`/`B`/`X`/`Y`, `LB`/`RB`, `LT`/`RT`, `LS`/`RS`, `LS ↑` (stick Y is positive down), `D-Pad Up`; one
-  pad's binding adds `(Pad 2)`. The engine ships no catalog of its own yet: games extract these strings with their own
-  (G4.5 adds the engine's `settings.pot` to merge).
+  untranslated: `A`/`B`/`X`/`Y`, `LB`/`RB`, `LT`/`RT`, `LS`/`RS`; stick directions are words (`LS Up`, stick Y is
+  positive down; the bundled UI fonts have no arrow glyphs), `D-Pad Up`; one pad's binding adds `(Pad 2)`. The strings
+  are in the engine's `Content/UI/settings/settings.pot` (`just l10n-engine`), which games merge into their catalog
+  with `mf-l10n extract --include` ([Localization](localization.md)).
 
 **`InputRebinder`** is the "press a key" capture node. `Begin(InputDeviceClass)` arms it and `Captured(InputBinding)`,
 `Cleared` or `Cancelled` ends it; the menu then calls `Rebind`. It runs its `OnInput` before the game UI

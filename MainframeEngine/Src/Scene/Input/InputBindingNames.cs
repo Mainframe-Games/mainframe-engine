@@ -120,17 +120,17 @@ internal static class InputBindingNames
         _ => button.ToString(),
     };
 
-    // Stick Y is positive down (SDL), so LeftY- is "LS ↑".
+    // Stick Y is positive down (SDL), so LeftY- is Tr.P("input", "LS Up").
     private static string AxisName(GamepadAxisCode axis, int direction) => (axis, direction < 0) switch
     {
-        (GamepadAxisCode.LeftX, true) => "LS ←",
-        (GamepadAxisCode.LeftX, false) => "LS →",
-        (GamepadAxisCode.LeftY, true) => "LS ↑",
-        (GamepadAxisCode.LeftY, false) => "LS ↓",
-        (GamepadAxisCode.RightX, true) => "RS ←",
-        (GamepadAxisCode.RightX, false) => "RS →",
-        (GamepadAxisCode.RightY, true) => "RS ↑",
-        (GamepadAxisCode.RightY, false) => "RS ↓",
+        (GamepadAxisCode.LeftX, true) => Tr.P("input", "LS Left"),
+        (GamepadAxisCode.LeftX, false) => Tr.P("input", "LS Right"),
+        (GamepadAxisCode.LeftY, true) => Tr.P("input", "LS Up"),
+        (GamepadAxisCode.LeftY, false) => Tr.P("input", "LS Down"),
+        (GamepadAxisCode.RightX, true) => Tr.P("input", "RS Left"),
+        (GamepadAxisCode.RightX, false) => Tr.P("input", "RS Right"),
+        (GamepadAxisCode.RightY, true) => Tr.P("input", "RS Up"),
+        (GamepadAxisCode.RightY, false) => Tr.P("input", "RS Down"),
         (GamepadAxisCode.LeftTrigger, false) => "LT",
         (GamepadAxisCode.RightTrigger, false) => "RT",
         (GamepadAxisCode.LeftTrigger, true) => "LT −",
