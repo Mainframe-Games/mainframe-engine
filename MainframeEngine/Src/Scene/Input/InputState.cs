@@ -40,10 +40,10 @@ public sealed class InputState
     public const int MaxGamepads = 8;
 
     private const ulong Never = ulong.MaxValue;
-    private static readonly int KeyCount = MaxEnumValue<Key>() + 1;
-    private static readonly int MouseButtonCount = MaxEnumValue<MouseButton>() + 1;
-    private static readonly int GamepadButtonCount = MaxEnumValue<ButtonName>() + 1;
-    private static readonly int GamepadAxisCount = MaxEnumValue<GamepadAxisCode>() + 1;
+    internal static readonly int KeyCount = MaxEnumValue<Key>() + 1;
+    internal static readonly int MouseButtonCount = MaxEnumValue<MouseButton>() + 1;
+    internal static readonly int GamepadButtonCount = MaxEnumValue<ButtonName>() + 1;
+    internal static readonly int GamepadAxisCount = MaxEnumValue<GamepadAxisCode>() + 1;
 
     private readonly SceneTree _tree;
     private readonly bool[] _keys = new bool[KeyCount];
