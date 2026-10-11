@@ -16,13 +16,14 @@ show; links in the Markdown keep working in both places.
 just docs
 ```
 
-That serves `http://localhost:4321/mainframe-engine/`.
+That serves `http://localhost:4321/mainframe-engine/` and opens it in the browser.
 
 - **Requirements:** Node 22.12 or later.
 - **First run:** it runs `npm ci` in `docs-site/`. It does the same again after `package-lock.json` changes, for
   example after a pull.
 - **Live reload:** changes to `docs/**` re-sync that page and the browser reloads.
-- **Arguments** pass through to `astro dev`, for example `just docs --open` or `just docs --host`.
+- **Arguments:** `--no-open` skips opening the browser; anything else passes through to `astro dev`, for example
+  `just docs --host`.
 
 ```bash
 just docs-build
