@@ -404,6 +404,7 @@ public sealed class WorkspaceTests : IDisposable
     [InlineData(Key.D, EditorModifiers.Command, "edit.duplicate")]
     [InlineData(Key.Delete, EditorModifiers.None, "edit.delete")]
     [InlineData(Key.F, EditorModifiers.None, "view.frame")]
+    [InlineData(Key.F1, EditorModifiers.None, "help.docs")]
     [InlineData(Key.W, EditorModifiers.None, "gizmo.translate")]
     [InlineData(Key.W, EditorModifiers.Alt, null)]
     [InlineData(Key.K, EditorModifiers.None, null)]
