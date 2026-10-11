@@ -22,6 +22,7 @@ just qa-projects      # create a game, play it, edit its C#, reload (needs the .
 just template-smoke   # dotnet new mfgame against this checkout, build it, run it headless (CI job "template")
 just publish-local    # package the editor like the release workflow (artifacts/release)
 just l10n-check       # committed .mo files match their .po (CI runs it)
+just docs             # the docs site (Astro Starlight, docs-site/) with live reload; just docs-build = the Pages build
 ```
 
 Gates before committing anything substantial: `just build`, Release `dotnet build MainframeEngine.slnx -c Release
@@ -129,9 +130,12 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `template-smoke.sh`, `package-editor.sh` / `next-version.sh` (release), `linux/` (the Docker Linux test
   environment), `macos/` (the editor's dev `.app` bundle), `editor-icons/`, `brand/`
 - `.github/workflows/` — `ci.yml` (build-test on 3 OSes, format, shaders, lavapipe render tests, template smoke;
-  `ci-success` is the required check), `publish.yml` (releases), `natives.yml` (native shims)
+  `ci-success` is the required check), `publish.yml` (releases), `natives.yml` (native shims), `docs.yml` (docs site → Pages)
 - `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Content/Brand/`
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
+- `docs-site/` — the docs website (Astro Starlight, editor theme): `scripts/sync-docs.mjs` generates its pages from `docs/` and
+  `memory/decisions/` (never edit `src/content/docs`); `.github/workflows/docs.yml` deploys it to GitHub Pages from `main`
+  (`docs/design/docs-site.md`)
 
 ## Key Patterns
 

@@ -104,7 +104,7 @@ sequenceDiagram
     SM-->>API: result (inside Steam.RunCallbacks)
     alt OK
         API-->>L: lobby id
-        L->>L: Current = lobby; set HostId/LobbyName/AppVersion?/Country; rich presence connect + group
+        L->>L: Current = lobby#59; set HostId/LobbyName/AppVersion?/Country#59; rich presence connect + group
     else failure / I/O failure / Timeout elapsed
         API-->>L: 0 (logged)
         L-->>Game: null

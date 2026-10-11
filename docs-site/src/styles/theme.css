@@ -1,0 +1,202 @@
+/*
+ * The editor's look for the docs (MainframeEngine.Editor/Content/Editor/theme.rcss):
+ *   base #15171c · panel #1f2128 · raised #262931 · field #121418 · line #2f333d · hover #343947
+ *   text #d7dbe4 · title #e8ebf2 · muted #8b93a5 · accent #3b82f6 (selection #1d4ed8) · warn #f59e0b · error #ef4444
+ * Fonts are the editor's (Lato, Roboto Mono): sync-docs.mjs copies them from MainframeEngine/Content/UI/fonts to
+ * src/assets/fonts.
+ * Brand colours (docs/images/brand/README.md): tile #172554, grid #1e40af, "M" #38bdf8, core #f59e0b.
+ */
+
+@font-face {
+  font-family: 'Lato';
+  src: url('../assets/fonts/LatoLatin-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lato';
+  src: url('../assets/fonts/LatoLatin-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lato';
+  src: url('../assets/fonts/LatoLatin-Bold.ttf') format('truetype');
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('../assets/fonts/RobotoMono-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Dark (default): the editor palette. */
+:root {
+  --sl-font: 'Lato';
+  --sl-font-mono: 'Roboto Mono';
+
+  --sl-color-white: #e8ebf2;
+  --sl-color-gray-1: #d7dbe4;
+  --sl-color-gray-2: #c9cedb;
+  --sl-color-gray-3: #8b93a5;
+  --sl-color-gray-4: #5f6676;
+  --sl-color-gray-5: #2f333d;
+  --sl-color-gray-6: #262931;
+  --sl-color-black: #1f2128;
+
+  --sl-color-accent-low: #172554;
+  --sl-color-accent: #3b82f6;
+  --sl-color-accent-high: #93c5fd;
+
+  --sl-color-orange: #f59e0b;
+  --sl-color-red: #ef4444;
+
+  --sl-color-text: #d7dbe4;
+  --sl-color-bg: #1f2128;
+  --sl-color-bg-nav: #15171c;
+  --sl-color-bg-sidebar: #1a1c22;
+  --sl-color-bg-inline-code: #121418;
+  --sl-color-hairline-light: #3b3f4b;
+  --sl-color-hairline: #2f333d;
+  --sl-color-hairline-shade: #15171c;
+
+  --mf-field: #121418;
+  --mf-raised: #262931;
+  --mf-hover: #343947;
+  --mf-selection: #1d4ed8;
+}
+
+/* Light: the same accent and structure on light panels. */
+:root[data-theme='light'] {
+  --sl-color-white: #15171c;
+  --sl-color-gray-1: #1f2128;
+  --sl-color-gray-2: #2f333d;
+  --sl-color-gray-3: #5f6676;
+  --sl-color-gray-4: #8b93a5;
+  --sl-color-gray-5: #c9cedb;
+  --sl-color-gray-6: #e8ebf2;
+  --sl-color-gray-7: #f4f5f8;
+  --sl-color-black: #ffffff;
+
+  --sl-color-accent-low: #dbeafe;
+  --sl-color-accent: #1d4ed8;
+  --sl-color-accent-high: #172554;
+
+  --sl-color-text: #2f333d;
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: #f4f5f8;
+  --sl-color-bg-sidebar: #f8f9fb;
+  --sl-color-bg-inline-code: #eef0f4;
+  --sl-color-hairline-light: #e1e4ea;
+  --sl-color-hairline: #d7dbe4;
+  --sl-color-hairline-shade: #c9cedb;
+
+  --mf-field: #f4f5f8;
+  --mf-raised: #eef0f4;
+  --mf-hover: #e1e4ea;
+  --mf-selection: #dbeafe;
+}
+
+/* Header: the editor's title bar — the logo tile and a bold title. */
+.site-title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--sl-color-white);
+}
+.site-title img {
+  border-radius: 6px;
+}
+header.header {
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+
+/* Sidebar: dense like the editor's tree panels, selection in the editor's blue. */
+nav.sidebar .top-level > li > details > summary .group-label,
+nav.sidebar .large {
+  font-size: var(--sl-text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--sl-color-gray-3);
+}
+nav.sidebar a {
+  border-radius: 3px;
+}
+nav.sidebar a[aria-current='page'],
+nav.sidebar a[aria-current='page']:hover,
+nav.sidebar a[aria-current='page']:focus {
+  background-color: var(--mf-selection);
+  color: #ffffff;
+}
+:root[data-theme='light'] nav.sidebar a[aria-current='page'] {
+  color: var(--sl-color-accent-high);
+}
+nav.sidebar a:hover {
+  background-color: var(--mf-hover);
+}
+
+/* Content: panels and fields like the editor's. */
+.sl-markdown-content :not(pre) > code {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 3px;
+  padding: 0.05em 0.35em;
+  font-size: 0.875em;
+}
+.sl-markdown-content table {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 4px;
+}
+.sl-markdown-content th {
+  background-color: var(--mf-raised);
+  color: var(--sl-color-white);
+}
+.sl-markdown-content img {
+  border-radius: 6px;
+}
+/* The mockups are drawn on white (docs/images/*.svg): give them a frame in the dark theme. */
+:root:not([data-theme='light']) .sl-markdown-content img[src$='.svg'] {
+  background: #ffffff;
+  padding: 8px;
+  border: 1px solid var(--sl-color-hairline-light);
+}
+
+/* Mermaid diagrams (src/plugins/remark-mermaid.mjs, rendered by components/Head.astro). */
+pre.mermaid {
+  display: flex;
+  justify-content: center;
+  margin-block: 1.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  background: var(--mf-field);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 6px;
+  color: var(--sl-color-gray-3);
+  font-family: var(--__sl-font-mono);
+  font-size: var(--sl-text-xs);
+}
+
+/* Buttons (hero actions) like the editor's: square-ish, accent fill with white text. */
+.sl-link-button {
+  border-radius: 4px;
+}
+.sl-link-button.primary {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+.sl-link-button.primary:hover {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+/* Landing hero: the logo at a size that reads like the splash screen. */
+.hero img {
+  max-width: 14rem;
+  border-radius: 24px;
+}

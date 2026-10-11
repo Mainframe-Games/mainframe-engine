@@ -127,15 +127,15 @@ sequenceDiagram
     participant C as child subtree
     participant S as Servers
     P->>C: Parent, Tree, viewport, resolved ProcessMode set
-    C->>C: OnEnterTree() — top-down; TreeEntered; parent's ChildEnteredTree
+    C->>C: OnEnterTree() — top-down#59; TreeEntered#59; parent's ChildEnteredTree
     C->>S: visuals/lights/cameras register with their World3D / RenderServer
-    C->>C: OnReady() — bottom-up, once per node; Ready
+    C->>C: OnReady() — bottom-up, once per node#59; Ready
     loop every frame while inside the tree
         C->>C: OnPhysicsProcess(fixedDt) × N fixed steps
         C->>C: OnProcess(gameTime)
     end
     P->>C: RemoveChild / QueueFree
-    C->>C: OnExitTree() — bottom-up; TreeExiting; parent's ChildExitingTree
+    C->>C: OnExitTree() — bottom-up#59; TreeExiting#59; parent's ChildExitingTree
     C->>S: unregister
     C->>C: TreeExited (after removal)
 ```

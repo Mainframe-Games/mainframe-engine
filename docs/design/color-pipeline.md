@@ -8,7 +8,7 @@ tonemapping so it looks exactly as authored. Implemented in
 [`VulkanRenderer.Presentation.cs`](../../MainframeEngine/Src/Rendering/Vulkan/VulkanRenderer.Presentation.cs),
 [`RenderTarget`](../../MainframeEngine/Src/Rendering/Vulkan/RenderTarget.cs),
 [`ColorSpace`](../../MainframeEngine/Src/Rendering/ColorSpace.cs) and
-[`Post/Tonemap.vk.frag`](../../MainframeEngine/Content/Shaders/Post/Tonemap.vk.frag). Decisions:
+[`Post/Tonemap.vk.frag.slang`](../../MainframeEngine/Content/Shaders/Post/Tonemap.vk.frag.slang). Decisions:
 [ADR 0006](../../memory/decisions/0006-color-pipeline-aces-and-unorm-swapchain.md).
 
 Before M3 the swapchain was UNORM, lighting ran on gamma-encoded values (overlapping lights clipped to
@@ -397,7 +397,7 @@ with it, 0.35 ms without) within their resolution on MoltenVK, which samples tim
 
 **The Forest** applies `Content/Grading/forest-morning.cube` (`ForestGrade`, generated: warm white balance sparing the
 sky, a fitted tone curve, split toning, olive foliage, film saturation), vignette 0.2 and grain 0.015; R4 and R5 are photo
-shots with subtle depth of field ([forest.md](forest.md#the-look-forestscenecreateenvironment-the-sun)).
+shots with subtle depth of field ([forest.md](forest.md#the-look-forestscenecreateenvironment-the-sun-contentpostprocessmres)).
 
 **The grade choice (G8e.7, [ADR 0175](../../memory/decisions/0175-forest-art-pass.md)).** ACES (the engine curve) stays
 the Forest's tonemapper. AgX, compared on R1, R3, R5 and R6 (`TonemapExposure` 1.6, a little brighter than ACES: R3's mean luminance 103

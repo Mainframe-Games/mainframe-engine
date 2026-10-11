@@ -24,7 +24,7 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 | Games & editor | [Projects & GameHost](design/project-and-gamehost.md) (`project.mfproj`, `GameHost`, editor link, code reload, `mfgame` template) · [Editor](design/editor.md) · [Future: editor](design/future/editor.md) |
 | Rendering | [Vulkan renderer](design/vulkan-renderer.md) · [2D canvas](design/canvas.md) · [GPU resources](design/gpu-resources.md) · [Materials & meshes](design/materials-and-meshes.md) · [Asset pipeline](design/asset-pipeline.md) · [Color pipeline](design/color-pipeline.md) · [Post-processing](design/post-processing.md) · [Shadow system](design/shadow-system.md) · [Lighting](design/lighting.md) · [Sky](design/sky.md) · [Spine](design/spine.md) · [Scene grid](design/scene-grid.md) · [Cameras & input](design/cameras-and-input.md) · [Shaders](design/shaders.md) · [Coordinate conventions](design/coordinate-conventions.md) |
 | UI | [Game UI (RmlUi)](design/game-ui.md) · [Native libraries](design/natives.md) |
-| Tooling | [Developer overlay & gizmos](design/dev-overlay.md) · [Testing](design/testing.md) |
+| Tooling | [Developer overlay & gizmos](design/dev-overlay.md) · [Testing](design/testing.md) · [Docs site](design/docs-site.md) (`just docs`, GitHub Pages) |
 | Audio | [Audio](design/audio.md) |
 | Online | [Networking](design/networking.md) · [Steamworks](design/steamworks.md) |
 
@@ -46,14 +46,17 @@ Proposed design · Diagram · Task list · Open questions. See [milestones.md](m
 | [Water](design/future/water.md): ponds and lakes, `River3D` streams, `WaterMaterial3D` | G8c |
 | [Forest showcase](design/future/forest-showcase.md): `Examples/Forest`, a first-person forest walk, and the rendering it needs | G8d |
 | [Forest visual quality](design/future/forest-visual-quality.md): the Unreal look in eight phases (probe GI, shadows, volumetrics, post, Ez Tree foliage, water, art, upscaling) | G8e |
+| [2D skeletal animation](design/future/skeleton-2d.md): engine-owned Spine-style rigs and clips, compute skinning, Spine JSON import · [Skeleton editor](design/future/skeleton-2d-editor.md) · [Animation graph](design/future/animation-graph.md) | G17 |
 
 ## Conventions
 
 - **One topic per file.** Cross-link instead of duplicating.
 - **Diagrams:** Mermaid for graphs embedded in markdown (sequence, class, flow, gantt).
   SVG in [`images/`](images/) for detailed graphics (memory layouts, descriptor tables, timelines,
-  coordinate spaces). SVGs carry an opaque light background so they read on dark themes too.
-- **Source links** are relative (`../../MainframeEngine/Src/...`) so they work on GitHub and in IDEs.
+  coordinate spaces). SVGs carry an opaque light background so they read on dark themes too. In a
+  `sequenceDiagram`, write `#59;` for a `;` in message text (a bare `;` ends the statement).
+- **Source links** are relative (`../../MainframeEngine/Src/...`) so they work on GitHub and in IDEs; the
+  [docs site](design/docs-site.md) rewrites them to GitHub URLs.
 - **Known issues** cite `file:line` at the snapshot commit. Issues found by reading code but not
   reproduced at runtime are marked *(inferred)*.
 - **Status legend** (milestones): ✅ done · 🚧 in progress · ⬜ planned.

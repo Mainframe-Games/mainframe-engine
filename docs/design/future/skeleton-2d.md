@@ -123,8 +123,8 @@ flowchart LR
     DATA --> N2["Skeleton2D (canvas)"]
     DATA --> N3["SkeletonSprite3D (3D)"]
     AG --> GP["AnimationGraphPlayer"]
-    GP -->|ClipSample[]| PB["IPoseBackend<br/>(Skeleton2DPoseBackend)"]
-    TR["AnimationTracks<br/>(code tracks)"] -->|ClipSample[]| PB
+    GP -->|"ClipSample[]"| PB["IPoseBackend<br/>(Skeleton2DPoseBackend)"]
+    TR["AnimationTracks<br/>(code tracks)"] -->|"ClipSample[]"| PB
     PB --> POSE["SkeletonPose (SoA)<br/>constraints · deform"]
     POSE --> SKIN["RenderServer.SkinMeshes<br/>(compute)"]
     SKIN --> CV["Canvas: GpuSkinned commands"]
