@@ -379,7 +379,7 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
 - **Start-up**: a project argument (folder or `project.mfproj`, or `--project <dir>`) opens it; a scene argument opens
   that scene and makes its project current; neither (or `--project-manager`) shows the **Project Manager**.
 - **Project Manager** (`project_manager.rml`, UI layer 40): the recent projects (`~/.mainframe/recent_projects.json`,
-  newest first; a missing folder is flagged and can be removed from the list), New Project, Open Project (also File › Open Project: a file picker that lists and accepts only `.mfproj` files, never a folder, and opens the project of a `project.mfproj`), Download Demo, and the
+  newest first; a missing folder is flagged and can be removed from the list); icon buttons with tooltips on the right of the header for New Project, Open Project (also File › Open Project: a file picker that lists and accepts only `.mfproj` files, never a folder, and opens the project of a `project.mfproj`) and Download Example (a menu: Mainframe Demo, Forest Demo); and a side panel with Open, Remove from List and the
   **.NET SDK check** (`DotnetSdk`: a .NET 10 or newer SDK is required; without one, a link to the download page).
   File › Project Manager returns to it. Each row shows the project's **icon**, `window.icon` of its `project.mfproj`
   (Godot's `application/config/icon`): `ProjectIconResolver` resolves it to an absolute PNG inside the project folder
@@ -392,8 +392,9 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   a live validation (`NewProjectValidation`: a valid C# identifier, an empty or missing target folder, the SDK).
   Create runs `dotnet new mfgame --engine-path …` from a private template hive (`~/.mainframe/templates`; the user's
   global templates are untouched), builds the game, then opens it.
-- **Download Demo** (`download_demo.rml`, `DownloadDemoDialog`; the Demo… button of the Project Manager): fetches the
-  [Demo](demo.md) for this editor version and opens it. The location (default `~/MainframeProjects`, created when
+- **Download Demo** (`download_demo.rml`, `DownloadDemoDialog`; the Project Manager's Download Example menu, one item per
+  `ExampleProject`): fetches the [Demo](demo.md) or the Forest for this editor version and opens it. Below, the Demo
+  stands for either: the Forest's asset and folder are `MainframeEngine.Forest` (`ExampleProject.AssetName`). The location (default `~/MainframeProjects`, created when
   missing) and the engine checkout (found above the editor, or `MAINFRAME_ENGINE_PATH`; without one Download stays
   disabled with the same explanation as New Project) are validated as you type; the demo goes to
   `<location>/MainframeEngine.Demo`, which must not exist or be empty. `DemoDownloader` streams

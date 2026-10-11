@@ -1,6 +1,6 @@
 namespace MainframeEngine.Editor;
 
-/// <summary>Where the Demo zip for an editor version lives on GitHub Releases.</summary>
+/// <summary>Where the example project zips (<see cref="ExampleProject"/>) for an editor version live on GitHub Releases.</summary>
 public static class DemoRelease
 {
     public const string ReleasesBaseUrl = "https://github.com/Mainframe-Games/mainframe-engine/releases";
@@ -10,13 +10,17 @@ public static class DemoRelease
     public static bool IsDevelopment(string editorVersion) =>
         string.IsNullOrWhiteSpace(editorVersion) || WithoutBuildMetadata(editorVersion).Contains('-');
 
-    /// <summary>The Demo zip for <paramref name="editorVersion"/>; SemVer build metadata (<c>1.4.2+abc123</c>) is not part of the tag.</summary>
-    public static Uri AssetUrl(string editorVersion)
+    /// <summary>
+    /// The zip of <paramref name="example"/> (default: the Demo) for <paramref name="editorVersion"/>; SemVer build metadata
+    /// (<c>1.4.2+abc123</c>) is not part of the tag.
+    /// </summary>
+    public static Uri AssetUrl(string editorVersion, ExampleProject? example = null)
     {
+        var asset = (example ?? ExampleProject.Demo).AssetName;
         if (IsDevelopment(editorVersion))
-            return new Uri($"{ReleasesBaseUrl}/latest/download/MainframeEngine.Demo.zip");
+            return new Uri($"{ReleasesBaseUrl}/latest/download/{asset}.zip");
         var version = WithoutBuildMetadata(editorVersion).Trim();
-        return new Uri($"{ReleasesBaseUrl}/download/v{version}/MainframeEngine.Demo-v{version}.zip");
+        return new Uri($"{ReleasesBaseUrl}/download/v{version}/{asset}-v{version}.zip");
     }
 
     private static string WithoutBuildMetadata(string version)

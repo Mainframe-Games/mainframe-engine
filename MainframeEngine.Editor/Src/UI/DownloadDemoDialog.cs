@@ -3,19 +3,17 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Downloads the Demo project for this editor version into a chosen folder (<see cref="DemoDownloader"/>), then opens it
-/// like New Project does. Validation (engine checkout, location) blocks Download; a failed download shows its message and
+/// Downloads an example project (<see cref="ExampleProject"/>: the Demo or the Forest) for this editor version into a chosen
+/// folder (<see cref="DemoDownloader"/>), then opens it like New Project does. Validation (engine checkout, location) blocks Download; a failed download shows its message and
 /// leaves Download enabled for a retry. Cancel stops a running download.
 /// </summary>
 public sealed class DownloadDemoDialog : EditorDocument
 {
-    /// <summary>The folder the demo is saved to, inside the chosen location.</summary>
-    public const string FolderName = "MainframeEngine.Demo";
-
     private RmlDataModel? _model;
     private Task<string>? _download;
     private CancellationTokenSource? _cancel;
     private ProgressSink _progress = new();
+    private ExampleProject _example = ExampleProject.Demo;
     private string _location = NewProjectDialog.DefaultLocation;
     private string _engine = "";
     private string _error = ""; // validation: blocks Download
@@ -38,6 +36,12 @@ public sealed class DownloadDemoDialog : EditorDocument
 
     /// <summary>True on development and prerelease builds, which download the latest release's Demo (it may not match).</summary>
     public bool IsDevelopmentBuild => DemoRelease.IsDevelopment(EngineVersion);
+
+    /// <summary>The example project the dialog downloads (set by <see cref="Open"/>).</summary>
+    public ExampleProject Example => _example;
+
+    /// <summary>The folder the example is saved to, inside the chosen location.</summary>
+    public string FolderName => _example.AssetName;
 
     public bool Busy => _download is not null;
 
@@ -63,8 +67,9 @@ public sealed class DownloadDemoDialog : EditorDocument
     protected override void OnReady() =>
         _model = CreateDataModel("download_demo")
             .Bind("location", this, static d => d._location, static (d, v) => d.Location = v)
+            .Bind("name", this, static d => d._example.Title)
             .Bind("version", this, static _ => EditorBrand.Version)
-            .Bind("target", this, static d => Path.Combine(d._location.Trim(), FolderName))
+            .Bind("target", this, static d => Path.Combine(d._location.Trim(), d.FolderName))
             .Bind("engine", this, static d => d._engine.Length == 0 ? "—" : d._engine)
             .Bind("dev", this, static d => d.IsDevelopmentBuild)
             .Bind("busy", this, static d => d.Busy)
@@ -76,9 +81,11 @@ public sealed class DownloadDemoDialog : EditorDocument
             .Event("download", () => Start())
             .Event("cancel", Cancel);
 
-    /// <summary>Shows the dialog for the engine checkout this editor runs from.</summary>
-    public void Open()
+    /// <summary>Shows the dialog for <paramref name="example"/> (default: the Demo) and the engine checkout this editor runs from.</summary>
+    public void Open(ExampleProject? example = null)
     {
+        if (!Busy)
+            _example = example ?? ExampleProject.Demo;
         _engine = EngineCheckoutOverride ?? TemplateLocator.FindEngineCheckout() ?? "";
         _failure = "";
         Visible = true;
@@ -102,7 +109,7 @@ public sealed class DownloadDemoDialog : EditorDocument
         _cancel = null;
         if (task.IsCompletedSuccessfully)
         {
-            Log.Info($"[Editor] Downloaded the demo to {task.Result}.");
+            Log.Info($"[Editor] Downloaded the {_example.Title} to {task.Result}.");
             Close();
             Workspace.Commands.OpenProject(task.Result);
             return;
@@ -140,9 +147,9 @@ public sealed class DownloadDemoDialog : EditorDocument
         _progress = new ProgressSink();
         var handler = Workspace.Options.DemoHttpHandler?.Invoke();
         var http = handler is null ? EditorHttp.Shared : new HttpClient(handler);
-        var downloader = new DemoDownloader(http, EngineVersion, Workspace.Options.DemoDownloadsDirectory ?? DemoDownloader.DefaultDownloadsDirectory);
+        var downloader = new DemoDownloader(http, EngineVersion, Workspace.Options.DemoDownloadsDirectory ?? DemoDownloader.DefaultDownloadsDirectory, _example);
         _download = downloader.DownloadAsync(new DemoDownloadRequest(_location.Trim(), FolderName, _engine), _progress, _cancel.Token);
-        Log.Info($"[Editor] Downloading the demo to {Path.Combine(_location.Trim(), FolderName)}…");
+        Log.Info($"[Editor] Downloading the {_example.Title} to {Path.Combine(_location.Trim(), FolderName)}…");
         _model?.DirtyAll();
         return true;
     }
