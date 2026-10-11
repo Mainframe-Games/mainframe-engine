@@ -44,6 +44,9 @@ public struct CanvasLightData
     public Vector4 Color;
     public uint Blend;
     public Texture2D Texture;
+
+    /// <summary>Index of <see cref="Texture"/> in <see cref="CanvasFrame.LightTextures"/> (the shader's texture array).</summary>
+    public int TextureSlot;
 }
 
 /// <summary>
@@ -65,6 +68,12 @@ public struct CanvasPass
     public int BatchCount;
     public Vector2 Size;
     public Vector4? ClearColor;
+
+    /// <summary>
+    /// The main pass with post-processing (ADR 0185): the first batch of the layers above
+    /// <see cref="CanvasPostSettings.MaxLayer"/>, drawn after the post-process (−1: every batch is post-processed).
+    /// </summary>
+    public int PostSplit;
 }
 
 public sealed class CanvasFrame
@@ -85,13 +94,21 @@ public sealed class CanvasFrame
 
     public List<CanvasBatch> Batches => _batches;
 
-    /// <summary>Most lights one frame carries (the shader's light block).</summary>
-    public const int MaxLights = 8;
+    /// <summary>Most lights one frame carries (the shader's light block; <c>limits.json</c>, ADR 0186).</summary>
+    public const int MaxLights = ShaderLimits.MaxCanvasLights;
+
+    /// <summary>Most distinct light textures one frame samples (the shader's light texture array; ADR 0186).</summary>
+    public const int MaxLightTextures = ShaderLimits.MaxCanvasLightTextures;
 
     private readonly List<CanvasLightData> _lights = new(MaxLights);
 
     /// <summary>The frame's 2D lights; batches refer to them by bit.</summary>
     public List<CanvasLightData> Lights => _lights;
+
+    private readonly List<Texture2D> _lightTextures = new(MaxLightTextures);
+
+    /// <summary>The distinct textures of <see cref="Lights"/>, in slot order (lights share a slot per texture).</summary>
+    public List<Texture2D> LightTextures => _lightTextures;
 
     /// <summary>The frame's targets in draw order: the 2D sub-viewports, then the main canvas.</summary>
     public List<CanvasPass> Passes => _passes;
@@ -100,8 +117,25 @@ public sealed class CanvasFrame
     public void BeginPass(SubViewport? viewport, Vector2 size, Vector4? clearColor, CanvasItem? clipOwner = null)
     {
         _passStart = _batches.Count;
-        _passes.Add(new CanvasPass { Viewport = viewport, ClipOwner = clipOwner, FirstBatch = _passStart, Size = size, ClearColor = clearColor });
+        _passes.Add(new CanvasPass { Viewport = viewport, ClipOwner = clipOwner, FirstBatch = _passStart, Size = size, ClearColor = clearColor, PostSplit = -1 });
     }
+
+    /// <summary>
+    /// Marks where the open pass's post-processed batches end (ADR 0185): batches appended from here draw over the
+    /// post-processed canvas. Batches never merge across the mark. Only the first mark of a pass counts.
+    /// </summary>
+    public void MarkPostSplit()
+    {
+        var pass = _passes[^1];
+        if (pass.PostSplit >= 0)
+            return;
+        pass.PostSplit = _batches.Count;
+        _passes[^1] = pass;
+        _passStart = _batches.Count;
+    }
+
+    /// <summary>The root viewport's 2D post-processing this frame (<see cref="CanvasEnvironment"/>).</summary>
+    public CanvasPostSettings Post { get; set; }
 
     /// <summary>Closes the pass started by <see cref="BeginPass"/>.</summary>
     public void EndPass()
@@ -130,6 +164,8 @@ public sealed class CanvasFrame
         _passes.Clear();
         _passStart = 0;
         _lights.Clear();
+        _lightTextures.Clear();
+        Post = default;
     }
 
     /// <summary>Appends the commands of every culled item (in order) under one canvas's modulate and transform.</summary>

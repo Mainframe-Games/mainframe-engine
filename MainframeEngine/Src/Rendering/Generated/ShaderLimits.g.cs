@@ -30,4 +30,10 @@ internal static class ShaderLimits
 
     /// <summary>Atlas tiles: secondary directional lights (MAX_SHADOW_DIR - 1) plus spot lights (MAX_SHADOW_SPOT).</summary>
     public const int MaxShadowAtlasMaps = 11;
+
+    /// <summary>2D lights in one canvas frame (bits of a batch's uint light mask, ADR 0186).</summary>
+    public const int MaxCanvasLights = 32;
+
+    /// <summary>Distinct 2D light textures in one canvas frame (the light texture array, ADR 0186).</summary>
+    public const int MaxCanvasLightTextures = 8;
 }
