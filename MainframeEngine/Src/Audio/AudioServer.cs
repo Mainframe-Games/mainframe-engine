@@ -303,7 +303,10 @@ public sealed class AudioServer : IFrameServer
 
     internal void OnBusChanged() => _busesDirty = true;
 
-    /// <summary>A layout resource describing the buses as they are now (volume, mute, solo included).</summary>
+    /// <summary>
+    /// A layout resource describing the buses as they are now (volume, mute, solo included; the player's
+    /// <see cref="AudioBus.UserVolume"/> is not: it is a setting, not part of the mix).
+    /// </summary>
     public AudioBusLayout GetBusLayout()
     {
         var layout = new AudioBusLayout { ResourceName = "Audio bus layout" };
@@ -446,7 +449,7 @@ public sealed class AudioServer : IFrameServer
             }
 
             var audible = !anySolo || soloedAbove || soloedBelow;
-            var gain = bus.Mute || !audible ? 0f : AudioMath.DbToLinear(bus.VolumeDb);
+            var gain = bus.Mute || !audible ? 0f : AudioMath.DbToLinear(bus.VolumeDb) * bus.UserVolume * bus.UserVolume;
             bus.EffectiveGain = gain;
             bus.DirectAudible = !anySolo || soloedAbove;
             gains[i] = gain;
