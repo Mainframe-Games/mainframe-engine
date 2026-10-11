@@ -48,8 +48,10 @@ public sealed class DownloadDemoWorkflowTests : IDisposable
 
     private byte[] DemoZip() => File.ReadAllBytes(DemoZips.Write(Path.Combine(_directory, "demo.zip"), DemoZips.ValidProject()));
 
-    [Fact]
-    public void TheProjectManagerButtonOpensTheDialog()
+    [Theory]
+    [InlineData("Demo", "MainframeEngine.Demo")]
+    [InlineData("Forest", "MainframeEngine.Forest")]
+    public void TheProjectManagerButtonListsTheExamplesAndOpensTheDialogForTheChosenOne(string id, string folder)
     {
         var editor = Editor(StubHandler.Bytes([]));
         var w = editor.Workspace;
@@ -58,7 +60,14 @@ public sealed class DownloadDemoWorkflowTests : IDisposable
         Assert.False(w.DownloadDemo.Visible);
         w.ProjectManager.Document.GetElementById("pm-download-demo").Click();
         editor.Tick(2);
+        Assert.True(w.Popup.Visible);
+        Assert.Equal(["Demo", "Forest"], w.Popup.Items.Where(i => i.Command is not null).Select(i => i.Command));
+        Assert.True(w.Popup.Choose(id));
+        editor.Tick(2);
         Assert.True(w.DownloadDemo.Visible);
+        Assert.Equal(id, w.DownloadDemo.Example.Id);
+        Assert.Equal(folder, w.DownloadDemo.FolderName);
+        Assert.Contains(ExampleProject.Find(id)!.Title, w.DownloadDemo.Document.GetElementById("dialog").InnerRml, StringComparison.Ordinal);
         Assert.Empty(editor.RmlMessages);
     }
 

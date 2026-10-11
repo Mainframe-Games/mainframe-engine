@@ -37,10 +37,11 @@ public sealed class PopupMenu : EditorDocument
     public IReadOnlyList<MenuItem> Items { get; private set; } = [];
 
     /// <summary>
-    /// Shows <paramref name="items"/> with the top-left corner at (<paramref name="x"/>, <paramref name="y"/>) dp.
+    /// Shows <paramref name="items"/> with the top-left corner at (<paramref name="x"/>, <paramref name="y"/>) dp, or the
+    /// top-right corner when <paramref name="alignRight"/> (a menu under a button at the right of the window).
     /// <paramref name="onCommand"/> handles the chosen command (default: <see cref="EditorCommands.Execute"/>).
     /// </summary>
-    public void Show(IReadOnlyList<MenuItem> items, float x, float y, Action<string>? onCommand = null, Action? onClose = null)
+    public void Show(IReadOnlyList<MenuItem> items, float x, float y, Action<string>? onCommand = null, Action? onClose = null, bool alignRight = false)
     {
         ArgumentNullException.ThrowIfNull(items);
         Items = items;
@@ -88,9 +89,18 @@ public sealed class PopupMenu : EditorDocument
         // Keep the menu inside the window.
         var window = Workspace.Host.WindowSize;
         var estimatedHeight = items.Count * 24f + 10f;
-        var left = MathF.Max(0, MathF.Min(x, window.X - 260));
         var top = y + estimatedHeight > window.Y ? MathF.Max(0, window.Y - estimatedHeight) : y;
-        menu.SetProperty("left", RmlText.Dp(left));
+        if (alignRight)
+        {
+            menu.RemoveProperty("left");
+            menu.SetProperty("right", RmlText.Dp(MathF.Max(0, window.X - x)));
+        }
+        else
+        {
+            menu.RemoveProperty("right");
+            menu.SetProperty("left", RmlText.Dp(MathF.Max(0, MathF.Min(x, window.X - 260))));
+        }
+
         menu.SetProperty("top", RmlText.Dp(top));
     }
 

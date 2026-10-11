@@ -81,7 +81,7 @@ public sealed class ProjectManager : EditorDocument
             .Event("open", _ => OpenSelected())
             .Event("new", _ => NewProject())
             .Event("browse", _ => OpenProjectFile())
-            .Event("download_demo", _ => Workspace.DownloadDemo.Open())
+            .Event("download_demo", _ => ShowExamples())
             .Event("remove", _ => RemoveSelected())
             .Event("download", _ => OpenDownloadPage());
     }
@@ -236,6 +236,27 @@ public sealed class ProjectManager : EditorDocument
     }
 
     private void NewProject() => Workspace.NewProject.Open();
+
+    /// <summary>The download button's menu: one item per <see cref="ExampleProject"/>, right-aligned under the button.</summary>
+    public void ShowExamples()
+    {
+        var items = new List<MenuItem> { MenuItem.Header("Download an example project") };
+        foreach (var example in ExampleProject.All)
+            items.Add(new MenuItem(example.Title, example.Id, Icon: example.Icon));
+        var (x, y) = (Workspace.Host.WindowSize.X, 60f);
+        if (Document.GetElementById("pm-download-demo") is { IsNull: false } button)
+        {
+            var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+            var bounds = button.Bounds;
+            (x, y) = ((bounds.X + bounds.Width) / scale, (bounds.Y + bounds.Height) / scale + 4f);
+        }
+
+        Workspace.Popup.Show(items, x, y, id =>
+        {
+            if (ExampleProject.Find(id) is { } example)
+                Workspace.DownloadDemo.Open(example);
+        }, alignRight: true);
+    }
 
     private void OpenProjectFile()
     {

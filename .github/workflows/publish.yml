@@ -127,7 +127,7 @@ jobs:
         run: git lfs pull --include="Examples/Demo/**"
 
       - name: Package the Demo
-        run: build/package-demo.sh "${{ needs.guard.outputs.version }}" artifacts/release
+        run: build/package-example.sh Demo "${{ needs.guard.outputs.version }}" artifacts/release
 
       - uses: actions/upload-artifact@v4
         with:
@@ -135,8 +135,28 @@ jobs:
           path: artifacts/release/MainframeEngine.Demo*.zip
           if-no-files-found: error
 
+  forest:
+    needs: [guard, ci]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Fetch the Forest's LFS objects
+        run: git lfs pull --include="Examples/Forest/**"
+
+      - name: Package the Forest
+        run: build/package-example.sh Forest "${{ needs.guard.outputs.version }}" artifacts/release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forest
+          path: artifacts/release/MainframeEngine.Forest*.zip
+          if-no-files-found: error
+
   release:
-    needs: [guard, build, demo]
+    needs: [guard, build, demo, forest]
     runs-on: ubuntu-24.04
     environment: release
     permissions:
@@ -144,7 +164,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: "{editor-*,demo}"
+          pattern: "{editor-*,demo,forest}"
           path: release
           merge-multiple: true
 
