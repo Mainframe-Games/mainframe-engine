@@ -85,6 +85,26 @@ public sealed class UiScalingMathTests
         layer.ScaleMode = UiScaleMode.Pixels;
         Assert.Equal(1f, layer.ComputeDpRatio(size, 2f, Height1080));
     }
+
+    [Fact]
+    public void ThePlayersScaleMultipliesEveryScaledMode()
+    {
+        var size = new Vector2(2560, 1440);
+        var layer = new UiLayer();
+        Assert.Equal(4f / 3f * 1.5f, layer.ComputeDpRatio(size, 2f, Height1080, 1.5f), 5); // Project
+        layer.ScaleMode = UiScaleMode.Dpi;
+        Assert.Equal(3f, layer.ComputeDpRatio(size, 2f, Height1080, 1.5f));
+        layer.ScaleMode = UiScaleMode.ReferenceResolution;
+        layer.ReferenceResolution = new Vector2(1280, 720);
+        Assert.Equal(3f, layer.ComputeDpRatio(size, 2f, Height1080, 1.5f));
+        layer.ScaleMode = UiScaleMode.Pixels; // 1 dp is one pixel, whatever the player picks
+        Assert.Equal(1f, layer.ComputeDpRatio(size, 2f, Height1080, 1.5f));
+
+        layer.ScaleMode = UiScaleMode.Dpi;
+        layer.IgnoreUserScale = true;
+        Assert.Equal(2f, layer.ComputeDpRatio(size, 2f, Height1080, 1.5f));
+        Assert.Equal(2f, layer.ComputeDpRatio(size, 2f)); // outside a tree there is no player scale
+    }
 }
 
 /// <summary>The UI server applying <see cref="UiServer.Scaling"/> to its layers, the overlay and input (ADR 0181).</summary>
@@ -160,6 +180,38 @@ public sealed class UiScalingServerTests
         Assert.Equal(3f, project.Context.DensityIndependentPixelRatio);
         Assert.Equal(3f, overlayLayer.Context!.DensityIndependentPixelRatio);
         Assert.Equal(2f, dpi.Context.DensityIndependentPixelRatio);
+    }
+
+    [Fact]
+    public void TheUserScaleRelayoutsGameLayersButNotTheDevOverlay()
+    {
+        using var ui = new UiTestTree(new UiServerOptions { Scaling = UiScaling.ScaleWithScreenSize, ContentScale = 2f }, viewport: new Vector2(1920, 1080));
+        var doc = new UiDocument { Name = "Scaled", Source = BoxPage(ui) };
+        var project = ui.AddLayer(0, doc);
+        var dpi = ui.AddLayer(1);
+        dpi.ScaleMode = UiScaleMode.Dpi;
+        var pixels = ui.AddLayer(2);
+        pixels.ScaleMode = UiScaleMode.Pixels;
+        var overlay = new DevOverlay(ui.Tree) { Visible = true };
+        ui.Servers.Register(overlay);
+        ui.Tick(2);
+        var overlayLayer = ui.Server.Layers.Single(l => l.Name == "DevOverlay");
+        Assert.Equal(1f, ui.Server.UserScale);
+        Assert.Equal(1f, project.Context!.DensityIndependentPixelRatio);
+
+        ui.Server.UserScale = 1.25f; // the settings menu's slider: re-laid out on the next frame
+        ui.Tick();
+
+        Assert.Equal(1.25f, project.Context.DensityIndependentPixelRatio);
+        Assert.Equal(2.5f, dpi.Context!.DensityIndependentPixelRatio);
+        Assert.Equal(1f, pixels.Context!.DensityIndependentPixelRatio);
+        Assert.Equal(1f, overlayLayer.Context!.DensityIndependentPixelRatio); // a developer tool keeps its size
+        AssertRect(doc.GetElementById("box")!.Bounds, 125, 62.5f, 250, 125);
+
+        ui.Server.UserScale = 100f;
+        Assert.Equal(UiServer.MaxUserScale, ui.Server.UserScale);
+        ui.Server.UserScale = float.NaN;
+        Assert.Equal(1f, ui.Server.UserScale);
     }
 
     [Fact]

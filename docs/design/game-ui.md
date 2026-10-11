@@ -161,6 +161,12 @@ from project.mfproj's `ui` section — [Projects](project-and-gamehost.md#projec
 - The **editor** is a desktop tool: its server keeps `ConstantPixelSize` and its layers are pinned to `Dpi`, so panels
   never scale with the window. Its UI preview tab lays the previewed document out with the open project's scale at the
   preview's size (`UiLayer.Scaling`). Games started with Play are their own processes and use their project's setting.
+- **Player scale.** `UiServer.UserScale` (default 1, clamped to 0.25–4, NaN = 1) multiplies the dp ratio of every
+  `Project`, `Dpi` and `ReferenceResolution` layer on top of `Scaling`, re-laying out on the next frame like a new
+  `Scaling`. `Pixels` layers (1 dp is one pixel by definition), layers with `UiLayer.IgnoreUserScale` and the RmlUi
+  debugger keep their size; the developer overlay sets `IgnoreUserScale` (a developer tool, not the player's UI).
+  `UserSettings.UiScale` (0.75–2, `display.uiScale` in `settings.json`) sets it at start and live from the settings
+  menu ([project and GameHost](project-and-gamehost.md#user-settings)).
 
 **Frame.** `UiServer.Process` (after the tree's process step): release queued handles, advance UI time by the frame
 delta (deterministic with `FixedDeltaTime`), publish IME composition, repeat held gamepad navigation, apply hot
