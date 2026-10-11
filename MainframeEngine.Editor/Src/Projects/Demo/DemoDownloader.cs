@@ -8,13 +8,13 @@ public sealed record DemoDownloadRequest(string ParentDirectory, string FolderNa
 }
 
 /// <summary>
-/// Downloads the Demo zip for <c>editorVersion</c>, extracts and validates it in a work folder under
+/// Downloads the zip of an example project (<c>example</c>, default: the Demo) for <c>editorVersion</c>, extracts and validates it in a work folder under
 /// <c>downloadsDirectory</c> (the zip) and a hidden staging folder beside the destination (the extracted project, so the final
 /// move is a same-volume rename), points it at the engine and moves it to the destination. Runs off the UI thread; failures
 /// are <see cref="DemoDownloadException"/>s, cancellation is <see cref="OperationCanceledException"/>; either way the work
 /// files are deleted, the destination is not created and a parent folder the download had to create is removed again.
 /// </summary>
-public sealed class DemoDownloader(HttpClient http, string editorVersion, string downloadsDirectory)
+public sealed class DemoDownloader(HttpClient http, string editorVersion, string downloadsDirectory, ExampleProject? example = null)
 {
     private const long MaxDownloadBytes = 1L << 30;
 
@@ -93,7 +93,7 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
 
     private async Task DownloadZipAsync(string zipPath, IProgress<double>? progress, CancellationToken ct)
     {
-        var url = DemoRelease.AssetUrl(editorVersion);
+        var url = DemoRelease.AssetUrl(editorVersion, example);
         using var message = new HttpRequestMessage(HttpMethod.Get, url);
         message.Headers.UserAgent.ParseAdd($"MainframeEngine-Editor/{editorVersion}");
         HttpResponseMessage response;
@@ -109,7 +109,7 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
         using (response)
         {
             if (response.StatusCode == HttpStatusCode.NotFound)
-                throw new DemoDownloadException($"There is no published demo for this editor version (v{editorVersion}).");
+                throw new DemoDownloadException($"There is no published {(example ?? ExampleProject.Demo).Title} for this editor version (v{editorVersion}).");
             if (!response.IsSuccessStatusCode)
                 throw new DemoDownloadException($"The demo download failed ({(int)response.StatusCode} {response.ReasonPhrase}).");
             var total = response.Content.Headers.ContentLength ?? -1;

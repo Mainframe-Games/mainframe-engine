@@ -37,6 +37,15 @@ public sealed class DemoDownloaderTests : IDisposable
     }
 
     [Fact]
+    public async Task TheForestDownloadsTheForestAsset()
+    {
+        var handler = StubHandler.Bytes(ValidZip());
+        await new DemoDownloader(new HttpClient(handler), "1.2.3", Downloads, ExampleProject.Forest)
+            .DownloadAsync(Request(), ct: TestContext.Current.CancellationToken);
+        Assert.Equal(DemoRelease.AssetUrl("1.2.3", ExampleProject.Forest), handler.Requests.Single().RequestUri);
+    }
+
+    [Fact]
     public async Task CreatesMissingParentDirectory()
     {
         var destination = await new DemoDownloader(new HttpClient(StubHandler.Bytes(ValidZip())), "1.2.3", Downloads)

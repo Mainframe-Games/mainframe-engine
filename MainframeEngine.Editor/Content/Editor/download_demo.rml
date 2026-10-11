@@ -15,15 +15,15 @@
 </head>
 <body class="backdrop" data-model="download_demo">
     <div class="dialog" id="dialog">
-        <div class="dialog-title"><span class="icon icon-sm icon-download"></span><span>Download Demo Project</span></div>
+        <div class="dialog-title"><span class="icon icon-sm icon-download"></span><span>Download {{name}}</span></div>
         <div class="dialog-body">
-            <div class="dd-info">The Demo project for this editor version (<span class="mono">{{version}}</span>), downloaded from GitHub and set up to build against your engine checkout.</div>
+            <div class="dd-info">The {{name}} project for this editor version (<span class="mono">{{version}}</span>), downloaded from GitHub and set up to build against your engine checkout.</div>
             <div class="dialog-row">
                 <span class="caption">Location</span>
                 <input type="text" class="text" id="dd-location" data-value="location"/>
                 <button id="dd-browse" data-event-click="browse()" data-tooltip="Browse — choose the folder the demo goes in"><span class="icon icon-sm icon-folder-open"></span></button>
             </div>
-            <div class="dd-info" id="dd-dev-note" data-if="dev">This is a development build: it downloads the latest release's Demo, which may not match this engine version.</div>
+            <div class="dd-info" id="dd-dev-note" data-if="dev">This is a development build: it downloads the latest release's {{name}}, which may not match this engine version.</div>
             <div class="dd-info">Creates {{target}}</div>
             <div class="dd-info">Engine: {{engine}}</div>
             <div class="dd-bar" data-if="busy"><div class="dd-fill" data-style-width="bar"></div></div>

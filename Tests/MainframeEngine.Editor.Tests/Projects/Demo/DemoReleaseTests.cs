@@ -25,6 +25,15 @@ public sealed class DemoReleaseTests
             DemoRelease.AssetUrl(version).ToString());
     }
 
+    [Fact]
+    public void TheForestHasItsOwnAsset()
+    {
+        Assert.Equal("https://github.com/Mainframe-Games/mainframe-engine/releases/download/v1.4.2/MainframeEngine.Forest-v1.4.2.zip",
+            DemoRelease.AssetUrl("1.4.2", ExampleProject.Forest).ToString());
+        Assert.Equal("https://github.com/Mainframe-Games/mainframe-engine/releases/latest/download/MainframeEngine.Forest.zip",
+            DemoRelease.AssetUrl("0.0.0-dev", ExampleProject.Forest).ToString());
+    }
+
     [Theory]
     [InlineData("1.5.0-rc.1")]
     [InlineData("1.5.0-rc.1+abc")]

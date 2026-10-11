@@ -79,6 +79,8 @@
         #pm-update { display: none; }
         #pm-update.shown { display: inline-block; }
         #pm-update .icon { image-color: #4ade80; }
+        .pm-header button.tool-button { width: 32dp; height: 32dp; line-height: 32dp; margin-left: 6dp; }
+        #pm-new .icon { image-color: #ffffff; }
         .pm-sdk {
             display: flex;
             flex-direction: row;
@@ -105,6 +107,9 @@
         </div>
         <div class="pm-spacer"></div>
         <button id="pm-update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>
+        <button id="pm-new" class="tool-button primary" data-event-click="new()" data-tooltip="New Project — create a game from the mfgame template"><span class="icon icon-plus"></span></button>
+        <button id="pm-browse" class="tool-button" data-event-click="browse()" data-tooltip="Open Project — choose a project's project.mfproj"><span class="icon icon-folder-open"></span></button>
+        <button id="pm-download-demo" class="tool-button" data-event-click="download_demo()" data-tooltip="Download Example — get the Mainframe Demo or the Forest Demo for this editor version"><span class="icon icon-download"></span></button>
     </div>
     <div class="pm-main">
         <div class="pm-left">
@@ -130,9 +135,6 @@
             </div>
         </div>
         <div class="pm-actions">
-            <button class="primary" id="pm-new" data-event-click="new()" data-tooltip="New Project — create a game from the mfgame template"><span class="icon icon-plus"></span><span>New Project</span></button>
-            <button id="pm-browse" data-event-click="browse()" data-tooltip="Open Project — choose a project's project.mfproj"><span class="icon icon-folder-open"></span><span>Open Project…</span></button>
-            <button id="pm-download-demo" data-event-click="download_demo()" data-tooltip="Download Demo — get the demo project for this editor version"><span class="icon icon-download"></span><span>Demo…</span></button>
             <button id="pm-open" data-class-disabled="!has_selection" data-event-click="open()" data-tooltip="Open — open the selected project (Enter)"><span class="icon icon-player-play"></span><span>Open</span></button>
             <button id="pm-remove" data-class-disabled="!has_selection" data-event-click="remove()" data-tooltip="Remove from List — forget the selected project (its files stay)"><span class="icon icon-trash-x"></span><span>Remove from List</span></button>
             <div class="pm-spacer"></div>
