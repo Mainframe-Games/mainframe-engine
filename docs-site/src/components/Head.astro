@@ -1,0 +1,49 @@
+---
+// Starlight's <head> plus the Mermaid renderer for the diagrams remark-mermaid leaves as <pre class="mermaid">.
+import Default from '@astrojs/starlight/components/Head.astro';
+---
+
+<Default />
+
+<script>
+  const nodes = () => [...document.querySelectorAll<HTMLElement>('pre.mermaid')];
+
+  // The editor palette (MainframeEngine.Editor/Content/Editor/theme.rcss), light variant for the light theme.
+  const palettes = {
+    dark: {
+      background: '#1f2128', primaryColor: '#262931', primaryTextColor: '#d7dbe4', primaryBorderColor: '#3b82f6',
+      secondaryColor: '#2f333d', tertiaryColor: '#121418', lineColor: '#8b93a5', textColor: '#d7dbe4',
+      clusterBkg: '#15171c', clusterBorder: '#3b3f4b', edgeLabelBackground: '#1f2128', noteBkgColor: '#2f333d',
+      noteTextColor: '#d7dbe4',
+    },
+    light: {
+      background: '#ffffff', primaryColor: '#eff6ff', primaryTextColor: '#15171c', primaryBorderColor: '#1d4ed8',
+      secondaryColor: '#f1f3f7', tertiaryColor: '#ffffff', lineColor: '#5f6676', textColor: '#15171c',
+      clusterBkg: '#f6f7fa', clusterBorder: '#c9cedb', edgeLabelBackground: '#ffffff', noteBkgColor: '#fef3c7',
+      noteTextColor: '#15171c',
+    },
+  };
+
+  async function render() {
+    const list = nodes();
+    if (list.length === 0) return;
+    const { default: mermaid } = await import('mermaid');
+    const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      themeVariables: { ...palettes[theme], fontFamily: 'Lato, sans-serif', fontSize: '14px' },
+      securityLevel: 'strict',
+    });
+    for (const node of list) {
+      node.dataset.source ??= node.textContent ?? '';
+      node.removeAttribute('data-processed');
+      node.textContent = node.dataset.source;
+    }
+    await mermaid.run({ nodes: list });
+  }
+
+  render();
+  // Starlight's theme picker flips data-theme on <html>: redraw the diagrams in the other palette.
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+</script>

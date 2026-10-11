@@ -3,7 +3,9 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1: G1a animation + timeline, G1b skinning) ·
 **Status:** ⬜ planned · **Depends on:** [Scene serialization](../scene-serialization.md) (resources, generator),
 [Editor](../editor.md), the song tab's timeline (merged to `main` with the music editor;
-[shared timeline](#shared-timeline-component)) · **Related:** [Animation authoring](animation-authoring.md) (G1c–G1f:
+[shared timeline](#shared-timeline-component), extracted by G17b) · **Related:** [2D skeletal animation](skeleton-2d.md)
+(G17: builds compute skinning first), [Animation graph](animation-graph.md) (state machines for both),
+[Animation authoring](animation-authoring.md) (G1c–G1f:
 Claude-made clips, `mfe`, posing tools, root motion), [2D content](2d-content.md) (G2: `AnimatedSprite2D` uses
 the same player ideas), [Rendering features](rendering-features.md) (G6: PBR shaders skinned meshes must still feed),
 [Editor viewport tools](editor-viewport-tools.md) (G7: Save as `.mres` / Make unique for imported libraries),
@@ -42,9 +44,9 @@ What exists and helps:
 - `Mathf` has Godot's `CubicInterpolateInTime`, `BezierInterpolate` and `Ease` (`Math/Mathf.cs:542`, `:658`, `:786`).
 - A kinematic `RigidBody3D` turns node moves into velocity, so it pushes what it touches (`RigidBodyMode.Kinematic`,
   `Physics/PhysicsTypes.cs:9-13`). Moving a `StaticBody3D` teleports it (`CollisionObject3D.cs:198`).
-- The song tab on the local branch `feature/sound-designer` has a timeline with ruler, grid, playhead, snapping, zoom
+- The song tab on `main` (merged with the music editor) has a timeline with ruler, grid, playhead, snapping, zoom
   and drag gestures (`MainframeEngine.Editor/Src/Music/SongCanvases.cs`, `SongCanvasController.cs`, `SongGrid.cs`,
-  `SongView.cs`, `Content/Editor/song.rml`). It is not on `main`.
+  `SongView.cs`, `Content/Editor/song.rml`).
 
 ## Goals
 
@@ -63,9 +65,11 @@ What exists and helps:
 ## Non-goals
 
 - `AnimationTree`, state machines, blend spaces and blend trees, layered or additive animation. The player crossfades
-  between two animations on switch, nothing more. A later proposal can add a tree on top of the same bindings.
+  between two animations on switch, nothing more. [Animation graph](animation-graph.md) (G17f) adds state machines,
+  blend spaces and masked layers for skeletons; `Skeleton3D` adopts it with G1b.
 - IK, retargeting between skeletons, ragdolls, morph targets (blend shapes), animation compression.
-- 2D skeletal animation (Spine covers it) and sprite-frame animation ([2D content](2d-content.md), G2).
+- 2D skeletal animation ([2D skeletal animation](skeleton-2d.md), G17) and sprite-frame animation
+  ([2D content](2d-content.md), G2).
 - Per-frame animation of RmlUi styles. In-document UI motion uses RmlUi's own RCSS `transition` and `@keyframes`;
   `UiElement.SetProperty` takes strings (`UI/UiElement.cs:116`), which would allocate every frame. Animations reach UI by
   method keys (toggle a class, show a document) and by animating node properties such as `CanvasItem.Modulate`.
@@ -427,7 +431,10 @@ Layout (see the mockup): `animation.rml` (new) holds the chrome; the timeline is
 
 ### Shared timeline component
 
-The song tab's timeline is the starting point. On `feature/sound-designer` it is split as:
+**Built by G17b.** [Skeleton editor](skeleton-2d-editor.md#shared-timeline) extracts this component for the Skeleton
+tab, with the names and split below; G1.5 then only builds the Animation panel on it.
+
+The song tab's timeline is the starting point. It is split as:
 
 | Branch file | What is reusable | What is song-only |
 |---|---|---|
@@ -451,11 +458,9 @@ Extraction into `MainframeEngine.Editor/Src/Timeline/` (new):
 - `TimelineHost` — the viewport sizing, `engine://` publishing and input routing from `SongView`.
 - `TimelineSnap` — the generic parts of `SongGrid` over `double`.
 
-**Dependency.** This needs `feature/sound-designer` merged into `main` first; the song tab is then moved onto the shared
-component in the same PR as the extraction (G1.5), with its tests (`Tests/MainframeEngine.Editor.Tests/Music/`) kept
-green. If the branch has not merged when G1.5 starts: build `Src/Timeline/` on `main` by lifting the generic code from the
-branch (`git show feature/sound-designer:…`), with the same API and its own tests; the branch then rebases onto it and
-replaces its private copies before it merges. Either way only one timeline exists after both land.
+**Dependency.** The song tab is on `main`; the extraction moves it onto the shared component in the same PR, with its
+tests (`Tests/MainframeEngine.Editor.Tests/Music/`) kept green. Whichever of G17b and G1.5 starts first does it; only one
+timeline exists afterwards.
 
 ### G1b: skeletons and skinning
 
@@ -516,7 +521,9 @@ G6 PBR shaders need no skinning code. This is also how Godot 4 skins.
 - **Bounds.** Culling uses per-bone bind-space boxes (computed once from the vertices each joint moves), transformed by
   the current pose and merged: O(bones) per skinned instance, no allocation, tight enough for shadow-caster culling.
 - **Pipelines.** The renderer has no compute pipelines yet (`PipelineCache.cs:74` only mentions
-  `vkCreateComputePipelines`); G1.9 adds compute pipeline creation to `IVulkanContext.Pipelines`. MoltenVK supports
+  `vkCreateComputePipelines`); G1.9 adds compute pipeline creation to `IVulkanContext.Pipelines`, unless G17a
+  ([2D skeletal animation](skeleton-2d.md#compute-skinning)) has already added it with `RenderServer.SkinMeshes`.
+  MoltenVK supports
   compute.
 - **Allocation.** Palette writes and dispatches are per-frame code: no allocation (allocation gate), no validation
   warnings (validation gate).
@@ -614,8 +621,8 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
 3. **G1.3 AnimationLibrary + AnimationPlayer.** Play/backwards/pause/stop/seek/queue/speed/autoplay, signals, process
    modes, `Advance`, crossfade, node warnings; allocation gate; benchmark.
 4. **G1.4 Method and audio tracks.** `[AnimationMethod]` model, emitter and diagnostics; argument parsing; audio keys.
-5. **G1.5 Shared timeline.** Extract `Src/Timeline/` from the song tab and move the song tab onto it (after
-   `feature/sound-designer` merges; else land it on `main` first, see [above](#shared-timeline-component)).
+5. **G1.5 Shared timeline.** Extract `Src/Timeline/` from the song tab and move the song tab onto it, unless G17b already
+   did ([above](#shared-timeline-component)).
 6. **G1.6 Animation panel.** Bottom dock tabs, `animation.rml`, track list, timeline canvas, transport, key editor,
    preview capture/restore, undo actions, inspector key buttons, K in the 3D view, new icons; editor tests; QA script.
 7. **G1.7 Demo and docs.** `animation_3d` Demo scene, `animation.md`, `editor.md`, `physics.md`. Optional: move

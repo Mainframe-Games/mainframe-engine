@@ -196,6 +196,16 @@ editor-icons-fetch version="3.48.0":
     (cd "$work" && npm pack "@tabler/icons@{{version}}" >/dev/null && tar xzf tabler-icons-*.tgz)
     python3 build/editor-icons/make_atlas.py --tabler "$work/package"
 
+# Docs site (docs-site/, Astro Starlight): docs/ and memory/decisions/ with live reload at
+# http://localhost:4321/mainframe-engine/ (needs Node 22.12+; installs its npm packages on first run; e.g. just docs --open)
+docs *args:
+    npm --prefix docs-site run dev -- {{args}}
+
+# Build the docs site into docs-site/dist exactly like the Pages workflow (`npm --prefix docs-site run preview` serves it)
+docs-build:
+    npm --prefix docs-site ci --no-audit --no-fund
+    npm --prefix docs-site run build
+
 # Apply dotnet format (the vendored Spine runtime is excluded)
 format:
     dotnet format {{solution}} --exclude Plugins/Spine

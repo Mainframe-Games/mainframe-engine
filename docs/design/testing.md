@@ -128,7 +128,7 @@ sequenceDiagram
     T->>H: dotnet Host.dll <scene> --out artifacts/render-tests/<scene> --capture 1,60 --hidden
     H->>E: Run() with MaxFrames, FixedDeltaTime = 1/60, EnableValidation, EnableFrameCapture, VSync off
     loop every frame
-        E->>H: OnUpdate: CaptureFrame() on listed frames; allocation counter at window edges
+        E->>H: OnUpdate: CaptureFrame() on listed frames#59; allocation counter at window edges
         E-->>H: OnFrameCaptured → <scene>_frameNNNN.png
     end
     H->>T: result.json (device, platform tag, validation counts + messages, allocated bytes, captures)

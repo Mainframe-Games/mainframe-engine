@@ -114,7 +114,7 @@ sequenceDiagram
         else swapchain out of date / being rebuilt
             E->>E: ScreenGizmos.Clear()
         end
-        E->>R: EndFrame() — UI layers offscreen, tonemap into the swapchain, then the overlay pass in OverlayOrder (canvas, screen gizmos, UI layers, dev overlay); end pass, submit, present
+        E->>R: EndFrame() — UI layers offscreen, tonemap into the swapchain, then the overlay pass in OverlayOrder (canvas, screen gizmos, UI layers, dev overlay)#59; end pass, submit, present
     end
 ```
 

@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 572" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Crash reporting UI (G15)</title>
+  <desc>Two planned surfaces. Left: the Mainframe Editor's Output panel after a played game crashed: the Play chip shows the crashed state, earlier game log rows sit above an expanded crash row with the exception, node path, scene and decoded exit code, its stack frames (game frames link to source, engine frames are muted) and icon buttons to open the bundle folder, copy the report and open the dump. Right: the game's next-launch prompt drawn with the game UI widget library: title, one-line summary, Open folder, Copy report, Send report and Close buttons, and an Always send reports checkbox.</desc>
+  <rect width="960" height="572" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .t{fill:#d7dbe4;font-size:12px}
+    .s{fill:#8b93a5;font-size:11px}
+    .mono{fill:#d7dbe4;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .link{fill:#93c5fd;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace;text-decoration:underline}
+    .muted{fill:#6b7488;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .err{fill:#fca5a5;font-size:12px;font-weight:600}
+    .warn{fill:#fcd34d;font-size:11px}
+    .doc{fill:#93c5fd;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+    .num{fill:#ffffff;font-size:10px;font-weight:700}
+    .gt{fill:#e6e9ef;font-size:12px}
+    .gs{fill:#8a95ab;font-size:11px}
+    .gh{fill:#ffffff;font-size:16px;font-weight:700}
+    .btn{fill:#2b3445;stroke:#44506a}
+    .pri{fill:#2f6fd6;stroke:#5aa0ff}
+  </style>
+
+  <!-- ================= left: editor Output panel ================= -->
+  <rect x="20" y="20" width="560" height="470" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="560" height="30" rx="8" fill="#15171c"/>
+  <text x="34" y="40" class="hdr">Output</text>
+  <!-- play chip: crashed -->
+  <rect x="408" y="26" width="160" height="20" rx="10" fill="#3b1d1d" stroke="#ef4444"/>
+  <circle cx="422" cy="36" r="5" fill="none" stroke="#fca5a5" stroke-width="1.5"/>
+  <path d="M422 33 v3 M422 38 v0.6" stroke="#fca5a5" stroke-width="1.5"/>
+  <text x="432" y="40" class="s" fill="#fca5a5">Forest #2 · crashed</text>
+
+  <!-- filter bar -->
+  <rect x="30" y="58" width="540" height="24" fill="#262931" stroke="#2f333d"/>
+  <text x="40" y="74" class="s">All · Editor · Game #2</text>
+  <rect x="456" y="61" width="20" height="18" rx="3" fill="#2f333d"/><text x="461" y="74" class="s">E</text>
+  <rect x="480" y="61" width="20" height="18" rx="3" fill="#2f333d"/><text x="485" y="74" class="s">W</text>
+  <rect x="504" y="61" width="20" height="18" rx="3" fill="#2f333d"/><text x="510" y="74" class="s">I</text>
+  <rect x="528" y="61" width="36" height="18" rx="3" fill="#2f333d"/><text x="535" y="74" class="s">Clear</text>
+
+  <!-- earlier rows -->
+  <rect x="30" y="86" width="540" height="392" fill="#121418" stroke="#2f333d"/>
+  <text x="40" y="104" class="mono">[game·#2] [Scene] Loaded Content/Scenes/Forest.mscene in 1.82 s</text>
+  <text x="40" y="122" class="mono">[game·#2] [Audio] Output: MacBook Pro Speakers, 48000 Hz</text>
+  <text x="40" y="140" class="warn">[game·#2] [Physics] Body 'Crate7' fell below the kill plane</text>
+
+  <!-- crash row -->
+  <rect x="34" y="150" width="532" height="320" rx="4" fill="#2a1a1c" stroke="#7f1d1d"/>
+  <path d="M44 162 l5 5 l5 -5" fill="none" stroke="#fca5a5" stroke-width="1.6"/>
+  <text x="62" y="168" class="err">Game #2 crashed: NullReferenceException</text>
+  <text x="62" y="186" class="t">in PlayerController.OnPhysicsProcess · node /root/Forest/Player</text>
+  <text x="62" y="203" class="s">Forest.mscene · frame 48 211 · exit 1</text>
+
+  <!-- icon buttons -->
+  <g>
+    <rect x="474" y="158" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+    <path d="M480 165 h5 l2 2 h6 v8 h-13 z" fill="none" stroke="#d7dbe4" stroke-width="1.3"/>
+    <rect x="502" y="158" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+    <rect x="508" y="163" width="8" height="10" rx="1" fill="none" stroke="#d7dbe4" stroke-width="1.3"/>
+    <rect x="512" y="166" width="8" height="10" rx="1" fill="#2f333d" stroke="#d7dbe4" stroke-width="1.3"/>
+    <rect x="530" y="158" width="24" height="22" rx="3" fill="#23262e" stroke="#2a2d36"/>
+    <path d="M537 164 h10 v11 h-10 z M539 168 h6 M539 171 h6" fill="none" stroke="#5f6676" stroke-width="1.2"/>
+  </g>
+  <!-- tooltip -->
+  <rect x="410" y="188" width="124" height="20" rx="3" fill="#0b0d10" stroke="#3b3f4b"/>
+  <text x="418" y="202" class="s" fill="#e5e7eb">Open report folder</text>
+
+  <!-- frames -->
+  <line x1="62" y1="216" x2="556" y2="216" stroke="#3b3f4b"/>
+  <text x="62" y="236" class="link">at Game.PlayerController.OnPhysicsProcess(Single) Src/PlayerController.cs:42</text>
+  <text x="62" y="254" class="link">at Game.PlayerController.ApplyGround(Vector3)   Src/PlayerController.cs:117</text>
+  <text x="62" y="272" class="muted">at MainframeEngine.SceneTree.RunPhysicsStepCore(Single)</text>
+  <text x="62" y="290" class="muted">at MainframeEngine.SceneTree.Tick(GameTime&amp;)</text>
+  <text x="62" y="308" class="muted">at MainframeEngine.Engine.OnUpdate(Double)</text>
+  <text x="62" y="326" class="muted">… 6 more engine frames</text>
+  <line x1="62" y1="340" x2="556" y2="340" stroke="#3b3f4b"/>
+  <text x="62" y="360" class="s">GPU Apple M3 Pro · MoltenVK 1.3.0 · engine 0.42.0 · game 1.2.0</text>
+  <text x="62" y="380" class="s">Bundle: …/Forest Demo/crashes/2026-10-11T10-42-07-a1b2</text>
+
+  <!-- a second, native crash summary row -->
+  <rect x="62" y="396" width="490" height="62" rx="3" fill="#1f2128" stroke="#3b3f4b"/>
+  <text x="74" y="416" class="t">Earlier: Game #1 crashed: SIGSEGV (exit 139)</text>
+  <text x="74" y="434" class="s">no managed report · dump.dmp in crashes/ · last log lines above</text>
+  <text x="74" y="450" class="s">(the editor sets the createdump variables on games it launches)</text>
+
+  <text x="30" y="508" class="doc">MainframeEngine.Editor: Output panel, PlayInstance.Crash, link protocol 4</text>
+
+  <!-- ================= right: game next-launch prompt ================= -->
+  <rect x="600" y="20" width="340" height="470" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="600" y="20" width="340" height="26" rx="8" fill="#15171c"/>
+  <circle cx="616" cy="33" r="5" fill="#ef4444"/><circle cx="632" cy="33" r="5" fill="#f59e0b"/><circle cx="648" cy="33" r="5" fill="#22c55e"/>
+  <text x="700" y="38" fill="#9ca3af" font-size="11">Forest Demo</text>
+  <!-- game scene + dim -->
+  <rect x="600" y="46" width="340" height="444" fill="#2b3a47"/>
+  <path d="M600 330 L680 250 L740 300 L820 220 L940 320 L940 490 L600 490 Z" fill="#33503d"/>
+  <rect x="600" y="46" width="340" height="444" fill="#000000" opacity="0.5"/>
+
+  <!-- dialog -->
+  <rect x="624" y="110" width="292" height="300" rx="8" fill="#1c2333" stroke="#44506a"/>
+  <circle cx="648" cy="140" r="10" fill="none" stroke="#f59e0b" stroke-width="2"/>
+  <path d="M648 134 v7 M648 145 v1" stroke="#f59e0b" stroke-width="2"/>
+  <text x="666" y="137" class="gh">Forest Demo closed</text>
+  <text x="666" y="155" class="gh">unexpectedly last time</text>
+  <text x="640" y="184" class="gt">The game stopped because of an error.</text>
+  <text x="640" y="202" class="gs">NullReferenceException in PlayerController</text>
+  <text x="640" y="220" class="gs">A report was saved on this computer.</text>
+
+  <rect x="640" y="236" width="124" height="30" rx="4" class="btn"/>
+  <text x="664" y="255" class="gt">Open folder</text>
+  <rect x="776" y="236" width="124" height="30" rx="4" class="btn"/>
+  <text x="798" y="255" class="gt">Copy report</text>
+  <rect x="640" y="276" width="260" height="30" rx="4" class="pri"/>
+  <text x="732" y="295" class="gt" fill="#ffffff">Send report</text>
+  <rect x="640" y="316" width="16" height="16" rx="3" fill="#0b0e14" stroke="#44506a"/>
+  <text x="664" y="329" class="gs">Always send reports</text>
+  <rect x="640" y="350" width="260" height="30" rx="4" class="btn" stroke="#5aa0ff"/>
+  <text x="755" y="369" class="gt">Close</text>
+  <text x="640" y="398" class="gs">Send report: only with crash.upload.url</text>
+
+  <text x="612" y="508" class="doc">Content/UI/crash/crash_prompt.rml</text>
+
+  <!-- captions -->
+  <text x="20" y="540" class="cap">Left: a game crash in the editor's Output panel (click a linked frame to open the source). Right: the</text>
+  <text x="20" y="556" class="cap">player's next-launch prompt (Tr strings, gamepad focus on Close). Nothing is sent without an endpoint and consent.</text>
+</svg>

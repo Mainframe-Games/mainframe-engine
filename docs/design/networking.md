@@ -190,7 +190,7 @@ mp.ConnectedToServer += () => Log.Info($"joined as {mp.LocalPeerId}");
 sequenceDiagram
     participant T as SceneTree.Tick
     participant M as MultiplayerApi
-    T->>M: ProcessFrame (start of process): Poll — handshakes, spawns, snapshots, RPCs; client: advance clock, interpolate
+    T->>M: ProcessFrame (start of process): Poll — handshakes, spawns, snapshots, RPCs#59; client: advance clock, interpolate
     T->>T: physics, process, deferred frees, transform sync
     T->>M: IFrameServer.Process (end of frame)
     Note over M: server: despawns, timeouts, net tick (30 Hz accumulator): capture changes,<br/>flush spawns, one snapshot per client · client: ack/heartbeat at the server's rate, timeouts · Flush
@@ -211,8 +211,8 @@ sequenceDiagram
     loop every net tick
         S->>S: Capture: changed members stamped with the tick
         S->>C: Snapshot{tick: per node, members changed after that node's ack for C} (unreliable)
-        C->>C: apply (or buffer for interpolation); stale/duplicate ticks discarded
-        C->>S: Ack{tick} for every fully applied snapshot (unreliable; repeated as the heartbeat)
+        C->>C: apply (or buffer for interpolation)#59; stale/duplicate ticks discarded
+        C->>S: Ack{tick} for every fully applied snapshot (unreliable#59; repeated as the heartbeat)
         S->>S: every node that snapshot carried is acknowledged up to tick
     end
     S->>C: Despawn{id} (reliable)

@@ -1,0 +1,22 @@
+{
+  "name": "mainframe-engine-docs",
+  "private": true,
+  "type": "module",
+  "description": "The Mainframe Engine documentation site (Astro Starlight) built from docs/ and memory/decisions/",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "sync": "node scripts/sync-docs.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/sync-docs.mjs && astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "7.3.2",
+    "@astrojs/starlight": "0.42.6",
+    "astro": "7.3.8",
+    "mermaid": "12.1.0",
+    "sharp": "0.35.5"
+  }
+}

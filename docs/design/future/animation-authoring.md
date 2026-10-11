@@ -5,7 +5,8 @@ motion, G1f auto-rigging and non-humanoid rigs) · **Status:** ⬜ planned · **
 [Keyframe animation](keyframe-animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
 [Asset pipeline](../asset-pipeline.md) (`.meta` settings), [Editor](../editor.md) · **Related:**
 [Editor viewport tools](editor-viewport-tools.md) (G7: Save as `.mres`), [Physics](../physics.md) (`CharacterBody3D`),
-[Localization tool](../localization.md) (`mf-l10n`, the CLI pattern)
+[Localization tool](../localization.md) (`mf-l10n`, the CLI pattern), [2D skeletal animation](skeleton-2d.md#agent-tooling) (`mfe skel`:
+the same CLI, whichever lands first creates it)
 
 ![The contact sheet mfe anim render writes: a jump in eight frames from three views, a trajectory strip and the check report](../../images/animation-contact-sheet.svg)
 
