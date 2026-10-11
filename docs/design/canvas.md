@@ -118,10 +118,24 @@ Each particle draws its texture centred on it (one canvas batch per emitter). Ra
 `PointLight2D` (Godot's names and formula): its texture, centred on the node plus `Offset` and scaled by `TextureScale`,
 adds `texture × Color × Energy × the item's colour` after the canvas modulation, so it shows through a `CanvasModulate`
 night. It lights the items of its own canvas whose `LightMask` shares a bit with `RangeItemCullMask` and whose z is in
-`RangeZMin..RangeZMax`; unshaded materials are not lit. Up to eight lights per frame (`CanvasFrame.MaxLights`) in one
-per-frame-slot block; each batch's push constants carry the bits of the lights that reach it. No shadows or normal maps.
+`RangeZMin..RangeZMax`; unshaded materials are not lit. Lights whose texture rect misses the drawn area are culled.
+Up to 32 lights per frame (`CanvasFrame.MaxLights`, `limits.json` `MAX_CANVAS_LIGHTS`) in one per-frame-slot block,
+sharing up to 8 distinct textures (`MAX_CANVAS_LIGHT_TEXTURES`, one sampler slot per texture; ADR 0186); each batch's
+push constants carry the bits of the lights that reach it. No shadows or normal maps.
 `Gradient` and `GradientTexture2D` (linear, radial, square, conic fills; Godot's sampling) generate light and sweep
 textures in code or in a scene.
+
+## Post-processing (ADR 0185)
+
+A `CanvasEnvironment` node in the root viewport post-processes its canvas (Godot does this with a `WorldEnvironment` in
+the Canvas background mode; the engine's `WorldEnvironment` is 3D-only). The main pass draws the canvases up to
+`MaxLayer` into the canvas layer as before; then glow (a soft-knee bright-pass and a 13-tap down / tent up chain from
+half size, up to five levels, wider levels weighted by `GlowSpread`), the adjustments (brightness, contrast,
+saturation), lift/gamma/gain, tint, vignette, chromatic aberration and grain (`CanvasPost.vk.frag.slang`) write a second
+target, the canvases above `MaxLayer` draw on top of it with a load pass, and the composite shows it. Everything runs
+in gamma space on the RGBA8 layer (Godot's `hdr_2d` off): glow picks the pixels above a gamma-space luma threshold,
+so emissive art is art that is bright after the canvas modulation. The game UI and the dev overlay are never touched.
+`CanvasPostMath` mirrors the colour maths on the CPU. With no environment (or `Enabled` false) nothing changes.
 
 ## Text (ADR 0118)
 

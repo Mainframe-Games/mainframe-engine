@@ -157,10 +157,17 @@ public static partial class CanvasShaderBuild
     /// <summary>The extension of a shader's lock file.</summary>
     public const string LockExtension = ".spvlock";
 
-    /// <summary>The hash a shader's lock records: the translated Slang of both stages.</summary>
+    /// <summary>
+    /// Revision of the engine includes a canvas shader compiles against (<c>canvas.slang</c>, <c>canvas_lights.slang</c>,
+    /// <c>limits.slang</c>): bump it when they change in a way compiled shaders must follow, so every lock goes stale.
+    /// 2: 32 lights sharing 8 texture slots (ADR 0186).
+    /// </summary>
+    public const int IncludeRevision = 2;
+
+    /// <summary>The hash a shader's lock records: the translated Slang of both stages and <see cref="IncludeRevision"/>.</summary>
     public static string Hash(CanvasShaderProgram program)
     {
-        var bytes = Encoding.UTF8.GetBytes(program.VertexSource + "\n//--\n" + program.FragmentSource);
+        var bytes = Encoding.UTF8.GetBytes(program.VertexSource + "\n//--\n" + program.FragmentSource + "\n//includes " + IncludeRevision);
         return Convert.ToHexStringLower(SHA256.HashData(bytes));
     }
 

@@ -13,7 +13,7 @@ namespace MainframeEngine;
 /// uploaded in the frame step (<see cref="PrepareTextures"/>) so their uploads are recorded at the next frame's start,
 /// before the pass that samples them.
 /// </summary>
-public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
+public sealed unsafe partial class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
 {
     internal const Format LayerFormat = Format.R8G8B8A8Unorm;
     private const int PushSize = 112;
@@ -107,8 +107,9 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         public Vector4 MatrixY;
         public Vector4 Color;
         public uint Blend;
+        public uint TextureSlot;
 #pragma warning disable CS0649 // std140 padding, never written
-        public uint Pad0, Pad1, Pad2;
+        public uint Pad1, Pad2;
 #pragma warning restore CS0649
     }
 
@@ -238,6 +239,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
     void IOverlayRenderer.RecordOffscreen(CommandBuffer cb)
     {
         _hasContent = false;
+        PostProcessed = false;
         DrawCalls = 0;
         if (_disposed)
             return;
@@ -265,7 +267,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             {
                 // A clip-children group: the owner and its subtree on their own transparent target the canvas's size.
                 var group = EnsureGroupTarget(owner, new Extent2D((uint)pass.Size.X, (uint)pass.Size.Y), now);
-                RecordPass(cb, frame, pass, group.Framebuffer, group.Extent, Vector4.Zero, vertexBuffer, indexBuffer);
+                RecordPass(cb, frame, pass, _pass, group.Framebuffer, group.Extent, Vector4.Zero, vertexBuffer, indexBuffer);
                 Barrier(cb); // the main pass samples this target
                 continue;
             }
@@ -273,7 +275,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             if (pass.Viewport is { } viewport)
             {
                 var target = EnsureSubTarget(viewport, now);
-                RecordPass(cb, frame, pass, target.Framebuffer, target.Extent, pass.ClearColor ?? Vector4.Zero, vertexBuffer, indexBuffer);
+                RecordPass(cb, frame, pass, _pass, target.Framebuffer, target.Extent, pass.ClearColor ?? Vector4.Zero, vertexBuffer, indexBuffer);
                 Barrier(cb); // later passes sample this target
                 continue;
             }
@@ -281,21 +283,30 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             if (pass.BatchCount == 0 && frame.ClearColor is null)
                 continue;
             EnsureTarget(extent);
-            RecordPass(cb, frame, pass, _framebuffer, extent, frame.ClearColor ?? Vector4.Zero, vertexBuffer, indexBuffer);
-            Barrier(cb); // the overlay pass samples the layer
+            if (frame.Post.Enabled)
+            {
+                RecordMainWithPost(cb, frame, pass, extent, frame.ClearColor ?? Vector4.Zero, vertexBuffer, indexBuffer);
+            }
+            else
+            {
+                RecordPass(cb, frame, pass, _pass, _framebuffer, extent, frame.ClearColor ?? Vector4.Zero, vertexBuffer, indexBuffer);
+                Barrier(cb); // the overlay pass samples the layer
+                _compositeSet = _targetSet;
+            }
+
             _hasContent = true;
         }
     }
 
-    private void RecordPass(CommandBuffer cb, CanvasFrame frame, in CanvasPass pass, Framebuffer framebuffer, Extent2D extent, Vector4 clear,
-        GpuBuffer? vertexBuffer, GpuBuffer? indexBuffer)
+    private void RecordPass(CommandBuffer cb, CanvasFrame frame, in CanvasPass pass, RenderPass renderPass, Framebuffer framebuffer, Extent2D extent,
+        Vector4 clear, GpuBuffer? vertexBuffer, GpuBuffer? indexBuffer)
     {
         var vk = _ctx.Vk;
         var clearValue = new ClearValue { Color = new ClearColorValue(clear.X, clear.Y, clear.Z, clear.W) };
         var begin = new RenderPassBeginInfo
         {
             SType = StructureType.RenderPassBeginInfo,
-            RenderPass = _pass,
+            RenderPass = renderPass,
             Framebuffer = framebuffer,
             RenderArea = new Rect2D { Extent = extent },
             ClearValueCount = 1,
@@ -421,24 +432,29 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         }
 
         var data = stackalloc LightGpuData[CanvasFrame.MaxLights];
-        var images = stackalloc DescriptorImageInfo[CanvasFrame.MaxLights];
+        var images = stackalloc DescriptorImageInfo[CanvasFrame.MaxLightTextures];
         var lights = frame.Lights;
         for (var i = 0; i < CanvasFrame.MaxLights; i++)
         {
-            var view = _white.View;
             if (i < lights.Count)
             {
                 var l = lights[i];
-                data[i] = new LightGpuData { MatrixX = l.MatrixX, MatrixY = l.MatrixY, Color = l.Color, Blend = l.Blend };
-                if (_textures.TryGetValue(l.Texture, out var entry))
-                    view = entry.Texture.View;
+                data[i] = new LightGpuData { MatrixX = l.MatrixX, MatrixY = l.MatrixY, Color = l.Color, Blend = l.Blend, TextureSlot = (uint)l.TextureSlot };
             }
             else
             {
                 data[i] = default;
             }
+        }
 
-            images[i] = new DescriptorImageInfo { Sampler = _samplers[(int)CanvasSampler.LinearClamp], ImageView = view, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
+        // One slot per distinct light texture (ADR 0186); unused slots: the white texture.
+        var textures = frame.LightTextures;
+        for (var t = 0; t < CanvasFrame.MaxLightTextures; t++)
+        {
+            var view = _white.View;
+            if (t < textures.Count && _textures.TryGetValue(textures[t], out var entry))
+                view = entry.Texture.View;
+            images[t] = new DescriptorImageInfo { Sampler = _samplers[(int)CanvasSampler.LinearClamp], ImageView = view, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
         }
 
         _lightBuffers[slot]!.Write(new ReadOnlySpan<LightGpuData>(data, CanvasFrame.MaxLights));
@@ -448,7 +464,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             DstSet = _lightSets[slot],
             DstBinding = 1,
             DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = CanvasFrame.MaxLights,
+            DescriptorCount = CanvasFrame.MaxLightTextures,
             PImageInfo = images,
         };
         _ctx.Vk.UpdateDescriptorSets(_ctx.Device, 1, &imageWrite, 0, null);
@@ -567,7 +583,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         var vk = _ctx.Vk;
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _compositePipeline);
         PipelineBuilder.SetViewport(vk, cb, _ctx.SwapchainExtent, flipY: false);
-        var set = _targetSet;
+        var set = _compositeSet;
         vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _compositeLayout, 0, 1, &set, 0, null);
         var push = new CompositePush { UvScale = Vector2.One, Factor = 1f, Linearize = _ctx.OverlayEncodesSrgb ? 1u : 0u };
         vk.CmdPushConstants(cb, _compositeLayout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, (uint)sizeof(CompositePush), &push);
@@ -882,6 +898,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         _target = null;
         _framebuffer = default;
         _targetSet = default;
+        _compositeSet = default;
     }
 
     // ── Resources ────────────────────────────────────────────────────────────────────────────────────────────
@@ -969,13 +986,13 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         _lightSetLayout = PipelineBuilder.CreateSetLayout(_ctx,
             [
                 new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
-                new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = CanvasFrame.MaxLights, StageFlags = ShaderStageFlags.FragmentBit },
+                new DescriptorSetLayoutBinding { Binding = 1, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = CanvasFrame.MaxLightTextures, StageFlags = ShaderStageFlags.FragmentBit },
             ],
             "canvas lights");
         _lightPool = PipelineBuilder.CreatePool(_ctx, IVulkanContext.MaxFramesInFlight,
             [
                 new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = IVulkanContext.MaxFramesInFlight },
-                new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = IVulkanContext.MaxFramesInFlight * CanvasFrame.MaxLights },
+                new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = IVulkanContext.MaxFramesInFlight * CanvasFrame.MaxLightTextures },
             ],
             "canvas lights");
         _layout = PipelineBuilder.CreateLayout(_ctx, [_textureSetLayout, _lightSetLayout], PushSize, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, "canvas");
@@ -984,6 +1001,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
         _white = GpuTexture.Create2D(_ctx, 1, 1, [255, 255, 255, 255], TextureColorSpace.Linear, TextureSampling.NearestClamp);
         _compositePipeline = BuildPipeline(_ctx.OverlayRenderPass, _compositeLayout, "Shaders/UI/UiFullscreen.vk.vert.spv",
             "Shaders/UI/UiPassthrough.vk.frag.spv", geometry: false, CanvasBlendMode.PremultAlpha, PrimitiveTopology.TriangleList, "canvas composite");
+        CreatePostResources();
     }
 
     private Pipeline GetPipeline(PipelineKey key)
@@ -1171,6 +1189,7 @@ public sealed unsafe class VulkanCanvasRenderer : IOverlayRenderer, IDisposable
             ReleaseSubTarget(target);
         _groupTargets.Clear();
         DestroyTarget();
+        DisposePostResources();
         foreach (ref var frame in _frames.AsSpan())
         {
             frame.Vertices?.Dispose();

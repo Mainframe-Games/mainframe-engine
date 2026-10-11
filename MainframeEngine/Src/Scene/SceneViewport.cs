@@ -93,6 +93,15 @@ public class SceneViewport : Node
 
     internal void RemoveCanvasLayer(CanvasLayer layer) => _canvasLayers.Remove(layer);
 
+    private readonly List<CanvasEnvironment> _canvasEnvironments = [];
+
+    /// <summary>The 2D post-processing of this viewport's canvas: the first <see cref="CanvasEnvironment"/> in it, or null.</summary>
+    public CanvasEnvironment? CanvasEnvironment => _canvasEnvironments.Count > 0 ? _canvasEnvironments[0] : null;
+
+    internal void AddCanvasEnvironment(CanvasEnvironment environment) => _canvasEnvironments.Add(environment);
+
+    internal void RemoveCanvasEnvironment(CanvasEnvironment environment) => _canvasEnvironments.Remove(environment);
+
     /// <summary>True for <see cref="SceneTree.Root"/>.</summary>
     public bool IsTreeRoot { get; }
 

@@ -643,3 +643,17 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Key calls: Spine stays alongside; clean-room (no spine-csharp code); `.mskel` + one `.manim` per clip; Y-down; bake
   cache like tree bakes; compute skinning (first compute user); G17b extracts the shared timeline.
 - Next: Brogan reviews the docs; then an implementation plan for G17a.
+
+### 2026-10-11 — 2D canvas post-processing and more 2D lights (ADRs 0185, 0186)
+- For Crash Site Defense's art pass (a survival-horror vertical slice), on branch `mainframe-engine-port` (recreated from
+  `main` e0469a4).
+- ADR 0185: `CanvasEnvironment` (2D node; Godot's Canvas background mode equivalent): glow (soft-knee bright-pass,
+  13-tap down / tent up from half size), adjustments, lift/gamma/gain, tint, vignette, chromatic aberration, grain over
+  the canvases up to `MaxLayer`; the layers above draw on top after it (`CanvasPass.PostSplit`, load pass); UI untouched.
+  `VulkanCanvasRenderer.Post.cs`, `Content/Shaders/Canvas/Canvas{BloomDown,BloomUp,Post}.vk.frag.slang`,
+  `CanvasPostMath` (CPU mirror). Gamma space on RGBA8 (no HDR canvas). Off by default: existing goldens unchanged.
+- ADR 0186: 2D lights culled against the drawn area, 32 per frame (`MAX_CANVAS_LIGHTS`), 8 shared texture slots
+  (`MAX_CANVAS_LIGHT_TEXTURES`, `flags.y`); `CanvasShaderBuild.IncludeRevision` (2) in the `.gdshader` lock hash so
+  include changes make compiled canvas shaders stale.
+- Tests: `CanvasPostTests`, `PointLight2DTests` (cap, slots, culling); render tests `canvas-post`,
+  `canvas-many-lights` (moltenvk + lavapipe goldens). Gates: build, Release, format, 2356 unit, 175 render tests green.

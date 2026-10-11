@@ -120,6 +120,7 @@ public sealed class CanvasServer : IFrameServer
         frame.TargetSize = targetSize;
         frame.ClearColor = ClearColor;
         AppendSubViewports(frame);
+        frame.Post = viewport.CanvasEnvironment is { Enabled: true } environment ? environment.Settings : CanvasPostSettings.Disabled;
         AppendViewport(frame, viewport, targetSize, null, ClearColor);
     }
 
@@ -147,9 +148,12 @@ public sealed class CanvasServer : IFrameServer
         }
 
         frame.BeginPass(sub, targetSize, clear);
+        var post = sub is null && frame.Post.Enabled;
         for (var c = 0; c < _canvasCount; c++)
         {
             var entry = _canvasEntries[c];
+            if (post && entry.Layer > frame.Post.MaxLayer)
+                frame.MarkPostSplit(); // canvases are in layer order: from here on, nothing is post-processed
             _groupItems.Clear();
             foreach (var item in entry.Items)
                 if (item.ClipGroup is null || item.ClipComposite)
@@ -180,6 +184,7 @@ public sealed class CanvasServer : IFrameServer
         public Vector4 Modulate;
         public Transform2D Transform;
         public int LightBase;
+        public int Layer;
     }
 
     private readonly List<CanvasEntry> _canvasEntries = [];
@@ -219,7 +224,7 @@ public sealed class CanvasServer : IFrameServer
             if (_culled.Count == 0)
                 continue;
             var lightBase = frame.Lights.Count;
-            var lights = CollectLights(frame, canvas, transform);
+            var lights = CollectLights(frame, canvas, transform, clip);
             if (_canvasCount == _canvasEntries.Count)
                 _canvasEntries.Add(new CanvasEntry());
             var entry = _canvasEntries[_canvasCount++];
@@ -231,15 +236,17 @@ public sealed class CanvasServer : IFrameServer
             entry.Modulate = canvas.Modulate;
             entry.Transform = transform;
             entry.LightBase = lightBase;
+            entry.Layer = _canvases[i].Layer;
         }
     }
 
     private readonly List<PointLight2D> _canvasLights = new(CanvasFrame.MaxLights);
     private bool _warnedLights;
 
-    // The canvas's enabled, textured, visible lights, appended to the frame's light block (Godot's light_shader_xform:
-    // canvas transform × light global transform × the texture rect, centred, scaled by texture_scale, moved by offset).
-    private List<PointLight2D>? CollectLights(CanvasFrame frame, Canvas canvas, in Transform2D canvasTransform)
+    // The canvas's enabled, textured, visible lights that reach the drawn area, appended to the frame's light block
+    // (Godot's light_shader_xform: canvas transform × light global transform × the texture rect, centred, scaled by
+    // texture_scale, moved by offset). Lights share one texture slot per distinct texture (ADR 0186).
+    private List<PointLight2D>? CollectLights(CanvasFrame frame, Canvas canvas, in Transform2D canvasTransform, Rect2 clip)
     {
         var lights = canvas.Lights;
         if (lights.Count == 0)
@@ -249,17 +256,32 @@ public sealed class CanvasServer : IFrameServer
         {
             if (!light.Enabled || light.Texture is not { } texture || !light.IsVisibleInTree())
                 continue;
+            var size = new Vector2(texture.Width, texture.Height) * light.TextureScale;
+            var rect = new Transform2D(new Vector2(size.X, 0), new Vector2(0, size.Y), -size / 2 + light.Offset);
+            var toTarget = canvasTransform * light.GlobalTransform * rect;
+            if (!Reaches(toTarget, clip))
+                continue; // off screen: lights nothing drawn, keeps its slot free
+
             if (frame.Lights.Count >= CanvasFrame.MaxLights)
             {
-                if (!_warnedLights)
-                    Log.Warning($"[Canvas] More than {CanvasFrame.MaxLights} 2D lights in one frame; the rest are skipped.");
-                _warnedLights = true;
+                WarnLights($"More than {CanvasFrame.MaxLights} 2D lights on screen in one frame; the rest are skipped.");
                 break;
             }
 
-            var size = new Vector2(texture.Width, texture.Height) * light.TextureScale;
-            var rect = new Transform2D(new Vector2(size.X, 0), new Vector2(0, size.Y), -size / 2 + light.Offset);
-            var toTexture = (canvasTransform * light.GlobalTransform * rect).AffineInverse();
+            var slot = frame.LightTextures.IndexOf(texture);
+            if (slot < 0)
+            {
+                if (frame.LightTextures.Count >= CanvasFrame.MaxLightTextures)
+                {
+                    WarnLights($"More than {CanvasFrame.MaxLightTextures} distinct 2D light textures in one frame; lights with others are skipped.");
+                    continue;
+                }
+
+                slot = frame.LightTextures.Count;
+                frame.LightTextures.Add(texture);
+            }
+
+            var toTexture = toTarget.AffineInverse();
             var c = light.Color;
             frame.Lights.Add(new CanvasLightData
             {
@@ -268,11 +290,32 @@ public sealed class CanvasServer : IFrameServer
                 Color = new Vector4(c.X, c.Y, c.Z, c.W * light.Energy),
                 Blend = (uint)light.BlendMode,
                 Texture = texture,
+                TextureSlot = slot,
             });
             _canvasLights.Add(light);
         }
 
         return _canvasLights.Count > 0 ? _canvasLights : null;
+    }
+
+    // Whether the unit square under `toTarget` (a light's texture rect in target pixels) overlaps the drawn area.
+    private static bool Reaches(in Transform2D toTarget, Rect2 clip)
+    {
+        var p0 = toTarget.TransformPoint(Vector2.Zero);
+        var p1 = toTarget.TransformPoint(new Vector2(1, 0));
+        var p2 = toTarget.TransformPoint(new Vector2(0, 1));
+        var p3 = toTarget.TransformPoint(Vector2.One);
+        var min = Vector2.Min(Vector2.Min(p0, p1), Vector2.Min(p2, p3));
+        var max = Vector2.Max(Vector2.Max(p0, p1), Vector2.Max(p2, p3));
+        var end = clip.Position + clip.Size;
+        return max.X > clip.Position.X && max.Y > clip.Position.Y && min.X < end.X && min.Y < end.Y;
+    }
+
+    private void WarnLights(string message)
+    {
+        if (!_warnedLights)
+            Log.Warning($"[Canvas] {message}");
+        _warnedLights = true;
     }
 
     // By layer, then tree order (the root canvas, order −1, first among layer 0). A singleton: no per-frame allocation.
