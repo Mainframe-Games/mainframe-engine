@@ -262,6 +262,9 @@ public sealed class ProjectSettingsModel
             foreach (var action in s.Input.Actions)
             {
                 var added = copy.AddAction(string.Equals(action.Name, name, StringComparison.Ordinal) ? trimmed : action.Name, action.Deadzone);
+                added.Label = action.Label;
+                added.Group = action.Group;
+                added.Rebindable = action.Rebindable;
                 added.Bindings.AddRange(action.Bindings);
             }
 
@@ -274,6 +277,38 @@ public sealed class ProjectSettingsModel
         var target = s.Input.GetAction(action) ?? throw new ArgumentException($"There is no action named '{action}'.");
         target.Deadzone = ParseFloat(text);
     });
+
+    /// <summary>Sets the text a settings menu shows for <paramref name="action"/>; blank clears it (the menu shows the name).</summary>
+    public string? SetActionLabel(string action, string text)
+    {
+        if (Current.Input.GetAction(action) is not { } current)
+            return $"There is no action named '{action}'.";
+        var label = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        if (string.Equals(current.Label, label, StringComparison.Ordinal))
+            return null;
+        return Edit($"Set {action} Label", s => s.Input.GetAction(action)!.Label = label);
+    }
+
+    /// <summary>Sets <paramref name="action"/>'s rebinding conflict group (blank: the default group).</summary>
+    public string? SetActionGroup(string action, string text)
+    {
+        if (Current.Input.GetAction(action) is not { } current)
+            return $"There is no action named '{action}'.";
+        var group = text?.Trim() ?? "";
+        if (string.Equals(current.Group, group, StringComparison.Ordinal))
+            return null;
+        return Edit($"Set {action} Group", s => s.Input.GetAction(action)!.Group = group);
+    }
+
+    /// <summary>Locks or unlocks <paramref name="action"/> for players: a locked action cannot be rebound in a settings menu.</summary>
+    public string? SetActionRebindable(string action, bool rebindable)
+    {
+        if (Current.Input.GetAction(action) is not { } current)
+            return $"There is no action named '{action}'.";
+        if (current.Rebindable == rebindable)
+            return null;
+        return Edit(rebindable ? $"Unlock {action}" : $"Lock {action}", s => s.Input.GetAction(action)!.Rebindable = rebindable);
+    }
 
     /// <summary>Adds <paramref name="binding"/> (a captured key/mouse button, or a gamepad input from the list) to <paramref name="action"/>.</summary>
     public string? AddBinding(string action, InputBinding binding)

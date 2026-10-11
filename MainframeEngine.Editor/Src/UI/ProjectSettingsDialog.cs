@@ -187,12 +187,22 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 .Append("<input type=\"text\" class=\"text ps-action-name\" data-action-name=\"").Append(name).Append("\" value=\"").Append(name).Append("\"/>")
                 .Append("<span class=\"ps-small\">deadzone</span><input type=\"text\" class=\"text ps-deadzone\" data-deadzone=\"").Append(name).Append("\" value=\"")
                 .Append(ValueText.Number(action.Deadzone)).Append("\"/>")
+                .Append("<button class=\"tool-button small").Append(action.Rebindable ? "" : " active").Append("\" data-op=\"lock\" data-action=\"").Append(name)
+                .Append(action.Rebindable
+                    ? "\" data-tooltip=\"Lock — players cannot rebind this action (Pause, Quit)\"><span class=\"icon icon-sm icon-lock-open\"></span></button>"
+                    : "\" data-tooltip=\"Unlock — players can rebind this action in a settings menu\"><span class=\"icon icon-sm icon-lock\"></span></button>")
                 .Append("<button class=\"tool-button small\" data-op=\"capture\" data-action=\"").Append(name)
                 .Append("\" data-tooltip=\"Add Key or Mouse Button — press it to bind it\"><span class=\"icon icon-sm icon-keyboard-show\"></span></button>")
                 .Append("<button class=\"tool-button small\" data-op=\"pad\" data-action=\"").Append(name)
                 .Append("\" data-tooltip=\"Add Gamepad Input — a button or stick/trigger direction\"><span class=\"icon icon-sm icon-device-gamepad-2\"></span></button>")
                 .Append("<button class=\"tool-button small\" data-op=\"remove-action\" data-action=\"").Append(name)
-                .Append("\" data-tooltip=\"Remove Action\"><span class=\"icon icon-sm icon-trash\"></span></button></div><div class=\"ps-bindings\">");
+                .Append("\" data-tooltip=\"Remove Action\"><span class=\"icon icon-sm icon-trash\"></span></button></div>")
+                .Append("<div class=\"ps-action-info\"><span class=\"icon icon-sm icon-tag\" data-tooltip=\"Label — what a settings menu shows (translated); blank shows the name\"></span>")
+                .Append("<input type=\"text\" class=\"text ps-action-label\" data-label=\"").Append(name).Append("\" value=\"").Append(RmlText.Escape(action.Label ?? ""))
+                .Append("\" placeholder=\"").Append(name).Append("\"/>")
+                .Append("<span class=\"icon icon-sm icon-stack-2\" data-tooltip=\"Group — actions in different groups may share an input when players rebind\"></span>")
+                .Append("<input type=\"text\" class=\"text ps-action-group\" data-group=\"").Append(name).Append("\" value=\"").Append(RmlText.Escape(action.Group))
+                .Append("\" placeholder=\"default group\"/></div><div class=\"ps-bindings\">");
             foreach (var binding in action.Bindings)
             {
                 var text = binding.ToString();
@@ -287,6 +297,10 @@ public sealed class ProjectSettingsDialog : EditorDocument
             return;
         if (target.GetAttribute("data-action-name") is { } action)
             Apply(Model.RenameAction(action, text));
+        else if (target.GetAttribute("data-label") is { } labelAction)
+            Apply(Model.SetActionLabel(labelAction, text));
+        else if (target.GetAttribute("data-group") is { } groupAction)
+            Apply(Model.SetActionGroup(groupAction, text));
         else if (target.GetAttribute("data-deadzone") is { } deadzoneAction && Model.Current.Input.GetAction(deadzoneAction) is { } a &&
                  !string.Equals(ValueText.Number(a.Deadzone), text.Trim(), StringComparison.Ordinal))
             Apply(Model.SetDeadzone(deadzoneAction, text));
@@ -348,6 +362,10 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 break;
             case "remove-action":
                 Apply(Model.RemoveAction(action));
+                break;
+            case "lock":
+                if (Model.Current.Input.GetAction(action) is { } locked)
+                    Apply(Model.SetActionRebindable(action, !locked.Rebindable));
                 break;
             case "capture":
                 BeginCapture(action);

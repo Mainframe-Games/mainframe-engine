@@ -220,3 +220,7 @@ sparkles
 dice-5
 wand
 clipboard
+
+# Input map: the rebinding lock (players cannot rebind a locked action)
+lock
+lock-open

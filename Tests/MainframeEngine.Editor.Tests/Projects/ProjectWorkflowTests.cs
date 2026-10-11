@@ -457,6 +457,60 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.Equal(0.3f, ProjectSettings.Load(_project.Root).Input.GetAction("shoot")!.Deadzone, 3);
     }
 
+    [Fact]
+    public void TheInputMapPageEditsLabelsGroupsAndTheRebindingLock()
+    {
+        var w = Open().Workspace;
+        Assert.True(w.ProjectSettings.Open());
+        _editor!.Tick();
+        var model = w.ProjectSettings.Model!;
+        w.ProjectSettings.SelectSection("Input Map");
+        Assert.Null(model.AddAction("pause"));
+        Assert.Null(model.AddBinding("pause", InputBinding.Parse("key:Escape")));
+        _editor.Tick();
+        var body = w.ProjectSettings.Document.GetElementById("ps-body");
+
+        // Label and group: blank means "no label" (the menu shows the name) and the default group.
+        Assert.Null(model.SetActionLabel("pause", "  Pause game "));
+        Assert.Null(model.SetActionGroup("pause", "menu"));
+        Assert.Null(model.SetActionLabel("pause", "Pause game")); // unchanged: no entry
+        var entries = model.History.Actions.Count;
+        Assert.Equal("Pause game", model.Current.Input.GetAction("pause")!.Label);
+        Assert.Equal("menu", model.Current.Input.GetAction("pause")!.Group);
+        _editor.Tick();
+        Assert.Equal("Pause game", body.QuerySelector("input[data-label=pause]").Value);
+        Assert.Equal("menu", body.QuerySelector("input[data-group=pause]").Value);
+        Assert.NotNull(model.SetActionLabel("missing", "x"));
+
+        // The lock is an icon toggle with a tooltip naming what it does.
+        var lockButton = body.QuerySelector("button[data-op=lock][data-action=pause]");
+        Assert.Contains("Lock", lockButton.GetAttribute("data-tooltip"), StringComparison.Ordinal);
+        Assert.False(lockButton.IsClassSet("active"));
+        Assert.False(lockButton.QuerySelector(".icon-lock-open").IsNull);
+        lockButton.Click();
+        _editor.Tick();
+        Assert.False(model.Current.Input.GetAction("pause")!.Rebindable);
+        Assert.Equal(entries + 1, model.History.Actions.Count);
+        lockButton = body.QuerySelector("button[data-op=lock][data-action=pause]");
+        Assert.True(lockButton.IsClassSet("active"));
+        Assert.False(lockButton.QuerySelector(".icon-lock").IsNull);
+        Assert.Contains("Unlock", lockButton.GetAttribute("data-tooltip"), StringComparison.Ordinal);
+        Assert.Empty(_editor.RmlMessages);
+
+        // Renaming keeps them; they save to project.mfproj; undo unlocks.
+        Assert.Null(model.RenameAction("pause", "quit"));
+        Assert.True(w.ProjectSettings.Save());
+        var quit = ProjectSettings.Load(_project.Root).Input.GetAction("quit")!;
+        Assert.Equal(("Pause game", "menu", false), (quit.Label, quit.Group, quit.Rebindable));
+        model.History.Undo(); // the rename
+        model.History.Undo(); // the lock
+        Assert.True(model.Current.Input.GetAction("pause")!.Rebindable);
+        Assert.Null(model.SetActionLabel("pause", " "));
+        Assert.Null(model.Current.Input.GetAction("pause")!.Label);
+        w.ProjectSettings.RequestClose();
+        w.Message.Answer(1); // Don't Save
+    }
+
     // ── FileSystem ───────────────────────────────────────────────────────────────────────────────────────────────
 
     [Fact]

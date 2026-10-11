@@ -30,6 +30,9 @@
         .ps-action-name { flex: 1 1 auto; width: 80dp; font-weight: bold; }
         input.text.ps-deadzone { width: 48dp; margin-right: 6dp; }
         .ps-action-head button { width: 22dp; padding: 0dp; margin-left: 3dp; }
+        .ps-action-info { display: flex; flex-direction: row; align-items: center; margin-top: 4dp; }
+        .ps-action-info .icon { margin: 0dp 4dp 0dp 2dp; }
+        .ps-action-info input.text { flex: 1 1 auto; width: 60dp; margin-right: 8dp; }
         .ps-small { color: #8b93a5; font-size: 11dp; margin: 0dp 6dp; }
         .ps-help { display: block; margin: 0dp 0dp 8dp 0dp; }
         .ps-bindings { display: flex; flex-direction: row; flex-wrap: wrap; margin-top: 6dp; }
