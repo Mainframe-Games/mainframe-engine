@@ -16,8 +16,11 @@ public static class Physics2DScene
         Add(root, root, new Camera2D { Name = "Camera", Current = true, Position = new Vector2(-60, 0) });
         Add(root, root, new DemoShape2D
         {
-            Name = "Backdrop", Kind = DemoShapeKind.Rect, Size = new Vector2(1600, 900),
-            Color = new Vector4(0.05f, 0.07f, 0.12f, 1), ColorBottom = new Vector4(0.09f, 0.11f, 0.2f, 1),
+            Name = "Backdrop",
+            Kind = DemoShapeKind.Rect,
+            Size = new Vector2(1600, 900),
+            Color = new Vector4(0.05f, 0.07f, 0.12f, 1),
+            ColorBottom = new Vector4(0.09f, 0.11f, 0.2f, 1),
         });
 
         StaticRect(root, "Ground", new Vector2(0, 330), new Vector2(1100, 30), 0f);
@@ -41,7 +44,10 @@ public static class Physics2DScene
         Add(root, body, new CollisionShape2D { Name = "Shape", Shape = new RectangleShape2D { Size = size } });
         Add(root, body, new DemoShape2D
         {
-            Name = "Visual", Kind = DemoShapeKind.Rect, Size = size, Color = Wall,
+            Name = "Visual",
+            Kind = DemoShapeKind.Rect,
+            Size = size,
+            Color = Wall,
             ColorBottom = Wall * new Vector4(0.75f, 0.75f, 0.75f, 1),
         });
     }

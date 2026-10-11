@@ -42,8 +42,16 @@ before the main scene, so it survives scene changes (`SceneTree.ChangeSceneToFil
 (`Content/Nav/nav.rml`):
 
 - one tab per scene, in the order of `DemoScenes.All` (the single registry: id, title, icon, path, builder);
-- an FPS readout and a **language picker** (`en`, `es`, `qps`);
-- keys **1–9** switch tabs, **Escape** quits (`Tree.Quit`).
+- an FPS readout and a **language picker** (`en`, `es`, `qps`; it sets `UserSettings.Language`, so it persists);
+- a **gear button** (tooltip "Settings (F10 / Start)") that opens the engine's
+  [settings menu](game-ui.md#settings-menu-g4) with all three tabs, pausing the game (bus labels: SFX → "Effects",
+  UI → "Interface");
+- the project's input actions (`project.mfproj`, labelled and grouped, so the menu's Controls tab lists them):
+  `scene_next`/`scene_prev` (Page Down/Up, RB/LB) step through the tabs, `settings` (F10, Start) opens the menu,
+  `quit` (Escape, `"rebindable": false`) quits; in Physics 3D `drop` (Mouse Left, RT) and `rain` (R, Y). Keys **1–9**
+  still switch tabs, and without a project map (tests) Escape and the left button keep working.
+
+The layer keeps processing while the menu pauses the game (`ProcessMode.Always`: FPS and the active tab update).
 
 `DemoNav` follows `SceneTree.CurrentScene` and highlights the tab whose id equals the scene root's name, so `--scene`
 and the editor's "play this scene" light the right tab. Switching frees the previous scene.
@@ -62,8 +70,17 @@ Every scene is self-contained: its own camera, environment and lights, and a sma
 | `sound_fx` (Sound FX) | ZzFX sounds synthesised at run time: the current sound's waveform (`SoundWave2D`), one button per preset (`ZzfxStream` `.mres` files in `Content/Audio/Sfx`, written by `--write-scenes` from fixed seeds), Randomize and Mutate (`ZzfxPresets`), the current ZzFX line to paste into the editor's sound designer or the web designer; a looping song on the Music bus (`Content/Music/demo_loop.msong`, rendered with `just render-song` to a seamless-loop `.ogg` + `.meta`) | presets, randomize, mutate, pitch randomness, music |
 | `ui` (UI) | The RmlUi widget gallery and a data-bound form (`UiShowcase`, `Content/UI/showcase.rml`), plus a live counter of UI hot reloads | accent, name, volume, quality, reset counter |
 | `physics_2d` (Physics 2D) | Box2D: a funnel and pegboard of `StaticBody2D`s, `RigidBody2D` circles and boxes raining in (`Spawner2D`) | click to spawn, collision shapes, reset |
-| `physics_3d` (Physics 3D) | Jitter2: a crate stack, a ramp, a `CharacterBody3D` pusher that shoves crates (`Pusher3D`), click-to-drop crates by ray query (`Dropper3D`) | click the floor, rain crates, collision shapes, reset |
+| `physics_3d` (Physics 3D) | Jitter2: a crate stack, a ramp, a `CharacterBody3D` pusher that shoves crates (`Pusher3D`), click-to-drop crates by ray query (`Dropper3D`); three **save slots** (below) | click the floor, rain crates, collision shapes, reset, save/load |
 | `spine` (Spine) | SpineBoy (`SpineNode`) on a lit floor, casting his shadow onto a backdrop wall (3D view), seen by a `Camera3D` or a `Camera2D` | 2D camera toggle, animation picker |
+
+**Save games (G4).** The Physics 3D panel saves and loads the crates through the engine's `SaveServer`
+([Projects → Save games](project-and-gamehost.md#save-games)): three slots (`physics-1`…`3`) with a thumbnail, the
+description ("16 crates"), play time and save time. The payload is `CrateSave` (`Src/Physics/CrateSave.cs`: positions,
+rotations, velocities, colours and the spawn counter) with a source-generated JSON context; the schema is at version 2
+with one migration (version 1 had no spawn counter), so the pattern is visible. `Dropper3D.Snapshot()`/`Restore()`
+convert between crates and the payload. `project.mfproj` keeps two backups and turns thumbnails on (which enables frame
+capture); after a save the panel drops RmlUi's cached thumbnail texture (`UiServer.Reload(document, Textures)`). A load
+that had to fall back to a backup says so ("restored the copy from 10:02").
 
 Mouse input in the 2D scenes is mapped from window points to canvas units through the root viewport's stretch and
 camera transforms (`CanvasInput.WindowToCanvas`); Physics 3D uses `Camera3D.ProjectRayOrigin/ProjectRayNormal` and
@@ -112,7 +129,8 @@ counter and the last-reload time. Release builds of the engine do not hot reload
 
 `just demo-screenshots` (alias `just qa`; `build/demo-screenshots.sh`) builds the Demo in Release and runs `Demo.Desktop`
 once per scene (`--fixed-fps 60 --max-frames 240 --screenshot docs/images/demo/<id>.png`; `GameHost` saves the last
-frame, and the fixed step makes it deterministic). The nav bar is part of every image. The nine PNGs
+frame, and the fixed step makes it deterministic), plus `settings.png`: the settings menu over Physics 3D, opened by
+the Demo's own `++ --settings` argument. The nav bar is part of every image. The scene PNGs
 (`docs/images/demo/`, Git LFS) form the README's Showcase gallery; re-take them when a scene changes visibly. They need
 the display awake (`caffeinate -u`).
 
@@ -129,13 +147,21 @@ the display awake (`caffeinate -u`).
   (`--hidden --fixed-fps 60 --no-vsync`) for a few frames with its own user-data folder, and fails on a non-zero exit, a
   missing screenshot or an `[ERROR]`/`[FATAL]` line in the scene's log. It only cleans the per-scene folders and PNGs it
   creates under the work directory.
+- Saves and settings: `Physics3DSaveTests` (save, change the scene, load and compare every crate; a version-1 save
+  migrates; an empty slot), `DemoNavActionTests` (F10 opens the menu, Escape closes it before it can quit, Page Down/Up
+  step and wrap, the menu in Spanish and `qps`) and `ProjectFileTests` (actions, the locked `quit`, the saves section).
+- `just qa-settings` (`build/qa-demo-settings.sh`) runs the real Demo three times with its own user-data folder
+  (`artifacts/qa-settings`) through `DemoQa` (`++ --qa settings|check|saves`): F10, rebind "rain" by pressing F in the
+  menu, change volumes/mute/VSync/max FPS/UI scale/language, Escape (saves); restart and check every value came back
+  from `settings.json`; save twice, cut the newest file in half (a crash mid-write) and check the load recovers the
+  previous save and keeps the `.corrupt-*` file. Each run quits with 0 or 1.
 - The engine's own render tests cover Spine under a `Camera2D` (a golden) independently of the Demo.
 
 ## Localization
 
 Catalogs are in `Examples/Demo/Content/locale` (`en` source, hand-written `es`, `qps` pseudo-locale). `just
-l10n-extract` reads `Examples/Demo/Demo/Src`, the Demo's `Content` (RML and scene strings) and the engine's widget
-library; `just l10n-check` (CI) fails on a stale `.mo`. See [Localization](localization.md#demo).
+l10n-extract` reads `Examples/Demo/Demo/Src`, the Demo's `Content` (RML and scene strings), the engine's widget
+library, the engine's `settings.pot` (the settings menu and input names) and the action labels of `project.mfproj`; `just l10n-check` (CI) fails on a stale `.mo`. See [Localization](localization.md#demo).
 
 ## Related docs
 

@@ -1,6 +1,7 @@
 {
   "format": 3,
   "name": "Mainframe Demo",
+  "userDataName": "MainframeDemo",
   "engineVersion": "0.0.0-dev",
   "mainScene": "Content/Scenes/basic_3d.mscene",
   "assemblies": ["Demo"],
@@ -11,7 +12,15 @@
     "stretchMode": "canvas_items", "stretchAspect": "expand"
   },
   "physics": { "ticksPerSecond": 60, "maxStepsPerFrame": 5, "3d": { "gravity": [0, -9.81, 0] } },
-  "input": {},
+  "input": {
+    "scene_next": { "bindings": ["key:PageDown", "pad:RightBumper"], "label": "Next scene", "group": "nav" },
+    "scene_prev": { "bindings": ["key:PageUp", "pad:LeftBumper"], "label": "Previous scene", "group": "nav" },
+    "settings": { "bindings": ["key:F10", "pad:Start"], "label": "Settings", "group": "nav" },
+    "quit": { "bindings": ["key:Escape"], "label": "Quit", "group": "nav", "rebindable": false },
+    "drop": { "bindings": ["mouse:Left", "axis:RightTrigger+"], "label": "Drop crate", "group": "physics" },
+    "rain": { "bindings": ["key:R", "pad:Y"], "label": "Rain crates", "group": "physics" }
+  },
+  "saves": { "backups": 2, "thumbnails": true },
   "audio": { "busLayout": "Content/Settings/AudioBusLayout.mres" },
   "localization": { "sourceLocale": "en", "fallbacks": [], "directory": "Content/locale" },
   "rendering": { "shadows": "High" },

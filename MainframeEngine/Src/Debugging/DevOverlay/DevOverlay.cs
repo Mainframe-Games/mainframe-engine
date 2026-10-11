@@ -100,7 +100,7 @@ public sealed class DevOverlay : IServer, IFrameServer
     {
         if (_layer is not null)
             return;
-        _layer = new UiLayer { Name = "DevOverlay", Layer = LayerOrder, Visible = _visible };
+        _layer = new UiLayer { Name = "DevOverlay", Layer = LayerOrder, Visible = _visible, IgnoreUserScale = true }; // a developer tool: the player's UI scale is not for it
         _document = new DevOverlayDocument(this);
         _layer.AddChild(_document);
         _tree.Root.AddChild(_layer);

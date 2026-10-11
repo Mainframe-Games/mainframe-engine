@@ -182,9 +182,26 @@ public class UiLayer : Node
     /// size outside a tree).
     /// </summary>
     public float ComputeDpRatio(Vector2 framebuffer, float pixelScale) =>
-        ComputeDpRatio(framebuffer, pixelScale, Server?.Scaling ?? UiScaling.ConstantPixelSize);
+        ComputeDpRatio(framebuffer, pixelScale, Server?.Scaling ?? UiScaling.ConstantPixelSize, Server?.UserScale ?? 1f);
 
-    /// <summary>The dp ratio with <paramref name="projectScaling"/> as the game's UI scale (<see cref="UiScaleMode.Project"/>).</summary>
+    /// <summary>
+    /// The dp ratio with <paramref name="projectScaling"/> as the game's UI scale (<see cref="UiScaleMode.Project"/>) and
+    /// <paramref name="userScale"/> as the player's (<see cref="UiServer.UserScale"/>; ignored by <see cref="UiScaleMode.Pixels"/>
+    /// layers and with <see cref="IgnoreUserScale"/>).
+    /// </summary>
+    public float ComputeDpRatio(Vector2 framebuffer, float pixelScale, UiScaling projectScaling, float userScale)
+    {
+        var ratio = ComputeDpRatio(framebuffer, pixelScale, projectScaling);
+        return IgnoreUserScale || ScaleMode == UiScaleMode.Pixels || !(userScale > 0f) ? ratio : MathF.Max(0.01f, ratio * userScale);
+    }
+
+    /// <summary>
+    /// The layer keeps its size whatever the player's <see cref="UiServer.UserScale"/> (not serialized): the developer
+    /// overlay sets it. Default false.
+    /// </summary>
+    public bool IgnoreUserScale { get; set; }
+
+    /// <summary>The dp ratio with <paramref name="projectScaling"/> as the game's UI scale (<see cref="UiScaleMode.Project"/>), without the player's scale.</summary>
     public float ComputeDpRatio(Vector2 framebuffer, float pixelScale, UiScaling projectScaling) => ScaleMode switch
     {
         UiScaleMode.Project => (Scaling ?? projectScaling).ComputeDpRatio(framebuffer, pixelScale),

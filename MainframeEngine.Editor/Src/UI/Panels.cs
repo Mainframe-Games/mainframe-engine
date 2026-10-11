@@ -166,6 +166,7 @@ public sealed class ToolbarPanel : EditorDocument
         build.SetClass("disabled", project.GameLibraryProject is null);
         build.SetClass("attention", project.NeedsRebuild && !project.IsBuilding);
         build.SetClass("busy", play.IsBuilding);
+        document.GetElementById("user-data").SetClass("disabled", Workspace.Session.Project is null);
 
         var rml = new System.Text.StringBuilder();
         foreach (var instance in play.Service.Instances)

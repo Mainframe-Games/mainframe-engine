@@ -24,13 +24,28 @@ public class GameHost : Engine
     /// <param name="options">Command-line options.</param>
     /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Content/</c> UI (<see cref="CreateUiOptions"/>).</param>
     public GameHost(ProjectSettings settings, GameHostOptions? options, IReadOnlyList<Assembly> gameAssemblies)
-        : base(WithUi(WithAppIcon(WithSteam((options ?? new GameHostOptions()).Apply((settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions()),
-            settings, options)), CreateUiOptions(settings, gameAssemblies)))
+        : this(settings, options, gameAssemblies, null)
+    {
+    }
+
+    /// <param name="settings">The project settings.</param>
+    /// <param name="options">Command-line options (they win over the player's settings).</param>
+    /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Content/</c> UI (<see cref="CreateUiOptions"/>).</param>
+    /// <param name="userSettings">
+    /// The player's settings (<see cref="Run"/> loads them): they patch the engine options before the window opens
+    /// (<see cref="MainframeEngine.UserSettings.PatchEngineOptions"/>) and the session applies the rest when it starts. Null: the
+    /// project's values only.
+    /// </param>
+    public GameHost(ProjectSettings settings, GameHostOptions? options, IReadOnlyList<Assembly> gameAssemblies, UserSettings? userSettings)
+        : base(WithUi(WithAppIcon(WithSteam((options ?? new GameHostOptions()).Apply(WithUserSettings(
+            (settings ?? throw new ArgumentNullException(nameof(settings))).ToEngineOptions(), userSettings)), settings, options)),
+            CreateUiOptions(settings, gameAssemblies)))
     {
         Settings = settings;
         Project = settings;
+        UserSettings = userSettings;
         HostOptions = options ?? new GameHostOptions();
-        Session = new GameSession(Tree, settings, HostOptions);
+        Session = new GameSession(Tree, settings, HostOptions) { UserSettings = userSettings };
         Session.QuitRequested += code => Quit(code);
     }
 
@@ -65,6 +80,9 @@ public class GameHost : Engine
         options.Ui ??= ui;
         return options;
     }
+
+    private static EngineOptions WithUserSettings(EngineOptions options, UserSettings? userSettings) =>
+        userSettings?.PatchEngineOptions(options) ?? options;
 
     private static EngineOptions WithAppIcon(EngineOptions options)
     {
@@ -130,6 +148,9 @@ public class GameHost : Engine
 
     public GameHostOptions HostOptions { get; }
 
+    /// <summary>The player's settings this host started with (null when constructed without them).</summary>
+    public UserSettings? UserSettings { get; }
+
     /// <summary>The project session (autoloads, scene, editor link).</summary>
     public GameSession Session { get; }
 
@@ -147,14 +168,14 @@ public class GameHost : Engine
 
     /// <summary>
     /// The running game's writable folder for saves and settings: <see cref="UserDataPaths.GetDirectory"/> of the
-    /// project's name (the engine's logs live there too), created on first use. <c>MAINFRAME_USER_DATA</c> moves its base
+    /// project's <see cref="ProjectSettings.UserDataFolderName"/> (the engine's logs live there too), created on first use. <c>MAINFRAME_USER_DATA</c> moves its base
     /// (harness and test runs point it at a scratch folder). Before a project is loaded (tests), the game name is "game".
     /// </summary>
     public static string UserDataDirectory
     {
         get
         {
-            var directory = UserDataPaths.GetDirectory(Project?.Name is { Length: > 0 } name ? name : "game");
+            var directory = UserDataPaths.GetDirectory(Project?.UserDataFolderName is { Length: > 0 } name ? name : "game");
             Directory.CreateDirectory(directory);
             return directory;
         }
@@ -214,17 +235,21 @@ public class GameHost : Engine
             return (int)ExitCode.Ok;
         }
 
-        var fileLog = options.LogFile ? TryCreateFileLog(settings.Name) : null;
+        var fileLog = options.LogFile ? TryCreateFileLog(settings.UserDataFolderName) : null;
         if (fileLog is not null)
             Log.AddSink(fileLog);
         if (options.Headless)
             return RunHeadless(settings, options, gameAssemblies, fileLog);
 
+        // The player's settings.json, before the window exists: VSync, the windowed size and the language patch the engine
+        // options; the session applies the rest when it starts (after the file log, so a damaged file is reported there).
+        var userSettings = UserSettings.Current = UserSettings.Load(settings);
+
         GameHost? host = null;
         try
         {
             GameSession.LoadGameAssemblies(settings, gameAssemblies);
-            host = new GameHost(settings, options, gameAssemblies);
+            host = new GameHost(settings, options, gameAssemblies, userSettings);
             return (int)host.Run();
         }
         catch (Exception e) when (e is not OutOfMemoryException)
@@ -275,9 +300,22 @@ public class GameHost : Engine
         }
     }
 
+    /// <summary>
+    /// The save server a project runs with: <see cref="LocalSaveStorage"/> in <c>{user data}/saves</c> (created by the first
+    /// save, not here) and the project's <c>saves</c> section. <see cref="GameHost"/> and <see cref="HeadlessHost"/> register it.
+    /// </summary>
+    public static SaveServer CreateSaveServer(ProjectSettings settings, SceneTree? tree)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        var folder = Path.Combine(UserDataPaths.GetDirectory(settings.UserDataFolderName), "saves");
+        return new SaveServer(new LocalSaveStorage(folder), SaveOptions.FromProject(settings), tree);
+    }
+
     protected override void OnLoad()
     {
         base.OnLoad();
+        // Registered last, so it is disposed first on close: queued saves are flushed while everything else still runs.
+        Servers.Register(CreateSaveServer(Settings, Tree));
         if (Settings.Window.MaxFps > 0)
             MaxFPS = Settings.Window.MaxFps;
         if (Renderer is IVulkanContext vk)

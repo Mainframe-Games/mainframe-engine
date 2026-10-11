@@ -3,6 +3,13 @@
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <!--
+          Trim and AOT analyzers (what IsAotCompatible turns on, without marking the assembly trimmable): .editorconfig
+          next to this file makes their diagnostics errors in Src/Saves (the save API must stay AOT-safe for games) and
+          silences them elsewhere, since the rest of the engine still reflects over game types.
+        -->
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
     </PropertyGroup>
 
     <!-- NuGet Packages -->

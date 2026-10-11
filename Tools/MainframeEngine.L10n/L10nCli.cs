@@ -16,10 +16,11 @@ internal static class L10nCli
 
         Locale folders: <dir>/<locale>/LC_MESSAGES/<domain>.po|.mo (domain "messages" unless --domain).
 
-          extract  -o <out.pot> [--root <dir>] [--rml <file|dir>]... [--scenes <file|dir>]... [--include <code.pot>]...
+          extract  -o <out.pot> [--root <dir>] [--rml <file|dir>]... [--scenes <file|dir>]... [--include <code.pot>]... [--mfproj <project.mfproj>]...
                    [--assembly <game.dll>]... [--translatable Type.Property]... [--project <name>]
                    Extract RML text and [Export(Translatable)] scene strings, merge the C# extractor's templates
-                   (--include; their references are rebased onto --root) and write one template.
+                   (--include; their references are rebased onto --root) and the input action labels of --mfproj files,
+                   and write one template.
           merge    -o <out.pot> <a.pot> <b.pot>...            Merge templates (msgcat).
           update   --pot <pot> --dir <dir> [--create <locale,...>] [--domain <name>]
                    Merge the template into every <locale>.po (msgmerge, exact matches; removed messages become
@@ -91,10 +92,11 @@ internal static class L10nCli
         var includes = command.Many("--include");
         var assemblies = command.Many("--assembly");
         var translatable = command.Many("--translatable");
+        var projectFiles = command.Many("--mfproj");
         var project = command.Option("--project") ?? new DirectoryInfo(root).Name;
         command.EnsureAllUsed();
-        if (rml.Count + scenes.Count + includes.Count == 0)
-            throw new UsageException("nothing to extract: give --rml, --scenes and/or --include");
+        if (rml.Count + scenes.Count + includes.Count + projectFiles.Count == 0)
+            throw new UsageException("nothing to extract: give --rml, --scenes, --mfproj and/or --include");
 
         var builder = new TemplateBuilder();
         foreach (var include in includes)
@@ -127,6 +129,17 @@ internal static class L10nCli
             {
                 error.WriteLine($"mf-l10n: warning: {extractor.UnknownTypes.Count} scene type(s) are not registered, so their " +
                                 $"translatable properties are unknown (pass --assembly <game.dll>): {string.Join(", ", extractor.UnknownTypes)}");
+            }
+        }
+
+        // Input action labels (shown by the settings menu through Atr, without a context).
+        foreach (var file in projectFiles)
+        {
+            var settings = MainframeEngine.ProjectSettings.Load(file);
+            foreach (var action in settings.Input.Actions)
+            {
+                if (action.Label is { Length: > 0 } label)
+                    builder.Add(null, label, null, Relative(Path.GetFullPath(file), root), $"project.mfproj input action \"{action.Name}\"");
             }
         }
 

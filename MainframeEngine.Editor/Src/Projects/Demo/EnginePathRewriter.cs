@@ -20,6 +20,6 @@ public static class EnginePathRewriter
         var property = document.Descendants().FirstOrDefault(e => e.Name.LocalName == "MainframeEnginePath")
             ?? throw new DemoDownloadException("The demo's Directory.Build.props has no MainframeEnginePath.");
         property.Value = enginePath;
-        document.Save(directoryBuildProps, SaveOptions.DisableFormatting);
+        document.Save(directoryBuildProps, System.Xml.Linq.SaveOptions.DisableFormatting); // not MainframeEngine.SaveOptions (save games)
     }
 }

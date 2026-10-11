@@ -1,6 +1,7 @@
 {
   "format": 3,
   "name": "MyGame",
+  "userDataName": "MyGame",
   "engineVersion": "MAINFRAME_ENGINE_VERSION",
   "mainScene": "Content/Scenes/Main.mscene",
   "assemblies": [
@@ -57,5 +58,11 @@
       1080
     ],
     "matchWidthOrHeight": 1
-  }
+  },
+  "autoloads": [
+    {
+      "name": "SaveGame",
+      "type": "SaveGame"
+    }
+  ]
 }

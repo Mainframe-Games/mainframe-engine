@@ -128,6 +128,17 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void TheSettingsMenuMatchesGolden()
+    {
+        // G4: the drop-in settings menu on its Controls tab, the Interact key slot waiting for a key.
+        var result = HostRunner.Run("ui-settings-menu", Output("ui-settings-menu"), "--capture", "30", "--frames", "32", "--size", "960x600", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 30);
+    }
+
+    [Fact]
     public void UiCapturesAreDeterministicAcrossRuns()
     {
         var first = HostRunner.Run("ui-effects", Output("ui-determinism-a"), "--capture", "12", "--size", "480x270", "--hidden");

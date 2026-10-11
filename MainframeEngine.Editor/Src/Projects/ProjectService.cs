@@ -82,6 +82,43 @@ public sealed class ProjectService : IDisposable
     /// <summary>Raised after the game assembly was (re)loaded and scenes re-created (code reload done).</summary>
     public event Action? CodeReloaded;
 
+    /// <summary>
+    /// The folder a game with <paramref name="settings"/> keeps its player data in (saves, <c>settings.json</c>, logs):
+    /// <see cref="UserDataPaths.GetDirectory"/> of <see cref="ProjectSettings.UserDataFolderName"/>, the folder
+    /// <see cref="GameHost.UserDataDirectory"/> uses. Not created.
+    /// </summary>
+    public static string UserDataDirectoryOf(ProjectSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        return UserDataPaths.GetDirectory(settings.UserDataFolderName);
+    }
+
+    /// <summary>The open project's user data folder (<see cref="UserDataDirectoryOf"/>), or null when no project is open.</summary>
+    public string? UserDataDirectory => Settings is { } settings ? UserDataDirectoryOf(settings) : null;
+
+    /// <summary>
+    /// Project › Open User Data Folder (Godot's name): creates the user data folder of <paramref name="settings"/> (default:
+    /// the open project's) when missing and opens it in Finder / Explorer / the file manager. False when no project is
+    /// open or the folder could not be created or opened (the reason is logged).
+    /// </summary>
+    public bool OpenUserDataFolder(ProjectSettings? settings = null)
+    {
+        if ((settings ?? Settings) is not { } project)
+            return false;
+        var directory = UserDataDirectoryOf(project);
+        try
+        {
+            Directory.CreateDirectory(directory);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning($"[Editor] Could not create the user data folder {directory}: {e.Message}");
+            return false;
+        }
+
+        return (_workspace.Options.OpenFolder ?? OsShell.OpenFolder)(directory);
+    }
+
     // ── Open / close ─────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>

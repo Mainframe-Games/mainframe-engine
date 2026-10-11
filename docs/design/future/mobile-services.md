@@ -346,8 +346,13 @@ sequenceDiagram
 - **API.** `GameServicesServer.UnlockAchievementAsync`, `SetAchievementProgressAsync` and `SubmitScoreAsync` are
   **queued and retried**. Offline unlocks are stored in user data and flushed on the next sign-in, because the native
   SDKs only partly do this themselves.
-- **`CloudSaveServer`.** Slots of opaque bytes + `SaveMeta { Slot, Description, PlayedTime, ModifiedUtc, DeviceName,
-  ProgressValue }`.
+- **Cloud saves are `ICloudSaveBackend`s** (updated after G4 shipped). There is no separate `CloudSaveServer`: G4's
+  `SaveServer` ([Projects → Cloud saves](../project-and-gamehost.md#cloud-saves-the-m13-seam)) already writes slots locally first,
+  uploads the same `.msave` bytes best effort with retries, runs `SyncAsync` with the three conflict policies below and
+  keeps the losing copy as `.conflict-<utc>`. M13.3 adds one `ICloudSaveBackend` per store (CloudKit, Play Saved Games,
+  Steam Cloud through a new `ISteamRemoteStorage` wrapper) and the conflict dialog widget; the file format does not
+  change. The `.msave` header carries `SaveMeta`'s fields one to one (`slot`, `description`, `playTimeSeconds`,
+  `savedUtc`, `device`, `progress`; `CloudSaveMeta`). The class diagram above keeps the original sketch.
   - **Conflicts** (two devices) follow `ConflictPolicy`:
     - `MostRecent`;
     - `HighestProgress` (uses `ProgressValue`);
@@ -488,7 +493,7 @@ always **behind `ConsentServer`**.
 | M13.0 Shim skeleton | `mfplatform.h` + ABI check; Swift package and Kotlin AAR + JNI bridge with the poll queue; `natives.yml` legs; `PlatformServices` + fake/null backends; `services` section + id map validation | CTest/XCTest/JUnit green in CI; a ping round trip on simulator and emulator; fake backends drive every server in unit tests |
 | M13.1 Consent & privacy | `ConsentServer` (UMP, ATT), manifest aggregation, data-safety worksheet | EEA/non-EEA flows verified with UMP debug geography on device; the export report lists data types |
 | M13.2 IAP | `StoreServer` on StoreKit 2 + PBL 9.x; entitlements, restore, finish/acknowledge, pending, validator hook; `.storekit` generation | XCTest StoreKit suite in CI; a license-tester purchase on the internal track; sandbox purchase via TestFlight |
-| M13.3 Game services | Game Center, PGS v2, Steam mapping, offline queue; `CloudSaveServer` with CloudKit / Saved Games / Steam Cloud + conflict policies | unlock + score + save/load/conflict on both stores' test accounts; Steam path tested with the existing wrappers |
+| M13.3 Game services | Game Center, PGS v2, Steam mapping, offline queue; `ICloudSaveBackend`s for CloudKit / Saved Games / Steam Cloud under G4's `SaveServer` (conflict policies shipped in G4) | unlock + score + save/load/conflict on both stores' test accounts; Steam path tested with the existing wrappers |
 | M13.4 Notifications | local (both), push (APNs, FCM), permission flows, open-from-notification | scheduled local notification fires and opens the game with data; push token reaches a test sender |
 | M13.5 Ads | AdMob + UMP (decided); pause/resume around fullscreen ads; export compliance (SKAdNetwork, app id, app-ads.txt reminder); size measurement | test ads (all formats) on both; consent-denied → non-personalised verified; size delta recorded |
 | M13.6 Analytics & crashes | engine crash files + `PendingReports`, symbol artefacts + upload in `mobile-publish.yml`, `AnalyticsServer` with HTTP backend; Sentry native SDKs in the shim (`crash_*` ABI) + symbol upload | a forced managed exception and a native crash (iOS + Android) appear in Sentry with symbolicated stacks; local crash file reported on next launch |
@@ -500,7 +505,7 @@ always **behind `ConsentServer`**.
 - [ ] `services` section in `ProjectSettings` (+ migration), id-map validation in `mf-cook`
 - [ ] `ConsentServer`; manifest aggregation; data-safety worksheet
 - [ ] `StoreServer` + Apple/Play backends; `.storekit` generator; XCTest StoreKit suite
-- [ ] `GameServicesServer`, `CloudSaveServer` + Apple/Play/Steam/local backends; offline queue; conflict dialog widget
+- [ ] `GameServicesServer`, Apple/Play/Steam `ICloudSaveBackend`s (G4's `SaveServer` is the local layer); offline queue; conflict dialog widget
 - [ ] `NotificationServer` (local + push), channels, permission flows
 - [ ] `AdsServer` + AdMob/UMP module; export compliance; fake ads
 - [ ] `CrashReporter` (engine files, `PendingReports`), Sentry native SDKs in the shim (`crash_*` ABI), symbol artefacts + Sentry CLI upload; `AnalyticsServer` (HTTP backend)

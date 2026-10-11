@@ -27,7 +27,8 @@ public static class UiScene
         {
             Name = "Cube",
             Mesh = new BoxMesh { Size = new Vector3(1.2f, 1.2f, 1.2f) },
-            Position = new Vector3(-1.4f, 0.6f, 0), RotationDegrees = new Vector3(0, 30, 0),
+            Position = new Vector3(-1.4f, 0.6f, 0),
+            RotationDegrees = new Vector3(0, 30, 0),
             MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(37, 99, 235) },
         });
         Add(root, root, new MeshInstance3D

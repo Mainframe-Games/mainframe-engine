@@ -292,3 +292,30 @@ body.hud { pointer-events: none; width: 100%; height: 100%; }
     font-size: 13dp;
     color: #e6e9ef;
 }
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+
+/* A strip of buttons; the open one carries .active. Pair with data-if panels:
+   <div class="tabs"><button data-attr-class="tab == 'a' ? 'tab active' : 'tab'" data-event-click="tab('a')">A</button>…</div> */
+.tabs {
+    display: block;
+    height: 30dp;
+    margin-bottom: 10dp;
+    border-bottom: 1dp #2e3850;
+}
+
+.tabs button, .tabs .tab {
+    height: 29dp;
+    line-height: 29dp;
+    margin-right: 2dp;
+    padding: 0dp 16dp;
+    background-color: transparent;
+    border-width: 0dp 0dp 2dp 0dp;
+    border-color: transparent;
+    border-radius: 0dp;
+    color: #8a95ab;
+}
+
+.tabs button:hover { background-color: #1c2333; color: #e6e9ef; }
+.tabs button.active { background-color: #1c2333; border-color: #3d8bfd; color: #ffffff; font-weight: bold; }
+.tabs button:focus-visible { color: #ffffff; border-color: #5aa0ff; }

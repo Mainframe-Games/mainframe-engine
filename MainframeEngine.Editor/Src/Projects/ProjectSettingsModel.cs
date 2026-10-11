@@ -83,6 +83,7 @@ public sealed class ProjectSettingsModel
         ("Localization", "language"),
         ("Rendering", "brightness-half"),
         ("UI", "layout"),
+        ("Saves", "device-floppy"),
         ("Autoloads", "stack-2"),
         ("Steamworks", "brand-steam"),
     ];
@@ -91,7 +92,7 @@ public sealed class ProjectSettingsModel
     public static readonly IReadOnlyList<ProjectSetting> Settings =
     [
         new("name", "Application", "Name", SettingKind.Text, static s => s.Name, static (s, v) => s.Name = v.Trim(),
-            "The game's name: the default window title and its user-data folder."),
+            "The game's name: the default window title, and its user-data folder unless Saves › User Data Name is set."),
         new("mainScene", "Application", "Main Scene", SettingKind.Scene, static s => s.MainScene ?? "",
             static (s, v) => s.MainScene = string.IsNullOrWhiteSpace(v) ? null : v.Trim(), "The scene the game starts with (Play ▶ runs it)."),
         new("assemblies", "Application", "Game Assemblies", SettingKind.List, static s => string.Join(", ", s.Assemblies),
@@ -200,6 +201,30 @@ public sealed class ProjectSettingsModel
         new("ui.maxScale", "UI", "Max Scale", SettingKind.Number, static s => Num(s.Ui.MaxScale),
             static (s, v) => s.Ui.MaxScale = ParseFloat(v), "The largest UI scale (pixels per dp) in large windows; 0: no limit."),
 
+        new("userDataName", "Saves", "User Data Name", SettingKind.Text, static s => s.UserDataName ?? "",
+            static (s, v) => s.UserDataName = v.Trim(),
+            "The name of the folder the game keeps player data in (saves, settings.json, logs). Set it once and keep it: renaming the " +
+            "project or its window title then keeps every player's saves and settings. Empty: the project name."),
+        new("userDataPath", "Saves", "User Data Folder", SettingKind.ReadOnly, static s => UserDataPaths.GetDirectory(s.UserDataFolderName), null,
+            "Where the game keeps player data on this computer (MAINFRAME_USER_DATA moves the base folder)."),
+        new("saves.maxBytes", "Saves", "Max Save Size (MiB)", SettingKind.Number, static s => ValueText.Number(s.Saves.MaxBytes / (double)BytesPerMiB),
+            static (s, v) => s.Saves.MaxBytes = ParseMiB(v),
+            "The largest save payload, uncompressed. A bigger save fails with TooLarge instead of filling the disk."),
+        new("saves.backups", "Saves", "Backups", SettingKind.WholeNumber, static s => Int(s.Saves.Backups),
+            static (s, v) => s.Saves.Backups = ParseInt(v, 0, DurableFile.MaxBackups, "Backups"),
+            "Previous versions kept per slot (slot.msave.bak1, …), 0 to 16: a damaged save loads from the newest good copy."),
+        new("saves.compression", "Saves", "Compression", SettingKind.Choice, static s => s.Saves.Compression.ToString(),
+            static (s, v) => s.Saves.Compression = Enum.Parse<SaveCompression>(v, ignoreCase: true),
+            "None: the payload is plain JSON, readable in any text editor. Gzip: smaller files; the header line stays plain JSON.",
+            Choices: Enum.GetNames<SaveCompression>()),
+        new("saves.thumbnails", "Saves", "Thumbnails", SettingKind.Bool, static s => Bool(s.Saves.Thumbnails),
+            static (s, v) => s.Saves.Thumbnails = ParseBool(v),
+            "Saves may store a screenshot (slot.png) for a load menu. Turns on frame capture, which slows some drivers."),
+        new("saves.thumbnail.width", "Saves", "Thumbnail Width", SettingKind.WholeNumber, static s => Int(s.Saves.ThumbnailWidth),
+            static (s, v) => s.Saves.ThumbnailWidth = ParseInt(v, 1, 4096, "Thumbnail Width"), "Pixels, 1 to 4096."),
+        new("saves.thumbnail.height", "Saves", "Thumbnail Height", SettingKind.WholeNumber, static s => Int(s.Saves.ThumbnailHeight),
+            static (s, v) => s.Saves.ThumbnailHeight = ParseInt(v, 1, 4096, "Thumbnail Height"), "Pixels, 1 to 4096."),
+
         new("steam.appId", "Steamworks", "App ID", SettingKind.WholeNumber, static s => s.Steam.AppId.ToString(CultureInfo.InvariantCulture),
             static (s, v) => s.Steam.AppId = ParseUInt(v), "The full game's Steam app id (480: Spacewar, Valve's test app). 0 leaves Steam alone."),
         new("steam.demoAppId", "Steamworks", "Demo App ID", SettingKind.WholeNumber, static s => s.Steam.DemoAppId.ToString(CultureInfo.InvariantCulture),
@@ -262,6 +287,9 @@ public sealed class ProjectSettingsModel
             foreach (var action in s.Input.Actions)
             {
                 var added = copy.AddAction(string.Equals(action.Name, name, StringComparison.Ordinal) ? trimmed : action.Name, action.Deadzone);
+                added.Label = action.Label;
+                added.Group = action.Group;
+                added.Rebindable = action.Rebindable;
                 added.Bindings.AddRange(action.Bindings);
             }
 
@@ -274,6 +302,38 @@ public sealed class ProjectSettingsModel
         var target = s.Input.GetAction(action) ?? throw new ArgumentException($"There is no action named '{action}'.");
         target.Deadzone = ParseFloat(text);
     });
+
+    /// <summary>Sets the text a settings menu shows for <paramref name="action"/>; blank clears it (the menu shows the name).</summary>
+    public string? SetActionLabel(string action, string text)
+    {
+        if (Current.Input.GetAction(action) is not { } current)
+            return $"There is no action named '{action}'.";
+        var label = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        if (string.Equals(current.Label, label, StringComparison.Ordinal))
+            return null;
+        return Edit($"Set {action} Label", s => s.Input.GetAction(action)!.Label = label);
+    }
+
+    /// <summary>Sets <paramref name="action"/>'s rebinding conflict group (blank: the default group).</summary>
+    public string? SetActionGroup(string action, string text)
+    {
+        if (Current.Input.GetAction(action) is not { } current)
+            return $"There is no action named '{action}'.";
+        var group = text?.Trim() ?? "";
+        if (string.Equals(current.Group, group, StringComparison.Ordinal))
+            return null;
+        return Edit($"Set {action} Group", s => s.Input.GetAction(action)!.Group = group);
+    }
+
+    /// <summary>Locks or unlocks <paramref name="action"/> for players: a locked action cannot be rebound in a settings menu.</summary>
+    public string? SetActionRebindable(string action, bool rebindable)
+    {
+        if (Current.Input.GetAction(action) is not { } current)
+            return $"There is no action named '{action}'.";
+        if (current.Rebindable == rebindable)
+            return null;
+        return Edit(rebindable ? $"Unlock {action}" : $"Lock {action}", s => s.Input.GetAction(action)!.Rebindable = rebindable);
+    }
 
     /// <summary>Adds <paramref name="binding"/> (a captured key/mouse button, or a gamepad input from the list) to <paramref name="action"/>.</summary>
     public string? AddBinding(string action, InputBinding binding)
@@ -419,6 +479,23 @@ public sealed class ProjectSettingsModel
         int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
             ? value
             : throw new FormatException($"'{text}' is not a whole number.");
+
+    private static int ParseInt(string text, int min, int max, string what)
+    {
+        var value = ParseInt(text);
+        return value >= min && value <= max ? value : throw new FormatException($"{what} must be from {min} to {max}.");
+    }
+
+    private const long BytesPerMiB = 1024 * 1024;
+
+    // A size in MiB ("16", "0.5") as bytes; at most 2047 MiB (the payload is one .NET array).
+    private static long ParseMiB(string text)
+    {
+        if (!double.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var mib) || !double.IsFinite(mib))
+            throw new FormatException($"'{text}' is not a number.");
+        var bytes = (long)Math.Round(mib * BytesPerMiB);
+        return bytes >= 1 && mib <= 2047 ? bytes : throw new FormatException("Max Save Size must be above 0 and at most 2047 MiB.");
+    }
 
     private static uint ParseUInt(string text) =>
         uint.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
