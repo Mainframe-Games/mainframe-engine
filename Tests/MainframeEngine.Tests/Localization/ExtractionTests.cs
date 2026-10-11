@@ -166,7 +166,7 @@ public sealed class ExtractionTests
         return process.ExitCode == 0 && File.Exists(target);
     }
 
-    private static string? FindRepositoryRoot()
+    internal static string? FindRepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {

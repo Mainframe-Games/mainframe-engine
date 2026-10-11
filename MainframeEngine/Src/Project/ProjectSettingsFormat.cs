@@ -90,24 +90,10 @@ public static class ProjectSettingsFormat
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(migrations);
-        while (format < currentFormat)
-        {
-            var step = -1;
-            for (var i = 0; i < migrations.Count; i++)
-            {
-                if (migrations[i].From == format)
-                {
-                    step = i;
-                    break;
-                }
-            }
-
-            if (step < 0)
-                throw new InvalidDataException($"'{source}': no migration from project format {format} to {format + 1}.");
-            migrations[step].Upgrade(root);
-            format++;
-        }
-
+        var steps = new JsonMigration[migrations.Count];
+        for (var i = 0; i < steps.Length; i++)
+            steps[i] = new JsonMigration(migrations[i].From, migrations[i].Upgrade);
+        JsonMigrations.Upgrade(root, format, currentFormat, steps, source, "project format");
         root["format"] = currentFormat;
     }
 
@@ -124,6 +110,8 @@ public static class ProjectSettingsFormat
             w.WriteString("engineVersion", settings.EngineVersion);
             if (settings.Version.Length > 0)
                 w.WriteString("version", settings.Version);
+            if (settings.UserDataName is { Length: > 0 } userDataName)
+                w.WriteString("userDataName", userDataName);
             if (settings.MainScene is { Length: > 0 } main)
                 w.WriteString("mainScene", main);
             if (settings.Assemblies.Count > 0)
@@ -139,6 +127,7 @@ public static class ProjectSettingsFormat
             WriteRendering(w, settings.Rendering);
             WriteUi(w, settings.Ui);
             WriteLoading(w, settings.Loading);
+            WriteSaves(w, settings.Saves);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
             w.WriteEndObject();
@@ -271,6 +260,12 @@ public static class ProjectSettingsFormat
             w.WriteStartObject(action.Name);
             if (action.Deadzone != InputAction.DefaultDeadzone)
                 w.WriteNumber("deadzone", action.Deadzone);
+            if (action.Label is { } label)
+                w.WriteString("label", label);
+            if (action.Group.Length > 0)
+                w.WriteString("group", action.Group);
+            if (!action.Rebindable)
+                w.WriteBoolean("rebindable", false);
             w.WriteStartArray("bindings");
             foreach (var binding in action.Bindings)
                 w.WriteStringValue(binding.ToString());
@@ -386,6 +381,34 @@ public static class ProjectSettingsFormat
         w.WriteEndObject();
     }
 
+    private static void WriteSaves(Utf8JsonWriter w, SavesProjectSettings s)
+    {
+        var d = new SavesProjectSettings();
+        var thumbnailSize = s.ThumbnailWidth != d.ThumbnailWidth || s.ThumbnailHeight != d.ThumbnailHeight;
+        if (s.MaxBytes == d.MaxBytes && s.Backups == d.Backups && s.Compression == d.Compression && s.Thumbnails == d.Thumbnails && !thumbnailSize)
+            return;
+        w.WriteStartObject("saves");
+        if (s.MaxBytes != d.MaxBytes)
+            w.WriteNumber("maxBytes", s.MaxBytes);
+        if (s.Backups != d.Backups)
+            w.WriteNumber("backups", s.Backups);
+        if (s.Compression != d.Compression)
+            w.WriteString("compression", s.Compression.ToString().ToLowerInvariant());
+        if (s.Thumbnails != d.Thumbnails)
+            w.WriteBoolean("thumbnails", s.Thumbnails);
+        if (thumbnailSize)
+        {
+            w.WriteStartObject("thumbnail");
+            if (s.ThumbnailWidth != d.ThumbnailWidth)
+                w.WriteNumber("width", s.ThumbnailWidth);
+            if (s.ThumbnailHeight != d.ThumbnailHeight)
+                w.WriteNumber("height", s.ThumbnailHeight);
+            w.WriteEndObject();
+        }
+
+        w.WriteEndObject();
+    }
+
     private static void WriteAutoloads(Utf8JsonWriter w, List<AutoloadSettings> autoloads)
     {
         if (autoloads.Count == 0)
@@ -451,12 +474,13 @@ public static class ProjectSettingsFormat
         public ProjectSettings Read(JsonObject root)
         {
             var s = new ProjectSettings();
-            Known(root, "", "format", "name", "engineVersion", "version", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "loading", "autoloads", "playInstances");
+            Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
+                "audio", "localization", "rendering", "ui", "loading", "saves", "autoloads", "playInstances");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
             s.Version = String(root, "version", "version") ?? "";
+            s.UserDataName = String(root, "userDataName", "userDataName");
             s.MainScene = String(root, "mainScene", "mainScene");
             s.Assemblies.AddRange(Strings(root, "assemblies", "assemblies"));
             s.IsDemo = Bool(root, "isDemo", "isDemo", s.IsDemo);
@@ -479,6 +503,8 @@ public static class ProjectSettingsFormat
                 ReadUi(ui, s.Ui);
             if (Object(root, "loading") is { } loading)
                 ReadLoading(loading, s.Loading);
+            if (Object(root, "saves") is { } saves)
+                ReadSaves(saves, s.Saves);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
             if (Array(root, "playInstances", "playInstances") is { } instances)
@@ -567,8 +593,11 @@ public static class ProjectSettingsFormat
                     throw Error("input", "action names must not be empty");
                 if (node is not JsonObject action)
                     throw Error(where, "must be an object with \"bindings\"");
-                Known(action, where + ".", "deadzone", "bindings");
+                Known(action, where + ".", "deadzone", "label", "group", "rebindable", "bindings");
                 var created = map.AddAction(name, Float(action, "deadzone", where + ".deadzone", InputAction.DefaultDeadzone));
+                created.Label = String(action, "label", where + ".label");
+                created.Group = String(action, "group", where + ".group") ?? "";
+                created.Rebindable = Bool(action, "rebindable", where + ".rebindable", true);
                 foreach (var text in Strings(action, "bindings", where + ".bindings"))
                 {
                     if (!InputBinding.TryParse(text, out var binding))
@@ -647,6 +676,34 @@ public static class ProjectSettingsFormat
             Known(o, "loading.", "async", "screen");
             s.Async = Bool(o, "async", "loading.async", s.Async);
             s.Screen = String(o, "screen", "loading.screen") ?? s.Screen;
+        }
+
+        private void ReadSaves(JsonObject o, SavesProjectSettings s)
+        {
+            Known(o, "saves.", "maxBytes", "backups", "compression", "thumbnails", "thumbnail");
+            var maxBytes = Long(o, "maxBytes", "saves.maxBytes", s.MaxBytes, 1, long.MaxValue);
+            Guard("saves.maxBytes", () => s.MaxBytes = maxBytes);
+            var backups = Int(o, "backups", "saves.backups", s.Backups, 0, DurableFile.MaxBackups);
+            Guard("saves.backups", () => s.Backups = backups);
+            if (String(o, "compression", "saves.compression") is { } compression)
+            {
+                s.Compression = compression switch
+                {
+                    "none" => SaveCompression.None,
+                    "gzip" => SaveCompression.Gzip,
+                    _ => throw Error("saves.compression", $"'{compression}' is not \"none\" or \"gzip\""),
+                };
+            }
+
+            s.Thumbnails = Bool(o, "thumbnails", "saves.thumbnails", s.Thumbnails);
+            if (Object(o, "thumbnail") is { } thumbnail)
+            {
+                Known(thumbnail, "saves.thumbnail.", "width", "height");
+                var width = Int(thumbnail, "width", "saves.thumbnail.width", s.ThumbnailWidth, 1, 4096);
+                Guard("saves.thumbnail.width", () => s.ThumbnailWidth = width);
+                var height = Int(thumbnail, "height", "saves.thumbnail.height", s.ThumbnailHeight, 1, 4096);
+                Guard("saves.thumbnail.height", () => s.ThumbnailHeight = height);
+            }
         }
 
         private void ReadAutoloads(JsonArray array, List<AutoloadSettings> autoloads)

@@ -9,6 +9,9 @@ the project icon belong to Mainframe Engine and are MIT licensed (see the engine
 | Spine example skeleton, atlas and texture (spineboy) | `Content/Models/Spine/SpineBoy/` | © Esoteric Software LLC. [Spine Runtimes License](https://esotericsoftware.com/spine-runtimes-license): provided for evaluating and demonstrating the Spine runtimes. Using it, or the Spine runtimes, in your own product requires a [Spine Editor licence](http://esotericsoftware.com/spine-editor-license). |
 | Sky panorama `sky_10_2k.png` (a [Poly Haven](https://polyhaven.com) sky, converted to an 8-bit 4096×2048 PNG) | `Content/Sky/` | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain; no attribution required, given as a courtesy). |
 
+The nav bar's settings icon (`Content/Nav/settings.png`) is [Tabler Icons](https://tabler.io/icons)' `settings`, MIT
+licensed (© Paweł Kuna), like the editor's icons.
+
 If you build your own game from the Demo, remove the Spine example (the Spine scene, its panel and
 `Content/Models/Spine/`) unless you hold a Spine licence.
 

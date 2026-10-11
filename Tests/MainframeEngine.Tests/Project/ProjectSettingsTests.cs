@@ -34,10 +34,14 @@ public sealed class ProjectSettingsTests : IDisposable
             MainScene = "scn_0123456789ab",
             EngineVersion = "1.4.2",
             Version = "2026.9.2",
+            UserDataName = "SpaceGame",
             IsDemo = true,
-            Input = new InputMap().Bind("jump", "key:Space", "pad:A").Bind("move_left", "key:A", "axis:LeftX-"),
+            Input = new InputMap().Bind("jump", "key:Space", "pad:A").Bind("move_left", "key:A", "axis:LeftX-").Bind("pause", "key:Escape", "pad:Start"),
         };
         s.Input.GetAction("move_left")!.Deadzone = 0.25f;
+        s.Input.GetAction("jump")!.Label = "Jump ✓";
+        s.Input.GetAction("jump")!.Group = "gameplay";
+        s.Input.GetAction("pause")!.Rebindable = false;
         s.Assemblies.Add("SpaceGame");
         s.Steam.AppId = 480;
         s.Steam.DemoAppId = 481;
@@ -80,6 +84,12 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Ui.MinScale = 0.75f;
         s.Loading.Async = false;
         s.Loading.Screen = "Content/UI/loading.rml";
+        s.Saves.MaxBytes = 1 << 20;
+        s.Saves.Backups = 4;
+        s.Saves.Compression = SaveCompression.Gzip;
+        s.Saves.Thumbnails = true;
+        s.Saves.ThumbnailWidth = 256;
+        s.Saves.ThumbnailHeight = 144;
         s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Content/Autoload/Music.mscene" });
         s.Autoloads.Add(new AutoloadSettings { Name = "Stats", Type = "GameStats", Enabled = false });
         var host = new PlayInstanceSettings { Label = "Host" };
@@ -96,6 +106,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(expected.MainScene, actual.MainScene);
         Assert.Equal(expected.EngineVersion, actual.EngineVersion);
         Assert.Equal(expected.Version, actual.Version);
+        Assert.Equal(expected.UserDataName, actual.UserDataName);
         Assert.Equal(expected.IsDemo, actual.IsDemo);
         Assert.Equivalent(expected.Steam, actual.Steam, strict: true);
         Assert.Equal(expected.Assemblies, actual.Assemblies);
@@ -109,11 +120,12 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equivalent(expected.Rendering, actual.Rendering, strict: true);
         Assert.Equivalent(expected.Ui, actual.Ui, strict: true);
         Assert.Equivalent(expected.Loading, actual.Loading, strict: true);
+        Assert.Equivalent(expected.Saves, actual.Saves, strict: true);
         Assert.Equal(expected.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)), actual.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)));
         Assert.Equal(expected.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)),
             actual.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)));
-        Assert.Equal(expected.Input.Actions.Select(a => (a.Name, a.Deadzone, string.Join(' ', a.Bindings))),
-            actual.Input.Actions.Select(a => (a.Name, a.Deadzone, string.Join(' ', a.Bindings))));
+        Assert.Equal(expected.Input.Actions.Select(a => (a.Name, a.Deadzone, a.Label, a.Group, a.Rebindable, string.Join(' ', a.Bindings))),
+            actual.Input.Actions.Select(a => (a.Name, a.Deadzone, a.Label, a.Group, a.Rebindable, string.Join(' ', a.Bindings))));
     }
 
     [Fact]
@@ -148,6 +160,12 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal("axis:LeftX-", (string?)json["input"]!["move_left"]!["bindings"]![1]);
         Assert.Equal(0.25, (double)json["input"]!["move_left"]!["deadzone"]!, 3);
         Assert.Null(json["input"]!["jump"]!["deadzone"]); // the default is not written
+        Assert.Equal("Jump ✓", (string?)json["input"]!["jump"]!["label"]);
+        Assert.Equal("gameplay", (string?)json["input"]!["jump"]!["group"]);
+        Assert.False((bool)json["input"]!["pause"]!["rebindable"]!);
+        Assert.Null(json["input"]!["move_left"]!["label"]);      // defaults (no label, no group, rebindable) are not written
+        Assert.Null(json["input"]!["move_left"]!["group"]);
+        Assert.Null(json["input"]!["jump"]!["rebindable"]);
         Assert.Equal("Low", (string?)json["rendering"]!["shadows"]);
     }
 
@@ -321,6 +339,35 @@ public sealed class ProjectSettingsTests : IDisposable
     }
 
     [Fact]
+    public void TheSavesSectionIsOptionalAndValidated()
+    {
+        var defaults = new ProjectSettings();
+        Assert.Equal(16L * 1024 * 1024, defaults.Saves.MaxBytes);
+        Assert.Equal(2, defaults.Saves.Backups);
+        Assert.Equal(SaveCompression.None, defaults.Saves.Compression);
+        Assert.False(defaults.Saves.Thumbnails);
+        Assert.Equal((320, 180), (defaults.Saves.ThumbnailWidth, defaults.Saves.ThumbnailHeight));
+        Assert.DoesNotContain("\"saves\"", Text(defaults), StringComparison.Ordinal);
+        Assert.False(defaults.ToEngineOptions().EnableFrameCapture); // frame capture is opt-in
+
+        var s = Parse("""{ "format": 3, "name": "G", "saves": { "compression": "gzip", "thumbnails": true, "thumbnail": { "height": 90 } } }""");
+        Assert.Equal(SaveCompression.Gzip, s.Saves.Compression);
+        Assert.True(s.Saves.Thumbnails);
+        Assert.Equal((320, 90), (s.Saves.ThumbnailWidth, s.Saves.ThumbnailHeight));
+        Assert.True(s.ToEngineOptions().EnableFrameCapture); // thumbnails need it
+        var json = JsonNode.Parse(Text(s))!["saves"]!;
+        Assert.Equal("gzip", (string?)json["compression"]);
+        Assert.Null(json["maxBytes"]); // defaults are not written
+        Assert.Equal(90, (int)json["thumbnail"]!["height"]!);
+        Assert.Null(json["thumbnail"]!["width"]);
+
+        Assert.Contains("saves.compression", Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "saves": { "compression": "zip" } }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("saves.backups", Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "saves": { "backups": 99 } }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("saves.maxBytes", Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "saves": { "maxBytes": 0 } }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("saves.thumbnail.width", Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 3, "name": "G", "saves": { "thumbnail": { "width": -1 } } }""")).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheLoadingSectionDefaultsToAnAsyncStartWithTheEngineScreen()
     {
         // ADR 0183: every project loads its start scene asynchronously behind the engine's loading screen by default.
@@ -366,6 +413,22 @@ public sealed class ProjectSettingsTests : IDisposable
 
         s.Steam.DemoAppId = 0; // no demo app: Steam stays off in the demo
         Assert.Equal(0u, s.ToEngineOptions().SteamAppId);
+    }
+
+    [Fact]
+    public void TheUserDataFolderFollowsUserDataNameNotTheProjectName()
+    {
+        var s = Parse("""{ "name": "Space Game", "userDataName": "SpaceGame" }""");
+        Assert.Equal("SpaceGame", s.UserDataFolderName);
+
+        s.Name = "Space Game 2"; // a rename keeps the players' folder
+        Assert.Equal("SpaceGame", s.UserDataFolderName);
+        Assert.Contains("\"userDataName\": \"SpaceGame\"", Text(s), StringComparison.Ordinal);
+
+        s.UserDataName = " ";
+        Assert.Null(s.UserDataName);
+        Assert.Equal("Space Game 2", s.UserDataFolderName);
+        Assert.DoesNotContain("userDataName", Text(s), StringComparison.Ordinal);
     }
 
     [Fact]

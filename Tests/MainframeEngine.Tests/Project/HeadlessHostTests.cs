@@ -36,13 +36,16 @@ public sealed class HeadlessHostTests
     }
 
     [Fact]
-    public void RegistersNetworkingAndPhysicsButNoRenderingOrUi()
+    public void RegistersNetworkingPhysicsAndSavesButNoRenderingOrUi()
     {
         using var host = new HeadlessHost(Settings());
 
         Assert.NotNull(host.Tree.Servers.Get<PhysicsServer2D>());
         Assert.NotNull(host.Tree.Servers.Get<PhysicsServer3D>());
         Assert.NotNull(host.Tree.Servers.Get<MainframeEngine.Networking.MultiplayerApi>());
+        var saves = host.Tree.Servers.Get<SaveServer>();
+        Assert.NotNull(saves);
+        Assert.EndsWith(Path.Combine("HeadlessTest", "saves"), Assert.IsType<LocalSaveStorage>(saves.Storage).Root, StringComparison.Ordinal); // {user data}/saves
         Assert.Null(host.Tree.Servers.Get<CanvasServer>());
         Assert.Null(host.Tree.Servers.Get<UiServer>());
         Assert.Null(host.Tree.Servers.Render);

@@ -77,6 +77,7 @@
         <button id="pause" class="tool-button disabled" data-command="play.pause" data-tooltip="Pause (F7) — pause or resume the running game"><span class="icon icon-player-pause"></span></button>
         <button id="stop" class="tool-button disabled" data-command="play.stop" data-tooltip="Stop (F8) — stop every running game"><span class="icon icon-player-stop"></span></button>
         <button id="build-reload" class="tool-button" data-command="project.build_reload" data-tooltip="Build &amp; Reload (Ctrl+Shift+B) — compile the game's C# and reload it in the editor"><span class="icon icon-hammer"></span></button>
+        <button id="user-data" class="tool-button" data-command="project.user_data" data-tooltip="Open User Data Folder — show the folder the game keeps its saves, settings and logs in (created if missing)"><span class="icon icon-folder-user"></span></button>
         <div id="instances"></div>
         <span id="play-status" class="muted"></span>
     </div>

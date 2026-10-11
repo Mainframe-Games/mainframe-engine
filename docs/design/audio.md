@@ -20,7 +20,7 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 | Type | File | Notes |
 |---|---|---|
 | `AudioServer`, `AudioOptions`, `AudioDeviceMode`, `AudioVoiceHandle`, `AudioServerStats` | [Audio/AudioServer.cs](../../MainframeEngine/Src/Audio/AudioServer.cs) | `IFrameServer`; voice pools, stealing, listener, command batching |
-| `AudioBus` | [Audio/AudioBus.cs](../../MainframeEngine/Src/Audio/AudioBus.cs) | live fader / mute / solo / meter |
+| `AudioBus` | [Audio/AudioBus.cs](../../MainframeEngine/Src/Audio/AudioBus.cs) | live fader / player volume (`UserVolume`) / mute / solo / meter |
 | `AudioBusLayout`, `AudioBusInfo`, `AudioEffect` (+ `LowPass`, `HighPass`, `Reverb` (engine Freeverb), `Compressor`) | [Audio/AudioBusLayout.cs](../../MainframeEngine/Src/Audio/AudioBusLayout.cs) | `.mres` resources |
 | `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.meta` import settings; `PitchRandomness` |
 | `Zzfx`, `ZzfxParameters`, `ZzfxShape`, `ZzfxStream`, `ZzfxPresets` | [Audio/Synthesis/](../../MainframeEngine/Src/Audio/Synthesis/) | ZzFX 1.4.0 synthesiser, line format, the generated-sound resource, random recipes |
@@ -105,8 +105,15 @@ same resource inline in `project.mfproj` instead of the file.
   meter (`AudioBus.Peak`).
 - **Solo:** when any bus is soloed, only soloed buses, their sub-buses, and the buses they send through are
   heard; a bus that only passes a soloed sub-bus through has its *own* voices silenced (`DirectAudible`).
-- `AudioBus.VolumeDb` / `Mute` / `Solo` setters mark the buses dirty; gains are recomputed and sent in the next
-  `Process`. A node naming an unknown bus plays on Master.
+- `AudioBus.VolumeDb` / `UserVolume` / `Mute` / `Solo` setters mark the buses dirty; gains are recomputed and sent in
+  the next `Process` (one `SetBusGain` command per bus, no allocation). A node naming an unknown bus plays on Master.
+- **Player volume:** `AudioBus.UserVolume` (a slider position, 0..1, default 1; clamped, NaN = 1) is a second gain stage
+  on top of the designer's fader: `gain = DbToLinear(VolumeDb) · UserVolume²`. The squared curve is perceptual (50 % ≈
+  −12 dB) and 0 is silent; stages multiply down the bus tree like the faders. `GetBusLayout()` does not include it, so
+  the editor never saves a player's volume into the project, and `ApplyBusLayout()` resets it to 1. `UserSettings`
+  sets it from `settings.json` (`audio.volume.{bus}`; muting through settings sets `Mute`), see
+  [project and GameHost](project-and-gamehost.md#user-settings). Godot stores one linear volume per bus
+  (`AudioServer.set_bus_volume_linear`); the separate stage is a deviation that keeps the designer's mix.
 
 ## Nodes
 

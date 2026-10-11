@@ -48,8 +48,13 @@ public sealed class Spawner2D : Node2D
             ? new DemoShape2D { Name = "Visual", Kind = DemoShapeKind.Circle, Radius = 16f, Color = color, Outline = outline, OutlineWidth = 2f }
             : new DemoShape2D
             {
-                Name = "Visual", Kind = DemoShapeKind.Rect, Size = new Vector2(30, 30), Color = color,
-                ColorBottom = color * new Vector4(0.7f, 0.7f, 0.7f, 1), Outline = outline, OutlineWidth = 2f,
+                Name = "Visual",
+                Kind = DemoShapeKind.Rect,
+                Size = new Vector2(30, 30),
+                Color = color,
+                ColorBottom = color * new Vector4(0.7f, 0.7f, 0.7f, 1),
+                Outline = outline,
+                OutlineWidth = 2f,
             });
         _spawned++;
         AddChild(body);

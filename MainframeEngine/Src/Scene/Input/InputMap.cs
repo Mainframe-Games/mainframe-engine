@@ -75,6 +75,20 @@ public readonly record struct InputBinding
     /// <summary>True when the binding listens to a gamepad with index <paramref name="device"/>.</summary>
     public bool MatchesDevice(int device) => Device < 0 || Device == device;
 
+    /// <summary>
+    /// Which rebinding slots the binding belongs to: keys and mouse buttons are <see cref="InputDeviceClass.KeyboardMouse"/>,
+    /// gamepad buttons and axes <see cref="InputDeviceClass.Gamepad"/> (an empty binding counts as keyboard/mouse).
+    /// </summary>
+    public InputDeviceClass DeviceClass =>
+        Kind is InputBindingKind.GamepadButton or InputBindingKind.GamepadAxis ? InputDeviceClass.Gamepad : InputDeviceClass.KeyboardMouse;
+
+    /// <summary>
+    /// The player-facing name, translated through <see cref="Localization.Tr"/> (context <c>input</c>): <c>Space</c>,
+    /// <c>Left Shift</c>, <c>Mouse Left</c>; gamepads use the Xbox layout (<c>A</c>, <c>LB</c>, <c>RT</c>, <c>LS ↑</c>).
+    /// A binding for one pad adds its number (<c>A (Pad 2)</c>). Empty for an empty binding.
+    /// </summary>
+    public string DisplayName() => InputBindingNames.Get(this);
+
     public override string ToString()
     {
         var device = Device >= 0 ? Device.ToString(CultureInfo.InvariantCulture) : string.Empty;
@@ -180,6 +194,28 @@ public sealed class InputAction
     /// <summary>The inputs that trigger the action (edit through <see cref="InputMap"/> so states refresh).</summary>
     public List<InputBinding> Bindings { get; } = [];
 
+    /// <summary>
+    /// The text a settings menu shows for the action (<c>"Interact"</c>), translated by the menu; null shows
+    /// <see cref="Name"/>. Stored as <c>label</c> in <c>project.mfproj</c>.
+    /// </summary>
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// Conflict scope for rebinding (<see cref="InputMap.FindConflicts"/>): actions in different groups may share an input
+    /// (<c>"menu"</c> and <c>"gameplay"</c> can both use Space). Empty by default; null is stored as empty.
+    /// </summary>
+    public string Group
+    {
+        get;
+        set => field = value ?? "";
+    } = "";
+
+    /// <summary>
+    /// False locks the action: <see cref="InputMap.Rebind"/> never changes its bindings, and a rebind that would take one of
+    /// them is rejected whatever the policy (<c>"Esc is used by Pause"</c>). True by default.
+    /// </summary>
+    public bool Rebindable { get; set; } = true;
+
     /// <summary>Strength (0..1) of a raw axis value along this binding's direction, after the deadzone.</summary>
     public float AxisStrength(float value, int direction)
     {
@@ -195,7 +231,7 @@ public sealed class InputAction
 /// the <c>input</c> section of <c>project.mfproj</c> (<see cref="ProjectSettings.Input"/>); read at runtime through
 /// <see cref="Input"/> / <see cref="InputState"/>.
 /// </summary>
-public sealed class InputMap
+public sealed partial class InputMap
 {
     private readonly List<InputAction> _actions = [];
     private readonly Dictionary<string, int> _byName = new(StringComparer.Ordinal);
@@ -203,7 +239,10 @@ public sealed class InputMap
     /// <summary>Actions in definition order.</summary>
     public IReadOnlyList<InputAction> Actions => _actions;
 
-    /// <summary>Changes whenever an action or binding is added or removed (input states rebuild their tables).</summary>
+    /// <summary>
+    /// Changes whenever an action or binding is added, removed or replaced (input states rebuild their tables), including
+    /// every change made by <see cref="SetBindings"/>, <see cref="Rebind"/> and the resets.
+    /// </summary>
     public int Version { get; private set; }
 
     public bool HasAction(string name) => _byName.ContainsKey(name);
@@ -275,17 +314,26 @@ public sealed class InputMap
         Version++;
     }
 
-    /// <summary>A deep copy.</summary>
+    /// <summary>A deep copy (bindings, deadzones, labels, groups and locks).</summary>
     public InputMap Clone()
     {
         var copy = new InputMap();
         foreach (var action in _actions)
         {
             var target = copy.AddAction(action.Name, action.Deadzone);
+            CopyInfo(action, target);
             target.Bindings.AddRange(action.Bindings);
         }
 
         return copy;
+    }
+
+    /// <summary>Copies what describes an action (label, group, lock), not its bindings or deadzone.</summary>
+    internal static void CopyInfo(InputAction from, InputAction to)
+    {
+        to.Label = from.Label;
+        to.Group = from.Group;
+        to.Rebindable = from.Rebindable;
     }
 
     /// <summary>

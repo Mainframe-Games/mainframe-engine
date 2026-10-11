@@ -6,8 +6,8 @@ namespace MainframeEngine;
 /// <summary>
 /// <see cref="GameHost"/>'s <c>--headless</c> run (Godot's <c>--headless</c>): the project's scene tree with no window,
 /// renderer, canvas, UI or audio device, for dedicated servers. Registers networking (<see cref="Networking.MultiplayerApi"/>),
-/// the physics servers and an audio server on the null device (buses and players still work, nothing is heard), runs
-/// <see cref="GameSession"/> (input map, autoloads, the main scene) and ticks the tree at the project's
+/// the physics servers, an audio server on the null device (buses and players still work, nothing is heard) and a
+/// <see cref="SaveServer"/> (no thumbnails), runs <see cref="GameSession"/> (input map, autoloads, the main scene) and ticks the tree at the project's
 /// <c>maxFps</c>, else the physics rate. Canvas items still run their draws (Godot calls <c>_draw</c> headless too);
 /// nothing renders them. Ctrl+C or SIGTERM is a close request (the game may save), then a quit.
 /// </summary>
@@ -31,6 +31,8 @@ public sealed class HeadlessHost : IDisposable
         Input.Current = Tree.Input;
         Tree.QuitRequested += code => Quit((ExitCode)code);
         GameHost.Project = settings;
+        // The player's settings.json for the game's own sections (Config) only: there is no window, audio device or input to apply them to.
+        UserSettings = UserSettings.Current = UserSettings.Load(settings);
 
         // Disposed in reverse order after the tree is freed, like Engine.OnLoad's servers.
         Networking.MultiplayerApi.Attach(Tree);
@@ -50,6 +52,7 @@ public sealed class HeadlessHost : IDisposable
 
         Tree.Servers.Register(new PhysicsServer3D(_options.Physics3D));
         Tree.Servers.Register(new PhysicsServer2D(_options.Physics2D));
+        Tree.Servers.Register(GameHost.CreateSaveServer(settings, Tree)); // last: disposed (flushed) first
 
         Session = new GameSession(Tree, settings, options);
         Session.QuitRequested += Quit;
@@ -61,6 +64,9 @@ public sealed class HeadlessHost : IDisposable
 
     /// <summary>The project session (autoloads, scene, editor link).</summary>
     public GameSession Session { get; }
+
+    /// <summary>The player's settings file, loaded for <see cref="MainframeEngine.UserSettings.Config"/> (never applied headless).</summary>
+    public UserSettings UserSettings { get; }
 
     /// <summary>Updates per second the loop is held to.</summary>
     public int FrameRate { get; }

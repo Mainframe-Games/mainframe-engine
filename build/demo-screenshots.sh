@@ -11,4 +11,7 @@ for scene in basic_3d basic_2d audio_2d audio_3d sound_fx ui physics_2d physics_
   dotnet "$bin/Demo.Desktop.dll" --scene "Content/Scenes/$scene.mscene" --fixed-fps 60 --max-frames "$frames" \
     --no-log-file --screenshot "$out/$scene.png"
 done
+# The settings menu (G4) over Physics 3D, opened by the Demo's own `++ --settings` argument.
+dotnet "$bin/Demo.Desktop.dll" --scene "Content/Scenes/physics_3d.mscene" --fixed-fps 60 --max-frames "$frames" \
+  --no-log-file --screenshot "$out/settings.png" ++ --settings
 ls -la "$out"

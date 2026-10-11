@@ -46,8 +46,8 @@ Every screenshot is a scene of the [Demo](Examples/Demo) (`just demo`; `just dem
 | ![Basic 3D](docs/images/demo/basic_3d.png)<br>**Basic 3D** — primitives, glTF, sky, cascaded + spot shadows | ![Basic 2D](docs/images/demo/basic_2d.png)<br>**Basic 2D** — canvas items, gradients, sprites |
 | ![Audio 2D](docs/images/demo/audio_2d.png)<br>**Audio 2D** — panning past a 2D listener, one-shots | ![Audio 3D](docs/images/demo/audio_3d.png)<br>**Audio 3D** — attenuation, low-pass, doppler |
 | ![UI](docs/images/demo/ui.png)<br>**UI** — RmlUi widgets, data binding, hot reload | ![Spine](docs/images/demo/spine.png)<br>**Spine** — under a 3D or 2D camera |
-| ![Physics 2D](docs/images/demo/physics_2d.png)<br>**Physics 2D** — Box2D | ![Physics 3D](docs/images/demo/physics_3d.png)<br>**Physics 3D** — Jitter2 |
-| ![Sound FX](docs/images/demo/sound_fx.png)<br>**Sound FX** — ZzFX presets, randomize/mutate, a looping song from the music editor | |
+| ![Physics 2D](docs/images/demo/physics_2d.png)<br>**Physics 2D** — Box2D | ![Physics 3D](docs/images/demo/physics_3d.png)<br>**Physics 3D** — Jitter2, save slots with thumbnails |
+| ![Sound FX](docs/images/demo/sound_fx.png)<br>**Sound FX** — ZzFX presets, randomize/mutate, a looping song from the music editor | ![Settings](docs/images/demo/settings.png)<br>**Settings** — the drop-in settings menu: volumes, rebinding, display |
 
 The [Forest](Examples/Forest) is a first-person walk through a generated 256 m valley: a stream over a fall, through
 three pools and under a log bridge into a pond, 1 846 Ez Tree trees and dense ground cover, all generated at load

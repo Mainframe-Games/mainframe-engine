@@ -61,6 +61,9 @@ public sealed record EditorWorkspaceOptions
     /// <summary>Opens source files (default: the external code editor command); tests record instead.</summary>
     public Func<System.Diagnostics.ProcessStartInfo, bool>? StartCodeEditor { get; init; }
 
+    /// <summary>Opens a folder in the OS file browser (default: <see cref="OsShell.OpenFolder"/>); tests record instead.</summary>
+    public Func<string, bool>? OpenFolder { get; init; }
+
     /// <summary>
     /// Editor updates from GitHub Releases (the editor executable passes <see cref="GitHubUpdateService"/>); null disables
     /// update checks (tests, <c>--smoke</c>, <c>--qa-script</c>, <c>--hidden</c>).

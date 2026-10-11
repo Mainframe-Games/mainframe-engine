@@ -31,6 +31,20 @@ public sealed class ProjectSettings
     /// <summary>The game's own version (Godot's <c>application/config/version</c>); empty when the project sets none.</summary>
     public string Version { get; set; } = "";
 
+    /// <summary>
+    /// The user-data folder's name (Godot's <c>config/custom_user_dir_name</c>); null uses <see cref="Name"/>. Set it once
+    /// and keep it, so renaming the project or its window title never orphans player saves and settings. New projects get
+    /// their name.
+    /// </summary>
+    public string? UserDataName
+    {
+        get;
+        set => field = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    /// <summary>The folder name <see cref="GameHost.UserDataDirectory"/> uses: <see cref="UserDataName"/>, else <see cref="Name"/>.</summary>
+    public string UserDataFolderName => UserDataName ?? Name;
+
     /// <summary>The scene <see cref="GameHost"/> starts with: a UID (<c>scn_…</c>) or a <c>Content/…</c> path.</summary>
     public string? MainScene { get; set; }
 
@@ -78,6 +92,9 @@ public sealed class ProjectSettings
 
     /// <summary>How <see cref="GameHost"/> loads the start scene: on a worker thread behind a loading screen (ADR 0183).</summary>
     public LoadingProjectSettings Loading { get; } = new();
+
+    /// <summary>Save games (<see cref="SaveServer"/>): size limit, backups, compression and thumbnails.</summary>
+    public SavesProjectSettings Saves { get; } = new();
 
     /// <summary>
     /// The Steam app id this build starts Steam with (<see cref="EngineOptions.SteamAppId"/>):
@@ -139,11 +156,13 @@ public sealed class ProjectSettings
     }
 
     /// <summary>
-    /// Engine options from these settings (window, VSync, physics, audio, localization, Steam). Settings that need a
-    /// running engine (frame cap, exposure, shadow quality, input, autoloads, main scene) are applied by <see cref="GameHost"/>.
+    /// Engine options from these settings (window, VSync, physics, audio, localization, Steam, frame capture for save
+    /// thumbnails). Settings that need a running engine (frame cap, exposure, shadow quality, input, autoloads, main scene)
+    /// are applied by <see cref="GameHost"/>.
     /// </summary>
     public EngineOptions ToEngineOptions() => new()
     {
+        EnableFrameCapture = Saves.Thumbnails,
         GameName = Window.Title ?? Name,
         WindowSize = new Vector2D<int>(Window.Width, Window.Height),
         ContentScale = Window.ContentScale,
@@ -545,6 +564,74 @@ public sealed class LoadingProjectSettings
     /// the engine's (<see cref="LoadingScreen.DefaultSource"/>), an empty string shows none.
     /// </summary>
     public string? Screen { get; set; }
+}
+
+/// <summary>
+/// The <c>saves</c> section of <c>project.mfproj</c>: how <see cref="SaveServer"/> writes save games
+/// (<see cref="SaveOptions.FromProject"/>). Every key is optional.
+/// </summary>
+public sealed class SavesProjectSettings
+{
+    public const long DefaultMaxBytes = 16L * 1024 * 1024;
+    public const int DefaultBackups = 2;
+    public const int DefaultThumbnailWidth = 320;
+    public const int DefaultThumbnailHeight = 180;
+
+    /// <summary>The largest payload a save may have (uncompressed bytes; <c>maxBytes</c>, default 16 MiB).</summary>
+    public long MaxBytes
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            field = value;
+        }
+    } = DefaultMaxBytes;
+
+    /// <summary>Previous versions kept per slot (<c>backups</c>, 0..<see cref="DurableFile.MaxBackups"/>, default 2).</summary>
+    public int Backups
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, DurableFile.MaxBackups);
+            field = value;
+        }
+    } = DefaultBackups;
+
+    /// <summary>How payloads are stored (<c>compression</c>: <c>"none"</c> or <c>"gzip"</c>).</summary>
+    public SaveCompression Compression { get; set; }
+
+    /// <summary>
+    /// Save thumbnails (<c>thumbnails</c>, default off): <see cref="GameHost"/> then starts the engine with frame capture
+    /// (<see cref="EngineOptions.EnableFrameCapture"/>), which slows some drivers, so it is opt-in.
+    /// </summary>
+    public bool Thumbnails { get; set; }
+
+    /// <summary>Thumbnail width in pixels (<c>thumbnail.width</c>, default 320).</summary>
+    public int ThumbnailWidth
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 4096);
+            field = value;
+        }
+    } = DefaultThumbnailWidth;
+
+    /// <summary>Thumbnail height in pixels (<c>thumbnail.height</c>, default 180).</summary>
+    public int ThumbnailHeight
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 4096);
+            field = value;
+        }
+    } = DefaultThumbnailHeight;
 }
 
 /// <summary>One process of <see cref="ProjectSettings.PlayInstances"/>.</summary>

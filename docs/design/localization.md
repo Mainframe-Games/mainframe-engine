@@ -248,6 +248,24 @@ ui.Translator = static (utf8, sink) =>
 chain (most specific first) then the defaults, without duplicates. RmlUi cannot unload one face, so faces accumulate
 over a session; fallback faces only supply missing glyphs, so they never change how other text looks.
 
+## Engine strings
+
+The engine's own player-facing text — the [settings menu](game-ui.md#settings-menu-g4) (`settings.rml` text nodes and
+`Tr.P("settings", …)`) and the input binding names (`Tr.P("input", …)`, `InputBinding.DisplayName()`) — is extracted
+into [`MainframeEngine/Content/UI/settings/settings.pot`](../../MainframeEngine/Content/UI/settings/settings.pot) by
+`just l10n-engine` (GetText.Extractor over `Src/UI/Settings` and `Src/Scene/Input`, plus `mf-l10n extract --rml`). The
+engine ships no translations of its own: a game merges the template into its catalog, so its translators see the menu's
+strings beside the game's:
+
+```bash
+mf-l10n extract -o Content/locale/messages.pot --include code.pot --include <engine>/MainframeEngine/Content/UI/settings/settings.pot \
+    --rml Content --mfproj project.mfproj
+```
+
+`--mfproj` extracts the `label` of every input action in `project.mfproj` (the settings menu shows them through
+`Atr`, without a context). The Demo's `just l10n-extract` does both; its Spanish and `qps` catalogs translate the menu.
+A second engine domain (`mainframe.mo`, shipped translated) remains an option (proposal open question 3).
+
 ## Pseudo-localization
 
 `mf-l10n pseudo --pot … --dir …` writes `qps/LC_MESSAGES/messages.po` (and `--compile` its `.mo`): every message is

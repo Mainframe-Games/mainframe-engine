@@ -221,6 +221,9 @@ public abstract class Engine : IDisposable
     public Vector2D<int> WindowSize => EngineOptions.WindowSize;
     public string? IconPath => EngineOptions.IconPath;
 
+    /// <summary>The VSync the renderer is created with (<see cref="EngineOptions.VSync"/>).</summary>
+    internal bool StartVSync => EngineOptions.VSync;
+
     /// <summary>
     /// Framebuffer size in pixels — what the swapchain, viewports and aspect ratios use. On HiDPI
     /// displays this is larger than <see cref="IWindow.Size"/> (points); prefer it over
@@ -303,7 +306,7 @@ public abstract class Engine : IDisposable
             // Silk reports only "not applicable" — surface SDL's own reason (missing video driver, display, …).
             throw new PlatformNotSupportedException($"{e.Message} SDL: {DescribeSdlFailure()}", e);
         }
-        Tree.Window = new SilkWindowControl(Window);
+        Tree.Window = new SilkWindowControl(Window, this);
         Window.Load += PlaceWindow;
         Window.Load += OnLoad;
         Window.FramebufferResize += OnFramebufferResize;

@@ -8,6 +8,7 @@ public sealed class AudioBus
 {
     private readonly AudioServer _server;
     private float _volumeDb;
+    private float _userVolume = 1f;
     private bool _mute;
     private bool _solo;
 
@@ -50,6 +51,25 @@ public sealed class AudioBus
         }
     }
 
+    /// <summary>
+    /// The player's volume for this bus (a settings slider position, 0..1, default 1; <see cref="UserSettings"/> sets it),
+    /// a second gain stage on top of the designer's <see cref="VolumeDb"/>: gain = DbToLinear(VolumeDb) · UserVolume². The
+    /// squared curve is perceptual (50 % ≈ −12 dB) and 0 is silent. Not part of <see cref="AudioServer.GetBusLayout"/>, so
+    /// the editor never saves a player's volume into the project. Values are clamped to 0..1 (NaN = 1).
+    /// </summary>
+    public float UserVolume
+    {
+        get => _userVolume;
+        set
+        {
+            var clamped = float.IsNaN(value) ? 1f : Math.Clamp(value, 0f, 1f);
+            if (_userVolume == clamped)
+                return;
+            _userVolume = clamped;
+            _server.OnBusChanged();
+        }
+    }
+
     public bool Mute
     {
         get => _mute;
@@ -87,7 +107,7 @@ public sealed class AudioBus
     /// <summary>Peak level of the bus output over the last audio block (linear, 0..1+), for meters.</summary>
     public float Peak { get; internal set; }
 
-    /// <summary>Linear gain of the bus fader as sent to the mixer (volume × mute × solo).</summary>
+    /// <summary>Linear gain of the bus fader as sent to the mixer (volume × user volume² × mute × solo).</summary>
     public float EffectiveGain { get; internal set; } = 1f;
 
     /// <summary>False when solo silences the voices playing directly on this bus (it only passes a soloed sub-bus through).</summary>

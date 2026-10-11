@@ -110,8 +110,8 @@ flowchart TB
 
 | Panel | Document | What it does |
 |---|---|---|
-| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
-| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); the play group — Play (F5), Play Scene (F6), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B) — with a chip per running instance (status icon, label; click for its menu) and a build/reload status; fps / frame-time readout |
+| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
+| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); the play group — Play (F5), Play Scene (F6), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload status; fps / frame-time readout |
 | Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
@@ -421,9 +421,20 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   logs the reference path that keeps it alive.
 - **Project Settings** (Project › Project Settings, `ProjectSettingsModel`): every section of `project.mfproj` —
   Application (name, main scene, game assemblies, Demo Build), Window, Input Map (actions, deadzones, bindings
-  captured from the next key or mouse press, gamepad inputs from a list), Physics 3D/2D, Audio, Localization,
-  Rendering, UI (scale mode, reference resolution, match width or height, min/max scale; ADR 0181), Autoloads, Steamworks (App ID, Demo App ID, run outside Steam in development, relaunch through Steam). Each edit is undoable (the dialog's own history, Ctrl+Z inside it); invalid values are refused
+  captured from the next key or mouse press, gamepad inputs from a list; each action's settings-menu label, rebinding
+  group and a lock icon toggle for actions players cannot rebind), Physics 3D/2D, Audio, Localization,
+  Rendering, UI (scale mode, reference resolution, match width or height, min/max scale; ADR 0181), Saves (below), Autoloads, Steamworks (App ID, Demo App ID, run outside Steam in development, relaunch through Steam). Each edit is undoable (the dialog's own history, Ctrl+Z inside it); invalid values are refused
   with a message; Save writes the file atomically and applies it to the session.
+- **Saves page** (`saves` and `userDataName`, [Project & game host](project-and-gamehost.md#save-games)): User Data
+  Name (its tooltip says why to set it once: renaming the project or its window title then keeps players' saves and
+  settings; empty uses the name), the resolved User Data Folder (read-only, follows the edit) with an Open User Data
+  Folder icon button, Max Save Size in MiB (`maxBytes`, above 0 and at most 2047), Backups (0–16), Compression
+  (None/Gzip), Thumbnails and the thumbnail width/height (1–4096). Undoable like the other pages.
+- **Open User Data Folder** (Project menu, the toolbar's folder-user button; Godot's name): opens the open project's
+  `UserDataPaths.GetDirectory(UserDataFolderName)` — the folder `GameHost.UserDataDirectory` uses, honouring
+  `MAINFRAME_USER_DATA` — in Finder / Explorer / the file manager (`OsShell.OpenFolder`, the folder itself, not
+  revealed in its parent), creating it when missing (`ProjectService.OpenUserDataFolder`). Tests swap the opener through
+  `EditorWorkspaceOptions.OpenFolder`.
 
 ## Play
 
@@ -766,8 +777,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   thumbnails and the trash (the real OS trash only with `MAINFRAME_TEST_SYSTEM_TRASH=1`). **Code reload** is tested
   with game assemblies compiled by Roslyn in the test (`CodeReloadTests`: a type added, changed and removed; state kept;
   the old context collected). `ProjectWorkflowTests` drive the headless editor through the panels (create, open,
-  rename with fix-ups, drag onto the scene tree, Play with a fake launcher). A slow integration test
-  (`Category=Slow`) runs the real `dotnet new mfgame` and build.
+  rename with fix-ups, drag onto the scene tree, Play with a fake launcher, the Saves page and Open User Data Folder with a
+  recording opener). A slow integration test (`Category=Slow`) runs the real `dotnet new mfgame` and build.
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
   editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, drags, gizmo drags, keys,
   text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`, `view-resolution auto|full|threeQuarters|half`) with captures in `artifacts/qa-editor`. **`just qa-projects`**

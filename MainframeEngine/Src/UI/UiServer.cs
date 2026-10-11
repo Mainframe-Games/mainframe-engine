@@ -260,6 +260,25 @@ public sealed class UiServer : IFrameServer, IInputServer
         set => field = value ?? throw new ArgumentNullException(nameof(value));
     }
 
+    /// <summary>Smallest <see cref="UserScale"/>.</summary>
+    public const float MinUserScale = 0.25f;
+
+    /// <summary>Largest <see cref="UserScale"/>.</summary>
+    public const float MaxUserScale = 4f;
+
+    /// <summary>
+    /// The player's UI scale (default 1; <see cref="UserSettings.UiScale"/> sets it): multiplies the dp ratio of every
+    /// <see cref="UiScaleMode.Project"/>, <see cref="UiScaleMode.Dpi"/> and <see cref="UiScaleMode.ReferenceResolution"/>
+    /// layer, on top of <see cref="Scaling"/>. <see cref="UiScaleMode.Pixels"/> layers, layers with
+    /// <see cref="UiLayer.IgnoreUserScale"/> (the developer overlay) and the RmlUi debugger keep their size. Applies on the
+    /// next frame; clamped to <see cref="MinUserScale"/>..<see cref="MaxUserScale"/> (NaN = 1).
+    /// </summary>
+    public float UserScale
+    {
+        get;
+        set => field = float.IsNaN(value) ? 1f : Math.Clamp(value, MinUserScale, MaxUserScale);
+    } = 1f;
+
     /// <summary>
     /// Localization hook: RmlUi's <c>TranslateString</c>, called for every text node RmlUi creates (and for data-bound
     /// text whenever its value changes). Set to the <see cref="UiServerOptions.TextTranslator"/>'s
@@ -524,7 +543,7 @@ public sealed class UiServer : IFrameServer, IInputServer
         UpdateViewport();
         var size = LayerSize(layer);
         var context = new RmlContext($"layer{++_contextCounter}:{layer.Name}", (int)size.X, (int)size.Y, RenderInterface);
-        context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale, Scaling));
+        context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale, Scaling, UserScale));
         _layers.Add(layer);
         _layersDirty = true;
         return context;
@@ -668,7 +687,7 @@ public sealed class UiServer : IFrameServer, IInputServer
                 continue;
             var size = LayerSize(layer);
             context.SetDimensions((int)size.X, (int)size.Y);
-            context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale, Scaling));
+            context.SetDensityIndependentPixelRatio(layer.ComputeDpRatio(size, ContentScale, Scaling, UserScale));
             var documents = layer.DocumentList;
             for (var d = 0; d < documents.Count; d++)
                 documents[d].PrepareFrame();

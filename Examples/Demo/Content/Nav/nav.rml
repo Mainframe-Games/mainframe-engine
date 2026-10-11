@@ -16,8 +16,10 @@
             <select id="nav-locale" data-value="locale">
                 <option data-for="l : locales" data-attr-value="l">{{l}}</option>
             </select>
+            <button id="nav-settings" title="Settings (F10 / Start)" data-event-click="settings()"><img src="settings.png"/></button>
             <span id="nav-hint">F12</span>
         </div>
     </div>
+    <div id="tooltip"/>
 </body>
 </rml>

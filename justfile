@@ -96,6 +96,10 @@ demo *args:
 demo-screenshots frames="240":
     build/demo-screenshots.sh {{frames}}
 
+# Saves and settings QA (G4) on the real Demo: rebind + change settings, restart and check, recover a damaged save (artifacts/qa-settings)
+qa-settings:
+    build/qa-demo-settings.sh
+
 # Capture the Demo scenes (alias of demo-screenshots)
 qa frames="240": (demo-screenshots frames)
 
@@ -226,9 +230,16 @@ l10n-extract:
     dotnet tool restore
     dotnet build Examples/Demo/Demo/Demo.csproj -p:CompileLocales=false
     dotnet tool run GetText.Extractor -s Examples/Demo/Demo/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --rml Examples/Demo/Content --rml MainframeEngine/Content/UI --scenes Examples/Demo/Content --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Content/UI/settings/settings.pot --rml Examples/Demo/Content --rml MainframeEngine/Content/UI --scenes Examples/Demo/Content --mfproj Examples/Demo/project.mfproj --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
     {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
     {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
+
+# The engine's own player-facing strings (the settings menu, input binding names) into Content/UI/settings/settings.pot,
+# which games merge into their catalog with `mf-l10n extract --include` (the Demo's l10n-extract does)
+l10n-engine:
+    dotnet tool restore
+    dotnet tool run GetText.Extractor -s MainframeEngine/Src/UI/Settings -s MainframeEngine/Src/Scene/Input -t {{artifacts / "l10n" / "engine-code.pot"}} -u -o -as _ -ad P -ap N -adp NP
+    {{l10n}} extract -o MainframeEngine/Content/UI/settings/settings.pot --root . --project "Mainframe Engine" --include {{artifacts / "l10n" / "engine-code.pot"}} --rml MainframeEngine/Content/UI/settings
 
 # Compile every .po to the committed .mo next to it (the build compiles them into the output itself)
 l10n-compile:
