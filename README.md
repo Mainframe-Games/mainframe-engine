@@ -1,6 +1,18 @@
 <p align="center"><img src="docs/images/brand/logo.svg" width="128" alt="Mainframe Engine logo"></p>
 <h1 align="center">Mainframe Engine</h1>
 
+<p align="center">
+  <a href="https://www.nuget.org/packages/MainframeEngine"><img src="https://img.shields.io/nuget/v/MainframeEngine?logo=nuget&label=MainframeEngine" alt="MainframeEngine on NuGet"></a>
+  <a href="https://www.nuget.org/packages/MainframeEngine.Templates"><img src="https://img.shields.io/nuget/v/MainframeEngine.Templates?logo=nuget&label=templates" alt="MainframeEngine.Templates on NuGet"></a>
+  <a href="https://www.nuget.org/packages/MainframeEngine"><img src="https://img.shields.io/nuget/dt/MainframeEngine?logo=nuget&label=downloads" alt="NuGet downloads"></a>
+  <a href="https://github.com/Mainframe-Games/mainframe-engine/releases/latest"><img src="https://img.shields.io/github/v/release/Mainframe-Games/mainframe-engine?logo=github&label=editor" alt="Latest editor release"></a>
+  <a href="https://github.com/Mainframe-Games/mainframe-engine/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/Mainframe-Games/mainframe-engine/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://mainframe-games.github.io/mainframe-engine/"><img src="https://img.shields.io/badge/docs-mainframe--games.github.io-blue?logo=astro" alt="Documentation"></a>
+  <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet" alt=".NET 10">
+  <img src="https://img.shields.io/badge/Vulkan-1.2-AC162C?logo=vulkan" alt="Vulkan 1.2">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Mainframe-Games/mainframe-engine" alt="MIT licence"></a>
+</p>
+
 A modular C# game engine and Godot-style editor built on Vulkan via [Silk.NET](https://github.com/dotnet/Silk.NET):
 a node/scene system with source-generated serialization, cascaded shadows, materials and model import, RmlUi game UI,
 Jitter2/Box2D physics, SoundFlow audio, server-authoritative multiplayer, gettext localization and Spine skeletal
