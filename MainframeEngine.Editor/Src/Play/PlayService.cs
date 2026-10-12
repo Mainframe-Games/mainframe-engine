@@ -65,6 +65,7 @@ public sealed class PlayService : IDisposable
     private TaskCompletionSource<GameBuildResult>? _build;
     private GameBuildResult? _finishedBuild;
     private int _nextNumber;
+    private long _lastRecordingTick;
     private bool _changed;
     private bool _disposed;
 
@@ -99,6 +100,9 @@ public sealed class PlayService : IDisposable
 
     /// <summary>Something about an instance or the build changed (raised at most once per <see cref="Update"/>).</summary>
     public event Action? Changed;
+
+    /// <summary>A recording stopped (saved) or failed. Raised on the editor thread from <see cref="Update"/>.</summary>
+    public event Action<PlayInstance, EditorLinkRecording>? RecordingFinished;
 
     /// <summary>A game's log entry (category <see cref="GameCategory"/> when it had none).</summary>
     public event Action<PlayInstance, LogEntry>? GameLog;
@@ -152,6 +156,7 @@ public sealed class PlayService : IDisposable
         var separator = extraArguments is null ? -1 : IndexOf(extraArguments, GameHostOptions.UserArgsSeparator);
         if (extraArguments is not null)
             arguments.AddRange(separator < 0 ? extraArguments : extraArguments.Take(separator));
+        arguments.Add("--frame-capture"); // recording can start mid-session (the swapchain needs TRANSFER_SRC)
         arguments.Add("--editor-port");
         arguments.Add(Port.ToString(CultureInfo.InvariantCulture));
         if (!string.IsNullOrEmpty(scene))
@@ -210,6 +215,7 @@ public sealed class PlayService : IDisposable
         if (_server is { } server)
             DrainLink(server);
         UpdateProcesses();
+        TickRecording();
         if (_changed)
         {
             _changed = false;
@@ -250,6 +256,36 @@ public sealed class PlayService : IDisposable
     {
         ArgumentNullException.ThrowIfNull(instance);
         return !_disposed && SendTo(instance, new EditorLinkCommand(EditorCommandKind.RequestTree));
+    }
+
+    /// <summary>True while any instance is recording or saving a recording.</summary>
+    public bool AnyRecording
+    {
+        get
+        {
+            foreach (var instance in _instances)
+                if (instance.Recording != PlayRecordingState.None)
+                    return true;
+            return false;
+        }
+    }
+
+    /// <summary>Asks <paramref name="instance"/> to start recording to <paramref name="path"/> (false: not connected, or already recording).</summary>
+    public bool StartRecording(PlayInstance instance, string path)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return !_disposed && instance.Recording == PlayRecordingState.None && SendTo(instance, new EditorLinkCommand(EditorCommandKind.StartRecording, path));
+    }
+
+    /// <summary>Asks <paramref name="instance"/> to stop recording; <see cref="RecordingFinished"/> follows once it has saved.</summary>
+    public bool StopRecording(PlayInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        if (_disposed || instance.Recording != PlayRecordingState.Recording || !SendTo(instance, new EditorLinkCommand(EditorCommandKind.StopRecording)))
+            return false;
+        instance.Recording = PlayRecordingState.Saving;
+        _changed = true;
+        return true;
     }
 
     /// <summary>True when <paramref name="instance"/> is paused, or a pause was sent and not yet confirmed (false after a resume was sent).</summary>
@@ -395,6 +431,10 @@ public sealed class PlayService : IDisposable
                     }
 
                     break;
+                case EditorLinkMessageType.Recording:
+                    if (_byGameId.TryGetValue(message.GameId, out var recorder))
+                        OnRecording(recorder, message.Recording);
+                    break;
                 case EditorLinkMessageType.LogDropped:
                     if (_byGameId.TryGetValue(message.GameId, out var dropper))
                         GameLog?.Invoke(dropper, new LogEntry(Log.Level.Warning, _utcNow(), GameCategory,
@@ -418,6 +458,7 @@ public sealed class PlayService : IDisposable
                     {
                         if (gone.GameId == message.GameId)
                             gone.GameId = null;
+                        AbandonRecording(gone);
                         _changed = true;
                     }
 
@@ -499,6 +540,52 @@ public sealed class PlayService : IDisposable
         }
     }
 
+    private void OnRecording(PlayInstance instance, in EditorLinkRecording recording)
+    {
+        switch (recording.State)
+        {
+            case EditorLinkRecordingState.Started:
+                instance.Recording = PlayRecordingState.Recording;
+                instance.RecordingPath = recording.Path;
+                instance.RecordingStartedUtc = _utcNow();
+                break;
+            default:
+                instance.Recording = PlayRecordingState.None;
+                instance.RecordingStartedUtc = null;
+                RecordingFinished?.Invoke(instance, recording);
+                break;
+        }
+
+        _changed = true;
+    }
+
+    /// <summary>
+    /// The game went away (exit or disconnect) with no Stopped/Failed received: finish the recording as failed so the
+    /// editor never waits for a save that cannot come.
+    /// </summary>
+    private void AbandonRecording(PlayInstance instance)
+    {
+        if (instance.Recording == PlayRecordingState.None)
+            return;
+        instance.Recording = PlayRecordingState.None;
+        instance.RecordingStartedUtc = null;
+        _changed = true;
+        RecordingFinished?.Invoke(instance, new EditorLinkRecording(EditorLinkRecordingState.Failed, instance.RecordingPath ?? string.Empty, 0, 0, 0,
+            "The game exited before the recording was saved."));
+    }
+
+    /// <summary>Marks the service changed once per wall-clock second while recording, so the elapsed-time readout refreshes.</summary>
+    private void TickRecording()
+    {
+        if (!AnyRecording)
+            return;
+        var second = _utcNow().Ticks / TimeSpan.TicksPerSecond;
+        if (second == _lastRecordingTick)
+            return;
+        _lastRecordingTick = second;
+        _changed = true;
+    }
+
     private void UpdateProcesses()
     {
         var exitedCount = 0;
@@ -523,6 +610,7 @@ public sealed class PlayService : IDisposable
                 instance.ExitCode = code;
                 instance.State = code == 0 || instance.StopRequestedUtc is not null ? PlayInstanceState.Exited : PlayInstanceState.Crashed;
                 instance.PendingPause = null;
+                AbandonRecording(instance);
                 _changed = true;
                 exitedCount++;
                 continue;

@@ -94,6 +94,7 @@ public sealed class FakeGame : IGameProcess
     private volatile bool _exited;
     private volatile bool _paused;
     private int _exitCode;
+    private string _recordingPath = "";
 
     public FakeGame(int id, GameLaunchRequest request, FakeGameMode mode)
     {
@@ -124,6 +125,12 @@ public sealed class FakeGame : IGameProcess
     public string? Scene { get; }
 
     public bool Paused => _paused;
+
+    /// <summary>Makes StartRecording answer Failed ("no ffmpeg") instead of Started.</summary>
+    public bool FailRecording { get; set; }
+
+    /// <summary>Makes StopRecording go unanswered (the game is "finalising" for good), so a test can end it mid-save.</summary>
+    public bool SwallowStopRecording { get; set; }
 
     /// <summary>True when it ended because it was killed (not by quitting or crashing).</summary>
     public bool WasKilled => _wasKilled;
@@ -210,6 +217,15 @@ public sealed class FakeGame : IGameProcess
                             break;
                         case EditorCommandKind.RequestTree:
                             client.SendTree([new(0, "root", "Window"), new(1, "Main", "Node2D"), new(2, Request.Label, "Node2D"), new(3, "Deep", "Node")], false);
+                            break;
+                        case EditorCommandKind.StartRecording:
+                            _recordingPath = command.Argument;
+                            client.SendRecording(FailRecording
+                                ? new EditorLinkRecording(EditorLinkRecordingState.Failed, command.Argument, 0, 0, 0, "no ffmpeg")
+                                : new EditorLinkRecording(EditorLinkRecordingState.Started, command.Argument, 0, 0, 0, ""));
+                            break;
+                        case EditorCommandKind.StopRecording when !SwallowStopRecording:
+                            client.SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Stopped, _recordingPath, 1.5f, 0, 2, ""));
                             break;
                         case EditorCommandKind.ReloadScene:
                             if (command.Argument.Length > 0)

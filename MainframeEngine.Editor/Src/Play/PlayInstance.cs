@@ -24,6 +24,19 @@ public enum PlayInstanceState
     Crashed,
 }
 
+/// <summary>Whether a <see cref="PlayInstance"/> is recording its gameplay.</summary>
+public enum PlayRecordingState
+{
+    /// <summary>Not recording.</summary>
+    None,
+
+    /// <summary>The game confirmed it is recording.</summary>
+    Recording,
+
+    /// <summary>The game was asked to stop and is finalising the file.</summary>
+    Saving,
+}
+
 /// <summary>One launched game (see <see cref="PlayService"/>). Updated only by <see cref="PlayService.Update"/>.</summary>
 public sealed class PlayInstance
 {
@@ -86,6 +99,15 @@ public sealed class PlayInstance
 
     /// <summary>Not <see cref="PlayInstanceState.Exited"/> or <see cref="PlayInstanceState.Crashed"/>.</summary>
     public bool IsAlive => State is not (PlayInstanceState.Exited or PlayInstanceState.Crashed);
+
+    /// <summary>Whether the game is recording; <see cref="PlayRecordingState.Saving"/> until it reports the file saved.</summary>
+    public PlayRecordingState Recording { get; internal set; }
+
+    /// <summary>Where the current (or last started) recording is written; null before one started.</summary>
+    public string? RecordingPath { get; internal set; }
+
+    /// <summary>When the game confirmed the recording started; null while not recording.</summary>
+    public DateTime? RecordingStartedUtc { get; internal set; }
 
     internal IGameProcess? Process { get; set; }
 

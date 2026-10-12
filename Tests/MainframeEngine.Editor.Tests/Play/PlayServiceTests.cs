@@ -132,7 +132,7 @@ public sealed class PlayServiceTests
         var instance = play.Service.Launch("/fake/MyGame.Desktop", "/fake", Scene, "Game");
         Assert.Equal(PlayInstanceState.Launching, instance.State);
         Assert.Equal(1, instance.Number);
-        Assert.Equal(["--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", Scene], instance.Arguments);
+        Assert.Equal(["--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", Scene], instance.Arguments);
         var game = play.Game(instance);
         Assert.Equal(play.Service.Port, game.Port);
         Assert.Equal(Scene, game.Scene);
@@ -358,7 +358,7 @@ public sealed class PlayServiceTests
         var game = play.Game(instance);
         Assert.Equal(project.AppHost, game.Request.ProgramPath);
         Assert.Equal(Path.GetDirectoryName(project.AppHost), game.Request.WorkingDirectory);
-        Assert.Equal(["--hidden", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", "Content/Scenes/Main.mscene"],
+        Assert.Equal(["--hidden", "--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", "Content/Scenes/Main.mscene"],
             game.Request.Arguments);
         play.Pump(() => instance.State == PlayInstanceState.Running, "connect");
         Assert.True(play.Service.LastBuild!.Succeeded);
@@ -375,7 +375,7 @@ public sealed class PlayServiceTests
         play.Pump(() => task.IsCompleted, "build and launch");
 
         var game = play.Game((await task)!);
-        Assert.Equal(["--hidden", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "++", "--host", "--tile", "0:2"],
+        Assert.Equal(["--hidden", "--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "++", "--host", "--tile", "0:2"],
             game.Request.Arguments);
     }
 
@@ -488,6 +488,96 @@ public sealed class PlayServiceTests
 
         Assert.Equal(0, smallest);
         Assert.Equal(PlayInstanceState.Launching, waiting.State);
+    }
+
+    [Fact]
+    public void LaunchAlwaysPassesFrameCaptureBeforeTheEditorPort()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning("Game", scene: null, extra: ["--hidden", "++", "--host"]);
+
+        Assert.Equal(["--hidden", "--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "++", "--host"],
+            play.Game(instance).Request.Arguments);
+    }
+
+    [Fact]
+    public void StartAndStopRecordingTrackStateAndRaiseFinished()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        var finished = new List<EditorLinkRecording>();
+        play.Service.RecordingFinished += (_, r) => finished.Add(r);
+
+        Assert.True(play.Service.StartRecording(instance, "/u/recordings/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        Assert.Equal("/u/recordings/a.mp4", instance.RecordingPath);
+        Assert.NotNull(instance.RecordingStartedUtc);
+        Assert.True(play.Service.AnyRecording);
+        Assert.False(play.Service.StartRecording(instance, "/u/recordings/b.mp4")); // already recording
+
+        Assert.True(play.Service.StopRecording(instance));
+        Assert.Equal(PlayRecordingState.Saving, instance.Recording); // until the game reports Stopped
+        play.Pump(() => finished.Count == 1, "recording finished");
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+        Assert.Null(instance.RecordingStartedUtc);
+        Assert.False(play.Service.AnyRecording);
+        Assert.Equal(EditorLinkRecordingState.Stopped, finished[0].State);
+        Assert.Equal("/u/recordings/a.mp4", finished[0].Path);
+    }
+
+    [Fact]
+    public void AFailedStartIsReportedAsFinishedWithTheError()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        play.Game(instance).FailRecording = true;
+        EditorLinkRecording? finished = null;
+        play.Service.RecordingFinished += (_, r) => finished = r;
+
+        play.Service.StartRecording(instance, "/u/a.mp4");
+        play.Pump(() => finished is not null, "failure reported");
+
+        Assert.Equal(EditorLinkRecordingState.Failed, finished!.Value.State);
+        Assert.Equal("no ffmpeg", finished.Value.Error);
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+    }
+
+    [Fact]
+    public void StopRecordingWhenNotRecordingDoesNothing()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+
+        Assert.False(play.Service.StopRecording(instance));
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AGameThatExitsWhileRecordingOrSavingFailsTheRecordingOnce(bool saving)
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        game.SwallowStopRecording = true;
+        var finished = new List<EditorLinkRecording>();
+        play.Service.RecordingFinished += (_, r) => finished.Add(r);
+        play.Service.StartRecording(instance, "/u/a.mp4");
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        if (saving)
+            Assert.True(play.Service.StopRecording(instance));
+
+        game.TriggerCrash();
+        play.Pump(() => !instance.IsAlive, "crash");
+        for (var i = 0; i < 20; i++)
+            play.Service.Update();
+
+        var result = Assert.Single(finished);
+        Assert.Equal(EditorLinkRecordingState.Failed, result.State);
+        Assert.Equal("The game exited before the recording was saved.", result.Error);
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+        Assert.False(play.Service.AnyRecording);
     }
 }
 
