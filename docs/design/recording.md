@@ -9,9 +9,9 @@ trim idle play, loading and pauses. Two modes:
 
 - **Live** (`--record file.mp4`): real time. Frames are resampled to a constant rate, audio is tapped from the master
   mix, and the player keeps playing and hearing the game.
-- **Offline** (`--record file.mp4 --fixed-fps 60`): every update is exactly one output frame and exactly
-  `sampleRate / fps` samples are rendered from the manual null audio device, so a slow 4K render still plays back
-  smoothly and in sync. The player hears nothing, by design.
+- **Offline** (`--record file.mp4 --fixed-fps 60`): every update is exactly one output frame, and the audio is rendered from the manual null
+  audio device so that `round(n · sampleRate / fps)` samples exist through frame `n` (exact totals for any fps). A slow
+  4K render therefore still plays back smoothly and in sync. The player hears nothing, by design.
 
 The engine never links, bundles or P/Invokes an encoder: frames go to the stdin of the user's own **ffmpeg** run as a
 child process (found by `FfmpegResolver`; without it `--record` fails with an install hint). Decision and rejected
@@ -121,7 +121,7 @@ flowchart LR
 - **Files.** While recording: `<out>.partial/video.mkv` (MKV, so a crash leaves a playable file) and
   `<out>.partial/audio.wav`. At `Stop` the WAV is **padded or truncated to the video's exact sample count**
   (`SampleScheduler.SamplesThrough(frames, sampleRate, fps)`) in both modes, then
-  `ffmpeg -i video.mkv -i audio.wav -c:v copy -c:a aac -b:a 192k -movflags +faststart <out>` muxes, the sidecar is
+  `ffmpeg -i video.mkv -i audio.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -movflags +faststart <out>` muxes, the sidecar is
   written, and `.partial/` is deleted. On failure `.partial/` is kept and `RecordingResult.Error` names it.
   A recording that captured **zero frames is abandoned**: no mux and no sidecar (a sidecar with
   `durationSeconds` 0 is rejected by Cutback), and `Error` says so.
@@ -141,7 +141,7 @@ flowchart LR
 | Main | `GameRecorder` (start, stop, `OnUpdate`, `Mark`/`Keep`/`Skip`), the renderer's frame stream and its sink callbacks, `CaptureTimeline`, input observation, draining the audio tap, offline audio rendering, raising `Started`/`Stopped` |
 | Audio | `AudioCaptureTap.Write` only: one `EnqueueBatch` into the ring (lock-free, allocation-free; the audio thread's guarantees in [Audio](audio.md) hold) |
 | Video writer | `FfmpegRecordingBackend.WriteFrames`: takes frames off the bounded queue and writes them to the encoder's stdin; keeps draining (without writing) after a failure so a producer blocked on a full queue is released |
-| Thread-pool task | Finalising after `Stop`: finish the encoder, pad the WAV, mux, sidecar, cleanup. `Stop` returns at once; the next update raises `Stopped` on the main thread. A new `Start` throws until then, because the previous recording still owns its files |
+| Thread-pool task | Finalising after `Stop`: finish the encoder, pad the WAV, mux, sidecar, cleanup. `Stop` returns without waiting for the encode and mux (it flushes the frame stream, drains audio and, live, waits about 20 ms for the last audio block); the next update raises `Stopped` on the main thread. A new `Start` throws until then, because the previous recording still owns its files |
 
 ## Sidecar format
 

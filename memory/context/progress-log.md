@@ -17,7 +17,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
     (7.317 s loading + exactly 60.000 s), audio equal to frames / 60; live autowalk 22.2 s with 2 dropped frames.
   - Gates green: build (0 warnings), format-check, engine 2447 (1 skipped), editor 808 (5 skipped).
   - Known issues (all in the doc): `--record-scale` needs a display big enough for the scaled window; any window resize ends
-    a recording; live audio drift is logged, not corrected; `--headless --record` records nothing.
+    a recording; live audio runs on the device clock and drift is not corrected; `--headless --record` records nothing.
   - Next: the final review's fixes; then Phase 3 (editor hooks: `StartRecording` needs the game launched with
     `--frame-capture`) and Phase 4 (the editor's Clips tab). One push and a PR when Brogan says so (Actions minutes).
 
