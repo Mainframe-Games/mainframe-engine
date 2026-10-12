@@ -40,7 +40,7 @@ All internal except `GameRecorder`, `RecordingOptions`, `RecordingResult` and `F
 | Type | File | Notes |
 |---|---|---|
 | `GameRecorder` (+ `CaptureInfoSource`) | [Recording/GameRecorder.cs](../../MainframeEngine/Src/Recording/GameRecorder.cs) | the state machine; `IFrameStreamSink`; owns the clock, the timeline and the audio path; finalises in the background |
-| `RecordingOptions`, `RecordingResult` | [Recording/RecordingOptions.cs](../../MainframeEngine/Src/Recording/RecordingOptions.cs), [IRecordingBackend.cs](../../MainframeEngine/Src/Recording/IRecordingBackend.cs) | path + fps in; path, duration, dropped frames and an error (null on success) out |
+| `RecordingOptions`, `RecordingResult` | [Recording/RecordingOptions.cs](../../MainframeEngine/Src/Recording/RecordingOptions.cs), [IRecordingBackend.cs](../../MainframeEngine/Src/Recording/IRecordingBackend.cs) | `sealed record`s with `required`/`init` properties: path + fps in; path, duration, dropped and duplicated frames and an error (null on success) out |
 | `FrameScheduler` | [Recording/FrameScheduler.cs](../../MainframeEngine/Src/Recording/FrameScheduler.cs) | pure; how many times each rendered frame is written so the output is constant frame rate (live: `floor(t·fps) − written + 1` copies, 0 drops it; offline: one in, one out) |
 | `SampleScheduler` | [Recording/SampleScheduler.cs](../../MainframeEngine/Src/Recording/SampleScheduler.cs) | pure; `round(n · sampleRate / fps)` samples through frame `n`, so the total never drifts for rates that do not divide |
 | `CaptureTimeline` | [Recording/CaptureTimeline.cs](../../MainframeEngine/Src/Recording/CaptureTimeline.cs) | pure; builds the sidecar's spans from per-frame flags and events: input (250 ms tail, held controls keep it open, gaps under 100 ms rejoin), loading, paused, keep, skip, markers |
@@ -83,14 +83,21 @@ flowchart LR
   `Start` resolves ffmpeg, picks and probes the encoder, creates `<out>.partial/`, starts the encoder and the writer
   thread, attaches the audio tap (live) and begins the frame stream. A recording that cannot start makes a `--record`
   run exit with an error rather than play unrecorded.
-- **Clock.** Live: seconds of a monotonic `Stopwatch` started by `Start` (never game time). Offline: `frameIndex / fps`
-  exactly. Every sidecar time is on this clock, which is the output video's timeline.
+- **Clock.** Live: seconds of the monotonic `Stopwatch` clock (never game time) from an **origin anchored at the first
+  captured frame**: half an output slot before it (`first − 0.5/fps`), but never before `Start`. A 60 Hz game recorded at
+  60 fps then presents mid-slot, so a few ms of present jitter never makes a frame repeat or skip; anchored on `Start`
+  instead, a first frame near a slot boundary turned every jittered frame into a coin toss between the two (in a test
+  with ±3 ms jitter, 154 repeats and 152 skips in 600 frames, against none anchored). Video stamps, the audio lead and
+  every timeline event use this origin; anything before it (or before the first frame, while it is unknown) is at 0.
+  Offline: `frameIndex / fps` exactly. Every sidecar time is on this clock, which is the output video's timeline.
 - **Video.** The renderer copies the presented swapchain image into one host-visible buffer per frame in flight (two).
   `BeginFrame` waits the slot's own fence before reusing it, which proves the copy finished, so the frame is read there:
   recording adds a copy, never a stall. `FrameScheduler` is asked before the copy is recorded, so a frame that would be
   dropped is never copied. The recorder copies the pixels into a pooled buffer and queues it (4 deep). Live and the
   queue is full: the frame is dropped and counted (`droppedFrames`), and the next frame written gets the missing
-  copies, so length and sync hold and only smoothness suffers. Offline: the game thread waits for room, which is
+  copies, so length and sync hold and only smoothness suffers. Output frames written more than once (a slow frame, or
+  the make-up copies after a drop) are counted: `Stop` logs the count and percentage and `RecordingResult.DuplicatedFrames`
+  carries it (the sidecar format is unchanged). Offline: the game thread waits for room, which is
   harmless because game time does not move. If the swapchain changes **size** the stream ends and so does the
   recording ("window size changed"); a same-size recreation (VSync toggle) keeps it. Details:
   [Vulkan renderer](vulkan-renderer.md).
@@ -105,8 +112,9 @@ flowchart LR
 - **Live audio.** The tap sits after the mixer's fault guard, so it records exactly what the device plays (silence after
   a fault) and takes **whole blocks only**: a block that does not fit the ring (about 2.7 s of 48 kHz stereo) is
   dropped, counted in `OverflowSamples`, and the recorder writes that much silence so the length still matches. The
-  first block's `Stopwatch` timestamp aligns the audio to `t0`: the gap before it is silence. The recorder requires
-  a stereo mix. See [Audio](audio.md#architecture).
+  first block's `Stopwatch` timestamp aligns the audio to the clock's origin: a later block is led by silence, an earlier
+  one loses the samples mixed before the origin (overflow silence from before it is discarded too). Nothing is drained
+  until the first frame has set the origin. The recorder requires a stereo mix. See [Audio](audio.md#architecture).
 - **Offline audio.** The host starts the engine with `AudioDeviceMode.NullManual`; after each update the recorder
   calls `AudioServer.RenderNullDevice` for exactly the samples `SampleScheduler` says that frame owes. With no audio
   server the WAV is silence of the right length.

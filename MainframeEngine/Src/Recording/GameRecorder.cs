@@ -8,8 +8,9 @@ internal sealed record CaptureInfoSource(string Game, Func<string> Scene, string
 
 /// <summary>
 /// Records gameplay to a video and a <c>.mfcap.json</c> sidecar (ADR 0190) that Cutback reads to cut idle play,
-/// loading and pauses. Live: real time on a <see cref="Stopwatch"/> started by <see cref="Start"/> (never game time),
-/// frames resampled to a constant rate, audio tapped from the master mix. Offline (<c>--record</c> with
+/// loading and pauses. Live: real time on the <see cref="Stopwatch"/> clock (never game time), from an origin half an
+/// output slot before the first captured frame; frames resampled to a constant rate, audio tapped from the master mix
+/// and aligned to the same origin. Offline (<c>--record</c> with
 /// <c>--fixed-fps</c>): every update is one output frame and exactly <c>sampleRate/fps</c> samples rendered from the
 /// manual null device, so a slow 4K render still plays back smoothly and in sync.
 /// </summary>
@@ -37,7 +38,7 @@ public sealed class GameRecorder : IFrameStreamSink
     private readonly AudioServer? _audio;
     private readonly bool _offline;
     private readonly CaptureInfoSource _info;
-    private readonly Func<double>? _clockOverride;
+    private readonly Func<long> _timestamp;
     private readonly InputActivity _input = new();
     private readonly float[] _drain = new float[16_384]; // a multiple of Channels: drains end on whole frames
 
@@ -46,12 +47,15 @@ public sealed class GameRecorder : IFrameStreamSink
     private CaptureTimeline? _timeline;
     private AudioCaptureTap? _tap;
     private RecordingFormat? _format;
-    private Stopwatch? _stopwatch;
     private long _startTimestamp;
+    private long _origin; // live: the video's time 0, in timestamp ticks; set by the first captured frame
+    private bool _anchored;
     private long _offlineFrame;
     private long _audioFramesWritten;
     private long _overflowPadded;
+    private long _audioSkip; // live: frames of audio mixed before the origin, still to be discarded
     private long _dropped;
+    private long _duplicated;
     private bool _audioStarted;
     private float[] _offlineAudio = [];
     private string? _endReason;
@@ -62,9 +66,10 @@ public sealed class GameRecorder : IFrameStreamSink
     /// <param name="audio">The audio server: tapped live, rendered offline. Null records silence of the right length.</param>
     /// <param name="offline">One output frame per update (<c>--fixed-fps</c>) instead of real time.</param>
     /// <param name="info">What the sidecar says about the game.</param>
-    /// <param name="liveClock">Seconds since <see cref="Start"/> for live recordings (tests); default a <see cref="Stopwatch"/>.</param>
+    /// <param name="timestamp">The live clock in <see cref="Stopwatch"/> ticks (tests); default <see cref="Stopwatch.GetTimestamp"/>,
+    /// the clock the audio tap stamps its first block with.</param>
     internal GameRecorder(Func<RecordingFormat, IRecordingBackend> backendFactory, IFrameStreamSource? frames, AudioServer? audio,
-        bool offline, CaptureInfoSource info, Func<double>? liveClock = null)
+        bool offline, CaptureInfoSource info, Func<long>? timestamp = null)
     {
         ArgumentNullException.ThrowIfNull(backendFactory);
         ArgumentNullException.ThrowIfNull(info);
@@ -73,7 +78,7 @@ public sealed class GameRecorder : IFrameStreamSink
         _audio = audio;
         _offline = offline;
         _info = info;
-        _clockOverride = liveClock;
+        _timestamp = timestamp ?? Stopwatch.GetTimestamp;
     }
 
     /// <summary>A recording is running (false again as soon as <see cref="Stop"/> is called, while it finalises).</summary>
@@ -121,11 +126,13 @@ public sealed class GameRecorder : IFrameStreamSink
             _offlineFrame = 0;
             _audioFramesWritten = 0;
             _overflowPadded = 0;
+            _audioSkip = 0;
             _dropped = 0;
+            _duplicated = 0;
             _audioStarted = false;
+            _anchored = false;
             _endReason = null;
-            _stopwatch = Stopwatch.StartNew();
-            _startTimestamp = Stopwatch.GetTimestamp(); // before the tap attaches, so the audio lead is never negative
+            _startTimestamp = _timestamp();
             if (!_offline && _audio is not null)
             {
                 _tap = new AudioCaptureTap(TapCapacitySamples);
@@ -168,6 +175,13 @@ public sealed class GameRecorder : IFrameStreamSink
         var format = _format!;
         var reason = _endReason;
         var written = _scheduler!.WrittenFrames;
+        var duplicated = _duplicated;
+        if (written > 0)
+        {
+            Log.Info($"[Recorder] {written} output frames, {duplicated} repeated ({100.0 * duplicated / written:0.0}%), " +
+                     $"{_dropped} dropped by a busy encoder.");
+        }
+
         if (written == 0)
         {
             // Nothing to mux, and a sidecar with durationSeconds 0 is rejected by Cutback: abandon instead of finishing.
@@ -179,7 +193,8 @@ public sealed class GameRecorder : IFrameStreamSink
         var spans = _timeline!.Finish(duration);
         var info = new CaptureInfo(Path.GetFileName(format.OutputPath), _info.EngineVersion, _info.Game, _info.Scene(), _offline,
             format.Fps, format.Width, format.Height, duration, _dropped);
-        _finishing = Task.Run(() => FinishAsync(backend, format, written, info, spans, reason));
+        _finishing = Task.Run(async () =>
+            await FinishAsync(backend, format, written, info, spans, reason).ConfigureAwait(false) with { DuplicatedFrames = duplicated });
     }
 
     /// <summary>
@@ -273,7 +288,26 @@ public sealed class GameRecorder : IFrameStreamSink
             return false;
         }
 
-        stamp = _offline ? _offlineFrame++ / (double)format.Fps : Now();
+        if (_offline)
+        {
+            stamp = _offlineFrame++ / (double)format.Fps;
+        }
+        else
+        {
+            var now = _timestamp();
+            if (!_anchored)
+            {
+                // The video's time 0 sits half an output slot before the first frame, so frames that arrive at the
+                // output rate with a few ms of jitter land mid-slot and are written exactly once each. Anchored on
+                // Start instead, a first frame near a slot boundary makes every jittered frame after it a coin toss
+                // between a repeat and a skip (visible judder at 60 Hz). Never before Start: nothing is recorded then.
+                _origin = Math.Max(_startTimestamp, now - (long)(Stopwatch.Frequency * 0.5 / format.Fps));
+                _anchored = true;
+            }
+
+            stamp = Seconds(now - _origin);
+        }
+
         return scheduler.ShouldCapture(stamp);
     }
 
@@ -287,7 +321,10 @@ public sealed class GameRecorder : IFrameStreamSink
         try
         {
             if (backend.TryWriteVideo(pixels, copies, wait: _offline))
+            {
                 scheduler.Committed(copies);
+                _duplicated += copies - 1; // a slow frame, or the make-up copies after a drop
+            }
             else
                 _dropped++; // the encoder is behind; the next frame's copies make up the time
         }
@@ -302,9 +339,12 @@ public sealed class GameRecorder : IFrameStreamSink
     // The first failure wins; the next update (or the Stop in progress) ends the recording with it.
     private void Fail(string reason) => _endReason ??= reason;
 
+    // Live: seconds since the origin; 0 until the first frame anchors it, and for anything before it.
     private double Now() => _offline
         ? _offlineFrame / (double)(_format?.Fps ?? 60)
-        : _clockOverride?.Invoke() ?? _stopwatch?.Elapsed.TotalSeconds ?? 0;
+        : _anchored ? Math.Max(0, Seconds(_timestamp() - _origin)) : 0;
+
+    private static double Seconds(long ticks) => (double)ticks / Stopwatch.Frequency;
 
     private void WriteAudio()
     {
@@ -345,11 +385,13 @@ public sealed class GameRecorder : IFrameStreamSink
         _audioFramesWritten = target;
     }
 
-    // Live: align the first block to t0 (pad the gap with silence), copy whatever the audio thread produced, and pad
-    // blocks the ring had to drop with silence of the same length so audio never drifts against the video.
+    // Live: align the first block to the origin (the video's time 0: silence for a block that came later, its first
+    // samples discarded for one that came earlier), copy whatever the audio thread produced, and pad blocks the ring
+    // had to drop with silence of the same length so audio never drifts against the video. Nothing is drained until
+    // the first frame has set the origin; the ring holds about 2.7 s, and overflow before then is discarded too.
     private void DrainLiveAudio()
     {
-        if (_tap is not { } tap)
+        if (_tap is not { } tap || !_anchored)
             return;
         var firstBlock = tap.FirstBlockTimestamp; // before Channels: non-zero guarantees Channels is set
         if (firstBlock == 0)
@@ -362,19 +404,37 @@ public sealed class GameRecorder : IFrameStreamSink
                 return;
             }
 
-            var lead = Stopwatch.GetElapsedTime(_startTimestamp, firstBlock);
-            _backend!.WriteSilence((long)Math.Max(0, lead.TotalSeconds * _format!.SampleRate));
+            var lead = (long)Math.Round(Seconds(firstBlock - _origin) * _format!.SampleRate);
+            if (lead > 0)
+                _backend!.WriteSilence(lead);
+            else
+                _audioSkip = -lead;
             _audioStarted = true;
         }
 
         int n;
         while ((n = tap.Drain(_drain)) > 0)
-            _backend!.WriteAudio(_drain.AsSpan(0, n));
+        {
+            var samples = _drain.AsSpan(0, n);
+            if (_audioSkip > 0)
+            {
+                var skip = (int)Math.Min(_audioSkip, n / Channels);
+                samples = samples[(skip * Channels)..];
+                _audioSkip -= skip;
+            }
+
+            if (!samples.IsEmpty)
+                _backend!.WriteAudio(samples);
+        }
 
         var overflow = tap.OverflowSamples;
         if (overflow > _overflowPadded)
         {
-            _backend!.WriteSilence((overflow - _overflowPadded) / Channels);
+            var silence = (overflow - _overflowPadded) / Channels;
+            var skip = Math.Min(_audioSkip, silence);
+            _audioSkip -= skip;
+            if (silence > skip)
+                _backend!.WriteSilence(silence - skip);
             _overflowPadded = overflow;
         }
     }
