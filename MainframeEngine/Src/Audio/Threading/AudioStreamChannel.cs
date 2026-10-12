@@ -12,7 +12,7 @@ namespace MainframeEngine.Audio;
 /// streaming and closes the file.</para>
 /// <para><b>Samples</b> flow through a single-producer / single-consumer float ring. Positions are absolute sample
 /// counters; the producer owns the write position, the consumer the read position. When the producer starts a new
-/// generation it records where that generation's samples begin (<see cref="GenerationStart"/>) and then publishes
+/// generation it records where that generation's samples begin (<c>_generationStart</c>) and then publishes
 /// <see cref="ActiveGeneration"/>; a consumer only reads once the active generation is its own, jumping its read
 /// position to the start (discarding the previous generation's leftovers). The producer never writes over samples
 /// the consumer has not passed, so a consumer still finishing the previous generation's block reads consistent data.</para>

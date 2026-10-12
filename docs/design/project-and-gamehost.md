@@ -33,7 +33,7 @@ Decisions: [project file + GameHost](../../memory/decisions/0090-project-file-an
 ## A game project
 
 ```text
-MyGame/                      ← dotnet new mfgame -n MyGame --engine-path <engine checkout>
+MyGame/                      ← dotnet new mfgame -n MyGame --engine-version X.Y.Z (the MainframeEngine package)
 ├─ project.mfproj            ← ProjectSettings (copied next to the app)
 ├─ Content/Scenes/Main.mscene
 ├─ MyGame/MyGame.csproj      ← class library: node/resource types (generator as analyzer)
@@ -588,24 +588,30 @@ loader.Load();                    // the rebuilt dll; re-instantiate the scenes
 
 ## Template
 
-`Templates/MainframeEngine.Templates` is a `dotnet new` template package (not published) with `mfgame`:
+`Templates/MainframeEngine.Templates` is the `dotnet new` template package `MainframeEngine.Templates` (nuget.org,
+released with the engine at the same version; the published editor ships a copy for New Project) with `mfgame`:
 
 ```bash
-dotnet new install Templates/MainframeEngine.Templates/content/mfgame
-dotnet new mfgame -n MyGame --engine-path /path/to/mainframe-engine
+dotnet new install MainframeEngine.Templates                # or, from a checkout: Templates/MainframeEngine.Templates/content/mfgame
+dotnet new mfgame -n MyGame                                 # the MainframeEngine package of the template's version
+dotnet new mfgame -n MyGame --engine-version 1.2.0          # another release (needed with the checkout's source template)
+dotnet new mfgame -n MyGame --engine-source project --engine-path /path/to/mainframe-engine   # engine work
 dotnet run --project MyGame/MyGame.Desktop
 ```
 
 | Option | |
 |---|---|
-| `--engine-path` | engine checkout (absolute, or relative to the new project); project references to `MainframeEngine` + the generator |
-| `--engine-source package` | *future*: a `PackageReference` to `MainframeEngine` instead ([distribution](future/distribution-nuget.md)) |
-| `--engine-version` | recorded in `project.mfproj` (and the package version) |
+| `--engine-source` | `package` (default): a `PackageReference` to `MainframeEngine` ([Distribution via NuGet](distribution-nuget.md)), whose `buildTransitive` targets bring the generator, natives, engine content and the build integration. `project`: project references into a checkout, and the game imports `build/MainframeGame.props` and `build/Localization.targets` from it |
+| `--engine-path` | with `project`: the engine checkout (absolute, or relative to the new project) |
+| `--engine-version` | recorded in `project.mfproj`; with `package`, the package version (`MainframeEngineVersion` in `Directory.Build.props`), so it must be a release. Default: the `MainframeEngine.Templates` package's own version (stamped at pack time), `0.0.0-dev` in the source template; the editor passes its own |
+
+The game's `Directory.Build.props` sets `ImportDirectoryPackagesProps=false`: a game inside a repository that uses central
+package management keeps its own versions.
 
 A new game's `project.mfproj` spells out the defaults it starts from: a 1280×720 VSync window, 60 Hz physics with
 5 steps per frame and Earth gravity, `Content/Settings/AudioBusLayout.mres` (shipped: Master → Music, SFX, UI, Voice),
-`en` as the source locale with catalogs in `Content/locale` (the desktop project imports `build/Localization.targets` with
-`LocaleContentRoot=../Content`, so a `.po` added there is compiled and shipped) and `High` shadows.
+`en` as the source locale with catalogs in `Content/locale` (the desktop project sets `LocaleContentRoot=../Content` for
+`Localization.targets`, from the package or imported from the checkout, so a `.po` added there is compiled and shipped) and `High` shadows.
 
 The game library has a `SaveGame` autoload (`MyGame/Src/SaveGame.cs`, registered in `autoloads`) showing the
 [save API](#save-games) in about 60 lines: a `SaveData` record with a source-generated `JsonSerializerContext` (no
@@ -616,7 +622,9 @@ save on mobile.
 
 `just template-smoke` (`build/template-smoke.sh`) installs the template into a private hive, creates `SmokeGame`
 against the checkout, builds it warnings-as-errors and runs it for 30 hidden frames with `--screenshot`, failing on any
-`[ERROR]` in its log or a missing screenshot; CI's `template` job does the same on lavapipe and packs the template (`just template-pack`).
+`[ERROR]` in its log or a missing screenshot. `just template-smoke-package` does the same with both NuGet packages
+packed into a local feed: the template comes from the packed `MainframeEngine.Templates` and the game references
+`MainframeEngine` ([Distribution via NuGet](distribution-nuget.md#tests)). CI's `template` job runs both on lavapipe.
 
 ## Testing
 
@@ -650,5 +658,5 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 ## Related docs
 
 [Editor](editor.md) · [Engine lifecycle](engine-lifecycle.md) · [Cameras & input](cameras-and-input.md) ·
-[Scene serialization](scene-serialization.md) · [Distribution via NuGet](future/distribution-nuget.md) ·
+[Scene serialization](scene-serialization.md) · [Distribution via NuGet](distribution-nuget.md) ·
 [Release](release.md) · [Testing](testing.md)

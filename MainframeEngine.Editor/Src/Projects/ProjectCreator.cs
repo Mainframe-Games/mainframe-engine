@@ -19,8 +19,8 @@ public sealed record ProjectCreateResult(bool Succeeded, string ProjectDirectory
 /// <summary>
 /// Creates a game project from the <c>mfgame</c> template, as <c>build/template-smoke.sh</c> does: the template is
 /// installed into a private template hive (<c>--debug:custom-hive</c>, default <c>~/.mainframe/templates</c>) so the
-/// user's global <c>dotnet new</c> templates are never touched, then <c>dotnet new mfgame</c> runs against the chosen
-/// engine checkout. The install is skipped while a marker in the hive records the same template (folder, files and
+/// user's global <c>dotnet new</c> templates are never touched, then <c>dotnet new mfgame</c> runs with the chosen engine
+/// source: the MainframeEngine package at <see cref="EngineVersion"/>, or an engine checkout. The install is skipped while a marker in the hive records the same template (folder, files and
 /// <c>dotnet</c>); if creating then fails, the template is reinstalled and creation retried once.
 /// </summary>
 /// <remarks>
@@ -58,6 +58,12 @@ public sealed class ProjectCreator
     public string HiveDirectory { get; }
 
     /// <summary>
+    /// The engine version new projects record in <c>project.mfproj</c>, and the MainframeEngine package version they
+    /// reference with <see cref="EngineSource.Package"/>: this editor's own (<see cref="EngineInfo.Version"/>).
+    /// </summary>
+    public string EngineVersion { get; init; } = EngineInfo.Version;
+
+    /// <summary>
     /// True when the hive's marker records this template as installed (same folder, same files, same <c>dotnet</c>),
     /// so <see cref="CreateAsync"/> skips <c>dotnet new install</c>.
     /// </summary>
@@ -76,8 +82,7 @@ public sealed class ProjectCreator
 
     /// <summary>
     /// Validates <paramref name="request"/> (<see cref="NewProjectValidation.Validate"/>), installs the template when
-    /// needed, runs <c>dotnet new mfgame -n Name -o ProjectDirectory --engine-path EnginePath --engine-version
-    /// EngineInfo.Version</c> and checks the result: <c>project.mfproj</c> loads and <c>Content/Scenes/Main.mscene</c>
+    /// needed, runs <c>dotnet new mfgame</c> (<see cref="NewArguments"/>) and checks the result: <c>project.mfproj</c> loads and <c>Content/Scenes/Main.mscene</c>
     /// exists. <paramref name="onOutput"/> receives every log line (from a background thread). Cancelling kills the
     /// running command and returns a failed result.
     /// </summary>
@@ -111,7 +116,7 @@ public sealed class ProjectCreator
             return new ProjectCreateResult(false, target, error, text, stopwatch.Elapsed);
         }
 
-        if (NewProjectValidation.Validate(request) is { } invalid)
+        if (NewProjectValidation.Validate(request, EngineVersion) is { } invalid)
             return Fail(invalid);
         target = Path.Combine(GameProjectLayout.RealPath(request.ParentDirectory), request.Name);
         if (!TemplateLocator.IsTemplate(TemplateDirectory))
@@ -186,14 +191,24 @@ public sealed class ProjectCreator
 
     private async Task<(string? Error, bool Cancelled)> RunNewAsync(NewProjectRequest request, string target, Action<string> write, CancellationToken ct)
     {
-        string[] arguments =
-        [
-            "new", "mfgame", "-n", request.Name, "-o", target,
-            "--engine-path", GameProjectLayout.RealPath(request.EnginePath), "--engine-version", EngineInfo.Version,
-            "--debug:custom-hive", HiveDirectory,
-        ];
-        var result = await RunAsync(arguments, write, ct).ConfigureAwait(false);
+        var result = await RunAsync(NewArguments(request, target, EngineVersion, HiveDirectory), write, ct).ConfigureAwait(false);
         return (Describe(result, "Creating the project (dotnet new mfgame)"), result.Cancelled);
+    }
+
+    /// <summary>
+    /// The <c>dotnet new mfgame</c> arguments: <c>-n Name -o target --engine-source package --engine-version V</c>, or with
+    /// <see cref="EngineSource.Checkout"/> <c>--engine-source project --engine-path EnginePath --engine-version V</c>.
+    /// </summary>
+    public static string[] NewArguments(NewProjectRequest request, string target, string engineVersion, string hiveDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        List<string> arguments = ["new", "mfgame", "-n", request.Name, "-o", target];
+        if (request.EngineSource == EngineSource.Package)
+            arguments.AddRange(["--engine-source", "package"]);
+        else
+            arguments.AddRange(["--engine-source", "project", "--engine-path", GameProjectLayout.RealPath(request.EnginePath)]);
+        arguments.AddRange(["--engine-version", engineVersion, "--debug:custom-hive", hiveDirectory]);
+        return [.. arguments];
     }
 
     private Task<ProcessResult> RunAsync(string[] arguments, Action<string> write, CancellationToken ct)

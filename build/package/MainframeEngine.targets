@@ -1,0 +1,31 @@
+<Project>
+  <!--
+    buildTransitive/MainframeEngine.targets of the MainframeEngine package (docs/design/distribution-nuget.md), imported
+    after the project body. For app projects (Exe/WinExe, test projects, or MainframeEngineCopyContent=true; a game
+    library does not need them, and its executable would get them twice):
+
+    - Engine content: the package's mainframe/Content/** (compiled shaders, UI widgets, fonts, ...) is copied to
+      <output>/Content/ and the publish folder, next to the game's own content, exactly where a checkout build puts it.
+      ContentPaths resolves both from there. MainframeEngineCopyContent=false turns it off.
+    - Localization: Localization.targets, as checkout games import it, with the mf-l10n the package carries.
+      Content/locale/<locale>/LC_MESSAGES/*.po (LocaleContentRoot, default Content) compile to .mo in the output.
+
+    Natives (runtimes/<rid>/native) need nothing here: NuGet lists them in the app's deps.json for RID-less builds and
+    copies the RID's files on dotnet publish -r.
+  -->
+  <PropertyGroup>
+    <_MainframeEngineAppProject Condition="'$(MainframeEngineCopyContent)' == 'true'">true</_MainframeEngineAppProject>
+    <_MainframeEngineAppProject Condition="'$(MainframeEngineCopyContent)' == '' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe' or '$(IsTestProject)' == 'true')">true</_MainframeEngineAppProject>
+    <_MainframeEnginePackageRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</_MainframeEnginePackageRoot>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_MainframeEngineAppProject)' == 'true'">
+    <None Include="$(_MainframeEnginePackageRoot)/mainframe/Content/**" Link="Content/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(_MainframeEngineAppProject)' == 'true' and '$(MfL10nPath)' == ''">
+    <MfL10nPath>$(_MainframeEnginePackageRoot)/tools/mf-l10n/mf-l10n.dll</MfL10nPath>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)Localization.targets" Condition="'$(_MainframeEngineAppProject)' == 'true'" />
+</Project>

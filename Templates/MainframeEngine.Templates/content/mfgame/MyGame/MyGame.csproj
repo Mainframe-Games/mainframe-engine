@@ -4,7 +4,7 @@
 
 <!--#if (UsePackage) -->
   <ItemGroup>
-    <!-- Future: the package carries the engine, its natives and content, and the source generator. -->
+    <!-- The engine, its source generator ([Export]/[Signal]/[Replicated] registration), natives and content. -->
     <PackageReference Include="MainframeEngine" Version="$(MainframeEngineVersion)" />
   </ItemGroup>
 <!--#else -->

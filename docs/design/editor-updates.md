@@ -1,7 +1,7 @@
 # Editor updates — check GitHub Releases, update in place
 
 **Status:** implemented. Engine packages for games without the editor are a separate sub-project
-([distribution via NuGet](future/distribution-nuget.md)); the release archives are described in
+([distribution via NuGet](distribution-nuget.md)); the release archives are described in
 [Release & versioning](release.md).
 
 ## Problem
@@ -239,4 +239,4 @@ fallback.
 
 ## Related docs
 
-[Release & versioning](release.md) · [Editor](editor.md) · [Future: distribution via NuGet](future/distribution-nuget.md)
+[Release & versioning](release.md) · [Editor](editor.md) · [Distribution via NuGet](distribution-nuget.md)

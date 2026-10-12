@@ -1,9 +1,13 @@
 name: publish
 
-# Manual release of the editor. Only brogan89 can run it, and only from main.
+# Manual release of the editor and the MainframeEngine NuGet package. Only brogan89 can run it, and only from main.
 # Version = latest vX.Y.Z tag with the chosen part bumped (input "bump": patch by default, minor or major; first
 # release: v1.0.0). Nothing is committed to main: the version lives in the tag, and builds get it via -p:Version.
-# See docs/design/release.md.
+# The packages (MainframeEngine, MainframeEngine.Templates) go to nuget.org after the GitHub Release exists, through
+# nuget.org Trusted Publishing (no stored API key): a policy owned by the Mainframe-Games organization trusts this
+# repository's publish.yml in the "release" environment; NuGet/login exchanges the job's OIDC token for a 1-hour key.
+# NUGET_USER below is the nuget.org username (not a secret) of the organization member who created that policy.
+# See docs/design/release.md and docs/design/distribution-nuget.md.
 on:
   workflow_dispatch:
     inputs:
@@ -25,6 +29,7 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  NUGET_USER: brogan # nuget.org Trusted Publishing: who created the Mainframe-Games policy (see the header)
   EDITOR_PROJECT: MainframeEngine.Editor/MainframeEngine.Editor.csproj
 
 jobs:
@@ -115,6 +120,37 @@ jobs:
           path: artifacts/release/*
           if-no-files-found: error
 
+  package:
+    name: package (MainframeEngine + MainframeEngine.Templates NuGet)
+    needs: [guard, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # The package carries the engine's content and natives (LFS) and the brand icon.
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Fetch the engine's LFS objects
+        run: git lfs pull --include="MainframeEngine/**,docs/images/brand/**"
+
+      - run: git submodule update --init --depth 1 Plugins/Spine
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Pack MainframeEngine and MainframeEngine.Templates
+        env:
+          PACK_ARGS: -p:CompileShaders=false -warnaserror
+        run: build/pack-nuget.sh "${{ needs.guard.outputs.version }}" artifacts/nuget
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: artifacts/nuget/*
+          if-no-files-found: error
+
   demo:
     needs: [guard, ci]
     runs-on: ubuntu-24.04
@@ -156,11 +192,12 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [guard, build, demo, forest]
+    needs: [guard, build, package, demo, forest]
     runs-on: ubuntu-24.04
     environment: release
     permissions:
       contents: write # create the tag and the release
+      id-token: write # nuget.org Trusted Publishing (NuGet/login)
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -168,14 +205,37 @@ jobs:
           path: release
           merge-multiple: true
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget
+          path: nuget
+
       - name: Create tag v${{ needs.guard.outputs.version }} and GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.guard.outputs.version }}
         run: |
           ls -l release
-          gh release create "v${VERSION}" release/* \
+          gh release create "v${VERSION}" release/* nuget/*.nupkg \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "Mainframe Engine v${VERSION}" \
             --generate-notes
+
+      # After the tag and the release, so a failed release never leaves a published package behind (nuget.org packages
+      # can be unlisted, never deleted). The .snupkg next to the engine package is pushed to the symbol server too.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Trusted Publishing: a short-lived (1 hour) API key for this run, requested right before the push.
+      - name: nuget.org login (OIDC)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ env.NUGET_USER }}
+
+      - name: Push MainframeEngine and MainframeEngine.Templates ${{ needs.guard.outputs.version }} to nuget.org
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push "nuget/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

@@ -1,6 +1,18 @@
 <p align="center"><img src="docs/images/brand/logo.svg" width="128" alt="Mainframe Engine logo"></p>
 <h1 align="center">Mainframe Engine</h1>
 
+<p align="center">
+  <a href="https://www.nuget.org/packages/MainframeEngine"><img src="https://img.shields.io/nuget/v/MainframeEngine?logo=nuget&label=MainframeEngine" alt="MainframeEngine on NuGet"></a>
+  <a href="https://www.nuget.org/packages/MainframeEngine.Templates"><img src="https://img.shields.io/nuget/v/MainframeEngine.Templates?logo=nuget&label=templates" alt="MainframeEngine.Templates on NuGet"></a>
+  <a href="https://www.nuget.org/packages/MainframeEngine"><img src="https://img.shields.io/nuget/dt/MainframeEngine?logo=nuget&label=downloads" alt="NuGet downloads"></a>
+  <a href="https://github.com/Mainframe-Games/mainframe-engine/releases/latest"><img src="https://img.shields.io/github/v/release/Mainframe-Games/mainframe-engine?logo=github&label=editor" alt="Latest editor release"></a>
+  <a href="https://github.com/Mainframe-Games/mainframe-engine/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/Mainframe-Games/mainframe-engine/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://mainframe-games.github.io/mainframe-engine/"><img src="https://img.shields.io/badge/docs-mainframe--games.github.io-blue?logo=astro" alt="Documentation"></a>
+  <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet" alt=".NET 10">
+  <img src="https://img.shields.io/badge/Vulkan-1.2-AC162C?logo=vulkan" alt="Vulkan 1.2">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Mainframe-Games/mainframe-engine" alt="MIT licence"></a>
+</p>
+
 A modular C# game engine and Godot-style editor built on Vulkan via [Silk.NET](https://github.com/dotnet/Silk.NET):
 a node/scene system with source-generated serialization, cascaded shadows, materials and model import, RmlUi game UI,
 Jitter2/Box2D physics, SoundFlow audio, server-authoritative multiplayer, gettext localization and Spine skeletal
@@ -488,13 +500,29 @@ Full C# port of the Spine skeletal animation runtime:
 
 ### A new game
 
-Games are their own projects; the engine runs them with `GameHost` from a `project.mfproj` (no `Engine` subclass):
+Games are their own projects; the engine runs them with `GameHost` from a `project.mfproj` (no `Engine` subclass).
+The engine is the [`MainframeEngine`](https://www.nuget.org/packages/MainframeEngine) NuGet package (engine, source
+generator, natives, engine content and build integration), so a game needs neither this repo nor the editor:
+
+```bash
+dotnet add package MainframeEngine      # in any .NET 10 project
+```
+
+The [`mfgame` template](https://www.nuget.org/packages/MainframeEngine.Templates) sets up a whole game project (the
+editor's New Project uses the same template):
+
+```bash
+dotnet new install MainframeEngine.Templates
+dotnet new mfgame -n MyGame              # references MainframeEngine of the template's version
+dotnet run --project MyGame/MyGame.Desktop
+```
+
+To build a game against a checkout of this repo instead (engine work):
 
 ```bash
 git clone --recurse-submodules <this repo> mainframe-engine     # Plugins/Spine is a submodule
 dotnet new install mainframe-engine/Templates/MainframeEngine.Templates/content/mfgame
-dotnet new mfgame -n MyGame --engine-path "$PWD/mainframe-engine"
-dotnet run --project MyGame/MyGame.Desktop
+dotnet new mfgame -n MyGame --engine-source project --engine-path "$PWD/mainframe-engine"
 ```
 
 This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGame.Desktop/`
@@ -506,8 +534,8 @@ This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGam
 ### Make a game (in the editor)
 
 1. `just editor` opens the **Project Manager** (it checks for a .NET 10 SDK and links to the download if missing).
-2. **New Project**: a name (a C# identifier, e.g. `MyGame`) and a parent folder; the engine checkout is found
-   automatically. Create runs `dotnet new mfgame`, builds the game and opens it — `Content/Scenes/Main.mscene` with the
+2. **New Project**: a name (a C# identifier, e.g. `MyGame`) and a parent folder; the game references the
+   `MainframeEngine` package of the editor's version (or, for engine work, an engine checkout). Create runs `dotnet new mfgame`, builds the game and opens it — `Content/Scenes/Main.mscene` with the
    template's `Spinner` node.
 3. Edit the scene: **Add Node** (Cmd/Ctrl+A), drag files from the **FileSystem** panel onto the scene tree or the
    viewport, change properties in the inspector, connect signals in its Signals tab. Cmd/Ctrl+S saves.

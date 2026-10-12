@@ -1,13 +1,13 @@
 # ADR 0094 — `mfgame` template references the engine by path until packages ship
 
 - **Date:** 2026-10-05
-- **Status:** accepted
+- **Status:** accepted; package mode superseded by [ADR 0188](0188-engine-nuget-package.md) (the template now defaults to the package)
 - **Milestone:** M10 (lane m10b)
 
 ## Context
 
 `dotnet new mfgame` should create a project that builds today, but the NuGet packages
-([distribution plan](../../docs/design/future/distribution-nuget.md)) are future work.
+([distribution plan](../../docs/design/distribution-nuget.md)) are future work.
 
 ## Decision
 

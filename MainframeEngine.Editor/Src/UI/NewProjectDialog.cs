@@ -3,10 +3,15 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The New Project wizard (E4): name, parent folder and engine checkout, validated as you type, the .NET SDK check
+/// The New Project wizard (E4): name, parent folder and engine source, validated as you type, the .NET SDK check
 /// (with the download link), then <c>dotnet new mfgame</c> through the <see cref="ProjectCreator"/> with live output;
 /// the new project opens when it is done. Cancel stops a running creation.
 /// </summary>
+/// <remarks>
+/// The engine source defaults to the MainframeEngine NuGet package at this editor's version (a release editor needs no
+/// engine checkout; the template ships next to it). Development builds (<c>0.0.0-dev</c>) have no package and use an
+/// engine checkout, which a release editor can also choose (for engine work).
+/// </remarks>
 public sealed class NewProjectDialog : EditorDocument
 {
     private const int MaxLogLines = 12;
@@ -16,6 +21,7 @@ public sealed class NewProjectDialog : EditorDocument
     private string _name = "MyGame";
     private string _location = DefaultLocation;
     private string _enginePath = "";
+    private EngineSource _source = NewProjectValidation.IsPackageVersion(EngineInfo.Version) ? EngineSource.Package : EngineSource.Checkout;
     private string _error = "";
     private string _logText = "";
     private string _sdkText = "";
@@ -66,6 +72,20 @@ public sealed class NewProjectDialog : EditorDocument
         }
     }
 
+    /// <summary>The package (the editor's version, when it is a release) or an engine checkout (<see cref="EnginePath"/>).</summary>
+    public EngineSource EngineSource
+    {
+        get => _source;
+        set
+        {
+            _source = value;
+            Validate();
+        }
+    }
+
+    /// <summary>True when this editor is a release, so a MainframeEngine package of its version exists.</summary>
+    public static bool PackageAvailable => NewProjectValidation.IsPackageVersion(EngineInfo.Version);
+
     /// <summary>The current validation or creation error (empty when none).</summary>
     public string Error => _error;
 
@@ -96,6 +116,12 @@ public sealed class NewProjectDialog : EditorDocument
                 d._enginePath = v ?? "";
                 d.ValidateLater();
             })
+            .Bind("source", this, static d => (int)d._source)
+            .Bind("package_available", this, static _ => PackageAvailable)
+            .Bind("package_tooltip", this, static _ => PackageAvailable
+                ? $"MainframeEngine {EngineInfo.Version} from NuGet — the engine package of this editor's version; no engine checkout needed"
+                : $"MainframeEngine package — not available: this editor is a development build ({EngineInfo.Version})")
+            .Bind("package_text", this, static _ => $"MainframeEngine {EngineInfo.Version}")
             .Bind("error", this, static d => d._error)
             .Bind("log", this, static d => d._logText)
             .Bind("sdk", this, static d => d._sdkText)
@@ -103,6 +129,7 @@ public sealed class NewProjectDialog : EditorDocument
             .Bind("target", this, static d => d.TargetText())
             .Event("browse_location", _ => BrowseLocation())
             .Event("browse_engine", _ => BrowseEngine())
+            .Event("set_source", e => SetSourceLater((EngineSource)e.GetArgument(0).GetInt32()))
             .Event("create", _ => Create())
             .Event("cancel", _ => Cancel());
     }
@@ -138,6 +165,14 @@ public sealed class NewProjectDialog : EditorDocument
                 return name + i;
     }
 
+    private void SetSourceLater(EngineSource source)
+    {
+        if (source == EngineSource.Package && !PackageAvailable)
+            return;
+        _source = source;
+        ValidateLater();
+    }
+
     private void ValidateLater()
     {
         if (IsInsideTree)
@@ -147,12 +182,14 @@ public sealed class NewProjectDialog : EditorDocument
     /// <summary>Validates the fields; the error line shows the first problem.</summary>
     public bool Validate()
     {
-        var request = new NewProjectRequest(_name.Trim(), _location.Trim(), _enginePath.Trim());
+        var request = Request();
         var error = NewProjectValidation.ValidateName(request.Name)
                     ?? (Directory.Exists(request.ParentDirectory) || request.ParentDirectory.Length == 0
                         ? NewProjectValidation.ValidateLocation(request.ParentDirectory, request.Name)
                         : null)
-                    ?? NewProjectValidation.ValidateEnginePath(request.EnginePath)
+                    ?? (_source == EngineSource.Checkout
+                        ? NewProjectValidation.ValidateEnginePath(request.EnginePath)
+                        : NewProjectValidation.ValidatePackageVersion(EngineInfo.Version))
                     ?? (Sdk is { IsSupported: false } sdk ? sdk.Error : null);
         _error = error ?? "";
         _model?.DirtyAll();
@@ -211,27 +248,37 @@ public sealed class NewProjectDialog : EditorDocument
             return false;
         }
 
-        var template = TemplateLocator.FindTemplate(_enginePath.Trim());
+        // A checkout game uses that checkout's template; a package game the one shipped next to the editor (else, in a
+        // development run, the checkout this editor runs from).
+        var template = _source == EngineSource.Checkout
+            ? TemplateLocator.FindTemplate(_enginePath.Trim())
+            : TemplateLocator.FindTemplate(null) ?? TemplateLocator.FindTemplate(TemplateLocator.FindEngineCheckout());
         if (template is null)
         {
-            _error = $"The mfgame template was not found in {_enginePath} (Templates/MainframeEngine.Templates/content/mfgame).";
+            _error = _source == EngineSource.Checkout
+                ? $"The mfgame template was not found in {_enginePath} (Templates/MainframeEngine.Templates/content/mfgame)."
+                : $"The mfgame template was not found next to the editor ({TemplateLocator.PackagedTemplateRelativePath}); reinstall the editor.";
             _model?.Dirty("error");
             return false;
         }
 
         Directory.CreateDirectory(_location.Trim());
-        var request = new NewProjectRequest(_name.Trim(), _location.Trim(), _enginePath.Trim());
+        var request = Request();
         _busy = true;
         _error = "";
         _log.Clear();
         _cancel = new CancellationTokenSource();
         var creator = new ProjectCreator(dotnet, template);
-        _incoming.Enqueue($"dotnet new mfgame -n {request.Name} --engine-path {request.EnginePath}");
+        _incoming.Enqueue(_source == EngineSource.Package
+            ? $"dotnet new mfgame -n {request.Name} --engine-source package --engine-version {EngineInfo.Version}"
+            : $"dotnet new mfgame -n {request.Name} --engine-source project --engine-path {request.EnginePath}");
         _creation = creator.CreateAsync(request, line => _incoming.Enqueue(line), _cancel.Token);
         _model?.DirtyAll();
         Log.Info($"[Editor] Creating {request.ProjectDirectory}…");
         return true;
     }
+
+    private NewProjectRequest Request() => new(_name.Trim(), _location.Trim(), _enginePath.Trim(), _source);
 
     private void Finish(ProjectCreateResult result)
     {

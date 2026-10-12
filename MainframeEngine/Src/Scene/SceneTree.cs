@@ -713,10 +713,6 @@ public sealed partial class SceneTree
     // Timers
     // ------------------------------------------------------------------------------------------------
 
-    /// <summary>
-    /// A one-shot timer owned by the tree (Godot's <c>create_timer</c>): <see cref="SceneTreeTimer.Timeout"/>
-    /// fires after <paramref name="seconds"/>. Paused with the tree unless <paramref name="processAlways"/>.
-    /// </summary>
     private readonly List<Tween> _tweens = [];
     private readonly List<Tween> _tweensStepping = [];
 
@@ -748,6 +744,10 @@ public sealed partial class SceneTree
         }
     }
 
+    /// <summary>
+    /// A one-shot timer owned by the tree (Godot's <c>create_timer</c>): <see cref="SceneTreeTimer.Timeout"/>
+    /// fires after <paramref name="seconds"/>. Paused with the tree unless <paramref name="processAlways"/>.
+    /// </summary>
     public SceneTreeTimer CreateTimer(float seconds, bool processAlways = true, bool processInPhysics = false)
     {
         var timer = new SceneTreeTimer(seconds, processAlways, processInPhysics);

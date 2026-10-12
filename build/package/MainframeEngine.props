@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    buildTransitive/MainframeEngine.props of the MainframeEngine package (docs/design/distribution-nuget.md): imported
+    before the project body of every project that references the package, directly or through a game library.
+    It gives package games what checkout games get from importing build/MainframeGame.props in their
+    Directory.Build.props: the DEMO flag, the app name/icon and the macOS development .app bundle (all inert without a
+    project.mfproj above the project), and CopyLocalLockFileAssemblies for the editor's code reload.
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)MainframeGame.props" />
+</Project>

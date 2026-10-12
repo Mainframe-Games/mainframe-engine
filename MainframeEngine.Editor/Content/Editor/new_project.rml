@@ -24,6 +24,9 @@
             white-space: pre-wrap;
             overflow: hidden;
         }
+        .package { flex: 1 1 auto; margin-left: 8dp; color: #b4bccc; }
+        .package .hint { color: #8b93a5; }
+        .dialog-row button.tool-button { width: 26dp; height: 24dp; margin-left: 0dp; margin-right: 2dp; }
         .about { display: block; flex: 0 0 auto; color: #8b93a5; font-size: 11dp; line-height: 15dp; margin-bottom: 10dp; }
     </style>
 </head>
@@ -44,8 +47,11 @@
             <div class="target">{{target}}</div>
             <div class="dialog-row">
                 <span class="caption">Engine</span>
-                <input type="text" class="text" id="np-engine" data-value="engine"/>
-                <button id="np-browse-engine" data-event-click="browse_engine()" data-tooltip="Browse — the engine checkout the game builds against (holds MainframeEngine.slnx)"><span class="icon icon-sm icon-folder-open"></span></button>
+                <button class="tool-button" id="np-source-package" data-class-active="source == 0" data-class-disabled="!package_available" data-event-click="set_source(0)" data-attr-data-tooltip="package_tooltip"><span class="icon icon-sm icon-package"></span></button>
+                <button class="tool-button" id="np-source-checkout" data-class-active="source == 1" data-event-click="set_source(1)" data-tooltip="Engine checkout — project references into a clone of the engine repository, for working on the engine itself"><span class="icon icon-sm icon-folder-code"></span></button>
+                <span class="package" id="np-package" data-if="source == 0">{{package_text}} <span class="hint">· NuGet package</span></span>
+                <input type="text" class="text" id="np-engine" data-if="source == 1" data-value="engine"/>
+                <button id="np-browse-engine" data-if="source == 1" data-event-click="browse_engine()" data-tooltip="Browse — the engine checkout the game builds against (holds MainframeEngine.slnx)"><span class="icon icon-sm icon-folder-open"></span></button>
             </div>
             <div class="sdk" data-if="sdk != ''"><span class="icon icon-sm icon-circle-check"></span> {{sdk}}</div>
             <div class="log" id="np-log">{{log}}</div>

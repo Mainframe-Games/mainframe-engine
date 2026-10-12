@@ -13,7 +13,7 @@ namespace MainframeEngine;
 /// <remarks>
 /// "Just pressed" follows Godot: in <see cref="Node.OnProcess"/> it is true for the process frame after the press;
 /// in <see cref="Node.OnPhysicsProcess"/> for the first physics step after it. Queries and event handling do not
-/// allocate (the action table is rebuilt only when the <see cref="Map"/> changes). Main thread only.
+/// allocate (the action table is rebuilt only when the <see cref="InputMap"/> changes). Main thread only.
 /// </remarks>
 /// <summary>How the OS cursor behaves (Godot's <c>Input.MouseMode</c>, same ordinals; ADR 0125).</summary>
 public enum MouseMode

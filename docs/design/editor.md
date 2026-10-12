@@ -389,10 +389,23 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   `RmlCore.ReleaseTextures()` re-reads the image. New projects ship `Content/icon.png` (the template default, the brand
   logo) with `window.icon` set, and the Demo has its own. Project Settings › Window › Icon previews the PNG (32 dp)
   beside its field.
-- **New Project** (`new_project.rml`): name, parent folder, the engine checkout (found above the editor, or chosen) and
-  a live validation (`NewProjectValidation`: a valid C# identifier, an empty or missing target folder, the SDK).
-  Create runs `dotnet new mfgame --engine-path …` from a private template hive (`~/.mainframe/templates`; the user's
-  global templates are untouched), builds the game, then opens it.
+- **New Project** (`new_project.rml`): name, parent folder, the engine source and a live validation
+  (`NewProjectValidation`: a valid C# identifier, an empty or missing target folder, the engine, the SDK). The Engine row
+  has two icon toggles:
+  - **package** (`icon-package`): the `MainframeEngine` NuGet package at the editor's own version (`EngineInfo.Version`),
+    shown as "MainframeEngine X.Y.Z · NuGet package". It is the default in a release editor and needs no engine checkout.
+  - **engine checkout** (`icon-folder-code`): a path field and Browse, prefilled with the checkout found above the
+    editor or in `MAINFRAME_ENGINE_PATH`.
+
+  Development builds (`0.0.0-dev`, `NewProjectValidation.IsPackageVersion` false) have no package: that toggle is
+  disabled with a tooltip saying why, and the checkout is used.
+
+  Create runs `dotnet new mfgame --engine-source package|project … --engine-version <editor version>`
+  (`ProjectCreator.NewArguments`) from a private template hive (`~/.mainframe/templates`; the user's global templates
+  are untouched), builds the game, then opens it. The template comes from:
+  - the checkout, for a checkout game;
+  - otherwise the copy published next to the editor (`Templates/mfgame`, `MainframeEngine.Editor.csproj`), with the
+    checkout the editor runs from as the fallback in development.
 - **Download Demo** (`download_demo.rml`, `DownloadDemoDialog`; the Project Manager's Download Example menu, one item per
   `ExampleProject`): fetches the [Demo](demo.md) or the Forest for this editor version and opens it. Below, the Demo
   stands for either: the Forest's asset and folder are `MainframeEngine.Forest` (`ExampleProject.AssetName`). The location (default `~/MainframeProjects`, created when

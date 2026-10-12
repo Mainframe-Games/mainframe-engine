@@ -226,8 +226,8 @@ public abstract class Engine : IDisposable
 
     /// <summary>
     /// Framebuffer size in pixels — what the swapchain, viewports and aspect ratios use. On HiDPI
-    /// displays this is larger than <see cref="IWindow.Size"/> (points); prefer it over
-    /// <see cref="IWindow.FramebufferSize"/>, which SDL reports in points for Vulkan windows.
+    /// displays this is larger than <see cref="Silk.NET.Windowing.IWindowProperties.Size"/> (points); prefer it over
+    /// <see cref="Silk.NET.Windowing.IView.FramebufferSize"/>, which SDL reports in points for Vulkan windows.
     /// </summary>
     public Vector2D<int> FramebufferSize => WindowPixels.FramebufferSize(Window);
 

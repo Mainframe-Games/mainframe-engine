@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace MainframeEngine;
 
-/// <summary>Per-frame counters of the mesh renderer (shown by <see cref="RendererDebugWindow"/>).</summary>
+/// <summary>Per-frame counters of the mesh renderer (shown by the renderer debug window).</summary>
 public struct MeshDrawStats
 {
     /// <summary>Geometry instances considered (visible in the tree, with a mesh).</summary>

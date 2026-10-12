@@ -12,6 +12,22 @@
         <EnableAotAnalyzer>true</EnableAotAnalyzer>
     </PropertyGroup>
 
+    <!-- The MainframeEngine NuGet package (docs/design/distribution-nuget.md; layout under "Package contents" below). -->
+    <PropertyGroup>
+        <IsPackable>true</IsPackable>
+        <PackageId>MainframeEngine</PackageId>
+        <Title>Mainframe Engine</Title>
+        <Description>A modular C# game engine on Vulkan: Godot-style scene tree with source-generated serialization, PBR materials and shadows, RmlUi game UI, Jitter2/Box2D physics, SoundFlow audio, multiplayer, gettext localization and Spine animation. Includes the source generator, the native libraries and the engine content; run a game with GameHost.</Description>
+        <PackageTags>game;engine;gamedev;vulkan;3d;2d;rmlui;physics;mainframe</PackageTags>
+        <PackageIcon>icon.png</PackageIcon>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <!-- CS1591/CS1573: not every public member or parameter is documented yet; CS0419: crefs name overload groups on purpose. The rest of the doc-comment checks stay errors. -->
+        <NoWarn>$(NoWarn);CS1591;CS1573;CS0419</NoWarn>
+        <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_MainframePackReferencedAssemblies</TargetsForTfmSpecificBuildOutput>
+        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_MainframePackContent</TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
     <!-- NuGet Packages -->
     <ItemGroup>
         <!--
@@ -46,7 +62,13 @@
 
     <!-- Local References -->
     <ItemGroup>
-      <ProjectReference Include="..\Plugins\Spine\spine-csharp\spine-csharp.csproj" />
+      <!--
+        Spine types are public API (SpineNode.State), so referencing projects compile against spine-csharp. The engine
+        package carries spine-csharp.dll in its own lib/ instead of depending on a spine-csharp package: while packing
+        (dotnet pack sets _IsPacking) the reference is private, so the nuspec gets no dependency on it.
+      -->
+      <ProjectReference Include="..\Plugins\Spine\spine-csharp\spine-csharp.csproj" Condition="'$(_IsPacking)' != 'true'" />
+      <ProjectReference Include="..\Plugins\Spine\spine-csharp\spine-csharp.csproj" Condition="'$(_IsPacking)' == 'true'" PrivateAssets="all" />
       <!-- Source generator: [Export]/[Signal] type registration for the engine's own node and resource types. -->
       <ProjectReference Include="..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
                         OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
@@ -92,5 +114,63 @@
         <_Parameter2>$(MSBuildProjectDirectory)/Content</_Parameter2>
       </AssemblyAttribute>
     </ItemGroup>
+
+    <!--
+      Package contents besides lib/net10.0/MainframeEngine.dll (+ .xml) and runtimes/<rid>/native/* (above):
+        lib/net10.0/spine-csharp.dll         the vendored Spine runtime (a project reference, no package of its own)
+        analyzers/dotnet/cs/                 MainframeEngine.Generators.dll, so game code gets [Export]/[Signal]/[Rpc]
+        mainframe/Content/**                 exactly what this project copies to <output>/Content (compiled .spv, UI,
+                                             fonts, trees, brand); buildTransitive/MainframeEngine.targets copies it into
+                                             the game's output Content/, where ContentPaths finds it as in a checkout
+        tools/mf-l10n/                       mf-l10n (managed files + runtimeconfig, no deps.json: the host then loads
+                                             every assembly in the folder, so the natives it never calls are not needed)
+        buildTransitive/                     build/package/MainframeEngine.props/.targets, MainframeGame.props,
+                                             Localization.targets and macos/ (the files checkout games import directly)
+        README.md, icon.png
+    -->
+    <ItemGroup>
+      <None Include="PACKAGE.md" Pack="true" PackagePath="README.md" Visible="false" />
+      <None Include="..\docs\images\brand\png\logo-256.png" Pack="true" PackagePath="icon.png" Visible="false" />
+      <None Include="..\build\package\MainframeEngine.props;..\build\package\MainframeEngine.targets;..\build\MainframeGame.props;..\build\Localization.targets"
+            Pack="true" PackagePath="buildTransitive/" Visible="false" />
+      <None Include="..\build\macos\DevAppBundle.targets;..\build\macos\Info.plist.in;..\build\macos\png-to-icns.sh"
+            Pack="true" PackagePath="buildTransitive/macos/" Visible="false" />
+    </ItemGroup>
+
+    <Target Name="_MainframePackReferencedAssemblies" DependsOnTargets="ResolveProjectReferences">
+      <ItemGroup>
+        <BuildOutputInPackage Include="@(_ResolvedProjectReferencePaths)" Condition="'%(Filename)' == 'spine-csharp'" />
+      </ItemGroup>
+    </Target>
+
+    <Target Name="_MainframePackContent" DependsOnTargets="GetCopyToOutputDirectoryItems">
+      <!-- The generator is built through its analyzer project reference; ask for its output path the same way. -->
+      <MSBuild Projects="..\MainframeEngine.Generators\MainframeEngine.Generators.csproj" Targets="GetTargetPath"
+               RemoveProperties="TargetFramework;RuntimeIdentifier">
+        <Output TaskParameter="TargetOutputs" ItemName="_MainframeGeneratorAssembly" />
+      </MSBuild>
+      <!--
+        mf-l10n references this project, so it cannot be built from here (that reference would wait on the very project
+        instance that is packing): build/pack-nuget.sh builds it first, and this only asks where it is.
+      -->
+      <MSBuild Projects="..\Tools\MainframeEngine.L10n\MainframeEngine.L10n.csproj" Targets="GetTargetPath"
+               RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained">
+        <Output TaskParameter="TargetOutputs" PropertyName="_MainframeL10nAssembly" />
+      </MSBuild>
+      <Error Condition="!Exists('$(_MainframeL10nAssembly)')" Code="MFPACK001"
+             Text="mf-l10n is not built ($(_MainframeL10nAssembly)). Pack the engine with build/pack-nuget.sh (just pack), which builds it first." />
+      <PropertyGroup>
+        <_MainframeL10nDir>$([System.IO.Path]::GetDirectoryName('$(_MainframeL10nAssembly)'))/</_MainframeL10nDir>
+      </PropertyGroup>
+      <ItemGroup>
+        <_MainframeL10nFile Include="$(_MainframeL10nDir)*.dll;$(_MainframeL10nDir)mf-l10n.runtimeconfig.json"
+                            Exclude="$(_MainframeL10nDir)enet.dll;$(_MainframeL10nDir)mfrmlui.dll;$(_MainframeL10nDir)mfsvg.dll" />
+        <TfmSpecificPackageFile Include="@(_MainframeGeneratorAssembly)" PackagePath="analyzers/dotnet/cs/%(Filename)%(Extension)" />
+        <TfmSpecificPackageFile Include="@(_MainframeL10nFile)" PackagePath="tools/mf-l10n/%(Filename)%(Extension)" />
+        <_MainframeContentFile Include="@(AllItemsFullPathWithTargetPath)" PackagePath="mainframe/$([System.String]::Copy('%(AllItemsFullPathWithTargetPath.TargetPath)').Replace('\', '/'))" />
+        <_MainframeContentFile Remove="@(_MainframeContentFile)" Condition="!$([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/Content/')) or '%(_MainframeContentFile.Extension)' == '.pot'" />
+        <TfmSpecificPackageFile Include="@(_MainframeContentFile)" />
+      </ItemGroup>
+    </Target>
 
 </Project>

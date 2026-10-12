@@ -78,7 +78,7 @@ public readonly record struct TreeClusterCard(int Columns, int Rows, int Variant
 /// <summary>
 /// An extra growth force (the slot Ez Tree uses for its trellis, which is not ported). Called once per section after
 /// the growth force, with the section's next origin and radius (Ez Units). Return false for no force; otherwise the
-/// section turns towards <paramref name="direction"/> by up to <paramref name="strength"/> radians
+/// section turns towards <c>direction</c> by up to <c>strength</c> radians
 /// (<c>setFromUnitVectors</c> + <c>rotateTowards</c>, as Ez Tree's trellis does).
 /// </summary>
 public interface ITreeGrowthForce
