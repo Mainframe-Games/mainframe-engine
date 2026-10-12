@@ -194,9 +194,3 @@ pre.mermaid {
   background-color: #1d4ed8;
   border-color: #1d4ed8;
 }
-
-/* Landing hero: the logo at a size that reads like the splash screen. */
-.hero img {
-  max-width: 14rem;
-  border-radius: 24px;
-}

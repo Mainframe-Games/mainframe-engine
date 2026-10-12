@@ -1,5 +1,6 @@
-// The documentation site (docs/design/docs-site.md): Astro Starlight over the repository's Markdown, which
-// scripts/sync-docs.mjs turns into src/content/docs. Deployed to GitHub Pages by .github/workflows/docs.yml.
+// The engine's website (docs/design/docs-site.md): a landing page at / (src/pages/index.astro) and, under /docs/, Astro
+// Starlight over the repository's Markdown, which scripts/sync-docs.mjs turns into src/content/docs. Deployed to GitHub
+// Pages by .github/workflows/docs.yml.
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
@@ -24,8 +25,12 @@ export default defineConfig({
         { tag: 'meta', attrs: { name: 'theme-color', content: '#15171c' } },
       ],
       social: [{ icon: 'github', label: 'GitHub', href: repoUrl }],
-      customCss: ['./src/styles/theme.css'],
-      components: { Head: './src/components/Head.astro' },
+      customCss: ['./src/styles/theme.css', './src/styles/landing.css'],
+      components: {
+        Head: './src/components/Head.astro',
+        Hero: './src/components/Hero.astro',
+        SocialIcons: './src/components/SocialIcons.astro',
+      },
       tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },
       expressiveCode: {
         themes: ['github-dark-default', 'github-light'],
@@ -43,13 +48,13 @@ export default defineConfig({
         {
           label: 'Start',
           items: [
-            { label: 'Overview', link: '/' },
-            { label: 'Milestones', slug: 'milestones' },
-            { label: 'Brand', slug: 'brand' },
+            { label: 'Overview', link: '/docs/' },
+            { label: 'Milestones', slug: 'docs/milestones' },
+            { label: 'Brand', slug: 'docs/brand' },
           ],
         },
-        { label: 'Design', items: [{ autogenerate: { directory: 'design' } }] },
-        { label: 'Proposals', collapsed: true, items: [{ autogenerate: { directory: 'proposals' } }] },
+        { label: 'Design', items: [{ autogenerate: { directory: 'docs/design' } }] },
+        { label: 'Proposals', collapsed: true, items: [{ autogenerate: { directory: 'docs/proposals' } }] },
       ],
     }),
   ],

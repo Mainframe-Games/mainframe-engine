@@ -50,7 +50,7 @@ NuGet drops the executable bit. `--sign`/`--notarize` sign and notarize the macO
 
 ## Links
 
-- [Documentation](https://mainframe-games.github.io/mainframe-engine/)
+- [Website](https://mainframe-games.github.io/mainframe-engine/) and [documentation](https://mainframe-games.github.io/mainframe-engine/docs/)
 - [Source, editor downloads and releases](https://github.com/Mainframe-Games/mainframe-engine)
 - MIT licence; the bundled third-party code keeps its own licences (Valve's `steam_api` natives: the Steamworks SDK
   Access Agreement)

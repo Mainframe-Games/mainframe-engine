@@ -1,0 +1,102 @@
+---
+// The editor's audio tools (docs/design/editor.md: Song tab, Sound designer): the music editor and the ZzFX sound
+// designer, each beside its screenshot. The equalizer bars in the header are decorative; the overlays play the
+// screenshots: a playhead over the song's arrangement and piano roll, a sweep over the sound's waveform (landing.css
+// positions them in percent of the 1600 × 960 screenshots).
+import TablerIcon from './TablerIcon.astro';
+
+const base = import.meta.env.BASE_URL;
+const img = (p: string) => `${base}images/${p}`;
+const doc = (anchor: string) => `${base}docs/design/editor/#${anchor}`;
+
+const tools = [
+  {
+    kicker: 'Music editor',
+    title: 'Write the soundtrack where you build the game',
+    image: 'editor-song.png',
+    overlay: 'song',
+    alt: "The Demo's song in a song tab: four ZzFX tracks in the arrangement and the Lead clip in the piano roll",
+    doc: doc('song-tab-music-editor'),
+    points: [
+      { icon: 'layout-grid', text: 'Arrangement: instrument and audio tracks, a loop region, clips that snap, resize and duplicate' },
+      { icon: 'music', text: 'Piano roll with a velocity lane, quantize, and one undo entry per gesture' },
+      { icon: 'adjustments', text: 'Mixer: pan, dB faders, peak meters, mute and solo, a master strip' },
+      { icon: 'plug-connected', text: 'VST3 instruments and effect inserts in a crash-safe plugin host, with delay compensation' },
+      { icon: 'keyboard', text: 'MIDI keyboards: play the armed track, record takes, loop-record, input quantize' },
+      { icon: 'file-music', text: 'Render to OGG Vorbis or WAV, in the editor or headless in CI' },
+    ],
+  },
+  {
+    kicker: 'Sound designer',
+    title: 'Sound effects without audio files',
+    image: 'editor-sound-designer.png',
+    overlay: 'sfx',
+    alt: "The inspector's ZzFX sound designer on the Demo's explosion: waveform, presets, randomize/mutate and the parameters",
+    doc: doc('sound-designer'),
+    points: [
+      { icon: 'wave-sine', text: 'ZzFX sounds synthesised at run time from one line of parameters' },
+      { icon: 'wand', text: 'Presets: pickup, laser, explosion, hit, jump, blip and power-up' },
+      { icon: 'dice-5', text: 'Randomize and Mutate, then copy or paste the ZzFX line' },
+      { icon: 'player-play', text: 'A live waveform that replays on every change, with undo' },
+      { icon: 'file-export', text: 'Export any sound to a WAV file' },
+    ],
+  },
+];
+---
+
+<section class="mf-section mf-daw not-content" aria-labelledby="daw-title">
+  <header class="mf-section__head" data-reveal>
+    <div class="mf-eq" aria-hidden="true">
+      {Array.from({ length: 16 }, (_, i) => <span style={`--dur: ${(0.7 + ((i * 0.37) % 0.8)).toFixed(2)}s; --delay: ${(-i * 0.23).toFixed(2)}s`} />)}
+    </div>
+    <p class="mf-kicker">Audio tools</p>
+    <h2 id="daw-title">A DAW inside the editor</h2>
+    <p>
+      Compose music and design sound effects next to your scenes. The built-in instrument needs no other app, and your
+      VST3 plugins work too. Songs render to looping files the game plays like any other sound.
+    </p>
+  </header>
+  {
+    tools.map((tool, i) => (
+      <div class:list={['mf-daw__row', { 'mf-daw__row--flip': i % 2 === 1 }]}>
+        <figure class="mf-window" data-reveal>
+          <div class="mf-window__bar" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <p>{tool.kicker}</p>
+          </div>
+          <button class="mf-shot" type="button" data-full={img(tool.image)} data-caption={tool.alt}>
+            <img src={img(tool.image)} width="1600" height="960" alt={tool.alt} loading="lazy" decoding="async" />
+            {tool.overlay === 'song' ? (
+              <span aria-hidden="true">
+                <span class="mf-overlay mf-playhead mf-playhead--arrange" />
+                <span class="mf-overlay mf-playhead mf-playhead--roll" />
+              </span>
+            ) : (
+              <span aria-hidden="true">
+                <span class="mf-overlay mf-focus" />
+                <span class="mf-overlay mf-playhead mf-playhead--wave" />
+              </span>
+            )}
+          </button>
+        </figure>
+        <div class="mf-daw__copy" data-reveal style="--i: 1">
+          <p class="mf-kicker">{tool.kicker}</p>
+          <h3>{tool.title}</h3>
+          <ul>
+            {tool.points.map((p) => (
+              <li>
+                <TablerIcon name={p.icon} />
+                <span>{p.text}</span>
+              </li>
+            ))}
+          </ul>
+          <a class="mf-daw__more" href={tool.doc}>
+            How it works →
+          </a>
+        </div>
+      </div>
+    ))
+  }
+</section>

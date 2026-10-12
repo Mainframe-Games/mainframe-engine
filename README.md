@@ -7,7 +7,7 @@
   <a href="https://www.nuget.org/packages/MainframeEngine"><img src="https://img.shields.io/nuget/dt/MainframeEngine?logo=nuget&label=downloads" alt="NuGet downloads"></a>
   <a href="https://github.com/Mainframe-Games/mainframe-engine/releases/latest"><img src="https://img.shields.io/github/v/release/Mainframe-Games/mainframe-engine?logo=github&label=editor" alt="Latest editor release"></a>
   <a href="https://github.com/Mainframe-Games/mainframe-engine/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/Mainframe-Games/mainframe-engine/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-  <a href="https://mainframe-games.github.io/mainframe-engine/"><img src="https://img.shields.io/badge/docs-mainframe--games.github.io-blue?logo=astro" alt="Documentation"></a>
+  <a href="https://mainframe-games.github.io/mainframe-engine/docs/"><img src="https://img.shields.io/badge/docs-mainframe--games.github.io-blue?logo=astro" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet" alt=".NET 10">
   <img src="https://img.shields.io/badge/Vulkan-1.2-AC162C?logo=vulkan" alt="Vulkan 1.2">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Mainframe-Games/mainframe-engine" alt="MIT licence"></a>
@@ -23,7 +23,9 @@ engines work and to build a framework I like working in, and it is in active dev
 to send pull requests or feature requests in Issues 😁
 
 **Target:** .NET 10, Vulkan 1.2 (MoltenVK on macOS) · **Platforms:** macOS (Apple Silicon), Windows x64, Linux x64 ·
-**Version:** 1.0.0 (milestones M0–M10 complete; see [Releases & versioning](#releases--versioning))
+**Version:** 1.0.0 (milestones M0–M10 complete; see [Releases & versioning](#releases--versioning)) ·
+**Website:** [mainframe-games.github.io/mainframe-engine](https://mainframe-games.github.io/mainframe-engine/) (editor
+downloads, [docs](https://mainframe-games.github.io/mainframe-engine/docs/))
 
 ![The editor: a 3D scene with a spot light selected, its inspector, the FileSystem and Output panels](docs/images/editor.png)
 
