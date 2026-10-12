@@ -9,7 +9,6 @@ internal enum SteamworksInitResult
 {
     Ok,
     NativeLibraryMissing,
-    SteamNotRunning,
     Failed,
 }
 
@@ -61,16 +60,10 @@ internal static class SteamworksApi
             message = $"{SteamworksNative.FileName} could not be loaded: {e.Message}";
             return SteamworksInitResult.NativeLibraryMissing;
         }
-        // NoSteamClient: Steam is installed but not running. On Linux without Steam installed steam_api instead fails
-        // generically with "Failed to load module '~/.steam/sdk64/steamclient.so'": the same thing for a player.
-        catch (Exception e) when (e.Message.Contains("NoSteamClient", StringComparison.Ordinal)
-                                  || e.Message.Contains("steamclient", StringComparison.OrdinalIgnoreCase))
-        {
-            message = $"Steam client not running: {e.Message}";
-            return SteamworksInitResult.SteamNotRunning;
-        }
         catch (Exception e)
         {
+            // Includes "no Steam client here" (NoSteamClient, or FailedGeneric when Steam is not installed): the engine
+            // tells those apart by the message (SteamApi.IsSteamMissing).
             message = $"SteamClient.Init failed: {e.Message}";
             return SteamworksInitResult.Failed;
         }

@@ -25,13 +25,24 @@ internal static class SteamApi
         var result = SteamworksApi.Initialize(appId, out var message);
         var status = result switch
         {
-            SteamworksInitResult.Ok                   => SteamStatus.Running,
+            SteamworksInitResult.Ok => SteamStatus.Running,
             SteamworksInitResult.NativeLibraryMissing => SteamStatus.NativeLibraryMissing,
-            SteamworksInitResult.SteamNotRunning      => SteamStatus.SteamNotRunning,
-            _                                         => SteamStatus.InitFailed,
+            _ when IsSteamMissing(message) => SteamStatus.SteamNotRunning,
+            _ => SteamStatus.InitFailed,
         };
         return (status, message);
     }
+
+    /// <summary>
+    /// Whether a <c>SteamClient.Init</c> failure means "no Steam client here", which a player sees the same way whatever
+    /// steam_api calls it: NoSteamClient (installed, not running), or FailedGeneric when Steam is not installed at all —
+    /// "Could not determine Steam client install directory" (Windows, macOS) or "Failed to load module
+    /// '~/.steam/sdk64/steamclient.so'" (Linux).
+    /// </summary>
+    internal static bool IsSteamMissing(string message) =>
+        message.Contains("NoSteamClient", StringComparison.Ordinal)
+        || message.Contains("steamclient", StringComparison.OrdinalIgnoreCase)
+        || message.Contains("Steam client install directory", StringComparison.OrdinalIgnoreCase);
 
     /// <summary><c>SteamAPI_RestartAppIfNecessary</c>; false without the native library.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]

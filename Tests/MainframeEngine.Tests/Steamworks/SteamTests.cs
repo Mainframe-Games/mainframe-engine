@@ -42,6 +42,17 @@ public sealed class SteamTests
         Assert.False(Steam.Valid);
     }
 
+    [Theory]
+    [InlineData("SteamApi_Init failed with NoSteamClient - error: Steam client not running")]
+    [InlineData("SteamApi_Init failed with FailedGeneric - error: Could not determine Steam client install directory.")]
+    [InlineData("SteamApi_Init failed with FailedGeneric - error: Failed to load module '/root/.steam/sdk64/steamclient.so'")]
+    public void NoSteamClientFailuresMeanSteamIsNotRunning(string message) =>
+        Assert.True(SteamApi.IsSteamMissing(message));
+
+    [Fact]
+    public void OtherInitFailuresAreNotMistakenForAMissingClient() =>
+        Assert.False(SteamApi.IsSteamMissing("SteamApi_Init failed with VersionMismatch - error: steam_api too old"));
+
     [Fact]
     public void LoaderPicksThisPlatformsFacepunchBuild()
     {
