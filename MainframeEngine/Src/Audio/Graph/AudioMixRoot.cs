@@ -26,6 +26,7 @@ internal sealed class AudioMixRoot : SoundComponent
     private long _blocks;
     private int _underruns;
     private Exception? _fault;
+    private AudioCaptureTap? _captureTap;
 
     public AudioMixRoot(AudioEngine engine, AudioFormat format, SpscRing<AudioCommand> commands, SpscRing<AudioEvent> events)
         : base(engine, format)
@@ -48,6 +49,9 @@ internal sealed class AudioMixRoot : SoundComponent
     /// <summary>The exception that stopped mixing, if any (read by the game thread).</summary>
     public Exception? Fault => Volatile.Read(ref _fault);
 
+    /// <summary>Attaches (or, with null, detaches) the gameplay recorder's copy of the master mix. Any thread.</summary>
+    internal void SetCaptureTap(AudioCaptureTap? tap) => Volatile.Write(ref _captureTap, tap);
+
     protected override void GenerateAudio(Span<float> buffer, int channels)
     {
         try
@@ -58,6 +62,7 @@ internal sealed class AudioMixRoot : SoundComponent
             {
                 graph.Mix(buffer, channels);
                 AfterMix(graph);
+                Volatile.Read(ref _captureTap)?.Write(buffer, channels); // gameplay recorder (live); unity gain after this point
             }
         }
         catch (Exception e)
