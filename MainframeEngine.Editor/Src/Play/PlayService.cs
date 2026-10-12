@@ -542,6 +542,11 @@ public sealed class PlayService : IDisposable
 
     private void OnRecording(PlayInstance instance, in EditorLinkRecording recording)
     {
+        // Nothing may resurrect state on an instance whose link is gone. A finishing report is still taken from an exited
+        // process whose link is not yet seen as closed: the game sends Stopped, then exits, and the exit can be polled
+        // before the reader thread has queued that Stopped.
+        if (instance.GameId is null || (!instance.IsAlive && recording.State == EditorLinkRecordingState.Started))
+            return;
         switch (recording.State)
         {
             case EditorLinkRecordingState.Started:
@@ -560,7 +565,7 @@ public sealed class PlayService : IDisposable
     }
 
     /// <summary>
-    /// The game went away (exit or disconnect) with no Stopped/Failed received: finish the recording as failed so the
+    /// The game's link is gone (disconnected, or exited with no link) with no Stopped/Failed received: finish the recording as failed so the
     /// editor never waits for a save that cannot come.
     /// </summary>
     private void AbandonRecording(PlayInstance instance)
@@ -610,7 +615,8 @@ public sealed class PlayService : IDisposable
                 instance.ExitCode = code;
                 instance.State = code == 0 || instance.StopRequestedUtc is not null ? PlayInstanceState.Exited : PlayInstanceState.Crashed;
                 instance.PendingPause = null;
-                AbandonRecording(instance);
+                if (instance.GameId is null)
+                    AbandonRecording(instance); // with a link still up, its Stopped/Failed (then Disconnected) may be unread: wait for them
                 _changed = true;
                 exitedCount++;
                 continue;

@@ -91,6 +91,7 @@ public sealed class FakeGame : IGameProcess
     private volatile bool _kill;
     private volatile bool _wasKilled;
     private volatile bool _crash;
+    private volatile bool _dropLink;
     private volatile bool _exited;
     private volatile bool _paused;
     private int _exitCode;
@@ -132,6 +133,9 @@ public sealed class FakeGame : IGameProcess
     /// <summary>Makes StopRecording go unanswered (the game is "finalising" for good), so a test can end it mid-save.</summary>
     public bool SwallowStopRecording { get; set; }
 
+    /// <summary>Makes StopRecording report Stopped and then say goodbye and exit at once (the real "stop recording, quit" order).</summary>
+    public bool ExitAfterStop { get; set; }
+
     /// <summary>True when it ended because it was killed (not by quitting or crashing).</summary>
     public bool WasKilled => _wasKilled;
 
@@ -148,6 +152,13 @@ public sealed class FakeGame : IGameProcess
     public void TriggerCrash()
     {
         _crash = true;
+        _wake.Set();
+    }
+
+    /// <summary>Makes the game close its editor link while the process keeps running.</summary>
+    public void DropLink()
+    {
+        _dropLink = true;
         _wake.Set();
     }
 
@@ -194,6 +205,16 @@ public sealed class FakeGame : IGameProcess
                     return;
                 }
 
+                if (_dropLink)
+                {
+                    client.Dispose();
+                    client = null;
+                    while (!_kill && !_crash)
+                        _wake.Wait(50);
+                    code = Finish(null);
+                    return;
+                }
+
                 frame++;
                 while (client.TryReceiveCommand(out var command))
                 {
@@ -226,6 +247,15 @@ public sealed class FakeGame : IGameProcess
                             break;
                         case EditorCommandKind.StopRecording when !SwallowStopRecording:
                             client.SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Stopped, _recordingPath, 1.5f, 0, 2, ""));
+                            if (ExitAfterStop)
+                            {
+                                client.SendGoodbye(0, TimeSpan.FromSeconds(2));
+                                client.Dispose();
+                                client = null;
+                                code = 0;
+                                return;
+                            }
+
                             break;
                         case EditorCommandKind.ReloadScene:
                             if (command.Argument.Length > 0)

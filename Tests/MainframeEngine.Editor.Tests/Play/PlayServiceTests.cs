@@ -517,6 +517,7 @@ public sealed class PlayServiceTests
 
         Assert.True(play.Service.StopRecording(instance));
         Assert.Equal(PlayRecordingState.Saving, instance.Recording); // until the game reports Stopped
+        Assert.False(play.Service.StopRecording(instance)); // already saving
         play.Pump(() => finished.Count == 1, "recording finished");
         Assert.Equal(PlayRecordingState.None, instance.Recording);
         Assert.Null(instance.RecordingStartedUtc);
@@ -569,6 +570,7 @@ public sealed class PlayServiceTests
             Assert.True(play.Service.StopRecording(instance));
 
         game.TriggerCrash();
+        play.Pump(() => finished.Count > 0, "the recording to fail"); // via the link's Disconnected, after anything the game sent
         play.Pump(() => !instance.IsAlive, "crash");
         for (var i = 0; i < 20; i++)
             play.Service.Update();
@@ -578,6 +580,55 @@ public sealed class PlayServiceTests
         Assert.Equal("The game exited before the recording was saved.", result.Error);
         Assert.Equal(PlayRecordingState.None, instance.Recording);
         Assert.False(play.Service.AnyRecording);
+    }
+
+    [Fact]
+    public void AStoppedReportedJustBeforeExitIsNotAFailure()
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            using var play = new PlayHarness();
+            var instance = play.LaunchRunning();
+            play.Game(instance).ExitAfterStop = true;
+            var finished = new List<EditorLinkRecording>();
+            play.Service.RecordingFinished += (_, r) => finished.Add(r);
+            play.Service.StartRecording(instance, "/u/a.mp4");
+            play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+
+            Assert.True(play.Service.StopRecording(instance));
+            play.Pump(() => !instance.IsAlive && finished.Count > 0, "the game to exit");
+            for (var i = 0; i < 50; i++)
+            {
+                play.Service.Update();
+                Thread.Sleep(1);
+            }
+
+            var result = Assert.Single(finished);
+            Assert.Equal(EditorLinkRecordingState.Stopped, result.State);
+            Assert.Equal(PlayRecordingState.None, instance.Recording);
+        }
+    }
+
+    [Fact]
+    public void ADisconnectWhileRecordingIsAFailure()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        var finished = new List<EditorLinkRecording>();
+        play.Service.RecordingFinished += (_, r) => finished.Add(r);
+        play.Service.StartRecording(instance, "/u/a.mp4");
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+
+        play.Game(instance).DropLink();
+        play.Pump(() => finished.Count > 0, "the recording to fail");
+        for (var i = 0; i < 20; i++)
+            play.Service.Update();
+
+        var result = Assert.Single(finished);
+        Assert.Equal(EditorLinkRecordingState.Failed, result.State);
+        Assert.Equal("The game exited before the recording was saved.", result.Error);
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+        Assert.True(instance.IsAlive);
     }
 }
 
