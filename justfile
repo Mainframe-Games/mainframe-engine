@@ -209,7 +209,7 @@ editor-icons-fetch version="3.48.0":
     (cd "$work" && npm pack "@tabler/icons@{{version}}" >/dev/null && tar xzf tabler-icons-*.tgz)
     python3 build/editor-icons/make_atlas.py --tabler "$work/package"
 
-# Docs site (docs-site/, Astro Starlight): docs/ with live reload at
+# Docs site (docs-site/, Astro Starlight): the landing page and docs/ (under /docs/) with live reload at
 # http://localhost:4321/mainframe-engine/, opened in the browser (needs Node 22.12+; installs its npm packages on first run;
 # just docs --no-open skips the browser, other arguments go to astro dev, e.g. just docs --host)
 docs *args:

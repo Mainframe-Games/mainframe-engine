@@ -145,8 +145,10 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `ci-success` is the required check; docs-only PRs skip the heavy jobs, `build/ci-changes.sh`), `publish.yml` (releases), `natives.yml` (native shims), `docs.yml` (docs site → Pages after each release)
 - `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Content/Brand/`
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
-- `docs-site/` — the docs website (Astro Starlight, editor theme): `scripts/sync-docs.mjs` generates its pages from `docs/`
-  (never edit `src/content/docs`; title = latest release tag); `.github/workflows/docs.yml` deploys it to GitHub Pages only
+- `docs-site/` — the engine's website (Astro Starlight, editor theme): a landing page at `/` (`src/pages/index.astro`,
+  `src/components/landing/`: editor downloads of the release, every subsystem, the music editor and sound designer,
+  screenshots) and the docs under `/docs/`, whose
+  pages `scripts/sync-docs.mjs` generates from `docs/` (never edit `src/content/docs`; title = latest release tag); `.github/workflows/docs.yml` deploys it to GitHub Pages only
   after a release (`publish.yml`; PRs build it) (`docs/design/docs-site.md`)
 
 ## Key Patterns

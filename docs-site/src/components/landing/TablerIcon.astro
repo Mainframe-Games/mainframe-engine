@@ -1,0 +1,18 @@
+---
+// One of the editor's Tabler icons (copied to src/assets/icons by scripts/sync-docs.mjs), inlined so it takes
+// currentColor.
+interface Props {
+  name: string;
+  class?: string;
+}
+
+const icons = import.meta.glob<string>('../../assets/icons/*.svg', { query: '?raw', import: 'default', eager: true });
+const { name, class: className = '' } = Astro.props;
+const svg = icons[`../../assets/icons/${name}.svg`];
+if (!svg) throw new Error(`No editor icon "${name}" (MainframeEngine.Editor/Icons/tabler/outline)`);
+const html = svg
+  .replace(/\s(width|height)="24"/g, '')
+  .replace(/class="[^"]*"/, `class="mf-icon ${className}" aria-hidden="true"`);
+---
+
+<Fragment set:html={html} />

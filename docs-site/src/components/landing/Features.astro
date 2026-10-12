@@ -1,0 +1,255 @@
+---
+// Everything the engine does, grouped, one card per subsystem (README Features, docs/milestones.md), each linking to its
+// design doc. Icons are the editor's own.
+import TablerIcon from './TablerIcon.astro';
+
+const base = import.meta.env.BASE_URL;
+
+interface Feature {
+  icon: string;
+  title: string;
+  text: string;
+  doc: string;
+}
+
+const groups: { title: string; icon: string; features: Feature[] }[] = [
+  {
+    title: 'Rendering',
+    icon: 'cube-3d-sphere',
+    features: [
+      {
+        icon: 'cube-3d-sphere',
+        title: 'Vulkan renderer',
+        text: 'Vulkan 1.2 on macOS (MoltenVK), Windows and Linux: an in-house GPU allocator, upload queue, persisted pipeline cache and zero allocations per frame.',
+        doc: 'vulkan-renderer',
+      },
+      {
+        icon: 'palette',
+        title: 'Materials & meshes',
+        text: 'PBR StandardMaterial3D, sRGB-aware textures with GPU mips, instanced and sorted batches, frustum culling, GPU object picking, SubViewports.',
+        doc: 'materials-and-meshes',
+      },
+      {
+        icon: 'sun',
+        title: 'Lighting & sky',
+        text: 'Directional, omni and spot lights in linear HDR; procedural, physical, panoramic and cubemap skies with image-based lighting.',
+        doc: 'lighting',
+      },
+      {
+        icon: 'shadow',
+        title: 'Shadows',
+        text: 'Four sun cascades, a spot-light atlas and point-light cubes, PCF and soft shadows, cutout casters, per-light settings.',
+        doc: 'shadow-system',
+      },
+      {
+        icon: 'sparkles',
+        title: 'Post-processing',
+        text: 'A stack of effects: SSAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX.',
+        doc: 'post-processing',
+      },
+      {
+        icon: 'vector-triangle',
+        title: '2D canvas & text',
+        text: "Godot-compatible canvas items, sprites, layers, z-order and y-sort, with TrueType text from the engine's own rasterizer.",
+        doc: 'canvas',
+      },
+      {
+        icon: 'bone',
+        title: 'Spine animation',
+        text: 'Spine skeletons under a 2D or 3D camera, lit and casting shadows, with animation tracks and queues.',
+        doc: 'spine',
+      },
+      {
+        icon: 'file-code',
+        title: 'Slang shaders',
+        text: 'Every shader in Slang, compiled to SPIR-V at build time, with shared includes and limits generated from one file.',
+        doc: 'shaders',
+      },
+    ],
+  },
+  {
+    title: 'Worlds',
+    icon: 'mountain',
+    features: [
+      {
+        icon: 'mountain',
+        title: 'Terrain',
+        text: 'Terrain3D: chunked heightmap meshes with LOD, splat material layers, foliage scatter, exact collision and height queries.',
+        doc: 'terrain',
+      },
+      {
+        icon: 'feather',
+        title: 'Procedural trees',
+        text: 'A port of Ez Tree: 15 presets, realistic or low-poly styles, wind, levels of detail and impostors, from a seed.',
+        doc: 'procedural-trees',
+      },
+      {
+        icon: 'droplet',
+        title: 'Water',
+        text: 'Streams along a curve carved into the terrain, ponds and falls with spray, refraction, screen-space reflections and caustics.',
+        doc: 'water',
+      },
+      {
+        icon: 'file-3d',
+        title: 'Asset import',
+        text: 'glTF, FBX and OBJ through Assimp into scenes you can instance, with import settings, an import cache and stable UIDs.',
+        doc: 'asset-pipeline',
+      },
+    ],
+  },
+  {
+    title: 'Gameplay',
+    icon: 'device-gamepad-2',
+    features: [
+      {
+        icon: 'sitemap',
+        title: 'Scene system',
+        text: 'A Godot-style node tree: signals, groups, NodePath, pause, [Tool] nodes, JSON scenes with UIDs; metadata from a source generator, no reflection.',
+        doc: 'scene-graph-and-nodes',
+      },
+      {
+        icon: 'atom',
+        title: 'Physics',
+        text: 'Jitter2 in 3D and Box2D in 2D: rigid, static, character and area bodies, layers, raycasts, MoveAndSlide and interpolation.',
+        doc: 'physics',
+      },
+      {
+        icon: 'device-gamepad-2',
+        title: 'Input & cameras',
+        text: 'Named input actions for keyboard, mouse and gamepad, player rebinding, and 2D, 3D and fly cameras.',
+        doc: 'cameras-and-input',
+      },
+      {
+        icon: 'device-floppy',
+        title: 'Saves & settings',
+        text: 'Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, and a drop-in settings menu.',
+        doc: 'project-and-gamehost/#save-games',
+      },
+      {
+        icon: 'network',
+        title: 'Multiplayer',
+        text: 'Generated [Replicated] and [Rpc], delta snapshots, interpolation, authority, late join; ENet, loopback and simulated bad networks.',
+        doc: 'networking',
+      },
+      {
+        icon: 'language',
+        title: 'Localization',
+        text: 'gettext catalogs with plurals and contexts, runtime locale switching, translated UI and scenes, a pseudo-locale and tooling.',
+        doc: 'localization',
+      },
+      {
+        icon: 'brand-steam',
+        title: 'Steamworks',
+        text: 'Lobbies, achievements and avatars wrapped and ready; switched on once the Steamworks natives can ship.',
+        doc: 'steamworks',
+      },
+    ],
+  },
+  {
+    title: 'Audio',
+    icon: 'volume',
+    features: [
+      {
+        icon: 'volume',
+        title: 'Audio engine',
+        text: 'A bus mixer on its own thread, 2D and 3D players, streaming WAV, OGG, MP3 and FLAC, attenuation, low-pass and doppler.',
+        doc: 'audio',
+      },
+      {
+        icon: 'wave-sine',
+        title: 'Sound designer',
+        text: 'ZzFX sounds synthesised at run time: presets, randomize, mutate, a live waveform and export to WAV, in the inspector.',
+        doc: 'editor/#sound-designer',
+      },
+      {
+        icon: 'music',
+        title: 'Music editor',
+        text: 'A DAW in the editor: arrangement, piano roll, mixer, VST3 instruments and effects, MIDI recording, render to OGG.',
+        doc: 'editor/#song-tab-music-editor',
+      },
+    ],
+  },
+  {
+    title: 'Tools',
+    icon: 'tool',
+    features: [
+      {
+        icon: 'layout',
+        title: 'Editor',
+        text: 'Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos, FileSystem panel, Play in its own process, code reload.',
+        doc: 'editor',
+      },
+      {
+        icon: 'app-window',
+        title: 'Game UI',
+        text: 'RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library. The editor is built with it.',
+        doc: 'game-ui',
+      },
+      {
+        icon: 'activity',
+        title: 'Developer overlay',
+        text: 'F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, physics and network panels; add your own in one call.',
+        doc: 'dev-overlay',
+      },
+      {
+        icon: 'brand-c-sharp',
+        title: 'Games in C#',
+        text: 'dotnet new mfgame, project.mfproj and GameHost: autoloads, structured logs, the editor link and headless dedicated servers.',
+        doc: 'project-and-gamehost',
+      },
+      {
+        icon: 'package',
+        title: 'NuGet packages',
+        text: 'The engine and the project template on nuget.org: build a game with the .NET SDK alone, no checkout or editor needed.',
+        doc: 'distribution-nuget',
+      },
+      {
+        icon: 'refresh',
+        title: 'Self-updating editor',
+        text: 'The editor finds new releases on GitHub and updates itself in place on macOS, Windows and Linux.',
+        doc: 'editor-updates',
+      },
+      {
+        icon: 'gauge',
+        title: 'Quality',
+        text: 'Zero warnings, 1 600+ tests, golden-image render tests on two drivers, a validation gate and an allocation gate.',
+        doc: 'testing',
+      },
+    ],
+  },
+];
+const total = groups.reduce((n, g) => n + g.features.length, 0);
+---
+
+<section class="mf-section mf-features not-content" aria-labelledby="features-title">
+  <header class="mf-section__head" data-reveal>
+    <p class="mf-kicker">Features</p>
+    <h2 id="features-title">Everything a game needs, in one tree</h2>
+    <p>{total} subsystems, each with a design doc that describes it exactly as it is in the code.</p>
+  </header>
+  {
+    groups.map((group) => (
+      <div class="mf-features__group">
+        <h3 class="mf-features__title" data-reveal>
+          <TablerIcon name={group.icon} />
+          {group.title}
+          <span aria-hidden="true">{group.features.length}</span>
+        </h3>
+        <div class="mf-features__grid">
+          {group.features.map((f, i) => (
+            <a class="mf-feature" href={`${base}docs/design/${f.doc.includes('#') ? f.doc : `${f.doc}/`}`} data-reveal style={`--i: ${i % 4}`}>
+              <span class="mf-feature__icon">
+                <TablerIcon name={f.icon} />
+              </span>
+              <h4>{f.title}</h4>
+              <p>{f.text}</p>
+              <span class="mf-feature__more" aria-hidden="true">
+                Read the doc →
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+    ))
+  }
+</section>

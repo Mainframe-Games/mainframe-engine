@@ -21,4 +21,4 @@ version as this template package; `--engine-version` picks another release. The 
 
 **Requirements:** the .NET 10 SDK, and a GPU with Vulkan 1.2 (MoltenVK is included on macOS).
 
-[Documentation](https://mainframe-games.github.io/mainframe-engine/) · MIT licence
+[Documentation](https://mainframe-games.github.io/mainframe-engine/docs/) · MIT licence

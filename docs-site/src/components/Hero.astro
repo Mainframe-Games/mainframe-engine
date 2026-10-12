@@ -1,0 +1,9 @@
+---
+// Starlight's hero, replaced on the landing page (src/pages/index.astro) by the animated one.
+import Default from '@astrojs/starlight/components/Hero.astro';
+import LandingHero from './landing/LandingHero.astro';
+
+const isLanding = Astro.url.pathname === import.meta.env.BASE_URL;
+---
+
+{isLanding ? <LandingHero /> : <Default />}

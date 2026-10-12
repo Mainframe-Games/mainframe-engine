@@ -1,0 +1,63 @@
+---
+// The landing page's hero: the scene-grid canvas (grid.ts), the animated logo (logo.ts) and the calls to action. The
+// primary button links to #download until download.ts finds the visitor's OS and points it at that archive.
+import { LinkButton } from '@astrojs/starlight/components';
+import logo from '../../assets/logo.svg?raw';
+import { repoUrl, version } from '../../../scripts/sync-docs.mjs';
+
+const base = import.meta.env.BASE_URL;
+const released = version !== 'dev';
+---
+
+<section class="mf-hero not-content" data-mf-hero>
+  <canvas class="mf-hero__grid" aria-hidden="true" data-mf-grid></canvas>
+  <div class="mf-hero__inner">
+    <div class="mf-hero__copy">
+      <a class="mf-hero__badge" href={released ? `${repoUrl}/releases/tag/${version}` : `${repoUrl}/releases`}>
+        <span class="mf-hero__pulse" aria-hidden="true"></span>
+        {released ? `${version} released` : 'In development'}
+        <span aria-hidden="true">→</span>
+      </a>
+      <h1 id="_top" data-page-title>
+        <span class="mf-hero__line">Mainframe</span>
+        <span class="mf-hero__line mf-hero__accent">Engine</span>
+      </h1>
+      <p class="mf-hero__tagline">
+        A C# game engine on Vulkan with a Godot-style node tree, and an editor built on its own game UI.
+      </p>
+      <div class="mf-hero__actions">
+        <LinkButton href="#download" icon="download" iconPlacement="start" data-mf-download-primary>
+          <span data-mf-download-label>Download</span>
+        </LinkButton>
+        <LinkButton href={base + 'docs/'} variant="secondary" icon="open-book" iconPlacement="start">
+          Read the docs
+        </LinkButton>
+        <LinkButton href={repoUrl} variant="minimal" icon="github" iconPlacement="start">GitHub</LinkButton>
+      </div>
+      <ul class="mf-hero__meta" aria-label="Platform">
+        <li>.NET 10</li>
+        <li>Vulkan 1.2</li>
+        <li>macOS · Windows · Linux</li>
+        <li>MIT</li>
+      </ul>
+    </div>
+    <div class="mf-logo" data-mf-logo aria-hidden="true">
+      <div class="mf-logo__glow"></div>
+      <div class="mf-logo__tilt">
+        <Fragment set:html={logo} />
+        <div class="mf-logo__shine"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { startGrid } from './grid';
+  import { startLogo } from './logo';
+
+  const hero = document.querySelector<HTMLElement>('[data-mf-hero]');
+  if (hero) {
+    startGrid(hero.querySelector('canvas')!, hero);
+    startLogo(hero.querySelector<HTMLElement>('[data-mf-logo]')!, hero);
+  }
+</script>

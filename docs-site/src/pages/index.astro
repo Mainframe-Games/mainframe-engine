@@ -1,0 +1,69 @@
+---
+// The landing page (docs/design/docs-site.md#landing-page): a Starlight page (header, search, theme picker) in the
+// splash template whose hero components/Hero.astro replaces with the animated one; the docs live under /docs/.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import Download from '../components/landing/Download.astro';
+import Daw from '../components/landing/Daw.astro';
+import Features from '../components/landing/Features.astro';
+import Showcase from '../components/landing/Showcase.astro';
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Mainframe Engine',
+    description:
+      'Mainframe Engine: an open-source C# game engine on Vulkan with a Godot-style node tree and an editor built on its own game UI.',
+    template: 'splash',
+    hero: { title: 'Mainframe Engine' },
+    editUrl: false,
+    pagefind: false,
+    prev: false,
+    next: false,
+  }}
+>
+  <div class="mf-landing">
+    <Showcase />
+    <Daw />
+    <Features />
+    <Download />
+    <section class="mf-section mf-cta not-content" data-reveal>
+      <h2>Start building</h2>
+      <p>Read how the engine works, or open the editor and press Play.</p>
+      <div class="mf-cta__actions">
+        <a class="mf-button mf-button--primary" href={import.meta.env.BASE_URL + 'docs/'}>Read the docs</a>
+        <a class="mf-button" href="#download">Download</a>
+      </div>
+    </section>
+  </div>
+</StarlightPage>
+
+<script>
+  // Scroll reveal: [data-reveal] elements fade and rise into place once they scroll into view (landing.css).
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    const seen = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add('is-visible');
+          seen.unobserve(entry.target);
+        }
+      },
+      { rootMargin: '0px 0px -8% 0px' },
+    );
+    document.documentElement.classList.add('mf-reveal');
+    document.querySelectorAll('[data-reveal]').forEach((el) => seen.observe(el));
+  }
+
+  // Cards light up under the pointer (the radial gradient at --mx/--my in landing.css).
+  document.querySelectorAll<HTMLElement>('.mf-feature, .mf-os-card').forEach((card) =>
+    card.addEventListener(
+      'pointermove',
+      (e) => {
+        const box = card.getBoundingClientRect();
+        card.style.setProperty('--mx', `${e.clientX - box.left}px`);
+        card.style.setProperty('--my', `${e.clientY - box.top}px`);
+      },
+      { passive: true },
+    ),
+  );
+</script>
