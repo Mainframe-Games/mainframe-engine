@@ -371,10 +371,12 @@ runs in Spanish with the RmlUi HUD. See [Localization](localization.md#testing).
 
 `just test-linux` and `just render-tests-linux` run CI's Linux jobs locally ([`build/linux/run.sh`](../../build/linux/run.sh)):
 an `ubuntu:24.04` container for **linux/amd64** ([`build/linux/Dockerfile`](../../build/linux/Dockerfile): the apt
-packages of `ci.yml` — `mesa-vulkan-drivers`, `vulkan-validationlayers`, Xvfb, the X libraries, gettext — and the .NET
-SDK from `global.json` via `dotnet-install.sh`), with CI's environment (`VK_DRIVER_FILES`/`VK_ICD_FILENAMES` = lavapipe,
-`SDL_VIDEODRIVER=x11`, `SDL_AUDIODRIVER=dummy`, `CI=true`). x86_64 matters: the `lavapipe` goldens are CI's x86_64
-llvmpipe output, and physics after contact differs between x64 and arm64 (see below).
+packages of `ci.yml` — `mesa-vulkan-drivers`, `vulkan-validationlayers`, Xvfb, the X libraries, gettext — plus
+`libasound2t64`, which the GitHub runner image preinstalls and the editor's `mfplughost` links (the plugin-host and MIDI
+editor tests run it), and the .NET SDK from `global.json` via `dotnet-install.sh`), with CI's environment
+(`VK_DRIVER_FILES`/`VK_ICD_FILENAMES` = lavapipe, `SDL_VIDEODRIVER=x11`, `SDL_AUDIODRIVER=dummy`, `CI=true`). x86_64
+matters: the `lavapipe` goldens are CI's x86_64 llvmpipe output, and physics after contact differs between x64 and arm64
+(see below).
 
 - The script sends the working tree — tracked and untracked-but-not-ignored files (so new goldens count), the Spine
   C# sources, and `.git` without LFS objects (SourceLink stamps the commit; from a linked worktree, whose `.git` is a
@@ -386,6 +388,8 @@ llvmpipe output, and physics after contact differs between x64 and arm64 (see be
   `all` (`build/linux/run.sh all`).
 - Results land in `artifacts/linux/`: `TestResults/*.trx` and `render-tests/` (failed comparisons' actual/expected/diff
   PNGs; frames without a golden in `render-tests/new-goldens/lavapipe/`, also listed at the end of the run).
+- The image is built on every run (cached layers; a Dockerfile change rebuilds from the changed instruction) and labelled
+  with a hash of the Dockerfile and `global.json`; the script stops if the image's label does not match.
 - Docker Desktop on Apple Silicon runs the container under x86_64 emulation (Rosetta): the first run builds the image
   and restores packages; later runs rebuild incrementally. Docker needs about 8 GB of memory. Emulated test processes can stall
   with every thread idle (seen ~190 tests into the parallel unit suite, while tests start processes, SDL and sockets;
