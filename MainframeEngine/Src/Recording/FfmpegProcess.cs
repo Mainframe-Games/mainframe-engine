@@ -89,6 +89,12 @@ internal sealed class FfmpegProcess : IDisposable
         {
             // It exited between the check and the kill: exactly the state we wanted.
         }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // Win32Exception (access denied, or the process is exiting) or an AggregateException from the process tree:
+            // Dispose runs on cleanup paths that must not throw, and the handle is released below either way.
+            Log.Warning($"[Recorder] Could not stop ffmpeg: {e.GetType().Name}: {e.Message}");
+        }
 
         _process.Dispose();
     }

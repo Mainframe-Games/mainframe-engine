@@ -20,6 +20,7 @@ public sealed class GameRecorderTests
         public Exception? VideoThrows;
         public Exception? AudioThrows;
         public Exception? FinishThrows;
+        public Exception? DisposeThrows;
         public bool Disposed;
 
         public void Begin(RecordingFormat format)
@@ -70,7 +71,12 @@ public sealed class GameRecorderTests
             });
         }
 
-        public void Dispose() => Disposed = true;
+        public void Dispose()
+        {
+            Disposed = true;
+            if (DisposeThrows is { } e)
+                throw e;
+        }
     }
 
     private sealed class FakeFrames : IFrameStreamSource
@@ -342,6 +348,67 @@ public sealed class GameRecorderTests
 
         Assert.Contains("Something nobody planned for.", result.Error);
         r.PollCompletion();
+        Assert.False(r.IsFinalising);
+    }
+
+    [Fact]
+    public void ABackendWhoseDisposeFailsToKillTheEncoderStillFinishes()
+    {
+        // Process.Kill throws Win32Exception when the OS refuses; it used to fault the finishing task.
+        var (r, backend, frames, _) = Create();
+        backend.DisposeThrows = new System.ComponentModel.Win32Exception(5, "Access is denied.");
+        r.Start(new RecordingOptions { Path = "/r/a.mp4" });
+        frames.Render();
+
+        var result = r.StopAndWait(TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(result);
+        Assert.Null(result.Error); // the recording itself was finalised; failing to tidy up is only a warning
+        Assert.False(r.IsFinalising);
+        backend.DisposeThrows = null;
+        r.Start(new RecordingOptions { Path = "/r/b.mp4" });
+        Assert.True(r.IsRecording);
+    }
+
+    [Fact]
+    public void AFaultedFinishingTaskBecomesAnErrorResultAndTheRecorderStaysUsable()
+    {
+        // An OutOfMemoryException (InsufficientMemoryException is one) is the only failure DisposeQuietly lets through: if the task
+        // faults anyway, StopAndWait and PollCompletion must report it, never rethrow it from .Result.
+        var (r, backend, frames, _) = Create();
+        backend.DisposeThrows = new InsufficientMemoryException("Simulated.");
+        RecordingResult? stopped = null;
+        r.Stopped += result => stopped = result;
+        r.Start(new RecordingOptions { Path = "/r/a.mp4" });
+        frames.Render();
+
+        var result = r.StopAndWait(TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(result);
+        Assert.Contains("Simulated.", result.Error);
+        Assert.Equal("/r/a.mp4", result.Path);
+        Assert.Same(result, stopped);
+        r.PollCompletion(); // nothing left: must not throw
+        Assert.False(r.IsFinalising);
+        backend.DisposeThrows = null;
+        r.Start(new RecordingOptions { Path = "/r/b.mp4" });
+        Assert.True(r.IsRecording);
+    }
+
+    [Fact]
+    public void PollCompletionReportsAFaultedFinishingTaskInsteadOfThrowing()
+    {
+        var (r, backend, frames, _) = Create();
+        backend.DisposeThrows = new InsufficientMemoryException("Simulated.");
+        RecordingResult? stopped = null;
+        r.Stopped += result => stopped = result;
+        r.Start(new RecordingOptions { Path = "/r/a.mp4" });
+        frames.Render();
+
+        r.Stop();
+        var result = WaitForStopped(r, () => stopped);
+
+        Assert.Contains("Simulated.", result.Error);
         Assert.False(r.IsFinalising);
     }
 

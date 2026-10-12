@@ -189,9 +189,10 @@ public sealed class GameRecorder : IFrameStreamSink
     internal RecordingResult? StopAndWait(TimeSpan timeout)
     {
         Stop();
-        if (_finishing is not { } finishing || !finishing.Wait(timeout))
+        // WhenAny never faults, so a faulted finishing task is waited for here and reported by Outcome, not thrown.
+        if (_finishing is not { } finishing || !Task.WhenAny(finishing).Wait(timeout))
             return null;
-        var result = finishing.Result;
+        var result = Outcome(finishing);
         Complete(result);
         return result;
     }
@@ -200,7 +201,23 @@ public sealed class GameRecorder : IFrameStreamSink
     internal void PollCompletion()
     {
         if (_finishing is { IsCompleted: true } done)
-            Complete(done.Result);
+            Complete(Outcome(done));
+    }
+
+    // The finishing task catches everything it expects, so a fault or cancellation here is a bug; it must still end the
+    // recording with a readable error (never rethrow from .Result) and free the recorder for the next Start.
+    private RecordingResult Outcome(Task<RecordingResult> done)
+    {
+        if (done.IsCompletedSuccessfully)
+            return done.Result;
+        var reason = done.Exception?.GetBaseException() is { } e ? $"{e.GetType().Name}: {e.Message}" : "it was cancelled";
+        Log.Error($"[Recorder] Finalising the recording failed unexpectedly: {done.Exception?.ToString() ?? reason}");
+        return new RecordingResult
+        {
+            Path = _format?.OutputPath ?? "",
+            DroppedFrames = _dropped,
+            Error = $"Finalising the recording failed unexpectedly ({reason}).",
+        };
     }
 
     /// <summary>Marks a moment in the sidecar (a boss intro, a death); ignored when not recording.</summary>
@@ -441,9 +458,11 @@ public sealed class GameRecorder : IFrameStreamSink
         {
             backend.Dispose();
         }
-        catch (Exception e) when (e is IOException or InvalidOperationException or ObjectDisposedException)
+        catch (Exception e) when (e is not OutOfMemoryException)
         {
-            Log.Warning($"[Recorder] Closing the recording backend failed: {e.Message}");
+            // Killing the encoder can fail (Win32Exception, AggregateException from the process tree): the recording is
+            // already finalised or failed by now, so this must not fault the finishing task or mask Start's own error.
+            Log.Warning($"[Recorder] Closing the recording backend failed: {e.GetType().Name}: {e.Message}");
         }
     }
 
