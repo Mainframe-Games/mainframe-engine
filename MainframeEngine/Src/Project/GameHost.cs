@@ -350,12 +350,35 @@ public class GameHost : Engine
             HostOptions.RecordOffline,
             new CaptureInfoSource(Settings.Name, () => Tree.CurrentScene?.SceneFilePath ?? "", EngineInfo.Version));
         recorder.Started += () => DevOverlayVisible = false; // F12 still brings it back, into the recording
+        if (HostOptions.RecordPath is not null)
+        {
+            // Stopped also fires from OnClose (the normal end at quit), where Quit only sets the exit code Run returns.
+            recorder.Stopped += result =>
+            {
+                if (ShouldQuitOnRecordingError(HostOptions.RecordOffline, result))
+                {
+                    Log.Error("[Recorder] The offline --record run did not produce a recording: exiting with an error.");
+                    Quit(ExitCode.Error);
+                }
+            };
+        }
         // A key released in another window never sends its key-up here: the recorder must not think it is still held.
         Window.FocusChanged += focused =>
         {
             if (!focused)
                 recorder.ReleaseHeldInput();
         };
+    }
+
+    /// <summary>
+    /// Whether a <c>--record</c> run that ended with <paramref name="result"/> must exit non-zero: only an offline run
+    /// (a capture script or CI job whose whole purpose is the file) whose recording ended with an error. A live run plays
+    /// on, so the player keeps their game and only sees the logged error.
+    /// </summary>
+    internal static bool ShouldQuitOnRecordingError(bool offline, RecordingResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return offline && result.Error is not null;
     }
 
     // --record: a run that cannot record fails loudly instead of playing unrecorded. False when the game must quit.
