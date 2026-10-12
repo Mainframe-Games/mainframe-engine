@@ -1,27 +1,22 @@
 name: Docs
 
-# The documentation site (docs/design/docs-site.md): Astro Starlight over docs/, deployed to GitHub Pages from main.
-# A release (publish.yml) redeploys it, so the version in the site title follows the latest tag. Pull requests that touch the docs only build it (no deploy), so a page that breaks the build
-# fails before it merges. Path filters keep it off every other change (Actions minutes).
+# The documentation site (docs/design/docs-site.md): Astro Starlight over docs/, deployed to GitHub Pages only with a
+# release: after a successful publish.yml run it builds the released commit, so the live docs and the version in the
+# site title match the latest release (merges to main do not deploy). Pull requests that touch the docs only build it
+# (no deploy), so a page that breaks the build fails before it merges; path filters keep it off every other change
+# (Actions minutes).
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs/**"
-      - "docs-site/**"
-      - "MainframeEngine/Content/UI/fonts/**"
-      - ".github/workflows/docs.yml"
   pull_request:
     paths:
       - "docs/**"
       - "docs-site/**"
       - "MainframeEngine/Content/UI/fonts/**"
       - ".github/workflows/docs.yml"
-  workflow_run: # after a release: the new tag is the version in the title
+  workflow_run: # the deploy: after a successful release, the released commit (its new tag is the version in the title)
     workflows: [publish]
     types: [completed]
     branches: [main]
-  workflow_dispatch: # rebuild and redeploy from main: gh workflow run docs.yml
+  workflow_dispatch: # manual redeploy from main (e.g. after a failed post-release deploy): gh workflow run docs.yml
 
 concurrency:
   # Pull request builds cancel older ones; a deploy from main finishes before the next one starts.
@@ -43,6 +38,8 @@ jobs:
         with:
           lfs: false
           fetch-depth: 0
+          # After a release, the commit the release was built from (a workflow_run otherwise checks out main's tip).
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: List LFS objects
         run: git lfs ls-files -l --include="docs/images/**" --exclude="*.ico" | cut -d' ' -f1 | sort > .lfs-assets-id

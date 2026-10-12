@@ -71,6 +71,9 @@ flowchart LR
   `release`), so there is no stored API key or secret and the packages belong to the organization; `NUGET_USER` in the
   workflow is the policy creator's nuget.org username ([setup](distribution-nuget.md#versioning-and-release)). The push comes after the tag because a nuget.org package
   can only be unlisted, never deleted; `--skip-duplicate` makes a re-run harmless.
+- **Docs site.** A successful run triggers [`docs.yml`](../../.github/workflows/docs.yml) (`workflow_run`), which
+  builds the docs from the released commit and deploys them to GitHub Pages with the new version in the title. This is
+  the only automatic docs deploy: merges to `main` do not publish docs ([Docs site](docs-site.md#deployment)).
 - **Demo and Forest assets.** The `demo` and `forest` jobs (need `guard` and `ci`; the release waits for them) pull the
   example's LFS content and run [`build/package-example.sh`](../../build/package-example.sh) `<Demo|Forest> <version>
   <out-dir>` (`build/package-demo.sh <version> <out-dir>` is the Demo's wrapper). For the Demo it zips `Examples/Demo` (tracked and

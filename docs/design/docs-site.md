@@ -4,8 +4,8 @@
 
 The repository's Markdown in `docs/` is published as a searchable website built with
 [Astro Starlight](https://starlight.astro.build/). It is themed like the editor: the same palette, fonts and logo.
-`just docs` serves it locally with live reload. `.github/workflows/docs.yml` deploys it to GitHub Pages from `main`, at
-`https://mainframe-games.github.io/mainframe-engine/`.
+`just docs` serves it locally with live reload. `.github/workflows/docs.yml` deploys it to GitHub Pages with each
+release, at `https://mainframe-games.github.io/mainframe-engine/`.
 
 The Markdown stays the source of truth. The site is generated from it and adds nothing that GitHub or an IDE would not
 show; links in the Markdown keep working in both places.
@@ -86,7 +86,8 @@ The sync script does four things to each page:
 
 The site title is "Mainframe Engine" plus the engine version the docs describe: the latest release tag (`vX.Y.Z`, see
 [Release](release.md)) reachable from the built commit, found with `git describe`. Without a tag it is `dev`;
-`DOCS_VERSION` overrides it. Docs on `main` can describe changes made after that release.
+`DOCS_VERSION` overrides it. The live site is built from the released commit, so it describes exactly that release;
+docs merged to `main` since then go live with the next release.
 
 `DOCS_BASE` (default `/mainframe-engine/`) and `DOCS_SITE` (default `https://mainframe-games.github.io`) override the
 base path and origin, for example for a custom domain.
@@ -128,13 +129,16 @@ for a literal semicolon in message text.
 
 ## Deployment
 
-`docs.yml` runs when `docs/**`, `docs-site/**`, the editor fonts or the workflow change, and after a successful
-release (`publish.yml`, through `workflow_run`), so the title picks up the new tag:
+The site deploys **only with a release**: merging to `main` does not publish docs.
 
-- **On pull requests** it builds the site and does not deploy it. It is not part of `ci-success`, and a docs-only
-  change does not wait on it.
-- **On `main`** (and `workflow_dispatch`) it builds, uploads the Pages artifact and deploys with `actions/deploy-pages`
-  to the `github-pages` environment.
+- **After a successful release** (`publish.yml`, through `workflow_run`) it checks out the commit the release was
+  built from (`workflow_run.head_sha`), builds the site, uploads the Pages artifact and deploys it with
+  `actions/deploy-pages` to the `github-pages` environment. The new tag is the version in the title. A failed release
+  run (any job, including the nuget.org push) deploys nothing.
+- **`workflow_dispatch`** (`gh workflow run docs.yml`) rebuilds and redeploys from `main`'s tip by hand, for example
+  after a failed post-release deploy. That publishes whatever docs `main` has.
+- **On pull requests** that touch `docs/**`, `docs-site/**`, the editor fonts or the workflow, it builds the site
+  without deploying it. It is not part of `ci-success`, and a docs-only change does not wait on it.
 - **History.** The checkout fetches full history and tags (`fetch-depth: 0`) for the version.
 - **LFS.** Only `docs/images/**` is fetched from Git LFS (the PNG screenshots), cached by object ID like `ci.yml`.
 
