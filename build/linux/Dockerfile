@@ -1,6 +1,7 @@
 # CI's Linux test environment (ubuntu-24.04 runner, x86_64) for running the unit, editor and lavapipe render tests
 # locally: `just test-linux` / `just render-tests-linux` (build/linux/run.sh, docs/design/testing.md#linux-tests-in-docker).
-# Same apt packages as .github/workflows/ci.yml (render-tests + build-test gettext); .NET SDK pinned by global.json.
+# Same apt packages as .github/workflows/ci.yml (render-tests + build-test gettext), plus what the runner image already
+# has: libasound2t64 (the editor's mfplughost links libasound.so.2). .NET SDK pinned by global.json.
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -11,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates curl git rsync libicu74 gettext \
+      ca-certificates curl git rsync libicu74 gettext libasound2t64 \
       mesa-vulkan-drivers vulkan-validationlayers libvulkan1 vulkan-tools xvfb xauth \
       libx11-6 libx11-xcb1 libxext6 libxfixes3 libxrandr2 libxinerama1 libxcursor1 libxi6 libxss1 libxkbcommon0 \
  && rm -rf /var/lib/apt/lists/*
