@@ -35,8 +35,11 @@ public class TerrainFoliageRenderTests
         // 256 m at 0.5 m with dense grass to 45 m around a walking camera, against the same terrain without foliage.
         // Report only: under display pacing (MoltenVK at 120 Hz) the CPU figure can include a wait, so the difference
         // is not a stable gate. The per-frame foliage work itself (distance thinning over every tile) is O(tiles), 0 B.
-        var with = HostRunner.Run("terrain-foliage", Output("terrain-foliage-perf"), "--count", "1", "--perf", "120:300", "--no-validation", "--hidden");
-        var without = HostRunner.Run("terrain-foliage", Output("terrain-foliage-perf-base"), "--count", "2", "--perf", "120:300", "--no-validation", "--hidden");
+        // A CPU device (lavapipe) measures a short window: the walk has no self-checks, and the full one takes minutes there.
+        var with = HostRunner.Run("terrain-foliage", Output("terrain-foliage-perf"), "--count", "1", "--perf", "120:300", "--perf-on-cpu", "10:30",
+            "--no-validation", "--hidden");
+        var without = HostRunner.Run("terrain-foliage", Output("terrain-foliage-perf-base"), "--count", "2", "--perf", "120:300", "--perf-on-cpu", "10:30",
+            "--no-validation", "--hidden");
 
         Assert.True(with.SceneCheckFailures.Count == 0, string.Join("\n", with.SceneCheckFailures));
         TestContext.Current.SendDiagnosticMessage(

@@ -20,10 +20,14 @@ public abstract class RenderTestGame : Engine
     private readonly List<double> _cpuFrameTimes = [];
     private long _lastFrameTimestamp;
     private double _shadowCpuMs, _shadowGpuMs;
+    private int _perfWarmupFrames, _perfMeasuredFrames; // the --perf window, or --perf-on-cpu's on a CPU device
+    private uint _quitAfterFrame; // a --perf-on-cpu run on a CPU device ends after its window; 0 = MaxFrames
 
     protected RenderTestGame(HostOptions host) : base(CreateOptions(host))
     {
         _host = host;
+        _perfWarmupFrames = host.PerfWarmupFrames;
+        _perfMeasuredFrames = host.PerfMeasuredFrames;
     }
 
     private static EngineOptions CreateOptions(HostOptions host) => new()
@@ -89,6 +93,14 @@ public abstract class RenderTestGame : Engine
             Window.UpdatesPerSecond = _host.UpdateRate;
         }
 
+        // A CPU device only reports the timings of a --perf-on-cpu run: measure its shorter window and quit after it.
+        if (_host.PerfCpuMeasuredFrames > 0 && DescribeDevice().DeviceType == nameof(Silk.NET.Vulkan.PhysicalDeviceType.Cpu))
+        {
+            _perfWarmupFrames = _host.PerfCpuWarmupFrames;
+            _perfMeasuredFrames = _host.PerfCpuMeasuredFrames;
+            _quitAfterFrame = (uint)(_perfWarmupFrames + _perfMeasuredFrames + 2);
+        }
+
         LoadScene();
     }
 
@@ -109,10 +121,10 @@ public abstract class RenderTestGame : Engine
         }
 
         // Frame time: wall clock between consecutive updates (one per rendered frame, VSync off).
-        if (_host.PerfMeasuredFrames > 0)
+        if (_perfMeasuredFrames > 0)
         {
             var now = System.Diagnostics.Stopwatch.GetTimestamp();
-            if (frame > (uint)_host.PerfWarmupFrames + 1 && _frameTimes.Count < _host.PerfMeasuredFrames)
+            if (frame > (uint)_perfWarmupFrames + 1 && _frameTimes.Count < _perfMeasuredFrames)
             {
                 _frameTimes.Add(System.Diagnostics.Stopwatch.GetElapsedTime(_lastFrameTimestamp, now).TotalMilliseconds);
                 _cpuFrameTimes.Add(LastFrameCpuMilliseconds); // the previous frame's update + render, GPU waits excluded
@@ -143,6 +155,8 @@ public abstract class RenderTestGame : Engine
             Vulkan.Scaling3DScale = _host.RenderScaleChange; // ADR 0174: applied at the next frame's start
         if (frame == _host.QuitWithErrorAtFrame)
             Quit(ExitCode.Error);
+        if (frame == _quitAfterFrame)
+            Quit(ExitCode.Ok);
         RunInputScript(frame);
         RunMinimizeScript(frame);
 
