@@ -10,9 +10,9 @@ public sealed class CaptureTimelineTests
     public void KeyDownCountsAndHoldsUntilKeyUp()
     {
         var a = new InputActivity();
-        Assert.True(a.Observe(new InputEventKey { Key = Key.W, Pressed = true }));
+        Assert.True(a.Observe(new InputEventKey { Key = Key.W, Pressed = true }, 0));
         Assert.True(a.IsHeld);
-        Assert.True(a.Observe(new InputEventKey { Key = Key.W, Pressed = false }));
+        Assert.True(a.Observe(new InputEventKey { Key = Key.W, Pressed = false }, 0));
         Assert.False(a.IsHeld);
     }
 
@@ -20,13 +20,47 @@ public sealed class CaptureTimelineTests
     public void SmallMouseMotionAndTinyStickDriftDoNotCount()
     {
         var a = new InputActivity();
-        Assert.False(a.Observe(new InputEventMouseMotion { Relative = new Vector2(1f, 1f) }));
-        Assert.True(a.Observe(new InputEventMouseMotion { Relative = new Vector2(3f, 0f) }));
-        Assert.False(a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = new Vector2(0.1f, 0.1f) }));
-        Assert.True(a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = new Vector2(0.5f, 0f) }));
+        Assert.False(a.Observe(new InputEventMouseMotion { Relative = new Vector2(1f, 1f) }, 0.0));
+        Assert.True(a.Observe(new InputEventMouseMotion { Relative = new Vector2(3f, 0f) }, 1.0));
+        Assert.False(a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = new Vector2(0.1f, 0.1f) }, 0));
+        Assert.True(a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = new Vector2(0.5f, 0f) }, 0));
         Assert.True(a.IsHeld); // a deflected stick is held until it returns
-        a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = Vector2.Zero });
+        a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = Vector2.Zero }, 0);
         Assert.False(a.IsHeld);
+    }
+
+    [Fact]
+    public void SlowMouseLookCountsOnceItsMotionAddsUpToMoreThanTwoPixels()
+    {
+        // A slow camera pan sends many 1 px motions; each alone is below the threshold, together they are play.
+        var a = new InputActivity();
+        var step = new InputEventMouseMotion { Relative = new Vector2(1f, 0f) };
+        Assert.False(a.Observe(step, 0.000));
+        Assert.False(a.Observe(step, 0.008));
+        Assert.True(a.Observe(step, 0.016));  // 3 px since the last counted motion
+        Assert.False(a.Observe(step, 0.024)); // counting starts again
+        Assert.False(a.Observe(step, 0.032));
+        Assert.True(a.Observe(step, 0.040));
+    }
+
+    [Fact]
+    public void ASinglePixelTwitchAfterAPauseDoesNotCount()
+    {
+        var a = new InputActivity();
+        var twitch = new InputEventMouseMotion { Relative = new Vector2(0f, 1.5f) };
+        Assert.False(a.Observe(twitch, 0.0));
+        Assert.False(a.Observe(twitch, 0.5)); // 100 ms without motion forgot the first one: 1.5 px, not 3
+        Assert.False(a.Observe(twitch, 0.61));
+    }
+
+    [Fact]
+    public void LosingFocusForgetsAccumulatedMotion()
+    {
+        var a = new InputActivity();
+        var step = new InputEventMouseMotion { Relative = new Vector2(1.5f, 0f) };
+        Assert.False(a.Observe(step, 0.0));
+        a.Reset();
+        Assert.False(a.Observe(step, 0.01));
     }
 
     [Fact]
@@ -93,13 +127,13 @@ public sealed class CaptureTimelineTests
     public void ResetForgetsEveryHeldControl()
     {
         var a = new InputActivity();
-        a.Observe(new InputEventKey { Key = Key.W, Pressed = true });
+        a.Observe(new InputEventKey { Key = Key.W, Pressed = true }, 0);
         Assert.True(a.IsHeld);
         a.Reset();
         Assert.False(a.IsHeld);
 
-        a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = new Vector2(0.8f, 0f) });
-        a.Observe(new InputEventAction { Action = "jump", Pressed = true });
+        a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = new Vector2(0.8f, 0f) }, 0);
+        a.Observe(new InputEventAction { Action = "jump", Pressed = true }, 0);
         Assert.True(a.IsHeld);
         a.Reset();
         Assert.False(a.IsHeld);
@@ -109,9 +143,9 @@ public sealed class CaptureTimelineTests
     public void ActionsCountAndHoldUntilReleased()
     {
         var a = new InputActivity();
-        Assert.True(a.Observe(new InputEventAction { Action = "jump", Pressed = true }));
+        Assert.True(a.Observe(new InputEventAction { Action = "jump", Pressed = true }, 0));
         Assert.True(a.IsHeld);
-        Assert.True(a.Observe(new InputEventAction { Action = "jump", Pressed = false }));
+        Assert.True(a.Observe(new InputEventAction { Action = "jump", Pressed = false }, 0));
         Assert.False(a.IsHeld);
     }
 
@@ -119,8 +153,8 @@ public sealed class CaptureTimelineTests
     public void TextAndUnknownEventsCountButHoldNothing()
     {
         var a = new InputActivity();
-        Assert.True(a.Observe(new InputEventText { Character = 'x' }));
-        Assert.True(a.Observe(new UnknownEvent()));
+        Assert.True(a.Observe(new InputEventText { Character = 'x' }, 0));
+        Assert.True(a.Observe(new UnknownEvent(), 0));
         Assert.False(a.IsHeld);
     }
 

@@ -255,7 +255,7 @@ public sealed class GameRecorder : IFrameStreamSink
     /// </summary>
     internal void ObserveInput(InputEvent e)
     {
-        if (_input.Observe(e) && IsRecording)
+        if (_input.Observe(e, Seconds(_timestamp())) && IsRecording)
             _timeline!.Input(Now());
     }
 

@@ -44,7 +44,7 @@ All internal except `GameRecorder`, `RecordingOptions`, `RecordingResult` and `F
 | `FrameScheduler` | [Recording/FrameScheduler.cs](../../MainframeEngine/Src/Recording/FrameScheduler.cs) | pure; how many times each rendered frame is written so the output is constant frame rate (live: `floor(t·fps) − written + 1` copies, 0 drops it; offline: one in, one out) |
 | `SampleScheduler` | [Recording/SampleScheduler.cs](../../MainframeEngine/Src/Recording/SampleScheduler.cs) | pure; `round(n · sampleRate / fps)` samples through frame `n`, so the total never drifts for rates that do not divide |
 | `CaptureTimeline` | [Recording/CaptureTimeline.cs](../../MainframeEngine/Src/Recording/CaptureTimeline.cs) | pure; builds the sidecar's spans from per-frame flags and events: input (250 ms tail, held controls keep it open, gaps under 100 ms rejoin), loading, paused, keep, skip, markers |
-| `InputActivity` | [Recording/InputActivity.cs](../../MainframeEngine/Src/Recording/InputActivity.cs) | classifies input events and tracks held controls; `Reset()` when the window loses focus |
+| `InputActivity` | [Recording/InputActivity.cs](../../MainframeEngine/Src/Recording/InputActivity.cs) | classifies input events (given their arrival time, for mouse motion) and tracks held controls; `Reset()` when the window loses focus |
 | `CaptureSidecarWriter`, `CaptureInfo`, `CaptureSpans` | [Recording/CaptureSidecarWriter.cs](../../MainframeEngine/Src/Recording/CaptureSidecarWriter.cs) | the `.mfcap.json` writer (source-generated `System.Text.Json`); written through a temp file and a move |
 | `IRecordingBackend`, `RecordingFormat` | [Recording/IRecordingBackend.cs](../../MainframeEngine/Src/Recording/IRecordingBackend.cs) | where frames and audio go, so the pacing logic never depends on a child process |
 | `FfmpegRecordingBackend` | [Recording/FfmpegRecordingBackend.cs](../../MainframeEngine/Src/Recording/FfmpegRecordingBackend.cs) | the only backend: encoder child process + writer thread + WAV + mux + sidecar |
@@ -120,7 +120,9 @@ flowchart LR
   server the WAV is silence of the right length.
 - **Input.** `SceneTree.DispatchInput` hands every event to the recorder before the UI can consume it (menus clicked
   while recording are still play). Keys, mouse and gamepad buttons, actions (`InputEventAction`, held by name), text,
-  the wheel, mouse motion over 2 px and a stick or trigger beyond 0.25 count as input; so does any event type the
+  the wheel, mouse motion adding up to more than 2 px (summed across events, so a slow mouse-look of many 1 px moves
+  counts, and forgotten after 100 ms without motion, so a lone twitch does not) and a stick or trigger beyond 0.25 count
+  as input; so does any event type the
   recorder does not know, because a missed input cuts footage the player was acting in while a false positive only
   keeps a little idle time. A held control keeps a span open, so walking with W down is never idle.
   `InputActivity.Reset()` runs when the window loses focus, because a key released in another window never sends its
