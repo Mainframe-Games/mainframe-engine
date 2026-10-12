@@ -336,6 +336,44 @@ public class GameHost : Engine
         // scene after its window exists): SDL shows the window after OnLoad, which took ~0.3 s that the first scene's
         // first frame would otherwise lose (process deltas drop what the physics steps cannot cover).
         _startPending = true;
+        CreateRecorder();
+    }
+
+    // Gameplay recording (ADR 0190): the renderer streams frames and the audio server exists from here on. --record
+    // starts it on the first update, just before the session, so the start scene's loading is recorded too.
+    private void CreateRecorder()
+    {
+        var recorder = Tree.Recorder = new GameRecorder(
+            _ => new FfmpegRecordingBackend(FfmpegResolver.ResolveForThisMachine(HostOptions.FfmpegPath)),
+            Renderer as IFrameStreamSource,
+            Servers.Get<AudioServer>(),
+            HostOptions.RecordOffline,
+            new CaptureInfoSource(Settings.Name, () => Tree.CurrentScene?.SceneFilePath ?? "", EngineInfo.Version));
+        recorder.Started += () => DevOverlayVisible = false; // F12 still brings it back, into the recording
+        // A key released in another window never sends its key-up here: the recorder must not think it is still held.
+        Window.FocusChanged += focused =>
+        {
+            if (!focused)
+                recorder.ReleaseHeldInput();
+        };
+    }
+
+    // --record: a run that cannot record fails loudly instead of playing unrecorded. False when the game must quit.
+    private bool StartCommandLineRecording()
+    {
+        if (HostOptions.RecordPath is not { } path || Tree.Recorder is not { } recorder)
+            return true;
+        try
+        {
+            recorder.Start(new RecordingOptions(path, HostOptions.FixedFps > 0 ? HostOptions.FixedFps : 60));
+            return true;
+        }
+        catch (Exception e) when (e is FfmpegNotFoundException or IOException or InvalidOperationException or UnauthorizedAccessException
+                                      or ArgumentException)
+        {
+            Log.Error($"[Recorder] {e.Message}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -356,6 +394,12 @@ public class GameHost : Engine
         {
             _startPending = false;
             DiscardFrameDelta();
+            if (!StartCommandLineRecording())
+            {
+                Quit(ExitCode.Error);
+                return;
+            }
+
             if (LoadsAsync)
             {
                 StartAsync();
@@ -369,6 +413,7 @@ public class GameHost : Engine
 
         LogStartTimes();
         Session.Update(gameTime);
+        Tree.Recorder?.OnUpdate(Tree.IsLoading, Tree.Paused); // before the early return: loading frames are recorded too
         if (Tree.IsLoading)
         {
             // --loading-screenshot: the loading screen at half progress (or its last frame, if the load skips past it).
@@ -458,6 +503,20 @@ public class GameHost : Engine
 
     protected override void OnClose()
     {
+        // The renderer (pending frames) and the audio server (the tap) must still be alive while the recording stops.
+        if (Tree.Recorder is { } recorder)
+        {
+            if (recorder.IsRecording || recorder.IsFinalising)
+            {
+                if (recorder.StopAndWait(TimeSpan.FromMinutes(2)) is null)
+                    Log.Error("[Recorder] Finalising the recording took over two minutes; the partial files were kept.");
+            }
+            else
+            {
+                recorder.PollCompletion(); // finished since the last update: still raise Stopped and log the result
+            }
+        }
+
         Session.Shutdown(CurrentExitCode);
         base.OnClose();
     }
