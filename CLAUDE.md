@@ -142,12 +142,12 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `template-smoke.sh`, `package-editor.sh` / `next-version.sh` (release), `linux/` (the Docker Linux test
   environment), `macos/` (the editor's dev `.app` bundle), `editor-icons/`, `brand/`
 - `.github/workflows/` — `ci.yml` (build-test on 3 OSes, format, shaders, lavapipe render tests, template smoke;
-  `ci-success` is the required check), `publish.yml` (releases), `natives.yml` (native shims), `docs.yml` (docs site → Pages)
+  `ci-success` is the required check; docs-only PRs skip the heavy jobs, `build/ci-changes.sh`), `publish.yml` (releases), `natives.yml` (native shims), `docs.yml` (docs site → Pages after each release)
 - `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Content/Brand/`
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
 - `docs-site/` — the docs website (Astro Starlight, editor theme): `scripts/sync-docs.mjs` generates its pages from `docs/`
-  (never edit `src/content/docs`; title = latest release tag); `.github/workflows/docs.yml` deploys it to GitHub Pages from
-  `main` (`docs/design/docs-site.md`)
+  (never edit `src/content/docs`; title = latest release tag); `.github/workflows/docs.yml` deploys it to GitHub Pages only
+  after a release (`publish.yml`; PRs build it) (`docs/design/docs-site.md`)
 
 ## Key Patterns
 

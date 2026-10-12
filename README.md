@@ -567,8 +567,8 @@ just bench            # benchmarks against Tests/MainframeEngine.Benchmarks/base
 
 CI ([`ci.yml`](.github/workflows/ci.yml)) builds with warnings as errors and runs the unit and editor tests on Linux,
 Windows and macOS, `dotnet format`, a shader check (committed SPIR-V matches its sources), the render tests on Mesa's
-lavapipe under Xvfb, and a template smoke test (`dotnet new mfgame`, build, run headless). `ci-success` is the single
-required check on `main`. See [Testing](docs/design/testing.md) and [Build & platforms](docs/design/build-and-platforms.md).
+lavapipe under Xvfb, and a template smoke test (`dotnet new mfgame`, build, run headless). Docs-only pull requests skip
+all of that (`build/ci-changes.sh`). `ci-success` is the single required check on `main`. See [Testing](docs/design/testing.md) and [Build & platforms](docs/design/build-and-platforms.md).
 
 ---
 
