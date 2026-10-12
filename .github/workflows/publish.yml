@@ -1,9 +1,10 @@
 name: publish
 
-# Manual release of the editor. Only brogan89 can run it, and only from main.
+# Manual release of the editor and the MainframeEngine NuGet package. Only brogan89 can run it, and only from main.
 # Version = latest vX.Y.Z tag with the chosen part bumped (input "bump": patch by default, minor or major; first
 # release: v1.0.0). Nothing is committed to main: the version lives in the tag, and builds get it via -p:Version.
-# See docs/design/release.md.
+# The package goes to nuget.org (secret NUGET_API_KEY in the "release" environment) after the GitHub Release exists.
+# See docs/design/release.md and docs/design/distribution-nuget.md.
 on:
   workflow_dispatch:
     inputs:
@@ -115,6 +116,37 @@ jobs:
           path: artifacts/release/*
           if-no-files-found: error
 
+  package:
+    name: package (MainframeEngine NuGet)
+    needs: [guard, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # The package carries the engine's content and natives (LFS) and the brand icon.
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Fetch the engine's LFS objects
+        run: git lfs pull --include="MainframeEngine/**,docs/images/brand/**"
+
+      - run: git submodule update --init --depth 1 Plugins/Spine
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Pack MainframeEngine
+        env:
+          PACK_ARGS: -p:CompileShaders=false -warnaserror
+        run: build/pack-engine.sh "${{ needs.guard.outputs.version }}" artifacts/nuget
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: artifacts/nuget/*
+          if-no-files-found: error
+
   demo:
     needs: [guard, ci]
     runs-on: ubuntu-24.04
@@ -156,7 +188,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [guard, build, demo, forest]
+    needs: [guard, build, package, demo, forest]
     runs-on: ubuntu-24.04
     environment: release
     permissions:
@@ -168,14 +200,35 @@ jobs:
           path: release
           merge-multiple: true
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget
+          path: nuget
+
       - name: Create tag v${{ needs.guard.outputs.version }} and GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.guard.outputs.version }}
         run: |
           ls -l release
-          gh release create "v${VERSION}" release/* \
+          gh release create "v${VERSION}" release/* nuget/*.nupkg \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "Mainframe Engine v${VERSION}" \
             --generate-notes
+
+      # After the tag and the release, so a failed release never leaves a published package behind (nuget.org packages
+      # can be unlisted, never deleted). The .snupkg next to it is pushed to the symbol server too.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Push MainframeEngine ${{ needs.guard.outputs.version }} to nuget.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::NUGET_API_KEY is not set in the release environment; the package is attached to the release only."
+            exit 1
+          fi
+          dotnet nuget push "nuget/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

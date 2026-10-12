@@ -304,7 +304,7 @@ public static unsafe class RmlCore
     /// <summary>
     /// Depth of C# event/data callbacks currently running inside an RmlUi call. While it is non-zero RmlUi is in the
     /// middle of dispatching (e.g. a click inside <c>ProcessMouseButtonUp</c>), so destroying a context or data model
-    /// would pull objects out from under it: such disposals are deferred (<see cref="DisposeWhenSafe"/>).
+    /// would pull objects out from under it: such disposals are deferred (<see cref="DeferIfInCallback"/>).
     /// </summary>
     public static int CallbackDepth { get; private set; }
 

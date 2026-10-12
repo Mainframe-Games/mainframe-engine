@@ -1,10 +1,21 @@
 namespace MainframeEngine.Editor;
 
+/// <summary>Where a new game gets the engine from (the template's <c>--engine-source</c>).</summary>
+public enum EngineSource
+{
+    /// <summary>The MainframeEngine NuGet package at this editor's version; no engine checkout needed.</summary>
+    Package,
+
+    /// <summary>Project references into an engine checkout (<see cref="NewProjectRequest.EnginePath"/>), for engine work.</summary>
+    Checkout,
+}
+
 /// <summary>What the New Project dialog asks for.</summary>
 /// <param name="Name">The game's name: its folder, solution, assemblies and root namespace (<see cref="NewProjectValidation.ValidateName"/>).</param>
 /// <param name="ParentDirectory">The folder the project folder is created in.</param>
-/// <param name="EnginePath">The engine checkout the game references (<c>--engine-path</c>).</param>
-public sealed record NewProjectRequest(string Name, string ParentDirectory, string EnginePath)
+/// <param name="EnginePath">The engine checkout the game references (<c>--engine-path</c>); used only with <see cref="EngineSource.Checkout"/>.</param>
+/// <param name="EngineSource">The package (the editor's version) or <paramref name="EnginePath"/>.</param>
+public sealed record NewProjectRequest(string Name, string ParentDirectory, string EnginePath, EngineSource EngineSource = EngineSource.Checkout)
 {
     /// <summary>The new project's folder: <c>&lt;ParentDirectory&gt;/&lt;Name&gt;</c>.</summary>
     public string ProjectDirectory => Path.Combine(ParentDirectory, Name);
@@ -143,12 +154,35 @@ public static class NewProjectValidation
         return null;
     }
 
-    /// <summary>The first problem with <paramref name="request"/> (name, then location, then engine path), or null.</summary>
-    public static string? Validate(NewProjectRequest request)
+    /// <summary>
+    /// True when a MainframeEngine package can exist for <paramref name="engineVersion"/>: a release version such as
+    /// <c>1.2.0</c>. Development builds are <c>0.0.0-dev</c> (docs/design/release.md) and have no package.
+    /// </summary>
+    public static bool IsPackageVersion(string? engineVersion)
+    {
+        if (string.IsNullOrWhiteSpace(engineVersion))
+            return false;
+        var core = engineVersion.Split('-', 2)[0];
+        return System.Version.TryParse(core, out var version) && version.Build >= 0 && version > new System.Version(0, 0, 0);
+    }
+
+    /// <summary>A package-based project needs a release editor: its version is the package version.</summary>
+    public static string? ValidatePackageVersion(string engineVersion) =>
+        IsPackageVersion(engineVersion)
+            ? null
+            : $"This editor is a development build ({engineVersion}) and has no MainframeEngine package; use an engine checkout.";
+
+    /// <summary>
+    /// The first problem with <paramref name="request"/> (name, then location, then the engine: the checkout path, or for
+    /// the package that <paramref name="engineVersion"/> (default <see cref="EngineInfo.Version"/>) is a release), or null.
+    /// </summary>
+    public static string? Validate(NewProjectRequest request, string? engineVersion = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         return ValidateName(request.Name)
                ?? ValidateLocation(request.ParentDirectory, request.Name)
-               ?? ValidateEnginePath(request.EnginePath);
+               ?? (request.EngineSource == EngineSource.Checkout
+                   ? ValidateEnginePath(request.EnginePath)
+                   : ValidatePackageVersion(engineVersion ?? EngineInfo.Version));
     }
 }

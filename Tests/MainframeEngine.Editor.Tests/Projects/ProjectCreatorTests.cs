@@ -25,6 +25,39 @@ public sealed class ProjectCreatorTests : IDisposable
         new(dotnet ?? Path.Combine(_directory, "no-such-dotnet"), template ?? Template(), Path.Combine(_directory, "hive"));
 
     [Fact]
+    public void PackageProjectsReferenceTheEditorVersionAndNoCheckout()
+    {
+        var hive = Path.Combine(_directory, "hive");
+        var arguments = ProjectCreator.NewArguments(new NewProjectRequest("Game", _directory, "", EngineSource.Package), "/out/Game", "1.4.0", hive);
+
+        Assert.Equal(["new", "mfgame", "-n", "Game", "-o", "/out/Game", "--engine-source", "package", "--engine-version", "1.4.0", "--debug:custom-hive", hive], arguments);
+    }
+
+    [Fact]
+    public void CheckoutProjectsPassTheEnginePath()
+    {
+        var engine = EngineCheckout();
+        var hive = Path.Combine(_directory, "hive");
+        var arguments = ProjectCreator.NewArguments(new NewProjectRequest("Game", _directory, engine), "/out/Game", "0.0.0-dev", hive);
+
+        Assert.Equal(
+            ["new", "mfgame", "-n", "Game", "-o", "/out/Game", "--engine-source", "project", "--engine-path", GameProjectLayout.RealPath(engine),
+             "--engine-version", "0.0.0-dev", "--debug:custom-hive", hive],
+            arguments);
+    }
+
+    [Fact]
+    public async Task PackageProjectsFailOnADevelopmentEditorBeforeRunningAnything()
+    {
+        var creator = new ProjectCreator(Path.Combine(_directory, "no-such-dotnet"), Template(), Path.Combine(_directory, "hive")) { EngineVersion = "0.0.0-dev" };
+        var result = await creator.CreateAsync(new NewProjectRequest("Game", _directory, "", EngineSource.Package), ct: TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("development build", result.Error, StringComparison.Ordinal);
+        Assert.DoesNotContain("> ", result.Log, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VerifyRejectsAProjectWhoseIconIsMissing()
     {
         var target = Path.Combine(_directory, "Game");

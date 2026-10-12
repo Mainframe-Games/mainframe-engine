@@ -101,8 +101,8 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export]
     public CameraAttributesPractical? CameraAttributes { get; set; }
 
-    [ExportGroup("Wind")]
     /// <summary>World direction the wind blows towards (normalized when packed). Foliage, grass and water read it.</summary>
+    [ExportGroup("Wind")]
     [Export]
     public Vector3 WindDirection { get; set; } = new(1f, 0f, 0.3f);
 
@@ -118,8 +118,8 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export(Range = "0,1,0.01")]
     public float WindTurbulence { get; set; } = 0.4f;
 
-    [ExportGroup("Fog")]
     /// <summary>Distance and height fog over every lit surface (Godot's <c>fog_enabled</c>).</summary>
+    [ExportGroup("Fog")]
     [Export]
     public bool FogEnabled { get; set; }
 
@@ -143,13 +143,13 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     [Export(Range = "0,1,0.01")]
     public float FogSunScatter { get; set; }
 
-    [ExportGroup("Volumetric Fog")]
     /// <summary>
     /// Fog lit by the sun through its shadow maps, so light shafts fall through gaps in any view (Godot's
     /// <c>volumetric_fog_enabled</c>; ADR 0171): a half-resolution ray march over <see cref="VolumetricFogLength"/> as a
     /// post effect of the main view (and of a post-processed <see cref="SubViewport"/>). Its density follows the height fog's
     /// shape (<see cref="FogHeight"/>, <see cref="FogHeightDensity"/>); beyond the length the analytic fog takes over.
     /// </summary>
+    [ExportGroup("Volumetric Fog")]
     [Export]
     public bool VolumetricFogEnabled { get; set; }
 

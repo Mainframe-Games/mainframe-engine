@@ -36,6 +36,17 @@
     </ItemGroup>
 
     <!--
+      The mfgame template ships with the published editor (Templates/mfgame, TemplateLocator.PackagedTemplateRelativePath),
+      so a release editor creates package-based games without an engine checkout. Development runs use the checkout's.
+    -->
+    <ItemGroup>
+        <None Include="..\Templates\MainframeEngine.Templates\content\mfgame\**"
+              Exclude="..\Templates\MainframeEngine.Templates\content\mfgame\**\bin\**;..\Templates\MainframeEngine.Templates\content\mfgame\**\obj\**"
+              Link="Templates\mfgame\%(RecursiveDir)%(Filename)%(Extension)"
+              CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    </ItemGroup>
+
+    <!--
       Editor-only natives (docs/design/natives.md, ADR 0146): the music editor's helper executable mfplughost, built by
       Native/ (natives.yml) into runtimes/<rid>/native/ and copied next to the editor. The macOS and Linux files share
       one name, so a RID-agnostic build copies the host OS's RID only (macOS: the universal osx-arm64 file); a RID-specific

@@ -1,35 +1,98 @@
 #!/usr/bin/env bash
-# Template smoke test (CI job "template", `just template-smoke`): installs the mfgame template from this checkout into
-# a private template hive, creates SmokeGame against this engine (--engine-path), builds it with warnings as errors and
+# Template smoke test (CI job "template", `just template-smoke`, `just template-smoke-package`): installs the mfgame
+# template from this checkout into a private template hive, creates SmokeGame, builds it with warnings as errors and
 # runs its desktop project (GameHost) for a few frames with a hidden window, saving the last frame to <work-dir>/screenshot.png.
-# Fails on any build error, a non-zero exit code, a missing screenshot or an [ERROR]/[FATAL] line in the game's log.
+# Fails on any build error, a non-zero exit code, missing engine content or catalogs, a missing screenshot or an
+# [ERROR]/[FATAL] line in the game's log.
+#
+# ENGINE_SOURCE=project (default): SmokeGame references this checkout (--engine-source project --engine-path).
+# ENGINE_SOURCE=package: this checkout is packed (build/pack-engine.sh) into a local feed as 0.0.0-smoke.<timestamp>,
+# and SmokeGame references that MainframeEngine package, as a game made outside the repo does; it is then also
+# published for the host RID (natives and content in the publish folder).
 #
 # usage: build/template-smoke.sh [work-dir] [frames]
-# env:   CONFIGURATION (Debug), BUILD_ARGS (extra dotnet build arguments), SKIP_RUN=1 (build only)
+# env:   ENGINE_SOURCE (project|package), CONFIGURATION (Debug), BUILD_ARGS (extra dotnet build/pack arguments),
+#        SKIP_RUN=1 (build only)
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 work="${1:-$repo/artifacts/template-smoke}"
 frames="${2:-30}"
 config="${CONFIGURATION:-Debug}"
+source="${ENGINE_SOURCE:-project}"
 
 rm -rf "$work"
 mkdir -p "$work"
 hive="$work/hive"
 
 dotnet new install "$repo/Templates/MainframeEngine.Templates/content/mfgame" --debug:custom-hive "$hive"
-dotnet new mfgame -n SmokeGame -o "$work/SmokeGame" --engine-path "$repo" --debug:custom-hive "$hive"
+case "$source" in
+  project)
+    dotnet new mfgame -n SmokeGame -o "$work/SmokeGame" --engine-source project --engine-path "$repo" --debug:custom-hive "$hive"
+    ;;
+  package)
+    # A version of its own per run, so a package cache never serves an older build of the same version; removed from
+    # the cache again on exit.
+    version="0.0.0-smoke.$(date +%s)"
+    packages="${NUGET_PACKAGES:-$HOME/.nuget/packages}"
+    trap 'rm -rf "$packages/mainframeengine/$version"' EXIT
+    PACK_ARGS="${BUILD_ARGS:-}" "$repo/build/pack-engine.sh" "$version" "$work/feed"
+    dotnet new mfgame -n SmokeGame -o "$work/SmokeGame" --engine-source package --engine-version "$version" --debug:custom-hive "$hive"
+    cat > "$work/SmokeGame/nuget.config" <<NUGET
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="local" value="$work/feed" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+</configuration>
+NUGET
+    ;;
+  *) echo "template-smoke: ENGINE_SOURCE must be project or package, not '$source'" >&2; exit 1 ;;
+esac
+
+# A catalog, so the build's .po -> .mo step (Localization.targets, from the checkout or the package) runs too.
+mkdir -p "$work/SmokeGame/Content/locale/fr/LC_MESSAGES"
+cat > "$work/SmokeGame/Content/locale/fr/LC_MESSAGES/messages.po" <<'PO'
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fr\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Hello"
+msgstr "Bonjour"
+PO
 
 # shellcheck disable=SC2086 # BUILD_ARGS is a list of arguments
 dotnet build "$work/SmokeGame/SmokeGame.slnx" -c "$config" -warnaserror ${BUILD_ARGS:-}
 
 out="$work/SmokeGame/SmokeGame.Desktop/bin/$config/net10.0"
-for required in SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Content/Scenes/Main.mscene Content/icon.png; do
-  if [ ! -e "$out/$required" ]; then
-    echo "template-smoke: $required is missing from $out" >&2
-    exit 1
-  fi
-done
+# The game's files, then the engine's content (copied by the engine project or the package) and the compiled catalog.
+require() {
+  for required in "${@:2}"; do
+    if [ ! -e "$1/$required" ]; then
+      echo "template-smoke: $required is missing from $1" >&2
+      exit 1
+    fi
+  done
+}
+engine_files=(Content/UI/widgets/widgets.rcss Content/Shaders/Mesh/Mesh.vk.vert.spv Content/locale/fr/LC_MESSAGES/messages.mo)
+require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Content/Scenes/Main.mscene Content/icon.png "${engine_files[@]}"
+
+# Package games publish per RID: NuGet copies that RID's natives, the package's targets the engine content.
+if [ "$source" = "package" ]; then
+  case "$(uname -s)-$(uname -m)" in
+    Darwin-*) rid=osx-arm64 rmlui=libmfrmlui.dylib ;;
+    Linux-*) rid=linux-x64 rmlui=libmfrmlui.so ;;
+    *) rid=win-x64 rmlui=mfrmlui.dll ;;
+  esac
+  # shellcheck disable=SC2086 # BUILD_ARGS is a list of arguments
+  dotnet publish "$work/SmokeGame/SmokeGame.Desktop/SmokeGame.Desktop.csproj" -c "$config" -r "$rid" --self-contained false \
+    -o "$work/publish" -warnaserror ${BUILD_ARGS:-}
+  require "$work/publish" "$rmlui" SmokeGame.Desktop.dll project.mfproj Content/Scenes/Main.mscene "${engine_files[@]}"
+fi
 
 # macOS: the development app bundle named after the game, with the icon from window.icon (ADR 0182).
 if [ "$(uname -s)" = "Darwin" ]; then

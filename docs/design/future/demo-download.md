@@ -22,7 +22,7 @@ only in the source repository. Godot's Project Manager offers an asset-library d
 - A general asset/template library.
 - Downloading or installing the engine itself. Like New Project, the Demo builds against an engine checkout
   (`TemplateLocator.FindEngineCheckout`, `MAINFRAME_ENGINE_PATH`); NuGet distribution is
-  [a separate proposal](distribution-nuget.md).
+  [a separate proposal](../distribution-nuget.md).
 - Updating an already-downloaded Demo in place.
 
 ## Release side

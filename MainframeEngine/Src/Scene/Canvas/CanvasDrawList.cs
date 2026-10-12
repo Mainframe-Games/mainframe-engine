@@ -38,7 +38,7 @@ public readonly record struct CanvasDrawCommand(Texture2D? Texture, CanvasPrimit
 
 /// <summary>
 /// The commands a <see cref="CanvasItem"/> recorded in its last draw (Godot's per-item command list): vertices in the
-/// item's local space (the draw transform of <see cref="CanvasItem.DrawSetTransform(Vector2, float, Vector2)"/> already
+/// item's local space (the draw transform of <see cref="CanvasItem.DrawSetTransform(Vector2, float, Vector2?)"/> already
 /// applied), indices, and commands that group them by texture. Rebuilt only when the item is redrawn.
 /// </summary>
 public sealed class CanvasDrawList

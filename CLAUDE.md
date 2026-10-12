@@ -21,6 +21,8 @@ just qa-editor        # scripted editor QA (Tests/QA/editor-walkthrough.qa) → 
 just qa-settings      # saves + settings QA on the real Demo (rebind, restart, recover a damaged save) → artifacts/qa-settings
 just qa-projects      # create a game, play it, edit its C#, reload (needs the .NET SDK) → artifacts/qa-projects
 just template-smoke   # dotnet new mfgame against this checkout, build it, run it headless (CI job "template")
+just template-smoke-package  # the same against this checkout packed as the MainframeEngine package; also publishes
+just pack [version]   # the MainframeEngine NuGet package → artifacts/nuget (build/pack-engine.sh; nuget.org on release)
 just publish-local    # package the editor like the release workflow (artifacts/release)
 just l10n-check       # committed .mo files match their .po (CI runs it)
 just l10n-engine      # the engine's own strings (settings menu, input names) → Content/UI/settings/settings.pot
@@ -113,7 +115,10 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `ConfigFile`; `Src/UI/Settings/` the drop-in `SettingsMenu`
 - `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `UserSettings` (`settings.json`), `GameHost`/`GameSession`, `GameAssemblyLoader`
   (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol, client and server
-- `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template (not published; `build/template-smoke.sh`)
+- `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template (not on nuget.org; the editor ships a copy;
+  defaults to the `MainframeEngine` package, `--engine-source project` for a checkout; `build/template-smoke.sh`)
+- `build/package/` — the engine package's `buildTransitive` props/targets (content copy, localization; ADR 0188,
+  `docs/design/distribution-nuget.md`); `build/pack-engine.sh` packs it
 - `Examples/Demo/` — the Demo game (a `GameHost` project of its own: `Demo`, `Demo.Desktop`, `Demo.Tests`): one scene per feature, nav bar; README screenshots (`just demo-screenshots`). Standalone, not part of `MainframeEngine.slnx` (`Examples/Demo/Demo.slnx`); see `docs/design/demo.md`
 - `MainframeEngine.Editor/` — the editor exe (M10; `just editor [project|scene]`): `EditorApp : Engine` runs the tree in
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Content/Editor/`;
@@ -147,8 +152,10 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 
 ### Extending the Engine
 
-**Game projects (M10):** no `Engine` subclass. `dotnet new mfgame -n MyGame --engine-path <checkout>` (template in
-`Templates/`, `just template-smoke`) creates `MyGame` (node library + generator), `MyGame.Desktop`
+**Game projects (M10):** no `Engine` subclass. Games reference the `MainframeEngine` NuGet package (engine, generator,
+natives, content; `docs/design/distribution-nuget.md`). `dotnet new mfgame -n MyGame --engine-version X.Y.Z` (or
+`--engine-source project --engine-path <checkout>`; template in `Templates/`, `just template-smoke[-package]`) creates
+`MyGame` (node library + generator), `MyGame.Desktop`
 (`return GameHost.Run(args, typeof(SomeNode).Assembly);`) and `project.mfproj` (`ProjectSettings`: main scene, window,
 physics, input map, audio, localization, rendering, Steam, autoloads; versioned JSON with migrations). Steam demo
 builds: `isDemo` in `project.mfproj` (or `-p:MainframeDemo=true`) defines `DEMO` for game code (`#if DEMO`) through
@@ -309,8 +316,9 @@ Do not add NuGet packages without discussing the dependency first. Versions are 
 
 - `main` is PR-only: the `ci-success` check must pass, history stays linear (squash or rebase merges — never
   merge commits), no force pushes. Work on a branch and open a PR.
-- Releases: `publish.yml` (manual, `main` only, actor `brogan89`) tags `vX.Y.Z` (patch bump) and attaches
-  self-contained editor builds. Never bump versions in files. See `docs/design/release.md`.
+- Releases: `publish.yml` (manual, `main` only, actor `brogan89`) tags `vX.Y.Z` (patch bump), attaches
+  self-contained editor builds and the `MainframeEngine` package, then pushes it to nuget.org (`NUGET_API_KEY` in the
+  `release` environment). Never bump versions in files. See `docs/design/release.md`.
 
 ## Project memory
 

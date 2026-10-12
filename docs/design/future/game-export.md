@@ -5,7 +5,7 @@
 [Release → Games](../release.md#games) (`build/package-game.sh`, which this replaces) · **Related:**
 [Mobile core](mobile.md) (M12.7 extends the same `export` presets), [Steamworks](../steamworks.md),
 [Project and GameHost → demo builds](../project-and-gamehost.md#demo-builds),
-[Distribution via NuGet](distribution-nuget.md)
+[Distribution via NuGet](../distribution-nuget.md)
 
 ## Problem
 
@@ -550,6 +550,6 @@ The runner never touches RmlUi, the scene tree or the editor's `AssetDatabase.Cu
 - [Steamworks → Natives](../steamworks.md#natives) and [Project settings](../steamworks.md#project-settings)
 - [Project and GameHost → Demo builds](../project-and-gamehost.md#demo-builds)
 - [Editor → Play](../editor.md#play), the build, Output and threading pattern reused here
-- [Distribution via NuGet](distribution-nuget.md), for exports of games that use engine packages instead of a checkout
+- [Distribution via NuGet](../distribution-nuget.md), for exports of games that use engine packages instead of a checkout
 - Sibling Gameplay toolkit proposals: [Save games and settings](save-and-settings.md) (G4) adds no export needs,
   because saves live in the user-data folder, not in the export.

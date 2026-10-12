@@ -93,4 +93,26 @@ public sealed class NewProjectValidationTests : IDisposable
         Assert.Contains("Choose the Mainframe Engine folder", NewProjectValidation.Validate(request with { Name = "Good", ParentDirectory = _directory }), StringComparison.Ordinal);
         Assert.Equal(Path.Combine(_directory, "Good"), (request with { Name = "Good", ParentDirectory = _directory }).ProjectDirectory);
     }
+
+    [Theory]
+    [InlineData("1.0.0", true)]
+    [InlineData("1.2.13", true)]
+    [InlineData("2.0.0-preview.1", true)]
+    [InlineData("0.0.0-dev", false)]
+    [InlineData("0.0.0", false)]
+    [InlineData("1.2", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void OnlyReleaseVersionsHaveAPackage(string? version, bool expected) =>
+        Assert.Equal(expected, NewProjectValidation.IsPackageVersion(version));
+
+    [Fact]
+    public void PackageRequestsNeedAReleaseEditorButNoCheckout()
+    {
+        var request = new NewProjectRequest("Good", _directory, "", EngineSource.Package);
+        Assert.Null(NewProjectValidation.Validate(request, "1.4.0"));
+        Assert.Contains("development build (0.0.0-dev)", NewProjectValidation.Validate(request, "0.0.0-dev"), StringComparison.Ordinal);
+        Assert.Contains("Choose the Mainframe Engine folder",
+            NewProjectValidation.Validate(request with { EngineSource = EngineSource.Checkout }, "1.4.0"), StringComparison.Ordinal);
+    }
 }

@@ -1,9 +1,9 @@
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Finds the engine checkout new games reference (<c>--engine-path</c>) and the <c>mfgame</c> template. Today the
-/// editor runs from a checkout (the template and the engine sources live there); a release may ship a packaged copy
-/// of the template next to the app (<c>Templates/mfgame</c>).
+/// Finds the engine checkout checkout-based games reference (<c>--engine-path</c>) and the <c>mfgame</c> template: a
+/// development editor runs from a checkout (the template and the engine sources live there); a published editor ships
+/// a copy of the template next to the app (<c>Templates/mfgame</c>) for package-based games.
 /// </summary>
 public static class TemplateLocator
 {

@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    dotnet new templates for games (not published yet; see docs/design/project-and-gamehost.md).
-    Use from source: "dotnet new install Templates/MainframeEngine.Templates/content/mfgame", or pack this project
-    ("just template-pack") and install the .nupkg. Then "dotnet new mfgame -n MyGame" with the engine-path option
-    pointing at this checkout ("just template-smoke" does all of it).
+    dotnet new templates for games (not on nuget.org yet; the published editor ships a copy; see
+    docs/design/project-and-gamehost.md#template). Use from source: "dotnet new install
+    Templates/MainframeEngine.Templates/content/mfgame", or pack this project ("just template-pack") and install the
+    .nupkg. Then "dotnet new mfgame -n MyGame" with the engine-version option (the MainframeEngine package), or with
+    engine-source project and engine-path pointing at this checkout ("just template-smoke[-package]" does all of it).
   -->
   <PropertyGroup>
     <PackageType>Template</PackageType>
@@ -22,6 +23,7 @@
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <!-- NU5128: a template package has no lib/ for its target framework by design. -->
     <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 
   <ItemGroup>

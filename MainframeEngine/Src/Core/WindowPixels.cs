@@ -6,7 +6,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Framebuffer size in pixels. On HiDPI displays SDL's window size is in points (a Retina window of
-/// 1512×846 pt is 3024×1692 px), and Silk's <see cref="IWindow.FramebufferSize"/> reports the GL
+/// 1512×846 pt is 3024×1692 px), and Silk's <see cref="Silk.NET.Windowing.IView.FramebufferSize"/> reports the GL
 /// drawable, which for a Vulkan window is the point size. The swapchain, viewports and scissors
 /// need pixels, so this asks SDL for the Vulkan drawable size.
 /// </summary>

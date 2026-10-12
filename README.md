@@ -488,12 +488,21 @@ Full C# port of the Spine skeletal animation runtime:
 
 ### A new game
 
-Games are their own projects; the engine runs them with `GameHost` from a `project.mfproj` (no `Engine` subclass):
+Games are their own projects; the engine runs them with `GameHost` from a `project.mfproj` (no `Engine` subclass).
+The engine is the [`MainframeEngine`](https://www.nuget.org/packages/MainframeEngine) NuGet package (engine, source
+generator, natives, engine content and build integration), so a game needs neither this repo nor the editor:
+
+```bash
+dotnet add package MainframeEngine      # in any .NET 10 project
+```
+
+The `mfgame` template sets up the whole project (from a checkout of this repo; the editor's New Project uses the same template):
 
 ```bash
 git clone --recurse-submodules <this repo> mainframe-engine     # Plugins/Spine is a submodule
 dotnet new install mainframe-engine/Templates/MainframeEngine.Templates/content/mfgame
-dotnet new mfgame -n MyGame --engine-path "$PWD/mainframe-engine"
+dotnet new mfgame -n MyGame --engine-version <release, e.g. 1.2.0>                 # references the package
+dotnet new mfgame -n MyGame --engine-source project --engine-path "$PWD/mainframe-engine"   # or this checkout
 dotnet run --project MyGame/MyGame.Desktop
 ```
 
@@ -506,8 +515,8 @@ This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGam
 ### Make a game (in the editor)
 
 1. `just editor` opens the **Project Manager** (it checks for a .NET 10 SDK and links to the download if missing).
-2. **New Project**: a name (a C# identifier, e.g. `MyGame`) and a parent folder; the engine checkout is found
-   automatically. Create runs `dotnet new mfgame`, builds the game and opens it — `Content/Scenes/Main.mscene` with the
+2. **New Project**: a name (a C# identifier, e.g. `MyGame`) and a parent folder; the game references the
+   `MainframeEngine` package of the editor's version (or, for engine work, an engine checkout). Create runs `dotnet new mfgame`, builds the game and opens it — `Content/Scenes/Main.mscene` with the
    template's `Spinner` node.
 3. Edit the scene: **Add Node** (Cmd/Ctrl+A), drag files from the **FileSystem** panel onto the scene tree or the
    viewport, change properties in the inspector, connect signals in its Signals tab. Cmd/Ctrl+S saves.

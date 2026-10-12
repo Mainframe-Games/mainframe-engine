@@ -920,7 +920,7 @@ namespace MainframeEngine
 
         /// <summary>
         /// Encodes a <see cref="Color"/> from a RGBE9995 format integer.
-        /// See <see cref="Image.Format.Rgbe9995"/>.
+        /// See Godot's <c>Image.Format.Rgbe9995</c>.
         /// </summary>
         /// <param name="rgbe">The RGBE9995 encoded color.</param>
         /// <returns>The constructed color.</returns>
@@ -970,7 +970,7 @@ namespace MainframeEngine
         /// Returns <see langword="true"/> if <paramref name="color"/> is a valid HTML hexadecimal
         /// color string. The string must be a hexadecimal value (case-insensitive) of either 3,
         /// 4, 6 or 8 digits, and may be prefixed by a hash sign (<c>#</c>). This method is
-        /// identical to <see cref="StringExtensions.IsValidHtmlColor(string)"/>.
+        /// identical to Godot's <c>String.IsValidHtmlColor</c>.
         /// </summary>
         /// <param name="color">The HTML hexadecimal color string.</param>
         /// <returns>Whether or not the string was a valid HTML hexadecimal color string.</returns>

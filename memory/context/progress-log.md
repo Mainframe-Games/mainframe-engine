@@ -663,3 +663,23 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   `ScaleCurve` (new `Curve` resource) and `ColorRamp` (`Gradient`). Default emitters unchanged (goldens identical).
 - `CanvasEnvironment` icon → `brightness-half` (the A commit reused `adjustments`, failing `IconAtlasTests`); `Curve` →
   `math-function`. Gates: build, Release, format, 2359 unit + 792 editor + 175 render tests green.
+
+### 2026-10-12 — MainframeEngine NuGet package (ADR 0188)
+- The `MainframeEngine` package (nuget.org, release version) carries everything a game needs:
+  - the engine and the bundled spine-csharp in `lib/`;
+  - the generator in `analyzers/`;
+  - the natives in `runtimes/` for 4 RIDs;
+  - the engine content as `mainframe/Content`, copied into the app's `Content/`;
+  - mf-l10n in `tools/`;
+  - the checkout's `MainframeGame.props`/`Localization.targets` in `buildTransitive/`.
+  Pack it with `build/pack-engine.sh` (`just pack`); the result is about 31 MB.
+- Template: it defaults to `--engine-source package` and sets `ImportDirectoryPackagesProps=false`. The editor
+  publishes the template next to itself, and New Project has a package/checkout toggle (package at the editor's
+  version in release builds).
+- `publish.yml` gained a `package` job; the release attaches the `.nupkg`, then pushes it with `NUGET_API_KEY`.
+- CI `template`: the smoke test runs in package mode as well (pack, build, run, publish linux-x64).
+- Generating XML docs exposed existing broken crefs and misplaced comments; they are fixed (CS1591/CS1573/CS0419
+  suppressed).
+- Gates: build, Release, format, shaders, 2359 unit + 812 editor + 175 render tests, and the template smoke test in
+  both modes (macOS). A plain `dotnet new console` + `dotnet add package` game also builds and runs, and the published
+  editor (0.0.1, no checkout) created, built and opened a package project.

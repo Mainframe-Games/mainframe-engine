@@ -10,8 +10,8 @@ namespace MainframeEngine;
 [EditorIcon("camera")]
 public class CameraAttributesPractical : Resource
 {
-    [ExportGroup("Depth of Field")]
     /// <summary>Blur what lies beyond <see cref="DofBlurFarDistance"/> (Godot's <c>dof_blur_far_enabled</c>).</summary>
+    [ExportGroup("Depth of Field")]
     [Export]
     public bool DofBlurFarEnabled { get; set; }
 
@@ -43,8 +43,8 @@ public class CameraAttributesPractical : Resource
     [Export]
     public DepthOfFieldQuality DofQuality { get; set; }
 
-    [ExportGroup("Film")]
     /// <summary>Darkens towards the corners (0 = off).</summary>
+    [ExportGroup("Film")]
     [Export(Range = "0,1,0.001")]
     public float VignetteIntensity { get; set; }
 

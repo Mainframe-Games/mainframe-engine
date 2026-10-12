@@ -20,27 +20,27 @@
       "description": "How the game references the engine.",
       "choices": [
         {
-          "choice": "project",
-          "description": "Project references into an engine checkout (--engine-path). Works today."
+          "choice": "package",
+          "description": "The MainframeEngine NuGet package at --engine-version (no engine checkout needed)."
         },
         {
-          "choice": "package",
-          "description": "The MainframeEngine NuGet package (--engine-version). Future: the package is not published yet."
+          "choice": "project",
+          "description": "Project references into an engine checkout (--engine-path), for working on the engine itself."
         }
       ],
-      "defaultValue": "project"
+      "defaultValue": "package"
     },
     "EnginePath": {
       "type": "parameter",
       "datatype": "string",
-      "description": "Path of the engine checkout (the folder holding MainframeEngine.slnx); absolute, or relative to the new project folder.",
+      "description": "With --engine-source project: the engine checkout (the folder holding MainframeEngine.slnx); absolute, or relative to the new project folder.",
       "defaultValue": "../mainframe-engine",
       "replaces": "MAINFRAME_ENGINE_PATH"
     },
     "EngineVersion": {
       "type": "parameter",
       "datatype": "string",
-      "description": "Engine version recorded in project.mfproj (and the package version with --engine-source package).",
+      "description": "The MainframeEngine package version (a release, e.g. 1.2.0; the editor passes its own) and the engine version recorded in project.mfproj.",
       "defaultValue": "0.0.0-dev",
       "replaces": "MAINFRAME_ENGINE_VERSION"
     },

@@ -26,6 +26,22 @@
   </PropertyGroup>
 
   <!--
+    NuGet packages (docs/design/distribution-nuget.md): only the engine (MainframeEngine.csproj) and the templates opt in
+    with IsPackable=true; the generator, spine-csharp and mf-l10n ship inside the engine package.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/Mainframe-Games/mainframe-engine</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://mainframe-games.github.io/mainframe-engine/</PackageProjectUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!--
     Analyzer rules from latest-recommended that don't fit a game engine. Every suppression needs a
     reason here; per-rule options (e.g. CA1051 structs) live in .editorconfig.
   -->

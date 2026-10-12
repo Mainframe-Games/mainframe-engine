@@ -308,8 +308,9 @@ jobs:
 
   template:
     # `dotnet new mfgame` from source against this checkout, build it, run its desktop project (GameHost) headless for 30
-    # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally), then build, test and run every scene of
-    # Examples/Demo the same way (build/demo-smoke.sh).
+    # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally); the same against this checkout packed
+    # as the MainframeEngine NuGet package, plus a linux-x64 publish (`just template-smoke-package`); then build, test and
+    # run every scene of Examples/Demo the same way (build/demo-smoke.sh).
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -364,6 +365,11 @@ jobs:
       - name: Instantiate, build and run the mfgame template
         run: xvfb-run -a -s "-screen 0 1280x1024x24" build/template-smoke.sh "$RUNNER_TEMP/template-smoke" 30
 
+      - name: Pack the engine package; instantiate, build, run and publish the mfgame template against it
+        env:
+          ENGINE_SOURCE: package
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" build/template-smoke.sh "$RUNNER_TEMP/template-smoke-package" 30
+
       - name: Build, test and run every Demo scene
         run: xvfb-run -a -s "-screen 0 1280x1024x24" build/demo-smoke.sh "$RUNNER_TEMP/demo-smoke" 10
 
@@ -383,6 +389,8 @@ jobs:
           path: |
             ${{ runner.temp }}/template-smoke/userdata/**/*.log
             ${{ runner.temp }}/template-smoke/screenshot.png
+            ${{ runner.temp }}/template-smoke-package/userdata/**/*.log
+            ${{ runner.temp }}/template-smoke-package/screenshot.png
             ${{ runner.temp }}/demo-smoke/userdata/**/*.log
             ${{ runner.temp }}/demo-smoke/*.png
           if-no-files-found: warn

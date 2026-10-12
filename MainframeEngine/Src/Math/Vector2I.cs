@@ -331,12 +331,12 @@ namespace MainframeEngine
         private static readonly Vector2I _left = new Vector2I(-1, 0);
 
         /// <summary>
-        /// Min vector, a vector with all components equal to <see cref="int.MinValue"/>. Can be used as a negative integer equivalent of <see cref="Vector2.Inf"/>.
+        /// Min vector, a vector with all components equal to <see cref="int.MinValue"/>. Can be used as a negative integer equivalent of <c>Vector2.Inf</c>.
         /// </summary>
         /// <value>Equivalent to <c>new Vector2I(int.MinValue, int.MinValue)</c>.</value>
         public static Vector2I MinValue { get { return _minValue; } }
         /// <summary>
-        /// Max vector, a vector with all components equal to <see cref="int.MaxValue"/>. Can be used as an integer equivalent of <see cref="Vector2.Inf"/>.
+        /// Max vector, a vector with all components equal to <see cref="int.MaxValue"/>. Can be used as an integer equivalent of <c>Vector2.Inf</c>.
         /// </summary>
         /// <value>Equivalent to <c>new Vector2I(int.MaxValue, int.MaxValue)</c>.</value>
         public static Vector2I MaxValue { get { return _maxValue; } }
@@ -657,8 +657,8 @@ namespace MainframeEngine
         /// <summary>
         /// Converts a <see cref="Vector2"/> to a <see cref="Vector2I"/> by truncating
         /// components' fractional parts (rounding towards zero). For a different
-        /// behavior consider passing the result of <see cref="Vector2.Ceil"/>,
-        /// <see cref="Vector2.Floor"/> or <see cref="Vector2.Round"/> to this conversion operator instead.
+        /// behavior consider passing the result of <see cref="Vector2Extensions.Ceil"/>,
+        /// <see cref="Vector2Extensions.Floor"/> or <see cref="Vector2.Round"/> to this conversion operator instead.
         /// </summary>
         /// <param name="value">The vector to convert.</param>
         public static explicit operator Vector2I(Vector2 value)

@@ -15,7 +15,6 @@
     <None Include="../Content/**" LinkBase="Content" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-<!--#if (!UsePackage) -->
   <!--
     Localization: Content/locale/<locale>/LC_MESSAGES/messages.po catalogs are compiled to .mo at build time (no gettext
     needed) and copied to Content/locale/ next to the app, where Tr loads them. Add a language with the engine's
@@ -24,6 +23,7 @@
   <PropertyGroup>
     <LocaleContentRoot>../Content</LocaleContentRoot>
   </PropertyGroup>
+<!--#if (!UsePackage) -->
   <Import Project="$(MainframeEnginePath)/build/Localization.targets" />
 <!--#endif -->
 

@@ -132,6 +132,14 @@ forest-audio:
 template-smoke frames="30":
     build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}
 
+# Template smoke test against this checkout packed as the MainframeEngine package (local feed); also publishes for this RID
+template-smoke-package frames="30":
+    ENGINE_SOURCE=package build/template-smoke.sh "{{artifacts / "template-smoke-package"}}" {{frames}}
+
+# Pack the MainframeEngine NuGet package (engine + generator + natives + content + mf-l10n) into artifacts/nuget
+pack version="0.0.0-dev":
+    build/pack-engine.sh {{version}} "{{artifacts / "nuget"}}"
+
 # Pack the dotnet new templates (MainframeEngine.Templates) into artifacts/templates
 template-pack:
     dotnet pack Templates/MainframeEngine.Templates -c Release -o {{artifacts / "templates"}}
