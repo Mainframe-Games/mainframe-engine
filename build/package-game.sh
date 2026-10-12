@@ -50,7 +50,7 @@ case "$mac_icns" in *.icns) mac_icns="$(dirname "$csproj")/$mac_icns" ;; *) mac_
 
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
 publish="$stage/publish"
-echo "Publishing $name $version for $rid…"
+echo "Publishing $name $version for ${rid}…"
 extra=()
 if [[ "$rid" == win-* ]] && [ -z "$(csproj_value ApplicationIcon)" ] && [ -n "$icon" ] && [ -f "$icon" ] && command -v magick >/dev/null; then
   # The exe's icon is a build input on Windows (ApplicationIcon); multi-size .ico from the PNG.
