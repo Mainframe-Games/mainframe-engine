@@ -81,7 +81,7 @@ public sealed record GameHostOptions
     /// <summary><c>--record-scale</c>: <see cref="EngineOptions.ContentScale"/> for the recording; 0 leaves it alone.</summary>
     public float RecordScale { get; init; }
 
-    /// <summary><c>--ffmpeg</c>: the encoder executable. See FfmpegResolver for the lookup order.</summary>
+    /// <summary><c>--ffmpeg</c>: the encoder executable. See <see cref="FfmpegResolver"/> for the lookup order.</summary>
     public string? FfmpegPath { get; init; }
 
     /// <summary>Recording with a fixed timestep: deterministic, any resolution, audio from the manual null device.</summary>
