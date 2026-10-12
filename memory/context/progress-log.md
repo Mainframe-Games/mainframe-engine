@@ -676,8 +676,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `MainframeEngine.Templates` ships at the same version. Its packed `template.json` defaults the engine version to
   its own version (an inline task writes the file verbatim; `WriteLinesToFile` turned `\"` into `/"`).
 - nuget.org Trusted Publishing instead of a stored API key: the policy is owned by the `Mainframe-Games` org (workflow
-  `publish.yml`, environment `release`), with `NuGet/login@v1` and `id-token: write` on the release job. The one secret
-  is `NUGET_USER`, the policy creator's nuget.org username.
+  `publish.yml`, environment `release`), with `NuGet/login@v1` and `id-token: write` on the release job. No secrets:
+  `NUGET_USER: brogan` in the workflow is the policy creator's nuget.org username.
 - Template: it defaults to `--engine-source package` and sets `ImportDirectoryPackagesProps=false`. The editor
   publishes the template next to itself, and New Project has a package/checkout toggle (package at the editor's
   version in release builds).

@@ -45,7 +45,7 @@ versioned engine with `dotnet add package`, and the editor should be an optional
 - Packing goes through `build/pack-nuget.sh`. `mf-l10n` is built first because it references the engine, so the
   engine's pack cannot build it; then the engine and the templates are packed.
 - CI's `template` job also packs, then builds, runs and publishes a game against the package on lavapipe. The release
-  needs the trusted publishing policy on nuget.org and the `NUGET_USER` secret in the `release` environment.
+  needs only the trusted publishing policy on nuget.org: no secrets (`NUGET_USER` in the workflow names its creator).
 - The package is about 31 MB: trees content (14 MB), natives for 4 RIDs, and mf-l10n's managed dependencies.
 - Not done yet:
   - an "upgrade project" action for package games;

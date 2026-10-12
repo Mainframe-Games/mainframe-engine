@@ -6,7 +6,7 @@ name: publish
 # The packages (MainframeEngine, MainframeEngine.Templates) go to nuget.org after the GitHub Release exists, through
 # nuget.org Trusted Publishing (no stored API key): a policy owned by the Mainframe-Games organization trusts this
 # repository's publish.yml in the "release" environment; NuGet/login exchanges the job's OIDC token for a 1-hour key.
-# NUGET_USER (a secret of the "release" environment) is the nuget.org username of the member who created the policy.
+# NUGET_USER below is the nuget.org username (not a secret) of the organization member who created that policy.
 # See docs/design/release.md and docs/design/distribution-nuget.md.
 on:
   workflow_dispatch:
@@ -29,6 +29,7 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  NUGET_USER: brogan # nuget.org Trusted Publishing: who created the Mainframe-Games policy (see the header)
   EDITOR_PROJECT: MainframeEngine.Editor/MainframeEngine.Editor.csproj
 
 jobs:
@@ -227,21 +228,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Check the nuget.org user is set
-        env:
-          NUGET_USER: ${{ secrets.NUGET_USER }}
-        run: |
-          if [ -z "$NUGET_USER" ]; then
-            echo "::error::NUGET_USER is not set in the release environment; the packages are attached to the release only."
-            exit 1
-          fi
-
       # Trusted Publishing: a short-lived (1 hour) API key for this run, requested right before the push.
       - name: nuget.org login (OIDC)
         id: nuget-login
         uses: NuGet/login@v1
         with:
-          user: ${{ secrets.NUGET_USER }}
+          user: ${{ env.NUGET_USER }}
 
       - name: Push MainframeEngine and MainframeEngine.Templates ${{ needs.guard.outputs.version }} to nuget.org
         env:

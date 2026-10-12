@@ -98,8 +98,9 @@ an API key valid for one hour. The policy on nuget.org (username → **Trusted P
 - **Environment:** `release`.
 - **Scopes:** new packages and new versions, glob `MainframeEngine*`.
 
-The only secret is `NUGET_USER` in the `release` environment: the nuget.org username (profile name, not email) of the
-member who created the policy. A policy stays active while that member belongs to the organization.
+There are no secrets. `NUGET_USER` in `publish.yml` (`brogan`) is the nuget.org username of the member who created the
+policy. A policy stays active while that member belongs to the organization; if someone else re-creates it, change
+`NUGET_USER` to their username.
 
 **Ownership.** On nuget.org a package belongs to the owner that first pushes its id, here the policy's owner. The
 `Authors` metadata ("Mainframe Games") is only display text. Both ids therefore belong to the organization, and its

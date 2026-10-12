@@ -68,8 +68,8 @@ flowchart LR
   [Distribution via NuGet](distribution-nuget.md). The `release` job attaches both `.nupkg` files to the GitHub Release
   and, last of all, pushes them to nuget.org through Trusted Publishing. `NuGet/login` exchanges the job's OIDC token
   for a 1-hour key against a policy owned by the `Mainframe-Games` organization (workflow `publish.yml`, environment
-  `release`), so there is no stored API key and the packages belong to the organization; the one secret, `NUGET_USER`,
-  is the policy creator's nuget.org username ([setup](distribution-nuget.md#versioning-and-release)). The push comes after the tag because a nuget.org package
+  `release`), so there is no stored API key or secret and the packages belong to the organization; `NUGET_USER` in the
+  workflow is the policy creator's nuget.org username ([setup](distribution-nuget.md#versioning-and-release)). The push comes after the tag because a nuget.org package
   can only be unlisted, never deleted; `--skip-duplicate` makes a re-run harmless.
 - **Demo and Forest assets.** The `demo` and `forest` jobs (need `guard` and `ci`; the release waits for them) pull the
   example's LFS content and run [`build/package-example.sh`](../../build/package-example.sh) `<Demo|Forest> <version>
