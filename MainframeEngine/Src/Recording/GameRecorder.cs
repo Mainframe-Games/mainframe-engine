@@ -94,6 +94,13 @@ public sealed class GameRecorder : IFrameStreamSink
     /// <summary>Time recorded so far (zero when not recording): wall-clock live, frames / fps offline.</summary>
     public TimeSpan Elapsed => TimeSpan.FromSeconds(IsRecording ? Now() : 0);
 
+    /// <summary>
+    /// Where the current recording is being written (the full path), from <see cref="Start"/> until the recording has been
+    /// finalised and <see cref="Stopped"/> raised; null otherwise. <see cref="Started"/> handlers read it, since the event
+    /// itself carries nothing.
+    /// </summary>
+    public string? OutputPath => _backend is not null ? _format?.OutputPath : null;
+
     /// <summary>Raised by <see cref="Start"/> once frames and audio are flowing (hide HUDs and overlays here).</summary>
     public event Action? Started;
 

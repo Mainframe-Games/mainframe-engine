@@ -349,6 +349,7 @@ public class GameHost : Engine
             Servers.Get<AudioServer>(),
             HostOptions.RecordOffline ? HostOptions.FixedFps : 0,
             new CaptureInfoSource(Settings.Name, () => Tree.CurrentScene?.SceneFilePath ?? "", EngineInfo.Version));
+        Session.AttachRecorder(recorder);
         recorder.Started += () => DevOverlayVisible = false; // F12 still brings it back, into the recording
         if (HostOptions.RecordPath is not null)
         {

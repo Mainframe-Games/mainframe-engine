@@ -288,6 +288,23 @@ public sealed class EditorLinkConnectionTests
     }
 
     [Fact]
+    public void RecordingEventsReachTheEditorInOrderAndAreNeverCoalesced()
+    {
+        using var server = new EditorLinkServer();
+        using var client = new EditorLinkClient(server.Port, Hello);
+        var seen = new List<EditorLinkMessage>();
+        Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Hello);
+
+        var started = new EditorLinkRecording(EditorLinkRecordingState.Started, "/r/a.mp4", 0f, 0, 0, "");
+        var stopped = new EditorLinkRecording(EditorLinkRecordingState.Stopped, "/r/a.mp4", 12.5f, 3, 7, "");
+        client.SendRecording(started);
+        client.SendRecording(stopped);
+
+        Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Recording && m.Recording.State == EditorLinkRecordingState.Stopped);
+        Assert.Equal([started, stopped], seen.Where(m => m.Type == EditorLinkMessageType.Recording).Select(m => m.Recording));
+    }
+
+    [Fact]
     public void TheGameReconnectsAfterTheEditorRestartsAndSendsWhatQueuedMeanwhile()
     {
         int port;
