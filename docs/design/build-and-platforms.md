@@ -106,6 +106,22 @@ editing a shader or include, run `just shaders` and commit the `.spv` files with
 for any branch (`workflow_dispatch`: `gh workflow run ci.yml --ref <branch>`). It does not run on pushes to
 `main`: the `main-protection` ruleset only lets changes in through pull requests that already passed it, so a
 second run on `main` would only cost Actions minutes. `publish.yml` re-runs it before a release.
+
+**Docs-only pull requests skip the heavy jobs.** The `changes` job diffs the PR's merge commit against its first parent
+(the base branch) and runs [`build/ci-changes.sh`](../../build/ci-changes.sh). When every changed file is documentation,
+`build-test`, `format`, `shaders`, `render-tests` and `template` are skipped and `ci-success` still passes.
+Documentation means:
+- `docs/**`, except `docs/images/brand/**` (the editor icon, the NuGet package icons and release packaging read it);
+- `docs-site/**`;
+- `memory/**`;
+- a top-level `*.md` such as `README.md` or `CLAUDE.md`.
+
+[`docs.yml`](../../.github/workflows/docs.yml) still builds the docs site for those PRs. The rule fails toward running
+everything:
+- any other path, including workflows, `build/` and `.md` files inside projects (`PACKAGE.md` is packed), counts as code;
+- a renamed file counts at both its old and new path (`--no-renames`);
+- an empty or unreadable diff counts as code;
+- `workflow_dispatch` and `publish.yml`'s `workflow_call` always run the full suite.
 There is one run per ref; newer runs cancel older ones. Checkouts include the Spine submodule. To save
 LFS bandwidth, jobs check out without LFS and fetch only the LFS files they need (`git lfs pull --exclude=…`;
 never the README screenshots or `Examples/` images), with `.git/lfs` cached under a key hashed from the needed object IDs
@@ -115,12 +131,13 @@ files; `publish.yml`'s editor builds follow the same pattern, and `natives.yml`'
 
 | Job | Runs |
 |---|---|
+| `changes` | Classifies the PR (above): `code=true` runs the jobs below, `code=false` (docs only) skips them |
 | `build-test` (ubuntu-24.04, windows-latest, macos-14) | `dotnet build -c Release -warnaserror -p:CompileShaders=false` (committed `.spv`), unit tests with coverage; uploads `.trx` results and (Linux) Cobertura coverage |
 | `format` | `dotnet format --verify-no-changes --exclude Plugins/Spine` |
 | `shaders` | Slang v2026.1 from its GitHub release (SHA-256 pinned) + apt `spirv-tools`, compiles every shader to a temp dir, `spirv-val`, `build/shaders.sh check` |
 | `render-tests` | Ubuntu with lavapipe (`mesa-vulkan-drivers`, `VK_DRIVER_FILES` = `lvp_icd.json`), `vulkan-validationlayers`, Xvfb; three parallel shards by test class (the matrix's `--filter`s; the last runs every class the others do not name); compares against `Goldens/lavapipe/`; each shard uploads `artifacts/render-tests` (frames, diffs) as `render-tests-<shard>`. Timing tests measure a short `--perf-on-cpu` window there. Re-recording: [Testing](testing.md#golden-images) |
-| `template` | Ubuntu with lavapipe + Xvfb: `build/template-smoke.sh` installs the `mfgame` template from source, builds a game against the checkout (Release, warnings as errors) and runs its desktop project (`GameHost`) for 30 hidden frames, failing on logged errors; packs `MainframeEngine.Templates`. See [Projects & GameHost](project-and-gamehost.md#template) |
-| `ci-success` | Runs always; fails unless every job above succeeded. **The required status check** in the `main` ruleset — do not rename. |
+| `template` | Ubuntu with lavapipe + Xvfb: `build/template-smoke.sh` installs the `mfgame` template from source, builds a game against the checkout (Release, warnings as errors) and runs its desktop project (`GameHost`) for 30 hidden frames, failing on logged errors; then the same against both NuGet packages packed into a local feed, plus a `linux-x64` publish ([Distribution via NuGet](distribution-nuget.md#tests)). See [Projects & GameHost](project-and-gamehost.md#template) |
+| `ci-success` | Runs always; fails unless every job above succeeded (a skipped job counts only when `changes` said docs-only). **The required status check** in the `main` ruleset — do not rename. |
 
 ## Windowing: SDL2
 

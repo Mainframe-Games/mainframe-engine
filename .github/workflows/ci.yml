@@ -22,7 +22,44 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  changes:
+    # Docs-only pull requests (every changed file in docs/ except docs/images/brand/, docs-site/, memory/ or a top-level
+    # *.md) skip the build, test, render and template jobs; docs.yml still builds the docs site for them, and ci-success
+    # still reports. Any other change, a manual run (workflow_dispatch) and publish.yml's run (workflow_call) run
+    # everything; so does a diff that cannot be read. The rule is build/ci-changes.sh.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      # A pull request run checks out GitHub's merge commit: its first parent is the base branch, so HEAD^1..HEAD is
+      # exactly what the PR changes against the current base.
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          fetch-depth: 2
+          sparse-checkout: build/ci-changes.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Classify the changed files
+        id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          code=true
+          # --no-renames: a moved file counts at both paths (code moved into docs/ is still a code change).
+          if [ "$EVENT" = "pull_request" ] && files="$(git diff --name-only --no-renames HEAD^1 HEAD)"; then
+            printf '%s\n' "$files"
+            code="$(printf '%s\n' "$files" | build/ci-changes.sh | cut -d= -f2)"
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+          if [ "$code" = "false" ]; then
+            echo "Docs-only change: build, test, render and template jobs are skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   build-test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: build-test (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -135,6 +172,8 @@ jobs:
           if-no-files-found: error
 
   format:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -158,6 +197,8 @@ jobs:
         run: dotnet format MainframeEngine.slnx --verify-no-changes --exclude Plugins/Spine
 
   shaders:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -189,6 +230,8 @@ jobs:
         run: sh build/shaders.sh check
 
   render-tests:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: render-tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
     # The suite takes 15-25 min on one lavapipe runner since the forest's scenes (G8, ADR 0163-0175): CPU rasterising is
@@ -307,6 +350,8 @@ jobs:
           if-no-files-found: warn
 
   template:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     # `dotnet new mfgame` from source against this checkout, build it, run its desktop project (GameHost) headless for 30
     # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally); the same against this checkout packed
     # as the MainframeEngine NuGet package, plus a linux-x64 publish (`just template-smoke-package`); then build, test and
@@ -393,20 +438,27 @@ jobs:
           if-no-files-found: warn
 
   ci-success:
-    # The single required status check (repo ruleset). Do not rename.
+    # The single required status check (repo ruleset). Do not rename. Skipped jobs pass only on a docs-only change.
     if: always()
-    needs: [build-test, format, shaders, render-tests, template]
+    needs: [changes, build-test, format, shaders, render-tests, template]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: All jobs succeeded
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
+          CHANGES: ${{ needs.changes.result }}
+          CODE: ${{ needs.changes.outputs.code }}
         run: |
-          echo "Job results: $RESULTS"
+          echo "Job results: $RESULTS (code changed: $CODE)"
+          if [ "$CHANGES" != "success" ]; then
+            echo "::error::The changes job did not succeed ($CHANGES)."
+            exit 1
+          fi
           for result in $RESULTS; do
-            if [ "$result" != "success" ]; then
-              echo "::error::A required job did not succeed ($result)."
-              exit 1
+            if [ "$result" = "success" ] || { [ "$result" = "skipped" ] && [ "$CODE" = "false" ]; }; then
+              continue
             fi
+            echo "::error::A required job did not succeed ($result)."
+            exit 1
           done
