@@ -388,7 +388,7 @@ public class GameHost : Engine
             return true;
         try
         {
-            recorder.Start(new RecordingOptions(path, HostOptions.FixedFps > 0 ? HostOptions.FixedFps : 60));
+            recorder.Start(new RecordingOptions { Path = path, Fps = HostOptions.FixedFps > 0 ? HostOptions.FixedFps : 60 });
             return true;
         }
         catch (Exception e) when (e is FfmpegNotFoundException or IOException or InvalidOperationException or UnauthorizedAccessException

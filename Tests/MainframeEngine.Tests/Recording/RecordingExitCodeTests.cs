@@ -3,9 +3,9 @@ namespace MainframeEngine.Tests.Recording;
 /// <summary>When a failed recording makes a <c>--record</c> run exit with an error.</summary>
 public sealed class RecordingExitCodeTests
 {
-    private static RecordingResult Saved() => new("out.mp4", 60, 0, null);
+    private static RecordingResult Saved() => new() { Path = "out.mp4", DurationSeconds = 60 };
 
-    private static RecordingResult Failed() => new("out.mp4", 12, 0, "Recording stopped: the encoder exited.");
+    private static RecordingResult Failed() => new() { Path = "out.mp4", DurationSeconds = 12, Error = "Recording stopped: the encoder exited." };
 
     [Fact]
     public void AnOfflineRunWhoseRecordingFailedQuitsWithAnError() =>

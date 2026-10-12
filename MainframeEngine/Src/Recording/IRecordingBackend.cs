@@ -22,5 +22,27 @@ internal interface IRecordingBackend : IDisposable
     Task<RecordingResult> FinishAsync(long videoFrames, CaptureInfo info, CaptureSpans spans, CancellationToken ct);
 }
 
-/// <summary>The outcome of a recording. <see cref="Error"/> is null on success; on failure the partial files are kept and named in it.</summary>
-public sealed record RecordingResult(string Path, double DurationSeconds, long DroppedFrames, string? Error);
+/// <summary>
+/// The outcome of a recording, raised by <see cref="GameRecorder.Stopped"/>. <see cref="Error"/> is null on success; on
+/// failure the partial files are kept and named in it. Init-only properties so fields can be added without breaking callers.
+/// </summary>
+public sealed record RecordingResult
+{
+    /// <summary>The output video the recording was written to (or would have been).</summary>
+    public required string Path { get; init; }
+
+    /// <summary>Length of the output video in seconds (output frames / fps).</summary>
+    public double DurationSeconds { get; init; }
+
+    /// <summary>Frames the encoder could not take in time (live); the next frame written repeated to cover them.</summary>
+    public long DroppedFrames { get; init; }
+
+    /// <summary>
+    /// Output frames that repeat the previous one (live: a frame that took longer than one output interval, or the
+    /// make-up copies after a drop). A steady 60 Hz game recorded at 60 fps should have almost none.
+    /// </summary>
+    public long DuplicatedFrames { get; init; }
+
+    /// <summary>Why the recording failed or ended early; null on success.</summary>
+    public string? Error { get; init; }
+}

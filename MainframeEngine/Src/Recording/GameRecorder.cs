@@ -373,14 +373,25 @@ public sealed class GameRecorder : IFrameStreamSink
         catch (Exception e) when (e is OperationCanceledException or FfmpegNotFoundException or IOException or InvalidOperationException
                                       or ArgumentException or UnauthorizedAccessException)
         {
-            result = new RecordingResult(format.OutputPath, info.DurationSeconds, info.DroppedFrames, e.Message + PartialNote(format));
+            result = new RecordingResult
+            {
+                Path = format.OutputPath,
+                DurationSeconds = info.DurationSeconds,
+                DroppedFrames = info.DroppedFrames,
+                Error = e.Message + PartialNote(format),
+            };
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
             // A bug, not an expected failure: log it in full, but Stopped must still be raised and the game keep running.
             Log.Error($"[Recorder] Finalising failed unexpectedly: {e}");
-            result = new RecordingResult(format.OutputPath, info.DurationSeconds, info.DroppedFrames,
-                $"Finalising the recording failed unexpectedly ({e.GetType().Name}: {e.Message})." + PartialNote(format));
+            result = new RecordingResult
+            {
+                Path = format.OutputPath,
+                DurationSeconds = info.DurationSeconds,
+                DroppedFrames = info.DroppedFrames,
+                Error = $"Finalising the recording failed unexpectedly ({e.GetType().Name}: {e.Message})." + PartialNote(format),
+            };
         }
         finally
         {
@@ -405,7 +416,7 @@ public sealed class GameRecorder : IFrameStreamSink
         }
 
         var error = reason is null ? NoFrameError : $"{NoFrameError[..^1]}: {reason}.";
-        return new RecordingResult(format.OutputPath, 0, 0, error + PartialNote(format));
+        return new RecordingResult { Path = format.OutputPath, Error = error + PartialNote(format) };
     }
 
     // Where the kept intermediate files are, when there are any.

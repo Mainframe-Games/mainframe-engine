@@ -128,8 +128,13 @@ internal sealed class FfmpegRecordingBackend(string ffmpeg) : IRecordingBackend
         catch (Exception e) when (e is IOException or InvalidOperationException or UnauthorizedAccessException)
         {
             Log.Error($"[Recorder] {e.Message} Partial files kept in {_partial}");
-            return new RecordingResult(format.OutputPath, info.DurationSeconds, info.DroppedFrames,
-                $"{e.Message} The partial recording is in {_partial}.");
+            return new RecordingResult
+            {
+                Path = format.OutputPath,
+                DurationSeconds = info.DurationSeconds,
+                DroppedFrames = info.DroppedFrames,
+                Error = $"{e.Message} The partial recording is in {_partial}.",
+            };
         }
 
         // The video and sidecar are final; failing to tidy the scratch folder must not turn a good recording into an error.
@@ -142,7 +147,7 @@ internal sealed class FfmpegRecordingBackend(string ffmpeg) : IRecordingBackend
             Log.Warning($"[Recorder] Recording finished but could not remove {_partial}: {e.Message}");
         }
 
-        return new RecordingResult(format.OutputPath, info.DurationSeconds, info.DroppedFrames, null);
+        return new RecordingResult { Path = format.OutputPath, DurationSeconds = info.DurationSeconds, DroppedFrames = info.DroppedFrames };
     }
 
     /// <summary>Safe after <see cref="FinishAsync"/>, after a failed <see cref="Begin"/>, and when called twice.</summary>
