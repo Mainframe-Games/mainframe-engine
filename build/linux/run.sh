@@ -19,9 +19,15 @@ platform="linux/amd64" # CI's lavapipe is x86_64; goldens are recorded there
 
 command -v docker >/dev/null || { echo "docker not found" >&2; exit 1; }
 
-# The image only needs global.json and the Dockerfile (a tiny context instead of the whole checkout).
+# The image only needs global.json and the Dockerfile (a tiny context instead of the whole checkout). It is built on
+# every run, so a changed Dockerfile rebuilds from its first changed instruction; the label records which inputs the
+# image was built from, and the check makes sure an older local image is never used.
+inputs="$(cat "$root/global.json" "$root/build/linux/Dockerfile" | git hash-object --stdin)"
 tar --no-xattrs --no-mac-metadata -C "$root" -cf - global.json build/linux/Dockerfile |
-  docker build --quiet --platform "$platform" -t "$image" -f build/linux/Dockerfile - >/dev/null
+  docker build --quiet --platform "$platform" -t "$image" --label "mainframe.linux.inputs=$inputs" \
+    -f build/linux/Dockerfile - >/dev/null
+built="$(docker image inspect -f '{{index .Config.Labels "mainframe.linux.inputs"}}' "$image")"
+[ "$built" = "$inputs" ] || { echo "$image was not rebuilt from build/linux/Dockerfile ($built != $inputs)" >&2; exit 1; }
 
 rm -rf "$out"
 mkdir -p "$out"
