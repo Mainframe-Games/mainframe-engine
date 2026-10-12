@@ -23,7 +23,12 @@ internal static class FfmpegArgs
     /// </summary>
     private const string Bt709 = "scale=out_color_matrix=bt709:out_range=tv,setparams=color_primaries=bt709:color_trc=bt709";
 
-    public static IReadOnlyList<string> Encode(string encoder, int width, int height, int fps, PixelLayout layout, string outputMkv)
+    /// <summary>
+    /// Raw frames on stdin to an H.264 MPEG-TS intermediate. MPEG-TS, not MKV: MKV stores millisecond timestamps, so a
+    /// 60 fps recording muxed to 60.03 fps (3600000/59999), while the 90 kHz TS clock holds 1/60 s exactly. Like MKV it
+    /// needs no trailer, so a crash still leaves a playable file.
+    /// </summary>
+    public static IReadOnlyList<string> Encode(string encoder, int width, int height, int fps, PixelLayout layout, string outputTs)
     {
         var inv = CultureInfo.InvariantCulture;
         // yuv420p needs even sizes: an odd width or height loses its last column or row before the conversion.
@@ -43,13 +48,13 @@ internal static class FfmpegArgs
             args.AddRange(["-b:v", Bitrate(width & ~1, height & ~1, fps).ToString(inv)]);
         args.AddRange(["-g", fps.ToString(inv), "-pix_fmt", "yuv420p",
             "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
-            "-progress", "pipe:1", "-nostats", outputMkv]);
+            "-f", "mpegts", "-progress", "pipe:1", "-nostats", outputTs]);
         return args;
     }
 
-    public static IReadOnlyList<string> Mux(string videoMkv, string audioWav, string outputMp4) =>
+    public static IReadOnlyList<string> Mux(string videoTs, string audioWav, string outputMp4) =>
     [
-        "-hide_banner", "-loglevel", "error", "-y", "-i", videoMkv, "-i", audioWav,
+        "-hide_banner", "-loglevel", "error", "-y", "-i", videoTs, "-i", audioWav,
         "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", outputMp4,
     ];
 

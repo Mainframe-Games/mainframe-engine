@@ -19,7 +19,10 @@ take on GPL code, and games must not inherit any encoder obligations.
   Rejected: linking libav* (LGPL obligations in every game, native build matrix); bundling ffmpeg
   (licence depends on the build; x264 builds are GPL); a named pipe for audio (per-OS plumbing for no gain).
 - **Hardware H.264 first, probed before use**, then libx264/libopenh264, as a high-bitrate
-  intermediate with a one-second GOP.
+  intermediate with a one-second GOP, converted and tagged as BT.709 (ffmpeg's implicit conversion is untagged BT.601).
+- **An MPEG-TS intermediate** (`<out>.partial/video.ts`), muxed to MP4 at Stop. Like MKV it needs no trailer, so a
+  crash leaves a playable file; unlike MKV, whose millisecond timestamps turned 60 fps into 60.03 fps in the MP4, its
+  90 kHz clock holds 1/60 s exactly. Rejected: writing the MP4 directly (unplayable without its trailer after a crash).
 - **Frames from a per-frame-slot readback buffer read after BeginFrame's existing fence wait**, so
   recording adds a copy, never a stall. There are two buffers (one per frame in flight), not the three the
   first design assumed.

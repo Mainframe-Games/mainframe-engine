@@ -6,7 +6,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Records through the user's ffmpeg: raw frames into an encoder's stdin (writer thread, bounded queue of
-/// 4), audio into a float WAV, both under <c>&lt;out&gt;.partial/</c> (MKV survives a crash), then a mux to MP4
+/// 4), audio into a float WAV, both under <c>&lt;out&gt;.partial/</c> (MPEG-TS survives a crash), then a mux to MP4
 /// and the sidecar. Encoder choice is probed once per process (per ffmpeg path) and cached.
 /// </summary>
 /// <remarks>
@@ -50,7 +50,7 @@ internal sealed class FfmpegRecordingBackend(string ffmpeg) : IRecordingBackend
         {
             Directory.CreateDirectory(partial);
             _encoder = new FfmpegProcess(ffmpeg,
-                FfmpegArgs.Encode(encoder, format.Width, format.Height, format.Fps, format.Layout, Path.Combine(partial, "video.mkv")),
+                FfmpegArgs.Encode(encoder, format.Width, format.Height, format.Fps, format.Layout, Path.Combine(partial, "video.ts")),
                 stdin: true);
             _wav = new StreamingWavWriter(File.Create(Path.Combine(partial, "audio.wav")), format.Channels, format.SampleRate);
             _writer = new Thread(WriteFrames) { Name = "Mainframe recorder video writer", IsBackground = true };
@@ -122,7 +122,7 @@ internal sealed class FfmpegRecordingBackend(string ffmpeg) : IRecordingBackend
             Wav.Finish(SampleScheduler.SamplesThrough(videoFrames, format.SampleRate, format.Fps));
             Wav.Dispose();
             await FfmpegProcess.RunAsync(ffmpeg,
-                FfmpegArgs.Mux(Path.Combine(_partial, "video.mkv"), Path.Combine(_partial, "audio.wav"), format.OutputPath), ct).ConfigureAwait(false);
+                FfmpegArgs.Mux(Path.Combine(_partial, "video.ts"), Path.Combine(_partial, "audio.wav"), format.OutputPath), ct).ConfigureAwait(false);
             CaptureSidecarWriter.Write(format.OutputPath, info, spans);
         }
         catch (Exception e) when (e is IOException or InvalidOperationException or UnauthorizedAccessException)

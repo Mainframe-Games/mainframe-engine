@@ -67,7 +67,7 @@ flowchart LR
         MIX["AudioMixRoot (after the fault guard)"] -- "AudioCaptureTap.Write" --> RING["SPSC ring"]
     end
     RING -- "Drain in OnUpdate / Stop" --> GR
-    BE -- "bounded queue of 4 pooled buffers" --> W["Video writer thread"] --> ENC["ffmpeg encoder<br/>stdin → video.mkv"]
+    BE -- "bounded queue of 4 pooled buffers" --> W["Video writer thread"] --> ENC["ffmpeg encoder<br/>stdin → video.ts"]
     BE -- "StreamingWavWriter" --> WAV["audio.wav"]
     subgraph Fin["Thread-pool task (Stop)"]
         MUX["pad WAV · mux to MP4 · sidecar · remove .partial"]
@@ -134,10 +134,11 @@ flowchart LR
   bitrate of `width · height · fps / 4` bits/s (about 31 Mbit/s at 1080p60); the GOP is one second (`-g fps`) so a
   trimming tool never moves a cut more than a second. The result is a high-quality intermediate, not a delivery file.
   The result is probed once per process and ffmpeg path and cached.
-- **Files.** While recording: `<out>.partial/video.mkv` (MKV, so a crash leaves a playable file) and
+- **Files.** While recording: `<out>.partial/video.ts` (MPEG-TS: it needs no trailer, so a crash leaves a playable file,
+  and its 90 kHz timestamps hold 1/60 s exactly, where MKV's milliseconds made the MP4 60.03 fps) and
   `<out>.partial/audio.wav`. At `Stop` the WAV is **padded or truncated to the video's exact sample count**
   (`SampleScheduler.SamplesThrough(frames, sampleRate, fps)`) in both modes, then
-  `ffmpeg -i video.mkv -i audio.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -movflags +faststart <out>` muxes, the sidecar is
+  `ffmpeg -i video.ts -i audio.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -movflags +faststart <out>` muxes, the sidecar is
   written, and `.partial/` is deleted. On failure `.partial/` is kept and `RecordingResult.Error` names it.
   A recording that captured **zero frames is abandoned**: no mux and no sidecar (a sidecar with
   `durationSeconds` 0 is rejected by Cutback), and `Error` says so.
@@ -208,6 +209,9 @@ Rules:
   4039 frames (7.317 s of loading plus exactly 60.000 s), audio 67.316667 s, equal to frames / 60; a live autowalk
   of 22.2 s dropped 2 frames; both sidecars were valid. The script needs ffmpeg and ffprobe on `PATH`, an awake display
   and the LFS art, so it runs locally, not in CI.
+- The intermediate and colour arguments were checked by hand with ffmpeg 9.0.2 (h264_videotoolbox and libx264): 3600
+  frames at 60 fps mux to an MP4 with `avg_frame_rate=60/1` and `duration=60.000000` through MPEG-TS (through MKV:
+  `3600000/59999`, 59.999 s), tagged `bt709`/`bt709`/`bt709`/`tv` after the mux.
 - The tests under `Tests/MainframeEngine.Tests/Recording/` never run ffmpeg: schedulers, timeline, argument builders, the
   WAV writer, the sidecar against the fixture, the audio tap and `GameRecorder` itself.
 

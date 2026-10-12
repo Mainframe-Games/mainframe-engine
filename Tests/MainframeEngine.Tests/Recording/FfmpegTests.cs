@@ -78,7 +78,7 @@ public sealed class FfmpegTests
     [Fact]
     public void EncodeReadsRawFramesFromStdinWithOneSecondGop()
     {
-        var args = FfmpegArgs.Encode("h264_videotoolbox", 1920, 1080, 60, PixelLayout.Bgra, "/r/video.mkv");
+        var args = FfmpegArgs.Encode("h264_videotoolbox", 1920, 1080, 60, PixelLayout.Bgra, "/r/video.ts");
         Assert.Equal(
         [
             "-hide_banner", "-loglevel", "error", "-y",
@@ -86,8 +86,18 @@ public sealed class FfmpegTests
             "-an", "-vf", "scale=out_color_matrix=bt709:out_range=tv,setparams=color_primaries=bt709:color_trc=bt709",
             "-c:v", "h264_videotoolbox", "-b:v", "31104000", "-g", "60", "-pix_fmt", "yuv420p",
             "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
-            "-progress", "pipe:1", "-nostats", "/r/video.mkv",
+            "-f", "mpegts", "-progress", "pipe:1", "-nostats", "/r/video.ts",
         ], args);
+    }
+
+    [Fact]
+    public void TheIntermediateIsMpegTsForExactSixtyFpsTimestamps()
+    {
+        // MKV stores millisecond timestamps, so 60 fps became 60.03 (3600000/59999) in the final MP4; MPEG-TS's 90 kHz
+        // clock holds 1/60 s exactly, and a truncated TS still plays after a crash.
+        var args = FfmpegArgs.Encode("libx264", 1280, 720, 60, PixelLayout.Bgra, "/r/video.ts").ToList();
+        Assert.Equal("mpegts", args[args.LastIndexOf("-f") + 1]);
+        Assert.Equal("/r/video.ts", args[^1]);
     }
 
     [Fact]
@@ -95,7 +105,7 @@ public sealed class FfmpegTests
     {
         // ffmpeg's implicit bgra→yuv420p uses BT.601 and leaves the stream untagged, while players assume BT.709 for
         // HD: reds and greens shift. The conversion is explicit and the stream says what it is.
-        var args = FfmpegArgs.Encode("libx264", 1280, 720, 30, PixelLayout.Rgba, "/v.mkv").ToList();
+        var args = FfmpegArgs.Encode("libx264", 1280, 720, 30, PixelLayout.Rgba, "/v.ts").ToList();
         Assert.StartsWith("scale=out_color_matrix=bt709:out_range=tv", args[args.IndexOf("-vf") + 1], StringComparison.Ordinal);
         Assert.Equal("bt709", args[args.IndexOf("-colorspace") + 1]);
         Assert.Equal("bt709", args[args.IndexOf("-color_primaries") + 1]);
@@ -106,7 +116,7 @@ public sealed class FfmpegTests
     [Fact]
     public void Libx264UsesQualityModeNotBitrate()
     {
-        var args = FfmpegArgs.Encode("libx264", 1280, 720, 30, PixelLayout.Rgba, "/v.mkv");
+        var args = FfmpegArgs.Encode("libx264", 1280, 720, 30, PixelLayout.Rgba, "/v.ts");
         Assert.Contains("rgba", args);
         Assert.Equal("ultrafast", args[args.ToList().IndexOf("-preset") + 1]);
         Assert.Equal("14", args[args.ToList().IndexOf("-crf") + 1]);
@@ -116,7 +126,7 @@ public sealed class FfmpegTests
     [Fact]
     public void OddDimensionsAreCroppedToEven()
     {
-        var args = FfmpegArgs.Encode("libx264", 1281, 721, 60, PixelLayout.Bgra, "/v.mkv").ToList();
+        var args = FfmpegArgs.Encode("libx264", 1281, 721, 60, PixelLayout.Bgra, "/v.ts").ToList();
         Assert.Equal("crop=1280:720:0:0,scale=out_color_matrix=bt709:out_range=tv,setparams=color_primaries=bt709:color_trc=bt709",
             args[args.IndexOf("-vf") + 1]);
         Assert.Single(args, a => a == "-vf"); // one chain: a second -vf would replace the first
@@ -128,9 +138,9 @@ public sealed class FfmpegTests
     {
         Assert.Equal(
         [
-            "-hide_banner", "-loglevel", "error", "-y", "-i", "/r/video.mkv", "-i", "/r/audio.wav",
+            "-hide_banner", "-loglevel", "error", "-y", "-i", "/r/video.ts", "-i", "/r/audio.wav",
             "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "/r/out.mp4",
-        ], FfmpegArgs.Mux("/r/video.mkv", "/r/audio.wav", "/r/out.mp4"));
+        ], FfmpegArgs.Mux("/r/video.ts", "/r/audio.wav", "/r/out.mp4"));
     }
 
     [Fact]
