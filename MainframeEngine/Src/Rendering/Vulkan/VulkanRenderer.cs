@@ -17,7 +17,7 @@ namespace MainframeEngine;
 /// Vulkan rendering backend.
 /// Implements IVulkanContext so shapes can record draw commands into the active command buffer.
 /// </summary>
-internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
+internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext, IFrameStreamSource
 {
     private readonly IWindow _window;
 
@@ -87,6 +87,13 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
     private bool _captureRecorded;
     private FrameCapture? _completedCapture;
     private GpuBuffer? _captureBuffer;
+
+    // gameplay recorder frame stream (IFrameStreamSource): one readback buffer per frame slot. A slot is pending
+    // (stamp set) from the submit that copied into it until its fence has been waited and the pixels delivered.
+    private IFrameStreamSink? _streamSink;
+    private readonly GpuBuffer?[] _streamBuffers = new GpuBuffer?[MaxFramesInFlight];
+    private readonly double?[] _streamPending = new double?[MaxFramesInFlight];
+    private Extent2D _streamExtent;
 
     private readonly string[] _deviceExtensions = [KhrSwapchain.ExtensionName];
 
@@ -243,6 +250,9 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         _deletions!.Collect(completed);
         _uploads!.Release(completed);
 
+        // The fence just waited is the one the slot's last frame signalled, so a stream copy it holds is complete.
+        DeliverStreamSlot(_currentFrame);
+
         uint imageIndex;
         var acquireStart = Stopwatch.GetTimestamp();
         var result = _khrSwapChain!.AcquireNextImage(_device, _swapChain, ulong.MaxValue,
@@ -294,6 +304,17 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         _frameStarted = false;
         if (_captureRequested)
             RecordCapture(cb, imageIndex);
+
+        // The stream's buffers are sized to _streamExtent; a frame of any other size is never copied (the stream
+        // ends in RecreateSwapchain before the extent changes, so this only guards against a missed path).
+        double? streamStamp = null;
+        if (_streamSink is { } streamSink && _swapChainExtent.Width == _streamExtent.Width && _swapChainExtent.Height == _streamExtent.Height
+            && streamSink.ShouldCapture(out var stamp))
+        {
+            RecordSwapchainCopy(cb, imageIndex, _streamBuffers[_currentFrame]!);
+            streamStamp = stamp;
+        }
+
         _vk!.EndCommandBuffer(cb).Check("vkEndCommandBuffer");
 
         var waitSemaphore = _imageAvailableSemaphores[_currentFrame];
@@ -317,6 +338,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         _vk.ResetFences(_device, 1, in frameFence).Check("vkResetFences");
         _vk.QueueSubmit(_graphicsQueue, 1, in submitInfo, frameFence).Check("vkQueueSubmit (frame)");
         _deletions!.EndFrame();
+
+        // Pending only once submitted: a flush waits on this slot's fence, which must be going to signal.
+        if (streamStamp is not null)
+            _streamPending[_currentFrame] = streamStamp;
 
         var swapChainHandle = _swapChain;
         var presentInfo = new PresentInfoKHR
@@ -388,13 +413,19 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
 
     #region Frame capture
 
-    // Records swapchain image → host buffer after the main pass. The pass leaves the image in
-    // PRESENT_SRC; move it to TRANSFER_SRC for the copy and back again before present.
     private void RecordCapture(CommandBuffer cb, uint imageIndex)
     {
         _captureRequested = false;
         EnsureCaptureBuffer();
+        RecordSwapchainCopy(cb, imageIndex, _captureBuffer!);
+        _captureRecorded = true;
+    }
 
+    // Records swapchain image → host buffer after the main pass (screenshot capture and the recorder's frame
+    // stream). The pass leaves the image in PRESENT_SRC; move it to TRANSFER_SRC for the copy and back again
+    // before present. Copies the whole image tightly packed: target must hold width × height × 4 bytes.
+    private void RecordSwapchainCopy(CommandBuffer cb, uint imageIndex, GpuBuffer target)
+    {
         var image = _swapChainImages![imageIndex];
         var range = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, 1);
 
@@ -425,7 +456,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
             ImageOffset       = default,
             ImageExtent       = new Extent3D(_swapChainExtent.Width, _swapChainExtent.Height, 1),
         };
-        _vk.CmdCopyImageToBuffer(cb, image, ImageLayout.TransferSrcOptimal, _captureBuffer!.Handle, 1, &region);
+        _vk.CmdCopyImageToBuffer(cb, image, ImageLayout.TransferSrcOptimal, target.Handle, 1, &region);
 
         var toPresent = toTransfer with
         {
@@ -441,15 +472,13 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
             DstAccessMask       = AccessFlags.HostReadBit,
             SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
             DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-            Buffer              = _captureBuffer.Handle,
+            Buffer              = target.Handle,
             Offset              = 0,
             Size                = Vk.WholeSize,
         };
         _vk.CmdPipelineBarrier(cb, PipelineStageFlags.TransferBit,
             PipelineStageFlags.BottomOfPipeBit | PipelineStageFlags.HostBit,
             0, 0, null, 1, &toHost, 1, &toPresent);
-
-        _captureRecorded = true;
     }
 
     // Waits for the frame that contains the copy, then converts the readback to RGBA8.
@@ -483,6 +512,96 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         // Replaced only between frames that do not capture; the old one is retired by the deletion queue.
         _captureBuffer?.Dispose();
         _captureBuffer = GpuBuffer.Create(this, size, BufferUsageFlags.TransferDstBit, GpuMemoryUsage.Readback);
+    }
+
+    #endregion
+
+    #region Frame stream (IFrameStreamSource)
+
+    // EndFrame copies the presented image into the slot's buffer; the slot's next BeginFrame has already waited the
+    // fence of that submission, so delivering there costs no stall. Only a flush (EndStream, a resize) ever waits.
+
+    public bool CanStream => _captureSupported;
+
+    public PixelLayout StreamLayout =>
+        _swapChainImageFormat is Format.B8G8R8A8Unorm or Format.B8G8R8A8Srgb ? PixelLayout.Bgra : PixelLayout.Rgba;
+
+    public (int Width, int Height) StreamSize => ((int)_swapChainExtent.Width, (int)_swapChainExtent.Height);
+
+    public void BeginStream(IFrameStreamSink sink)
+    {
+        ArgumentNullException.ThrowIfNull(sink);
+        if (!_captureSupported)
+            throw new InvalidOperationException("Frame streaming needs EngineOptions.EnableFrameCapture and a capturable swapchain.");
+        if (_streamSink is not null)
+            throw new InvalidOperationException("A frame stream is already running; end it before beginning another.");
+
+        _streamSink = sink;
+        _streamExtent = _swapChainExtent;
+        Array.Clear(_streamPending); // nothing can be pending without a sink; a stale stamp would read a replaced buffer
+        var size = (ulong)_streamExtent.Width * _streamExtent.Height * 4;
+        for (var i = 0; i < _streamBuffers.Length; i++)
+        {
+            if (_streamBuffers[i]?.Size != size)
+            {
+                // Retired by the deletion queue once no frame in flight can still be copying into it.
+                _streamBuffers[i]?.Dispose();
+                _streamBuffers[i] = GpuBuffer.Create(this, size, BufferUsageFlags.TransferDstBit, GpuMemoryUsage.Readback);
+            }
+        }
+    }
+
+    public void EndStream()
+    {
+        FlushStream();
+        _streamSink = null;
+    }
+
+    // Waits for every frame that still holds a copy and hands it over, oldest first. Ordered by the frame number each
+    // slot recorded, not by slot index: between frames _currentFrame already points at the oldest slot, inside
+    // EndFrame at the newest. Only pending slots are waited, and a slot is pending only after its submit.
+    private void FlushStream()
+    {
+        while (true)
+        {
+            var slot = -1;
+            for (var i = 0; i < MaxFramesInFlight; i++)
+            {
+                if (_streamPending[i] is not null && (slot < 0 || _slotFrameNumber[i] < _slotFrameNumber[slot]))
+                    slot = i;
+            }
+
+            if (slot < 0)
+                return;
+            _vk!.WaitForFences(_device, 1, in _inFlightFences[slot], true, ulong.MaxValue).Check("vkWaitForFences (frame stream flush)");
+            DeliverStreamSlot(slot);
+        }
+    }
+
+    // Callers have proven the slot's fence signalled. The pending flag is cleared first so a throwing sink cannot
+    // leave a stamp behind that would be delivered again later.
+    private void DeliverStreamSlot(int slot)
+    {
+        if (_streamPending[slot] is not { } stamp)
+            return;
+        _streamPending[slot] = null;
+        if (_streamSink is not { } sink)
+            return;
+        var buffer = _streamBuffers[slot]!;
+        var pixels = new ReadOnlySpan<byte>((void*)buffer.MappedPointer, checked((int)buffer.Size));
+        sink.OnFrame(pixels, (int)_streamExtent.Width, (int)_streamExtent.Height, stamp);
+    }
+
+    // The swapchain is about to take a new size: deliver what is in flight at the old size, then end the stream so its
+    // buffers and StreamSize never disagree with the frames being copied.
+    private void EndStreamForResize()
+    {
+        if (_streamSink is not { } ending)
+            return;
+        FlushStream();
+        _streamSink = null;
+        Log.Info($"[Vulkan] Frame stream ended: swapchain {_streamExtent.Width}x{_streamExtent.Height} is being resized.");
+        ending.OnStreamEnded("window size changed");
     }
 
     #endregion
@@ -1029,6 +1148,12 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         if (caps.CurrentExtent.Width == 0 || caps.CurrentExtent.Height == 0)
             return false;
 
+        // Every call site (BeginFrame's pending resize and out-of-date acquire, EndFrame's present result) comes
+        // through here: a new size ends the recorder's frame stream before anything is rebuilt. A same-size
+        // recreation (VSync toggle, suboptimal) keeps it: its pending copies are in buffers recreation never touches.
+        if (_streamSink is not null && !SameExtent(ChooseExtent(caps), _streamExtent))
+            EndStreamForResize();
+
         _vk!.DeviceWaitIdle(_device).Check("vkDeviceWaitIdle (swapchain recreation)");
 
         var oldSwapchain = _swapChain;
@@ -1038,6 +1163,11 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         DestroySwapchainDependents();
         CreateSwapchain(oldSwapchain);
         _khrSwapChain!.DestroySwapchain(_device, oldSwapchain, null);
+
+        // The window changed size between the query above and CreateSwapchain's own: the device is idle and the
+        // stream's buffers still hold old-size copies, so ending it here is just as safe.
+        if (_streamSink is not null && !SameExtent(_swapChainExtent, _streamExtent))
+            EndStreamForResize();
 
         // Every pipeline in the engine is built against the main render pass, whose colour format
         // is the swapchain's. ChooseSurfaceFormat is deterministic for a surface, so this does not
@@ -1067,6 +1197,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
         return true;
     }
 
+    private static bool SameExtent(Extent2D a, Extent2D b) => a.Width == b.Width && a.Height == b.Height;
+
     #endregion
 
     public void Dispose()
@@ -1084,6 +1216,14 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext
             _shadowFallback = null;
             _captureBuffer?.Dispose();
             _captureBuffer = null;
+            // A stream still running is abandoned: the device is idle, but the sink may already be torn down.
+            _streamSink = null;
+            for (var i = 0; i < _streamBuffers.Length; i++)
+            {
+                _streamBuffers[i]?.Dispose();
+                _streamBuffers[i] = null;
+                _streamPending[i] = null;
+            }
             _frameContext?.Dispose();
             _frameContext = null;
             DestroyPresentation();
