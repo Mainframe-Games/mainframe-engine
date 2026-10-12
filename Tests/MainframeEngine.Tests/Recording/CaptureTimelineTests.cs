@@ -88,4 +88,41 @@ public sealed class CaptureTimelineTests
         Assert.Equal([new CaptureSpan(4.0, 6.0, "menu")], spans.Skip);
         Assert.Equal([new CaptureMarker(2.0, "boss intro")], spans.Markers);
     }
+
+    [Fact]
+    public void ResetForgetsEveryHeldControl()
+    {
+        var a = new InputActivity();
+        a.Observe(new InputEventKey { Key = Key.W, Pressed = true });
+        Assert.True(a.IsHeld);
+        a.Reset();
+        Assert.False(a.IsHeld);
+
+        a.Observe(new InputEventGamepadAxis { Axis = GamepadAxis.LeftStick, Value = new Vector2(0.8f, 0f) });
+        a.Observe(new InputEventAction { Action = "jump", Pressed = true });
+        Assert.True(a.IsHeld);
+        a.Reset();
+        Assert.False(a.IsHeld);
+    }
+
+    [Fact]
+    public void ActionsCountAndHoldUntilReleased()
+    {
+        var a = new InputActivity();
+        Assert.True(a.Observe(new InputEventAction { Action = "jump", Pressed = true }));
+        Assert.True(a.IsHeld);
+        Assert.True(a.Observe(new InputEventAction { Action = "jump", Pressed = false }));
+        Assert.False(a.IsHeld);
+    }
+
+    [Fact]
+    public void TextAndUnknownEventsCountButHoldNothing()
+    {
+        var a = new InputActivity();
+        Assert.True(a.Observe(new InputEventText { Character = 'x' }));
+        Assert.True(a.Observe(new UnknownEvent()));
+        Assert.False(a.IsHeld);
+    }
+
+    private sealed class UnknownEvent : InputEvent;
 }
