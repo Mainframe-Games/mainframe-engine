@@ -2,7 +2,9 @@ extern alias generators;
 
 using System.Collections.Immutable;
 using System.Numerics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
 using System.Text;
 using generators::MainframeEngine.Generators;
 using MainframeEngine.Serialization;
@@ -22,6 +24,55 @@ internal static class GameCompiler
     ];
 
     public static string Compile(string source, string assemblyName, string directory)
+    {
+        try
+        {
+            return CompileCore(source, assemblyName, directory);
+        }
+        catch (FileNotFoundException e) when (e.FileName?.StartsWith("System.", StringComparison.Ordinal) == true)
+        {
+            // Windows CI once failed every compile here with "Could not load file or assembly 'System.Reflection.Metadata,
+            // Version=10.0.0.0'" (a framework assembly, so on the trusted platform list) and never reproduced: report
+            // where the binder should have found it and whether a second load works.
+            throw new InvalidOperationException(LoadDiagnostics(e), e);
+        }
+    }
+
+    private static string LoadDiagnostics(FileNotFoundException e)
+    {
+        var name = new AssemblyName(e.FileName!).Name!;
+        var trusted = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
+        var entries = trusted.Where(p => string.Equals(Path.GetFileNameWithoutExtension(p), name, StringComparison.OrdinalIgnoreCase)).ToList();
+        List<string> report =
+        [
+            $"Roslyn could not load {e.FileName}.",
+            $"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription} in {Path.GetDirectoryName(typeof(object).Assembly.Location)}",
+            $"Trusted platform assemblies: {trusted.Length}; {name}: " +
+            (entries.Count == 0 ? "not listed" : string.Join(", ", entries.Select(p => $"{p} (exists: {File.Exists(p)})"))),
+        ];
+        foreach (var context in AssemblyLoadContext.All)
+        {
+            var loaded = context.Assemblies.Where(a => a.GetName().Name is { } n && (n == name || n.StartsWith("Microsoft.CodeAnalysis", StringComparison.Ordinal))).ToList();
+            if (loaded.Count > 0)
+                report.Add($"Context '{context.Name}' (collectible: {context.IsCollectible}): " +
+                           string.Join(", ", loaded.Select(a => $"{a.GetName().Name} {a.GetName().Version} from {a.Location}")));
+        }
+
+        try
+        {
+            report.Add($"A second load from the default context worked: {AssemblyLoadContext.Default.LoadFromAssemblyName(new AssemblyName(e.FileName!)).Location}");
+        }
+        catch (Exception retry)
+        {
+            report.Add($"A second load from the default context failed too: {retry.GetType().Name}: {retry.Message}");
+        }
+
+        return string.Join('\n', report);
+    }
+
+    // Not inlined, so loads triggered while compiling this method's calls into Roslyn happen inside Compile's try.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string CompileCore(string source, string assemblyName, string directory)
     {
         var compilation = CSharpCompilation.Create(
             assemblyName,
