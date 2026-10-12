@@ -36,6 +36,6 @@ Copy `project.mfproj` and your `Content/` to the output folder, as the template'
 
 ## Links
 
-- [Documentation](https://mainframe-games.github.io/mainframe-engine/)
+- [Website](https://mainframe-games.github.io/mainframe-engine/) and [documentation](https://mainframe-games.github.io/mainframe-engine/docs/)
 - [Source, editor downloads and releases](https://github.com/Mainframe-Games/mainframe-engine)
 - MIT licence

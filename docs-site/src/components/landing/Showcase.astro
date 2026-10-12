@@ -1,0 +1,108 @@
+---
+// Screenshots, first after the hero: the Forest's reference shots (the first one large), the editor, then the Demo's
+// scenes (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it full size in
+// a <dialog>.
+const base = import.meta.env.BASE_URL;
+const img = (p: string) => `${base}images/${p}`;
+
+const forest = [
+  { src: 'forest/readme-glade.jpg', title: 'Glade', text: 'Volumetric fog shafts, back-lit translucent grass' },
+  { src: 'forest/readme-woodland.jpg', title: 'Woodland', text: 'PCSS soft shadows, GTAO, light probes' },
+  { src: 'forest/readme-pond.jpg', title: 'Misty pond', text: 'Screen-space reflections, impostor canopies' },
+  { src: 'forest/readme-fall.jpg', title: 'The fall', text: 'Refraction and caustics on the gravel bed' },
+  { src: 'forest/readme-upstream.jpg', title: 'Upstream', text: 'The carved stream seen through the ripples' },
+  { src: 'forest/readme-ferns.jpg', title: 'Fern floor', text: '32-tap depth of field, near and far' },
+];
+const demo = [
+  { src: 'demo/basic_3d.png', title: 'Basic 3D', text: 'Primitives, glTF, sky, cascaded and spot shadows' },
+  { src: 'demo/basic_2d.png', title: 'Basic 2D', text: 'Canvas items, gradients, sprites' },
+  { src: 'demo/physics_3d.png', title: 'Physics 3D', text: 'Jitter2, save slots with thumbnails' },
+  { src: 'demo/physics_2d.png', title: 'Physics 2D', text: 'Box2D' },
+  { src: 'demo/ui.png', title: 'UI', text: 'RmlUi widgets, data binding, hot reload' },
+  { src: 'demo/spine.png', title: 'Spine', text: 'Under a 3D or 2D camera' },
+  { src: 'demo/audio_3d.png', title: 'Audio 3D', text: 'Attenuation, low-pass, doppler' },
+  { src: 'demo/sound_fx.png', title: 'Sound FX', text: 'ZzFX presets and a looping song' },
+  { src: 'demo/settings.png', title: 'Settings', text: 'Volumes, rebinding, display' },
+];
+---
+
+<section class="mf-section mf-showcase not-content" aria-labelledby="showcase-title">
+  <header class="mf-section__head" data-reveal>
+    <p class="mf-kicker">Showcase</p>
+    <h2 id="showcase-title">Made with Mainframe</h2>
+    <p>Every image is the engine rendering in real time: the Forest walk, the editor and the Demo's scenes.</p>
+  </header>
+
+
+  <h3 class="mf-showcase__label" data-reveal>The Forest <span>a first-person walk through a generated valley</span></h3>
+  <div class="mf-gallery mf-gallery--feature">
+    {
+      forest.map((s, i) => (
+        <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
+          <img src={img(s.src)} width="1600" height="900" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
+          <span class="mf-shot__caption">
+            <strong>{s.title}</strong> {s.text}
+          </span>
+        </button>
+      ))
+    }
+  </div>
+
+  <h3 class="mf-showcase__label" data-reveal>The editor <span>built with the engine's own game UI</span></h3>
+  <figure class="mf-window" data-reveal>
+    <div class="mf-window__bar" aria-hidden="true">
+      <span></span><span></span><span></span>
+      <p>Mainframe Engine</p>
+    </div>
+    <button class="mf-shot" type="button" data-full={img('editor.png')} data-caption="The editor">
+      <img
+        src={img('editor.png')}
+        width="1600"
+        height="960"
+        alt="The editor: a 3D scene with a spot light selected, its inspector, the FileSystem and Output panels"
+        loading="lazy"
+        decoding="async"
+      />
+    </button>
+  </figure>
+
+  <h3 class="mf-showcase__label" data-reveal>The Demo <span>one scene per feature</span></h3>
+  <div class="mf-gallery">
+    {
+      demo.map((s, i) => (
+        <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
+          <img src={img(s.src)} width="1280" height="720" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
+          <span class="mf-shot__caption">
+            <strong>{s.title}</strong> {s.text}
+          </span>
+        </button>
+      ))
+    }
+  </div>
+
+  <dialog class="mf-lightbox" data-mf-lightbox aria-label="Screenshot">
+    <form method="dialog"><button class="mf-lightbox__close" aria-label="Close">×</button></form>
+    <img alt="" />
+    <p></p>
+  </dialog>
+</section>
+
+<script>
+  const box = document.querySelector<HTMLDialogElement>('[data-mf-lightbox]');
+  if (box) {
+    const image = box.querySelector('img')!;
+    const caption = box.querySelector('p')!;
+    document.querySelectorAll<HTMLButtonElement>('.mf-shot[data-full]').forEach((shot) =>
+      shot.addEventListener('click', () => {
+        image.src = shot.dataset.full!;
+        image.alt = shot.dataset.caption ?? '';
+        caption.textContent = shot.dataset.caption ?? '';
+        box.showModal();
+      }),
+    );
+    // A click on the backdrop (the dialog itself, outside the image) closes it.
+    box.addEventListener('click', (e) => {
+      if (e.target === box) box.close();
+    });
+  }
+</script>

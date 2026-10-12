@@ -11,6 +11,7 @@ on:
       - "docs/**"
       - "docs-site/**"
       - "MainframeEngine/Content/UI/fonts/**"
+      - "MainframeEngine.Editor/Icons/tabler/outline/**"
       - ".github/workflows/docs.yml"
   workflow_run: # the deploy: after a successful release, the released commit (its new tag is the version in the title)
     workflows: [publish]

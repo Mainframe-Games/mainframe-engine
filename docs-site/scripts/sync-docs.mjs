@@ -1,14 +1,15 @@
 // Builds the Starlight content from the repository's Markdown (docs/design/docs-site.md):
-//   docs/README.md               → /              (landing page)
-//   docs/milestones.md           → /milestones/
-//   docs/design/*.md             → /design/<name>/
-//   docs/design/future/*.md      → /proposals/<name>/
-//   docs/images/brand/README.md  → /brand/
+//   docs/README.md               → /docs/         (the docs overview; / is the landing page, src/pages/index.astro)
+//   docs/milestones.md           → /docs/milestones/
+//   docs/design/*.md             → /docs/design/<name>/
+//   docs/design/future/*.md      → /docs/proposals/<name>/
+//   docs/images/brand/README.md  → /docs/brand/
 // Plans (docs/superpowers/) and ADRs (memory/decisions/) are not published; links to them go to GitHub.
 // Each page gets frontmatter (title from its first "# " heading, sidebar label, edit link). Links are rewritten: to
 // another synced page → its route; into docs/images → the copied image; to any other repository file → GitHub.
-// Generated output (src/content/docs, src/assets, public/images, public/favicon.svg, public/logo-512.png) is ignored by
-// git. `node scripts/sync-docs.mjs` runs once; dev.mjs imports `syncAll`/`syncFile` and re-runs them on changes.
+// Generated output (src/content/docs, src/assets: logo, fonts, icons; public/images, public/favicon.svg,
+// public/logo-512.png) is ignored by git. `node scripts/sync-docs.mjs` runs once; dev.mjs imports `syncAll`/`syncFile`
+// and re-runs them on changes.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -52,16 +53,33 @@ function normaliseBase(b) {
 
 const toPosix = (p) => p.split(path.sep).join('/');
 
-/** The page route (no leading or trailing slash; '' for the landing page) of a repository-relative Markdown file, or null. */
+/** The page route (no leading or trailing slash) of a repository-relative Markdown file, or null. Every page is under docs/. */
 export function routeOf(rel) {
   rel = toPosix(rel);
-  if (rel === 'docs/README.md') return '';
-  if (rel === 'docs/milestones.md') return 'milestones';
-  if (rel === 'docs/images/brand/README.md') return 'brand';
+  if (rel === 'docs/README.md') return 'docs';
+  if (rel === 'docs/milestones.md') return 'docs/milestones';
+  if (rel === 'docs/images/brand/README.md') return 'docs/brand';
   let m;
-  if ((m = /^docs\/design\/future\/([^/]+)\.md$/.exec(rel))) return 'proposals/' + slug(m[1]);
-  if ((m = /^docs\/design\/([^/]+)\.md$/.exec(rel))) return 'design/' + slug(m[1]);
+  if ((m = /^docs\/design\/future\/([^/]+)\.md$/.exec(rel))) return 'docs/proposals/' + slug(m[1]);
+  if ((m = /^docs\/design\/([^/]+)\.md$/.exec(rel))) return 'docs/design/' + slug(m[1]);
   return null;
+}
+
+/**
+ * The editor downloads the landing page offers: the release's archives (build/package-editor.sh names them
+ * MainframeEngine-<version>-<rid>). Without a release tag ('dev') each one links to the latest release's page instead.
+ */
+export function releaseAssets(v = version) {
+  const tagged = /^v\d+\.\d+\.\d+$/.test(v);
+  return [
+    { os: 'macos', label: 'macOS', arch: 'Apple Silicon', rid: 'osx-arm64', ext: 'tar.gz' },
+    { os: 'windows', label: 'Windows', arch: 'x64', rid: 'win-x64', ext: 'zip' },
+    { os: 'linux', label: 'Linux', arch: 'x64', rid: 'linux-x64', ext: 'tar.gz' },
+  ].map((a) => {
+    const file = `MainframeEngine-${tagged ? v.slice(1) : 'X.Y.Z'}-${a.rid}.${a.ext}`;
+    const url = tagged ? `${repoUrl}/releases/download/${v}/${file}` : `${repoUrl}/releases/latest`;
+    return { ...a, file, url };
+  });
 }
 
 const slug = (name) => name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
@@ -96,7 +114,7 @@ function plain(s) {
 }
 
 function sidebarLabel(route, title) {
-  if (route.startsWith('proposals/')) return title.replace(/^Proposal:\s*/i, '');
+  if (route.startsWith('docs/proposals/')) return title.replace(/^Proposal:\s*/i, '');
   return title;
 }
 
@@ -114,7 +132,7 @@ function rewriteTarget(target, fromRel, warnings) {
   if (rel.startsWith('..')) return target; // outside the repository: leave it
 
   const route = routeOf(rel);
-  if (route !== null) return base + (route ? route + '/' : '') + hash;
+  if (route !== null) return base + route + '/' + hash;
   if (rel.startsWith('docs/images/')) return base + 'images/' + rel.slice('docs/images/'.length) + hash;
 
   const exists = fs.existsSync(abs);
@@ -171,29 +189,8 @@ export function transform(rel, text, warnings = []) {
   title ??= path.basename(rel, '.md');
 
   const fm = ['---', `title: ${yaml(title)}`];
-  if (route === '') {
-    fm.push(
-      'template: splash',
-      'hero:',
-      '  tagline: "A C# game engine on Vulkan with a Godot-style node tree, an editor built on its own game UI, and the design docs that describe it."',
-      '  image:',
-      `    file: ../../assets/logo.svg`,
-      '  actions:',
-      '    - text: Architecture overview',
-      `      link: ${yaml(base + 'design/architecture-overview/')}`,
-      '      icon: right-arrow',
-      '    - text: Milestones',
-      `      link: ${yaml(base + 'milestones/')}`,
-      '      variant: secondary',
-      '    - text: GitHub',
-      `      link: ${yaml(repoUrl)}`,
-      '      icon: github',
-      '      variant: minimal',
-    );
-  } else {
-    const label = sidebarLabel(route, title);
-    if (label !== title) fm.push('sidebar:', `  label: ${yaml(label)}`);
-  }
+  const label = sidebarLabel(route, title);
+  if (label !== title) fm.push('sidebar:', `  label: ${yaml(label)}`);
   fm.push(`editUrl: ${yaml(`${repoUrl}/edit/${branch}/${rel}`)}`, '---', '');
   return fm.join('\n') + body.join('\n').replace(/^\n+/, '');
 }
@@ -202,7 +199,7 @@ export function transform(rel, text, warnings = []) {
 
 function outPath(rel) {
   const route = routeOf(rel);
-  return path.join(contentDir, (route === '' ? 'index' : route) + '.md');
+  return path.join(contentDir, (route === 'docs' ? 'docs/index' : route) + '.md');
 }
 
 function writeIfChanged(file, content) {
@@ -229,7 +226,7 @@ function copyFile(from, to) {
   fs.copyFileSync(from, to);
 }
 
-/** Copies the images, brand logo and editor fonts the site uses. */
+/** Copies the images, brand logo, editor fonts and editor icons the site uses. */
 export function syncAssets() {
   const images = path.join(repoRoot, 'docs', 'images');
   fs.rmSync(path.join(publicDir, 'images'), { recursive: true, force: true });
@@ -246,6 +243,9 @@ export function syncAssets() {
   for (const f of ['LatoLatin-Regular.ttf', 'LatoLatin-Bold.ttf', 'LatoLatin-Italic.ttf', 'RobotoMono-Regular.ttf',
     'OFL-Lato.txt', 'OFL-RobotoMono.txt'])
     copyFile(path.join(fonts, f), path.join(siteRoot, 'src', 'assets', 'fonts', f));
+  // The editor's Tabler icons (MainframeEngine.Editor/Icons/tabler, MIT) for the landing page.
+  fs.cpSync(path.join(repoRoot, 'MainframeEngine.Editor', 'Icons', 'tabler', 'outline'),
+    path.join(siteRoot, 'src', 'assets', 'icons'), { recursive: true });
 }
 
 /** Full sync: clears the generated pages, writes every page and copies the assets. */

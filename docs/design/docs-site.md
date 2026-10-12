@@ -2,8 +2,13 @@
 
 ## Purpose
 
-The repository's Markdown in `docs/` is published as a searchable website built with
-[Astro Starlight](https://starlight.astro.build/). It is themed like the editor: the same palette, fonts and logo.
+The engine's website is built with [Astro Starlight](https://starlight.astro.build/) and themed like the editor: the
+same palette, fonts, icons and logo. It has two parts:
+
+- **The landing page** at `/`: the engine at a glance, editor downloads for the visitor's OS, features and screenshots
+  (see [Landing page](#landing-page)).
+- **The docs** under `/docs/`: the repository's Markdown in `docs/`, searchable.
+
 `just docs` serves it locally with live reload. `.github/workflows/docs.yml` deploys it to GitHub Pages with each
 release, at `https://mainframe-games.github.io/mainframe-engine/`.
 
@@ -16,7 +21,8 @@ show; links in the Markdown keep working in both places.
 just docs
 ```
 
-That serves `http://localhost:4321/mainframe-engine/` and opens it in the browser.
+That serves `http://localhost:4321/mainframe-engine/` (the landing page; the docs are at `…/docs/`) and opens it in
+the browser.
 
 - **Requirements:** Node 22.12 or later.
 - **First run:** it runs `npm ci` in `docs-site/`. It does the same again after `package-lock.json` changes, for
@@ -38,16 +44,21 @@ That builds `docs-site/dist` exactly as CI does, including the Pagefind search i
 |---|---|
 | `docs-site/package.json`, `package-lock.json` | Astro, Starlight, `@astrojs/markdown-remark` (Starlight's peer; the unified processor), Mermaid, sharp, pinned exactly |
 | `docs-site/astro.config.mjs` | Site, base path, sidebar, theme hooks, Expressive Code settings |
-| `docs-site/scripts/sync-docs.mjs` | Turns the repository's Markdown into `src/content/docs` and copies images, logo and fonts |
+| `docs-site/scripts/sync-docs.mjs` | Turns the repository's Markdown into `src/content/docs` and copies images, logo, fonts and the editor's icons; `releaseAssets()` lists the editor downloads |
 | `docs-site/scripts/dev.mjs` | `just docs`: install if needed, sync, `astro dev`, watch and re-sync |
 | `docs-site/src/styles/theme.css` | The editor theme (see [Theme](#theme)) |
+| `docs-site/src/styles/landing.css` | The landing page's layout and animations |
+| `docs-site/src/pages/index.astro` | The landing page (see [Landing page](#landing-page)) |
+| `docs-site/src/components/landing/` | Its sections in page order (`LandingHero`, `Showcase`, `Daw`, `Features`, `Download`), the grid canvas (`grid.ts`), the logo animation (`logo.ts`) and `TablerIcon` |
 | `docs-site/src/components/Head.astro` | Starlight's `<head>` plus the Mermaid renderer |
+| `docs-site/src/components/Hero.astro` | Starlight's hero, replaced on the landing page by `LandingHero` |
+| `docs-site/src/components/SocialIcons.astro` | The header's **Docs** and **Download** links before Starlight's GitHub icon |
 | `docs-site/src/plugins/remark-mermaid.mjs` | Turns ` ```mermaid ` blocks into `<pre class="mermaid">` |
 | `docs-site/src/content.config.ts` | The Starlight docs collection |
 
 These paths are generated and ignored by git:
 - `src/content/docs/`
-- `src/assets/` (logo, fonts)
+- `src/assets/` (logo, fonts, icons)
 - `public/images/`
 - `public/favicon.svg`
 - `public/logo-512.png`
@@ -60,11 +71,12 @@ Never edit the generated pages: edit the Markdown in `docs/`.
 
 | Source | Route | Sidebar |
 |---|---|---|
-| `docs/README.md` | `/` (splash page with the logo) | Start › Overview |
-| `docs/milestones.md` | `/milestones/` | Start › Milestones |
-| `docs/images/brand/README.md` | `/brand/` | Start › Brand |
-| `docs/design/*.md` | `/design/<name>/` | Design |
-| `docs/design/future/*.md` | `/proposals/<name>/` | Proposals (collapsed; "Proposal:" dropped from labels) |
+| `docs-site/src/pages/index.astro` | `/` (the landing page, no sidebar, not in search) | — |
+| `docs/README.md` | `/docs/` | Start › Overview |
+| `docs/milestones.md` | `/docs/milestones/` | Start › Milestones |
+| `docs/images/brand/README.md` | `/docs/brand/` | Start › Brand |
+| `docs/design/*.md` | `/docs/design/<name>/` | Design |
+| `docs/design/future/*.md` | `/docs/proposals/<name>/` | Proposals (collapsed; "Proposal:" dropped from labels) |
 Not published: the ADRs (`memory/decisions/`), the plans (`docs/superpowers/`) and the working notes
 (`memory/context/`). Links to them go to GitHub.
 
@@ -113,7 +125,42 @@ The rest of the editor's look carries over too:
 - **Logo and favicons:** the logo is `docs/images/brand/logo.svg`; the favicon is `logo-small.svg`, plus the 512 px PNG.
 - **Code blocks:** Expressive Code with GitHub's dark and light themes on the field colour.
 - **Mockups:** SVGs drawn on white get a framed white panel in the dark theme.
+- **Icons:** the editor's Tabler icons (`MainframeEngine.Editor/Icons/tabler/outline`, MIT), copied to `src/assets/icons`.
 - **Theme picker:** Starlight's picker (auto, dark, light) stays.
+
+## Landing page
+
+`src/pages/index.astro` is a `StarlightPage` with the splash template, so it keeps Starlight's header, search, theme
+picker and fonts. Starlight's `Hero` component is overridden: on `/` it renders `LandingHero`, on any other page
+Starlight's own hero. The sections are marked `not-content`, so Starlight's Markdown styles leave them alone. In page
+order: the hero, the showcase, the audio tools, the features, the downloads and a closing call to action.
+
+- **Hero.** A full-width canvas (`grid.ts`) draws the editor's scene grid in perspective: minor and major lines
+  scrolling toward the viewer, data pulses running down them, stars above a glowing horizon. The vanishing point
+  follows the pointer. Its colours are the `--mf-grid-*` properties in `landing.css`, read again when the theme
+  changes. The inline logo (`src/assets/logo.svg`, from `docs/images/brand/logo.svg`) builds itself (`logo.ts` tags
+  its parts for `landing.css`): the dots fade in from the core, the "M" draws, its joints pop, the core pulses, and a
+  ripple runs out through the dots. The logo tilts toward the pointer.
+- **Downloads.** One card per editor archive from `releaseAssets()` in `sync-docs.mjs`:
+  `MainframeEngine-X.Y.Z-<rid>` for `osx-arm64`, `win-x64` and `linux-x64` (the names
+  [`build/package-editor.sh`](../../build/package-editor.sh) gives them), linked to
+  `releases/download/vX.Y.Z/…` of the site's [version](#version). A `dev` build links every card to the latest
+  release's page. A script reads the visitor's OS (User-Agent Client Hints, else the user agent), marks that card
+  "Your system" and points the hero's **Download** button at its archive; without a match the button scrolls to the
+  cards.
+- **Features.** One card per subsystem in five groups (rendering, worlds, gameplay, audio, tools), each linking to its
+  design doc. A new subsystem gets a card in `Features.astro`.
+- **Audio tools.** The music editor and the sound designer, each beside its screenshot (`editor-song.png`,
+  `editor-sound-designer.png`) with what it does. Overlays play the screenshots: a playhead crosses the song's
+  arrangement and piano roll in time with the Demo song (8 bars at 140 BPM), and a sweep runs over the sound's
+  waveform. They are positioned in percent of the 1600 × 960 screenshots (`landing.css`), so a re-captured screenshot
+  with a different layout needs them moved.
+- **Showcase**, first after the hero (the eye-catching sections lead, the downloads come last): the Forest shots with
+  the first one large, the editor screenshot in a window frame, then the Demo scenes, all from `docs/images`.
+  Clicking one opens it in a `<dialog>`.
+- **Motion.** Sections fade and rise into view (`[data-reveal]`, an `IntersectionObserver`); cards light up under the
+  pointer. Under `prefers-reduced-motion` nothing animates and the grid is one still frame. The canvas stops drawing
+  while it is off screen or the tab is hidden.
 
 ## Diagrams
 
@@ -137,7 +184,7 @@ The site deploys **only with a release**: merging to `main` does not publish doc
   run (any job, including the nuget.org push) deploys nothing.
 - **`workflow_dispatch`** (`gh workflow run docs.yml`) rebuilds and redeploys from `main`'s tip by hand, for example
   after a failed post-release deploy. That publishes whatever docs `main` has.
-- **On pull requests** that touch `docs/**`, `docs-site/**`, the editor fonts or the workflow, it builds the site
+- **On pull requests** that touch `docs/**`, `docs-site/**`, the editor fonts or icons, or the workflow, it builds the site
   without deploying it. It is not part of `ci-success`, and a docs-only change does not wait on it.
 - **History.** The checkout fetches full history and tags (`fetch-depth: 0`) for the version.
 - **LFS.** Only `docs/images/**` is fetched from Git LFS (the PNG screenshots), cached by object ID like `ci.yml`.

@@ -1,0 +1,72 @@
+---
+// The editor downloads: the release's archives (releaseAssets in scripts/sync-docs.mjs). The script finds the
+// visitor's OS, marks its card and points the hero's primary button straight at that archive.
+import { Icon } from '@astrojs/starlight/components';
+import { releaseAssets, repoUrl, version } from '../../../scripts/sync-docs.mjs';
+
+const assets = releaseAssets();
+const base = import.meta.env.BASE_URL;
+---
+
+<section id="download" class="mf-section mf-download not-content" aria-labelledby="download-title">
+  <header class="mf-section__head" data-reveal>
+    <p class="mf-kicker">Download</p>
+    <h2 id="download-title">Get the editor</h2>
+    <p>
+      Self-contained builds{version !== 'dev' && <> of <strong>{version}</strong></>}: unpack and run, no .NET install
+      needed. The Project Manager creates your first game.
+    </p>
+  </header>
+  <div class="mf-download__grid">
+    {
+      assets.map((a, i) => (
+        <a class="mf-os-card" href={a.url} data-os={a.os} data-reveal style={`--i: ${i}`}>
+          <span class="mf-os-card__badge">Your system</span>
+          <span class="mf-os-card__icon">
+            {a.os === 'windows' ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+                <path d="M3 5.1 10.4 4v7.1H3zm8.3-1.2L21 2.5v8.6h-9.7zM3 12.1h7.4v7.1L3 18.1zm8.3 0H21v8.6l-9.7-1.4z" />
+              </svg>
+            ) : (
+              <Icon name={a.os === 'macos' ? 'apple' : 'linux'} />
+            )}
+          </span>
+          <span class="mf-os-card__name">{a.label}</span>
+          <span class="mf-os-card__arch">{a.arch}</span>
+          <code class="mf-os-card__file">{a.file}</code>
+          <span class="mf-os-card__cta">
+            <Icon name="download" /> Download
+          </span>
+        </a>
+      ))
+    }
+  </div>
+  <p class="mf-download__notes" data-reveal>
+    <span>macOS: the build is unsigned, so the first time right-click the app and choose <em>Open</em>.</span>
+    <a href={`${repoUrl}/releases`}>All releases</a>
+    <a href={base + 'docs/design/distribution-nuget/'}>Prefer the command line? The NuGet template</a>
+  </p>
+</section>
+
+<script>
+  // The visitor's OS from User-Agent Client Hints where available, else the user agent string.
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = (nav.userAgentData?.platform || navigator.userAgent).toLowerCase();
+  const os = /mac|iphone|ipad/.test(platform)
+    ? 'macos'
+    : /win/.test(platform)
+      ? 'windows'
+      : /linux|x11|cros/.test(platform) && !/android/.test(platform)
+        ? 'linux'
+        : null;
+  const card = os && document.querySelector<HTMLAnchorElement>(`.mf-os-card[data-os="${os}"]`);
+  if (card) {
+    card.dataset.recommended = '';
+    const primary = document.querySelector<HTMLAnchorElement>('[data-mf-download-primary]');
+    const label = primary?.querySelector('[data-mf-download-label]');
+    if (primary && label) {
+      primary.href = card.href;
+      label.textContent = `Download for ${card.querySelector('.mf-os-card__name')!.textContent}`;
+    }
+  }
+</script>

@@ -1,0 +1,31 @@
+---
+// Starlight's header icons (GitHub) preceded by the site's two sections: the docs and the landing page's downloads.
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+
+const base = import.meta.env.BASE_URL;
+const inDocs = Astro.url.pathname.startsWith(base + 'docs/');
+---
+
+<nav class="sl-flex mf-nav" aria-label="Site">
+  <a href={base + 'docs/'} aria-current={inDocs ? 'page' : undefined}>Docs</a>
+  <a href={base + '#download'}>Download</a>
+</nav>
+<Default />
+
+<style>
+  .mf-nav {
+    gap: 1.25rem;
+    align-items: center;
+  }
+  .mf-nav a {
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+  }
+  .mf-nav a:hover,
+  .mf-nav a[aria-current='page'] {
+    color: var(--sl-color-white);
+  }
+</style>
