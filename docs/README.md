@@ -26,6 +26,7 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 | UI | [Game UI (RmlUi)](design/game-ui.md) · [Native libraries](design/natives.md) |
 | Tooling | [Developer overlay & gizmos](design/dev-overlay.md) · [Testing](design/testing.md) · [Docs site](design/docs-site.md) (`just docs`, GitHub Pages) |
 | Audio | [Audio](design/audio.md) |
+| Recording | [Gameplay recording](design/recording.md) (`--record`, the `.mfcap.json` sidecar) |
 | Online | [Networking](design/networking.md) · [Steamworks](design/steamworks.md) |
 
 ## Future design proposals

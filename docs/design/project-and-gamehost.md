@@ -210,6 +210,9 @@ does not load), 2 (bad command line).
 | `--sync-load` | load the start scene synchronously, without the loading screen (as `loading.async: false`; before/after timings) |
 | `--loading-hold <s>` | keep the loading screen up at least this long before the scene enters (QA of its look) |
 | `--loading-screenshot <file.png>` | save the loading screen's first frame at or past half progress (QA) |
+| `--record <file.mp4>` | record gameplay (live; offline with `--fixed-fps`) with the user's ffmpeg and write `file.mp4.mfcap.json`; starts on the first update, so loading is recorded; implies frame capture ([Gameplay recording](recording.md)) |
+| `--record-scale <n>` | fixed content scale for the recording (a 1920×1080-point window at 2 is 4K, if the display can hold it) |
+| `--ffmpeg <path>` | the ffmpeg to record with (else `MAINFRAME_FFMPEG`, `PATH`, common install folders) |
 | `++ …` | everything after `++` is the game's (`GameHost.UserArgs`, Godot's `OS.get_cmdline_user_args`), never parsed by the host |
 
 Anything else before `++` is left in `GameHostOptions.Remaining` for the game. `GameHost.IsDebugBuild` is true when the
