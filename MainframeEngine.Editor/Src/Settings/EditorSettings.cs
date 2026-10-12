@@ -52,6 +52,12 @@ public sealed class EditorSettings
     /// </summary>
     public string CodeEditorCommand { get; set; } = "";
 
+    /// <summary>
+    /// The Cutback app that trims recordings (Run › Play and Record); empty finds it on PATH or in its usual install
+    /// folder (<see cref="CutbackLocator"/>).
+    /// </summary>
+    public string CutbackPath { get; set; } = "";
+
     /// <summary>Reload the game code automatically when its build output changes.</summary>
     public bool AutoReloadCode { get; set; } = true;
 
@@ -101,6 +107,7 @@ public sealed class EditorSettings
                 Accent = data.Accent ?? DefaultAccent,
                 AutosaveMinutes = data.AutosaveMinutes,
                 CodeEditorCommand = data.CodeEditor ?? "",
+                CutbackPath = data.CutbackPath ?? "",
                 AutoReloadCode = data.AutoReloadCode ?? true,
                 CheckForUpdates = data.CheckForUpdates ?? true,
                 PluginFolders = data.PluginFolders ?? [],
@@ -126,6 +133,7 @@ public sealed class EditorSettings
             Accent = Accent,
             AutosaveMinutes = AutosaveMinutes,
             CodeEditor = CodeEditorCommand,
+            CutbackPath = CutbackPath,
             AutoReloadCode = AutoReloadCode,
             CheckForUpdates = CheckForUpdates,
             PluginFolders = PluginFolders.Count > 0 ? PluginFolders : null,
@@ -140,6 +148,7 @@ public sealed class EditorSettings
         Accent = Accent,
         AutosaveMinutes = AutosaveMinutes,
         CodeEditorCommand = CodeEditorCommand,
+        CutbackPath = CutbackPath,
         AutoReloadCode = AutoReloadCode,
         CheckForUpdates = CheckForUpdates,
         PluginFolders = [.. PluginFolders],
@@ -220,6 +229,7 @@ internal sealed class EditorSettingsData
     public string? Accent { get; set; }
     public int AutosaveMinutes { get; set; }
     public string? CodeEditor { get; set; }
+    public string? CutbackPath { get; set; }
     public bool? AutoReloadCode { get; set; }
     public bool? CheckForUpdates { get; set; }
     public List<string>? PluginFolders { get; set; }

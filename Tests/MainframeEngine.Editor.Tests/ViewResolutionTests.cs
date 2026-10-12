@@ -97,3 +97,21 @@ public sealed class ViewResolutionViewportTests : IDisposable
         Assert.Empty(_editor.RmlMessages);
     }
 }
+
+/// <summary>The Cutback path (Editor Settings): saved, loaded and cloned like the other string settings.</summary>
+public sealed class CutbackPathSettingTests : IDisposable
+{
+    private readonly string _directory = Directory.CreateTempSubdirectory("mf-cutback-path").FullName;
+
+    public void Dispose() => Directory.Delete(_directory, recursive: true);
+
+    [Fact]
+    public void TheCutbackPathRoundTripsThroughSaveLoadAndClone()
+    {
+        Assert.Equal("", new EditorSettings().CutbackPath);
+        var path = Path.Combine(_directory, "editor_settings.json");
+        new EditorSettings { CutbackPath = "/opt/cb" }.Save(path);
+        Assert.Equal("/opt/cb", EditorSettings.Load(path).CutbackPath);
+        Assert.Equal("/opt/cb", new EditorSettings { CutbackPath = "/opt/cb" }.Clone().CutbackPath);
+    }
+}
