@@ -1,0 +1,28 @@
+<Project>
+  <!--
+    MainframeEngine.Steamworks (docs/design/steamworks.md#layers): the only code that touches Facepunch.Steamworks. One
+    source tree, built twice under one assembly name: Win64/ against Facepunch.Steamworks.Win64.dll and Posix/ against
+    Facepunch.Steamworks.Posix.dll (macOS, Linux). Facepunch ships the two because their structs pack differently (8 vs
+    4 bytes) and they import different library names (steam_api64, libsteam_api), so one engine assembly cannot use either
+    for every platform. The engine compiles against the Posix build and copies both next to the app
+    (steamworks/{win64,posix}/); SteamworksLoader loads the one for this OS at run time.
+    The project takes no engine reference: its API is internal (InternalsVisibleTo the engine) with primitive types only.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MainframeEngine.Steamworks</AssemblyName>
+    <RootNamespace>MainframeEngine.Steamworks</RootNamespace>
+    <!-- LibraryImport source generation (the steam_api flat calls Facepunch keeps internal, libc setenv). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);STEAMWORKS_$(SteamworksPlatform.ToUpperInvariant())</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Src\**\*.cs" />
+    <Reference Include="Facepunch.Steamworks.$(SteamworksPlatform)">
+      <HintPath>$(MSBuildThisFileDirectory)..\Plugins\Facepunch.Steamworks\Facepunch.Steamworks.$(SteamworksPlatform).dll</HintPath>
+    </Reference>
+    <InternalsVisibleTo Include="MainframeEngine" />
+    <InternalsVisibleTo Include="MainframeEngine.Tests" />
+  </ItemGroup>
+</Project>

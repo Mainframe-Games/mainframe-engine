@@ -8,10 +8,11 @@ _Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publ
   Godot-style `SceneTree` (M2) with source-generated `[Export]`/`[Signal]`/`[Replicated]`/`[Rpc]`/`[EditorIcon]`
   registration (`MainframeEngine.Generators`), `.mscene`/`.mres` JSON with UIDs; meshes/materials/textures, Assimp
   import, instancing, picking, `SubViewport`, HDR + ACES, in-house GPU allocator (M3); CSM/PCF/atlas shadows (M4);
-  replication over ENet/loopback/simulated transports (M5; Steam inert — no natives); Jitter2 3D + Box2D.NET 2D physics
-  (M6); SoundFlow audio with buses and 3D voices (M7); RmlUi 6.3 game UI through the in-house `mfrmlui` shim (M8);
-  gettext localization with `mf-l10n` (M9); `project.mfproj`/`ProjectSettings`, `GameHost`, `InputMap`, `ILogSink`,
-  editor link, collectible game-assembly reload, `mfgame` template (M10 engine side).
+  replication over ENet/loopback/simulated transports (M5); Steam over Facepunch.Steamworks 2.4.1 with Valve's
+  natives shipped (ADR 0189); Jitter2 3D + Box2D.NET 2D physics (M6); SoundFlow audio with buses and 3D voices (M7);
+  RmlUi 6.3 game UI through the in-house `mfrmlui` shim (M8); gettext localization with `mf-l10n` (M9);
+  `project.mfproj`/`ProjectSettings`, `GameHost`, `InputMap`, `ILogSink`, editor link, collectible game-assembly
+  reload, `mfgame` template (M10 engine side).
 - **Editor** (`MainframeEngine.Editor`, M10, UI in RmlUi): Project Manager, New Project wizard, project settings,
   FileSystem panel, scene tabs (one `SubViewport` world each), scene tree, generated inspector (multi-select, Signals
   tab, custom inspectors), undo/redo, 3D/2D viewport + gizmos, Play (separate process over the editor link), code
@@ -55,7 +56,10 @@ _Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publ
   occasional whole-process stall is retried once by `build/linux/inside.sh`; never seen on native x64.
 - Benchmarks: compare only on the machine that recorded `baseline.json` (MacBook, Apple M5), and only when it is
   quiet (parallel builds/agents skew results by 10–15 %).
-- Steam: no `steam_api` natives (partner SDK login needed; Steamworks.NET 2024.8.0 is x64-only) → Steam never starts.
+- Steam: Facepunch.Steamworks 2.4.1 (vendored, `Plugins/Facepunch.Steamworks`) behind the `MainframeEngine.Steamworks`
+  shim (Win64/Posix builds, `SteamworksLoader` picks this OS's); Valve's `steam_api` natives ship in `runtimes/`, so
+  Steam starts on win-x64, linux-x64, osx-x64 and osx-arm64 when the client runs. Still to do: `SteamSocketsTransport`
+  (stub) and avatar textures.
 
 ## Next steps
 
@@ -66,4 +70,5 @@ _Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publ
    mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.
 4. M13 — mobile platform services (`docs/design/future/mobile-services.md`).
 5. Editor after M10 (`docs/design/future/editor.md`): remote scene tree, simulate mode, box selection, docking.
-6. User actions: Steamworks SDK natives (partner login); code signing/notarization for the macOS editor build.
+6. User actions: code signing/notarization for the macOS editor build.
+7. Steam follow-ups: `SteamSocketsTransport` over Facepunch's sockets, avatar textures (`docs/design/steamworks.md`).

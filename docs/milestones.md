@@ -171,9 +171,12 @@ Silicon support.
 | Steam init / callback pump; native packaging ³ | ✅ | [Steamworks](design/steamworks.md#engine-hook) |
 | Lobby fixes, lobby → transport handoff, achievements persistence; avatars as textures ³ | ✅ | [Steamworks](design/steamworks.md#lobby--transport-handoff) |
 
-³ Steam natives cannot ship (the Steamworks SDK needs a partner login, and Steamworks.NET 2024.8.0 is x86-64 only),
-so Steam never starts: `SteamSocketsTransport` and avatar textures are designed but not implemented, and the lobby
-handoff falls back to ENet. See [ADR 0044](../memory/decisions/0044-steam-features-without-natives.md).
+³ At M5, Steam natives could not ship (the Steamworks SDK needs a partner login, and Steamworks.NET 2024.8.0 is x86-64
+only), so Steam never started: `SteamSocketsTransport` and avatar textures were designed but not implemented, and the
+lobby handoff falls back to ENet. See [ADR 0044](../memory/decisions/0044-steam-features-without-natives.md). Since
+[ADR 0189](../memory/decisions/0189-facepunch-steamworks.md), Facepunch.Steamworks 2.4.1 replaces Steamworks.NET and
+Valve's `steam_api` natives ship, so Steam starts on Windows, Linux and macOS (Apple Silicon too);
+`SteamSocketsTransport` and avatar textures remain follow-ups.
 
 ## M6 — Physics ✅
 

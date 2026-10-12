@@ -21,4 +21,17 @@ version as this template package; `--engine-version` picks another release. The 
 
 **Requirements:** the .NET 10 SDK, and a GPU with Vulkan 1.2 (MoltenVK is included on macOS).
 
+## Player builds
+
+The `MainframeEngine` package ships a script that packages the game for players; `MainframePackageGameScript` gives
+its path:
+
+```bash
+script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"
+bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # or win-x64, linux-x64
+```
+
+The result is `builds/MyGame-<version>-osx-arm64.zip` (a signed `.app`), `-win-x64.zip` or `-linux-x64.tar.gz`. Use
+`bash`, since NuGet drops the executable bit.
+
 [Documentation](https://mainframe-games.github.io/mainframe-engine/) · MIT licence

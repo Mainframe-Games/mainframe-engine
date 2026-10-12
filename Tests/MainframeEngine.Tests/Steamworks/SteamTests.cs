@@ -3,8 +3,10 @@ using System.Runtime.InteropServices;
 namespace MainframeEngine.Tests.Steamworks;
 
 /// <summary>
-/// The no-Steam path: no steam_api native ships, and arm64 processes cannot even load Steamworks.NET, so on every
-/// CI runner and dev machine Steam must stay disabled without throwing, and every wrapper must be a quiet no-op.
+/// Steam through Facepunch.Steamworks. <see cref="TryInitializeLoadsSteamworksOnThisPlatform"/> really calls
+/// <c>SteamAPI_Init</c> (CI's Windows, macOS and Linux runners have no Steam client, so it must end in
+/// <see cref="SteamStatus.SteamNotRunning"/>; on a developer machine with Steam open it runs as Spacewar). The rest is the
+/// no-Steam path, forced with app id 0: Steam stays disabled without throwing and every wrapper is a quiet no-op.
 /// </summary>
 [Collection(nameof(SerialSteam))]
 public sealed class SteamTests
@@ -12,25 +14,65 @@ public sealed class SteamTests
     private const uint Spacewar = 480;
 
     [Fact]
+    public void TryInitializeLoadsSteamworksOnThisPlatform()
+    {
+        Assert.True(Steam.IsPlatformSupported, RuntimeInformation.RuntimeIdentifier);
+        try
+        {
+            var started = Steam.TryInitialize(Spacewar);
+
+            Assert.Equal(Spacewar, Steam.AppId);
+            Assert.False(string.IsNullOrWhiteSpace(Steam.StatusMessage));
+            // Not NativeLibraryMissing or InitFailed: the shim, this OS's Facepunch build and steam_api all loaded.
+            Assert.True(Steam.Status is SteamStatus.Running or SteamStatus.SteamNotRunning, $"{Steam.Status}: {Steam.StatusMessage}");
+            Assert.Equal(started, Steam.Valid);
+            if (!started)
+                return;
+
+            Assert.NotEqual(0ul, Steam.SteamId);
+            Assert.False(string.IsNullOrEmpty(Steam.Username));
+            Steam.RunCallbacks();
+            _ = Steam.GetFriends();
+        }
+        finally
+        {
+            Steam.Shutdown();
+        }
+
+        Assert.False(Steam.Valid);
+    }
+
+    [Fact]
+    public void LoaderPicksThisPlatformsFacepunchBuild()
+    {
+        var variant = OperatingSystem.IsWindows() ? "win64" : "posix";
+        var facepunch = OperatingSystem.IsWindows() ? "Facepunch.Steamworks.Win64.dll" : "Facepunch.Steamworks.Posix.dll";
+
+        Assert.Equal(variant, SteamworksLoader.Variant);
+        Assert.True(File.Exists(SteamworksLoader.ShimPath), SteamworksLoader.ShimPath);
+        Assert.True(File.Exists(Path.Combine(SteamworksLoader.Directory, facepunch)));
+        Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, Steam.NativeLibraryFileName)));
+        // Never next to the app: the runtime would load it there without asking the loader, whichever OS it was built for.
+        Assert.False(File.Exists(Path.Combine(AppContext.BaseDirectory, SteamworksLoader.ShimAssemblyName + ".dll")));
+    }
+
+    [Fact]
     public void TryInitializeFailsGracefullyWithAReason()
     {
-        var started = Steam.TryInitialize(Spacewar);
+        var started = Steam.TryInitialize(0);
 
         Assert.False(started);
         Assert.False(Steam.Valid);
-        Assert.Equal(Spacewar, Steam.AppId);
+        Assert.Equal(0u, Steam.AppId);
+        Assert.Equal(SteamStatus.InvalidAppId, Steam.Status);
         Assert.False(string.IsNullOrWhiteSpace(Steam.StatusMessage));
-        var expected = Steam.IsPlatformSupported ? SteamStatus.NativeLibraryMissing : SteamStatus.UnsupportedPlatform;
-        Assert.Equal(expected, Steam.Status);
-        if (expected == SteamStatus.NativeLibraryMissing)
-            Assert.Contains(Steam.NativeLibraryFileName, Steam.StatusMessage, StringComparison.Ordinal);
     }
 
     [Fact]
     public void SteamServerIsInertWithoutSteamAndTicksWithTheTree()
     {
         using var servers = new ServerRegistry();
-        var steam = new SteamServer(Spacewar);
+        var steam = new SteamServer(0);
         servers.Register(steam);
         Assert.False(steam.Started);
 
@@ -40,28 +82,9 @@ public sealed class SteamTests
     }
 
     [Fact]
-    public void Arm64ProcessesAreReportedAsUnsupported()
-    {
-        if (RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
-            Assert.Skip("Only meaningful in an arm64 process.");
-
-        Assert.False(Steam.IsPlatformSupported);
-        Steam.TryInitialize(Spacewar);
-        Assert.Equal(SteamStatus.UnsupportedPlatform, Steam.Status);
-        Assert.Contains("Arm64", Steam.StatusMessage, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void AppIdZeroIsRejected()
-    {
-        Assert.False(Steam.TryInitialize(0));
-        Assert.Equal(SteamStatus.InvalidAppId, Steam.Status);
-    }
-
-    [Fact]
     public void LifecycleCallsAreNoOpsWithoutSteam()
     {
-        Steam.TryInitialize(Spacewar);
+        Steam.TryInitialize(0);
 
         Steam.RunCallbacks();
         Steam.Shutdown();
@@ -73,7 +96,7 @@ public sealed class SteamTests
     [Fact]
     public void WrappersReturnDefaultsWithoutSteam()
     {
-        Steam.TryInitialize(Spacewar);
+        Steam.TryInitialize(0);
 
         Assert.Equal(0ul, Steam.SteamId);
         Assert.Equal(string.Empty, Steam.Username);
@@ -116,7 +139,7 @@ public sealed class SteamTests
     [Fact]
     public async Task LobbyCallsReturnNothingWithoutSteam()
     {
-        Steam.TryInitialize(Spacewar);
+        Steam.TryInitialize(0);
 
         Assert.Null(await SteamLobby.CreateLobbyAsync("lobby", 4, "1.0", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Null(await SteamLobby.JoinLobbyAsync(1234, TestContext.Current.CancellationToken));

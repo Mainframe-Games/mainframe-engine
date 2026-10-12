@@ -8,9 +8,11 @@ This package is everything a game needs to build and run, with no engine checkou
 
 - `MainframeEngine.dll` (and the bundled `spine-csharp.dll`)
 - the source generator for `[Export]`, `[Signal]`, `[Replicated]` and `[Rpc]` members
-- the native libraries for `win-x64`, `linux-x64` and `osx-arm64`/`osx-x64`
+- the native libraries for `win-x64`, `linux-x64` and `osx-arm64`/`osx-x64`, Valve's `steam_api` included
+- Steam integration over Facepunch.Steamworks (bundled), which starts when the Steam client runs, Apple Silicon too
 - the engine content (compiled shaders, UI widgets, fonts), which is copied into your app's `Content/` folder
 - build integration: `.po` → `.mo` localization, the `DEMO` define from `project.mfproj`, and macOS development app bundles
+- player builds: `tools/package-game.sh` (see below)
 
 **Requirements:** .NET 10, plus a GPU with Vulkan 1.2 (MoltenVK is included on macOS).
 
@@ -34,8 +36,21 @@ return GameHost.Run(args, typeof(MyNode).Assembly);
 
 Copy `project.mfproj` and your `Content/` to the output folder, as the template's desktop project does.
 
+## Player builds
+
+The package ships the engine's packaging script; `MainframePackageGameScript` gives its path:
+
+```bash
+script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"
+bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # or win-x64, linux-x64
+```
+
+It makes `<Exe>-<version>-osx-arm64.zip` (a `.app`), `-win-x64.zip` or `-linux-x64.tar.gz`. Run it with `bash`, since
+NuGet drops the executable bit. `--sign`/`--notarize` sign and notarize the macOS app.
+
 ## Links
 
 - [Documentation](https://mainframe-games.github.io/mainframe-engine/)
 - [Source, editor downloads and releases](https://github.com/Mainframe-Games/mainframe-engine)
-- MIT licence
+- MIT licence; the bundled third-party code keeps its own licences (Valve's `steam_api` natives: the Steamworks SDK
+  Access Agreement)

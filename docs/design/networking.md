@@ -5,8 +5,8 @@
 Multiplayer for Mainframe games: typed messages between a server and its clients over UDP (ENet) or in-process
 loopback, and on top of them **server-authoritative node replication** (M5): spawning scenes on clients by
 `PackedScene` UID, `[Replicated]` members sent as delta snapshots and interpolated on clients, `[Rpc]` methods with
-authority checks, and the connection lifecycle (handshake, timeouts, kicks). Its tests (`Tests/MainframeEngine.Tests/Networking`) run server and clients over loopback and ENet. Steam Networking Sockets are designed in but stubbed until Steam natives ship (see
-[Steamworks](steamworks.md)).
+authority checks, and the connection lifecycle (handshake, timeouts, kicks). Its tests (`Tests/MainframeEngine.Tests/Networking`) run server and clients over loopback and ENet. Steam Networking Sockets are designed in but still stubbed; Steam itself now starts (Facepunch.Steamworks with
+Valve's natives shipped), so the transport is a follow-up (see [Steamworks](steamworks.md)).
 
 ## Layers
 
@@ -37,7 +37,7 @@ All types live in `MainframeEngine.Networking`, except `NetworkNode`, which is i
 | `ITransport`, `ITransportListener`, `NetChannel`, `DisconnectReason` | [Transport/ITransport.cs](../../MainframeEngine/Src/Networking/Transport/ITransport.cs) | Transport abstraction |
 | `EnetTransport` | [Transport/EnetTransport.cs](../../MainframeEngine/Src/Networking/Transport/EnetTransport.cs) | ENet server (`Listen`) or client (`Connect`) |
 | `LoopbackTransport` | [Transport/LoopbackTransport.cs](../../MainframeEngine/Src/Networking/Transport/LoopbackTransport.cs) | In-process server endpoint with any number of clients (`CreateServer` + `ConnectClient`, or `CreatePair`): single-player listen server, tests, benchmarks |
-| `SteamSocketsTransport` | [Transport/SteamSocketsTransport.cs](../../MainframeEngine/Src/Networking/Transport/SteamSocketsTransport.cs) | **Stub**: documents the design, `TryListen`/`TryConnect` return false |
+| `SteamSocketsTransport` | [Transport/SteamSocketsTransport.cs](../../MainframeEngine/Src/Networking/Transport/SteamSocketsTransport.cs) | **Stub**: documents the design, `TryListen`/`TryConnect` return false; implementable now that the Steam natives ship |
 | `NetBufferWriter`, `NetBufferReader` | [Buffers/](../../MainframeEngine/Src/Networking/Buffers/) | Span-based serialization over `ArrayPool<byte>` arrays |
 | `NetBufferPool` | [Buffers/NetBufferPool.cs](../../MainframeEngine/Src/Networking/Buffers/NetBufferPool.cs) | Internal, thread-safe pool of writers and readers |
 | `INetworkTransferable` | [Transfer/INetworkTransferable.cs](../../MainframeEngine/Src/Networking/Transfer/INetworkTransferable.cs) | `NetworkWrite(writer)` / `NetworkRead(reader)`: the message payload contract |
@@ -438,7 +438,8 @@ ENet natives are our own builds, not the package's. See [Native libraries](nativ
   built RID-agnostic. They are harmless but add size (ENet ~150 KB per OS, `mfrmlui` ~5 MB). Fixing this needs
   consumer-side targets, as in the NuGet distribution plan.
 - **`SteamSocketsTransport`** is a stub (see [Steamworks](steamworks.md)); `steam:` addresses fall back to the next
-  address of a connect string.
+  address of a connect string. Steam starts on every desktop platform now, so implementing it over Facepunch's
+  sockets is the follow-up.
 - **`EnetTransport.Listen(…, bindAddress)`** with an explicit IPv4 address does not accept connections on macOS
   (with ENet's `SetHost` or `SetIP`; the native uses dual-stack IPv6 sockets). Reproduced by the skipped
   `EnetTransportTests.AServerBoundToAnExplicitIPv4AddressAcceptsClients`. Bind every interface (the default).

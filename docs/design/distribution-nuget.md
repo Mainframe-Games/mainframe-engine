@@ -20,16 +20,19 @@ source generator that game code must run, and build steps. The package carries a
 | Path | Contents | How a game gets it |
 |---|---|---|
 | `lib/net10.0/` | `MainframeEngine.dll` + `.xml` docs; `spine-csharp.dll` (the vendored Spine runtime, no package of its own) | compile + run references |
-| `runtimes/<rid>/native/` | `mfrmlui`, `mfsvg`, `enet` for `win-x64`, `linux-x64`, `osx-arm64`, `osx-x64` (the same universal files: NuGet does not pick osx-x64 assets for arm64) | NuGet runtime assets: listed in the app's `deps.json` for RID-less `dotnet run/test`, copied for `dotnet publish -r <rid>` |
+| `runtimes/<rid>/native/` | `mfrmlui`, `mfsvg`, `enet` and Valve's `steam_api` (vendored, [Steamworks → Natives](steamworks.md#natives)) for `win-x64`, `linux-x64`, `osx-arm64`, `osx-x64` (the same universal files: NuGet does not pick osx-x64 assets for arm64) | NuGet runtime assets: listed in the app's `deps.json` for RID-less `dotnet run/test`, copied for `dotnet publish -r <rid>` |
 | `analyzers/dotnet/cs/` | `MainframeEngine.Generators.dll` | runs on every project that references the package: `[Export]`, `[Signal]`, `[Replicated]`, `[Rpc]` |
 | `mainframe/Content/**` | exactly what the engine project copies to `<output>/Content` in a checkout build: `.spv` shaders (not the `.slang` sources), UI widgets, fonts, trees, brand | `buildTransitive/MainframeEngine.targets` copies it to the app's `Content/` (build and publish) |
+| `mainframe/steamworks/{win64,posix}/` | `MainframeEngine.Steamworks.dll` (the shim) + `Facepunch.Steamworks.Win64.dll` / `.Posix.dll`: two builds of one assembly, so neither is in `lib/` ([Steamworks → Layers](steamworks.md#layers)) | `buildTransitive/MainframeEngine.targets` copies them to the app's `steamworks/` like Content (a build with a RID gets only that platform's folder); the engine's `SteamworksLoader` loads this OS's |
 | `tools/mf-l10n/` | `mf-l10n` (managed files + runtimeconfig; no `deps.json`, so the host loads the folder's assemblies and none of the natives it never calls) | `Localization.targets` compiles `Content/locale/**/*.po` to `.mo` with it |
+| `tools/package-game.sh`, `tools/macos/png-to-icns.sh` | player builds: `build/package-game.sh` and the icon converter it runs ([Player builds](#player-builds)) | `MainframePackageGameScript` (set by `MainframeGame.props`) names the script |
 | `buildTransitive/` | `MainframeEngine.props` (imports `MainframeGame.props`), `MainframeEngine.targets`, `Localization.targets`, `macos/` | imported by every project that references the package, directly or through a game library |
 | `README.md`, `icon.png` | the nuget.org page ([`MainframeEngine/PACKAGE.md`](../../MainframeEngine/PACKAGE.md)) and the logo | — |
 
-Dependencies (Silk.NET, SoundFlow, Jitter2, Box2D.NET, GetText.NET, NVorbis, Steamworks.NET, StbImageSharp, ENet-CSharp
-without its natives and build files) are ordinary package dependencies with the versions from
-`Directory.Packages.props`; exact pins (`[1.4.1]`) stay exact.
+Dependencies (Silk.NET, SoundFlow, Jitter2, Box2D.NET, GetText.NET, NVorbis, StbImageSharp, ENet-CSharp without its
+natives and build files) are ordinary package dependencies with the versions from `Directory.Packages.props`; exact pins
+(`[1.4.1]`) stay exact. Facepunch.Steamworks is not a dependency: it is vendored, and the package carries it in
+`mainframe/steamworks/`.
 
 ### Content and natives: the same layout as a checkout
 
@@ -52,9 +55,23 @@ The checkout's game-facing build files are packed unchanged, so package and chec
 
 - **`MainframeGame.props`**, which checkout games import from their `Directory.Build.props`, provides the `DEMO` define
   and `AssemblyMetadata` from `"isDemo"`, the app name and icon from `project.mfproj`, the macOS development `.app`
-  bundle, and `CopyLocalLockFileAssemblies`. All of it is inert without a `project.mfproj` above the project.
+  bundle, and `CopyLocalLockFileAssemblies`. All of it is inert without a `project.mfproj` above the project. It also
+  sets `MainframePackageGameScript`: the checkout's `build/package-game.sh`, or the package's `tools/package-game.sh`.
 - **`Localization.targets`** sees `MfL10nPath` already set (to `tools/mf-l10n`), so it skips the `mf-l10n` project
   reference it uses in a checkout. Same `LocaleContentRoot`, same fallback to committed `.mo` files.
+
+### Player builds
+
+A package game makes the same player archives as a checkout game ([Release → Games](release.md#games)), with the
+script the package ships. `MainframePackageGameScript` gives its path, so nothing hard-codes the package cache:
+
+```bash
+script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"
+bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # or win-x64, linux-x64; --sign / --notarize
+```
+
+Run it with `bash`: NuGet drops the executable bit. The archives are `<Exe>-<version>-osx-arm64.zip` (the `.app`),
+`-win-x64.zip` and `-linux-x64.tar.gz`, with this RID's natives (Valve's `steam_api` included) and `steamworks/` folder.
 
 ### Packing
 
@@ -134,8 +151,11 @@ verified check mark and stops others from using `MainframeEngine.*`.
      checks that the game references `MainframeEngine` of that version (the stamped default) and adds a `nuget.config`
      for the feed.
   3. It builds the game, runs 30 frames (no `[ERROR]`, a screenshot) and publishes it for the host RID.
-  4. It checks the engine content, the compiled `.mo` and `mfrmlui` in both outputs.
-  5. It removes the version from the package cache.
+  4. It checks the engine content, the compiled `.mo`, `mfrmlui` and the `steamworks/` shim builds in both outputs.
+  5. It packages the game for linux-x64, win-x64 and osx-arm64 with the script `MainframePackageGameScript` names (it
+     must be the package's `tools/package-game.sh`) and checks each archive: executable, natives, Valve's `steam_api`
+     for that platform, its `steamworks/` folder, none of the other platforms' Steam files, no `steam_appid.txt`.
+  6. It removes the version from the package cache.
 - Editor tests cover `NewProjectValidation.IsPackageVersion` and the per-source validation and `dotnet new` arguments.
 
 ## Not yet

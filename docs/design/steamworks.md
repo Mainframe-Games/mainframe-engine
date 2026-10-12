@@ -6,12 +6,10 @@ Optional Steam integration: identity, friends, lobbies, rich presence, overlay a
 through an engine-owned `Steam` service, which starts only when Steam can really run. Otherwise every wrapper is a
 quiet no-op, and the game never fails because Steam is missing (CLAUDE.md: "only activate if Steam is running").
 
-> **Status (M5 ✅, with a natives limitation):** the service, guards, lobby fixes, achievements persistence, the
-> engine hook (`SteamServer`, pumped every frame) and the lobby → transport handoff (`connect` metadata) shipped.
-> **Steam does not run on any platform yet:** no `steam_api` native library ships (see [Natives](#natives)), and on
-> Apple Silicon Steamworks.NET cannot load at all. Because of that, Steam Networking Sockets
-> (`SteamSocketsTransport`) and avatars as textures are designed but not implemented; both need a running Steam to
-> develop and test against.
+> **Status:** Steam runs on Windows x64, Linux x64 and macOS (x64 and Apple Silicon) through
+> [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) 2.4.1, the same setup as Speed Golf
+> ([ADR 0189](../../memory/decisions/0189-facepunch-steamworks.md)). The `steam_api` natives ship with the engine and
+> its NuGet package. Steam Networking Sockets (`SteamSocketsTransport`) and avatars as textures are still to do.
 
 ## Lifecycle
 
@@ -19,11 +17,11 @@ quiet no-op, and the game never fails because Steam is missing (CLAUDE.md: "only
 stateDiagram-v2
     [*] --> NotInitialized
     NotInitialized --> InvalidAppId: TryInitialize(0)
-    NotInitialized --> UnsupportedPlatform: arm64 process
-    NotInitialized --> NativeLibraryMissing: steam_api not next to the app
-    NotInitialized --> SteamNotRunning: SteamAPI_InitEx → NoSteamClient
-    NotInitialized --> InitFailed: Packsize/DllCheck/InitEx failure, or anything thrown
-    NotInitialized --> Running: SteamAPI_InitEx → OK
+    NotInitialized --> UnsupportedPlatform: not win-x64 / linux-x64 / osx
+    NotInitialized --> NativeLibraryMissing: steamworks/ or steam_api not next to the app
+    NotInitialized --> SteamNotRunning: SteamClient.Init → NoSteamClient
+    NotInitialized --> InitFailed: any other Init failure, or anything thrown
+    NotInitialized --> Running: SteamClient.Init succeeded
     Running --> Running: Steam.RunCallbacks() every frame
     Running --> Shutdown: Steam.Shutdown()
 ```
@@ -38,37 +36,65 @@ Steam.Shutdown();
 
 - **`Steam.TryInitialize(uint appId, bool writeDevAppIdFile = false)`** checks, in order:
   1. The app id is not 0.
-  2. The process architecture is supported.
-  3. The dev app id file, if `writeDevAppIdFile` is set.
-  4. The native library loads (`NativeLibrary.TryLoad` with Steamworks.NET's own import name).
-  5. `Packsize.Test()` and `DllCheck.Test()` pass.
-  6. `SteamAPI.InitEx()` succeeds.
+  2. The platform is supported (`Steam.IsPlatformSupported`: Windows x64, Linux x64, macOS x64 or arm64).
+  3. This OS's `MainframeEngine.Steamworks` build is in `steamworks/` (see [Layers](#layers)).
+  4. The dev app id file, if `writeDevAppIdFile` is set.
+  5. `SteamClient.Init(appId, asyncCallbacks: false)` succeeds. Before it, `SteamAppId` and `SteamGameId` are set in
+     the native environment too (below).
 
-  On success it registers the persistent callbacks and calls `SteamUserStats.RequestCurrentStats()`. Every failure
-  ends in a `SteamStatus` plus a `Steam.StatusMessage`, logged at info level. As a last resort, any exception becomes
-  `InitFailed`.
+  On success it subscribes the lobby, invite and rich-presence events and routes exceptions thrown inside Facepunch's
+  callback dispatch (`Dispatch.OnException`) to `Log.Error`. Every failure ends in a `SteamStatus` plus a
+  `Steam.StatusMessage`, logged at info level. As a last resort, any exception becomes `InitFailed`.
 - **`Steam.RunCallbacks()`** must be pumped once per frame on the main thread. Lobby results and `await`
-  continuations of the lobby calls run inside it.
+  continuations of the lobby calls run inside it. Facepunch's own callback loop is off (`asyncCallbacks: false`): it
+  pumped callbacks a second time in Speed Golf.
+- **`Steam.Shutdown()`** leaves the current lobby and clears rich presence *before* `SteamClient.Shutdown` (Facepunch
+  throws on the user's SteamID afterwards), then removes the events again: they are static, and a later
+  `TryInitialize` must not subscribe them twice.
+- **App id outside Steam.** `SteamClient.Init(appId)` sets `SteamAppId` in .NET's environment. On macOS and Linux that
+  never reaches the native `getenv` steam_api reads, and init fails with "No appID found" (Speed Golf, 2026-09-25), so
+  the shim also calls libc `setenv`. Steam therefore starts the same way on all three OSes, also outside the Steam
+  client and without a `steam_appid.txt`. Use `restartThroughSteam` (below) when a store build must run through Steam.
 - **Dev app id.** `writeDevAppIdFile: true` writes `steam_appid.txt` next to the executable, only when it is missing
-  or different, and sets `SteamAppId` for the process. A build started from an IDE or with `dotnet run` then
-  initializes. **Never enable it in shipped builds:** it bypasses Steam's "launched through Steam" check.
+  or different, and sets `SteamAppId` for the process. **Never enable it in shipped builds:** it bypasses Steam's
+  "launched through Steam" check. `build/package-game.sh` refuses a publish folder that contains the file.
 - **`Steam.RestartAppIfNecessary(uint appId)`** wraps `SteamAPI_RestartAppIfNecessary`: true when the game was
   started outside the Steam client and Steam is relaunching it, so the process must exit at once. It never throws and
   returns false (carry on) when Steam cannot be asked: app id 0, an unsupported platform, no native library.
+- **Never set `Dispatch.OnDebugCallback`.** It crashed Speed Golf with SIGBUS, with async callbacks on or off.
 
-### Why nothing mentions Steamworks types
+## Layers
 
-Steamworks.NET 2024.8.0 ships **x86/x86-64-only managed assemblies** (`lib/` and every `runtimes/*/lib/` copy is PE32+
-AMD64), so in an arm64 process the runtime refuses to load them (`FileLoadException`). If the JIT compiles any method
-that references a Steamworks.NET type, it loads that assembly, even when the branch never runs. The code is therefore
-split:
+Facepunch ships two managed builds: `Facepunch.Steamworks.Win64.dll` (Windows) and `Facepunch.Steamworks.Posix.dll`
+(macOS, Linux). They have different assembly names, import different library names (`steam_api64`, `libsteam_api`)
+and pack Steam's structs differently (8 and 4 bytes), so neither works everywhere. Speed Golf compiles once per
+platform (Godot sets a define per export); the engine ships one `MainframeEngine.dll` for every RID, so it puts a shim
+between itself and Facepunch:
 
 | Layer | Files | Rule |
 |---|---|---|
 | Public facade | `Steam`, `SteamLobby`, `SteamLobbyInfo`, `SteamAchievements`, `SteamOverlay`, `SteamRichPresence`, `SteamFriend` | No Steamworks type in any signature, field or method body. Every member checks `Steam.Valid` first. |
-| Native layer | [`Native/SteamApi.cs`](../../MainframeEngine/Src/Steamworks/Native/SteamApi.cs), [`Native/SteamLobbyApi.cs`](../../MainframeEngine/Src/Steamworks/Native/SteamLobbyApi.cs) (internal) | Only code that touches Steamworks.NET. Members are `[MethodImpl(NoInlining)]` with primitive signatures. Callback handlers live in a nested class. |
+| Adapter | [`Native/SteamApi.cs`](../../MainframeEngine/Src/Steamworks/Native/SteamApi.cs), [`Native/SteamLobbyApi.cs`](../../MainframeEngine/Src/Steamworks/Native/SteamLobbyApi.cs) (internal) | The only engine code that calls the shim. Members are `[MethodImpl(NoInlining)]` with engine or primitive types, so compiling a caller never loads the shim. Maps results to `SteamStatus`/`SteamFriend`, adds lobby timeouts. |
+| Shim | [`MainframeEngine.Steamworks/Src/`](../../MainframeEngine.Steamworks/Src) | The only code that says `using Steamworks;`. Internal API (`InternalsVisibleTo` the engine), primitive types, no engine reference: logging and events go out through delegates the adapter sets. Built twice under one assembly name: `Win64/` against Facepunch's Win64 build, `Posix/` against its Posix build. |
+| Facepunch | [`Plugins/Facepunch.Steamworks/`](../../Plugins/Facepunch.Steamworks) | Vendored 2.4.1 (`net6.0`), not modified. |
 
-The unit tests run this path on Apple Silicon: every wrapper is called and must return a default without throwing.
+**How the right build loads.** The engine compiles against the Posix shim, but neither shim is copied next to the app
+or listed in its `deps.json` (`Private="false"`). Both go, with their Facepunch assembly, to
+`<output>/steamworks/win64/` and `<output>/steamworks/posix/`; a build or publish with a RID gets only that
+platform's folder. Before the first adapter call, `SteamworksLoader.Register()` hooks
+`AssemblyLoadContext.Default.Resolving`: the runtime's own probing misses `MainframeEngine.Steamworks`, and the
+handler loads it and `Facepunch.Steamworks.*` from this OS's folder. The shim then sets a `DllImportResolver` on
+Facepunch's assembly and its own (Speed Golf's `SteamNativeLoader`): `steam_api64` / `libsteam_api` load from the app
+directory, and otherwise the default probing finds them (a NuGet package game's RID-less build keeps them in
+`runtimes/<rid>/native`, listed in `deps.json`).
+
+**Calls Facepunch keeps internal** go through the steam_api flat API in the shim (`SteamworksNative`, `LibraryImport`
+against the same library), never reflection: the connect-string invite dialog and the Remote Play Together invite
+dialog (`SteamAPI_ISteamFriends_*` on `SteamAPI_SteamFriends_v017()`).
+
+The unit tests (`SteamTests`) run the real path on every CI OS: `TryInitialize(480)` must load the shim, this OS's
+Facepunch build and steam_api and reach `SteamNotRunning` (CI has no Steam client), or `Running` on a developer
+machine with Steam open. The wrappers' no-op path is tested with app id 0.
 
 ## Key types
 
@@ -82,6 +108,8 @@ The unit tests run this path on Apple Silicon: every wrapper is called and must 
 | `SteamRichPresence` | `Set*`, `Clear`, `GetFriendConnect`, `GetFriendGroupSize`, `OnJoinRequested(connect)` |
 | `SteamOverlay` | `IsEnabled`, `OpenWeb`, `OpenStore`, `InviteFriendToGame(connect)`, `InviteFriendToRemotePlay` |
 | `SteamFriend` | `readonly struct (SteamId, Username)` |
+
+`Steam.GetFriends()` returns immediate friends (Facepunch's `SteamFriends.GetFriends()`).
 
 Without Steam:
 
@@ -97,45 +125,49 @@ sequenceDiagram
     participant Game
     participant L as SteamLobby
     participant API as SteamLobbyApi
-    participant SM as SteamMatchmaking
+    participant FP as Facepunch SteamMatchmaking
     Game->>L: CreateLobbyAsync(name, max, appVersion?, friendsOnly, ct)
-    L->>API: CreateLobbyAsync
-    API->>SM: CreateLobby → SteamAPICall_t, bound to CallResult<LobbyCreated_t>
-    SM-->>API: result (inside Steam.RunCallbacks)
+    L->>API: CreateLobbyAsync (timeout, ct)
+    API->>FP: CreateLobbyAsync(max) → Lobby? (created invisible)
+    FP-->>API: result (inside Steam.RunCallbacks)
     alt OK
+        API->>FP: SetPublic / SetFriendsOnly, SetJoinable(true)
         API-->>L: lobby id
         L->>L: Current = lobby#59; set HostId/LobbyName/AppVersion?/Country#59; rich presence connect + group
-    else failure / I/O failure / Timeout elapsed
+    else failure / Timeout elapsed
         API-->>L: 0 (logged)
         L-->>Game: null
     end
-    Note over Game,SM: overlay invite accepted (GameLobbyJoinRequested_t) → LeaveLobby + JoinLobbyAsync(invite's lobby)
+    Note over Game,FP: overlay invite accepted (OnGameLobbyJoinRequested) → LeaveLobby + JoinLobbyAsync(invite's lobby)
 ```
 
-`JoinLobbyAsync` binds `CallResult<LobbyEnter_t>` to the `JoinLobby` handle. It succeeds only for
-`k_EChatRoomEnterResponseSuccess`; then it sets `Current` and raises `OnLobbyJoined`. `GetLobbyListAsync(false)` uses
-`CallResult<LobbyMatchList_t>` with a result-count filter of 60. The friends-only path reads the lobbies of immediate
-friends who are playing this app id. Timeouts log and return null or empty. A `CancellationToken` cancels the wait
-with `OperationCanceledException`.
+`JoinLobbyAsync` awaits Facepunch's `JoinLobbyAsync`, which succeeds only for a successful enter response; then it
+sets `Current` and raises `OnLobbyJoined`. `GetLobbyListAsync(false)` runs `SteamMatchmaking.LobbyList` with at most 60
+results. The friends-only path reads the lobbies of immediate friends who are playing this app id. Timeouts log and
+return null or empty. A `CancellationToken` cancels the wait with `OperationCanceledException`. Member events come
+from Facepunch's `OnLobbyMemberJoined` (joined) and `OnLobbyMemberLeave`/`Disconnected`/`Kicked`/`Banned` (left).
 
 ## Natives
 
-| Platform | Steamworks.NET managed (NuGet 2024.8.0) | `steam_api` native |
+| Platform | Facepunch build (`steamworks/…`) | `steam_api` native (`MainframeEngine/runtimes/<rid>/native`) |
 |---|---|---|
-| win-x64 | ✅ `runtimes/win-x64/lib` (imports `steam_api64`) | ❌ not shipped (`steam_api64.dll`) |
-| linux-x64 | ✅ `runtimes/linux-x64/lib` (imports `steam_api`) | ❌ not shipped (`libsteam_api.so`) |
-| osx-x64 | ✅ `runtimes/osx-x64/lib` (imports `steam_api`) | ❌ not shipped (`libsteam_api.dylib`) |
-| osx-arm64 (and any arm64 process) | ❌ x86-64-only assembly cannot load → `UnsupportedPlatform` | n/a |
+| win-x64 | ✅ `win64/` (`Facepunch.Steamworks.Win64.dll`) | ✅ `steam_api64.dll` |
+| linux-x64 | ✅ `posix/` (`Facepunch.Steamworks.Posix.dll`) | ✅ `libsteam_api.so` |
+| osx-x64, osx-arm64 | ✅ `posix/` | ✅ `libsteam_api.dylib` (universal, in both RID folders) |
+| Windows/Linux arm64, 32-bit | — | ❌ none in the SDK → `UnsupportedPlatform` |
 
-The NuGet package ships **no native libraries**. They come from the Steamworks SDK (`redistributable_bin`), which
-needs a Steamworks partner login, so they are not in the repo.
+The natives are Valve's Steamworks SDK `redistributable_bin` files that Facepunch.Steamworks 2.4.1 was built
+against (the SDK's redistribution terms allow shipping them with a game; Facepunch's and Steamworks.NET's public
+repositories carry them too). They are vendored, not built by `natives.yml`, and not in `Native/natives.lock`
+(`natives-lock.sh` ignores files it has no component for). Refresh them only together with
+`Plugins/Facepunch.Steamworks`: the flat-API interface versions must match. The engine csproj copies them like the
+other natives; the NuGet package carries them in `runtimes/<rid>/native` and the Facepunch builds in
+`mainframe/steamworks/`, which its `buildTransitive` targets copy into the game's output.
 
-**Enabling Steam on a machine:** copy the SDK file into `MainframeEngine/runtimes/<rid>/native/`. The engine csproj
-copies every file there next to the app (see [Networking → Platform](networking.md#platform)), and
-`TryInitialize` finds it. Check Valve's SDK licence before committing redistributables.
-
-**Apple Silicon** needs either an x64 .NET runtime under Rosetta, or a Steamworks.NET build with AnyCPU or arm64
-assemblies. Upgrading the package is a dependency decision and must be discussed first.
+**Player builds.** `build/package-game.sh` (in the package: `tools/package-game.sh`, found through
+`MainframePackageGameScript`; see [Release → Games](release.md#games)) keeps only the RID's steam_api and
+`steamworks/` folder, and fails if a `steam_appid.txt` is in the publish output. macOS Developer ID signing signs
+`libsteam_api.dylib` with the other Mach-O files.
 
 ## Engine hook
 
@@ -177,17 +209,21 @@ if (!mp.TryConnect(lobby.ConnectAddress))
 ```
 
 `MultiplayerApi.TryConnect` gives the string to a `TransportSelector`, which opens the first address whose transport
-works on this machine: `steam:` → `SteamSocketsTransport` (always unavailable for now, so it falls through), `enet:` →
-`EnetTransport`. The selection logic is tested end to end over `LoopbackTransport` (`loopback:` addresses through a
-`LoopbackTransportFactory`), since Steam cannot run here.
+works on this machine: `steam:` → `SteamSocketsTransport` (still a stub, always unavailable, so it falls through),
+`enet:` → `EnetTransport`. The selection logic is tested end to end over `LoopbackTransport` (`loopback:` addresses
+through a `LoopbackTransportFactory`), so it needs no Steam client.
 
 ## Known issues / not done
 
-- **Steam Networking Sockets.** `SteamSocketsTransport` is a stub (its intended mapping is documented in the type);
-  implementing it needs the natives. Until then `steam:` addresses are skipped and ENet is used.
-- **Avatars** (`SteamFriends.GetLargeFriendAvatar` → `SteamUtils.GetImageRGBA` → a Vulkan texture through the M3 GPU
-  resource path, then `UiServer.RegisterTexture` for the UI) are not implemented: without a running Steam there is no image to
-  load or test. The old commented-out Unity `SteamAvatar` and `SteamRemotePlay` files were deleted.
+- **Steam Networking Sockets.** `SteamSocketsTransport` is a stub (its intended mapping is documented in the type).
+  The natives ship now, so it can be built on Facepunch's relay sockets (`SocketManager`/`ConnectionManager`, as Speed
+  Golf does; [#57](https://github.com/Mainframe-Games/mainframe-engine/issues/57)); testing a join needs two Steam
+  accounts or machines. Until then `steam:` addresses are skipped and ENet
+  is used.
+- **Avatars** (Facepunch's `SteamFriends.GetLargeAvatarAsync` → RGBA → a Vulkan texture through the M3 GPU resource
+  path, then `UiServer.RegisterTexture` for the UI) are not implemented yet
+  ([#58](https://github.com/Mainframe-Games/mainframe-engine/issues/58)). The old commented-out Unity `SteamAvatar` and
+  `SteamRemotePlay` files were deleted.
 - **Member updates.** `OnLobbyUpdated` reports lobby-level metadata updates only; member data updates are ignored.
 - **Lobby continuations** run inside `RunCallbacks` on the main thread. A continuation after a timeout runs on a
   thread-pool thread.
@@ -196,4 +232,5 @@ works on this machine: `steam:` → `SteamSocketsTransport` (always unavailable 
 
 [Networking](networking.md) · [Build & platforms](build-and-platforms.md#platform-matrix) ·
 [ADR 0043: lobby connect strings](../../memory/decisions/0043-lobby-connect-strings-transport-selection.md) ·
-[ADR 0044: Steam features without natives](../../memory/decisions/0044-steam-features-without-natives.md)
+[ADR 0044: Steam features without natives](../../memory/decisions/0044-steam-features-without-natives.md) ·
+[ADR 0189: Facepunch.Steamworks](../../memory/decisions/0189-facepunch-steamworks.md)
