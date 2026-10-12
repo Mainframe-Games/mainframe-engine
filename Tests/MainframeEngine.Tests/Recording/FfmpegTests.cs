@@ -83,9 +83,24 @@ public sealed class FfmpegTests
         [
             "-hide_banner", "-loglevel", "error", "-y",
             "-f", "rawvideo", "-pix_fmt", "bgra", "-s", "1920x1080", "-r", "60", "-i", "-",
-            "-an", "-c:v", "h264_videotoolbox", "-b:v", "31104000", "-g", "60", "-pix_fmt", "yuv420p",
+            "-an", "-vf", "scale=out_color_matrix=bt709:out_range=tv,setparams=color_primaries=bt709:color_trc=bt709",
+            "-c:v", "h264_videotoolbox", "-b:v", "31104000", "-g", "60", "-pix_fmt", "yuv420p",
+            "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
             "-progress", "pipe:1", "-nostats", "/r/video.mkv",
         ], args);
+    }
+
+    [Fact]
+    public void EncodeConvertsWithBt709AndTagsIt()
+    {
+        // ffmpeg's implicit bgra→yuv420p uses BT.601 and leaves the stream untagged, while players assume BT.709 for
+        // HD: reds and greens shift. The conversion is explicit and the stream says what it is.
+        var args = FfmpegArgs.Encode("libx264", 1280, 720, 30, PixelLayout.Rgba, "/v.mkv").ToList();
+        Assert.StartsWith("scale=out_color_matrix=bt709:out_range=tv", args[args.IndexOf("-vf") + 1], StringComparison.Ordinal);
+        Assert.Equal("bt709", args[args.IndexOf("-colorspace") + 1]);
+        Assert.Equal("bt709", args[args.IndexOf("-color_primaries") + 1]);
+        Assert.Equal("bt709", args[args.IndexOf("-color_trc") + 1]);
+        Assert.Equal("tv", args[args.IndexOf("-color_range") + 1]);
     }
 
     [Fact]
@@ -102,7 +117,9 @@ public sealed class FfmpegTests
     public void OddDimensionsAreCroppedToEven()
     {
         var args = FfmpegArgs.Encode("libx264", 1281, 721, 60, PixelLayout.Bgra, "/v.mkv").ToList();
-        Assert.Equal("crop=1280:720:0:0", args[args.IndexOf("-vf") + 1]);
+        Assert.Equal("crop=1280:720:0:0,scale=out_color_matrix=bt709:out_range=tv,setparams=color_primaries=bt709:color_trc=bt709",
+            args[args.IndexOf("-vf") + 1]);
+        Assert.Single(args, a => a == "-vf"); // one chain: a second -vf would replace the first
         Assert.Equal("1281x721", args[args.IndexOf("-s") + 1]); // input size is still the real one
     }
 

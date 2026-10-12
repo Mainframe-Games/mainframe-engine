@@ -95,7 +95,13 @@ flowchart LR
   recording ("window size changed"); a same-size recreation (VSync toggle) keeps it. Details:
   [Vulkan renderer](vulkan-renderer.md).
 - **Odd dimensions.** yuv420p needs even sizes, so an odd width or height is cropped by one pixel in the encoder
-  (`-vf crop`); the sidecar's `width`/`height` are the swapchain's, the video's are the even ones.
+  (`crop` at the head of the `-vf` chain); the sidecar's `width`/`height` are the swapchain's, the video's are the even ones.
+- **Colour.** ffmpeg's implicit `bgra` → `yuv420p` conversion uses BT.601 and leaves the stream untagged, while players
+  assume BT.709 for HD, so reds and greens would shift. The encoder converts explicitly
+  (`scale=out_color_matrix=bt709:out_range=tv,setparams=color_primaries=bt709:color_trc=bt709`) and tags the output
+  (`-colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv`); the tags survive the mux. `setparams` is
+  needed because the filter graph's frame properties override the output options, and `scale` sets only the matrix and
+  range. Verified with ffmpeg 9.0.2: a pure red frame decodes to Y 63, Cb 102, Cr 240 (BT.709 limited), not 81/90/240.
 - **Live audio.** The tap sits after the mixer's fault guard, so it records exactly what the device plays (silence after
   a fault) and takes **whole blocks only**: a block that does not fit the ring (about 2.7 s of 48 kHz stereo) is
   dropped, counted in `OverflowSamples`, and the recorder writes that much silence so the length still matches. The
