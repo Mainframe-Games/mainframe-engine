@@ -10,6 +10,8 @@
 # Defaults: name and version from the project.mfproj next to the desktop project's folder (one level up), the exe from
 # the name without spaces, the bundle id com.mainframegames.<exe lowercased>, the icon from project.mfproj "window.icon".
 # Without those tools the package has no icon (a warning on macOS). See docs/design/release.md (Games).
+# Games on the MainframeEngine package run the copy in its tools/ folder (as bash "<path>", the package drops the
+# executable bit): dotnet msbuild <Desktop.csproj> -getProperty:MainframePackageGameScript prints the path.
 # macOS signing: ad-hoc by default. --sign (or $MF_SIGN_IDENTITY) signs every Mach-O and the bundle with that identity, the
 # hardened runtime and a secure timestamp (entitlements for .NET: JIT and unsigned executable memory). --notarize (or
 # $MF_NOTARY_PROFILE) then submits the zip with `xcrun notarytool --keychain-profile <profile> --wait`, staples the
@@ -63,7 +65,8 @@ case "$rid" in
   win-*) [ "$assembly" = "$exe" ] || mv "$publish/$assembly.exe" "$publish/$exe.exe" ;;
   *) [ "$assembly" = "$exe" ] || mv "$publish/$assembly" "$publish/$exe"; chmod +x "$publish/$exe" ;;
 esac
-# The engine's own natives (enet, mfrmlui, mfsvg) are copied for every platform; keep only this RID's.
+# A checkout build copies the engine's natives (enet, mfrmlui, mfsvg, steam_api) and both Steamworks builds
+# (steamworks/win64, steamworks/posix) for every platform; keep only this RID's. A package build has only this RID's.
 for lib in enet mfrmlui mfsvg; do
   case "$rid" in
     win-*) rm -f "$publish/lib$lib.so" "$publish/lib$lib.dylib" ;;
@@ -71,6 +74,17 @@ for lib in enet mfrmlui mfsvg; do
     osx-*) rm -f "$publish/$lib.dll" "$publish/lib$lib.so" ;;
   esac
 done
+case "$rid" in
+  win-*) rm -rf "$publish/libsteam_api.so" "$publish/libsteam_api.dylib" "$publish/steamworks/posix" ;;
+  linux-*) rm -rf "$publish/steam_api64.dll" "$publish/libsteam_api.dylib" "$publish/steamworks/win64" ;;
+  osx-*) rm -rf "$publish/steam_api64.dll" "$publish/libsteam_api.so" "$publish/steamworks/win64" ;;
+esac
+# steam_appid.txt lets a game start Steam outside the client (GameHost writes it in development runs only); a player
+# build must never carry one.
+if [ -e "$publish/steam_appid.txt" ]; then
+  echo "error: steam_appid.txt in the publish output ($publish); remove it from the project's copied files" >&2
+  exit 1
+fi
 
 base="$exe-$version-$rid"
 case "$rid" in
@@ -83,7 +97,8 @@ case "$rid" in
       cp "$mac_icns" "$app/Contents/Resources/icon.icns"
       icon_key="<key>CFBundleIconFile</key><string>icon.icns</string>"
     elif [ -n "$icon" ] && [ -f "$icon" ] && command -v iconutil >/dev/null && command -v sips >/dev/null; then
-      "$(dirname "$0")/macos/png-to-icns.sh" "$icon" "$app/Contents/Resources/icon.icns"
+      # bash, not the file's own mode: the MainframeEngine package (tools/) does not keep the executable bit.
+      bash "$(dirname "$0")/macos/png-to-icns.sh" "$icon" "$app/Contents/Resources/icon.icns"
       icon_key="<key>CFBundleIconFile</key><string>icon.icns</string>"
     else
       echo "warning: no app icon (needs a PNG and macOS sips/iconutil)" >&2

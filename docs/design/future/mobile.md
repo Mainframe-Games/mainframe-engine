@@ -90,7 +90,7 @@ The engine runs on Windows, Linux and macOS only. Everything that makes a phone 
 | ⚠ iOS asset delivery | On-Demand Resources is deprecated in the iOS 27 notes. Background Assets exists from iOS 16, but its managed tier (`AssetPackManager`) needs iOS 26. | [iOS 27 notes](https://developer.apple.com/documentation/ios-ipados-release-notes/ios-ipados-27-release-notes), [Background Assets](https://developer.apple.com/documentation/backgroundassets) |
 | Privacy manifest | Every .NET iOS app needs `PrivacyInfo.xcprivacy`: the runtime calls required-reason APIs (FileTimestamp `C617.1`, SystemBootTime `35F9.1`, DiskSpace `E174.1`; UserDefaults `CA92.1` if used). | [.NET privacy manifest](https://learn.microsoft.com/dotnet/maui/ios/privacy-manifest) |
 | Audio | SoundFlow 1.4.1 ships miniaudio for android-arm/arm64/x64 (16 KB aligned) and an `ios-arm64` dynamic `miniaudio.framework`, but **no simulator build**. miniaudio uses AAudio (falling back to OpenSL ES) and Core Audio. | [SoundFlow](https://github.com/LSXPrime/SoundFlow) (package inspected), [miniaudio manual](https://miniaud.io/docs/manual/index.html) |
-| Other libs | Jitter2, Box2D.NET and GetText.NET have no `IsAotCompatible` metadata. ENet-CSharp ships no mobile natives. RmlUi lists Android and iOS. FreeType builds static for iOS. Steamworks.NET is desktop-only. | [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp), [RmlUi](https://github.com/mikke89/RmlUi), [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) |
+| Other libs | Jitter2, Box2D.NET and GetText.NET have no `IsAotCompatible` metadata. ENet-CSharp ships no mobile natives. RmlUi lists Android and iOS. FreeType builds static for iOS. Facepunch.Steamworks (and Valve's `steam_api`) is desktop-only. | [ENet-CSharp](https://github.com/nxrighthere/ENet-CSharp), [RmlUi](https://github.com/mikke89/RmlUi), [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) |
 | Accounts | Apple: $99/yr. A free personal team can sideload to 3 devices with 7-day profiles. Game Center, IAP, iCloud and push need the paid program. Play: $25 one-off. New personal accounts must run a closed test with 12 testers for 14 days before production. | [memberships](https://developer.apple.com/support/compare-memberships/), [capabilities](https://developer.apple.com/help/account/reference/supported-capabilities-ios), [Play testing](https://support.google.com/googleplay/android-developer/answer/14151465) |
 | Uploads | Apple lists Xcode, `xcrun altool --upload-app`, Transporter and the App Store Connect API (`POST /v1/buildUploads`). Play uses androidpublisher v3: `edits.insert → bundles.upload → tracks.update → commit`. | [upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds), [edits](https://developers.google.com/android-publisher/edits) |
 | Device tools | `xcrun devicectl` installs and launches on iOS **17+** devices (Xcode 15+). `xcrun simctl` drives simulators. iOS 16 devices need the workload's `mlaunch` (`dotnet build -t:Run`). | [devicectl](https://developer.apple.com/documentation/xcode/devices) ⚠ forum-level docs |
@@ -174,8 +174,9 @@ platform-specific assemblies and registered by the head before the engine starts
     - Mono: a `NativeLibrary.SetDllImportResolver` on the engine assembly maps those names to
       `NativeLibrary.GetMainProgramHandle()`. Silk resolves through its own `IPathResolver`, which gets the same mapping.
     - Spike S5 confirms both.
-- **Steam on mobile.** `ProjectSettings.SteamAppId` is ignored with an info log. `Steamworks.NET` stays a compile-time
-  reference of core (it P/Invokes lazily and never loads), and the trimmer removes it. If the analyzer flags it, it
+- **Steam on mobile.** `ProjectSettings.SteamAppId` is ignored with an info log. The `MainframeEngine.Steamworks`
+  shim stays a compile-time reference of core but is loaded only at run time from `steamworks/` (never on mobile), and
+  the trimmer removes the adapter. If the analyzer flags it, it
   moves behind a `MAINFRAME_STEAM` symbol that is not defined for mobile heads.
 
 ### Windowing and lifecycle

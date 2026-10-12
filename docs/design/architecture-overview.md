@@ -75,7 +75,7 @@ flowchart LR
     Engine --> Silk["Silk.NET<br/>Windowing + Input (SDL2) · Vulkan · MoltenVK"]
     Engine --> Stb["StbImageSharp"]
     Engine --> ENet["ENet-CSharp"]
-    Engine --> Steam["Steamworks.NET"]
+    Engine --> Steam["Facepunch.Steamworks"]
     Engine --> Jitter["Jitter2 (3D physics)"]
     Engine --> Box2D["Box2D.NET (2D physics)"]
     Engine --> GetText["GetText.NET"]

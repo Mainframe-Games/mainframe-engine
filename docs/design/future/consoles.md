@@ -147,8 +147,9 @@ The console layer implements seams core already plans. New seams are marked **ne
 
 - **Seams are optional servers with null implementations** ([mobile plumbing item 13](mobile.md#mobile-ready-plumbing-checklist)),
   registered by the head before `Engine` starts. Core never references a console assembly.
-- **Steam** stays desktop-only. Console heads never register `SteamServer`, and `Steamworks.NET` moves behind the
-  `MAINFRAME_STEAM` symbol M12 already plans if the trimmer keeps it.
+- **Steam** stays desktop-only. Console heads never register `SteamServer`, and the `MainframeEngine.Steamworks`
+  shim (Facepunch.Steamworks) is not shipped with them; it moves behind the `MAINFRAME_STEAM` symbol M12 already plans
+  if the trimmer keeps the adapter.
 - **Users.** Today the engine has no user concept. `IUserPlatform` introduces one (`PlatformUser`: id, display name,
   paired input devices). `Input` gains an optional user filter (`Input.IsActionPressed("jump", user)`), so local
   multiplayer and controller pairing work the same on desktop (one implicit user per gamepad) and consoles.

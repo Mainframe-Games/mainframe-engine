@@ -9,15 +9,20 @@
 
 ## Problem
 
-A game can be packaged for players today, but only from a shell with an engine checkout:
+A game can be packaged for players today, but only from a shell:
 
 - `build/package-game.sh` (`just package-game csproj rid out`, `justfile:115-117`) runs a self-contained, untrimmed
   Release `dotnet publish` for one RID (`package-game.sh:56`). It renames the apphost (`:58-61`) and deletes the
-  engine natives of other platforms (`:63-69`). Then it builds a macOS `.app` (Info.plist, `.icns` through
-  `sips`/`iconutil`, ad-hoc or Developer ID `codesign`, optional notarization, `:73-141`), a Windows zip (exe icon through
-  ImageMagick `magick` → `ApplicationIcon`, `:51-55`, `:142-146`) or a Linux `.tar.gz` (`:147-152`).
+  engine natives (Valve's `steam_api` included) and `steamworks/` folder of other platforms. Then it builds a macOS
+  `.app` (Info.plist, `.icns` through `sips`/`iconutil`, ad-hoc or Developer ID `codesign`, optional notarization,
+  `:73-141`), a Windows zip (exe icon through ImageMagick `magick` → `ApplicationIcon`, `:51-55`, `:142-146`) or a
+  Linux `.tar.gz` (`:147-152`).
+- Package games run the copy the `MainframeEngine` package ships in `tools/`: `MainframePackageGameScript` (set by
+  `build/MainframeGame.props`) names the checkout's or the package's script, run as `bash "$script" …`
+  ([Distribution via NuGet → Player builds](../distribution-nuget.md#player-builds)). This is today's path.
 - It reads `project.mfproj` with `sed` (`json()`, `:21`; the icon at a fixed 4-space indent, `:25`), so any other
-  layout of the file breaks it. It needs bash, `zip`, and macOS or ImageMagick for icons. It is not used by CI.
+  layout of the file breaks it. It needs bash, `zip`, and macOS or ImageMagick for icons. CI uses it only in the
+  `template` job's smoke check (linux-x64, win-x64, osx-arm64 archives of a package game).
 - Nothing in the editor exports. The editor already builds and runs games: `DotnetGameBuilder` runs `dotnet build`
   through `ProcessRunner` (`MainframeEngine.Editor/Src/Play/GameBuilder.cs:37`, `Src/Tools/ProcessRunner.cs:27`),
   `DotnetSdk` finds the SDK (`Src/Projects/DotnetSdk.cs:23`, `DetectAsync` `:86`) and `PlayController` writes build
@@ -30,9 +35,9 @@ A game can be packaged for players today, but only from a shell with an engine c
 - Shipped builds scan `Content/` on the first UID lookup: `AssetDatabase.Refresh` loads `Content/assets.index.json`
   when it exists (`MainframeEngine/Src/Resources/AssetDatabase.cs:97-104`), but nothing calls `WriteIndex`
   (`:152`) except tests.
-- Steam cannot work in any export yet: no `steam_api` natives ship (`docs/design/steamworks.md#natives`,
-  `memory/context/current-state.md:58`), and Steamworks.NET 2024.8.0 is x64-only, so `osx-arm64` never starts Steam.
-  The script does not warn about either.
+- Steam works in exports on every desktop RID: Facepunch.Steamworks 2.4.1 and Valve's `steam_api` natives ship with
+  the engine, `osx-arm64` included ([Steamworks → Natives](../steamworks.md#natives)). The script keeps only the
+  RID's Steam files and fails on a `steam_appid.txt`, but does not check that the project has a Steam app id.
 - [Mobile](mobile.md#editor-integration) (M12.7) already plans a `project.mfproj` `export` array and an Export dialog.
   There is no desktop half for it to extend.
 
@@ -298,13 +303,12 @@ For `steam: true`, validation checks:
 | Check | Severity | Why |
 |---|---|---|
 | effective app id (full or demo) ≠ 0 | error | an id of 0 leaves Steam off ([steamworks.md](../steamworks.md#project-settings)) |
-| `steam_api64.dll` / `libsteam_api.so` / `libsteam_api.dylib` present for the RID in `MainframeEngine/runtimes/<rid>/native` | error | no natives ship today ([Natives](../steamworks.md#natives)); without them `Steam.TryInitialize` reports `NativeLibraryMissing` |
-| RID is not `osx-arm64` | error | Steamworks.NET 2024.8.0 is x64-only → `UnsupportedPlatform`. The fix says to use `osx-x64` (Rosetta) |
+| `steam_api64.dll` / `libsteam_api.so` / `libsteam_api.dylib` and `steamworks/<win64\|posix>/` present for the RID in the stage | error | the engine ships them ([Natives](../steamworks.md#natives)), so this only catches a broken publish; without them `Steam.TryInitialize` reports `NativeLibraryMissing` |
 | `configuration` is `Release` | warning | a Debug build is a development run (`GameHost.IsDevelopmentRun`, `GameHost.cs:107`): it writes `steam_appid.txt` on players' machines and never relaunches through Steam |
 
 The Steam errors are deliberate. A preset that says Steam is on must not ship a build where Steam silently never
-starts. The fix text names both ways out: install the redistributables
-([steamworks.md → enabling Steam](../steamworks.md#natives)), or turn Steam off for this preset.
+starts. The fix text names the way out: set the app id in Project Settings › Steamworks, or turn Steam off for this
+preset.
 
 ### Hosts and platforms
 
@@ -485,7 +489,7 @@ The runner never touches RmlUi, the scene tree or the editor's `AssetDatabase.Cu
   and skipped, and the rest still export.
 - Full and Steam demo builds come from one project with no manual `isDemo` edit, and `#if DEMO` code differs between
   them.
-- A Steam preset reports the missing `steam_api` natives (and `osx-arm64`) before building.
+- A Steam preset with no app id is reported before building; a stage missing the RID's Steam files fails.
 - Cancel stops `dotnet publish` within a second or two and leaves the previous artifact in place.
 - `just package-game` and `mf-export --preset` produce byte-identical archive contents to the editor for the same
   preset (timestamps excluded). `build/package-game.sh` is gone.

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- MainframeEngine.Steamworks built against Facepunch.Steamworks.Win64.dll (see ../Steamworks.props). -->
+  <PropertyGroup>
+    <SteamworksPlatform>Win64</SteamworksPlatform>
+  </PropertyGroup>
+
+  <Import Project="..\Steamworks.props" />
+
+</Project>

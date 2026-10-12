@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- MainframeEngine.Steamworks built against Facepunch.Steamworks.Posix.dll (see ../Steamworks.props). -->
+  <PropertyGroup>
+    <SteamworksPlatform>Posix</SteamworksPlatform>
+  </PropertyGroup>
+
+  <Import Project="..\Steamworks.props" />
+
+</Project>

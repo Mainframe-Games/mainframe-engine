@@ -39,6 +39,17 @@
     <Product Condition="'$(Product)' == ''">$(MainframeAppName)</Product>
   </PropertyGroup>
 
+  <!--
+    Player builds (docs/design/release.md#games): build/package-game.sh, which a checkout has next to this file and the
+    MainframeEngine package in tools/ (this file is its buildTransitive/MainframeGame.props). Games ask for the path
+    instead of hard-coding the package cache:
+      bash "$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds
+  -->
+  <PropertyGroup>
+    <MainframePackageGameScript Condition="'$(MainframePackageGameScript)' == '' and Exists('$(MSBuildThisFileDirectory)package-game.sh')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)package-game.sh'))</MainframePackageGameScript>
+    <MainframePackageGameScript Condition="'$(MainframePackageGameScript)' == '' and Exists('$(MSBuildThisFileDirectory)../tools/package-game.sh')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../tools/package-game.sh'))</MainframePackageGameScript>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- The editor loads the game library from its build output into a collectible context, which resolves the game's own
          NuGet dependencies from that folder (assemblies the editor already has are shared). A class library does not copy

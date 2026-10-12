@@ -231,7 +231,9 @@ sequenceDiagram
   this one shows the Shadows panel, also across a resize),
   `ShadowsOfEveryLightTypeAllocateNothingPerFrame`, `CutoutMaterialsCastCutoutShadows`,
   `ShadowEdgesDoNotShimmerWhenTheCameraMoves`.
-- **Window.** 320×240 layout points, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. The host
+- **Window.** 320×240 layout points, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On macOS a
+  hidden window also makes the process a background app (`SDL_MAC_BACKGROUND_APP`, `MacBackgroundApp`): no Dock icon,
+  never activated, so render tests, smoke tests and QA runs do not take focus from the app you are typing in. The host
   sets `EngineOptions.ContentScale` (`--scale`, default `HostOptions.CanonicalScale`: **2 on macOS, 1 elsewhere**), so
   captures are exactly the layout size × the scale in pixels — 640×480 for the `moltenvk` goldens, 320×240 for
   `lavapipe` — whatever the backing scale of the display the window lands on (a 1× external monitor or a 2× Retina

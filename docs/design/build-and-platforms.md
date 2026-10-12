@@ -58,7 +58,7 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.23.0*
 | Silk.NET.Assimp | 2.22.0 | *Referenced but unused* (kept for M3) |
 | StbImageSharp | 2.30.16 | Image decoding (sky, Spine atlas, icon) |
 | ENet-CSharp | 2.4.8 | UDP networking |
-| Steamworks.NET | 2024.8.0 | Steam wrappers (inert, see [Steamworks](steamworks.md)) |
+| Facepunch.Steamworks | 2.4.1 (vendored, `Plugins/Facepunch.Steamworks`; not a package) | Steam wrappers through the `MainframeEngine.Steamworks` shim (Win64/Posix builds); Valve's `steam_api` natives in `runtimes/<rid>/native/` ([Steamworks](steamworks.md#layers)) |
 | SoundFlow | 1.4.1 (exact) | Audio device, mixer graph, MP3/FLAC decoding ([Audio](audio.md), [ADR 0030](../../memory/decisions/0030-soundflow-audio-backend.md)). Ships its miniaudio natives in `runtimes/<rid>/native/` (win-x64/x86/arm64, linux-x64/arm/arm64, osx-x64/arm64, …); NuGet copies them to the app's `runtimes/` and SoundFlow resolves them. |
 | NVorbis | 0.10.5 (exact) | OGG Vorbis decoding, managed ([ADR 0032](../../memory/decisions/0032-ogg-via-nvorbis.md)) |
 | xunit.v3, xunit.runner.visualstudio, Microsoft.NET.Test.Sdk, coverlet.collector | see props | Tests only |
@@ -242,7 +242,7 @@ and the bundled `libMoltenVK.dylib` (no validation layers through that one).
 | Validation layers | Vulkan SDK | Vulkan SDK | Vulkan SDK | Vulkan SDK |
 | ENet networking | ✅ | ✅ | ✅ | ❌ native is x86_64-only |
 | Audio (SoundFlow/miniaudio) | ✅ WASAPI | ✅ ALSA/PulseAudio | ✅ Core Audio | ✅ Core Audio (verified with the Demo's Audio scenes); null device on machines without one (CI) |
-| Steamworks | ⚠ no `steam_api` shipped | ⚠ same | ⚠ same | ❌ no osx-arm64 assets |
+| Steamworks (Facepunch + Valve's `steam_api`) | ✅ | ✅ | ✅ | ✅ (universal `libsteam_api.dylib`) |
 
 MoltenVK limits that shaped the design: `mutableComparisonSamplers = false` (shadow samplers are
 immutable), 16 samplers per shader stage (the shadow set uses 6 since M4; before, `MaxShadowSpot` was 7), and a mutable-format swapchain whose

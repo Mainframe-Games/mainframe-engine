@@ -3,7 +3,8 @@
 Mainframe Engine's own code is MIT licensed (see [LICENSE](LICENSE)). It includes, or links at run time to, the
 third-party software and assets listed below, each under its own licence. **Not everything in this repository is MIT:**
 the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric Software's (see
-[Spine Runtimes](#spine-runtimes) and [Spine example assets](#spine-example-assets)).
+[Spine Runtimes](#spine-runtimes) and [Spine example assets](#spine-example-assets)), and the `steam_api` natives are
+Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)).
 
 - Keep these notices with any distribution of the engine, the editor, or a game built with it.
 - Credits screens must show the FreeType credit, because the FreeType License has an advertising clause. The engine
@@ -28,6 +29,8 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [SoundFlow](https://github.com/LSXPrime/SoundFlow) | 1.4.1 | MIT | NuGet package `SoundFlow` | `SoundFlow.dll`; its `miniaudio` native library (SoundFlow's C shim, MIT) |
 | [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
 | [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
+| [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) | 2.4.1 | MIT | `Plugins/Facepunch.Steamworks` (vendored Win64 and Posix builds) | `steamworks/{win64,posix}/Facepunch.Steamworks.*.dll` |
+| Steamworks SDK redistributables (`steam_api64.dll`, `libsteam_api.so`, `libsteam_api.dylib`; the SDK Facepunch.Steamworks 2.4.1 was built against) | — | © Valve Corporation; redistributed under the Steamworks SDK Access Agreement, **not MIT** | `MainframeEngine/runtimes/<rid>/native` (vendored) | `steam_api` native library (see [below](#steamworks-sdk-redistributables)) |
 | [libogg](https://github.com/xiph/ogg) | 1.3.6 | BSD-3-Clause | `Native/PluginHost/external/ogg` (submodule) | editor only: `mfplughost` helper executable (static) |
 | [libvorbis / libvorbisenc / libvorbisfile](https://github.com/xiph/vorbis) | 1.3.7 | BSD-3-Clause | `Native/PluginHost/external/vorbis` (submodule) | editor only: `mfplughost` helper executable (static) |
 | [VST 3 SDK](https://github.com/steinbergmedia/vst3sdk) (base, pluginterfaces, public.sdk hosting; no VSTGUI) | 3.8.1 | MIT | `Native/PluginHost/external/vst3sdk` (submodule) | editor only: `mfplughost` helper executable (static) |
@@ -42,7 +45,7 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 | [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
 | Forest art: [ambientCG](https://ambientcg.com) terrain sets (8) and scattered leaves (1), [Poly Haven](https://polyhaven.com) rock, log, stump, root, branch, moss, grass, nettle and fern models (20) and a tonemapped HDRI (`lilienstein`); each listed in `Examples/Forest/NOTICE.md` | — | CC0 1.0 | `Examples/Forest/Content/Art` (Git LFS; `Examples/Forest/Tools/fetch_assets.py`) | the Forest only |
 
-Managed NuGet dependencies (Silk.NET, StbImageSharp, Steamworks.NET, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
+Managed NuGet dependencies (Silk.NET, StbImageSharp, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
 their packages and are not repeated here.
 
 ## FreeType
@@ -549,6 +552,42 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Facepunch.Steamworks
+
+`Plugins/Facepunch.Steamworks` (release 2.4.1, vendored; `Plugins/Facepunch.Steamworks/LICENSE`):
+
+```text
+MIT License
+
+Copyright (c) 2020 Facepunch Studios LTD
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Steamworks SDK redistributables
+
+`steam_api64.dll` (win-x64), `libsteam_api.so` (linux-x64) and `libsteam_api.dylib` (osx-x64, osx-arm64; one
+universal binary) in `MainframeEngine/runtimes/<rid>/native` are the Steamworks SDK's `redistributable_bin`, the build
+Facepunch.Steamworks 2.4.1 was made against. They are © Valve Corporation, **not MIT**, and are redistributed with
+games under the [Steamworks SDK Access Agreement](https://partner.steamgames.com/documentation/sdk_access_agreement).
+A game that ships them is bound by that agreement and Valve's Steamworks terms.
 
 ## libogg and libvorbis
 
