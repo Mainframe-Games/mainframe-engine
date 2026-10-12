@@ -200,6 +200,45 @@ public sealed class EditorLinkProtocolTests
         Assert.StartsWith("éééé", message.Log.Message, StringComparison.Ordinal);
         Assert.True(message.Log.Message.Length < huge.Length);
     }
+
+    [Fact]
+    public void RecordingMessagesRoundTrip()
+    {
+        var started = new EditorLinkRecording(EditorLinkRecordingState.Started, "/u/recordings/forest-20261013-101500.mp4", 0f, 0, 0, "");
+        var stopped = new EditorLinkRecording(EditorLinkRecordingState.Stopped, "/u/r.mp4", 83.25f, 2, 11, "");
+        var failed = new EditorLinkRecording(EditorLinkRecordingState.Failed, "/u/r.mp4", 0f, 0, 0, "ffmpeg was not found.");
+        foreach (var recording in new[] { started, stopped, failed })
+        {
+            var message = RoundTrip(b => EditorLinkProtocol.WriteRecording(b, recording));
+            Assert.Equal(EditorLinkMessageType.Recording, message.Type);
+            Assert.Equal(recording, message.Recording);
+        }
+    }
+
+    [Fact]
+    public void RecordingCommandsRoundTrip()
+    {
+        var start = new EditorLinkCommand(EditorCommandKind.StartRecording, "/u/recordings/a.mp4");
+        var stop = new EditorLinkCommand(EditorCommandKind.StopRecording);
+        Assert.Equal(start, RoundTrip(b => EditorLinkProtocol.WriteCommand(b, start)).Command);
+        Assert.Equal(stop, RoundTrip(b => EditorLinkProtocol.WriteCommand(b, stop)).Command);
+    }
+
+    [Fact]
+    public void AnUnknownRecordingStateIsRejected()
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        EditorLinkProtocol.WriteRecording(buffer, new EditorLinkRecording(EditorLinkRecordingState.Failed, "p", 0f, 0, 0, "e"));
+        var body = buffer.WrittenSpan[EditorLinkProtocol.HeaderLength..].ToArray();
+        body[1] = 9; // state byte
+        Assert.False(EditorLinkProtocol.TryDecode(body, out _));
+    }
+
+    [Fact]
+    public void ProtocolVersionIsFour()
+    {
+        Assert.Equal(4, EditorLinkProtocol.Version);
+    }
 }
 
 public sealed class EditorLinkConnectionTests
