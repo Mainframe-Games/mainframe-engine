@@ -5,7 +5,7 @@ namespace MainframeEngine.RenderTests.Host;
 /// <summary>
 /// Command line: <c>&lt;scene&gt; --out &lt;dir&gt; [--capture 30,60] [--frames N] [--alloc warmup:count]
 /// [--size WxH] [--scale S] [--hidden] [--resize WxH@frame] [--toggle-vsync frame] [--quit-error frame] [--minimize frame] [--input frame]
-/// [--pipeline-cache dir] [--count N] [--perf warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]
+/// [--pipeline-cache dir] [--count N] [--perf warmup:frames] [--perf-on-cpu warmup:frames] [--no-validation] [--ui-hidden-until frame] [--update-rate hz] [--no-shadows]
 /// [--prepass] [--jitter] [--velocity-view] [--aa none|fxaa|taa] [--taa-sharpness S]</c>.
 /// </summary>
 public sealed record HostOptions
@@ -65,6 +65,13 @@ public sealed record HostOptions
     /// <summary>Frame-time measurement: frames skipped first, then frames measured; 0 = off.</summary>
     public int PerfWarmupFrames { get; init; }
     public int PerfMeasuredFrames { get; init; }
+
+    /// <summary>
+    /// The <c>--perf</c> window on a CPU device (lavapipe), for tests that only report its timings there: the host measures
+    /// this many frames instead and quits after them. 0 = the <c>--perf</c> window everywhere.
+    /// </summary>
+    public int PerfCpuWarmupFrames { get; init; }
+    public int PerfCpuMeasuredFrames { get; init; }
 
     /// <summary>Runs without the validation layers (performance measurements).</summary>
     public bool NoValidation { get; init; }
@@ -190,6 +197,14 @@ public sealed record HostOptions
                     {
                         PerfWarmupFrames = int.Parse(perf[0], CultureInfo.InvariantCulture),
                         PerfMeasuredFrames = int.Parse(perf[1], CultureInfo.InvariantCulture),
+                    };
+                    break;
+                case "--perf-on-cpu":
+                    var perfOnCpu = Next().Split(':');
+                    options = options with
+                    {
+                        PerfCpuWarmupFrames = int.Parse(perfOnCpu[0], CultureInfo.InvariantCulture),
+                        PerfCpuMeasuredFrames = int.Parse(perfOnCpu[1], CultureInfo.InvariantCulture),
                     };
                     break;
                 case "--no-validation":

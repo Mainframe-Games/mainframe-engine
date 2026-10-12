@@ -42,9 +42,12 @@ public class ForestFeatureTests
     {
         // The CPU cost of a frame does not grow with the instances of a static multimesh (one item, one draw per pass):
         // 50,000 instances cost the same CPU time per frame as one, within 1 ms. Enforced on Release builds on a GPU device
-        // (as the 10k-instance bar); other runs report the numbers.
-        var many = HostRunner.Run("multimesh", Output("multimesh-50k-perf"), "--count", "50000", "--perf", "60:240", "--no-validation", "--hidden");
-        var one = HostRunner.Run("multimesh", Output("multimesh-1-perf"), "--count", "1", "--perf", "60:240", "--no-validation", "--hidden");
+        // (as the 10k-instance bar); other runs report the numbers, so a CPU device (lavapipe, ~2 min for the full windows)
+        // measures a short window only.
+        var many = HostRunner.Run("multimesh", Output("multimesh-50k-perf"), "--count", "50000", "--perf", "60:240", "--perf-on-cpu", "10:30",
+            "--no-validation", "--hidden");
+        var one = HostRunner.Run("multimesh", Output("multimesh-1-perf"), "--count", "1", "--perf", "60:240", "--perf-on-cpu", "10:30",
+            "--no-validation", "--hidden");
 
         Assert.True(many.SceneCheckFailures.Count == 0, string.Join("\n", many.SceneCheckFailures));
         Assert.True(one.SceneCheckFailures.Count == 0, string.Join("\n", one.SceneCheckFailures));
