@@ -37,6 +37,7 @@ public sealed class GameRecorder : IFrameStreamSink
     private readonly IFrameStreamSource? _frames;
     private readonly AudioServer? _audio;
     private readonly bool _offline;
+    private readonly int _offlineFps;
     private readonly CaptureInfoSource _info;
     private readonly Func<long> _timestamp;
     private readonly InputActivity _input = new();
@@ -64,19 +65,22 @@ public sealed class GameRecorder : IFrameStreamSink
     /// <param name="backendFactory">Creates the backend for one recording (the host's resolves ffmpeg here, so a missing ffmpeg fails <see cref="Start"/>).</param>
     /// <param name="frames">The renderer's frame stream; null when nothing renders (recording then cannot start).</param>
     /// <param name="audio">The audio server: tapped live, rendered offline. Null records silence of the right length.</param>
-    /// <param name="offline">One output frame per update (<c>--fixed-fps</c>) instead of real time.</param>
+    /// <param name="offlineFps">The host's <c>--fixed-fps</c> for an offline recording (one output frame per update, at this
+    /// rate whatever <see cref="RecordingOptions.Fps"/> says); 0 records live, in real time.</param>
     /// <param name="info">What the sidecar says about the game.</param>
     /// <param name="timestamp">The live clock in <see cref="Stopwatch"/> ticks (tests); default <see cref="Stopwatch.GetTimestamp"/>,
     /// the clock the audio tap stamps its first block with.</param>
     internal GameRecorder(Func<RecordingFormat, IRecordingBackend> backendFactory, IFrameStreamSource? frames, AudioServer? audio,
-        bool offline, CaptureInfoSource info, Func<long>? timestamp = null)
+        int offlineFps, CaptureInfoSource info, Func<long>? timestamp = null)
     {
         ArgumentNullException.ThrowIfNull(backendFactory);
         ArgumentNullException.ThrowIfNull(info);
         _backendFactory = backendFactory;
         _frames = frames;
         _audio = audio;
-        _offline = offline;
+        ArgumentOutOfRangeException.ThrowIfNegative(offlineFps);
+        _offline = offlineFps > 0;
+        _offlineFps = offlineFps;
         _info = info;
         _timestamp = timestamp ?? Stopwatch.GetTimestamp;
     }
@@ -112,8 +116,16 @@ public sealed class GameRecorder : IFrameStreamSink
         if (_frames is null || !_frames.CanStream)
             throw new InvalidOperationException("Recording needs frame capture (start the game with --record or --frame-capture).");
 
+        var fps = options.Fps;
+        if (_offline && fps != _offlineFps)
+        {
+            // One update is one output frame: any other rate would play the game back too fast or too slow.
+            Log.Warning($"[Recorder] Offline recordings run at the host's --fixed-fps {_offlineFps}; ignoring the requested {fps} fps.");
+            fps = _offlineFps;
+        }
+
         var (width, height) = _frames.StreamSize;
-        var format = new RecordingFormat(Path.GetFullPath(options.Path), width, height, options.Fps, _frames.StreamLayout,
+        var format = new RecordingFormat(Path.GetFullPath(options.Path), width, height, fps, _frames.StreamLayout,
             _audio?.SampleRate ?? DefaultSampleRate, Channels, _offline);
         var backend = _backendFactory(format);
         try
@@ -478,22 +490,23 @@ public sealed class GameRecorder : IFrameStreamSink
         return reason is null ? result : result with { Error = $"Recording stopped: {reason}." + (result.Error is null ? "" : " " + result.Error) };
     }
 
+    // Without a frame there is nothing worth keeping (an empty video, a WAV header): remove the scratch folder too.
     private static RecordingResult Abandon(IRecordingBackend backend, RecordingFormat format, string? reason)
     {
         DisposeQuietly(backend);
         var partial = format.OutputPath + ".partial";
         try
         {
-            if (Directory.Exists(partial) && !Directory.EnumerateFileSystemEntries(partial).Any())
-                Directory.Delete(partial);
+            if (Directory.Exists(partial))
+                Directory.Delete(partial, recursive: true);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            Log.Warning($"[Recorder] Could not remove the empty {partial}: {e.Message}");
+            Log.Warning($"[Recorder] Could not remove {partial}: {e.Message}");
         }
 
         var error = reason is null ? NoFrameError : $"{NoFrameError[..^1]}: {reason}.";
-        return new RecordingResult { Path = format.OutputPath, Error = error + PartialNote(format) };
+        return new RecordingResult { Path = format.OutputPath, Error = error };
     }
 
     // Where the kept intermediate files are, when there are any.

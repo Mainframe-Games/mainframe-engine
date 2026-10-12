@@ -20,6 +20,14 @@ public sealed class RecordingExitCodeTests
         Assert.False(GameHost.ShouldQuitOnRecordingError(offline: false, Failed()));
 
     [Fact]
+    public void AnOfflineRunWhoseRecordingDidNotFinishInTimeQuitsWithAnError() =>
+        Assert.True(GameHost.ShouldQuitOnRecordingError(offline: true, result: null));
+
+    [Fact]
+    public void ALiveRunWhoseRecordingDidNotFinishInTimeKeepsItsExitCode() =>
+        Assert.False(GameHost.ShouldQuitOnRecordingError(offline: false, result: null));
+
+    [Fact]
     public void ALiveRunWhoseRecordingSucceededKeepsItsExitCode() =>
         Assert.False(GameHost.ShouldQuitOnRecordingError(offline: false, Saved()));
 }

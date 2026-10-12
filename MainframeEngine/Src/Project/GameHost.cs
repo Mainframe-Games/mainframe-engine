@@ -347,7 +347,7 @@ public class GameHost : Engine
             _ => new FfmpegRecordingBackend(FfmpegResolver.ResolveForThisMachine(HostOptions.FfmpegPath)),
             Renderer as IFrameStreamSource,
             Servers.Get<AudioServer>(),
-            HostOptions.RecordOffline,
+            HostOptions.RecordOffline ? HostOptions.FixedFps : 0,
             new CaptureInfoSource(Settings.Name, () => Tree.CurrentScene?.SceneFilePath ?? "", EngineInfo.Version));
         recorder.Started += () => DevOverlayVisible = false; // F12 still brings it back, into the recording
         if (HostOptions.RecordPath is not null)
@@ -372,14 +372,12 @@ public class GameHost : Engine
 
     /// <summary>
     /// Whether a <c>--record</c> run that ended with <paramref name="result"/> must exit non-zero: only an offline run
-    /// (a capture script or CI job whose whole purpose is the file) whose recording ended with an error. A live run plays
-    /// on, so the player keeps their game and only sees the logged error.
+    /// (a capture script or CI job whose whole purpose is the file) whose recording ended with an error, or whose
+    /// finalising did not finish before shutdown gave up on it (<paramref name="result"/> null). A live run plays on, so
+    /// the player keeps their game and only sees the logged error.
     /// </summary>
-    internal static bool ShouldQuitOnRecordingError(bool offline, RecordingResult result)
-    {
-        ArgumentNullException.ThrowIfNull(result);
-        return offline && result.Error is not null;
-    }
+    internal static bool ShouldQuitOnRecordingError(bool offline, RecordingResult? result) =>
+        offline && (result is null || result.Error is not null);
 
     // --record: a run that cannot record fails loudly instead of playing unrecorded. False when the game must quit.
     private bool StartCommandLineRecording()
@@ -427,10 +425,18 @@ public class GameHost : Engine
             {
                 StartAsync();
             }
-            else if (!Session.Start())
+            else
             {
-                Quit(ExitCode.Error);
-                return;
+                // The synchronous load blocks this update: open a loading span now, the recorder's update below closes
+                // it. Today the first captured frame comes after this load, and the live origin is anchored there, so
+                // the load is not in the video and the span is empty (dropped); it is marked anyway so a recording
+                // that already has frames when a synchronous start load runs never shows the hitch as play.
+                Tree.Recorder?.OnUpdate(loading: true, paused: false);
+                if (!Session.Start())
+                {
+                    Quit(ExitCode.Error);
+                    return;
+                }
             }
         }
 
@@ -531,8 +537,16 @@ public class GameHost : Engine
         {
             if (recorder.IsRecording || recorder.IsFinalising)
             {
+                // A result (success or error) raised Stopped, whose handler already set the exit code.
                 if (recorder.StopAndWait(TimeSpan.FromMinutes(2)) is null)
+                {
                     Log.Error("[Recorder] Finalising the recording took over two minutes; the partial files were kept.");
+                    if (ShouldQuitOnRecordingError(HostOptions.RecordOffline, null))
+                    {
+                        Log.Error("[Recorder] The offline --record run did not produce a recording: exiting with an error.");
+                        Quit(ExitCode.Error); // only sets the code Run returns: the window is already closing
+                    }
+                }
             }
             else
             {

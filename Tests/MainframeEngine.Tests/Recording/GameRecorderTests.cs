@@ -106,13 +106,13 @@ public sealed class GameRecorderTests
     /// it is comparable with the audio tap's first-block stamp.
     /// </summary>
     private static (GameRecorder Recorder, FakeBackend Backend, FakeFrames Frames, Action<double> SetClock, long Base) Create(
-        bool offline = false, AudioServer? audio = null)
+        bool offline = false, AudioServer? audio = null, int hostFps = 60)
     {
         var backend = new FakeBackend();
         var frames = new FakeFrames();
         var start = System.Diagnostics.Stopwatch.GetTimestamp();
         var now = start;
-        var recorder = new GameRecorder(_ => backend, frames, audio, offline,
+        var recorder = new GameRecorder(_ => backend, frames, audio, offline ? hostFps : 0,
             new CaptureInfoSource("Forest", () => "res://Scenes/Forest.scn", "0.42.0"), () => now);
         return (recorder, backend, frames, t => now = start + Ticks(t), start);
     }
@@ -143,7 +143,7 @@ public sealed class GameRecorderTests
     public void OfflineAudioIsRenderedFromTheManualNullDevice()
     {
         using var audio = AudioServer.Create(new AudioOptions { Device = AudioDeviceMode.NullManual, BusLayoutPath = null });
-        var (r, backend, frames, _, _) = Create(offline: true, audio);
+        var (r, backend, frames, _, _) = Create(offline: true, audio, hostFps: 30);
         r.Start(new RecordingOptions { Path = "/r/out.mp4", Fps = 30 });
         for (var i = 0; i < 30; i++)
         {
@@ -155,6 +155,33 @@ public sealed class GameRecorderTests
 
         Assert.Equal(audio.SampleRate, backend.AudioWritten); // one second, every sample from the mix, none padded
         Assert.Empty(backend.Silences);
+    }
+
+    [Fact]
+    public void OfflineRecordingsAlwaysUseTheHostsFixedFps()
+    {
+        // Offline, one update is one output frame: any other rate would play the game too fast or too slow.
+        var (r, backend, frames, _, _) = Create(offline: true, hostFps: 30);
+        var sink = new MemoryLogSink { Levels = Log.Level.Warning };
+        Log.AddSink(sink);
+        try
+        {
+            r.Start(new RecordingOptions { Path = "/r/out.mp4" }); // the default 60
+        }
+        finally
+        {
+            Log.RemoveSink(sink);
+        }
+
+        Assert.Equal(30, backend.Format!.Fps);
+        Assert.Contains(sink.Snapshot(), e => e.Message.Contains("--fixed-fps 30", StringComparison.Ordinal));
+        for (var i = 0; i < 30; i++)
+        {
+            r.OnUpdate(loading: false, paused: false);
+            frames.Render();
+        }
+
+        Assert.Equal(1.0, r.StopAndWait(TimeSpan.FromSeconds(5))!.DurationSeconds);
     }
 
     [Fact]
@@ -561,6 +588,71 @@ public sealed class GameRecorderTests
         Assert.Equal("Recording stopped before any frame was captured.", result.Error);
         Assert.Null(backend.Info); // FinishAsync never ran: no mux of nothing, no sidecar with durationSeconds 0
         Assert.True(backend.Disposed);
+    }
+
+    [Fact]
+    public void AZeroFrameRecordingRemovesItsPartialFolder()
+    {
+        var dir = Directory.CreateTempSubdirectory("mfrec");
+        try
+        {
+            var output = Path.Combine(dir.FullName, "a.mp4");
+            var (r, backend, _, _, _) = Create();
+            r.Start(new RecordingOptions { Path = output });
+            // What the real backend leaves for a recording that never got a frame: an empty TS and a WAV header.
+            Directory.CreateDirectory(output + ".partial");
+            File.WriteAllBytes(Path.Combine(output + ".partial", "video.ts"), []);
+            File.WriteAllBytes(Path.Combine(output + ".partial", "audio.wav"), new byte[44]);
+
+            var result = r.StopAndWait(TimeSpan.FromSeconds(5))!;
+
+            Assert.False(Directory.Exists(output + ".partial")); // nothing in it is worth keeping
+            Assert.Equal("Recording stopped before any frame was captured.", result.Error);
+            Assert.True(backend.Disposed);
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void StopFromTheStartedEventAbandonsTheEmptyRecording()
+    {
+        // The earliest a Stop can arrive: inside Start, from a Started handler, before any frame was captured.
+        var (r, backend, frames, _, _) = Create();
+        RecordingResult? stopped = null;
+        r.Started += () => r.Stop();
+        r.Stopped += result => stopped = result;
+
+        r.Start(new RecordingOptions { Path = "/r/a.mp4" });
+
+        Assert.False(r.IsRecording);
+        Assert.Null(frames.Sink); // the stream Start began was ended again
+        var result = WaitForStopped(r, () => stopped);
+        Assert.Equal("Recording stopped before any frame was captured.", result.Error);
+        Assert.Null(backend.Info); // no mux, no sidecar
+        Assert.True(backend.Disposed);
+        Assert.False(r.IsFinalising);
+    }
+
+    [Fact]
+    public void StopWhileStartIsFailingIsANoOp()
+    {
+        // Start's backend fails (no encoder, ffmpeg gone): Stop and the shutdown path find nothing to stop or wait for.
+        var (r, backend, frames, _, _) = Create();
+        RecordingResult? stopped = null;
+        r.Stopped += result => stopped = result;
+        backend.BeginThrows = new IOException("The encoder could not be started.");
+
+        Assert.Throws<IOException>(() => r.Start(new RecordingOptions { Path = "/r/a.mp4" }));
+        r.Stop();
+
+        Assert.Null(r.StopAndWait(TimeSpan.FromSeconds(1)));
+        Assert.Null(stopped);
+        Assert.Null(frames.Sink);
+        Assert.True(backend.Disposed);
+        Assert.False(r.IsRecording || r.IsFinalising);
     }
 
     [Fact]

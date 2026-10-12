@@ -51,9 +51,26 @@ public sealed class RecordingOptionsTests
         Assert.Throws<ArgumentException>(() => GameHostOptions.Parse([flag]));
     }
 
-    [Fact]
-    public void RecordScaleOutOfRangeThrows()
+    [Theory]
+    [InlineData("9")]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("abc")]
+    [InlineData("NaN")]
+    public void RecordScaleOutOfRangeOrNotANumberThrows(string value)
     {
-        Assert.Throws<ArgumentException>(() => GameHostOptions.Parse(["--record-scale", "9"]));
+        var e = Assert.Throws<ArgumentException>(() => GameHostOptions.Parse(["--record-scale", value]));
+        Assert.Contains("--record-scale", e.Message);
+    }
+
+    [Theory]
+    [InlineData("--headless", "--record", "o.mp4")]
+    [InlineData("--record", "o.mp4", "--headless")]
+    [InlineData("--record", "o.mp4", "--headless", "++", "--game-flag")]
+    public void RecordingHeadlessIsRejected(params string[] args)
+    {
+        // HeadlessHost has no renderer and no recorder: --record would silently record nothing.
+        var e = Assert.Throws<ArgumentException>(() => GameHostOptions.Parse(args));
+        Assert.Contains("--headless", e.Message);
     }
 }

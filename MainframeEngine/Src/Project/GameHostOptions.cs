@@ -23,7 +23,7 @@ namespace MainframeEngine;
 /// <item><term><c>--loading-hold &lt;seconds&gt;</c></term><description>keep the loading screen up at least this long before the scene enters (QA of its look)</description></item>
 /// <item><term><c>--loading-screenshot &lt;file.png&gt;</c></term><description>save the loading screen's first frame at or past half progress as a PNG (QA)</description></item>
 /// <item><term><c>--bake-lighting</c></term><description>bake every <see cref="LightProbeVolume"/> of the start scene once it is ready, save the data and quit (ADR 0170; works with <c>--headless</c>)</description></item>
-/// <item><term><c>--record &lt;file.mp4&gt;</c></term><description>record gameplay with ffmpeg until quit (live; offline with <c>--fixed-fps</c>) and write <c>file.mp4.mfcap.json</c></description></item>
+/// <item><term><c>--record &lt;file.mp4&gt;</c></term><description>record gameplay with ffmpeg until quit (live; offline with <c>--fixed-fps</c>) and write <c>file.mp4.mfcap.json</c>; not with <c>--headless</c></description></item>
 /// <item><term><c>--record-scale &lt;n&gt;</c></term><description>fixed content scale for the recording (a 1920×1080-point window at 2 is 4K)</description></item>
 /// <item><term><c>--ffmpeg &lt;path&gt;</c></term><description>the ffmpeg executable to record with (else <c>MAINFRAME_FFMPEG</c>, <c>PATH</c>, common install folders)</description></item>
 /// </list>
@@ -112,7 +112,7 @@ public sealed record GameHostOptions
         {
             var arg = args[i];
             if (arg == UserArgsSeparator)
-                return options with { Remaining = remaining, UserArgs = [.. args.Skip(i + 1)] };
+                return Validated(options with { Remaining = remaining, UserArgs = [.. args.Skip(i + 1)] });
             switch (arg)
             {
                 case "--project":
@@ -184,7 +184,15 @@ public sealed record GameHostOptions
             }
         }
 
-        return options with { Remaining = remaining };
+        return Validated(options with { Remaining = remaining });
+    }
+
+    // Combinations no single flag can reject on its own.
+    private static GameHostOptions Validated(GameHostOptions options)
+    {
+        if (options.Headless && options.RecordPath is not null)
+            throw new ArgumentException("--record needs a window: --headless has no renderer to record (drop one of the two).");
+        return options;
     }
 
     /// <summary><paramref name="options"/> with the command line overrides applied.</summary>

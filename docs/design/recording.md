@@ -23,13 +23,15 @@ Command line (documented in `GameHostOptions` and [Projects & GameHost](project-
 
 | Flag | Effect |
 |---|---|
-| `--record <file.mp4>` | Record until quit or `Recorder.Stop()`. Implies frame capture. Offline when `--fixed-fps` is also given, else live. |
+| `--record <file.mp4>` | Record until quit or `Recorder.Stop()`. Implies frame capture. Offline when `--fixed-fps` is also given, else live. Rejected with `--headless` (exit code 2, like any invalid argument): `HeadlessHost` has no renderer to record. |
 | `--record-scale <n>` | `EngineOptions.ContentScale`: pixels per point of the window size (a 1920×1080-point window at 2 is 3840×2160). Needs a display big enough for the scaled window, see [Known issues](#known-issues). |
 | `--ffmpeg <path>` | The ffmpeg to use; else `MAINFRAME_FFMPEG`, then `PATH`, then common install folders. |
 
 Game code uses `SceneTree.Recorder` (`GameRecorder`; null under `--headless`): `Start(RecordingOptions)`, `Stop()`,
 `Mark(label)`, `Keep(label)` / `Skip(label)` (scopes, `IDisposable`), `IsRecording`, `Elapsed`, and the `Started` /
-`Stopped` events. `Mark`, `Keep` and `Skip` are no-ops when not recording, so games call them unconditionally. The dev
+`Stopped` events. `Mark`, `Keep` and `Skip` are no-ops when not recording, so games call them unconditionally. An offline
+recording always runs at the host's `--fixed-fps` (one update is one output frame): a `RecordingOptions.Fps` that differs
+is ignored with a warning. The dev
 overlay is hidden when a recording starts (F12 brings it back, into the recording); a game that wants a clean feed hides
 its own HUD on `Started` (the Forest's FPS readout does, and returns on `Stopped`).
 
@@ -133,7 +135,9 @@ flowchart LR
   `libx264` (`-preset ultrafast -crf 14`) and `libopenh264` everywhere. Hardware encoders and `libopenh264` get a
   bitrate of `width · height · fps / 4` bits/s (about 31 Mbit/s at 1080p60); the GOP is one second (`-g fps`) so a
   trimming tool never moves a cut more than a second. The result is a high-quality intermediate, not a delivery file.
-  The result is probed once per process and ffmpeg path and cached.
+  The result is probed once per process and ffmpeg path and cached. The encoder is passed `-progress pipe:1`, whose
+  output is drained but not parsed: the recording's health comes from failed pipe writes and the encoder's exit code,
+  reported with the tail of its stderr.
 - **Files.** While recording: `<out>.partial/video.ts` (MPEG-TS: it needs no trailer, so a crash leaves a playable file,
   and its 90 kHz timestamps hold 1/60 s exactly, where MKV's milliseconds made the MP4 60.03 fps) and
   `<out>.partial/audio.wav`. At `Stop` the WAV is **padded or truncated to the video's exact sample count**
@@ -141,7 +145,8 @@ flowchart LR
   `ffmpeg -i video.ts -i audio.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -movflags +faststart <out>` muxes, the sidecar is
   written, and `.partial/` is deleted. On failure `.partial/` is kept and `RecordingResult.Error` names it.
   A recording that captured **zero frames is abandoned**: no mux and no sidecar (a sidecar with
-  `durationSeconds` 0 is rejected by Cutback), and `Error` says so.
+  `durationSeconds` 0 is rejected by Cutback), `.partial/` is deleted (an empty video and a WAV header are not worth
+  keeping), and `Error` says so.
 - **Failure policy.** Nothing the recorder does may take the game down: a failing encoder, a full disk or a resize ends
   the recording with a readable `RecordingResult.Error`, never an exception from the renderer, the audio path or the
   update. Only `Start` throws. After a failure the next update (or the `Stop` in progress) ends the recording with the
@@ -149,7 +154,7 @@ flowchart LR
   job whose whole purpose is the file) whose recording ends with an error exits **non-zero**
   (`GameHost.ShouldQuitOnRecordingError`).
 - **Shutdown.** `GameHost.OnClose` stops the recording and waits up to two minutes for finalising, while the renderer
-  and the audio server are still alive.
+  and the audio server are still alive. If that times out, an offline `--record` run exits non-zero too.
 
 ### Threading
 
@@ -190,7 +195,8 @@ flowchart LR
 
 Rules:
 
-- Every span list is sorted and non-overlapping within itself. Lists may overlap each other.
+- Every list is sorted by start (markers by time). `input`, `loading` and `paused` spans never overlap within their
+  list; `keep` and `skip` spans may (scopes can nest or interleave). Lists may overlap each other.
 - Unknown fields are ignored. A higher `version` is a new contract, and readers refuse it with a clear message.
 - The engine owns the format. The canonical example is
   `Tests/MainframeEngine.Tests/Recording/Fixtures/sample.mfcap.json`, and it **must stay byte-identical** to the copy in
@@ -228,13 +234,14 @@ Rules:
   the video's at `Stop`).
 - After a long stall (longer than the ring, about 2.7 s), the overflow silence is written after the audio that was
   drained, so a few milliseconds of sound can land early; the total length stays exact.
-- A synchronous start-scene load (`--sync-load`) is not marked as a `loading` span in live mode.
+- A synchronous start-scene load (`--sync-load`, or `loading.async` false) blocks the first update, before the first
+  frame is captured, so it is **not in the video** in either mode (the live origin is anchored at that frame; offline,
+  that frame is frame 0). `GameHost` still opens a `loading` span just before it, which is empty and dropped.
 - The first recording in a process **probes the encoders**, up to about 1 s on the game thread, and the probes have no
   timeout.
 - The WAV header's sizes are unsigned 32-bit, exact up to 4 GiB of data (about 3.1 hours of 48 kHz stereo float). Past
   that both are written as `0xFFFFFFFF` ("unknown length"), which ffmpeg reads to the end of the file, so the mux keeps
   all of the audio; other tools may not accept such a WAV, but it never leaves `.partial/` on success.
-- `--headless --record` records nothing: `HeadlessHost` has no recorder.
 - `StartRecording` from the editor mid-session (Phase 3) needs the game launched with `--frame-capture`, because the
   swapchain needs `TRANSFER_SRC`.
 - Recording requires a stereo audio mix; a device that mixes other channel counts ends a live recording with an error.
