@@ -97,19 +97,32 @@ internal sealed class StreamingWavWriter : IDisposable
     private void WriteHeader(long dataBytes)
     {
         Span<byte> h = stackalloc byte[HeaderBytes];
+        FillHeader(h, _channels, _sampleRate, dataBytes);
+        _stream.Write(h);
+    }
+
+    /// <summary>
+    /// The 44-byte header. RIFF sizes are unsigned 32-bit: up to 4 GiB of data (about 3.1 hours of 48 kHz stereo float)
+    /// they are exact; past that both are written as <c>0xFFFFFFFF</c>, the conventional "unknown length", and ffmpeg
+    /// then reads the data to the end of the file. (A clamp to a smaller value would be honoured and cut the audio.)
+    /// </summary>
+    internal static void FillHeader(Span<byte> h, int channels, int sampleRate, long dataBytes)
+    {
+        var fits = 36 + dataBytes <= uint.MaxValue;
+        var riffSize = fits ? (uint)(36 + dataBytes) : uint.MaxValue;
+        var dataSize = fits ? (uint)dataBytes : uint.MaxValue;
         "RIFF"u8.CopyTo(h);
-        BinaryPrimitives.WriteInt32LittleEndian(h[4..], (int)Math.Min(int.MaxValue, 36 + dataBytes));
+        BinaryPrimitives.WriteUInt32LittleEndian(h[4..], riffSize);
         "WAVE"u8.CopyTo(h[8..]);
         "fmt "u8.CopyTo(h[12..]);
         BinaryPrimitives.WriteInt32LittleEndian(h[16..], 16);
         BinaryPrimitives.WriteInt16LittleEndian(h[20..], 3); // IEEE float
-        BinaryPrimitives.WriteInt16LittleEndian(h[22..], (short)_channels);
-        BinaryPrimitives.WriteInt32LittleEndian(h[24..], _sampleRate);
-        BinaryPrimitives.WriteInt32LittleEndian(h[28..], _sampleRate * _channels * 4);
-        BinaryPrimitives.WriteInt16LittleEndian(h[32..], (short)(_channels * 4));
+        BinaryPrimitives.WriteInt16LittleEndian(h[22..], (short)channels);
+        BinaryPrimitives.WriteInt32LittleEndian(h[24..], sampleRate);
+        BinaryPrimitives.WriteInt32LittleEndian(h[28..], sampleRate * channels * 4);
+        BinaryPrimitives.WriteInt16LittleEndian(h[32..], (short)(channels * 4));
         BinaryPrimitives.WriteInt16LittleEndian(h[34..], 32);
         "data"u8.CopyTo(h[36..]);
-        BinaryPrimitives.WriteInt32LittleEndian(h[40..], (int)Math.Min(int.MaxValue, dataBytes));
-        _stream.Write(h);
+        BinaryPrimitives.WriteUInt32LittleEndian(h[40..], dataSize);
     }
 }

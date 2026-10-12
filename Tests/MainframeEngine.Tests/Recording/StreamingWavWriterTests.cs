@@ -98,6 +98,33 @@ public sealed class StreamingWavWriterTests
         Assert.Equal(5, w.Frames);
     }
 
+    private static (uint Riff, uint Data) HeaderSizes(long dataBytes)
+    {
+        var h = new byte[44];
+        StreamingWavWriter.FillHeader(h, 2, 48_000, dataBytes);
+        return (BinaryPrimitives.ReadUInt32LittleEndian(h.AsSpan(4)), BinaryPrimitives.ReadUInt32LittleEndian(h.AsSpan(40)));
+    }
+
+    [Fact]
+    public void SizesPastTwoGigabytesAreWrittenUnsigned()
+    {
+        // 3 GB is about 2.2 hours of 48 kHz stereo float: an int clamp here made ffmpeg stop reading at ~93 minutes.
+        Assert.Equal((3_000_000_036u, 3_000_000_000u), HeaderSizes(3_000_000_000));
+    }
+
+    [Fact]
+    public void TheLargestSizeThatFitsIsWrittenExactly()
+    {
+        Assert.Equal((uint.MaxValue, uint.MaxValue - 36), HeaderSizes(uint.MaxValue - 36));
+    }
+
+    [Fact]
+    public void SizesThatDoNotFitAreMarkedUnknownSoReadersGoToTheEndOfTheFile()
+    {
+        Assert.Equal((uint.MaxValue, uint.MaxValue), HeaderSizes(uint.MaxValue - 35));
+        Assert.Equal((uint.MaxValue, uint.MaxValue), HeaderSizes(5_000_000_000));
+    }
+
     [Fact]
     public void WriteRejectsAPartialFrame()
     {

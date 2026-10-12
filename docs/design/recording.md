@@ -217,7 +217,9 @@ Rules:
 - A synchronous start-scene load (`--sync-load`) is not marked as a `loading` span in live mode.
 - The first recording in a process **probes the encoders**, up to about 1 s on the game thread, and the probes have no
   timeout.
-- WAV sizes clamp past about 3 hours (the header's 32-bit sizes); ffmpeg still reads to the end of the file.
+- The WAV header's sizes are unsigned 32-bit, exact up to 4 GiB of data (about 3.1 hours of 48 kHz stereo float). Past
+  that both are written as `0xFFFFFFFF` ("unknown length"), which ffmpeg reads to the end of the file, so the mux keeps
+  all of the audio; other tools may not accept such a WAV, but it never leaves `.partial/` on success.
 - `--headless --record` records nothing: `HeadlessHost` has no recorder.
 - `StartRecording` from the editor mid-session (Phase 3) needs the game launched with `--frame-capture`, because the
   swapchain needs `TRANSFER_SRC`.
