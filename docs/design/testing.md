@@ -190,7 +190,9 @@ sequenceDiagram
   mid-run), `--quit-error frame` (`Quit(ExitCode.Error)`; the host exits with `Run()`'s code and
   `result.json` records it), `--minimize frame` (minimise, restore after 1.5 s; the host fails if frames render while
   minimised) and `--input frame` (a synthetic SDL right-button drag, read by the `mouse-look` scene's camera), `--pipeline-cache dir`, `--count N` (scene size), `--perf warmup:frames` (wall-clock
-  and CPU frame times: average and p95 in `result.json`, plus the shadow pass's CPU/GPU milliseconds), `--no-validation`,
+  and CPU frame times: average and p95 in `result.json`, plus the shadow pass's CPU/GPU milliseconds), `--perf-on-cpu
+  warmup:frames` (the `--perf` window on a CPU device such as lavapipe, which then quits after it: for tests that enforce
+  timings only on a GPU), `--no-validation`,
   `--no-shadows` (every light's `CastsShadows` off), `--prepass` (`RenderServer.ForceDepthPrepass`), `--jitter` (the TAA
   projection jitter without TAA) and `--velocity-view` (`RenderDebugView.Velocity`). Scene self-check failures are reported in
   `SceneCheckFailures`; `result.json` also records the Vulkan device type (`DeviceType`), GPU allocator totals, shader-module count and the
@@ -290,8 +292,8 @@ Without Docker, use CI: on a branch (never `main` or `feature/*`), commit the re
 ```sh
 run=$(gh workflow run ci.yml --ref "$(git branch --show-current)" | grep -oE '[0-9]+$') # prints the run's URL
 gh run watch "$run" --exit-status
-rm -rf /tmp/rt && gh run download "$run" -n render-tests -D /tmp/rt
-cp /tmp/rt/artifacts/render-tests/new-goldens/lavapipe/*.png Tests/MainframeEngine.RenderTests/Goldens/lavapipe/
+rm -rf /tmp/rt && gh run download "$run" -p 'render-tests-*' -D /tmp/rt # one artifact per shard
+cp /tmp/rt/render-tests-*/artifacts/render-tests/new-goldens/lavapipe/*.png Tests/MainframeEngine.RenderTests/Goldens/lavapipe/
 ```
 
 Then **look at every copied PNG** next to its `moltenvk` golden: the only allowed differences are the ones listed

@@ -318,13 +318,15 @@ public sealed class EditorLinkConnectionTests
         Assert.True(client.DroppedLogCount > 0);
         Assert.Equal(20_000, accepted + client.DroppedLogCount);
 
-        // Start reading: every accepted entry arrives, followed by the drop report.
+        // Start reading: every accepted entry arrives and the drops are reported. Not necessarily in that order: the client
+        // reports whenever its queue empties, so if it caught up mid-burst (this thread descheduled) and nothing dropped
+        // after, the entries accepted since then follow the last report.
         using var stream = new NetworkStream(socket);
         var header = new byte[4];
         var logs = 0;
         long reported = 0;
         var deadline = Stopwatch.StartNew();
-        while (reported < client.DroppedLogCount && deadline.Elapsed < TimeSpan.FromSeconds(20))
+        while ((reported < client.DroppedLogCount || logs < accepted) && deadline.Elapsed < TimeSpan.FromSeconds(20))
         {
             stream.ReadExactly(header);
             Assert.True(EditorLinkProtocol.TryReadHeader(header, out var length));

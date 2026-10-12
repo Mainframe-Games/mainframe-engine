@@ -207,8 +207,10 @@ public class TreeTests
     {
         // 2,000 trees over 256 m (three species, two seeds each, 32 m chunks; 120 without sun shadows on a CPU device such as lavapipe): the
         // CPU cost of a frame is the batches' culling and draws, a few ms at most (Release on a GPU device). Reports the
-        // GPU-bound frame time too.
-        var result = HostRunner.Run("tree-forest", Output("tree-forest-perf"), "--count", "2000", "--perf", "60:240", "--no-validation", "--hidden");
+        // GPU-bound frame time too. A CPU device (lavapipe) only reports, over a shorter window that still reaches the scene's
+        // frame-100 self-check.
+        var result = HostRunner.Run("tree-forest", Output("tree-forest-perf"), "--count", "2000", "--perf", "60:240", "--perf-on-cpu", "20:90",
+            "--no-validation", "--hidden");
 
         Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
         TestContext.Current.SendDiagnosticMessage(

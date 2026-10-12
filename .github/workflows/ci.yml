@@ -189,9 +189,25 @@ jobs:
         run: sh build/shaders.sh check
 
   render-tests:
+    name: render-tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
-    # The suite runs ~30 min on lavapipe since the forest's scenes (G8, ADR 0163-0175): CPU rasterising is slow.
-    timeout-minutes: 50
+    # The suite takes 15-25 min on one lavapipe runner since the forest's scenes (G8, ADR 0163-0175): CPU rasterising is
+    # slow. Three shards by test class, balanced on CI timings (~280 s of tests each); the last runs every class the
+    # others do not name, so a new class is never skipped. Rebalance when a shard grows well past the others.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            filter: >-
+              FullyQualifiedName~MainframeEngine.RenderTests.TreeTests.|FullyQualifiedName~MainframeEngine.RenderTests.TerrainRenderTests.
+          - shard: 2
+            filter: >-
+              FullyQualifiedName~MainframeEngine.RenderTests.SceneTests.|FullyQualifiedName~MainframeEngine.RenderTests.ForestFeatureTests.|FullyQualifiedName~MainframeEngine.RenderTests.TerrainFoliageRenderTests.|FullyQualifiedName~MainframeEngine.RenderTests.EditorRenderTests.|FullyQualifiedName~MainframeEngine.RenderTests.TaauTests.
+          - shard: 3
+            filter: >-
+              FullyQualifiedName!~MainframeEngine.RenderTests.TreeTests.&FullyQualifiedName!~MainframeEngine.RenderTests.TerrainRenderTests.&FullyQualifiedName!~MainframeEngine.RenderTests.SceneTests.&FullyQualifiedName!~MainframeEngine.RenderTests.ForestFeatureTests.&FullyQualifiedName!~MainframeEngine.RenderTests.TerrainFoliageRenderTests.&FullyQualifiedName!~MainframeEngine.RenderTests.EditorRenderTests.&FullyQualifiedName!~MainframeEngine.RenderTests.TaauTests.
+    timeout-minutes: 30
     env:
       # Lavapipe (Mesa's CPU Vulkan driver) only: deterministic output for the 'lavapipe' goldens.
       VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.json
@@ -250,10 +266,13 @@ jobs:
         run: dotnet build Tests/MainframeEngine.RenderTests -c Release -warnaserror -p:CompileShaders=false
 
       - name: Render tests (golden images, validation gate, allocation gate)
+        env:
+          FILTER: ${{ matrix.filter }}
         run: >-
           xvfb-run -a -s "-screen 0 1280x1024x24"
           dotnet test Tests/MainframeEngine.RenderTests -c Release --no-build
-          --logger "trx;LogFileName=render-tests.trx"
+          --filter "$FILTER"
+          --logger "trx;LogFileName=render-tests-${{ matrix.shard }}.trx"
           --logger "console;verbosity=normal"
           --results-directory TestResults
 
@@ -271,7 +290,7 @@ jobs:
           fi
           echo "### Frames without a golden (comparison skipped)" >> "$GITHUB_STEP_SUMMARY"
           for f in $files; do
-            echo "::warning title=No golden::$f: golden comparison skipped; review and commit it from the render-tests artifact (new-goldens/)"
+            echo "::warning title=No golden::$f: golden comparison skipped; review and commit it from the render-tests-${{ matrix.shard }} artifact (new-goldens/)"
             echo "- \`$f\`" >> "$GITHUB_STEP_SUMMARY"
           done
 
@@ -281,7 +300,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: render-tests
+          name: render-tests-${{ matrix.shard }}
           path: |
             artifacts/render-tests/
             TestResults/**/*.trx
