@@ -51,6 +51,11 @@
     <None Include="..\Content\**" LinkBase="Content" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- The recording sidecar contract fixture, byte-identical to Cutback's copy (Recording/CaptureSidecarWriterTests). -->
+  <ItemGroup>
+    <None Include="Recording\Fixtures\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Recording\Fixtures" />
+  </ItemGroup>
+
   <!-- Audio decoder/server tests: tiny generated tones (WAV, OGG, MP3, FLAC; stored in Git LFS). -->
   <ItemGroup>
     <None Update="Content\Audio\**" CopyToOutputDirectory="PreserveNewest" />
