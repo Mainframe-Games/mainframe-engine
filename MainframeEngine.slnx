@@ -15,5 +15,7 @@
   </Folder>
   <Project Path="MainframeEngine.Editor/MainframeEngine.Editor.csproj" />
   <Project Path="MainframeEngine.Generators/MainframeEngine.Generators.csproj" />
+  <Project Path="MainframeEngine.Steamworks/Posix/MainframeEngine.Steamworks.Posix.csproj" />
+  <Project Path="MainframeEngine.Steamworks/Win64/MainframeEngine.Steamworks.Win64.csproj" />
   <Project Path="MainframeEngine/MainframeEngine.csproj" />
 </Solution>

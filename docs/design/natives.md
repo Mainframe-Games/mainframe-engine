@@ -11,6 +11,9 @@ How the engine's own native libraries are laid out, built, tested, shipped and r
 | SVG rasteriser | `Native/Svg`: in-house C ABI over ThorVG 1.0.3 (Godot 4.7.2's vendored copy, PNG loader off; ADR 0112) | `mfsvg` | `mfsvg.dll`, `libmfsvg.so`, `libmfsvg.dylib` |
 | Music editor helper (editor only) | `Native/PluginHost`: C++20 executable over libogg 1.3.6 + libvorbis 1.3.7 + the VST 3 SDK 3.8.1 hosting classes + RtMidi 6.0.0 (ADR 0146, 0147, 0148) | none: a process (`PluginHostClient`) | `mfplughost.exe`, `mfplughost` |
 
+Valve's `steam_api` (`steam_api64.dll`, `libsteam_api.so`, `libsteam_api.dylib`) also lives in
+`MainframeEngine/runtimes/<rid>/native`, but it is not ours: see [Valve's steam_api](#valves-steam_api).
+
 Decisions: [ADR 0001](../../memory/decisions/0001-enet-natives-built-in-ci.md) (ENet),
 [ADR 0002](../../memory/decisions/0002-rmlui-native-shim.md) (RmlUi shim, ABI rules, licence finding) and
 [ADR 0146](../../memory/decisions/0146-plugin-host-helper-process.md) (the `mfplughost` helper process and protocol).
@@ -49,6 +52,7 @@ MainframeEngine/runtimes/
   osx-x64/native/           the same universal files (NuGet does not pick osx-x64 assets for arm64, so both RIDs)
   win-x64/native/           enet.dll, mfrmlui.dll             (from natives.yml)
   linux-x64/native/         libenet.so, libmfrmlui.so         (from natives.yml)
+  */native/steam_api*       Valve's steam_api64.dll / libsteam_api.so / libsteam_api.dylib (vendored, not built here)
 MainframeEngine.Editor/runtimes/   editor-only natives (never copied into games)
   osx-arm64/native/, osx-x64/native/   mfplughost (universal)
   win-x64/native/           mfplughost.exe   (from natives.yml; Git LFS like every .exe)
@@ -230,7 +234,8 @@ binary <sha256> <component> <inputs hash it was built from> <path>
     vst3sdk and rtmidi submodule commits.
   - Tests and docs are not inputs.
 - **What `verify` fails on:**
-  - A runtime binary that is not in the lock.
+  - A runtime binary of a known component that is not in the lock (files it has no component for, such as Valve's
+    `steam_api`, are ignored).
   - A missing locked binary, or one whose sha256 has changed.
   - A binary built from inputs that no longer match the tree, i.e. the sources changed but the binaries were not
     refreshed.
@@ -251,6 +256,14 @@ After changing anything under `Native/` (or bumping a submodule):
 The CI binaries are the canonical set, including the macOS ones. To iterate on macOS locally, use
 `Native/build.sh --stage`. It restamps only the binaries it rebuilt, so `verify-lock` keeps flagging the other RIDs
 until CI artifacts are committed.
+
+## Valve's steam_api
+
+`steam_api64.dll` (win-x64), `libsteam_api.so` (linux-x64) and `libsteam_api.dylib` (osx-arm64 and osx-x64: one
+universal x86_64 + arm64 file) are the Steamworks SDK's `redistributable_bin`, the build Facepunch.Steamworks 2.4.1 was
+made against. They are vendored binaries: `natives.yml` does not build them, they are not in `natives.lock`, and
+`natives-lock.sh` ignores them (it has no component for them). Refresh them only together with
+`Plugins/Facepunch.Steamworks` (same SDK version). See [Steamworks → Natives](steamworks.md#natives).
 
 ## Consuming the binaries from .NET
 
@@ -279,6 +292,7 @@ See [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md):
 - FreeType's bundled zlib: zlib licence.
 - libogg and libvorbis (in the editor-only `mfplughost`): BSD-3-Clause, notice text reproduced.
 - RtMidi (in the editor-only `mfplughost`): MIT, notice text reproduced.
+- Valve's `steam_api`: © Valve Corporation, redistributed under the Steamworks SDK Access Agreement (not MIT).
 
 The RmlUi.Net attribution is in [`Native/RmlUi/shim/NOTICE.md`](../../Native/RmlUi/shim/NOTICE.md).
 

@@ -24,6 +24,8 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <!-- CS1591/CS1573: not every public member or parameter is documented yet; CS0419: crefs name overload groups on purpose. The rest of the doc-comment checks stay errors. -->
         <NoWarn>$(NoWarn);CS1591;CS1573;CS0419</NoWarn>
+        <!-- NU5100: mainframe/steamworks/ holds assemblies outside lib/ on purpose (two builds of one assembly; the engine loads this OS's, a game must not reference either). -->
+        <NoWarn>$(NoWarn);NU5100</NoWarn>
         <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_MainframePackReferencedAssemblies</TargetsForTfmSpecificBuildOutput>
         <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_MainframePackContent</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
@@ -49,7 +51,6 @@
         <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
         <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
         <PackageReference Include="StbImageSharp" />
-        <PackageReference Include="Steamworks.NET" />
     </ItemGroup>
     
     <!-- Test and tooling assemblies may use internals (UBO packing, pools, counters) -->
@@ -72,6 +73,31 @@
       <!-- Source generator: [Export]/[Signal] type registration for the engine's own node and resource types. -->
       <ProjectReference Include="..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
                         OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!--
+      Steamworks (docs/design/steamworks.md#layers): Facepunch.Steamworks through the MainframeEngine.Steamworks shim,
+      built once against Facepunch's Windows assembly and once against its macOS/Linux one, under one assembly name. The
+      engine compiles against the Posix build, but neither is copied next to the app (Private=false) or listed in its
+      deps.json: both go to steamworks/{win64,posix}/ with their Facepunch assembly, where SteamworksLoader picks this
+      OS's at run time. A build with an explicit RID copies only that platform's. PrivateAssets: the package carries the
+      files itself (mainframe/steamworks/, see "Package contents"), not as package dependencies.
+    -->
+    <ItemGroup>
+      <ProjectReference Include="..\MainframeEngine.Steamworks\Posix\MainframeEngine.Steamworks.Posix.csproj" Private="false" PrivateAssets="all" />
+      <ProjectReference Include="..\MainframeEngine.Steamworks\Win64\MainframeEngine.Steamworks.Win64.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_MainframeSteamworksDir>$(MSBuildThisFileDirectory)..\MainframeEngine.Steamworks\</_MainframeSteamworksDir>
+      <_MainframeFacepunchDir>$(MSBuildThisFileDirectory)..\Plugins\Facepunch.Steamworks\</_MainframeFacepunchDir>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(RuntimeIdentifier)' == '' or $(RuntimeIdentifier.StartsWith('win'))">
+      <None Include="$(_MainframeSteamworksDir)Win64\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll;$(_MainframeFacepunchDir)Facepunch.Steamworks.Win64.dll"
+            Link="steamworks\win64\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(RuntimeIdentifier)' == '' or !$(RuntimeIdentifier.StartsWith('win'))">
+      <None Include="$(_MainframeSteamworksDir)Posix\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll;$(_MainframeFacepunchDir)Facepunch.Steamworks.Posix.dll"
+            Link="steamworks\posix\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
 
     <!-- Copy everything in content folder to build destination (shaders: see build/Shaders.targets) -->
@@ -122,10 +148,14 @@
         mainframe/Content/**                 exactly what this project copies to <output>/Content (compiled .spv, UI,
                                              fonts, trees, brand); buildTransitive/MainframeEngine.targets copies it into
                                              the game's output Content/, where ContentPaths finds it as in a checkout
+        mainframe/steamworks/{win64,posix}/  MainframeEngine.Steamworks + Facepunch.Steamworks, per OS (see "Steamworks"
+                                             above); buildTransitive/MainframeEngine.targets copies them like Content
         tools/mf-l10n/                       mf-l10n (managed files + runtimeconfig, no deps.json: the host then loads
                                              every assembly in the folder, so the natives it never calls are not needed)
         buildTransitive/                     build/package/MainframeEngine.props/.targets, MainframeGame.props,
                                              Localization.targets and macos/ (the files checkout games import directly)
+        tools/package-game.sh, tools/macos/  player builds (build/package-game.sh and the png-to-icns.sh it runs); games
+                                             find it through MainframePackageGameScript (MainframeGame.props)
         README.md, icon.png
     -->
     <ItemGroup>
@@ -135,6 +165,8 @@
             Pack="true" PackagePath="buildTransitive/" Visible="false" />
       <None Include="..\build\macos\DevAppBundle.targets;..\build\macos\Info.plist.in;..\build\macos\png-to-icns.sh"
             Pack="true" PackagePath="buildTransitive/macos/" Visible="false" />
+      <None Include="..\build\package-game.sh" Pack="true" PackagePath="tools/" Visible="false" />
+      <None Include="..\build\macos\png-to-icns.sh" Pack="true" PackagePath="tools/macos/" Visible="false" />
     </ItemGroup>
 
     <Target Name="_MainframePackReferencedAssemblies" DependsOnTargets="ResolveProjectReferences">
@@ -168,7 +200,7 @@
         <TfmSpecificPackageFile Include="@(_MainframeGeneratorAssembly)" PackagePath="analyzers/dotnet/cs/%(Filename)%(Extension)" />
         <TfmSpecificPackageFile Include="@(_MainframeL10nFile)" PackagePath="tools/mf-l10n/%(Filename)%(Extension)" />
         <_MainframeContentFile Include="@(AllItemsFullPathWithTargetPath)" PackagePath="mainframe/$([System.String]::Copy('%(AllItemsFullPathWithTargetPath.TargetPath)').Replace('\', '/'))" />
-        <_MainframeContentFile Remove="@(_MainframeContentFile)" Condition="!$([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/Content/')) or '%(_MainframeContentFile.Extension)' == '.pot'" />
+        <_MainframeContentFile Remove="@(_MainframeContentFile)" Condition="!($([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/Content/')) or $([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/steamworks/'))) or '%(_MainframeContentFile.Extension)' == '.pot'" />
         <TfmSpecificPackageFile Include="@(_MainframeContentFile)" />
       </ItemGroup>
     </Target>

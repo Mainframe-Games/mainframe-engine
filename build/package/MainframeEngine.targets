@@ -10,6 +10,9 @@
     - Localization: Localization.targets, as checkout games import it, with the mf-l10n the package carries.
       Content/locale/<locale>/LC_MESSAGES/*.po (LocaleContentRoot, default Content) compile to .mo in the output.
 
+    - Steamworks: mainframe/steamworks/{win64,posix}/ (Facepunch.Steamworks behind the engine's shim) to
+      <output>/steamworks/, where the engine loads this OS's build; a build with a RID gets only that platform's.
+
     Natives (runtimes/<rid>/native) need nothing here: NuGet lists them in the app's deps.json for RID-less builds and
     copies the RID's files on dotnet publish -r.
   -->
@@ -21,6 +24,15 @@
 
   <ItemGroup Condition="'$(_MainframeEngineAppProject)' == 'true'">
     <None Include="$(_MainframeEnginePackageRoot)/mainframe/Content/**" Link="Content/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(_MainframeEngineAppProject)' == 'true' and ('$(RuntimeIdentifier)' == '' or $(RuntimeIdentifier.StartsWith('win')))">
+    <None Include="$(_MainframeEnginePackageRoot)/mainframe/steamworks/win64/*" Link="steamworks/win64/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(_MainframeEngineAppProject)' == 'true' and ('$(RuntimeIdentifier)' == '' or !$(RuntimeIdentifier.StartsWith('win')))">
+    <None Include="$(_MainframeEnginePackageRoot)/mainframe/steamworks/posix/*" Link="steamworks/posix/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 

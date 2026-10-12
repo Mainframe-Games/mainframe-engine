@@ -64,7 +64,10 @@ public struct EngineOptions()
     /// </summary>
     public float TaaSharpness = IVulkanContext.DefaultTaaSharpness;
 
-    /// <summary>Creates the window visible. Tests may hide it where the platform still presents.</summary>
+    /// <summary>
+    /// Creates the window visible. Tests may hide it where the platform still presents. On macOS a hidden window also makes
+    /// the process a background app (no Dock icon, never activated: <see cref="MacBackgroundApp"/>).
+    /// </summary>
     public bool WindowVisible = true;
 
     /// <summary>
@@ -280,6 +283,10 @@ public abstract class Engine : IDisposable
         Tree.QuitRequested += code => Quit((ExitCode)code);
         Tree.CanCaptureFrame = engineOptions.EnableFrameCapture;
         Tree.CaptureRequested += CaptureFrame;
+
+        // macOS: a hidden window (tests, --hidden, QA) must not turn the process into a Dock app that takes focus.
+        if (!engineOptions.WindowVisible)
+            MacBackgroundApp.Apply();
 
         // Linux: Silk.NET cannot find package natives (libSDL2) in runtimes/linux-x64/native on its own.
         SilkNativeResolver.Install();

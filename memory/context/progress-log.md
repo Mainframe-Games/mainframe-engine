@@ -688,3 +688,21 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Gates: build, Release, format, shaders, 2359 unit + 812 editor + 175 render tests, and the template smoke test in
   both modes (macOS). A plain `dotnet new console` + `dotnet add package` game also builds and runs, and the published
   editor (0.0.1, no checkout) created, built and opened a package project.
+
+### 2026-10-12 — Facepunch.Steamworks on Windows/macOS/Linux + player builds from the package (ADR 0189, #48)
+- Steamworks.NET (x64-only, no natives) replaced by Facepunch.Steamworks 2.4.1, vendored in `Plugins/Facepunch.Steamworks`
+  as Speed Golf has it. The DLLs are plain git, not LFS (they are compile references). Valve's `steam_api` natives are
+  committed in `runtimes/<rid>/native` (LFS like the others, outside `natives.lock`).
+- `MainframeEngine.Steamworks` shim, built twice under one assembly name (`Win64/`, `Posix/`). The output goes to
+  `steamworks/{win64,posix}/`, and `SteamworksLoader` (ALC `Resolving`) loads this OS's. Native `setenv` for
+  `SteamAppId` on POSIX.
+- Speed Golf's lifecycle lessons are applied: `asyncCallbacks: false`, events after init and removed on shutdown,
+  leave the lobby and clear presence before `SteamClient.Shutdown`, never `OnDebugCallback`.
+- #48: the package ships `tools/package-game.sh` (+ `tools/macos/png-to-icns.sh`), found through
+  `MainframePackageGameScript`. The script prunes other platforms' Steam files and refuses `steam_appid.txt`. The
+  package template smoke packages linux-x64, win-x64 and osx-arm64 and checks each archive.
+- Verified on macOS arm64 with Steam open:
+  - `SteamTests` initialize as Spacewar.
+  - A packaged `.app` built from the NuGet package and launched from `/` logged `Steam: running (app 480, …)`.
+  - CI's three OSes check `SteamNotRunning`.
+- Follow-ups: `SteamSocketsTransport` on Facepunch relay sockets; avatar textures.

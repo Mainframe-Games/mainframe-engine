@@ -385,8 +385,8 @@ change and redraws on `GlyphsChanged`; a steady frame allocates nothing. G11's `
 - **Virtual pads.** When a Steam-launched game has Steam Input on for a controller (the default for PlayStation, Switch
   and generic pads), SDL sees an Xbox 360-style "Steam Virtual Gamepad": rumble still works (Steam forwards it), but
   the type is wrong for glyphs. `SDL_GameControllerGetSteamHandle` gives the Steam handle, and with `SteamServer`
-  running `SteamGamepadTypes` maps `SteamInput.GetInputTypeForHandle` (Steamworks.NET 2024.8.0,
-  `Directory.Packages.props:33`) to `GamepadType`. This needs `SteamInput.Init` ([Open question 6](#open-questions)).
+  running `SteamGamepadTypes` maps `SteamInput.GetInputTypeForHandle` (Facepunch.Steamworks 2.4.1,
+  through the `MainframeEngine.Steamworks` shim) to `GamepadType`. This needs `SteamInput.Init` ([Open question 6](#open-questions)).
 - **Steam Deck.** Identified by Steam type or VID/PID. With `Auto` and no external pad,
   `SteamUtils.IsSteamRunningOnSteamDeck()` makes the Deck family the default before the first input.
 - **Steam glyphs.** An optional `SteamGlyphProvider` (`project.mfproj` `input.glyphs.steam: true`) loads Steam's PNG

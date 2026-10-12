@@ -30,7 +30,6 @@
     <!-- Physics (M6): pinned exactly, both APIs change between minors (docs/design/physics.md). -->
     <PackageVersion Include="Jitter2" Version="2.9.0" />
     <PackageVersion Include="StbImageSharp" Version="2.30.16" />
-    <PackageVersion Include="Steamworks.NET" Version="2024.8.0" />
   </ItemGroup>
 
   <!--
