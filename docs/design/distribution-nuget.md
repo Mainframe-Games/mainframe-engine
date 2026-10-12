@@ -85,17 +85,26 @@ One version for the editor, the engine and the templates: the release tag `vX.Y.
 
 - Its `package` job packs `MainframeEngine.X.Y.Z.nupkg` + `.snupkg` and `MainframeEngine.Templates.X.Y.Z.nupkg`.
 - The `release` job attaches the `.nupkg` files to the GitHub Release.
-- After the tag and the release exist, the same job pushes both packages to nuget.org with `NUGET_API_KEY`, a secret of
-  the `release` environment. nuget.org packages can only be unlisted, so a failed release must never leave one behind.
+- After the tag and the release exist, the same job pushes both packages to nuget.org. nuget.org packages can only be
+  unlisted, so a failed release must never leave one behind.
 
-**Ownership.** On nuget.org a package belongs to the owner named on the API key that first pushes its id, not to the
-`Authors` metadata ("Mainframe Games" is only display text). `NUGET_API_KEY` is therefore created with:
-- **Package owner:** `Mainframe-Games`, the organization; a member creates it from their own account;
-- **Glob:** `MainframeEngine*`;
-- **Scope:** push new packages and versions.
+**Trusted Publishing, no stored API key.** The `release` job has `id-token: write`. `NuGet/login` sends GitHub's OIDC
+token (repository, workflow, environment) to nuget.org, which checks it against a trusted publishing policy and returns
+an API key valid for one hour. The policy on nuget.org (username → **Trusted Publishing**) is set as follows:
+- **Policy owner:** `Mainframe-Games`, the organization.
+- **Repository owner:** `Mainframe-Games`.
+- **Repository:** `mainframe-engine`.
+- **Workflow file:** `publish.yml`.
+- **Environment:** `release`.
+- **Scopes:** new packages and new versions, glob `MainframeEngine*`.
 
-Both ids then belong to the organization, and its members manage them. Reserving the `MainframeEngine` id prefix
-(a request to nuget.org) is optional: it adds the verified check mark and stops others from using `MainframeEngine.*`.
+The only secret is `NUGET_USER` in the `release` environment: the nuget.org username (profile name, not email) of the
+member who created the policy. A policy stays active while that member belongs to the organization.
+
+**Ownership.** On nuget.org a package belongs to the owner that first pushes its id, here the policy's owner. The
+`Authors` metadata ("Mainframe Games") is only display text. Both ids therefore belong to the organization, and its
+members manage them. Reserving the `MainframeEngine` id prefix (a request to nuget.org) is optional: it adds the
+verified check mark and stops others from using `MainframeEngine.*`.
 
 ## Template and editor
 

@@ -319,7 +319,8 @@ Do not add NuGet packages without discussing the dependency first. Versions are 
   merge commits), no force pushes. Work on a branch and open a PR.
 - Releases: `publish.yml` (manual, `main` only, actor `brogan89`) tags `vX.Y.Z` (patch bump), attaches
   self-contained editor builds and the `MainframeEngine` + `MainframeEngine.Templates` packages, then pushes them to
-  nuget.org (`NUGET_API_KEY` in the `release` environment: owner `Mainframe-Games` org, glob `MainframeEngine*`). Never bump versions in files. See `docs/design/release.md`.
+  nuget.org via Trusted Publishing (OIDC, policy owned by the `Mainframe-Games` org; secret `NUGET_USER` in the `release`
+  environment). Never bump versions in files. See `docs/design/release.md`.
 
 ## Project memory
 

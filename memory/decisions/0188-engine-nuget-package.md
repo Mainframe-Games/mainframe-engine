@@ -16,8 +16,8 @@ versioned engine with `dotnet add package`, and the editor should be an optional
 - **Two packages on nuget.org, `MainframeEngine` and `MainframeEngine.Templates`.** The repo is public and the ids
   were free. Both are pushed by `publish.yml` after the GitHub Release exists, at the release version. GitHub Packages
   was rejected because consumers would need a PAT even for a public repo.
-  - The packages are owned by the `Mainframe-Games` nuget.org organization, through an API key whose package owner is
-    the organization (glob `MainframeEngine*`).
+  - Publishing uses nuget.org Trusted Publishing (GitHub OIDC → a 1-hour API key from `NuGet/login`), so no long-lived
+    key is stored or rotated. The policy is owned by the `Mainframe-Games` organization, which therefore owns both ids.
   - The packed template defaults its engine version to its own version, so `dotnet new install
     MainframeEngine.Templates` + `dotnet new mfgame` needs no options.
 - **Everything a game needs is inside the package:**
@@ -45,7 +45,7 @@ versioned engine with `dotnet add package`, and the editor should be an optional
 - Packing goes through `build/pack-nuget.sh`. `mf-l10n` is built first because it references the engine, so the
   engine's pack cannot build it; then the engine and the templates are packed.
 - CI's `template` job also packs, then builds, runs and publishes a game against the package on lavapipe. The release
-  needs the `NUGET_API_KEY` secret in the `release` environment.
+  needs the trusted publishing policy on nuget.org and the `NUGET_USER` secret in the `release` environment.
 - The package is about 31 MB: trees content (14 MB), natives for 4 RIDs, and mf-l10n's managed dependencies.
 - Not done yet:
   - an "upgrade project" action for package games;

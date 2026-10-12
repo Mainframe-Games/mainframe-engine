@@ -47,7 +47,7 @@ flowchart LR
     C --> P["package<br/>build/pack-nuget.sh<br/>MainframeEngine + .Templates X.Y.Z"]
     B --> R["release<br/>tag vX.Y.Z + GitHub Release<br/>+ archives + .nupkg"]
     P --> R
-    R --> N["nuget.org<br/>dotnet nuget push"]
+    R --> N["nuget.org<br/>Trusted Publishing (OIDC)<br/>dotnet nuget push"]
 ```
 
 - **Who/where.** The `guard` job runs only when `github.ref == refs/heads/main` and
@@ -66,9 +66,10 @@ flowchart LR
   version: `MainframeEngine.X.Y.Z.nupkg` + `.snupkg` (engine, generator, natives, content, mf-l10n) and
   `MainframeEngine.Templates.X.Y.Z.nupkg` (`mfgame`, defaulting to the engine of the same version); see
   [Distribution via NuGet](distribution-nuget.md). The `release` job attaches both `.nupkg` files to the GitHub Release
-  and, last of all, pushes them to nuget.org with `NUGET_API_KEY`, a secret of the `release` environment. The key is
-  owned by the `Mainframe-Games` organization with glob `MainframeEngine*`, so the packages belong to the organization
-  ([ownership](distribution-nuget.md#versioning-and-release)). The push comes after the tag because a nuget.org package
+  and, last of all, pushes them to nuget.org through Trusted Publishing. `NuGet/login` exchanges the job's OIDC token
+  for a 1-hour key against a policy owned by the `Mainframe-Games` organization (workflow `publish.yml`, environment
+  `release`), so there is no stored API key and the packages belong to the organization; the one secret, `NUGET_USER`,
+  is the policy creator's nuget.org username ([setup](distribution-nuget.md#versioning-and-release)). The push comes after the tag because a nuget.org package
   can only be unlisted, never deleted; `--skip-duplicate` makes a re-run harmless.
 - **Demo and Forest assets.** The `demo` and `forest` jobs (need `guard` and `ci`; the release waits for them) pull the
   example's LFS content and run [`build/package-example.sh`](../../build/package-example.sh) `<Demo|Forest> <version>
