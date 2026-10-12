@@ -496,14 +496,21 @@ generator, natives, engine content and build integration), so a game needs neith
 dotnet add package MainframeEngine      # in any .NET 10 project
 ```
 
-The `mfgame` template sets up the whole project (from a checkout of this repo; the editor's New Project uses the same template):
+The [`mfgame` template](https://www.nuget.org/packages/MainframeEngine.Templates) sets up a whole game project (the
+editor's New Project uses the same template):
+
+```bash
+dotnet new install MainframeEngine.Templates
+dotnet new mfgame -n MyGame              # references MainframeEngine of the template's version
+dotnet run --project MyGame/MyGame.Desktop
+```
+
+To build a game against a checkout of this repo instead (engine work):
 
 ```bash
 git clone --recurse-submodules <this repo> mainframe-engine     # Plugins/Spine is a submodule
 dotnet new install mainframe-engine/Templates/MainframeEngine.Templates/content/mfgame
-dotnet new mfgame -n MyGame --engine-version <release, e.g. 1.2.0>                 # references the package
-dotnet new mfgame -n MyGame --engine-source project --engine-path "$PWD/mainframe-engine"   # or this checkout
-dotnet run --project MyGame/MyGame.Desktop
+dotnet new mfgame -n MyGame --engine-source project --engine-path "$PWD/mainframe-engine"
 ```
 
 This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGame.Desktop/`

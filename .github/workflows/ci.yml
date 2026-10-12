@@ -365,7 +365,7 @@ jobs:
       - name: Instantiate, build and run the mfgame template
         run: xvfb-run -a -s "-screen 0 1280x1024x24" build/template-smoke.sh "$RUNNER_TEMP/template-smoke" 30
 
-      - name: Pack the engine package; instantiate, build, run and publish the mfgame template against it
+      - name: Pack the NuGet packages; install the template package, then build, run and publish a game on the engine package
         env:
           ENGINE_SOURCE: package
         run: xvfb-run -a -s "-screen 0 1280x1024x24" build/template-smoke.sh "$RUNNER_TEMP/template-smoke-package" 30
@@ -377,9 +377,6 @@ jobs:
         run: |
           build/package-demo.sh 0.0.0-ci "$RUNNER_TEMP/demo-zip"
           dotnet run --project MainframeEngine.Editor -c Release -- --validate-demo-zip "$RUNNER_TEMP/demo-zip/MainframeEngine.Demo.zip" --build
-
-      - name: Pack the template package
-        run: dotnet pack Templates/MainframeEngine.Templates -c Release -o "$RUNNER_TEMP/templates"
 
       - name: Upload the smoke games' logs and screenshots
         if: always()

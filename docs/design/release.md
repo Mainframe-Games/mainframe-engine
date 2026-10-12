@@ -44,7 +44,7 @@ it as its package version.
 flowchart LR
     G["guard<br/>main only · actor brogan89<br/>next version"] --> C["ci.yml<br/>(full suite, reused)"]
     C --> B["build matrix<br/>osx-arm64 · win-x64 · linux-x64<br/>dotnet publish -r rid --self-contained"]
-    C --> P["package<br/>build/pack-engine.sh<br/>MainframeEngine.X.Y.Z.nupkg"]
+    C --> P["package<br/>build/pack-nuget.sh<br/>MainframeEngine + .Templates X.Y.Z"]
     B --> R["release<br/>tag vX.Y.Z + GitHub Release<br/>+ archives + .nupkg"]
     P --> R
     R --> N["nuget.org<br/>dotnet nuget push"]
@@ -62,12 +62,14 @@ flowchart LR
   right-click → Open), `MainframeEngine-X.Y.Z-win-x64.zip`, `MainframeEngine-X.Y.Z-linux-x64.tar.gz`; the
   GitHub Release is titled "Mainframe Engine vX.Y.Z". `just publish-local [rid]` produces the same archive
   locally. The executable inside stays `MainframeEngine.Editor` (the assembly name the workflow and tests use).
-- **Engine package.** The `package` job runs [`build/pack-engine.sh`](../../build/pack-engine.sh) with the release
-  version (`MainframeEngine.X.Y.Z.nupkg` + `.snupkg`: engine, generator, natives, content, mf-l10n; see
-  [Distribution via NuGet](distribution-nuget.md)). The `release` job attaches the `.nupkg` to the GitHub Release and,
-  last of all, pushes it to nuget.org with `NUGET_API_KEY`, a secret of the `release` environment (an API key scoped to
-  the `MainframeEngine` id). The push comes after the tag because a nuget.org package can only be unlisted, never
-  deleted; `--skip-duplicate` makes a re-run harmless.
+- **NuGet packages.** The `package` job runs [`build/pack-nuget.sh`](../../build/pack-nuget.sh) with the release
+  version: `MainframeEngine.X.Y.Z.nupkg` + `.snupkg` (engine, generator, natives, content, mf-l10n) and
+  `MainframeEngine.Templates.X.Y.Z.nupkg` (`mfgame`, defaulting to the engine of the same version); see
+  [Distribution via NuGet](distribution-nuget.md). The `release` job attaches both `.nupkg` files to the GitHub Release
+  and, last of all, pushes them to nuget.org with `NUGET_API_KEY`, a secret of the `release` environment. The key is
+  owned by the `Mainframe-Games` organization with glob `MainframeEngine*`, so the packages belong to the organization
+  ([ownership](distribution-nuget.md#versioning-and-release)). The push comes after the tag because a nuget.org package
+  can only be unlisted, never deleted; `--skip-duplicate` makes a re-run harmless.
 - **Demo and Forest assets.** The `demo` and `forest` jobs (need `guard` and `ci`; the release waits for them) pull the
   example's LFS content and run [`build/package-example.sh`](../../build/package-example.sh) `<Demo|Forest> <version>
   <out-dir>` (`build/package-demo.sh <version> <out-dir>` is the Demo's wrapper). For the Demo it zips `Examples/Demo` (tracked and

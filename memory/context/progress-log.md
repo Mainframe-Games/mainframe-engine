@@ -664,7 +664,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `CanvasEnvironment` icon → `brightness-half` (the A commit reused `adjustments`, failing `IconAtlasTests`); `Curve` →
   `math-function`. Gates: build, Release, format, 2359 unit + 792 editor + 175 render tests green.
 
-### 2026-10-12 — MainframeEngine NuGet package (ADR 0188)
+### 2026-10-12 — MainframeEngine + MainframeEngine.Templates NuGet packages (ADR 0188)
 - The `MainframeEngine` package (nuget.org, release version) carries everything a game needs:
   - the engine and the bundled spine-csharp in `lib/`;
   - the generator in `analyzers/`;
@@ -672,7 +672,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   - the engine content as `mainframe/Content`, copied into the app's `Content/`;
   - mf-l10n in `tools/`;
   - the checkout's `MainframeGame.props`/`Localization.targets` in `buildTransitive/`.
-  Pack it with `build/pack-engine.sh` (`just pack`); the result is about 31 MB.
+  Pack it with `build/pack-nuget.sh` (`just pack`); the result is about 31 MB.
+- `MainframeEngine.Templates` ships at the same version. Its packed `template.json` defaults the engine version to
+  its own version (an inline task writes the file verbatim; `WriteLinesToFile` turned `\"` into `/"`). Both packages
+  are owned by the `Mainframe-Games` org through the API key's owner.
 - Template: it defaults to `--engine-source package` and sets `ImportDirectoryPackagesProps=false`. The editor
   publishes the template next to itself, and New Project has a package/checkout toggle (package at the editor's
   version in release builds).

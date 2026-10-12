@@ -6,8 +6,9 @@
 # [ERROR]/[FATAL] line in the game's log.
 #
 # ENGINE_SOURCE=project (default): SmokeGame references this checkout (--engine-source project --engine-path).
-# ENGINE_SOURCE=package: this checkout is packed (build/pack-engine.sh) into a local feed as 0.0.0-smoke.<timestamp>,
-# and SmokeGame references that MainframeEngine package, as a game made outside the repo does; it is then also
+# ENGINE_SOURCE=package: this checkout is packed (build/pack-nuget.sh) into a local feed as 0.0.0-smoke.<timestamp>,
+# the template is installed from that MainframeEngine.Templates package and SmokeGame is created with its defaults, so
+# it references the MainframeEngine package of the same version, as a game made outside the repo does; it is then also
 # published for the host RID (natives and content in the publish folder).
 #
 # usage: build/template-smoke.sh [work-dir] [frames]
@@ -25,9 +26,9 @@ rm -rf "$work"
 mkdir -p "$work"
 hive="$work/hive"
 
-dotnet new install "$repo/Templates/MainframeEngine.Templates/content/mfgame" --debug:custom-hive "$hive"
 case "$source" in
   project)
+    dotnet new install "$repo/Templates/MainframeEngine.Templates/content/mfgame" --debug:custom-hive "$hive"
     dotnet new mfgame -n SmokeGame -o "$work/SmokeGame" --engine-source project --engine-path "$repo" --debug:custom-hive "$hive"
     ;;
   package)
@@ -36,8 +37,14 @@ case "$source" in
     version="0.0.0-smoke.$(date +%s)"
     packages="${NUGET_PACKAGES:-$HOME/.nuget/packages}"
     trap 'rm -rf "$packages/mainframeengine/$version"' EXIT
-    PACK_ARGS="${BUILD_ARGS:-}" "$repo/build/pack-engine.sh" "$version" "$work/feed"
-    dotnet new mfgame -n SmokeGame -o "$work/SmokeGame" --engine-source package --engine-version "$version" --debug:custom-hive "$hive"
+    PACK_ARGS="${BUILD_ARGS:-}" "$repo/build/pack-nuget.sh" "$version" "$work/feed"
+    dotnet new install "$work/feed/MainframeEngine.Templates.$version.nupkg" --debug:custom-hive "$hive"
+    dotnet new mfgame -n SmokeGame -o "$work/SmokeGame" --debug:custom-hive "$hive"
+    if ! grep -q "<MainframeEngineVersion>$version</MainframeEngineVersion>" "$work/SmokeGame/Directory.Build.props"; then
+      echo "template-smoke: the packed template does not default to MainframeEngine $version:" >&2
+      cat "$work/SmokeGame/Directory.Build.props" >&2
+      exit 1
+    fi
     cat > "$work/SmokeGame/nuget.config" <<NUGET
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>

@@ -588,12 +588,13 @@ loader.Load();                    // the rebuilt dll; re-instantiate the scenes
 
 ## Template
 
-`Templates/MainframeEngine.Templates` is a `dotnet new` template package (not on nuget.org yet; the published editor
-ships a copy for New Project) with `mfgame`:
+`Templates/MainframeEngine.Templates` is the `dotnet new` template package `MainframeEngine.Templates` (nuget.org,
+released with the engine at the same version; the published editor ships a copy for New Project) with `mfgame`:
 
 ```bash
-dotnet new install Templates/MainframeEngine.Templates/content/mfgame
-dotnet new mfgame -n MyGame --engine-version 1.2.0          # the MainframeEngine package (default)
+dotnet new install MainframeEngine.Templates                # or, from a checkout: Templates/MainframeEngine.Templates/content/mfgame
+dotnet new mfgame -n MyGame                                 # the MainframeEngine package of the template's version
+dotnet new mfgame -n MyGame --engine-version 1.2.0          # another release (needed with the checkout's source template)
 dotnet new mfgame -n MyGame --engine-source project --engine-path /path/to/mainframe-engine   # engine work
 dotnet run --project MyGame/MyGame.Desktop
 ```
@@ -602,7 +603,7 @@ dotnet run --project MyGame/MyGame.Desktop
 |---|---|
 | `--engine-source` | `package` (default): a `PackageReference` to `MainframeEngine` ([Distribution via NuGet](distribution-nuget.md)), whose `buildTransitive` targets bring the generator, natives, engine content and the build integration. `project`: project references into a checkout, and the game imports `build/MainframeGame.props` and `build/Localization.targets` from it |
 | `--engine-path` | with `project`: the engine checkout (absolute, or relative to the new project) |
-| `--engine-version` | recorded in `project.mfproj`; with `package`, the package version (`MainframeEngineVersion` in `Directory.Build.props`), so it must be a release (the editor passes its own) |
+| `--engine-version` | recorded in `project.mfproj`; with `package`, the package version (`MainframeEngineVersion` in `Directory.Build.props`), so it must be a release. Default: the `MainframeEngine.Templates` package's own version (stamped at pack time), `0.0.0-dev` in the source template; the editor passes its own |
 
 The game's `Directory.Build.props` sets `ImportDirectoryPackagesProps=false`: a game inside a repository that uses central
 package management keeps its own versions.
@@ -621,7 +622,9 @@ save on mobile.
 
 `just template-smoke` (`build/template-smoke.sh`) installs the template into a private hive, creates `SmokeGame`
 against the checkout, builds it warnings-as-errors and runs it for 30 hidden frames with `--screenshot`, failing on any
-`[ERROR]` in its log or a missing screenshot; CI's `template` job does the same on lavapipe and packs the template (`just template-pack`).
+`[ERROR]` in its log or a missing screenshot. `just template-smoke-package` does the same with both NuGet packages
+packed into a local feed: the template comes from the packed `MainframeEngine.Templates` and the game references
+`MainframeEngine` ([Distribution via NuGet](distribution-nuget.md#tests)). CI's `template` job runs both on lavapipe.
 
 ## Testing
 

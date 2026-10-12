@@ -1,18 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    dotnet new templates for games (not on nuget.org yet; the published editor ships a copy; see
-    docs/design/project-and-gamehost.md#template). Use from source: "dotnet new install
-    Templates/MainframeEngine.Templates/content/mfgame", or pack this project ("just template-pack") and install the
-    .nupkg. Then "dotnet new mfgame -n MyGame" with the engine-version option (the MainframeEngine package), or with
-    engine-source project and engine-path pointing at this checkout ("just template-smoke[-package]" does all of it).
+    dotnet new templates for games, published to nuget.org with the engine at the same version
+    (docs/design/distribution-nuget.md; the published editor ships a copy too). Use the package with
+    "dotnet new install MainframeEngine.Templates" then "dotnet new mfgame -n MyGame": the packed template.json defaults
+    the engine version to this package's version (below), so the game references the MainframeEngine package of the
+    same release. From source: "dotnet new install Templates/MainframeEngine.Templates/content/mfgame" with the
+    engine-version option, or engine-source project and engine-path pointing at this checkout
+    ("just template-smoke[-package]" does all of it; "just pack" packs this with the engine).
   -->
   <PropertyGroup>
     <PackageType>Template</PackageType>
     <PackageId>MainframeEngine.Templates</PackageId>
     <Title>Mainframe Engine templates</Title>
-    <Description>dotnet new templates for Mainframe Engine games: mfgame (game library + GameHost desktop project + project.mfproj + Content).</Description>
-    <PackageTags>mainframe;game;engine;templates</PackageTags>
+    <Description>dotnet new templates for Mainframe Engine games: mfgame (game library + GameHost desktop project + project.mfproj + Content), referencing the MainframeEngine package of the same version.</Description>
+    <PackageTags>mainframe;game;engine;gamedev;templates</PackageTags>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>true</IsPackable>
     <IncludeBuildOutput>false</IncludeBuildOutput>
@@ -24,10 +28,49 @@
     <!-- NU5128: a template package has no lib/ for its target framework by design. -->
     <NoWarn>$(NoWarn);NU5128</NoWarn>
     <IncludeSymbols>false</IncludeSymbols>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_MainframeStampTemplateVersion</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="content/**/*" Exclude="content/**/bin/**;content/**/obj/**" PackagePath="content" />
+    <!-- template.json is packed by _MainframeStampTemplateVersion with this package's version as the engine default. -->
+    <Content Include="content/**/*" Exclude="content/**/bin/**;content/**/obj/**;content/mfgame/.template.config/template.json" PackagePath="content" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="README.md" />
+    <None Include="..\..\docs\images\brand\png\logo-256.png" Pack="true" PackagePath="icon.png" Visible="false" />
   </ItemGroup>
+
+  <!--
+    The source template.json defaults EngineVersion to 0.0.0-dev (no such package: checkout users pass the option). The
+    packed copy defaults it to $(Version), so a template installed from MainframeEngine.Templates X.Y.Z creates games on
+    MainframeEngine X.Y.Z.
+  -->
+  <!-- WriteLinesToFile would treat the text as items and turn the JSON's \" into /" on Unix; this writes it verbatim. -->
+  <UsingTask TaskName="_MainframeWriteTemplateJson" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Path ParameterType="System.String" Required="true" />
+      <Text ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path));
+        if (!System.IO.File.Exists(Path) || System.IO.File.ReadAllText(Path) != Text)
+            System.IO.File.WriteAllText(Path, Text);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="_MainframeStampTemplateVersion">
+    <PropertyGroup>
+      <_MainframeTemplateJson>$(MSBuildProjectDirectory)/content/mfgame/.template.config/template.json</_MainframeTemplateJson>
+      <_MainframeTemplateJsonText>$([System.IO.File]::ReadAllText('$(_MainframeTemplateJson)'))</_MainframeTemplateJsonText>
+      <_MainframeStampedTemplateJson>$(MSBuildProjectDirectory)/$(IntermediateOutputPath)template.json</_MainframeStampedTemplateJson>
+    </PropertyGroup>
+    <Error Condition="!$(_MainframeTemplateJsonText.Contains('&quot;defaultValue&quot;: &quot;0.0.0-dev&quot;'))" Code="MFPACK002"
+           Text="$(_MainframeTemplateJson) no longer defaults EngineVersion to 0.0.0-dev; update _MainframeStampTemplateVersion." />
+    <_MainframeWriteTemplateJson Path="$(_MainframeStampedTemplateJson)"
+                                 Text="$(_MainframeTemplateJsonText.Replace('&quot;defaultValue&quot;: &quot;0.0.0-dev&quot;', '&quot;defaultValue&quot;: &quot;$(Version)&quot;'))" />
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(_MainframeStampedTemplateJson)" PackagePath="content/mfgame/.template.config/template.json" />
+    </ItemGroup>
+  </Target>
 
 </Project>

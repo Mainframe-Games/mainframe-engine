@@ -3,7 +3,8 @@ name: publish
 # Manual release of the editor and the MainframeEngine NuGet package. Only brogan89 can run it, and only from main.
 # Version = latest vX.Y.Z tag with the chosen part bumped (input "bump": patch by default, minor or major; first
 # release: v1.0.0). Nothing is committed to main: the version lives in the tag, and builds get it via -p:Version.
-# The package goes to nuget.org (secret NUGET_API_KEY in the "release" environment) after the GitHub Release exists.
+# The packages (MainframeEngine, MainframeEngine.Templates) go to nuget.org after the GitHub Release exists, with the
+# secret NUGET_API_KEY of the "release" environment: a key owned by the Mainframe-Games organization, glob MainframeEngine*.
 # See docs/design/release.md and docs/design/distribution-nuget.md.
 on:
   workflow_dispatch:
@@ -117,7 +118,7 @@ jobs:
           if-no-files-found: error
 
   package:
-    name: package (MainframeEngine NuGet)
+    name: package (MainframeEngine + MainframeEngine.Templates NuGet)
     needs: [guard, ci]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -136,10 +137,10 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Pack MainframeEngine
+      - name: Pack MainframeEngine and MainframeEngine.Templates
         env:
           PACK_ARGS: -p:CompileShaders=false -warnaserror
-        run: build/pack-engine.sh "${{ needs.guard.outputs.version }}" artifacts/nuget
+        run: build/pack-nuget.sh "${{ needs.guard.outputs.version }}" artifacts/nuget
 
       - uses: actions/upload-artifact@v4
         with:
@@ -223,7 +224,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Push MainframeEngine ${{ needs.guard.outputs.version }} to nuget.org
+      - name: Push MainframeEngine and MainframeEngine.Templates ${{ needs.guard.outputs.version }} to nuget.org
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |

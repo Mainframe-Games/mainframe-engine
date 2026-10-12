@@ -151,14 +151,14 @@
       </MSBuild>
       <!--
         mf-l10n references this project, so it cannot be built from here (that reference would wait on the very project
-        instance that is packing): build/pack-engine.sh builds it first, and this only asks where it is.
+        instance that is packing): build/pack-nuget.sh builds it first, and this only asks where it is.
       -->
       <MSBuild Projects="..\Tools\MainframeEngine.L10n\MainframeEngine.L10n.csproj" Targets="GetTargetPath"
                RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained">
         <Output TaskParameter="TargetOutputs" PropertyName="_MainframeL10nAssembly" />
       </MSBuild>
       <Error Condition="!Exists('$(_MainframeL10nAssembly)')" Code="MFPACK001"
-             Text="mf-l10n is not built ($(_MainframeL10nAssembly)). Pack the engine with build/pack-engine.sh (just pack), which builds it first." />
+             Text="mf-l10n is not built ($(_MainframeL10nAssembly)). Pack the engine with build/pack-nuget.sh (just pack), which builds it first." />
       <PropertyGroup>
         <_MainframeL10nDir>$([System.IO.Path]::GetDirectoryName('$(_MainframeL10nAssembly)'))/</_MainframeL10nDir>
       </PropertyGroup>

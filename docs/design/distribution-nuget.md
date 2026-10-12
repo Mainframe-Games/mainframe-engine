@@ -1,13 +1,15 @@
 # Distribution via NuGet — how games consume the engine
 
 Games reference the engine as the **`MainframeEngine` NuGet package** (nuget.org), with no checkout of this repo
-and no editor needed. The editor is a separate, optional download whose New Project creates package-based games
+and no editor needed; **`MainframeEngine.Templates`** (same version) provides `dotnet new mfgame`. Both are owned by the
+[Mainframe-Games](https://www.nuget.org/profiles/Mainframe-Games) organization on nuget.org. The editor is a separate, optional download whose New Project creates package-based games
 at its own version. Project references into a checkout remain for working on the engine itself
 (`dotnet new mfgame --engine-source project`). Decision: [ADR 0188](../../memory/decisions/0188-engine-nuget-package.md).
 
 ```bash
 dotnet add package MainframeEngine          # any .NET 10 project
-dotnet new mfgame -n MyGame --engine-version 1.2.0   # or the template (from a checkout or the editor)
+dotnet new install MainframeEngine.Templates  # or the template: a whole game project
+dotnet new mfgame -n MyGame                   # references MainframeEngine of the template's version
 ```
 
 ## The package
@@ -56,11 +58,14 @@ The checkout's game-facing build files are packed unchanged, so package and chec
 
 ### Packing
 
-`build/pack-engine.sh [version] [out]` (`just pack`) runs two steps:
+`build/pack-nuget.sh [version] [out]` (`just pack`) packs both packages at one version in three steps:
 
 1. It builds `mf-l10n`. That project references the engine, so the engine's own pack cannot build it: the reference
    would wait on the project instance that is packing.
 2. It runs `dotnet pack MainframeEngine -c Release -p:Version=…`.
+3. It runs `dotnet pack MainframeEngine.Templates` at the same version. The packed `template.json` defaults
+   `EngineVersion` to that version (`_MainframeStampTemplateVersion`; the source keeps `0.0.0-dev`). A template installed
+   from `MainframeEngine.Templates` X.Y.Z therefore creates games on `MainframeEngine` X.Y.Z with no options.
 
 In the engine csproj:
 
@@ -75,20 +80,30 @@ In the engine csproj:
 
 ## Versioning and release
 
-One version for the editor, the engine and the package: the release tag `vX.Y.Z` ([Release & versioning](release.md)).
+One version for the editor, the engine and the templates: the release tag `vX.Y.Z` ([Release & versioning](release.md)).
 [`publish.yml`](../../.github/workflows/publish.yml) works as follows:
 
-- Its `package` job packs `MainframeEngine.X.Y.Z.nupkg` + `.snupkg`.
-- The `release` job attaches the `.nupkg` to the GitHub Release.
-- After the tag and the release exist, the same job pushes the package to nuget.org with `NUGET_API_KEY` (a secret of
-  the `release` environment, an API key scoped to `MainframeEngine`). nuget.org packages can only be unlisted, so a
-  failed release must never leave one behind.
+- Its `package` job packs `MainframeEngine.X.Y.Z.nupkg` + `.snupkg` and `MainframeEngine.Templates.X.Y.Z.nupkg`.
+- The `release` job attaches the `.nupkg` files to the GitHub Release.
+- After the tag and the release exist, the same job pushes both packages to nuget.org with `NUGET_API_KEY`, a secret of
+  the `release` environment. nuget.org packages can only be unlisted, so a failed release must never leave one behind.
+
+**Ownership.** On nuget.org a package belongs to the owner named on the API key that first pushes its id, not to the
+`Authors` metadata ("Mainframe Games" is only display text). `NUGET_API_KEY` is therefore created with:
+- **Package owner:** `Mainframe-Games`, the organization; a member creates it from their own account;
+- **Glob:** `MainframeEngine*`;
+- **Scope:** push new packages and versions.
+
+Both ids then belong to the organization, and its members manage them. Reserving the `MainframeEngine` id prefix
+(a request to nuget.org) is optional: it adds the verified check mark and stops others from using `MainframeEngine.*`.
 
 ## Template and editor
 
-- **Template.** `dotnet new mfgame` defaults to `--engine-source package`, which writes
-  `<PackageReference Include="MainframeEngine" Version="$(MainframeEngineVersion)" />` with `--engine-version` (a
-  release version; checkout users pass `--engine-source project --engine-path …`).
+- **Template.** `dotnet new install MainframeEngine.Templates` (nuget.org), from a checkout, or the copy the editor
+  ships. `dotnet new mfgame` defaults to `--engine-source package`, which writes
+  `<PackageReference Include="MainframeEngine" Version="$(MainframeEngineVersion)" />`. The version comes from
+  `--engine-version`, which defaults to the template package's own version. From a checkout's source template the
+  default is `0.0.0-dev`, so pass a release, or use `--engine-source project --engine-path …`.
   - The game's `Directory.Build.props` sets `ImportDirectoryPackagesProps=false`, so a game inside a repository that
     uses central package management still builds.
   - Details: [Projects & GameHost → Template](project-and-gamehost.md#template).
@@ -104,8 +119,10 @@ One version for the editor, the engine and the package: the release tag `vX.Y.Z`
 
 - `build/template-smoke.sh` runs in two modes. `ENGINE_SOURCE=project` is `just template-smoke`.
   `ENGINE_SOURCE=package` (`just template-smoke-package`, CI job `template` on Linux/lavapipe) works like this:
-  1. It packs this checkout as `0.0.0-smoke.<timestamp>` into a local feed.
-  2. It creates the game against that package with a `nuget.config`.
+  1. It packs this checkout as `0.0.0-smoke.<timestamp>` into a local feed (`build/pack-nuget.sh`: both packages).
+  2. It installs the template from the packed `MainframeEngine.Templates` and creates the game with no options. It
+     checks that the game references `MainframeEngine` of that version (the stamped default) and adds a `nuget.config`
+     for the feed.
   3. It builds the game, runs 30 frames (no `[ERROR]`, a screenshot) and publishes it for the host RID.
   4. It checks the engine content, the compiled `.mo` and `mfrmlui` in both outputs.
   5. It removes the version from the package cache.
@@ -113,8 +130,6 @@ One version for the editor, the engine and the package: the release tag `vX.Y.Z`
 
 ## Not yet
 
-- **`MainframeEngine.Templates` on nuget.org**, so `dotnet new install MainframeEngine.Templates` works. Until then
-  the template comes from a checkout or the editor.
 - **An "upgrade project" action.** Moving a package game to another engine version means editing
   `MainframeEngineVersion` in its `Directory.Build.props`; scene `format` migrations already handle the data.
 - **The Demo/Forest example downloads** still reference a checkout (`EnginePathRewriter`). Shipping them package-based

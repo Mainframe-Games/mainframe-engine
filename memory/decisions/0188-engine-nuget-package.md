@@ -13,9 +13,13 @@ versioned engine with `dotnet add package`, and the editor should be an optional
 
 ## Decision
 
-- **One package, `MainframeEngine`, on nuget.org.** The repo is public and the id was free. It is pushed by
-  `publish.yml` after the GitHub Release exists, at the release version. GitHub Packages was rejected because
-  consumers would need a PAT even for a public repo.
+- **Two packages on nuget.org, `MainframeEngine` and `MainframeEngine.Templates`.** The repo is public and the ids
+  were free. Both are pushed by `publish.yml` after the GitHub Release exists, at the release version. GitHub Packages
+  was rejected because consumers would need a PAT even for a public repo.
+  - The packages are owned by the `Mainframe-Games` nuget.org organization, through an API key whose package owner is
+    the organization (glob `MainframeEngine*`).
+  - The packed template defaults its engine version to its own version, so `dotnet new install
+    MainframeEngine.Templates` + `dotnet new mfgame` needs no options.
 - **Everything a game needs is inside the package:**
   - `lib/` holds the engine and **spine-csharp**. Spine is bundled, not a package of its own: its reference is private
     only while packing (`_IsPacking`), so checkout projects still compile against `SpineNode`'s Spine types.
@@ -38,12 +42,12 @@ versioned engine with `dotnet add package`, and the editor should be an optional
 
 ## Consequences
 
-- Packing is two steps (`build/pack-engine.sh`): `mf-l10n` references the engine, so the engine's pack cannot build it.
+- Packing goes through `build/pack-nuget.sh`. `mf-l10n` is built first because it references the engine, so the
+  engine's pack cannot build it; then the engine and the templates are packed.
 - CI's `template` job also packs, then builds, runs and publishes a game against the package on lavapipe. The release
   needs the `NUGET_API_KEY` secret in the `release` environment.
 - The package is about 31 MB: trees content (14 MB), natives for 4 RIDs, and mf-l10n's managed dependencies.
 - Not done yet:
-  - publishing `MainframeEngine.Templates`;
   - an "upgrade project" action for package games;
   - package-based Demo/Forest downloads;
   - `MainframeEngine.Sdk`.
