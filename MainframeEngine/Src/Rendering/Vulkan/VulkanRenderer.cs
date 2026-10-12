@@ -536,25 +536,50 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         if (_streamSink is not null)
             throw new InvalidOperationException("A frame stream is already running; end it before beginning another.");
 
-        _streamSink = sink;
-        _streamExtent = _swapChainExtent;
-        Array.Clear(_streamPending); // nothing can be pending without a sink; a stale stamp would read a replaced buffer
-        var size = (ulong)_streamExtent.Width * _streamExtent.Height * 4;
-        for (var i = 0; i < _streamBuffers.Length; i++)
+        // Allocate first: if a buffer cannot be created, nothing has changed (no half-replaced slots, no sink set).
+        var extent = _swapChainExtent;
+        var size = (ulong)extent.Width * extent.Height * 4;
+        var created = new GpuBuffer?[_streamBuffers.Length];
+        try
         {
-            if (_streamBuffers[i]?.Size != size)
+            for (var i = 0; i < created.Length; i++)
+            {
+                if (_streamBuffers[i]?.Size != size)
+                    created[i] = GpuBuffer.Create(this, size, BufferUsageFlags.TransferDstBit, GpuMemoryUsage.Readback);
+            }
+        }
+        catch
+        {
+            foreach (var buffer in created)
+                buffer?.Dispose();
+            throw;
+        }
+
+        for (var i = 0; i < created.Length; i++)
+        {
+            if (created[i] is { } buffer)
             {
                 // Retired by the deletion queue once no frame in flight can still be copying into it.
                 _streamBuffers[i]?.Dispose();
-                _streamBuffers[i] = GpuBuffer.Create(this, size, BufferUsageFlags.TransferDstBit, GpuMemoryUsage.Readback);
+                _streamBuffers[i] = buffer;
             }
         }
+
+        Array.Clear(_streamPending); // nothing can be pending without a sink; a stale stamp would read a replaced buffer
+        _streamExtent = extent;
+        _streamSink = sink;
     }
 
     public void EndStream()
     {
-        FlushStream();
-        _streamSink = null;
+        try
+        {
+            FlushStream();
+        }
+        finally
+        {
+            _streamSink = null; // a failed flush (a lost device) must still end the stream, or BeginStream throws forever
+        }
     }
 
     // Waits for every frame that still holds a copy and hands it over, oldest first. Ordered by the frame number each
