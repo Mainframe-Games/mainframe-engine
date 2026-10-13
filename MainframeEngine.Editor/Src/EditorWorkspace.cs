@@ -70,6 +70,9 @@ public sealed record EditorWorkspaceOptions
     /// <summary>Shows a file or folder in the OS file browser (default: <see cref="OsShell.Reveal"/>); tests record instead.</summary>
     public Action<string>? Reveal { get; init; }
 
+    /// <summary>Starts the plugin host that MIDI input runs in (default: <see cref="Music.PluginHostClient.TryCreate"/>); tests pass a fake.</summary>
+    public Func<Music.IPluginHost?>? MidiHost { get; init; }
+
     /// <summary>
     /// Editor updates from GitHub Releases (the editor executable passes <see cref="GitHubUpdateService"/>); null disables
     /// update checks (tests, <c>--smoke</c>, <c>--qa-script</c>, <c>--hidden</c>).
@@ -130,7 +133,7 @@ public sealed partial class EditorWorkspace : Node
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
         AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
         AudioPreview.Changed += OnAudioPreviewChanged;
-        Midi = new Music.MidiInputService(static () => Music.PluginHostClient.TryCreate());
+        Midi = new Music.MidiInputService(Options.MidiHost ?? (static () => Music.PluginHostClient.TryCreate()));
         Midi.SetEnabled(Settings.MidiInputs);
         // Output source links open through the code editor of the Editor Settings.
         SourceOpener = (file, line) => CodeEditor.Open(file, line);
@@ -415,6 +418,7 @@ public sealed partial class EditorWorkspace : Node
             OutputPanel.Refresh();
         OutputPanel.Tick();
         TreePicker.Tick();
+        EditorSettingsDialog.Tick();
         Tooltips?.Tick(gameTime.DeltaTime);
         SyncLayout();
         Session.Tick();

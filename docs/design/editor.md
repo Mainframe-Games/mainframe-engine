@@ -85,7 +85,9 @@ flowchart TB
   with their worlds as usual, except for the game's own code (Godot's editor rule, ADR 0127): `Tree.EditModeScripts`
   marks the collectible game assembly's types, whose `OnEnterTree`/`OnReady`/`OnExitTree` fall back to their nearest
   engine base type's and whose `OnDraw` is skipped unless the type is `[Tool]`. The editor's own `EditorWorkspace` and
-  `ViewportController` are `[Tool]` nodes.
+  `ViewportController` are `[Tool]` nodes. Panels and dialogs (`EditorDocument`s) are not, so their `OnProcess` never
+  runs: per-frame work goes in a `Tick()` that `EditorWorkspace.OnProcess` calls (`TreePicker.Tick()`,
+  `EditorSettingsDialog.Tick()`, …).
 - **One world per tab**: each open scene lives under its own `SubViewport` (its own `World3D`: lights, sky, physics
   space). Only the active tab renders. A 3D tab's tonemapped colour target (`SubViewport.ColorTarget`), or a 2D tab's
   canvas target (a `Disable3D` sub-viewport drawn by the canvas renderer with the editor camera as its canvas transform
