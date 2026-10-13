@@ -649,9 +649,14 @@ public sealed partial class EditorWorkspace : Node
         if (mode == EditorMode.Game && Session.ActiveTab is null && Project.Root is null)
             ProjectManager.Open();
 
-        var settings = Settings.Clone();
-        settings.LastMode = mode;
-        ApplySettings(settings);
+        // Written only when it changes (not when start-up enters the saved mode), and without re-applying the settings.
+        if (Settings.LastMode != mode)
+        {
+            var settings = Settings.Clone();
+            settings.LastMode = mode;
+            StoreSettings(settings);
+        }
+
         UpdateTitleNow();
         ModeChanged?.Invoke();
     }

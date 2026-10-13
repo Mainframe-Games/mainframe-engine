@@ -146,6 +146,45 @@ public sealed class EditorModeTests : IDisposable
     }
 
     [Fact]
+    public void SwitchingModesKeepsTheAutosaveCountdown()
+    {
+        W.ApplySettings(new EditorSettings { AutosaveMinutes = 1 });
+        Editor.Tick(30);
+        var elapsed = W.AutosaveElapsed;
+        Assert.True(elapsed > 0.4);
+
+        W.SetMode(EditorMode.Video);
+        W.SetMode(EditorMode.Game);
+        Assert.True(W.AutosaveElapsed >= elapsed, $"{W.AutosaveElapsed} < {elapsed}: the countdown restarted");
+        Assert.Equal(EditorMode.Game, W.Settings.LastMode);
+    }
+
+    [Fact]
+    public void StartingInTheSavedModeDoesNotRewriteTheSettings()
+    {
+        var directory = Directory.CreateTempSubdirectory("mf-editor-mode").FullName;
+        try
+        {
+            var settings = Path.Combine(directory, "settings.json");
+            const string Written = """{"lastMode":"video"}""";
+            File.WriteAllText(settings, Written); // not how Save formats it: any write would show
+            using (var editor = new HeadlessEditor(configure: o => o with { EditorSettingsPath = settings }))
+            {
+                Assert.Equal(EditorMode.Video, editor.Workspace.Mode);
+                Assert.Equal(Written, File.ReadAllText(settings));
+
+                editor.Workspace.SetMode(EditorMode.Game); // a change is still saved
+            }
+
+            Assert.Equal(EditorMode.Game, EditorSettings.Load(settings).LastMode);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void TheProjectManagerOpensTheVideoEditorWithoutAProject()
     {
         using var editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true });

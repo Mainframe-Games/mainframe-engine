@@ -551,7 +551,7 @@ public sealed class EditorCommands
         if (replacing is not null && !EditorSession.PathsEqual(replacing, full))
             settings.RecentVideos.RemoveAll(p => EditorSession.PathsEqual(p, replacing));
         TouchRecent(settings.RecentVideos, full);
-        _workspace.ApplySettings(settings);
+        _workspace.StoreSettings(settings);
     }
 
     // File › Recent Videos: a recording that has gone is dropped from the list, with a message.
@@ -569,7 +569,7 @@ public sealed class EditorCommands
 
         var settings = _workspace.Settings.Clone();
         settings.RecentVideos.RemoveAt(index);
-        _workspace.ApplySettings(settings);
+        _workspace.StoreSettings(settings);
         _workspace.Message.Show(new MessageRequest
         {
             Title = "Recent Videos",

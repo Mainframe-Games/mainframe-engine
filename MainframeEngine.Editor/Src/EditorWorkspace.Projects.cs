@@ -11,6 +11,9 @@ public sealed partial class EditorWorkspace
 {
     private double _autosaveSeconds;
 
+    /// <summary>Seconds counted towards the next autosave (tests: a mode switch must not restart it).</summary>
+    internal double AutosaveElapsed => _autosaveSeconds;
+
     /// <summary>The layer of the Project Manager (between the panels and the dialogs).</summary>
     public UiLayer ProjectLayer { get; private set; } = null!;
 
@@ -181,20 +184,35 @@ public sealed partial class EditorWorkspace
         Project.AutoReload = settings.AutoReloadCode;
         Midi.SetEnabled(settings.MidiInputs);
         _autosaveSeconds = 0;
-        if (Options.EditorSettingsPath is { } path)
-        {
-            try
-            {
-                settings.Save(path);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                Log.Warning($"[Editor] Could not save the editor settings: {e.Message}");
-            }
-        }
-
+        WriteSettings(settings);
         if (accentChanged)
             ApplyAccent();
+    }
+
+    /// <summary>
+    /// Keeps and saves settings the editor records by itself (the last mode, the recent videos): nothing is re-applied, so
+    /// the autosave countdown, the MIDI inputs and the accent are left alone. Use <see cref="ApplySettings"/> for anything
+    /// the user changed.
+    /// </summary>
+    internal void StoreSettings(EditorSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        Settings = settings;
+        WriteSettings(settings);
+    }
+
+    private void WriteSettings(EditorSettings settings)
+    {
+        if (Options.EditorSettingsPath is not { } path)
+            return;
+        try
+        {
+            settings.Save(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning($"[Editor] Could not save the editor settings: {e.Message}");
+        }
     }
 
     /// <summary>Writes the accent overlay and reloads the style sheets (no-op without an overlay folder).</summary>
