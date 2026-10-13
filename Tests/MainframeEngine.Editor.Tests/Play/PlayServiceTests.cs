@@ -713,6 +713,7 @@ public sealed class PlayServiceTests
             play.Service.Update();
         Assert.False(game.WasKilled); // it is finalising the file it started
         Assert.True(instance.IsAlive);
+        game.Kill(); // or disposing the harness waits out the real recording deadline
     }
 
     [Fact]
