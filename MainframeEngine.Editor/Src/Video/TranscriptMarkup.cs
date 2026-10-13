@@ -14,9 +14,6 @@ public static class TranscriptMarkup
     /// <summary>A silence of this long or longer between two words starts a new paragraph.</summary>
     public const double ParagraphGapSeconds = 2.0;
 
-    /// <summary>The id of word <paramref name="index"/>'s span.</summary>
-    public static string SpanId(int index) => "w-" + index.ToString(CultureInfo.InvariantCulture);
-
     /// <summary>
     /// Builds the paragraphs. Each word is followed by a space, so the text wraps between words; a struck-through
     /// (<paramref name="cut"/>) word gets the <c>cut</c> class.
