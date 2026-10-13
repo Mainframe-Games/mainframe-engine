@@ -89,6 +89,33 @@ public sealed class EditorLayoutTests : IDisposable
     }
 
     [Fact]
+    public void ALayoutFileFromBeforeTheSoundDesignerAutoPlays()
+    {
+        // Written by v1.0 (no sound designer): no SoundDesigner* key.
+        var old = Path.Combine(_directory, "old.json");
+        File.WriteAllText(old, """
+            { "Format": 1, "LeftWidth": 300, "RightWidth": 330, "BottomHeight": 190, "LeftDockSplit": 0.62,
+              "WindowWidth": 1400, "WindowHeight": 800, "OutputFilter": 15, "InspectorLabelWidth": 0,
+              "OutputCollapse": false, "OutputFollow": true }
+            """);
+        var loaded = EditorLayout.Load(old);
+        Assert.True(loaded.SoundDesignerAutoPlay);
+        Assert.Equal(300, loaded.LeftWidth);
+
+        // v1.1 saved the old key as false in those files; it is ignored.
+        var resaved = Path.Combine(_directory, "resaved.json");
+        File.WriteAllText(resaved, """{ "Format": 1, "SoundDesignerAutoPlay": false }""");
+        Assert.True(EditorLayout.Load(resaved).SoundDesignerAutoPlay);
+
+        // Turning it off survives a round trip.
+        var layout = new EditorLayout(loaded);
+        layout.SetSoundDesignerAutoPlay(false);
+        var off = Path.Combine(_directory, "off.json");
+        Assert.True(EditorLayout.Save(off, layout.Settings));
+        Assert.False(EditorLayout.Load(off).SoundDesignerAutoPlay);
+    }
+
+    [Fact]
     public void TheDefaultPathIsInTheUserProfile()
     {
         Assert.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), EditorLayout.DefaultPath, StringComparison.Ordinal);

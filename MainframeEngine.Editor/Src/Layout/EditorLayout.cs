@@ -60,8 +60,17 @@ public sealed record EditorLayoutSettings
     /// <summary>The output panel scrolls to each new line (off: the scroll position stays).</summary>
     public bool OutputFollow { get; init; } = true;
 
-    /// <summary>The sound designer (ZzfxStream inspector) replays the sound after every committed change.</summary>
-    public bool SoundDesignerAutoPlay { get; init; } = true;
+    /// <summary>
+    /// The sound designer (ZzfxStream inspector) plays only when asked, not after every committed change. Stored inverted,
+    /// so a file written without the key auto-plays: the JSON source generator ignores the initializers of <c>init</c>
+    /// properties, and a missing <c>bool</c> reads as false. The old <c>SoundDesignerAutoPlay</c> key is ignored, since
+    /// that bug saved it as false in every layout file from before the sound designer.
+    /// </summary>
+    public bool SoundDesignerManualPlay { get; init; }
+
+    /// <summary>The sound designer replays the sound after every committed change: <see cref="SoundDesignerManualPlay"/> inverted.</summary>
+    [JsonIgnore]
+    public bool SoundDesignerAutoPlay => !SoundDesignerManualPlay;
 
     /// <summary>Favourite entries per picker (<c>node</c>, <c>resource</c>, <c>scene</c>): type names or project paths.</summary>
     public Dictionary<string, string[]>? PickerFavorites { get; init; }
@@ -203,7 +212,7 @@ public sealed class EditorLayout
 
     public void SetOutputOptions(bool collapse, bool follow) => Settings = Settings with { OutputCollapse = collapse, OutputFollow = follow };
 
-    public void SetSoundDesignerAutoPlay(bool autoPlay) => Settings = Settings with { SoundDesignerAutoPlay = autoPlay };
+    public void SetSoundDesignerAutoPlay(bool autoPlay) => Settings = Settings with { SoundDesignerManualPlay = !autoPlay };
 
     /// <summary>Most entries a picker's recent list keeps.</summary>
     public const int MaxRecent = 8;
