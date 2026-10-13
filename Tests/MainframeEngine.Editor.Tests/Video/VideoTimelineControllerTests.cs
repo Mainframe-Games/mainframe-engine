@@ -120,8 +120,12 @@ public sealed class VideoTimelineControllerTests
         _controller.Wheel(new Vector2(500, 50), new Vector2(0, 1), EditorModifiers.None);
         Assert.Equal(8, _view.Span, 6);
         Assert.Equal(1, _view.Start, 6);
+        // Wheel up with Shift pans the view back in time, so the content slides with the wheel: 1 - 0.8
         _controller.Wheel(new Vector2(500, 50), new Vector2(0, 1), EditorModifiers.Shift);
-        Assert.Equal(1.8, _view.Start, 6);
+        Assert.Equal(0.2, _view.Start, 6);
+        _view.SetView(1, 8);
+        _controller.Wheel(new Vector2(500, 50), new Vector2(1, 0), EditorModifiers.None);
+        Assert.Equal(0.2, _view.Start, 6);
     }
 
     [Fact]
@@ -141,6 +145,44 @@ public sealed class VideoTimelineControllerTests
         Assert.Single(_doc.Segments.Segments);
         _controller.Hover(new Vector2(500, 5));
         Assert.False(_controller.Key(Key.Backspace, EditorModifiers.None));
+    }
+
+    [Fact]
+    public void AClickRefreshesTheHoverToTheSegmentUnderThePointer()
+    {
+        _controller.Hover(new Vector2(500, 50));
+        _state.HoverSegment = 3; // stale on purpose: the press and release must leave it at the segment under the pointer
+        Click(500, 50);
+        Assert.Equal((-1, 1), (_state.HoverBoundary, _state.HoverSegment));
+    }
+
+    [Fact]
+    public void DeleteRefreshesTheHoverWhenItMergesNeighbours()
+    {
+        _controller.Hover(new Vector2(500, 50));
+        Assert.True(_controller.Key(Key.Delete, EditorModifiers.None));
+        Assert.Single(_doc.Segments.Segments);
+        Assert.Equal(0, _state.HoverSegment); // the merged segment is now under the pointer
+    }
+
+    [Fact]
+    public void UndoRefreshesTheHoverWithoutAPointerMove()
+    {
+        _controller.Hover(new Vector2(500, 50));
+        Assert.True(_controller.Key(Key.Delete, EditorModifiers.None));
+        Assert.Equal(0, _state.HoverSegment);
+        Assert.True(_doc.Editor.Undo());
+        Assert.Equal(1, _state.HoverSegment);
+    }
+
+    [Fact]
+    public void RightClickDuringAGestureDoesNothing()
+    {
+        var asked = false;
+        _controller.ShowSegmentMenu = (_, _, _) => asked = true;
+        _controller.Press(new Vector2(500, 50), EditorModifiers.None);
+        _controller.RightClick(new Vector2(500, 50));
+        Assert.False(asked);
     }
 
     [Fact]

@@ -25,11 +25,16 @@ public sealed class VideoTimelineController
     private double _anchor;
     private double _panStart;
 
+    // The last pointer position seen, so the hover can be recomputed when the partition changes without a mouse move
+    // (an undo, a Delete that merges neighbours). Without it the hovered index would name a segment that no longer exists.
+    private Vector2? _lastPointer;
+
     public VideoTimelineController(VideoDocument document, VideoTimelineView view, VideoCanvasState state)
     {
         _doc = document ?? throw new ArgumentNullException(nameof(document));
         _view = view ?? throw new ArgumentNullException(nameof(view));
         _state = state ?? throw new ArgumentNullException(nameof(state));
+        _doc.Changed += RefreshHover;
     }
 
     public VideoGesture Gesture { get; private set; }
@@ -42,11 +47,9 @@ public sealed class VideoTimelineController
 
     public void Hover(Vector2 p)
     {
-        if (Gesture != VideoGesture.None)
-            return;
-        var boundary = _view.BoundaryAt(_doc.Segments.Segments, p.X, p.Y);
-        _state.HoverBoundary = boundary;
-        _state.HoverSegment = boundary >= 0 ? -1 : _view.SegmentAt(_doc.Segments, p.X, p.Y);
+        _lastPointer = p;
+        if (Gesture == VideoGesture.None)
+            UpdateHover(p);
     }
 
     public void Press(Vector2 p, EditorModifiers modifiers)
@@ -125,6 +128,8 @@ public sealed class VideoTimelineController
         }
 
         Reset();
+        _lastPointer = p;
+        RefreshHover();
     }
 
     /// <summary>
@@ -133,13 +138,18 @@ public sealed class VideoTimelineController
     /// </summary>
     public void CancelGesture()
     {
-        if (Gesture == VideoGesture.Boundary && _doc.Editor.IsDragging)
+        // Guarded as in Cutback: a drag index outside the boundaries must not reach MoveBoundary.
+        if (Gesture == VideoGesture.Boundary && _doc.Editor.IsDragging
+            && _state.DragBoundary >= 1 && _state.DragBoundary < _doc.Segments.Count)
             _doc.Editor.EndBoundaryDrag(_state.DragBoundary, _doc.Segments.Segments[_state.DragBoundary].Start);
         Reset();
+        RefreshHover();
     }
 
     public void RightClick(Vector2 p)
     {
+        if (Gesture != VideoGesture.None)
+            return;
         var segment = _view.SegmentAt(_doc.Segments, p.X, p.Y);
         if (segment < 0)
             return;
@@ -149,10 +159,11 @@ public sealed class VideoTimelineController
 
     public void Wheel(Vector2 p, Vector2 delta, EditorModifiers modifiers)
     {
+        // Negated, as in Cutback: wheel up or left moves the view back in time, so the content slides with the wheel.
         if (delta.X != 0)
-            _view.Pan(delta.X * _view.Span * VideoTimelineView.WheelPanFraction);
+            _view.Pan(-delta.X * _view.Span * VideoTimelineView.WheelPanFraction);
         else if ((modifiers & EditorModifiers.Shift) != 0)
-            _view.Pan(delta.Y * _view.Span * VideoTimelineView.WheelPanFraction);
+            _view.Pan(-delta.Y * _view.Span * VideoTimelineView.WheelPanFraction);
         else if (delta.Y != 0)
             _view.ZoomAbout(p.X, delta.Y);
     }
@@ -162,7 +173,9 @@ public sealed class VideoTimelineController
     {
         if (!_doc.Editor.Dissolve(_state.HoverSegment))
             return false;
+        // The dissolve may have merged neighbours, so the index is recomputed from the pointer rather than cleared.
         _state.HoverSegment = -1;
+        RefreshHover();
         return true;
     }
 
@@ -174,5 +187,23 @@ public sealed class VideoTimelineController
         Gesture = VideoGesture.None;
         _state.DragBoundary = -1;
         _state.PendingSection = null;
+    }
+
+    /// <summary>Re-runs the hover hit-test at the last pointer position. Only while no gesture is active.</summary>
+    private void UpdateHover(Vector2 p)
+    {
+        var boundary = _view.BoundaryAt(_doc.Segments.Segments, p.X, p.Y);
+        _state.HoverBoundary = boundary;
+        _state.HoverSegment = boundary >= 0 ? -1 : _view.SegmentAt(_doc.Segments, p.X, p.Y);
+    }
+
+    /// <summary>
+    /// Called whenever the document changes (subscribed in the constructor) and at the end of each gesture. A change made
+    /// during a gesture is skipped here and picked up when the gesture ends.
+    /// </summary>
+    private void RefreshHover()
+    {
+        if (Gesture == VideoGesture.None && _lastPointer is { } p)
+            UpdateHover(p);
     }
 }
